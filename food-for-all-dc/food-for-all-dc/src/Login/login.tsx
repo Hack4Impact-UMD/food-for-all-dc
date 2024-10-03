@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Button, TextField, Typography, Box, Link} from '@mui/material';
+import { Button, TextField, Typography, Box} from '@mui/material';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../firebaseConfig.js'; 
+import { Link } from 'react-router-dom'; // Ensure you are importing from 'react-router-dom'
 
 const LoginPage = () => {
     const [email, setEmail] = useState('');
@@ -78,8 +79,8 @@ const LoginPage = () => {
       <Button type="submit" variant="contained" color="primary">
         Login
       </Button>
-      <Link href="./forgot-password" variant="body2" align="center"> {/* Add proper routing to forgot password here */}
-        Forgot Password? 
+      <Link to="/forgot-password" style={{ marginTop: '16px', textDecoration: 'none' }}>
+        <Typography variant="body2" align="center">Forgot Password?</Typography>
       </Link>
     </Box>
   );

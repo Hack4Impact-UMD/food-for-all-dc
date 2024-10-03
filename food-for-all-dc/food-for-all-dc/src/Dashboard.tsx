@@ -1,13 +1,13 @@
 import React from 'react';
-import logo from '../logo.svg';
+import logo from './logo.svg';
 
-const ForgotPasswordPage = () => {
+const Dashboard = () => {
     return (
         <div className="App">
         <header className="App-header">
           <img src={logo} className="App-logo" alt="logo" />
           <p>
-            Forgot Password Page.
+            Dashboard Page
           </p>
           <a
             className="App-link"
@@ -23,4 +23,4 @@ const ForgotPasswordPage = () => {
 }
 
 
-export default ForgotPasswordPage;
+export default Dashboard;
