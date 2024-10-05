@@ -46,6 +46,7 @@
     ]
   },
   "devDependencies": {
-    "@types/firebase": "^3.2.1"
+    "@types/firebase": "^3.2.1",
+    "prettier": "^3.3.3"
   }
 }

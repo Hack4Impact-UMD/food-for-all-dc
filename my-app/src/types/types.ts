@@ -1,4 +1,4 @@
-type Role = 'Admin' | 'Manager' | 'Volunteer';
+type Role = "Admin" | "Manager" | "Volunteer";
 
 interface User {
   id: string; // Firebase document ID
@@ -13,13 +13,13 @@ interface ClientProfile {
   lastName: string;
   address: string;
   dob: Date; // Date of birth
-  deliveryFreq: string; 
+  deliveryFreq: string;
   phone: string;
   alternativePhone?: string; // Optional
   adults: number;
   children: number;
   total: number; // Adults + Children
-  gender: 'Male' | 'Female' | 'Other';
+  gender: "Male" | "Female" | "Other";
   ethnicity: string;
   deliveryDetails: DeliveryDetails;
   lifeChallenges?: string; // Optional
@@ -50,17 +50,17 @@ interface DietaryRestrictions {
 }
 
 interface Delivery {
-  id: string //delivery id
-  day: Date
+  id: string; //delivery id
+  day: Date;
   clientID: string;
   driver: Volunteer;
-  status: 'Delivered' | 'Not Delivered';
+  status: "Delivered" | "Not Delivered";
   notes?: string; // Optional
 }
 
 interface Route {
   volunteer: Volunteer;
-  deliveries: Delivery [] 
+  deliveries: Delivery[];
 }
 
 interface Volunteer {
