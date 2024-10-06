@@ -7,7 +7,7 @@ interface User {
   role: Role;
 }
 
-interface ClientProfile {
+export interface ClientProfile {
   uid: string;
   firstName: string;
   lastName: string;
@@ -30,12 +30,12 @@ interface ClientProfile {
   updatedAt: Date;
 }
 
-interface DeliveryDetails {
+export interface DeliveryDetails {
   deliveryInstructions?: string; // Optional
   dietaryRestrictions: DietaryRestrictions;
 }
 
-interface DietaryRestrictions {
+export interface DietaryRestrictions {
   lowSugar: boolean;
   kidneyFriendly: boolean;
   vegan: boolean;
@@ -49,7 +49,7 @@ interface DietaryRestrictions {
   other?: string[]; // Optional: Example values ['No red meat', etc.]
 }
 
-interface Delivery {
+export interface Delivery {
   id: string; //delivery id
   day: Date;
   clientID: string;
@@ -58,12 +58,12 @@ interface Delivery {
   notes?: string; // Optional
 }
 
-interface Route {
+export interface Route {
   volunteer: Volunteer;
   deliveries: Delivery[];
 }
 
-interface Volunteer {
+export interface Volunteer {
   id: string;
   name: string;
   phone: string;

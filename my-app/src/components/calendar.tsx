@@ -3,75 +3,9 @@ import moment from 'moment';
 import { useState } from 'react';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import { Dialog, DialogTitle, DialogContent, DialogActions, Button, Link } from '@mui/material';
+import { ClientProfile, DietaryRestrictions, Volunteer, Delivery } from '../types/types';
 
 const localizer = momentLocalizer(moment);
-
-type Role = 'Admin' | 'Manager' | 'Volunteer';
-
-interface User {
-    id: string; // Firebase document ID
-    email: string;
-    name: string;
-    role: Role;
-}
-
-interface DeliveryDetails {
-    deliveryInstructions?: string; // Optional
-    dietaryRestrictions: DietaryRestrictions;
-}
-
-interface DietaryRestrictions {
-    lowSugar: boolean;
-    kidneyFriendly: boolean;
-    vegan: boolean;
-    vegetarian: boolean;
-    halal: boolean;
-    microwaveOnly: boolean;
-    softFood: boolean;
-    lowSodium: boolean;
-    noCookingEquipment: boolean;
-    foodAllergens?: string[];
-    other?: string[];
-}
-
-interface ClientProfile {
-    uid: string;
-    firstName: string;
-    lastName: string;
-    address: string;
-    dob: Date;
-    deliveryFreq: string;
-    phone: string;
-    alternativePhone?: string; // Optional
-    adults: number;
-    children: number;
-    total: number; // Adults + Children
-    gender: 'Male' | 'Female' | 'Other'; // Example values
-    ethnicity: string;
-    deliveryDetails: DeliveryDetails;
-    lifeChallenges?: string; // Optional
-    notes?: string; // Optional
-    lifestyleGoals?: string; // Optional
-    referralEntity: string;
-    language: string;
-    createdAt: Date;
-    updatedAt: Date;
-}
-
-interface Volunteer {
-    id: string;
-    name: string;
-    phone: string;
-}
-
-interface Delivery {
-    Id: string;
-    Day: Date;
-    Client: string;
-    driver: Volunteer;
-    status: 'Delivered' | 'Not Delivered';
-    notes?: string;
-}
 
 // Sample dietary restrictions
 const dietaryRestrictionsExample: DietaryRestrictions = {
