@@ -6,6 +6,9 @@
     "@emotion/react": "^11.13.3",
     "@emotion/styled": "^11.13.0",
     "@mui/material": "^6.1.2",
+    "@emotion/react": "^11.13.3",
+    "@emotion/styled": "^11.13.0",
+    "@mui/material": "^6.1.2",
     "@testing-library/jest-dom": "^5.17.0",
     "@testing-library/react": "^13.4.0",
     "@testing-library/user-event": "^13.5.0",
@@ -15,6 +18,7 @@
     "@types/react-dom": "^18.3.0",
     "firebase": "^10.14.0",
     "react": "^18.3.1",
+    "react-big-calendar": "^1.15.0",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.26.2",
     "react-scripts": "5.0.1",
@@ -47,6 +51,7 @@
   },
   "devDependencies": {
     "@types/firebase": "^3.2.1",
-    "prettier": "^3.3.3"
+    "prettier": "^3.3.3",
+    "@types/react-big-calendar": "^1.8.12"
   }
 }
