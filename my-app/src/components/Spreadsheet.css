@@ -1,0 +1,16 @@
+.box {
+  padding: 20px;
+  background-color: #f8f8f8;
+  border-radius: 8px;
+  box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+table { 
+  font-family: 'Inter', sans-serif;
+}
+table .table-header {
+  font-weight: bold;
+  background-color: #f4f4f4;
+  color: #257e68;
+  padding: 16px;
+}
