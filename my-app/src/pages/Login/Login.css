@@ -1,4 +1,4 @@
-/* Outer container styles */
+
 .login-outer-container {
     display: flex;
     justify-content: center;
@@ -11,29 +11,28 @@
     justify-content: center;
     align-items: center;
     width: 100%;
-    max-width: 400px;
-    padding: 30px;
+    max-width: 25rem; 
+    padding: 1.875rem; 
     background-color: white;
-    border-radius: 8px;
+    border-radius: 0.5rem; 
   }
   
   .image-container {
     display: flex;
     justify-content: center;
     align-items: center;
-    margin-bottom: 20px;
+    margin-bottom: 1.25rem; 
   }
   
   .login-image {
-    width: 120px;
-    height: 120px;
+    width: 14.75rem; 
+    height: 14.5625rem;
     background-image: url('../../../public/food-for-all-dc-logo.png');
     background-size: contain;
     background-repeat: no-repeat;
     background-position: center;
   }
   
-  /* Form container */
   .login-form-container {
     width: 100%;
     text-align: center;
@@ -41,31 +40,30 @@
   
   .login-heading {
     text-align: center;
-    font-size: 24px;
+    font-size: 1.5rem; 
     font-weight: bold;
-    color: #257E68
-;
+    color: #257E68;
   }
   
   .login-subheading {
-    font-size: 16px;
+    font-size: 1rem; 
     color: #888;
-    margin-bottom: 20px;
+    margin-bottom: 1.25rem; 
   }
   
   .login-label {
     font-weight: bold;
-    margin-bottom: 5px;
+    margin-bottom: 0.3125rem;
     display: inline-block;
   }
   
   .login-input-field {
-    margin-bottom: 16px;
+    margin-bottom: 1rem; 
   }
   
   .login-error {
     color: red;
-    margin-bottom: 16px;
+    margin-bottom: 1rem; 
     text-align: center;
   }
   
@@ -73,55 +71,31 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-top: 10px;
-    color: #257E68
-;
+    margin-top: 0.625rem; 
+    color: #257E68;
   }
   
   .forgot-password-button {
     cursor: pointer;
-    font-size: 14px;
-    color: #257E68
-;
+    font-size: 0.875rem; 
+    color: #257E68;
     text-decoration: underline;
   }
   
-  /* Button styles */
   .MuiButton-root {
-    background-color: #257E68
- !important;
+    background-color: #257E68 !important;
     color: white !important;
-    height: 45px;
-    border-radius: 24px;
-    font-size: 16px;
+    height: 2.8125rem; 
+    border-radius: 1.5rem; 
+    font-family: Inter;
+    font-size: 1rem; 
     font-weight: bold;
-    margin-top: 16px;
+    margin-top: 1rem; 
     width: 100%;
   }
   
   .MuiButton-root:hover {
     background-color: #45a049 !important;
-  }
-  
-  /* Google sign-in button */
-  .google-signin-button {
-    margin-top: 16px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background-color: white;
-    color: #257E68
-;
-    border: 1px solid #e0e0e0;
-    border-radius: 24px;
-    font-weight: bold;
-    cursor: pointer;
-    height: 45px;
-  }
-  
-  .google-signin-button img {
-    width: 20px;
-    margin-right: 10px;
   }
   
   

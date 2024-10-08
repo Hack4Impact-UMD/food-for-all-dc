@@ -94,10 +94,6 @@ function Login() {
             fullWidth
             className="login-input-field"
           />
-          {loginError && <p className="login-error">{loginError}</p>}
-          <Button variant="contained" color="primary" onClick={handleLogin} fullWidth>
-            Login
-          </Button>
 
           <div className="forgot-password-container">
             <p className="forgot-password-button" onClick={handleDialogOpen}>
@@ -108,8 +104,14 @@ function Login() {
             )}
           </div>
         </div>
+        <p>Are you a volunteer? Log in here</p>
+        {loginError && <p className="login-error">{loginError}</p>}
+          <Button variant="contained" color="primary" onClick={handleLogin} fullWidth>
+            Login
+          </Button>
       </div>
-
+      
+      
       <Dialog
         open={openDialog}
         onClose={handleDialogClose}
