@@ -1,0 +1,127 @@
+/* Outer container styles */
+.login-outer-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+  
+  .login-container {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    max-width: 400px;
+    padding: 30px;
+    background-color: white;
+    border-radius: 8px;
+  }
+  
+  .image-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 20px;
+  }
+  
+  .login-image {
+    width: 120px;
+    height: 120px;
+    background-image: url('../../../public/food-for-all-dc-logo.png');
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+  }
+  
+  /* Form container */
+  .login-form-container {
+    width: 100%;
+    text-align: center;
+  }
+  
+  .login-heading {
+    text-align: center;
+    font-size: 24px;
+    font-weight: bold;
+    color: #257E68
+;
+  }
+  
+  .login-subheading {
+    font-size: 16px;
+    color: #888;
+    margin-bottom: 20px;
+  }
+  
+  .login-label {
+    font-weight: bold;
+    margin-bottom: 5px;
+    display: inline-block;
+  }
+  
+  .login-input-field {
+    margin-bottom: 16px;
+  }
+  
+  .login-error {
+    color: red;
+    margin-bottom: 16px;
+    text-align: center;
+  }
+  
+  .forgot-password-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 10px;
+    color: #257E68
+;
+  }
+  
+  .forgot-password-button {
+    cursor: pointer;
+    font-size: 14px;
+    color: #257E68
+;
+    text-decoration: underline;
+  }
+  
+  /* Button styles */
+  .MuiButton-root {
+    background-color: #257E68
+ !important;
+    color: white !important;
+    height: 45px;
+    border-radius: 24px;
+    font-size: 16px;
+    font-weight: bold;
+    margin-top: 16px;
+    width: 100%;
+  }
+  
+  .MuiButton-root:hover {
+    background-color: #45a049 !important;
+  }
+  
+  /* Google sign-in button */
+  .google-signin-button {
+    margin-top: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: white;
+    color: #257E68
+;
+    border: 1px solid #e0e0e0;
+    border-radius: 24px;
+    font-weight: bold;
+    cursor: pointer;
+    height: 45px;
+  }
+  
+  .google-signin-button img {
+    width: 20px;
+    margin-right: 10px;
+  }
+  
+  

@@ -70,8 +70,11 @@ function Login() {
           <div className="login-image" />
         </div>
         <div className="login-form-container">
-          <p className="login-heading">Login</p>
-          <hr className="separator" />
+          <h1 className="login-heading">Welcome!</h1>
+          <p className="login-subheading">Please enter your details</p>
+
+          <p className="login-label">Admin Login</p>
+
 
           <TextField
             type="email"
