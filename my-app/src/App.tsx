@@ -10,7 +10,6 @@ import CalendarPage from "./components/calendar";
 function App() {
   return (
     <>
-    <CalendarPage />
     <Router>
       <Routes>
         <Route path="/" element={<Login />} />
