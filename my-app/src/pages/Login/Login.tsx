@@ -4,7 +4,10 @@ import React, { useState } from "react";
 import { signInWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
 import Button from "@mui/material/Button";
-import TextField from "@mui/material/TextField";
+import { InputAdornment, TextField} from '@mui/material';
+import FormControl from '@mui/material/FormControl';
+import Input from '@mui/material/Input';
+import InputLabel from '@mui/material/InputLabel';
 import Dialog from "@mui/material/Dialog";
 import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
@@ -74,35 +77,44 @@ function Login() {
           <p className="login-subheading">Please enter your details</p>
 
           <p className="login-label">Admin Login</p>
-
-
-          <TextField
-            type="email"
-            label="Email"
-            variant="outlined"
+          
+          <FormControl sx={{ m: 1, width: '100%', margin: '2%' }} variant="standard">
+          <InputLabel htmlFor="standard-adornment-email">Email</InputLabel>
+          <Input
+            id="standard-adornment-email"
+            type={'email'}
             value={loginEmail}
             onChange={(e) => setLoginEmail(e.target.value)}
             fullWidth
             className="login-input-field"
           />
-          <TextField
-            type="password"
-            label="Password"
-            variant="outlined"
+          </FormControl>
+            
+        <FormControl sx={{ m: 1, width: '100%' , margin: '2%' }} variant="standard">
+        <InputLabel htmlFor="standard-adornment-password">Password</InputLabel>
+        <Input
+            id="standard-adornment-password"
+            type={'text'}
             value={loginPassword}
             onChange={(e) => setLoginPassword(e.target.value)}
             fullWidth
             className="login-input-field"
+            endAdornment={
+              <InputAdornment position="end">
+              <span className="forgot-password-container">
+                <p className="forgot-password-button" onClick={handleDialogOpen}>
+                  Forgot Password?
+                </p>
+                {resetPasswordMessage && (
+                  <p className="reset-password-message">{resetPasswordMessage}</p>
+                )}
+              </span>
+              </InputAdornment> 
+            }
           />
+          </FormControl>
 
-          <div className="forgot-password-container">
-            <p className="forgot-password-button" onClick={handleDialogOpen}>
-              Forgot Password?
-            </p>
-            {resetPasswordMessage && (
-              <p className="reset-password-message">{resetPasswordMessage}</p>
-            )}
-          </div>
+          
         </div>
         <p>Are you a volunteer? Log in here</p>
         {loginError && <p className="login-error">{loginError}</p>}
@@ -140,6 +152,7 @@ function Login() {
             variant="standard"
             value={forgotPasswordEmail}
             onChange={(e) => setForgotPasswordEmail(e.target.value)}
+            
           />
         </DialogContent>
         <DialogActions>

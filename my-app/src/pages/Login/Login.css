@@ -71,8 +71,8 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-top: 0.625rem; 
     color: #257E68;
+    width:50%;
   }
   
   .forgot-password-button {
