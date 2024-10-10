@@ -4,9 +4,13 @@ import "./App.css";
 import ForgotPasswordPage from "./pages/Login/forgot-passsowrd"; // Assuming this is the component for forgot password
 import Login from "./pages/Login/Login";
 import Dashboard from "./pages/Dashboard";
+import { Calendar } from "react-big-calendar";
+import CalendarPage from "./components/calendar";
 
 function App() {
   return (
+    <>
+    <CalendarPage />
     <Router>
       <Routes>
         <Route path="/" element={<Login />} />
@@ -14,6 +18,8 @@ function App() {
         <Route path="/dashboard" element={<Dashboard />} />
       </Routes>
     </Router>
+    </>
+    
   );
 }
 
