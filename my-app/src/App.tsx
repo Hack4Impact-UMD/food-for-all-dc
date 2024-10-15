@@ -10,7 +10,7 @@ import ForgotPasswordPage from "./pages/Login/forgot-passsowrd";
 import Login from "./pages/Login/Login";
 import Dashboard from "./pages/Dashboard";
 import CalendarPage from "./components/Calendar/CalendarPage";
-import ClientForm from "./components/ClientForm/ClientForm"; // Assuming this is the form component
+import ClientForm from "./components/ClientForm/ClientForm";
 
 function App() {
   return (
@@ -20,7 +20,7 @@ function App() {
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/calendar" element={<CalendarPage />} />
         <Route path="/dashboard" element={<Dashboard />} />
-        {/* Route to test ClientForm with optional uid */}
+        {/* FOR TESTING! access client form with option uid */}
         <Route path="/client-form/:uid?" element={<ClientFormWrapper />} />
       </Routes>
     </Router>
