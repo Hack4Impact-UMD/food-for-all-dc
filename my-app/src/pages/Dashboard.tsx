@@ -1,18 +1,23 @@
 import React from "react";
+import { useNavigate } from 'react-router-dom'; // Import useNavigate
+
 
 const Dashboard = () => {
+
+  const navigate = useNavigate(); 
+
+  const goToCalendar = () => {
+    navigate('/calendar'); 
+  };
+
   return (
     <div className="App">
       <header className="App-header">
-        <p>Dashboard Page</p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
+        <p>Temporary Home Page</p>
+        <p>Unitl we have all the authentication and routing set up, use this page to create a button to route to the page you are working on</p>
+        <div className="buttons">
+          <button onClick={goToCalendar}>Calendar</button>
+        </div>      
       </header>
     </div>
   );
