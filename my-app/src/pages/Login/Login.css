@@ -1,0 +1,101 @@
+
+.login-outer-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+  
+  .login-container {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    max-width: 25rem; 
+    padding: 1.875rem; 
+    background-color: white;
+    border-radius: 0.5rem; 
+  }
+  
+  .image-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 1.25rem; 
+  }
+  
+  .login-image {
+    width: 14.75rem; 
+    height: 14.5625rem;
+    background-image: url('../../../public/food-for-all-dc-logo.png');
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+  }
+  
+  .login-form-container {
+    width: 100%;
+    text-align: center;
+  }
+  
+  .login-heading {
+    text-align: center;
+    font-size: 1.5rem; 
+    font-weight: bold;
+    color: #257E68;
+  }
+  
+  .login-subheading {
+    font-size: 1rem; 
+    color: #888;
+    margin-bottom: 1.25rem; 
+  }
+  
+  .login-label {
+    font-weight: bold;
+    margin-bottom: 0.3125rem;
+    display: inline-block;
+  }
+  
+  .login-input-field {
+    margin-bottom: 1rem; 
+  }
+  
+  .login-error {
+    color: red;
+    margin-bottom: 1rem; 
+    text-align: center;
+  }
+  
+  .forgot-password-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: #257E68;
+    width:50%;
+  }
+  
+  .forgot-password-button {
+    cursor: pointer;
+    font-size: 0.875rem; 
+    color: #257E68;
+    text-decoration: underline;
+  }
+  
+  .MuiButton-root {
+    background-color: #257E68 !important;
+    color: white !important;
+    height: 2.8125rem; 
+    border-radius: 1.5rem; 
+    font-family: Inter;
+    font-size: 1rem; 
+    font-weight: bold;
+    margin-top: 1rem; 
+    width: 100%;
+  }
+  
+  .MuiButton-root:hover {
+    background-color: #45a049 !important;
+  }
+  
+  
