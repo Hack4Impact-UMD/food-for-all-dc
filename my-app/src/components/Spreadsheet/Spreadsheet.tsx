@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import "./Spreadsheet.css";
 import {
   Box,
@@ -20,68 +21,33 @@ import SaveIcon from "@mui/icons-material/Save";
 const initialData = [
   {
     id: 1,
+    uid: "52352362347",
     firstname: "Yvonne",
     lastname: "Akins",
-    quad: "SE",
-    frequency: "1x_Monthly",
-    tefap: "YES",
-    diabetic: "NO",
-    dialysis: "NO",
-    startDate: "2010-03-29",
-    adults: 1,
-    children: 0,
-    address: "3600 B Street",
-    apt: "333",
-    telephone: "202 583 8977",
-    socialWorker: "Andrea McCarthy CAFB 526 5344 x307",
-    income: 0,
-    lat: 38.888107,
-    lng: -76.951934,
+    phone: "",
+    zipcode: "",
   },
 ];
 
 const fields = [
+  { key: "uid", label: "UID", type: "text"},
   { key: "firstname", label: "First Name", type: "text" },
   { key: "lastname", label: "Last Name", type: "text" },
-  { key: "quad", label: "Quad", type: "text" },
-  { key: "frequency", label: "Frequency", type: "text" },
-  { key: "tefap", label: "TEFAP", type: "text" },
-  { key: "diabetic", label: "Diabetic", type: "text" },
-  { key: "dialysis", label: "Dialysis", type: "text" },
-  { key: "startDate", label: "Start Date", type: "text" },
-  { key: "adults", label: "Adults", type: "number" },
-  { key: "children", label: "Children", type: "number" },
-  { key: "address", label: "Address", type: "text" },
-  { key: "apt", label: "Apt", type: "text" },
-  { key: "telephone", label: "Telephone", type: "text" },
-  { key: "socialWorker", label: "Social Worker Info", type: "text" },
-  { key: "income", label: "Income", type: "number" },
-  { key: "lat", label: "Lat", type: "number", readOnly: true },
-  { key: "lng", label: "Lng", type: "number", readOnly: true },
+  { key: "phone", label: "Phone", type: "text" },
+  { key: "zipcode", label: "Zip Code", type: "text"}
 ];
 
 const Spreadsheet: React.FC = () => {
   const [rows, setRows] = useState(initialData);
   const [editingRowId, setEditingRowId] = useState<number | null>(null);
+  const navigate = useNavigate();
 
   const [newRow, setNewRow] = useState({
+    uid: "",
     firstname: "",
     lastname: "",
-    quad: "",
-    frequency: "",
-    tefap: "",
-    diabetic: "",
-    dialysis: "",
-    startDate: "",
-    adults: 0,
-    children: 0,
-    address: "",
-    apt: "",
-    telephone: "",
-    socialWorker: "",
-    income: 0,
-    lat: 0,
-    lng: 0,
+    phone: "",
+    zipcode: "",
   });
 
   const handleInputChange = (
@@ -103,26 +69,14 @@ const Spreadsheet: React.FC = () => {
   };
 
   const handleAddRow = () => {
-    if (newRow.firstname && newRow.lastname && newRow.address) {
+    if (newRow.firstname && newRow.lastname) {
       setRows([...rows, { id: rows.length + 1, ...newRow }]);
       setNewRow({
+        uid: "",
         firstname: "",
         lastname: "",
-        quad: "",
-        frequency: "",
-        tefap: "",
-        diabetic: "",
-        dialysis: "",
-        startDate: "",
-        adults: 0,
-        children: 0,
-        address: "",
-        apt: "",
-        telephone: "",
-        socialWorker: "",
-        income: 0,
-        lat: 0,
-        lng: 0,
+        phone: "",
+        zipcode: ""
       });
     }
   };
@@ -139,6 +93,10 @@ const Spreadsheet: React.FC = () => {
     setEditingRowId(null);
   };
 
+  const handleRowClick = (uid: string) => {
+    navigate(`/user/${uid}`);
+  };
+
   return (
     <Box className="box">
       <TableContainer component={Paper}>
@@ -153,7 +111,7 @@ const Spreadsheet: React.FC = () => {
           </TableHead>
           <TableBody>
             {rows.map((row) => (
-              <TableRow key={row.id} className={editingRowId === row.id ? "editing-row" : ""}>
+              <TableRow key={row.id}  onClick={() => handleRowClick(row.uid)} className={editingRowId === row.id ? "table-row editing-row" : "table-row"}>
                 {editingRowId === row.id
                   ? fields.map((field) => (
                       <TableCell key={field.key}>
@@ -164,7 +122,7 @@ const Spreadsheet: React.FC = () => {
                           onChange={(e) => handleEditInputChange(e, row.id, field.key)}
                           variant="outlined"
                           size="small"
-                          disabled={field.readOnly}
+                          //disabled={field.readOnly}
                         />
                       </TableCell>
                     ))
@@ -202,7 +160,7 @@ const Spreadsheet: React.FC = () => {
                     type={field.type}
                     variant="outlined"
                     size="small"
-                    disabled={field.readOnly}
+                    //disabled={field.readOnly}
                   />
                 </TableCell>
               ))}

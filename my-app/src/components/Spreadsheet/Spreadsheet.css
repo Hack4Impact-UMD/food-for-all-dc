@@ -14,3 +14,7 @@ table .table-header {
   color: #257e68;
   padding: 16px;
 }
+
+.table-row {
+  cursor: pointer;
+}
