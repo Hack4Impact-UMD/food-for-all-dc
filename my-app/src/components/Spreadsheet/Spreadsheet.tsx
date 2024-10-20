@@ -39,9 +39,6 @@ const fields = [
 
 const Spreadsheet: React.FC = () => {
   const [rows, setRows] = useState(initialData);
-  const [editingRowId, setEditingRowId] = useState<number | null>(null);
-  const navigate = useNavigate();
-
   const [newRow, setNewRow] = useState({
     uid: "",
     firstname: "",
@@ -49,12 +46,19 @@ const Spreadsheet: React.FC = () => {
     phone: "",
     zipcode: "",
   });
+  const [searchQuery, setSearchQuery] = useState("");
+  const [editingRowId, setEditingRowId] = useState<number | null>(null);
+  const navigate = useNavigate();
 
   const handleInputChange = (
     e: React.ChangeEvent<HTMLTextAreaElement | HTMLInputElement>,
     field: string
   ) => {
     setNewRow({ ...newRow, [field]: e.target.value });
+  };
+
+  const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchQuery(event.target.value);
   };
 
   const handleEditInputChange = (
@@ -97,8 +101,22 @@ const Spreadsheet: React.FC = () => {
     navigate(`/user/${uid}`);
   };
 
+  const visibleRows = rows.filter(row => 
+    fields.some(field => row[field.key as keyof typeof row].toString().toLowerCase().includes(searchQuery.toLowerCase()))
+  );
+
   return (
     <Box className="box">
+      <TextField
+        className="search-bar"
+        value={searchQuery}
+        onChange={handleSearchChange}
+        placeholder="Search"
+        type="search"
+        variant="outlined"
+        size="small"
+        style={{ marginBottom: 20, width: '100%' }}
+      />
       <TableContainer component={Paper}>
         <Table>
           <TableHead>
@@ -110,8 +128,8 @@ const Spreadsheet: React.FC = () => {
             </TableRow>
           </TableHead>
           <TableBody>
-            {rows.map((row) => (
-              <TableRow key={row.id}  onClick={() => handleRowClick(row.uid)} className={editingRowId === row.id ? "table-row editing-row" : "table-row"}>
+            {visibleRows.map((row) => (
+              <TableRow key={row.id} onClick={() => handleRowClick(row.uid)} className={editingRowId === row.id ? "table-row editing-row" : "table-row"}>
                 {editingRowId === row.id
                   ? fields.map((field) => (
                       <TableCell key={field.key}>
@@ -122,7 +140,6 @@ const Spreadsheet: React.FC = () => {
                           onChange={(e) => handleEditInputChange(e, row.id, field.key)}
                           variant="outlined"
                           size="small"
-                          //disabled={field.readOnly}
                         />
                       </TableCell>
                     ))
@@ -133,15 +150,15 @@ const Spreadsheet: React.FC = () => {
                     ))}
                 <TableCell>
                   {editingRowId === row.id ? (
-                    <IconButton className="iconbutton" onClick={() => handleSaveRow(row.id)}>
+                    <IconButton onClick={() => handleSaveRow(row.id)}>
                       <SaveIcon />
                     </IconButton>
                   ) : (
                     <>
-                      <IconButton className="iconbutton" onClick={() => handleEditRow(row.id)}>
+                      <IconButton onClick={() => handleEditRow(row.id)}>
                         <EditIcon />
                       </IconButton>
-                      <IconButton className="iconbutton" onClick={() => handleDeleteRow(row.id)}>
+                      <IconButton onClick={() => handleDeleteRow(row.id)}>
                         <DeleteIcon />
                       </IconButton>
                     </>
@@ -160,7 +177,6 @@ const Spreadsheet: React.FC = () => {
                     type={field.type}
                     variant="outlined"
                     size="small"
-                    //disabled={field.readOnly}
                   />
                 </TableCell>
               ))}
