@@ -5,6 +5,7 @@ import ForgotPasswordPage from "./pages/Login/forgot-passsowrd"; // Assuming thi
 import Login from "./pages/Login/Login";
 import Dashboard from "./pages/Dashboard";
 import CalendarPage from "./components/Calendar/CalendarPage";
+import Profile from './pages/Profile/Profile';
 function App() {
   return (
     <Router>
@@ -13,6 +14,7 @@ function App() {
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/calendar" element={<CalendarPage />} />
         <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/profile" element={<Profile />} />
       </Routes>
     </Router>
   );

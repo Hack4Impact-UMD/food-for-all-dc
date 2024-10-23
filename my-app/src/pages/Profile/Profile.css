@@ -1,0 +1,83 @@
+
+
+.profile-container {
+    display: flex;
+    flex-direction: column;
+    font-family: Inter;
+    background-color: white;
+    padding: 15px;
+  }
+
+  .profile-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: white;
+    padding: 10px;
+    margin-bottom: 10px;
+  }
+  
+  .menu-icon {
+    font-size: 24px;
+  }
+  
+  .profile-name {
+    font-size: 24px;
+    font-family: Inter;
+    font-weight: bold 3px;
+    margin-bottom: 40px;
+    padding: 2px;
+    border-bottom: 1px solid #BDBDBD;
+  }
+  
+  .controls {
+    display: flex;
+    align-items: center;
+  }
+  
+  .header-button {
+    background-color: #f0f0f0;
+    border: none;
+    padding: 10px 20px;
+    margin-right: 10px;
+    border-radius: 4px;
+    box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+  }
+  
+  .settings-icon {
+    font-size: 40px;
+    margin-right: 10px;
+    color: gray;
+  }
+
+  .admin-icon{
+    width: 10px;
+    height: 10px;
+    background-color: #b3b3b3; 
+    border-radius: 50%;
+  }
+
+  .profile-main {
+    background: #F3F3F3;
+    padding: 20px;
+    width: 100vw;
+    position: relative;
+    left: calc(-15px); 
+    height: 500px;
+    flex-grow: 1;
+  }
+  
+  .profile-overview {
+    margin-bottom: 0px;
+  }
+  
+  .overview-title {
+    font-size: 20px;
+    font-weight: bold;
+    text-decoration: underline solid #257E68;
+    display: inline-block;
+    color: #257E68;
+    text-underline-position: under;
+  }
+  
+  
