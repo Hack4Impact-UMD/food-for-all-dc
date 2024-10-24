@@ -1,11 +1,10 @@
 
-
 .profile-container {
   display: flex;
   flex-direction: column;
   font-family: Inter;
   background-color: #F3F3F3;
-  height: 100%;
+  height: auto;
 }
 
 .white-container{
@@ -13,7 +12,8 @@
   flex-direction: column;
   font-family: Inter;
   background-color: white;
-  padding: 15px;
+  padding-left: 15px;
+  padding-right: 15px;
 }
 
 .profile-header {
@@ -68,14 +68,11 @@
 
 .profile-main {
   background: #F3F3F3;
-  padding: 20px;
-  width: 100%;
-  position: relative;
-  left: calc(-15px); 
-  height: 500px;
   flex-grow: 1;
   display: flex;
-  justify-content: center; 
+  justify-content: center;
+  align-items: flex-start; 
+  
 }
   
 .profile-overview {
@@ -103,7 +100,7 @@
   background-color: white;  
   text-align: center;    
   width: 60%;   
-  margin-top: 20px;
+  margin: 20px 0;
 }
 
 .box-header{
