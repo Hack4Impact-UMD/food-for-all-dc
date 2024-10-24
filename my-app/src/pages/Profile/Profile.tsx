@@ -19,9 +19,7 @@ function Profile() {
                         <div className="buttons-together">
                             <button className="header-button">Calendar</button>
                             <div className="settings-icon">&#9881;</div>
-                            <div className = "header-button">
-                                Admin
-                            </div>
+                            <button className = "header-button">Admin</button>
                         </div>
                     </header>
                     <div className="profile-name">Natasha Yergafova</div>
