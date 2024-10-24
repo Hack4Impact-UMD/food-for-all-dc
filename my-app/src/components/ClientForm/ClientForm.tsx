@@ -63,6 +63,7 @@ const ClientForm: React.FC<ClientFormProps> = ({ uid }) => {
     ...initialState,
   });
 
+  // get client data if uid prop exists
   useEffect(() => {
     const fetchClientData = async () => {
       if (uid) {
