@@ -48,7 +48,7 @@
   padding: 10px 20px;
   margin-right: 10px;
   border-radius: 4px;
-  width: 100px;
+  min-width: 100px;
   height: 35px;
   box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
   cursor: pointer;
@@ -66,11 +66,13 @@
 .dropdown-button {
   display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: space-between;
+  padding: 10px 12px;
 }
 
 .dropdown-icon {
   color: #666;
+  margin-left: 4px;
 }
 
 .dropdown-menu {
