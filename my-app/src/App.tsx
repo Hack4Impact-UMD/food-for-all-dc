@@ -7,16 +7,18 @@ import Dashboard from "./pages/Dashboard";
 import CalendarPage from "./components/Calendar/CalendarPage";
 import UserProfile from "./components/UserProfile/UserProfile";
 import Spreadsheet from "./components/Spreadsheet/Spreadsheet";
+import Profile from './pages/Profile/Profile';
 function App() {
   return (
     <Router>
       <Routes>
-        <Route path="/" element={<Login/>} /> 
+        <Route path="/" element={<Login />} />
         <Route path="/user/:uid" element={<UserProfile />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/calendar" element={<CalendarPage />} />
-        <Route path = "/spreadsheet" element={<Spreadsheet />} />
+        <Route path="/spreadsheet" element={<Spreadsheet />} />
         <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/profile" element={<Profile />} />
       </Routes>
     </Router>
   );

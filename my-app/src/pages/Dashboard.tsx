@@ -4,14 +4,17 @@ import { useNavigate } from 'react-router-dom'; // Import useNavigate
 
 const Dashboard = () => {
 
-  const navigate = useNavigate(); 
+  const navigate = useNavigate();
 
   const goToCalendar = () => {
-    navigate('/calendar'); 
+    navigate('/calendar');
   };
 
   const goToSpreadsheet = () => {
-    navigate('/spreadsheet'); 
+    navigate('/spreadsheet');
+  }
+  const goToProfile = () => {
+    navigate('/profile');
   };
 
   return (
@@ -22,7 +25,8 @@ const Dashboard = () => {
         <div className="buttons">
           <button onClick={goToCalendar}>Calendar</button>
           <button onClick={goToSpreadsheet}>Spreadsheet</button>
-        </div>      
+          <button onClick={goToProfile}>Profile</button>
+        </div>
       </header>
     </div>
   );

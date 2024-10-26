@@ -13,6 +13,10 @@ import {
   TextField,
   Paper,
   IconButton,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
 } from "@mui/material";
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
@@ -24,30 +28,30 @@ const initialData = [
     uid: "52352362347",
     firstname: "Yvonne",
     lastname: "Akins",
-    phone: "",
-    zipcode: "",
+    phone: "12312312",
+    zipcode: "23423",
   },
 ];
 
 const fields = [
-  { key: "uid", label: "UID", type: "text"},
-  { key: "firstname", label: "First Name", type: "text" },
-  { key: "lastname", label: "Last Name", type: "text" },
+  { key: "fullname", label: "Full Name", type: "text", compute: (data: { firstname: String; lastname: String; }) => `${data.lastname}, ${data.firstname}` },
+  { key: "uid", label: "UID", type: "text" },
   { key: "phone", label: "Phone", type: "text" },
-  { key: "zipcode", label: "Zip Code", type: "text"}
+  { key: "zipcode", label: "Zip Code", type: "text" }
 ];
 
 const Spreadsheet: React.FC = () => {
   const [rows, setRows] = useState(initialData);
   const [newRow, setNewRow] = useState({
-    uid: "",
     firstname: "",
     lastname: "",
+    uid: "",
     phone: "",
-    zipcode: "",
+    zipcode: ""
   });
   const [searchQuery, setSearchQuery] = useState("");
   const [editingRowId, setEditingRowId] = useState<number | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const navigate = useNavigate();
 
   const handleInputChange = (
@@ -76,12 +80,13 @@ const Spreadsheet: React.FC = () => {
     if (newRow.firstname && newRow.lastname) {
       setRows([...rows, { id: rows.length + 1, ...newRow }]);
       setNewRow({
-        uid: "",
         firstname: "",
         lastname: "",
+        uid: "",
         phone: "",
         zipcode: ""
       });
+      setIsModalOpen(false); // Close the modal after adding
     }
   };
 
@@ -101,9 +106,27 @@ const Spreadsheet: React.FC = () => {
     navigate(`/user/${uid}`);
   };
 
-  const visibleRows = rows.filter(row => 
-    fields.some(field => row[field.key as keyof typeof row].toString().toLowerCase().includes(searchQuery.toLowerCase()))
+  const visibleRows = rows.filter(row =>
+    fields.some(field => {
+      const fieldValue = field.compute ? field.compute(row) : row[field.key as keyof typeof row];
+      return fieldValue && fieldValue.toString().toLowerCase().includes(searchQuery.toLowerCase());
+    })
   );
+
+  const openModal = () => {
+    setIsModalOpen(true);
+  };
+
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setNewRow({
+      firstname: "",
+      lastname: "",
+      uid: "",
+      phone: "",
+      zipcode: ""
+    });
+  };
 
   return (
     <Box className="box">
@@ -115,39 +138,48 @@ const Spreadsheet: React.FC = () => {
         type="search"
         variant="outlined"
         size="small"
-        style={{ marginBottom: 20, width: '100%' }}
+        style={{ marginBottom: 20 }}
       />
-      <TableContainer component={Paper}>
+      <Button
+        variant="contained"
+        color="primary"
+        onClick={openModal}
+        className="create-client"
+        style={{ marginBottom: 20 }}
+      >
+        + Create Client
+      </Button>
+      <TableContainer className="table-container" component={Paper}>
         <Table>
           <TableHead>
             <TableRow>
               {fields.map((field) => (
                 <TableCell className="table-header" key={field.key}>{field.label}</TableCell>
               ))}
-              <TableCell>Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {visibleRows.map((row) => (
               <TableRow key={row.id} onClick={() => handleRowClick(row.uid)} className={editingRowId === row.id ? "table-row editing-row" : "table-row"}>
-                {editingRowId === row.id
-                  ? fields.map((field) => (
-                      <TableCell key={field.key}>
-                        <TextField
-                          className="textfield"
-                          type={field.type}
-                          value={row[field.key as keyof typeof row]}
-                          onChange={(e) => handleEditInputChange(e, row.id, field.key)}
-                          variant="outlined"
-                          size="small"
-                        />
-                      </TableCell>
-                    ))
-                  : fields.map((field) => (
-                      <TableCell key={field.key}>
-                        {row[field.key as keyof typeof row]}
-                      </TableCell>
-                    ))}
+                {fields.map((field) => (
+                  <TableCell key={field.key}>
+                    {field.key === "fullname" ? (
+                      field.compute ? field.compute(row) : `${row.firstname} ${row.lastname}`
+                    ) : editingRowId === row.id ? (
+                      <TextField
+                        className="textfield"
+                        type={field.type}
+                        value={row[field.key as keyof typeof row]}
+                        onChange={(e) => handleEditInputChange(e, row.id, field.key)}
+                        variant="outlined"
+                        size="small"
+                      />
+                    ) : (
+                      row[field.key as keyof typeof row]
+                    )}
+                  </TableCell>
+                ))}
+                {/*
                 <TableCell>
                   {editingRowId === row.id ? (
                     <IconButton onClick={() => handleSaveRow(row.id)}>
@@ -163,32 +195,82 @@ const Spreadsheet: React.FC = () => {
                       </IconButton>
                     </>
                   )}
-                </TableCell>
+                </TableCell>*/}
               </TableRow>
             ))}
-            <TableRow>
-              {fields.map((field) => (
-                <TableCell key={field.key}>
-                  <TextField
-                    className="textfield"
-                    placeholder={field.label}
-                    value={newRow[field.key as keyof typeof newRow]}
-                    onChange={(e) => handleInputChange(e, field.key)}
-                    type={field.type}
-                    variant="outlined"
-                    size="small"
-                  />
-                </TableCell>
-              ))}
-              <TableCell>
-                <Button className="add-new-client" onClick={handleAddRow}>
-                  Add New Client
-                </Button>
-              </TableCell>
-            </TableRow>
           </TableBody>
         </Table>
       </TableContainer>
+
+      {/* Modal for adding a new client */}
+      <Dialog open={isModalOpen} onClose={closeModal}>
+        <DialogTitle>Create New Client</DialogTitle>
+        <DialogContent>
+          <TextField
+            className="textfield"
+            placeholder="First Name"
+            value={newRow.firstname}
+            onChange={(e) => handleInputChange(e, "firstname")}
+            type="text"
+            variant="outlined"
+            size="small"
+            fullWidth
+            margin="dense"
+          />
+          <TextField
+            className="textfield"
+            placeholder="Last Name"
+            value={newRow.lastname}
+            onChange={(e) => handleInputChange(e, "lastname")}
+            type="text"
+            variant="outlined"
+            size="small"
+            fullWidth
+            margin="dense"
+          />
+          <TextField
+            className="textfield"
+            placeholder="UID"
+            value={newRow.uid}
+            onChange={(e) => handleInputChange(e, "uid")}
+            type="text"
+            variant="outlined"
+            size="small"
+            fullWidth
+            margin="dense"
+          />
+          <TextField
+            className="textfield"
+            placeholder="Phone"
+            value={newRow.phone}
+            onChange={(e) => handleInputChange(e, "phone")}
+            type="text"
+            variant="outlined"
+            size="small"
+            fullWidth
+            margin="dense"
+          />
+          <TextField
+            className="textfield"
+            placeholder="Zip Code"
+            value={newRow.zipcode}
+            onChange={(e) => handleInputChange(e, "zipcode")}
+            type="text"
+            variant="outlined"
+            size="small"
+            fullWidth
+            margin="dense"
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closeModal} color="secondary">
+            Cancel
+          </Button>
+          <Button onClick={handleAddRow} color="primary" variant="contained">
+            Save
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };
