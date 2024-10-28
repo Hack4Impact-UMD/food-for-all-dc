@@ -8,6 +8,7 @@ import CalendarPage from "./components/Calendar/CalendarPage";
 import UserProfile from "./components/UserProfile/UserProfile";
 import Spreadsheet from "./components/Spreadsheet/Spreadsheet";
 import Profile from './pages/Profile/Profile';
+import Spreadsheet from "./components/Spreadsheet/Spreadsheet";
 function App() {
   return (
     <Router>
@@ -19,6 +20,7 @@ function App() {
         <Route path="/spreadsheet" element={<Spreadsheet />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/profile" element={<Profile />} />
+        <Route path="/spreadsheet" element={<Spreadsheet />} />
       </Routes>
     </Router>
   );

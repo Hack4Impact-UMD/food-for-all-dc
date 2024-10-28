@@ -17,6 +17,10 @@ const Dashboard = () => {
     navigate('/profile');
   };
 
+  const goToSpreadsheet = () => {
+    navigate('/spreadsheet');
+  }
+
   return (
     <div className="App">
       <header className="App-header">
