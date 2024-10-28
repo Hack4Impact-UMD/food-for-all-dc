@@ -17,15 +17,18 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  Menu,
+  MenuItem,
 } from "@mui/material";
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
 import SaveIcon from "@mui/icons-material/Save";
+import MoreVertIcon from "@mui/icons-material/MoreVert";
 
 const initialData = [
   {
     id: 1,
-    uid: "52352362347",
+    clientid: "52352362347",
     firstname: "Yvonne",
     lastname: "Akins",
     phone: "12312312",
@@ -34,8 +37,8 @@ const initialData = [
 ];
 
 const fields = [
-  { key: "fullname", label: "Full Name", type: "text", compute: (data: { firstname: String; lastname: String; }) => `${data.lastname}, ${data.firstname}` },
-  { key: "uid", label: "UID", type: "text" },
+  { key: "fullname", label: "Name", type: "text", compute: (data: { firstname: String; lastname: String; }) => `${data.lastname}, ${data.firstname}` },
+  { key: "clientid", label: "Client ID", type: "text" },
   { key: "phone", label: "Phone", type: "text" },
   { key: "zipcode", label: "Zip Code", type: "text" }
 ];
@@ -45,13 +48,16 @@ const Spreadsheet: React.FC = () => {
   const [newRow, setNewRow] = useState({
     firstname: "",
     lastname: "",
-    uid: "",
+    clientid: "",
     phone: "",
     zipcode: ""
   });
   const [searchQuery, setSearchQuery] = useState("");
   const [editingRowId, setEditingRowId] = useState<number | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [menuAnchorEl, setMenuAnchorEl] = useState<null | HTMLElement>(null);
+  const [selectedRowId, setSelectedRowId] = useState<number | null>(null);
+
   const navigate = useNavigate();
 
   const handleInputChange = (
@@ -82,7 +88,7 @@ const Spreadsheet: React.FC = () => {
       setNewRow({
         firstname: "",
         lastname: "",
-        uid: "",
+        clientid: "",
         phone: "",
         zipcode: ""
       });
@@ -96,14 +102,25 @@ const Spreadsheet: React.FC = () => {
 
   const handleEditRow = (id: number) => {
     setEditingRowId(id);
+    setMenuAnchorEl(null); // Close the menu
   };
 
   const handleSaveRow = (id: number) => {
     setEditingRowId(null);
   };
 
-  const handleRowClick = (uid: string) => {
-    navigate(`/user/${uid}`);
+  const handleRowClick = (clientid: string) => {
+    navigate(`/user/${clientid}`);
+  };
+
+  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, id: number) => {
+    setMenuAnchorEl(event.currentTarget);
+    setSelectedRowId(id);
+  };
+
+  const handleMenuClose = () => {
+    setMenuAnchorEl(null);
+    setSelectedRowId(null);
   };
 
   const visibleRows = rows.filter(row =>
@@ -122,7 +139,7 @@ const Spreadsheet: React.FC = () => {
     setNewRow({
       firstname: "",
       lastname: "",
-      uid: "",
+      clientid: "",
       phone: "",
       zipcode: ""
     });
@@ -134,18 +151,16 @@ const Spreadsheet: React.FC = () => {
         className="search-bar"
         value={searchQuery}
         onChange={handleSearchChange}
-        placeholder="Search"
+        placeholder="SEARCH"
         type="search"
         variant="outlined"
         size="small"
-        style={{ marginBottom: 20 }}
       />
       <Button
         variant="contained"
         color="primary"
         onClick={openModal}
         className="create-client"
-        style={{ marginBottom: 20 }}
       >
         + Create Client
       </Button>
@@ -154,48 +169,81 @@ const Spreadsheet: React.FC = () => {
           <TableHead>
             <TableRow>
               {fields.map((field) => (
-                <TableCell className="table-header" key={field.key}>{field.label}</TableCell>
+                <TableCell className="table-header" key={field.key}><h2>{field.label}</h2></TableCell>
               ))}
+              <TableCell className="table-header"></TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {visibleRows.map((row) => (
-              <TableRow key={row.id} onClick={() => handleRowClick(row.uid)} className={editingRowId === row.id ? "table-row editing-row" : "table-row"}>
+              <TableRow key={row.id}  className={editingRowId === row.id ? "table-row editing-row" : "table-row"}>
                 {fields.map((field) => (
                   <TableCell key={field.key}>
-                    {field.key === "fullname" ? (
-                      field.compute ? field.compute(row) : `${row.firstname} ${row.lastname}`
-                    ) : editingRowId === row.id ? (
-                      <TextField
-                        className="textfield"
-                        type={field.type}
-                        value={row[field.key as keyof typeof row]}
-                        onChange={(e) => handleEditInputChange(e, row.id, field.key)}
-                        variant="outlined"
-                        size="small"
-                      />
+                    {editingRowId === row.id ? (
+                      field.key === "fullname" ? (
+                        <>
+                          <TextField
+                            placeholder="First Name"
+                            value={row.firstname}
+                            onChange={(e) => handleEditInputChange(e, row.id, "firstname")}
+                            variant="outlined"
+                            size="small"
+                            style={{ marginRight: "8px" }}
+                          />
+                          <TextField
+                            placeholder="Last Name"
+                            value={row.lastname}
+                            onChange={(e) => handleEditInputChange(e, row.id, "lastname")}
+                            variant="outlined"
+                            size="small"
+                          />
+                        </>
+                      ) : (
+                        <TextField
+                          type={field.type}
+                          value={row[field.key as keyof typeof row]}
+                          onChange={(e) => handleEditInputChange(e, row.id, field.key)}
+                          variant="outlined"
+                          size="small"
+                        />
+                      )
                     ) : (
-                      row[field.key as keyof typeof row]
+                      field.key === "fullname" ? (
+                        field.compute ? field.compute(row) : `${row.firstname} ${row.lastname}`
+                      ) : (
+                        row[field.key as keyof typeof row]
+                      )
                     )}
                   </TableCell>
                 ))}
-                {/*
-                <TableCell>
+                <TableCell style={{ textAlign: 'right' }}>
                   {editingRowId === row.id ? (
-                    <IconButton onClick={() => handleSaveRow(row.id)}>
-                      <SaveIcon />
-                    </IconButton>
+                    <Button
+                      variant="contained"
+                      color="primary"
+                      size="small"
+                      onClick={() => handleSaveRow(row.id)}
+                    >
+                      <SaveIcon fontSize="small" /> Save
+                    </Button>
                   ) : (
-                    <>
-                      <IconButton onClick={() => handleEditRow(row.id)}>
-                        <EditIcon />
-                      </IconButton>
-                      <IconButton onClick={() => handleDeleteRow(row.id)}>
-                        <DeleteIcon />
-                      </IconButton>
-                    </>
+                    <IconButton onClick={(e) => handleMenuOpen(e, row.id)}>
+                      <MoreVertIcon />
+                    </IconButton>
                   )}
-                </TableCell>*/}
+                  <Menu
+                    anchorEl={menuAnchorEl}
+                    open={Boolean(menuAnchorEl) && selectedRowId === row.id}
+                    onClose={handleMenuClose}
+                  >
+                    <MenuItem onClick={() => handleEditRow(row.id)}>
+                      <EditIcon fontSize="small" /> Edit
+                    </MenuItem>
+                    <MenuItem onClick={() => handleDeleteRow(row.id)}>
+                      <DeleteIcon fontSize="small" /> Delete
+                    </MenuItem>
+                  </Menu>
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>
@@ -207,7 +255,6 @@ const Spreadsheet: React.FC = () => {
         <DialogTitle>Create New Client</DialogTitle>
         <DialogContent>
           <TextField
-            className="textfield"
             placeholder="First Name"
             value={newRow.firstname}
             onChange={(e) => handleInputChange(e, "firstname")}
@@ -218,7 +265,6 @@ const Spreadsheet: React.FC = () => {
             margin="dense"
           />
           <TextField
-            className="textfield"
             placeholder="Last Name"
             value={newRow.lastname}
             onChange={(e) => handleInputChange(e, "lastname")}
@@ -229,10 +275,9 @@ const Spreadsheet: React.FC = () => {
             margin="dense"
           />
           <TextField
-            className="textfield"
-            placeholder="UID"
-            value={newRow.uid}
-            onChange={(e) => handleInputChange(e, "uid")}
+            placeholder="Client ID"
+            value={newRow.clientid}
+            onChange={(e) => handleInputChange(e, "clientid")}
             type="text"
             variant="outlined"
             size="small"
@@ -240,7 +285,6 @@ const Spreadsheet: React.FC = () => {
             margin="dense"
           />
           <TextField
-            className="textfield"
             placeholder="Phone"
             value={newRow.phone}
             onChange={(e) => handleInputChange(e, "phone")}
@@ -251,7 +295,6 @@ const Spreadsheet: React.FC = () => {
             margin="dense"
           />
           <TextField
-            className="textfield"
             placeholder="Zip Code"
             value={newRow.zipcode}
             onChange={(e) => handleInputChange(e, "zipcode")}
