@@ -6,6 +6,7 @@ import Login from "./pages/Login/Login";
 import Dashboard from "./pages/Dashboard";
 import CalendarPage from "./components/Calendar/CalendarPage";
 import Profile from './pages/Profile/Profile';
+import Spreadsheet from "./components/Spreadsheet/Spreadsheet";
 function App() {
   return (
     <Router>
@@ -15,6 +16,7 @@ function App() {
         <Route path="/calendar" element={<CalendarPage />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/profile" element={<Profile />} />
+        <Route path="/spreadsheet" element={<Spreadsheet />} />
       </Routes>
     </Router>
   );
