@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { db, auth } from "../../auth/firebaseConfig";
+import { Search, Filter } from 'lucide-react';
 import "./Spreadsheet.css";
 import {
   Box,
@@ -11,7 +11,6 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  TextField,
   Paper,
   IconButton,
   Dialog,
@@ -20,6 +19,7 @@ import {
   DialogActions,
   Menu,
   MenuItem,
+  TextField,
 } from "@mui/material";
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
@@ -54,7 +54,13 @@ const initialData = [
 ];
 
 const fields = [
-  { key: "fullname", label: "Name", type: "text", compute: (data: { firstname: string; lastname: string }) => `${data.lastname}, ${data.firstname}` },
+  {
+    key: "fullname",
+    label: "Name",
+    type: "text",
+    compute: (data: { firstname: string; lastname: string }) =>
+      `${data.lastname}, ${data.firstname}`,
+  },
   { key: "phone", label: "Phone", type: "text" },
   { key: "housenumber", label: "House Number", type: "text" },
   { key: "streetname", label: "Street Name", type: "text" },
@@ -62,6 +68,12 @@ const fields = [
 
 const Spreadsheet: React.FC = () => {
   const [rows, setRows] = useState(initialData);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [editingRowId, setEditingRowId] = useState<number | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [menuAnchorEl, setMenuAnchorEl] = useState<null | HTMLElement>(null);
+  const [selectedRowId, setSelectedRowId] = useState<number | null>(null);
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   const [newRow, setNewRow] = useState({
     firstname: "",
     lastname: "",
@@ -72,12 +84,6 @@ const Spreadsheet: React.FC = () => {
     zipcode: "",
     dietaryRestriction: "",
   });
-  const [searchQuery, setSearchQuery] = useState("");
-  const [editingRowId, setEditingRowId] = useState<number | null>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [menuAnchorEl, setMenuAnchorEl] = useState<null | HTMLElement>(null);
-  const [selectedRowId, setSelectedRowId] = useState<number | null>(null);
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
 
   const navigate = useNavigate();
 
@@ -160,15 +166,19 @@ const Spreadsheet: React.FC = () => {
     setSortOrder(sortOrder === "asc" ? "desc" : "asc");
   };
 
-  const visibleRows = rows.filter(row =>
-    fields.some(field => {
-      const fieldValue = field.compute ? field.compute(row) : row[field.key as keyof typeof row];
-      return (
-        fieldValue && fieldValue.toString().toLowerCase().includes(searchQuery.toLowerCase())
-      );
-    }) || 
-    row.dietaryRestriction.toLowerCase().includes(searchQuery.toLowerCase()) || 
-    row.zipcode.toLowerCase().includes(searchQuery.toLowerCase())
+  const visibleRows = rows.filter(
+    (row) =>
+      fields.some((field) => {
+        const fieldValue = field.compute
+          ? field.compute(row)
+          : row[field.key as keyof typeof row];
+        return (
+          fieldValue &&
+          fieldValue.toString().toLowerCase().includes(searchQuery.toLowerCase())
+        );
+      }) ||
+      row.dietaryRestriction.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      row.zipcode.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const openModal = () => {
@@ -185,217 +195,353 @@ const Spreadsheet: React.FC = () => {
       housenumber: "",
       streetname: "",
       zipcode: "",
-      dietaryRestriction: ""
+      dietaryRestriction: "",
     });
   };
 
   return (
     <Box className="box">
-      <TextField
-        className="search-bar"
-        value={searchQuery}
-        onChange={handleSearchChange}
-        placeholder="SEARCH (e.g., 'Vegan', '12345')"
-        type="search"
-        variant="outlined"
-        size="small"
-      />
-      <Button
-        variant="contained"
-        color="primary"
-        onClick={openModal}
-        className="create-client"
+      {/* Common Parent Container */}
+      <div
+        style={{
+          maxWidth: "1050px", // Set the maximum width
+          margin: "0 auto", // Center horizontally
+          padding: "20px",
+        }}
       >
-        + Create Client
-      </Button>
-      <TableContainer className="table-container" component={Paper}>
-        <Table>
-          <TableHead>
-            <TableRow>
-              {fields.map((field) => (
-                <TableCell className="table-header" key={field.key}>
-                  <h2>
-                    {field.label}
-                    {field.key === "fullname" && (
-                      <IconButton className="sort-arrow" size="small" onClick={toggleSortOrder}>
-                        {sortOrder === "asc" ? <ArrowDropUpIcon /> : <ArrowDropDownIcon />}
-                      </IconButton>
-                    )}
-                  </h2>
-                </TableCell>
-              ))}
-              <TableCell className="table-header"></TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {visibleRows.map((row) => (
-              <TableRow key={row.id} className={editingRowId === row.id ? "table-row editing-row" : "table-row"}>
+        {/* Search Bar */}
+        <div
+          style={{
+            position: "relative",
+            width: "100%",
+            marginBottom: "20px",
+            boxSizing: "border-box",
+          }}
+        >
+          <Search
+            style={{
+              position: "absolute",
+              left: "16px",
+              top: "50%",
+              transform: "translateY(-50%)",
+              color: "#666666",
+              zIndex: 1,
+            }}
+            size={20}
+          />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={handleSearchChange}
+            placeholder="SEARCH"
+            style={{
+              width: "100%",
+              height: "60px", // Increased height from 48px to 60px
+              backgroundColor: "#EEEEEE",
+              border: "none",
+              borderRadius: "30px", // Adjusted border-radius for proportional rounding
+              padding: "0 48px",
+              fontSize: "16px", // Increased font size for better readability
+              color: "#333333",
+              boxSizing: "border-box", // Include padding in width
+            }}
+          />
+          <Filter
+            style={{
+              position: "absolute",
+              right: "16px",
+              top: "50%",
+              transform: "translateY(-50%)",
+              color: "#666666",
+              zIndex: 1,
+            }}
+            size={20}
+          />
+        </div>
+
+        {/* Controls and Create Client Button */}
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginBottom: "20px",
+            flexWrap: "wrap",
+          }}
+        >
+          <div style={{ display: "flex", gap: "16px", flexWrap: "wrap" }}>
+            <button
+              style={{
+                background: "#2E5B4C",
+                color: "white",
+                padding: "8px 16px",
+                border: "none",
+                borderRadius: "24px", // Make it oval
+                cursor: "pointer",
+              }}
+            >
+              VIEW ALL
+            </button>
+            <button
+              style={{
+                background: "transparent",
+                color: "#666",
+                padding: "8px 16px",
+                border: "1px solid #666", // Added border for visibility
+                borderRadius: "24px", // Make it oval
+                cursor: "pointer",
+              }}
+            >
+              TYPE
+            </button>
+            <button
+              style={{
+                background: "transparent",
+                color: "#666",
+                padding: "8px 16px",
+                border: "1px solid #666", // Added border for visibility
+                borderRadius: "24px", // Make it oval
+                cursor: "pointer",
+              }}
+            >
+              LOCATION
+            </button>
+          </div>
+
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={openModal}
+            className="create-client"
+            style={{
+              backgroundColor: "#2E5B4C",
+              whiteSpace: "nowrap", // Prevent text wrapping
+              padding: "8px 16px",
+              minWidth: "auto",
+            }}
+          >
+            + Create Client
+          </Button>
+        </div>
+
+        {/* Spreadsheet Table */}
+        <TableContainer component={Paper}>
+          <Table>
+            <TableHead>
+              <TableRow>
                 {fields.map((field) => (
-                  <TableCell key={field.key}>
-                    {editingRowId === row.id ? (
-                      field.key === "fullname" ? (
-                        <>
-                          <TextField
-                            placeholder="First Name"
-                            value={row.firstname}
-                            onChange={(e) => handleEditInputChange(e, row.id, "firstname")}
-                            variant="outlined"
-                            size="small"
-                            style={{ marginRight: "8px" }}
-                          />
-                          <TextField
-                            placeholder="Last Name"
-                            value={row.lastname}
-                            onChange={(e) => handleEditInputChange(e, row.id, "lastname")}
-                            variant="outlined"
-                            size="small"
-                          />
-                        </>
-                      ) : (
-                        <TextField
-                          type={field.type}
-                          value={row[field.key as keyof typeof row]}
-                          onChange={(e) => handleEditInputChange(e, row.id, field.key)}
-                          variant="outlined"
+                  <TableCell className="table-header" key={field.key}>
+                    <h2>
+                      {field.label}
+                      {field.key === "fullname" && (
+                        <IconButton
+                          className="sort-arrow"
                           size="small"
-                        />
-                      )
-                    ) : (
-                      field.key === "fullname" ? (
-                        field.compute ? field.compute(row) : `${row.firstname} ${row.lastname}`
-                      ) : (
-                        row[field.key as keyof typeof row]
-                      )
-                    )}
+                          onClick={toggleSortOrder}
+                        >
+                          {sortOrder === "asc" ? (
+                            <ArrowDropUpIcon />
+                          ) : (
+                            <ArrowDropDownIcon />
+                          )}
+                        </IconButton>
+                      )}
+                    </h2>
                   </TableCell>
                 ))}
-                <TableCell style={{ textAlign: 'right' }}>
-                  {editingRowId === row.id ? (
-                    <Button
-                      variant="contained"
-                      color="primary"
-                      size="small"
-                      onClick={() => handleSaveRow(row.id)}
-                    >
-                      <SaveIcon fontSize="small" /> Save
-                    </Button>
-                  ) : (
-                    <IconButton onClick={(e) => handleMenuOpen(e, row.id)}>
-                      <MoreVertIcon />
-                    </IconButton>
-                  )}
-                  <Menu
-                    anchorEl={menuAnchorEl}
-                    open={Boolean(menuAnchorEl) && selectedRowId === row.id}
-                    onClose={handleMenuClose}
-                  >
-                    <MenuItem onClick={() => handleEditRow(row.id)}>
-                      <EditIcon fontSize="small" /> Edit
-                    </MenuItem>
-                    <MenuItem onClick={() => handleDeleteRow(row.id)}>
-                      <DeleteIcon fontSize="small" /> Delete
-                    </MenuItem>
-                  </Menu>
-                </TableCell>
+                <TableCell className="table-header"></TableCell>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
+            </TableHead>
+            <TableBody>
+              {visibleRows.map((row) => (
+                <TableRow
+                  key={row.id}
+                  className={
+                    editingRowId === row.id
+                      ? "table-row editing-row"
+                      : "table-row"
+                  }
+                >
+                  {fields.map((field) => (
+                    <TableCell key={field.key}>
+                      {editingRowId === row.id ? (
+                        field.key === "fullname" ? (
+                          <>
+                            <TextField
+                              placeholder="First Name"
+                              value={row.firstname}
+                              onChange={(e) =>
+                                handleEditInputChange(e, row.id, "firstname")
+                              }
+                              variant="outlined"
+                              size="small"
+                              style={{ marginRight: "8px" }}
+                            />
+                            <TextField
+                              placeholder="Last Name"
+                              value={row.lastname}
+                              onChange={(e) =>
+                                handleEditInputChange(e, row.id, "lastname")
+                              }
+                              variant="outlined"
+                              size="small"
+                            />
+                          </>
+                        ) : (
+                          <TextField
+                            type={field.type}
+                            value={
+                              row[field.key as keyof typeof row] as string
+                            }
+                            onChange={(e) =>
+                              handleEditInputChange(e, row.id, field.key)
+                            }
+                            variant="outlined"
+                            size="small"
+                          />
+                        )
+                      ) : field.key === "fullname" ? (
+                        field.compute
+                          ? field.compute(row)
+                          : `${row.firstname} ${row.lastname}`
+                      ) : (
+                        row[field.key as keyof typeof row]
+                      )}
+                    </TableCell>
+                  ))}
+                  <TableCell style={{ textAlign: "right" }}>
+                    {editingRowId === row.id ? (
+                      <Button
+                        variant="contained"
+                        color="primary"
+                        size="small"
+                        onClick={() => handleSaveRow(row.id)}
+                      >
+                        <SaveIcon fontSize="small" /> Save
+                      </Button>
+                    ) : (
+                      <IconButton
+                        onClick={(e) => handleMenuOpen(e, row.id)}
+                      >
+                        <MoreVertIcon />
+                      </IconButton>
+                    )}
+                    <Menu
+                      anchorEl={menuAnchorEl}
+                      open={
+                        Boolean(menuAnchorEl) && selectedRowId === row.id
+                      }
+                      onClose={handleMenuClose}
+                    >
+                      <MenuItem onClick={() => handleEditRow(row.id)}>
+                        <EditIcon fontSize="small" /> Edit
+                      </MenuItem>
+                      <MenuItem onClick={() => handleDeleteRow(row.id)}>
+                        <DeleteIcon fontSize="small" /> Delete
+                      </MenuItem>
+                    </Menu>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
 
-      <Dialog open={isModalOpen} onClose={closeModal}>
-        <DialogTitle>Create New Client</DialogTitle>
-        <DialogContent>
-          <TextField
-            placeholder="First Name"
-            value={newRow.firstname}
-            onChange={(e) => handleInputChange(e, "firstname")}
-            type="text"
-            variant="outlined"
-            size="small"
-            fullWidth
-            margin="dense"
-          />
-          <TextField
-            placeholder="Last Name"
-            value={newRow.lastname}
-            onChange={(e) => handleInputChange(e, "lastname")}
-            type="text"
-            variant="outlined"
-            size="small"
-            fullWidth
-            margin="dense"
-          />
-          <TextField
-            placeholder="Client ID"
-            value={newRow.clientid}
-            onChange={(e) => handleInputChange(e, "clientid")}
-            type="text"
-            variant="outlined"
-            size="small"
-            fullWidth
-            margin="dense"
-          />
-          <TextField
-            placeholder="Phone"
-            value={newRow.phone}
-            onChange={(e) => handleInputChange(e, "phone")}
-            type="text"
-            variant="outlined"
-            size="small"
-            fullWidth
-            margin="dense"
-          />
-          <TextField
-            placeholder="House Number"
-            value={newRow.housenumber}
-            onChange={(e) => handleInputChange(e, "housenumber")}
-            type="text"
-            variant="outlined"
-            size="small"
-            fullWidth
-            margin="dense"
-          />
-          <TextField
-            placeholder="Street Name"
-            value={newRow.streetname}
-            onChange={(e) => handleInputChange(e, "streetname")}
-            type="text"
-            variant="outlined"
-            size="small"
-            fullWidth
-            margin="dense"
-          />
-          <TextField
-            placeholder="Zip Code"
-            value={newRow.zipcode}
-            onChange={(e) => handleInputChange(e, "zipcode")}
-            type="text"
-            variant="outlined"
-            size="small"
-            fullWidth
-            margin="dense"
-          />
-          <TextField
-            placeholder="Dietary Restriction"
-            value={newRow.dietaryRestriction}
-            onChange={(e) => handleInputChange(e, "dietaryRestriction")}
-            type="text"
-            variant="outlined"
-            size="small"
-            fullWidth
-            margin="dense"
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={closeModal} color="secondary">
-            Cancel
-          </Button>
-          <Button onClick={handleAddRow} color="primary" variant="contained">
-            Save
-          </Button>
-        </DialogActions>
-      </Dialog>
+        {/* Create Client Modal */}
+        <Dialog open={isModalOpen} onClose={closeModal}>
+          <DialogTitle>Create New Client</DialogTitle>
+          <DialogContent>
+            <TextField
+              placeholder="First Name"
+              value={newRow.firstname}
+              onChange={(e) => handleInputChange(e, "firstname")}
+              type="text"
+              variant="outlined"
+              size="small"
+              fullWidth
+              margin="dense"
+            />
+            <TextField
+              placeholder="Last Name"
+              value={newRow.lastname}
+              onChange={(e) => handleInputChange(e, "lastname")}
+              type="text"
+              variant="outlined"
+              size="small"
+              fullWidth
+              margin="dense"
+            />
+            <TextField
+              placeholder="Client ID"
+              value={newRow.clientid}
+              onChange={(e) => handleInputChange(e, "clientid")}
+              type="text"
+              variant="outlined"
+              size="small"
+              fullWidth
+              margin="dense"
+            />
+            <TextField
+              placeholder="Phone"
+              value={newRow.phone}
+              onChange={(e) => handleInputChange(e, "phone")}
+              type="text"
+              variant="outlined"
+              size="small"
+              fullWidth
+              margin="dense"
+            />
+            <TextField
+              placeholder="House Number"
+              value={newRow.housenumber}
+              onChange={(e) => handleInputChange(e, "housenumber")}
+              type="text"
+              variant="outlined"
+              size="small"
+              fullWidth
+              margin="dense"
+            />
+            <TextField
+              placeholder="Street Name"
+              value={newRow.streetname}
+              onChange={(e) => handleInputChange(e, "streetname")}
+              type="text"
+              variant="outlined"
+              size="small"
+              fullWidth
+              margin="dense"
+            />
+            <TextField
+              placeholder="Zip Code"
+              value={newRow.zipcode}
+              onChange={(e) => handleInputChange(e, "zipcode")}
+              type="text"
+              variant="outlined"
+              size="small"
+              fullWidth
+              margin="dense"
+            />
+            <TextField
+              placeholder="Dietary Restriction"
+              value={newRow.dietaryRestriction}
+              onChange={(e) => handleInputChange(e, "dietaryRestriction")}
+              type="text"
+              variant="outlined"
+              size="small"
+              fullWidth
+              margin="dense"
+            />
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={closeModal} color="secondary">
+              Cancel
+            </Button>
+            <Button onClick={handleAddRow} color="primary" variant="contained">
+              Save
+            </Button>
+          </DialogActions>
+        </Dialog>
+      </div>
     </Box>
   );
 };
