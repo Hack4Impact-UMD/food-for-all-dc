@@ -20,7 +20,6 @@ table .table-header {
   font-weight: bold;
   background-color: #f3f3f3;
   color: #257e68;
-  padding: 16px;
   border-bottom: 2.5px solid #ffffff; 
 }
 
@@ -42,4 +41,8 @@ table .table-header {
   margin-top:5vh;
   margin-bottom: 2vh;
   float: right;
+}
+
+.box .sort-arrow {
+  color:#257e68;
 }

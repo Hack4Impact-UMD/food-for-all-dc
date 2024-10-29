@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { db, auth } from "../../auth/firebaseConfig";
 import "./Spreadsheet.css";
 import {
   Box,
@@ -24,6 +25,8 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
 import SaveIcon from "@mui/icons-material/Save";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
+import ArrowDropUpIcon from "@mui/icons-material/ArrowDropUp";
+import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
 
 const initialData = [
   {
@@ -32,15 +35,29 @@ const initialData = [
     firstname: "Yvonne",
     lastname: "Akins",
     phone: "12312312",
+    housenumber: "101",
+    streetname: "Main St",
     zipcode: "23423",
+    dietaryRestriction: "Vegan",
+  },
+  {
+    id: 2,
+    clientid: "42352362347",
+    firstname: "Anna",
+    lastname: "Smith",
+    phone: "98765432",
+    housenumber: "102",
+    streetname: "Main St",
+    zipcode: "12345",
+    dietaryRestriction: "Gluten-Free",
   },
 ];
 
 const fields = [
-  { key: "fullname", label: "Name", type: "text", compute: (data: { firstname: String; lastname: String; }) => `${data.lastname}, ${data.firstname}` },
-  { key: "clientid", label: "Client ID", type: "text" },
+  { key: "fullname", label: "Name", type: "text", compute: (data: { firstname: string; lastname: string }) => `${data.lastname}, ${data.firstname}` },
   { key: "phone", label: "Phone", type: "text" },
-  { key: "zipcode", label: "Zip Code", type: "text" }
+  { key: "housenumber", label: "House Number", type: "text" },
+  { key: "streetname", label: "Street Name", type: "text" },
 ];
 
 const Spreadsheet: React.FC = () => {
@@ -50,13 +67,17 @@ const Spreadsheet: React.FC = () => {
     lastname: "",
     clientid: "",
     phone: "",
-    zipcode: ""
+    housenumber: "",
+    streetname: "",
+    zipcode: "",
+    dietaryRestriction: "",
   });
   const [searchQuery, setSearchQuery] = useState("");
   const [editingRowId, setEditingRowId] = useState<number | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [menuAnchorEl, setMenuAnchorEl] = useState<null | HTMLElement>(null);
   const [selectedRowId, setSelectedRowId] = useState<number | null>(null);
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
 
   const navigate = useNavigate();
 
@@ -90,9 +111,12 @@ const Spreadsheet: React.FC = () => {
         lastname: "",
         clientid: "",
         phone: "",
-        zipcode: ""
+        housenumber: "",
+        streetname: "",
+        zipcode: "",
+        dietaryRestriction: "",
       });
-      setIsModalOpen(false); // Close the modal after adding
+      setIsModalOpen(false);
     }
   };
 
@@ -102,7 +126,7 @@ const Spreadsheet: React.FC = () => {
 
   const handleEditRow = (id: number) => {
     setEditingRowId(id);
-    setMenuAnchorEl(null); // Close the menu
+    setMenuAnchorEl(null);
   };
 
   const handleSaveRow = (id: number) => {
@@ -123,11 +147,28 @@ const Spreadsheet: React.FC = () => {
     setSelectedRowId(null);
   };
 
+  const toggleSortOrder = () => {
+    const sortedRows = [...rows].sort((a, b) => {
+      if (a.firstname === b.firstname) {
+        return a.lastname.localeCompare(b.lastname);
+      }
+      return sortOrder === "asc"
+        ? a.firstname.localeCompare(b.firstname)
+        : b.firstname.localeCompare(a.firstname);
+    });
+    setRows(sortedRows);
+    setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+  };
+
   const visibleRows = rows.filter(row =>
     fields.some(field => {
       const fieldValue = field.compute ? field.compute(row) : row[field.key as keyof typeof row];
-      return fieldValue && fieldValue.toString().toLowerCase().includes(searchQuery.toLowerCase());
-    })
+      return (
+        fieldValue && fieldValue.toString().toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    }) || 
+    row.dietaryRestriction.toLowerCase().includes(searchQuery.toLowerCase()) || 
+    row.zipcode.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const openModal = () => {
@@ -141,7 +182,10 @@ const Spreadsheet: React.FC = () => {
       lastname: "",
       clientid: "",
       phone: "",
-      zipcode: ""
+      housenumber: "",
+      streetname: "",
+      zipcode: "",
+      dietaryRestriction: ""
     });
   };
 
@@ -151,7 +195,7 @@ const Spreadsheet: React.FC = () => {
         className="search-bar"
         value={searchQuery}
         onChange={handleSearchChange}
-        placeholder="SEARCH"
+        placeholder="SEARCH (e.g., 'Vegan', '12345')"
         type="search"
         variant="outlined"
         size="small"
@@ -169,14 +213,23 @@ const Spreadsheet: React.FC = () => {
           <TableHead>
             <TableRow>
               {fields.map((field) => (
-                <TableCell className="table-header" key={field.key}><h2>{field.label}</h2></TableCell>
+                <TableCell className="table-header" key={field.key}>
+                  <h2>
+                    {field.label}
+                    {field.key === "fullname" && (
+                      <IconButton className="sort-arrow" size="small" onClick={toggleSortOrder}>
+                        {sortOrder === "asc" ? <ArrowDropUpIcon /> : <ArrowDropDownIcon />}
+                      </IconButton>
+                    )}
+                  </h2>
+                </TableCell>
               ))}
               <TableCell className="table-header"></TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {visibleRows.map((row) => (
-              <TableRow key={row.id}  className={editingRowId === row.id ? "table-row editing-row" : "table-row"}>
+              <TableRow key={row.id} className={editingRowId === row.id ? "table-row editing-row" : "table-row"}>
                 {fields.map((field) => (
                   <TableCell key={field.key}>
                     {editingRowId === row.id ? (
@@ -250,7 +303,6 @@ const Spreadsheet: React.FC = () => {
         </Table>
       </TableContainer>
 
-      {/* Modal for adding a new client */}
       <Dialog open={isModalOpen} onClose={closeModal}>
         <DialogTitle>Create New Client</DialogTitle>
         <DialogContent>
@@ -295,9 +347,39 @@ const Spreadsheet: React.FC = () => {
             margin="dense"
           />
           <TextField
+            placeholder="House Number"
+            value={newRow.housenumber}
+            onChange={(e) => handleInputChange(e, "housenumber")}
+            type="text"
+            variant="outlined"
+            size="small"
+            fullWidth
+            margin="dense"
+          />
+          <TextField
+            placeholder="Street Name"
+            value={newRow.streetname}
+            onChange={(e) => handleInputChange(e, "streetname")}
+            type="text"
+            variant="outlined"
+            size="small"
+            fullWidth
+            margin="dense"
+          />
+          <TextField
             placeholder="Zip Code"
             value={newRow.zipcode}
             onChange={(e) => handleInputChange(e, "zipcode")}
+            type="text"
+            variant="outlined"
+            size="small"
+            fullWidth
+            margin="dense"
+          />
+          <TextField
+            placeholder="Dietary Restriction"
+            value={newRow.dietaryRestriction}
+            onChange={(e) => handleInputChange(e, "dietaryRestriction")}
             type="text"
             variant="outlined"
             size="small"
