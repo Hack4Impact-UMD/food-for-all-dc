@@ -1,325 +1,202 @@
-import { Calendar, momentLocalizer, View, Views } from "react-big-calendar";
-import moment from "moment";
-import { useEffect, useState } from "react";
-import "react-big-calendar/lib/css/react-big-calendar.css";
+import React, { useState } from 'react';
 import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Button,
-  Link,
-} from "@mui/material";
-import {
-  ClientProfile,
-  DietaryRestrictions,
-  Volunteer,
-  Delivery,
-} from "../../types/types";
+  startOfMonth, endOfMonth, addMonths, subMonths,
+  format, eachDayOfInterval, startOfWeek, endOfWeek, addDays,
+  eachHourOfInterval,
+  startOfDay,
+  endOfDay,
+  getHours,
+  eachMinuteOfInterval,
+  isEqual
+} from 'date-fns';
+import './CalendarPage.css';
+import { Box, Button, TextField, Typography } from '@mui/material';
 
-const localizer = momentLocalizer(moment);
+type ViewType = 'month' | 'week' | 'day';
 
-// Sample dietary restrictions
-const dietaryRestrictionsExample: DietaryRestrictions = {
-  lowSugar: true,
-  kidneyFriendly: false,
-  vegan: false,
-  vegetarian: true,
-  halal: true,
-  microwaveOnly: false,
-  softFood: false,
-  lowSodium: true,
-  noCookingEquipment: false,
-  foodAllergens: ["nuts"], // Example allergens
-  other: ["No red meat"], // Example other restrictions
-};
+interface CalendarProps {
+  initialMonth?: Date;
+  events?: { date: Date; title: string; description?: string }[];
+}
 
-// Sample clients
-const clients = new Map<string, ClientProfile>([
-  [
-    "1",
-    {
-      uid: "1",
-      firstName: "Krishnan",
-      lastName: "Tholkappian",
-      address: "7660 Regents Drive",
-      dob: new Date("2005-03-18"),
-      deliveryFreq: "Weekly",
-      phone: "7326664367",
-      alternativePhone: "1234567890",
-      adults: 2,
-      children: 0,
-      total: 2,
-      gender: "Male",
-      ethnicity: "Asian",
-      deliveryDetails: {
-        deliveryInstructions: "Leave at the front door",
-        dietaryRestrictions: dietaryRestrictionsExample,
-      },
-      lifeChallenges: "N/A",
-      notes: "N/A",
-      lifestyleGoals: "Healthy eating",
-      language: "English",
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    },
-  ],
-  [
-    "2",
-    {
-      uid: "2",
-      firstName: "Jane",
-      lastName: "Doe",
-      address: "1234 Main St",
-      dob: new Date("1985-05-15"),
-      deliveryFreq: "Bi-weekly",
-      phone: "9876543210",
-      alternativePhone: "5555555555",
-      adults: 1,
-      children: 2,
-      total: 3,
-      gender: "Female",
-      ethnicity: "Hispanic",
-      deliveryDetails: {
-        deliveryInstructions: "Call before delivery",
-        dietaryRestrictions: {
-          lowSugar: false,
-          kidneyFriendly: true,
-          vegan: false,
-          vegetarian: false,
-          halal: false,
-          microwaveOnly: false,
-          softFood: false,
-          lowSodium: false,
-          noCookingEquipment: true,
-          foodAllergens: ["dairy"],
-          other: [],
-        },
-      },
-      lifeChallenges: "Single parent",
-      notes: "N/A",
-      lifestyleGoals: "Manage weight",
-      language: "Spanish",
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    },
-  ],
-]);
+const CalendarPage: React.FC<CalendarProps> = ({ initialMonth = new Date(), events = [] }) => {
+  const [currentDate, setCurrentDate] = useState(initialMonth);
+  const [viewType, setViewType] = useState<ViewType>('month');
+  const [calendarEvents, setCalendarEvents] = useState(events);
 
+  // State for new event form
+  const [newEventDate, setNewEventDate] = useState<string>('');
+  const [newEventTitle, setNewEventTitle] = useState<string>('');
+  const [newEventDescription, setNewEventDescription] = useState<string>('');
 
-const volunteers = new Map<string, Volunteer>([
-  ["1", { id: "1", name: "Alice Johnson", phone: "111-222-3333" }],
-  ["2", { id: "2", name: "Bob Smith", phone: "222-333-4444" }],
-  ["3", { id: "3", name: "Charlie Brown", phone: "333-444-5555" }],
-  ["4", { id: "4", name: "Daisy Miller", phone: "444-555-6666" }],
-]);
-
-const generateDeliveryId = (clientId: string) => {
-  const randomNum = Math.floor(Math.random() * 10000);
-  return `${clientId}-${randomNum}`;
-};
-
-const CalendarPage = () => {
-  const [deliveries, setDeliveries] = useState<Delivery[]>([]);
-  const [view, setView] = useState<View>(Views.MONTH);
-  const [open, setOpen] = useState(false);
-  const [selectedDelivery, setSelectedDelivery] = useState<Delivery | null>(null);
-
-  const [clientOpen, setClientOpen] = useState(false);
-  const [driverOpen, setDriverOpen] = useState(false);
-  const [selectedClient, setSelectedClient] = useState<ClientProfile | null>(null);
-  const [selectedDriver, setSelectedDriver] = useState<Volunteer | null>(null);
-
-  const handleEventClick = (event: any) => {
-    setSelectedDelivery(event.resource);
-    setOpen(true);
+  const handleNext = () => {
+    setCurrentDate(viewType === 'month' ? addMonths(currentDate, 1) : addDays(currentDate, viewType === 'week' ? 7 : 1));
   };
 
-  const handleClose = () => {
-    setOpen(false);
-    setSelectedDelivery(null);
+  const handlePrev = () => {
+    setCurrentDate(viewType === 'month' ? subMonths(currentDate, 1) : addDays(currentDate, viewType === 'week' ? -7 : -1));
   };
 
-  const handleClientClick = (clientId: string) => {
-    const client = clients.get(clientId);
-    setSelectedClient(client || null);
-    setClientOpen(true);
-  };
+  const getEventsForDate = (date: Date) =>
+    calendarEvents.filter(event => format(event.date, 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd'));
 
-  const handleDriverClick = (driverId: string) => {
-    const driver = volunteers.get(driverId);
-    setSelectedDriver(driver || null);
-    setDriverOpen(true);
-  };
-
-  const handleClientClose = () => setClientOpen(false);
-  const handleDriverClose = () => setDriverOpen(false);
-
-  const createDelivery = (day: Date, clientId: string, volunteerId: string, notes: string) => {
-    const existingDelivery = deliveries.find(delivery => delivery.id === generateDeliveryId(clientId));
-
-    if (!existingDelivery) {
-      const volunteer = volunteers.get(volunteerId);
-      if (volunteer) {
-        const newDelivery: Delivery = {
-          id: generateDeliveryId(clientId),
-          day: day,
-          clientID: clientId,
-          driver: volunteer,
-          status: "Not Delivered",
-          notes: notes,
-        };
-
-        setDeliveries((prevDeliveries) => [...prevDeliveries, newDelivery]);
-      } else {
-        console.error(`Volunteer with ID ${volunteerId} not found.`);
-      }
-    } else {
-      console.log(`Delivery for client ${clientId} already exists.`);
-    }
-  };
-
-  useEffect(() => {
-    createDelivery(new Date(2024, 9, 3, 10, 50), "1", "1", "yes");
-    createDelivery(new Date(2024, 9, 7, 15, 0), "2", "2", "hellooooo");
-  }, [])
-
-  const events = deliveries.map((delivery) => {
-    const client = clients.get(delivery.clientID);
-    const clientName = client
-      ? `${client?.firstName || "Unknown"} ${client?.lastName || "Client"}`
-      : "Unknown Client";
-
-    return {
-      id: delivery.id,
-      title: `Delivery for ${clientName}`,
-      start: delivery.day,
-      end: delivery.day,
-      resource: delivery,
+  const handleAddEvent = () => {
+    const newEvent = {
+      date: new Date(newEventDate),
+      title: newEventTitle,
+      description: newEventDescription
     };
-  });
+    setCalendarEvents([...calendarEvents, newEvent]);
+    setNewEventDate('');
+    setNewEventTitle('');
+    setNewEventDescription('');
+  };
 
+  const renderMonthView = () => {
+    const daysInMonth = eachDayOfInterval({
+      start: startOfWeek(startOfMonth(currentDate)),
+      end: endOfWeek(endOfMonth(currentDate)),
+    });
+
+    return (
+      <div className="calendar-grid month-view">
+        {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+          <div key={day} className="calendar-day-header">{day}</div>
+        ))}
+        {daysInMonth.map(date => (
+          <div
+            key={date.toString()}
+            className={`calendar-day ${date.getMonth() === currentDate.getMonth() ? 'current-month' : 'other-month'}`}
+          >
+            <span>{format(date, 'd')}</span>
+            {getEventsForDate(date).map(event => (
+              <div key={event.title} className="event-indicator">{event.title}</div>
+            ))}
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  const renderWeekView = () => {
+    const daysInWeek = eachDayOfInterval({
+      start: startOfWeek(currentDate),
+      end: endOfWeek(currentDate),
+    });
+
+    return (
+      <div className="calendar-grid week-view">
+        {daysInWeek.map(date => (
+          <div key={date.toString()} className="calendar-day">
+            <span className="week-date-header">{format(date, 'EEE, MMM d')}</span>
+            {getEventsForDate(date).map(event => (
+              <div key={event.title} className="event-indicator">{event.title}</div>
+            ))}
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  const renderDayView = () => {
+    const dayEvents = getEventsForDate(currentDate);
+  
+    // Generate hours and 15-minute slots for each hour
+    const hoursInDay = eachHourOfInterval({
+      start: startOfDay(currentDate),
+      end: endOfDay(currentDate),
+    });
+  
+    const hoursWithEvents = hoursInDay.filter(hour => {
+      return dayEvents.some(event => {
+        return (
+          hour.getHours() === new Date(event.date).getHours() &&
+          hour.getDate() === new Date(event.date).getDate() &&
+          hour.getMonth() === new Date(event.date).getMonth() &&
+          hour.getFullYear() === new Date(event.date).getFullYear()
+        );
+      });
+    });
+  
+    return (
+      <div className="calendar-day-view">
+        {hoursWithEvents.map(hour => (
+          <Box key={format(hour, 'HH:mm')} className="hour-row" sx={{ display: 'flex', alignItems: 'flex-start', height: '125px'}}>
+            <Typography className="hour-label" sx={{ width: '60px' }}>{format(hour, 'HH:mm')}</Typography>
+            <Box className="event-container" sx={{ flexGrow: 1, display: 'flex', flexWrap: 'wrap', backgroundColor: '#D9D9D9', padding: '1rem', borderRadius: '0.5rem', marginBottom: '1rem', height: '100%' }}>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', width: '100%' }}>
+                {eachMinuteOfInterval(
+                  { start: hour, end: new Date(hour.getTime() + 60 * 60 * 1000 - 1) },
+                  { step: 15 }
+                ).map(slot => {
+                  const eventsInSlot = dayEvents.filter(event =>
+                    isEqual(new Date(event.date), slot)
+                  );
+  
+                  return (
+                    <Box key={format(slot, 'HH:mm')} className="slot" sx={{ marginRight: '5px', flexGrow: 1, color: "white", display: 'flex'}}>
+                      {eventsInSlot.length > 0 ? (
+                        eventsInSlot.map(event => (
+                          <Box key={event.title} className="event-detail" sx={{ display: 'block', margin: '5px 10px', padding: '5px 10px', backgroundColor: '#257E68', borderRadius: '20px', boxShadow: '0 0 2px rgba(0,0,0,0.2)', flex: 1, marginBottom: "10px"}}>
+                            {format(slot, 'HH:mm')} {event.title}
+                          </Box>
+                        ))
+                      ) : (
+                        <div className="empty-slot" style={{ color: '#888' }}></div>
+                      )}
+                    </Box>
+                  );
+                })}
+              </Box>
+            </Box>
+          </Box>
+        ))}
+      </div>
+    );
+  };
+  
+  
+  
+  
   return (
-    <div style={{ padding: "20px" }}>
-      <Calendar
-        localizer={localizer}
-        events={events}
-        startAccessor="start"
-        endAccessor="end"
-        style={{ height: 500 }}
-        view={view}
-        views={{ month: true, week: true, day: true, agenda: true }}
-        onView={(newView) => setView(newView)}
-        defaultDate={new Date()}
-        onSelectEvent={handleEventClick}
-      />
+    <div className="calendar-container">
+      <div className="calendar-header">
+        <button onClick={handlePrev}>&lt;</button>
+        <span>{format(currentDate, viewType === 'month' ? 'MMMM yyyy' : 'MMMM d, yyyy')}</span>
+        <button onClick={handleNext}>&gt;</button>
 
-      {/* Delivery Details Dialog */}
-      <Dialog open={open} onClose={handleClose}>
-        <DialogTitle>Delivery Details</DialogTitle>
-        <DialogContent>
-          {selectedDelivery && (
-            <>
-              <p>
-                <strong>Client Name:</strong>
-                <Link
-                  component="button"
-                  onClick={() => handleClientClick(selectedDelivery.clientID)}
-                >
-                  {clients.get(selectedDelivery.clientID)?.firstName || "Unknown"}{" "}
-                  {clients.get(selectedDelivery.clientID)?.lastName || "Client"}
-                </Link>
-              </p>
-              <p>
-                <strong>Address:</strong> {clients.get(selectedDelivery.clientID)?.address || "N/A"}
-              </p>
-              <p>
-                <strong>Delivery Instructions:</strong> {clients.get(selectedDelivery.clientID)?.deliveryDetails.deliveryInstructions || "N/A"}
-              </p>
-              <p>
-                <strong>Driver:</strong>
-                <Link
-                  component="button"
-                  onClick={() => handleDriverClick(selectedDelivery.driver.id)}
-                >
-                  {selectedDelivery.driver.name || "Unknown Driver"}
-                </Link>
-              </p>
-              <p>
-                <strong>Status:</strong> {selectedDelivery.status || "Unknown"}
-              </p>
-              <p>
-                <strong>Notes:</strong> {selectedDelivery.notes || "No notes available"}
-              </p>
-            </>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleClose} color="primary">
-            Close
-          </Button>
-        </DialogActions>
-      </Dialog>
+        <div className="view-selection">
+          <button onClick={() => setViewType('month')}>Month</button>
+          <button onClick={() => setViewType('week')}>Week</button>
+          <button onClick={() => setViewType('day')}>Day</button>
+        </div>
+      </div>
 
-      {/* Client Details Dialog */}
-      <Dialog open={clientOpen} onClose={handleClientClose}>
-        <DialogTitle>Client Details</DialogTitle>
-        <DialogContent>
-          {selectedClient && (
-            <>
-              <p>
-                <strong>Name:</strong> {selectedClient?.firstName || "Unknown"}{" "}
-                {selectedClient?.lastName || "Client"}
-              </p>
-              <p>
-                <strong>Address:</strong> {selectedClient?.address || "N/A"}
-              </p>
-              <p>
-                <strong>Phone:</strong> {selectedClient?.phone || "N/A"}
-              </p>
-              <p>
-                <strong>Delivery Frequency:</strong>{" "}
-                {selectedClient?.deliveryFreq || "N/A"}
-              </p>
-              <p>
-                <strong>Dietary Restrictions:</strong>{" "}
-                {selectedClient?.deliveryDetails.dietaryRestrictions
-                  ? Object.entries(selectedClient.deliveryDetails.dietaryRestrictions)
-                      .map(([key, value]) => `${key}: ${value}`)
-                      .join(", ")
-                  : "None"}
-              </p>
-            </>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleClientClose} color="primary">
-            Close
-          </Button>
-        </DialogActions>
-      </Dialog>
+      {viewType === 'month' && renderMonthView()}
+      {viewType === 'week' && renderWeekView()}
+      {viewType === 'day' && renderDayView()}
 
-      {/* Driver Details Dialog */}
-      <Dialog open={driverOpen} onClose={handleDriverClose}>
-        <DialogTitle>Driver Details</DialogTitle>
-        <DialogContent>
-          {selectedDriver && (
-            <>
-              <p>
-                <strong>Name:</strong> {selectedDriver?.name || "Unknown"}
-              </p>
-              <p>
-                <strong>Phone:</strong> {selectedDriver?.phone || "N/A"}
-              </p>
-            </>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleDriverClose} color="primary">
-            Close
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <Box>
+        <h3>Add New Event</h3>
+        <TextField
+          type="date"
+          value={newEventDate}
+          onChange={(e) => setNewEventDate(e.target.value)}
+          placeholder="Event Date"
+        />
+        <TextField
+          type="text"
+          value={newEventTitle}
+          onChange={(e) => setNewEventTitle(e.target.value)}
+          placeholder="Event Title"
+        />
+        <TextField
+          value={newEventDescription}
+          onChange={(e) => setNewEventDescription(e.target.value)}
+          placeholder="Event Description (optional)"
+        />
+        <Button onClick={handleAddEvent}>Add Event</Button>
+      </Box>
     </div>
   );
 };
