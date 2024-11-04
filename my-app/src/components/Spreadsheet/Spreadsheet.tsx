@@ -1,6 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, Filter } from 'lucide-react';
+import { db } from "../../auth/firebaseConfig"; // Ensure the correct path
+import { Search, Filter } from "lucide-react";
 import "./Spreadsheet.css";
 import {
   Box,
@@ -13,10 +14,7 @@ import {
   TableRow,
   Paper,
   IconButton,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
+  /* Dialog, DialogTitle, DialogContent, DialogActions, */ // Commented out modal components
   Menu,
   MenuItem,
   TextField,
@@ -27,81 +25,146 @@ import SaveIcon from "@mui/icons-material/Save";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
 import ArrowDropUpIcon from "@mui/icons-material/ArrowDropUp";
 import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
+import {
+  collection,
+  getDocs,
+  addDoc,
+  doc,
+  deleteDoc,
+  updateDoc,
+} from "firebase/firestore";
 
-const initialData = [
-  {
-    id: 1,
-    clientid: "52352362347",
-    firstname: "Yvonne",
-    lastname: "Akins",
-    phone: "12312312",
-    housenumber: "101",
-    streetname: "Main St",
-    zipcode: "23423",
-    dietaryRestriction: "Vegan",
-  },
-  {
-    id: 2,
-    clientid: "42352362347",
-    firstname: "Anna",
-    lastname: "Smith",
-    phone: "98765432",
-    housenumber: "102",
-    streetname: "Main St",
-    zipcode: "12345",
-    dietaryRestriction: "Gluten-Free",
-  },
-];
+// Define TypeScript types for row data
+interface RowData {
+  id: string;
+  clientid: string;
+  firstname: string;
+  lastname: string;
+  phone: string;
+  housenumber: string;
+  streetname: string;
+  zipcode: string;
+  dietaryRestriction: string;
+}
 
-const fields = [
+// Define a type for fields that can either be computed or direct keys of RowData
+type Field =
+  | {
+    key: "fullname";
+    label: "Name";
+    type: "text";
+    compute: (data: RowData) => string;
+  }
+  | {
+    key: keyof Omit<RowData, "id" | "firstname" | "lastname">;
+    label: string;
+    type: string;
+    compute?: never;
+  };
+
+// Define fields for table columns
+const fields: Field[] = [
   {
     key: "fullname",
     label: "Name",
     type: "text",
-    compute: (data: { firstname: string; lastname: string }) =>
-      `${data.lastname}, ${data.firstname}`,
+    compute: (data: RowData) => `${data.lastname}, ${data.firstname}`,
   },
   { key: "phone", label: "Phone", type: "text" },
   { key: "housenumber", label: "House Number", type: "text" },
   { key: "streetname", label: "Street Name", type: "text" },
 ];
 
+// Type Guard to check if a field is a regular field
+const isRegularField = (
+  field: Field
+): field is Extract<Field, { key: keyof RowData }> => {
+  return field.key !== "fullname";
+};
+
 const Spreadsheet: React.FC = () => {
-  const [rows, setRows] = useState(initialData);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [editingRowId, setEditingRowId] = useState<number | null>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [menuAnchorEl, setMenuAnchorEl] = useState<null | HTMLElement>(null);
-  const [selectedRowId, setSelectedRowId] = useState<number | null>(null);
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
-  const [newRow, setNewRow] = useState({
+  const [rows, setRows] = useState<RowData[]>([]);
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [editingRowId, setEditingRowId] = useState<string | null>(null);
+  /* 
+  const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
+  const [newRow, setNewRow] = useState<Omit<RowData, "id">>({
+    clientid: "",
     firstname: "",
     lastname: "",
-    clientid: "",
     phone: "",
     housenumber: "",
     streetname: "",
     zipcode: "",
     dietaryRestriction: "",
   });
+  */ // Commented out modal-related state variables
 
-  const navigate = useNavigate();
-
+  const [menuAnchorEl, setMenuAnchorEl] = useState<null | HTMLElement>(null);
+  const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
+  /* 
   const handleInputChange = (
     e: React.ChangeEvent<HTMLTextAreaElement | HTMLInputElement>,
-    field: string
+    field: keyof Omit<RowData, "id">
   ) => {
     setNewRow({ ...newRow, [field]: e.target.value });
   };
+  
+  const handleAddRow = async () => {
+    if (newRow.firstname && newRow.lastname) {
+      try {
+        const docRef = await addDoc(collection(db, "clients"), newRow);
+        setRows([...rows, { id: docRef.id, ...newRow }]);
+        setNewRow({
+          clientid: "",
+          firstname: "",
+          lastname: "",
+          phone: "",
+          housenumber: "",
+          streetname: "",
+          zipcode: "",
+          dietaryRestriction: "",
+        });
+        setIsModalOpen(false);
+      } catch (error) {
+        console.error("Error adding document: ", error);
+      }
+    } else {
+      alert("First Name and Last Name are required.");
+    }
+  };
+  */ // Commented out modal-related functions
 
+  const navigate = useNavigate();
+
+  // Fetch data from Firebase without authentication checks
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const snapshot = await getDocs(collection(db, "clients"));
+        const data = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...(doc.data() as Omit<RowData, "id">),
+        }));
+        setRows(data);
+      } catch (error) {
+        console.error("Error fetching data: ", error);
+      }
+    };
+    fetchData();
+  }, []);
+
+  // Handle search input change
   const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setSearchQuery(event.target.value);
   };
 
+  // Handle input change for editing a row
   const handleEditInputChange = (
     e: React.ChangeEvent<HTMLTextAreaElement | HTMLInputElement>,
-    id: number,
-    field: string
+    id: string,
+    field: keyof RowData
   ) => {
     const updatedRows = rows.map((row) =>
       row.id === id ? { ...row, [field]: e.target.value } : row
@@ -109,54 +172,66 @@ const Spreadsheet: React.FC = () => {
     setRows(updatedRows);
   };
 
-  const handleAddRow = () => {
-    if (newRow.firstname && newRow.lastname) {
-      setRows([...rows, { id: rows.length + 1, ...newRow }]);
-      setNewRow({
-        firstname: "",
-        lastname: "",
-        clientid: "",
-        phone: "",
-        housenumber: "",
-        streetname: "",
-        zipcode: "",
-        dietaryRestriction: "",
-      });
-      setIsModalOpen(false);
+  // Handle deleting a row from Firestore
+  const handleDeleteRow = async (id: string) => {
+    try {
+      await deleteDoc(doc(db, "clients", id));
+      setRows(rows.filter((row) => row.id !== id));
+    } catch (error) {
+      console.error("Error deleting document: ", error);
     }
   };
 
-  const handleDeleteRow = (id: number) => {
-    setRows(rows.filter((row) => row.id !== id));
-  };
-
-  const handleEditRow = (id: number) => {
+  // Handle initiating edit mode for a row
+  const handleEditRow = (id: string) => {
     setEditingRowId(id);
     setMenuAnchorEl(null);
   };
 
-  const handleSaveRow = (id: number) => {
-    setEditingRowId(null);
+  // Handle saving edited row to Firestore
+  const handleSaveRow = async (id: string) => {
+    const rowToUpdate = rows.find((row) => row.id === id);
+    if (rowToUpdate) {
+      try {
+        const { id, ...rowWithoutId } = rowToUpdate;
+        await updateDoc(
+          doc(db, "clients", id),
+          rowWithoutId as Omit<RowData, "id">
+        );
+        setEditingRowId(null);
+      } catch (error) {
+        console.error("Error updating document: ", error);
+      }
+    }
   };
 
+  // Handle navigating to user details page
   const handleRowClick = (clientid: string) => {
     navigate(`/user/${clientid}`);
   };
 
-  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, id: number) => {
+  // Handle opening the action menu
+  const handleMenuOpen = (
+    event: React.MouseEvent<HTMLElement>,
+    id: string
+  ) => {
     setMenuAnchorEl(event.currentTarget);
     setSelectedRowId(id);
   };
 
+  // Handle closing the action menu
   const handleMenuClose = () => {
     setMenuAnchorEl(null);
     setSelectedRowId(null);
   };
 
+  // Handle toggling sort order for the Name column
   const toggleSortOrder = () => {
     const sortedRows = [...rows].sort((a, b) => {
       if (a.firstname === b.firstname) {
-        return a.lastname.localeCompare(b.lastname);
+        return sortOrder === "asc"
+          ? a.lastname.localeCompare(b.lastname)
+          : b.lastname.localeCompare(a.lastname);
       }
       return sortOrder === "asc"
         ? a.firstname.localeCompare(b.firstname)
@@ -166,12 +241,13 @@ const Spreadsheet: React.FC = () => {
     setSortOrder(sortOrder === "asc" ? "desc" : "asc");
   };
 
+  // Filter rows based on search query
   const visibleRows = rows.filter(
     (row) =>
       fields.some((field) => {
         const fieldValue = field.compute
           ? field.compute(row)
-          : row[field.key as keyof typeof row];
+          : row[field.key as keyof RowData];
         return (
           fieldValue &&
           fieldValue.toString().toLowerCase().includes(searchQuery.toLowerCase())
@@ -181,16 +257,19 @@ const Spreadsheet: React.FC = () => {
       row.zipcode.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  /* 
+  // Open the modal for creating a new client
   const openModal = () => {
     setIsModalOpen(true);
   };
-
+  
+  // Close the modal and reset newRow state
   const closeModal = () => {
     setIsModalOpen(false);
     setNewRow({
+      clientid: "",
       firstname: "",
       lastname: "",
-      clientid: "",
       phone: "",
       housenumber: "",
       streetname: "",
@@ -198,6 +277,7 @@ const Spreadsheet: React.FC = () => {
       dietaryRestriction: "",
     });
   };
+  */ // Commented out modal-related functions
 
   return (
     <Box className="box">
@@ -311,7 +391,7 @@ const Spreadsheet: React.FC = () => {
           <Button
             variant="contained"
             color="primary"
-            onClick={openModal}
+            /* onClick={openModal} */ // Removed onClick handler
             className="create-client"
             style={{
               backgroundColor: "#2E5B4C",
@@ -371,7 +451,11 @@ const Spreadsheet: React.FC = () => {
                               placeholder="First Name"
                               value={row.firstname}
                               onChange={(e) =>
-                                handleEditInputChange(e, row.id, "firstname")
+                                handleEditInputChange(
+                                  e,
+                                  row.id,
+                                  "firstname"
+                                )
                               }
                               variant="outlined"
                               size="small"
@@ -381,31 +465,37 @@ const Spreadsheet: React.FC = () => {
                               placeholder="Last Name"
                               value={row.lastname}
                               onChange={(e) =>
-                                handleEditInputChange(e, row.id, "lastname")
+                                handleEditInputChange(
+                                  e,
+                                  row.id,
+                                  "lastname"
+                                )
                               }
                               variant="outlined"
                               size="small"
                             />
                           </>
-                        ) : (
+                        ) : isRegularField(field) ? (
                           <TextField
                             type={field.type}
-                            value={
-                              row[field.key as keyof typeof row] as string
-                            }
+                            value={row[field.key]}
                             onChange={(e) =>
-                              handleEditInputChange(e, row.id, field.key)
+                              handleEditInputChange(
+                                e,
+                                row.id,
+                                field.key as keyof RowData
+                              )
                             }
                             variant="outlined"
                             size="small"
                           />
-                        )
+                        ) : null
                       ) : field.key === "fullname" ? (
                         field.compute
                           ? field.compute(row)
                           : `${row.firstname} ${row.lastname}`
                       ) : (
-                        row[field.key as keyof typeof row]
+                        row[field.key]
                       )}
                     </TableCell>
                   ))}
@@ -416,6 +506,7 @@ const Spreadsheet: React.FC = () => {
                         color="primary"
                         size="small"
                         onClick={() => handleSaveRow(row.id)}
+                        style={{ marginRight: "8px" }}
                       >
                         <SaveIcon fontSize="small" /> Save
                       </Button>
@@ -447,7 +538,8 @@ const Spreadsheet: React.FC = () => {
           </Table>
         </TableContainer>
 
-        {/* Create Client Modal */}
+        {/* 
+        // Create Client Modal
         <Dialog open={isModalOpen} onClose={closeModal}>
           <DialogTitle>Create New Client</DialogTitle>
           <DialogContent>
@@ -536,11 +628,16 @@ const Spreadsheet: React.FC = () => {
             <Button onClick={closeModal} color="secondary">
               Cancel
             </Button>
-            <Button onClick={handleAddRow} color="primary" variant="contained">
+            <Button
+              onClick={handleAddRow}
+              color="primary"
+              variant="contained"
+            >
               Save
             </Button>
           </DialogActions>
         </Dialog>
+        */} {/* Commented out modal JSX */}
       </div>
     </Box>
   );
