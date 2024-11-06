@@ -6,3 +6,4 @@ pydantic==2.9.2
 numpy>=2.1.1
 kmedoids==0.5.2
 k-means-constrained==0.7.5
+numpy
