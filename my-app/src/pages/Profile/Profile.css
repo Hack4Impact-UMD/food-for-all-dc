@@ -178,17 +178,18 @@
   color: #7b7a7a;
 }
 
-.edit {
+.action-label {
   font-size: 20px;
   font-weight: bold;
   display: inline-block;
   color: #257e68;
 }
 
-.edit-button {
+.action-button {
   color: #257e68;
   background-color: #257e6800;
   border-color: #257e6800;
+  cursor: pointer;
 }
 
 .info-grid {
@@ -228,6 +229,17 @@
 dt,
 dd {
   margin: 0 20px 10px 0;
+}
+
+.required-asterisk {
+  color: red;
+  margin-left: 2px;
+}
+
+.error-message {
+  color: red;
+  font-size: 0.75em;
+  margin-top: 4px;
 }
 
 /* Mobile Responsiveness */

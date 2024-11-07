@@ -5,7 +5,7 @@ import ForgotPasswordPage from "./pages/Login/forgot-passsowrd"; // Assuming thi
 import Login from "./pages/Login/Login";
 import Dashboard from "./pages/Dashboard";
 import CalendarPage from "./components/Calendar/CalendarPage";
-import Profile from './pages/Profile/Profile';
+import Profile from "./pages/Profile/Profile";
 import Spreadsheet from "./components/Spreadsheet/Spreadsheet";
 function App() {
   return (
@@ -15,7 +15,10 @@ function App() {
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/calendar" element={<CalendarPage />} />
         <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/profile" element={<Profile />} />
+        <Route
+          path="/profile"
+          element={<Profile uid={"nlzNo7AnlUXx5OiCQ0Vn"} />}
+        />
         <Route path="/spreadsheet" element={<Spreadsheet />} />
       </Routes>
     </Router>
