@@ -5,8 +5,8 @@ import ForgotPasswordPage from "./pages/Login/forgot-passsowrd";
 import Login from "./pages/Login/Login";
 import Dashboard from "./pages/Dashboard";
 import CalendarPage from "./components/Calendar/CalendarPage";
-import Profile from './pages/Profile/Profile';
 import Spreadsheet from "./components/Spreadsheet/Spreadsheet";
+import Profile from './pages/Profile/Profile';
 import BasePage from './pages/Base/Base';
 
 function App() {
