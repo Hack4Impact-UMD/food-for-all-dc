@@ -7,6 +7,7 @@ import Dashboard from "./pages/Dashboard";
 import CalendarPage from "./components/Calendar/CalendarPage";
 import Profile from "./pages/Profile/Profile";
 import Spreadsheet from "./components/Spreadsheet/Spreadsheet";
+
 function App() {
   return (
     <Router>
