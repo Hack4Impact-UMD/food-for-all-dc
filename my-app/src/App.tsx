@@ -17,7 +17,7 @@ function App() {
         <Route path="/dashboard" element={<Dashboard />} />
         <Route
           path="/profile"
-          element={<Profile uid={"nlzNo7AnlUXx5OiCQ0Vn"} />}
+          element={<Profile uid={"kBTldkURU4udo9kP9Rwt"} />}
         />
         <Route path="/spreadsheet" element={<Spreadsheet />} />
       </Routes>
