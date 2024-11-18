@@ -44,15 +44,20 @@ function App() {
             </BasePage>
           }
         />
+        {/* Profile routes */}
+        <Route
+          path="/profile/:uid"
+          element={
+            <BasePage>
+              <ProfileRouter />
+            </BasePage>
+          }
+        />
         <Route
           path="/profile"
           element={
             <BasePage>
-              <Route path="/profile/:uid" element={<ProfileRouter />} />
-              <Route
-                path="/profile"
-                element={<Profile uid={"kBTldkURU4udo9kP9Rwt"} />}
-              />
+              <Profile uid="kBTldkURU4udo9kP9Rwt" />
             </BasePage>
           }
         />
