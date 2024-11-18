@@ -81,5 +81,5 @@ def test(coords):
     print(labels)
 
 
-coords = [i for i in range(105)]
+coords = [i for i in range(300)]
 test(coords)

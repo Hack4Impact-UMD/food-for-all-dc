@@ -1,10 +1,13 @@
+from math import cos, sin
 import googlemaps
 from firebase_functions import https_fn
 from dotenv import load_dotenv
+from collections import defaultdict
 from k_means_constrained import KMeansConstrained
+from sklearn.neighbors import LocalOutlierFactor
 from kmedoids import KMedoids
-from pydantic import BaseModel
-from typing import List, Tuple, Any
+from pydantic import BaseModel, ValidationError
+from typing import Dict, List, Tuple, Any
 import json
 import os
 import numpy as np
@@ -13,15 +16,19 @@ load_dotenv()  # TODO: Remove once done with dev
 # TODO: Make sure to add the api key in the environment vars in the firebase console
 
 
-class ClusterDeliveriesRequest(BaseModel):
+class KMeansClusterDeliveriesRequest(BaseModel):
     coords: List[Tuple[float, float]]
     drivers_count: int
     min_deliveries: int
     max_deliveries: int
 
+class KMedoidsClusterDeliveriesRequest(BaseModel):
+    coords: List[Tuple[float, float]]
+    drivers_count: int
+
 
 class ClusterDeliveriesResponse(BaseModel):
-    labels: List[int]
+    clusters: Dict[str, List[int]]
 
 
 class OptimalRouteRequest(BaseModel):
@@ -33,63 +40,87 @@ class OptimalRouteRequest(BaseModel):
 class OptimalRouteResponse(BaseModel):
     directions: Any
 
+class FieldError(BaseModel):
+    field: str
+    message: str
+
+class ValidationErrorResponse(BaseModel):
+    error: str = "Validation Error"
+    details: List[FieldError]
+
+def parse_error_fields(e: ValidationError):
+    return [
+        FieldError(field=".".join(map(str, error["loc"])), message=error["msg"])
+        for error in e.errors()
+    ]
+
+# Returns list of batches
+def chunk_coordinates(coords, chunk_size=10):
+    for i in range(0, len(coords), chunk_size):
+        yield coords[i:i + chunk_size]
+
+# TODO: mock gmaps call, remove later.
+def mock_google_maps_distance_matrix(origins, destinations):
+    response = {
+        "rows": [
+            {"elements": [{"status": "OK", "duration": {
+                "value": abs(d[0] + o[0])}} for d in destinations]}
+            for o in origins
+        ]
+    }
+    return response
+
+# construct complete distance matrix from a list of coordinates
+def construct_distance_matrix(coords):
+    n = len(coords)
+
+    distance_matrix = np.zeros((n, n))
+    batches = list(chunk_coordinates(coords, 10))
+
+    # Loop over each pair of origin and destination batches to fill the distance matrix
+    for i, origin_batch in enumerate(batches):
+        for j, destination_batch in enumerate(batches):
+
+            # TODO: Replace with call to gmaps distance API.
+            response = mock_google_maps_distance_matrix(
+                origin_batch, destination_batch)
+            
+            # gmaps = googlemaps.Client(key=os.environ["MAPS_API_KEY"])
+            # distance_matrix = gmaps.distance_matrix(
+            #     origins=coords, destinations=coords, mode="driving"
+            # )
+
+            for origin_index, row in enumerate(response["rows"]):
+                for destination_index, element in enumerate(row["elements"]):
+                    if element["status"] == "OK":
+                        global_origin_index = i * 10 + origin_index
+                        global_destination_index = j * 10 + destination_index
+                        distance_matrix[global_origin_index][global_destination_index] = element["duration"]["value"]
+
+    return distance_matrix
+
+def latlon_to_cartesian(lat, lon, radius=6371):
+    x = radius * cos(lat) * cos(lon)
+    y = radius * cos(lat) * sin(lon)
+    z = radius * sin(lat)
+    return x, y, z
 
 # TODO: Implement Authorization if that is configured
-# TODO: Add rate limiting or caching since we are using google maps API
 @https_fn.on_request()
-def cluster_deliveries_k_medioids(req: https_fn.Request) -> https_fn.Response:
-    body = ClusterDeliveriesRequest(**req.get_json())
+def cluster_deliveries_k_medoids(req: https_fn.Request) -> https_fn.Response:
+    try:
+        body = KMedoidsClusterDeliveriesRequest(**req.get_json())
+    except ValidationError as e:
+        errors = parse_error_fields(e)
+        return https_fn.Response(
+            response=json.dumps(ValidationErrorResponse(details=errors)),
+            status=422,
+            content_type="application/json",
+        )
 
     coords = body.coords
 
-    # Returns list of batches
-    def chunk_coordinates(coords, chunk_size=10):
-        for i in range(0, len(coords), chunk_size):
-            yield coords[i:i + chunk_size]
-
-    # TODO: mock gmaps call, remove later.
-    def mock_google_maps_distance_matrix(origins, destinations):
-        response = {
-            "rows": [
-                {"elements": [{"status": "OK", "duration": {
-                    "value": d + o}} for d in destinations]}
-                for o in origins
-            ]
-        }
-        return response
-
-    # construct complete distance matrix from a list of coordinates
-    def construct_distance_matrix(coords):
-        n = len(coords)
-
-        distance_matrix = np.zeros((n, n))
-        batches = list(chunk_coordinates(coords, 10))
-
-        # Loop over each pair of origin and destination batches to fill the distance matrix
-        for i, origin_batch in enumerate(batches):
-            for j, destination_batch in enumerate(batches):
-
-                # TODO: Replace with call to gmaps distance API.
-                response = mock_google_maps_distance_matrix(
-                    origin_batch, destination_batch)
-            
-                # gmaps = googlemaps.Client(key=os.environ["MAPS_API_KEY"])
-                # distance_matrix = gmaps.distance_matrix(
-                #     origins=coords, destinations=coords, mode="driving"
-                # )
-
-                for origin_index, row in enumerate(response["rows"]):
-                    for destination_index, element in enumerate(row["elements"]):
-                        if element["status"] == "OK":
-                            global_origin_index = i * 10 + origin_index
-                            global_destination_index = j * 10 + destination_index
-                            distance_matrix[global_origin_index][global_destination_index] = element["duration"]["value"]
-        return distance_matrix
-
     drivers_count = body.drivers_count
-    # TODO: Determine if we nede to enforce min and max constraints here
-    min_deliveries = body.min_deliveries
-    max_deliveries = body.max_deliveries
 
     # TODO: Test with actual gmap calls
     distance_matrix = construct_distance_matrix(coords)
@@ -99,8 +130,12 @@ def cluster_deliveries_k_medioids(req: https_fn.Request) -> https_fn.Response:
     )
     labels = kmedoids.labels_
 
+    clusters = defaultdict(list)
+    for index, label in enumerate(labels):
+        clusters[f"cluster-{label+1}"].append(index)
+
     # TODO: Alter groups if we want to handle that in server side
-    data = ClusterDeliveriesResponse(labels=labels)
+    data = ClusterDeliveriesResponse(clusters=clusters)
     return https_fn.Response(
         response=json.dumps(data.model_dump()),
         status=201,
@@ -111,9 +146,18 @@ def cluster_deliveries_k_medioids(req: https_fn.Request) -> https_fn.Response:
 # TODO: Convert to cartesian if need be
 @https_fn.on_request()
 def cluster_deliveries_k_means(req: https_fn.Request) -> https_fn.Response:
-    body = ClusterDeliveriesRequest(**req.get_json())
+    try:
+        body = KMeansClusterDeliveriesRequest(**req.get_json())
+    except ValidationError as e:
+        errors = parse_error_fields(e)
+        return https_fn.Response(
+            response=json.dumps(ValidationErrorResponse(details=errors)),
+            status=422,
+            content_type="application/json",
+        )
 
     coords = body.coords
+    coords = [latlon_to_cartesian(lat, lon) for lat, lon in coords]
     drivers_count = body.drivers_count
     min_deliveries = body.min_deliveries
     max_deliveries = body.max_deliveries
@@ -126,7 +170,23 @@ def cluster_deliveries_k_means(req: https_fn.Request) -> https_fn.Response:
     ).fit(coords)
     labels = kmeans.labels_
 
-    data = ClusterDeliveriesResponse(labels=labels)
+    clusters = defaultdict(list)
+    for index, label in enumerate(labels):
+        clusters[f"cluster-{label+1}"].append(index)
+    
+    clusters["doordash"] = []
+    for key in clusters.keys():
+        cluster = clusters[key]
+        if len(cluster) <= 1:
+            continue
+        distance_matrix = construct_distance_matrix(coords=[coords[index] for index in cluster])
+        clf = LocalOutlierFactor(n_neighbors=len(cluster), metric="precomputed")
+        predictions = clf.fit_predict(distance_matrix)
+        outliers = [index for index, prediction in zip(cluster, predictions) if prediction == -1]
+        clusters[key] = list(set(clusters[key]) - set(outliers))
+        clusters["doordash"].extend(outliers)
+
+    data = ClusterDeliveriesResponse(clusters=clusters)
 
     return https_fn.Response(
         response=json.dumps(data.model_dump()),
