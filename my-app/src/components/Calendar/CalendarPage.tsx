@@ -388,6 +388,7 @@ const CalendarPage: React.FC = () => {
               margin="normal"
               InputLabelProps={{ shrink: true }}
             />
+            { /*
             <TextField
               label="Start Time"
               type="time"
@@ -396,7 +397,7 @@ const CalendarPage: React.FC = () => {
               fullWidth
               margin="normal"
               InputLabelProps={{ shrink: true }}
-            />
+            /> */}
             <TextField
               label="End Date"
               type="date"
@@ -406,6 +407,7 @@ const CalendarPage: React.FC = () => {
               margin="normal"
               InputLabelProps={{ shrink: true }}
             />
+            { /*
             <TextField
               label="End Time"
               type="time"
@@ -415,6 +417,7 @@ const CalendarPage: React.FC = () => {
               margin="normal"
               InputLabelProps={{ shrink: true }}
             />
+            */}
             <TextField
               label="Notes"
               value={newDelivery.notes}
