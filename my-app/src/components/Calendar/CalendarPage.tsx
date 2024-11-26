@@ -69,7 +69,9 @@ interface Client {
 
 interface DeliveryEvent {
   id: string;
-  assignedDriver: string;
+  assignedDriverId: string;
+  assignedDriverName: string;
+  clientId: string;
   clientName: string;
   startTime: Date;
   endTime: Date;
@@ -203,7 +205,7 @@ const CalendarPage: React.FC = () => {
       // Update calendar configuration with new events
       const calendarEvents: CalendarEvent[] = fetchedEvents.map(event => ({
         id: event.id,
-        text: "Client " + `${event.clientName} (Driver: ${event.assignedDriver})`,
+        text: `Client: ${event.clientName} (Driver: ${event.assignedDriverName})`,
         start: new DayPilot.Date(event.startTime, true),
         end: new DayPilot.Date(event.endTime, true),
         backColor: "#1976d2"
@@ -252,6 +254,7 @@ const CalendarPage: React.FC = () => {
         endTime,
         notes: ''
       });
+
       setIsModalOpen(false);
   
       // Refresh events after adding
@@ -424,6 +427,11 @@ const CalendarPage: React.FC = () => {
                 clientName: newValue ? `${newValue.firstName} ${newValue.lastName}` : ''
               });
             }}
+            renderOption={(props, option) => (
+              <li {...props} key={option.id}>
+                {`${option.firstName} ${option.lastName}`}
+              </li>
+            )}
             renderInput={(params) => (
               <TextField {...params} label="Client Name" margin="normal" fullWidth />
             )}
@@ -431,7 +439,7 @@ const CalendarPage: React.FC = () => {
 
           <Autocomplete
             options={drivers}
-            getOptionLabel={(option) => `${option.firstName} ${option.lastName}`}
+            getOptionLabel={(option) => `${option.firstName} ${option.lastName} (${option.id})`}
             value={
               newDelivery.assignedDriverId
                 ? drivers.find(driver => driver.id === newDelivery.assignedDriverId) || null
@@ -444,6 +452,11 @@ const CalendarPage: React.FC = () => {
                 assignedDriverName: newValue ? `${newValue.firstName} ${newValue.lastName}` : ''
               });
             }}
+            renderOption={(props, option) => (
+              <li {...props} key={option.id}>
+                {`${option.firstName} ${option.lastName}`}
+              </li>
+            )}
             renderInput={(params) => (
               <TextField {...params} label="Assigned Driver" margin="normal" fullWidth />
             )}
