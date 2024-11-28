@@ -306,17 +306,17 @@ const CalendarPage: React.FC = () => {
 
               <Box sx={{alignItems: "center"}}>
                 <Typography variant="subtitle2" sx={{fontWeight: "600", color: "#BDBDBD"}}>ADDRESS</Typography>
-                <Typography variant="body1" sx={{fontWeight: "bold", color: "#787777"}}>High</Typography>
+                <Typography variant="body1" sx={{fontWeight: "bold", color: "#787777"}}>23 White Creek Ln</Typography>
               </Box>
 
               <Box sx={{alignItems: "center"}}>
                 <Typography variant="subtitle2" sx={{fontWeight: "600", color: "#BDBDBD"}}>RESTRICTIONS</Typography>
-                <Typography variant="body1" sx={{fontWeight: "bold", color: "#787777"}}>High</Typography>
+                <Typography variant="body1" sx={{fontWeight: "bold", color: "#787777"}}>None</Typography>
               </Box>
 
               <Box sx={{alignItems: "center"}}>
                 <Typography variant="subtitle2" sx={{fontWeight: "600", color: "#BDBDBD"}}>LANGUAGE</Typography>
-                <Typography variant="body1" sx={{fontWeight: "bold", color: "#787777"}}>High</Typography>
+                <Typography variant="body1" sx={{fontWeight: "bold", color: "#787777"}}>English</Typography>
               </Box>
               </Box>
             ))}
