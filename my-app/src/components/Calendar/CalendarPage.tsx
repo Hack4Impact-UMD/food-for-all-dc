@@ -15,6 +15,7 @@ import {
   Avatar,
   Box,
 } from '@mui/material';
+import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import {
   Menu as MenuIcon,
   ChevronLeft,
@@ -289,9 +290,12 @@ const CalendarPage: React.FC = () => {
               >
                <Box sx={{alignItems: "center"}}>
                 <Typography variant="h6" sx={{fontWeight: "bold", color: "#787777"}}>{event.clientName}</Typography>
-                <Typography variant="subtitle2" sx={{fontWeight: "600", color: "#257E68", marginTop: 0.25}}>
-                  NOTES AND DETAILS
-                </Typography>
+                <Box sx={{display: "flex", flexDirection: "row"}}>
+                  <Typography variant="subtitle2" sx={{fontWeight: "600", color: "#257E68", marginTop: 0.25}}>
+                    NOTES AND DETAILS
+                  </Typography>
+                  <KeyboardArrowDownIcon sx={{ fontSize: 25, color: "#257E68"}} />
+                </Box>
               </Box>
 
               <Box sx={{alignItems: "center"}}>
