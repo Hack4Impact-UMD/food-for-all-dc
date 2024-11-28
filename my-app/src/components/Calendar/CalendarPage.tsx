@@ -28,6 +28,7 @@ import { styled } from '@mui/material/styles';
 import { collection, getDocs, addDoc, query, where, Timestamp } from 'firebase/firestore';
 import { db } from '../../auth/firebaseConfig';
 import { DayPilot, DayPilotCalendar, DayPilotMonth, DayPilotNavigator } from "@daypilot/daypilot-lite-react";
+import "./CalendarPage.css"
 
 const StyledToolbar = styled(Toolbar)(({ theme }) => ({
   justifyContent: 'space-between',
@@ -103,6 +104,7 @@ const CalendarPage: React.FC = () => {
     startDate: DayPilot.Date.today(),
     events: []
   });
+  const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
   const getInitialFormDates = () => {
     const today = new Date();
@@ -170,12 +172,13 @@ const CalendarPage: React.FC = () => {
         text: "Client " + `${event.clientName} (Driver: ${event.assignedDriver})`,
         start: new DayPilot.Date(event.startTime, true),
         end: new DayPilot.Date(event.endTime, true),
-        backColor: "#1976d2"
+        backColor: "#257E68",
       }));
 
       setCalendarConfig(prev => ({
         ...prev,
-        events: calendarEvents
+        events: calendarEvents,
+        durationBarVisible: false,
       }));
       console.log(calendarEvents);
       return fetchedEvents;
@@ -256,26 +259,86 @@ const CalendarPage: React.FC = () => {
   }, [viewType, currentDate]);
 
   const renderCalendarView = () => {
-    if (viewType === 'Month') {
+    if (viewType === 'Day') {
       return (
-        <DayPilotMonth
-          {...calendarConfig}
-        />
+        <Box sx={{ padding: 2}}>
+          {events.length === 0 ? (
+            <Typography>No deliveries scheduled for this day.</Typography>
+          ) : (
+            <Box
+              sx={{
+                maxHeight: "75vh",
+                overflowY: "auto",
+              }}
+            >
+              {events.map((event) => (
+              <Box
+                key={event.id}
+                sx={{
+                  display: "flex",
+                  flexDirection: "row",
+                  alignItems: "center",
+                  alignContent: "left",
+                  padding: 3,
+                  marginBottom: 1,
+                  border: "1px solid #fff",
+                  borderRadius: "10px",
+                  backgroundColor: "#F3F3F3",
+                  justifyContent: "space-around"
+                }}
+              >
+               <Box sx={{alignItems: "center"}}>
+                <Typography variant="h6" sx={{fontWeight: "bold", color: "#787777"}}>{event.clientName}</Typography>
+                <Typography variant="subtitle2" sx={{fontWeight: "600", color: "#257E68", marginTop: 0.25}}>
+                  NOTES AND DETAILS
+                </Typography>
+              </Box>
+
+              <Box sx={{alignItems: "center"}}>
+                <Typography variant="subtitle2" sx={{fontWeight: "600", color: "#BDBDBD"}}>ROUTE</Typography>
+                <Typography variant="body1" sx={{fontWeight: "bold", color: "#787777"}}>Washington Ave</Typography>
+              </Box>
+
+              <Box sx={{alignItems: "center"}}>
+                <Typography variant="subtitle2" sx={{fontWeight: "600", color: "#BDBDBD"}}>PRIORITY</Typography>
+                <Typography variant="body1" sx={{fontWeight: "bold", color: "#787777"}}>High</Typography>
+              </Box>
+
+              <Box sx={{alignItems: "center"}}>
+                <Typography variant="subtitle2" sx={{fontWeight: "600", color: "#BDBDBD"}}>ADDRESS</Typography>
+                <Typography variant="body1" sx={{fontWeight: "bold", color: "#787777"}}>High</Typography>
+              </Box>
+
+              <Box sx={{alignItems: "center"}}>
+                <Typography variant="subtitle2" sx={{fontWeight: "600", color: "#BDBDBD"}}>RESTRICTIONS</Typography>
+                <Typography variant="body1" sx={{fontWeight: "bold", color: "#787777"}}>High</Typography>
+              </Box>
+
+              <Box sx={{alignItems: "center"}}>
+                <Typography variant="subtitle2" sx={{fontWeight: "600", color: "#BDBDBD"}}>LANGUAGE</Typography>
+                <Typography variant="body1" sx={{fontWeight: "bold", color: "#787777"}}>High</Typography>
+              </Box>
+              </Box>
+            ))}
+            </Box>
+          )}
+        </Box>
       );
     }
-    
-    // For Day and Week views, ensure viewType is compatible with DayPilotCalendar
-    const calendarProps = {
-      ...calendarConfig,
-      viewType: viewType as DayPilotViewType
-    };
-    
+  
+    // For Week and Month views
+    if (viewType === 'Month') {
+      return <DayPilotMonth {...calendarConfig} />;
+    }
+  
     return (
       <DayPilotCalendar
-        {...calendarProps}
+        {...calendarConfig}
+        viewType={viewType as DayPilotViewType}
       />
     );
   };
+  
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
@@ -311,16 +374,6 @@ const CalendarPage: React.FC = () => {
                 </MenuItem>
               ))}
             </Menu>
-
-            <Box sx={{ display: 'flex', alignItems: 'center', width: 300 }}>
-              <IconButton onClick={handleNavigatePrev} size="small">
-                <ChevronLeft />
-              </IconButton>
-              <Typography variant="h6">{getHeaderDateText()}</Typography>
-              <IconButton onClick={handleNavigateNext} size="small">
-                <ChevronRight />
-              </IconButton>
-            </Box>
           </Box>
 
           <Typography variant="h6">Deliveries</Typography>
@@ -346,17 +399,85 @@ const CalendarPage: React.FC = () => {
         </StyledToolbar>
       </AppBar>
 
-      <Box component="main" sx={{ flexGrow: 1, overflow: 'hidden' }}>
+      <Box component="main" sx={{ flexGrow: 1, overflow: 'hidden'}}>
+          <Box 
+            sx={{
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center',
+              width: '100%', 
+              position: 'sticky',
+              zIndex: 10, 
+              marginTop: 5,
+            }}
+          >
+            
+            <Typography variant="h4" sx={{ marginRight: 2, color: "#787777" }}>
+            {viewType === "Day" && daysOfWeek[currentDate.getDayOfWeek()]}
+            {viewType === "Month" && currentDate.toString("MMMM")}
+          </Typography>
+
+            {viewType === "Day" && (
+              <Box
+                sx={{
+                  display: "flex",
+                  justifyContent: "center",
+                  alignItems: "center",
+                  width: "40px",
+                  height: "40px",
+                  backgroundColor: "#257E68",
+                  borderRadius: "90%",
+                  marginRight: 2,
+                }}
+              >
+                <Typography variant="h5" sx={{ color: "#fff" }}>
+                  {currentDate.toString("d")}
+                </Typography>
+              </Box>
+            )}
+            <IconButton onClick={handleNavigatePrev} size="large" sx={{ color: "#257E68"}}>
+              <Box
+                sx={{
+                  width: 12,
+                  height: 12,
+                  borderLeft: "2px solid #257E68",
+                  borderBottom: "2px solid #257E68",
+                  transform: "rotate(45deg)",
+                }}
+              />
+            </IconButton>
+            <IconButton onClick={handleNavigateNext} size="large" sx={{ color: "#257E68" }}>
+              <Box
+                sx={{
+                  width: 12,
+                  height: 12,
+                  borderLeft: "2px solid #257E68",
+                  borderBottom: "2px solid #257E68",
+                  transform: "rotate(-135deg)",
+                }}
+              />
+            </IconButton>
+
+            <Button
+              variant="contained"
+              startIcon={<Add />}
+              onClick={() => setIsModalOpen(true)}
+              sx={{
+                position: 'absolute',
+                right: 24,
+                top: '50%',
+                transform: 'translateY(-50%)', 
+                height: 50,
+                width: 166,
+                color: "#fff",
+                backgroundColor: "#257E68",
+              }}
+              >
+              Add Delivery
+            </Button>
+        </Box>
+
         <StyledCalendarContainer>
-          <NavigatorContainer>
-            <DayPilotNavigator
-              selectMode={viewType}
-              showMonths={2}
-              skipMonths={1}
-              onTimeRangeSelected={args => setCurrentDate(args.day)}
-            />
-          </NavigatorContainer>
-          
           <CalendarContent>
             {renderCalendarView()}
           </CalendarContent>
@@ -432,13 +553,7 @@ const CalendarPage: React.FC = () => {
         </Dialog>
 
         <Box sx={{ position: 'fixed', bottom: 24, right: 24 }}>
-          <Button
-            variant="contained"
-            startIcon={<Add />}
-            onClick={() => setIsModalOpen(true)}
-          >
-            Add Delivery
-          </Button>
+         
         </Box>
       </Box>
     </Box>
