@@ -1,3 +1,5 @@
+import { StringLiteral } from "typescript";
+
 type Role = "Admin" | "Manager" | "Volunteer";
 
 interface User {
@@ -12,6 +14,9 @@ export interface ClientProfile {
   firstName: string;
   lastName: string;
   address: string;
+  houseNumber: string;
+  streetName: string;
+  zipCode: string;
   dob: Date; // Date of birth
   deliveryFreq: string;
   phone: string;
