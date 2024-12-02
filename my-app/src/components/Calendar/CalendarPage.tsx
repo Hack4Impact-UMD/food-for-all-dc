@@ -67,9 +67,24 @@ const CalendarContent = styled(Box)({
   position: "relative",
 });
 
+interface Driver {
+  id: string;
+  firstName: string;
+  lastName: string;
+}
+
+interface Client {
+  id: string;
+  firstName: string;
+  lastName: string;
+}
+
+
 interface DeliveryEvent {
   id: string;
-  assignedDriver: string;
+  assignedDriverId: string;
+  assignedDriverName: string;
+  clientId: string;
   clientName: string;
   startTime: Date;
   endTime: Date;
@@ -77,7 +92,9 @@ interface DeliveryEvent {
 }
 
 interface NewDelivery {
-  assignedDriver: string;
+  assignedDriverId: string;
+  assignedDriverName: string;
+  clientId: string;
   clientName: string;
   startDate: string;
   startTime: string;
@@ -128,6 +145,24 @@ const CalendarPage: React.FC = () => {
     "Saturday",
   ];
 
+  const [drivers, setDrivers] = useState<Driver[]>([]);
+  const [clients, setClients] = useState<Client[]>([]);
+
+  const fetchDrivers = async () => {
+    const driversRef = collection(db, 'drivers');
+    const snapshot = await getDocs(driversRef);
+    const driverList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Driver[];
+    setDrivers(driverList);
+  };
+  
+  const fetchClients = async () => {
+    const clientsRef = collection(db, 'clients');
+    const snapshot = await getDocs(clientsRef);
+    const clientList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Client[];
+    setClients(clientList);
+  };
+
+
   const getInitialFormDates = () => {
     const today = new Date();
     return {
@@ -140,8 +175,10 @@ const CalendarPage: React.FC = () => {
   const [newDelivery, setNewDelivery] = useState<NewDelivery>(() => {
     const { date, startTime, endTime } = getInitialFormDates();
     return {
-      assignedDriver: "",
-      clientName: "",
+      assignedDriverId: '',
+      assignedDriverName: '',
+      clientId: '',
+      clientName: '',
       startDate: date,
       startTime,
       endDate: date,
@@ -191,8 +228,7 @@ const CalendarPage: React.FC = () => {
       // Update calendar configuration with new events
       const calendarEvents: CalendarEvent[] = fetchedEvents.map((event) => ({
         id: event.id,
-        text:
-          "Client " + `${event.clientName} (Driver: ${event.assignedDriver})`,
+        text: `Client: ${event.clientName} (Driver: ${event.assignedDriverName})`,
         start: new DayPilot.Date(event.startTime, true),
         end: new DayPilot.Date(event.endTime, true),
         backColor: "#257E68",
@@ -213,41 +249,44 @@ const CalendarPage: React.FC = () => {
 
   const handleAddDelivery = async () => {
     try {
-      const startDateTime = new Date(
-        `${newDelivery.startDate}T${newDelivery.startTime}`
-      );
-      const endDateTime = new Date(
-        `${newDelivery.endDate}T${newDelivery.endTime}`
-      );
-
+      const startDateTime = new Date(`${newDelivery.startDate}T${newDelivery.startTime}`);
+      const endDateTime = new Date(`${newDelivery.endDate}T${newDelivery.endTime}`);
+  
       const eventData = {
-        assignedDriver: newDelivery.assignedDriver,
+        assignedDriverId: newDelivery.assignedDriverId,
+        assignedDriverName: newDelivery.assignedDriverName,
+        clientId: newDelivery.clientId,
         clientName: newDelivery.clientName,
         startTime: Timestamp.fromDate(startDateTime),
         endTime: Timestamp.fromDate(endDateTime),
         notes: newDelivery.notes,
       };
-
-      await addDoc(collection(db, "events"), eventData);
-
+  
+      await addDoc(collection(db, 'events'), eventData);
+  
+      // Reset the form
       const { date, startTime, endTime } = getInitialFormDates();
       setNewDelivery({
-        assignedDriver: "",
-        clientName: "",
+        assignedDriverId: '',
+        assignedDriverName: '',
+        clientId: '',
+        clientName: '',
         startDate: date,
         startTime,
         endDate: date,
         endTime,
         notes: "",
       });
-      setIsModalOpen(false);
 
+      setIsModalOpen(false);
+      
       // Refresh events after adding
       fetchEvents();
     } catch (error) {
       console.error("Error adding delivery:", error);
     }
   };
+  
 
   const handleNavigatePrev = () => {
     const newDate =
@@ -290,6 +329,8 @@ const CalendarPage: React.FC = () => {
       startDate: currentDate,
     }));
     fetchEvents();
+    fetchDrivers();
+    fetchClients();
   }, [viewType, currentDate]);
 
   const renderCalendarView = () => {
@@ -591,38 +632,57 @@ const CalendarPage: React.FC = () => {
         <Dialog open={isModalOpen} onClose={() => setIsModalOpen(false)}>
           <DialogTitle>Add Delivery</DialogTitle>
           <DialogContent>
-            <TextField
-              label="Client Name"
-              value={newDelivery.clientName}
-              onChange={(e) =>
-                setNewDelivery({ ...newDelivery, clientName: e.target.value })
-              }
-              fullWidth
-              margin="normal"
-            />
-            <TextField
-              label="Assigned Driver"
-              value={newDelivery.assignedDriver}
-              onChange={(e) =>
-                setNewDelivery({
-                  ...newDelivery,
-                  assignedDriver: e.target.value,
-                })
-              }
-              fullWidth
-              margin="normal"
-            />
-            <TextField
-              label="Start Date"
-              type="date"
-              value={newDelivery.startDate}
-              onChange={(e) =>
-                setNewDelivery({ ...newDelivery, startDate: e.target.value })
-              }
-              fullWidth
-              margin="normal"
-              InputLabelProps={{ shrink: true }}
-            />
+          <Autocomplete
+            options={clients}
+            getOptionLabel={(option) => `${option.firstName} ${option.lastName}`}
+            value={
+              newDelivery.clientId
+                ? clients.find(client => client.id === newDelivery.clientId) || null
+                : null
+            }
+            onChange={(event, newValue) => {
+              setNewDelivery({
+                ...newDelivery,
+                clientId: newValue ? newValue.id : '',
+                clientName: newValue ? `${newValue.firstName} ${newValue.lastName}` : ''
+              });
+            }}
+            renderOption={(props, option) => (
+              <li {...props} key={option.id}>
+                {`${option.firstName} ${option.lastName}`}
+              </li>
+            )}
+            renderInput={(params) => (
+              <TextField {...params} label="Client Name" margin="normal" fullWidth />
+            )}
+          />
+
+          <Autocomplete
+            options={drivers}
+            getOptionLabel={(option) => `${option.firstName} ${option.lastName} (${option.id})`}
+            value={
+              newDelivery.assignedDriverId
+                ? drivers.find(driver => driver.id === newDelivery.assignedDriverId) || null
+                : null
+            }
+            onChange={(event, newValue) => {
+              setNewDelivery({
+                ...newDelivery,
+                assignedDriverId: newValue ? newValue.id : '',
+                assignedDriverName: newValue ? `${newValue.firstName} ${newValue.lastName}` : ''
+              });
+            }}
+            renderOption={(props, option) => (
+              <li {...props} key={option.id}>
+                {`${option.firstName} ${option.lastName}`}
+              </li>
+            )}
+            renderInput={(params) => (
+              <TextField {...params} label="Assigned Driver" margin="normal" fullWidth />
+            )}
+          />
+
+            { /*
             <TextField
               label="Start Time"
               type="time"
@@ -633,7 +693,7 @@ const CalendarPage: React.FC = () => {
               fullWidth
               margin="normal"
               InputLabelProps={{ shrink: true }}
-            />
+            /> */}
             <TextField
               label="End Date"
               type="date"
@@ -645,6 +705,7 @@ const CalendarPage: React.FC = () => {
               margin="normal"
               InputLabelProps={{ shrink: true }}
             />
+            { /*
             <TextField
               label="End Time"
               type="time"
@@ -656,6 +717,7 @@ const CalendarPage: React.FC = () => {
               margin="normal"
               InputLabelProps={{ shrink: true }}
             />
+            */}
             <TextField
               label="Notes"
               value={newDelivery.notes}
