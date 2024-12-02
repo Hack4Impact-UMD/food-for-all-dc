@@ -13,11 +13,6 @@ import CalendarPage from "./components/Calendar/CalendarPage";
 import Profile from "./pages/Profile/Profile";
 import Spreadsheet from "./components/Spreadsheet/Spreadsheet";
 
-const ProfileRouter = () => {
-  const { uid } = useParams() as { uid: string };
-  return <Profile uid={uid} />;
-};
-
 function App() {
   return (
     <Router>
@@ -26,11 +21,8 @@ function App() {
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/calendar" element={<CalendarPage />} />
         <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/profile/:uid" element={<ProfileRouter />} />
-        <Route
-          path="/profile"
-          element={<Profile uid={"kBTldkURU4udo9kP9Rwt"} />}
-        />
+        <Route path="/profile/:id" element={<Profile />} />
+        <Route path="/profile" element={<Profile />} />
         <Route path="/spreadsheet" element={<Spreadsheet />} />
       </Routes>
     </Router>
