@@ -36,7 +36,7 @@ html, body {
   margin: 0 5px;
   padding: 3px 8px;
   font-size: 0.9em;
-  background-color: #007bff;
+  background-color: #257E68;
   color: white;
   border: none;
   border-radius: 3px;
@@ -99,6 +99,10 @@ html, body {
   overflow-y: auto;
 }
 
+.calendar_default_event_inner{
+  color: white;
+}
+
 .event-indicator {
   background-color: #ff6347;
   color: white;
@@ -114,6 +118,10 @@ html, body {
   padding: 8px;
 }
 
+.calendar-default-event-inner{
+  background: rgba(0, 0, 0, 0.1)
+}
+
 .hour-label {
   width: 60px;
 }
@@ -126,4 +134,9 @@ html, body {
   padding: 5px 10px;
   border-radius: 20px;
   box-shadow: 0 0 2px rgba(0, 0, 0, 0.1);
+}
+
+.calendar_default_timeheader_cell_inner {
+  text-align: center;
+  font-weight: bold; 
 }
