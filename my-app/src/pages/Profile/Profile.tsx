@@ -21,6 +21,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import Autocomplete from 'react-google-autocomplete';
 import { Timestamp } from 'firebase/firestore';
 
+
 const Profile = () => {
   // #### STATE ####
   const [dropdownOpen, setDropdownOpen] = useState(false);
