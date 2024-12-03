@@ -12,18 +12,15 @@ import {
   DialogContent,
   DialogActions,
   TextField,
-  Avatar,
   Box,
   Autocomplete,
+  Select,
+  InputLabel,
+  FormControl,
 } from "@mui/material";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import {
-  Menu as MenuIcon,
-  ChevronLeft,
   ChevronRight,
-  Search,
-  FilterList,
-  Settings,
   Add,
 } from "@mui/icons-material";
 import { styled } from "@mui/material/styles";
@@ -40,8 +37,8 @@ import {
   DayPilot,
   DayPilotCalendar,
   DayPilotMonth,
-  DayPilotNavigator,
 } from "@daypilot/daypilot-lite-react";
+import { useNavigate } from 'react-router-dom';
 import "./CalendarPage.css";
 
 const StyledToolbar = styled(Toolbar)(({ theme }) => ({
@@ -78,9 +75,29 @@ interface Client {
   id: string;
   firstName: string;
   lastName: string;
+  address: string;
+  language: string;
+  deliveryDetails: DeliveryDetails;
 }
 
+interface DeliveryDetails {
+  deliveryInstructions: string;
+  dietaryRestrictions: DietaryRestrictions;
+}
 
+interface DietaryRestrictions {
+  foodAllergens: Array<Boolean>;
+  other: Array<Boolean>;
+  halal: boolean;
+  kidneyFriendly: boolean;
+  lowSodium: boolean;
+  lowSugar: boolean;
+  microwaveOnly: boolean;
+  noCookingEquipment: boolean;
+  softFood: boolean;
+  vegan: boolean;
+  vegeterian: boolean;
+}
 interface DeliveryEvent {
   id: string;
   assignedDriverId: string;
@@ -90,11 +107,13 @@ interface DeliveryEvent {
   startTime: Date;
   endTime: Date;
   notes: string;
+  priority: string;
 }
 
 interface NewDelivery {
   assignedDriverId: string;
   assignedDriverName: string;
+  priority: string;
   clientId: string;
   clientName: string;
   startDate: string;
@@ -124,10 +143,12 @@ interface CalendarConfig {
 }
 
 const CalendarPage: React.FC = () => {
+  const navigate = useNavigate();
   const [currentDate, setCurrentDate] = useState<DayPilot.Date>(
     DayPilot.Date.today()
   );
-  const [viewType, setViewType] = useState<ViewType>("Week");
+
+  const [viewType, setViewType] = useState<ViewType>("Day");
   const [viewAnchorEl, setViewAnchorEl] = useState<null | HTMLElement>(null);
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [events, setEvents] = useState<DeliveryEvent[]>([]);
@@ -150,19 +171,24 @@ const CalendarPage: React.FC = () => {
   const [clients, setClients] = useState<Client[]>([]);
 
   const fetchDrivers = async () => {
-    const driversRef = collection(db, 'drivers');
+    const driversRef = collection(db, "drivers");
     const snapshot = await getDocs(driversRef);
-    const driverList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Driver[];
+    const driverList = snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    })) as Driver[];
     setDrivers(driverList);
   };
-  
+
   const fetchClients = async () => {
-    const clientsRef = collection(db, 'clients');
+    const clientsRef = collection(db, "clients");
     const snapshot = await getDocs(clientsRef);
-    const clientList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Client[];
+    const clientList = snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    })) as Client[];
     setClients(clientList);
   };
-
 
   const getInitialFormDates = () => {
     const today = new Date();
@@ -176,10 +202,11 @@ const CalendarPage: React.FC = () => {
   const [newDelivery, setNewDelivery] = useState<NewDelivery>(() => {
     const { date, startTime, endTime } = getInitialFormDates();
     return {
-      assignedDriverId: '',
-      assignedDriverName: '',
-      clientId: '',
-      clientName: '',
+      assignedDriverId: "",
+      priority: "",
+      assignedDriverName: "",
+      clientId: "",
+      clientName: "",
       startDate: date,
       startTime,
       endDate: date,
@@ -250,28 +277,34 @@ const CalendarPage: React.FC = () => {
 
   const handleAddDelivery = async () => {
     try {
-      const startDateTime = new Date(`${newDelivery.startDate}T${newDelivery.startTime}`);
-      const endDateTime = new Date(`${newDelivery.endDate}T${newDelivery.endTime}`);
-  
+      const startDateTime = new Date(
+        `${newDelivery.startDate}T${newDelivery.startTime}`
+      );
+      const endDateTime = new Date(
+        `${newDelivery.endDate}T${newDelivery.endTime}`
+      );
+
       const eventData = {
         assignedDriverId: newDelivery.assignedDriverId,
         assignedDriverName: newDelivery.assignedDriverName,
+        priority: newDelivery.priority,
         clientId: newDelivery.clientId,
         clientName: newDelivery.clientName,
         startTime: Timestamp.fromDate(startDateTime),
         endTime: Timestamp.fromDate(endDateTime),
         notes: newDelivery.notes,
       };
-  
-      await addDoc(collection(db, 'events'), eventData);
-  
+
+      await addDoc(collection(db, "events"), eventData);
+
       // Reset the form
       const { date, startTime, endTime } = getInitialFormDates();
       setNewDelivery({
-        assignedDriverId: '',
-        assignedDriverName: '',
-        clientId: '',
-        clientName: '',
+        assignedDriverId: "",
+        assignedDriverName: "",
+        clientId: "",
+        priority: "",
+        clientName: "",
         startDate: date,
         startTime,
         endDate: date,
@@ -280,14 +313,13 @@ const CalendarPage: React.FC = () => {
       });
 
       setIsModalOpen(false);
-      
+
       // Refresh events after adding
       fetchEvents();
     } catch (error) {
       console.error("Error adding delivery:", error);
     }
   };
-  
 
   const handleNavigatePrev = () => {
     const newDate =
@@ -307,19 +339,6 @@ const CalendarPage: React.FC = () => {
           ? currentDate.addDays(7)
           : currentDate.addDays(1);
     setCurrentDate(newDate);
-  };
-
-  const getHeaderDateText = (): string => {
-    const today = new Date();
-    const options: Intl.DateTimeFormatOptions = {
-      month: "long",
-      year: "numeric",
-      day: viewType === "Day" ? "numeric" : undefined,
-    };
-    console.log(
-      currentDate.toDateLocal().toLocaleDateString(undefined, options)
-    );
-    return currentDate.toDateLocal().toLocaleDateString(undefined, options);
   };
 
   // Update calendar when view type or date changes
@@ -347,122 +366,194 @@ const CalendarPage: React.FC = () => {
                 overflowY: "auto",
               }}
             >
-              {events.map((event) => (
-                <Box
-                  key={event.id}
-                  sx={{
-                    display: "flex",
-                    flexDirection: "row",
-                    alignItems: "center",
-                    alignContent: "left",
-                    padding: 3,
-                    marginBottom: 1,
-                    border: "1px solid #fff",
-                    borderRadius: "10px",
-                    backgroundColor: "#F3F3F3",
-                    justifyContent: "space-around",
-                  }}
-                >
-                  <Box sx={{ alignItems: "center" }}>
-                    <Typography
-                      variant="h6"
-                      sx={{ fontWeight: "bold", color: "#787777" }}
+              {events.map((event) => {
+                const client = clients.find(
+                  (client) => client.id === event.clientId
+                );
+
+                const trueRestrictions = Object.entries(
+                  client?.deliveryDetails?.dietaryRestrictions || {}
+                )
+                  .filter(([key, value]) => value === true)
+                  .map(([key]) =>
+                    key
+                      .replace(/([a-z])([A-Z])/g, "$1 $2")
+                      .replace(/^./, (str) => str.toUpperCase())
+                  );
+                const { foodAllergens = [], other = [] } =
+                  client?.deliveryDetails?.dietaryRestrictions || {};
+
+                let dietaryRestrictions = [
+                  ...trueRestrictions,
+                  ...foodAllergens,
+                  ...other,
+                ];
+
+                return (
+                  <Box
+                    key={event.id}
+                    sx={{
+                      display: "flex",
+                      flexDirection: "row",
+                      padding: 3,
+                      marginBottom: 1,
+                      border: "1px solid #fff",
+                      borderRadius: "10px",
+                      backgroundColor: "#F3F3F3",
+                    }}
+                  >
+                    <Box
+                      sx={{
+                        display: "flex",
+                        flexDirection: "row",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        marginRight: 5,
+                      }}
                     >
-                      {event.clientName}
-                    </Typography>
-                    <Box sx={{ display: "flex", flexDirection: "row" }}>
-                      <Typography
-                        variant="subtitle2"
-                        sx={{
-                          fontWeight: "600",
-                          color: "#257E68",
-                          marginTop: 0.25,
-                        }}
-                      >
-                        NOTES AND DETAILS
-                      </Typography>
-                      <KeyboardArrowDownIcon
-                        sx={{ fontSize: 25, color: "#257E68" }}
-                      />
+                      <Box>
+                        <Typography
+                          variant="h6"
+                          sx={{
+                            fontWeight: "bold",
+                            color: "#787777",
+                          }}
+                        >
+                          {event.clientName}
+                        </Typography>
+                        <Box sx={{ display: "flex", flexDirection: "row", cursor: "pointer"}} onClick={() =>  {navigate('/spreadsheet')}}>
+                          <Typography
+                            variant="subtitle2"
+                            sx={{
+                              fontWeight: "600",
+                              color: "#257E68",
+                              marginTop: 0.25,
+                            }}
+                          >
+                            NOTES AND DETAILS
+                          </Typography>
+                          <KeyboardArrowDownIcon
+                            sx={{
+                              fontSize: 25,
+                              color: "#257E68",
+                            }}
+                          />
+                        </Box>
+                      </Box>
+                    </Box>
+
+                    <Box
+                      sx={{
+                        backgroundColor: "#D9D9D9",
+                        width: 2,
+                        height: 120,
+                        marginRight: 5,
+                      }}
+                    ></Box>
+
+                    <Box
+                      sx={{
+                        display: "flex",
+                        flexDirection: "row",
+                        justifyContent: "space-between",
+                        width: "100%",
+                        gap: "30px",
+                      }}
+                    >
+                      {[
+                        {
+                          label: "ROUTE",
+                          value: "Washington Ave",
+                          color: "#787777",
+                        },
+                        {
+                          label: "PRIORITY",
+                          value: event.priority,
+                          color: "#787777",
+                        },
+                        {
+                          label: "ADDRESS",
+                          value: client?.address || "N/A",
+                          color: "#787777",
+                        },
+                        {
+                          label: "RESTRICTIONS",
+                          value: dietaryRestrictions,
+                          color: "#787777",
+                          isScrollable: true,
+                        },
+                        {
+                          label: "LANGUAGE",
+                          value: client?.language || "N/A",
+                          color: "#787777",
+                        },
+                      ].map(({ label, value, color, isScrollable }) => (
+                        <Box
+                          key={label}
+                          sx={{
+                            display: "flex",
+                            flexDirection: "column",
+                            marginLeft: 2,
+                            flex: "1 1 120px",
+                          }}
+                        >
+                          <Typography
+                            variant="subtitle2"
+                            sx={{
+                              fontWeight: "600",
+                              color: "#BDBDBD",
+                              marginBottom: "4px",
+                            }}
+                          >
+                            {label}
+                          </Typography>
+
+                          {Array.isArray(value) ? (
+                            value.length > 0 ? (
+                              <Box
+                                sx={{
+                                  fontWeight: "bold",
+                                  color: color,
+                                  maxHeight: isScrollable ? "100px" : "none",
+                                  overflowY: isScrollable ? "auto" : "visible",
+                                  padding: isScrollable ? "4px" : "0",
+                                  border: isScrollable
+                                    ? "1px solid #ccc"
+                                    : "none",
+                                  borderRadius: "4px",
+                                }}
+                              >
+                                {value.map((restriction, index) => (
+                                  <Typography variant="body1" key={index}>
+                                    {restriction &&
+                                    typeof restriction === "string"
+                                      ? "- " + restriction
+                                      : ""}
+                                  </Typography>
+                                ))}
+                              </Box>
+                            ) : (
+                              <Typography
+                                variant="body1"
+                                sx={{ fontWeight: "bold", color: color }}
+                              >
+                                N/A
+                              </Typography>
+                            )
+                          ) : (
+                            <Typography
+                              variant="body1"
+                              sx={{ fontWeight: "bold", color: color }}
+                            >
+                              {value}
+                            </Typography>
+                          )}
+                        </Box>
+                      ))}
                     </Box>
                   </Box>
-
-                  <Box sx={{ alignItems: "center" }}>
-                    <Typography
-                      variant="subtitle2"
-                      sx={{ fontWeight: "600", color: "#BDBDBD" }}
-                    >
-                      ROUTE
-                    </Typography>
-                    <Typography
-                      variant="body1"
-                      sx={{ fontWeight: "bold", color: "#787777" }}
-                    >
-                      Washington Ave
-                    </Typography>
-                  </Box>
-
-                  <Box sx={{ alignItems: "center" }}>
-                    <Typography
-                      variant="subtitle2"
-                      sx={{ fontWeight: "600", color: "#BDBDBD" }}
-                    >
-                      PRIORITY
-                    </Typography>
-                    <Typography
-                      variant="body1"
-                      sx={{ fontWeight: "bold", color: "#787777" }}
-                    >
-                      High
-                    </Typography>
-                  </Box>
-
-                  <Box sx={{ alignItems: "center" }}>
-                    <Typography
-                      variant="subtitle2"
-                      sx={{ fontWeight: "600", color: "#BDBDBD" }}
-                    >
-                      ADDRESS
-                    </Typography>
-                    <Typography
-                      variant="body1"
-                      sx={{ fontWeight: "bold", color: "#787777" }}
-                    >
-                      23 White Creek Ln
-                    </Typography>
-                  </Box>
-
-                  <Box sx={{ alignItems: "center" }}>
-                    <Typography
-                      variant="subtitle2"
-                      sx={{ fontWeight: "600", color: "#BDBDBD" }}
-                    >
-                      RESTRICTIONS
-                    </Typography>
-                    <Typography
-                      variant="body1"
-                      sx={{ fontWeight: "bold", color: "#787777" }}
-                    >
-                      None
-                    </Typography>
-                  </Box>
-
-                  <Box sx={{ alignItems: "center" }}>
-                    <Typography
-                      variant="subtitle2"
-                      sx={{ fontWeight: "600", color: "#BDBDBD" }}
-                    >
-                      LANGUAGE
-                    </Typography>
-                    <Typography
-                      variant="body1"
-                      sx={{ fontWeight: "bold", color: "#787777" }}
-                    >
-                      English
-                    </Typography>
-                  </Box>
-                </Box>
-              ))}
+                );
+              })}
             </Box>
           )}
         </Box>
@@ -483,16 +574,41 @@ const CalendarPage: React.FC = () => {
   };
 
   return (
-    <Box sx={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
-      <AppBar position="static" color="default" elevation={1}>
-        <StyledToolbar>
-          <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-            <IconButton edge="start" color="inherit">
-              <MenuIcon />
-            </IconButton>
+    <Box
+      sx={{
+        display: "flex",
+        flexDirection: "column",
+        minHeight: "100vh",
+        minWidth: "100vw",
+      }}
+    >
+      <AppBar position="static" color="default" elevation={1}></AppBar>
 
+      <Box
+        component="main"
+        sx={{
+          flexGrow: 1,
+          overflow: "hidden",
+          marginTop: 10,
+        }}
+      >
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+
+            width: "100%",
+            marginTop: 5,
+          }}
+        >
+          <Box
+            sx={{
+              marginLeft: 4,
+            }}
+          >
             <Button
-              sx={{ width: 150 }}
+              sx={{ width: 100 }}
               onClick={(e) => setViewAnchorEl(e.currentTarget)}
               endIcon={<ChevronRight />}
               variant="outlined"
@@ -516,107 +632,80 @@ const CalendarPage: React.FC = () => {
                 </MenuItem>
               ))}
             </Menu>
-          </Box>
-
-          <Typography variant="h6">Deliveries</Typography>
-
-          <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-            <Button variant="outlined" endIcon={<ChevronRight />}>
-              Calendar
-            </Button>
-            <IconButton>
-              <Search />
-            </IconButton>
-            <IconButton>
-              <FilterList />
-            </IconButton>
-            <IconButton>
-              <Settings />
-            </IconButton>
-            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-              <Typography>Admin</Typography>
-              <Avatar sx={{ width: 32, height: 32 }} />
-            </Box>
-          </Box>
-        </StyledToolbar>
-      </AppBar>
-
-      <Box component="main" sx={{ flexGrow: 1, overflow: "hidden" }}>
-        <Box
-          sx={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            width: "100%",
-            position: "sticky",
-            zIndex: 10,
-            marginTop: 5,
-          }}
-        >
-          <Typography variant="h4" sx={{ marginRight: 2, color: "#787777" }}>
-            {viewType === "Day" && daysOfWeek[currentDate.getDayOfWeek()]}
-            {viewType === "Month" && currentDate.toString("MMMM")}
-          </Typography>
-
-          {viewType === "Day" && (
-            <Box
-              sx={{
-                display: "flex",
-                justifyContent: "center",
-                alignItems: "center",
-                width: "40px",
-                height: "40px",
-                backgroundColor: "#257E68",
-                borderRadius: "90%",
-                marginRight: 2,
-              }}
+            <Button
+              sx={{ width: 50, fontSize: 12, marginLeft: 4 }}
+              onClick={(e) => setCurrentDate(DayPilot.Date.today())}
             >
-              <Typography variant="h5" sx={{ color: "#fff" }}>
-                {currentDate.toString("d")}
-              </Typography>
-            </Box>
-          )}
-          <IconButton
-            onClick={handleNavigatePrev}
-            size="large"
-            sx={{ color: "#257E68" }}
+              Today
+            </Button>
+          </Box>
+
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+            }}
           >
-            <Box
-              sx={{
-                width: 12,
-                height: 12,
-                borderLeft: "2px solid #257E68",
-                borderBottom: "2px solid #257E68",
-                transform: "rotate(45deg)",
-              }}
-            />
-          </IconButton>
-          <IconButton
-            onClick={handleNavigateNext}
-            size="large"
-            sx={{ color: "#257E68" }}
-          >
-            <Box
-              sx={{
-                width: 12,
-                height: 12,
-                borderLeft: "2px solid #257E68",
-                borderBottom: "2px solid #257E68",
-                transform: "rotate(-135deg)",
-              }}
-            />
-          </IconButton>
+            <Typography variant="h4" sx={{ marginRight: 2, color: "#787777" }}>
+              {viewType === "Day" && daysOfWeek[currentDate.getDayOfWeek()]}
+              {viewType === "Month" && currentDate.toString("MMMM")}
+            </Typography>
+            {viewType === "Day" && (
+              <Box
+                sx={{
+                  display: "flex",
+                  justifyContent: "center",
+                  alignItems: "center",
+                  width: "40px",
+                  height: "40px",
+                  backgroundColor: "#257E68",
+                  borderRadius: "90%",
+                  marginRight: 2,
+                }}
+              >
+                <Typography variant="h5" sx={{ color: "#fff" }}>
+                  {currentDate.toString("d")}
+                </Typography>
+              </Box>
+            )}
+            <IconButton
+              onClick={handleNavigatePrev}
+              size="large"
+              sx={{ color: "#257E68" }}
+            >
+              <Box
+                sx={{
+                  width: 12,
+                  height: 12,
+                  borderLeft: "2px solid #257E68",
+                  borderBottom: "2px solid #257E68",
+                  transform: "rotate(45deg)",
+                }}
+              />
+            </IconButton>
+            <IconButton
+              onClick={handleNavigateNext}
+              size="large"
+              sx={{ color: "#257E68" }}
+            >
+              <Box
+                sx={{
+                  width: 12,
+                  height: 12,
+                  borderLeft: "2px solid #257E68",
+                  borderBottom: "2px solid #257E68",
+                  transform: "rotate(-135deg)",
+                }}
+              />
+            </IconButton>
+          </Box>
 
           <Button
             variant="contained"
             startIcon={<Add />}
             onClick={() => setIsModalOpen(true)}
             sx={{
-              position: "absolute",
-              right: 24,
-              top: "50%",
-              transform: "translateY(-50%)",
-              height: 50,
+              marginRight: 4,
               width: 166,
               color: "#fff",
               backgroundColor: "#257E68",
@@ -633,57 +722,79 @@ const CalendarPage: React.FC = () => {
         <Dialog open={isModalOpen} onClose={() => setIsModalOpen(false)}>
           <DialogTitle>Add Delivery</DialogTitle>
           <DialogContent>
-          <Autocomplete
-            options={clients}
-            getOptionLabel={(option) => `${option.firstName} ${option.lastName}`}
-            value={
-              newDelivery.clientId
-                ? clients.find(client => client.id === newDelivery.clientId) || null
-                : null
-            }
-            onChange={(event, newValue) => {
-              setNewDelivery({
-                ...newDelivery,
-                clientId: newValue ? newValue.id : '',
-                clientName: newValue ? `${newValue.firstName} ${newValue.lastName}` : ''
-              });
-            }}
-            renderOption={(props, option) => (
-              <li {...props} key={option.id}>
-                {`${option.firstName} ${option.lastName}`}
-              </li>
-            )}
-            renderInput={(params) => (
-              <TextField {...params} label="Client Name" margin="normal" fullWidth />
-            )}
-          />
+            <Autocomplete
+              options={clients}
+              getOptionLabel={(option) =>
+                `${option.firstName} ${option.lastName}`
+              }
+              value={
+                newDelivery.clientId
+                  ? clients.find(
+                      (client) => client.id === newDelivery.clientId
+                    ) || null
+                  : null
+              }
+              onChange={(event, newValue) => {
+                setNewDelivery({
+                  ...newDelivery,
+                  clientId: newValue ? newValue.id : "",
+                  clientName: newValue
+                    ? `${newValue.firstName} ${newValue.lastName}`
+                    : "",
+                });
+              }}
+              renderOption={(props, option) => (
+                <li {...props} key={option.id}>
+                  {`${option.firstName} ${option.lastName}`}
+                </li>
+              )}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Client Name"
+                  margin="normal"
+                  fullWidth
+                />
+              )}
+            />
 
-          <Autocomplete
-            options={drivers}
-            getOptionLabel={(option) => `${option.firstName} ${option.lastName} (${option.id})`}
-            value={
-              newDelivery.assignedDriverId
-                ? drivers.find(driver => driver.id === newDelivery.assignedDriverId) || null
-                : null
-            }
-            onChange={(event, newValue) => {
-              setNewDelivery({
-                ...newDelivery,
-                assignedDriverId: newValue ? newValue.id : '',
-                assignedDriverName: newValue ? `${newValue.firstName} ${newValue.lastName}` : ''
-              });
-            }}
-            renderOption={(props, option) => (
-              <li {...props} key={option.id}>
-                {`${option.firstName} ${option.lastName}`}
-              </li>
-            )}
-            renderInput={(params) => (
-              <TextField {...params} label="Assigned Driver" margin="normal" fullWidth />
-            )}
-          />
+            <Autocomplete
+              options={drivers}
+              getOptionLabel={(option) =>
+                `${option.firstName} ${option.lastName} (${option.id})`
+              }
+              value={
+                newDelivery.assignedDriverId
+                  ? drivers.find(
+                      (driver) => driver.id === newDelivery.assignedDriverId
+                    ) || null
+                  : null
+              }
+              onChange={(event, newValue) => {
+                setNewDelivery({
+                  ...newDelivery,
+                  assignedDriverId: newValue ? newValue.id : "",
+                  assignedDriverName: newValue
+                    ? `${newValue.firstName} ${newValue.lastName}`
+                    : "",
+                });
+              }}
+              renderOption={(props, option) => (
+                <li {...props} key={option.id}>
+                  {`${option.firstName} ${option.lastName}`}
+                </li>
+              )}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Assigned Driver"
+                  margin="normal"
+                  fullWidth
+                />
+              )}
+            />
 
-            { /*
+            {/*
             <TextField
               label="Start Time"
               type="time"
@@ -695,8 +806,24 @@ const CalendarPage: React.FC = () => {
               margin="normal"
               InputLabelProps={{ shrink: true }}
             /> */}
+            <FormControl fullWidth style={{ width: "100%" }}>
+              <InputLabel id="priority-select-label">Priority</InputLabel>
+              <Select
+                labelId="priority-select-label"
+                id="priority-select"
+                value={newDelivery.priority}
+                onChange={(e) =>
+                  setNewDelivery({ ...newDelivery, priority: e.target.value })
+                }
+              >
+                <MenuItem value={"Low"}>Low</MenuItem>
+                <MenuItem value={"Medium"}>Medium</MenuItem>
+                <MenuItem value={"High"}>High</MenuItem>
+              </Select>
+            </FormControl>
+
             <TextField
-              label="End Date"
+              label="Date"
               type="date"
               value={newDelivery.endDate}
               onChange={(e) =>
@@ -706,7 +833,7 @@ const CalendarPage: React.FC = () => {
               margin="normal"
               InputLabelProps={{ shrink: true }}
             />
-            { /*
+            {/*
             <TextField
               label="End Time"
               type="time"
