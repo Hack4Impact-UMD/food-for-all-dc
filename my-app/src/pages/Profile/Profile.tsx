@@ -571,20 +571,6 @@ const handleDietaryRestrictionChange = (e: React.ChangeEvent<HTMLInputElement>) 
 
 <Box className="profile-container">
   <Box className="white-container">
-    <header className="profile-header">
-      <Button onClick={toggleDropdown}>Menu</Button>
-      <Box>
-        <Button onClick={toggleDropdown}>Calendar</Button>
-        {dropdownOpen && (
-          <Box>
-            <Button>Calendar</Button>
-            <Button>Page1</Button>
-            <Button>Page2</Button>
-          </Box>
-        )}
-        <Button>Admin</Button>
-      </Box>
-    </header>
     <Typography variant="h5">{`${clientProfile.firstName} ${clientProfile.lastName}`}</Typography>
     <Box>
       <Typography>OVERVIEW</Typography>
