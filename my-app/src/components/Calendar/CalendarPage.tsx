@@ -14,7 +14,9 @@ import {
   TextField,
   Avatar,
   Box,
-} from '@mui/material';
+  Autocomplete,
+} from "@mui/material";
+import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import {
   Menu as MenuIcon,
   ChevronLeft,
@@ -23,39 +25,67 @@ import {
   FilterList,
   Settings,
   Add,
-} from '@mui/icons-material';
-import { styled } from '@mui/material/styles';
-import { collection, getDocs, addDoc, query, where, Timestamp } from 'firebase/firestore';
-import { db } from '../../auth/firebaseConfig';
-import { DayPilot, DayPilotCalendar, DayPilotMonth, DayPilotNavigator } from "@daypilot/daypilot-lite-react";
+} from "@mui/icons-material";
+import { styled } from "@mui/material/styles";
+import {
+  collection,
+  getDocs,
+  addDoc,
+  query,
+  where,
+  Timestamp,
+} from "firebase/firestore";
+import { db } from "../../auth/firebaseConfig";
+import {
+  DayPilot,
+  DayPilotCalendar,
+  DayPilotMonth,
+  DayPilotNavigator,
+} from "@daypilot/daypilot-lite-react";
+import "./CalendarPage.css";
 
 const StyledToolbar = styled(Toolbar)(({ theme }) => ({
-  justifyContent: 'space-between',
+  justifyContent: "space-between",
   padding: theme.spacing(0, 2),
 }));
 
 const StyledCalendarContainer = styled(Box)(({ theme }) => ({
-  display: 'flex',
+  display: "flex",
   padding: theme.spacing(2),
-  height: 'calc(100vh - 64px)',
-  '& .calendar_default_main': {
+  height: "calc(100vh - 64px)",
+  "& .calendar_default_main": {
     fontFamily: theme.typography.fontFamily,
   },
 }));
 
 const NavigatorContainer = styled(Box)(({ theme }) => ({
-  width: '200px',
+  width: "200px",
   marginRight: theme.spacing(2),
 }));
 
 const CalendarContent = styled(Box)({
   flexGrow: 1,
-  position: 'relative',
+  position: "relative",
 });
+
+interface Driver {
+  id: string;
+  firstName: string;
+  lastName: string;
+}
+
+interface Client {
+  id: string;
+  firstName: string;
+  lastName: string;
+}
+
 
 interface DeliveryEvent {
   id: string;
-  assignedDriver: string;
+  assignedDriverId: string;
+  assignedDriverName: string;
+  clientId: string;
   clientName: string;
   startTime: Date;
   endTime: Date;
@@ -63,7 +93,9 @@ interface DeliveryEvent {
 }
 
 interface NewDelivery {
-  assignedDriver: string;
+  assignedDriverId: string;
+  assignedDriverName: string;
+  clientId: string;
   clientName: string;
   startDate: string;
   startTime: string;
@@ -72,9 +104,8 @@ interface NewDelivery {
   notes: string;
 }
 
-type ViewType = 'Day' | 'Week' | 'Month';
+type ViewType = "Day" | "Week" | "Month";
 type DayPilotViewType = "Day" | "Week" | "Days" | "WorkWeek" | "Resources";
-
 
 // Add interface for calendar events
 interface CalendarEvent {
@@ -93,36 +124,67 @@ interface CalendarConfig {
 }
 
 const CalendarPage: React.FC = () => {
-  const [currentDate, setCurrentDate] = useState<DayPilot.Date>(DayPilot.Date.today());
-  const [viewType, setViewType] = useState<ViewType>('Week');
+  const [currentDate, setCurrentDate] = useState<DayPilot.Date>(
+    DayPilot.Date.today()
+  );
+  const [viewType, setViewType] = useState<ViewType>("Week");
   const [viewAnchorEl, setViewAnchorEl] = useState<null | HTMLElement>(null);
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [events, setEvents] = useState<DeliveryEvent[]>([]);
   const [calendarConfig, setCalendarConfig] = useState<CalendarConfig>({
-    viewType: 'Week',
+    viewType: "Week",
     startDate: DayPilot.Date.today(),
-    events: []
+    events: [],
   });
+  const daysOfWeek = [
+    "Sunday",
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday",
+  ];
+
+  const [drivers, setDrivers] = useState<Driver[]>([]);
+  const [clients, setClients] = useState<Client[]>([]);
+
+  const fetchDrivers = async () => {
+    const driversRef = collection(db, 'drivers');
+    const snapshot = await getDocs(driversRef);
+    const driverList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Driver[];
+    setDrivers(driverList);
+  };
+  
+  const fetchClients = async () => {
+    const clientsRef = collection(db, 'clients');
+    const snapshot = await getDocs(clientsRef);
+    const clientList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Client[];
+    setClients(clientList);
+  };
+
 
   const getInitialFormDates = () => {
     const today = new Date();
     return {
-      date: today.toISOString().split('T')[0],
-      startTime: '09:00',
-      endTime: '10:00'
+      date: today.toISOString().split("T")[0],
+      startTime: "09:00",
+      endTime: "10:00",
     };
   };
 
   const [newDelivery, setNewDelivery] = useState<NewDelivery>(() => {
     const { date, startTime, endTime } = getInitialFormDates();
     return {
-      assignedDriver: '',
+      assignedDriverId: '',
+      assignedDriverName: '',
+      clientId: '',
       clientName: '',
       startDate: date,
       startTime,
       endDate: date,
       endTime,
-      notes: ''
+      notes: "",
     };
   });
 
@@ -132,50 +194,51 @@ const CalendarPage: React.FC = () => {
       let endDate;
 
       switch (viewType) {
-        case 'Month':
+        case "Month":
           start = currentDate.firstDayOfMonth();
           endDate = start.lastDayOfMonth();
           break;
-        case 'Week':
-          start = currentDate.firstDayOfWeek('en-us');
+        case "Week":
+          start = currentDate.firstDayOfWeek("en-us");
           endDate = start.addDays(6);
           break;
-        case 'Day':
+        case "Day":
           endDate = start.addDays(1);
           break;
         default:
           endDate = start.addDays(7);
       }
 
-      const eventsRef = collection(db, 'events');
+      const eventsRef = collection(db, "events");
       const q = query(
         eventsRef,
-        where('startTime', '>=', Timestamp.fromDate(start.toDate())),
-        where('startTime', '<=', Timestamp.fromDate(endDate.toDate()))
+        where("startTime", ">=", Timestamp.fromDate(start.toDate())),
+        where("startTime", "<=", Timestamp.fromDate(endDate.toDate()))
       );
 
       const querySnapshot = await getDocs(q);
-      const fetchedEvents: DeliveryEvent[] = querySnapshot.docs.map(doc => ({
+      const fetchedEvents: DeliveryEvent[] = querySnapshot.docs.map((doc) => ({
         id: doc.id,
         ...doc.data(),
         startTime: doc.data().startTime.toDate(),
-        endTime: doc.data().endTime.toDate()
+        endTime: doc.data().endTime.toDate(),
       })) as DeliveryEvent[];
 
       setEvents(fetchedEvents);
-      
+
       // Update calendar configuration with new events
-      const calendarEvents: CalendarEvent[] = fetchedEvents.map(event => ({
+      const calendarEvents: CalendarEvent[] = fetchedEvents.map((event) => ({
         id: event.id,
-        text: "Client " + `${event.clientName} (Driver: ${event.assignedDriver})`,
+        text: `Client: ${event.clientName} (Driver: ${event.assignedDriverName})`,
         start: new DayPilot.Date(event.startTime, true),
         end: new DayPilot.Date(event.endTime, true),
-        backColor: "#1976d2"
+        backColor: "#257E68",
       }));
 
-      setCalendarConfig(prev => ({
+      setCalendarConfig((prev) => ({
         ...prev,
-        events: calendarEvents
+        events: calendarEvents,
+        durationBarVisible: false,
       }));
       console.log(calendarEvents);
       return fetchedEvents;
@@ -185,32 +248,37 @@ const CalendarPage: React.FC = () => {
     }
   };
 
-
   const handleAddDelivery = async () => {
     try {
       const startDateTime = new Date(`${newDelivery.startDate}T${newDelivery.startTime}`);
       const endDateTime = new Date(`${newDelivery.endDate}T${newDelivery.endTime}`);
-
+  
       const eventData = {
-        assignedDriver: newDelivery.assignedDriver,
+        assignedDriverId: newDelivery.assignedDriverId,
+        assignedDriverName: newDelivery.assignedDriverName,
+        clientId: newDelivery.clientId,
         clientName: newDelivery.clientName,
         startTime: Timestamp.fromDate(startDateTime),
         endTime: Timestamp.fromDate(endDateTime),
-        notes: newDelivery.notes
+        notes: newDelivery.notes,
       };
-
+  
       await addDoc(collection(db, 'events'), eventData);
-      
+  
+      // Reset the form
       const { date, startTime, endTime } = getInitialFormDates();
       setNewDelivery({
-        assignedDriver: '',
+        assignedDriverId: '',
+        assignedDriverName: '',
+        clientId: '',
         clientName: '',
         startDate: date,
         startTime,
         endDate: date,
         endTime,
-        notes: ''
+        notes: "",
       });
+
       setIsModalOpen(false);
       
       // Refresh events after adding
@@ -219,73 +287,210 @@ const CalendarPage: React.FC = () => {
       console.error("Error adding delivery:", error);
     }
   };
+  
 
   const handleNavigatePrev = () => {
-    const newDate = viewType === 'Month' ? currentDate.addMonths(-1) :
-                   viewType === 'Week' ? currentDate.addDays(-7) :
-                   currentDate.addDays(-1);
+    const newDate =
+      viewType === "Month"
+        ? currentDate.addMonths(-1)
+        : viewType === "Week"
+          ? currentDate.addDays(-7)
+          : currentDate.addDays(-1);
     setCurrentDate(newDate);
   };
 
   const handleNavigateNext = () => {
-    const newDate = viewType === 'Month' ? currentDate.addMonths(1) :
-                   viewType === 'Week' ? currentDate.addDays(7) :
-                   currentDate.addDays(1);
+    const newDate =
+      viewType === "Month"
+        ? currentDate.addMonths(1)
+        : viewType === "Week"
+          ? currentDate.addDays(7)
+          : currentDate.addDays(1);
     setCurrentDate(newDate);
   };
 
   const getHeaderDateText = (): string => {
     const today = new Date();
     const options: Intl.DateTimeFormatOptions = {
-      month: 'long',
-      year: 'numeric',
-      day: viewType === 'Day' ? 'numeric' : undefined
+      month: "long",
+      year: "numeric",
+      day: viewType === "Day" ? "numeric" : undefined,
     };
-    console.log(currentDate.toDateLocal().toLocaleDateString(undefined, options));
+    console.log(
+      currentDate.toDateLocal().toLocaleDateString(undefined, options)
+    );
     return currentDate.toDateLocal().toLocaleDateString(undefined, options);
   };
 
   // Update calendar when view type or date changes
   useEffect(() => {
-    setCalendarConfig(prev => ({
+    setCalendarConfig((prev) => ({
       ...prev,
-      viewType: viewType === 'Month' ? 'Month' : viewType,
-      startDate: currentDate
+      viewType: viewType === "Month" ? "Month" : viewType,
+      startDate: currentDate,
     }));
     fetchEvents();
+    fetchDrivers();
+    fetchClients();
   }, [viewType, currentDate]);
 
   const renderCalendarView = () => {
-    if (viewType === 'Month') {
+    if (viewType === "Day") {
       return (
-        <DayPilotMonth
-          {...calendarConfig}
-        />
+        <Box sx={{ padding: 2 }}>
+          {events.length === 0 ? (
+            <Typography>No deliveries scheduled for this day.</Typography>
+          ) : (
+            <Box
+              sx={{
+                maxHeight: "75vh",
+                overflowY: "auto",
+              }}
+            >
+              {events.map((event) => (
+                <Box
+                  key={event.id}
+                  sx={{
+                    display: "flex",
+                    flexDirection: "row",
+                    alignItems: "center",
+                    alignContent: "left",
+                    padding: 3,
+                    marginBottom: 1,
+                    border: "1px solid #fff",
+                    borderRadius: "10px",
+                    backgroundColor: "#F3F3F3",
+                    justifyContent: "space-around",
+                  }}
+                >
+                  <Box sx={{ alignItems: "center" }}>
+                    <Typography
+                      variant="h6"
+                      sx={{ fontWeight: "bold", color: "#787777" }}
+                    >
+                      {event.clientName}
+                    </Typography>
+                    <Box sx={{ display: "flex", flexDirection: "row" }}>
+                      <Typography
+                        variant="subtitle2"
+                        sx={{
+                          fontWeight: "600",
+                          color: "#257E68",
+                          marginTop: 0.25,
+                        }}
+                      >
+                        NOTES AND DETAILS
+                      </Typography>
+                      <KeyboardArrowDownIcon
+                        sx={{ fontSize: 25, color: "#257E68" }}
+                      />
+                    </Box>
+                  </Box>
+
+                  <Box sx={{ alignItems: "center" }}>
+                    <Typography
+                      variant="subtitle2"
+                      sx={{ fontWeight: "600", color: "#BDBDBD" }}
+                    >
+                      ROUTE
+                    </Typography>
+                    <Typography
+                      variant="body1"
+                      sx={{ fontWeight: "bold", color: "#787777" }}
+                    >
+                      Washington Ave
+                    </Typography>
+                  </Box>
+
+                  <Box sx={{ alignItems: "center" }}>
+                    <Typography
+                      variant="subtitle2"
+                      sx={{ fontWeight: "600", color: "#BDBDBD" }}
+                    >
+                      PRIORITY
+                    </Typography>
+                    <Typography
+                      variant="body1"
+                      sx={{ fontWeight: "bold", color: "#787777" }}
+                    >
+                      High
+                    </Typography>
+                  </Box>
+
+                  <Box sx={{ alignItems: "center" }}>
+                    <Typography
+                      variant="subtitle2"
+                      sx={{ fontWeight: "600", color: "#BDBDBD" }}
+                    >
+                      ADDRESS
+                    </Typography>
+                    <Typography
+                      variant="body1"
+                      sx={{ fontWeight: "bold", color: "#787777" }}
+                    >
+                      23 White Creek Ln
+                    </Typography>
+                  </Box>
+
+                  <Box sx={{ alignItems: "center" }}>
+                    <Typography
+                      variant="subtitle2"
+                      sx={{ fontWeight: "600", color: "#BDBDBD" }}
+                    >
+                      RESTRICTIONS
+                    </Typography>
+                    <Typography
+                      variant="body1"
+                      sx={{ fontWeight: "bold", color: "#787777" }}
+                    >
+                      None
+                    </Typography>
+                  </Box>
+
+                  <Box sx={{ alignItems: "center" }}>
+                    <Typography
+                      variant="subtitle2"
+                      sx={{ fontWeight: "600", color: "#BDBDBD" }}
+                    >
+                      LANGUAGE
+                    </Typography>
+                    <Typography
+                      variant="body1"
+                      sx={{ fontWeight: "bold", color: "#787777" }}
+                    >
+                      English
+                    </Typography>
+                  </Box>
+                </Box>
+              ))}
+            </Box>
+          )}
+        </Box>
       );
     }
-    
-    // For Day and Week views, ensure viewType is compatible with DayPilotCalendar
-    const calendarProps = {
-      ...calendarConfig,
-      viewType: viewType as DayPilotViewType
-    };
-    
+
+    // For Week and Month views
+    if (viewType === "Month") {
+      return <DayPilotMonth {...calendarConfig} />;
+    }
+
     return (
       <DayPilotCalendar
-        {...calendarProps}
+        {...calendarConfig}
+        viewType={viewType as DayPilotViewType}
       />
     );
   };
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+    <Box sx={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
       <AppBar position="static" color="default" elevation={1}>
         <StyledToolbar>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
             <IconButton edge="start" color="inherit">
               <MenuIcon />
             </IconButton>
-            
+
             <Button
               sx={{ width: 150 }}
               onClick={(e) => setViewAnchorEl(e.currentTarget)}
@@ -299,7 +504,7 @@ const CalendarPage: React.FC = () => {
               open={Boolean(viewAnchorEl)}
               onClose={() => setViewAnchorEl(null)}
             >
-              {(['Day', 'Week', 'Month'] as ViewType[]).map((type) => (
+              {(["Day", "Week", "Month"] as ViewType[]).map((type) => (
                 <MenuItem
                   key={type}
                   onClick={() => {
@@ -311,21 +516,11 @@ const CalendarPage: React.FC = () => {
                 </MenuItem>
               ))}
             </Menu>
-
-            <Box sx={{ display: 'flex', alignItems: 'center', width: 300 }}>
-              <IconButton onClick={handleNavigatePrev} size="small">
-                <ChevronLeft />
-              </IconButton>
-              <Typography variant="h6">{getHeaderDateText()}</Typography>
-              <IconButton onClick={handleNavigateNext} size="small">
-                <ChevronRight />
-              </IconButton>
-            </Box>
           </Box>
 
           <Typography variant="h6">Deliveries</Typography>
 
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
             <Button variant="outlined" endIcon={<ChevronRight />}>
               Calendar
             </Button>
@@ -338,7 +533,7 @@ const CalendarPage: React.FC = () => {
             <IconButton>
               <Settings />
             </IconButton>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
               <Typography>Admin</Typography>
               <Avatar sx={{ width: 32, height: 32 }} />
             </Box>
@@ -346,79 +541,190 @@ const CalendarPage: React.FC = () => {
         </StyledToolbar>
       </AppBar>
 
-      <Box component="main" sx={{ flexGrow: 1, overflow: 'hidden' }}>
-        <StyledCalendarContainer>
-          <NavigatorContainer>
-            <DayPilotNavigator
-              selectMode={viewType}
-              showMonths={2}
-              skipMonths={1}
-              onTimeRangeSelected={args => setCurrentDate(args.day)}
+      <Box component="main" sx={{ flexGrow: 1, overflow: "hidden" }}>
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            width: "100%",
+            position: "sticky",
+            zIndex: 10,
+            marginTop: 5,
+          }}
+        >
+          <Typography variant="h4" sx={{ marginRight: 2, color: "#787777" }}>
+            {viewType === "Day" && daysOfWeek[currentDate.getDayOfWeek()]}
+            {viewType === "Month" && currentDate.toString("MMMM")}
+          </Typography>
+
+          {viewType === "Day" && (
+            <Box
+              sx={{
+                display: "flex",
+                justifyContent: "center",
+                alignItems: "center",
+                width: "40px",
+                height: "40px",
+                backgroundColor: "#257E68",
+                borderRadius: "90%",
+                marginRight: 2,
+              }}
+            >
+              <Typography variant="h5" sx={{ color: "#fff" }}>
+                {currentDate.toString("d")}
+              </Typography>
+            </Box>
+          )}
+          <IconButton
+            onClick={handleNavigatePrev}
+            size="large"
+            sx={{ color: "#257E68" }}
+          >
+            <Box
+              sx={{
+                width: 12,
+                height: 12,
+                borderLeft: "2px solid #257E68",
+                borderBottom: "2px solid #257E68",
+                transform: "rotate(45deg)",
+              }}
             />
-          </NavigatorContainer>
-          
-          <CalendarContent>
-            {renderCalendarView()}
-          </CalendarContent>
+          </IconButton>
+          <IconButton
+            onClick={handleNavigateNext}
+            size="large"
+            sx={{ color: "#257E68" }}
+          >
+            <Box
+              sx={{
+                width: 12,
+                height: 12,
+                borderLeft: "2px solid #257E68",
+                borderBottom: "2px solid #257E68",
+                transform: "rotate(-135deg)",
+              }}
+            />
+          </IconButton>
+
+          <Button
+            variant="contained"
+            startIcon={<Add />}
+            onClick={() => setIsModalOpen(true)}
+            sx={{
+              position: "absolute",
+              right: 24,
+              top: "50%",
+              transform: "translateY(-50%)",
+              height: 50,
+              width: 166,
+              color: "#fff",
+              backgroundColor: "#257E68",
+            }}
+          >
+            Add Delivery
+          </Button>
+        </Box>
+
+        <StyledCalendarContainer>
+          <CalendarContent>{renderCalendarView()}</CalendarContent>
         </StyledCalendarContainer>
 
         <Dialog open={isModalOpen} onClose={() => setIsModalOpen(false)}>
           <DialogTitle>Add Delivery</DialogTitle>
           <DialogContent>
-            <TextField
-              label="Client Name"
-              value={newDelivery.clientName}
-              onChange={(e) => setNewDelivery({ ...newDelivery, clientName: e.target.value })}
-              fullWidth
-              margin="normal"
-            />
-            <TextField
-              label="Assigned Driver"
-              value={newDelivery.assignedDriver}
-              onChange={(e) => setNewDelivery({ ...newDelivery, assignedDriver: e.target.value })}
-              fullWidth
-              margin="normal"
-            />
-            <TextField
-              label="Start Date"
-              type="date"
-              value={newDelivery.startDate}
-              onChange={(e) => setNewDelivery({ ...newDelivery, startDate: e.target.value })}
-              fullWidth
-              margin="normal"
-              InputLabelProps={{ shrink: true }}
-            />
+          <Autocomplete
+            options={clients}
+            getOptionLabel={(option) => `${option.firstName} ${option.lastName}`}
+            value={
+              newDelivery.clientId
+                ? clients.find(client => client.id === newDelivery.clientId) || null
+                : null
+            }
+            onChange={(event, newValue) => {
+              setNewDelivery({
+                ...newDelivery,
+                clientId: newValue ? newValue.id : '',
+                clientName: newValue ? `${newValue.firstName} ${newValue.lastName}` : ''
+              });
+            }}
+            renderOption={(props, option) => (
+              <li {...props} key={option.id}>
+                {`${option.firstName} ${option.lastName}`}
+              </li>
+            )}
+            renderInput={(params) => (
+              <TextField {...params} label="Client Name" margin="normal" fullWidth />
+            )}
+          />
+
+          <Autocomplete
+            options={drivers}
+            getOptionLabel={(option) => `${option.firstName} ${option.lastName} (${option.id})`}
+            value={
+              newDelivery.assignedDriverId
+                ? drivers.find(driver => driver.id === newDelivery.assignedDriverId) || null
+                : null
+            }
+            onChange={(event, newValue) => {
+              setNewDelivery({
+                ...newDelivery,
+                assignedDriverId: newValue ? newValue.id : '',
+                assignedDriverName: newValue ? `${newValue.firstName} ${newValue.lastName}` : ''
+              });
+            }}
+            renderOption={(props, option) => (
+              <li {...props} key={option.id}>
+                {`${option.firstName} ${option.lastName}`}
+              </li>
+            )}
+            renderInput={(params) => (
+              <TextField {...params} label="Assigned Driver" margin="normal" fullWidth />
+            )}
+          />
+
+            { /*
             <TextField
               label="Start Time"
               type="time"
               value={newDelivery.startTime}
-              onChange={(e) => setNewDelivery({ ...newDelivery, startTime: e.target.value })}
+              onChange={(e) =>
+                setNewDelivery({ ...newDelivery, startTime: e.target.value })
+              }
               fullWidth
               margin="normal"
               InputLabelProps={{ shrink: true }}
-            />
+            /> */}
             <TextField
               label="End Date"
               type="date"
               value={newDelivery.endDate}
-              onChange={(e) => setNewDelivery({ ...newDelivery, endDate: e.target.value })}
+              onChange={(e) =>
+                setNewDelivery({ ...newDelivery, endDate: e.target.value })
+              }
               fullWidth
               margin="normal"
               InputLabelProps={{ shrink: true }}
             />
+            { /*
             <TextField
               label="End Time"
               type="time"
               value={newDelivery.endTime}
-              onChange={(e) => setNewDelivery({ ...newDelivery, endTime: e.target.value })}
+              onChange={(e) =>
+                setNewDelivery({ ...newDelivery, endTime: e.target.value })
+              }
               fullWidth
               margin="normal"
               InputLabelProps={{ shrink: true }}
             />
+            */}
             <TextField
               label="Notes"
               value={newDelivery.notes}
-              onChange={(e) => setNewDelivery({ ...newDelivery, notes: e.target.value })}
+              onChange={(e) =>
+                setNewDelivery({ ...newDelivery, notes: e.target.value })
+              }
               fullWidth
               margin="normal"
               multiline
@@ -427,19 +733,13 @@ const CalendarPage: React.FC = () => {
           </DialogContent>
           <DialogActions>
             <Button onClick={() => setIsModalOpen(false)}>Cancel</Button>
-            <Button onClick={handleAddDelivery} variant="contained">Add</Button>
+            <Button onClick={handleAddDelivery} variant="contained">
+              Add
+            </Button>
           </DialogActions>
         </Dialog>
 
-        <Box sx={{ position: 'fixed', bottom: 24, right: 24 }}>
-          <Button
-            variant="contained"
-            startIcon={<Add />}
-            onClick={() => setIsModalOpen(true)}
-          >
-            Add Delivery
-          </Button>
-        </Box>
+        <Box sx={{ position: "fixed", bottom: 24, right: 24 }}></Box>
       </Box>
     </Box>
   );

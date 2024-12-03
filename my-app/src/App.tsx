@@ -50,7 +50,7 @@ function App() {
           path="/profile"
           element={
             <BasePage>
-              <Profile />
+              <Profile  />
             </BasePage>
           }
         />
