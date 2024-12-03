@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect} from "react";
 import { useNavigate} from "react-router-dom";
-import { db } from "../../auth/firebaseConfig";
+import { db } from "../../auth/firebaseConfig"; // Ensure the correct path
 import { Search, Filter } from "lucide-react";
 import "./Spreadsheet.css";
 import {
@@ -14,6 +14,7 @@ import {
   TableRow,
   Paper,
   IconButton,
+  /* Dialog, DialogTitle, DialogContent, DialogActions, */ // Commented out modal components
   Menu,
   MenuItem,
   TextField,
@@ -116,6 +117,7 @@ const Spreadsheet: React.FC = () => {
     setSearchQuery(event.target.value);
   };
 
+  // Handle input change for editing a row
   // Handle input change for editing a row
   const handleEditInputChange = (
     e: React.ChangeEvent<HTMLTextAreaElement | HTMLInputElement>,

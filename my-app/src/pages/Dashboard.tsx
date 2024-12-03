@@ -4,19 +4,18 @@ import { useNavigate } from 'react-router-dom'; // Import useNavigate
 
 const Dashboard = () => {
 
-  const navigate = useNavigate(); 
+  const navigate = useNavigate();
 
   const goToCalendar = () => {
-    navigate('/calendar'); 
-  };
-
-  const goToProfile = () => {
-    navigate('/profile'); 
+    navigate('/calendar');
   };
 
   const goToSpreadsheet = () => {
     navigate('/spreadsheet');
   }
+  const goToProfile = () => {
+    navigate('/profile');
+  };
 
   return (
     <div className="App">
@@ -27,7 +26,7 @@ const Dashboard = () => {
           <button onClick={goToCalendar}>Calendar</button>
           <button onClick={goToSpreadsheet}>Spreadsheet</button>
           <button onClick={goToProfile}>Profile</button>
-        </div>      
+        </div>
       </header>
     </div>
   );

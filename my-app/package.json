@@ -19,6 +19,7 @@
     "firebase": "^10.14.0",
     "firebase-admin": "^12.7.0",
     "lucide-react": "^0.453.0",
+    "my-app": "file:",
     "react": "^18.3.1",
     "react-big-calendar": "^1.15.0",
     "react-dom": "^18.3.1",
