@@ -14,10 +14,14 @@ import {
   Grid,
   Typography,
   IconButton,
-  SelectChangeEvent
+  SelectChangeEvent,
+  Tooltip
 } from '@mui/material';
 import SaveIcon from "@mui/icons-material/Save"
 import EditIcon from '@mui/icons-material/Edit';
+import CloseIcon from "@mui/icons-material/Close";
+import PersonIcon from '@mui/icons-material/Person';
+
 import Autocomplete from 'react-google-autocomplete';
 import { Timestamp } from 'firebase/firestore';
 
@@ -73,6 +77,8 @@ const Profile = () => {
   const [formData, setFormData] = useState({});
   const [clientId, setClientId] = useState<string | null>(null); // Allow clientId to be either a string or null
   const [isSaved, setIsSaved] = useState(false); // Tracks whether it's the first save
+  const [isEditing, setIsEditing] = useState(false); // Global editing state
+
 
   const params = useParams(); // Params will return an object containing route params (like { id: 'some-id' })
   const id: string | null = params.id ?? null; // Use optional chaining to get the id or null if undefined
@@ -172,12 +178,6 @@ type NestedKeyOf<T> = {
 type ClientProfileKey = keyof ClientProfile | 'deliveryDetails.dietaryRestrictions' | 'deliveryDetails.deliveryInstructions';
 
 type InputType = 'text' | 'date' | 'number' | 'select' | 'textarea' | 'checkbox'| 'dietaryRestrictions';
-
-  // #### UTIL FUNCTIONS ####
-  const toggleDropdown = () => {
-    setDropdownOpen(!dropdownOpen);
-  };
-
   const calculateAge = (dob: Date) => {
     const diff = Date.now() - dob.getTime();
     const ageDt = new Date(diff);
@@ -205,6 +205,11 @@ const toggleFieldEdit = (fieldName: ClientProfileKey) => {
     [fieldName]: !prev[fieldName]
   }));
 };
+
+const toggleEditMode = () => {
+  setEditMode(prev => !prev);
+};
+
 
 const handleChange = (
   e: React.ChangeEvent<
@@ -325,44 +330,43 @@ const getNestedValue = (obj: any, path: string) => {
 
 const renderField = (
   fieldPath: ClientProfileKey,
-  type: InputType = 'text'
+  type: InputType = "text"
 ) => {
-  const isEditable = fieldEditStates[fieldPath];
-  const value = fieldPath.includes('.')
+  const value = fieldPath.includes(".")
     ? getNestedValue(clientProfile, fieldPath)
     : clientProfile[fieldPath as keyof ClientProfile];
 
-  if (fieldPath === 'deliveryDetails.dietaryRestrictions') {
+  if (fieldPath === "deliveryDetails.dietaryRestrictions") {
     return renderDietaryRestrictions();
   }
 
-  if (fieldPath === 'address') {
+  if (fieldPath === "address") {
     return (
       <Autocomplete
         apiKey={"AIzaSyCYWuEiY3yrbOYH6Oe9JeB-3p0V7Sd8PY8"}
         onPlaceSelected={(place) => {
           if (place && place.address_components) {
             const addressComponents = place.address_components;
-  
+
             const getAddressPart = (type: string) => {
               const component = addressComponents.find((comp) =>
                 comp.types.includes(type)
               );
-              return component ? component.long_name : '';
+              return component ? component.long_name : "";
             };
-  
-            const houseNumber = getAddressPart('street_number');
-            const streetName = getAddressPart('route');
-            const fullAddress = place.formatted_address || '';
-  
+
+            const houseNumber = getAddressPart("street_number");
+            const streetName = getAddressPart("route");
+            const fullAddress = place.formatted_address || "";
+
             setClientProfile((prevProfile) => ({
               ...prevProfile,
               address: fullAddress,
               houseNumber: houseNumber,
               streetName: streetName,
             }));
-  
-            console.log('Selected Address:', {
+
+            console.log("Selected Address:", {
               fullAddress,
               houseNumber,
               streetName,
@@ -370,20 +374,24 @@ const renderField = (
           }
         }}
         options={{
-          types: ['geocode', 'establishment'],
-          fields: ['address_components', 'formatted_address', 'geometry', 'icon', 'name'],
+          types: ["geocode", "establishment"],
+          fields: [
+            "address_components",
+            "formatted_address",
+            "geometry",
+            "icon",
+            "name",
+          ],
         }}
         defaultValue={clientProfile.address || ""}
       />
     );
   }
-  
-  
 
-  if (isEditable) {
+  if (isEditing) {
     switch (type) {
-      case 'select':
-        if (fieldPath === 'gender') {
+      case "select":
+        if (fieldPath === "gender") {
           return (
             <Select
               name={fieldPath}
@@ -399,18 +407,22 @@ const renderField = (
         }
         break;
 
-      case 'date':
+      case "date":
         return (
           <TextField
             type="date"
             name={fieldPath}
-            value={value instanceof Date ? value.toISOString().split('T')[0] : value || ''}
-            onChange={handleChange} // Make sure this is handled to update the value correctly
+            value={
+              value instanceof Date
+                ? value.toISOString().split("T")[0]
+                : value || ""
+            }
+            onChange={handleChange}
             fullWidth
           />
         );
 
-      case 'number':
+      case "number":
         return (
           <TextField
             type="number"
@@ -422,11 +434,11 @@ const renderField = (
           />
         );
 
-      case 'textarea':
+      case "textarea":
         return (
           <TextField
             name={fieldPath}
-            value={String(value || '')}
+            value={String(value || "")}
             onChange={handleChange}
             multiline
             rows={4}
@@ -439,7 +451,7 @@ const renderField = (
           <TextField
             type="text"
             name={fieldPath}
-            value={String(value || '')}
+            value={String(value || "")}
             onChange={handleChange}
             fullWidth
           />
@@ -448,19 +460,14 @@ const renderField = (
   }
 
   return (
-    <Box display="flex" alignItems="center">
-      <Typography variant="body1">
-        {renderFieldValue(fieldPath, value)}
-      </Typography>
-      <IconButton
-        onClick={() => toggleFieldEdit(fieldPath as ClientProfileKey)}
-        size="small"
-      >
-        <EditIcon fontSize="small" />
-      </IconButton>
-    </Box>
+    <Typography variant="body1">
+      {renderFieldValue(fieldPath, value)}
+    </Typography>
   );
 };
+
+  
+
 // Helper function to render field values properly
 const renderFieldValue = (fieldPath: string, value: any) => {
   if (fieldPath === 'dob') {
@@ -509,13 +516,12 @@ const renderFieldValue = (fieldPath: string, value: any) => {
 
 const renderDietaryRestrictions = () => {
   const restrictions = clientProfile.deliveryDetails.dietaryRestrictions;
-  const isEditable = fieldEditStates['deliveryDetails.dietaryRestrictions'];
 
-  if (isEditable) {
+  if (isEditing) {
     return (
       <Grid container spacing={1}>
         {Object.entries(restrictions)
-          .filter(([key, value]) => typeof value === 'boolean')
+          .filter(([key, value]) => typeof value === "boolean")
           .map(([key, value]) => (
             <Grid item xs={6} key={key}>
               <FormControlLabel
@@ -526,7 +532,7 @@ const renderDietaryRestrictions = () => {
                     onChange={handleDietaryRestrictionChange}
                   />
                 }
-                label={key.replace(/([A-Z])/g, ' $1').trim()}
+                label={key.replace(/([A-Z])/g, " $1").trim()}
               />
             </Grid>
           ))}
@@ -535,22 +541,15 @@ const renderDietaryRestrictions = () => {
   }
 
   return (
-    <Box display="flex" alignItems="center">
-      <Typography variant="body1">
-        {Object.entries(restrictions)
-          .filter(([key, value]) => value === true && typeof value === 'boolean')
-          .map(([key]) => key.replace(/([A-Z])/g, ' $1').trim())
-          .join(', ') || 'None'}
-      </Typography>
-      <IconButton
-        onClick={() => toggleFieldEdit('deliveryDetails.dietaryRestrictions')}
-        size="small"
-      >
-        <EditIcon fontSize="small" />
-      </IconButton>
-    </Box>
+    <Typography variant="body1">
+      {Object.entries(restrictions)
+        .filter(([key, value]) => value === true && typeof value === "boolean")
+        .map(([key]) => key.replace(/([A-Z])/g, " $1").trim())
+        .join(", ") || "None"}
+    </Typography>
   );
 };
+
 
 // Updated handler for dietary restrictions
 const handleDietaryRestrictionChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -571,27 +570,45 @@ const handleDietaryRestrictionChange = (e: React.ChangeEvent<HTMLInputElement>) 
 
 <Box className="profile-container">
   <Box className="white-container">
-    <Typography variant="h5">{`${clientProfile.firstName} ${clientProfile.lastName}`}</Typography>
-    <Box>
-      <Typography>OVERVIEW</Typography>
-    </Box>  
+  <Typography variant="h5" style={{ marginBottom: 15 }}>
+  {clientProfile.firstName?.trim() || clientProfile.lastName?.trim()
+    ? `${clientProfile.firstName || ''} ${clientProfile.lastName || ''}`.trim()
+    : 'Welcome!'}
+</Typography>
+ <Box display="flex" alignItems="center" borderBottom="2px solid green" pb={0.5} style={{ "width": "min-content" }}>
+  {/* Person Icon */}
+  <PersonIcon style={{ marginRight: 3, "color": "green"}} />
+
+  {/* Text */}
+  <Typography variant="body1" style={{ fontWeight: 800 , "color": "green"}}>
+    OVERVIEW
+  </Typography>
+</Box>
+ 
   </Box>
 
 
   <Box className="profile-main">
   <Box className="centered-box">
-    <Box className="box-header">
-      <Typography variant="h6" className="basic-info-title">
-        Basic Information
-      </Typography>
-      <IconButton
-            color="primary"
-            onClick={handleSave}
-            aria-label="save"
-          >
-            <SaveIcon />
-          </IconButton>
-    </Box>
+  <Box className="box-header" display="flex" alignItems="center" justifyContent="space-between">
+  {/* Title on the left */}
+  <Typography variant="h6" className="basic-info-title">
+    Basic Information
+  </Typography>
+
+  {/* Buttons on the right */}
+  <Box display="flex" alignItems="center" gap={1}>
+    <IconButton style={{ "color": "green"}} onClick={() => setIsEditing((prev) => !prev)} color={isEditing ? "secondary" : "primary"}>
+      <Tooltip title={isEditing ? "Cancel Editing" : "Edit All"}>
+        {isEditing ? <CloseIcon /> : <EditIcon />}
+      </Tooltip>
+    </IconButton>
+    <IconButton style={{ "color": "green"}} color="primary" onClick={handleSave} aria-label="save">
+      <SaveIcon />
+    </IconButton>
+  </Box>
+</Box>
+
 
     <Box
       sx={{

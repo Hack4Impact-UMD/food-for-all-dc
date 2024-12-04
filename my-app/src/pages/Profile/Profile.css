@@ -12,7 +12,9 @@
   flex-direction: column;
   font-family: Inter;
   background-color: white;
-  padding:2.5%;
+  padding-left:2.5%;
+  padding-right:2.5%;
+  padding-top:2.5%;
   margin-top:5%;
 }
 
