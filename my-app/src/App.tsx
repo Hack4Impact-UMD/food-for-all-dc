@@ -7,17 +7,14 @@ import {
 } from "react-router-dom";
 import "./App.css";
 import ForgotPasswordPage from "./pages/Login/forgot-passsowrd";
+
 import Login from "./pages/Login/Login";
 import Dashboard from "./pages/Dashboard";
-import BasePage from './pages/Base/Base';
 import CalendarPage from "./components/Calendar/CalendarPage";
-import Profile from "./pages/Profile/Profile";
 import Spreadsheet from "./components/Spreadsheet/Spreadsheet";
 
-const ProfileRouter = () => {
-  const { uid } = useParams() as { uid: string };
-  return <Profile uid={uid} />;
-};
+import Profile from './pages/Profile/Profile';
+import BasePage from './pages/Base/Base';
 
 function App() {
   return (
@@ -44,20 +41,16 @@ function App() {
             </BasePage>
           }
         />
-        {/* Profile routes */}
-        <Route
-          path="/profile/:uid"
-          element={
-            <BasePage>
-              <ProfileRouter />
-            </BasePage>
-          }
-        />
+        <Route path="/profile/:id" element={
+          <BasePage>
+          <Profile />
+        </BasePage>
+        } />
         <Route
           path="/profile"
           element={
             <BasePage>
-              <Profile uid="kBTldkURU4udo9kP9Rwt" />
+              <Profile  />
             </BasePage>
           }
         />
