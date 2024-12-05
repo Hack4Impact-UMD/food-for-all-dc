@@ -9,7 +9,6 @@ import "./App.css";
 import ForgotPasswordPage from "./pages/Login/forgot-passsowrd";
 
 import Login from "./pages/Login/Login";
-import Dashboard from "./pages/Dashboard";
 import CalendarPage from "./components/Calendar/CalendarPage";
 import Spreadsheet from "./components/Spreadsheet/Spreadsheet";
 
@@ -25,14 +24,6 @@ function App() {
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         
         {/* Protected or main routes wrapped with BasePage */}
-        <Route
-          path="/dashboard"
-          element={
-            <BasePage>
-              <Dashboard />
-            </BasePage>
-          }
-        />
         <Route
           path="/calendar"
           element={

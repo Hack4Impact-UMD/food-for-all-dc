@@ -32,9 +32,9 @@ function Login() {
       const userCredential = await signInWithEmailAndPassword(auth, loginEmail, loginPassword);
       const user = userCredential.user;
 
-      // Successful login, navigate to dashboard
+      // Successful login, navigate to calendar
       setLoginError("");
-      navigate("/dashboard");
+      navigate("/calendar");
 
       // Clear input fields
       setLoginEmail("");

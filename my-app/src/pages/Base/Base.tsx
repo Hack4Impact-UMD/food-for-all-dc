@@ -16,7 +16,6 @@ import ListItem from '@mui/material/ListItem';
 import ListItemButton from '@mui/material/ListItemButton';
 import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
-import DashboardIcon from '@mui/icons-material/Dashboard';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import TableChartIcon from '@mui/icons-material/TableChart';
@@ -116,10 +115,9 @@ export default function BasePage({ children }: { children: React.ReactNode }) {
         <Divider />
         <List>
           {[
-            { text: 'Dashboard', icon: <DashboardIcon />, link: '/dashboard' },
-            { text: 'Profile', icon: <AccountCircleIcon />, link: '/profile' },
             { text: 'Calendar', icon: <CalendarTodayIcon />, link: '/calendar' },
             { text: 'Spreadsheet', icon: <TableChartIcon />, link: '/spreadsheet' },
+            { text: 'Create Profile', icon: <AccountCircleIcon />, link: '/profile' },
           ].map(({ text, icon, link }) => (
             <ListItem key={text} disablePadding>
               <ListItemButton component="a" href={link}>
