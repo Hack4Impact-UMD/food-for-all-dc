@@ -71,30 +71,27 @@ def mock_google_maps_distance_matrix(origins, destinations):
     return response
 
 # construct complete distance matrix from a list of coordinates
-def construct_distance_matrix(coords):
+def construct_distance_matrix(coords, batch_size = 10):
     n = len(coords)
 
     distance_matrix = np.zeros((n, n))
-    batches = list(chunk_coordinates(coords, 10))
+    batches = list(chunk_coordinates(coords, batch_size))
+
+    gmaps = googlemaps.Client(key=os.environ["MAPS_API_KEY"])
 
     # Loop over each pair of origin and destination batches to fill the distance matrix
     for i, origin_batch in enumerate(batches):
         for j, destination_batch in enumerate(batches):
-
-            # TODO: Replace with call to gmaps distance API.
-            response = mock_google_maps_distance_matrix(
-                origin_batch, destination_batch)
             
-            # gmaps = googlemaps.Client(key=os.environ["MAPS_API_KEY"])
-            # distance_matrix = gmaps.distance_matrix(
-            #     origins=coords, destinations=coords, mode="driving"
-            # )
+            response = gmaps.distance_matrix(
+                origins=origin_batch, destinations=destination_batch, mode="driving"
+            )
 
             for origin_index, row in enumerate(response["rows"]):
                 for destination_index, element in enumerate(row["elements"]):
                     if element["status"] == "OK":
-                        global_origin_index = i * 10 + origin_index
-                        global_destination_index = j * 10 + destination_index
+                        global_origin_index = i * batch_size + origin_index
+                        global_destination_index = j * batch_size + destination_index
                         distance_matrix[global_origin_index][global_destination_index] = element["duration"]["value"]
 
     return distance_matrix
@@ -122,7 +119,6 @@ def cluster_deliveries_k_medoids(req: https_fn.Request) -> https_fn.Response:
 
     drivers_count = body.drivers_count
 
-    # TODO: Test with actual gmap calls
     distance_matrix = construct_distance_matrix(coords)
 
     kmedoids = KMedoids(n_clusters=drivers_count, method="fasterpam").fit(
@@ -143,7 +139,6 @@ def cluster_deliveries_k_medoids(req: https_fn.Request) -> https_fn.Response:
     )
 
 
-# TODO: Convert to cartesian if need be
 @https_fn.on_request()
 def cluster_deliveries_k_means(req: https_fn.Request) -> https_fn.Response:
     try:
@@ -195,8 +190,16 @@ def cluster_deliveries_k_means(req: https_fn.Request) -> https_fn.Response:
     )
 
 @https_fn.on_request()
-def calculate_optimal_cluster_route(req: https_fn.Request) -> https_fn.Response: 
-    body = OptimalRouteRequest(**req.get_json())
+def calculate_optimal_cluster_route(req: https_fn.Request) -> https_fn.Response:
+    try:
+        body = OptimalRouteRequest(**req.get_json())
+    except ValidationError as e:
+        errors = parse_error_fields(e)
+        return https_fn.Response(
+            response=json.dumps(ValidationErrorResponse(details=errors)),
+            status=422,
+            content_type="application/json",
+        )
 
     waypoints = [f"{lat},{lng}" for lat, lng in body.coords]
 
