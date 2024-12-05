@@ -1,13 +1,30 @@
 import { StringLiteral } from "typescript";
 
-type Role = "Admin" | "Manager" | "Volunteer";
+export enum UserType {
+  Admin = "Admin",
+  Manager = "Manager",
+  ClientIntake = "ClientIntake",
+};
 
-interface User {
-  id: string; // Firebase document ID
-  email: string;
-  name: string;
-  role: Role;
-}
+
+
+export const canCreateUserType = (
+  currentUserType: UserType,
+  newUserType: UserType,
+): boolean => {
+  switch (currentUserType) {
+    case UserType.Admin:
+      return [
+        UserType.Admin,
+        UserType.Manager,
+        UserType.ClientIntake,
+      ].includes(newUserType);
+    case UserType.Manager:
+      return newUserType === UserType.ClientIntake; // ADR Staff can only create SchoolStaff accounts.
+    default:
+      return false; // Other types don't have permission to create new accounts.
+  }
+};
 
 export interface ClientProfile {
   uid: string;

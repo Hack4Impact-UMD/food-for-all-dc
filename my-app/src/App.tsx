@@ -14,6 +14,8 @@ import Spreadsheet from "./components/Spreadsheet/Spreadsheet";
 
 import Profile from './pages/Profile/Profile';
 import BasePage from './pages/Base/Base';
+import CreateUsers from './pages/CreateUsers/CreateUsers';
+
 
 function App() {
   return (
@@ -50,6 +52,15 @@ function App() {
           element={
             <BasePage>
               <Spreadsheet />
+            </BasePage>
+          }
+        />
+
+        <Route
+          path="/createUsers"
+          element={
+            <BasePage>
+              <CreateUsers />
             </BasePage>
           }
         />

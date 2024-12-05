@@ -15,6 +15,10 @@ import DialogContentText from "@mui/material/DialogContentText";
 import DialogTitle from "@mui/material/DialogTitle";
 import { auth } from "../../auth/firebaseConfig"; // Use the initialized auth from firebaseConfig.js
 import "./Login.css";
+import foodForAllDCLogin from "../../assets/food-for-all-dc-login.png";
+import foodForAllDCLogo from "../../assets/food-for-all-dc-logo.jpg";
+
+
 
 function Login() {
   const [loginEmail, setLoginEmail] = useState("");
@@ -68,9 +72,12 @@ function Login() {
 
   return (
     <div className="login-outer-container">
+      <div className="login-image-container">
+        <img src={foodForAllDCLogin} alt="Food for All DC" />
+      </div>
       <div className="login-container">
         <div className="image-container">
-          <div className="login-image" />
+          <img className = "logo-image" src={foodForAllDCLogo} alt="Food for All DC" />
         </div>
         <div className="login-form-container">
           <h1 className="login-heading">Welcome!</h1>
