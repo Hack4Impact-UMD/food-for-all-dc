@@ -258,7 +258,7 @@ dd {
 .field-descriptor {
   font-family: "Inter";
   font-size: 12px;
-  font-weight: 700;
+  font-weight: bold;
   color: #717171;
   /* margin-bottom: 0.75rem; */
 }

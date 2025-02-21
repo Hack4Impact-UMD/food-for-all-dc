@@ -41,7 +41,7 @@ const fieldStyles = {
   backgroundColor: "#eee",
   width: "100%",
   height: "23px",
-  padding: "0 0.5rem",
+  padding: "0.1rem 0.5rem",
   borderRadius: "5px",
   marginTop: "-10px",
 };
@@ -711,8 +711,8 @@ const Profile = () => {
 
             {/* Last Name */}
             <Box>
-              <Typography variant="subtitle2">
-                Last Name <span className="required-asterisk">*</span>
+              <Typography className="field-descriptor">
+                LAST NAME <span className="required-asterisk">*</span>
               </Typography>
               {renderField("lastName", "text")}
               {errors.lastName && (
@@ -736,9 +736,9 @@ const Profile = () => {
             </Box>
 
             {/* Address */}
-            <Box>
-              <Typography variant="subtitle2">
-                Address <span className="required-asterisk">*</span>
+            {/* <Box>
+              <Typography className="field-descriptor">
+                ADDRESS <span className="required-asterisk">*</span>
               </Typography>
               {renderField("address", "text")}
               {errors.address && (
@@ -746,10 +746,10 @@ const Profile = () => {
                   {errors.address}
                 </Typography>
               )}
-            </Box>
+            </Box> */}
 
             {/* Gender */}
-            <Box>
+            {/* <Box>
               <Typography variant="subtitle2">
                 Gender <span className="required-asterisk">*</span>
               </Typography>
@@ -759,7 +759,7 @@ const Profile = () => {
                   {errors.gender}
                 </Typography>
               )}
-            </Box>
+            </Box> */}
 
             {/* Phone */}
             <Box>
