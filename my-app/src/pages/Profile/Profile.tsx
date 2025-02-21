@@ -450,7 +450,7 @@ const Profile = () => {
               <CustomSelect
                 name={fieldPath}
                 value={value as string}
-                onChange={(e, child) => handleChange(e as SelectChangeEvent<string>)}
+                onChange={(e) => handleChange(e as SelectChangeEvent<string>)}
               >
                 <MenuItem value="Male">Male</MenuItem>
                 <MenuItem value="Female">Female</MenuItem>
