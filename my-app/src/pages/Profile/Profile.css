@@ -1,10 +1,11 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=Montserrat:ital,wght@0,100..900;1,100..900&display=swap");
+
 .profile-container {
   display: flex;
   flex-direction: column;
   font-family: Inter;
   background-color: #f3f3f3;
   height: 100vh;
-
 }
 
 .white-container {
@@ -12,10 +13,10 @@
   flex-direction: column;
   font-family: Inter;
   background-color: white;
-  padding-left:2.5%;
-  padding-right:2.5%;
-  padding-top:2.5%;
-  margin-top:3%;
+  padding-left: 2.5%;
+  padding-right: 2.5%;
+  padding-top: 2.5%;
+  margin-top: 3%;
 }
 
 .profile-header {
@@ -137,7 +138,7 @@
   display: flex;
   justify-content: center;
   align-items: flex-start;
-  width:100vw;
+  width: 100vw;
 }
 
 .profile-overview {
@@ -164,7 +165,7 @@
   padding: 20px;
   background-color: white;
   text-align: center;
-  width: 90%;
+  width: 70%;
   margin: 20px 0;
 }
 
@@ -219,7 +220,7 @@
   color: #bdbdbd;
   font-family: Inter;
   text-transform: uppercase;
-  margin-bottom: 10px;
+  margin-bottom: 0px;
 }
 
 .information {
@@ -252,6 +253,27 @@ dd {
 
 .modal-container {
   z-index: 1000;
+}
+
+.field-descriptor {
+  font-family: "Inter";
+  font-size: 12px;
+  font-weight: 700;
+  color: #717171;
+  /* margin-bottom: 0.75rem; */
+}
+
+.no-border {
+  border: none;
+}
+
+.text-field {
+  background-color: #eee;
+  border: none;
+  width: 80%;
+  height: 23px;
+  padding: 0 0.5rem;
+  border-radius: 5px;
 }
 /* Mobile Responsiveness */
 
