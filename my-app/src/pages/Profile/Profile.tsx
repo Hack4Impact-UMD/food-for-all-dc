@@ -43,7 +43,7 @@ const fieldStyles = {
   height: "23px",
   padding: "0.1rem 0.5rem",
   borderRadius: "5px",
-  marginTop: "-10px",
+  marginTop: "0px",
 };
 
 const CustomTextField = styled(TextField)({
@@ -451,6 +451,7 @@ const Profile = () => {
                 name={fieldPath}
                 value={value as string}
                 onChange={(e) => handleChange(e as SelectChangeEvent<string>)}
+                style={{ width: "83.5%" }}
               >
                 <MenuItem value="Male">Male</MenuItem>
                 <MenuItem value="Female">Female</MenuItem>
@@ -472,7 +473,7 @@ const Profile = () => {
                     : value || ""
                 }
                 onChange={handleChange}
-                // fullWidth
+                fullWidth
               />
             </>
           );
@@ -484,8 +485,7 @@ const Profile = () => {
               name={fieldPath}
               value={value as number}
               onChange={handleChange}
-              inputProps={{ min: 0 }}
-              // fullWidth
+              fullWidth
             />
           );
 
@@ -497,7 +497,7 @@ const Profile = () => {
               onChange={handleChange}
               multiline
               // rows={4}
-              // fullWidth
+              fullWidth
             />
           );
 
@@ -510,7 +510,7 @@ const Profile = () => {
                 name={fieldPath}
                 value={String(value || "")}
                 onChange={handleChange}
-                // fullWidth
+                fullWidth
               />
             </>
           );
@@ -736,7 +736,7 @@ const Profile = () => {
             </Box>
 
             {/* Address */}
-            {/* <Box>
+            <Box>
               <Typography className="field-descriptor">
                 ADDRESS <span className="required-asterisk">*</span>
               </Typography>
@@ -746,10 +746,10 @@ const Profile = () => {
                   {errors.address}
                 </Typography>
               )}
-            </Box> */}
+            </Box>
 
             {/* Gender */}
-            {/* <Box>
+            <Box>
               <Typography variant="subtitle2">
                 Gender <span className="required-asterisk">*</span>
               </Typography>
@@ -759,7 +759,7 @@ const Profile = () => {
                   {errors.gender}
                 </Typography>
               )}
-            </Box> */}
+            </Box>
 
             {/* Phone */}
             <Box>

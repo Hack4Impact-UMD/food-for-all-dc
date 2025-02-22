@@ -205,6 +205,7 @@
 
 .info-grid div {
   padding: 10px 0;
+  padding-right: 10%;
   font-size: 16px;
   display: flex;
   flex-direction: column;
@@ -267,12 +268,16 @@ dd {
   border: none;
 }
 
+.box-styles {
+  padding: 10rem;
+}
+
 .text-field {
   background-color: #eee;
   border: none;
-  width: 80%;
-  height: 23px;
-  padding: 0 0.5rem;
+  width: 86%;
+  height: 28px;
+  padding: 0.1rem 0.5rem;
   border-radius: 5px;
 }
 /* Mobile Responsiveness */
@@ -283,10 +288,6 @@ dd {
     grid-template-columns: repeat(2, 1fr);
     padding: 20px;
     margin-top: 20px;
-  }
-
-  .info-grid div {
-    padding: 10px 0;
   }
 
   .overview-title {
@@ -306,7 +307,7 @@ dd {
 }
 
 /* Media query for screens smaller than 480px (mobile) */
-@media (max-width: 480px) {
+/* @media (max-width: 480px) {
   .info-grid {
     grid-template-columns: 1fr;
     padding: 20px;
@@ -315,6 +316,7 @@ dd {
 
   .info-grid div {
     padding: 10px 0;
+    padding-right: 5%;
   }
 
   .edit {
@@ -334,4 +336,8 @@ dd {
     width: 100%;
     margin-top: 20px;
   }
-}
+
+  .text-field {
+    width: "1000px";
+  }
+} */
