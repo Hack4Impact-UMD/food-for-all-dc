@@ -181,6 +181,7 @@
 .basic-info-title {
   font-size: 24px;
   color: #7b7a7a;
+  font-weight: 500;
 }
 
 .action-label {
@@ -258,9 +259,9 @@ dd {
 
 .field-descriptor {
   font-family: "Inter";
-  font-size: 12px;
-  font-weight: bold;
-  color: #717171;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #bdbdbd;
   /* margin-bottom: 0.75rem; */
 }
 
@@ -273,6 +274,7 @@ dd {
 }
 
 .text-field {
+  font-weight: 700;
   background-color: #eee;
   border: none;
   width: 86%;
@@ -280,6 +282,7 @@ dd {
   padding: 0.1rem 0.5rem;
   border-radius: 5px;
 }
+
 /* Mobile Responsiveness */
 
 /* Media query for screens smaller than 768px (tablet or mobile) */

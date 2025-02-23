@@ -8,6 +8,7 @@ import {
   Checkbox,
   FormControlLabel,
   Grid,
+  Grid2,
   IconButton,
   makeStyles,
   MenuItem,
@@ -575,11 +576,11 @@ const Profile = () => {
 
     if (isEditing) {
       return (
-        <Grid container spacing={1}>
+        <Grid2 container spacing={1}>
           {Object.entries(restrictions)
             .filter(([key, value]) => typeof value === "boolean")
             .map(([key, value]) => (
-              <Grid item xs={6} key={key}>
+              <Grid2 key={key}>
                 <FormControlLabel
                   control={
                     <Checkbox
@@ -590,9 +591,9 @@ const Profile = () => {
                   }
                   label={key.replace(/([A-Z])/g, " $1").trim()}
                 />
-              </Grid>
+              </Grid2>
             ))}
-        </Grid>
+        </Grid2>
       );
     }
 
@@ -657,12 +658,15 @@ const Profile = () => {
             justifyContent="space-between"
           >
             {/* Title on the left */}
-            <Typography variant="h6" className="basic-info-title">
+            <Typography
+              className="basic-info-title"
+              style={{ fontWeight: 500, fontSize: "24px" }}
+            >
               Basic Information
             </Typography>
 
             {/* Buttons on the right */}
-            <Box display="flex" alignItems="center" gap={1}>
+            <Box display="flex" alignItems="center" gap={1} marginBottom={1}>
               <IconButton
                 style={{ color: "green" }}
                 onClick={() => setIsEditing((prev) => !prev)}
@@ -698,7 +702,7 @@ const Profile = () => {
           >
             {/* First Name */}
             <Box>
-              <Typography className="field-descriptor">
+              <Typography className="field-descriptor" style={{ fontWeight: 700 }}>
                 FIRST NAME <span className="required-asterisk">*</span>
               </Typography>
               {renderField("firstName", "text")}
@@ -711,7 +715,7 @@ const Profile = () => {
 
             {/* Last Name */}
             <Box>
-              <Typography className="field-descriptor">
+              <Typography className="field-descriptor" style={{ fontWeight: 700 }}>
                 LAST NAME <span className="required-asterisk">*</span>
               </Typography>
               {renderField("lastName", "text")}
@@ -724,8 +728,8 @@ const Profile = () => {
 
             {/* Date of Birth */}
             <Box>
-              <Typography variant="subtitle2">
-                Date of Birth <span className="required-asterisk">*</span>
+              <Typography className="field-descriptor" style={{ fontWeight: 700 }}>
+                DATE OF BIRTH <span className="required-asterisk">*</span>
               </Typography>
               {renderField("dob", "date")}
               {errors.dob && (
@@ -737,7 +741,14 @@ const Profile = () => {
 
             {/* Address */}
             <Box>
-              <Typography className="field-descriptor">
+              <Typography
+                className="field-descriptor"
+                style={{
+                  fontWeight: 700,
+                  position: "relative",
+                  top: isEditing ? "-19px" : "0",
+                }}
+              >
                 ADDRESS <span className="required-asterisk">*</span>
               </Typography>
               {renderField("address", "text")}
@@ -750,9 +761,17 @@ const Profile = () => {
 
             {/* Gender */}
             <Box>
-              <Typography variant="subtitle2">
-                Gender <span className="required-asterisk">*</span>
+              <Typography
+                className="field-descriptor"
+                style={{
+                  fontWeight: 700,
+                  position: "relative",
+                  top: isEditing ? "-10px" : "0",
+                }}
+              >
+                GENDER <span className="required-asterisk">*</span>
               </Typography>
+              {/* <h1 className="field-descriptor">GENDER</h1> */}
               {renderField("gender", "select")}
               {errors.gender && (
                 <Typography color="error" variant="body2">
@@ -763,8 +782,8 @@ const Profile = () => {
 
             {/* Phone */}
             <Box>
-              <Typography variant="subtitle2">
-                Phone <span className="required-asterisk">*</span>
+              <Typography className="field-descriptor" style={{ fontWeight: 700 }}>
+                PHONE <span className="required-asterisk">*</span>
               </Typography>
               {renderField("phone", "text")}
               {errors.phone && (
@@ -776,14 +795,16 @@ const Profile = () => {
 
             {/* Alternative Phone */}
             <Box>
-              <Typography variant="subtitle2">Alternative Phone</Typography>
+              <Typography className="field-descriptor" style={{ fontWeight: 700 }}>
+                ALTERNATIVE PHONE
+              </Typography>
               {renderField("alternativePhone", "text")}
             </Box>
 
             {/* Ethnicity */}
             <Box>
-              <Typography variant="subtitle2">
-                Ethnicity <span className="required-asterisk">*</span>
+              <Typography className="field-descriptor" style={{ fontWeight: 700 }}>
+                ETHNICITY <span className="required-asterisk">*</span>
               </Typography>
               {renderField("ethnicity", "text")}
               {errors.ethnicity && (
@@ -795,8 +816,8 @@ const Profile = () => {
 
             {/* Adults */}
             <Box>
-              <Typography variant="subtitle2">
-                Adults <span className="required-asterisk">*</span>
+              <Typography className="field-descriptor" style={{ fontWeight: 700 }}>
+                ADULTS <span className="required-asterisk">*</span>
               </Typography>
               {renderField("adults", "number")}
               {errors.adults && (
@@ -808,8 +829,8 @@ const Profile = () => {
 
             {/* Children */}
             <Box>
-              <Typography variant="subtitle2">
-                Children <span className="required-asterisk">*</span>
+              <Typography className="field-descriptor" style={{ fontWeight: 700 }}>
+                CHILDREN <span className="required-asterisk">*</span>
               </Typography>
               {renderField("children", "number")}
               {errors.children && (
@@ -821,8 +842,8 @@ const Profile = () => {
 
             {/* Delivery Frequency */}
             <Box>
-              <Typography variant="subtitle2">
-                Delivery Frequency <span className="required-asterisk">*</span>
+              <Typography className="field-descriptor" style={{ fontWeight: 700 }}>
+                DELIVERY FREQUENCY <span className="required-asterisk">*</span>
               </Typography>
               {renderField("deliveryFreq", "text")}
               {errors.deliveryFreq && (
@@ -832,49 +853,59 @@ const Profile = () => {
               )}
             </Box>
 
-            {/* Dietary Restrictions */}
-            {/* <Box>
-              <Typography variant="subtitle2">Dietary Restrictions</Typography>
-              {renderField(
-                "deliveryDetails.dietaryRestrictions",
-                "dietaryRestrictions"
-              )}
-            </Box> */}
-
             {/* Delivery Instructions */}
             <Box>
-              <Typography variant="subtitle2">Delivery Instructions</Typography>
+              <Typography className="field-descriptor" style={{ fontWeight: 700 }}>
+                DELIVERY INSTRUCTIONS
+              </Typography>
               {renderField("deliveryDetails.deliveryInstructions", "textarea")}
             </Box>
 
             {/* Notes */}
             <Box>
-              <Typography variant="subtitle2">Notes</Typography>
+              <Typography className="field-descriptor" style={{ fontWeight: 700 }}>
+                NOTES
+              </Typography>
               {renderField("notes", "textarea")}
             </Box>
 
             {/* Life Challenges */}
             <Box>
-              <Typography variant="subtitle2">Life Challenges</Typography>
+              <Typography className="field-descriptor" style={{ fontWeight: 700 }}>
+                LIFE CHALLENGES
+              </Typography>
               {renderField("lifeChallenges", "textarea")}
             </Box>
 
             {/* Lifestyle Goals */}
             <Box>
-              <Typography variant="subtitle2">Lifestyle Goals</Typography>
+              <Typography className="field-descriptor" style={{ fontWeight: 700 }}>
+                LIFESTYLE GOALS
+              </Typography>
               {renderField("lifestyleGoals", "textarea")}
             </Box>
 
             {/* Language */}
             <Box>
-              <Typography variant="subtitle2">
-                Language <span className="required-asterisk">*</span>
+              <Typography className="field-descriptor" style={{ fontWeight: 700 }}>
+                LANGUAGE <span className="required-asterisk">*</span>
               </Typography>
               {renderField("language", "text")}
               {errors.language && (
                 <Typography color="error" variant="body2">
                   {errors.language}
                 </Typography>
+              )}
+            </Box>
+
+            {/* Dietary Restrictions, truncate is when not editing */}
+            <Box>
+              <Typography className="field-descriptor">
+                DIETARY RESTRICTIONS
+              </Typography>
+              {renderField(
+                "deliveryDetails.dietaryRestrictions",
+                "dietaryRestrictions"
               )}
             </Box>
           </Box>
