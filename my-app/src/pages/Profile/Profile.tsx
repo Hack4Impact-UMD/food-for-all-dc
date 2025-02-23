@@ -24,6 +24,7 @@ import PersonIcon from '@mui/icons-material/Person';
 
 import Autocomplete from 'react-google-autocomplete';
 import { Timestamp } from 'firebase/firestore';
+import { auth } from "../../auth/firebaseConfig";
 
 
 const Profile = () => {
@@ -95,6 +96,13 @@ const Profile = () => {
     }
   };
 
+  //Route Protection
+  React.useEffect(()=>{
+    if(auth.currentUser === null){
+      navigate("/");
+    }
+  },[])
+  console.log(auth.currentUser)
   // Check if we are editing an existing profile or creating a new one
   useEffect(() => {
     if (id) {
