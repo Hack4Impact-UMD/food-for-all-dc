@@ -38,6 +38,10 @@ import "./Profile.css";
 import { Timestamp } from "firebase/firestore";
 import Autocomplete from "react-google-autocomplete";
 
+const fieldLabelStyles = {
+  fontWeight: 700,
+};
+
 const fieldStyles = {
   backgroundColor: "#eee",
   width: "100%",
@@ -302,7 +306,7 @@ const Profile = () => {
     if (!clientProfile.firstName.trim())
       newErrors.firstName = "First Name is required";
     if (!clientProfile.lastName.trim()) newErrors.lastName = "Last Name is required";
-    //if (!clientProfile.address.trim()) newErrors.address = "Address is required";
+    if (!clientProfile.address.trim()) newErrors.address = "Address is required";
     if (!clientProfile.dob) newErrors.dob = "Date of Birth is required";
     if (!clientProfile.deliveryFreq.trim())
       newErrors.deliveryFreq = "Delivery Frequency is required";
@@ -399,7 +403,9 @@ const Profile = () => {
       return renderDietaryRestrictions();
     }
 
-    if (fieldPath === "address") {
+    if (fieldPath === "address" && isEditing) {
+      console.log("Rendering address", isEditing);
+
       return (
         <Autocomplete
           className="text-field"
@@ -524,7 +530,9 @@ const Profile = () => {
     }
 
     return (
-      <Typography variant="body1">{renderFieldValue(fieldPath, value)}</Typography>
+      <Typography variant="body1" style={{ fontWeight: 600 }}>
+        {renderFieldValue(fieldPath, value)}
+      </Typography>
     );
   };
 
@@ -576,6 +584,10 @@ const Profile = () => {
     return String(value || "N/A");
   };
 
+  const capitalizeFirstLetter = (value: string) => {
+    return value[0].toUpperCase() + value.slice(1);
+  };
+
   const renderDietaryRestrictions = () => {
     const restrictions = clientProfile.deliveryDetails.dietaryRestrictions;
 
@@ -587,6 +599,7 @@ const Profile = () => {
             .map(([key, value]) => (
               <Grid2 key={key}>
                 <FormControlLabel
+                  style={{ textAlign: "left" }}
                   control={
                     <Checkbox
                       name={key}
@@ -594,7 +607,9 @@ const Profile = () => {
                       onChange={handleDietaryRestrictionChange}
                     />
                   }
-                  label={key.replace(/([A-Z])/g, " $1").trim()}
+                  label={capitalizeFirstLetter(
+                    key.replace(/([A-Z])/g, " $1").trim()
+                  )}
                 />
               </Grid2>
             ))}
@@ -603,7 +618,7 @@ const Profile = () => {
     }
 
     return (
-      <Typography variant="body1">
+      <Typography variant="body1" style={{ fontWeight: 600 }}>
         {Object.entries(restrictions)
           .filter(([key, value]) => value === true && typeof value === "boolean")
           .map(([key]) => key.replace(/([A-Z])/g, " $1").trim())
@@ -701,7 +716,7 @@ const Profile = () => {
           <Box
             sx={{
               display: "grid",
-              gap: 1, // Spacing between grid items
+              gap: isEditing ? 3 : 5, // Spacing between grid items
               gridTemplateColumns: {
                 xs: "1fr", // Full width for small screens
                 sm: "repeat(2, 1fr)", // Three columns for medium screens and up
@@ -713,7 +728,7 @@ const Profile = () => {
           >
             {/* First Name */}
             <Box>
-              <Typography className="field-descriptor" style={{ fontWeight: 700 }}>
+              <Typography className="field-descriptor" style={fieldLabelStyles}>
                 FIRST NAME <span className="required-asterisk">*</span>
               </Typography>
               {renderField("firstName", "text")}
@@ -726,7 +741,7 @@ const Profile = () => {
 
             {/* Last Name */}
             <Box>
-              <Typography className="field-descriptor" style={{ fontWeight: 700 }}>
+              <Typography className="field-descriptor" style={fieldLabelStyles}>
                 LAST NAME <span className="required-asterisk">*</span>
               </Typography>
               {renderField("lastName", "text")}
@@ -739,7 +754,7 @@ const Profile = () => {
 
             {/* Date of Birth */}
             <Box>
-              <Typography className="field-descriptor" style={{ fontWeight: 700 }}>
+              <Typography className="field-descriptor" style={fieldLabelStyles}>
                 DATE OF BIRTH <span className="required-asterisk">*</span>
               </Typography>
               {renderField("dob", "date")}
@@ -751,11 +766,11 @@ const Profile = () => {
             </Box>
 
             {/* Address */}
-            {/* <Box>
+            <Box>
               <Typography
                 className="field-descriptor"
                 style={{
-                  fontWeight: 700,
+                  ...fieldLabelStyles,
                   position: "relative",
                   top: isEditing ? "-19px" : "0",
                 }}
@@ -768,14 +783,14 @@ const Profile = () => {
                   {errors.address}
                 </Typography>
               )}
-            </Box> */}
+            </Box>
 
             {/* Gender */}
             <Box>
               <Typography
                 className="field-descriptor"
                 style={{
-                  fontWeight: 700,
+                  ...fieldLabelStyles,
                   position: "relative",
                   top: isEditing ? "-10px" : "0",
                 }}
@@ -793,7 +808,7 @@ const Profile = () => {
 
             {/* Phone */}
             <Box>
-              <Typography className="field-descriptor" style={{ fontWeight: 700 }}>
+              <Typography className="field-descriptor" style={fieldLabelStyles}>
                 PHONE <span className="required-asterisk">*</span>
               </Typography>
               {renderField("phone", "text")}
@@ -806,7 +821,7 @@ const Profile = () => {
 
             {/* Alternative Phone */}
             <Box>
-              <Typography className="field-descriptor" style={{ fontWeight: 700 }}>
+              <Typography className="field-descriptor" style={fieldLabelStyles}>
                 ALTERNATIVE PHONE
               </Typography>
               {renderField("alternativePhone", "text")}
@@ -814,7 +829,7 @@ const Profile = () => {
 
             {/* Ethnicity */}
             <Box>
-              <Typography className="field-descriptor" style={{ fontWeight: 700 }}>
+              <Typography className="field-descriptor" style={fieldLabelStyles}>
                 ETHNICITY <span className="required-asterisk">*</span>
               </Typography>
               {renderField("ethnicity", "text")}
@@ -827,7 +842,7 @@ const Profile = () => {
 
             {/* Adults */}
             <Box>
-              <Typography className="field-descriptor" style={{ fontWeight: 700 }}>
+              <Typography className="field-descriptor" style={fieldLabelStyles}>
                 ADULTS <span className="required-asterisk">*</span>
               </Typography>
               {renderField("adults", "number")}
@@ -840,7 +855,7 @@ const Profile = () => {
 
             {/* Children */}
             <Box>
-              <Typography className="field-descriptor" style={{ fontWeight: 700 }}>
+              <Typography className="field-descriptor" style={fieldLabelStyles}>
                 CHILDREN <span className="required-asterisk">*</span>
               </Typography>
               {renderField("children", "number")}
@@ -853,7 +868,7 @@ const Profile = () => {
 
             {/* Delivery Frequency */}
             <Box>
-              <Typography className="field-descriptor" style={{ fontWeight: 700 }}>
+              <Typography className="field-descriptor" style={fieldLabelStyles}>
                 DELIVERY FREQUENCY <span className="required-asterisk">*</span>
               </Typography>
               {renderField("deliveryFreq", "text")}
@@ -866,7 +881,7 @@ const Profile = () => {
 
             {/* Delivery Instructions */}
             <Box>
-              <Typography className="field-descriptor" style={{ fontWeight: 700 }}>
+              <Typography className="field-descriptor" style={fieldLabelStyles}>
                 DELIVERY INSTRUCTIONS
               </Typography>
               {renderField("deliveryDetails.deliveryInstructions", "textarea")}
@@ -874,7 +889,7 @@ const Profile = () => {
 
             {/* Notes */}
             <Box>
-              <Typography className="field-descriptor" style={{ fontWeight: 700 }}>
+              <Typography className="field-descriptor" style={fieldLabelStyles}>
                 NOTES
               </Typography>
               {renderField("notes", "textarea")}
@@ -882,7 +897,7 @@ const Profile = () => {
 
             {/* Life Challenges */}
             <Box>
-              <Typography className="field-descriptor" style={{ fontWeight: 700 }}>
+              <Typography className="field-descriptor" style={fieldLabelStyles}>
                 LIFE CHALLENGES
               </Typography>
               {renderField("lifeChallenges", "textarea")}
@@ -890,7 +905,7 @@ const Profile = () => {
 
             {/* Lifestyle Goals */}
             <Box>
-              <Typography className="field-descriptor" style={{ fontWeight: 700 }}>
+              <Typography className="field-descriptor" style={fieldLabelStyles}>
                 LIFESTYLE GOALS
               </Typography>
               {renderField("lifestyleGoals", "textarea")}
@@ -898,7 +913,7 @@ const Profile = () => {
 
             {/* Language */}
             <Box>
-              <Typography className="field-descriptor" style={{ fontWeight: 700 }}>
+              <Typography className="field-descriptor" style={fieldLabelStyles}>
                 LANGUAGE <span className="required-asterisk">*</span>
               </Typography>
               {renderField("language", "text")}
@@ -911,7 +926,7 @@ const Profile = () => {
 
             {/* Dietary Restrictions, truncate is when not editing */}
             <Box>
-              <Typography className="field-descriptor">
+              <Typography className="field-descriptor" style={fieldLabelStyles}>
                 DIETARY RESTRICTIONS
               </Typography>
               {renderField(
