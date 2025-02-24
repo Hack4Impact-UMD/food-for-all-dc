@@ -38,10 +38,6 @@ import "./Profile.css";
 import { Timestamp } from "firebase/firestore";
 import Autocomplete from "react-google-autocomplete";
 
-const fieldLabelStyles = {
-  fontWeight: 700,
-};
-
 const fieldStyles = {
   backgroundColor: "#eee",
   width: "100%",
@@ -530,7 +526,7 @@ const Profile = () => {
     }
 
     return (
-      <Typography variant="body1" style={{ fontWeight: 600 }}>
+      <Typography variant="body1" sx={{ fontWeight: 600 }}>
         {renderFieldValue(fieldPath, value)}
       </Typography>
     );
@@ -599,7 +595,7 @@ const Profile = () => {
             .map(([key, value]) => (
               <Grid2 key={key}>
                 <FormControlLabel
-                  style={{ textAlign: "left" }}
+                  sx={{ textAlign: "left" }}
                   control={
                     <Checkbox
                       name={key}
@@ -618,7 +614,7 @@ const Profile = () => {
     }
 
     return (
-      <Typography variant="body1" style={{ fontWeight: 600 }}>
+      <Typography variant="body1" sx={{ fontWeight: 600 }}>
         {Object.entries(restrictions)
           .filter(([key, value]) => value === true && typeof value === "boolean")
           .map(([key]) => key.replace(/([A-Z])/g, " $1").trim())
@@ -644,6 +640,17 @@ const Profile = () => {
     }));
   };
 
+  const fieldLabelStyles = {
+    fontWeight: 700,
+    marginBottom: !isEditing ? "12px" : "0",
+    textAlign: "left",
+    fontSize: {
+      xs: "16px",
+      md: "14px",
+      lg: "16px",
+    },
+  };
+
   return (
     <Box className="profile-container">
       <Box className="white-container">
@@ -661,13 +668,13 @@ const Profile = () => {
           alignItems="center"
           borderBottom="2px solid green"
           pb={0.5}
-          style={{ width: "min-content" }}
+          sx={{ width: "min-content" }}
         >
           {/* Person Icon */}
           <PersonIcon style={{ marginRight: 3, color: "green" }} />
 
           {/* Text */}
-          <Typography variant="body1" style={{ fontWeight: 800, color: "green" }}>
+          <Typography variant="body1" sx={{ fontWeight: 800, color: "green" }}>
             OVERVIEW
           </Typography>
         </Box>
@@ -684,7 +691,7 @@ const Profile = () => {
             {/* Title on the left */}
             <Typography
               className="basic-info-title"
-              style={{ fontWeight: 500, fontSize: "24px" }}
+              sx={{ fontWeight: 500, fontSize: { xs: "20px", sm: "24px" } }}
             >
               Basic Information
             </Typography>
@@ -692,7 +699,7 @@ const Profile = () => {
             {/* Buttons on the right */}
             <Box display="flex" alignItems="center" gap={1} marginBottom={1}>
               <IconButton
-                style={{ color: "green" }}
+                sx={{ color: "green" }}
                 onClick={() => setIsEditing((prev) => !prev)}
                 color={isEditing ? "secondary" : "primary"}
               >
@@ -702,7 +709,7 @@ const Profile = () => {
               </IconButton>
               {isEditing && (
                 <IconButton
-                  style={{ color: "green" }}
+                  sx={{ color: "green" }}
                   color="primary"
                   onClick={handleSave}
                   aria-label="save"
@@ -728,7 +735,7 @@ const Profile = () => {
           >
             {/* First Name */}
             <Box>
-              <Typography className="field-descriptor" style={fieldLabelStyles}>
+              <Typography className="field-descriptor" sx={fieldLabelStyles}>
                 FIRST NAME <span className="required-asterisk">*</span>
               </Typography>
               {renderField("firstName", "text")}
@@ -741,7 +748,7 @@ const Profile = () => {
 
             {/* Last Name */}
             <Box>
-              <Typography className="field-descriptor" style={fieldLabelStyles}>
+              <Typography className="field-descriptor" sx={fieldLabelStyles}>
                 LAST NAME <span className="required-asterisk">*</span>
               </Typography>
               {renderField("lastName", "text")}
@@ -754,7 +761,7 @@ const Profile = () => {
 
             {/* Date of Birth */}
             <Box>
-              <Typography className="field-descriptor" style={fieldLabelStyles}>
+              <Typography className="field-descriptor" sx={fieldLabelStyles}>
                 DATE OF BIRTH <span className="required-asterisk">*</span>
               </Typography>
               {renderField("dob", "date")}
@@ -769,7 +776,7 @@ const Profile = () => {
             <Box>
               <Typography
                 className="field-descriptor"
-                style={{
+                sx={{
                   ...fieldLabelStyles,
                   position: "relative",
                   top: isEditing ? "-19px" : "0",
@@ -789,7 +796,7 @@ const Profile = () => {
             <Box>
               <Typography
                 className="field-descriptor"
-                style={{
+                sx={{
                   ...fieldLabelStyles,
                   position: "relative",
                   top: isEditing ? "-10px" : "0",
@@ -808,7 +815,7 @@ const Profile = () => {
 
             {/* Phone */}
             <Box>
-              <Typography className="field-descriptor" style={fieldLabelStyles}>
+              <Typography className="field-descriptor" sx={fieldLabelStyles}>
                 PHONE <span className="required-asterisk">*</span>
               </Typography>
               {renderField("phone", "text")}
@@ -821,7 +828,7 @@ const Profile = () => {
 
             {/* Alternative Phone */}
             <Box>
-              <Typography className="field-descriptor" style={fieldLabelStyles}>
+              <Typography className="field-descriptor" sx={fieldLabelStyles}>
                 ALTERNATIVE PHONE
               </Typography>
               {renderField("alternativePhone", "text")}
@@ -829,7 +836,7 @@ const Profile = () => {
 
             {/* Ethnicity */}
             <Box>
-              <Typography className="field-descriptor" style={fieldLabelStyles}>
+              <Typography className="field-descriptor" sx={fieldLabelStyles}>
                 ETHNICITY <span className="required-asterisk">*</span>
               </Typography>
               {renderField("ethnicity", "text")}
@@ -842,7 +849,7 @@ const Profile = () => {
 
             {/* Adults */}
             <Box>
-              <Typography className="field-descriptor" style={fieldLabelStyles}>
+              <Typography className="field-descriptor" sx={fieldLabelStyles}>
                 ADULTS <span className="required-asterisk">*</span>
               </Typography>
               {renderField("adults", "number")}
@@ -855,7 +862,7 @@ const Profile = () => {
 
             {/* Children */}
             <Box>
-              <Typography className="field-descriptor" style={fieldLabelStyles}>
+              <Typography className="field-descriptor" sx={fieldLabelStyles}>
                 CHILDREN <span className="required-asterisk">*</span>
               </Typography>
               {renderField("children", "number")}
@@ -868,7 +875,7 @@ const Profile = () => {
 
             {/* Delivery Frequency */}
             <Box>
-              <Typography className="field-descriptor" style={fieldLabelStyles}>
+              <Typography className="field-descriptor" sx={fieldLabelStyles}>
                 DELIVERY FREQUENCY <span className="required-asterisk">*</span>
               </Typography>
               {renderField("deliveryFreq", "text")}
@@ -881,7 +888,7 @@ const Profile = () => {
 
             {/* Delivery Instructions */}
             <Box>
-              <Typography className="field-descriptor" style={fieldLabelStyles}>
+              <Typography className="field-descriptor" sx={fieldLabelStyles}>
                 DELIVERY INSTRUCTIONS
               </Typography>
               {renderField("deliveryDetails.deliveryInstructions", "textarea")}
@@ -889,7 +896,7 @@ const Profile = () => {
 
             {/* Notes */}
             <Box>
-              <Typography className="field-descriptor" style={fieldLabelStyles}>
+              <Typography className="field-descriptor" sx={fieldLabelStyles}>
                 NOTES
               </Typography>
               {renderField("notes", "textarea")}
@@ -897,7 +904,7 @@ const Profile = () => {
 
             {/* Life Challenges */}
             <Box>
-              <Typography className="field-descriptor" style={fieldLabelStyles}>
+              <Typography className="field-descriptor" sx={fieldLabelStyles}>
                 LIFE CHALLENGES
               </Typography>
               {renderField("lifeChallenges", "textarea")}
@@ -905,7 +912,7 @@ const Profile = () => {
 
             {/* Lifestyle Goals */}
             <Box>
-              <Typography className="field-descriptor" style={fieldLabelStyles}>
+              <Typography className="field-descriptor" sx={fieldLabelStyles}>
                 LIFESTYLE GOALS
               </Typography>
               {renderField("lifestyleGoals", "textarea")}
@@ -913,7 +920,7 @@ const Profile = () => {
 
             {/* Language */}
             <Box>
-              <Typography className="field-descriptor" style={fieldLabelStyles}>
+              <Typography className="field-descriptor" sx={fieldLabelStyles}>
                 LANGUAGE <span className="required-asterisk">*</span>
               </Typography>
               {renderField("language", "text")}
@@ -924,9 +931,9 @@ const Profile = () => {
               )}
             </Box>
 
-            {/* Dietary Restrictions, truncate is when not editing */}
-            <Box>
-              <Typography className="field-descriptor" style={fieldLabelStyles}>
+            {/* Dietary Restrictions, truncate is when not editing, put it on its own row */}
+            <Box sx={{ gridColumn: isEditing ? "-1/1" : "" }}>
+              <Typography className="field-descriptor" sx={fieldLabelStyles}>
                 DIETARY RESTRICTIONS
               </Typography>
               {renderField(
