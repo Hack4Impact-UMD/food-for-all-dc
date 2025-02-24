@@ -302,7 +302,7 @@ const Profile = () => {
     if (!clientProfile.firstName.trim())
       newErrors.firstName = "First Name is required";
     if (!clientProfile.lastName.trim()) newErrors.lastName = "Last Name is required";
-    if (!clientProfile.address.trim()) newErrors.address = "Address is required";
+    //if (!clientProfile.address.trim()) newErrors.address = "Address is required";
     if (!clientProfile.dob) newErrors.dob = "Date of Birth is required";
     if (!clientProfile.deliveryFreq.trim())
       newErrors.deliveryFreq = "Delivery Frequency is required";
@@ -331,7 +331,10 @@ const Profile = () => {
   };
 
   const handleSave = async () => {
-    if (!validateProfile()) return;
+    if (!validateProfile()) {
+      console.log("Invalid Profile");
+      return;
+    }
 
     try {
       if (isNewProfile) {
@@ -351,6 +354,7 @@ const Profile = () => {
         setClientProfile(newProfile);
         setIsNewProfile(false);
         setEditMode(false);
+        setIsEditing(false);
         console.log("New profile created with ID: ", newUid);
 
         // Navigate to the newly created profile
@@ -368,6 +372,7 @@ const Profile = () => {
           merge: true,
         });
         setEditMode(false);
+        setIsEditing(false);
         // Reset all field edit states
         setFieldEditStates({});
         console.log("Profile updated: ", clientProfile.uid);
@@ -627,7 +632,11 @@ const Profile = () => {
   return (
     <Box className="profile-container">
       <Box className="white-container">
-        <Typography variant="h5" style={{ marginBottom: 15 }}>
+        <Typography
+          variant="h5"
+          className="border-bottom"
+          style={{ marginBottom: 20 }}
+        >
           {clientProfile.firstName?.trim() || clientProfile.lastName?.trim()
             ? `${clientProfile.firstName || ""} ${clientProfile.lastName || ""}`.trim()
             : "Welcome!"}
@@ -676,14 +685,16 @@ const Profile = () => {
                   {isEditing ? <CloseIcon /> : <EditIcon />}
                 </Tooltip>
               </IconButton>
-              <IconButton
-                style={{ color: "green" }}
-                color="primary"
-                onClick={handleSave}
-                aria-label="save"
-              >
-                <SaveIcon />
-              </IconButton>
+              {isEditing && (
+                <IconButton
+                  style={{ color: "green" }}
+                  color="primary"
+                  onClick={handleSave}
+                  aria-label="save"
+                >
+                  <SaveIcon />
+                </IconButton>
+              )}
             </Box>
           </Box>
 
@@ -740,7 +751,7 @@ const Profile = () => {
             </Box>
 
             {/* Address */}
-            <Box>
+            {/* <Box>
               <Typography
                 className="field-descriptor"
                 style={{
@@ -757,7 +768,7 @@ const Profile = () => {
                   {errors.address}
                 </Typography>
               )}
-            </Box>
+            </Box> */}
 
             {/* Gender */}
             <Box>

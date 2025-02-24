@@ -169,6 +169,10 @@
   margin: 20px 0;
 }
 
+.border-bottom {
+  border-bottom: 1px solid #bdbdbd;
+}
+
 .box-header {
   display: flex;
   justify-content: space-between;
