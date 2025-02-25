@@ -40,6 +40,8 @@ import {
 } from "@daypilot/daypilot-lite-react";
 import { useNavigate } from 'react-router-dom';
 import "./CalendarPage.css";
+import { auth } from "../../auth/firebaseConfig";
+import { onAuthStateChanged } from "firebase/auth";
 
 const StyledToolbar = styled(Toolbar)(({ theme }) => ({
   justifyContent: "space-between",
@@ -169,6 +171,22 @@ const CalendarPage: React.FC = () => {
 
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
+
+  //Route Protection
+  React.useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user:any) => {
+      if (!user) {
+        console.log("No user is signed in, redirecting to /");
+        navigate("/");
+      } 
+      else{
+        console.log("welcome, " + auth.currentUser?.email)
+      }
+    });
+  
+    // Cleanup the listener when the component unmounts
+    return () => unsubscribe();
+  }, [navigate]);
 
   const fetchDrivers = async () => {
     const driversRef = collection(db, "drivers");

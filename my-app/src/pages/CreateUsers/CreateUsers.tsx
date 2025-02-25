@@ -59,7 +59,7 @@ const CreateUsers: React.FC = () => {
     const [showPassword, setShowPassword] = useState(false);
     const [showRetypePassword, setShowRetypePassword] = useState(false);
     const navigate = useNavigate();
-  
+
     useEffect(() => {
       if (!authContext?.loading) {
         const role = authContext?.token?.claims?.role as UserType;
@@ -148,7 +148,7 @@ const CreateUsers: React.FC = () => {
           registrationEmail,
           registrationPassword
         );
-  
+
         await auth.updateCurrentUser(currentUser);
         const userId = userCredential.user.uid;
   
@@ -170,7 +170,7 @@ const CreateUsers: React.FC = () => {
             }
             break;
         }
-  
+        
         resetForm();
         setRegistrationSuccess(true);
         unsubscribe();

@@ -19,6 +19,8 @@ import ListItemText from '@mui/material/ListItemText';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import TableChartIcon from '@mui/icons-material/TableChart';
+import { useNavigate } from 'react-router-dom';
+import Cookies from 'js-cookie';
 
 const drawerWidth = 240;
 
@@ -67,7 +69,7 @@ const DrawerHeader = styled('div')(({ theme }) => ({
 export default function BasePage({ children }: { children: React.ReactNode }) {
   const theme = useTheme();
   const [open, setOpen] = React.useState(false);
-
+ 
   const handleDrawerOpen = () => {
     setOpen(true);
   };
