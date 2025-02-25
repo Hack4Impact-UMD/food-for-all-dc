@@ -19,6 +19,8 @@ import ListItemText from '@mui/material/ListItemText';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import TableChartIcon from '@mui/icons-material/TableChart';
+import LogoutIcon from '@mui/icons-material/Logout';
+import { useAuth } from '../../auth/AuthProvider';
 
 const drawerWidth = 240;
 
@@ -67,6 +69,7 @@ const DrawerHeader = styled('div')(({ theme }) => ({
 export default function BasePage({ children }: { children: React.ReactNode }) {
   const theme = useTheme();
   const [open, setOpen] = React.useState(false);
+  const { logout } = useAuth();
 
   const handleDrawerOpen = () => {
     setOpen(true);
@@ -74,6 +77,15 @@ export default function BasePage({ children }: { children: React.ReactNode }) {
 
   const handleDrawerClose = () => {
     setOpen(false);
+  };
+
+  // Logout Handler
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } catch (error) {
+      console.error('Logout failed:', error);
+    }
   };
 
   return (
@@ -101,6 +113,8 @@ export default function BasePage({ children }: { children: React.ReactNode }) {
             boxSizing: 'border-box',
             backgroundColor: '#ffffff',
             color: '#000000',
+            display: 'flex',
+            flexDirection: 'column',
           },
         }}
         variant="persistent"
@@ -113,21 +127,38 @@ export default function BasePage({ children }: { children: React.ReactNode }) {
           </IconButton>
         </DrawerHeader>
         <Divider />
-        <List>
-          {[
-            { text: 'Calendar', icon: <CalendarTodayIcon />, link: '/calendar' },
-            { text: 'Spreadsheet', icon: <TableChartIcon />, link: '/spreadsheet' },
-            { text: 'Create Profile', icon: <AccountCircleIcon />, link: '/profile' },
-            { text: 'Create Users', icon: <AccountCircleIcon />, link: '/createUsers' },
+        
+        <Box sx={{ flex: 1, overflow: 'auto' }}>
+          <List>
+            {[
+              { text: 'Calendar', icon: <CalendarTodayIcon />, link: '/calendar' },
+              { text: 'Spreadsheet', icon: <TableChartIcon />, link: '/spreadsheet' },
+              { text: 'Create Profile', icon: <AccountCircleIcon />, link: '/profile' },
+              { text: 'Create Users', icon: <AccountCircleIcon />, link: '/createUsers' },
+            ].map(({ text, icon, link }) => (
+              <ListItem key={text} disablePadding>
+                <ListItemButton component="a" href={link}>
+                  <ListItemIcon>{icon}</ListItemIcon>
+                  <ListItemText primary={text} />
+                </ListItemButton>
+              </ListItem>
+            ))}
+          </List>
+        </Box>
 
-          ].map(({ text, icon, link }) => (
-            <ListItem key={text} disablePadding>
-              <ListItemButton component="a" href={link}>
-                <ListItemIcon>{icon}</ListItemIcon>
-                <ListItemText primary={text} />
-              </ListItemButton>
-            </ListItem>
-          ))}
+        <List>
+          <ListItem>
+          <ListItemButton 
+          href='/' 
+          onClick={handleLogout} 
+          sx={{ backgroundColor: '#c0d4c5', '&:hover': { backgroundColor: '#aabdad' } }}
+          >
+              <ListItemIcon>
+                <LogoutIcon sx={{color: "#257e68"}}/>
+              </ListItemIcon>
+              <ListItemText primary="Logout" />
+            </ListItemButton>
+          </ListItem>
         </List>
       </Drawer>
       <Main open={open}>
