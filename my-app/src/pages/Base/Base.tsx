@@ -117,7 +117,7 @@ export default function BasePage({ children }: { children: React.ReactNode }) {
           {[
             { text: 'Calendar', icon: <CalendarTodayIcon />, link: '/calendar' },
             { text: 'Spreadsheet', icon: <TableChartIcon />, link: '/spreadsheet' },
-            { text: 'Create Profile', icon: <AccountCircleIcon />, link: '/profile' },
+            { text: 'Create Client', icon: <AccountCircleIcon />, link: '/profile' },
             { text: 'Create Users', icon: <AccountCircleIcon />, link: '/createUsers' },
 
           ].map(({ text, icon, link }) => (
