@@ -154,7 +154,7 @@ export default function BasePage({ children }: { children: React.ReactNode }) {
           sx={{ backgroundColor: '#c0d4c5', '&:hover': { backgroundColor: '#aabdad' } }}
           >
               <ListItemIcon>
-                <LogoutIcon/>
+                <LogoutIcon sx={{color: "#257e68"}}/>
               </ListItemIcon>
               <ListItemText primary="Logout" />
             </ListItemButton>
