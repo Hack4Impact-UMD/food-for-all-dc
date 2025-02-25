@@ -20,8 +20,6 @@ import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import TableChartIcon from '@mui/icons-material/TableChart';
 import LogoutIcon from '@mui/icons-material/Logout';
-
-//Experimental
 import { useAuth } from '../../auth/AuthProvider';
 
 const drawerWidth = 240;
@@ -71,8 +69,6 @@ const DrawerHeader = styled('div')(({ theme }) => ({
 export default function BasePage({ children }: { children: React.ReactNode }) {
   const theme = useTheme();
   const [open, setOpen] = React.useState(false);
-
-  // Experimental
   const { logout } = useAuth();
 
   const handleDrawerOpen = () => {
@@ -83,7 +79,7 @@ export default function BasePage({ children }: { children: React.ReactNode }) {
     setOpen(false);
   };
 
-  // Experimental
+  // Logout Handler
   const handleLogout = async () => {
     try {
       await logout();
@@ -150,10 +146,13 @@ export default function BasePage({ children }: { children: React.ReactNode }) {
           </List>
         </Box>
 
-        {/* Logout section at the bottom */}
         <List>
-          <ListItem disablePadding > {/* Add onClick to handle account*/ }
-            <ListItemButton href='/' onClick={handleLogout}>
+          <ListItem>
+          <ListItemButton 
+          href='/' 
+          onClick={handleLogout} 
+          sx={{ backgroundColor: '#c0d4c5', '&:hover': { backgroundColor: '#aabdad' } }}
+          >
               <ListItemIcon>
                 <LogoutIcon/>
               </ListItemIcon>
