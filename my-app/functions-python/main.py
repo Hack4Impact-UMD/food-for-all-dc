@@ -1,4 +1,4 @@
-from math import cos, sin
+from math import cos, sin, atan2, sqrt
 import googlemaps
 from firebase_functions import https_fn
 from dotenv import load_dotenv
@@ -15,7 +15,68 @@ import numpy as np
 load_dotenv()  # TODO: Remove once done with dev
 # TODO: Make sure to add the api key in the environment vars in the firebase console
 
+def test_clustering():
+    # Define the coordinates
+    coords = [
+        (38.8993106, -76.9937824),
+        (38.8554358, -76.9951151),
+        (38.889226, -76.9356789),
+        (38.88555, -76.9482148),
+        (38.882273, -76.933624),
+        (38.8840008, -76.9350142),
+        (38.8588442, -76.9957272),
+        (38.8757448, -77.0133817),
+        (38.8854471, -76.9486366),
+        (38.827499, -76.99454),
+        (38.860522, -76.9901938),
+        (38.885339, -76.9482539),
+        (38.896393, -76.92148),
+        (38.8796714, -76.9303432),
+        (38.8878192, -76.9511011),
+        (38.8853328, -76.948533),
+        (38.9000162, -76.9524685),
+        (38.8785645, -77.0212272),
+        (38.829087, -76.995643),
+        (38.8310144, -77.0064032),
+        (38.8260017, -76.9976632),
+        (38.8916765, -76.9491601),
+        (38.8735432, -77.0112203),
+        (38.904483, -76.93438),
+        (38.894868, -76.929614),
+        (38.8909346, -76.9263364),
+        (38.9000734, -76.9325121),
+        (38.898998, -76.993793),
+        (38.8929048, -76.9408774),
+        (38.8574757, -76.9951322),
+        (38.8901172, -76.9394226),
+        (38.882223, -76.9245355),
+        (38.8602807, -76.9853002),
+        (38.8802107, -77.021587),
+        (38.8265933, -76.9849324),
+        (38.89154, -76.9173543),
+        (38.8299442, -76.9994175)
+    ]
 
+    req_medoids = {'coords': coords, 'drivers_count': 1}
+
+    body = KMedoidsClusterDeliveriesRequest(**req_medoids)
+    response = cluster_deliveries_k_medoids(body)
+    clusters = response.response
+    print(response)
+    print(clusters)
+
+    req_means = {'coords': coords, 'drivers_count': 1, 'min_deliveries': 1, 'max_deliveries': 1}
+
+    body = KMeansClusterDeliveriesRequest(**req_means)
+    response = cluster_deliveries_k_means(body)
+    clusters = response.response
+    print(response)
+    print(clusters)
+
+
+    
+
+   
 class KMeansClusterDeliveriesRequest(BaseModel):
     coords: List[Tuple[float, float]]
     drivers_count: int
@@ -96,6 +157,26 @@ def construct_distance_matrix(coords, batch_size = 10):
 
     return distance_matrix
 
+def construct_haversine_distance_matrix(coords):
+    distance_matrix = np.zeros((len(coords), len(coords)))
+
+    for i in range(len(coords)):
+        for j in range(len(coords)):
+            lat1, lon1 = coords[i][:2]
+            lat2, lon2 = coords[j][:2]
+
+            # Haversine distance formula
+            dlon = lon2 - lon1
+            dlat = lat2 - lat1
+            a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
+            c = 2 * atan2(sqrt(a), sqrt(1-a))
+            distance = 6371 * c  # in kilometers
+
+            distance_matrix[i, j] = distance
+
+    return distance_matrix
+
+
 def latlon_to_cartesian(lat, lon, radius=6371):
     x = radius * cos(lat) * cos(lon)
     y = radius * cos(lat) * sin(lon)
@@ -105,21 +186,21 @@ def latlon_to_cartesian(lat, lon, radius=6371):
 # TODO: Implement Authorization if that is configured
 @https_fn.on_request()
 def cluster_deliveries_k_medoids(req: https_fn.Request) -> https_fn.Response:
-    try:
-        body = KMedoidsClusterDeliveriesRequest(**req.get_json())
-    except ValidationError as e:
-        errors = parse_error_fields(e)
-        return https_fn.Response(
-            response=json.dumps(ValidationErrorResponse(details=errors)),
-            status=422,
-            content_type="application/json",
-        )
+    # try:
+    #     body = KMedoidsClusterDeliveriesRequest(**req.get_json())
+    # except ValidationError as e:
+    #     errors = parse_error_fields(e)
+    #     return https_fn.Response(
+    #         response=json.dumps(ValidationErrorResponse(details=errors)),
+    #         status=422,
+    #         content_type="application/json",
+    #     )
 
-    coords = body.coords
+    coords = req.coords
 
-    drivers_count = body.drivers_count
-
-    distance_matrix = construct_distance_matrix(coords)
+    drivers_count = req.drivers_count
+    distance_matrix = construct_haversine_distance_matrix(coords)
+    #distance_matrix = construct_distance_matrix(coords)
 
     kmedoids = KMedoids(n_clusters=drivers_count, method="fasterpam").fit(
         distance_matrix
@@ -141,26 +222,26 @@ def cluster_deliveries_k_medoids(req: https_fn.Request) -> https_fn.Response:
 
 @https_fn.on_request()
 def cluster_deliveries_k_means(req: https_fn.Request) -> https_fn.Response:
-    try:
-        body = KMeansClusterDeliveriesRequest(**req.get_json())
-    except ValidationError as e:
-        errors = parse_error_fields(e)
-        return https_fn.Response(
-            response=json.dumps(ValidationErrorResponse(details=errors)),
-            status=422,
-            content_type="application/json",
-        )
+    # try:
+    #     body = KMeansClusterDeliveriesRequest(**req.get_json())
+    # except ValidationError as e:
+    #     errors = parse_error_fields(e)
+    #     return https_fn.Response(
+    #         response=json.dumps(ValidationErrorResponse(details=errors)),
+    #         status=422,
+    #         content_type="application/json",
+    #     )
 
-    coords = body.coords
-    coords = [latlon_to_cartesian(lat, lon) for lat, lon in coords]
-    drivers_count = body.drivers_count
-    min_deliveries = body.min_deliveries
-    max_deliveries = body.max_deliveries
+    coords = np.array(req.coords, dtype=object)
+    coords = np.array([latlon_to_cartesian(lat, lon) for lat, lon in coords])
+    drivers_count = req.drivers_count
+    min_deliveries = req.min_deliveries
+    max_deliveries = req.max_deliveries
 
     kmeans = KMeansConstrained(
         n_clusters=drivers_count,
         size_min=min_deliveries,
-        size_max=max_deliveries,
+        size_max=max(max_deliveries, len(coords) // drivers_count), # CHANGE from max_deliveries
         random_state=42,
     ).fit(coords)
     labels = kmeans.labels_
@@ -174,7 +255,8 @@ def cluster_deliveries_k_means(req: https_fn.Request) -> https_fn.Response:
         cluster = clusters[key]
         if len(cluster) <= 1:
             continue
-        distance_matrix = construct_distance_matrix(coords=[coords[index] for index in cluster])
+        distance_matrix = construct_haversine_distance_matrix(coords=[coords[index] for index in cluster])
+        #distance_matrix = construct_distance_matrix(coords=[coords[index] for index in cluster])
         clf = LocalOutlierFactor(n_neighbors=len(cluster), metric="precomputed")
         predictions = clf.fit_predict(distance_matrix)
         outliers = [index for index, prediction in zip(cluster, predictions) if prediction == -1]
@@ -221,3 +303,6 @@ def calculate_optimal_cluster_route(req: https_fn.Request) -> https_fn.Response:
         status=201,
         content_type="application/json",
     )
+    
+if __name__ == "__main__":
+    test_clustering()
