@@ -340,54 +340,6 @@ const renderField = (
     return renderDietaryRestrictions();
   }
 
-  if (fieldPath === "address") {
-    return (
-      <Autocomplete
-        apiKey={"AIzaSyCYWuEiY3yrbOYH6Oe9JeB-3p0V7Sd8PY8"}
-        onPlaceSelected={(place) => {
-          if (place && place.address_components) {
-            const addressComponents = place.address_components;
-
-            const getAddressPart = (type: string) => {
-              const component = addressComponents.find((comp) =>
-                comp.types.includes(type)
-              );
-              return component ? component.long_name : "";
-            };
-
-            const houseNumber = getAddressPart("street_number");
-            const streetName = getAddressPart("route");
-            const fullAddress = place.formatted_address || "";
-
-            setClientProfile((prevProfile) => ({
-              ...prevProfile,
-              address: fullAddress,
-              houseNumber: houseNumber,
-              streetName: streetName,
-            }));
-
-            console.log("Selected Address:", {
-              fullAddress,
-              houseNumber,
-              streetName,
-            });
-          }
-        }}
-        options={{
-          types: ["geocode", "establishment"],
-          fields: [
-            "address_components",
-            "formatted_address",
-            "geometry",
-            "icon",
-            "name",
-          ],
-        }}
-        defaultValue={clientProfile.address || ""}
-      />
-    );
-  }
-
   if (isEditing) {
     switch (type) {
       case "select":
