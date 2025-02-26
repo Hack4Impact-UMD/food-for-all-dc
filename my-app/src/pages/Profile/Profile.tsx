@@ -99,10 +99,11 @@ const Profile = () => {
   //Route Protection
   React.useEffect(()=>{
     if(auth.currentUser === null){
+      console.log("user: ", auth)
       navigate("/");
     }
   },[])
-  console.log(auth.currentUser)
+
   // Check if we are editing an existing profile or creating a new one
   useEffect(() => {
     if (id) {

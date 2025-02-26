@@ -664,7 +664,7 @@ const CalendarPage: React.FC = () => {
               alignItems: "center",
             }}
           >
-            <Typography variant="h4" sx={{ marginRight: 2, color: "#787777" }}>
+            <Typography variant="h4" sx={{marginRight: 2, color: "#787777" }}>
               {viewType === "Day" && daysOfWeek[currentDate.getDayOfWeek()]}
               {viewType === "Month" && currentDate.toString("MMMM")}
             </Typography>
