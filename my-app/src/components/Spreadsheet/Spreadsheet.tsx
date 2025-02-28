@@ -114,6 +114,9 @@ const Spreadsheet: React.FC = () => {
 
   // Handle search input change
   const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    console.log("hello")
+    console.log(`This is the new search${event.target.value}`)
+    console.log(event.target.value)
     setSearchQuery(event.target.value);
   };
 
@@ -223,28 +226,41 @@ const Spreadsheet: React.FC = () => {
     navigate("/profile")
   }
   
-  
+  //  THIS IS WHERE I NEED TO BE EDITING RIGHT NOW
   // Filter rows based on search query
-  const visibleRows = rows.filter(
+
+  let visibleRows = rows.filter(
     (row) =>
       fields.some((field) => {
         const fieldValue = field.compute
           ? field.compute(row)
           : row[field.key as keyof RowData];
+        
+        console.log("welcome")
+        console.log(fieldValue && typeof fieldValue)
+        console.log(fieldValue && fieldValue)
+        // console.log(fieldValue && fieldValue.toString().toLowerCase().includes(searchQuery.toLowerCase()))
+        console.log(fieldValue && fieldValue.toString().toLowerCase().includes("something"))
         return (
           fieldValue &&
           fieldValue
             .toString()
             .toLowerCase()
+            // .includes(query.toLowerCase())
             .includes(searchQuery.toLowerCase())
         );
-      }) ||
-      row.dietaryRestriction
-        .toLowerCase()
-        .includes(searchQuery.toLowerCase())
+      }) 
+      // ||
+      // row.dietaryRestriction
+      //   .toLowerCase()
+      //   .includes(searchQuery.toLowerCase())
   );
 
-  
+  useEffect(() => {
+    console.log("this is search query")
+    console.log(searchQuery)
+  }, [searchQuery])
+
 
   return (
     <Box className="box">
