@@ -130,7 +130,7 @@ export default function BasePage({ children }: { children: React.ReactNode }) {
           {[
             { text: 'Delivery Schedule', icon: <CalendarTodayIcon />, link: '/calendar' },
             { text: 'Client Databse', icon: <StorageIcon />, link: '/spreadsheet' },
-            { text: 'Create Profile', icon: <AccountCircleIcon />, link: '/profile' },
+            { text: 'Create Client', icon: <AccountCircleIcon />, link: '/profile' },
             { text: 'Add Volunteer', icon: <AddCircleIcon />, link: '/createUsers' },
             { text: 'Delivery Assignment', icon: <LocalShippingIcon />, link: '/deliveryAssignment' },
 
