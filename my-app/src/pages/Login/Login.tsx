@@ -17,6 +17,7 @@ import { auth } from "../../auth/firebaseConfig"; // Use the initialized auth fr
 import "./Login.css";
 import foodForAllDCLogin from "../../assets/food-for-all-dc-login.png";
 import foodForAllDCLogo from "../../assets/food-for-all-dc-logo.jpg";
+import { onAuthStateChanged } from "firebase/auth";
 
 
 
@@ -30,12 +31,24 @@ function Login() {
 
   const navigate = useNavigate();
 
+  //Route Protection
+  React.useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user:any) => {
+      if (user) {
+        navigate("/calendar");
+      } 
+    });
+  
+    // Cleanup the listener when the component unmounts
+    return () => unsubscribe();
+  }, [navigate]);
   const handleLogin = async () => {
     try {
       // Authenticate the user
       const userCredential = await signInWithEmailAndPassword(auth, loginEmail, loginPassword);
       const user = userCredential.user;
-
+      
+      
       // Successful login, navigate to calendar
       setLoginError("");
       navigate("/calendar");

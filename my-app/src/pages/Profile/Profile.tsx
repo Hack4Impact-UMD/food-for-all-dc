@@ -32,7 +32,7 @@ import {
 } from "firebase/firestore";
 import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { db } from "../../auth/firebaseConfig";
+import { db, auth } from "../../auth/firebaseConfig";
 import "./Profile.css";
 
 import { Timestamp } from "firebase/firestore";
@@ -139,6 +139,14 @@ const Profile = () => {
       return null; // Return null if no profile found
     }
   };
+
+  //Route Protection
+  React.useEffect(()=>{
+    if(auth.currentUser === null){
+      console.log("user: ", auth)
+      navigate("/");
+    }
+  },[])
 
   // Check if we are editing an existing profile or creating a new one
   useEffect(() => {
