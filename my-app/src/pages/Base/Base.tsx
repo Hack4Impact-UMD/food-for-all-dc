@@ -5,20 +5,19 @@ import Drawer from '@mui/material/Drawer';
 import CssBaseline from '@mui/material/CssBaseline';
 import MuiAppBar, { AppBarProps as MuiAppBarProps } from '@mui/material/AppBar';
 import Toolbar from '@mui/material/Toolbar';
-import Typography from '@mui/material/Typography';
 import Divider from '@mui/material/Divider';
 import IconButton from '@mui/material/IconButton';
-import MenuIcon from '@mui/icons-material/Menu';
-import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
-import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+import MenuRoundedIcon from '@mui/icons-material/MenuRounded';
 import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
-import ListItemButton from '@mui/material/ListItemButton';
-import ListItemIcon from '@mui/material/ListItemIcon';
-import ListItemText from '@mui/material/ListItemText';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
-import TableChartIcon from '@mui/icons-material/TableChart';
+import StorageIcon from '@mui/icons-material/Storage'
+import AddCircleIcon from '@mui/icons-material/AddCircle';
+import LogoutIcon from '@mui/icons-material/Logout';
+import LocalShippingIcon from '@mui/icons-material/LocalShipping';
+import Tab from './NavBar/Tab'
+import logo from '../../assets/ffa-banner-logo.webp'
 
 const drawerWidth = 240;
 
@@ -64,10 +63,23 @@ const DrawerHeader = styled('div')(({ theme }) => ({
   justifyContent: 'flex-end',
 }));
 
+const LogoContainer = styled('div')({
+  display: 'flex',
+  width: '100%',
+  justifyContent: 'start',
+  alignItems: 'center',
+});
+
+const LogoImage = styled('img')({
+  width: '85%', // Adjust size as needed
+  height: 'auto',
+});
+
 export default function BasePage({ children }: { children: React.ReactNode }) {
   const theme = useTheme();
   const [open, setOpen] = React.useState(false);
-
+  const [tab, setTab] = React.useState("Delivery Schedule");
+ 
   const handleDrawerOpen = () => {
     setOpen(true);
   };
@@ -88,7 +100,7 @@ export default function BasePage({ children }: { children: React.ReactNode }) {
             edge="start"
             sx={{ marginRight: 2, ...(open && { display: 'none' }) }}
           >
-            <MenuIcon />
+            <MenuRoundedIcon />
           </IconButton>
         </Toolbar>
       </AppBar>
@@ -99,7 +111,7 @@ export default function BasePage({ children }: { children: React.ReactNode }) {
           '& .MuiDrawer-paper': {
             width: drawerWidth,
             boxSizing: 'border-box',
-            backgroundColor: '#ffffff',
+            backgroundColor: 'rgba(217, 217, 217, 1)',
             color: '#000000',
           },
         }}
@@ -107,25 +119,33 @@ export default function BasePage({ children }: { children: React.ReactNode }) {
         anchor="left"
         open={open}
       >
-        <DrawerHeader>
-          <IconButton onClick={handleDrawerClose}>
-            {theme.direction === 'ltr' ? <ChevronLeftIcon /> : <ChevronRightIcon />}
-          </IconButton>
+        <DrawerHeader sx={{backgroundColor: 'lightgray'}}>
+          <LogoContainer>
+            <LogoImage src={logo} alt="Logo" />
+          </LogoContainer>
+          <MenuRoundedIcon sx={{fontSize: 30 , color: "rgba(96, 97, 97, 1)"}} onClick={handleDrawerClose}/>
         </DrawerHeader>
         <Divider />
         <List>
           {[
-            { text: 'Calendar', icon: <CalendarTodayIcon />, link: '/calendar' },
-            { text: 'Spreadsheet', icon: <TableChartIcon />, link: '/spreadsheet' },
-            { text: 'Create Profile', icon: <AccountCircleIcon />, link: '/profile' },
-            { text: 'Create Users', icon: <AccountCircleIcon />, link: '/createUsers' },
+            { text: 'Delivery Schedule', icon: <CalendarTodayIcon />, link: '/calendar' },
+            { text: 'Client Databse', icon: <StorageIcon />, link: '/spreadsheet' },
+            { text: 'Create Client', icon: <AccountCircleIcon />, link: '/profile' },
+            { text: 'Add Volunteer', icon: <AddCircleIcon />, link: '/createUsers' },
+            { text: 'Delivery Assignment', icon: <LocalShippingIcon />, link: '/deliveryAssignment' },
 
           ].map(({ text, icon, link }) => (
             <ListItem key={text} disablePadding>
-              <ListItemButton component="a" href={link}>
-                <ListItemIcon>{icon}</ListItemIcon>
-                <ListItemText primary={text} />
-              </ListItemButton>
+              <Tab text={text} icon = {icon} link = {link} tab = {tab} setTab={setTab} setOpen={setOpen}></Tab>
+            </ListItem>
+          ))}
+        </List>
+        <List sx={{display: 'flex', flexDirection: 'column', height: '100%', justifyContent: 'end'}}>
+          {[
+            { text: 'Logout', icon: <LogoutIcon />, link: '/temp' },
+          ].map(({ text, icon, link }) => (
+            <ListItem key={text} disablePadding>
+              <Tab text={text} icon = {icon} link = {link} tab = {tab} setTab={setTab} setOpen={setOpen}></Tab>
             </ListItem>
           ))}
         </List>
