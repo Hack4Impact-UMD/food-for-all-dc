@@ -5,7 +5,6 @@ import Drawer from '@mui/material/Drawer';
 import CssBaseline from '@mui/material/CssBaseline';
 import MuiAppBar, { AppBarProps as MuiAppBarProps } from '@mui/material/AppBar';
 import Toolbar from '@mui/material/Toolbar';
-import Typography from '@mui/material/Typography';
 import Divider from '@mui/material/Divider';
 import IconButton from '@mui/material/IconButton';
 import MenuIcon from '@mui/icons-material/Menu';
@@ -21,6 +20,7 @@ import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import TableChartIcon from '@mui/icons-material/TableChart';
 import LogoutIcon from '@mui/icons-material/Logout';
 import { useAuth } from '../../auth/AuthProvider';
+import { useNavigate } from 'react-router-dom';
 
 const drawerWidth = 240;
 
@@ -70,6 +70,7 @@ export default function BasePage({ children }: { children: React.ReactNode }) {
   const theme = useTheme();
   const [open, setOpen] = React.useState(false);
   const { logout } = useAuth();
+  const navigate = useNavigate();
 
   const handleDrawerOpen = () => {
     setOpen(true);
@@ -79,10 +80,10 @@ export default function BasePage({ children }: { children: React.ReactNode }) {
     setOpen(false);
   };
 
-  // Logout Handler
   const handleLogout = async () => {
     try {
       await logout();
+      navigate('/'); // Redirect to home without full page reload
     } catch (error) {
       console.error('Logout failed:', error);
     }
@@ -127,7 +128,7 @@ export default function BasePage({ children }: { children: React.ReactNode }) {
           </IconButton>
         </DrawerHeader>
         <Divider />
-        
+
         <Box sx={{ flex: 1, overflow: 'auto' }}>
           <List>
             {[
@@ -148,13 +149,13 @@ export default function BasePage({ children }: { children: React.ReactNode }) {
 
         <List>
           <ListItem>
-          <ListItemButton 
-          href='/' 
-          onClick={handleLogout} 
-          sx={{ backgroundColor: '#c0d4c5', '&:hover': { backgroundColor: '#aabdad' } }}
-          >
+            <ListItemButton 
+              onClick={handleLogout} 
+              aria-label="Logout"
+              sx={{ backgroundColor: '#c0d4c5', '&:hover': { backgroundColor: '#aabdad' } }}
+            >
               <ListItemIcon>
-                <LogoutIcon sx={{color: "#257e68"}}/>
+                <LogoutIcon sx={{color: "#257e68"}} />
               </ListItemIcon>
               <ListItemText primary="Logout" />
             </ListItemButton>
