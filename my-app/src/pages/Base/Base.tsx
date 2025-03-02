@@ -10,14 +10,19 @@ import IconButton from '@mui/material/IconButton';
 import MenuRoundedIcon from '@mui/icons-material/MenuRounded';
 import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
+import ListItemButton from '@mui/material/ListItemButton';  // ✅ Added this import
+import ListItemIcon from '@mui/material/ListItemIcon';
+import ListItemText from '@mui/material/ListItemText';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
-import StorageIcon from '@mui/icons-material/Storage'
+import StorageIcon from '@mui/icons-material/Storage';
 import AddCircleIcon from '@mui/icons-material/AddCircle';
 import LogoutIcon from '@mui/icons-material/Logout';
 import LocalShippingIcon from '@mui/icons-material/LocalShipping';
-import Tab from './NavBar/Tab'
-import logo from '../../assets/ffa-banner-logo.webp'
+import Tab from './NavBar/Tab';
+import logo from '../../assets/ffa-banner-logo.webp';
+import { useAuth } from '../../auth/AuthProvider';
+import { useNavigate } from 'react-router-dom';
 
 const drawerWidth = 240;
 
@@ -71,7 +76,7 @@ const LogoContainer = styled('div')({
 });
 
 const LogoImage = styled('img')({
-  width: '85%', // Adjust size as needed
+  width: '85%',
   height: 'auto',
 });
 
@@ -79,13 +84,24 @@ export default function BasePage({ children }: { children: React.ReactNode }) {
   const theme = useTheme();
   const [open, setOpen] = React.useState(false);
   const [tab, setTab] = React.useState("Delivery Schedule");
- 
+  const { logout } = useAuth();
+  const navigate = useNavigate();
+
   const handleDrawerOpen = () => {
     setOpen(true);
   };
 
   const handleDrawerClose = () => {
     setOpen(false);
+  };
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      navigate('/'); // Redirect to home without full page reload
+    } catch (error) {
+      console.error('Logout failed:', error);
+    }
   };
 
   return (
@@ -113,41 +129,43 @@ export default function BasePage({ children }: { children: React.ReactNode }) {
             boxSizing: 'border-box',
             backgroundColor: 'rgba(217, 217, 217, 1)',
             color: '#000000',
+            display: 'flex',
+            flexDirection: 'column',
           },
         }}
         variant="persistent"
         anchor="left"
         open={open}
       >
-        <DrawerHeader sx={{backgroundColor: 'lightgray'}}>
+        <DrawerHeader sx={{ backgroundColor: 'lightgray' }}>
           <LogoContainer>
             <LogoImage src={logo} alt="Logo" />
           </LogoContainer>
-          <MenuRoundedIcon sx={{fontSize: 30 , color: "rgba(96, 97, 97, 1)"}} onClick={handleDrawerClose}/>
+          <MenuRoundedIcon sx={{ fontSize: 30, color: "rgba(96, 97, 97, 1)" }} onClick={handleDrawerClose} />
         </DrawerHeader>
         <Divider />
         <List>
           {[
             { text: 'Delivery Schedule', icon: <CalendarTodayIcon />, link: '/calendar' },
-            { text: 'Client Databse', icon: <StorageIcon />, link: '/spreadsheet' },
+            { text: 'Client Database', icon: <StorageIcon />, link: '/spreadsheet' },
             { text: 'Create Client', icon: <AccountCircleIcon />, link: '/profile' },
             { text: 'Add Volunteer', icon: <AddCircleIcon />, link: '/createUsers' },
             { text: 'Delivery Assignment', icon: <LocalShippingIcon />, link: '/deliveryAssignment' },
-
           ].map(({ text, icon, link }) => (
             <ListItem key={text} disablePadding>
-              <Tab text={text} icon = {icon} link = {link} tab = {tab} setTab={setTab} setOpen={setOpen}></Tab>
+              <Tab text={text} icon={icon} link={link} tab={tab} setTab={setTab} setOpen={setOpen} />
             </ListItem>
           ))}
         </List>
-        <List sx={{display: 'flex', flexDirection: 'column', height: '100%', justifyContent: 'end'}}>
-          {[
-            { text: 'Logout', icon: <LogoutIcon />, link: '/temp' },
-          ].map(({ text, icon, link }) => (
-            <ListItem key={text} disablePadding>
-              <Tab text={text} icon = {icon} link = {link} tab = {tab} setTab={setTab} setOpen={setOpen}></Tab>
-            </ListItem>
-          ))}
+        <List sx={{ display: 'flex', flexDirection: 'column', height: '100%', justifyContent: 'end' }}>
+          <ListItem disablePadding>
+            <ListItemButton onClick={handleLogout} aria-label="Logout" sx={{ backgroundColor: '#c0d4c5', '&:hover': { backgroundColor: '#aabdad' } }}>
+              <ListItemIcon>
+                <LogoutIcon sx={{ color: "#257e68" }} />
+              </ListItemIcon>
+              <ListItemText primary="Logout" />
+            </ListItemButton>
+          </ListItem>
         </List>
       </Drawer>
       <Main open={open}>
