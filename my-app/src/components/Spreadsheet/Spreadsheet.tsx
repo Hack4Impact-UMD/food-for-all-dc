@@ -331,44 +331,7 @@ const Spreadsheet: React.FC = () => {
             flexWrap: "wrap",
           }}
         >
-          <div style={{ display: "flex", gap: "16px", flexWrap: "wrap" }}>
-            <button
-              style={{
-                background: "#2E5B4C",
-                color: "white",
-                padding: "8px 16px",
-                border: "none",
-                borderRadius: "24px", // Make it oval
-                cursor: "pointer",
-              }}
-            >
-              VIEW ALL
-            </button>
-            <button
-              style={{
-                background: "transparent",
-                color: "#666",
-                padding: "8px 16px",
-                border: "1px solid #666", // Added border for visibility
-                borderRadius: "24px", // Make it oval
-                cursor: "pointer",
-              }}
-            >
-              TYPE
-            </button>
-            <button
-              style={{
-                background: "transparent",
-                color: "#666",
-                padding: "8px 16px",
-                border: "1px solid #666", // Added border for visibility
-                borderRadius: "24px", // Make it oval
-                cursor: "pointer",
-              }}
-            >
-              LOCATION
-            </button>
-          </div>
+
 
           <Button
             variant="contained"
