@@ -255,7 +255,7 @@ const CreateUsers: React.FC = () => {
             required
           />
           <span className="visibility-icon" onClick={togglePasswordVisibility}>
-            {showPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
+            {showPassword ? <VisibilityIcon /> : <VisibilityOffIcon />}
           </span>
         </div>
 
@@ -269,7 +269,7 @@ const CreateUsers: React.FC = () => {
             required
           />
           <div className="visibility-icon" onClick={toggleRetypePasswordVisibility}>
-            {showRetypePassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
+            {showRetypePassword ? <VisibilityIcon /> : <VisibilityOffIcon />}
           </div>
         </div>
 
