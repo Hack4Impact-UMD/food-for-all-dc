@@ -427,6 +427,8 @@ const Profile = () => {
           }
 
           if (fieldPath === "language") {
+                      
+            // Render dropdown 
             return (
               <CustomSelect
                 name={fieldPath}
@@ -892,19 +894,33 @@ const Profile = () => {
               {renderField("lifestyleGoals", "textarea")}
             </Box>
 
+
             {/* Language */}
             <Box>
               <Typography className="field-descriptor" sx={fieldLabelStyles}>
                 LANGUAGE <span className="required-asterisk">*</span>
               </Typography>
               {renderField("language", "select")}
-              {clientProfile.language === "Other" && renderField("customLanguage", "text")}
               {errors.language && (
                 <Typography color="error" variant="body2">
                   {errors.language}
                 </Typography>
+              )}  
+            </Box>
+            {/* Other Language Textbox Option */}
+            {clientProfile.language === "Other" && 
+            <Box>
+            <Typography className="field-descriptor" sx={fieldLabelStyles}>
+                OTHER LANGUAGE <span className="required-asterisk">*</span>
+              </Typography>
+            {renderField("customLanguage", "text")}
+            {errors.language && (
+                <Typography color="error" variant="body2">
+                  {errors.language}
+              </Typography>
               )}
             </Box>
+            } 
 
 
             {/* Dietary Restrictions, truncate is when not editing, put it on its own row */}
