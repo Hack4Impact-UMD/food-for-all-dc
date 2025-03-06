@@ -228,7 +228,8 @@ const Profile = () => {
   type ClientProfileKey =
     | keyof ClientProfile
     | "deliveryDetails.dietaryRestrictions"
-    | "deliveryDetails.deliveryInstructions";
+    | "deliveryDetails.deliveryInstructions"
+    | "customLanguage";
 
   type InputType =
     | "text"
@@ -424,7 +425,23 @@ const Profile = () => {
               </CustomSelect>
             );
           }
+
+          if (fieldPath === "language") {
+            return (
+              <CustomSelect
+                name={fieldPath}
+                value={value as string}
+                onChange={(e) => handleChange(e as SelectChangeEvent<string>)}
+                style={{ width: "83.5%" }}
+              >
+                <MenuItem value="English">English</MenuItem>
+                <MenuItem value="Spanish">Spanish</MenuItem>
+                <MenuItem value="Other">Other</MenuItem>
+              </CustomSelect>
+            );
+          }
           break;
+          
 
         case "date":
           return (
@@ -880,13 +897,15 @@ const Profile = () => {
               <Typography className="field-descriptor" sx={fieldLabelStyles}>
                 LANGUAGE <span className="required-asterisk">*</span>
               </Typography>
-              {renderField("language", "text")}
+              {renderField("language", "select")}
+              {clientProfile.language === "Other" && renderField("customLanguage", "text")}
               {errors.language && (
                 <Typography color="error" variant="body2">
                   {errors.language}
                 </Typography>
               )}
             </Box>
+
 
             {/* Dietary Restrictions, truncate is when not editing, put it on its own row */}
             <Box sx={{ gridColumn: isEditing ? "-1/1" : "" }}>
