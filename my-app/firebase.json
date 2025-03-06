@@ -3,6 +3,7 @@
     {
       "source": "functions",
       "codebase": "default",
+      "runtime": "nodejs18",
       "ignore": [
         "node_modules",
         ".git",
@@ -17,7 +18,8 @@
     },
     {
       "source": "functions-python",
-      "codebase": "python"
+      "codebase": "python",
+      "runtime": "python312"
     }
   ],
   "hosting": {
