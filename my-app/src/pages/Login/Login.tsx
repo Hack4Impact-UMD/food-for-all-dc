@@ -136,7 +136,6 @@ function Login() {
 
           
         </div>
-        <p>Are you a volunteer? Log in here</p>
         {loginError && <p className="login-error">{loginError}</p>}
           <Button variant="contained" color="primary" onClick={handleLogin} fullWidth>
             Login
