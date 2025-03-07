@@ -114,7 +114,7 @@ function Login() {
         <InputLabel htmlFor="standard-adornment-password">Password</InputLabel>
         <Input
             id="standard-adornment-password"
-            type={'text'}
+            type={'password'}
             value={loginPassword}
             onChange={(e) => setLoginPassword(e.target.value)}
             fullWidth
