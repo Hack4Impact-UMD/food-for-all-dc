@@ -229,7 +229,6 @@ const Profile = () => {
     | keyof ClientProfile
     | "deliveryDetails.dietaryRestrictions"
     | "deliveryDetails.deliveryInstructions"
-    | "customLanguage";
 
   type InputType =
     | "text"
@@ -292,10 +291,10 @@ const Profile = () => {
         [name]: Number(value),
       }));
     } else if (name === "phone" || name === "alternativePhone") {
-      const numericValue = value.replace(/\D/g, "");
+      const allowedValue = value.replace(/[^\d-]/g, "");
       setClientProfile((prevState) => ({
         ...prevState,
-        [name]: numericValue,
+        [name]: allowedValue,
       }));
     } else {
       setClientProfile((prevState) => ({
@@ -323,12 +322,12 @@ const Profile = () => {
     if (clientProfile.adults === 0 && clientProfile.children === 0) {
       newErrors.total = "At least one adult or child is required";
     }
-    if (!/^\d{10}$/.test(clientProfile.phone)) {
+    if (!/^(?:\d{10}|\d{3}-\d{3}-\d{4})$/.test(clientProfile.phone)) {
       newErrors.phone = "Phone number must be exactly 10 digits";
     }
 
     if (
-      !/^\d{10}$/.test(clientProfile.alternativePhone) &&
+      !/^(?:\d{10}|\d{3}-\d{3}-\d{4})$/.test(clientProfile.alternativePhone) &&
       clientProfile.alternativePhone.trim()
     ) {
       newErrors.alternativePhone =
@@ -411,6 +410,7 @@ const Profile = () => {
     if (isEditing) {
       switch (type) {
         case "select":
+          // Gender Dropdown
           if (fieldPath === "gender") {
             return (
               <CustomSelect
@@ -426,9 +426,8 @@ const Profile = () => {
             );
           }
 
+          // Language Dropdown
           if (fieldPath === "language") {
-                      
-            // Render dropdown 
             return (
               <CustomSelect
                 name={fieldPath}
@@ -439,6 +438,42 @@ const Profile = () => {
                 <MenuItem value="English">English</MenuItem>
                 <MenuItem value="Spanish">Spanish</MenuItem>
                 <MenuItem value="Other">Other</MenuItem>
+              </CustomSelect>
+            );
+          }
+
+          // Delivery Frequency Dropdown
+          if (fieldPath === 'deliveryFreq'){
+            return (
+              <CustomSelect
+                name={fieldPath}
+                value={value as string}
+                onChange={(e) => handleChange(e as SelectChangeEvent<string>)}
+                style={{ width: "83.5%" }}
+              >
+                <MenuItem value="Monthly">Monthly</MenuItem>
+                <MenuItem value="2xMonthly">2x Monthly</MenuItem>
+                <MenuItem value="Weekly">Weekly</MenuItem>
+                <MenuItem value="OnceOnly">Once Only</MenuItem>
+                <MenuItem value="Periodic">Periodic</MenuItem>
+              </CustomSelect>
+            );
+          }
+
+          if (fieldPath === "ethnicity") {
+            return (
+              <CustomSelect
+                name={fieldPath}
+                value={value as string}
+                onChange={(e) => handleChange(e as SelectChangeEvent<string>)}
+                style={{ width: "83.5%" }}
+              >
+                <MenuItem value="White">White/Caucasian</MenuItem>
+                <MenuItem value="AfricanAmerican">Black/African American</MenuItem>
+                <MenuItem value="Hawaiian/PacificIslander">Hawaiian/Pacific Islander</MenuItem>
+                <MenuItem value="Asian">Asian</MenuItem>
+                <MenuItem value="AmericanIndian/AlaskanNative">American Indian/Alaskan Native</MenuItem>
+                <MenuItem value="Other">Other</MenuItem> 
               </CustomSelect>
             );
           }
@@ -792,7 +827,7 @@ const Profile = () => {
             {/* Phone */}
             <Box>
               <Typography className="field-descriptor" sx={fieldLabelStyles}>
-                PHONE <span className="required-asterisk">*</span>
+                PHONE (CELL) <span className="required-asterisk">*</span>
               </Typography>
               {renderField("phone", "text")}
               {errors.phone && (
@@ -805,7 +840,7 @@ const Profile = () => {
             {/* Alternative Phone */}
             <Box>
               <Typography className="field-descriptor" sx={fieldLabelStyles}>
-                ALTERNATIVE PHONE
+                PHONE (OTHER)
               </Typography>
               {renderField("alternativePhone", "text")}
             </Box>
@@ -815,7 +850,7 @@ const Profile = () => {
               <Typography className="field-descriptor" sx={fieldLabelStyles}>
                 ETHNICITY <span className="required-asterisk">*</span>
               </Typography>
-              {renderField("ethnicity", "text")}
+              {renderField("ethnicity", "select")}
               {errors.ethnicity && (
                 <Typography color="error" variant="body2">
                   {errors.ethnicity}
@@ -854,7 +889,7 @@ const Profile = () => {
               <Typography className="field-descriptor" sx={fieldLabelStyles}>
                 DELIVERY FREQUENCY <span className="required-asterisk">*</span>
               </Typography>
-              {renderField("deliveryFreq", "text")}
+              {renderField("deliveryFreq", "select")}
               {errors.deliveryFreq && (
                 <Typography color="error" variant="body2">
                   {errors.deliveryFreq}
@@ -908,12 +943,12 @@ const Profile = () => {
               )}  
             </Box>
             {/* Other Language Textbox Option */}
-            {clientProfile.language === "Other" && 
+            {clientProfile.language !== "English" && clientProfile.language !== "Spanish" &&
             <Box>
             <Typography className="field-descriptor" sx={fieldLabelStyles}>
                 OTHER LANGUAGE <span className="required-asterisk">*</span>
               </Typography>
-            {renderField("customLanguage", "text")}
+            {renderField("language", "text")}
             {errors.language && (
                 <Typography color="error" variant="body2">
                   {errors.language}
