@@ -470,6 +470,7 @@ const Profile = () => {
               >
                 <MenuItem value="White">White/Caucasian</MenuItem>
                 <MenuItem value="AfricanAmerican">Black/African American</MenuItem>
+                <MenuItem value="Hispanic/Latino">Hispanic/Latino</MenuItem>
                 <MenuItem value="Hawaiian/PacificIslander">Hawaiian/Pacific Islander</MenuItem>
                 <MenuItem value="Asian">Asian</MenuItem>
                 <MenuItem value="AmericanIndian/AlaskanNative">American Indian/Alaskan Native</MenuItem>
