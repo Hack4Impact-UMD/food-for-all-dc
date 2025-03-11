@@ -323,7 +323,7 @@ const Profile = () => {
       newErrors.total = "At least one adult or child is required";
     }
     if (!/^(?:\d{10}|\d{3}-\d{3}-\d{4})$/.test(clientProfile.phone)) {
-      newErrors.phone = "Phone number must be exactly 10 digits";
+      newErrors.phone = "Phone number must be exactly 10 digits or in the format XXX-XXX-XXXX";
     }
 
     if (
@@ -331,7 +331,7 @@ const Profile = () => {
       clientProfile.alternativePhone.trim()
     ) {
       newErrors.alternativePhone =
-        "Alternative Phone number must be exactly 10 digits";
+        "Alternative Phone number must be be exactly 10 digits or in the format XXX-XXX-XXXX";
     }
 
     setErrors(newErrors);
@@ -437,7 +437,7 @@ const Profile = () => {
               >
                 <MenuItem value="English">English</MenuItem>
                 <MenuItem value="Spanish">Spanish</MenuItem>
-                <MenuItem value="Other">Other</MenuItem>
+                <MenuItem value="">Other</MenuItem>
               </CustomSelect>
             );
           }
