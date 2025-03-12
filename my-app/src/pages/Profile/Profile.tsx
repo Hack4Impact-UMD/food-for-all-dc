@@ -141,12 +141,12 @@ const Profile = () => {
   };
 
   //Route Protection
-  React.useEffect(()=>{
-    if(auth.currentUser === null){
+  React.useEffect(() => {
+    if (auth.currentUser === null) {
       console.log("user: ", auth)
       navigate("/");
     }
-  },[])
+  }, [])
 
   // Check if we are editing an existing profile or creating a new one
   useEffect(() => {
@@ -403,9 +403,9 @@ const Profile = () => {
       ? getNestedValue(clientProfile, fieldPath)
       : clientProfile[fieldPath as keyof ClientProfile];
 
-  if (fieldPath === "deliveryDetails.dietaryRestrictions") {
-    return renderDietaryRestrictions();
-  }
+    if (fieldPath === "deliveryDetails.dietaryRestrictions") {
+      return renderDietaryRestrictions();
+    }
 
     if (isEditing) {
       switch (type) {
@@ -854,7 +854,7 @@ const Profile = () => {
             {/* Notes */}
             <Box>
               <Typography className="field-descriptor" sx={fieldLabelStyles}>
-                NOTES
+                ADMIN NOTES
               </Typography>
               {renderField("notes", "textarea")}
             </Box>
