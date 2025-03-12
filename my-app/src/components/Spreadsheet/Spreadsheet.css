@@ -22,8 +22,11 @@ table .table-header {
   background-color: #f3f3f3;
   color: #257e68;
   border-bottom: 2.5px solid #ffffff;
-  padding:2%;
+  padding-top: 1.5%;
+  padding-bottom: 1.5%;
 }
+
+
 
 .box .table-row {
   background-color: #f3f3f3;
