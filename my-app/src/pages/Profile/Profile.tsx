@@ -30,13 +30,19 @@ import {
   updateDoc,
   where,
 } from "firebase/firestore";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { db, auth } from "../../auth/firebaseConfig";
 import "./Profile.css";
 
 import { Timestamp } from "firebase/firestore";
 import Autocomplete from "react-google-autocomplete";
+
+declare global {
+  interface Window {
+    google: any;
+  }
+}
 
 const fieldStyles = {
   backgroundColor: "#eee",
@@ -403,9 +409,9 @@ const Profile = () => {
       ? getNestedValue(clientProfile, fieldPath)
       : clientProfile[fieldPath as keyof ClientProfile];
 
-  if (fieldPath === "deliveryDetails.dietaryRestrictions") {
-    return renderDietaryRestrictions();
-  }
+    if (fieldPath === "deliveryDetails.dietaryRestrictions") {
+      return renderDietaryRestrictions();
+    }
 
     if (isEditing) {
       switch (type) {
@@ -476,17 +482,18 @@ const Profile = () => {
                 value={String(value || "")}
                 onChange={handleChange}
                 fullWidth
+                inputRef = {fieldPath === "address" ? addressInputRef : null}
               />
             </>
           );
+        }
       }
-    }
 
-    return (
-      <Typography variant="body1" sx={{ fontWeight: 600 }}>
-        {renderFieldValue(fieldPath, value)}
-      </Typography>
-    );
+      return (
+        <Typography variant="body1" sx={{ fontWeight: 600 }}>
+          {renderFieldValue(fieldPath, value)}
+        </Typography>
+      );
   };
 
   // Helper function to render field values properly
@@ -608,6 +615,52 @@ const Profile = () => {
     },
   };
 
+  //google places autocomplete
+  //this ends up being used in renderField
+  const addressInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if(isEditing) {
+      // check if the Google Maps API script is already loaded
+      const script = document.createElement('script');
+      if (!window.google) {
+        
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.REACT_APP_GOOGLE_MAPS_API_KEY || ""}&libraries=places`;
+        script.async = true;
+        script.defer = true;
+        
+        // Initialize autocomplete when script loads
+        script.onload = () => {
+          if (addressInputRef.current) {
+            const autocomplete = new window.google.maps.places.Autocomplete(
+              addressInputRef.current,
+              { 
+                types: ['address'],
+                componentRestrictions: { country: 'us' } 
+              }
+            );
+            
+            autocomplete.addListener('place_changed', () => {
+              const place = autocomplete.getPlace();
+              if (place.formatted_address) {
+                setClientProfile(prev => ({
+                  ...prev,
+                  address: place.formatted_address || ''
+                }));
+              }
+            });
+          }
+        };
+        
+        document.head.appendChild(script);
+      } 
+    }
+    return () => {
+
+    }
+  }, [isEditing])
+  
+  
   return (
     <Box className="profile-container">
       <Box className="white-container">
