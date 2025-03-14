@@ -580,12 +580,17 @@ const CalendarPage: React.FC = () => {
 
     // For Week and Month views
     if (viewType === "Month") {
+
       const customCalendarConfig = {
         ...calendarConfig,
         onBeforeCellRender: (args: any) => {
-          args.cell.properties.html = "<div style='position: absolute; bottom: 0; left: 0; right: 0; text-align: center;'>0/35</div>";
+          args.cell.properties.html = "<div style='position: absolute; bottom: 0; left: 0; right: 0; text-align: center;'>0/60<div>DELIVERIES</div></div>";
         },
-      }
+        onTimeRangeSelected: (args: any) => { // Add this handler
+          setCurrentDate(args.start);
+          setViewType("Day");
+        },
+      };
       
       return <DayPilotMonth {...customCalendarConfig} />;
     }
