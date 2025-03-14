@@ -12,20 +12,11 @@ import { useEffect, useState } from "react";
 
 interface PopUpProps {
   message: string;
-  duration: number; // in milliseconds before fade-out starts
+  duration: number;
 }
 
 const PopUp: React.FC<PopUpProps> = ({ message, duration }) => {
   const [visible, setVisible] = useState(true);
-
-  // Container style centers the box using flexbox
-  const containerStyle = {
-    height: "100vh",
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#e0e0e0", // Optional: background color for contrast
-  };
 
   // Box style for the centered element
   const boxStyle: React.CSSProperties = {
@@ -50,6 +41,8 @@ const PopUp: React.FC<PopUpProps> = ({ message, duration }) => {
     // Clean up the timer.
     return () => clearTimeout(timer);
   }, []);
+
+  if (!visible) return null;
 
   return <div style={boxStyle}>{message}</div>;
 };
