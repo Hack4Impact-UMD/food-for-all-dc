@@ -22,6 +22,7 @@ import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import {
   ChevronRight,
   Add,
+  EditCalendar,
 } from "@mui/icons-material";
 import { styled } from "@mui/material/styles";
 import {
@@ -744,19 +745,35 @@ const CalendarPage: React.FC = () => {
             </IconButton>
           </Box>
 
-          <Button
-            variant="contained"
-            startIcon={<Add />}
-            onClick={() => setIsModalOpen(true)}
-            sx={{
-              marginRight: 4,
-              width: 166,
-              color: "#fff",
-              backgroundColor: "#257E68",
-            }}
-          >
-            Add Delivery
-          </Button>
+
+          <Box>
+            <Button
+              variant="contained"
+              startIcon={<Add />}
+              onClick={() => setIsModalOpen(true)}
+              sx={{
+                marginRight: 4,
+                width: 166,
+                color: "#fff",
+                backgroundColor: "#257E68",
+              }}
+            >
+              Add Delivery
+            </Button>
+            <Button
+              variant="contained"
+              endIcon={<EditCalendar/>}
+              onClick={() => setIsModalOpen(true)}
+              sx={{
+                marginRight: 4,
+                width: 166,
+                color: "#fff",
+                backgroundColor: "#257E68",
+              }}
+            >
+              Edit Limits
+            </Button>
+          </Box>
         </Box>
 
         <StyledCalendarContainer>
