@@ -584,9 +584,23 @@ const CalendarPage: React.FC = () => {
       const customCalendarConfig = {
         ...calendarConfig,
         onBeforeCellRender: (args: any) => {
-          args.cell.properties.html = "<div style='position: absolute; bottom: 0; left: 0; right: 0; text-align: center;'>0/60<div>DELIVERIES</div></div>";
+          
+          const cellDate = args.cell.start;
+          const cellDateString = cellDate.toString("yyyy-MM-dd");
+          
+          const eventCount = calendarConfig.events.filter((event) => {
+          const eventDateString = event.start.toString("yyyy-MM-dd");
+          return eventDateString === cellDateString;
+          }).length;
+    
+          args.cell.properties.html = `
+            <div style='position: absolute; bottom: 0; left: 0; right: 0; text-align: center;'>
+              ${eventCount}/60
+              <div>DELIVERIES</div>
+            </div>
+          `;
         },
-        onTimeRangeSelected: (args: any) => { // Add this handler
+        onTimeRangeSelected: (args: any) => {
           setCurrentDate(args.start);
           setViewType("Day");
         },
