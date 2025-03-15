@@ -157,7 +157,7 @@ export default function BasePage({ children }: { children: React.ReactNode }) {
             </ListItem>
           ))}
         </List>
-        <List sx={{ display: 'flex', flexDirection: 'column', height: '100%', justifyContent: 'end' }}>
+        <List sx={{ display: 'flex', flexDirection: 'column', height: '100%', padding: '5px', justifyContent: 'end' }}>
           <ListItem disablePadding>
             <ListItemButton onClick={handleLogout} aria-label="Logout" sx={{ backgroundColor: '#c0d4c5', '&:hover': { backgroundColor: '#aabdad' } }}>
               <ListItemIcon>
