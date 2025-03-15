@@ -45,9 +45,23 @@ interface RowData {
   lastName: string;
   phone?: string;
   houseNumber?: number;
-  streetName?: string;
-  zipCode?: number;
-  dietaryRestriction: string;
+  address: string;
+  deliveryDetails: {
+    deliveryInstructions: string;
+    dietaryRestrictions: {
+      foodAllergens: string[];
+      halal: boolean;
+      kidneyFriendly: boolean;
+      lowSodium: boolean;
+      lowSugar: boolean;
+      microwaveOnly: boolean;
+      noCookingEquipment: boolean;
+      other: string[];
+      softFood: boolean;
+      vegan: boolean;
+      vegetarian: boolean;
+    };
+  };
 }
 
 // Define a type for fields that can either be computed or direct keys of RowData
@@ -59,10 +73,22 @@ type Field =
       compute: (data: RowData) => string;
     }
   | {
-      key: keyof Omit<RowData, "id" | "firstName" | "lastName">;
+      key: keyof Omit<RowData, "id" | "firstName" | "lastName" | "deliveryDetails">;
       label: string;
       type: string;
       compute?: never;
+    }
+  | {
+      key: "deliveryDetails.dietaryRestrictions";
+      label: string;
+      type: string;
+      compute: (data: RowData) => string;
+    }
+  | {
+      key: "deliveryDetails.deliveryInstructions";
+      label: string;
+      type: string;
+      compute: (data: RowData) => string;
     };
 
 // Define fields for table columns
@@ -73,10 +99,35 @@ const fields: Field[] = [
     type: "text",
     compute: (data: RowData) => `${data.lastName}, ${data.firstName}`,
   },
+  { key: "address", label: "Address", type: "text" },
   { key: "phone", label: "Phone", type: "text" },
-  { key: "houseNumber", label: "House Number", type: "text" },
-  { key: "streetName", label: "Street Name", type: "text" },
-  { key: "zipCode", label: "Zip Code", type: "text"},
+  {
+    key: "deliveryDetails.dietaryRestrictions",
+    label: "Dietary Restrictions",
+    type: "text",
+    compute: (data: RowData) => {
+      const restrictions = [];
+      const { dietaryRestrictions } = data.deliveryDetails;
+      if (dietaryRestrictions.halal) restrictions.push("Halal");
+      if (dietaryRestrictions.kidneyFriendly) restrictions.push("Kidney Friendly");
+      if (dietaryRestrictions.lowSodium) restrictions.push("Low Sodium");
+      if (dietaryRestrictions.lowSugar) restrictions.push("Low Sugar");
+      if (dietaryRestrictions.microwaveOnly) restrictions.push("Microwave Only");
+      if (dietaryRestrictions.noCookingEquipment) restrictions.push("No Cooking Equipment");
+      if (dietaryRestrictions.softFood) restrictions.push("Soft Food");
+      if (dietaryRestrictions.vegan) restrictions.push("Vegan");
+      if (dietaryRestrictions.vegetarian) restrictions.push("Vegetarian");
+      if (dietaryRestrictions.foodAllergens.length > 0) restrictions.push(...dietaryRestrictions.foodAllergens);
+      if (dietaryRestrictions.other.length > 0) restrictions.push(...dietaryRestrictions.other);
+      return restrictions.length > 0 ? restrictions.join(", ") : "None";
+    },
+  },
+  {
+    key: "deliveryDetails.deliveryInstructions",
+    label: "Delivery Instructions",
+    type: "text",
+    compute: (data: RowData) => data.deliveryDetails.deliveryInstructions || "None",
+  },
 ];
 
 // Type Guard to check if a field is a regular field
@@ -280,251 +331,206 @@ const Spreadsheet: React.FC = () => {
 
   return (
     <Box className="box">
-      {/* Common Parent Container */}
+      {/* Fixed Container for Search Bar and Create Client Button */}
       <div
         style={{
-          maxWidth: "1050px", // Set the maximum width
-          margin: "0 auto", // Center horizontally
-          padding: "20px",
+          position: "fixed",
+          width: "90vw",
+          zIndex: 1,
+          backgroundColor: "#fff",
+          padding: "16px 0",
         }}
       >
-        {/* Search Bar */}
-        <div
-          style={{
-            position: "relative",
-            width: "100%",
-            marginBottom: "20px",
-            boxSizing: "border-box",
-          }}
-        >
-          <Search
-            style={{
-              position: "absolute",
-              left: "16px",
-              top: "50%",
-              transform: "translateY(-50%)",
-              color: "#666666",
-              zIndex: 1,
-            }}
-            size={20}
-          />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={handleSearchChange}
-            placeholder="SEARCH"
-            style={{
-              width: "100%",
-              height: "60px", // Increased height from 48px to 60px
-              backgroundColor: "#EEEEEE",
-              border: "none",
-              borderRadius: "30px", // Adjusted border-radius for proportional rounding
-              padding: "0 48px",
-              fontSize: "16px", // Increased font size for better readability
-              color: "#333333",
-              boxSizing: "border-box", // Include padding in width
-            }}
-          />
+        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+          <div style={{ position: "relative", width: "100%" }}>
+            <Search
+              style={{
+                position: "absolute",
+                left: "16px",
+                top: "50%",
+                transform: "translateY(-50%)",
+                color: "#666666",
+                zIndex: 1,
+              }}
+              size={20}
+            />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={handleSearchChange}
+              placeholder="SEARCH"
+              style={{
+                width: "100%",
+                height: "60px",
+                backgroundColor: "#EEEEEE",
+                border: "none",
+                borderRadius: "30px",
+                padding: "0 48px",
+                fontSize: "16px",
+                color: "#333333",
+                boxSizing: "border-box",
+              }}
+            />
           <Filter
-            style={{
-              position: "absolute",
-              right: "16px",
-              top: "50%",
-              transform: "translateY(-50%)",
-              color: "#666666",
-              zIndex: 1,
-            }}
-            size={20}
-          />
-        </div>
-        {/* Controls and Create Client Button */}
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginBottom: "20px",
-            flexWrap: "wrap",
-          }}
-        >
-
-
+              style={{
+                position: "absolute",
+                right: "16px",
+                top: "50%",
+                transform: "translateY(-50%)",
+                color: "#666666",
+                zIndex: 1,
+              }}
+              size={20}
+            />
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between" }}>
           <Button
-            variant="contained"
-            color="primary"
-            onClick={addClient}
-            className="create-client"
-            style={{
-              backgroundColor: "#2E5B4C",
-              whiteSpace: "nowrap",
-              padding: "8px 16px",
-              minWidth: "auto",
-            }}
-          >
-            + Create Client
-          </Button>
+              variant="contained"
+              color="secondary"
+              onClick={() => setSearchQuery("")}
+              className="view-all"
+              style={{
+                whiteSpace: "nowrap",
+                padding: "0% 2%",
+                borderRadius: "30px",
+                width:"100px"
+              }}
+            >
+              View All
+            </Button>
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={addClient}
+              className="create-client"
+              style={{
+                backgroundColor: "#2E5B4C",
+                whiteSpace: "nowrap",
+                padding: "8px 16px",
+                borderRadius: "30px",
+              }}
+            >
+              + Create Client
+            </Button>
+          </div>
         </div>
+      </div>
+
+      {/* Controls and Create Client Button */}
+      <div
+        style={{
+          margin: "0 auto",
+          display: "flex",
+          flexDirection: "column",
+          paddingTop: "20vh",
+          paddingBottom: "2vh",
+        }}
+      >
         {/* Spreadsheet Table */}
-        <TableContainer component={Paper}>
-          <Table>
+        <TableContainer component={Paper} style={{maxHeight: "65vh", overflowY: "auto" }}>
+          <Table stickyHeader>
             <TableHead>
               <TableRow>
                 {fields.map((field) => (
                   <TableCell className="table-header" key={field.key}>
                     <h2>
                       {field.label}
-                      {field.key === "fullname" && (
-                        <IconButton
-                          className="sort-arrow"
-                          size="small"
-                          onClick={toggleSortOrder}
-                        >
-                          {sortOrder === "asc" ? (
-                            <ArrowDropUpIcon />
-                          ) : (
-                            <ArrowDropDownIcon />
-                          )}
-                        </IconButton>
-                      )}
-          {field.key === "phone" && (
-            <IconButton
-              className="sort-arrow"
-              size="small"
-              onClick={() => toggleSortOrder2("phone")}
-            >
-              {sortOrder === "asc" ? <ArrowDropUpIcon /> : <ArrowDropDownIcon />}
-            </IconButton>
-          )}
-          {field.key === "houseNumber" && (
-            <IconButton
-              className="sort-arrow"
-              size="small"
-              onClick={() => toggleSortOrder2("houseNumber")}
-            >
-              {sortOrder === "asc" ? <ArrowDropUpIcon /> : <ArrowDropDownIcon />}
-            </IconButton>
-          )}
-          {field.key === "streetName" && (
-            <IconButton
-              className="sort-arrow"
-              size="small"
-              onClick={() => toggleSortOrder2("streetName")}
-            >
-              {sortOrder === "asc" ? <ArrowDropUpIcon /> : <ArrowDropDownIcon />}
-            </IconButton>
-          )}
-          {field.key === "zipCode" && (
-            <IconButton
-              className="sort-arrow"
-              size="small"
-              onClick={() => toggleSortOrder2("zipCode")}
-            >
-              {sortOrder === "asc" ? <ArrowDropUpIcon /> : <ArrowDropDownIcon />}
-            </IconButton>
-          )}
+                      {field.key === "fullname"}
+                      {field.key === "address" }
+                      {field.key === "phone"}
+                      {field.key === "deliveryDetails.dietaryRestrictions"}
+                      {field.key === "deliveryDetails.deliveryInstructions"}
                     </h2>
                   </TableCell>
                 ))}
                 <TableCell className="table-header"></TableCell>
               </TableRow>
             </TableHead>
+
             <TableBody>
-              {visibleRows.map((row) => (
-                <TableRow
-                  key={row.id}
-                  className={
-                    editingRowId === row.id
-                      ? "table-row editing-row"
-                      : "table-row"
-                  }
-                >
-                  {fields.map((field) => (
-                    <TableCell key={field.key}>
-                      {editingRowId === row.id ? (
-                        field.key === "fullname" ? (
-                          <>
-                            <TextField
-                              placeholder="First Name"
-                              value={row.firstName}
-                              onChange={(e) =>
-                                handleEditInputChange(e, row.id, "firstName")
-                              }
-                              variant="outlined"
-                              size="small"
-                              style={{ marginRight: "8px" }}
-                            />
-                            <TextField
-                              placeholder="Last Name"
-                              value={row.lastName}
-                              onChange={(e) =>
-                                handleEditInputChange(e, row.id, "lastName")
-                              }
-                              variant="outlined"
-                              size="small"
-                            />
-                          </>
-                        ) : isRegularField(field) ? (
-                          <TextField
-                            type={field.type}
-                            value={row[field.key]}
-                            onChange={(e) =>
-                              handleEditInputChange(
-                                e,
-                                row.id,
-                                field.key as keyof RowData
-                              )
-                            }
-                            variant="outlined"
-                            size="small"
-                          />
-                        ) : null
-                      ) : field.key === "fullname" ? (
-                        field.compute ? (
-                          field.compute(row)
-                        ) : (
-                          `${row.firstName} ${row.lastName}`
-                        )
-                      ) : (
-                        row[field.key]
-                      )}
-                    </TableCell>
-                  ))}
-                  <TableCell style={{ textAlign: "right" }}>
-                    {editingRowId === row.id ? (
-                      <Button
-                        variant="contained"
-                        color="primary"
-                        size="small"
-                        onClick={() => handleSaveRow(row.id)}
-                        style={{ marginRight: "8px" }}
-                      >
-                        <SaveIcon fontSize="small" /> Save
-                      </Button>
-                    ) : (
-                      <IconButton onClick={(e) => handleMenuOpen(e, row.id)}>
-                        <MoreVertIcon />
-                      </IconButton>
-                    )}
-                    <Menu
-                      anchorEl={menuAnchorEl}
-                      open={Boolean(menuAnchorEl) && selectedRowId === row.id}
-                      onClose={handleMenuClose}
-                    >
-                      <MenuItem onClick={() => handleEditRow(row.id)}>
-                        <EditIcon fontSize="small" /> Edit
-                      </MenuItem>
-                      <MenuItem onClick={() => handleDeleteRow(row.id)}>
-                        <DeleteIcon fontSize="small" /> Delete
-                      </MenuItem>
-                    </Menu>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      </div>
-    </Box>
+  {visibleRows.map((row) => (
+    <TableRow
+      key={row.id}
+      className={
+        editingRowId === row.id
+          ? "table-row editing-row"
+          : "table-row"
+      }
+    >
+      {fields.map((field) => (
+        <TableCell key={field.key}>
+          {editingRowId === row.id ? (
+            field.key === "fullname" ? (
+              <>
+                <TextField
+                  placeholder="First Name"
+                  value={row.firstName}
+                  variant="outlined"
+                  size="small"
+                  style={{ marginRight: "8px" }}
+                />
+                <TextField
+                  placeholder="Last Name"
+                  value={row.lastName}
+                  variant="outlined"
+                  size="small"
+                />
+              </>
+            ) : isRegularField(field) ? (
+              <TextField
+                type={field.type}
+                value={row[field.key]}
+                variant="outlined"
+                size="small"
+              />
+            ) : null
+          ) : field.key === "fullname" ? (
+            field.compute ? (
+              field.compute(row)
+            ) : (
+              `${row.firstName} ${row.lastName}`
+            )
+          ) : (
+            field.compute ? field.compute(row) : row[field.key]
+          )}
+        </TableCell>
+      ))}
+      <TableCell style={{ textAlign: "right" }}>
+        {editingRowId === row.id ? (
+          <Button
+            variant="contained"
+            color="primary"
+            size="small"
+            onClick={() => handleSaveRow(row.id)}
+            style={{ marginRight: "8px" }}
+          >
+            Save
+          </Button>
+        ) : (
+          <IconButton onClick={(e) => handleMenuOpen(e, row.id)}>
+            <MoreVertIcon />
+          </IconButton>
+        )}
+        <Menu
+          anchorEl={menuAnchorEl}
+          open={Boolean(menuAnchorEl) && selectedRowId === row.id}
+          onClose={handleMenuClose}
+        >
+          <MenuItem onClick={() => handleEditRow(row.id)}>
+            <EditIcon fontSize="small" /> Edit
+          </MenuItem>
+          <MenuItem onClick={() => handleDeleteRow(row.id)}>
+            <DeleteIcon fontSize="small" /> Delete
+          </MenuItem>
+        </Menu>
+      </TableCell>
+    </TableRow>
+  ))}
+</TableBody>
+        </Table>
+      </TableContainer>
+    </div>
+  </Box>
   );
 };
 
