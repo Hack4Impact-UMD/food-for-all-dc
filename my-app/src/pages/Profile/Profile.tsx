@@ -36,7 +36,7 @@ import { db, auth } from "../../auth/firebaseConfig";
 import "./Profile.css";
 
 import { Timestamp } from "firebase/firestore";
-import Autocomplete from "react-google-autocomplete";
+import TagPopup from "./Tags/TagPopup";
 
 const fieldStyles = {
   backgroundColor: "#eee",
@@ -50,7 +50,7 @@ const fieldStyles = {
 const CustomTextField = styled(TextField)({
   "& .MuiOutlinedInput-root": {
     "& fieldset": {
-      border: "none", // removes the border
+      border: "none",
     },
   },
   "& .MuiInputBase-input": fieldStyles,
@@ -73,6 +73,9 @@ const CustomSelect = styled(Select)({
 const Profile = () => {
   // #### STATE ####
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [tags, setTags] = useState<string[]>([])
+  const [allTags, setAllTags] = useState<string[]>([]);
+  const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [clientProfile, setClientProfile] = useState<ClientProfile>({
     uid: "",
     firstName: "",
@@ -112,6 +115,9 @@ const Profile = () => {
     language: "",
     createdAt: new Date(),
     updatedAt: new Date(),
+    tags: [],
+    ward: "", 
+    seniors: 0, 
   });
   const [isNewProfile, setIsNewProfile] = useState(true);
   const [editMode, setEditMode] = useState(true);
@@ -123,6 +129,7 @@ const Profile = () => {
   const [formData, setFormData] = useState({});
   const [clientId, setClientId] = useState<string | null>(null); // Allow clientId to be either a string or null
   const [isSaved, setIsSaved] = useState(false); // Tracks whether it's the first save
+  const [ward, setWard] = useState(clientProfile.ward);
   const [isEditing, setIsEditing] = useState(false); // Global editing state
 
   const params = useParams(); // Params will return an object containing route params (like { id: 'some-id' })
@@ -143,35 +150,54 @@ const Profile = () => {
   //Route Protection
   React.useEffect(()=>{
     if(auth.currentUser === null){
-      console.log("user: ", auth)
       navigate("/");
     }
   },[])
 
-  // Check if we are editing an existing profile or creating a new one
+  //get list of all tags
+  useEffect(() => {
+    const fetchTags = async () => {
+      try {
+        const tagsDocRef = doc(db, "tags", "oGuiR2dQQeOBXHCkhDeX"); 
+        const tagsDocSnap = await getDoc(tagsDocRef);
+  
+        if (tagsDocSnap.exists()) {
+          const tagsArray = tagsDocSnap.data().tags; 
+          setAllTags(tagsArray); 
+        } else {
+          console.log("No tags document found!");
+          setAllTags([]);
+        }
+      } catch (error) {
+        console.error("Error fetching tags:", error);
+      }
+    };
+  
+    fetchTags();
+  }, []);
+
   useEffect(() => {
     if (id) {
-      // We're editing an existing profile
       setIsNewProfile(false);
-      setClientId(id); // Set the clientId state to the ID from params
-      // Fetch profile data based on the ID
+      setClientId(id); 
       getProfileById(id).then((profileData) => {
         if (profileData) {
-          setClientProfile(profileData); // Update the clientProfile state
+          setTags(profileData.tags.filter((tag)=>{return allTags.includes(tag)}) || []); 
+          setClientProfile(profileData); 
         } else {
           console.log("No profile found for ID:", id);
         }
       });
     } else {
-      // New profile creation: Initialize the clientProfile with default values
       setIsNewProfile(true);
       setClientProfile({
-        ...clientProfile, // Make sure to keep the default structure
+        ...clientProfile, 
         createdAt: new Date(),
         updatedAt: new Date(),
       });
+      setTags([]); 
     }
-  }, [id]); // Only re-run when the ID changes
+  }, [id, allTags]); 
 
   // Improved type definitions
   type DietaryRestrictions = {
@@ -217,6 +243,9 @@ const Profile = () => {
     language: string;
     createdAt: Date;
     updatedAt: Date;
+    tags: string[]; 
+    ward: string; 
+    seniors: Number;
   };
 
   // Type for all possible field paths including nested ones
@@ -232,6 +261,7 @@ const Profile = () => {
 
   type InputType =
     | "text"
+    | "tags"
     | "date"
     | "number"
     | "select"
@@ -258,6 +288,54 @@ const Profile = () => {
         return uid;
       }
     }
+  };
+
+  const getWard = async (searchAddress: string) => {
+    console.log("getting ward")
+    const baseurl = "https://datagate.dc.gov/mar/open/api/v2.2";
+    const apikey = "0b2aad76-e5fc-4763-9d0c-6f0c21d59766"; 
+    const marURL = baseurl + "/locations/";
+    const marZone = "ward";
+    let wardName;
+  
+    // Construct the URL with query parameters
+    const marGeocodeURL = new URL(marURL + searchAddress + "/" + marZone + "/true");
+    const params = new URLSearchParams();
+    params.append("apikey", apikey);
+    marGeocodeURL.search = params.toString();
+  
+    try {
+      // Make the API request
+      const response = await fetch(marGeocodeURL.toString());
+  
+      if (!response.ok) {
+        throw new Error(`HTTP error! Status: ${response.status}`);
+      }
+  
+      // Parse the JSON response
+      const data = await response.json();
+  
+      // Check if the response is successful and contains the expected data
+      if (data.Success === true && data.Result.addresses && data.Result.addresses.length > 0) {
+        const result = data.Result.addresses[0];
+  
+        if (result.zones && result.zones.ward[0]) {
+          wardName = result.zones.ward[0].properties.NAME;
+        } else {
+          console.log("No ward information found in the response.");
+          wardName = "No ward information"
+        }
+      } else {
+        console.log("No address found or invalid response.");
+         wardName = "No address found"
+      }
+    } catch (error) {
+      console.error("Error fetching ward information:", error);
+        wardName = "Error getting ward"
+    }
+    clientProfile.ward = wardName;
+    setWard(wardName);
+    return wardName;
   };
 
   // Update the toggleFieldEdit function to be type-safe
@@ -302,6 +380,7 @@ const Profile = () => {
         [name]: value,
       }));
     }
+
   };
 
   const validateProfile = () => {
@@ -343,48 +422,52 @@ const Profile = () => {
       console.log("Invalid Profile");
       return;
     }
-
+  
     try {
+      // Update the clientProfile object with the latest tags state
+      const updatedProfile = {
+        ...clientProfile,
+        tags: tags, // Sync the tags state with clientProfile
+        updatedAt: new Date(),
+        total: clientProfile.adults + clientProfile.children,
+        ward: await getWard(clientProfile.address)
+      };
+
+      const sortedAllTags = [...allTags].sort((a, b) => a.localeCompare(b));
+
       if (isNewProfile) {
         // Generate new UID for new profile
         const newUid = await generateUID();
         const newProfile = {
-          ...clientProfile,
+          ...updatedProfile,
           uid: newUid,
           createdAt: new Date(),
-          updatedAt: new Date(),
-          dob: clientProfile.dob, // Store the date as a string
-          total: clientProfile.adults + clientProfile.children,
         };
-
+  
         // Save to Firestore for new profile
         await setDoc(doc(db, "clients", newUid), newProfile);
+        await setDoc(doc(db, "tags", "oGuiR2dQQeOBXHCkhDeX"), {tags: sortedAllTags});
         setClientProfile(newProfile);
         setIsNewProfile(false);
         setEditMode(false);
         setIsEditing(false);
         console.log("New profile created with ID: ", newUid);
-
+  
         // Navigate to the newly created profile
         navigate(`/profile/${newUid}`);
       } else {
-        // Update only changed fields for existing profile
-        const updatedFields = {
-          ...clientProfile,
-          updatedAt: new Date(),
-          dob: clientProfile.dob, // Store the date as a string
-          total: clientProfile.adults + clientProfile.children,
-        };
-
-        await setDoc(doc(db, "clients", clientProfile.uid), updatedFields, {
+        // Update existing profile
+        await setDoc(doc(db, "clients", clientProfile.uid), updatedProfile, {
+          merge: true,
+        });
+        await setDoc(doc(db, "tags", "oGuiR2dQQeOBXHCkhDeX"), {tags: sortedAllTags}, {
           merge: true,
         });
         setEditMode(false);
         setIsEditing(false);
         // Reset all field edit states
         setFieldEditStates({});
-        console.log("Profile updated: ", clientProfile.uid);
-
+  
         // Navigate to the updated profile page
         navigate(`/profile/${clientProfile.uid}`);
       }
@@ -399,9 +482,20 @@ const Profile = () => {
   };
 
   const renderField = (fieldPath: ClientProfileKey, type: InputType = "text") => {
-    const value = fieldPath.includes(".")
+    let value = fieldPath.includes(".")
       ? getNestedValue(clientProfile, fieldPath)
       : clientProfile[fieldPath as keyof ClientProfile];
+
+      const handleTag = (text: any) => {
+        if (tags.includes(text)) {
+          const updatedTags = tags.filter((t) => t !== text);
+          setTags(updatedTags); 
+        } 
+        else if(text.trim() != ""){
+          const updatedTags = [...tags, text.trim()]; 
+          setTags(updatedTags); 
+        }
+      };
 
   if (fieldPath === "deliveryDetails.dietaryRestrictions") {
     return renderDietaryRestrictions();
@@ -425,7 +519,6 @@ const Profile = () => {
             );
           }
           break;
-
         case "date":
           return (
             <>
@@ -445,27 +538,70 @@ const Profile = () => {
 
         case "number":
           return (
-            <CustomTextField
-              type="number"
-              name={fieldPath}
-              value={value as number}
-              onChange={handleChange}
-              fullWidth
-            />
+            <>
+              <CustomTextField
+                type="number"
+                name={fieldPath}
+                value={value as number}
+                onChange={handleChange}
+                fullWidth
+              />
+            </>
           );
 
         case "textarea":
-          return (
+          if(fieldPath == "ward"){
+            return(
             <CustomTextField
               name={fieldPath}
               value={String(value || "")}
-              onChange={handleChange}
-              multiline
-              // rows={4}
+              disabled
               fullWidth
             />
-          );
-
+            );
+          }
+          else{
+            return (
+              <CustomTextField
+                name={fieldPath}
+                value={String(value || "")}
+                onChange={handleChange}
+                multiline
+                // rows={4}
+                fullWidth
+              />
+            );
+          }
+          case "tags":
+            return (
+              <>  
+                <Box sx={{textAlign:'left'}}>
+                  {
+                    tags.length > 0 ? (<p>{tags.join(", ")}</p>): <p>No tags selected</p>
+                  }
+                </Box>
+                <Button
+                  variant="contained"
+                  // startIcon={<Add />}
+                  onClick={() => {setIsModalOpen(true);}}
+                  sx={{
+                    marginRight: 4,
+                    width: 166,
+                    color: "#fff",
+                    backgroundColor: "#257E68",
+                  }}
+                >
+                  Edit Tags
+                </Button>
+                <TagPopup 
+                  allTags = {allTags} 
+                  tags = {tags} 
+                  handleTag = {handleTag} 
+                  isModalOpen = {isModalOpen } 
+                  setIsModalOpen = {setIsModalOpen}>
+                </TagPopup>
+              </>
+            );
         default:
           return (
             <>
@@ -473,8 +609,13 @@ const Profile = () => {
               <CustomTextField
                 type="text"
                 name={fieldPath}
-                value={String(value || "")}
+                value={fieldPath === "ward" ? ward: String(value || "")}
                 onChange={handleChange}
+                onBlur={async () => {
+                  if (fieldPath === "address") {
+                    await getWard(value); 
+                  }
+                }}
                 fullWidth
               />
             </>
@@ -492,7 +633,6 @@ const Profile = () => {
   // Helper function to render field values properly
   const renderFieldValue = (fieldPath: string, value: any) => {
     if (fieldPath === "dob") {
-      console.log(value);
       let dobDate;
 
       // Check if the value is a Date object, Timestamp, or string
@@ -505,7 +645,6 @@ const Profile = () => {
       } else if (typeof value === "string") {
         // If it's a string, try to create a Date object from it
         dobDate = new Date(value);
-        console.log(dobDate);
       } else {
         // If the value is neither a Date, Timestamp, nor string, handle it as invalid
         dobDate = new Date();
@@ -518,13 +657,15 @@ const Profile = () => {
 
       // Format the date and calculate the age
       const formattedDate = dobDate.toUTCString().split(" ").slice(0, 4).join(" ");
-      console.log(formattedDate);
       const age = calculateAge(dobDate);
 
       return `${formattedDate} (Age ${age})`;
     }
     if (fieldPath === "gender") {
       return value as string;
+    }
+    if (fieldPath === "tags") {
+      value = (tags.length>0 ? tags : "None"); 
     }
     if (fieldPath === "deliveryDetails.dietaryRestrictions") {
       return (
@@ -804,6 +945,27 @@ const Profile = () => {
               )}
             </Box>
 
+            {/* Ward */}
+            <Box>
+              <Typography className="field-descriptor" sx={fieldLabelStyles}>
+                WARD
+              </Typography>
+              {renderField("ward", "textarea")}
+            </Box>
+
+            {/* Seniors */}
+            <Box>
+              <Typography className="field-descriptor" sx={fieldLabelStyles}>
+                SENIORS <span className="required-asterisk">*</span>
+              </Typography>
+              {renderField("seniors", "number")}
+              {errors.children && (
+                <Typography color="error" variant="body2">
+                  {errors.children}
+                </Typography>
+              )}
+            </Box>
+
             {/* Adults */}
             <Box>
               <Typography className="field-descriptor" sx={fieldLabelStyles}>
@@ -886,6 +1048,14 @@ const Profile = () => {
                   {errors.language}
                 </Typography>
               )}
+            </Box>
+
+            {/* Tags */}
+            <Box sx={{  }}>
+              <Typography className="field-descriptor" sx={fieldLabelStyles}>
+                TAGS
+              </Typography>
+              {renderField("tags", "tags")}
             </Box>
 
             {/* Dietary Restrictions, truncate is when not editing, put it on its own row */}
