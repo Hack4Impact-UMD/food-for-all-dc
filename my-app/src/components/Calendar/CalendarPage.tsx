@@ -160,6 +160,11 @@ const CalendarPage: React.FC = () => {
     startDate: DayPilot.Date.today(),
     events: [],
   });
+
+  //-----------------------------------------------------------------------------------------------------------------
+  const [editLimitMode, setEditLimitMode] = useState<boolean>(false)
+
+
   const daysOfWeek = [
     "Sunday",
     "Monday",
