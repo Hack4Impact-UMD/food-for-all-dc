@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   AppBar,
   Toolbar,
@@ -17,13 +17,11 @@ import {
   Select,
   InputLabel,
   FormControl,
+  Popper,
+  Fade,
 } from "@mui/material";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
-import {
-  ChevronRight,
-  Add,
-  EditCalendar,
-} from "@mui/icons-material";
+import { ChevronRight, Add, EditCalendar } from "@mui/icons-material";
 import { styled } from "@mui/material/styles";
 import {
   collection,
@@ -39,7 +37,7 @@ import {
   DayPilotCalendar,
   DayPilotMonth,
 } from "@daypilot/daypilot-lite-react";
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from "react-router-dom";
 import "./CalendarPage.css";
 import { auth } from "../../auth/firebaseConfig";
 import { onAuthStateChanged } from "firebase/auth";
@@ -162,8 +160,7 @@ const CalendarPage: React.FC = () => {
   });
 
   //-----------------------------------------------------------------------------------------------------------------
-  const [editLimitMode, setEditLimitMode] = useState<boolean>(false)
-
+  const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
 
   const daysOfWeek = [
     "Sunday",
@@ -180,16 +177,15 @@ const CalendarPage: React.FC = () => {
 
   //Route Protection
   React.useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user:any) => {
+    const unsubscribe = onAuthStateChanged(auth, (user: any) => {
       if (!user) {
         console.log("No user is signed in, redirecting to /");
         navigate("/");
-      } 
-      else{
-        console.log("welcome, " + auth.currentUser?.email)
+      } else {
+        console.log("welcome, " + auth.currentUser?.email);
       }
     });
-  
+
     // Cleanup the listener when the component unmounts
     return () => unsubscribe();
   }, [navigate]);
@@ -445,7 +441,16 @@ const CalendarPage: React.FC = () => {
                         >
                           {event.clientName}
                         </Typography>
-                        <Box sx={{ display: "flex", flexDirection: "row", cursor: "pointer"}} onClick={() =>  {navigate('/spreadsheet')}}>
+                        <Box
+                          sx={{
+                            display: "flex",
+                            flexDirection: "row",
+                            cursor: "pointer",
+                          }}
+                          onClick={() => {
+                            navigate("/spreadsheet");
+                          }}
+                        >
                           <Typography
                             variant="subtitle2"
                             sx={{
@@ -586,19 +591,17 @@ const CalendarPage: React.FC = () => {
 
     // For Week and Month views
     if (viewType === "Month") {
-
       const customCalendarConfig = {
         ...calendarConfig,
         onBeforeCellRender: (args: any) => {
-          
           const cellDate = args.cell.start;
           const cellDateString = cellDate.toString("yyyy-MM-dd");
-          
+
           const eventCount = calendarConfig.events.filter((event) => {
-          const eventDateString = event.start.toString("yyyy-MM-dd");
-          return eventDateString === cellDateString;
+            const eventDateString = event.start.toString("yyyy-MM-dd");
+            return eventDateString === cellDateString;
           }).length;
-    
+
           args.cell.properties.html = `
             <div style='position: absolute; bottom: 0; left: 0; right: 0; text-align: center;'>
               ${eventCount}/60
@@ -611,7 +614,7 @@ const CalendarPage: React.FC = () => {
           setViewType("Day");
         },
       };
-      
+
       return <DayPilotMonth {...customCalendarConfig} />;
     }
 
@@ -696,7 +699,7 @@ const CalendarPage: React.FC = () => {
               alignItems: "center",
             }}
           >
-            <Typography variant="h4" sx={{marginRight: 2, color: "#787777" }}>
+            <Typography variant="h4" sx={{ marginRight: 2, color: "#787777" }}>
               {viewType === "Day" && daysOfWeek[currentDate.getDayOfWeek()]}
               {viewType === "Month" && currentDate.toString("MMMM")}
             </Typography>
@@ -750,7 +753,6 @@ const CalendarPage: React.FC = () => {
             </IconButton>
           </Box>
 
-
           <Box>
             <Button
               variant="contained"
@@ -767,8 +769,10 @@ const CalendarPage: React.FC = () => {
             </Button>
             <Button
               variant="contained"
-              endIcon={<EditCalendar/>}
-              onClick={() => setIsModalOpen(true)}
+              endIcon={<EditCalendar />}
+              onClick={(event: React.MouseEvent<HTMLElement>) =>
+                setAnchorEl(anchorEl ? null : event.currentTarget)
+              }
               sx={{
                 marginRight: 4,
                 width: 166,
@@ -778,6 +782,26 @@ const CalendarPage: React.FC = () => {
             >
               Edit Limits
             </Button>
+            <Popper
+              open={Boolean(anchorEl)}
+              anchorEl={anchorEl}
+              placement="bottom"
+              transition
+            >
+              {({ TransitionProps }) => (
+                <Fade {...TransitionProps} timeout={350}>
+                  <Box
+                    sx={{
+                      padding: 2,
+                      backgroundColor: "#fff",
+                      borderRadius: 4,
+                    }}
+                  >
+                    CONTENT
+                  </Box>
+                </Fade>
+              )}
+            </Popper>
           </Box>
         </Box>
 
