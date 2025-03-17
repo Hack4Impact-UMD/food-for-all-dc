@@ -631,41 +631,7 @@ const CalendarPage: React.FC = () => {
   };
 
   const popperCalendarRender = () => {
-    // If we're editing a limit, show the input form
-    if (limitEditDate) {
-      return (
-        <Box sx={{ p: 2, width: 300 }}>
-          <Typography variant="h6" gutterBottom>
-            Edit Limit for {limitEditDate.toString("MMMM d, yyyy")}
-          </Typography>
-          <TextField
-            fullWidth
-            type="number"
-            label="Max Deliveries"
-            value={newLimit}
-            onChange={(e) =>
-              setNewLimit(Math.max(1, parseInt(e.target.value) || 60))
-            }
-            inputProps={{ min: 1 }}
-            sx={{ mb: 2 }}
-          />
-          <Button
-            variant="contained"
-            fullWidth
-            onClick={() => {
-              const dateKey = limitEditDate.toString("yyyy-MM-dd");
-              setDailyLimits((prev) => ({
-                ...prev,
-                [dateKey]: newLimit,
-              }));
-              setLimitEditDate(null);
-            }}
-          >
-            Save Limit
-          </Button>
-        </Box>
-      );
-    }
+    const limitOptions = Array.from({ length: 9 }, (_, i) => 30 + i * 5);
 
     // Normal calendar view
     if (viewType === "Month") {
@@ -707,7 +673,49 @@ const CalendarPage: React.FC = () => {
         },
       };
 
-      return <DayPilotMonth {...customCalendarConfig} />;
+      return (
+        <Box sx={{ p: 2, width: 500, height: 300 }}>
+          {/* Calendar Component */}
+          <DayPilotMonth {...customCalendarConfig} />
+
+          {/* Limit Edit Form */}
+          {limitEditDate && (
+            <Box sx={{ mt: 2 }}>
+              <Typography variant="subtitle1" gutterBottom>
+                Delivery Limit for {limitEditDate.toString("MMM d")}
+              </Typography>
+              <FormControl fullWidth sx={{ mb: 2 }}>
+                <InputLabel>Max Deliveries</InputLabel>
+                <Select
+                  value={newLimit}
+                  label="Max Deliveries"
+                  onChange={(e) => setNewLimit(Number(e.target.value))}
+                  autoFocus
+                >
+                  {limitOptions.map((option) => (
+                    <MenuItem key={option} value={option}>
+                      {option} deliveries
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              <Button
+                variant="contained"
+                fullWidth
+                onClick={() => {
+                  setDailyLimits((prev) => ({
+                    ...prev,
+                    [limitEditDate.toString("yyyy-MM-dd")]: newLimit,
+                  }));
+                  setLimitEditDate(null);
+                }}
+              >
+                Save Limit
+              </Button>
+            </Box>
+          )}
+        </Box>
+      );
     }
 
     return <div>View in month Mode</div>;
