@@ -70,6 +70,15 @@ const CustomSelect = styled(Select)({
   "& .MuiSelect-select": fieldStyles,
 });
 
+const formatPhoneNumber = (value: string) => {
+  const cleaned = value.replace(/\D/g, "");
+  const match = cleaned.match(/^(\d{3})(\d{3})(\d{4})$/);
+  if (match) {
+    return `${match[1]}-${match[2]}-${match[3]}`;
+  }
+  return value;
+};
+
 const Profile = () => {
   // #### STATE ####
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -291,7 +300,7 @@ const Profile = () => {
         [name]: Number(value),
       }));
     } else if (name === "phone" || name === "alternativePhone") {
-      const allowedValue = value.replace(/[^\d-]/g, "");
+      const allowedValue = formatPhoneNumber(value.replace(/[^\d-]/g, ""));
       setClientProfile((prevState) => ({
         ...prevState,
         [name]: allowedValue,
@@ -322,16 +331,16 @@ const Profile = () => {
     if (clientProfile.adults === 0 && clientProfile.children === 0) {
       newErrors.total = "At least one adult or child is required";
     }
-    if (!/^(?:\d{10}|\d{3}-\d{3}-\d{4})$/.test(clientProfile.phone)) {
-      newErrors.phone = "Phone number must be exactly 10 digits or in the format XXX-XXX-XXXX";
+    if (!/^\d{3}-\d{3}-\d{4}$/.test(clientProfile.phone)) {
+      newErrors.phone = "Phone number must be in the format XXX-XXX-XXXX";
     }
 
     if (
-      !/^(?:\d{10}|\d{3}-\d{3}-\d{4})$/.test(clientProfile.alternativePhone) &&
+      !/^\d{3}-\d{3}-\d{4}$/.test(clientProfile.alternativePhone) &&
       clientProfile.alternativePhone.trim()
     ) {
       newErrors.alternativePhone =
-        "Alternative Phone number must be be exactly 10 digits or in the format XXX-XXX-XXXX";
+        "Alternative Phone number must be in the format XXX-XXX-XXXX";
     }
 
     setErrors(newErrors);
