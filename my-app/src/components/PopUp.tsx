@@ -18,13 +18,12 @@ interface PopUpProps {
 const PopUp: React.FC<PopUpProps> = ({ message, duration }) => {
   const [visible, setVisible] = useState(true);
 
-  // Box style for the centered element
+  // Box style for the bottom left element
   const boxStyle: React.CSSProperties = {
-    position: "absolute",
+    position: "fixed",
+    bottom: "20px",
+    left: "20px",
     fontWeight: "bold",
-    top: "50%",
-    left: "50%",
-    transform: "translate(-50%, -50%)",
     padding: "20px",
     border: "3px solid #257E68",
     backgroundColor: "#fff",

@@ -34,6 +34,7 @@ import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { db, auth } from "../../auth/firebaseConfig";
 import "./Profile.css";
+import PopUp from "../../components/PopUp"; // Import PopUp component
 
 import { Timestamp } from "firebase/firestore";
 import Autocomplete from "react-google-autocomplete";
@@ -133,6 +134,7 @@ const Profile = () => {
   const [clientId, setClientId] = useState<string | null>(null); // Allow clientId to be either a string or null
   const [isSaved, setIsSaved] = useState(false); // Tracks whether it's the first save
   const [isEditing, setIsEditing] = useState(false); // Global editing state
+  const [showPopup, setShowPopup] = useState(false); // Add state for pop-up visibility
 
   const params = useParams(); // Params will return an object containing route params (like { id: 'some-id' })
   const id: string | null = params.id ?? null; // Use optional chaining to get the id or null if undefined
@@ -397,6 +399,8 @@ const Profile = () => {
         // Navigate to the updated profile page
         navigate(`/profile/${clientProfile.uid}`);
       }
+      setShowPopup(true); // Show pop-up on successful save
+      setTimeout(() => setShowPopup(false), 3000); // Hide pop-up after 3 seconds
     } catch (e) {
       console.error("Error saving document: ", e);
     }
@@ -674,6 +678,7 @@ const Profile = () => {
 
   return (
     <Box className="profile-container">
+      {showPopup && <PopUp message="Profile saved successfully!" duration={3000} />} {/* Render pop-up */}
       <Box className="white-container">
         <Typography
           variant="h5"
