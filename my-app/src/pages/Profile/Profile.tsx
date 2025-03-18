@@ -293,7 +293,7 @@ const Profile = () => {
   const getWard = async (searchAddress: string) => {
     console.log("getting ward")
     const baseurl = "https://datagate.dc.gov/mar/open/api/v2.2";
-    const apikey = "0b2aad76-e5fc-4763-9d0c-6f0c21d59766"; 
+    const apikey = process.env.REACT_APP_DC_WARD_API_KEY; 
     const marURL = baseurl + "/locations/";
     const marZone = "ward";
     let wardName;
@@ -301,7 +301,11 @@ const Profile = () => {
     // Construct the URL with query parameters
     const marGeocodeURL = new URL(marURL + searchAddress + "/" + marZone + "/true");
     const params = new URLSearchParams();
-    params.append("apikey", apikey);
+    if (apikey) {
+      params.append("apikey", apikey);
+    } else {
+      console.error("API key is undefined");
+    }
     marGeocodeURL.search = params.toString();
   
     try {
