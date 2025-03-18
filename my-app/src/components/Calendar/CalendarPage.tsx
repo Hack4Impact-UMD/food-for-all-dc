@@ -80,6 +80,9 @@ interface Client {
   address: string;
   language: string;
   deliveryDetails: DeliveryDetails;
+  tags: String[];
+  notes: string;
+  uid: string;
 }
 
 interface DeliveryDetails {
@@ -125,8 +128,8 @@ interface NewDelivery {
   notes: string;
 }
 
-type ViewType = "Day" | "Week" | "Month";
-type DayPilotViewType = "Day" | "Week" | "Days" | "WorkWeek" | "Resources";
+type ViewType = "Day" | "Month";
+type DayPilotViewType = "Day" | "Days" | "WorkWeek" | "Resources";
 
 // Add interface for calendar events
 interface CalendarEvent {
@@ -155,7 +158,7 @@ const CalendarPage: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [events, setEvents] = useState<DeliveryEvent[]>([]);
   const [calendarConfig, setCalendarConfig] = useState<CalendarConfig>({
-    viewType: "Week",
+    viewType: "Day",
     startDate: DayPilot.Date.today(),
     events: [],
   });
@@ -243,15 +246,11 @@ const CalendarPage: React.FC = () => {
           start = currentDate.firstDayOfMonth();
           endDate = start.lastDayOfMonth();
           break;
-        case "Week":
-          start = currentDate.firstDayOfWeek("en-us");
-          endDate = start.addDays(6);
-          break;
         case "Day":
           endDate = start.addDays(1);
           break;
         default:
-          endDate = start.addDays(7);
+          endDate = start.addDays(1);
       }
 
       const eventsRef = collection(db, "events");
@@ -343,9 +342,7 @@ const CalendarPage: React.FC = () => {
     const newDate =
       viewType === "Month"
         ? currentDate.addMonths(-1)
-        : viewType === "Week"
-          ? currentDate.addDays(-7)
-          : currentDate.addDays(-1);
+        : currentDate.addDays(-1);
     setCurrentDate(newDate);
   };
 
@@ -353,9 +350,7 @@ const CalendarPage: React.FC = () => {
     const newDate =
       viewType === "Month"
         ? currentDate.addMonths(1)
-        : viewType === "Week"
-          ? currentDate.addDays(7)
-          : currentDate.addDays(1);
+        : currentDate.addDays(1);
     setCurrentDate(newDate);
   };
 
@@ -439,13 +434,22 @@ const CalendarPage: React.FC = () => {
                         >
                           {event.clientName}
                         </Typography>
-                        <Box sx={{ display: "flex", flexDirection: "row", cursor: "pointer"}} onClick={() =>  {navigate('/spreadsheet')}}>
+                        <Box 
+                          sx={{ 
+                            display: "flex", 
+                            flexDirection: "row", 
+                            cursor: "pointer",
+                            alignItems: "center", // Ensure the icon aligns properly with the text
+                          }} 
+                          onClick={() => { navigate(`/profile/${client?.id}`) }}
+                        >
                           <Typography
                             variant="subtitle2"
                             sx={{
                               fontWeight: "600",
                               color: "#257E68",
                               marginTop: 0.25,
+                              whiteSpace: "nowrap", // Prevent text from wrapping to the next line
                             }}
                           >
                             NOTES AND DETAILS
@@ -485,11 +489,6 @@ const CalendarPage: React.FC = () => {
                           color: "#787777",
                         },
                         {
-                          label: "PRIORITY",
-                          value: event.priority,
-                          color: "#787777",
-                        },
-                        {
                           label: "ADDRESS",
                           value: client?.address || "N/A",
                           color: "#787777",
@@ -504,6 +503,18 @@ const CalendarPage: React.FC = () => {
                           label: "LANGUAGE",
                           value: client?.language || "N/A",
                           color: "#787777",
+                        },
+                        {
+                          label: "TAGS",
+                          value: client?.tags || "N/A",
+                          color: "#787777",
+                          isScrollable: true,
+                        },
+                        {
+                          label: "NOTES",
+                          value: client?.notes || "N/A",
+                          color: "#787777",
+                          isScrollable: true,
                         },
                       ].map(({ label, value, color, isScrollable }) => (
                         <Box
@@ -533,8 +544,12 @@ const CalendarPage: React.FC = () => {
                                   fontWeight: "bold",
                                   color: color,
                                   maxHeight: isScrollable ? "100px" : "none",
+                                  maxWidth: "200px",
                                   overflowY: isScrollable ? "auto" : "visible",
                                   padding: isScrollable ? "4px" : "0",
+                                  wordWrap: "break-word",        
+                                  overflowWrap: "break-word",    
+                                  whiteSpace: "normal",          
                                   border: isScrollable
                                     ? "1px solid #ccc"
                                     : "none",
@@ -638,7 +653,7 @@ const CalendarPage: React.FC = () => {
               open={Boolean(viewAnchorEl)}
               onClose={() => setViewAnchorEl(null)}
             >
-              {(["Day", "Week", "Month"] as ViewType[]).map((type) => (
+              {(["Day", "Month"] as ViewType[]).map((type) => (
                 <MenuItem
                   key={type}
                   onClick={() => {

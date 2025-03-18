@@ -114,7 +114,7 @@ function Login() {
         <InputLabel htmlFor="standard-adornment-password">Password</InputLabel>
         <Input
             id="standard-adornment-password"
-            type={'text'}
+            type={'password'}
             value={loginPassword}
             onChange={(e) => setLoginPassword(e.target.value)}
             fullWidth
@@ -136,7 +136,6 @@ function Login() {
 
           
         </div>
-        <p>Are you a volunteer? Log in here</p>
         {loginError && <p className="login-error">{loginError}</p>}
           <Button variant="contained" color="primary" onClick={handleLogin} fullWidth>
             Login
