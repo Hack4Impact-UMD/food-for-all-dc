@@ -128,8 +128,8 @@ interface NewDelivery {
   notes: string;
 }
 
-type ViewType = "Day" | "Week" | "Month";
-type DayPilotViewType = "Day" | "Week" | "Days" | "WorkWeek" | "Resources";
+type ViewType = "Day" | "Month";
+type DayPilotViewType = "Day" | "Days" | "WorkWeek" | "Resources";
 
 // Add interface for calendar events
 interface CalendarEvent {
@@ -158,7 +158,7 @@ const CalendarPage: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [events, setEvents] = useState<DeliveryEvent[]>([]);
   const [calendarConfig, setCalendarConfig] = useState<CalendarConfig>({
-    viewType: "Week",
+    viewType: "Day",
     startDate: DayPilot.Date.today(),
     events: [],
   });
@@ -246,15 +246,11 @@ const CalendarPage: React.FC = () => {
           start = currentDate.firstDayOfMonth();
           endDate = start.lastDayOfMonth();
           break;
-        case "Week":
-          start = currentDate.firstDayOfWeek("en-us");
-          endDate = start.addDays(6);
-          break;
         case "Day":
           endDate = start.addDays(1);
           break;
         default:
-          endDate = start.addDays(7);
+          endDate = start.addDays(1);
       }
 
       const eventsRef = collection(db, "events");
@@ -346,9 +342,7 @@ const CalendarPage: React.FC = () => {
     const newDate =
       viewType === "Month"
         ? currentDate.addMonths(-1)
-        : viewType === "Week"
-          ? currentDate.addDays(-7)
-          : currentDate.addDays(-1);
+        : currentDate.addDays(-1);
     setCurrentDate(newDate);
   };
 
@@ -356,9 +350,7 @@ const CalendarPage: React.FC = () => {
     const newDate =
       viewType === "Month"
         ? currentDate.addMonths(1)
-        : viewType === "Week"
-          ? currentDate.addDays(7)
-          : currentDate.addDays(1);
+        : currentDate.addDays(1);
     setCurrentDate(newDate);
   };
 
@@ -661,7 +653,7 @@ const CalendarPage: React.FC = () => {
               open={Boolean(viewAnchorEl)}
               onClose={() => setViewAnchorEl(null)}
             >
-              {(["Day", "Week", "Month"] as ViewType[]).map((type) => (
+              {(["Day", "Month"] as ViewType[]).map((type) => (
                 <MenuItem
                   key={type}
                   onClick={() => {

@@ -8,8 +8,9 @@ body {
   background-color: white;
 }
 .box {
-  width: 80vw;
+  width: 90vw;
   border-radius: 8px;
+  margin-top:7.5vh;
 }
 
 .table-container {
@@ -21,7 +22,11 @@ table .table-header {
   background-color: #f3f3f3;
   color: #257e68;
   border-bottom: 2.5px solid #ffffff;
+  padding-top: 1.5%;
+  padding-bottom: 1.5%;
 }
+
+
 
 .box .table-row {
   background-color: #f3f3f3;
@@ -35,13 +40,18 @@ table .table-header {
 }
 
 .box .create-client {
-  width: 15%;
+  width: 12%;
   height: 7vh;
-  margin-top: 5vh;
-  margin-bottom: 2vh;
   float: right;
 }
 
 .box .sort-arrow {
   color: #257e68;
+}
+
+.box h2{
+  font-size: 20px;
+  color: #257e68;
+  margin-bottom: 0;
+  width: max-content;
 }

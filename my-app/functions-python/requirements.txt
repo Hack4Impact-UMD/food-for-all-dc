@@ -1,0 +1,10 @@
+setuptools==75.3.0
+firebase-functions==0.4.2
+googlemaps==4.10.0
+python-dotenv==1.0.1
+pydantic==2.9.2
+numpy>=2.1.1
+scikit-learn==1.5.2
+k-means-constrained==0.7.3
+kmedoids==0.5.3
+firebase-admin
