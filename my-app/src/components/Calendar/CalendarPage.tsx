@@ -80,6 +80,9 @@ interface Client {
   address: string;
   language: string;
   deliveryDetails: DeliveryDetails;
+  tags: String[];
+  notes: string;
+  uid: string;
 }
 
 interface DeliveryDetails {
@@ -431,13 +434,22 @@ const CalendarPage: React.FC = () => {
                         >
                           {event.clientName}
                         </Typography>
-                        <Box sx={{ display: "flex", flexDirection: "row", cursor: "pointer"}} onClick={() =>  {navigate('/spreadsheet')}}>
+                        <Box 
+                          sx={{ 
+                            display: "flex", 
+                            flexDirection: "row", 
+                            cursor: "pointer",
+                            alignItems: "center", // Ensure the icon aligns properly with the text
+                          }} 
+                          onClick={() => { navigate(`/profile/${client?.id}`) }}
+                        >
                           <Typography
                             variant="subtitle2"
                             sx={{
                               fontWeight: "600",
                               color: "#257E68",
                               marginTop: 0.25,
+                              whiteSpace: "nowrap", // Prevent text from wrapping to the next line
                             }}
                           >
                             NOTES AND DETAILS
@@ -477,11 +489,6 @@ const CalendarPage: React.FC = () => {
                           color: "#787777",
                         },
                         {
-                          label: "PRIORITY",
-                          value: event.priority,
-                          color: "#787777",
-                        },
-                        {
                           label: "ADDRESS",
                           value: client?.address || "N/A",
                           color: "#787777",
@@ -496,6 +503,18 @@ const CalendarPage: React.FC = () => {
                           label: "LANGUAGE",
                           value: client?.language || "N/A",
                           color: "#787777",
+                        },
+                        {
+                          label: "TAGS",
+                          value: client?.tags || "N/A",
+                          color: "#787777",
+                          isScrollable: true,
+                        },
+                        {
+                          label: "NOTES",
+                          value: client?.notes || "N/A",
+                          color: "#787777",
+                          isScrollable: true,
                         },
                       ].map(({ label, value, color, isScrollable }) => (
                         <Box
@@ -525,8 +544,12 @@ const CalendarPage: React.FC = () => {
                                   fontWeight: "bold",
                                   color: color,
                                   maxHeight: isScrollable ? "100px" : "none",
+                                  maxWidth: "200px",
                                   overflowY: isScrollable ? "auto" : "visible",
                                   padding: isScrollable ? "4px" : "0",
+                                  wordWrap: "break-word",        
+                                  overflowWrap: "break-word",    
+                                  whiteSpace: "normal",          
                                   border: isScrollable
                                     ? "1px solid #ccc"
                                     : "none",
