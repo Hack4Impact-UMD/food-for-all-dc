@@ -34,7 +34,6 @@ import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { db, auth } from "../../auth/firebaseConfig";
 import "./Profile.css";
-import PopUp from "../../components/PopUp"; // Import PopUp component
 
 import { Timestamp } from "firebase/firestore";
 import TagPopup from "./Tags/TagPopup";
@@ -70,15 +69,6 @@ const CustomSelect = styled(Select)({
 
   "& .MuiSelect-select": fieldStyles,
 });
-
-const formatPhoneNumber = (value: string) => {
-  const cleaned = value.replace(/\D/g, "");
-  const match = cleaned.match(/^(\d{3})(\d{3})(\d{4})$/);
-  if (match) {
-    return `${match[1]}-${match[2]}-${match[3]}`;
-  }
-  return value;
-};
 
 const Profile = () => {
   // #### STATE ####
@@ -141,7 +131,6 @@ const Profile = () => {
   const [isSaved, setIsSaved] = useState(false); // Tracks whether it's the first save
   const [ward, setWard] = useState(clientProfile.ward);
   const [isEditing, setIsEditing] = useState(false); // Global editing state
-  const [showPopup, setShowPopup] = useState(false); // Add state for pop-up visibility
 
   const params = useParams(); // Params will return an object containing route params (like { id: 'some-id' })
   const id: string | null = params.id ?? null; // Use optional chaining to get the id or null if undefined
@@ -268,7 +257,7 @@ const Profile = () => {
   type ClientProfileKey =
     | keyof ClientProfile
     | "deliveryDetails.dietaryRestrictions"
-    | "deliveryDetails.deliveryInstructions"
+    | "deliveryDetails.deliveryInstructions";
 
   type InputType =
     | "text"
@@ -384,10 +373,10 @@ const Profile = () => {
         [name]: Number(value),
       }));
     } else if (name === "phone" || name === "alternativePhone") {
-      const allowedValue = formatPhoneNumber(value.replace(/[^\d-]/g, ""));
+      const numericValue = value.replace(/\D/g, "");
       setClientProfile((prevState) => ({
         ...prevState,
-        [name]: allowedValue,
+        [name]: numericValue,
       }));
     } else {
       setClientProfile((prevState) => ({
@@ -416,16 +405,16 @@ const Profile = () => {
     if (clientProfile.adults === 0 && clientProfile.children === 0) {
       newErrors.total = "At least one adult or child is required";
     }
-    if (!/^\d{3}-\d{3}-\d{4}$/.test(clientProfile.phone)) {
-      newErrors.phone = "Phone number must be in the format XXX-XXX-XXXX";
+    if (!/^\d{10}$/.test(clientProfile.phone)) {
+      newErrors.phone = "Phone number must be exactly 10 digits";
     }
 
     if (
-      !/^\d{3}-\d{3}-\d{4}$/.test(clientProfile.alternativePhone) &&
+      !/^\d{10}$/.test(clientProfile.alternativePhone) &&
       clientProfile.alternativePhone.trim()
     ) {
       newErrors.alternativePhone =
-        "Alternative Phone number must be in the format XXX-XXX-XXXX";
+        "Alternative Phone number must be exactly 10 digits";
     }
 
     setErrors(newErrors);
@@ -486,8 +475,6 @@ const Profile = () => {
         // Navigate to the updated profile page
         navigate(`/profile/${clientProfile.uid}`);
       }
-      setShowPopup(true); // Show pop-up on successful save
-      setTimeout(() => setShowPopup(false), 3000); // Hide pop-up after 3 seconds
     } catch (e) {
       console.error("Error saving document: ", e);
     }
@@ -521,7 +508,6 @@ const Profile = () => {
     if (isEditing) {
       switch (type) {
         case "select":
-          // Gender Dropdown
           if (fieldPath === "gender") {
             return (
               <CustomSelect
@@ -536,62 +522,7 @@ const Profile = () => {
               </CustomSelect>
             );
           }
-
-          // Language Dropdown
-          if (fieldPath === "language") {
-            return (
-              <CustomSelect
-                name={fieldPath}
-                value={value as string}
-                onChange={(e) => handleChange(e as SelectChangeEvent<string>)}
-                style={{ width: "83.5%" }}
-              >
-                <MenuItem value="English">English</MenuItem>
-                <MenuItem value="Spanish">Spanish</MenuItem>
-                <MenuItem value="">Other</MenuItem>
-              </CustomSelect>
-            );
-          }
-
-          // Delivery Frequency Dropdown
-          if (fieldPath === 'deliveryFreq'){
-            return (
-              <CustomSelect
-                name={fieldPath}
-                value={value as string}
-                onChange={(e) => handleChange(e as SelectChangeEvent<string>)}
-                style={{ width: "83.5%" }}
-              >
-                <MenuItem value="Monthly">Monthly</MenuItem>
-                <MenuItem value="2xMonthly">2x Monthly</MenuItem>
-                <MenuItem value="Weekly">Weekly</MenuItem>
-                <MenuItem value="OnceOnly">Once Only</MenuItem>
-                <MenuItem value="Periodic">Periodic</MenuItem>
-              </CustomSelect>
-            );
-          }
-
-          if (fieldPath === "ethnicity") {
-            return (
-              <CustomSelect
-                name={fieldPath}
-                value={value as string}
-                onChange={(e) => handleChange(e as SelectChangeEvent<string>)}
-                style={{ width: "83.5%" }}
-              >
-                <MenuItem value="White">White/Caucasian</MenuItem>
-                <MenuItem value="AfricanAmerican">Black/African American</MenuItem>
-                <MenuItem value="Hispanic/Latino">Hispanic/Latino</MenuItem>
-                <MenuItem value="Hawaiian/PacificIslander">Hawaiian/Pacific Islander</MenuItem>
-                <MenuItem value="Asian">Asian</MenuItem>
-                <MenuItem value="AmericanIndian/AlaskanNative">American Indian/Alaskan Native</MenuItem>
-                <MenuItem value="Other">Other</MenuItem> 
-              </CustomSelect>
-            );
-          }
           break;
-          
-
         case "date":
           return (
             <>
@@ -824,7 +755,6 @@ const Profile = () => {
 
   return (
     <Box className="profile-container">
-      {showPopup && <PopUp message="Profile saved successfully!" duration={3000} />} {/* Render pop-up */}
       <Box className="white-container">
         <Typography
           variant="h5"
@@ -988,7 +918,7 @@ const Profile = () => {
             {/* Phone */}
             <Box>
               <Typography className="field-descriptor" sx={fieldLabelStyles}>
-                PHONE (CELL) <span className="required-asterisk">*</span>
+                PHONE <span className="required-asterisk">*</span>
               </Typography>
               {renderField("phone", "text")}
               {errors.phone && (
@@ -1001,7 +931,7 @@ const Profile = () => {
             {/* Alternative Phone */}
             <Box>
               <Typography className="field-descriptor" sx={fieldLabelStyles}>
-                PHONE (OTHER)
+                ALTERNATIVE PHONE
               </Typography>
               {renderField("alternativePhone", "text")}
             </Box>
@@ -1011,7 +941,7 @@ const Profile = () => {
               <Typography className="field-descriptor" sx={fieldLabelStyles}>
                 ETHNICITY <span className="required-asterisk">*</span>
               </Typography>
-              {renderField("ethnicity", "select")}
+              {renderField("ethnicity", "text")}
               {errors.ethnicity && (
                 <Typography color="error" variant="body2">
                   {errors.ethnicity}
@@ -1071,7 +1001,7 @@ const Profile = () => {
               <Typography className="field-descriptor" sx={fieldLabelStyles}>
                 DELIVERY FREQUENCY <span className="required-asterisk">*</span>
               </Typography>
-              {renderField("deliveryFreq", "select")}
+              {renderField("deliveryFreq", "text")}
               {errors.deliveryFreq && (
                 <Typography color="error" variant="body2">
                   {errors.deliveryFreq}
@@ -1111,30 +1041,16 @@ const Profile = () => {
               {renderField("lifestyleGoals", "textarea")}
             </Box>
 
-
             {/* Language */}
             <Box>
               <Typography className="field-descriptor" sx={fieldLabelStyles}>
                 LANGUAGE <span className="required-asterisk">*</span>
               </Typography>
-              {renderField("language", "select")}
+              {renderField("language", "text")}
               {errors.language && (
                 <Typography color="error" variant="body2">
                   {errors.language}
                 </Typography>
-              )}  
-            </Box>
-            {/* Other Language Textbox Option */}
-            {clientProfile.language !== "English" && clientProfile.language !== "Spanish" &&
-            <Box>
-            <Typography className="field-descriptor" sx={fieldLabelStyles}>
-                OTHER LANGUAGE <span className="required-asterisk">*</span>
-              </Typography>
-            {renderField("language", "text")}
-            {errors.language && (
-                <Typography color="error" variant="body2">
-                  {errors.language}
-              </Typography>
               )}
             </Box>
 
