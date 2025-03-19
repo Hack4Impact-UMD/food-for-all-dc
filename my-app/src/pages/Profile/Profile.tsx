@@ -27,8 +27,10 @@ import {
   getDocs,
   query,
   setDoc,
+  orderBy,
   updateDoc,
   where,
+  limit,
 } from "firebase/firestore";
 import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
@@ -131,7 +133,7 @@ const Profile = () => {
   const [isSaved, setIsSaved] = useState(false); // Tracks whether it's the first save
   const [ward, setWard] = useState(clientProfile.ward);
   const [isEditing, setIsEditing] = useState(false); // Global editing state
-
+  const [lastDeliveryDate, setLastDeliveryDate] = useState<string | null>(null);
   const params = useParams(); // Params will return an object containing route params (like { id: 'some-id' })
   const id: string | null = params.id ?? null; // Use optional chaining to get the id or null if undefined
 
@@ -198,6 +200,36 @@ const Profile = () => {
       setTags([]); 
     }
   }, [id, allTags]); 
+
+  useEffect(() => {
+    const fetchLastDeliveryDate = async () => {
+      if (clientId) {
+        try {
+          const eventsRef = collection(db, "events");
+          const q = query(
+            eventsRef,
+            where("clientId", "==", clientId),
+            orderBy("deliveryDate", "desc"),
+            limit(1)
+          );
+          const querySnapshot = await getDocs(q);
+  
+          if (!querySnapshot.empty) {
+            const lastEvent = querySnapshot.docs[0].data();
+            const deliveryDate = lastEvent.deliveryDate.toDate();
+            setLastDeliveryDate(deliveryDate.toISOString().split("T")[0]); // Format as YYYY-MM-DD in UTC
+          } else {
+            setLastDeliveryDate("No deliveries found");
+          }
+        } catch (error) {
+          console.error("Error fetching last delivery date:", error);
+          setLastDeliveryDate("Error fetching data");
+        }
+      }
+    };
+  
+    fetchLastDeliveryDate();
+  }, [clientId]);
 
   // Improved type definitions
   type DietaryRestrictions = {
@@ -626,7 +658,7 @@ const Profile = () => {
           );
       }
     }
-
+    
     return (
       <Typography variant="body1" sx={{ fontWeight: 600 }}>
         {renderFieldValue(fieldPath, value)}
@@ -715,14 +747,19 @@ const Profile = () => {
       );
     }
 
-    return (
-      <Typography variant="body1" sx={{ fontWeight: 600 }}>
-        {Object.entries(restrictions)
-          .filter(([key, value]) => value === true && typeof value === "boolean")
-          .map(([key]) => key.replace(/([A-Z])/g, " $1").trim())
-          .join(", ") || "None"}
-      </Typography>
-    );
+    const selectedRestrictions = Object.entries(restrictions)
+    .filter(([key, value]) => value === true && typeof value === "boolean")
+    .map(([key]) => key.replace(/([A-Z])/g, " $1").trim())
+    .join(", ") || "None";
+
+  return (
+    <CustomTextField
+      name="dietaryRestrictionsSummary"
+      value={selectedRestrictions}
+      disabled
+      fullWidth
+    />
+  );
   };
 
   // Updated handler for dietary restrictions
@@ -996,6 +1033,19 @@ const Profile = () => {
               )}
             </Box>
 
+            {/* Language */}
+            <Box>
+              <Typography className="field-descriptor" sx={fieldLabelStyles}>
+                LANGUAGE <span className="required-asterisk">*</span>
+              </Typography>
+              {renderField("language", "text")}
+              {errors.language && (
+                <Typography color="error" variant="body2">
+                  {errors.language}
+                </Typography>
+              )}
+            </Box>
+
             {/* Delivery Frequency */}
             <Box>
               <Typography className="field-descriptor" sx={fieldLabelStyles}>
@@ -1015,6 +1065,15 @@ const Profile = () => {
                 DELIVERY INSTRUCTIONS
               </Typography>
               {renderField("deliveryDetails.deliveryInstructions", "textarea")}
+            </Box>
+
+            <Box>
+              <Typography className="field-descriptor" sx={fieldLabelStyles}>
+                LAST DELIVERY DATE
+              </Typography>
+              <Typography variant="body1" sx={{ fontWeight: 600 }}>
+                {lastDeliveryDate || "Loading..."}
+              </Typography>
             </Box>
 
             {/* Notes */}
@@ -1041,19 +1100,6 @@ const Profile = () => {
               {renderField("lifestyleGoals", "textarea")}
             </Box>
 
-            {/* Language */}
-            <Box>
-              <Typography className="field-descriptor" sx={fieldLabelStyles}>
-                LANGUAGE <span className="required-asterisk">*</span>
-              </Typography>
-              {renderField("language", "text")}
-              {errors.language && (
-                <Typography color="error" variant="body2">
-                  {errors.language}
-                </Typography>
-              )}
-            </Box>
-
             {/* Tags */}
             <Box sx={{  }}>
               <Typography className="field-descriptor" sx={fieldLabelStyles}>
@@ -1067,9 +1113,22 @@ const Profile = () => {
               <Typography className="field-descriptor" sx={fieldLabelStyles}>
                 DIETARY RESTRICTIONS
               </Typography>
-              {renderField(
-                "deliveryDetails.dietaryRestrictions",
-                "dietaryRestrictions"
+              {isEditing ? (
+                renderField("deliveryDetails.dietaryRestrictions", "dietaryRestrictions")
+              ) : (
+                <Typography variant="body1" sx={{ fontWeight: 600 }}>
+                  {Object.entries(clientProfile.deliveryDetails.dietaryRestrictions)
+                    .filter(([key, value]) => value === true && typeof value === "boolean")
+                    .map(([key]) =>
+                      key
+                        .replace(/([A-Z])/g, " $1") // Add space before capital letters
+                        .trim()
+                        .split(" ") // Split into words
+                        .map((word) => word.charAt(0).toUpperCase() + word.slice(1)) // Capitalize each word
+                        .join(" ") // Join back into a single string
+                    )
+                    .join(", ") || "None"}
+                </Typography>
               )}
             </Box>
           </Box>
