@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect } from "react";
 import {
   AppBar,
   Toolbar,
@@ -17,10 +17,6 @@ import {
   Select,
   InputLabel,
   FormControl,
-  Popper,
-  Fade,
-  Paper,
-  ClickAwayListener,
 } from "@mui/material";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import { ChevronRight, Add, EditCalendar } from "@mui/icons-material";
@@ -43,7 +39,7 @@ import { useNavigate } from "react-router-dom";
 import "./CalendarPage.css";
 import { auth } from "../../auth/firebaseConfig";
 import { onAuthStateChanged } from "firebase/auth";
-import CalendarPopper from "./CalenderPopper";
+import CalendarPopper from "./CalendarPopper";
 
 const StyledToolbar = styled(Toolbar)(({ theme }) => ({
   justifyContent: "space-between",
@@ -790,34 +786,13 @@ const CalendarPage: React.FC = () => {
             >
               Edit Limits
             </Button>
-            <Popper
-              open={Boolean(anchorEl)}
+            <CalendarPopper
               anchorEl={anchorEl}
-              placement="bottom"
-              transition
-            >
-              {({ TransitionProps }) => (
-                <Fade {...TransitionProps} timeout={350}>
-                  <Box
-                    sx={{
-                      padding: 2,
-                      backgroundColor: "#fff",
-                      borderRadius: 4,
-                      width: 500,
-                      height: 90,
-                    }}
-                  >
-                    {/* {popperCalendarRender()} */}
-                    <CalendarPopper
-                      viewType={viewType}
-                      calendarConfig={calendarConfig}
-                      dailyLimits={dailyLimits}
-                      setDailyLimits={setDailyLimits}
-                    />
-                  </Box>
-                </Fade>
-              )}
-            </Popper>
+              viewType={viewType}
+              calendarConfig={calendarConfig}
+              dailyLimits={dailyLimits}
+              setDailyLimits={setDailyLimits}
+            />
           </Box>
         </Box>
 
