@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   AppBar,
   Toolbar,
@@ -19,6 +19,8 @@ import {
   FormControl,
   Popper,
   Fade,
+  Paper,
+  ClickAwayListener,
 } from "@mui/material";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import { ChevronRight, Add, EditCalendar } from "@mui/icons-material";
@@ -41,6 +43,7 @@ import { useNavigate } from "react-router-dom";
 import "./CalendarPage.css";
 import { auth } from "../../auth/firebaseConfig";
 import { onAuthStateChanged } from "firebase/auth";
+import CalendarPopper from "./CalenderPopper";
 
 const StyledToolbar = styled(Toolbar)(({ theme }) => ({
   justifyContent: "space-between",
@@ -160,10 +163,6 @@ const CalendarPage: React.FC = () => {
   });
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
   const [dailyLimits, setDailyLimits] = useState<Record<string, number>>({});
-  const [limitEditDate, setLimitEditDate] = useState<DayPilot.Date | null>(
-    null
-  );
-  const [newLimit, setNewLimit] = useState<number>(60);
 
   const daysOfWeek = [
     "Sunday",
@@ -607,11 +606,16 @@ const CalendarPage: React.FC = () => {
           }).length;
 
           args.cell.properties.html = `
-            <div style='position: absolute; bottom: 0; left: 0; right: 0; text-align: center;'>
-              ${eventCount}/${limit}
-              <div>DELIVERIES</div>
+            <div style='position: absolute; 
+                        bottom: 0; 
+                        left: 0; 
+                        right: 0; 
+                        text-align: center; 
+                        color: ${eventCount > limit && "#ff6e6b"};'>
+                ${eventCount}/${limit}
+                <div>DELIVERIES</div>
             </div>
-          `;
+        `;
         },
         onTimeRangeSelected: (args: any) => {
           setCurrentDate(args.start);
@@ -628,97 +632,6 @@ const CalendarPage: React.FC = () => {
         viewType={viewType as DayPilotViewType}
       />
     );
-  };
-
-  const popperCalendarRender = () => {
-    const limitOptions = Array.from({ length: 9 }, (_, i) => 30 + i * 5);
-
-    // Normal calendar view
-    if (viewType === "Month") {
-      const customCalendarConfig = {
-        ...calendarConfig,
-        height: "300",
-        width: "300",
-        onBeforeCellRender: (args: any) => {
-          const cellDate = args.cell.start;
-          const dateKey = cellDate.toString("yyyy-MM-dd");
-          const limit = dailyLimits[dateKey] || 60;
-
-          const eventCount = calendarConfig.events.filter((event) => {
-            const eventDateString = event.start.toString("yyyy-MM-dd");
-            return eventDateString === dateKey;
-          }).length;
-
-          args.cell.properties.html = `
-            <div style='
-              position: absolute;
-              bottom: 0;
-              left: 0;
-              right: 0;
-              text-align: center;
-              cursor: pointer;
-              padding: 4px;
-              background: rgba(37, 126, 104, 0.1);
-            '>
-              <div style='font-size: 14px; color: #257E68;'>
-                ${eventCount}/${limit}
-              </div>
-              <div style='font-size: 10px; color: #666;'>DELIVERIES</div>
-            </div>
-          `;
-        },
-        onTimeRangeSelected: (args: any) => {
-          setLimitEditDate(args.start);
-          setNewLimit(dailyLimits[args.start.toString("yyyy-MM-dd")] || 60);
-        },
-      };
-
-      return (
-        <Box sx={{ p: 2, width: 500, height: 300 }}>
-          {/* Calendar Component */}
-          <DayPilotMonth {...customCalendarConfig} />
-
-          {/* Limit Edit Form */}
-          {limitEditDate && (
-            <Box sx={{ mt: 2 }}>
-              <Typography variant="subtitle1" gutterBottom>
-                Delivery Limit for {limitEditDate.toString("MMM d")}
-              </Typography>
-              <FormControl fullWidth sx={{ mb: 2 }}>
-                <InputLabel>Max Deliveries</InputLabel>
-                <Select
-                  value={newLimit}
-                  label="Max Deliveries"
-                  onChange={(e) => setNewLimit(Number(e.target.value))}
-                  autoFocus
-                >
-                  {limitOptions.map((option) => (
-                    <MenuItem key={option} value={option}>
-                      {option} deliveries
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-              <Button
-                variant="contained"
-                fullWidth
-                onClick={() => {
-                  setDailyLimits((prev) => ({
-                    ...prev,
-                    [limitEditDate.toString("yyyy-MM-dd")]: newLimit,
-                  }));
-                  setLimitEditDate(null);
-                }}
-              >
-                Save Limit
-              </Button>
-            </Box>
-          )}
-        </Box>
-      );
-    }
-
-    return <div>View in month Mode</div>;
   };
 
   return (
@@ -894,8 +807,13 @@ const CalendarPage: React.FC = () => {
                       height: 90,
                     }}
                   >
-                    {popperCalendarRender()}
-                    {}
+                    {/* {popperCalendarRender()} */}
+                    <CalendarPopper
+                      viewType={viewType}
+                      calendarConfig={calendarConfig}
+                      dailyLimits={dailyLimits}
+                      setDailyLimits={setDailyLimits}
+                    />
                   </Box>
                 </Fade>
               )}
