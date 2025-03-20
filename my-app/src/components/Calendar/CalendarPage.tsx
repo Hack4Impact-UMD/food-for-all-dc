@@ -637,6 +637,7 @@ const CalendarPage: React.FC = () => {
           setCurrentDate(args.start);
           setViewType("Day");
         },
+        events: [], // Remove events from month view
       };
 
       return <DayPilotMonth {...customCalendarConfig} />;

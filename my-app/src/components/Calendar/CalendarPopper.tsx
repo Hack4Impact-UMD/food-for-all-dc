@@ -233,7 +233,7 @@ const CalendarPopper = ({
     );
   }
 
-  return <div>View in month Mode</div>;
+  return <div></div>;
 };
 
 export default CalendarPopper;
