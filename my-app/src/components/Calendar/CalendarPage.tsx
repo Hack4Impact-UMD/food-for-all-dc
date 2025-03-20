@@ -796,21 +796,23 @@ const CalendarPage: React.FC = () => {
             >
               Add Delivery
             </Button>
-            <Button
-              variant="contained"
-              endIcon={<EditCalendar />}
-              onClick={(event: React.MouseEvent<HTMLElement>) =>
-                setAnchorEl(anchorEl ? null : event.currentTarget)
-              }
-              sx={{
-                marginRight: 4,
-                width: 166,
-                color: "#fff",
-                backgroundColor: "#257E68",
-              }}
-            >
-              Edit Limits
-            </Button>
+            {viewType === "Month" && (
+              <Button
+                variant="contained"
+                endIcon={<EditCalendar />}
+                onClick={(event: React.MouseEvent<HTMLElement>) =>
+                  setAnchorEl(anchorEl ? null : event.currentTarget)
+                }
+                sx={{
+                  marginRight: 4,
+                  width: 166,
+                  color: "#fff",
+                  backgroundColor: "#257E68",
+                }}
+              >
+                Edit Limits
+              </Button>
+            )}
             <CalendarPopper
               anchorEl={anchorEl}
               viewType={viewType}
