@@ -49,23 +49,31 @@ export default function TagPopup({allTags, tags, handleTag, isModalOpen, setIsMo
             </DialogContent>
 
             {/* Create or delete tag from db*/}
-            <DialogContent sx={{display:'flex', justifyContent:'center', gap: '10px'}}>
-            <Button
-                variant="contained"
-                // startIcon={<Add />}
-                onClick={() => {setDeleteMode(!deleteMode)}}
-                sx={{
-                    width: 166,
-                    color: "#fff",
-                    backgroundColor: "#257E68",
-                }}
-            >
-               {deleteMode ? "Cancel": "Delete tag"}
-            </Button>
+            <DialogContent sx={{display:'flex', justifyContent:'center', gap: '10px', padding: '10px'}}>
+                <Button
+                    variant="contained"
+                    // startIcon={<Add />}
+                    onClick={() => {setDeleteMode(!deleteMode)}}
+                    sx={{
+                        flex: 1,
+                        color: "#fff",
+                        backgroundColor: "#257E68",
+                    }}
+                >
+                    {deleteMode ? "Cancel": "Delete tag"}
+                </Button>
+                <Button
+                    variant="contained"
+                    onClick={() => setIsModalOpen(false)}
+                    sx={{
+                        flex: 1,
+                        color: "#fff",
+                        backgroundColor: "#257E68",
+                    }}
+                >
+                    DONE
+                </Button>
             </DialogContent>
-            <DialogActions>
-            <Button onClick={() => setIsModalOpen(false)}>DONE</Button>
-            </DialogActions>
 
             {/* Create new tag */}
             <Dialog open={innerPopup && !deleteMode} onClose={() => {setInnerPopup(false); setNewTag("")}}>
