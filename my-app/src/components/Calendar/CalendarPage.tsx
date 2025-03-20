@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   AppBar,
   Toolbar,
@@ -19,10 +19,7 @@ import {
   FormControl,
 } from "@mui/material";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
-import {
-  ChevronRight,
-  Add,
-} from "@mui/icons-material";
+import { ChevronRight, Add, EditCalendar } from "@mui/icons-material";
 import { styled } from "@mui/material/styles";
 import {
   collection,
@@ -38,10 +35,12 @@ import {
   DayPilotCalendar,
   DayPilotMonth,
 } from "@daypilot/daypilot-lite-react";
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from "react-router-dom";
 import "./CalendarPage.css";
 import { auth } from "../../auth/firebaseConfig";
 import { onAuthStateChanged } from "firebase/auth";
+import CalendarPopper from "./CalendarPopper";
+import { set } from "date-fns";
 
 const StyledToolbar = styled(Toolbar)(({ theme }) => ({
   justifyContent: "space-between",
@@ -83,6 +82,18 @@ interface Client {
   tags: String[];
   notes: string;
   uid: string;
+}
+
+interface DateLimit {
+  id: string;
+  date: string;
+  limit: number;
+}
+
+interface DateLimit {
+  id: string;
+  date: string;
+  limit: number;
 }
 
 interface DeliveryDetails {
@@ -162,6 +173,8 @@ const CalendarPage: React.FC = () => {
     startDate: DayPilot.Date.today(),
     events: [],
   });
+  const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
+
   const daysOfWeek = [
     "Sunday",
     "Monday",
@@ -174,19 +187,19 @@ const CalendarPage: React.FC = () => {
 
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
+  const [dailyLimits, setDailyLimits] = useState<DateLimit[]>([]);
 
   //Route Protection
   React.useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user:any) => {
+    const unsubscribe = onAuthStateChanged(auth, (user: any) => {
       if (!user) {
         console.log("No user is signed in, redirecting to /");
         navigate("/");
-      } 
-      else{
-        console.log("welcome, " + auth.currentUser?.email)
+      } else {
+        console.log("welcome, " + auth.currentUser?.email);
       }
     });
-  
+
     // Cleanup the listener when the component unmounts
     return () => unsubscribe();
   }, [navigate]);
@@ -210,6 +223,19 @@ const CalendarPage: React.FC = () => {
     })) as Client[];
     setClients(clientList);
   };
+
+  const fetchLimits = async () => {
+    const snapshot = await getDocs(collection(db, "dailyLimits"));
+    const dailyLimits = snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    })) as DateLimit[];
+    setDailyLimits(dailyLimits);
+  };
+
+  useEffect(() => {
+    fetchLimits();
+  }, []);
 
   const getInitialFormDates = () => {
     const today = new Date();
@@ -595,7 +621,42 @@ const CalendarPage: React.FC = () => {
 
     // For Week and Month views
     if (viewType === "Month") {
-      return <DayPilotMonth {...calendarConfig} />;
+      const customCalendarConfig = {
+        ...calendarConfig,
+        onBeforeCellRender: (args: any) => {
+          const dateKey = args.cell.start.toString("yyyy-MM-dd");
+          const dailyLimit = dailyLimits.find((dl) => dl.date === dateKey);
+          const limit = dailyLimit ? dailyLimit.limit : 60;
+
+          const eventCount = calendarConfig.events.filter((event) => {
+            const eventDateString = event.start.toString("yyyy-MM-dd");
+            return eventDateString === dateKey;
+          }).length;
+
+          args.cell.properties.html = `
+            <div style='position: absolute; 
+                        top: 50%; 
+                        left: 50%; 
+                        transform: translate(-50%, -50%);
+                        text-align: center; 
+                        display: flex;
+                        flex-direction: column;
+                        align-items: center;
+                        justify-content: center;
+                        color: ${eventCount > limit && "#ff6e6b"};'>
+                ${eventCount}/${limit}
+                <div>DELIVERIES</div>
+            </div>
+        `;
+        },
+        onTimeRangeSelected: (args: any) => {
+          setCurrentDate(args.start);
+          setViewType("Day");
+        },
+        events: [], // Remove events from month view
+      };
+
+      return <DayPilotMonth {...customCalendarConfig} />;
     }
 
     return (
@@ -679,7 +740,7 @@ const CalendarPage: React.FC = () => {
               alignItems: "center",
             }}
           >
-            <Typography variant="h4" sx={{marginRight: 2, color: "#787777" }}>
+            <Typography variant="h4" sx={{ marginRight: 2, color: "#787777" }}>
               {viewType === "Day" && daysOfWeek[currentDate.getDayOfWeek()]}
               {viewType === "Month" && currentDate.toString("MMMM")}
             </Typography>
@@ -733,19 +794,46 @@ const CalendarPage: React.FC = () => {
             </IconButton>
           </Box>
 
-          <Button
-            variant="contained"
-            startIcon={<Add />}
-            onClick={() => setIsModalOpen(true)}
-            sx={{
-              marginRight: 4,
-              width: 166,
-              color: "#fff",
-              backgroundColor: "#257E68",
-            }}
-          >
-            Add Delivery
-          </Button>
+          <Box>
+            <Button
+              variant="contained"
+              startIcon={<Add />}
+              onClick={() => setIsModalOpen(true)}
+              sx={{
+                marginRight: 4,
+                width: 166,
+                color: "#fff",
+                backgroundColor: "#257E68",
+              }}
+            >
+              Add Delivery
+            </Button>
+            {viewType === "Month" && (
+              <Button
+                variant="contained"
+                endIcon={<EditCalendar />}
+                onClick={(event: React.MouseEvent<HTMLElement>) =>
+                  setAnchorEl(anchorEl ? null : event.currentTarget)
+                }
+                sx={{
+                  marginRight: 4,
+                  width: 166,
+                  color: "#fff",
+                  backgroundColor: "#257E68",
+                }}
+              >
+                Edit Limits
+              </Button>
+            )}
+            <CalendarPopper
+              anchorEl={anchorEl}
+              viewType={viewType}
+              calendarConfig={calendarConfig}
+              dailyLimits={dailyLimits}
+              setDailyLimits={setDailyLimits}
+              fetchDailyLimits={fetchLimits}
+            />
+          </Box>
         </Box>
 
         <StyledCalendarContainer>
