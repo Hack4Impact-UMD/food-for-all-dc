@@ -11,6 +11,8 @@ import {
   MenuItem,
   Fade,
 } from "@mui/material";
+import { collection, addDoc, limit, doc, setDoc } from "firebase/firestore";
+import { db } from "../../auth/firebaseConfig";
 
 interface DailyLimits {
   id: string;
@@ -24,6 +26,7 @@ interface CalendarPopperProps {
   calendarConfig: any;
   dailyLimits: DailyLimits[];
   setDailyLimits: (update: (prev: DailyLimits[]) => DailyLimits[]) => void;
+  fetchDailyLimits: () => Promise<void>;
 }
 
 const CalendarPopper = ({
@@ -32,6 +35,7 @@ const CalendarPopper = ({
   calendarConfig,
   dailyLimits,
   setDailyLimits,
+  fetchDailyLimits,
 }: CalendarPopperProps) => {
   const [clickPosition, setClickPosition] = useState<{
     x: number;
@@ -43,7 +47,7 @@ const CalendarPopper = ({
   const [newLimit, setNewLimit] = useState<number>(60);
   const limitOptions = Array.from({ length: 9 }, (_, i) => 30 + i * 5);
 
-  const handleDateClick = (date: DayPilot.Date) => {
+  const handleDateClick = async (date: DayPilot.Date) => {
     const dateKey = date.toString("yyyy-MM-dd");
     const cellElement = document.querySelector(`[data-date="${dateKey}"]`);
     if (cellElement) {
@@ -57,7 +61,10 @@ const CalendarPopper = ({
     }
     setLimitEditDate(date);
     const limitEntry = dailyLimits.find((dl) => dl.date === dateKey);
-    setNewLimit(limitEntry ? limitEntry.limit : 60);
+
+    if (limitEntry) {
+      setNewLimit(limitEntry.limit);
+    }
   };
 
   const handleClick = (event: React.MouseEvent) => {
@@ -161,12 +168,24 @@ const CalendarPopper = ({
                         <Select
                           value={newLimit}
                           label="Max"
-                          onChange={(e) => {
+                          onChange={async (e) => {
+                            console.log(e.target.value);
                             const selectedValue = Number(e.target.value);
                             setNewLimit(selectedValue);
+                            const dateKey =
+                              limitEditDate.toString("yyyy-MM-dd");
+                            const docRef = doc(db, "dailyLimits", dateKey);
+                            await setDoc(
+                              docRef,
+                              {
+                                limit: selectedValue,
+                                date: dateKey,
+                              },
+                              { merge: true }
+                            );
+                            console.log(docRef.id);
                             setDailyLimits((prev) => {
-                              const dateKey =
-                                limitEditDate.toString("yyyy-MM-dd");
+                              console.log(dateKey);
                               const existingIndex = prev.findIndex(
                                 (item) => item.date === dateKey
                               );

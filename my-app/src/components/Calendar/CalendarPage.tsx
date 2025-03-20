@@ -40,6 +40,7 @@ import "./CalendarPage.css";
 import { auth } from "../../auth/firebaseConfig";
 import { onAuthStateChanged } from "firebase/auth";
 import CalendarPopper from "./CalendarPopper";
+import { set } from "date-fns";
 
 const StyledToolbar = styled(Toolbar)(({ theme }) => ({
   justifyContent: "space-between",
@@ -214,7 +215,18 @@ const CalendarPage: React.FC = () => {
     setClients(clientList);
   };
 
-  const fetchLimits = async () => {};
+  const fetchLimits = async () => {
+    const snapshot = await getDocs(collection(db, "dailyLimits"));
+    const dailyLimits = snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    })) as DateLimit[];
+    setDailyLimits(dailyLimits);
+  };
+
+  useEffect(() => {
+    fetchLimits();
+  }, []);
 
   const getInitialFormDates = () => {
     const today = new Date();
@@ -800,6 +812,7 @@ const CalendarPage: React.FC = () => {
               calendarConfig={calendarConfig}
               dailyLimits={dailyLimits}
               setDailyLimits={setDailyLimits}
+              fetchDailyLimits={fetchLimits}
             />
           </Box>
         </Box>
