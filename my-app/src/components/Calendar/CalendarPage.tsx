@@ -623,10 +623,14 @@ const CalendarPage: React.FC = () => {
 
           args.cell.properties.html = `
             <div style='position: absolute; 
-                        bottom: 0; 
-                        left: 0; 
-                        right: 0; 
+                        top: 50%; 
+                        left: 50%; 
+                        transform: translate(-50%, -50%);
                         text-align: center; 
+                        display: flex;
+                        flex-direction: column;
+                        align-items: center;
+                        justify-content: center;
                         color: ${eventCount > limit && "#ff6e6b"};'>
                 ${eventCount}/${limit}
                 <div>DELIVERIES</div>
