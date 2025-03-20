@@ -12,14 +12,18 @@ import {
   Fade,
 } from "@mui/material";
 
+interface DailyLimits {
+  id: string;
+  date: string;
+  limit: number;
+}
+
 interface CalendarPopperProps {
   anchorEl: HTMLElement | null;
   viewType: string;
   calendarConfig: any;
-  dailyLimits: Record<string, number>;
-  setDailyLimits: (
-    update: (prev: Record<string, number>) => Record<string, number>
-  ) => void;
+  dailyLimits: DailyLimits[];
+  setDailyLimits: (update: (prev: DailyLimits[]) => DailyLimits[]) => void;
 }
 
 const CalendarPopper = ({
@@ -41,11 +45,9 @@ const CalendarPopper = ({
 
   const handleDateClick = (date: DayPilot.Date) => {
     const dateKey = date.toString("yyyy-MM-dd");
-    // Find the cell element using the data-date attribute
     const cellElement = document.querySelector(`[data-date="${dateKey}"]`);
     if (cellElement) {
       const rect = cellElement.getBoundingClientRect();
-      // Set the anchor position to the center bottom of the cell
       setClickPosition({
         x: rect.left + rect.width / 2,
         y: rect.bottom,
@@ -54,7 +56,8 @@ const CalendarPopper = ({
       setClickPosition(null);
     }
     setLimitEditDate(date);
-    setNewLimit(dailyLimits[dateKey] || 60);
+    const limitEntry = dailyLimits.find((dl) => dl.date === dateKey);
+    setNewLimit(limitEntry ? limitEntry.limit : 60);
   };
 
   const handleClick = (event: React.MouseEvent) => {
@@ -70,12 +73,7 @@ const CalendarPopper = ({
 
     return {
       getBoundingClientRect: () =>
-        new DOMRect(
-          clickPosition.x,
-          clickPosition.y,
-          1, // width
-          1 // height
-        ),
+        new DOMRect(clickPosition.x, clickPosition.y, 1, 1),
     };
   }, [clickPosition]);
 
@@ -86,7 +84,8 @@ const CalendarPopper = ({
       onBeforeCellRender: (args: any) => {
         const cellDate = args.cell.start;
         const dateKey = cellDate.toString("yyyy-MM-dd");
-        const limit = dailyLimits[dateKey] || 60;
+        const limitEntry = dailyLimits.find((dl) => dl.date === dateKey);
+        const limit = limitEntry ? limitEntry.limit : 60;
 
         const eventCount = calendarConfig.events.filter((event: any) => {
           const eventDateString = event.start.toString("yyyy-MM-dd");
@@ -102,7 +101,6 @@ const CalendarPopper = ({
             text-align: center;
             cursor: pointer;
             padding: 4px;
-
           '>
             <div style='font-size: 14px; color:${eventCount > limit ? "#ff6e6b" : "#257E68"};'>
               ${eventCount}/${limit}
@@ -166,11 +164,28 @@ const CalendarPopper = ({
                           onChange={(e) => {
                             const selectedValue = Number(e.target.value);
                             setNewLimit(selectedValue);
-                            setDailyLimits((prev: Record<string, number>) => ({
-                              ...prev,
-                              [limitEditDate!.toString("yyyy-MM-dd")]:
-                                selectedValue,
-                            }));
+                            setDailyLimits((prev) => {
+                              const dateKey =
+                                limitEditDate.toString("yyyy-MM-dd");
+                              const existingIndex = prev.findIndex(
+                                (item) => item.date === dateKey
+                              );
+                              if (existingIndex !== -1) {
+                                return prev.map((item, index) =>
+                                  index === existingIndex
+                                    ? { ...item, limit: selectedValue }
+                                    : item
+                                );
+                              }
+                              return [
+                                ...prev,
+                                {
+                                  id: dateKey,
+                                  date: dateKey,
+                                  limit: selectedValue,
+                                },
+                              ];
+                            });
                             setLimitEditDate(null);
                             setClickPosition(null);
                           }}

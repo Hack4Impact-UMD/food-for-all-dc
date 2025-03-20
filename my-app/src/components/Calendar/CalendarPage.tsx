@@ -80,6 +80,12 @@ interface Client {
   deliveryDetails: DeliveryDetails;
 }
 
+interface DateLimit {
+  id: string;
+  date: string;
+  limit: number;
+}
+
 interface DeliveryDetails {
   deliveryInstructions: string;
   dietaryRestrictions: DietaryRestrictions;
@@ -158,7 +164,6 @@ const CalendarPage: React.FC = () => {
     events: [],
   });
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
-  const [dailyLimits, setDailyLimits] = useState<Record<string, number>>({});
 
   const daysOfWeek = [
     "Sunday",
@@ -172,6 +177,7 @@ const CalendarPage: React.FC = () => {
 
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
+  const [dailyLimits, setDailyLimits] = useState<DateLimit[]>([]);
 
   //Route Protection
   React.useEffect(() => {
@@ -207,6 +213,8 @@ const CalendarPage: React.FC = () => {
     })) as Client[];
     setClients(clientList);
   };
+
+  const fetchLimits = async () => {};
 
   const getInitialFormDates = () => {
     const today = new Date();
@@ -592,9 +600,9 @@ const CalendarPage: React.FC = () => {
       const customCalendarConfig = {
         ...calendarConfig,
         onBeforeCellRender: (args: any) => {
-          const cellDate = args.cell.start;
-          const dateKey = cellDate.toString("yyyy-MM-dd");
-          const limit = dailyLimits[dateKey] || 60; // Use shared limits
+          const dateKey = args.cell.start.toString("yyyy-MM-dd");
+          const dailyLimit = dailyLimits.find((dl) => dl.date === dateKey);
+          const limit = dailyLimit ? dailyLimit.limit : 60;
 
           const eventCount = calendarConfig.events.filter((event) => {
             const eventDateString = event.start.toString("yyyy-MM-dd");
