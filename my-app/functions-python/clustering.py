@@ -1,4 +1,5 @@
 from math import cos, sin, atan2, sqrt
+from collections import defaultdict
 import googlemaps
 from firebase_functions import https_fn
 from dotenv import load_dotenv
@@ -248,7 +249,7 @@ def calculate_optimal_cluster_route(req: https_fn.Request) -> https_fn.Response:
     )
     
 
-def display_clusters_on_map(coords, clusters):
+def display_clusters_on_map(coords, clusters, name):
     """
     Display clusters on a map using folium.
 
@@ -278,6 +279,9 @@ def display_clusters_on_map(coords, clusters):
 
         # Add markers for each coordinate in the cluster
         for index in indexes:
+            if index >= len(coords):  # Skip invalid indexes
+                print(f"Warning: Invalid index {index} in cluster {cluster_name}")
+                continue
             lat, lon = coords[index]
             folium.Marker(
                 location=(lat, lon),
@@ -286,6 +290,53 @@ def display_clusters_on_map(coords, clusters):
             ).add_to(map)
 
     # Save the map to an HTML file and open it
-    map.save("clusters_map.html")
-    print("Map saved to clusters_map.html. Open this file in your browser to view the map.")
+    map.save(name)
+    print(f"Map saved to {name}. Open this file in your browser to view the map.")
 
+def add_delivery_to_existing_clusters(new_coord, clusters, coords):
+    """
+    Add a new delivery to the nearest existing cluster based on average distance.
+
+    Args:
+        new_coord (Tuple[float, float]): The (latitude, longitude) of the new delivery.
+        clusters (Dict[str, List[int]]): Existing clusters with their indexes.
+        coords (List[Tuple[float, float]]): List of all coordinates.
+
+    Returns:
+        Dict[str, List[int]]: Updated clusters.
+    """
+    from math import radians, sin, cos, sqrt, atan2
+
+    def haversine_distance(coord1, coord2):
+        """Calculate the Haversine distance between two coordinates."""
+        lat1, lon1 = radians(coord1[0]), radians(coord1[1])
+        lat2, lon2 = radians(coord2[0]), radians(coord2[1])
+        dlat = lat2 - lat1
+        dlon = lon2 - lon1
+        a = sin(dlat / 2)**2 + cos(lat1) * cos(lat2) * sin(dlon / 2)**2
+        c = 2 * atan2(sqrt(a), sqrt(1 - a))
+        return 6371 * c  # Earth radius in kilometers
+
+    # Find the nearest cluster based on average distance
+    min_avg_distance = float('inf')
+    nearest_cluster = None
+    for cluster_name, indexes in clusters.items():
+        cluster_coords = [coords[i] for i in indexes if i < len(coords)]  # Ensure valid indexes
+        if not cluster_coords:  # Skip empty clusters
+            continue
+        avg_distance = sum(haversine_distance(new_coord, coord) for coord in cluster_coords) / len(cluster_coords)
+        if avg_distance < min_avg_distance:
+            min_avg_distance = avg_distance
+            nearest_cluster = cluster_name
+
+    # Add the new delivery to the nearest cluster
+    new_index = len(coords)  # Index of the new delivery
+    coords.append(new_coord)  # Update the coords list
+    if nearest_cluster is not None:
+        clusters[nearest_cluster].append(new_index)
+    else:
+        # If no valid cluster is found, create a new cluster
+        new_cluster_name = f"cluster-{len(clusters) + 1}"
+        clusters[new_cluster_name] = [new_index]
+
+    return clusters

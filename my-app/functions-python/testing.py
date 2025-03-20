@@ -7,6 +7,7 @@ from kmedoids import KMedoids
 from pydantic import BaseModel, ValidationError
 from typing import Dict, List, Tuple, Any
 import numpy as np
+from clustering import add_delivery_to_existing_clusters
 import folium
 
 # Import your clustering functions and models from the main file
@@ -51,7 +52,8 @@ def test_kmedoids_clustering(coords):
     print(clusters)
 
     # Display clusters on the map
-    display_clusters_on_map(coords, clusters)
+    display_clusters_on_map(coords, clusters, "test_kmedoids_clustering.html")
+    return clusters
 
 
 def test_kmeans_clustering(coords):
@@ -87,7 +89,8 @@ def test_kmeans_clustering(coords):
     print(clusters)
 
     # Display clusters on the map
-    display_clusters_on_map(coords, clusters)
+    display_clusters_on_map(coords, clusters, "test_kmeans_clustering.html")
+    return clusters
 
 
 def test_clustering(coords):
@@ -99,6 +102,32 @@ def test_clustering(coords):
 
     print("\nTesting K-Means Clustering...")
     test_kmeans_clustering(coords)
+
+def test_display_clusters_before_and_after(coords):
+    """
+    Test displaying clusters on a map before and after adding a new delivery.
+    Clusters are generated dynamically using K-Means clustering.
+    """
+    # Example data
+
+    # Generate clusters dynamically using K-Means clustering
+    print("Generating clusters using K-Means...")
+    clusters = test_kmeans_clustering(coords)
+
+    # Display clusters before adding the new delivery
+    print("Displaying clusters before adding the new delivery...")
+    display_clusters_on_map(coords, clusters, "before_dynamic.html")
+
+    # Add a new delivery
+    new_delivery = (38.9072, -77.0369)  # New delivery coordinate
+    coords.append(new_delivery)  # Update the coords list first
+
+    # Update clusters dynamically
+    clusters = add_delivery_to_existing_clusters(new_delivery, clusters, coords)
+
+    # Display clusters after adding the new delivery
+    print("Displaying clusters after adding the new delivery...")
+    display_clusters_on_map(coords, clusters, "after_dynamic.html")
 
 
 if __name__ == "__main__":
@@ -149,3 +178,4 @@ if __name__ == "__main__":
     # Alternatively, test them individually
     #test_kmedoids_clustering(coords)
     test_kmeans_clustering(coords)
+    test_display_clusters_before_and_after(coords)
