@@ -68,7 +68,6 @@ const CalendarPopper = ({
   };
 
   const handleClick = (event: React.MouseEvent) => {
-    console.log(event.clientX, event.clientY);
     setClickPosition({
       x: event.clientX,
       y: event.clientY,
@@ -169,7 +168,6 @@ const CalendarPopper = ({
                           value={newLimit}
                           label="Max"
                           onChange={async (e) => {
-                            console.log(e.target.value);
                             const selectedValue = Number(e.target.value);
                             setNewLimit(selectedValue);
                             const dateKey =
@@ -183,9 +181,7 @@ const CalendarPopper = ({
                               },
                               { merge: true }
                             );
-                            console.log(docRef.id);
                             setDailyLimits((prev) => {
-                              console.log(dateKey);
                               const existingIndex = prev.findIndex(
                                 (item) => item.date === dateKey
                               );
