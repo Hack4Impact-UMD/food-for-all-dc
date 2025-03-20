@@ -310,7 +310,6 @@ const CalendarPage: React.FC = () => {
         events: calendarEvents,
         durationBarVisible: false,
       }));
-      console.log(calendarEvents);
       return fetchedEvents;
     } catch (error) {
       console.error("Error fetching events:", error);
@@ -374,9 +373,7 @@ const CalendarPage: React.FC = () => {
 
   const handleNavigateNext = () => {
     const newDate =
-      viewType === "Month"
-        ? currentDate.addMonths(1)
-        : currentDate.addDays(1);
+      viewType === "Month" ? currentDate.addMonths(1) : currentDate.addDays(1);
     setCurrentDate(newDate);
   };
 
@@ -460,14 +457,16 @@ const CalendarPage: React.FC = () => {
                         >
                           {event.clientName}
                         </Typography>
-                        <Box 
-                          sx={{ 
-                            display: "flex", 
-                            flexDirection: "row", 
+                        <Box
+                          sx={{
+                            display: "flex",
+                            flexDirection: "row",
                             cursor: "pointer",
                             alignItems: "center", // Ensure the icon aligns properly with the text
-                          }} 
-                          onClick={() => { navigate(`/profile/${client?.id}`) }}
+                          }}
+                          onClick={() => {
+                            navigate(`/profile/${client?.id}`);
+                          }}
                         >
                           <Typography
                             variant="subtitle2"
@@ -573,9 +572,9 @@ const CalendarPage: React.FC = () => {
                                   maxWidth: "200px",
                                   overflowY: isScrollable ? "auto" : "visible",
                                   padding: isScrollable ? "4px" : "0",
-                                  wordWrap: "break-word",        
-                                  overflowWrap: "break-word",    
-                                  whiteSpace: "normal",          
+                                  wordWrap: "break-word",
+                                  overflowWrap: "break-word",
+                                  whiteSpace: "normal",
                                   border: isScrollable
                                     ? "1px solid #ccc"
                                     : "none",
