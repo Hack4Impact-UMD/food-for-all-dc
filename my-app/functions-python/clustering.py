@@ -165,27 +165,22 @@ def cluster_deliveries_k_medoids(req: https_fn.Request) -> https_fn.Response:
 
 @https_fn.on_request()
 def cluster_deliveries_k_means(req: https_fn.Request) -> https_fn.Response:
-    # try:
-    #     body = KMeansClusterDeliveriesRequest(**req.get_json())
-    # except ValidationError as e:
-    #     errors = parse_error_fields(e)
-    #     return https_fn.Response(
-    #         response=json.dumps(ValidationErrorResponse(details=errors)),
-    #         status=422,
-    #         content_type="application/json",
-    #     )
-
     coords = np.array(req.coords, dtype=object)
     coords = np.array([latlon_to_cartesian(lat, lon) for lat, lon in coords])
     drivers_count = req.drivers_count
     min_deliveries = req.min_deliveries
     max_deliveries = req.max_deliveries
+
+    # Handle case where drivers > deliveries
+    if drivers_count > len(coords):
+        drivers_count = len(coords)  # Limit clusters to the number of deliveries
+
     size_max = max(max_deliveries, (len(coords) + drivers_count - 1) // drivers_count)
 
     kmeans = KMeansConstrained(
         n_clusters=drivers_count,
         size_min=min_deliveries,
-        size_max=size_max, # CHANGE from max_deliveries
+        size_max=size_max,
         random_state=42,
     ).fit(coords)
     labels = kmeans.labels_
@@ -193,20 +188,22 @@ def cluster_deliveries_k_means(req: https_fn.Request) -> https_fn.Response:
     clusters = defaultdict(list)
     for index, label in enumerate(labels):
         clusters[f"cluster-{label+1}"].append(index)
-    
+
     clusters["doordash"] = []
-    for key in clusters.keys():
+    for key in list(clusters.keys()):
         cluster = clusters[key]
         if len(cluster) <= 1:
             continue
         distance_matrix = construct_haversine_distance_matrix(coords=[coords[index] for index in cluster])
-        #distance_matrix = construct_distance_matrix(coords=[coords[index] for index in cluster])
-        clf = LocalOutlierFactor(n_neighbors=len(cluster), metric="precomputed")
+        clf = LocalOutlierFactor(n_neighbors=max(2, len(cluster) - 1), metric="precomputed")
         predictions = clf.fit_predict(distance_matrix)
         outliers = [index for index, prediction in zip(cluster, predictions) if prediction == -1]
         clusters[key] = list(set(clusters[key]) - set(outliers))
         clusters["doordash"].extend(outliers)
 
+    # Debug: Print clusters after outlier detection
+    print("Clusters after outlier detection:", clusters)
+    
     data = ClusterDeliveriesResponse(clusters=clusters)
 
     return https_fn.Response(

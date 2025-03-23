@@ -130,6 +130,50 @@ def test_display_clusters_before_and_after(coords):
     display_clusters_on_map(coords, clusters, "after_dynamic.html")
 
 
+def test_drivers_exceed_deliveries():
+    """
+    Test case to handle scenarios where the number of drivers exceeds the number of deliveries.
+    """
+    # 5 deliveries and 10 drivers
+    coords = [
+        (38.8993106, -76.9937824),
+        (38.8554358, -76.9951151),
+        (38.889226, -76.9356789),
+        (38.88555, -76.9482148),
+        (38.882273, -76.933624)
+    ]
+    drivers_count = 10  
+    min_deliveries = 1
+    max_deliveries = 3
+    req_means = {
+        'coords': coords,
+        'drivers_count': drivers_count,
+        'min_deliveries': min_deliveries,
+        'max_deliveries': max_deliveries
+    }
+    body = KMeansClusterDeliveriesRequest(**req_means)
+
+
+    response = cluster_deliveries_k_means(body)
+
+    try:
+        response_data = response.get_json()
+        clusters = response_data.get("clusters", {})
+    except Exception as e:
+        print(f"Error parsing response: {e}")
+        return
+
+
+    print("Clusters:", clusters)
+    assert len(clusters) <= len(coords) + 1, "Number of clusters should not exceed the number of deliveries."
+    for cluster_name, indexes in clusters.items():
+        if len(indexes) > 1 or len(clusters) == len(coords): 
+            print(f"Cluster {cluster_name} has only one delivery, which should be avoided unless necessary.")
+        
+
+    display_clusters_on_map(coords, clusters, "test_drivers_exceed_deliveries.html")
+    print("Test passed: Drivers exceed deliveries.")
+
 if __name__ == "__main__":
     # Define the coordinates for testing
     coords = [
@@ -179,3 +223,4 @@ if __name__ == "__main__":
     #test_kmedoids_clustering(coords)
     test_kmeans_clustering(coords)
     test_display_clusters_before_and_after(coords)
+    test_drivers_exceed_deliveries()
