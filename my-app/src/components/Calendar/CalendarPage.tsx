@@ -117,13 +117,11 @@ interface DeliveryEvent {
   assignedDriverName: string;
   clientId: string;
   clientName: string;
-  deliveryDate: Date; // Replacing startTime and endTime with deliveryDate
-  recurrence: string; // None, Weekly, Bi-Weekly, Monthly, Custom
-  repeatsEndOption: string; // On or After
-  repeatsEndDate: string; // End date for recurrence
-  repeatsAfterOccurrences: number; // Number of occurrences
-  customRecurrenceType: number; // Weekly (1), Bi-Weekly (2), Monthly (3)
-  customRecurrenceDay: number; // Day of the week (0 = Sunday, 6 = Saturday)
+  deliveryDate: Date; // The date of the delivery
+  recurrence: "None" | "Weekly" | "2x-Monthly" | "Monthly"; // Updated recurrence options
+  repeatsEndOption?: "On" | "After"; // Optional, only applicable if recurrence is not "None"
+  repeatsEndDate?: string; // Optional, end date for recurrence
+  repeatsAfterOccurrences?: number; // Optional, number of occurrences for recurrence
 }
 
 interface NewDelivery {
@@ -131,13 +129,11 @@ interface NewDelivery {
   assignedDriverName: string;
   clientId: string;
   clientName: string;
-  deliveryDate: string;
-  recurrence: string; // None, Weekly, Bi-Weekly, Monthly, Custom
-  repeatsEndOption: string; // On or After
-  repeatsEndDate: string; // End date for recurrence
-  repeatsAfterOccurrences: number; // Number of occurrences
-  customRecurrenceType: number; // Weekly (1), Bi-Weekly (2), Monthly (3)
-  customRecurrenceDay: undefined | number; // Day of the week (0 = Sunday, 6 = Saturday)
+  deliveryDate: string; // ISO string for the delivery date
+  recurrence: "None" | "Weekly" | "2x-Monthly" | "Monthly"; // Updated recurrence options
+  repeatsEndOption?: "On" | "After"; // Optional, only applicable if recurrence is not "None"
+  repeatsEndDate?: string; // Optional, end date for recurrence
+  repeatsAfterOccurrences?: number; // Optional, number of occurrences for recurrence
 }
 
 type ViewType = "Day" | "Month";
@@ -242,13 +238,11 @@ const CalendarPage: React.FC = () => {
       assignedDriverName: "",
       clientId: "",
       clientName: "",
-      deliveryDate: today,
+      deliveryDate: today, // Default to today's date
       recurrence: "None", // Default to no recurrence
-      repeatsEndOption: "On", // Default to "On" for recurrence end
+      repeatsEndOption: undefined, // No default end option
       repeatsEndDate: "", // No end date by default
-      repeatsAfterOccurrences: 0, // No occurrences by default
-      customRecurrenceType: 0, // Default to no custom recurrence type
-      customRecurrenceDay: undefined, // Default to Sunday
+      repeatsAfterOccurrences: undefined, // No occurrences by default
     };
   });
 
@@ -374,32 +368,16 @@ const EventMenu: React.FC<EventMenuProps> = ({ event }) => {
   );
 };
 
-const getRecurrencePattern = (date: string,
-  dayOfWeek?: number,
-  recurrence?: string): string => {
+const getRecurrencePattern = (date: string): string => {
   const targetDate = new Date(date);
-  targetDate.setDate(targetDate.getDate()+ 1)
-  console.log(targetDate);
-  var day = 0;
-  if (recurrence !== undefined) {
-    if(recurrence === "Monthly"){
-      day = targetDate.getDay(); // Fallback to the day of the week from targetDate
-    } else if (recurrence === "Custom"){
-      if (dayOfWeek === undefined) {
-        day = targetDate.getDay(); // Fallback to the day of the week from targetDate
-      } else {
-        day = dayOfWeek; // Use the provided dayOfWeek
-        console.log(day)
-      }
-    }
-  } else {
-    day = targetDate.getDay(); // Fallback to the day of the week from targetDate
-  }
 
-  console.log(day);
-  const weekOfMonth = Math.ceil(targetDate.getDate() / 7); // Calculate the week of the month
+  // Adjust for local timezone offset
+  const localDate = new Date(targetDate.getTime() + targetDate.getTimezoneOffset() * 60000);
+
+  const dayOfWeek = localDate.getDay(); // Get the day of the week (0 = Sunday, 1 = Monday, etc.)
+  const weekOfMonth = Math.ceil(localDate.getDate() / 7); // Calculate the week of the month
   const daysOfWeek = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-  return `${weekOfMonth}${getOrdinalSuffix(weekOfMonth)} ${daysOfWeek[day]}`;
+  return `${weekOfMonth}${getOrdinalSuffix(weekOfMonth)} ${daysOfWeek[dayOfWeek]}`;
 };
 
 const getOrdinalSuffix = (num: number): string => {
@@ -516,103 +494,56 @@ const handleAddDelivery = async () => {
     // Helper function to calculate recurrence dates
     const calculateRecurrenceDates = () => {
       const recurrenceDates = [];
-      const originalDate = new Date(newDelivery.deliveryDate); // Original delivery date
-      let currentDate = originalDate; // Start with the original delivery date
-    
-      const targetDay = newDelivery.customRecurrenceDay; // Custom day of the week (0 = Sunday, 6 = Saturday)
-      const originalDay = currentDate.getDay(); // Day of the week for the original delivery date
-      currentDate.setDate(currentDate.getDate()+ 1)
-      // Always include the original delivery date
-      console.log(new Date(newDelivery.deliveryDate));
-      recurrenceDates.push(new Date(newDelivery.deliveryDate));
-    
-      if (newDelivery.recurrence === "Weekly" || newDelivery.recurrence === "Bi-Weekly") {
-        const interval = newDelivery.recurrence === "Weekly" ? 7 : 14; // Weekly or Bi-Weekly interval
-    
-        if (newDelivery.repeatsEndOption === "On" && newDelivery.repeatsEndDate) {
-          const endDate = new Date(newDelivery.repeatsEndDate);
-    
-          while (currentDate <= endDate) {
-            currentDate.setDate(currentDate.getDate() + interval);
-            if(currentDate<= endDate){
-              recurrenceDates.push(new Date(currentDate));
-            }
-            
-          }
-        } else if (newDelivery.repeatsEndOption === "After" && newDelivery.repeatsAfterOccurrences) {
-          let occurrences = 1; // Start with the original delivery date
-    
-          while (occurrences < newDelivery.repeatsAfterOccurrences) {
-            currentDate.setDate(currentDate.getDate() + interval);
-            recurrenceDates.push(new Date(currentDate));
-            occurrences++;
-          }
-        }
+      const originalDate = new Date(newDelivery.deliveryDate);
+      let currentDate = originalDate;
+
+      recurrenceDates.push(new Date(originalDate)); // Always include the original date
+
+      if (newDelivery.recurrence === "Weekly") {
+        const interval = 7; // Weekly interval
+        addRecurrenceDates(interval);
+      } else if (newDelivery.recurrence === "2x-Monthly") {
+        const interval = 14; // 2x-Monthly interval
+        addRecurrenceDates(interval);
       } else if (newDelivery.recurrence === "Monthly") {
         if (newDelivery.repeatsEndOption === "On" && newDelivery.repeatsEndDate) {
           const endDate = new Date(newDelivery.repeatsEndDate);
-    
           while (currentDate <= endDate) {
             currentDate = getNextMonthlyDate(originalDate, currentDate);
-            if(currentDate <= endDate){
+            if (currentDate <= endDate) {
               recurrenceDates.push(new Date(currentDate));
             }
-            
           }
         } else if (newDelivery.repeatsEndOption === "After" && newDelivery.repeatsAfterOccurrences) {
           let occurrences = 1;
-    
           while (occurrences < newDelivery.repeatsAfterOccurrences) {
             currentDate = getNextMonthlyDate(originalDate, currentDate);
             recurrenceDates.push(new Date(currentDate));
             occurrences++;
           }
         }
-      } else if (newDelivery.recurrence === "Custom") {
-        if (newDelivery.customRecurrenceType === 1 || newDelivery.customRecurrenceType === 2) {
-          const interval = newDelivery.customRecurrenceType === 1 ? 7 : 14; // Weekly or Bi-Weekly interval
-    
-          if (newDelivery.repeatsEndOption === "On" && newDelivery.repeatsEndDate) {
-            const endDate = new Date(newDelivery.repeatsEndDate);
-    
-            while (currentDate <= endDate) {
-              currentDate.setDate(currentDate.getDate() + interval);
+      }
+
+      return recurrenceDates;
+
+      function addRecurrenceDates(interval: number) {
+        if (newDelivery.repeatsEndOption === "On" && newDelivery.repeatsEndDate) {
+          const endDate = new Date(newDelivery.repeatsEndDate);
+          while (currentDate <= endDate) {
+            currentDate.setDate(currentDate.getDate() + interval);
+            if (currentDate <= endDate) {
               recurrenceDates.push(new Date(currentDate));
-            }
-          } else if (newDelivery.repeatsEndOption === "After" && newDelivery.repeatsAfterOccurrences) {
-            let occurrences = 1;
-    
-            while (occurrences < newDelivery.repeatsAfterOccurrences) {
-              currentDate.setDate(currentDate.getDate() + interval);
-              recurrenceDates.push(new Date(currentDate));
-              occurrences++;
             }
           }
-        } else if (newDelivery.customRecurrenceType === 3) {
-          // Custom Monthly
-          if (newDelivery.repeatsEndOption === "On" && newDelivery.repeatsEndDate) {
-            const endDate = new Date(newDelivery.repeatsEndDate);
-    
-            while (currentDate <= endDate) {
-              currentDate = getNextMonthlyDate(originalDate, currentDate, targetDay);
-              if(currentDate <= endDate){
-                recurrenceDates.push(new Date(currentDate));
-              }
-            }
-          } else if (newDelivery.repeatsEndOption === "After" && newDelivery.repeatsAfterOccurrences) {
-            let occurrences = 1;
-    
-            while (occurrences < newDelivery.repeatsAfterOccurrences) {
-              currentDate = getNextMonthlyDate(originalDate, currentDate, targetDay);
-              recurrenceDates.push(new Date(currentDate));
-              occurrences++;
-            }
+        } else if (newDelivery.repeatsEndOption === "After" && newDelivery.repeatsAfterOccurrences) {
+          let occurrences = 1;
+          while (occurrences < newDelivery.repeatsAfterOccurrences) {
+            currentDate.setDate(currentDate.getDate() + interval);
+            recurrenceDates.push(new Date(currentDate));
+            occurrences++;
           }
         }
       }
-    
-      console.log(recurrenceDates);
-      return recurrenceDates;
     };
 
     // Calculate recurrence dates based on the recurrence type
@@ -621,47 +552,36 @@ const handleAddDelivery = async () => {
         ? [deliveryDate]
         : calculateRecurrenceDates();
 
-    var i = 0;
-    // Normalize dates to UTC and create event data
     for (const date of recurrenceDates) {
       const utcDate = new Date(
         Date.UTC(date.getFullYear(), date.getMonth(), date.getDate())
       ); // Normalize to UTC
-
-      if (i == 0){
-      
-      console.log(date);
-      eventsToAdd.push({
+    
+      // Only include optional fields if they are defined
+      const eventToAdd: Partial<DeliveryEvent> = {
         assignedDriverId: newDelivery.assignedDriverId,
         assignedDriverName: newDelivery.assignedDriverName,
         clientId: newDelivery.clientId,
         clientName: newDelivery.clientName,
-        deliveryDate: date, 
-        time: "", // Add an empty timeslot
+        deliveryDate: date, // Store as UTC
         recurrence: newDelivery.recurrence,
-        customRecurrenceType: newDelivery.customRecurrenceType,
-        customRecurrenceDay: newDelivery.customRecurrenceDay,
-      });
-    } else {
-      console.log(utcDate);
-      eventsToAdd.push({
-        assignedDriverId: newDelivery.assignedDriverId,
-        assignedDriverName: newDelivery.assignedDriverName,
-        clientId: newDelivery.clientId,
-        clientName: newDelivery.clientName,
-        deliveryDate: utcDate, // Store as UTC
-        time: "", // Add an empty timeslot
-        recurrence: newDelivery.recurrence,
-        customRecurrenceType: newDelivery.customRecurrenceType,
-        customRecurrenceDay: newDelivery.customRecurrenceDay,
-      });
+      };
+    
+      if (newDelivery.repeatsEndOption) {
+        eventToAdd.repeatsEndOption = newDelivery.repeatsEndOption;
+      }
+    
+      if (newDelivery.repeatsEndDate) {
+        eventToAdd.repeatsEndDate = newDelivery.repeatsEndDate;
+      }
+    
+      if (newDelivery.repeatsAfterOccurrences !== undefined) {
+        eventToAdd.repeatsAfterOccurrences = newDelivery.repeatsAfterOccurrences;
+      }
+    
+      eventsToAdd.push(eventToAdd);
     }
-    i++;
-      
-    }
-
-    i = 0;
-
+    
     // Add all events to the database
     const batch = eventsToAdd.map((event) =>
       addDoc(collection(db, "events"), event)
@@ -677,11 +597,9 @@ const handleAddDelivery = async () => {
       clientName: "",
       deliveryDate: today,
       recurrence: "None",
-      repeatsEndOption: "On",
+      repeatsEndOption: undefined,
       repeatsEndDate: "",
-      repeatsAfterOccurrences: 0,
-      customRecurrenceDay: 0,
-      customRecurrenceType: 0,
+      repeatsAfterOccurrences: undefined,
     });
 
     setIsModalOpen(false);
@@ -1083,6 +1001,7 @@ const handleAddDelivery = async () => {
         <Dialog open={isModalOpen} onClose={() => setIsModalOpen(false)}>
   <DialogTitle>Add Delivery</DialogTitle>
   <DialogContent>
+    {/* Client Selection */}
     <Autocomplete
       options={clients}
       getOptionLabel={(option) =>
@@ -1119,6 +1038,7 @@ const handleAddDelivery = async () => {
       )}
     />
 
+    {/* Driver Selection */}
     <Autocomplete
       options={drivers}
       getOptionLabel={(option) =>
@@ -1154,8 +1074,8 @@ const handleAddDelivery = async () => {
         />
       )}
     />
-    {/* Other fields like Client Name, Assigned Driver, Priority, etc. */}
 
+    {/* Delivery Date */}
     <TextField
       label="Delivery Date"
       type="date"
@@ -1168,88 +1088,34 @@ const handleAddDelivery = async () => {
       InputLabelProps={{ shrink: true }}
     />
 
-    <FormControl component="fieldset" margin="normal">
-      <FormLabel component="legend">Recurrence</FormLabel>
-      <RadioGroup
-        row
-        value={newDelivery.recurrence}
-        onChange={(e) =>
-          setNewDelivery({ ...newDelivery, recurrence: e.target.value })
-        }
-      >
-        <FormControlLabel value="None" control={<Radio />} label="None" />
-        <FormControlLabel value="Weekly" control={<Radio />} label="Weekly" />
-        <FormControlLabel value="Bi-Weekly" control={<Radio />} label="Bi-Weekly" />
-        <FormControlLabel value="Monthly" control={<Radio />} label="Monthly" />
-        <FormControlLabel value="Custom" control={<Radio />} label="Custom" />
-      </RadioGroup>
-    </FormControl>
+    {/* Recurrence Dropdown */}
+    <FormControl fullWidth margin="normal">
+  <InputLabel id="recurrence-label">Recurrence</InputLabel>
+  <Select
+    labelId="recurrence-label"
+    value={newDelivery.recurrence}
+    onChange={(e) =>
+      setNewDelivery({ ...newDelivery, recurrence: e.target.value as "None" | "Weekly" | "2x-Monthly" | "Monthly" })
+    }
+  >
+    <MenuItem value="None">None</MenuItem>
+    <MenuItem value="Weekly">Weekly</MenuItem>
+    <MenuItem value="2x-Monthly">2x-Monthly</MenuItem>
+    <MenuItem value="Monthly">Monthly</MenuItem>
+  </Select>
+</FormControl>
 
-        {/* Display recurrence pattern for Monthly or Custom with Monthly */}
-        {newDelivery.recurrence === "Custom" &&
-  newDelivery.customRecurrenceType === 3 &&
-  newDelivery.customRecurrenceDay !== undefined && (
-    <Typography variant="subtitle2" sx={{ marginTop: 2, color: "#787777" }}>
-      This event will reoccur every{" "}
-      {getRecurrencePattern(
-        newDelivery.deliveryDate,
-        newDelivery.customRecurrenceDay,
-        newDelivery.recurrence
-      )}
+{/* Display recurrence pattern for Monthly */}
+{newDelivery.recurrence === "Monthly" && (
+  <Box sx={{ marginTop: 2 }}>
+    <Typography variant="subtitle1" sx={{ fontWeight: "bold", color: "#787777" }}>
+      This event will recur on the{" "}
+      {getRecurrencePattern(newDelivery.deliveryDate)}
     </Typography>
-  )}
-
-    {/* Custom recurrence dropdown */}
-    {newDelivery.recurrence === "Custom" && (
-  <>
-    <FormControl fullWidth margin="normal">
-      <InputLabel id="custom-recurrence-type-label">Recurrence Type</InputLabel>
-      <Select
-        labelId="custom-recurrence-type-label"
-        id="custom-recurrence-type"
-        value={newDelivery.customRecurrenceType || ""}
-        onChange={(e) =>
-          setNewDelivery({
-            ...newDelivery,
-            customRecurrenceType: parseInt(e.target.value as string),
-          })
-        }
-      >
-        <MenuItem value={1}>Weekly</MenuItem>
-        <MenuItem value={2}>Bi-Weekly</MenuItem>
-        <MenuItem value={3}>Monthly</MenuItem>
-      </Select>
-    </FormControl>
-
-    <FormControl fullWidth margin="normal">
-      <InputLabel id="custom-recurrence-day-label">Day of the Week</InputLabel>
-      <Select
-        labelId="custom-recurrence-day-label"
-        id="custom-recurrence-day"
-        value={newDelivery.customRecurrenceDay ?? ""}
-        onChange={(e) =>
-          setNewDelivery({
-            ...newDelivery,
-            customRecurrenceDay: parseInt(e.target.value as string),
-          })
-        }
-      >
-        <MenuItem value="" disabled>
-          Select a day
-        </MenuItem>
-        {["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"].map(
-          (day, index) => (
-            <MenuItem key={index} value={index}>
-              {day}
-            </MenuItem>
-          )
-        )}
-      </Select>
-    </FormControl>
-  </>
+  </Box>
 )}
 
-    {/* Ends section */}
+    {/* Ends Section */}
     {newDelivery.recurrence !== "None" && (
       <Box>
         <Typography variant="subtitle1">Ends</Typography>
@@ -1257,7 +1123,7 @@ const handleAddDelivery = async () => {
           <RadioGroup
             value={newDelivery.repeatsEndOption}
             onChange={(e) =>
-              setNewDelivery({ ...newDelivery, repeatsEndOption: e.target.value })
+              setNewDelivery({ ...newDelivery, repeatsEndOption: e.target.value as "On" | "After" })
             }
           >
             <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
@@ -1295,7 +1161,6 @@ const handleAddDelivery = async () => {
         </FormControl>
       </Box>
     )}
-
   </DialogContent>
   <DialogActions>
     <Button onClick={() => setIsModalOpen(false)}>Cancel</Button>
