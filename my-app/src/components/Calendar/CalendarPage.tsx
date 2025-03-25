@@ -17,13 +17,21 @@ import {
   Select,
   InputLabel,
   FormControl,
+  FormControlLabel,
+  Checkbox,
+  RadioGroup,
+  FormLabel,
+  Radio,
 } from "@mui/material";
+import MoreVertIcon from "@mui/icons-material/MoreVert";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import { ChevronRight, Add, EditCalendar } from "@mui/icons-material";
 import { styled } from "@mui/material/styles";
 import {
+  updateDoc, deleteDoc, doc,
   collection,
   getDocs,
+  getDoc,
   addDoc,
   query,
   where,
@@ -78,6 +86,7 @@ interface Client {
   lastName: string;
   address: string;
   language: string;
+  phone: string; // Added phone property
   deliveryDetails: DeliveryDetails;
   tags: String[];
   notes: string;
@@ -120,23 +129,24 @@ interface DeliveryEvent {
   assignedDriverName: string;
   clientId: string;
   clientName: string;
-  startTime: Date;
-  endTime: Date;
-  notes: string;
-  priority: string;
+  deliveryDate: Date; // The date of the delivery
+  time: string; // The time of the delivery
+  recurrence: "None" | "Weekly" | "2x-Monthly" | "Monthly"; // Updated recurrence options
+  repeatsEndOption?: "On" | "After"; // Optional, only applicable if recurrence is not "None"
+  repeatsEndDate?: string; // Optional, end date for recurrence
+  repeatsAfterOccurrences?: number; // Optional, number of occurrences for recurrence
 }
 
 interface NewDelivery {
   assignedDriverId: string;
   assignedDriverName: string;
-  priority: string;
   clientId: string;
   clientName: string;
-  startDate: string;
-  startTime: string;
-  endDate: string;
-  endTime: string;
-  notes: string;
+  deliveryDate: string; // ISO string for the delivery date
+  recurrence: "None" | "Weekly" | "2x-Monthly" | "Monthly"; // Updated recurrence options
+  repeatsEndOption?: "On" | "After"; // Optional, only applicable if recurrence is not "None"
+  repeatsEndDate?: string; // Optional, end date for recurrence
+  repeatsAfterOccurrences?: number; // Optional, number of occurrences for recurrence
 }
 
 type ViewType = "Day" | "Month";
@@ -157,6 +167,9 @@ interface CalendarConfig {
   startDate: DayPilot.Date;
   events: CalendarEvent[];
 }
+
+
+
 
 const CalendarPage: React.FC = () => {
   const navigate = useNavigate();
@@ -247,121 +260,636 @@ const CalendarPage: React.FC = () => {
   };
 
   const [newDelivery, setNewDelivery] = useState<NewDelivery>(() => {
-    const { date, startTime, endTime } = getInitialFormDates();
+    const today = new Date().toISOString().split("T")[0];
     return {
       assignedDriverId: "",
-      priority: "",
       assignedDriverName: "",
       clientId: "",
       clientName: "",
-      startDate: date,
-      startTime,
-      endDate: date,
-      endTime,
-      notes: "",
+      deliveryDate: today, // Default to today's date
+      recurrence: "None", // Default to no recurrence
+      repeatsEndOption: undefined, // No default end option
+      repeatsEndDate: "", // No end date by default
+      repeatsAfterOccurrences: undefined, // No occurrences by default
     };
   });
 
-  const fetchEvents = async () => {
-    try {
-      let start = new DayPilot.Date(currentDate);
-      let endDate;
 
-      switch (viewType) {
-        case "Month":
-          start = currentDate.firstDayOfMonth();
-          endDate = start.lastDayOfMonth();
-          break;
-        case "Day":
-          endDate = start.addDays(1);
-          break;
-        default:
-          endDate = start.addDays(1);
+interface EventMenuProps {
+  event: DeliveryEvent;
+}
+
+const EventMenu: React.FC<EventMenuProps> = ({ event }) => {
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [deleteOption, setDeleteOption] = useState("This event");
+  const [editOption, setEditOption] = useState<"This event" | "This and following events">("This event");
+  const [editDeliveryDate, setEditDeliveryDate] = useState<string>(event.deliveryDate.toISOString().split("T")[0]);
+  const [editRecurrence, setEditRecurrence] = useState<NewDelivery>({
+    assignedDriverId: event.assignedDriverId,
+    assignedDriverName: event.assignedDriverName,
+    clientId: event.clientId,
+    clientName: event.clientName,
+    deliveryDate: event.deliveryDate.toISOString().split("T")[0],
+    recurrence: event.recurrence,
+    repeatsEndOption: event.repeatsEndOption,
+    repeatsEndDate: event.repeatsEndDate || "",
+    repeatsAfterOccurrences: event.repeatsAfterOccurrences || undefined,
+  });
+
+  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
+    setAnchorEl(event.currentTarget);
+  };
+
+  const handleMenuClose = () => {
+    setAnchorEl(null);
+  };
+
+  const handleDeleteClick = () => {
+    setIsDeleteDialogOpen(true);
+    handleMenuClose();
+  };
+
+  const handleEditClick = () => {
+    setIsEditDialogOpen(true);
+    handleMenuClose();
+  };
+
+  const handleDeleteConfirm = async () => {
+    try {
+      const eventsRef = collection(db, "events");
+
+      if (deleteOption === "This event") {
+        // Delete only this event
+        await deleteDoc(doc(eventsRef, event.id));
+      } else if (deleteOption === "This and following events") {
+        // Delete this event and all future events for the same recurrence
+        await deleteDoc(doc(eventsRef, event.id));
+
+        const q = query(
+          eventsRef,
+          where("recurrence", "==", event.recurrence),
+          where("clientId", "==", event.clientId),
+          where("deliveryDate", ">", event.deliveryDate) // Include current and future events
+        );
+
+        const querySnapshot = await getDocs(q);
+        const batch = querySnapshot.docs.map((doc) => deleteDoc(doc.ref));
+        await Promise.all(batch);
+      } else if (deleteOption === "All events for this recurrence") {
+        // Delete all events (past, present, and future) for the same recurrence
+        const q = query(
+          eventsRef,
+          where("recurrence", "==", event.recurrence),
+          where("clientId", "==", event.clientId) // Match all events for this client and recurrence
+        );
+
+        const querySnapshot = await getDocs(q);
+        const batch = querySnapshot.docs.map((doc) => deleteDoc(doc.ref));
+        await Promise.all(batch);
       }
 
-      const eventsRef = collection(db, "events");
-      const q = query(
-        eventsRef,
-        where("startTime", ">=", Timestamp.fromDate(start.toDate())),
-        where("startTime", "<=", Timestamp.fromDate(endDate.toDate()))
-      );
-
-      const querySnapshot = await getDocs(q);
-      const fetchedEvents: DeliveryEvent[] = querySnapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-        startTime: doc.data().startTime.toDate(),
-        endTime: doc.data().endTime.toDate(),
-      })) as DeliveryEvent[];
-
-      setEvents(fetchedEvents);
-
-      // Update calendar configuration with new events
-      const calendarEvents: CalendarEvent[] = fetchedEvents.map((event) => ({
-        id: event.id,
-        text: `Client: ${event.clientName} (Driver: ${event.assignedDriverName})`,
-        start: new DayPilot.Date(event.startTime, true),
-        end: new DayPilot.Date(event.endTime, true),
-        backColor: "#257E68",
-      }));
-
-      setCalendarConfig((prev) => ({
-        ...prev,
-        events: calendarEvents,
-        durationBarVisible: false,
-      }));
-      return fetchedEvents;
-    } catch (error) {
-      console.error("Error fetching events:", error);
-      return [];
-    }
-  };
-
-  const handleAddDelivery = async () => {
-    try {
-      const startDateTime = new Date(
-        `${newDelivery.startDate}T${newDelivery.startTime}`
-      );
-      const endDateTime = new Date(
-        `${newDelivery.endDate}T${newDelivery.endTime}`
-      );
-
-      const eventData = {
-        assignedDriverId: newDelivery.assignedDriverId,
-        assignedDriverName: newDelivery.assignedDriverName,
-        priority: newDelivery.priority,
-        clientId: newDelivery.clientId,
-        clientName: newDelivery.clientName,
-        startTime: Timestamp.fromDate(startDateTime),
-        endTime: Timestamp.fromDate(endDateTime),
-        notes: newDelivery.notes,
-      };
-
-      await addDoc(collection(db, "events"), eventData);
-
-      // Reset the form
-      const { date, startTime, endTime } = getInitialFormDates();
-      setNewDelivery({
-        assignedDriverId: "",
-        assignedDriverName: "",
-        clientId: "",
-        priority: "",
-        clientName: "",
-        startDate: date,
-        startTime,
-        endDate: date,
-        endTime,
-        notes: "",
-      });
-
-      setIsModalOpen(false);
-
-      // Refresh events after adding
+      // Refresh events after deletion
       fetchEvents();
     } catch (error) {
-      console.error("Error adding delivery:", error);
+      console.error("Error deleting event:", error);
+    }
+
+    setIsDeleteDialogOpen(false);
+  };
+
+  const handleEditConfirm = async () => {
+    try {
+      const eventsRef = collection(db, "events");
+  
+      if (editOption === "This event") {
+        // Update only this event with the new delivery date
+        await updateDoc(doc(eventsRef, event.id), {
+          deliveryDate: new Date(editDeliveryDate),
+        });
+      } else if (editOption === "This and following events") {
+        // Fetch the original event from the database to get its original delivery date
+        
+        const originalEventDoc = await getDoc(doc(eventsRef, event.id));
+        const originalEvent = originalEventDoc.data();
+
+        if (!originalEvent) {
+          console.error("Original event not found.");
+          return;
+        }
+
+        const originalDeliveryDate = originalEvent.deliveryDate.toDate(); // Convert Firestore Timestamp to Date
+
+        // Delete all future events for the same recurrence
+        const q = query(
+          eventsRef,
+          where("recurrence", "==", event.recurrence),
+          where("clientId", "==", event.clientId),
+          where("deliveryDate", ">=", originalDeliveryDate) // Only future events
+        );
+  
+        const querySnapshot = await getDocs(q);
+        console.log(querySnapshot);
+        const batchDelete = querySnapshot.docs.map((doc) => deleteDoc(doc.ref));
+        await Promise.all(batchDelete);
+  
+        // Add new recurrence events starting from the new delivery date
+        const newRecurrenceDates = calculateRecurrenceDates({
+          ...editRecurrence,
+          deliveryDate: editDeliveryDate, // Use the new delivery date
+        });
+  
+        // Add new recurring events starting from the second date
+        const batchAdd = newRecurrenceDates.map((date) => {
+          const eventToAdd: Partial<DeliveryEvent> = {
+            assignedDriverId: editRecurrence.assignedDriverId,
+            assignedDriverName: editRecurrence.assignedDriverName,
+            clientId: editRecurrence.clientId,
+            clientName: editRecurrence.clientName,
+            deliveryDate: date,
+            recurrence: editRecurrence.recurrence,
+            ...(editRecurrence.repeatsEndOption && { repeatsEndOption: editRecurrence.repeatsEndOption }),
+            ...(editRecurrence.repeatsEndDate && { repeatsEndDate: editRecurrence.repeatsEndDate }),
+            ...(editRecurrence.repeatsAfterOccurrences !== undefined && {
+              repeatsAfterOccurrences: editRecurrence.repeatsAfterOccurrences,
+            }),
+          };
+  
+          return addDoc(eventsRef, eventToAdd);
+        });
+  
+        await Promise.all(batchAdd);
+      }
+  
+      // Refresh events after editing
+      fetchEvents();
+    } catch (error) {
+      console.error("Error editing event:", error);
+    }
+  
+    setIsEditDialogOpen(false);
+  };
+
+  const calculateRecurrenceDates = (recurrence: NewDelivery): Date[] => {
+    const recurrenceDates: Date[] = [];
+    const originalDate = new Date(recurrence.deliveryDate);
+    let currentDate = originalDate;
+
+    recurrenceDates.push(new Date(originalDate)); // Always include the original date
+
+    if (recurrence.recurrence === "Weekly") {
+      const interval = 7; // Weekly interval
+      addRecurrenceDates(interval);
+    } else if (recurrence.recurrence === "2x-Monthly") {
+      const interval = 14; // 2x-Monthly interval
+      addRecurrenceDates(interval);
+    } else if (recurrence.recurrence === "Monthly") {
+      if (recurrence.repeatsEndOption === "On" && recurrence.repeatsEndDate) {
+        const endDate = new Date(recurrence.repeatsEndDate);
+        while (currentDate <= endDate) {
+          currentDate = getNextMonthlyDate(originalDate, currentDate);
+          if (currentDate <= endDate) {
+            recurrenceDates.push(new Date(currentDate));
+          }
+        }
+      } else if (recurrence.repeatsEndOption === "After" && recurrence.repeatsAfterOccurrences) {
+        let occurrences = 1;
+        while (occurrences < recurrence.repeatsAfterOccurrences) {
+          currentDate = getNextMonthlyDate(originalDate, currentDate);
+          recurrenceDates.push(new Date(currentDate));
+          occurrences++;
+        }
+      }
+    }
+
+    return recurrenceDates;
+
+    function addRecurrenceDates(interval: number) {
+      if (recurrence.repeatsEndOption === "On" && recurrence.repeatsEndDate) {
+        const endDate = new Date(recurrence.repeatsEndDate);
+        while (currentDate <= endDate) {
+          currentDate.setDate(currentDate.getDate() + interval);
+          if (currentDate <= endDate) {
+            recurrenceDates.push(new Date(currentDate));
+          }
+        }
+      } else if (recurrence.repeatsEndOption === "After" && recurrence.repeatsAfterOccurrences) {
+        let occurrences = 1;
+        while (occurrences < recurrence.repeatsAfterOccurrences) {
+          currentDate.setDate(currentDate.getDate() + interval);
+          recurrenceDates.push(new Date(currentDate));
+          occurrences++;
+        }
+      }
     }
   };
+
+  return (
+    <>
+      <IconButton onClick={handleMenuOpen}>
+        <MoreVertIcon />
+      </IconButton>
+
+      <Menu
+        anchorEl={anchorEl}
+        open={Boolean(anchorEl)}
+        onClose={handleMenuClose}
+      >
+        <MenuItem onClick={handleEditClick}>Edit</MenuItem>
+        <MenuItem onClick={handleDeleteClick}>Delete</MenuItem>
+      </Menu>
+
+      {/* Edit Dialog */}
+      <Dialog open={isEditDialogOpen} onClose={() => setIsEditDialogOpen(false)}>
+  <DialogTitle>Edit Event</DialogTitle>
+  <DialogContent>
+    <RadioGroup
+      value={editOption}
+      onChange={(e) => setEditOption(e.target.value as "This event" | "This and following events")}
+    >
+      <FormControlLabel
+        value="This event"
+        control={<Radio />}
+        label="This event"
+      />
+      {event.recurrence !== "None" && (
+        <FormControlLabel
+          value="This and following events"
+          control={<Radio />}
+          label="This and following events"
+        />
+      )}
+    </RadioGroup>
+
+    {/* New Delivery Date Picker */}
+    <TextField
+      label="New Delivery Date"
+      type="date"
+      value={editDeliveryDate}
+      onChange={(e) => setEditDeliveryDate(e.target.value)}
+      fullWidth
+      margin="normal"
+      InputLabelProps={{ shrink: true }}
+    />
+
+    {editOption === "This and following events" && (
+      <>
+        <FormControl fullWidth margin="normal">
+          <InputLabel id="recurrence-label">Recurrence</InputLabel>
+          <Select
+            labelId="recurrence-label"
+            value={editRecurrence.recurrence}
+            onChange={(e) =>
+              setEditRecurrence({ ...editRecurrence, recurrence: e.target.value as "None" | "Weekly" | "2x-Monthly" | "Monthly" })
+            }
+          >
+            <MenuItem value="None">None</MenuItem>
+            <MenuItem value="Weekly">Weekly</MenuItem>
+            <MenuItem value="2x-Monthly">2x-Monthly</MenuItem>
+            <MenuItem value="Monthly">Monthly</MenuItem>
+          </Select>
+        </FormControl>
+
+        {editRecurrence.recurrence !== "None" && (
+          <Box>
+            <Typography variant="subtitle1">Ends</Typography>
+            <RadioGroup
+              value={editRecurrence.repeatsEndOption}
+              onChange={(e) =>
+                setEditRecurrence({ ...editRecurrence, repeatsEndOption: e.target.value as "On" | "After" })
+              }
+            >
+              <FormControlLabel value="On" control={<Radio />} label="On" />
+              {editRecurrence.repeatsEndOption === "On" && (
+                <TextField
+                  label="End Date"
+                  type="date"
+                  value={editRecurrence.repeatsEndDate}
+                  onChange={(e) =>
+                    setEditRecurrence({ ...editRecurrence, repeatsEndDate: e.target.value })
+                  }
+                  fullWidth
+                  margin="normal"
+                  InputLabelProps={{ shrink: true }}
+                />
+              )}
+              <FormControlLabel value="After" control={<Radio />} label="After" />
+              {editRecurrence.repeatsEndOption === "After" && (
+                <TextField
+                  label="Occurrences"
+                  type="number"
+                  value={editRecurrence.repeatsAfterOccurrences || ""}
+                  onChange={(e) =>
+                    setEditRecurrence({
+                      ...editRecurrence,
+                      repeatsAfterOccurrences: parseInt(e.target.value),
+                    })
+                  }
+                  fullWidth
+                  margin="normal"
+                />
+              )}
+            </RadioGroup>
+          </Box>
+        )}
+      </>
+    )}
+  </DialogContent>
+  <DialogActions>
+    <Button onClick={() => setIsEditDialogOpen(false)}>Cancel</Button>
+    <Button onClick={handleEditConfirm} variant="contained">
+      Save
+    </Button>
+  </DialogActions>
+</Dialog>
+
+      {/* Delete Dialog */}
+      <Dialog
+        open={isDeleteDialogOpen}
+        onClose={() => setIsDeleteDialogOpen(false)}
+      >
+        <DialogTitle>Delete Event</DialogTitle>
+        <DialogContent>
+          {event.recurrence !== "None" ? (
+            <RadioGroup
+              value={deleteOption}
+              onChange={(e) => setDeleteOption(e.target.value)}
+            >
+              <FormControlLabel
+                value="This event"
+                control={<Radio />}
+                label="This event"
+              />
+              <FormControlLabel
+                value="This and following events"
+                control={<Radio />}
+                label="This and following events"
+              />
+              <FormControlLabel
+                value="All events for this recurrence"
+                control={<Radio />}
+                label="All events for this recurrence"
+              />
+            </RadioGroup>
+          ) : (
+            <Typography>This event will be deleted.</Typography>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setIsDeleteDialogOpen(false)}>Cancel</Button>
+          <Button onClick={handleDeleteConfirm} color="error">
+            Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </>
+  );
+};
+
+const getRecurrencePattern = (date: string): string => {
+  const targetDate = new Date(date);
+
+  // Adjust for local timezone offset
+  const localDate = new Date(targetDate.getTime() + targetDate.getTimezoneOffset() * 60000);
+
+  const dayOfWeek = localDate.getDay(); // Get the day of the week (0 = Sunday, 1 = Monday, etc.)
+  const weekOfMonth = Math.ceil(localDate.getDate() / 7); // Calculate the week of the month
+  const daysOfWeek = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+  return `${weekOfMonth}${getOrdinalSuffix(weekOfMonth)} ${daysOfWeek[dayOfWeek]}`;
+};
+
+const getOrdinalSuffix = (num: number): string => {
+  if (num === 1 || num === 21 || num === 31) return "st";
+  if (num === 2 || num === 22) return "nd";
+  if (num === 3 || num === 23) return "rd";
+  return "th";
+};
+
+
+const fetchEvents = async () => {
+  try {
+    let start = new DayPilot.Date(currentDate);
+    let endDate;
+
+    // Determine the date range based on the view type
+    switch (viewType) {
+      case "Month":
+        start = currentDate.firstDayOfMonth();
+        endDate = start.lastDayOfMonth(); // Do not add 1 day here
+        break;
+      case "Day":
+        endDate = start.addDays(1); // Include only the current day
+        break;
+      default:
+        endDate = start.addDays(1);
+    }
+
+    const eventsRef = collection(db, "events");
+
+    // Adjust query logic based on the view type
+    const q =
+      viewType === "Month"
+        ? query(
+            eventsRef,
+            where("deliveryDate", ">=", Timestamp.fromDate(start.toDate())),
+            where("deliveryDate", "<=", Timestamp.fromDate(endDate.toDate())) // Use <= for Month View
+          )
+        : query(
+            eventsRef,
+            where("deliveryDate", ">=", Timestamp.fromDate(start.toDate())),
+            where("deliveryDate", "<", Timestamp.fromDate(endDate.toDate())) // Use < for Day View
+          );
+
+    const querySnapshot = await getDocs(q);
+    const fetchedEvents: DeliveryEvent[] = querySnapshot.docs.map((doc) => {
+      const deliveryDateUTC = doc.data().deliveryDate.toDate(); // Get UTC date
+      const deliveryDateLocal = new Date(
+        deliveryDateUTC.getTime() + deliveryDateUTC.getTimezoneOffset() * 60000
+      ); // Convert to local time
+
+      return {
+        id: doc.id,
+        ...doc.data(),
+        deliveryDate: deliveryDateLocal, // Use the normalized local date
+      };
+    }) as DeliveryEvent[];
+
+    setEvents(fetchedEvents);
+
+    // Update calendar configuration with new events
+    const calendarEvents: CalendarEvent[] = fetchedEvents.map((event) => ({
+      id: event.id,
+      text: `Client: ${event.clientName} (Driver: ${event.assignedDriverName})`,
+      start: new DayPilot.Date(event.deliveryDate, true),
+      end: new DayPilot.Date(event.deliveryDate, true),
+      backColor: "#257E68",
+    }));
+
+    setCalendarConfig((prev) => ({
+      ...prev,
+      events: calendarEvents,
+      durationBarVisible: false,
+    }));
+
+    console.log(calendarEvents);
+    return fetchedEvents;
+  } catch (error) {
+    console.error("Error fetching events:", error);
+    return [];
+  }
+};
+
+const getNextMonthlyDate = (originalDate: Date, currentDate: Date, targetDay?: number) => {
+  const nextMonth = new Date(currentDate);
+  nextMonth.setMonth(nextMonth.getMonth() + 1); // Move to the next month
+  nextMonth.setDate(1); // Start at the first day of the month
+
+  const originalWeek = Math.ceil(originalDate.getDate() / 7); // Week of the original delivery
+  const daysInMonth = new Date(nextMonth.getFullYear(), nextMonth.getMonth() + 1, 0).getDate();
+
+  // Calculate the target date in the next month
+  let targetDate = new Date(nextMonth);
+  targetDate.setDate((originalWeek - 1) * 7 + 1); // Start at the first day of the target week
+
+  while (targetDate.getDay() !== (targetDay ?? originalDate.getDay())) {
+    targetDate.setDate(targetDate.getDate() + 1); // Move to the correct day of the week
+  }
+
+  // Ensure the target date is within the month
+  if (targetDate.getDate() > daysInMonth) {
+    targetDate.setDate(daysInMonth);
+  }
+
+  return targetDate;
+};
+
+const handleAddDelivery = async () => {
+  try {
+    console.log(newDelivery);
+    const deliveryDate = new Date(newDelivery.deliveryDate);
+    const eventsToAdd = [];
+
+    // Helper function to calculate recurrence dates
+    const calculateRecurrenceDates = () => {
+      const recurrenceDates = [];
+      const originalDate = new Date(newDelivery.deliveryDate);
+      let currentDate = originalDate;
+
+      recurrenceDates.push(new Date(originalDate)); // Always include the original date
+
+      if (newDelivery.recurrence === "Weekly") {
+        const interval = 7; // Weekly interval
+        addRecurrenceDates(interval);
+      } else if (newDelivery.recurrence === "2x-Monthly") {
+        const interval = 14; // 2x-Monthly interval
+        addRecurrenceDates(interval);
+      } else if (newDelivery.recurrence === "Monthly") {
+        if (newDelivery.repeatsEndOption === "On" && newDelivery.repeatsEndDate) {
+          const endDate = new Date(newDelivery.repeatsEndDate);
+          while (currentDate <= endDate) {
+            currentDate = getNextMonthlyDate(originalDate, currentDate);
+            if (currentDate <= endDate) {
+              recurrenceDates.push(new Date(currentDate));
+            }
+          }
+        } else if (newDelivery.repeatsEndOption === "After" && newDelivery.repeatsAfterOccurrences) {
+          let occurrences = 1;
+          while (occurrences < newDelivery.repeatsAfterOccurrences) {
+            currentDate = getNextMonthlyDate(originalDate, currentDate);
+            recurrenceDates.push(new Date(currentDate));
+            occurrences++;
+          }
+        }
+      }
+
+      return recurrenceDates;
+
+      function addRecurrenceDates(interval: number) {
+        if (newDelivery.repeatsEndOption === "On" && newDelivery.repeatsEndDate) {
+          const endDate = new Date(newDelivery.repeatsEndDate);
+          while (currentDate <= endDate) {
+            currentDate.setDate(currentDate.getDate() + interval);
+            if (currentDate <= endDate) {
+              recurrenceDates.push(new Date(currentDate));
+            }
+          }
+        } else if (newDelivery.repeatsEndOption === "After" && newDelivery.repeatsAfterOccurrences) {
+          let occurrences = 1;
+          while (occurrences < newDelivery.repeatsAfterOccurrences) {
+            currentDate.setDate(currentDate.getDate() + interval);
+            recurrenceDates.push(new Date(currentDate));
+            occurrences++;
+          }
+        }
+      }
+    };
+
+    // Calculate recurrence dates based on the recurrence type
+    const recurrenceDates =
+      newDelivery.recurrence === "None"
+        ? [deliveryDate]
+        : calculateRecurrenceDates();
+
+    for (const date of recurrenceDates) {
+      const utcDate = new Date(
+        Date.UTC(date.getFullYear(), date.getMonth(), date.getDate())
+      ); // Normalize to UTC
+    
+      // Only include optional fields if they are defined
+      const eventToAdd: Partial<DeliveryEvent> = {
+        assignedDriverId: newDelivery.assignedDriverId,
+        assignedDriverName: newDelivery.assignedDriverName,
+        clientId: newDelivery.clientId,
+        clientName: newDelivery.clientName,
+        deliveryDate: date, // Store as UTC
+        recurrence: newDelivery.recurrence,
+        time: ""
+      };
+    
+      if (newDelivery.repeatsEndOption) {
+        eventToAdd.repeatsEndOption = newDelivery.repeatsEndOption;
+      }
+    
+      if (newDelivery.repeatsEndDate) {
+        eventToAdd.repeatsEndDate = newDelivery.repeatsEndDate;
+      }
+    
+      if (newDelivery.repeatsAfterOccurrences !== undefined) {
+        eventToAdd.repeatsAfterOccurrences = newDelivery.repeatsAfterOccurrences;
+      }
+    
+      eventsToAdd.push(eventToAdd);
+    }
+    
+    // Add all events to the database
+    const batch = eventsToAdd.map((event) =>
+      addDoc(collection(db, "events"), event)
+    );
+    await Promise.all(batch);
+
+    // Reset the form
+    const today = new Date().toISOString().split("T")[0];
+    setNewDelivery({
+      assignedDriverId: "",
+      assignedDriverName: "",
+      clientId: "",
+      clientName: "",
+      deliveryDate: today,
+      recurrence: "None",
+      repeatsEndOption: undefined,
+      repeatsEndDate: "",
+      repeatsAfterOccurrences: undefined,
+    });
+
+    setIsModalOpen(false);
+
+    // Refresh events after adding
+    fetchEvents();
+  } catch (error) {
+    console.error("Error adding delivery:", error);
+  }
+};
 
   const handleNavigatePrev = () => {
     const newDate =
@@ -389,6 +917,15 @@ const CalendarPage: React.FC = () => {
     fetchClients();
   }, [viewType, currentDate]);
 
+  const formatPhoneNumber = (phone: string): string => {
+    const cleaned = ("" + phone).replace(/\D/g, ""); // Remove non-numeric characters
+    const match = cleaned.match(/^(\d{3})(\d{3})(\d{4})$/); // Match the phone number pattern
+    if (match) {
+      return `(${match[1]})-${match[2]}-${match[3]}`; // Format as (xxx)-xxx-xxxx
+    }
+    return phone; // Return the original phone if it doesn't match the pattern
+  };
+  
   const renderCalendarView = () => {
     if (viewType === "Day") {
       return (
@@ -406,7 +943,7 @@ const CalendarPage: React.FC = () => {
                 const client = clients.find(
                   (client) => client.id === event.clientId
                 );
-
+  
                 const trueRestrictions = Object.entries(
                   client?.deliveryDetails?.dietaryRestrictions || {}
                 )
@@ -416,15 +953,16 @@ const CalendarPage: React.FC = () => {
                       .replace(/([a-z])([A-Z])/g, "$1 $2")
                       .replace(/^./, (str) => str.toUpperCase())
                   );
+  
                 const { foodAllergens = [], other = [] } =
                   client?.deliveryDetails?.dietaryRestrictions || {};
-
+  
                 let dietaryRestrictions = [
                   ...trueRestrictions,
                   ...foodAllergens,
                   ...other,
                 ];
-
+  
                 return (
                   <Box
                     key={event.id}
@@ -488,7 +1026,7 @@ const CalendarPage: React.FC = () => {
                         </Box>
                       </Box>
                     </Box>
-
+  
                     <Box
                       sx={{
                         backgroundColor: "#D9D9D9",
@@ -497,7 +1035,7 @@ const CalendarPage: React.FC = () => {
                         marginRight: 5,
                       }}
                     ></Box>
-
+  
                     <Box
                       sx={{
                         display: "flex",
@@ -509,8 +1047,10 @@ const CalendarPage: React.FC = () => {
                     >
                       {[
                         {
-                          label: "ROUTE",
-                          value: "Washington Ave",
+                          label: "PHONE",
+                          value: client?.phone
+                            ? formatPhoneNumber(client.phone)
+                            : "N/A", // Format the phone number
                           color: "#787777",
                         },
                         {
@@ -519,29 +1059,25 @@ const CalendarPage: React.FC = () => {
                           color: "#787777",
                         },
                         {
-                          label: "RESTRICTIONS",
-                          value: dietaryRestrictions,
-                          color: "#787777",
-                          isScrollable: true,
-                        },
-                        {
-                          label: "LANGUAGE",
-                          value: client?.language || "N/A",
+                          label: "DIETARY RESTRICTIONS",
+                          value: dietaryRestrictions.length
+                            ? dietaryRestrictions.join(", ")
+                            : "N/A", // Join dietary restrictions with commas
                           color: "#787777",
                         },
                         {
                           label: "TAGS",
-                          value: client?.tags || "N/A",
+                          value: client?.tags?.length
+                            ? client.tags.join(", ")
+                            : "N/A", // Join tags with commas
                           color: "#787777",
-                          isScrollable: true,
                         },
                         {
                           label: "NOTES",
                           value: client?.notes || "N/A",
                           color: "#787777",
-                          isScrollable: true,
                         },
-                      ].map(({ label, value, color, isScrollable }) => (
+                      ].map(({ label, value, color }) => (
                         <Box
                           key={label}
                           sx={{
@@ -561,54 +1097,17 @@ const CalendarPage: React.FC = () => {
                           >
                             {label}
                           </Typography>
-
-                          {Array.isArray(value) ? (
-                            value.length > 0 ? (
-                              <Box
-                                sx={{
-                                  fontWeight: "bold",
-                                  color: color,
-                                  maxHeight: isScrollable ? "100px" : "none",
-                                  maxWidth: "200px",
-                                  overflowY: isScrollable ? "auto" : "visible",
-                                  padding: isScrollable ? "4px" : "0",
-                                  wordWrap: "break-word",
-                                  overflowWrap: "break-word",
-                                  whiteSpace: "normal",
-                                  border: isScrollable
-                                    ? "1px solid #ccc"
-                                    : "none",
-                                  borderRadius: "4px",
-                                }}
-                              >
-                                {value.map((restriction, index) => (
-                                  <Typography variant="body1" key={index}>
-                                    {restriction &&
-                                    typeof restriction === "string"
-                                      ? "- " + restriction
-                                      : ""}
-                                  </Typography>
-                                ))}
-                              </Box>
-                            ) : (
-                              <Typography
-                                variant="body1"
-                                sx={{ fontWeight: "bold", color: color }}
-                              >
-                                N/A
-                              </Typography>
-                            )
-                          ) : (
-                            <Typography
-                              variant="body1"
-                              sx={{ fontWeight: "bold", color: color }}
-                            >
-                              {value}
-                            </Typography>
-                          )}
+                          <Typography
+                            variant="body1"
+                            sx={{ fontWeight: "bold", color: color }}
+                          >
+                            {value}
+                          </Typography>
                         </Box>
                       ))}
                     </Box>
+                    {/* Three-dot menu button */}
+                    <EventMenu event={event} />
                   </Box>
                 );
               })}
@@ -617,7 +1116,7 @@ const CalendarPage: React.FC = () => {
         </Box>
       );
     }
-
+  
     // For Week and Month views
     if (viewType === "Month") {
       const customCalendarConfig = {
@@ -657,7 +1156,7 @@ const CalendarPage: React.FC = () => {
 
       return <DayPilotMonth {...customCalendarConfig} />;
     }
-
+  
     return (
       <DayPilotCalendar
         {...calendarConfig}
@@ -840,152 +1339,176 @@ const CalendarPage: React.FC = () => {
         </StyledCalendarContainer>
 
         <Dialog open={isModalOpen} onClose={() => setIsModalOpen(false)}>
-          <DialogTitle>Add Delivery</DialogTitle>
-          <DialogContent>
-            <Autocomplete
-              options={clients}
-              getOptionLabel={(option) =>
-                `${option.firstName} ${option.lastName}`
-              }
-              value={
-                newDelivery.clientId
-                  ? clients.find(
-                      (client) => client.id === newDelivery.clientId
-                    ) || null
-                  : null
-              }
-              onChange={(event, newValue) => {
-                setNewDelivery({
-                  ...newDelivery,
-                  clientId: newValue ? newValue.id : "",
-                  clientName: newValue
-                    ? `${newValue.firstName} ${newValue.lastName}`
-                    : "",
-                });
-              }}
-              renderOption={(props, option) => (
-                <li {...props} key={option.id}>
-                  {`${option.firstName} ${option.lastName}`}
-                </li>
-              )}
-              renderInput={(params) => (
+  <DialogTitle>Add Delivery</DialogTitle>
+  <DialogContent>
+    {/* Client Selection */}
+    <Autocomplete
+      options={clients}
+      getOptionLabel={(option) =>
+        `${option.firstName} ${option.lastName}`
+      }
+      value={
+        newDelivery.clientId
+          ? clients.find(
+              (client) => client.id === newDelivery.clientId
+            ) || null
+          : null
+      }
+      onChange={(event, newValue) => {
+        setNewDelivery({
+          ...newDelivery,
+          clientId: newValue ? newValue.id : "",
+          clientName: newValue
+            ? `${newValue.firstName} ${newValue.lastName}`
+            : "",
+        });
+      }}
+      renderOption={(props, option) => (
+        <li {...props} key={option.id}>
+          {`${option.firstName} ${option.lastName}`}
+        </li>
+      )}
+      renderInput={(params) => (
+        <TextField
+          {...params}
+          label="Client Name"
+          margin="normal"
+          fullWidth
+        />
+      )}
+    />
+
+    {/* Driver Selection */}
+    <Autocomplete
+      options={drivers}
+      getOptionLabel={(option) =>
+        `${option.firstName} ${option.lastName} (${option.id})`
+      }
+      value={
+        newDelivery.assignedDriverId
+          ? drivers.find(
+              (driver) => driver.id === newDelivery.assignedDriverId
+            ) || null
+          : null
+      }
+      onChange={(event, newValue) => {
+        setNewDelivery({
+          ...newDelivery,
+          assignedDriverId: newValue ? newValue.id : "",
+          assignedDriverName: newValue
+            ? `${newValue.firstName} ${newValue.lastName}`
+            : "",
+        });
+      }}
+      renderOption={(props, option) => (
+        <li {...props} key={option.id}>
+          {`${option.firstName} ${option.lastName}`}
+        </li>
+      )}
+      renderInput={(params) => (
+        <TextField
+          {...params}
+          label="Assigned Driver"
+          margin="normal"
+          fullWidth
+        />
+      )}
+    />
+
+    {/* Delivery Date */}
+    <TextField
+      label="Delivery Date"
+      type="date"
+      value={newDelivery.deliveryDate}
+      onChange={(e) =>
+        setNewDelivery({ ...newDelivery, deliveryDate: e.target.value })
+      }
+      fullWidth
+      margin="normal"
+      InputLabelProps={{ shrink: true }}
+    />
+
+    {/* Recurrence Dropdown */}
+    <FormControl fullWidth margin="normal">
+  <InputLabel id="recurrence-label">Recurrence</InputLabel>
+  <Select
+    labelId="recurrence-label"
+    value={newDelivery.recurrence}
+    onChange={(e) =>
+      setNewDelivery({ ...newDelivery, recurrence: e.target.value as "None" | "Weekly" | "2x-Monthly" | "Monthly" })
+    }
+  >
+    <MenuItem value="None">None</MenuItem>
+    <MenuItem value="Weekly">Weekly</MenuItem>
+    <MenuItem value="2x-Monthly">2x-Monthly</MenuItem>
+    <MenuItem value="Monthly">Monthly</MenuItem>
+  </Select>
+</FormControl>
+
+{/* Display recurrence pattern for Monthly */}
+{newDelivery.recurrence === "Monthly" && (
+  <Box sx={{ marginTop: 2 }}>
+    <Typography variant="subtitle1" sx={{ fontWeight: "bold", color: "#787777" }}>
+      This event will recur on the{" "}
+      {getRecurrencePattern(newDelivery.deliveryDate)}
+    </Typography>
+  </Box>
+)}
+
+    {/* Ends Section */}
+    {newDelivery.recurrence !== "None" && (
+      <Box>
+        <Typography variant="subtitle1">Ends</Typography>
+        <FormControl component="fieldset" margin="normal">
+          <RadioGroup
+            value={newDelivery.repeatsEndOption}
+            onChange={(e) =>
+              setNewDelivery({ ...newDelivery, repeatsEndOption: e.target.value as "On" | "After" })
+            }
+          >
+            <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+              <FormControlLabel value="On" control={<Radio />} label="On" />
+              {newDelivery.repeatsEndOption === "On" && (
                 <TextField
-                  {...params}
-                  label="Client Name"
-                  margin="normal"
-                  fullWidth
+                  label="End Date"
+                  type="date"
+                  value={newDelivery.repeatsEndDate}
+                  onChange={(e) =>
+                    setNewDelivery({ ...newDelivery, repeatsEndDate: e.target.value })
+                  }
+                  InputLabelProps={{ shrink: true }}
                 />
               )}
-            />
+            </Box>
 
-            <Autocomplete
-              options={drivers}
-              getOptionLabel={(option) =>
-                `${option.firstName} ${option.lastName} (${option.id})`
-              }
-              value={
-                newDelivery.assignedDriverId
-                  ? drivers.find(
-                      (driver) => driver.id === newDelivery.assignedDriverId
-                    ) || null
-                  : null
-              }
-              onChange={(event, newValue) => {
-                setNewDelivery({
-                  ...newDelivery,
-                  assignedDriverId: newValue ? newValue.id : "",
-                  assignedDriverName: newValue
-                    ? `${newValue.firstName} ${newValue.lastName}`
-                    : "",
-                });
-              }}
-              renderOption={(props, option) => (
-                <li {...props} key={option.id}>
-                  {`${option.firstName} ${option.lastName}`}
-                </li>
-              )}
-              renderInput={(params) => (
+            <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+              <FormControlLabel value="After" control={<Radio />} label="After" />
+              {newDelivery.repeatsEndOption === "After" && (
                 <TextField
-                  {...params}
-                  label="Assigned Driver"
-                  margin="normal"
-                  fullWidth
+                  label="Occurrences"
+                  type="number"
+                  value={newDelivery.repeatsAfterOccurrences}
+                  onChange={(e) =>
+                    setNewDelivery({
+                      ...newDelivery,
+                      repeatsAfterOccurrences: parseInt(e.target.value),
+                    })
+                  }
                 />
               )}
-            />
-
-            {/*
-            <TextField
-              label="Start Time"
-              type="time"
-              value={newDelivery.startTime}
-              onChange={(e) =>
-                setNewDelivery({ ...newDelivery, startTime: e.target.value })
-              }
-              fullWidth
-              margin="normal"
-              InputLabelProps={{ shrink: true }}
-            /> */}
-            <FormControl fullWidth style={{ width: "100%" }}>
-              <InputLabel id="priority-select-label">Priority</InputLabel>
-              <Select
-                labelId="priority-select-label"
-                id="priority-select"
-                value={newDelivery.priority}
-                onChange={(e) =>
-                  setNewDelivery({ ...newDelivery, priority: e.target.value })
-                }
-              >
-                <MenuItem value={"Low"}>Low</MenuItem>
-                <MenuItem value={"Medium"}>Medium</MenuItem>
-                <MenuItem value={"High"}>High</MenuItem>
-              </Select>
-            </FormControl>
-
-            <TextField
-              label="Date"
-              type="date"
-              value={newDelivery.endDate}
-              onChange={(e) =>
-                setNewDelivery({ ...newDelivery, endDate: e.target.value })
-              }
-              fullWidth
-              margin="normal"
-              InputLabelProps={{ shrink: true }}
-            />
-            {/*
-            <TextField
-              label="End Time"
-              type="time"
-              value={newDelivery.endTime}
-              onChange={(e) =>
-                setNewDelivery({ ...newDelivery, endTime: e.target.value })
-              }
-              fullWidth
-              margin="normal"
-              InputLabelProps={{ shrink: true }}
-            />
-            */}
-            <TextField
-              label="Notes"
-              value={newDelivery.notes}
-              onChange={(e) =>
-                setNewDelivery({ ...newDelivery, notes: e.target.value })
-              }
-              fullWidth
-              margin="normal"
-              multiline
-              rows={4}
-            />
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setIsModalOpen(false)}>Cancel</Button>
-            <Button onClick={handleAddDelivery} variant="contained">
-              Add
-            </Button>
-          </DialogActions>
-        </Dialog>
-
+            </Box>
+          </RadioGroup>
+        </FormControl>
+      </Box>
+    )}
+  </DialogContent>
+  <DialogActions>
+    <Button onClick={() => setIsModalOpen(false)}>Cancel</Button>
+    <Button onClick={handleAddDelivery} variant="contained">
+      Add
+    </Button>
+  </DialogActions>
+</Dialog>
         <Box sx={{ position: "fixed", bottom: 24, right: 24 }}></Box>
       </Box>
     </Box>
