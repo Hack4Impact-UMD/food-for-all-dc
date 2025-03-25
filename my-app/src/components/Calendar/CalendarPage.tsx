@@ -31,9 +31,10 @@ import {
 } from "@mui/icons-material";
 import { styled } from "@mui/material/styles";
 import {
-  deleteDoc, doc,
+  updateDoc, deleteDoc, doc,
   collection,
   getDocs,
+  getDoc,
   addDoc,
   query,
   where,
@@ -118,6 +119,7 @@ interface DeliveryEvent {
   clientId: string;
   clientName: string;
   deliveryDate: Date; // The date of the delivery
+  time: string; // The time of the delivery
   recurrence: "None" | "Weekly" | "2x-Monthly" | "Monthly"; // Updated recurrence options
   repeatsEndOption?: "On" | "After"; // Optional, only applicable if recurrence is not "None"
   repeatsEndDate?: string; // Optional, end date for recurrence
@@ -254,7 +256,21 @@ interface EventMenuProps {
 const EventMenu: React.FC<EventMenuProps> = ({ event }) => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [deleteOption, setDeleteOption] = useState("This event");
+  const [editOption, setEditOption] = useState<"This event" | "This and following events">("This event");
+  const [editDeliveryDate, setEditDeliveryDate] = useState<string>(event.deliveryDate.toISOString().split("T")[0]);
+  const [editRecurrence, setEditRecurrence] = useState<NewDelivery>({
+    assignedDriverId: event.assignedDriverId,
+    assignedDriverName: event.assignedDriverName,
+    clientId: event.clientId,
+    clientName: event.clientName,
+    deliveryDate: event.deliveryDate.toISOString().split("T")[0],
+    recurrence: event.recurrence,
+    repeatsEndOption: event.repeatsEndOption,
+    repeatsEndDate: event.repeatsEndDate || "",
+    repeatsAfterOccurrences: event.repeatsAfterOccurrences || undefined,
+  });
 
   const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);
@@ -269,10 +285,15 @@ const EventMenu: React.FC<EventMenuProps> = ({ event }) => {
     handleMenuClose();
   };
 
+  const handleEditClick = () => {
+    setIsEditDialogOpen(true);
+    handleMenuClose();
+  };
+
   const handleDeleteConfirm = async () => {
     try {
       const eventsRef = collection(db, "events");
-  
+
       if (deleteOption === "This event") {
         // Delete only this event
         await deleteDoc(doc(eventsRef, event.id));
@@ -286,7 +307,7 @@ const EventMenu: React.FC<EventMenuProps> = ({ event }) => {
           where("clientId", "==", event.clientId),
           where("deliveryDate", ">", event.deliveryDate) // Include current and future events
         );
-  
+
         const querySnapshot = await getDocs(q);
         const batch = querySnapshot.docs.map((doc) => deleteDoc(doc.ref));
         await Promise.all(batch);
@@ -297,19 +318,145 @@ const EventMenu: React.FC<EventMenuProps> = ({ event }) => {
           where("recurrence", "==", event.recurrence),
           where("clientId", "==", event.clientId) // Match all events for this client and recurrence
         );
-  
+
         const querySnapshot = await getDocs(q);
         const batch = querySnapshot.docs.map((doc) => deleteDoc(doc.ref));
         await Promise.all(batch);
       }
-  
+
       // Refresh events after deletion
       fetchEvents();
     } catch (error) {
       console.error("Error deleting event:", error);
     }
-  
+
     setIsDeleteDialogOpen(false);
+  };
+
+  const handleEditConfirm = async () => {
+    try {
+      const eventsRef = collection(db, "events");
+  
+      if (editOption === "This event") {
+        // Update only this event with the new delivery date
+        await updateDoc(doc(eventsRef, event.id), {
+          deliveryDate: new Date(editDeliveryDate),
+        });
+      } else if (editOption === "This and following events") {
+        // Fetch the original event from the database to get its original delivery date
+        
+        const originalEventDoc = await getDoc(doc(eventsRef, event.id));
+        const originalEvent = originalEventDoc.data();
+
+        if (!originalEvent) {
+          console.error("Original event not found.");
+          return;
+        }
+
+        const originalDeliveryDate = originalEvent.deliveryDate.toDate(); // Convert Firestore Timestamp to Date
+
+        // Delete all future events for the same recurrence
+        const q = query(
+          eventsRef,
+          where("recurrence", "==", event.recurrence),
+          where("clientId", "==", event.clientId),
+          where("deliveryDate", ">=", originalDeliveryDate) // Only future events
+        );
+  
+        const querySnapshot = await getDocs(q);
+        console.log(querySnapshot);
+        const batchDelete = querySnapshot.docs.map((doc) => deleteDoc(doc.ref));
+        await Promise.all(batchDelete);
+  
+        // Add new recurrence events starting from the new delivery date
+        const newRecurrenceDates = calculateRecurrenceDates({
+          ...editRecurrence,
+          deliveryDate: editDeliveryDate, // Use the new delivery date
+        });
+  
+        // Add new recurring events starting from the second date
+        const batchAdd = newRecurrenceDates.map((date) => {
+          const eventToAdd: Partial<DeliveryEvent> = {
+            assignedDriverId: editRecurrence.assignedDriverId,
+            assignedDriverName: editRecurrence.assignedDriverName,
+            clientId: editRecurrence.clientId,
+            clientName: editRecurrence.clientName,
+            deliveryDate: date,
+            recurrence: editRecurrence.recurrence,
+            ...(editRecurrence.repeatsEndOption && { repeatsEndOption: editRecurrence.repeatsEndOption }),
+            ...(editRecurrence.repeatsEndDate && { repeatsEndDate: editRecurrence.repeatsEndDate }),
+            ...(editRecurrence.repeatsAfterOccurrences !== undefined && {
+              repeatsAfterOccurrences: editRecurrence.repeatsAfterOccurrences,
+            }),
+          };
+  
+          return addDoc(eventsRef, eventToAdd);
+        });
+  
+        await Promise.all(batchAdd);
+      }
+  
+      // Refresh events after editing
+      fetchEvents();
+    } catch (error) {
+      console.error("Error editing event:", error);
+    }
+  
+    setIsEditDialogOpen(false);
+  };
+
+  const calculateRecurrenceDates = (recurrence: NewDelivery): Date[] => {
+    const recurrenceDates: Date[] = [];
+    const originalDate = new Date(recurrence.deliveryDate);
+    let currentDate = originalDate;
+
+    recurrenceDates.push(new Date(originalDate)); // Always include the original date
+
+    if (recurrence.recurrence === "Weekly") {
+      const interval = 7; // Weekly interval
+      addRecurrenceDates(interval);
+    } else if (recurrence.recurrence === "2x-Monthly") {
+      const interval = 14; // 2x-Monthly interval
+      addRecurrenceDates(interval);
+    } else if (recurrence.recurrence === "Monthly") {
+      if (recurrence.repeatsEndOption === "On" && recurrence.repeatsEndDate) {
+        const endDate = new Date(recurrence.repeatsEndDate);
+        while (currentDate <= endDate) {
+          currentDate = getNextMonthlyDate(originalDate, currentDate);
+          if (currentDate <= endDate) {
+            recurrenceDates.push(new Date(currentDate));
+          }
+        }
+      } else if (recurrence.repeatsEndOption === "After" && recurrence.repeatsAfterOccurrences) {
+        let occurrences = 1;
+        while (occurrences < recurrence.repeatsAfterOccurrences) {
+          currentDate = getNextMonthlyDate(originalDate, currentDate);
+          recurrenceDates.push(new Date(currentDate));
+          occurrences++;
+        }
+      }
+    }
+
+    return recurrenceDates;
+
+    function addRecurrenceDates(interval: number) {
+      if (recurrence.repeatsEndOption === "On" && recurrence.repeatsEndDate) {
+        const endDate = new Date(recurrence.repeatsEndDate);
+        while (currentDate <= endDate) {
+          currentDate.setDate(currentDate.getDate() + interval);
+          if (currentDate <= endDate) {
+            recurrenceDates.push(new Date(currentDate));
+          }
+        }
+      } else if (recurrence.repeatsEndOption === "After" && recurrence.repeatsAfterOccurrences) {
+        let occurrences = 1;
+        while (occurrences < recurrence.repeatsAfterOccurrences) {
+          currentDate.setDate(currentDate.getDate() + interval);
+          recurrenceDates.push(new Date(currentDate));
+          occurrences++;
+        }
+      }
+    }
   };
 
   return (
@@ -323,9 +470,115 @@ const EventMenu: React.FC<EventMenuProps> = ({ event }) => {
         open={Boolean(anchorEl)}
         onClose={handleMenuClose}
       >
+        <MenuItem onClick={handleEditClick}>Edit</MenuItem>
         <MenuItem onClick={handleDeleteClick}>Delete</MenuItem>
       </Menu>
 
+      {/* Edit Dialog */}
+      <Dialog open={isEditDialogOpen} onClose={() => setIsEditDialogOpen(false)}>
+  <DialogTitle>Edit Event</DialogTitle>
+  <DialogContent>
+    <RadioGroup
+      value={editOption}
+      onChange={(e) => setEditOption(e.target.value as "This event" | "This and following events")}
+    >
+      <FormControlLabel
+        value="This event"
+        control={<Radio />}
+        label="This event"
+      />
+      {event.recurrence !== "None" && (
+        <FormControlLabel
+          value="This and following events"
+          control={<Radio />}
+          label="This and following events"
+        />
+      )}
+    </RadioGroup>
+
+    {/* New Delivery Date Picker */}
+    <TextField
+      label="New Delivery Date"
+      type="date"
+      value={editDeliveryDate}
+      onChange={(e) => setEditDeliveryDate(e.target.value)}
+      fullWidth
+      margin="normal"
+      InputLabelProps={{ shrink: true }}
+    />
+
+    {editOption === "This and following events" && (
+      <>
+        <FormControl fullWidth margin="normal">
+          <InputLabel id="recurrence-label">Recurrence</InputLabel>
+          <Select
+            labelId="recurrence-label"
+            value={editRecurrence.recurrence}
+            onChange={(e) =>
+              setEditRecurrence({ ...editRecurrence, recurrence: e.target.value as "None" | "Weekly" | "2x-Monthly" | "Monthly" })
+            }
+          >
+            <MenuItem value="None">None</MenuItem>
+            <MenuItem value="Weekly">Weekly</MenuItem>
+            <MenuItem value="2x-Monthly">2x-Monthly</MenuItem>
+            <MenuItem value="Monthly">Monthly</MenuItem>
+          </Select>
+        </FormControl>
+
+        {editRecurrence.recurrence !== "None" && (
+          <Box>
+            <Typography variant="subtitle1">Ends</Typography>
+            <RadioGroup
+              value={editRecurrence.repeatsEndOption}
+              onChange={(e) =>
+                setEditRecurrence({ ...editRecurrence, repeatsEndOption: e.target.value as "On" | "After" })
+              }
+            >
+              <FormControlLabel value="On" control={<Radio />} label="On" />
+              {editRecurrence.repeatsEndOption === "On" && (
+                <TextField
+                  label="End Date"
+                  type="date"
+                  value={editRecurrence.repeatsEndDate}
+                  onChange={(e) =>
+                    setEditRecurrence({ ...editRecurrence, repeatsEndDate: e.target.value })
+                  }
+                  fullWidth
+                  margin="normal"
+                  InputLabelProps={{ shrink: true }}
+                />
+              )}
+              <FormControlLabel value="After" control={<Radio />} label="After" />
+              {editRecurrence.repeatsEndOption === "After" && (
+                <TextField
+                  label="Occurrences"
+                  type="number"
+                  value={editRecurrence.repeatsAfterOccurrences || ""}
+                  onChange={(e) =>
+                    setEditRecurrence({
+                      ...editRecurrence,
+                      repeatsAfterOccurrences: parseInt(e.target.value),
+                    })
+                  }
+                  fullWidth
+                  margin="normal"
+                />
+              )}
+            </RadioGroup>
+          </Box>
+        )}
+      </>
+    )}
+  </DialogContent>
+  <DialogActions>
+    <Button onClick={() => setIsEditDialogOpen(false)}>Cancel</Button>
+    <Button onClick={handleEditConfirm} variant="contained">
+      Save
+    </Button>
+  </DialogActions>
+</Dialog>
+
+      {/* Delete Dialog */}
       <Dialog
         open={isDeleteDialogOpen}
         onClose={() => setIsDeleteDialogOpen(false)}
@@ -565,6 +818,7 @@ const handleAddDelivery = async () => {
         clientName: newDelivery.clientName,
         deliveryDate: date, // Store as UTC
         recurrence: newDelivery.recurrence,
+        time: ""
       };
     
       if (newDelivery.repeatsEndOption) {
