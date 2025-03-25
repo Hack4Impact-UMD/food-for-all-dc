@@ -83,10 +83,13 @@ const Profile = () => {
     uid: "",
     firstName: "",
     lastName: "",
-    houseNumber: "",
     streetName: "",
     zipCode: "",
-    address: "",
+    address1: "",
+    address2: "",
+    city: "",
+    state: "",
+    quadrant: "",
     dob: "",
     deliveryFreq: "",
     phone: "",
@@ -203,10 +206,13 @@ const Profile = () => {
     uid: string;
     firstName: string;
     lastName: string;
-    houseNumber: string;
     streetName: string;
     zipCode: string;
-    address: string;
+    address1: string;
+    address2: string;
+    city: string;
+    state: string;
+    quadrant: string;
     dob: string;
     deliveryFreq: string;
     phone: string;
@@ -316,7 +322,7 @@ const Profile = () => {
     if (!clientProfile.firstName.trim())
       newErrors.firstName = "First Name is required";
     if (!clientProfile.lastName.trim()) newErrors.lastName = "Last Name is required";
-    if (!clientProfile.address.trim()) newErrors.address = "Address is required";
+    if (!clientProfile.address1.trim()) newErrors.address = "Address is required";
     if (!clientProfile.dob) newErrors.dob = "Date of Birth is required";
     if (!clientProfile.deliveryFreq.trim())
       newErrors.deliveryFreq = "Delivery Frequency is required";
@@ -341,6 +347,7 @@ const Profile = () => {
     }
 
     setErrors(newErrors);
+    console.log(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
@@ -482,7 +489,7 @@ const Profile = () => {
                 value={String(value || "")}
                 onChange={handleChange}
                 fullWidth
-                inputRef = {fieldPath === "address" ? addressInputRef : null}
+                inputRef = {fieldPath === "address1" ? addressInputRef : null}
               />
             </>
           );
@@ -643,9 +650,70 @@ const Profile = () => {
             autocomplete.addListener('place_changed', () => {
               const place = autocomplete.getPlace();
               if (place.formatted_address) {
+                console.log(place);
+                let address = place.formatted_address;
+                // Get address components
+                const addressComponents = place.address_components;
+                console.log(address);
+                
+                // Initialize variables to store components
+                let streetNumber = '';
+                let streetName = '';
+                let city = '';
+                let state = '';
+                let zipCode = '';
+                let quadrant = ''; // This might need special handling based on DC address format
+                
+                // Extract the relevant components
+                if (addressComponents) {
+                  for (const component of addressComponents) {
+                    const types = component.types;
+                    
+                    if (types.includes('street_number')) {
+                      streetNumber = component.long_name;
+                    }
+                    
+                    if (types.includes('route')) {
+                      streetName = component.long_name;
+                    }
+                    
+                    if (types.includes('locality') || types.includes('sublocality')) {
+                      city = component.long_name;
+                    }
+                    
+                    if (types.includes('administrative_area_level_1')) {
+                      state = component.short_name; // Use short_name for state code (e.g., "DC" instead of "District of Columbia")
+                    }
+                    
+                    if (types.includes('postal_code')) {
+                      zipCode = component.long_name;
+                    }
+                  }
+                  
+                  // For DC addresses, try to extract quadrant (NW, NE, SW, SE)
+                  // This is specific to Washington DC addresses
+                  const quadrantMatch = address.match(/(NW|NE|SW|SE)(\s|,|$)/);
+                  if (state === "DC" && quadrantMatch) {
+                    quadrant = quadrantMatch[1];
+                  }
+
+                  // Log the parsed components
+                  console.log('Street Number:', streetNumber);
+                  console.log('Street Name:', streetName);
+                  console.log('City:', city);
+                  console.log('State:', state);
+                  console.log('Zip Code:', zipCode);
+                  console.log('Quadrant:', quadrant);
+                }
+                
+                // Update the client profile with all the parsed components
                 setClientProfile(prev => ({
                   ...prev,
-                  address: place.formatted_address || ''
+                  address1: `${streetNumber} ${streetName}`.trim(),
+                  city: city,
+                  state: state,
+                  zipCode: zipCode,
+                  quadrant: quadrant
                 }));
               }
             });
@@ -782,7 +850,7 @@ const Profile = () => {
               )}
             </Box>
 
-            {/* Address */}
+            {/* Address 1*/}
             <Box>
               <Typography
                 className="field-descriptor"
@@ -792,9 +860,109 @@ const Profile = () => {
                   top: isEditing ? "-19px" : "0",
                 }}
               >
-                ADDRESS <span className="required-asterisk">*</span>
+                ADDRESS 1<span className="required-asterisk">*</span>
               </Typography>
-              {renderField("address", "text")}
+              {renderField("address1", "text")}
+              {errors.address && (
+                <Typography color="error" variant="body2">
+                  {errors.address}
+                </Typography>
+              )}
+            </Box>
+
+            {/* Address 2*/}
+            <Box>
+              <Typography
+                className="field-descriptor"
+                sx={{
+                  ...fieldLabelStyles,
+                  position: "relative",
+                  top: isEditing ? "-19px" : "0",
+                }}
+              >
+                ADDRESS 2 <span className="required-asterisk">*</span>
+              </Typography>
+              {renderField("address2", "text")}
+              {errors.address && (
+                <Typography color="error" variant="body2">
+                  {errors.address}
+                </Typography>
+              )}
+            </Box>
+
+            {/* City */}
+            <Box>
+              <Typography
+                className="field-descriptor"
+                sx={{
+                  ...fieldLabelStyles,
+                  position: "relative",
+                  top: isEditing ? "-19px" : "0",
+                }}
+              >
+                CITY <span className="required-asterisk">*</span>
+              </Typography>
+              {renderField("city", "text")}
+              {errors.address && (
+                <Typography color="error" variant="body2">
+                  {errors.address}
+                </Typography>
+              )}
+            </Box>
+
+            {/* STATE*/}
+            <Box>
+              <Typography
+                className="field-descriptor"
+                sx={{
+                  ...fieldLabelStyles,
+                  position: "relative",
+                  top: isEditing ? "-19px" : "0",
+                }}
+              >
+                STATE <span className="required-asterisk">*</span>
+              </Typography>
+              {renderField("state", "text")}
+              {errors.address && (
+                <Typography color="error" variant="body2">
+                  {errors.address}
+                </Typography>
+              )}
+            </Box>
+
+            {/* ZIP CODE*/}
+            <Box>
+              <Typography
+                className="field-descriptor"
+                sx={{
+                  ...fieldLabelStyles,
+                  position: "relative",
+                  top: isEditing ? "-19px" : "0",
+                }}
+              >
+                ZIP CODE <span className="required-asterisk">*</span>
+              </Typography>
+              {renderField("zipCode", "text")}
+              {errors.address && (
+                <Typography color="error" variant="body2">
+                  {errors.address}
+                </Typography>
+              )}
+            </Box>
+
+            {/* Quadrant */}
+            <Box>
+              <Typography
+                className="field-descriptor"
+                sx={{
+                  ...fieldLabelStyles,
+                  position: "relative",
+                  top: isEditing ? "-19px" : "0",
+                }}
+              >
+                QUADRANT <span className="required-asterisk">*</span>
+              </Typography>
+              {renderField("quadrant", "text")}
               {errors.address && (
                 <Typography color="error" variant="body2">
                   {errors.address}
