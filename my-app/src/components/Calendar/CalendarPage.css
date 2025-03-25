@@ -5,7 +5,8 @@
   box-sizing: border-box;
 }
 
-html, body {
+html,
+body {
   height: 100%;
   font-family: Arial, sans-serif;
 }
@@ -36,7 +37,7 @@ html, body {
   margin: 0 5px;
   padding: 3px 8px;
   font-size: 0.9em;
-  background-color: #257E68;
+  background-color: #257e68;
   color: white;
   border: none;
   border-radius: 3px;
@@ -99,7 +100,7 @@ html, body {
   overflow-y: auto;
 }
 
-.calendar_default_event_inner{
+.calendar_default_event_inner {
   color: white;
 }
 
@@ -118,8 +119,8 @@ html, body {
   padding: 8px;
 }
 
-.calendar-default-event-inner{
-  background: rgba(0, 0, 0, 0.1)
+.calendar-default-event-inner {
+  background: rgba(0, 0, 0, 0.1);
 }
 
 .hour-label {
@@ -129,7 +130,7 @@ html, body {
 .event-detail {
   height: 1.5rem;
   width: 9.375rem;
-  background-color: #257E68;
+  background-color: #257e68;
   color: white;
   padding: 5px 10px;
   border-radius: 20px;
@@ -138,5 +139,5 @@ html, body {
 
 .calendar_default_timeheader_cell_inner {
   text-align: center;
-  font-weight: bold; 
+  font-weight: bold;
 }
