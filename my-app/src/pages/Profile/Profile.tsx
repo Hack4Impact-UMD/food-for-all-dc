@@ -322,7 +322,10 @@ const Profile = () => {
     if (!clientProfile.firstName.trim())
       newErrors.firstName = "First Name is required";
     if (!clientProfile.lastName.trim()) newErrors.lastName = "Last Name is required";
-    if (!clientProfile.address1.trim()) newErrors.address = "Address is required";
+    if (!clientProfile.address1.trim()) newErrors.address = "Address 1 is required";
+    if(!clientProfile.zipCode) newErrors.zipCode = "Zip code is required";
+    if(!clientProfile.city) newErrors.city = "City is required";
+    if(!clientProfile.state) newErrors.state = "State is required";
     if (!clientProfile.dob) newErrors.dob = "Date of Birth is required";
     if (!clientProfile.deliveryFreq.trim())
       newErrors.deliveryFreq = "Delivery Frequency is required";
@@ -863,9 +866,9 @@ const Profile = () => {
                 ADDRESS 1<span className="required-asterisk">*</span>
               </Typography>
               {renderField("address1", "text")}
-              {errors.address && (
+              {errors.address1 && (
                 <Typography color="error" variant="body2">
-                  {errors.address}
+                  {errors.address1}
                 </Typography>
               )}
             </Box>
@@ -880,14 +883,9 @@ const Profile = () => {
                   top: isEditing ? "-19px" : "0",
                 }}
               >
-                ADDRESS 2 <span className="required-asterisk">*</span>
+                ADDRESS 2 
               </Typography>
               {renderField("address2", "text")}
-              {errors.address && (
-                <Typography color="error" variant="body2">
-                  {errors.address}
-                </Typography>
-              )}
             </Box>
 
             {/* City */}
@@ -903,9 +901,9 @@ const Profile = () => {
                 CITY <span className="required-asterisk">*</span>
               </Typography>
               {renderField("city", "text")}
-              {errors.address && (
+              {errors.city && (
                 <Typography color="error" variant="body2">
-                  {errors.address}
+                  {errors.city}
                 </Typography>
               )}
             </Box>
@@ -923,9 +921,9 @@ const Profile = () => {
                 STATE <span className="required-asterisk">*</span>
               </Typography>
               {renderField("state", "text")}
-              {errors.address && (
+              {errors.state && (
                 <Typography color="error" variant="body2">
-                  {errors.address}
+                  {errors.state}
                 </Typography>
               )}
             </Box>
@@ -943,9 +941,9 @@ const Profile = () => {
                 ZIP CODE <span className="required-asterisk">*</span>
               </Typography>
               {renderField("zipCode", "text")}
-              {errors.address && (
+              {errors.zipCode && (
                 <Typography color="error" variant="body2">
-                  {errors.address}
+                  {errors.zipCode}
                 </Typography>
               )}
             </Box>
@@ -960,14 +958,9 @@ const Profile = () => {
                   top: isEditing ? "-19px" : "0",
                 }}
               >
-                QUADRANT <span className="required-asterisk">*</span>
+                QUADRANT 
               </Typography>
               {renderField("quadrant", "text")}
-              {errors.address && (
-                <Typography color="error" variant="body2">
-                  {errors.address}
-                </Typography>
-              )}
             </Box>
 
             {/* Gender */}
