@@ -15,6 +15,7 @@ import Spreadsheet from "./components/Spreadsheet/Spreadsheet";
 import Profile from './pages/Profile/Profile';
 import BasePage from './pages/Base/Base';
 import CreateUsers from './pages/CreateUsers/CreateUsers';
+import DeliverySpreadsheet from "./pages/Delivery/DeliverySpreadsheet";
 
 
 function App() {
@@ -52,6 +53,15 @@ function App() {
           element={
             <BasePage>
               <Spreadsheet />
+            </BasePage>
+          }
+        />
+
+        <Route
+          path="/deliveryAssignment"
+          element={
+            <BasePage>
+              <DeliverySpreadsheet />
             </BasePage>
           }
         />
