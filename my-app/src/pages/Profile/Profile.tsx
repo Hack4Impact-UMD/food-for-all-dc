@@ -111,6 +111,7 @@ const Profile = () => {
     },
     lifeChallenges: "",
     notes: "",
+    notesTimestamp: null,
     lifestyleGoals: "",
     language: "",
     createdAt: new Date(),
@@ -239,6 +240,10 @@ const Profile = () => {
     deliveryDetails: DeliveryDetails;
     lifeChallenges: string;
     notes: string;
+    notesTimestamp?: {
+      notes: string,
+      timestamp: Date
+    } | null;
     lifestyleGoals: string;
     language: string;
     createdAt: Date;
@@ -421,6 +426,14 @@ const Profile = () => {
     return Object.keys(newErrors).length === 0;
   };
 
+  const checkIfNotesExists = () => {
+    return clientProfile.notes?.trim()
+      ? { notes: clientProfile.notes, timestamp: new Date() }
+      : null;
+  };
+
+  const checkIfNotesChanged = () => { }
+
   const handleSave = async () => {
     if (!validateProfile()) {
       console.log("Invalid Profile");
@@ -434,7 +447,8 @@ const Profile = () => {
         tags: tags, // Sync the tags state with clientProfile
         updatedAt: new Date(),
         total: clientProfile.adults + clientProfile.children,
-        ward: await getWard(clientProfile.address)
+        ward: await getWard(clientProfile.address),
+        notesTimestamp: checkIfNotesExists()
       };
 
       const sortedAllTags = [...allTags].sort((a, b) => a.localeCompare(b));
@@ -467,6 +481,7 @@ const Profile = () => {
         await setDoc(doc(db, "tags", "oGuiR2dQQeOBXHCkhDeX"), { tags: sortedAllTags }, {
           merge: true,
         });
+        setClientProfile(updatedProfile);
         setEditMode(false);
         setIsEditing(false);
         // Reset all field edit states
@@ -1023,6 +1038,13 @@ const Profile = () => {
                 ADMIN NOTES
               </Typography>
               {renderField("notes", "textarea")}
+              {clientProfile.notesTimestamp ? (
+                <p id="timestamp">
+                  Last edited: {clientProfile.notesTimestamp?.timestamp instanceof Timestamp &&
+                    clientProfile.notesTimestamp.timestamp.toDate().toLocaleString()}
+                </p>) : (isEditing ? null : (<p id="timestamp">
+                  Last edited: {clientProfile.createdAt instanceof Timestamp && clientProfile.createdAt.toDate().toLocaleString()}
+                </p>))}
             </Box>
 
             {/* Life Challenges */}

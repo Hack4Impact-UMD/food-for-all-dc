@@ -153,6 +153,7 @@
   color: #257e68;
   text-underline-position: under;
 }
+
 .green {
   color: #257e68;
   margin: 0px;
@@ -288,6 +289,10 @@ dd {
   border-radius: 5px;
 }
 
+#timestamp {
+  text-align: right;
+  font-size: small;
+}
 
 /* Mobile Responsiveness */
 
