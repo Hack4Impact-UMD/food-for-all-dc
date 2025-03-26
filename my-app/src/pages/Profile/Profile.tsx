@@ -135,6 +135,7 @@ const Profile = () => {
   const [ward, setWard] = useState(clientProfile.ward);
   const [isEditing, setIsEditing] = useState(false); // Global editing state
   const [lastDeliveryDate, setLastDeliveryDate] = useState<string | null>(null);
+  const [prevNotes, setPrevNotes] = useState(clientProfile.notes);
   const params = useParams(); // Params will return an object containing route params (like { id: 'some-id' })
   const id: string | null = params.id ?? null; // Use optional chaining to get the id or null if undefined
 
@@ -214,7 +215,7 @@ const Profile = () => {
             limit(1)
           );
           const querySnapshot = await getDocs(q);
-  
+
           if (!querySnapshot.empty) {
             const lastEvent = querySnapshot.docs[0].data();
             const deliveryDate = lastEvent.deliveryDate.toDate();
@@ -228,9 +229,13 @@ const Profile = () => {
         }
       }
     };
-  
+
     fetchLastDeliveryDate();
   }, [clientId]);
+
+  useEffect(() => {
+    setPrevNotes(clientProfile.notes);
+  }, [clientProfile.notes]);
 
   // Improved type definitions
   type DietaryRestrictions = {
@@ -398,6 +403,10 @@ const Profile = () => {
   ) => {
     const { name, value } = e.target;
 
+    setIsSaved(false);
+
+    console.log("isSaved after change:", isSaved);
+
     if (name === "dob") {
       const newDob = e.target.value; // this will be in the format YYYY-MM-DD
       setClientProfile((prevState) => ({
@@ -458,13 +467,21 @@ const Profile = () => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const checkIfNotesExists = () => {
-    return clientProfile.notes?.trim()
-      ? { notes: clientProfile.notes, timestamp: new Date() }
-      : null;
+  const checkIfNotesExists = (notes: string, prevNotesTimestamp: { notes: string; timestamp: Date } | null) => {
+    if (!prevNotesTimestamp && notes.trim() !== "") {
+      return { notes, timestamp: new Date() };
+    }
+
+    return prevNotesTimestamp;
   };
 
-  const checkIfNotesChanged = () => { }
+  const checkIfNotesChanged = (prevNotes: string, newNotes: string, prevNotesTimestamp: { notes: string; timestamp: Date } | null) => {
+    if (prevNotes.trim() !== newNotes.trim()) {
+      return { notes: newNotes, timestamp: new Date() };
+    }
+
+    return prevNotesTimestamp;
+  }
 
   const handleSave = async () => {
     if (!validateProfile()) {
@@ -473,6 +490,11 @@ const Profile = () => {
     }
 
     try {
+      const currNotes = clientProfile.notes;
+
+      let updatedNotesTimestamp = checkIfNotesExists(currNotes, clientProfile.notesTimestamp ?? null);
+      updatedNotesTimestamp = checkIfNotesChanged(prevNotes, currNotes, updatedNotesTimestamp);
+
       // Update the clientProfile object with the latest tags state
       const updatedProfile = {
         ...clientProfile,
@@ -480,7 +502,7 @@ const Profile = () => {
         updatedAt: new Date(),
         total: clientProfile.adults + clientProfile.children,
         ward: await getWard(clientProfile.address),
-        notesTimestamp: checkIfNotesExists()
+        notesTimestamp: updatedNotesTimestamp
       };
 
       const sortedAllTags = [...allTags].sort((a, b) => a.localeCompare(b));
@@ -498,6 +520,8 @@ const Profile = () => {
         await setDoc(doc(db, "clients", newUid), newProfile);
         await setDoc(doc(db, "tags", "oGuiR2dQQeOBXHCkhDeX"), { tags: sortedAllTags });
         setClientProfile(newProfile);
+        setIsSaved(true);
+        console.log("isSaved after change:", isSaved);
         setIsNewProfile(false);
         setEditMode(false);
         setIsEditing(false);
@@ -514,6 +538,8 @@ const Profile = () => {
           merge: true,
         });
         setClientProfile(updatedProfile);
+        setIsSaved(true);
+        console.log("isSaved after change:", isSaved);
         setEditMode(false);
         setIsEditing(false);
         // Reset all field edit states
@@ -673,7 +699,7 @@ const Profile = () => {
           );
       }
     }
-    
+
     return (
       <Typography variant="body1" sx={{ fontWeight: 600 }}>
         {renderFieldValue(fieldPath, value)}
@@ -763,18 +789,18 @@ const Profile = () => {
     }
 
     const selectedRestrictions = Object.entries(restrictions)
-    .filter(([key, value]) => value === true && typeof value === "boolean")
-    .map(([key]) => key.replace(/([A-Z])/g, " $1").trim())
-    .join(", ") || "None";
+      .filter(([key, value]) => value === true && typeof value === "boolean")
+      .map(([key]) => key.replace(/([A-Z])/g, " $1").trim())
+      .join(", ") || "None";
 
-  return (
-    <CustomTextField
-      name="dietaryRestrictionsSummary"
-      value={selectedRestrictions}
-      disabled
-      fullWidth
-    />
-  );
+    return (
+      <CustomTextField
+        name="dietaryRestrictionsSummary"
+        value={selectedRestrictions}
+        disabled
+        fullWidth
+      />
+    );
   };
 
   // Updated handler for dietary restrictions
@@ -1097,13 +1123,12 @@ const Profile = () => {
                 ADMIN NOTES
               </Typography>
               {renderField("notes", "textarea")}
-              {clientProfile.notesTimestamp ? (
+              {isSaved && (
                 <p id="timestamp">
-                  Last edited: {clientProfile.notesTimestamp?.timestamp instanceof Timestamp &&
-                    clientProfile.notesTimestamp.timestamp.toDate().toLocaleString()}
-                </p>) : (isEditing ? null : (<p id="timestamp">
-                  Last edited: {clientProfile.createdAt instanceof Timestamp && clientProfile.createdAt.toDate().toLocaleString()}
-                </p>))}
+                  Last edited: {(clientProfile.notesTimestamp?.timestamp instanceof Timestamp ?
+                    clientProfile.notesTimestamp.timestamp.toDate() : clientProfile.createdAt instanceof Timestamp && clientProfile.createdAt.toDate()).toLocaleString()}
+                </p>
+              )}
             </Box>
 
             {/* Life Challenges */}
