@@ -316,7 +316,6 @@ const fields: Field[] = [
     navigate("/profile")
   }
   
-  //  THIS IS WHERE I NEED TO BE EDITING RIGHT NOW
   // Filter rows based on search query
 
   let visibleRows = rows.filter(
@@ -324,10 +323,8 @@ const fields: Field[] = [
       fields.some((field) => {
         let fieldValue: any;
         if (field.key === "custom") {
-          // Pass the custom property key (e.g., "dob", "language") to the compute function
           fieldValue = field.compute ? field.compute(row, customProperty) : row[customProperty];
         } else { 
-          // Assign to the outer fieldValue rather than creating a new variable
           fieldValue = field.compute
             ? field.compute(row)
             : row[field.key as keyof RowData];
@@ -337,10 +334,6 @@ const fields: Field[] = [
           fieldValue.toString().toLowerCase().includes(searchQuery.toLowerCase())
         );
       }) 
-      // ||
-      // row.dietaryRestriction
-      //   .toLowerCase()
-      //   .includes(searchQuery.toLowerCase())
   );
 
   useEffect(() => {
