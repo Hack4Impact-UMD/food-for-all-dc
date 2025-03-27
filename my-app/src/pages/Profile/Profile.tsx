@@ -135,7 +135,8 @@ const Profile = () => {
   const [ward, setWard] = useState(clientProfile.ward);
   const [isEditing, setIsEditing] = useState(false); // Global editing state
   const [lastDeliveryDate, setLastDeliveryDate] = useState<string | null>(null);
-  const [prevNotes, setPrevNotes] = useState(clientProfile.notes);
+  const [profileLoaded, setProfileLoaded] = useState(false); // Track if profile is loaded
+  const [prevNotes, setPrevNotes] = useState("");
   const params = useParams(); // Params will return an object containing route params (like { id: 'some-id' })
   const id: string | null = params.id ?? null; // Use optional chaining to get the id or null if undefined
 
@@ -157,6 +158,8 @@ const Profile = () => {
       navigate("/");
     }
   }, [])
+
+
 
   //get list of all tags
   useEffect(() => {
@@ -186,8 +189,14 @@ const Profile = () => {
       setClientId(id);
       getProfileById(id).then((profileData) => {
         if (profileData) {
-          setTags(profileData.tags.filter((tag) => { return allTags.includes(tag) }) || []);
+          setTags(profileData.tags.filter((tag) => allTags.includes(tag)) || []);
           setClientProfile(profileData);
+  
+          // Set prevNotes only when the profile is loaded from Firebase
+          if (!profileLoaded) {
+            setPrevNotes(profileData.notes || ""); // Set the original notes
+            setProfileLoaded(true); // Mark the profile as loaded
+          }
         } else {
           console.log("No profile found for ID:", id);
         }
@@ -201,7 +210,7 @@ const Profile = () => {
       });
       setTags([]);
     }
-  }, [id, allTags]);
+  }, [id, allTags, profileLoaded]); // Include profileLoaded to prevent re-setting prevNotes
 
   useEffect(() => {
     const fetchLastDeliveryDate = async () => {
@@ -232,10 +241,6 @@ const Profile = () => {
 
     fetchLastDeliveryDate();
   }, [clientId]);
-
-  useEffect(() => {
-    setPrevNotes(clientProfile.notes);
-  }, [clientProfile.notes]);
 
   // Improved type definitions
   type DietaryRestrictions = {
@@ -475,38 +480,42 @@ const Profile = () => {
     return prevNotesTimestamp;
   };
 
-  const checkIfNotesChanged = (prevNotes: string, newNotes: string, prevNotesTimestamp: { notes: string; timestamp: Date } | null) => {
+  const checkIfNotesChanged = (
+    prevNotes: string,
+    newNotes: string,
+    prevNotesTimestamp: { notes: string; timestamp: Date } | null
+  ) => {
     if (prevNotes.trim() !== newNotes.trim()) {
       return { notes: newNotes, timestamp: new Date() };
     }
-
     return prevNotesTimestamp;
-  }
+  };
 
   const handleSave = async () => {
     if (!validateProfile()) {
       console.log("Invalid Profile");
       return;
     }
-
+  
     try {
       const currNotes = clientProfile.notes;
-
+  
       let updatedNotesTimestamp = checkIfNotesExists(currNotes, clientProfile.notesTimestamp ?? null);
       updatedNotesTimestamp = checkIfNotesChanged(prevNotes, currNotes, updatedNotesTimestamp);
-
+  
+      console.log(prevNotes);
       // Update the clientProfile object with the latest tags state
       const updatedProfile = {
         ...clientProfile,
         tags: tags, // Sync the tags state with clientProfile
+        notesTimestamp: updatedNotesTimestamp, // Update the notesTimestamp
         updatedAt: new Date(),
         total: clientProfile.adults + clientProfile.children,
         ward: await getWard(clientProfile.address),
-        notesTimestamp: updatedNotesTimestamp
       };
-
+  
       const sortedAllTags = [...allTags].sort((a, b) => a.localeCompare(b));
-
+  
       if (isNewProfile) {
         // Generate new UID for new profile
         const newUid = await generateUID();
@@ -515,19 +524,13 @@ const Profile = () => {
           uid: newUid,
           createdAt: new Date(),
         };
-
+  
         // Save to Firestore for new profile
         await setDoc(doc(db, "clients", newUid), newProfile);
         await setDoc(doc(db, "tags", "oGuiR2dQQeOBXHCkhDeX"), { tags: sortedAllTags });
         setClientProfile(newProfile);
-        setIsSaved(true);
-        console.log("isSaved after change:", isSaved);
         setIsNewProfile(false);
-        setEditMode(false);
-        setIsEditing(false);
         console.log("New profile created with ID: ", newUid);
-
-        // Navigate to the newly created profile
         navigate(`/profile/${newUid}`);
       } else {
         // Update existing profile
@@ -538,16 +541,12 @@ const Profile = () => {
           merge: true,
         });
         setClientProfile(updatedProfile);
-        setIsSaved(true);
-        console.log("isSaved after change:", isSaved);
-        setEditMode(false);
-        setIsEditing(false);
-        // Reset all field edit states
-        setFieldEditStates({});
-
-        // Navigate to the updated profile page
-        navigate(`/profile/${clientProfile.uid}`);
       }
+  
+      setPrevNotes(currNotes); // Update the previous notes state
+      setIsSaved(true);
+      setEditMode(false);
+      setIsEditing(false);
     } catch (e) {
       console.error("Error saving document: ", e);
     }
@@ -1123,12 +1122,14 @@ const Profile = () => {
                 ADMIN NOTES
               </Typography>
               {renderField("notes", "textarea")}
-              {isSaved && (
-                <p id="timestamp">
-                  Last edited: {(clientProfile.notesTimestamp?.timestamp instanceof Timestamp ?
-                    clientProfile.notesTimestamp.timestamp.toDate() : clientProfile.createdAt instanceof Timestamp && clientProfile.createdAt.toDate()).toLocaleString()}
-                </p>
-              )}
+              {(clientProfile.notesTimestamp?.timestamp || clientProfile.createdAt) && (
+  <p id="timestamp">
+    Last edited: {(clientProfile.notesTimestamp?.timestamp instanceof Timestamp
+      ? clientProfile.notesTimestamp.timestamp.toDate()
+      : clientProfile.notesTimestamp?.timestamp || clientProfile.createdAt
+    ).toLocaleString()}
+  </p>
+)}
             </Box>
 
             {/* Life Challenges */}
