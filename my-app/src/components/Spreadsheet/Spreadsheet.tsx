@@ -36,6 +36,7 @@ import {
 } from "firebase/firestore";
 import { auth } from "../../auth/firebaseConfig";
 import { onAuthStateChanged } from "firebase/auth";
+import { ClientProfile } from "../../types/types";
 
 // Define TypeScript types for row data
 interface RowData {
@@ -62,6 +63,22 @@ interface RowData {
       vegetarian: boolean;
     };
   };
+  adults: number;
+  children: number;
+  total: number; // Adults + Children
+  gender: "Male" | "Female" | "Other";
+  ethnicity: string;
+  lifeChallenges?: string; // Optional
+  notes?: string; // Optional
+  lifestyleGoals?: string; // Optional
+  language: string;
+  streetName: string;
+  zipCode: string;
+  deliveryFreq: string;
+  // createdAt: Date; // CONVERT DATES LATER
+  // updatedAt: Date;
+  // dob: Date; // Date of birth
+
 }
 
 // Define a type for fields that can either be computed or direct keys of RowData
@@ -89,9 +106,50 @@ type Field =
       label: string;
       type: string;
       compute: (data: RowData) => string;
-    };
+    }
+  | {
+    key: "custom";
+    label: string;
+    type: "text";
+    compute: (data: RowData, customKey: keyof RowData) => string;
+  };
+  
 
-// Define fields for table columns
+
+// Type Guard to check if a field is a regular field
+const isRegularField = (
+  field: Field
+): field is Extract<Field, { key: keyof RowData }> => {
+  return field.key !== "fullname";
+};
+
+const Spreadsheet: React.FC = () => {
+  const [rows, setRows] = useState<RowData[]>([]);
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [editingRowId, setEditingRowId] = useState<string | null>(null);
+
+  const [menuAnchorEl, setMenuAnchorEl] = useState<null | HTMLElement>(null);
+  const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
+
+  const [customProperty, setCustomProperty] = useState<keyof RowData>("ethnicity");
+  
+  const navigate = useNavigate();
+  
+  //Route Protection
+  React.useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user:any) => {
+      if (!user) {
+        console.log("No user is signed in, redirecting to /");
+        navigate("/");
+      } 
+    });
+  
+    // Cleanup the listener when the component unmounts
+    return () => unsubscribe();
+  }, [navigate]);
+
+  // Define fields for table columns
 const fields: Field[] = [
   {
     key: "fullname",
@@ -128,38 +186,16 @@ const fields: Field[] = [
     type: "text",
     compute: (data: RowData) => data.deliveryDetails.deliveryInstructions || "None",
   },
-];
-
-// Type Guard to check if a field is a regular field
-const isRegularField = (
-  field: Field
-): field is Extract<Field, { key: keyof RowData }> => {
-  return field.key !== "fullname";
-};
-
-const Spreadsheet: React.FC = () => {
-  const [rows, setRows] = useState<RowData[]>([]);
-  const [searchQuery, setSearchQuery] = useState<string>("");
-  const [editingRowId, setEditingRowId] = useState<string | null>(null);
-
-  const [menuAnchorEl, setMenuAnchorEl] = useState<null | HTMLElement>(null);
-  const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
-  
-  const navigate = useNavigate();
-  
-  //Route Protection
-  React.useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user:any) => {
-      if (!user) {
-        console.log("No user is signed in, redirecting to /");
-        navigate("/");
-      } 
-    });
-  
-    // Cleanup the listener when the component unmounts
-    return () => unsubscribe();
-  }, [navigate]);
+  {
+    key: "custom",
+    label: customProperty.toUpperCase(), // e.g., "DOB" or "LANGUAGE"
+    type: "text",
+    compute: (data: RowData, key) => {
+      // Return the custom value based on the selected key
+      return data[key]?.toString() ?? "N/A";
+    },
+  },
+];  
     
   
   // Fetch data from Firebase without authentication checks
@@ -299,10 +335,15 @@ const Spreadsheet: React.FC = () => {
   let visibleRows = rows.filter(
     (row) =>
       fields.some((field) => {
+        let fieldValue: any;
+        if (field.key === "custom") {
+          // Pass the custom property key (e.g., "dob", "language") to the compute function
+          fieldValue = field.compute ? field.compute(row, customProperty) : row[customProperty];
+        } else { 
         const fieldValue = field.compute
           ? field.compute(row)
           : row[field.key as keyof RowData];
-        
+        }
         console.log("welcome")
         console.log(fieldValue && typeof fieldValue)
         console.log(fieldValue && fieldValue)
@@ -440,6 +481,7 @@ const Spreadsheet: React.FC = () => {
                       {field.key === "phone"}
                       {field.key === "deliveryDetails.dietaryRestrictions"}
                       {field.key === "deliveryDetails.deliveryInstructions"}
+                      {/* {field.key === "custom"} */}
                     </h2>
                   </TableCell>
                 ))}
@@ -491,7 +533,7 @@ const Spreadsheet: React.FC = () => {
               `${row.firstName} ${row.lastName}`
             )
           ) : (
-            field.compute ? field.compute(row) : row[field.key]
+            field.compute ? (field.key === "custom" ? field.compute(row, customProperty) : field.compute(row)) : row[field.key]
           )}
         </TableCell>
       ))}
