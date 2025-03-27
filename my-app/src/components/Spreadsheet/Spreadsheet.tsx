@@ -18,6 +18,7 @@ import {
   Menu,
   MenuItem,
   TextField,
+  Select,
 } from "@mui/material";
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
@@ -36,7 +37,7 @@ import {
 } from "firebase/firestore";
 import { auth } from "../../auth/firebaseConfig";
 import { onAuthStateChanged } from "firebase/auth";
-import { ClientProfile } from "../../types/types";
+
 
 // Define TypeScript types for row data
 interface RowData {
@@ -63,21 +64,7 @@ interface RowData {
       vegetarian: boolean;
     };
   };
-  adults: number;
-  children: number;
-  total: number; // Adults + Children
-  gender: "Male" | "Female" | "Other";
   ethnicity: string;
-  lifeChallenges?: string; // Optional
-  notes?: string; // Optional
-  lifestyleGoals?: string; // Optional
-  language: string;
-  streetName: string;
-  zipCode: string;
-  deliveryFreq: string;
-  // createdAt: Date; // CONVERT DATES LATER
-  // updatedAt: Date;
-  // dob: Date; // Date of birth
 
 }
 
@@ -340,22 +327,14 @@ const fields: Field[] = [
           // Pass the custom property key (e.g., "dob", "language") to the compute function
           fieldValue = field.compute ? field.compute(row, customProperty) : row[customProperty];
         } else { 
-        const fieldValue = field.compute
-          ? field.compute(row)
-          : row[field.key as keyof RowData];
+          // Assign to the outer fieldValue rather than creating a new variable
+          fieldValue = field.compute
+            ? field.compute(row)
+            : row[field.key as keyof RowData];
         }
-        console.log("welcome")
-        console.log(fieldValue && typeof fieldValue)
-        console.log(fieldValue && fieldValue)
-        // console.log(fieldValue && fieldValue.toString().toLowerCase().includes(searchQuery.toLowerCase()))
-        console.log(fieldValue && fieldValue.toString().toLowerCase().includes("something"))
         return (
           fieldValue &&
-          fieldValue
-            .toString()
-            .toLowerCase()
-            // .includes(query.toLowerCase())
-            .includes(searchQuery.toLowerCase())
+          fieldValue.toString().toLowerCase().includes(searchQuery.toLowerCase())
         );
       }) 
       // ||
@@ -474,15 +453,25 @@ const fields: Field[] = [
               <TableRow>
                 {fields.map((field) => (
                   <TableCell className="table-header" key={field.key}>
-                    <h2>
-                      {field.label}
-                      {field.key === "fullname"}
-                      {field.key === "address" }
-                      {field.key === "phone"}
-                      {field.key === "deliveryDetails.dietaryRestrictions"}
-                      {field.key === "deliveryDetails.deliveryInstructions"}
-                      {/* {field.key === "custom"} */}
-                    </h2>
+                    {field.key === "custom" ? (
+          // Render dropdown for custom column label
+          <Select
+            value={customProperty}
+            onChange={(e) => setCustomProperty(e.target.value as keyof RowData)}
+          >
+            <MenuItem value="ethnicity">Ethnicity</MenuItem>
+            <MenuItem value="language">Language</MenuItem>
+            <MenuItem value="dob">DOB</MenuItem>
+            <MenuItem value="gender">Gender</MenuItem>
+            <MenuItem value="zipCode">Zip Code</MenuItem>
+            <MenuItem value="streetName">Street Name</MenuItem>
+            <MenuItem value="ward">Ward</MenuItem>
+            <MenuItem value="none">None</MenuItem>
+            
+          </Select>
+        ) : (
+          <h2>{field.label}</h2>
+        )}
                   </TableCell>
                 ))}
                 <TableCell className="table-header"></TableCell>
