@@ -408,9 +408,8 @@ const Profile = () => {
   ) => {
     const { name, value } = e.target;
 
+    // Always mark as unsaved when a change occurs
     setIsSaved(false);
-
-    console.log("isSaved after change:", isSaved);
 
     if (name === "dob") {
       const newDob = e.target.value; // this will be in the format YYYY-MM-DD
@@ -434,8 +433,12 @@ const Profile = () => {
         ...prevState,
         [name]: value,
       }));
+      
+      // Special handling for notes field
+      if (name === "notes") {
+        console.log("Notes changed to:", value);
+      }
     }
-
   };
 
   const validateProfile = () => {
@@ -485,7 +488,9 @@ const Profile = () => {
     newNotes: string,
     prevNotesTimestamp: { notes: string; timestamp: Date } | null
   ) => {
+    // Compare trimmed versions of notes to avoid whitespace issues
     if (prevNotes.trim() !== newNotes.trim()) {
+      console.log("Notes changed from:", prevNotes.trim(), "to:", newNotes.trim());
       return { notes: newNotes, timestamp: new Date() };
     }
     return prevNotesTimestamp;
@@ -503,7 +508,10 @@ const Profile = () => {
       let updatedNotesTimestamp = checkIfNotesExists(currNotes, clientProfile.notesTimestamp ?? null);
       updatedNotesTimestamp = checkIfNotesChanged(prevNotes, currNotes, updatedNotesTimestamp);
   
-      console.log(prevNotes);
+      console.log("Previous notes:", prevNotes);
+      console.log("Current notes:", currNotes);
+      console.log("Timestamp updated:", updatedNotesTimestamp !== clientProfile.notesTimestamp);
+      
       // Update the clientProfile object with the latest tags state
       const updatedProfile = {
         ...clientProfile,
@@ -543,7 +551,11 @@ const Profile = () => {
         setClientProfile(updatedProfile);
       }
   
-      setPrevNotes(currNotes); // Update the previous notes state
+      // Make sure we update prevNotes with the current notes value to track changes properly
+      setPrevNotes(currNotes); 
+      console.log("Updated prevNotes to:", currNotes);
+      
+      // Update UI state
       setIsSaved(true);
       setEditMode(false);
       setIsEditing(false);
@@ -1122,7 +1134,7 @@ const Profile = () => {
                 ADMIN NOTES
               </Typography>
               {renderField("notes", "textarea")}
-              {(clientProfile.notesTimestamp?.timestamp || clientProfile.createdAt) && (
+              {isSaved && clientProfile.notes.trim() !== "" && (
   <p id="timestamp">
     Last edited: {(clientProfile.notesTimestamp?.timestamp instanceof Timestamp
       ? clientProfile.notesTimestamp.timestamp.toDate()
