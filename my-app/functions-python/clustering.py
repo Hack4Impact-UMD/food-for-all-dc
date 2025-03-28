@@ -145,6 +145,11 @@ def cluster_deliveries_k_medoids(req: https_fn.Request) -> https_fn.Response:
     distance_matrix = construct_haversine_distance_matrix(coords)
     #distance_matrix = construct_distance_matrix(coords)
 
+    if drivers_count > len(coords):
+        print("Warning: Number of drivers exceeds the number of deliveries. Adjusting drivers count to match deliveries.")
+        drivers_count = len(coords)  # Limit clusters to the number of deliveries
+
+
     kmedoids = KMedoids(n_clusters=drivers_count, method="fasterpam").fit(
         distance_matrix
     )
@@ -171,9 +176,10 @@ def cluster_deliveries_k_means(req: https_fn.Request) -> https_fn.Response:
     min_deliveries = req.min_deliveries
     max_deliveries = req.max_deliveries
 
-    # Handle case where drivers > deliveries
     if drivers_count > len(coords):
+        print("Warning: Number of drivers exceeds the number of deliveries. Adjusting drivers count to match deliveries.")
         drivers_count = len(coords)  # Limit clusters to the number of deliveries
+
 
     size_max = max(max_deliveries, (len(coords) + drivers_count - 1) // drivers_count)
 
