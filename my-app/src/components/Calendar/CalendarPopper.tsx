@@ -11,8 +11,9 @@ import {
   MenuItem,
   Fade,
 } from "@mui/material";
-import { collection, addDoc, limit, doc, setDoc } from "firebase/firestore";
+import { doc, setDoc } from "firebase/firestore";
 import { db } from "../../auth/firebaseConfig";
+import { getDefaultLimit } from "./CalendarUtils";
 
 interface DailyLimits {
   id: string;
@@ -28,6 +29,8 @@ interface CalendarPopperProps {
   setDailyLimits: (update: (prev: DailyLimits[]) => DailyLimits[]) => void;
   fetchDailyLimits: () => Promise<void>;
 }
+
+const LIMITS_OF_THE_WEEK = [60, 60, 60, 60, 60, 90, 90, 60]
 
 const CalendarPopper = ({
   anchorEl,
@@ -64,6 +67,11 @@ const CalendarPopper = ({
 
     if (limitEntry) {
       setNewLimit(limitEntry.limit);
+    }else { 
+      // Set the initial value based on weekday defaults:
+      // Assumes DayPilot.Date.getDayOfWeek() returns 1=Monday,...,7=Sunday.
+      const defaultLimit = getDefaultLimit(date)
+    setNewLimit(defaultLimit);
     }
   };
 
@@ -74,6 +82,8 @@ const CalendarPopper = ({
     });
   };
 
+
+
   const virtualAnchor = useMemo(() => {
     if (!clickPosition) return undefined;
 
@@ -83,6 +93,41 @@ const CalendarPopper = ({
     };
   }, [clickPosition]);
 
+    // Bulk update function: updates all dates in the current calendar range
+  // that have the same weekday as the currently edited date.
+  // const handleApplyToAll = async () => {
+  //   if (!limitEditDate || !calendarConfig.startDate || !calendarConfig.endDate)
+  //     return;
+
+  //   const selectedWeekday = limitEditDate.getDayOfWeek();
+  //   // Convert startDate and endDate from calendarConfig to DayPilot.Date objects.
+  //   const start = DayPilot.Date.fromString(calendarConfig.startDate);
+  //   const end = DayPilot.Date.fromString(calendarConfig.endDate);
+  //   let newDailyLimits = [...dailyLimits];
+
+  //   // Iterate over the date range
+  //   for (let d = start; d <= end; d = d.addDays(1)) {
+  //     if (d.getDayOfWeek() === selectedWeekday) {
+  //       const dateKey = d.toString("yyyy-MM-dd");
+  //       const docRef = doc(db, "dailyLimits", dateKey);
+  //       await setDoc(
+  //         docRef,
+  //         { limit: newLimit, date: dateKey },
+  //         { merge: true }
+  //       );
+  //       const index = newDailyLimits.findIndex(item => item.date === dateKey);
+  //       if (index !== -1) {
+  //         newDailyLimits[index] = { ...newDailyLimits[index], limit: newLimit };
+  //       } else {
+  //         newDailyLimits.push({ id: dateKey, date: dateKey, limit: newLimit });
+  //       }
+  //     }
+  //   }
+  //   setDailyLimits(newDailyLimits);
+  //   setLimitEditDate(null);
+  //   setClickPosition(null);
+  // };
+
   if (viewType === "Month") {
     const customCalendarConfig = {
       ...calendarConfig,
@@ -91,7 +136,8 @@ const CalendarPopper = ({
         const cellDate = args.cell.start;
         const dateKey = cellDate.toString("yyyy-MM-dd");
         const limitEntry = dailyLimits.find((dl) => dl.date === dateKey);
-        const limit = limitEntry ? limitEntry.limit : 60;
+        const defaultLimit = getDefaultLimit(cellDate)
+        const limit = limitEntry ? limitEntry.limit : defaultLimit;
 
         const eventCount = calendarConfig.events.filter((event: any) => {
           const eventDateString = event.start.toString("yyyy-MM-dd");
