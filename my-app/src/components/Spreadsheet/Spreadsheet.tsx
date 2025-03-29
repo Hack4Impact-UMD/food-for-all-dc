@@ -451,6 +451,9 @@ const fields: Field[] = [
           <Select
             value={customProperty}
             onChange={(e) => setCustomProperty(e.target.value as keyof RowData)}
+            sx={{
+              color: '#2E5B4C'
+            }}
           >
             <MenuItem value="ethnicity">Ethnicity</MenuItem>
             <MenuItem value="language">Language</MenuItem>
