@@ -90,7 +90,7 @@ const Profile = () => {
     lastName: "",
     streetName: "",
     zipCode: "",
-    address1: "",
+    address: "",
     address2: "",
     city: "",
     state: "",
@@ -252,6 +252,16 @@ const Profile = () => {
     fetchLastDeliveryDate();
   }, [clientId]);
 
+  useEffect(() => {
+    const fetchWard = async () => {
+      if (clientProfile.address.trim()) {
+        await getWard(clientProfile.address);
+      }
+    };
+  
+    fetchWard();
+  }, [clientProfile.address]); // Runs whenever the address field changes
+  
   // Improved type definitions
   type DietaryRestrictions = {
     lowSugar: boolean;
@@ -278,7 +288,7 @@ const Profile = () => {
     lastName: string;
     streetName: string;
     zipCode: string;
-    address1: string;
+    address: string;
     address2: string;
     city: string;
     state: string;
@@ -462,7 +472,7 @@ const Profile = () => {
       newErrors.firstName = "First Name is required";
     if (!clientProfile.lastName?.trim())
       newErrors.lastName = "Last Name is required";
-    if (!clientProfile.address1?.trim())
+    if (!clientProfile.address?.trim())
       newErrors.address = "Address 1 is required";
     if (!clientProfile.zipCode)
       newErrors.zipCode = "Zip code is required";
@@ -545,7 +555,7 @@ const Profile = () => {
         notesTimestamp: updatedNotesTimestamp, // Update the notesTimestamp
         updatedAt: new Date(),
         total: clientProfile.adults + clientProfile.children + clientProfile.seniors,
-        ward: await getWard(clientProfile.address1)
+        ward: await getWard(clientProfile.address)
       };
   
       const sortedAllTags = [...allTags].sort((a, b) => a.localeCompare(b));
@@ -726,13 +736,13 @@ const Profile = () => {
         value={fieldPath === "ward" ? ward : String(value || "")}
         onChange={handleChange}
         onBlur={async () => {
-          if (fieldPath === "address1") {
+          if (fieldPath === "address") {
             // Call getWard with the updated address1 value
-            await getWard(clientProfile.address1);
+            await getWard(clientProfile.address);
           }
         }}
         fullWidth
-        inputRef={fieldPath === "address1" ? addressInputRef : null}
+        inputRef={fieldPath === "address" ? addressInputRef : null}
       />
             </>
           );
@@ -955,7 +965,7 @@ const Profile = () => {
                 // Update the client profile with all the parsed components
                 setClientProfile(prev => ({
                   ...prev,
-                  address1: `${streetNumber} ${streetName}`.trim(),
+                  address: `${streetNumber} ${streetName}`.trim(),
                   city: city,
                   state: state,
                   zipCode: zipCode,
@@ -1106,12 +1116,12 @@ const Profile = () => {
       top: isEditing ? "-19px" : "0",
     }}
   >
-    ADDRESS 1 <span className="required-asterisk">*</span>
+    ADDRESS<span className="required-asterisk">*</span>
   </Typography>
-  {renderField("address1", "text")}
-  {errors.address1 && (
+  {renderField("address", "text")}
+  {errors.address && (
     <Typography color="error" variant="body2">
-      {errors.address1}
+      {errors.address}
     </Typography>
   )}
 </Box>
