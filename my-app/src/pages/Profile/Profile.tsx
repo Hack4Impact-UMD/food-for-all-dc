@@ -122,13 +122,14 @@ const Profile = () => {
     },
     lifeChallenges: "",
     notes: "",
+    notesTimestamp: null,
     lifestyleGoals: "",
     language: "",
     createdAt: new Date(),
     updatedAt: new Date(),
     tags: [],
-    ward: "", 
-    seniors: 0, 
+    ward: "",
+    seniors: 0,
   });
   const [isNewProfile, setIsNewProfile] = useState(true);
   const [editMode, setEditMode] = useState(true);
@@ -143,6 +144,8 @@ const Profile = () => {
   const [ward, setWard] = useState(clientProfile.ward);
   const [isEditing, setIsEditing] = useState(false); // Global editing state
   const [lastDeliveryDate, setLastDeliveryDate] = useState<string | null>(null);
+  const [profileLoaded, setProfileLoaded] = useState(false); // Track if profile is loaded
+  const [prevNotes, setPrevNotes] = useState("");
   const params = useParams(); // Params will return an object containing route params (like { id: 'some-id' })
   const id: string | null = params.id ?? null; // Use optional chaining to get the id or null if undefined
 
@@ -159,22 +162,24 @@ const Profile = () => {
   };
 
   //Route Protection
-  React.useEffect(()=>{
-    if(auth.currentUser === null){
+  React.useEffect(() => {
+    if (auth.currentUser === null) {
       navigate("/");
     }
-  },[])
+  }, [])
+
+
 
   //get list of all tags
   useEffect(() => {
     const fetchTags = async () => {
       try {
-        const tagsDocRef = doc(db, "tags", "oGuiR2dQQeOBXHCkhDeX"); 
+        const tagsDocRef = doc(db, "tags", "oGuiR2dQQeOBXHCkhDeX");
         const tagsDocSnap = await getDoc(tagsDocRef);
-  
+
         if (tagsDocSnap.exists()) {
-          const tagsArray = tagsDocSnap.data().tags; 
-          setAllTags(tagsArray); 
+          const tagsArray = tagsDocSnap.data().tags;
+          setAllTags(tagsArray);
         } else {
           console.log("No tags document found!");
           setAllTags([]);
@@ -183,18 +188,24 @@ const Profile = () => {
         console.error("Error fetching tags:", error);
       }
     };
-  
+
     fetchTags();
   }, []);
 
   useEffect(() => {
     if (id) {
       setIsNewProfile(false);
-      setClientId(id); 
+      setClientId(id);
       getProfileById(id).then((profileData) => {
         if (profileData) {
-          setTags(profileData.tags.filter((tag)=>{return allTags.includes(tag)}) || []); 
-          setClientProfile(profileData); 
+          setTags(profileData.tags.filter((tag) => allTags.includes(tag)) || []);
+          setClientProfile(profileData);
+  
+          // Set prevNotes only when the profile is loaded from Firebase
+          if (!profileLoaded) {
+            setPrevNotes(profileData.notes || ""); // Set the original notes
+            setProfileLoaded(true); // Mark the profile as loaded
+          }
         } else {
           console.log("No profile found for ID:", id);
         }
@@ -202,13 +213,13 @@ const Profile = () => {
     } else {
       setIsNewProfile(true);
       setClientProfile({
-        ...clientProfile, 
+        ...clientProfile,
         createdAt: new Date(),
         updatedAt: new Date(),
       });
-      setTags([]); 
+      setTags([]);
     }
-  }, [id, allTags]); 
+  }, [id, allTags, profileLoaded]); // Include profileLoaded to prevent re-setting prevNotes
 
   useEffect(() => {
     const fetchLastDeliveryDate = async () => {
@@ -222,7 +233,7 @@ const Profile = () => {
             limit(1)
           );
           const querySnapshot = await getDocs(q);
-  
+
           if (!querySnapshot.empty) {
             const lastEvent = querySnapshot.docs[0].data();
             const deliveryDate = lastEvent.deliveryDate.toDate();
@@ -236,7 +247,7 @@ const Profile = () => {
         }
       }
     };
-  
+
     fetchLastDeliveryDate();
   }, [clientId]);
 
@@ -283,12 +294,16 @@ const Profile = () => {
     deliveryDetails: DeliveryDetails;
     lifeChallenges: string;
     notes: string;
+    notesTimestamp?: {
+      notes: string,
+      timestamp: Date
+    } | null;
     lifestyleGoals: string;
     language: string;
     createdAt: Date;
     updatedAt: Date;
-    tags: string[]; 
-    ward: string; 
+    tags: string[];
+    ward: string;
     seniors: Number;
   };
 
@@ -337,11 +352,11 @@ const Profile = () => {
   const getWard = async (searchAddress: string) => {
     console.log("getting ward")
     const baseurl = "https://datagate.dc.gov/mar/open/api/v2.2";
-    const apikey = process.env.REACT_APP_DC_WARD_API_KEY; 
+    const apikey = process.env.REACT_APP_DC_WARD_API_KEY;
     const marURL = baseurl + "/locations/";
     const marZone = "ward";
     let wardName;
-  
+
     // Construct the URL with query parameters
     const marGeocodeURL = new URL(marURL + searchAddress + "/" + marZone + "/true");
     const params = new URLSearchParams();
@@ -351,22 +366,22 @@ const Profile = () => {
       console.error("API key is undefined");
     }
     marGeocodeURL.search = params.toString();
-  
+
     try {
       // Make the API request
       const response = await fetch(marGeocodeURL.toString());
-  
+
       if (!response.ok) {
         throw new Error(`HTTP error! Status: ${response.status}`);
       }
-  
+
       // Parse the JSON response
       const data = await response.json();
-  
+
       // Check if the response is successful and contains the expected data
       if (data.Success === true && data.Result.addresses && data.Result.addresses.length > 0) {
         const result = data.Result.addresses[0];
-  
+
         if (result.zones && result.zones.ward[0]) {
           wardName = result.zones.ward[0].properties.NAME;
         } else {
@@ -375,11 +390,11 @@ const Profile = () => {
         }
       } else {
         console.log("No address found or invalid response.");
-         wardName = "No address found"
+        wardName = "No address found"
       }
     } catch (error) {
       console.error("Error fetching ward information:", error);
-        wardName = "Error getting ward"
+      wardName = "Error getting ward"
     }
     clientProfile.ward = wardName;
     setWard(wardName);
@@ -405,6 +420,9 @@ const Profile = () => {
   ) => {
     const { name, value } = e.target;
 
+    // Always mark as unsaved when a change occurs
+    setIsSaved(false);
+
     if (name === "dob") {
       const newDob = e.target.value; // this will be in the format YYYY-MM-DD
       setClientProfile((prevState) => ({
@@ -427,8 +445,12 @@ const Profile = () => {
         ...prevState,
         [name]: value,
       }));
+      
+      // Special handling for notes field
+      if (name === "notes") {
+        console.log("Notes changed to:", value);
+      }
     }
-
   };
 
   const validateProfile = () => {
@@ -469,6 +491,27 @@ const Profile = () => {
     return Object.keys(newErrors).length === 0;
   };
 
+  const checkIfNotesExists = (notes: string, prevNotesTimestamp: { notes: string; timestamp: Date } | null) => {
+    if (!prevNotesTimestamp && notes.trim() !== "") {
+      return { notes, timestamp: new Date() };
+    }
+
+    return prevNotesTimestamp;
+  };
+
+  const checkIfNotesChanged = (
+    prevNotes: string,
+    newNotes: string,
+    prevNotesTimestamp: { notes: string; timestamp: Date } | null
+  ) => {
+    // Compare trimmed versions of notes to avoid whitespace issues
+    if (prevNotes.trim() !== newNotes.trim()) {
+      console.log("Notes changed from:", prevNotes.trim(), "to:", newNotes.trim());
+      return { notes: newNotes, timestamp: new Date() };
+    }
+    return prevNotesTimestamp;
+  };
+
   const handleSave = async () => {
     if (!validateProfile()) {
       console.log("Invalid Profile");
@@ -476,17 +519,27 @@ const Profile = () => {
     }
   
     try {
+      const currNotes = clientProfile.notes;
+  
+      let updatedNotesTimestamp = checkIfNotesExists(currNotes, clientProfile.notesTimestamp ?? null);
+      updatedNotesTimestamp = checkIfNotesChanged(prevNotes, currNotes, updatedNotesTimestamp);
+  
+      console.log("Previous notes:", prevNotes);
+      console.log("Current notes:", currNotes);
+      console.log("Timestamp updated:", updatedNotesTimestamp !== clientProfile.notesTimestamp);
+      
       // Update the clientProfile object with the latest tags state
       const updatedProfile = {
         ...clientProfile,
         tags: tags, // Sync the tags state with clientProfile
+        notesTimestamp: updatedNotesTimestamp, // Update the notesTimestamp
         updatedAt: new Date(),
         total: clientProfile.adults + clientProfile.children,
         ward: await getWard(clientProfile.address1)
       };
-
+  
       const sortedAllTags = [...allTags].sort((a, b) => a.localeCompare(b));
-
+  
       if (isNewProfile) {
         // Generate new UID for new profile
         const newUid = await generateUID();
@@ -498,31 +551,30 @@ const Profile = () => {
   
         // Save to Firestore for new profile
         await setDoc(doc(db, "clients", newUid), newProfile);
-        await setDoc(doc(db, "tags", "oGuiR2dQQeOBXHCkhDeX"), {tags: sortedAllTags});
+        await setDoc(doc(db, "tags", "oGuiR2dQQeOBXHCkhDeX"), { tags: sortedAllTags });
         setClientProfile(newProfile);
         setIsNewProfile(false);
-        setEditMode(false);
-        setIsEditing(false);
         console.log("New profile created with ID: ", newUid);
-  
-        // Navigate to the newly created profile
         navigate(`/profile/${newUid}`);
       } else {
         // Update existing profile
         await setDoc(doc(db, "clients", clientProfile.uid), updatedProfile, {
           merge: true,
         });
-        await setDoc(doc(db, "tags", "oGuiR2dQQeOBXHCkhDeX"), {tags: sortedAllTags}, {
+        await setDoc(doc(db, "tags", "oGuiR2dQQeOBXHCkhDeX"), { tags: sortedAllTags }, {
           merge: true,
         });
-        setEditMode(false);
-        setIsEditing(false);
-        // Reset all field edit states
-        setFieldEditStates({});
-  
-        // Navigate to the updated profile page
-        navigate(`/profile/${clientProfile.uid}`);
+        setClientProfile(updatedProfile);
       }
+  
+      // Make sure we update prevNotes with the current notes value to track changes properly
+      setPrevNotes(currNotes); 
+      console.log("Updated prevNotes to:", currNotes);
+      
+      // Update UI state
+      setIsSaved(true);
+      setEditMode(false);
+      setIsEditing(false);
     } catch (e) {
       console.error("Error saving document: ", e);
     }
@@ -602,17 +654,17 @@ const Profile = () => {
           );
 
         case "textarea":
-          if(fieldPath == "ward"){
-            return(
-            <CustomTextField
-              name={fieldPath}
-              value={String(value || "")}
-              disabled
-              fullWidth
-            />
+          if (fieldPath == "ward") {
+            return (
+              <CustomTextField
+                name={fieldPath}
+                value={String(value || "")}
+                disabled
+                fullWidth
+              />
             );
           }
-          else{
+          else {
             return (
               <CustomTextField
                 name={fieldPath}
@@ -624,36 +676,36 @@ const Profile = () => {
               />
             );
           }
-          case "tags":
-            return (
-              <>  
-                <Box sx={{textAlign:'left'}}>
-                  {
-                    tags.length > 0 ? (<p>{tags.join(", ")}</p>): <p>No tags selected</p>
-                  }
-                </Box>
-                <Button
-                  variant="contained"
-                  // startIcon={<Add />}
-                  onClick={() => {setIsModalOpen(true);}}
-                  sx={{
-                    marginRight: 4,
-                    width: 166,
-                    color: "#fff",
-                    backgroundColor: "#257E68",
-                  }}
-                >
-                  Edit Tags
-                </Button>
-                <TagPopup 
-                  allTags = {allTags} 
-                  tags = {tags} 
-                  handleTag = {handleTag} 
-                  isModalOpen = {isModalOpen } 
-                  setIsModalOpen = {setIsModalOpen}>
-                </TagPopup>
-              </>
-            );
+        case "tags":
+          return (
+            <>
+              <Box sx={{ textAlign: 'left' }}>
+                {
+                  tags.length > 0 ? (<p>{tags.join(", ")}</p>) : <p>No tags selected</p>
+                }
+              </Box>
+              <Button
+                variant="contained"
+                // startIcon={<Add />}
+                onClick={() => { setIsModalOpen(true); }}
+                sx={{
+                  marginRight: 4,
+                  width: 166,
+                  color: "#fff",
+                  backgroundColor: "#257E68",
+                }}
+              >
+                Edit Tags
+              </Button>
+              <TagPopup
+                allTags={allTags}
+                tags={tags}
+                handleTag={handleTag}
+                isModalOpen={isModalOpen}
+                setIsModalOpen={setIsModalOpen}>
+              </TagPopup>
+            </>
+          );
         default:
           return (
             <>
@@ -661,7 +713,7 @@ const Profile = () => {
               <CustomTextField
                 type="text"
                 name={fieldPath}
-                value={fieldPath === "ward" ? ward: String(value || "")}
+                value={fieldPath === "ward" ? ward : String(value || "")}
                 onChange={handleChange}
                 onBlur={async () => {
                   if (fieldPath === "address1") {
@@ -718,7 +770,7 @@ const Profile = () => {
       return value as string;
     }
     if (fieldPath === "tags") {
-      value = (tags.length>0 ? tags : "None"); 
+      value = (tags.length > 0 ? tags : "None");
     }
     if (fieldPath === "deliveryDetails.dietaryRestrictions") {
       return (
@@ -765,18 +817,18 @@ const Profile = () => {
     }
 
     const selectedRestrictions = Object.entries(restrictions)
-    .filter(([key, value]) => value === true && typeof value === "boolean")
-    .map(([key]) => key.replace(/([A-Z])/g, " $1").trim())
-    .join(", ") || "None";
+      .filter(([key, value]) => value === true && typeof value === "boolean")
+      .map(([key]) => key.replace(/([A-Z])/g, " $1").trim())
+      .join(", ") || "None";
 
-  return (
-    <CustomTextField
-      name="dietaryRestrictionsSummary"
-      value={selectedRestrictions}
-      disabled
-      fullWidth
-    />
-  );
+    return (
+      <CustomTextField
+        name="dietaryRestrictionsSummary"
+        value={selectedRestrictions}
+        disabled
+        fullWidth
+      />
+    );
   };
 
   // Updated handler for dietary restrictions
@@ -1291,9 +1343,17 @@ const Profile = () => {
             {/* Notes */}
             <Box>
               <Typography className="field-descriptor" sx={fieldLabelStyles}>
-                NOTES
+                ADMIN NOTES
               </Typography>
               {renderField("notes", "textarea")}
+              {isSaved && clientProfile.notes.trim() !== "" && (
+  <p id="timestamp">
+    Last edited: {(clientProfile.notesTimestamp?.timestamp instanceof Timestamp
+      ? clientProfile.notesTimestamp.timestamp.toDate()
+      : clientProfile.notesTimestamp?.timestamp || clientProfile.createdAt
+    ).toLocaleString()}
+  </p>
+)}
             </Box>
 
             {/* Life Challenges */}
@@ -1313,7 +1373,7 @@ const Profile = () => {
             </Box>
 
             {/* Tags */}
-            <Box sx={{  }}>
+            <Box sx={{}}>
               <Typography className="field-descriptor" sx={fieldLabelStyles}>
                 TAGS
               </Typography>
