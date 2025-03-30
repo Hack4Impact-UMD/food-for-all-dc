@@ -32,13 +32,19 @@ import {
   where,
   limit,
 } from "firebase/firestore";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { db, auth } from "../../auth/firebaseConfig";
 import "./Profile.css";
 
 import { Timestamp } from "firebase/firestore";
 import TagPopup from "./Tags/TagPopup";
+
+declare global {
+  interface Window {
+    google: any;
+  }
+}
 
 const fieldStyles = {
   backgroundColor: "#eee",
@@ -82,10 +88,13 @@ const Profile = () => {
     uid: "",
     firstName: "",
     lastName: "",
-    houseNumber: "",
     streetName: "",
     zipCode: "",
     address: "",
+    address2: "",
+    city: "",
+    state: "",
+    quadrant: "",
     dob: "",
     deliveryFreq: "",
     phone: "",
@@ -93,6 +102,8 @@ const Profile = () => {
     adults: 0,
     children: 0,
     total: 0,
+    seniors: 0,
+    headOfHousehold: "Adult",
     gender: "Male",
     ethnicity: "",
     deliveryDetails: {
@@ -119,8 +130,7 @@ const Profile = () => {
     createdAt: new Date(),
     updatedAt: new Date(),
     tags: [],
-    ward: "",
-    seniors: 0,
+    ward: ""
   });
   const [isNewProfile, setIsNewProfile] = useState(true);
   const [editMode, setEditMode] = useState(true);
@@ -139,6 +149,7 @@ const Profile = () => {
   const [prevNotes, setPrevNotes] = useState("");
   const params = useParams(); // Params will return an object containing route params (like { id: 'some-id' })
   const id: string | null = params.id ?? null; // Use optional chaining to get the id or null if undefined
+  const [showSavePopup, setShowSavePopup] = useState(false);
 
   // Function to fetch profile data by ID
   const getProfileById = async (id: string) => {
@@ -242,6 +253,16 @@ const Profile = () => {
     fetchLastDeliveryDate();
   }, [clientId]);
 
+  useEffect(() => {
+    const fetchWard = async () => {
+      if (clientProfile.address.trim()) {
+        await getWard(clientProfile.address);
+      }
+    };
+  
+    fetchWard();
+  }, [clientProfile.address]); // Runs whenever the address field changes
+  
   // Improved type definitions
   type DietaryRestrictions = {
     lowSugar: boolean;
@@ -266,10 +287,13 @@ const Profile = () => {
     uid: string;
     firstName: string;
     lastName: string;
-    houseNumber: string;
     streetName: string;
     zipCode: string;
     address: string;
+    address2: string;
+    city: string;
+    state: string;
+    quadrant: string;
     dob: string;
     deliveryFreq: string;
     phone: string;
@@ -292,7 +316,8 @@ const Profile = () => {
     updatedAt: Date;
     tags: string[];
     ward: string;
-    seniors: Number;
+    seniors: number;
+    headOfHousehold: "Senior" | "Adult";
   };
 
   // Type for all possible field paths including nested ones
@@ -444,34 +469,46 @@ const Profile = () => {
   const validateProfile = () => {
     const newErrors: { [key: string]: string } = {};
 
-    if (!clientProfile.firstName.trim())
+    if (!clientProfile.firstName?.trim())
       newErrors.firstName = "First Name is required";
-    if (!clientProfile.lastName.trim()) newErrors.lastName = "Last Name is required";
-    if (!clientProfile.address.trim()) newErrors.address = "Address is required";
-    if (!clientProfile.dob) newErrors.dob = "Date of Birth is required";
-    if (!clientProfile.deliveryFreq.trim())
+    if (!clientProfile.lastName?.trim())
+      newErrors.lastName = "Last Name is required";
+    if (!clientProfile.address?.trim())
+      newErrors.address = "Address 1 is required";
+    if (!clientProfile.zipCode)
+      newErrors.zipCode = "Zip code is required";
+    if (!clientProfile.city)
+      newErrors.city = "City is required";
+    if (!clientProfile.state)
+      newErrors.state = "State is required";
+    if (!clientProfile.dob)
+      newErrors.dob = "Date of Birth is required";
+    if (!clientProfile.deliveryFreq?.trim())
       newErrors.deliveryFreq = "Delivery Frequency is required";
-    if (!clientProfile.phone.trim()) newErrors.phone = "Phone is required";
-    if (!clientProfile.gender.trim()) newErrors.gender = "Gender is required";
-    if (!clientProfile.ethnicity.trim())
+    if (!clientProfile.phone?.trim())
+      newErrors.phone = "Phone is required";
+    if (!clientProfile.gender?.trim())
+      newErrors.gender = "Gender is required";
+    if (!clientProfile.ethnicity?.trim())
       newErrors.ethnicity = "Ethnicity is required";
     if (!clientProfile.language.trim()) newErrors.language = "Language is required";
-    if (clientProfile.adults === 0 && clientProfile.children === 0) {
-      newErrors.total = "At least one adult or child is required";
+    if (clientProfile.adults === 0 && clientProfile.seniors === 0) {
+      newErrors.total = "At least one adult or senior is required";
     }
-    if (!/^\d{10}$/.test(clientProfile.phone)) {
+    if (!/^\d{10}$/.test(clientProfile.phone || "")) {
       newErrors.phone = "Phone number must be exactly 10 digits";
     }
 
     if (
-      !/^\d{10}$/.test(clientProfile.alternativePhone) &&
-      clientProfile.alternativePhone.trim()
+      clientProfile.alternativePhone &&
+      !/^\d{10}$/.test(clientProfile.alternativePhone)
     ) {
       newErrors.alternativePhone =
         "Alternative Phone number must be exactly 10 digits";
     }
 
     setErrors(newErrors);
+    console.log(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
@@ -518,8 +555,8 @@ const Profile = () => {
         tags: tags, // Sync the tags state with clientProfile
         notesTimestamp: updatedNotesTimestamp, // Update the notesTimestamp
         updatedAt: new Date(),
-        total: clientProfile.adults + clientProfile.children,
-        ward: await getWard(clientProfile.address),
+        total: clientProfile.adults + clientProfile.children + clientProfile.seniors,
+        ward: await getWard(clientProfile.address)
       };
   
       const sortedAllTags = [...allTags].sort((a, b) => a.localeCompare(b));
@@ -559,6 +596,12 @@ const Profile = () => {
       setIsSaved(true);
       setEditMode(false);
       setIsEditing(false);
+      
+      // Show save popup
+      setShowSavePopup(true);
+      // Hide popup after 2 seconds
+      setTimeout(() => setShowSavePopup(false), 2000);
+      
     } catch (e) {
       console.error("Error saving document: ", e);
     }
@@ -574,18 +617,18 @@ const Profile = () => {
       ? getNestedValue(clientProfile, fieldPath)
       : clientProfile[fieldPath as keyof ClientProfile];
 
-    const handleTag = (text: any) => {
-      if (tags.includes(text)) {
-        const updatedTags = tags.filter((t) => t !== text);
-        setTags(updatedTags);
-      }
-      else if (text.trim() != "") {
-        const updatedTags = [...tags, text.trim()];
-        setTags(updatedTags);
-      }
-    };
+        const handleTag = (text: any) => {
+        if (tags.includes(text)) {
+          const updatedTags = tags.filter((t) => t !== text);
+          setTags(updatedTags); 
+        } 
+        else if(text.trim() != ""){
+          const updatedTags = [...tags, text.trim()]; 
+          setTags(updatedTags); 
+        }
+      };
 
-    if (fieldPath === "deliveryDetails.dietaryRestrictions") {
+  if (fieldPath === "deliveryDetails.dietaryRestrictions") {
       return renderDietaryRestrictions();
     }
 
@@ -695,27 +738,29 @@ const Profile = () => {
             <>
               {/* <TextFieldInput descriptor={fieldPath} handleChange={handleChange} /> */}
               <CustomTextField
-                type="text"
-                name={fieldPath}
-                value={fieldPath === "ward" ? ward : String(value || "")}
-                onChange={handleChange}
-                onBlur={async () => {
-                  if (fieldPath === "address") {
-                    await getWard(value);
-                  }
-                }}
-                fullWidth
-              />
+        type="text"
+        name={fieldPath}
+        value={fieldPath === "ward" ? ward : String(value || "")}
+        onChange={handleChange}
+        onBlur={async () => {
+          if (fieldPath === "address") {
+            // Call getWard with the updated address1 value
+            await getWard(clientProfile.address);
+          }
+        }}
+        fullWidth
+        inputRef={fieldPath === "address" ? addressInputRef : null}
+      />
             </>
           );
+        }
       }
-    }
-
-    return (
-      <Typography variant="body1" sx={{ fontWeight: 600 }}>
-        {renderFieldValue(fieldPath, value)}
-      </Typography>
-    );
+    
+      return (
+        <Typography variant="body1" sx={{ fontWeight: 600 }}>
+          {renderFieldValue(fieldPath, value)}
+        </Typography>
+      );
   };
 
   // Helper function to render field values properly
@@ -842,8 +887,131 @@ const Profile = () => {
     },
   };
 
+  //google places autocomplete
+  //this ends up being used in renderField
+  const addressInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if(isEditing) {
+      // check if the Google Maps API script is already loaded
+      const script = document.createElement('script');
+      if (!window.google) {
+        
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.REACT_APP_GOOGLE_MAPS_API_KEY || ""}&libraries=places`;
+        script.async = true;
+        script.defer = true;
+        
+        // initialize autocomplete when script loading finishes
+        script.onload = () => {
+          if (addressInputRef.current) {
+            const autocomplete = new window.google.maps.places.Autocomplete(
+              addressInputRef.current,
+              { 
+                types: ['address'],
+                componentRestrictions: { country: 'us' } 
+              }
+            );
+            
+            autocomplete.addListener('place_changed', () => {
+              const place = autocomplete.getPlace();
+              if (place.formatted_address) {
+                console.log(place);
+                let address = place.formatted_address;
+                // address components in json format
+                const addressComponents = place.address_components;
+                console.log(address);
+                
+                let streetNumber = '';
+                let streetName = '';
+                let city = '';
+                let state = '';
+                let zipCode = '';
+                let quadrant = ''; 
+                
+                // getting relevant components
+                if (addressComponents) {
+                  for (const component of addressComponents) {
+                    const types = component.types;
+                    
+                    if (types.includes('street_number')) {
+                      streetNumber = component.long_name;
+                    }
+                    
+                    if (types.includes('route')) {
+                      streetName = component.long_name;
+                    }
+                    
+                    if (types.includes('locality') || types.includes('sublocality')) {
+                      city = component.long_name;
+                    }
+                    
+                    if (types.includes('administrative_area_level_1')) {
+                      state = component.short_name; // Use short_name for state code (e.g., "DC" instead of "District of Columbia")
+                    }
+                    
+                    if (types.includes('postal_code')) {
+                      zipCode = component.long_name;
+                    }
+                  }
+                  
+                  // using regex to look for quadrant
+                  const quadrantMatch = address.match(/(NW|NE|SW|SE)(\s|,|$)/);
+                  if (state === "DC" && quadrantMatch) {
+                    quadrant = quadrantMatch[1];
+                  }
+
+                  //TODO: DELETE
+                  console.log('Street Number:', streetNumber);
+                  console.log('Street Name:', streetName);
+                  console.log('City:', city);
+                  console.log('State:', state);
+                  console.log('Zip Code:', zipCode);
+                  console.log('Quadrant:', quadrant);
+                }
+                
+                // Update the client profile with all the parsed components
+                setClientProfile(prev => ({
+                  ...prev,
+                  address: `${streetNumber} ${streetName}`.trim(),
+                  city: city,
+                  state: state,
+                  zipCode: zipCode,
+                  quadrant: quadrant
+                }));
+              }
+            });
+          }
+        };
+        
+        document.head.appendChild(script);
+      } 
+    }
+    return () => {
+
+    }
+  }, [isEditing])
+  
+  
   return (
     <Box className="profile-container">
+      {showSavePopup && (
+        <Box
+          sx={{
+            position: 'fixed',
+            bottom: '20px',
+            right: '20px',
+            backgroundColor: '#257e68',
+            color: 'white',
+            padding: '16px',
+            borderRadius: '4px',
+            boxShadow: '0 2px 5px rgba(0,0,0,0.2)',
+            zIndex: 1000,
+            animation: 'slideIn 0.3s ease-out',
+          }}
+        >
+          Profile saved successfully!
+        </Box>
+      )}
       <Box className="white-container">
         <Typography
           variant="h5"
@@ -963,26 +1131,136 @@ const Profile = () => {
               )}
             </Box>
 
-            {/* Address */}
-            <Box>
-              <Typography
-                className="field-descriptor"
-                sx={{
-                  ...fieldLabelStyles,
-                  position: "relative",
-                  top: isEditing ? "-19px" : "0",
-                }}
-              >
-                ADDRESS <span className="required-asterisk">*</span>
-              </Typography>
-              {renderField("address", "text")}
-              {errors.address && (
-                <Typography color="error" variant="body2">
-                  {errors.address}
-                </Typography>
-              )}
-            </Box>
+            {/* Address 1 */}
+<Box>
+  <Typography
+    className="field-descriptor"
+    sx={{
+      ...fieldLabelStyles,
+      position: "relative",
+      top: isEditing ? "-19px" : "0",
+    }}
+  >
+    ADDRESS<span className="required-asterisk">*</span>
+  </Typography>
+  {renderField("address", "text")}
+  {errors.address && (
+    <Typography color="error" variant="body2">
+      {errors.address}
+    </Typography>
+  )}
+</Box>
 
+{/* Address 2 */}
+<Box>
+  <Typography
+    className="field-descriptor"
+    sx={{
+      ...fieldLabelStyles,
+      position: "relative",
+      top: isEditing ? "-19px" : "0",
+    }}
+  >
+    ADDRESS 2
+  </Typography>
+  <CustomTextField
+    type="text"
+    name="address2"
+    value={clientProfile.address2 || ""}
+    onChange={(e) => {
+      const { value } = e.target;
+      setClientProfile((prevState) => ({
+        ...prevState,
+        address2: value, // Update address2 without triggering getWard
+      }));
+    }}
+    fullWidth
+  />
+</Box>
+
+           {/* City */}
+<Box>
+  <Typography
+    className="field-descriptor"
+    sx={{
+      ...fieldLabelStyles,
+      position: "relative",
+      top: isEditing ? "-19px" : "0",
+    }}
+  >
+    CITY <span className="required-asterisk">*</span>
+  </Typography>
+  <CustomTextField
+    type="text"
+    name="city"
+    value={clientProfile.city || ""}
+    disabled
+    fullWidth
+  />
+</Box>
+
+{/* State */}
+<Box>
+  <Typography
+    className="field-descriptor"
+    sx={{
+      ...fieldLabelStyles,
+      position: "relative",
+      top: isEditing ? "-19px" : "0",
+    }}
+  >
+    STATE <span className="required-asterisk">*</span>
+  </Typography>
+  <CustomTextField
+    type="text"
+    name="state"
+    value={clientProfile.state || ""}
+    disabled
+    fullWidth
+  />
+</Box>
+
+{/* ZIP CODE */}
+<Box>
+  <Typography
+    className="field-descriptor"
+    sx={{
+      ...fieldLabelStyles,
+      position: "relative",
+      top: isEditing ? "-19px" : "0",
+    }}
+  >
+    ZIP CODE <span className="required-asterisk">*</span>
+  </Typography>
+  <CustomTextField
+    type="text"
+    name="zipCode"
+    value={clientProfile.zipCode || ""}
+    disabled
+    fullWidth
+  />
+</Box>
+
+{/* Quadrant */}
+<Box>
+  <Typography
+    className="field-descriptor"
+    sx={{
+      ...fieldLabelStyles,
+      position: "relative",
+      top: isEditing ? "-19px" : "0",
+    }}
+  >
+    QUADRANT
+  </Typography>
+  <CustomTextField
+    type="text"
+    name="quadrant"
+    value={clientProfile.quadrant || ""}
+    disabled
+    fullWidth
+  />
+</Box>
             {/* Gender */}
             <Box>
               <Typography
@@ -1081,6 +1359,55 @@ const Profile = () => {
               {errors.children && (
                 <Typography color="error" variant="body2">
                   {errors.children}
+                </Typography>
+              )}
+            </Box>
+
+            {/* Total */}
+<Box>
+  <Typography
+    className="field-descriptor"
+    sx={{
+      ...fieldLabelStyles,
+      position: "relative",
+      top: isEditing ? "-19px" : "0",
+    }}
+  >
+    TOTAL
+  </Typography>
+  <CustomTextField
+    type="text"
+    name="total"
+    value={Number(clientProfile.seniors) + Number(clientProfile.adults) + Number(clientProfile.children)}
+    disabled
+    fullWidth
+  />
+</Box>
+
+            {/* Head of Household */}
+            <Box>
+              <Typography className="field-descriptor" sx={fieldLabelStyles}>
+                HEAD OF HOUSEHOLD
+              </Typography>
+              {isEditing ? (
+                <CustomSelect
+                  name="headOfHousehold"
+                  value={clientProfile.headOfHousehold || ""}
+                  onChange={(e) => {
+                    const { value } = e.target;
+                    setClientProfile((prevState) => ({
+                      ...prevState,
+                      headOfHousehold: value as "Adult" | "Senior",
+                    }));
+                  }}
+                  fullWidth
+                >
+                  <MenuItem value="Adult">Adult</MenuItem>
+                  <MenuItem value="Senior">Senior</MenuItem>
+                </CustomSelect>
+              ) : (
+                <Typography variant="body1" sx={{ fontWeight: 600 }}>
+                  {clientProfile.headOfHousehold || "N/A"}
                 </Typography>
               )}
             </Box>
