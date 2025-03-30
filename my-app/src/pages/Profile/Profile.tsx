@@ -130,7 +130,8 @@ const Profile = () => {
     createdAt: new Date(),
     updatedAt: new Date(),
     tags: [],
-    ward: ""
+    ward: "",
+    tefapCert: ""
   });
   const [isNewProfile, setIsNewProfile] = useState(true);
   const [editMode, setEditMode] = useState(true);
@@ -202,7 +203,7 @@ const Profile = () => {
         if (profileData) {
           setTags(profileData.tags.filter((tag) => allTags.includes(tag)) || []);
           setClientProfile(profileData);
-  
+
           // Set prevNotes only when the profile is loaded from Firebase
           if (!profileLoaded) {
             setPrevNotes(profileData.notes || ""); // Set the original notes
@@ -259,10 +260,10 @@ const Profile = () => {
         await getWard(clientProfile.address);
       }
     };
-  
+
     fetchWard();
   }, [clientProfile.address]); // Runs whenever the address field changes
-  
+
   // Improved type definitions
   type DietaryRestrictions = {
     lowSugar: boolean;
@@ -318,6 +319,7 @@ const Profile = () => {
     ward: string;
     seniors: number;
     headOfHousehold: "Senior" | "Adult";
+    tefapCert: string;
   };
 
   // Type for all possible field paths including nested ones
@@ -458,7 +460,7 @@ const Profile = () => {
         ...prevState,
         [name]: value,
       }));
-      
+
       // Special handling for notes field
       if (name === "notes") {
         console.log("Notes changed to:", value);
@@ -538,17 +540,17 @@ const Profile = () => {
       console.log("Invalid Profile");
       return;
     }
-  
+
     try {
       const currNotes = clientProfile.notes;
-  
+
       let updatedNotesTimestamp = checkIfNotesExists(currNotes, clientProfile.notesTimestamp ?? null);
       updatedNotesTimestamp = checkIfNotesChanged(prevNotes, currNotes, updatedNotesTimestamp);
-  
+
       console.log("Previous notes:", prevNotes);
       console.log("Current notes:", currNotes);
       console.log("Timestamp updated:", updatedNotesTimestamp !== clientProfile.notesTimestamp);
-      
+
       // Update the clientProfile object with the latest tags state
       const updatedProfile = {
         ...clientProfile,
@@ -558,9 +560,9 @@ const Profile = () => {
         total: clientProfile.adults + clientProfile.children + clientProfile.seniors,
         ward: await getWard(clientProfile.address)
       };
-  
+
       const sortedAllTags = [...allTags].sort((a, b) => a.localeCompare(b));
-  
+
       if (isNewProfile) {
         // Generate new UID for new profile
         const newUid = await generateUID();
@@ -569,7 +571,7 @@ const Profile = () => {
           uid: newUid,
           createdAt: new Date(),
         };
-  
+
         // Save to Firestore for new profile
         await setDoc(doc(db, "clients", newUid), newProfile);
         await setDoc(doc(db, "tags", "oGuiR2dQQeOBXHCkhDeX"), { tags: sortedAllTags });
@@ -587,21 +589,21 @@ const Profile = () => {
         });
         setClientProfile(updatedProfile);
       }
-  
+
       // Make sure we update prevNotes with the current notes value to track changes properly
-      setPrevNotes(currNotes); 
+      setPrevNotes(currNotes);
       console.log("Updated prevNotes to:", currNotes);
-      
+
       // Update UI state
       setIsSaved(true);
       setEditMode(false);
       setIsEditing(false);
-      
+
       // Show save popup
       setShowSavePopup(true);
       // Hide popup after 2 seconds
       setTimeout(() => setShowSavePopup(false), 2000);
-      
+
     } catch (e) {
       console.error("Error saving document: ", e);
     }
@@ -617,18 +619,18 @@ const Profile = () => {
       ? getNestedValue(clientProfile, fieldPath)
       : clientProfile[fieldPath as keyof ClientProfile];
 
-        const handleTag = (text: any) => {
-        if (tags.includes(text)) {
-          const updatedTags = tags.filter((t) => t !== text);
-          setTags(updatedTags); 
-        } 
-        else if(text.trim() != ""){
-          const updatedTags = [...tags, text.trim()]; 
-          setTags(updatedTags); 
-        }
-      };
+    const handleTag = (text: any) => {
+      if (tags.includes(text)) {
+        const updatedTags = tags.filter((t) => t !== text);
+        setTags(updatedTags);
+      }
+      else if (text.trim() != "") {
+        const updatedTags = [...tags, text.trim()];
+        setTags(updatedTags);
+      }
+    };
 
-  if (fieldPath === "deliveryDetails.dietaryRestrictions") {
+    if (fieldPath === "deliveryDetails.dietaryRestrictions") {
       return renderDietaryRestrictions();
     }
 
@@ -738,29 +740,29 @@ const Profile = () => {
             <>
               {/* <TextFieldInput descriptor={fieldPath} handleChange={handleChange} /> */}
               <CustomTextField
-        type="text"
-        name={fieldPath}
-        value={fieldPath === "ward" ? ward : String(value || "")}
-        onChange={handleChange}
-        onBlur={async () => {
-          if (fieldPath === "address") {
-            // Call getWard with the updated address1 value
-            await getWard(clientProfile.address);
-          }
-        }}
-        fullWidth
-        inputRef={fieldPath === "address" ? addressInputRef : null}
-      />
+                type="text"
+                name={fieldPath}
+                value={fieldPath === "ward" ? ward : String(value || "")}
+                onChange={handleChange}
+                onBlur={async () => {
+                  if (fieldPath === "address") {
+                    // Call getWard with the updated address1 value
+                    await getWard(clientProfile.address);
+                  }
+                }}
+                fullWidth
+                inputRef={fieldPath === "address" ? addressInputRef : null}
+              />
             </>
           );
-        }
       }
-    
-      return (
-        <Typography variant="body1" sx={{ fontWeight: 600 }}>
-          {renderFieldValue(fieldPath, value)}
-        </Typography>
-      );
+    }
+
+    return (
+      <Typography variant="body1" sx={{ fontWeight: 600 }}>
+        {renderFieldValue(fieldPath, value)}
+      </Typography>
+    );
   };
 
   // Helper function to render field values properly
@@ -892,26 +894,26 @@ const Profile = () => {
   const addressInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if(isEditing) {
+    if (isEditing) {
       // check if the Google Maps API script is already loaded
       const script = document.createElement('script');
       if (!window.google) {
-        
+
         script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.REACT_APP_GOOGLE_MAPS_API_KEY || ""}&libraries=places`;
         script.async = true;
         script.defer = true;
-        
+
         // initialize autocomplete when script loading finishes
         script.onload = () => {
           if (addressInputRef.current) {
             const autocomplete = new window.google.maps.places.Autocomplete(
               addressInputRef.current,
-              { 
+              {
                 types: ['address'],
-                componentRestrictions: { country: 'us' } 
+                componentRestrictions: { country: 'us' }
               }
             );
-            
+
             autocomplete.addListener('place_changed', () => {
               const place = autocomplete.getPlace();
               if (place.formatted_address) {
@@ -920,40 +922,40 @@ const Profile = () => {
                 // address components in json format
                 const addressComponents = place.address_components;
                 console.log(address);
-                
+
                 let streetNumber = '';
                 let streetName = '';
                 let city = '';
                 let state = '';
                 let zipCode = '';
-                let quadrant = ''; 
-                
+                let quadrant = '';
+
                 // getting relevant components
                 if (addressComponents) {
                   for (const component of addressComponents) {
                     const types = component.types;
-                    
+
                     if (types.includes('street_number')) {
                       streetNumber = component.long_name;
                     }
-                    
+
                     if (types.includes('route')) {
                       streetName = component.long_name;
                     }
-                    
+
                     if (types.includes('locality') || types.includes('sublocality')) {
                       city = component.long_name;
                     }
-                    
+
                     if (types.includes('administrative_area_level_1')) {
                       state = component.short_name; // Use short_name for state code (e.g., "DC" instead of "District of Columbia")
                     }
-                    
+
                     if (types.includes('postal_code')) {
                       zipCode = component.long_name;
                     }
                   }
-                  
+
                   // using regex to look for quadrant
                   const quadrantMatch = address.match(/(NW|NE|SW|SE)(\s|,|$)/);
                   if (state === "DC" && quadrantMatch) {
@@ -968,7 +970,7 @@ const Profile = () => {
                   console.log('Zip Code:', zipCode);
                   console.log('Quadrant:', quadrant);
                 }
-                
+
                 // Update the client profile with all the parsed components
                 setClientProfile(prev => ({
                   ...prev,
@@ -982,16 +984,16 @@ const Profile = () => {
             });
           }
         };
-        
+
         document.head.appendChild(script);
-      } 
+      }
     }
     return () => {
 
     }
   }, [isEditing])
-  
-  
+
+
   return (
     <Box className="profile-container">
       {showSavePopup && (
@@ -1132,135 +1134,135 @@ const Profile = () => {
             </Box>
 
             {/* Address 1 */}
-<Box>
-  <Typography
-    className="field-descriptor"
-    sx={{
-      ...fieldLabelStyles,
-      position: "relative",
-      top: isEditing ? "-19px" : "0",
-    }}
-  >
-    ADDRESS<span className="required-asterisk">*</span>
-  </Typography>
-  {renderField("address", "text")}
-  {errors.address && (
-    <Typography color="error" variant="body2">
-      {errors.address}
-    </Typography>
-  )}
-</Box>
+            <Box>
+              <Typography
+                className="field-descriptor"
+                sx={{
+                  ...fieldLabelStyles,
+                  position: "relative",
+                  top: isEditing ? "-19px" : "0",
+                }}
+              >
+                ADDRESS<span className="required-asterisk">*</span>
+              </Typography>
+              {renderField("address", "text")}
+              {errors.address && (
+                <Typography color="error" variant="body2">
+                  {errors.address}
+                </Typography>
+              )}
+            </Box>
 
-{/* Address 2 */}
-<Box>
-  <Typography
-    className="field-descriptor"
-    sx={{
-      ...fieldLabelStyles,
-      position: "relative",
-      top: isEditing ? "-19px" : "0",
-    }}
-  >
-    ADDRESS 2
-  </Typography>
-  <CustomTextField
-    type="text"
-    name="address2"
-    value={clientProfile.address2 || ""}
-    onChange={(e) => {
-      const { value } = e.target;
-      setClientProfile((prevState) => ({
-        ...prevState,
-        address2: value, // Update address2 without triggering getWard
-      }));
-    }}
-    fullWidth
-  />
-</Box>
+            {/* Address 2 */}
+            <Box>
+              <Typography
+                className="field-descriptor"
+                sx={{
+                  ...fieldLabelStyles,
+                  position: "relative",
+                  top: isEditing ? "-19px" : "0",
+                }}
+              >
+                ADDRESS 2
+              </Typography>
+              <CustomTextField
+                type="text"
+                name="address2"
+                value={clientProfile.address2 || ""}
+                onChange={(e) => {
+                  const { value } = e.target;
+                  setClientProfile((prevState) => ({
+                    ...prevState,
+                    address2: value, // Update address2 without triggering getWard
+                  }));
+                }}
+                fullWidth
+              />
+            </Box>
 
-           {/* City */}
-<Box>
-  <Typography
-    className="field-descriptor"
-    sx={{
-      ...fieldLabelStyles,
-      position: "relative",
-      top: isEditing ? "-19px" : "0",
-    }}
-  >
-    CITY <span className="required-asterisk">*</span>
-  </Typography>
-  <CustomTextField
-    type="text"
-    name="city"
-    value={clientProfile.city || ""}
-    disabled
-    fullWidth
-  />
-</Box>
+            {/* City */}
+            <Box>
+              <Typography
+                className="field-descriptor"
+                sx={{
+                  ...fieldLabelStyles,
+                  position: "relative",
+                  top: isEditing ? "-19px" : "0",
+                }}
+              >
+                CITY <span className="required-asterisk">*</span>
+              </Typography>
+              <CustomTextField
+                type="text"
+                name="city"
+                value={clientProfile.city || ""}
+                disabled
+                fullWidth
+              />
+            </Box>
 
-{/* State */}
-<Box>
-  <Typography
-    className="field-descriptor"
-    sx={{
-      ...fieldLabelStyles,
-      position: "relative",
-      top: isEditing ? "-19px" : "0",
-    }}
-  >
-    STATE <span className="required-asterisk">*</span>
-  </Typography>
-  <CustomTextField
-    type="text"
-    name="state"
-    value={clientProfile.state || ""}
-    disabled
-    fullWidth
-  />
-</Box>
+            {/* State */}
+            <Box>
+              <Typography
+                className="field-descriptor"
+                sx={{
+                  ...fieldLabelStyles,
+                  position: "relative",
+                  top: isEditing ? "-19px" : "0",
+                }}
+              >
+                STATE <span className="required-asterisk">*</span>
+              </Typography>
+              <CustomTextField
+                type="text"
+                name="state"
+                value={clientProfile.state || ""}
+                disabled
+                fullWidth
+              />
+            </Box>
 
-{/* ZIP CODE */}
-<Box>
-  <Typography
-    className="field-descriptor"
-    sx={{
-      ...fieldLabelStyles,
-      position: "relative",
-      top: isEditing ? "-19px" : "0",
-    }}
-  >
-    ZIP CODE <span className="required-asterisk">*</span>
-  </Typography>
-  <CustomTextField
-    type="text"
-    name="zipCode"
-    value={clientProfile.zipCode || ""}
-    disabled
-    fullWidth
-  />
-</Box>
+            {/* ZIP CODE */}
+            <Box>
+              <Typography
+                className="field-descriptor"
+                sx={{
+                  ...fieldLabelStyles,
+                  position: "relative",
+                  top: isEditing ? "-19px" : "0",
+                }}
+              >
+                ZIP CODE <span className="required-asterisk">*</span>
+              </Typography>
+              <CustomTextField
+                type="text"
+                name="zipCode"
+                value={clientProfile.zipCode || ""}
+                disabled
+                fullWidth
+              />
+            </Box>
 
-{/* Quadrant */}
-<Box>
-  <Typography
-    className="field-descriptor"
-    sx={{
-      ...fieldLabelStyles,
-      position: "relative",
-      top: isEditing ? "-19px" : "0",
-    }}
-  >
-    QUADRANT
-  </Typography>
-  <CustomTextField
-    type="text"
-    name="quadrant"
-    value={clientProfile.quadrant || ""}
-    disabled
-    fullWidth
-  />
-</Box>
+            {/* Quadrant */}
+            <Box>
+              <Typography
+                className="field-descriptor"
+                sx={{
+                  ...fieldLabelStyles,
+                  position: "relative",
+                  top: isEditing ? "-19px" : "0",
+                }}
+              >
+                QUADRANT
+              </Typography>
+              <CustomTextField
+                type="text"
+                name="quadrant"
+                value={clientProfile.quadrant || ""}
+                disabled
+                fullWidth
+              />
+            </Box>
             {/* Gender */}
             <Box>
               <Typography
@@ -1364,25 +1366,25 @@ const Profile = () => {
             </Box>
 
             {/* Total */}
-<Box>
-  <Typography
-    className="field-descriptor"
-    sx={{
-      ...fieldLabelStyles,
-      position: "relative",
-      top: isEditing ? "-19px" : "0",
-    }}
-  >
-    TOTAL
-  </Typography>
-  <CustomTextField
-    type="text"
-    name="total"
-    value={Number(clientProfile.seniors) + Number(clientProfile.adults) + Number(clientProfile.children)}
-    disabled
-    fullWidth
-  />
-</Box>
+            <Box>
+              <Typography
+                className="field-descriptor"
+                sx={{
+                  ...fieldLabelStyles,
+                  position: "relative",
+                  top: isEditing ? "-19px" : "0",
+                }}
+              >
+                TOTAL
+              </Typography>
+              <CustomTextField
+                type="text"
+                name="total"
+                value={Number(clientProfile.seniors) + Number(clientProfile.adults) + Number(clientProfile.children)}
+                disabled
+                fullWidth
+              />
+            </Box>
 
             {/* Head of Household */}
             <Box>
@@ -1462,13 +1464,13 @@ const Profile = () => {
               </Typography>
               {renderField("notes", "textarea")}
               {isSaved && clientProfile.notes.trim() !== "" && (
-  <p id="timestamp">
-    Last edited: {(clientProfile.notesTimestamp?.timestamp instanceof Timestamp
-      ? clientProfile.notesTimestamp.timestamp.toDate()
-      : clientProfile.notesTimestamp?.timestamp || clientProfile.createdAt
-    ).toLocaleString()}
-  </p>
-)}
+                <p id="timestamp">
+                  Last edited: {(clientProfile.notesTimestamp?.timestamp instanceof Timestamp
+                    ? clientProfile.notesTimestamp.timestamp.toDate()
+                    : clientProfile.notesTimestamp?.timestamp || clientProfile.createdAt
+                  ).toLocaleString()}
+                </p>
+              )}
             </Box>
 
             {/* Life Challenges */}
@@ -1515,6 +1517,17 @@ const Profile = () => {
                         .join(" ") // Join back into a single string
                     )
                     .join(", ") || "None"}
+                </Typography>
+              )}
+            </Box>
+            <Box>
+              <Typography className="field-descriptor" sx={fieldLabelStyles}>
+                TEFAP CERTIFICATION
+              </Typography>
+              {renderField("tefapCert", "date")}
+              {errors.tefapCert && (
+                <Typography color="error" variant="body2">
+                  {errors.tefapCert}
                 </Typography>
               )}
             </Box>
