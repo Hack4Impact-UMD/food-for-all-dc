@@ -547,20 +547,6 @@ const DeliverySpreadsheet: React.FC = () => {
           <div style={{ display: "flex", justifyContent: "start", gap: "2%" }}>
             <Button
               variant="contained"
-              color="secondary"
-              onClick={() => setSearchQuery("")}
-              className="view-all"
-              style={{
-                whiteSpace: "nowrap",
-                padding: "0% 2%",
-                borderRadius: "5px",
-                width: "10%",
-              }}
-            >
-              Driver List
-            </Button>
-            <Button
-              variant="contained"
               disabled={selectedRows.size <= 0}
               onClick={() => {
                 setPopupMode("Driver");
