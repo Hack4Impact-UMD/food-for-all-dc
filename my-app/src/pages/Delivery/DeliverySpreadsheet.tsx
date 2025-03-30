@@ -20,15 +20,24 @@ import {
   DialogActions,
   DialogTitle,
   Autocomplete,
+  Grid,
+  IconButton,
+  Typography,
+  DialogContentText,
 } from "@mui/material";
 import {
   collection,
   getDocs,
   doc,
   setDoc,
+  addDoc,
+  updateDoc,
+  deleteDoc,
 } from "firebase/firestore";
 import { auth } from "../../auth/firebaseConfig";
 import { onAuthStateChanged } from "firebase/auth";
+import { Close, Add, Edit, Check, Delete } from "@mui/icons-material";
+import DriverManagementModal from "../../components/DriverManagementModal";
 
 // Define TypeScript types for row data
 interface RowData {
@@ -103,12 +112,14 @@ type Field =
       compute: (data: RowData) => string;
     };
 
-interface Driver{
+interface Driver {
   id: string;
   name: string;
-  phone: string
+  phone: string;
   email: string;
 }
+
+type DriverOption = Driver | { id: 'edit_list'; name: string; phone: ''; email: '' };
 
 interface Cluster{
   docId: string;
@@ -116,6 +127,19 @@ interface Cluster{
   driver: any;
   time: string;
   deliveries: any[];
+}
+
+interface ValidationErrors {
+  name?: string;
+  phone?: string;
+  email?: string;
+}
+
+interface DriverFormProps {
+  value: Omit<Driver, 'id'>;
+  onChange: (field: keyof Omit<Driver, 'id'>, value: string) => void;
+  errors: ValidationErrors;
+  onClearError: (field: keyof ValidationErrors) => void;
 }
 
 // Define fields for table columns
@@ -225,6 +249,14 @@ const DeliverySpreadsheet: React.FC = () => {
   const [selectedClusters, setSelectedClusters] = useState<Set<any>>(new Set());
   const [driver, setDriver] = useState<Driver | null>();
   const [time, setTime] = useState<string>("");
+  const [showEditDriverList, setShowEditDriverList] = useState(false);
+  const [editingDriver, setEditingDriver] = useState<Driver | null>(null);
+  const [isAddingDriver, setIsAddingDriver] = useState(false);
+  const [newDriver, setNewDriver] = useState<Omit<Driver, 'id'>>({ name: '', phone: '', email: '' });
+  const [errors, setErrors] = useState<ValidationErrors>({});
+  const [editErrors, setEditErrors] = useState<ValidationErrors>({});
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [driverToDelete, setDriverToDelete] = useState<Driver | null>(null);
   const navigate = useNavigate();
 
   //get drivers
@@ -328,6 +360,7 @@ const DeliverySpreadsheet: React.FC = () => {
     setSelectedRows(new Set());
     setDriver(null);
     setTime("");
+    setShowEditDriverList(false);
   };
 
   //Handle assigning driver
@@ -652,36 +685,65 @@ const DeliverySpreadsheet: React.FC = () => {
       </div>
 
       {/* Popup */}
-      <Dialog open={innerPopup} onClose={() => setPopupMode("")}>
+      <Dialog open={innerPopup && !showEditDriverList} onClose={() => setPopupMode("")}>
         <DialogTitle>{popupMode == "Time" ? "Select a time": "Assign a Driver"}</DialogTitle>
         <DialogContent>
           {popupMode === "Driver" ? (
-            <Autocomplete
-              freeSolo
-              options={drivers} 
-              getOptionLabel={(driver) => (typeof driver === "string" ? driver : driver.name)} 
-              onChange={(event, value) => {
-                if (value && typeof value !== "string") {
-                  setDriver(value); 
-                }
-              }}
-              onInputChange={(event, newValue) => setDriverSearchQuery(newValue)}
-              renderInput={(params) => (
-                <TextField
-                  {...params}
-                  fullWidth
-                  variant="outlined"
-                  placeholder="Search drivers..."
-                  value={driverSearchQuery}
-                  onChange={(e) => setDriverSearchQuery(e.target.value)}
-                />
-              )}
-              PaperComponent={({ children }) => (
-                <Paper elevation={3}>{children}</Paper>
-              )}
-              noOptionsText="No drivers found"
-              sx = {{width: '200px'}}
-            />
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: '300px' }}>
+              <Autocomplete
+                freeSolo
+                options={[
+                  { id: 'edit_list', name: 'Edit Driver List >', phone: '', email: '' } as DriverOption,
+                  ...drivers
+                ]}
+                getOptionLabel={(option) => {
+                  if (typeof option === "string") return option;
+                  return option.name;
+                }}
+                onChange={(event, value) => {
+                  if (value) {
+                    if (typeof value !== "string") {
+                      if (value.id === 'edit_list') {
+                        setShowEditDriverList(true);
+                        setDriver(null); // Clear selected driver when opening edit list
+                      } else {
+                        setDriver(value as Driver);
+                      }
+                    }
+                  } else {
+                    setDriver(null); // Clear selected driver when no value
+                  }
+                }}
+                isOptionEqualToValue={(option, value) => {
+                  // Prevent "Edit Driver List" from being selected as a value
+                  if (option.id === 'edit_list') return false;
+                  return option.id === value.id;
+                }}
+                onInputChange={(event, newValue) => setDriverSearchQuery(newValue)}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    fullWidth
+                    variant="outlined"
+                    placeholder="Search drivers..."
+                    value={driverSearchQuery}
+                    onChange={(e) => setDriverSearchQuery(e.target.value)}
+                  />
+                )}
+                renderOption={(props, option) => (
+                  <li {...props} style={{ 
+                    color: option.id === 'edit_list' ? '#257E68' : 'inherit',
+                    fontWeight: option.id === 'edit_list' ? 'bold' : 'normal'
+                  }}>
+                    {option.name}
+                  </li>
+                )}
+                PaperComponent={({ children }) => (
+                  <Paper elevation={3}>{children}</Paper>
+                )}
+                noOptionsText="No drivers found"
+              />
+            </Box>
           ) : popupMode === "Time" ? (
             <DialogContent>
               <TextField
@@ -705,6 +767,17 @@ const DeliverySpreadsheet: React.FC = () => {
           <Button onClick={() => {setPopupMode(""); popupMode == "Driver" ? setDriver(null): setTime("")}}>CANCEL</Button>
         </DialogActions>
       </Dialog>
+
+      {/* Replace the old driver management modal with the new component */}
+      <DriverManagementModal
+        open={showEditDriverList}
+        onClose={() => {
+          setShowEditDriverList(false);
+          setPopupMode("");
+        }}
+        drivers={drivers}
+        onDriversChange={setDrivers}
+      />
     </Box>
   );
 };
