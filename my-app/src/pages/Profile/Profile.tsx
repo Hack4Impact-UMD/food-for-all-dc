@@ -456,31 +456,40 @@ const Profile = () => {
   const validateProfile = () => {
     const newErrors: { [key: string]: string } = {};
 
-    if (!clientProfile.firstName.trim())
+    if (!clientProfile.firstName?.trim())
       newErrors.firstName = "First Name is required";
-    if (!clientProfile.lastName.trim()) newErrors.lastName = "Last Name is required";
-    if (!clientProfile.address1.trim()) newErrors.address = "Address 1 is required";
-    if(!clientProfile.zipCode) newErrors.zipCode = "Zip code is required";
-    if(!clientProfile.city) newErrors.city = "City is required";
-    if(!clientProfile.state) newErrors.state = "State is required";
-    if (!clientProfile.dob) newErrors.dob = "Date of Birth is required";
-    if (!clientProfile.deliveryFreq.trim())
+    if (!clientProfile.lastName?.trim())
+      newErrors.lastName = "Last Name is required";
+    if (!clientProfile.address1?.trim())
+      newErrors.address = "Address 1 is required";
+    if (!clientProfile.zipCode)
+      newErrors.zipCode = "Zip code is required";
+    if (!clientProfile.city)
+      newErrors.city = "City is required";
+    if (!clientProfile.state)
+      newErrors.state = "State is required";
+    if (!clientProfile.dob)
+      newErrors.dob = "Date of Birth is required";
+    if (!clientProfile.deliveryFreq?.trim())
       newErrors.deliveryFreq = "Delivery Frequency is required";
-    if (!clientProfile.phone.trim()) newErrors.phone = "Phone is required";
-    if (!clientProfile.gender.trim()) newErrors.gender = "Gender is required";
-    if (!clientProfile.ethnicity.trim())
+    if (!clientProfile.phone?.trim())
+      newErrors.phone = "Phone is required";
+    if (!clientProfile.gender?.trim())
+      newErrors.gender = "Gender is required";
+    if (!clientProfile.ethnicity?.trim())
       newErrors.ethnicity = "Ethnicity is required";
-    if (!clientProfile.language.trim()) newErrors.language = "Language is required";
+    if (!clientProfile.language?.trim())
+      newErrors.language = "Language is required";
     if (clientProfile.adults === 0 && clientProfile.children === 0) {
       newErrors.total = "At least one adult or child is required";
     }
-    if (!/^\d{10}$/.test(clientProfile.phone)) {
+    if (!/^\d{10}$/.test(clientProfile.phone || "")) {
       newErrors.phone = "Phone number must be exactly 10 digits";
     }
 
     if (
-      !/^\d{10}$/.test(clientProfile.alternativePhone) &&
-      clientProfile.alternativePhone.trim()
+      clientProfile.alternativePhone &&
+      !/^\d{10}$/.test(clientProfile.alternativePhone)
     ) {
       newErrors.alternativePhone =
         "Alternative Phone number must be exactly 10 digits";
