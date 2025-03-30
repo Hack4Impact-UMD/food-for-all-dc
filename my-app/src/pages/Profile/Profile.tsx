@@ -102,6 +102,8 @@ const Profile = () => {
     adults: 0,
     children: 0,
     total: 0,
+    seniors: 0,
+    headOfHousehold: "Adult",
     gender: "Male",
     ethnicity: "",
     deliveryDetails: {
@@ -128,8 +130,7 @@ const Profile = () => {
     createdAt: new Date(),
     updatedAt: new Date(),
     tags: [],
-    ward: "",
-    seniors: 0,
+    ward: ""
   });
   const [isNewProfile, setIsNewProfile] = useState(true);
   const [editMode, setEditMode] = useState(true);
@@ -304,7 +305,8 @@ const Profile = () => {
     updatedAt: Date;
     tags: string[];
     ward: string;
-    seniors: Number;
+    seniors: number;
+    headOfHousehold: "Senior" | "Adult";
   };
 
   // Type for all possible field paths including nested ones
@@ -471,8 +473,8 @@ const Profile = () => {
     if (!clientProfile.ethnicity.trim())
       newErrors.ethnicity = "Ethnicity is required";
     if (!clientProfile.language.trim()) newErrors.language = "Language is required";
-    if (clientProfile.adults === 0 && clientProfile.children === 0) {
-      newErrors.total = "At least one adult or child is required";
+    if (clientProfile.adults === 0 && clientProfile.seniors === 0) {
+      newErrors.total = "At least one adult or senior is required";
     }
     if (!/^\d{10}$/.test(clientProfile.phone)) {
       newErrors.phone = "Phone number must be exactly 10 digits";
@@ -534,7 +536,7 @@ const Profile = () => {
         tags: tags, // Sync the tags state with clientProfile
         notesTimestamp: updatedNotesTimestamp, // Update the notesTimestamp
         updatedAt: new Date(),
-        total: clientProfile.adults + clientProfile.children,
+        total: clientProfile.adults + clientProfile.children + clientProfile.seniors,
         ward: await getWard(clientProfile.address1)
       };
   
@@ -711,18 +713,19 @@ const Profile = () => {
             <>
               {/* <TextFieldInput descriptor={fieldPath} handleChange={handleChange} /> */}
               <CustomTextField
-                type="text"
-                name={fieldPath}
-                value={fieldPath === "ward" ? ward : String(value || "")}
-                onChange={handleChange}
-                onBlur={async () => {
-                  if (fieldPath === "address1") {
-                    await getWard(value); 
-                  }
-                }}
-                fullWidth
-                inputRef = {fieldPath === "address1" ? addressInputRef : null}
-              />
+        type="text"
+        name={fieldPath}
+        value={fieldPath === "ward" ? ward : String(value || "")}
+        onChange={handleChange}
+        onBlur={async () => {
+          if (fieldPath === "address1") {
+            // Call getWard with the updated address1 value
+            await getWard(clientProfile.address1);
+          }
+        }}
+        fullWidth
+        inputRef={fieldPath === "address1" ? addressInputRef : null}
+      />
             </>
           );
         }
@@ -1085,116 +1088,136 @@ const Profile = () => {
               )}
             </Box>
 
-            {/* Address 1*/}
-            <Box>
-              <Typography
-                className="field-descriptor"
-                sx={{
-                  ...fieldLabelStyles,
-                  position: "relative",
-                  top: isEditing ? "-19px" : "0",
-                }}
-              >
-                ADDRESS 1<span className="required-asterisk">*</span>
-              </Typography>
-              {renderField("address1", "text")}
-              {errors.address1 && (
-                <Typography color="error" variant="body2">
-                  {errors.address1}
-                </Typography>
-              )}
-            </Box>
+            {/* Address 1 */}
+<Box>
+  <Typography
+    className="field-descriptor"
+    sx={{
+      ...fieldLabelStyles,
+      position: "relative",
+      top: isEditing ? "-19px" : "0",
+    }}
+  >
+    ADDRESS 1 <span className="required-asterisk">*</span>
+  </Typography>
+  {renderField("address1", "text")}
+  {errors.address1 && (
+    <Typography color="error" variant="body2">
+      {errors.address1}
+    </Typography>
+  )}
+</Box>
 
-            {/* Address 2*/}
-            <Box>
-              <Typography
-                className="field-descriptor"
-                sx={{
-                  ...fieldLabelStyles,
-                  position: "relative",
-                  top: isEditing ? "-19px" : "0",
-                }}
-              >
-                ADDRESS 2 
-              </Typography>
-              {renderField("address2", "text")}
-            </Box>
+{/* Address 2 */}
+<Box>
+  <Typography
+    className="field-descriptor"
+    sx={{
+      ...fieldLabelStyles,
+      position: "relative",
+      top: isEditing ? "-19px" : "0",
+    }}
+  >
+    ADDRESS 2
+  </Typography>
+  <CustomTextField
+    type="text"
+    name="address2"
+    value={clientProfile.address2 || ""}
+    onChange={(e) => {
+      const { value } = e.target;
+      setClientProfile((prevState) => ({
+        ...prevState,
+        address2: value, // Update address2 without triggering getWard
+      }));
+    }}
+    fullWidth
+  />
+</Box>
 
-            {/* City */}
-            <Box>
-              <Typography
-                className="field-descriptor"
-                sx={{
-                  ...fieldLabelStyles,
-                  position: "relative",
-                  top: isEditing ? "-19px" : "0",
-                }}
-              >
-                CITY <span className="required-asterisk">*</span>
-              </Typography>
-              {renderField("city", "text")}
-              {errors.city && (
-                <Typography color="error" variant="body2">
-                  {errors.city}
-                </Typography>
-              )}
-            </Box>
+           {/* City */}
+<Box>
+  <Typography
+    className="field-descriptor"
+    sx={{
+      ...fieldLabelStyles,
+      position: "relative",
+      top: isEditing ? "-19px" : "0",
+    }}
+  >
+    CITY <span className="required-asterisk">*</span>
+  </Typography>
+  <CustomTextField
+    type="text"
+    name="city"
+    value={clientProfile.city || ""}
+    disabled
+    fullWidth
+  />
+</Box>
 
-            {/* STATE*/}
-            <Box>
-              <Typography
-                className="field-descriptor"
-                sx={{
-                  ...fieldLabelStyles,
-                  position: "relative",
-                  top: isEditing ? "-19px" : "0",
-                }}
-              >
-                STATE <span className="required-asterisk">*</span>
-              </Typography>
-              {renderField("state", "text")}
-              {errors.state && (
-                <Typography color="error" variant="body2">
-                  {errors.state}
-                </Typography>
-              )}
-            </Box>
+{/* State */}
+<Box>
+  <Typography
+    className="field-descriptor"
+    sx={{
+      ...fieldLabelStyles,
+      position: "relative",
+      top: isEditing ? "-19px" : "0",
+    }}
+  >
+    STATE <span className="required-asterisk">*</span>
+  </Typography>
+  <CustomTextField
+    type="text"
+    name="state"
+    value={clientProfile.state || ""}
+    disabled
+    fullWidth
+  />
+</Box>
 
-            {/* ZIP CODE*/}
-            <Box>
-              <Typography
-                className="field-descriptor"
-                sx={{
-                  ...fieldLabelStyles,
-                  position: "relative",
-                  top: isEditing ? "-19px" : "0",
-                }}
-              >
-                ZIP CODE <span className="required-asterisk">*</span>
-              </Typography>
-              {renderField("zipCode", "text")}
-              {errors.zipCode && (
-                <Typography color="error" variant="body2">
-                  {errors.zipCode}
-                </Typography>
-              )}
-            </Box>
+{/* ZIP CODE */}
+<Box>
+  <Typography
+    className="field-descriptor"
+    sx={{
+      ...fieldLabelStyles,
+      position: "relative",
+      top: isEditing ? "-19px" : "0",
+    }}
+  >
+    ZIP CODE <span className="required-asterisk">*</span>
+  </Typography>
+  <CustomTextField
+    type="text"
+    name="zipCode"
+    value={clientProfile.zipCode || ""}
+    disabled
+    fullWidth
+  />
+</Box>
 
-            {/* Quadrant */}
-            <Box>
-              <Typography
-                className="field-descriptor"
-                sx={{
-                  ...fieldLabelStyles,
-                  position: "relative",
-                  top: isEditing ? "-19px" : "0",
-                }}
-              >
-                QUADRANT 
-              </Typography>
-              {renderField("quadrant", "text")}
-            </Box>
-
+{/* Quadrant */}
+<Box>
+  <Typography
+    className="field-descriptor"
+    sx={{
+      ...fieldLabelStyles,
+      position: "relative",
+      top: isEditing ? "-19px" : "0",
+    }}
+  >
+    QUADRANT
+  </Typography>
+  <CustomTextField
+    type="text"
+    name="quadrant"
+    value={clientProfile.quadrant || ""}
+    disabled
+    fullWidth
+  />
+</Box>
             {/* Gender */}
             <Box>
               <Typography
@@ -1293,6 +1316,55 @@ const Profile = () => {
               {errors.children && (
                 <Typography color="error" variant="body2">
                   {errors.children}
+                </Typography>
+              )}
+            </Box>
+
+            {/* Total */}
+<Box>
+  <Typography
+    className="field-descriptor"
+    sx={{
+      ...fieldLabelStyles,
+      position: "relative",
+      top: isEditing ? "-19px" : "0",
+    }}
+  >
+    TOTAL
+  </Typography>
+  <CustomTextField
+    type="text"
+    name="total"
+    value={Number(clientProfile.seniors) + Number(clientProfile.adults) + Number(clientProfile.children)}
+    disabled
+    fullWidth
+  />
+</Box>
+
+            {/* Head of Household */}
+            <Box>
+              <Typography className="field-descriptor" sx={fieldLabelStyles}>
+                HEAD OF HOUSEHOLD
+              </Typography>
+              {isEditing ? (
+                <CustomSelect
+                  name="headOfHousehold"
+                  value={clientProfile.headOfHousehold || ""}
+                  onChange={(e) => {
+                    const { value } = e.target;
+                    setClientProfile((prevState) => ({
+                      ...prevState,
+                      headOfHousehold: value as "Adult" | "Senior",
+                    }));
+                  }}
+                  fullWidth
+                >
+                  <MenuItem value="Adult">Adult</MenuItem>
+                  <MenuItem value="Senior">Senior</MenuItem>
+                </CustomSelect>
+              ) : (
+                <Typography variant="body1" sx={{ fontWeight: 600 }}>
+                  {clientProfile.headOfHousehold || "N/A"}
                 </Typography>
               )}
             </Box>
