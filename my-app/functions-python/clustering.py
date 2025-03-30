@@ -8,7 +8,7 @@ from k_means_constrained import KMeansConstrained
 from sklearn.neighbors import LocalOutlierFactor
 from kmedoids import KMedoids
 from pydantic import BaseModel, ValidationError
-from typing import Dict, List, Tuple, Any
+from typing import Dict, List, Tuple, Optional, Any
 import json
 import os
 import numpy as np
@@ -51,6 +51,34 @@ class FieldError(BaseModel):
 class ValidationErrorResponse(BaseModel):
     error: str = "Validation Error"
     details: List[FieldError]
+
+class GeocodeRequest(BaseModel):
+    addresses: List[str]
+
+class GeocodeResponse(BaseModel):
+    coordinates: List[Tuple[float, float]]
+
+
+#Convert a list of addresses to (lat, lon) using Google Maps Geocoding API.
+def geocode_addresses(addresses: List[str]) -> List[Tuple[float, float]]:
+    
+    gmaps = googlemaps.Client(key=os.environ["MAPS_API_KEY"])
+    coords = []
+    
+    for address in addresses:
+        try:
+            geocode_result = gmaps.geocode(address)
+            if geocode_result:
+                location = geocode_result[0]["geometry"]["location"]
+                coords.append((location["lat"], location["lng"]))
+            else:
+                print(f"Warning: Address not found: {address}")
+                coords.append((0.0, 0.0)) 
+        except Exception as e:
+            print(f"Geocoding failed for {address}: {str(e)}")
+            coords.append((0.0, 0.0))  
+    
+    return coords
 
 def parse_error_fields(e: ValidationError):
     return [
@@ -167,7 +195,53 @@ def cluster_deliveries_k_medoids(req: https_fn.Request) -> https_fn.Response:
         content_type="application/json",
     )
 
-
+@https_fn.on_request()
+def geocode_addresses_endpoint(req: https_fn.Request) -> https_fn.Response:
+    # Set CORS headers
+    headers = {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+    }
+    
+    # Handle preflight OPTIONS request
+    if req.method == "OPTIONS":
+        return https_fn.Response(
+            "",
+            headers=headers,
+            status=204,
+            content_type="application/json"
+        )
+    
+    try:
+        # Get data from request
+        # data = req.get_json()
+        # addresses = data["addresses"]
+        
+        # Your existing geocoding logic
+        # coordinates = geocode_addresses(addresses)
+        coordinates = [1,2,3]
+        return https_fn.Response(
+            response=json.dumps({"coordinates": coordinates}),
+            status=200,
+            headers=headers,
+            content_type="application/json",
+        )
+    except ValidationError as e:
+        return https_fn.Response(
+            response=json.dumps({"error": "Validation error", "details": parse_error_fields(e)}),
+            status=400,
+            headers=headers,
+            content_type="application/json",
+        )
+    except Exception as e:
+        return https_fn.Response(
+            response=json.dumps({"error": str(e)}),
+            status=500,
+            headers=headers,
+            content_type="application/json",
+        )
+    
 @https_fn.on_request()
 def cluster_deliveries_k_means(req: https_fn.Request) -> https_fn.Response:
     coords = np.array(req.coords, dtype=object)
