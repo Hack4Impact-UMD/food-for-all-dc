@@ -438,11 +438,11 @@ const Profile = () => {
     // Always mark as unsaved when a change occurs
     setIsSaved(false);
 
-    if (name === "dob") {
-      const newDob = e.target.value; // this will be in the format YYYY-MM-DD
+    if (name === "dob" || name == "tefapCert") {
+      const date = e.target.value; // this will be in the format YYYY-MM-DD
       setClientProfile((prevState) => ({
         ...prevState,
-        dob: newDob,
+        [name]: date,
       }));
     } else if (name === "adults" || name === "children") {
       setClientProfile((prevState) => ({
