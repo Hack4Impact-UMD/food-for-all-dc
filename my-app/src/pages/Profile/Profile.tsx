@@ -32,13 +32,19 @@ import {
   where,
   limit,
 } from "firebase/firestore";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { db, auth } from "../../auth/firebaseConfig";
 import "./Profile.css";
 
 import { Timestamp } from "firebase/firestore";
 import TagPopup from "./Tags/TagPopup";
+
+declare global {
+  interface Window {
+    google: any;
+  }
+}
 
 const fieldStyles = {
   backgroundColor: "#eee",
@@ -82,10 +88,13 @@ const Profile = () => {
     uid: "",
     firstName: "",
     lastName: "",
-    houseNumber: "",
     streetName: "",
     zipCode: "",
-    address: "",
+    address1: "",
+    address2: "",
+    city: "",
+    state: "",
+    quadrant: "",
     dob: "",
     deliveryFreq: "",
     phone: "",
@@ -266,10 +275,13 @@ const Profile = () => {
     uid: string;
     firstName: string;
     lastName: string;
-    houseNumber: string;
     streetName: string;
     zipCode: string;
-    address: string;
+    address1: string;
+    address2: string;
+    city: string;
+    state: string;
+    quadrant: string;
     dob: string;
     deliveryFreq: string;
     phone: string;
@@ -447,7 +459,10 @@ const Profile = () => {
     if (!clientProfile.firstName.trim())
       newErrors.firstName = "First Name is required";
     if (!clientProfile.lastName.trim()) newErrors.lastName = "Last Name is required";
-    if (!clientProfile.address.trim()) newErrors.address = "Address is required";
+    if (!clientProfile.address1.trim()) newErrors.address = "Address 1 is required";
+    if(!clientProfile.zipCode) newErrors.zipCode = "Zip code is required";
+    if(!clientProfile.city) newErrors.city = "City is required";
+    if(!clientProfile.state) newErrors.state = "State is required";
     if (!clientProfile.dob) newErrors.dob = "Date of Birth is required";
     if (!clientProfile.deliveryFreq.trim())
       newErrors.deliveryFreq = "Delivery Frequency is required";
@@ -472,6 +487,7 @@ const Profile = () => {
     }
 
     setErrors(newErrors);
+    console.log(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
@@ -519,7 +535,7 @@ const Profile = () => {
         notesTimestamp: updatedNotesTimestamp, // Update the notesTimestamp
         updatedAt: new Date(),
         total: clientProfile.adults + clientProfile.children,
-        ward: await getWard(clientProfile.address),
+        ward: await getWard(clientProfile.address1)
       };
   
       const sortedAllTags = [...allTags].sort((a, b) => a.localeCompare(b));
@@ -574,18 +590,18 @@ const Profile = () => {
       ? getNestedValue(clientProfile, fieldPath)
       : clientProfile[fieldPath as keyof ClientProfile];
 
-    const handleTag = (text: any) => {
-      if (tags.includes(text)) {
-        const updatedTags = tags.filter((t) => t !== text);
-        setTags(updatedTags);
-      }
-      else if (text.trim() != "") {
-        const updatedTags = [...tags, text.trim()];
-        setTags(updatedTags);
-      }
-    };
+        const handleTag = (text: any) => {
+        if (tags.includes(text)) {
+          const updatedTags = tags.filter((t) => t !== text);
+          setTags(updatedTags); 
+        } 
+        else if(text.trim() != ""){
+          const updatedTags = [...tags, text.trim()]; 
+          setTags(updatedTags); 
+        }
+      };
 
-    if (fieldPath === "deliveryDetails.dietaryRestrictions") {
+  if (fieldPath === "deliveryDetails.dietaryRestrictions") {
       return renderDietaryRestrictions();
     }
 
@@ -700,22 +716,23 @@ const Profile = () => {
                 value={fieldPath === "ward" ? ward : String(value || "")}
                 onChange={handleChange}
                 onBlur={async () => {
-                  if (fieldPath === "address") {
-                    await getWard(value);
+                  if (fieldPath === "address1") {
+                    await getWard(value); 
                   }
                 }}
                 fullWidth
+                inputRef = {fieldPath === "address1" ? addressInputRef : null}
               />
             </>
           );
+        }
       }
-    }
-
-    return (
-      <Typography variant="body1" sx={{ fontWeight: 600 }}>
-        {renderFieldValue(fieldPath, value)}
-      </Typography>
-    );
+    
+      return (
+        <Typography variant="body1" sx={{ fontWeight: 600 }}>
+          {renderFieldValue(fieldPath, value)}
+        </Typography>
+      );
   };
 
   // Helper function to render field values properly
@@ -842,6 +859,111 @@ const Profile = () => {
     },
   };
 
+  //google places autocomplete
+  //this ends up being used in renderField
+  const addressInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if(isEditing) {
+      // check if the Google Maps API script is already loaded
+      const script = document.createElement('script');
+      if (!window.google) {
+        
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.REACT_APP_GOOGLE_MAPS_API_KEY || ""}&libraries=places`;
+        script.async = true;
+        script.defer = true;
+        
+        // initialize autocomplete when script loading finishes
+        script.onload = () => {
+          if (addressInputRef.current) {
+            const autocomplete = new window.google.maps.places.Autocomplete(
+              addressInputRef.current,
+              { 
+                types: ['address'],
+                componentRestrictions: { country: 'us' } 
+              }
+            );
+            
+            autocomplete.addListener('place_changed', () => {
+              const place = autocomplete.getPlace();
+              if (place.formatted_address) {
+                console.log(place);
+                let address = place.formatted_address;
+                // address components in json format
+                const addressComponents = place.address_components;
+                console.log(address);
+                
+                let streetNumber = '';
+                let streetName = '';
+                let city = '';
+                let state = '';
+                let zipCode = '';
+                let quadrant = ''; 
+                
+                // getting relevant components
+                if (addressComponents) {
+                  for (const component of addressComponents) {
+                    const types = component.types;
+                    
+                    if (types.includes('street_number')) {
+                      streetNumber = component.long_name;
+                    }
+                    
+                    if (types.includes('route')) {
+                      streetName = component.long_name;
+                    }
+                    
+                    if (types.includes('locality') || types.includes('sublocality')) {
+                      city = component.long_name;
+                    }
+                    
+                    if (types.includes('administrative_area_level_1')) {
+                      state = component.short_name; // Use short_name for state code (e.g., "DC" instead of "District of Columbia")
+                    }
+                    
+                    if (types.includes('postal_code')) {
+                      zipCode = component.long_name;
+                    }
+                  }
+                  
+                  // using regex to look for quadrant
+                  const quadrantMatch = address.match(/(NW|NE|SW|SE)(\s|,|$)/);
+                  if (state === "DC" && quadrantMatch) {
+                    quadrant = quadrantMatch[1];
+                  }
+
+                  //TODO: DELETE
+                  console.log('Street Number:', streetNumber);
+                  console.log('Street Name:', streetName);
+                  console.log('City:', city);
+                  console.log('State:', state);
+                  console.log('Zip Code:', zipCode);
+                  console.log('Quadrant:', quadrant);
+                }
+                
+                // Update the client profile with all the parsed components
+                setClientProfile(prev => ({
+                  ...prev,
+                  address1: `${streetNumber} ${streetName}`.trim(),
+                  city: city,
+                  state: state,
+                  zipCode: zipCode,
+                  quadrant: quadrant
+                }));
+              }
+            });
+          }
+        };
+        
+        document.head.appendChild(script);
+      } 
+    }
+    return () => {
+
+    }
+  }, [isEditing])
+  
+  
   return (
     <Box className="profile-container">
       <Box className="white-container">
@@ -963,7 +1085,7 @@ const Profile = () => {
               )}
             </Box>
 
-            {/* Address */}
+            {/* Address 1*/}
             <Box>
               <Typography
                 className="field-descriptor"
@@ -973,14 +1095,104 @@ const Profile = () => {
                   top: isEditing ? "-19px" : "0",
                 }}
               >
-                ADDRESS <span className="required-asterisk">*</span>
+                ADDRESS 1<span className="required-asterisk">*</span>
               </Typography>
-              {renderField("address", "text")}
-              {errors.address && (
+              {renderField("address1", "text")}
+              {errors.address1 && (
                 <Typography color="error" variant="body2">
-                  {errors.address}
+                  {errors.address1}
                 </Typography>
               )}
+            </Box>
+
+            {/* Address 2*/}
+            <Box>
+              <Typography
+                className="field-descriptor"
+                sx={{
+                  ...fieldLabelStyles,
+                  position: "relative",
+                  top: isEditing ? "-19px" : "0",
+                }}
+              >
+                ADDRESS 2 
+              </Typography>
+              {renderField("address2", "text")}
+            </Box>
+
+            {/* City */}
+            <Box>
+              <Typography
+                className="field-descriptor"
+                sx={{
+                  ...fieldLabelStyles,
+                  position: "relative",
+                  top: isEditing ? "-19px" : "0",
+                }}
+              >
+                CITY <span className="required-asterisk">*</span>
+              </Typography>
+              {renderField("city", "text")}
+              {errors.city && (
+                <Typography color="error" variant="body2">
+                  {errors.city}
+                </Typography>
+              )}
+            </Box>
+
+            {/* STATE*/}
+            <Box>
+              <Typography
+                className="field-descriptor"
+                sx={{
+                  ...fieldLabelStyles,
+                  position: "relative",
+                  top: isEditing ? "-19px" : "0",
+                }}
+              >
+                STATE <span className="required-asterisk">*</span>
+              </Typography>
+              {renderField("state", "text")}
+              {errors.state && (
+                <Typography color="error" variant="body2">
+                  {errors.state}
+                </Typography>
+              )}
+            </Box>
+
+            {/* ZIP CODE*/}
+            <Box>
+              <Typography
+                className="field-descriptor"
+                sx={{
+                  ...fieldLabelStyles,
+                  position: "relative",
+                  top: isEditing ? "-19px" : "0",
+                }}
+              >
+                ZIP CODE <span className="required-asterisk">*</span>
+              </Typography>
+              {renderField("zipCode", "text")}
+              {errors.zipCode && (
+                <Typography color="error" variant="body2">
+                  {errors.zipCode}
+                </Typography>
+              )}
+            </Box>
+
+            {/* Quadrant */}
+            <Box>
+              <Typography
+                className="field-descriptor"
+                sx={{
+                  ...fieldLabelStyles,
+                  position: "relative",
+                  top: isEditing ? "-19px" : "0",
+                }}
+              >
+                QUADRANT 
+              </Typography>
+              {renderField("quadrant", "text")}
             </Box>
 
             {/* Gender */}
