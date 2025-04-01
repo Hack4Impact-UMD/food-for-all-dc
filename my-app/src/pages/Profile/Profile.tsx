@@ -152,6 +152,7 @@ const Profile = () => {
   const [prevNotes, setPrevNotes] = useState("");
   const params = useParams(); // Params will return an object containing route params (like { id: 'some-id' })
   const id: string | null = params.id ?? null; // Use optional chaining to get the id or null if undefined
+  const [showSavePopup, setShowSavePopup] = useState(false);
 
   // Function to fetch profile data by ID
   const getProfileById = async (id: string) => {
@@ -604,6 +605,12 @@ const Profile = () => {
       setIsSaved(true);
       setEditMode(false);
       setIsEditing(false);
+      
+      // Show save popup
+      setShowSavePopup(true);
+      // Hide popup after 2 seconds
+      setTimeout(() => setShowSavePopup(false), 2000);
+      
     } catch (e) {
       console.error("Error saving document: ", e);
     }
@@ -996,6 +1003,24 @@ const Profile = () => {
   
   return (
     <Box className="profile-container">
+      {showSavePopup && (
+        <Box
+          sx={{
+            position: 'fixed',
+            bottom: '20px',
+            right: '20px',
+            backgroundColor: '#257e68',
+            color: 'white',
+            padding: '16px',
+            borderRadius: '4px',
+            boxShadow: '0 2px 5px rgba(0,0,0,0.2)',
+            zIndex: 1000,
+            animation: 'slideIn 0.3s ease-out',
+          }}
+        >
+          Profile saved successfully!
+        </Box>
+      )}
       <Box className="white-container">
         <Typography
           variant="h5"
