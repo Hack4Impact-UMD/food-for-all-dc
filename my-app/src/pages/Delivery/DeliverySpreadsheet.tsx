@@ -28,8 +28,12 @@ import {
   setDoc,
 } from "firebase/firestore";
 import { auth } from "../../auth/firebaseConfig";
-import { onAuthStateChanged } from "firebase/auth";
-
+import { getAuth, onAuthStateChanged } from "firebase/auth";
+import { getApp } from "firebase/app";
+import { getFunctions, httpsCallable } from "firebase/functions";
+import {app} from "../../auth/firebaseConfig"; 
+const firebase = getApp();
+const functions = getFunctions(app);
 // Define TypeScript types for row data
 interface RowData {
   id: string;
@@ -225,6 +229,7 @@ const DeliverySpreadsheet: React.FC = () => {
   const [selectedClusters, setSelectedClusters] = useState<Set<any>>(new Set());
   const [driver, setDriver] = useState<Driver | null>();
   const [time, setTime] = useState<string>("");
+  const [clusterNum, setClusterNum] = useState(0);
   const navigate = useNavigate();
 
   //get drivers
@@ -328,6 +333,7 @@ const DeliverySpreadsheet: React.FC = () => {
     setSelectedRows(new Set());
     setDriver(null);
     setTime("");
+    setClusterNum(0);
   };
 
   //Handle assigning driver
@@ -370,6 +376,17 @@ const DeliverySpreadsheet: React.FC = () => {
     }
   };
 
+  const updateCluster = async (userId: string, clusterId: string) => {
+    try {
+      const userRef = doc(db, "clients", userId);
+      await setDoc(userRef, { clusterID: clusterId }, { merge: true });
+      console.log(`Updated user ${userId} to cluster ${clusterId}`);
+    } catch (error) {
+      console.error(`Error updating cluster for user ${userId}:`, error);
+      throw error;
+    }
+  };
+
   //Handle assigning time
   const assignTime = async () => {
     if(time){
@@ -407,6 +424,86 @@ const DeliverySpreadsheet: React.FC = () => {
       }
     }
   };
+
+    //Handle generating clusters
+    const generateClusters = async () => {
+      try {
+        // const user = auth.currentUser;
+        // if (!user) {
+        //   throw new Error("User not authenticated");
+        // }
+        
+        const token = await auth.currentUser?.getIdToken();
+
+        const addresses = visibleRows.map(row => row.address);
+        
+        //convert addresses to coordinates
+        const response = await fetch('https://geocode-addresses-endpoint-lzrplp4tfa-uc.a.run.app', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            addresses: addresses
+          }),
+        });
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        
+        const {coordinates} = await response.json();
+        console.log(coordinates)
+
+        //generate clusters based on coordinates
+        const clusterResponse = await fetch('https://cluster-deliveries-k-means-lzrplp4tfa-uc.a.run.app', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            coords: coordinates,
+            drivers_count: clusterNum,
+            min_deliveries: 2,  
+            max_deliveries: 10
+          }),
+        });
+
+        const clusterData = await clusterResponse.json();
+        console.log(clusterData)
+
+        // Update each user's cluster assignment
+        const updatePromises = [];
+        for (const [clusterName, indices] of Object.entries(clusterData.clusters)) {
+          const clusterNum = clusterName.split('-')[1]; //get cluster number
+          for (const index of indices as number[]) {
+            const user = visibleRows[index];
+            if (user) {
+              updatePromises.push(updateCluster(user.id, clusterNum));
+            }
+          }
+        }
+
+    // Wait for all updates to complete
+    await Promise.all(updatePromises);
+
+    // Refresh the data
+    const snapshot = await getDocs(collection(db, "clients"));
+    const updatedData = snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...(doc.data() as Omit<RowData, "id">),
+    }));
+    setRows(updatedData);
+
+
+      } catch (error) {
+        console.error("Full error:", error);
+        throw error;
+      }
+    };
 
   // Handle checkbox selection
   const handleCheckboxChange = (id: string) => {
@@ -544,56 +641,75 @@ const DeliverySpreadsheet: React.FC = () => {
               size={20}
             />
           </div>
-          <div style={{ display: "flex", justifyContent: "start", gap: "2%" }}>
-            <Button
-              variant="contained"
-              color="secondary"
-              onClick={() => setSearchQuery("")}
-              className="view-all"
-              style={{
-                whiteSpace: "nowrap",
-                padding: "0% 2%",
-                borderRadius: "5px",
-                width: "10%",
-              }}
-            >
-              Driver List
-            </Button>
-            <Button
-              variant="contained"
-              disabled={selectedRows.size <= 0}
-              onClick={() => {
-                setPopupMode("Driver");
-              }}
-              className="view-all"
-              sx={{
-                whiteSpace: "nowrap",
-                padding: "0% 2%",
-                borderRadius: "5px",
-                width: "10%",
-                backgroundColor: (selectedRows.size <= 0 ? "gray" : "#257E68") + " !important",
-              }}
-            >
-              Assign Driver
-            </Button>
-            <Button
-              variant="contained"
-              color="secondary"
-              className="view-all"
-              onClick={() => {
-                setPopupMode("Time");
-              }}
-              disabled={selectedRows.size <= 0}
-              sx={{
-                whiteSpace: "nowrap",
-                padding: "0% 2%",
-                borderRadius: "5px",
-                width: "10%",
-                backgroundColor: (selectedRows.size <= 0 ? "gray" : "#257E68") + " !important",
-              }}
-            >
-              Assign Time
-            </Button>
+          <div style={{ display: "flex", justifyContent: "space-between" }}>
+            <div style={{display: "flex", width: "100%", gap: "2%"}}>
+              <Button
+                variant="contained"
+                color="secondary"
+                onClick={() => setSearchQuery("")}
+                className="view-all"
+                style={{
+                  whiteSpace: "nowrap",
+                  padding: "0% 2%",
+                  borderRadius: "5px",
+                  width: "10%",
+                }}
+              >
+                Driver List
+              </Button>
+              <Button
+                variant="contained"
+                disabled={selectedRows.size <= 0}
+                onClick={() => {
+                  setPopupMode("Driver");
+                }}
+                className="view-all"
+                sx={{
+                  whiteSpace: "nowrap",
+                  padding: "0% 2%",
+                  borderRadius: "5px",
+                  width: "10%",
+                  backgroundColor: (selectedRows.size <= 0 ? "gray" : "#257E68") + " !important",
+                }}
+              >
+                Assign Driver
+              </Button>
+              <Button
+                variant="contained"
+                color="secondary"
+                className="view-all"
+                onClick={() => {
+                  setPopupMode("Time");
+                }}
+                disabled={selectedRows.size <= 0}
+                sx={{
+                  whiteSpace: "nowrap",
+                  padding: "0% 2%",
+                  borderRadius: "5px",
+                  width: "10%",
+                  backgroundColor: (selectedRows.size <= 0 ? "gray" : "#257E68") + " !important",
+                }}
+              >
+                Assign Time
+              </Button>
+            </div>
+              <Button
+                variant="contained"
+                color="secondary"
+                className="view-all"
+                onClick={() => {
+                  setPopupMode("Clusters");
+                }}
+                sx={{
+                  whiteSpace: "nowrap",
+                  padding: "0% 2%",
+                  borderRadius: "5px",
+                  width: "10%",
+                  backgroundColor: "#257E68" + " !important",
+                }}
+              >
+                Generate<br></br>Clusters
+              </Button>
           </div>
         </div>
       </div>
@@ -667,7 +783,7 @@ const DeliverySpreadsheet: React.FC = () => {
 
       {/* Popup */}
       <Dialog open={innerPopup} onClose={() => setPopupMode("")}>
-        <DialogTitle>{popupMode == "Time" ? "Select a time": "Assign a Driver"}</DialogTitle>
+        <DialogTitle>{popupMode == "Time" ? "Select a time": popupMode == "Driver" ? "Assign a Driver": popupMode == "Clusters" ? "Generate Clusters" : ""}</DialogTitle>
         <DialogContent>
           {popupMode === "Driver" ? (
             <Autocomplete
@@ -710,13 +826,29 @@ const DeliverySpreadsheet: React.FC = () => {
                 variant="outlined"
               />
             </DialogContent>
-          ) : (
-            ""
-          )}
+          ) : popupMode == "Clusters" ? (
+            <DialogContent>
+              <div style={{display:"flex", alignItems:"center", gap:"10px"}}>
+                Enter desired number of clusters:
+                <TextField
+                  type="number"
+                  defaultValue={clusterNum}
+                  sx={{
+                    width:"70px"
+                  }}
+                  onChange={(e) => setClusterNum(Number(e.target.value))}
+                  inputProps={{ min: 0 }}
+                  variant="outlined"
+                />
+              </div>
+            </DialogContent>
+          ):
+          ""
+          }
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => {popupMode == "Driver" ? assignDriver(): assignTime()}}>SAVE</Button>
-          <Button onClick={() => {setPopupMode(""); popupMode == "Driver" ? setDriver(null): setTime("")}}>CANCEL</Button>
+          <Button onClick={() => { popupMode == "Driver" ? assignDriver(): popupMode == "Time" ? assignTime(): popupMode == "Clusters" ? generateClusters(): console.log("invalid")}}>SAVE</Button>
+          <Button onClick={() => {resetSelections()}}>CANCEL</Button>
         </DialogActions>
       </Dialog>
     </Box>
