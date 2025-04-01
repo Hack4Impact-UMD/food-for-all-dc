@@ -98,7 +98,8 @@ function Login() {
 
           <p className="login-label">Admin Login</p>
           
-          <FormControl sx={{ m: 1, width: '100%', margin: '2%' }} variant="standard">
+          <FormControl sx={{ m: 1, width: '100%', margin: '2%' }} 
+          variant="standard">
           <InputLabel htmlFor="standard-adornment-email">Email</InputLabel>
           <Input
             id="standard-adornment-email"
@@ -110,7 +111,7 @@ function Login() {
           />
           </FormControl>
             
-        <FormControl sx={{ m: 1, width: '100%' , margin: '2%' }} variant="standard">
+        <form onSubmit={(e) => { e.preventDefault(); handleLogin(); }}>
         <InputLabel htmlFor="standard-adornment-password">Password</InputLabel>
         <Input
             id="standard-adornment-password"
@@ -132,14 +133,15 @@ function Login() {
               </InputAdornment> 
             }
           />
-          </FormControl>
+          {loginError && <p className="login-error">{loginError}</p>}
+          <Button variant="contained" color="primary" type="submit" fullWidth>
+            Login
+          </Button>
+          </form>
 
           
         </div>
-        {loginError && <p className="login-error">{loginError}</p>}
-          <Button variant="contained" color="primary" onClick={handleLogin} fullWidth>
-            Login
-          </Button>
+        
       </div>
       
       
