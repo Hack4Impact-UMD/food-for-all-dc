@@ -64,10 +64,8 @@ class GeocodeResponse(BaseModel):
 def geocode_addresses(addresses: List[str]) -> List[Tuple[float, float]]:
     logging.info("Function execution started") 
     try:
-        #  clusteringApiKey = os.environ.get("clustering-api-key")  
-        #  mapsApiKey = os.environ.get("maps_api_key") 
-        #  googleMapsApiKey = os.environ.get("google_maps_api_key")
-         maps_api_key = "AIzaSyDDd-Q1LQlq6cA91kIEOofwVPLqLI9AUaA"
+         maps_api_key = os.environ.get("maps_api_key") 
+
          gmaps = googlemaps.Client(key=maps_api_key)
     except Exception as e:
         return [str(e)]
