@@ -10,10 +10,13 @@ import {
   Select,
   MenuItem,
   Fade,
+  Switch,
+  FormGroup,
+  FormControlLabel,
 } from "@mui/material";
 import { doc, setDoc } from "firebase/firestore";
 import { db } from "../../auth/firebaseConfig";
-import { getDefaultLimit } from "./CalendarUtils";
+import { getDefaultLimit, setDefaultLimit } from "./CalendarUtils";
 
 interface DailyLimits {
   id: string;
@@ -29,8 +32,6 @@ interface CalendarPopperProps {
   setDailyLimits: (update: (prev: DailyLimits[]) => DailyLimits[]) => void;
   fetchDailyLimits: () => Promise<void>;
 }
-
-const LIMITS_OF_THE_WEEK = [60, 60, 60, 60, 60, 90, 90, 60]
 
 const CalendarPopper = ({
   anchorEl,
@@ -48,6 +49,8 @@ const CalendarPopper = ({
     null
   );
   const [newLimit, setNewLimit] = useState<number>(60);
+  const [bulkEdit, setBulkEdit] = useState<boolean>(false);
+
   const limitOptions = Array.from({ length: 9 }, (_, i) => 30 + i * 5);
 
   const handleDateClick = async (date: DayPilot.Date) => {
@@ -68,8 +71,6 @@ const CalendarPopper = ({
     if (limitEntry) {
       setNewLimit(limitEntry.limit);
     }else { 
-      // Set the initial value based on weekday defaults:
-      // Assumes DayPilot.Date.getDayOfWeek() returns 1=Monday,...,7=Sunday.
       const defaultLimit = getDefaultLimit(date)
     setNewLimit(defaultLimit);
     }
@@ -177,8 +178,11 @@ const CalendarPopper = ({
           <Fade {...TransitionProps} timeout={350}>
             <Box
               onClick={handleClick}
-              sx={{ p: 2, width: 500, position: "relative" }}
+              sx={{ p: 2, width: 500, position: "relative", background: "white" }}
             >
+              <FormGroup>
+                <FormControlLabel control={<Switch/>} label="Bulk Edit" onChange={() => setBulkEdit(!bulkEdit)}/>
+              </FormGroup>
               <DayPilotMonth
                 {...customCalendarConfig}
                 cellHeight={60}
@@ -214,39 +218,49 @@ const CalendarPopper = ({
                           value={newLimit}
                           label="Max"
                           onChange={async (e) => {
+
                             const selectedValue = Number(e.target.value);
                             setNewLimit(selectedValue);
                             const dateKey =
                               limitEditDate.toString("yyyy-MM-dd");
-                            const docRef = doc(db, "dailyLimits", dateKey);
-                            await setDoc(
-                              docRef,
-                              {
-                                limit: selectedValue,
-                                date: dateKey,
-                              },
-                              { merge: true }
-                            );
-                            setDailyLimits((prev) => {
-                              const existingIndex = prev.findIndex(
-                                (item) => item.date === dateKey
-                              );
-                              if (existingIndex !== -1) {
-                                return prev.map((item, index) =>
-                                  index === existingIndex
-                                    ? { ...item, limit: selectedValue }
-                                    : item
-                                );
-                              }
-                              return [
-                                ...prev,
+                            
+                            
+                            if (!bulkEdit){
+                              
+                              const docRef = doc(db, "dailyLimits", dateKey);
+                              await setDoc(
+                                docRef,
                                 {
-                                  id: dateKey,
-                                  date: dateKey,
                                   limit: selectedValue,
+                                  date: dateKey,
                                 },
-                              ];
-                            });
+                                { merge: true }
+                              );
+                              setDailyLimits((prev) => {
+                                const existingIndex = prev.findIndex(
+                                  (item) => item.date === dateKey
+                                );
+                                if (existingIndex !== -1) {
+                                  return prev.map((item, index) =>
+                                    index === existingIndex
+                                      ? { ...item, limit: selectedValue }
+                                      : item
+                                  );
+                                }
+                                return [
+                                  ...prev,
+                                  {
+                                    id: dateKey,
+                                    date: dateKey,
+                                    limit: selectedValue,
+                                  },
+                                ];
+                              });
+                            } else {
+                              setDefaultLimit(limitEditDate, selectedValue)
+                            }
+
+
                             setLimitEditDate(null);
                             setClickPosition(null);
                           }}
