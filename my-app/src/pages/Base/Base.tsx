@@ -21,8 +21,10 @@ import LogoutIcon from '@mui/icons-material/Logout';
 import LocalShippingIcon from '@mui/icons-material/LocalShipping';
 import Tab from './NavBar/Tab';
 import logo from '../../assets/ffa-banner-logo.webp';
+import { Typography } from "@mui/material";
 import { useAuth } from '../../auth/AuthProvider';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { useEffect } from "react";
 
 const drawerWidth = 240;
 
@@ -84,8 +86,24 @@ export default function BasePage({ children }: { children: React.ReactNode }) {
   const theme = useTheme();
   const [open, setOpen] = React.useState(false);
   const [tab, setTab] = React.useState("Delivery Schedule");
+  const [pageTitle, setPageTitle] = React.useState("");
   const { logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    if (location.pathname === '/calendar') {
+      setPageTitle("Deliveries");
+    } else if (location.pathname === '/spreadsheet') {
+      setPageTitle("Clients");
+    } else if (location.pathname === '/createUsers') {
+      setPageTitle("Users");
+    } else if (location.pathname === '/deliveryAssignment') {
+      setPageTitle("Routes");
+    } else {
+      setPageTitle("");
+    }
+  }, [location])
 
   const handleDrawerOpen = () => {
     setOpen(true);
@@ -118,6 +136,9 @@ export default function BasePage({ children }: { children: React.ReactNode }) {
           >
             <MenuRoundedIcon />
           </IconButton>
+          <Typography variant="h6" color="inherit" sx={{ marginLeft: 75 }}>
+            {pageTitle}
+          </Typography>
         </Toolbar>
       </AppBar>
       <Drawer
@@ -171,6 +192,6 @@ export default function BasePage({ children }: { children: React.ReactNode }) {
         <DrawerHeader />
         {children}
       </Main>
-    </Box>
+    </Box >
   );
 }
