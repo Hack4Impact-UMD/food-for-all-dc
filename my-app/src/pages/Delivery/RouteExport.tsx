@@ -1,11 +1,11 @@
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
-import * as nodemailer from "nodemailer";
 import * as fastCsv from "fast-csv";
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 import archiver from "archiver";
+
 admin.initializeApp();
 
 export const createAndSendCsvs = functions.https.onRequest(async (req, res) => {
@@ -62,6 +62,22 @@ export const createAndSendCsvs = functions.https.onRequest(async (req, res) => {
     for (const cluster in groupedByCluster) {
       const clusterNumber = parseInt(cluster, 10);
 
+      // Fetch client profiles for the events in this cluster
+      const clientProfiles: Record<string, any> = {};
+      for (const event of groupedByCluster[clusterNumber]) {
+        const clientSnapshot = await admin
+          .firestore()
+          .collection("clients")
+          .doc(event.clientName)
+          .get();
+
+        if (clientSnapshot.exists) {
+          clientProfiles[event.clientName] = clientSnapshot.data();
+        } else {
+          console.warn(`Client profile not found for ${event.clientName}`);
+        }
+      }
+
       // Generate CSV content
       const tempFilePath = path.join(
         os.tmpdir(),
@@ -72,11 +88,30 @@ export const createAndSendCsvs = functions.https.onRequest(async (req, res) => {
 
       csvStream.pipe(writeStream);
       groupedByCluster[clusterNumber].forEach((event) => {
+        const client = clientProfiles[event.clientName];
+        if (!client) {
+          console.warn(
+            `Skipping event for ${event.clientName} due to missing profile.`
+          );
+          return;
+        }
+
         csvStream.write({
-          DeliveryDate: event.deliveryDate,
-          Address: event.address,
-          CustomerName: event.customerName,
-          // Add other fields as needed
+          "First Name": client.firstName,
+          "Last Name": client.lastName,
+          Address: client.address,
+          Apt: client.apt || "",
+          ZIP: client.zip,
+          Quadrant: client.quadrant,
+          Ward: client.ward,
+          Phone: client.phone,
+          Adults: client.adults,
+          Children: client.children,
+          Total: client.total,
+          "Delivery Instructions": client.deliveryInstructions || "",
+          "Diet Type": client.dietType || "",
+          "Dietary Preferences": client.dietaryPreferences || "",
+          "TEFAP FY25": client.tefapFY25 || "",
         });
       });
       csvStream.end();

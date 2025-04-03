@@ -18,33 +18,122 @@ const TestCsvPage: React.FC = () => {
         deliveryDate: "2025-03-30",
         cluster: 1,
         address: "123 Main St",
-        customerName: "John Doe",
+        clientName: "John Doe",
       },
       {
         deliveryDate: "2025-03-30",
         cluster: 1,
         address: "456 Elm St",
-        customerName: "Jane Smith",
+        clientName: "Jane Smith",
       },
       {
         deliveryDate: "2025-03-31",
         cluster: 2,
         address: "789 Oak St",
-        customerName: "Alice Johnson",
+        clientName: "Alice Johnson",
       },
       {
         deliveryDate: "2025-03-31",
         cluster: 2,
         address: "101 Pine St",
-        customerName: "Bob Brown",
+        clientName: "Bob Brown",
       },
       {
         deliveryDate: "2025-03-30",
         cluster: 3,
         address: "202 Maple St",
-        customerName: "Charlie Davis",
+        clientName: "Charlie Davis",
       },
     ];
+
+    // Fake clients collection
+    const fakeClients: Record<string, any> = {
+      "John Doe": {
+        firstName: "John",
+        lastName: "Doe",
+        address: "123 Main St",
+        apt: "1A",
+        zip: "20001",
+        quadrant: "NW",
+        ward: "2",
+        phone: "555-1234",
+        adults: 2,
+        children: 1,
+        total: 3,
+        deliveryInstructions: "Leave at the front door.",
+        dietType: "Vegetarian",
+        dietaryPreferences: "No peanuts",
+        tefapFY25: "Yes",
+      },
+      "Jane Smith": {
+        firstName: "Jane",
+        lastName: "Smith",
+        address: "456 Elm St",
+        apt: "2B",
+        zip: "20002",
+        quadrant: "NE",
+        ward: "5",
+        phone: "555-5678",
+        adults: 1,
+        children: 2,
+        total: 3,
+        deliveryInstructions: "Ring the bell.",
+        dietType: "Vegan",
+        dietaryPreferences: "No gluten",
+        tefapFY25: "No",
+      },
+      "Alice Johnson": {
+        firstName: "Alice",
+        lastName: "Johnson",
+        address: "789 Oak St",
+        apt: "3C",
+        zip: "20003",
+        quadrant: "SE",
+        ward: "8",
+        phone: "555-8765",
+        adults: 3,
+        children: 0,
+        total: 3,
+        deliveryInstructions: "Call upon arrival.",
+        dietType: "None",
+        dietaryPreferences: "None",
+        tefapFY25: "Yes",
+      },
+      "Bob Brown": {
+        firstName: "Bob",
+        lastName: "Brown",
+        address: "101 Pine St",
+        apt: "4D",
+        zip: "20004",
+        quadrant: "SW",
+        ward: "6",
+        phone: "555-4321",
+        adults: 2,
+        children: 2,
+        total: 4,
+        deliveryInstructions: "Leave at the back door.",
+        dietType: "Kosher",
+        dietaryPreferences: "No shellfish",
+        tefapFY25: "No",
+      },
+      "Charlie Davis": {
+        firstName: "Charlie",
+        lastName: "Davis",
+        address: "202 Maple St",
+        apt: "5E",
+        zip: "20005",
+        quadrant: "NW",
+        ward: "1",
+        phone: "555-9876",
+        adults: 1,
+        children: 0,
+        total: 1,
+        deliveryInstructions: "Knock twice.",
+        dietType: "Halal",
+        dietaryPreferences: "No pork",
+        tefapFY25: "Yes",
+      },
+    };
 
     // Filter events by the selected delivery date
     const filteredEvents = fakeEvents.filter(
@@ -55,20 +144,6 @@ const TestCsvPage: React.FC = () => {
       alert("No events found for the selected delivery date.");
       return;
     }
-
-    // Fake clusters collection
-    const fakeClusters: Record<number, { driver: string }> = {
-      1: { driver: "driver1" },
-      2: { driver: "driver2" },
-      3: { driver: "driver3" },
-    };
-
-    // Fake drivers collection
-    const fakeDrivers: Record<string, { email: string; name: string }> = {
-      driver1: { email: "driver1@example.com", name: "Driver One" },
-      driver2: { email: "driver2@example.com", name: "Driver Two" },
-      driver3: { email: "driver3@example.com", name: "Driver Three" },
-    };
 
     // Group events by cluster
     const groupedByCluster: Record<number, typeof filteredEvents> = {};
@@ -87,27 +162,39 @@ const TestCsvPage: React.FC = () => {
     for (const cluster in groupedByCluster) {
       const clusterNumber = parseInt(cluster, 10);
 
-      // Get the driver for the cluster
-      const clusterData = fakeClusters[clusterNumber];
-      if (!clusterData) {
-        console.warn(`Cluster ${clusterNumber} not found.`);
-        continue;
-      }
-
-      const driverId = clusterData.driver;
-      const driverData = fakeDrivers[driverId];
-      if (!driverData) {
-        console.warn(`Driver ${driverId} not found.`);
-        continue;
-      }
-
-      const driverName = driverData.name;
-
       // Generate the CSV content
-      const csv = Papa.unparse(groupedByCluster[clusterNumber]);
+      const csvData = groupedByCluster[clusterNumber]
+        .map((event) => {
+          const client = fakeClients[event.clientName];
+          if (!client) {
+            console.warn(`Client profile not found for ${event.clientName}`);
+            return null;
+          }
+
+          return {
+            "First Name": client.firstName,
+            "Last Name": client.lastName,
+            Address: client.address,
+            Apt: client.apt,
+            ZIP: client.zip,
+            Quadrant: client.quadrant,
+            Ward: client.ward,
+            Phone: client.phone,
+            Adults: client.adults,
+            Children: client.children,
+            Total: client.total,
+            "Delivery Instructions": client.deliveryInstructions,
+            "Diet Type": client.dietType,
+            "Dietary Preferences": client.dietaryPreferences,
+            "TEFAP FY25": client.tefapFY25,
+          };
+        })
+        .filter(Boolean); // Remove null entries
+
+      const csv = Papa.unparse(csvData);
 
       // Add the CSV to the ZIP
-      const fileName = `FFA ${deliveryDate} - ${driverName}.csv`;
+      const fileName = `FFA ${deliveryDate} - Cluster ${clusterNumber}.csv`;
       zip.file(fileName, csv);
     }
 
