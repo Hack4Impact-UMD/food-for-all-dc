@@ -68,7 +68,7 @@ def geocode_addresses(addresses: List[str]) -> List[Tuple[float, float]]:
          maps_api_key = os.environ.get("maps_api_key") 
         #  googleMapsApiKey = os.environ.get("google_maps_api_key")
 
-         gmaps = googlemaps.Client(key="maps_api_key")
+         gmaps = googlemaps.Client(key=maps_api_key)
     except Exception as e:
         return [str(e)]
 
