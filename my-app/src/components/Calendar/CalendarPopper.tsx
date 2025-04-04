@@ -17,6 +17,7 @@ import {
 import { doc, setDoc } from "firebase/firestore";
 import { db } from "../../auth/firebaseConfig";
 import { getDefaultLimit, setDefaultLimit } from "./CalendarUtils";
+import { useLimits } from "./useLimits";
 
 interface DailyLimits {
   id: string;
@@ -41,6 +42,7 @@ const CalendarPopper = ({
   setDailyLimits,
   fetchDailyLimits,
 }: CalendarPopperProps) => {
+  const limits = useLimits()
   const [clickPosition, setClickPosition] = useState<{
     x: number;
     y: number;
@@ -51,7 +53,8 @@ const CalendarPopper = ({
   const [newLimit, setNewLimit] = useState<number>(60);
   const [bulkEdit, setBulkEdit] = useState<boolean>(false);
 
-  const limitOptions = Array.from({ length: 9 }, (_, i) => 30 + i * 5);
+  const limitOptions = Array.from({ length: 13 }, (_, i) => 30 + i * 5);
+
 
   const handleDateClick = async (date: DayPilot.Date) => {
     const dateKey = date.toString("yyyy-MM-dd");
@@ -68,10 +71,11 @@ const CalendarPopper = ({
     setLimitEditDate(date);
     const limitEntry = dailyLimits.find((dl) => dl.date === dateKey);
 
+
     if (limitEntry) {
       setNewLimit(limitEntry.limit);
     }else { 
-      const defaultLimit = getDefaultLimit(date)
+      const defaultLimit = getDefaultLimit(date, limits)
     setNewLimit(defaultLimit);
     }
   };
@@ -94,41 +98,6 @@ const CalendarPopper = ({
     };
   }, [clickPosition]);
 
-    // Bulk update function: updates all dates in the current calendar range
-  // that have the same weekday as the currently edited date.
-  // const handleApplyToAll = async () => {
-  //   if (!limitEditDate || !calendarConfig.startDate || !calendarConfig.endDate)
-  //     return;
-
-  //   const selectedWeekday = limitEditDate.getDayOfWeek();
-  //   // Convert startDate and endDate from calendarConfig to DayPilot.Date objects.
-  //   const start = DayPilot.Date.fromString(calendarConfig.startDate);
-  //   const end = DayPilot.Date.fromString(calendarConfig.endDate);
-  //   let newDailyLimits = [...dailyLimits];
-
-  //   // Iterate over the date range
-  //   for (let d = start; d <= end; d = d.addDays(1)) {
-  //     if (d.getDayOfWeek() === selectedWeekday) {
-  //       const dateKey = d.toString("yyyy-MM-dd");
-  //       const docRef = doc(db, "dailyLimits", dateKey);
-  //       await setDoc(
-  //         docRef,
-  //         { limit: newLimit, date: dateKey },
-  //         { merge: true }
-  //       );
-  //       const index = newDailyLimits.findIndex(item => item.date === dateKey);
-  //       if (index !== -1) {
-  //         newDailyLimits[index] = { ...newDailyLimits[index], limit: newLimit };
-  //       } else {
-  //         newDailyLimits.push({ id: dateKey, date: dateKey, limit: newLimit });
-  //       }
-  //     }
-  //   }
-  //   setDailyLimits(newDailyLimits);
-  //   setLimitEditDate(null);
-  //   setClickPosition(null);
-  // };
-
   if (viewType === "Month") {
     const customCalendarConfig = {
       ...calendarConfig,
@@ -137,7 +106,7 @@ const CalendarPopper = ({
         const cellDate = args.cell.start;
         const dateKey = cellDate.toString("yyyy-MM-dd");
         const limitEntry = dailyLimits.find((dl) => dl.date === dateKey);
-        const defaultLimit = getDefaultLimit(cellDate)
+        const defaultLimit = getDefaultLimit(cellDate, limits)
         const limit = limitEntry ? limitEntry.limit : defaultLimit;
 
         const eventCount = calendarConfig.events.filter((event: any) => {
@@ -181,7 +150,10 @@ const CalendarPopper = ({
               sx={{ p: 2, width: 500, position: "relative", background: "white" }}
             >
               <FormGroup>
-                <FormControlLabel control={<Switch/>} label="Bulk Edit" onChange={() => setBulkEdit(!bulkEdit)}/>
+                <FormControlLabel control={<Switch/>} label="Bulk Edit" onChange={() => {
+                  
+                  setBulkEdit(!bulkEdit)
+                  console.log(bulkEdit)}}/>
               </FormGroup>
               <DayPilotMonth
                 {...customCalendarConfig}
@@ -228,6 +200,7 @@ const CalendarPopper = ({
                             if (!bulkEdit){
                               
                               const docRef = doc(db, "dailyLimits", dateKey);
+                              console.log('A')
                               await setDoc(
                                 docRef,
                                 {
@@ -258,6 +231,7 @@ const CalendarPopper = ({
                               });
                             } else {
                               setDefaultLimit(limitEditDate, selectedValue)
+                              console.log('B')
                             }
 
 
