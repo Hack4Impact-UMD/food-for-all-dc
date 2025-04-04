@@ -92,6 +92,7 @@ const Profile = () => {
     zipCode: "",
     address1: "",
     address2: "",
+    email: "",
     city: "",
     state: "",
     quadrant: "",
@@ -130,6 +131,7 @@ const Profile = () => {
     tags: [],
     ward: "",
     seniors: 0,
+    hoh: "",
   });
   const [isNewProfile, setIsNewProfile] = useState(true);
   const [editMode, setEditMode] = useState(true);
@@ -279,6 +281,7 @@ const Profile = () => {
     zipCode: string;
     address1: string;
     address2: string;
+    email: string;
     city: string;
     state: string;
     quadrant: string;
@@ -304,7 +307,8 @@ const Profile = () => {
     updatedAt: Date;
     tags: string[];
     ward: string;
-    seniors: Number;
+    seniors: number;
+    hoh: string;
   };
 
   // Type for all possible field paths including nested ones
@@ -462,12 +466,14 @@ const Profile = () => {
     if (!clientProfile.address1.trim()) newErrors.address = "Address 1 is required";
     if(!clientProfile.zipCode) newErrors.zipCode = "Zip code is required";
     if(!clientProfile.city) newErrors.city = "City is required";
+    if(!clientProfile.email) newErrors.email = "Email is required";
     if(!clientProfile.state) newErrors.state = "State is required";
     if (!clientProfile.dob) newErrors.dob = "Date of Birth is required";
     if (!clientProfile.deliveryFreq.trim())
       newErrors.deliveryFreq = "Delivery Frequency is required";
     if (!clientProfile.phone.trim()) newErrors.phone = "Phone is required";
     if (!clientProfile.gender.trim()) newErrors.gender = "Gender is required";
+    if (!clientProfile.hoh.trim()) newErrors.hoh = "Head of Household is required";
     if (!clientProfile.ethnicity.trim())
       newErrors.ethnicity = "Ethnicity is required";
     if (!clientProfile.language.trim()) newErrors.language = "Language is required";
@@ -534,7 +540,7 @@ const Profile = () => {
         tags: tags, // Sync the tags state with clientProfile
         notesTimestamp: updatedNotesTimestamp, // Update the notesTimestamp
         updatedAt: new Date(),
-        total: clientProfile.adults + clientProfile.children,
+        total: clientProfile.adults + clientProfile.children + clientProfile.seniors,
         ward: await getWard(clientProfile.address1)
       };
   
@@ -601,7 +607,7 @@ const Profile = () => {
         }
       };
 
-  if (fieldPath === "deliveryDetails.dietaryRestrictions") {
+    if (fieldPath === "deliveryDetails.dietaryRestrictions") {
       return renderDietaryRestrictions();
     }
 
@@ -621,6 +627,19 @@ const Profile = () => {
                 <MenuItem value="Other">Other</MenuItem>
               </CustomSelect>
             );
+          } else if(fieldPath === "hoh") {
+            return (
+              <CustomSelect
+                name={fieldPath}
+                value={value as string}
+                onChange={(e) => handleChange(e as SelectChangeEvent<string>)}
+                style={{ width: "83.5%" }}
+              >
+                <MenuItem value="Adult">Adult</MenuItem>
+                <MenuItem value="Senior">Senior</MenuItem>
+              </CustomSelect>
+            );
+
           }
           break;
         case "date":
@@ -1120,6 +1139,27 @@ const Profile = () => {
               {renderField("address2", "text")}
             </Box>
 
+            {/* Email */}
+
+            <Box>
+              <Typography
+                className="field-descriptor"
+                sx={{
+                  ...fieldLabelStyles,
+                  position: "relative",
+                  top: isEditing ? "-19px" : "0",
+                }}
+              >
+                EMAIL ADDRESS <span className="required-asterisk">*</span>
+              </Typography>
+              {renderField("email", "text")}
+              {errors.email && (
+                <Typography color="error" variant="body2">
+                  {errors.email}
+                </Typography>
+              )}
+            </Box>
+
             {/* City */}
             <Box>
               <Typography
@@ -1195,27 +1235,6 @@ const Profile = () => {
               {renderField("quadrant", "text")}
             </Box>
 
-            {/* Gender */}
-            <Box>
-              <Typography
-                className="field-descriptor"
-                sx={{
-                  ...fieldLabelStyles,
-                  position: "relative",
-                  top: isEditing ? "-10px" : "0",
-                }}
-              >
-                GENDER <span className="required-asterisk">*</span>
-              </Typography>
-              {/* <h1 className="field-descriptor">GENDER</h1> */}
-              {renderField("gender", "select")}
-              {errors.gender && (
-                <Typography color="error" variant="body2">
-                  {errors.gender}
-                </Typography>
-              )}
-            </Box>
-
             {/* Phone */}
             <Box>
               <Typography className="field-descriptor" sx={fieldLabelStyles}>
@@ -1237,6 +1256,27 @@ const Profile = () => {
               {renderField("alternativePhone", "text")}
             </Box>
 
+            {/* Gender */}
+            <Box>
+              <Typography
+                className="field-descriptor"
+                sx={{
+                  ...fieldLabelStyles,
+                  position: "relative",
+                  top: isEditing ? "-10px" : "0",
+                }}
+              >
+                GENDER <span className="required-asterisk">*</span>
+              </Typography>
+              {/* <h1 className="field-descriptor">GENDER</h1> */}
+              {renderField("gender", "select")}
+              {errors.gender && (
+                <Typography color="error" variant="body2">
+                  {errors.gender}
+                </Typography>
+              )}
+            </Box>
+
             {/* Ethnicity */}
             <Box>
               <Typography className="field-descriptor" sx={fieldLabelStyles}>
@@ -1246,53 +1286,6 @@ const Profile = () => {
               {errors.ethnicity && (
                 <Typography color="error" variant="body2">
                   {errors.ethnicity}
-                </Typography>
-              )}
-            </Box>
-
-            {/* Ward */}
-            <Box>
-              <Typography className="field-descriptor" sx={fieldLabelStyles}>
-                WARD
-              </Typography>
-              {renderField("ward", "textarea")}
-            </Box>
-
-            {/* Seniors */}
-            <Box>
-              <Typography className="field-descriptor" sx={fieldLabelStyles}>
-                SENIORS <span className="required-asterisk">*</span>
-              </Typography>
-              {renderField("seniors", "number")}
-              {errors.children && (
-                <Typography color="error" variant="body2">
-                  {errors.children}
-                </Typography>
-              )}
-            </Box>
-
-            {/* Adults */}
-            <Box>
-              <Typography className="field-descriptor" sx={fieldLabelStyles}>
-                ADULTS <span className="required-asterisk">*</span>
-              </Typography>
-              {renderField("adults", "number")}
-              {errors.adults && (
-                <Typography color="error" variant="body2">
-                  {errors.adults}
-                </Typography>
-              )}
-            </Box>
-
-            {/* Children */}
-            <Box>
-              <Typography className="field-descriptor" sx={fieldLabelStyles}>
-                CHILDREN <span className="required-asterisk">*</span>
-              </Typography>
-              {renderField("children", "number")}
-              {errors.children && (
-                <Typography color="error" variant="body2">
-                  {errors.children}
                 </Typography>
               )}
             </Box>
@@ -1309,6 +1302,87 @@ const Profile = () => {
                 </Typography>
               )}
             </Box>
+
+            {/* Adults */}
+            <Box>
+              <Typography className="field-descriptor" sx={fieldLabelStyles}>
+                ADULTS (18-59) <span className="required-asterisk">*</span>
+              </Typography>
+              {renderField("adults", "number")}
+              {errors.adults && (
+                <Typography color="error" variant="body2">
+                  {errors.adults}
+                </Typography>
+              )}
+            </Box>
+
+            {/* Children */}
+            <Box>
+              <Typography className="field-descriptor" sx={fieldLabelStyles}>
+                CHILDREN (0-17) <span className="required-asterisk">*</span>
+              </Typography>
+              {renderField("children", "number")}
+              {errors.children && (
+                <Typography color="error" variant="body2">
+                  {errors.children}
+                </Typography>
+              )}
+            </Box>
+
+            {/* Seniors */}
+            <Box>
+              <Typography className="field-descriptor" sx={fieldLabelStyles}>
+                SENIORS (60+) 
+              </Typography>
+              {renderField("seniors", "number")}
+            </Box>
+
+            {/* Head of Household */}
+            <Box>
+              <Typography
+                className="field-descriptor"
+                sx={{
+                  ...fieldLabelStyles,
+                  position: "relative",
+                  top: isEditing ? "-10px" : "0",
+                }}
+              >
+                HEAD OF HOUSEHOLD <span className="required-asterisk">*</span>
+              </Typography>
+              {renderField("hoh", "select")}
+              {errors.hoh && (
+                <Typography color="error" variant="body2">
+                  {errors.hoh}
+                </Typography>
+              )}
+            </Box>
+
+            <Box>
+              <Typography className="field-descriptor" sx={fieldLabelStyles}>
+                TOTAL 
+              </Typography>
+              {isEditing ? (
+                <CustomTextField
+                  value={Number(clientProfile.adults) + Number(clientProfile.children) + Number(clientProfile.seniors)}
+                  onChange={handleChange}
+                  multiline
+                  fullWidth
+                />
+            ) : (
+              <Typography variant="body1" sx={{ fontWeight: 600 }}>
+                {Number(clientProfile.adults) + Number(clientProfile.children) + Number(clientProfile.seniors)}
+              </Typography>
+            )}
+            </Box>
+
+            {/* Ward */}
+            <Box>
+              <Typography className="field-descriptor" sx={fieldLabelStyles}>
+                WARD
+              </Typography>
+              {renderField("ward", "textarea")}
+            </Box>
+
 
             {/* Delivery Frequency */}
             <Box>
