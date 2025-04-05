@@ -183,6 +183,15 @@ const Spreadsheet: React.FC = () => {
   
     console.log(`Custom Column ID: ${columnId}, New Property Key: ${newPropertyKey}`); // debugging
   };
+
+  const handleRemoveCustomColumn = (columnIdToRemove: string) => {
+    // Use the state setter function for customColumns
+    setCustomColumns((prevColumns) =>
+      // Filter the previous columns array
+      prevColumns.filter((column) => column.id !== columnIdToRemove)
+      // Keep only the columns whose ID does NOT match the one to remove
+    );
+  };
   
   //Route Protection
   React.useEffect(() => {
@@ -370,21 +379,35 @@ const fields: Field[] = [
   }
   
   // Filter rows based on search query
+  let visibleRows = rows.filter((row) => {
 
-  let visibleRows = rows.filter(
-    (row) =>
-      fields.some((field) => {
-        let fieldValue: any;
+    // Check if the query matches any of the static fields
+    const matchesStaticField = fields.some((field) => {
+      let fieldValue: any;
+  
 
-          fieldValue = field.compute
-            ? field.compute(row)
-            : row[field.key as keyof RowData];
-        return (
-          fieldValue &&
-          fieldValue.toString().toLowerCase().includes(searchQuery.toLowerCase())
-        );
-      }) 
-  );
+      if (field.compute) {
+        fieldValue = field.compute(row);
+      } else {
+        fieldValue = row[field.key as keyof RowData];
+      }
+  
+      return fieldValue != null && fieldValue.toString().toLowerCase().includes(searchQuery.toLowerCase())
+    });
+  
+    // Check if the query matches custom columns
+    const matchesCustomColumn = customColumns.some((col) => {
+      if (col.propertyKey !== 'none') {
+        const fieldValue = row[col.propertyKey as keyof RowData];
+
+        return fieldValue != null && fieldValue.toString().toLowerCase().includes(searchQuery.toLowerCase())
+      }
+      return false;
+    });
+  
+    // Include the row if it matches either a static field OR a custom column
+    return matchesStaticField || matchesCustomColumn;
+  });
 
   useEffect(() => {
     console.log("this is search query")
@@ -504,23 +527,33 @@ const fields: Field[] = [
               {/*  Headers for custom columns */}
               {customColumns.map((col) => (
                 <TableCell className="table-header" key={col.id}>
-                  <Select
-                    value={col.propertyKey}
-                    onChange={(event) => handleCustomHeaderChange(event, col.id)}
-                    variant="outlined"
-                    displayEmpty 
-                    sx={{ minWidth: 120, color: '#257e68'}}
-                  >
-                    <MenuItem value="ethnicity">Ethnicity</MenuItem>
-                    <MenuItem value="language">Language</MenuItem>
-                    <MenuItem value="dob">DOB</MenuItem>
-                    <MenuItem value="gender">Gender</MenuItem>
-                    <MenuItem value="zipCode">Zip Code</MenuItem>
-                    <MenuItem value="streetName">Street Name</MenuItem>
-                    <MenuItem value="ward">Ward</MenuItem>
-                    <MenuItem value="none">None</MenuItem>
-                  </Select>
-                  {/*Add Remove Button*/}
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Select
+                      value={col.propertyKey}
+                      onChange={(event) => handleCustomHeaderChange(event, col.id)}
+                      variant="outlined"
+                      displayEmpty 
+                      sx={{ minWidth: 120, color: '#257e68'}}
+                    >
+                      <MenuItem value="ethnicity">Ethnicity</MenuItem>
+                      <MenuItem value="language">Language</MenuItem>
+                      <MenuItem value="dob">DOB</MenuItem>
+                      <MenuItem value="gender">Gender</MenuItem>
+                      <MenuItem value="zipCode">Zip Code</MenuItem>
+                      <MenuItem value="streetName">Street Name</MenuItem>
+                      <MenuItem value="ward">Ward</MenuItem>
+                      <MenuItem value="none">None</MenuItem>
+                    </Select>
+                    {/*Add Remove Button*/}
+                    <IconButton
+                      size="small"
+                      onClick={() => handleRemoveCustomColumn(col.id)} // Call remove handler
+                      aria-label={`Remove ${col.label || 'custom'} column`}
+                      title={`Remove ${col.label || 'custom'} column`} // Tooltip for accessibility
+                    >
+                      <DeleteIcon fontSize="small" />
+                    </IconButton>
+                  </Box>
                 </TableCell>
               ))}
 
