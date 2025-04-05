@@ -20,6 +20,7 @@ import {
   TextField,
   Select,
   SelectChangeEvent,
+  colors,
 } from "@mui/material";
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from "@mui/icons-material/Delete";
@@ -564,7 +565,7 @@ const fields: Field[] = [
                   color="primary"
                   aria-label="add custom column"
                 >
-                  <AddIcon />
+                  <AddIcon sx={{color: '#257e68'}}/>
                 </IconButton>
               </TableCell>
             </TableRow>
