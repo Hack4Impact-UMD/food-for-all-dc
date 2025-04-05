@@ -48,11 +48,12 @@ declare global {
 }
 
 const fieldStyles = {
-  backgroundColor: "#eee",
-  width: "100%",
-  height: "23px",
+  backgroundColor: "white",
+  width: "60%",
+  height: "1.813rem",
   padding: "0.1rem 0.5rem",
   borderRadius: "5px",
+  border: ".1rem solid black",
   marginTop: "0px",
 };
 
@@ -76,7 +77,7 @@ const CustomSelect = styled(Select)({
     border: "none",
   },
 
-  "& .MuiSelect-select": fieldStyles,
+  "& .MuiSelect-select": fieldStyles, 
 });
 
 const Profile = () => {
@@ -103,7 +104,6 @@ const Profile = () => {
     adults: 0,
     children: 0,
     total: 0,
-    seniors: 0,
     headOfHousehold: "Adult",
     gender: "Male",
     ethnicity: "",
@@ -136,7 +136,6 @@ const Profile = () => {
     tags: [],
     ward: "",
     seniors: 0,
-    hoh: "",
   });
   const [isNewProfile, setIsNewProfile] = useState(true);
   const [editMode, setEditMode] = useState(true);
@@ -308,6 +307,7 @@ const Profile = () => {
     children: number;
     total: number;
     gender: "Male" | "Female" | "Other";
+    headOfHousehold: "Adult" | "Senior";
     ethnicity: string;
     deliveryDetails: DeliveryDetails;
     lifeChallenges: string;
@@ -326,7 +326,6 @@ const Profile = () => {
     tags: string[];
     ward: string;
     seniors: number;
-    hoh: string;
   };
 
   // Type for all possible field paths including nested ones
@@ -348,7 +347,8 @@ const Profile = () => {
     | "select"
     | "textarea"
     | "checkbox"
-    | "dietaryRestrictions";
+    | "dietaryRestrictions"
+    | "email";
   const calculateAge = (dob: Date) => {
     const diff = Date.now() - dob.getTime();
     const ageDt = new Date(diff);
@@ -483,7 +483,9 @@ const Profile = () => {
     if (!clientProfile.lastName?.trim())
       newErrors.lastName = "Last Name is required";
     if (!clientProfile.address?.trim())
-      newErrors.address = "Address 1 is required";
+      newErrors.address = "Address is required";
+    if (!clientProfile.email?.trim())
+      newErrors.email = "Email is required";
     if (!clientProfile.zipCode)
       newErrors.zipCode = "Zip code is required";
     if (!clientProfile.city)
@@ -625,6 +627,7 @@ const Profile = () => {
     return path.split(".").reduce((acc, part) => acc?.[part], obj);
   };
 
+  //rfc
   const renderField = (fieldPath: ClientProfileKey, type: InputType = "text") => {
     let value = fieldPath.includes(".")
       ? getNestedValue(clientProfile, fieldPath)
@@ -654,26 +657,49 @@ const Profile = () => {
                 name={fieldPath}
                 value={value as string}
                 onChange={(e) => handleChange(e as SelectChangeEvent<string>)}
-                style={{ width: "83.5%" }}
+                displayEmpty
               >
-                <MenuItem value="Male">Male</MenuItem>
-                <MenuItem value="Female">Female</MenuItem>
-                <MenuItem value="Other">Other</MenuItem>
+                <MenuItem value = "" disabled>Select</MenuItem>
+                <MenuItem value = "Male">Male</MenuItem>
+                <MenuItem value = "Female">Female</MenuItem>
+                <MenuItem value = "Other">Other</MenuItem>
               </CustomSelect>
             );
-          } else if(fieldPath === "hoh") {
+          } else if(fieldPath === "headOfHousehold") {
             return (
               <CustomSelect
                 name={fieldPath}
                 value={value as string}
                 onChange={(e) => handleChange(e as SelectChangeEvent<string>)}
                 style={{ width: "83.5%" }}
+                displayEmpty
               >
+                <MenuItem value = "" disabled>Select</MenuItem>
                 <MenuItem value="Adult">Adult</MenuItem>
                 <MenuItem value="Senior">Senior</MenuItem>
               </CustomSelect>
             );
 
+          } else if(fieldPath === "ethnicity") {
+            return (
+              <CustomSelect
+                name={fieldPath}
+                value={value as string}
+                onChange={(e) => handleChange(e as SelectChangeEvent<string>)}
+              >
+                <MenuItem disabled>Select</MenuItem>
+                <MenuItem value = "white">White</MenuItem>
+                <MenuItem value = "hispanic">Hispanic/Latino</MenuItem>
+                <MenuItem value = "black">Black/African American</MenuItem>
+                <MenuItem value = "asian">Asian</MenuItem>
+                <MenuItem value = "na">American Indian/Alaska Native</MenuItem>
+                <MenuItem value = "me/na">Middle Eastern/North African</MenuItem>
+                <MenuItem value = "islander">Native Hawaiian/Other Pacific Islander</MenuItem>
+                <MenuItem value = "other">Other</MenuItem>
+                <MenuItem value = "no answer">Prefer not to answer</MenuItem>
+
+              </CustomSelect>
+            );
           }
           break;
         case "date":
@@ -700,6 +726,19 @@ const Profile = () => {
                 type="number"
                 name={fieldPath}
                 value={value as number}
+                onChange={handleChange}
+                fullWidth
+              />
+            </>
+          );
+        
+        case "email":
+          return (
+            <>
+              <CustomTextField
+                type="email"
+                name={fieldPath}
+                value={value as string}
                 onChange={handleChange}
                 fullWidth
               />
@@ -764,19 +803,19 @@ const Profile = () => {
             <>
               {/* <TextFieldInput descriptor={fieldPath} handleChange={handleChange} /> */}
               <CustomTextField
-        type="text"
-        name={fieldPath}
-        value={fieldPath === "ward" ? ward : String(value || "")}
-        onChange={handleChange}
-        onBlur={async () => {
-          if (fieldPath === "address") {
-            // Call getWard with the updated address1 value
-            await getWard(clientProfile.address);
-          }
-        }}
-        fullWidth
-        inputRef={fieldPath === "address" ? addressInputRef : null}
-      />
+                type="text"
+                name={fieldPath}
+                value={fieldPath === "ward" ? ward : String(value || "")}
+                onChange={handleChange}
+                onBlur={async () => {
+                  if (fieldPath === "address") {
+                    // Call getWard with the updated address1 value
+                    await getWard(clientProfile.address);
+                  }
+                }}
+                fullWidth
+                inputRef={fieldPath === "address" ? addressInputRef : null}
+              />
             </>
           );
         }
@@ -1158,156 +1197,133 @@ const Profile = () => {
             </Box>
 
             {/* Address 1 */}
-<Box>
-  <Typography
-    className="field-descriptor"
-    sx={{
-      ...fieldLabelStyles,
-      position: "relative",
-      top: isEditing ? "-19px" : "0",
-    }}
-  >
-    ADDRESS<span className="required-asterisk">*</span>
-  </Typography>
-  {renderField("address", "text")}
-  {errors.address && (
-    <Typography color="error" variant="body2">
-      {errors.address}
-    </Typography>
-  )}
-</Box>
-
-{/* Address 2 */}
-<Box>
-  <Typography
-    className="field-descriptor"
-    sx={{
-      ...fieldLabelStyles,
-      position: "relative",
-      top: isEditing ? "-19px" : "0",
-    }}
-  >
-    ADDRESS 2
-  </Typography>
-  <CustomTextField
-    type="text"
-    name="address2"
-    value={clientProfile.address2 || ""}
-    onChange={(e) => {
-      const { value } = e.target;
-      setClientProfile((prevState) => ({
-        ...prevState,
-        address2: value, // Update address2 without triggering getWard
-      }));
-    }}
-    fullWidth
-  />
-</Box>
-
-           {/* City */}
-<Box>
-  <Typography
-    className="field-descriptor"
-    sx={{
-      ...fieldLabelStyles,
-      position: "relative",
-      top: isEditing ? "-19px" : "0",
-    }}
-  >
-    CITY <span className="required-asterisk">*</span>
-  </Typography>
-  <CustomTextField
-    type="text"
-    name="city"
-    value={clientProfile.city || ""}
-    disabled
-    fullWidth
-  />
-</Box>
-
-{/* State */}
-<Box>
-  <Typography
-    className="field-descriptor"
-    sx={{
-      ...fieldLabelStyles,
-      position: "relative",
-      top: isEditing ? "-19px" : "0",
-    }}
-  >
-    STATE <span className="required-asterisk">*</span>
-  </Typography>
-  <CustomTextField
-    type="text"
-    name="state"
-    value={clientProfile.state || ""}
-    disabled
-    fullWidth
-  />
-</Box>
-
-{/* ZIP CODE */}
-<Box>
-  <Typography
-    className="field-descriptor"
-    sx={{
-      ...fieldLabelStyles,
-      position: "relative",
-      top: isEditing ? "-19px" : "0",
-    }}
-  >
-    ZIP CODE <span className="required-asterisk">*</span>
-  </Typography>
-  <CustomTextField
-    type="text"
-    name="zipCode"
-    value={clientProfile.zipCode || ""}
-    disabled
-    fullWidth
-  />
-</Box>
-
-{/* Quadrant */}
-<Box>
-  <Typography
-    className="field-descriptor"
-    sx={{
-      ...fieldLabelStyles,
-      position: "relative",
-      top: isEditing ? "-19px" : "0",
-    }}
-  >
-    QUADRANT
-  </Typography>
-  <CustomTextField
-    type="text"
-    name="quadrant"
-    value={clientProfile.quadrant || ""}
-    disabled
-    fullWidth
-  />
-</Box>
-            {/* Gender */}
             <Box>
               <Typography
                 className="field-descriptor"
                 sx={{
                   ...fieldLabelStyles,
                   position: "relative",
-                  top: isEditing ? "-10px" : "0",
+                  top: isEditing ? "-19px" : "0",
                 }}
               >
-                GENDER <span className="required-asterisk">*</span>
+                ADDRESS <span className="required-asterisk">*</span>
               </Typography>
-              {/* <h1 className="field-descriptor">GENDER</h1> */}
-              {renderField("gender", "select")}
-              {errors.gender && (
+              {renderField("address", "text")}
+              {errors.address && (
                 <Typography color="error" variant="body2">
-                  {errors.gender}
+                  {errors.address}
                 </Typography>
               )}
             </Box>
 
+            {/* Address 2 */}
+            <Box>
+              <Typography
+                className="field-descriptor"
+                sx={{
+                  ...fieldLabelStyles,
+                  position: "relative",
+                  top: isEditing ? "-19px" : "0",
+                }}
+              >
+                ADDRESS 2
+              </Typography>
+              {renderField("address2", "text")}
+            </Box>
+
+            {/* Email */}
+            <Box>
+              <Typography className="field-descriptor" sx={fieldLabelStyles}>
+                EMAIL <span className="required-asterisk">*</span>
+              </Typography>
+              {renderField("email", "email")}
+              {errors.email && (
+                <Typography color="error" variant="body2">
+                  {errors.email}
+                </Typography>
+              )}
+            </Box>
+
+            {/* City */}
+            <Box>
+              <Typography
+                className="field-descriptor"
+                sx={{
+                  ...fieldLabelStyles,
+                  position: "relative",
+                  top: isEditing ? "-19px" : "0",
+                }}
+              >
+                CITY <span className="required-asterisk">*</span>
+              </Typography>
+              {renderField("city", "text")}
+              {errors.city && (
+                <Typography color="error" variant="body2">
+                  {errors.city}
+                </Typography>
+              )}
+            </Box>
+
+            {/* State */}
+            <Box>
+              <Typography
+                className="field-descriptor"
+                sx={{
+                  ...fieldLabelStyles,
+                  position: "relative",
+                  top: isEditing ? "-19px" : "0",
+                }}
+              >
+                STATE <span className="required-asterisk">*</span>
+              </Typography>
+              {renderField("state", "text")}
+              {errors.state && (
+                <Typography color="error" variant="body2">
+                  {errors.state}
+                </Typography>
+              )}
+            </Box>
+
+            {/* ZIP CODE */}
+            <Box>
+              <Typography
+                className="field-descriptor"
+                sx={{
+                  ...fieldLabelStyles,
+                  position: "relative",
+                  top: isEditing ? "-19px" : "0",
+                }}
+              >
+                ZIP CODE <span className="required-asterisk">*</span>
+              </Typography>
+              {renderField("zipCode", "text")}
+              {errors.zipCode && (
+                <Typography color="error" variant="body2">
+                  {errors.zipCode}
+                </Typography>
+              )}
+            </Box>
+
+            {/* Quadrant */}
+            <Box>
+              <Typography
+                className="field-descriptor"
+                sx={{
+                  ...fieldLabelStyles,
+                  position: "relative",
+                  top: isEditing ? "-19px" : "0",
+                }}
+              >
+                QUADRANT
+              </Typography>
+              {renderField("quadrant", "text")}
+              {errors.quadrant && (
+                <Typography color="error" variant="body2">
+                  {errors.quadrant}
+                </Typography>
+              )}
+            </Box>
+            
             {/* Phone */}
             <Box>
               <Typography className="field-descriptor" sx={fieldLabelStyles}>
@@ -1349,6 +1365,7 @@ const Profile = () => {
                 </Typography>
               )}
             </Box>
+
 
             {/* Ethnicity */}
             <Box>
@@ -1401,56 +1418,7 @@ const Profile = () => {
                 </Typography>
               )}
             </Box>
-
-            {/* Total */}
-            <Box>
-              <Typography
-                className="field-descriptor"
-                sx={{
-                  ...fieldLabelStyles,
-                  position: "relative",
-                  top: isEditing ? "-19px" : "0",
-                }}
-              >
-                TOTAL
-              </Typography>
-              <CustomTextField
-                type="text"
-                name="total"
-                value={Number(clientProfile.seniors) + Number(clientProfile.adults) + Number(clientProfile.children)}
-                disabled
-                fullWidth
-              />
-            </Box>
-
-            {/* Head of Household */}
-            <Box>
-              <Typography className="field-descriptor" sx={fieldLabelStyles}>
-                HEAD OF HOUSEHOLD
-              </Typography>
-              {isEditing ? (
-                <CustomSelect
-                  name="headOfHousehold"
-                  value={clientProfile.headOfHousehold || ""}
-                  onChange={(e) => {
-                    const { value } = e.target;
-                    setClientProfile((prevState) => ({
-                      ...prevState,
-                      headOfHousehold: value as "Adult" | "Senior",
-                    }));
-                  }}
-                  fullWidth
-                >
-                  <MenuItem value="Adult">Adult</MenuItem>
-                  <MenuItem value="Senior">Senior</MenuItem>
-                </CustomSelect>
-              ) : (
-                <Typography variant="body1" sx={{ fontWeight: 600 }}>
-                  {clientProfile.headOfHousehold || "N/A"}
-                </Typography>
-              )}
-            </Box>
-
+            
             {/* Seniors */}
             <Box>
               <Typography className="field-descriptor" sx={fieldLabelStyles}>
@@ -1461,20 +1429,13 @@ const Profile = () => {
 
             {/* Head of Household */}
             <Box>
-              <Typography
-                className="field-descriptor"
-                sx={{
-                  ...fieldLabelStyles,
-                  position: "relative",
-                  top: isEditing ? "-10px" : "0",
-                }}
-              >
-                HEAD OF HOUSEHOLD <span className="required-asterisk">*</span>
+              <Typography className="field-descriptor" sx={fieldLabelStyles}>
+                HEAD OF HOUSEHOLD
               </Typography>
-              {renderField("hoh", "select")}
-              {errors.hoh && (
+              {renderField("headOfHousehold", "select")}
+              {errors.headOfHousehold && (
                 <Typography color="error" variant="body2">
-                  {errors.hoh}
+                  {errors.headOfHousehold}
                 </Typography>
               )}
             </Box>
@@ -1504,9 +1465,37 @@ const Profile = () => {
               </Typography>
               {renderField("ward", "textarea")}
             </Box>
+          </Box>
 
+          <Box
+            className="box-header"
+            display="flex"
+            alignItems="center"
+            justifyContent="space-between"
+          >
+            {/* Title on the left */}
+            <Typography
+              className="basic-info-title"
+              sx={{ fontWeight: 500, fontSize: { xs: "20px", sm: "24px" } }}
+            >
+              Delivery Information
+            </Typography>
+          </Box>
+          <Box
+            sx={{
+              display: "grid",
+              gap: isEditing ? 3 : 5, // Spacing between grid items
+              gridTemplateColumns: {
+                xs: "1fr", // Full width for small screens
+                sm: "repeat(2, 1fr)", // Three columns for medium screens and up
+                md: "repeat(3, 1fr)",
+              },
+              alignItems: "center",
+            }}
+            className="info-grid"
+          >
 
-              {/* Start Date */}
+            {/* Start Date */}
             <Box>
               <Typography className="field-descriptor" sx={fieldLabelStyles}>
                 START DATE <span className="required-asterisk">*</span>
@@ -1576,13 +1565,13 @@ const Profile = () => {
               </Typography>
               {renderField("notes", "textarea")}
               {isSaved && clientProfile.notes.trim() !== "" && (
-  <p id="timestamp">
-    Last edited: {(clientProfile.notesTimestamp?.timestamp instanceof Timestamp
-      ? clientProfile.notesTimestamp.timestamp.toDate()
-      : clientProfile.notesTimestamp?.timestamp || clientProfile.createdAt
-    ).toLocaleString()}
-  </p>
-)}
+                <p id="timestamp">
+                  Last edited: {(clientProfile.notesTimestamp?.timestamp instanceof Timestamp
+                    ? clientProfile.notesTimestamp.timestamp.toDate()
+                    : clientProfile.notesTimestamp?.timestamp || clientProfile.createdAt
+                  ).toLocaleString()}
+                </p>
+              )}
             </Box>
 
             {/* Life Challenges */}
