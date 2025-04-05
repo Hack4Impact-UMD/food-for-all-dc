@@ -24,6 +24,12 @@ import {
   IconButton,
   Typography,
   DialogContentText,
+  Grow,
+  Popper,
+  MenuItem,
+  MenuList,
+  Stack,
+  ClickAwayListener
 } from "@mui/material";
 import {
   collection,
@@ -38,6 +44,8 @@ import { auth } from "../../auth/firebaseConfig";
 import { onAuthStateChanged } from "firebase/auth";
 import { Close, Add, Edit, Check, Delete } from "@mui/icons-material";
 import DriverManagementModal from "../../components/DriverManagementModal";
+import { set } from "date-fns";
+import { render } from "@testing-library/react";
 
 // Define TypeScript types for row data
 interface RowData {
@@ -523,6 +531,73 @@ const DeliverySpreadsheet: React.FC = () => {
       })
   );
 
+  const [open, setOpen] = React.useState(false);
+  const anchorRef = React.useRef<HTMLButtonElement>(null);
+
+  const handleToggle = () => {
+    setOpen((prevOpen) => !prevOpen);
+    };
+
+  const handleClose = (event: Event | React.SyntheticEvent) => {
+    if (
+      anchorRef.current &&
+      anchorRef.current.contains(event.target as HTMLElement)
+    ) {
+      return;
+    }
+    if(event && 'nativeEvent' in event) {
+      const target = event.nativeEvent.target as HTMLElement;
+      const militaryTime =convertTo24Hour(target?.innerText);
+      setTime(militaryTime);
+    }
+
+    setOpen(false);
+  };
+
+  React.useEffect(() => {
+    if (time) {
+        assignTime();
+    }
+}, [time]);
+
+       function convertTo24Hour(time: string) {
+        let [hours, minutes, modifier] = time.split(/:| /);
+    
+        // Parse hours and minutes as integers
+        hours = parseInt(hours, 10).toString();
+        minutes = minutes || "00";
+  
+        if (modifier === "AM") {
+            // Convert "12 AM" to "00"
+            hours = hours === "12" ? "00" : hours.padStart(2, "0");
+        } else if (modifier === "PM") {
+            // Convert "12 PM" to "12" and other PM hours to 24-hour format
+            hours = hours === "12" ? "12" : (parseInt(hours, 10) + 12).toString();
+        }
+
+        // Ensure hours and minutes are always two digits
+        return hours + ":" + minutes;
+    }
+
+  function handleListKeyDown(event: React.KeyboardEvent) {
+    if (event.key === 'Tab') {
+      event.preventDefault();
+      setOpen(false);
+    } else if (event.key === 'Escape') {
+      setOpen(false);
+    }
+  }
+
+  // return focus to the button when we transitioned from !open -> open
+  const prevOpen = React.useRef(open);
+  React.useEffect(() => {
+    if (prevOpen.current === true && open === false) {
+      anchorRef.current!.focus();
+    }
+
+    prevOpen.current = open;
+  }, [open]);
+
   return (
     <Box className="box">
       {/* Fixed Container for Search Bar and Create Client Button */}
@@ -595,7 +670,7 @@ const DeliverySpreadsheet: React.FC = () => {
             >
               Assign Driver
             </Button>
-            <Button
+            {/* <Button
               variant="contained"
               color="secondary"
               className="view-all"
@@ -612,7 +687,70 @@ const DeliverySpreadsheet: React.FC = () => {
               }}
             >
               Assign Time
-            </Button>
+            </Button> */}
+            <Button
+          ref={anchorRef}
+          id="composition-button"
+          aria-controls={open ? 'composition-menu' : undefined}
+          aria-expanded={open ? 'true' : undefined}
+          aria-haspopup="true"
+          onClick={handleToggle}
+          disabled={selectedRows.size <= 0}
+          sx={{
+            whiteSpace: "nowrap",
+            padding: "0% 2%",
+            borderRadius: "5px",
+            width: "10%",
+            backgroundColor: (selectedRows.size <= 0 ? "gray" : "#257E68") + " !important",
+          }}
+        >
+          Assign TIME
+        </Button>
+        <Popper
+          open={open}
+          anchorEl={anchorRef.current}
+          role={undefined}
+          placement="bottom-start"
+          transition
+          sx={{
+            whiteSpace: "nowrap",
+            padding: "0% 0%",
+            borderRadius: "5px",
+            width: "9%"
+          }}
+          style={{ zIndex: 1000 }}
+        >
+          {({ TransitionProps, placement }) => (
+            <Grow
+              {...TransitionProps}
+              style={{
+                transformOrigin:
+                  placement === 'bottom-start' ? 'left top' : 'left bottom',
+              }}
+            >
+              <Paper>
+                <ClickAwayListener onClickAway={handleClose}>
+                  <MenuList 
+                    autoFocusItem={open}
+                    id="composition-menu"
+                    aria-labelledby="composition-button"
+                    onKeyDown={handleListKeyDown}
+                  >
+                    <MenuItem onClick={handleClose}>9:00 AM</MenuItem>
+                    <MenuItem onClick={handleClose}>10:00 AM</MenuItem>
+                    <MenuItem onClick={handleClose}>11:00 AM</MenuItem>
+                    <MenuItem onClick={handleClose}>12:00 AM</MenuItem>
+                    <MenuItem onClick={handleClose}>1:00 PM</MenuItem>
+                    <MenuItem onClick={handleClose}>2:00 PM</MenuItem>
+                    <MenuItem onClick={handleClose}>3:00 PM</MenuItem>
+                    <MenuItem onClick={handleClose}>4:00 PM</MenuItem>
+                    <MenuItem onClick={handleClose}>5:00 PM</MenuItem>
+                  </MenuList>
+                </ClickAwayListener>
+              </Paper>
+            </Grow>
+          )}
+        </Popper>
           </div>
         </div>
       </div>
