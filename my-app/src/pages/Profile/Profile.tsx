@@ -39,6 +39,7 @@ import "./Profile.css";
 
 import { Timestamp } from "firebase/firestore";
 import TagPopup from "./Tags/TagPopup";
+import { StringLiteral } from "typescript";
 
 declare global {
   interface Window {
@@ -90,19 +91,20 @@ const Profile = () => {
     lastName: "",
     streetName: "",
     zipCode: "",
-    address1: "",
+    address: "",
     address2: "",
     email: "",
     city: "",
     state: "",
     quadrant: "",
     dob: "",
-    deliveryFreq: "",
     phone: "",
     alternativePhone: "",
     adults: 0,
     children: 0,
     total: 0,
+    seniors: 0,
+    headOfHousehold: "Adult",
     gender: "Male",
     ethnicity: "",
     deliveryDetails: {
@@ -128,6 +130,9 @@ const Profile = () => {
     language: "",
     createdAt: new Date(),
     updatedAt: new Date(),
+    startDate: "",
+    endDate: "",
+    recurrence: "None",
     tags: [],
     ward: "",
     seniors: 0,
@@ -150,6 +155,7 @@ const Profile = () => {
   const [prevNotes, setPrevNotes] = useState("");
   const params = useParams(); // Params will return an object containing route params (like { id: 'some-id' })
   const id: string | null = params.id ?? null; // Use optional chaining to get the id or null if undefined
+  const [showSavePopup, setShowSavePopup] = useState(false);
 
   // Function to fetch profile data by ID
   const getProfileById = async (id: string) => {
@@ -253,6 +259,16 @@ const Profile = () => {
     fetchLastDeliveryDate();
   }, [clientId]);
 
+  useEffect(() => {
+    const fetchWard = async () => {
+      if (clientProfile.address.trim()) {
+        await getWard(clientProfile.address);
+      }
+    };
+  
+    fetchWard();
+  }, [clientProfile.address]); // Runs whenever the address field changes
+
   // Improved type definitions
   type DietaryRestrictions = {
     lowSugar: boolean;
@@ -279,14 +295,13 @@ const Profile = () => {
     lastName: string;
     streetName: string;
     zipCode: string;
-    address1: string;
+    address: string;
     address2: string;
     email: string;
     city: string;
     state: string;
     quadrant: string;
     dob: string;
-    deliveryFreq: string;
     phone: string;
     alternativePhone: string;
     adults: number;
@@ -305,6 +320,9 @@ const Profile = () => {
     language: string;
     createdAt: Date;
     updatedAt: Date;
+    startDate: string;
+    endDate: string;
+    recurrence: string;
     tags: string[];
     ward: string;
     seniors: number;
@@ -460,33 +478,43 @@ const Profile = () => {
   const validateProfile = () => {
     const newErrors: { [key: string]: string } = {};
 
-    if (!clientProfile.firstName.trim())
+    if (!clientProfile.firstName?.trim())
       newErrors.firstName = "First Name is required";
-    if (!clientProfile.lastName.trim()) newErrors.lastName = "Last Name is required";
-    if (!clientProfile.address1.trim()) newErrors.address = "Address 1 is required";
-    if(!clientProfile.zipCode) newErrors.zipCode = "Zip code is required";
-    if(!clientProfile.city) newErrors.city = "City is required";
-    if(!clientProfile.email) newErrors.email = "Email is required";
-    if(!clientProfile.state) newErrors.state = "State is required";
-    if (!clientProfile.dob) newErrors.dob = "Date of Birth is required";
-    if (!clientProfile.deliveryFreq.trim())
-      newErrors.deliveryFreq = "Delivery Frequency is required";
-    if (!clientProfile.phone.trim()) newErrors.phone = "Phone is required";
-    if (!clientProfile.gender.trim()) newErrors.gender = "Gender is required";
-    if (!clientProfile.hoh.trim()) newErrors.hoh = "Head of Household is required";
-    if (!clientProfile.ethnicity.trim())
+    if (!clientProfile.lastName?.trim())
+      newErrors.lastName = "Last Name is required";
+    if (!clientProfile.address?.trim())
+      newErrors.address = "Address 1 is required";
+    if (!clientProfile.zipCode)
+      newErrors.zipCode = "Zip code is required";
+    if (!clientProfile.city)
+      newErrors.city = "City is required";
+    if (!clientProfile.state)
+      newErrors.state = "State is required";
+    if (!clientProfile.dob)
+      newErrors.dob = "Date of Birth is required";
+    if (!clientProfile.recurrence.trim())
+      newErrors.recccurence = "Reccurence is required";
+    if (!clientProfile.startDate.trim())
+      newErrors.startDate = "Start Date is required";
+    if (!clientProfile.endDate.trim())
+      newErrors.endDate = "End Date is required";
+    if (!clientProfile.phone?.trim())
+      newErrors.phone = "Phone is required";
+    if (!clientProfile.gender?.trim())
+      newErrors.gender = "Gender is required";
+    if (!clientProfile.ethnicity?.trim())
       newErrors.ethnicity = "Ethnicity is required";
     if (!clientProfile.language.trim()) newErrors.language = "Language is required";
-    if (clientProfile.adults === 0 && clientProfile.children === 0) {
-      newErrors.total = "At least one adult or child is required";
+    if (clientProfile.adults === 0 && clientProfile.seniors === 0) {
+      newErrors.total = "At least one adult or senior is required";
     }
-    if (!/^\d{10}$/.test(clientProfile.phone)) {
+    if (!/^\d{10}$/.test(clientProfile.phone || "")) {
       newErrors.phone = "Phone number must be exactly 10 digits";
     }
 
     if (
-      !/^\d{10}$/.test(clientProfile.alternativePhone) &&
-      clientProfile.alternativePhone.trim()
+      clientProfile.alternativePhone &&
+      !/^\d{10}$/.test(clientProfile.alternativePhone)
     ) {
       newErrors.alternativePhone =
         "Alternative Phone number must be exactly 10 digits";
@@ -541,7 +569,7 @@ const Profile = () => {
         notesTimestamp: updatedNotesTimestamp, // Update the notesTimestamp
         updatedAt: new Date(),
         total: clientProfile.adults + clientProfile.children + clientProfile.seniors,
-        ward: await getWard(clientProfile.address1)
+        ward: await getWard(clientProfile.address)
       };
   
       const sortedAllTags = [...allTags].sort((a, b) => a.localeCompare(b));
@@ -581,6 +609,12 @@ const Profile = () => {
       setIsSaved(true);
       setEditMode(false);
       setIsEditing(false);
+      
+      // Show save popup
+      setShowSavePopup(true);
+      // Hide popup after 2 seconds
+      setTimeout(() => setShowSavePopup(false), 2000);
+      
     } catch (e) {
       console.error("Error saving document: ", e);
     }
@@ -730,18 +764,19 @@ const Profile = () => {
             <>
               {/* <TextFieldInput descriptor={fieldPath} handleChange={handleChange} /> */}
               <CustomTextField
-                type="text"
-                name={fieldPath}
-                value={fieldPath === "ward" ? ward : String(value || "")}
-                onChange={handleChange}
-                onBlur={async () => {
-                  if (fieldPath === "address1") {
-                    await getWard(value); 
-                  }
-                }}
-                fullWidth
-                inputRef = {fieldPath === "address1" ? addressInputRef : null}
-              />
+        type="text"
+        name={fieldPath}
+        value={fieldPath === "ward" ? ward : String(value || "")}
+        onChange={handleChange}
+        onBlur={async () => {
+          if (fieldPath === "address") {
+            // Call getWard with the updated address1 value
+            await getWard(clientProfile.address);
+          }
+        }}
+        fullWidth
+        inputRef={fieldPath === "address" ? addressInputRef : null}
+      />
             </>
           );
         }
@@ -963,7 +998,7 @@ const Profile = () => {
                 // Update the client profile with all the parsed components
                 setClientProfile(prev => ({
                   ...prev,
-                  address1: `${streetNumber} ${streetName}`.trim(),
+                  address: `${streetNumber} ${streetName}`.trim(),
                   city: city,
                   state: state,
                   zipCode: zipCode,
@@ -985,6 +1020,24 @@ const Profile = () => {
   
   return (
     <Box className="profile-container">
+      {showSavePopup && (
+        <Box
+          sx={{
+            position: 'fixed',
+            bottom: '20px',
+            right: '20px',
+            backgroundColor: '#257e68',
+            color: 'white',
+            padding: '16px',
+            borderRadius: '4px',
+            boxShadow: '0 2px 5px rgba(0,0,0,0.2)',
+            zIndex: 1000,
+            animation: 'slideIn 0.3s ease-out',
+          }}
+        >
+          Profile saved successfully!
+        </Box>
+      )}
       <Box className="white-container">
         <Typography
           variant="h5"
@@ -1104,135 +1157,155 @@ const Profile = () => {
               )}
             </Box>
 
-            {/* Address 1*/}
+            {/* Address 1 */}
+<Box>
+  <Typography
+    className="field-descriptor"
+    sx={{
+      ...fieldLabelStyles,
+      position: "relative",
+      top: isEditing ? "-19px" : "0",
+    }}
+  >
+    ADDRESS<span className="required-asterisk">*</span>
+  </Typography>
+  {renderField("address", "text")}
+  {errors.address && (
+    <Typography color="error" variant="body2">
+      {errors.address}
+    </Typography>
+  )}
+</Box>
+
+{/* Address 2 */}
+<Box>
+  <Typography
+    className="field-descriptor"
+    sx={{
+      ...fieldLabelStyles,
+      position: "relative",
+      top: isEditing ? "-19px" : "0",
+    }}
+  >
+    ADDRESS 2
+  </Typography>
+  <CustomTextField
+    type="text"
+    name="address2"
+    value={clientProfile.address2 || ""}
+    onChange={(e) => {
+      const { value } = e.target;
+      setClientProfile((prevState) => ({
+        ...prevState,
+        address2: value, // Update address2 without triggering getWard
+      }));
+    }}
+    fullWidth
+  />
+</Box>
+
+           {/* City */}
+<Box>
+  <Typography
+    className="field-descriptor"
+    sx={{
+      ...fieldLabelStyles,
+      position: "relative",
+      top: isEditing ? "-19px" : "0",
+    }}
+  >
+    CITY <span className="required-asterisk">*</span>
+  </Typography>
+  <CustomTextField
+    type="text"
+    name="city"
+    value={clientProfile.city || ""}
+    disabled
+    fullWidth
+  />
+</Box>
+
+{/* State */}
+<Box>
+  <Typography
+    className="field-descriptor"
+    sx={{
+      ...fieldLabelStyles,
+      position: "relative",
+      top: isEditing ? "-19px" : "0",
+    }}
+  >
+    STATE <span className="required-asterisk">*</span>
+  </Typography>
+  <CustomTextField
+    type="text"
+    name="state"
+    value={clientProfile.state || ""}
+    disabled
+    fullWidth
+  />
+</Box>
+
+{/* ZIP CODE */}
+<Box>
+  <Typography
+    className="field-descriptor"
+    sx={{
+      ...fieldLabelStyles,
+      position: "relative",
+      top: isEditing ? "-19px" : "0",
+    }}
+  >
+    ZIP CODE <span className="required-asterisk">*</span>
+  </Typography>
+  <CustomTextField
+    type="text"
+    name="zipCode"
+    value={clientProfile.zipCode || ""}
+    disabled
+    fullWidth
+  />
+</Box>
+
+{/* Quadrant */}
+<Box>
+  <Typography
+    className="field-descriptor"
+    sx={{
+      ...fieldLabelStyles,
+      position: "relative",
+      top: isEditing ? "-19px" : "0",
+    }}
+  >
+    QUADRANT
+  </Typography>
+  <CustomTextField
+    type="text"
+    name="quadrant"
+    value={clientProfile.quadrant || ""}
+    disabled
+    fullWidth
+  />
+</Box>
+            {/* Gender */}
             <Box>
               <Typography
                 className="field-descriptor"
                 sx={{
                   ...fieldLabelStyles,
                   position: "relative",
-                  top: isEditing ? "-19px" : "0",
+                  top: isEditing ? "-10px" : "0",
                 }}
               >
-                ADDRESS 1<span className="required-asterisk">*</span>
+                GENDER <span className="required-asterisk">*</span>
               </Typography>
-              {renderField("address1", "text")}
-              {errors.address1 && (
+              {/* <h1 className="field-descriptor">GENDER</h1> */}
+              {renderField("gender", "select")}
+              {errors.gender && (
                 <Typography color="error" variant="body2">
-                  {errors.address1}
+                  {errors.gender}
                 </Typography>
               )}
-            </Box>
-
-            {/* Address 2*/}
-            <Box>
-              <Typography
-                className="field-descriptor"
-                sx={{
-                  ...fieldLabelStyles,
-                  position: "relative",
-                  top: isEditing ? "-19px" : "0",
-                }}
-              >
-                ADDRESS 2 
-              </Typography>
-              {renderField("address2", "text")}
-            </Box>
-
-            {/* Email */}
-
-            <Box>
-              <Typography
-                className="field-descriptor"
-                sx={{
-                  ...fieldLabelStyles,
-                  position: "relative",
-                  top: isEditing ? "-19px" : "0",
-                }}
-              >
-                EMAIL ADDRESS <span className="required-asterisk">*</span>
-              </Typography>
-              {renderField("email", "text")}
-              {errors.email && (
-                <Typography color="error" variant="body2">
-                  {errors.email}
-                </Typography>
-              )}
-            </Box>
-
-            {/* City */}
-            <Box>
-              <Typography
-                className="field-descriptor"
-                sx={{
-                  ...fieldLabelStyles,
-                  position: "relative",
-                  top: isEditing ? "-19px" : "0",
-                }}
-              >
-                CITY <span className="required-asterisk">*</span>
-              </Typography>
-              {renderField("city", "text")}
-              {errors.city && (
-                <Typography color="error" variant="body2">
-                  {errors.city}
-                </Typography>
-              )}
-            </Box>
-
-            {/* STATE*/}
-            <Box>
-              <Typography
-                className="field-descriptor"
-                sx={{
-                  ...fieldLabelStyles,
-                  position: "relative",
-                  top: isEditing ? "-19px" : "0",
-                }}
-              >
-                STATE <span className="required-asterisk">*</span>
-              </Typography>
-              {renderField("state", "text")}
-              {errors.state && (
-                <Typography color="error" variant="body2">
-                  {errors.state}
-                </Typography>
-              )}
-            </Box>
-
-            {/* ZIP CODE*/}
-            <Box>
-              <Typography
-                className="field-descriptor"
-                sx={{
-                  ...fieldLabelStyles,
-                  position: "relative",
-                  top: isEditing ? "-19px" : "0",
-                }}
-              >
-                ZIP CODE <span className="required-asterisk">*</span>
-              </Typography>
-              {renderField("zipCode", "text")}
-              {errors.zipCode && (
-                <Typography color="error" variant="body2">
-                  {errors.zipCode}
-                </Typography>
-              )}
-            </Box>
-
-            {/* Quadrant */}
-            <Box>
-              <Typography
-                className="field-descriptor"
-                sx={{
-                  ...fieldLabelStyles,
-                  position: "relative",
-                  top: isEditing ? "-19px" : "0",
-                }}
-              >
-                QUADRANT 
-              </Typography>
-              {renderField("quadrant", "text")}
             </Box>
 
             {/* Phone */}
@@ -1329,6 +1402,55 @@ const Profile = () => {
               )}
             </Box>
 
+            {/* Total */}
+            <Box>
+              <Typography
+                className="field-descriptor"
+                sx={{
+                  ...fieldLabelStyles,
+                  position: "relative",
+                  top: isEditing ? "-19px" : "0",
+                }}
+              >
+                TOTAL
+              </Typography>
+              <CustomTextField
+                type="text"
+                name="total"
+                value={Number(clientProfile.seniors) + Number(clientProfile.adults) + Number(clientProfile.children)}
+                disabled
+                fullWidth
+              />
+            </Box>
+
+            {/* Head of Household */}
+            <Box>
+              <Typography className="field-descriptor" sx={fieldLabelStyles}>
+                HEAD OF HOUSEHOLD
+              </Typography>
+              {isEditing ? (
+                <CustomSelect
+                  name="headOfHousehold"
+                  value={clientProfile.headOfHousehold || ""}
+                  onChange={(e) => {
+                    const { value } = e.target;
+                    setClientProfile((prevState) => ({
+                      ...prevState,
+                      headOfHousehold: value as "Adult" | "Senior",
+                    }));
+                  }}
+                  fullWidth
+                >
+                  <MenuItem value="Adult">Adult</MenuItem>
+                  <MenuItem value="Senior">Senior</MenuItem>
+                </CustomSelect>
+              ) : (
+                <Typography variant="body1" sx={{ fontWeight: 600 }}>
+                  {clientProfile.headOfHousehold || "N/A"}
+                </Typography>
+              )}
+            </Box>
+
             {/* Seniors */}
             <Box>
               <Typography className="field-descriptor" sx={fieldLabelStyles}>
@@ -1384,15 +1506,48 @@ const Profile = () => {
             </Box>
 
 
-            {/* Delivery Frequency */}
+              {/* Start Date */}
             <Box>
               <Typography className="field-descriptor" sx={fieldLabelStyles}>
-                DELIVERY FREQUENCY <span className="required-asterisk">*</span>
+                START DATE <span className="required-asterisk">*</span>
               </Typography>
-              {renderField("deliveryFreq", "text")}
-              {errors.deliveryFreq && (
-                <Typography color="error" variant="body2">
-                  {errors.deliveryFreq}
+              {renderField("startDate", "date")}
+            </Box>
+
+            {/* End Date */}
+            <Box>
+              <Typography className="field-descriptor" sx={fieldLabelStyles}>
+                END DATE <span className="required-asterisk">*</span>
+              </Typography>
+              {renderField("endDate", "date")}
+            </Box>
+
+            {/* Recurrence */}
+            <Box>
+              <Typography className="field-descriptor" sx={fieldLabelStyles}>
+                RECURRENCE <span className="required-asterisk">*</span>
+              </Typography>
+              {isEditing ? (
+                <CustomSelect
+                  name="recurrence"
+                  value={clientProfile.recurrence || ""}
+                  onChange={(e) => {
+                    const { value } = e.target;
+                    setClientProfile((prevState) => ({
+                      ...prevState,
+                      recurrence: value as "Weekly" | "2x-Monthly" | "Monthly",
+                    }));
+                  }}
+                  fullWidth
+                >
+                  <MenuItem value="None">None</MenuItem>
+                  <MenuItem value="Weekly">Weekly</MenuItem>
+                  <MenuItem value="2x-Monthly">2x-Monthly</MenuItem>
+                  <MenuItem value="Monthly">Monthly</MenuItem>
+                </CustomSelect>
+              ) : (
+                <Typography variant="body1" sx={{ fontWeight: 600 }}>
+                  {clientProfile.recurrence || "N/A"}
                 </Typography>
               )}
             </Box>

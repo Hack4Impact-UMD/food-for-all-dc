@@ -40,6 +40,8 @@ export interface ClientProfile {
   alternativePhone?: string; // Optional
   adults: number;
   children: number;
+  seniors: number;
+  headOfHousehold: string;
   total: number; // Adults + Children
   gender: "Male" | "Female" | "Other";
   ethnicity: string;

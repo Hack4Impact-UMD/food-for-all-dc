@@ -146,11 +146,10 @@ export default function BasePage({ children }: { children: React.ReactNode }) {
         <Divider />
         <List>
           {[
-            { text: 'Delivery Schedule', icon: <CalendarTodayIcon />, link: '/calendar' },
-            { text: 'Client Database', icon: <StorageIcon />, link: '/spreadsheet' },
-            { text: 'Create Client', icon: <AccountCircleIcon />, link: '/profile' },
-            { text: 'Add Volunteer', icon: <AddCircleIcon />, link: '/createUsers' },
-            { text: 'Delivery Assignment', icon: <LocalShippingIcon />, link: '/deliveryAssignment' },
+            { text: 'Deliveries', icon: <CalendarTodayIcon />, link: '/calendar' },
+            { text: 'Clients', icon: <StorageIcon />, link: '/spreadsheet' },
+            { text: 'Users', icon: <AddCircleIcon />, link: '/createUsers' },
+            { text: 'Routes', icon: <LocalShippingIcon />, link: '/deliveryAssignment' },
           ].map(({ text, icon, link }) => (
             <ListItem key={text} disablePadding>
               <Tab text={text} icon={icon} link={link} tab={tab} setTab={setTab} setOpen={setOpen} />
