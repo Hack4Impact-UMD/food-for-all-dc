@@ -19,7 +19,9 @@ import {
   MenuItem,
   TextField,
   Select,
+  SelectChangeEvent,
 } from "@mui/material";
+import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
 import SaveIcon from "@mui/icons-material/Save";
@@ -68,6 +70,13 @@ interface RowData {
 
 }
 
+// ADDED
+interface CustomColumn {
+  id: string; // Unique identifier for the column
+  label: string; // Header label (e.g., "Custom 1", or user-defined)
+  propertyKey: keyof RowData | 'none'; // Which property from RowData to display
+}
+
 // Define a type for fields that can either be computed or direct keys of RowData
 type Field =
   | {
@@ -94,12 +103,6 @@ type Field =
       type: string;
       compute: (data: RowData) => string;
     }
-  | {
-    key: "custom";
-    label: string;
-    type: "text";
-    compute: (data: RowData, customKey: keyof RowData) => string;
-  };
   
 
 
@@ -118,10 +121,68 @@ const Spreadsheet: React.FC = () => {
   const [menuAnchorEl, setMenuAnchorEl] = useState<null | HTMLElement>(null);
   const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
-
-  const [customProperty, setCustomProperty] = useState<keyof RowData>("ethnicity");
+  
+  // ADDED
+  const [customColumns, setCustomColumns] = useState<CustomColumn[]>([]);
   
   const navigate = useNavigate();
+
+  // ADDED
+  const handleAddCustomColumn = () => {
+    const newColumnId = `custom-${Date.now()}`; // unique ID generation
+    const newColumn: CustomColumn = {
+      id: newColumnId,
+      label: `Custom ${customColumns.length + 1}`, 
+      propertyKey: 'none', 
+    };
+    setCustomColumns([...customColumns, newColumn]);
+
+  };
+
+  // ADDED
+  const handleCustomColumnChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+    id: string,                          // ID of the row being edited
+    propertyKey: keyof RowData           
+  ) => {
+    const newValue = e.target.value; // Get the new value from the input
+
+    setRows((prevRows) =>                 
+      prevRows.map((row) => {             
+        if (row.id === id) {              
+          
+          return {
+            ...row,                     
+            [propertyKey]: newValue,    // Update the property w/ key
+                                        
+          };
+        }
+        return row;
+      })
+    );
+  };
+
+  // ADDED
+  const handleCustomHeaderChange = (
+    event: SelectChangeEvent<keyof RowData | 'none'>,
+    columnId: string
+  ) => {
+    const newPropertyKey = event.target.value as keyof RowData | 'none'; // Get selected val
+  
+    setCustomColumns((prevColumns) =>
+      prevColumns.map((col) => {
+        if (col.id === columnId) {
+          return {
+            ...col,
+            propertyKey: newPropertyKey,
+          };
+        }
+        return col;
+      })
+    ); 
+  
+    console.log(`Custom Column ID: ${columnId}, New Property Key: ${newPropertyKey}`); // debugging
+  };
   
   //Route Protection
   React.useEffect(() => {
@@ -173,15 +234,6 @@ const fields: Field[] = [
     type: "text",
     compute: (data: RowData) => data.deliveryDetails.deliveryInstructions || "None",
   },
-  {
-    key: "custom",
-    label: customProperty.toUpperCase(), // e.g., "DOB" or "LANGUAGE"
-    type: "text",
-    compute: (data: RowData, key) => {
-      // Return the custom value based on the selected key
-      return data[key]?.toString() ?? "N/A";
-    },
-  },
 ];  
     
   
@@ -210,7 +262,6 @@ const fields: Field[] = [
     setSearchQuery(event.target.value);
   };
 
-  // Handle input change for editing a row
   // Handle input change for editing a row
   const handleEditInputChange = (
     e: React.ChangeEvent<HTMLTextAreaElement | HTMLInputElement>,
@@ -260,6 +311,8 @@ const fields: Field[] = [
       }
     }
   };
+
+  
 
   // Handle navigating to user details page
   const handleRowClick = (clientid: string) => {
@@ -322,13 +375,10 @@ const fields: Field[] = [
     (row) =>
       fields.some((field) => {
         let fieldValue: any;
-        if (field.key === "custom") {
-          fieldValue = field.compute ? field.compute(row, customProperty) : row[customProperty];
-        } else { 
+
           fieldValue = field.compute
             ? field.compute(row)
             : row[field.key as keyof RowData];
-        }
         return (
           fieldValue &&
           fieldValue.toString().toLowerCase().includes(searchQuery.toLowerCase())
@@ -442,37 +492,50 @@ const fields: Field[] = [
         {/* Spreadsheet Table */}
         <TableContainer component={Paper} style={{maxHeight: "65vh", overflowY: "auto" }}>
           <Table stickyHeader>
-            <TableHead>
-              <TableRow>
-                {fields.map((field) => (
-                  <TableCell className="table-header" key={field.key}>
-                    {field.key === "custom" ? (
-          // Render dropdown for custom column label
-          <Select
-            value={customProperty}
-            onChange={(e) => setCustomProperty(e.target.value as keyof RowData)}
-            sx={{
-              color: '#2E5B4C'
-            }}
-          >
-            <MenuItem value="ethnicity">Ethnicity</MenuItem>
-            <MenuItem value="language">Language</MenuItem>
-            <MenuItem value="dob">DOB</MenuItem>
-            <MenuItem value="gender">Gender</MenuItem>
-            <MenuItem value="zipCode">Zip Code</MenuItem>
-            <MenuItem value="streetName">Street Name</MenuItem>
-            <MenuItem value="ward">Ward</MenuItem>
-            <MenuItem value="none">None</MenuItem>
-            
-          </Select>
-        ) : (
-          <h2>{field.label}</h2>
-        )}
-                  </TableCell>
-                ))}
-                <TableCell className="table-header"></TableCell>
-              </TableRow>
-            </TableHead>
+          <TableHead>
+            <TableRow>
+              {/* Static columns */}
+              {fields.map((field) => (
+                <TableCell className="table-header" key={field.key}>
+                  <h2>{field.label}</h2>
+                </TableCell>
+              ))}
+
+              {/*  Headers for custom columns */}
+              {customColumns.map((col) => (
+                <TableCell className="table-header" key={col.id}>
+                  <Select
+                    value={col.propertyKey}
+                    onChange={(event) => handleCustomHeaderChange(event, col.id)}
+                    variant="outlined"
+                    displayEmpty 
+                    sx={{ minWidth: 120, color: '#257e68'}}
+                  >
+                    <MenuItem value="ethnicity">Ethnicity</MenuItem>
+                    <MenuItem value="language">Language</MenuItem>
+                    <MenuItem value="dob">DOB</MenuItem>
+                    <MenuItem value="gender">Gender</MenuItem>
+                    <MenuItem value="zipCode">Zip Code</MenuItem>
+                    <MenuItem value="streetName">Street Name</MenuItem>
+                    <MenuItem value="ward">Ward</MenuItem>
+                    <MenuItem value="none">None</MenuItem>
+                  </Select>
+                  {/*Add Remove Button*/}
+                </TableCell>
+              ))}
+
+              {/* Add button cell */}
+              <TableCell className="table-header">
+                <IconButton
+                  onClick={handleAddCustomColumn}
+                  color="primary"
+                  aria-label="add custom column"
+                >
+                  <AddIcon />
+                </IconButton>
+              </TableCell>
+            </TableRow>
+          </TableHead>
 
             <TableBody>
   {visibleRows.map((row) => (
@@ -518,10 +581,38 @@ const fields: Field[] = [
               `${row.firstName} ${row.lastName}`
             )
           ) : (
-            field.compute ? (field.key === "custom" ? field.compute(row, customProperty) : field.compute(row)) : row[field.key]
+            field.compute ? field.compute(row) : row[field.key]
           )}
         </TableCell>
       ))}
+
+    {customColumns.map((col) => (
+        <TableCell key={col.id}>
+          {editingRowId === row.id ? (
+      // EDIT MODE: Check if propertyKey is valid before rendering TextField
+      col.propertyKey !== 'none' ? (
+        <TextField
+          // We've checked it's not 'none', so we can assert the type here
+          value={row[col.propertyKey as keyof RowData] ?? ''}
+          // IMPORTANT: You'll need an onChange handler specifically for custom columns
+          onChange={(e) => handleCustomColumnChange(e, row.id, col.propertyKey as keyof RowData)}
+          variant="outlined"
+          size="small"
+        />
+      ) : (
+        // In edit mode, if the property is 'none', maybe just display N/A
+        "N/A"
+      )
+    ) : (
+      // DISPLAY MODE: Check if propertyKey is valid before accessing data
+      col.propertyKey !== 'none' ?
+        (row[col.propertyKey as keyof RowData]?.toString() ?? "N/A") :
+        "N/A"
+    )}
+        </TableCell>
+      ))}
+
+
       <TableCell style={{ textAlign: "right" }}>
         {editingRowId === row.id ? (
           <Button
