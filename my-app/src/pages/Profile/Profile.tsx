@@ -40,7 +40,6 @@ import "./Profile.css";
 
 import { Timestamp } from "firebase/firestore";
 import TagPopup from "./Tags/TagPopup";
-import { StringLiteral } from "typescript";
 import CaseWorkerManagementModal from "../../components/CaseWorkerManagementModal";
 
 declare global {
@@ -90,26 +89,7 @@ interface CaseWorker {
   email: string;
 }
 
-// Add DietaryRestrictions interface
-interface DietaryRestrictions {
-  lowSugar: boolean;
-  kidneyFriendly: boolean;
-  vegan: boolean;
-  vegetarian: boolean;
-  halal: boolean;
-  microwaveOnly: boolean;
-  softFood: boolean;
-  lowSodium: boolean;
-  noCookingEquipment: boolean;
-  foodAllergens: string[];
-  other: string[];
-}
-
-// Add DeliveryDetails interface
-interface DeliveryDetails {
-  deliveryInstructions: string;
-  dietaryRestrictions: DietaryRestrictions;
-}
+// DietaryRestrictions and DeliveryDetails interfaces are defined in types section below
 
 interface ClientProfile {
   uid: string;
@@ -154,6 +134,7 @@ interface ClientProfile {
   startDate: string;
   endDate: string;
   recurrence: string;
+  tefapCert?: string;
 }
 
 const Profile = () => {
@@ -178,6 +159,7 @@ const Profile = () => {
     state: "",
     quadrant: "",
     dob: "",
+    deliveryFreq: "",
     phone: "",
     alternativePhone: "",
     adults: 0,
@@ -215,7 +197,7 @@ const Profile = () => {
     recurrence: "None",
     tags: [],
     ward: "",
-    referralEntity: undefined,
+    tefapCert: ""
   });
   const [isNewProfile, setIsNewProfile] = useState(true);
   const [editMode, setEditMode] = useState(true);
@@ -349,7 +331,7 @@ const Profile = () => {
     fetchWard();
   }, [clientProfile.address]); // Runs whenever the address field changes
 
-  // Improved type definitions
+  // Type definitions
   type DietaryRestrictions = {
     lowSugar: boolean;
     kidneyFriendly: boolean;
@@ -406,6 +388,7 @@ const Profile = () => {
     ward: string;
     seniors: number;
     headOfHousehold: "Senior" | "Adult";
+    tefapCert?: string;
     referralEntity?: {
       id: string;
       name: string;
@@ -422,7 +405,8 @@ const Profile = () => {
   type ClientProfileKey =
     | keyof ClientProfile
     | "deliveryDetails.dietaryRestrictions"
-    | "deliveryDetails.deliveryInstructions";
+    | "deliveryDetails.deliveryInstructions"
+    | "tefapCert";
 
   type InputType =
     | "text"
@@ -566,11 +550,11 @@ const Profile = () => {
     setIsSaved(false);
     handlePrevClientCopying();
 
-    if (name === "dob") {
-      const newDob = e.target.value; // this will be in the format YYYY-MM-DD
+    if (name === "dob" || name === "tefapCert") {
+      const date = e.target.value; // this will be in the format YYYY-MM-DD
       setClientProfile((prevState) => ({
         ...prevState,
-        dob: newDob,
+        [name]: date,
       }));
     } else if (name === "adults" || name === "children") {
       setClientProfile((prevState) => ({
@@ -717,24 +701,14 @@ const Profile = () => {
 
     try {
       const currNotes = clientProfile.notes;
-
-      let updatedNotesTimestamp = checkIfNotesExists(
-        currNotes,
-        clientProfile.notesTimestamp ?? null
-      );
-      updatedNotesTimestamp = checkIfNotesChanged(
-        prevNotes,
-        currNotes,
-        updatedNotesTimestamp
-      );
-
+  
+      let updatedNotesTimestamp = checkIfNotesExists(currNotes, clientProfile.notesTimestamp ?? null);
+      updatedNotesTimestamp = checkIfNotesChanged(prevNotes, currNotes, updatedNotesTimestamp);
+  
       console.log("Previous notes:", prevNotes);
       console.log("Current notes:", currNotes);
-      console.log(
-        "Timestamp updated:",
-        updatedNotesTimestamp !== clientProfile.notesTimestamp
-      );
-
+      console.log("Timestamp updated:", updatedNotesTimestamp !== clientProfile.notesTimestamp);
+      
       // Update the clientProfile object with the latest tags state
       const updatedProfile = {
         ...clientProfile,
@@ -795,6 +769,7 @@ const Profile = () => {
       setShowSavePopup(true);
       // Hide popup after 2 seconds
       setTimeout(() => setShowSavePopup(false), 2000);
+      
     } catch (e) {
       console.error("Error saving document: ", e);
     }
@@ -810,19 +785,16 @@ const Profile = () => {
       ? getNestedValue(clientProfile, fieldPath)
       : clientProfile[fieldPath as keyof ClientProfile];
 
-    const handleTag = (text: any) => {
-      if (!prevTags) {
-        setPrevTags(deepCopy(tags));
-      }
-
-      if (tags.includes(text)) {
-        const updatedTags = tags.filter((t) => t !== text);
-        setTags(updatedTags);
-      } else if (text.trim() !== "") {
-        const updatedTags = [...tags, text.trim()];
-        setTags(updatedTags);
-      }
-    };
+        const handleTag = (text: any) => {
+        if (tags.includes(text)) {
+          const updatedTags = tags.filter((t) => t !== text);
+          setTags(updatedTags); 
+        } 
+        else if(text.trim() != ""){
+          const updatedTags = [...tags, text.trim()]; 
+          setTags(updatedTags); 
+        }
+      };
 
     if (fieldPath === "deliveryDetails.dietaryRestrictions") {
       return renderDietaryRestrictions();
@@ -1097,6 +1069,7 @@ const Profile = () => {
       // check if the Google Maps API script is already loaded
       const script = document.createElement("script");
       if (!window.google) {
+        
         script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.REACT_APP_GOOGLE_MAPS_API_KEY || ""}&libraries=places`;
         script.async = true;
         script.defer = true;
@@ -1106,13 +1079,13 @@ const Profile = () => {
           if (addressInputRef.current) {
             const autocomplete = new window.google.maps.places.Autocomplete(
               addressInputRef.current,
-              {
-                types: ["address"],
-                componentRestrictions: { country: "us" },
+              { 
+                types: ['address'],
+                componentRestrictions: { country: 'us' } 
               }
             );
-
-            autocomplete.addListener("place_changed", () => {
+            
+            autocomplete.addListener('place_changed', () => {
               const place = autocomplete.getPlace();
               if (place.formatted_address) {
                 console.log(place);
@@ -1120,39 +1093,36 @@ const Profile = () => {
                 // address components in json format
                 const addressComponents = place.address_components;
                 console.log(address);
-
-                let streetNumber = "";
-                let streetName = "";
-                let city = "";
-                let state = "";
-                let zipCode = "";
-                let quadrant = "";
-
+                
+                let streetNumber = '';
+                let streetName = '';
+                let city = '';
+                let state = '';
+                let zipCode = '';
+                let quadrant = ''; 
+                
                 // getting relevant components
                 if (addressComponents) {
                   for (const component of addressComponents) {
                     const types = component.types;
-
-                    if (types.includes("street_number")) {
+                    
+                    if (types.includes('street_number')) {
                       streetNumber = component.long_name;
                     }
-
-                    if (types.includes("route")) {
+                    
+                    if (types.includes('route')) {
                       streetName = component.long_name;
                     }
-
-                    if (
-                      types.includes("locality") ||
-                      types.includes("sublocality")
-                    ) {
+                    
+                    if (types.includes('locality') || types.includes('sublocality')) {
                       city = component.long_name;
                     }
-
-                    if (types.includes("administrative_area_level_1")) {
+                    
+                    if (types.includes('administrative_area_level_1')) {
                       state = component.short_name; // Use short_name for state code (e.g., "DC" instead of "District of Columbia")
                     }
-
-                    if (types.includes("postal_code")) {
+                    
+                    if (types.includes('postal_code')) {
                       zipCode = component.long_name;
                     }
                   }
@@ -1189,49 +1159,33 @@ const Profile = () => {
         document.head.appendChild(script);
       }
     }
-    return () => {};
-  }, [isEditing]);
+    return () => {
 
-  // Fetch case workers
-  useEffect(() => {
-    const fetchCaseWorkers = async () => {
-      try {
-        const caseWorkersCollectionRef = collection(db, "CaseWorkers");
-        const caseWorkersSnapshot = await getDocs(caseWorkersCollectionRef);
+    }
+  }, [isEditing])
   
-        if (!caseWorkersSnapshot.empty) {
-          const caseWorkersData = caseWorkersSnapshot.docs.map((doc) => ({
-            id: doc.id,
-            name: doc.data().name || "",
-            organization: doc.data().organization || "",
-            phone: doc.data().phone || "",
-            email: doc.data().email || "",
-          }));
-  
-          setCaseWorkers(caseWorkersData);
-          
-          // If client has a referral entity, set it as selected
-          if (clientProfile.referralEntity) {
-            const matchingCaseWorker = caseWorkersData.find(
-              cw => cw.id === clientProfile.referralEntity?.id
-            );
-            if (matchingCaseWorker) {
-              setSelectedCaseWorker(matchingCaseWorker);
-            }
-          }
-        }
-      } catch (error) {
-        console.error("Error fetching case workers:", error);
-      }
-    };
+  // Function to handle cancelling edits
+  const handleCancel = () => {
+    // If we have a previous state of the client profile, restore it
+    if (prevClientProfile) {
+      setClientProfile(prevClientProfile);
+      setPrevClientProfile(null);
+    }
     
-    fetchCaseWorkers();
-  }, [clientProfile.referralEntity?.id]);
-
-  // Handle case worker selection
-  const handleCaseWorkerChange = async (caseWorker: CaseWorker | null) => {
+    // If we have a previous state of tags, restore it
+    if (prevTags) {
+      setTags(prevTags);
+      setPrevTags(null);
+    }
+    
+    setIsEditing(false);
+  };
+  
+  // Function to handle selecting a case worker
+  const handleCaseWorkerChange = (caseWorker: CaseWorker | null) => {
     setSelectedCaseWorker(caseWorker);
     
+    // Update the client profile with the case worker information
     if (caseWorker) {
       setClientProfile(prev => ({
         ...prev,
@@ -1242,28 +1196,15 @@ const Profile = () => {
         }
       }));
     } else {
-      setClientProfile(prev => ({
-        ...prev,
-        referralEntity: undefined
-      }));
+      // If no case worker selected, remove the referral entity
+      setClientProfile(prev => {
+        const newProfile = {...prev};
+        delete newProfile.referralEntity;
+        return newProfile;
+      });
     }
-    
-    setIsSaved(false);
   };
   
-  const handleCancel = () => {
-    // May not need to deep copy here.
-    if (prevClientProfile) {
-      setClientProfile(deepCopy(prevClientProfile));
-      setPrevClientProfile(null);
-    }
-
-    if (prevTags) {
-      setTags(deepCopy(prevTags));
-      setPrevTags(null);
-    }
-  };
-
   return (
     <Box className="profile-container">
       {showSavePopup && (
@@ -1477,20 +1418,25 @@ const Profile = () => {
               >
                 ADDRESS 2
               </Typography>
-              <CustomTextField
-                type="text"
-                name="address2"
-                value={clientProfile.address2 || ""}
-                onChange={(e) => {
-                  const { value } = e.target;
-                  handlePrevClientCopying();
-                  setClientProfile((prevState) => ({
-                    ...prevState,
-                    address2: value, // Update address2 without triggering getWard
-                  }));
-                }}
-                fullWidth
-              />
+              {isEditing ? (
+                <CustomTextField
+                  type="text"
+                  name="address2"
+                  value={clientProfile.address2 || ""}
+                  onChange={(e) => {
+                    const { value } = e.target;
+                    setClientProfile((prevState) => ({
+                      ...prevState,
+                      address2: value, // Update address2 without triggering getWard
+                    }));
+                  }}
+                  fullWidth
+                />
+              ) : (
+                <Typography variant="body1" sx={{ fontWeight: 600 }}>
+                  {clientProfile.address2 || "N/A"}
+                </Typography>
+              )}
             </Box>
 
             {/* City */}
@@ -1576,7 +1522,6 @@ const Profile = () => {
                 fullWidth
               />
             </Box>
-
             {/* Gender */}
             <Box>
               <Typography
@@ -1694,11 +1639,7 @@ const Profile = () => {
               <CustomTextField
                 type="text"
                 name="total"
-                value={
-                  Number(clientProfile.seniors) +
-                  Number(clientProfile.adults) +
-                  Number(clientProfile.children)
-                }
+                value={Number(clientProfile.seniors) + Number(clientProfile.adults) + Number(clientProfile.children)}
                 disabled
                 fullWidth
               />
@@ -1817,16 +1758,13 @@ const Profile = () => {
               </Typography>
               {renderField("notes", "textarea")}
               {isSaved && clientProfile.notes.trim() !== "" && (
-                <p id="timestamp">
-                  Last edited:{" "}
-                  {(clientProfile.notesTimestamp?.timestamp instanceof Timestamp
-                    ? clientProfile.notesTimestamp.timestamp.toDate()
-                    : clientProfile.notesTimestamp?.timestamp instanceof Date
-                    ? clientProfile.notesTimestamp.timestamp
-                    : clientProfile.createdAt
-                  ).toLocaleString()}
-                </p>
-              )}
+  <p id="timestamp">
+    Last edited: {(clientProfile.notesTimestamp?.timestamp instanceof Timestamp
+      ? clientProfile.notesTimestamp.timestamp.toDate()
+      : clientProfile.notesTimestamp?.timestamp || clientProfile.createdAt
+    ).toLocaleString()}
+  </p>
+)}
             </Box>
 
             {/* Life Challenges */}
@@ -1881,6 +1819,17 @@ const Profile = () => {
                           .join(" ") // Join back into a single string
                     )
                     .join(", ") || "None"}
+                </Typography>
+              )}
+            </Box>
+            <Box>
+              <Typography className="field-descriptor" sx={fieldLabelStyles}>
+                TEFAP CERTIFICATION
+              </Typography>
+              {renderField("tefapCert", "date")}
+              {errors.tefapCert && (
+                <Typography color="error" variant="body2">
+                  {errors.tefapCert}
                 </Typography>
               )}
             </Box>
