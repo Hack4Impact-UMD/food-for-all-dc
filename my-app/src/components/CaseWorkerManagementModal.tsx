@@ -24,43 +24,46 @@ import { doc, updateDoc, addDoc, deleteDoc, collection } from "firebase/firestor
 import { db } from "../auth/firebaseConfig";
 
 // Types
-interface Driver {
+interface CaseWorker {
   id: string;
   name: string;
+  organization: string;
   phone: string;
   email: string;
 }
 
 interface ValidationErrors {
   name?: string;
+  organization?: string;
   phone?: string;
   email?: string;
 }
 
-interface DriverFormProps {
-  value: Omit<Driver, 'id'>;
-  onChange: (field: keyof Omit<Driver, 'id'>, value: string) => void;
+interface CaseWorkerFormProps {
+  value: Omit<CaseWorker, 'id'>;
+  onChange: (field: keyof Omit<CaseWorker, 'id'>, value: string) => void;
   errors: ValidationErrors;
   onClearError: (field: keyof ValidationErrors) => void;
 }
 
-interface DriverManagementModalProps {
+interface CaseWorkerManagementModalProps {
   open: boolean;
   onClose: () => void;
-  drivers: Driver[];
-  onDriversChange: (drivers: Driver[]) => void;
+  caseWorkers: CaseWorker[];
+  onCaseWorkersChange: (caseWorkers: CaseWorker[]) => void;
 }
 
 // Reusable form fields component
-const DriverFormFields: React.FC<DriverFormProps> = ({ value, onChange, errors, onClearError }) => {
+const CaseWorkerFormFields: React.FC<CaseWorkerFormProps> = ({ value, onChange, errors, onClearError }) => {
   const fields: Array<{
-    name: keyof Omit<Driver, 'id'>;
+    name: keyof Omit<CaseWorker, 'id'>;
     label: string;
     gridSize?: number;
   }> = [
     { name: 'name', label: 'Name', gridSize: 4 },
+    { name: 'organization', label: 'Organization', gridSize: 4 },
     { name: 'phone', label: 'Phone', gridSize: 4 },
-    { name: 'email', label: 'Email', gridSize: 4 },
+    { name: 'email', label: 'Email', gridSize: 12 },
   ];
 
   return (
@@ -91,19 +94,24 @@ const DriverFormFields: React.FC<DriverFormProps> = ({ value, onChange, errors, 
 };
 
 // Main modal component
-const DriverManagementModal: React.FC<DriverManagementModalProps> = ({
+const CaseWorkerManagementModal: React.FC<CaseWorkerManagementModalProps> = ({
   open,
   onClose,
-  drivers,
-  onDriversChange,
+  caseWorkers,
+  onCaseWorkersChange,
 }) => {
-  const [isAddingDriver, setIsAddingDriver] = useState(false);
-  const [editingDriver, setEditingDriver] = useState<Driver | null>(null);
-  const [newDriver, setNewDriver] = useState<Omit<Driver, 'id'>>({ name: '', phone: '', email: '' });
+  const [isAddingCaseWorker, setIsAddingCaseWorker] = useState(false);
+  const [editingCaseWorker, setEditingCaseWorker] = useState<CaseWorker | null>(null);
+  const [newCaseWorker, setNewCaseWorker] = useState<Omit<CaseWorker, 'id'>>({ 
+    name: '', 
+    organization: '', 
+    phone: '', 
+    email: '' 
+  });
   const [errors, setErrors] = useState<ValidationErrors>({});
   const [editErrors, setEditErrors] = useState<ValidationErrors>({});
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [driverToDelete, setDriverToDelete] = useState<Driver | null>(null);
+  const [caseWorkerToDelete, setCaseWorkerToDelete] = useState<CaseWorker | null>(null);
 
   const validateEmail = (email: string) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -115,11 +123,15 @@ const DriverManagementModal: React.FC<DriverManagementModalProps> = ({
     return phoneRegex.test(phone.replace(/\s/g, ''));
   };
 
-  const validateDriverFields = (fields: { name: string; phone: string; email: string }): ValidationErrors => {
+  const validateCaseWorkerFields = (fields: { name: string; organization: string; phone: string; email: string }): ValidationErrors => {
     const newErrors: ValidationErrors = {};
 
     if (!fields.name.trim()) {
       newErrors.name = 'Name is required';
+    }
+
+    if (!fields.organization.trim()) {
+      newErrors.organization = 'Organization is required';
     }
 
     if (!fields.phone.trim()) {
@@ -137,71 +149,72 @@ const DriverManagementModal: React.FC<DriverManagementModalProps> = ({
     return newErrors;
   };
 
-  const handleDriverFormChange = (
+  const handleCaseWorkerFormChange = (
     setter: React.Dispatch<React.SetStateAction<any>>,
     errorSetter: React.Dispatch<React.SetStateAction<ValidationErrors>>,
-    currentValue: Omit<Driver, 'id'> | Driver,
-    field: keyof Omit<Driver, 'id'>,
+    currentValue: Omit<CaseWorker, 'id'> | CaseWorker,
+    field: keyof Omit<CaseWorker, 'id'>,
     value: string
   ) => {
     setter((prev: any) => ({ ...prev, [field]: value }));
     errorSetter(prev => ({ ...prev, [field]: undefined }));
   };
 
-  const handleDriverSubmit = async (
-    driver: Omit<Driver, 'id'> | Driver,
+  const handleCaseWorkerSubmit = async (
+    caseWorker: Omit<CaseWorker, 'id'> | CaseWorker,
     isEditing: boolean
   ) => {
-    const validationErrors = validateDriverFields(driver);
+    const validationErrors = validateCaseWorkerFields(caseWorker);
     const errorSetter = isEditing ? setEditErrors : setErrors;
     errorSetter(validationErrors);
 
     if (Object.keys(validationErrors).length === 0) {
       try {
-        if (isEditing && 'id' in driver) {
-          // Update existing driver
-          const driverRef = doc(db, "Drivers", driver.id);
-          await updateDoc(driverRef, {
-            name: driver.name,
-            phone: driver.phone,
-            email: driver.email
+        if (isEditing && 'id' in caseWorker) {
+          // Update existing case worker
+          const caseWorkerRef = doc(db, "CaseWorkers", caseWorker.id);
+          await updateDoc(caseWorkerRef, {
+            name: caseWorker.name,
+            organization: caseWorker.organization,
+            phone: caseWorker.phone,
+            email: caseWorker.email
           });
-          onDriversChange(drivers.map(d => d.id === driver.id ? driver : d));
-          setEditingDriver(null);
+          onCaseWorkersChange(caseWorkers.map(cw => cw.id === caseWorker.id ? caseWorker : cw));
+          setEditingCaseWorker(null);
         } else {
-          // Add new driver
-          const driversCollectionRef = collection(db, "Drivers");
-          const docRef = await addDoc(driversCollectionRef, driver);
-          onDriversChange([...drivers, { ...driver, id: docRef.id }]);
-          setIsAddingDriver(false);
-          setNewDriver({ name: '', phone: '', email: '' });
+          // Add new case worker
+          const caseWorkersCollectionRef = collection(db, "CaseWorkers");
+          const docRef = await addDoc(caseWorkersCollectionRef, caseWorker);
+          onCaseWorkersChange([...caseWorkers, { ...caseWorker, id: docRef.id }]);
+          setIsAddingCaseWorker(false);
+          setNewCaseWorker({ name: '', organization: '', phone: '', email: '' });
         }
         errorSetter({});
       } catch (error) {
-        console.error(`Error ${isEditing ? 'updating' : 'adding'} driver:`, error);
+        console.error(`Error ${isEditing ? 'updating' : 'adding'} case worker:`, error);
       }
     }
   };
 
-  const handleDeleteDriver = async (driverId: string) => {
+  const handleDeleteCaseWorker = async (caseWorkerId: string) => {
     try {
-      await deleteDoc(doc(db, "Drivers", driverId));
-      onDriversChange(drivers.filter(d => d.id !== driverId));
+      await deleteDoc(doc(db, "CaseWorkers", caseWorkerId));
+      onCaseWorkersChange(caseWorkers.filter(cw => cw.id !== caseWorkerId));
     } catch (error) {
-      console.error("Error deleting driver:", error);
+      console.error("Error deleting case worker:", error);
     }
   };
 
-  const handleDeleteClick = (driver: Driver) => {
-    setDriverToDelete(driver);
+  const handleDeleteClick = (caseWorker: CaseWorker) => {
+    setCaseWorkerToDelete(caseWorker);
     setDeleteDialogOpen(true);
   };
 
   const handleDeleteConfirm = async () => {
-    if (driverToDelete) {
-      await handleDeleteDriver(driverToDelete.id);
+    if (caseWorkerToDelete) {
+      await handleDeleteCaseWorker(caseWorkerToDelete.id);
       setDeleteDialogOpen(false);
-      setDriverToDelete(null);
+      setCaseWorkerToDelete(null);
     }
   };
 
@@ -211,8 +224,8 @@ const DriverManagementModal: React.FC<DriverManagementModalProps> = ({
         open={open} 
         onClose={() => {
           onClose();
-          setIsAddingDriver(false);
-          setEditingDriver(null);
+          setIsAddingCaseWorker(false);
+          setEditingCaseWorker(null);
         }}
         maxWidth="md"
         fullWidth
@@ -232,7 +245,7 @@ const DriverManagementModal: React.FC<DriverManagementModalProps> = ({
           pb: 2
         }}>
           <Typography variant="h5" sx={{ fontWeight: 600, color: '#1a1a1a' }}>
-            Edit Driver List
+            Edit Case Worker List
           </Typography>
           <IconButton
             onClick={onClose}
@@ -247,7 +260,7 @@ const DriverManagementModal: React.FC<DriverManagementModalProps> = ({
           </IconButton>
         </DialogTitle>
         <DialogContent sx={{ p: 3 }}>
-          {isAddingDriver ? (
+          {isAddingCaseWorker ? (
             <Box sx={{ 
               mb: 3,
               mt: 2,
@@ -257,19 +270,19 @@ const DriverManagementModal: React.FC<DriverManagementModalProps> = ({
               border: '1px solid rgba(37, 126, 104, 0.2)'
             }}>
               <Typography variant="h6" sx={{ mb: 3, color: '#257E68', fontWeight: 500 }}>
-                Add New Driver
+                Add New Case Worker
               </Typography>
-              <DriverFormFields
-                value={newDriver}
-                onChange={(field, value) => handleDriverFormChange(setNewDriver, setErrors, newDriver, field, value)}
+              <CaseWorkerFormFields
+                value={newCaseWorker}
+                onChange={(field, value) => handleCaseWorkerFormChange(setNewCaseWorker, setErrors, newCaseWorker, field, value)}
                 errors={errors}
                 onClearError={(field) => setErrors(prev => ({ ...prev, [field]: undefined }))}
               />
               <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end', mt: 3 }}>
                 <Button 
                   onClick={() => {
-                    setIsAddingDriver(false);
-                    setNewDriver({ name: '', phone: '', email: '' });
+                    setIsAddingCaseWorker(false);
+                    setNewCaseWorker({ name: '', organization: '', phone: '', email: '' });
                     setErrors({});
                   }}
                   sx={{
@@ -283,8 +296,8 @@ const DriverManagementModal: React.FC<DriverManagementModalProps> = ({
                 </Button>
                 <Button
                   variant="contained"
-                  onClick={() => handleDriverSubmit(newDriver, false)}
-                  disabled={!newDriver.name || !newDriver.phone || !newDriver.email}
+                  onClick={() => handleCaseWorkerSubmit(newCaseWorker, false)}
+                  disabled={!newCaseWorker.name || !newCaseWorker.organization || !newCaseWorker.phone || !newCaseWorker.email}
                   sx={{
                     backgroundColor: "#257E68",
                     '&:hover': { backgroundColor: "#1b5a4a" },
@@ -292,7 +305,7 @@ const DriverManagementModal: React.FC<DriverManagementModalProps> = ({
                     px: 3
                   }}
                 >
-                  Add Driver
+                  Add Case Worker
                 </Button>
               </Box>
             </Box>
@@ -300,7 +313,7 @@ const DriverManagementModal: React.FC<DriverManagementModalProps> = ({
             <Button
               variant="contained"
               startIcon={<Add />}
-              onClick={() => setIsAddingDriver(true)}
+              onClick={() => setIsAddingCaseWorker(true)}
               sx={{
                 mb: 3,
                 mt: 3,
@@ -310,7 +323,7 @@ const DriverManagementModal: React.FC<DriverManagementModalProps> = ({
                 py: 1
               }}
             >
-              Add New Driver
+              Add New Case Worker
             </Button>
           )}
           
@@ -328,16 +341,17 @@ const DriverManagementModal: React.FC<DriverManagementModalProps> = ({
             <Table>
               <TableHead>
                 <TableRow sx={{ backgroundColor: 'rgba(0, 0, 0, 0.02)' }}>
-                  <TableCell sx={{ fontWeight: 600, color: '#1a1a1a' }}>Driver</TableCell>
+                  <TableCell sx={{ fontWeight: 600, color: '#1a1a1a' }}>Case Worker</TableCell>
+                  <TableCell sx={{ fontWeight: 600, color: '#1a1a1a' }}>Organization</TableCell>
                   <TableCell sx={{ fontWeight: 600, color: '#1a1a1a' }}>Phone Number</TableCell>
                   <TableCell sx={{ fontWeight: 600, color: '#1a1a1a' }}>Email</TableCell>
                   <TableCell sx={{ fontWeight: 600, color: '#1a1a1a', width: '120px' }}>Actions</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
-                {drivers.map((d) => (
+                {caseWorkers.map((cw) => (
                   <TableRow 
-                    key={d.id}
+                    key={cw.id}
                     sx={{
                       '&:hover': {
                         backgroundColor: 'rgba(0, 0, 0, 0.01)'
@@ -345,10 +359,10 @@ const DriverManagementModal: React.FC<DriverManagementModalProps> = ({
                     }}
                   >
                     <TableCell>
-                      {editingDriver?.id === d.id ? (
+                      {editingCaseWorker?.id === cw.id ? (
                         <TextField
-                          value={editingDriver.name}
-                          onChange={(e) => handleDriverFormChange(setEditingDriver, setEditErrors, editingDriver, 'name', e.target.value)}
+                          value={editingCaseWorker.name}
+                          onChange={(e) => handleCaseWorkerFormChange(setEditingCaseWorker, setEditErrors, editingCaseWorker, 'name', e.target.value)}
                           size="small"
                           fullWidth
                           error={!!editErrors.name}
@@ -360,14 +374,33 @@ const DriverManagementModal: React.FC<DriverManagementModalProps> = ({
                           }}
                         />
                       ) : (
-                        <Typography sx={{ color: '#333', fontWeight: 500 }}>{d.name}</Typography>
+                        <Typography sx={{ color: '#333', fontWeight: 500 }}>{cw.name}</Typography>
                       )}
                     </TableCell>
                     <TableCell>
-                      {editingDriver?.id === d.id ? (
+                      {editingCaseWorker?.id === cw.id ? (
                         <TextField
-                          value={editingDriver.phone}
-                          onChange={(e) => handleDriverFormChange(setEditingDriver, setEditErrors, editingDriver, 'phone', e.target.value)}
+                          value={editingCaseWorker.organization}
+                          onChange={(e) => handleCaseWorkerFormChange(setEditingCaseWorker, setEditErrors, editingCaseWorker, 'organization', e.target.value)}
+                          size="small"
+                          fullWidth
+                          error={!!editErrors.organization}
+                          helperText={editErrors.organization}
+                          sx={{
+                            '& .MuiOutlinedInput-root': {
+                              backgroundColor: '#fff'
+                            }
+                          }}
+                        />
+                      ) : (
+                        <Typography sx={{ color: '#666' }}>{cw.organization}</Typography>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {editingCaseWorker?.id === cw.id ? (
+                        <TextField
+                          value={editingCaseWorker.phone}
+                          onChange={(e) => handleCaseWorkerFormChange(setEditingCaseWorker, setEditErrors, editingCaseWorker, 'phone', e.target.value)}
                           size="small"
                           fullWidth
                           error={!!editErrors.phone}
@@ -379,14 +412,14 @@ const DriverManagementModal: React.FC<DriverManagementModalProps> = ({
                           }}
                         />
                       ) : (
-                        <Typography sx={{ color: '#666' }}>{d.phone}</Typography>
+                        <Typography sx={{ color: '#666' }}>{cw.phone}</Typography>
                       )}
                     </TableCell>
                     <TableCell>
-                      {editingDriver?.id === d.id ? (
+                      {editingCaseWorker?.id === cw.id ? (
                         <TextField
-                          value={editingDriver.email}
-                          onChange={(e) => handleDriverFormChange(setEditingDriver, setEditErrors, editingDriver, 'email', e.target.value)}
+                          value={editingCaseWorker.email}
+                          onChange={(e) => handleCaseWorkerFormChange(setEditingCaseWorker, setEditErrors, editingCaseWorker, 'email', e.target.value)}
                           size="small"
                           fullWidth
                           error={!!editErrors.email}
@@ -398,15 +431,15 @@ const DriverManagementModal: React.FC<DriverManagementModalProps> = ({
                           }}
                         />
                       ) : (
-                        <Typography sx={{ color: '#666' }}>{d.email}</Typography>
+                        <Typography sx={{ color: '#666' }}>{cw.email}</Typography>
                       )}
                     </TableCell>
                     <TableCell>
                       <Box sx={{ display: 'flex', gap: 1 }}>
-                        {editingDriver?.id === d.id ? (
+                        {editingCaseWorker?.id === cw.id ? (
                           <>
                             <IconButton 
-                              onClick={() => editingDriver && handleDriverSubmit(editingDriver, true)}
+                              onClick={() => editingCaseWorker && handleCaseWorkerSubmit(editingCaseWorker, true)}
                               sx={{ 
                                 color: '#257E68',
                                 '&:hover': {
@@ -418,7 +451,7 @@ const DriverManagementModal: React.FC<DriverManagementModalProps> = ({
                               <Check />
                             </IconButton>
                             <IconButton 
-                              onClick={() => setEditingDriver(null)}
+                              onClick={() => setEditingCaseWorker(null)}
                               sx={{ 
                                 color: 'error.main',
                                 '&:hover': {
@@ -433,7 +466,7 @@ const DriverManagementModal: React.FC<DriverManagementModalProps> = ({
                         ) : (
                           <>
                             <IconButton 
-                              onClick={() => setEditingDriver(d)}
+                              onClick={() => setEditingCaseWorker(cw)}
                               sx={{ 
                                 color: '#257E68',
                                 '&:hover': {
@@ -445,7 +478,7 @@ const DriverManagementModal: React.FC<DriverManagementModalProps> = ({
                               <Edit />
                             </IconButton>
                             <IconButton 
-                              onClick={() => handleDeleteClick(d)}
+                              onClick={() => handleDeleteClick(cw)}
                               sx={{ 
                                 color: 'error.main',
                                 '&:hover': {
@@ -482,11 +515,11 @@ const DriverManagementModal: React.FC<DriverManagementModalProps> = ({
         }}
       >
         <DialogTitle id="delete-dialog-title" sx={{ pb: 1 }}>
-          Delete Driver
+          Delete Case Worker
         </DialogTitle>
         <DialogContent>
           <DialogContentText id="delete-dialog-description">
-            Are you sure you want to delete {driverToDelete?.name}? This action cannot be undone.
+            Are you sure you want to delete {caseWorkerToDelete?.name}? This action cannot be undone.
           </DialogContentText>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
@@ -510,4 +543,4 @@ const DriverManagementModal: React.FC<DriverManagementModalProps> = ({
   );
 };
 
-export default DriverManagementModal; 
+export default CaseWorkerManagementModal; 

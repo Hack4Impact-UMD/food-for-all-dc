@@ -18,6 +18,7 @@ import {
   TextField,
   Tooltip,
   Typography,
+  Autocomplete,
 } from "@mui/material";
 import {
   addDoc,
@@ -39,6 +40,7 @@ import "./Profile.css";
 
 import { Timestamp } from "firebase/firestore";
 import TagPopup from "./Tags/TagPopup";
+import CaseWorkerManagementModal from "../../components/CaseWorkerManagementModal";
 
 declare global {
   interface Window {
@@ -77,6 +79,78 @@ const CustomSelect = styled(Select)({
 
   "& .MuiSelect-select": fieldStyles,
 });
+
+// Add CaseWorker interface
+interface CaseWorker {
+  id: string;
+  name: string;
+  organization: string;
+  phone: string;
+  email: string;
+}
+
+// Add DietaryRestrictions interface
+interface DietaryRestrictions {
+  lowSugar: boolean;
+  kidneyFriendly: boolean;
+  vegan: boolean;
+  vegetarian: boolean;
+  halal: boolean;
+  microwaveOnly: boolean;
+  softFood: boolean;
+  lowSodium: boolean;
+  noCookingEquipment: boolean;
+  foodAllergens: string[];
+  other: string[];
+}
+
+// Add DeliveryDetails interface
+interface DeliveryDetails {
+  deliveryInstructions: string;
+  dietaryRestrictions: DietaryRestrictions;
+}
+
+interface ClientProfile {
+  uid: string;
+  firstName: string;
+  lastName: string;
+  streetName: string;
+  zipCode: string;
+  address: string;
+  address2: string;
+  city: string;
+  state: string;
+  quadrant: string;
+  dob: string;
+  deliveryFreq: string;
+  phone: string;
+  alternativePhone: string;
+  adults: number;
+  children: number;
+  total: number;
+  gender: "Male" | "Female" | "Other";
+  ethnicity: string;
+  deliveryDetails: DeliveryDetails;
+  lifeChallenges: string;
+  notes: string;
+  notesTimestamp?: {
+    notes: string,
+    timestamp: Date
+  } | null;
+  lifestyleGoals: string;
+  language: string;
+  createdAt: Date;
+  updatedAt: Date;
+  tags: string[];
+  ward: string;
+  seniors: number;
+  headOfHousehold: "Senior" | "Adult";
+  referralEntity?: {
+    id: string;
+    name: string;
+    organization: string;
+  };
+}
 
 const Profile = () => {
   // #### STATE ####
@@ -130,7 +204,8 @@ const Profile = () => {
     createdAt: new Date(),
     updatedAt: new Date(),
     tags: [],
-    ward: ""
+    ward: "",
+    referralEntity: undefined,
   });
   const [isNewProfile, setIsNewProfile] = useState(true);
   const [editMode, setEditMode] = useState(true);
@@ -150,6 +225,9 @@ const Profile = () => {
   const params = useParams(); // Params will return an object containing route params (like { id: 'some-id' })
   const id: string | null = params.id ?? null; // Use optional chaining to get the id or null if undefined
   const [showSavePopup, setShowSavePopup] = useState(false);
+  const [showCaseWorkerModal, setShowCaseWorkerModal] = useState(false);
+  const [caseWorkers, setCaseWorkers] = useState<CaseWorker[]>([]);
+  const [selectedCaseWorker, setSelectedCaseWorker] = useState<CaseWorker | null>(null);
 
   // Function to fetch profile data by ID
   const getProfileById = async (id: string) => {
@@ -263,63 +341,6 @@ const Profile = () => {
     fetchWard();
   }, [clientProfile.address]); // Runs whenever the address field changes
   
-  // Improved type definitions
-  type DietaryRestrictions = {
-    lowSugar: boolean;
-    kidneyFriendly: boolean;
-    vegan: boolean;
-    vegetarian: boolean;
-    halal: boolean;
-    microwaveOnly: boolean;
-    softFood: boolean;
-    lowSodium: boolean;
-    noCookingEquipment: boolean;
-    foodAllergens: string[];
-    other: string[];
-  };
-
-  type DeliveryDetails = {
-    deliveryInstructions: string;
-    dietaryRestrictions: DietaryRestrictions;
-  };
-
-  type ClientProfile = {
-    uid: string;
-    firstName: string;
-    lastName: string;
-    streetName: string;
-    zipCode: string;
-    address: string;
-    address2: string;
-    city: string;
-    state: string;
-    quadrant: string;
-    dob: string;
-    deliveryFreq: string;
-    phone: string;
-    alternativePhone: string;
-    adults: number;
-    children: number;
-    total: number;
-    gender: "Male" | "Female" | "Other";
-    ethnicity: string;
-    deliveryDetails: DeliveryDetails;
-    lifeChallenges: string;
-    notes: string;
-    notesTimestamp?: {
-      notes: string,
-      timestamp: Date
-    } | null;
-    lifestyleGoals: string;
-    language: string;
-    createdAt: Date;
-    updatedAt: Date;
-    tags: string[];
-    ward: string;
-    seniors: number;
-    headOfHousehold: "Senior" | "Adult";
-  };
-
   // Type for all possible field paths including nested ones
   type NestedKeyOf<T> = {
     [K in keyof T]: T[K] extends object ? `${string & K}.${string & keyof T[K]}` : K;
@@ -991,6 +1012,64 @@ const Profile = () => {
     }
   }, [isEditing])
   
+  // Fetch case workers
+  useEffect(() => {
+    const fetchCaseWorkers = async () => {
+      try {
+        const caseWorkersCollectionRef = collection(db, "CaseWorkers");
+        const caseWorkersSnapshot = await getDocs(caseWorkersCollectionRef);
+  
+        if (!caseWorkersSnapshot.empty) {
+          const caseWorkersData = caseWorkersSnapshot.docs.map((doc) => ({
+            id: doc.id,
+            name: doc.data().name || "",
+            organization: doc.data().organization || "",
+            phone: doc.data().phone || "",
+            email: doc.data().email || "",
+          }));
+  
+          setCaseWorkers(caseWorkersData);
+          
+          // If client has a referral entity, set it as selected
+          if (clientProfile.referralEntity) {
+            const matchingCaseWorker = caseWorkersData.find(
+              cw => cw.id === clientProfile.referralEntity?.id
+            );
+            if (matchingCaseWorker) {
+              setSelectedCaseWorker(matchingCaseWorker);
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching case workers:", error);
+      }
+    };
+    
+    fetchCaseWorkers();
+  }, [clientProfile.referralEntity?.id]);
+
+  // Handle case worker selection
+  const handleCaseWorkerChange = async (caseWorker: CaseWorker | null) => {
+    setSelectedCaseWorker(caseWorker);
+    
+    if (caseWorker) {
+      setClientProfile(prev => ({
+        ...prev,
+        referralEntity: {
+          id: caseWorker.id,
+          name: caseWorker.name,
+          organization: caseWorker.organization
+        }
+      }));
+    } else {
+      setClientProfile(prev => ({
+        ...prev,
+        referralEntity: undefined
+      }));
+    }
+    
+    setIsSaved(false);
+  };
   
   return (
     <Box className="profile-container">
@@ -1082,10 +1161,10 @@ const Profile = () => {
           <Box
             sx={{
               display: "grid",
-              gap: isEditing ? 3 : 5, // Spacing between grid items
+              gap: isEditing ? 3 : 5,
               gridTemplateColumns: {
-                xs: "1fr", // Full width for small screens
-                sm: "repeat(2, 1fr)", // Three columns for medium screens and up
+                xs: "1fr",
+                sm: "repeat(2, 1fr)",
                 md: "repeat(3, 1fr)",
               },
               alignItems: "center",
@@ -1131,136 +1210,173 @@ const Profile = () => {
               )}
             </Box>
 
+            {/* Referral Entity - Moved up in the form */}
+            <Box>
+              <Typography className="field-descriptor" sx={fieldLabelStyles}>
+                REFERRAL ENTITY
+              </Typography>
+              {isEditing ? (
+                <CustomSelect
+                  name="referralEntity"
+                  value={selectedCaseWorker ? selectedCaseWorker.id : ""}
+                  onChange={(e) => {
+                    const selectedId = e.target.value;
+                    if (selectedId === 'edit_list') {
+                      setShowCaseWorkerModal(true);
+                    } else {
+                      const selected = caseWorkers.find(cw => cw.id === selectedId);
+                      handleCaseWorkerChange(selected || null);
+                    }
+                  }}
+                  style={{ width: "83.5%" }}
+                >
+                  <MenuItem value="edit_list" sx={{ color: '#257E68', fontWeight: 'bold' }}>
+                    Edit Case Worker List {'>'}
+                  </MenuItem>
+                  {caseWorkers.map((caseWorker) => (
+                    <MenuItem key={caseWorker.id} value={caseWorker.id}>
+                      {caseWorker.name}, {caseWorker.organization}
+                    </MenuItem>
+                  ))}
+                </CustomSelect>
+              ) : (
+                <Typography variant="body1" sx={{ fontWeight: 600 }}>
+                  {selectedCaseWorker ? `${selectedCaseWorker.name}, ${selectedCaseWorker.organization}` : 'None'}
+                </Typography>
+              )}
+            </Box>
+
             {/* Address 1 */}
-<Box>
-  <Typography
-    className="field-descriptor"
-    sx={{
-      ...fieldLabelStyles,
-      position: "relative",
-      top: isEditing ? "-19px" : "0",
-    }}
-  >
-    ADDRESS<span className="required-asterisk">*</span>
-  </Typography>
-  {renderField("address", "text")}
-  {errors.address && (
-    <Typography color="error" variant="body2">
-      {errors.address}
-    </Typography>
-  )}
-</Box>
+            <Box>
+              <Typography
+                className="field-descriptor"
+                sx={{
+                  ...fieldLabelStyles,
+                  position: "relative",
+                  top: isEditing ? "-19px" : "0",
+                }}
+              >
+                ADDRESS<span className="required-asterisk">*</span>
+              </Typography>
+              {renderField("address", "text")}
+              {errors.address && (
+                <Typography color="error" variant="body2">
+                  {errors.address}
+                </Typography>
+              )}
+            </Box>
 
-{/* Address 2 */}
-<Box>
-  <Typography
-    className="field-descriptor"
-    sx={{
-      ...fieldLabelStyles,
-      position: "relative",
-      top: isEditing ? "-19px" : "0",
-    }}
-  >
-    ADDRESS 2
-  </Typography>
-  <CustomTextField
-    type="text"
-    name="address2"
-    value={clientProfile.address2 || ""}
-    onChange={(e) => {
-      const { value } = e.target;
-      setClientProfile((prevState) => ({
-        ...prevState,
-        address2: value, // Update address2 without triggering getWard
-      }));
-    }}
-    fullWidth
-  />
-</Box>
+            {/* Address 2 */}
+            <Box>
+              <Typography
+                className="field-descriptor"
+                sx={{
+                  ...fieldLabelStyles,
+                  position: "relative",
+                  top: isEditing ? "-19px" : "0",
+                }}
+              >
+                ADDRESS 2
+              </Typography>
+              <CustomTextField
+                type="text"
+                name="address2"
+                value={clientProfile.address2 || ""}
+                onChange={(e) => {
+                  const { value } = e.target;
+                  setClientProfile((prevState) => ({
+                    ...prevState,
+                    address2: value, // Update address2 without triggering getWard
+                  }));
+                }}
+                fullWidth
+              />
+            </Box>
 
-           {/* City */}
-<Box>
-  <Typography
-    className="field-descriptor"
-    sx={{
-      ...fieldLabelStyles,
-      position: "relative",
-      top: isEditing ? "-19px" : "0",
-    }}
-  >
-    CITY <span className="required-asterisk">*</span>
-  </Typography>
-  <CustomTextField
-    type="text"
-    name="city"
-    value={clientProfile.city || ""}
-    disabled
-    fullWidth
-  />
-</Box>
+            {/* City */}
+            <Box>
+              <Typography
+                className="field-descriptor"
+                sx={{
+                  ...fieldLabelStyles,
+                  position: "relative",
+                  top: isEditing ? "-19px" : "0",
+                }}
+              >
+                CITY <span className="required-asterisk">*</span>
+              </Typography>
+              <CustomTextField
+                type="text"
+                name="city"
+                value={clientProfile.city || ""}
+                disabled
+                fullWidth
+              />
+            </Box>
 
-{/* State */}
-<Box>
-  <Typography
-    className="field-descriptor"
-    sx={{
-      ...fieldLabelStyles,
-      position: "relative",
-      top: isEditing ? "-19px" : "0",
-    }}
-  >
-    STATE <span className="required-asterisk">*</span>
-  </Typography>
-  <CustomTextField
-    type="text"
-    name="state"
-    value={clientProfile.state || ""}
-    disabled
-    fullWidth
-  />
-</Box>
+            {/* State */}
+            <Box>
+              <Typography
+                className="field-descriptor"
+                sx={{
+                  ...fieldLabelStyles,
+                  position: "relative",
+                  top: isEditing ? "-19px" : "0",
+                }}
+              >
+                STATE <span className="required-asterisk">*</span>
+              </Typography>
+              <CustomTextField
+                type="text"
+                name="state"
+                value={clientProfile.state || ""}
+                disabled
+                fullWidth
+              />
+            </Box>
 
-{/* ZIP CODE */}
-<Box>
-  <Typography
-    className="field-descriptor"
-    sx={{
-      ...fieldLabelStyles,
-      position: "relative",
-      top: isEditing ? "-19px" : "0",
-    }}
-  >
-    ZIP CODE <span className="required-asterisk">*</span>
-  </Typography>
-  <CustomTextField
-    type="text"
-    name="zipCode"
-    value={clientProfile.zipCode || ""}
-    disabled
-    fullWidth
-  />
-</Box>
+            {/* ZIP CODE */}
+            <Box>
+              <Typography
+                className="field-descriptor"
+                sx={{
+                  ...fieldLabelStyles,
+                  position: "relative",
+                  top: isEditing ? "-19px" : "0",
+                }}
+              >
+                ZIP CODE <span className="required-asterisk">*</span>
+              </Typography>
+              <CustomTextField
+                type="text"
+                name="zipCode"
+                value={clientProfile.zipCode || ""}
+                disabled
+                fullWidth
+              />
+            </Box>
 
-{/* Quadrant */}
-<Box>
-  <Typography
-    className="field-descriptor"
-    sx={{
-      ...fieldLabelStyles,
-      position: "relative",
-      top: isEditing ? "-19px" : "0",
-    }}
-  >
-    QUADRANT
-  </Typography>
-  <CustomTextField
-    type="text"
-    name="quadrant"
-    value={clientProfile.quadrant || ""}
-    disabled
-    fullWidth
-  />
-</Box>
+            {/* Quadrant */}
+            <Box>
+              <Typography
+                className="field-descriptor"
+                sx={{
+                  ...fieldLabelStyles,
+                  position: "relative",
+                  top: isEditing ? "-19px" : "0",
+                }}
+              >
+                QUADRANT
+              </Typography>
+              <CustomTextField
+                type="text"
+                name="quadrant"
+                value={clientProfile.quadrant || ""}
+                disabled
+                fullWidth
+              />
+            </Box>
+
             {/* Gender */}
             <Box>
               <Typography
@@ -1364,25 +1480,25 @@ const Profile = () => {
             </Box>
 
             {/* Total */}
-<Box>
-  <Typography
-    className="field-descriptor"
-    sx={{
-      ...fieldLabelStyles,
-      position: "relative",
-      top: isEditing ? "-19px" : "0",
-    }}
-  >
-    TOTAL
-  </Typography>
-  <CustomTextField
-    type="text"
-    name="total"
-    value={Number(clientProfile.seniors) + Number(clientProfile.adults) + Number(clientProfile.children)}
-    disabled
-    fullWidth
-  />
-</Box>
+            <Box>
+              <Typography
+                className="field-descriptor"
+                sx={{
+                  ...fieldLabelStyles,
+                  position: "relative",
+                  top: isEditing ? "-19px" : "0",
+                }}
+              >
+                TOTAL
+              </Typography>
+              <CustomTextField
+                type="text"
+                name="total"
+                value={Number(clientProfile.seniors) + Number(clientProfile.adults) + Number(clientProfile.children)}
+                disabled
+                fullWidth
+              />
+            </Box>
 
             {/* Head of Household */}
             <Box>
@@ -1400,7 +1516,7 @@ const Profile = () => {
                       headOfHousehold: value as "Adult" | "Senior",
                     }));
                   }}
-                  fullWidth
+                  style={{ width: "83.5%" }}
                 >
                   <MenuItem value="Adult">Adult</MenuItem>
                   <MenuItem value="Senior">Senior</MenuItem>
@@ -1521,6 +1637,14 @@ const Profile = () => {
           </Box>
         </Box>
       </Box>
+
+      {/* CaseWorkerManagementModal */}
+      <CaseWorkerManagementModal
+        open={showCaseWorkerModal}
+        onClose={() => setShowCaseWorkerModal(false)}
+        caseWorkers={caseWorkers}
+        onCaseWorkersChange={setCaseWorkers}
+      />
     </Box>
   );
 };
