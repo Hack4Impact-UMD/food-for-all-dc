@@ -20,6 +20,8 @@ import {
   DialogActions,
   DialogTitle,
   Autocomplete,
+  Menu,
+  MenuItem,
 } from "@mui/material";
 import {
   collection,
@@ -267,7 +269,14 @@ const DeliverySpreadsheet: React.FC = () => {
   const [selectedClusters, setSelectedClusters] = useState<Set<any>>(new Set());
   const [driver, setDriver] = useState<Driver | null>();
   const [time, setTime] = useState<string>("");
+
   const [exportCSV, setExportCSV] = useState(false);
+  const [exportDoordash, setExportDoordash] = useState(false);
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const [step, setStep] = useState<number>(0); // 0 = closed, 1 = main menu, 2 = submenu
+  const [parentChoice, setParentChoice] = useState<string>("");
+
+
   const navigate = useNavigate();
 
   //get drivers
@@ -354,6 +363,41 @@ const DeliverySpreadsheet: React.FC = () => {
     };
     fetchData();
   }, []);
+
+  // Button click to open first menu
+  const handleButtonClick = (event: React.MouseEvent<HTMLButtonElement>): void => {
+    setAnchorEl(event.currentTarget);
+    setStep(1);
+  };
+
+  // Close all menus
+  const handleClose = (): void => {
+    setAnchorEl(null);
+    setStep(0);
+    setParentChoice("");
+  };
+
+  // Select "Route" or "Doordash"
+  const handleParentSelect = (choice: string): void => {
+    setParentChoice(choice);
+    setStep(2);
+  };
+
+  const handleEmailDrivers = (): void => {
+    console.log("Email drivers has not been implemented yet")
+  }
+
+  // Final option selected (Email/Download)
+  const handleFinalAction = (action: string): void => {
+    if (action === "Email Drivers") {
+      handleEmailDrivers();
+    } else if (action === "Download Drivers") {
+      setPopupMode("CSV")
+    } else if (action === "Download Doordash") {
+      setPopupMode("Doordash")
+    }
+    handleClose();
+  };
 
   // Handle search input change
   const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -645,9 +689,7 @@ const DeliverySpreadsheet: React.FC = () => {
                   variant="contained"
                   color="secondary"
                   className="view-all"
-                  onClick={() => {
-                    setPopupMode("Export");
-                  }}
+                  onClick={handleButtonClick}
                   sx={{
                     whiteSpace: "nowrap",
                     padding: "0% 2%",
@@ -656,8 +698,43 @@ const DeliverySpreadsheet: React.FC = () => {
                     backgroundColor: "#257e68",
                   }}
                 >
-                  Export CSV
+                  Export
               </Button>
+
+              {/* Step 1: Main Menu */}
+              <Menu
+                anchorEl={anchorEl}
+                open={Boolean(anchorEl) && step === 1}
+                onClose={handleClose}
+                MenuListProps={{ sx: { minWidth: 140 } }}
+              >
+                <MenuItem onClick={() => handleParentSelect("Route")}>Route</MenuItem>
+                <MenuItem onClick={() => handleParentSelect("Doordash")}>Doordash</MenuItem>
+              </Menu>
+
+              {/* Step 2: Submenu based on choice */}
+              <Menu
+                anchorEl={anchorEl}
+                open={Boolean(anchorEl) && step === 2}
+                onClose={handleClose}
+                MenuListProps={{ sx: { minWidth: 140 } }}
+              >
+                {parentChoice === "Route" && (
+                  <>
+                    <MenuItem onClick={() => handleFinalAction("Email Drivers")}>
+                      Email Drivers
+                    </MenuItem>
+                    <MenuItem onClick={() => handleFinalAction("Download Drivers")}>
+                      Download Drivers
+                    </MenuItem>
+                  </>
+                )}
+                {parentChoice === "Doordash" && (
+                  <MenuItem onClick={() => handleFinalAction("Download Doordash")}>
+                    Download Doordash
+                  </MenuItem>
+                )}
+              </Menu>
             </div>
           </div>
         </div>
@@ -817,10 +894,16 @@ const DeliverySpreadsheet: React.FC = () => {
                 variant="outlined"
               />
             </DialogContent>
-          ) : popupMode === "Export" ? (
+          ) : popupMode === "CSV" ? (
             <DialogContent>
               <div style={{ alignItems: "center", textAlign: "center", padding: "1%" }}>
                 <h2 style={{ color: "#257e68", fontWeight: "bold", fontSize: "24px" }}>Are you sure you want to export drivers?</h2>
+              </div>
+            </DialogContent>
+          ) : popupMode === "Doordash" ? (
+            <DialogContent>
+              <div style={{ alignItems: "center", textAlign: "center", padding: "1%" }}>
+                <h2 style={{ color: "#257e68", fontWeight: "bold", fontSize: "24px" }}>Are you sure you want to export Doordash?</h2>
               </div>
             </DialogContent>
           ) : (
@@ -845,10 +928,14 @@ const DeliverySpreadsheet: React.FC = () => {
               backgroundColor: "#257e68",
               fontWeight: "bold",
             }}
-            onClick={() => {(popupMode === "Driver") ? assignDriver() : (popupMode === "Export") ? setExportCSV(true) : assignTime()
+            onClick={() => {
+              (popupMode === "Driver") ? assignDriver() :
+              (popupMode === "CSV") ? setExportCSV(true) :
+              (popupMode === "Doordash") ? setExportDoordash(true) :
+              assignTime()
             }}
           >
-            SAVE
+            {(popupMode === "CSV" || popupMode === "Doordash") ? "YES" : "SAVE"}
           </Button>
           <Button
             color = "secondary"
@@ -861,10 +948,15 @@ const DeliverySpreadsheet: React.FC = () => {
               backgroundColor: "#AEAEAE !important",
               fontWeight: "bold",
             }}
-            onClick={() => {setPopupMode(""); (popupMode === "Driver") ? setDriver(null) : (popupMode === "Export") ? setExportCSV(false) : setTime("")
+            onClick={() => {
+              setPopupMode("");
+              (popupMode === "Driver") ? setDriver(null) :
+              (popupMode === "CSV") ? setExportCSV(false) :
+              (popupMode === "Doordash") ? setExportDoordash(false) :
+              setTime("")
             }}
           >
-            CANCEL
+            {(popupMode === "CSV" || popupMode === "Doordash") ? "NO" : "CANCEL"}
           </Button>
         </DialogActions>
         
