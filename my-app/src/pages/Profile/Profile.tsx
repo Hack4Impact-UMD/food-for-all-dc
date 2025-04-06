@@ -40,6 +40,7 @@ import "./Profile.css";
 
 import { Timestamp } from "firebase/firestore";
 import TagPopup from "./Tags/TagPopup";
+import { StringLiteral } from "typescript";
 import CaseWorkerManagementModal from "../../components/CaseWorkerManagementModal";
 
 declare global {
@@ -170,7 +171,6 @@ const Profile = () => {
     state: "",
     quadrant: "",
     dob: "",
-    deliveryFreq: "",
     phone: "",
     alternativePhone: "",
     adults: 0,
@@ -203,6 +203,9 @@ const Profile = () => {
     language: "",
     createdAt: new Date(),
     updatedAt: new Date(),
+    startDate: "",
+    endDate: "",
+    recurrence: "None",
     tags: [],
     ward: "",
     referralEntity: undefined,
@@ -340,7 +343,66 @@ const Profile = () => {
   
     fetchWard();
   }, [clientProfile.address]); // Runs whenever the address field changes
-  
+
+  // Improved type definitions
+  type DietaryRestrictions = {
+    lowSugar: boolean;
+    kidneyFriendly: boolean;
+    vegan: boolean;
+    vegetarian: boolean;
+    halal: boolean;
+    microwaveOnly: boolean;
+    softFood: boolean;
+    lowSodium: boolean;
+    noCookingEquipment: boolean;
+    foodAllergens: string[];
+    other: string[];
+  };
+
+  type DeliveryDetails = {
+    deliveryInstructions: string;
+    dietaryRestrictions: DietaryRestrictions;
+  };
+
+  type ClientProfile = {
+    uid: string;
+    firstName: string;
+    lastName: string;
+    streetName: string;
+    zipCode: string;
+    address: string;
+    address2: string;
+    city: string;
+    state: string;
+    quadrant: string;
+    dob: string;
+    phone: string;
+    alternativePhone: string;
+    adults: number;
+    children: number;
+    total: number;
+    gender: "Male" | "Female" | "Other";
+    ethnicity: string;
+    deliveryDetails: DeliveryDetails;
+    lifeChallenges: string;
+    notes: string;
+    notesTimestamp?: {
+      notes: string,
+      timestamp: Date
+    } | null;
+    lifestyleGoals: string;
+    language: string;
+    createdAt: Date;
+    updatedAt: Date;
+    startDate: string;
+    endDate: string;
+    recurrence: string;
+    tags: string[];
+    ward: string;
+    seniors: number;
+    headOfHousehold: "Senior" | "Adult";
+  };
+
   // Type for all possible field paths including nested ones
   type NestedKeyOf<T> = {
     [K in keyof T]: T[K] extends object ? `${string & K}.${string & keyof T[K]}` : K;
@@ -504,8 +566,12 @@ const Profile = () => {
       newErrors.state = "State is required";
     if (!clientProfile.dob)
       newErrors.dob = "Date of Birth is required";
-    if (!clientProfile.deliveryFreq?.trim())
-      newErrors.deliveryFreq = "Delivery Frequency is required";
+    if (!clientProfile.recurrence.trim())
+      newErrors.recccurence = "Reccurence is required";
+    if (!clientProfile.startDate.trim())
+      newErrors.startDate = "Start Date is required";
+    if (!clientProfile.endDate.trim())
+      newErrors.endDate = "End Date is required";
     if (!clientProfile.phone?.trim())
       newErrors.phone = "Phone is required";
     if (!clientProfile.gender?.trim())
@@ -1541,15 +1607,48 @@ const Profile = () => {
               )}
             </Box>
 
-            {/* Delivery Frequency */}
+              {/* Start Date */}
             <Box>
               <Typography className="field-descriptor" sx={fieldLabelStyles}>
-                DELIVERY FREQUENCY <span className="required-asterisk">*</span>
+                START DATE <span className="required-asterisk">*</span>
               </Typography>
-              {renderField("deliveryFreq", "text")}
-              {errors.deliveryFreq && (
-                <Typography color="error" variant="body2">
-                  {errors.deliveryFreq}
+              {renderField("startDate", "date")}
+            </Box>
+
+            {/* End Date */}
+            <Box>
+              <Typography className="field-descriptor" sx={fieldLabelStyles}>
+                END DATE <span className="required-asterisk">*</span>
+              </Typography>
+              {renderField("endDate", "date")}
+            </Box>
+
+            {/* Recurrence */}
+            <Box>
+              <Typography className="field-descriptor" sx={fieldLabelStyles}>
+                RECURRENCE <span className="required-asterisk">*</span>
+              </Typography>
+              {isEditing ? (
+                <CustomSelect
+                  name="recurrence"
+                  value={clientProfile.recurrence || ""}
+                  onChange={(e) => {
+                    const { value } = e.target;
+                    setClientProfile((prevState) => ({
+                      ...prevState,
+                      recurrence: value as "Weekly" | "2x-Monthly" | "Monthly",
+                    }));
+                  }}
+                  fullWidth
+                >
+                  <MenuItem value="None">None</MenuItem>
+                  <MenuItem value="Weekly">Weekly</MenuItem>
+                  <MenuItem value="2x-Monthly">2x-Monthly</MenuItem>
+                  <MenuItem value="Monthly">Monthly</MenuItem>
+                </CustomSelect>
+              ) : (
+                <Typography variant="body1" sx={{ fontWeight: 600 }}>
+                  {clientProfile.recurrence || "N/A"}
                 </Typography>
               )}
             </Box>
