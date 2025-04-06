@@ -92,13 +92,13 @@ export default function BasePage({ children }: { children: React.ReactNode }) {
   const location = useLocation();
 
   useEffect(() => {
-    if (location.pathname === '/calendar') {
+    if (location.pathname === '/deliveries') {
       setPageTitle("Deliveries");
-    } else if (location.pathname === '/spreadsheet') {
+    } else if (location.pathname === '/clients') {
       setPageTitle("Clients");
-    } else if (location.pathname === '/createUsers') {
+    } else if (location.pathname === '/users') {
       setPageTitle("Users");
-    } else if (location.pathname === '/deliveryAssignment') {
+    } else if (location.pathname === '/routes') {
       setPageTitle("Routes");
     } else {
       setPageTitle("");
@@ -167,10 +167,10 @@ export default function BasePage({ children }: { children: React.ReactNode }) {
         <Divider />
         <List>
           {[
-            { text: 'Deliveries', icon: <CalendarTodayIcon />, link: '/calendar' },
-            { text: 'Clients', icon: <StorageIcon />, link: '/spreadsheet' },
-            { text: 'Users', icon: <AddCircleIcon />, link: '/createUsers' },
-            { text: 'Routes', icon: <LocalShippingIcon />, link: '/deliveryAssignment' },
+            { text: 'Deliveries', icon: <CalendarTodayIcon />, link: '/deliveries' },
+            { text: 'Clients', icon: <StorageIcon />, link: '/clients' },
+            { text: 'Users', icon: <AddCircleIcon />, link: '/users' },
+            { text: 'Routes', icon: <LocalShippingIcon />, link: '/routes' },
           ].map(({ text, icon, link }) => (
             <ListItem key={text} disablePadding>
               <Tab text={text} icon={icon} link={link} tab={tab} setTab={setTab} setOpen={setOpen} />

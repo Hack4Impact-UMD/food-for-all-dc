@@ -35,7 +35,7 @@ function App() {
 
         {/* Protected or main routes wrapped with BasePage */}
         <Route
-          path="/calendar"
+          path="/deliveries"
           element={
             <BasePage>
               <CalendarPage />
@@ -56,7 +56,7 @@ function App() {
           }
         />
         <Route
-          path="/spreadsheet"
+          path="/clients"
           element={
             <BasePage>
               <Spreadsheet />
@@ -65,7 +65,7 @@ function App() {
         />
 
         <Route
-          path="/deliveryAssignment"
+          path="/routes"
           element={
             <BasePage>
               <DeliverySpreadsheet />
@@ -74,7 +74,7 @@ function App() {
         />
 
         <Route
-          path="/createUsers"
+          path="/users"
           element={
             <BasePage>
               <CreateUsers />

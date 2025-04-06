@@ -35,7 +35,7 @@ function Login() {
   React.useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user:any) => {
       if (user) {
-        navigate("/calendar");
+        navigate("/deliveries");
       } 
     });
   
@@ -51,7 +51,7 @@ function Login() {
       
       // Successful login, navigate to calendar
       setLoginError("");
-      navigate("/calendar");
+      navigate("/deliveries");
 
       // Clear input fields
       setLoginEmail("");
