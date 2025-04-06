@@ -151,6 +151,9 @@ interface ClientProfile {
     name: string;
     organization: string;
   };
+  startDate: string;
+  endDate: string;
+  recurrence: string;
 }
 
 const Profile = () => {
@@ -401,6 +404,11 @@ const Profile = () => {
     ward: string;
     seniors: number;
     headOfHousehold: "Senior" | "Adult";
+    referralEntity?: {
+      id: string;
+      name: string;
+      organization: string;
+    };
   };
 
   // Type for all possible field paths including nested ones
