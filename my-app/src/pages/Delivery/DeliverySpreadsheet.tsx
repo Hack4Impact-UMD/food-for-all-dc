@@ -632,7 +632,7 @@ const DeliverySpreadsheet: React.FC = () => {
             />
           </div>
           <div style={{ display: "flex", justifyContent: "space-between", gap: "5%", margin: "0.5% 0%" }}>
-            <div style={{ display: "flex", justifyContent: "start", gap: "2%", width: "40%", paddingLeft: "5%" }}>
+            <div style={{ display: "flex", justifyContent: "start", gap: "2%", width: "40%" }}>
               {/* <Button
                 variant="contained"
                 color="secondary"
@@ -684,7 +684,7 @@ const DeliverySpreadsheet: React.FC = () => {
                 Assign Time
               </Button>
             </div>
-            <div style={{ display: "flex", justifyContent: "end", gap: "2%", width: "40%", paddingRight: "5%" }}>
+            <div style={{ display: "flex", justifyContent: "end", gap: "2%", width: "40%" }}>
               <Button
                   variant="contained"
                   color="secondary"
