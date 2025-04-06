@@ -17,15 +17,22 @@ import BasePage from './pages/Base/Base';
 import CreateUsers from './pages/CreateUsers/CreateUsers';
 import DeliverySpreadsheet from "./pages/Delivery/DeliverySpreadsheet";
 
+import { useAuth } from './auth/AuthProvider';
 
 function App() {
+  const { loading } = useAuth();
+
+  if (loading) {
+    return <div>Loading...</div>; // Or a spinner
+  }
+
   return (
     <Router>
       <Routes>
         {/* Public routes */}
         <Route path="/" element={<Login />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-        
+
         {/* Protected or main routes wrapped with BasePage */}
         <Route
           path="/calendar"
@@ -37,14 +44,14 @@ function App() {
         />
         <Route path="/profile/:id" element={
           <BasePage>
-          <Profile />
-        </BasePage>
+            <Profile />
+          </BasePage>
         } />
         <Route
           path="/profile"
           element={
             <BasePage>
-              <Profile  />
+              <Profile />
             </BasePage>
           }
         />
