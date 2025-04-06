@@ -29,7 +29,8 @@ import {
   MenuItem,
   MenuList,
   Stack,
-  ClickAwayListener
+  ClickAwayListener,
+  Menu
 } from "@mui/material";
 import {
   collection,
@@ -54,6 +55,7 @@ interface RowData {
   firstName: string;
   lastName: string;
   address: string;
+  phone: string;
   tags?: string[];
   ward?: string;
   clusterID?: string; 
@@ -82,42 +84,56 @@ type Field =
       label: "";
       type: "checkbox";
       compute?: never;
+      width: string;
     }
   | {
       key: "fullname";
       label: "Client";
       type: "text";
       compute: (data: RowData) => string;
+      width: string;
     }
   | {
       key: keyof Omit<RowData, "id" | "firstName" | "lastName" | "deliveryDetails">;
       label: string;
       type: string;
       compute?: never;
+      width: string;
     }
   | {
       key: "tags";
       label: "Tags";
       type: "text";
       compute: (data: RowData) => string;
+      width: string;
     }
   | {
       key: "assignedDriver";
-      label: "Assigned Driver";
+      label: "Driver";
       type: "text";
       compute: (data: RowData, clusters: Cluster[], drivers: Driver[]) => string;
+      width: string;
     }
   | {
       key: "assignedTime";
-      label: "Assigned Time";
+      label: "Time";
       type: "text";
       compute: (data: RowData, clusters: Cluster[]) => string;
+      width: string;
     }
   | {
       key: "deliveryDetails.deliveryInstructions";
-      label: "Delivery Instructions";
+      label: "Instructions";
       type: "text";
       compute: (data: RowData) => string;
+      width: string;
+    }
+  | {
+      key: "phone";
+      label: "Phone Number";
+      type: "text";
+      compute: (data: RowData) => string;
+      width: string;
     };
 
 interface Driver {
@@ -156,14 +172,15 @@ const fields: Field[] = [
     key: "checkbox",
     label: "",
     type: "checkbox",
+    width: "5%",
   },
   {
     key: "fullname",
     label: "Client",
     type: "text",
     compute: (data: RowData) => `${data.lastName}, ${data.firstName}`,
+    width: "10%"
   },
-  { key: "clusterID", label: "Cluster ID", type: "text"},
   {
     key: "tags",
     label: "Tags",
@@ -172,12 +189,24 @@ const fields: Field[] = [
       const tags = data.tags || [];
       return tags.length > 0 ? tags.join(", ") : "None";
     },
+    width: "10%"
   },
-  { key: "address", label: "Address", type: "text" },
-  { key: "ward", label: "Ward", type: "text" },
+  { key: "clusterID", label: "Clusters", type: "text", width: "6%" },
+  { key: "address", label: "Address", type: "text", width: "12%" },
+  {
+    key: "phone",
+    label: "Phone Number",
+    type: "text",
+    compute: (data: RowData) => {
+      const number = data.phone || "N/A";
+      return number;
+    },
+    width: "12%"
+  },
+  { key: "ward", label: "Ward", type: "text", width: "10%" },
   {
     key: "assignedDriver", 
-    label: "Assigned Driver", 
+    label: "Driver", 
     type: "text",
     compute: (data: RowData, clusters: Cluster[], drivers: Driver[]) => {
       //case where user is not assigned a cluster
@@ -198,11 +227,12 @@ const fields: Field[] = [
       }
       
       return "Driver Not Found";
-    }
+    },
+    width: "10%"
   },
   {
     key: "assignedTime", 
-    label: "Assigned Time", 
+    label: "Time", 
     type: "text",
     compute: (data: RowData, clusters: Cluster[]) => {
       //case where user is not assigned a cluster
@@ -231,8 +261,19 @@ const fields: Field[] = [
       else{
         return "No Time Assigned"
       }
-    }
+    },
+    width: "10%"
   },
+  {
+    key: "deliveryDetails.deliveryInstructions",
+    label: "Instructions",
+    type: "text",
+    compute: (data: RowData) => {
+      const instructions = data.deliveryDetails.deliveryInstructions || "";
+      return instructions;
+    },
+    width: "15%",
+  }
 ];
 
 // Type Guard to check if a field is a regular field
@@ -242,7 +283,9 @@ const isRegularField = (
   return field.key !== "fullname" && 
          field.key !== "tags" && 
          field.key !== "assignedDriver" &&
-         field.key !== "assignedTime";
+         field.key !== "assignedTime" &&
+         field.key !== "phone" &&
+         field.key !== "deliveryDetails.deliveryInstructions";
 };
 
 const DeliverySpreadsheet: React.FC = () => {
@@ -265,6 +308,12 @@ const DeliverySpreadsheet: React.FC = () => {
   const [editErrors, setEditErrors] = useState<ValidationErrors>({});
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [driverToDelete, setDriverToDelete] = useState<Driver | null>(null);
+  
+  const [exportCSV, setExportCSV] = useState(false);
+  const [exportDoordash, setExportDoordash] = useState(false);
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const [step, setStep] = useState<number>(0); // 0 = closed, 1 = main menu, 2 = submenu
+  const [parentChoice, setParentChoice] = useState<string>("");
   const navigate = useNavigate();
 
   //get drivers
@@ -352,6 +401,41 @@ const DeliverySpreadsheet: React.FC = () => {
     fetchData();
   }, []);
 
+  // Button click to open first menu
+  const handleButtonClick = (event: React.MouseEvent<HTMLButtonElement>): void => {
+    setAnchorEl(event.currentTarget);
+    setStep(1);
+  };
+
+  // Close all menus
+  const handleClose = (): void => {
+    setAnchorEl(null);
+    setStep(0);
+    setParentChoice("");
+  };
+
+  // Select "Route" or "Doordash"
+  const handleParentSelect = (choice: string): void => {
+    setParentChoice(choice);
+    setStep(2);
+  };
+
+  const handleEmailDrivers = (): void => {
+    console.log("Email drivers has not been implemented yet")
+  }
+
+  // Final option selected (Email/Download)
+  const handleFinalAction = (action: string): void => {
+    if (action === "Email Drivers") {
+      handleEmailDrivers();
+    } else if (action === "Download Drivers") {
+      setPopupMode("CSV")
+    } else if (action === "Download Doordash") {
+      setPopupMode("Doordash")
+    }
+    handleClose();
+  };
+
   // Handle search input change
   const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setSearchQuery(event.target.value);
@@ -369,6 +453,8 @@ const DeliverySpreadsheet: React.FC = () => {
     setDriver(null);
     setTime("");
     setShowEditDriverList(false);
+    setExportCSV(false);
+    setExportDoordash(false);
   };
 
   //Handle assigning driver
@@ -538,7 +624,7 @@ const DeliverySpreadsheet: React.FC = () => {
     setOpen((prevOpen) => !prevOpen);
     };
 
-  const handleClose = (event: Event | React.SyntheticEvent) => {
+  const handleClosePopper = (event: Event | React.SyntheticEvent) => {
     if (
       anchorRef.current &&
       anchorRef.current.contains(event.target as HTMLElement)
@@ -652,105 +738,142 @@ const DeliverySpreadsheet: React.FC = () => {
               size={20}
             />
           </div>
-          <div style={{ display: "flex", justifyContent: "start", gap: "2%" }}>
-            <Button
-              variant="contained"
-              disabled={selectedRows.size <= 0}
-              onClick={() => {
-                setPopupMode("Driver");
-              }}
-              className="view-all"
-              sx={{
-                whiteSpace: "nowrap",
-                padding: "0% 2%",
-                borderRadius: "5px",
-                width: "10%",
-                backgroundColor: (selectedRows.size <= 0 ? "gray" : "#257E68") + " !important",
-              }}
-            >
-              Assign Driver
-            </Button>
-            {/* <Button
-              variant="contained"
-              color="secondary"
-              className="view-all"
-              onClick={() => {
-                setPopupMode("Time");
-              }}
-              disabled={selectedRows.size <= 0}
-              sx={{
-                whiteSpace: "nowrap",
-                padding: "0% 2%",
-                borderRadius: "5px",
-                width: "10%",
-                backgroundColor: (selectedRows.size <= 0 ? "gray" : "#257E68") + " !important",
-              }}
-            >
-              Assign Time
-            </Button> */}
-            <Button
-          ref={anchorRef}
-          id="composition-button"
-          aria-controls={open ? 'composition-menu' : undefined}
-          aria-expanded={open ? 'true' : undefined}
-          aria-haspopup="true"
-          onClick={handleToggle}
-          disabled={selectedRows.size <= 0}
-          sx={{
-            whiteSpace: "nowrap",
-            padding: "0% 2%",
-            borderRadius: "5px",
-            width: "10%",
-            backgroundColor: (selectedRows.size <= 0 ? "gray" : "#257E68") + " !important",
-          }}
-        >
-          Assign TIME
-        </Button>
-        <Popper
-          open={open}
-          anchorEl={anchorRef.current}
-          role={undefined}
-          placement="bottom-start"
-          transition
-          sx={{
-            whiteSpace: "nowrap",
-            padding: "0% 0%",
-            borderRadius: "5px",
-            width: "9%"
-          }}
-          style={{ zIndex: 1000 }}
-        >
-          {({ TransitionProps, placement }) => (
-            <Grow
-              {...TransitionProps}
-              style={{
-                transformOrigin:
-                  placement === 'bottom-start' ? 'left top' : 'left bottom',
-              }}
-            >
-              <Paper>
-                <ClickAwayListener onClickAway={handleClose}>
-                  <MenuList 
-                    autoFocusItem={open}
-                    id="composition-menu"
-                    aria-labelledby="composition-button"
-                    onKeyDown={handleListKeyDown}
+          <div style={{ display: "flex", justifyContent: "space-between", gap: "5%", margin: "0.5% 0%" }}>
+            <div style={{ display: "flex", justifyContent: "start", gap: "2%", width: "40%" }}>
+              <Button
+                variant="contained"
+                disabled={selectedRows.size <= 0}
+                onClick={() => {
+                  setPopupMode("Driver");
+                }}
+                className="view-all"
+                sx={{
+                  whiteSpace: "nowrap",
+                  padding: "0% 2%",
+                  borderRadius: "5px",
+                  width: "30%",
+                  marginRight: "5%",
+                  backgroundColor: (selectedRows.size <= 0 ? "gray" : "#257E68") + " !important",
+                }}
+              >
+                Assign Driver
+              </Button>
+              <Button
+                ref={anchorRef}
+                id="composition-button"
+                aria-controls={open ? 'composition-menu' : undefined}
+                aria-expanded={open ? 'true' : undefined}
+                aria-haspopup="true"
+                onClick={handleToggle}
+                disabled={selectedRows.size <= 0}
+                sx={{
+                  whiteSpace: "nowrap",
+                  padding: "0% 2%",
+                  borderRadius: "5px",
+                  width: "30%",
+                  backgroundColor: (selectedRows.size <= 0 ? "gray" : "#257E68") + " !important",
+                }}
+              >
+                Assign TIME
+              </Button>
+              <Popper
+                open={open}
+                anchorEl={anchorRef.current}
+                role={undefined}
+                placement="bottom-start"
+                transition
+                sx={{
+                  whiteSpace: "nowrap",
+                  padding: "0% 0%",
+                  borderRadius: "5px",
+                  width: "9%"
+                }}
+                style={{ zIndex: 1000 }}
+              >
+                {({ TransitionProps, placement }) => (
+                  <Grow
+                    {...TransitionProps}
+                    style={{
+                      transformOrigin:
+                        placement === 'bottom-start' ? 'left top' : 'left bottom',
+                    }}
                   >
-                    <MenuItem onClick={handleClose}>9:00 AM</MenuItem>
-                    <MenuItem onClick={handleClose}>10:00 AM</MenuItem>
-                    <MenuItem onClick={handleClose}>11:00 AM</MenuItem>
-                    <MenuItem onClick={handleClose}>12:00 AM</MenuItem>
-                    <MenuItem onClick={handleClose}>1:00 PM</MenuItem>
-                    <MenuItem onClick={handleClose}>2:00 PM</MenuItem>
-                    <MenuItem onClick={handleClose}>3:00 PM</MenuItem>
-                    <MenuItem onClick={handleClose}>4:00 PM</MenuItem>
-                    <MenuItem onClick={handleClose}>5:00 PM</MenuItem>
-                  </MenuList>
-                </ClickAwayListener>
-              </Paper>
-            </Grow>
-          )}
-        </Popper>
+                    <Paper>
+                      <ClickAwayListener onClickAway={handleClosePopper}>
+                        <MenuList 
+                          autoFocusItem={open}
+                          id="composition-menu"
+                          aria-labelledby="composition-button"
+                          onKeyDown={handleListKeyDown}
+                        >
+                          <MenuItem onClick={handleClosePopper}>9:00 AM</MenuItem>
+                          <MenuItem onClick={handleClosePopper}>10:00 AM</MenuItem>
+                          <MenuItem onClick={handleClosePopper}>11:00 AM</MenuItem>
+                          <MenuItem onClick={handleClosePopper}>12:00 PM</MenuItem>
+                          <MenuItem onClick={handleClosePopper}>1:00 PM</MenuItem>
+                          <MenuItem onClick={handleClosePopper}>2:00 PM</MenuItem>
+                          <MenuItem onClick={handleClosePopper}>3:00 PM</MenuItem>
+                          <MenuItem onClick={handleClosePopper}>4:00 PM</MenuItem>
+                          <MenuItem onClick={handleClosePopper}>5:00 PM</MenuItem>
+                        </MenuList>
+                      </ClickAwayListener>
+                    </Paper>
+                  </Grow>
+                )}
+              </Popper>
+            </div>
+            <div style={{ display: "flex", justifyContent: "end", gap: "2%", width: "40%" }}>
+              <Button
+                  variant="contained"
+                  color="secondary"
+                  className="view-all"
+                  onClick={handleButtonClick}
+                  sx={{
+                    whiteSpace: "nowrap",
+                    padding: "0% 2%",
+                    borderRadius: "5px",
+                    width: "30%",
+                    backgroundColor: "#257e68",
+                  }}
+                >
+                  Export
+              </Button>
+
+              {/* Step 1: Main Menu */}
+              <Menu
+                anchorEl={anchorEl}
+                open={Boolean(anchorEl) && step === 1}
+                onClose={handleClose}
+                MenuListProps={{ sx: { minWidth: 140 } }}
+              >
+                <MenuItem onClick={() => handleParentSelect("Route")}>Route</MenuItem>
+                <MenuItem onClick={() => handleParentSelect("Doordash")}>Doordash</MenuItem>
+              </Menu>
+
+              {/* Step 2: Submenu based on choice */}
+              <Menu
+                anchorEl={anchorEl}
+                open={Boolean(anchorEl) && step === 2}
+                onClose={handleClose}
+                MenuListProps={{ sx: { minWidth: 140 } }}
+              >
+                {parentChoice === "Route" && (
+                  <>
+                    <MenuItem onClick={() => handleFinalAction("Email Drivers")}>
+                      Email Drivers
+                    </MenuItem>
+                    <MenuItem onClick={() => handleFinalAction("Download Drivers")}>
+                      Download Drivers
+                    </MenuItem>
+                  </>
+                )}
+                {parentChoice === "Doordash" && (
+                  <MenuItem onClick={() => handleFinalAction("Download Doordash")}>
+                    Download Doordash
+                  </MenuItem>
+                )}
+              </Menu>
+            </div>
           </div>
         </div>
       </div>
@@ -766,13 +889,13 @@ const DeliverySpreadsheet: React.FC = () => {
         }}
       >
         {/* Spreadsheet Table */}
-        <TableContainer component={Paper} style={{ maxHeight: "65vh", overflowY: "auto", width: "100%"}}>
-          <Table stickyHeader>
+        <TableContainer component={Paper} style={{ maxHeight: "65vh", overflowY: "auto", width: "100%" }}>
+          <Table stickyHeader style={{ borderSpacing: "0px", borderCollapse: "collapse" }} size="small">
             <TableHead>
               <TableRow>
                 {fields.map((field) => (
-                  <TableCell className="table-header" key={field.key}>
-                    <h2>{field.label}</h2>
+                  <TableCell className="table-header" key={field.key} style={{ width: field.width }} sx={{ textAlign: "center" }}>
+                    <h2 style={{ fontWeight: "bold" }}>{field.label}</h2>
                   </TableCell>
                 ))}
                 <TableCell className="table-header"></TableCell>
@@ -786,7 +909,7 @@ const DeliverySpreadsheet: React.FC = () => {
                   className={"table-row"}
                 >
                   {fields.map((field) => (
-                    <TableCell key={field.key}>
+                    <TableCell key={field.key} style={{  }}>
                       {field.key === "checkbox" ? (
                         <Checkbox
                           checked={selectedRows.has(row.id)}
@@ -806,9 +929,51 @@ const DeliverySpreadsheet: React.FC = () => {
                       ) : field.key === "tags" && field.compute ? (
                         field.compute(row)
                       ) : field.key === "assignedDriver" && field.compute ? (
-                        field.compute(row, clusters, drivers)
+                        <div style={{
+                          backgroundColor: "white",
+                          minHeight: "30px", // Ensures a consistent height
+                          width: "95%",
+                          padding: "5px",
+                          display: "flex",
+                          fontSize: "13px",
+                          textAlign: "center",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          whiteSpace: "pre-wrap",
+                          overflow: "auto",
+                        }}>
+                          { field.compute(row, clusters, drivers) }
+                        </div>
                       ) : field.key === "assignedTime" && field.compute ? (
-                        field.compute(row, clusters)
+                        <div style={{
+                          backgroundColor: "white",
+                          minHeight: "30px", // Ensures a consistent height
+                          width: "95%",
+                          padding: "5px",
+                          display: "flex",
+                          fontSize: "13px",
+                          textAlign: "center",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          whiteSpace: "pre-wrap",
+                          overflow: "auto",
+                        }}>
+                          { field.compute(row, clusters) }
+                        </div>
+                      ) : field.key === "phone" && field.compute ? (
+                        field.compute(row)
+                      ) : field.key === "deliveryDetails.deliveryInstructions" ? (
+                        <div style={{
+                          backgroundColor: "white",
+                          minHeight: "70px",
+                          padding: "10px",
+                          display: "flex",
+                          alignItems: "left",
+                          whiteSpace: "pre-wrap",
+                          overflow: "auto",
+                        }}>
+                          { field.compute(row) }
+                        </div>
                       ) : isRegularField(field) ? (
                         row[field.key]
                       ) : null}
@@ -823,9 +988,9 @@ const DeliverySpreadsheet: React.FC = () => {
       </div>
 
       {/* Popup */}
-      <Dialog open={innerPopup && !showEditDriverList} onClose={() => setPopupMode("")}>
-        <DialogTitle>{popupMode == "Time" ? "Select a time": "Assign a Driver"}</DialogTitle>
-        <DialogContent>
+      <Dialog open={innerPopup && !showEditDriverList} onClose={() => setPopupMode("")} PaperProps={{sx: {width: "48%", maxWidth: "900px", padding: "0"}}}>
+        {/* <DialogTitle>{popupMode == "Time" ? "Select a time": "Assign a Driver"}</DialogTitle> */}
+        <DialogContent style={{ padding: "2% 0% 2% 2%"}}>
           {popupMode === "Driver" ? (
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: '300px' }}>
               <Autocomplete
@@ -896,14 +1061,72 @@ const DeliverySpreadsheet: React.FC = () => {
                 variant="outlined"
               />
             </DialogContent>
+          ) : popupMode === "CSV" ? (
+            <DialogContent>
+              <div style={{ alignItems: "center", textAlign: "center", padding: "1%" }}>
+                <h2 style={{ color: "#257e68", fontWeight: "bold", fontSize: "24px" }}>Are you sure you want to export drivers?</h2>
+              </div>
+            </DialogContent>
+          ) : popupMode === "Doordash" ? (
+            <DialogContent>
+              <div style={{ alignItems: "center", textAlign: "center", padding: "1%" }}>
+                <h2 style={{ color: "#257e68", fontWeight: "bold", fontSize: "24px" }}>Are you sure you want to export Doordash?</h2>
+              </div>
+            </DialogContent>
           ) : (
             ""
           )}
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => {popupMode == "Driver" ? assignDriver(): assignTime()}}>SAVE</Button>
-          <Button onClick={() => {setPopupMode(""); popupMode == "Driver" ? setDriver(null): setTime("")}}>CANCEL</Button>
+        <DialogActions
+          sx={{
+            width: "100%",
+            padding: 0,
+            display: "flex"
+          }}
+        >
+          <Button
+            color = "primary"
+            sx = {{
+              flex: 1,
+              minWidth: "30%",
+              borderRadius: "5%",
+              height: "60px",
+              margin: "2%",
+              backgroundColor: "#257e68",
+              fontWeight: "bold",
+            }}
+            onClick={() => {
+              (popupMode === "Driver") ? assignDriver() :
+              (popupMode === "CSV") ? setExportCSV(true) :
+              (popupMode === "Doordash") ? setExportDoordash(true) :
+              assignTime()
+            }}
+          >
+            {(popupMode === "CSV" || popupMode === "Doordash") ? "YES" : "SAVE"}
+          </Button>
+          <Button
+            color = "secondary"
+            sx = {{
+              flex: 1,
+              minWidth: "30%",
+              borderRadius: "5%",
+              height: "60px",
+              margin: "2%",
+              backgroundColor: "#AEAEAE !important",
+              fontWeight: "bold",
+            }}
+            onClick={() => {
+              setPopupMode("");
+              (popupMode === "Driver") ? setDriver(null) :
+              (popupMode === "CSV") ? setExportCSV(false) :
+              (popupMode === "Doordash") ? setExportDoordash(false) :
+              setTime("")
+            }}
+          >
+            {(popupMode === "CSV" || popupMode === "Doordash") ? "NO" : "CANCEL"}
+          </Button>
         </DialogActions>
+        
       </Dialog>
 
       {/* Replace the old driver management modal with the new component */}
@@ -920,4 +1143,35 @@ const DeliverySpreadsheet: React.FC = () => {
   );
 };
 
+
+{/* <Button
+  fullWidth
+  sx={{
+    flex: 1,
+    minWidth: "50%",
+    borderRadius: 0,
+    height: "60px",
+    fontSize: "1rem",
+    margin: 0,
+    borderRight: "1px solid #257e68"
+  }}
+  onClick={() => {popupMode == "Driver" ? assignDriver(): assignTime()}}
+>
+  SAVE
+</Button>
+<Button
+  fullWidth
+  sx={{
+    flex: 1,
+    minWidth: "50%",
+    borderRadius: 0,
+    height: "60px",
+    fontSize: "1rem",
+    margin: 0,
+    borderLeft: "1px solid #257e68"
+  }}
+  onClick={() => {setPopupMode(""); popupMode == "Driver" ? setDriver(null): setTime("")}}
+>
+  CANCEL
+</Button> */}
 export default DeliverySpreadsheet;
