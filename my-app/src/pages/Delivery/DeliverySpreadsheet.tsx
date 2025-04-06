@@ -557,7 +557,6 @@ useEffect(() => {
     fetchData();
   }, []);
 
-<<<<<<< HEAD
   // Button click to open first menu
   const handleButtonClick = (event: React.MouseEvent<HTMLButtonElement>): void => {
     setAnchorEl(event.currentTarget);
@@ -594,9 +593,6 @@ useEffect(() => {
   };
 
   // Handle search input change
-=======
-  // handle search input change
->>>>>>> evan_clustering
   const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setSearchQuery(event.target.value);
   };
@@ -1126,11 +1122,6 @@ useEffect(() => {
               }}
               size={20}
             />
-<<<<<<< HEAD
-          </div>
-          <div style={{ display: "flex", justifyContent: "space-between", gap: "5%", margin: "0.5% 0%" }}>
-            <div style={{ display: "flex", justifyContent: "start", gap: "2%", width: "40%" }}>
-=======
           </Box>
           <Box sx={{ display: "flex", justifyContent: "space-between" }}>
             <Box sx={{ display: "flex", width: "100%", gap: "2%" }}>
@@ -1148,7 +1139,6 @@ useEffect(() => {
               >
                 Driver List
               </Button>
->>>>>>> evan_clustering
               <Button
                 variant="contained"
                 disabled={selectedRows.size <= 0}
@@ -1160,92 +1150,30 @@ useEffect(() => {
                   whiteSpace: "nowrap",
                   padding: "0% 2%",
                   borderRadius: "5px",
-<<<<<<< HEAD
-                  width: "30%",
-                  marginRight: "5%",
-=======
                   width: "10%",
->>>>>>> evan_clustering
                   backgroundColor: (selectedRows.size <= 0 ? "gray" : "#257E68") + " !important",
                 }}
               >
                 Assign Driver
               </Button>
               <Button
-<<<<<<< HEAD
-                ref={anchorRef}
-                id="composition-button"
-                aria-controls={open ? 'composition-menu' : undefined}
-                aria-expanded={open ? 'true' : undefined}
-                aria-haspopup="true"
-                onClick={handleToggle}
-=======
                 variant="contained"
                 color="secondary"
                 className="view-all"
                 onClick={() => {
                   setPopupMode("Time");
                 }}
->>>>>>> evan_clustering
                 disabled={selectedRows.size <= 0}
                 sx={{
                   whiteSpace: "nowrap",
                   padding: "0% 2%",
                   borderRadius: "5px",
-<<<<<<< HEAD
-                  width: "30%",
+                  width: "10%",
                   backgroundColor: (selectedRows.size <= 0 ? "gray" : "#257E68") + " !important",
                 }}
               >
-                Assign TIME
+                Assign Time
               </Button>
-              <Popper
-                open={open}
-                anchorEl={anchorRef.current}
-                role={undefined}
-                placement="bottom-start"
-                transition
-                sx={{
-                  whiteSpace: "nowrap",
-                  padding: "0% 0%",
-                  borderRadius: "5px",
-                  width: "9%"
-                }}
-                style={{ zIndex: 1000 }}
-              >
-                {({ TransitionProps, placement }) => (
-                  <Grow
-                    {...TransitionProps}
-                    style={{
-                      transformOrigin:
-                        placement === 'bottom-start' ? 'left top' : 'left bottom',
-                    }}
-                  >
-                    <Paper>
-                      <ClickAwayListener onClickAway={handleClosePopper}>
-                        <MenuList 
-                          autoFocusItem={open}
-                          id="composition-menu"
-                          aria-labelledby="composition-button"
-                          onKeyDown={handleListKeyDown}
-                        >
-                          <MenuItem onClick={handleClosePopper}>9:00 AM</MenuItem>
-                          <MenuItem onClick={handleClosePopper}>10:00 AM</MenuItem>
-                          <MenuItem onClick={handleClosePopper}>11:00 AM</MenuItem>
-                          <MenuItem onClick={handleClosePopper}>12:00 PM</MenuItem>
-                          <MenuItem onClick={handleClosePopper}>1:00 PM</MenuItem>
-                          <MenuItem onClick={handleClosePopper}>2:00 PM</MenuItem>
-                          <MenuItem onClick={handleClosePopper}>3:00 PM</MenuItem>
-                          <MenuItem onClick={handleClosePopper}>4:00 PM</MenuItem>
-                          <MenuItem onClick={handleClosePopper}>5:00 PM</MenuItem>
-                        </MenuList>
-                      </ClickAwayListener>
-                    </Paper>
-                  </Grow>
-                )}
-              </Popper>
-            </div>
-            <div style={{ display: "flex", justifyContent: "end", gap: "2%", width: "40%" }}>
               <Button
                   variant="contained"
                   color="secondary"
@@ -1255,8 +1183,9 @@ useEffect(() => {
                     whiteSpace: "nowrap",
                     padding: "0% 2%",
                     borderRadius: "5px",
-                    width: "30%",
+                    width: "10%",
                     backgroundColor: "#257e68",
+                    marginLeft: "auto"
                   }}
                 >
                   Export
@@ -1296,31 +1225,6 @@ useEffect(() => {
                   </MenuItem>
                 )}
               </Menu>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Controls and Create Client Button */}
-      <div
-        style={{
-          margin: "0 auto",
-          display: "flex",
-          flexDirection: "column",
-          paddingTop: "20vh",
-          paddingBottom: "2vh",
-        }}
-      >
-        {/* Spreadsheet Table */}
-        <TableContainer component={Paper} style={{ maxHeight: "65vh", overflowY: "auto", width: "100%" }}>
-          <Table stickyHeader style={{ borderSpacing: "0px", borderCollapse: "collapse" }} size="small">
-=======
-                  width: "10%",
-                  backgroundColor: (selectedRows.size <= 0 ? "gray" : "#257E68") + " !important",
-                }}
-              >
-                Assign Time
-              </Button>
             </Box>
           </Box>
         </Box>
@@ -1341,7 +1245,6 @@ useEffect(() => {
               width: "100%" 
           }}>
           <Table>
->>>>>>> evan_clustering
             <TableHead>
               <TableRow>
                 {fields.map((field) => (
@@ -1435,13 +1338,22 @@ useEffect(() => {
             </TableBody>
           </Table>
         </TableContainer>
-<<<<<<< HEAD
-      </div>
-
-      {/* Popup */}
-      <Dialog open={innerPopup && !showEditDriverList} onClose={() => setPopupMode("")} PaperProps={{sx: {width: "48%", maxWidth: "900px", padding: "0"}}}>
-        {/* <DialogTitle>{popupMode == "Time" ? "Select a time": "Assign a Driver"}</DialogTitle> */}
-        <DialogContent style={{ padding: "2% 0% 2% 2%"}}>
+      </Box>
+  
+      {/* Popup Dialog */}
+      <Dialog 
+        open={innerPopup && !showEditDriverList} 
+        onClose={() => resetSelections()}
+        PaperProps={{sx: {width: "48%", maxWidth: "900px", padding: "0"}}}
+      >
+        <DialogTitle>
+          {popupMode === "Time" ? "Select a time" : 
+           popupMode === "Driver" ? "Assign a Driver" : 
+           popupMode === "Clusters" ? "Generate Clusters" :
+           popupMode === "CSV" ? "Export Drivers" :
+           popupMode === "Doordash" ? "Export Doordash" : ""}
+        </DialogTitle>
+        <DialogContent>
           {popupMode === "Driver" ? (
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: '300px' }}>
               <Autocomplete
@@ -1499,118 +1411,6 @@ useEffect(() => {
               />
             </Box>
           ) : popupMode === "Time" ? (
-            <DialogContent>
-              <TextField
-                label="Select Time"
-                type="time"
-                value={time}
-                onChange={handleTimeChange}
-                InputLabelProps={{
-                  shrink: true,
-                }}
-                fullWidth
-                variant="outlined"
-              />
-            </DialogContent>
-          ) : popupMode === "CSV" ? (
-            <DialogContent>
-              <div style={{ alignItems: "center", textAlign: "center", padding: "1%" }}>
-                <h2 style={{ color: "#257e68", fontWeight: "bold", fontSize: "24px" }}>Are you sure you want to export drivers?</h2>
-              </div>
-            </DialogContent>
-          ) : popupMode === "Doordash" ? (
-            <DialogContent>
-              <div style={{ alignItems: "center", textAlign: "center", padding: "1%" }}>
-                <h2 style={{ color: "#257e68", fontWeight: "bold", fontSize: "24px" }}>Are you sure you want to export Doordash?</h2>
-              </div>
-            </DialogContent>
-          ) : (
-            ""
-          )}
-        </DialogContent>
-        <DialogActions
-          sx={{
-            width: "100%",
-            padding: 0,
-            display: "flex"
-          }}
-        >
-          <Button
-            color = "primary"
-            sx = {{
-              flex: 1,
-              minWidth: "30%",
-              borderRadius: "5%",
-              height: "60px",
-              margin: "2%",
-              backgroundColor: "#257e68",
-              fontWeight: "bold",
-            }}
-            onClick={() => {
-              (popupMode === "Driver") ? assignDriver() :
-              (popupMode === "CSV") ? setExportCSV(true) :
-              (popupMode === "Doordash") ? setExportDoordash(true) :
-              assignTime()
-            }}
-          >
-            {(popupMode === "CSV" || popupMode === "Doordash") ? "YES" : "SAVE"}
-          </Button>
-          <Button
-            color = "secondary"
-            sx = {{
-              flex: 1,
-              minWidth: "30%",
-              borderRadius: "5%",
-              height: "60px",
-              margin: "2%",
-              backgroundColor: "#AEAEAE !important",
-              fontWeight: "bold",
-            }}
-            onClick={() => {
-              setPopupMode("");
-              (popupMode === "Driver") ? setDriver(null) :
-              (popupMode === "CSV") ? setExportCSV(false) :
-              (popupMode === "Doordash") ? setExportDoordash(false) :
-              setTime("")
-            }}
-          >
-            {(popupMode === "CSV" || popupMode === "Doordash") ? "NO" : "CANCEL"}
-          </Button>
-=======
-      </Box>
-  
-      {/* Popup Dialog */}
-      <Dialog open={innerPopup} onClose={() => resetSelections()}>
-        <DialogTitle>{popupMode == "Time" ? "Select a time": popupMode == "Driver" ? "Assign a Driver": popupMode == "Clusters" ? "Generate Clusters" : ""}</DialogTitle>
-        <DialogContent>
-          {popupMode === "Driver" ? (
-            <Autocomplete
-              freeSolo
-              options={drivers} 
-              getOptionLabel={(driver) => (typeof driver === "string" ? driver : driver.name)} 
-              onChange={(event, value) => {
-                if (value && typeof value !== "string") {
-                  setDriver(value); 
-                }
-              }}
-              onInputChange={(event, newValue) => setDriverSearchQuery(newValue)}
-              renderInput={(params) => (
-                <TextField
-                  {...params}
-                  fullWidth
-                  variant="outlined"
-                  placeholder="Search drivers..."
-                  value={driverSearchQuery}
-                  onChange={(e) => setDriverSearchQuery(e.target.value)}
-                />
-              )}
-              PaperComponent={({ children }) => (
-                <Paper elevation={3}>{children}</Paper>
-              )}
-              noOptionsText="No drivers found"
-              sx={{ width: '200px' }}
-            />
-          ) : popupMode === "Time" ? (
             <TextField
               label="Select Time"
               type="time"
@@ -1622,15 +1422,27 @@ useEffect(() => {
               fullWidth
               variant="outlined"
             />
-          ) : popupMode == "Clusters" ? (
-            <div style={{ 
+          ) : popupMode === "CSV" ? (
+            <Box sx={{ alignItems: "center", textAlign: "center", padding: "1%" }}>
+              <Typography variant="h5" sx={{ color: "#257e68", fontWeight: "bold" }}>
+                Are you sure you want to export drivers?
+              </Typography>
+            </Box>
+          ) : popupMode === "Doordash" ? (
+            <Box sx={{ alignItems: "center", textAlign: "center", padding: "1%" }}>
+              <Typography variant="h5" sx={{ color: "#257e68", fontWeight: "bold" }}>
+                Are you sure you want to export Doordash?
+              </Typography>
+            </Box>
+          ) : popupMode === "Clusters" ? (
+            <Box sx={{ 
               display: "flex", 
               flexDirection: "column", 
               gap: "20px",
               padding: "8px 0"
             }}>
               {/* Cluster Number Input */}
-              <div style={{
+              <Box sx={{
                 display: "flex", 
                 alignItems: "center", 
                 gap: "10px",
@@ -1646,17 +1458,17 @@ useEffect(() => {
                   size="small"
                   variant="outlined"
                 />
-              </div>
+              </Box>
   
               {/* Deliveries Range Input */}
-              <div style={{
+              <Box sx={{
                 display: "flex", 
                 flexDirection: "column",
                 gap: "10px",
                 marginTop: "20px"
               }}>
                 <Typography variant="body2"><b><u>Deliveries Per Cluster:</u></b></Typography>
-                <div style={{
+                <Box sx={{
                   display: "flex", 
                   alignItems: "center", 
                   gap: "10px",
@@ -1683,21 +1495,56 @@ useEffect(() => {
                     size="small"
                     variant="outlined"
                   />
-                </div>
-                {clusterError ? <p style={{color:"red"}}>{clusterError}</p> : null}
-              </div>
-            </div>
+                </Box>
+                {clusterError ? <Typography color="error">{clusterError}</Typography> : null}
+              </Box>
+            </Box>
           ) : null}
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => { 
-            popupMode === "Driver" ? assignDriver() : 
-            popupMode === "Time" ? assignTime() : 
-            popupMode === "Clusters" ? generateClusters() : 
-            console.log("invalid")
-          }}>SAVE</Button>
-          <Button onClick={() => resetSelections()}>CANCEL</Button>
->>>>>>> evan_clustering
+        <DialogActions
+          sx={{
+            width: "100%",
+            padding: 0,
+            display: "flex"
+          }}
+        >
+          <Button
+            color="primary"
+            sx={{
+              flex: 1,
+              minWidth: "30%",
+              borderRadius: "5%",
+              height: "60px",
+              margin: "2%",
+              backgroundColor: "#257e68",
+              fontWeight: "bold",
+            }}
+            onClick={() => {
+              popupMode === "Driver" ? assignDriver() :
+              popupMode === "Time" ? assignTime() :
+              popupMode === "CSV" ? setExportCSV(true) :
+              popupMode === "Doordash" ? setExportDoordash(true) :
+              popupMode === "Clusters" ? generateClusters() :
+              console.log("invalid")
+            }}
+          >
+            {(popupMode === "CSV" || popupMode === "Doordash") ? "YES" : "SAVE"}
+          </Button>
+          <Button
+            color="secondary"
+            sx={{
+              flex: 1,
+              minWidth: "30%",
+              borderRadius: "5%",
+              height: "60px",
+              margin: "2%",
+              backgroundColor: "#AEAEAE !important",
+              fontWeight: "bold",
+            }}
+            onClick={() => resetSelections()}
+          >
+            {(popupMode === "CSV" || popupMode === "Doordash") ? "NO" : "CANCEL"}
+          </Button>
         </DialogActions>
         
       </Dialog>
