@@ -126,17 +126,17 @@ export default function BasePage({ children }: { children: React.ReactNode }) {
     <Box sx={{ display: 'flex' }}>
       <CssBaseline />
       <AppBar position="fixed" open={open}>
-        <Toolbar>
+        <Toolbar sx={{ display: 'flex', justifyContent: 'center' }}>
           <IconButton
             color="inherit"
             aria-label="open drawer"
             onClick={handleDrawerOpen}
             edge="start"
-            sx={{ marginRight: 2, ...(open && { display: 'none' }) }}
+            sx={{ position: 'absolute', left: 16, ...(open && { display: 'none' }) }}
           >
             <MenuRoundedIcon />
           </IconButton>
-          <Typography variant="h6" color="inherit" sx={{ marginLeft: 75 }}>
+          <Typography variant="h6" color="inherit">
             {pageTitle}
           </Typography>
         </Toolbar>
