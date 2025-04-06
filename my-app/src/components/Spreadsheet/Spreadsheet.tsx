@@ -559,7 +559,7 @@ const fields: Field[] = [
               ))}
 
               {/* Add button cell */}
-              <TableCell className="table-header">
+              <TableCell className="table-header" style={{ textAlign: "right" }}>
                 <IconButton
                   onClick={handleAddCustomColumn}
                   color="primary"
