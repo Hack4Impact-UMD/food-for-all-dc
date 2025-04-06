@@ -2,7 +2,11 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { db } from "../../auth/firebaseConfig"; 
 import { Search, Filter } from "lucide-react";
+import { query, Timestamp, where } from "firebase/firestore";
+import { format, addDays } from "date-fns";
+
 import "./DeliverySpreadsheet.css";
+import 'leaflet/dist/leaflet.css';
 import {
   Box,
   Button,
@@ -30,7 +34,8 @@ import {
   MenuList,
   Stack,
   ClickAwayListener,
-  Menu
+  Menu,
+  CircularProgress
 } from "@mui/material";
 import {
   collection,
@@ -47,8 +52,8 @@ import { Close, Add, Edit, Check, Delete } from "@mui/icons-material";
 import DriverManagementModal from "../../components/DriverManagementModal";
 import { set } from "date-fns";
 import { render } from "@testing-library/react";
+import ClusterMap from "./ClusterMap";
 
-// Define TypeScript types for row data
 interface RowData {
   id: string;
   clientid: string;
@@ -164,6 +169,20 @@ interface DriverFormProps {
   onChange: (field: keyof Omit<Driver, 'id'>, value: string) => void;
   errors: ValidationErrors;
   onClearError: (field: keyof ValidationErrors) => void;
+}
+
+interface DeliveryEvent {
+  id: string;
+  assignedDriverId: string;
+  assignedDriverName: string;
+  clientId: string;
+  clientName: string;
+  deliveryDate: Date; 
+  time: string;
+  recurrence: "None" | "Weekly" | "2x-Monthly" | "Monthly"; 
+  repeatsEndOption?: "On" | "After"; 
+  repeatsEndDate?: string; 
+  repeatsAfterOccurrences?: number; 
 }
 
 // Define fields for table columns
@@ -314,9 +333,22 @@ const DeliverySpreadsheet: React.FC = () => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [step, setStep] = useState<number>(0); // 0 = closed, 1 = main menu, 2 = submenu
   const [parentChoice, setParentChoice] = useState<string>("");
+  const [clusterNum, setClusterNum] = useState(0);
+
+  //delivery vars
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [deliveriesForDate, setDeliveriesForDate] = useState<DeliveryEvent[]>([]);
+
+  //cluster generation and map vars
+  const [coordinates, setCoordinates] = useState<{ lat: number; lng: number }[]>([]);
+  const [generatedClusters, setGeneratedClusters] = useState<{ [key: string]: number[] }>({});
+  const [isLoading, setIsLoading] = useState(true);
+  const [maxDeliveries, setMaxDeliveries] = useState(5);
+  const [minDeliveries, setMinDeliveries] = useState(1);
+  const [clusterError, setClusterError] = useState("");
   const navigate = useNavigate();
 
-  //get drivers
+  //get all drivers for assign driver
   useEffect(() => {
     const fetchDrivers = async () => {
       try {
@@ -341,6 +373,130 @@ const DeliverySpreadsheet: React.FC = () => {
     };  
     fetchDrivers();
   }, []);
+
+  // fetch deliveries for the selected date
+  const fetchDeliveriesForDate = async (date: Date) => {
+    try {
+      // account for timezone issues
+      const startDate = new Date(Date.UTC(
+        date.getFullYear(),
+        date.getMonth(),
+        date.getDate(),
+        0, 0, 0
+      ));
+      
+      const endDate = new Date(Date.UTC(
+        date.getFullYear(),
+        date.getMonth(),
+        date.getDate(),
+        23, 59, 59
+      ));
+  
+      const eventsRef = collection(db, "events");
+      const q = query(
+        eventsRef,
+        where("deliveryDate", ">=", Timestamp.fromDate(startDate)),
+        where("deliveryDate", "<=", Timestamp.fromDate(endDate))
+      );
+  
+      const querySnapshot = await getDocs(q);
+      const events = querySnapshot.docs.map(doc => {
+        const data = doc.data();
+        // get local date
+        const deliveryDate = data.deliveryDate.toDate();
+        return {
+          id: doc.id,
+          ...data,
+          deliveryDate: new Date(
+            deliveryDate.getFullYear(),
+            deliveryDate.getMonth(),
+            deliveryDate.getDate()
+          )
+        };
+      }) as DeliveryEvent[];
+      
+      //set the deliveries for the date
+      setDeliveriesForDate(events);
+    } catch (error) {
+      console.error("Error fetching deliveries:", error);
+    }
+  };
+
+//when the user changes the date, fetch the deliveries for that date
+useEffect(() => {
+  fetchDeliveriesForDate(selectedDate);
+}, [selectedDate]);
+
+  // fetch data and geocode existing clusters
+  useEffect(() => {
+    const fetchDataAndGeocode = async () => {
+      if (deliveriesForDate.length === 0) {
+        setCoordinates([]);
+        setGeneratedClusters({});
+        setIsLoading(false);
+        return;
+      }
+  
+      try {
+        const snapshot = await getDocs(collection(db, "clients"));
+        const allData = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...(doc.data() as Omit<RowData, "id">),
+        }));
+        
+        // filter to only include clients with deliveries today
+        const clientsWithDeliveriesToday = allData.filter(row => 
+          deliveriesForDate.some(delivery => delivery.clientId === row.id)
+        );
+        
+        setRows(allData); // keep all rows for the table
+        const clientsWithClusters = clientsWithDeliveriesToday.filter(row => row.clusterID);
+        
+        if (clientsWithClusters.length > 0) {
+          const token = await auth.currentUser?.getIdToken();
+          const response = await fetch('https://geocode-addresses-endpoint-lzrplp4tfa-uc.a.run.app', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              addresses: clientsWithClusters.map(row => row.address)
+            }),
+          });
+          
+          if (response.ok) {
+            const { coordinates } = await response.json();
+            setCoordinates(coordinates);
+            
+            const clusterMap: { [key: string]: number[] } = {};
+            clientsWithClusters.forEach((row, index) => {
+              const clusterId = `cluster-${row.clusterID}`;
+              if (!clusterMap[clusterId]) clusterMap[clusterId] = [];
+              clusterMap[clusterId].push(index);
+            });
+            
+            setGeneratedClusters(clusterMap);
+          }
+        } else {
+          setCoordinates([]);
+          setGeneratedClusters({});
+        }
+      } catch (error) {
+        console.error("Error:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    if (deliveriesForDate.length > 0) {
+      fetchDataAndGeocode();
+    } else {
+      setCoordinates([]);
+      setGeneratedClusters({});
+      setIsLoading(false);
+    }
+  }, [deliveriesForDate]);
 
   //get clusters
   useEffect(() => {
@@ -384,7 +540,7 @@ const DeliverySpreadsheet: React.FC = () => {
     setInnerPopup(popupMode !== "");
   }, [popupMode]);
 
-  // Fetch data from Firebase without authentication checks
+  // fetch client data from Firebase 
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -401,6 +557,7 @@ const DeliverySpreadsheet: React.FC = () => {
     fetchData();
   }, []);
 
+<<<<<<< HEAD
   // Button click to open first menu
   const handleButtonClick = (event: React.MouseEvent<HTMLButtonElement>): void => {
     setAnchorEl(event.currentTarget);
@@ -437,6 +594,9 @@ const DeliverySpreadsheet: React.FC = () => {
   };
 
   // Handle search input change
+=======
+  // handle search input change
+>>>>>>> evan_clustering
   const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setSearchQuery(event.target.value);
   };
@@ -445,7 +605,7 @@ const DeliverySpreadsheet: React.FC = () => {
     setTime(event.target.value);
   };
 
-  // Reset selections after operations
+  // reset popup selections when closing popup
   const resetSelections = () => {
     setPopupMode("");
     setSelectedClusters(new Set());
@@ -455,6 +615,10 @@ const DeliverySpreadsheet: React.FC = () => {
     setShowEditDriverList(false);
     setExportCSV(false);
     setExportDoordash(false);
+    setClusterNum(0);
+    setMinDeliveries(0);
+    setMaxDeliveries(10);
+    setClusterError("");
   };
 
   //Handle assigning driver
@@ -497,6 +661,17 @@ const DeliverySpreadsheet: React.FC = () => {
     }
   };
 
+  const updateCluster = async (userId: string, clusterId: string) => {
+    try {
+      const userRef = doc(db, "clients", userId);
+      await setDoc(userRef, { clusterID: clusterId }, { merge: true });
+      console.log(`Updated user ${userId} to cluster ${clusterId}`);
+    } catch (error) {
+      console.error(`Error updating cluster for user ${userId}:`, error);
+      throw error;
+    }
+  };
+
   //Handle assigning time
   const assignTime = async () => {
     if(time){
@@ -534,6 +709,89 @@ const DeliverySpreadsheet: React.FC = () => {
       }
     }
   };
+
+    //Handle generating clusters
+    const generateClusters = async () => {
+      try {
+        const token = await auth.currentUser?.getIdToken();
+        const addresses = visibleRows.map(row => row.address);
+        if(clusterNum == 0){
+          throw new Error("Must have at least one cluster")
+        }
+
+        if(addresses.length == 0){
+          throw new Error("No deliveries for today")
+        }
+
+        if(clusterNum*minDeliveries > addresses.length){
+          throw new Error("Minimum deliveries it higher than the deliveries")
+        }
+
+        // Convert addresses to coordinates
+        const response = await fetch('https://geocode-addresses-endpoint-lzrplp4tfa-uc.a.run.app', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            addresses: addresses
+          }),
+        });
+        
+        if (!response.ok) {
+          throw new Error("Failed to fetch");
+        }
+        
+        const { coordinates } = await response.json();
+        setCoordinates(coordinates);
+        console.log(coordinates);
+    
+        // Generate clusters based on coordinates
+        const clusterResponse = await fetch('https://cluster-deliveries-k-means-lzrplp4tfa-uc.a.run.app', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            coords: coordinates,
+            drivers_count: clusterNum,
+            min_deliveries: minDeliveries,  
+            max_deliveries: maxDeliveries
+          }),
+        });
+    
+        const clusterData = await clusterResponse.json();
+        setGeneratedClusters(clusterData.clusters);
+        console.log(clusterData);
+    
+        // Update each user's cluster assignment
+        const updatePromises = [];
+        for (const [clusterName, indices] of Object.entries(clusterData.clusters)) {
+          const clusterNum = clusterName.split('-')[1]; // Get cluster number
+          for (const index of indices as number[]) {
+            const user = visibleRows[index];
+            if (user) {
+              updatePromises.push(updateCluster(user.id, clusterNum));
+            }
+          }
+        }
+    
+        await Promise.all(updatePromises);
+    
+        // Refresh the data
+        const snapshot = await getDocs(collection(db, "clients"));
+        const updatedData = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...(doc.data() as Omit<RowData, "id">),
+        }));
+        setRows(updatedData);
+        resetSelections();
+      } catch (error: any) {
+        setClusterError(error.toString());
+      }
+    };
 
   // Handle checkbox selection
   const handleCheckboxChange = (id: string) => {
@@ -573,8 +831,13 @@ const DeliverySpreadsheet: React.FC = () => {
     setSelectedRows(newSelectedRows);
   };
 
+  // Filter rows to only show clients with deliveries on selected date
+  const clientsWithDeliveries = rows.filter(row => 
+    deliveriesForDate.some(delivery => delivery.clientId === row.id)
+  );
+
   // Filter rows based on search query
-  let visibleRows = rows.filter(
+  let visibleRows = clientsWithDeliveries.filter(
     (row) =>
       fields.some((field) => {
         if (field.key === "checkbox") return false;
@@ -685,19 +948,145 @@ const DeliverySpreadsheet: React.FC = () => {
   }, [open]);
 
   return (
-    <Box className="box">
-      {/* Fixed Container for Search Bar and Create Client Button */}
-      <div
-        style={{
-          position: "fixed",
-          width: "90vw",
-          zIndex: 1,
-          backgroundColor: "#fff",
-          padding: "16px 0",
-        }}
-      >
-        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-          <div style={{ position: "relative", width: "100%" }}>
+    <Box className="box" sx={{ display: "flex", flexDirection: "column", height: "100vh" }}>
+      <div style={{display: "flex", alignItems: "center", justifyContent:"space-between"}}>
+
+      <Box sx={{ 
+        display: "flex",
+        alignItems: "center",
+        padding: "16px",
+        backgroundColor: "#fff",
+        zIndex: 10,
+        position: "sticky",
+        top: 0,
+        width: "100%"
+      }}>
+        <Typography variant="h4" sx={{ marginRight: 2, width: "170px", color: "#787777" }}>
+          {format(selectedDate, 'EEEE')}
+        </Typography>
+        
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            width: "40px",
+            height: "40px",
+            backgroundColor: "#257E68",
+            borderRadius: "90%",
+            marginRight: 2,
+          }}
+        >
+          <Typography variant="h5" sx={{ color: "#fff"}}>
+            {format(selectedDate, 'd')}
+          </Typography>
+        </Box>
+  
+        <IconButton
+          onClick={() => setSelectedDate(addDays(selectedDate, -1))}
+          size="large"
+          sx={{ color: "#257E68" }}
+        >
+          <Box
+            sx={{
+              width: 12,
+              height: 12,
+              borderLeft: "2px solid #257E68",
+              borderBottom: "2px solid #257E68",
+              transform: "rotate(45deg)",
+            }}
+          />
+        </IconButton>
+  
+        <IconButton
+          onClick={() => setSelectedDate(addDays(selectedDate, 1))}
+          size="large"
+          sx={{ color: "#257E68" }}
+        >
+          <Box
+            sx={{
+              width: 12,
+              height: 12,
+              borderLeft: "2px solid #257E68",
+              borderBottom: "2px solid #257E68",
+              transform: "rotate(-135deg)",
+            }}
+          />
+        </IconButton>
+  
+        <Button
+          sx={{ width: 50, fontSize: 12, marginLeft: 4 }}
+          onClick={() => setSelectedDate(new Date())}
+        >
+          Today
+        </Button>
+      </Box>
+      <Button
+              variant="contained"
+              color="secondary"
+              className="view-all"
+              onClick={() => {
+                setPopupMode("Clusters");
+              }}
+              sx={{
+                whiteSpace: "nowrap",
+                padding: "0% 2%",
+                borderRadius: "5px",
+                width: "10%",
+                backgroundColor: "#257E68" + " !important",
+              }}
+            >
+              Generate<br></br>Clusters
+            </Button>
+      </div>
+
+  
+      {/* Map Container */}
+      <Box sx={{ 
+        top: "72px", 
+        zIndex: 9, 
+        height: "400px",
+        width: "100%",
+        backgroundColor: "#fff"
+      }}>
+        {isLoading ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+            <CircularProgress />
+          </Box>
+        ) : visibleRows.length > 0 ? (
+          <ClusterMap 
+            addresses={visibleRows.map(row => row.address)}
+            coordinates={coordinates}
+            clusters={generatedClusters}
+            clientNames={visibleRows.map(row => `${row.firstName} ${row.lastName}`)}
+          />
+        ) : (
+          <Box sx={{
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            height: '100%',
+            backgroundColor: '#f5f5f5',
+            borderRadius: '4px',
+            border: '1px solid #ddd'
+          }}>
+            <Typography variant="h6" color="textSecondary">
+              No deliveries for selected date
+            </Typography>
+          </Box>
+        )}
+      </Box>
+  
+      {/* Search Bar */}
+      <Box sx={{ 
+        width: "100%", 
+        zIndex: 8, 
+        backgroundColor: "#fff", 
+        padding: "16px 0",
+        top: "472px", 
+      }}>
+        <Box sx={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+          <Box sx={{ position: "relative", width: "100%" }}>
             <Search
               style={{
                 position: "absolute",
@@ -737,9 +1126,29 @@ const DeliverySpreadsheet: React.FC = () => {
               }}
               size={20}
             />
+<<<<<<< HEAD
           </div>
           <div style={{ display: "flex", justifyContent: "space-between", gap: "5%", margin: "0.5% 0%" }}>
             <div style={{ display: "flex", justifyContent: "start", gap: "2%", width: "40%" }}>
+=======
+          </Box>
+          <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+            <Box sx={{ display: "flex", width: "100%", gap: "2%" }}>
+              <Button
+                variant="contained"
+                color="secondary"
+                onClick={() => setSearchQuery("")}
+                className="view-all"
+                sx={{
+                  whiteSpace: "nowrap",
+                  padding: "0% 2%",
+                  borderRadius: "5px",
+                  width: "10%",
+                }}
+              >
+                Driver List
+              </Button>
+>>>>>>> evan_clustering
               <Button
                 variant="contained"
                 disabled={selectedRows.size <= 0}
@@ -751,25 +1160,39 @@ const DeliverySpreadsheet: React.FC = () => {
                   whiteSpace: "nowrap",
                   padding: "0% 2%",
                   borderRadius: "5px",
+<<<<<<< HEAD
                   width: "30%",
                   marginRight: "5%",
+=======
+                  width: "10%",
+>>>>>>> evan_clustering
                   backgroundColor: (selectedRows.size <= 0 ? "gray" : "#257E68") + " !important",
                 }}
               >
                 Assign Driver
               </Button>
               <Button
+<<<<<<< HEAD
                 ref={anchorRef}
                 id="composition-button"
                 aria-controls={open ? 'composition-menu' : undefined}
                 aria-expanded={open ? 'true' : undefined}
                 aria-haspopup="true"
                 onClick={handleToggle}
+=======
+                variant="contained"
+                color="secondary"
+                className="view-all"
+                onClick={() => {
+                  setPopupMode("Time");
+                }}
+>>>>>>> evan_clustering
                 disabled={selectedRows.size <= 0}
                 sx={{
                   whiteSpace: "nowrap",
                   padding: "0% 2%",
                   borderRadius: "5px",
+<<<<<<< HEAD
                   width: "30%",
                   backgroundColor: (selectedRows.size <= 0 ? "gray" : "#257E68") + " !important",
                 }}
@@ -891,6 +1314,34 @@ const DeliverySpreadsheet: React.FC = () => {
         {/* Spreadsheet Table */}
         <TableContainer component={Paper} style={{ maxHeight: "65vh", overflowY: "auto", width: "100%" }}>
           <Table stickyHeader style={{ borderSpacing: "0px", borderCollapse: "collapse" }} size="small">
+=======
+                  width: "10%",
+                  backgroundColor: (selectedRows.size <= 0 ? "gray" : "#257E68") + " !important",
+                }}
+              >
+                Assign Time
+              </Button>
+            </Box>
+          </Box>
+        </Box>
+      </Box>
+  
+      <Box sx={{ 
+        flex: 1, 
+        display: "flex", 
+        flexDirection: "column",
+        margin: "0 auto",
+        paddingBottom: "2vh",
+        width: "100%",
+        maxHeight: "none" 
+      }}>
+        <TableContainer component={Paper} sx={{ 
+              maxHeight: "none",
+              height: "auto", 
+              width: "100%" 
+          }}>
+          <Table>
+>>>>>>> evan_clustering
             <TableHead>
               <TableRow>
                 {fields.map((field) => (
@@ -901,7 +1352,6 @@ const DeliverySpreadsheet: React.FC = () => {
                 <TableCell className="table-header"></TableCell>
               </TableRow>
             </TableHead>
-
             <TableBody>
               {visibleRows.map((row) => (
                 <TableRow
@@ -985,6 +1435,7 @@ const DeliverySpreadsheet: React.FC = () => {
             </TableBody>
           </Table>
         </TableContainer>
+<<<<<<< HEAD
       </div>
 
       {/* Popup */}
@@ -1125,6 +1576,128 @@ const DeliverySpreadsheet: React.FC = () => {
           >
             {(popupMode === "CSV" || popupMode === "Doordash") ? "NO" : "CANCEL"}
           </Button>
+=======
+      </Box>
+  
+      {/* Popup Dialog */}
+      <Dialog open={innerPopup} onClose={() => resetSelections()}>
+        <DialogTitle>{popupMode == "Time" ? "Select a time": popupMode == "Driver" ? "Assign a Driver": popupMode == "Clusters" ? "Generate Clusters" : ""}</DialogTitle>
+        <DialogContent>
+          {popupMode === "Driver" ? (
+            <Autocomplete
+              freeSolo
+              options={drivers} 
+              getOptionLabel={(driver) => (typeof driver === "string" ? driver : driver.name)} 
+              onChange={(event, value) => {
+                if (value && typeof value !== "string") {
+                  setDriver(value); 
+                }
+              }}
+              onInputChange={(event, newValue) => setDriverSearchQuery(newValue)}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  fullWidth
+                  variant="outlined"
+                  placeholder="Search drivers..."
+                  value={driverSearchQuery}
+                  onChange={(e) => setDriverSearchQuery(e.target.value)}
+                />
+              )}
+              PaperComponent={({ children }) => (
+                <Paper elevation={3}>{children}</Paper>
+              )}
+              noOptionsText="No drivers found"
+              sx={{ width: '200px' }}
+            />
+          ) : popupMode === "Time" ? (
+            <TextField
+              label="Select Time"
+              type="time"
+              value={time}
+              onChange={handleTimeChange}
+              InputLabelProps={{
+                shrink: true,
+              }}
+              fullWidth
+              variant="outlined"
+            />
+          ) : popupMode == "Clusters" ? (
+            <div style={{ 
+              display: "flex", 
+              flexDirection: "column", 
+              gap: "20px",
+              padding: "8px 0"
+            }}>
+              {/* Cluster Number Input */}
+              <div style={{
+                display: "flex", 
+                alignItems: "center", 
+                gap: "10px",
+                justifyContent: "space-between"
+              }}>
+                <Typography variant="body1">Enter desired number of clusters:</Typography>
+                <TextField
+                  type="number"
+                  value={clusterNum}
+                  sx={{ width: "100px" }}
+                  onChange={(e) => setClusterNum(Number(e.target.value))}
+                  inputProps={{ min: 1 }}
+                  size="small"
+                  variant="outlined"
+                />
+              </div>
+  
+              {/* Deliveries Range Input */}
+              <div style={{
+                display: "flex", 
+                flexDirection: "column",
+                gap: "10px",
+                marginTop: "20px"
+              }}>
+                <Typography variant="body2"><b><u>Deliveries Per Cluster:</u></b></Typography>
+                <div style={{
+                  display: "flex", 
+                  alignItems: "center", 
+                  gap: "10px",
+                  justifyContent: "space-between"
+                }}>
+                  <Typography variant="body2">Minimum:</Typography>
+                  <TextField
+                    type="number"
+                    value={minDeliveries}
+                    sx={{ width: "100px" }}
+                    onChange={(e) => setMinDeliveries(Number(e.target.value))}
+                    inputProps={{ min: 0 }}
+                    size="small"
+                    variant="outlined"
+                  />
+                  
+                  <Typography variant="body2">Maximum:</Typography>
+                  <TextField
+                    type="number"
+                    value={maxDeliveries}
+                    sx={{ width: "100px" }}
+                    onChange={(e) => setMaxDeliveries(Number(e.target.value))}
+                    inputProps={{ min: 0 }}
+                    size="small"
+                    variant="outlined"
+                  />
+                </div>
+                {clusterError ? <p style={{color:"red"}}>{clusterError}</p> : null}
+              </div>
+            </div>
+          ) : null}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => { 
+            popupMode === "Driver" ? assignDriver() : 
+            popupMode === "Time" ? assignTime() : 
+            popupMode === "Clusters" ? generateClusters() : 
+            console.log("invalid")
+          }}>SAVE</Button>
+          <Button onClick={() => resetSelections()}>CANCEL</Button>
+>>>>>>> evan_clustering
         </DialogActions>
         
       </Dialog>

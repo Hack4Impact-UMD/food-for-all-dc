@@ -1,15 +1,16 @@
 from math import cos, sin, atan2, sqrt
 from collections import defaultdict
 import googlemaps
-from firebase_functions import https_fn
+from firebase_functions import https_fn, params
 from dotenv import load_dotenv
 from collections import defaultdict
 from k_means_constrained import KMeansConstrained
 from sklearn.neighbors import LocalOutlierFactor
 from kmedoids import KMedoids
 from pydantic import BaseModel, ValidationError
-from typing import Dict, List, Tuple, Any
+from typing import Dict, List, Tuple, Optional, Any
 import json
+import logging
 import os
 import numpy as np
 import folium
@@ -52,6 +53,45 @@ class ValidationErrorResponse(BaseModel):
     error: str = "Validation Error"
     details: List[FieldError]
 
+class GeocodeRequest(BaseModel):
+    addresses: List[str]
+
+class GeocodeResponse(BaseModel):
+    coordinates: List[Tuple[float, float]]
+
+
+#Convert a list of addresses to (lat, lon) using Google Maps Geocoding API.
+def geocode_addresses(addresses: List[str]) -> List[Tuple[float, float]]:
+    logging.info("Function execution started") 
+    try:
+        #  clusteringApiKey = os.environ.get("clustering-api-key")  
+         maps_api_key = os.environ.get("maps_api_key") 
+        #  googleMapsApiKey = os.environ.get("google_maps_api_key")
+
+         gmaps = googlemaps.Client(key=maps_api_key)
+    except Exception as e:
+        return [str(e)]
+
+    logging.info("got gmaps") 
+    coords = []
+    
+    for address in addresses:
+        try:
+            geocode_result = gmaps.geocode(address)
+            if geocode_result:
+                location = geocode_result[0]["geometry"]["location"]
+                coords.append((location["lat"], location["lng"]))
+            else:
+                print(f"Warning: Address not found: {address}")
+                coords.append((0.0, 0.0)) 
+        except Exception as e:
+            logging.error(f"Error occurred: {str(e)}", exc_info=True)
+            print(f"Geocoding failed for {address}: {str(e)}")
+            coords.append((0.0, 0.0))  
+    
+    return coords
+
+
 def parse_error_fields(e: ValidationError):
     return [
         FieldError(field=".".join(map(str, error["loc"])), message=error["msg"])
@@ -81,7 +121,7 @@ def construct_distance_matrix(coords, batch_size = 10):
     distance_matrix = np.zeros((n, n))
     batches = list(chunk_coordinates(coords, batch_size))
 
-    gmaps = googlemaps.Client(key=os.environ["MAPS_API_KEY"])
+    gmaps = googlemaps.Client(key=os.environ["maps_api_key"]) 
 
     # Loop over each pair of origin and destination batches to fill the distance matrix
     for i, origin_batch in enumerate(batches):
@@ -167,14 +207,81 @@ def cluster_deliveries_k_medoids(req: https_fn.Request) -> https_fn.Response:
         content_type="application/json",
     )
 
+@https_fn.on_request(region="us-central1", memory=512, timeout_sec=300)
+def geocode_addresses_endpoint(req: https_fn.Request) -> https_fn.Response:
+    # Set CORS headers
+    headers = {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+    }
+    
+    # Handle preflight OPTIONS request
+    if req.method == "OPTIONS":
+        return https_fn.Response(
+            "",
+            headers=headers,
+            status=204,
+            content_type="application/json"
+        )
+    
+    try:
+        # Get data from request
+        data = req.get_json()
+        addresses = data["addresses"]
+        coordinates = geocode_addresses(addresses)
 
-@https_fn.on_request()
+        return https_fn.Response(
+            response=json.dumps({"coordinates": coordinates}),
+            status=200,
+            headers=headers,
+            content_type="application/json",
+        )
+    except ValidationError as e:
+        return https_fn.Response(
+            response=json.dumps({"error": "Validation error", "details": parse_error_fields(e)}),
+            status=400,
+            headers=headers,
+            content_type="application/json",
+        )
+    except Exception as e:
+        return https_fn.Response(
+            response=json.dumps({"error": str(e)}),
+            status=500,
+            headers=headers,
+            content_type="application/json",
+        )
+    
+@https_fn.on_request(region="us-central1", memory=512, timeout_sec=300)
 def cluster_deliveries_k_means(req: https_fn.Request) -> https_fn.Response:
-    coords = np.array(req.coords, dtype=object)
+        # Set CORS headers
+    headers = {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+    }
+
+    # Handle preflight OPTIONS request
+    if req.method == "OPTIONS":
+        return https_fn.Response(
+            "",
+            headers=headers,
+            status=204,
+            content_type="application/json"
+        )
+
+    # coords = np.array(req.coords, dtype=object)
+    # coords = np.array([latlon_to_cartesian(lat, lon) for lat, lon in coords])
+    # drivers_count = req.drivers_count
+    # min_deliveries = req.min_deliveries
+    # max_deliveries = req.max_deliveries
+
+    data = req.get_json()
+    coords = np.array(data["coords"], dtype=object)
     coords = np.array([latlon_to_cartesian(lat, lon) for lat, lon in coords])
-    drivers_count = req.drivers_count
-    min_deliveries = req.min_deliveries
-    max_deliveries = req.max_deliveries
+    drivers_count = data["drivers_count"]
+    min_deliveries = data["min_deliveries"]
+    max_deliveries = data["max_deliveries"]
 
     if drivers_count > len(coords):
         print("Warning: Number of drivers exceeds the number of deliveries. Adjusting drivers count to match deliveries.")
@@ -215,7 +322,8 @@ def cluster_deliveries_k_means(req: https_fn.Request) -> https_fn.Response:
     return https_fn.Response(
         response=json.dumps(data.model_dump()),
         status=201,
-        content_type="application/json",
+        headers=headers,
+        content_type="application/json"
     )
 
 @https_fn.on_request()
@@ -232,7 +340,7 @@ def calculate_optimal_cluster_route(req: https_fn.Request) -> https_fn.Response:
 
     waypoints = [f"{lat},{lng}" for lat, lng in body.coords]
 
-    gmaps = googlemaps.Client(key=os.environ["MAPS_API_KEY"])
+    gmaps = googlemaps.Client(key=os.environ["maps_api_key"]) 
 
     # TODO: Start and destination may be determined by the client. For now pick any waypoint and form a loop
     directions_result = gmaps.directions(
@@ -343,3 +451,6 @@ def add_delivery_to_existing_clusters(new_coord, clusters, coords):
         clusters[new_cluster_name] = [new_index]
 
     return clusters
+
+
+
