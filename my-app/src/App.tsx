@@ -16,6 +16,7 @@ import Profile from './pages/Profile/Profile';
 import BasePage from './pages/Base/Base';
 import CreateUsers from './pages/CreateUsers/CreateUsers';
 import DeliverySpreadsheet from "./pages/Delivery/DeliverySpreadsheet";
+import TestCsvPage from "./pages/Delivery/TestCsvPage";
 
 import { useAuth } from './auth/AuthProvider';
 
@@ -29,6 +30,9 @@ function App() {
   return (
     <Router>
       <Routes>
+        {/* Testing Routes */}
+        <Route path="/test-csv" element={<TestCsvPage />} />
+
         {/* Public routes */}
         <Route path="/" element={<Login />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
