@@ -3,6 +3,7 @@ import EditIcon from "@mui/icons-material/Edit";
 import PersonIcon from "@mui/icons-material/Person";
 import SaveIcon from "@mui/icons-material/Save";
 import {
+  Autocomplete,
   Box,
   Button,
   Checkbox,
@@ -18,7 +19,6 @@ import {
   TextField,
   Tooltip,
   Typography,
-  Autocomplete,
 } from "@mui/material";
 import {
   addDoc,
@@ -39,8 +39,8 @@ import { auth, db } from "../../auth/firebaseConfig";
 import "./Profile.css";
 
 import { Timestamp } from "firebase/firestore";
-import TagPopup from "./Tags/TagPopup";
 import CaseWorkerManagementModal from "../../components/CaseWorkerManagementModal";
+import TagPopup from "./Tags/TagPopup";
 
 declare global {
   interface Window {
@@ -133,8 +133,8 @@ interface ClientProfile {
   lifeChallenges: string;
   notes: string;
   notesTimestamp?: {
-    notes: string,
-    timestamp: Date
+    notes: string;
+    timestamp: Date;
   } | null;
   lifestyleGoals: string;
   language: string;
@@ -215,7 +215,7 @@ const Profile = () => {
     recurrence: "None",
     tags: [],
     ward: "",
-    tefapCert: ""
+    tefapCert: "",
   });
   const [isNewProfile, setIsNewProfile] = useState(true);
   const [editMode, setEditMode] = useState(true);
@@ -237,7 +237,9 @@ const Profile = () => {
   const [showSavePopup, setShowSavePopup] = useState(false);
   const [showCaseWorkerModal, setShowCaseWorkerModal] = useState(false);
   const [caseWorkers, setCaseWorkers] = useState<CaseWorker[]>([]);
-  const [selectedCaseWorker, setSelectedCaseWorker] = useState<CaseWorker | null>(null);
+  const [selectedCaseWorker, setSelectedCaseWorker] = useState<CaseWorker | null>(
+    null
+  );
 
   // Function to fetch profile data by ID
   const getProfileById = async (id: string) => {
@@ -702,14 +704,24 @@ const Profile = () => {
 
     try {
       const currNotes = clientProfile.notes;
-  
-      let updatedNotesTimestamp = checkIfNotesExists(currNotes, clientProfile.notesTimestamp || null);
-      updatedNotesTimestamp = checkIfNotesChanged(prevNotes, currNotes, updatedNotesTimestamp);
-  
+
+      let updatedNotesTimestamp = checkIfNotesExists(
+        currNotes,
+        clientProfile.notesTimestamp || null
+      );
+      updatedNotesTimestamp = checkIfNotesChanged(
+        prevNotes,
+        currNotes,
+        updatedNotesTimestamp
+      );
+
       console.log("Previous notes:", prevNotes);
       console.log("Current notes:", currNotes);
-      console.log("Timestamp updated:", updatedNotesTimestamp !== clientProfile.notesTimestamp);
-      
+      console.log(
+        "Timestamp updated:",
+        updatedNotesTimestamp !== clientProfile.notesTimestamp
+      );
+
       // Update the clientProfile object with the latest tags state
       const updatedProfile = {
         ...clientProfile,
@@ -770,7 +782,6 @@ const Profile = () => {
       setShowSavePopup(true);
       // Hide popup after 2 seconds
       setTimeout(() => setShowSavePopup(false), 2000);
-      
     } catch (e) {
       console.error("Error saving document: ", e);
     }
@@ -786,16 +797,15 @@ const Profile = () => {
       ? getNestedValue(clientProfile, fieldPath)
       : clientProfile[fieldPath as keyof ClientProfile];
 
-        const handleTag = (text: any) => {
-        if (tags.includes(text)) {
-          const updatedTags = tags.filter((t) => t !== text);
-          setTags(updatedTags); 
-        } 
-        else if(text.trim() != ""){
-          const updatedTags = [...tags, text.trim()]; 
-          setTags(updatedTags); 
-        }
-      };
+    const handleTag = (text: any) => {
+      if (tags.includes(text)) {
+        const updatedTags = tags.filter((t) => t !== text);
+        setTags(updatedTags);
+      } else if (text.trim() != "") {
+        const updatedTags = [...tags, text.trim()];
+        setTags(updatedTags);
+      }
+    };
 
     if (fieldPath === "deliveryDetails.dietaryRestrictions") {
       return renderDietaryRestrictions();
@@ -1070,7 +1080,6 @@ const Profile = () => {
       // check if the Google Maps API script is already loaded
       const script = document.createElement("script");
       if (!window.google) {
-        
         script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.REACT_APP_GOOGLE_MAPS_API_KEY || ""}&libraries=places`;
         script.async = true;
         script.defer = true;
@@ -1080,13 +1089,13 @@ const Profile = () => {
           if (addressInputRef.current) {
             const autocomplete = new window.google.maps.places.Autocomplete(
               addressInputRef.current,
-              { 
-                types: ['address'],
-                componentRestrictions: { country: 'us' } 
+              {
+                types: ["address"],
+                componentRestrictions: { country: "us" },
               }
             );
-            
-            autocomplete.addListener('place_changed', () => {
+
+            autocomplete.addListener("place_changed", () => {
               const place = autocomplete.getPlace();
               if (place.formatted_address) {
                 console.log(place);
@@ -1094,36 +1103,39 @@ const Profile = () => {
                 // address components in json format
                 const addressComponents = place.address_components;
                 console.log(address);
-                
-                let streetNumber = '';
-                let streetName = '';
-                let city = '';
-                let state = '';
-                let zipCode = '';
-                let quadrant = ''; 
-                
+
+                let streetNumber = "";
+                let streetName = "";
+                let city = "";
+                let state = "";
+                let zipCode = "";
+                let quadrant = "";
+
                 // getting relevant components
                 if (addressComponents) {
                   for (const component of addressComponents) {
                     const types = component.types;
-                    
-                    if (types.includes('street_number')) {
+
+                    if (types.includes("street_number")) {
                       streetNumber = component.long_name;
                     }
-                    
-                    if (types.includes('route')) {
+
+                    if (types.includes("route")) {
                       streetName = component.long_name;
                     }
-                    
-                    if (types.includes('locality') || types.includes('sublocality')) {
+
+                    if (
+                      types.includes("locality") ||
+                      types.includes("sublocality")
+                    ) {
                       city = component.long_name;
                     }
-                    
-                    if (types.includes('administrative_area_level_1')) {
+
+                    if (types.includes("administrative_area_level_1")) {
                       state = component.short_name; // Use short_name for state code (e.g., "DC" instead of "District of Columbia")
                     }
-                    
-                    if (types.includes('postal_code')) {
+
+                    if (types.includes("postal_code")) {
                       zipCode = component.long_name;
                     }
                   }
@@ -1160,11 +1172,9 @@ const Profile = () => {
         document.head.appendChild(script);
       }
     }
-    return () => {
+    return () => {};
+  }, [isEditing]);
 
-    }
-  }, [isEditing])
-  
   // Function to handle cancelling edits
   const handleCancel = () => {
     // If we have a previous state of the client profile, restore it
@@ -1172,40 +1182,38 @@ const Profile = () => {
       setClientProfile(prevClientProfile);
       setPrevClientProfile(null);
     }
-    
+
     // If we have a previous state of tags, restore it
     if (prevTags) {
       setTags(prevTags);
       setPrevTags(null);
     }
-    
-    setIsEditing(false);
   };
-  
+
   // Function to handle selecting a case worker
   const handleCaseWorkerChange = (caseWorker: CaseWorker | null) => {
     setSelectedCaseWorker(caseWorker);
-    
+
     // Update the client profile with the case worker information
     if (caseWorker) {
-      setClientProfile(prev => ({
+      setClientProfile((prev) => ({
         ...prev,
         referralEntity: {
           id: caseWorker.id,
           name: caseWorker.name,
-          organization: caseWorker.organization
-        }
+          organization: caseWorker.organization,
+        },
       }));
     } else {
       // If no case worker selected, remove the referral entity
-      setClientProfile(prev => {
-        const newProfile = {...prev};
+      setClientProfile((prev) => {
+        const newProfile = { ...prev };
         delete newProfile.referralEntity;
         return newProfile;
       });
     }
   };
-  
+
   return (
     <Box className="profile-container">
       {showSavePopup && (
@@ -1278,7 +1286,7 @@ const Profile = () => {
               >
                 <Tooltip title={isEditing ? "Cancel Editing" : "Edit All"}>
                   {isEditing ? (
-                    <span onClick={handleCancel}>
+                    <span className="cancel-btn" onClick={handleCancel}>
                       <CloseIcon />
                     </span>
                   ) : (
@@ -1362,17 +1370,22 @@ const Profile = () => {
                   value={selectedCaseWorker ? selectedCaseWorker.id : ""}
                   onChange={(e) => {
                     const selectedId = e.target.value;
-                    if (selectedId === 'edit_list') {
+                    if (selectedId === "edit_list") {
                       setShowCaseWorkerModal(true);
                     } else {
-                      const selected = caseWorkers.find(cw => cw.id === selectedId);
+                      const selected = caseWorkers.find(
+                        (cw) => cw.id === selectedId
+                      );
                       handleCaseWorkerChange(selected || null);
                     }
                   }}
                   style={{ width: "83.5%" }}
                 >
-                  <MenuItem value="edit_list" sx={{ color: '#257E68', fontWeight: 'bold' }}>
-                    Edit Case Worker List {'>'}
+                  <MenuItem
+                    value="edit_list"
+                    sx={{ color: "#257E68", fontWeight: "bold" }}
+                  >
+                    Edit Case Worker List {">"}
                   </MenuItem>
                   {caseWorkers.map((caseWorker) => (
                     <MenuItem key={caseWorker.id} value={caseWorker.id}>
@@ -1382,7 +1395,9 @@ const Profile = () => {
                 </CustomSelect>
               ) : (
                 <Typography variant="body1" sx={{ fontWeight: 600 }}>
-                  {selectedCaseWorker ? `${selectedCaseWorker.name}, ${selectedCaseWorker.organization}` : 'None'}
+                  {selectedCaseWorker
+                    ? `${selectedCaseWorker.name}, ${selectedCaseWorker.organization}`
+                    : "None"}
                 </Typography>
               )}
             </Box>
@@ -1640,7 +1655,11 @@ const Profile = () => {
               <CustomTextField
                 type="text"
                 name="total"
-                value={Number(clientProfile.seniors) + Number(clientProfile.adults) + Number(clientProfile.children)}
+                value={
+                  Number(clientProfile.seniors) +
+                  Number(clientProfile.adults) +
+                  Number(clientProfile.children)
+                }
                 disabled
                 fullWidth
               />
@@ -1759,13 +1778,17 @@ const Profile = () => {
               </Typography>
               {renderField("notes", "textarea")}
               {isSaved && clientProfile.notes.trim() !== "" && (
-  <p id="timestamp">
-    Last edited: {(clientProfile.notesTimestamp && clientProfile.notesTimestamp.timestamp instanceof Timestamp
-      ? clientProfile.notesTimestamp.timestamp.toDate()
-      : (clientProfile.notesTimestamp && clientProfile.notesTimestamp.timestamp) || clientProfile.createdAt
-    ).toLocaleString()}
-  </p>
-)}
+                <p id="timestamp">
+                  Last edited:{" "}
+                  {(clientProfile.notesTimestamp &&
+                  clientProfile.notesTimestamp.timestamp instanceof Timestamp
+                    ? clientProfile.notesTimestamp.timestamp.toDate()
+                    : (clientProfile.notesTimestamp &&
+                        clientProfile.notesTimestamp.timestamp) ||
+                      clientProfile.createdAt
+                  ).toLocaleString()}
+                </p>
+              )}
             </Box>
 
             {/* Life Challenges */}
