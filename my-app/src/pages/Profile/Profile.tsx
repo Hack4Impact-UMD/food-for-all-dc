@@ -80,6 +80,26 @@ const CustomSelect = styled(Select)({
   "& .MuiSelect-select": fieldStyles,
 });
 
+// Type definitions
+type DietaryRestrictions = {
+  lowSugar: boolean;
+  kidneyFriendly: boolean;
+  vegan: boolean;
+  vegetarian: boolean;
+  halal: boolean;
+  microwaveOnly: boolean;
+  softFood: boolean;
+  lowSodium: boolean;
+  noCookingEquipment: boolean;
+  foodAllergens: string[];
+  other: string[];
+};
+
+type DeliveryDetails = {
+  deliveryInstructions: string;
+  dietaryRestrictions: DietaryRestrictions;
+};
+
 // Add CaseWorker interface
 interface CaseWorker {
   id: string;
@@ -88,8 +108,6 @@ interface CaseWorker {
   phone: string;
   email: string;
 }
-
-// DietaryRestrictions and DeliveryDetails interfaces are defined in types section below
 
 interface ClientProfile {
   uid: string;
@@ -331,25 +349,7 @@ const Profile = () => {
     fetchWard();
   }, [clientProfile.address]); // Runs whenever the address field changes
 
-  // Type definitions
-  type DietaryRestrictions = {
-    lowSugar: boolean;
-    kidneyFriendly: boolean;
-    vegan: boolean;
-    vegetarian: boolean;
-    halal: boolean;
-    microwaveOnly: boolean;
-    softFood: boolean;
-    lowSodium: boolean;
-    noCookingEquipment: boolean;
-    foodAllergens: string[];
-    other: string[];
-  };
-
-  type DeliveryDetails = {
-    deliveryInstructions: string;
-    dietaryRestrictions: DietaryRestrictions;
-  };
+  // Type definitions have been moved to the top of the file
 
   type ClientProfile = {
     uid: string;
@@ -363,6 +363,7 @@ const Profile = () => {
     state: string;
     quadrant: string;
     dob: string;
+    deliveryFreq: string; // Added this field
     phone: string;
     alternativePhone: string;
     adults: number;
@@ -702,7 +703,7 @@ const Profile = () => {
     try {
       const currNotes = clientProfile.notes;
   
-      let updatedNotesTimestamp = checkIfNotesExists(currNotes, clientProfile.notesTimestamp ?? null);
+      let updatedNotesTimestamp = checkIfNotesExists(currNotes, clientProfile.notesTimestamp || null);
       updatedNotesTimestamp = checkIfNotesChanged(prevNotes, currNotes, updatedNotesTimestamp);
   
       console.log("Previous notes:", prevNotes);
@@ -1759,9 +1760,9 @@ const Profile = () => {
               {renderField("notes", "textarea")}
               {isSaved && clientProfile.notes.trim() !== "" && (
   <p id="timestamp">
-    Last edited: {(clientProfile.notesTimestamp?.timestamp instanceof Timestamp
+    Last edited: {(clientProfile.notesTimestamp && clientProfile.notesTimestamp.timestamp instanceof Timestamp
       ? clientProfile.notesTimestamp.timestamp.toDate()
-      : clientProfile.notesTimestamp?.timestamp || clientProfile.createdAt
+      : (clientProfile.notesTimestamp && clientProfile.notesTimestamp.timestamp) || clientProfile.createdAt
     ).toLocaleString()}
   </p>
 )}
