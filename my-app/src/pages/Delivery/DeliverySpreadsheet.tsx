@@ -1333,7 +1333,7 @@ const DeliverySpreadsheet: React.FC = () => {
                     <h2 style={{ fontWeight: "bold" }}>{field.label}</h2>
                   </TableCell>
                 ))}
-                <TableCell className="table-header"></TableCell>
+                {/* <TableCell className="table-header"></TableCell> */}
                 {/* Adding custom columns */}
                 {/*  Headers for custom columns */}
                 {customColumns.map((col) => (
@@ -1407,7 +1407,8 @@ const DeliverySpreadsheet: React.FC = () => {
                       ) : field.key === "assignedDriver" && field.compute ? (
                         <div
                           style={{
-                            backgroundColor: "white",
+                            // Remove white bg from here
+                            backgroundColor: "",
                             minHeight: "30px", // Ensures a consistent height
                             width: "95%",
                             padding: "5px",
@@ -1425,7 +1426,8 @@ const DeliverySpreadsheet: React.FC = () => {
                       ) : field.key === "assignedTime" && field.compute ? (
                         <div
                           style={{
-                            backgroundColor: "white",
+                            // Remove white bg from here
+                            backgroundColor: "",
                             minHeight: "30px", // Ensures a consistent height
                             width: "95%",
                             padding: "5px",
@@ -1445,13 +1447,15 @@ const DeliverySpreadsheet: React.FC = () => {
                       ) : field.key === "deliveryDetails.deliveryInstructions" ? (
                         <div
                           style={{
-                            backgroundColor: "black",
+                            // Remove black bg here.
+                            backgroundColor: "",
                             minHeight: "70px",
                             padding: "10px",
                             display: "flex",
                             alignItems: "left",
                             whiteSpace: "pre-wrap",
                             overflow: "auto",
+                            color: "black",
                           }}
                         >
                           {field.compute(row)}
