@@ -575,11 +575,13 @@ const DeliverySpreadsheet: React.FC = () => {
           id: doc.id,
           ...(doc.data() as Omit<RowData, "id">),
         }));
+        console.log("Fetching client data: ", data);
         setRows(data);
       } catch (error) {
         console.error("Error fetching data: ", error);
       }
     };
+
     fetchData();
   }, []);
 
@@ -909,6 +911,8 @@ const DeliverySpreadsheet: React.FC = () => {
       );
     })
   );
+
+  console.log("Visible Rows: ", visibleRows);
 
   const [open, setOpen] = React.useState(false);
   const anchorRef = React.useRef<HTMLButtonElement>(null);
@@ -1316,7 +1320,7 @@ const DeliverySpreadsheet: React.FC = () => {
             width: "100%",
           }}
         >
-          <Table>
+          <Table stickyHeader>
             <TableHead>
               <TableRow>
                 {fields.map((field) => (
@@ -1376,6 +1380,7 @@ const DeliverySpreadsheet: React.FC = () => {
                 </TableCell>
               </TableRow>
             </TableHead>
+
             <TableBody>
               {visibleRows.map((row) => (
                 <TableRow key={row.id} className={"table-row"}>
@@ -1456,6 +1461,16 @@ const DeliverySpreadsheet: React.FC = () => {
                       ) : null}
                     </TableCell>
                   ))}
+
+                  {customColumns.map((col) => (
+                    <TableCell key={col.id}>
+                      {col.propertyKey !== "none"
+                        ? (row[col.propertyKey as keyof RowData]?.toString() ??
+                          "N/A")
+                        : "N/A"}
+                    </TableCell>
+                  ))}
+
                   <TableCell></TableCell>
                 </TableRow>
               ))}
