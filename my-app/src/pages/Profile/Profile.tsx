@@ -69,6 +69,8 @@ const CustomTextField = styled(TextField)({
 const CustomSelect = styled(Select)({
   // Target the outlined border
   "& .MuiOutlinedInput-root": {
+    height: "1.813rem",
+    width: "100%",
     "& .MuiOutlinedInput-notchedOutline": {
       border: "none", // removes the border
     },
@@ -76,8 +78,12 @@ const CustomSelect = styled(Select)({
   "& fieldset": {
     border: "none",
   },
-
-  "& .MuiSelect-select": fieldStyles, 
+  "& .MuiSelect-select": {
+    ...fieldStyles,
+  },
+  "& .MuiSelect-icon": {
+    display: "none", 
+  },
 });
 
 const Profile = () => {
@@ -671,7 +677,6 @@ const Profile = () => {
                 name={fieldPath}
                 value={value as string}
                 onChange={(e) => handleChange(e as SelectChangeEvent<string>)}
-                style={{ width: "83.5%" }}
                 displayEmpty
               >
                 <MenuItem value = "" disabled>Select</MenuItem>
@@ -897,6 +902,11 @@ const Profile = () => {
                       name={key}
                       checked={value as boolean}
                       onChange={handleDietaryRestrictionChange}
+                      sx={{        
+                        '& .MuiSvgIcon-root': { 
+                          borderRadius: '1rem', 
+                        },
+                      }}
                     />
                   }
                   label={capitalizeFirstLetter(
@@ -1598,30 +1608,89 @@ const Profile = () => {
               {renderField("tags", "tags")}
             </Box>
 
-            {/* Dietary Restrictions, truncate is when not editing, put it on its own row */}
-            <Box sx={{ gridColumn: isEditing ? "-1/1" : "" }}>
-              <Typography className="field-descriptor" sx={fieldLabelStyles}>
-                DIETARY RESTRICTIONS
-              </Typography>
-              {isEditing ? (
-                renderField("deliveryDetails.dietaryRestrictions", "dietaryRestrictions")
-              ) : (
-                <Typography variant="body1" sx={{ fontWeight: 600 }}>
-                  {Object.entries(clientProfile.deliveryDetails.dietaryRestrictions)
-                    .filter(([key, value]) => value === true && typeof value === "boolean")
-                    .map(([key]) =>
-                      key
-                        .replace(/([A-Z])/g, " $1") // Add space before capital letters
-                        .trim()
-                        .split(" ") // Split into words
-                        .map((word) => word.charAt(0).toUpperCase() + word.slice(1)) // Capitalize each word
-                        .join(" ") // Join back into a single string
-                    )
-                    .join(", ") || "None"}
-                </Typography>
-              )}
-            </Box>
+            
           </Box>
+          
+          <Box
+            className="box-header"
+            display="flex"
+            alignItems="center"
+            justifyContent="space-between"
+          >
+            {/* Title on the left */}
+            <Typography
+              className="basic-info-title"
+              sx={{ fontWeight: 500, fontSize: { xs: "20px", sm: "24px" } }}
+            >
+              Dietary Preferences
+            </Typography>
+          </Box>
+
+          
+          <Box
+            sx={{
+              display: "grid",
+              gap: isEditing ? 3 : 5, // Spacing between grid items
+              gridTemplateColumns: {
+                xs: "1fr", // Full width for small screens
+                sm: "repeat(2, 1fr)", // Three columns for medium screens and up
+                md: "repeat(3, 1fr)",
+              },
+              alignItems: "center",
+            }}
+            className="info-grid"
+          >
+            {/* Dietary Restrictions, truncate is when not editing, put it on its own row */}
+          <Box sx={{ gridColumn: isEditing ? "-1/1" : "" }}>
+            <Typography className="field-descriptor" sx={fieldLabelStyles}>
+              DIETARY RESTRICTIONS
+            </Typography>
+            {isEditing ? (
+              renderField("deliveryDetails.dietaryRestrictions", "dietaryRestrictions")
+            ) : (
+              <Typography variant="body1" sx={{ fontWeight: 600 }}>
+                {Object.entries(clientProfile.deliveryDetails.dietaryRestrictions)
+                  .filter(([key, value]) => value === true && typeof value === "boolean")
+                  .map(([key]) =>
+                    key
+                      .replace(/([A-Z])/g, " $1") // Add space before capital letters
+                      .trim()
+                      .split(" ") // Split into words
+                      .map((word) => word.charAt(0).toUpperCase() + word.slice(1)) // Capitalize each word
+                      .join(" ") // Join back into a single string
+                  )
+                  .join(", ") || "None"}
+              </Typography>
+            )}
+          </Box>
+          </Box>
+          <Box
+            className="box-header"
+            display="flex"
+            alignItems="center"
+            justifyContent="space-between"
+          >
+            {/* Title on the left */}
+            <Typography
+              className="basic-info-title"
+              sx={{ fontWeight: 500, fontSize: { xs: "20px", sm: "24px" } }}
+            >
+              Miscellaneous
+            </Typography>
+          </Box>
+          <Box
+            sx={{
+              display: "grid",
+              gap: isEditing ? 3 : 5, // Spacing between grid items
+              gridTemplateColumns: {
+                xs: "1fr", // Full width for small screens
+                sm: "repeat(2, 1fr)", // Three columns for medium screens and up
+                md: "repeat(3, 1fr)",
+              },
+              alignItems: "center",
+            }}
+            className="info-grid"
+          ></Box>
         </Box>
       </Box>
     </Box>
