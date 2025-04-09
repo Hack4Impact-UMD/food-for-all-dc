@@ -1,58 +1,63 @@
-import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { db } from "../../auth/firebaseConfig"; 
-import { Search, Filter } from "lucide-react";
+import { addDays, format } from "date-fns";
 import { query, Timestamp, where } from "firebase/firestore";
-import { format, addDays } from "date-fns";
+import { Filter, Search } from "lucide-react";
+import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { db } from "../../auth/firebaseConfig";
 
-import "./DeliverySpreadsheet.css";
-import 'leaflet/dist/leaflet.css';
+import { Add, Check, Close, Delete, Edit } from "@mui/icons-material";
+import AddIcon from "@mui/icons-material/Add";
+import DeleteIcon from "@mui/icons-material/Delete";
 import {
+  Autocomplete,
   Box,
   Button,
+  Checkbox,
+  CircularProgress,
+  ClickAwayListener,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
+  Grid,
+  Grow,
+  IconButton,
+  Menu,
+  MenuItem,
+  MenuList,
+  Paper,
+  Popper,
+  Select,
+  SelectChangeEvent,
+  Stack,
   Table,
   TableBody,
   TableCell,
   TableContainer,
   TableHead,
   TableRow,
-  Paper,
-  Checkbox,
   TextField,
-  Dialog,
-  DialogContent,
-  DialogActions,
-  DialogTitle,
-  Autocomplete,
-  Grid,
-  IconButton,
   Typography,
-  DialogContentText,
-  Grow,
-  Popper,
-  MenuItem,
-  MenuList,
-  Stack,
-  ClickAwayListener,
-  Menu,
-  CircularProgress
 } from "@mui/material";
-import {
-  collection,
-  getDocs,
-  doc,
-  setDoc,
-  addDoc,
-  updateDoc,
-  deleteDoc,
-} from "firebase/firestore";
-import { auth } from "../../auth/firebaseConfig";
-import { onAuthStateChanged } from "firebase/auth";
-import { Close, Add, Edit, Check, Delete } from "@mui/icons-material";
-import DriverManagementModal from "../../components/DriverManagementModal";
-import { set } from "date-fns";
 import { render } from "@testing-library/react";
+import { set } from "date-fns";
+import { onAuthStateChanged } from "firebase/auth";
+import {
+  addDoc,
+  collection,
+  deleteDoc,
+  doc,
+  getDocs,
+  setDoc,
+  updateDoc,
+} from "firebase/firestore";
+import "leaflet/dist/leaflet.css";
+import { auth } from "../../auth/firebaseConfig";
+import DriverManagementModal from "../../components/DriverManagementModal";
+import { useCustomColumns } from "../../hooks/useCustomColumns";
 import ClusterMap from "./ClusterMap";
+import "./DeliverySpreadsheet.css";
 
 interface RowData {
   id: string;
@@ -63,7 +68,7 @@ interface RowData {
   phone: string;
   tags?: string[];
   ward?: string;
-  clusterID?: string; 
+  clusterID?: string;
   deliveryDetails: {
     deliveryInstructions: string;
     dietaryRestrictions: {
@@ -148,9 +153,9 @@ interface Driver {
   email: string;
 }
 
-type DriverOption = Driver | { id: 'edit_list'; name: string; phone: ''; email: '' };
+type DriverOption = Driver | { id: "edit_list"; name: string; phone: ""; email: "" };
 
-interface Cluster{
+interface Cluster {
   docId: string;
   id: number;
   driver: any;
@@ -165,8 +170,8 @@ interface ValidationErrors {
 }
 
 interface DriverFormProps {
-  value: Omit<Driver, 'id'>;
-  onChange: (field: keyof Omit<Driver, 'id'>, value: string) => void;
+  value: Omit<Driver, "id">;
+  onChange: (field: keyof Omit<Driver, "id">, value: string) => void;
   errors: ValidationErrors;
   onClearError: (field: keyof ValidationErrors) => void;
 }
@@ -177,12 +182,12 @@ interface DeliveryEvent {
   assignedDriverName: string;
   clientId: string;
   clientName: string;
-  deliveryDate: Date; 
+  deliveryDate: Date;
   time: string;
-  recurrence: "None" | "Weekly" | "2x-Monthly" | "Monthly"; 
-  repeatsEndOption?: "On" | "After"; 
-  repeatsEndDate?: string; 
-  repeatsAfterOccurrences?: number; 
+  recurrence: "None" | "Weekly" | "2x-Monthly" | "Monthly";
+  repeatsEndOption?: "On" | "After";
+  repeatsEndDate?: string;
+  repeatsAfterOccurrences?: number;
 }
 
 // Define fields for table columns
@@ -198,7 +203,7 @@ const fields: Field[] = [
     label: "Client",
     type: "text",
     compute: (data: RowData) => `${data.lastName}, ${data.firstName}`,
-    width: "10%"
+    width: "10%",
   },
   {
     key: "tags",
@@ -208,7 +213,7 @@ const fields: Field[] = [
       const tags = data.tags || [];
       return tags.length > 0 ? tags.join(", ") : "None";
     },
-    width: "10%"
+    width: "10%",
   },
   { key: "clusterID", label: "Clusters", type: "text", width: "6%" },
   { key: "address", label: "Address", type: "text", width: "12%" },
@@ -220,68 +225,66 @@ const fields: Field[] = [
       const number = data.phone || "N/A";
       return number;
     },
-    width: "12%"
+    width: "12%",
   },
   { key: "ward", label: "Ward", type: "text", width: "10%" },
   {
-    key: "assignedDriver", 
-    label: "Driver", 
+    key: "assignedDriver",
+    label: "Driver",
     type: "text",
     compute: (data: RowData, clusters: Cluster[], drivers: Driver[]) => {
       //case where user is not assigned a cluster
       if (!data.clusterID) return "No Cluster assigned";
-      
+
       //find cluster from cluster id
-      const cluster = clusters.find(c => c.id.toString() === data.clusterID);
+      const cluster = clusters.find((c) => c.id.toString() === data.clusterID);
       if (!cluster) return "No Cluster Found";
-      
+
       //check to make sure driver exists
       if (!cluster.driver) return "No Driver Assigned";
-      
+
       //find driver name from driver ref
-      if (typeof cluster.driver === 'object' && cluster.driver.id) {
+      if (typeof cluster.driver === "object" && cluster.driver.id) {
         const driverId = cluster.driver.id;
-        const driver = drivers.find(d => d.id === driverId);
+        const driver = drivers.find((d) => d.id === driverId);
         return driver ? driver.name : "Driver Not Found";
       }
-      
+
       return "Driver Not Found";
     },
-    width: "10%"
+    width: "10%",
   },
   {
-    key: "assignedTime", 
-    label: "Time", 
+    key: "assignedTime",
+    label: "Time",
     type: "text",
     compute: (data: RowData, clusters: Cluster[]) => {
       //case where user is not assigned a cluster
       if (!data.clusterID) return "No Cluster assigned";
-      
+
       //find cluster from cluster id
-      const cluster = clusters.find(c => c.id.toString() === data.clusterID);
+      const cluster = clusters.find((c) => c.id.toString() === data.clusterID);
       if (!cluster) return "No Cluster Found";
-      
+
       //check to make sure driver exists
-      if(cluster.time){
+      if (cluster.time) {
         const toStandardArr = cluster.time.split(":");
         let hours = Number(toStandardArr[0]);
         let mins = Number(toStandardArr[1]);
         let ampm = "";
-        if(hours < 12){
-          hours = hours == 0 ? 12: hours
+        if (hours < 12) {
+          hours = hours === 0 ? 12 : hours;
           ampm = "AM";
-        }
-        else{
-          hours = hours == 12 ? 12 : hours%12;
+        } else {
+          hours = hours === 12 ? 12 : hours % 12;
           ampm = "PM";
         }
-        return `${hours}:${mins < 10 ? "0": ""}${mins} ${ampm}`
-      }
-      else{
-        return "No Time Assigned"
+        return `${hours}:${mins < 10 ? "0" : ""}${mins} ${ampm}`;
+      } else {
+        return "No Time Assigned";
       }
     },
-    width: "10%"
+    width: "10%",
   },
   {
     key: "deliveryDetails.deliveryInstructions",
@@ -292,25 +295,34 @@ const fields: Field[] = [
       return instructions;
     },
     width: "15%",
-  }
+  },
 ];
+
+// ADDED
+interface CustomColumn {
+  id: string; // Unique identifier for the column
+  label: string; // Header label (e.g., "Custom 1", or user-defined)
+  propertyKey: keyof RowData | "none"; // Which property from RowData to display
+}
 
 // Type Guard to check if a field is a regular field
 const isRegularField = (
   field: Field
 ): field is Extract<Field, { key: keyof RowData }> => {
-  return field.key !== "fullname" && 
-         field.key !== "tags" && 
-         field.key !== "assignedDriver" &&
-         field.key !== "assignedTime" &&
-         field.key !== "phone" &&
-         field.key !== "deliveryDetails.deliveryInstructions";
+  return (
+    field.key !== "fullname" &&
+    field.key !== "tags" &&
+    field.key !== "assignedDriver" &&
+    field.key !== "assignedTime" &&
+    field.key !== "phone" &&
+    field.key !== "deliveryDetails.deliveryInstructions"
+  );
 };
 
 const DeliverySpreadsheet: React.FC = () => {
   const [rows, setRows] = useState<RowData[]>([]);
   const [searchQuery, setSearchQuery] = useState<string>("");
-  const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set()); 
+  const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
   const [innerPopup, setInnerPopup] = useState(false);
   const [popupMode, setPopupMode] = useState("");
   const [driverSearchQuery, setDriverSearchQuery] = useState<string>("");
@@ -322,12 +334,16 @@ const DeliverySpreadsheet: React.FC = () => {
   const [showEditDriverList, setShowEditDriverList] = useState(false);
   const [editingDriver, setEditingDriver] = useState<Driver | null>(null);
   const [isAddingDriver, setIsAddingDriver] = useState(false);
-  const [newDriver, setNewDriver] = useState<Omit<Driver, 'id'>>({ name: '', phone: '', email: '' });
+  const [newDriver, setNewDriver] = useState<Omit<Driver, "id">>({
+    name: "",
+    phone: "",
+    email: "",
+  });
   const [errors, setErrors] = useState<ValidationErrors>({});
   const [editErrors, setEditErrors] = useState<ValidationErrors>({});
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [driverToDelete, setDriverToDelete] = useState<Driver | null>(null);
-  
+
   const [exportCSV, setExportCSV] = useState(false);
   const [exportDoordash, setExportDoordash] = useState(false);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
@@ -341,12 +357,23 @@ const DeliverySpreadsheet: React.FC = () => {
 
   //cluster generation and map vars
   const [coordinates, setCoordinates] = useState<{ lat: number; lng: number }[]>([]);
-  const [generatedClusters, setGeneratedClusters] = useState<{ [key: string]: number[] }>({});
+  const [generatedClusters, setGeneratedClusters] = useState<{
+    [key: string]: number[];
+  }>({});
   const [isLoading, setIsLoading] = useState(true);
   const [maxDeliveries, setMaxDeliveries] = useState(5);
   const [minDeliveries, setMinDeliveries] = useState(1);
   const [clusterError, setClusterError] = useState("");
+
+  // Hooks
   const navigate = useNavigate();
+  const {
+    customColumns,
+    handleAddCustomColumn,
+    handleCustomHeaderChange,
+    handleRemoveCustomColumn,
+    handleCustomColumnChange,
+  } = useCustomColumns();
 
   //get all drivers for assign driver
   useEffect(() => {
@@ -354,23 +381,23 @@ const DeliverySpreadsheet: React.FC = () => {
       try {
         const driversCollectionRef = collection(db, "Drivers");
         const driversSnapshot = await getDocs(driversCollectionRef);
-  
+
         if (!driversSnapshot.empty) {
           const driversData = driversSnapshot.docs.map((doc) => ({
             id: doc.id,
-            name: doc.data().name || "", 
-            phone: doc.data().phone || "", 
-            email: doc.data().email || "", 
+            name: doc.data().name || "",
+            phone: doc.data().phone || "",
+            email: doc.data().email || "",
           }));
-  
-          setDrivers(driversData); 
+
+          setDrivers(driversData);
         } else {
           console.log("No drivers found!");
         }
       } catch (error) {
         console.error("Error fetching drivers:", error);
       }
-    };  
+    };
     fetchDrivers();
   }, []);
 
@@ -378,29 +405,23 @@ const DeliverySpreadsheet: React.FC = () => {
   const fetchDeliveriesForDate = async (date: Date) => {
     try {
       // account for timezone issues
-      const startDate = new Date(Date.UTC(
-        date.getFullYear(),
-        date.getMonth(),
-        date.getDate(),
-        0, 0, 0
-      ));
-      
-      const endDate = new Date(Date.UTC(
-        date.getFullYear(),
-        date.getMonth(),
-        date.getDate(),
-        23, 59, 59
-      ));
-  
+      const startDate = new Date(
+        Date.UTC(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0)
+      );
+
+      const endDate = new Date(
+        Date.UTC(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59)
+      );
+
       const eventsRef = collection(db, "events");
       const q = query(
         eventsRef,
         where("deliveryDate", ">=", Timestamp.fromDate(startDate)),
         where("deliveryDate", "<=", Timestamp.fromDate(endDate))
       );
-  
+
       const querySnapshot = await getDocs(q);
-      const events = querySnapshot.docs.map(doc => {
+      const events = querySnapshot.docs.map((doc) => {
         const data = doc.data();
         // get local date
         const deliveryDate = data.deliveryDate.toDate();
@@ -411,10 +432,10 @@ const DeliverySpreadsheet: React.FC = () => {
             deliveryDate.getFullYear(),
             deliveryDate.getMonth(),
             deliveryDate.getDate()
-          )
+          ),
         };
       }) as DeliveryEvent[];
-      
+
       //set the deliveries for the date
       setDeliveriesForDate(events);
     } catch (error) {
@@ -422,10 +443,10 @@ const DeliverySpreadsheet: React.FC = () => {
     }
   };
 
-//when the user changes the date, fetch the deliveries for that date
-useEffect(() => {
-  fetchDeliveriesForDate(selectedDate);
-}, [selectedDate]);
+  //when the user changes the date, fetch the deliveries for that date
+  useEffect(() => {
+    fetchDeliveriesForDate(selectedDate);
+  }, [selectedDate]);
 
   // fetch data and geocode existing clusters
   useEffect(() => {
@@ -436,46 +457,51 @@ useEffect(() => {
         setIsLoading(false);
         return;
       }
-  
+
       try {
         const snapshot = await getDocs(collection(db, "clients"));
         const allData = snapshot.docs.map((doc) => ({
           id: doc.id,
           ...(doc.data() as Omit<RowData, "id">),
         }));
-        
+
         // filter to only include clients with deliveries today
-        const clientsWithDeliveriesToday = allData.filter(row => 
-          deliveriesForDate.some(delivery => delivery.clientId === row.id)
+        const clientsWithDeliveriesToday = allData.filter((row) =>
+          deliveriesForDate.some((delivery) => delivery.clientId === row.id)
         );
-        
+
         setRows(allData); // keep all rows for the table
-        const clientsWithClusters = clientsWithDeliveriesToday.filter(row => row.clusterID);
-        
+        const clientsWithClusters = clientsWithDeliveriesToday.filter(
+          (row) => row.clusterID
+        );
+
         if (clientsWithClusters.length > 0) {
           const token = await auth.currentUser?.getIdToken();
-          const response = await fetch('https://geocode-addresses-endpoint-lzrplp4tfa-uc.a.run.app', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              addresses: clientsWithClusters.map(row => row.address)
-            }),
-          });
-          
+          const response = await fetch(
+            "https://geocode-addresses-endpoint-lzrplp4tfa-uc.a.run.app",
+            {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                addresses: clientsWithClusters.map((row) => row.address),
+              }),
+            }
+          );
+
           if (response.ok) {
             const { coordinates } = await response.json();
             setCoordinates(coordinates);
-            
+
             const clusterMap: { [key: string]: number[] } = {};
             clientsWithClusters.forEach((row, index) => {
               const clusterId = `cluster-${row.clusterID}`;
               if (!clusterMap[clusterId]) clusterMap[clusterId] = [];
               clusterMap[clusterId].push(index);
             });
-            
+
             setGeneratedClusters(clusterMap);
           }
         } else {
@@ -488,7 +514,7 @@ useEffect(() => {
         setIsLoading(false);
       }
     };
-    
+
     if (deliveriesForDate.length > 0) {
       fetchDataAndGeocode();
     } else {
@@ -504,25 +530,25 @@ useEffect(() => {
       try {
         const clustersCollectionRef = collection(db, "clusters");
         const clustersSnapshot = await getDocs(clustersCollectionRef);
-  
+
         if (!clustersSnapshot.empty) {
           const clustersData = clustersSnapshot.docs.map((doc) => ({
             docId: doc.id,
             id: doc.data().id,
-            time: doc.data().time || "", 
-            driver: doc.data().driver || null, 
-            deliveries: doc.data().deliveries || [], 
+            time: doc.data().time || "",
+            driver: doc.data().driver || null,
+            deliveries: doc.data().deliveries || [],
           }));
-  
-          setClusters(clustersData); 
+
+          setClusters(clustersData);
         }
       } catch (error) {
         console.error("Error fetching clusters:", error);
       }
-    };  
+    };
     fetchClusters();
   }, []);
-  
+
   // Route Protection
   React.useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user: any) => {
@@ -540,7 +566,7 @@ useEffect(() => {
     setInnerPopup(popupMode !== "");
   }, [popupMode]);
 
-  // fetch client data from Firebase 
+  // fetch client data from Firebase
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -577,17 +603,17 @@ useEffect(() => {
   };
 
   const handleEmailDrivers = (): void => {
-    console.log("Email drivers has not been implemented yet")
-  }
+    console.log("Email drivers has not been implemented yet");
+  };
 
   // Final option selected (Email/Download)
   const handleFinalAction = (action: string): void => {
     if (action === "Email Drivers") {
       handleEmailDrivers();
     } else if (action === "Download Drivers") {
-      setPopupMode("CSV")
+      setPopupMode("CSV");
     } else if (action === "Download Doordash") {
-      setPopupMode("Doordash")
+      setPopupMode("Doordash");
     }
     handleClose();
   };
@@ -619,7 +645,7 @@ useEffect(() => {
 
   //Handle assigning driver
   const assignDriver = async () => {
-    if(driver){
+    if (driver) {
       try {
         selectedClusters.forEach(async (cluster) => {
           const driverRef = doc(db, "Drivers", driver.id);
@@ -628,13 +654,13 @@ useEffect(() => {
             id: cluster.id,
             time: cluster.time,
             deliveries: cluster.deliveries,
-            driver: driverRef, 
+            driver: driverRef,
           };
 
           const clusterRef = doc(db, "clusters", cluster.docId);
-          await setDoc(clusterRef, newCluster); 
+          await setDoc(clusterRef, newCluster);
         });
-        
+
         //refresh clusters after assignment
         const clustersCollectionRef = collection(db, "clusters");
         const clustersSnapshot = await getDocs(clustersCollectionRef);
@@ -643,13 +669,13 @@ useEffect(() => {
           return {
             docId: doc.id,
             id: data.id,
-            time: data.time || "", 
-            driver: data.driver || null, 
-            deliveries: data.deliveries || [], 
+            time: data.time || "",
+            driver: data.driver || null,
+            deliveries: data.deliveries || [],
           };
         });
         setClusters(clustersData);
-        
+
         resetSelections();
       } catch (error) {
         console.error("Error assigning drivers: ", error);
@@ -670,7 +696,7 @@ useEffect(() => {
 
   //Handle assigning time
   const assignTime = async () => {
-    if(time){
+    if (time) {
       try {
         // Use forEach to iterate over the Set
         selectedClusters.forEach(async (cluster) => {
@@ -678,12 +704,12 @@ useEffect(() => {
             id: cluster.id,
             time: time,
             deliveries: cluster.deliveries,
-            driver: cluster.driver, 
+            driver: cluster.driver,
           };
           const clusterRef = doc(db, "clusters", cluster.docId);
-          await setDoc(clusterRef, newCluster); 
+          await setDoc(clusterRef, newCluster);
         });
-        
+
         // refresh clusters after assignment
         const clustersCollectionRef = collection(db, "clusters");
         const clustersSnapshot = await getDocs(clustersCollectionRef);
@@ -692,13 +718,13 @@ useEffect(() => {
           return {
             docId: doc.id,
             id: data.id,
-            time: data.time || "", 
-            driver: data.driver || null, 
-            deliveries: data.deliveries || [], 
+            time: data.time || "",
+            driver: data.driver || null,
+            deliveries: data.deliveries || [],
           };
         });
         setClusters(clustersData);
-        
+
         resetSelections();
       } catch (error) {
         console.error("Error assigning time: ", error);
@@ -706,105 +732,113 @@ useEffect(() => {
     }
   };
 
-    //Handle generating clusters
-    const generateClusters = async () => {
-      try {
-        const token = await auth.currentUser?.getIdToken();
-        const addresses = visibleRows.map(row => row.address);
-        if(clusterNum == 0){
-          throw new Error("Must have at least one cluster")
-        }
+  //Handle generating clusters
+  const generateClusters = async () => {
+    try {
+      const token = await auth.currentUser?.getIdToken();
+      const addresses = visibleRows.map((row) => row.address);
+      if (clusterNum === 0) {
+        throw new Error("Must have at least one cluster");
+      }
 
-        if(addresses.length == 0){
-          throw new Error("No deliveries for today")
-        }
+      if (addresses.length === 0) {
+        throw new Error("No deliveries for today");
+      }
 
-        if(clusterNum*minDeliveries > addresses.length){
-          throw new Error("Minimum deliveries it higher than the deliveries")
-        }
+      if (clusterNum * minDeliveries > addresses.length) {
+        throw new Error("Minimum deliveries it higher than the deliveries");
+      }
 
-        // Convert addresses to coordinates
-        const response = await fetch('https://geocode-addresses-endpoint-lzrplp4tfa-uc.a.run.app', {
-          method: 'POST',
+      // Convert addresses to coordinates
+      const response = await fetch(
+        "https://geocode-addresses-endpoint-lzrplp4tfa-uc.a.run.app",
+        {
+          method: "POST",
           headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            addresses: addresses
+            addresses: addresses,
           }),
-        });
-        
-        if (!response.ok) {
-          throw new Error("Failed to fetch");
         }
-        
-        const { coordinates } = await response.json();
-        setCoordinates(coordinates);
-        console.log(coordinates);
-    
-        // Generate clusters based on coordinates
-        const clusterResponse = await fetch('https://cluster-deliveries-k-means-lzrplp4tfa-uc.a.run.app', {
-          method: 'POST',
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch");
+      }
+
+      const { coordinates } = await response.json();
+      setCoordinates(coordinates);
+      console.log(coordinates);
+
+      // Generate clusters based on coordinates
+      const clusterResponse = await fetch(
+        "https://cluster-deliveries-k-means-lzrplp4tfa-uc.a.run.app",
+        {
+          method: "POST",
           headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
           },
           body: JSON.stringify({
             coords: coordinates,
             drivers_count: clusterNum,
-            min_deliveries: minDeliveries,  
-            max_deliveries: maxDeliveries
+            min_deliveries: minDeliveries,
+            max_deliveries: maxDeliveries,
           }),
-        });
-    
-        const clusterData = await clusterResponse.json();
-        setGeneratedClusters(clusterData.clusters);
-        console.log(clusterData);
-    
-        // Update each user's cluster assignment
-        const updatePromises = [];
-        for (const [clusterName, indices] of Object.entries(clusterData.clusters)) {
-          const clusterNum = clusterName.split('-')[1]; // Get cluster number
-          for (const index of indices as number[]) {
-            const user = visibleRows[index];
-            if (user) {
-              updatePromises.push(updateCluster(user.id, clusterNum));
-            }
+        }
+      );
+
+      const clusterData = await clusterResponse.json();
+      setGeneratedClusters(clusterData.clusters);
+      console.log(clusterData);
+
+      // Update each user's cluster assignment
+      const updatePromises = [];
+      for (const [clusterName, indices] of Object.entries(clusterData.clusters)) {
+        const clusterNum = clusterName.split("-")[1]; // Get cluster number
+        for (const index of indices as number[]) {
+          const user = visibleRows[index];
+          if (user) {
+            updatePromises.push(updateCluster(user.id, clusterNum));
           }
         }
-    
-        await Promise.all(updatePromises);
-    
-        // Refresh the data
-        const snapshot = await getDocs(collection(db, "clients"));
-        const updatedData = snapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...(doc.data() as Omit<RowData, "id">),
-        }));
-        setRows(updatedData);
-        resetSelections();
-      } catch (error: any) {
-        setClusterError(error.toString());
       }
-    };
+
+      await Promise.all(updatePromises);
+
+      // Refresh the data
+      const snapshot = await getDocs(collection(db, "clients"));
+      const updatedData = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...(doc.data() as Omit<RowData, "id">),
+      }));
+      setRows(updatedData);
+      resetSelections();
+    } catch (error: any) {
+      setClusterError(error.toString());
+    }
+  };
 
   // Handle checkbox selection
   const handleCheckboxChange = (id: string) => {
     const newSelectedRows = new Set(selectedRows);
     const newSelectedClusters = new Set(selectedClusters);
     const rowToToggle = rows.find((row) => row.id === id);
-  
+
     if (rowToToggle) {
       const clusterID = rowToToggle.clusterID;
       if (clusterID) {
         const cluster = clusters.find((c) => c.id.toString() === clusterID);
-        const rowsWithSameClusterID = rows.filter((row) => row.clusterID === clusterID);
-        
+        const rowsWithSameClusterID = rows.filter(
+          (row) => row.clusterID === clusterID
+        );
+
         if (cluster) {
           // Check if the current row is already selected
           const isSelected = newSelectedRows.has(id);
-          
+
           // Toggle selection for all rows with the same clusterID
           rowsWithSameClusterID.forEach((row) => {
             if (isSelected) {
@@ -813,7 +847,7 @@ useEffect(() => {
               newSelectedRows.add(row.id); // Select all
             }
           });
-          
+
           if (isSelected) {
             newSelectedClusters.delete(cluster);
           } else {
@@ -822,58 +856,58 @@ useEffect(() => {
         }
       }
     }
-    
+
     setSelectedClusters(newSelectedClusters);
     setSelectedRows(newSelectedRows);
   };
 
   // Filter rows to only show clients with deliveries on selected date
-  const clientsWithDeliveries = rows.filter(row => 
-    deliveriesForDate.some(delivery => delivery.clientId === row.id)
+  const clientsWithDeliveries = rows.filter((row) =>
+    deliveriesForDate.some((delivery) => delivery.clientId === row.id)
   );
 
   // Filter rows based on search query
-  let visibleRows = clientsWithDeliveries.filter(
-    (row) =>
-      fields.some((field) => {
-        if (field.key === "checkbox") return false;
-        
-        if (field.key === "assignedDriver") {
-          // Get driver name from cluster
-          if (!row.clusterID) return false;
-          const cluster = clusters.find(c => c.id.toString() === row.clusterID);
-          if (!cluster || !cluster.driver) return false;
-          
-          const driverId = typeof cluster.driver === 'object' ? cluster.driver.id : null;
-          if (!driverId) return false;
-          
-          const driver = drivers.find(d => d.id === driverId);
-          const driverName = driver ? driver.name : "";
-          
-          return driverName.toLowerCase().includes(searchQuery.toLowerCase());
-        }
-        
-        if (field.key === "assignedTime") {
-          // Get time from cluster
-          if (!row.clusterID) return false;
-          const cluster = clusters.find(c => c.id.toString() === row.clusterID);
-          if (!cluster || !cluster.time) return false;
-          
-          return cluster.time.toLowerCase().includes(searchQuery.toLowerCase());
-        }
-        
-        const fieldValue = field.compute && field.compute.length === 1
+  let visibleRows = clientsWithDeliveries.filter((row) =>
+    fields.some((field) => {
+      if (field.key === "checkbox") return false;
+
+      if (field.key === "assignedDriver") {
+        // Get driver name from cluster
+        if (!row.clusterID) return false;
+        const cluster = clusters.find((c) => c.id.toString() === row.clusterID);
+        if (!cluster || !cluster.driver) return false;
+
+        const driverId =
+          typeof cluster.driver === "object" ? cluster.driver.id : null;
+        if (!driverId) return false;
+
+        const driver = drivers.find((d) => d.id === driverId);
+        const driverName = driver ? driver.name : "";
+
+        return driverName.toLowerCase().includes(searchQuery.toLowerCase());
+      }
+
+      if (field.key === "assignedTime") {
+        // Get time from cluster
+        if (!row.clusterID) return false;
+        const cluster = clusters.find((c) => c.id.toString() === row.clusterID);
+        if (!cluster || !cluster.time) return false;
+
+        return cluster.time.toLowerCase().includes(searchQuery.toLowerCase());
+      }
+
+      const fieldValue =
+        field.compute && field.compute.length === 1
           ? field.compute(row)
-          : (field.key in row ? row[field.key as keyof RowData] : undefined);
-        
-        return (
-          fieldValue &&
-          fieldValue
-            .toString()
-            .toLowerCase()
-            .includes(searchQuery.toLowerCase())
-        );
-      })
+          : field.key in row
+            ? row[field.key as keyof RowData]
+            : undefined;
+
+      return (
+        fieldValue &&
+        fieldValue.toString().toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    })
   );
 
   const [open, setOpen] = React.useState(false);
@@ -881,7 +915,7 @@ useEffect(() => {
 
   const handleToggle = () => {
     setOpen((prevOpen) => !prevOpen);
-    };
+  };
 
   const handleClosePopper = (event: Event | React.SyntheticEvent) => {
     if (
@@ -890,9 +924,9 @@ useEffect(() => {
     ) {
       return;
     }
-    if(event && 'nativeEvent' in event) {
+    if (event && "nativeEvent" in event) {
       const target = event.nativeEvent.target as HTMLElement;
-      const militaryTime =convertTo24Hour(target?.innerText);
+      const militaryTime = convertTo24Hour(target?.innerText);
       setTime(militaryTime);
     }
 
@@ -901,34 +935,34 @@ useEffect(() => {
 
   React.useEffect(() => {
     if (time) {
-        assignTime();
+      assignTime();
     }
-}, [time]);
+  }, [time]);
 
-       function convertTo24Hour(time: string) {
-        let [hours, minutes, modifier] = time.split(/:| /);
-    
-        // Parse hours and minutes as integers
-        hours = parseInt(hours, 10).toString();
-        minutes = minutes || "00";
-  
-        if (modifier === "AM") {
-            // Convert "12 AM" to "00"
-            hours = hours === "12" ? "00" : hours.padStart(2, "0");
-        } else if (modifier === "PM") {
-            // Convert "12 PM" to "12" and other PM hours to 24-hour format
-            hours = hours === "12" ? "12" : (parseInt(hours, 10) + 12).toString();
-        }
+  function convertTo24Hour(time: string) {
+    let [hours, minutes, modifier] = time.split(/:| /);
 
-        // Ensure hours and minutes are always two digits
-        return hours + ":" + minutes;
+    // Parse hours and minutes as integers
+    hours = parseInt(hours, 10).toString();
+    minutes = minutes || "00";
+
+    if (modifier === "AM") {
+      // Convert "12 AM" to "00"
+      hours = hours === "12" ? "00" : hours.padStart(2, "0");
+    } else if (modifier === "PM") {
+      // Convert "12 PM" to "12" and other PM hours to 24-hour format
+      hours = hours === "12" ? "12" : (parseInt(hours, 10) + 12).toString();
     }
+
+    // Ensure hours and minutes are always two digits
+    return hours + ":" + minutes;
+  }
 
   function handleListKeyDown(event: React.KeyboardEvent) {
-    if (event.key === 'Tab') {
+    if (event.key === "Tab") {
       event.preventDefault();
       setOpen(false);
-    } else if (event.key === 'Escape') {
+    } else if (event.key === "Escape") {
       setOpen(false);
     }
   }
@@ -944,143 +978,170 @@ useEffect(() => {
   }, [open]);
 
   return (
-    <Box className="box" sx={{ display: "flex", flexDirection: "column", height: "100vh" }}>
-      <div style={{display: "flex", alignItems: "center", justifyContent:"space-between"}}>
-
-      <Box sx={{ 
-        display: "flex",
-        alignItems: "center",
-        padding: "16px",
-        backgroundColor: "#fff",
-        zIndex: 10,
-        position: "sticky",
-        top: 0,
-        width: "100%"
-      }}>
-        <Typography variant="h4" sx={{ marginRight: 2, width: "170px", color: "#787777" }}>
-          {format(selectedDate, 'EEEE')}
-        </Typography>
-        
+    <Box
+      className="box"
+      sx={{ display: "flex", flexDirection: "column", height: "100vh" }}
+    >
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+        }}
+      >
         <Box
           sx={{
             display: "flex",
-            justifyContent: "center",
             alignItems: "center",
-            width: "40px",
-            height: "40px",
-            backgroundColor: "#257E68",
-            borderRadius: "90%",
-            marginRight: 2,
+            padding: "16px",
+            backgroundColor: "#fff",
+            zIndex: 10,
+            position: "sticky",
+            top: 0,
+            width: "100%",
           }}
         >
-          <Typography variant="h5" sx={{ color: "#fff"}}>
-            {format(selectedDate, 'd')}
+          <Typography
+            variant="h4"
+            sx={{ marginRight: 2, width: "170px", color: "#787777" }}
+          >
+            {format(selectedDate, "EEEE")}
           </Typography>
-        </Box>
-  
-        <IconButton
-          onClick={() => setSelectedDate(addDays(selectedDate, -1))}
-          size="large"
-          sx={{ color: "#257E68" }}
-        >
+
           <Box
             sx={{
-              width: 12,
-              height: 12,
-              borderLeft: "2px solid #257E68",
-              borderBottom: "2px solid #257E68",
-              transform: "rotate(45deg)",
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              width: "40px",
+              height: "40px",
+              backgroundColor: "#257E68",
+              borderRadius: "90%",
+              marginRight: 2,
             }}
-          />
-        </IconButton>
-  
-        <IconButton
-          onClick={() => setSelectedDate(addDays(selectedDate, 1))}
-          size="large"
-          sx={{ color: "#257E68" }}
-        >
-          <Box
-            sx={{
-              width: 12,
-              height: 12,
-              borderLeft: "2px solid #257E68",
-              borderBottom: "2px solid #257E68",
-              transform: "rotate(-135deg)",
-            }}
-          />
-        </IconButton>
-  
-        <Button
-          sx={{ width: 50, fontSize: 12, marginLeft: 4 }}
-          onClick={() => setSelectedDate(new Date())}
-        >
-          Today
-        </Button>
-      </Box>
-      <Button
-              variant="contained"
-              color="secondary"
-              className="view-all"
-              onClick={() => {
-                setPopupMode("Clusters");
-              }}
+          >
+            <Typography variant="h5" sx={{ color: "#fff" }}>
+              {format(selectedDate, "d")}
+            </Typography>
+          </Box>
+
+          <IconButton
+            onClick={() => setSelectedDate(addDays(selectedDate, -1))}
+            size="large"
+            sx={{ color: "#257E68" }}
+          >
+            <Box
               sx={{
-                whiteSpace: "nowrap",
-                padding: "0% 2%",
-                borderRadius: "5px",
-                width: "10%",
-                backgroundColor: "#257E68" + " !important",
+                width: 12,
+                height: 12,
+                borderLeft: "2px solid #257E68",
+                borderBottom: "2px solid #257E68",
+                transform: "rotate(45deg)",
               }}
-            >
-              Generate<br></br>Clusters
-            </Button>
+            />
+          </IconButton>
+
+          <IconButton
+            onClick={() => setSelectedDate(addDays(selectedDate, 1))}
+            size="large"
+            sx={{ color: "#257E68" }}
+          >
+            <Box
+              sx={{
+                width: 12,
+                height: 12,
+                borderLeft: "2px solid #257E68",
+                borderBottom: "2px solid #257E68",
+                transform: "rotate(-135deg)",
+              }}
+            />
+          </IconButton>
+
+          <Button
+            sx={{ width: 50, fontSize: 12, marginLeft: 4 }}
+            onClick={() => setSelectedDate(new Date())}
+          >
+            Today
+          </Button>
+        </Box>
+        <Button
+          variant="contained"
+          color="secondary"
+          className="view-all"
+          onClick={() => {
+            setPopupMode("Clusters");
+          }}
+          sx={{
+            whiteSpace: "nowrap",
+            padding: "0% 2%",
+            borderRadius: "5px",
+            width: "10%",
+            backgroundColor: "#257E68 !important",
+          }}
+        >
+          Generate<br></br>Clusters
+        </Button>
       </div>
 
-  
       {/* Map Container */}
-      <Box sx={{ 
-        top: "72px", 
-        zIndex: 9, 
-        height: "400px",
-        width: "100%",
-        backgroundColor: "#fff"
-      }}>
+      <Box
+        sx={{
+          top: "72px",
+          zIndex: 9,
+          height: "400px",
+          width: "100%",
+          backgroundColor: "#fff",
+        }}
+      >
         {isLoading ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              height: "100%",
+            }}
+          >
             <CircularProgress />
           </Box>
         ) : visibleRows.length > 0 ? (
-          <ClusterMap 
-            addresses={visibleRows.map(row => row.address)}
+          <ClusterMap
+            addresses={visibleRows.map((row) => row.address)}
             coordinates={coordinates}
             clusters={generatedClusters}
-            clientNames={visibleRows.map(row => `${row.firstName} ${row.lastName}`)}
+            clientNames={visibleRows.map(
+              (row) => `${row.firstName} ${row.lastName}`
+            )}
           />
         ) : (
-          <Box sx={{
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            height: '100%',
-            backgroundColor: '#f5f5f5',
-            borderRadius: '4px',
-            border: '1px solid #ddd'
-          }}>
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              height: "100%",
+              backgroundColor: "#f5f5f5",
+              borderRadius: "4px",
+              border: "1px solid #ddd",
+            }}
+          >
             <Typography variant="h6" color="textSecondary">
               No deliveries for selected date
             </Typography>
           </Box>
         )}
       </Box>
-  
+
       {/* Search Bar */}
-      <Box sx={{ 
-        width: "100%", 
-        zIndex: 8, 
-        backgroundColor: "#fff", 
-        padding: "16px 0",
-        top: "472px", 
-      }}>
+      <Box
+        sx={{
+          width: "100%",
+          zIndex: 8,
+          backgroundColor: "#fff",
+          padding: "16px 0",
+          top: "472px",
+        }}
+      >
         <Box sx={{ display: "flex", flexDirection: "column", gap: "8px" }}>
           <Box sx={{ position: "relative", width: "100%" }}>
             <Search
@@ -1151,7 +1212,8 @@ useEffect(() => {
                   padding: "0% 2%",
                   borderRadius: "5px",
                   width: "10%",
-                  backgroundColor: (selectedRows.size <= 0 ? "gray" : "#257E68") + " !important",
+                  backgroundColor:
+                    (selectedRows.size <= 0 ? "gray" : "#257E68") + " !important",
                 }}
               >
                 Assign Driver
@@ -1169,26 +1231,27 @@ useEffect(() => {
                   padding: "0% 2%",
                   borderRadius: "5px",
                   width: "10%",
-                  backgroundColor: (selectedRows.size <= 0 ? "gray" : "#257E68") + " !important",
+                  backgroundColor:
+                    (selectedRows.size <= 0 ? "gray" : "#257E68") + " !important",
                 }}
               >
                 Assign Time
               </Button>
               <Button
-                  variant="contained"
-                  color="secondary"
-                  className="view-all"
-                  onClick={handleButtonClick}
-                  sx={{
-                    whiteSpace: "nowrap",
-                    padding: "0% 2%",
-                    borderRadius: "5px",
-                    width: "10%",
-                    backgroundColor: "#257e68",
-                    marginLeft: "auto"
-                  }}
-                >
-                  Export
+                variant="contained"
+                color="secondary"
+                className="view-all"
+                onClick={handleButtonClick}
+                sx={{
+                  whiteSpace: "nowrap",
+                  padding: "0% 2%",
+                  borderRadius: "5px",
+                  width: "10%",
+                  backgroundColor: "#257e68",
+                  marginLeft: "auto",
+                }}
+              >
+                Export
               </Button>
 
               {/* Step 1: Main Menu */}
@@ -1198,8 +1261,12 @@ useEffect(() => {
                 onClose={handleClose}
                 MenuListProps={{ sx: { minWidth: 140 } }}
               >
-                <MenuItem onClick={() => handleParentSelect("Route")}>Route</MenuItem>
-                <MenuItem onClick={() => handleParentSelect("Doordash")}>Doordash</MenuItem>
+                <MenuItem onClick={() => handleParentSelect("Route")}>
+                  Route
+                </MenuItem>
+                <MenuItem onClick={() => handleParentSelect("Doordash")}>
+                  Doordash
+                </MenuItem>
               </Menu>
 
               {/* Step 2: Submenu based on choice */}
@@ -1229,40 +1296,91 @@ useEffect(() => {
           </Box>
         </Box>
       </Box>
-  
-      <Box sx={{ 
-        flex: 1, 
-        display: "flex", 
-        flexDirection: "column",
-        margin: "0 auto",
-        paddingBottom: "2vh",
-        width: "100%",
-        maxHeight: "none" 
-      }}>
-        <TableContainer component={Paper} sx={{ 
-              maxHeight: "none",
-              height: "auto", 
-              width: "100%" 
-          }}>
+
+      <Box
+        sx={{
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+          margin: "0 auto",
+          paddingBottom: "2vh",
+          width: "100%",
+          maxHeight: "none",
+        }}
+      >
+        <TableContainer
+          component={Paper}
+          sx={{
+            maxHeight: "none",
+            height: "auto",
+            width: "100%",
+          }}
+        >
           <Table>
             <TableHead>
               <TableRow>
                 {fields.map((field) => (
-                  <TableCell className="table-header" key={field.key} style={{ width: field.width }} sx={{ textAlign: "center" }}>
+                  <TableCell
+                    className="table-header"
+                    key={field.key}
+                    style={{ width: field.width }}
+                    sx={{ textAlign: "center" }}
+                  >
                     <h2 style={{ fontWeight: "bold" }}>{field.label}</h2>
                   </TableCell>
                 ))}
                 <TableCell className="table-header"></TableCell>
+                {/* Adding custom columns */}
+                {/*  Headers for custom columns */}
+                {customColumns.map((col) => (
+                  <TableCell className="table-header" key={col.id}>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                      <Select
+                        value={col.propertyKey}
+                        onChange={(event) => handleCustomHeaderChange(event, col.id)}
+                        variant="outlined"
+                        displayEmpty
+                        sx={{ minWidth: 120, color: "#257e68" }}
+                      >
+                        <MenuItem value="ethnicity">Ethnicity</MenuItem>
+                        <MenuItem value="language">Language</MenuItem>
+                        <MenuItem value="dob">DOB</MenuItem>
+                        <MenuItem value="gender">Gender</MenuItem>
+                        <MenuItem value="zipCode">Zip Code</MenuItem>
+                        <MenuItem value="streetName">Street Name</MenuItem>
+                        <MenuItem value="ward">Ward</MenuItem>
+                        <MenuItem value="none">None</MenuItem>
+                      </Select>
+                      {/*Add Remove Button*/}
+                      <IconButton
+                        size="small"
+                        onClick={() => handleRemoveCustomColumn(col.id)} // Call remove handler
+                        aria-label={`Remove ${col.label || "custom"} column`}
+                        title={`Remove ${col.label || "custom"} column`} // Tooltip for accessibility
+                      >
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </Box>
+                  </TableCell>
+                ))}
+
+                {/* Add button cell */}
+                <TableCell className="table-header" style={{ textAlign: "right" }}>
+                  <IconButton
+                    onClick={handleAddCustomColumn}
+                    color="primary"
+                    aria-label="add custom column"
+                  >
+                    <AddIcon sx={{ color: "#257e68" }} />
+                  </IconButton>
+                </TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {visibleRows.map((row) => (
-                <TableRow
-                  key={row.id}
-                  className={"table-row"}
-                >
+                <TableRow key={row.id} className={"table-row"}>
                   {fields.map((field) => (
-                    <TableCell key={field.key} style={{  }}>
+                    <TableCell key={field.key} style={{}}>
                       {field.key === "checkbox" ? (
                         <Checkbox
                           checked={selectedRows.has(row.id)}
@@ -1282,50 +1400,56 @@ useEffect(() => {
                       ) : field.key === "tags" && field.compute ? (
                         field.compute(row)
                       ) : field.key === "assignedDriver" && field.compute ? (
-                        <div style={{
-                          backgroundColor: "white",
-                          minHeight: "30px", // Ensures a consistent height
-                          width: "95%",
-                          padding: "5px",
-                          display: "flex",
-                          fontSize: "13px",
-                          textAlign: "center",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          whiteSpace: "pre-wrap",
-                          overflow: "auto",
-                        }}>
-                          { field.compute(row, clusters, drivers) }
+                        <div
+                          style={{
+                            backgroundColor: "white",
+                            minHeight: "30px", // Ensures a consistent height
+                            width: "95%",
+                            padding: "5px",
+                            display: "flex",
+                            fontSize: "13px",
+                            textAlign: "center",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            whiteSpace: "pre-wrap",
+                            overflow: "auto",
+                          }}
+                        >
+                          {field.compute(row, clusters, drivers)}
                         </div>
                       ) : field.key === "assignedTime" && field.compute ? (
-                        <div style={{
-                          backgroundColor: "white",
-                          minHeight: "30px", // Ensures a consistent height
-                          width: "95%",
-                          padding: "5px",
-                          display: "flex",
-                          fontSize: "13px",
-                          textAlign: "center",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          whiteSpace: "pre-wrap",
-                          overflow: "auto",
-                        }}>
-                          { field.compute(row, clusters) }
+                        <div
+                          style={{
+                            backgroundColor: "white",
+                            minHeight: "30px", // Ensures a consistent height
+                            width: "95%",
+                            padding: "5px",
+                            display: "flex",
+                            fontSize: "13px",
+                            textAlign: "center",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            whiteSpace: "pre-wrap",
+                            overflow: "auto",
+                          }}
+                        >
+                          {field.compute(row, clusters)}
                         </div>
                       ) : field.key === "phone" && field.compute ? (
                         field.compute(row)
                       ) : field.key === "deliveryDetails.deliveryInstructions" ? (
-                        <div style={{
-                          backgroundColor: "white",
-                          minHeight: "70px",
-                          padding: "10px",
-                          display: "flex",
-                          alignItems: "left",
-                          whiteSpace: "pre-wrap",
-                          overflow: "auto",
-                        }}>
-                          { field.compute(row) }
+                        <div
+                          style={{
+                            backgroundColor: "black",
+                            minHeight: "70px",
+                            padding: "10px",
+                            display: "flex",
+                            alignItems: "left",
+                            whiteSpace: "pre-wrap",
+                            overflow: "auto",
+                          }}
+                        >
+                          {field.compute(row)}
                         </div>
                       ) : isRegularField(field) ? (
                         row[field.key]
@@ -1339,28 +1463,46 @@ useEffect(() => {
           </Table>
         </TableContainer>
       </Box>
-  
+
       {/* Popup Dialog */}
-      <Dialog 
-        open={innerPopup && !showEditDriverList} 
+      <Dialog
+        open={innerPopup && !showEditDriverList}
         onClose={() => resetSelections()}
-        PaperProps={{sx: {width: "48%", maxWidth: "900px", padding: "0"}}}
+        PaperProps={{ sx: { width: "48%", maxWidth: "900px", padding: "0" } }}
       >
         <DialogTitle>
-          {popupMode === "Time" ? "Select a time" : 
-           popupMode === "Driver" ? "Assign a Driver" : 
-           popupMode === "Clusters" ? "Generate Clusters" :
-           popupMode === "CSV" ? "Export Drivers" :
-           popupMode === "Doordash" ? "Export Doordash" : ""}
+          {popupMode === "Time"
+            ? "Select a time"
+            : popupMode === "Driver"
+              ? "Assign a Driver"
+              : popupMode === "Clusters"
+                ? "Generate Clusters"
+                : popupMode === "CSV"
+                  ? "Export Drivers"
+                  : popupMode === "Doordash"
+                    ? "Export Doordash"
+                    : ""}
         </DialogTitle>
         <DialogContent>
           {popupMode === "Driver" ? (
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: '300px' }}>
+            <Box
+              sx={{
+                display: "flex",
+                flexDirection: "column",
+                gap: 2,
+                minWidth: "300px",
+              }}
+            >
               <Autocomplete
                 freeSolo
                 options={[
-                  { id: 'edit_list', name: 'Edit Driver List >', phone: '', email: '' } as DriverOption,
-                  ...drivers
+                  {
+                    id: "edit_list",
+                    name: "Edit Driver List >",
+                    phone: "",
+                    email: "",
+                  } as DriverOption,
+                  ...drivers,
                 ]}
                 getOptionLabel={(option) => {
                   if (typeof option === "string") return option;
@@ -1369,7 +1511,7 @@ useEffect(() => {
                 onChange={(event, value) => {
                   if (value) {
                     if (typeof value !== "string") {
-                      if (value.id === 'edit_list') {
+                      if (value.id === "edit_list") {
                         setShowEditDriverList(true);
                         setDriver(null); // Clear selected driver when opening edit list
                       } else {
@@ -1382,7 +1524,7 @@ useEffect(() => {
                 }}
                 isOptionEqualToValue={(option, value) => {
                   // Prevent "Edit Driver List" from being selected as a value
-                  if (option.id === 'edit_list') return false;
+                  if (option.id === "edit_list") return false;
                   return option.id === value.id;
                 }}
                 onInputChange={(event, newValue) => setDriverSearchQuery(newValue)}
@@ -1397,10 +1539,13 @@ useEffect(() => {
                   />
                 )}
                 renderOption={(props, option) => (
-                  <li {...props} style={{ 
-                    color: option.id === 'edit_list' ? '#257E68' : 'inherit',
-                    fontWeight: option.id === 'edit_list' ? 'bold' : 'normal'
-                  }}>
+                  <li
+                    {...props}
+                    style={{
+                      color: option.id === "edit_list" ? "#257E68" : "inherit",
+                      fontWeight: option.id === "edit_list" ? "bold" : "normal",
+                    }}
+                  >
                     {option.name}
                   </li>
                 )}
@@ -1435,20 +1580,26 @@ useEffect(() => {
               </Typography>
             </Box>
           ) : popupMode === "Clusters" ? (
-            <Box sx={{ 
-              display: "flex", 
-              flexDirection: "column", 
-              gap: "20px",
-              padding: "8px 0"
-            }}>
+            <Box
+              sx={{
+                display: "flex",
+                flexDirection: "column",
+                gap: "20px",
+                padding: "8px 0",
+              }}
+            >
               {/* Cluster Number Input */}
-              <Box sx={{
-                display: "flex", 
-                alignItems: "center", 
-                gap: "10px",
-                justifyContent: "space-between"
-              }}>
-                <Typography variant="body1">Enter desired number of clusters:</Typography>
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "10px",
+                  justifyContent: "space-between",
+                }}
+              >
+                <Typography variant="body1">
+                  Enter desired number of clusters:
+                </Typography>
                 <TextField
                   type="number"
                   value={clusterNum}
@@ -1459,21 +1610,29 @@ useEffect(() => {
                   variant="outlined"
                 />
               </Box>
-  
+
               {/* Deliveries Range Input */}
-              <Box sx={{
-                display: "flex", 
-                flexDirection: "column",
-                gap: "10px",
-                marginTop: "20px"
-              }}>
-                <Typography variant="body2"><b><u>Deliveries Per Cluster:</u></b></Typography>
-                <Box sx={{
-                  display: "flex", 
-                  alignItems: "center", 
+              <Box
+                sx={{
+                  display: "flex",
+                  flexDirection: "column",
                   gap: "10px",
-                  justifyContent: "space-between"
-                }}>
+                  marginTop: "20px",
+                }}
+              >
+                <Typography variant="body2">
+                  <b>
+                    <u>Deliveries Per Cluster:</u>
+                  </b>
+                </Typography>
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "10px",
+                    justifyContent: "space-between",
+                  }}
+                >
                   <Typography variant="body2">Minimum:</Typography>
                   <TextField
                     type="number"
@@ -1484,7 +1643,7 @@ useEffect(() => {
                     size="small"
                     variant="outlined"
                   />
-                  
+
                   <Typography variant="body2">Maximum:</Typography>
                   <TextField
                     type="number"
@@ -1496,7 +1655,9 @@ useEffect(() => {
                     variant="outlined"
                   />
                 </Box>
-                {clusterError ? <Typography color="error">{clusterError}</Typography> : null}
+                {clusterError ? (
+                  <Typography color="error">{clusterError}</Typography>
+                ) : null}
               </Box>
             </Box>
           ) : null}
@@ -1505,7 +1666,7 @@ useEffect(() => {
           sx={{
             width: "100%",
             padding: 0,
-            display: "flex"
+            display: "flex",
           }}
         >
           <Button
@@ -1520,15 +1681,20 @@ useEffect(() => {
               fontWeight: "bold",
             }}
             onClick={() => {
-              popupMode === "Driver" ? assignDriver() :
-              popupMode === "Time" ? assignTime() :
-              popupMode === "CSV" ? setExportCSV(true) :
-              popupMode === "Doordash" ? setExportDoordash(true) :
-              popupMode === "Clusters" ? generateClusters() :
-              console.log("invalid")
+              popupMode === "Driver"
+                ? assignDriver()
+                : popupMode === "Time"
+                  ? assignTime()
+                  : popupMode === "CSV"
+                    ? setExportCSV(true)
+                    : popupMode === "Doordash"
+                      ? setExportDoordash(true)
+                      : popupMode === "Clusters"
+                        ? generateClusters()
+                        : console.log("invalid");
             }}
           >
-            {(popupMode === "CSV" || popupMode === "Doordash") ? "YES" : "SAVE"}
+            {popupMode === "CSV" || popupMode === "Doordash" ? "YES" : "SAVE"}
           </Button>
           <Button
             color="secondary"
@@ -1543,10 +1709,9 @@ useEffect(() => {
             }}
             onClick={() => resetSelections()}
           >
-            {(popupMode === "CSV" || popupMode === "Doordash") ? "NO" : "CANCEL"}
+            {popupMode === "CSV" || popupMode === "Doordash" ? "NO" : "CANCEL"}
           </Button>
         </DialogActions>
-        
       </Dialog>
 
       {/* Replace the old driver management modal with the new component */}
@@ -1563,8 +1728,8 @@ useEffect(() => {
   );
 };
 
-
-{/* <Button
+{
+  /* <Button
   fullWidth
   sx={{
     flex: 1,
@@ -1593,5 +1758,6 @@ useEffect(() => {
   onClick={() => {setPopupMode(""); popupMode == "Driver" ? setDriver(null): setTime("")}}
 >
   CANCEL
-</Button> */}
+</Button> */
+}
 export default DeliverySpreadsheet;
