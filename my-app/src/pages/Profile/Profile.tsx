@@ -236,7 +236,7 @@ const Profile = () => {
   const [clientId, setClientId] = useState<string | null>(null); // Allow clientId to be either a string or null
   const [isSaved, setIsSaved] = useState(false); // Tracks whether it's the first save
   const [ward, setWard] = useState(clientProfile.ward);
-  const [isEditing, setIsEditing] = useState(false); // Global editing state
+  const [isEditing, setIsEditing] = useState(true); // Global editing state
   const [lastDeliveryDate, setLastDeliveryDate] = useState<string | null>(null);
   const [profileLoaded, setProfileLoaded] = useState(false); // Track if profile is loaded
   const [prevNotes, setPrevNotes] = useState("");
@@ -714,14 +714,14 @@ const Profile = () => {
 
     try {
       const currNotes = clientProfile.notes;
-  
+
       let updatedNotesTimestamp = checkIfNotesExists(currNotes, clientProfile.notesTimestamp || null);
       updatedNotesTimestamp = checkIfNotesChanged(prevNotes, currNotes, updatedNotesTimestamp);
-  
+
       console.log("Previous notes:", prevNotes);
       console.log("Current notes:", currNotes);
       console.log("Timestamp updated:", updatedNotesTimestamp !== clientProfile.notesTimestamp);
-      
+
       // Update the clientProfile object with the latest tags state
       const updatedProfile = {
         ...clientProfile,
@@ -782,7 +782,7 @@ const Profile = () => {
       setShowSavePopup(true);
       // Hide popup after 2 seconds
       setTimeout(() => setShowSavePopup(false), 2000);
-      
+
     } catch (e) {
       console.error("Error saving document: ", e);
     }
@@ -801,16 +801,16 @@ const Profile = () => {
 
       const isDisabledField = ["city", "state", "zipCode", "quadrant"].includes(fieldPath);
 
-        const handleTag = (text: any) => {
-        if (tags.includes(text)) {
-          const updatedTags = tags.filter((t) => t !== text);
-          setTags(updatedTags); 
-        } 
-        else if(text.trim() != ""){
-          const updatedTags = [...tags, text.trim()]; 
-          setTags(updatedTags); 
-        }
-      };
+    const handleTag = (text: any) => {
+      if (tags.includes(text)) {
+        const updatedTags = tags.filter((t) => t !== text);
+        setTags(updatedTags);
+      }
+      else if (text.trim() != "") {
+        const updatedTags = [...tags, text.trim()];
+        setTags(updatedTags);
+      }
+    };
 
     if (fieldPath === "deliveryDetails.dietaryRestrictions") {
       return renderDietaryRestrictions();
@@ -1254,20 +1254,20 @@ const initializeAutocomplete = () => {
       setClientProfile(prevClientProfile);
       setPrevClientProfile(null);
     }
-    
+
     // If we have a previous state of tags, restore it
     if (prevTags) {
       setTags(prevTags);
       setPrevTags(null);
     }
-    
+
     setIsEditing(false);
   };
-  
+
   // Function to handle selecting a case worker
   const handleCaseWorkerChange = (caseWorker: CaseWorker | null) => {
     setSelectedCaseWorker(caseWorker);
-    
+
     // Update the client profile with the case worker information
     if (caseWorker) {
       setClientProfile(prev => ({
@@ -1281,13 +1281,13 @@ const initializeAutocomplete = () => {
     } else {
       // If no case worker selected, remove the referral entity
       setClientProfile(prev => {
-        const newProfile = {...prev};
+        const newProfile = { ...prev };
         delete newProfile.referralEntity;
         return newProfile;
       });
     }
   };
-  
+
   return (
     <Box className="profile-container">
       {showSavePopup && (
@@ -1839,13 +1839,13 @@ const initializeAutocomplete = () => {
               </Typography>
               {renderField("notes", "textarea")}
               {isSaved && clientProfile.notes.trim() !== "" && (
-  <p id="timestamp">
-    Last edited: {(clientProfile.notesTimestamp && clientProfile.notesTimestamp.timestamp instanceof Timestamp
-      ? clientProfile.notesTimestamp.timestamp.toDate()
-      : (clientProfile.notesTimestamp && clientProfile.notesTimestamp.timestamp) || clientProfile.createdAt
-    ).toLocaleString()}
-  </p>
-)}
+                <p id="timestamp">
+                  Last edited: {(clientProfile.notesTimestamp && clientProfile.notesTimestamp.timestamp instanceof Timestamp
+                    ? clientProfile.notesTimestamp.timestamp.toDate()
+                    : (clientProfile.notesTimestamp && clientProfile.notesTimestamp.timestamp) || clientProfile.createdAt
+                  ).toLocaleString()}
+                </p>
+              )}
             </Box>
 
             
