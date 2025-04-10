@@ -639,6 +639,8 @@ const Profile = () => {
       ? getNestedValue(clientProfile, fieldPath)
       : clientProfile[fieldPath as keyof ClientProfile];
 
+      const isDisabledField = ["city", "state", "zipCode", "quadrant"].includes(fieldPath);
+
         const handleTag = (text: any) => {
         if (tags.includes(text)) {
           const updatedTags = tags.filter((t) => t !== text);
@@ -749,6 +751,19 @@ const Profile = () => {
               />
             </>
           );
+
+      case "text":
+        return (
+          <CustomTextField
+            type="text"
+            name={fieldPath}
+            value={String(value || "")}
+            onChange={handleChange}
+            fullWidth
+            disabled={isDisabledField} // Disable specific fields
+            inputRef={fieldPath === "address" ? addressInputRef : null} // Attach ref for address field
+          />
+        );
 
         case "textarea":
           if (fieldPath == "ward") {
@@ -966,105 +981,106 @@ const Profile = () => {
   //this ends up being used in renderField
   const addressInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    if(isEditing) {
-      // check if the Google Maps API script is already loaded
-      const script = document.createElement('script');
-      if (!window.google) {
-        
-        script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.REACT_APP_GOOGLE_MAPS_API_KEY || ""}&libraries=places`;
-        script.async = true;
-        script.defer = true;
-        
-        // initialize autocomplete when script loading finishes
-        script.onload = () => {
-          if (addressInputRef.current) {
-            const autocomplete = new window.google.maps.places.Autocomplete(
-              addressInputRef.current,
-              { 
-                types: ['address'],
-                componentRestrictions: { country: 'us' } 
-              }
-            );
-            
-            autocomplete.addListener('place_changed', () => {
-              const place = autocomplete.getPlace();
-              if (place.formatted_address) {
-                console.log(place);
-                let address = place.formatted_address;
-                // address components in json format
-                const addressComponents = place.address_components;
-                console.log(address);
-                
-                let streetNumber = '';
-                let streetName = '';
-                let city = '';
-                let state = '';
-                let zipCode = '';
-                let quadrant = ''; 
-                
-                // getting relevant components
-                if (addressComponents) {
-                  for (const component of addressComponents) {
-                    const types = component.types;
-                    
-                    if (types.includes('street_number')) {
-                      streetNumber = component.long_name;
-                    }
-                    
-                    if (types.includes('route')) {
-                      streetName = component.long_name;
-                    }
-                    
-                    if (types.includes('locality') || types.includes('sublocality')) {
-                      city = component.long_name;
-                    }
-                    
-                    if (types.includes('administrative_area_level_1')) {
-                      state = component.short_name; // Use short_name for state code (e.g., "DC" instead of "District of Columbia")
-                    }
-                    
-                    if (types.includes('postal_code')) {
-                      zipCode = component.long_name;
-                    }
-                  }
-                  
-                  // using regex to look for quadrant
-                  const quadrantMatch = address.match(/(NW|NE|SW|SE)(\s|,|$)/);
-                  if (state === "DC" && quadrantMatch) {
-                    quadrant = quadrantMatch[1];
-                  }
+  const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
 
-                  //TODO: DELETE
-                  console.log('Street Number:', streetNumber);
-                  console.log('Street Name:', streetName);
-                  console.log('City:', city);
-                  console.log('State:', state);
-                  console.log('Zip Code:', zipCode);
-                  console.log('Quadrant:', quadrant);
-                }
-                
-                // Update the client profile with all the parsed components
-                setClientProfile(prev => ({
-                  ...prev,
-                  address: `${streetNumber} ${streetName}`.trim(),
-                  city: city,
-                  state: state,
-                  zipCode: zipCode,
-                  quadrant: quadrant
-                }));
-              }
-            });
+useEffect(() => {
+  if (isEditing) {
+    // Check if the Google Maps API script is already loaded
+    if (!window.google || !window.google.maps) {
+      const script = document.createElement("script");
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.REACT_APP_GOOGLE_MAPS_API_KEY || ""}&libraries=places`;
+      script.async = true;
+      script.defer = true;
+
+      script.onload = () => {
+        initializeAutocomplete();
+      };
+
+      script.onerror = () => {
+        console.error("Failed to load Google Maps API script.");
+      };
+
+      document.head.appendChild(script);
+    } else {
+      initializeAutocomplete();
+    }
+  }
+
+  return () => {
+    // Cleanup logic if needed
+    autocompleteRef.current = null;
+  };
+}, [isEditing]);
+
+const initializeAutocomplete = () => {
+  if (addressInputRef.current && !autocompleteRef.current) {
+    autocompleteRef.current = new window.google.maps.places.Autocomplete(
+      addressInputRef.current,
+      {
+        types: ["address"],
+        componentRestrictions: { country: "us" },
+      }
+    );
+
+    console.log("Autocomplete initialized:", autocompleteRef.current);
+
+    autocompleteRef.current?.addListener("place_changed", () => {
+      const place = autocompleteRef.current?.getPlace();
+      console.log("Place selected:", place);
+      if (place?.formatted_address) {
+        const address = place.formatted_address;
+        const addressComponents = place.address_components;
+
+        let streetNumber = "";
+        let streetName = "";
+        let city = "";
+        let state = "";
+        let zipCode = "";
+        let quadrant = "";
+
+        if (addressComponents) {
+          for (const component of addressComponents) {
+            const types = component.types;
+
+            if (types.includes("street_number")) {
+              streetNumber = component.long_name;
+            }
+
+            if (types.includes("route")) {
+              streetName = component.long_name;
+            }
+
+            if (types.includes("locality") || types.includes("sublocality")) {
+              city = component.long_name;
+            }
+
+            if (types.includes("administrative_area_level_1")) {
+              state = component.short_name;
+            }
+
+            if (types.includes("postal_code")) {
+              zipCode = component.long_name;
+            }
           }
-        };
-        
-        document.head.appendChild(script);
-      } 
-    }
-    return () => {
 
-    }
-  }, [isEditing])
+          const quadrantMatch = address.match(/(NW|NE|SW|SE)(\s|,|$)/);
+          if (state === "DC" && quadrantMatch) {
+            quadrant = quadrantMatch[1];
+          }
+
+          setClientProfile((prev) => ({
+            ...prev,
+            address: `${streetNumber} ${streetName}`.trim(),
+            city: city,
+            state: state,
+            zipCode: zipCode,
+            quadrant: quadrant,
+          }));
+        }
+      }
+    });
+  }
+};
   
   
   return (
@@ -1584,30 +1600,6 @@ const Profile = () => {
               )}
             </Box>
 
-            {/* Life Challenges */}
-            <Box>
-              <Typography className="field-descriptor" sx={fieldLabelStyles}>
-                LIFE CHALLENGES
-              </Typography>
-              {renderField("lifeChallenges", "textarea")}
-            </Box>
-
-            {/* Lifestyle Goals */}
-            <Box>
-              <Typography className="field-descriptor" sx={fieldLabelStyles}>
-                LIFESTYLE GOALS
-              </Typography>
-              {renderField("lifestyleGoals", "textarea")}
-            </Box>
-
-            {/* Tags */}
-            <Box sx={{}}>
-              <Typography className="field-descriptor" sx={fieldLabelStyles}>
-                TAGS
-              </Typography>
-              {renderField("tags", "tags")}
-            </Box>
-
             
           </Box>
           
@@ -1690,7 +1682,34 @@ const Profile = () => {
               alignItems: "center",
             }}
             className="info-grid"
-          ></Box>
+          >
+
+
+            {/* Life Challenges */}
+            <Box>
+              <Typography className="field-descriptor" sx={fieldLabelStyles}>
+                LIFE CHALLENGES
+              </Typography>
+              {renderField("lifeChallenges", "textarea")}
+            </Box>
+
+            {/* Lifestyle Goals */}
+            <Box>
+              <Typography className="field-descriptor" sx={fieldLabelStyles}>
+                LIFESTYLE GOALS
+              </Typography>
+              {renderField("lifestyleGoals", "textarea")}
+            </Box>
+
+            {/* Tags */}
+            <Box sx={{}}>
+              <Typography className="field-descriptor" sx={fieldLabelStyles}>
+                TAGS
+              </Typography>
+              {renderField("tags", "tags")}
+            </Box>
+
+          </Box>
         </Box>
       </Box>
     </Box>
