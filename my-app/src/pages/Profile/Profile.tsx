@@ -3,6 +3,7 @@ import EditIcon from "@mui/icons-material/Edit";
 import PersonIcon from "@mui/icons-material/Person";
 import SaveIcon from "@mui/icons-material/Save";
 import {
+  Autocomplete,
   Box,
   Button,
   Checkbox,
@@ -18,7 +19,6 @@ import {
   TextField,
   Tooltip,
   Typography,
-  Autocomplete,
 } from "@mui/material";
 import {
   addDoc,
@@ -39,8 +39,8 @@ import { auth, db } from "../../auth/firebaseConfig";
 import "./Profile.css";
 
 import { Timestamp } from "firebase/firestore";
-import TagPopup from "./Tags/TagPopup";
 import CaseWorkerManagementModal from "../../components/CaseWorkerManagementModal";
+import TagPopup from "./Tags/TagPopup";
 
 declare global {
   interface Window {
@@ -140,8 +140,8 @@ interface ClientProfile {
   lifeChallenges: string;
   notes: string;
   notesTimestamp?: {
-    notes: string,
-    timestamp: Date
+    notes: string;
+    timestamp: Date;
   } | null;
   lifestyleGoals: string;
   language: string;
@@ -223,7 +223,7 @@ const Profile = () => {
     recurrence: "None",
     tags: [],
     ward: "",
-    tefapCert: ""
+    tefapCert: "",
   });
   const [isNewProfile, setIsNewProfile] = useState(true);
   const [editMode, setEditMode] = useState(true);
@@ -245,7 +245,9 @@ const Profile = () => {
   const [showSavePopup, setShowSavePopup] = useState(false);
   const [showCaseWorkerModal, setShowCaseWorkerModal] = useState(false);
   const [caseWorkers, setCaseWorkers] = useState<CaseWorker[]>([]);
-  const [selectedCaseWorker, setSelectedCaseWorker] = useState<CaseWorker | null>(null);
+  const [selectedCaseWorker, setSelectedCaseWorker] = useState<CaseWorker | null>(
+    null
+  );
 
   // Function to fetch profile data by ID
   const getProfileById = async (id: string) => {
@@ -805,8 +807,7 @@ const Profile = () => {
       if (tags.includes(text)) {
         const updatedTags = tags.filter((t) => t !== text);
         setTags(updatedTags);
-      }
-      else if (text.trim() != "") {
+      } else if (text.trim() != "") {
         const updatedTags = [...tags, text.trim()];
         setTags(updatedTags);
       }
@@ -1270,13 +1271,13 @@ const initializeAutocomplete = () => {
 
     // Update the client profile with the case worker information
     if (caseWorker) {
-      setClientProfile(prev => ({
+      setClientProfile((prev) => ({
         ...prev,
         referralEntity: {
           id: caseWorker.id,
           name: caseWorker.name,
-          organization: caseWorker.organization
-        }
+          organization: caseWorker.organization,
+        },
       }));
     } else {
       // If no case worker selected, remove the referral entity
@@ -1360,7 +1361,7 @@ const initializeAutocomplete = () => {
               >
                 <Tooltip title={isEditing ? "Cancel Editing" : "Edit All"}>
                   {isEditing ? (
-                    <span onClick={handleCancel}>
+                    <span className="cancel-btn" onClick={handleCancel}>
                       <CloseIcon />
                     </span>
                   ) : (
@@ -1444,17 +1445,22 @@ const initializeAutocomplete = () => {
                   value={selectedCaseWorker ? selectedCaseWorker.id : ""}
                   onChange={(e) => {
                     const selectedId = e.target.value;
-                    if (selectedId === 'edit_list') {
+                    if (selectedId === "edit_list") {
                       setShowCaseWorkerModal(true);
                     } else {
-                      const selected = caseWorkers.find(cw => cw.id === selectedId);
+                      const selected = caseWorkers.find(
+                        (cw) => cw.id === selectedId
+                      );
                       handleCaseWorkerChange(selected || null);
                     }
                   }}
                   style={{ width: "83.5%" }}
                 >
-                  <MenuItem value="edit_list" sx={{ color: '#257E68', fontWeight: 'bold' }}>
-                    Edit Case Worker List {'>'}
+                  <MenuItem
+                    value="edit_list"
+                    sx={{ color: "#257E68", fontWeight: "bold" }}
+                  >
+                    Edit Case Worker List {">"}
                   </MenuItem>
                   {caseWorkers.map((caseWorker) => (
                     <MenuItem key={caseWorker.id} value={caseWorker.id}>
@@ -1464,7 +1470,9 @@ const initializeAutocomplete = () => {
                 </CustomSelect>
               ) : (
                 <Typography variant="body1" sx={{ fontWeight: 600 }}>
-                  {selectedCaseWorker ? `${selectedCaseWorker.name}, ${selectedCaseWorker.organization}` : 'None'}
+                  {selectedCaseWorker
+                    ? `${selectedCaseWorker.name}, ${selectedCaseWorker.organization}`
+                    : "None"}
                 </Typography>
               )}
             </Box>
@@ -1840,9 +1848,13 @@ const initializeAutocomplete = () => {
               {renderField("notes", "textarea")}
               {isSaved && clientProfile.notes.trim() !== "" && (
                 <p id="timestamp">
-                  Last edited: {(clientProfile.notesTimestamp && clientProfile.notesTimestamp.timestamp instanceof Timestamp
+                  Last edited:{" "}
+                  {(clientProfile.notesTimestamp &&
+                  clientProfile.notesTimestamp.timestamp instanceof Timestamp
                     ? clientProfile.notesTimestamp.timestamp.toDate()
-                    : (clientProfile.notesTimestamp && clientProfile.notesTimestamp.timestamp) || clientProfile.createdAt
+                    : (clientProfile.notesTimestamp &&
+                        clientProfile.notesTimestamp.timestamp) ||
+                      clientProfile.createdAt
                   ).toLocaleString()}
                 </p>
               )}

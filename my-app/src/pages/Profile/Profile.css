@@ -19,6 +19,10 @@
   margin-top: 3%;
 }
 
+.cancel-btn {
+  margin-bottom: -6px;
+}
+
 .profile-header {
   display: flex;
   justify-content: space-between;
