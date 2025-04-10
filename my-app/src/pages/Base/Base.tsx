@@ -167,8 +167,8 @@ export default function BasePage({ children }: { children: React.ReactNode }) {
         <Divider />
         <List>
           {[
-            { text: 'Deliveries', icon: <CalendarTodayIcon />, link: '/deliveries' },
             { text: 'Clients', icon: <StorageIcon />, link: '/clients' },
+            { text: 'Deliveries', icon: <CalendarTodayIcon />, link: '/deliveries' },
             { text: 'Users', icon: <AddCircleIcon />, link: '/users' },
             { text: 'Routes', icon: <LocalShippingIcon />, link: '/routes' },
           ].map(({ text, icon, link }) => (

@@ -24,7 +24,7 @@ function App() {
   const { loading } = useAuth();
 
   if (loading) {
-    return <div>Loading...</div>; // Or a spinner
+    return <div>Loading...</div>;
   }
 
   return (

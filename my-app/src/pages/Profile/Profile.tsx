@@ -49,11 +49,12 @@ declare global {
 }
 
 const fieldStyles = {
-  backgroundColor: "#eee",
-  width: "100%",
-  height: "23px",
+  backgroundColor: "white",
+  width: "60%",
+  height: "1.813rem",
   padding: "0.1rem 0.5rem",
   borderRadius: "5px",
+  border: ".1rem solid black",
   marginTop: "0px",
 };
 
@@ -69,6 +70,8 @@ const CustomTextField = styled(TextField)({
 const CustomSelect = styled(Select)({
   // Target the outlined border
   "& .MuiOutlinedInput-root": {
+    height: "1.813rem",
+    width: "100%",
     "& .MuiOutlinedInput-notchedOutline": {
       border: "none", // removes the border
     },
@@ -76,8 +79,12 @@ const CustomSelect = styled(Select)({
   "& fieldset": {
     border: "none",
   },
-
-  "& .MuiSelect-select": fieldStyles,
+  "& .MuiSelect-select": {
+    ...fieldStyles,
+  },
+  "& .MuiSelect-icon": {
+    display: "none", 
+  },
 });
 
 // Type definitions
@@ -173,6 +180,7 @@ const Profile = () => {
     zipCode: "",
     address: "",
     address2: "",
+    email: "",
     city: "",
     state: "",
     quadrant: "",
@@ -228,7 +236,7 @@ const Profile = () => {
   const [clientId, setClientId] = useState<string | null>(null); // Allow clientId to be either a string or null
   const [isSaved, setIsSaved] = useState(false); // Tracks whether it's the first save
   const [ward, setWard] = useState(clientProfile.ward);
-  const [isEditing, setIsEditing] = useState(false); // Global editing state
+  const [isEditing, setIsEditing] = useState(true); // Global editing state
   const [lastDeliveryDate, setLastDeliveryDate] = useState<string | null>(null);
   const [profileLoaded, setProfileLoaded] = useState(false); // Track if profile is loaded
   const [prevNotes, setPrevNotes] = useState("");
@@ -361,6 +369,7 @@ const Profile = () => {
     zipCode: string;
     address: string;
     address2: string;
+    email: string;
     city: string;
     state: string;
     quadrant: string;
@@ -419,7 +428,8 @@ const Profile = () => {
     | "select"
     | "textarea"
     | "checkbox"
-    | "dietaryRestrictions";
+    | "dietaryRestrictions"
+    | "email";
   const calculateAge = (dob: Date) => {
     const diff = Date.now() - dob.getTime();
     const ageDt = new Date(diff);
@@ -595,7 +605,9 @@ const Profile = () => {
       console.log("Debug: lastName invalid:", clientProfile.lastName);
     }
     if (!clientProfile.address?.trim()) {
-      newErrors.address = "Address 1 is required";
+      newErrors.address = "Address is required";
+    if (!clientProfile.email?.trim())
+      newErrors.email = "Email is required";
       console.log("Debug: address invalid:", clientProfile.address);
     }
     if (!clientProfile.zipCode) {
@@ -705,22 +717,12 @@ const Profile = () => {
     try {
       const currNotes = clientProfile.notes;
 
-      let updatedNotesTimestamp = checkIfNotesExists(
-        currNotes,
-        clientProfile.notesTimestamp || null
-      );
-      updatedNotesTimestamp = checkIfNotesChanged(
-        prevNotes,
-        currNotes,
-        updatedNotesTimestamp
-      );
+      let updatedNotesTimestamp = checkIfNotesExists(currNotes, clientProfile.notesTimestamp || null);
+      updatedNotesTimestamp = checkIfNotesChanged(prevNotes, currNotes, updatedNotesTimestamp);
 
       console.log("Previous notes:", prevNotes);
       console.log("Current notes:", currNotes);
-      console.log(
-        "Timestamp updated:",
-        updatedNotesTimestamp !== clientProfile.notesTimestamp
-      );
+      console.log("Timestamp updated:", updatedNotesTimestamp !== clientProfile.notesTimestamp);
 
       // Update the clientProfile object with the latest tags state
       const updatedProfile = {
@@ -782,6 +784,7 @@ const Profile = () => {
       setShowSavePopup(true);
       // Hide popup after 2 seconds
       setTimeout(() => setShowSavePopup(false), 2000);
+
     } catch (e) {
       console.error("Error saving document: ", e);
     }
@@ -792,10 +795,13 @@ const Profile = () => {
     return path.split(".").reduce((acc, part) => acc?.[part], obj);
   };
 
+  //rfc
   const renderField = (fieldPath: ClientProfileKey, type: InputType = "text") => {
     let value = fieldPath.includes(".")
       ? getNestedValue(clientProfile, fieldPath)
       : clientProfile[fieldPath as keyof ClientProfile];
+
+      const isDisabledField = ["city", "state", "zipCode", "quadrant"].includes(fieldPath);
 
     const handleTag = (text: any) => {
       if (tags.includes(text)) {
@@ -820,11 +826,46 @@ const Profile = () => {
                 name={fieldPath}
                 value={value as string}
                 onChange={(e) => handleChange(e as SelectChangeEvent<string>)}
-                style={{ width: "83.5%" }}
+                displayEmpty
               >
-                <MenuItem value="Male">Male</MenuItem>
-                <MenuItem value="Female">Female</MenuItem>
-                <MenuItem value="Other">Other</MenuItem>
+                <MenuItem value = "" disabled>Select</MenuItem>
+                <MenuItem value = "Male">Male</MenuItem>
+                <MenuItem value = "Female">Female</MenuItem>
+                <MenuItem value = "Other">Other</MenuItem>
+              </CustomSelect>
+            );
+          } else if(fieldPath === "headOfHousehold") {
+            return (
+              <CustomSelect
+                name={fieldPath}
+                value={value as string}
+                onChange={(e) => handleChange(e as SelectChangeEvent<string>)}
+                displayEmpty
+              >
+                <MenuItem value = "" disabled>Select</MenuItem>
+                <MenuItem value="Adult">Adult</MenuItem>
+                <MenuItem value="Senior">Senior</MenuItem>
+              </CustomSelect>
+            );
+
+          } else if(fieldPath === "ethnicity") {
+            return (
+              <CustomSelect
+                name={fieldPath}
+                value={value as string}
+                onChange={(e) => handleChange(e as SelectChangeEvent<string>)}
+              >
+                <MenuItem disabled>Select</MenuItem>
+                <MenuItem value = "white">White</MenuItem>
+                <MenuItem value = "hispanic">Hispanic/Latino</MenuItem>
+                <MenuItem value = "black">Black/African American</MenuItem>
+                <MenuItem value = "asian">Asian</MenuItem>
+                <MenuItem value = "na">American Indian/Alaska Native</MenuItem>
+                <MenuItem value = "me/na">Middle Eastern/North African</MenuItem>
+                <MenuItem value = "islander">Native Hawaiian/Other Pacific Islander</MenuItem>
+                <MenuItem value = "other">Other</MenuItem>
+                <MenuItem value = "no answer">Prefer not to answer</MenuItem>
+
               </CustomSelect>
             );
           }
@@ -858,6 +899,32 @@ const Profile = () => {
               />
             </>
           );
+        
+        case "email":
+          return (
+            <>
+              <CustomTextField
+                type="email"
+                name={fieldPath}
+                value={value as string}
+                onChange={handleChange}
+                fullWidth
+              />
+            </>
+          );
+
+      case "text":
+        return (
+          <CustomTextField
+            type="text"
+            name={fieldPath}
+            value={String(value || "")}
+            onChange={handleChange}
+            fullWidth
+            disabled={isDisabledField} // Disable specific fields
+            inputRef={fieldPath === "address" ? addressInputRef : null} // Attach ref for address field
+          />
+        );
 
         case "textarea":
           if (fieldPath === "ward") {
@@ -1014,6 +1081,11 @@ const Profile = () => {
                       name={key}
                       checked={value as boolean}
                       onChange={handleDietaryRestrictionChange}
+                      sx={{        
+                        '& .MuiSvgIcon-root': { 
+                          borderRadius: '1rem', 
+                        },
+                      }}
                     />
                   }
                   label={capitalizeFirstLetter(
@@ -1075,106 +1147,107 @@ const Profile = () => {
   //this ends up being used in renderField
   const addressInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    if (isEditing) {
-      // check if the Google Maps API script is already loaded
+  const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
+
+useEffect(() => {
+  if (isEditing) {
+    // Check if the Google Maps API script is already loaded
+    if (!window.google || !window.google.maps) {
       const script = document.createElement("script");
-      if (!window.google) {
-        script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.REACT_APP_GOOGLE_MAPS_API_KEY || ""}&libraries=places`;
-        script.async = true;
-        script.defer = true;
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.REACT_APP_GOOGLE_MAPS_API_KEY || ""}&libraries=places`;
+      script.async = true;
+      script.defer = true;
 
-        // initialize autocomplete when script loading finishes
-        script.onload = () => {
-          if (addressInputRef.current) {
-            const autocomplete = new window.google.maps.places.Autocomplete(
-              addressInputRef.current,
-              {
-                types: ["address"],
-                componentRestrictions: { country: "us" },
-              }
-            );
+      script.onload = () => {
+        initializeAutocomplete();
+      };
 
-            autocomplete.addListener("place_changed", () => {
-              const place = autocomplete.getPlace();
-              if (place.formatted_address) {
-                console.log(place);
-                let address = place.formatted_address;
-                // address components in json format
-                const addressComponents = place.address_components;
-                console.log(address);
+      script.onerror = () => {
+        console.error("Failed to load Google Maps API script.");
+      };
 
-                let streetNumber = "";
-                let streetName = "";
-                let city = "";
-                let state = "";
-                let zipCode = "";
-                let quadrant = "";
-
-                // getting relevant components
-                if (addressComponents) {
-                  for (const component of addressComponents) {
-                    const types = component.types;
-
-                    if (types.includes("street_number")) {
-                      streetNumber = component.long_name;
-                    }
-
-                    if (types.includes("route")) {
-                      streetName = component.long_name;
-                    }
-
-                    if (
-                      types.includes("locality") ||
-                      types.includes("sublocality")
-                    ) {
-                      city = component.long_name;
-                    }
-
-                    if (types.includes("administrative_area_level_1")) {
-                      state = component.short_name; // Use short_name for state code (e.g., "DC" instead of "District of Columbia")
-                    }
-
-                    if (types.includes("postal_code")) {
-                      zipCode = component.long_name;
-                    }
-                  }
-
-                  // using regex to look for quadrant
-                  const quadrantMatch = address.match(/(NW|NE|SW|SE)(\s|,|$)/);
-                  if (state === "DC" && quadrantMatch) {
-                    quadrant = quadrantMatch[1];
-                  }
-
-                  //TODO: DELETE
-                  console.log("Street Number:", streetNumber);
-                  console.log("Street Name:", streetName);
-                  console.log("City:", city);
-                  console.log("State:", state);
-                  console.log("Zip Code:", zipCode);
-                  console.log("Quadrant:", quadrant);
-                }
-
-                // Update the client profile with all the parsed components
-                setClientProfile((prev) => ({
-                  ...prev,
-                  address: `${streetNumber} ${streetName}`.trim(),
-                  city: city,
-                  state: state,
-                  zipCode: zipCode,
-                  quadrant: quadrant,
-                }));
-              }
-            });
-          }
-        };
-
-        document.head.appendChild(script);
-      }
+      document.head.appendChild(script);
+    } else {
+      initializeAutocomplete();
     }
-    return () => {};
-  }, [isEditing]);
+  }
 
+  return () => {
+    // Cleanup logic if needed
+    autocompleteRef.current = null;
+  };
+}, [isEditing]);
+
+const initializeAutocomplete = () => {
+  if (addressInputRef.current && !autocompleteRef.current) {
+    autocompleteRef.current = new window.google.maps.places.Autocomplete(
+      addressInputRef.current,
+      {
+        types: ["address"],
+        componentRestrictions: { country: "us" },
+      }
+    );
+
+    console.log("Autocomplete initialized:", autocompleteRef.current);
+
+    autocompleteRef.current?.addListener("place_changed", () => {
+      const place = autocompleteRef.current?.getPlace();
+      console.log("Place selected:", place);
+      if (place?.formatted_address) {
+        const address = place.formatted_address;
+        const addressComponents = place.address_components;
+
+        let streetNumber = "";
+        let streetName = "";
+        let city = "";
+        let state = "";
+        let zipCode = "";
+        let quadrant = "";
+
+        if (addressComponents) {
+          for (const component of addressComponents) {
+            const types = component.types;
+
+            if (types.includes("street_number")) {
+              streetNumber = component.long_name;
+            }
+
+            if (types.includes("route")) {
+              streetName = component.long_name;
+            }
+
+            if (types.includes("locality") || types.includes("sublocality")) {
+              city = component.long_name;
+            }
+
+            if (types.includes("administrative_area_level_1")) {
+              state = component.short_name;
+            }
+
+            if (types.includes("postal_code")) {
+              zipCode = component.long_name;
+            }
+          }
+
+          const quadrantMatch = address.match(/(NW|NE|SW|SE)(\s|,|$)/);
+          if (state === "DC" && quadrantMatch) {
+            quadrant = quadrantMatch[1];
+          }
+
+          setClientProfile((prev) => ({
+            ...prev,
+            address: `${streetNumber} ${streetName}`.trim(),
+            city: city,
+            state: state,
+            zipCode: zipCode,
+            quadrant: quadrant,
+          }));
+        }
+      }
+    });
+  }
+};
+  
   // Function to handle cancelling edits
   const handleCancel = () => {
     // If we have a previous state of the client profile, restore it
@@ -1188,6 +1261,8 @@ const Profile = () => {
       setTags(prevTags);
       setPrevTags(null);
     }
+
+    setIsEditing(false);
   };
 
   // Function to handle selecting a case worker
@@ -1206,7 +1281,7 @@ const Profile = () => {
       }));
     } else {
       // If no case worker selected, remove the referral entity
-      setClientProfile((prev) => {
+      setClientProfile(prev => {
         const newProfile = { ...prev };
         delete newProfile.referralEntity;
         return newProfile;
@@ -1412,7 +1487,7 @@ const Profile = () => {
                   top: isEditing ? "-19px" : "0",
                 }}
               >
-                ADDRESS<span className="required-asterisk">*</span>
+                ADDRESS <span className="required-asterisk">*</span>
               </Typography>
               {renderField("address", "text")}
               {errors.address && (
@@ -1434,23 +1509,18 @@ const Profile = () => {
               >
                 ADDRESS 2
               </Typography>
-              {isEditing ? (
-                <CustomTextField
-                  type="text"
-                  name="address2"
-                  value={clientProfile.address2 || ""}
-                  onChange={(e) => {
-                    const { value } = e.target;
-                    setClientProfile((prevState) => ({
-                      ...prevState,
-                      address2: value, // Update address2 without triggering getWard
-                    }));
-                  }}
-                  fullWidth
-                />
-              ) : (
-                <Typography variant="body1" sx={{ fontWeight: 600 }}>
-                  {clientProfile.address2 || "N/A"}
+              {renderField("address2", "text")}
+            </Box>
+
+            {/* Email */}
+            <Box>
+              <Typography className="field-descriptor" sx={fieldLabelStyles}>
+                EMAIL <span className="required-asterisk">*</span>
+              </Typography>
+              {renderField("email", "email")}
+              {errors.email && (
+                <Typography color="error" variant="body2">
+                  {errors.email}
                 </Typography>
               )}
             </Box>
@@ -1467,13 +1537,12 @@ const Profile = () => {
               >
                 CITY <span className="required-asterisk">*</span>
               </Typography>
-              <CustomTextField
-                type="text"
-                name="city"
-                value={clientProfile.city || ""}
-                disabled
-                fullWidth
-              />
+              {renderField("city", "text")}
+              {errors.city && (
+                <Typography color="error" variant="body2">
+                  {errors.city}
+                </Typography>
+              )}
             </Box>
 
             {/* State */}
@@ -1488,13 +1557,12 @@ const Profile = () => {
               >
                 STATE <span className="required-asterisk">*</span>
               </Typography>
-              <CustomTextField
-                type="text"
-                name="state"
-                value={clientProfile.state || ""}
-                disabled
-                fullWidth
-              />
+              {renderField("state", "text")}
+              {errors.state && (
+                <Typography color="error" variant="body2">
+                  {errors.state}
+                </Typography>
+              )}
             </Box>
 
             {/* ZIP CODE */}
@@ -1509,13 +1577,12 @@ const Profile = () => {
               >
                 ZIP CODE <span className="required-asterisk">*</span>
               </Typography>
-              <CustomTextField
-                type="text"
-                name="zipCode"
-                value={clientProfile.zipCode || ""}
-                disabled
-                fullWidth
-              />
+              {renderField("zipCode", "text")}
+              {errors.zipCode && (
+                <Typography color="error" variant="body2">
+                  {errors.zipCode}
+                </Typography>
+              )}
             </Box>
 
             {/* Quadrant */}
@@ -1530,35 +1597,14 @@ const Profile = () => {
               >
                 QUADRANT
               </Typography>
-              <CustomTextField
-                type="text"
-                name="quadrant"
-                value={clientProfile.quadrant || ""}
-                disabled
-                fullWidth
-              />
-            </Box>
-            {/* Gender */}
-            <Box>
-              <Typography
-                className="field-descriptor"
-                sx={{
-                  ...fieldLabelStyles,
-                  position: "relative",
-                  top: isEditing ? "-10px" : "0",
-                }}
-              >
-                GENDER <span className="required-asterisk">*</span>
-              </Typography>
-              {/* <h1 className="field-descriptor">GENDER</h1> */}
-              {renderField("gender", "select")}
-              {errors.gender && (
+              {renderField("quadrant", "text")}
+              {errors.quadrant && (
                 <Typography color="error" variant="body2">
-                  {errors.gender}
+                  {errors.quadrant}
                 </Typography>
               )}
             </Box>
-
+            
             {/* Phone */}
             <Box>
               <Typography className="field-descriptor" sx={fieldLabelStyles}>
@@ -1580,6 +1626,28 @@ const Profile = () => {
               {renderField("alternativePhone", "text")}
             </Box>
 
+            {/* Gender */}
+            <Box>
+              <Typography
+                className="field-descriptor"
+                sx={{
+                  ...fieldLabelStyles,
+                  position: "relative",
+                  top: isEditing ? "-10px" : "0",
+                }}
+              >
+                GENDER <span className="required-asterisk">*</span>
+              </Typography>
+              {/* <h1 className="field-descriptor">GENDER</h1> */}
+              {renderField("gender", "select")}
+              {errors.gender && (
+                <Typography color="error" variant="body2">
+                  {errors.gender}
+                </Typography>
+              )}
+            </Box>
+
+
             {/* Ethnicity */}
             <Box>
               <Typography className="field-descriptor" sx={fieldLabelStyles}>
@@ -1589,107 +1657,6 @@ const Profile = () => {
               {errors.ethnicity && (
                 <Typography color="error" variant="body2">
                   {errors.ethnicity}
-                </Typography>
-              )}
-            </Box>
-
-            {/* Ward */}
-            <Box>
-              <Typography className="field-descriptor" sx={fieldLabelStyles}>
-                WARD
-              </Typography>
-              {renderField("ward", "textarea")}
-            </Box>
-
-            {/* Seniors */}
-            <Box>
-              <Typography className="field-descriptor" sx={fieldLabelStyles}>
-                SENIORS <span className="required-asterisk">*</span>
-              </Typography>
-              {renderField("seniors", "number")}
-              {errors.children && (
-                <Typography color="error" variant="body2">
-                  {errors.children}
-                </Typography>
-              )}
-            </Box>
-
-            {/* Adults */}
-            <Box>
-              <Typography className="field-descriptor" sx={fieldLabelStyles}>
-                ADULTS <span className="required-asterisk">*</span>
-              </Typography>
-              {renderField("adults", "number")}
-              {errors.adults && (
-                <Typography color="error" variant="body2">
-                  {errors.adults}
-                </Typography>
-              )}
-            </Box>
-
-            {/* Children */}
-            <Box>
-              <Typography className="field-descriptor" sx={fieldLabelStyles}>
-                CHILDREN <span className="required-asterisk">*</span>
-              </Typography>
-              {renderField("children", "number")}
-              {errors.children && (
-                <Typography color="error" variant="body2">
-                  {errors.children}
-                </Typography>
-              )}
-            </Box>
-
-            {/* Total */}
-            <Box>
-              <Typography
-                className="field-descriptor"
-                sx={{
-                  ...fieldLabelStyles,
-                  position: "relative",
-                  top: isEditing ? "-19px" : "0",
-                }}
-              >
-                TOTAL
-              </Typography>
-              <CustomTextField
-                type="text"
-                name="total"
-                value={
-                  Number(clientProfile.seniors) +
-                  Number(clientProfile.adults) +
-                  Number(clientProfile.children)
-                }
-                disabled
-                fullWidth
-              />
-            </Box>
-
-            {/* Head of Household */}
-            <Box>
-              <Typography className="field-descriptor" sx={fieldLabelStyles}>
-                HEAD OF HOUSEHOLD
-              </Typography>
-              {isEditing ? (
-                <CustomSelect
-                  name="headOfHousehold"
-                  value={clientProfile.headOfHousehold || ""}
-                  onChange={(e) => {
-                    const { value } = e.target;
-                    handlePrevClientCopying();
-                    setClientProfile((prevState) => ({
-                      ...prevState,
-                      headOfHousehold: value as "Adult" | "Senior",
-                    }));
-                  }}
-                  style={{ width: "83.5%" }}
-                >
-                  <MenuItem value="Adult">Adult</MenuItem>
-                  <MenuItem value="Senior">Senior</MenuItem>
-                </CustomSelect>
-              ) : (
-                <Typography variant="body1" sx={{ fontWeight: 600 }}>
-                  {clientProfile.headOfHousehold || "N/A"}
                 </Typography>
               )}
             </Box>
@@ -1706,6 +1673,108 @@ const Profile = () => {
                 </Typography>
               )}
             </Box>
+
+            {/* Adults */}
+            <Box>
+              <Typography className="field-descriptor" sx={fieldLabelStyles}>
+                ADULTS (18-59) <span className="required-asterisk">*</span>
+              </Typography>
+              {renderField("adults", "number")}
+              {errors.adults && (
+                <Typography color="error" variant="body2">
+                  {errors.adults}
+                </Typography>
+              )}
+            </Box>
+
+            {/* Children */}
+            <Box>
+              <Typography className="field-descriptor" sx={fieldLabelStyles}>
+                CHILDREN (0-17) <span className="required-asterisk">*</span>
+              </Typography>
+              {renderField("children", "number")}
+              {errors.children && (
+                <Typography color="error" variant="body2">
+                  {errors.children}
+                </Typography>
+              )}
+            </Box>
+            
+            {/* Seniors */}
+            <Box>
+              <Typography className="field-descriptor" sx={fieldLabelStyles}>
+                SENIORS (60+) 
+              </Typography>
+              {renderField("seniors", "number")}
+            </Box>
+
+            {/* Head of Household */}
+            <Box>
+              <Typography className="field-descriptor" sx={fieldLabelStyles}>
+                HEAD OF HOUSEHOLD
+              </Typography>
+              {renderField("headOfHousehold", "select")}
+              {errors.headOfHousehold && (
+                <Typography color="error" variant="body2">
+                  {errors.headOfHousehold}
+                </Typography>
+              )}
+            </Box>
+
+            <Box>
+              <Typography className="field-descriptor" sx={fieldLabelStyles}>
+                TOTAL 
+              </Typography>
+              {isEditing ? (
+                <CustomTextField
+                  value={Number(clientProfile.adults) + Number(clientProfile.children) + Number(clientProfile.seniors)}
+                  onChange={handleChange}
+                  multiline
+                  fullWidth
+                />
+            ) : (
+              <Typography variant="body1" sx={{ fontWeight: 600 }}>
+                {Number(clientProfile.adults) + Number(clientProfile.children) + Number(clientProfile.seniors)}
+              </Typography>
+            )}
+            </Box>
+
+            {/* Ward */}
+            <Box>
+              <Typography className="field-descriptor" sx={fieldLabelStyles}>
+                WARD
+              </Typography>
+              {renderField("ward", "textarea")}
+            </Box>
+          </Box>
+
+          <Box
+            className="box-header"
+            display="flex"
+            alignItems="center"
+            justifyContent="space-between"
+          >
+            {/* Title on the left */}
+            <Typography
+              className="basic-info-title"
+              sx={{ fontWeight: 500, fontSize: { xs: "20px", sm: "24px" } }}
+            >
+              Delivery Information
+            </Typography>
+          </Box>
+          <Box
+            sx={{
+              display: "grid",
+              gap: isEditing ? 3 : 5, // Spacing between grid items
+              gridTemplateColumns: {
+                xs: "1fr", // Full width for small screens
+                sm: "repeat(2, 1fr)", // Three columns for medium screens and up
+                md: "repeat(3, 1fr)",
+              },
+              alignItems: "center",
+            }}
+            className="info-grid"
+          >
 
             {/* Start Date */}
             <Box>
@@ -1791,6 +1860,112 @@ const Profile = () => {
               )}
             </Box>
 
+            
+          </Box>
+          
+          <Box
+            className="box-header"
+            display="flex"
+            alignItems="center"
+            justifyContent="space-between"
+          >
+            {/* Title on the left */}
+            <Typography
+              className="basic-info-title"
+              sx={{ fontWeight: 500, fontSize: { xs: "20px", sm: "24px" } }}
+            >
+              Dietary Preferences
+            </Typography>
+          </Box>
+
+          
+          <Box
+            sx={{
+              display: "grid",
+              gap: isEditing ? 3 : 5, // Spacing between grid items
+              gridTemplateColumns: {
+                xs: "1fr", // Full width for small screens
+                sm: "repeat(2, 1fr)", // Three columns for medium screens and up
+                md: "repeat(3, 1fr)",
+              },
+              alignItems: "center",
+            }}
+            className="info-grid"
+          >
+            {/* Dietary Restrictions, truncate is when not editing, put it on its own row */}
+          <Box sx={{ gridColumn: isEditing ? "-1/1" : "" }}>
+            <Typography className="field-descriptor" sx={fieldLabelStyles}>
+              DIETARY RESTRICTIONS
+            </Typography>
+            {isEditing ? (
+              renderField(
+                  "deliveryDetails.dietaryRestrictions",
+                  "dietaryRestrictions"
+                )
+            ) : (
+              <Typography variant="body1" sx={{ fontWeight: 600 }}>
+                {Object.entries(clientProfile.deliveryDetails.dietaryRestrictions)
+                  .filter(
+                      ([key, value]) => value === true && typeof value === "boolean"
+                    )
+                  .map(
+                      ([key]) =>
+                      key
+                        .replace(/([A-Z])/g, " $1") // Add space before capital letters
+                        .trim()
+                        .split(" ") // Split into words
+                        .map(
+                            (word) => word.charAt(0).toUpperCase() + word.slice(1)
+                          ) // Capitalize each word
+                        .join(" ") // Join back into a single string
+                  )
+                  .join(", ") || "None"}
+              </Typography>
+            )}
+          </Box>
+          </Box>
+          <Box
+            className="box-header"
+            display="flex"
+            alignItems="center"
+            justifyContent="space-between"
+          >
+            {/* Title on the left */}
+            <Typography
+              className="basic-info-title"
+              sx={{ fontWeight: 500, fontSize: { xs: "20px", sm: "24px" } }}
+            >
+              Miscellaneous
+            </Typography>
+            </Box>
+          <Box
+            sx={{
+              display: "grid",
+              gap: isEditing ? 3 : 5, // Spacing between grid items
+              gridTemplateColumns: {
+                xs: "1fr", // Full width for small screens
+                sm: "repeat(2, 1fr)", // Three columns for medium screens and up
+                md: "repeat(3, 1fr)",
+              },
+              alignItems: "center",
+            }}
+            className="info-grid"
+          >
+
+            <Box>
+              <Typography className="field-descriptor" sx={fieldLabelStyles}>
+                TEFAP CERTIFICATION
+              </Typography>
+              {renderField("tefapCert", "date")}
+              {errors.tefapCert && (
+                <Typography color="error" variant="body2">
+                  {errors.tefapCert}
+                </Typography>
+              )}
+            </Box>
+          
+
+
             {/* Life Challenges */}
             <Box>
               <Typography className="field-descriptor" sx={fieldLabelStyles}>
@@ -1815,49 +1990,8 @@ const Profile = () => {
               {renderField("tags", "tags")}
             </Box>
 
-            {/* Dietary Restrictions, truncate is when not editing, put it on its own row */}
-            <Box sx={{ gridColumn: isEditing ? "-1/1" : "" }}>
-              <Typography className="field-descriptor" sx={fieldLabelStyles}>
-                DIETARY RESTRICTIONS
-              </Typography>
-              {isEditing ? (
-                renderField(
-                  "deliveryDetails.dietaryRestrictions",
-                  "dietaryRestrictions"
-                )
-              ) : (
-                <Typography variant="body1" sx={{ fontWeight: 600 }}>
-                  {Object.entries(clientProfile.deliveryDetails.dietaryRestrictions)
-                    .filter(
-                      ([key, value]) => value === true && typeof value === "boolean"
-                    )
-                    .map(
-                      ([key]) =>
-                        key
-                          .replace(/([A-Z])/g, " $1") // Add space before capital letters
-                          .trim()
-                          .split(" ") // Split into words
-                          .map(
-                            (word) => word.charAt(0).toUpperCase() + word.slice(1)
-                          ) // Capitalize each word
-                          .join(" ") // Join back into a single string
-                    )
-                    .join(", ") || "None"}
-                </Typography>
-              )}
-            </Box>
-            <Box>
-              <Typography className="field-descriptor" sx={fieldLabelStyles}>
-                TEFAP CERTIFICATION
-              </Typography>
-              {renderField("tefapCert", "date")}
-              {errors.tefapCert && (
-                <Typography color="error" variant="body2">
-                  {errors.tefapCert}
-                </Typography>
-              )}
-            </Box>
           </Box>
+        
         </Box>
       </Box>
 
