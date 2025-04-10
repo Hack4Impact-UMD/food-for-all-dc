@@ -19,30 +19,35 @@ const TestCsvPage: React.FC = () => {
         cluster: 1,
         address: "123 Main St",
         clientName: "John Doe",
+        assignedDriver: "driver1",
       },
       {
         deliveryDate: "2025-03-30",
         cluster: 1,
         address: "456 Elm St",
         clientName: "Jane Smith",
+        assignedDriver: "driver1",
       },
       {
         deliveryDate: "2025-03-31",
         cluster: 2,
         address: "789 Oak St",
         clientName: "Alice Johnson",
+        assignedDriver: "driver2",
       },
       {
         deliveryDate: "2025-03-31",
         cluster: 2,
         address: "101 Pine St",
         clientName: "Bob Brown",
+        assignedDriver: "driver2",
       },
       {
         deliveryDate: "2025-03-30",
         cluster: 3,
         address: "202 Maple St",
         clientName: "Charlie Davis",
+        assignedDriver: "driver3",
       },
     ];
 
@@ -135,6 +140,13 @@ const TestCsvPage: React.FC = () => {
       },
     };
 
+    // Fake drivers collection
+    const fakeDrivers: Record<string, { name: string; email: string }> = {
+      driver1: { name: "Driver One", email: "driver1@example.com" },
+      driver2: { name: "Driver Two", email: "driver2@example.com" },
+      driver3: { name: "Driver Three", email: "driver3@example.com" },
+    };
+
     // Filter events by the selected delivery date
     const filteredEvents = fakeEvents.filter(
       (event) => event.deliveryDate === deliveryDate
@@ -162,6 +174,17 @@ const TestCsvPage: React.FC = () => {
     for (const cluster in groupedByCluster) {
       const clusterNumber = parseInt(cluster, 10);
 
+      // Get the assigned driver for the cluster
+      const driverId = groupedByCluster[clusterNumber][0].assignedDriver;
+      const driverData = fakeDrivers[driverId];
+      if (!driverData) {
+        console.warn(`Driver ${driverId} not found.`);
+        continue;
+      }
+
+      const driverName = driverData.name;
+      const driverEmail = driverData.email;
+
       // Generate the CSV content
       const csvData = groupedByCluster[clusterNumber]
         .map((event) => {
@@ -187,6 +210,8 @@ const TestCsvPage: React.FC = () => {
             "Diet Type": client.dietType,
             "Dietary Preferences": client.dietaryPreferences,
             "TEFAP FY25": client.tefapFY25,
+            "Assigned Driver": driverName,
+            "Driver Email": driverEmail,
           };
         })
         .filter(Boolean); // Remove null entries
@@ -194,7 +219,7 @@ const TestCsvPage: React.FC = () => {
       const csv = Papa.unparse(csvData);
 
       // Add the CSV to the ZIP
-      const fileName = `FFA ${deliveryDate} - Cluster ${clusterNumber}.csv`;
+      const fileName = `FFA ${deliveryDate} - ${driverName}.csv`;
       zip.file(fileName, csv);
     }
 

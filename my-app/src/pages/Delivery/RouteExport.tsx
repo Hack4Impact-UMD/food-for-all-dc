@@ -5,6 +5,7 @@ import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 import archiver from "archiver";
+import * as nodemailer from "nodemailer";
 
 admin.initializeApp();
 
@@ -58,8 +59,8 @@ export const createAndSendCsvs = functions.https.onRequest(async (req, res) => {
 
     archive.pipe(output);
 
-    // Step 4: Generate CSVs for each cluster and add them to the ZIP
-    for (const cluster in groupedByCluster) {
+    // Step 4: Generate CSVs for each cluster and email them to drivers
+    const emailPromises = Object.keys(groupedByCluster).map(async (cluster) => {
       const clusterNumber = parseInt(cluster, 10);
 
       // Fetch client profiles for the events in this cluster
@@ -78,10 +79,48 @@ export const createAndSendCsvs = functions.https.onRequest(async (req, res) => {
         }
       }
 
+      // Fetch driver details for the cluster
+      const clusterDoc = await admin
+        .firestore()
+        .collection("clusters")
+        .doc(clusterNumber.toString())
+        .get();
+
+      if (!clusterDoc.exists) {
+        console.warn(`Cluster ${clusterNumber} not found.`);
+        return;
+      }
+
+      const driverId = clusterDoc.data()?.assignedDriver;
+      if (!driverId) {
+        console.warn(`Driver not assigned for cluster ${clusterNumber}.`);
+        return;
+      }
+
+      const driverDoc = await admin
+        .firestore()
+        .collection("drivers")
+        .doc(driverId)
+        .get();
+
+      if (!driverDoc.exists) {
+        console.warn(`Driver ${driverId} not found.`);
+        return;
+      }
+
+      const driverData = driverDoc.data();
+      const driverName = driverData?.name || `Driver-${driverId}`;
+      const driverEmail = driverData?.email;
+
+      if (!driverEmail) {
+        console.warn(`Email not found for driver ${driverId}.`);
+        return;
+      }
+
       // Generate CSV content
       const tempFilePath = path.join(
         os.tmpdir(),
-        `deliveries-${deliveryDate}-cluster-${clusterNumber}.csv`
+        `FFA ${deliveryDate} ${driverName}.csv`
       );
       const csvStream = fastCsv.format({ headers: true });
       const writeStream = fs.createWriteStream(tempFilePath);
@@ -124,12 +163,41 @@ export const createAndSendCsvs = functions.https.onRequest(async (req, res) => {
 
       // Add the CSV to the ZIP
       archive.file(tempFilePath, {
-        name: `deliveries-cluster-${clusterNumber}.csv`,
+        name: `FFA ${deliveryDate} ${driverName}.csv`,
       });
+
+      // Send the CSV via email
+      const transporter = nodemailer.createTransport({
+        service: "gmail", // Use your email provider
+        auth: {
+          user: "your-email@gmail.com",
+          pass: "your-email-password",
+        },
+      });
+
+      const mailOptions = {
+        from: "your-email@gmail.com",
+        to: driverEmail,
+        subject: `Deliveries for ${deliveryDate}`,
+        text: `Please find attached the deliveries for ${deliveryDate}.`,
+        attachments: [
+          {
+            filename: `FFA ${deliveryDate} ${driverName}.csv`,
+            path: tempFilePath,
+          },
+        ],
+      };
+
+      await transporter.sendMail(mailOptions);
 
       // Clean up the temporary CSV file
       fs.unlinkSync(tempFilePath);
-    }
+
+      console.log(`Email sent to ${driverEmail} for cluster ${clusterNumber}.`);
+    });
+
+    // Wait for all emails to be sent
+    await Promise.all(emailPromises);
 
     // Finalize the ZIP file
     await archive.finalize();
