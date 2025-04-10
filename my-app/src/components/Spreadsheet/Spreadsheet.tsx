@@ -1,46 +1,44 @@
-import React, { useState, useEffect} from "react";
-import { useNavigate} from "react-router-dom";
-import { db } from "../../auth/firebaseConfig"; // Ensure the correct path
-import { Search, Filter } from "lucide-react";
-import "./Spreadsheet.css";
+import AddIcon from "@mui/icons-material/Add";
+import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
+import ArrowDropUpIcon from "@mui/icons-material/ArrowDropUp";
+import DeleteIcon from "@mui/icons-material/Delete";
+import EditIcon from "@mui/icons-material/Edit";
+import MoreVertIcon from "@mui/icons-material/MoreVert";
+import SaveIcon from "@mui/icons-material/Save";
 import {
   Box,
   Button,
+  IconButton, // Commented out modal components
+  /* Dialog, DialogTitle, DialogContent, DialogActions, */ Menu,
+  MenuItem,
+  Paper,
+  Select,
+  SelectChangeEvent,
   Table,
   TableBody,
   TableCell,
   TableContainer,
   TableHead,
   TableRow,
-  Paper,
-  IconButton,
-  /* Dialog, DialogTitle, DialogContent, DialogActions, */ // Commented out modal components
-  Menu,
-  MenuItem,
   TextField,
-  Select,
-  SelectChangeEvent,
   colors,
 } from "@mui/material";
-import AddIcon from '@mui/icons-material/Add';
-import DeleteIcon from "@mui/icons-material/Delete";
-import EditIcon from "@mui/icons-material/Edit";
-import SaveIcon from "@mui/icons-material/Save";
-import MoreVertIcon from "@mui/icons-material/MoreVert";
-import ArrowDropUpIcon from "@mui/icons-material/ArrowDropUp";
-import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
-import {
-  collection,
-  getDocs,
-  addDoc,
-  doc,
-  deleteDoc,
-  updateDoc,
-  setDoc,
-} from "firebase/firestore";
-import { auth } from "../../auth/firebaseConfig";
 import { onAuthStateChanged } from "firebase/auth";
-
+import {
+  addDoc,
+  collection,
+  deleteDoc,
+  doc,
+  getDocs,
+  setDoc,
+  updateDoc,
+} from "firebase/firestore";
+import { Filter, Search } from "lucide-react";
+import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { auth, db } from "../../auth/firebaseConfig"; // Ensure the correct path
+import { useCustomColumns } from "../../hooks/useCustomColumns";
+import "./Spreadsheet.css";
 
 // Define TypeScript types for row data
 interface RowData {
@@ -68,14 +66,13 @@ interface RowData {
     };
   };
   ethnicity: string;
-
 }
 
 // ADDED
 interface CustomColumn {
   id: string; // Unique identifier for the column
   label: string; // Header label (e.g., "Custom 1", or user-defined)
-  propertyKey: keyof RowData | 'none'; // Which property from RowData to display
+  propertyKey: keyof RowData | "none"; // Which property from RowData to display
 }
 
 // Define a type for fields that can either be computed or direct keys of RowData
@@ -103,9 +100,7 @@ type Field =
       label: string;
       type: string;
       compute: (data: RowData) => string;
-    }
-  
-
+    };
 
 // Type Guard to check if a field is a regular field
 const isRegularField = (
@@ -122,131 +117,139 @@ const Spreadsheet: React.FC = () => {
   const [menuAnchorEl, setMenuAnchorEl] = useState<null | HTMLElement>(null);
   const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
-  
-  // ADDED
-  const [customColumns, setCustomColumns] = useState<CustomColumn[]>([]);
-  
+
   const navigate = useNavigate();
 
   // ADDED
-  const handleAddCustomColumn = () => {
-    const newColumnId = `custom-${Date.now()}`; // unique ID generation
-    const newColumn: CustomColumn = {
-      id: newColumnId,
-      label: `Custom ${customColumns.length + 1}`, 
-      propertyKey: 'none', 
-    };
-    setCustomColumns([...customColumns, newColumn]);
+  const {
+    customColumns,
+    handleAddCustomColumn,
+    handleCustomHeaderChange,
+    handleRemoveCustomColumn,
+    handleCustomColumnChange,
+  } = useCustomColumns();
+  // const [customColumns, setCustomColumns] = useState<CustomColumn[]>([]);
+  // const handleAddCustomColumn = () => {
+  //   const newColumnId = `custom-${Date.now()}`; // unique ID generation
+  //   const newColumn: CustomColumn = {
+  //     id: newColumnId,
+  //     label: `Custom ${customColumns.length + 1}`,
+  //     propertyKey: "none",
+  //   };
+  //   setCustomColumns([...customColumns, newColumn]);
+  // };
 
-  };
+  // // ADDED
+  // const handleCustomColumnChange = (
+  //   e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+  //   id: string, // ID of the row being edited
+  //   propertyKey: keyof RowData
+  // ) => {
+  //   const newValue = e.target.value; // Get the new value from the input
 
-  // ADDED
-  const handleCustomColumnChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
-    id: string,                          // ID of the row being edited
-    propertyKey: keyof RowData           
-  ) => {
-    const newValue = e.target.value; // Get the new value from the input
+  //   setRows((prevRows) =>
+  //     prevRows.map((row) => {
+  //       if (row.id === id) {
+  //         return {
+  //           ...row,
+  //           [propertyKey]: newValue, // Update the property w/ key
+  //         };
+  //       }
+  //       return row;
+  //     })
+  //   );
+  // };
 
-    setRows((prevRows) =>                 
-      prevRows.map((row) => {             
-        if (row.id === id) {              
-          
-          return {
-            ...row,                     
-            [propertyKey]: newValue,    // Update the property w/ key
-                                        
-          };
-        }
-        return row;
-      })
-    );
-  };
+  // // ADDED
+  // const handleCustomHeaderChange = (
+  //   event: SelectChangeEvent<keyof RowData | "none">,
+  //   columnId: string
+  // ) => {
+  //   const newPropertyKey = event.target.value as keyof RowData | "none"; // Get selected val
 
-  // ADDED
-  const handleCustomHeaderChange = (
-    event: SelectChangeEvent<keyof RowData | 'none'>,
-    columnId: string
-  ) => {
-    const newPropertyKey = event.target.value as keyof RowData | 'none'; // Get selected val
-  
-    setCustomColumns((prevColumns) =>
-      prevColumns.map((col) => {
-        if (col.id === columnId) {
-          return {
-            ...col,
-            propertyKey: newPropertyKey,
-          };
-        }
-        return col;
-      })
-    ); 
-  
-    console.log(`Custom Column ID: ${columnId}, New Property Key: ${newPropertyKey}`); // debugging
-  };
+  //   setCustomColumns((prevColumns) =>
+  //     prevColumns.map((col) => {
+  //       if (col.id === columnId) {
+  //         return {
+  //           ...col,
+  //           propertyKey: newPropertyKey,
+  //         };
+  //       }
+  //       return col;
+  //     })
+  //   );
 
-  const handleRemoveCustomColumn = (columnIdToRemove: string) => {
-    // Use the state setter function for customColumns
-    setCustomColumns((prevColumns) =>
-      // Filter the previous columns array
-      prevColumns.filter((column) => column.id !== columnIdToRemove)
-      // Keep only the columns whose ID does NOT match the one to remove
-    );
-  };
-  
+  //   console.log(
+  //     `Custom Column ID: ${columnId}, New Property Key: ${newPropertyKey}`
+  //   ); // debugging
+  // };
+
+  // const handleRemoveCustomColumn = (columnIdToRemove: string) => {
+  //   // Use the state setter function for customColumns
+  //   setCustomColumns(
+  //     (prevColumns) =>
+  //       // Filter the previous columns array
+  //       prevColumns.filter((column) => column.id !== columnIdToRemove)
+  //     // Keep only the columns whose ID does NOT match the one to remove
+  //   );
+  // };
+
   //Route Protection
   React.useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user:any) => {
+    const unsubscribe = onAuthStateChanged(auth, (user: any) => {
       if (!user) {
         console.log("No user is signed in, redirecting to /");
         navigate("/");
-      } 
+      }
     });
-  
+
     // Cleanup the listener when the component unmounts
     return () => unsubscribe();
   }, [navigate]);
 
   // Define fields for table columns
-const fields: Field[] = [
-  {
-    key: "fullname",
-    label: "Name",
-    type: "text",
-    compute: (data: RowData) => `${data.lastName}, ${data.firstName}`,
-  },
-  { key: "address", label: "Address", type: "text" },
-  { key: "phone", label: "Phone", type: "text" },
-  {
-    key: "deliveryDetails.dietaryRestrictions",
-    label: "Dietary Restrictions",
-    type: "text",
-    compute: (data: RowData) => {
-      const restrictions = [];
-      const { dietaryRestrictions } = data.deliveryDetails;
-      if (dietaryRestrictions.halal) restrictions.push("Halal");
-      if (dietaryRestrictions.kidneyFriendly) restrictions.push("Kidney Friendly");
-      if (dietaryRestrictions.lowSodium) restrictions.push("Low Sodium");
-      if (dietaryRestrictions.lowSugar) restrictions.push("Low Sugar");
-      if (dietaryRestrictions.microwaveOnly) restrictions.push("Microwave Only");
-      if (dietaryRestrictions.noCookingEquipment) restrictions.push("No Cooking Equipment");
-      if (dietaryRestrictions.softFood) restrictions.push("Soft Food");
-      if (dietaryRestrictions.vegan) restrictions.push("Vegan");
-      if (dietaryRestrictions.vegetarian) restrictions.push("Vegetarian");
-      if (dietaryRestrictions.foodAllergens.length > 0) restrictions.push(...dietaryRestrictions.foodAllergens);
-      if (dietaryRestrictions.other.length > 0) restrictions.push(...dietaryRestrictions.other);
-      return restrictions.length > 0 ? restrictions.join(", ") : "None";
+  const fields: Field[] = [
+    {
+      key: "fullname",
+      label: "Name",
+      type: "text",
+      compute: (data: RowData) => `${data.lastName}, ${data.firstName}`,
     },
-  },
-  {
-    key: "deliveryDetails.deliveryInstructions",
-    label: "Delivery Instructions",
-    type: "text",
-    compute: (data: RowData) => data.deliveryDetails.deliveryInstructions || "None",
-  },
-];  
-    
-  
+    { key: "address", label: "Address", type: "text" },
+    { key: "phone", label: "Phone", type: "text" },
+    {
+      key: "deliveryDetails.dietaryRestrictions",
+      label: "Dietary Restrictions",
+      type: "text",
+      compute: (data: RowData) => {
+        const restrictions = [];
+        const { dietaryRestrictions } = data.deliveryDetails;
+        if (dietaryRestrictions.halal) restrictions.push("Halal");
+        if (dietaryRestrictions.kidneyFriendly) restrictions.push("Kidney Friendly");
+        if (dietaryRestrictions.lowSodium) restrictions.push("Low Sodium");
+        if (dietaryRestrictions.lowSugar) restrictions.push("Low Sugar");
+        if (dietaryRestrictions.microwaveOnly) restrictions.push("Microwave Only");
+        if (dietaryRestrictions.noCookingEquipment)
+          restrictions.push("No Cooking Equipment");
+        if (dietaryRestrictions.softFood) restrictions.push("Soft Food");
+        if (dietaryRestrictions.vegan) restrictions.push("Vegan");
+        if (dietaryRestrictions.vegetarian) restrictions.push("Vegetarian");
+        if (dietaryRestrictions.foodAllergens.length > 0)
+          restrictions.push(...dietaryRestrictions.foodAllergens);
+        if (dietaryRestrictions.other.length > 0)
+          restrictions.push(...dietaryRestrictions.other);
+        return restrictions.length > 0 ? restrictions.join(", ") : "None";
+      },
+    },
+    {
+      key: "deliveryDetails.deliveryInstructions",
+      label: "Delivery Instructions",
+      type: "text",
+      compute: (data: RowData) =>
+        data.deliveryDetails.deliveryInstructions || "None",
+    },
+  ];
+
   // Fetch data from Firebase without authentication checks
   useEffect(() => {
     const fetchData = async () => {
@@ -266,9 +269,9 @@ const fields: Field[] = [
 
   // Handle search input change
   const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    console.log("hello")
-    console.log(`This is the new search${event.target.value}`)
-    console.log(event.target.value)
+    console.log("hello");
+    console.log(`This is the new search${event.target.value}`);
+    console.log(event.target.value);
     setSearchQuery(event.target.value);
   };
 
@@ -300,7 +303,7 @@ const fields: Field[] = [
     if (rowToEdit) {
       // Use useNavigate to navigate to the profile page with the user's data
       navigate(`/profile/${id}`, {
-        state: { userData: rowToEdit },  // Passing the user data to the profile page via state
+        state: { userData: rowToEdit }, // Passing the user data to the profile page via state
       });
     }
   };
@@ -311,18 +314,13 @@ const fields: Field[] = [
     if (rowToUpdate) {
       try {
         const { id, ...rowWithoutId } = rowToUpdate;
-        await updateDoc(
-          doc(db, "clients", id),
-          rowWithoutId as Omit<RowData, "id">
-        );
+        await updateDoc(doc(db, "clients", id), rowWithoutId as Omit<RowData, "id">);
         setEditingRowId(null);
       } catch (error) {
         console.error("Error updating document: ", error);
       }
     }
   };
-
-  
 
   // Handle navigating to user details page
   const handleRowClick = (clientid: string) => {
@@ -363,7 +361,10 @@ const fields: Field[] = [
         return sortOrder === "asc"
           ? (a[fieldKey] as string).localeCompare(b[fieldKey] as string)
           : (b[fieldKey] as string).localeCompare(a[fieldKey] as string);
-      } else if (typeof a[fieldKey] === "number" && typeof b[fieldKey] === "number") {
+      } else if (
+        typeof a[fieldKey] === "number" &&
+        typeof b[fieldKey] === "number"
+      ) {
         return sortOrder === "asc"
           ? (a[fieldKey] as number) - (b[fieldKey] as number)
           : (b[fieldKey] as number) - (a[fieldKey] as number);
@@ -374,47 +375,50 @@ const fields: Field[] = [
     setRows(sortedRows);
     setSortOrder(sortOrder === "asc" ? "desc" : "asc");
   };
-  
+
   const addClient = () => {
-    navigate("/profile")
-  }
-  
+    navigate("/profile");
+  };
+
   // Filter rows based on search query
   let visibleRows = rows.filter((row) => {
-
     // Check if the query matches any of the static fields
     const matchesStaticField = fields.some((field) => {
       let fieldValue: any;
-  
 
       if (field.compute) {
         fieldValue = field.compute(row);
       } else {
         fieldValue = row[field.key as keyof RowData];
       }
-  
-      return fieldValue != null && fieldValue.toString().toLowerCase().includes(searchQuery.toLowerCase())
+
+      return (
+        fieldValue != null &&
+        fieldValue.toString().toLowerCase().includes(searchQuery.toLowerCase())
+      );
     });
-  
+
     // Check if the query matches custom columns
     const matchesCustomColumn = customColumns.some((col) => {
-      if (col.propertyKey !== 'none') {
+      if (col.propertyKey !== "none") {
         const fieldValue = row[col.propertyKey as keyof RowData];
 
-        return fieldValue != null && fieldValue.toString().toLowerCase().includes(searchQuery.toLowerCase())
+        return (
+          fieldValue != null &&
+          fieldValue.toString().toLowerCase().includes(searchQuery.toLowerCase())
+        );
       }
       return false;
     });
-  
+
     // Include the row if it matches either a static field OR a custom column
     return matchesStaticField || matchesCustomColumn;
   });
 
   useEffect(() => {
-    console.log("this is search query")
-    console.log(searchQuery)
-  }, [searchQuery])
-
+    console.log("this is search query");
+    console.log(searchQuery);
+  }, [searchQuery]);
 
   return (
     <Box className="box">
@@ -458,7 +462,7 @@ const fields: Field[] = [
                 boxSizing: "border-box",
               }}
             />
-          <Filter
+            <Filter
               style={{
                 position: "absolute",
                 right: "16px",
@@ -471,7 +475,7 @@ const fields: Field[] = [
             />
           </div>
           <div style={{ display: "flex", justifyContent: "space-between" }}>
-          <Button
+            <Button
               variant="contained"
               color="secondary"
               onClick={() => setSearchQuery("")}
@@ -480,7 +484,7 @@ const fields: Field[] = [
                 whiteSpace: "nowrap",
                 padding: "0% 2%",
                 borderRadius: "30px",
-                width:"100px"
+                width: "100px",
               }}
             >
               View All
@@ -514,175 +518,184 @@ const fields: Field[] = [
         }}
       >
         {/* Spreadsheet Table */}
-        <TableContainer component={Paper} style={{maxHeight: "65vh", overflowY: "auto" }}>
+        <TableContainer
+          component={Paper}
+          style={{ maxHeight: "65vh", overflowY: "auto" }}
+        >
           <Table stickyHeader>
-          <TableHead>
-            <TableRow>
-              {/* Static columns */}
-              {fields.map((field) => (
-                <TableCell className="table-header" key={field.key}>
-                  <h2>{field.label}</h2>
-                </TableCell>
-              ))}
+            <TableHead>
+              <TableRow>
+                {/* Static columns */}
+                {fields.map((field) => (
+                  <TableCell className="table-header" key={field.key}>
+                    <h2>{field.label}</h2>
+                  </TableCell>
+                ))}
 
-              {/*  Headers for custom columns */}
-              {customColumns.map((col) => (
-                <TableCell className="table-header" key={col.id}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Select
-                      value={col.propertyKey}
-                      onChange={(event) => handleCustomHeaderChange(event, col.id)}
-                      variant="outlined"
-                      displayEmpty 
-                      sx={{ minWidth: 120, color: '#257e68'}}
-                    >
-                      <MenuItem value="ethnicity">Ethnicity</MenuItem>
-                      <MenuItem value="language">Language</MenuItem>
-                      <MenuItem value="dob">DOB</MenuItem>
-                      <MenuItem value="gender">Gender</MenuItem>
-                      <MenuItem value="zipCode">Zip Code</MenuItem>
-                      <MenuItem value="streetName">Street Name</MenuItem>
-                      <MenuItem value="ward">Ward</MenuItem>
-                      <MenuItem value="none">None</MenuItem>
-                    </Select>
-                    {/*Add Remove Button*/}
-                    <IconButton
-                      size="small"
-                      onClick={() => handleRemoveCustomColumn(col.id)} // Call remove handler
-                      aria-label={`Remove ${col.label || 'custom'} column`}
-                      title={`Remove ${col.label || 'custom'} column`} // Tooltip for accessibility
-                    >
-                      <DeleteIcon fontSize="small" />
-                    </IconButton>
-                  </Box>
-                </TableCell>
-              ))}
+                {/*  Headers for custom columns */}
+                {customColumns.map((col) => (
+                  <TableCell className="table-header" key={col.id}>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                      <Select
+                        value={col.propertyKey}
+                        onChange={(event) => handleCustomHeaderChange(event, col.id)}
+                        variant="outlined"
+                        displayEmpty
+                        sx={{ minWidth: 120, color: "#257e68" }}
+                      >
+                        <MenuItem value="ethnicity">Ethnicity</MenuItem>
+                        <MenuItem value="language">Language</MenuItem>
+                        <MenuItem value="dob">DOB</MenuItem>
+                        <MenuItem value="gender">Gender</MenuItem>
+                        <MenuItem value="zipCode">Zip Code</MenuItem>
+                        <MenuItem value="streetName">Street Name</MenuItem>
+                        <MenuItem value="ward">Ward</MenuItem>
+                        <MenuItem value="none">None</MenuItem>
+                      </Select>
+                      {/*Add Remove Button*/}
+                      <IconButton
+                        size="small"
+                        onClick={() => handleRemoveCustomColumn(col.id)} // Call remove handler
+                        aria-label={`Remove ${col.label || "custom"} column`}
+                        title={`Remove ${col.label || "custom"} column`} // Tooltip for accessibility
+                      >
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </Box>
+                  </TableCell>
+                ))}
 
-              {/* Add button cell */}
-              <TableCell className="table-header" style={{ textAlign: "right" }}>
-                <IconButton
-                  onClick={handleAddCustomColumn}
-                  color="primary"
-                  aria-label="add custom column"
-                >
-                  <AddIcon sx={{color: '#257e68'}}/>
-                </IconButton>
-              </TableCell>
-            </TableRow>
-          </TableHead>
+                {/* Add button cell */}
+                <TableCell className="table-header" style={{ textAlign: "right" }}>
+                  <IconButton
+                    onClick={handleAddCustomColumn}
+                    color="primary"
+                    aria-label="add custom column"
+                  >
+                    <AddIcon sx={{ color: "#257e68" }} />
+                  </IconButton>
+                </TableCell>
+              </TableRow>
+            </TableHead>
 
             <TableBody>
-  {visibleRows.map((row) => (
-    <TableRow
-      key={row.id}
-      className={
-        editingRowId === row.id
-          ? "table-row editing-row"
-          : "table-row"
-      }
-    >
-      {fields.map((field) => (
-        <TableCell key={field.key}>
-          {editingRowId === row.id ? (
-            field.key === "fullname" ? (
-              <>
-                <TextField
-                  placeholder="First Name"
-                  value={row.firstName}
-                  variant="outlined"
-                  size="small"
-                  style={{ marginRight: "8px" }}
-                />
-                <TextField
-                  placeholder="Last Name"
-                  value={row.lastName}
-                  variant="outlined"
-                  size="small"
-                />
-              </>
-            ) : isRegularField(field) ? (
-              <TextField
-                type={field.type}
-                value={row[field.key]}
-                variant="outlined"
-                size="small"
-              />
-            ) : null
-          ) : field.key === "fullname" ? (
-            field.compute ? (
-              field.compute(row)
-            ) : (
-              `${row.firstName} ${row.lastName}`
-            )
-          ) : (
-            field.compute ? field.compute(row) : row[field.key]
-          )}
-        </TableCell>
-      ))}
+              {visibleRows.map((row) => (
+                <TableRow
+                  key={row.id}
+                  className={
+                    editingRowId === row.id ? "table-row editing-row" : "table-row"
+                  }
+                >
+                  {fields.map((field) => (
+                    <TableCell key={field.key}>
+                      {editingRowId === row.id ? (
+                        field.key === "fullname" ? (
+                          <>
+                            <TextField
+                              placeholder="First Name"
+                              value={row.firstName}
+                              variant="outlined"
+                              size="small"
+                              style={{ marginRight: "8px" }}
+                            />
+                            <TextField
+                              placeholder="Last Name"
+                              value={row.lastName}
+                              variant="outlined"
+                              size="small"
+                            />
+                          </>
+                        ) : isRegularField(field) ? (
+                          <TextField
+                            type={field.type}
+                            value={row[field.key]}
+                            variant="outlined"
+                            size="small"
+                          />
+                        ) : null
+                      ) : field.key === "fullname" ? (
+                        field.compute ? (
+                          field.compute(row)
+                        ) : (
+                          `${row.firstName} ${row.lastName}`
+                        )
+                      ) : field.compute ? (
+                        field.compute(row)
+                      ) : (
+                        row[field.key]
+                      )}
+                    </TableCell>
+                  ))}
 
-    {customColumns.map((col) => (
-        <TableCell key={col.id}>
-          {editingRowId === row.id ? (
-      // EDIT MODE: Check if propertyKey is valid before rendering TextField
-      col.propertyKey !== 'none' ? (
-        <TextField
-          // We've checked it's not 'none', so we can assert the type here
-          value={row[col.propertyKey as keyof RowData] ?? ''}
-          // IMPORTANT: You'll need an onChange handler specifically for custom columns
-          onChange={(e) => handleCustomColumnChange(e, row.id, col.propertyKey as keyof RowData)}
-          variant="outlined"
-          size="small"
-        />
-      ) : (
-        // In edit mode, if the property is 'none', maybe just display N/A
-        "N/A"
-      )
-    ) : (
-      // DISPLAY MODE: Check if propertyKey is valid before accessing data
-      col.propertyKey !== 'none' ?
-        (row[col.propertyKey as keyof RowData]?.toString() ?? "N/A") :
-        "N/A"
-    )}
-        </TableCell>
-      ))}
+                  {customColumns.map((col) => (
+                    <TableCell key={col.id}>
+                      {editingRowId === row.id ? (
+                        // EDIT MODE: Check if propertyKey is valid before rendering TextField
+                        col.propertyKey !== "none" ? (
+                          <TextField
+                            // We've checked it's not 'none', so we can assert the type here
+                            value={row[col.propertyKey as keyof RowData] ?? ""}
+                            // IMPORTANT: You'll need an onChange handler specifically for custom columns
+                            onChange={(e) =>
+                              handleCustomColumnChange(
+                                e,
+                                row.id,
+                                col.propertyKey as keyof RowData,
+                                setRows
+                              )
+                            }
+                            variant="outlined"
+                            size="small"
+                          />
+                        ) : (
+                          // In edit mode, if the property is 'none', maybe just display N/A
+                          "N/A"
+                        )
+                      ) : // DISPLAY MODE: Check if propertyKey is valid before accessing data
+                      col.propertyKey !== "none" ? (
+                        (row[col.propertyKey as keyof RowData]?.toString() ?? "N/A")
+                      ) : (
+                        "N/A"
+                      )}
+                    </TableCell>
+                  ))}
 
-
-      <TableCell style={{ textAlign: "right" }}>
-        {editingRowId === row.id ? (
-          <Button
-            variant="contained"
-            color="primary"
-            size="small"
-            onClick={() => handleSaveRow(row.id)}
-            style={{ marginRight: "8px" }}
-          >
-            Save
-          </Button>
-        ) : (
-          <IconButton onClick={(e) => handleMenuOpen(e, row.id)}>
-            <MoreVertIcon />
-          </IconButton>
-        )}
-        <Menu
-          anchorEl={menuAnchorEl}
-          open={Boolean(menuAnchorEl) && selectedRowId === row.id}
-          onClose={handleMenuClose}
-        >
-          <MenuItem onClick={() => handleEditRow(row.id)}>
-            <EditIcon fontSize="small" /> Edit
-          </MenuItem>
-          <MenuItem onClick={() => handleDeleteRow(row.id)}>
-            <DeleteIcon fontSize="small" /> Delete
-          </MenuItem>
-        </Menu>
-      </TableCell>
-    </TableRow>
-  ))}
-</TableBody>
-        </Table>
-      </TableContainer>
-    </div>
-  </Box>
+                  <TableCell style={{ textAlign: "right" }}>
+                    {editingRowId === row.id ? (
+                      <Button
+                        variant="contained"
+                        color="primary"
+                        size="small"
+                        onClick={() => handleSaveRow(row.id)}
+                        style={{ marginRight: "8px" }}
+                      >
+                        Save
+                      </Button>
+                    ) : (
+                      <IconButton onClick={(e) => handleMenuOpen(e, row.id)}>
+                        <MoreVertIcon />
+                      </IconButton>
+                    )}
+                    <Menu
+                      anchorEl={menuAnchorEl}
+                      open={Boolean(menuAnchorEl) && selectedRowId === row.id}
+                      onClose={handleMenuClose}
+                    >
+                      <MenuItem onClick={() => handleEditRow(row.id)}>
+                        <EditIcon fontSize="small" /> Edit
+                      </MenuItem>
+                      <MenuItem onClick={() => handleDeleteRow(row.id)}>
+                        <DeleteIcon fontSize="small" /> Delete
+                      </MenuItem>
+                    </Menu>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </div>
+    </Box>
   );
 };
 
