@@ -1911,17 +1911,7 @@ const initializeAutocomplete = () => {
               </Typography>
             )}
           </Box>
-            <Box>
-              <Typography className="field-descriptor" sx={fieldLabelStyles}>
-                TEFAP CERTIFICATION
-              </Typography>
-              {renderField("tefapCert", "date")}
-              {errors.tefapCert && (
-                <Typography color="error" variant="body2">
-                  {errors.tefapCert}
-                </Typography>
-              )}
-            </Box>
+          </Box>
           <Box
             className="box-header"
             display="flex"
@@ -1950,6 +1940,19 @@ const initializeAutocomplete = () => {
             className="info-grid"
           >
 
+            <Box>
+              <Typography className="field-descriptor" sx={fieldLabelStyles}>
+                TEFAP CERTIFICATION
+              </Typography>
+              {renderField("tefapCert", "date")}
+              {errors.tefapCert && (
+                <Typography color="error" variant="body2">
+                  {errors.tefapCert}
+                </Typography>
+              )}
+            </Box>
+          
+
 
             {/* Life Challenges */}
             <Box>
@@ -1976,7 +1979,7 @@ const initializeAutocomplete = () => {
             </Box>
 
           </Box>
-        </Box>
+        
         </Box>
       </Box>
 
