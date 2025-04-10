@@ -18,7 +18,11 @@ import {
   Menu,
   MenuItem,
   TextField,
+  Select,
+  SelectChangeEvent,
+  colors,
 } from "@mui/material";
+import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
 import SaveIcon from "@mui/icons-material/Save";
@@ -36,6 +40,7 @@ import {
 } from "firebase/firestore";
 import { auth } from "../../auth/firebaseConfig";
 import { onAuthStateChanged } from "firebase/auth";
+
 
 // Define TypeScript types for row data
 interface RowData {
@@ -62,6 +67,15 @@ interface RowData {
       vegetarian: boolean;
     };
   };
+  ethnicity: string;
+
+}
+
+// ADDED
+interface CustomColumn {
+  id: string; // Unique identifier for the column
+  label: string; // Header label (e.g., "Custom 1", or user-defined)
+  propertyKey: keyof RowData | 'none'; // Which property from RowData to display
 }
 
 // Define a type for fields that can either be computed or direct keys of RowData
@@ -89,9 +103,111 @@ type Field =
       label: string;
       type: string;
       compute: (data: RowData) => string;
-    };
+    }
+  
 
-// Define fields for table columns
+
+// Type Guard to check if a field is a regular field
+const isRegularField = (
+  field: Field
+): field is Extract<Field, { key: keyof RowData }> => {
+  return field.key !== "fullname";
+};
+
+const Spreadsheet: React.FC = () => {
+  const [rows, setRows] = useState<RowData[]>([]);
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [editingRowId, setEditingRowId] = useState<string | null>(null);
+
+  const [menuAnchorEl, setMenuAnchorEl] = useState<null | HTMLElement>(null);
+  const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
+  
+  // ADDED
+  const [customColumns, setCustomColumns] = useState<CustomColumn[]>([]);
+  
+  const navigate = useNavigate();
+
+  // ADDED
+  const handleAddCustomColumn = () => {
+    const newColumnId = `custom-${Date.now()}`; // unique ID generation
+    const newColumn: CustomColumn = {
+      id: newColumnId,
+      label: `Custom ${customColumns.length + 1}`, 
+      propertyKey: 'none', 
+    };
+    setCustomColumns([...customColumns, newColumn]);
+
+  };
+
+  // ADDED
+  const handleCustomColumnChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+    id: string,                          // ID of the row being edited
+    propertyKey: keyof RowData           
+  ) => {
+    const newValue = e.target.value; // Get the new value from the input
+
+    setRows((prevRows) =>                 
+      prevRows.map((row) => {             
+        if (row.id === id) {              
+          
+          return {
+            ...row,                     
+            [propertyKey]: newValue,    // Update the property w/ key
+                                        
+          };
+        }
+        return row;
+      })
+    );
+  };
+
+  // ADDED
+  const handleCustomHeaderChange = (
+    event: SelectChangeEvent<keyof RowData | 'none'>,
+    columnId: string
+  ) => {
+    const newPropertyKey = event.target.value as keyof RowData | 'none'; // Get selected val
+  
+    setCustomColumns((prevColumns) =>
+      prevColumns.map((col) => {
+        if (col.id === columnId) {
+          return {
+            ...col,
+            propertyKey: newPropertyKey,
+          };
+        }
+        return col;
+      })
+    ); 
+  
+    console.log(`Custom Column ID: ${columnId}, New Property Key: ${newPropertyKey}`); // debugging
+  };
+
+  const handleRemoveCustomColumn = (columnIdToRemove: string) => {
+    // Use the state setter function for customColumns
+    setCustomColumns((prevColumns) =>
+      // Filter the previous columns array
+      prevColumns.filter((column) => column.id !== columnIdToRemove)
+      // Keep only the columns whose ID does NOT match the one to remove
+    );
+  };
+  
+  //Route Protection
+  React.useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user:any) => {
+      if (!user) {
+        console.log("No user is signed in, redirecting to /");
+        navigate("/");
+      } 
+    });
+  
+    // Cleanup the listener when the component unmounts
+    return () => unsubscribe();
+  }, [navigate]);
+
+  // Define fields for table columns
 const fields: Field[] = [
   {
     key: "fullname",
@@ -128,38 +244,7 @@ const fields: Field[] = [
     type: "text",
     compute: (data: RowData) => data.deliveryDetails.deliveryInstructions || "None",
   },
-];
-
-// Type Guard to check if a field is a regular field
-const isRegularField = (
-  field: Field
-): field is Extract<Field, { key: keyof RowData }> => {
-  return field.key !== "fullname";
-};
-
-const Spreadsheet: React.FC = () => {
-  const [rows, setRows] = useState<RowData[]>([]);
-  const [searchQuery, setSearchQuery] = useState<string>("");
-  const [editingRowId, setEditingRowId] = useState<string | null>(null);
-
-  const [menuAnchorEl, setMenuAnchorEl] = useState<null | HTMLElement>(null);
-  const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
-  
-  const navigate = useNavigate();
-  
-  //Route Protection
-  React.useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user:any) => {
-      if (!user) {
-        console.log("No user is signed in, redirecting to /");
-        navigate("/");
-      } 
-    });
-  
-    // Cleanup the listener when the component unmounts
-    return () => unsubscribe();
-  }, [navigate]);
+];  
     
   
   // Fetch data from Firebase without authentication checks
@@ -187,7 +272,6 @@ const Spreadsheet: React.FC = () => {
     setSearchQuery(event.target.value);
   };
 
-  // Handle input change for editing a row
   // Handle input change for editing a row
   const handleEditInputChange = (
     e: React.ChangeEvent<HTMLTextAreaElement | HTMLInputElement>,
@@ -237,6 +321,8 @@ const Spreadsheet: React.FC = () => {
       }
     }
   };
+
+  
 
   // Handle navigating to user details page
   const handleRowClick = (clientid: string) => {
@@ -293,35 +379,36 @@ const Spreadsheet: React.FC = () => {
     navigate("/profile")
   }
   
-  //  THIS IS WHERE I NEED TO BE EDITING RIGHT NOW
   // Filter rows based on search query
+  let visibleRows = rows.filter((row) => {
 
-  let visibleRows = rows.filter(
-    (row) =>
-      fields.some((field) => {
-        const fieldValue = field.compute
-          ? field.compute(row)
-          : row[field.key as keyof RowData];
-        
-        console.log("welcome")
-        console.log(fieldValue && typeof fieldValue)
-        console.log(fieldValue && fieldValue)
-        // console.log(fieldValue && fieldValue.toString().toLowerCase().includes(searchQuery.toLowerCase()))
-        console.log(fieldValue && fieldValue.toString().toLowerCase().includes("something"))
-        return (
-          fieldValue &&
-          fieldValue
-            .toString()
-            .toLowerCase()
-            // .includes(query.toLowerCase())
-            .includes(searchQuery.toLowerCase())
-        );
-      }) 
-      // ||
-      // row.dietaryRestriction
-      //   .toLowerCase()
-      //   .includes(searchQuery.toLowerCase())
-  );
+    // Check if the query matches any of the static fields
+    const matchesStaticField = fields.some((field) => {
+      let fieldValue: any;
+  
+
+      if (field.compute) {
+        fieldValue = field.compute(row);
+      } else {
+        fieldValue = row[field.key as keyof RowData];
+      }
+  
+      return fieldValue != null && fieldValue.toString().toLowerCase().includes(searchQuery.toLowerCase())
+    });
+  
+    // Check if the query matches custom columns
+    const matchesCustomColumn = customColumns.some((col) => {
+      if (col.propertyKey !== 'none') {
+        const fieldValue = row[col.propertyKey as keyof RowData];
+
+        return fieldValue != null && fieldValue.toString().toLowerCase().includes(searchQuery.toLowerCase())
+      }
+      return false;
+    });
+  
+    // Include the row if it matches either a static field OR a custom column
+    return matchesStaticField || matchesCustomColumn;
+  });
 
   useEffect(() => {
     console.log("this is search query")
@@ -429,23 +516,60 @@ const Spreadsheet: React.FC = () => {
         {/* Spreadsheet Table */}
         <TableContainer component={Paper} style={{maxHeight: "65vh", overflowY: "auto" }}>
           <Table stickyHeader>
-            <TableHead>
-              <TableRow>
-                {fields.map((field) => (
-                  <TableCell className="table-header" key={field.key}>
-                    <h2>
-                      {field.label}
-                      {field.key === "fullname"}
-                      {field.key === "address" }
-                      {field.key === "phone"}
-                      {field.key === "deliveryDetails.dietaryRestrictions"}
-                      {field.key === "deliveryDetails.deliveryInstructions"}
-                    </h2>
-                  </TableCell>
-                ))}
-                <TableCell className="table-header"></TableCell>
-              </TableRow>
-            </TableHead>
+          <TableHead>
+            <TableRow>
+              {/* Static columns */}
+              {fields.map((field) => (
+                <TableCell className="table-header" key={field.key}>
+                  <h2>{field.label}</h2>
+                </TableCell>
+              ))}
+
+              {/*  Headers for custom columns */}
+              {customColumns.map((col) => (
+                <TableCell className="table-header" key={col.id}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Select
+                      value={col.propertyKey}
+                      onChange={(event) => handleCustomHeaderChange(event, col.id)}
+                      variant="outlined"
+                      displayEmpty 
+                      sx={{ minWidth: 120, color: '#257e68'}}
+                    >
+                      <MenuItem value="ethnicity">Ethnicity</MenuItem>
+                      <MenuItem value="language">Language</MenuItem>
+                      <MenuItem value="dob">DOB</MenuItem>
+                      <MenuItem value="gender">Gender</MenuItem>
+                      <MenuItem value="zipCode">Zip Code</MenuItem>
+                      <MenuItem value="streetName">Street Name</MenuItem>
+                      <MenuItem value="ward">Ward</MenuItem>
+                      <MenuItem value="none">None</MenuItem>
+                    </Select>
+                    {/*Add Remove Button*/}
+                    <IconButton
+                      size="small"
+                      onClick={() => handleRemoveCustomColumn(col.id)} // Call remove handler
+                      aria-label={`Remove ${col.label || 'custom'} column`}
+                      title={`Remove ${col.label || 'custom'} column`} // Tooltip for accessibility
+                    >
+                      <DeleteIcon fontSize="small" />
+                    </IconButton>
+                  </Box>
+                </TableCell>
+              ))}
+
+              {/* Add button cell */}
+              <TableCell className="table-header" style={{ textAlign: "right" }}>
+                <IconButton
+                  onClick={handleAddCustomColumn}
+                  color="primary"
+                  aria-label="add custom column"
+                >
+                  <AddIcon sx={{color: '#257e68'}}/>
+                </IconButton>
+              </TableCell>
+            </TableRow>
+          </TableHead>
 
             <TableBody>
   {visibleRows.map((row) => (
@@ -495,6 +619,34 @@ const Spreadsheet: React.FC = () => {
           )}
         </TableCell>
       ))}
+
+    {customColumns.map((col) => (
+        <TableCell key={col.id}>
+          {editingRowId === row.id ? (
+      // EDIT MODE: Check if propertyKey is valid before rendering TextField
+      col.propertyKey !== 'none' ? (
+        <TextField
+          // We've checked it's not 'none', so we can assert the type here
+          value={row[col.propertyKey as keyof RowData] ?? ''}
+          // IMPORTANT: You'll need an onChange handler specifically for custom columns
+          onChange={(e) => handleCustomColumnChange(e, row.id, col.propertyKey as keyof RowData)}
+          variant="outlined"
+          size="small"
+        />
+      ) : (
+        // In edit mode, if the property is 'none', maybe just display N/A
+        "N/A"
+      )
+    ) : (
+      // DISPLAY MODE: Check if propertyKey is valid before accessing data
+      col.propertyKey !== 'none' ?
+        (row[col.propertyKey as keyof RowData]?.toString() ?? "N/A") :
+        "N/A"
+    )}
+        </TableCell>
+      ))}
+
+
       <TableCell style={{ textAlign: "right" }}>
         {editingRowId === row.id ? (
           <Button

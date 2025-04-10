@@ -18,8 +18,15 @@ import CreateUsers from './pages/CreateUsers/CreateUsers';
 import DeliverySpreadsheet from "./pages/Delivery/DeliverySpreadsheet";
 import TestCsvPage from "./pages/Delivery/TestCsvPage";
 
+import { useAuth } from './auth/AuthProvider';
 
 function App() {
+  const { loading } = useAuth();
+
+  if (loading) {
+    return <div>Loading...</div>; // Or a spinner
+  }
+
   return (
     <Router>
       <Routes>
@@ -32,7 +39,7 @@ function App() {
 
         {/* Protected or main routes wrapped with BasePage */}
         <Route
-          path="/calendar"
+          path="/deliveries"
           element={
             <BasePage>
               <CalendarPage />
@@ -53,7 +60,7 @@ function App() {
           }
         />
         <Route
-          path="/spreadsheet"
+          path="/clients"
           element={
             <BasePage>
               <Spreadsheet />
@@ -62,7 +69,7 @@ function App() {
         />
 
         <Route
-          path="/deliveryAssignment"
+          path="/routes"
           element={
             <BasePage>
               <DeliverySpreadsheet />
@@ -71,7 +78,7 @@ function App() {
         />
 
         <Route
-          path="/createUsers"
+          path="/users"
           element={
             <BasePage>
               <CreateUsers />
