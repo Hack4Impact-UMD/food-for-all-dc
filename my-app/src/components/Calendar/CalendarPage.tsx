@@ -49,6 +49,8 @@ import { auth } from "../../auth/firebaseConfig";
 import { onAuthStateChanged } from "firebase/auth";
 import CalendarPopper from "./CalendarPopper";
 import { set } from "date-fns";
+import { getDefaultLimit } from "./CalendarUtils";
+import { useLimits } from "./useLimits";
 
 const StyledToolbar = styled(Toolbar)(({ theme }) => ({
   justifyContent: "space-between",
@@ -224,6 +226,8 @@ const CalendarPage: React.FC = () => {
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [dailyLimits, setDailyLimits] = useState<DateLimit[]>([]);
+
+  const limits = useLimits()
 
   //Route Protection
   React.useEffect(() => {
@@ -1126,7 +1130,6 @@ const handleAddDelivery = async () => {
         </Box>
       );
     }
-  
     // For Week and Month views
     if (viewType === "Month") {
       const customCalendarConfig = {
@@ -1134,7 +1137,8 @@ const handleAddDelivery = async () => {
         onBeforeCellRender: (args: any) => {
           const dateKey = args.cell.start.toString("yyyy-MM-dd");
           const dailyLimit = dailyLimits.find((dl) => dl.date === dateKey);
-          const limit = dailyLimit ? dailyLimit.limit : 60;
+          const defaultLimit = getDefaultLimit(args.cell.start, limits)
+          const limit = dailyLimit ? dailyLimit.limit : defaultLimit;
 
           const eventCount = calendarConfig.events.filter((event) => {
             const eventDateString = event.start.toString("yyyy-MM-dd");

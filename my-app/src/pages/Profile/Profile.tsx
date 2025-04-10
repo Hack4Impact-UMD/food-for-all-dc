@@ -18,6 +18,7 @@ import {
   TextField,
   Tooltip,
   Typography,
+  Autocomplete,
 } from "@mui/material";
 import {
   addDoc,
@@ -25,21 +26,21 @@ import {
   doc,
   getDoc,
   getDocs,
+  limit,
+  orderBy,
   query,
   setDoc,
-  orderBy,
   updateDoc,
   where,
-  limit,
 } from "firebase/firestore";
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { db, auth } from "../../auth/firebaseConfig";
+import { auth, db } from "../../auth/firebaseConfig";
 import "./Profile.css";
 
 import { Timestamp } from "firebase/firestore";
 import TagPopup from "./Tags/TagPopup";
-import { StringLiteral } from "typescript";
+import CaseWorkerManagementModal from "../../components/CaseWorkerManagementModal";
 
 declare global {
   interface Window {
@@ -86,12 +87,91 @@ const CustomSelect = styled(Select)({
   },
 });
 
+// Type definitions
+type DietaryRestrictions = {
+  lowSugar: boolean;
+  kidneyFriendly: boolean;
+  vegan: boolean;
+  vegetarian: boolean;
+  halal: boolean;
+  microwaveOnly: boolean;
+  softFood: boolean;
+  lowSodium: boolean;
+  noCookingEquipment: boolean;
+  foodAllergens: string[];
+  other: string[];
+};
+
+type DeliveryDetails = {
+  deliveryInstructions: string;
+  dietaryRestrictions: DietaryRestrictions;
+};
+
+// Add CaseWorker interface
+interface CaseWorker {
+  id: string;
+  name: string;
+  organization: string;
+  phone: string;
+  email: string;
+}
+
+interface ClientProfile {
+  uid: string;
+  firstName: string;
+  lastName: string;
+  streetName: string;
+  zipCode: string;
+  address: string;
+  address2: string;
+  city: string;
+  state: string;
+  quadrant: string;
+  dob: string;
+  deliveryFreq: string;
+  phone: string;
+  alternativePhone: string;
+  adults: number;
+  children: number;
+  total: number;
+  gender: "Male" | "Female" | "Other";
+  ethnicity: string;
+  deliveryDetails: DeliveryDetails;
+  lifeChallenges: string;
+  notes: string;
+  notesTimestamp?: {
+    notes: string,
+    timestamp: Date
+  } | null;
+  lifestyleGoals: string;
+  language: string;
+  createdAt: Date;
+  updatedAt: Date;
+  tags: string[];
+  ward: string;
+  seniors: number;
+  headOfHousehold: "Senior" | "Adult";
+  referralEntity?: {
+    id: string;
+    name: string;
+    organization: string;
+  };
+  startDate: string;
+  endDate: string;
+  recurrence: string;
+  tefapCert?: string;
+}
+
 const Profile = () => {
   // #### STATE ####
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [tags, setTags] = useState<string[]>([])
+  const [tags, setTags] = useState<string[]>([]);
   const [allTags, setAllTags] = useState<string[]>([]);
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
+  const [prevTags, setPrevTags] = useState<string[] | null>(null);
+  const [prevClientProfile, setPrevClientProfile] = useState<ClientProfile | null>(
+    null
+  );
   const [clientProfile, setClientProfile] = useState<ClientProfile>({
     uid: "",
     firstName: "",
@@ -105,11 +185,13 @@ const Profile = () => {
     state: "",
     quadrant: "",
     dob: "",
+    deliveryFreq: "",
     phone: "",
     alternativePhone: "",
     adults: 0,
     children: 0,
     total: 0,
+    seniors: 0,
     headOfHousehold: "Adult",
     gender: "Male",
     ethnicity: "",
@@ -141,7 +223,7 @@ const Profile = () => {
     recurrence: "None",
     tags: [],
     ward: "",
-    seniors: 0,
+    tefapCert: ""
   });
   const [isNewProfile, setIsNewProfile] = useState(true);
   const [editMode, setEditMode] = useState(true);
@@ -161,6 +243,9 @@ const Profile = () => {
   const params = useParams(); // Params will return an object containing route params (like { id: 'some-id' })
   const id: string | null = params.id ?? null; // Use optional chaining to get the id or null if undefined
   const [showSavePopup, setShowSavePopup] = useState(false);
+  const [showCaseWorkerModal, setShowCaseWorkerModal] = useState(false);
+  const [caseWorkers, setCaseWorkers] = useState<CaseWorker[]>([]);
+  const [selectedCaseWorker, setSelectedCaseWorker] = useState<CaseWorker | null>(null);
 
   // Function to fetch profile data by ID
   const getProfileById = async (id: string) => {
@@ -179,9 +264,7 @@ const Profile = () => {
     if (auth.currentUser === null) {
       navigate("/");
     }
-  }, [])
-
-
+  }, [navigate]);
 
   //get list of all tags
   useEffect(() => {
@@ -213,7 +296,7 @@ const Profile = () => {
         if (profileData) {
           setTags(profileData.tags.filter((tag) => allTags.includes(tag)) || []);
           setClientProfile(profileData);
-  
+
           // Set prevNotes only when the profile is loaded from Firebase
           if (!profileLoaded) {
             setPrevNotes(profileData.notes || ""); // Set the original notes
@@ -270,29 +353,11 @@ const Profile = () => {
         await getWard(clientProfile.address);
       }
     };
-  
+
     fetchWard();
   }, [clientProfile.address]); // Runs whenever the address field changes
 
-  // Improved type definitions
-  type DietaryRestrictions = {
-    lowSugar: boolean;
-    kidneyFriendly: boolean;
-    vegan: boolean;
-    vegetarian: boolean;
-    halal: boolean;
-    microwaveOnly: boolean;
-    softFood: boolean;
-    lowSodium: boolean;
-    noCookingEquipment: boolean;
-    foodAllergens: string[];
-    other: string[];
-  };
-
-  type DeliveryDetails = {
-    deliveryInstructions: string;
-    dietaryRestrictions: DietaryRestrictions;
-  };
+  // Type definitions have been moved to the top of the file
 
   type ClientProfile = {
     uid: string;
@@ -307,20 +372,20 @@ const Profile = () => {
     state: string;
     quadrant: string;
     dob: string;
+    deliveryFreq: string; // Added this field
     phone: string;
     alternativePhone: string;
     adults: number;
     children: number;
     total: number;
     gender: "Male" | "Female" | "Other";
-    headOfHousehold: "Adult" | "Senior";
     ethnicity: string;
     deliveryDetails: DeliveryDetails;
     lifeChallenges: string;
     notes: string;
     notesTimestamp?: {
-      notes: string,
-      timestamp: Date
+      notes: string;
+      timestamp: Date;
     } | null;
     lifestyleGoals: string;
     language: string;
@@ -332,6 +397,13 @@ const Profile = () => {
     tags: string[];
     ward: string;
     seniors: number;
+    headOfHousehold: "Senior" | "Adult";
+    tefapCert?: string;
+    referralEntity?: {
+      id: string;
+      name: string;
+      organization: string;
+    };
   };
 
   // Type for all possible field paths including nested ones
@@ -343,7 +415,8 @@ const Profile = () => {
   type ClientProfileKey =
     | keyof ClientProfile
     | "deliveryDetails.dietaryRestrictions"
-    | "deliveryDetails.deliveryInstructions";
+    | "deliveryDetails.deliveryInstructions"
+    | "tefapCert";
 
   type InputType =
     | "text"
@@ -378,7 +451,7 @@ const Profile = () => {
   };
 
   const getWard = async (searchAddress: string) => {
-    console.log("getting ward")
+    console.log("getting ward");
     const baseurl = "https://datagate.dc.gov/mar/open/api/v2.2";
     const apikey = process.env.REACT_APP_DC_WARD_API_KEY;
     const marURL = baseurl + "/locations/";
@@ -407,22 +480,26 @@ const Profile = () => {
       const data = await response.json();
 
       // Check if the response is successful and contains the expected data
-      if (data.Success === true && data.Result.addresses && data.Result.addresses.length > 0) {
+      if (
+        data.Success === true &&
+        data.Result.addresses &&
+        data.Result.addresses.length > 0
+      ) {
         const result = data.Result.addresses[0];
 
         if (result.zones && result.zones.ward[0]) {
           wardName = result.zones.ward[0].properties.NAME;
         } else {
           console.log("No ward information found in the response.");
-          wardName = "No ward information"
+          wardName = "No ward information";
         }
       } else {
         console.log("No address found or invalid response.");
-        wardName = "No address found"
+        wardName = "No address found";
       }
     } catch (error) {
       console.error("Error fetching ward information:", error);
-      wardName = "Error getting ward"
+      wardName = "Error getting ward";
     }
     clientProfile.ward = wardName;
     setWard(wardName);
@@ -441,6 +518,38 @@ const Profile = () => {
     setEditMode((prev) => !prev);
   };
 
+  function deepCopy<T>(obj: T): T {
+    // If obj is null or not an object, return it (base case)
+    if (obj === null || typeof obj !== "object") {
+      return obj;
+    }
+
+    // Handle Date objects
+    if (obj instanceof Date) {
+      return new Date(obj.getTime()) as T;
+    }
+
+    // Handle arrays by recursively copying each element
+    if (Array.isArray(obj)) {
+      return obj.map((item) => deepCopy(item)) as unknown as T;
+    }
+
+    // Handle plain objects by recursively copying each property
+    const copy = {} as { [key: string]: any };
+    for (const key in obj) {
+      if (Object.prototype.hasOwnProperty.call(obj, key)) {
+        copy[key] = deepCopy((obj as any)[key]);
+      }
+    }
+    return copy as T;
+  }
+
+  const handlePrevClientCopying = () => {
+    if (!prevClientProfile) {
+      setPrevClientProfile(deepCopy(clientProfile));
+    }
+  };
+
   const handleChange = (
     e:
       | React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
@@ -450,12 +559,13 @@ const Profile = () => {
 
     // Always mark as unsaved when a change occurs
     setIsSaved(false);
+    handlePrevClientCopying();
 
-    if (name === "dob") {
-      const newDob = e.target.value; // this will be in the format YYYY-MM-DD
+    if (name === "dob" || name === "tefapCert") {
+      const date = e.target.value; // this will be in the format YYYY-MM-DD
       setClientProfile((prevState) => ({
         ...prevState,
-        dob: newDob,
+        [name]: date,
       }));
     } else if (name === "adults" || name === "children") {
       setClientProfile((prevState) => ({
@@ -473,7 +583,7 @@ const Profile = () => {
         ...prevState,
         [name]: value,
       }));
-      
+
       // Special handling for notes field
       if (name === "notes") {
         console.log("Notes changed to:", value);
@@ -484,56 +594,98 @@ const Profile = () => {
   const validateProfile = () => {
     const newErrors: { [key: string]: string } = {};
 
-    if (!clientProfile.firstName?.trim())
+    if (!clientProfile.firstName?.trim()) {
       newErrors.firstName = "First Name is required";
-    if (!clientProfile.lastName?.trim())
+      console.log("Debug: firstName invalid:", clientProfile.firstName);
+    }
+    if (!clientProfile.lastName?.trim()) {
       newErrors.lastName = "Last Name is required";
-    if (!clientProfile.address?.trim())
+      console.log("Debug: lastName invalid:", clientProfile.lastName);
+    }
+    if (!clientProfile.address?.trim()) {
       newErrors.address = "Address is required";
     if (!clientProfile.email?.trim())
       newErrors.email = "Email is required";
-    if (!clientProfile.zipCode)
+      console.log("Debug: address invalid:", clientProfile.address);
+    }
+    if (!clientProfile.zipCode) {
       newErrors.zipCode = "Zip code is required";
-    if (!clientProfile.city)
+      console.log("Debug: zipCode invalid:", clientProfile.zipCode);
+    }
+    if (!clientProfile.city) {
       newErrors.city = "City is required";
-    if (!clientProfile.state)
+      console.log("Debug: city invalid:", clientProfile.city);
+    }
+    if (!clientProfile.state) {
       newErrors.state = "State is required";
-    if (!clientProfile.dob)
+      console.log("Debug: state invalid:", clientProfile.state);
+    }
+    if (!clientProfile.dob) {
       newErrors.dob = "Date of Birth is required";
-    if (!clientProfile.recurrence.trim())
-      newErrors.recccurence = "Reccurence is required";
-    if (!clientProfile.startDate.trim())
+      console.log("Debug: dob invalid:", clientProfile.dob);
+    }
+    // Adding optional chaining here to prevent errors if undefined
+    if (!clientProfile.recurrence?.trim()) {
+      newErrors.recccurence = "Recurrence is required";
+      console.log("Debug: recurrence invalid:", clientProfile.recurrence);
+    }
+    if (!clientProfile.startDate?.trim()) {
       newErrors.startDate = "Start Date is required";
-    if (!clientProfile.endDate.trim())
+      console.log("Debug: startDate invalid:", clientProfile.startDate);
+    }
+    if (!clientProfile.endDate?.trim()) {
       newErrors.endDate = "End Date is required";
-    if (!clientProfile.phone?.trim())
+      console.log("Debug: endDate invalid:", clientProfile.endDate);
+    }
+    if (!clientProfile.phone?.trim()) {
       newErrors.phone = "Phone is required";
-    if (!clientProfile.gender?.trim())
+      console.log("Debug: phone invalid:", clientProfile.phone);
+    }
+    if (!clientProfile.gender?.trim()) {
       newErrors.gender = "Gender is required";
-    if (!clientProfile.ethnicity?.trim())
+      console.log("Debug: gender invalid:", clientProfile.gender);
+    }
+    if (!clientProfile.ethnicity?.trim()) {
       newErrors.ethnicity = "Ethnicity is required";
-    if (!clientProfile.language.trim()) newErrors.language = "Language is required";
+      console.log("Debug: ethnicity invalid:", clientProfile.ethnicity);
+    }
+    if (!clientProfile.language?.trim()) {
+      newErrors.language = "Language is required";
+      console.log("Debug: language invalid:", clientProfile.language);
+    }
     if (clientProfile.adults === 0 && clientProfile.seniors === 0) {
       newErrors.total = "At least one adult or senior is required";
+      console.log(
+        "Debug: adults and seniors are both zero:",
+        clientProfile.adults,
+        clientProfile.seniors
+      );
     }
     if (!/^\d{10}$/.test(clientProfile.phone || "")) {
       newErrors.phone = "Phone number must be exactly 10 digits";
+      console.log("Debug: phone format invalid:", clientProfile.phone);
     }
-
     if (
       clientProfile.alternativePhone &&
       !/^\d{10}$/.test(clientProfile.alternativePhone)
     ) {
       newErrors.alternativePhone =
         "Alternative Phone number must be exactly 10 digits";
+      console.log(
+        "Debug: alternativePhone format invalid:",
+        clientProfile.alternativePhone
+      );
     }
 
     setErrors(newErrors);
-    console.log(newErrors);
+    console.log("Final errors:", newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  const checkIfNotesExists = (notes: string, prevNotesTimestamp: { notes: string; timestamp: Date } | null) => {
+  const checkIfNotesExists = (
+    notes: string,
+    prevNotesTimestamp: { notes: string; timestamp: Date } | null
+  ) => {
     if (!prevNotesTimestamp && notes.trim() !== "") {
       return { notes, timestamp: new Date() };
     }
@@ -559,11 +711,11 @@ const Profile = () => {
       console.log("Invalid Profile");
       return;
     }
-  
+
     try {
       const currNotes = clientProfile.notes;
   
-      let updatedNotesTimestamp = checkIfNotesExists(currNotes, clientProfile.notesTimestamp ?? null);
+      let updatedNotesTimestamp = checkIfNotesExists(currNotes, clientProfile.notesTimestamp || null);
       updatedNotesTimestamp = checkIfNotesChanged(prevNotes, currNotes, updatedNotesTimestamp);
   
       console.log("Previous notes:", prevNotes);
@@ -577,11 +729,11 @@ const Profile = () => {
         notesTimestamp: updatedNotesTimestamp, // Update the notesTimestamp
         updatedAt: new Date(),
         total: clientProfile.adults + clientProfile.children + clientProfile.seniors,
-        ward: await getWard(clientProfile.address)
+        ward: await getWard(clientProfile.address),
       };
-  
+
       const sortedAllTags = [...allTags].sort((a, b) => a.localeCompare(b));
-  
+
       if (isNewProfile) {
         // Generate new UID for new profile
         const newUid = await generateUID();
@@ -590,11 +742,14 @@ const Profile = () => {
           uid: newUid,
           createdAt: new Date(),
         };
-  
+
         // Save to Firestore for new profile
         await setDoc(doc(db, "clients", newUid), newProfile);
-        await setDoc(doc(db, "tags", "oGuiR2dQQeOBXHCkhDeX"), { tags: sortedAllTags });
+        await setDoc(doc(db, "tags", "oGuiR2dQQeOBXHCkhDeX"), {
+          tags: sortedAllTags,
+        });
         setClientProfile(newProfile);
+        setPrevClientProfile(null);
         setIsNewProfile(false);
         console.log("New profile created with ID: ", newUid);
         navigate(`/profile/${newUid}`);
@@ -603,21 +758,26 @@ const Profile = () => {
         await setDoc(doc(db, "clients", clientProfile.uid), updatedProfile, {
           merge: true,
         });
-        await setDoc(doc(db, "tags", "oGuiR2dQQeOBXHCkhDeX"), { tags: sortedAllTags }, {
-          merge: true,
-        });
+        await setDoc(
+          doc(db, "tags", "oGuiR2dQQeOBXHCkhDeX"),
+          { tags: sortedAllTags },
+          {
+            merge: true,
+          }
+        );
+        setPrevClientProfile(null);
         setClientProfile(updatedProfile);
       }
-  
+
       // Make sure we update prevNotes with the current notes value to track changes properly
-      setPrevNotes(currNotes); 
+      setPrevNotes(currNotes);
       console.log("Updated prevNotes to:", currNotes);
-      
+
       // Update UI state
       setIsSaved(true);
       setEditMode(false);
       setIsEditing(false);
-      
+
       // Show save popup
       setShowSavePopup(true);
       // Hide popup after 2 seconds
@@ -766,7 +926,7 @@ const Profile = () => {
         );
 
         case "textarea":
-          if (fieldPath == "ward") {
+          if (fieldPath === "ward") {
             return (
               <CustomTextField
                 name={fieldPath}
@@ -775,8 +935,7 @@ const Profile = () => {
                 fullWidth
               />
             );
-          }
-          else {
+          } else {
             return (
               <CustomTextField
                 name={fieldPath}
@@ -791,15 +950,19 @@ const Profile = () => {
         case "tags":
           return (
             <>
-              <Box sx={{ textAlign: 'left' }}>
-                {
-                  tags.length > 0 ? (<p>{tags.join(", ")}</p>) : <p>No tags selected</p>
-                }
+              <Box sx={{ textAlign: "left" }}>
+                {tags.length > 0 ? (
+                  <p>{tags.join(", ")}</p>
+                ) : (
+                  <p>No tags selected</p>
+                )}
               </Box>
               <Button
                 variant="contained"
                 // startIcon={<Add />}
-                onClick={() => { setIsModalOpen(true); }}
+                onClick={() => {
+                  setIsModalOpen(true);
+                }}
                 sx={{
                   marginRight: 4,
                   width: 166,
@@ -814,8 +977,8 @@ const Profile = () => {
                 tags={tags}
                 handleTag={handleTag}
                 isModalOpen={isModalOpen}
-                setIsModalOpen={setIsModalOpen}>
-              </TagPopup>
+                setIsModalOpen={setIsModalOpen}
+              ></TagPopup>
             </>
           );
         default:
@@ -838,14 +1001,14 @@ const Profile = () => {
               />
             </>
           );
-        }
       }
-    
-      return (
-        <Typography variant="body1" sx={{ fontWeight: 600 }}>
-          {renderFieldValue(fieldPath, value)}
-        </Typography>
-      );
+    }
+
+    return (
+      <Typography variant="body1" sx={{ fontWeight: 600 }}>
+        {renderFieldValue(fieldPath, value)}
+      </Typography>
+    );
   };
 
   // Helper function to render field values properly
@@ -883,7 +1046,7 @@ const Profile = () => {
       return value as string;
     }
     if (fieldPath === "tags") {
-      value = (tags.length > 0 ? tags : "None");
+      value = tags.length > 0 ? tags : "None"; // Tags depend on this
     }
     if (fieldPath === "deliveryDetails.dietaryRestrictions") {
       return (
@@ -934,10 +1097,11 @@ const Profile = () => {
       );
     }
 
-    const selectedRestrictions = Object.entries(restrictions)
-      .filter(([key, value]) => value === true && typeof value === "boolean")
-      .map(([key]) => key.replace(/([A-Z])/g, " $1").trim())
-      .join(", ") || "None";
+    const selectedRestrictions =
+      Object.entries(restrictions)
+        .filter(([key, value]) => value === true && typeof value === "boolean")
+        .map(([key]) => key.replace(/([A-Z])/g, " $1").trim())
+        .join(", ") || "None";
 
     return (
       <CustomTextField
@@ -954,6 +1118,7 @@ const Profile = () => {
     e: React.ChangeEvent<HTMLInputElement>
   ) => {
     const { name, checked } = e.target;
+    handlePrevClientCopying();
     setClientProfile((prevState) => ({
       ...prevState,
       deliveryDetails: {
@@ -1082,22 +1247,62 @@ const initializeAutocomplete = () => {
   }
 };
   
+  // Function to handle cancelling edits
+  const handleCancel = () => {
+    // If we have a previous state of the client profile, restore it
+    if (prevClientProfile) {
+      setClientProfile(prevClientProfile);
+      setPrevClientProfile(null);
+    }
+    
+    // If we have a previous state of tags, restore it
+    if (prevTags) {
+      setTags(prevTags);
+      setPrevTags(null);
+    }
+    
+    setIsEditing(false);
+  };
+  
+  // Function to handle selecting a case worker
+  const handleCaseWorkerChange = (caseWorker: CaseWorker | null) => {
+    setSelectedCaseWorker(caseWorker);
+    
+    // Update the client profile with the case worker information
+    if (caseWorker) {
+      setClientProfile(prev => ({
+        ...prev,
+        referralEntity: {
+          id: caseWorker.id,
+          name: caseWorker.name,
+          organization: caseWorker.organization
+        }
+      }));
+    } else {
+      // If no case worker selected, remove the referral entity
+      setClientProfile(prev => {
+        const newProfile = {...prev};
+        delete newProfile.referralEntity;
+        return newProfile;
+      });
+    }
+  };
   
   return (
     <Box className="profile-container">
       {showSavePopup && (
         <Box
           sx={{
-            position: 'fixed',
-            bottom: '20px',
-            right: '20px',
-            backgroundColor: '#257e68',
-            color: 'white',
-            padding: '16px',
-            borderRadius: '4px',
-            boxShadow: '0 2px 5px rgba(0,0,0,0.2)',
+            position: "fixed",
+            bottom: "20px",
+            right: "20px",
+            backgroundColor: "#257e68",
+            color: "white",
+            padding: "16px",
+            borderRadius: "4px",
+            boxShadow: "0 2px 5px rgba(0,0,0,0.2)",
             zIndex: 1000,
-            animation: 'slideIn 0.3s ease-out',
+            animation: "slideIn 0.3s ease-out",
           }}
         >
           Profile saved successfully!
@@ -1154,7 +1359,13 @@ const initializeAutocomplete = () => {
                 color={isEditing ? "secondary" : "primary"}
               >
                 <Tooltip title={isEditing ? "Cancel Editing" : "Edit All"}>
-                  {isEditing ? <CloseIcon /> : <EditIcon />}
+                  {isEditing ? (
+                    <span onClick={handleCancel}>
+                      <CloseIcon />
+                    </span>
+                  ) : (
+                    <EditIcon />
+                  )}
                 </Tooltip>
               </IconButton>
               {isEditing && (
@@ -1173,10 +1384,10 @@ const initializeAutocomplete = () => {
           <Box
             sx={{
               display: "grid",
-              gap: isEditing ? 3 : 5, // Spacing between grid items
+              gap: isEditing ? 3 : 5,
               gridTemplateColumns: {
-                xs: "1fr", // Full width for small screens
-                sm: "repeat(2, 1fr)", // Three columns for medium screens and up
+                xs: "1fr",
+                sm: "repeat(2, 1fr)",
                 md: "repeat(3, 1fr)",
               },
               alignItems: "center",
@@ -1218,6 +1429,42 @@ const initializeAutocomplete = () => {
               {errors.dob && (
                 <Typography color="error" variant="body2">
                   {errors.dob}
+                </Typography>
+              )}
+            </Box>
+
+            {/* Referral Entity - Moved up in the form */}
+            <Box>
+              <Typography className="field-descriptor" sx={fieldLabelStyles}>
+                REFERRAL ENTITY
+              </Typography>
+              {isEditing ? (
+                <CustomSelect
+                  name="referralEntity"
+                  value={selectedCaseWorker ? selectedCaseWorker.id : ""}
+                  onChange={(e) => {
+                    const selectedId = e.target.value;
+                    if (selectedId === 'edit_list') {
+                      setShowCaseWorkerModal(true);
+                    } else {
+                      const selected = caseWorkers.find(cw => cw.id === selectedId);
+                      handleCaseWorkerChange(selected || null);
+                    }
+                  }}
+                  style={{ width: "83.5%" }}
+                >
+                  <MenuItem value="edit_list" sx={{ color: '#257E68', fontWeight: 'bold' }}>
+                    Edit Case Worker List {'>'}
+                  </MenuItem>
+                  {caseWorkers.map((caseWorker) => (
+                    <MenuItem key={caseWorker.id} value={caseWorker.id}>
+                      {caseWorker.name}, {caseWorker.organization}
+                    </MenuItem>
+                  ))}
+                </CustomSelect>
+              ) : (
+                <Typography variant="body1" sx={{ fontWeight: 600 }}>
+                  {selectedCaseWorker ? `${selectedCaseWorker.name}, ${selectedCaseWorker.organization}` : 'None'}
                 </Typography>
               )}
             </Box>
@@ -1548,6 +1795,7 @@ const initializeAutocomplete = () => {
                   value={clientProfile.recurrence || ""}
                   onChange={(e) => {
                     const { value } = e.target;
+                    handlePrevClientCopying();
                     setClientProfile((prevState) => ({
                       ...prevState,
                       recurrence: value as "Weekly" | "2x-Monthly" | "Monthly",
@@ -1591,13 +1839,13 @@ const initializeAutocomplete = () => {
               </Typography>
               {renderField("notes", "textarea")}
               {isSaved && clientProfile.notes.trim() !== "" && (
-                <p id="timestamp">
-                  Last edited: {(clientProfile.notesTimestamp?.timestamp instanceof Timestamp
-                    ? clientProfile.notesTimestamp.timestamp.toDate()
-                    : clientProfile.notesTimestamp?.timestamp || clientProfile.createdAt
-                  ).toLocaleString()}
-                </p>
-              )}
+  <p id="timestamp">
+    Last edited: {(clientProfile.notesTimestamp && clientProfile.notesTimestamp.timestamp instanceof Timestamp
+      ? clientProfile.notesTimestamp.timestamp.toDate()
+      : (clientProfile.notesTimestamp && clientProfile.notesTimestamp.timestamp) || clientProfile.createdAt
+    ).toLocaleString()}
+  </p>
+)}
             </Box>
 
             
@@ -1638,24 +1886,42 @@ const initializeAutocomplete = () => {
               DIETARY RESTRICTIONS
             </Typography>
             {isEditing ? (
-              renderField("deliveryDetails.dietaryRestrictions", "dietaryRestrictions")
+              renderField(
+                  "deliveryDetails.dietaryRestrictions",
+                  "dietaryRestrictions"
+                )
             ) : (
               <Typography variant="body1" sx={{ fontWeight: 600 }}>
                 {Object.entries(clientProfile.deliveryDetails.dietaryRestrictions)
-                  .filter(([key, value]) => value === true && typeof value === "boolean")
-                  .map(([key]) =>
-                    key
-                      .replace(/([A-Z])/g, " $1") // Add space before capital letters
-                      .trim()
-                      .split(" ") // Split into words
-                      .map((word) => word.charAt(0).toUpperCase() + word.slice(1)) // Capitalize each word
-                      .join(" ") // Join back into a single string
+                  .filter(
+                      ([key, value]) => value === true && typeof value === "boolean"
+                    )
+                  .map(
+                      ([key]) =>
+                      key
+                        .replace(/([A-Z])/g, " $1") // Add space before capital letters
+                        .trim()
+                        .split(" ") // Split into words
+                        .map(
+                            (word) => word.charAt(0).toUpperCase() + word.slice(1)
+                          ) // Capitalize each word
+                        .join(" ") // Join back into a single string
                   )
                   .join(", ") || "None"}
               </Typography>
             )}
           </Box>
-          </Box>
+            <Box>
+              <Typography className="field-descriptor" sx={fieldLabelStyles}>
+                TEFAP CERTIFICATION
+              </Typography>
+              {renderField("tefapCert", "date")}
+              {errors.tefapCert && (
+                <Typography color="error" variant="body2">
+                  {errors.tefapCert}
+                </Typography>
+              )}
+            </Box>
           <Box
             className="box-header"
             display="flex"
@@ -1669,7 +1935,7 @@ const initializeAutocomplete = () => {
             >
               Miscellaneous
             </Typography>
-          </Box>
+            </Box>
           <Box
             sx={{
               display: "grid",
@@ -1711,7 +1977,18 @@ const initializeAutocomplete = () => {
 
           </Box>
         </Box>
+        </Box>
       </Box>
+
+      {/* CaseWorkerManagementModal */}
+      {showCaseWorkerModal && (
+        <CaseWorkerManagementModal
+          open={showCaseWorkerModal}
+          onClose={() => setShowCaseWorkerModal(false)}
+          caseWorkers={caseWorkers}
+          onCaseWorkersChange={setCaseWorkers}
+        />
+      )}
     </Box>
   );
 };

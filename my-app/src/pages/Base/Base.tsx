@@ -21,8 +21,10 @@ import LogoutIcon from '@mui/icons-material/Logout';
 import LocalShippingIcon from '@mui/icons-material/LocalShipping';
 import Tab from './NavBar/Tab';
 import logo from '../../assets/ffa-banner-logo.webp';
+import { Typography } from "@mui/material";
 import { useAuth } from '../../auth/AuthProvider';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { useEffect } from "react";
 
 const drawerWidth = 240;
 
@@ -84,8 +86,24 @@ export default function BasePage({ children }: { children: React.ReactNode }) {
   const theme = useTheme();
   const [open, setOpen] = React.useState(false);
   const [tab, setTab] = React.useState("Delivery Schedule");
+  const [pageTitle, setPageTitle] = React.useState("");
   const { logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    if (location.pathname === '/deliveries') {
+      setPageTitle("Deliveries");
+    } else if (location.pathname === '/clients') {
+      setPageTitle("Clients");
+    } else if (location.pathname === '/users') {
+      setPageTitle("Users");
+    } else if (location.pathname === '/routes') {
+      setPageTitle("Routes");
+    } else {
+      setPageTitle("");
+    }
+  }, [location])
 
   const handleDrawerOpen = () => {
     setOpen(true);
@@ -108,16 +126,19 @@ export default function BasePage({ children }: { children: React.ReactNode }) {
     <Box sx={{ display: 'flex' }}>
       <CssBaseline />
       <AppBar position="fixed" open={open}>
-        <Toolbar>
+        <Toolbar sx={{ display: 'flex', justifyContent: 'center' }}>
           <IconButton
             color="inherit"
             aria-label="open drawer"
             onClick={handleDrawerOpen}
             edge="start"
-            sx={{ marginRight: 2, ...(open && { display: 'none' }) }}
+            sx={{ position: 'absolute', left: 16, ...(open && { display: 'none' }) }}
           >
             <MenuRoundedIcon />
           </IconButton>
+          <Typography variant="h6" color="inherit">
+            {pageTitle}
+          </Typography>
         </Toolbar>
       </AppBar>
       <Drawer
@@ -146,10 +167,10 @@ export default function BasePage({ children }: { children: React.ReactNode }) {
         <Divider />
         <List>
           {[
-            { text: 'Deliveries', icon: <CalendarTodayIcon />, link: '/calendar' },
-            { text: 'Clients', icon: <StorageIcon />, link: '/spreadsheet' },
-            { text: 'Users', icon: <AddCircleIcon />, link: '/createUsers' },
-            { text: 'Routes', icon: <LocalShippingIcon />, link: '/deliveryAssignment' },
+            { text: 'Deliveries', icon: <CalendarTodayIcon />, link: '/deliveries' },
+            { text: 'Clients', icon: <StorageIcon />, link: '/clients' },
+            { text: 'Users', icon: <AddCircleIcon />, link: '/users' },
+            { text: 'Routes', icon: <LocalShippingIcon />, link: '/routes' },
           ].map(({ text, icon, link }) => (
             <ListItem key={text} disablePadding>
               <Tab text={text} icon={icon} link={link} tab={tab} setTab={setTab} setOpen={setOpen} />
@@ -171,6 +192,6 @@ export default function BasePage({ children }: { children: React.ReactNode }) {
         <DrawerHeader />
         {children}
       </Main>
-    </Box>
+    </Box >
   );
 }
