@@ -228,7 +228,7 @@ const Profile = () => {
   const [clientId, setClientId] = useState<string | null>(null); // Allow clientId to be either a string or null
   const [isSaved, setIsSaved] = useState(false); // Tracks whether it's the first save
   const [ward, setWard] = useState(clientProfile.ward);
-  const [isEditing, setIsEditing] = useState(false); // Global editing state
+  const [isEditing, setIsEditing] = useState(true); // Global editing state
   const [lastDeliveryDate, setLastDeliveryDate] = useState<string | null>(null);
   const [profileLoaded, setProfileLoaded] = useState(false); // Track if profile is loaded
   const [prevNotes, setPrevNotes] = useState("");
@@ -702,14 +702,14 @@ const Profile = () => {
 
     try {
       const currNotes = clientProfile.notes;
-  
+
       let updatedNotesTimestamp = checkIfNotesExists(currNotes, clientProfile.notesTimestamp || null);
       updatedNotesTimestamp = checkIfNotesChanged(prevNotes, currNotes, updatedNotesTimestamp);
-  
+
       console.log("Previous notes:", prevNotes);
       console.log("Current notes:", currNotes);
       console.log("Timestamp updated:", updatedNotesTimestamp !== clientProfile.notesTimestamp);
-      
+
       // Update the clientProfile object with the latest tags state
       const updatedProfile = {
         ...clientProfile,
@@ -770,7 +770,7 @@ const Profile = () => {
       setShowSavePopup(true);
       // Hide popup after 2 seconds
       setTimeout(() => setShowSavePopup(false), 2000);
-      
+
     } catch (e) {
       console.error("Error saving document: ", e);
     }
@@ -786,16 +786,16 @@ const Profile = () => {
       ? getNestedValue(clientProfile, fieldPath)
       : clientProfile[fieldPath as keyof ClientProfile];
 
-        const handleTag = (text: any) => {
-        if (tags.includes(text)) {
-          const updatedTags = tags.filter((t) => t !== text);
-          setTags(updatedTags); 
-        } 
-        else if(text.trim() != ""){
-          const updatedTags = [...tags, text.trim()]; 
-          setTags(updatedTags); 
-        }
-      };
+    const handleTag = (text: any) => {
+      if (tags.includes(text)) {
+        const updatedTags = tags.filter((t) => t !== text);
+        setTags(updatedTags);
+      }
+      else if (text.trim() != "") {
+        const updatedTags = [...tags, text.trim()];
+        setTags(updatedTags);
+      }
+    };
 
     if (fieldPath === "deliveryDetails.dietaryRestrictions") {
       return renderDietaryRestrictions();
@@ -1070,7 +1070,7 @@ const Profile = () => {
       // check if the Google Maps API script is already loaded
       const script = document.createElement("script");
       if (!window.google) {
-        
+
         script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.REACT_APP_GOOGLE_MAPS_API_KEY || ""}&libraries=places`;
         script.async = true;
         script.defer = true;
@@ -1080,12 +1080,12 @@ const Profile = () => {
           if (addressInputRef.current) {
             const autocomplete = new window.google.maps.places.Autocomplete(
               addressInputRef.current,
-              { 
+              {
                 types: ['address'],
-                componentRestrictions: { country: 'us' } 
+                componentRestrictions: { country: 'us' }
               }
             );
-            
+
             autocomplete.addListener('place_changed', () => {
               const place = autocomplete.getPlace();
               if (place.formatted_address) {
@@ -1094,35 +1094,35 @@ const Profile = () => {
                 // address components in json format
                 const addressComponents = place.address_components;
                 console.log(address);
-                
+
                 let streetNumber = '';
                 let streetName = '';
                 let city = '';
                 let state = '';
                 let zipCode = '';
-                let quadrant = ''; 
-                
+                let quadrant = '';
+
                 // getting relevant components
                 if (addressComponents) {
                   for (const component of addressComponents) {
                     const types = component.types;
-                    
+
                     if (types.includes('street_number')) {
                       streetNumber = component.long_name;
                     }
-                    
+
                     if (types.includes('route')) {
                       streetName = component.long_name;
                     }
-                    
+
                     if (types.includes('locality') || types.includes('sublocality')) {
                       city = component.long_name;
                     }
-                    
+
                     if (types.includes('administrative_area_level_1')) {
                       state = component.short_name; // Use short_name for state code (e.g., "DC" instead of "District of Columbia")
                     }
-                    
+
                     if (types.includes('postal_code')) {
                       zipCode = component.long_name;
                     }
@@ -1164,7 +1164,7 @@ const Profile = () => {
 
     }
   }, [isEditing])
-  
+
   // Function to handle cancelling edits
   const handleCancel = () => {
     // If we have a previous state of the client profile, restore it
@@ -1172,20 +1172,20 @@ const Profile = () => {
       setClientProfile(prevClientProfile);
       setPrevClientProfile(null);
     }
-    
+
     // If we have a previous state of tags, restore it
     if (prevTags) {
       setTags(prevTags);
       setPrevTags(null);
     }
-    
+
     setIsEditing(false);
   };
-  
+
   // Function to handle selecting a case worker
   const handleCaseWorkerChange = (caseWorker: CaseWorker | null) => {
     setSelectedCaseWorker(caseWorker);
-    
+
     // Update the client profile with the case worker information
     if (caseWorker) {
       setClientProfile(prev => ({
@@ -1199,13 +1199,13 @@ const Profile = () => {
     } else {
       // If no case worker selected, remove the referral entity
       setClientProfile(prev => {
-        const newProfile = {...prev};
+        const newProfile = { ...prev };
         delete newProfile.referralEntity;
         return newProfile;
       });
     }
   };
-  
+
   return (
     <Box className="profile-container">
       {showSavePopup && (
@@ -1759,13 +1759,13 @@ const Profile = () => {
               </Typography>
               {renderField("notes", "textarea")}
               {isSaved && clientProfile.notes.trim() !== "" && (
-  <p id="timestamp">
-    Last edited: {(clientProfile.notesTimestamp && clientProfile.notesTimestamp.timestamp instanceof Timestamp
-      ? clientProfile.notesTimestamp.timestamp.toDate()
-      : (clientProfile.notesTimestamp && clientProfile.notesTimestamp.timestamp) || clientProfile.createdAt
-    ).toLocaleString()}
-  </p>
-)}
+                <p id="timestamp">
+                  Last edited: {(clientProfile.notesTimestamp && clientProfile.notesTimestamp.timestamp instanceof Timestamp
+                    ? clientProfile.notesTimestamp.timestamp.toDate()
+                    : (clientProfile.notesTimestamp && clientProfile.notesTimestamp.timestamp) || clientProfile.createdAt
+                  ).toLocaleString()}
+                </p>
+              )}
             </Box>
 
             {/* Life Challenges */}
