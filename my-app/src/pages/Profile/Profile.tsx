@@ -1434,48 +1434,7 @@ const initializeAutocomplete = () => {
               )}
             </Box>
 
-            {/* Referral Entity - Moved up in the form */}
-            <Box>
-              <Typography className="field-descriptor" sx={fieldLabelStyles}>
-                REFERRAL ENTITY
-              </Typography>
-              {isEditing ? (
-                <CustomSelect
-                  name="referralEntity"
-                  value={selectedCaseWorker ? selectedCaseWorker.id : ""}
-                  onChange={(e) => {
-                    const selectedId = e.target.value;
-                    if (selectedId === "edit_list") {
-                      setShowCaseWorkerModal(true);
-                    } else {
-                      const selected = caseWorkers.find(
-                        (cw) => cw.id === selectedId
-                      );
-                      handleCaseWorkerChange(selected || null);
-                    }
-                  }}
-                  style={{ width: "83.5%" }}
-                >
-                  <MenuItem
-                    value="edit_list"
-                    sx={{ color: "#257E68", fontWeight: "bold" }}
-                  >
-                    Edit Case Worker List {">"}
-                  </MenuItem>
-                  {caseWorkers.map((caseWorker) => (
-                    <MenuItem key={caseWorker.id} value={caseWorker.id}>
-                      {caseWorker.name}, {caseWorker.organization}
-                    </MenuItem>
-                  ))}
-                </CustomSelect>
-              ) : (
-                <Typography variant="body1" sx={{ fontWeight: 600 }}>
-                  {selectedCaseWorker
-                    ? `${selectedCaseWorker.name}, ${selectedCaseWorker.organization}`
-                    : "None"}
-                </Typography>
-              )}
-            </Box>
+           
 
             {/* Address 1 */}
             <Box>
@@ -1509,20 +1468,7 @@ const initializeAutocomplete = () => {
               >
                 ADDRESS 2
               </Typography>
-              {renderField("address2", "text")}
-            </Box>
-
-            {/* Email */}
-            <Box>
-              <Typography className="field-descriptor" sx={fieldLabelStyles}>
-                EMAIL <span className="required-asterisk">*</span>
-              </Typography>
-              {renderField("email", "email")}
-              {errors.email && (
-                <Typography color="error" variant="body2">
-                  {errors.email}
-                </Typography>
-              )}
+              {renderField("address2", "textarea")}
             </Box>
 
             {/* City */}
@@ -1601,6 +1547,27 @@ const initializeAutocomplete = () => {
               {errors.quadrant && (
                 <Typography color="error" variant="body2">
                   {errors.quadrant}
+                </Typography>
+              )}
+            </Box>
+
+            {/* Ward */}
+            <Box>
+              <Typography className="field-descriptor" sx={fieldLabelStyles}>
+                WARD
+              </Typography>
+              {renderField("ward", "textarea")}
+            </Box>
+
+            {/* Email */}
+            <Box>
+              <Typography className="field-descriptor" sx={fieldLabelStyles}>
+                EMAIL <span className="required-asterisk">*</span>
+              </Typography>
+              {renderField("email", "email")}
+              {errors.email && (
+                <Typography color="error" variant="body2">
+                  {errors.email}
                 </Typography>
               )}
             </Box>
@@ -1739,13 +1706,7 @@ const initializeAutocomplete = () => {
             )}
             </Box>
 
-            {/* Ward */}
-            <Box>
-              <Typography className="field-descriptor" sx={fieldLabelStyles}>
-                WARD
-              </Typography>
-              {renderField("ward", "textarea")}
-            </Box>
+            
           </Box>
 
           <Box
@@ -1819,6 +1780,49 @@ const initializeAutocomplete = () => {
               ) : (
                 <Typography variant="body1" sx={{ fontWeight: 600 }}>
                   {clientProfile.recurrence || "N/A"}
+                </Typography>
+              )}
+            </Box>
+
+ {/* Referral Entity - Moved up in the form */}
+ <Box>
+              <Typography className="field-descriptor" sx={fieldLabelStyles}>
+                REFERRAL ENTITY
+              </Typography>
+              {isEditing ? (
+                <CustomSelect
+                  name="referralEntity"
+                  value={selectedCaseWorker ? selectedCaseWorker.id : ""}
+                  onChange={(e) => {
+                    const selectedId = e.target.value;
+                    if (selectedId === "edit_list") {
+                      setShowCaseWorkerModal(true);
+                    } else {
+                      const selected = caseWorkers.find(
+                        (cw) => cw.id === selectedId
+                      );
+                      handleCaseWorkerChange(selected || null);
+                    }
+                  }}
+                  style={{ width: "83.5%" }}
+                >
+                  <MenuItem
+                    value="edit_list"
+                    sx={{ color: "#257E68", fontWeight: "bold" }}
+                  >
+                    Edit Case Worker List {">"}
+                  </MenuItem>
+                  {caseWorkers.map((caseWorker) => (
+                    <MenuItem key={caseWorker.id} value={caseWorker.id}>
+                      {caseWorker.name}, {caseWorker.organization}
+                    </MenuItem>
+                  ))}
+                </CustomSelect>
+              ) : (
+                <Typography variant="body1" sx={{ fontWeight: 600 }}>
+                  {selectedCaseWorker
+                    ? `${selectedCaseWorker.name}, ${selectedCaseWorker.organization}`
+                    : "None"}
                 </Typography>
               )}
             </Box>
