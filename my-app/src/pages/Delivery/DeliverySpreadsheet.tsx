@@ -57,6 +57,7 @@ import { auth } from "../../auth/firebaseConfig";
 import DriverManagementModal from "../../components/DriverManagementModal";
 import { useCustomColumns } from "../../hooks/useCustomColumns";
 import ClusterMap from "./ClusterMap";
+import DeliveryDatePicker from "./DeliveryDatePicker/DeliveryDatePicker";
 import "./DeliverySpreadsheet.css";
 
 interface RowData {
@@ -1060,6 +1061,8 @@ const DeliverySpreadsheet: React.FC = () => {
               }}
             />
           </IconButton>
+
+          <DeliveryDatePicker setSelectedDate={setSelectedDate} />
 
           <Button
             sx={{ width: 50, fontSize: 12, marginLeft: 4 }}
