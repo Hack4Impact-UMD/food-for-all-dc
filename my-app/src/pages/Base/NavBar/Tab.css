@@ -1,60 +1,61 @@
-.tabContainer{
-    display: flex;
-    border-radius: 10px;
-    margin-left:5px;
-    margin-right:5px;
-    width: 100%;
-    height: 50px;
-    justify-content: center;
-    align-items: center;
-    padding-left: 5%;
+.tabContainer {
+  display: flex;
+  border-radius: 10px;
+  margin-left: 5px;
+  margin-right: 5px;
+  width: 100%;
+  height: 50px;
+  justify-content: center;
+  align-items: center;
+  padding-left: 5%;
+  cursor: pointer;
 }
 
-.tabContainer:hover{
+.tabContainer:hover {
   background-color: rgb(232, 232, 232);
 }
 
-.tabContainerLogout{
-    display: flex;
-    margin-left:5px;
-    margin-right:5px;
-    width: 100%;
-    height: 50px;
-    justify-content: center;
-    align-items: center;
-    padding-left: 5%;
-    background-color: rgba(80, 187, 106, 0.18)
+.tabContainerLogout {
+  display: flex;
+  margin-left: 5px;
+  margin-right: 5px;
+  width: 100%;
+  height: 50px;
+  justify-content: center;
+  align-items: center;
+  padding-left: 5%;
+  background-color: rgba(80, 187, 106, 0.18);
 }
 
-.tabContainerLogout:hover{
-    display: flex;
-    margin-left:5px;
-    margin-right:5px;
-    width: 100%;
-    height: 50px;
-    justify-content: center;
-    align-items: center;
-    padding-left: 5%;
-    background-color: rgba(80, 187, 106, 0.3)
+.tabContainerLogout:hover {
+  display: flex;
+  margin-left: 5px;
+  margin-right: 5px;
+  width: 100%;
+  height: 50px;
+  justify-content: center;
+  align-items: center;
+  padding-left: 5%;
+  background-color: rgba(80, 187, 106, 0.3);
 }
 
-.tabContainerSelected{
-    display: flex;
-    border-radius: 10px;
-    margin-left:5px;
-    margin-right:5px;
-    width: 100%;
-    height: 50px;
-    justify-content: center;
-    align-items: center;
-    padding-left: 5%;
-    background-color: rgba(80, 187, 106, 0.18);
+.tabContainerSelected {
+  display: flex;
+  border-radius: 10px;
+  margin-left: 5px;
+  margin-right: 5px;
+  width: 100%;
+  height: 50px;
+  justify-content: center;
+  align-items: center;
+  padding-left: 5%;
+  background-color: rgba(80, 187, 106, 0.18);
 }
 
-.tabContainerSelected:hover{
-    background-color: rgba(80, 187, 106, 0.3)
+.tabContainerSelected:hover {
+  background-color: rgba(80, 187, 106, 0.3);
 }
 
-.tabContainer .tabContainerSelected img{
-    display: none;
+.tabContainer .tabContainerSelected img {
+  display: none;
 }
