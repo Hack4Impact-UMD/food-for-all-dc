@@ -4,6 +4,7 @@ import { db } from "../../auth/firebaseConfig";
 import { Search, Filter } from "lucide-react";
 import { query, Timestamp, where } from "firebase/firestore";
 import { format, addDays } from "date-fns";
+import { exportDeliveries } from "./DeliveryExport";
 
 import "./DeliverySpreadsheet.css";
 import 'leaflet/dist/leaflet.css';
@@ -563,6 +564,11 @@ useEffect(() => {
     setStep(1);
   };
 
+  const handleExport = () => {
+    const deliveryDate = format(selectedDate, "yyyy-MM-dd"); // Format the selected date to pass it
+    exportDeliveries(deliveryDate);
+  };
+
   // Close all menus
   const handleClose = (): void => {
     setAnchorEl(null);
@@ -944,143 +950,170 @@ useEffect(() => {
   }, [open]);
 
   return (
-    <Box className="box" sx={{ display: "flex", flexDirection: "column", height: "100vh" }}>
-      <div style={{display: "flex", alignItems: "center", justifyContent:"space-between"}}>
-
-      <Box sx={{ 
-        display: "flex",
-        alignItems: "center",
-        padding: "16px",
-        backgroundColor: "#fff",
-        zIndex: 10,
-        position: "sticky",
-        top: 0,
-        width: "100%"
-      }}>
-        <Typography variant="h4" sx={{ marginRight: 2, width: "170px", color: "#787777" }}>
-          {format(selectedDate, 'EEEE')}
-        </Typography>
-        
+    <Box
+      className="box"
+      sx={{ display: "flex", flexDirection: "column", height: "100vh" }}
+    >
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+        }}
+      >
         <Box
           sx={{
             display: "flex",
-            justifyContent: "center",
             alignItems: "center",
-            width: "40px",
-            height: "40px",
-            backgroundColor: "#257E68",
-            borderRadius: "90%",
-            marginRight: 2,
+            padding: "16px",
+            backgroundColor: "#fff",
+            zIndex: 10,
+            position: "sticky",
+            top: 0,
+            width: "100%",
           }}
         >
-          <Typography variant="h5" sx={{ color: "#fff"}}>
-            {format(selectedDate, 'd')}
+          <Typography
+            variant="h4"
+            sx={{ marginRight: 2, width: "170px", color: "#787777" }}
+          >
+            {format(selectedDate, "EEEE")}
           </Typography>
-        </Box>
-  
-        <IconButton
-          onClick={() => setSelectedDate(addDays(selectedDate, -1))}
-          size="large"
-          sx={{ color: "#257E68" }}
-        >
+
           <Box
             sx={{
-              width: 12,
-              height: 12,
-              borderLeft: "2px solid #257E68",
-              borderBottom: "2px solid #257E68",
-              transform: "rotate(45deg)",
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              width: "40px",
+              height: "40px",
+              backgroundColor: "#257E68",
+              borderRadius: "90%",
+              marginRight: 2,
             }}
-          />
-        </IconButton>
-  
-        <IconButton
-          onClick={() => setSelectedDate(addDays(selectedDate, 1))}
-          size="large"
-          sx={{ color: "#257E68" }}
-        >
-          <Box
-            sx={{
-              width: 12,
-              height: 12,
-              borderLeft: "2px solid #257E68",
-              borderBottom: "2px solid #257E68",
-              transform: "rotate(-135deg)",
-            }}
-          />
-        </IconButton>
-  
-        <Button
-          sx={{ width: 50, fontSize: 12, marginLeft: 4 }}
-          onClick={() => setSelectedDate(new Date())}
-        >
-          Today
-        </Button>
-      </Box>
-      <Button
-              variant="contained"
-              color="secondary"
-              className="view-all"
-              onClick={() => {
-                setPopupMode("Clusters");
-              }}
+          >
+            <Typography variant="h5" sx={{ color: "#fff" }}>
+              {format(selectedDate, "d")}
+            </Typography>
+          </Box>
+
+          <IconButton
+            onClick={() => setSelectedDate(addDays(selectedDate, -1))}
+            size="large"
+            sx={{ color: "#257E68" }}
+          >
+            <Box
               sx={{
-                whiteSpace: "nowrap",
-                padding: "0% 2%",
-                borderRadius: "5px",
-                width: "10%",
-                backgroundColor: "#257E68" + " !important",
+                width: 12,
+                height: 12,
+                borderLeft: "2px solid #257E68",
+                borderBottom: "2px solid #257E68",
+                transform: "rotate(45deg)",
               }}
-            >
-              Generate<br></br>Clusters
-            </Button>
+            />
+          </IconButton>
+
+          <IconButton
+            onClick={() => setSelectedDate(addDays(selectedDate, 1))}
+            size="large"
+            sx={{ color: "#257E68" }}
+          >
+            <Box
+              sx={{
+                width: 12,
+                height: 12,
+                borderLeft: "2px solid #257E68",
+                borderBottom: "2px solid #257E68",
+                transform: "rotate(-135deg)",
+              }}
+            />
+          </IconButton>
+
+          <Button
+            sx={{ width: 50, fontSize: 12, marginLeft: 4 }}
+            onClick={() => setSelectedDate(new Date())}
+          >
+            Today
+          </Button>
+        </Box>
+        <Button
+          variant="contained"
+          color="secondary"
+          className="view-all"
+          onClick={() => {
+            setPopupMode("Clusters");
+          }}
+          sx={{
+            whiteSpace: "nowrap",
+            padding: "0% 2%",
+            borderRadius: "5px",
+            width: "10%",
+            backgroundColor: "#257E68" + " !important",
+          }}
+        >
+          Generate<br></br>Clusters
+        </Button>
       </div>
 
-  
       {/* Map Container */}
-      <Box sx={{ 
-        top: "72px", 
-        zIndex: 9, 
-        height: "400px",
-        width: "100%",
-        backgroundColor: "#fff"
-      }}>
+      <Box
+        sx={{
+          top: "72px",
+          zIndex: 9,
+          height: "400px",
+          width: "100%",
+          backgroundColor: "#fff",
+        }}
+      >
         {isLoading ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              height: "100%",
+            }}
+          >
             <CircularProgress />
           </Box>
         ) : visibleRows.length > 0 ? (
-          <ClusterMap 
-            addresses={visibleRows.map(row => row.address)}
+          <ClusterMap
+            addresses={visibleRows.map((row) => row.address)}
             coordinates={coordinates}
             clusters={generatedClusters}
-            clientNames={visibleRows.map(row => `${row.firstName} ${row.lastName}`)}
+            clientNames={visibleRows.map(
+              (row) => `${row.firstName} ${row.lastName}`
+            )}
           />
         ) : (
-          <Box sx={{
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            height: '100%',
-            backgroundColor: '#f5f5f5',
-            borderRadius: '4px',
-            border: '1px solid #ddd'
-          }}>
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              height: "100%",
+              backgroundColor: "#f5f5f5",
+              borderRadius: "4px",
+              border: "1px solid #ddd",
+            }}
+          >
             <Typography variant="h6" color="textSecondary">
               No deliveries for selected date
             </Typography>
           </Box>
         )}
       </Box>
-  
+
       {/* Search Bar */}
-      <Box sx={{ 
-        width: "100%", 
-        zIndex: 8, 
-        backgroundColor: "#fff", 
-        padding: "16px 0",
-        top: "472px", 
-      }}>
+      <Box
+        sx={{
+          width: "100%",
+          zIndex: 8,
+          backgroundColor: "#fff",
+          padding: "16px 0",
+          top: "472px",
+        }}
+      >
         <Box sx={{ display: "flex", flexDirection: "column", gap: "8px" }}>
           <Box sx={{ position: "relative", width: "100%" }}>
             <Search
@@ -1151,7 +1184,9 @@ useEffect(() => {
                   padding: "0% 2%",
                   borderRadius: "5px",
                   width: "10%",
-                  backgroundColor: (selectedRows.size <= 0 ? "gray" : "#257E68") + " !important",
+                  backgroundColor:
+                    (selectedRows.size <= 0 ? "gray" : "#257E68") +
+                    " !important",
                 }}
               >
                 Assign Driver
@@ -1169,26 +1204,28 @@ useEffect(() => {
                   padding: "0% 2%",
                   borderRadius: "5px",
                   width: "10%",
-                  backgroundColor: (selectedRows.size <= 0 ? "gray" : "#257E68") + " !important",
+                  backgroundColor:
+                    (selectedRows.size <= 0 ? "gray" : "#257E68") +
+                    " !important",
                 }}
               >
                 Assign Time
               </Button>
               <Button
-                  variant="contained"
-                  color="secondary"
-                  className="view-all"
-                  onClick={handleButtonClick}
-                  sx={{
-                    whiteSpace: "nowrap",
-                    padding: "0% 2%",
-                    borderRadius: "5px",
-                    width: "10%",
-                    backgroundColor: "#257e68",
-                    marginLeft: "auto"
-                  }}
-                >
-                  Export
+                variant="contained"
+                color="secondary"
+                className="view-all"
+                onClick={handleExport}
+                sx={{
+                  whiteSpace: "nowrap",
+                  padding: "0% 2%",
+                  borderRadius: "5px",
+                  width: "10%",
+                  backgroundColor: "#257e68",
+                  marginLeft: "auto",
+                }}
+              >
+                Export
               </Button>
 
               {/* Step 1: Main Menu */}
@@ -1198,8 +1235,12 @@ useEffect(() => {
                 onClose={handleClose}
                 MenuListProps={{ sx: { minWidth: 140 } }}
               >
-                <MenuItem onClick={() => handleParentSelect("Route")}>Route</MenuItem>
-                <MenuItem onClick={() => handleParentSelect("Doordash")}>Doordash</MenuItem>
+                <MenuItem onClick={() => handleParentSelect("Route")}>
+                  Route
+                </MenuItem>
+                <MenuItem onClick={() => handleParentSelect("Doordash")}>
+                  Doordash
+                </MenuItem>
               </Menu>
 
               {/* Step 2: Submenu based on choice */}
@@ -1211,16 +1252,22 @@ useEffect(() => {
               >
                 {parentChoice === "Route" && (
                   <>
-                    <MenuItem onClick={() => handleFinalAction("Email Drivers")}>
+                    <MenuItem
+                      onClick={() => handleFinalAction("Email Drivers")}
+                    >
                       Email Drivers
                     </MenuItem>
-                    <MenuItem onClick={() => handleFinalAction("Download Drivers")}>
+                    <MenuItem
+                      onClick={() => handleFinalAction("Download Drivers")}
+                    >
                       Download Drivers
                     </MenuItem>
                   </>
                 )}
                 {parentChoice === "Doordash" && (
-                  <MenuItem onClick={() => handleFinalAction("Download Doordash")}>
+                  <MenuItem
+                    onClick={() => handleFinalAction("Download Doordash")}
+                  >
                     Download Doordash
                   </MenuItem>
                 )}
@@ -1229,26 +1276,36 @@ useEffect(() => {
           </Box>
         </Box>
       </Box>
-  
-      <Box sx={{ 
-        flex: 1, 
-        display: "flex", 
-        flexDirection: "column",
-        margin: "0 auto",
-        paddingBottom: "2vh",
-        width: "100%",
-        maxHeight: "none" 
-      }}>
-        <TableContainer component={Paper} sx={{ 
-              maxHeight: "none",
-              height: "auto", 
-              width: "100%" 
-          }}>
+
+      <Box
+        sx={{
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+          margin: "0 auto",
+          paddingBottom: "2vh",
+          width: "100%",
+          maxHeight: "none",
+        }}
+      >
+        <TableContainer
+          component={Paper}
+          sx={{
+            maxHeight: "none",
+            height: "auto",
+            width: "100%",
+          }}
+        >
           <Table>
             <TableHead>
               <TableRow>
                 {fields.map((field) => (
-                  <TableCell className="table-header" key={field.key} style={{ width: field.width }} sx={{ textAlign: "center" }}>
+                  <TableCell
+                    className="table-header"
+                    key={field.key}
+                    style={{ width: field.width }}
+                    sx={{ textAlign: "center" }}
+                  >
                     <h2 style={{ fontWeight: "bold" }}>{field.label}</h2>
                   </TableCell>
                 ))}
@@ -1257,12 +1314,9 @@ useEffect(() => {
             </TableHead>
             <TableBody>
               {visibleRows.map((row) => (
-                <TableRow
-                  key={row.id}
-                  className={"table-row"}
-                >
+                <TableRow key={row.id} className={"table-row"}>
                   {fields.map((field) => (
-                    <TableCell key={field.key} style={{  }}>
+                    <TableCell key={field.key} style={{}}>
                       {field.key === "checkbox" ? (
                         <Checkbox
                           checked={selectedRows.has(row.id)}
@@ -1282,50 +1336,57 @@ useEffect(() => {
                       ) : field.key === "tags" && field.compute ? (
                         field.compute(row)
                       ) : field.key === "assignedDriver" && field.compute ? (
-                        <div style={{
-                          backgroundColor: "white",
-                          minHeight: "30px", // Ensures a consistent height
-                          width: "95%",
-                          padding: "5px",
-                          display: "flex",
-                          fontSize: "13px",
-                          textAlign: "center",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          whiteSpace: "pre-wrap",
-                          overflow: "auto",
-                        }}>
-                          { field.compute(row, clusters, drivers) }
+                        <div
+                          style={{
+                            backgroundColor: "white",
+                            minHeight: "30px", // Ensures a consistent height
+                            width: "95%",
+                            padding: "5px",
+                            display: "flex",
+                            fontSize: "13px",
+                            textAlign: "center",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            whiteSpace: "pre-wrap",
+                            overflow: "auto",
+                          }}
+                        >
+                          {field.compute(row, clusters, drivers)}
                         </div>
                       ) : field.key === "assignedTime" && field.compute ? (
-                        <div style={{
-                          backgroundColor: "white",
-                          minHeight: "30px", // Ensures a consistent height
-                          width: "95%",
-                          padding: "5px",
-                          display: "flex",
-                          fontSize: "13px",
-                          textAlign: "center",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          whiteSpace: "pre-wrap",
-                          overflow: "auto",
-                        }}>
-                          { field.compute(row, clusters) }
+                        <div
+                          style={{
+                            backgroundColor: "white",
+                            minHeight: "30px", // Ensures a consistent height
+                            width: "95%",
+                            padding: "5px",
+                            display: "flex",
+                            fontSize: "13px",
+                            textAlign: "center",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            whiteSpace: "pre-wrap",
+                            overflow: "auto",
+                          }}
+                        >
+                          {field.compute(row, clusters)}
                         </div>
                       ) : field.key === "phone" && field.compute ? (
                         field.compute(row)
-                      ) : field.key === "deliveryDetails.deliveryInstructions" ? (
-                        <div style={{
-                          backgroundColor: "white",
-                          minHeight: "70px",
-                          padding: "10px",
-                          display: "flex",
-                          alignItems: "left",
-                          whiteSpace: "pre-wrap",
-                          overflow: "auto",
-                        }}>
-                          { field.compute(row) }
+                      ) : field.key ===
+                        "deliveryDetails.deliveryInstructions" ? (
+                        <div
+                          style={{
+                            backgroundColor: "white",
+                            minHeight: "70px",
+                            padding: "10px",
+                            display: "flex",
+                            alignItems: "left",
+                            whiteSpace: "pre-wrap",
+                            overflow: "auto",
+                          }}
+                        >
+                          {field.compute(row)}
                         </div>
                       ) : isRegularField(field) ? (
                         row[field.key]
@@ -1339,28 +1400,46 @@ useEffect(() => {
           </Table>
         </TableContainer>
       </Box>
-  
+
       {/* Popup Dialog */}
-      <Dialog 
-        open={innerPopup && !showEditDriverList} 
+      <Dialog
+        open={innerPopup && !showEditDriverList}
         onClose={() => resetSelections()}
-        PaperProps={{sx: {width: "48%", maxWidth: "900px", padding: "0"}}}
+        PaperProps={{ sx: { width: "48%", maxWidth: "900px", padding: "0" } }}
       >
         <DialogTitle>
-          {popupMode === "Time" ? "Select a time" : 
-           popupMode === "Driver" ? "Assign a Driver" : 
-           popupMode === "Clusters" ? "Generate Clusters" :
-           popupMode === "CSV" ? "Export Drivers" :
-           popupMode === "Doordash" ? "Export Doordash" : ""}
+          {popupMode === "Time"
+            ? "Select a time"
+            : popupMode === "Driver"
+              ? "Assign a Driver"
+              : popupMode === "Clusters"
+                ? "Generate Clusters"
+                : popupMode === "CSV"
+                  ? "Export Drivers"
+                  : popupMode === "Doordash"
+                    ? "Export Doordash"
+                    : ""}
         </DialogTitle>
         <DialogContent>
           {popupMode === "Driver" ? (
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: '300px' }}>
+            <Box
+              sx={{
+                display: "flex",
+                flexDirection: "column",
+                gap: 2,
+                minWidth: "300px",
+              }}
+            >
               <Autocomplete
                 freeSolo
                 options={[
-                  { id: 'edit_list', name: 'Edit Driver List >', phone: '', email: '' } as DriverOption,
-                  ...drivers
+                  {
+                    id: "edit_list",
+                    name: "Edit Driver List >",
+                    phone: "",
+                    email: "",
+                  } as DriverOption,
+                  ...drivers,
                 ]}
                 getOptionLabel={(option) => {
                   if (typeof option === "string") return option;
@@ -1369,7 +1448,7 @@ useEffect(() => {
                 onChange={(event, value) => {
                   if (value) {
                     if (typeof value !== "string") {
-                      if (value.id === 'edit_list') {
+                      if (value.id === "edit_list") {
                         setShowEditDriverList(true);
                         setDriver(null); // Clear selected driver when opening edit list
                       } else {
@@ -1382,10 +1461,12 @@ useEffect(() => {
                 }}
                 isOptionEqualToValue={(option, value) => {
                   // Prevent "Edit Driver List" from being selected as a value
-                  if (option.id === 'edit_list') return false;
+                  if (option.id === "edit_list") return false;
                   return option.id === value.id;
                 }}
-                onInputChange={(event, newValue) => setDriverSearchQuery(newValue)}
+                onInputChange={(event, newValue) =>
+                  setDriverSearchQuery(newValue)
+                }
                 renderInput={(params) => (
                   <TextField
                     {...params}
@@ -1397,10 +1478,13 @@ useEffect(() => {
                   />
                 )}
                 renderOption={(props, option) => (
-                  <li {...props} style={{ 
-                    color: option.id === 'edit_list' ? '#257E68' : 'inherit',
-                    fontWeight: option.id === 'edit_list' ? 'bold' : 'normal'
-                  }}>
+                  <li
+                    {...props}
+                    style={{
+                      color: option.id === "edit_list" ? "#257E68" : "inherit",
+                      fontWeight: option.id === "edit_list" ? "bold" : "normal",
+                    }}
+                  >
                     {option.name}
                   </li>
                 )}
@@ -1423,32 +1507,48 @@ useEffect(() => {
               variant="outlined"
             />
           ) : popupMode === "CSV" ? (
-            <Box sx={{ alignItems: "center", textAlign: "center", padding: "1%" }}>
-              <Typography variant="h5" sx={{ color: "#257e68", fontWeight: "bold" }}>
+            <Box
+              sx={{ alignItems: "center", textAlign: "center", padding: "1%" }}
+            >
+              <Typography
+                variant="h5"
+                sx={{ color: "#257e68", fontWeight: "bold" }}
+              >
                 Are you sure you want to export drivers?
               </Typography>
             </Box>
           ) : popupMode === "Doordash" ? (
-            <Box sx={{ alignItems: "center", textAlign: "center", padding: "1%" }}>
-              <Typography variant="h5" sx={{ color: "#257e68", fontWeight: "bold" }}>
+            <Box
+              sx={{ alignItems: "center", textAlign: "center", padding: "1%" }}
+            >
+              <Typography
+                variant="h5"
+                sx={{ color: "#257e68", fontWeight: "bold" }}
+              >
                 Are you sure you want to export Doordash?
               </Typography>
             </Box>
           ) : popupMode === "Clusters" ? (
-            <Box sx={{ 
-              display: "flex", 
-              flexDirection: "column", 
-              gap: "20px",
-              padding: "8px 0"
-            }}>
+            <Box
+              sx={{
+                display: "flex",
+                flexDirection: "column",
+                gap: "20px",
+                padding: "8px 0",
+              }}
+            >
               {/* Cluster Number Input */}
-              <Box sx={{
-                display: "flex", 
-                alignItems: "center", 
-                gap: "10px",
-                justifyContent: "space-between"
-              }}>
-                <Typography variant="body1">Enter desired number of clusters:</Typography>
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "10px",
+                  justifyContent: "space-between",
+                }}
+              >
+                <Typography variant="body1">
+                  Enter desired number of clusters:
+                </Typography>
                 <TextField
                   type="number"
                   value={clusterNum}
@@ -1459,21 +1559,29 @@ useEffect(() => {
                   variant="outlined"
                 />
               </Box>
-  
+
               {/* Deliveries Range Input */}
-              <Box sx={{
-                display: "flex", 
-                flexDirection: "column",
-                gap: "10px",
-                marginTop: "20px"
-              }}>
-                <Typography variant="body2"><b><u>Deliveries Per Cluster:</u></b></Typography>
-                <Box sx={{
-                  display: "flex", 
-                  alignItems: "center", 
+              <Box
+                sx={{
+                  display: "flex",
+                  flexDirection: "column",
                   gap: "10px",
-                  justifyContent: "space-between"
-                }}>
+                  marginTop: "20px",
+                }}
+              >
+                <Typography variant="body2">
+                  <b>
+                    <u>Deliveries Per Cluster:</u>
+                  </b>
+                </Typography>
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "10px",
+                    justifyContent: "space-between",
+                  }}
+                >
                   <Typography variant="body2">Minimum:</Typography>
                   <TextField
                     type="number"
@@ -1484,7 +1592,7 @@ useEffect(() => {
                     size="small"
                     variant="outlined"
                   />
-                  
+
                   <Typography variant="body2">Maximum:</Typography>
                   <TextField
                     type="number"
@@ -1496,7 +1604,9 @@ useEffect(() => {
                     variant="outlined"
                   />
                 </Box>
-                {clusterError ? <Typography color="error">{clusterError}</Typography> : null}
+                {clusterError ? (
+                  <Typography color="error">{clusterError}</Typography>
+                ) : null}
               </Box>
             </Box>
           ) : null}
@@ -1505,7 +1615,7 @@ useEffect(() => {
           sx={{
             width: "100%",
             padding: 0,
-            display: "flex"
+            display: "flex",
           }}
         >
           <Button
@@ -1520,15 +1630,20 @@ useEffect(() => {
               fontWeight: "bold",
             }}
             onClick={() => {
-              popupMode === "Driver" ? assignDriver() :
-              popupMode === "Time" ? assignTime() :
-              popupMode === "CSV" ? setExportCSV(true) :
-              popupMode === "Doordash" ? setExportDoordash(true) :
-              popupMode === "Clusters" ? generateClusters() :
-              console.log("invalid")
+              popupMode === "Driver"
+                ? assignDriver()
+                : popupMode === "Time"
+                  ? assignTime()
+                  : popupMode === "CSV"
+                    ? setExportCSV(true)
+                    : popupMode === "Doordash"
+                      ? setExportDoordash(true)
+                      : popupMode === "Clusters"
+                        ? generateClusters()
+                        : console.log("invalid");
             }}
           >
-            {(popupMode === "CSV" || popupMode === "Doordash") ? "YES" : "SAVE"}
+            {popupMode === "CSV" || popupMode === "Doordash" ? "YES" : "SAVE"}
           </Button>
           <Button
             color="secondary"
@@ -1543,10 +1658,9 @@ useEffect(() => {
             }}
             onClick={() => resetSelections()}
           >
-            {(popupMode === "CSV" || popupMode === "Doordash") ? "NO" : "CANCEL"}
+            {popupMode === "CSV" || popupMode === "Doordash" ? "NO" : "CANCEL"}
           </Button>
         </DialogActions>
-        
       </Dialog>
 
       {/* Replace the old driver management modal with the new component */}
