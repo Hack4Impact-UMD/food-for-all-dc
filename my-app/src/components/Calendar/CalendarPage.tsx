@@ -1127,7 +1127,9 @@ const handleAddDelivery = async () => {
         onBeforeCellRender: (args: any) => {
           const dateKey = args.cell.start.toString("yyyy-MM-dd");
           const dailyLimit = dailyLimits.find((dl) => dl.date === dateKey);
+          console.log(dateKey)
           const defaultLimit = getDefaultLimit(args.cell.start, limits)
+          console.log(defaultLimit)
           const limit = dailyLimit ? dailyLimit.limit : defaultLimit;
 
           const eventCount = calendarConfig.events.filter((event) => {
