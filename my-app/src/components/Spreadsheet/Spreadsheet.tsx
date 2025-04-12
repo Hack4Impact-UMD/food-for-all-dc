@@ -380,40 +380,99 @@ const Spreadsheet: React.FC = () => {
     navigate("/profile");
   };
 
-  // Filter rows based on search query
+
+
   let visibleRows = rows.filter((row) => {
+
+    // Determine if it's a quoted search
+    const isQuotedSearch = searchQuery.startsWith('"') && searchQuery.endsWith('"');
+
+    const partialQuotedSearch = searchQuery.startsWith('"')
+
+    const strippedQuery = isQuotedSearch
+    ? searchQuery.slice(1, -1).toLowerCase()
+    : partialQuotedSearch
+      ? searchQuery.slice(1).toLowerCase()
+      : searchQuery.toLowerCase();
+
     // Check if the query matches any of the static fields
     const matchesStaticField = fields.some((field) => {
       let fieldValue: any;
-
+  
       if (field.compute) {
         fieldValue = field.compute(row);
       } else {
         fieldValue = row[field.key as keyof RowData];
       }
-
-      return (
-        fieldValue != null &&
-        fieldValue.toString().toLowerCase().includes(searchQuery.toLowerCase())
-      );
+  
+      if (fieldValue == null) return false;
+  
+      const value = fieldValue.toString().toLowerCase();
+      return strippedQuery.length === 0
+        ? value.includes("")
+        : isQuotedSearch
+          ? value === strippedQuery
+          : partialQuotedSearch
+            ? value.includes(strippedQuery)
+            : value.includes(strippedQuery);
     });
-
+  
     // Check if the query matches custom columns
     const matchesCustomColumn = customColumns.some((col) => {
       if (col.propertyKey !== "none") {
         const fieldValue = row[col.propertyKey as keyof RowData];
-
-        return (
-          fieldValue != null &&
-          fieldValue.toString().toLowerCase().includes(searchQuery.toLowerCase())
-        );
+        if (fieldValue == null) return false;
+  
+        const value = fieldValue.toString().toLowerCase();
+        return strippedQuery.length === 0
+          ? value.includes("")
+          : isQuotedSearch
+            ? value === strippedQuery
+            : partialQuotedSearch
+              ? value.includes(strippedQuery)
+              : value.includes(strippedQuery);
       }
       return false;
     });
-
+  
     // Include the row if it matches either a static field OR a custom column
     return matchesStaticField || matchesCustomColumn;
   });
+
+  // // Filter rows based on search query
+  // let visibleRows = rows.filter((row) => {
+  //   // Check if the query matches any of the static fields
+  //   const matchesStaticField = fields.some((field) => {
+  //     let fieldValue: any;
+
+  //     if (field.compute) {
+  //       fieldValue = field.compute(row);
+  //     } else {
+  //       fieldValue = row[field.key as keyof RowData];
+  //     }
+
+  //     return (
+  //       fieldValue != null &&
+  //       fieldValue.toString().toLowerCase().includes(searchQuery.toLowerCase())
+  //     );
+  //   });
+
+  //   // Check if the query matches custom columns
+  //   const matchesCustomColumn = customColumns.some((col) => {
+  //     if (col.propertyKey !== "none") {
+  //       const fieldValue = row[col.propertyKey as keyof RowData];
+
+  //       return (
+  //         fieldValue != null &&
+  //         fieldValue.toString().toLowerCase().includes(searchQuery.toLowerCase())
+  //       );
+  //     }
+  //     return false;
+  //   });
+
+  //   // Include the row if it matches either a static field OR a custom column
+  //   return matchesStaticField || matchesCustomColumn;
+  // });
 
   useEffect(() => {
     console.log("this is search query");
