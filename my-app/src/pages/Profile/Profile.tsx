@@ -586,8 +586,18 @@ const Profile = () => {
         [name]: value,
       }));
 
-      // Special handling for notes field
+      // // Special handling for deliveryInstructions field
+      if (name === "deliveryDetails.deliveryInstructions") {
+        setClientProfile((prev) => ({
+          ...prev,
+          deliveryDetails: {
+            ...prev.deliveryDetails,
+            deliveryInstructions: value,
+          },
+        }));
+      }
       if (name === "notes") {
+        // Special handling for notes field
         console.log("Notes changed to:", value);
       }
     }
@@ -817,7 +827,7 @@ const Profile = () => {
       if (tags.includes(text)) {
         const updatedTags = tags.filter((t) => t !== text);
         setTags(updatedTags);
-      } else if (text.trim() != "") {
+      } else if (text.trim() !== "") {
         const updatedTags = [...tags, text.trim()];
         setTags(updatedTags);
       }
