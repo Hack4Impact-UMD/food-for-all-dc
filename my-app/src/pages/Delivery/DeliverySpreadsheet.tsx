@@ -869,50 +869,117 @@ const DeliverySpreadsheet: React.FC = () => {
   );
 
   // Filter rows based on search query
-  let visibleRows = clientsWithDeliveries.filter((row) =>
-    fields.some((field) => {
-      if (field.key === "checkbox") return false;
+  let visibleRows = clientsWithDeliveries.filter((row) => {
 
-      if (field.key === "assignedDriver") {
-        // Get driver name from cluster
-        if (!row.clusterID) return false;
-        const cluster = clusters.find((c) => c.id.toString() === row.clusterID);
-        if (!cluster || !cluster.driver) return false;
+    const eachQuery = searchQuery.match(/"[^"]+"|\S+/g) || [];
 
-        const driverId =
-          typeof cluster.driver === "object" ? cluster.driver.id : null;
-        if (!driverId) return false;
+    const quotedQueries = eachQuery.filter(s => s.startsWith('"') && s.endsWith('"') && s.length > 1) || [];
+    const nonQuotedQueries = eachQuery.filter(s => s.length == 1 || !s.endsWith('"')) || [];
 
-        const driver = drivers.find((d) => d.id === driverId);
-        const driverName = driver ? driver.name : "";
 
-        return driverName.toLowerCase().includes(searchQuery.toLowerCase());
-      }
+    const containsQuotedQueries = quotedQueries.length === 0
+    ? true
+    : quotedQueries.every((query) => {
+      const matchesStaticField = fields.some((field) => {
+        let fieldValue: any;
 
-      if (field.key === "assignedTime") {
-        // Get time from cluster
-        if (!row.clusterID) return false;
-        const cluster = clusters.find((c) => c.id.toString() === row.clusterID);
-        if (!cluster || !cluster.time) return false;
+        const strippedQuery = query.slice(1, -1).trim().toLowerCase()
+  
+        if (field.key === "fullname") {
+          fieldValue = field.compute(row);
+        } else if (field.key === "tags" && field.compute) {
+          fieldValue = field.compute(row);
+        } else if (field.key === "assignedDriver" && field.compute) {
+          fieldValue = field.compute(row, clusters, drivers);
+        } else {
+          fieldValue = row[field.key as keyof RowData];
+        }
+  
+        if (field.key === "tags" && field.compute) {
+          const untrimmedStrings: String[] = fieldValue.split(',');
+          const trimmedStrings = untrimmedStrings.map(str => str.trim());
+          return (
+            fieldValue != null &&
+            trimmedStrings.includes(strippedQuery.toLowerCase())
+          );
+        }
+        return (
+          fieldValue != null &&
+          fieldValue.toString().toLowerCase() === strippedQuery.toLowerCase()
+        );
+      });
+  
+      // Check all custom columns
+      const matchesCustomColumn = customColumns.some((col) => {
 
-        return cluster.time.toLowerCase().includes(searchQuery.toLowerCase());
-      }
+        const strippedQuery = query.slice(1, -1).trim().toLowerCase()
 
-      const fieldValue =
-        field.compute && field.compute.length === 1
-          ? field.compute(row)
-          : field.key in row
-            ? row[field.key as keyof RowData]
-            : undefined;
+        if (col.propertyKey !== "none") {
+          const fieldValue = row[col.propertyKey as keyof RowData];
+          return (
+            fieldValue != null &&
+            fieldValue.toString().toLowerCase() === strippedQuery.toLowerCase()
+          );
+        }
+        return false;
+      });
 
-      return (
-        fieldValue &&
-        fieldValue.toString().toLowerCase().includes(searchQuery.toLowerCase())
-      );
-    })
-  );
+      // For this query, return true if it matched any field
+      return matchesStaticField || matchesCustomColumn;
+    });
 
-  console.log("Visible Rows: ", visibleRows);
+    if (containsQuotedQueries) {
+      const containsRegularQuery = nonQuotedQueries.length === 0
+      ? true
+      : nonQuotedQueries.some((query) => {
+        const strippedQuery = query.startsWith('"')
+          ? query.slice(1).trim().toLowerCase()
+          : query.trim().toLowerCase()
+
+        if (strippedQuery.length === 0) {
+          return true;
+        }
+
+        const matchesStaticField = fields.some((field) => {
+          let fieldValue: any;
+
+          if (field.key === "fullname") {
+            fieldValue = field.compute(row);
+          } else if (field.key === "tags" && field.compute) {
+            fieldValue = field.compute(row);
+          } else if (field.key === "assignedDriver" && field.compute) {
+            fieldValue = field.compute(row, clusters, drivers);
+          } else {
+            fieldValue = row[field.key as keyof RowData];
+          }
+
+          if (fieldValue == null) return false;
+
+          const value = fieldValue.toString().toLowerCase();
+          return value.includes(strippedQuery)
+        })
+
+        const matchesCustomColumn = customColumns.some((col) => {
+          if (col.propertyKey !== "none") {
+            const fieldValue = row[col.propertyKey as keyof RowData];
+    
+            return (
+              fieldValue != null &&
+              fieldValue.toString().toLowerCase().includes(strippedQuery.toLowerCase())
+            );
+          }
+          return false;
+        });
+
+        return matchesStaticField || matchesCustomColumn;
+      })
+
+      return containsRegularQuery;
+    } else {
+      return false;
+    }
+  });
+
 
   const [open, setOpen] = React.useState(false);
   const anchorRef = React.useRef<HTMLButtonElement>(null);
