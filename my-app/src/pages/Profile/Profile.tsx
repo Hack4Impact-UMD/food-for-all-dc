@@ -83,7 +83,7 @@ const CustomSelect = styled(Select)({
     ...fieldStyles,
   },
   "& .MuiSelect-icon": {
-    display: "none", 
+    display: "none",
   },
 });
 
@@ -606,8 +606,7 @@ const Profile = () => {
     }
     if (!clientProfile.address?.trim()) {
       newErrors.address = "Address is required";
-    if (!clientProfile.email?.trim())
-      newErrors.email = "Email is required";
+      if (!clientProfile.email?.trim()) newErrors.email = "Email is required";
       console.log("Debug: address invalid:", clientProfile.address);
     }
     if (!clientProfile.zipCode) {
@@ -717,12 +716,22 @@ const Profile = () => {
     try {
       const currNotes = clientProfile.notes;
 
-      let updatedNotesTimestamp = checkIfNotesExists(currNotes, clientProfile.notesTimestamp || null);
-      updatedNotesTimestamp = checkIfNotesChanged(prevNotes, currNotes, updatedNotesTimestamp);
+      let updatedNotesTimestamp = checkIfNotesExists(
+        currNotes,
+        clientProfile.notesTimestamp || null
+      );
+      updatedNotesTimestamp = checkIfNotesChanged(
+        prevNotes,
+        currNotes,
+        updatedNotesTimestamp
+      );
 
       console.log("Previous notes:", prevNotes);
       console.log("Current notes:", currNotes);
-      console.log("Timestamp updated:", updatedNotesTimestamp !== clientProfile.notesTimestamp);
+      console.log(
+        "Timestamp updated:",
+        updatedNotesTimestamp !== clientProfile.notesTimestamp
+      );
 
       // Update the clientProfile object with the latest tags state
       const updatedProfile = {
@@ -784,7 +793,6 @@ const Profile = () => {
       setShowSavePopup(true);
       // Hide popup after 2 seconds
       setTimeout(() => setShowSavePopup(false), 2000);
-
     } catch (e) {
       console.error("Error saving document: ", e);
     }
@@ -801,7 +809,9 @@ const Profile = () => {
       ? getNestedValue(clientProfile, fieldPath)
       : clientProfile[fieldPath as keyof ClientProfile];
 
-      const isDisabledField = ["city", "state", "zipCode", "quadrant"].includes(fieldPath);
+    const isDisabledField = ["city", "state", "zipCode", "quadrant"].includes(
+      fieldPath
+    );
 
     const handleTag = (text: any) => {
       if (tags.includes(text)) {
@@ -828,13 +838,15 @@ const Profile = () => {
                 onChange={(e) => handleChange(e as SelectChangeEvent<string>)}
                 displayEmpty
               >
-                <MenuItem value = "" disabled>Select</MenuItem>
-                <MenuItem value = "Male">Male</MenuItem>
-                <MenuItem value = "Female">Female</MenuItem>
-                <MenuItem value = "Other">Other</MenuItem>
+                <MenuItem value="" disabled>
+                  Select
+                </MenuItem>
+                <MenuItem value="Male">Male</MenuItem>
+                <MenuItem value="Female">Female</MenuItem>
+                <MenuItem value="Other">Other</MenuItem>
               </CustomSelect>
             );
-          } else if(fieldPath === "headOfHousehold") {
+          } else if (fieldPath === "headOfHousehold") {
             return (
               <CustomSelect
                 name={fieldPath}
@@ -842,13 +854,14 @@ const Profile = () => {
                 onChange={(e) => handleChange(e as SelectChangeEvent<string>)}
                 displayEmpty
               >
-                <MenuItem value = "" disabled>Select</MenuItem>
+                <MenuItem value="" disabled>
+                  Select
+                </MenuItem>
                 <MenuItem value="Adult">Adult</MenuItem>
                 <MenuItem value="Senior">Senior</MenuItem>
               </CustomSelect>
             );
-
-          } else if(fieldPath === "ethnicity") {
+          } else if (fieldPath === "ethnicity") {
             return (
               <CustomSelect
                 name={fieldPath}
@@ -856,16 +869,17 @@ const Profile = () => {
                 onChange={(e) => handleChange(e as SelectChangeEvent<string>)}
               >
                 <MenuItem disabled>Select</MenuItem>
-                <MenuItem value = "white">White</MenuItem>
-                <MenuItem value = "hispanic">Hispanic/Latino</MenuItem>
-                <MenuItem value = "black">Black/African American</MenuItem>
-                <MenuItem value = "asian">Asian</MenuItem>
-                <MenuItem value = "na">American Indian/Alaska Native</MenuItem>
-                <MenuItem value = "me/na">Middle Eastern/North African</MenuItem>
-                <MenuItem value = "islander">Native Hawaiian/Other Pacific Islander</MenuItem>
-                <MenuItem value = "other">Other</MenuItem>
-                <MenuItem value = "no answer">Prefer not to answer</MenuItem>
-
+                <MenuItem value="white">White</MenuItem>
+                <MenuItem value="hispanic">Hispanic/Latino</MenuItem>
+                <MenuItem value="black">Black/African American</MenuItem>
+                <MenuItem value="asian">Asian</MenuItem>
+                <MenuItem value="na">American Indian/Alaska Native</MenuItem>
+                <MenuItem value="me/na">Middle Eastern/North African</MenuItem>
+                <MenuItem value="islander">
+                  Native Hawaiian/Other Pacific Islander
+                </MenuItem>
+                <MenuItem value="other">Other</MenuItem>
+                <MenuItem value="no answer">Prefer not to answer</MenuItem>
               </CustomSelect>
             );
           }
@@ -899,7 +913,7 @@ const Profile = () => {
               />
             </>
           );
-        
+
         case "email":
           return (
             <>
@@ -913,18 +927,18 @@ const Profile = () => {
             </>
           );
 
-      case "text":
-        return (
-          <CustomTextField
-            type="text"
-            name={fieldPath}
-            value={String(value || "")}
-            onChange={handleChange}
-            fullWidth
-            disabled={isDisabledField} // Disable specific fields
-            inputRef={fieldPath === "address" ? addressInputRef : null} // Attach ref for address field
-          />
-        );
+        case "text":
+          return (
+            <CustomTextField
+              type="text"
+              name={fieldPath}
+              value={String(value || "")}
+              onChange={handleChange}
+              fullWidth
+              disabled={isDisabledField} // Disable specific fields
+              inputRef={fieldPath === "address" ? addressInputRef : null} // Attach ref for address field
+            />
+          );
 
         case "textarea":
           if (fieldPath === "ward") {
@@ -1081,9 +1095,9 @@ const Profile = () => {
                       name={key}
                       checked={value as boolean}
                       onChange={handleDietaryRestrictionChange}
-                      sx={{        
-                        '& .MuiSvgIcon-root': { 
-                          borderRadius: '1rem', 
+                      sx={{
+                        "& .MuiSvgIcon-root": {
+                          borderRadius: "1rem",
                         },
                       }}
                     />
@@ -1149,105 +1163,105 @@ const Profile = () => {
 
   const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
 
-useEffect(() => {
-  if (isEditing) {
-    // Check if the Google Maps API script is already loaded
-    if (!window.google || !window.google.maps) {
-      const script = document.createElement("script");
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.REACT_APP_GOOGLE_MAPS_API_KEY || ""}&libraries=places`;
-      script.async = true;
-      script.defer = true;
+  useEffect(() => {
+    if (isEditing) {
+      // Check if the Google Maps API script is already loaded
+      if (!window.google || !window.google.maps) {
+        const script = document.createElement("script");
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.REACT_APP_GOOGLE_MAPS_API_KEY || ""}&libraries=places`;
+        script.async = true;
+        script.defer = true;
 
-      script.onload = () => {
+        script.onload = () => {
+          initializeAutocomplete();
+        };
+
+        script.onerror = () => {
+          console.error("Failed to load Google Maps API script.");
+        };
+
+        document.head.appendChild(script);
+      } else {
         initializeAutocomplete();
-      };
-
-      script.onerror = () => {
-        console.error("Failed to load Google Maps API script.");
-      };
-
-      document.head.appendChild(script);
-    } else {
-      initializeAutocomplete();
+      }
     }
-  }
 
-  return () => {
-    // Cleanup logic if needed
-    autocompleteRef.current = null;
-  };
-}, [isEditing]);
+    return () => {
+      // Cleanup logic if needed
+      autocompleteRef.current = null;
+    };
+  }, [isEditing]);
 
-const initializeAutocomplete = () => {
-  if (addressInputRef.current && !autocompleteRef.current) {
-    autocompleteRef.current = new window.google.maps.places.Autocomplete(
-      addressInputRef.current,
-      {
-        types: ["address"],
-        componentRestrictions: { country: "us" },
-      }
-    );
-
-    console.log("Autocomplete initialized:", autocompleteRef.current);
-
-    autocompleteRef.current?.addListener("place_changed", () => {
-      const place = autocompleteRef.current?.getPlace();
-      console.log("Place selected:", place);
-      if (place?.formatted_address) {
-        const address = place.formatted_address;
-        const addressComponents = place.address_components;
-
-        let streetNumber = "";
-        let streetName = "";
-        let city = "";
-        let state = "";
-        let zipCode = "";
-        let quadrant = "";
-
-        if (addressComponents) {
-          for (const component of addressComponents) {
-            const types = component.types;
-
-            if (types.includes("street_number")) {
-              streetNumber = component.long_name;
-            }
-
-            if (types.includes("route")) {
-              streetName = component.long_name;
-            }
-
-            if (types.includes("locality") || types.includes("sublocality")) {
-              city = component.long_name;
-            }
-
-            if (types.includes("administrative_area_level_1")) {
-              state = component.short_name;
-            }
-
-            if (types.includes("postal_code")) {
-              zipCode = component.long_name;
-            }
-          }
-
-          const quadrantMatch = address.match(/(NW|NE|SW|SE)(\s|,|$)/);
-          if (state === "DC" && quadrantMatch) {
-            quadrant = quadrantMatch[1];
-          }
-
-          setClientProfile((prev) => ({
-            ...prev,
-            address: `${streetNumber} ${streetName}`.trim(),
-            city: city,
-            state: state,
-            zipCode: zipCode,
-            quadrant: quadrant,
-          }));
+  const initializeAutocomplete = () => {
+    if (addressInputRef.current && !autocompleteRef.current) {
+      autocompleteRef.current = new window.google.maps.places.Autocomplete(
+        addressInputRef.current,
+        {
+          types: ["address"],
+          componentRestrictions: { country: "us" },
         }
-      }
-    });
-  }
-};
-  
+      );
+
+      console.log("Autocomplete initialized:", autocompleteRef.current);
+
+      autocompleteRef.current?.addListener("place_changed", () => {
+        const place = autocompleteRef.current?.getPlace();
+        console.log("Place selected:", place);
+        if (place?.formatted_address) {
+          const address = place.formatted_address;
+          const addressComponents = place.address_components;
+
+          let streetNumber = "";
+          let streetName = "";
+          let city = "";
+          let state = "";
+          let zipCode = "";
+          let quadrant = "";
+
+          if (addressComponents) {
+            for (const component of addressComponents) {
+              const types = component.types;
+
+              if (types.includes("street_number")) {
+                streetNumber = component.long_name;
+              }
+
+              if (types.includes("route")) {
+                streetName = component.long_name;
+              }
+
+              if (types.includes("locality") || types.includes("sublocality")) {
+                city = component.long_name;
+              }
+
+              if (types.includes("administrative_area_level_1")) {
+                state = component.short_name;
+              }
+
+              if (types.includes("postal_code")) {
+                zipCode = component.long_name;
+              }
+            }
+
+            const quadrantMatch = address.match(/(NW|NE|SW|SE)(\s|,|$)/);
+            if (state === "DC" && quadrantMatch) {
+              quadrant = quadrantMatch[1];
+            }
+
+            setClientProfile((prev) => ({
+              ...prev,
+              address: `${streetNumber} ${streetName}`.trim(),
+              city: city,
+              state: state,
+              zipCode: zipCode,
+              quadrant: quadrant,
+            }));
+          }
+        }
+      });
+    }
+  };
+
   // Function to handle cancelling edits
   const handleCancel = () => {
     // If we have a previous state of the client profile, restore it
@@ -1261,8 +1275,6 @@ const initializeAutocomplete = () => {
       setTags(prevTags);
       setPrevTags(null);
     }
-
-    setIsEditing(false);
   };
 
   // Function to handle selecting a case worker
@@ -1281,7 +1293,7 @@ const initializeAutocomplete = () => {
       }));
     } else {
       // If no case worker selected, remove the referral entity
-      setClientProfile(prev => {
+      setClientProfile((prev) => {
         const newProfile = { ...prev };
         delete newProfile.referralEntity;
         return newProfile;
@@ -1434,8 +1446,6 @@ const initializeAutocomplete = () => {
               )}
             </Box>
 
-           
-
             {/* Address 1 */}
             <Box>
               <Typography
@@ -1571,7 +1581,7 @@ const initializeAutocomplete = () => {
                 </Typography>
               )}
             </Box>
-            
+
             {/* Phone */}
             <Box>
               <Typography className="field-descriptor" sx={fieldLabelStyles}>
@@ -1613,7 +1623,6 @@ const initializeAutocomplete = () => {
                 </Typography>
               )}
             </Box>
-
 
             {/* Ethnicity */}
             <Box>
@@ -1666,11 +1675,11 @@ const initializeAutocomplete = () => {
                 </Typography>
               )}
             </Box>
-            
+
             {/* Seniors */}
             <Box>
               <Typography className="field-descriptor" sx={fieldLabelStyles}>
-                SENIORS (60+) 
+                SENIORS (60+)
               </Typography>
               {renderField("seniors", "number")}
             </Box>
@@ -1690,23 +1699,27 @@ const initializeAutocomplete = () => {
 
             <Box>
               <Typography className="field-descriptor" sx={fieldLabelStyles}>
-                TOTAL 
+                TOTAL
               </Typography>
               {isEditing ? (
                 <CustomTextField
-                  value={Number(clientProfile.adults) + Number(clientProfile.children) + Number(clientProfile.seniors)}
+                  value={
+                    Number(clientProfile.adults) +
+                    Number(clientProfile.children) +
+                    Number(clientProfile.seniors)
+                  }
                   onChange={handleChange}
                   multiline
                   fullWidth
                 />
-            ) : (
-              <Typography variant="body1" sx={{ fontWeight: 600 }}>
-                {Number(clientProfile.adults) + Number(clientProfile.children) + Number(clientProfile.seniors)}
-              </Typography>
-            )}
+              ) : (
+                <Typography variant="body1" sx={{ fontWeight: 600 }}>
+                  {Number(clientProfile.adults) +
+                    Number(clientProfile.children) +
+                    Number(clientProfile.seniors)}
+                </Typography>
+              )}
             </Box>
-
-            
           </Box>
 
           <Box
@@ -1736,7 +1749,6 @@ const initializeAutocomplete = () => {
             }}
             className="info-grid"
           >
-
             {/* Start Date */}
             <Box>
               <Typography className="field-descriptor" sx={fieldLabelStyles}>
@@ -1784,8 +1796,8 @@ const initializeAutocomplete = () => {
               )}
             </Box>
 
- {/* Referral Entity - Moved up in the form */}
- <Box>
+            {/* Referral Entity - Moved up in the form */}
+            <Box>
               <Typography className="field-descriptor" sx={fieldLabelStyles}>
                 REFERRAL ENTITY
               </Typography>
@@ -1863,10 +1875,8 @@ const initializeAutocomplete = () => {
                 </p>
               )}
             </Box>
-
-            
           </Box>
-          
+
           <Box
             className="box-header"
             display="flex"
@@ -1882,7 +1892,6 @@ const initializeAutocomplete = () => {
             </Typography>
           </Box>
 
-          
           <Box
             sx={{
               display: "grid",
@@ -1897,36 +1906,36 @@ const initializeAutocomplete = () => {
             className="info-grid"
           >
             {/* Dietary Restrictions, truncate is when not editing, put it on its own row */}
-          <Box sx={{ gridColumn: isEditing ? "-1/1" : "" }}>
-            <Typography className="field-descriptor" sx={fieldLabelStyles}>
-              DIETARY RESTRICTIONS
-            </Typography>
-            {isEditing ? (
-              renderField(
+            <Box sx={{ gridColumn: isEditing ? "-1/1" : "" }}>
+              <Typography className="field-descriptor" sx={fieldLabelStyles}>
+                DIETARY RESTRICTIONS
+              </Typography>
+              {isEditing ? (
+                renderField(
                   "deliveryDetails.dietaryRestrictions",
                   "dietaryRestrictions"
                 )
-            ) : (
-              <Typography variant="body1" sx={{ fontWeight: 600 }}>
-                {Object.entries(clientProfile.deliveryDetails.dietaryRestrictions)
-                  .filter(
+              ) : (
+                <Typography variant="body1" sx={{ fontWeight: 600 }}>
+                  {Object.entries(clientProfile.deliveryDetails.dietaryRestrictions)
+                    .filter(
                       ([key, value]) => value === true && typeof value === "boolean"
                     )
-                  .map(
+                    .map(
                       ([key]) =>
-                      key
-                        .replace(/([A-Z])/g, " $1") // Add space before capital letters
-                        .trim()
-                        .split(" ") // Split into words
-                        .map(
+                        key
+                          .replace(/([A-Z])/g, " $1") // Add space before capital letters
+                          .trim()
+                          .split(" ") // Split into words
+                          .map(
                             (word) => word.charAt(0).toUpperCase() + word.slice(1)
                           ) // Capitalize each word
-                        .join(" ") // Join back into a single string
-                  )
-                  .join(", ") || "None"}
-              </Typography>
-            )}
-          </Box>
+                          .join(" ") // Join back into a single string
+                    )
+                    .join(", ") || "None"}
+                </Typography>
+              )}
+            </Box>
           </Box>
           <Box
             className="box-header"
@@ -1941,7 +1950,7 @@ const initializeAutocomplete = () => {
             >
               Miscellaneous
             </Typography>
-            </Box>
+          </Box>
           <Box
             sx={{
               display: "grid",
@@ -1955,7 +1964,6 @@ const initializeAutocomplete = () => {
             }}
             className="info-grid"
           >
-
             <Box>
               <Typography className="field-descriptor" sx={fieldLabelStyles}>
                 TEFAP CERTIFICATION
@@ -1967,8 +1975,6 @@ const initializeAutocomplete = () => {
                 </Typography>
               )}
             </Box>
-          
-
 
             {/* Life Challenges */}
             <Box>
@@ -1993,9 +1999,7 @@ const initializeAutocomplete = () => {
               </Typography>
               {renderField("tags", "tags")}
             </Box>
-
           </Box>
-        
         </Box>
       </Box>
 
