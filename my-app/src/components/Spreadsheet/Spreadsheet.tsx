@@ -615,9 +615,13 @@ const Spreadsheet: React.FC = () => {
                         ) : null
                       ) : field.key === "fullname" ? (
                         field.compute ? (
-                          field.compute(row)
+                          <a href={`/profile/${row.id}`} className="client-link">
+                            {field.compute(row)}
+                          </a>
                         ) : (
-                          `${row.firstName} ${row.lastName}`
+                          <a href={`/profile/${row.id}`} className="client-link">
+                            {row.firstName} {row.lastName}
+                          </a>
                         )
                       ) : field.compute ? (
                         field.compute(row)
