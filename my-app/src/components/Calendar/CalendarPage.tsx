@@ -1486,9 +1486,10 @@ const CalendarPage: React.FC = () => {
             />
 
             {/* Recurrence Dropdown */}
-            <FormControl fullWidth margin="normal">
+            <FormControl fullWidth variant="outlined" margin="normal">
               <InputLabel id="recurrence-label">Recurrence</InputLabel>
               <Select
+                label="Recurrence"
                 labelId="recurrence-label"
                 value={newDelivery.recurrence}
                 onChange={(e) =>
