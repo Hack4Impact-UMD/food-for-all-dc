@@ -64,14 +64,22 @@ const CustomTextField = styled(TextField)({
       border: "none",
     },
   },
-  "& .MuiInputBase-input": fieldStyles,
+  "& .MuiInputBase-input": {
+    ...fieldStyles, // Default styles for all inputs
+  },
+  "& .MuiInputBase-inputMultiline": {
+    // Custom styles for textareas
+    width: "80%",
+    "&::placeholder": {
+      color: "black",
+      opacity: 1,
+    },
+  },
 });
 
 const CustomSelect = styled(Select)({
   // Target the outlined border
   "& .MuiOutlinedInput-root": {
-    height: "1.813rem",
-    width: "100%",
     "& .MuiOutlinedInput-notchedOutline": {
       border: "none", // removes the border
     },
@@ -912,18 +920,18 @@ const Profile = () => {
             </>
           );
 
-      case "text":
-        return (
-          <CustomTextField
-            type="text"
-            name={fieldPath}
-            value={String(value || "")}
-            onChange={handleChange}
-            fullWidth
-            disabled={isDisabledField} // Disable specific fields
-            inputRef={fieldPath === "address" ? addressInputRef : null} // Attach ref for address field
-          />
-        );
+        case "text":
+          return (
+            <CustomTextField
+              type="text"
+              name={fieldPath}
+              value={String(value || "")}
+              onChange={handleChange}
+              fullWidth
+              disabled={isDisabledField} // Disable specific fields
+              inputRef={fieldPath === "address" ? addressInputRef : null} // Attach ref for address field
+            />
+          );
 
         case "textarea":
           if (fieldPath === "ward") {
@@ -942,7 +950,8 @@ const Profile = () => {
                 value={String(value || "")}
                 onChange={handleChange}
                 multiline
-                // rows={4}
+                rows={4}
+                placeholder = "Enter Input"
                 fullWidth
               />
             );
@@ -1133,13 +1142,14 @@ const Profile = () => {
 
   const fieldLabelStyles = {
     fontWeight: 700,
-    marginBottom: !isEditing ? "12px" : "0",
+    marginBottom: !isEditing ? "12px" : "0px",
     textAlign: "left",
     fontSize: {
       xs: "16px",
       md: "14px",
       lg: "16px",
     },
+    position: "relative",
   };
 
   //google places autocomplete
@@ -1435,7 +1445,14 @@ const initializeAutocomplete = () => {
 
             {/* Referral Entity - Moved up in the form */}
             <Box>
-              <Typography className="field-descriptor" sx={fieldLabelStyles}>
+              <Typography
+                  className="field-descriptor"
+                  sx={{
+                    ...fieldLabelStyles,
+                    position: "relative",
+                    top: isEditing ? "-10px" : "0",
+                  }}
+              >
                 REFERRAL ENTITY
               </Typography>
               {isEditing ? (
@@ -1476,7 +1493,6 @@ const initializeAutocomplete = () => {
                 sx={{
                   ...fieldLabelStyles,
                   position: "relative",
-                  top: isEditing ? "-19px" : "0",
                 }}
               >
                 ADDRESS <span className="required-asterisk">*</span>
@@ -1496,7 +1512,6 @@ const initializeAutocomplete = () => {
                 sx={{
                   ...fieldLabelStyles,
                   position: "relative",
-                  top: isEditing ? "-19px" : "0",
                 }}
               >
                 ADDRESS 2
@@ -1524,7 +1539,6 @@ const initializeAutocomplete = () => {
                 sx={{
                   ...fieldLabelStyles,
                   position: "relative",
-                  top: isEditing ? "-19px" : "0",
                 }}
               >
                 CITY <span className="required-asterisk">*</span>
@@ -1544,7 +1558,6 @@ const initializeAutocomplete = () => {
                 sx={{
                   ...fieldLabelStyles,
                   position: "relative",
-                  top: isEditing ? "-19px" : "0",
                 }}
               >
                 STATE <span className="required-asterisk">*</span>
@@ -1564,7 +1577,6 @@ const initializeAutocomplete = () => {
                 sx={{
                   ...fieldLabelStyles,
                   position: "relative",
-                  top: isEditing ? "-19px" : "0",
                 }}
               >
                 ZIP CODE <span className="required-asterisk">*</span>
@@ -1584,7 +1596,6 @@ const initializeAutocomplete = () => {
                 sx={{
                   ...fieldLabelStyles,
                   position: "relative",
-                  top: isEditing ? "-19px" : "0",
                 }}
               >
                 QUADRANT
@@ -1702,7 +1713,14 @@ const initializeAutocomplete = () => {
 
             {/* Head of Household */}
             <Box>
-              <Typography className="field-descriptor" sx={fieldLabelStyles}>
+              <Typography
+                className="field-descriptor"
+                sx={{
+                  ...fieldLabelStyles,
+                  position: "relative",
+                  top: isEditing ? "-10px" : "0",
+                }}
+              >
                 HEAD OF HOUSEHOLD
               </Typography>
               {renderField("headOfHousehold", "select")}
@@ -1718,14 +1736,13 @@ const initializeAutocomplete = () => {
                 TOTAL 
               </Typography>
               {isEditing ? (
-                <CustomTextField
+                <CustomTextField 
                   value={Number(clientProfile.adults) + Number(clientProfile.children) + Number(clientProfile.seniors)}
                   onChange={handleChange}
-                  multiline
                   fullWidth
                 />
             ) : (
-              <Typography variant="body1" sx={{ fontWeight: 600 }}>
+              <Typography variant="body1" sx={{ fontWeight: 600}}>
                 {Number(clientProfile.adults) + Number(clientProfile.children) + Number(clientProfile.seniors)}
               </Typography>
             )}
@@ -1763,7 +1780,7 @@ const initializeAutocomplete = () => {
                 sm: "repeat(2, 1fr)", // Three columns for medium screens and up
                 md: "repeat(3, 1fr)",
               },
-              alignItems: "center",
+              alignItems: "start",
             }}
             className="info-grid"
           >
@@ -1786,7 +1803,14 @@ const initializeAutocomplete = () => {
 
             {/* Recurrence */}
             <Box>
-              <Typography className="field-descriptor" sx={fieldLabelStyles}>
+              <Typography
+                className="field-descriptor"
+                sx={{
+                  ...fieldLabelStyles,
+                  position: "relative",
+                  top: isEditing ? "-10px" : "0",
+                }}
+              >
                 RECURRENCE <span className="required-asterisk">*</span>
               </Typography>
               {isEditing ? (
@@ -1801,7 +1825,6 @@ const initializeAutocomplete = () => {
                       recurrence: value as "Weekly" | "2x-Monthly" | "Monthly",
                     }));
                   }}
-                  fullWidth
                 >
                   <MenuItem value="None">None</MenuItem>
                   <MenuItem value="Weekly">Weekly</MenuItem>
@@ -1815,6 +1838,15 @@ const initializeAutocomplete = () => {
               )}
             </Box>
 
+            <Box>
+              <Typography className="field-descriptor" sx={fieldLabelStyles}>
+                LAST DELIVERY DATE
+              </Typography>
+              <Typography variant="body1" sx={{ fontWeight: 600, marginTop: "10px" }}>
+                {lastDeliveryDate || "Loading..."}
+              </Typography>
+            </Box>
+
             {/* Delivery Instructions */}
             <Box>
               <Typography className="field-descriptor" sx={fieldLabelStyles}>
@@ -1823,14 +1855,6 @@ const initializeAutocomplete = () => {
               {renderField("deliveryDetails.deliveryInstructions", "textarea")}
             </Box>
 
-            <Box>
-              <Typography className="field-descriptor" sx={fieldLabelStyles}>
-                LAST DELIVERY DATE
-              </Typography>
-              <Typography variant="body1" sx={{ fontWeight: 600 }}>
-                {lastDeliveryDate || "Loading..."}
-              </Typography>
-            </Box>
 
             {/* Notes */}
             <Box>
@@ -1839,13 +1863,13 @@ const initializeAutocomplete = () => {
               </Typography>
               {renderField("notes", "textarea")}
               {isSaved && clientProfile.notes.trim() !== "" && (
-  <p id="timestamp">
-    Last edited: {(clientProfile.notesTimestamp && clientProfile.notesTimestamp.timestamp instanceof Timestamp
-      ? clientProfile.notesTimestamp.timestamp.toDate()
-      : (clientProfile.notesTimestamp && clientProfile.notesTimestamp.timestamp) || clientProfile.createdAt
-    ).toLocaleString()}
-  </p>
-)}
+                <p id="timestamp">
+                  Last edited: {(clientProfile.notesTimestamp && clientProfile.notesTimestamp.timestamp instanceof Timestamp
+                    ? clientProfile.notesTimestamp.timestamp.toDate()
+                    : (clientProfile.notesTimestamp && clientProfile.notesTimestamp.timestamp) || clientProfile.createdAt
+                  ).toLocaleString()}
+                </p>
+              )}
             </Box>
 
             
@@ -1935,7 +1959,7 @@ const initializeAutocomplete = () => {
                 sm: "repeat(2, 1fr)", // Three columns for medium screens and up
                 md: "repeat(3, 1fr)",
               },
-              alignItems: "center",
+              alignItems: "start",
             }}
             className="info-grid"
           >
