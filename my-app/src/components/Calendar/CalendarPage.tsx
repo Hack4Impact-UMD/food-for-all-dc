@@ -32,7 +32,7 @@ import {
   Typography,
 } from "@mui/material";
 import { styled } from "@mui/material/styles";
-import { set } from "date-fns";
+import { endOfWeek, set, startOfWeek } from "date-fns";
 import { onAuthStateChanged } from "firebase/auth";
 import {
   addDoc,
@@ -716,9 +716,19 @@ const CalendarPage: React.FC = () => {
 
       // Determine the date range based on the view type
       switch (viewType) {
+        // expand the date range of the query to cover the entire calendar grid for the month.
         case "Month":
-          start = currentDate.firstDayOfMonth();
-          endDate = start.lastDayOfMonth(); // Do not add 1 day here
+          // start and end dates of the current month
+          const monthStart = currentDate.firstDayOfMonth();
+          const monthEnd = currentDate.lastDayOfMonth();
+
+          // convert from DayPilot to JS date obj & calc the grid's start and end dates
+          const gridStart = startOfWeek(monthStart.toDate(), { weekStartsOn: 0 });
+          const gridEnd = endOfWeek(monthEnd.toDate(), { weekStartsOn: 0 });
+
+          // convert back to DayPilot date obj.
+          start = new DayPilot.Date(gridStart);
+          endDate = new DayPilot.Date(gridEnd);
           break;
         case "Day":
           endDate = start.addDays(1); // Include only the current day
