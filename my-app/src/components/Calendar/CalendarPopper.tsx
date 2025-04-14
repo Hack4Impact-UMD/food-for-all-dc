@@ -1,20 +1,20 @@
-import React, { useState, useMemo } from "react";
 import { DayPilot, DayPilotMonth } from "@daypilot/daypilot-lite-react";
 import {
-  Popper,
-  Paper,
   Box,
-  Typography,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
   Fade,
-  Switch,
-  FormGroup,
+  FormControl,
   FormControlLabel,
+  FormGroup,
+  InputLabel,
+  MenuItem,
+  Paper,
+  Popper,
+  Select,
+  Switch,
+  Typography,
 } from "@mui/material";
 import { doc, setDoc } from "firebase/firestore";
+import React, { useMemo, useState } from "react";
 import { db } from "../../auth/firebaseConfig";
 import { getDefaultLimit, setDefaultLimit } from "./CalendarUtils";
 import { useLimits } from "./useLimits";
@@ -42,19 +42,16 @@ const CalendarPopper = ({
   setDailyLimits,
   fetchDailyLimits,
 }: CalendarPopperProps) => {
-  const limits = useLimits()
+  const limits = useLimits();
   const [clickPosition, setClickPosition] = useState<{
     x: number;
     y: number;
   } | null>(null);
-  const [limitEditDate, setLimitEditDate] = useState<DayPilot.Date | null>(
-    null
-  );
+  const [limitEditDate, setLimitEditDate] = useState<DayPilot.Date | null>(null);
   const [newLimit, setNewLimit] = useState<number>(60);
   const [bulkEdit, setBulkEdit] = useState<boolean>(false);
 
   const limitOptions = Array.from({ length: 13 }, (_, i) => 30 + i * 5);
-
 
   const handleDateClick = async (date: DayPilot.Date) => {
     const dateKey = date.toString("yyyy-MM-dd");
@@ -71,12 +68,11 @@ const CalendarPopper = ({
     setLimitEditDate(date);
     const limitEntry = dailyLimits.find((dl) => dl.date === dateKey);
 
-
     if (limitEntry) {
       setNewLimit(limitEntry.limit);
-    }else { 
-      const defaultLimit = getDefaultLimit(date, limits)
-    setNewLimit(defaultLimit);
+    } else {
+      const defaultLimit = getDefaultLimit(date, limits);
+      setNewLimit(defaultLimit);
     }
   };
 
@@ -86,8 +82,6 @@ const CalendarPopper = ({
       y: event.clientY,
     });
   };
-
-
 
   const virtualAnchor = useMemo(() => {
     if (!clickPosition) return undefined;
@@ -106,7 +100,7 @@ const CalendarPopper = ({
         const cellDate = args.cell.start;
         const dateKey = cellDate.toString("yyyy-MM-dd");
         const limitEntry = dailyLimits.find((dl) => dl.date === dateKey);
-        const defaultLimit = getDefaultLimit(cellDate, limits)
+        const defaultLimit = getDefaultLimit(cellDate, limits);
         const limit = limitEntry ? limitEntry.limit : defaultLimit;
 
         const eventCount = calendarConfig.events.filter((event: any) => {
@@ -148,18 +142,19 @@ const CalendarPopper = ({
             <Box
               onClick={handleClick}
               sx={{ p: 2, width: 500, position: "relative", background: "white" }}
+              onMouseDown={(e) => e.stopPropagation()}
             >
               <FormGroup>
-                <FormControlLabel control={<Switch/>} label="Bulk Edit" onChange={() => {
-                  
-                  setBulkEdit(!bulkEdit)
-                  console.log(bulkEdit)}}/>
+                <FormControlLabel
+                  control={<Switch />}
+                  label="Bulk Edit"
+                  onChange={() => {
+                    setBulkEdit(!bulkEdit);
+                    console.log(bulkEdit);
+                  }}
+                />
               </FormGroup>
-              <DayPilotMonth
-                {...customCalendarConfig}
-                cellHeight={60}
-                events={[]}
-              />
+              <DayPilotMonth {...customCalendarConfig} cellHeight={60} events={[]} />
 
               <Popper
                 open={!!limitEditDate && !!virtualAnchor}
@@ -178,7 +173,11 @@ const CalendarPopper = ({
                 ]}
                 sx={{ zIndex: 1 }}
               >
-                <Paper elevation={3} sx={{ p: 2, width: 100 }}>
+                <Paper
+                  elevation={3}
+                  sx={{ p: 2, width: 100 }}
+                  onMouseDown={(e) => e.stopPropagation()}
+                >
                   {limitEditDate && (
                     <>
                       <Typography variant="subtitle1" gutterBottom>
@@ -190,17 +189,13 @@ const CalendarPopper = ({
                           value={newLimit}
                           label="Max"
                           onChange={async (e) => {
-
                             const selectedValue = Number(e.target.value);
                             setNewLimit(selectedValue);
-                            const dateKey =
-                              limitEditDate.toString("yyyy-MM-dd");
-                            
-                            
-                            if (!bulkEdit){
-                              
+                            const dateKey = limitEditDate.toString("yyyy-MM-dd");
+
+                            if (!bulkEdit) {
                               const docRef = doc(db, "dailyLimits", dateKey);
-                              console.log('A')
+                              console.log("A");
                               await setDoc(
                                 docRef,
                                 {
@@ -230,10 +225,9 @@ const CalendarPopper = ({
                                 ];
                               });
                             } else {
-                              setDefaultLimit(limitEditDate, selectedValue)
-                              console.log('B')
+                              setDefaultLimit(limitEditDate, selectedValue);
+                              console.log("B");
                             }
-
 
                             setLimitEditDate(null);
                             setClickPosition(null);
