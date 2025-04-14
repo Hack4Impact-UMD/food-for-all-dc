@@ -148,10 +148,7 @@ const CalendarPopper = ({
                 <FormControlLabel
                   control={<Switch />}
                   label="Bulk Edit"
-                  onChange={() => {
-                    setBulkEdit(!bulkEdit);
-                    console.log(bulkEdit);
-                  }}
+                  onChange={() => setBulkEdit(!bulkEdit)}
                 />
               </FormGroup>
               <DayPilotMonth {...customCalendarConfig} cellHeight={60} events={[]} />
@@ -192,6 +189,7 @@ const CalendarPopper = ({
                             const selectedValue = Number(e.target.value);
                             setNewLimit(selectedValue);
                             const dateKey = limitEditDate.toString("yyyy-MM-dd");
+                            console.log(limitEditDate);
 
                             if (!bulkEdit) {
                               const docRef = doc(db, "dailyLimits", dateKey);
@@ -236,8 +234,8 @@ const CalendarPopper = ({
                             setLimitEditDate(null);
                             setClickPosition(null);
                           }}
-                          open={true}
-                          autoFocus
+                          // open={true}
+                          // autoFocus
                         >
                           {limitOptions.map((option) => (
                             <MenuItem key={option} value={option}>

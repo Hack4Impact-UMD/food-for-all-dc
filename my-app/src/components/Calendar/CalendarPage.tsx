@@ -1220,7 +1220,7 @@ const CalendarPage: React.FC = () => {
 
   useEffect(() => {
     const handleDocumentClick = (event: MouseEvent) => {
-      // Check if the click target is contained within our container.
+      // Check if the click target is contained within the container ref.
       if (
         containerRef.current &&
         containerRef.current.contains(event.target as Node)
