@@ -380,39 +380,101 @@ const Spreadsheet: React.FC = () => {
     navigate("/profile");
   };
 
-  // Filter rows based on search query
+
+
   let visibleRows = rows.filter((row) => {
-    // Check if the query matches any of the static fields
-    const matchesStaticField = fields.some((field) => {
-      let fieldValue: any;
 
-      if (field.compute) {
-        fieldValue = field.compute(row);
-      } else {
-        fieldValue = row[field.key as keyof RowData];
-      }
+    const eachQuery = searchQuery.match(/"[^"]+"|\S+/g) || [];
 
-      return (
-        fieldValue != null &&
-        fieldValue.toString().toLowerCase().includes(searchQuery.toLowerCase())
-      );
-    });
+    const quotedQueries = eachQuery.filter(s => s.startsWith('"') && s.endsWith('"') && s.length > 1) || [];
+    const nonQuotedQueries = eachQuery.filter(s => s.length == 1 || !s.endsWith('"')) || [];
 
-    // Check if the query matches custom columns
-    const matchesCustomColumn = customColumns.some((col) => {
-      if (col.propertyKey !== "none") {
-        const fieldValue = row[col.propertyKey as keyof RowData];
 
+    const containsQuotedQueries = quotedQueries.length === 0
+    ? true
+    : quotedQueries.every((query) => {
+      const matchesStaticField = fields.some((field) => {
+        let fieldValue;
+
+        const strippedQuery = query.slice(1, -1).trim().toLowerCase()
+  
+        if (field.compute) {
+          fieldValue = field.compute(row);
+        } else {
+          fieldValue = row[field.key as keyof RowData];
+        }
+  
         return (
           fieldValue != null &&
-          fieldValue.toString().toLowerCase().includes(searchQuery.toLowerCase())
+          fieldValue.toString().toLowerCase() === strippedQuery.toLowerCase()
         );
-      }
-      return false;
+      });
+  
+      // Check all custom columns
+      const matchesCustomColumn = customColumns.some((col) => {
+
+        const strippedQuery = query.slice(1, -1).trim().toLowerCase()
+
+        if (col.propertyKey !== "none") {
+          const fieldValue = row[col.propertyKey as keyof RowData];
+          return (
+            fieldValue != null &&
+            fieldValue.toString().toLowerCase() === strippedQuery.toLowerCase()
+          );
+        }
+        return false;
+      });
+
+      // For this query, return true if it matched any field
+      return matchesStaticField || matchesCustomColumn;
     });
 
-    // Include the row if it matches either a static field OR a custom column
-    return matchesStaticField || matchesCustomColumn;
+    if (containsQuotedQueries) {
+      const containsRegularQuery = nonQuotedQueries.length === 0
+      ? true
+      : nonQuotedQueries.some((query) => {
+        const strippedQuery = query.startsWith('"')
+          ? query.slice(1).trim().toLowerCase()
+          : query.trim().toLowerCase()
+
+        if (strippedQuery.length === 0) {
+          return true;
+        }
+
+        const matchesStaticField = fields.some((field) => {
+          let fieldValue: any;
+
+          if (field.compute) {
+            fieldValue = field.compute(row);
+          } else {
+            fieldValue = row[field.key as keyof RowData]
+          }
+
+          if (fieldValue == null) return false;
+
+          const value = fieldValue.toString().toLowerCase();
+          return value.includes(strippedQuery)
+        })
+
+        const matchesCustomColumn = customColumns.some((col) => {
+          if (col.propertyKey !== "none") {
+            const fieldValue = row[col.propertyKey as keyof RowData];
+    
+            return (
+              fieldValue != null &&
+              fieldValue.toString().toLowerCase().includes(strippedQuery.toLowerCase())
+            );
+          }
+          return false;
+        });
+
+        return matchesStaticField || matchesCustomColumn;
+      })
+
+      return containsRegularQuery;
+    } else {
+      return false;
+    }
   });
 
   useEffect(() => {
