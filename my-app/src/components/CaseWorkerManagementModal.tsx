@@ -23,6 +23,9 @@ import { Close, Add, Edit, Check, Delete } from "@mui/icons-material";
 import { doc, updateDoc, addDoc, deleteDoc, collection } from "firebase/firestore";
 import { db } from "../auth/firebaseConfig";
 import { CaseWorker, CaseWorkerFormProps, CaseWorkerManagementModalProps, ValidationErrors } from "../types/types";
+// Import shared utility functions directly from their specific files
+import { isValidEmail, isValidPhone, validateCaseWorkerFields } from "../utils/validation";
+import { formatPhoneNumber } from "../utils/format";
 
 // Reusable form fields component
 const CaseWorkerFormFields: React.FC<CaseWorkerFormProps> = ({
@@ -88,47 +91,6 @@ const CaseWorkerManagementModal: React.FC<CaseWorkerManagementModalProps> = ({
   const [editErrors, setEditErrors] = useState<ValidationErrors>({});
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [caseWorkerToDelete, setCaseWorkerToDelete] = useState<CaseWorker | null>(null);
-
-  const validateEmail = (email: string) => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
-  };
-
-  const validatePhone = (phone: string) => {
-    const phoneRegex = /^\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}$/;
-    return phoneRegex.test(phone.replace(/\s/g, ""));
-  };
-
-  const validateCaseWorkerFields = (fields: {
-    name: string;
-    organization: string;
-    phone: string;
-    email: string;
-  }): ValidationErrors => {
-    const newErrors: ValidationErrors = {};
-
-    if (!fields.name.trim()) {
-      newErrors.name = "Name is required";
-    }
-
-    if (!fields.organization.trim()) {
-      newErrors.organization = "Organization is required";
-    }
-
-    if (!fields.phone.trim()) {
-      newErrors.phone = "Phone number is required";
-    } else if (!validatePhone(fields.phone)) {
-      newErrors.phone = "Invalid phone number format";
-    }
-
-    if (!fields.email.trim()) {
-      newErrors.email = "Email is required";
-    } else if (!validateEmail(fields.email)) {
-      newErrors.email = "Invalid email format";
-    }
-
-    return newErrors;
-  };
 
   const handleCaseWorkerFormChange = (
     setter: React.Dispatch<React.SetStateAction<any>>,
@@ -436,7 +398,7 @@ const CaseWorkerManagementModal: React.FC<CaseWorkerManagementModalProps> = ({
                           }}
                         />
                       ) : (
-                        <Typography sx={{ color: "#666" }}>{cw.phone}</Typography>
+                        <Typography sx={{ color: "#666" }}>{formatPhoneNumber(cw.phone)}</Typography>
                       )}
                     </TableCell>
                     <TableCell>
