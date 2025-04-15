@@ -19,7 +19,16 @@ interface AuthContextType {
   logout: () => Promise<void>;
 }
 
-const AuthContext = createContext<AuthContextType>(null!);
+// Create a default context value
+const defaultAuthContext: AuthContextType = {
+  user: null,
+  token: null,
+  loading: true,
+  // This is a placeholder implementation that will be overridden by the actual implementation in AuthProvider
+  logout: async () => { /* Default implementation, will be replaced */ },
+};
+
+const AuthContext = createContext<AuthContextType>(defaultAuthContext);
 
 export const AuthProvider = ({ children }: Props): React.ReactElement => {
   const [user, setUser] = useState<User | null>(null);

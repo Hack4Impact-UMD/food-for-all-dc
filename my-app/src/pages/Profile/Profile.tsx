@@ -432,7 +432,8 @@ const Profile = () => {
 
   // Generate and validate unique 12-digit UID
   const generateUID = async (): Promise<string> => {
-    while (true) {
+    let isUnique = false;
+    while (!isUnique) {
       const uid = Math.floor(Math.random() * 1000000000000)
         .toString()
         .padStart(12, "0");
@@ -441,9 +442,11 @@ const Profile = () => {
       const querySnapshot = await getDocs(q);
 
       if (querySnapshot.empty) {
+        isUnique = true;
         return uid;
       }
     }
+    return ""; // This line should never be reached
   };
 
   const getWard = async (searchAddress: string) => {

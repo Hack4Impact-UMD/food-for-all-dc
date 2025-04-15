@@ -686,7 +686,7 @@ const DeliverySpreadsheet: React.FC = () => {
   };
 
   //Handle assigning time
-  const assignTime = async () => {
+  const assignTime = React.useCallback(async () => {
     if (time) {
       try {
         // Use forEach to iterate over the Set
@@ -721,7 +721,13 @@ const DeliverySpreadsheet: React.FC = () => {
         console.error("Error assigning time: ", error);
       }
     }
-  };
+  }, [time, selectedClusters, setClusters, resetSelections]);
+
+  React.useEffect(() => {
+    if (time) {
+      assignTime();
+    }
+  }, [time, assignTime]);
 
   //Handle generating clusters
   const generateClusters = async () => {
@@ -985,10 +991,11 @@ const DeliverySpreadsheet: React.FC = () => {
     if (time) {
       assignTime();
     }
-  }, [time]);
+  }, [time, assignTime]);
 
   function convertTo24Hour(time: string) {
-    let [hours, minutes, modifier] = time.split(/:| /);
+    let [hours, minutes] = time.split(/:| /);
+    const modifier = time.split(/:| /)[2];
 
     // Parse hours and minutes as integers
     hours = parseInt(hours, 10).toString();
@@ -1019,7 +1026,7 @@ const DeliverySpreadsheet: React.FC = () => {
   const prevOpen = React.useRef(open);
   React.useEffect(() => {
     if (prevOpen.current === true && open === false) {
-      anchorRef.current!.focus();
+      anchorRef.current?.focus();
     }
 
     prevOpen.current = open;

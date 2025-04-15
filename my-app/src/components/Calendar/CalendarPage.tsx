@@ -681,7 +681,7 @@ const CalendarPage: React.FC = () => {
       // Determine the date range based on the view type
       switch (viewType) {
         // expand the date range of the query to cover the entire calendar grid for the month.
-        case "Month":
+        case "Month": {
           // start and end dates of the current month
           const monthStart = currentDate.firstDayOfMonth();
           const monthEnd = currentDate.lastDayOfMonth();
@@ -694,9 +694,11 @@ const CalendarPage: React.FC = () => {
           start = new DayPilot.Date(gridStart);
           endDate = new DayPilot.Date(gridEnd);
           break;
-        case "Day":
+        }
+        case "Day": {
           endDate = start.addDays(1); // Include only the current day
           break;
+        }
         default:
           endDate = start.addDays(1);
       }
