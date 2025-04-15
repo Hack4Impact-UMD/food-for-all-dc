@@ -22,7 +22,7 @@ import {
 import { Close, Add, Edit, Check, Delete } from "@mui/icons-material";
 import { doc, updateDoc, addDoc, deleteDoc, collection } from "firebase/firestore";
 import { db } from "../auth/firebaseConfig";
-import { CaseWorker, CaseWorkerFormProps, CaseWorkerManagementModalProps, ValidationErrors } from "../types/types";
+import { CaseWorker, CaseWorkerFormProps, CaseWorkerManagementModalProps, ValidationErrors } from "../types";
 // Import shared utility functions directly from their specific files
 import { isValidEmail, isValidPhone, validateCaseWorkerFields } from "../utils/validation";
 import { formatPhoneNumber } from "../utils/format";

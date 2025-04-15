@@ -1,4 +1,5 @@
 import { DayPilot } from "@daypilot/daypilot-lite-react";
+import { DeliveryDetails, DietaryRestrictions } from '../../types';
 
 export interface Driver {
   id: string;
@@ -49,25 +50,6 @@ export interface DateLimit {
   id: string;
   date: string;
   limit: number;
-}
-
-export interface DeliveryDetails {
-  deliveryInstructions: string;
-  dietaryRestrictions: DietaryRestrictions;
-}
-
-export interface DietaryRestrictions {
-  foodAllergens: Array<boolean>;
-  other: Array<boolean>;
-  halal: boolean;
-  kidneyFriendly: boolean;
-  lowSodium: boolean;
-  lowSugar: boolean;
-  microwaveOnly: boolean;
-  noCookingEquipment: boolean;
-  softFood: boolean;
-  vegan: boolean;
-  vegeterian: boolean;
 }
 
 export interface DeliveryEvent {

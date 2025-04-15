@@ -1,6 +1,7 @@
 import React from "react";
 import { Box, Typography } from "@mui/material";
-import { DietaryRestrictions, ClientProfileKey, InputType } from "../types";
+import { DietaryRestrictions } from '../../../types';
+import { ClientProfileKey, InputType } from '../types';
 
 interface DietaryPreferencesFormProps {
   isEditing: boolean;

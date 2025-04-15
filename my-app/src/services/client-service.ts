@@ -12,7 +12,7 @@ import {
   writeBatch,
 } from "firebase/firestore";
 import FirebaseService from "./firebase-service";
-import { ClientProfile } from "../types/client-types";
+import { ClientProfile } from '../types';
 
 /**
  * Client Service - Handles all client-related operations with Firebase

@@ -1,6 +1,7 @@
 import React from "react";
 import { Box, Typography } from "@mui/material";
-import { ClientProfile, ClientProfileKey, InputType } from "../types";
+import { ClientProfile } from '../../../types';
+import { ClientProfileKey, InputType } from '../types';
 
 interface BasicInfoFormProps {
   clientProfile: ClientProfile;

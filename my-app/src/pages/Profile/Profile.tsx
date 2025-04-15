@@ -44,7 +44,7 @@ import FormField from "./components/FormField";
 import TagPopup from "./Tags/TagPopup";
 
 // Import types
-import { CaseWorker, ClientProfile } from "../../types/types";
+import { CaseWorker, ClientProfile } from "../../types";
 import { ClientProfileKey, InputType } from "./types";
 
 // Styling

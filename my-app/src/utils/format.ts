@@ -2,6 +2,8 @@
  * Formatting utility functions
  */
 
+import { DietaryRestrictions } from '../types';
+
 /**
  * Formats a phone number to (xxx)-xxx-xxxx format
  * @param phone The phone number to format
@@ -43,16 +45,13 @@ export const capitalizeFirstLetter = (value: string): string => {
  * @param restrictions The dietary restrictions object
  * @returns Formatted string of restrictions
  */
-export const formatDietaryRestrictions = (restrictions: Record<string, boolean | string[]>): string => {
+export const formatDietaryRestrictions = (restrictions: DietaryRestrictions): string => {
   if (!restrictions) return 'None';
-  
   const booleanRestrictions = Object.entries(restrictions)
     .filter(([key, val]) => val === true && typeof val === "boolean")
     .map(([key]) => key.replace(/([A-Z])/g, " $1").trim());
-    
-  const foodAllergens = restrictions.foodAllergens as string[] || [];
-  const other = restrictions.other as string[] || [];
-  
+  const foodAllergens = restrictions.foodAllergens || [];
+  const other = restrictions.other || [];
   const allRestrictions = [...booleanRestrictions, ...foodAllergens, ...other];
   return allRestrictions.length > 0 ? allRestrictions.join(", ") : "None";
 };

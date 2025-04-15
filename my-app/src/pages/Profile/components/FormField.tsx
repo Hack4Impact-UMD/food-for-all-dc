@@ -12,7 +12,8 @@ import {
   Grid2,
   Select,
 } from "@mui/material";
-import { ClientProfileKey, DietaryRestrictions } from "../types";
+import { ClientProfileKey } from '../types';
+import { DietaryRestrictions } from '../../../types';
 import TagPopup from "../Tags/TagPopup";
 
 interface FormFieldProps {

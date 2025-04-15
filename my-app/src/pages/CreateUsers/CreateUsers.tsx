@@ -1,4 +1,4 @@
-import { UserType, canCreateUserType } from "../../types/types";
+import { UserType, canCreateUserType } from "../../types";
 import "./CreateUsers.css";
 import React, { useState, useEffect } from "react";
 import { getAuth, createUserWithEmailAndPassword, onAuthStateChanged } from "firebase/auth";

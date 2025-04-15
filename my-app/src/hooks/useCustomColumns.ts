@@ -1,6 +1,7 @@
 // useCustomColumns.ts
 import { SelectChangeEvent } from "@mui/material";
 import { useState } from "react";
+import { DeliveryDetails, DietaryRestrictions } from '../types';
 
 // Define the CustomColumn interface to ensure type-safety
 export interface CustomColumn {
@@ -18,22 +19,7 @@ interface RowData {
   phone?: string;
   houseNumber?: number;
   address: string;
-  deliveryDetails: {
-    deliveryInstructions: string;
-    dietaryRestrictions: {
-      foodAllergens: string[];
-      halal: boolean;
-      kidneyFriendly: boolean;
-      lowSodium: boolean;
-      lowSugar: boolean;
-      microwaveOnly: boolean;
-      noCookingEquipment: boolean;
-      other: string[];
-      softFood: boolean;
-      vegan: boolean;
-      vegetarian: boolean;
-    };
-  };
+  deliveryDetails: DeliveryDetails;
   ethnicity: string;
 }
 
