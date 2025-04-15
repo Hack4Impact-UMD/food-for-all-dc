@@ -41,7 +41,8 @@ import "./Spreadsheet.css";
 // Define TypeScript types for row data
 interface RowData {
   id: string;
-  clientid: string;
+  clientid?: string;
+  uid: string;
   firstName: string;
   lastName: string;
   phone?: string;
@@ -82,7 +83,7 @@ type Field =
       compute: (data: RowData) => string;
     }
   | {
-      key: keyof Omit<RowData, "id" | "firstName" | "lastName" | "deliveryDetails">;
+      key: keyof Omit<RowData, "id" | "firstName" | "lastName" | "deliveryDetails" | "uid" | "clientid">;
       label: string;
       type: string;
       compute?: never;
@@ -250,6 +251,7 @@ const Spreadsheet: React.FC = () => {
         // Use ClientService instead of direct Firebase calls
         const clientService = ClientService.getInstance();
         const clients = await clientService.getAllClients();
+        console.log("Fetched clients:", clients);
         setRows(clients as unknown as RowData[]);
       } catch (error) {
         console.error("Error fetching data: ", error);
@@ -283,8 +285,9 @@ const Spreadsheet: React.FC = () => {
     try {
       // Use ClientService instead of direct Firebase calls
       const clientService = ClientService.getInstance();
+      console.log("Deleting client with ID:", id);
       await clientService.deleteClient(id);
-      setRows(rows.filter((row) => row.id !== id));
+      setRows(rows.filter((row) => row.uid !== id)); // Filter based on uid
     } catch (error) {
       console.error("Error deleting document: ", error);
     }
@@ -292,12 +295,15 @@ const Spreadsheet: React.FC = () => {
 
   // Handle editing a row
   const handleEditRow = (id: string) => {
-    const rowToEdit = rows.find((row) => row.id === id);
+    console.log("Editing client with ID:", id);
+    const rowToEdit = rows.find((row) => row.uid === id);
     if (rowToEdit) {
       // Use useNavigate to navigate to the profile page with the user's data
       navigate(`/profile/${id}`, {
         state: { userData: rowToEdit }, // Passing the user data to the profile page via state
       });
+    } else {
+      console.error("Could not find client with ID:", id);
     }
   };
 
@@ -306,10 +312,11 @@ const Spreadsheet: React.FC = () => {
     const rowToUpdate = rows.find((row) => row.id === id);
     if (rowToUpdate) {
       try {
-        const { id, ...rowWithoutId } = rowToUpdate;
+        const { id, uid, ...rowWithoutIds } = rowToUpdate;
         // Use ClientService instead of direct Firebase calls
         const clientService = ClientService.getInstance();
-        await clientService.updateClient(id, rowWithoutId as Omit<RowData, "id">);
+        console.log("Updating client with ID:", uid);
+        await clientService.updateClient(uid, rowWithoutIds as Omit<RowData, "id" | "uid">);
         setEditingRowId(null);
       } catch (error) {
         console.error("Error updating document: ", error);
@@ -318,14 +325,19 @@ const Spreadsheet: React.FC = () => {
   };
 
   // Handle navigating to user details page
-  const handleRowClick = (clientid: string) => {
-    navigate(`/user/${clientid}`);
+  const handleRowClick = (uid: string) => {
+    console.log("Navigating to profile with ID:", uid);
+    if (!uid) {
+      console.error("Invalid ID for navigation:", uid);
+      return;
+    }
+    navigate(`/profile/${uid}`);
   };
 
   // Handle opening the action menu
-  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, id: string) => {
+  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, uid: string) => {
     setMenuAnchorEl(event.currentTarget);
-    setSelectedRowId(id);
+    setSelectedRowId(uid);
   };
 
   // Handle closing the action menu
@@ -471,6 +483,13 @@ const Spreadsheet: React.FC = () => {
     console.log("this is search query");
     console.log(searchQuery);
   }, [searchQuery]);
+
+  // Add this debugging function
+  useEffect(() => {
+    if (rows.length > 0) {
+      console.log("Sample row data:", rows[0]);
+    }
+  }, [rows]);
 
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -634,7 +653,7 @@ const Spreadsheet: React.FC = () => {
                     boxShadow: "0 4px 12px rgba(0,0,0,0.12)",
                   }
                 }}
-                onClick={() => handleRowClick(row.clientid)}
+                onClick={() => handleRowClick(row.uid)}
               >
                 <Stack direction="row" justifyContent="space-between" alignItems="center" mb={1}>
                   <Typography variant="h6" sx={{ fontWeight: 600, color: "#2E5B4C" }}>
@@ -644,7 +663,7 @@ const Spreadsheet: React.FC = () => {
                     size="small" 
                     onClick={(e) => {
                       e.stopPropagation();
-                      handleMenuOpen(e, row.id);
+                      handleMenuOpen(e, row.uid);
                     }}
                   >
                     <MoreVertIcon />
@@ -805,6 +824,7 @@ const Spreadsheet: React.FC = () => {
                           <MenuItem value="zipCode">Zip Code</MenuItem>
                           <MenuItem value="streetName">Street Name</MenuItem>
                           <MenuItem value="ward">Ward</MenuItem>
+                          <MenuItem value="uid">Client ID</MenuItem>
                           <MenuItem value="none">None</MenuItem>
                         </Select>
                         {/*Add Remove Button*/}
@@ -872,7 +892,7 @@ const Spreadsheet: React.FC = () => {
                     }}
                     onClick={() => {
                       if (editingRowId !== row.id) {
-                        handleRowClick(row.clientid);
+                        handleRowClick(row.uid);
                       }
                     }}
                   >
@@ -909,7 +929,7 @@ const Spreadsheet: React.FC = () => {
                           field.compute ? (
                             <Typography
                               component="a"
-                              href={`/profile/${row.id}`}
+                              href={`/profile/${row.uid}`}
                               className="client-link"
                               sx={{
                                 color: "#2E5B4C",
@@ -921,7 +941,7 @@ const Spreadsheet: React.FC = () => {
                               }}
                               onClick={(e) => {
                                 e.stopPropagation();
-                                navigate(`/profile/${row.id}`);
+                                navigate(`/profile/${row.uid}`);
                               }}
                             >
                               {field.compute(row)}
@@ -929,7 +949,7 @@ const Spreadsheet: React.FC = () => {
                           ) : (
                             <Typography
                               component="a"
-                              href={`/profile/${row.id}`}
+                              href={`/profile/${row.uid}`}
                               className="client-link"
                               sx={{
                                 color: "#2E5B4C",
@@ -941,7 +961,7 @@ const Spreadsheet: React.FC = () => {
                               }}
                               onClick={(e) => {
                                 e.stopPropagation();
-                                navigate(`/profile/${row.id}`);
+                                navigate(`/profile/${row.uid}`);
                               }}
                             >
                               {row.firstName} {row.lastName}
@@ -1027,7 +1047,7 @@ const Spreadsheet: React.FC = () => {
                         <IconButton 
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleMenuOpen(e, row.id);
+                            handleMenuOpen(e, row.uid);
                           }}
                           sx={{
                             color: "#757575",
@@ -1042,7 +1062,7 @@ const Spreadsheet: React.FC = () => {
                       )}
                       <Menu
                         anchorEl={menuAnchorEl}
-                        open={Boolean(menuAnchorEl) && selectedRowId === row.id}
+                        open={Boolean(menuAnchorEl) && selectedRowId === row.uid}
                         onClose={handleMenuClose}
                         PaperProps={{
                           elevation: 3,
@@ -1051,7 +1071,7 @@ const Spreadsheet: React.FC = () => {
                       >
                         <MenuItem 
                           onClick={() => {
-                            handleEditRow(row.id);
+                            handleEditRow(row.uid);
                             handleMenuClose();
                           }}
                           sx={{ py: 1.5 }}
@@ -1060,7 +1080,7 @@ const Spreadsheet: React.FC = () => {
                         </MenuItem>
                         <MenuItem 
                           onClick={() => {
-                            handleDeleteRow(row.id);
+                            handleDeleteRow(row.uid);
                             handleMenuClose();
                           }}
                           sx={{ py: 1.5 }}

@@ -11,7 +11,8 @@ export interface CustomColumn {
 
 interface RowData {
   id: string;
-  clientid: string;
+  clientid?: string;
+  uid: string;
   firstName: string;
   lastName: string;
   phone?: string;
