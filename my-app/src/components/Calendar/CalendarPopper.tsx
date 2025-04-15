@@ -87,8 +87,7 @@ const CalendarPopper = ({
     if (!clickPosition) return undefined;
 
     return {
-      getBoundingClientRect: () =>
-        new DOMRect(clickPosition.x, clickPosition.y, 1, 1),
+      getBoundingClientRect: () => new DOMRect(clickPosition.x, clickPosition.y, 1, 1),
     };
   }, [clickPosition]);
 
@@ -131,12 +130,7 @@ const CalendarPopper = ({
     };
 
     return (
-      <Popper
-        open={Boolean(anchorEl)}
-        anchorEl={anchorEl}
-        placement="bottom"
-        transition
-      >
+      <Popper open={Boolean(anchorEl)} anchorEl={anchorEl} placement="bottom" transition>
         {({ TransitionProps }) => (
           <Fade {...TransitionProps} timeout={350}>
             <Box

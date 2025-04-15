@@ -1,4 +1,3 @@
-
 .login-outer-container {
   display: flex;
   height: 78vh;
@@ -14,7 +13,7 @@
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
-.logo-image{
+.logo-image {
   height: 100px;
   align-self: center;
 }
@@ -23,7 +22,6 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
-
 }
 
 .login-container {
@@ -43,65 +41,63 @@
   width: 100%;
   text-align: center;
 }
-  
-  .login-heading {
-    text-align: center;
-    font-size: 1.5rem; 
-    font-weight: bold;
-    color: #257E68;
-  }
-  
-  .login-subheading {
-    font-size: 1rem; 
-    color: #888;
-    margin-bottom: 1.25rem; 
-  }
-  
-  .login-label {
-    font-weight: bold;
-    margin-bottom: 0.3125rem;
-    display: inline-block;
-  }
-  
-  .login-input-field {
-    margin-bottom: 1rem; 
-  }
-  
-  .login-error {
-    color: red;
-    margin-bottom: 1rem; 
-    text-align: center;
-  }
-  
-  .forgot-password-container {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    color: #257E68;
-    width:50%;
-  }
-  
-  .forgot-password-button {
-    cursor: pointer;
-    font-size: 0.875rem; 
-    color: #257E68;
-    text-decoration: underline;
-  }
-  
-  .MuiButton-root {
-    background-color: #257E68 !important;
-    color: white !important;
-    height: 2.8125rem; 
-    border-radius: 1.5rem; 
-    font-family: Inter;
-    font-size: 1rem; 
-    font-weight: bold;
-    margin-top: 1rem; 
-    width: 100%;
-  }
-  
-  .MuiButton-root:hover {
-    background-color: #45a049 !important;
-  }
-  
-  
+
+.login-heading {
+  text-align: center;
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #257e68;
+}
+
+.login-subheading {
+  font-size: 1rem;
+  color: #888;
+  margin-bottom: 1.25rem;
+}
+
+.login-label {
+  font-weight: bold;
+  margin-bottom: 0.3125rem;
+  display: inline-block;
+}
+
+.login-input-field {
+  margin-bottom: 1rem;
+}
+
+.login-error {
+  color: red;
+  margin-bottom: 1rem;
+  text-align: center;
+}
+
+.forgot-password-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: #257e68;
+  width: 50%;
+}
+
+.forgot-password-button {
+  cursor: pointer;
+  font-size: 0.875rem;
+  color: #257e68;
+  text-decoration: underline;
+}
+
+.MuiButton-root {
+  background-color: #257e68 !important;
+  color: white !important;
+  height: 2.8125rem;
+  border-radius: 1.5rem;
+  font-family: Inter;
+  font-size: 1rem;
+  font-weight: bold;
+  margin-top: 1rem;
+  width: 100%;
+}
+
+.MuiButton-root:hover {
+  background-color: #45a049 !important;
+}

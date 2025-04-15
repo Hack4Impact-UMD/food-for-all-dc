@@ -39,7 +39,7 @@ const PopUp: React.FC<PopUpProps> = ({ message, duration }) => {
 
     // Clean up the timer.
     return () => clearTimeout(timer);
-  }, []);
+  }, [duration]);
 
   if (!visible) return null;
 

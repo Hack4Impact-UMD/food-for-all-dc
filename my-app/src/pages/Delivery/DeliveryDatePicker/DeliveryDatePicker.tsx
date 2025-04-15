@@ -19,6 +19,10 @@ const CalendarButton = forwardRef<HTMLButtonElement, any>(({ onClick }, ref) => 
     📅
   </button>
 ));
+
+// Add display name to the component
+CalendarButton.displayName = "CalendarButton";
+
 interface DeliveryDatePickerProps {
   setSelectedDate: (date: Date) => void;
 }

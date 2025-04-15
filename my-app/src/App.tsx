@@ -1,10 +1,5 @@
 import React from "react";
-import {
-  BrowserRouter as Router,
-  Routes,
-  Route,
-  useParams,
-} from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import "./App.css";
 import ForgotPasswordPage from "./pages/Login/forgot-passsowrd";
 
@@ -12,13 +7,13 @@ import Login from "./pages/Login/Login";
 import CalendarPage from "./components/Calendar/CalendarPage";
 import Spreadsheet from "./components/Spreadsheet/Spreadsheet";
 
-import Profile from './pages/Profile/Profile';
-import BasePage from './pages/Base/Base';
-import CreateUsers from './pages/CreateUsers/CreateUsers';
+import Profile from "./pages/Profile/Profile";
+import BasePage from "./pages/Base/Base";
+import CreateUsers from "./pages/CreateUsers/CreateUsers";
 import DeliverySpreadsheet from "./pages/Delivery/DeliverySpreadsheet";
 import TestCsvPage from "./pages/Delivery/TestCsvPage";
 
-import { useAuth } from './auth/AuthProvider';
+import { useAuth } from "./auth/AuthProvider";
 
 function App() {
   const { loading } = useAuth();
@@ -46,11 +41,14 @@ function App() {
             </BasePage>
           }
         />
-        <Route path="/profile/:id" element={
-          <BasePage>
-            <Profile />
-          </BasePage>
-        } />
+        <Route
+          path="/profile/:id"
+          element={
+            <BasePage>
+              <Profile />
+            </BasePage>
+          }
+        />
         <Route
           path="/profile"
           element={

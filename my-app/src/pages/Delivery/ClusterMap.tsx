@@ -3,28 +3,32 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
 interface ClusterMapProps {
-  addresses: string[];       
-  coordinates: Array<[number, number] | { lat: number; lng: number }>; 
-  clusters: { [key: string]: number[] }; 
-  clientNames: string[];    
+  addresses: string[];
+  coordinates: Array<[number, number] | { lat: number; lng: number }>;
+  clusters: { [key: string]: number[] };
+  clientNames: string[];
 }
 
-const isValidCoordinate = (coord: any): coord is [number, number] | { lat: number; lng: number } => {
+const isValidCoordinate = (
+  coord: any
+): coord is [number, number] | { lat: number; lng: number } => {
   if (!coord) return false;
-  
+
   if (Array.isArray(coord)) {
     return (
       coord.length === 2 &&
-      !isNaN(coord[0]) && !isNaN(coord[1]) &&
+      !isNaN(coord[0]) &&
+      !isNaN(coord[1]) &&
       Math.abs(coord[0]) <= 90 &&
       Math.abs(coord[1]) <= 180 &&
       !(coord[0] === 0 && coord[1] === 0)
     );
   }
-  
+
   return (
-    typeof coord === 'object' &&
-    !isNaN(coord.lat) && !isNaN(coord.lng) &&
+    typeof coord === "object" &&
+    !isNaN(coord.lat) &&
+    !isNaN(coord.lng) &&
     Math.abs(coord.lat) <= 90 &&
     Math.abs(coord.lng) <= 180 &&
     !(coord.lat === 0 && coord.lng === 0)
@@ -38,17 +42,21 @@ const normalizeCoordinate = (coord: any): { lat: number; lng: number } => {
   return coord;
 };
 
-const ClusterMap: React.FC<ClusterMapProps> = ({ addresses, coordinates, clusters, clientNames }) => {
+const ClusterMap: React.FC<ClusterMapProps> = ({
+  addresses,
+  coordinates,
+  clusters,
+  clientNames,
+}) => {
   useEffect(() => {
     // dont render map if no valid coordinates
     if (coordinates.length === 0 || addresses.length === 0 || clientNames.length === 0) {
       return;
     }
 
-
     // DC coords
     const dcCenter: [number, number] = [38.9072, -77.0369];
-    
+
     // set the map centered on DC by default
     const map = L.map("cluster-map").setView(dcCenter, 11);
 
@@ -94,7 +102,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ addresses, coordinates, cluster
         "#9932CC", // DarkOrchid
         "#FFD700", // Gold
         "#8B0000", // DarkRed
-        "#4169E1"  // RoyalBlue
+        "#4169E1", // RoyalBlue
       ];
 
       // add markers for valid coordinates
@@ -105,37 +113,38 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ addresses, coordinates, cluster
 
         let clusterId = "";
         let colorIndex = 0;
-        
+
         // only show clusters if they exist
         if (clusters && Object.keys(clusters).length > 0) {
           Object.entries(clusters).forEach(([id, indices]) => {
             if (indices.includes(index)) {
               clusterId = id;
-              const clusterNumber = parseInt(id.split('-')[1]) || 0;
+              const clusterNumber = parseInt(id.split("-")[1]) || 0;
               colorIndex = clusterNumber % clusterColors.length;
             }
           });
         }
-        
+
         L.circleMarker([lat, lng], {
           radius: 8,
           fillColor: clusterId ? clusterColors[colorIndex] : "#257E68", // default color if no cluster
           color: "#000",
           weight: 1,
           opacity: 1,
-          fillOpacity: 0.8
+          fillOpacity: 0.8,
         })
-        .bindPopup(`
+          .bindPopup(
+            `
           <div style="font-family: Arial, sans-serif; line-height: 1.4;">
             <div style="font-weight: bold; margin-bottom: 5px;">${clientName}</div>
-            ${clusterId ? `<div><span style="font-weight: bold;">Cluster:</span> ${clusterId.replace('cluster-', '')}</div>` : ''}
+            ${clusterId ? `<div><span style="font-weight: bold;">Cluster:</span> ${clusterId.replace("cluster-", "")}</div>` : ""}
             <div><span style="font-weight: bold;">Address:</span> ${address}</div>
           </div>
-        `)
-        .addTo(markerGroup);
+        `
+          )
+          .addTo(markerGroup);
       });
     }
-
 
     return () => {
       map.remove();
@@ -151,25 +160,30 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ addresses, coordinates, cluster
   }, [coordinates]);
 
   return (
-    <div style={{ position: 'relative' }}>
-      <div id="cluster-map" style={{ 
-        height: "400px", 
-        width: "100%", 
-        marginBottom: "20px",
-        border: "1px solid #ddd",
-        borderRadius: "4px"
-      }} />
-      <div style={{
-        position: 'absolute',
-        top: '10px',
-        right: '10px',
-        backgroundColor: 'white',
-        padding: '5px',
-        borderRadius: '3px',
-        boxShadow: '0 0 5px rgba(0,0,0,0.2)',
-        zIndex: 1000
-      }}>
-        {coordinates.filter(coord => !isValidCoordinate(coord)).length} invalid coordinates
+    <div style={{ position: "relative" }}>
+      <div
+        id="cluster-map"
+        style={{
+          height: "400px",
+          width: "100%",
+          marginBottom: "20px",
+          border: "1px solid #ddd",
+          borderRadius: "4px",
+        }}
+      />
+      <div
+        style={{
+          position: "absolute",
+          top: "10px",
+          right: "10px",
+          backgroundColor: "white",
+          padding: "5px",
+          borderRadius: "3px",
+          boxShadow: "0 0 5px rgba(0,0,0,0.2)",
+          zIndex: 1000,
+        }}
+      >
+        {coordinates.filter((coord) => !isValidCoordinate(coord)).length} invalid coordinates
       </div>
     </div>
   );

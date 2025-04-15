@@ -10,13 +10,7 @@ import {
 import { useState } from "react";
 import Tags from "./Tags";
 
-export default function TagPopup({
-  allTags,
-  tags,
-  handleTag,
-  isModalOpen,
-  setIsModalOpen,
-}: any) {
+export default function TagPopup({ allTags, tags, handleTag, isModalOpen, setIsModalOpen }: any) {
   const [innerPopup, setInnerPopup] = useState(false);
   const [newTag, setNewTag] = useState("");
   const [deleteMode, setDeleteMode] = useState(false);
@@ -55,9 +49,7 @@ export default function TagPopup({
         ></Tags>
       </DialogContent>
 
-      <DialogContent
-        sx={{ display: "flex", gap: "10px", maxWidth: "100%", flexWrap: "wrap" }}
-      >
+      <DialogContent sx={{ display: "flex", gap: "10px", maxWidth: "100%", flexWrap: "wrap" }}>
         <p>Selected Tags: </p>
         {tags.length > 0 ? (
           tags.map((tag: any, index: number) => (
@@ -116,9 +108,7 @@ export default function TagPopup({
         }}
       >
         <DialogTitle>Create New Tag</DialogTitle>
-        <DialogContent
-          sx={{ display: "flex", gap: "10px", maxWidth: "100%", flexWrap: "wrap" }}
-        >
+        <DialogContent sx={{ display: "flex", gap: "10px", maxWidth: "100%", flexWrap: "wrap" }}>
           <Input
             value={newTag}
             onChange={(e) => setNewTag(e.target.value)}
@@ -159,9 +149,9 @@ export default function TagPopup({
           }}
         >
           <Typography>
-            Deleting this tag will erase if from ALL PROFILES. If you want to
-            deselect it just for this profile, click "CANCEL" and just click the tag.{" "}
-            <br></br> <br></br> Are you sure you want to proceed?
+            Deleting this tag will erase if from ALL PROFILES. If you want to deselect it just for
+            this profile, click &quot;CANCEL&quot; and just click the tag. <br></br> <br></br> Are you sure
+            you want to proceed?
           </Typography>
         </DialogContent>
         <DialogActions>

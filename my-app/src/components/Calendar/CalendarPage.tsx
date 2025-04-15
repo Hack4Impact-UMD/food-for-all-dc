@@ -1,8 +1,4 @@
-import {
-  DayPilot,
-  DayPilotCalendar,
-  DayPilotMonth,
-} from "@daypilot/daypilot-lite-react";
+import { DayPilot, DayPilotCalendar, DayPilotMonth } from "@daypilot/daypilot-lite-react";
 import { Add, ChevronRight, EditCalendar } from "@mui/icons-material";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
@@ -141,8 +137,8 @@ interface DeliveryDetails {
 }
 
 interface DietaryRestrictions {
-  foodAllergens: Array<Boolean>;
-  other: Array<Boolean>;
+  foodAllergens: Array<boolean>;
+  other: Array<boolean>;
   halal: boolean;
   kidneyFriendly: boolean;
   lowSodium: boolean;
@@ -197,9 +193,7 @@ interface CalendarConfig {
 
 const CalendarPage: React.FC = () => {
   const navigate = useNavigate();
-  const [currentDate, setCurrentDate] = useState<DayPilot.Date>(
-    DayPilot.Date.today()
-  );
+  const [currentDate, setCurrentDate] = useState<DayPilot.Date>(DayPilot.Date.today());
 
   const [viewType, setViewType] = useState<ViewType>("Day");
   const [viewAnchorEl, setViewAnchorEl] = useState<null | HTMLElement>(null);
@@ -212,15 +206,7 @@ const CalendarPage: React.FC = () => {
   });
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
 
-  const daysOfWeek = [
-    "Sunday",
-    "Monday",
-    "Tuesday",
-    "Wednesday",
-    "Thursday",
-    "Friday",
-    "Saturday",
-  ];
+  const daysOfWeek = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
@@ -345,9 +331,9 @@ const CalendarPage: React.FC = () => {
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
     const [deleteOption, setDeleteOption] = useState("This event");
-    const [editOption, setEditOption] = useState<
-      "This event" | "This and following events"
-    >("This event");
+    const [editOption, setEditOption] = useState<"This event" | "This and following events">(
+      "This event"
+    );
     const [editDeliveryDate, setEditDeliveryDate] = useState<string>(
       event.deliveryDate.toISOString().split("T")[0]
     );
@@ -552,16 +538,10 @@ const CalendarPage: React.FC = () => {
             <RadioGroup
               value={editOption}
               onChange={(e) =>
-                setEditOption(
-                  e.target.value as "This event" | "This and following events"
-                )
+                setEditOption(e.target.value as "This event" | "This and following events")
               }
             >
-              <FormControlLabel
-                value="This event"
-                control={<Radio />}
-                label="This event"
-              />
+              <FormControlLabel value="This event" control={<Radio />} label="This event" />
               {event.recurrence !== "None" && (
                 <FormControlLabel
                   value="This and following events"
@@ -592,11 +572,7 @@ const CalendarPage: React.FC = () => {
                     onChange={(e) =>
                       setEditRecurrence({
                         ...editRecurrence,
-                        recurrence: e.target.value as
-                          | "None"
-                          | "Weekly"
-                          | "2x-Monthly"
-                          | "Monthly",
+                        recurrence: e.target.value as "None" | "Weekly" | "2x-Monthly" | "Monthly",
                       })
                     }
                   >
@@ -638,22 +614,12 @@ const CalendarPage: React.FC = () => {
         </Dialog>
 
         {/* Delete Dialog */}
-        <Dialog
-          open={isDeleteDialogOpen}
-          onClose={() => setIsDeleteDialogOpen(false)}
-        >
+        <Dialog open={isDeleteDialogOpen} onClose={() => setIsDeleteDialogOpen(false)}>
           <DialogTitle>Delete Event</DialogTitle>
           <DialogContent>
             {event.recurrence !== "None" ? (
-              <RadioGroup
-                value={deleteOption}
-                onChange={(e) => setDeleteOption(e.target.value)}
-              >
-                <FormControlLabel
-                  value="This event"
-                  control={<Radio />}
-                  label="This event"
-                />
+              <RadioGroup value={deleteOption} onChange={(e) => setDeleteOption(e.target.value)}>
+                <FormControlLabel value="This event" control={<Radio />} label="This event" />
                 <FormControlLabel
                   value="This and following events"
                   control={<Radio />}
@@ -684,9 +650,7 @@ const CalendarPage: React.FC = () => {
     const targetDate = new Date(date);
 
     // Adjust for local timezone offset
-    const localDate = new Date(
-      targetDate.getTime() + targetDate.getTimezoneOffset() * 60000
-    );
+    const localDate = new Date(targetDate.getTime() + targetDate.getTimezoneOffset() * 60000);
 
     const dayOfWeek = localDate.getDay(); // Get the day of the week (0 = Sunday, 1 = Monday, etc.)
     const weekOfMonth = Math.ceil(localDate.getDate() / 7); // Calculate the week of the month
@@ -792,27 +756,19 @@ const CalendarPage: React.FC = () => {
     }
   };
 
-  const getNextMonthlyDate = (
-    originalDate: Date,
-    currentDate: Date,
-    targetDay?: number
-  ): Date => {
+  const getNextMonthlyDate = (originalDate: Date, currentDate: Date, targetDay?: number): Date => {
     const nextMonth = new Date(currentDate);
     nextMonth.setDate(1); // Start at the first day of the month
     nextMonth.setMonth(nextMonth.getMonth() + 1); // Move to the next month
     console.log(nextMonth);
-    const daysInMonth = new Date(
-      nextMonth.getFullYear(),
-      nextMonth.getMonth() + 1,
-      0
-    ).getDate();
+    const daysInMonth = new Date(nextMonth.getFullYear(), nextMonth.getMonth() + 1, 0).getDate();
     const originalWeek = Math.ceil(originalDate.getDate() / 7); // Week of the original delivery
     const targetWeek = originalWeek > 4 ? -1 : originalWeek; // If it's the 5th week, use -1 for the last occurrence
-    let targetWeekday = targetDay ?? originalDate.getDay(); // Day of the week (0 = Sunday, 1 = Monday, etc.)
+    const targetWeekday = targetDay ?? originalDate.getDay(); // Day of the week (0 = Sunday, 1 = Monday, etc.)
 
     console.log(targetWeekday);
 
-    let targetDate = new Date(nextMonth);
+    const targetDate = new Date(nextMonth);
 
     if (targetWeek === -1) {
       // Handle the last occurrence of the target weekday
@@ -888,14 +844,10 @@ const CalendarPage: React.FC = () => {
 
       // Calculate recurrence dates based on the recurrence type
       const recurrenceDates =
-        newDelivery.recurrence === "None"
-          ? [deliveryDate]
-          : calculateRecurrenceDates();
+        newDelivery.recurrence === "None" ? [deliveryDate] : calculateRecurrenceDates();
 
       for (const date of recurrenceDates) {
-        const utcDate = new Date(
-          Date.UTC(date.getFullYear(), date.getMonth(), date.getDate())
-        ); // Normalize to UTC
+        const utcDate = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate())); // Normalize to UTC
 
         // Only include optional fields if they are defined
         const eventToAdd: Partial<DeliveryEvent> = {
@@ -917,9 +869,7 @@ const CalendarPage: React.FC = () => {
       }
 
       // Add all events to the database
-      const batch = eventsToAdd.map((event) =>
-        addDoc(collection(db, "events"), event)
-      );
+      const batch = eventsToAdd.map((event) => addDoc(collection(db, "events"), event));
       await Promise.all(batch);
 
       // Reset the form
@@ -944,14 +894,12 @@ const CalendarPage: React.FC = () => {
   };
 
   const handleNavigatePrev = () => {
-    const newDate =
-      viewType === "Month" ? currentDate.addMonths(-1) : currentDate.addDays(-1);
+    const newDate = viewType === "Month" ? currentDate.addMonths(-1) : currentDate.addDays(-1);
     setCurrentDate(newDate);
   };
 
   const handleNavigateNext = () => {
-    const newDate =
-      viewType === "Month" ? currentDate.addMonths(1) : currentDate.addDays(1);
+    const newDate = viewType === "Month" ? currentDate.addMonths(1) : currentDate.addDays(1);
     setCurrentDate(newDate);
   };
 
@@ -965,7 +913,7 @@ const CalendarPage: React.FC = () => {
     fetchEvents();
     fetchDrivers();
     fetchClients();
-  }, [viewType, currentDate]);
+  }, [viewType, currentDate, fetchEvents]);
 
   const formatPhoneNumber = (phone: string): string => {
     const cleaned = ("" + phone).replace(/\D/g, ""); // Remove non-numeric characters
@@ -990,9 +938,7 @@ const CalendarPage: React.FC = () => {
               }}
             >
               {events.map((event) => {
-                const client = clients.find(
-                  (client) => client.uid === event.clientId
-                );
+                const client = clients.find((client) => client.uid === event.clientId);
 
                 const trueRestrictions = Object.entries(
                   client?.deliveryDetails?.dietaryRestrictions || {}
@@ -1007,11 +953,7 @@ const CalendarPage: React.FC = () => {
                 const { foodAllergens = [], other = [] } =
                   client?.deliveryDetails?.dietaryRestrictions || {};
 
-                let dietaryRestrictions = [
-                  ...trueRestrictions,
-                  ...foodAllergens,
-                  ...other,
-                ];
+                const dietaryRestrictions = [...trueRestrictions, ...foodAllergens, ...other];
 
                 return (
                   <Box
@@ -1098,9 +1040,7 @@ const CalendarPage: React.FC = () => {
                       {[
                         {
                           label: "PHONE",
-                          value: client?.phone
-                            ? formatPhoneNumber(client.phone)
-                            : "N/A", // Format the phone number
+                          value: client?.phone ? formatPhoneNumber(client.phone) : "N/A", // Format the phone number
                           color: "#787777",
                         },
                         {
@@ -1117,9 +1057,7 @@ const CalendarPage: React.FC = () => {
                         },
                         {
                           label: "TAGS",
-                          value: client?.tags?.length
-                            ? client.tags.join(", ")
-                            : "N/A", // Join tags with commas
+                          value: client?.tags?.length ? client.tags.join(", ") : "N/A", // Join tags with commas
                           color: "#787777",
                         },
                         {
@@ -1147,10 +1085,7 @@ const CalendarPage: React.FC = () => {
                           >
                             {label}
                           </Typography>
-                          <Typography
-                            variant="body1"
-                            sx={{ fontWeight: "bold", color: color }}
-                          >
+                          <Typography variant="body1" sx={{ fontWeight: "bold", color: color }}>
                             {value}
                           </Typography>
                         </Box>
@@ -1207,12 +1142,7 @@ const CalendarPage: React.FC = () => {
       return <DayPilotMonth {...customCalendarConfig} />;
     }
 
-    return (
-      <DayPilotCalendar
-        {...calendarConfig}
-        viewType={viewType as DayPilotViewType}
-      />
-    );
+    return <DayPilotCalendar {...calendarConfig} viewType={viewType as DayPilotViewType} />;
   };
 
   // For the calendar popper so it goes away when clicking away from it.
@@ -1221,10 +1151,7 @@ const CalendarPage: React.FC = () => {
   useEffect(() => {
     const handleDocumentClick = (event: MouseEvent) => {
       // Check if the click target is contained within the container ref.
-      if (
-        containerRef.current &&
-        containerRef.current.contains(event.target as Node)
-      ) {
+      if (containerRef.current && containerRef.current.contains(event.target as Node)) {
         return; // Click is inside, so do nothing.
       }
       // Otherwise, close the popper.
@@ -1332,11 +1259,7 @@ const CalendarPage: React.FC = () => {
                 </Typography>
               </Box>
             )}
-            <IconButton
-              onClick={handleNavigatePrev}
-              size="large"
-              sx={{ color: "#257E68" }}
-            >
+            <IconButton onClick={handleNavigatePrev} size="large" sx={{ color: "#257E68" }}>
               <Box
                 sx={{
                   width: 12,
@@ -1347,11 +1270,7 @@ const CalendarPage: React.FC = () => {
                 }}
               />
             </IconButton>
-            <IconButton
-              onClick={handleNavigateNext}
-              size="large"
-              sx={{ color: "#257E68" }}
-            >
+            <IconButton onClick={handleNavigateNext} size="large" sx={{ color: "#257E68" }}>
               <Box
                 sx={{
                   width: 12,
@@ -1422,35 +1341,24 @@ const CalendarPage: React.FC = () => {
               getOptionLabel={(option) => `${option.firstName} ${option.lastName}`}
               value={
                 newDelivery.clientId
-                  ? clients.find((client) => client.uid === newDelivery.clientId) ||
-                    null
+                  ? clients.find((client) => client.uid === newDelivery.clientId) || null
                   : null
               }
               onChange={(event, newValue) => {
                 if (newValue) {
                   // Autofill logic based on the selected client
-                  const clientProfile = clients.find(
-                    (client) => client.uid === newValue.uid
-                  );
+                  const clientProfile = clients.find((client) => client.uid === newValue.uid);
                   if (clientProfile) {
                     setNewDelivery({
                       ...newDelivery,
                       clientId: clientProfile.uid,
                       clientName: `${clientProfile.firstName} ${clientProfile.lastName}`,
                       deliveryDate:
-                        clientProfile.startDate ||
-                        new Date().toISOString().split("T")[0], // Autofill deliveryDate
-                      recurrence: [
-                        "None",
-                        "Weekly",
-                        "2x-Monthly",
-                        "Monthly",
-                      ].includes(clientProfile.recurrence)
-                        ? (clientProfile.recurrence as
-                            | "None"
-                            | "Weekly"
-                            | "2x-Monthly"
-                            | "Monthly")
+                        clientProfile.startDate || new Date().toISOString().split("T")[0], // Autofill deliveryDate
+                      recurrence: ["None", "Weekly", "2x-Monthly", "Monthly"].includes(
+                        clientProfile.recurrence
+                      )
+                        ? (clientProfile.recurrence as "None" | "Weekly" | "2x-Monthly" | "Monthly")
                         : "None", // Default to "None" if the value is invalid
                       repeatsEndDate: clientProfile.endDate || "", // Autofill end date
                     });
@@ -1473,12 +1381,7 @@ const CalendarPage: React.FC = () => {
                 </li>
               )}
               renderInput={(params) => (
-                <TextField
-                  {...params}
-                  label="Client Name"
-                  margin="normal"
-                  fullWidth
-                />
+                <TextField {...params} label="Client Name" margin="normal" fullWidth />
               )}
             />
 
@@ -1487,9 +1390,7 @@ const CalendarPage: React.FC = () => {
               label="Delivery Date"
               type="date"
               value={newDelivery.deliveryDate}
-              onChange={(e) =>
-                setNewDelivery({ ...newDelivery, deliveryDate: e.target.value })
-              }
+              onChange={(e) => setNewDelivery({ ...newDelivery, deliveryDate: e.target.value })}
               fullWidth
               margin="normal"
               InputLabelProps={{ shrink: true }}
@@ -1505,11 +1406,7 @@ const CalendarPage: React.FC = () => {
                 onChange={(e) =>
                   setNewDelivery({
                     ...newDelivery,
-                    recurrence: e.target.value as
-                      | "None"
-                      | "Weekly"
-                      | "2x-Monthly"
-                      | "Monthly",
+                    recurrence: e.target.value as "None" | "Weekly" | "2x-Monthly" | "Monthly",
                   })
                 }
               >

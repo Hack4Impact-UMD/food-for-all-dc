@@ -169,9 +169,7 @@ const Profile = () => {
   const [allTags, setAllTags] = useState<string[]>([]);
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [prevTags, setPrevTags] = useState<string[] | null>(null);
-  const [prevClientProfile, setPrevClientProfile] = useState<ClientProfile | null>(
-    null
-  );
+  const [prevClientProfile, setPrevClientProfile] = useState<ClientProfile | null>(null);
   const [clientProfile, setClientProfile] = useState<ClientProfile>({
     uid: "",
     firstName: "",
@@ -228,9 +226,7 @@ const Profile = () => {
   const [isNewProfile, setIsNewProfile] = useState(true);
   const [editMode, setEditMode] = useState(true);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
-  const [fieldEditStates, setFieldEditStates] = useState<{ [key: string]: boolean }>(
-    {}
-  );
+  const [fieldEditStates, setFieldEditStates] = useState<{ [key: string]: boolean }>({});
   const navigate = useNavigate();
   const [formData, setFormData] = useState({});
   const [clientId, setClientId] = useState<string | null>(null); // Allow clientId to be either a string or null
@@ -245,9 +241,7 @@ const Profile = () => {
   const [showSavePopup, setShowSavePopup] = useState(false);
   const [showCaseWorkerModal, setShowCaseWorkerModal] = useState(false);
   const [caseWorkers, setCaseWorkers] = useState<CaseWorker[]>([]);
-  const [selectedCaseWorker, setSelectedCaseWorker] = useState<CaseWorker | null>(
-    null
-  );
+  const [selectedCaseWorker, setSelectedCaseWorker] = useState<CaseWorker | null>(null);
 
   // Function to fetch profile data by ID
   const getProfileById = async (id: string) => {
@@ -482,11 +476,7 @@ const Profile = () => {
       const data = await response.json();
 
       // Check if the response is successful and contains the expected data
-      if (
-        data.Success === true &&
-        data.Result.addresses &&
-        data.Result.addresses.length > 0
-      ) {
+      if (data.Success === true && data.Result.addresses && data.Result.addresses.length > 0) {
         const result = data.Result.addresses[0];
 
         if (result.zones && result.zones.ward[0]) {
@@ -676,16 +666,9 @@ const Profile = () => {
       newErrors.phone = "Phone number must be exactly 10 digits";
       console.log("Debug: phone format invalid:", clientProfile.phone);
     }
-    if (
-      clientProfile.alternativePhone &&
-      !/^\d{10}$/.test(clientProfile.alternativePhone)
-    ) {
-      newErrors.alternativePhone =
-        "Alternative Phone number must be exactly 10 digits";
-      console.log(
-        "Debug: alternativePhone format invalid:",
-        clientProfile.alternativePhone
-      );
+    if (clientProfile.alternativePhone && !/^\d{10}$/.test(clientProfile.alternativePhone)) {
+      newErrors.alternativePhone = "Alternative Phone number must be exactly 10 digits";
+      console.log("Debug: alternativePhone format invalid:", clientProfile.alternativePhone);
     }
 
     setErrors(newErrors);
@@ -730,18 +713,11 @@ const Profile = () => {
         currNotes,
         clientProfile.notesTimestamp || null
       );
-      updatedNotesTimestamp = checkIfNotesChanged(
-        prevNotes,
-        currNotes,
-        updatedNotesTimestamp
-      );
+      updatedNotesTimestamp = checkIfNotesChanged(prevNotes, currNotes, updatedNotesTimestamp);
 
       console.log("Previous notes:", prevNotes);
       console.log("Current notes:", currNotes);
-      console.log(
-        "Timestamp updated:",
-        updatedNotesTimestamp !== clientProfile.notesTimestamp
-      );
+      console.log("Timestamp updated:", updatedNotesTimestamp !== clientProfile.notesTimestamp);
 
       // Update the clientProfile object with the latest tags state
       const updatedProfile = {
@@ -815,13 +791,11 @@ const Profile = () => {
 
   //rfc
   const renderField = (fieldPath: ClientProfileKey, type: InputType = "text") => {
-    let value = fieldPath.includes(".")
+    const value = fieldPath.includes(".")
       ? getNestedValue(clientProfile, fieldPath)
       : clientProfile[fieldPath as keyof ClientProfile];
 
-    const isDisabledField = ["city", "state", "zipCode", "quadrant"].includes(
-      fieldPath
-    );
+    const isDisabledField = ["city", "state", "zipCode", "quadrant"].includes(fieldPath);
 
     const handleTag = (text: any) => {
       if (tags.includes(text)) {
@@ -885,9 +859,7 @@ const Profile = () => {
                 <MenuItem value="asian">Asian</MenuItem>
                 <MenuItem value="na">American Indian/Alaska Native</MenuItem>
                 <MenuItem value="me/na">Middle Eastern/North African</MenuItem>
-                <MenuItem value="islander">
-                  Native Hawaiian/Other Pacific Islander
-                </MenuItem>
+                <MenuItem value="islander">Native Hawaiian/Other Pacific Islander</MenuItem>
                 <MenuItem value="other">Other</MenuItem>
                 <MenuItem value="no answer">Prefer not to answer</MenuItem>
               </CustomSelect>
@@ -900,11 +872,7 @@ const Profile = () => {
               <CustomTextField
                 type="date"
                 name={fieldPath}
-                value={
-                  value instanceof Date
-                    ? value.toISOString().split("T")[0]
-                    : value || ""
-                }
+                value={value instanceof Date ? value.toISOString().split("T")[0] : value || ""}
                 onChange={handleChange}
                 fullWidth
               />
@@ -953,12 +921,7 @@ const Profile = () => {
         case "textarea":
           if (fieldPath === "ward") {
             return (
-              <CustomTextField
-                name={fieldPath}
-                value={String(value || "")}
-                disabled
-                fullWidth
-              />
+              <CustomTextField name={fieldPath} value={String(value || "")} disabled fullWidth />
             );
           } else {
             return (
@@ -976,11 +939,7 @@ const Profile = () => {
           return (
             <>
               <Box sx={{ textAlign: "left" }}>
-                {tags.length > 0 ? (
-                  <p>{tags.join(", ")}</p>
-                ) : (
-                  <p>No tags selected</p>
-                )}
+                {tags.length > 0 ? <p>{tags.join(", ")}</p> : <p>No tags selected</p>}
               </Box>
               <Button
                 variant="contained"
@@ -1112,9 +1071,7 @@ const Profile = () => {
                       }}
                     />
                   }
-                  label={capitalizeFirstLetter(
-                    key.replace(/([A-Z])/g, " $1").trim()
-                  )}
+                  label={capitalizeFirstLetter(key.replace(/([A-Z])/g, " $1").trim())}
                 />
               </Grid2>
             ))}
@@ -1139,9 +1096,7 @@ const Profile = () => {
   };
 
   // Updated handler for dietary restrictions
-  const handleDietaryRestrictionChange = (
-    e: React.ChangeEvent<HTMLInputElement>
-  ) => {
+  const handleDietaryRestrictionChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, checked } = e.target;
     handlePrevClientCopying();
     setClientProfile((prevState) => ({
@@ -1332,11 +1287,7 @@ const Profile = () => {
         </Box>
       )}
       <Box className="white-container">
-        <Typography
-          variant="h5"
-          className="border-bottom"
-          style={{ marginBottom: 20 }}
-        >
+        <Typography variant="h5" className="border-bottom" style={{ marginBottom: 20 }}>
           {clientProfile.firstName?.trim() || clientProfile.lastName?.trim()
             ? `${clientProfile.firstName || ""} ${clientProfile.lastName || ""}`.trim()
             : "Welcome!"}
@@ -1820,18 +1771,13 @@ const Profile = () => {
                     if (selectedId === "edit_list") {
                       setShowCaseWorkerModal(true);
                     } else {
-                      const selected = caseWorkers.find(
-                        (cw) => cw.id === selectedId
-                      );
+                      const selected = caseWorkers.find((cw) => cw.id === selectedId);
                       handleCaseWorkerChange(selected || null);
                     }
                   }}
                   style={{ width: "83.5%" }}
                 >
-                  <MenuItem
-                    value="edit_list"
-                    sx={{ color: "#257E68", fontWeight: "bold" }}
-                  >
+                  <MenuItem value="edit_list" sx={{ color: "#257E68", fontWeight: "bold" }}>
                     Edit Case Worker List {">"}
                   </MenuItem>
                   {caseWorkers.map((caseWorker) => (
@@ -1878,8 +1824,7 @@ const Profile = () => {
                   {(clientProfile.notesTimestamp &&
                   clientProfile.notesTimestamp.timestamp instanceof Timestamp
                     ? clientProfile.notesTimestamp.timestamp.toDate()
-                    : (clientProfile.notesTimestamp &&
-                        clientProfile.notesTimestamp.timestamp) ||
+                    : (clientProfile.notesTimestamp && clientProfile.notesTimestamp.timestamp) ||
                       clientProfile.createdAt
                   ).toLocaleString()}
                 </p>
@@ -1921,25 +1866,18 @@ const Profile = () => {
                 DIETARY RESTRICTIONS
               </Typography>
               {isEditing ? (
-                renderField(
-                  "deliveryDetails.dietaryRestrictions",
-                  "dietaryRestrictions"
-                )
+                renderField("deliveryDetails.dietaryRestrictions", "dietaryRestrictions")
               ) : (
                 <Typography variant="body1" sx={{ fontWeight: 600 }}>
                   {Object.entries(clientProfile.deliveryDetails.dietaryRestrictions)
-                    .filter(
-                      ([key, value]) => value === true && typeof value === "boolean"
-                    )
+                    .filter(([key, value]) => value === true && typeof value === "boolean")
                     .map(
                       ([key]) =>
                         key
                           .replace(/([A-Z])/g, " $1") // Add space before capital letters
                           .trim()
                           .split(" ") // Split into words
-                          .map(
-                            (word) => word.charAt(0).toUpperCase() + word.slice(1)
-                          ) // Capitalize each word
+                          .map((word) => word.charAt(0).toUpperCase() + word.slice(1)) // Capitalize each word
                           .join(" ") // Join back into a single string
                     )
                     .join(", ") || "None"}

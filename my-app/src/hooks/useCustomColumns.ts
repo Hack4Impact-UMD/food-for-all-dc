@@ -73,10 +73,7 @@ export const useCustomColumns = () => {
   };
 
   // Function to update the custom column header (property key) when it changes
-  const handleCustomHeaderChange = (
-    event: SelectChangeEvent<string>,
-    columnId: string
-  ) => {
+  const handleCustomHeaderChange = (event: SelectChangeEvent<string>, columnId: string) => {
     const newPropertyKey = event.target.value as string;
     setCustomColumns((prevColumns) =>
       prevColumns.map((col) =>
@@ -84,9 +81,7 @@ export const useCustomColumns = () => {
       )
     );
 
-    console.log(
-      `Custom Column ID: ${columnId}, New Property Key: ${newPropertyKey}`
-    );
+    console.log(`Custom Column ID: ${columnId}, New Property Key: ${newPropertyKey}`);
   };
 
   // Function to remove a custom column by filtering it out of the state

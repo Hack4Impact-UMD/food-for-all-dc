@@ -2,15 +2,7 @@ import { DayPilot } from "@daypilot/daypilot-lite-react";
 import { doc, onSnapshot, setDoc, updateDoc } from "firebase/firestore";
 import { db } from "../../auth/firebaseConfig";
 
-const DAYS = [
-  "sunday",
-  "monday",
-  "tuesday",
-  "wednesday",
-  "thursday",
-  "friday",
-  "saturday",
-];
+const DAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
 
 let firestoreLimits: number[] = [60, 60, 60, 60, 90, 90, 60];
 
@@ -37,10 +29,7 @@ export const getDefaultLimit = (date: DayPilot.Date, limits: number[]): number =
   return limits[date.getDayOfWeek()];
 };
 
-export const setDefaultLimit = async (
-  date: DayPilot.Date,
-  newLimit: number
-): Promise<void> => {
+export const setDefaultLimit = async (date: DayPilot.Date, newLimit: number): Promise<void> => {
   const dayIndex = date.getDayOfWeek();
   const dayField = DAYS[dayIndex];
 

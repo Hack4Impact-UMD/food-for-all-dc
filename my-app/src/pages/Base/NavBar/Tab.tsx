@@ -5,11 +5,11 @@ import "../NavBar/Tab.css";
 
 interface TabProp {
   text: string;
-  icon: any;
+  icon: React.ReactNode;
   link: string;
   tab: string;
-  setTab: Function;
-  setOpen: Function;
+  setTab: (text: string) => void;
+  setOpen: (open: boolean) => void;
 }
 export default function Tab({ text, icon, link, tab, setTab, setOpen }: TabProp) {
   const navigate = useNavigate();
@@ -17,9 +17,7 @@ export default function Tab({ text, icon, link, tab, setTab, setOpen }: TabProp)
   return (
     <div
       className={
-        text === "Logout"
-          ? "tabContainerLogout"
-          : "tabContainer" + (tab === text ? "Selected" : "")
+        text === "Logout" ? "tabContainerLogout" : "tabContainer" + (tab === text ? "Selected" : "")
       }
       onClick={() => {
         setTab(text);
@@ -28,10 +26,7 @@ export default function Tab({ text, icon, link, tab, setTab, setOpen }: TabProp)
       }}
     >
       <ListItemIcon sx={{ color: "rgb(37, 126, 104)" }}>{icon}</ListItemIcon>
-      <ListItemText
-        primary={text}
-        sx={{ fontWeight: "bold", color: "rgb(85, 85, 85)" }}
-      />
+      <ListItemText primary={text} sx={{ fontWeight: "bold", color: "rgb(85, 85, 85)" }} />
     </div>
   );
 }

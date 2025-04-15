@@ -1,17 +1,8 @@
 import { UserType, canCreateUserType } from "../../types/types";
 import "./CreateUsers.css";
 import React, { useState, useEffect } from "react";
-import {
-  getAuth,
-  createUserWithEmailAndPassword,
-  onAuthStateChanged
-} from "firebase/auth";
-import {
-  FirebaseApp,
-  FirebaseOptions,
-  initializeApp,
-  getApp,
-} from "firebase/app";
+import { getAuth, createUserWithEmailAndPassword, onAuthStateChanged } from "firebase/auth";
+import { FirebaseApp, FirebaseOptions, initializeApp, getApp } from "firebase/app";
 import { firebaseConfig } from "../../auth/firebaseConfig";
 import {
   createAdminUser,
@@ -20,9 +11,9 @@ import {
 } from "../../backend/cloudFunctionsCalls";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../auth/AuthProvider";
-import Alert from '@mui/material/Alert';
-import VisibilityIcon from '@mui/icons-material/Visibility';
-import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
+import Alert from "@mui/material/Alert";
+import VisibilityIcon from "@mui/icons-material/Visibility";
+import VisibilityOffIcon from "@mui/icons-material/VisibilityOff";
 import {
   getDocs,
   collection,
@@ -35,7 +26,7 @@ import {
   writeBatch,
 } from "firebase/firestore";
 import { db } from "../../auth/firebaseConfig";
-import adrLogo from "../../assets/ADR_web_logo.png"
+import adrLogo from "../../assets/ADR_web_logo.png";
 
 let firebaseApp: FirebaseApp;
 try {
@@ -122,8 +113,12 @@ const CreateUsers: React.FC = () => {
   const handleRegister = async () => {
     setRegistrationError("");
 
-    if (!newUserType || !newUserName.trim() || !registrationEmail.trim() ||
-      !registrationPassword.trim()) {
+    if (
+      !newUserType ||
+      !newUserName.trim() ||
+      !registrationEmail.trim() ||
+      !registrationPassword.trim()
+    ) {
       setRegistrationError("All fields are required.");
       return;
     }
@@ -142,7 +137,11 @@ const CreateUsers: React.FC = () => {
       const auth = getAuth(firebaseApp);
       const currentUser = auth.currentUser;
 
-      const unsubscribe = onAuthStateChanged(auth, () => { });
+      // Set up the auth state listener but we don't need to do anything in the callback
+      // since we're just using it to unsubscribe later
+      const unsubscribe = onAuthStateChanged(auth, () => {
+        // This callback intentionally left empty as we only need the unsubscribe function
+      });
       const userCredential = await createUserWithEmailAndPassword(
         auth,
         registrationEmail,
@@ -175,7 +174,7 @@ const CreateUsers: React.FC = () => {
         name: newUserName,
         email: registrationEmail,
         password: registrationPassword,
-        role: getDisplayName(newUserType)
+        role: getDisplayName(newUserType),
       };
       await setDoc(doc(db, "users", userId), newUser);
 
@@ -183,10 +182,11 @@ const CreateUsers: React.FC = () => {
       setRegistrationSuccess(true);
       unsubscribe();
     } catch (error: any) {
-      console.error("Registration error:", error);  // Log the full error object
-      const errorMessage = error.code === 'functions/internal'
-        ? "Internal server error. Please try again later."
-        : error.message;
+      console.error("Registration error:", error); // Log the full error object
+      const errorMessage =
+        error.code === "functions/internal"
+          ? "Internal server error. Please try again later."
+          : error.message;
       setRegistrationError("Registration error: " + errorMessage);
       setRegistrationSuccess(false);
     }
@@ -215,7 +215,7 @@ const CreateUsers: React.FC = () => {
           ))}
         </div>
 
-        <div className={`name-id ${newUserType !== UserType.ClientIntake ? 'full-width' : ''}`}>
+        <div className={`name-id ${newUserType !== UserType.ClientIntake ? "full-width" : ""}`}>
           <input
             type="text"
             placeholder="Name"
@@ -273,7 +273,9 @@ const CreateUsers: React.FC = () => {
           </div>
         </div>
 
-        <button className="create-user-button" onClick={handleRegister}>Create User</button>
+        <button className="create-user-button" onClick={handleRegister}>
+          Create User
+        </button>
       </div>
     </div>
   );

@@ -43,15 +43,7 @@ import {
 import { render } from "@testing-library/react";
 import { set } from "date-fns";
 import { onAuthStateChanged } from "firebase/auth";
-import {
-  addDoc,
-  collection,
-  deleteDoc,
-  doc,
-  getDocs,
-  setDoc,
-  updateDoc,
-} from "firebase/firestore";
+import { addDoc, collection, deleteDoc, doc, getDocs, setDoc, updateDoc } from "firebase/firestore";
 import "leaflet/dist/leaflet.css";
 import { auth } from "../../auth/firebaseConfig";
 import DriverManagementModal from "../../components/DriverManagementModal";
@@ -271,7 +263,7 @@ const fields: Field[] = [
       if (cluster.time) {
         const toStandardArr = cluster.time.split(":");
         let hours = Number(toStandardArr[0]);
-        let mins = Number(toStandardArr[1]);
+        const mins = Number(toStandardArr[1]);
         let ampm = "";
         if (hours < 12) {
           hours = hours === 0 ? 12 : hours;
@@ -307,9 +299,7 @@ interface CustomColumn {
 }
 
 // Type Guard to check if a field is a regular field
-const isRegularField = (
-  field: Field
-): field is Extract<Field, { key: keyof RowData }> => {
+const isRegularField = (field: Field): field is Extract<Field, { key: keyof RowData }> => {
   return (
     field.key !== "fullname" &&
     field.key !== "tags" &&
@@ -472,9 +462,7 @@ const DeliverySpreadsheet: React.FC = () => {
         );
 
         setRows(allData); // keep all rows for the table
-        const clientsWithClusters = clientsWithDeliveriesToday.filter(
-          (row) => row.clusterID
-        );
+        const clientsWithClusters = clientsWithDeliveriesToday.filter((row) => row.clusterID);
 
         if (clientsWithClusters.length > 0) {
           const token = await auth.currentUser?.getIdToken();
@@ -753,19 +741,16 @@ const DeliverySpreadsheet: React.FC = () => {
       }
 
       // Convert addresses to coordinates
-      const response = await fetch(
-        "https://geocode-addresses-endpoint-lzrplp4tfa-uc.a.run.app",
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            addresses: addresses,
-          }),
-        }
-      );
+      const response = await fetch("https://geocode-addresses-endpoint-lzrplp4tfa-uc.a.run.app", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          addresses: addresses,
+        }),
+      });
 
       if (!response.ok) {
         throw new Error("Failed to fetch");
@@ -834,9 +819,7 @@ const DeliverySpreadsheet: React.FC = () => {
       const clusterID = rowToToggle.clusterID;
       if (clusterID) {
         const cluster = clusters.find((c) => c.id.toString() === clusterID);
-        const rowsWithSameClusterID = rows.filter(
-          (row) => row.clusterID === clusterID
-        );
+        const rowsWithSameClusterID = rows.filter((row) => row.clusterID === clusterID);
 
         if (cluster) {
           // Check if the current row is already selected
@@ -870,117 +853,113 @@ const DeliverySpreadsheet: React.FC = () => {
   );
 
   // Filter rows based on search query
-  let visibleRows = clientsWithDeliveries.filter((row) => {
-
+  const visibleRows = clientsWithDeliveries.filter((row) => {
     const eachQuery = searchQuery.match(/"[^"]+"|\S+/g) || [];
 
-    const quotedQueries = eachQuery.filter(s => s.startsWith('"') && s.endsWith('"') && s.length > 1) || [];
-    const nonQuotedQueries = eachQuery.filter(s => s.length == 1 || !s.endsWith('"')) || [];
+    const quotedQueries =
+      eachQuery.filter((s) => s.startsWith('"') && s.endsWith('"') && s.length > 1) || [];
+    const nonQuotedQueries = eachQuery.filter((s) => s.length === 1 || !s.endsWith('"')) || [];
 
+    const containsQuotedQueries =
+      quotedQueries.length === 0
+        ? true
+        : quotedQueries.every((query) => {
+            const matchesStaticField = fields.some((field) => {
+              let fieldValue: any;
 
-    const containsQuotedQueries = quotedQueries.length === 0
-    ? true
-    : quotedQueries.every((query) => {
-      const matchesStaticField = fields.some((field) => {
-        let fieldValue: any;
+              const strippedQuery = query.slice(1, -1).trim().toLowerCase();
 
-        const strippedQuery = query.slice(1, -1).trim().toLowerCase()
-  
-        if (field.key === "fullname") {
-          fieldValue = field.compute(row);
-        } else if (field.key === "tags" && field.compute) {
-          fieldValue = field.compute(row);
-        } else if (field.key === "assignedDriver" && field.compute) {
-          fieldValue = field.compute(row, clusters, drivers);
-        } else {
-          fieldValue = row[field.key as keyof RowData];
-        }
-  
-        if (field.key === "tags" && field.compute) {
-          const untrimmedStrings: String[] = fieldValue.split(',');
-          const trimmedStrings = untrimmedStrings.map(str => str.trim());
-          return (
-            fieldValue != null &&
-            trimmedStrings.includes(strippedQuery.toLowerCase())
-          );
-        }
-        return (
-          fieldValue != null &&
-          fieldValue.toString().toLowerCase() === strippedQuery.toLowerCase()
-        );
-      });
-  
-      // Check all custom columns
-      const matchesCustomColumn = customColumns.some((col) => {
+              if (field.key === "fullname") {
+                fieldValue = field.compute(row);
+              } else if (field.key === "tags" && field.compute) {
+                fieldValue = field.compute(row);
+              } else if (field.key === "assignedDriver" && field.compute) {
+                fieldValue = field.compute(row, clusters, drivers);
+              } else {
+                fieldValue = row[field.key as keyof RowData];
+              }
 
-        const strippedQuery = query.slice(1, -1).trim().toLowerCase()
+              if (field.key === "tags" && field.compute) {
+                const untrimmedStrings: string[] = fieldValue.split(",");
+                const trimmedStrings = untrimmedStrings.map((str) => str.trim());
+                return fieldValue != null && trimmedStrings.includes(strippedQuery.toLowerCase());
+              }
+              return (
+                fieldValue != null &&
+                fieldValue.toString().toLowerCase() === strippedQuery.toLowerCase()
+              );
+            });
 
-        if (col.propertyKey !== "none") {
-          const fieldValue = row[col.propertyKey as keyof RowData];
-          return (
-            fieldValue != null &&
-            fieldValue.toString().toLowerCase() === strippedQuery.toLowerCase()
-          );
-        }
-        return false;
-      });
+            // Check all custom columns
+            const matchesCustomColumn = customColumns.some((col) => {
+              const strippedQuery = query.slice(1, -1).trim().toLowerCase();
 
-      // For this query, return true if it matched any field
-      return matchesStaticField || matchesCustomColumn;
-    });
+              if (col.propertyKey !== "none") {
+                const fieldValue = row[col.propertyKey as keyof RowData];
+                return (
+                  fieldValue != null &&
+                  fieldValue.toString().toLowerCase() === strippedQuery.toLowerCase()
+                );
+              }
+              return false;
+            });
+
+            // For this query, return true if it matched any field
+            return matchesStaticField || matchesCustomColumn;
+          });
 
     if (containsQuotedQueries) {
-      const containsRegularQuery = nonQuotedQueries.length === 0
-      ? true
-      : nonQuotedQueries.some((query) => {
-        const strippedQuery = query.startsWith('"')
-          ? query.slice(1).trim().toLowerCase()
-          : query.trim().toLowerCase()
+      const containsRegularQuery =
+        nonQuotedQueries.length === 0
+          ? true
+          : nonQuotedQueries.some((query) => {
+              const strippedQuery = query.startsWith('"')
+                ? query.slice(1).trim().toLowerCase()
+                : query.trim().toLowerCase();
 
-        if (strippedQuery.length === 0) {
-          return true;
-        }
+              if (strippedQuery.length === 0) {
+                return true;
+              }
 
-        const matchesStaticField = fields.some((field) => {
-          let fieldValue: any;
+              const matchesStaticField = fields.some((field) => {
+                let fieldValue: any;
 
-          if (field.key === "fullname") {
-            fieldValue = field.compute(row);
-          } else if (field.key === "tags" && field.compute) {
-            fieldValue = field.compute(row);
-          } else if (field.key === "assignedDriver" && field.compute) {
-            fieldValue = field.compute(row, clusters, drivers);
-          } else {
-            fieldValue = row[field.key as keyof RowData];
-          }
+                if (field.key === "fullname") {
+                  fieldValue = field.compute(row);
+                } else if (field.key === "tags" && field.compute) {
+                  fieldValue = field.compute(row);
+                } else if (field.key === "assignedDriver" && field.compute) {
+                  fieldValue = field.compute(row, clusters, drivers);
+                } else {
+                  fieldValue = row[field.key as keyof RowData];
+                }
 
-          if (fieldValue == null) return false;
+                if (fieldValue == null) return false;
 
-          const value = fieldValue.toString().toLowerCase();
-          return value.includes(strippedQuery)
-        })
+                const value = fieldValue.toString().toLowerCase();
+                return value.includes(strippedQuery);
+              });
 
-        const matchesCustomColumn = customColumns.some((col) => {
-          if (col.propertyKey !== "none") {
-            const fieldValue = row[col.propertyKey as keyof RowData];
-    
-            return (
-              fieldValue != null &&
-              fieldValue.toString().toLowerCase().includes(strippedQuery.toLowerCase())
-            );
-          }
-          return false;
-        });
+              const matchesCustomColumn = customColumns.some((col) => {
+                if (col.propertyKey !== "none") {
+                  const fieldValue = row[col.propertyKey as keyof RowData];
 
-        return matchesStaticField || matchesCustomColumn;
-      })
+                  return (
+                    fieldValue != null &&
+                    fieldValue.toString().toLowerCase().includes(strippedQuery.toLowerCase())
+                  );
+                }
+                return false;
+              });
+
+              return matchesStaticField || matchesCustomColumn;
+            });
 
       return containsRegularQuery;
     } else {
       return false;
     }
   });
-
 
   const [open, setOpen] = React.useState(false);
   const anchorRef = React.useRef<HTMLButtonElement>(null);
@@ -990,10 +969,7 @@ const DeliverySpreadsheet: React.FC = () => {
   };
 
   const handleClosePopper = (event: Event | React.SyntheticEvent) => {
-    if (
-      anchorRef.current &&
-      anchorRef.current.contains(event.target as HTMLElement)
-    ) {
+    if (anchorRef.current && anchorRef.current.contains(event.target as HTMLElement)) {
       return;
     }
     if (event && "nativeEvent" in event) {
@@ -1050,10 +1026,7 @@ const DeliverySpreadsheet: React.FC = () => {
   }, [open]);
 
   return (
-    <Box
-      className="box"
-      sx={{ display: "flex", flexDirection: "column", height: "100vh" }}
-    >
+    <Box className="box" sx={{ display: "flex", flexDirection: "column", height: "100vh" }}>
       <div
         style={{
           display: "flex",
@@ -1073,10 +1046,7 @@ const DeliverySpreadsheet: React.FC = () => {
             width: "100%",
           }}
         >
-          <Typography
-            variant="h4"
-            sx={{ marginRight: 2, width: "170px", color: "#787777" }}
-          >
+          <Typography variant="h4" sx={{ marginRight: 2, width: "170px", color: "#787777" }}>
             {format(selectedDate, "EEEE")}
           </Typography>
 
@@ -1183,9 +1153,7 @@ const DeliverySpreadsheet: React.FC = () => {
             addresses={visibleRows.map((row) => row.address)}
             coordinates={coordinates}
             clusters={generatedClusters}
-            clientNames={visibleRows.map(
-              (row) => `${row.firstName} ${row.lastName}`
-            )}
+            clientNames={visibleRows.map((row) => `${row.firstName} ${row.lastName}`)}
           />
         ) : (
           <Box
@@ -1286,8 +1254,7 @@ const DeliverySpreadsheet: React.FC = () => {
                   padding: "0% 2%",
                   borderRadius: "5px",
                   width: "10%",
-                  backgroundColor:
-                    (selectedRows.size <= 0 ? "gray" : "#257E68") + " !important",
+                  backgroundColor: (selectedRows.size <= 0 ? "gray" : "#257E68") + " !important",
                 }}
               >
                 Assign Driver
@@ -1305,8 +1272,7 @@ const DeliverySpreadsheet: React.FC = () => {
                   padding: "0% 2%",
                   borderRadius: "5px",
                   width: "10%",
-                  backgroundColor:
-                    (selectedRows.size <= 0 ? "gray" : "#257E68") + " !important",
+                  backgroundColor: (selectedRows.size <= 0 ? "gray" : "#257E68") + " !important",
                 }}
               >
                 Assign Time
@@ -1335,12 +1301,8 @@ const DeliverySpreadsheet: React.FC = () => {
                 onClose={handleClose}
                 MenuListProps={{ sx: { minWidth: 140 } }}
               >
-                <MenuItem onClick={() => handleParentSelect("Route")}>
-                  Route
-                </MenuItem>
-                <MenuItem onClick={() => handleParentSelect("Doordash")}>
-                  Doordash
-                </MenuItem>
+                <MenuItem onClick={() => handleParentSelect("Route")}>Route</MenuItem>
+                <MenuItem onClick={() => handleParentSelect("Doordash")}>Doordash</MenuItem>
               </Menu>
 
               {/* Step 2: Submenu based on choice */}
@@ -1539,8 +1501,7 @@ const DeliverySpreadsheet: React.FC = () => {
                   {customColumns.map((col) => (
                     <TableCell key={col.id}>
                       {col.propertyKey !== "none"
-                        ? (row[col.propertyKey as keyof RowData]?.toString() ??
-                          "N/A")
+                        ? (row[col.propertyKey as keyof RowData]?.toString() ?? "N/A")
                         : "N/A"}
                     </TableCell>
                   ))}
@@ -1638,9 +1599,7 @@ const DeliverySpreadsheet: React.FC = () => {
                     {option.name}
                   </li>
                 )}
-                PaperComponent={({ children }) => (
-                  <Paper elevation={3}>{children}</Paper>
-                )}
+                PaperComponent={({ children }) => <Paper elevation={3}>{children}</Paper>}
                 noOptionsText="No drivers found"
               />
             </Box>
@@ -1686,9 +1645,7 @@ const DeliverySpreadsheet: React.FC = () => {
                   justifyContent: "space-between",
                 }}
               >
-                <Typography variant="body1">
-                  Enter desired number of clusters:
-                </Typography>
+                <Typography variant="body1">Enter desired number of clusters:</Typography>
                 <TextField
                   type="number"
                   value={clusterNum}
@@ -1744,9 +1701,7 @@ const DeliverySpreadsheet: React.FC = () => {
                     variant="outlined"
                   />
                 </Box>
-                {clusterError ? (
-                  <Typography color="error">{clusterError}</Typography>
-                ) : null}
+                {clusterError ? <Typography color="error">{clusterError}</Typography> : null}
               </Box>
             </Box>
           ) : null}
@@ -1817,36 +1772,4 @@ const DeliverySpreadsheet: React.FC = () => {
   );
 };
 
-{
-  /* <Button
-  fullWidth
-  sx={{
-    flex: 1,
-    minWidth: "50%",
-    borderRadius: 0,
-    height: "60px",
-    fontSize: "1rem",
-    margin: 0,
-    borderRight: "1px solid #257e68"
-  }}
-  onClick={() => {popupMode == "Driver" ? assignDriver(): assignTime()}}
->
-  SAVE
-</Button>
-<Button
-  fullWidth
-  sx={{
-    flex: 1,
-    minWidth: "50%",
-    borderRadius: 0,
-    height: "60px",
-    fontSize: "1rem",
-    margin: 0,
-    borderLeft: "1px solid #257e68"
-  }}
-  onClick={() => {setPopupMode(""); popupMode == "Driver" ? setDriver(null): setTime("")}}
->
-  CANCEL
-</Button> */
-}
 export default DeliverySpreadsheet;

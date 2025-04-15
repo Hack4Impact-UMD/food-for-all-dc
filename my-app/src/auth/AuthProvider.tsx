@@ -27,33 +27,36 @@ export const AuthProvider = ({ children }: Props): React.ReactElement => {
   const [loading, setLoading] = useState<boolean>(true);
 
   const logout = async () => {
-      const auth = getAuth(app);
-      try {
-          await signOut(auth);
-          setUser(null);
-          setToken(null);
-      } catch (error) {
-          console.error("Logout error:", error);
-      }
+    const auth = getAuth(app);
+    try {
+      await signOut(auth);
+      setUser(null);
+      setToken(null);
+    } catch (error) {
+      console.error("Logout error:", error);
+    }
   };
 
   useEffect(() => {
-      const auth = getAuth(app);
-      const unsubscribe = onAuthStateChanged(auth, (newUser) => {
-          setUser(newUser);
-          if (newUser) {
-              newUser.getIdTokenResult()
-                  .then(setToken)
-                  .catch(() => setToken(null));
-          } else {
-              setToken(null);
-          }
-          setLoading(false);
-      });
-      return unsubscribe;
+    const auth = getAuth(app);
+    const unsubscribe = onAuthStateChanged(auth, (newUser) => {
+      setUser(newUser);
+      if (newUser) {
+        newUser
+          .getIdTokenResult()
+          .then(setToken)
+          .catch(() => setToken(null));
+      } else {
+        setToken(null);
+      }
+      setLoading(false);
+    });
+    return unsubscribe;
   }, []);
 
-  return <AuthContext.Provider value={{ user, token, loading, logout }}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={{ user, token, loading, logout }}>{children}</AuthContext.Provider>
+  );
 };
 
 export const useAuth = () => useContext(AuthContext);

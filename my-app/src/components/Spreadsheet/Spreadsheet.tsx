@@ -24,15 +24,7 @@ import {
   colors,
 } from "@mui/material";
 import { onAuthStateChanged } from "firebase/auth";
-import {
-  addDoc,
-  collection,
-  deleteDoc,
-  doc,
-  getDocs,
-  setDoc,
-  updateDoc,
-} from "firebase/firestore";
+import { addDoc, collection, deleteDoc, doc, getDocs, setDoc, updateDoc } from "firebase/firestore";
 import { Filter, Search } from "lucide-react";
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -103,9 +95,7 @@ type Field =
     };
 
 // Type Guard to check if a field is a regular field
-const isRegularField = (
-  field: Field
-): field is Extract<Field, { key: keyof RowData }> => {
+const isRegularField = (field: Field): field is Extract<Field, { key: keyof RowData }> => {
   return field.key !== "fullname";
 };
 
@@ -229,15 +219,13 @@ const Spreadsheet: React.FC = () => {
         if (dietaryRestrictions.lowSodium) restrictions.push("Low Sodium");
         if (dietaryRestrictions.lowSugar) restrictions.push("Low Sugar");
         if (dietaryRestrictions.microwaveOnly) restrictions.push("Microwave Only");
-        if (dietaryRestrictions.noCookingEquipment)
-          restrictions.push("No Cooking Equipment");
+        if (dietaryRestrictions.noCookingEquipment) restrictions.push("No Cooking Equipment");
         if (dietaryRestrictions.softFood) restrictions.push("Soft Food");
         if (dietaryRestrictions.vegan) restrictions.push("Vegan");
         if (dietaryRestrictions.vegetarian) restrictions.push("Vegetarian");
         if (dietaryRestrictions.foodAllergens.length > 0)
           restrictions.push(...dietaryRestrictions.foodAllergens);
-        if (dietaryRestrictions.other.length > 0)
-          restrictions.push(...dietaryRestrictions.other);
+        if (dietaryRestrictions.other.length > 0) restrictions.push(...dietaryRestrictions.other);
         return restrictions.length > 0 ? restrictions.join(", ") : "None";
       },
     },
@@ -245,8 +233,7 @@ const Spreadsheet: React.FC = () => {
       key: "deliveryDetails.deliveryInstructions",
       label: "Delivery Instructions",
       type: "text",
-      compute: (data: RowData) =>
-        data.deliveryDetails.deliveryInstructions || "None",
+      compute: (data: RowData) => data.deliveryDetails.deliveryInstructions || "None",
     },
   ];
 
@@ -361,10 +348,7 @@ const Spreadsheet: React.FC = () => {
         return sortOrder === "asc"
           ? (a[fieldKey] as string).localeCompare(b[fieldKey] as string)
           : (b[fieldKey] as string).localeCompare(a[fieldKey] as string);
-      } else if (
-        typeof a[fieldKey] === "number" &&
-        typeof b[fieldKey] === "number"
-      ) {
+      } else if (typeof a[fieldKey] === "number" && typeof b[fieldKey] === "number") {
         return sortOrder === "asc"
           ? (a[fieldKey] as number) - (b[fieldKey] as number)
           : (b[fieldKey] as number) - (a[fieldKey] as number);
@@ -380,96 +364,94 @@ const Spreadsheet: React.FC = () => {
     navigate("/profile");
   };
 
-
-
-  let visibleRows = rows.filter((row) => {
-
+  const visibleRows = rows.filter((row) => {
     const eachQuery = searchQuery.match(/"[^"]+"|\S+/g) || [];
 
-    const quotedQueries = eachQuery.filter(s => s.startsWith('"') && s.endsWith('"') && s.length > 1) || [];
-    const nonQuotedQueries = eachQuery.filter(s => s.length == 1 || !s.endsWith('"')) || [];
+    const quotedQueries =
+      eachQuery.filter((s) => s.startsWith('"') && s.endsWith('"') && s.length > 1) || [];
+    const nonQuotedQueries = eachQuery.filter((s) => s.length === 1 || !s.endsWith('"')) || [];
 
+    const containsQuotedQueries =
+      quotedQueries.length === 0
+        ? true
+        : quotedQueries.every((query) => {
+            const matchesStaticField = fields.some((field) => {
+              let fieldValue;
 
-    const containsQuotedQueries = quotedQueries.length === 0
-    ? true
-    : quotedQueries.every((query) => {
-      const matchesStaticField = fields.some((field) => {
-        let fieldValue;
+              const strippedQuery = query.slice(1, -1).trim().toLowerCase();
 
-        const strippedQuery = query.slice(1, -1).trim().toLowerCase()
-  
-        if (field.compute) {
-          fieldValue = field.compute(row);
-        } else {
-          fieldValue = row[field.key as keyof RowData];
-        }
-  
-        return (
-          fieldValue != null &&
-          fieldValue.toString().toLowerCase() === strippedQuery.toLowerCase()
-        );
-      });
-  
-      // Check all custom columns
-      const matchesCustomColumn = customColumns.some((col) => {
+              if (field.compute) {
+                fieldValue = field.compute(row);
+              } else {
+                fieldValue = row[field.key as keyof RowData];
+              }
 
-        const strippedQuery = query.slice(1, -1).trim().toLowerCase()
+              return (
+                fieldValue != null &&
+                fieldValue.toString().toLowerCase() === strippedQuery.toLowerCase()
+              );
+            });
 
-        if (col.propertyKey !== "none") {
-          const fieldValue = row[col.propertyKey as keyof RowData];
-          return (
-            fieldValue != null &&
-            fieldValue.toString().toLowerCase() === strippedQuery.toLowerCase()
-          );
-        }
-        return false;
-      });
+            // Check all custom columns
+            const matchesCustomColumn = customColumns.some((col) => {
+              const strippedQuery = query.slice(1, -1).trim().toLowerCase();
 
-      // For this query, return true if it matched any field
-      return matchesStaticField || matchesCustomColumn;
-    });
+              if (col.propertyKey !== "none") {
+                const fieldValue = row[col.propertyKey as keyof RowData];
+                return (
+                  fieldValue != null &&
+                  fieldValue.toString().toLowerCase() === strippedQuery.toLowerCase()
+                );
+              }
+              return false;
+            });
+
+            // For this query, return true if it matched any field
+            return matchesStaticField || matchesCustomColumn;
+          });
 
     if (containsQuotedQueries) {
-      const containsRegularQuery = nonQuotedQueries.length === 0
-      ? true
-      : nonQuotedQueries.some((query) => {
-        const strippedQuery = query.startsWith('"')
-          ? query.slice(1).trim().toLowerCase()
-          : query.trim().toLowerCase()
+      const containsRegularQuery =
+        nonQuotedQueries.length === 0
+          ? true
+          : nonQuotedQueries.some((query) => {
+              const strippedQuery = query.startsWith('"')
+                ? query.slice(1).trim().toLowerCase()
+                : query.trim().toLowerCase();
 
-        if (strippedQuery.length === 0) {
-          return true;
-        }
+              if (strippedQuery.length === 0) {
+                return true;
+              }
 
-        const matchesStaticField = fields.some((field) => {
-          let fieldValue: any;
+              const matchesStaticField = fields.some((field) => {
+                let fieldValue: any;
 
-          if (field.compute) {
-            fieldValue = field.compute(row);
-          } else {
-            fieldValue = row[field.key as keyof RowData]
-          }
+                if (field.compute) {
+                  fieldValue = field.compute(row);
+                } else {
+                  fieldValue = row[field.key as keyof RowData];
+                }
 
-          if (fieldValue == null) return false;
+                if (fieldValue == null) return false;
 
-          const value = fieldValue.toString().toLowerCase();
-          return value.includes(strippedQuery)
-        })
+                const value = fieldValue.toString().toLowerCase();
+                return value.includes(strippedQuery);
+              });
 
-        const matchesCustomColumn = customColumns.some((col) => {
-          if (col.propertyKey !== "none") {
-            const fieldValue = row[col.propertyKey as keyof RowData];
-    
-            return (
-              fieldValue != null &&
-              fieldValue.toString().toLowerCase().includes(strippedQuery.toLowerCase())
-            );
-          }
-          return false;
-        });
+              const matchesCustomColumn = customColumns.some((col) => {
+                if (col.propertyKey !== "none") {
+                  const fieldValue = row[col.propertyKey as keyof RowData];
 
-        return matchesStaticField || matchesCustomColumn;
-      })
+                  return (
+                    fieldValue != null &&
+                    fieldValue.toString().toLowerCase().includes(strippedQuery.toLowerCase())
+                  );
+                }
+                return false;
+              });
+
+              return matchesStaticField || matchesCustomColumn;
+            });
 
       return containsRegularQuery;
     } else {
@@ -580,10 +562,7 @@ const Spreadsheet: React.FC = () => {
         }}
       >
         {/* Spreadsheet Table */}
-        <TableContainer
-          component={Paper}
-          style={{ maxHeight: "65vh", overflowY: "auto" }}
-        >
+        <TableContainer component={Paper} style={{ maxHeight: "65vh", overflowY: "auto" }}>
           <Table stickyHeader>
             <TableHead>
               <TableRow>
@@ -644,9 +623,7 @@ const Spreadsheet: React.FC = () => {
               {visibleRows.map((row) => (
                 <TableRow
                   key={row.id}
-                  className={
-                    editingRowId === row.id ? "table-row editing-row" : "table-row"
-                  }
+                  className={editingRowId === row.id ? "table-row editing-row" : "table-row"}
                 >
                   {fields.map((field) => (
                     <TableCell key={field.key}>

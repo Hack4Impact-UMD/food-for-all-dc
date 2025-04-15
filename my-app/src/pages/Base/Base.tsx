@@ -1,38 +1,38 @@
-import * as React from 'react';
-import { styled, useTheme } from '@mui/material/styles';
-import Box from '@mui/material/Box';
-import Drawer from '@mui/material/Drawer';
-import CssBaseline from '@mui/material/CssBaseline';
-import MuiAppBar, { AppBarProps as MuiAppBarProps } from '@mui/material/AppBar';
-import Toolbar from '@mui/material/Toolbar';
-import Divider from '@mui/material/Divider';
-import IconButton from '@mui/material/IconButton';
-import MenuRoundedIcon from '@mui/icons-material/MenuRounded';
-import List from '@mui/material/List';
-import ListItem from '@mui/material/ListItem';
-import ListItemButton from '@mui/material/ListItemButton';  // ✅ Added this import
-import ListItemIcon from '@mui/material/ListItemIcon';
-import ListItemText from '@mui/material/ListItemText';
-import AccountCircleIcon from '@mui/icons-material/AccountCircle';
-import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
-import StorageIcon from '@mui/icons-material/Storage';
-import AddCircleIcon from '@mui/icons-material/AddCircle';
-import LogoutIcon from '@mui/icons-material/Logout';
-import LocalShippingIcon from '@mui/icons-material/LocalShipping';
-import Tab from './NavBar/Tab';
-import logo from '../../assets/ffa-banner-logo.webp';
+import * as React from "react";
+import { styled, useTheme } from "@mui/material/styles";
+import Box from "@mui/material/Box";
+import Drawer from "@mui/material/Drawer";
+import CssBaseline from "@mui/material/CssBaseline";
+import MuiAppBar, { AppBarProps as MuiAppBarProps } from "@mui/material/AppBar";
+import Toolbar from "@mui/material/Toolbar";
+import Divider from "@mui/material/Divider";
+import IconButton from "@mui/material/IconButton";
+import MenuRoundedIcon from "@mui/icons-material/MenuRounded";
+import List from "@mui/material/List";
+import ListItem from "@mui/material/ListItem";
+import ListItemButton from "@mui/material/ListItemButton"; // ✅ Added this import
+import ListItemIcon from "@mui/material/ListItemIcon";
+import ListItemText from "@mui/material/ListItemText";
+import AccountCircleIcon from "@mui/icons-material/AccountCircle";
+import CalendarTodayIcon from "@mui/icons-material/CalendarToday";
+import StorageIcon from "@mui/icons-material/Storage";
+import AddCircleIcon from "@mui/icons-material/AddCircle";
+import LogoutIcon from "@mui/icons-material/Logout";
+import LocalShippingIcon from "@mui/icons-material/LocalShipping";
+import Tab from "./NavBar/Tab";
+import logo from "../../assets/ffa-banner-logo.webp";
 import { Typography } from "@mui/material";
-import { useAuth } from '../../auth/AuthProvider';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useAuth } from "../../auth/AuthProvider";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useEffect } from "react";
 
 const drawerWidth = 240;
 
-const Main = styled('main', { shouldForwardProp: (prop) => prop !== 'open' })<{
+const Main = styled("main", { shouldForwardProp: (prop) => prop !== "open" })<{
   open?: boolean;
 }>(({ theme, open }) => ({
   flexGrow: 1,
-  transition: theme.transitions.create('margin', {
+  transition: theme.transitions.create("margin", {
     easing: theme.transitions.easing.sharp,
     duration: theme.transitions.duration.leavingScreen,
   }),
@@ -44,42 +44,42 @@ interface AppBarProps extends MuiAppBarProps {
 }
 
 const AppBar = styled(MuiAppBar, {
-  shouldForwardProp: (prop) => prop !== 'open',
+  shouldForwardProp: (prop) => prop !== "open",
 })<AppBarProps>(({ theme, open }) => ({
-  backgroundColor: '#ffffff',
-  color: '#000000',
-  transition: theme.transitions.create(['margin', 'width'], {
+  backgroundColor: "#ffffff",
+  color: "#000000",
+  transition: theme.transitions.create(["margin", "width"], {
     easing: theme.transitions.easing.sharp,
     duration: theme.transitions.duration.leavingScreen,
   }),
   ...(open && {
     width: `calc(100% - ${drawerWidth}px)`,
     marginLeft: `${drawerWidth}px`,
-    transition: theme.transitions.create(['margin', 'width'], {
+    transition: theme.transitions.create(["margin", "width"], {
       easing: theme.transitions.easing.easeOut,
       duration: theme.transitions.duration.enteringScreen,
     }),
   }),
 }));
 
-const DrawerHeader = styled('div')(({ theme }) => ({
-  display: 'flex',
-  alignItems: 'center',
+const DrawerHeader = styled("div")(({ theme }) => ({
+  display: "flex",
+  alignItems: "center",
   padding: theme.spacing(0, 1),
   ...theme.mixins.toolbar,
-  justifyContent: 'flex-end',
+  justifyContent: "flex-end",
 }));
 
-const LogoContainer = styled('div')({
-  display: 'flex',
-  width: '100%',
-  justifyContent: 'start',
-  alignItems: 'center',
+const LogoContainer = styled("div")({
+  display: "flex",
+  width: "100%",
+  justifyContent: "start",
+  alignItems: "center",
 });
 
-const LogoImage = styled('img')({
-  width: '85%',
-  height: 'auto',
+const LogoImage = styled("img")({
+  width: "85%",
+  height: "auto",
 });
 
 export default function BasePage({ children }: { children: React.ReactNode }) {
@@ -92,18 +92,18 @@ export default function BasePage({ children }: { children: React.ReactNode }) {
   const location = useLocation();
 
   useEffect(() => {
-    if (location.pathname === '/deliveries') {
+    if (location.pathname === "/deliveries") {
       setPageTitle("Deliveries");
-    } else if (location.pathname === '/clients') {
+    } else if (location.pathname === "/clients") {
       setPageTitle("Clients");
-    } else if (location.pathname === '/users') {
+    } else if (location.pathname === "/users") {
       setPageTitle("Users");
-    } else if (location.pathname === '/routes') {
+    } else if (location.pathname === "/routes") {
       setPageTitle("Routes");
     } else {
       setPageTitle("");
     }
-  }, [location])
+  }, [location]);
 
   const handleDrawerOpen = () => {
     setOpen(true);
@@ -116,23 +116,23 @@ export default function BasePage({ children }: { children: React.ReactNode }) {
   const handleLogout = async () => {
     try {
       await logout();
-      navigate('/'); // Redirect to home without full page reload
+      navigate("/"); // Redirect to home without full page reload
     } catch (error) {
-      console.error('Logout failed:', error);
+      console.error("Logout failed:", error);
     }
   };
 
   return (
-    <Box sx={{ display: 'flex' }}>
+    <Box sx={{ display: "flex" }}>
       <CssBaseline />
       <AppBar position="fixed" open={open}>
-        <Toolbar sx={{ display: 'flex', justifyContent: 'center' }}>
+        <Toolbar sx={{ display: "flex", justifyContent: "center" }}>
           <IconButton
             color="inherit"
             aria-label="open drawer"
             onClick={handleDrawerOpen}
             edge="start"
-            sx={{ position: 'absolute', left: 16, ...(open && { display: 'none' }) }}
+            sx={{ position: "absolute", left: 16, ...(open && { display: "none" }) }}
           >
             <MenuRoundedIcon />
           </IconButton>
@@ -145,41 +145,63 @@ export default function BasePage({ children }: { children: React.ReactNode }) {
         sx={{
           width: drawerWidth,
           flexShrink: 0,
-          '& .MuiDrawer-paper': {
+          "& .MuiDrawer-paper": {
             width: drawerWidth,
-            boxSizing: 'border-box',
-            backgroundColor: 'rgba(217, 217, 217, 1)',
-            color: '#000000',
-            display: 'flex',
-            flexDirection: 'column',
+            boxSizing: "border-box",
+            backgroundColor: "rgba(217, 217, 217, 1)",
+            color: "#000000",
+            display: "flex",
+            flexDirection: "column",
           },
         }}
         variant="persistent"
         anchor="left"
         open={open}
       >
-        <DrawerHeader sx={{ backgroundColor: 'lightgray' }}>
+        <DrawerHeader sx={{ backgroundColor: "lightgray" }}>
           <LogoContainer>
             <LogoImage src={logo} alt="Logo" />
           </LogoContainer>
-          <MenuRoundedIcon sx={{ fontSize: 30, color: "rgba(96, 97, 97, 1)" }} onClick={handleDrawerClose} />
+          <MenuRoundedIcon
+            sx={{ fontSize: 30, color: "rgba(96, 97, 97, 1)" }}
+            onClick={handleDrawerClose}
+          />
         </DrawerHeader>
         <Divider />
         <List>
           {[
-            { text: 'Clients', icon: <StorageIcon />, link: '/clients' },
-            { text: 'Deliveries', icon: <CalendarTodayIcon />, link: '/deliveries' },
-            { text: 'Users', icon: <AddCircleIcon />, link: '/users' },
-            { text: 'Routes', icon: <LocalShippingIcon />, link: '/routes' },
+            { text: "Clients", icon: <StorageIcon />, link: "/clients" },
+            { text: "Deliveries", icon: <CalendarTodayIcon />, link: "/deliveries" },
+            { text: "Users", icon: <AddCircleIcon />, link: "/users" },
+            { text: "Routes", icon: <LocalShippingIcon />, link: "/routes" },
           ].map(({ text, icon, link }) => (
             <ListItem key={text} disablePadding>
-              <Tab text={text} icon={icon} link={link} tab={tab} setTab={setTab} setOpen={setOpen} />
+              <Tab
+                text={text}
+                icon={icon}
+                link={link}
+                tab={tab}
+                setTab={setTab}
+                setOpen={setOpen}
+              />
             </ListItem>
           ))}
         </List>
-        <List sx={{ display: 'flex', flexDirection: 'column', height: '100%', padding: '5px', justifyContent: 'end' }}>
+        <List
+          sx={{
+            display: "flex",
+            flexDirection: "column",
+            height: "100%",
+            padding: "5px",
+            justifyContent: "end",
+          }}
+        >
           <ListItem disablePadding>
-            <ListItemButton onClick={handleLogout} aria-label="Logout" sx={{ backgroundColor: '#c0d4c5', '&:hover': { backgroundColor: '#aabdad' } }}>
+            <ListItemButton
+              onClick={handleLogout}
+              aria-label="Logout"
+              sx={{ backgroundColor: "#c0d4c5", "&:hover": { backgroundColor: "#aabdad" } }}
+            >
               <ListItemIcon>
                 <LogoutIcon sx={{ color: "#257e68" }} />
               </ListItemIcon>
@@ -192,6 +214,6 @@ export default function BasePage({ children }: { children: React.ReactNode }) {
         <DrawerHeader />
         {children}
       </Main>
-    </Box >
+    </Box>
   );
 }

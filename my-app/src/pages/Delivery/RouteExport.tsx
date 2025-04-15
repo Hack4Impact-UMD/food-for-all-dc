@@ -41,10 +41,7 @@ export const createAndSendCsvs = functions.https.onRequest(async (req, res) => {
     });
 
     // Step 3: Create a ZIP file
-    const zipFilePath = path.join(
-      os.tmpdir(),
-      `deliveries-${deliveryDate}.zip`
-    );
+    const zipFilePath = path.join(os.tmpdir(), `deliveries-${deliveryDate}.zip`);
     const output = fs.createWriteStream(zipFilePath);
     const archive = archiver("zip", { zlib: { level: 9 } });
 
@@ -90,9 +87,7 @@ export const createAndSendCsvs = functions.https.onRequest(async (req, res) => {
       groupedByCluster[clusterNumber].forEach((event) => {
         const client = clientProfiles[event.clientName];
         if (!client) {
-          console.warn(
-            `Skipping event for ${event.clientName} due to missing profile.`
-          );
+          console.warn(`Skipping event for ${event.clientName} due to missing profile.`);
           return;
         }
 
@@ -136,10 +131,7 @@ export const createAndSendCsvs = functions.https.onRequest(async (req, res) => {
 
     // Step 5: Send the ZIP file as a response
     res.setHeader("Content-Type", "application/zip");
-    res.setHeader(
-      "Content-Disposition",
-      `attachment; filename="deliveries-${deliveryDate}.zip"`
-    );
+    res.setHeader("Content-Disposition", `attachment; filename="deliveries-${deliveryDate}.zip"`);
     res.sendFile(zipFilePath, (err) => {
       if (err) {
         console.error("Error sending ZIP file:", err);

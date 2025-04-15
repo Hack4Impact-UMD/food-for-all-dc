@@ -3,10 +3,7 @@ import { getFunctions, httpsCallable } from "firebase/functions";
 export function createAdminUser(userId: string, email: string, name: string): Promise<void> {
   return new Promise((resolve, reject) => {
     const functions = getFunctions();
-    const createAdminCloudFunction = httpsCallable(
-      functions,
-      "createAdminUser",
-    );
+    const createAdminCloudFunction = httpsCallable(functions, "createAdminUser");
 
     createAdminCloudFunction({
       userId: userId,
@@ -27,10 +24,7 @@ export function createAdminUser(userId: string, email: string, name: string): Pr
 export function createManagerUser(userId: string, email: string, name: string): Promise<void> {
   return new Promise((resolve, reject) => {
     const functions = getFunctions();
-    const createManagerCloudFunction = httpsCallable(
-      functions,
-      "createManagerUser",
-    );
+    const createManagerCloudFunction = httpsCallable(functions, "createManagerUser");
 
     createManagerCloudFunction({
       userId: userId,
@@ -51,10 +45,7 @@ export function createManagerUser(userId: string, email: string, name: string): 
 export function createClientIntakeUser(userId: string, email: string, name: string): Promise<void> {
   return new Promise((resolve, reject) => {
     const functions = getFunctions();
-    const createClientIntakeCloudFunction = httpsCallable(
-      functions,
-      "createClientIntakeUser",
-    );
+    const createClientIntakeCloudFunction = httpsCallable(functions, "createClientIntakeUser");
 
     createClientIntakeCloudFunction({
       userId: userId,

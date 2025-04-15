@@ -7,11 +7,11 @@ import React, { useState } from "react";
 interface TagProps {
   text: string;
   handleTag: (text: string) => void;
-  setInnerPopup: Function;
+  setInnerPopup: (isOpen: boolean) => void;
   values: string[];
   createTag: boolean;
   deleteMode: boolean;
-  setTagToDelete: Function;
+  setTagToDelete: (tag: string) => void;
 }
 
 // Styled component for the tag container with a transition effect
@@ -66,10 +66,7 @@ const Tag: React.FC<TagProps> = ({
 
   if (!deleteMode) {
     return !createTag ? (
-      <TagContainer
-        className={values.includes(text) ? "active" : ""}
-        onClick={handleClick}
-      >
+      <TagContainer className={values.includes(text) ? "active" : ""} onClick={handleClick}>
         <Typography variant="body1">{text}</Typography>
       </TagContainer>
     ) : (

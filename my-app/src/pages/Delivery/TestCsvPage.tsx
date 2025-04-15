@@ -136,9 +136,7 @@ const TestCsvPage: React.FC = () => {
     };
 
     // Filter events by the selected delivery date
-    const filteredEvents = fakeEvents.filter(
-      (event) => event.deliveryDate === deliveryDate
-    );
+    const filteredEvents = fakeEvents.filter((event) => event.deliveryDate === deliveryDate);
 
     if (filteredEvents.length === 0) {
       alert("No events found for the selected delivery date.");
