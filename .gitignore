@@ -1,5 +1,51 @@
+# Project-specific ignore
 CLAUDE.md
+
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Testing
+coverage/
+
+# Production
+build/
+dist/
+out/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+*.env
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+food-for-all-dc-caf23-firebase-adminsdk-65kzi-b8cfeb0d9a.json
+
+# Firebase
+.firebase/
+firebase-debug.log*
+ui-debug.log*
+database-debug.log*
 *.cache
+
+# Debug/logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+
 # OS generated files
 .DS_Store
 .DS_Store?
@@ -9,12 +55,7 @@ CLAUDE.md
 ehthumbs.db
 Thumbs.db
 
-# Debug/Log files
-*.log
-ui-debug.log
-
-# Build and temporary files
-build/
+# Temporary files
 *.tmp
 *.bak
 *~
