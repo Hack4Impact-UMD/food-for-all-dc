@@ -26,7 +26,6 @@ import {
   writeBatch,
 } from "firebase/firestore";
 import { db } from "../../auth/firebaseConfig";
-import adrLogo from "../../assets/ADR_web_logo.png";
 
 let firebaseApp: FirebaseApp;
 try {
