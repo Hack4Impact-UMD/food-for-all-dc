@@ -22,36 +22,7 @@ import {
 import { Close, Add, Edit, Check, Delete } from "@mui/icons-material";
 import { doc, updateDoc, addDoc, deleteDoc, collection } from "firebase/firestore";
 import { db } from "../auth/firebaseConfig";
-
-// Types
-interface CaseWorker {
-  id: string;
-  name: string;
-  organization: string;
-  phone: string;
-  email: string;
-}
-
-interface ValidationErrors {
-  name?: string;
-  organization?: string;
-  phone?: string;
-  email?: string;
-}
-
-interface CaseWorkerFormProps {
-  value: Omit<CaseWorker, "id">;
-  onChange: (field: keyof Omit<CaseWorker, "id">, value: string) => void;
-  errors: ValidationErrors;
-  onClearError: (field: keyof ValidationErrors) => void;
-}
-
-interface CaseWorkerManagementModalProps {
-  open: boolean;
-  onClose: () => void;
-  caseWorkers: CaseWorker[];
-  onCaseWorkersChange: (caseWorkers: CaseWorker[]) => void;
-}
+import { CaseWorker, CaseWorkerFormProps, CaseWorkerManagementModalProps, ValidationErrors } from "../types/types";
 
 // Reusable form fields component
 const CaseWorkerFormFields: React.FC<CaseWorkerFormProps> = ({

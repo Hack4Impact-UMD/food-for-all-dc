@@ -41,9 +41,10 @@ import DeliveryInfoForm from "./components/DeliveryInfoForm";
 import DietaryPreferencesForm from "./components/DietaryPreferencesForm";
 import MiscellaneousForm from "./components/MiscellaneousForm";
 import FormField from "./components/FormField";
+import TagPopup from "./Tags/TagPopup";
 
 // Import types
-import { CaseWorker, ClientProfile, ClientProfileKey, InputType } from "./types";
+import { CaseWorker, ClientProfile, ClientProfileKey, InputType } from "../../types/types";
 
 // Styling
 const fieldStyles = {
@@ -65,6 +66,7 @@ const CustomTextField = styled(TextField)({
   "& .MuiInputBase-input": fieldStyles,
 });
 
+// Type definitions have been moved to types directory
 const Profile = () => {
   // #### STATE ####
   const [dropdownOpen, setDropdownOpen] = useState(false);
