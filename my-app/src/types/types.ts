@@ -1,4 +1,7 @@
-import { StringLiteral } from "typescript";
+// Re-export types from other files
+export * from './client-types';
+export * from './user-types';
+export * from './delivery-types';
 
 export enum UserType {
   Admin = "Admin",
@@ -17,69 +20,7 @@ export const canCreateUserType = (currentUserType: UserType, newUserType: UserTy
   }
 };
 
-export interface ClientProfile {
-  uid: string;
-  firstName: string;
-  lastName: string;
-  address: string;
-  houseNumber: string;
-  streetName: string;
-  zipCode: string;
-  dob: Date; // Date of birth
-  deliveryFreq: string;
-  phone: string;
-  alternativePhone?: string; // Optional
-  adults: number;
-  children: number;
-  seniors: number;
-  headOfHousehold: string;
-  total: number; // Adults + Children
-  gender: "Male" | "Female" | "Other";
-  ethnicity: string;
-  deliveryDetails: DeliveryDetails;
-  lifeChallenges?: string; // Optional
-  notes?: string; // Optional
-  lifestyleGoals?: string; // Optional
-  language: string;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-export interface DeliveryDetails {
-  deliveryInstructions?: string; // Optional
-  dietaryRestrictions: DietaryRestrictions;
-}
-
-export interface DietaryRestrictions {
-  lowSugar: boolean;
-  kidneyFriendly: boolean;
-  vegan: boolean;
-  vegetarian: boolean;
-  halal: boolean;
-  microwaveOnly: boolean;
-  softFood: boolean;
-  lowSodium: boolean;
-  noCookingEquipment: boolean;
-  foodAllergens?: string[]; // Optional: Example values ['nuts', 'dairy']
-  other?: string[]; // Optional: Example values ['No red meat', etc.]
-}
-
-export interface Delivery {
-  id: string; //delivery id
-  day: Date;
-  clientID: string;
-  driver: Volunteer;
-  status: "Delivered" | "Not Delivered";
-  notes?: string; // Optional
-}
-
-export interface Route {
-  volunteer: Volunteer;
-  deliveries: Delivery[];
-}
-
-export interface Volunteer {
-  id: string;
-  name: string;
-  phone: string;
-}
+// All specific interface types have been moved to their respective files:
+// - client-types.ts: ClientProfile, DeliveryDetails, DietaryRestrictions
+// - user-types.ts: CaseWorker and related interfaces
+// - delivery-types.ts: Delivery, Route, Volunteer
