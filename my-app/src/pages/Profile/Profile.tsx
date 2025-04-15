@@ -1378,12 +1378,15 @@ const Profile = () => {
             <Box display="flex" alignItems="center" gap={1} marginBottom={1}>
               <IconButton
                 sx={{ color: "green" }}
-                onClick={() => setIsEditing((prev) => !prev)}
+                onClick={() => {
+                  if (isEditing) handleCancel();
+                  setIsEditing((prev) => !prev);
+                }}
                 color={isEditing ? "secondary" : "primary"}
               >
                 <Tooltip title={isEditing ? "Cancel Editing" : "Edit All"}>
                   {isEditing ? (
-                    <span className="cancel-btn" onClick={handleCancel}>
+                    <span className="cancel-btn">
                       <CloseIcon />
                     </span>
                   ) : (
