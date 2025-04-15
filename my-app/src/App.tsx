@@ -1,7 +1,7 @@
 import React from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import "./App.css";
-import ForgotPasswordPage from "./pages/Login/forgot-passsowrd";
+import ForgotPasswordPage from "./pages/Login/forgot-password";
 
 import Login from "./pages/Login/Login";
 import CalendarPage from "./components/Calendar/CalendarPage";

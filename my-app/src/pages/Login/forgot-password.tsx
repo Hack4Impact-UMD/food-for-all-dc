@@ -1,5 +1,4 @@
 import React from "react";
-import logo from "../logo.svg";
 
 const ForgotPasswordPage = () => {
   return (
@@ -19,4 +18,4 @@ const ForgotPasswordPage = () => {
   );
 };
 
-export default ForgotPasswordPage;
+export default ForgotPasswordPage; 
