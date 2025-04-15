@@ -504,7 +504,10 @@ const Spreadsheet: React.FC = () => {
         maxWidth: "100%",
         overflowX: "hidden",
         backgroundColor: "transparent",
-        position: "relative"
+        position: "relative",
+        display: "flex",
+        flexDirection: "column",
+        height: "100vh"
       }}
     >
       {/* Fixed Container for Search Bar and Create Client Button */}
@@ -635,11 +638,13 @@ const Spreadsheet: React.FC = () => {
           mt: 3,
           mb: 3,
           width: "100%",
+          flex: 1,
+          overflowY: "auto"
         }}
       >
         {/* Mobile Card View for Small Screens */}
         {isMobile ? (
-          <Stack spacing={2}>
+          <Stack spacing={2} sx={{ overflowY: "auto", width: "100%" }}>
             {visibleRows.map((row) => (
               <Card 
                 key={row.id} 
@@ -751,7 +756,7 @@ const Spreadsheet: React.FC = () => {
           <TableContainer 
             component={Paper} 
             sx={{ 
-              maxHeight: "75vh", 
+              maxHeight: "none", 
               overflowY: "auto",
               boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
               borderRadius: "12px",
