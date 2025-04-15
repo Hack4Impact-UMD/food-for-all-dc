@@ -1,61 +1,39 @@
+/* Since we've moved most styling to the component using MUI's sx prop, 
+   we'll keep minimal styles here for reference or fallback */
+
 .tabContainer {
   display: flex;
-  border-radius: 10px;
-  margin-left: 5px;
-  margin-right: 5px;
-  width: 100%;
-  height: 50px;
-  justify-content: center;
   align-items: center;
-  padding-left: 5%;
   cursor: pointer;
-}
-
-.tabContainer:hover {
-  background-color: rgb(232, 232, 232);
-}
-
-.tabContainerLogout {
-  display: flex;
-  margin-left: 5px;
-  margin-right: 5px;
-  width: 100%;
-  height: 50px;
-  justify-content: center;
-  align-items: center;
-  padding-left: 5%;
-  background-color: rgba(80, 187, 106, 0.18);
-}
-
-.tabContainerLogout:hover {
-  display: flex;
-  margin-left: 5px;
-  margin-right: 5px;
-  width: 100%;
-  height: 50px;
-  justify-content: center;
-  align-items: center;
-  padding-left: 5%;
-  background-color: rgba(80, 187, 106, 0.3);
 }
 
 .tabContainerSelected {
   display: flex;
-  border-radius: 10px;
-  margin-left: 5px;
-  margin-right: 5px;
-  width: 100%;
-  height: 50px;
-  justify-content: center;
   align-items: center;
-  padding-left: 5%;
-  background-color: rgba(80, 187, 106, 0.18);
+  cursor: pointer;
 }
 
-.tabContainerSelected:hover {
-  background-color: rgba(80, 187, 106, 0.3);
+.tabContainerLogout {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
 }
 
-.tabContainer .tabContainerSelected img {
-  display: none;
+/* Animation for page transitions */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Apply animation to tab items */
+.tabContainer, 
+.tabContainerSelected,
+.tabContainerLogout {
+  animation: fadeIn 0.3s ease-out;
 }
