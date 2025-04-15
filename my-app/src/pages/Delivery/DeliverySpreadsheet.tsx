@@ -1,7 +1,7 @@
 import { addDays, format } from "date-fns";
 import { query, Timestamp, where } from "firebase/firestore";
 import { Filter, Search } from "lucide-react";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { db } from "../../auth/firebaseConfig";
 
@@ -40,8 +40,6 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import { render } from "@testing-library/react";
-import { set } from "date-fns";
 import { onAuthStateChanged } from "firebase/auth";
 import { addDoc, collection, deleteDoc, doc, getDocs, setDoc, updateDoc } from "firebase/firestore";
 import "leaflet/dist/leaflet.css";
@@ -51,8 +49,8 @@ import { useCustomColumns } from "../../hooks/useCustomColumns";
 import ClusterMap from "./ClusterMap";
 import DeliveryDatePicker from "./DeliveryDatePicker/DeliveryDatePicker";
 import "./DeliverySpreadsheet.css";
-
-interface RowData {
+// Export types since we reference them from DeliveryTable component
+export interface RowData {
   id: string;
   clientid: string;
   firstName: string;
@@ -78,10 +76,17 @@ interface RowData {
       vegetarian: boolean;
     };
   };
+  ethnicity?: string;
+  language?: string;
+  dob?: string;
+  gender?: string;
+  zipCode?: string;
+  streetName?: string;
+  [key: string]: any; // Allow for dynamic property access
 }
 
 // Define a type for fields that can either be computed or direct keys of RowData
-type Field =
+export type Field =
   | {
       key: "checkbox";
       label: "";
@@ -139,16 +144,16 @@ type Field =
       width: string;
     };
 
-interface Driver {
+export interface Driver {
   id: string;
   name: string;
   phone: string;
   email: string;
 }
 
-type DriverOption = Driver | { id: "edit_list"; name: string; phone: ""; email: "" };
+export type DriverOption = Driver | { id: "edit_list"; name: string; phone: ""; email: "" };
 
-interface Cluster {
+export interface Cluster {
   docId: string;
   id: number;
   driver: any;
@@ -156,20 +161,13 @@ interface Cluster {
   deliveries: any[];
 }
 
-interface ValidationErrors {
+export interface ValidationErrors {
   name?: string;
   phone?: string;
   email?: string;
 }
 
-interface DriverFormProps {
-  value: Omit<Driver, "id">;
-  onChange: (field: keyof Omit<Driver, "id">, value: string) => void;
-  errors: ValidationErrors;
-  onClearError: (field: keyof ValidationErrors) => void;
-}
-
-interface DeliveryEvent {
+export interface DeliveryEvent {
   id: string;
   assignedDriverId: string;
   assignedDriverName: string;
@@ -183,8 +181,27 @@ interface DeliveryEvent {
   repeatsAfterOccurrences?: number;
 }
 
+// ADDED
+export interface CustomColumn {
+  id: string; // Unique identifier for the column
+  label: string; // Header label (e.g., "Custom 1", or user-defined)
+  propertyKey: string; // Changed from keyof RowData | "none" to string to fix type errors
+}
+
+// Type Guard to check if a field is a regular field
+export const isRegularField = (field: Field): boolean => {
+  return (
+    field.key !== "fullname" &&
+    field.key !== "tags" &&
+    field.key !== "assignedDriver" &&
+    field.key !== "assignedTime" &&
+    field.key !== "phone" &&
+    field.key !== "deliveryDetails.deliveryInstructions"
+  );
+};
+
 // Define fields for table columns
-const fields: Field[] = [
+export const fields: Field[] = [
   {
     key: "checkbox",
     label: "",
@@ -291,22 +308,394 @@ const fields: Field[] = [
   },
 ];
 
-// ADDED
-interface CustomColumn {
-  id: string; // Unique identifier for the column
-  label: string; // Header label (e.g., "Custom 1", or user-defined)
-  propertyKey: keyof RowData | "none"; // Which property from RowData to display
-}
+// Components
+import DateHeader from "./components/DateHeader";
+import SearchSection from "./components/SearchSection";
+// All material UI components already imported above, no need to import them again
 
-// Type Guard to check if a field is a regular field
-const isRegularField = (field: Field): field is Extract<Field, { key: keyof RowData }> => {
+// DeliveryTable component
+const DeliveryTable: React.FC<{
+  fields: Field[];
+  visibleRows: RowData[];
+  selectedRows: Set<string>;
+  handleCheckboxChange: (id: string) => void;
+  clusters: Cluster[];
+  drivers: Driver[];
+  customColumns: CustomColumn[];
+  handleAddCustomColumn: () => void;
+  handleCustomHeaderChange: (event: SelectChangeEvent<string>, columnId: string) => void;
+  handleRemoveCustomColumn: (columnId: string) => void;
+}> = ({
+  fields,
+  visibleRows,
+  selectedRows,
+  handleCheckboxChange,
+  clusters,
+  drivers,
+  customColumns,
+  handleAddCustomColumn,
+  handleCustomHeaderChange,
+  handleRemoveCustomColumn,
+}) => {
   return (
-    field.key !== "fullname" &&
-    field.key !== "tags" &&
-    field.key !== "assignedDriver" &&
-    field.key !== "assignedTime" &&
-    field.key !== "phone" &&
-    field.key !== "deliveryDetails.deliveryInstructions"
+    <Box
+      sx={{
+        flex: 1,
+        display: "flex",
+        flexDirection: "column",
+        margin: "0 auto",
+        paddingBottom: "2vh",
+        width: "100%",
+        maxHeight: "none",
+      }}
+    >
+      <TableContainer
+        component={Paper}
+        sx={{
+          maxHeight: "none",
+          height: "auto",
+          width: "100%",
+        }}
+      >
+        <Table stickyHeader>
+          <TableHead>
+            <TableRow>
+              {fields.map((field) => (
+                <TableCell
+                  className="table-header"
+                  key={field.key}
+                  style={{ width: field.width }}
+                  sx={{ textAlign: "center" }}
+                >
+                  <h2 style={{ fontWeight: "bold" }}>{field.label}</h2>
+                </TableCell>
+              ))}
+              {/* Adding custom columns */}
+              {/*  Headers for custom columns */}
+              {customColumns.map((col) => (
+                <TableCell className="table-header" key={col.id}>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                    <Select
+                      value={col.propertyKey}
+                      onChange={(event: SelectChangeEvent<string>) => handleCustomHeaderChange(event, col.id)}
+                      variant="outlined"
+                      displayEmpty
+                      sx={{ minWidth: 120, color: "#257e68" }}
+                    >
+                      <MenuItem value="ethnicity">Ethnicity</MenuItem>
+                      <MenuItem value="language">Language</MenuItem>
+                      <MenuItem value="dob">DOB</MenuItem>
+                      <MenuItem value="gender">Gender</MenuItem>
+                      <MenuItem value="zipCode">Zip Code</MenuItem>
+                      <MenuItem value="streetName">Street Name</MenuItem>
+                      <MenuItem value="ward">Ward</MenuItem>
+                      <MenuItem value="none">None</MenuItem>
+                    </Select>
+                    {/*Add Remove Button*/}
+                    <IconButton
+                      size="small"
+                      onClick={() => handleRemoveCustomColumn(col.id)} // Call remove handler
+                      aria-label={`Remove ${col.label || "custom"} column`}
+                      title={`Remove ${col.label || "custom"} column`} // Tooltip for accessibility
+                    >
+                      <DeleteIcon fontSize="small" />
+                    </IconButton>
+                  </Box>
+                </TableCell>
+              ))}
+
+              {/* Add button cell */}
+              <TableCell className="table-header" style={{ textAlign: "right" }}>
+                <IconButton
+                  onClick={handleAddCustomColumn}
+                  color="primary"
+                  aria-label="add custom column"
+                >
+                  <AddIcon sx={{ color: "#257e68" }} />
+                </IconButton>
+              </TableCell>
+            </TableRow>
+          </TableHead>
+
+          <TableBody>
+            {visibleRows.map((row) => (
+              <TableRow key={row.id} className={"table-row"}>
+                {fields.map((field) => (
+                  <TableCell key={field.key} style={{}}>
+                    {field.key === "checkbox" ? (
+                      <Checkbox
+                        checked={selectedRows.has(row.id)}
+                        onChange={() => handleCheckboxChange(row.id)}
+                        sx={{
+                          color: "gray",
+                          "&.Mui-checked": {
+                            color: "#257E68",
+                          },
+                          "&:hover": {
+                            backgroundColor: "rgba(37, 126, 104, 0.1)",
+                          },
+                        }}
+                      />
+                    ) : field.key === "fullname" && field.compute ? (
+                      field.compute(row)
+                    ) : field.key === "tags" && field.compute ? (
+                      field.compute(row)
+                    ) : field.key === "assignedDriver" && field.compute ? (
+                      <div
+                        style={{
+                          backgroundColor: "",
+                          minHeight: "30px",
+                          width: "95%",
+                          padding: "5px",
+                          display: "flex",
+                          fontSize: "13px",
+                          textAlign: "center",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          whiteSpace: "pre-wrap",
+                          overflow: "auto",
+                        }}
+                      >
+                        {field.compute(row, clusters, drivers)}
+                      </div>
+                    ) : field.key === "assignedTime" && field.compute ? (
+                      <div
+                        style={{
+                          backgroundColor: "",
+                          minHeight: "30px",
+                          width: "95%",
+                          padding: "5px",
+                          display: "flex",
+                          fontSize: "13px",
+                          textAlign: "center",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          whiteSpace: "pre-wrap",
+                          overflow: "auto",
+                        }}
+                      >
+                        {field.compute(row, clusters)}
+                      </div>
+                    ) : field.key === "phone" && field.compute ? (
+                      field.compute(row)
+                    ) : field.key === "deliveryDetails.deliveryInstructions" && field.compute ? (
+                      <div
+                        style={{
+                          backgroundColor: "",
+                          minHeight: "70px",
+                          padding: "10px",
+                          display: "flex",
+                          alignItems: "left",
+                          whiteSpace: "pre-wrap",
+                          overflow: "auto",
+                          color: "black",
+                        }}
+                      >
+                        {field.compute(row)}
+                      </div>
+                    ) : isRegularField(field) ? (
+                      row[field.key]
+                    ) : null}
+                  </TableCell>
+                ))}
+
+                {customColumns.map((col) => (
+                  <TableCell key={col.id}>
+                    {col.propertyKey !== "none"
+                      ? (row[col.propertyKey as keyof RowData]?.toString() ?? "N/A")
+                      : "N/A"}
+                  </TableCell>
+                ))}
+
+                <TableCell></TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
+    </Box>
+  );
+};
+
+// Define inline components to avoid import issues
+// AssignDriverModal component
+const AssignDriverModal: React.FC<{
+  drivers: Driver[];
+  driverSearchQuery: string;
+  setDriverSearchQuery: React.Dispatch<React.SetStateAction<string>>;
+  setDriver: React.Dispatch<React.SetStateAction<Driver | null | undefined>>;
+  setShowEditDriverList: React.Dispatch<React.SetStateAction<boolean>>;
+}> = ({ drivers, driverSearchQuery, setDriverSearchQuery, setDriver, setShowEditDriverList }) => {
+  return (
+    <Box sx={{ display: "flex", flexDirection: "column", gap: 2, minWidth: "300px" }}>
+      <Autocomplete
+        freeSolo
+        options={[
+          { id: "edit_list", name: "Edit Driver List >", phone: "", email: "" } as DriverOption,
+          ...drivers,
+        ]}
+        getOptionLabel={(option) => {
+          if (typeof option === "string") return option;
+          return option.name;
+        }}
+        onChange={(event, value) => {
+          if (value) {
+            if (typeof value !== "string") {
+              if (value.id === "edit_list") {
+                setShowEditDriverList(true);
+                setDriver(null);
+              } else {
+                setDriver(value as Driver);
+              }
+            }
+          } else {
+            setDriver(null);
+          }
+        }}
+        isOptionEqualToValue={(option, value) => {
+          if (option.id === "edit_list") return false;
+          return option.id === value.id;
+        }}
+        onInputChange={(event, newValue) => setDriverSearchQuery(newValue)}
+        renderInput={(params) => (
+          <TextField
+            {...params}
+            fullWidth
+            variant="outlined"
+            placeholder="Search drivers..."
+            value={driverSearchQuery}
+            onChange={(e) => setDriverSearchQuery(e.target.value)}
+          />
+        )}
+        renderOption={(props, option) => (
+          <li
+            {...props}
+            style={{
+              color: option.id === "edit_list" ? "#257E68" : "inherit",
+              fontWeight: option.id === "edit_list" ? "bold" : "normal",
+            }}
+          >
+            {option.name}
+          </li>
+        )}
+        PaperComponent={({ children }) => <Paper elevation={3}>{children}</Paper>}
+        noOptionsText="No drivers found"
+      />
+    </Box>
+  );
+};
+
+// AssignTimeModal component
+const AssignTimeModal: React.FC<{
+  time: string;
+  handleTimeChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+}> = ({ time, handleTimeChange }) => {
+  return (
+    <TextField
+      label="Select Time"
+      type="time"
+      value={time}
+      onChange={handleTimeChange}
+      InputLabelProps={{ shrink: true }}
+      fullWidth
+      variant="outlined"
+    />
+  );
+};
+
+// ClusterGenerationModal component
+const ClusterGenerationModal: React.FC<{
+  clusterNum: number;
+  setClusterNum: React.Dispatch<React.SetStateAction<number>>;
+  minDeliveries: number;
+  setMinDeliveries: React.Dispatch<React.SetStateAction<number>>;
+  maxDeliveries: number;
+  setMaxDeliveries: React.Dispatch<React.SetStateAction<number>>;
+  clusterError: string;
+}> = ({ clusterNum, setClusterNum, minDeliveries, setMinDeliveries, maxDeliveries, setMaxDeliveries, clusterError }) => {
+  return (
+    <Box sx={{ display: "flex", flexDirection: "column", gap: "20px", padding: "8px 0" }}>
+      <Box sx={{ display: "flex", alignItems: "center", gap: "10px", justifyContent: "space-between" }}>
+        <Typography variant="body1">Enter desired number of clusters:</Typography>
+        <TextField
+          type="number"
+          value={clusterNum}
+          sx={{ width: "100px" }}
+          onChange={(e) => setClusterNum(Number(e.target.value))}
+          inputProps={{ min: 1 }}
+          size="small"
+          variant="outlined"
+        />
+      </Box>
+      <Box sx={{ display: "flex", flexDirection: "column", gap: "10px", marginTop: "20px" }}>
+        <Typography variant="body2">
+          <b><u>Deliveries Per Cluster:</u></b>
+        </Typography>
+        <Box sx={{ display: "flex", alignItems: "center", gap: "10px", justifyContent: "space-between" }}>
+          <Typography variant="body2">Minimum:</Typography>
+          <TextField
+            type="number"
+            value={minDeliveries}
+            sx={{ width: "100px" }}
+            onChange={(e) => setMinDeliveries(Number(e.target.value))}
+            inputProps={{ min: 0 }}
+            size="small"
+            variant="outlined"
+          />
+          <Typography variant="body2">Maximum:</Typography>
+          <TextField
+            type="number"
+            value={maxDeliveries}
+            sx={{ width: "100px" }}
+            onChange={(e) => setMaxDeliveries(Number(e.target.value))}
+            inputProps={{ min: 0 }}
+            size="small"
+            variant="outlined"
+          />
+        </Box>
+        {clusterError ? <Typography color="error">{clusterError}</Typography> : null}
+      </Box>
+    </Box>
+  );
+};
+
+// ExportMenu component
+const ExportMenu: React.FC<{
+  anchorEl: null | HTMLElement;
+  step: number;
+  handleClose: () => void;
+  parentChoice: string;
+  handleParentSelect: (choice: string) => void;
+  handleFinalAction: (action: string) => void;
+}> = ({ anchorEl, step, handleClose, parentChoice, handleParentSelect, handleFinalAction }) => {
+  return (
+    <>
+      <Menu
+        anchorEl={anchorEl}
+        open={Boolean(anchorEl) && step === 1}
+        onClose={handleClose}
+        MenuListProps={{ sx: { minWidth: 140 } }}
+      >
+        <MenuItem onClick={() => handleParentSelect("Route")}>Route</MenuItem>
+        <MenuItem onClick={() => handleParentSelect("Doordash")}>Doordash</MenuItem>
+      </Menu>
+      <Menu
+        anchorEl={anchorEl}
+        open={Boolean(anchorEl) && step === 2}
+        onClose={handleClose}
+        MenuListProps={{ sx: { minWidth: 140 } }}
+      >
+        {parentChoice === "Route" && (
+          <>
+            <MenuItem onClick={() => handleFinalAction("Email Drivers")}>Email Drivers</MenuItem>
+            <MenuItem onClick={() => handleFinalAction("Download Drivers")}>Download Drivers</MenuItem>
+          </>
+        )}
+        {parentChoice === "Doordash" && (
+          <MenuItem onClick={() => handleFinalAction("Download Doordash")}>Download Doordash</MenuItem>
+        )}
+      </Menu>
+    </>
   );
 };
 
@@ -365,6 +754,11 @@ const DeliverySpreadsheet: React.FC = () => {
     handleRemoveCustomColumn,
     handleCustomColumnChange,
   } = useCustomColumns();
+  
+  // Open/close popper for time picker
+  const [open, setOpen] = React.useState(false);
+  const anchorRef = React.useRef<HTMLButtonElement>(null);
+  const prevOpen = React.useRef(open);
 
   //get all drivers for assign driver
   useEffect(() => {
@@ -454,7 +848,7 @@ const DeliverySpreadsheet: React.FC = () => {
         const allData = snapshot.docs.map((doc) => ({
           id: doc.id,
           ...(doc.data() as Omit<RowData, "id">),
-        }));
+        })) as RowData[];
 
         // filter to only include clients with deliveries today
         const clientsWithDeliveriesToday = allData.filter((row) =>
@@ -563,7 +957,7 @@ const DeliverySpreadsheet: React.FC = () => {
         const data = snapshot.docs.map((doc) => ({
           id: doc.id,
           ...(doc.data() as Omit<RowData, "id">),
-        }));
+        })) as RowData[];
         console.log("Fetching client data: ", data);
         setRows(data);
       } catch (error) {
@@ -686,7 +1080,7 @@ const DeliverySpreadsheet: React.FC = () => {
   };
 
   //Handle assigning time
-  const assignTime = React.useCallback(async () => {
+  const assignTime = useCallback(async () => {
     if (time) {
       try {
         // Use forEach to iterate over the Set
@@ -721,7 +1115,7 @@ const DeliverySpreadsheet: React.FC = () => {
         console.error("Error assigning time: ", error);
       }
     }
-  }, [time, selectedClusters, setClusters, resetSelections]);
+  }, [time, selectedClusters, resetSelections]);
 
   React.useEffect(() => {
     if (time) {
@@ -807,7 +1201,7 @@ const DeliverySpreadsheet: React.FC = () => {
       const updatedData = snapshot.docs.map((doc) => ({
         id: doc.id,
         ...(doc.data() as Omit<RowData, "id">),
-      }));
+      })) as RowData[];
       setRows(updatedData);
       resetSelections();
     } catch (error: any) {
@@ -875,7 +1269,7 @@ const DeliverySpreadsheet: React.FC = () => {
 
               const strippedQuery = query.slice(1, -1).trim().toLowerCase();
 
-              if (field.key === "fullname") {
+              if (field.key === "fullname" && field.compute) {
                 fieldValue = field.compute(row);
               } else if (field.key === "tags" && field.compute) {
                 fieldValue = field.compute(row);
@@ -931,7 +1325,7 @@ const DeliverySpreadsheet: React.FC = () => {
               const matchesStaticField = fields.some((field) => {
                 let fieldValue: any;
 
-                if (field.key === "fullname") {
+                if (field.key === "fullname" && field.compute) {
                   fieldValue = field.compute(row);
                 } else if (field.key === "tags" && field.compute) {
                   fieldValue = field.compute(row);
@@ -969,9 +1363,6 @@ const DeliverySpreadsheet: React.FC = () => {
     }
   });
 
-  const [open, setOpen] = React.useState(false);
-  const anchorRef = React.useRef<HTMLButtonElement>(null);
-
   const handleToggle = () => {
     setOpen((prevOpen) => !prevOpen);
   };
@@ -988,12 +1379,6 @@ const DeliverySpreadsheet: React.FC = () => {
 
     setOpen(false);
   };
-
-  React.useEffect(() => {
-    if (time) {
-      assignTime();
-    }
-  }, [time, assignTime]);
 
   function convertTo24Hour(time: string) {
     let [hours, minutes] = time.split(/:| /);
@@ -1025,7 +1410,6 @@ const DeliverySpreadsheet: React.FC = () => {
   }
 
   // return focus to the button when we transitioned from !open -> open
-  const prevOpen = React.useRef(open);
   React.useEffect(() => {
     if (prevOpen.current === true && open === false) {
       anchorRef.current?.focus();
@@ -1036,105 +1420,12 @@ const DeliverySpreadsheet: React.FC = () => {
 
   return (
     <Box className="box" sx={{ display: "flex", flexDirection: "column", height: "100vh" }}>
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-        }}
-      >
-        <Box
-          sx={{
-            display: "flex",
-            alignItems: "center",
-            padding: "16px",
-            backgroundColor: "#fff",
-            zIndex: 10,
-            position: "sticky",
-            top: 0,
-            width: "100%",
-          }}
-        >
-          <Typography variant="h4" sx={{ marginRight: 2, width: "170px", color: "#787777" }}>
-            {format(selectedDate, "EEEE")}
-          </Typography>
-
-          <Box
-            sx={{
-              display: "flex",
-              justifyContent: "center",
-              alignItems: "center",
-              width: "40px",
-              height: "40px",
-              backgroundColor: "#257E68",
-              borderRadius: "90%",
-              marginRight: 2,
-            }}
-          >
-            <Typography variant="h5" sx={{ color: "#fff" }}>
-              {format(selectedDate, "d")}
-            </Typography>
-          </Box>
-
-          <IconButton
-            onClick={() => setSelectedDate(addDays(selectedDate, -1))}
-            size="large"
-            sx={{ color: "#257E68" }}
-          >
-            <Box
-              sx={{
-                width: 12,
-                height: 12,
-                borderLeft: "2px solid #257E68",
-                borderBottom: "2px solid #257E68",
-                transform: "rotate(45deg)",
-              }}
-            />
-          </IconButton>
-
-          <IconButton
-            onClick={() => setSelectedDate(addDays(selectedDate, 1))}
-            size="large"
-            sx={{ color: "#257E68" }}
-          >
-            <Box
-              sx={{
-                width: 12,
-                height: 12,
-                borderLeft: "2px solid #257E68",
-                borderBottom: "2px solid #257E68",
-                transform: "rotate(-135deg)",
-              }}
-            />
-          </IconButton>
-
-          <DeliveryDatePicker setSelectedDate={setSelectedDate} />
-
-          <Button
-            sx={{ width: 50, fontSize: 12, marginLeft: 4 }}
-            onClick={() => setSelectedDate(new Date())}
-          >
-            Today
-          </Button>
-        </Box>
-        <Button
-          variant="contained"
-          color="secondary"
-          className="view-all"
-          onClick={() => {
-            setPopupMode("Clusters");
-          }}
-          sx={{
-            whiteSpace: "nowrap",
-            padding: "0% 2%",
-            borderRadius: "5px",
-            width: "10%",
-            backgroundColor: "#257E68 !important",
-          }}
-        >
-          Generate<br></br>Clusters
-        </Button>
-      </div>
+      {/* Date Header */}
+      <DateHeader 
+        selectedDate={selectedDate}
+        setSelectedDate={setSelectedDate}
+        onGenerateClusters={() => setPopupMode("Clusters")}
+      />
 
       {/* Map Container */}
       <Box
@@ -1183,347 +1474,40 @@ const DeliverySpreadsheet: React.FC = () => {
         )}
       </Box>
 
-      {/* Search Bar */}
-      <Box
-        sx={{
-          width: "100%",
-          zIndex: 8,
-          backgroundColor: "#fff",
-          padding: "16px 0",
-          top: "472px",
-        }}
-      >
-        <Box sx={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-          <Box sx={{ position: "relative", width: "100%" }}>
-            <Search
-              style={{
-                position: "absolute",
-                left: "16px",
-                top: "50%",
-                transform: "translateY(-50%)",
-                color: "#666666",
-                zIndex: 1,
-              }}
-              size={20}
-            />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={handleSearchChange}
-              placeholder="SEARCH"
-              style={{
-                width: "100%",
-                height: "60px",
-                backgroundColor: "#EEEEEE",
-                border: "none",
-                borderRadius: "30px",
-                padding: "0 48px",
-                fontSize: "16px",
-                color: "#333333",
-                boxSizing: "border-box",
-              }}
-            />
-            <Filter
-              style={{
-                position: "absolute",
-                right: "16px",
-                top: "50%",
-                transform: "translateY(-50%)",
-                color: "#666666",
-                zIndex: 1,
-              }}
-              size={20}
-            />
-          </Box>
-          <Box sx={{ display: "flex", justifyContent: "space-between" }}>
-            <Box sx={{ display: "flex", width: "100%", gap: "2%" }}>
-              <Button
-                variant="contained"
-                color="secondary"
-                onClick={() => setSearchQuery("")}
-                className="view-all"
-                sx={{
-                  whiteSpace: "nowrap",
-                  padding: "0% 2%",
-                  borderRadius: "5px",
-                  width: "10%",
-                }}
-              >
-                Driver List
-              </Button>
-              <Button
-                variant="contained"
-                disabled={selectedRows.size <= 0}
-                onClick={() => {
-                  setPopupMode("Driver");
-                }}
-                className="view-all"
-                sx={{
-                  whiteSpace: "nowrap",
-                  padding: "0% 2%",
-                  borderRadius: "5px",
-                  width: "10%",
-                  backgroundColor: (selectedRows.size <= 0 ? "gray" : "#257E68") + " !important",
-                }}
-              >
-                Assign Driver
-              </Button>
-              <Button
-                variant="contained"
-                color="secondary"
-                className="view-all"
-                onClick={() => {
-                  setPopupMode("Time");
-                }}
-                disabled={selectedRows.size <= 0}
-                sx={{
-                  whiteSpace: "nowrap",
-                  padding: "0% 2%",
-                  borderRadius: "5px",
-                  width: "10%",
-                  backgroundColor: (selectedRows.size <= 0 ? "gray" : "#257E68") + " !important",
-                }}
-              >
-                Assign Time
-              </Button>
-              <Button
-                variant="contained"
-                color="secondary"
-                className="view-all"
-                onClick={handleButtonClick}
-                sx={{
-                  whiteSpace: "nowrap",
-                  padding: "0% 2%",
-                  borderRadius: "5px",
-                  width: "10%",
-                  backgroundColor: "#257e68",
-                  marginLeft: "auto",
-                }}
-              >
-                Export
-              </Button>
+      {/* Search and Action Buttons */}
+      <SearchSection 
+        searchQuery={searchQuery} 
+        handleSearchChange={handleSearchChange}
+        selectedRows={selectedRows}
+        setPopupMode={setPopupMode}
+        handleButtonClick={handleButtonClick}
+      />
 
-              {/* Step 1: Main Menu */}
-              <Menu
-                anchorEl={anchorEl}
-                open={Boolean(anchorEl) && step === 1}
-                onClose={handleClose}
-                MenuListProps={{ sx: { minWidth: 140 } }}
-              >
-                <MenuItem onClick={() => handleParentSelect("Route")}>Route</MenuItem>
-                <MenuItem onClick={() => handleParentSelect("Doordash")}>Doordash</MenuItem>
-              </Menu>
+      {/* Export Menu */}
+      <ExportMenu 
+        anchorEl={anchorEl}
+        step={step}
+        handleClose={handleClose}
+        parentChoice={parentChoice}
+        handleParentSelect={handleParentSelect}
+        handleFinalAction={handleFinalAction}
+      />
 
-              {/* Step 2: Submenu based on choice */}
-              <Menu
-                anchorEl={anchorEl}
-                open={Boolean(anchorEl) && step === 2}
-                onClose={handleClose}
-                MenuListProps={{ sx: { minWidth: 140 } }}
-              >
-                {parentChoice === "Route" && (
-                  <>
-                    <MenuItem onClick={() => handleFinalAction("Email Drivers")}>
-                      Email Drivers
-                    </MenuItem>
-                    <MenuItem onClick={() => handleFinalAction("Download Drivers")}>
-                      Download Drivers
-                    </MenuItem>
-                  </>
-                )}
-                {parentChoice === "Doordash" && (
-                  <MenuItem onClick={() => handleFinalAction("Download Doordash")}>
-                    Download Doordash
-                  </MenuItem>
-                )}
-              </Menu>
-            </Box>
-          </Box>
-        </Box>
-      </Box>
+      {/* Delivery Table */}
+      <DeliveryTable 
+        fields={fields}
+        visibleRows={visibleRows}
+        selectedRows={selectedRows}
+        handleCheckboxChange={handleCheckboxChange}
+        clusters={clusters}
+        drivers={drivers}
+        customColumns={customColumns}
+        handleAddCustomColumn={handleAddCustomColumn}
+        handleCustomHeaderChange={handleCustomHeaderChange}
+        handleRemoveCustomColumn={handleRemoveCustomColumn}
+      />
 
-      <Box
-        sx={{
-          flex: 1,
-          display: "flex",
-          flexDirection: "column",
-          margin: "0 auto",
-          paddingBottom: "2vh",
-          width: "100%",
-          maxHeight: "none",
-        }}
-      >
-        <TableContainer
-          component={Paper}
-          sx={{
-            maxHeight: "none",
-            height: "auto",
-            width: "100%",
-          }}
-        >
-          <Table stickyHeader>
-            <TableHead>
-              <TableRow>
-                {fields.map((field) => (
-                  <TableCell
-                    className="table-header"
-                    key={field.key}
-                    style={{ width: field.width }}
-                    sx={{ textAlign: "center" }}
-                  >
-                    <h2 style={{ fontWeight: "bold" }}>{field.label}</h2>
-                  </TableCell>
-                ))}
-                {/* <TableCell className="table-header"></TableCell> */}
-                {/* Adding custom columns */}
-                {/*  Headers for custom columns */}
-                {customColumns.map((col) => (
-                  <TableCell className="table-header" key={col.id}>
-                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                      <Select
-                        value={col.propertyKey}
-                        onChange={(event) => handleCustomHeaderChange(event, col.id)}
-                        variant="outlined"
-                        displayEmpty
-                        sx={{ minWidth: 120, color: "#257e68" }}
-                      >
-                        <MenuItem value="ethnicity">Ethnicity</MenuItem>
-                        <MenuItem value="language">Language</MenuItem>
-                        <MenuItem value="dob">DOB</MenuItem>
-                        <MenuItem value="gender">Gender</MenuItem>
-                        <MenuItem value="zipCode">Zip Code</MenuItem>
-                        <MenuItem value="streetName">Street Name</MenuItem>
-                        <MenuItem value="ward">Ward</MenuItem>
-                        <MenuItem value="none">None</MenuItem>
-                      </Select>
-                      {/*Add Remove Button*/}
-                      <IconButton
-                        size="small"
-                        onClick={() => handleRemoveCustomColumn(col.id)} // Call remove handler
-                        aria-label={`Remove ${col.label || "custom"} column`}
-                        title={`Remove ${col.label || "custom"} column`} // Tooltip for accessibility
-                      >
-                        <DeleteIcon fontSize="small" />
-                      </IconButton>
-                    </Box>
-                  </TableCell>
-                ))}
-
-                {/* Add button cell */}
-                <TableCell className="table-header" style={{ textAlign: "right" }}>
-                  <IconButton
-                    onClick={handleAddCustomColumn}
-                    color="primary"
-                    aria-label="add custom column"
-                  >
-                    <AddIcon sx={{ color: "#257e68" }} />
-                  </IconButton>
-                </TableCell>
-              </TableRow>
-            </TableHead>
-
-            <TableBody>
-              {visibleRows.map((row) => (
-                <TableRow key={row.id} className={"table-row"}>
-                  {fields.map((field) => (
-                    <TableCell key={field.key} style={{}}>
-                      {field.key === "checkbox" ? (
-                        <Checkbox
-                          checked={selectedRows.has(row.id)}
-                          onChange={() => handleCheckboxChange(row.id)}
-                          sx={{
-                            color: "gray",
-                            "&.Mui-checked": {
-                              color: "#257E68",
-                            },
-                            "&:hover": {
-                              backgroundColor: "rgba(37, 126, 104, 0.1)",
-                            },
-                          }}
-                        />
-                      ) : field.key === "fullname" ? (
-                        field.compute(row)
-                      ) : field.key === "tags" && field.compute ? (
-                        field.compute(row)
-                      ) : field.key === "assignedDriver" && field.compute ? (
-                        <div
-                          style={{
-                            // Remove white bg from here
-                            backgroundColor: "",
-                            minHeight: "30px", // Ensures a consistent height
-                            width: "95%",
-                            padding: "5px",
-                            display: "flex",
-                            fontSize: "13px",
-                            textAlign: "center",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            whiteSpace: "pre-wrap",
-                            overflow: "auto",
-                          }}
-                        >
-                          {field.compute(row, clusters, drivers)}
-                        </div>
-                      ) : field.key === "assignedTime" && field.compute ? (
-                        <div
-                          style={{
-                            // Remove white bg from here
-                            backgroundColor: "",
-                            minHeight: "30px", // Ensures a consistent height
-                            width: "95%",
-                            padding: "5px",
-                            display: "flex",
-                            fontSize: "13px",
-                            textAlign: "center",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            whiteSpace: "pre-wrap",
-                            overflow: "auto",
-                          }}
-                        >
-                          {field.compute(row, clusters)}
-                        </div>
-                      ) : field.key === "phone" && field.compute ? (
-                        field.compute(row)
-                      ) : field.key === "deliveryDetails.deliveryInstructions" ? (
-                        <div
-                          style={{
-                            // Remove black bg here.
-                            backgroundColor: "",
-                            minHeight: "70px",
-                            padding: "10px",
-                            display: "flex",
-                            alignItems: "left",
-                            whiteSpace: "pre-wrap",
-                            overflow: "auto",
-                            color: "black",
-                          }}
-                        >
-                          {field.compute(row)}
-                        </div>
-                      ) : isRegularField(field) ? (
-                        row[field.key]
-                      ) : null}
-                    </TableCell>
-                  ))}
-
-                  {customColumns.map((col) => (
-                    <TableCell key={col.id}>
-                      {col.propertyKey !== "none"
-                        ? (row[col.propertyKey as keyof RowData]?.toString() ?? "N/A")
-                        : "N/A"}
-                    </TableCell>
-                  ))}
-
-                  <TableCell></TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      </Box>
-
-      {/* Popup Dialog */}
+      {/* Modals */}
       <Dialog
         open={innerPopup && !showEditDriverList}
         onClose={() => resetSelections()}
@@ -1543,177 +1527,46 @@ const DeliverySpreadsheet: React.FC = () => {
                     : ""}
         </DialogTitle>
         <DialogContent>
-          {popupMode === "Driver" ? (
-            <Box
-              sx={{
-                display: "flex",
-                flexDirection: "column",
-                gap: 2,
-                minWidth: "300px",
-              }}
-            >
-              <Autocomplete
-                freeSolo
-                options={[
-                  {
-                    id: "edit_list",
-                    name: "Edit Driver List >",
-                    phone: "",
-                    email: "",
-                  } as DriverOption,
-                  ...drivers,
-                ]}
-                getOptionLabel={(option) => {
-                  if (typeof option === "string") return option;
-                  return option.name;
-                }}
-                onChange={(event, value) => {
-                  if (value) {
-                    if (typeof value !== "string") {
-                      if (value.id === "edit_list") {
-                        setShowEditDriverList(true);
-                        setDriver(null); // Clear selected driver when opening edit list
-                      } else {
-                        setDriver(value as Driver);
-                      }
-                    }
-                  } else {
-                    setDriver(null); // Clear selected driver when no value
-                  }
-                }}
-                isOptionEqualToValue={(option, value) => {
-                  // Prevent "Edit Driver List" from being selected as a value
-                  if (option.id === "edit_list") return false;
-                  return option.id === value.id;
-                }}
-                onInputChange={(event, newValue) => setDriverSearchQuery(newValue)}
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    fullWidth
-                    variant="outlined"
-                    placeholder="Search drivers..."
-                    value={driverSearchQuery}
-                    onChange={(e) => setDriverSearchQuery(e.target.value)}
-                  />
-                )}
-                renderOption={(props, option) => (
-                  <li
-                    {...props}
-                    style={{
-                      color: option.id === "edit_list" ? "#257E68" : "inherit",
-                      fontWeight: option.id === "edit_list" ? "bold" : "normal",
-                    }}
-                  >
-                    {option.name}
-                  </li>
-                )}
-                PaperComponent={({ children }) => <Paper elevation={3}>{children}</Paper>}
-                noOptionsText="No drivers found"
-              />
-            </Box>
-          ) : popupMode === "Time" ? (
-            <TextField
-              label="Select Time"
-              type="time"
-              value={time}
-              onChange={handleTimeChange}
-              InputLabelProps={{
-                shrink: true,
-              }}
-              fullWidth
-              variant="outlined"
+          {popupMode === "Driver" && (
+            <AssignDriverModal 
+              drivers={drivers}
+              driverSearchQuery={driverSearchQuery}
+              setDriverSearchQuery={setDriverSearchQuery}
+              setDriver={setDriver}
+              setShowEditDriverList={setShowEditDriverList}
             />
-          ) : popupMode === "CSV" ? (
+          )}
+          {popupMode === "Time" && (
+            <AssignTimeModal 
+              time={time}
+              handleTimeChange={handleTimeChange}
+            />
+          )}
+          {popupMode === "CSV" && (
             <Box sx={{ alignItems: "center", textAlign: "center", padding: "1%" }}>
               <Typography variant="h5" sx={{ color: "#257e68", fontWeight: "bold" }}>
                 Are you sure you want to export drivers?
               </Typography>
             </Box>
-          ) : popupMode === "Doordash" ? (
+          )}
+          {popupMode === "Doordash" && (
             <Box sx={{ alignItems: "center", textAlign: "center", padding: "1%" }}>
               <Typography variant="h5" sx={{ color: "#257e68", fontWeight: "bold" }}>
                 Are you sure you want to export Doordash?
               </Typography>
             </Box>
-          ) : popupMode === "Clusters" ? (
-            <Box
-              sx={{
-                display: "flex",
-                flexDirection: "column",
-                gap: "20px",
-                padding: "8px 0",
-              }}
-            >
-              {/* Cluster Number Input */}
-              <Box
-                sx={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "10px",
-                  justifyContent: "space-between",
-                }}
-              >
-                <Typography variant="body1">Enter desired number of clusters:</Typography>
-                <TextField
-                  type="number"
-                  value={clusterNum}
-                  sx={{ width: "100px" }}
-                  onChange={(e) => setClusterNum(Number(e.target.value))}
-                  inputProps={{ min: 1 }}
-                  size="small"
-                  variant="outlined"
-                />
-              </Box>
-
-              {/* Deliveries Range Input */}
-              <Box
-                sx={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "10px",
-                  marginTop: "20px",
-                }}
-              >
-                <Typography variant="body2">
-                  <b>
-                    <u>Deliveries Per Cluster:</u>
-                  </b>
-                </Typography>
-                <Box
-                  sx={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "10px",
-                    justifyContent: "space-between",
-                  }}
-                >
-                  <Typography variant="body2">Minimum:</Typography>
-                  <TextField
-                    type="number"
-                    value={minDeliveries}
-                    sx={{ width: "100px" }}
-                    onChange={(e) => setMinDeliveries(Number(e.target.value))}
-                    inputProps={{ min: 0 }}
-                    size="small"
-                    variant="outlined"
-                  />
-
-                  <Typography variant="body2">Maximum:</Typography>
-                  <TextField
-                    type="number"
-                    value={maxDeliveries}
-                    sx={{ width: "100px" }}
-                    onChange={(e) => setMaxDeliveries(Number(e.target.value))}
-                    inputProps={{ min: 0 }}
-                    size="small"
-                    variant="outlined"
-                  />
-                </Box>
-                {clusterError ? <Typography color="error">{clusterError}</Typography> : null}
-              </Box>
-            </Box>
-          ) : null}
+          )}
+          {popupMode === "Clusters" && (
+            <ClusterGenerationModal 
+              clusterNum={clusterNum}
+              setClusterNum={setClusterNum}
+              minDeliveries={minDeliveries}
+              setMinDeliveries={setMinDeliveries}
+              maxDeliveries={maxDeliveries}
+              setMaxDeliveries={setMaxDeliveries}
+              clusterError={clusterError}
+            />
+          )}
         </DialogContent>
         <DialogActions
           sx={{
@@ -1767,7 +1620,7 @@ const DeliverySpreadsheet: React.FC = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Replace the old driver management modal with the new component */}
+      {/* Driver Management Modal */}
       <DriverManagementModal
         open={showEditDriverList}
         onClose={() => {
