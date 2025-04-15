@@ -41,6 +41,7 @@ import "./Profile.css";
 import { Timestamp } from "firebase/firestore";
 import CaseWorkerManagementModal from "../../components/CaseWorkerManagementModal";
 import TagPopup from "./Tags/TagPopup";
+import Tags from "./Tags/Tags";
 
 declare global {
   interface Window {
@@ -948,40 +949,53 @@ const Profile = () => {
               />
             );
           }
+        // case "tags":
+        //   return (
+        //     <>
+        //       <Box sx={{ textAlign: "left" }}>
+        //         {tags.length > 0 ? (
+        //           <p>{tags.join(", ")}</p>
+        //         ) : (
+        //           <p>No tags selected</p>
+        //         )}
+        //       </Box>
+        //       <Button
+        //         variant="contained"
+        //         // startIcon={<Add />}
+        //         onClick={() => {
+        //           setIsModalOpen(true);
+        //         }}
+        //         sx={{
+        //           marginRight: 4,
+        //           width: 166,
+        //           color: "#fff",
+        //           backgroundColor: "#257E68",
+        //         }}
+        //       >
+        //         Edit Tags
+        //       </Button>
+        //       <TagPopup
+        //         allTags={allTags}
+        //         tags={tags}
+        //         handleTag={handleTag}
+        //         isModalOpen={isModalOpen}
+        //         setIsModalOpen={setIsModalOpen}
+        //       ></TagPopup>
+        //     </>
+        //   );
         case "tags":
-          return (
-            <>
-              <Box sx={{ textAlign: "left" }}>
-                {tags.length > 0 ? (
-                  <p>{tags.join(", ")}</p>
-                ) : (
-                  <p>No tags selected</p>
-                )}
-              </Box>
-              <Button
-                variant="contained"
-                // startIcon={<Add />}
-                onClick={() => {
-                  setIsModalOpen(true);
-                }}
-                sx={{
-                  marginRight: 4,
-                  width: 166,
-                  color: "#fff",
-                  backgroundColor: "#257E68",
-                }}
-              >
-                Edit Tags
-              </Button>
-              <TagPopup
-                allTags={allTags}
-                tags={tags}
-                handleTag={handleTag}
-                isModalOpen={isModalOpen}
-                setIsModalOpen={setIsModalOpen}
-              ></TagPopup>
-            </>
-          );
+            return (
+              <>
+                <Tags 
+                  allTags={allTags} 
+                  values={tags} 
+                  handleTag={handleTag} 
+                  setInnerPopup={() => {}} 
+                  deleteMode={false} 
+                  setTagToDelete={() => {}}
+                />
+              </>
+            );
         default:
           return (
             <>
@@ -1289,6 +1303,7 @@ const initializeAutocomplete = () => {
     }
   };
 
+  console.log(clientProfile)
   return (
     <Box className="profile-container">
       {showSavePopup && (
@@ -1309,32 +1324,39 @@ const initializeAutocomplete = () => {
           Profile saved successfully!
         </Box>
       )}
-      <Box className="white-container">
-        <Typography
-          variant="h5"
-          className="border-bottom"
-          style={{ marginBottom: 20 }}
-        >
-          {clientProfile.firstName?.trim() || clientProfile.lastName?.trim()
-            ? `${clientProfile.firstName || ""} ${clientProfile.lastName || ""}`.trim()
-            : "Welcome!"}
-        </Typography>
-        <Box
-          display="flex"
-          alignItems="center"
-          borderBottom="2px solid green"
-          pb={0.5}
-          sx={{ width: "min-content" }}
-        >
-          {/* Person Icon */}
-          <PersonIcon style={{ marginRight: 3, color: "green" }} />
-
-          {/* Text */}
-          <Typography variant="body1" sx={{ fontWeight: 800, color: "green" }}>
-            OVERVIEW
-          </Typography>
-        </Box>
-      </Box>
+    <Box className="white-container">
+    <Box
+      display="flex"
+      alignItems="center"
+      style={{ marginBottom: 20 }}
+    >
+      <Typography
+        variant="h5"
+        className="border-bottom"
+        style={{ marginRight: 8 }}
+      >
+        {clientProfile.firstName?.trim() || clientProfile.lastName?.trim()
+          ? `${clientProfile.firstName || ""} ${clientProfile.lastName || ""}`.trim()
+          : "Welcome!"}
+      </Typography>
+      <Typography variant="h5">
+        {tags.length > 0 ? `(${tags.join(", ")})` : "No tags"}
+      </Typography>
+      {renderField('tags','tags')}
+    </Box>
+    <Box
+      display="flex"
+      alignItems="center"
+      borderBottom="2px solid green"
+      pb={0.5}
+      sx={{ width: "min-content" }}
+    >
+      <PersonIcon style={{ marginRight: 3, color: "green" }} />
+      <Typography variant="body1" sx={{ fontWeight: 800, color: "green" }}>
+        OVERVIEW
+      </Typography>
+    </Box>
+  </Box>
 
       <Box className="profile-main">
         <Box className="centered-box">
