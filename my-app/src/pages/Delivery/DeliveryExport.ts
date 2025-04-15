@@ -3,17 +3,17 @@ import JSZip from "jszip";
 import { saveAs } from "file-saver";
 import Papa from "papaparse";
 
-interface Event {
-  id?: string;
+interface DeliveryEvent {
+  id: string;
   assignedDriverId: string;
   assignedDriverName: string;
   clientId: string;
   clientName: string;
-  startTime: { seconds: number };
-  endTime: { seconds: number };
-  notes?: string;
-  priority?: string;
-  status: boolean;
+  deliveryDate: Date; // The date of the delivery
+  time: string; // The time of the delivery
+  cluster: number;
+  recurrence: "None" | "Weekly" | "2x-Monthly" | "Monthly"; // Updated recurrence options
+  repeatsEndDate?: string; // Optional, end date for recurrence
 }
 
 interface Driver {
@@ -48,11 +48,9 @@ export const exportDeliveries = async (deliveryDate: string) => {
     // Step 1: Fetch events for the selected delivery date
     const eventsSnapshot = await getDocs(collection(db, "events"));
     const events = eventsSnapshot.docs
-      .map((doc) => ({ id: doc.id, ...doc.data() }) as Event)
+      .map((doc) => ({ id: doc.id, ...doc.data() }) as DeliveryEvent)
       .filter((event) => {
-        const eventDate = new Date(event.startTime.seconds * 1000)
-          .toISOString()
-          .split("T")[0];
+        const eventDate = new Date(event.deliveryDate).toISOString().split("T")[0];
         return eventDate === deliveryDate;
       });
 
@@ -112,7 +110,7 @@ export const exportDeliveries = async (deliveryDate: string) => {
     );
 
     // Step 4: Group events by assigned driver
-    const groupedByDriver: Record<string, Event[]> = {};
+    const groupedByDriver: Record<string, DeliveryEvent[]> = {};
     events.forEach((event) => {
       const driverId = event.assignedDriverId;
       if (!groupedByDriver[driverId]) {
@@ -158,13 +156,11 @@ export const exportDeliveries = async (deliveryDate: string) => {
             "Diet Type": client.dietType || "",
             "Dietary Preferences": client.dietaryPreferences || "",
             "TEFAP FY25": client.tefapFY25 || "",
-            Notes: event.notes || "",
-            Priority: event.priority || "",
-            Status: event.status ? "Completed" : "Pending",
-            "Start Time": new Date(
-              event.startTime.seconds * 1000
-            ).toLocaleString(),
-            "End Time": new Date(event.endTime.seconds * 1000).toLocaleString(),
+            "Delivery Date": event.deliveryDate.toISOString().split("T")[0],
+            "Delivery Time": event.time,
+            Cluster: event.cluster,
+            Recurrence: event.recurrence,
+            "Repeats End Date": event.repeatsEndDate || "",
           };
         })
         .filter(Boolean); // Remove null entries
