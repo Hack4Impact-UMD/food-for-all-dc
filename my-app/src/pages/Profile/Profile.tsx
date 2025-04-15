@@ -44,7 +44,8 @@ import FormField from "./components/FormField";
 import TagPopup from "./Tags/TagPopup";
 
 // Import types
-import { CaseWorker, ClientProfile, ClientProfileKey, InputType } from "../../types/types";
+import { CaseWorker, ClientProfile } from "../../types/types";
+import { ClientProfileKey, InputType } from "./types";
 
 // Styling
 const fieldStyles = {
