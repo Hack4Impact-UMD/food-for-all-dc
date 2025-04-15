@@ -8,8 +8,8 @@ import SaveIcon from "@mui/icons-material/Save";
 import {
   Box,
   Button,
-  IconButton, // Commented out modal components
-  /* Dialog, DialogTitle, DialogContent, DialogActions, */ Menu,
+  IconButton,
+  Menu,
   MenuItem,
   Paper,
   Select,
@@ -21,7 +21,13 @@ import {
   TableHead,
   TableRow,
   TextField,
-  colors,
+  useTheme,
+  useMediaQuery,
+  Card,
+  Typography,
+  Stack,
+  Chip,
+  Divider,
 } from "@mui/material";
 import { onAuthStateChanged } from "firebase/auth";
 import { Filter, Search } from "lucide-react";
@@ -466,20 +472,39 @@ const Spreadsheet: React.FC = () => {
     console.log(searchQuery);
   }, [searchQuery]);
 
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const isTablet = useMediaQuery(theme.breakpoints.between('sm', 'md'));
+
   return (
-    <Box className="box">
+    <Box
+      className="box"
+      sx={{
+        px: { xs: 2, sm: 3, md: 4 },
+        py: 2,
+        maxWidth: "100%",
+        overflowX: "hidden",
+        backgroundColor: "transparent",
+        position: "relative"
+      }}
+    >
       {/* Fixed Container for Search Bar and Create Client Button */}
-      <div
-        style={{
-          position: "fixed",
-          width: "90vw",
-          zIndex: 1,
+      <Box
+        sx={{
+          position: "sticky",
+          top: 0,
+          width: "100%",
+          zIndex: 10,
           backgroundColor: "#fff",
-          padding: "16px 0",
+          pb: 3,
+          pt: 0,
+          borderBottom: "none",
+          boxShadow: "none",
+          margin: 0
         }}
       >
-        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-          <div style={{ position: "relative", width: "100%" }}>
+        <Stack spacing={3}>
+          <Box sx={{ position: "relative", width: "100%" }}>
             <Search
               style={{
                 position: "absolute",
@@ -498,14 +523,16 @@ const Spreadsheet: React.FC = () => {
               placeholder="SEARCH"
               style={{
                 width: "100%",
-                height: "60px",
+                height: "50px",
                 backgroundColor: "#EEEEEE",
                 border: "none",
-                borderRadius: "30px",
+                borderRadius: "25px",
                 padding: "0 48px",
                 fontSize: "16px",
                 color: "#333333",
                 boxSizing: "border-box",
+                transition: "all 0.2s ease",
+                boxShadow: "inset 0 2px 3px rgba(0,0,0,0.05)"
               }}
             />
             <Filter
@@ -519,18 +546,35 @@ const Spreadsheet: React.FC = () => {
               }}
               size={20}
             />
-          </div>
-          <div style={{ display: "flex", justifyContent: "space-between" }}>
+          </Box>
+          <Stack 
+            direction={{ xs: 'column', sm: 'row' }} 
+            spacing={2} 
+            justifyContent="space-between"
+            alignItems={{ xs: 'stretch', sm: 'center' }}
+            sx={{ '& .MuiButton-root': { height: { sm: '36px' } } }} 
+          >
             <Button
               variant="contained"
               color="secondary"
               onClick={() => setSearchQuery("")}
               className="view-all"
-              style={{
-                whiteSpace: "nowrap",
-                padding: "0% 2%",
-                borderRadius: "30px",
-                width: "100px",
+              sx={{
+                borderRadius: "25px",
+                px: 2,
+                py: 0.5,
+                minWidth: { xs: '100%', sm: '100px' },
+                maxWidth: { sm: '120px' },
+                textTransform: "none",
+                fontSize: "0.875rem",
+                lineHeight: 1.5,
+                boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+                transition: "all 0.2s ease",
+                "&:hover": {
+                  transform: "translateY(-2px)",
+                  boxShadow: "0 4px 8px rgba(0,0,0,0.1)",
+                },
+                alignSelf: { xs: 'stretch', sm: 'flex-start' }
               }}
             >
               View All
@@ -540,206 +584,498 @@ const Spreadsheet: React.FC = () => {
               color="primary"
               onClick={addClient}
               className="create-client"
-              style={{
+              sx={{
                 backgroundColor: "#2E5B4C",
-                whiteSpace: "nowrap",
-                padding: "8px 16px",
-                borderRadius: "30px",
+                borderRadius: "25px",
+                px: 2,
+                py: 0.5,
+                minWidth: { xs: '100%', sm: '140px' },
+                maxWidth: { sm: '160px' },
+                textTransform: "none",
+                fontSize: "0.875rem",
+                lineHeight: 1.5,
+                boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+                transition: "all 0.2s ease",
+                "&:hover": {
+                  backgroundColor: "#234839",
+                  transform: "translateY(-2px)",
+                  boxShadow: "0 4px 8px rgba(0,0,0,0.1)",
+                },
+                alignSelf: { xs: 'stretch', sm: 'flex-end' }
               }}
             >
               + Create Client
             </Button>
-          </div>
-        </div>
-      </div>
+          </Stack>
+        </Stack>
+      </Box>
 
-      {/* Controls and Create Client Button */}
-      <div
-        style={{
-          margin: "0 auto",
-          display: "flex",
-          flexDirection: "column",
-          paddingTop: "20vh",
-          paddingBottom: "2vh",
+      {/* Spreadsheet Content */}
+      <Box
+        sx={{
+          mt: 3,
+          mb: 3,
+          width: "100%",
         }}
       >
-        {/* Spreadsheet Table */}
-        <TableContainer component={Paper} style={{ maxHeight: "65vh", overflowY: "auto" }}>
-          <Table stickyHeader>
-            <TableHead>
-              <TableRow>
-                {/* Static columns */}
-                {fields.map((field) => (
-                  <TableCell className="table-header" key={field.key}>
-                    <h2>{field.label}</h2>
-                  </TableCell>
-                ))}
-
-                {/*  Headers for custom columns */}
-                {customColumns.map((col) => (
-                  <TableCell className="table-header" key={col.id}>
-                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                      <Select
-                        value={col.propertyKey}
-                        onChange={(event) => handleCustomHeaderChange(event, col.id)}
-                        variant="outlined"
-                        displayEmpty
-                        sx={{ minWidth: 120, color: "#257e68" }}
-                      >
-                        <MenuItem value="ethnicity">Ethnicity</MenuItem>
-                        <MenuItem value="language">Language</MenuItem>
-                        <MenuItem value="dob">DOB</MenuItem>
-                        <MenuItem value="gender">Gender</MenuItem>
-                        <MenuItem value="zipCode">Zip Code</MenuItem>
-                        <MenuItem value="streetName">Street Name</MenuItem>
-                        <MenuItem value="ward">Ward</MenuItem>
-                        <MenuItem value="none">None</MenuItem>
-                      </Select>
-                      {/*Add Remove Button*/}
-                      <IconButton
-                        size="small"
-                        onClick={() => handleRemoveCustomColumn(col.id)} // Call remove handler
-                        aria-label={`Remove ${col.label || "custom"} column`}
-                        title={`Remove ${col.label || "custom"} column`} // Tooltip for accessibility
-                      >
-                        <DeleteIcon fontSize="small" />
-                      </IconButton>
-                    </Box>
-                  </TableCell>
-                ))}
-
-                {/* Add button cell */}
-                <TableCell className="table-header" style={{ textAlign: "right" }}>
-                  <IconButton
-                    onClick={handleAddCustomColumn}
-                    color="primary"
-                    aria-label="add custom column"
+        {/* Mobile Card View for Small Screens */}
+        {isMobile ? (
+          <Stack spacing={2}>
+            {visibleRows.map((row) => (
+              <Card 
+                key={row.id} 
+                sx={{ 
+                  p: 2, 
+                  boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+                  borderRadius: "12px",
+                  transition: "transform 0.2s ease",
+                  "&:hover": {
+                    transform: "translateY(-2px)",
+                    boxShadow: "0 4px 12px rgba(0,0,0,0.12)",
+                  }
+                }}
+                onClick={() => handleRowClick(row.clientid)}
+              >
+                <Stack direction="row" justifyContent="space-between" alignItems="center" mb={1}>
+                  <Typography variant="h6" sx={{ fontWeight: 600, color: "#2E5B4C" }}>
+                    {row.lastName}, {row.firstName}
+                  </Typography>
+                  <IconButton 
+                    size="small" 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleMenuOpen(e, row.id);
+                    }}
                   >
-                    <AddIcon sx={{ color: "#257e68" }} />
+                    <MoreVertIcon />
                   </IconButton>
-                </TableCell>
-              </TableRow>
-            </TableHead>
-
-            <TableBody>
-              {visibleRows.map((row) => (
-                <TableRow
-                  key={row.id}
-                  className={editingRowId === row.id ? "table-row editing-row" : "table-row"}
-                >
-                  {fields.map((field) => (
-                    <TableCell key={field.key}>
-                      {editingRowId === row.id ? (
-                        field.key === "fullname" ? (
-                          <>
-                            <TextField
-                              placeholder="First Name"
-                              value={row.firstName}
-                              variant="outlined"
-                              size="small"
-                              style={{ marginRight: "8px" }}
-                            />
-                            <TextField
-                              placeholder="Last Name"
-                              value={row.lastName}
-                              variant="outlined"
-                              size="small"
-                            />
-                          </>
-                        ) : isRegularField(field) ? (
-                          <TextField
-                            type={field.type}
-                            value={row[field.key]}
-                            variant="outlined"
-                            size="small"
+                </Stack>
+                <Divider sx={{ my: 1 }} />
+                <Stack spacing={1.5}>
+                  <Box>
+                    <Typography variant="body2" color="text.secondary">Address</Typography>
+                    <Typography variant="body1">{row.address}</Typography>
+                  </Box>
+                  {row.phone && (
+                    <Box>
+                      <Typography variant="body2" color="text.secondary">Phone</Typography>
+                      <Typography variant="body1">{row.phone}</Typography>
+                    </Box>
+                  )}
+                  <Box>
+                    <Typography variant="body2" color="text.secondary">Dietary Restrictions</Typography>
+                    <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ mt: 0.5 }}>
+                      {fields.find(f => f.key === "deliveryDetails.dietaryRestrictions")?.compute?.(row)?.split(", ").map((restriction, i) => (
+                        restriction !== "None" && (
+                          <Chip 
+                            key={i} 
+                            label={restriction} 
+                            size="small" 
+                            sx={{ 
+                              backgroundColor: "#e8f5e9", 
+                              color: "#2E5B4C",
+                              mb: 0.5 
+                            }} 
                           />
-                        ) : null
-                      ) : field.key === "fullname" ? (
-                        field.compute ? (
-                          <a href={`/profile/${row.id}`} className="client-link">
-                            {field.compute(row)}
-                          </a>
-                        ) : (
-                          <a href={`/profile/${row.id}`} className="client-link">
-                            {row.firstName} {row.lastName}
-                          </a>
                         )
-                      ) : field.compute ? (
-                        field.compute(row)
-                      ) : (
-                        row[field.key]
-                      )}
-                    </TableCell>
-                  ))}
-
+                      )) || <Typography variant="body2">None</Typography>}
+                    </Stack>
+                  </Box>
+                  {/* Custom columns for mobile */}
                   {customColumns.map((col) => (
-                    <TableCell key={col.id}>
-                      {editingRowId === row.id ? (
-                        // EDIT MODE: Check if propertyKey is valid before rendering TextField
-                        col.propertyKey !== "none" ? (
-                          <TextField
-                            // We've checked it's not 'none', so we can assert the type here
-                            value={row[col.propertyKey as keyof RowData] ?? ""}
-                            // IMPORTANT: You'll need an onChange handler specifically for custom columns
-                            onChange={(e) =>
-                              handleCustomColumnChange(
-                                e,
-                                row.id,
-                                col.propertyKey as keyof RowData,
-                                setRows
-                              )
-                            }
-                            variant="outlined"
-                            size="small"
-                          />
-                        ) : (
-                          // In edit mode, if the property is 'none', maybe just display N/A
-                          "N/A"
-                        )
-                      ) : // DISPLAY MODE: Check if propertyKey is valid before accessing data
-                      col.propertyKey !== "none" ? (
-                        (row[col.propertyKey as keyof RowData]?.toString() ?? "N/A")
-                      ) : (
-                        "N/A"
-                      )}
+                    col.propertyKey !== "none" && row[col.propertyKey as keyof RowData] && (
+                      <Box key={col.id}>
+                        <Typography variant="body2" color="text.secondary">
+                          {col.label || col.propertyKey}
+                        </Typography>
+                        <Typography variant="body1">
+                          {row[col.propertyKey as keyof RowData]?.toString() || "N/A"}
+                        </Typography>
+                      </Box>
+                    )
+                  ))}
+                </Stack>
+              </Card>
+            ))}
+            {/* Menu for mobile */}
+            <Menu
+              anchorEl={menuAnchorEl}
+              open={Boolean(menuAnchorEl)}
+              onClose={handleMenuClose}
+              PaperProps={{
+                elevation: 3,
+                sx: { borderRadius: "8px", minWidth: "150px" }
+              }}
+            >
+              <MenuItem 
+                onClick={() => {
+                  if (selectedRowId) handleEditRow(selectedRowId);
+                  handleMenuClose();
+                }}
+                sx={{ py: 1.5 }}
+              >
+                <EditIcon fontSize="small" sx={{ mr: 1 }} /> Edit
+              </MenuItem>
+              <MenuItem 
+                onClick={() => {
+                  if (selectedRowId) handleDeleteRow(selectedRowId);
+                  handleMenuClose();
+                }}
+                sx={{ py: 1.5 }}
+              >
+                <DeleteIcon fontSize="small" sx={{ mr: 1 }} /> Delete
+              </MenuItem>
+            </Menu>
+          </Stack>
+        ) : (
+          /* Table View for Larger Screens */
+          <TableContainer 
+            component={Paper} 
+            sx={{ 
+              maxHeight: "75vh", 
+              overflowY: "auto",
+              boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
+              borderRadius: "12px",
+            }}
+          >
+            <Table stickyHeader>
+              <TableHead>
+                <TableRow>
+                  {/* Static columns */}
+                  {fields.map((field) => (
+                    <TableCell 
+                      className="table-header" 
+                      key={field.key} 
+                      sx={{
+                        backgroundColor: "#f5f9f7",
+                        borderBottom: "2px solid #e0e0e0",
+                      }}
+                    >
+                      <Stack 
+                        direction="row" 
+                        alignItems="center" 
+                        spacing={0.5}
+                        sx={{ 
+                          cursor: field.key === "fullname" ? "pointer" : "default",
+                        }}
+                        onClick={field.key === "fullname" ? toggleSortOrder : undefined}
+                      >
+                        <Typography variant="subtitle2" sx={{ fontWeight: 600, color: "#2E5B4C" }}>
+                          {field.label}
+                        </Typography>
+                        {field.key === "fullname" && (
+                          sortOrder === "asc" ? <ArrowDropUpIcon /> : <ArrowDropDownIcon />
+                        )}
+                      </Stack>
                     </TableCell>
                   ))}
 
-                  <TableCell style={{ textAlign: "right" }}>
-                    {editingRowId === row.id ? (
-                      <Button
-                        variant="contained"
-                        color="primary"
-                        size="small"
-                        onClick={() => handleSaveRow(row.id)}
-                        style={{ marginRight: "8px" }}
-                      >
-                        Save
-                      </Button>
-                    ) : (
-                      <IconButton onClick={(e) => handleMenuOpen(e, row.id)}>
-                        <MoreVertIcon />
-                      </IconButton>
-                    )}
-                    <Menu
-                      anchorEl={menuAnchorEl}
-                      open={Boolean(menuAnchorEl) && selectedRowId === row.id}
-                      onClose={handleMenuClose}
+                  {/*  Headers for custom columns */}
+                  {customColumns.map((col) => (
+                    <TableCell 
+                      className="table-header" 
+                      key={col.id}
+                      sx={{
+                        backgroundColor: "#f5f9f7",
+                        borderBottom: "2px solid #e0e0e0",
+                      }}
                     >
-                      <MenuItem onClick={() => handleEditRow(row.id)}>
-                        <EditIcon fontSize="small" /> Edit
-                      </MenuItem>
-                      <MenuItem onClick={() => handleDeleteRow(row.id)}>
-                        <DeleteIcon fontSize="small" /> Delete
-                      </MenuItem>
-                    </Menu>
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                        <Select
+                          value={col.propertyKey}
+                          onChange={(event) => handleCustomHeaderChange(event, col.id)}
+                          variant="outlined"
+                          displayEmpty
+                          size="small"
+                          sx={{ 
+                            minWidth: 120, 
+                            color: "#257e68",
+                            "& .MuiOutlinedInput-notchedOutline": {
+                              borderColor: "#bfdfd4",
+                            },
+                            "&:hover .MuiOutlinedInput-notchedOutline": {
+                              borderColor: "#257e68",
+                            },
+                          }}
+                        >
+                          <MenuItem value="ethnicity">Ethnicity</MenuItem>
+                          <MenuItem value="language">Language</MenuItem>
+                          <MenuItem value="dob">DOB</MenuItem>
+                          <MenuItem value="gender">Gender</MenuItem>
+                          <MenuItem value="zipCode">Zip Code</MenuItem>
+                          <MenuItem value="streetName">Street Name</MenuItem>
+                          <MenuItem value="ward">Ward</MenuItem>
+                          <MenuItem value="none">None</MenuItem>
+                        </Select>
+                        {/*Add Remove Button*/}
+                        <IconButton
+                          size="small"
+                          onClick={() => handleRemoveCustomColumn(col.id)}
+                          aria-label={`Remove ${col.label || "custom"} column`}
+                          title={`Remove ${col.label || "custom"} column`}
+                          sx={{
+                            color: "#d32f2f",
+                            "&:hover": {
+                              backgroundColor: "rgba(211, 47, 47, 0.04)",
+                            }
+                          }}
+                        >
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      </Box>
+                    </TableCell>
+                  ))}
+
+                  {/* Add button cell */}
+                  <TableCell 
+                    className="table-header" 
+                    align="right"
+                    sx={{
+                      backgroundColor: "#f5f9f7",
+                      borderBottom: "2px solid #e0e0e0",
+                    }}
+                  >
+                    <IconButton
+                      onClick={handleAddCustomColumn}
+                      color="primary"
+                      aria-label="add custom column"
+                      sx={{
+                        backgroundColor: "rgba(37, 126, 104, 0.06)",
+                        "&:hover": {
+                          backgroundColor: "rgba(37, 126, 104, 0.12)",
+                        }
+                      }}
+                    >
+                      <AddIcon sx={{ color: "#257e68" }} />
+                    </IconButton>
                   </TableCell>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      </div>
+              </TableHead>
+
+              <TableBody>
+                {visibleRows.map((row) => (
+                  <TableRow
+                    key={row.id}
+                    className={editingRowId === row.id ? "table-row editing-row" : "table-row"}
+                    sx={{
+                      cursor: "pointer",
+                      transition: "background-color 0.2s",
+                      "&:hover": {
+                        backgroundColor: "rgba(46, 91, 76, 0.04)",
+                      },
+                      "&:nth-of-type(odd)": {
+                        backgroundColor: "rgba(246, 248, 250, 0.5)",
+                      },
+                      "&:nth-of-type(odd):hover": {
+                        backgroundColor: "rgba(46, 91, 76, 0.06)",
+                      }
+                    }}
+                    onClick={() => {
+                      if (editingRowId !== row.id) {
+                        handleRowClick(row.clientid);
+                      }
+                    }}
+                  >
+                    {fields.map((field) => (
+                      <TableCell key={field.key} sx={{ py: 2 }}>
+                        {editingRowId === row.id ? (
+                          field.key === "fullname" ? (
+                            <>
+                              <TextField
+                                placeholder="First Name"
+                                value={row.firstName}
+                                variant="outlined"
+                                size="small"
+                                sx={{ mr: 1, maxWidth: "45%" }}
+                              />
+                              <TextField
+                                placeholder="Last Name"
+                                value={row.lastName}
+                                variant="outlined"
+                                size="small"
+                                sx={{ maxWidth: "45%" }}
+                              />
+                            </>
+                          ) : isRegularField(field) ? (
+                            <TextField
+                              type={field.type}
+                              value={row[field.key]}
+                              variant="outlined"
+                              size="small"
+                              fullWidth
+                            />
+                          ) : null
+                        ) : field.key === "fullname" ? (
+                          field.compute ? (
+                            <Typography
+                              component="a"
+                              href={`/profile/${row.id}`}
+                              className="client-link"
+                              sx={{
+                                color: "#2E5B4C",
+                                fontWeight: 500,
+                                textDecoration: "none",
+                                "&:hover": {
+                                  textDecoration: "underline",
+                                }
+                              }}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigate(`/profile/${row.id}`);
+                              }}
+                            >
+                              {field.compute(row)}
+                            </Typography>
+                          ) : (
+                            <Typography
+                              component="a"
+                              href={`/profile/${row.id}`}
+                              className="client-link"
+                              sx={{
+                                color: "#2E5B4C",
+                                fontWeight: 500,
+                                textDecoration: "none",
+                                "&:hover": {
+                                  textDecoration: "underline",
+                                }
+                              }}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigate(`/profile/${row.id}`);
+                              }}
+                            >
+                              {row.firstName} {row.lastName}
+                            </Typography>
+                          )
+                        ) : field.compute ? (
+                          field.key === "deliveryDetails.dietaryRestrictions" ? (
+                            <Stack direction="row" spacing={0.5} flexWrap="wrap">
+                              {field.compute?.(row)?.split(", ").map((restriction, i) => (
+                                restriction !== "None" && (
+                                  <Chip 
+                                    key={i} 
+                                    label={restriction} 
+                                    size="small" 
+                                    sx={{ 
+                                      backgroundColor: "#e8f5e9", 
+                                      color: "#2E5B4C",
+                                      mb: 0.5 
+                                    }} 
+                                  />
+                                )
+                              )) || null}
+                            </Stack>
+                          ) : (
+                            field.compute(row)
+                          )
+                        ) : (
+                          row[field.key]
+                        )}
+                      </TableCell>
+                    ))}
+
+                    {customColumns.map((col) => (
+                      <TableCell key={col.id} sx={{ py: 2 }}>
+                        {editingRowId === row.id ? (
+                          col.propertyKey !== "none" ? (
+                            <TextField
+                              value={row[col.propertyKey as keyof RowData] ?? ""}
+                              onChange={(e) =>
+                                handleCustomColumnChange(
+                                  e,
+                                  row.id,
+                                  col.propertyKey as keyof RowData,
+                                  setRows
+                                )
+                              }
+                              variant="outlined"
+                              size="small"
+                              fullWidth
+                            />
+                          ) : (
+                            "N/A"
+                          )
+                        ) : 
+                        col.propertyKey !== "none" ? (
+                          (row[col.propertyKey as keyof RowData]?.toString() ?? "N/A")
+                        ) : (
+                          "N/A"
+                        )}
+                      </TableCell>
+                    ))}
+
+                    <TableCell align="right" sx={{ py: 2 }} onClick={(e) => e.stopPropagation()}>
+                      {editingRowId === row.id ? (
+                        <Button
+                          variant="contained"
+                          color="primary"
+                          size="small"
+                          onClick={() => handleSaveRow(row.id)}
+                          startIcon={<SaveIcon />}
+                          sx={{
+                            backgroundColor: "#2E5B4C",
+                            borderRadius: "20px",
+                            boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+                            "&:hover": {
+                              backgroundColor: "#234839",
+                            }
+                          }}
+                        >
+                          Save
+                        </Button>
+                      ) : (
+                        <IconButton 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleMenuOpen(e, row.id);
+                          }}
+                          sx={{
+                            color: "#757575",
+                            "&:hover": {
+                              backgroundColor: "rgba(0, 0, 0, 0.04)",
+                              color: "#2E5B4C",
+                            }
+                          }}
+                        >
+                          <MoreVertIcon />
+                        </IconButton>
+                      )}
+                      <Menu
+                        anchorEl={menuAnchorEl}
+                        open={Boolean(menuAnchorEl) && selectedRowId === row.id}
+                        onClose={handleMenuClose}
+                        PaperProps={{
+                          elevation: 3,
+                          sx: { borderRadius: "8px", minWidth: "150px" }
+                        }}
+                      >
+                        <MenuItem 
+                          onClick={() => {
+                            handleEditRow(row.id);
+                            handleMenuClose();
+                          }}
+                          sx={{ py: 1.5 }}
+                        >
+                          <EditIcon fontSize="small" sx={{ mr: 1 }} /> Edit
+                        </MenuItem>
+                        <MenuItem 
+                          onClick={() => {
+                            handleDeleteRow(row.id);
+                            handleMenuClose();
+                          }}
+                          sx={{ py: 1.5 }}
+                        >
+                          <DeleteIcon fontSize="small" sx={{ mr: 1 }} /> Delete
+                        </MenuItem>
+                      </Menu>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        )}
+      </Box>
     </Box>
   );
 };

@@ -39,7 +39,8 @@ const Main = styled("main", { shouldForwardProp: (prop) => prop !== "open" })<{
   }),
   marginLeft: isMobile ? 0 : (open ? 0 : `-${drawerWidth}px`),
   width: "100%",
-  paddingBottom: isMobile ? "60px" : 0, // Add padding for mobile bottom nav
+  paddingTop: "76px",
+  paddingBottom: isMobile ? "60px" : 0,
 }));
 
 interface AppBarProps extends MuiAppBarProps {
@@ -306,7 +307,6 @@ export default function BasePage({ children }: { children: React.ReactNode }) {
         </List>
       </Drawer>
       <Main open={open} isMobile={isMobile}>
-        <DrawerHeader />
         {children}
       </Main>
 
