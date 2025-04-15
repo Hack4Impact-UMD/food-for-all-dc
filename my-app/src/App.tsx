@@ -17,6 +17,7 @@ import BasePage from './pages/Base/Base';
 import CreateUsers from './pages/CreateUsers/CreateUsers';
 import DeliverySpreadsheet from "./pages/Delivery/DeliverySpreadsheet";
 import TestCsvPage from "./pages/Delivery/TestCsvPage";
+import UploadFakeDataPage from "./pages/Delivery/UploadFakeDataPage";
 
 import { useAuth } from './auth/AuthProvider';
 
@@ -32,6 +33,7 @@ function App() {
       <Routes>
         {/* Testing Routes */}
         <Route path="/test-csv" element={<TestCsvPage />} />
+        <Route path="/upload-fake-data" element={<UploadFakeDataPage />} />
 
         {/* Public routes */}
         <Route path="/" element={<Login />} />
