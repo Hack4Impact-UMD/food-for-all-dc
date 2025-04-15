@@ -13,11 +13,10 @@ import {
   Switch,
   Typography,
 } from "@mui/material";
-import { doc, setDoc } from "firebase/firestore";
 import React, { useMemo, useState } from "react";
-import { db } from "../../auth/firebaseConfig";
 import { getDefaultLimit, setDefaultLimit } from "./CalendarUtils";
 import { useLimits } from "./useLimits";
+import { DeliveryService } from "../../services";
 
 interface DailyLimits {
   id: string;
@@ -90,6 +89,43 @@ const CalendarPopper = ({
       getBoundingClientRect: () => new DOMRect(clickPosition.x, clickPosition.y, 1, 1),
     };
   }, [clickPosition]);
+
+  const handleLimitChange = async (e: any) => {
+    const selectedValue = Number(e.target.value);
+    setNewLimit(selectedValue);
+    const dateKey = limitEditDate!.toString("yyyy-MM-dd");
+    
+    if (!bulkEdit) {
+      const deliveryService = DeliveryService.getInstance();
+      await deliveryService.setDailyLimit(dateKey, selectedValue);
+      
+      setDailyLimits((prev) => {
+        const existingIndex = prev.findIndex(
+          (item) => item.date === dateKey
+        );
+        if (existingIndex !== -1) {
+          return prev.map((item, index) =>
+            index === existingIndex
+              ? { ...item, limit: selectedValue }
+              : item
+          );
+        }
+        return [
+          ...prev,
+          {
+            id: dateKey,
+            date: dateKey,
+            limit: selectedValue,
+          },
+        ];
+      });
+    } else {
+      setDefaultLimit(limitEditDate!, selectedValue);
+    }
+    
+    setLimitEditDate(null);
+    setClickPosition(null);
+  };
 
   if (viewType === "Month") {
     const customCalendarConfig = {
@@ -179,57 +215,11 @@ const CalendarPopper = ({
                         <Select
                           value={newLimit}
                           label="Max"
-                          onChange={async (e) => {
-                            const selectedValue = Number(e.target.value);
-                            setNewLimit(selectedValue);
-                            const dateKey = limitEditDate.toString("yyyy-MM-dd");
-                            console.log(limitEditDate);
-
-                            if (!bulkEdit) {
-                              const docRef = doc(db, "dailyLimits", dateKey);
-                              console.log("A");
-                              await setDoc(
-                                docRef,
-                                {
-                                  limit: selectedValue,
-                                  date: dateKey,
-                                },
-                                { merge: true }
-                              );
-                              setDailyLimits((prev) => {
-                                const existingIndex = prev.findIndex(
-                                  (item) => item.date === dateKey
-                                );
-                                if (existingIndex !== -1) {
-                                  return prev.map((item, index) =>
-                                    index === existingIndex
-                                      ? { ...item, limit: selectedValue }
-                                      : item
-                                  );
-                                }
-                                return [
-                                  ...prev,
-                                  {
-                                    id: dateKey,
-                                    date: dateKey,
-                                    limit: selectedValue,
-                                  },
-                                ];
-                              });
-                            } else {
-                              setDefaultLimit(limitEditDate, selectedValue);
-                              console.log("B");
-                            }
-
-                            setLimitEditDate(null);
-                            setClickPosition(null);
-                          }}
+                          onChange={handleLimitChange}
                           onClose={() => {
                             setLimitEditDate(null);
                             setClickPosition(null);
                           }}
-                          // open={true}
-                          // autoFocus
                         >
                           {limitOptions.map((option) => (
                             <MenuItem key={option} value={option}>

@@ -1,30 +1,23 @@
 import { DayPilot } from "@daypilot/daypilot-lite-react";
-import { doc, onSnapshot, setDoc, updateDoc } from "firebase/firestore";
-import { db } from "../../auth/firebaseConfig";
+import { DeliveryService } from "../../services";
 import { NewDelivery } from "./types";
 
 const DAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
 
 let firestoreLimits: number[] = [60, 60, 60, 60, 90, 90, 60];
 
-// listener for Firestore updates
-const limitsDocRef = doc(db, "limits", "weekly");
-const unsubscribe = onSnapshot(limitsDocRef, (docSnapshot) => {
-  if (docSnapshot.exists()) {
-    const data = docSnapshot.data();
-    firestoreLimits = DAYS.map((day) => data[day] || 60);
-  } else {
-    // Create document with default vals if doesnt exist
-    const defaultLimits = DAYS.reduce(
-      (acc, day, index) => ({
-        ...acc,
-        [day]: firestoreLimits[index],
-      }),
-      {}
-    );
-    setDoc(limitsDocRef, defaultLimits);
+// Get delivery service instance
+const deliveryService = DeliveryService.getInstance();
+
+// Initialize limits from the service
+(async () => {
+  try {
+    const limits = await deliveryService.getWeeklyLimits();
+    firestoreLimits = DAYS.map(day => limits[day] || 60);
+  } catch (error) {
+    console.error("Error initializing limits:", error);
   }
-});
+})();
 
 export const getDefaultLimit = (date: DayPilot.Date, limits: Record<string, number> | number[]): number => {
   if (Array.isArray(limits)) {
@@ -40,14 +33,13 @@ export const setDefaultLimit = async (date: DayPilot.Date, newLimit: number): Pr
   const dayIndex = date.getDayOfWeek();
   const dayField = DAYS[dayIndex];
 
-  // error checking
   try {
-    await updateDoc(limitsDocRef, { [dayField]: newLimit });
+    // Use delivery service to update the weekly limit
+    const currentLimits = await deliveryService.getWeeklyLimits();
+    const updatedLimits = { ...currentLimits, [dayField]: newLimit };
+    await deliveryService.updateWeeklyLimits(updatedLimits);
   } catch (error) {
     console.error("Error updating limit:", error);
-    if (error instanceof Error && "code" in error && error.code === "not-found") {
-      await setDoc(limitsDocRef, { [dayField]: newLimit }, { merge: true });
-    }
   }
 };
 

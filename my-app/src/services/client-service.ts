@@ -24,7 +24,11 @@ class ClientService {
   private tagsCollection = "tags";
   private tagsDocId = "oGuiR2dQQeOBXHCkhDeX";
 
-  private constructor() {}
+  // Private constructor to prevent direct instantiation
+  // This is part of the singleton pattern
+  private constructor() {
+    // Intentionally empty - initialization happens with class properties
+  }
 
   public static getInstance(): ClientService {
     if (!ClientService.instance) {

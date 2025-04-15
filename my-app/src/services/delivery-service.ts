@@ -25,7 +25,11 @@ class DeliveryService {
   private limitsCollection = "limits";
   private limitsDocId = "weekly";
 
-  private constructor() {}
+  // Private constructor to prevent direct instantiation
+  // This is part of the singleton pattern
+  private constructor() {
+    // Intentionally empty - initialization happens with class properties
+  }
 
   public static getInstance(): DeliveryService {
     if (!DeliveryService.instance) {

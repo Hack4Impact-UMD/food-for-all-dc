@@ -2,17 +2,9 @@ import { DayPilot } from "@daypilot/daypilot-lite-react";
 import { AppBar, Box, styled } from "@mui/material";
 import { endOfWeek, startOfWeek } from "date-fns";
 import { onAuthStateChanged } from "firebase/auth";
-import {
-  addDoc,
-  collection,
-  getDocs,
-  query,
-  Timestamp,
-  where,
-} from "firebase/firestore";
 import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { auth, db } from "../../auth/firebaseConfig";
+import { auth } from "../../auth/firebaseConfig";
 import "./CalendarPage.css";
 import AddDeliveryDialog from "./AddDeliveryDialog";
 import CalendarHeader from "./CalendarHeader";
@@ -22,6 +14,7 @@ import DayView from "./DayView";
 import MonthView from "./MonthView";
 import { CalendarConfig, CalendarEvent, Client, DateLimit, DeliveryEvent, Driver, NewDelivery, ViewType } from "./types";
 import { useLimits } from "./useLimits";
+import { DeliveryService, ClientService, DriverService } from "../../services";
 
 const DAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
 
@@ -89,70 +82,97 @@ const CalendarPage: React.FC = () => {
   }, [setAnchorEl]);
 
   const fetchDrivers = async () => {
-    const driversRef = collection(db, "drivers");
-    const snapshot = await getDocs(driversRef);
-    const driverList = snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    })) as Driver[];
-    setDrivers(driverList);
+    try {
+      // Use DriverService instead of direct Firebase calls
+      const driverService = DriverService.getInstance();
+      const driverList = await driverService.getAllDrivers();
+      // Cast to appropriate type to avoid type mismatch
+      setDrivers(driverList as unknown as Driver[]);
+    } catch (error) {
+      console.error("Error fetching drivers:", error);
+    }
   };
 
   const fetchClients = async () => {
-    const clientsRef = collection(db, "clients");
-    const snapshot = await getDocs(clientsRef);
-    const clientList = snapshot.docs.map((doc) => {
-      const data = doc.data() as Partial<Client>;
-      return {
-        id: doc.id,
-        uid: data.uid || "",
-        firstName: data.firstName || "",
-        lastName: data.lastName || "",
-        streetName: data.streetName || "",
-        zipCode: data.zipCode || "",
-        address: data.address || "",
-        address2: data.address2 || "",
-        city: data.city || "",
-        state: data.state || "",
-        quadrant: data.quadrant || "",
-        dob: data.dob || "",
-        phone: data.phone || "",
-        alternativePhone: data.alternativePhone || "",
-        adults: data.adults || 0,
-        children: data.children || 0,
-        total: data.total || 0,
-        gender: data.gender || "Other",
-        ethnicity: data.ethnicity || "",
-        deliveryDetails: data.deliveryDetails || {
-          deliveryInstructions: "",
-          dietaryRestrictions: {},
-        },
-        lifeChallenges: data.lifeChallenges || "",
-        notes: data.notes || "",
-        notesTimestamp: data.notesTimestamp || null,
-        lifestyleGoals: data.lifestyleGoals || "",
-        language: data.language || "",
-        createdAt: data.createdAt || new Date(),
-        updatedAt: data.updatedAt || new Date(),
-        startDate: data.startDate || "",
-        endDate: data.endDate || "",
-        recurrence: data.recurrence || "None",
-        tags: data.tags || [],
-        ward: data.ward || "",
-        seniors: data.seniors || 0,
-        headOfHousehold: data.headOfHousehold || "Adult",
-      };
-    }) as Client[];
-    setClients(clientList);
+    try {
+      // Use ClientService instead of direct Firebase calls
+      const clientService = ClientService.getInstance();
+      const clientsData = await clientService.getAllClients();
+      
+      // Map client data to Client type with explicit type casting for compatibility
+      const clientList = clientsData.map(data => {
+        // Ensure dietaryRestrictions has all required fields
+        const dietaryRestrictions = data.deliveryDetails?.dietaryRestrictions || {};
+        
+        return {
+          id: data.uid,
+          uid: data.uid,
+          firstName: data.firstName || "",
+          lastName: data.lastName || "",
+          streetName: data.streetName || "",
+          zipCode: data.zipCode || "",
+          address: data.address || "",
+          address2: data.address2 || "",
+          city: data.city || "",
+          state: data.state || "",
+          quadrant: data.quadrant || "",
+          dob: data.dob || "",
+          phone: data.phone || "",
+          alternativePhone: data.alternativePhone || "",
+          adults: data.adults || 0,
+          children: data.children || 0,
+          total: data.total || 0,
+          gender: data.gender || "Other",
+          ethnicity: data.ethnicity || "",
+          deliveryDetails: {
+            deliveryInstructions: data.deliveryDetails?.deliveryInstructions || "",
+            dietaryRestrictions: {
+              foodAllergens: dietaryRestrictions.foodAllergens || [],
+              halal: dietaryRestrictions.halal || false,
+              kidneyFriendly: dietaryRestrictions.kidneyFriendly || false,
+              lowSodium: dietaryRestrictions.lowSodium || false,
+              lowSugar: dietaryRestrictions.lowSugar || false,
+              microwaveOnly: dietaryRestrictions.microwaveOnly || false,
+              noCookingEquipment: dietaryRestrictions.noCookingEquipment || false,
+              other: dietaryRestrictions.other || [],
+              softFood: dietaryRestrictions.softFood || false,
+              vegan: dietaryRestrictions.vegan || false,
+              vegetarian: dietaryRestrictions.vegetarian || false,
+            },
+          },
+          lifeChallenges: data.lifeChallenges || "",
+          notes: data.notes || "",
+          notesTimestamp: data.notesTimestamp || null,
+          lifestyleGoals: data.lifestyleGoals || "",
+          language: data.language || "",
+          createdAt: data.createdAt || new Date(),
+          updatedAt: data.updatedAt || new Date(),
+          startDate: data.startDate || "",
+          endDate: data.endDate || "",
+          recurrence: data.recurrence || "None",
+          tags: data.tags || [],
+          ward: data.ward || "",
+          seniors: data.seniors || 0,
+          headOfHousehold: data.headOfHousehold || "Adult",
+        };
+      });
+      
+      // Cast the result to Client[] to satisfy type checking
+      setClients(clientList as unknown as Client[]);
+    } catch (error) {
+      console.error("Error fetching clients:", error);
+    }
   };
 
   const fetchLimits = async () => {
-    const snapshot = await getDocs(collection(db, "dailyLimits"));
-    const dailyLimits = snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    })) as DateLimit[];
-    setDailyLimits(dailyLimits);
+    try {
+      // Use DeliveryService instead of direct Firebase calls
+      const deliveryService = DeliveryService.getInstance();
+      const limitsData = await deliveryService.getDailyLimits();
+      setDailyLimits(limitsData);
+    } catch (error) {
+      console.error("Error fetching limits:", error);
+    }
   };
 
   const fetchEvents = async () => {
@@ -185,35 +205,12 @@ const CalendarPage: React.FC = () => {
           endDate = start.addDays(1);
       }
 
-      const eventsRef = collection(db, "events");
-
-      // Adjust query logic based on the view type
-      const q =
-        viewType === "Month"
-          ? query(
-              eventsRef,
-              where("deliveryDate", ">=", Timestamp.fromDate(start.toDate())),
-              where("deliveryDate", "<=", Timestamp.fromDate(endDate.toDate())) // Use <= for Month View
-            )
-          : query(
-              eventsRef,
-              where("deliveryDate", ">=", Timestamp.fromDate(start.toDate())),
-              where("deliveryDate", "<", Timestamp.fromDate(endDate.toDate())) // Use < for Day View
-            );
-
-      const querySnapshot = await getDocs(q);
-      const fetchedEvents: DeliveryEvent[] = querySnapshot.docs.map((doc) => {
-        const deliveryDateUTC = doc.data().deliveryDate.toDate(); // Get UTC date
-        const deliveryDateLocal = new Date(
-          deliveryDateUTC.getTime() + deliveryDateUTC.getTimezoneOffset() * 60000
-        ); // Convert to local time
-
-        return {
-          id: doc.id,
-          ...doc.data(),
-          deliveryDate: deliveryDateLocal, // Use the normalized local date
-        };
-      }) as DeliveryEvent[];
+      // Use DeliveryService to fetch events by date range
+      const deliveryService = DeliveryService.getInstance();
+      const fetchedEvents = await deliveryService.getEventsByDateRange(
+        start.toDate(),
+        endDate.toDate()
+      );
 
       setEvents(fetchedEvents);
 
@@ -248,7 +245,9 @@ const CalendarPage: React.FC = () => {
       const recurrenceDates =
         newDelivery.recurrence === "None" ? [deliveryDate] : calculateRecurrenceDates(newDelivery);
 
-      for (const date of recurrenceDates) {
+      // Use DeliveryService to create events
+      const deliveryService = DeliveryService.getInstance();
+      const createPromises = recurrenceDates.map(date => {
         // Only include optional fields if they are defined
         const eventToAdd: Partial<DeliveryEvent> = {
           assignedDriverId: newDelivery.assignedDriverId,
@@ -265,12 +264,10 @@ const CalendarPage: React.FC = () => {
           eventToAdd.repeatsEndDate = newDelivery.repeatsEndDate;
         }
 
-        eventsToAdd.push(eventToAdd);
-      }
+        return deliveryService.createEvent(eventToAdd);
+      });
 
-      // Add all events to the database
-      const batch = eventsToAdd.map((event) => addDoc(collection(db, "events"), event));
-      await Promise.all(batch);
+      await Promise.all(createPromises);
 
       // Refresh events after adding
       fetchEvents();

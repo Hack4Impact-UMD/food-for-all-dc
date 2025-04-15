@@ -24,12 +24,12 @@ import {
   colors,
 } from "@mui/material";
 import { onAuthStateChanged } from "firebase/auth";
-import { addDoc, collection, deleteDoc, doc, getDocs, setDoc, updateDoc } from "firebase/firestore";
 import { Filter, Search } from "lucide-react";
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { auth, db } from "../../auth/firebaseConfig"; // Ensure the correct path
+import { auth } from "../../auth/firebaseConfig";
 import { useCustomColumns } from "../../hooks/useCustomColumns";
+import { ClientService } from "../../services";
 import "./Spreadsheet.css";
 
 // Define TypeScript types for row data
@@ -241,12 +241,10 @@ const Spreadsheet: React.FC = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const snapshot = await getDocs(collection(db, "clients"));
-        const data = snapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...(doc.data() as Omit<RowData, "id">),
-        }));
-        setRows(data);
+        // Use ClientService instead of direct Firebase calls
+        const clientService = ClientService.getInstance();
+        const clients = await clientService.getAllClients();
+        setRows(clients as unknown as RowData[]);
       } catch (error) {
         console.error("Error fetching data: ", error);
       }
@@ -277,7 +275,9 @@ const Spreadsheet: React.FC = () => {
   // Handle deleting a row from Firestore
   const handleDeleteRow = async (id: string) => {
     try {
-      await deleteDoc(doc(db, "clients", id));
+      // Use ClientService instead of direct Firebase calls
+      const clientService = ClientService.getInstance();
+      await clientService.deleteClient(id);
       setRows(rows.filter((row) => row.id !== id));
     } catch (error) {
       console.error("Error deleting document: ", error);
@@ -301,7 +301,9 @@ const Spreadsheet: React.FC = () => {
     if (rowToUpdate) {
       try {
         const { id, ...rowWithoutId } = rowToUpdate;
-        await updateDoc(doc(db, "clients", id), rowWithoutId as Omit<RowData, "id">);
+        // Use ClientService instead of direct Firebase calls
+        const clientService = ClientService.getInstance();
+        await clientService.updateClient(id, rowWithoutId as Omit<RowData, "id">);
         setEditingRowId(null);
       } catch (error) {
         console.error("Error updating document: ", error);

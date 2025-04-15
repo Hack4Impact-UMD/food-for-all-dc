@@ -19,7 +19,11 @@ class DriverService {
   private db = FirebaseService.getInstance().getFirestore();
   private driversCollection = "Drivers";
 
-  private constructor() {}
+  // Private constructor to prevent direct instantiation
+  // This is part of the singleton pattern
+  private constructor() {
+    // Intentionally empty - initialization happens with class properties
+  }
 
   public static getInstance(): DriverService {
     if (!DriverService.instance) {
