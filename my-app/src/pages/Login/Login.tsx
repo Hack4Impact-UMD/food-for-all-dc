@@ -1,7 +1,7 @@
 // src/components/Login.tsx
 
 import React, { useState } from "react";
-import { signInWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
+import { signInWithEmailAndPassword, sendPasswordResetEmail, onAuthStateChanged } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
 import Button from "@mui/material/Button";
 import { InputAdornment, TextField } from "@mui/material";
@@ -14,10 +14,9 @@ import DialogContent from "@mui/material/DialogContent";
 import DialogContentText from "@mui/material/DialogContentText";
 import DialogTitle from "@mui/material/DialogTitle";
 import { auth } from "../../auth/firebaseConfig"; // Use the initialized auth from firebaseConfig.js
-import "./Login.css";
+import styles from "./Login.module.css";
 import foodForAllDCLogin from "../../assets/food-for-all-dc-login.png";
 import foodForAllDCLogo from "../../assets/food-for-all-dc-logo.jpg";
-import { onAuthStateChanged } from "firebase/auth";
 
 function Login() {
   const [loginEmail, setLoginEmail] = useState("");
@@ -83,19 +82,19 @@ function Login() {
   };
 
   return (
-    <div className="login-outer-container">
-      <div className="login-image-container">
+    <div className={styles.outerContainer}>
+      <div className={styles.imageContainer}>
         <img src={foodForAllDCLogin} alt="Food for All DC" />
       </div>
-      <div className="login-container">
-        <div className="image-container">
-          <img className="logo-image" src={foodForAllDCLogo} alt="Food for All DC" />
+      <div className={styles.container}>
+        <div>
+          <img className={styles.logoImage} src={foodForAllDCLogo} alt="Food for All DC" />
         </div>
-        <div className="login-form-container">
-          <h1 className="login-heading">Welcome!</h1>
-          <p className="login-subheading">Please enter your details</p>
+        <div className={styles.formContainer}>
+          <h1 className={styles.heading}>Welcome!</h1>
+          <p className={styles.subheading}>Please enter your details</p>
 
-          <p className="login-label">Admin Login</p>
+          <p className={styles.label}>Admin Login</p>
 
           <FormControl sx={{ m: 1, width: "100%", margin: "2%" }} variant="standard">
             <InputLabel htmlFor="standard-adornment-email">Email</InputLabel>
@@ -105,7 +104,7 @@ function Login() {
               value={loginEmail}
               onChange={(e) => setLoginEmail(e.target.value)}
               fullWidth
-              className="login-input-field"
+              className={styles.inputField}
             />
           </FormControl>
 
@@ -122,21 +121,21 @@ function Login() {
               value={loginPassword}
               onChange={(e) => setLoginPassword(e.target.value)}
               fullWidth
-              className="login-input-field"
+              className={styles.inputField}
               endAdornment={
                 <InputAdornment position="end">
-                  <span className="forgot-password-container">
-                    <p className="forgot-password-button" onClick={handleDialogOpen}>
+                  <span className={styles.forgotPasswordContainer}>
+                    <p className={styles.forgotPasswordButton} onClick={handleDialogOpen}>
                       Forgot Password?
                     </p>
                     {resetPasswordMessage && (
-                      <p className="reset-password-message">{resetPasswordMessage}</p>
+                      <p>{resetPasswordMessage}</p>
                     )}
                   </span>
                 </InputAdornment>
               }
             />
-            {loginError && <p className="login-error">{loginError}</p>}
+            {loginError && <p className={styles.error}>{loginError}</p>}
             <Button variant="contained" color="primary" type="submit" fullWidth>
               Login
             </Button>

@@ -1,0 +1,12 @@
+.popupContainer {
+  position: fixed;
+  bottom: var(--spacing-xl);
+  left: var(--spacing-xl);
+  font-weight: bold;
+  padding: var(--spacing-xl);
+  border: 3px solid var(--color-primary);
+  background-color: var(--color-background-main);
+  box-shadow: var(--shadow-sm);
+  border-radius: var(--border-radius-md);
+  z-index: 10;
+}

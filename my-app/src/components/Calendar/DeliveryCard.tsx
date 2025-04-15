@@ -4,6 +4,7 @@ import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import { useNavigate } from "react-router-dom";
 import EventMenu from "./EventMenu";
 import { Client, DeliveryEvent } from "./types";
+import styles from "./DeliveryCard.module.css";
 
 interface DeliveryCardProps {
   event: DeliveryEvent;
@@ -32,133 +33,56 @@ const DeliveryCard: React.FC<DeliveryCardProps> = ({ event, client, onEventModif
   const dietaryRestrictions = [...trueRestrictions, ...foodAllergens, ...other];
 
   return (
-    <Box
-      sx={{
-        display: "flex",
-        flexDirection: "row",
-        padding: 3,
-        marginBottom: 1,
-        border: "1px solid #fff",
-        borderRadius: "10px",
-        backgroundColor: "#F3F3F3",
-      }}
-    >
-      <Box
-        sx={{
-          display: "flex",
-          flexDirection: "row",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginRight: 5,
-        }}
-      >
+    <Box className={styles.card}>
+      <Box className={styles.clientSection}>
         <Box>
-          <Typography
-            variant="h6"
-            sx={{
-              fontWeight: "bold",
-              color: "#787777",
-            }}
-          >
+          <Typography variant="h6" className={styles.clientName}>
             {event.clientName}
           </Typography>
-          <Box
-            sx={{
-              display: "flex",
-              flexDirection: "row",
-              cursor: "pointer",
-              alignItems: "center",
-            }}
+          <Box 
+            className={styles.detailsLink}
             onClick={() => {
               navigate(`/profile/${client?.uid}`);
             }}
           >
-            <Typography
-              variant="subtitle2"
-              sx={{
-                fontWeight: "600",
-                color: "#257E68",
-                marginTop: 0.25,
-                whiteSpace: "nowrap",
-              }}
-            >
+            <Typography variant="subtitle2" className={styles.detailsText}>
               NOTES AND DETAILS
             </Typography>
-            <KeyboardArrowDownIcon
-              sx={{
-                fontSize: 25,
-                color: "#257E68",
-              }}
-            />
+            <KeyboardArrowDownIcon className={styles.detailsIcon} />
           </Box>
         </Box>
       </Box>
 
-      <Box
-        sx={{
-          backgroundColor: "#D9D9D9",
-          width: 2,
-          height: 120,
-          marginRight: 5,
-        }}
-      ></Box>
+      <Box className={styles.divider}></Box>
 
-      <Box
-        sx={{
-          display: "flex",
-          flexDirection: "row",
-          justifyContent: "space-between",
-          width: "100%",
-          gap: "30px",
-        }}
-      >
+      <Box className={styles.infoContainer}>
         {[
           {
             label: "PHONE",
             value: client?.phone ? formatPhoneNumber(client.phone) : "N/A",
-            color: "#787777",
           },
           {
             label: "ADDRESS",
             value: client?.address || "N/A",
-            color: "#787777",
           },
           {
             label: "DIETARY RESTRICTIONS",
             value: dietaryRestrictions.length ? dietaryRestrictions.join(", ") : "N/A",
-            color: "#787777",
           },
           {
             label: "TAGS",
             value: client?.tags?.length ? client.tags.join(", ") : "N/A",
-            color: "#787777",
           },
           {
             label: "NOTES",
             value: client?.notes || "N/A",
-            color: "#787777",
           },
-        ].map(({ label, value, color }) => (
-          <Box
-            key={label}
-            sx={{
-              display: "flex",
-              flexDirection: "column",
-              marginLeft: 2,
-              flex: "1 1 120px",
-            }}
-          >
-            <Typography
-              variant="subtitle2"
-              sx={{
-                fontWeight: "600",
-                color: "#BDBDBD",
-                marginBottom: "4px",
-              }}
-            >
+        ].map(({ label, value }) => (
+          <Box key={label} className={styles.infoItem}>
+            <Typography variant="subtitle2" className={styles.infoLabel}>
               {label}
             </Typography>
-            <Typography variant="body1" sx={{ fontWeight: "bold", color: color }}>
+            <Typography variant="body1" className={styles.infoValue}>
               {value}
             </Typography>
           </Box>

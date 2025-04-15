@@ -1,0 +1,27 @@
+.inputContainer {
+  width: 100%;
+  margin-bottom: var(--spacing-md);
+}
+
+.label {
+  font-weight: bold;
+  display: block;
+  margin-bottom: var(--spacing-xs);
+  color: var(--color-text-secondary);
+}
+
+.inputField {
+  width: 100%;
+  height: var(--input-height);
+  font-size: var(--font-size-base);
+}
+
+.inputField input {
+  background-color: var(--color-background-main);
+}
+
+.error {
+  color: var(--color-error);
+  font-size: var(--font-size-sm);
+  margin-top: var(--spacing-xs);
+}
