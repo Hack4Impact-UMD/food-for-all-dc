@@ -353,6 +353,44 @@ const Profile = () => {
     fetchWard();
   }, [clientProfile.address]); // Runs whenever the address field changes
 
+  // Fetch case workers from Firestore
+  useEffect(() => {
+    const fetchCaseWorkers = async () => {
+      try {
+        const caseWorkersCollectionRef = collection(db, "CaseWorkers");
+        const querySnapshot = await getDocs(caseWorkersCollectionRef);
+        const caseWorkersData: CaseWorker[] = [];
+        
+        querySnapshot.forEach((doc) => {
+          const data = doc.data();
+          caseWorkersData.push({
+            id: doc.id,
+            name: data.name || "",
+            organization: data.organization || "",
+            phone: data.phone || "",
+            email: data.email || ""
+          });
+        });
+        
+        setCaseWorkers(caseWorkersData);
+        
+        // If the client profile has a referral entity, find and set the matching case worker
+        if (clientProfile.referralEntity?.id) {
+          const matchingCaseWorker = caseWorkersData.find(
+            (cw) => cw.id === clientProfile.referralEntity?.id
+          );
+          if (matchingCaseWorker) {
+            setSelectedCaseWorker(matchingCaseWorker);
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching case workers:", error);
+      }
+    };
+
+    fetchCaseWorkers();
+  }, [clientProfile.referralEntity?.id, profileLoaded]); // Run when profile is loaded or referral entity changes
+
   // Type definitions have been moved to the top of the file
 
   type ClientProfile = {
@@ -599,18 +637,18 @@ const Profile = () => {
   const validateProfile = () => {
     const newErrors: { [key: string]: string } = {};
 
+    // Validate required fields
     if (!clientProfile.firstName?.trim()) {
-      newErrors.firstName = "First Name is required";
-      console.log("Debug: firstName invalid:", clientProfile.firstName);
+      newErrors.firstName = "First name is required";
+      console.log("Debug: firstName is empty");
     }
     if (!clientProfile.lastName?.trim()) {
-      newErrors.lastName = "Last Name is required";
-      console.log("Debug: lastName invalid:", clientProfile.lastName);
+      newErrors.lastName = "Last name is required";
+      console.log("Debug: lastName is empty");
     }
     if (!clientProfile.address?.trim()) {
       newErrors.address = "Address is required";
-      if (!clientProfile.email?.trim()) newErrors.email = "Email is required";
-      console.log("Debug: address invalid:", clientProfile.address);
+      console.log("Debug: address is empty");
     }
     if (!clientProfile.zipCode) {
       newErrors.zipCode = "Zip code is required";
@@ -628,18 +666,17 @@ const Profile = () => {
       newErrors.dob = "Date of Birth is required";
       console.log("Debug: dob invalid:", clientProfile.dob);
     }
-    // Adding optional chaining here to prevent errors if undefined
-    if (!clientProfile.recurrence?.trim()) {
-      newErrors.recccurence = "Recurrence is required";
-      console.log("Debug: recurrence invalid:", clientProfile.recurrence);
-    }
     if (!clientProfile.startDate?.trim()) {
-      newErrors.startDate = "Start Date is required";
-      console.log("Debug: startDate invalid:", clientProfile.startDate);
+      newErrors.startDate = "Start date is required";
+      console.log("Debug: startDate is empty");
     }
     if (!clientProfile.endDate?.trim()) {
-      newErrors.endDate = "End Date is required";
-      console.log("Debug: endDate invalid:", clientProfile.endDate);
+      newErrors.endDate = "End date is required";
+      console.log("Debug: endDate is empty");
+    }
+    if (!clientProfile.recurrence?.trim()) {
+      newErrors.recurrence = "Recurrence is required";
+      console.log("Debug: recurrence is empty");
     }
     if (!clientProfile.phone?.trim()) {
       newErrors.phone = "Phone is required";
@@ -657,6 +694,8 @@ const Profile = () => {
       newErrors.language = "Language is required";
       console.log("Debug: language invalid:", clientProfile.language);
     }
+
+    // Validate that the total number of household members is not zero
     if (clientProfile.adults === 0 && clientProfile.seniors === 0) {
       newErrors.total = "At least one adult or senior is required";
       console.log(
@@ -672,6 +711,14 @@ const Profile = () => {
     if (clientProfile.alternativePhone && !/^\d{10}$/.test(clientProfile.alternativePhone)) {
       newErrors.alternativePhone = "Alternative Phone number must be exactly 10 digits";
       console.log("Debug: alternativePhone format invalid:", clientProfile.alternativePhone);
+    }
+    
+    // Validate referral entity if it exists
+    if (clientProfile.referralEntity) {
+      if (!clientProfile.referralEntity.id || !clientProfile.referralEntity.name || !clientProfile.referralEntity.organization) {
+        console.log("Debug: Incomplete referral entity data", clientProfile.referralEntity);
+        // Don't block saving, but log it for debugging
+      }
     }
 
     setErrors(newErrors);
@@ -730,7 +777,12 @@ const Profile = () => {
         updatedAt: new Date(),
         total: clientProfile.adults + clientProfile.children + clientProfile.seniors,
         ward: await getWard(clientProfile.address),
+        // Explicitly include referral entity to ensure it's saved
+        referralEntity: clientProfile.referralEntity,
       };
+
+      // Log the profile to debug referral entity
+      console.log("Saving profile with referral entity:", updatedProfile.referralEntity);
 
       const sortedAllTags = [...allTags].sort((a, b) => a.localeCompare(b));
 
