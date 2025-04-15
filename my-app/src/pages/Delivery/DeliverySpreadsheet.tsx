@@ -888,10 +888,10 @@ const DeliverySpreadsheet: React.FC = () => {
               if (field.key === "tags" && field.compute) {
                 const untrimmedStrings: string[] = fieldValue.split(",");
                 const trimmedStrings = untrimmedStrings.map((str) => str.trim());
-                return fieldValue != null && trimmedStrings.includes(strippedQuery.toLowerCase());
+                return fieldValue !== null && trimmedStrings.includes(strippedQuery.toLowerCase());
               }
               return (
-                fieldValue != null &&
+                fieldValue !== null &&
                 fieldValue.toString().toLowerCase() === strippedQuery.toLowerCase()
               );
             });
@@ -903,7 +903,8 @@ const DeliverySpreadsheet: React.FC = () => {
               if (col.propertyKey !== "none") {
                 const fieldValue = row[col.propertyKey as keyof RowData];
                 return (
-                  fieldValue != null &&
+                  fieldValue !== null &&
+                  fieldValue !== undefined &&
                   fieldValue.toString().toLowerCase() === strippedQuery.toLowerCase()
                 );
               }
@@ -951,7 +952,8 @@ const DeliverySpreadsheet: React.FC = () => {
                   const fieldValue = row[col.propertyKey as keyof RowData];
 
                   return (
-                    fieldValue != null &&
+                    fieldValue !== null &&
+                    fieldValue !== undefined &&
                     fieldValue.toString().toLowerCase().includes(strippedQuery.toLowerCase())
                   );
                 }
