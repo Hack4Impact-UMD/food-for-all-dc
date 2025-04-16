@@ -218,8 +218,8 @@ const CalendarPage: React.FC = () => {
       const calendarEvents: CalendarEvent[] = fetchedEvents.map((event) => ({
         id: event.id,
         text: `Client: ${event.clientName} (Driver: ${event.assignedDriverName})`,
-        start: new DayPilot.Date(event.deliveryDate, true),
-        end: new DayPilot.Date(event.deliveryDate, true),
+        start: new DayPilot.Date(event.deliveryDate),
+        end: new DayPilot.Date(event.deliveryDate),
         backColor: "#257E68",
       }));
 

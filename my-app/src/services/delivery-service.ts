@@ -66,21 +66,18 @@ class DeliveryService {
       const q = query(
         collection(this.db, this.eventsCollection),
         where("deliveryDate", ">=", startDate),
-        where("deliveryDate", "<=", endDate)
+        where("deliveryDate", "<", endDate)
       );
       
       const querySnapshot = await getDocs(q);
       return querySnapshot.docs.map((doc) => {
         const data = doc.data();
-        const deliveryDateUTC = data.deliveryDate.toDate(); // Get UTC date
-        const deliveryDateLocal = new Date(
-          deliveryDateUTC.getTime() + deliveryDateUTC.getTimezoneOffset() * 60000
-        ); // Convert to local time
+        const deliveryDate = data.deliveryDate.toDate(); // Use JS Date directly
 
         return {
           id: doc.id,
           ...data,
-          deliveryDate: deliveryDateLocal, // Use the normalized local date
+          deliveryDate, // Use the JS Date
         } as DeliveryEvent;
       });
     } catch (error) {
