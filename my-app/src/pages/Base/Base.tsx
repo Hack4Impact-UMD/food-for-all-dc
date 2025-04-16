@@ -332,6 +332,7 @@ export default function BasePage({ children }: { children: React.ReactNode }) {
               }}
               onClick={() => {
                 setTab(text);
+                setOpen(false);
                 navigate(link);
               }}
             >

@@ -38,7 +38,7 @@ export default function Tab({ text, icon, link, tab, setTab, setOpen }: TabProp)
       }}
       onClick={() => {
         setTab(text);
-        setOpen(isMobile ? false : true);
+        setOpen(false);
         navigate(link);
       }}
     >
