@@ -822,7 +822,7 @@ const Spreadsheet: React.FC = () => {
                             },
                           }}
                         >
-                          <MenuItem value="none">None</MenuItem>
+                        <MenuItem value="none">None</MenuItem>
                         <MenuItem value="address2">Address 2</MenuItem>
                         <MenuItem value="adults">Adults</MenuItem>
                         <MenuItem value="alternativePhone">Alternative Phone</MenuItem>

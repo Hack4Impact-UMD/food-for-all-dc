@@ -382,14 +382,37 @@ const DeliveryTable: React.FC<{
                       displayEmpty
                       sx={{ minWidth: 120, color: "#257e68" }}
                     >
-                      <MenuItem value="ethnicity">Ethnicity</MenuItem>
-                      <MenuItem value="language">Language</MenuItem>
-                      <MenuItem value="dob">DOB</MenuItem>
-                      <MenuItem value="gender">Gender</MenuItem>
-                      <MenuItem value="zipCode">Zip Code</MenuItem>
-                      <MenuItem value="streetName">Street Name</MenuItem>
-                      <MenuItem value="ward">Ward</MenuItem>
                       <MenuItem value="none">None</MenuItem>
+                      <MenuItem value="address2">Address 2</MenuItem>
+                      <MenuItem value="adults">Adults</MenuItem>
+                      <MenuItem value="alternativePhone">Alternative Phone</MenuItem>
+                      <MenuItem value="children">Children</MenuItem>
+                      <MenuItem value="city">City</MenuItem>
+                      <MenuItem value="createdAt">Created At</MenuItem>
+                      <MenuItem value="dob">DOB</MenuItem>
+                      <MenuItem value="deliveryFreq">Delivery Freq</MenuItem>
+                      <MenuItem value="endDate">End Date</MenuItem>
+                      <MenuItem value="ethnicity">Ethnicity</MenuItem>
+                      <MenuItem value="gender">Gender</MenuItem>
+                      <MenuItem value="headOfHousehold">Head Of Household</MenuItem>
+                      <MenuItem value="language">Language</MenuItem>
+                      <MenuItem value="lifeChallenges">Life Challenges</MenuItem>
+                      <MenuItem value="lifestyleGoals">Lifestyle Goals</MenuItem>
+                      <MenuItem value="notes">Notes</MenuItem>
+                      <MenuItem value="quadrant">Quadrant</MenuItem>
+                      <MenuItem value="recurrence">Recurrence</MenuItem>
+                      <MenuItem value="referralEntity">Referral Entity</MenuItem>
+                      <MenuItem value="seniors">Seniors</MenuItem>
+                      <MenuItem value="startDate">Start Date</MenuItem>
+                      <MenuItem value="state">State</MenuItem>
+                      <MenuItem value="streetName">Street Name</MenuItem>
+                      <MenuItem value="tefapCert">TEFAP Cert</MenuItem>
+                      <MenuItem value="tags">Tags</MenuItem>
+                      <MenuItem value="total">Total</MenuItem>
+                      <MenuItem value="uid">Uid</MenuItem>
+                      <MenuItem value="updatedAt">Updated At</MenuItem>
+                      <MenuItem value="ward">Ward</MenuItem>
+                      <MenuItem value="zipCode">Zip Code</MenuItem>
                     </Select>
                     {/*Add Remove Button*/}
                     <IconButton
