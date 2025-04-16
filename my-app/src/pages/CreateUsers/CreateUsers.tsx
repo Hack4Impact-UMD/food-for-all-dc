@@ -150,25 +150,6 @@ const CreateUsers: React.FC = () => {
       await auth.updateCurrentUser(currentUser);
       const userId = userCredential.user.uid;
 
-      // switch (newUserType) {
-      //   case UserType.Admin:
-      //     await createAdminUser(userId, registrationEmail, newUserName);
-      //     break;
-      //   case UserType.Manager:
-      //     await createManagerUser(userId, registrationEmail, newUserName);
-      //     break;
-      //   case UserType.ClientIntake:
-      //     await createClientIntakeUser(userId, registrationEmail, newUserName);
-      //     if (departmentId) {
-      //       const deptRef = doc(db, "departmentIds", departmentId);
-      //       const deptDoc = await getDoc(deptRef);
-      //       if (!deptDoc.exists()) {
-      //         await setDoc(deptRef, { departmentId });
-      //       }
-      //     }
-      //     break;
-      // }
-
       const newUser = {
         name: newUserName,
         email: registrationEmail,
