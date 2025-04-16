@@ -7,12 +7,16 @@ export interface Volunteer {
 }
 
 export interface Delivery {
-  id: string; //delivery id
-  day: Date;
-  clientID: string;
-  driver: Volunteer;
-  status: "Delivered" | "Not Delivered";
-  notes?: string; // Optional
+  id: string;
+  assignedDriverId: string;
+  assignedDriverName: string;
+  clientId: string;
+  clientName: string;
+  deliveryDate: Date; // The date of the delivery
+  time: string; // The time of the delivery;
+  cluster: number;
+  recurrence: "None" | "Weekly" | "2x-Monthly" | "Monthly"; // Updated recurrence options
+  repeatsEndDate?: string; // Optional, end date for recurrence
 }
 
 export interface Route {
