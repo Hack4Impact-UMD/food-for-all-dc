@@ -407,11 +407,9 @@ const DeliveryTable: React.FC<{
                       <MenuItem value="state">State</MenuItem>
                       <MenuItem value="streetName">Street Name</MenuItem>
                       <MenuItem value="tefapCert">TEFAP Cert</MenuItem>
-                      <MenuItem value="tags">Tags</MenuItem>
                       <MenuItem value="total">Total</MenuItem>
                       <MenuItem value="uid">Uid</MenuItem>
                       <MenuItem value="updatedAt">Updated At</MenuItem>
-                      <MenuItem value="ward">Ward</MenuItem>
                       <MenuItem value="zipCode">Zip Code</MenuItem>
                     </Select>
                     {/*Add Remove Button*/}
