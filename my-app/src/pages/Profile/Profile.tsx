@@ -1979,8 +1979,13 @@ const initializeAutocomplete = () => {
             marginTop: isEditing ? "0" : 2,
             marginBottom: 3, // Added margin below this section (adjust value as needed)
           }}>
-            <Typography className="field-descriptor" sx={{ ...fieldLabelStyles, marginBottom: isEditing ? 3 : 2, marginTop: 3 }}>
+            <Typography className="field-descriptor" sx={{ ...fieldLabelStyles, marginBottom: isEditing ? 1 : 2, marginTop: 3 }}>
               DIETARY RESTRICTIONS
+            </Typography>
+            <Typography className="field-descriptor" sx={{ ...fieldLabelStyles, marginBottom: 2, marginLeft: .5 }}>
+              {isEditing
+                ? "Check all that apply:"
+                : ""}
             </Typography>
             {isEditing ? (
               renderField(
