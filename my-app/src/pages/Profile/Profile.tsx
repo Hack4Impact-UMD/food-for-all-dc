@@ -102,21 +102,21 @@ const CustomSelect = styled(Select)({
 
 // Type definitions
 type DietaryRestrictions = {
-  lactoseIntolerant: boolean;
-  diabetesFriendly: boolean;
-  foodAllergens: boolean;
-  glutenFree: boolean;
-  halal: boolean;
-  heartFriendly: boolean;
-  kidneyFriendly: boolean;
-  noRestriction: boolean;
-  microwaveOnly: boolean;
-  noCans: boolean;
-  noCookingEquipment: boolean;
-  softFood: boolean;
-  vegan: boolean;
-  vegetarian: boolean;
-  other: boolean;
+  lactoseIntolerant: boolean,
+  microwaveOnly: boolean,
+  diabetesFriendly: boolean,
+  noCans: boolean,
+  foodAllergens: boolean,
+  noCookingEquipment: boolean,
+  glutenFree: boolean,
+  softFood: boolean,
+  halal: boolean,
+  vegan: boolean,
+  heartFriendly: boolean,
+  vegetarian: boolean,
+  kidneyFriendly: boolean,
+  other: boolean,
+  noRestriction: boolean,    
 };
 
 type DeliveryDetails = {
@@ -214,22 +214,23 @@ const Profile = () => {
     ethnicity: "",
     deliveryDetails: {
       deliveryInstructions: "",
+      // The order is a little bit screwed up since it maps by row and not by column
       dietaryRestrictions: {
         lactoseIntolerant: false,
-        diabetesFriendly: false,
-        foodAllergens: false,
-        glutenFree: false,
-        halal: false,
-        heartFriendly: false,
-        kidneyFriendly: false,
-        noRestriction: false,
         microwaveOnly: false,
+        diabetesFriendly: false,
         noCans: false,
+        foodAllergens: false,
         noCookingEquipment: false,
+        glutenFree: false,
         softFood: false,
+        halal: false,
         vegan: false,
+        heartFriendly: false,
         vegetarian: false,
+        kidneyFriendly: false,
         other: false,
+        noRestriction: false,    
       },
     },
     lifeChallenges: "",
@@ -1135,32 +1136,44 @@ const Profile = () => {
 
   const renderDietaryRestrictions = () => {
     const restrictions = clientProfile.deliveryDetails.dietaryRestrictions;
-
+  
     if (isEditing) {
       return (
-        <Grid2 container spacing={1}>
+        // This Box will be the 2-column grid for the checkboxes
+        <Box
+          sx={{
+            display: "grid",
+            gridTemplateColumns: "repeat(2, 1fr)", // Define 2 equal-width columns
+            gap: 3, // Add spacing between checkboxes (adjust as needed)
+            width: '100%', // Ensure this grid takes the full width given by its parent
+          }}
+        >
           {Object.entries(restrictions)
             .filter(([key, value]) => typeof value === "boolean")
             .map(([key, value]) => (
-              <Grid2 key={key}>
-                <FormControlLabel
-                  sx={{ textAlign: "left" }}
-                  control={
-                    <Checkbox
-                      name={key}
-                      checked={value as boolean}
-                      onChange={handleDietaryRestrictionChange}
-                      icon = {<BpIcon />}
-                      checkedIcon = {<BpCheckedIcon />}
-                    />
-                  }
-                  label={capitalizeFirstLetter(
-                    key.replace(/([A-Z])/g, " $1").trim()
-                  )}
-                />
-              </Grid2>
+              // Each FormControlLabel is now a direct grid item
+              <FormControlLabel
+                key={key}
+                sx={{
+                  textAlign: "left",
+                  margin: 0, // Remove default margins if necessary for alignment
+                }}
+                control={
+                  <Checkbox
+                    name={key}
+                    checked={value as boolean}
+                    onChange={handleDietaryRestrictionChange}
+                    icon={<BpIcon />}
+                    checkedIcon={<BpCheckedIcon />}
+                    sx={{ padding: '4px', marginRight: 1 }} // Adjust padding if needed
+                  />
+                }
+                label={capitalizeFirstLetter(
+                  key.replace(/([A-Z])/g, " $1").trim()
+                )}
+              />
             ))}
-        </Grid2>
+        </Box>
       );
     }
 
@@ -1899,7 +1912,7 @@ const initializeAutocomplete = () => {
               <Typography className="field-descriptor" sx={fieldLabelStyles}>
                 LAST DELIVERY DATE
               </Typography>
-              <Typography variant="body1" sx={{ fontWeight: 600, marginTop: "10px" }}>
+              <Typography variant="body1" sx={{ fontWeight: 600, marginTop: 1 }}>
                 {lastDeliveryDate || "Loading..."}
               </Typography>
             </Box>
@@ -1948,22 +1961,14 @@ const initializeAutocomplete = () => {
           </Box>
 
           
-          <Box
-            sx={{
-              display: "grid",
-              gap: isEditing ? 3 : 5, // Spacing between grid items
-              gridTemplateColumns: {
-                xs: "1fr", // Full width for small screens
-                sm: "repeat(2, 1fr)", // Three columns for medium screens and up
-                md: "repeat(3, 1fr)",
-              },
-              alignItems: "center",
-            }}
-            className="info-grid"
-          >
-            {/* Dietary Restrictions, truncate is when not editing, put it on its own row */}
-          <Box sx={{ gridColumn: isEditing ? "-1/1" : "" }}>
-            <Typography className="field-descriptor" sx={fieldLabelStyles}>
+          
+              {/* Dietary Restrictions, truncate is when not editing, put it on its own row */}
+          <Box sx={{
+            width: isEditing ? "60%" : "100%",
+            marginTop: isEditing ? "0" : 2,
+            marginBottom: 3, // Added margin below this section (adjust value as needed)
+          }}>
+            <Typography className="field-descriptor" sx={{ ...fieldLabelStyles, marginBottom: isEditing ? 3 : 2, marginTop: 3 }}>
               DIETARY RESTRICTIONS
             </Typography>
             {isEditing ? (
@@ -1972,7 +1977,8 @@ const initializeAutocomplete = () => {
                   "dietaryRestrictions"
                 )
             ) : (
-              <Typography variant="body1" sx={{ fontWeight: 600 }}>
+              <Typography variant="body1" sx={{ fontWeight: 600, textAlign: 'left' }}>
+                {/* ... code to display selected restrictions ... */}
                 {Object.entries(clientProfile.deliveryDetails.dietaryRestrictions)
                   .filter(
                       ([key, value]) => value === true && typeof value === "boolean"
@@ -1992,7 +1998,8 @@ const initializeAutocomplete = () => {
               </Typography>
             )}
           </Box>
-          </Box>
+            
+            
           <Box
             className="box-header"
             display="flex"
@@ -2038,7 +2045,7 @@ const initializeAutocomplete = () => {
             {/* Life Challenges */}
             <Box>
               <Typography className="field-descriptor" sx={fieldLabelStyles}>
-                LIFE CHALLENGES
+                LIFESTYLE CHALLENGES
               </Typography>
               {renderField("lifeChallenges", "textarea")}
             </Box>
