@@ -214,7 +214,6 @@ const Profile = () => {
     ethnicity: "",
     deliveryDetails: {
       deliveryInstructions: "",
-      // The order is a little bit screwed up since it maps by row and not by column
       dietaryRestrictions: {
         lactoseIntolerant: false,
         microwaveOnly: false,
@@ -1134,12 +1133,18 @@ const Profile = () => {
     },
   });
 
+  //this is the order the checkboxes apepar on the screen
+  const dietaryRestrictionOrder: (keyof DietaryRestrictions)[] = [
+    'lactoseIntolerant', 'microwaveOnly', 'diabetesFriendly', 'noCans', 'foodAllergens', 'noCookingEquipment', 
+    'glutenFree', 'softFood', 'halal', 'vegan', 'heartFriendly', 'vegetarian', 'kidneyFriendly', 
+    'other', 'noRestriction'
+  ];
+
   const renderDietaryRestrictions = () => {
     const restrictions = clientProfile.deliveryDetails.dietaryRestrictions;
   
     if (isEditing) {
       return (
-        // This Box will be the 2-column grid for the checkboxes
         <Box
           sx={{
             display: "grid",
@@ -1148,31 +1153,37 @@ const Profile = () => {
             width: '100%', // Ensure this grid takes the full width given by its parent
           }}
         >
-          {Object.entries(restrictions)
-            .filter(([key, value]) => typeof value === "boolean")
-            .map(([key, value]) => (
-              // Each FormControlLabel is now a direct grid item
-              <FormControlLabel
-                key={key}
-                sx={{
-                  textAlign: "left",
-                  margin: 0, // Remove default margins if necessary for alignment
-                }}
-                control={
-                  <Checkbox
-                    name={key}
-                    checked={value as boolean}
-                    onChange={handleDietaryRestrictionChange}
-                    icon={<BpIcon />}
-                    checkedIcon={<BpCheckedIcon />}
-                    sx={{ padding: '4px', marginRight: 1 }} // Adjust padding if needed
-                  />
-                }
-                label={capitalizeFirstLetter(
-                  key.replace(/([A-Z])/g, " $1").trim()
-                )}
-              />
-            ))}
+          {/* Map over the explicitly ordered keys */}
+          {dietaryRestrictionOrder
+            .map((key) => {
+              // Get the value for the current key from the restrictions object
+              const value = restrictions[key];
+              // Ensure we only process boolean values if needed (though all should be boolean here)
+              if (typeof value !== 'boolean') return null;
+  
+              return (
+                <FormControlLabel
+                  key={key} // Use the key from the ordered array
+                  sx={{
+                    textAlign: "left",
+                    margin: 0, // Remove default margins if necessary for alignment
+                  }}
+                  control={
+                    <Checkbox
+                      name={key} // Use the key as the name
+                      checked={value} // Use the retrieved value
+                      onChange={handleDietaryRestrictionChange}
+                      icon={<BpIcon />}
+                      checkedIcon={<BpCheckedIcon />}
+                      sx={{ padding: '4px', marginRight: 1 }} // Adjust padding if needed
+                    />
+                  }
+                  label={capitalizeFirstLetter(
+                    key.replace(/([A-Z])/g, " $1").trim() // Format the key for the label
+                  )}
+                />
+              );
+            })}
         </Box>
       );
     }
