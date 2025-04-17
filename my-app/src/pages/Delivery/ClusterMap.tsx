@@ -2,6 +2,8 @@ import React, { useEffect } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
+
+
 interface ClusterMapProps {
   addresses: string[];       
   coordinates: Array<[number, number] | { lat: number; lng: number }>; 
@@ -39,6 +41,14 @@ const normalizeCoordinate = (coord: any): { lat: number; lng: number } => {
 };
 
 const ClusterMap: React.FC<ClusterMapProps> = ({ addresses, coordinates, clusters, clientNames }) => {
+  // console.log("addresses: ")
+  // console.log(addresses)
+  // console.log("coordinates: ")
+  // console.log(coordinates)
+  console.log("clusters: ")
+  console.log(clusters)
+  // console.log("names: ")
+  // console.log(clientNames)
   useEffect(() => {
     // dont render map if no valid coordinates
     if (coordinates.length === 0 || addresses.length === 0 || clientNames.length === 0) {
@@ -111,7 +121,8 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ addresses, coordinates, cluster
           Object.entries(clusters).forEach(([id, indices]) => {
             if (indices.includes(index)) {
               clusterId = id;
-              const clusterNumber = parseInt(id.split('-')[1]) || 0;
+              const clusterNumber = parseInt(id) || 0;
+              console.log(clusterId)
               colorIndex = clusterNumber % clusterColors.length;
             }
           });
@@ -128,7 +139,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ addresses, coordinates, cluster
         .bindPopup(`
           <div style="font-family: Arial, sans-serif; line-height: 1.4;">
             <div style="font-weight: bold; margin-bottom: 5px;">${clientName}</div>
-            ${clusterId ? `<div><span style="font-weight: bold;">Cluster:</span> ${clusterId.replace('cluster-', '')}</div>` : ''}
+            ${clusterId ? `<div><span style="font-weight: bold;">Cluster:</span> ${clusterId == "undefined" ? "No cluster assigned": clusterId}</div>` : ''}
             <div><span style="font-weight: bold;">Address:</span> ${address}</div>
           </div>
         `)

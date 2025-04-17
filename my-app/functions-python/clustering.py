@@ -14,11 +14,10 @@ import logging
 import os
 import numpy as np
 import folium
+from google.cloud import secretmanager
 
 load_dotenv()  # TODO: Remove once done with dev
 # TODO: Make sure to add the api key in the environment vars in the firebase console
-
-
 
    
 class KMeansClusterDeliveriesRequest(BaseModel):
@@ -59,17 +58,19 @@ class GeocodeRequest(BaseModel):
 class GeocodeResponse(BaseModel):
     coordinates: List[Tuple[float, float]]
 
-
 #Convert a list of addresses to (lat, lon) using Google Maps Geocoding API.
 def geocode_addresses(addresses: List[str]) -> List[Tuple[float, float]]:
-    logging.info("Function execution started") 
+    client = secretmanager.SecretManagerServiceClient()
+    project_id = "251910218620"       # From your resource name
+    secret_id = "MAPS_API_KEY"        # Your Secret ID
+    version = "latest"                # Or a specific version number like "1"
     try:
-        #  clusteringApiKey = os.environ.get("clustering-api-key")  
-         maps_api_key = os.environ.get("maps_api_key") 
-        #  googleMapsApiKey = os.environ.get("google_maps_api_key")
-
-         gmaps = googlemaps.Client(key=maps_api_key)
+        secret_name = f"projects/{project_id}/secrets/{secret_id}/versions/{version}"
+        response = client.access_secret_version(request={"name": secret_name})
+        api_key = response.payload.data.decode("UTF-8")
+        gmaps = googlemaps.Client(key=api_key)
     except Exception as e:
+        print(e)
         return [str(e)]
 
     logging.info("got gmaps") 
@@ -197,7 +198,7 @@ def cluster_deliveries_k_medoids(req: https_fn.Request) -> https_fn.Response:
 
     clusters = defaultdict(list)
     for index, label in enumerate(labels):
-        clusters[f"cluster-{label+1}"].append(index)
+        clusters[f"{label+1}"].append(index)
 
     # TODO: Alter groups if we want to handle that in server side
     data = ClusterDeliveriesResponse(clusters=clusters)
@@ -300,7 +301,7 @@ def cluster_deliveries_k_means(req: https_fn.Request) -> https_fn.Response:
 
     clusters = defaultdict(list)
     for index, label in enumerate(labels):
-        clusters[f"cluster-{label+1}"].append(index)
+        clusters[f"{label+1}"].append(index)
 
     clusters["doordash"] = []
     for key in list(clusters.keys()):
@@ -447,7 +448,7 @@ def add_delivery_to_existing_clusters(new_coord, clusters, coords):
         clusters[nearest_cluster].append(new_index)
     else:
         # If no valid cluster is found, create a new cluster
-        new_cluster_name = f"cluster-{len(clusters) + 1}"
+        new_cluster_name = f"{len(clusters) + 1}"
         clusters[new_cluster_name] = [new_index]
 
     return clusters
