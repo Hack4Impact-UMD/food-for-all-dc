@@ -8,7 +8,8 @@ interface ClusterMapProps {
   addresses: string[];       
   coordinates: Array<[number, number] | { lat: number; lng: number }>; 
   clusters: { [key: string]: number[] }; 
-  clientNames: string[];    
+  clientNames: string[];
+  wards: string[]; 
 }
 
 const isValidCoordinate = (coord: any): coord is [number, number] | { lat: number; lng: number } => {
@@ -40,7 +41,7 @@ const normalizeCoordinate = (coord: any): { lat: number; lng: number } => {
   return coord;
 };
 
-const ClusterMap: React.FC<ClusterMapProps> = ({ addresses, coordinates, clusters, clientNames }) => {
+const ClusterMap: React.FC<ClusterMapProps> = ({ addresses, coordinates, clusters, clientNames, wards }) => {
   // console.log("addresses: ")
   // console.log(addresses)
   // console.log("coordinates: ")
@@ -140,6 +141,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ addresses, coordinates, cluster
           <div style="font-family: Arial, sans-serif; line-height: 1.4;">
             <div style="font-weight: bold; margin-bottom: 5px;">${clientName}</div>
             ${clusterId ? `<div><span style="font-weight: bold;">Cluster:</span> ${clusterId == "undefined" ? "No cluster assigned": clusterId}</div>` : ''}
+            ${wards[index] ? `<div><span style="font-weight: bold;">Ward:</span> ${wards[index]}</div>` : ''}
             <div><span style="font-weight: bold;">Address:</span> ${address}</div>
           </div>
         `)

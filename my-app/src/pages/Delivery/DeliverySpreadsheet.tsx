@@ -271,12 +271,7 @@ const DeliverySpreadsheet: React.FC = () => {
   const [maxDeliveries, setMaxDeliveries] = useState(5);
   const [minDeliveries, setMinDeliveries] = useState(1);
   const [clusterError, setClusterError] = useState("");
-  const [editCluster, setEditCluster] = useState(false)
 
-  const [menuAnchorEl, setMenuAnchorEl] = useState<null | HTMLElement>(null);
-  const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
-
-  const [newCluster, setNewCluster] = useState<string>("");
   const [clusterDoc, setClusterDoc] = useState<ClusterDoc | null>()
 
   const navigate = useNavigate();
@@ -308,7 +303,7 @@ const DeliverySpreadsheet: React.FC = () => {
       } catch (error) {
         console.error("Error fetching drivers:", error);
       }
-    };  
+    };
     fetchDrivers();
   }, []);
 
@@ -415,6 +410,7 @@ useEffect(() => {
             });
             
             setGeneratedClusters(clusterMap);
+            setIsLoading(false);
           }
         } else {
           setCoordinates([]);
@@ -422,19 +418,18 @@ useEffect(() => {
         }
       } catch (error) {
         console.error("Error:", error);
-      } finally {
-        setIsLoading(false);
-      }
+      } 
     };
     
     if (deliveriesForDate.length > 0) {
+      setIsLoading(true)
       fetchDataAndGeocode();
     } else {
       setCoordinates([]);
       setGeneratedClusters({});
       setIsLoading(false);
     }
-  }, [deliveriesForDate]);
+  }, [deliveriesForDate, clusters]);
 
   //get clusters
   useEffect(() => {
@@ -529,40 +524,37 @@ useEffect(() => {
     setTime(event.target.value);
   };
 
-  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, id: string) => {
-    setMenuAnchorEl(event.currentTarget);
-    setSelectedRowId(id);
-  };
-
-  // Handle closing the action menu
-  const handleMenuClose = () => {
-    setMenuAnchorEl(null);
-    setSelectedRowId(null);
-  };
-
   const handleClusterChange = async (row: any, newCluster: string) => {
     if (row && row.id && newCluster && newCluster != row.clusterId && Number(newCluster) <= clusters.length) {
-      let index = clusters.findIndex((cluster)=>{return cluster.id == row.clusterId})
-      let oldList = clusters[index].deliveries?.filter((id)=>id!=row.id)
-      clusters[Number(newCluster) -1].deliveries.push(row.id)
+      let index = clusters.findIndex((cluster) => { return cluster.id == row.clusterId });
+      let oldList = clusters[index].deliveries?.filter((id) => id != row.id);
+      clusters[Number(newCluster) - 1].deliveries.push(row.id);
       clusters[index] = {
         ...clusters[index],
         deliveries: oldList
-      }
-
-      setClusters([...clusters])
-
-
-      if(clusterDoc){
+      };
+  
+      setClusters([...clusters]);
+  
+      // Update generatedClusters to reflect the change
+      const updatedGeneratedClusters: { [key: string]: number[] } = {};
+      clusters.forEach((cluster) => {
+        updatedGeneratedClusters[cluster.id] = cluster.deliveries
+          .map(deliveryId => rows.findIndex(row => row.id === deliveryId))
+          .filter(index => index !== -1);
+      });
+      setGeneratedClusters(updatedGeneratedClusters);
+  
+      if (clusterDoc) {
         const clusterRef = doc(db, "clusters", clusterDoc.docId);
         const newClusterDoc = {
           ...clusterDoc,
           clusters: clusters
-        }
-        await setDoc(clusterRef, newClusterDoc); 
-      }   
+        };
+        await setDoc(clusterRef, newClusterDoc);
+      }
   
-      row.clusterId = newCluster
+      row.clusterId = newCluster;
     }
   };
 
@@ -577,7 +569,6 @@ useEffect(() => {
     setMinDeliveries(0);
     setMaxDeliveries(10);
     setClusterError("");
-    setNewCluster("")
   };
 
   //Handle assigning driver
@@ -615,13 +606,15 @@ useEffect(() => {
     try {
       let newClusters: Cluster[] = []
       Object.keys(clusterMap).forEach((clusterId)=>{
-        let newDeliveries = clusterMap[clusterId].map((index: string)=>{return visibleRows[Number(index)].id});
-        newClusters.push({
-          deliveries: newDeliveries,
-          driver: "",
-          time: "",
-          id: clusterId
-        })
+        if(clusterId != "doordash"){
+          let newDeliveries = clusterMap[clusterId].map((index: string)=>{return visibleRows[Number(index)].id});
+          newClusters.push({
+            deliveries: newDeliveries,
+            driver: "",
+            time: "",
+            id: clusterId
+          })
+        }
       })
       return newClusters
     } catch (error) {
@@ -724,6 +717,8 @@ useEffect(() => {
               `Recommended maximum for ${addresses.length} deliveries: ${maxRecommendedClusters}`
             );
           }
+          setPopupMode("")
+          setIsLoading(true)
         const response = await fetch(testing ? "": 'https://geocode-addresses-endpoint-lzrplp4tfa-uc.a.run.app', {
           // const response = await fetch('', {
           method: 'POST',
@@ -798,6 +793,8 @@ useEffect(() => {
         resetSelections();
       } catch (error: any) {
         setClusterError(error.toString());
+      } finally{
+        setIsLoading(false)
       }
     };
 
@@ -853,20 +850,18 @@ useEffect(() => {
         if (field.key === "checkbox") return false;
 
         if (field.key === "clusterId") {
-          // Get driver name from cluster
-          // if (!row.clusterId) return false;
-          // console.log(clusters)
-          // const cluster = clusters?.find(c => c.id.toString() === row.clusterId);
-          // if (!cluster || !cluster.driver) return false;
+          if (!row.clusterId) return false;
+          console.log(clusters)
+          const cluster = clusters?.find(c => c.id.toString() === row.clusterId);
+          if (!cluster || !cluster.driver) return false;
           
-          // const driverId = typeof cluster.driver === 'object' ? cluster.driver.id : null;
-          // if (!driverId) return false;
+          const driverId = typeof cluster.driver === 'object' ? cluster.driver.id : null;
+          if (!driverId) return false;
           
-          // const driver = drivers.find(d => d.id === driverId);
-          // const driverName = driver ? driver.name : "";
+          const driver = drivers.find(d => d.id === driverId);
+          const driverName = driver ? driver.name : "";
           
-          // return driverName.toLowerCase().includes(searchQuery.toLowerCase());
-          return "hi"
+          return driverName.toLowerCase().includes(searchQuery.toLowerCase());
         }
         
         if (field.key === "assignedDriver") {
@@ -1019,6 +1014,7 @@ useEffect(() => {
             coordinates={coordinates}
             clusters={generatedClusters}
             clientNames={clientsWithDeliveries.map(row => `${row.firstName} ${row.lastName}`)}
+            wards={clientsWithDeliveries.map(row => row.ward || "No ward")}
           />
         ) : (
           <Box sx={{
@@ -1195,7 +1191,26 @@ useEffect(() => {
                       ) : field.key === "tags" && field.compute ? (
                         field.compute(row)
                       ) : field.key === "clusterId" && field.compute ? (
-                        field.compute(row, clusters, drivers)
+                        field.compute(row, clusters, drivers) === "No cluster found" ? (
+                          <p>No cluster Assigned</p>
+                        ) : (
+                          <input 
+                            type="number"
+                            value={field.compute(row, clusters, drivers)}
+                            max={clusters.length}
+                            min={1}
+                            onChange={(e) => {
+                              //remove leading 0s
+                              const newCluster = Number(e.target.value).toString()
+                              if (newCluster !== field.compute(row, clusters, drivers) && 
+                                Number(newCluster) > 0 && 
+                                Number(newCluster) <= clusters.length) {
+                                console.log(newCluster);
+                                handleClusterChange(row, newCluster);
+                              }
+                            }}
+                          />
+                        )
                       ) : field.key === "assignedDriver" && field.compute ? (
                         field.compute(row, clusters, drivers)
                       ) : field.key === "assignedTime" && field.compute ? (
@@ -1205,21 +1220,8 @@ useEffect(() => {
                       ) : null}
                     </TableCell>
                   ))}
-                        <TableCell style={{ textAlign: "right" }}>
-                          <IconButton onClick={(e) => handleMenuOpen(e, row.id)}>
-                            <MoreVertIcon />
-                          </IconButton>
-                        
-                          <Menu
-                            anchorEl={menuAnchorEl}
-                            open={Boolean(menuAnchorEl) && selectedRowId === row.id}
-                            onClose={handleMenuClose}
-                          >
-                              <p>Change Cluster:</p>
-                              <input type="number" value = {newCluster} className="clusterSelector" min="1" onChange ={(e)=>{setNewCluster(e.target.value)}}></input>
-                              <Button onClick={() => {handleClusterChange(row, newCluster)}}>Change</Button>
-                        </Menu>
-                      </TableCell>
+                       {/* bruh i cant remove this empty cell or else the whole table breaks */}
+                      <TableCell style={{ textAlign: "right" }}></TableCell>
                 </TableRow>
               ))}
             </TableBody>
