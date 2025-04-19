@@ -1,9 +1,8 @@
 import React from "react";
-import { Box, Typography } from "@mui/material";
+import { Box, Typography, Select, MenuItem } from "@mui/material";
 import { ClientProfile } from '../../../types';
 import { ClientProfileKey, InputType } from '../types';
 import { CaseWorker } from "../../../types";
-import { MenuItem, Select, styled } from "@mui/material";
 
 interface BasicInfoFormProps {
   clientProfile: ClientProfile;
@@ -16,35 +15,6 @@ interface BasicInfoFormProps {
   setShowCaseWorkerModal: React.Dispatch<React.SetStateAction<boolean>>;
   handleCaseWorkerChange: (cw: CaseWorker | null) => void;
 }
-
-const fieldStyles = {
-  backgroundColor: "white",
-  width: "60%",
-  height: "1.813rem",
-  padding: "0.1rem 0.5rem",
-  borderRadius: "5px",
-  border: ".1rem solid black",
-  marginTop: "0px",
-};
-
-const CustomSelect = styled(Select)({
-  "& .MuiOutlinedInput-root": {
-    height: "1.813rem",
-    width: "100%",
-    "& .MuiOutlinedInput-notchedOutline": {
-      border: "none",
-    },
-  },
-  "& fieldset": {
-    border: "none",
-  },
-  "& .MuiSelect-select": {
-    ...fieldStyles,
-  },
-  "& .MuiSelect-icon": {
-    display: "none",
-  },
-});
 
 const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
   clientProfile,
@@ -61,7 +31,7 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
     <Box
       sx={{
         display: "grid",
-        gap: isEditing ? 3 : 5,
+        gap: isEditing ? 4 : 6,
         gridTemplateColumns: {
           xs: "1fr",
           sm: "repeat(2, 1fr)",
@@ -271,11 +241,7 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
       <Box>
         <Typography
           className="field-descriptor"
-          sx={{
-            ...fieldLabelStyles,
-            position: "relative",
-            top: isEditing ? "-10px" : "0",
-          }}
+          sx={fieldLabelStyles}
         >
           GENDER <span className="required-asterisk">*</span>
         </Typography>
@@ -374,10 +340,10 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
           REFERRAL ENTITY
         </Typography>
         {isEditing ? (
-          <CustomSelect
+          <Select
             name="referralEntity"
             value={selectedCaseWorker ? selectedCaseWorker.id : ""}
-            onChange={(e) => {
+            onChange={(e: any) => {
               const selectedId = e.target.value;
               if (selectedId === "edit_list") {
                 setShowCaseWorkerModal(true);
@@ -386,17 +352,30 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
                 handleCaseWorkerChange(selected || null);
               }
             }}
-            style={{ width: "83.5%" }}
+            displayEmpty
+            sx={{
+              backgroundColor: "white",
+              width: "100%",
+              height: "1.813rem",
+              padding: "0.1rem 0.5rem",
+              borderRadius: "5px",
+              border: ".1rem solid black",
+              marginTop: "0px",
+              '& .MuiSelect-select': {
+                padding: '0.1rem 0.5rem',
+                fontWeight: 500,
+              },
+            }}
           >
             <MenuItem value="edit_list" sx={{ color: "#257E68", fontWeight: "bold" }}>
-              Edit Case Worker List {">"}
+              Edit Case Worker List
             </MenuItem>
             {caseWorkers.map((caseWorker) => (
               <MenuItem key={caseWorker.id} value={caseWorker.id}>
                 {caseWorker.name}, {caseWorker.organization}
               </MenuItem>
             ))}
-          </CustomSelect>
+          </Select>
         ) : (
           <Typography variant="body1" sx={{ fontWeight: 600 }}>
             {selectedCaseWorker

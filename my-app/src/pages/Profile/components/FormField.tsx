@@ -38,7 +38,7 @@ interface FormFieldProps {
 
 const fieldStyles = {
   backgroundColor: "white",
-  width: "60%",
+  width: "100%",
   height: "1.813rem",
   padding: "0.1rem 0.5rem",
   borderRadius: "5px",
@@ -55,11 +55,10 @@ const CustomTextField = styled(TextField)({
   "& .MuiInputBase-input": fieldStyles,
 });
 
-const CustomSelect = styled(Select)({
+export const CustomSelect = styled(Select)({
   // Target the outlined border
   "& .MuiOutlinedInput-root": {
     height: "1.813rem",
-    width: "100%",
     "& .MuiOutlinedInput-notchedOutline": {
       border: "none", // removes the border
     },
