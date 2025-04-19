@@ -22,10 +22,19 @@ import {
   RadioGroup,
   FormLabel,
   Radio,
+  Chip,
+  Stack,
 } from "@mui/material";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
+import CloseIcon from '@mui/icons-material/Close';
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
+import { PickersActionBarProps } from '@mui/x-date-pickers/PickersActionBar';
 import { ChevronRight, Add, EditCalendar } from "@mui/icons-material";
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
+import { PickersDay } from '@mui/x-date-pickers';
+import { isSameDay } from 'date-fns';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { styled } from "@mui/material/styles";
 import {
   updateDoc, deleteDoc, doc,
@@ -48,6 +57,8 @@ import "./CalendarPage.css";
 import { auth } from "../../auth/firebaseConfig";
 import { onAuthStateChanged } from "firebase/auth";
 import CalendarPopper from "./CalendarPopper";
+
+import CalendarMultiSelect from "./CalendarMultiSelect";
 import { set } from "date-fns";
 import { getDefaultLimit } from "./CalendarUtils";
 import { useLimits } from "./useLimits";
@@ -160,7 +171,7 @@ interface DeliveryEvent {
   deliveryDate: Date; // The date of the delivery
   time: string; // The time of the delivery;
   cluster: number;
-  recurrence: "None" | "Weekly" | "2x-Monthly" | "Monthly"; // Updated recurrence options
+  recurrence: "None" | "Weekly" | "2x-Monthly" | "Monthly" | "Custom"; // Updated recurrence options
   repeatsEndDate?: string; // Optional, end date for recurrence
 }
 
@@ -170,7 +181,7 @@ interface NewDelivery {
   clientId: string;
   clientName: string;
   deliveryDate: string; // ISO string for the delivery date
-  recurrence: "None" | "Weekly" | "2x-Monthly" | "Monthly"; // Updated recurrence options
+  recurrence: "None" | "Weekly" | "2x-Monthly" | "Monthly" | "Custom"; // Updated recurrence options
   repeatsEndDate?: string; // Optional, end date for recurrence
 }
 
@@ -212,6 +223,31 @@ const CalendarPage: React.FC = () => {
     events: [],
   });
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
+  const [calendarAnchorEl, setCalendarAnchorEl] = useState<null | HTMLElement>(null);
+
+  const [selectedDates, setSelectedDates] = React.useState<Date[]>([]);
+  const [tempDate, setTempDate] = React.useState<Date | null>(null);
+
+  const handleAddCustomDate = (date: Date | null) => {
+    if (
+      date &&
+      !selectedDates.some(d => d.toDateString() === date.toDateString())
+    ) {
+      setSelectedDates(prev => [...prev, date]);
+    }
+    setTempDate(null);
+  };
+
+  const handleDeleteCustomDate = (dateToDelete: Date) => {
+    setSelectedDates(prev =>
+      prev.filter(d => d.toDateString() !== dateToDelete.toDateString())
+    );
+  };
+
+  const handleCloseCalendar = () => {
+    setCalendarOpen(false)
+  }
+
 
   const daysOfWeek = [
     "Sunday",
@@ -226,6 +262,8 @@ const CalendarPage: React.FC = () => {
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [dailyLimits, setDailyLimits] = useState<DateLimit[]>([]);
+
+  const [calendarOpen, setCalendarOpen] = useState<boolean>(false);
 
   const limits = useLimits()
 
@@ -333,6 +371,18 @@ const CalendarPage: React.FC = () => {
       repeatsEndDate: "", // No end date by default
     };
   });
+
+  const CustomCalendarActionBar = ({ onCancel, onAccept }: PickersActionBarProps) => {
+    return (
+      <DialogActions sx={{ justifyContent: 'flex-end', padding: '8px 16px' }}>
+        {onCancel && (
+          <Button onClick={onCancel} color="primary">
+            Close
+          </Button>
+        )}
+      </DialogActions>
+    );
+  };
 
 
 interface EventMenuProps {
@@ -1324,9 +1374,9 @@ const handleAddDelivery = async () => {
               <Button
                 variant="contained"
                 endIcon={<EditCalendar />}
-                onClick={(event: React.MouseEvent<HTMLElement>) =>
-                  setAnchorEl(anchorEl ? null : event.currentTarget)
-                }
+                onClick={(event: React.MouseEvent<HTMLElement>) => {
+                  setAnchorEl(anchorEl ? null : event.currentTarget);
+                }}
                 sx={{
                   marginRight: 4,
                   width: 166,
@@ -1337,6 +1387,7 @@ const handleAddDelivery = async () => {
                 Edit Limits
               </Button>
             )}
+            
             <CalendarPopper
               anchorEl={anchorEl}
               viewType={viewType}
@@ -1374,8 +1425,8 @@ const handleAddDelivery = async () => {
           clientId: clientProfile.uid,
           clientName: `${clientProfile.firstName} ${clientProfile.lastName}`,
           deliveryDate: clientProfile.startDate || new Date().toISOString().split("T")[0], // Autofill deliveryDate
-          recurrence: ["None", "Weekly", "2x-Monthly", "Monthly"].includes(clientProfile.recurrence)
-            ? (clientProfile.recurrence as "None" | "Weekly" | "2x-Monthly" | "Monthly")
+          recurrence: ["None", "Weekly", "2x-Monthly", "Monthly", 'Custom'].includes(clientProfile.recurrence)
+            ? (clientProfile.recurrence as "None" | "Weekly" | "2x-Monthly" | "Monthly" | "Custom")
             : "None", // Default to "None" if the value is invalid
           repeatsEndDate: clientProfile.endDate || "", // Autofill end date
         });
@@ -1403,17 +1454,93 @@ const handleAddDelivery = async () => {
 />
 
 {/* Delivery Date */}
-<TextField
-  label="Delivery Date"
-  type="date"
-  value={newDelivery.deliveryDate}
-  onChange={(e) =>
-    setNewDelivery({ ...newDelivery, deliveryDate: e.target.value })
-  }
-  fullWidth
-  margin="normal"
-  InputLabelProps={{ shrink: true }}
-/>
+<LocalizationProvider dateAdapter={AdapterDateFns}>
+  <Stack spacing={2}>
+    {newDelivery.recurrence === 'Custom' ? (
+      <>
+        <DatePicker
+          label="Add Delivery Date"
+          value={tempDate} // Bind value to tempDate
+          onChange={handleAddCustomDate} // Use your add date handler
+          renderInput={(params) => <TextField fullWidth {...params} />}
+          renderDay={(day, _selectedDates, DayComponentProps) => { // _selectedDates isn't needed here
+            const isSelected = selectedDates.some((selectedDate) =>
+              isSameDay(day, selectedDate)
+            );
+
+            return (
+              <PickersDay
+                {...DayComponentProps}
+                selected={isSelected}
+                // disableMargin // Sometimes needed for better layout
+                sx={{
+                  ...(isSelected && {
+                    bgcolor: 'primary.main',
+                    color: 'white',
+                    '&:hover': {
+                      bgcolor: 'primary.dark',
+                    },
+                    // Ensure styles apply correctly even when selected
+                    '&.Mui-selected': {
+                       backgroundColor: 'primary.main',
+                       color: 'white',
+                    }
+                  }),
+                }}
+              />
+            );
+          }}
+
+          open={calendarOpen}
+          onClose={handleCloseCalendar}
+          onOpen={() => setCalendarOpen(true)}
+          closeOnSelect={false} // Keep open after selecting a date if using OK/Cancel
+
+          // --- 2. Use the components prop ---
+          components={{
+            ActionBar: CustomCalendarActionBar,
+          }}
+        />
+
+        <TextField
+          label="Selected Delivery Dates"
+          value={selectedDates.map(d => d.toLocaleDateString()).join(', ')}
+          fullWidth
+          margin="normal"
+          InputLabelProps={{ shrink: true }}
+          InputProps={{ readOnly: true }}
+        />
+
+        <Box display="flex"
+          flexWrap="wrap"        // This property ensures that chips will wrap
+          gap={1}
+          maxWidth="100%"
+        >
+          {selectedDates.map((date, index) => (
+            <Chip
+              key={index}
+              label={date.toLocaleDateString()}
+              onDelete={() => handleDeleteCustomDate(date)}
+              color="primary"
+            />
+          ))}
+        </Box>
+      </>
+    ) : (
+      <TextField
+        label="Delivery Date"
+        type="date"
+        value={newDelivery.deliveryDate}
+        onChange={(e) =>
+          setNewDelivery({ ...newDelivery, deliveryDate: e.target.value })
+        }
+        fullWidth
+        margin="normal"
+        InputLabelProps={{ shrink: true }}
+      />
+    )}
+  </Stack>
+</LocalizationProvider>
 
 {/* Recurrence Dropdown */}
 <FormControl fullWidth margin="normal">
@@ -1424,7 +1551,7 @@ const handleAddDelivery = async () => {
     onChange={(e) =>
       setNewDelivery({
         ...newDelivery,
-        recurrence: e.target.value as "None" | "Weekly" | "2x-Monthly" | "Monthly",
+        recurrence: e.target.value as "None" | "Weekly" | "2x-Monthly" | "Monthly" | "Custom",
       })
     }
   >
@@ -1432,11 +1559,12 @@ const handleAddDelivery = async () => {
     <MenuItem value="Weekly">Weekly</MenuItem>
     <MenuItem value="2x-Monthly">2x-Monthly</MenuItem>
     <MenuItem value="Monthly">Monthly</MenuItem>
+    <MenuItem value="Custom">Custom</MenuItem>
   </Select>
 </FormControl>
 
 {/* Ends Section */}
-{newDelivery.recurrence !== "None" && (
+{newDelivery.recurrence !== "None" && newDelivery.recurrence !== "Custom" && (
   <Box>
     <Typography variant="subtitle1">End Date</Typography>
     <TextField
@@ -1458,7 +1586,21 @@ const handleAddDelivery = async () => {
   </DialogContent>
   <DialogActions>
     <Button onClick={() => setIsModalOpen(false)}>Cancel</Button>
-    <Button onClick={handleAddDelivery} variant="contained">
+    <Button
+      onClick={() => {
+        if (newDelivery.recurrence === "Custom" && selectedDates.length > 0) {
+          selectedDates.forEach(date => {
+            newDelivery.deliveryDate = date.toISOString();
+            handleAddDelivery();
+          });
+        } else {
+          handleAddDelivery();
+        }
+        setIsModalOpen(false);
+        setSelectedDates([]);
+      }}
+      variant="contained"
+    >
       Add
     </Button>
   </DialogActions>
