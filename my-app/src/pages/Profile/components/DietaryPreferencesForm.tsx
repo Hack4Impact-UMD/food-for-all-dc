@@ -18,15 +18,6 @@ const DietaryPreferencesForm: React.FC<DietaryPreferencesFormProps> = ({
 }) => {
   return (
     <>
-      <Box className="box-header" display="flex" alignItems="center" justifyContent="space-between">
-        <Typography
-          className="basic-info-title"
-          sx={{ fontWeight: 500, fontSize: { xs: "20px", sm: "24px" } }}
-        >
-          Dietary Preferences
-        </Typography>
-      </Box>
-
       <Box
         sx={{
           display: "grid",

@@ -1020,14 +1020,14 @@ const Profile = () => {
               className="box-header" 
               display="flex" 
               alignItems="center" 
-              justifyContent="space-between"
               sx={{ 
                 mb: 3, 
                 pb: 1,
-                borderBottom: "1px solid rgba(0,0,0,0.1)"
+                borderBottom: "1px solid rgba(0,0,0,0.1)",
+                justifyContent: "flex-start"
               }}
             >
-              <SectionTitle>
+              <SectionTitle sx={{ textAlign: 'left', width: '100%' }}>
                 Basic Information
               </SectionTitle>
               <Box display="flex" alignItems="center" gap={1}>
@@ -1074,7 +1074,7 @@ const Profile = () => {
 
           {/* Delivery Information Section */}
           <SectionBox mb={3}>
-            <SectionTitle>Delivery Information</SectionTitle>
+            <SectionTitle sx={{ textAlign: 'left', width: '100%' }}>Delivery Information</SectionTitle>
             <DeliveryInfoForm
               isEditing={isEditing}
               clientProfile={clientProfile}
@@ -1087,7 +1087,7 @@ const Profile = () => {
 
           {/* Dietary Preferences Section */}
           <SectionBox mb={3}>
-            <SectionTitle>Dietary Preferences</SectionTitle>
+            <SectionTitle sx={{ textAlign: 'left', width: '100%' }}>Dietary Preferences</SectionTitle>
             <DietaryPreferencesForm
               isEditing={isEditing}
               fieldLabelStyles={fieldLabelStyles}
@@ -1098,7 +1098,7 @@ const Profile = () => {
 
           {/* Miscellaneous Section */}
           <SectionBox>
-            <SectionTitle>Miscellaneous Information</SectionTitle>
+            <SectionTitle sx={{ textAlign: 'left', width: '100%' }}>Miscellaneous Information</SectionTitle>
             <MiscellaneousForm
               isEditing={isEditing}
               renderField={renderField}
