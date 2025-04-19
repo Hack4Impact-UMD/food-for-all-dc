@@ -48,7 +48,7 @@ function Login() {
   React.useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user: any) => {
       if (user) {
-        navigate("/deliveries");
+        navigate("/clients");
       }
     });
 
@@ -68,9 +68,9 @@ function Login() {
       const userCredential = await signInWithEmailAndPassword(auth, loginEmail, loginPassword);
       const user = userCredential.user;
 
-      // Successful login, navigate to calendar
+      // Successful login, navigate to client spreadsheet
       setLoginError("");
-      navigate("/deliveries");
+      navigate("/clients");
 
       // Clear input fields
       setLoginEmail("");

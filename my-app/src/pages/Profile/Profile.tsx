@@ -35,12 +35,12 @@ import CaseWorkerManagementModal from "../../components/CaseWorkerManagementModa
 import "./Profile.css";
 
 // Import new components
-import ProfileHeader from "./components/ProfileHeader";
 import BasicInfoForm from "./components/BasicInfoForm";
 import DeliveryInfoForm from "./components/DeliveryInfoForm";
 import DietaryPreferencesForm from "./components/DietaryPreferencesForm";
-import MiscellaneousForm from "./components/MiscellaneousForm";
 import FormField from "./components/FormField";
+import MiscellaneousForm from "./components/MiscellaneousForm";
+import ProfileHeader from "./components/ProfileHeader";
 import TagPopup from "./Tags/TagPopup";
 
 // Import types
@@ -266,7 +266,7 @@ const Profile = () => {
         const caseWorkersCollectionRef = collection(db, "CaseWorkers");
         const querySnapshot = await getDocs(caseWorkersCollectionRef);
         const caseWorkersData: CaseWorker[] = [];
-        
+
         querySnapshot.forEach((doc) => {
           const data = doc.data();
           caseWorkersData.push({
@@ -274,12 +274,12 @@ const Profile = () => {
             name: data.name || "",
             organization: data.organization || "",
             phone: data.phone || "",
-            email: data.email || ""
+            email: data.email || "",
           });
         });
-        
+
         setCaseWorkers(caseWorkersData);
-        
+
         // If the client profile has a referral entity, find and set the matching case worker
         if (clientProfile.referralEntity?.id) {
           const matchingCaseWorker = caseWorkersData.find(
@@ -526,10 +526,14 @@ const Profile = () => {
     if (clientProfile.alternativePhone && !/^\d{10}$/.test(clientProfile.alternativePhone)) {
       newErrors.alternativePhone = "Alternative Phone number must be exactly 10 digits";
     }
-    
+
     // Validate referral entity if it exists
     if (clientProfile.referralEntity) {
-      if (!clientProfile.referralEntity.id || !clientProfile.referralEntity.name || !clientProfile.referralEntity.organization) {
+      if (
+        !clientProfile.referralEntity.id ||
+        !clientProfile.referralEntity.name ||
+        !clientProfile.referralEntity.organization
+      ) {
         console.log("Debug: Incomplete referral entity data", clientProfile.referralEntity);
         // Don't block saving, but log it for debugging
       }
@@ -657,6 +661,10 @@ const Profile = () => {
     const isDisabledField = ["city", "state", "zipCode", "quadrant"].includes(fieldPath);
 
     const handleTag = (text: any) => {
+      if (!prevTags) {
+        setPrevTags(deepCopy(tags));
+      }
+
       if (tags.includes(text)) {
         const updatedTags = tags.filter((t) => t !== text);
         setTags(updatedTags);
@@ -873,7 +881,7 @@ const Profile = () => {
           Profile saved successfully!
         </Box>
       )}
-      
+
       {/* Profile Header */}
       <Box className="white-container">
         <Typography variant="h5" className="border-bottom" style={{ marginBottom: 20 }}>

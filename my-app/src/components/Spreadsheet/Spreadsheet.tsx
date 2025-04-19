@@ -220,7 +220,8 @@ const Spreadsheet: React.FC = () => {
       type: "text",
       compute: (data: RowData) => {
         const restrictions = [];
-        const { dietaryRestrictions } = data.deliveryDetails;
+        const dietaryRestrictions = data.deliveryDetails?.dietaryRestrictions;
+        if (!dietaryRestrictions) return "None";
         if (dietaryRestrictions.halal) restrictions.push("Halal");
         if (dietaryRestrictions.kidneyFriendly) restrictions.push("Kidney Friendly");
         if (dietaryRestrictions.lowSodium) restrictions.push("Low Sodium");
@@ -240,7 +241,7 @@ const Spreadsheet: React.FC = () => {
       key: "deliveryDetails.deliveryInstructions",
       label: "Delivery Instructions",
       type: "text",
-      compute: (data: RowData) => data.deliveryDetails.deliveryInstructions || "None",
+      compute: (data: RowData) => data.deliveryDetails?.deliveryInstructions || "None",
     },
   ];
 
