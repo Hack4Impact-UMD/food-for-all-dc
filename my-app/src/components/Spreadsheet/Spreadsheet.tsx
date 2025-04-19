@@ -231,9 +231,10 @@ const Spreadsheet: React.FC = () => {
         if (dietaryRestrictions.softFood) restrictions.push("Soft Food");
         if (dietaryRestrictions.vegan) restrictions.push("Vegan");
         if (dietaryRestrictions.vegetarian) restrictions.push("Vegetarian");
-        if (dietaryRestrictions.foodAllergens.length > 0)
+        if (Array.isArray(dietaryRestrictions.foodAllergens) && dietaryRestrictions.foodAllergens.length > 0)
           restrictions.push(...dietaryRestrictions.foodAllergens);
-        if (dietaryRestrictions.other.length > 0) restrictions.push(...dietaryRestrictions.other);
+        if (Array.isArray(dietaryRestrictions.other) && dietaryRestrictions.other.length > 0)
+          restrictions.push(...dietaryRestrictions.other);
         return restrictions.length > 0 ? restrictions.join(", ") : "None";
       },
     },
@@ -241,7 +242,8 @@ const Spreadsheet: React.FC = () => {
       key: "deliveryDetails.deliveryInstructions",
       label: "Delivery Instructions",
       type: "text",
-      compute: (data: RowData) => data.deliveryDetails?.deliveryInstructions || "None",
+      compute: (data: RowData) =>
+        data.deliveryDetails?.deliveryInstructions || "None",
     },
   ];
 

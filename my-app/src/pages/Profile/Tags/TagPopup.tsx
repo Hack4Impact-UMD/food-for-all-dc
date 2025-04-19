@@ -46,6 +46,7 @@ export default function TagPopup({ allTags, tags, handleTag, isModalOpen, setIsM
           setInnerPopup={setInnerPopup}
           deleteMode={deleteMode}
           setTagToDelete={setTagToDelete}
+          clientUid='Apple'
         ></Tags>
       </DialogContent>
 

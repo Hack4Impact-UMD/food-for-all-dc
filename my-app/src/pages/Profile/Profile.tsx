@@ -15,7 +15,6 @@ import {
   styled,
 } from "@mui/material";
 import {
-  Timestamp,
   addDoc,
   collection,
   doc,
@@ -27,6 +26,7 @@ import {
   setDoc,
   updateDoc,
   where,
+  Timestamp,
 } from "firebase/firestore";
 import React, { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
@@ -34,14 +34,16 @@ import { auth, db } from "../../auth/firebaseConfig";
 import CaseWorkerManagementModal from "../../components/CaseWorkerManagementModal";
 import "./Profile.css";
 
-// Import new components
+// Import new components from HEAD
 import BasicInfoForm from "./components/BasicInfoForm";
 import DeliveryInfoForm from "./components/DeliveryInfoForm";
 import DietaryPreferencesForm from "./components/DietaryPreferencesForm";
 import FormField from "./components/FormField";
 import MiscellaneousForm from "./components/MiscellaneousForm";
 import ProfileHeader from "./components/ProfileHeader";
-import TagPopup from "./Tags/TagPopup";
+// Keep Tags import from tags_update, remove TagPopup from HEAD
+import Tags from "./Tags/Tags";
+// import TagPopup from "./Tags/TagPopup"; <--- Removed
 
 // Import types
 import { CaseWorker, ClientProfile } from "../../types";
@@ -653,26 +655,14 @@ const Profile = () => {
     return path.split(".").reduce((acc, part) => acc?.[part], obj);
   };
 
+  // Re-define renderField based on its likely structure before deletion in HEAD
   const renderField = (fieldPath: ClientProfileKey, type: InputType = "text") => {
     const value = fieldPath.includes(".")
       ? getNestedValue(clientProfile, fieldPath)
       : clientProfile[fieldPath as keyof ClientProfile];
-
-    const isDisabledField = ["city", "state", "zipCode", "quadrant"].includes(fieldPath);
-
-    const handleTag = (text: any) => {
-      if (!prevTags) {
-        setPrevTags(deepCopy(tags));
-      }
-
-      if (tags.includes(text)) {
-        const updatedTags = tags.filter((t) => t !== text);
-        setTags(updatedTags);
-      } else if (text.trim() !== "") {
-        const updatedTags = [...tags, text.trim()];
-        setTags(updatedTags);
-      }
-    };
+    
+    // Determine if the field should be disabled (example logic, adjust if needed)
+    const isDisabledField = ["city", "state", "zipCode", "quadrant", "ward"].includes(fieldPath);
 
     return (
       <FormField
@@ -680,12 +670,11 @@ const Profile = () => {
         value={value}
         type={type}
         isEditing={isEditing}
-        handleChange={handleChange}
-        getNestedValue={getNestedValue}
-        handleDietaryRestrictionChange={handleDietaryRestrictionChange}
-        addressInputRef={addressInputRef}
+        handleChange={handleChange} // FormField likely needs handleChange
+        handleDietaryRestrictionChange={handleDietaryRestrictionChange} // Pass dietary handler if FormField handles it
+        addressInputRef={fieldPath === "address" ? addressInputRef : undefined} // Pass ref if FormField handles it (use undefined instead of null)
         isDisabledField={isDisabledField}
-        ward={ward}
+        getNestedValue={getNestedValue}
         tags={tags}
         allTags={allTags}
         isModalOpen={isModalOpen}
@@ -693,6 +682,20 @@ const Profile = () => {
         handleTag={handleTag}
       />
     );
+  };
+
+  const handleTag = (text: any) => {
+    if (!prevTags) {
+      setPrevTags(deepCopy(tags));
+    }
+
+    if (tags.includes(text)) {
+      const updatedTags = tags.filter((t) => t !== text);
+      setTags(updatedTags);
+    } else if (text.trim() !== "") {
+      const updatedTags = [...tags, text.trim()];
+      setTags(updatedTags);
+    }
   };
 
   // Updated handler for dietary restrictions
@@ -861,6 +864,7 @@ const Profile = () => {
     }
   };
 
+  console.log(clientProfile)
   return (
     <Box className="profile-container">
       {showSavePopup && (
@@ -882,42 +886,28 @@ const Profile = () => {
         </Box>
       )}
 
-      {/* Profile Header */}
-      <Box className="white-container">
-        <Typography variant="h5" className="border-bottom" style={{ marginBottom: 20 }}>
-          {clientProfile.firstName?.trim() || clientProfile.lastName?.trim()
-            ? `${clientProfile.firstName || ""} ${clientProfile.lastName || ""}`.trim()
-            : "Welcome!"}
-        </Typography>
-        <Box
-          display="flex"
-          alignItems="center"
-          borderBottom="2px solid green"
-          pb={0.5}
-          sx={{ width: "min-content" }}
-        >
-          <PersonIcon style={{ marginRight: 3, color: "green" }} />
-          <Typography variant="body1" sx={{ fontWeight: 800, color: "green" }}>
-            OVERVIEW
-          </Typography>
-        </Box>
-      </Box>
+      {/* Profile Header (Name, Tags, Overview) - Keep as is */}
+      <ProfileHeader
+        firstName={clientProfile.firstName}
+        lastName={clientProfile.lastName}
+        isEditing={isEditing}
+        tags={tags}
+        allTags={allTags}
+        handleTag={handleTag}
+        clientId={clientId}
+      />
 
+      {/* Adopt daniel-address2 structure: profile-main > centered-box */}
       <Box className="profile-main">
         <Box className="centered-box">
-          <Box
-            className="box-header"
-            display="flex"
-            alignItems="center"
-            justifyContent="space-between"
-          >
+          {/* Basic Information Header Box (Title + Edit/Save Buttons) */}
+          <Box className="box-header" display="flex" alignItems="center" justifyContent="space-between">
             <Typography
               className="basic-info-title"
               sx={{ fontWeight: 500, fontSize: { xs: "20px", sm: "24px" } }}
             >
               Basic Information
             </Typography>
-
             <Box display="flex" alignItems="center" gap={1} marginBottom={1}>
               <IconButton
                 sx={{ color: "green" }}
@@ -947,21 +937,31 @@ const Profile = () => {
             </Box>
           </Box>
 
-          {/* Basic Information Form */}
+          {/* Place Refactored Form Components here */}
           <BasicInfoForm
-            clientProfile={clientProfile}
             isEditing={isEditing}
+            clientProfile={clientProfile}
+            fieldLabelStyles={fieldLabelStyles}
+            renderField={renderField}
             errors={errors}
-            renderField={renderField}
-            fieldLabelStyles={fieldLabelStyles}
           />
-
-          {/* Delivery Information Form */}
-          <DeliveryInfoForm
-            clientProfile={clientProfile}
+          <DietaryPreferencesForm
+            isEditing={isEditing}
+            fieldLabelStyles={fieldLabelStyles}
+            dietaryRestrictions={clientProfile.deliveryDetails.dietaryRestrictions}
+            renderField={renderField}
+          />
+          <MiscellaneousForm
             isEditing={isEditing}
             renderField={renderField}
             fieldLabelStyles={fieldLabelStyles}
+            errors={errors}
+          />
+          <DeliveryInfoForm
+            isEditing={isEditing}
+            clientProfile={clientProfile}
+            fieldLabelStyles={fieldLabelStyles}
+            renderField={renderField}
             lastDeliveryDate={lastDeliveryDate}
             selectedCaseWorker={selectedCaseWorker}
             caseWorkers={caseWorkers}
@@ -969,24 +969,8 @@ const Profile = () => {
             handleCaseWorkerChange={handleCaseWorkerChange}
             isSaved={isSaved}
           />
-
-          {/* Dietary Preferences Form */}
-          <DietaryPreferencesForm
-            isEditing={isEditing}
-            renderField={renderField}
-            fieldLabelStyles={fieldLabelStyles}
-            dietaryRestrictions={clientProfile.deliveryDetails.dietaryRestrictions}
-          />
-
-          {/* Miscellaneous Form */}
-          <MiscellaneousForm
-            isEditing={isEditing}
-            renderField={renderField}
-            fieldLabelStyles={fieldLabelStyles}
-            errors={errors}
-          />
-        </Box>
-      </Box>
+        </Box> {/* End centered-box */}
+      </Box> {/* End profile-main */}
 
       {/* CaseWorkerManagementModal */}
       {showCaseWorkerModal && (

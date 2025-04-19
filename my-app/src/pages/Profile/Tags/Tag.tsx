@@ -1,4 +1,5 @@
 import AddIcon from "@mui/icons-material/Add";
+import EditIcon from '@mui/icons-material/Edit';
 import CloseIcon from "@mui/icons-material/Close";
 import { Box, Tooltip, Typography } from "@mui/material";
 import { styled } from "@mui/system";
@@ -70,14 +71,14 @@ const Tag: React.FC<TagProps> = ({
         <Typography variant="body1">{text}</Typography>
       </TagContainer>
     ) : (
-      <Tooltip title={"Create a new tag"} placement="top">
+      <Tooltip title={"Edit Tags"} placement="top">
         <CreateTagContainer
           className={values.includes(text) ? "active" : ""}
           onClick={() => {
             setInnerPopup(true);
           }}
         >
-          <AddIcon
+          <EditIcon
             sx={{
               fontSize: "20px",
               color: "#257E68",
