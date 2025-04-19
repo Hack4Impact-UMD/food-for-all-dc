@@ -60,13 +60,95 @@ const fieldStyles = {
   marginTop: "0px",
 };
 
+// Enhanced styling for text fields
 const CustomTextField = styled(TextField)({
   "& .MuiOutlinedInput-root": {
     "& fieldset": {
       border: "none",
     },
+    "&:hover fieldset": {
+      borderColor: "var(--color-primary)",
+    },
+    "&.Mui-focused fieldset": {
+      borderColor: "var(--color-primary)",
+    },
   },
-  "& .MuiInputBase-input": fieldStyles,
+  "& .MuiInputBase-input": {
+    ...fieldStyles,
+    transition: "all 0.3s ease",
+    "&:focus": {
+      borderColor: "var(--color-primary)",
+      boxShadow: "0 0 0 2px rgba(37, 126, 104, 0.2)",
+    },
+  },
+});
+
+// Styled components for common elements
+const SectionBox = styled(Box)(({ theme }) => ({
+  backgroundColor: "white",
+  borderRadius: "8px",
+  padding: "20px",
+  boxShadow: "0 2px 8px rgba(0, 0, 0, 0.06)",
+  marginBottom: "20px",
+  transition: "all 0.3s ease",
+  "&:hover": {
+    boxShadow: "0 4px 12px rgba(0, 0, 0, 0.08)",
+  },
+}));
+
+const SectionTitle = styled(Typography)(({ theme }) => ({
+  fontWeight: 600,
+  fontSize: "1.25rem",
+  marginBottom: "16px",
+  position: "relative",
+  paddingBottom: "8px",
+  "&:after": {
+    content: '""',
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    width: "40px",
+    height: "3px",
+    backgroundColor: "var(--color-primary)",
+    borderRadius: "2px",
+  },
+}));
+
+const StyledIconButton = styled(IconButton)({
+  backgroundColor: "rgba(37, 126, 104, 0.08)",
+  color: "var(--color-primary)",
+  transition: "all 0.2s ease",
+  "&:hover": {
+    backgroundColor: "rgba(37, 126, 104, 0.15)",
+    transform: "translateY(-2px)",
+  },
+});
+
+// Toast notification component for save confirmation
+const SaveNotification = styled(Box)({
+  position: "fixed",
+  bottom: "20px",
+  right: "20px",
+  backgroundColor: "var(--color-primary)",
+  color: "white",
+  padding: "16px 24px",
+  borderRadius: "8px",
+  boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)",
+  zIndex: 1000,
+  animation: "slideInAndFade 0.3s ease-out",
+  display: "flex",
+  alignItems: "center",
+  gap: "8px",
+  "@keyframes slideInAndFade": {
+    "0%": {
+      transform: "translateY(20px)",
+      opacity: 0,
+    },
+    "100%": {
+      transform: "translateY(0)",
+      opacity: 1,
+    },
+  },
 });
 
 // Type definitions have been moved to types directory
@@ -650,6 +732,34 @@ const Profile = () => {
     }
   };
 
+  // Updated field label styles for a more modern look
+  const fieldLabelStyles = {
+    fontWeight: 600,
+    marginBottom: !isEditing ? "12px" : "8px",
+    textAlign: "left",
+    fontSize: {
+      xs: "14px",
+      md: "13px",
+      lg: "14px",
+    },
+    color: "var(--color-text-secondary)",
+    textTransform: "uppercase",
+    letterSpacing: "0.5px",
+    position: "relative",
+    paddingLeft: "8px",
+    "&:before": {
+      content: '""',
+      position: "absolute",
+      left: 0,
+      top: "50%",
+      transform: "translateY(-50%)",
+      width: "3px",
+      height: "14px",
+      backgroundColor: "var(--color-primary)",
+      borderRadius: "2px",
+    },
+  };
+
   // Helper function to get nested values
   const getNestedValue = (obj: any, path: string) => {
     return path.split(".").reduce((acc, part) => acc?.[part], obj);
@@ -661,26 +771,33 @@ const Profile = () => {
       ? getNestedValue(clientProfile, fieldPath)
       : clientProfile[fieldPath as keyof ClientProfile];
     
-    // Determine if the field should be disabled (example logic, adjust if needed)
+    // Determine if the field should be disabled
     const isDisabledField = ["city", "state", "zipCode", "quadrant", "ward"].includes(fieldPath);
 
     return (
-      <FormField
-        fieldPath={fieldPath}
-        value={value}
-        type={type}
-        isEditing={isEditing}
-        handleChange={handleChange} // FormField likely needs handleChange
-        handleDietaryRestrictionChange={handleDietaryRestrictionChange} // Pass dietary handler if FormField handles it
-        addressInputRef={fieldPath === "address" ? addressInputRef : undefined} // Pass ref if FormField handles it (use undefined instead of null)
-        isDisabledField={isDisabledField}
-        getNestedValue={getNestedValue}
-        tags={tags}
-        allTags={allTags}
-        isModalOpen={isModalOpen}
-        setIsModalOpen={setIsModalOpen}
-        handleTag={handleTag}
-      />
+      <Box sx={{ 
+        transition: "all 0.2s ease",
+        '&:hover': {
+          transform: isEditing ? 'translateY(-2px)' : 'none',
+        },
+      }}>
+        <FormField
+          fieldPath={fieldPath}
+          value={value}
+          type={type}
+          isEditing={isEditing}
+          handleChange={handleChange}
+          handleDietaryRestrictionChange={handleDietaryRestrictionChange}
+          addressInputRef={fieldPath === "address" ? addressInputRef : undefined}
+          isDisabledField={isDisabledField}
+          getNestedValue={getNestedValue}
+          tags={tags}
+          allTags={allTags}
+          isModalOpen={isModalOpen}
+          setIsModalOpen={setIsModalOpen}
+          handleTag={handleTag}
+        />
+      </Box>
     );
   };
 
@@ -712,17 +829,6 @@ const Profile = () => {
         },
       },
     }));
-  };
-
-  const fieldLabelStyles = {
-    fontWeight: 700,
-    marginBottom: !isEditing ? "12px" : "0",
-    textAlign: "left",
-    fontSize: {
-      xs: "16px",
-      md: "14px",
-      lg: "16px",
-    },
   };
 
   //google places autocomplete
@@ -866,27 +972,18 @@ const Profile = () => {
 
   console.log(clientProfile)
   return (
-    <Box className="profile-container">
+    <Box className="profile-container" sx={{ backgroundColor: "#f8f9fa", minHeight: "100vh", pb: 4 }}>
       {showSavePopup && (
-        <Box
-          sx={{
-            position: "fixed",
-            bottom: "20px",
-            right: "20px",
-            backgroundColor: "#257e68",
-            color: "white",
-            padding: "16px",
-            borderRadius: "4px",
-            boxShadow: "0 2px 5px rgba(0,0,0,0.2)",
-            zIndex: 1000,
-            animation: "slideIn 0.3s ease-out",
-          }}
-        >
-          Profile saved successfully!
-        </Box>
+        <SaveNotification>
+          <SaveIcon fontSize="small" />
+          <Typography>Profile saved successfully!</Typography>
+        </SaveNotification>
       )}
 
-      {/* Profile Header (Name, Tags, Overview) - Keep as is */}
+      {/* Spacer for navbar height */}
+      <Box sx={{ height: '64px' }} />
+
+      {/* Enhanced Profile Header */}
       <ProfileHeader
         firstName={clientProfile.firstName}
         lastName={clientProfile.lastName}
@@ -898,77 +995,117 @@ const Profile = () => {
       />
 
       {/* Adopt daniel-address2 structure: profile-main > centered-box */}
-      <Box className="profile-main">
-        <Box className="centered-box">
-          {/* Basic Information Header Box (Title + Edit/Save Buttons) */}
-          <Box className="box-header" display="flex" alignItems="center" justifyContent="space-between">
-            <Typography
-              className="basic-info-title"
-              sx={{ fontWeight: 500, fontSize: { xs: "20px", sm: "24px" } }}
+      <Box 
+        className="profile-main" 
+        sx={{ 
+          py: 3,
+          display: "flex",
+          justifyContent: "center",
+          backgroundColor: "#f8f9fa"
+        }}
+      >
+        <Box 
+          className="centered-box"
+          sx={{
+            width: { xs: "95%", sm: "90%", md: "85%", lg: "75%" },
+            maxWidth: "1200px",
+            bgcolor: "transparent",
+            boxShadow: "none",
+            p: 0
+          }}
+        >
+          {/* Basic Information Section */}
+          <SectionBox mb={3}>
+            <Box 
+              className="box-header" 
+              display="flex" 
+              alignItems="center" 
+              justifyContent="space-between"
+              sx={{ 
+                mb: 3, 
+                pb: 1,
+                borderBottom: "1px solid rgba(0,0,0,0.1)"
+              }}
             >
-              Basic Information
-            </Typography>
-            <Box display="flex" alignItems="center" gap={1} marginBottom={1}>
-              <IconButton
-                sx={{ color: "green" }}
-                onClick={() => setIsEditing((prev) => !prev)}
-                color={isEditing ? "secondary" : "primary"}
-              >
-                <Tooltip title={isEditing ? "Cancel Editing" : "Edit All"}>
-                  {isEditing ? (
-                    <span className="cancel-btn" onClick={handleCancel}>
-                      <CloseIcon />
-                    </span>
-                  ) : (
-                    <EditIcon />
-                  )}
-                </Tooltip>
-              </IconButton>
-              {isEditing && (
-                <IconButton
-                  sx={{ color: "green" }}
-                  color="primary"
-                  onClick={handleSave}
-                  aria-label="save"
+              <SectionTitle>
+                Basic Information
+              </SectionTitle>
+              <Box display="flex" alignItems="center" gap={1}>
+                <StyledIconButton
+                  onClick={() => setIsEditing((prev) => !prev)}
+                  size="small"
                 >
-                  <SaveIcon />
-                </IconButton>
-              )}
+                  <Tooltip title={isEditing ? "Cancel Editing" : "Edit All"}>
+                    {isEditing ? (
+                      <span className="cancel-btn" onClick={handleCancel}>
+                        <CloseIcon />
+                      </span>
+                    ) : (
+                      <EditIcon />
+                    )}
+                  </Tooltip>
+                </StyledIconButton>
+                {isEditing && (
+                  <StyledIconButton
+                    color="primary"
+                    onClick={handleSave}
+                    aria-label="save"
+                    size="small"
+                  >
+                    <SaveIcon />
+                  </StyledIconButton>
+                )}
+              </Box>
             </Box>
-          </Box>
 
-          {/* Place Refactored Form Components here */}
-          <BasicInfoForm
-            isEditing={isEditing}
-            clientProfile={clientProfile}
-            fieldLabelStyles={fieldLabelStyles}
-            renderField={renderField}
-            errors={errors}
-            selectedCaseWorker={selectedCaseWorker}
-            caseWorkers={caseWorkers}
-            setShowCaseWorkerModal={setShowCaseWorkerModal}
-            handleCaseWorkerChange={handleCaseWorkerChange}
-          />
-          <DeliveryInfoForm
-            isEditing={isEditing}
-            clientProfile={clientProfile}
-            fieldLabelStyles={fieldLabelStyles}
-            renderField={renderField}
-            lastDeliveryDate={lastDeliveryDate}
-            isSaved={isSaved}
-          />
-          <DietaryPreferencesForm
-            isEditing={isEditing}
-            fieldLabelStyles={fieldLabelStyles}
-            dietaryRestrictions={clientProfile.deliveryDetails.dietaryRestrictions}
-            renderField={renderField}
-          />
-          <MiscellaneousForm
-            isEditing={isEditing}
-            renderField={renderField}
-            fieldLabelStyles={fieldLabelStyles}
-            errors={errors}
-          />
+            {/* Place Refactored Form Components here */}
+            <BasicInfoForm
+              isEditing={isEditing}
+              clientProfile={clientProfile}
+              fieldLabelStyles={fieldLabelStyles}
+              renderField={renderField}
+              errors={errors}
+              selectedCaseWorker={selectedCaseWorker}
+              caseWorkers={caseWorkers}
+              setShowCaseWorkerModal={setShowCaseWorkerModal}
+              handleCaseWorkerChange={handleCaseWorkerChange}
+            />
+          </SectionBox>
+
+          {/* Delivery Information Section */}
+          <SectionBox mb={3}>
+            <SectionTitle>Delivery Information</SectionTitle>
+            <DeliveryInfoForm
+              isEditing={isEditing}
+              clientProfile={clientProfile}
+              fieldLabelStyles={fieldLabelStyles}
+              renderField={renderField}
+              lastDeliveryDate={lastDeliveryDate}
+              isSaved={isSaved}
+            />
+          </SectionBox>
+
+          {/* Dietary Preferences Section */}
+          <SectionBox mb={3}>
+            <SectionTitle>Dietary Preferences</SectionTitle>
+            <DietaryPreferencesForm
+              isEditing={isEditing}
+              fieldLabelStyles={fieldLabelStyles}
+              dietaryRestrictions={clientProfile.deliveryDetails.dietaryRestrictions}
+              renderField={renderField}
+            />
+          </SectionBox>
+
+          {/* Miscellaneous Section */}
+          <SectionBox>
+            <SectionTitle>Miscellaneous Information</SectionTitle>
+            <MiscellaneousForm
+              isEditing={isEditing}
+              renderField={renderField}
+              fieldLabelStyles={fieldLabelStyles}
+              errors={errors}
+            />
+          </SectionBox>
         </Box> {/* End centered-box */}
       </Box> {/* End profile-main */}
 

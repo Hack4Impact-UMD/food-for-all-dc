@@ -1,6 +1,7 @@
 import AddIcon from "@mui/icons-material/Add";
 import EditIcon from '@mui/icons-material/Edit';
 import CloseIcon from "@mui/icons-material/Close";
+import LocalOfferIcon from '@mui/icons-material/LocalOffer';
 import { Box, Tooltip, Typography } from "@mui/material";
 import { styled } from "@mui/system";
 import React, { useState } from "react";
@@ -15,32 +16,38 @@ interface TagProps {
   setTagToDelete: (tag: string) => void;
 }
 
-// Styled component for the tag container with a transition effect
+// Enhanced styled component for the tag container with improved visuals
 const TagContainer = styled(Box)(({ theme }) => ({
-  backgroundColor: "#e0e0e0",
+  backgroundColor: "rgba(0, 0, 0, 0.06)",
   textAlign: "center",
-  borderRadius: "5px",
-  padding: "6px 12px",
+  borderRadius: "20px",
+  padding: "5px 12px",
   minWidth: "60px",
   minHeight: "30px",
   cursor: "pointer",
-  transition: "background-color 0.3s ease",
+  transition: "all 0.2s ease",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
   "&:hover": {
-    backgroundColor: "#bdbdbd",
+    backgroundColor: "rgba(0, 0, 0, 0.09)",
+    transform: "translateY(-2px)",
+    boxShadow: "0 2px 4px rgba(0, 0, 0, 0.05)",
   },
   "&.active": {
-    backgroundColor: "#257E68",
+    backgroundColor: "var(--color-primary)",
     color: "#fff",
+    boxShadow: "0 2px 6px rgba(37, 126, 104, 0.2)",
   },
 }));
 
 const CreateTagContainer = styled(Box)(({ theme }) => ({
-  backgroundColor: "white",
-  borderRadius: "5px",
-  padding: "6px 12px",
+  backgroundColor: "rgba(37, 126, 104, 0.04)",
+  borderRadius: "20px",
+  padding: "5px 12px",
   cursor: "pointer",
-  border: "1px dashed lightgray",
-  transition: "background-color 0.3s ease",
+  border: "1px dashed rgba(37, 126, 104, 0.3)",
+  transition: "all 0.2s ease",
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
@@ -48,9 +55,17 @@ const CreateTagContainer = styled(Box)(({ theme }) => ({
   minHeight: "30px",
   position: "relative",
   "&:hover": {
-    backgroundColor: "#f3f3f3",
+    backgroundColor: "rgba(37, 126, 104, 0.06)",
+    transform: "translateY(-2px)",
+    boxShadow: "0 2px 4px rgba(0, 0, 0, 0.05)",
   },
 }));
+
+const TagText = styled(Typography)({
+  fontSize: "0.85rem",
+  fontWeight: 500,
+  letterSpacing: "0.3px",
+});
 
 const Tag: React.FC<TagProps> = ({
   text,
@@ -68,7 +83,7 @@ const Tag: React.FC<TagProps> = ({
   if (!deleteMode) {
     return !createTag ? (
       <TagContainer className={values.includes(text) ? "active" : ""} onClick={handleClick}>
-        <Typography variant="body1">{text}</Typography>
+        <TagText variant="body2">{text}</TagText>
       </TagContainer>
     ) : (
       <Tooltip title={"Edit Tags"} placement="top">
@@ -80,8 +95,8 @@ const Tag: React.FC<TagProps> = ({
         >
           <EditIcon
             sx={{
-              fontSize: "20px",
-              color: "#257E68",
+              fontSize: "18px",
+              color: "var(--color-primary)",
               padding: 0,
               margin: 0,
             }}
@@ -92,20 +107,22 @@ const Tag: React.FC<TagProps> = ({
   } else {
     return !createTag ? (
       <CreateTagContainer className={values.includes(text) ? "active" : ""}>
-        <Typography variant="body1">{text}</Typography>
+        <TagText variant="body2">{text}</TagText>
         <CloseIcon
           sx={{
             position: "absolute",
-            top: -7,
+            top: -8,
             right: -8,
             backgroundColor: "white",
-            color: "red",
+            color: "#e53935",
             boxShadow: "0px 2px 4px rgba(0, 0, 0, 0.2)",
             borderRadius: "50%",
             width: "20px",
             height: "20px",
+            transition: "all 0.2s ease",
             "&:hover": {
-              backgroundColor: "lightgray",
+              backgroundColor: "#fff4f2",
+              transform: "scale(1.1)",
             },
           }}
           onClick={(e) => {

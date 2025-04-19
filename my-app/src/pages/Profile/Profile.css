@@ -370,3 +370,343 @@ dd {
     opacity: 1;
   }
 }
+/* Modern enhanced styles for profile page */
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap");
+
+/* Base container styles */
+.profile-container {
+  font-family: 'Inter', sans-serif;
+  color: var(--color-text-primary);
+  background-color: #f8f9fa;
+  min-height: 100vh;
+  transition: all 0.3s ease;
+}
+
+/* Enhanced header container */
+.profile-header-container {
+  background-color: white;
+  border-radius: 0 0 12px 12px;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
+  padding: 24px 32px;
+  margin-bottom: 20px;
+  transition: all 0.3s ease;
+}
+
+.profile-header-container:hover {
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.12);
+}
+
+/* Profile name and avatar */
+.profile-avatar {
+  background-color: var(--color-primary);
+  width: 64px;
+  height: 64px;
+  font-size: 28px;
+  box-shadow: 0 3px 8px rgba(37, 126, 104, 0.2);
+  transition: transform 0.3s ease;
+}
+
+.profile-avatar:hover {
+  transform: scale(1.05);
+}
+
+.profile-name-wrapper {
+  display: flex;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.profile-name {
+  font-size: 1.75rem;
+  font-weight: 600;
+  margin-left: 16px;
+  position: relative;
+}
+
+.profile-name::after {
+  content: '';
+  position: absolute;
+  bottom: -8px;
+  left: 0;
+  width: 40px;
+  height: 3px;
+  background-color: var(--color-primary);
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+.profile-name:hover::after {
+  width: 100%;
+}
+
+/* Client ID display */
+.client-id {
+  display: flex;
+  align-items: center;
+  margin-top: 8px;
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
+}
+
+/* Tags section */
+.tags-container {
+  margin-top: 16px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.tags-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-primary);
+  background-color: rgba(37, 126, 104, 0.05);
+  border: 1px solid rgba(37, 126, 104, 0.2);
+  border-radius: 20px;
+  padding: 4px 10px;
+  margin-right: 8px;
+}
+
+/* Overview section */
+.overview-label {
+  display: flex;
+  align-items: center;
+  padding: 8px 16px;
+  background-color: rgba(37, 126, 104, 0.08);
+  border-radius: 20px;
+  margin-top: 16px;
+  color: var(--color-primary);
+  cursor: default;
+  transition: transform 0.2s ease, background-color 0.2s ease;
+  width: fit-content;
+}
+
+.overview-label:hover {
+  transform: translateY(-2px);
+  background-color: rgba(37, 126, 104, 0.12);
+}
+
+.overview-text {
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  margin-left: 8px;
+}
+
+/* White container for header - keep for backward compatibility */
+.white-container {
+  background-color: white;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+  border-radius: 0 0 8px 8px;
+  padding: 1.5rem 2rem;
+  margin-bottom: 1.5rem;
+  transition: box-shadow 0.3s ease;
+}
+
+.white-container:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+/* Main content area */
+.profile-main {
+  display: flex;
+  justify-content: center;
+  padding: 1rem 0;
+}
+
+.centered-box {
+  background-color: transparent;
+  width: 90%;
+  max-width: 1200px;
+}
+
+/* Section styling */
+.section-box {
+  background-color: white;
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  transition: all 0.3s ease;
+}
+
+.section-box:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.box-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+  padding-bottom: 0.5rem;
+}
+
+.section-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  position: relative;
+  padding-bottom: 0.5rem;
+}
+
+.section-title::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 40px;
+  height: 3px;
+  background-color: var(--color-primary);
+  border-radius: 2px;
+}
+
+/* Form grid styling */
+.info-grid {
+  display: grid;
+  grid-gap: 1.5rem;
+}
+
+/* Field styling */
+.field-descriptor {
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 0.5rem;
+  position: relative;
+  padding-left: 0.5rem;
+}
+
+.field-descriptor::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 14px;
+  background-color: var(--color-primary);
+  border-radius: 2px;
+}
+
+.required-asterisk {
+  color: #e53935;
+  margin-left: 2px;
+}
+
+/* Form input styling */
+.form-input {
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  border-radius: 6px;
+  padding: 0.5rem 0.75rem;
+  width: 100%;
+  font-size: 0.875rem;
+  transition: all 0.2s ease;
+}
+
+.form-input:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px rgba(37, 126, 104, 0.2);
+  outline: none;
+}
+
+.form-input:disabled {
+  background-color: rgba(0, 0, 0, 0.03);
+  cursor: not-allowed;
+}
+
+/* Save notification */
+.save-notification {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  background-color: var(--color-primary);
+  color: white;
+  padding: 16px 24px;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  animation: slideInAndFade 0.3s ease-out;
+}
+
+/* Action buttons */
+.action-button {
+  background-color: rgba(37, 126, 104, 0.08);
+  color: var(--color-primary);
+  border: none;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.action-button:hover {
+  background-color: rgba(37, 126, 104, 0.15);
+  transform: translateY(-2px);
+}
+
+/* Error messages */
+.error-message {
+  color: #e53935;
+  font-size: 0.75rem;
+  margin-top: 0.25rem;
+}
+
+/* Animations */
+@keyframes slideInAndFade {
+  0% {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .info-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .white-container, 
+  .profile-header-container {
+    padding: 1rem;
+  }
+  
+  .section-box {
+    padding: 1rem;
+  }
+  
+  .profile-name {
+    font-size: 1.5rem;
+  }
+  
+  .profile-avatar {
+    width: 48px;
+    height: 48px;
+    font-size: 20px;
+  }
+} 
