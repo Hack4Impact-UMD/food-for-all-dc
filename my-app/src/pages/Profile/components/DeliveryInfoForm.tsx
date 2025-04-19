@@ -10,10 +10,6 @@ interface DeliveryInfoFormProps {
   renderField: (fieldPath: ClientProfileKey, type?: InputType) => React.ReactNode;
   fieldLabelStyles: any;
   lastDeliveryDate: string | null;
-  selectedCaseWorker: CaseWorker | null;
-  caseWorkers: CaseWorker[];
-  setShowCaseWorkerModal: React.Dispatch<React.SetStateAction<boolean>>;
-  handleCaseWorkerChange: (cw: CaseWorker | null) => void;
   isSaved: boolean;
 }
 
@@ -53,10 +49,6 @@ const DeliveryInfoForm: React.FC<DeliveryInfoFormProps> = ({
   renderField,
   fieldLabelStyles,
   lastDeliveryDate,
-  selectedCaseWorker,
-  caseWorkers,
-  setShowCaseWorkerModal,
-  handleCaseWorkerChange,
   isSaved,
 }) => {
   return (
@@ -126,44 +118,6 @@ const DeliveryInfoForm: React.FC<DeliveryInfoFormProps> = ({
           ) : (
             <Typography variant="body1" sx={{ fontWeight: 600 }}>
               {clientProfile.recurrence || "N/A"}
-            </Typography>
-          )}
-        </Box>
-
-        {/* Referral Entity */}
-        <Box>
-          <Typography className="field-descriptor" sx={fieldLabelStyles}>
-            REFERRAL ENTITY
-          </Typography>
-          {isEditing ? (
-            <CustomSelect
-              name="referralEntity"
-              value={selectedCaseWorker ? selectedCaseWorker.id : ""}
-              onChange={(e) => {
-                const selectedId = e.target.value;
-                if (selectedId === "edit_list") {
-                  setShowCaseWorkerModal(true);
-                } else {
-                  const selected = caseWorkers.find((cw) => cw.id === selectedId);
-                  handleCaseWorkerChange(selected || null);
-                }
-              }}
-              style={{ width: "83.5%" }}
-            >
-              <MenuItem value="edit_list" sx={{ color: "#257E68", fontWeight: "bold" }}>
-                Edit Case Worker List {">"}
-              </MenuItem>
-              {caseWorkers.map((caseWorker) => (
-                <MenuItem key={caseWorker.id} value={caseWorker.id}>
-                  {caseWorker.name}, {caseWorker.organization}
-                </MenuItem>
-              ))}
-            </CustomSelect>
-          ) : (
-            <Typography variant="body1" sx={{ fontWeight: 600 }}>
-              {selectedCaseWorker
-                ? `${selectedCaseWorker.name}, ${selectedCaseWorker.organization}`
-                : "None"}
             </Typography>
           )}
         </Box>

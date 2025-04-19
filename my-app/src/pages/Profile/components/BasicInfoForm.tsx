@@ -2,6 +2,8 @@ import React from "react";
 import { Box, Typography } from "@mui/material";
 import { ClientProfile } from '../../../types';
 import { ClientProfileKey, InputType } from '../types';
+import { CaseWorker } from "../../../types";
+import { MenuItem, Select, styled } from "@mui/material";
 
 interface BasicInfoFormProps {
   clientProfile: ClientProfile;
@@ -9,7 +11,40 @@ interface BasicInfoFormProps {
   errors: { [key: string]: string };
   renderField: (fieldPath: ClientProfileKey, type?: InputType) => React.ReactNode;
   fieldLabelStyles: any;
+  selectedCaseWorker: CaseWorker | null;
+  caseWorkers: CaseWorker[];
+  setShowCaseWorkerModal: React.Dispatch<React.SetStateAction<boolean>>;
+  handleCaseWorkerChange: (cw: CaseWorker | null) => void;
 }
+
+const fieldStyles = {
+  backgroundColor: "white",
+  width: "60%",
+  height: "1.813rem",
+  padding: "0.1rem 0.5rem",
+  borderRadius: "5px",
+  border: ".1rem solid black",
+  marginTop: "0px",
+};
+
+const CustomSelect = styled(Select)({
+  "& .MuiOutlinedInput-root": {
+    height: "1.813rem",
+    width: "100%",
+    "& .MuiOutlinedInput-notchedOutline": {
+      border: "none",
+    },
+  },
+  "& fieldset": {
+    border: "none",
+  },
+  "& .MuiSelect-select": {
+    ...fieldStyles,
+  },
+  "& .MuiSelect-icon": {
+    display: "none",
+  },
+});
 
 const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
   clientProfile,
@@ -17,6 +52,10 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
   errors,
   renderField,
   fieldLabelStyles,
+  selectedCaseWorker,
+  caseWorkers,
+  setShowCaseWorkerModal,
+  handleCaseWorkerChange,
 }) => {
   return (
     <Box
@@ -327,6 +366,44 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
           TOTAL
         </Typography>
         {renderField("total", "text")}
+      </Box>
+
+      {/* Referral Entity */}
+      <Box>
+        <Typography className="field-descriptor" sx={fieldLabelStyles}>
+          REFERRAL ENTITY
+        </Typography>
+        {isEditing ? (
+          <CustomSelect
+            name="referralEntity"
+            value={selectedCaseWorker ? selectedCaseWorker.id : ""}
+            onChange={(e) => {
+              const selectedId = e.target.value;
+              if (selectedId === "edit_list") {
+                setShowCaseWorkerModal(true);
+              } else {
+                const selected = caseWorkers.find((cw) => cw.id === selectedId);
+                handleCaseWorkerChange(selected || null);
+              }
+            }}
+            style={{ width: "83.5%" }}
+          >
+            <MenuItem value="edit_list" sx={{ color: "#257E68", fontWeight: "bold" }}>
+              Edit Case Worker List {">"}
+            </MenuItem>
+            {caseWorkers.map((caseWorker) => (
+              <MenuItem key={caseWorker.id} value={caseWorker.id}>
+                {caseWorker.name}, {caseWorker.organization}
+              </MenuItem>
+            ))}
+          </CustomSelect>
+        ) : (
+          <Typography variant="body1" sx={{ fontWeight: 600 }}>
+            {selectedCaseWorker
+              ? `${selectedCaseWorker.name}, ${selectedCaseWorker.organization}`
+              : "None"}
+          </Typography>
+        )}
       </Box>
     </Box>
   );

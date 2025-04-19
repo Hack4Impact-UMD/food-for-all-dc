@@ -944,6 +944,18 @@ const Profile = () => {
             fieldLabelStyles={fieldLabelStyles}
             renderField={renderField}
             errors={errors}
+            selectedCaseWorker={selectedCaseWorker}
+            caseWorkers={caseWorkers}
+            setShowCaseWorkerModal={setShowCaseWorkerModal}
+            handleCaseWorkerChange={handleCaseWorkerChange}
+          />
+          <DeliveryInfoForm
+            isEditing={isEditing}
+            clientProfile={clientProfile}
+            fieldLabelStyles={fieldLabelStyles}
+            renderField={renderField}
+            lastDeliveryDate={lastDeliveryDate}
+            isSaved={isSaved}
           />
           <DietaryPreferencesForm
             isEditing={isEditing}
@@ -956,18 +968,6 @@ const Profile = () => {
             renderField={renderField}
             fieldLabelStyles={fieldLabelStyles}
             errors={errors}
-          />
-          <DeliveryInfoForm
-            isEditing={isEditing}
-            clientProfile={clientProfile}
-            fieldLabelStyles={fieldLabelStyles}
-            renderField={renderField}
-            lastDeliveryDate={lastDeliveryDate}
-            selectedCaseWorker={selectedCaseWorker}
-            caseWorkers={caseWorkers}
-            setShowCaseWorkerModal={setShowCaseWorkerModal}
-            handleCaseWorkerChange={handleCaseWorkerChange}
-            isSaved={isSaved}
           />
         </Box> {/* End centered-box */}
       </Box> {/* End profile-main */}
