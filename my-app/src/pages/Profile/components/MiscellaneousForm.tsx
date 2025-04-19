@@ -65,14 +65,6 @@ const MiscellaneousForm: React.FC<MiscellaneousFormProps> = ({
           </Typography>
           {renderField("lifestyleGoals", "textarea")}
         </Box>
-
-        {/* Tags */}
-        <Box>
-          <Typography className="field-descriptor" sx={fieldLabelStyles}>
-            TAGS
-          </Typography>
-          {renderField("tags", "tags")}
-        </Box>
       </Box>
     </>
   );

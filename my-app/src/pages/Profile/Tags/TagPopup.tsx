@@ -14,7 +14,7 @@ export default function TagPopup({ allTags, tags, handleTag, isModalOpen, setIsM
   const [innerPopup, setInnerPopup] = useState(false);
   const [newTag, setNewTag] = useState("");
   const [deleteMode, setDeleteMode] = useState(false);
-  const [tagToDelete, setTagToDelete] = useState("");
+  const [tagToDelete, setTagToDelete] = useState<string | null>(null);
 
   const addNewTag = (text: string) => {
     text = text.trim();
@@ -160,8 +160,10 @@ export default function TagPopup({ allTags, tags, handleTag, isModalOpen, setIsM
             sx={{ backgroundColor: "red !important" }}
             onClick={() => {
               setInnerPopup(false);
-              deleteTag(tagToDelete);
-              setTagToDelete("");
+              if (tagToDelete) {
+                deleteTag(tagToDelete);
+              }
+              setTagToDelete(null);
               setDeleteMode(false);
             }}
           >

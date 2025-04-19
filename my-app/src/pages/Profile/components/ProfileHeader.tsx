@@ -4,92 +4,60 @@ import CloseIcon from "@mui/icons-material/Close";
 import SaveIcon from "@mui/icons-material/Save";
 import PersonIcon from "@mui/icons-material/Person";
 import React from "react";
+import Tags from "../Tags/Tags";
 
 interface ProfileHeaderProps {
   firstName: string;
   lastName: string;
   isEditing: boolean;
-  setIsEditing: React.Dispatch<React.SetStateAction<boolean>>;
-  handleSave: () => void;
-  handleCancel: () => void;
+  tags: string[];
+  allTags: string[];
+  handleTag: (tag: string) => void;
+  clientId: string | null;
 }
 
 const ProfileHeader: React.FC<ProfileHeaderProps> = ({
   firstName,
   lastName,
   isEditing,
-  setIsEditing,
-  handleSave,
-  handleCancel,
+  tags,
+  allTags,
+  handleTag,
+  clientId,
 }) => {
   return (
-    <>
-      <Box className="white-container">
-        <Typography variant="h5" className="border-bottom" style={{ marginBottom: 20 }}>
+    <Box className="white-container">
+      <Box display="flex" alignItems="center" style={{ marginBottom: 20 }}>
+        <Typography variant="h5" className="border-bottom" style={{ marginRight: 8 }}>
           {firstName?.trim() || lastName?.trim()
             ? `${firstName || ""} ${lastName || ""}`.trim()
             : "Welcome!"}
         </Typography>
-        <Box
-          display="flex"
-          alignItems="center"
-          borderBottom="2px solid green"
-          pb={0.5}
-          sx={{ width: "min-content" }}
-        >
-          <PersonIcon style={{ marginRight: 3, color: "green" }} />
-          <Typography variant="body1" sx={{ fontWeight: 800, color: "green" }}>
-            OVERVIEW
-          </Typography>
-        </Box>
+        {clientId && (
+          <Tags
+            allTags={allTags}
+            values={tags}
+            handleTag={handleTag}
+            setInnerPopup={() => {}}
+            deleteMode={false}
+            setTagToDelete={() => {}}
+            clientUid={clientId}
+          />
+        )}
       </Box>
-
-      <Box className="profile-main">
-        <Box className="centered-box">
-          <Box
-            className="box-header"
-            display="flex"
-            alignItems="center"
-            justifyContent="space-between"
-          >
-            <Typography
-              className="basic-info-title"
-              sx={{ fontWeight: 500, fontSize: { xs: "20px", sm: "24px" } }}
-            >
-              Basic Information
-            </Typography>
-
-            <Box display="flex" alignItems="center" gap={1} marginBottom={1}>
-              <IconButton
-                sx={{ color: "green" }}
-                onClick={() => setIsEditing((prev) => !prev)}
-                color={isEditing ? "secondary" : "primary"}
-              >
-                <Tooltip title={isEditing ? "Cancel Editing" : "Edit All"}>
-                  {isEditing ? (
-                    <span className="cancel-btn" onClick={handleCancel}>
-                      <CloseIcon />
-                    </span>
-                  ) : (
-                    <EditIcon />
-                  )}
-                </Tooltip>
-              </IconButton>
-              {isEditing && (
-                <IconButton
-                  sx={{ color: "green" }}
-                  color="primary"
-                  onClick={handleSave}
-                  aria-label="save"
-                >
-                  <SaveIcon />
-                </IconButton>
-              )}
-            </Box>
-          </Box>
-        </Box>
+      <Box
+        display="flex"
+        alignItems="center"
+        borderBottom="2px solid green"
+        pb={0.5}
+        sx={{ width: "min-content" }}
+      >
+        <PersonIcon style={{ marginRight: 3, color: "green" }} />
+        <Typography variant="body1" sx={{ fontWeight: 800, color: "green" }}>
+          OVERVIEW
+        </Typography>
       </Box>
-    </>
+    </Box>
   );
 };
 
