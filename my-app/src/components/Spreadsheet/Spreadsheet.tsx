@@ -223,7 +223,8 @@ const Spreadsheet: React.FC = () => {
       type: "text",
       compute: (data: RowData) => {
         const restrictions = [];
-        const { dietaryRestrictions } = data.deliveryDetails;
+        const dietaryRestrictions = data.deliveryDetails?.dietaryRestrictions;
+        if (!dietaryRestrictions) return "None";
         if (dietaryRestrictions.halal) restrictions.push("Halal");
         if (dietaryRestrictions.kidneyFriendly) restrictions.push("Kidney Friendly");
         if (dietaryRestrictions.lowSodium) restrictions.push("Low Sodium");
@@ -234,9 +235,9 @@ const Spreadsheet: React.FC = () => {
         if (dietaryRestrictions.softFood) restrictions.push("Soft Food");
         if (dietaryRestrictions.vegan) restrictions.push("Vegan");
         if (dietaryRestrictions.vegetarian) restrictions.push("Vegetarian");
-        if (dietaryRestrictions.foodAllergens.length > 0)
+        if (Array.isArray(dietaryRestrictions.foodAllergens) && dietaryRestrictions.foodAllergens.length > 0)
           restrictions.push(...dietaryRestrictions.foodAllergens);
-        if (dietaryRestrictions.other.length > 0)
+        if (Array.isArray(dietaryRestrictions.other) && dietaryRestrictions.other.length > 0)
           restrictions.push(...dietaryRestrictions.other);
         return restrictions.length > 0 ? restrictions.join(", ") : "None";
       },
@@ -246,7 +247,7 @@ const Spreadsheet: React.FC = () => {
       label: "Delivery Instructions",
       type: "text",
       compute: (data: RowData) =>
-        data.deliveryDetails.deliveryInstructions || "None",
+        data.deliveryDetails?.deliveryInstructions || "None",
     },
   ];
 
