@@ -88,8 +88,8 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
   };
 
   return (
-    <ModernHeaderContainer>
-      <Box sx={{ flexGrow: 1 }}>
+    <ModernHeaderContainer sx={{ position: 'relative', pb: 0 }}>
+      <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', height: '100%' }}>
         <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
           <ProfileName variant="h1" sx={{ mb: 0, mr: 2 }}>
             {displayName()}
@@ -107,24 +107,35 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
           </TagsContainer>
         </Box>
         <Divider sx={{ mb: 2, mt: 2 }} />
-        <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-          <PersonIcon sx={{ color: '#257e68', mr: 1 }} />
-          <Typography
+        <Box sx={{ flex: 1, display: 'flex', alignItems: 'flex-end', minHeight: 0, p: 0, m: 0 }}>
+          <Box
             sx={{
-              color: '#257e68',
-              fontWeight: 700,
-              fontSize: '1.35rem',
-              letterSpacing: 0.5,
-              textTransform: 'uppercase',
-              borderBottom: '4px solid #257e68',
-              display: 'inline-block',
-              lineHeight: 1.1,
-              pb: '2px',
-              mr: 2
+              display: 'flex',
+              alignItems: 'flex-end',
+              borderBottom: '4px solid #488477',
+              width: 'fit-content',
+              pb: 0,
+              m: 0,
             }}
           >
-            OVERVIEW
-          </Typography>
+            <PersonIcon sx={{ color: '#488477', mr: 1, mb: 0.2, fontSize: '1.35rem' }} />
+            <Typography
+              sx={{
+                color: '#488477',
+                fontWeight: 700,
+                fontSize: '1.35rem',
+                letterSpacing: 0.5,
+                textTransform: 'uppercase',
+                display: 'inline-block',
+                lineHeight: 1.1,
+                mb: 0,
+                pb: 0,
+                borderBottom: 'none',
+              }}
+            >
+              OVERVIEW
+            </Typography>
+          </Box>
         </Box>
       </Box>
     </ModernHeaderContainer>
