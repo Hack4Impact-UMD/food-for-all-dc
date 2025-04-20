@@ -14,7 +14,7 @@ import {
 } from "@mui/material";
 import { ClientProfileKey } from '../types';
 import { DietaryRestrictions } from '../../../types';
-import TagPopup from "../Tags/TagPopup";
+import TagManager from "../Tags/TagManager";
 
 interface FormFieldProps {
   fieldPath: ClientProfileKey;
@@ -334,13 +334,6 @@ const FormField: React.FC<FormFieldProps> = ({
             >
               Edit Tags
             </Button>
-            <TagPopup
-              allTags={allTags}
-              tags={tags}
-              handleTag={handleTag}
-              isModalOpen={isModalOpen}
-              setIsModalOpen={setIsModalOpen}
-            ></TagPopup>
           </>
         );
       default:

@@ -42,7 +42,7 @@ import FormField from "./components/FormField";
 import MiscellaneousForm from "./components/MiscellaneousForm";
 import ProfileHeader from "./components/ProfileHeader";
 // Keep Tags import from tags_update, remove TagPopup from HEAD
-import Tags from "./Tags/Tags";
+import TagManager from "./Tags/TagManager";
 // import TagPopup from "./Tags/TagPopup"; <--- Removed
 
 // Import types

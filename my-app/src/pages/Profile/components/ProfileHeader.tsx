@@ -1,7 +1,7 @@
 import { Box, Typography, Avatar, Divider, Chip, styled, Stack } from "@mui/material";
 import PersonIcon from "@mui/icons-material/Person";
 import React from "react";
-import Tags from "../Tags/Tags";
+import TagManager from "../Tags/TagManager";
 
 // Simplified Header Container
 const ModernHeaderContainer = styled(Box)(({ theme }) => ({
@@ -95,7 +95,7 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
             {displayName()}
           </ProfileName>
           <TagsContainer sx={{ marginTop: 0 }}>
-            <Tags
+            <TagManager
               allTags={allTags}
               values={tags}
               handleTag={handleTag}

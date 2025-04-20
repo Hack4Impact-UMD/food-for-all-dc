@@ -1,6 +1,7 @@
 import React from "react";
 import { Box, Typography } from "@mui/material";
 import { ClientProfileKey, InputType } from "../types";
+import TagManager from "../Tags/TagManager";
 
 interface MiscellaneousFormProps {
   isEditing: boolean;

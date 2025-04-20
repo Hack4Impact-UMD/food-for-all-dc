@@ -238,7 +238,7 @@ export default function TagManager({ allTags, values, handleTag, setInnerPopup, 
             handleTag={handleTag} 
             values={values} 
             createTag={true} 
-            setInnerPopup={() => {}}
+            setInnerPopup={(isOpen: boolean) => { /* no-op: not needed here */ }}
             deleteMode={deleteMode} 
             setTagToDelete={setTagToDelete}
           />
