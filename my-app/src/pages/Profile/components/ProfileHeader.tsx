@@ -106,12 +106,6 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
             />
           </TagsContainer>
         </Box>
-        <Stack spacing={0.5}>
-          <ClientIdText variant="body2">
-            <PersonIcon fontSize="inherit" />
-            ID: {clientId || "Not assigned yet"}
-          </ClientIdText>
-        </Stack>
         <Divider sx={{ mb: 2, mt: 2 }} />
         <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
           <PersonIcon sx={{ color: '#257e68', mr: 1 }} />
