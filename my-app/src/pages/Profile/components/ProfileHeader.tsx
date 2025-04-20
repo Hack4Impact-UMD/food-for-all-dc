@@ -88,35 +88,52 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
   };
 
   return (
-    // Use the new ModernHeaderContainer
     <ModernHeaderContainer>
-      <StyledAvatar>{getInitials()}</StyledAvatar>
-      <Box sx={{ flexGrow: 1 }}> {/* Allow text content to take remaining space */}
-        <Stack spacing={0.5}> {/* Stack for Name and ID */}
-          <ProfileName variant="h1"> {/* Use h1 semantically, styled as needed */}
+      <Box sx={{ flexGrow: 1 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
+          <ProfileName variant="h1" sx={{ mb: 0, mr: 2 }}>
             {displayName()}
           </ProfileName>
+          <TagsContainer sx={{ marginTop: 0 }}>
+            <Tags
+              allTags={allTags}
+              values={tags}
+              handleTag={handleTag}
+              setInnerPopup={noOp}
+              deleteMode={false}
+              setTagToDelete={noOp}
+              clientUid={clientId || ""}
+            />
+          </TagsContainer>
+        </Box>
+        <Stack spacing={0.5}>
           <ClientIdText variant="body2">
-            <PersonIcon fontSize="inherit" /> {/* Inherit size */}
+            <PersonIcon fontSize="inherit" />
             ID: {clientId || "Not assigned yet"}
           </ClientIdText>
         </Stack>
-
-        <TagsContainer>
-          <Tags
-            allTags={allTags}
-            values={tags}
-            handleTag={handleTag}
-            setInnerPopup={noOp} // Assuming noOp is still appropriate
-            deleteMode={false} // Assuming delete mode is handled elsewhere
-            setTagToDelete={noOp} // Assuming noOp is still appropriate
-            clientUid={clientId || ""}
-          />
-        </TagsContainer>
+        <Divider sx={{ mb: 2, mt: 2 }} />
+        <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+          <PersonIcon sx={{ color: '#257e68', mr: 1 }} />
+          <Typography
+            sx={{
+              color: '#257e68',
+              fontWeight: 700,
+              fontSize: '1.35rem',
+              letterSpacing: 0.5,
+              textTransform: 'uppercase',
+              borderBottom: '4px solid #257e68',
+              display: 'inline-block',
+              lineHeight: 1.1,
+              pb: '2px',
+              mr: 2
+            }}
+          >
+            OVERVIEW
+          </Typography>
+        </Box>
       </Box>
-      {/* Removed OverviewLabel */}
     </ModernHeaderContainer>
-    // Removed HeaderWrapper
   );
 };
 
