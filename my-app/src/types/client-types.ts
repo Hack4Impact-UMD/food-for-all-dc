@@ -59,7 +59,7 @@ export interface ClientProfile {
     id: string;
     name: string;
     organization: string;
-  };
+  } | null;
   startDate: string;
   endDate: string;
   recurrence: string;

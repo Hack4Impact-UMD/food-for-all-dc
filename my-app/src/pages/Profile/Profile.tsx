@@ -153,7 +153,15 @@ const SaveNotification = styled(Box)({
 
 // Type definitions have been moved to types directory
 const Profile = () => {
+  // #### PARAMS and NAVIGATION ####
+  const navigate = useNavigate();
+  const params = useParams();
+  const id: string | null = params.id ?? null;
+
   // #### STATE ####
+  const [isEditing, setIsEditing] = useState(!id); // Start editing only if it's a new profile (!id)
+  const [isNewProfile, setIsNewProfile] = useState(!id);
+  const [clientId, setClientId] = useState<string | null>(id);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [tags, setTags] = useState<string[]>([]);
   const [allTags, setAllTags] = useState<string[]>([]);
@@ -213,21 +221,14 @@ const Profile = () => {
     ward: "",
     tefapCert: "",
   });
-  const [isNewProfile, setIsNewProfile] = useState(true);
-  const [editMode, setEditMode] = useState(true);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [fieldEditStates, setFieldEditStates] = useState<{ [key: string]: boolean }>({});
-  const navigate = useNavigate();
   const [formData, setFormData] = useState({});
-  const [clientId, setClientId] = useState<string | null>(null);
   const [isSaved, setIsSaved] = useState(false);
   const [ward, setWard] = useState(clientProfile.ward);
-  const [isEditing, setIsEditing] = useState(true);
   const [lastDeliveryDate, setLastDeliveryDate] = useState<string | null>(null);
   const [profileLoaded, setProfileLoaded] = useState(false);
   const [prevNotes, setPrevNotes] = useState("");
-  const params = useParams();
-  const id: string | null = params.id ?? null;
   const [showSavePopup, setShowSavePopup] = useState(false);
   const [showCaseWorkerModal, setShowCaseWorkerModal] = useState(false);
   const [caseWorkers, setCaseWorkers] = useState<CaseWorker[]>([]);
@@ -466,10 +467,6 @@ const Profile = () => {
     }));
   };
 
-  const toggleEditMode = () => {
-    setEditMode((prev) => !prev);
-  };
-
   function deepCopy<T>(obj: T): T {
     // If obj is null or not an object, return it (base case)
     if (obj === null || typeof obj !== "object") {
@@ -653,32 +650,50 @@ const Profile = () => {
 
   const handleSave = async () => {
     if (!validateProfile()) {
-      console.log("Invalid Profile");
+      console.log("Invalid Profile:", errors); // Log errors for debugging
+      // Build a message listing all missing/invalid fields
+      const errorFields = Object.entries(errors)
+        .map(([field, message]) => `- ${message}`)
+        .join('\n');
+      alert(`Please fix the following before saving:\n${errorFields}`);
       return;
     }
 
+    // Show saving indicator? (Optional)
+    // setIsLoading(true);
+
     try {
-      const currNotes = clientProfile.notes;
+      const currentNotes = clientProfile.notes || ""; // Ensure notes is a string
+      const fetchedWard = await getWard(clientProfile.address); // Fetch ward before saving
 
       let updatedNotesTimestamp = checkIfNotesExists(
-        currNotes,
+        currentNotes,
         clientProfile.notesTimestamp || null
       );
-      updatedNotesTimestamp = checkIfNotesChanged(prevNotes, currNotes, updatedNotesTimestamp);
+      updatedNotesTimestamp = checkIfNotesChanged(
+        prevNotes, // Compare against the notes content *before* this edit session
+        currentNotes,
+        updatedNotesTimestamp
+      );
 
-      // Update the clientProfile object with the latest tags state
-      const updatedProfile = {
+      // Update the clientProfile object with the latest tags state and other calculated fields
+      const updatedProfile: ClientProfile = {
         ...clientProfile,
         tags: tags, // Sync the tags state with clientProfile
         notesTimestamp: updatedNotesTimestamp, // Update the notesTimestamp
         updatedAt: new Date(),
-        total: clientProfile.adults + clientProfile.children + clientProfile.seniors,
-        ward: await getWard(clientProfile.address),
-        // Explicitly include referral entity to ensure it's saved
-        referralEntity: clientProfile.referralEntity,
+        total: Number(clientProfile.adults || 0) + Number(clientProfile.children || 0) + Number(clientProfile.seniors || 0),
+        ward: fetchedWard, // Use the freshly fetched ward
+        // Ensure referralEntity is included based on selectedCaseWorker
+        referralEntity: selectedCaseWorker
+         ? { id: selectedCaseWorker.id, name: selectedCaseWorker.name, organization: selectedCaseWorker.organization }
+         : null, // Use null if no case worker is selected
       };
 
-      const sortedAllTags = [...allTags].sort((a, b) => a.localeCompare(b));
+      // Sort allTags before potentially saving them (ensures consistent order)
+      // Combine current tags and all known tags, remove duplicates, then sort
+      const combinedTags = Array.from(new Set([...allTags, ...tags])); // Use Array.from for compatibility
+      const sortedAllTags = combinedTags.sort((a, b) => a.localeCompare(b));
 
       if (isNewProfile) {
         // Generate new UID for new profile
@@ -686,49 +701,65 @@ const Profile = () => {
         const newProfile = {
           ...updatedProfile,
           uid: newUid,
-          createdAt: new Date(),
+          createdAt: new Date(), // Set createdAt for new profile
         };
 
         // Save to Firestore for new profile
+        console.log("Creating new profile:", newProfile);
         await setDoc(doc(db, "clients", newUid), newProfile);
-        await setDoc(doc(db, "tags", "oGuiR2dQQeOBXHCkhDeX"), {
-          tags: sortedAllTags,
-        });
-        setClientProfile(newProfile);
-        setPrevClientProfile(null);
-        setIsNewProfile(false);
+        // Update the central tags list
+        await setDoc(doc(db, "tags", "oGuiR2dQQeOBXHCkhDeX"), { tags: sortedAllTags }, { merge: true });
+
+        // Update state *before* navigating
+        setClientProfile(newProfile); // Update with the full new profile data including UID/createdAt
+        setPrevClientProfile(null); // Clear previous state backup
+        setPrevNotes(newProfile.notes || ""); // Update prevNotes with saved notes
+        setIsNewProfile(false); // No longer a new profile
+        setClientId(newUid);    // Set the clientId state for the current view
+        setIsSaved(true);       // Indicate save was successful
+        setErrors({});          // Clear validation errors
+        setAllTags(sortedAllTags); // Update the local list of all tags
+
         console.log("New profile created with ID: ", newUid);
+        // Navigate *after* state updates. The component will remount with isEditing=false.
         navigate(`/profile/${newUid}`);
+
       } else {
         // Update existing profile
-        await setDoc(doc(db, "clients", clientProfile.uid), updatedProfile, {
-          merge: true,
-        });
-        await setDoc(
-          doc(db, "tags", "oGuiR2dQQeOBXHCkhDeX"),
-          { tags: sortedAllTags },
-          {
-            merge: true,
-          }
-        );
-        setPrevClientProfile(null);
-        setClientProfile(updatedProfile);
+        if (!clientProfile.uid) {
+           console.error("Cannot update profile: UID is missing.");
+           alert("Error: Cannot update profile, client ID is missing.");
+           throw new Error("Client UID is missing for update.");
+        }
+        console.log("Updating profile:", clientProfile.uid, updatedProfile);
+        await setDoc(doc(db, "clients", clientProfile.uid), updatedProfile, { merge: true }); // Use merge: true for updates
+        // Update the central tags list
+        await setDoc(doc(db, "tags", "oGuiR2dQQeOBXHCkhDeX"), { tags: sortedAllTags }, { merge: true });
+
+        // Update state *after* successful save for existing profile
+        setClientProfile(updatedProfile); // Update with latest data
+        setPrevClientProfile(null); // Clear previous state backup
+        setPrevNotes(updatedProfile.notes || ""); // Update prevNotes
+        setIsSaved(true); // Indicate save was successful
+        setIsEditing(false); // <<<<<< EXIT EDIT MODE HERE for existing profiles
+        setErrors({}); // Clear validation errors
+        setAllTags(sortedAllTags); // Update the local list of all tags
+
+        console.log("Profile updated:", clientProfile.uid);
       }
 
-      // Make sure we update prevNotes with the current notes value to track changes properly
-      setPrevNotes(currNotes);
-
-      // Update UI state
-      setIsSaved(true);
-      setEditMode(false);
-      setIsEditing(false);
-
-      // Show save popup
+      // Common post-save actions (Popup notification)
+      // setEditMode(false); <-- Removed redundant call
       setShowSavePopup(true);
-      // Hide popup after 2 seconds
       setTimeout(() => setShowSavePopup(false), 2000);
+
     } catch (e) {
       console.error("Error saving document: ", e);
+      alert(`Failed to save profile: ${e instanceof Error ? e.message : String(e)}`);
+      // Consider keeping isEditing true or providing more feedback
+    } finally {
+      // Hide saving indicator? (Optional)
+      // setIsLoading(false);
     }
   };
 

@@ -270,8 +270,19 @@ const FormField: React.FC<FormFieldProps> = ({
               onChange={(e) => handleChange(e as SelectChangeEvent<string>)}
               inputProps={selectInputProps}
             >
-              <MenuItem disabled>Select</MenuItem>
-              {/* Add options for referralEntity and recurrence as needed in parent */}
+              {fieldPath === "recurrence" && [
+                <MenuItem key="None" value="None">None</MenuItem>,
+                <MenuItem key="Weekly" value="Weekly">Weekly</MenuItem>,
+                <MenuItem key="2x-Monthly" value="2x-Monthly">2x-Monthly</MenuItem>,
+                <MenuItem key="Monthly" value="Monthly">Monthly</MenuItem>,
+              ]}
+              {fieldPath === "ethnicity" && [
+                <MenuItem key="" value="" disabled>Select</MenuItem>,
+                <MenuItem key="Hispanic or Latino" value="Hispanic or Latino">Hispanic or Latino</MenuItem>,
+                <MenuItem key="Not Hispanic or Latino" value="Not Hispanic or Latino">Not Hispanic or Latino</MenuItem>,
+                <MenuItem key="Unknown" value="Unknown">Unknown</MenuItem>,
+              ]}
+              {/* Add referralEntity options if needed */}
             </CustomSelect>
           );
         }

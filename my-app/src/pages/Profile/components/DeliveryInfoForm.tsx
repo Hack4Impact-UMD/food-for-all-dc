@@ -88,26 +88,7 @@ const DeliveryInfoForm: React.FC<DeliveryInfoFormProps> = ({
           <Typography className="field-descriptor" sx={fieldLabelStyles}>
             RECURRENCE <span className="required-asterisk">*</span>
           </Typography>
-          {isEditing ? (
-            <CustomSelect
-              name="recurrence"
-              value={clientProfile.recurrence || ""}
-              onChange={(e) => {
-                const { value } = e.target;
-                // Callback to handle change would be used here
-              }}
-              fullWidth
-            >
-              <MenuItem value="None">None</MenuItem>
-              <MenuItem value="Weekly">Weekly</MenuItem>
-              <MenuItem value="2x-Monthly">2x-Monthly</MenuItem>
-              <MenuItem value="Monthly">Monthly</MenuItem>
-            </CustomSelect>
-          ) : (
-            <Typography variant="body1" sx={{ fontWeight: 600 }}>
-              {clientProfile.recurrence || "N/A"}
-            </Typography>
-          )}
+          {renderField("recurrence", "select")}
         </Box>
         
         {/* Last Delivery Date */}
