@@ -52,15 +52,26 @@ const CustomTextField = styled(TextField)({
       border: "none",
     },
   },
-  "& .MuiInputBase-input": fieldStyles,
+  "& .MuiInputBase-input": {
+    ...fieldStyles,
+  },
+  "& .MuiInputBase-input.Mui-disabled": {
+    backgroundColor: "#e0e0e0",
+    color: "#757575",
+    WebkitTextFillColor: "#757575",
+    cursor: "not-allowed",
+    borderRadius: fieldStyles.borderRadius,
+    border: "1.5px solid #bdbdbd",
+    fontWeight: 500,
+    opacity: 1,
+  },
 });
 
 export const CustomSelect = styled(Select)({
-  // Target the outlined border
   "& .MuiOutlinedInput-root": {
     height: "1.813rem",
     "& .MuiOutlinedInput-notchedOutline": {
-      border: "none", // removes the border
+      border: "none",
     },
   },
   "& fieldset": {
@@ -71,6 +82,16 @@ export const CustomSelect = styled(Select)({
   },
   "& .MuiSelect-icon": {
     display: "none",
+  },
+  "& .MuiSelect-select.Mui-disabled": {
+    backgroundColor: "#e0e0e0",
+    color: "#757575",
+    WebkitTextFillColor: "#757575",
+    cursor: "not-allowed",
+    borderRadius: fieldStyles.borderRadius,
+    border: "1.5px solid #bdbdbd",
+    fontWeight: 500,
+    opacity: 1,
   },
 });
 
