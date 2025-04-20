@@ -772,7 +772,7 @@ const Profile = () => {
       : clientProfile[fieldPath as keyof ClientProfile];
     
     // Determine if the field should be disabled
-    const isDisabledField = ["city", "state", "zipCode", "quadrant", "ward"].includes(fieldPath);
+    const isDisabledField = ["city", "state", "zipCode", "quadrant", "ward", "total"].includes(fieldPath);
 
     return (
       <Box sx={{ 
@@ -969,6 +969,14 @@ const Profile = () => {
       });
     }
   };
+
+  // Add this useEffect after state declarations in the Profile component
+  useEffect(() => {
+    setClientProfile((prev) => ({
+      ...prev,
+      total: Number(prev.adults || 0) + Number(prev.children || 0) + Number(prev.seniors || 0),
+    }));
+  }, [clientProfile.adults, clientProfile.children, clientProfile.seniors]);
 
   console.log(clientProfile)
   return (
