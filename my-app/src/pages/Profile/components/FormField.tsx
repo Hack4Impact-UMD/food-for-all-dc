@@ -155,19 +155,51 @@ const FormField: React.FC<FormFieldProps> = ({
       );
     }
 
-    const selectedRestrictions =
-      Object.entries(restrictions)
-        .filter(([key, value]) => value === true && typeof value === "boolean")
-        .map(([key]) => key.replace(/([A-Z])/g, " $1").trim())
-        .join(", ") || "None";
+    const selectedRestrictions = Object.entries(restrictions)
+      .filter(([key, value]) => value === true && typeof value === "boolean")
+      .map(([key]) => key.replace(/([A-Z])/g, " $1").trim());
 
     return (
-      <CustomTextField
-        name="dietaryRestrictionsSummary"
-        value={selectedRestrictions}
-        disabled
-        fullWidth
-      />
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, minHeight: 40 }}>
+        {selectedRestrictions.length > 0 ? (
+          selectedRestrictions.map((restriction) => (
+            <Box
+              key={restriction}
+              sx={{
+                display: 'inline-block',
+                px: 1.5,
+                py: 0.5,
+                bgcolor: '#e0f2f1',
+                color: '#257E68',
+                borderRadius: '16px',
+                fontWeight: 600,
+                fontSize: '0.95rem',
+                mr: 1,
+                mb: 1,
+                letterSpacing: 0.2,
+              }}
+            >
+              {restriction}
+            </Box>
+          ))
+        ) : (
+          <Box
+            sx={{
+              display: 'inline-block',
+              px: 1.5,
+              py: 0.5,
+              bgcolor: '#f5f5f5',
+              color: '#888',
+              borderRadius: '16px',
+              fontWeight: 500,
+              fontSize: '0.95rem',
+              letterSpacing: 0.2,
+            }}
+          >
+            None
+          </Box>
+        )}
+      </Box>
     );
   };
 

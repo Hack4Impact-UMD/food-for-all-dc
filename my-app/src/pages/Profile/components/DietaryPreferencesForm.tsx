@@ -31,7 +31,7 @@ const DietaryPreferencesForm: React.FC<DietaryPreferencesFormProps> = ({
         }}
         className="info-grid"
       >
-        <Box sx={{ gridColumn: isEditing ? "-1/1" : "" }}>
+        <Box sx={{ gridColumn: "-1/1" }}>
           <Typography className="field-descriptor" sx={fieldLabelStyles}>
             DIETARY RESTRICTIONS
           </Typography>
