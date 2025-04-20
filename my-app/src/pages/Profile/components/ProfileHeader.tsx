@@ -102,20 +102,17 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
           </ClientIdText>
         </Stack>
 
-        {clientId && (
-          <TagsContainer>
-            {/* Removed the Chip label for "Tags" */}
-            <Tags
-              allTags={allTags}
-              values={tags}
-              handleTag={handleTag}
-              setInnerPopup={noOp} // Assuming noOp is still appropriate
-              deleteMode={false} // Assuming delete mode is handled elsewhere
-              setTagToDelete={noOp} // Assuming noOp is still appropriate
-              clientUid={clientId}
-            />
-          </TagsContainer>
-        )}
+        <TagsContainer>
+          <Tags
+            allTags={allTags}
+            values={tags}
+            handleTag={handleTag}
+            setInnerPopup={noOp} // Assuming noOp is still appropriate
+            deleteMode={false} // Assuming delete mode is handled elsewhere
+            setTagToDelete={noOp} // Assuming noOp is still appropriate
+            clientUid={clientId || ""}
+          />
+        </TagsContainer>
       </Box>
       {/* Removed OverviewLabel */}
     </ModernHeaderContainer>
