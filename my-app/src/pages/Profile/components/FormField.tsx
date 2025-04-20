@@ -224,7 +224,7 @@ const FormField: React.FC<FormFieldProps> = ({
   if (isEditing) {
     // Declare minLength variables before switch to avoid no-case-declarations lint error
     let minLength = 2;
-    let minLengthTextarea = 2;
+    const minLengthTextarea = 2;
     const selectInputProps = { minLength: 2 };
     const dateInputProps = { minLength: 10 };
     switch (type) {
@@ -325,20 +325,24 @@ const FormField: React.FC<FormFieldProps> = ({
           />
         );
       case "textarea":
-        if (["address2"].includes(fieldPath)) minLengthTextarea = 5;
         if (fieldPath === "ward") {
           return <CustomTextField name={fieldPath} value={String(value || "")} disabled fullWidth />;
         } else {
-          return (
-            <CustomTextField
-              name={fieldPath}
-              value={String(value || "")}
-              onChange={handleChange}
-              multiline
-              fullWidth
-              inputProps={{ minLength: minLengthTextarea }}
-            />
-          );
+          // Create block scope for lexical declaration
+          {
+            const isTallTextarea = ["lifeChallenges", "lifestyleGoals", "notes", "deliveryDetails.deliveryInstructions"].includes(fieldPath);
+            return (
+              <CustomTextField
+                name={fieldPath}
+                value={String(value || "")}
+                onChange={handleChange}
+                multiline
+                fullWidth
+                minRows={isTallTextarea ? 3 : 1}
+                inputProps={{ minLength: minLengthTextarea }}
+              />
+            );
+          }
         }
       case "tags":
         return (

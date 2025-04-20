@@ -37,7 +37,7 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
           sm: "repeat(2, 1fr)",
           md: "repeat(3, 1fr)",
         },
-        alignItems: "center",
+        alignItems: "flex-start",
       }}
       className="info-grid"
     >

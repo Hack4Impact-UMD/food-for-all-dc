@@ -63,7 +63,7 @@ const DeliveryInfoForm: React.FC<DeliveryInfoFormProps> = ({
             sm: "repeat(2, 1fr)",
             md: "repeat(3, 1fr)",
           },
-          alignItems: "center",
+          alignItems: "flex-start",
         }}
         className="info-grid"
       >
@@ -109,15 +109,8 @@ const DeliveryInfoForm: React.FC<DeliveryInfoFormProps> = ({
             </Typography>
           )}
         </Box>
-
-        {/* Delivery Instructions */}
-        <Box>
-          <Typography className="field-descriptor" sx={fieldLabelStyles}>
-            DELIVERY INSTRUCTIONS
-          </Typography>
-          {renderField("deliveryDetails.deliveryInstructions", "textarea")}
-        </Box>
-
+        
+        {/* Last Delivery Date */}
         <Box>
           <Typography className="field-descriptor" sx={fieldLabelStyles}>
             LAST DELIVERY DATE
@@ -127,8 +120,16 @@ const DeliveryInfoForm: React.FC<DeliveryInfoFormProps> = ({
           </Typography>
         </Box>
 
+        {/* Delivery Instructions */}
+        <Box sx={{ gridColumn: { xs: '1', sm: 'span 1' } }}>
+          <Typography className="field-descriptor" sx={fieldLabelStyles}>
+            DELIVERY INSTRUCTIONS
+          </Typography>
+          {renderField("deliveryDetails.deliveryInstructions", "textarea")}
+        </Box>
+
         {/* Notes */}
-        <Box>
+        <Box sx={{ gridColumn: { xs: '1', sm: 'span 1' } }}>
           <Typography className="field-descriptor" sx={fieldLabelStyles}>
             ADMIN NOTES
           </Typography>
