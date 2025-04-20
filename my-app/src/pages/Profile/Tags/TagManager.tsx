@@ -215,7 +215,8 @@ export default function TagManager({ allTags, values, handleTag, setInnerPopup, 
           maxHeight: '300px',
           overflowY: 'auto',
           flexWrap: 'wrap',
-          paddingTop: '0px',
+          paddingTop: '8px',
+          overflow: 'visible',
         }}
       >
         {values && values.length > 0 ? values.map((v: string) => (
