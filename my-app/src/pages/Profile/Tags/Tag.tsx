@@ -2,7 +2,7 @@ import AddIcon from "@mui/icons-material/Add";
 import EditIcon from '@mui/icons-material/Edit';
 import CloseIcon from "@mui/icons-material/Close";
 import LocalOfferIcon from '@mui/icons-material/LocalOffer';
-import { Box, Tooltip, Typography } from "@mui/material";
+import { Box, Tooltip, Typography, Dialog, DialogTitle, DialogContent, DialogActions, Button, Fade } from "@mui/material";
 import { styled } from "@mui/system";
 import React, { useState } from "react";
 
@@ -76,15 +76,72 @@ const Tag: React.FC<TagProps> = ({
   deleteMode,
   setTagToDelete,
 }) => {
+  const [showConfirm, setShowConfirm] = useState(false);
+
+  const handleRemoveClick = (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setShowConfirm(true);
+  };
+
+  const handleConfirm = () => {
+    handleTag(text);
+    setShowConfirm(false);
+  };
+
+  const handleCancel = () => {
+    setShowConfirm(false);
+  };
+
   const handleClick = () => {
     handleTag(text);
   };
 
   if (!deleteMode) {
     return !createTag ? (
-      <TagContainer className={values.includes(text) ? "active" : ""} onClick={handleClick}>
-        <TagText variant="body2">{text}</TagText>
-      </TagContainer>
+      <>
+        <TagContainer className={values.includes(text) ? "active" : ""} onClick={handleRemoveClick}>
+          <TagText variant="body2">{text}</TagText>
+        </TagContainer>
+        <Dialog
+          open={showConfirm}
+          onClose={handleCancel}
+          TransitionComponent={Fade}
+        >
+          <DialogTitle sx={{ textAlign: "center", color: '#e53935', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
+            Remove Tag?
+          </DialogTitle>
+          <DialogContent
+            sx={{
+              display: "flex",
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: 2,
+              minWidth: 320,
+              textAlign: "center",
+            }}
+          >
+            <Typography sx={{ color: 'var(--color-text-secondary)' }}>
+              Are you sure you want to remove <b>{text}</b> from this profile?
+            </Typography>
+          </DialogContent>
+          <DialogActions sx={{ justifyContent: 'center', gap: 2, pb: 2 }}>
+            <Button
+              onClick={handleConfirm}
+              variant="contained"
+              color="error"
+              sx={{ borderRadius: 20, fontWeight: 600 }}
+            >
+              Remove
+            </Button>
+            <Button
+              onClick={handleCancel}
+              sx={{ borderRadius: 20, color: 'var(--color-primary)', fontWeight: 600 }}
+            >
+              Cancel
+            </Button>
+          </DialogActions>
+        </Dialog>
+      </>
     ) : (
       <Tooltip title={"Edit Tags"} placement="top">
         <CreateTagContainer
