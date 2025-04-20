@@ -30,7 +30,7 @@ interface TagsProps {
   clientUid: string; // new prop to update client firebase record
 }
 
-const StyledDialog = styled(Dialog)(({ theme }) => ({
+export const StyledDialog = styled(Dialog)(({ theme }) => ({
   '& .MuiPaper-root': {
     borderRadius: 18,
     boxShadow: '0 8px 32px rgba(37, 126, 104, 0.18)',
@@ -199,7 +199,8 @@ export default function TagManager({ allTags, values, handleTag, setInnerPopup, 
     }
     setShowDeleteConfirm(false);
     setTagToDeleteState(null);
-    setOpenAddTagModal(false);
+    setModalMode("add");
+    setSelectedTag(null);
   };
 
   return (
@@ -263,15 +264,17 @@ export default function TagManager({ allTags, values, handleTag, setInnerPopup, 
         </DialogTitle>
         <DialogContent>
           {modalMode === "add" ? (
-            <Autocomplete
-              freeSolo
-              options={availableTags}
-              value={selectedTag}
-              onChange={(_event, newValue) => setSelectedTag(newValue)}
-              onInputChange={(_event, newInputValue) => setSelectedTag(newInputValue)}
-              renderInput={(params) => <TextField {...params} label="Select tag or type new tag" variant="standard" />}
-              clearOnEscape
-            />
+            <>
+              <Autocomplete
+                freeSolo
+                options={availableTags}
+                value={selectedTag}
+                onChange={(_event, newValue) => setSelectedTag(newValue)}
+                onInputChange={(_event, newInputValue) => setSelectedTag(newInputValue)}
+                renderInput={(params) => <TextField {...params} label="Select tag or type new tag" variant="standard" />}
+                clearOnEscape
+              />
+            </>
           ) : (
             <Autocomplete
               freeSolo
@@ -284,7 +287,16 @@ export default function TagManager({ allTags, values, handleTag, setInnerPopup, 
           )}
         </DialogContent>
         <DialogActions sx={{ justifyContent: 'space-between', px: 3, pb: 2 }}>
-          <Button onClick={() => setOpenAddTagModal(false)} sx={{ borderRadius: 20, color: 'var(--color-primary)', fontWeight: 600 }}>Cancel</Button>
+          <Button onClick={() => {
+            if (modalMode === 'remove') {
+              setModalMode('add');
+              setSelectedTag(null);
+            } else {
+              setOpenAddTagModal(false);
+            }
+          }} sx={{ borderRadius: 20, color: 'var(--color-primary)', fontWeight: 600 }}>
+            {modalMode === 'remove' ? 'Back' : 'Cancel'}
+          </Button>
           {modalMode === "add" && (
             <AddTagButton onClick={handleAddTag} disabled={!selectedTag || selectedTag.trim() === ""} startIcon={<AddCircleIcon />}>
               Add Tag
@@ -296,6 +308,20 @@ export default function TagManager({ allTags, values, handleTag, setInnerPopup, 
             </DeleteButton>
           )}
         </DialogActions>
+        {/* Move Delete Tag Globally button below actions */}
+        {modalMode === "add" && (
+          <Box sx={{ px: 3, pb: 2, pt: 0, width: '100%' }}>
+            <Button
+              variant="outlined"
+              color="error"
+              sx={{ mt: 1, borderRadius: 20, fontWeight: 600, width: '100%' }}
+              onClick={() => setModalMode('remove')}
+              startIcon={<WarningAmberRoundedIcon />}
+            >
+              Delete Tag Globally
+            </Button>
+          </Box>
+        )}
       </StyledDialog>
 
       {/* Delete Confirmation Dialog */}

@@ -2,9 +2,10 @@ import AddIcon from "@mui/icons-material/Add";
 import EditIcon from '@mui/icons-material/Edit';
 import CloseIcon from "@mui/icons-material/Close";
 import LocalOfferIcon from '@mui/icons-material/LocalOffer';
-import { Box, Tooltip, Typography, Dialog, DialogTitle, DialogContent, DialogActions, Button, Fade } from "@mui/material";
+import { Box, Tooltip, Typography, DialogTitle, DialogContent, DialogActions, Button, Fade } from "@mui/material";
 import { styled } from "@mui/system";
 import React, { useState } from "react";
+import { StyledDialog } from './TagManager';
 
 interface TagProps {
   text: string;
@@ -102,7 +103,7 @@ const Tag: React.FC<TagProps> = ({
         <TagContainer className={values.includes(text) ? "active" : ""} onClick={handleRemoveClick}>
           <TagText variant="body2">{text}</TagText>
         </TagContainer>
-        <Dialog
+        <StyledDialog
           open={showConfirm}
           onClose={handleCancel}
           TransitionComponent={Fade}
@@ -140,7 +141,7 @@ const Tag: React.FC<TagProps> = ({
               Cancel
             </Button>
           </DialogActions>
-        </Dialog>
+        </StyledDialog>
       </>
     ) : (
       <Tooltip title={"Edit Tags"} placement="top">
