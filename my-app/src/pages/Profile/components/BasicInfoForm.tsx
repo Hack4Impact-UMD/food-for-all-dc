@@ -82,14 +82,7 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
 
       {/* Address 1 */}
       <Box>
-        <Typography
-          className="field-descriptor"
-          sx={{
-            ...fieldLabelStyles,
-            position: "relative",
-            top: isEditing ? "-19px" : "0",
-          }}
-        >
+        <Typography className="field-descriptor" sx={fieldLabelStyles}>
           ADDRESS <span className="required-asterisk">*</span>
         </Typography>
         {renderField("address", "text")}
@@ -102,14 +95,7 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
 
       {/* Address 2 */}
       <Box>
-        <Typography
-          className="field-descriptor"
-          sx={{
-            ...fieldLabelStyles,
-            position: "relative",
-            top: isEditing ? "-19px" : "0",
-          }}
-        >
+        <Typography className="field-descriptor" sx={fieldLabelStyles}>
           ADDRESS 2
         </Typography>
         {renderField("address2", "textarea")}
@@ -117,14 +103,7 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
 
       {/* City */}
       <Box>
-        <Typography
-          className="field-descriptor"
-          sx={{
-            ...fieldLabelStyles,
-            position: "relative",
-            top: isEditing ? "-19px" : "0",
-          }}
-        >
+        <Typography className="field-descriptor" sx={fieldLabelStyles}>
           CITY <span className="required-asterisk">*</span>
         </Typography>
         {renderField("city", "text")}
@@ -137,14 +116,7 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
 
       {/* State */}
       <Box>
-        <Typography
-          className="field-descriptor"
-          sx={{
-            ...fieldLabelStyles,
-            position: "relative",
-            top: isEditing ? "-19px" : "0",
-          }}
-        >
+        <Typography className="field-descriptor" sx={fieldLabelStyles}>
           STATE <span className="required-asterisk">*</span>
         </Typography>
         {renderField("state", "text")}
@@ -157,14 +129,7 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
 
       {/* ZIP CODE */}
       <Box>
-        <Typography
-          className="field-descriptor"
-          sx={{
-            ...fieldLabelStyles,
-            position: "relative",
-            top: isEditing ? "-19px" : "0",
-          }}
-        >
+        <Typography className="field-descriptor" sx={fieldLabelStyles}>
           ZIP CODE <span className="required-asterisk">*</span>
         </Typography>
         {renderField("zipCode", "text")}
@@ -177,14 +142,7 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
 
       {/* Quadrant */}
       <Box>
-        <Typography
-          className="field-descriptor"
-          sx={{
-            ...fieldLabelStyles,
-            position: "relative",
-            top: isEditing ? "-19px" : "0",
-          }}
-        >
+        <Typography className="field-descriptor" sx={fieldLabelStyles}>
           QUADRANT
         </Typography>
         {renderField("quadrant", "text")}

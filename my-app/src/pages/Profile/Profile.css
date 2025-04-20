@@ -210,18 +210,18 @@
 .info-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  grid-gap: 20px;
-  margin-bottom: 1rem;
+  grid-gap: 2.25rem 2rem;
+  margin-bottom: 2rem;
 }
 
-.info-grid div {
-  padding: 10px 0;
-  padding-right: 10%;
-  font-size: 16px;
+.info-grid > div {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   justify-content: flex-start;
+  padding: 0;
+  margin-bottom: 0;
+  background: none;
 }
 
 .info-category {
@@ -249,8 +249,9 @@ dd {
 }
 
 .required-asterisk {
-  color: red;
-  margin-left: 2px;
+  color: #e53935;
+  margin-left: 4px;
+  font-size: 1.1em;
 }
 
 .error-message {
@@ -268,10 +269,31 @@ dd {
 }
 
 .field-descriptor {
-  font-family: "Inter";
+  font-family: 'Inter', sans-serif;
   font-size: 1rem;
   font-weight: 700;
-  /* margin-bottom: 0.75rem; */
+  color: #444;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 0.4rem;
+  margin-top: 0;
+  padding-left: 0.5rem;
+  position: relative;
+  line-height: 1.2;
+  display: flex;
+  align-items: center;
+}
+
+.field-descriptor::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 18px;
+  background-color: var(--color-primary, #257e68);
+  border-radius: 2px;
 }
 
 .no-border {
@@ -597,13 +619,21 @@ dd {
 }
 
 /* Form input styling */
-.form-input {
-  border: 1px solid rgba(0, 0, 0, 0.15);
-  border-radius: 6px;
-  padding: 0.5rem 0.75rem;
-  width: 100%;
-  font-size: 0.875rem;
-  transition: all 0.2s ease;
+.form-input, textarea, input[type="text"], input[type="date"], input[type="email"], .MuiInputBase-input, .MuiOutlinedInput-input {
+  padding-left: 0.75rem !important;
+  box-sizing: border-box;
+  margin-left: 0 !important;
+}
+
+textarea, .MuiInputBase-inputMultiline {
+  padding-left: 0.75rem !important;
+  box-sizing: border-box;
+  margin-left: 0 !important;
+}
+
+/* Remove any extra left padding from MUI OutlinedInput root */
+.MuiOutlinedInput-root {
+  padding-left: 0 !important;
 }
 
 .form-input:focus {
@@ -708,5 +738,16 @@ dd {
     width: 48px;
     height: 48px;
     font-size: 20px;
+  }
+}
+
+@media (max-width: 900px) {
+  .info-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (max-width: 600px) {
+  .info-grid {
+    grid-template-columns: 1fr;
   }
 } 
