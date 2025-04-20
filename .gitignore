@@ -1,6 +1,9 @@
 # Project-specific ignore
 CLAUDE.md
 
+# Cursor
+.cursor/
+
 # Dependencies
 node_modules/
 .pnp
