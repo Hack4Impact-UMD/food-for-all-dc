@@ -68,8 +68,10 @@ const CustomTextField = styled(TextField)({
 });
 
 export const CustomSelect = styled(Select)({
+  height: fieldStyles.height,
+  boxSizing: 'border-box',
+  
   "& .MuiOutlinedInput-root": {
-    height: "1.813rem",
     "& .MuiOutlinedInput-notchedOutline": {
       border: "none",
     },
@@ -79,6 +81,10 @@ export const CustomSelect = styled(Select)({
   },
   "& .MuiSelect-select": {
     ...fieldStyles,
+    height: '100%',
+    padding: '0 0.5rem',
+    display: 'flex',
+    alignItems: 'center',
   },
   "& .MuiSelect-icon": {
     display: "none",
@@ -92,6 +98,7 @@ export const CustomSelect = styled(Select)({
     border: "1.5px solid #bdbdbd",
     fontWeight: 500,
     opacity: 1,
+    padding: '0 0.5rem',
   },
 });
 
@@ -215,6 +222,11 @@ const FormField: React.FC<FormFieldProps> = ({
   }
 
   if (isEditing) {
+    // Declare minLength variables before switch to avoid no-case-declarations lint error
+    let minLength = 2;
+    let minLengthTextarea = 2;
+    const selectInputProps = { minLength: 2 };
+    const dateInputProps = { minLength: 10 };
     switch (type) {
       case "select":
         if (fieldPath === "gender") {
@@ -224,6 +236,7 @@ const FormField: React.FC<FormFieldProps> = ({
               value={value as string}
               onChange={(e) => handleChange(e as SelectChangeEvent<string>)}
               displayEmpty
+              inputProps={selectInputProps}
             >
               <MenuItem value="" disabled>
                 Select
@@ -240,6 +253,7 @@ const FormField: React.FC<FormFieldProps> = ({
               value={value as string}
               onChange={(e) => handleChange(e as SelectChangeEvent<string>)}
               displayEmpty
+              inputProps={selectInputProps}
             >
               <MenuItem value="" disabled>
                 Select
@@ -248,67 +262,56 @@ const FormField: React.FC<FormFieldProps> = ({
               <MenuItem value="Senior">Senior</MenuItem>
             </CustomSelect>
           );
-        } else if (fieldPath === "ethnicity") {
+        } else if (fieldPath === "ethnicity" || fieldPath === "referralEntity" || fieldPath === "recurrence") {
           return (
             <CustomSelect
               name={fieldPath}
               value={value as string}
               onChange={(e) => handleChange(e as SelectChangeEvent<string>)}
+              inputProps={selectInputProps}
             >
               <MenuItem disabled>Select</MenuItem>
-              <MenuItem value="white">White</MenuItem>
-              <MenuItem value="hispanic">Hispanic/Latino</MenuItem>
-              <MenuItem value="black">Black/African American</MenuItem>
-              <MenuItem value="asian">Asian</MenuItem>
-              <MenuItem value="na">American Indian/Alaska Native</MenuItem>
-              <MenuItem value="me/na">Middle Eastern/North African</MenuItem>
-              <MenuItem value="islander">Native Hawaiian/Other Pacific Islander</MenuItem>
-              <MenuItem value="other">Other</MenuItem>
-              <MenuItem value="no answer">Prefer not to answer</MenuItem>
+              {/* Add options for referralEntity and recurrence as needed in parent */}
             </CustomSelect>
           );
         }
         break;
       case "date":
         return (
-          <>
-            <CustomTextField
-              type="date"
-              name={fieldPath}
-              value={value instanceof Date ? value.toISOString().split("T")[0] : value || ""}
-              onChange={handleChange}
-              fullWidth
-            />
-          </>
+          <CustomTextField
+            type="date"
+            name={fieldPath}
+            value={value instanceof Date ? value.toISOString().split("T")[0] : value || ""}
+            onChange={handleChange}
+            fullWidth
+            inputProps={dateInputProps}
+          />
         );
-
       case "number":
         return (
-          <>
-            <CustomTextField
-              type="number"
-              name={fieldPath}
-              value={value as number}
-              onChange={handleChange}
-              fullWidth
-            />
-          </>
+          <CustomTextField
+            type="number"
+            name={fieldPath}
+            value={value as number}
+            onChange={handleChange}
+            fullWidth
+          />
         );
-
       case "email":
+        minLength = 5;
         return (
-          <>
-            <CustomTextField
-              type="email"
-              name={fieldPath}
-              value={value as string}
-              onChange={handleChange}
-              fullWidth
-            />
-          </>
+          <CustomTextField
+            type="email"
+            name={fieldPath}
+            value={value as string}
+            onChange={handleChange}
+            fullWidth
+            inputProps={{ minLength }}
+          />
         );
-
       case "text":
+        if (["email"].includes(fieldPath)) minLength = 5;
+        if (["address2"].includes(fieldPath)) minLength = 5;
         return (
           <CustomTextField
             type="text"
@@ -316,12 +319,13 @@ const FormField: React.FC<FormFieldProps> = ({
             value={String(value || "")}
             onChange={handleChange}
             fullWidth
-            disabled={isDisabledField} // Disable specific fields
-            inputRef={fieldPath === "address" ? addressInputRef : null} // Attach ref for address field
+            disabled={isDisabledField}
+            inputRef={fieldPath === "address" ? addressInputRef : null}
+            inputProps={{ minLength }}
           />
         );
-
       case "textarea":
+        if (["address2"].includes(fieldPath)) minLengthTextarea = 5;
         if (fieldPath === "ward") {
           return <CustomTextField name={fieldPath} value={String(value || "")} disabled fullWidth />;
         } else {
@@ -332,6 +336,7 @@ const FormField: React.FC<FormFieldProps> = ({
               onChange={handleChange}
               multiline
               fullWidth
+              inputProps={{ minLength: minLengthTextarea }}
             />
           );
         }
