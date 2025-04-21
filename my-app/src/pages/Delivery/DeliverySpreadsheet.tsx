@@ -243,6 +243,7 @@ const isRegularField = (
 const DeliverySpreadsheet: React.FC = () => {
   const testing = false;
   const [rows, setRows] = useState<RowData[]>([]);
+  const [rawClientData, setRawClientData] = useState<RowData[]>([]);
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set()); 
   const [innerPopup, setInnerPopup] = useState(false);
@@ -328,6 +329,7 @@ useEffect(() => {
     if (deliveriesForDate.length === 0) {
       setClusters([]);
       setIsLoading(false);
+      setRawClientData([]);
       return;
     }
 
@@ -353,7 +355,7 @@ useEffect(() => {
       }
 
       const addresses = clientsWithDeliveriesOnSelectedDate.map(row => row.address);
-      setRows(clientsWithDeliveriesOnSelectedDate);
+      setRawClientData(clientsWithDeliveriesOnSelectedDate);
 
       if (clientsWithDeliveriesOnSelectedDate.length > 0 && addresses.length > 0) {
         const token = await auth.currentUser?.getIdToken();
@@ -371,7 +373,7 @@ useEffect(() => {
         if (response.ok) {
           const { coordinates } = await response.json();
           // update only the rows that need coordinates
-          const updatedRows = clientsWithDeliveriesOnSelectedDate.map((row, index) => {
+          const updatedRawData = clientsWithDeliveriesOnSelectedDate.map((row, index) => {
             if (coordinates[index]) {
               return {
                 ...row,
@@ -380,15 +382,17 @@ useEffect(() => {
             }
             return row;
           });
-          setRows(updatedRows);
+          setRawClientData(updatedRawData);
           setIsLoading(false);
         }
       } else {
         setClusters([]);
         setIsLoading(false);
+        setRawClientData([]);
       }
     } catch (error) {
       console.error("Error:", error);
+      setRawClientData([]);
       setIsLoading(false);
     }
   };
@@ -474,7 +478,7 @@ useEffect(() => {
   };
 
   const handleClusterChange = async (row: RowData, newClusterIdStr: string) => {
-    const oldClusterId = row.clusterId;
+    const oldClusterId = row.clusterId || "";
     const newClusterId = newClusterIdStr;
   
     if (!row || !row.id || newClusterId === oldClusterId || !clusterDoc) {
@@ -528,7 +532,7 @@ useEffect(() => {
       await updateDoc(clusterRef, { clusters: updatedClusters });
       console.log(`Successfully moved ${row.id} from cluster ${oldClusterId || 'none'} to ${newClusterId || 'none'}`);
   
-      setRows(prevRows => prevRows.map(r => r.id === row.id ? { ...r, clusterId: newClusterId } : r));
+      // setRows(prevRows => prevRows.map(r => r.id === row.id ? { ...r, clusterId: newClusterId } : r));
     } catch (error) {
       console.error("Error updating clusters in Firestore:", error);
     }
@@ -816,7 +820,7 @@ useEffect(() => {
     deliveriesForDate.some(delivery => delivery.clientId === row.id)
   );
   
-  const visibleRows = clientsWithDeliveriesOnSelectedDate.filter(row => {
+  const visibleRows = rows.filter(row => {
     if (!searchQuery) return true; // Show all if no search query
     
     const searchTerm = searchQuery.toLowerCase().trim();
@@ -826,6 +830,26 @@ useEffect(() => {
       row.lastName.toLowerCase().includes(searchTerm)
     );
   });
+
+  // Synchronize rows state with rawClientData and clusters
+  useEffect(() => {
+    if (rawClientData.length === 0) {
+      setRows([]);
+      return;
+    }
+
+    const synchronizedRows = rawClientData.map(client => {
+      let assignedClusterId = "";
+      clusters.forEach(cluster => {
+        if (cluster.deliveries?.includes(client.id)) {
+          assignedClusterId = cluster.id;
+        }
+      });
+      return { ...client, clusterId: assignedClusterId };
+    });
+
+    setRows(synchronizedRows);
+  }, [rawClientData, clusters]);
 
   return (
     <Box className="box" sx={{ display: "flex", flexDirection: "column", height: "100vh" }}>
@@ -1068,15 +1092,6 @@ useEffect(() => {
               {visibleRows.map((row) => (
                 <TableRow key={row.id} className="table-row">
                   {fields.map((field) => {
-                    // Determine the current cluster ID for this row
-                    let currentClusterId = "";
-                    clusters.forEach((cluster) => {
-                      if (cluster.deliveries?.includes(row.id)) {
-                        currentClusterId = cluster.id;
-                      }
-                    });
-                    (row as any).clusterId = currentClusterId; // Update row in memory
-
                     // Render the table cell based on field type
                     return (
                       <TableCell
@@ -1099,7 +1114,7 @@ useEffect(() => {
                             <Select
                               labelId={`cluster-select-label-${row.id}`}
                               id={`cluster-select-${row.id}`}
-                              value={currentClusterId || ""} // Use the calculated ID
+                              value={row.clusterId || ""}
                               onChange={(event: SelectChangeEvent<string>) => handleClusterChange(row, event.target.value)}
                               label="Cluster"
                               sx={{ 
@@ -1120,12 +1135,13 @@ useEffect(() => {
                           </FormControl>
                         ) : field.compute ? (
                           // Render computed fields (other than the select)
-                          (field.key === 'assignedDriver' || field.key === 'assignedTime') 
-                            ? field.compute(row, clusters) 
+                          (field.key === 'assignedDriver' || field.key === 'assignedTime')
+                            ? field.compute(row, clusters)
                             : field.compute(row) // Assumes other compute fields don't need clusters
                         ) : isRegularField(field) ? (
-                          // Render regular fields
-                          row[field.key]
+                          // Render regular fields (address, ward)
+                          // Cast to string as these are the only expected types here
+                          String(row[field.key as 'address' | 'ward'] ?? '')
                         ) : (
                           // Default case: render nothing or a placeholder
                           null
