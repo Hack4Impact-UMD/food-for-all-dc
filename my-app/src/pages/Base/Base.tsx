@@ -113,17 +113,12 @@ const MobileNavigation = styled(Box)(({ theme }) => ({
 export default function BasePage() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-  const [open, setOpen] = React.useState(!isMobile);
+  const [open, setOpen] = React.useState(false);
   const [tab, setTab] = React.useState("Delivery Schedule");
   const [pageTitle, setPageTitle] = React.useState("");
   const { logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-
-  // Close drawer by default on mobile, open by default on desktop
-  React.useEffect(() => {
-    setOpen(!isMobile);
-  }, [isMobile]);
 
   useEffect(() => {
     // Use full paths for comparison as location.pathname includes the base
