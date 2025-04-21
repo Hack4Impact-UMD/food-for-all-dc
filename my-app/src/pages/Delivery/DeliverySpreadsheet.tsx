@@ -937,17 +937,6 @@ useEffect(() => {
       }}>
         <Box sx={{ display: "flex", flexDirection: "column", gap: "8px" }}>
           <Box sx={{ position: "relative", width: "100%" }}>
-            <Search
-              style={{
-                position: "absolute",
-                left: "16px",
-                top: "50%",
-                transform: "translateY(-50%)",
-                color: "#666666",
-                zIndex: 1,
-              }}
-              size={20}
-            />
             <input
               type="text"
               value={searchQuery}
@@ -959,7 +948,7 @@ useEffect(() => {
                 backgroundColor: "#EEEEEE",
                 border: "none",
                 borderRadius: "30px",
-                padding: "0 48px",
+                padding: "0 24px",
                 fontSize: "16px",
                 color: "#333333",
                 boxSizing: "border-box",
