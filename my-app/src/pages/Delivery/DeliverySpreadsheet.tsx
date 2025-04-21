@@ -509,13 +509,10 @@ useEffect(() => {
   
       setClusters(updatedClusters); // Update state with the new array
   
-      // Update Firestore with the new cluster data
+      // Update Firestore with the new cluster data using updateDoc
       const clusterRef = doc(db, "clusters", clusterDoc.docId);
-      const newClusterDocData = {
-        ...clusterDoc, // Spread existing doc data
-        clusters: updatedClusters // Use the new immutable clusters array
-      };
-      await setDoc(clusterRef, newClusterDocData);
+      // Only update the 'clusters' field
+      await updateDoc(clusterRef, { clusters: updatedClusters }); 
   
       // Note: Directly mutating `row.clusterId` here is generally discouraged
       // if `row` is part of the `rows` state. It's better to update the
@@ -557,13 +554,10 @@ useEffect(() => {
 
         setClusters(updatedClusters); // Update state with the new immutable array
 
-        // Update Firestore
+        // Update Firestore using updateDoc
         const clusterRef = doc(db, "clusters", clusterDoc.docId);
-        const newClusterDocData = {
-          ...clusterDoc,
-          clusters: updatedClusters // Use the new immutable clusters array
-        };
-        await setDoc(clusterRef, newClusterDocData);
+        // Only update the 'clusters' field
+        await updateDoc(clusterRef, { clusters: updatedClusters });
 
         resetSelections();
       } catch (error) {
@@ -609,13 +603,10 @@ useEffect(() => {
 
         setClusters(updatedClusters); // Update state with the new immutable array
 
-        // Update Firestore
+        // Update Firestore using updateDoc
         const clusterRef = doc(db, "clusters", clusterDoc.docId);
-        const newClusterDocData = {
-          ...clusterDoc,
-          clusters: updatedClusters // Use the new immutable clusters array
-        };
-        await setDoc(clusterRef, newClusterDocData);
+        // Only update the 'clusters' field
+        await updateDoc(clusterRef, { clusters: updatedClusters });
 
         resetSelections();
       } catch (error) {
@@ -733,13 +724,11 @@ useEffect(() => {
       //update cluster or create new cluster date
       if(clusterDoc){
         const clusterRef = doc(db, "clusters", clusterDoc.docId);
-        const newClusterDoc = {
-          ...clusterDoc,
-          clusters: newClusters
-        }
-        await setDoc(clusterRef, newClusterDoc); 
+        // Only update the 'clusters' field using updateDoc
+        await updateDoc(clusterRef, { clusters: newClusters });
         setClusters(newClusters); // Update state after successful Firestore update
-        setClusterDoc(newClusterDoc); // Ensure local clusterDoc state reflects the update
+        // Update the local clusterDoc state's clusters as well
+        setClusterDoc(prevDoc => prevDoc ? { ...prevDoc, clusters: newClusters } : null);
       }
       else{
         const docRef = doc(collection(db, "clusters"));
@@ -756,8 +745,8 @@ useEffect(() => {
           docId: docRef.id,
           date: Timestamp.fromDate(clusterDate) // Use consistent date
         }
-        // Firestore expects the data object directly for setDoc
-        await setDoc(docRef, newClusterDoc);
+        // Firestore expects the data object directly for setDoc - Corrected
+        await setDoc(docRef, newClusterDoc); 
         setClusters(newClusters); // Update state after successful Firestore creation
         setClusterDoc(newClusterDoc)
       }       
