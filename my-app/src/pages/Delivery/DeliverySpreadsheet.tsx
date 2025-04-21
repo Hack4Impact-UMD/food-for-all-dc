@@ -481,29 +481,51 @@ useEffect(() => {
     setSearchQuery(event.target.value);
   };
 
-  const handleClusterChange = async (row: any, newCluster: string) => {
-    if (row && row.id && newCluster && newCluster != row.clusterId && Number(newCluster) <= clusters.length) {
-      const index = clusters.findIndex((cluster)=>{return cluster.id == row.clusterId});
-      const oldList = clusters[index].deliveries?.filter((id)=>id!=row.id);
-      clusters[Number(newCluster) -1].deliveries.push(row.id)
-      clusters[index] = {
-        ...clusters[index],
-        deliveries: oldList
-      }
-
-      setClusters([...clusters])
-
-
-      if(clusterDoc){
-        const clusterRef = doc(db, "clusters", clusterDoc.docId);
-        const newClusterDoc = {
-          ...clusterDoc,
-          clusters: clusters
-        }
-        await setDoc(clusterRef, newClusterDoc); 
-      }   
+  const handleClusterChange = async (row: RowData, newClusterIdStr: string) => {
+    const oldClusterId = row.clusterId;
+    const newClusterId = newClusterIdStr; // Assuming the input is already a string ID like "1", "2" etc.
   
-      row.clusterId = newCluster
+    if (row && row.id && newClusterId && newClusterId !== oldClusterId && clusterDoc) {
+      // Create a new clusters array using map for immutability
+      const updatedClusters = clusters.map(cluster => {
+        // Remove delivery from the old cluster
+        if (cluster.id === oldClusterId) {
+          return {
+            ...cluster,
+            deliveries: cluster.deliveries?.filter(id => id !== row.id) ?? []
+          };
+        }
+        // Add delivery to the new cluster
+        if (cluster.id === newClusterId) {
+          // Ensure deliveries array exists and add the new id immutably
+          return {
+            ...cluster,
+            deliveries: [...(cluster.deliveries ?? []), row.id]
+          };
+        }
+        // Return unchanged cluster
+        return cluster;
+      });
+  
+      setClusters(updatedClusters); // Update state with the new array
+  
+      // Update Firestore with the new cluster data
+      const clusterRef = doc(db, "clusters", clusterDoc.docId);
+      const newClusterDocData = {
+        ...clusterDoc, // Spread existing doc data
+        clusters: updatedClusters // Use the new immutable clusters array
+      };
+      await setDoc(clusterRef, newClusterDocData);
+  
+      // Note: Directly mutating `row.clusterId` here is generally discouraged
+      // if `row` is part of the `rows` state. It's better to update the
+      // `rows` state immutably as well if necessary. However, given the current
+      // structure, this local update might be intended for immediate UI feedback
+      // before a potential full state refresh. For true immutability,
+      // the `rows` state should also be updated.
+      // Consider:
+      // setRows(prevRows => prevRows.map(r => r.id === row.id ? { ...r, clusterId: newClusterId } : r));
+      row.clusterId = newClusterId; // Keep existing logic for now, but be aware
     }
   };
 
@@ -516,27 +538,33 @@ useEffect(() => {
 
   //Handle assigning driver
   const assignDriver = async (driver: Driver) => {
-    if(driver){
+    if(driver && clusterDoc){
       try {
-        selectedClusters.forEach(async (targetCluster) => {
-          const targetIndex = clusters.findIndex((cluster) => cluster.id == targetCluster.id)
-          const newCluster = {
-            id: targetCluster.id,
-            time: targetCluster.time,
-            driver: driver.name, 
-            deliveries: targetCluster.deliveries
-          };
-          clusters[targetIndex] = newCluster
+        // Create a new clusters array with updated driver assignments
+        const updatedClusters = clusters.map(cluster => {
+          // Check if this cluster is among the selected ones (using ID for comparison)
+          const isSelected = Array.from(selectedClusters).some(selected => selected.id === cluster.id);
+          if (isSelected) {
+            // Return a *new* cluster object with the assigned driver
+            return {
+              ...cluster,
+              driver: driver.name // Assign the new driver's name
+            };
+          }
+          // Return the original cluster object if not selected
+          return cluster;
         });
 
-        if(clusterDoc){
-          const clusterRef = doc(db, "clusters", clusterDoc.docId);
-          const newClusterDoc = {
-            ...clusterDoc,
-            clusters: clusters
-          }
-          await setDoc(clusterRef, newClusterDoc); 
-        }        
+        setClusters(updatedClusters); // Update state with the new immutable array
+
+        // Update Firestore
+        const clusterRef = doc(db, "clusters", clusterDoc.docId);
+        const newClusterDocData = {
+          ...clusterDoc,
+          clusters: updatedClusters // Use the new immutable clusters array
+        };
+        await setDoc(clusterRef, newClusterDocData);
+
         resetSelections();
       } catch (error) {
         console.error("Error assigning driver: ", error);
@@ -562,28 +590,33 @@ useEffect(() => {
 
   //Handle assigning time
   const assignTime = async (time: string) => {
-    if(time){
+    if(time && clusterDoc){
       try {
-        selectedClusters.forEach(async (targetCluster) => {
-          const targetIndex = clusters.findIndex((cluster) => cluster.id == targetCluster.id)
-          const newCluster = {
-            id: targetCluster.id,
-            time: time,
-            driver: targetCluster.driver, 
-            deliveries: targetCluster.deliveries
-          };
-          clusters[targetIndex] = newCluster
+        // Create a new clusters array with updated time assignments
+        const updatedClusters = clusters.map(cluster => {
+          // Check if this cluster is among the selected ones (using ID for comparison)
+          const isSelected = Array.from(selectedClusters).some(selected => selected.id === cluster.id);
+          if (isSelected) {
+            // Return a *new* cluster object with the assigned time
+            return {
+              ...cluster,
+              time: time // Assign the new time
+            };
+          }
+          // Return the original cluster object if not selected
+          return cluster;
         });
 
-        if(clusterDoc){
-          const clusterRef = doc(db, "clusters", clusterDoc.docId);
-          const newClusterDoc = {
-            ...clusterDoc,
-            clusters: clusters
-          }
-          await setDoc(clusterRef, newClusterDoc); 
-        }
-                
+        setClusters(updatedClusters); // Update state with the new immutable array
+
+        // Update Firestore
+        const clusterRef = doc(db, "clusters", clusterDoc.docId);
+        const newClusterDocData = {
+          ...clusterDoc,
+          clusters: updatedClusters // Use the new immutable clusters array
+        };
+        await setDoc(clusterRef, newClusterDocData);
+
         resetSelections();
       } catch (error) {
         console.error("Error assigning time: ", error);
@@ -695,7 +728,7 @@ useEffect(() => {
   
       const clusterData = await clusterResponse.json();
       const newClusters = await updateClusters(clusterData.clusters)
-      setClusters(newClusters)
+      // setClusters(newClusters) // State is set within the if/else block
 
       //update cluster or create new cluster date
       if(clusterDoc){
@@ -705,23 +738,27 @@ useEffect(() => {
           clusters: newClusters
         }
         await setDoc(clusterRef, newClusterDoc); 
+        setClusters(newClusters); // Update state after successful Firestore update
+        setClusterDoc(newClusterDoc); // Ensure local clusterDoc state reflects the update
       }
       else{
         const docRef = doc(collection(db, "clusters"));
-        const now = new Date();
-        const midnightToday = new Date(
-          now.getFullYear(),
-          now.getMonth(),
-          now.getDate(),
+        // Use selectedDate to ensure consistency with fetched data
+        const clusterDate = new Date(Date.UTC(
+          selectedDate.getFullYear(),
+          selectedDate.getMonth(),
+          selectedDate.getDate(),
           0, 0, 0, 0
-        );
+        ));
 
         const newClusterDoc = {
           clusters: newClusters,
           docId: docRef.id,
-          date: Timestamp.fromDate(midnightToday)
+          date: Timestamp.fromDate(clusterDate) // Use consistent date
         }
-        await setDoc(docRef, {newClusterDoc});
+        // Firestore expects the data object directly for setDoc
+        await setDoc(docRef, newClusterDoc);
+        setClusters(newClusters); // Update state after successful Firestore creation
         setClusterDoc(newClusterDoc)
       }       
       
@@ -731,7 +768,7 @@ useEffect(() => {
       //  id: doc.id,
       //  ...(doc.data() as Omit<RowData, "id">),
       // }));
-      setClusters(newClusters); // Keep this line to ensure state update consistency if needed, though it might be redundant too. Consider removing if testing shows it's unnecessary.
+      // setClusters(newClusters); // REMOVED - Redundant state update, handled in if/else
       setIsLoading(false);
       resetSelections();
     // }
