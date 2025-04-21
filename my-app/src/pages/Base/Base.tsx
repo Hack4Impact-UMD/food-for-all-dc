@@ -96,20 +96,6 @@ const LogoImage = styled("img")({
   },
 });
 
-// Mobile Bottom Navigation
-const MobileNavigation = styled(Box)(({ theme }) => ({
-  position: "fixed",
-  bottom: 0,
-  left: 0,
-  right: 0,
-  display: "flex",
-  justifyContent: "space-around",
-  backgroundColor: "#ffffff",
-  boxShadow: "0 -2px 10px rgba(0, 0, 0, 0.1)",
-  zIndex: 1000,
-  height: "60px",
-}));
-
 export default function BasePage() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -312,55 +298,6 @@ export default function BasePage() {
         <DrawerHeader />
         <Outlet />
       </Main>
-
-      {/* Mobile Bottom Navigation */}
-      {isMobile && (
-        <MobileNavigation>
-          {navItems.map(({ text, icon, link }) => (
-            <Box 
-              key={text}
-              sx={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flex: 1,
-                color: tab === text ? "rgb(37, 126, 104)" : "rgb(85, 85, 85)",
-                padding: '8px 0',
-                cursor: 'pointer',
-                transition: 'all 0.2s ease',
-                '&:hover': {
-                  backgroundColor: 'rgba(0, 0, 0, 0.04)',
-                },
-              }}
-              onClick={() => {
-                setTab(text);
-                setOpen(false);
-                navigate(link);
-              }}
-            >
-              <Box sx={{ 
-                fontSize: '1.5rem',
-                transform: tab === text ? 'scale(1.1)' : 'scale(1)',
-                transition: 'transform 0.2s ease',
-              }}>
-                {icon}
-              </Box>
-              <Typography 
-                variant="caption" 
-                sx={{ 
-                  fontSize: '0.7rem',
-                  fontWeight: tab === text ? 600 : 400,
-                  mt: 0.5,
-                  transition: 'font-weight 0.2s ease',
-                }}
-              >
-                {text}
-              </Typography>
-            </Box>
-          ))}
-        </MobileNavigation>
-      )}
     </Box>
   );
 }
