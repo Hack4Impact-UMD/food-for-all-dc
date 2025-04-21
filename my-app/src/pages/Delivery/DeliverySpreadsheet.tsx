@@ -592,7 +592,8 @@ useEffect(() => {
   const generateClusters = async (clusterNum: number, minDeliveries: number, maxDeliveries: number) => {
     const token = await auth.currentUser?.getIdToken();
     const addresses = visibleRows.map(row => row.address);
-    try{
+    // Removed unnecessary try/catch
+    // try{
       // Validate cluster number
       if (!clusterNum || clusterNum <= 0) {
         throw new Error("Please enter a valid number of clusters (must be at least 1)");
@@ -730,10 +731,10 @@ useEffect(() => {
       setClusters(newClusters);
       setIsLoading(false);
       resetSelections();
-    }
-    catch (e){
-      throw e
-    }
+    // }
+    // catch (e){
+    //   throw e
+    // }
   };
 
   // Handle checkbox selection
