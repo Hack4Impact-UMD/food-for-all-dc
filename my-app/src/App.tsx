@@ -4,7 +4,7 @@ import "./App.css";
 import ForgotPasswordPage from "./pages/Login/forgot-password";
 
 import Login from "./pages/Login/Login";
-import CalendarPage from "./components/Calendar/CalendarPage";
+import CalendarPage from "./pages/Calendar/CalendarPage";
 import Spreadsheet from "./components/Spreadsheet/Spreadsheet";
 
 import Profile from "./pages/Profile/Profile";
