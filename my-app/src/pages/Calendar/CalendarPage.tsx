@@ -6,14 +6,15 @@ import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { auth } from "../../auth/firebaseConfig";
 import "./CalendarPage.css";
-import AddDeliveryDialog from "../../components/Calendar/AddDeliveryDialog";
-import CalendarHeader from "../../components/Calendar/CalendarHeader";
-import CalendarPopper from "../../components/Calendar/CalendarPopper";
-import { calculateRecurrenceDates } from "../../components/Calendar/CalendarUtils";
-import DayView from "../../components/Calendar/DayView";
-import MonthView from "../../components/Calendar/MonthView";
-import { CalendarConfig, CalendarEvent, Client, DateLimit, DeliveryEvent, Driver, NewDelivery, ViewType } from "../../components/Calendar/types";
-import { useLimits } from "../../components/Calendar/useLimits";
+import AddDeliveryDialog from "./components/AddDeliveryDialog";
+import CalendarHeader from "./components/CalendarHeader";
+import CalendarPopper from "./components/CalendarPopper";
+import { calculateRecurrenceDates } from "./components/CalendarUtils";
+import DayView from "./components/DayView";
+import MonthView from "./components/MonthView";
+import { CalendarConfig, CalendarEvent, DateLimit, DeliveryEvent, Driver, NewDelivery, ViewType } from "../../types/calendar-types";
+import { ClientProfile } from "../../types/client-types";
+import { useLimits } from "./components/useLimits";
 import { DeliveryService, ClientService, DriverService } from "../../services";
 
 const DAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
@@ -45,7 +46,7 @@ const CalendarPage: React.FC = () => {
   });
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
   const [drivers, setDrivers] = useState<Driver[]>([]);
-  const [clients, setClients] = useState<Client[]>([]);
+  const [clients, setClients] = useState<ClientProfile[]>([]);
   const [dailyLimits, setDailyLimits] = useState<DateLimit[]>([]);
   const limits = useLimits();
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -158,7 +159,7 @@ const CalendarPage: React.FC = () => {
       });
       
       // Cast the result to Client[] to satisfy type checking
-      setClients(clientList as unknown as Client[]);
+      setClients(clientList as unknown as ClientProfile[]);
     } catch (error) {
       console.error("Error fetching clients:", error);
     }

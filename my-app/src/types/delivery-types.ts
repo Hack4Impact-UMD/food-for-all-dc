@@ -15,7 +15,7 @@ export interface Delivery {
   deliveryDate: Date; // The date of the delivery
   time: string; // The time of the delivery;
   cluster: number;
-  recurrence: "None" | "Weekly" | "2x-Monthly" | "Monthly"; // Updated recurrence options
+  recurrence: "None" | "Weekly" | "2x-Monthly" | "Monthly" | "Custom"; // Updated recurrence options
   repeatsEndDate?: string; // Optional, end date for recurrence
 }
 

@@ -1,6 +1,6 @@
 // CUSTOM HOOK TO GET DATES
 import { useState, useEffect } from "react";
-import { DeliveryService } from "../../services";
+import { DeliveryService } from "../../../services";
 
 const DAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
 

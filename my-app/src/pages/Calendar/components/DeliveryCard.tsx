@@ -3,12 +3,13 @@ import { Box, Typography, IconButton } from "@mui/material";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import { useNavigate } from "react-router-dom";
 import EventMenu from "./EventMenu";
-import { Client, DeliveryEvent } from "./types";
+import { ClientProfile } from "../../../types/client-types";
+import { DeliveryEvent } from "../../../types/calendar-types";
 import styles from "./DeliveryCard.module.css";
 
 interface DeliveryCardProps {
   event: DeliveryEvent;
-  client?: Client;
+  client?: ClientProfile;
   onEventModified: () => void;
 }
 

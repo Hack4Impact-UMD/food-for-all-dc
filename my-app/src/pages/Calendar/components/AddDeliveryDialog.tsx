@@ -14,14 +14,15 @@ import {
   Box,
   Typography,
 } from "@mui/material";
-import { Client, Driver, NewDelivery } from "./types";
+import { Driver, NewDelivery } from "../../../types/calendar-types";
+import { ClientProfile } from "../../../types/client-types";
 import CalendarMultiSelect from "./CalendarMultiSelect";
 
 interface AddDeliveryDialogProps {
   open: boolean;
   onClose: () => void;
   onAddDelivery: (newDelivery: NewDelivery) => void;
-  clients: Client[];
+  clients: ClientProfile[];
   drivers: Driver[];
 }
 

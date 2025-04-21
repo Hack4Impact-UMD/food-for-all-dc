@@ -1,6 +1,6 @@
 import React from "react";
 import { DayPilotMonth } from "@daypilot/daypilot-lite-react";
-import { CalendarConfig, DateLimit } from "./types";
+import { CalendarConfig, DateLimit } from "../../../types/calendar-types";
 import { getDefaultLimit } from "./CalendarUtils";
 
 interface MonthViewProps {

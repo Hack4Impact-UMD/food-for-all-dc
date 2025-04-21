@@ -20,8 +20,8 @@ import {
 } from "@mui/material";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
 import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, query, where } from "firebase/firestore";
-import { db } from "../../auth/firebaseConfig";
-import { DeliveryEvent, NewDelivery } from "./types";
+import { db } from "../../../auth/firebaseConfig";
+import { DeliveryEvent, NewDelivery } from "../../../types/calendar-types";
 import { calculateRecurrenceDates, getNextMonthlyDate } from "./CalendarUtils";
 
 interface EventMenuProps {

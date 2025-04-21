@@ -12,7 +12,7 @@ import {
   Timestamp,
 } from "firebase/firestore";
 import FirebaseService from "./firebase-service";
-import { DeliveryEvent } from "../components/Calendar/types";
+import { DeliveryEvent } from "../types/calendar-types";
 
 /**
  * Delivery Service - Handles all delivery-related operations with Firebase

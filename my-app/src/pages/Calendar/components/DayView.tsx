@@ -1,11 +1,12 @@
 import React from "react";
 import { Box, Typography } from "@mui/material";
-import { Client, DeliveryEvent } from "./types";
+import { DeliveryEvent } from "../../../types/calendar-types";
+import { ClientProfile } from "../../../types/client-types";
 import DeliveryCard from "./DeliveryCard";
 
 interface DayViewProps {
   events: DeliveryEvent[];
-  clients: Client[];
+  clients: ClientProfile[];
   onEventModified: () => void;
 }
 

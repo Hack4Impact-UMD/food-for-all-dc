@@ -16,20 +16,15 @@ import {
 import React, { useMemo, useState } from "react";
 import { getDefaultLimit, setDefaultLimit } from "./CalendarUtils";
 import { useLimits } from "./useLimits";
-import { DeliveryService } from "../../services";
-
-interface DailyLimits {
-  id: string;
-  date: string;
-  limit: number;
-}
+import { DeliveryService } from "../../../services";
+import { DateLimit } from "../../../types/calendar-types";
 
 interface CalendarPopperProps {
   anchorEl: HTMLElement | null;
   viewType: string;
   calendarConfig: any;
-  dailyLimits: DailyLimits[];
-  setDailyLimits: (update: (prev: DailyLimits[]) => DailyLimits[]) => void;
+  dailyLimits: DateLimit[];
+  setDailyLimits: (update: (prev: DateLimit[]) => DateLimit[]) => void;
   fetchDailyLimits: () => Promise<void>;
 }
 

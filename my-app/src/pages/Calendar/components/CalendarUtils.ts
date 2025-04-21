@@ -1,6 +1,6 @@
 import { DayPilot } from "@daypilot/daypilot-lite-react";
-import { DeliveryService } from "../../services";
-import { NewDelivery } from "./types";
+import { DeliveryService } from "../../../services";
+import { NewDelivery } from "../../../types/calendar-types";
 
 const DAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
 
