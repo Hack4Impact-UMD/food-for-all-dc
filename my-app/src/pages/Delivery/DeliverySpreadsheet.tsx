@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { db } from "../../auth/firebaseConfig"; 
 import { Search, Filter } from "lucide-react";
@@ -27,10 +27,6 @@ import {
   IconButton,
   Menu,
   MenuItem,
-  Select,
-  FormControl,
-  InputLabel,
-  SelectChangeEvent,
 } from "@mui/material";
 import {
   collection,
@@ -97,10 +93,10 @@ type Field =
       compute: (data: RowData) => string;
     }
     | {
-      key: "clusterIdChange";
-      label: "Cluster";
-      type: "select";
-      compute?: never;
+      key: "clusterId";
+      label: "Cluster ID";
+      type: "text";
+      compute: (data: RowData, clusters: Cluster[]) => string;
     }
   | {
       key: Exclude<keyof Omit<RowData, "id" | "firstName" | "lastName" | "deliveryDetails">, "coordinates">;
@@ -173,10 +169,19 @@ const fields: Field[] = [
     type: "text",
     compute: (data: RowData) => `${data.lastName}, ${data.firstName}`,
   },
-  {
-    key: "clusterIdChange",
-    label: "Cluster",
-    type: "select",
+  { key: "clusterId", 
+    label: "Cluster ID", 
+    type: "text",
+    compute: (data: RowData, clusters: Cluster[]) => {
+      let id = "";
+      clusters.forEach((cluster)=>{
+        if(cluster.deliveries?.some((id) => id == data.id)){
+          id = cluster.id;
+          data.clusterId = id;
+        }
+      })
+      return id ? id: "No cluster found";
+    },
   },
   {
     key: "tags",
@@ -254,21 +259,6 @@ const DeliverySpreadsheet: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [clusterDoc, setClusterDoc] = useState<ClusterDoc | null>()
   const navigate = useNavigate();
-
-  // Calculate Cluster Options
-  const clusterOptions = useMemo(() => {
-    const existingIds = clusters.map(c => parseInt(c.id, 10)).filter(id => !isNaN(id));
-    const maxId = existingIds.length > 0 ? Math.max(...existingIds) : 0;
-    const nextId = (maxId + 1).toString();
-    const availableIds = clusters.map(c => c.id).sort((a, b) => parseInt(a, 10) - parseInt(b, 10));
-
-    const options = [
-      { value: "", label: "Unassigned" },
-      ...availableIds.map(id => ({ value: id, label: `Cluster ${id}` })),
-      { value: nextId, label: `New Cluster ${nextId}` }
-    ];
-    return options;
-  }, [clusters]);
 
   // fetch deliveries for the selected date
   const fetchDeliveriesForDate = async (date: Date) => {
@@ -475,62 +465,46 @@ useEffect(() => {
 
   const handleClusterChange = async (row: RowData, newClusterIdStr: string) => {
     const oldClusterId = row.clusterId;
-    const newClusterId = newClusterIdStr;
+    const newClusterId = newClusterIdStr; // Assuming the input is already a string ID like "1", "2" etc.
   
-    if (!row || !row.id || newClusterId === oldClusterId || !clusterDoc) {
-      console.log("Cluster change aborted (no change, missing data, or no clusterDoc)");
-      return;
-    }
-  
-    let updatedClusters = [...clusters];
-    const clusterExists = clusters.some(cluster => cluster.id === newClusterId);
-  
-    if (oldClusterId) {
-      updatedClusters = updatedClusters.map(cluster => {
+    if (row && row.id && newClusterId && newClusterId !== oldClusterId && clusterDoc) {
+      // Create a new clusters array using map for immutability
+      const updatedClusters = clusters.map(cluster => {
+        // Remove delivery from the old cluster
         if (cluster.id === oldClusterId) {
           return {
             ...cluster,
             deliveries: cluster.deliveries?.filter(id => id !== row.id) ?? []
           };
         }
+        // Add delivery to the new cluster
+        if (cluster.id === newClusterId) {
+          // Ensure deliveries array exists and add the new id immutably
+          return {
+            ...cluster,
+            deliveries: [...(cluster.deliveries ?? []), row.id]
+          };
+        }
+        // Return unchanged cluster
         return cluster;
-      }).filter(cluster => cluster.deliveries.length > 0 || cluster.id === newClusterId);
-    }
+      });
   
-    if (newClusterId) {
-      if (clusterExists) {
-        updatedClusters = updatedClusters.map(cluster => {
-          if (cluster.id === newClusterId) {
-            return {
-              ...cluster,
-              deliveries: [...(cluster.deliveries ?? []), row.id]
-            };
-          }
-          return cluster;
-        });
-      } else {
-        const newCluster: Cluster = {
-          id: newClusterId,
-          deliveries: [row.id],
-          driver: "",
-          time: ""
-        };
-        updatedClusters.push(newCluster);
-      }
-    }
+      setClusters(updatedClusters); // Update state with the new array
   
-    updatedClusters.sort((a, b) => parseInt(a.id, 10) - parseInt(b.id, 10));
-  
-    setClusters(updatedClusters);
-  
-    try {
+      // Update Firestore with the new cluster data using updateDoc
       const clusterRef = doc(db, "clusters", clusterDoc.docId);
-      await updateDoc(clusterRef, { clusters: updatedClusters });
-      console.log(`Successfully moved ${row.id} from cluster ${oldClusterId || 'none'} to ${newClusterId || 'none'}`);
+      // Only update the 'clusters' field
+      await updateDoc(clusterRef, { clusters: updatedClusters }); 
   
-      setRows(prevRows => prevRows.map(r => r.id === row.id ? { ...r, clusterId: newClusterId } : r));
-    } catch (error) {
-      console.error("Error updating clusters in Firestore:", error);
+      // Note: Directly mutating `row.clusterId` here is generally discouraged
+      // if `row` is part of the `rows` state. It's better to update the
+      // `rows` state immutably as well if necessary. However, given the current
+      // structure, this local update might be intended for immediate UI feedback
+      // before a potential full state refresh. For true immutability,
+      // the `rows` state should also be updated.
+      // Consider:
+      // setRows(prevRows => prevRows.map(r => r.id === row.id ? { ...r, clusterId: newClusterId } : r));
+      row.clusterId = newClusterId; // Keep existing logic for now, but be aware
     }
   };
 
@@ -1053,7 +1027,7 @@ useEffect(() => {
                     {field.label}
                   </TableCell>
                 ))}
-                {/* Add empty cell for the action menu - keeping this for now */}
+                {/* Add empty cell for the action menu */}
                 <TableCell 
                   className="table-header"
                   style={{ 
@@ -1067,74 +1041,42 @@ useEffect(() => {
             <TableBody>
               {visibleRows.map((row) => (
                 <TableRow key={row.id} className="table-row">
-                  {fields.map((field) => {
-                    // Determine the current cluster ID for this row
-                    let currentClusterId = "";
-                    clusters.forEach((cluster) => {
-                      if (cluster.deliveries?.includes(row.id)) {
-                        currentClusterId = cluster.id;
-                      }
-                    });
-                    (row as any).clusterId = currentClusterId; // Update row in memory
-
-                    // Render the table cell based on field type
-                    return (
-                      <TableCell
-                        key={field.key}
-                        style={{ 
-                          textAlign: "center", 
-                          padding: "10px", 
-                          minWidth: field.type === 'select' ? '150px' : 'auto',
-                        }}
-                      >
-                        {field.type === "checkbox" ? (
-                          <Checkbox
-                            size="small"
-                            checked={selectedRows.has(row.id)}
-                            onChange={() => handleCheckboxChange(row)}
-                          />
-                        ) : field.type === "select" && field.key === "clusterIdChange" ? (
-                          // Render Select for clusterIdChange
-                          <FormControl variant="standard" size="small" sx={{ m: 1, minWidth: 120, margin: 0 }}>
-                            <Select
-                              labelId={`cluster-select-label-${row.id}`}
-                              id={`cluster-select-${row.id}`}
-                              value={currentClusterId || ""} // Use the calculated ID
-                              onChange={(event: SelectChangeEvent<string>) => handleClusterChange(row, event.target.value)}
-                              label="Cluster"
-                              sx={{ 
-                                fontSize: 'inherit',
-                                '& .MuiSelect-select': { padding: '4px 10px' },
-                                '&:before': { borderBottom: 'none' },
-                                '&:hover:not(.Mui-disabled):before': { borderBottom: 'none' },
-                                '&:after': { borderBottom: 'none' },
-                                '.MuiSvgIcon-root': { fontSize: '1rem' }
-                              }}
-                            >
-                              {clusterOptions.map((option) => (
-                                <MenuItem key={option.value} value={option.value}>
-                                  {option.label}
-                                </MenuItem>
-                              ))}
-                            </Select>
-                          </FormControl>
-                        ) : field.compute ? (
-                          // Render computed fields (other than the select)
-                          (field.key === 'assignedDriver' || field.key === 'assignedTime') 
-                            ? field.compute(row, clusters) 
-                            : field.compute(row) // Assumes other compute fields don't need clusters
-                        ) : isRegularField(field) ? (
-                          // Render regular fields
-                          row[field.key]
-                        ) : (
-                          // Default case: render nothing or a placeholder
-                          null
-                        )}
-                      </TableCell>
-                    ); // End return for TableCell
-                  })}
-                  {/* Empty TableCell to align with the extra header cell (if kept) */}
-                  <TableCell></TableCell> 
+                  {fields.map((field) => (
+                    <TableCell
+                      key={field.key}
+                      style={{ 
+                        textAlign: "center", 
+                        padding: "10px", 
+                      }}
+                    >
+                      {field.type === "checkbox" ? (
+                        <Checkbox
+                          size="small"
+                          checked={selectedRows.has(row.id)}
+                          onChange={() => handleCheckboxChange(row)}
+                        />
+                      ) : (
+                        field.compute
+                          ? (
+                              field.key === 'assignedDriver' || 
+                              field.key === 'assignedTime' || 
+                              field.key === 'clusterId' 
+                            ) ? field.compute(row, clusters) 
+                              : field.compute(row) 
+                          : isRegularField(field)
+                          ? row[field.key]
+                          : null
+                      )}
+                    </TableCell>
+                  ))}
+                  <TableCell>
+                  <input
+                    className="clusterSelector"
+                    type="text"
+                    value={row.clusterId || ""}
+                    onChange={(e) => handleClusterChange(row, e.target.value)}
+                  />
+                </TableCell>
                 </TableRow>
               ))}
             </TableBody>
