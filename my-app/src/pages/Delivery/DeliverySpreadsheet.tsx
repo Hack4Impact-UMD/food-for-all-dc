@@ -954,17 +954,6 @@ useEffect(() => {
                 boxSizing: "border-box",
               }}
             />
-            <Filter
-              style={{
-                position: "absolute",
-                right: "16px",
-                top: "50%",
-                transform: "translateY(-50%)",
-                color: "#666666",
-                zIndex: 1,
-              }}
-              size={20}
-            />
           </Box>
           <Box sx={{ display: "flex", justifyContent: "space-between" }}>
             <Box sx={{ display: "flex", width: "100%", gap: "2%" }}>
