@@ -414,24 +414,6 @@ useEffect(() => {
     setInnerPopup(popupMode !== "");
   }, [popupMode]);
 
-  // fetch client data from Firebase 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const snapshot = await getDocs(collection(db, "clients"));
-        const data = snapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...(doc.data() as Omit<RowData, "id">),
-        }));
-        setRows(data);
-      } catch (error) {
-        console.error("Error fetching data: ", error);
-      }
-    };
-    fetchData();
-  }, []);
-
-
   const fetchClustersFromToday = async () => {
     try {
       // account for timezone issues
