@@ -1,5 +1,6 @@
 setuptools==75.3.0
 firebase-functions==0.4.2
+google-cloud-secret-manager>=2.16.2
 googlemaps==4.10.0
 python-dotenv==1.0.1
 pydantic==2.9.2

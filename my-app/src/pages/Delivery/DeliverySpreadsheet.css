@@ -53,3 +53,7 @@ table .table-header {
   margin-bottom: 0;
   width: max-content;
 }
+
+.clusterSelector{
+  width: 50px;
+}

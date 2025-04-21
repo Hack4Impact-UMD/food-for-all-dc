@@ -1,17 +1,34 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useRef } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
-interface ClusterMapProps {
-  addresses: string[];
-  coordinates: Array<[number, number] | { lat: number; lng: number }>;
-  clusters: { [key: string]: number[] };
-  clientNames: string[];
+interface Coordinate {
+  lat: number;
+  lng: number;
 }
 
-const isValidCoordinate = (
-  coord: any
-): coord is [number, number] | { lat: number; lng: number } => {
+interface Client {
+  id: string;
+  coordinates: Coordinate | Coordinate[];
+  address: string;
+  firstName: string;
+  lastName: string;
+  ward?: string;
+}
+
+interface Cluster {
+  id: string;
+  driver?: string;
+  time?: string;
+  deliveries: string[]; 
+}
+
+interface ClusterMapProps {
+  clusters: Cluster[];
+  visibleRows: Client[];
+}
+
+const isValidCoordinate = (coord: any): boolean => {
   if (!coord) return false;
 
   if (Array.isArray(coord)) {
@@ -20,8 +37,7 @@ const isValidCoordinate = (
       !isNaN(coord[0]) &&
       !isNaN(coord[1]) &&
       Math.abs(coord[0]) <= 90 &&
-      Math.abs(coord[1]) <= 180 &&
-      !(coord[0] === 0 && coord[1] === 0)
+      Math.abs(coord[1]) <= 180
     );
   }
 
@@ -30,161 +46,150 @@ const isValidCoordinate = (
     !isNaN(coord.lat) &&
     !isNaN(coord.lng) &&
     Math.abs(coord.lat) <= 90 &&
-    Math.abs(coord.lng) <= 180 &&
-    !(coord.lat === 0 && coord.lng === 0)
+    Math.abs(coord.lng) <= 180
   );
 };
 
-const normalizeCoordinate = (coord: any): { lat: number; lng: number } => {
+const normalizeCoordinate = (coord: any): Coordinate => {
   if (Array.isArray(coord)) {
     return { lat: coord[0], lng: coord[1] };
   }
   return coord;
 };
 
-const ClusterMap: React.FC<ClusterMapProps> = ({
-  addresses,
-  coordinates,
-  clusters,
-  clientNames,
-}) => {
+const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters }) => {
+  const mapRef = useRef<L.Map | null>(null);
+  const markerGroupRef = useRef<L.FeatureGroup | null>(null);
+  
+  // Color palette for clusters
+  const clusterColors = [
+    "#FF0000", "#00FF00", "#0000FF", "#FFFF00", "#FF00FF",
+    "#00FFFF", "#FFA500", "#800080", "#008000", "#000080",
+    "#FF4500", "#4B0082", "#FF6347", "#32CD32", "#9370DB",
+    "#FF69B4", "#40E0D0", "#FF8C00", "#7CFC00", "#8A2BE2",
+    "#FF1493", "#1E90FF", "#228B22", "#9400D3", "#DC143C",
+    "#20B2AA", "#9932CC", "#FFD700", "#8B0000", "#4169E1"
+  ];
+
   useEffect(() => {
-    // dont render map if no valid coordinates
-    if (coordinates.length === 0 || addresses.length === 0 || clientNames.length === 0) {
-      return;
+    if (!mapRef.current && visibleRows.length > 0) {
+      const dcCenter: L.LatLngExpression = [38.9072, -77.0369];
+      mapRef.current = L.map("cluster-map").setView(dcCenter, 11);
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(mapRef.current);
+      markerGroupRef.current = L.featureGroup().addTo(mapRef.current);
     }
+  }, []);
 
-    // DC coords
-    const dcCenter: [number, number] = [38.9072, -77.0369];
+  useEffect(() => {
+    if (!mapRef.current || !markerGroupRef.current || visibleRows.length < 1) return;
 
-    // set the map centered on DC by default
-    const map = L.map("cluster-map").setView(dcCenter, 11);
+    markerGroupRef.current.clearLayers();
 
-    // title layer
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
+    // create a map of client ids for quick lookup
+    const clientClusterMap = new Map<string, Cluster>();
+    clusters.forEach(cluster => {
+      cluster.deliveries.forEach(clientId => {
+        clientClusterMap.set(clientId, cluster);
+      });
+    });
 
-    // Create a feature group to store all markers
-    const markerGroup = L.featureGroup().addTo(map);
+    visibleRows.forEach((client) => {
+      if (!client.coordinates || !isValidCoordinate(client.coordinates)) return;
 
-    if (coordinates.length > 0) {
-      const validEntries = coordinates
-        .map((coord, index) => ({ coord, index }))
-        .filter(({ coord }) => isValidCoordinate(coord));
+      const coord = normalizeCoordinate(client.coordinates);
+      const clientName = `${client.firstName} ${client.lastName}` || "Client: None";
+      const address = client.address;
 
-      // Color palette for clusters
-      const clusterColors = [
-        "#FF0000", // Red
-        "#00FF00", // Green
-        "#0000FF", // Blue
-        "#FFFF00", // Yellow
-        "#FF00FF", // Magenta
-        "#00FFFF", // Cyan
-        "#FFA500", // Orange
-        "#800080", // Purple
-        "#008000", // Dark Green
-        "#000080", // Navy
-        "#FF4500", // OrangeRed
-        "#4B0082", // Indigo
-        "#FF6347", // Tomato
-        "#32CD32", // LimeGreen
-        "#9370DB", // MediumPurple
-        "#FF69B4", // HotPink
-        "#40E0D0", // Turquoise
-        "#FF8C00", // DarkOrange
-        "#7CFC00", // LawnGreen
-        "#8A2BE2", // BlueViolet
-        "#FF1493", // DeepPink
-        "#1E90FF", // DodgerBlue
-        "#228B22", // ForestGreen
-        "#9400D3", // DarkViolet
-        "#DC143C", // Crimson
-        "#20B2AA", // LightSeaGreen
-        "#9932CC", // DarkOrchid
-        "#FFD700", // Gold
-        "#8B0000", // DarkRed
-        "#4169E1", // RoyalBlue
-      ];
+      //find the cluster this client belongs to
+      const cluster = clientClusterMap.get(client.id);
+      const clusterId = cluster?.id || "";
+      let colorIndex = 0;
 
-      // add markers for valid coordinates
-      validEntries.forEach(({ coord, index }) => {
-        const { lat, lng } = normalizeCoordinate(coord);
-        const address = addresses[index];
-        const clientName = clientNames[index] || "Client: None";
-
-        let clusterId = "";
-        let colorIndex = 0;
-
-        // only show clusters if they exist
-        if (clusters && Object.keys(clusters).length > 0) {
-          Object.entries(clusters).forEach(([id, indices]) => {
-            if (indices.includes(index)) {
-              clusterId = id;
-              const clusterNumber = parseInt(id.split("-")[1]) || 0;
-              colorIndex = clusterNumber % clusterColors.length;
-            }
-          });
+      if (clusterId) {
+        // Assuming cluster IDs are like "Cluster 1", "Cluster 2", etc.
+        // Extract the number part for color assignment.
+        // If format is different, adjust parsing logic.
+        const match = clusterId.match(/\d+/); 
+        const clusterNumber = match ? parseInt(match[0], 10) : 0;
+        if (!isNaN(clusterNumber)) {
+          colorIndex = (clusterNumber -1) % clusterColors.length; // Use number-1 for 0-based index
+        } else {
+           // Fallback for non-numeric IDs or parsing failures - hash the ID?
+           let hash = 0;
+           for (let i = 0; i < clusterId.length; i++) {
+               hash = clusterId.charCodeAt(i) + ((hash << 5) - hash);
+           }
+           colorIndex = Math.abs(hash) % clusterColors.length;
         }
+      }
 
-        L.circleMarker([lat, lng], {
-          radius: 8,
-          fillColor: clusterId ? clusterColors[colorIndex] : "#257E68", // default color if no cluster
-          color: "#000",
-          weight: 1,
-          opacity: 1,
-          fillOpacity: 0.8,
-        })
-          .bindPopup(
-            `
-          <div style="font-family: Arial, sans-serif; line-height: 1.4;">
-            <div style="font-weight: bold; margin-bottom: 5px;">${clientName}</div>
-            ${clusterId ? `<div><span style="font-weight: bold;">Cluster:</span> ${clusterId.replace("cluster-", "")}</div>` : ""}
-            <div><span style="font-weight: bold;">Address:</span> ${address}</div>
-          </div>
-        `
-          )
-          .addTo(markerGroup);
+      //create marker
+      const marker = L.circleMarker([coord.lat, coord.lng], {
+        radius: 8,
+        fillColor: clusterId ? clusterColors[colorIndex] : "#257E68", // Use default color if no cluster
+        color: "#000",
+        weight: 1,
+        opacity: 1,
+        fillOpacity: 0.8
+      });
+
+      //build popup content
+      const popupContent = `
+        <div style="font-family: Arial, sans-serif; line-height: 1.4;">
+          <div style="font-weight: bold; margin-bottom: 5px;">${clientName}</div>
+          ${clusterId ? `
+            <div><span style="font-weight: bold;">Cluster:</span> ${clusterId}</div>
+            ${cluster?.driver ? `<div><span style="font-weight: bold;">Driver:</span> ${cluster.driver}</div>` : ''}
+          ` : 
+          `<div><span style="font-weight: bold;">Cluster:</span> No cluster Assigned</div>`}
+          ${client.ward ? `<div><span style="font-weight: bold;">Ward:</span> ${client.ward}</div>` : ''}
+          <div><span style="font-weight: bold;">Address:</span> ${address}</div>
+        </div>
+      `;
+
+      //add popup and marker to group
+      marker
+        .bindPopup(popupContent)
+        .addTo(markerGroupRef.current!);
+    });
+
+    //fit map to markers if there are any
+    if (markerGroupRef.current!.getLayers().length > 0) {
+      mapRef.current!.fitBounds(markerGroupRef.current!.getBounds(), {
+        padding: [50, 50] 
       });
     }
+  }, [visibleRows, clusters]);
 
-    return () => {
-      map.remove();
-    };
-  }, [addresses, coordinates, clusters, clientNames]);
-
-  useEffect(() => {
-    coordinates.forEach((coord, index) => {
-      if (!isValidCoordinate(coord)) {
-        console.warn(`Invalid coordinate at index ${index}:`, coord);
-      }
-    });
-  }, [coordinates]);
+  const invalidCount = visibleRows.filter(
+    (client) => !isValidCoordinate(client.coordinates)
+  ).length;
 
   return (
-    <div style={{ position: "relative" }}>
-      <div
-        id="cluster-map"
-        style={{
-          height: "400px",
-          width: "100%",
-          marginBottom: "20px",
-          border: "1px solid #ddd",
-          borderRadius: "4px",
-        }}
-      />
-      <div
-        style={{
-          position: "absolute",
-          top: "10px",
-          right: "10px",
-          backgroundColor: "white",
-          padding: "5px",
-          borderRadius: "3px",
-          boxShadow: "0 0 5px rgba(0,0,0,0.2)",
+    <div style={{ position: 'relative' }}>
+      <div id="cluster-map" style={{ 
+        height: "400px", 
+        width: "100%", 
+        marginBottom: "20px",
+        border: "1px solid #ddd",
+        borderRadius: "4px"
+      }} />
+      {invalidCount > 0 && (
+        <div style={{
+          position: 'absolute',
+          top: '10px',
+          right: '10px',
+          backgroundColor: 'white',
+          padding: '5px 10px',
+          borderRadius: '3px',
+          boxShadow: '0 0 5px rgba(0,0,0,0.2)',
           zIndex: 1000,
-        }}
-      >
-        {coordinates.filter((coord) => !isValidCoordinate(coord)).length} invalid coordinates
-      </div>
+          color: 'red',
+          fontWeight: 'bold'
+        }}>
+          {invalidCount} invalid coordinates
+        </div>
+      )}
     </div>
   );
 };
