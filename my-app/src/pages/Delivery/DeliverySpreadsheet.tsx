@@ -322,21 +322,29 @@ useEffect(() => {
     }
 
     try {
-      const snapshot = await getDocs(collection(db, "clients"));
-      const allData = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...(doc.data() as Omit<RowData, "id">),
-      }));
-      
-      // filter to only include clients with deliveries on the selected date
-      const clientsWithDeliveriesOnSelectedDate = allData.filter(row => 
-        deliveriesForDate.some(delivery => delivery.clientId === row.id)
-      );
+      // Get the client IDs for the deliveries on the selected date
+      const clientIds = deliveriesForDate.map(delivery => delivery.clientId);
+      // Firestore 'in' queries are limited to 10 items per query
+      const chunkSize = 10;
+      let clientsWithDeliveriesOnSelectedDate: RowData[] = [];
+      for (let i = 0; i < clientIds.length; i += chunkSize) {
+        const chunk = clientIds.slice(i, i + chunkSize);
+        if (chunk.length === 0) continue;
+        const q = query(
+          collection(db, "clients"),
+          where("__name__", "in", chunk)
+        );
+        const snapshot = await getDocs(q);
+        const chunkData = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...(doc.data() as Omit<RowData, "id">),
+        }));
+        clientsWithDeliveriesOnSelectedDate = clientsWithDeliveriesOnSelectedDate.concat(chunkData);
+      }
 
       const addresses = clientsWithDeliveriesOnSelectedDate.map(row => row.address);
-      
-      setRows(allData);
-      
+      setRows(clientsWithDeliveriesOnSelectedDate);
+
       if (clientsWithDeliveriesOnSelectedDate.length > 0 && addresses.length > 0) {
         const token = await auth.currentUser?.getIdToken();
         const response = await fetch(testing ? "": 'https://geocode-addresses-endpoint-lzrplp4tfa-uc.a.run.app', {
@@ -352,13 +360,9 @@ useEffect(() => {
         
         if (response.ok) {
           const { coordinates } = await response.json();
-          
           // update only the rows that need coordinates
-          const updatedRows = allData.map(row => {
-            // find if this row is in the filtered list
-            const index = clientsWithDeliveriesOnSelectedDate.findIndex(filteredRow => filteredRow.id === row.id);
-            if (index !== -1 && coordinates[index]) {
-              // if yes, add coordinates
+          const updatedRows = clientsWithDeliveriesOnSelectedDate.map((row, index) => {
+            if (coordinates[index]) {
               return {
                 ...row,
                 coordinates: coordinates[index]
@@ -366,7 +370,6 @@ useEffect(() => {
             }
             return row;
           });
-          
           setRows(updatedRows);
           setIsLoading(false);
         }
