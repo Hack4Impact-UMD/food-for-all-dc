@@ -23,7 +23,7 @@ import Tab from "./NavBar/Tab";
 import logo from "../../assets/ffa-banner-logo.webp";
 import { Typography, useMediaQuery } from "@mui/material";
 import { useAuth } from "../../auth/AuthProvider";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation, Outlet } from "react-router-dom";
 import { useEffect } from "react";
 
 const drawerWidth = 240;
@@ -110,7 +110,7 @@ const MobileNavigation = styled(Box)(({ theme }) => ({
   height: "60px",
 }));
 
-export default function BasePage({ children }: { children: React.ReactNode }) {
+export default function BasePage() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [open, setOpen] = React.useState(!isMobile);
@@ -126,20 +126,27 @@ export default function BasePage({ children }: { children: React.ReactNode }) {
   }, [isMobile]);
 
   useEffect(() => {
-    if (location.pathname === "/deliveries") {
-      setPageTitle("Deliveries");
-      setTab("Deliveries");
-    } else if (location.pathname === "/clients") {
+    // Use full paths for comparison as location.pathname includes the base
+    const currentPath = location.pathname;
+    if (currentPath === "/clients") {
       setPageTitle("Clients");
       setTab("Clients");
-    } else if (location.pathname === "/users") {
-      setPageTitle("Users");
+    } else if (currentPath === "/calendar") { // Changed from /deliveries
+      setPageTitle("Calendar");
+      setTab("Calendar");
+    } else if (currentPath === "/create-users") { // Changed from /users
+      setPageTitle("Users"); // Keep title as Users maybe?
       setTab("Users");
-    } else if (location.pathname === "/routes") {
-      setPageTitle("Routes");
-      setTab("Routes");
+    } else if (currentPath === "/delivery") { // Changed from /routes
+      setPageTitle("Delivery"); // Keep title as Delivery?
+      setTab("Delivery");
+    } else if (currentPath.startsWith("/profile")) { // Handle profile page potentially with ID
+      setPageTitle("Profile");
+      // Decide if a tab should be active for profile, or maybe none?
+      // setTab("Profile"); // Example: If there was a Profile tab
     } else {
-      setPageTitle("");
+      setPageTitle(""); // Default empty title
+      // setTab(""); // Reset tab if needed
     }
   }, [location]);
 
@@ -162,9 +169,9 @@ export default function BasePage({ children }: { children: React.ReactNode }) {
 
   const navItems = [
     { text: "Clients", icon: <StorageIcon />, link: "/clients" },
-    { text: "Deliveries", icon: <CalendarTodayIcon />, link: "/deliveries" },
-    { text: "Users", icon: <AddCircleIcon />, link: "/users" },
-    { text: "Routes", icon: <LocalShippingIcon />, link: "/routes" },
+    { text: "Calendar", icon: <CalendarTodayIcon />, link: "/calendar" }, // Changed link and text? Keep text Calendar
+    { text: "Users", icon: <AddCircleIcon />, link: "/create-users" }, // Changed link
+    { text: "Delivery", icon: <LocalShippingIcon />, link: "/delivery" }, // Changed link
   ];
 
   return (
@@ -306,8 +313,9 @@ export default function BasePage({ children }: { children: React.ReactNode }) {
           </ListItem>
         </List>
       </Drawer>
-      <Main open={open} isMobile={isMobile}>
-        {children}
+      <Main open={open} isMobile={isMobile} sx={{ flexGrow: 1, p: 3 }}>
+        <DrawerHeader />
+        <Outlet />
       </Main>
 
       {/* Mobile Bottom Navigation */}

@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { signInWithEmailAndPassword, sendPasswordResetEmail, onAuthStateChanged } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
 import Button from "@mui/material/Button";
-import { InputAdornment, TextField } from "@mui/material";
+import { InputAdornment, TextField, CircularProgress } from "@mui/material";
 import FormControl from "@mui/material/FormControl";
 import Input from "@mui/material/Input";
 import InputLabel from "@mui/material/InputLabel";
@@ -62,33 +62,23 @@ function Login() {
       return;
     }
     
+    setIsLoading(true);
+    setLoginError("");
+    setResetPasswordMessage("");
     try {
-      setIsLoading(true);
-      // Authenticate the user
-      const userCredential = await signInWithEmailAndPassword(auth, loginEmail, loginPassword);
-      const user = userCredential.user;
-
-      // Successful login, navigate to client spreadsheet
-      setLoginError("");
+      await signInWithEmailAndPassword(auth, loginEmail, loginPassword);
       navigate("/clients");
-
-      // Clear input fields
-      setLoginEmail("");
-      setLoginPassword("");
     } catch (error: any) {
-      console.error("Login error:", error.message);
-      let errorMessage = "Login failed. Please check your credentials.";
-      
-      // Handle specific Firebase error codes
-      if (error.code === "auth/user-not-found" || error.code === "auth/wrong-password") {
-        errorMessage = "Invalid email or password";
-      } else if (error.code === "auth/too-many-requests") {
-        errorMessage = "Too many failed login attempts. Please try again later.";
-      } else if (error.code === "auth/network-request-failed") {
-        errorMessage = "Network error. Please check your connection.";
+      console.error("Login Error:", error);
+      if (
+        error.code === "auth/user-not-found" ||
+        error.code === "auth/wrong-password" ||
+        error.code === "auth/invalid-credential"
+      ) {
+        setLoginError("Invalid email or password.");
+      } else {
+        setLoginError("An error occurred during login. Please try again.");
       }
-      
-      setLoginError(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -194,6 +184,7 @@ function Login() {
               fullWidth
               disabled={isLoading}
               aria-label="Sign in"
+              startIcon={isLoading ? <CircularProgress size={20} color="inherit" /> : null}
             >
               {isLoading ? "Signing in..." : "Login"}
             </Button>
@@ -246,6 +237,7 @@ function Login() {
             type="submit"
             disabled={isLoading}
             style={{ borderRadius: 'var(--border-radius-xl)' }}
+            startIcon={isLoading ? <CircularProgress size={20} color="inherit" /> : null}
           >
             {isLoading ? "Sending..." : "Send Email"}
           </Button>

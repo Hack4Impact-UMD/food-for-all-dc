@@ -14,12 +14,25 @@ import DeliverySpreadsheet from "./pages/Delivery/DeliverySpreadsheet";
 import TestCsvPage from "./pages/Delivery/TestCsvPage";
 
 import { useAuth } from "./auth/AuthProvider";
+import LoadingIndicator from "./components/LoadingIndicator/LoadingIndicator";
+import { Box } from "@mui/material";
 
 function App() {
   const { loading } = useAuth();
 
   if (loading) {
-    return <div>Loading...</div>;
+    return (
+      <Box 
+        sx={{ 
+          display: 'flex', 
+          justifyContent: 'center', 
+          alignItems: 'center', 
+          height: '100vh' 
+        }}
+      >
+        <LoadingIndicator size={60} /> 
+      </Box>
+    );
   }
 
   return (
@@ -33,56 +46,14 @@ function App() {
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
 
         {/* Protected or main routes wrapped with BasePage */}
-        <Route
-          path="/deliveries"
-          element={
-            <BasePage>
-              <CalendarPage />
-            </BasePage>
-          }
-        />
-        <Route
-          path="/profile/:id"
-          element={
-            <BasePage>
-              <Profile />
-            </BasePage>
-          }
-        />
-        <Route
-          path="/profile"
-          element={
-            <BasePage>
-              <Profile />
-            </BasePage>
-          }
-        />
-        <Route
-          path="/clients"
-          element={
-            <BasePage>
-              <Spreadsheet />
-            </BasePage>
-          }
-        />
-
-        <Route
-          path="/routes"
-          element={
-            <BasePage>
-              <DeliverySpreadsheet />
-            </BasePage>
-          }
-        />
-
-        <Route
-          path="/users"
-          element={
-            <BasePage>
-              <CreateUsers />
-            </BasePage>
-          }
-        />
+        <Route path="/*" element={<BasePage />}>
+          <Route path="clients" element={<Spreadsheet />} />
+          <Route path="calendar" element={<CalendarPage />} />
+          <Route path="profile/:clientId?" element={<Profile />} />
+          <Route path="delivery" element={<DeliverySpreadsheet />} />
+          <Route path="create-users" element={<CreateUsers />} />
+          <Route path="test-csv" element={<TestCsvPage />} />
+        </Route>
       </Routes>
     </Router>
   );

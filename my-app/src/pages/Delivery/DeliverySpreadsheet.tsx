@@ -42,6 +42,8 @@ import { onAuthStateChanged } from "firebase/auth";
 import ClusterMap from "./ClusterMap";
 import { ClientProfile } from "../../types";
 import { idText } from "typescript";
+import DeliveryDatePicker from "./DeliveryDatePicker/DeliveryDatePicker";
+import LoadingIndicator from "../../components/LoadingIndicator/LoadingIndicator";
 
 interface RowData {
   id: string;
@@ -1008,9 +1010,7 @@ useEffect(() => {
         backgroundColor: "#fff"
       }}>
         {isLoading ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
-            <CircularProgress />
-          </Box>
+          <LoadingIndicator />
         ) : visibleRows.length > 0 ? (
           <ClusterMap 
             addresses={clientsWithDeliveries.map(row => row.address)}
