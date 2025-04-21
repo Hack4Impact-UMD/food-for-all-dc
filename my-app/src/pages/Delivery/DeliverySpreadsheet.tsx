@@ -725,13 +725,13 @@ useEffect(() => {
         setClusterDoc(newClusterDoc)
       }       
       
-      //Refresh the data
-      const snapshot = await getDocs(collection(db, "clients"));
-      const updatedData = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...(doc.data() as Omit<RowData, "id">),
-      }));
-      setClusters(newClusters);
+      //Refresh the data - REMOVED Redundant fetch
+      // const snapshot = await getDocs(collection(db, "clients"));
+      // const updatedData = snapshot.docs.map((doc) => ({
+      //  id: doc.id,
+      //  ...(doc.data() as Omit<RowData, "id">),
+      // }));
+      setClusters(newClusters); // Keep this line to ensure state update consistency if needed, though it might be redundant too. Consider removing if testing shows it's unnecessary.
       setIsLoading(false);
       resetSelections();
     // }
