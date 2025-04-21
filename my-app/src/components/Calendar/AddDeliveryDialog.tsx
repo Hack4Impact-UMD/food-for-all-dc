@@ -15,6 +15,7 @@ import {
   Typography,
 } from "@mui/material";
 import { Client, Driver, NewDelivery } from "./types";
+import CalendarMultiSelect from "./CalendarMultiSelect";
 
 interface AddDeliveryDialogProps {
   open: boolean;
@@ -44,6 +45,8 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = ({
     };
   });
 
+  const [customDates, setCustomDates] = useState<Date[]>([]);
+
   const resetFormAndClose = () => {
     // Reset the form
     const today = new Date().toISOString().split("T")[0];
@@ -56,11 +59,20 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = ({
       recurrence: "None",
       repeatsEndDate: "",
     });
+    setCustomDates([]);
     onClose();
   };
 
   const handleSubmit = () => {
-    onAddDelivery(newDelivery);
+    const deliveryToSubmit: NewDelivery = { ...newDelivery };
+    if (newDelivery.recurrence === "Custom") {
+      deliveryToSubmit.customDates = customDates.map(date => date.toISOString().split("T")[0]);
+      // Set deliveryDate to the first custom date for compatibility
+      deliveryToSubmit.deliveryDate = customDates[0]?.toISOString().split("T")[0] || "";
+      deliveryToSubmit.repeatsEndDate = undefined;
+    }
+    onAddDelivery(deliveryToSubmit);
+    setCustomDates([]);
     resetFormAndClose();
   };
 
@@ -153,15 +165,17 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = ({
         />
 
         {/* Delivery Date */}
-        <TextField
-          label="Delivery Date"
-          type="date"
-          value={newDelivery.deliveryDate}
-          onChange={(e) => setNewDelivery({ ...newDelivery, deliveryDate: e.target.value })}
-          fullWidth
-          margin="normal"
-          InputLabelProps={{ shrink: true }}
-        />
+        {newDelivery.recurrence !== "Custom" ? (
+          <TextField
+            label="Delivery Date"
+            type="date"
+            value={newDelivery.deliveryDate}
+            onChange={(e) => setNewDelivery({ ...newDelivery, deliveryDate: e.target.value })}
+            fullWidth
+            margin="normal"
+            InputLabelProps={{ shrink: true }}
+          />
+        ) : null}
 
         {/* Recurrence Dropdown */}
         <FormControl fullWidth variant="outlined" margin="normal">
@@ -170,22 +184,32 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = ({
             label="Recurrence"
             labelId="recurrence-label"
             value={newDelivery.recurrence}
-            onChange={(e) =>
+            onChange={(e) => {
+              const value = e.target.value as NewDelivery['recurrence'];
               setNewDelivery({
                 ...newDelivery,
-                recurrence: e.target.value as "None" | "Weekly" | "2x-Monthly" | "Monthly",
-              })
-            }
+                recurrence: value,
+                // Reset customDates if not custom
+                ...(value !== "Custom" ? { customDates: undefined } : {}),
+              });
+              if (value !== "Custom") setCustomDates([]);
+            }}
           >
             <MenuItem value="None">None</MenuItem>
             <MenuItem value="Weekly">Weekly</MenuItem>
             <MenuItem value="2x-Monthly">2x-Monthly</MenuItem>
             <MenuItem value="Monthly">Monthly</MenuItem>
+            <MenuItem value="Custom">Custom (Select Dates)</MenuItem>
           </Select>
         </FormControl>
 
+        {/* Custom Dates Picker */}
+        {newDelivery.recurrence === "Custom" ? (
+          <CalendarMultiSelect selectedDates={customDates} setSelectedDates={setCustomDates} />
+        ) : null}
+
         {/* Ends Section */}
-        {newDelivery.recurrence !== "None" && (
+        {newDelivery.recurrence !== "None" && newDelivery.recurrence !== "Custom" ? (
           <Box>
             <Typography variant="subtitle1">End Date</Typography>
             <TextField
@@ -203,7 +227,7 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = ({
               InputLabelProps={{ shrink: true }}
             />
           </Box>
-        )}
+        ) : null}
       </DialogContent>
       <DialogActions>
         <Button onClick={resetFormAndClose}>Cancel</Button>

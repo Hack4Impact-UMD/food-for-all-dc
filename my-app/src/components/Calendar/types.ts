@@ -61,8 +61,9 @@ export interface DeliveryEvent {
   deliveryDate: Date; // The date of the delivery
   time: string; // The time of the delivery;
   cluster: number;
-  recurrence: "None" | "Weekly" | "2x-Monthly" | "Monthly"; // Updated recurrence options
+  recurrence: "None" | "Weekly" | "2x-Monthly" | "Monthly" | "Custom"; // Added 'Custom'
   repeatsEndDate?: string; // Optional, end date for recurrence
+  customDates?: string[]; // Array of ISO date strings for custom dates
 }
 
 export interface NewDelivery {
@@ -71,8 +72,9 @@ export interface NewDelivery {
   clientId: string;
   clientName: string;
   deliveryDate: string; // ISO string for the delivery date
-  recurrence: "None" | "Weekly" | "2x-Monthly" | "Monthly"; // Updated recurrence options
+  recurrence: "None" | "Weekly" | "2x-Monthly" | "Monthly" | "Custom"; // Added 'Custom'
   repeatsEndDate?: string; // Optional, end date for recurrence
+  customDates?: string[]; // Array of ISO date strings for custom dates
 }
 
 export type ViewType = "Day" | "Month";
