@@ -1,7 +1,7 @@
 import { Button, DialogActions, TextField, Typography } from "@mui/material";
 import React, { useState, useEffect } from "react";
 
-export default function GenerateClustersPopup({generateClusters, setPopupMode}: any){
+export default function GenerateClustersPopup({onGenerateClusters, onClose}: any){
       const [maxDeliveries, setMaxDeliveries] = useState(5);
       const [minDeliveries, setMinDeliveries] = useState(1);
       const [clusterError, setClusterError] = useState("");
@@ -10,9 +10,9 @@ export default function GenerateClustersPopup({generateClusters, setPopupMode}: 
       const resetSelections = () => {
         setMaxDeliveries(5);
         setMinDeliveries(1);
-        setClusterError("")
-        setPopupMode("")
-        setClusterNum(0)
+        setClusterError("");
+        setClusterNum(1);
+        if (onClose) onClose();
       }
 
     return(
@@ -83,11 +83,11 @@ export default function GenerateClustersPopup({generateClusters, setPopupMode}: 
           </div>
           <DialogActions>
             <Button onClick={() => {
-                    generateClusters(clusterNum, minDeliveries, maxDeliveries)
-                    .then(() => resetSelections())
-                    .catch((e: any) => setClusterError(e.message));
+                onGenerateClusters(clusterNum, minDeliveries, maxDeliveries)
+                  .then(() => resetSelections())
+                  .catch((e: any) => setClusterError(e.message));
             }}>SAVE</Button>
-            <Button onClick={() => resetSelections()}>CANCEL</Button>
+            <Button onClick={resetSelections}>CANCEL</Button>
           </DialogActions>
       </>
     )

@@ -1106,12 +1106,16 @@ useEffect(() => {
       )}
 
       {popupMode === "Clusters" && (
-        <GenerateClustersPopup
-          open={innerPopup}
-          onClose={resetSelections}
-          onGenerateClusters={generateClusters}
-          visibleRows={visibleRows}
-        />
+        <Dialog open onClose={resetSelections} maxWidth="xs" fullWidth>
+          <DialogTitle>Generate Clusters</DialogTitle>
+          <DialogContent>
+            <GenerateClustersPopup
+              onGenerateClusters={generateClusters}
+              onClose={resetSelections}
+              visibleRows={visibleRows}
+            />
+          </DialogContent>
+        </Dialog>
       )}
     </Box>
   );
