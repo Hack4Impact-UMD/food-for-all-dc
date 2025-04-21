@@ -156,12 +156,12 @@ const Profile = () => {
   // #### PARAMS and NAVIGATION ####
   const navigate = useNavigate();
   const params = useParams();
-  const id: string | null = params.id ?? null;
+  const clientIdParam: string | null = params.clientId ?? null;
 
   // #### STATE ####
-  const [isEditing, setIsEditing] = useState(!id); // Start editing only if it's a new profile (!id)
-  const [isNewProfile, setIsNewProfile] = useState(!id);
-  const [clientId, setClientId] = useState<string | null>(id);
+  const [isEditing, setIsEditing] = useState(!clientIdParam);
+  const [isNewProfile, setIsNewProfile] = useState(!clientIdParam);
+  const [clientId, setClientId] = useState<string | null>(clientIdParam);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [tags, setTags] = useState<string[]>([]);
   const [allTags, setAllTags] = useState<string[]>([]);
@@ -220,6 +220,7 @@ const Profile = () => {
     tags: [],
     ward: "",
     tefapCert: "",
+    referralEntity: null,
   });
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [fieldEditStates, setFieldEditStates] = useState<{ [key: string]: boolean }>({});
@@ -276,12 +277,12 @@ const Profile = () => {
   }, []);
 
   useEffect(() => {
-    if (id) {
+    if (clientIdParam) {
       setIsNewProfile(false);
-      setClientId(id);
-      getProfileById(id).then((profileData) => {
+      setClientId(clientIdParam);
+      getProfileById(clientIdParam).then((profileData) => {
         if (profileData) {
-          setTags(profileData.tags.filter((tag) => allTags.includes(tag)) || []);
+          setTags(profileData.tags?.filter((tag) => allTags.includes(tag)) || []);
           setClientProfile(profileData);
 
           // Set prevNotes only when the profile is loaded from Firebase
@@ -290,7 +291,7 @@ const Profile = () => {
             setProfileLoaded(true);
           }
         } else {
-          console.log("No profile found for ID:", id);
+          console.log("No profile found for ID:", clientIdParam);
         }
       });
     } else {
@@ -299,10 +300,14 @@ const Profile = () => {
         ...clientProfile,
         createdAt: new Date(),
         updatedAt: new Date(),
+        referralEntity: null,
       });
       setTags([]);
+      setSelectedCaseWorker(null);
+      setProfileLoaded(false);
+      setPrevNotes("");
     }
-  }, [id, allTags, profileLoaded]);
+  }, [clientIdParam, allTags, profileLoaded]);
 
   useEffect(() => {
     const fetchLastDeliveryDate = async () => {
