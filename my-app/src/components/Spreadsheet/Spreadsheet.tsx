@@ -530,17 +530,6 @@ const Spreadsheet: React.FC = () => {
       >
         <Stack spacing={3}>
           <Box sx={{ position: "relative", width: "100%" }}>
-            <Search
-              style={{
-                position: "absolute",
-                left: "16px",
-                top: "50%",
-                transform: "translateY(-50%)",
-                color: "#666666",
-                zIndex: 1,
-              }}
-              size={20}
-            />
             <input
               type="text"
               value={searchQuery}
@@ -559,17 +548,6 @@ const Spreadsheet: React.FC = () => {
                 transition: "all 0.2s ease",
                 boxShadow: "inset 0 2px 3px rgba(0,0,0,0.05)"
               }}
-            />
-            <Filter
-              style={{
-                position: "absolute",
-                right: "16px",
-                top: "50%",
-                transform: "translateY(-50%)",
-                color: "#666666",
-                zIndex: 1,
-              }}
-              size={20}
             />
           </Box>
           <Stack 
