@@ -356,7 +356,7 @@ const CalendarPage: React.FC = () => {
         display: "flex",
         flexDirection: "column",
         minHeight: "100vh",
-        minWidth: "100vw",
+        minWidth: "95vw",
       }}
     >
       <AppBar position="static" color="default" elevation={1}></AppBar>
