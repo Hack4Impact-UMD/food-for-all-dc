@@ -299,16 +299,10 @@ const DeliverySpreadsheet: React.FC = () => {
       const querySnapshot = await getDocs(q);
       const events = querySnapshot.docs.map(doc => {
         const data = doc.data();
-        // get local date
-        const deliveryDate = data.deliveryDate.toDate();
         return {
           id: doc.id,
           ...data,
-          deliveryDate: new Date(
-            deliveryDate.getFullYear(),
-            deliveryDate.getMonth(),
-            deliveryDate.getDate()
-          )
+          deliveryDate: data.deliveryDate.toDate(), // preserve as-is (already correct local representation)
         };
       }) as DeliveryEvent[];
       
