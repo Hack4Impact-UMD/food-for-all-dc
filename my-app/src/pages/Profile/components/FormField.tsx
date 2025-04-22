@@ -185,7 +185,11 @@ const FormField: React.FC<FormFieldProps> = ({
         ) : (
           <Box
             sx={{
-              display: 'inline-block',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              minWidth: 64,
+              minHeight: 32,
               px: 1.5,
               py: 0.5,
               bgcolor: '#f5f5f5',
@@ -194,6 +198,7 @@ const FormField: React.FC<FormFieldProps> = ({
               fontWeight: 500,
               fontSize: '0.95rem',
               letterSpacing: 0.2,
+              textAlign: 'center',
             }}
           >
             None

@@ -271,6 +271,14 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
         {renderField("seniors", "number")}
       </Box>
 
+      {/* Total */}
+      <Box>
+        <Typography className="field-descriptor" sx={fieldLabelStyles}>
+          TOTAL
+        </Typography>
+        {renderField("total", "text")}
+      </Box>
+
       {/* Head of Household */}
       <Box>
         <Typography className="field-descriptor" sx={fieldLabelStyles}>
@@ -282,14 +290,6 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
             {errors.headOfHousehold}
           </Typography>
         )}
-      </Box>
-
-      {/* Total */}
-      <Box>
-        <Typography className="field-descriptor" sx={fieldLabelStyles}>
-          TOTAL
-        </Typography>
-        {renderField("total", "text")}
       </Box>
 
       {/* Referral Entity */}
