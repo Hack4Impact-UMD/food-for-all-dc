@@ -54,7 +54,7 @@ const CalendarMultiSelect: React.FC<CalendarMultiSelectProps> = ({ selectedDates
             onDelete={() => handleDeleteDate(date)}
             deleteIcon={<CloseIcon />}
             sx={{
-              backgroundColor: 'var(--color-primary-light)',
+              backgroundColor: 'var(--color-primary)',
               color: 'white',
               fontWeight: 500,
               mb: 1
