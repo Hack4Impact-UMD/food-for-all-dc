@@ -18,7 +18,7 @@ import {
   InputLabel,
   Select,
 } from "@mui/material";
-import MoreVertIcon from "@mui/icons-material/MoreVert";
+import MoreHorizIcon from "@mui/icons-material/MoreHoriz";
 import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, query, where } from "firebase/firestore";
 import { db } from "../../../auth/firebaseConfig";
 import { DeliveryEvent, NewDelivery } from "../../../types/calendar-types";
@@ -185,8 +185,27 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
 
   return (
     <>
-      <IconButton onClick={handleMenuOpen}>
-        <MoreVertIcon />
+      <IconButton
+        onClick={handleMenuOpen}
+        sx={{
+          backgroundColor: 'var(--color-background-light)',
+          borderRadius: '50%',
+          boxShadow: 'var(--shadow-sm)',
+          color: 'var(--color-primary)',
+          transition: 'background 0.2s, color 0.2s',
+          '&:hover': {
+            backgroundColor: 'rgba(37, 126, 104, 0.12)', // var(--color-primary) with opacity
+            color: 'var(--color-primary-dark)',
+          },
+          width: 40,
+          height: 40,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+        aria-label="Open event menu"
+      >
+        <MoreHorizIcon fontSize="medium" />
       </IconButton>
 
       <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={handleMenuClose}>

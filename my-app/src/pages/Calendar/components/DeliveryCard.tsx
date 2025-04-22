@@ -89,8 +89,9 @@ const DeliveryCard: React.FC<DeliveryCardProps> = ({ event, client, onEventModif
           </Box>
         ))}
       </Box>
-      {/* Three-dot menu button */}
-      <EventMenu event={event} onEventModified={onEventModified} />
+      <Box sx={{ display: 'flex', alignItems: 'center', marginLeft: 'auto' }}>
+        <EventMenu event={event} onEventModified={onEventModified} />
+      </Box>
     </Box>
   );
 };
