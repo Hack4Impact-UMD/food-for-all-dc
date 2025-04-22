@@ -85,9 +85,9 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = ({
   // --- End Validation ---
 
   return (
-    <Dialog open={open} onClose={resetFormAndClose}>
+    <Dialog open={open} onClose={resetFormAndClose} maxWidth="sm" fullWidth>
       <DialogTitle>Add Delivery</DialogTitle>
-      <DialogContent>
+      <DialogContent sx={{ maxHeight: '70vh', overflowY: 'auto' }}>
         {/* Client Selection */}
         <Autocomplete
           options={clients}
