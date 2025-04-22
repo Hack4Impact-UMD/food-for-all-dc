@@ -1,53 +1,92 @@
-# Project-specific ignore
+# Project-specific 
 CLAUDE.md
 
 # Cursor
 .cursor/
 
+# IDE and editors
+.idea/
+.vscode/
+*.swp
+*.swo
+*.sublime-*
+.atom/
+.eclipse/
+
 # Dependencies
 node_modules/
-.pnp
+.pnp/
 .pnp.js
+package-lock.json
+yarn.lock
+.yarn-integrity
 
 # Testing
 coverage/
+.nyc_output/
+.jest/
 
-# Production
+# Build output
 build/
 dist/
 out/
-
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-venv/
-*.env
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-food-for-all-dc-caf23-firebase-adminsdk-65kzi-b8cfeb0d9a.json
+my-app/build/
+my-app/functions/lib/
+my-app/functions-python/lib/
 
 # Firebase
 .firebase/
 firebase-debug.log*
 ui-debug.log*
 database-debug.log*
+firestore-debug.log*
+pubsub-debug.log*
 *.cache
+.runtimeconfig.json
 
-# Debug/logs
+# Environment variables and secrets
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+.env.development.local
+.env.test.local
+.env.production.local
+*.local
+food-for-all-dc-caf23-firebase-adminsdk-*.json
+*-firebase-adminsdk-*.json
+
+# Logs
+logs/
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-*.log
+firebase-debug.log*
+firebase-error.log*
 
-# IDE and editor files
-.idea/
-.vscode/
-*.swp
-*.swo
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+.env/
+.venv/
+pythonenv*
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+.hypothesis/
+*.egg-info/
+.installed.cfg
+*.egg
 
 # OS generated files
 .DS_Store
@@ -57,13 +96,25 @@ yarn-error.log*
 .Trashes
 ehthumbs.db
 Thumbs.db
+Icon?
+desktop.ini
 
 # Temporary files
 *.tmp
 *.bak
 *~
+*.swp
+*.swo
+.history
+.temp
+tmp/
 
 # Generated visualization files
 *.html
 !index.html
 !public/index.html
+!my-app/public/index.html
+
+# TypeScript
+*.tsbuildinfo
+.vercel
