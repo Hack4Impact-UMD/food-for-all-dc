@@ -213,10 +213,24 @@ const CalendarPage: React.FC = () => {
         endDate.toDate()
       );
 
-      setEvents(fetchedEvents);
+      // Filter out events associated with deleted clients
+      const activeClientIds = new Set(clients.map(client => client.uid));
+      const filteredEventsByClient = fetchedEvents.filter(event => activeClientIds.has(event.clientId));
+
+      // Deduplicate events based on clientId and deliveryDate
+      const uniqueEventsMap = new Map<string, DeliveryEvent>();
+      filteredEventsByClient.forEach(event => {
+        const key = `${event.clientId}_${new DayPilot.Date(event.deliveryDate).toString("yyyy-MM-dd")}`;
+        if (!uniqueEventsMap.has(key)) {
+          uniqueEventsMap.set(key, event);
+        }
+      });
+      const uniqueFilteredEvents = Array.from(uniqueEventsMap.values());
+
+      setEvents(uniqueFilteredEvents);
 
       // Update calendar configuration with new events
-      const calendarEvents: CalendarEvent[] = fetchedEvents.map((event) => ({
+      const calendarEvents: CalendarEvent[] = uniqueFilteredEvents.map((event) => ({
         id: event.id,
         text: `Client: ${event.clientName} (Driver: ${event.assignedDriverName})`,
         start: new DayPilot.Date(event.deliveryDate),
@@ -230,7 +244,7 @@ const CalendarPage: React.FC = () => {
         durationBarVisible: false,
       }));
 
-      return fetchedEvents;
+      return uniqueFilteredEvents;
     } catch (error) {
       console.error("Error fetching events:", error);
       return [];
@@ -258,9 +272,24 @@ const CalendarPage: React.FC = () => {
           newDelivery.recurrence === "None" ? [deliveryDate] : calculateRecurrenceDates(newDelivery);
       }
 
-      // Use DeliveryService to create events
+      // Filter out dates that already have a delivery for the same client
+      const existingEventDates = new Set(
+        events
+          .filter(event => event.clientId === newDelivery.clientId)
+          .map(event => new DayPilot.Date(event.deliveryDate).toString("yyyy-MM-dd"))
+      );
+
+      const uniqueRecurrenceDates = recurrenceDates.filter(date => 
+        !existingEventDates.has(new DayPilot.Date(date).toString("yyyy-MM-dd"))
+      );
+
+      if (uniqueRecurrenceDates.length < recurrenceDates.length) {
+        console.warn("Some duplicate delivery dates were detected and skipped.");
+      }
+
+      // Use DeliveryService to create events for unique dates only
       const deliveryService = DeliveryService.getInstance();
-      const createPromises = recurrenceDates.map(date => {
+      const createPromises = uniqueRecurrenceDates.map(date => {
         const eventToAdd: Partial<DeliveryEvent> = {
           assignedDriverId: newDelivery.assignedDriverId,
           assignedDriverName: newDelivery.assignedDriverName,
