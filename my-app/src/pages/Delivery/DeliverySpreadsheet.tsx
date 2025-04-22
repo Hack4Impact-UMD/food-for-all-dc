@@ -1104,7 +1104,7 @@ useEffect(() => {
                           />
                         ) : field.type === "select" && field.key === "clusterIdChange" ? (
                           // Render Select for clusterIdChange
-                          <FormControl variant="standard" size="small" sx={{ m: 1, minWidth: 120, margin: 0 }}>
+                          <FormControl variant="standard" size="small" sx={{ marginBottom: '0px !important', minWidth: 120 }}>
                             <Select
                               labelId={`cluster-select-label-${row.id}`}
                               id={`cluster-select-${row.id}`}
