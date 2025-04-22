@@ -576,35 +576,33 @@ useEffect(() => {
   };
 
   //Handle assigning driver
-  const assignDriver = async (driver: Driver) => {
-    if(driver && clusterDoc){
-      try {
-        // Create a new clusters array with updated driver assignments
-        const updatedClusters = clusters.map(cluster => {
-          // Check if this cluster is among the selected ones (using ID for comparison)
-          const isSelected = Array.from(selectedClusters).some(selected => selected.id === cluster.id);
-          if (isSelected) {
-            // Return a *new* cluster object with the assigned driver
-            return {
-              ...cluster,
-              driver: driver.name // Assign the new driver's name
-            };
-          }
-          // Return the original cluster object if not selected
-          return cluster;
-        });
+  const assignDriver = async (driver: Driver | null) => {
+    if (!driver || !clusterDoc) {
+      console.log("Assign driver aborted: Driver is null or clusterDoc is missing.");
+      resetSelections();
+      return;
+    }
 
-        setClusters(updatedClusters); // Update state with the new immutable array
+    try {
+      const updatedClusters = clusters.map(cluster => {
+        const isSelected = Array.from(selectedClusters).some(selected => selected.id === cluster.id);
+        if (isSelected) {
+          return {
+            ...cluster,
+            driver: driver.name
+          };
+        }
+        return cluster;
+      });
 
-        // Update Firestore using updateDoc
-        const clusterRef = doc(db, "clusters", clusterDoc.docId);
-        // Only update the 'clusters' field
-        await updateDoc(clusterRef, { clusters: updatedClusters });
+      setClusters(updatedClusters);
 
-        resetSelections();
-      } catch (error) {
-        console.error("Error assigning driver: ", error);
-      }
+      const clusterRef = doc(db, "clusters", clusterDoc.docId);
+      await updateDoc(clusterRef, { clusters: updatedClusters });
+
+      resetSelections();
+    } catch (error) {
+      console.error("Error assigning driver: ", error);
     }
   };
 
