@@ -5,6 +5,17 @@ import { onAuthStateChanged } from "firebase/auth";
 import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { auth } from "../../auth/firebaseConfig";
+import { ClientService, DeliveryService, DriverService } from "../../services";
+import {
+  CalendarConfig,
+  CalendarEvent,
+  DateLimit,
+  DeliveryEvent,
+  Driver,
+  NewDelivery,
+  ViewType,
+} from "../../types/calendar-types";
+import { ClientProfile } from "../../types/client-types";
 import "./CalendarPage.css";
 import AddDeliveryDialog from "./components/AddDeliveryDialog";
 import CalendarHeader from "./components/CalendarHeader";
@@ -12,10 +23,7 @@ import CalendarPopper from "./components/CalendarPopper";
 import { calculateRecurrenceDates } from "./components/CalendarUtils";
 import DayView from "./components/DayView";
 import MonthView from "./components/MonthView";
-import { CalendarConfig, CalendarEvent, DateLimit, DeliveryEvent, Driver, NewDelivery, ViewType } from "../../types/calendar-types";
-import { ClientProfile } from "../../types/client-types";
 import { useLimits } from "./components/useLimits";
-import { DeliveryService, ClientService, DriverService } from "../../services";
 
 const DAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
 
@@ -99,12 +107,12 @@ const CalendarPage: React.FC = () => {
       // Use ClientService instead of direct Firebase calls
       const clientService = ClientService.getInstance();
       const clientsData = await clientService.getAllClients();
-      
+
       // Map client data to Client type with explicit type casting for compatibility
-      const clientList = clientsData.map(data => {
+      const clientList = clientsData.map((data) => {
         // Ensure dietaryRestrictions has all required fields
         const dietaryRestrictions = data.deliveryDetails?.dietaryRestrictions || {};
-        
+
         return {
           id: data.uid,
           uid: data.uid,
@@ -157,7 +165,7 @@ const CalendarPage: React.FC = () => {
           headOfHousehold: data.headOfHousehold || "Adult",
         };
       });
-      
+
       // Cast the result to Client[] to satisfy type checking
       setClients(clientList as unknown as ClientProfile[]);
     } catch (error) {
@@ -248,7 +256,7 @@ const CalendarPage: React.FC = () => {
 
       // Use DeliveryService to create events
       const deliveryService = DeliveryService.getInstance();
-      const createPromises = recurrenceDates.map(date => {
+      const createPromises = recurrenceDates.map((date) => {
         // Only include optional fields if they are defined
         const eventToAdd: Partial<DeliveryEvent> = {
           assignedDriverId: newDelivery.assignedDriverId,
@@ -310,20 +318,21 @@ const CalendarPage: React.FC = () => {
 
   const renderCalendarView = () => {
     if (viewType === "Day") {
-      return (
-        <DayView events={events} clients={clients} onEventModified={fetchEvents} />
-      );
+      return <DayView events={events} clients={clients} onEventModified={fetchEvents} />;
     }
-    
+
     if (viewType === "Month") {
       return (
-        <MonthView 
+        <MonthView
           calendarConfig={calendarConfig}
           dailyLimits={dailyLimits}
-          limits={DAYS.reduce((acc, day, index) => {
-            acc[day.charAt(0).toUpperCase() + day.slice(1)] = limits[index];
-            return acc;
-          }, {} as Record<string, number>)}
+          limits={DAYS.reduce(
+            (acc, day, index) => {
+              acc[day.charAt(0).toUpperCase() + day.slice(1)] = limits[index];
+              return acc;
+            },
+            {} as Record<string, number>
+          )}
           onTimeRangeSelected={(args: any) => {
             setCurrentDate(args.start);
             setViewType("Day");
@@ -331,7 +340,7 @@ const CalendarPage: React.FC = () => {
         />
       );
     }
-    
+
     return null;
   };
 
@@ -354,24 +363,24 @@ const CalendarPage: React.FC = () => {
           marginTop: 10,
         }}
       >
-        <CalendarHeader 
+        <CalendarHeader
           viewType={viewType}
           currentDate={currentDate}
+          setCurrentDate={setCurrentDate}
           onViewTypeChange={setViewType}
           onNavigatePrev={handleNavigatePrev}
           onNavigateToday={handleNavigateToday}
           onNavigateNext={handleNavigateNext}
           onAddDelivery={() => setIsModalOpen(true)}
-          onEditLimits={viewType === "Month" ? 
-            (event) => setAnchorEl(anchorEl ? null : event.currentTarget) : 
-            undefined
+          onEditLimits={
+            viewType === "Month"
+              ? (event) => setAnchorEl(anchorEl ? null : event.currentTarget)
+              : undefined
           }
         />
 
         <StyledCalendarContainer>
-          <CalendarContent>
-            {renderCalendarView()}
-          </CalendarContent>
+          <CalendarContent>{renderCalendarView()}</CalendarContent>
         </StyledCalendarContainer>
 
         <span ref={containerRef}>
