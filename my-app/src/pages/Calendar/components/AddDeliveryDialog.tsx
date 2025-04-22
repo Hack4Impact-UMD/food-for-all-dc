@@ -134,7 +134,7 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = ({
         {/* Driver Selection */}
         <Autocomplete
           options={drivers}
-          getOptionLabel={(option) => `${option.firstName} ${option.lastName}`}
+          getOptionLabel={(option) => option.name}
           value={
             newDelivery.assignedDriverId
               ? drivers.find((driver) => driver.id === newDelivery.assignedDriverId) || null
@@ -145,7 +145,7 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = ({
               setNewDelivery({
                 ...newDelivery,
                 assignedDriverId: newValue.id,
-                assignedDriverName: `${newValue.firstName} ${newValue.lastName}`,
+                assignedDriverName: newValue.name,
               });
             } else {
               setNewDelivery({
@@ -157,7 +157,7 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = ({
           }}
           renderOption={(props, option) => (
             <li {...props} key={option.id}>
-              {`${option.firstName} ${option.lastName}`}
+              {option.name}
             </li>
           )}
           renderInput={(params) => (

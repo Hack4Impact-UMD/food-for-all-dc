@@ -88,7 +88,7 @@ const CalendarPage: React.FC = () => {
       const driverService = DriverService.getInstance();
       const driverList = await driverService.getAllDrivers();
       // Cast to appropriate type to avoid type mismatch
-      setDrivers(driverList as unknown as Driver[]);
+      setDrivers(driverList);
     } catch (error) {
       console.error("Error fetching drivers:", error);
     }
@@ -299,13 +299,13 @@ const CalendarPage: React.FC = () => {
       startDate: currentDate,
     }));
     fetchEvents();
-    fetchDrivers();
-    fetchClients();
   }, [viewType, currentDate]);
 
   // Initial data fetch
   useEffect(() => {
     fetchLimits();
+    fetchDrivers();
+    fetchClients();
   }, []);
 
   const renderCalendarView = () => {

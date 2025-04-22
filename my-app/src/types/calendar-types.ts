@@ -4,8 +4,7 @@ import { Delivery } from "./delivery-types";
 
 export interface Driver {
   id: string;
-  firstName: string;
-  lastName: string;
+  name: string;
 }
 
 export interface DateLimit {

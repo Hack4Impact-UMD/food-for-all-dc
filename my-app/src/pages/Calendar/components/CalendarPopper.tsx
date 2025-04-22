@@ -164,70 +164,72 @@ const CalendarPopper = ({
       <Popper open={Boolean(anchorEl)} anchorEl={anchorEl} placement="bottom" transition>
         {({ TransitionProps }) => (
           <Fade {...TransitionProps} timeout={350}>
-            <Box
-              onClick={handleClick}
-              sx={{ p: 2, width: 500, position: "relative", background: "white" }}
-              onMouseDown={(e) => e.stopPropagation()}
-            >
-              <FormGroup>
-                <FormControlLabel
-                  control={<Switch />}
-                  label="Bulk Edit"
-                  onChange={() => setBulkEdit(!bulkEdit)}
-                />
-              </FormGroup>
-              <DayPilotMonth {...customCalendarConfig} cellHeight={60} events={[]} />
-
-              <Popper
-                open={!!limitEditDate && !!virtualAnchor}
-                anchorEl={virtualAnchor}
-                placement="bottom"
-                modifiers={[
-                  {
-                    name: "offset",
-                    options: { offset: [0, 10] },
-                  },
-                  {
-                    name: "flip",
-                    enabled: true,
-                    options: { altBoundary: true },
-                  },
-                ]}
-                sx={{ zIndex: 1 }}
+            <Paper elevation={3} sx={{ p: 2, width: 500 }}>
+              <Box
+                onClick={handleClick}
+                sx={{ position: "relative" }}
+                onMouseDown={(e) => e.stopPropagation()}
               >
-                <Paper
-                  elevation={3}
-                  sx={{ p: 2, width: 100 }}
-                  onMouseDown={(e) => e.stopPropagation()}
+                <FormGroup>
+                  <FormControlLabel
+                    control={<Switch />}
+                    label="Bulk Edit"
+                    onChange={() => setBulkEdit(!bulkEdit)}
+                  />
+                </FormGroup>
+                <DayPilotMonth {...customCalendarConfig} cellHeight={60} events={[]} />
+
+                <Popper
+                  open={!!limitEditDate && !!virtualAnchor}
+                  anchorEl={virtualAnchor}
+                  placement="bottom"
+                  modifiers={[
+                    {
+                      name: "offset",
+                      options: { offset: [0, 10] },
+                    },
+                    {
+                      name: "flip",
+                      enabled: true,
+                      options: { altBoundary: true },
+                    },
+                  ]}
+                  sx={{ zIndex: 1 }}
                 >
-                  {limitEditDate && (
-                    <>
-                      <Typography variant="subtitle1" gutterBottom>
-                        {limitEditDate.toString("MMM d")}
-                      </Typography>
-                      <FormControl fullWidth sx={{ mb: 2 }}>
-                        <InputLabel>Max</InputLabel>
-                        <Select
-                          value={newLimit}
-                          label="Max"
-                          onChange={handleLimitChange}
-                          onClose={() => {
-                            setLimitEditDate(null);
-                            setClickPosition(null);
-                          }}
-                        >
-                          {limitOptions.map((option) => (
-                            <MenuItem key={option} value={option}>
-                              {option}
-                            </MenuItem>
-                          ))}
-                        </Select>
-                      </FormControl>
-                    </>
-                  )}
-                </Paper>
-              </Popper>
-            </Box>
+                  <Paper
+                    elevation={3}
+                    sx={{ p: 2, width: 100 }}
+                    onMouseDown={(e) => e.stopPropagation()}
+                  >
+                    {limitEditDate && (
+                      <>
+                        <Typography variant="subtitle1" gutterBottom>
+                          {limitEditDate.toString("MMM d")}
+                        </Typography>
+                        <FormControl fullWidth sx={{ mb: 2 }}>
+                          <InputLabel>Max</InputLabel>
+                          <Select
+                            value={newLimit}
+                            label="Max"
+                            onChange={handleLimitChange}
+                            onClose={() => {
+                              setLimitEditDate(null);
+                              setClickPosition(null);
+                            }}
+                          >
+                            {limitOptions.map((option) => (
+                              <MenuItem key={option} value={option}>
+                                {option}
+                              </MenuItem>
+                            ))}
+                          </Select>
+                        </FormControl>
+                      </>
+                    )}
+                  </Paper>
+                </Popper>
+              </Box>
+            </Paper>
           </Fade>
         )}
       </Popper>
