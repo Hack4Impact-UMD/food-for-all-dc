@@ -335,15 +335,13 @@ const CalendarPage: React.FC = () => {
     setCurrentDate(DayPilot.Date.today());
   };
 
-  // Update calendar when view type or date changes
+  // Update calendar when view type, date, or clients change
   useEffect(() => {
-    setCalendarConfig((prev) => ({
-      ...prev,
-      viewType: viewType === "Month" ? "Month" : viewType,
-      startDate: currentDate,
-    }));
-    fetchEvents();
-  }, [viewType, currentDate]);
+    // Only fetch events if clients have been loaded
+    if (clients.length > 0) {
+      fetchEvents();
+    }
+  }, [viewType, currentDate, clients]);
 
   // Initial data fetch
   useEffect(() => {
