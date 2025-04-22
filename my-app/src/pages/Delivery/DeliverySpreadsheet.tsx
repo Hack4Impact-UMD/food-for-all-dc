@@ -929,11 +929,12 @@ useEffect(() => {
           whiteSpace: "nowrap",
           padding: "0% 2%",
           borderRadius: 5,
-          width: "10%",
+          width: "auto",
+          marginRight: '16px'
         }}
         onClick={() => setPopupMode("Clusters")}
       >
-        Generate<br />Clusters
+        Generate Clusters
       </Button>
       </div>
 
