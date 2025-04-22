@@ -339,16 +339,6 @@ const Profile = () => {
     fetchLastDeliveryDate();
   }, [clientId]);
 
-  useEffect(() => {
-    const fetchWard = async () => {
-      if (clientProfile.address.trim()) {
-        await getWard(clientProfile.address);
-      }
-    };
-
-    fetchWard();
-  }, [clientProfile.address]);
-
   // Fetch case workers from Firestore
   useEffect(() => {
     const fetchCaseWorkers = async () => {
@@ -449,15 +439,15 @@ const Profile = () => {
           wardName = result.zones.ward[0].properties.NAME;
         } else {
           console.log("No ward information found in the response.");
-          wardName = "No ward information";
+          wardName = "No ward";
         }
       } else {
         console.log("No address found or invalid response.");
-        wardName = "No address found";
+        wardName = "No address";
       }
     } catch (error) {
       console.error("Error fetching ward information:", error);
-      wardName = "Error getting ward";
+      wardName = "Error";
     }
     clientProfile.ward = wardName;
     setWard(wardName);

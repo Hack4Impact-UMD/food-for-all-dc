@@ -1,5 +1,5 @@
 import React from "react";
-import { Box, Typography, Select, MenuItem } from "@mui/material";
+import { Box, Typography, Select, MenuItem, Tooltip } from "@mui/material";
 import { ClientProfile } from '../../../types';
 import { ClientProfileKey, InputType } from '../types';
 import { CaseWorker } from "../../../types";
@@ -158,7 +158,15 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
         <Typography className="field-descriptor" sx={fieldLabelStyles}>
           WARD
         </Typography>
-        {renderField("ward", "textarea")}
+        {isEditing ? (
+          <Tooltip title="Ward will be automatically updated based on address when saved." placement="top">
+            <span>
+              {renderField("ward", "textarea")}
+            </span>
+          </Tooltip>
+        ) : (
+          renderField("ward", "textarea")
+        )}
       </Box>
 
       {/* Email */}
