@@ -1205,7 +1205,6 @@ useEffect(() => {
             <GenerateClustersPopup
               onGenerateClusters={generateClusters}
               onClose={resetSelections}
-              visibleRows={visibleRows}
             />
           </DialogContent>
         </Dialog>
