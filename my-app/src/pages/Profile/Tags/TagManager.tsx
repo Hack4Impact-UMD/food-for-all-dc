@@ -274,6 +274,13 @@ export default function TagManager({ allTags, values, handleTag, setInnerPopup, 
                 onInputChange={(_event, newInputValue) => setSelectedTag(newInputValue)}
                 renderInput={(params) => <TextField {...params} label="Select tag or type new tag" variant="standard" />}
                 clearOnEscape
+                filterOptions={(options, state) => {
+                  // Default filter, then limit to 10
+                  const filtered = options.filter(option =>
+                    option.toLowerCase().includes(state.inputValue.toLowerCase())
+                  );
+                  return filtered.slice(0, 10);
+                }}
               />
             </>
           ) : (
@@ -284,6 +291,12 @@ export default function TagManager({ allTags, values, handleTag, setInnerPopup, 
               onChange={(_event, newValue) => setSelectedTag(newValue)}
               renderInput={(params) => <TextField {...params} label="Select tag to remove" variant="standard" />}
               clearOnEscape
+              filterOptions={(options, state) => {
+                const filtered = options.filter(option =>
+                  option.toLowerCase().includes(state.inputValue.toLowerCase())
+                );
+                return filtered.slice(0, 10);
+              }}
             />
           )}
         </DialogContent>
