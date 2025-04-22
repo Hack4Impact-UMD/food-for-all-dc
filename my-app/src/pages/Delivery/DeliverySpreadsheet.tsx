@@ -98,7 +98,7 @@ type Field =
     }
     | {
       key: "clusterIdChange";
-      label: "Cluster";
+      label: "Cluster ID";
       type: "select";
       compute?: never;
     }
@@ -175,7 +175,7 @@ const fields: Field[] = [
   },
   {
     key: "clusterIdChange",
-    label: "Cluster",
+    label: "Cluster ID",
     type: "select",
   },
   {
@@ -265,8 +265,8 @@ const DeliverySpreadsheet: React.FC = () => {
 
     const options = [
       { value: "", label: "Unassigned" },
-      ...availableIds.map(id => ({ value: id, label: `Cluster ${id}` })),
-      { value: nextId, label: `New Cluster ${nextId}` }
+      ...availableIds.map(id => ({ value: id, label: id })),
+      { value: nextId, label: nextId }
     ];
     return options;
   }, [clusters]);
@@ -1110,7 +1110,7 @@ useEffect(() => {
                               id={`cluster-select-${row.id}`}
                               value={row.clusterId || ""}
                               onChange={(event: SelectChangeEvent<string>) => handleClusterChange(row, event.target.value)}
-                              label="Cluster"
+                              label="Cluster ID"
                               sx={{ 
                                 fontSize: 'inherit',
                                 '& .MuiSelect-select': { padding: '4px 10px' },
@@ -1122,7 +1122,7 @@ useEffect(() => {
                             >
                               {clusterOptions.map((option) => (
                                 <MenuItem key={option.value} value={option.value}>
-                                  {option.label}
+                                  {option.label === "Unassigned" ? option.label : option.label}
                                 </MenuItem>
                               ))}
                             </Select>
