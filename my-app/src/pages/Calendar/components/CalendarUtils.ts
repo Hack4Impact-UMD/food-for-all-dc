@@ -3,6 +3,7 @@ import { DeliveryService } from "../../../services";
 import { NewDelivery } from "../../../types/calendar-types";
 
 const DAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+const daysOfWeek = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
 let firestoreLimits: number[] = [60, 60, 60, 60, 90, 90, 60];
 
@@ -13,18 +14,23 @@ const deliveryService = DeliveryService.getInstance();
 (async () => {
   try {
     const limits = await deliveryService.getWeeklyLimits();
-    firestoreLimits = DAYS.map(day => limits[day] || 60);
+    firestoreLimits = DAYS.map((day) => limits[day] || 60);
   } catch (error) {
     console.error("Error initializing limits:", error);
   }
 })();
 
-export const getDefaultLimit = (date: DayPilot.Date, limits: Record<string, number> | number[]): number => {
+export const getDefaultLimit = (
+  date: DayPilot.Date,
+  limits: Record<string, number> | number[]
+): number => {
   if (Array.isArray(limits)) {
     return limits[date.getDayOfWeek()];
   } else {
     const dayOfWeek = date.getDayOfWeek();
-    const dayName = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][dayOfWeek];
+    const dayName = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][
+      dayOfWeek
+    ];
     return limits[dayName] || 20;
   }
 };
@@ -51,16 +57,17 @@ export const getRecurrencePattern = (date: string): string => {
 
   const dayOfWeek = localDate.getDay(); // Get the day of the week (0 = Sunday, 1 = Monday, etc.)
   const weekOfMonth = Math.ceil(localDate.getDate() / 7); // Calculate the week of the month
-  const daysOfWeek = [
-    "Sunday",
-    "Monday",
-    "Tuesday",
-    "Wednesday",
-    "Thursday",
-    "Friday",
-    "Saturday",
-  ];
+  const daysOfWeek = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
   return `${weekOfMonth}${getOrdinalSuffix(weekOfMonth)} ${daysOfWeek[dayOfWeek]}`;
+};
+
+export const calendarDateString = (date: DayPilot.Date, viewType: string): string => {
+  const dateString = date.toString("MMMM") + " " + date.toString("yyyy");
+
+  if (viewType === "Day") {
+    return dateString + ", " + daysOfWeek[date.getDayOfWeek()];
+  }
+  return dateString;
 };
 
 export const getOrdinalSuffix = (num: number): string => {
@@ -79,7 +86,11 @@ export const formatPhoneNumber = (phone: string): string => {
   return phone; // Return the original phone if it doesn't match the pattern
 };
 
-export const getNextMonthlyDate = (originalDate: Date, currentDate: Date, targetDay?: number): Date => {
+export const getNextMonthlyDate = (
+  originalDate: Date,
+  currentDate: Date,
+  targetDay?: number
+): Date => {
   const nextMonth = new Date(currentDate);
   nextMonth.setDate(1); // Start at the first day of the month
   nextMonth.setMonth(nextMonth.getMonth() + 1); // Move to the next month

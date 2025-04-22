@@ -3,6 +3,7 @@ import { Add, ChevronRight, EditCalendar } from "@mui/icons-material";
 import { Box, Button, IconButton, Menu, MenuItem, Typography } from "@mui/material";
 import React, { useCallback } from "react";
 import PageDatePicker from "../../../components/PageDatePicker/PageDatePicker";
+import { calendarDateString } from "./CalendarUtils";
 
 interface CalendarHeaderProps {
   viewType: "Day" | "Month";
@@ -32,8 +33,6 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
   onEditLimits,
 }) => {
   const [viewAnchorEl, setViewAnchorEl] = React.useState<null | HTMLElement>(null);
-
-  const daysOfWeek = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
   const handleDateSelect = useCallback(
     (incoming: Date | DayPilot.Date) => {
@@ -105,8 +104,7 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
         }}
       >
         <Typography variant="h4" sx={{ marginRight: 2, color: "#787777" }}>
-          {viewType === "Day" && daysOfWeek[currentDate.getDayOfWeek()]}
-          {viewType === "Month" && currentDate.toString("MMMM")}
+          {calendarDateString(currentDate, viewType)}
         </Typography>
         {viewType === "Day" && (
           <Box

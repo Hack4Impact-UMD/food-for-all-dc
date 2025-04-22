@@ -1,25 +1,34 @@
-import React, { useState } from "react";
+import MoreVertIcon from "@mui/icons-material/MoreVert";
 import {
+  Box,
+  Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  FormControl,
+  FormControlLabel,
   IconButton,
+  InputLabel,
   Menu,
   MenuItem,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Button,
-  RadioGroup,
-  FormControlLabel,
   Radio,
-  Typography,
-  TextField,
-  Box,
-  FormControl,
-  InputLabel,
+  RadioGroup,
   Select,
+  TextField,
+  Typography,
 } from "@mui/material";
-import MoreVertIcon from "@mui/icons-material/MoreVert";
-import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, query, where } from "firebase/firestore";
+import {
+  addDoc,
+  collection,
+  deleteDoc,
+  doc,
+  getDoc,
+  getDocs,
+  query,
+  where,
+} from "firebase/firestore";
+import React, { useState } from "react";
 import { db } from "../../../auth/firebaseConfig";
 import { DeliveryEvent, NewDelivery } from "../../../types/calendar-types";
 import { calculateRecurrenceDates, getNextMonthlyDate } from "./CalendarUtils";
@@ -34,7 +43,9 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [deleteOption, setDeleteOption] = useState("This event");
-  const [editOption, setEditOption] = useState<"This event" | "This and following events">("This event");
+  const [editOption, setEditOption] = useState<"This event" | "This and following events">(
+    "This event"
+  );
   const [editDeliveryDate, setEditDeliveryDate] = useState<string>(
     event.deliveryDate.toISOString().split("T")[0]
   );
@@ -116,7 +127,7 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
       if (editOption === "This event") {
         // Update only this event with the new delivery date
         await deleteDoc(doc(eventsRef, event.id));
-        
+
         // Add the event with updated delivery date
         await addDoc(eventsRef, {
           ...event,
@@ -185,7 +196,14 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
 
   return (
     <>
-      <IconButton onClick={handleMenuOpen}>
+      <IconButton
+        sx={{
+          width: 40,
+          height: 40,
+          borderRadius: "50%",
+        }}
+        onClick={handleMenuOpen}
+      >
         <MoreVertIcon />
       </IconButton>
 
