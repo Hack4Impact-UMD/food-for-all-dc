@@ -971,12 +971,12 @@ useEffect(() => {
       </Box>
   
       {/* Search Bar */}
-      <Box sx={{ 
-        width: "100%", 
-        zIndex: 8, 
-        backgroundColor: "#fff", 
+      <Box sx={{
+        width: "100%",
+        zIndex: 8,
+        backgroundColor: "#fff",
         padding: "16px 0",
-        top: "472px", 
+        top: "472px",
       }}>
         <Box sx={{ display: "flex", flexDirection: "column", gap: "8px" }}>
           <Box sx={{ position: "relative", width: "100%" }}>
@@ -998,7 +998,7 @@ useEffect(() => {
               }}
             />
           </Box>
-          <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+          <Box sx={{ display: "flex", justifyContent: "space-between", marginTop: '16px' }}>
             <Box sx={{ display: "flex", width: "100%", gap: "2%" }}>
               <Button
                 variant="primary"
