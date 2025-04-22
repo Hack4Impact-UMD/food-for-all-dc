@@ -860,48 +860,93 @@ const Profile = () => {
   //google places autocomplete
   const addressInputRef = useRef<HTMLInputElement>(null);
   const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
+  const [isGoogleApiLoaded, setIsGoogleApiLoaded] = useState(false);
 
+  // Improved Google Maps API loading
   useEffect(() => {
-    if (isEditing) {
-      // Check if the Google Maps API script is already loaded
-      if (!window.google || !window.google.maps) {
-        const script = document.createElement("script");
-        script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.REACT_APP_GOOGLE_MAPS_API_KEY || ""}&libraries=places`;
-        script.async = true;
-        script.defer = true;
-
-        script.onload = () => {
-          initializeAutocomplete();
-        };
-
-        script.onerror = () => {
-          console.error("Failed to load Google Maps API script.");
-        };
-
-        document.head.appendChild(script);
-      } else {
-        initializeAutocomplete();
-      }
+    // Check if the Google Maps API is already available
+    if (window.google && window.google.maps && window.google.maps.places) {
+      setIsGoogleApiLoaded(true);
+      return;
     }
 
-    return () => {
-      // Cleanup logic if needed
-      autocompleteRef.current = null;
-    };
-  }, [isEditing]);
+    // Check if API key exists
+    const apiKey = process.env.REACT_APP_GOOGLE_MAPS_API_KEY;
+    if (!apiKey) {
+      console.error("Google Maps API key is missing in environment variables");
+      return;
+    }
 
-  const initializeAutocomplete = () => {
-    if (addressInputRef.current && !autocompleteRef.current) {
+    // Check if the script is already being loaded
+    const existingScript = document.getElementById('google-maps-script');
+    if (existingScript) {
+      return; // Script is already loading, wait for it
+    }
+
+    // Create and load the script
+    const script = document.createElement("script");
+    script.id = 'google-maps-script';
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
+    script.async = true;
+    script.defer = true;
+
+    script.onload = () => {
+      console.log("Google Maps API script loaded successfully");
+      setIsGoogleApiLoaded(true);
+    };
+
+    script.onerror = (error) => {
+      console.error("Failed to load Google Maps API script:", error);
+    };
+
+    document.head.appendChild(script);
+
+    // Cleanup
+    return () => {
+      // We don't remove the script on cleanup since other components might need it
+    };
+  }, []); // Run once on component mount
+
+  // Initialize autocomplete when editing and API is loaded and input ref exists
+  useEffect(() => {
+    // Only initialize when all dependencies are ready
+    if (!isEditing || !isGoogleApiLoaded || !addressInputRef.current) {
+      return;
+    }
+
+    console.log("Initializing Google Places autocomplete...");
+    
+    // Clean up previous instance if it exists
+    if (autocompleteRef.current) {
+      try {
+        window.google.maps.event.clearInstanceListeners(autocompleteRef.current);
+      } catch (err) {
+        console.warn("Failed to clear listeners from previous autocomplete instance", err);
+      }
+      autocompleteRef.current = null;
+    }
+
+    try {
+      // Create new autocomplete instance
       autocompleteRef.current = new window.google.maps.places.Autocomplete(
         addressInputRef.current,
         {
           types: ["address"],
           componentRestrictions: { country: "us" },
+          fields: ["address_components", "formatted_address", "geometry", "place_id"],
         }
       );
 
-      autocompleteRef.current?.addListener("place_changed", () => {
+      // Add place_changed listener
+      const listener = autocompleteRef.current.addListener("place_changed", () => {
         const place = autocompleteRef.current?.getPlace();
+        console.log("Place selected:", place);
+        
+        if (!place || !place.address_components) {
+          console.warn("No valid place selected or missing address components");
+          return;
+        }
+
         if (place?.formatted_address) {
           const address = place.formatted_address;
           const addressComponents = place.address_components;
@@ -943,6 +988,14 @@ const Profile = () => {
               quadrant = quadrantMatch[1];
             }
 
+            console.log("Setting address components:", {
+              address: `${streetNumber} ${streetName}`.trim(),
+              city,
+              state,
+              zipCode,
+              quadrant
+            });
+
             setClientProfile((prev) => ({
               ...prev,
               address: `${streetNumber} ${streetName}`.trim(),
@@ -954,7 +1007,29 @@ const Profile = () => {
           }
         }
       });
+
+      console.log("Google Places autocomplete initialized successfully");
+    } catch (error) {
+      console.error("Error initializing Google Places autocomplete:", error);
     }
+
+    // Cleanup function
+    return () => {
+      if (autocompleteRef.current) {
+        try {
+          window.google.maps.event.clearInstanceListeners(autocompleteRef.current);
+          console.log("Cleaned up Google Places autocomplete instance");
+        } catch (err) {
+          console.warn("Error during autocomplete cleanup:", err);
+        }
+        autocompleteRef.current = null;
+      }
+    };
+  }, [isEditing, isGoogleApiLoaded, addressInputRef.current]);
+
+  const initializeAutocomplete = () => {
+    // This function is now deprecated in favor of the useEffect above
+    console.warn("initializeAutocomplete is deprecated - using useEffect for initialization");
   };
 
   // Function to handle cancelling edits
@@ -969,6 +1044,16 @@ const Profile = () => {
     if (prevTags) {
       setTags(prevTags);
       setPrevTags(null);
+    }
+    
+    // Reset autocomplete instance when cancelling
+    if (autocompleteRef.current) {
+      try {
+        window.google.maps.event.clearInstanceListeners(autocompleteRef.current);
+      } catch (err) {
+        console.warn("Failed to clear listeners during cancel", err);
+      }
+      autocompleteRef.current = null;
     }
   };
 
