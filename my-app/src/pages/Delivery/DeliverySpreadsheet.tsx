@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { db } from "../../auth/firebaseConfig"; 
+import { db } from "../../auth/firebaseConfig";
 import { Search, Filter } from "lucide-react";
 import { query, Timestamp, updateDoc, where } from "firebase/firestore";
 import { format, addDays } from "date-fns";
@@ -55,7 +55,7 @@ interface RowData {
   address: string;
   tags?: string[];
   ward?: string;
-  clusterId: string; 
+  clusterId: string;
   coordinates: { lat: number; lng: number }[];
   deliveryDetails: {
     deliveryInstructions: string;
@@ -86,53 +86,53 @@ interface Driver {
 // Define a type for fields that can either be computed or direct keys of RowData
 type Field =
   | {
-      key: "checkbox";
-      label: "";
-      type: "checkbox";
-      compute?: never;
-    }
+    key: "checkbox";
+    label: "";
+    type: "checkbox";
+    compute?: never;
+  }
   | {
-      key: "fullname";
-      label: "Client";
-      type: "text";
-      compute: (data: RowData) => string;
-    }
-    | {
-      key: "clusterIdChange";
-      label: "Cluster ID";
-      type: "select";
-      compute?: never;
-    }
+    key: "fullname";
+    label: "Client";
+    type: "text";
+    compute: (data: RowData) => string;
+  }
   | {
-      key: Exclude<keyof Omit<RowData, "id" | "firstName" | "lastName" | "deliveryDetails">, "coordinates">;
-      label: string;
-      type: string;
-      compute?: never;
-    }
+    key: "clusterIdChange";
+    label: "Cluster ID";
+    type: "select";
+    compute?: never;
+  }
   | {
-      key: "tags";
-      label: "Tags";
-      type: "text";
-      compute: (data: RowData) => string;
-    }
+    key: Exclude<keyof Omit<RowData, "id" | "firstName" | "lastName" | "deliveryDetails">, "coordinates">;
+    label: string;
+    type: string;
+    compute?: never;
+  }
   | {
-      key: "assignedDriver";
-      label: "Assigned Driver";
-      type: "text";
-      compute: (data: RowData, clusters: Cluster[]) => string;
-    }
+    key: "tags";
+    label: "Tags";
+    type: "text";
+    compute: (data: RowData) => string;
+  }
   | {
-      key: "assignedTime";
-      label: "Assigned Time";
-      type: "text";
-      compute: (data: RowData, clusters: Cluster[]) => string;
-    }
+    key: "assignedDriver";
+    label: "Assigned Driver";
+    type: "text";
+    compute: (data: RowData, clusters: Cluster[]) => string;
+  }
   | {
-      key: "deliveryDetails.deliveryInstructions";
-      label: "Delivery Instructions";
-      type: "text";
-      compute: (data: RowData) => string;
-    };
+    key: "assignedTime";
+    label: "Assigned Time";
+    type: "text";
+    compute: (data: RowData, clusters: Cluster[]) => string;
+  }
+  | {
+    key: "deliveryDetails.deliveryInstructions";
+    label: "Delivery Instructions";
+    type: "text";
+    compute: (data: RowData) => string;
+  };
 
 interface Cluster {
   id: string;
@@ -153,12 +153,12 @@ interface DeliveryEvent {
   assignedDriverName: string;
   clientId: string;
   clientName: string;
-  deliveryDate: Date; 
+  deliveryDate: Date;
   time: string;
-  recurrence: "None" | "Weekly" | "2x-Monthly" | "Monthly"; 
-  repeatsEndOption?: "On" | "After"; 
-  repeatsEndDate?: string; 
-  repeatsAfterOccurrences?: number; 
+  recurrence: "None" | "Weekly" | "2x-Monthly" | "Monthly";
+  repeatsEndOption?: "On" | "After";
+  repeatsEndDate?: string;
+  repeatsAfterOccurrences?: number;
 }
 
 // Define fields for table columns
@@ -191,22 +191,22 @@ const fields: Field[] = [
   { key: "address", label: "Address", type: "text" },
   { key: "ward", label: "Ward", type: "text" },
   {
-    key: "assignedDriver", 
-    label: "Assigned Driver", 
+    key: "assignedDriver",
+    label: "Assigned Driver",
     type: "text",
     compute: (data: RowData, clusters: Cluster[]) => {
       let driver = "";
-      clusters.forEach((cluster)=>{
-        if(cluster.deliveries?.some((id) => id == data.id)){
+      clusters.forEach((cluster) => {
+        if (cluster.deliveries?.some((id) => id == data.id)) {
           driver = cluster.driver;
         }
       })
-      return driver ? driver: "No driver assigned"
+      return driver ? driver : "No driver assigned"
     }
   },
   {
-    key: "assignedTime", 
-    label: "Assigned Time", 
+    key: "assignedTime",
+    label: "Assigned Time",
     type: "text",
     compute: (data: RowData, clusters: Cluster[]) => {
       let time = "";
@@ -215,16 +215,16 @@ const fields: Field[] = [
           time = cluster.time;
         }
       });
-      
+
       if (!time) return "No time assigned";
-      
+
       // Convert 24-hour format to 12-hour AM/PM format
       const [hours, minutes] = time.split(':');
       let hours12 = parseInt(hours, 10);
       const ampm = hours12 >= 12 ? 'PM' : 'AM';
       hours12 = hours12 % 12;
       hours12 = hours12 ? hours12 : 12; // Convert 0 to 12 for 12 AM
-      
+
       return `${hours12}:${minutes} ${ampm}`;
     }
   },
@@ -234,11 +234,11 @@ const fields: Field[] = [
 const isRegularField = (
   field: Field
 ): field is Extract<Field, { key: Exclude<keyof RowData, "coordinates"> }> => {
-  return field.key !== "fullname" && 
-         field.key !== "tags" && 
-         field.key !== "assignedDriver" &&
-         field.key !== "assignedTime" &&
-         field.key !== "deliveryDetails.deliveryInstructions";
+  return field.key !== "fullname" &&
+    field.key !== "tags" &&
+    field.key !== "assignedDriver" &&
+    field.key !== "assignedTime" &&
+    field.key !== "deliveryDetails.deliveryInstructions";
 };
 
 const DeliverySpreadsheet: React.FC = () => {
@@ -246,11 +246,13 @@ const DeliverySpreadsheet: React.FC = () => {
   const [rows, setRows] = useState<RowData[]>([]);
   const [rawClientData, setRawClientData] = useState<RowData[]>([]);
   const [searchQuery, setSearchQuery] = useState<string>("");
-  const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set()); 
+  const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
   const [innerPopup, setInnerPopup] = useState(false);
   const [popupMode, setPopupMode] = useState("");
   const [clusters, setClusters] = useState<Cluster[]>([])
   const [selectedClusters, setSelectedClusters] = useState<Set<any>>(new Set());
+  const [exportOption, setExportOption] = useState<"Routes" | "Doordash" | null>(null);
+  const [emailOrDownload, setEmailOrDownload] = useState<"Email" | "Download" | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [deliveriesForDate, setDeliveriesForDate] = useState<DeliveryEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -280,23 +282,23 @@ const DeliverySpreadsheet: React.FC = () => {
         dateForFetch.getFullYear(),
         dateForFetch.getMonth(),
         dateForFetch.getDate(),
-        0, 0, 0 
+        0, 0, 0
       ));
-      
+
       const endDate = new Date(Date.UTC(
         dateForFetch.getFullYear(),
         dateForFetch.getMonth(),
         dateForFetch.getDate(),
         23, 59, 59
       ));
-  
+
       const eventsRef = collection(db, "events");
       const q = query(
         eventsRef,
         where("deliveryDate", ">=", Timestamp.fromDate(startDate)),
         where("deliveryDate", "<=", Timestamp.fromDate(endDate))
       );
-  
+
       const querySnapshot = await getDocs(q);
 
       // Check if the date is still the selected one before updating state
@@ -313,121 +315,121 @@ const DeliverySpreadsheet: React.FC = () => {
           deliveryDate: data.deliveryDate.toDate(), // preserve as-is (already correct local representation)
         };
       }) as DeliveryEvent[];
-      
+
       //set the deliveries for the date
       setDeliveriesForDate(events);
     } catch (error) {
       console.error("Error fetching deliveries:", error);
       // Clear state only if the error corresponds to the *currently* selected date
       if (dateForFetch.getTime() === selectedDate.getTime()) {
-         setDeliveriesForDate([]);
+        setDeliveriesForDate([]);
       }
     }
   };
 
-//when the user changes the date, fetch the deliveries for that date
-useEffect(() => {
-  const currentFetchDate = selectedDate; // Capture date at effect run time
-  fetchDeliveriesForDate(currentFetchDate);
-  // No explicit cleanup needed with the check inside the async function
-}, [selectedDate]);
+  //when the user changes the date, fetch the deliveries for that date
+  useEffect(() => {
+    const currentFetchDate = selectedDate; // Capture date at effect run time
+    fetchDeliveriesForDate(currentFetchDate);
+    // No explicit cleanup needed with the check inside the async function
+  }, [selectedDate]);
 
-useEffect(() => {
-  const fetchDataAndGeocode = async () => {
-    // If deliveriesForDate is updated, it's for the current selectedDate
-    // because fetchDeliveriesForDate filters stale updates.
+  useEffect(() => {
+    const fetchDataAndGeocode = async () => {
+      // If deliveriesForDate is updated, it's for the current selectedDate
+      // because fetchDeliveriesForDate filters stale updates.
 
-    // setIsLoading(true) is moved here to only show loading when processing clients
-    // setIsLoading(true); // Already set by the caller effect
+      // setIsLoading(true) is moved here to only show loading when processing clients
+      // setIsLoading(true); // Already set by the caller effect
 
-    try {
-      // Get the client IDs for the deliveries on the selected date
-      const clientIds = deliveriesForDate.map(delivery => delivery.clientId);
-      // Firestore 'in' queries are limited to 10 items per query
-      const chunkSize = 10;
-      let clientsWithDeliveriesOnSelectedDate: RowData[] = [];
-      for (let i = 0; i < clientIds.length; i += chunkSize) {
-        const chunk = clientIds.slice(i, i + chunkSize);
-        if (chunk.length === 0) continue;
-        const q = query(
-          collection(db, "clients"),
-          where("__name__", "in", chunk)
-        );
-        const snapshot = await getDocs(q);
-        const chunkData = snapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...(doc.data() as Omit<RowData, "id">),
-        }));
-        clientsWithDeliveriesOnSelectedDate = clientsWithDeliveriesOnSelectedDate.concat(chunkData);
-      }
-
-      const addresses = clientsWithDeliveriesOnSelectedDate.map(row => row.address);
-      setRawClientData(clientsWithDeliveriesOnSelectedDate);
-
-      if (clientsWithDeliveriesOnSelectedDate.length > 0 && addresses.length > 0) {
-        const token = await auth.currentUser?.getIdToken();
-        const response = await fetch(testing ? "": 'https://geocode-addresses-endpoint-lzrplp4tfa-uc.a.run.app', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            addresses: addresses
-          }),
-        });
-        
-        if (response.ok) {
-          const { coordinates } = await response.json();
-          // update only the rows that need coordinates
-          const updatedRawData = clientsWithDeliveriesOnSelectedDate.map((row, index) => {
-            if (coordinates[index]) {
-              return {
-                ...row,
-                coordinates: coordinates[index]
-              };
-            }
-            return row;
-          });
-          setRawClientData(updatedRawData);
-          // Stop loading *after* processing is complete
-          setIsLoading(false);
-        } else {
-          // Handle non-ok response from geocode
-          console.error("Geocoding failed:", response.statusText);
-          setIsLoading(false); // Stop loading on geocode failure
+      try {
+        // Get the client IDs for the deliveries on the selected date
+        const clientIds = deliveriesForDate.map(delivery => delivery.clientId);
+        // Firestore 'in' queries are limited to 10 items per query
+        const chunkSize = 10;
+        let clientsWithDeliveriesOnSelectedDate: RowData[] = [];
+        for (let i = 0; i < clientIds.length; i += chunkSize) {
+          const chunk = clientIds.slice(i, i + chunkSize);
+          if (chunk.length === 0) continue;
+          const q = query(
+            collection(db, "clients"),
+            where("__name__", "in", chunk)
+          );
+          const snapshot = await getDocs(q);
+          const chunkData = snapshot.docs.map((doc) => ({
+            id: doc.id,
+            ...(doc.data() as Omit<RowData, "id">),
+          }));
+          clientsWithDeliveriesOnSelectedDate = clientsWithDeliveriesOnSelectedDate.concat(chunkData);
         }
-      } else {
-        // No clients or addresses, clear data and stop loading
-        setRawClientData([]);
-        setIsLoading(false); // Stop loading if nothing to geocode
+
+        const addresses = clientsWithDeliveriesOnSelectedDate.map(row => row.address);
+        setRawClientData(clientsWithDeliveriesOnSelectedDate);
+
+        if (clientsWithDeliveriesOnSelectedDate.length > 0 && addresses.length > 0) {
+          const token = await auth.currentUser?.getIdToken();
+          const response = await fetch(testing ? "" : 'https://geocode-addresses-endpoint-lzrplp4tfa-uc.a.run.app', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              addresses: addresses
+            }),
+          });
+
+          if (response.ok) {
+            const { coordinates } = await response.json();
+            // update only the rows that need coordinates
+            const updatedRawData = clientsWithDeliveriesOnSelectedDate.map((row, index) => {
+              if (coordinates[index]) {
+                return {
+                  ...row,
+                  coordinates: coordinates[index]
+                };
+              }
+              return row;
+            });
+            setRawClientData(updatedRawData);
+            // Stop loading *after* processing is complete
+            setIsLoading(false);
+          } else {
+            // Handle non-ok response from geocode
+            console.error("Geocoding failed:", response.statusText);
+            setIsLoading(false); // Stop loading on geocode failure
+          }
+        } else {
+          // No clients or addresses, clear data and stop loading
+          setRawClientData([]);
+          setIsLoading(false); // Stop loading if nothing to geocode
+        }
+      } catch (error) {
+        console.error("Error fetching/geocoding client data:", error);
+        setRawClientData([]); // Clear data on error
+        setIsLoading(false); // Stop loading on error
       }
-    } catch (error) {
-      console.error("Error fetching/geocoding client data:", error);
-      setRawClientData([]); // Clear data on error
-      setIsLoading(false); // Stop loading on error
+    };
+
+    if (deliveriesForDate.length > 0) {
+      // Set loading to true *before* starting the async fetch/geocode process
+      setIsLoading(true);
+      fetchDataAndGeocode();
+    } else {
+      // If deliveries are empty (either initially or after fetch),
+      // ensure client data is clear and loading is stopped.
+      setRawClientData([]);
+      // Do NOT clear clusters here, as they are fetched independently
+      setIsLoading(false);
     }
-  };
-  
-  if (deliveriesForDate.length > 0) {
-    // Set loading to true *before* starting the async fetch/geocode process
-    setIsLoading(true);
-    fetchDataAndGeocode();
-  } else {
-    // If deliveries are empty (either initially or after fetch),
-    // ensure client data is clear and loading is stopped.
-    setRawClientData([]);
-    // Do NOT clear clusters here, as they are fetched independently
-    setIsLoading(false);
-  }
-// Only depends on deliveriesForDate. isLoading is managed internally.
-}, [deliveriesForDate]);
+    // Only depends on deliveriesForDate. isLoading is managed internally.
+  }, [deliveriesForDate]);
 
   //get clusters
   useEffect(() => {
     fetchClustersFromToday(selectedDate);
-  }, [selectedDate]); 
-  
+  }, [selectedDate]);
+
   // Route Protection
   React.useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user: any) => {
@@ -454,7 +456,7 @@ useEffect(() => {
         dateForFetch.getDate(),
         0, 0, 0
       ));
-      
+
       const endDate = new Date(Date.UTC(
         dateForFetch.getFullYear(),
         dateForFetch.getMonth(),
@@ -468,7 +470,7 @@ useEffect(() => {
         where("date", ">=", Timestamp.fromDate(startDate)),
         where("date", "<=", Timestamp.fromDate(endDate))
       );
-      
+
       const clustersSnapshot = await getDocs(q);
 
       // Check if the date is still the selected one before updating state
@@ -488,7 +490,7 @@ useEffect(() => {
         setClusterDoc(clustersData)
         setClusters(clustersData.clusters);
       }
-      else{
+      else {
         setClusterDoc(null); // Clear clusterDoc when no clusters found
         setClusters([])
       }
@@ -496,11 +498,11 @@ useEffect(() => {
       console.error("Error fetching clusters:", error);
       // Clear state only if the error corresponds to the *currently* selected date
       if (dateForFetch.getTime() === selectedDate.getTime()) {
-         setClusterDoc(null);
-         setClusters([]);
+        setClusterDoc(null);
+        setClusters([]);
       }
     }
-  };  
+  };
 
   // handle search input change
   const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -510,15 +512,15 @@ useEffect(() => {
   const handleClusterChange = async (row: RowData, newClusterIdStr: string) => {
     const oldClusterId = row.clusterId || "";
     const newClusterId = newClusterIdStr;
-  
+
     if (!row || !row.id || newClusterId === oldClusterId || !clusterDoc) {
       console.log("Cluster change aborted (no change, missing data, or no clusterDoc)");
       return;
     }
-  
+
     let updatedClusters = [...clusters];
     const clusterExists = clusters.some(cluster => cluster.id === newClusterId);
-  
+
     if (oldClusterId) {
       updatedClusters = updatedClusters.map(cluster => {
         if (cluster.id === oldClusterId) {
@@ -530,7 +532,7 @@ useEffect(() => {
         return cluster;
       }).filter(cluster => cluster.deliveries.length > 0 || cluster.id === newClusterId);
     }
-  
+
     if (newClusterId) {
       if (clusterExists) {
         updatedClusters = updatedClusters.map(cluster => {
@@ -552,25 +554,54 @@ useEffect(() => {
         updatedClusters.push(newCluster);
       }
     }
-  
+
     updatedClusters.sort((a, b) => parseInt(a.id, 10) - parseInt(b.id, 10));
-  
+
     setClusters(updatedClusters);
-  
+
     try {
       const clusterRef = doc(db, "clusters", clusterDoc.docId);
       await updateDoc(clusterRef, { clusters: updatedClusters });
       console.log(`Successfully moved ${row.id} from cluster ${oldClusterId || 'none'} to ${newClusterId || 'none'}`);
-  
+
       // setRows(prevRows => prevRows.map(r => r.id === row.id ? { ...r, clusterId: newClusterId } : r));
     } catch (error) {
       console.error("Error updating clusters in Firestore:", error);
     }
   };
 
+  const handleEmailOrDownload = async (option: "Email" | "Download") => {
+    setEmailOrDownload(option);
+    setPopupMode("");
+
+    if (exportOption === "Routes") {
+      if (option === "Email") {
+        // Logic to email Routes
+        console.log("Emailing Routes...");
+        // Add your email logic here
+      } else if (option === "Download") {
+        // Logic to download Routes
+        console.log("Downloading Routes...");
+        // Add your download logic here
+      }
+    } else if (exportOption === "Doordash") {
+      if (option === "Email") {
+        // Logic to email Doordash
+        console.log("Emailing Doordash...");
+        // Add your email logic here
+      } else if (option === "Download") {
+        // Logic to download Doordash
+        console.log("Downloading Doordash...");
+        // Add your download logic here
+      }
+    }
+  };
+
   // reset popup selections when closing popup
   const resetSelections = () => {
     setPopupMode("");
+    setExportOption(null);
+    setEmailOrDownload(null);
     setSelectedClusters(new Set());
     setSelectedRows(new Set());
   };
@@ -608,9 +639,9 @@ useEffect(() => {
 
   const updateClusters = async (clusterMap: any) => {
     const newClusters: Cluster[] = [];
-    Object.keys(clusterMap).forEach((clusterId)=>{
-      if(clusterId != "doordash"){
-        const newDeliveries = clusterMap[clusterId].map((index: string)=>{return visibleRows[Number(index)].id});
+    Object.keys(clusterMap).forEach((clusterId) => {
+      if (clusterId != "doordash") {
+        const newDeliveries = clusterMap[clusterId].map((index: string) => { return visibleRows[Number(index)].id });
         newClusters.push({
           deliveries: newDeliveries,
           driver: "",
@@ -624,7 +655,7 @@ useEffect(() => {
 
   //Handle assigning time
   const assignTime = async (time: string) => {
-    if(time && clusterDoc){
+    if (time && clusterDoc) {
       try {
         // Create a new clusters array with updated time assignments
         const updatedClusters = clusters.map(cluster => {
@@ -661,145 +692,145 @@ useEffect(() => {
     const addresses = visibleRows.map(row => row.address);
     // Removed unnecessary try/catch
     // try{
-      // Validate cluster number
-      if (!clusterNum || clusterNum <= 0) {
-        throw new Error("Please enter a valid number of clusters (must be at least 1)");
-      }
+    // Validate cluster number
+    if (!clusterNum || clusterNum <= 0) {
+      throw new Error("Please enter a valid number of clusters (must be at least 1)");
+    }
 
-      // Validate we have deliveries to cluster
-      if (addresses.length === 0) {
-        throw new Error("No deliveries scheduled for the selected date");
-      }
+    // Validate we have deliveries to cluster
+    if (addresses.length === 0) {
+      throw new Error("No deliveries scheduled for the selected date");
+    }
 
-      // Validate maxDeliveries is within range
-      if (maxDeliveries > addresses.length) {
-        throw new Error(`Max deliveries is too high for ${addresses.length} deliveries. Please decrease it.`);
-      }
+    // Validate maxDeliveries is within range
+    if (maxDeliveries > addresses.length) {
+      throw new Error(`Max deliveries is too high for ${addresses.length} deliveries. Please decrease it.`);
+    }
 
-      // Validate min deliveries is reasonable
-      if (minDeliveries < 0) {
-        throw new Error("Minimum deliveries per cluster cannot be negative");
-      }
+    // Validate min deliveries is reasonable
+    if (minDeliveries < 0) {
+      throw new Error("Minimum deliveries per cluster cannot be negative");
+    }
 
-      // Validate max deliveries is reasonable
-      if (maxDeliveries <= 0) {
-        throw new Error("Maximum deliveries per cluster must be at least 1");
-      }
+    // Validate max deliveries is reasonable
+    if (maxDeliveries <= 0) {
+      throw new Error("Maximum deliveries per cluster must be at least 1");
+    }
 
-      // Validate min <= max
-      if (minDeliveries > maxDeliveries) {
-        throw new Error("Minimum deliveries cannot exceed maximum deliveries");
-      }
+    // Validate min <= max
+    if (minDeliveries > maxDeliveries) {
+      throw new Error("Minimum deliveries cannot exceed maximum deliveries");
+    }
 
-      // Calculate total required and available deliveries
-      const totalMinRequired = clusterNum * minDeliveries;
-      const totalMaxAllowed = clusterNum * maxDeliveries;
-      
-      // Validate we have enough deliveries for the minimum
-      if (totalMinRequired > addresses.length) {
-        throw new Error(
-          `Not enough deliveries for ${clusterNum} clusters with minimum ${minDeliveries} each.\n` +
-          `Required: ${totalMinRequired} | Available: ${addresses.length}\n` +
-          `Please reduce cluster count or minimum deliveries.`
-        );
-      }
+    // Calculate total required and available deliveries
+    const totalMinRequired = clusterNum * minDeliveries;
+    const totalMaxAllowed = clusterNum * maxDeliveries;
 
-      // Validate we don't have too many deliveries for the maximum
-      if (addresses.length > totalMaxAllowed) {
-        throw new Error(
-          `Too many deliveries for ${clusterNum} clusters with maximum ${maxDeliveries} each.\n` +
-          `Allowed: ${totalMaxAllowed} | Available: ${addresses.length}\n` +
-          `Please increase cluster count or maximum deliveries.`
-        );
-      }
-      // Validate cluster count isn't excessive
-      const maxRecommendedClusters = Math.min(
-        Math.ceil(addresses.length / 2),  // At least 2 deliveries per cluster
-        addresses.length  // Can't have more clusters than deliveries
+    // Validate we have enough deliveries for the minimum
+    if (totalMinRequired > addresses.length) {
+      throw new Error(
+        `Not enough deliveries for ${clusterNum} clusters with minimum ${minDeliveries} each.\n` +
+        `Required: ${totalMinRequired} | Available: ${addresses.length}\n` +
+        `Please reduce cluster count or minimum deliveries.`
       );
-      
-      if (clusterNum > maxRecommendedClusters) {
-        throw new Error(
-          `Too many clusters requested (${clusterNum}).\n` +
-          `Recommended maximum for ${addresses.length} deliveries: ${maxRecommendedClusters}`
-        );
-      }
-      setPopupMode("")
-      setIsLoading(true)
-      const response = await fetch(testing ? "": 'https://geocode-addresses-endpoint-lzrplp4tfa-uc.a.run.app', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          addresses: addresses
-        }),
-      });
-      
-      if (!response.ok) {
-        throw new Error("Failed to fetch");
-      }
-    
-      const { coordinates } = await response.json();
-      // Generate clusters based on coordinates
-      const clusterResponse = await fetch(testing? "": 'https://cluster-deliveries-k-means-lzrplp4tfa-uc.a.run.app', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          coords: coordinates,
-          drivers_count: clusterNum,
-          min_deliveries: minDeliveries,  
-          max_deliveries: maxDeliveries
-        }),
-      });
-  
-      const clusterData = await clusterResponse.json();
-      const newClusters = await updateClusters(clusterData.clusters)
-      // setClusters(newClusters) // State is set within the if/else block
+    }
 
-      //update cluster or create new cluster date
-      if(clusterDoc){
-        const clusterRef = doc(db, "clusters", clusterDoc.docId);
-        // Only update the 'clusters' field using updateDoc
-        await updateDoc(clusterRef, { clusters: newClusters });
-        setClusters(newClusters); // Update state after successful Firestore update
-        // Update the local clusterDoc state's clusters as well
-        setClusterDoc(prevDoc => prevDoc ? { ...prevDoc, clusters: newClusters } : null);
-      }
-      else{
-        const docRef = doc(collection(db, "clusters"));
-        // Use selectedDate to ensure consistency with fetched data
-        const clusterDate = new Date(Date.UTC(
-          selectedDate.getFullYear(),
-          selectedDate.getMonth(),
-          selectedDate.getDate(),
-          0, 0, 0, 0
-        ));
+    // Validate we don't have too many deliveries for the maximum
+    if (addresses.length > totalMaxAllowed) {
+      throw new Error(
+        `Too many deliveries for ${clusterNum} clusters with maximum ${maxDeliveries} each.\n` +
+        `Allowed: ${totalMaxAllowed} | Available: ${addresses.length}\n` +
+        `Please increase cluster count or maximum deliveries.`
+      );
+    }
+    // Validate cluster count isn't excessive
+    const maxRecommendedClusters = Math.min(
+      Math.ceil(addresses.length / 2),  // At least 2 deliveries per cluster
+      addresses.length  // Can't have more clusters than deliveries
+    );
 
-        const newClusterDoc = {
-          clusters: newClusters,
-          docId: docRef.id,
-          date: Timestamp.fromDate(clusterDate) // Use consistent date
-        }
-        // Firestore expects the data object directly for setDoc - Corrected
-        await setDoc(docRef, newClusterDoc); 
-        setClusters(newClusters); // Update state after successful Firestore creation
-        setClusterDoc(newClusterDoc)
-      }       
-      
-      //Refresh the data - REMOVED Redundant fetch
-      // const snapshot = await getDocs(collection(db, "clients"));
-      // const updatedData = snapshot.docs.map((doc) => ({
-      //  id: doc.id,
-      //  ...(doc.data() as Omit<RowData, "id">),
-      // }));
-      // setClusters(newClusters); // REMOVED - Redundant state update, handled in if/else
-      setIsLoading(false);
-      resetSelections();
+    if (clusterNum > maxRecommendedClusters) {
+      throw new Error(
+        `Too many clusters requested (${clusterNum}).\n` +
+        `Recommended maximum for ${addresses.length} deliveries: ${maxRecommendedClusters}`
+      );
+    }
+    setPopupMode("")
+    setIsLoading(true)
+    const response = await fetch(testing ? "" : 'https://geocode-addresses-endpoint-lzrplp4tfa-uc.a.run.app', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        addresses: addresses
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to fetch");
+    }
+
+    const { coordinates } = await response.json();
+    // Generate clusters based on coordinates
+    const clusterResponse = await fetch(testing ? "" : 'https://cluster-deliveries-k-means-lzrplp4tfa-uc.a.run.app', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        coords: coordinates,
+        drivers_count: clusterNum,
+        min_deliveries: minDeliveries,
+        max_deliveries: maxDeliveries
+      }),
+    });
+
+    const clusterData = await clusterResponse.json();
+    const newClusters = await updateClusters(clusterData.clusters)
+    // setClusters(newClusters) // State is set within the if/else block
+
+    //update cluster or create new cluster date
+    if (clusterDoc) {
+      const clusterRef = doc(db, "clusters", clusterDoc.docId);
+      // Only update the 'clusters' field using updateDoc
+      await updateDoc(clusterRef, { clusters: newClusters });
+      setClusters(newClusters); // Update state after successful Firestore update
+      // Update the local clusterDoc state's clusters as well
+      setClusterDoc(prevDoc => prevDoc ? { ...prevDoc, clusters: newClusters } : null);
+    }
+    else {
+      const docRef = doc(collection(db, "clusters"));
+      // Use selectedDate to ensure consistency with fetched data
+      const clusterDate = new Date(Date.UTC(
+        selectedDate.getFullYear(),
+        selectedDate.getMonth(),
+        selectedDate.getDate(),
+        0, 0, 0, 0
+      ));
+
+      const newClusterDoc = {
+        clusters: newClusters,
+        docId: docRef.id,
+        date: Timestamp.fromDate(clusterDate) // Use consistent date
+      }
+      // Firestore expects the data object directly for setDoc - Corrected
+      await setDoc(docRef, newClusterDoc);
+      setClusters(newClusters); // Update state after successful Firestore creation
+      setClusterDoc(newClusterDoc)
+    }
+
+    //Refresh the data - REMOVED Redundant fetch
+    // const snapshot = await getDocs(collection(db, "clients"));
+    // const updatedData = snapshot.docs.map((doc) => ({
+    //  id: doc.id,
+    //  ...(doc.data() as Omit<RowData, "id">),
+    // }));
+    // setClusters(newClusters); // REMOVED - Redundant state update, handled in if/else
+    setIsLoading(false);
+    resetSelections();
     // }
     // catch (e){
     //   throw e
@@ -811,17 +842,17 @@ useEffect(() => {
     const newSelectedRows = new Set(selectedRows);
     const newSelectedClusters = new Set(selectedClusters);
     const rowToToggle = row;
-  
+
     if (rowToToggle) {
       const clusterId = rowToToggle.clusterId;
       if (clusterId) {
         const cluster = clusters?.find((c) => c.id.toString() === clusterId);
         const rowsWithSameClusterID = rows.filter((row) => row.clusterId === clusterId);
-        
+
         if (cluster) {
           // Check if the current row is already selected
           const isSelected = newSelectedRows.has(row.id);
-          
+
           // Toggle selection for all rows with the same clusterId
           rowsWithSameClusterID.forEach((row) => {
             if (isSelected) {
@@ -830,7 +861,7 @@ useEffect(() => {
               newSelectedRows.add(row.id); // Select all
             }
           });
-          
+
           if (isSelected) {
             newSelectedClusters.delete(cluster);
           } else {
@@ -839,20 +870,20 @@ useEffect(() => {
         }
       }
     }
-    
+
     setSelectedClusters(newSelectedClusters);
     setSelectedRows(newSelectedRows);
   };
 
-  const clientsWithDeliveriesOnSelectedDate = rows.filter(row => 
+  const clientsWithDeliveriesOnSelectedDate = rows.filter(row =>
     deliveriesForDate.some(delivery => delivery.clientId === row.id)
   );
-  
+
   const visibleRows = rows.filter(row => {
     if (!searchQuery) return true; // Show all if no search query
-    
+
     const searchTerm = searchQuery.toLowerCase().trim();
-    
+
     return (
       row.firstName.toLowerCase().includes(searchTerm) ||
       row.lastName.toLowerCase().includes(searchTerm)
@@ -881,101 +912,101 @@ useEffect(() => {
 
   return (
     <Box className="box" sx={{ display: "flex", flexDirection: "column", height: "100vh" }}>
-      <div style={{display: "flex", alignItems: "center", justifyContent:"space-between"}}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
 
-      <Box sx={{ 
-        display: "flex",
-        alignItems: "center",
-        padding: "16px",
-        backgroundColor: "#fff",
-        zIndex: 10,
-        position: "sticky",
-        top: 0,
-        width: "100%"
-      }}>
-        <Typography variant="h4" sx={{ marginRight: 2, width: "170px", color: "#787777" }}>
-          {format(selectedDate, 'EEEE')}
-        </Typography>
-        
-        <Box
-          sx={{
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-            width: "40px",
-            height: "40px",
-            backgroundColor: "#257E68",
-            borderRadius: "90%",
-            marginRight: 2,
-          }}
-        >
-          <Typography variant="h5" sx={{ color: "#fff"}}>
-            {format(selectedDate, 'd')}
+        <Box sx={{
+          display: "flex",
+          alignItems: "center",
+          padding: "16px",
+          backgroundColor: "#fff",
+          zIndex: 10,
+          position: "sticky",
+          top: 0,
+          width: "100%"
+        }}>
+          <Typography variant="h4" sx={{ marginRight: 2, width: "170px", color: "#787777" }}>
+            {format(selectedDate, 'EEEE')}
           </Typography>
+
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              width: "40px",
+              height: "40px",
+              backgroundColor: "#257E68",
+              borderRadius: "90%",
+              marginRight: 2,
+            }}
+          >
+            <Typography variant="h5" sx={{ color: "#fff" }}>
+              {format(selectedDate, 'd')}
+            </Typography>
+          </Box>
+
+          <IconButton
+            onClick={() => setSelectedDate(addDays(selectedDate, -1))}
+            size="large"
+            sx={{ color: "#257E68" }}
+          >
+            <Box
+              sx={{
+                width: 12,
+                height: 12,
+                borderLeft: "2px solid #257E68",
+                borderBottom: "2px solid #257E68",
+                transform: "rotate(45deg)",
+              }}
+            />
+          </IconButton>
+
+          <IconButton
+            onClick={() => setSelectedDate(addDays(selectedDate, 1))}
+            size="large"
+            sx={{ color: "#257E68" }}
+          >
+            <Box
+              sx={{
+                width: 12,
+                height: 12,
+                borderLeft: "2px solid #257E68",
+                borderBottom: "2px solid #257E68",
+                transform: "rotate(-135deg)",
+              }}
+            />
+          </IconButton>
+
+          <Button
+            variant="secondary"
+            size="small"
+            style={{ width: 50, fontSize: 12, marginLeft: 16 }}
+            onClick={() => setSelectedDate(new Date())}
+          >
+            Today
+          </Button>
         </Box>
-  
-        <IconButton
-          onClick={() => setSelectedDate(addDays(selectedDate, -1))}
-          size="large"
-          sx={{ color: "#257E68" }}
-        >
-          <Box
-            sx={{
-              width: 12,
-              height: 12,
-              borderLeft: "2px solid #257E68",
-              borderBottom: "2px solid #257E68",
-              transform: "rotate(45deg)",
-            }}
-          />
-        </IconButton>
-  
-        <IconButton
-          onClick={() => setSelectedDate(addDays(selectedDate, 1))}
-          size="large"
-          sx={{ color: "#257E68" }}
-        >
-          <Box
-            sx={{
-              width: 12,
-              height: 12,
-              borderLeft: "2px solid #257E68",
-              borderBottom: "2px solid #257E68",
-              transform: "rotate(-135deg)",
-            }}
-          />
-        </IconButton>
-  
         <Button
-          variant="secondary"
-          size="small"
-          style={{ width: 50, fontSize: 12, marginLeft: 16 }}
-          onClick={() => setSelectedDate(new Date())}
+          variant="primary"
+          size="medium"
+          style={{
+            whiteSpace: "nowrap",
+            padding: "0% 2%",
+            borderRadius: 5,
+            width: "auto",
+            marginRight: '16px'
+          }}
+          onClick={() => setPopupMode("Clusters")}
         >
-          Today
+          Generate Clusters
         </Button>
-      </Box>
-      <Button
-        variant="primary"
-        size="medium"
-        style={{
-          whiteSpace: "nowrap",
-          padding: "0% 2%",
-          borderRadius: 5,
-          width: "auto",
-          marginRight: '16px'
-        }}
-        onClick={() => setPopupMode("Clusters")}
-      >
-        Generate Clusters
-      </Button>
       </div>
 
-  
+
       {/* Map Container */}
-      <Box sx={{ 
-        top: "72px", 
-        zIndex: 9, 
+      <Box sx={{
+        top: "72px",
+        zIndex: 9,
         height: "400px",
         width: "100%",
         backgroundColor: "#fff"
@@ -983,7 +1014,7 @@ useEffect(() => {
         {isLoading ? (
           <LoadingIndicator />
         ) : visibleRows.length > 0 ? (
-          <ClusterMap 
+          <ClusterMap
             clusters={clusters}
             visibleRows={visibleRows}
           />
@@ -1003,7 +1034,7 @@ useEffect(() => {
           </Box>
         )}
       </Box>
-  
+
       {/* Search Bar */}
       <Box sx={{
         width: "100%",
@@ -1062,25 +1093,38 @@ useEffect(() => {
               >
                 Assign Time
               </Button>
+              <Button
+                variant="primary"
+                size="medium"
+                style={{
+                  whiteSpace: "nowrap",
+                  padding: "0% 2%",
+                  borderRadius: 5,
+                  width: "10%",
+                }}
+                onClick={() => setPopupMode("Export")}
+              >
+                Export
+              </Button>
             </Box>
           </Box>
         </Box>
       </Box>
-  
-      <Box sx={{ 
-        flex: 1, 
-        display: "flex", 
+
+      <Box sx={{
+        flex: 1,
+        display: "flex",
         flexDirection: "column",
         margin: "0 auto",
         paddingBottom: "2vh",
         width: "100%",
-        maxHeight: "none" 
+        maxHeight: "none"
       }}>
-        <TableContainer component={Paper} sx={{ 
-              maxHeight: "none",
-              height: "auto", 
-              width: "100%" 
-          }}>
+        <TableContainer component={Paper} sx={{
+          maxHeight: "none",
+          height: "auto",
+          width: "100%"
+        }}>
           <Table>
             <TableHead>
               <TableRow>
@@ -1088,22 +1132,22 @@ useEffect(() => {
                   <TableCell
                     key={field.key}
                     className="table-header"
-                    style={{ 
+                    style={{
                       width: field.type === "checkbox" ? "20px" : "auto",
-                      textAlign: "center", 
-                      padding: "10px", 
+                      textAlign: "center",
+                      padding: "10px",
                     }}
                   >
                     {field.label}
                   </TableCell>
                 ))}
                 {/* Add empty cell for the action menu - keeping this for now */}
-                <TableCell 
+                <TableCell
                   className="table-header"
-                  style={{ 
+                  style={{
                     width: "50px",
-                    textAlign: "center", 
-                    padding: "10px", 
+                    textAlign: "center",
+                    padding: "10px",
                   }}
                 ></TableCell>
               </TableRow>
@@ -1116,9 +1160,9 @@ useEffect(() => {
                     return (
                       <TableCell
                         key={field.key}
-                        style={{ 
-                          textAlign: "center", 
-                          padding: "10px", 
+                        style={{
+                          textAlign: "center",
+                          padding: "10px",
                           minWidth: field.type === 'select' ? '150px' : 'auto',
                         }}
                       >
@@ -1137,7 +1181,7 @@ useEffect(() => {
                               value={row.clusterId || ""}
                               onChange={(event: SelectChangeEvent<string>) => handleClusterChange(row, event.target.value)}
                               label="Cluster ID"
-                              sx={{ 
+                              sx={{
                                 fontSize: 'inherit',
                                 '& .MuiSelect-select': { padding: '4px 10px' },
                                 '&:before': { borderBottom: 'none' },
@@ -1170,7 +1214,7 @@ useEffect(() => {
                     ); // End return for TableCell
                   })}
                   {/* Empty TableCell to align with the extra header cell (if kept) */}
-                  <TableCell></TableCell> 
+                  <TableCell></TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -1197,6 +1241,64 @@ useEffect(() => {
             assignTime={assignTime}
             setPopupMode={setPopupMode}
           />
+        </DialogContent>
+      </Dialog>
+
+      {/* Export Options Popup */}
+      <Dialog open={popupMode === "Export"} onClose={resetSelections} maxWidth="xs" fullWidth>
+        <DialogTitle>Export Options</DialogTitle>
+        <DialogContent>
+          {!exportOption ? (
+            <Box sx={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+              <Button
+                variant="primary"
+                color="primary"
+                onClick={() => setExportOption("Routes")}
+              >
+                Routes
+              </Button>
+              <Button
+                variant="secondary"
+                color="secondary"
+                onClick={() => setExportOption("Doordash")}
+              >
+                Doordash
+              </Button>
+            </Box>
+          ) : (
+            <Box sx={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+              <Typography variant="subtitle1">
+                Selected Option: {exportOption}
+              </Typography>
+              <Button
+                variant="primary"
+                color="primary"
+                onClick={() => {
+                  handleEmailOrDownload("Email");
+                  resetSelections();
+                }}
+              >
+                Email
+              </Button>
+              <Button
+                variant="secondary"
+                color="secondary"
+                onClick={() => {
+                  handleEmailOrDownload("Download");
+                  resetSelections();
+                }}
+              >
+                Download
+              </Button>
+              <Button
+                variant="secondary"
+                color="secondary"
+                onClick={() => setExportOption(null)}
+              >
+                Back
+              </Button>
+            </Box>
+          )}
         </DialogContent>
       </Dialog>
 
