@@ -108,11 +108,12 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = ({
                   clientName: `${clientProfile.firstName} ${clientProfile.lastName}`,
                   deliveryDate:
                     clientProfile.startDate || new Date().toISOString().split("T")[0],
+                  // Check if client recurrence is a standard one before setting
                   recurrence: ["None", "Weekly", "2x-Monthly", "Monthly"].includes(
                     clientProfile.recurrence
                   )
                     ? (clientProfile.recurrence as "None" | "Weekly" | "2x-Monthly" | "Monthly")
-                    : "None",
+                    : newDelivery.recurrence, // Keep existing selection if client recurrence is non-standard
                   repeatsEndDate: clientProfile.endDate || "",
                 });
               }

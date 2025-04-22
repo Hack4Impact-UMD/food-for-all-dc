@@ -39,7 +39,7 @@ const CalendarMultiSelect: React.FC<CalendarMultiSelectProps> = ({ selectedDates
           const value = e.target.value;
           setDateInput(value);
           if (value) {
-            const date = new Date(value);
+            const date = new Date(`${value}T00:00:00`);
             handleAddDate(date);
           }
         }}

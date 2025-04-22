@@ -239,29 +239,44 @@ const CalendarPage: React.FC = () => {
 
   const handleAddDelivery = async (newDelivery: NewDelivery) => {
     try {
-      const deliveryDate = new Date(newDelivery.deliveryDate);
-      const eventsToAdd = [];
+      let recurrenceDates: Date[] = [];
 
-      // Calculate recurrence dates based on the recurrence type
-      const recurrenceDates =
-        newDelivery.recurrence === "None" ? [deliveryDate] : calculateRecurrenceDates(newDelivery);
+      if (newDelivery.recurrence === "Custom") {
+        // Use customDates directly if recurrence is Custom
+        // Ensure customDates exist and map string dates back to Date objects
+        recurrenceDates = newDelivery.customDates?.map(dateStr => {
+          const date = new Date(dateStr);
+          // Adjust for timezone offset if needed, similar to how it might be handled elsewhere
+          return new Date(date.getTime() + date.getTimezoneOffset() * 60000);
+        }) || [];
+        // Clear repeatsEndDate explicitly for custom recurrence in the submitted data
+        newDelivery.repeatsEndDate = undefined;
+      } else {
+        // Calculate recurrence dates for standard recurrence types
+        const deliveryDate = new Date(newDelivery.deliveryDate);
+        recurrenceDates =
+          newDelivery.recurrence === "None" ? [deliveryDate] : calculateRecurrenceDates(newDelivery);
+      }
 
       // Use DeliveryService to create events
       const deliveryService = DeliveryService.getInstance();
       const createPromises = recurrenceDates.map(date => {
-        // Only include optional fields if they are defined
         const eventToAdd: Partial<DeliveryEvent> = {
           assignedDriverId: newDelivery.assignedDriverId,
           assignedDriverName: newDelivery.assignedDriverName,
           clientId: newDelivery.clientId,
           clientName: newDelivery.clientName,
-          deliveryDate: date,
+          deliveryDate: date, // Use the calculated/provided recurrence date
           recurrence: newDelivery.recurrence,
           time: "",
           cluster: 0,
         };
 
-        if (newDelivery.repeatsEndDate) {
+        // Add customDates array if recurrence is Custom
+        if (newDelivery.recurrence === "Custom") {
+          eventToAdd.customDates = newDelivery.customDates;
+        } else if (newDelivery.repeatsEndDate) {
+          // Only add repeatsEndDate for standard recurrence types
           eventToAdd.repeatsEndDate = newDelivery.repeatsEndDate;
         }
 
