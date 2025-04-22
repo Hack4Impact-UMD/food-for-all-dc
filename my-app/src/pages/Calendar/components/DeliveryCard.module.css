@@ -40,6 +40,12 @@
   color: var(--color-primary);
 }
 
+/* Simple underline on hover/focus */
+.detailsLink:hover .detailsText,
+.detailsLink:focus .detailsText {
+  text-decoration: underline;
+}
+
 .divider {
   background-color: var(--color-divider);
   width: 2px;

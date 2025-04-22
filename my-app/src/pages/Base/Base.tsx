@@ -150,9 +150,8 @@ export default function BasePage() {
 
   const navItems = [
     { text: "Clients", icon: <StorageIcon />, link: "/clients" },
-    { text: "Calendar", icon: <CalendarTodayIcon />, link: "/calendar" }, // Changed link and text? Keep text Calendar
-    { text: "Users", icon: <AddCircleIcon />, link: "/create-users" }, // Changed link
-    { text: "Delivery", icon: <LocalShippingIcon />, link: "/delivery" }, // Changed link
+    { text: "Calendar", icon: <CalendarTodayIcon />, link: "/calendar" },
+    { text: "Delivery", icon: <LocalShippingIcon />, link: "/delivery" },
   ];
 
   return (
