@@ -127,7 +127,21 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = ({
             </li>
           )}
           renderInput={(params) => (
-            <TextField {...params} label="Client Name" margin="normal" fullWidth />
+            <TextField
+              {...params}
+              label="Client Name"
+              margin="normal"
+              fullWidth
+              sx={{
+                '.MuiOutlinedInput-root': {
+                  height: '56px',
+                },
+                '.MuiOutlinedInput-input': {
+                  display: 'flex',
+                  alignItems: 'center',
+                }
+              }}
+            />
           )}
         />
 
@@ -161,7 +175,21 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = ({
             </li>
           )}
           renderInput={(params) => (
-            <TextField {...params} label="Driver" margin="normal" fullWidth />
+            <TextField
+              {...params}
+              label="Driver"
+              margin="normal"
+              fullWidth
+              sx={{
+                '.MuiOutlinedInput-root': {
+                  height: '56px',
+                },
+                '.MuiOutlinedInput-input': {
+                  display: 'flex',
+                  alignItems: 'center',
+                }
+              }}
+            />
           )}
         />
 

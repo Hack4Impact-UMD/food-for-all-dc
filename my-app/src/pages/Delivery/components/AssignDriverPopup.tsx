@@ -94,6 +94,15 @@ export default function AssignDriverPopup({ assignDriver, setPopupMode }: Assign
                         size="small"
                         error={!!error}
                         helperText={error || (loading ? "Loading drivers..." : drivers.length === 0 ? "No drivers available" : "")}
+                        sx={{
+                          '.MuiOutlinedInput-root': {
+                            height: '40px',
+                          },
+                          '.MuiOutlinedInput-input': {
+                            display: 'flex',
+                            alignItems: 'center',
+                          }
+                        }}
                         InputProps={{
                           ...params.InputProps,
                           endAdornment: (
