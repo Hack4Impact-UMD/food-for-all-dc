@@ -273,20 +273,20 @@ const DeliverySpreadsheet: React.FC = () => {
   }, [clusters]);
 
   // fetch deliveries for the selected date
-  const fetchDeliveriesForDate = async (date: Date) => {
+  const fetchDeliveriesForDate = async (dateForFetch: Date) => {
     try {
       // account for timezone issues
       const startDate = new Date(Date.UTC(
-        date.getFullYear(),
-        date.getMonth(),
-        date.getDate(),
+        dateForFetch.getFullYear(),
+        dateForFetch.getMonth(),
+        dateForFetch.getDate(),
         0, 0, 0 
       ));
       
       const endDate = new Date(Date.UTC(
-        date.getFullYear(),
-        date.getMonth(),
-        date.getDate(),
+        dateForFetch.getFullYear(),
+        dateForFetch.getMonth(),
+        dateForFetch.getDate(),
         23, 59, 59
       ));
   
@@ -298,6 +298,13 @@ const DeliverySpreadsheet: React.FC = () => {
       );
   
       const querySnapshot = await getDocs(q);
+
+      // Check if the date is still the selected one before updating state
+      if (dateForFetch.getTime() !== selectedDate.getTime()) {
+        console.log("Stale delivery fetch ignored for date:", dateForFetch);
+        return; // Don't update state with stale data
+      }
+
       const events = querySnapshot.docs.map(doc => {
         const data = doc.data();
         return {
@@ -311,22 +318,27 @@ const DeliverySpreadsheet: React.FC = () => {
       setDeliveriesForDate(events);
     } catch (error) {
       console.error("Error fetching deliveries:", error);
+      // Clear state only if the error corresponds to the *currently* selected date
+      if (dateForFetch.getTime() === selectedDate.getTime()) {
+         setDeliveriesForDate([]);
+      }
     }
   };
 
 //when the user changes the date, fetch the deliveries for that date
 useEffect(() => {
-  fetchDeliveriesForDate(selectedDate);
+  const currentFetchDate = selectedDate; // Capture date at effect run time
+  fetchDeliveriesForDate(currentFetchDate);
+  // No explicit cleanup needed with the check inside the async function
 }, [selectedDate]);
 
 useEffect(() => {
   const fetchDataAndGeocode = async () => {
-    if (deliveriesForDate.length === 0) {
-      setClusters([]);
-      setIsLoading(false);
-      setRawClientData([]);
-      return;
-    }
+    // If deliveriesForDate is updated, it's for the current selectedDate
+    // because fetchDeliveriesForDate filters stale updates.
+
+    // setIsLoading(true) is moved here to only show loading when processing clients
+    // setIsLoading(true); // Already set by the caller effect
 
     try {
       // Get the client IDs for the deliveries on the selected date
@@ -378,32 +390,42 @@ useEffect(() => {
             return row;
           });
           setRawClientData(updatedRawData);
+          // Stop loading *after* processing is complete
           setIsLoading(false);
+        } else {
+          // Handle non-ok response from geocode
+          console.error("Geocoding failed:", response.statusText);
+          setIsLoading(false); // Stop loading on geocode failure
         }
       } else {
-        setClusters([]);
-        setIsLoading(false);
+        // No clients or addresses, clear data and stop loading
         setRawClientData([]);
+        setIsLoading(false); // Stop loading if nothing to geocode
       }
     } catch (error) {
-      console.error("Error:", error);
-      setRawClientData([]);
-      setIsLoading(false);
+      console.error("Error fetching/geocoding client data:", error);
+      setRawClientData([]); // Clear data on error
+      setIsLoading(false); // Stop loading on error
     }
   };
   
   if (deliveriesForDate.length > 0) {
-    setIsLoading(true)
+    // Set loading to true *before* starting the async fetch/geocode process
+    setIsLoading(true);
     fetchDataAndGeocode();
   } else {
-    setClusters([]);
+    // If deliveries are empty (either initially or after fetch),
+    // ensure client data is clear and loading is stopped.
+    setRawClientData([]);
+    // Do NOT clear clusters here, as they are fetched independently
     setIsLoading(false);
   }
+// Only depends on deliveriesForDate. isLoading is managed internally.
 }, [deliveriesForDate]);
 
   //get clusters
   useEffect(() => {
-    fetchClustersFromToday();
+    fetchClustersFromToday(selectedDate);
   }, [selectedDate]); 
   
   // Route Protection
@@ -423,20 +445,20 @@ useEffect(() => {
     setInnerPopup(popupMode !== "");
   }, [popupMode]);
 
-  const fetchClustersFromToday = async () => {
+  const fetchClustersFromToday = async (dateForFetch: Date) => {
     try {
       // account for timezone issues
       const startDate = new Date(Date.UTC(
-        selectedDate.getFullYear(),
-        selectedDate.getMonth(),
-        selectedDate.getDate(),
+        dateForFetch.getFullYear(),
+        dateForFetch.getMonth(),
+        dateForFetch.getDate(),
         0, 0, 0
       ));
       
       const endDate = new Date(Date.UTC(
-        selectedDate.getFullYear(),
-        selectedDate.getMonth(),
-        selectedDate.getDate(),
+        dateForFetch.getFullYear(),
+        dateForFetch.getMonth(),
+        dateForFetch.getDate(),
         23, 59, 59
       ));
 
@@ -448,6 +470,13 @@ useEffect(() => {
       );
       
       const clustersSnapshot = await getDocs(q);
+
+      // Check if the date is still the selected one before updating state
+      if (dateForFetch.getTime() !== selectedDate.getTime()) {
+        console.log("Stale cluster fetch ignored for date:", dateForFetch);
+        return; // Don't update state with stale data
+      }
+
       if (!clustersSnapshot.empty) {
         // There should only be one document per date
         const doc = clustersSnapshot.docs[0];
@@ -460,10 +489,16 @@ useEffect(() => {
         setClusters(clustersData.clusters);
       }
       else{
+        setClusterDoc(null); // Clear clusterDoc when no clusters found
         setClusters([])
       }
     } catch (error) {
       console.error("Error fetching clusters:", error);
+      // Clear state only if the error corresponds to the *currently* selected date
+      if (dateForFetch.getTime() === selectedDate.getTime()) {
+         setClusterDoc(null);
+         setClusters([]);
+      }
     }
   };  
 
