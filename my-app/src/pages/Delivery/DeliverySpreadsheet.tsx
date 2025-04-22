@@ -10,7 +10,6 @@ import "./DeliverySpreadsheet.css";
 import 'leaflet/dist/leaflet.css';
 import {
   Box,
-  Button,
   Table,
   TableBody,
   TableCell,
@@ -45,6 +44,8 @@ import AssignDriverPopup from "./components/AssignDriverPopup";
 import GenerateClustersPopup from "./components/GenerateClustersPopup";
 import AssignTimePopup from "./components/AssignTimePopup";
 import LoadingIndicator from "../../components/LoadingIndicator/LoadingIndicator";
+import Button from '../../components/common/Button';
+import Input from '../../components/common/Input';
 
 interface RowData {
   id: string;
@@ -913,29 +914,27 @@ useEffect(() => {
         </IconButton>
   
         <Button
-          sx={{ width: 50, fontSize: 12, marginLeft: 4 }}
+          variant="secondary"
+          size="small"
+          style={{ width: 50, fontSize: 12, marginLeft: 16 }}
           onClick={() => setSelectedDate(new Date())}
         >
           Today
         </Button>
       </Box>
       <Button
-              variant="contained"
-              color="secondary"
-              className="view-all"
-              onClick={() => {
-                setPopupMode("Clusters");
-              }}
-              sx={{
-                whiteSpace: "nowrap",
-                padding: "0% 2%",
-                borderRadius: "5px",
-                width: "10%",
-                backgroundColor: "#257E68" + " !important",
-              }}
-            >
-              Generate<br></br>Clusters
-            </Button>
+        variant="primary"
+        size="medium"
+        style={{
+          whiteSpace: "nowrap",
+          padding: "0% 2%",
+          borderRadius: 5,
+          width: "10%",
+        }}
+        onClick={() => setPopupMode("Clusters")}
+      >
+        Generate<br />Clusters
+      </Button>
       </div>
 
   
@@ -1002,36 +1001,29 @@ useEffect(() => {
           <Box sx={{ display: "flex", justifyContent: "space-between" }}>
             <Box sx={{ display: "flex", width: "100%", gap: "2%" }}>
               <Button
-                variant="contained"
+                variant="primary"
+                size="medium"
                 disabled={selectedRows.size <= 0}
-                onClick={() => {
-                  setPopupMode("Driver");
-                }}
-                className="view-all"
-                sx={{
+                style={{
                   whiteSpace: "nowrap",
                   padding: "0% 2%",
-                  borderRadius: "5px",
+                  borderRadius: 5,
                   width: "10%",
-                  backgroundColor: (selectedRows.size <= 0 ? "gray" : "#257E68") + " !important",
                 }}
+                onClick={() => setPopupMode("Driver")}
               >
                 Assign Driver
               </Button>
               <Button
-                variant="contained"
-                color="secondary"
-                className="view-all"
-                onClick={() => {
-                  setPopupMode("Time");
-                }}
+                variant="secondary"
+                size="medium"
+                onClick={() => setPopupMode("Time")}
                 disabled={selectedRows.size <= 0}
-                sx={{
+                style={{
                   whiteSpace: "nowrap",
                   padding: "0% 2%",
-                  borderRadius: "5px",
+                  borderRadius: 5,
                   width: "10%",
-                  backgroundColor: (selectedRows.size <= 0 ? "gray" : "#257E68") + " !important",
                 }}
               >
                 Assign Time
