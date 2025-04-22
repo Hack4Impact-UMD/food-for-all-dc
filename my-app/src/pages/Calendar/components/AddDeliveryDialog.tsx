@@ -77,6 +77,13 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = ({
     resetFormAndClose();
   };
 
+  // --- Validation ---
+  const isFormValid =
+    newDelivery.clientId !== "" &&
+    newDelivery.assignedDriverId !== "" &&
+    (newDelivery.recurrence !== "Custom" || customDates.length > 0);
+  // --- End Validation ---
+
   return (
     <Dialog open={open} onClose={resetFormAndClose}>
       <DialogTitle>Add Delivery</DialogTitle>
@@ -132,6 +139,7 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = ({
               label="Client Name"
               margin="normal"
               fullWidth
+              required
               sx={{
                 '.MuiOutlinedInput-root': {
                   height: '56px',
@@ -180,6 +188,7 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = ({
               label="Driver"
               margin="normal"
               fullWidth
+              required
               sx={{
                 '.MuiOutlinedInput-root': {
                   height: '56px',
@@ -203,6 +212,7 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = ({
             fullWidth
             margin="normal"
             InputLabelProps={{ shrink: true }}
+            required
           />
         ) : null}
 
@@ -260,7 +270,11 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = ({
       </DialogContent>
       <DialogActions>
         <Button onClick={resetFormAndClose}>Cancel</Button>
-        <Button onClick={handleSubmit} variant="contained">
+        <Button
+          onClick={handleSubmit}
+          variant="contained"
+          disabled={!isFormValid}
+        >
           Add
         </Button>
       </DialogActions>
