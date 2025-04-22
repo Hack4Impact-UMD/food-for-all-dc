@@ -1180,24 +1180,29 @@ useEffect(() => {
         </TableContainer>
       </Box>
 
-      {popupMode === "Driver" && (
-        <AssignDriverPopup
-          open={innerPopup}
-          onClose={resetSelections}
-          onAssignDriver={assignDriver}
-          selectedClusters={selectedClusters}
-        />
-      )}
+      {/* Assign Driver Popup */}
+      <Dialog open={popupMode === "Driver"} onClose={resetSelections} maxWidth="xs" fullWidth>
+        <DialogTitle>Assign Driver</DialogTitle>
+        <DialogContent>
+          <AssignDriverPopup
+            assignDriver={assignDriver}
+            setPopupMode={setPopupMode}
+          />
+        </DialogContent>
+      </Dialog>
 
-      {popupMode === "Time" && (
-        <AssignTimePopup
-          open={innerPopup}
-          onClose={resetSelections}
-          onAssignTime={assignTime}
-          selectedClusters={selectedClusters}
-        />
-      )}
+      {/* Assign Time Popup */}
+      <Dialog open={popupMode === "Time"} onClose={resetSelections} maxWidth="xs" fullWidth>
+        <DialogTitle>Assign Time</DialogTitle>
+        <DialogContent>
+          <AssignTimePopup
+            assignTime={assignTime}
+            setPopupMode={setPopupMode}
+          />
+        </DialogContent>
+      </Dialog>
 
+      {/* Generate Clusters Popup */}
       {popupMode === "Clusters" && (
         <Dialog open onClose={resetSelections} maxWidth="xs" fullWidth>
           <DialogTitle>Generate Clusters</DialogTitle>
