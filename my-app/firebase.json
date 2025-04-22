@@ -9,7 +9,8 @@
         ".git",
         "firebase-debug.log",
         "firebase-debug.*.log",
-        "*.local"
+        "*.local",
+        "venv"
       ],
       "timeout": "30s",
       "memory": "1GB"
