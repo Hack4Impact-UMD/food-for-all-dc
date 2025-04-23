@@ -7,7 +7,7 @@ import { format, addDays } from "date-fns";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
 
 import "./DeliverySpreadsheet.css";
-import 'leaflet/dist/leaflet.css';
+import "leaflet/dist/leaflet.css";
 import {
   Box,
   Table,
@@ -31,12 +31,7 @@ import {
   InputLabel,
   SelectChangeEvent,
 } from "@mui/material";
-import {
-  collection,
-  getDocs,
-  doc,
-  setDoc,
-} from "firebase/firestore";
+import { collection, getDocs, doc, setDoc } from "firebase/firestore";
 import { auth } from "../../auth/firebaseConfig";
 import { onAuthStateChanged } from "firebase/auth";
 import ClusterMap from "./ClusterMap";
@@ -44,8 +39,9 @@ import AssignDriverPopup from "./components/AssignDriverPopup";
 import GenerateClustersPopup from "./components/GenerateClustersPopup";
 import AssignTimePopup from "./components/AssignTimePopup";
 import LoadingIndicator from "../../components/LoadingIndicator/LoadingIndicator";
-import Button from '../../components/common/Button';
-import Input from '../../components/common/Input';
+import { exportDeliveries } from "./RouteExport";
+import Button from "../../components/common/Button";
+import Input from "../../components/common/Input";
 
 interface RowData {
   id: string;
@@ -78,61 +74,63 @@ interface RowData {
 interface Driver {
   id: string;
   name: string;
-  phone: string
+  phone: string;
   email: string;
 }
-
 
 // Define a type for fields that can either be computed or direct keys of RowData
 type Field =
   | {
-    key: "checkbox";
-    label: "";
-    type: "checkbox";
-    compute?: never;
-  }
+      key: "checkbox";
+      label: "";
+      type: "checkbox";
+      compute?: never;
+    }
   | {
-    key: "fullname";
-    label: "Client";
-    type: "text";
-    compute: (data: RowData) => string;
-  }
+      key: "fullname";
+      label: "Client";
+      type: "text";
+      compute: (data: RowData) => string;
+    }
   | {
-    key: "clusterIdChange";
-    label: "Cluster ID";
-    type: "select";
-    compute?: never;
-  }
+      key: "clusterIdChange";
+      label: "Cluster ID";
+      type: "select";
+      compute?: never;
+    }
   | {
-    key: Exclude<keyof Omit<RowData, "id" | "firstName" | "lastName" | "deliveryDetails">, "coordinates">;
-    label: string;
-    type: string;
-    compute?: never;
-  }
+      key: Exclude<
+        keyof Omit<RowData, "id" | "firstName" | "lastName" | "deliveryDetails">,
+        "coordinates"
+      >;
+      label: string;
+      type: string;
+      compute?: never;
+    }
   | {
-    key: "tags";
-    label: "Tags";
-    type: "text";
-    compute: (data: RowData) => string;
-  }
+      key: "tags";
+      label: "Tags";
+      type: "text";
+      compute: (data: RowData) => string;
+    }
   | {
-    key: "assignedDriver";
-    label: "Assigned Driver";
-    type: "text";
-    compute: (data: RowData, clusters: Cluster[]) => string;
-  }
+      key: "assignedDriver";
+      label: "Assigned Driver";
+      type: "text";
+      compute: (data: RowData, clusters: Cluster[]) => string;
+    }
   | {
-    key: "assignedTime";
-    label: "Assigned Time";
-    type: "text";
-    compute: (data: RowData, clusters: Cluster[]) => string;
-  }
+      key: "assignedTime";
+      label: "Assigned Time";
+      type: "text";
+      compute: (data: RowData, clusters: Cluster[]) => string;
+    }
   | {
-    key: "deliveryDetails.deliveryInstructions";
-    label: "Delivery Instructions";
-    type: "text";
-    compute: (data: RowData) => string;
-  };
+      key: "deliveryDetails.deliveryInstructions";
+      label: "Delivery Instructions";
+      type: "text";
+      compute: (data: RowData) => string;
+    };
 
 interface Cluster {
   id: string;
@@ -200,9 +198,9 @@ const fields: Field[] = [
         if (cluster.deliveries?.some((id) => id == data.id)) {
           driver = cluster.driver;
         }
-      })
-      return driver ? driver : "No driver assigned"
-    }
+      });
+      return driver ? driver : "No driver assigned";
+    },
   },
   {
     key: "assignedTime",
@@ -219,14 +217,14 @@ const fields: Field[] = [
       if (!time) return "No time assigned";
 
       // Convert 24-hour format to 12-hour AM/PM format
-      const [hours, minutes] = time.split(':');
+      const [hours, minutes] = time.split(":");
       let hours12 = parseInt(hours, 10);
-      const ampm = hours12 >= 12 ? 'PM' : 'AM';
+      const ampm = hours12 >= 12 ? "PM" : "AM";
       hours12 = hours12 % 12;
       hours12 = hours12 ? hours12 : 12; // Convert 0 to 12 for 12 AM
 
       return `${hours12}:${minutes} ${ampm}`;
-    }
+    },
   },
 ];
 
@@ -234,11 +232,13 @@ const fields: Field[] = [
 const isRegularField = (
   field: Field
 ): field is Extract<Field, { key: Exclude<keyof RowData, "coordinates"> }> => {
-  return field.key !== "fullname" &&
+  return (
+    field.key !== "fullname" &&
     field.key !== "tags" &&
     field.key !== "assignedDriver" &&
     field.key !== "assignedTime" &&
-    field.key !== "deliveryDetails.deliveryInstructions";
+    field.key !== "deliveryDetails.deliveryInstructions"
+  );
 };
 
 const DeliverySpreadsheet: React.FC = () => {
@@ -249,27 +249,29 @@ const DeliverySpreadsheet: React.FC = () => {
   const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
   const [innerPopup, setInnerPopup] = useState(false);
   const [popupMode, setPopupMode] = useState("");
-  const [clusters, setClusters] = useState<Cluster[]>([])
+  const [clusters, setClusters] = useState<Cluster[]>([]);
   const [selectedClusters, setSelectedClusters] = useState<Set<any>>(new Set());
   const [exportOption, setExportOption] = useState<"Routes" | "Doordash" | null>(null);
   const [emailOrDownload, setEmailOrDownload] = useState<"Email" | "Download" | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [deliveriesForDate, setDeliveriesForDate] = useState<DeliveryEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [clusterDoc, setClusterDoc] = useState<ClusterDoc | null>()
+  const [clusterDoc, setClusterDoc] = useState<ClusterDoc | null>();
   const navigate = useNavigate();
 
   // Calculate Cluster Options
   const clusterOptions = useMemo(() => {
-    const existingIds = clusters.map(c => parseInt(c.id, 10)).filter(id => !isNaN(id));
+    const existingIds = clusters.map((c) => parseInt(c.id, 10)).filter((id) => !isNaN(id));
     const maxId = existingIds.length > 0 ? Math.max(...existingIds) : 0;
     const nextId = (maxId + 1).toString();
-    const availableIds = clusters.map(c => c.id).sort((a, b) => parseInt(a, 10) - parseInt(b, 10));
+    const availableIds = clusters
+      .map((c) => c.id)
+      .sort((a, b) => parseInt(a, 10) - parseInt(b, 10));
 
     const options = [
       { value: "", label: "Unassigned" },
-      ...availableIds.map(id => ({ value: id, label: id })),
-      { value: nextId, label: nextId }
+      ...availableIds.map((id) => ({ value: id, label: id })),
+      { value: nextId, label: nextId },
     ];
     return options;
   }, [clusters]);
@@ -278,19 +280,27 @@ const DeliverySpreadsheet: React.FC = () => {
   const fetchDeliveriesForDate = async (dateForFetch: Date) => {
     try {
       // account for timezone issues
-      const startDate = new Date(Date.UTC(
-        dateForFetch.getFullYear(),
-        dateForFetch.getMonth(),
-        dateForFetch.getDate(),
-        0, 0, 0
-      ));
+      const startDate = new Date(
+        Date.UTC(
+          dateForFetch.getFullYear(),
+          dateForFetch.getMonth(),
+          dateForFetch.getDate(),
+          0,
+          0,
+          0
+        )
+      );
 
-      const endDate = new Date(Date.UTC(
-        dateForFetch.getFullYear(),
-        dateForFetch.getMonth(),
-        dateForFetch.getDate(),
-        23, 59, 59
-      ));
+      const endDate = new Date(
+        Date.UTC(
+          dateForFetch.getFullYear(),
+          dateForFetch.getMonth(),
+          dateForFetch.getDate(),
+          23,
+          59,
+          59
+        )
+      );
 
       const eventsRef = collection(db, "events");
       const q = query(
@@ -307,7 +317,7 @@ const DeliverySpreadsheet: React.FC = () => {
         return; // Don't update state with stale data
       }
 
-      const events = querySnapshot.docs.map(doc => {
+      const events = querySnapshot.docs.map((doc) => {
         const data = doc.data();
         return {
           id: doc.id,
@@ -344,40 +354,41 @@ const DeliverySpreadsheet: React.FC = () => {
 
       try {
         // Get the client IDs for the deliveries on the selected date
-        const clientIds = deliveriesForDate.map(delivery => delivery.clientId);
+        const clientIds = deliveriesForDate.map((delivery) => delivery.clientId);
         // Firestore 'in' queries are limited to 10 items per query
         const chunkSize = 10;
         let clientsWithDeliveriesOnSelectedDate: RowData[] = [];
         for (let i = 0; i < clientIds.length; i += chunkSize) {
           const chunk = clientIds.slice(i, i + chunkSize);
           if (chunk.length === 0) continue;
-          const q = query(
-            collection(db, "clients"),
-            where("__name__", "in", chunk)
-          );
+          const q = query(collection(db, "clients"), where("__name__", "in", chunk));
           const snapshot = await getDocs(q);
           const chunkData = snapshot.docs.map((doc) => ({
             id: doc.id,
             ...(doc.data() as Omit<RowData, "id">),
           }));
-          clientsWithDeliveriesOnSelectedDate = clientsWithDeliveriesOnSelectedDate.concat(chunkData);
+          clientsWithDeliveriesOnSelectedDate =
+            clientsWithDeliveriesOnSelectedDate.concat(chunkData);
         }
 
-        const addresses = clientsWithDeliveriesOnSelectedDate.map(row => row.address);
+        const addresses = clientsWithDeliveriesOnSelectedDate.map((row) => row.address);
         setRawClientData(clientsWithDeliveriesOnSelectedDate);
 
         if (clientsWithDeliveriesOnSelectedDate.length > 0 && addresses.length > 0) {
           const token = await auth.currentUser?.getIdToken();
-          const response = await fetch(testing ? "" : 'https://geocode-addresses-endpoint-lzrplp4tfa-uc.a.run.app', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              addresses: addresses
-            }),
-          });
+          const response = await fetch(
+            testing ? "" : "https://geocode-addresses-endpoint-lzrplp4tfa-uc.a.run.app",
+            {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                addresses: addresses,
+              }),
+            }
+          );
 
           if (response.ok) {
             const { coordinates } = await response.json();
@@ -386,7 +397,7 @@ const DeliverySpreadsheet: React.FC = () => {
               if (coordinates[index]) {
                 return {
                   ...row,
-                  coordinates: coordinates[index]
+                  coordinates: coordinates[index],
                 };
               }
               return row;
@@ -450,19 +461,27 @@ const DeliverySpreadsheet: React.FC = () => {
   const fetchClustersFromToday = async (dateForFetch: Date) => {
     try {
       // account for timezone issues
-      const startDate = new Date(Date.UTC(
-        dateForFetch.getFullYear(),
-        dateForFetch.getMonth(),
-        dateForFetch.getDate(),
-        0, 0, 0
-      ));
+      const startDate = new Date(
+        Date.UTC(
+          dateForFetch.getFullYear(),
+          dateForFetch.getMonth(),
+          dateForFetch.getDate(),
+          0,
+          0,
+          0
+        )
+      );
 
-      const endDate = new Date(Date.UTC(
-        dateForFetch.getFullYear(),
-        dateForFetch.getMonth(),
-        dateForFetch.getDate(),
-        23, 59, 59
-      ));
+      const endDate = new Date(
+        Date.UTC(
+          dateForFetch.getFullYear(),
+          dateForFetch.getMonth(),
+          dateForFetch.getDate(),
+          23,
+          59,
+          59
+        )
+      );
 
       const clustersCollectionRef = collection(db, "clusters");
       const q = query(
@@ -485,14 +504,13 @@ const DeliverySpreadsheet: React.FC = () => {
         const clustersData = {
           docId: doc.id,
           date: doc.data().date.toDate(),
-          clusters: doc.data().clusters || []
+          clusters: doc.data().clusters || [],
         };
-        setClusterDoc(clustersData)
+        setClusterDoc(clustersData);
         setClusters(clustersData.clusters);
-      }
-      else {
+      } else {
         setClusterDoc(null); // Clear clusterDoc when no clusters found
-        setClusters([])
+        setClusters([]);
       }
     } catch (error) {
       console.error("Error fetching clusters:", error);
@@ -519,27 +537,29 @@ const DeliverySpreadsheet: React.FC = () => {
     }
 
     let updatedClusters = [...clusters];
-    const clusterExists = clusters.some(cluster => cluster.id === newClusterId);
+    const clusterExists = clusters.some((cluster) => cluster.id === newClusterId);
 
     if (oldClusterId) {
-      updatedClusters = updatedClusters.map(cluster => {
-        if (cluster.id === oldClusterId) {
-          return {
-            ...cluster,
-            deliveries: cluster.deliveries?.filter(id => id !== row.id) ?? []
-          };
-        }
-        return cluster;
-      }).filter(cluster => cluster.deliveries.length > 0 || cluster.id === newClusterId);
+      updatedClusters = updatedClusters
+        .map((cluster) => {
+          if (cluster.id === oldClusterId) {
+            return {
+              ...cluster,
+              deliveries: cluster.deliveries?.filter((id) => id !== row.id) ?? [],
+            };
+          }
+          return cluster;
+        })
+        .filter((cluster) => cluster.deliveries.length > 0 || cluster.id === newClusterId);
     }
 
     if (newClusterId) {
       if (clusterExists) {
-        updatedClusters = updatedClusters.map(cluster => {
+        updatedClusters = updatedClusters.map((cluster) => {
           if (cluster.id === newClusterId) {
             return {
               ...cluster,
-              deliveries: [...(cluster.deliveries ?? []), row.id]
+              deliveries: [...(cluster.deliveries ?? []), row.id],
             };
           }
           return cluster;
@@ -549,7 +569,7 @@ const DeliverySpreadsheet: React.FC = () => {
           id: newClusterId,
           deliveries: [row.id],
           driver: "",
-          time: ""
+          time: "",
         };
         updatedClusters.push(newCluster);
       }
@@ -562,7 +582,9 @@ const DeliverySpreadsheet: React.FC = () => {
     try {
       const clusterRef = doc(db, "clusters", clusterDoc.docId);
       await updateDoc(clusterRef, { clusters: updatedClusters });
-      console.log(`Successfully moved ${row.id} from cluster ${oldClusterId || 'none'} to ${newClusterId || 'none'}`);
+      console.log(
+        `Successfully moved ${row.id} from cluster ${oldClusterId || "none"} to ${newClusterId || "none"}`
+      );
 
       // setRows(prevRows => prevRows.map(r => r.id === row.id ? { ...r, clusterId: newClusterId } : r));
     } catch (error) {
@@ -580,7 +602,7 @@ const DeliverySpreadsheet: React.FC = () => {
         console.log("Emailing Routes...");
         // Add your email logic here
       } else if (option === "Download") {
-        // Logic to download Routes
+        exportDeliveries(format(selectedDate, "yyyy-MM-dd"));
         console.log("Downloading Routes...");
         // Add your download logic here
       }
@@ -615,12 +637,14 @@ const DeliverySpreadsheet: React.FC = () => {
     }
 
     try {
-      const updatedClusters = clusters.map(cluster => {
-        const isSelected = Array.from(selectedClusters).some(selected => selected.id === cluster.id);
+      const updatedClusters = clusters.map((cluster) => {
+        const isSelected = Array.from(selectedClusters).some(
+          (selected) => selected.id === cluster.id
+        );
         if (isSelected) {
           return {
             ...cluster,
-            driver: driver.name
+            driver: driver.name,
           };
         }
         return cluster;
@@ -641,15 +665,17 @@ const DeliverySpreadsheet: React.FC = () => {
     const newClusters: Cluster[] = [];
     Object.keys(clusterMap).forEach((clusterId) => {
       if (clusterId != "doordash") {
-        const newDeliveries = clusterMap[clusterId].map((index: string) => { return visibleRows[Number(index)].id });
+        const newDeliveries = clusterMap[clusterId].map((index: string) => {
+          return visibleRows[Number(index)].id;
+        });
         newClusters.push({
           deliveries: newDeliveries,
           driver: "",
           time: "",
-          id: clusterId
-        })
+          id: clusterId,
+        });
       }
-    })
+    });
     return newClusters;
   };
 
@@ -658,14 +684,16 @@ const DeliverySpreadsheet: React.FC = () => {
     if (time && clusterDoc) {
       try {
         // Create a new clusters array with updated time assignments
-        const updatedClusters = clusters.map(cluster => {
+        const updatedClusters = clusters.map((cluster) => {
           // Check if this cluster is among the selected ones (using ID for comparison)
-          const isSelected = Array.from(selectedClusters).some(selected => selected.id === cluster.id);
+          const isSelected = Array.from(selectedClusters).some(
+            (selected) => selected.id === cluster.id
+          );
           if (isSelected) {
             // Return a *new* cluster object with the assigned time
             return {
               ...cluster,
-              time: time // Assign the new time
+              time: time, // Assign the new time
             };
           }
           // Return the original cluster object if not selected
@@ -687,9 +715,13 @@ const DeliverySpreadsheet: React.FC = () => {
   };
 
   //Handle generating clusters
-  const generateClusters = async (clusterNum: number, minDeliveries: number, maxDeliveries: number) => {
+  const generateClusters = async (
+    clusterNum: number,
+    minDeliveries: number,
+    maxDeliveries: number
+  ) => {
     const token = await auth.currentUser?.getIdToken();
-    const addresses = visibleRows.map(row => row.address);
+    const addresses = visibleRows.map((row) => row.address);
     // Removed unnecessary try/catch
     // try{
     // Validate cluster number
@@ -704,7 +736,9 @@ const DeliverySpreadsheet: React.FC = () => {
 
     // Validate maxDeliveries is within range
     if (maxDeliveries > addresses.length) {
-      throw new Error(`Max deliveries is too high for ${addresses.length} deliveries. Please decrease it.`);
+      throw new Error(
+        `Max deliveries is too high for ${addresses.length} deliveries. Please decrease it.`
+      );
     }
 
     // Validate min deliveries is reasonable
@@ -730,8 +764,8 @@ const DeliverySpreadsheet: React.FC = () => {
     if (totalMinRequired > addresses.length) {
       throw new Error(
         `Not enough deliveries for ${clusterNum} clusters with minimum ${minDeliveries} each.\n` +
-        `Required: ${totalMinRequired} | Available: ${addresses.length}\n` +
-        `Please reduce cluster count or minimum deliveries.`
+          `Required: ${totalMinRequired} | Available: ${addresses.length}\n` +
+          `Please reduce cluster count or minimum deliveries.`
       );
     }
 
@@ -739,34 +773,37 @@ const DeliverySpreadsheet: React.FC = () => {
     if (addresses.length > totalMaxAllowed) {
       throw new Error(
         `Too many deliveries for ${clusterNum} clusters with maximum ${maxDeliveries} each.\n` +
-        `Allowed: ${totalMaxAllowed} | Available: ${addresses.length}\n` +
-        `Please increase cluster count or maximum deliveries.`
+          `Allowed: ${totalMaxAllowed} | Available: ${addresses.length}\n` +
+          `Please increase cluster count or maximum deliveries.`
       );
     }
     // Validate cluster count isn't excessive
     const maxRecommendedClusters = Math.min(
-      Math.ceil(addresses.length / 2),  // At least 2 deliveries per cluster
-      addresses.length  // Can't have more clusters than deliveries
+      Math.ceil(addresses.length / 2), // At least 2 deliveries per cluster
+      addresses.length // Can't have more clusters than deliveries
     );
 
     if (clusterNum > maxRecommendedClusters) {
       throw new Error(
         `Too many clusters requested (${clusterNum}).\n` +
-        `Recommended maximum for ${addresses.length} deliveries: ${maxRecommendedClusters}`
+          `Recommended maximum for ${addresses.length} deliveries: ${maxRecommendedClusters}`
       );
     }
-    setPopupMode("")
-    setIsLoading(true)
-    const response = await fetch(testing ? "" : 'https://geocode-addresses-endpoint-lzrplp4tfa-uc.a.run.app', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        addresses: addresses
-      }),
-    });
+    setPopupMode("");
+    setIsLoading(true);
+    const response = await fetch(
+      testing ? "" : "https://geocode-addresses-endpoint-lzrplp4tfa-uc.a.run.app",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          addresses: addresses,
+        }),
+      }
+    );
 
     if (!response.ok) {
       throw new Error("Failed to fetch");
@@ -774,22 +811,25 @@ const DeliverySpreadsheet: React.FC = () => {
 
     const { coordinates } = await response.json();
     // Generate clusters based on coordinates
-    const clusterResponse = await fetch(testing ? "" : 'https://cluster-deliveries-k-means-lzrplp4tfa-uc.a.run.app', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        coords: coordinates,
-        drivers_count: clusterNum,
-        min_deliveries: minDeliveries,
-        max_deliveries: maxDeliveries
-      }),
-    });
+    const clusterResponse = await fetch(
+      testing ? "" : "https://cluster-deliveries-k-means-lzrplp4tfa-uc.a.run.app",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          coords: coordinates,
+          drivers_count: clusterNum,
+          min_deliveries: minDeliveries,
+          max_deliveries: maxDeliveries,
+        }),
+      }
+    );
 
     const clusterData = await clusterResponse.json();
-    const newClusters = await updateClusters(clusterData.clusters)
+    const newClusters = await updateClusters(clusterData.clusters);
     // setClusters(newClusters) // State is set within the if/else block
 
     //update cluster or create new cluster date
@@ -799,27 +839,31 @@ const DeliverySpreadsheet: React.FC = () => {
       await updateDoc(clusterRef, { clusters: newClusters });
       setClusters(newClusters); // Update state after successful Firestore update
       // Update the local clusterDoc state's clusters as well
-      setClusterDoc(prevDoc => prevDoc ? { ...prevDoc, clusters: newClusters } : null);
-    }
-    else {
+      setClusterDoc((prevDoc) => (prevDoc ? { ...prevDoc, clusters: newClusters } : null));
+    } else {
       const docRef = doc(collection(db, "clusters"));
       // Use selectedDate to ensure consistency with fetched data
-      const clusterDate = new Date(Date.UTC(
-        selectedDate.getFullYear(),
-        selectedDate.getMonth(),
-        selectedDate.getDate(),
-        0, 0, 0, 0
-      ));
+      const clusterDate = new Date(
+        Date.UTC(
+          selectedDate.getFullYear(),
+          selectedDate.getMonth(),
+          selectedDate.getDate(),
+          0,
+          0,
+          0,
+          0
+        )
+      );
 
       const newClusterDoc = {
         clusters: newClusters,
         docId: docRef.id,
-        date: Timestamp.fromDate(clusterDate) // Use consistent date
-      }
+        date: Timestamp.fromDate(clusterDate), // Use consistent date
+      };
       // Firestore expects the data object directly for setDoc - Corrected
       await setDoc(docRef, newClusterDoc);
       setClusters(newClusters); // Update state after successful Firestore creation
-      setClusterDoc(newClusterDoc)
+      setClusterDoc(newClusterDoc);
     }
 
     //Refresh the data - REMOVED Redundant fetch
@@ -875,11 +919,11 @@ const DeliverySpreadsheet: React.FC = () => {
     setSelectedRows(newSelectedRows);
   };
 
-  const clientsWithDeliveriesOnSelectedDate = rows.filter(row =>
-    deliveriesForDate.some(delivery => delivery.clientId === row.id)
+  const clientsWithDeliveriesOnSelectedDate = rows.filter((row) =>
+    deliveriesForDate.some((delivery) => delivery.clientId === row.id)
   );
 
-  const visibleRows = rows.filter(row => {
+  const visibleRows = rows.filter((row) => {
     if (!searchQuery) return true; // Show all if no search query
 
     const searchTerm = searchQuery.toLowerCase().trim();
@@ -897,9 +941,9 @@ const DeliverySpreadsheet: React.FC = () => {
       return;
     }
 
-    const synchronizedRows = rawClientData.map(client => {
+    const synchronizedRows = rawClientData.map((client) => {
       let assignedClusterId = "";
-      clusters.forEach(cluster => {
+      clusters.forEach((cluster) => {
         if (cluster.deliveries?.includes(client.id)) {
           assignedClusterId = cluster.id;
         }
@@ -913,19 +957,20 @@ const DeliverySpreadsheet: React.FC = () => {
   return (
     <Box className="box" sx={{ display: "flex", flexDirection: "column", height: "100vh" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-
-        <Box sx={{
-          display: "flex",
-          alignItems: "center",
-          padding: "16px",
-          backgroundColor: "#fff",
-          zIndex: 10,
-          position: "sticky",
-          top: 0,
-          width: "100%"
-        }}>
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            padding: "16px",
+            backgroundColor: "#fff",
+            zIndex: 10,
+            position: "sticky",
+            top: 0,
+            width: "100%",
+          }}
+        >
           <Typography variant="h4" sx={{ marginRight: 2, width: "170px", color: "#787777" }}>
-            {format(selectedDate, 'EEEE')}
+            {format(selectedDate, "EEEE")}
           </Typography>
 
           <Box
@@ -941,7 +986,7 @@ const DeliverySpreadsheet: React.FC = () => {
             }}
           >
             <Typography variant="h5" sx={{ color: "#fff" }}>
-              {format(selectedDate, 'd')}
+              {format(selectedDate, "d")}
             </Typography>
           </Box>
 
@@ -994,7 +1039,7 @@ const DeliverySpreadsheet: React.FC = () => {
             padding: "0% 2%",
             borderRadius: 5,
             width: "auto",
-            marginRight: '16px'
+            marginRight: "16px",
           }}
           onClick={() => setPopupMode("Clusters")}
         >
@@ -1002,32 +1047,32 @@ const DeliverySpreadsheet: React.FC = () => {
         </Button>
       </div>
 
-
       {/* Map Container */}
-      <Box sx={{
-        top: "72px",
-        zIndex: 9,
-        height: "400px",
-        width: "100%",
-        backgroundColor: "#fff"
-      }}>
+      <Box
+        sx={{
+          top: "72px",
+          zIndex: 9,
+          height: "400px",
+          width: "100%",
+          backgroundColor: "#fff",
+        }}
+      >
         {isLoading ? (
           <LoadingIndicator />
         ) : visibleRows.length > 0 ? (
-          <ClusterMap
-            clusters={clusters}
-            visibleRows={visibleRows}
-          />
+          <ClusterMap clusters={clusters} visibleRows={visibleRows} />
         ) : (
-          <Box sx={{
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            height: '100%',
-            backgroundColor: '#f5f5f5',
-            borderRadius: '4px',
-            border: '1px solid #ddd'
-          }}>
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              height: "100%",
+              backgroundColor: "#f5f5f5",
+              borderRadius: "4px",
+              border: "1px solid #ddd",
+            }}
+          >
             <Typography variant="h6" color="textSecondary">
               No deliveries for selected date
             </Typography>
@@ -1036,13 +1081,15 @@ const DeliverySpreadsheet: React.FC = () => {
       </Box>
 
       {/* Search Bar */}
-      <Box sx={{
-        width: "100%",
-        zIndex: 8,
-        backgroundColor: "#fff",
-        padding: "16px 0",
-        top: "472px",
-      }}>
+      <Box
+        sx={{
+          width: "100%",
+          zIndex: 8,
+          backgroundColor: "#fff",
+          padding: "16px 0",
+          top: "472px",
+        }}
+      >
         <Box sx={{ display: "flex", flexDirection: "column", gap: "8px" }}>
           <Box sx={{ position: "relative", width: "100%" }}>
             <input
@@ -1063,7 +1110,7 @@ const DeliverySpreadsheet: React.FC = () => {
               }}
             />
           </Box>
-          <Box sx={{ display: "flex", justifyContent: "space-between", marginTop: '16px' }}>
+          <Box sx={{ display: "flex", justifyContent: "space-between", marginTop: "16px" }}>
             <Box sx={{ display: "flex", width: "100%", gap: "2%" }}>
               <Button
                 variant="primary"
@@ -1111,20 +1158,25 @@ const DeliverySpreadsheet: React.FC = () => {
         </Box>
       </Box>
 
-      <Box sx={{
-        flex: 1,
-        display: "flex",
-        flexDirection: "column",
-        margin: "0 auto",
-        paddingBottom: "2vh",
-        width: "100%",
-        maxHeight: "none"
-      }}>
-        <TableContainer component={Paper} sx={{
+      <Box
+        sx={{
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+          margin: "0 auto",
+          paddingBottom: "2vh",
+          width: "100%",
           maxHeight: "none",
-          height: "auto",
-          width: "100%"
-        }}>
+        }}
+      >
+        <TableContainer
+          component={Paper}
+          sx={{
+            maxHeight: "none",
+            height: "auto",
+            width: "100%",
+          }}
+        >
           <Table>
             <TableHead>
               <TableRow>
@@ -1163,7 +1215,7 @@ const DeliverySpreadsheet: React.FC = () => {
                         style={{
                           textAlign: "center",
                           padding: "10px",
-                          minWidth: field.type === 'select' ? '150px' : 'auto',
+                          minWidth: field.type === "select" ? "150px" : "auto",
                         }}
                       >
                         {field.type === "checkbox" ? (
@@ -1174,20 +1226,26 @@ const DeliverySpreadsheet: React.FC = () => {
                           />
                         ) : field.type === "select" && field.key === "clusterIdChange" ? (
                           // Render Select for clusterIdChange
-                          <FormControl variant="standard" size="small" sx={{ marginBottom: '0px !important', minWidth: 120 }}>
+                          <FormControl
+                            variant="standard"
+                            size="small"
+                            sx={{ marginBottom: "0px !important", minWidth: 120 }}
+                          >
                             <Select
                               labelId={`cluster-select-label-${row.id}`}
                               id={`cluster-select-${row.id}`}
                               value={row.clusterId || ""}
-                              onChange={(event: SelectChangeEvent<string>) => handleClusterChange(row, event.target.value)}
+                              onChange={(event: SelectChangeEvent<string>) =>
+                                handleClusterChange(row, event.target.value)
+                              }
                               label="Cluster ID"
                               sx={{
-                                fontSize: 'inherit',
-                                '& .MuiSelect-select': { padding: '4px 10px' },
-                                '&:before': { borderBottom: 'none' },
-                                '&:hover:not(.Mui-disabled):before': { borderBottom: 'none' },
-                                '&:after': { borderBottom: 'none' },
-                                '.MuiSvgIcon-root': { fontSize: '1rem' }
+                                fontSize: "inherit",
+                                "& .MuiSelect-select": { padding: "4px 10px" },
+                                "&:before": { borderBottom: "none" },
+                                "&:hover:not(.Mui-disabled):before": { borderBottom: "none" },
+                                "&:after": { borderBottom: "none" },
+                                ".MuiSvgIcon-root": { fontSize: "1rem" },
                               }}
                             >
                               {clusterOptions.map((option) => (
@@ -1199,17 +1257,17 @@ const DeliverySpreadsheet: React.FC = () => {
                           </FormControl>
                         ) : field.compute ? (
                           // Render computed fields (other than the select)
-                          (field.key === 'assignedDriver' || field.key === 'assignedTime')
-                            ? field.compute(row, clusters)
-                            : field.compute(row) // Assumes other compute fields don't need clusters
+                          field.key === "assignedDriver" || field.key === "assignedTime" ? (
+                            field.compute(row, clusters)
+                          ) : (
+                            field.compute(row)
+                          ) // Assumes other compute fields don't need clusters
                         ) : isRegularField(field) ? (
                           // Render regular fields (address, ward)
                           // Cast to string as these are the only expected types here
-                          String(row[field.key as 'address' | 'ward'] ?? '')
-                        ) : (
-                          // Default case: render nothing or a placeholder
-                          null
-                        )}
+                          String(row[field.key as "address" | "ward"] ?? "")
+                        ) : // Default case: render nothing or a placeholder
+                        null}
                       </TableCell>
                     ); // End return for TableCell
                   })}
@@ -1226,10 +1284,7 @@ const DeliverySpreadsheet: React.FC = () => {
       <Dialog open={popupMode === "Driver"} onClose={resetSelections} maxWidth="xs" fullWidth>
         <DialogTitle>Assign Driver</DialogTitle>
         <DialogContent>
-          <AssignDriverPopup
-            assignDriver={assignDriver}
-            setPopupMode={setPopupMode}
-          />
+          <AssignDriverPopup assignDriver={assignDriver} setPopupMode={setPopupMode} />
         </DialogContent>
       </Dialog>
 
@@ -1237,10 +1292,7 @@ const DeliverySpreadsheet: React.FC = () => {
       <Dialog open={popupMode === "Time"} onClose={resetSelections} maxWidth="xs" fullWidth>
         <DialogTitle>Assign Time</DialogTitle>
         <DialogContent>
-          <AssignTimePopup
-            assignTime={assignTime}
-            setPopupMode={setPopupMode}
-          />
+          <AssignTimePopup assignTime={assignTime} setPopupMode={setPopupMode} />
         </DialogContent>
       </Dialog>
 
@@ -1250,11 +1302,7 @@ const DeliverySpreadsheet: React.FC = () => {
         <DialogContent>
           {!exportOption ? (
             <Box sx={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-              <Button
-                variant="primary"
-                color="primary"
-                onClick={() => setExportOption("Routes")}
-              >
+              <Button variant="primary" color="primary" onClick={() => setExportOption("Routes")}>
                 Routes
               </Button>
               <Button
@@ -1267,9 +1315,7 @@ const DeliverySpreadsheet: React.FC = () => {
             </Box>
           ) : (
             <Box sx={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-              <Typography variant="subtitle1">
-                Selected Option: {exportOption}
-              </Typography>
+              <Typography variant="subtitle1">Selected Option: {exportOption}</Typography>
               <Button
                 variant="primary"
                 color="primary"
@@ -1290,11 +1336,7 @@ const DeliverySpreadsheet: React.FC = () => {
               >
                 Download
               </Button>
-              <Button
-                variant="secondary"
-                color="secondary"
-                onClick={() => setExportOption(null)}
-              >
+              <Button variant="secondary" color="secondary" onClick={() => setExportOption(null)}>
                 Back
               </Button>
             </Box>

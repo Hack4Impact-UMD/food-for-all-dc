@@ -2,6 +2,8 @@ import React, { useState } from "react";
 import { saveAs } from "file-saver";
 import Papa from "papaparse";
 import JSZip from "jszip";
+import UploadTestData from "./UploadTestData";
+import { Upload } from "@mui/icons-material";
 
 const TestCsvPage: React.FC = () => {
   const [deliveryDate, setDeliveryDate] = useState("");
@@ -207,6 +209,7 @@ const TestCsvPage: React.FC = () => {
   return (
     <div>
       <h1>Test CSV Generation</h1>
+      <UploadTestData />
       <div>
         <label htmlFor="deliveryDate">Delivery Date:</label>
         <input
