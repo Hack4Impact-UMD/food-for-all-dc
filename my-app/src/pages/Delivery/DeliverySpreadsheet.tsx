@@ -860,15 +860,113 @@ useEffect(() => {
     deliveriesForDate.some(delivery => delivery.clientId === row.id)
   );
   
-  const visibleRows = rows.filter(row => {
-    if (!searchQuery) return true; // Show all if no search query
+  // const visibleRows = rows.filter(row => {
+  //   if (!searchQuery) return true; // Show all if no search query
     
-    const searchTerm = searchQuery.toLowerCase().trim();
+  //   const searchTerm = searchQuery.toLowerCase().trim();
     
-    return (
-      row.firstName.toLowerCase().includes(searchTerm) ||
-      row.lastName.toLowerCase().includes(searchTerm)
-    );
+  //   return (
+  //     row.firstName.toLowerCase().includes(searchTerm) ||
+  //     row.lastName.toLowerCase().includes(searchTerm)
+  //   );
+  // });
+
+  const visibleRows = rows.filter((row) => {
+    const keywordRegex = /(\w+):\s*("[^"]+"|\S+)/g; // Matches key: "value" or key: value
+    const matches = [...searchQuery.matchAll(keywordRegex)];
+  
+    if (matches.length > 0) {
+      // For keyword queries, check that each provided value is a substring of the corresponding field
+      return matches.every(([_, key, value]) => {
+        const strippedValue = value.replace(/"/g, "").toLowerCase(); // Remove quotes and lowercase
+        
+        // Check static fields with a substring match
+        const matchesStaticField = fields.some((field) => {
+          const fieldValue = field.compute ? field.compute(row, clusters) : row[field.key as keyof RowData];
+          return (
+            fieldValue != null &&
+            fieldValue.toString().toLowerCase().includes(strippedValue)
+          );
+        });
+    
+        // Check custom columns with a substring match
+        const matchesCustomColumn = customColumns.some((col) => {
+          if (col.propertyKey !== "none") {
+            const fieldValue = row[col.propertyKey as keyof RowData];
+            return (
+              fieldValue != null &&
+              fieldValue.toString().toLowerCase().includes(strippedValue)
+            );
+          }
+          return false;
+        });
+    
+        return matchesStaticField || matchesCustomColumn;
+      });
+    } else {
+      // Fallback to general search logic
+      const eachQuery = searchQuery.match(/"[^"]+"|\S+/g) || [];
+      
+      const quotedQueries = eachQuery.filter(s => s.startsWith('"') && s.endsWith('"') && s.length > 1) || [];
+      const nonQuotedQueries = eachQuery.filter(s => s.length === 1 || !s.endsWith('"')) || [];
+    
+      const containsQuotedQueries = quotedQueries.length === 0
+        ? true
+        : quotedQueries.every((query) => {
+            // Use substring matching instead of exact equality
+            const strippedQuery = query.slice(1, -1).trim().toLowerCase();
+            const matchesStaticField = fields.some((field) => {
+              const fieldValue = field.compute ? field.compute(row, clusters) : row[field.key as keyof RowData];
+              return (
+                fieldValue != null &&
+                fieldValue.toString().toLowerCase().includes(strippedQuery)
+              );
+            });
+            const matchesCustomColumn = customColumns.some((col) => {
+              if (col.propertyKey !== "none") {
+                const fieldValue = row[col.propertyKey as keyof RowData];
+                return (
+                  fieldValue != null &&
+                  fieldValue.toString().toLowerCase().includes(strippedQuery)
+                );
+              }
+              return false;
+            });
+            return matchesStaticField || matchesCustomColumn;
+          });
+    
+      if (containsQuotedQueries) {
+        const containsRegularQuery = nonQuotedQueries.length === 0
+          ? true
+          : nonQuotedQueries.some((query) => {
+              const strippedQuery = query.startsWith('"')
+                ? query.slice(1).trim().toLowerCase()
+                : query.trim().toLowerCase();
+              if (strippedQuery.length === 0) {
+                return true;
+              }
+              const matchesStaticField = fields.some((field) => {
+                const fieldValue = field.compute ? field.compute(row, clusters) : row[field.key as keyof RowData];
+                if (fieldValue == null) return false;
+                return fieldValue.toString().toLowerCase().includes(strippedQuery);
+              });
+              const matchesCustomColumn = customColumns.some((col) => {
+                if (col.propertyKey !== "none") {
+                  const fieldValue = row[col.propertyKey as keyof RowData];
+                  return (
+                    fieldValue != null &&
+                    fieldValue.toString().toLowerCase().includes(strippedQuery)
+                  );
+                }
+                return false;
+              });
+              return matchesStaticField || matchesCustomColumn;
+            });
+        return containsRegularQuery;
+      } else {
+        return false;
+      }
+    }
   });
 
   // Synchronize rows state with rawClientData and clusters

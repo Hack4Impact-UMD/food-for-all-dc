@@ -35,7 +35,6 @@ export const useCustomColumns = () => {
       label: `Custom ${customColumns.length + 1}`,
       propertyKey: "none",
     };
-    console.log("add custom column ran")
     setCustomColumns([...customColumns, newColumn]);
   };
 
