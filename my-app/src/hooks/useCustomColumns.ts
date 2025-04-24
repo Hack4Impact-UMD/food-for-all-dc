@@ -10,7 +10,7 @@ export interface CustomColumn {
   propertyKey: string; // This can be extended with a union type if needed (e.g. "none" | "ethnicity" | ...)
 }
 
-interface RowData {
+export interface CustomRowData {
   id: string;
   clientid?: string;
   uid: string;
@@ -35,14 +35,15 @@ export const useCustomColumns = () => {
       label: `Custom ${customColumns.length + 1}`,
       propertyKey: "none",
     };
+    console.log("add custom column ran")
     setCustomColumns([...customColumns, newColumn]);
   };
 
   const handleCustomColumnChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
     id: string, // ID of the row being edited
-    propertyKey: keyof RowData,
-    setRows: React.Dispatch<React.SetStateAction<RowData[]>>
+    propertyKey: keyof CustomRowData,
+    setRows: React.Dispatch<React.SetStateAction<CustomRowData[]>>
   ) => {
     const newValue = e.target.value; // Get the new value from the input
 

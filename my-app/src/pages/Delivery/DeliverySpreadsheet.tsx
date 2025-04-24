@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { db } from "../../auth/firebaseConfig"; 
-import { Search, Filter } from "lucide-react";
+import { Search, Filter, DeleteIcon } from "lucide-react";
 import { query, Timestamp, updateDoc, where } from "firebase/firestore";
 import { format, addDays } from "date-fns";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
+import AddIcon from "@mui/icons-material/Add";
 
 import "./DeliverySpreadsheet.css";
 import 'leaflet/dist/leaflet.css';
@@ -30,6 +31,7 @@ import {
   FormControl,
   InputLabel,
   SelectChangeEvent,
+  TextField,
 } from "@mui/material";
 import {
   collection,
@@ -46,6 +48,7 @@ import AssignTimePopup from "./components/AssignTimePopup";
 import LoadingIndicator from "../../components/LoadingIndicator/LoadingIndicator";
 import Button from '../../components/common/Button';
 import Input from '../../components/common/Input';
+import { CustomRowData, useCustomColumns } from "../../hooks/useCustomColumns";
 
 interface RowData {
   id: string;
@@ -256,6 +259,15 @@ const DeliverySpreadsheet: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [clusterDoc, setClusterDoc] = useState<ClusterDoc | null>()
   const navigate = useNavigate();
+    const [editingRowId, setEditingRowId] = useState<string | null>(null);
+  const {
+    customColumns,
+    handleAddCustomColumn,
+    handleCustomHeaderChange,
+    handleRemoveCustomColumn,
+    handleCustomColumnChange,
+  } = useCustomColumns();
+  const [customRows, setCustomRows] = useState<CustomRowData[]>([])
 
   // Calculate Cluster Options
   const clusterOptions = useMemo(() => {
@@ -1097,6 +1109,88 @@ useEffect(() => {
                     {field.label}
                   </TableCell>
                 ))}
+                {customColumns.map((col) => (
+                    <TableCell 
+                      className="table-header" 
+                      key={col.id}
+                      sx={{
+                        backgroundColor: "#f5f9f7",
+                        borderBottom: "2px solid #e0e0e0",
+                      }}
+                    >
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                        <Select
+                          value={col.propertyKey}
+                          onChange={(event) => handleCustomHeaderChange(event, col.id)}
+                          variant="outlined"
+                          displayEmpty
+                          size="small"
+                          sx={{ 
+                            minWidth: 120, 
+                            color: "#257e68",
+                            "& .MuiOutlinedInput-notchedOutline": {
+                              borderColor: "#bfdfd4",
+                            },
+                            "&:hover .MuiOutlinedInput-notchedOutline": {
+                              borderColor: "#257e68",
+                            },
+                          }}
+                        >
+                        <MenuItem value="none">None</MenuItem>
+                        <MenuItem value="adults">Adults</MenuItem>
+                        <MenuItem value="children">Children</MenuItem>
+                        <MenuItem value="deliveryFreq">Delivery Freq</MenuItem>
+                        <MenuItem value="ethnicity">Ethnicity</MenuItem>
+                        <MenuItem value="gender">Gender</MenuItem>
+                        <MenuItem value="language">Language</MenuItem>
+                        <MenuItem value="notes">Notes</MenuItem>
+                        <MenuItem value="referralEntity">Referral Entity</MenuItem>
+                        <MenuItem value="tefapCert">TEFAP Cert</MenuItem>
+                        <MenuItem value="tags">Tags</MenuItem>
+                        <MenuItem value="dob">DOB</MenuItem>
+                        <MenuItem value="ward">Ward</MenuItem>
+                        </Select>
+                        {/*Add Remove Button*/}
+                        <IconButton
+                          size="small"
+                          onClick={() => handleRemoveCustomColumn(col.id)}
+                          aria-label={`Remove ${col.label || "custom"} column`}
+                          title={`Remove ${col.label || "custom"} column`}
+                          sx={{
+                            color: "#d32f2f",
+                            "&:hover": {
+                              backgroundColor: "rgba(211, 47, 47, 0.04)",
+                            }
+                          }}
+                        >
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      </Box>
+                    </TableCell>
+                  ))}
+                  {/* Add button cell */}
+                  <TableCell 
+                    className="table-header" 
+                    align="right"
+                    sx={{
+                      backgroundColor: "#f5f9f7",
+                      borderBottom: "2px solid #e0e0e0",
+                    }}
+                  >
+                    <IconButton
+                      onClick={handleAddCustomColumn}
+                      color="primary"
+                      aria-label="add custom column"
+                      sx={{
+                        backgroundColor: "rgba(37, 126, 104, 0.06)",
+                        "&:hover": {
+                          backgroundColor: "rgba(37, 126, 104, 0.12)",
+                        }
+                      }}
+                    >
+                      <AddIcon sx={{ color: "#257e68" }} />
+                    </IconButton>
+                  </TableCell>
                 {/* Add empty cell for the action menu - keeping this for now */}
                 <TableCell 
                   className="table-header"
@@ -1169,9 +1263,40 @@ useEffect(() => {
                       </TableCell>
                     ); // End return for TableCell
                   })}
+                   {customColumns.map((col) => (
+                                        <TableCell key={col.id} sx={{ py: 2 }}>
+                                          {editingRowId === row.id ? (
+                                            col.propertyKey !== "none" ? (
+                                              <TextField
+                                                value={row[col.propertyKey as keyof RowData] ?? ""}
+                                                onChange={(e) =>
+                                                  handleCustomColumnChange(
+                                                    e,
+                                                    row.id,
+                                                    col.propertyKey as keyof CustomRowData,
+                                                    setCustomRows
+                                                  )
+                                                }
+                                                variant="outlined"
+                                                size="small"
+                                                fullWidth
+                                              />
+                                            ) : (
+                                              "N/A"
+                                            )
+                                          ) : 
+                                          col.propertyKey !== "none" ? (
+                                            (row[col.propertyKey as keyof RowData]?.toString() ?? "N/A")
+                                          ) : (
+                                            "N/A"
+                                          )}
+                                        </TableCell>
+                                      ))}
+                  
                   {/* Empty TableCell to align with the extra header cell (if kept) */}
                   <TableCell></TableCell> 
                 </TableRow>
+                
               ))}
             </TableBody>
           </Table>
