@@ -1249,9 +1249,7 @@ useEffect(() => {
                         <MenuItem value="notes">Notes</MenuItem>
                         <MenuItem value="referralEntity">Referral Entity</MenuItem>
                         <MenuItem value="tefapCert">TEFAP Cert</MenuItem>
-                        <MenuItem value="tags">Tags</MenuItem>
                         <MenuItem value="dob">DOB</MenuItem>
-                        <MenuItem value="ward">Ward</MenuItem>
                         </Select>
                         {/*Add Remove Button*/}
                         <IconButton
@@ -1295,14 +1293,14 @@ useEffect(() => {
                     </IconButton>
                   </TableCell>
                 {/* Add empty cell for the action menu - keeping this for now */}
-                <TableCell 
+                {/* <TableCell 
                   className="table-header"
                   style={{ 
                     width: "50px",
                     textAlign: "center", 
                     padding: "10px", 
                   }}
-                ></TableCell>
+                ></TableCell> */}
               </TableRow>
             </TableHead>
             <TableBody>
@@ -1395,9 +1393,8 @@ useEffect(() => {
                                           )}
                                         </TableCell>
                                       ))}
-                  
-                  {/* Empty TableCell to align with the extra header cell (if kept) */}
-                  <TableCell></TableCell> 
+                  {/* Empty Table cell so custom columns dont look weird */}
+                  <TableCell></TableCell>
                 </TableRow>
                 
               ))}
