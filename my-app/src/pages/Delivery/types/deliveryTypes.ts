@@ -20,6 +20,34 @@ export interface RowData {
   [key: string]: any; // Allow for dynamic property access
 }
 
+export interface DeliveryRowData {
+  id: string;
+  clientid: string;
+  firstName: string;
+  lastName: string;
+  address: string;
+  tags?: string[];
+  ward?: string;
+  clusterId: string; 
+  coordinates: { lat: number; lng: number }[];
+  deliveryDetails: {
+    deliveryInstructions: string;
+    dietaryRestrictions: {
+      foodAllergens: string[];
+      halal: boolean;
+      kidneyFriendly: boolean;
+      lowSodium: boolean;
+      lowSugar: boolean;
+      microwaveOnly: boolean;
+      noCookingEquipment: boolean;
+      other: string[];
+      softFood: boolean;
+      vegan: boolean;
+      vegetarian: boolean;
+    };
+  };
+}
+
 // Define a type for fields that can either be computed or direct keys of RowData
 export type Field =
   | {
