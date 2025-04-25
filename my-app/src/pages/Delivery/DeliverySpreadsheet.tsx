@@ -360,52 +360,13 @@ useEffect(() => {
         }));
         clientsWithDeliveriesOnSelectedDate = clientsWithDeliveriesOnSelectedDate.concat(chunkData);
       }
-
-      const addresses = clientsWithDeliveriesOnSelectedDate.map(row => row.address);
       setRawClientData(clientsWithDeliveriesOnSelectedDate);
-
-      if (clientsWithDeliveriesOnSelectedDate.length > 0 && addresses.length > 0) {
-        const token = await auth.currentUser?.getIdToken();
-        const response = await fetch(testing ? "": 'https://geocode-addresses-endpoint-lzrplp4tfa-uc.a.run.app', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            addresses: addresses
-          }),
-        });
-        
-        if (response.ok) {
-          const { coordinates } = await response.json();
-          // update only the rows that need coordinates
-          const updatedRawData = clientsWithDeliveriesOnSelectedDate.map((row, index) => {
-            if (coordinates[index]) {
-              return {
-                ...row,
-                coordinates: coordinates[index]
-              };
-            }
-            return row;
-          });
-          setRawClientData(updatedRawData);
-          // Stop loading *after* processing is complete
-          setIsLoading(false);
-        } else {
-          // Handle non-ok response from geocode
-          console.error("Geocoding failed:", response.statusText);
-          setIsLoading(false); // Stop loading on geocode failure
-        }
-      } else {
-        // No clients or addresses, clear data and stop loading
-        setRawClientData([]);
-        setIsLoading(false); // Stop loading if nothing to geocode
-      }
     } catch (error) {
       console.error("Error fetching/geocoding client data:", error);
       setRawClientData([]); // Clear data on error
-      setIsLoading(false); // Stop loading on error
+    } finally {
+      //Stop loading after processing
+      setIsLoading(false); 
     }
   };
   
