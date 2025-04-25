@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { db } from "../../auth/firebaseConfig"; 
-import { Search, Filter, DeleteIcon } from "lucide-react";
+import { Search, Filter } from "lucide-react";
 import { query, Timestamp, updateDoc, where } from "firebase/firestore";
 import { format, addDays } from "date-fns";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
 import AddIcon from "@mui/icons-material/Add";
+import DeleteIcon from "@mui/icons-material/Delete";
 
 import "./DeliverySpreadsheet.css";
 import 'leaflet/dist/leaflet.css';
@@ -104,7 +105,7 @@ type Field =
       key: "clusterIdChange";
       label: "Cluster ID";
       type: "select";
-      compute?: never;
+      compute?: (data: RowData) => string;
     }
   | {
       key: Exclude<keyof Omit<RowData, "id" | "firstName" | "lastName" | "deliveryDetails">, "coordinates">;
@@ -181,6 +182,10 @@ const fields: Field[] = [
     key: "clusterIdChange",
     label: "Cluster ID",
     type: "select",
+    compute: (data: RowData) => {
+      const cluster = data.clusterId;
+      return cluster;
+    },
   },
   {
     key: "tags",
