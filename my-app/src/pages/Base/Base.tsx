@@ -41,6 +41,7 @@ const Main = styled("main", { shouldForwardProp: (prop) => prop !== "open" })<{
   width: "100%",
   paddingTop: "76px",
   paddingBottom: isMobile ? "60px" : 0,
+  padding: "0 !important",
 }));
 
 interface AppBarProps extends MuiAppBarProps {
