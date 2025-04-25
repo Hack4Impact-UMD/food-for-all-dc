@@ -21,14 +21,11 @@ import {
   Dialog,
   DialogContent,
   DialogTitle,
-  CircularProgress,
   Typography,
   IconButton,
-  Menu,
   MenuItem,
   Select,
   FormControl,
-  InputLabel,
   SelectChangeEvent,
 } from "@mui/material";
 import {
@@ -45,7 +42,6 @@ import GenerateClustersPopup from "./components/GenerateClustersPopup";
 import AssignTimePopup from "./components/AssignTimePopup";
 import LoadingIndicator from "../../components/LoadingIndicator/LoadingIndicator";
 import Button from '../../components/common/Button';
-import Input from '../../components/common/Input';
 import ManualAssign from "./components/ManualAssignPopup";
 import { DeliveryRowData } from "./types/deliveryTypes";
 
@@ -242,6 +238,9 @@ const DeliverySpreadsheet: React.FC = () => {
       { value: nextId, label: nextId }
     ];
     options.pop()
+    if(options.length == 0){
+      options.push({value:"", label:"No Current Clusters"})
+    }
     return options;
   }, [clusters]);
 
@@ -589,6 +588,63 @@ useEffect(() => {
     }
   };
 
+  const initClustersForDay = async (newClusters: Cluster[]) => {
+    const docRef = doc(collection(db, "clusters"));
+
+    // Use selectedDate to ensure consistency with fetched data
+    const clusterDate = new Date(Date.UTC(
+      selectedDate.getFullYear(),
+      selectedDate.getMonth(),
+      selectedDate.getDate(),
+      0, 0, 0, 0
+    ));
+
+    const newClusterDoc = {
+      clusters: newClusters,
+      docId: docRef.id,
+      date: Timestamp.fromDate(clusterDate) // Use consistent date
+    }
+
+    // Firestore expects the data object directly for setDoc - Corrected
+    await setDoc(docRef, newClusterDoc); 
+    setClusters(newClusters); // Update state after successful Firestore creation
+    setClusterDoc(newClusterDoc)
+  }
+
+  const manualAssign = async (assignedClusters: string[], clusters: number) => {
+    //make blank cluster template
+    const newClusters: Cluster[] = Array.from({ length: clusters }, (_, i) => ({
+      id: (i + 1).toString(),
+      driver: "",
+      time: "",
+      deliveries: [],
+    }));
+    
+    //populate deliveries for clusters
+    assignedClusters.forEach((clusterIndex, deliveryIndex) => {
+      const numericIndex = parseInt(clusterIndex) - 1;
+      if (numericIndex >= 0 && numericIndex < newClusters.length) {
+        newClusters[numericIndex].deliveries.push(visibleRows[deliveryIndex].id);
+      } else {
+        console.warn(`Invalid cluster index: ${clusterIndex}`);
+      }
+    });
+
+
+    if(clusterDoc){
+      const clusterRef = doc(db, "clusters", clusterDoc.docId);
+      // Only update the 'clusters' field using updateDoc
+      await updateDoc(clusterRef, { clusters: newClusters });
+      setClusters(newClusters); // Update state after successful Firestore update
+      // Update the local clusterDoc state's clusters as well
+      setClusterDoc(prevDoc => prevDoc ? { ...prevDoc, clusters: newClusters } : null);
+    }
+    else{
+      initClustersForDay(newClusters);
+    }       
+    resetSelections()
+  };
+
   //Handle generating clusters
   const generateClusters = async (clusterNum: number, minDeliveries: number, maxDeliveries: number) => {
     const token = await auth.currentUser?.getIdToken();
@@ -705,24 +761,7 @@ useEffect(() => {
         setClusterDoc(prevDoc => prevDoc ? { ...prevDoc, clusters: newClusters } : null);
       }
       else{
-        const docRef = doc(collection(db, "clusters"));
-        // Use selectedDate to ensure consistency with fetched data
-        const clusterDate = new Date(Date.UTC(
-          selectedDate.getFullYear(),
-          selectedDate.getMonth(),
-          selectedDate.getDate(),
-          0, 0, 0, 0
-        ));
-
-        const newClusterDoc = {
-          clusters: newClusters,
-          docId: docRef.id,
-          date: Timestamp.fromDate(clusterDate) // Use consistent date
-        }
-        // Firestore expects the data object directly for setDoc - Corrected
-        await setDoc(docRef, newClusterDoc); 
-        setClusters(newClusters); // Update state after successful Firestore creation
-        setClusterDoc(newClusterDoc)
+        initClustersForDay(newClusters)
       }       
       
       //Refresh the data - REMOVED Redundant fetch
@@ -1167,7 +1206,7 @@ useEffect(() => {
           <DialogTitle>Assign Clusters</DialogTitle>
           <DialogContent>
             <ManualAssign
-              onGenerateClusters={generateClusters}
+              manualAssign={manualAssign}
               allDeliveries = {visibleRows}
               onClose={resetSelections}
             />
