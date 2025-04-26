@@ -38,6 +38,7 @@ import "./Profile.css";
 import BasicInfoForm from "./components/BasicInfoForm";
 import DeliveryInfoForm from "./components/DeliveryInfoForm";
 import DietaryPreferencesForm from "./components/DietaryPreferencesForm";
+import DeliveryLog from "./components/DeliveryLog";
 import FormField from "./components/FormField";
 import MiscellaneousForm from "./components/MiscellaneousForm";
 import ProfileHeader from "./components/ProfileHeader";
@@ -681,8 +682,8 @@ const Profile = () => {
         ward: fetchedWard, // Use the freshly fetched ward
         // Ensure referralEntity is included based on selectedCaseWorker
         referralEntity: selectedCaseWorker
-         ? { id: selectedCaseWorker.id, name: selectedCaseWorker.name, organization: selectedCaseWorker.organization }
-         : null, // Use null if no case worker is selected
+          ? { id: selectedCaseWorker.id, name: selectedCaseWorker.name, organization: selectedCaseWorker.organization }
+          : null, // Use null if no case worker is selected
       };
 
       // Sort allTags before potentially saving them (ensures consistent order)
@@ -722,9 +723,9 @@ const Profile = () => {
       } else {
         // Update existing profile
         if (!clientProfile.uid) {
-           console.error("Cannot update profile: UID is missing.");
-           alert("Error: Cannot update profile, client ID is missing.");
-           throw new Error("Client UID is missing for update.");
+          console.error("Cannot update profile: UID is missing.");
+          alert("Error: Cannot update profile, client ID is missing.");
+          throw new Error("Client UID is missing for update.");
         }
         console.log("Updating profile:", clientProfile.uid, updatedProfile);
         await setDoc(doc(db, "clients", clientProfile.uid), updatedProfile, { merge: true }); // Use merge: true for updates
@@ -796,12 +797,12 @@ const Profile = () => {
     const value = fieldPath.includes(".")
       ? getNestedValue(clientProfile, fieldPath)
       : clientProfile[fieldPath as keyof ClientProfile];
-    
+
     // Determine if the field should be disabled
     const isDisabledField = ["city", "state", "zipCode", "quadrant", "ward", "total"].includes(fieldPath);
 
     return (
-      <Box sx={{ 
+      <Box sx={{
         transition: "all 0.2s ease",
         '&:hover': {
           transform: isEditing ? 'translateY(-2px)' : 'none',
@@ -915,7 +916,7 @@ const Profile = () => {
     }
 
     console.log("Initializing Google Places autocomplete...");
-    
+
     // Clean up previous instance if it exists
     if (autocompleteRef.current) {
       try {
@@ -941,7 +942,7 @@ const Profile = () => {
       const listener = autocompleteRef.current.addListener("place_changed", () => {
         const place = autocompleteRef.current?.getPlace();
         console.log("Place selected:", place);
-        
+
         if (!place || !place.address_components) {
           console.warn("No valid place selected or missing address components");
           return;
@@ -1045,7 +1046,7 @@ const Profile = () => {
       setTags(prevTags);
       setPrevTags(null);
     }
-    
+
     // Reset autocomplete instance when cancelling
     if (autocompleteRef.current) {
       try {
@@ -1114,16 +1115,16 @@ const Profile = () => {
       />
 
       {/* Adopt daniel-address2 structure: profile-main > centered-box */}
-      <Box 
-        className="profile-main" 
-        sx={{ 
+      <Box
+        className="profile-main"
+        sx={{
           py: 3,
           display: "flex",
           justifyContent: "center",
           backgroundColor: "#f8f9fa"
         }}
       >
-        <Box 
+        <Box
           className="centered-box"
           sx={{
             width: { xs: "95%", sm: "90%", md: "85%", lg: "75%" },
@@ -1135,12 +1136,12 @@ const Profile = () => {
         >
           {/* Basic Information Section */}
           <SectionBox mb={3}>
-            <Box 
-              className="box-header" 
-              display="flex" 
-              alignItems="center" 
-              sx={{ 
-                mb: 3, 
+            <Box
+              className="box-header"
+              display="flex"
+              alignItems="center"
+              sx={{
+                mb: 3,
                 pb: 1,
                 borderBottom: "1px solid rgba(0,0,0,0.1)",
                 justifyContent: "flex-start"
@@ -1159,7 +1160,7 @@ const Profile = () => {
                 >
                   <Tooltip title={isEditing ? "Cancel Editing" : "Edit All"}>
                     {isEditing ? (
-                      <span className="cancel-btn"> 
+                      <span className="cancel-btn">
                         <CloseIcon />
                       </span>
                     ) : (
@@ -1215,6 +1216,14 @@ const Profile = () => {
               fieldLabelStyles={fieldLabelStyles}
               dietaryRestrictions={clientProfile.deliveryDetails.dietaryRestrictions}
               renderField={renderField}
+            />
+          </SectionBox>
+
+          {/* Delivery Log Section */}
+          <SectionBox mb={3}>
+            <SectionTitle sx={{ textAlign: 'left', width: '100%' }}>Delivery Log</SectionTitle>
+            <DeliveryLog
+              fieldLabelStyles={fieldLabelStyles}
             />
           </SectionBox>
 
