@@ -97,10 +97,17 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = ({
           options={[{ id: '__modal__', name: 'Manage Drivers' }, ...drivers]}
           getOptionLabel={(option) => option.name}
           filterOptions={(options, state) => {
-            const filtered = options.filter((option) =>
-              option.name.toLowerCase().includes(state.inputValue.toLowerCase())
+            const specialOption = { id: '__modal__', name: 'Manage Drivers' };
+
+            // Filter out the special option from the rest
+            const filteredDrivers = drivers.filter((driver) =>
+              driver.name.toLowerCase().includes(state.inputValue.toLowerCase())
             );
-            return state.inputValue === '' ? filtered.slice(0, 7) : filtered;
+
+            // Limit total displayed items to 10, including the special option
+            const limitedDrivers = filteredDrivers.slice(0, 9); // 9 + 1 = 10 total
+
+            return [specialOption, ...limitedDrivers];
           }}
           value={
             newDelivery.assignedDriverId
