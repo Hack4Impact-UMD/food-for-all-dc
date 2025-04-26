@@ -545,6 +545,7 @@ const Profile = () => {
     }
   };
 
+  // validate profile function, returns error message
   const validateProfile = () => {
     const newErrors: { [key: string]: string } = {};
 
@@ -569,6 +570,9 @@ const Profile = () => {
     }
     if (!clientProfile.dob) {
       newErrors.dob = "Date of Birth is required";
+    }
+    if (!clientProfile.email?.trim()) {
+      newErrors.email = "Email is required";
     }
     if (!clientProfile.startDate?.trim()) {
       newErrors.startDate = "Start date is required";
@@ -616,7 +620,10 @@ const Profile = () => {
     }
 
     setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+
+    // returns newErrors object
+    return newErrors;
+
   };
 
   const checkIfNotesExists = (
@@ -644,10 +651,10 @@ const Profile = () => {
   };
 
   const handleSave = async () => {
-    if (!validateProfile()) {
-      console.log("Invalid Profile:", errors); // Log errors for debugging
-      // Build a message listing all missing/invalid fields
-      const errorFields = Object.entries(errors)
+    const validation = validateProfile();
+
+    if (Object.keys(validation).length > 0) {
+      const errorFields = Object.entries(validation)
         .map(([field, message]) => `- ${message}`)
         .join('\n');
       alert(`Please fix the following before saving:\n${errorFields}`);
