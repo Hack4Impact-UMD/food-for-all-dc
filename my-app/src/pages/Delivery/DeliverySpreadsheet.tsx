@@ -46,6 +46,7 @@ import AssignTimePopup from "./components/AssignTimePopup";
 import LoadingIndicator from "../../components/LoadingIndicator/LoadingIndicator";
 import Button from '../../components/common/Button';
 import Input from '../../components/common/Input';
+import { Driver } from '../../types/calendar-types';
 
 interface RowData {
   id: string;
@@ -75,12 +76,12 @@ interface RowData {
   };
 }
 
-interface Driver {
-  id: string;
-  name: string;
-  phone: string
-  email: string;
-}
+// interface Driver {
+//   id: string;
+//   name: string;
+//   phone: string
+//   email: string;
+// }
 
 
 // Define a type for fields that can either be computed or direct keys of RowData

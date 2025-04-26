@@ -22,15 +22,9 @@ import {
 import { Close, Add, Edit, Check, Delete } from "@mui/icons-material";
 import { doc, updateDoc, addDoc, deleteDoc, collection } from "firebase/firestore";
 import { db } from "../auth/firebaseConfig";
+import { Driver } from "../types/calendar-types";
 
 // Types
-interface Driver {
-  id: string;
-  name: string;
-  phone: string;
-  email: string;
-}
-
 interface ValidationErrors {
   name?: string;
   phone?: string;
@@ -121,24 +115,28 @@ const DriverManagementModal: React.FC<DriverManagementModalProps> = ({
 
   const validateDriverFields = (fields: {
     name: string;
-    phone: string;
-    email: string;
+    phone?: string;
+    email?: string;
   }): ValidationErrors => {
     const newErrors: ValidationErrors = {};
+
+    const name = fields.name ?? "";
+    const phone = fields.phone ?? "";
+    const email = fields.email ?? "";
 
     if (!fields.name.trim()) {
       newErrors.name = "Name is required";
     }
 
-    if (!fields.phone.trim()) {
+    if (!phone.trim()) {
       newErrors.phone = "Phone number is required";
-    } else if (!validatePhone(fields.phone)) {
+    } else if (!validatePhone(phone)) {
       newErrors.phone = "Invalid phone number format";
     }
 
-    if (!fields.email.trim()) {
+    if (!email.trim()) {
       newErrors.email = "Email is required";
-    } else if (!validateEmail(fields.email)) {
+    } else if (!validateEmail(email)) {
       newErrors.email = "Invalid email format";
     }
 
