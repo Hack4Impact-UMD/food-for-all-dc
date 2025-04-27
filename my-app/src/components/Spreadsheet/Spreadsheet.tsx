@@ -28,6 +28,11 @@ import {
   Stack,
   Chip,
   Divider,
+  Dialog,
+  DialogActions,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
 } from "@mui/material";
 import { onAuthStateChanged } from "firebase/auth";
 import { Filter, Search } from "lucide-react";
@@ -36,6 +41,7 @@ import { useNavigate } from "react-router-dom";
 import { auth } from "../../auth/firebaseConfig";
 import { useCustomColumns } from "../../hooks/useCustomColumns";
 import { ClientService } from "../../services";
+import { exportQueryResults, exportAllClients } from "./export";
 import "./Spreadsheet.css";
 
 // Define TypeScript types for row data
@@ -77,29 +83,29 @@ interface CustomColumn {
 // Define a type for fields that can either be computed or direct keys of RowData
 type Field =
   | {
-      key: "fullname";
-      label: "Name";
-      type: "text";
-      compute: (data: RowData) => string;
-    }
+    key: "fullname";
+    label: "Name";
+    type: "text";
+    compute: (data: RowData) => string;
+  }
   | {
-      key: keyof Omit<RowData, "id" | "firstName" | "lastName" | "deliveryDetails" | "uid" | "clientid">;
-      label: string;
-      type: string;
-      compute?: never;
-    }
+    key: keyof Omit<RowData, "id" | "firstName" | "lastName" | "deliveryDetails" | "uid" | "clientid">;
+    label: string;
+    type: string;
+    compute?: never;
+  }
   | {
-      key: "deliveryDetails.dietaryRestrictions";
-      label: string;
-      type: string;
-      compute: (data: RowData) => string;
-    }
+    key: "deliveryDetails.dietaryRestrictions";
+    label: string;
+    type: string;
+    compute: (data: RowData) => string;
+  }
   | {
-      key: "deliveryDetails.deliveryInstructions";
-      label: string;
-      type: string;
-      compute: (data: RowData) => string;
-    };
+    key: "deliveryDetails.deliveryInstructions";
+    label: string;
+    type: string;
+    compute: (data: RowData) => string;
+  };
 
 // Type Guard to check if a field is a regular field
 const isRegularField = (field: Field): field is Extract<Field, { key: keyof RowData }> => {
@@ -114,6 +120,9 @@ const Spreadsheet: React.FC = () => {
   const [menuAnchorEl, setMenuAnchorEl] = useState<null | HTMLElement>(null);
   const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
+  const [exportDialogOpen, setExportDialogOpen] = useState(false);
+  const [exportOption, setExportOption] = useState<"QueryResults" | "AllClients" | null>(null);
+
 
   const navigate = useNavigate();
 
@@ -125,6 +134,8 @@ const Spreadsheet: React.FC = () => {
     handleRemoveCustomColumn,
     handleCustomColumnChange,
   } = useCustomColumns();
+
+
   // const [customColumns, setCustomColumns] = useState<CustomColumn[]>([]);
   // const handleAddCustomColumn = () => {
   //   const newColumnId = `custom-${Date.now()}`; // unique ID generation
@@ -349,6 +360,33 @@ const Spreadsheet: React.FC = () => {
     setSelectedRowId(null);
   };
 
+  // Handle exporting data
+  const handleExportClick = () => {
+    setExportDialogOpen(true);
+  };
+
+  // Display only the rows that match the search query
+  const filteredRows = rows.filter((row) =>
+    `${row.firstName} ${row.lastName}`.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const handleExportOptionSelect = (option: "QueryResults" | "AllClients") => {
+    setExportOption(option);
+    setExportDialogOpen(false);
+
+    if (option === "QueryResults") {
+      exportQueryResults(filteredRows);
+    } else if (option === "AllClients") {
+      exportAllClients(rows);
+    }
+  };
+
+  const handleCancel = () => {
+    setExportDialogOpen(false);
+    setExportOption(null);
+  };
+
+
   // Handle toggling sort order for the Name column
   const toggleSortOrder = () => {
     const sortedRows = [...rows].sort((a, b) => {
@@ -398,10 +436,56 @@ const Spreadsheet: React.FC = () => {
       quotedQueries.length === 0
         ? true
         : quotedQueries.every((query) => {
-            const matchesStaticField = fields.some((field) => {
-              let fieldValue;
+          const matchesStaticField = fields.some((field) => {
+            let fieldValue;
 
-              const strippedQuery = query.slice(1, -1).trim().toLowerCase();
+            const strippedQuery = query.slice(1, -1).trim().toLowerCase();
+
+            if (field.compute) {
+              fieldValue = field.compute(row);
+            } else {
+              fieldValue = row[field.key as keyof RowData];
+            }
+
+            return (
+              fieldValue != null &&
+              fieldValue.toString().toLowerCase() === strippedQuery.toLowerCase()
+            );
+          });
+
+          // Check all custom columns
+          const matchesCustomColumn = customColumns.some((col) => {
+            const strippedQuery = query.slice(1, -1).trim().toLowerCase();
+
+            if (col.propertyKey !== "none") {
+              const fieldValue = row[col.propertyKey as keyof RowData];
+              return (
+                fieldValue != null &&
+                fieldValue.toString().toLowerCase() === strippedQuery.toLowerCase()
+              );
+            }
+            return false;
+          });
+
+          // For this query, return true if it matched any field
+          return matchesStaticField || matchesCustomColumn;
+        });
+
+    if (containsQuotedQueries) {
+      const containsRegularQuery =
+        nonQuotedQueries.length === 0
+          ? true
+          : nonQuotedQueries.some((query) => {
+            const strippedQuery = query.startsWith('"')
+              ? query.slice(1).trim().toLowerCase()
+              : query.trim().toLowerCase();
+
+            if (strippedQuery.length === 0) {
+              return true;
+            }
+
+            const matchesStaticField = fields.some((field) => {
+              let fieldValue: any;
 
               if (field.compute) {
                 fieldValue = field.compute(row);
@@ -409,72 +493,26 @@ const Spreadsheet: React.FC = () => {
                 fieldValue = row[field.key as keyof RowData];
               }
 
-              return (
-                fieldValue != null &&
-                fieldValue.toString().toLowerCase() === strippedQuery.toLowerCase()
-              );
+              if (fieldValue == null) return false;
+
+              const value = fieldValue.toString().toLowerCase();
+              return value.includes(strippedQuery);
             });
 
-            // Check all custom columns
             const matchesCustomColumn = customColumns.some((col) => {
-              const strippedQuery = query.slice(1, -1).trim().toLowerCase();
-
               if (col.propertyKey !== "none") {
                 const fieldValue = row[col.propertyKey as keyof RowData];
+
                 return (
                   fieldValue != null &&
-                  fieldValue.toString().toLowerCase() === strippedQuery.toLowerCase()
+                  fieldValue.toString().toLowerCase().includes(strippedQuery.toLowerCase())
                 );
               }
               return false;
             });
 
-            // For this query, return true if it matched any field
             return matchesStaticField || matchesCustomColumn;
           });
-
-    if (containsQuotedQueries) {
-      const containsRegularQuery =
-        nonQuotedQueries.length === 0
-          ? true
-          : nonQuotedQueries.some((query) => {
-              const strippedQuery = query.startsWith('"')
-                ? query.slice(1).trim().toLowerCase()
-                : query.trim().toLowerCase();
-
-              if (strippedQuery.length === 0) {
-                return true;
-              }
-
-              const matchesStaticField = fields.some((field) => {
-                let fieldValue: any;
-
-                if (field.compute) {
-                  fieldValue = field.compute(row);
-                } else {
-                  fieldValue = row[field.key as keyof RowData];
-                }
-
-                if (fieldValue == null) return false;
-
-                const value = fieldValue.toString().toLowerCase();
-                return value.includes(strippedQuery);
-              });
-
-              const matchesCustomColumn = customColumns.some((col) => {
-                if (col.propertyKey !== "none") {
-                  const fieldValue = row[col.propertyKey as keyof RowData];
-
-                  return (
-                    fieldValue != null &&
-                    fieldValue.toString().toLowerCase().includes(strippedQuery.toLowerCase())
-                  );
-                }
-                return false;
-              });
-
-              return matchesStaticField || matchesCustomColumn;
-            });
 
       return containsRegularQuery;
     } else {
@@ -550,12 +588,12 @@ const Spreadsheet: React.FC = () => {
               }}
             />
           </Box>
-          <Stack 
-            direction={{ xs: 'column', sm: 'row' }} 
-            spacing={2} 
-            justifyContent="space-between"
+          <Stack
+            direction={{ xs: 'column', sm: 'row' }}
+            spacing={2}
+
             alignItems={{ xs: 'stretch', sm: 'center' }}
-            sx={{ '& .MuiButton-root': { height: { sm: '36px' } } }} 
+            sx={{ '& .MuiButton-root': { height: { sm: '36px' } } }}
           >
             <Button
               variant="contained"
@@ -582,33 +620,90 @@ const Spreadsheet: React.FC = () => {
             >
               View All
             </Button>
+            {/* Export Button */}
             <Button
               variant="contained"
               color="primary"
-              onClick={addClient}
-              className="create-client"
+              onClick={handleExportClick}
               sx={{
-                backgroundColor: "#2E5B4C",
                 borderRadius: "25px",
                 px: 2,
                 py: 0.5,
-                minWidth: { xs: '100%', sm: '140px' },
-                maxWidth: { sm: '160px' },
+                minWidth: { xs: '100%', sm: '100px' },
+                maxWidth: { sm: '120px' },
                 textTransform: "none",
                 fontSize: "0.875rem",
                 lineHeight: 1.5,
                 boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
                 transition: "all 0.2s ease",
                 "&:hover": {
-                  backgroundColor: "#234839",
                   transform: "translateY(-2px)",
                   boxShadow: "0 4px 8px rgba(0,0,0,0.1)",
                 },
-                alignSelf: { xs: 'stretch', sm: 'flex-end' }
+                alignSelf: { xs: 'stretch', sm: 'flex-start' }
               }}
+
             >
-              + Create Client
+              Export
             </Button>
+
+            <Dialog open={exportDialogOpen} onClose={handleCancel} maxWidth="xs" fullWidth>
+              <DialogTitle>Export Options</DialogTitle>
+              <DialogContent>
+                <Box sx={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    onClick={() => handleExportOptionSelect("QueryResults")}
+                  >
+                    Export Results from the Query
+                  </Button>
+                  <Button
+                    variant="contained"
+                    color="secondary"
+                    onClick={() => handleExportOptionSelect("AllClients")}
+                  >
+                    Export All Clients
+                  </Button>
+                </Box>
+              </DialogContent>
+              <DialogActions>
+                <Button onClick={handleCancel} color="error">
+                  Cancel
+                </Button>
+              </DialogActions>
+            </Dialog>
+
+
+            <Box sx={{ flexGrow: 1, display: "flex", justifyContent: "flex-end" }}>
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={addClient}
+                className="create-client"
+                sx={{
+                  backgroundColor: "#2E5B4C",
+                  borderRadius: "25px",
+                  px: 2,
+                  py: 0.5,
+                  minWidth: { xs: '100%', sm: '140px' },
+                  maxWidth: { sm: '160px' },
+                  textTransform: "none",
+                  fontSize: "0.875rem",
+                  lineHeight: 1.5,
+                  boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+                  transition: "all 0.2s ease",
+                  "&:hover": {
+                    backgroundColor: "#234839",
+                    transform: "translateY(-2px)",
+                    boxShadow: "0 4px 8px rgba(0,0,0,0.1)",
+                  },
+                  alignSelf: { xs: 'stretch', sm: 'flex-end' }
+                }}
+              >
+                + Create Client
+              </Button>
+            </Box>
           </Stack>
         </Stack>
       </Box>
@@ -627,10 +722,10 @@ const Spreadsheet: React.FC = () => {
         {isMobile ? (
           <Stack spacing={2} sx={{ overflowY: "auto", width: "100%" }}>
             {visibleRows.map((row) => (
-              <Card 
-                key={row.id} 
-                sx={{ 
-                  p: 2, 
+              <Card
+                key={row.id}
+                sx={{
+                  p: 2,
                   boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
                   borderRadius: "12px",
                   transition: "transform 0.2s ease",
@@ -645,8 +740,8 @@ const Spreadsheet: React.FC = () => {
                   <Typography variant="h6" sx={{ fontWeight: 600, color: "#2E5B4C" }}>
                     {row.lastName}, {row.firstName}
                   </Typography>
-                  <IconButton 
-                    size="small" 
+                  <IconButton
+                    size="small"
                     onClick={(e) => {
                       e.stopPropagation();
                       handleMenuOpen(e, row.uid);
@@ -672,15 +767,15 @@ const Spreadsheet: React.FC = () => {
                     <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ mt: 0.5 }}>
                       {fields.find(f => f.key === "deliveryDetails.dietaryRestrictions")?.compute?.(row)?.split(", ").map((restriction, i) => (
                         restriction !== "None" && (
-                          <Chip 
-                            key={i} 
-                            label={restriction} 
-                            size="small" 
-                            sx={{ 
-                              backgroundColor: "#e8f5e9", 
+                          <Chip
+                            key={i}
+                            label={restriction}
+                            size="small"
+                            sx={{
+                              backgroundColor: "#e8f5e9",
                               color: "#2E5B4C",
-                              mb: 0.5 
-                            }} 
+                              mb: 0.5
+                            }}
                           />
                         )
                       )) || <Typography variant="body2">None</Typography>}
@@ -712,7 +807,7 @@ const Spreadsheet: React.FC = () => {
                 sx: { borderRadius: "8px", minWidth: "150px" }
               }}
             >
-              <MenuItem 
+              <MenuItem
                 onClick={() => {
                   if (selectedRowId) handleEditRow(selectedRowId);
                   handleMenuClose();
@@ -721,7 +816,7 @@ const Spreadsheet: React.FC = () => {
               >
                 <EditIcon fontSize="small" sx={{ mr: 1 }} /> Edit
               </MenuItem>
-              <MenuItem 
+              <MenuItem
                 onClick={() => {
                   if (selectedRowId) handleDeleteRow(selectedRowId);
                   handleMenuClose();
@@ -734,10 +829,10 @@ const Spreadsheet: React.FC = () => {
           </Stack>
         ) : (
           /* Table View for Larger Screens */
-          <TableContainer 
-            component={Paper} 
-            sx={{ 
-              maxHeight: "none", 
+          <TableContainer
+            component={Paper}
+            sx={{
+              maxHeight: "none",
               overflowY: "auto",
               boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
               borderRadius: "12px",
@@ -748,19 +843,19 @@ const Spreadsheet: React.FC = () => {
                 <TableRow>
                   {/* Static columns */}
                   {fields.map((field) => (
-                    <TableCell 
-                      className="table-header" 
-                      key={field.key} 
+                    <TableCell
+                      className="table-header"
+                      key={field.key}
                       sx={{
                         backgroundColor: "#f5f9f7",
                         borderBottom: "2px solid #e0e0e0",
                       }}
                     >
-                      <Stack 
-                        direction="row" 
-                        alignItems="center" 
+                      <Stack
+                        direction="row"
+                        alignItems="center"
                         spacing={0.5}
-                        sx={{ 
+                        sx={{
                           cursor: field.key === "fullname" ? "pointer" : "default",
                         }}
                         onClick={field.key === "fullname" ? toggleSortOrder : undefined}
@@ -777,8 +872,8 @@ const Spreadsheet: React.FC = () => {
 
                   {/*  Headers for custom columns */}
                   {customColumns.map((col) => (
-                    <TableCell 
-                      className="table-header" 
+                    <TableCell
+                      className="table-header"
                       key={col.id}
                       sx={{
                         backgroundColor: "#f5f9f7",
@@ -792,8 +887,8 @@ const Spreadsheet: React.FC = () => {
                           variant="outlined"
                           displayEmpty
                           size="small"
-                          sx={{ 
-                            minWidth: 120, 
+                          sx={{
+                            minWidth: 120,
                             color: "#257e68",
                             "& .MuiOutlinedInput-notchedOutline": {
                               borderColor: "#bfdfd4",
@@ -803,19 +898,19 @@ const Spreadsheet: React.FC = () => {
                             },
                           }}
                         >
-                        <MenuItem value="none">None</MenuItem>
-                        <MenuItem value="adults">Adults</MenuItem>
-                        <MenuItem value="children">Children</MenuItem>
-                        <MenuItem value="deliveryFreq">Delivery Freq</MenuItem>
-                        <MenuItem value="ethnicity">Ethnicity</MenuItem>
-                        <MenuItem value="gender">Gender</MenuItem>
-                        <MenuItem value="language">Language</MenuItem>
-                        <MenuItem value="notes">Notes</MenuItem>
-                        <MenuItem value="referralEntity">Referral Entity</MenuItem>
-                        <MenuItem value="tefapCert">TEFAP Cert</MenuItem>
-                        <MenuItem value="tags">Tags</MenuItem>
-                        <MenuItem value="dob">DOB</MenuItem>
-                        <MenuItem value="ward">Ward</MenuItem>
+                          <MenuItem value="none">None</MenuItem>
+                          <MenuItem value="adults">Adults</MenuItem>
+                          <MenuItem value="children">Children</MenuItem>
+                          <MenuItem value="deliveryFreq">Delivery Freq</MenuItem>
+                          <MenuItem value="ethnicity">Ethnicity</MenuItem>
+                          <MenuItem value="gender">Gender</MenuItem>
+                          <MenuItem value="language">Language</MenuItem>
+                          <MenuItem value="notes">Notes</MenuItem>
+                          <MenuItem value="referralEntity">Referral Entity</MenuItem>
+                          <MenuItem value="tefapCert">TEFAP Cert</MenuItem>
+                          <MenuItem value="tags">Tags</MenuItem>
+                          <MenuItem value="dob">DOB</MenuItem>
+                          <MenuItem value="ward">Ward</MenuItem>
                         </Select>
                         {/*Add Remove Button*/}
                         <IconButton
@@ -837,8 +932,8 @@ const Spreadsheet: React.FC = () => {
                   ))}
 
                   {/* Add button cell */}
-                  <TableCell 
-                    className="table-header" 
+                  <TableCell
+                    className="table-header"
                     align="right"
                     sx={{
                       backgroundColor: "#f5f9f7",
@@ -962,15 +1057,15 @@ const Spreadsheet: React.FC = () => {
                             <Stack direction="row" spacing={0.5} flexWrap="wrap">
                               {field.compute?.(row)?.split(", ").map((restriction, i) => (
                                 restriction !== "None" && (
-                                  <Chip 
-                                    key={i} 
-                                    label={restriction} 
-                                    size="small" 
-                                    sx={{ 
-                                      backgroundColor: "#e8f5e9", 
+                                  <Chip
+                                    key={i}
+                                    label={restriction}
+                                    size="small"
+                                    sx={{
+                                      backgroundColor: "#e8f5e9",
                                       color: "#2E5B4C",
-                                      mb: 0.5 
-                                    }} 
+                                      mb: 0.5
+                                    }}
                                   />
                                 )
                               )) || null}
@@ -1005,12 +1100,12 @@ const Spreadsheet: React.FC = () => {
                           ) : (
                             "N/A"
                           )
-                        ) : 
-                        col.propertyKey !== "none" ? (
-                          (row[col.propertyKey as keyof RowData]?.toString() ?? "N/A")
-                        ) : (
-                          "N/A"
-                        )}
+                        ) :
+                          col.propertyKey !== "none" ? (
+                            (row[col.propertyKey as keyof RowData]?.toString() ?? "N/A")
+                          ) : (
+                            "N/A"
+                          )}
                       </TableCell>
                     ))}
 
@@ -1034,7 +1129,7 @@ const Spreadsheet: React.FC = () => {
                           Save
                         </Button>
                       ) : (
-                        <IconButton 
+                        <IconButton
                           onClick={(e) => {
                             e.stopPropagation();
                             handleMenuOpen(e, row.uid);
@@ -1059,7 +1154,7 @@ const Spreadsheet: React.FC = () => {
                           sx: { borderRadius: "8px", minWidth: "150px" }
                         }}
                       >
-                        <MenuItem 
+                        <MenuItem
                           onClick={() => {
                             handleEditRow(row.uid);
                             handleMenuClose();
@@ -1068,7 +1163,7 @@ const Spreadsheet: React.FC = () => {
                         >
                           <EditIcon fontSize="small" sx={{ mr: 1 }} /> Edit
                         </MenuItem>
-                        <MenuItem 
+                        <MenuItem
                           onClick={() => {
                             handleDeleteRow(row.uid);
                             handleMenuClose();
