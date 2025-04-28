@@ -68,7 +68,7 @@ class DeliveryService {
         where("deliveryDate", ">=", startDate),
         where("deliveryDate", "<", endDate)
       );
-      
+
       const querySnapshot = await getDocs(q);
       return querySnapshot.docs.map((doc) => {
         const data = doc.data();
@@ -132,7 +132,7 @@ class DeliveryService {
         collection(this.db, this.eventsCollection),
         where("clientId", "==", clientId)
       );
-      
+
       const querySnapshot = await getDocs(q);
       return querySnapshot.docs.map((doc) => {
         const data = doc.data();
@@ -149,6 +149,37 @@ class DeliveryService {
   }
 
   /**
+  * Get the previous 5 and future 5 deliveries for a client
+  * @param clientId The ID of the client
+  * @returns Object containing past and future deliveries
+  */
+  public async getClientDeliveryHistory(clientId: string): Promise<{
+    pastDeliveries: DeliveryEvent[];
+    futureDeliveries: DeliveryEvent[];
+  }> {
+    try {
+      const now = new Date();
+      // Get all deliveries for the client
+      const allEvents = await this.getEventsByClientId(clientId);
+      // Sort by date (oldest to newest)
+      const sortedEvents = allEvents.sort((a, b) =>
+        a.deliveryDate.getTime() - b.deliveryDate.getTime()
+      );
+      // Split into past and future deliveries
+      const pastDeliveries = sortedEvents
+        .filter(event => event.deliveryDate < now)
+        .slice(-5); // Get the 5 most recent past deliveries
+      const futureDeliveries = sortedEvents
+        .filter(event => event.deliveryDate >= now)
+        .slice(0, 5); // Get the next 5 upcoming deliveries
+      return { pastDeliveries, futureDeliveries };
+    } catch (error) {
+      console.error("Error fetching client delivery history:", error);
+      throw error;
+    }
+  }
+
+  /**
    * Get events by recurrence ID
    */
   public async getEventsByRecurrence(recurrenceId: string): Promise<DeliveryEvent[]> {
@@ -157,7 +188,7 @@ class DeliveryService {
         collection(this.db, this.eventsCollection),
         where("recurrence", "==", recurrenceId)
       );
-      
+
       const querySnapshot = await getDocs(q);
       return querySnapshot.docs.map((doc) => {
         const data = doc.data();
@@ -217,11 +248,11 @@ class DeliveryService {
     try {
       const docRef = doc(this.db, this.limitsCollection, this.limitsDocId);
       const docSnapshot = await getDoc(docRef);
-      
+
       if (docSnapshot.exists()) {
         return docSnapshot.data() as Record<string, number>;
       }
-      
+
       // Default values if doc doesn't exist
       const defaultLimits = {
         sunday: 60,
@@ -232,7 +263,7 @@ class DeliveryService {
         friday: 90,
         saturday: 60,
       };
-      
+
       await setDoc(docRef, defaultLimits);
       return defaultLimits;
     } catch (error) {

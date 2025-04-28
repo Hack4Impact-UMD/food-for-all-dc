@@ -33,12 +33,13 @@ import { useNavigate, useParams } from "react-router-dom";
 import { auth, db } from "../../auth/firebaseConfig";
 import CaseWorkerManagementModal from "../../components/CaseWorkerManagementModal";
 import "./Profile.css";
+import { DeliveryService } from "../../services";
 
 // Import new components from HEAD
 import BasicInfoForm from "./components/BasicInfoForm";
 import DeliveryInfoForm from "./components/DeliveryInfoForm";
 import DietaryPreferencesForm from "./components/DietaryPreferencesForm";
-import DeliveryLog from "./components/DeliveryLog";
+import DeliveryLogForm from "./components/DeliveryLogForm";
 import FormField from "./components/FormField";
 import MiscellaneousForm from "./components/MiscellaneousForm";
 import ProfileHeader from "./components/ProfileHeader";
@@ -49,6 +50,7 @@ import TagManager from "./Tags/TagManager";
 // Import types
 import { CaseWorker, ClientProfile } from "../../types";
 import { ClientProfileKey, InputType } from "./types";
+import { DeliveryEvent } from "../../types";
 
 // Styling
 const fieldStyles = {
@@ -235,6 +237,8 @@ const Profile = () => {
   const [showCaseWorkerModal, setShowCaseWorkerModal] = useState(false);
   const [caseWorkers, setCaseWorkers] = useState<CaseWorker[]>([]);
   const [selectedCaseWorker, setSelectedCaseWorker] = useState<CaseWorker | null>(null);
+  const [pastDeliveries, setPastDeliveries] = useState<DeliveryEvent[]>([]);
+  const [futureDeliveries, setFutureDeliveries] = useState<DeliveryEvent[]>([]);
 
   // Function to fetch profile data by ID
   const getProfileById = async (id: string) => {
@@ -377,6 +381,21 @@ const Profile = () => {
 
     fetchCaseWorkers();
   }, [clientProfile.referralEntity?.id, profileLoaded]);
+
+  useEffect(() => {
+    const fetchDeliveryHistory = async () => {
+      const deliveryService = DeliveryService.getInstance();
+      try {
+        const { pastDeliveries, futureDeliveries } = await deliveryService.getClientDeliveryHistory(clientId!);
+        setPastDeliveries(pastDeliveries);
+        setFutureDeliveries(futureDeliveries);
+      } catch (error) {
+        console.error("Failed to fetch delivery history", error);
+      }
+    };
+
+    fetchDeliveryHistory();
+  }, [clientId]);
 
   const calculateAge = (dob: Date) => {
     const diff = Date.now() - dob.getTime();
@@ -1222,7 +1241,9 @@ const Profile = () => {
           {/* Delivery Log Section */}
           <SectionBox mb={3}>
             <SectionTitle sx={{ textAlign: 'left', width: '100%' }}>Delivery Log</SectionTitle>
-            <DeliveryLog
+            <DeliveryLogForm
+              pastDeliveries={pastDeliveries}
+              futureDeliveries={futureDeliveries}
               fieldLabelStyles={fieldLabelStyles}
             />
           </SectionBox>
