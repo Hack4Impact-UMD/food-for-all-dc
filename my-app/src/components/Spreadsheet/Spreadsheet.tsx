@@ -388,48 +388,67 @@ const Spreadsheet: React.FC = () => {
   };
 
   const visibleRows = rows.filter((row) => {
-    const keywordRegex = /(\w+):\s*("[^"]+"|\S+)/g; // Matches key: "value" or key: value
-    const matches = [...searchQuery.matchAll(keywordRegex)];
+  const keywordRegex = /(\w+)(?:\s+\w+)*:\s*("[^"]+"|\S+)/g; // Updated regex to handle multi-word keys
+  const matches = [...searchQuery.matchAll(keywordRegex)];
   
-    if (matches.length > 0) {
-      // For keyword queries, check that each provided value is a substring of the corresponding field
-      return matches.every(([_, key, value]) => {
-        const strippedValue = value.replace(/"/g, "").toLowerCase(); // Remove quotes and lowercase
-        
-        // Check static fields with a substring match
-        const matchesStaticField = fields.some((field) => {
-          const fieldValue = field.compute ? field.compute(row) : row[field.key as keyof RowData];
-          return (
-            fieldValue != null &&
-            fieldValue.toString().toLowerCase().includes(strippedValue)
-          );
-        });
-    
-        // Check custom columns with a substring match
-        const matchesCustomColumn = customColumns.some((col) => {
-          if (col.propertyKey !== "none") {
-            const fieldValue = row[col.propertyKey as keyof RowData];
-            return (
-              fieldValue != null &&
-              fieldValue.toString().toLowerCase().includes(strippedValue)
-            );
-          }
-          return false;
-        });
-    
-        return matchesStaticField || matchesCustomColumn;
-      });
-    } else {
-      // Fallback to general search logic
-      const eachQuery = searchQuery.match(/"[^"]+"|\S+/g) || [];
+  if (matches.length > 0) {
+    // For keyword queries, check each key-value pair
+    return matches.every(([_, key, value]) => {
+      const strippedValue = value.replace(/"/g, "").toLowerCase();
+      const searchKey = key.toLowerCase();
       
+      // List of numeric fields that should be exactly matched
+      const numericFields = ['adults', 'children', 'seniors', 'total'];
+      
+      // Handle special case for dietary restrictions - check both forms of the key
+      if (searchKey === 'dietary' || searchKey === 'dietary restrictions') {
+        const dietaryField = fields.find(f => f.key === 'deliveryDetails.dietaryRestrictions');
+        if (dietaryField?.compute) {
+          const restrictions = dietaryField.compute(row).toLowerCase();
+          return restrictions.includes(strippedValue);
+        }
+        return false;
+      }
+      
+      // Check if we're searching for a numeric field
+      if (numericFields.includes(searchKey)) {
+        const numValue = parseInt(strippedValue);
+        const fieldValue = row[searchKey as keyof RowData];
+        return fieldValue === numValue;
+      }
+
+      // For non-numeric fields, check static fields with substring match
+      const matchesStaticField = fields.some((field) => {
+        if (field.key.toLowerCase() === searchKey) {
+          const fieldValue = field.compute ? field.compute(row) : row[field.key as keyof RowData];
+          return fieldValue != null && fieldValue.toString().toLowerCase().includes(strippedValue);
+        }
+        return false;
+      });
+
+      // Check custom columns that match the search key
+      const matchesCustomColumn = customColumns.some((col) => {
+        if (col.propertyKey.toLowerCase() === searchKey) {
+          const fieldValue = row[col.propertyKey as keyof RowData];
+          return fieldValue != null && fieldValue.toString().toLowerCase().includes(strippedValue);
+        }
+        return false;
+      });
+
+      return matchesStaticField || matchesCustomColumn;
+    });
+       
+    } else {
+      // Fallback to general search logic for non-keyword queries
+      const eachQuery = searchQuery.match(/"[^"]+"|\S+/g) || [];
+  
       const quotedQueries = eachQuery.filter(s => s.startsWith('"') && s.endsWith('"') && s.length > 1) || [];
       const nonQuotedQueries = eachQuery.filter(s => s.length === 1 || !s.endsWith('"')) || [];
-    
+  
       const containsQuotedQueries = quotedQueries.length === 0
         ? true
         : quotedQueries.every((query) => {
-            // Use substring matching instead of exact equality
+            // Use substring matching instead of exact equality (convert to string)
             const strippedQuery = query.slice(1, -1).trim().toLowerCase();
             const matchesStaticField = fields.some((field) => {
               const fieldValue = field.compute ? field.compute(row) : row[field.key as keyof RowData];
@@ -450,7 +469,7 @@ const Spreadsheet: React.FC = () => {
             });
             return matchesStaticField || matchesCustomColumn;
           });
-    
+  
       if (containsQuotedQueries) {
         const containsRegularQuery = nonQuotedQueries.length === 0
           ? true
@@ -463,16 +482,12 @@ const Spreadsheet: React.FC = () => {
               }
               const matchesStaticField = fields.some((field) => {
                 const fieldValue = field.compute ? field.compute(row) : row[field.key as keyof RowData];
-                if (fieldValue == null) return false;
-                return fieldValue.toString().toLowerCase().includes(strippedQuery);
+                return fieldValue != null && fieldValue.toString().toLowerCase().includes(strippedQuery);
               });
               const matchesCustomColumn = customColumns.some((col) => {
                 if (col.propertyKey !== "none") {
                   const fieldValue = row[col.propertyKey as keyof RowData];
-                  return (
-                    fieldValue != null &&
-                    fieldValue.toString().toLowerCase().includes(strippedQuery)
-                  );
+                  return fieldValue != null && fieldValue.toString().toLowerCase().includes(strippedQuery);
                 }
                 return false;
               });
