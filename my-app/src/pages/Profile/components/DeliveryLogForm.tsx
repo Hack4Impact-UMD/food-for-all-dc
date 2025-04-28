@@ -45,7 +45,7 @@ const DeliveryLogForm: React.FC<DeliveryLogProps> = ({
                             futureDeliveries.map((delivery, index) => (
                                 <Chip
                                     key={index}
-                                    label={formatDate(new Date(delivery.deliveryDate))}
+                                    label={formatDate(delivery.deliveryDate)}
                                     variant="outlined"
                                     color="primary"
                                 />
@@ -66,7 +66,7 @@ const DeliveryLogForm: React.FC<DeliveryLogProps> = ({
                             pastDeliveries.map((delivery, index) => (
                                 <Chip
                                     key={index}
-                                    label={formatDate(new Date(delivery.deliveryDate))}
+                                    label={formatDate(delivery.deliveryDate)}
                                     variant="outlined"
                                     color="secondary"
                                 />
