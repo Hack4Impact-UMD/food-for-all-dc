@@ -75,6 +75,7 @@ const DriverFormFields: React.FC<DriverFormProps> = ({ value, onChange, errors, 
             sx={{
               "& .MuiOutlinedInput-root": {
                 backgroundColor: "#fff",
+                padding: '0px 14px',
               },
             }}
           />
@@ -263,7 +264,7 @@ const DriverManagementModal: React.FC<DriverManagementModalProps> = ({
                 border: "1px solid rgba(37, 126, 104, 0.2)",
               }}
             >
-              <Typography variant="h6" sx={{ mb: 3, color: "#257E68", fontWeight: 500 }}>
+              <Typography variant="h6" sx={{ mb: 7, color: "#257E68", fontWeight: 500 }}>
                 Add New Driver
               </Typography>
               <DriverFormFields
