@@ -37,6 +37,10 @@ const DeleteClientModal = ({ handleMenuClose, handleDeleteRow, open, setOpen ,id
         onClose={handleCloseDeleteConfirm} // Close if clicking outside
         aria-labelledby="delete-confirm-dialog-title"
         aria-describedby="delete-confirm-dialog-description"
+      
+        BackdropProps={{sx:{backgroundColor: 'rgba(0, 0, 0, 0.07)',
+          
+        }}}
       >
         <DialogTitle id="delete-confirm-dialog-title">
           Confirm Deletion
