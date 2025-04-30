@@ -67,22 +67,12 @@ const DeleteClientModal = ({ handleMenuClose, handleDeleteRow, open, setOpen ,id
       <Dialog
         open={open}
         onClose={handleCloseDeleteConfirm} // Close if clicking outside
-        
-        slotProps={{
-          backdrop: {
-            style: { backgroundColor: "rgba(0, 0, 0, 0.02)" }
-          }
-        }}
-        sx={{
-          '& .MuiDialog-paper': {
-            boxShadow: 'none !important',
-            overflow: 'visible',
-            background: 'white',
-            borderTop: '1px solid rgba(0, 0, 0, 0.12)',
-            borderRadius: '8px'
-          }
-        }}
+        aria-labelledby="delete-confirm-dialog-title"
+        aria-describedby="delete-confirm-dialog-description"
       
+        BackdropProps={{sx:{backgroundColor: 'rgba(0, 0, 0, 0.07)',
+          
+        }}}
       >
         <DialogTitle id="delete-confirm-dialog-title">
           Confirm Deletion
