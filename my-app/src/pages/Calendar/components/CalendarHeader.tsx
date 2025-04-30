@@ -1,11 +1,13 @@
-import React from "react";
-import { Box, Button, Typography, IconButton, Menu, MenuItem } from "@mui/material";
-import { Add, ChevronRight, EditCalendar } from "@mui/icons-material";
 import { DayPilot } from "@daypilot/daypilot-lite-react";
+import { Add, ChevronRight, EditCalendar } from "@mui/icons-material";
+import { Box, Button, IconButton, Menu, MenuItem, Typography } from "@mui/material";
+import React, { useCallback } from "react";
+import PageDatePicker from "../../../components/PageDatePicker/PageDatePicker";
 
 interface CalendarHeaderProps {
   viewType: "Day" | "Month";
   currentDate: DayPilot.Date;
+  setCurrentDate: (date: DayPilot.Date) => void;
   onViewTypeChange: (viewType: "Day" | "Month") => void;
   onNavigatePrev: () => void;
   onNavigateToday: () => void;
@@ -14,9 +16,14 @@ interface CalendarHeaderProps {
   onEditLimits?: (event: React.MouseEvent<HTMLElement>) => void;
 }
 
+function isDayPilotDate(x: any): x is DayPilot.Date {
+  return x && typeof x.getDayOfWeek === "function";
+}
+
 const CalendarHeader: React.FC<CalendarHeaderProps> = ({
   viewType,
   currentDate,
+  setCurrentDate,
   onViewTypeChange,
   onNavigatePrev,
   onNavigateToday,
@@ -25,8 +32,23 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
   onEditLimits,
 }) => {
   const [viewAnchorEl, setViewAnchorEl] = React.useState<null | HTMLElement>(null);
-  
+
   const daysOfWeek = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+  const handleDateSelect = useCallback(
+    (incoming: Date | DayPilot.Date) => {
+      let dpDate: DayPilot.Date;
+
+      if (isDayPilotDate(incoming)) {
+        dpDate = incoming;
+      } else {
+        dpDate = new DayPilot.Date(incoming, true);
+      }
+
+      setCurrentDate(dpDate);
+    },
+    [setCurrentDate]
+  );
 
   return (
     <Box
@@ -68,10 +90,10 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
             </MenuItem>
           ))}
         </Menu>
-        <Button
-          sx={{ width: 50, fontSize: 12, marginLeft: 4 }}
-          onClick={onNavigateToday}
-        >
+
+        <PageDatePicker setSelectedDate={handleDateSelect} />
+
+        <Button sx={{ width: 50, fontSize: 12, marginLeft: 4 }} onClick={onNavigateToday}>
           Today
         </Button>
       </Box>

@@ -1,7 +1,7 @@
-import React from 'react';
+import { Box, Button, IconButton, Typography } from "@mui/material";
 import { addDays, format } from "date-fns";
-import { Box, Typography, IconButton, Button } from "@mui/material";
-import DeliveryDatePicker from "../DeliveryDatePicker/DeliveryDatePicker";
+import React from "react";
+import PageDatePicker from "../../../components/PageDatePicker/PageDatePicker";
 
 interface DateHeaderProps {
   selectedDate: Date;
@@ -9,10 +9,10 @@ interface DateHeaderProps {
   onGenerateClusters: () => void;
 }
 
-const DateHeader: React.FC<DateHeaderProps> = ({ 
-  selectedDate, 
+const DateHeader: React.FC<DateHeaderProps> = ({
+  selectedDate,
   setSelectedDate,
-  onGenerateClusters
+  onGenerateClusters,
 }) => {
   return (
     <div
@@ -87,7 +87,7 @@ const DateHeader: React.FC<DateHeaderProps> = ({
           />
         </IconButton>
 
-        <DeliveryDatePicker setSelectedDate={setSelectedDate} />
+        <PageDatePicker setSelectedDate={setSelectedDate} />
 
         <Button
           sx={{ width: 50, fontSize: 12, marginLeft: 4 }}
