@@ -17,28 +17,25 @@ const DietaryPreferencesForm: React.FC<DietaryPreferencesFormProps> = ({
   dietaryRestrictions,
 }) => {
   return (
-    <>
+    <Box>
+      <Typography className="field-descriptor" sx={fieldLabelStyles}>
+        DIETARY RESTRICTIONS
+      </Typography>
       <Box
         sx={{
           display: "grid",
-          gap: isEditing ? 3 : 5,
+          gap: 2,
           gridTemplateColumns: {
             xs: "1fr",
             sm: "repeat(2, 1fr)",
             md: "repeat(3, 1fr)",
           },
-          alignItems: "center",
+          mt: 2,
         }}
-        className="info-grid"
       >
-        <Box sx={{ gridColumn: "-1/1" }}>
-          <Typography className="field-descriptor" sx={fieldLabelStyles}>
-            DIETARY RESTRICTIONS
-          </Typography>
-          {renderField("deliveryDetails.dietaryRestrictions", "dietaryRestrictions")}
-        </Box>
+        {renderField("deliveryDetails.dietaryRestrictions", "dietaryRestrictions")}
       </Box>
-    </>
+    </Box>
   );
 };
 

@@ -10,8 +10,11 @@ export interface DietaryRestrictions {
   softFood: boolean;
   lowSodium: boolean;
   noCookingEquipment: boolean;
+  heartFriendly: boolean;
   foodAllergens: string[];
-  other: string[];
+  otherText: string;
+  other: boolean;
+  [key: string]: boolean | string[] | string;
 }
 
 export interface DeliveryDetails {
@@ -40,7 +43,25 @@ export interface ClientProfile {
   total: number;
   gender: "Male" | "Female" | "Other";
   ethnicity: string;
-  deliveryDetails: DeliveryDetails;
+  deliveryDetails: {
+    deliveryInstructions: string;
+    dietaryRestrictions: {
+      lowSugar: boolean;
+      kidneyFriendly: boolean;
+      vegan: boolean;
+      vegetarian: boolean;
+      halal: boolean;
+      microwaveOnly: boolean;
+      softFood: boolean;
+      lowSodium: boolean;
+      noCookingEquipment: boolean;
+      heartFriendly: boolean;
+      foodAllergens: string[];
+      otherText: string;
+      other: boolean;
+      [key: string]: boolean | string[] | string;
+    };
+  };
   lifeChallenges: string;
   notes: string;
   notesTimestamp?: {

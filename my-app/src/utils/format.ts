@@ -52,7 +52,7 @@ export const formatDietaryRestrictions = (restrictions: DietaryRestrictions): st
     .map(([key]) => key.replace(/([A-Z])/g, " $1").trim());
   const foodAllergens = restrictions.foodAllergens || [];
   const other = restrictions.other || [];
-  const allRestrictions = [...booleanRestrictions, ...foodAllergens, ...other];
+  const allRestrictions = [...booleanRestrictions, ...(Array.isArray(foodAllergens) ? foodAllergens : []), ...(Array.isArray(other) ? other : [])];
   return allRestrictions.length > 0 ? allRestrictions.join(", ") : "None";
 };
 

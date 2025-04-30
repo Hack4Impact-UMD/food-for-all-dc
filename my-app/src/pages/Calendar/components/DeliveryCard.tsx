@@ -31,7 +31,7 @@ const DeliveryCard: React.FC<DeliveryCardProps> = ({ event, client, onEventModif
 
   const { foodAllergens = [], other = [] } = client?.deliveryDetails?.dietaryRestrictions || {};
 
-  const dietaryRestrictions = [...trueRestrictions, ...foodAllergens, ...other];
+  const dietaryRestrictions = [...trueRestrictions, ...(Array.isArray(foodAllergens) ? foodAllergens : []), ...(Array.isArray(other) ? other : [])];
 
   return (
     <Box className={styles.card}>

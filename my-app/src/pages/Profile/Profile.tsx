@@ -8,12 +8,14 @@ import {
   Button,
   IconButton,
   MenuItem,
+  Select,
   SelectChangeEvent,
   TextField,
   Tooltip,
   Typography,
   styled,
 } from "@mui/material";
+import { FormControlLabel, Checkbox} from '@mui/material';
 import {
   addDoc,
   collection,
@@ -206,8 +208,11 @@ const Profile = () => {
         softFood: false,
         lowSodium: false,
         noCookingEquipment: false,
+        heartFriendly: false,
         foodAllergens: [],
-        other: [],
+        otherText: "",
+        other: false,     // Changed from string to boolean
+   
       },
     },
     lifeChallenges: "",
@@ -820,6 +825,239 @@ const Profile = () => {
 
   // Re-define renderField based on its likely structure before deletion in HEAD
   const renderField = (fieldPath: ClientProfileKey, type: InputType = "text") => {
+
+
+    if (type === "dietaryRestrictions") {
+      const dietaryOptions = [
+        { name: "lowSugar", label: "Low Sugar" },
+        { name: "kidneyFriendly", label: "Kidney Friendly" },
+        { name: "vegan", label: "Vegan" },
+        { name: "vegetarian", label: "Vegetarian" },
+        { name: "halal", label: "Halal" },
+        { name: "microwaveOnly", label: "Microwave Only" },
+        { name: "softFood", label: "Soft Food" },
+        { name: "lowSodium", label: "Low Sodium" },
+        { name: "noCookingEquipment", label: "No Cooking Equipment" },
+        { name: "heartFriendly", label: "Heart Friendly" }
+      ] as const;
+    
+      interface DietaryOption {
+        name: 'lowSugar' | 'kidneyFriendly' | 'vegan' | 'vegetarian' | 'halal' | 
+              'microwaveOnly' | 'softFood' | 'lowSodium' | 'noCookingEquipment' | 'heartFriendly';
+        label: string;
+      }
+
+      interface DietaryRestrictions {
+        lowSugar: boolean;
+        kidneyFriendly: boolean;
+        vegan: boolean;
+        vegetarian: boolean;
+        halal: boolean;
+        microwaveOnly: boolean;
+        softFood: boolean;
+        lowSodium: boolean;
+        noCookingEquipment: boolean;
+        heartFriendly: boolean;
+        other: boolean;
+        otherText: string;
+      }
+
+      return (
+        <>
+
+{dietaryOptions.map((option: DietaryOption) => (
+  <FormControlLabel
+    key={option.name}
+    control={
+      <Checkbox
+        checked={Boolean(clientProfile.deliveryDetails?.dietaryRestrictions?.[option.name])}
+        onChange={handleDietaryRestrictionChange}
+        name={option.name}
+      />
+    }
+    label={option.label}
+  />
+))}
+
+<Box sx={{ 
+  display: 'flex', 
+  alignItems: 'center',
+  gap: 1,
+  width: '100%',
+}}>
+  <FormControlLabel
+    control={
+      <Checkbox
+        checked={clientProfile.deliveryDetails?.dietaryRestrictions?.other || false}
+        onChange={handleDietaryRestrictionChange}
+        name="other"
+      />
+    }
+    label="Other"
+  />
+  {clientProfile.deliveryDetails?.dietaryRestrictions?.other && (
+    <TextField
+      name="otherText"
+      value={clientProfile.deliveryDetails?.dietaryRestrictions?.otherText || ""}
+      onChange={handleDietaryRestrictionChange}
+      placeholder="Please specify other dietary restrictions"
+      variant="outlined"
+      size="small"
+      sx={{ flexGrow: 1, marginTop: '5%' }}
+    />
+  )}
+</Box>
+        </>
+      );
+    }
+
+    if (fieldPath === "language") {
+      if (!isEditing) {
+        return <Box>{clientProfile.language}</Box>;
+      }
+  
+      const preDefinedOptions = ["English", "Spanish"];
+      // If the stored language is not one of the predefined ones, we default to "Other"
+      const isPredefined = preDefinedOptions.includes(clientProfile.language);
+      const selectValue = isPredefined ? clientProfile.language : "Other";
+  
+      const handleLanguageSelectChange = (e: any) => {
+        const newVal = e.target.value;
+        if (newVal !== "Other") {
+          // Update with selected value
+          handleChange({ target: { name: "language", value: newVal } } as any);
+        } else {
+          // Clear the language to allow custom entry
+          handleChange({ target: { name: "language", value: "" } } as any);
+        }
+      };
+  
+      const handleCustomLanguageChange = (e: any) => {
+        handleChange(e);
+      };
+  
+      return (
+        <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+          <Select
+            name="language"
+            value={selectValue}
+            onChange={handleLanguageSelectChange}
+            sx={{
+              backgroundColor: "white",
+              width: "100%",
+              height: "1.813rem",
+              padding: "0.1rem 0.5rem",
+              borderRadius: "5px",
+              border: ".1rem solid black",
+              marginTop: "0px"
+            }}
+          >
+            {preDefinedOptions.map((option) => (
+              <MenuItem key={option} value={option}>
+                {option}
+              </MenuItem>
+            ))}
+            <MenuItem value="Other">Other</MenuItem>
+          </Select>
+          {selectValue === "Other" && (
+            <TextField
+              name="language"
+              placeholder="Enter language"
+              value={isPredefined ? "" : clientProfile.language}
+              onChange={handleCustomLanguageChange}
+              sx={{
+                backgroundColor: "white",
+                width: "100%",
+                height: "1.813rem",
+                padding: "0.1rem 0.5rem",
+                borderRadius: "5px",
+               
+                marginTop: "0px"
+              }}
+            />
+          )}
+        </Box>
+      );
+    }
+
+    if (fieldPath === "ethnicity") {
+      if (!isEditing) {
+        return <Box>{clientProfile.ethnicity}</Box>;
+      }
+    
+      const preDefinedOptions = [
+        "White",
+        "Asian",
+        "Hispanic, Latino, or Spanish",
+        "Black or African American",
+        "American Indian or Alaska Native",
+        "Middle Eastern or North African",
+        "Native Hawaiian or Pacific Islander",
+        "Prefer Not to Say"
+      ];
+    
+      const isPredefined = preDefinedOptions.includes(clientProfile.ethnicity);
+      const selectValue = isPredefined ? clientProfile.ethnicity : "Other";
+    
+      const handleEthnicitySelectChange = (e: any) => {
+        const newVal = e.target.value;
+        if (newVal !== "Other") {
+          // Update with selected value
+          handleChange({ target: { name: "ethnicity", value: newVal } } as any);
+        } else {
+          // Clear the ethnicity to allow custom entry
+          handleChange({ target: { name: "ethnicity", value: "" } } as any);
+        }
+      };
+    
+      const handleEthnicityCustomChange = (e: any) => {
+        handleChange(e);
+      };
+    
+      return (
+        <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+          <Select
+            name="ethnicity"
+            value={selectValue}
+            onChange={handleEthnicitySelectChange}
+            sx={{
+              backgroundColor: "white",
+              width: "100%",
+              height: "1.813rem",
+              padding: "0.1rem 0.5rem",
+              borderRadius: "5px",
+              border: ".1rem solid black",
+              marginTop: "0px"
+            }}
+          >
+            {preDefinedOptions.map((option) => (
+              <MenuItem key={option} value={option}>
+                {option}
+              </MenuItem>
+            ))}
+            <MenuItem value="Other">Other</MenuItem>
+          </Select>
+          {selectValue === "Other" && (
+            <TextField
+              name="ethnicity"
+              placeholder="Enter ethnicity"
+              value={isPredefined ? "" : clientProfile.ethnicity}
+              onChange={handleEthnicityCustomChange}
+              sx={{
+                backgroundColor: "white",
+                width: "100%",
+                height: "1.813rem",
+                padding: "0.1rem 0.5rem",
+                borderRadius: "5px",
+                marginTop: "0px"
+              }}
+            />
+          )}
+        </Box>
+      );
+    }
+
+
     const value = fieldPath.includes(".")
       ? getNestedValue(clientProfile, fieldPath)
       : clientProfile[fieldPath as keyof ClientProfile];
@@ -870,19 +1108,41 @@ const Profile = () => {
 
   // Updated handler for dietary restrictions
   const handleDietaryRestrictionChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, checked } = e.target;
+    const { name, type } = e.target;
     handlePrevClientCopying();
-    setClientProfile((prevState) => ({
-      ...prevState,
-      deliveryDetails: {
-        ...prevState.deliveryDetails,
-        dietaryRestrictions: {
-          ...prevState.deliveryDetails.dietaryRestrictions,
-          [name]: checked,
-        },
-      },
-    }));
-  };
+    
+    if (type === "checkbox") {
+        const { checked } = e.target;
+        setClientProfile((prevState) => ({
+            ...prevState,
+            deliveryDetails: {
+                ...prevState.deliveryDetails,
+                dietaryRestrictions: {
+                    ...prevState.deliveryDetails.dietaryRestrictions,
+                    [name]: checked,
+                    ...(name === "other" && {
+                        other: checked,
+                        // Keep the existing otherText when checking, clear it when unchecking
+                        otherText: checked ? prevState.deliveryDetails.dietaryRestrictions.otherText : ""
+                    })
+                },
+            },
+        }));
+    } else if (type === "text" && name === "otherText") {
+        const value = e.target.value;
+        setClientProfile((prevState) => ({
+            ...prevState,
+            deliveryDetails: {
+                ...prevState.deliveryDetails,
+                dietaryRestrictions: {
+                    ...prevState.deliveryDetails.dietaryRestrictions,
+                    otherText: value,
+                    other: true // Ensure the checkbox stays checked when typing
+                },
+            },
+        }));
+    }
+};
 
   //google places autocomplete
   const addressInputRef = useRef<HTMLInputElement>(null);

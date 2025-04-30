@@ -59,9 +59,11 @@ interface RowData {
       lowSugar: boolean;
       microwaveOnly: boolean;
       noCookingEquipment: boolean;
-      other: string[];
+      otherText: string;
+      other: boolean;
       softFood: boolean;
       vegan: boolean;
+      heartFriendly: boolean;
       vegetarian: boolean;
     };
   };
