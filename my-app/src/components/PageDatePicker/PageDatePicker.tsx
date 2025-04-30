@@ -1,4 +1,3 @@
-import { DayPilot } from "@daypilot/daypilot-lite-react";
 import { styled } from "@mui/material/styles";
 import { forwardRef } from "react";
 import DatePicker from "react-datepicker";
@@ -7,25 +6,24 @@ import "./pagedatepicker.css";
 import CalendarTodayIcon from "@mui/icons-material/CalendarToday";
 
 const StyledCalendarButton = styled("button")({
-  all: "unset", // reset browser defaults
+  all: "unset",
   cursor: "pointer",
   fontSize: "12px",
-  width: "64px",
-  height: "45px",
+  width: "2.5rem",
+  height: "2.5rem",
   marginLeft: "2rem",
-  backgroundColor: "#257e68", // your primary green
-  color: "#ffffff", // white icon/text
-  borderRadius: "5px", // match .box border-radius
+  backgroundColor: "var(--color-primary)",
+  color: "#fff",
+  borderRadius: "var(--border-radius-md)",
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
   transition: "background-color 200ms, transform 100ms",
-
   "&:hover": {
-    backgroundColor: "#1f6e5c", // a slightly darker hover state
+    backgroundColor: "var(--color-primary-dark)",
   },
   "&:active": {
-    transform: "scale(0.95)", // subtle press feedback
+    transform: "scale(0.95)",
   },
 });
 
