@@ -50,6 +50,7 @@ import LoadingIndicator from "../../components/LoadingIndicator/LoadingIndicator
 import Button from '../../components/common/Button';
 import Input from '../../components/common/Input';
 import { Driver } from '../../types/calendar-types';
+import { CustomRowData, useCustomColumns } from "../../hooks/useCustomColumns";
 
 interface RowData {
   id: string;
