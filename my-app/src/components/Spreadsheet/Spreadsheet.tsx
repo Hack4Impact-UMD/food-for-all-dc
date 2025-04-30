@@ -37,6 +37,7 @@ import { auth } from "../../auth/firebaseConfig";
 import { useCustomColumns } from "../../hooks/useCustomColumns";
 import { ClientService } from "../../services";
 import "./Spreadsheet.css";
+import DeleteClientModal from "./DeleteClientModal";
 
 // Define TypeScript types for row data
 interface RowData {
@@ -114,6 +115,7 @@ const Spreadsheet: React.FC = () => {
   const [menuAnchorEl, setMenuAnchorEl] = useState<null | HTMLElement>(null);
   const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
+  const [confirmDeleteModal, setConfirmDeleteModal] = useState<boolean>(false)
 
   const navigate = useNavigate();
 
@@ -1088,14 +1090,14 @@ const Spreadsheet: React.FC = () => {
                         </MenuItem>
                         <MenuItem 
                           onClick={() => {
-                            handleDeleteRow(row.uid);
-                            handleMenuClose();
+                            setConfirmDeleteModal(true)
                           }}
                           sx={{ py: 1.5 }}
                         >
                           <DeleteIcon fontSize="small" sx={{ mr: 1 }} /> Delete
                         </MenuItem>
                       </Menu>
+                      <DeleteClientModal handleMenuClose={handleMenuClose} handleDeleteRow={handleDeleteRow} open={confirmDeleteModal} setOpen={setConfirmDeleteModal} id={row.uid}/>
                     </TableCell>
                   </TableRow>
                 ))}
