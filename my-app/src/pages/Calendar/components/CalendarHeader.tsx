@@ -63,10 +63,13 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
       <Box
         sx={{
           marginLeft: 4,
+          display: "flex",
+          alignItems: "center",
+          gap: 2,
         }}
       >
         <Button
-          sx={{ width: 100 }}
+          sx={{ width: 100, display: "flex", alignItems: "center" }}
           onClick={(e) => setViewAnchorEl(e.currentTarget)}
           endIcon={<ChevronRight />}
           variant="outlined"
@@ -90,12 +93,12 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
             </MenuItem>
           ))}
         </Menu>
-
-        <PageDatePicker setSelectedDate={handleDateSelect} />
-
-        <Button sx={{ width: 50, fontSize: 12, marginLeft: 4 }} onClick={onNavigateToday}>
+        <Button sx={{ width: 50, fontSize: 12, marginLeft: 4, display: "flex", alignItems: "center" }} onClick={onNavigateToday}>
           Today
         </Button>
+        <Box sx={{ display: "flex", alignItems: "center" }}>
+          <PageDatePicker setSelectedDate={handleDateSelect} />
+        </Box>
       </Box>
 
       <Box
