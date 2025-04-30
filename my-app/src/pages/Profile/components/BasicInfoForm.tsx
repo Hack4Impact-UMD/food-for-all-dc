@@ -1,5 +1,5 @@
 import React from "react";
-import { Box, Typography, Select, MenuItem, Tooltip } from "@mui/material";
+import { Box, Typography, Select, MenuItem, Tooltip, Autocomplete, TextField } from "@mui/material";
 import { ClientProfile } from '../../../types';
 import { ClientProfileKey, InputType } from '../types';
 import { CaseWorker } from "../../../types";
@@ -301,47 +301,64 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
       </Box>
 
       {/* Referral Entity */}
-      <Box>
+      <Box> 
         <Typography className="field-descriptor" sx={fieldLabelStyles}>
-          REFERRAL ENTITY
+        REFERRAL ENTITY
         </Typography>
         {isEditing ? (
-          <Select
-            name="referralEntity"
-            value={selectedCaseWorker ? selectedCaseWorker.id : ""}
-            onChange={(e: any) => {
-              const selectedId = e.target.value;
-              if (selectedId === "edit_list") {
-                setShowCaseWorkerModal(true);
-              } else {
-                const selected = caseWorkers.find((cw) => cw.id === selectedId);
-                handleCaseWorkerChange(selected || null);
+          <>
+            <Autocomplete
+              value={selectedCaseWorker}
+              onChange={(_, newValue) => {
+                if (newValue && newValue.id === 'edit_list') {
+                  setShowCaseWorkerModal(true);
+                } else {
+                  handleCaseWorkerChange(newValue);
+                }
+              }}
+              // creating an object for the edit list option, rest of array is case workers
+              options = {[{ id: 'edit_list', name: 'Edit Case Worker List', organization: '' } as CaseWorker, ...caseWorkers]}
+              getOptionLabel = {(option) => 
+                option.id === 'edit_list' 
+                  ? 'Edit Case Worker List'
+                  : `${option.name}, ${option.organization}`
               }
-            }}
-            displayEmpty
-            sx={{
-              backgroundColor: "white",
-              width: "100%",
-              height: "1.813rem",
-              padding: "0.1rem 0.5rem",
-              borderRadius: "5px",
-              border: ".1rem solid black",
-              marginTop: "0px",
-              '& .MuiSelect-select': {
-                padding: '0.1rem 0.5rem',
-                fontWeight: 500,
-              },
-            }}
-          >
-            <MenuItem value="edit_list" sx={{ color: "#257E68", fontWeight: "bold" }}>
-              Edit Case Worker List
-            </MenuItem>
-            {caseWorkers.map((caseWorker) => (
-              <MenuItem key={caseWorker.id} value={caseWorker.id}>
-                {caseWorker.name}, {caseWorker.organization}
-              </MenuItem>
-            ))}
-          </Select>
+              sx = {{ width: '100%' }}
+              renderInput = {(params) => (
+                <TextField
+                  {...params}
+                  variant = "outlined"
+                  sx={{
+                    backgroundColor: "white",
+                    '& .MuiOutlinedInput-root': {
+                      height: "1.813rem",
+                      padding: "0.1rem 0.5rem",
+                      '& fieldset': {
+                        border: ".1rem solid black",
+                        borderRadius: "5px",
+                      }, 
+                    },
+                    '& .MuiAutocomplete-input': {
+                      padding: '1 !important',
+                      fontWeight: 500,
+                    }
+                  }}
+                />
+              )}
+              // specifying the render option for the edit case worker option
+              renderOption={(props, option) => (
+                <li {...props} style={{ 
+                  color: option.id === 'edit_list' ? "#257E68" : 'inherit',
+                  fontWeight: option.id === 'edit_list' ? "bold" : 'normal'
+                }}>
+                  {option.id === 'edit_list' 
+                    ? 'Edit Case Worker List'
+                    : `${option.name}, ${option.organization}`
+                  }
+                </li>
+              )}
+            />
+          </>
         ) : (
           <Typography variant="body1" sx={{ fontWeight: 600 }}>
             {selectedCaseWorker

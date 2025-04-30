@@ -33,11 +33,13 @@ import { useNavigate, useParams } from "react-router-dom";
 import { auth, db } from "../../auth/firebaseConfig";
 import CaseWorkerManagementModal from "../../components/CaseWorkerManagementModal";
 import "./Profile.css";
+import { DeliveryService } from "../../services";
 
 // Import new components from HEAD
 import BasicInfoForm from "./components/BasicInfoForm";
 import DeliveryInfoForm from "./components/DeliveryInfoForm";
 import DietaryPreferencesForm from "./components/DietaryPreferencesForm";
+import DeliveryLogForm from "./components/DeliveryLogForm";
 import FormField from "./components/FormField";
 import MiscellaneousForm from "./components/MiscellaneousForm";
 import ProfileHeader from "./components/ProfileHeader";
@@ -48,6 +50,7 @@ import TagManager from "./Tags/TagManager";
 // Import types
 import { CaseWorker, ClientProfile } from "../../types";
 import { ClientProfileKey, InputType } from "./types";
+import { DeliveryEvent } from "../../types";
 
 // Styling
 const fieldStyles = {
@@ -234,6 +237,8 @@ const Profile = () => {
   const [showCaseWorkerModal, setShowCaseWorkerModal] = useState(false);
   const [caseWorkers, setCaseWorkers] = useState<CaseWorker[]>([]);
   const [selectedCaseWorker, setSelectedCaseWorker] = useState<CaseWorker | null>(null);
+  const [pastDeliveries, setPastDeliveries] = useState<DeliveryEvent[]>([]);
+  const [futureDeliveries, setFutureDeliveries] = useState<DeliveryEvent[]>([]);
 
   // Function to fetch profile data by ID
   const getProfileById = async (id: string) => {
@@ -376,6 +381,21 @@ const Profile = () => {
 
     fetchCaseWorkers();
   }, [clientProfile.referralEntity?.id, profileLoaded]);
+
+  useEffect(() => {
+    const fetchDeliveryHistory = async () => {
+      const deliveryService = DeliveryService.getInstance();
+      try {
+        const { pastDeliveries, futureDeliveries } = await deliveryService.getClientDeliveryHistory(clientId!);
+        setPastDeliveries(pastDeliveries);
+        setFutureDeliveries(futureDeliveries);
+      } catch (error) {
+        console.error("Failed to fetch delivery history", error);
+      }
+    };
+
+    fetchDeliveryHistory();
+  }, [clientId]);
 
   const calculateAge = (dob: Date) => {
     const diff = Date.now() - dob.getTime();
@@ -545,6 +565,7 @@ const Profile = () => {
     }
   };
 
+  // validate profile function, returns error message
   const validateProfile = () => {
     const newErrors: { [key: string]: string } = {};
 
@@ -569,6 +590,9 @@ const Profile = () => {
     }
     if (!clientProfile.dob) {
       newErrors.dob = "Date of Birth is required";
+    }
+    if (!clientProfile.email?.trim()) {
+      newErrors.email = "Email is required";
     }
     if (!clientProfile.startDate?.trim()) {
       newErrors.startDate = "Start date is required";
@@ -616,7 +640,10 @@ const Profile = () => {
     }
 
     setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+
+    // returns newErrors object
+    return newErrors;
+
   };
 
   const checkIfNotesExists = (
@@ -644,10 +671,10 @@ const Profile = () => {
   };
 
   const handleSave = async () => {
-    if (!validateProfile()) {
-      console.log("Invalid Profile:", errors); // Log errors for debugging
-      // Build a message listing all missing/invalid fields
-      const errorFields = Object.entries(errors)
+    const validation = validateProfile();
+
+    if (Object.keys(validation).length > 0) {
+      const errorFields = Object.entries(validation)
         .map(([field, message]) => `- ${message}`)
         .join('\n');
       alert(`Please fix the following before saving:\n${errorFields}`);
@@ -681,8 +708,8 @@ const Profile = () => {
         ward: fetchedWard, // Use the freshly fetched ward
         // Ensure referralEntity is included based on selectedCaseWorker
         referralEntity: selectedCaseWorker
-         ? { id: selectedCaseWorker.id, name: selectedCaseWorker.name, organization: selectedCaseWorker.organization }
-         : null, // Use null if no case worker is selected
+          ? { id: selectedCaseWorker.id, name: selectedCaseWorker.name, organization: selectedCaseWorker.organization }
+          : null, // Use null if no case worker is selected
       };
 
       // Sort allTags before potentially saving them (ensures consistent order)
@@ -722,9 +749,9 @@ const Profile = () => {
       } else {
         // Update existing profile
         if (!clientProfile.uid) {
-           console.error("Cannot update profile: UID is missing.");
-           alert("Error: Cannot update profile, client ID is missing.");
-           throw new Error("Client UID is missing for update.");
+          console.error("Cannot update profile: UID is missing.");
+          alert("Error: Cannot update profile, client ID is missing.");
+          throw new Error("Client UID is missing for update.");
         }
         console.log("Updating profile:", clientProfile.uid, updatedProfile);
         await setDoc(doc(db, "clients", clientProfile.uid), updatedProfile, { merge: true }); // Use merge: true for updates
@@ -796,12 +823,12 @@ const Profile = () => {
     const value = fieldPath.includes(".")
       ? getNestedValue(clientProfile, fieldPath)
       : clientProfile[fieldPath as keyof ClientProfile];
-    
+
     // Determine if the field should be disabled
     const isDisabledField = ["city", "state", "zipCode", "quadrant", "ward", "total"].includes(fieldPath);
 
     return (
-      <Box sx={{ 
+      <Box sx={{
         transition: "all 0.2s ease",
         '&:hover': {
           transform: isEditing ? 'translateY(-2px)' : 'none',
@@ -915,7 +942,7 @@ const Profile = () => {
     }
 
     console.log("Initializing Google Places autocomplete...");
-    
+
     // Clean up previous instance if it exists
     if (autocompleteRef.current) {
       try {
@@ -941,7 +968,7 @@ const Profile = () => {
       const listener = autocompleteRef.current.addListener("place_changed", () => {
         const place = autocompleteRef.current?.getPlace();
         console.log("Place selected:", place);
-        
+
         if (!place || !place.address_components) {
           console.warn("No valid place selected or missing address components");
           return;
@@ -1045,7 +1072,7 @@ const Profile = () => {
       setTags(prevTags);
       setPrevTags(null);
     }
-    
+
     // Reset autocomplete instance when cancelling
     if (autocompleteRef.current) {
       try {
@@ -1114,16 +1141,16 @@ const Profile = () => {
       />
 
       {/* Adopt daniel-address2 structure: profile-main > centered-box */}
-      <Box 
-        className="profile-main" 
-        sx={{ 
+      <Box
+        className="profile-main"
+        sx={{
           py: 3,
           display: "flex",
           justifyContent: "center",
           backgroundColor: "#f8f9fa"
         }}
       >
-        <Box 
+        <Box
           className="centered-box"
           sx={{
             width: { xs: "95%", sm: "90%", md: "85%", lg: "75%" },
@@ -1135,12 +1162,12 @@ const Profile = () => {
         >
           {/* Basic Information Section */}
           <SectionBox mb={3}>
-            <Box 
-              className="box-header" 
-              display="flex" 
-              alignItems="center" 
-              sx={{ 
-                mb: 3, 
+            <Box
+              className="box-header"
+              display="flex"
+              alignItems="center"
+              sx={{
+                mb: 3,
                 pb: 1,
                 borderBottom: "1px solid rgba(0,0,0,0.1)",
                 justifyContent: "flex-start"
@@ -1159,7 +1186,7 @@ const Profile = () => {
                 >
                   <Tooltip title={isEditing ? "Cancel Editing" : "Edit All"}>
                     {isEditing ? (
-                      <span className="cancel-btn"> 
+                      <span className="cancel-btn">
                         <CloseIcon />
                       </span>
                     ) : (
@@ -1215,6 +1242,16 @@ const Profile = () => {
               fieldLabelStyles={fieldLabelStyles}
               dietaryRestrictions={clientProfile.deliveryDetails.dietaryRestrictions}
               renderField={renderField}
+            />
+          </SectionBox>
+
+          {/* Delivery Log Section */}
+          <SectionBox mb={3}>
+            <SectionTitle sx={{ textAlign: 'left', width: '100%' }}>Delivery Log</SectionTitle>
+            <DeliveryLogForm
+              pastDeliveries={pastDeliveries}
+              futureDeliveries={futureDeliveries}
+              fieldLabelStyles={fieldLabelStyles}
             />
           </SectionBox>
 

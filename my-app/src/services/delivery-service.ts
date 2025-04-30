@@ -68,7 +68,7 @@ class DeliveryService {
         where("deliveryDate", ">=", startDate),
         where("deliveryDate", "<", endDate)
       );
-      
+
       const querySnapshot = await getDocs(q);
       return querySnapshot.docs.map((doc) => {
         const data = doc.data();
@@ -128,22 +128,101 @@ class DeliveryService {
    */
   public async getEventsByClientId(clientId: string): Promise<DeliveryEvent[]> {
     try {
-      const q = query(
-        collection(this.db, this.eventsCollection),
-        where("clientId", "==", clientId)
-      );
-      
-      const querySnapshot = await getDocs(q);
-      return querySnapshot.docs.map((doc) => {
-        const data = doc.data();
-        return {
-          id: doc.id,
-          ...data,
-          deliveryDate: data.deliveryDate.toDate(), // Convert Timestamp to Date
-        } as DeliveryEvent;
-      });
+        const q = query(
+            collection(this.db, this.eventsCollection),
+            where("clientId", "==", clientId)
+        );
+
+        const querySnapshot = await getDocs(q);
+        return querySnapshot.docs
+            .map((doc) => {
+                const data = doc.data();
+                if (!data.deliveryDate) {
+                    console.warn(`Document ${doc.id} is missing deliveryDate property`);
+                    return null;
+                }
+
+                // Convert to Date object
+                const deliveryDate = data.deliveryDate.toDate
+                    ? data.deliveryDate.toDate()
+                    : new Date(data.deliveryDate);
+
+                // If not a custom delivery (recurrence !== "Custom"), add one day
+                if (data.recurrence !== "Custom") {
+                    deliveryDate.setDate(deliveryDate.getDate() + 1);
+                }
+
+                return {
+                    id: doc.id,
+                    ...data,
+                    deliveryDate
+                } as DeliveryEvent;
+            })
+            .filter((event): event is DeliveryEvent => event !== null);
     } catch (error) {
-      console.error("Error fetching events for client:", error);
+        console.error("Error fetching events for client:", error);
+        throw error;
+    }
+}
+
+  /**
+  * Get the previous 5 and future 5 deliveries for a client
+  * @param clientId The ID of the client
+  * @returns Object containing past and future deliveries
+  */
+  
+  public async getClientDeliveryHistory(clientId: string): Promise<{
+    pastDeliveries: DeliveryEvent[];
+    futureDeliveries: DeliveryEvent[];
+  }> {
+    try {
+      const now = new Date();
+      // Set to start of current day
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      
+      // Get all deliveries for the client
+      const allEvents = await this.getEventsByClientId(clientId);
+      console.log(allEvents);
+      // Sort events by date (oldest to newest)
+      const sortedEvents = allEvents.sort((a, b) =>
+        a.deliveryDate.getTime() - b.deliveryDate.getTime()
+      );
+  
+      // Deduplicate events based on date
+      const uniqueEvents: DeliveryEvent[] = [];
+      const seenDates = new Set<string>();
+      
+      sortedEvents.forEach((event) => {
+        // Normalize the date to start of day
+        const eventDate = new Date(
+          event.deliveryDate.getFullYear(),
+          event.deliveryDate.getMonth(),
+          event.deliveryDate.getDate()
+        );
+        const dateKey = eventDate.toISOString().split('T')[0];
+        
+        if (!seenDates.has(dateKey)) {
+          seenDates.add(dateKey);
+          uniqueEvents.push({
+            ...event,
+            deliveryDate: eventDate
+          });
+        }
+      });
+  
+      // Split into past and future
+      const pastDeliveries = uniqueEvents
+        .filter(event => event.deliveryDate < today)
+        .slice(-5)
+        .reverse(); // Most recent first
+  
+      const futureDeliveries = uniqueEvents
+        .filter(event => event.deliveryDate >= today)
+        .slice(0, 5); // Next 5 upcoming
+  
+      return { pastDeliveries, futureDeliveries };
+    } catch (error) {
+      console.error("Error fetching client delivery history:", error);
       throw error;
     }
   }
@@ -157,7 +236,7 @@ class DeliveryService {
         collection(this.db, this.eventsCollection),
         where("recurrence", "==", recurrenceId)
       );
-      
+
       const querySnapshot = await getDocs(q);
       return querySnapshot.docs.map((doc) => {
         const data = doc.data();
@@ -217,11 +296,11 @@ class DeliveryService {
     try {
       const docRef = doc(this.db, this.limitsCollection, this.limitsDocId);
       const docSnapshot = await getDoc(docRef);
-      
+
       if (docSnapshot.exists()) {
         return docSnapshot.data() as Record<string, number>;
       }
-      
+
       // Default values if doc doesn't exist
       const defaultLimits = {
         sunday: 60,
@@ -232,7 +311,7 @@ class DeliveryService {
         friday: 90,
         saturday: 60,
       };
-      
+
       await setDoc(docRef, defaultLimits);
       return defaultLimits;
     } catch (error) {
