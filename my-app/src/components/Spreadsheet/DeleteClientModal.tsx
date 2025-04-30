@@ -1,9 +1,41 @@
-import Dialog from '@mui/material/Dialog';
-import DialogActions from '@mui/material/DialogActions';
-import DialogContent from '@mui/material/DialogContent';
 import DialogContentText from '@mui/material/DialogContentText';
-import DialogTitle from '@mui/material/DialogTitle';
-import Button from '@mui/material/Button';
+import {
+  IconButton,
+  Menu,
+  MenuItem,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Button,
+  RadioGroup,
+  FormControlLabel,
+  Radio,
+  Typography,
+  TextField,
+  Box,
+  FormControl,
+  InputLabel,
+  Select,
+} from "@mui/material";
+
+import { styled } from '@mui/material/styles';
+
+const TransparentDialog = styled(Dialog)(({ theme }) => ({
+  '& .MuiBackdrop-root': {
+    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+  },
+  '& .MuiDialog-paper': {
+    boxShadow: 'none',
+    backgroundColor: 'white',
+    border: '1px solid rgba(0, 0, 0, 0.12)',
+    borderRadius: '8px'
+  },
+  '& .MuiDialog-container': {
+    backdropFilter: 'none',
+    backgroundColor: 'transparent'
+  }
+}));
 
 type DeleteClientModalProps = {
   handleMenuClose: () => void;
@@ -35,8 +67,22 @@ const DeleteClientModal = ({ handleMenuClose, handleDeleteRow, open, setOpen ,id
       <Dialog
         open={open}
         onClose={handleCloseDeleteConfirm} // Close if clicking outside
-        aria-labelledby="delete-confirm-dialog-title"
-        aria-describedby="delete-confirm-dialog-description"
+        
+        slotProps={{
+          backdrop: {
+            style: { backgroundColor: "rgba(0, 0, 0, 0.02)" }
+          }
+        }}
+        sx={{
+          '& .MuiDialog-paper': {
+            boxShadow: 'none !important',
+            overflow: 'visible',
+            background: 'white',
+            borderTop: '1px solid rgba(0, 0, 0, 0.12)',
+            borderRadius: '8px'
+          }
+        }}
+      
       >
         <DialogTitle id="delete-confirm-dialog-title">
           Confirm Deletion
