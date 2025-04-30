@@ -238,6 +238,19 @@ const fields: Field[] = [
   },
 ];
 
+const times = [
+  { value: "08:00", label: "8:00 AM" },
+  { value: "09:00", label: "9:00 AM" },
+  { value: "10:00", label: "10:00 AM" },
+  { value: "11:00", label: "11:00 AM" },
+  { value: "12:00", label: "12:00 PM" },
+  { value: "13:00", label: "1:00 PM" },
+  { value: "14:00", label: "2:00 PM" },
+  { value: "15:00", label: "3:00 PM" },
+  { value: "16:00", label: "4:00 PM" },
+  { value: "17:00", label: "5:00 PM" },
+];
+
 // Type Guard to check if a field is a regular field
 const isRegularField = (
   field: Field
@@ -273,6 +286,34 @@ const DeliverySpreadsheet: React.FC = () => {
     handleCustomColumnChange,
   } = useCustomColumns();
   const [customRows, setCustomRows] = useState<CustomRowData[]>([])
+
+
+  const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
+  const open = Boolean(anchorEl);
+  const handleClick = (event: React.MouseEvent<HTMLElement>) => {
+    setOpen(true);
+    setAnchorEl(event.currentTarget);
+  };
+
+  const [menuOpen, setOpen] = useState(false);
+  const anchorRef = React.useRef<HTMLButtonElement>(null);
+  const handleClose = (event: Event | React.SyntheticEvent) => {
+    if (
+      anchorRef.current &&
+      anchorRef.current.contains(event.target as HTMLElement)
+    ) {
+      return;
+    }
+    if(event && 'nativeEvent' in event) {
+      const target = event.nativeEvent.target as HTMLElement;
+      const timeValue =  target.getAttribute("data-key");
+      if (timeValue) {
+        assignTime(timeValue);
+      }
+    }
+    setOpen(false);
+  };
+
 
   // Calculate Cluster Options
   const clusterOptions = useMemo(() => {
@@ -1181,7 +1222,7 @@ useEffect(() => {
               >
                 Assign Driver
               </Button>
-              <Button
+              {/* <Button
                 variant="secondary"
                 size="medium"
                 onClick={() => setPopupMode("Time")}
@@ -1194,7 +1235,46 @@ useEffect(() => {
                 }}
               >
                 Assign Time
+              </Button> */}
+
+              <Button
+                id="demo-positioned-button"
+                aria-controls={open ? 'demo-positioned-menu' : undefined}
+                aria-haspopup="true"
+                aria-expanded={open ? 'true' : undefined}
+                onClick={handleClick}
+                disabled={selectedRows.size <= 0}
+                style={{
+                  whiteSpace: "nowrap",
+                  padding: "0% 2%",
+                  borderRadius: 5,
+                  width: "10%",
+                }}
+              >
+                Assign Time
               </Button>
+                <Menu
+                  id="demo-positioned-menu"
+                  aria-labelledby="demo-positioned-button"
+                  anchorEl={anchorEl}
+                  open={menuOpen}
+                  onClose={handleClose}
+                  anchorOrigin={{
+                    vertical: 'bottom',
+                    horizontal: 'left',
+                  }}
+                  transformOrigin={{
+                    vertical: 'top',
+                    horizontal: 'left',
+                  }}
+                >
+                  {Object.values(times).map((
+                    {value, label, ...restUserProps}) => (
+                        <MenuItem key={value} data-key={value} onClick={handleClose} style={{ width: '130px' }}>{label}</MenuItem>
+                      ))
+                  }
+
+                </Menu>
             </Box>
           </Box>
         </Box>
