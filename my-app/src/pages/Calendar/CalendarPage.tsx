@@ -399,6 +399,7 @@ const CalendarPage: React.FC = () => {
         <CalendarHeader 
           viewType={viewType}
           currentDate={currentDate}
+          setCurrentDate={setCurrentDate}
           onViewTypeChange={setViewType}
           onNavigatePrev={handleNavigatePrev}
           onNavigateToday={handleNavigateToday}
