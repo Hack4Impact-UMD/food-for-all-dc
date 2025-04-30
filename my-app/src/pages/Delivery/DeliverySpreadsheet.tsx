@@ -81,56 +81,56 @@ interface Driver {
 // Define a type for fields that can either be computed or direct keys of RowData
 type Field =
   | {
-      key: "checkbox";
-      label: "";
-      type: "checkbox";
-      compute?: never;
-    }
+    key: "checkbox";
+    label: "";
+    type: "checkbox";
+    compute?: never;
+  }
   | {
-      key: "fullname";
-      label: "Client";
-      type: "text";
-      compute: (data: RowData) => string;
-    }
+    key: "fullname";
+    label: "Client";
+    type: "text";
+    compute: (data: RowData) => string;
+  }
   | {
-      key: "clusterIdChange";
-      label: "Cluster ID";
-      type: "select";
-      compute?: never;
-    }
+    key: "clusterIdChange";
+    label: "Cluster ID";
+    type: "select";
+    compute?: never;
+  }
   | {
-      key: Exclude<
-        keyof Omit<RowData, "id" | "firstName" | "lastName" | "deliveryDetails">,
-        "coordinates"
-      >;
-      label: string;
-      type: string;
-      compute?: never;
-    }
+    key: Exclude<
+      keyof Omit<RowData, "id" | "firstName" | "lastName" | "deliveryDetails">,
+      "coordinates"
+    >;
+    label: string;
+    type: string;
+    compute?: never;
+  }
   | {
-      key: "tags";
-      label: "Tags";
-      type: "text";
-      compute: (data: RowData) => string;
-    }
+    key: "tags";
+    label: "Tags";
+    type: "text";
+    compute: (data: RowData) => string;
+  }
   | {
-      key: "assignedDriver";
-      label: "Assigned Driver";
-      type: "text";
-      compute: (data: RowData, clusters: Cluster[]) => string;
-    }
+    key: "assignedDriver";
+    label: "Assigned Driver";
+    type: "text";
+    compute: (data: RowData, clusters: Cluster[]) => string;
+  }
   | {
-      key: "assignedTime";
-      label: "Assigned Time";
-      type: "text";
-      compute: (data: RowData, clusters: Cluster[]) => string;
-    }
+    key: "assignedTime";
+    label: "Assigned Time";
+    type: "text";
+    compute: (data: RowData, clusters: Cluster[]) => string;
+  }
   | {
-      key: "deliveryDetails.deliveryInstructions";
-      label: "Delivery Instructions";
-      type: "text";
-      compute: (data: RowData) => string;
-    };
+    key: "deliveryDetails.deliveryInstructions";
+    label: "Delivery Instructions";
+    type: "text";
+    compute: (data: RowData) => string;
+  };
 
 interface Cluster {
   id: string;
@@ -599,6 +599,34 @@ const DeliverySpreadsheet: React.FC = () => {
     if (exportOption === "Routes") {
       if (option === "Email") {
         // Logic to email Routes
+
+        try {
+          // Trigger the Google Cloud Function for emailing Routes
+          const response = await fetch(
+            `https://route-exports-251910218620.us-central1.run.app?deliveryDate=${format(selectedDate, "yyyy-MM-dd")}`,
+            {
+              method: "GET",
+              headers: {
+                "Content-Type": "application/json",
+              },
+            }
+          );
+
+          if (response.ok) {
+            const result = await response.text();
+            console.log("Email sent successfully:", result);
+            alert("Routes emailed successfully!");
+          } else {
+            console.error("Failed to email Routes:", response.statusText);
+            alert("Failed to email Routes. Please try again.");
+          }
+        } catch (error) {
+          console.error("Error emailing Routes:", error);
+          alert("An error occurred while emailing Routes. Please try again.");
+        }
+
+
+
         console.log("Emailing Routes...");
         // Add your email logic here
       } else if (option === "Download") {
@@ -610,6 +638,31 @@ const DeliverySpreadsheet: React.FC = () => {
       if (option === "Email") {
         // Logic to email Doordash
         console.log("Emailing Doordash...");
+
+        try {
+          // Trigger the Google Cloud Function for emailing Doordash
+          const response = await fetch(
+            `https://route-exports-251910218620.us-central1.run.app?deliveryDate=${format(selectedDate, "yyyy-MM-dd")}`,
+            {
+              method: "GET",
+              headers: {
+                "Content-Type": "application/json",
+              },
+            }
+          );
+
+          if (response.ok) {
+            const result = await response.text();
+            console.log("Email sent successfully:", result);
+            alert("Doordash deliveries emailed successfully!");
+          } else {
+            console.error("Failed to email Doordash deliveries:", response.statusText);
+            alert("Failed to email Doordash deliveries. Please try again.");
+          }
+        } catch (error) {
+          console.error("Error emailing Doordash deliveries:", error);
+          alert("An error occurred while emailing Doordash deliveries. Please try again.");
+        }
         // Add your email logic here
       } else if (option === "Download") {
         // Logic to download Doordash
@@ -764,8 +817,8 @@ const DeliverySpreadsheet: React.FC = () => {
     if (totalMinRequired > addresses.length) {
       throw new Error(
         `Not enough deliveries for ${clusterNum} clusters with minimum ${minDeliveries} each.\n` +
-          `Required: ${totalMinRequired} | Available: ${addresses.length}\n` +
-          `Please reduce cluster count or minimum deliveries.`
+        `Required: ${totalMinRequired} | Available: ${addresses.length}\n` +
+        `Please reduce cluster count or minimum deliveries.`
       );
     }
 
@@ -773,8 +826,8 @@ const DeliverySpreadsheet: React.FC = () => {
     if (addresses.length > totalMaxAllowed) {
       throw new Error(
         `Too many deliveries for ${clusterNum} clusters with maximum ${maxDeliveries} each.\n` +
-          `Allowed: ${totalMaxAllowed} | Available: ${addresses.length}\n` +
-          `Please increase cluster count or maximum deliveries.`
+        `Allowed: ${totalMaxAllowed} | Available: ${addresses.length}\n` +
+        `Please increase cluster count or maximum deliveries.`
       );
     }
     // Validate cluster count isn't excessive
@@ -786,7 +839,7 @@ const DeliverySpreadsheet: React.FC = () => {
     if (clusterNum > maxRecommendedClusters) {
       throw new Error(
         `Too many clusters requested (${clusterNum}).\n` +
-          `Recommended maximum for ${addresses.length} deliveries: ${maxRecommendedClusters}`
+        `Recommended maximum for ${addresses.length} deliveries: ${maxRecommendedClusters}`
       );
     }
     setPopupMode("");
@@ -1267,7 +1320,7 @@ const DeliverySpreadsheet: React.FC = () => {
                           // Cast to string as these are the only expected types here
                           String(row[field.key as "address" | "ward"] ?? "")
                         ) : // Default case: render nothing or a placeholder
-                        null}
+                          null}
                       </TableCell>
                     ); // End return for TableCell
                   })}
