@@ -4,6 +4,7 @@ import { forwardRef } from "react";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import "./pagedatepicker.css";
+import CalendarTodayIcon from "@mui/icons-material/CalendarToday";
 
 const StyledCalendarButton = styled("button")({
   all: "unset", // reset browser defaults
@@ -30,8 +31,8 @@ const StyledCalendarButton = styled("button")({
 
 // Custom button to trigger DatePicker
 const CalendarButton = forwardRef<HTMLButtonElement, any>(({ onClick }, ref) => (
-  <StyledCalendarButton ref={ref} onClick={onClick}>
-    Pick Date
+  <StyledCalendarButton ref={ref} onClick={onClick} aria-label="Pick a date">
+    <CalendarTodayIcon fontSize="medium" />
   </StyledCalendarButton>
 ));
 CalendarButton.displayName = "CalendarButton";
