@@ -17,6 +17,7 @@ import {
 import { Driver, NewDelivery } from "../../../types/calendar-types";
 import { ClientProfile } from "../../../types/client-types";
 import CalendarMultiSelect from "./CalendarMultiSelect";
+import DriverManagementModal from "../../../components/DriverManagementModal";
 
 interface AddDeliveryDialogProps {
   open: boolean;
@@ -24,6 +25,7 @@ interface AddDeliveryDialogProps {
   onAddDelivery: (newDelivery: NewDelivery) => void;
   clients: ClientProfile[];
   drivers: Driver[];
+  setDrivers: React.Dispatch<React.SetStateAction<Driver[]>>;
 }
 
 const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = ({
@@ -32,6 +34,7 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = ({
   onAddDelivery,
   clients,
   drivers,
+  setDrivers,
 }) => {
   const [newDelivery, setNewDelivery] = useState<NewDelivery>(() => {
     const today = new Date().toISOString().split("T")[0];
@@ -47,6 +50,7 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = ({
   });
 
   const [customDates, setCustomDates] = useState<Date[]>([]);
+  const [isDriverModalOpen, setIsDriverModalOpen] = useState(false);
 
   const resetFormAndClose = () => {
     // Reset the form
@@ -88,101 +92,71 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = ({
     <Dialog open={open} onClose={resetFormAndClose} maxWidth="sm" fullWidth>
       <DialogTitle>Add Delivery</DialogTitle>
       <DialogContent sx={{ maxHeight: '70vh', overflowY: 'auto' }}>
-        {/* Client Selection */}
-        <Autocomplete
-          options={clients}
-          getOptionLabel={(option) => `${option.firstName} ${option.lastName}`}
-          value={
-            newDelivery.clientId
-              ? clients.find((client) => client.uid === newDelivery.clientId) || null
-              : null
-          }
-          onChange={(event, newValue) => {
-            if (newValue) {
-              // Autofill logic based on the selected client
-              const clientProfile = clients.find((client) => client.uid === newValue.uid);
-              if (clientProfile) {
-                setNewDelivery({
-                  ...newDelivery,
-                  clientId: clientProfile.uid,
-                  clientName: `${clientProfile.firstName} ${clientProfile.lastName}`,
-                  deliveryDate:
-                    clientProfile.startDate || new Date().toISOString().split("T")[0],
-                  // Check if client recurrence is a standard one before setting
-                  recurrence: ["None", "Weekly", "2x-Monthly", "Monthly"].includes(
-                    clientProfile.recurrence
-                  )
-                    ? (clientProfile.recurrence as "None" | "Weekly" | "2x-Monthly" | "Monthly")
-                    : newDelivery.recurrence, // Keep existing selection if client recurrence is non-standard
-                  repeatsEndDate: clientProfile.endDate || "",
-                });
-              }
-            } else {
-              // Reset fields if no client is selected
-              setNewDelivery({
-                ...newDelivery,
-                clientId: "",
-                clientName: "",
-                deliveryDate: new Date().toISOString().split("T")[0],
-                recurrence: "None",
-                repeatsEndDate: "",
-              });
-            }
-          }}
-          renderOption={(props, option) => (
-            <li {...props} key={option.uid}>
-              {`${option.firstName} ${option.lastName}`}
-            </li>
-          )}
-          renderInput={(params) => (
-            <TextField
-              {...params}
-              label="Client Name"
-              margin="normal"
-              fullWidth
-              required
-              sx={{
-                '.MuiOutlinedInput-root': {
-                  height: '56px',
-                },
-                '.MuiOutlinedInput-input': {
-                  display: 'flex',
-                  alignItems: 'center',
-                }
-              }}
-            />
-          )}
-        />
-
         {/* Driver Selection */}
         <Autocomplete
-          options={drivers}
+          options={[{ id: '__modal__', name: 'Manage Drivers' }, ...drivers]}
           getOptionLabel={(option) => option.name}
+          filterOptions={(options, state) => {
+            const specialOption = { id: '__modal__', name: 'Manage Drivers' };
+
+            // Filter out the special option from the rest
+            const filteredDrivers = drivers.filter((driver) =>
+              driver.name.toLowerCase().includes(state.inputValue.toLowerCase())
+            );
+
+            // Limit total displayed items to 10, including the special option
+            const limitedDrivers = filteredDrivers.slice(0, 9); // 9 + 1 = 10 total
+
+            return [specialOption, ...limitedDrivers];
+          }}
           value={
             newDelivery.assignedDriverId
               ? drivers.find((driver) => driver.id === newDelivery.assignedDriverId) || null
               : null
           }
           onChange={(event, newValue) => {
-            if (newValue) {
+            if (!newValue) {
+              setNewDelivery({
+                ...newDelivery,
+                assignedDriverId: '',
+                assignedDriverName: '',
+              });
+            } else if (newValue.id === '__modal__') {
+              setIsDriverModalOpen(true);
+            } else {
               setNewDelivery({
                 ...newDelivery,
                 assignedDriverId: newValue.id,
                 assignedDriverName: newValue.name,
               });
-            } else {
-              setNewDelivery({
-                ...newDelivery,
-                assignedDriverId: "",
-                assignedDriverName: "",
-              });
             }
           }}
-          renderOption={(props, option) => (
-            <li {...props} key={option.id}>
-              {option.name}
-            </li>
-          )}
+          renderOption={(props, option) =>
+            option.id === '__modal__' ? (
+              <li {...props} key="manage-drivers-option">
+                <span
+                  style={{
+                    color: '#257E68',
+                    fontWeight: 'bold',
+                    cursor: 'pointer', // Make it look like clickable text
+                  }}
+                  onClick={(e) => {
+                    e.stopPropagation(); // Prevents closing the dropdown when clicked
+                    setIsDriverModalOpen(true); // Open the modal
+                  }}
+                >
+                  Edit Driver List
+                </span>
+          </li>
+            ) : (
+              <li {...props} key={option.id}>
+                <span>
+                  <p style={{color: 'black', fontWeight: 'bold', display: 'inline-block', marginRight: '10px'}}>{option.name}</p>
+                  <p style={{color: 'grey', display: 'inline-block'}}>{option.phone ? `(${option.phone})` : ''}</p>
+                </span>
+              </li>
+            )
+          }
           renderInput={(params) => (
             <TextField
               {...params}
@@ -197,10 +171,18 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = ({
                 '.MuiOutlinedInput-input': {
                   display: 'flex',
                   alignItems: 'center',
-                }
+                },
               }}
             />
           )}
+        />
+        <DriverManagementModal
+          open={isDriverModalOpen}
+          onClose={() => setIsDriverModalOpen(false)}
+          drivers={drivers}
+          onDriversChange={(updatedDrivers) => {
+            setDrivers(updatedDrivers); // or however you update your state
+          }}
         />
 
         {/* Delivery Date */}

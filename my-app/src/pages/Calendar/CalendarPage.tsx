@@ -433,6 +433,7 @@ const CalendarPage: React.FC = () => {
           onAddDelivery={handleAddDelivery}
           clients={clients}
           drivers={drivers}
+          setDrivers={setDrivers}
         />
       </Box>
     </Box>
