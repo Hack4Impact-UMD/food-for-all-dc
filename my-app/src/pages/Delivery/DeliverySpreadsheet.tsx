@@ -5,6 +5,8 @@ import { Search, Filter } from "lucide-react";
 import { query, Timestamp, updateDoc, where } from "firebase/firestore";
 import { format, addDays } from "date-fns";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
+import AddIcon from "@mui/icons-material/Add";
+import DeleteIcon from "@mui/icons-material/Delete";
 
 import "./DeliverySpreadsheet.css";
 import 'leaflet/dist/leaflet.css';
@@ -30,6 +32,7 @@ import {
   FormControl,
   InputLabel,
   SelectChangeEvent,
+  TextField,
 } from "@mui/material";
 import {
   collection,
@@ -47,6 +50,7 @@ import LoadingIndicator from "../../components/LoadingIndicator/LoadingIndicator
 import Button from '../../components/common/Button';
 import Input from '../../components/common/Input';
 import { Driver } from '../../types/calendar-types';
+import { CustomRowData, useCustomColumns } from "../../hooks/useCustomColumns";
 
 interface RowData {
   id: string;
@@ -102,7 +106,7 @@ type Field =
       key: "clusterIdChange";
       label: "Cluster ID";
       type: "select";
-      compute?: never;
+      compute?: (data: RowData) => string;
     }
   | {
       key: Exclude<keyof Omit<RowData, "id" | "firstName" | "lastName" | "deliveryDetails">, "coordinates">;
@@ -179,6 +183,10 @@ const fields: Field[] = [
     key: "clusterIdChange",
     label: "Cluster ID",
     type: "select",
+    compute: (data: RowData) => {
+      const cluster = data.clusterId;
+      return cluster;
+    },
   },
   {
     key: "tags",
@@ -257,6 +265,15 @@ const DeliverySpreadsheet: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [clusterDoc, setClusterDoc] = useState<ClusterDoc | null>()
   const navigate = useNavigate();
+    const [editingRowId, setEditingRowId] = useState<string | null>(null);
+  const {
+    customColumns,
+    handleAddCustomColumn,
+    handleCustomHeaderChange,
+    handleRemoveCustomColumn,
+    handleCustomColumnChange,
+  } = useCustomColumns();
+  const [customRows, setCustomRows] = useState<CustomRowData[]>([])
 
   // Calculate Cluster Options
   const clusterOptions = useMemo(() => {
@@ -849,15 +866,113 @@ useEffect(() => {
     deliveriesForDate.some(delivery => delivery.clientId === row.id)
   );
   
-  const visibleRows = rows.filter(row => {
-    if (!searchQuery) return true; // Show all if no search query
+  // const visibleRows = rows.filter(row => {
+  //   if (!searchQuery) return true; // Show all if no search query
     
-    const searchTerm = searchQuery.toLowerCase().trim();
+  //   const searchTerm = searchQuery.toLowerCase().trim();
     
-    return (
-      row.firstName.toLowerCase().includes(searchTerm) ||
-      row.lastName.toLowerCase().includes(searchTerm)
-    );
+  //   return (
+  //     row.firstName.toLowerCase().includes(searchTerm) ||
+  //     row.lastName.toLowerCase().includes(searchTerm)
+  //   );
+  // });
+
+  const visibleRows = rows.filter((row) => {
+    const keywordRegex = /(\w+):\s*("[^"]+"|\S+)/g; // Matches key: "value" or key: value
+    const matches = [...searchQuery.matchAll(keywordRegex)];
+  
+    if (matches.length > 0) {
+      // For keyword queries, check that each provided value is a substring of the corresponding field
+      return matches.every(([_, key, value]) => {
+        const strippedValue = value.replace(/"/g, "").toLowerCase(); // Remove quotes and lowercase
+        
+        // Check static fields with a substring match
+        const matchesStaticField = fields.some((field) => {
+          const fieldValue = field.compute ? field.compute(row, clusters) : row[field.key as keyof RowData];
+          return (
+            fieldValue != null &&
+            fieldValue.toString().toLowerCase().includes(strippedValue)
+          );
+        });
+    
+        // Check custom columns with a substring match
+        const matchesCustomColumn = customColumns.some((col) => {
+          if (col.propertyKey !== "none") {
+            const fieldValue = row[col.propertyKey as keyof RowData];
+            return (
+              fieldValue != null &&
+              fieldValue.toString().toLowerCase().includes(strippedValue)
+            );
+          }
+          return false;
+        });
+    
+        return matchesStaticField || matchesCustomColumn;
+      });
+    } else {
+      // Fallback to general search logic
+      const eachQuery = searchQuery.match(/"[^"]+"|\S+/g) || [];
+      
+      const quotedQueries = eachQuery.filter(s => s.startsWith('"') && s.endsWith('"') && s.length > 1) || [];
+      const nonQuotedQueries = eachQuery.filter(s => s.length === 1 || !s.endsWith('"')) || [];
+    
+      const containsQuotedQueries = quotedQueries.length === 0
+        ? true
+        : quotedQueries.every((query) => {
+            // Use substring matching instead of exact equality
+            const strippedQuery = query.slice(1, -1).trim().toLowerCase();
+            const matchesStaticField = fields.some((field) => {
+              const fieldValue = field.compute ? field.compute(row, clusters) : row[field.key as keyof RowData];
+              return (
+                fieldValue != null &&
+                fieldValue.toString().toLowerCase().includes(strippedQuery)
+              );
+            });
+            const matchesCustomColumn = customColumns.some((col) => {
+              if (col.propertyKey !== "none") {
+                const fieldValue = row[col.propertyKey as keyof RowData];
+                return (
+                  fieldValue != null &&
+                  fieldValue.toString().toLowerCase().includes(strippedQuery)
+                );
+              }
+              return false;
+            });
+            return matchesStaticField || matchesCustomColumn;
+          });
+    
+      if (containsQuotedQueries) {
+        const containsRegularQuery = nonQuotedQueries.length === 0
+          ? true
+          : nonQuotedQueries.some((query) => {
+              const strippedQuery = query.startsWith('"')
+                ? query.slice(1).trim().toLowerCase()
+                : query.trim().toLowerCase();
+              if (strippedQuery.length === 0) {
+                return true;
+              }
+              const matchesStaticField = fields.some((field) => {
+                const fieldValue = field.compute ? field.compute(row, clusters) : row[field.key as keyof RowData];
+                if (fieldValue == null) return false;
+                return fieldValue.toString().toLowerCase().includes(strippedQuery);
+              });
+              const matchesCustomColumn = customColumns.some((col) => {
+                if (col.propertyKey !== "none") {
+                  const fieldValue = row[col.propertyKey as keyof RowData];
+                  return (
+                    fieldValue != null &&
+                    fieldValue.toString().toLowerCase().includes(strippedQuery)
+                  );
+                }
+                return false;
+              });
+              return matchesStaticField || matchesCustomColumn;
+            });
+        return containsRegularQuery;
+      } else {
+        return false;
+      }
+    }
   });
 
   // Synchronize rows state with rawClientData and clusters
@@ -1098,15 +1213,95 @@ useEffect(() => {
                     {field.label}
                   </TableCell>
                 ))}
+                {customColumns.map((col) => (
+                    <TableCell 
+                      className="table-header" 
+                      key={col.id}
+                      sx={{
+                        backgroundColor: "#f5f9f7",
+                        borderBottom: "2px solid #e0e0e0",
+                      }}
+                    >
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                        <Select
+                          value={col.propertyKey}
+                          onChange={(event) => handleCustomHeaderChange(event, col.id)}
+                          variant="outlined"
+                          displayEmpty
+                          size="small"
+                          sx={{ 
+                            minWidth: 120, 
+                            color: "#257e68",
+                            "& .MuiOutlinedInput-notchedOutline": {
+                              borderColor: "#bfdfd4",
+                            },
+                            "&:hover .MuiOutlinedInput-notchedOutline": {
+                              borderColor: "#257e68",
+                            },
+                          }}
+                        >
+                        <MenuItem value="none">None</MenuItem>
+                        <MenuItem value="adults">Adults</MenuItem>
+                        <MenuItem value="children">Children</MenuItem>
+                        <MenuItem value="deliveryFreq">Delivery Freq</MenuItem>
+                        <MenuItem value="ethnicity">Ethnicity</MenuItem>
+                        <MenuItem value="gender">Gender</MenuItem>
+                        <MenuItem value="language">Language</MenuItem>
+                        <MenuItem value="notes">Notes</MenuItem>
+                        <MenuItem value="referralEntity">Referral Entity</MenuItem>
+                        <MenuItem value="tefapCert">TEFAP Cert</MenuItem>
+                        <MenuItem value="dob">DOB</MenuItem>
+                        </Select>
+                        {/*Add Remove Button*/}
+                        <IconButton
+                          size="small"
+                          onClick={() => handleRemoveCustomColumn(col.id)}
+                          aria-label={`Remove ${col.label || "custom"} column`}
+                          title={`Remove ${col.label || "custom"} column`}
+                          sx={{
+                            color: "#d32f2f",
+                            "&:hover": {
+                              backgroundColor: "rgba(211, 47, 47, 0.04)",
+                            }
+                          }}
+                        >
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      </Box>
+                    </TableCell>
+                  ))}
+                  {/* Add button cell */}
+                  <TableCell 
+                    className="table-header" 
+                    align="right"
+                    sx={{
+                      backgroundColor: "#f5f9f7",
+                      borderBottom: "2px solid #e0e0e0",
+                    }}
+                  >
+                    <IconButton
+                      onClick={handleAddCustomColumn}
+                      color="primary"
+                      aria-label="add custom column"
+                      sx={{
+                        backgroundColor: "rgba(37, 126, 104, 0.06)",
+                        "&:hover": {
+                          backgroundColor: "rgba(37, 126, 104, 0.12)",
+                        }
+                      }}
+                    >
+                      <AddIcon sx={{ color: "#257e68" }} />
+                    </IconButton>
+                  </TableCell>
                 {/* Add empty cell for the action menu - keeping this for now */}
-                <TableCell 
+                {/* <TableCell 
                   className="table-header"
                   style={{ 
                     width: "50px",
                     textAlign: "center", 
                     padding: "10px", 
                   }}
-                ></TableCell>
+                ></TableCell> */}
               </TableRow>
             </TableHead>
             <TableBody>
@@ -1170,9 +1365,39 @@ useEffect(() => {
                       </TableCell>
                     ); // End return for TableCell
                   })}
-                  {/* Empty TableCell to align with the extra header cell (if kept) */}
-                  <TableCell></TableCell> 
+                   {customColumns.map((col) => (
+                                        <TableCell key={col.id} sx={{ py: 2 }}>
+                                          {editingRowId === row.id ? (
+                                            col.propertyKey !== "none" ? (
+                                              <TextField
+                                                value={row[col.propertyKey as keyof RowData] ?? ""}
+                                                onChange={(e) =>
+                                                  handleCustomColumnChange(
+                                                    e,
+                                                    row.id,
+                                                    col.propertyKey as keyof CustomRowData,
+                                                    setCustomRows
+                                                  )
+                                                }
+                                                variant="outlined"
+                                                size="small"
+                                                fullWidth
+                                              />
+                                            ) : (
+                                              "N/A"
+                                            )
+                                          ) : 
+                                          col.propertyKey !== "none" ? (
+                                            (row[col.propertyKey as keyof RowData]?.toString() ?? "N/A")
+                                          ) : (
+                                            "N/A"
+                                          )}
+                                        </TableCell>
+                                      ))}
+                  {/* Empty Table cell so custom columns dont look weird */}
+                  <TableCell></TableCell>
                 </TableRow>
+                
               ))}
             </TableBody>
           </Table>
