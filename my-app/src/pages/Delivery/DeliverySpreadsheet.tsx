@@ -23,14 +23,11 @@ import {
   Dialog,
   DialogContent,
   DialogTitle,
-  CircularProgress,
   Typography,
   IconButton,
-  Menu,
   MenuItem,
   Select,
   FormControl,
-  InputLabel,
   SelectChangeEvent,
   TextField,
 } from "@mui/material";
@@ -48,6 +45,8 @@ import GenerateClustersPopup from "./components/GenerateClustersPopup";
 import AssignTimePopup from "./components/AssignTimePopup";
 import LoadingIndicator from "../../components/LoadingIndicator/LoadingIndicator";
 import Button from '../../components/common/Button';
+import ManualAssign from "./components/ManualAssignPopup";
+import { DeliveryRowData } from "./types/deliveryTypes";
 import Input from '../../components/common/Input';
 import { Driver } from '../../types/calendar-types';
 import { CustomRowData, useCustomColumns } from "../../hooks/useCustomColumns";
@@ -88,7 +87,7 @@ interface RowData {
 // }
 
 
-// Define a type for fields that can either be computed or direct keys of RowData
+// Define a type for fields that can either be computed or direct keys of DeliveryRowData
 type Field =
   | {
       key: "checkbox";
@@ -100,7 +99,7 @@ type Field =
       key: "fullname";
       label: "Client";
       type: "text";
-      compute: (data: RowData) => string;
+      compute: (data: DeliveryRowData) => string;
     }
     | {
       key: "clusterIdChange";
@@ -109,7 +108,7 @@ type Field =
       compute?: (data: RowData) => string;
     }
   | {
-      key: Exclude<keyof Omit<RowData, "id" | "firstName" | "lastName" | "deliveryDetails">, "coordinates">;
+      key: Exclude<keyof Omit<DeliveryRowData, "id" | "firstName" | "lastName" | "deliveryDetails">, "coordinates">;
       label: string;
       type: string;
       compute?: never;
@@ -118,25 +117,25 @@ type Field =
       key: "tags";
       label: "Tags";
       type: "text";
-      compute: (data: RowData) => string;
+      compute: (data: DeliveryRowData) => string;
     }
   | {
       key: "assignedDriver";
       label: "Assigned Driver";
       type: "text";
-      compute: (data: RowData, clusters: Cluster[]) => string;
+      compute: (data: DeliveryRowData, clusters: Cluster[]) => string;
     }
   | {
       key: "assignedTime";
       label: "Assigned Time";
       type: "text";
-      compute: (data: RowData, clusters: Cluster[]) => string;
+      compute: (data: DeliveryRowData, clusters: Cluster[]) => string;
     }
   | {
       key: "deliveryDetails.deliveryInstructions";
       label: "Delivery Instructions";
       type: "text";
-      compute: (data: RowData) => string;
+      compute: (data: DeliveryRowData) => string;
     };
 
 interface Cluster {
@@ -177,7 +176,7 @@ const fields: Field[] = [
     key: "fullname",
     label: "Client",
     type: "text",
-    compute: (data: RowData) => `${data.lastName}, ${data.firstName}`,
+    compute: (data: DeliveryRowData) => `${data.lastName}, ${data.firstName}`,
   },
   {
     key: "clusterIdChange",
@@ -192,7 +191,7 @@ const fields: Field[] = [
     key: "tags",
     label: "Tags",
     type: "text",
-    compute: (data: RowData) => {
+    compute: (data: DeliveryRowData) => {
       const tags = data.tags || [];
       return tags.length > 0 ? tags.join(", ") : "None";
     },
@@ -203,7 +202,7 @@ const fields: Field[] = [
     key: "assignedDriver", 
     label: "Assigned Driver", 
     type: "text",
-    compute: (data: RowData, clusters: Cluster[]) => {
+    compute: (data: DeliveryRowData, clusters: Cluster[]) => {
       let driver = "";
       clusters.forEach((cluster)=>{
         if(cluster.deliveries?.some((id) => id == data.id)){
@@ -217,7 +216,7 @@ const fields: Field[] = [
     key: "assignedTime", 
     label: "Assigned Time", 
     type: "text",
-    compute: (data: RowData, clusters: Cluster[]) => {
+    compute: (data: DeliveryRowData, clusters: Cluster[]) => {
       let time = "";
       clusters.forEach((cluster) => {
         if (cluster.deliveries?.some((id) => id === data.id)) {
@@ -242,7 +241,7 @@ const fields: Field[] = [
 // Type Guard to check if a field is a regular field
 const isRegularField = (
   field: Field
-): field is Extract<Field, { key: Exclude<keyof RowData, "coordinates"> }> => {
+): field is Extract<Field, { key: Exclude<keyof DeliveryRowData, "coordinates"> }> => {
   return field.key !== "fullname" && 
          field.key !== "tags" && 
          field.key !== "assignedDriver" &&
@@ -252,8 +251,8 @@ const isRegularField = (
 
 const DeliverySpreadsheet: React.FC = () => {
   const testing = false;
-  const [rows, setRows] = useState<RowData[]>([]);
-  const [rawClientData, setRawClientData] = useState<RowData[]>([]);
+  const [rows, setRows] = useState<DeliveryRowData[]>([]);
+  const [rawClientData, setRawClientData] = useState<DeliveryRowData[]>([]);
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set()); 
   const [innerPopup, setInnerPopup] = useState(false);
@@ -281,12 +280,14 @@ const DeliverySpreadsheet: React.FC = () => {
     const maxId = existingIds.length > 0 ? Math.max(...existingIds) : 0;
     const nextId = (maxId + 1).toString();
     const availableIds = clusters.map(c => c.id).sort((a, b) => parseInt(a, 10) - parseInt(b, 10));
-
     const options = [
-      { value: "", label: "Unassigned" },
       ...availableIds.map(id => ({ value: id, label: id })),
       { value: nextId, label: nextId }
     ];
+    options.pop()
+    if(options.length == 0){
+      options.push({value:"", label:"No Current Clusters"})
+    }
     return options;
   }, [clusters]);
 
@@ -363,7 +364,7 @@ useEffect(() => {
       const clientIds = deliveriesForDate.map(delivery => delivery.clientId);
       // Firestore 'in' queries are limited to 10 items per query
       const chunkSize = 10;
-      let clientsWithDeliveriesOnSelectedDate: RowData[] = [];
+      let clientsWithDeliveriesOnSelectedDate: DeliveryRowData[] = [];
       for (let i = 0; i < clientIds.length; i += chunkSize) {
         const chunk = clientIds.slice(i, i + chunkSize);
         if (chunk.length === 0) continue;
@@ -374,56 +375,17 @@ useEffect(() => {
         const snapshot = await getDocs(q);
         const chunkData = snapshot.docs.map((doc) => ({
           id: doc.id,
-          ...(doc.data() as Omit<RowData, "id">),
+          ...(doc.data() as Omit<DeliveryRowData, "id">),
         }));
         clientsWithDeliveriesOnSelectedDate = clientsWithDeliveriesOnSelectedDate.concat(chunkData);
       }
-
-      const addresses = clientsWithDeliveriesOnSelectedDate.map(row => row.address);
       setRawClientData(clientsWithDeliveriesOnSelectedDate);
-
-      if (clientsWithDeliveriesOnSelectedDate.length > 0 && addresses.length > 0) {
-        const token = await auth.currentUser?.getIdToken();
-        const response = await fetch(testing ? "": 'https://geocode-addresses-endpoint-lzrplp4tfa-uc.a.run.app', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            addresses: addresses
-          }),
-        });
-        
-        if (response.ok) {
-          const { coordinates } = await response.json();
-          // update only the rows that need coordinates
-          const updatedRawData = clientsWithDeliveriesOnSelectedDate.map((row, index) => {
-            if (coordinates[index]) {
-              return {
-                ...row,
-                coordinates: coordinates[index]
-              };
-            }
-            return row;
-          });
-          setRawClientData(updatedRawData);
-          // Stop loading *after* processing is complete
-          setIsLoading(false);
-        } else {
-          // Handle non-ok response from geocode
-          console.error("Geocoding failed:", response.statusText);
-          setIsLoading(false); // Stop loading on geocode failure
-        }
-      } else {
-        // No clients or addresses, clear data and stop loading
-        setRawClientData([]);
-        setIsLoading(false); // Stop loading if nothing to geocode
-      }
     } catch (error) {
       console.error("Error fetching/geocoding client data:", error);
       setRawClientData([]); // Clear data on error
-      setIsLoading(false); // Stop loading on error
+    } finally {
+      //Stop loading after processing
+      setIsLoading(false); 
     }
   };
   
@@ -525,7 +487,7 @@ useEffect(() => {
     setSearchQuery(event.target.value);
   };
 
-  const handleClusterChange = async (row: RowData, newClusterIdStr: string) => {
+  const handleClusterChange = async (row: DeliveryRowData, newClusterIdStr: string) => {
     const oldClusterId = row.clusterId || "";
     const newClusterId = newClusterIdStr;
   
@@ -546,7 +508,7 @@ useEffect(() => {
           };
         }
         return cluster;
-      }).filter(cluster => cluster.deliveries.length > 0 || cluster.id === newClusterId);
+      });
     }
   
     if (newClusterId) {
@@ -570,7 +532,7 @@ useEffect(() => {
         updatedClusters.push(newCluster);
       }
     }
-  
+
     updatedClusters.sort((a, b) => parseInt(a.id, 10) - parseInt(b.id, 10));
   
     setClusters(updatedClusters);
@@ -671,6 +633,63 @@ useEffect(() => {
         console.error("Error assigning time: ", error);
       }
     }
+  };
+
+  const initClustersForDay = async (newClusters: Cluster[]) => {
+    const docRef = doc(collection(db, "clusters"));
+
+    // Use selectedDate to ensure consistency with fetched data
+    const clusterDate = new Date(Date.UTC(
+      selectedDate.getFullYear(),
+      selectedDate.getMonth(),
+      selectedDate.getDate(),
+      0, 0, 0, 0
+    ));
+
+    const newClusterDoc = {
+      clusters: newClusters,
+      docId: docRef.id,
+      date: Timestamp.fromDate(clusterDate) // Use consistent date
+    }
+
+    // Firestore expects the data object directly for setDoc - Corrected
+    await setDoc(docRef, newClusterDoc); 
+    setClusters(newClusters); // Update state after successful Firestore creation
+    setClusterDoc(newClusterDoc)
+  }
+
+  const manualAssign = async (assignedClusters: string[], clusters: number) => {
+    //make blank cluster template
+    const newClusters: Cluster[] = Array.from({ length: clusters }, (_, i) => ({
+      id: (i + 1).toString(),
+      driver: "",
+      time: "",
+      deliveries: [],
+    }));
+    
+    //populate deliveries for clusters
+    assignedClusters.forEach((clusterIndex, deliveryIndex) => {
+      const numericIndex = parseInt(clusterIndex) - 1;
+      if (numericIndex >= 0 && numericIndex < newClusters.length) {
+        newClusters[numericIndex].deliveries.push(visibleRows[deliveryIndex].id);
+      } else {
+        console.warn(`Invalid cluster index: ${clusterIndex}`);
+      }
+    });
+
+
+    if(clusterDoc){
+      const clusterRef = doc(db, "clusters", clusterDoc.docId);
+      // Only update the 'clusters' field using updateDoc
+      await updateDoc(clusterRef, { clusters: newClusters });
+      setClusters(newClusters); // Update state after successful Firestore update
+      // Update the local clusterDoc state's clusters as well
+      setClusterDoc(prevDoc => prevDoc ? { ...prevDoc, clusters: newClusters } : null);
+    }
+    else{
+      initClustersForDay(newClusters);
+    }       
+    resetSelections()
   };
 
   //Handle generating clusters
@@ -789,31 +808,14 @@ useEffect(() => {
         setClusterDoc(prevDoc => prevDoc ? { ...prevDoc, clusters: newClusters } : null);
       }
       else{
-        const docRef = doc(collection(db, "clusters"));
-        // Use selectedDate to ensure consistency with fetched data
-        const clusterDate = new Date(Date.UTC(
-          selectedDate.getFullYear(),
-          selectedDate.getMonth(),
-          selectedDate.getDate(),
-          0, 0, 0, 0
-        ));
-
-        const newClusterDoc = {
-          clusters: newClusters,
-          docId: docRef.id,
-          date: Timestamp.fromDate(clusterDate) // Use consistent date
-        }
-        // Firestore expects the data object directly for setDoc - Corrected
-        await setDoc(docRef, newClusterDoc); 
-        setClusters(newClusters); // Update state after successful Firestore creation
-        setClusterDoc(newClusterDoc)
+        initClustersForDay(newClusters)
       }       
       
       //Refresh the data - REMOVED Redundant fetch
       // const snapshot = await getDocs(collection(db, "clients"));
       // const updatedData = snapshot.docs.map((doc) => ({
       //  id: doc.id,
-      //  ...(doc.data() as Omit<RowData, "id">),
+      //  ...(doc.data() as Omit<DeliveryRowData, "id">),
       // }));
       // setClusters(newClusters); // REMOVED - Redundant state update, handled in if/else
       setIsLoading(false);
@@ -825,7 +827,7 @@ useEffect(() => {
   };
 
   // Handle checkbox selection
-  const handleCheckboxChange = (row: RowData) => {
+  const handleCheckboxChange = (row: DeliveryRowData) => {
     const newSelectedRows = new Set(selectedRows);
     const newSelectedClusters = new Set(selectedClusters);
     const rowToToggle = row;
@@ -1071,6 +1073,21 @@ useEffect(() => {
           Today
         </Button>
       </Box>
+      <Button
+        variant="primary"
+        size="medium"
+        style={{
+          whiteSpace: "nowrap",
+          padding: "0% 2%",
+          borderRadius: 5,
+          width: "auto",
+          marginRight: '16px'
+        }}
+        onClick={() => setPopupMode("ManualClusters")}
+      >
+        Manual Assign
+      </Button>
+
       <Button
         variant="primary"
         size="medium"
@@ -1433,6 +1450,19 @@ useEffect(() => {
           <DialogContent>
             <GenerateClustersPopup
               onGenerateClusters={generateClusters}
+              onClose={resetSelections}
+            />
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {popupMode === "ManualClusters" && (
+        <Dialog open onClose={resetSelections} maxWidth="xs" fullWidth>
+          <DialogTitle>Assign Clusters</DialogTitle>
+          <DialogContent>
+            <ManualAssign
+              manualAssign={manualAssign}
+              allDeliveries = {visibleRows}
               onClose={resetSelections}
             />
           </DialogContent>

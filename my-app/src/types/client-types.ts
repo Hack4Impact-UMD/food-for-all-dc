@@ -74,6 +74,7 @@ export interface ClientProfile {
   updatedAt: Date;
   tags: string[];
   ward: string;
+  coordinates: { lat: number; lng: number }[];
   seniors: number;
   headOfHousehold: "Senior" | "Adult";
   referralEntity?: {

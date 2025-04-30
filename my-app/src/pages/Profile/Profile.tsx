@@ -229,6 +229,7 @@ const Profile = () => {
     ward: "",
     tefapCert: "",
     referralEntity: null,
+    coordinates: []
   });
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [fieldEditStates, setFieldEditStates] = useState<{ [key: string]: boolean }>({});
@@ -479,6 +480,33 @@ const Profile = () => {
     return wardName;
   };
 
+  const getCoordinates = async (address: string) => {
+    try{
+        const token = await auth.currentUser?.getIdToken();
+        const response = await fetch('https://geocode-addresses-endpoint-lzrplp4tfa-uc.a.run.app', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            addresses: [address]
+          }),
+        });
+
+        //API returns {[coordinates[]]} so destructure and return index 0
+        if(response.ok){
+          const { coordinates } = await response.json();
+          return coordinates[0];
+        }
+    }
+    catch (error){
+      //[0,0] is an invalid coordinate handled in DelivertSpreadsheet.tsx
+      console.error(error)
+      return [0,0];
+    }
+  }
+
   // Update the toggleFieldEdit function to be type-safe
   const toggleFieldEdit = (fieldName: ClientProfileKey) => {
     setFieldEditStates((prev) => ({
@@ -692,6 +720,7 @@ const Profile = () => {
     try {
       const currentNotes = clientProfile.notes || ""; // Ensure notes is a string
       const fetchedWard = await getWard(clientProfile.address); // Fetch ward before saving
+      const coordinates = await getCoordinates(clientProfile.address); //Calculate coordinates before saving
 
       let updatedNotesTimestamp = checkIfNotesExists(
         currentNotes,
@@ -711,6 +740,7 @@ const Profile = () => {
         updatedAt: new Date(),
         total: Number(clientProfile.adults || 0) + Number(clientProfile.children || 0) + Number(clientProfile.seniors || 0),
         ward: fetchedWard, // Use the freshly fetched ward
+        coordinates: coordinates, //use freshly fetched coordinates
         // Ensure referralEntity is included based on selectedCaseWorker
         referralEntity: selectedCaseWorker
           ? { id: selectedCaseWorker.id, name: selectedCaseWorker.name, organization: selectedCaseWorker.organization }
