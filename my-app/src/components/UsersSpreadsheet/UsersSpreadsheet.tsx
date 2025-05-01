@@ -70,7 +70,6 @@ const UsersSpreadsheet: React.FC = () => {
   const [deleteModalOpen, setDeleteModalOpen] = useState<boolean>(false);
   const [createModalOpen, setCreateModalOpen] = useState<boolean>(false);
   const [actionFeedback, setActionFeedback] = useState<{ type: 'success' | 'error', message: string } | null>(null);
-  const [isDeleting, setIsDeleting] = useState<boolean>(false);
 
   const navigate = useNavigate();
 
@@ -126,22 +125,31 @@ const UsersSpreadsheet: React.FC = () => {
 
   // Handle deleting a user (only Firestore deletion for now)
   const handleDeleteUser = async (uid: string) => {
-    setActionFeedback(null);
-    setIsDeleting(true);
+    const originalRows = [...rows]; // Store original rows for potential rollback
+    const userToDelete = rows.find(r => r.uid === uid); // Find user for feedback messages
+
+    // --- Optimistic UI Update ---
+    setRows(rows.filter((row) => row.uid !== uid)); // Remove user from UI immediately
+    setDeleteModalOpen(false); // Close modal immediately
+    setSelectedRowId(null);
+    setActionFeedback(null); // Clear previous feedback
+
     try {
+      // --- Call backend service ---
       await authUserService.deleteUser(uid);
-      setRows(rows.filter((row) => row.uid !== uid));
-      setActionFeedback({ type: 'success', message: 'User deleted successfully.' });
-      setTimeout(() => setActionFeedback(null), 5000);
+      // Backend succeeded! Show success message.
+      setActionFeedback({ type: 'success', message: `${userToDelete?.name || 'User'} deleted successfully.` });
+      setTimeout(() => setActionFeedback(null), 5000); // Clear success message after 5s
+
     } catch (deleteError: any) {
       console.error("Error deleting user: ", deleteError);
-      const errorMessage = deleteError.message || 'Failed to delete user. Please try again.';
+      // --- Rollback UI on failure ---
+      setRows(originalRows); // Restore original rows
+      const errorMessage = deleteError.message || `Failed to delete ${userToDelete?.name || 'user'}. Please try again.`;
       setActionFeedback({ type: 'error', message: errorMessage });
-    } finally {
-      setIsDeleting(false);
-      setDeleteModalOpen(false);
-      setSelectedRowId(null);
+      // Keep error message visible until dismissed or another action occurs
     }
+    // No 'finally' block needed for modal/ID reset as it's done optimistically
   };
 
   // Handle opening the action menu
@@ -546,7 +554,6 @@ const UsersSpreadsheet: React.FC = () => {
             }
         }}
         userName={rows.find(r => r.uid === selectedRowId)?.name || 'this user'}
-        loading={isDeleting}
       />
       <CreateUserModal
         open={createModalOpen}
