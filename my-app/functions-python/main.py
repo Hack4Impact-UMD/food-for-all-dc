@@ -18,6 +18,17 @@ except ValueError:
 # Set CORS options for callable functions if needed (often required for local testing/web clients)
 # Adjust origins as needed for production
 # options.set_global_options(cors=options.CorsOptions(cors_origins="*", cors_methods=["post"]))
+options.set_global_options(
+    region="us-central1", # Add region if not already globally set elsewhere or if functions have specific regions
+    cors=options.CorsOptions(
+        cors_origins=[
+            r"http://localhost:3000", # Local development
+            r"https://food-for-all-dc-caf23.web.app", # Firebase Hosting URL 1
+            r"https://food-for-all-dc-caf23.firebaseapp.com", # Firebase Hosting URL 2
+        ],
+        cors_methods=["post", "options"] # Allow POST and preflight OPTIONS requests
+    )
+)
 
 # Explicitly declare each function with region configuration
 geocode_fn = https_fn.on_request(region="us-central1", memory=512, timeout_sec=300)(geocode_addresses_endpoint)
@@ -28,6 +39,7 @@ optimal_route_fn = https_fn.on_request(region="us-central1")(calculate_optimal_c
 # --- New Callable Function for User Deletion ---
 @https_fn.on_call(
     region="us-central1"
+    # Note: CORS is now handled globally, no need to set it per function unless overriding
 )
 def deleteUserAccount(req: https_fn.CallableRequest):
     """
