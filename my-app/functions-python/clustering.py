@@ -303,21 +303,6 @@ def cluster_deliveries_k_means(req: https_fn.Request) -> https_fn.Response:
     for index, label in enumerate(labels):
         clusters[f"{label+1}"].append(index)
 
-    clusters["doordash"] = []
-    for key in list(clusters.keys()):
-        cluster = clusters[key]
-        if len(cluster) <= 1:
-            continue
-        distance_matrix = construct_haversine_distance_matrix(coords=[coords[index] for index in cluster])
-        clf = LocalOutlierFactor(n_neighbors=max(2, len(cluster) - 1), metric="precomputed")
-        predictions = clf.fit_predict(distance_matrix)
-        outliers = [index for index, prediction in zip(cluster, predictions) if prediction == -1]
-        clusters[key] = list(set(clusters[key]) - set(outliers))
-        clusters["doordash"].extend(outliers)
-
-    # Debug: Print clusters after outlier detection
-    print("Clusters after outlier detection:", clusters)
-    
     data = ClusterDeliveriesResponse(clusters=clusters)
 
     return https_fn.Response(
