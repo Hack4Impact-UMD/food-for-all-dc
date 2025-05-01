@@ -40,16 +40,6 @@ def deleteUserAccount(req: https_fn.CallableRequest):
                                   message="Authentication required.")
 
     caller_uid = req.auth.uid
-    # Roles might be stored differently, adjust access as needed (e.g., req.auth.token.get('role'))
-    # Assuming role claim is directly available
-    caller_role = req.auth.token.get('role')
-    print(f"Delete request received from UID: {caller_uid}, Role: {caller_role}") # Logging
-
-    allowed_roles = ['Admin', 'Manager'] # Define roles allowed to delete
-    if caller_role not in allowed_roles:
-        print(f"Authorization failed: Caller role '{caller_role}' not in {allowed_roles}.")
-        raise https_fn.HttpsError(code=https_fn.FunctionsErrorCode.PERMISSION_DENIED,
-                                  message="You do not have permission to delete users.")
 
     # 2. Input Validation
     uid_to_delete = req.data.get('uid')
