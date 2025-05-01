@@ -47,6 +47,8 @@ import ManualAssign from "./components/ManualAssignPopup";
 import { RowData as DeliveryRowData } from "./types/deliveryTypes";
 import { Driver } from '../../types/calendar-types';
 import { CustomRowData, useCustomColumns } from "../../hooks/useCustomColumns";
+import ClientService from "../../services/client-service";
+import { LatLngTuple } from "leaflet";
 
 interface RowData {
   id: string;
@@ -727,21 +729,32 @@ const DeliverySpreadsheet: React.FC = () => {
     }
   };
 
-  const updateClusters = async (clusterMap: any) => {
+  const updateClusters = async (clusterMap: { [key: string]: string[] }) => {
     const newClusters: Cluster[] = [];
     Object.keys(clusterMap).forEach((clusterId) => {
-      if (clusterId != "doordash") {
-        const newDeliveries = clusterMap[clusterId].map((index: string) => {
-          return visibleRows[Number(index)].id;
-        });
+      // Exclude "doordash" if it's a special case (though unlikely with ID mapping now)
+      if (clusterId !== "doordash") { 
+        // The value in clusterMap[clusterId] is already the array of client IDs
+        const clientIdsForCluster = clusterMap[clusterId]; 
+
+        // Validate that clientIdsForCluster is an array (for type safety)
+        if (!Array.isArray(clientIdsForCluster)) {
+          console.warn(`Invalid data format for cluster ${clusterId} in clusterMap. Skipping.`);
+          return; // Skip this clusterId
+        }
+
         newClusters.push({
-          deliveries: newDeliveries,
-          driver: "",
-          time: "",
+          deliveries: clientIdsForCluster, // Directly use the array of client IDs
+          driver: "", // Initialize with defaults or fetch existing if needed
+          time: "",   // Initialize with defaults or fetch existing if needed
           id: clusterId,
         });
       }
     });
+
+    // Sort clusters numerically by ID for consistency
+    newClusters.sort((a, b) => parseInt(a.id, 10) - parseInt(b.id, 10));
+
     return newClusters;
   };
 
@@ -837,150 +850,236 @@ const DeliverySpreadsheet: React.FC = () => {
     resetSelections()
   };
 
-  //Handle generating clusters
+  // Helper function to check if coordinates are valid
+  const isValidCoordinate = (coord: LatLngTuple | { lat: number; lng: number } | undefined | null): coord is LatLngTuple | { lat: number; lng: number } => {
+    if (!coord) return false;
+    if (Array.isArray(coord)) { // Check for LatLngTuple [number, number]
+      return coord.length === 2 && typeof coord[0] === 'number' && typeof coord[1] === 'number' && (coord[0] !== 0 || coord[1] !== 0);
+    }
+    // Check for { lat: number, lng: number }
+    return typeof coord.lat === 'number' && typeof coord.lng === 'number' && (coord.lat !== 0 || coord.lng !== 0);
+  };
+
   const generateClusters = async (
     clusterNum: number,
     minDeliveries: number,
     maxDeliveries: number
   ) => {
     const token = await auth.currentUser?.getIdToken();
-    const addresses = visibleRows.map((row) => row.address);
-    // Removed unnecessary try/catch
-    // try{
-    // Validate cluster number
+    if (!token) {
+      throw new Error("Authentication token not found.");
+    }
+
+    // --- Validation (keep existing validation) ---
     if (!clusterNum || clusterNum <= 0) {
       throw new Error("Please enter a valid number of clusters (must be at least 1)");
     }
-
-    // Validate we have deliveries to cluster
-    if (addresses.length === 0) {
-      throw new Error("No deliveries scheduled for the selected date");
+    if (visibleRows.length === 0) {
+      throw new Error("No deliveries scheduled for the selected date or matching filters");
     }
-
-    // Validate maxDeliveries is within range
-    if (maxDeliveries > addresses.length) {
-      throw new Error(
-        `Max deliveries is too high for ${addresses.length} deliveries. Please decrease it.`
-      );
-    }
-
-    // Validate min deliveries is reasonable
-    if (minDeliveries < 0) {
-      throw new Error("Minimum deliveries per cluster cannot be negative");
-    }
-
-    // Validate max deliveries is reasonable
-    if (maxDeliveries <= 0) {
-      throw new Error("Maximum deliveries per cluster must be at least 1");
-    }
-
-    // Validate min <= max
-    if (minDeliveries > maxDeliveries) {
-      throw new Error("Minimum deliveries cannot exceed maximum deliveries");
-    }
-
-    // Calculate total required and available deliveries
+    // ... (keep other validations for min/max deliveries, cluster count etc.) ...
     const totalMinRequired = clusterNum * minDeliveries;
     const totalMaxAllowed = clusterNum * maxDeliveries;
-
-    // Validate we have enough deliveries for the minimum
-    if (totalMinRequired > addresses.length) {
+    if (totalMinRequired > visibleRows.length) {
       throw new Error(
         `Not enough deliveries for ${clusterNum} clusters with minimum ${minDeliveries} each.\n` +
-        `Required: ${totalMinRequired} | Available: ${addresses.length}\n` +
+        `Required: ${totalMinRequired} | Available: ${visibleRows.length}\n` +
         `Please reduce cluster count or minimum deliveries.`
       );
     }
-
-    // Validate we don't have too many deliveries for the maximum
-    if (addresses.length > totalMaxAllowed) {
-      throw new Error(
+    if (visibleRows.length > totalMaxAllowed) {
+       throw new Error(
         `Too many deliveries for ${clusterNum} clusters with maximum ${maxDeliveries} each.\n` +
-        `Allowed: ${totalMaxAllowed} | Available: ${addresses.length}\n` +
+        `Allowed: ${totalMaxAllowed} | Available: ${visibleRows.length}\n` +
         `Please increase cluster count or maximum deliveries.`
       );
     }
-    // Validate cluster count isn't excessive
     const maxRecommendedClusters = Math.min(
-      Math.ceil(addresses.length / 2), // At least 2 deliveries per cluster
-      addresses.length // Can't have more clusters than deliveries
+      Math.ceil(visibleRows.length / 2), // At least 2 deliveries per cluster
+      visibleRows.length // Can't have more clusters than deliveries
     );
-
     if (clusterNum > maxRecommendedClusters) {
       throw new Error(
         `Too many clusters requested (${clusterNum}).\n` +
-        `Recommended maximum for ${addresses.length} deliveries: ${maxRecommendedClusters}`
+        `Recommended maximum for ${visibleRows.length} deliveries: ${maxRecommendedClusters}`
       );
     }
+    // --- End Validation ---
+
     setPopupMode("");
     setIsLoading(true);
-    const response = await fetch(
-      testing ? "" : "https://geocode-addresses-endpoint-lzrplp4tfa-uc.a.run.app",
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          addresses: addresses,
-        }),
+
+    try { // Wrap the core logic in try/finally to ensure loading state is reset
+
+      const clientsToGeocode: { id: string; address: string; originalIndex: number }[] = [];
+      const existingCoordsMap = new Map<string, LatLngTuple | { lat: number; lng: number }>();
+      const finalCoordinates: (LatLngTuple | null)[] = new Array(visibleRows.length).fill(null); // Initialize with nulls
+
+      // 1 & 2: Separate clients and collect existing coords
+      visibleRows.forEach((row: DeliveryRowData, index: number) => {
+        if (isValidCoordinate(row.coordinates)) {
+           // Normalize coordinate format if necessary (e.g., always use [lat, lng])
+           const coords = Array.isArray(row.coordinates)
+             ? row.coordinates
+             : [row.coordinates.lat, row.coordinates.lng];
+           existingCoordsMap.set(row.id, coords as LatLngTuple);
+           finalCoordinates[index] = coords as LatLngTuple; // Pre-fill with existing
+        } else {
+          clientsToGeocode.push({ id: row.id, address: row.address, originalIndex: index });
+        }
+      });
+
+      // 3. Conditional Geocoding
+      if (clientsToGeocode.length > 0) {
+        console.log(`Geocoding ${clientsToGeocode.length} addresses...`);
+        const addressesToFetch = clientsToGeocode.map(client => client.address);
+        const geocodeResponse = await fetch(
+          testing ? "" : "https://geocode-addresses-endpoint-lzrplp4tfa-uc.a.run.app",
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ addresses: addressesToFetch }),
+          }
+        );
+
+        if (!geocodeResponse.ok) {
+          const errorText = await geocodeResponse.text();
+          console.error("Geocoding failed:", errorText);
+          throw new Error(`Failed to geocode addresses. Status: ${geocodeResponse.status}`);
+        }
+
+        const { coordinates: fetchedCoords } = await geocodeResponse.json();
+
+        if (!Array.isArray(fetchedCoords) || fetchedCoords.length !== clientsToGeocode.length) {
+           throw new Error("Geocoding response format is incorrect or length mismatch.");
+        }
+
+        // 4. Update Firestore & 5. Combine Coordinates (Part 1: Newly fetched)
+        const updatePromises: Promise<void>[] = [];
+        fetchedCoords.forEach((coords: LatLngTuple | null, i: number) => {
+          const client = clientsToGeocode[i];
+          if (isValidCoordinate(coords)) {
+            finalCoordinates[client.originalIndex] = coords; // Add newly fetched coords
+            // Schedule Firestore update (don't await here individually to speed up)
+            updatePromises.push(
+               ClientService.getInstance().updateClientCoordinates(client.id, coords)
+                 .catch(err => console.error(`Failed to update coordinates for client ${client.id}:`, err)) // Log errors but don't fail the whole process
+            );
+          } else {
+            console.warn(`Failed to geocode address for client ${client.id}: ${client.address}. Skipping this client.`);
+            // Keep finalCoordinates[client.originalIndex] as null
+          }
+        });
+
+         // Wait for all Firestore updates to attempt completion
+         await Promise.all(updatePromises);
+         console.log("Finished attempting coordinate updates in Firestore.");
+      } else {
+        console.log("No new addresses to geocode.");
       }
-    );
 
-    if (!response.ok) {
-      throw new Error("Failed to fetch");
-    }
+      // Filter out any clients that couldn't be geocoded (their entry in finalCoordinates will be null)
+      const validCoordsForClustering = finalCoordinates.filter(coords => coords !== null) as LatLngTuple[];
+      // Keep track of the original indices corresponding to validCoordsForClustering
+      const originalIndicesForValidCoords = visibleRows
+         .map((_: DeliveryRowData, index: number) => index)
+         .filter((index: number) => finalCoordinates[index] !== null);
 
-    const { coordinates } = await response.json();
-    // Generate clusters based on coordinates
-    const clusterResponse = await fetch(
-      testing ? "" : "https://cluster-deliveries-k-means-lzrplp4tfa-uc.a.run.app",
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          coords: coordinates,
-          drivers_count: clusterNum,
-          min_deliveries: minDeliveries,
-          max_deliveries: maxDeliveries,
-        }),
+      if (validCoordsForClustering.length === 0) {
+         throw new Error("No valid coordinates available for clustering after geocoding.");
       }
-    );
 
-    const clusterData = await clusterResponse.json();
-    const newClusters = await updateClusters(clusterData.clusters);
-    // setClusters(newClusters) // State is set within the if/else block
+      // Adjust clusterNum if it exceeds the number of valid points
+      const adjustedClusterNum = Math.min(clusterNum, validCoordsForClustering.length);
+      if (adjustedClusterNum !== clusterNum) {
+         console.warn(`Adjusted cluster count from ${clusterNum} to ${adjustedClusterNum} due to invalid coordinates.`);
+      }
 
-      //update cluster or create new cluster date
-      if(clusterDoc){
+      // Adjust min/max deliveries if necessary based on valid coordinates count
+      const adjustedMaxDeliveries = Math.min(maxDeliveries, validCoordsForClustering.length);
+      const adjustedMinDeliveries = Math.min(minDeliveries, adjustedMaxDeliveries); // Min cannot be > Max
+
+      // --- Re-validate with adjusted numbers ---
+      const adjustedTotalMinRequired = adjustedClusterNum * adjustedMinDeliveries;
+      const adjustedTotalMaxAllowed = adjustedClusterNum * adjustedMaxDeliveries;
+
+      if (adjustedTotalMinRequired > validCoordsForClustering.length) {
+        throw new Error(
+          `Not enough valid deliveries (${validCoordsForClustering.length}) for ${adjustedClusterNum} clusters with adjusted minimum ${adjustedMinDeliveries} each.\n` +
+          `Required: ${adjustedTotalMinRequired}. Issue might be due to failed geocoding.`
+        );
+      }
+      if (validCoordsForClustering.length > adjustedTotalMaxAllowed) {
+         throw new Error(
+          `Too many valid deliveries (${validCoordsForClustering.length}) for ${adjustedClusterNum} clusters with adjusted maximum ${adjustedMaxDeliveries} each.\n` +
+          `Allowed: ${adjustedTotalMaxAllowed}. Issue might be due to failed geocoding.`
+        );
+      }
+      // --- End Re-validation ---
+
+
+      console.log(`Generating ${adjustedClusterNum} clusters for ${validCoordsForClustering.length} valid coordinates...`);
+      // 6. Call Clustering
+      const clusterResponse = await fetch(
+        testing ? "" : "https://cluster-deliveries-k-means-lzrplp4tfa-uc.a.run.app",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            coords: validCoordsForClustering, // Use only valid coordinates
+            drivers_count: adjustedClusterNum,
+            min_deliveries: adjustedMinDeliveries, // Use adjusted values
+            max_deliveries: adjustedMaxDeliveries, // Use adjusted values
+          }),
+        }
+      );
+
+      if (!clusterResponse.ok) {
+        const errorText = await clusterResponse.text();
+        console.error("Clustering failed:", errorText);
+        throw new Error(`Failed to generate clusters. Status: ${clusterResponse.status}`);
+      }
+
+      const clusterData = await clusterResponse.json(); // e.g., { clusters: { "1": [0, 3], "2": [1, 2] } } where indices refer to validCoordsForClustering
+
+      // 7. Associate Clusters back to Client IDs
+      // The clusterData indices refer to the `validCoordsForClustering` array.
+      // We need to map these back to the original client IDs using `originalIndicesForValidCoords`.
+      const clustersWithClientIds: { [key: string]: string[] } = {};
+      for (const clusterName in clusterData.clusters) {
+        clustersWithClientIds[clusterName] = clusterData.clusters[clusterName].map((indexInValidCoords: number) => {
+          const originalIndex = originalIndicesForValidCoords[indexInValidCoords];
+          return visibleRows[originalIndex].id; // Get client ID from original visibleRows
+        });
+      }
+
+      // Update Firestore and local state with the new cluster assignments (using client IDs)
+      const newClusters = await updateClusters(clustersWithClientIds); // Pass the map with client IDs
+
+      if (clusterDoc) {
         const clusterRef = doc(db, "clusters", clusterDoc.docId);
-        // Only update the 'clusters' field using updateDoc
         await updateDoc(clusterRef, { clusters: newClusters });
-        setClusters(newClusters); // Update state after successful Firestore update
-        // Update the local clusterDoc state's clusters as well
+        setClusters(newClusters);
         setClusterDoc(prevDoc => prevDoc ? { ...prevDoc, clusters: newClusters } : null);
+      } else {
+        await initClustersForDay(newClusters); // Make sure this also sets state correctly
       }
-      else{
-        initClustersForDay(newClusters)
-      }       
-      
-      //Refresh the data - REMOVED Redundant fetch
-      // const snapshot = await getDocs(collection(db, "clients"));
-      // const updatedData = snapshot.docs.map((doc) => ({
-      //  id: doc.id,
-      //  ...(doc.data() as Omit<DeliveryRowData, "id">),
-      // }));
-      // setClusters(newClusters); // REMOVED - Redundant state update, handled in if/else
-      setIsLoading(false);
+
       resetSelections();
-    // }
-    // catch (e){
-    //   throw e
-    // }
+
+    } catch (error: any) {
+       console.error("Error during cluster generation:", error);
+       // Re-throw the error so the popup can display it
+       throw error;
+    } finally {
+      setIsLoading(false); // Ensure loading indicator is turned off
+    }
   };
 
   // Handle checkbox selection
