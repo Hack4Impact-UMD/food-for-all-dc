@@ -1,148 +1,173 @@
-import * as functions from "firebase-functions";
-import * as admin from "firebase-admin";
-import * as fastCsv from "fast-csv";
-import * as fs from "fs";
-import * as os from "os";
-import * as path from "path";
-import archiver from "archiver";
+import { getFirestore, collection, getDocs } from "firebase/firestore";
+import JSZip from "jszip";
+import { saveAs } from "file-saver";
+import Papa from "papaparse";
+import { Delivery, Volunteer } from "../../types/delivery-types"; // Import Delivery and Volunteer types
+import { ClientProfile } from "../../types/client-types"; // Import ClientProfile type
 
-admin.initializeApp();
+interface SpreadsheetClientProfile {
+  uid: string;
+  firstName: string;
+  lastName: string;
+  address: string;
+  apt?: string;
+  zip: string;
+  quadrant?: string;
+  ward?: string;
+  phone: string;
+  adults: number;
+  children: number;
+  total: number;
+  deliveryInstructions?: string;
+  dietaryPreferences?: string;
+  tefapFY25?: string;
+}
 
-export const createAndSendCsvs = functions.https.onRequest(async (req, res) => {
+export const exportDeliveries = async (deliveryDate: string) => {
+  const db = getFirestore();
+
   try {
-    const { deliveryDate } = req.body;
+    // Step 1: Fetch events for the selected delivery date
+    const eventsSnapshot = await getDocs(collection(db, "events"));
+    const events = eventsSnapshot.docs
+      .map((doc) => ({ id: doc.id, ...doc.data() }) as Delivery)
+      .filter((event) => {
+        const eventDate =
+          event.deliveryDate instanceof Date ? event.deliveryDate : new Date(event.deliveryDate); // Handle string or Firestore Timestamp
+        const selectedDate = new Date(deliveryDate);
 
-    if (!deliveryDate) {
-      res.status(400).send("Missing deliveryDate.");
+        // Compare dates (ignoring time)
+        return (
+          eventDate.getFullYear() === selectedDate.getFullYear() &&
+          eventDate.getMonth() === selectedDate.getMonth() &&
+          eventDate.getDate() === selectedDate.getDate()
+        );
+      });
+
+    if (events.length === 0) {
+      alert("No events found for the selected delivery date.");
       return;
     }
+    console.log("Events:", events);
 
-    // Step 1: Query Firestore for events with the specified deliveryDate
-    const eventsSnapshot = await admin
-      .firestore()
-      .collection("events")
-      .where("deliveryDate", "==", deliveryDate)
-      .get();
+    // Step 2: Fetch volunteers (replacing drivers)
+    const volunteersSnapshot = await getDocs(collection(db, "Drivers"));
+    const volunteers = volunteersSnapshot.docs.reduce((acc: Record<string, Volunteer>, doc) => {
+      acc[doc.id] = { id: doc.id, ...doc.data() } as Volunteer;
+      return acc;
+    }, {});
 
-    if (eventsSnapshot.empty) {
-      res.status(404).send("No events found for the specified deliveryDate.");
-      return;
-    }
+    console.log("Volunteers:", volunteers);
 
-    // Step 2: Group events by cluster
-    const groupedByCluster: Record<number, any[]> = {};
-    eventsSnapshot.forEach((doc) => {
-      const data = doc.data();
-      const cluster = data.cluster || 0; // Default to 0 if cluster is missing
-      if (!groupedByCluster[cluster]) {
-        groupedByCluster[cluster] = [];
+    // Step 3: Fetch clients
+    const clientsSnapshot = await getDocs(collection(db, "clients"));
+    const clients = clientsSnapshot.docs.reduce(
+      (acc: Record<string, SpreadsheetClientProfile>, doc) => {
+        const clientData = doc.data() as ClientProfile;
+        acc[doc.id] = {
+          uid: doc.id, 
+          firstName: clientData.firstName,
+          lastName: clientData.lastName,
+          address: clientData.address,
+          zip: clientData.zipCode,
+          quadrant: clientData.quadrant || "",
+          ward: clientData.ward || "",
+          phone: clientData.phone,
+          adults: clientData.adults,
+          children: clientData.children,
+          total: clientData.total,
+          deliveryInstructions: clientData.deliveryDetails?.deliveryInstructions || "",
+          dietaryPreferences: clientData.deliveryDetails?.dietaryRestrictions
+            ? Object.entries(clientData.deliveryDetails.dietaryRestrictions || {})
+                .filter(([key, value]) => value === true)
+                .map(([key]) => key)
+                .join(", ")
+            : "",
+          tefapFY25: clientData.tags?.includes("Tefap") ? "Y" : "N",
+        };
+        return acc;
+      },
+      {}
+    );
+
+    console.log("Clients:", clients);
+
+    // Step 4: Group events by assigned volunteer
+    const groupedByVolunteer: Record<string, Delivery[]> = {};
+    events.forEach((event) => {
+      const volunteerId = event.assignedDriverId; // Still using assignedDriverId for consistency
+      if (!groupedByVolunteer[volunteerId]) {
+        groupedByVolunteer[volunteerId] = [];
       }
-      groupedByCluster[cluster].push(data);
+      groupedByVolunteer[volunteerId].push(event);
     });
 
-    // Step 3: Create a ZIP file
-    const zipFilePath = path.join(os.tmpdir(), `deliveries-${deliveryDate}.zip`);
-    const output = fs.createWriteStream(zipFilePath);
-    const archive = archiver("zip", { zlib: { level: 9 } });
+    console.log("Grouped by Volunteer:", groupedByVolunteer);
 
-    output.on("close", () => {
-      console.log(`ZIP file created: ${zipFilePath}`);
-    });
+    // Step 5: Create a ZIP file for download
+    const zip = new JSZip();
 
-    archive.on("error", (err) => {
-      throw err;
-    });
-
-    archive.pipe(output);
-
-    // Step 4: Generate CSVs for each cluster and add them to the ZIP
-    for (const cluster in groupedByCluster) {
-      const clusterNumber = parseInt(cluster, 10);
-
-      // Fetch client profiles for the events in this cluster
-      const clientProfiles: Record<string, any> = {};
-      for (const event of groupedByCluster[clusterNumber]) {
-        const clientSnapshot = await admin
-          .firestore()
-          .collection("clients")
-          .doc(event.clientName)
-          .get();
-
-        if (clientSnapshot.exists) {
-          clientProfiles[event.clientName] = clientSnapshot.data();
-        } else {
-          console.warn(`Client profile not found for ${event.clientName}`);
-        }
+    for (const volunteerId in groupedByVolunteer) {
+      // Find the volunteer by matching the `id` field
+      const volunteer = Object.values(volunteers).find((v) => v.id === volunteerId);
+      if (!volunteer) {
+        console.warn(`Volunteer ${volunteerId} not found.`);
+        continue;
       }
 
-      // Generate CSV content
-      const tempFilePath = path.join(
-        os.tmpdir(),
-        `deliveries-${deliveryDate}-cluster-${clusterNumber}.csv`
-      );
-      const csvStream = fastCsv.format({ headers: true });
-      const writeStream = fs.createWriteStream(tempFilePath);
+      const volunteerName = volunteer.name;
 
-      csvStream.pipe(writeStream);
-      groupedByCluster[clusterNumber].forEach((event) => {
-        const client = clientProfiles[event.clientName];
-        if (!client) {
-          console.warn(`Skipping event for ${event.clientName} due to missing profile.`);
-          return;
-        }
+      // Generate CSV content for the volunteer
+      const csvData = groupedByVolunteer[volunteerId]
+        .map((event) => {
+          // Find the client by matching the `id` field
+          const client = Object.values(clients).find((c) => c.uid === event.clientId);
+          if (!client) {
+            console.warn(`Client profile not found for ${event.clientId}`);
+            return null; // Skip this event if the client is not found
+          }
 
-        csvStream.write({
-          "First Name": client.firstName,
-          "Last Name": client.lastName,
-          Address: client.address,
-          Apt: client.apt || "",
-          ZIP: client.zip,
-          Quadrant: client.quadrant,
-          Ward: client.ward,
-          Phone: client.phone,
-          Adults: client.adults,
-          Children: client.children,
-          Total: client.total,
-          "Delivery Instructions": client.deliveryInstructions || "",
-          "Diet Type": client.dietType || "",
-          "Dietary Preferences": client.dietaryPreferences || "",
-          "TEFAP FY25": client.tefapFY25 || "",
-        });
-      });
-      csvStream.end();
+          return {
+            firstName: client.firstName,
+            lastName: client.lastName,
+            address: client.address,
+            apt: client.apt || "",
+            zip: client.zip,
+            quadrant: client.quadrant || "",
+            ward: client.ward || "",
+            phone: client.phone,
+            adults: client.adults,
+            children: client.children,
+            total: client.total,
+            deliveryInstructions: client.deliveryInstructions || "",
+            dietaryPreferences: client.dietaryPreferences || "",
+            tefapFY25: client.tefapFY25 || "",
+            deliveryDate: new Date(event.deliveryDate).toISOString().split("T")[0],
+            cluster: event.cluster || "",
+            recurrence: event.recurrence || "",
+            repeatsEndDate: event.repeatsEndDate
+              ? new Date(event.repeatsEndDate).toISOString().split("T")[0]
+              : "",
+          };
+        })
+        .filter(Boolean); // Remove null entries
 
-      // Wait for the file to finish writing
-      await new Promise((resolve, reject) => {
-        writeStream.on("finish", resolve);
-        writeStream.on("error", reject);
-      });
+      const csv = Papa.unparse(csvData);
 
       // Add the CSV to the ZIP
-      archive.file(tempFilePath, {
-        name: `deliveries-cluster-${clusterNumber}.csv`,
-      });
-
-      // Clean up the temporary CSV file
-      fs.unlinkSync(tempFilePath);
+      const fileName = `FFA ${deliveryDate} - ${volunteerName}.csv`;
+      zip.file(fileName, csv);
     }
 
-    // Finalize the ZIP file
-    await archive.finalize();
-
-    // Step 5: Send the ZIP file as a response
-    res.setHeader("Content-Type", "application/zip");
-    res.setHeader("Content-Disposition", `attachment; filename="deliveries-${deliveryDate}.zip"`);
-    res.sendFile(zipFilePath, (err) => {
-      if (err) {
-        console.error("Error sending ZIP file:", err);
-        res.status(500).send("Error sending ZIP file.");
-      } else {
-        // Clean up the temporary ZIP file
-        fs.unlinkSync(zipFilePath);
-      }
+    // Generate the ZIP file for download
+    zip.generateAsync({ type: "blob" }).then((content) => {
+      saveAs(content, `FFA ${deliveryDate}.zip`);
     });
+
+    alert("ZIP file generated successfully!");
   } catch (error) {
-    console.error("Error creating and sending ZIP file:", error);
-    res.status(500).send("An error occurred while creating the ZIP file.");
+    console.error("Error generating ZIPs:", error);
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    alert(`An error occurred while generating ZIPs: ${errorMessage}`);
   }
-});
+};
