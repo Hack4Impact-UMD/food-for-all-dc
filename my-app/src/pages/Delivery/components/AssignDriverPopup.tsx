@@ -92,7 +92,7 @@ export default function AssignDriverPopup({ assignDriver, setPopupMode }: Assign
                   } else if (newValue.id === '__modal__') {
                     setIsDriverModalOpen(true);
                   } else {
-                    setDriver(newValue);
+                    setDriver(newValue as Driver);
                   }
                   if (error) setError("");
                 }}
@@ -132,7 +132,7 @@ export default function AssignDriverPopup({ assignDriver, setPopupMode }: Assign
                           {option.name}
                         </p>
                         <p style={{ color: 'grey', display: 'inline-block' }}>
-                          {option.phone ? `(${option.phone})` : ''}
+                          {'phone' in option && option.phone ? `(${option.phone})` : ''}
                         </p>
                       </span>
                     </li>
@@ -178,7 +178,13 @@ export default function AssignDriverPopup({ assignDriver, setPopupMode }: Assign
                 noOptionsText="No matching drivers found"
                 disabled={loading}
                 PaperComponent={({ children }) => <Paper elevation={3}>{children}</Paper>}
-                sx={{ minWidth: '250px' }}
+                forcePopupIcon={false}
+                sx={{ 
+                  minWidth: '250px',
+                  '& .MuiAutocomplete-clearIndicator': {
+                    display: 'none',
+                  },
+                }}
               />
 
               <DriverManagementModal

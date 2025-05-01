@@ -1,148 +1,126 @@
-import * as functions from "firebase-functions";
-import * as admin from "firebase-admin";
-import * as fastCsv from "fast-csv";
-import * as fs from "fs";
-import * as os from "os";
-import * as path from "path";
-import archiver from "archiver";
+import { getFirestore, collection, getDocs } from "firebase/firestore";
+import JSZip from "jszip";
+import { saveAs } from "file-saver";
+import Papa from "papaparse";
+import { RowData as DeliveryRowData } from "./types/deliveryTypes"; // Import the type used in DeliverySpreadsheet
+import { Cluster } from "./DeliverySpreadsheet"; // Import Cluster type
 
-admin.initializeApp();
+interface SpreadsheetClientProfile {
+  uid: string;
+  firstName: string;
+  lastName: string;
+  address: string;
+  apt?: string;
+  zip: string;
+  quadrant?: string;
+  ward?: string;
+  phone: string;
+  adults: number;
+  children: number;
+  total: number;
+  deliveryInstructions?: string;
+  dietaryPreferences?: string;
+  tefapFY25?: string;
+}
 
-export const createAndSendCsvs = functions.https.onRequest(async (req, res) => {
+export const exportDeliveries = async (
+  deliveryDate: string,
+  rowsToExport: DeliveryRowData[],
+  clusters: Cluster[]
+) => {
   try {
-    const { deliveryDate } = req.body;
-
-    if (!deliveryDate) {
-      res.status(400).send("Missing deliveryDate.");
+    if (rowsToExport.length === 0) {
+      alert("No deliveries selected or available for export on the selected date.");
       return;
     }
+    console.log("Rows to Export:", rowsToExport);
 
-    // Step 1: Query Firestore for events with the specified deliveryDate
-    const eventsSnapshot = await admin
-      .firestore()
-      .collection("events")
-      .where("deliveryDate", "==", deliveryDate)
-      .get();
+    const db = getFirestore();
+    const volunteersSnapshot = await getDocs(collection(db, "Drivers"));
+    const volunteers = volunteersSnapshot.docs.reduce((acc: Record<string, { id: string; name: string }>, doc) => {
+       const data = doc.data();
+       acc[data.name] = { id: doc.id, name: data.name };
+      return acc;
+    }, {});
+     console.log("Fetched Volunteers (indexed by name):", volunteers);
 
-    if (eventsSnapshot.empty) {
-      res.status(404).send("No events found for the specified deliveryDate.");
-      return;
+    const groupedByDriver: Record<string, DeliveryRowData[]> = {};
+    rowsToExport.forEach((row) => {
+      const cluster = clusters.find(c => c.deliveries?.includes(row.id));
+      const driverName = cluster?.driver || "Unassigned";
+
+      if (!groupedByDriver[driverName]) {
+        groupedByDriver[driverName] = [];
+      }
+      groupedByDriver[driverName].push(row);
+    });
+
+    console.log("Grouped by Driver Name:", groupedByDriver);
+
+    // Check if the only group is "Unassigned"
+    const driverNames = Object.keys(groupedByDriver);
+    if (driverNames.length === 1 && driverNames[0] === "Unassigned" && groupedByDriver["Unassigned"].length > 0) {
+      alert("Cannot export: All selected deliveries are currently unassigned. Please assign drivers to clusters before exporting.");
+      return; // Stop the export
     }
 
-    // Step 2: Group events by cluster
-    const groupedByCluster: Record<number, any[]> = {};
-    eventsSnapshot.forEach((doc) => {
-      const data = doc.data();
-      const cluster = data.cluster || 0; // Default to 0 if cluster is missing
-      if (!groupedByCluster[cluster]) {
-        groupedByCluster[cluster] = [];
-      }
-      groupedByCluster[cluster].push(data);
-    });
+    const zip = new JSZip();
 
-    // Step 3: Create a ZIP file
-    const zipFilePath = path.join(os.tmpdir(), `deliveries-${deliveryDate}.zip`);
-    const output = fs.createWriteStream(zipFilePath);
-    const archive = archiver("zip", { zlib: { level: 9 } });
-
-    output.on("close", () => {
-      console.log(`ZIP file created: ${zipFilePath}`);
-    });
-
-    archive.on("error", (err) => {
-      throw err;
-    });
-
-    archive.pipe(output);
-
-    // Step 4: Generate CSVs for each cluster and add them to the ZIP
-    for (const cluster in groupedByCluster) {
-      const clusterNumber = parseInt(cluster, 10);
-
-      // Fetch client profiles for the events in this cluster
-      const clientProfiles: Record<string, any> = {};
-      for (const event of groupedByCluster[clusterNumber]) {
-        const clientSnapshot = await admin
-          .firestore()
-          .collection("clients")
-          .doc(event.clientName)
-          .get();
-
-        if (clientSnapshot.exists) {
-          clientProfiles[event.clientName] = clientSnapshot.data();
-        } else {
-          console.warn(`Client profile not found for ${event.clientName}`);
-        }
+    for (const driverName in groupedByDriver) {
+      // Restore the check to skip unassigned drivers
+      if (driverName === "Unassigned") {
+          // Optionally log that unassigned are being skipped if needed for debugging
+          // console.log("Skipping export for unassigned deliveries group.");
+          continue; // Skip creating a file for the "Unassigned" group
       }
 
-      // Generate CSV content
-      const tempFilePath = path.join(
-        os.tmpdir(),
-        `deliveries-${deliveryDate}-cluster-${clusterNumber}.csv`
-      );
-      const csvStream = fastCsv.format({ headers: true });
-      const writeStream = fs.createWriteStream(tempFilePath);
+      // Log the driver group being processed (this is still useful)
+      console.log(`Processing export for driver: ${driverName}`, groupedByDriver[driverName]);
 
-      csvStream.pipe(writeStream);
-      groupedByCluster[clusterNumber].forEach((event) => {
-        const client = clientProfiles[event.clientName];
-        if (!client) {
-          console.warn(`Skipping event for ${event.clientName} due to missing profile.`);
-          return;
-        }
+      const csvData = groupedByDriver[driverName]
+        .map((row) => {
+          const dietaryPreferences = row.deliveryDetails?.dietaryRestrictions
+            ? Object.entries(row.deliveryDetails.dietaryRestrictions || {})
+                .filter(([key, value]) => value === true)
+                .map(([key]) => key)
+                .join(", ")
+            : "";
 
-        csvStream.write({
-          "First Name": client.firstName,
-          "Last Name": client.lastName,
-          Address: client.address,
-          Apt: client.apt || "",
-          ZIP: client.zip,
-          Quadrant: client.quadrant,
-          Ward: client.ward,
-          Phone: client.phone,
-          Adults: client.adults,
-          Children: client.children,
-          Total: client.total,
-          "Delivery Instructions": client.deliveryInstructions || "",
-          "Diet Type": client.dietType || "",
-          "Dietary Preferences": client.dietaryPreferences || "",
-          "TEFAP FY25": client.tefapFY25 || "",
-        });
-      });
-      csvStream.end();
+          return {
+            firstName: row.firstName,
+            lastName: row.lastName,
+            address: row.address,
+            apt: row.apt || "",
+            zip: row.zipCode,
+            quadrant: row.quadrant || "",
+            ward: row.ward || "",
+            phone: row.phone,
+            adults: row.adults,
+            children: row.children,
+            total: row.total,
+            deliveryInstructions: row.deliveryDetails?.deliveryInstructions || "",
+            dietaryPreferences: dietaryPreferences,
+            tefapFY25: row.tags?.includes("Tefap") ? "Y" : "N",
+            deliveryDate: deliveryDate,
+            cluster: row.clusterId || "",
+          };
+        })
+        .filter(Boolean);
 
-      // Wait for the file to finish writing
-      await new Promise((resolve, reject) => {
-        writeStream.on("finish", resolve);
-        writeStream.on("error", reject);
-      });
+      const csv = Papa.unparse(csvData);
 
-      // Add the CSV to the ZIP
-      archive.file(tempFilePath, {
-        name: `deliveries-cluster-${clusterNumber}.csv`,
-      });
-
-      // Clean up the temporary CSV file
-      fs.unlinkSync(tempFilePath);
+      const fileName = `FFA ${deliveryDate} - ${driverName}.csv`;
+      zip.file(fileName, csv);
     }
 
-    // Finalize the ZIP file
-    await archive.finalize();
-
-    // Step 5: Send the ZIP file as a response
-    res.setHeader("Content-Type", "application/zip");
-    res.setHeader("Content-Disposition", `attachment; filename="deliveries-${deliveryDate}.zip"`);
-    res.sendFile(zipFilePath, (err) => {
-      if (err) {
-        console.error("Error sending ZIP file:", err);
-        res.status(500).send("Error sending ZIP file.");
-      } else {
-        // Clean up the temporary ZIP file
-        fs.unlinkSync(zipFilePath);
-      }
+    zip.generateAsync({ type: "blob" }).then((content) => {
+      saveAs(content, `FFA ${deliveryDate}.zip`);
     });
+
+    alert("ZIP file generated successfully!");
   } catch (error) {
-    console.error("Error creating and sending ZIP file:", error);
-    res.status(500).send("An error occurred while creating the ZIP file.");
+    console.error("Error generating ZIPs:", error);
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    alert(`An error occurred while generating ZIPs: ${errorMessage}`);
   }
-});
+};

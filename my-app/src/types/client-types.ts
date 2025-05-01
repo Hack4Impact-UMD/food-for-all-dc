@@ -68,6 +68,18 @@ export interface ClientProfile {
     notes: string;
     timestamp: Date;
   } | null;
+  deliveryInstructionsTimestamp?: {
+    notes: string;
+    timestamp: Date;
+  } | null;
+  lifeChallengesTimestamp?: {
+    notes: string;
+    timestamp: Date;
+  } | null;
+  lifestyleGoalsTimestamp?: {
+    notes: string;
+    timestamp: Date;
+  } | null;
   lifestyleGoals: string;
   language: string;
   createdAt: Date;

@@ -6,16 +6,17 @@ import ForgotPasswordPage from "./pages/Login/forgot-password";
 import Login from "./pages/Login/Login";
 import CalendarPage from "./pages/Calendar/CalendarPage";
 import Spreadsheet from "./components/Spreadsheet/Spreadsheet";
+import UsersSpreadsheet from "./components/UsersSpreadsheet/UsersSpreadsheet";
 
 import Profile from "./pages/Profile/Profile";
 import BasePage from "./pages/Base/Base";
-import CreateUsers from "./pages/CreateUsers/CreateUsers";
 import DeliverySpreadsheet from "./pages/Delivery/DeliverySpreadsheet";
-import TestCsvPage from "./pages/Delivery/TestCsvPage";
 
 import { useAuth } from "./auth/AuthProvider";
 import LoadingIndicator from "./components/LoadingIndicator/LoadingIndicator";
 import { Box } from "@mui/material";
+import ProtectedRoute from "./auth/ProtectedRoute";
+import { UserType } from "./types";
 
 function App() {
   const { loading } = useAuth();
@@ -38,21 +39,22 @@ function App() {
   return (
     <Router>
       <Routes>
-        {/* Testing Routes */}
-        <Route path="/test-csv" element={<TestCsvPage />} />
-
         {/* Public routes */}
         <Route path="/" element={<Login />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
 
-        {/* Protected or main routes wrapped with BasePage */}
+        {/* Main app structure wrapped by BasePage */} 
         <Route path="/*" element={<BasePage />}>
+          {/* Routes accessible to all authenticated users */}
           <Route path="clients" element={<Spreadsheet />} />
           <Route path="calendar" element={<CalendarPage />} />
           <Route path="profile/:clientId?" element={<Profile />} />
-          <Route path="delivery" element={<DeliverySpreadsheet />} />
-          <Route path="create-users" element={<CreateUsers />} />
-          <Route path="test-csv" element={<TestCsvPage />} />
+          {/* Routes with specific role requirements */}
+          <Route element={<ProtectedRoute allowedRoles={[UserType.Admin, UserType.Manager]} />}>
+            {/* Nested route for Delivery, accessible only via ProtectedRoute */}
+            <Route path="delivery" element={<DeliverySpreadsheet />} />
+            <Route path="users" element={<UsersSpreadsheet />} /> 
+          </Route>
         </Route>
       </Routes>
     </Router>

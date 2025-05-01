@@ -17,15 +17,12 @@ import {
 import { Driver, NewDelivery } from "../../../types/calendar-types";
 import { ClientProfile } from "../../../types/client-types";
 import CalendarMultiSelect from "./CalendarMultiSelect";
-import DriverManagementModal from "../../../components/DriverManagementModal";
 
 interface AddDeliveryDialogProps {
   open: boolean;
   onClose: () => void;
   onAddDelivery: (newDelivery: NewDelivery) => void;
   clients: ClientProfile[];
-  drivers: Driver[];
-  setDrivers: React.Dispatch<React.SetStateAction<Driver[]>>;
 }
 
 const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = ({
@@ -33,14 +30,10 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = ({
   onClose,
   onAddDelivery,
   clients,
-  drivers,
-  setDrivers,
 }) => {
   const [newDelivery, setNewDelivery] = useState<NewDelivery>(() => {
     const today = new Date().toISOString().split("T")[0];
     return {
-      assignedDriverId: "",
-      assignedDriverName: "",
       clientId: "",
       clientName: "",
       deliveryDate: today,
@@ -50,14 +43,10 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = ({
   });
 
   const [customDates, setCustomDates] = useState<Date[]>([]);
-  const [isDriverModalOpen, setIsDriverModalOpen] = useState(false);
 
   const resetFormAndClose = () => {
-    // Reset the form
     const today = new Date().toISOString().split("T")[0];
     setNewDelivery({
-      assignedDriverId: "",
-      assignedDriverName: "",
       clientId: "",
       clientName: "",
       deliveryDate: today,
@@ -69,98 +58,48 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = ({
   };
 
   const handleSubmit = () => {
-    const deliveryToSubmit: NewDelivery = { ...newDelivery };
+    const deliveryToSubmit: Partial<NewDelivery> = { ...newDelivery };
     if (newDelivery.recurrence === "Custom") {
       deliveryToSubmit.customDates = customDates.map(date => date.toISOString().split("T")[0]);
-      // Set deliveryDate to the first custom date for compatibility
       deliveryToSubmit.deliveryDate = customDates[0]?.toISOString().split("T")[0] || "";
       deliveryToSubmit.repeatsEndDate = undefined;
     }
-    onAddDelivery(deliveryToSubmit);
+    onAddDelivery(deliveryToSubmit as NewDelivery);
     setCustomDates([]);
     resetFormAndClose();
   };
 
-  // --- Validation ---
   const isFormValid =
     newDelivery.clientId !== "" &&
-    newDelivery.assignedDriverId !== "" &&
     (newDelivery.recurrence !== "Custom" || customDates.length > 0);
-  // --- End Validation ---
 
   return (
     <Dialog open={open} onClose={resetFormAndClose} maxWidth="sm" fullWidth>
       <DialogTitle>Add Delivery</DialogTitle>
       <DialogContent sx={{ maxHeight: '70vh', overflowY: 'auto' }}>
-        {/* Driver Selection */}
         <Autocomplete
-          options={[{ id: '__modal__', name: 'Manage Drivers' }, ...drivers]}
-          getOptionLabel={(option) => option.name}
-          filterOptions={(options, state) => {
-            const specialOption = { id: '__modal__', name: 'Manage Drivers' };
-
-            // Filter out the special option from the rest
-            const filteredDrivers = drivers.filter((driver) =>
-              driver.name.toLowerCase().includes(state.inputValue.toLowerCase())
-            );
-
-            // Limit total displayed items to 10, including the special option
-            const limitedDrivers = filteredDrivers.slice(0, 9); // 9 + 1 = 10 total
-
-            return [specialOption, ...limitedDrivers];
-          }}
-          value={
-            newDelivery.assignedDriverId
-              ? drivers.find((driver) => driver.id === newDelivery.assignedDriverId) || null
-              : null
-          }
+          options={clients}
+          getOptionLabel={(option) => `${option.firstName} ${option.lastName}`}
+          value={newDelivery.clientId ? clients.find(c => c.uid === newDelivery.clientId) || null : null}
           onChange={(event, newValue) => {
             if (!newValue) {
               setNewDelivery({
                 ...newDelivery,
-                assignedDriverId: '',
-                assignedDriverName: '',
+                clientId: "",
+                clientName: "",
               });
-            } else if (newValue.id === '__modal__') {
-              setIsDriverModalOpen(true);
             } else {
               setNewDelivery({
                 ...newDelivery,
-                assignedDriverId: newValue.id,
-                assignedDriverName: newValue.name,
+                clientId: newValue.uid,
+                clientName: `${newValue.firstName} ${newValue.lastName}`,
               });
             }
           }}
-          renderOption={(props, option) =>
-            option.id === '__modal__' ? (
-              <li {...props} key="manage-drivers-option">
-                <span
-                  style={{
-                    color: '#257E68',
-                    fontWeight: 'bold',
-                    cursor: 'pointer', // Make it look like clickable text
-                  }}
-                  onClick={(e) => {
-                    e.stopPropagation(); // Prevents closing the dropdown when clicked
-                    setIsDriverModalOpen(true); // Open the modal
-                  }}
-                >
-                  Edit Driver List
-                </span>
-          </li>
-            ) : (
-              <li {...props} key={option.id}>
-                <span>
-                  <p style={{color: 'black', fontWeight: 'bold', display: 'inline-block', marginRight: '10px'}}>{option.name}</p>
-                  <p style={{color: 'grey', display: 'inline-block'}}>{option.phone ? `(${option.phone})` : ''}</p>
-                </span>
-              </li>
-            )
-          }
           renderInput={(params) => (
             <TextField
               {...params}
-              label="Driver"
+              label="Client"
               margin="normal"
               fullWidth
               required
@@ -176,16 +115,7 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = ({
             />
           )}
         />
-        <DriverManagementModal
-          open={isDriverModalOpen}
-          onClose={() => setIsDriverModalOpen(false)}
-          drivers={drivers}
-          onDriversChange={(updatedDrivers) => {
-            setDrivers(updatedDrivers); // or however you update your state
-          }}
-        />
 
-        {/* Delivery Date */}
         {newDelivery.recurrence !== "Custom" ? (
           <TextField
             label="Delivery Date"
@@ -199,7 +129,6 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = ({
           />
         ) : null}
 
-        {/* Recurrence Dropdown */}
         <FormControl fullWidth variant="outlined" margin="normal">
           <InputLabel id="recurrence-label">Recurrence</InputLabel>
           <Select
@@ -211,7 +140,6 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = ({
               setNewDelivery({
                 ...newDelivery,
                 recurrence: value,
-                // Reset customDates if not custom
                 ...(value !== "Custom" ? { customDates: undefined } : {}),
               });
               if (value !== "Custom") setCustomDates([]);
@@ -225,12 +153,10 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = ({
           </Select>
         </FormControl>
 
-        {/* Custom Dates Picker */}
         {newDelivery.recurrence === "Custom" ? (
           <CalendarMultiSelect selectedDates={customDates} setSelectedDates={setCustomDates} />
         ) : null}
 
-        {/* Ends Section */}
         {newDelivery.recurrence !== "None" && newDelivery.recurrence !== "Custom" ? (
           <Box>
             <Typography variant="subtitle1">End Date</Typography>

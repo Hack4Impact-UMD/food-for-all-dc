@@ -1,56 +1,36 @@
 import DialogContentText from '@mui/material/DialogContentText';
 import {
-  IconButton,
-  Menu,
-  MenuItem,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
   Button,
-  RadioGroup,
-  FormControlLabel,
-  Radio,
-  Typography,
-  TextField,
-  Box,
-  FormControl,
-  InputLabel,
-  Select,
+  CircularProgress,
 } from "@mui/material";
 
-import { styled } from '@mui/material/styles';
-
-type DeleteClientModalProps = {
-  handleMenuClose: () => void;
-  handleDeleteRow: (id: string) => Promise<void>;
+type DeleteUserModalProps = {
   open: boolean;
-  setOpen: (open: boolean) => void;
-  id: string;
+  handleClose: () => void;
+  handleDelete: () => void;
+  userName?: string;
+  loading?: boolean;
 };
 
-const DeleteClientModal = ({ handleMenuClose, handleDeleteRow, open, setOpen ,id }: DeleteClientModalProps) => {
-
+const DeleteUserModal = ({ open, handleClose, handleDelete, userName, loading }: DeleteUserModalProps) => {
 
   const handleCloseDeleteConfirm = () => {
-    setOpen(false);    // Close the dialog
-    handleMenuClose();
+    handleClose();
   };
 
   const handleConfirmDelete = () => {
-    if (id) {
-      console.log("DELETED")
-      handleDeleteRow(id); 
-    }
-    handleCloseDeleteConfirm();    
+    handleDelete();
   };
 
-
   return (
-    <> 
+    <>
       <Dialog
         open={open}
-        onClose={handleCloseDeleteConfirm} // Close if clicking outside
+        onClose={handleCloseDeleteConfirm}
         
         // slotProps={{
         //   backdrop: {
@@ -69,19 +49,25 @@ const DeleteClientModal = ({ handleMenuClose, handleDeleteRow, open, setOpen ,id
       
       >
         <DialogTitle id="delete-confirm-dialog-title">
-          Confirm Deletion
+          Confirm User Deletion
         </DialogTitle>
         <DialogContent>
           <DialogContentText id="delete-confirm-dialog-description">
-            Are you sure you want to delete this client? This action cannot be undone.
+            {`Are you sure you want to delete ${userName || 'this user'}? This action cannot be undone.`}
           </DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleCloseDeleteConfirm} color="primary">
+          <Button onClick={handleCloseDeleteConfirm} color="primary" disabled={loading}>
             Cancel
           </Button>
-          <Button onClick={handleConfirmDelete} color="error" autoFocus>
-            Delete
+          <Button 
+            onClick={handleConfirmDelete} 
+            color="error" 
+            autoFocus 
+            disabled={loading}
+            startIcon={loading ? <CircularProgress size={20} color="inherit" /> : null}
+          >
+            Delete User
           </Button>
         </DialogActions>
       </Dialog>
@@ -89,4 +75,4 @@ const DeleteClientModal = ({ handleMenuClose, handleDeleteRow, open, setOpen ,id
   );
 }
 
-export default DeleteClientModal;
+export default DeleteUserModal;

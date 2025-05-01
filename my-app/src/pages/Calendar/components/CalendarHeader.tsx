@@ -93,11 +93,11 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
             </MenuItem>
           ))}
         </Menu>
-        <Button sx={{ width: 50, fontSize: 12, marginLeft: 4, display: "flex", alignItems: "center" }} onClick={onNavigateToday}>
+        <Button sx={{ width: 50, fontSize: 12, display: "flex", alignItems: "center" }} onClick={onNavigateToday}>
           Today
         </Button>
         <Box sx={{ display: "flex", alignItems: "center" }}>
-          <PageDatePicker setSelectedDate={handleDateSelect} />
+          <PageDatePicker setSelectedDate={handleDateSelect} marginLeft="0rem" />
         </Box>
       </Box>
 

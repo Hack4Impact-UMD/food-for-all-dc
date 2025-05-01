@@ -13,6 +13,7 @@ import {
 } from "firebase/firestore";
 import FirebaseService from "./firebase-service";
 import { ClientProfile } from '../types';
+import { LatLngTuple } from "leaflet"; // Or use appropriate coordinate type
 
 /**
  * Client Service - Handles all client-related operations with Firebase
@@ -154,6 +155,33 @@ class ClientService {
       await setDoc(doc(this.db, this.clientsCollection, uid), { clusterID: clusterId }, { merge: true });
     } catch (error) {
       console.error(`Error updating cluster for client ${uid}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Update the coordinates for a specific client
+   */
+  public async updateClientCoordinates(clientId: string, coordinates: LatLngTuple): Promise<void> {
+    if (!clientId) {
+      console.error("Cannot update coordinates: Client ID is missing.");
+      throw new Error("Client ID is required to update coordinates.");
+    }
+    if (!coordinates || !Array.isArray(coordinates) || coordinates.length !== 2) {
+       console.error(`Cannot update coordinates for ${clientId}: Invalid coordinates provided.`, coordinates);
+       throw new Error("Invalid coordinates format provided.");
+    }
+
+    const clientRef = doc(this.db, this.clientsCollection, clientId);
+    try {
+      await updateDoc(clientRef, {
+        coordinates: coordinates, // Ensure this field name matches Firestore
+        updatedAt: new Date() // Optionally update the timestamp
+      });
+      console.log(`Successfully updated coordinates for client ${clientId}`);
+    } catch (error) {
+      console.error(`Error updating coordinates for client ${clientId}:`, error);
+      // Re-throw the error or handle it as needed
       throw error;
     }
   }

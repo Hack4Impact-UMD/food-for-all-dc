@@ -1,13 +1,13 @@
 import { useState } from "react";
 import { TextField, Typography, DialogActions, Box } from "@mui/material";
 import Button from '../../../components/common/Button'; // Corrected import path
-import { DeliveryRowData } from "../types/deliveryTypes";
+import { RowData } from "../types/deliveryTypes";
 import ClientCard from "./ClientCard";
 
 interface GenerateClustersPopupProps {
   manualAssign: (newClusters: string[], clusters: number) => Promise<void>;
   onClose: () => void;
-  allDeliveries: DeliveryRowData[]
+  allDeliveries: RowData[]
 }
 
 export default function ManualAssign({ manualAssign, onClose, allDeliveries}: GenerateClustersPopupProps) {
@@ -126,7 +126,7 @@ export default function ManualAssign({ manualAssign, onClose, allDeliveries}: Ge
             borderRadius: "8px",
             backgroundColor: "#fafafa",
           }}>
-            {allDeliveries.map((client: DeliveryRowData, index) => (
+            {allDeliveries.map((client: RowData, index) => (
               //filter for already assigned cluster
               clusterState[index] == '0' ?
               <ClientCard key={client.id} client={client} index={index} selectedClients={selectedClients} setSelectedClients={setSelectedClients}/>

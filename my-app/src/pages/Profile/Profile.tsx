@@ -218,6 +218,9 @@ const Profile = () => {
     lifeChallenges: "",
     notes: "",
     notesTimestamp: null,
+    deliveryInstructionsTimestamp: null, // New timestamp field for delivery instructions
+    lifeChallengesTimestamp: null,       // New timestamp field for life challenges
+    lifestyleGoalsTimestamp: null,
     lifestyleGoals: "",
     language: "",
     createdAt: new Date(),
@@ -718,10 +721,44 @@ const Profile = () => {
     // setIsLoading(true);
 
     try {
-      const currentNotes = clientProfile.notes || ""; // Ensure notes is a string
-      const fetchedWard = await getWard(clientProfile.address); // Fetch ward before saving
-      const coordinates = await getCoordinates(clientProfile.address); //Calculate coordinates before saving
+      
 
+      // --- Geocoding Optimization Start ---
+      let addressChanged = false;
+      if (isNewProfile || !prevClientProfile) {
+        // Always geocode for new profiles or if previous state is missing
+        addressChanged = true;
+      } else {
+        // Check if any address component changed
+        if (
+          clientProfile.address !== prevClientProfile.address ||
+          clientProfile.city !== prevClientProfile.city ||
+          clientProfile.state !== prevClientProfile.state ||
+          clientProfile.zipCode !== prevClientProfile.zipCode
+        ) {
+          addressChanged = true;
+        }
+      }
+
+      // Also force geocode if coordinates are missing or invalid
+      if (!addressChanged && (!clientProfile.coordinates || clientProfile.coordinates.length === 0 || (clientProfile.coordinates[0].lat === 0 && clientProfile.coordinates[0].lng === 0))) {
+          console.log("Forcing geocode due to missing/invalid coordinates.");
+          addressChanged = true;
+      }
+
+      let fetchedWard = clientProfile.ward; // Default to existing ward
+      let coordinatesToSave = clientProfile.coordinates; // Default to existing coordinates
+
+      if (addressChanged) {
+        console.log("Address changed, fetching new Ward and Coordinates...");
+        fetchedWard = await getWard(clientProfile.address); // Fetch ward only if address changed
+        coordinatesToSave = await getCoordinates(clientProfile.address); // Fetch coordinates only if address changed
+      } else {
+        console.log("Address unchanged, using existing Ward and Coordinates.");
+      }
+      // --- Geocoding Optimization End ---
+
+      const currentNotes = clientProfile.notes || ""; // Ensure notes is a string
       let updatedNotesTimestamp = checkIfNotesExists(
         currentNotes,
         clientProfile.notesTimestamp || null
@@ -732,15 +769,57 @@ const Profile = () => {
         updatedNotesTimestamp
       );
 
+      // Delivery Instructions Timestamp
+      const prevDeliveryInstructions = prevClientProfile?.deliveryDetails.deliveryInstructions || "";
+      const currentDeliveryInstructions = clientProfile.deliveryDetails.deliveryInstructions || "";
+      let updatedDeliveryInstructionsTimestamp = checkIfNotesExists(
+        currentDeliveryInstructions,
+        clientProfile.deliveryInstructionsTimestamp || null
+      );
+      updatedDeliveryInstructionsTimestamp = checkIfNotesChanged(
+        prevDeliveryInstructions,
+        currentDeliveryInstructions,
+        updatedDeliveryInstructionsTimestamp
+      );
+
+      // Life Challenges Timestamp
+      const prevLifeChallenges = prevClientProfile?.lifeChallenges || "";
+      const currentLifeChallenges = clientProfile.lifeChallenges || "";
+      let updatedLifeChallengesTimestamp = checkIfNotesExists(
+        currentLifeChallenges,
+        clientProfile.lifeChallengesTimestamp || null
+      );
+      updatedLifeChallengesTimestamp = checkIfNotesChanged(
+        prevLifeChallenges,
+        currentLifeChallenges,
+        updatedLifeChallengesTimestamp
+      );
+
+      // Lifestyle Goals Timestamp
+      const prevLifestyleGoals = prevClientProfile?.lifestyleGoals || "";
+      const currentLifestyleGoals = clientProfile.lifestyleGoals || "";
+      let updatedLifestyleGoalsTimestamp = checkIfNotesExists(
+        currentLifestyleGoals,
+        clientProfile.lifestyleGoalsTimestamp || null
+      );
+      updatedLifestyleGoalsTimestamp = checkIfNotesChanged(
+        prevLifestyleGoals,
+        currentLifestyleGoals,
+        updatedLifestyleGoalsTimestamp
+      );
+
       // Update the clientProfile object with the latest tags state and other calculated fields
       const updatedProfile: ClientProfile = {
         ...clientProfile,
         tags: tags, // Sync the tags state with clientProfile
         notesTimestamp: updatedNotesTimestamp, // Update the notesTimestamp
+        deliveryInstructionsTimestamp: updatedDeliveryInstructionsTimestamp,
+        lifeChallengesTimestamp: updatedLifeChallengesTimestamp,
+        lifestyleGoalsTimestamp: updatedLifestyleGoalsTimestamp,
         updatedAt: new Date(),
         total: Number(clientProfile.adults || 0) + Number(clientProfile.children || 0) + Number(clientProfile.seniors || 0),
-        ward: fetchedWard, // Use the freshly fetched ward
-        coordinates: coordinates, //use freshly fetched coordinates
+        ward: fetchedWard, // Use potentially updated ward
+        coordinates: coordinatesToSave, // Use potentially updated coordinates
         // Ensure referralEntity is included based on selectedCaseWorker
         referralEntity: selectedCaseWorker
           ? { id: selectedCaseWorker.id, name: selectedCaseWorker.name, organization: selectedCaseWorker.organization }
@@ -1549,6 +1628,7 @@ const Profile = () => {
           <SectionBox>
             <SectionTitle sx={{ textAlign: 'left', width: '100%' }}>Miscellaneous Information</SectionTitle>
             <MiscellaneousForm
+              clientProfile={clientProfile}
               isEditing={isEditing}
               renderField={renderField}
               fieldLabelStyles={fieldLabelStyles}

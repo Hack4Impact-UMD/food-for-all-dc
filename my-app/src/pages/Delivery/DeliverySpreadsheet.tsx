@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { db } from "../../auth/firebaseConfig"; 
+import { db } from "../../auth/firebaseConfig";
 import { Search, Filter } from "lucide-react";
 import { query, Timestamp, updateDoc, where } from "firebase/firestore";
 import { format, addDays } from "date-fns";
@@ -9,7 +9,8 @@ import AddIcon from "@mui/icons-material/Add";
 import DeleteIcon from "@mui/icons-material/Delete";
 
 import "./DeliverySpreadsheet.css";
-import 'leaflet/dist/leaflet.css';
+import "leaflet/dist/leaflet.css";
+import PageDatePicker from "../../components/PageDatePicker/PageDatePicker";
 import {
   Box,
   Table,
@@ -32,12 +33,7 @@ import {
   TextField,
   Menu,
 } from "@mui/material";
-import {
-  collection,
-  getDocs,
-  doc,
-  setDoc,
-} from "firebase/firestore";
+import { collection, getDocs, doc, setDoc } from "firebase/firestore";
 import { auth } from "../../auth/firebaseConfig";
 import { onAuthStateChanged } from "firebase/auth";
 import ClusterMap from "./ClusterMap";
@@ -45,12 +41,14 @@ import AssignDriverPopup from "./components/AssignDriverPopup";
 import GenerateClustersPopup from "./components/GenerateClustersPopup";
 import AssignTimePopup from "./components/AssignTimePopup";
 import LoadingIndicator from "../../components/LoadingIndicator/LoadingIndicator";
-import Button from '../../components/common/Button';
+import { exportDeliveries } from "./RouteExport";
+import Button from "../../components/common/Button";
 import ManualAssign from "./components/ManualAssignPopup";
-import { DeliveryRowData } from "./types/deliveryTypes";
-import Input from '../../components/common/Input';
+import { RowData as DeliveryRowData } from "./types/deliveryTypes";
 import { Driver } from '../../types/calendar-types';
 import { CustomRowData, useCustomColumns } from "../../hooks/useCustomColumns";
+import ClientService from "../../services/client-service";
+import { LatLngTuple } from "leaflet";
 
 interface RowData {
   id: string;
@@ -60,7 +58,7 @@ interface RowData {
   address: string;
   tags?: string[];
   ward?: string;
-  clusterId: string; 
+  clusterId: string;
   coordinates: { lat: number; lng: number }[];
   deliveryDetails: {
     deliveryInstructions: string;
@@ -91,11 +89,11 @@ interface RowData {
 // Define a type for fields that can either be computed or direct keys of DeliveryRowData
 type Field =
   | {
-      key: "checkbox";
-      label: "";
-      type: "checkbox";
-      compute?: never;
-    }
+    key: "checkbox";
+    label: "";
+    type: "checkbox";
+    compute?: never;
+  }
   | {
       key: "fullname";
       label: "Client";
@@ -106,7 +104,7 @@ type Field =
       key: "clusterIdChange";
       label: "Cluster ID";
       type: "select";
-      compute?: (data: RowData) => string;
+      compute?: (data: DeliveryRowData) => string;
     }
   | {
       key: Exclude<keyof Omit<DeliveryRowData, "id" | "firstName" | "lastName" | "deliveryDetails">, "coordinates">;
@@ -139,7 +137,8 @@ type Field =
       compute: (data: DeliveryRowData) => string;
     };
 
-interface Cluster {
+// Export the Cluster interface
+export interface Cluster {
   id: string;
   driver?: any;
   time: string;
@@ -158,12 +157,12 @@ interface DeliveryEvent {
   assignedDriverName: string;
   clientId: string;
   clientName: string;
-  deliveryDate: Date; 
+  deliveryDate: Date;
   time: string;
-  recurrence: "None" | "Weekly" | "2x-Monthly" | "Monthly"; 
-  repeatsEndOption?: "On" | "After"; 
-  repeatsEndDate?: string; 
-  repeatsAfterOccurrences?: number; 
+  recurrence: "None" | "Weekly" | "2x-Monthly" | "Monthly";
+  repeatsEndOption?: "On" | "After";
+  repeatsEndDate?: string;
+  repeatsAfterOccurrences?: number;
 }
 
 // Define fields for table columns
@@ -183,7 +182,7 @@ const fields: Field[] = [
     key: "clusterIdChange",
     label: "Cluster ID",
     type: "select",
-    compute: (data: RowData) => {
+    compute: (data: DeliveryRowData) => {
       const cluster = data.clusterId;
       return cluster;
     },
@@ -200,22 +199,22 @@ const fields: Field[] = [
   { key: "address", label: "Address", type: "text" },
   { key: "ward", label: "Ward", type: "text" },
   {
-    key: "assignedDriver", 
-    label: "Assigned Driver", 
+    key: "assignedDriver",
+    label: "Assigned Driver",
     type: "text",
     compute: (data: DeliveryRowData, clusters: Cluster[]) => {
       let driver = "";
-      clusters.forEach((cluster)=>{
-        if(cluster.deliveries?.some((id) => id == data.id)){
+      clusters.forEach((cluster) => {
+        if (cluster.deliveries?.some((id) => id == data.id)) {
           driver = cluster.driver;
         }
-      })
-      return driver ? driver: "No driver assigned"
-    }
+      });
+      return driver ? driver : "No driver assigned";
+    },
   },
   {
-    key: "assignedTime", 
-    label: "Assigned Time", 
+    key: "assignedTime",
+    label: "Assigned Time",
     type: "text",
     compute: (data: DeliveryRowData, clusters: Cluster[]) => {
       let time = "";
@@ -224,18 +223,18 @@ const fields: Field[] = [
           time = cluster.time;
         }
       });
-      
+
       if (!time) return "No time assigned";
-      
+
       // Convert 24-hour format to 12-hour AM/PM format
-      const [hours, minutes] = time.split(':');
+      const [hours, minutes] = time.split(":");
       let hours12 = parseInt(hours, 10);
-      const ampm = hours12 >= 12 ? 'PM' : 'AM';
+      const ampm = hours12 >= 12 ? "PM" : "AM";
       hours12 = hours12 % 12;
       hours12 = hours12 ? hours12 : 12; // Convert 0 to 12 for 12 AM
-      
+
       return `${hours12}:${minutes} ${ampm}`;
-    }
+    },
   },
 ];
 
@@ -268,15 +267,17 @@ const DeliverySpreadsheet: React.FC = () => {
   const [rows, setRows] = useState<DeliveryRowData[]>([]);
   const [rawClientData, setRawClientData] = useState<DeliveryRowData[]>([]);
   const [searchQuery, setSearchQuery] = useState<string>("");
-  const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set()); 
+  const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
   const [innerPopup, setInnerPopup] = useState(false);
   const [popupMode, setPopupMode] = useState("");
-  const [clusters, setClusters] = useState<Cluster[]>([])
+  const [clusters, setClusters] = useState<Cluster[]>([]);
   const [selectedClusters, setSelectedClusters] = useState<Set<any>>(new Set());
+  const [exportOption, setExportOption] = useState<"Routes" | "Doordash" | null>(null);
+  const [emailOrDownload, setEmailOrDownload] = useState<"Email" | "Download" | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [deliveriesForDate, setDeliveriesForDate] = useState<DeliveryEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [clusterDoc, setClusterDoc] = useState<ClusterDoc | null>()
+  const [clusterDoc, setClusterDoc] = useState<ClusterDoc | null>();
   const navigate = useNavigate();
     const [editingRowId, setEditingRowId] = useState<string | null>(null);
   const {
@@ -318,7 +319,7 @@ const DeliverySpreadsheet: React.FC = () => {
 
   // Calculate Cluster Options
   const clusterOptions = useMemo(() => {
-    const existingIds = clusters.map(c => parseInt(c.id, 10)).filter(id => !isNaN(id));
+    const existingIds = clusters.map((c) => parseInt(c.id, 10)).filter((id) => !isNaN(id));
     const maxId = existingIds.length > 0 ? Math.max(...existingIds) : 0;
     const nextId = (maxId + 1).toString();
     const availableIds = clusters.map(c => c.id).sort((a, b) => parseInt(a, 10) - parseInt(b, 10));
@@ -337,27 +338,35 @@ const DeliverySpreadsheet: React.FC = () => {
   const fetchDeliveriesForDate = async (dateForFetch: Date) => {
     try {
       // account for timezone issues
-      const startDate = new Date(Date.UTC(
-        dateForFetch.getFullYear(),
-        dateForFetch.getMonth(),
-        dateForFetch.getDate(),
-        0, 0, 0 
-      ));
-      
-      const endDate = new Date(Date.UTC(
-        dateForFetch.getFullYear(),
-        dateForFetch.getMonth(),
-        dateForFetch.getDate(),
-        23, 59, 59
-      ));
-  
+      const startDate = new Date(
+        Date.UTC(
+          dateForFetch.getFullYear(),
+          dateForFetch.getMonth(),
+          dateForFetch.getDate(),
+          0,
+          0,
+          0
+        )
+      );
+
+      const endDate = new Date(
+        Date.UTC(
+          dateForFetch.getFullYear(),
+          dateForFetch.getMonth(),
+          dateForFetch.getDate(),
+          23,
+          59,
+          59
+        )
+      );
+
       const eventsRef = collection(db, "events");
       const q = query(
         eventsRef,
         where("deliveryDate", ">=", Timestamp.fromDate(startDate)),
         where("deliveryDate", "<=", Timestamp.fromDate(endDate))
       );
-  
+
       const querySnapshot = await getDocs(q);
 
       // Check if the date is still the selected one before updating state
@@ -366,7 +375,7 @@ const DeliverySpreadsheet: React.FC = () => {
         return; // Don't update state with stale data
       }
 
-      const events = querySnapshot.docs.map(doc => {
+      const events = querySnapshot.docs.map((doc) => {
         const data = doc.data();
         return {
           id: doc.id,
@@ -374,36 +383,36 @@ const DeliverySpreadsheet: React.FC = () => {
           deliveryDate: data.deliveryDate.toDate(), // preserve as-is (already correct local representation)
         };
       }) as DeliveryEvent[];
-      
+
       //set the deliveries for the date
       setDeliveriesForDate(events);
     } catch (error) {
       console.error("Error fetching deliveries:", error);
       // Clear state only if the error corresponds to the *currently* selected date
       if (dateForFetch.getTime() === selectedDate.getTime()) {
-         setDeliveriesForDate([]);
+        setDeliveriesForDate([]);
       }
     }
   };
 
-//when the user changes the date, fetch the deliveries for that date
-useEffect(() => {
-  const currentFetchDate = selectedDate; // Capture date at effect run time
-  fetchDeliveriesForDate(currentFetchDate);
-  // No explicit cleanup needed with the check inside the async function
-}, [selectedDate]);
+  //when the user changes the date, fetch the deliveries for that date
+  useEffect(() => {
+    const currentFetchDate = selectedDate; // Capture date at effect run time
+    fetchDeliveriesForDate(currentFetchDate);
+    // No explicit cleanup needed with the check inside the async function
+  }, [selectedDate]);
 
-useEffect(() => {
-  const fetchDataAndGeocode = async () => {
-    // If deliveriesForDate is updated, it's for the current selectedDate
-    // because fetchDeliveriesForDate filters stale updates.
+  useEffect(() => {
+    const fetchDataAndGeocode = async () => {
+      // If deliveriesForDate is updated, it's for the current selectedDate
+      // because fetchDeliveriesForDate filters stale updates.
 
-    // setIsLoading(true) is moved here to only show loading when processing clients
-    // setIsLoading(true); // Already set by the caller effect
+      // setIsLoading(true) is moved here to only show loading when processing clients
+      // setIsLoading(true); // Already set by the caller effect
 
     try {
       // Get the client IDs for the deliveries on the selected date
-      const clientIds = deliveriesForDate.map(delivery => delivery.clientId);
+      const clientIds = deliveriesForDate.map(delivery => delivery.clientId).filter(id => id && id.trim() !== "");
       // Firestore 'in' queries are limited to 10 items per query
       const chunkSize = 10;
       let clientsWithDeliveriesOnSelectedDate: DeliveryRowData[] = [];
@@ -417,8 +426,8 @@ useEffect(() => {
         const snapshot = await getDocs(q);
         const chunkData = snapshot.docs.map((doc) => ({
           id: doc.id,
-          ...(doc.data() as Omit<DeliveryRowData, "id">),
-        }));
+          ...doc.data(),
+        } as DeliveryRowData));
         clientsWithDeliveriesOnSelectedDate = clientsWithDeliveriesOnSelectedDate.concat(chunkData);
       }
       setRawClientData(clientsWithDeliveriesOnSelectedDate);
@@ -448,8 +457,8 @@ useEffect(() => {
   //get clusters
   useEffect(() => {
     fetchClustersFromToday(selectedDate);
-  }, [selectedDate]); 
-  
+  }, [selectedDate]);
+
   // Route Protection
   React.useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user: any) => {
@@ -470,19 +479,27 @@ useEffect(() => {
   const fetchClustersFromToday = async (dateForFetch: Date) => {
     try {
       // account for timezone issues
-      const startDate = new Date(Date.UTC(
-        dateForFetch.getFullYear(),
-        dateForFetch.getMonth(),
-        dateForFetch.getDate(),
-        0, 0, 0
-      ));
-      
-      const endDate = new Date(Date.UTC(
-        dateForFetch.getFullYear(),
-        dateForFetch.getMonth(),
-        dateForFetch.getDate(),
-        23, 59, 59
-      ));
+      const startDate = new Date(
+        Date.UTC(
+          dateForFetch.getFullYear(),
+          dateForFetch.getMonth(),
+          dateForFetch.getDate(),
+          0,
+          0,
+          0
+        )
+      );
+
+      const endDate = new Date(
+        Date.UTC(
+          dateForFetch.getFullYear(),
+          dateForFetch.getMonth(),
+          dateForFetch.getDate(),
+          23,
+          59,
+          59
+        )
+      );
 
       const clustersCollectionRef = collection(db, "clusters");
       const q = query(
@@ -490,7 +507,7 @@ useEffect(() => {
         where("date", ">=", Timestamp.fromDate(startDate)),
         where("date", "<=", Timestamp.fromDate(endDate))
       );
-      
+
       const clustersSnapshot = await getDocs(q);
 
       // Check if the date is still the selected one before updating state
@@ -505,24 +522,23 @@ useEffect(() => {
         const clustersData = {
           docId: doc.id,
           date: doc.data().date.toDate(),
-          clusters: doc.data().clusters || []
+          clusters: doc.data().clusters || [],
         };
-        setClusterDoc(clustersData)
+        setClusterDoc(clustersData);
         setClusters(clustersData.clusters);
-      }
-      else{
+      } else {
         setClusterDoc(null); // Clear clusterDoc when no clusters found
-        setClusters([])
+        setClusters([]);
       }
     } catch (error) {
       console.error("Error fetching clusters:", error);
       // Clear state only if the error corresponds to the *currently* selected date
       if (dateForFetch.getTime() === selectedDate.getTime()) {
-         setClusterDoc(null);
-         setClusters([]);
+        setClusterDoc(null);
+        setClusters([]);
       }
     }
-  };  
+  };
 
   // handle search input change
   const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -532,15 +548,15 @@ useEffect(() => {
   const handleClusterChange = async (row: DeliveryRowData, newClusterIdStr: string) => {
     const oldClusterId = row.clusterId || "";
     const newClusterId = newClusterIdStr;
-  
+
     if (!row || !row.id || newClusterId === oldClusterId || !clusterDoc) {
       console.log("Cluster change aborted (no change, missing data, or no clusterDoc)");
       return;
     }
-  
+
     let updatedClusters = [...clusters];
-    const clusterExists = clusters.some(cluster => cluster.id === newClusterId);
-  
+    const clusterExists = clusters.some((cluster) => cluster.id === newClusterId);
+
     if (oldClusterId) {
       updatedClusters = updatedClusters.map(cluster => {
         if (cluster.id === oldClusterId) {
@@ -552,14 +568,14 @@ useEffect(() => {
         return cluster;
       });
     }
-  
+
     if (newClusterId) {
       if (clusterExists) {
-        updatedClusters = updatedClusters.map(cluster => {
+        updatedClusters = updatedClusters.map((cluster) => {
           if (cluster.id === newClusterId) {
             return {
               ...cluster,
-              deliveries: [...(cluster.deliveries ?? []), row.id]
+              deliveries: [...(cluster.deliveries ?? []), row.id],
             };
           }
           return cluster;
@@ -569,30 +585,115 @@ useEffect(() => {
           id: newClusterId,
           deliveries: [row.id],
           driver: "",
-          time: ""
+          time: "",
         };
         updatedClusters.push(newCluster);
       }
     }
 
     updatedClusters.sort((a, b) => parseInt(a.id, 10) - parseInt(b.id, 10));
-  
+
     setClusters(updatedClusters);
-  
+
     try {
       const clusterRef = doc(db, "clusters", clusterDoc.docId);
       await updateDoc(clusterRef, { clusters: updatedClusters });
-      console.log(`Successfully moved ${row.id} from cluster ${oldClusterId || 'none'} to ${newClusterId || 'none'}`);
-  
+      console.log(
+        `Successfully moved ${row.id} from cluster ${oldClusterId || "none"} to ${newClusterId || "none"}`
+      );
+
       // setRows(prevRows => prevRows.map(r => r.id === row.id ? { ...r, clusterId: newClusterId } : r));
     } catch (error) {
       console.error("Error updating clusters in Firestore:", error);
     }
   };
 
+  const handleEmailOrDownload = async (option: "Email" | "Download") => {
+    setEmailOrDownload(option);
+    setPopupMode("");
+
+    if (exportOption === "Routes") {
+      if (option === "Email") {
+        // Logic to email Routes
+
+        try {
+          // Trigger the Google Cloud Function for emailing Routes
+          const response = await fetch(
+            `https://route-exports-251910218620.us-central1.run.app?deliveryDate=${format(selectedDate, "yyyy-MM-dd")}`,
+            {
+              method: "GET",
+              headers: {
+                "Content-Type": "application/json",
+              },
+            }
+          );
+
+          if (response.ok) {
+            const result = await response.text();
+            console.log("Email sent successfully:", result);
+            alert("Routes emailed successfully!");
+          } else {
+            console.error("Failed to email Routes:", response.statusText);
+            alert("Failed to email Routes. Please try again.");
+          }
+        } catch (error) {
+          console.error("Error emailing Routes:", error);
+          alert("An error occurred while emailing Routes. Please try again.");
+        }
+
+
+
+        console.log("Emailing Routes...");
+        // Add your email logic here
+      } else if (option === "Download") {
+        // Pass visibleRows and clusters to exportDeliveries
+        exportDeliveries(format(selectedDate, "yyyy-MM-dd"), rows, clusters);
+        console.log("Downloading Routes...");
+        // Add your download logic here
+      }
+    } else if (exportOption === "Doordash") {
+      if (option === "Email") {
+        // Logic to email Doordash
+        console.log("Emailing Doordash...");
+
+        try {
+          // Trigger the Google Cloud Function for emailing Doordash
+          const response = await fetch(
+            `https://route-exports-251910218620.us-central1.run.app?deliveryDate=${format(selectedDate, "yyyy-MM-dd")}`,
+            {
+              method: "GET",
+              headers: {
+                "Content-Type": "application/json",
+              },
+            }
+          );
+
+          if (response.ok) {
+            const result = await response.text();
+            console.log("Email sent successfully:", result);
+            alert("Doordash deliveries emailed successfully!");
+          } else {
+            console.error("Failed to email Doordash deliveries:", response.statusText);
+            alert("Failed to email Doordash deliveries. Please try again.");
+          }
+        } catch (error) {
+          console.error("Error emailing Doordash deliveries:", error);
+          alert("An error occurred while emailing Doordash deliveries. Please try again.");
+        }
+        // Add your email logic here
+      } else if (option === "Download") {
+        // Logic to download Doordash
+        console.log("Downloading Doordash...");
+        // Add your download logic here
+      }
+    }
+  };
+
   // reset popup selections when closing popup
   const resetSelections = () => {
     setPopupMode("");
+    setExportOption(null);
+    setEmailOrDownload(null);
     setSelectedClusters(new Set());
     setSelectedRows(new Set());
   };
@@ -606,12 +707,14 @@ useEffect(() => {
     }
 
     try {
-      const updatedClusters = clusters.map(cluster => {
-        const isSelected = Array.from(selectedClusters).some(selected => selected.id === cluster.id);
+      const updatedClusters = clusters.map((cluster) => {
+        const isSelected = Array.from(selectedClusters).some(
+          (selected) => selected.id === cluster.id
+        );
         if (isSelected) {
           return {
             ...cluster,
-            driver: driver.name
+            driver: driver.name,
           };
         }
         return cluster;
@@ -628,35 +731,44 @@ useEffect(() => {
     }
   };
 
-  const updateClusters = async (clusterMap: any) => {
+  const updateClusters = async (clusterMap: { [key: string]: string[] }) => {
     const newClusters: Cluster[] = [];
-    Object.keys(clusterMap).forEach((clusterId)=>{
-      if(clusterId != "doordash"){
-        const newDeliveries = clusterMap[clusterId].map((index: string)=>{return visibleRows[Number(index)].id});
+    Object.keys(clusterMap).forEach((clusterId) => {
+      // Exclude "doordash" if it's a special case (though unlikely with ID mapping now)
+      if (clusterId !== "doordash") { 
+        // The value in clusterMap[clusterId] is already the array of client IDs
+        const clientIdsForCluster = clusterMap[clusterId]; 
+        
         newClusters.push({
-          deliveries: newDeliveries,
-          driver: "",
-          time: "",
-          id: clusterId
-        })
+          deliveries: clientIdsForCluster, // Directly use the array of client IDs
+          driver: "", // Initialize with defaults or fetch existing if needed
+          time: "",   // Initialize with defaults or fetch existing if needed
+          id: clusterId,
+        });
       }
-    })
+    });
+
+    // Sort clusters numerically by ID for consistency
+    newClusters.sort((a, b) => parseInt(a.id, 10) - parseInt(b.id, 10));
+
     return newClusters;
   };
 
   //Handle assigning time
   const assignTime = async (time: string) => {
-    if(time && clusterDoc){
+    if (time && clusterDoc) {
       try {
         // Create a new clusters array with updated time assignments
-        const updatedClusters = clusters.map(cluster => {
+        const updatedClusters = clusters.map((cluster) => {
           // Check if this cluster is among the selected ones (using ID for comparison)
-          const isSelected = Array.from(selectedClusters).some(selected => selected.id === cluster.id);
+          const isSelected = Array.from(selectedClusters).some(
+            (selected) => selected.id === cluster.id
+          );
           if (isSelected) {
             // Return a *new* cluster object with the assigned time
             return {
               ...cluster,
-              time: time // Assign the new time
+              time: time, // Assign the new time
             };
           }
           // Return the original cluster object if not selected
@@ -713,6 +825,7 @@ useEffect(() => {
     assignedClusters.forEach((clusterIndex, deliveryIndex) => {
       const numericIndex = parseInt(clusterIndex) - 1;
       if (numericIndex >= 0 && numericIndex < newClusters.length) {
+        // Use visibleRows here
         newClusters[numericIndex].deliveries.push(visibleRows[deliveryIndex].id);
       } else {
         console.warn(`Invalid cluster index: ${clusterIndex}`);
@@ -734,138 +847,237 @@ useEffect(() => {
     resetSelections()
   };
 
-  //Handle generating clusters
-  const generateClusters = async (clusterNum: number, minDeliveries: number, maxDeliveries: number) => {
+  // Helper function to check if coordinates are valid
+  const isValidCoordinate = (coord: LatLngTuple | { lat: number; lng: number } | undefined | null): coord is LatLngTuple | { lat: number; lng: number } => {
+    if (!coord) return false;
+    if (Array.isArray(coord)) { // Check for LatLngTuple [number, number]
+      return coord.length === 2 && typeof coord[0] === 'number' && typeof coord[1] === 'number' && (coord[0] !== 0 || coord[1] !== 0);
+    }
+    // Check for { lat: number, lng: number }
+    return typeof coord.lat === 'number' && typeof coord.lng === 'number' && (coord.lat !== 0 || coord.lng !== 0);
+  };
+
+  const generateClusters = async (
+    clusterNum: number,
+    minDeliveries: number,
+    maxDeliveries: number
+  ) => {
     const token = await auth.currentUser?.getIdToken();
-    const addresses = visibleRows.map(row => row.address);
-    // Removed unnecessary try/catch
-    // try{
-      // Validate cluster number
-      if (!clusterNum || clusterNum <= 0) {
-        throw new Error("Please enter a valid number of clusters (must be at least 1)");
-      }
+    if (!token) {
+      throw new Error("Authentication token not found.");
+    }
 
-      // Validate we have deliveries to cluster
-      if (addresses.length === 0) {
-        throw new Error("No deliveries scheduled for the selected date");
-      }
-
-      // Validate maxDeliveries is within range
-      if (maxDeliveries > addresses.length) {
-        throw new Error(`Max deliveries is too high for ${addresses.length} deliveries. Please decrease it.`);
-      }
-
-      // Validate min deliveries is reasonable
-      if (minDeliveries < 0) {
-        throw new Error("Minimum deliveries per cluster cannot be negative");
-      }
-
-      // Validate max deliveries is reasonable
-      if (maxDeliveries <= 0) {
-        throw new Error("Maximum deliveries per cluster must be at least 1");
-      }
-
-      // Validate min <= max
-      if (minDeliveries > maxDeliveries) {
-        throw new Error("Minimum deliveries cannot exceed maximum deliveries");
-      }
-
-      // Calculate total required and available deliveries
-      const totalMinRequired = clusterNum * minDeliveries;
-      const totalMaxAllowed = clusterNum * maxDeliveries;
-      
-      // Validate we have enough deliveries for the minimum
-      if (totalMinRequired > addresses.length) {
-        throw new Error(
-          `Not enough deliveries for ${clusterNum} clusters with minimum ${minDeliveries} each.\n` +
-          `Required: ${totalMinRequired} | Available: ${addresses.length}\n` +
-          `Please reduce cluster count or minimum deliveries.`
-        );
-      }
-
-      // Validate we don't have too many deliveries for the maximum
-      if (addresses.length > totalMaxAllowed) {
-        throw new Error(
-          `Too many deliveries for ${clusterNum} clusters with maximum ${maxDeliveries} each.\n` +
-          `Allowed: ${totalMaxAllowed} | Available: ${addresses.length}\n` +
-          `Please increase cluster count or maximum deliveries.`
-        );
-      }
-      // Validate cluster count isn't excessive
-      const maxRecommendedClusters = Math.min(
-        Math.ceil(addresses.length / 2),  // At least 2 deliveries per cluster
-        addresses.length  // Can't have more clusters than deliveries
+    // --- Validation (keep existing validation) ---
+    if (!clusterNum || clusterNum <= 0) {
+      throw new Error("Please enter a valid number of clusters (must be at least 1)");
+    }
+    // Use visibleRows here
+    if (visibleRows.length === 0) {
+      throw new Error("No deliveries scheduled for the selected date or matching filters");
+    }
+    // ... (keep other validations for min/max deliveries, cluster count etc.) ...
+    const totalMinRequired = clusterNum * minDeliveries;
+    const totalMaxAllowed = clusterNum * maxDeliveries;
+    if (totalMinRequired > visibleRows.length) {
+      throw new Error(
+        `Not enough deliveries for ${clusterNum} clusters with minimum ${minDeliveries} each.\n` +
+        `Required: ${totalMinRequired} | Available: ${visibleRows.length}\n` +
+        `Please reduce cluster count or minimum deliveries.`
       );
-      
-      if (clusterNum > maxRecommendedClusters) {
+    }
+    if (visibleRows.length > totalMaxAllowed) {
+       throw new Error(
+        `Too many deliveries for ${clusterNum} clusters with maximum ${maxDeliveries} each.\n` +
+        `Allowed: ${totalMaxAllowed} | Available: ${visibleRows.length}\n` +
+        `Please increase cluster count or maximum deliveries.`
+      );
+    }
+    const maxRecommendedClusters = Math.min(
+      Math.ceil(visibleRows.length / 2), // At least 2 deliveries per cluster
+      visibleRows.length // Can't have more clusters than deliveries
+    );
+    if (clusterNum > maxRecommendedClusters) {
+      throw new Error(
+        `Too many clusters requested (${clusterNum}).\n` +
+        `Recommended maximum for ${visibleRows.length} deliveries: ${maxRecommendedClusters}`
+      );
+    }
+    // --- End Validation ---
+
+    setPopupMode("");
+    setIsLoading(true);
+
+    try { // Wrap the core logic in try/finally to ensure loading state is reset
+
+      const clientsToGeocode: { id: string; address: string; originalIndex: number }[] = [];
+      const existingCoordsMap = new Map<string, LatLngTuple | { lat: number; lng: number }>();
+      const finalCoordinates: (LatLngTuple | null)[] = new Array(visibleRows.length).fill(null); // Initialize with nulls
+
+      // 1 & 2: Separate clients and collect existing coords
+      visibleRows.forEach((row: DeliveryRowData, index: number) => {
+        if (isValidCoordinate(row.coordinates)) {
+           // Normalize coordinate format if necessary (e.g., always use [lat, lng])
+           const coords = Array.isArray(row.coordinates)
+             ? row.coordinates
+             : [row.coordinates.lat, row.coordinates.lng];
+           existingCoordsMap.set(row.id, coords as LatLngTuple);
+           finalCoordinates[index] = coords as LatLngTuple; // Pre-fill with existing
+        } else {
+          clientsToGeocode.push({ id: row.id, address: row.address, originalIndex: index });
+        }
+      });
+
+      // 3. Conditional Geocoding
+      if (clientsToGeocode.length > 0) {
+        console.log(`Geocoding ${clientsToGeocode.length} addresses...`);
+        const addressesToFetch = clientsToGeocode.map(client => client.address);
+        const geocodeResponse = await fetch(
+          testing ? "" : "https://geocode-addresses-endpoint-lzrplp4tfa-uc.a.run.app",
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ addresses: addressesToFetch }),
+          }
+        );
+
+        if (!geocodeResponse.ok) {
+          const errorText = await geocodeResponse.text();
+          console.error("Geocoding failed:", errorText);
+          throw new Error(`Failed to geocode addresses. Status: ${geocodeResponse.status}`);
+        }
+
+        const { coordinates: fetchedCoords } = await geocodeResponse.json();
+
+        if (!Array.isArray(fetchedCoords) || fetchedCoords.length !== clientsToGeocode.length) {
+           throw new Error("Geocoding response format is incorrect or length mismatch.");
+        }
+
+        // 4. Update Firestore & 5. Combine Coordinates (Part 1: Newly fetched)
+        const updatePromises: Promise<void>[] = [];
+        fetchedCoords.forEach((coords: LatLngTuple | null, i: number) => {
+          const client = clientsToGeocode[i];
+          if (isValidCoordinate(coords)) {
+            finalCoordinates[client.originalIndex] = coords; // Add newly fetched coords
+            // Schedule Firestore update (don't await here individually to speed up)
+            updatePromises.push(
+               ClientService.getInstance().updateClientCoordinates(client.id, coords)
+                 .catch(err => console.error(`Failed to update coordinates for client ${client.id}:`, err)) // Log errors but don't fail the whole process
+            );
+          } else {
+            console.warn(`Failed to geocode address for client ${client.id}: ${client.address}. Skipping this client.`);
+            // Keep finalCoordinates[client.originalIndex] as null
+          }
+        });
+
+         // Wait for all Firestore updates to attempt completion
+         await Promise.all(updatePromises);
+         console.log("Finished attempting coordinate updates in Firestore.");
+      } else {
+        console.log("No new addresses to geocode.");
+      }
+
+      // Filter out any clients that couldn't be geocoded (their entry in finalCoordinates will be null)
+      const validCoordsForClustering = finalCoordinates.filter(coords => coords !== null) as LatLngTuple[];
+      // Keep track of the original indices corresponding to validCoordsForClustering
+      const originalIndicesForValidCoords = visibleRows
+         .map((_: DeliveryRowData, index: number) => index)
+         .filter((index: number) => finalCoordinates[index] !== null);
+
+      if (validCoordsForClustering.length === 0) {
+         throw new Error("No valid coordinates available for clustering after geocoding.");
+      }
+
+      // Adjust clusterNum if it exceeds the number of valid points
+      const adjustedClusterNum = Math.min(clusterNum, validCoordsForClustering.length);
+      if (adjustedClusterNum !== clusterNum) {
+         console.warn(`Adjusted cluster count from ${clusterNum} to ${adjustedClusterNum} due to invalid coordinates.`);
+      }
+
+      // Adjust min/max deliveries if necessary based on valid coordinates count
+      const adjustedMaxDeliveries = Math.min(maxDeliveries, validCoordsForClustering.length);
+      const adjustedMinDeliveries = Math.min(minDeliveries, adjustedMaxDeliveries); // Min cannot be > Max
+
+      // --- Re-validate with adjusted numbers ---
+      const adjustedTotalMinRequired = adjustedClusterNum * adjustedMinDeliveries;
+      const adjustedTotalMaxAllowed = adjustedClusterNum * adjustedMaxDeliveries;
+
+      if (adjustedTotalMinRequired > validCoordsForClustering.length) {
         throw new Error(
-          `Too many clusters requested (${clusterNum}).\n` +
-          `Recommended maximum for ${addresses.length} deliveries: ${maxRecommendedClusters}`
+          `Not enough valid deliveries (${validCoordsForClustering.length}) for ${adjustedClusterNum} clusters with adjusted minimum ${adjustedMinDeliveries} each.\n` +
+          `Required: ${adjustedTotalMinRequired}. Issue might be due to failed geocoding.`
         );
       }
-      setPopupMode("")
-      setIsLoading(true)
-      const response = await fetch(testing ? "": 'https://geocode-addresses-endpoint-lzrplp4tfa-uc.a.run.app', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          addresses: addresses
-        }),
-      });
-      
-      if (!response.ok) {
-        throw new Error("Failed to fetch");
+      if (validCoordsForClustering.length > adjustedTotalMaxAllowed) {
+         throw new Error(
+          `Too many valid deliveries (${validCoordsForClustering.length}) for ${adjustedClusterNum} clusters with adjusted maximum ${adjustedMaxDeliveries} each.\n` +
+          `Allowed: ${adjustedTotalMaxAllowed}. Issue might be due to failed geocoding.`
+        );
       }
-    
-      const { coordinates } = await response.json();
-      // Generate clusters based on coordinates
-      const clusterResponse = await fetch(testing? "": 'https://cluster-deliveries-k-means-lzrplp4tfa-uc.a.run.app', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          coords: coordinates,
-          drivers_count: clusterNum,
-          min_deliveries: minDeliveries,  
-          max_deliveries: maxDeliveries
-        }),
-      });
-  
-      const clusterData = await clusterResponse.json();
-      const newClusters = await updateClusters(clusterData.clusters)
-      // setClusters(newClusters) // State is set within the if/else block
+      // --- End Re-validation ---
 
-      //update cluster or create new cluster date
-      if(clusterDoc){
-        const clusterRef = doc(db, "clusters", clusterDoc.docId);
-        // Only update the 'clusters' field using updateDoc
-        await updateDoc(clusterRef, { clusters: newClusters });
-        setClusters(newClusters); // Update state after successful Firestore update
-        // Update the local clusterDoc state's clusters as well
-        setClusterDoc(prevDoc => prevDoc ? { ...prevDoc, clusters: newClusters } : null);
+
+      console.log(`Generating ${adjustedClusterNum} clusters for ${validCoordsForClustering.length} valid coordinates...`);
+      // 6. Call Clustering
+      const clusterResponse = await fetch(
+        testing ? "" : "https://cluster-deliveries-k-means-lzrplp4tfa-uc.a.run.app",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            coords: validCoordsForClustering, // Use only valid coordinates
+            drivers_count: adjustedClusterNum,
+            min_deliveries: adjustedMinDeliveries, // Use adjusted values
+            max_deliveries: adjustedMaxDeliveries, // Use adjusted values
+          }),
+        }
+      );
+
+      if (!clusterResponse.ok) {
+        const errorText = await clusterResponse.text();
+        console.error("Clustering failed:", errorText);
+        throw new Error(`Failed to generate clusters. Status: ${clusterResponse.status}`);
       }
-      else{
-        initClustersForDay(newClusters)
-      }       
-      
-      //Refresh the data - REMOVED Redundant fetch
-      // const snapshot = await getDocs(collection(db, "clients"));
-      // const updatedData = snapshot.docs.map((doc) => ({
-      //  id: doc.id,
-      //  ...(doc.data() as Omit<DeliveryRowData, "id">),
-      // }));
-      // setClusters(newClusters); // REMOVED - Redundant state update, handled in if/else
-      setIsLoading(false);
+
+      const clusterData = await clusterResponse.json(); // e.g., { clusters: { "1": [0, 3], "2": [1, 2] } } where indices refer to validCoordsForClustering
+
+      // 7. Associate Clusters back to Client IDs
+      // The clusterData indices refer to the `validCoordsForClustering` array.
+      // We need to map these back to the original client IDs using `originalIndicesForValidCoords`.
+      const clustersWithClientIds: { [key: string]: string[] } = {};
+      for (const clusterName in clusterData.clusters) {
+        clustersWithClientIds[clusterName] = clusterData.clusters[clusterName].map((indexInValidCoords: number) => {
+          const originalIndex = originalIndicesForValidCoords[indexInValidCoords];
+          return visibleRows[originalIndex].id; // Get client ID from original visibleRows
+        });
+      }
+
+      // Update Firestore and local state with the new cluster assignments (using client IDs)
+      const newClusters = await updateClusters(clustersWithClientIds); // Pass the map with client IDs
+
+      if (clusterDoc) {
+        const clusterRef = doc(db, "clusters", clusterDoc.docId);
+        await updateDoc(clusterRef, { clusters: newClusters });
+        setClusters(newClusters);
+        setClusterDoc(prevDoc => prevDoc ? { ...prevDoc, clusters: newClusters } : null);
+      } else {
+        await initClustersForDay(newClusters); // Make sure this also sets state correctly
+      }
+
       resetSelections();
-    // }
-    // catch (e){
-    //   throw e
-    // }
+
+    } catch (error: any) {
+       console.error("Error during cluster generation:", error);
+       // Re-throw the error so the popup can display it
+       throw error;
+    } finally {
+      setIsLoading(false); // Ensure loading indicator is turned off
+    }
   };
 
   // Handle checkbox selection
@@ -873,17 +1085,17 @@ useEffect(() => {
     const newSelectedRows = new Set(selectedRows);
     const newSelectedClusters = new Set(selectedClusters);
     const rowToToggle = row;
-  
+
     if (rowToToggle) {
       const clusterId = rowToToggle.clusterId;
       if (clusterId) {
         const cluster = clusters?.find((c) => c.id.toString() === clusterId);
         const rowsWithSameClusterID = rows.filter((row) => row.clusterId === clusterId);
-        
+
         if (cluster) {
           // Check if the current row is already selected
           const isSelected = newSelectedRows.has(row.id);
-          
+
           // Toggle selection for all rows with the same clusterId
           rowsWithSameClusterID.forEach((row) => {
             if (isSelected) {
@@ -892,7 +1104,7 @@ useEffect(() => {
               newSelectedRows.add(row.id); // Select all
             }
           });
-          
+
           if (isSelected) {
             newSelectedClusters.delete(cluster);
           } else {
@@ -901,13 +1113,13 @@ useEffect(() => {
         }
       }
     }
-    
+
     setSelectedClusters(newSelectedClusters);
     setSelectedRows(newSelectedRows);
   };
 
-  const clientsWithDeliveriesOnSelectedDate = rows.filter(row => 
-    deliveriesForDate.some(delivery => delivery.clientId === row.id)
+  const clientsWithDeliveriesOnSelectedDate = rows.filter((row) =>
+    deliveriesForDate.some((delivery) => delivery.clientId === row.id)
   );
   
   // const visibleRows = rows.filter(row => {
@@ -932,7 +1144,7 @@ useEffect(() => {
         
         // Check static fields with a substring match
         const matchesStaticField = fields.some((field) => {
-          const fieldValue = field.compute ? field.compute(row, clusters) : row[field.key as keyof RowData];
+          const fieldValue = field.compute ? field.compute(row, clusters) : row[field.key as keyof DeliveryRowData];
           return (
             fieldValue != null &&
             fieldValue.toString().toLowerCase().includes(strippedValue)
@@ -942,7 +1154,7 @@ useEffect(() => {
         // Check custom columns with a substring match
         const matchesCustomColumn = customColumns.some((col) => {
           if (col.propertyKey !== "none") {
-            const fieldValue = row[col.propertyKey as keyof RowData];
+            const fieldValue = row[col.propertyKey as keyof DeliveryRowData];
             return (
               fieldValue != null &&
               fieldValue.toString().toLowerCase().includes(strippedValue)
@@ -966,7 +1178,7 @@ useEffect(() => {
             // Use substring matching instead of exact equality
             const strippedQuery = query.slice(1, -1).trim().toLowerCase();
             const matchesStaticField = fields.some((field) => {
-              const fieldValue = field.compute ? field.compute(row, clusters) : row[field.key as keyof RowData];
+              const fieldValue = field.compute ? field.compute(row, clusters) : row[field.key as keyof DeliveryRowData];
               return (
                 fieldValue != null &&
                 fieldValue.toString().toLowerCase().includes(strippedQuery)
@@ -974,7 +1186,7 @@ useEffect(() => {
             });
             const matchesCustomColumn = customColumns.some((col) => {
               if (col.propertyKey !== "none") {
-                const fieldValue = row[col.propertyKey as keyof RowData];
+                const fieldValue = row[col.propertyKey as keyof DeliveryRowData];
                 return (
                   fieldValue != null &&
                   fieldValue.toString().toLowerCase().includes(strippedQuery)
@@ -996,13 +1208,13 @@ useEffect(() => {
                 return true;
               }
               const matchesStaticField = fields.some((field) => {
-                const fieldValue = field.compute ? field.compute(row, clusters) : row[field.key as keyof RowData];
+                const fieldValue = field.compute ? field.compute(row, clusters) : row[field.key as keyof DeliveryRowData];
                 if (fieldValue == null) return false;
                 return fieldValue.toString().toLowerCase().includes(strippedQuery);
               });
               const matchesCustomColumn = customColumns.some((col) => {
                 if (col.propertyKey !== "none") {
-                  const fieldValue = row[col.propertyKey as keyof RowData];
+                  const fieldValue = row[col.propertyKey as keyof DeliveryRowData];
                   return (
                     fieldValue != null &&
                     fieldValue.toString().toLowerCase().includes(strippedQuery)
@@ -1026,9 +1238,9 @@ useEffect(() => {
       return;
     }
 
-    const synchronizedRows = rawClientData.map(client => {
+    const synchronizedRows = rawClientData.map((client) => {
       let assignedClusterId = "";
-      clusters.forEach(cluster => {
+      clusters.forEach((cluster) => {
         if (cluster.deliveries?.includes(client.id)) {
           assignedClusterId = cluster.id;
         }
@@ -1114,6 +1326,9 @@ useEffect(() => {
         >
           Today
         </Button>
+        <Box sx={{ display: "flex", alignItems: "center" }}>
+          <PageDatePicker setSelectedDate={(date) => setSelectedDate(date)} marginLeft="1rem" />
+        </Box>
       </Box>
       <Button
         variant="primary"
@@ -1146,47 +1361,51 @@ useEffect(() => {
       </Button>
       </div>
 
-  
       {/* Map Container */}
-      <Box sx={{ 
-        top: "72px", 
-        zIndex: 9, 
-        height: "400px",
-        width: "100%",
-        backgroundColor: "#fff"
-      }}>
+      <Box
+        sx={{
+          top: "72px",
+          zIndex: 9,
+          height: "400px",
+          width: "100%",
+          backgroundColor: "#fff",
+          // Removed position: "relative"
+        }}
+      >
         {isLoading ? (
-          <LoadingIndicator />
+          // Revert to rendering the indicator directly
+          <LoadingIndicator /> 
         ) : visibleRows.length > 0 ? (
-          <ClusterMap 
-            clusters={clusters}
-            visibleRows={visibleRows}
-          />
+          <ClusterMap clusters={clusters} visibleRows={visibleRows as any} />
         ) : (
-          <Box sx={{
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            height: '100%',
-            backgroundColor: '#f5f5f5',
-            borderRadius: '4px',
-            border: '1px solid #ddd'
-          }}>
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              height: "100%",
+              backgroundColor: "#f5f5f5",
+              borderRadius: "4px",
+              border: "1px solid #ddd",
+            }}
+          >
             <Typography variant="h6" color="textSecondary">
               No deliveries for selected date
             </Typography>
           </Box>
         )}
       </Box>
-  
+
       {/* Search Bar */}
-      <Box sx={{
-        width: "100%",
-        zIndex: 8,
-        backgroundColor: "#fff",
-        padding: "16px 0",
-        top: "472px",
-      }}>
+      <Box
+        sx={{
+          width: "100%",
+          zIndex: 8,
+          backgroundColor: "#fff",
+          padding: "16px 0",
+          top: "472px",
+        }}
+      >
         <Box sx={{ display: "flex", flexDirection: "column", gap: "8px" }}>
           <Box sx={{ position: "relative", width: "100%" }}>
             <input
@@ -1207,7 +1426,8 @@ useEffect(() => {
               }}
             />
           </Box>
-          <Box sx={{ display: "flex", justifyContent: "space-between", marginTop: '16px' }}>
+          <Box sx={{ display: "flex", justifyContent: "space-between", marginTop: "16px" }}>
+            {/* Left group: Assign Driver and Assign Time */}
             <Box sx={{ display: "flex", width: "100%", gap: "2%" }}>
               <Button
                 variant="primary"
@@ -1223,21 +1443,6 @@ useEffect(() => {
               >
                 Assign Driver
               </Button>
-              {/* <Button
-                variant="secondary"
-                size="medium"
-                onClick={() => setPopupMode("Time")}
-                disabled={selectedRows.size <= 0}
-                style={{
-                  whiteSpace: "nowrap",
-                  padding: "0% 2%",
-                  borderRadius: 5,
-                  width: "10%",
-                }}
-              >
-                Assign Time
-              </Button> */}
-
               <Button
                 id="demo-positioned-button"
                 aria-controls={open ? 'demo-positioned-menu' : undefined}
@@ -1254,47 +1459,65 @@ useEffect(() => {
               >
                 Assign Time
               </Button>
-                <Menu
-                  id="demo-positioned-menu"
-                  aria-labelledby="demo-positioned-button"
-                  anchorEl={anchorEl}
-                  open={menuOpen}
-                  onClose={handleClose}
-                  anchorOrigin={{
-                    vertical: 'bottom',
-                    horizontal: 'left',
-                  }}
-                  transformOrigin={{
-                    vertical: 'top',
-                    horizontal: 'left',
-                  }}
-                >
-                  {Object.values(times).map((
-                    {value, label, ...restUserProps}) => (
-                        <MenuItem key={value} data-key={value} onClick={handleClose} style={{ width: '130px' }}>{label}</MenuItem>
-                      ))
-                  }
-
-                </Menu>
+              <Menu
+                id="demo-positioned-menu"
+                aria-labelledby="demo-positioned-button"
+                anchorEl={anchorEl}
+                open={menuOpen}
+                onClose={handleClose}
+                anchorOrigin={{
+                  vertical: 'bottom',
+                  horizontal: 'left',
+                }}
+                transformOrigin={{
+                  vertical: 'top',
+                  horizontal: 'left',
+                }}
+              >
+                {Object.values(times).map(({value, label, ...restUserProps}) => (
+                  <MenuItem key={value} data-key={value} onClick={handleClose} style={{ width: '130px' }}>{label}</MenuItem>
+                ))}
+              </Menu>
+            </Box>
+            {/* Right group: Export button */}
+            <Box>
+              <Button
+                variant="primary"
+                size="medium"
+                style={{
+                  whiteSpace: "nowrap",
+                  padding: "0% 2%",
+                  borderRadius: 5,
+                  width: "6rem",
+                }}
+                onClick={() => setPopupMode("Export")}
+              >
+                Export
+              </Button>
             </Box>
           </Box>
         </Box>
       </Box>
-  
-      <Box sx={{ 
-        flex: 1, 
-        display: "flex", 
-        flexDirection: "column",
-        margin: "0 auto",
-        paddingBottom: "2vh",
-        width: "100%",
-        maxHeight: "none" 
-      }}>
-        <TableContainer component={Paper} sx={{ 
-              maxHeight: "none",
-              height: "auto", 
-              width: "100%" 
-          }}>
+
+      <Box
+        sx={{
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+          margin: "0 auto",
+          paddingBottom: "2vh",
+          width: "100%",
+          maxHeight: "none",
+        }}
+      >
+        <TableContainer
+          component={Paper}
+          sx={{
+            maxHeight: "none",
+            height: "auto",
+            width: "100%",
+          }}
+        >
           <Table>
             <TableHead>
               <TableRow>
@@ -1302,10 +1525,10 @@ useEffect(() => {
                   <TableCell
                     key={field.key}
                     className="table-header"
-                    style={{ 
+                    style={{
                       width: field.type === "checkbox" ? "20px" : "auto",
-                      textAlign: "center", 
-                      padding: "10px", 
+                      textAlign: "center",
+                      padding: "10px",
                     }}
                   >
                     {field.label}
@@ -1394,10 +1617,10 @@ useEffect(() => {
                 {/* Add empty cell for the action menu - keeping this for now */}
                 {/* <TableCell 
                   className="table-header"
-                  style={{ 
+                  style={{
                     width: "50px",
-                    textAlign: "center", 
-                    padding: "10px", 
+                    textAlign: "center",
+                    padding: "10px",
                   }}
                 ></TableCell> */}
               </TableRow>
@@ -1410,10 +1633,10 @@ useEffect(() => {
                     return (
                       <TableCell
                         key={field.key}
-                        style={{ 
-                          textAlign: "center", 
-                          padding: "10px", 
-                          minWidth: field.type === 'select' ? '150px' : 'auto',
+                        style={{
+                          textAlign: "center",
+                          padding: "10px",
+                          minWidth: field.type === "select" ? "150px" : "auto",
                         }}
                       >
                         {field.type === "checkbox" ? (
@@ -1424,20 +1647,26 @@ useEffect(() => {
                           />
                         ) : field.type === "select" && field.key === "clusterIdChange" ? (
                           // Render Select for clusterIdChange
-                          <FormControl variant="standard" size="small" sx={{ marginBottom: '0px !important', minWidth: 120 }}>
+                          <FormControl
+                            variant="standard"
+                            size="small"
+                            sx={{ marginBottom: "0px !important", minWidth: 120 }}
+                          >
                             <Select
                               labelId={`cluster-select-label-${row.id}`}
                               id={`cluster-select-${row.id}`}
                               value={row.clusterId || ""}
-                              onChange={(event: SelectChangeEvent<string>) => handleClusterChange(row, event.target.value)}
+                              onChange={(event: SelectChangeEvent<string>) =>
+                                handleClusterChange(row, event.target.value)
+                              }
                               label="Cluster ID"
-                              sx={{ 
-                                fontSize: 'inherit',
-                                '& .MuiSelect-select': { padding: '4px 10px' },
-                                '&:before': { borderBottom: 'none' },
-                                '&:hover:not(.Mui-disabled):before': { borderBottom: 'none' },
-                                '&:after': { borderBottom: 'none' },
-                                '.MuiSvgIcon-root': { fontSize: '1rem' }
+                              sx={{
+                                fontSize: "inherit",
+                                "& .MuiSelect-select": { padding: "4px 10px" },
+                                "&:before": { borderBottom: "none" },
+                                "&:hover:not(.Mui-disabled):before": { borderBottom: "none" },
+                                "&:after": { borderBottom: "none" },
+                                ".MuiSvgIcon-root": { fontSize: "1rem" },
                               }}
                             >
                               {clusterOptions.map((option) => (
@@ -1449,17 +1678,17 @@ useEffect(() => {
                           </FormControl>
                         ) : field.compute ? (
                           // Render computed fields (other than the select)
-                          (field.key === 'assignedDriver' || field.key === 'assignedTime')
-                            ? field.compute(row, clusters)
-                            : field.compute(row) // Assumes other compute fields don't need clusters
+                          field.key === "assignedDriver" || field.key === "assignedTime" ? (
+                            field.compute(row, clusters)
+                          ) : (
+                            field.compute(row)
+                          ) // Assumes other compute fields don't need clusters
                         ) : isRegularField(field) ? (
                           // Render regular fields (address, ward)
                           // Cast to string as these are the only expected types here
-                          String(row[field.key as 'address' | 'ward'] ?? '')
-                        ) : (
-                          // Default case: render nothing or a placeholder
-                          null
-                        )}
+                          String(row[field.key as "address" | "ward"] ?? "")
+                        ) : // Default case: render nothing or a placeholder
+                          null}
                       </TableCell>
                     ); // End return for TableCell
                   })}
@@ -1468,7 +1697,7 @@ useEffect(() => {
                                           {editingRowId === row.id ? (
                                             col.propertyKey !== "none" ? (
                                               <TextField
-                                                value={row[col.propertyKey as keyof RowData] ?? ""}
+                                                value={row[col.propertyKey as keyof DeliveryRowData] ?? ""}
                                                 onChange={(e) =>
                                                   handleCustomColumnChange(
                                                     e,
@@ -1486,7 +1715,11 @@ useEffect(() => {
                                             )
                                           ) : 
                                           col.propertyKey !== "none" ? (
-                                            (row[col.propertyKey as keyof RowData]?.toString() ?? "N/A")
+                                            // Check if the property key is 'referralEntity' and the value is an object
+                                            col.propertyKey === 'referralEntity' && typeof row.referralEntity === 'object' && row.referralEntity !== null ?
+                                            // Format as "Name, Organization"
+                                            `${row.referralEntity.name ?? 'N/A'}, ${row.referralEntity.organization ?? 'N/A'}`
+                                            : (row[col.propertyKey as keyof DeliveryRowData]?.toString() ?? "N/A") // Fallback for other types
                                           ) : (
                                             "N/A"
                                           )}
@@ -1506,10 +1739,7 @@ useEffect(() => {
       <Dialog open={popupMode === "Driver"} onClose={resetSelections} maxWidth="xs" fullWidth>
         <DialogTitle>Assign Driver</DialogTitle>
         <DialogContent>
-          <AssignDriverPopup
-            assignDriver={assignDriver}
-            setPopupMode={setPopupMode}
-          />
+          <AssignDriverPopup assignDriver={assignDriver} setPopupMode={setPopupMode} />
         </DialogContent>
       </Dialog>
 
@@ -1517,10 +1747,56 @@ useEffect(() => {
       <Dialog open={popupMode === "Time"} onClose={resetSelections} maxWidth="xs" fullWidth>
         <DialogTitle>Assign Time</DialogTitle>
         <DialogContent>
-          <AssignTimePopup
-            assignTime={assignTime}
-            setPopupMode={setPopupMode}
-          />
+          <AssignTimePopup assignTime={assignTime} setPopupMode={setPopupMode} />
+        </DialogContent>
+      </Dialog>
+
+      {/* Export Options Popup */}
+      
+      <Dialog open={popupMode === "Export"} onClose={resetSelections} maxWidth="xs" fullWidth>
+        <DialogTitle>Export Options</DialogTitle>
+        <DialogContent sx={{ pt: 3, overflow: "visible" }}>
+          {!exportOption ? (
+            <Box sx={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+              <Button variant="primary" color="primary" onClick={() => setExportOption("Routes")}>
+                Routes
+              </Button>
+              <Button
+                variant="secondary"
+                color="secondary"
+                onClick={() => setExportOption("Doordash")}
+              >
+                Doordash
+              </Button>
+            </Box>
+          ) : (
+            <Box sx={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+              <Typography variant="subtitle1">Selected Option: {exportOption}</Typography>
+              <Button
+                variant="primary"
+                color="primary"
+                onClick={() => {
+                  handleEmailOrDownload("Email");
+                  resetSelections();
+                }}
+              >
+                Email
+              </Button>
+              <Button
+                variant="secondary"
+                color="secondary"
+                onClick={() => {
+                  handleEmailOrDownload("Download");
+                  resetSelections();
+                }}
+              >
+                Download
+              </Button>
+              <Button variant="secondary" color="secondary" onClick={() => setExportOption(null)}>
+                Back
+              </Button>
+            </Box>
+          )}
         </DialogContent>
       </Dialog>
 
@@ -1543,7 +1819,7 @@ useEffect(() => {
           <DialogContent>
             <ManualAssign
               manualAssign={manualAssign}
-              allDeliveries = {visibleRows}
+              allDeliveries = {visibleRows as any}
               onClose={resetSelections}
             />
           </DialogContent>
