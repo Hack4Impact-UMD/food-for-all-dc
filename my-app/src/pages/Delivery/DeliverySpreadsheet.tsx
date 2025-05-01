@@ -411,7 +411,7 @@ const DeliverySpreadsheet: React.FC = () => {
 
     try {
       // Get the client IDs for the deliveries on the selected date
-      const clientIds = deliveriesForDate.map(delivery => delivery.clientId);
+      const clientIds = deliveriesForDate.map(delivery => delivery.clientId).filter(id => id && id.trim() !== "");
       // Firestore 'in' queries are limited to 10 items per query
       const chunkSize = 10;
       let clientsWithDeliveriesOnSelectedDate: DeliveryRowData[] = [];
