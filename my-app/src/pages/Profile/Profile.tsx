@@ -218,6 +218,9 @@ const Profile = () => {
     lifeChallenges: "",
     notes: "",
     notesTimestamp: null,
+    deliveryInstructionsTimestamp: null, // New timestamp field for delivery instructions
+    lifeChallengesTimestamp: null,       // New timestamp field for life challenges
+    lifestyleGoalsTimestamp: null,
     lifestyleGoals: "",
     language: "",
     createdAt: new Date(),
@@ -718,7 +721,7 @@ const Profile = () => {
     // setIsLoading(true);
 
     try {
-      const currentNotes = clientProfile.notes || ""; // Ensure notes is a string
+      
 
       // --- Geocoding Optimization Start ---
       let addressChanged = false;
@@ -755,6 +758,7 @@ const Profile = () => {
       }
       // --- Geocoding Optimization End ---
 
+      const currentNotes = clientProfile.notes || ""; // Ensure notes is a string
       let updatedNotesTimestamp = checkIfNotesExists(
         currentNotes,
         clientProfile.notesTimestamp || null
@@ -765,11 +769,53 @@ const Profile = () => {
         updatedNotesTimestamp
       );
 
+      // Delivery Instructions Timestamp
+      const prevDeliveryInstructions = prevClientProfile?.deliveryDetails.deliveryInstructions || "";
+      const currentDeliveryInstructions = clientProfile.deliveryDetails.deliveryInstructions || "";
+      let updatedDeliveryInstructionsTimestamp = checkIfNotesExists(
+        currentDeliveryInstructions,
+        clientProfile.deliveryInstructionsTimestamp || null
+      );
+      updatedDeliveryInstructionsTimestamp = checkIfNotesChanged(
+        prevDeliveryInstructions,
+        currentDeliveryInstructions,
+        updatedDeliveryInstructionsTimestamp
+      );
+
+      // Life Challenges Timestamp
+      const prevLifeChallenges = prevClientProfile?.lifeChallenges || "";
+      const currentLifeChallenges = clientProfile.lifeChallenges || "";
+      let updatedLifeChallengesTimestamp = checkIfNotesExists(
+        currentLifeChallenges,
+        clientProfile.lifeChallengesTimestamp || null
+      );
+      updatedLifeChallengesTimestamp = checkIfNotesChanged(
+        prevLifeChallenges,
+        currentLifeChallenges,
+        updatedLifeChallengesTimestamp
+      );
+
+      // Lifestyle Goals Timestamp
+      const prevLifestyleGoals = prevClientProfile?.lifestyleGoals || "";
+      const currentLifestyleGoals = clientProfile.lifestyleGoals || "";
+      let updatedLifestyleGoalsTimestamp = checkIfNotesExists(
+        currentLifestyleGoals,
+        clientProfile.lifestyleGoalsTimestamp || null
+      );
+      updatedLifestyleGoalsTimestamp = checkIfNotesChanged(
+        prevLifestyleGoals,
+        currentLifestyleGoals,
+        updatedLifestyleGoalsTimestamp
+      );
+
       // Update the clientProfile object with the latest tags state and other calculated fields
       const updatedProfile: ClientProfile = {
         ...clientProfile,
         tags: tags, // Sync the tags state with clientProfile
         notesTimestamp: updatedNotesTimestamp, // Update the notesTimestamp
+        deliveryInstructionsTimestamp: updatedDeliveryInstructionsTimestamp,
+        lifeChallengesTimestamp: updatedLifeChallengesTimestamp,
+        lifestyleGoalsTimestamp: updatedLifestyleGoalsTimestamp,
         updatedAt: new Date(),
         total: Number(clientProfile.adults || 0) + Number(clientProfile.children || 0) + Number(clientProfile.seniors || 0),
         ward: fetchedWard, // Use potentially updated ward
@@ -1582,6 +1628,7 @@ const Profile = () => {
           <SectionBox>
             <SectionTitle sx={{ textAlign: 'left', width: '100%' }}>Miscellaneous Information</SectionTitle>
             <MiscellaneousForm
+              clientProfile={clientProfile}
               isEditing={isEditing}
               renderField={renderField}
               fieldLabelStyles={fieldLabelStyles}
