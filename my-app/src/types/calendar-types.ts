@@ -22,8 +22,8 @@ export interface DeliveryEvent extends Delivery {
 }
 
 export interface NewDelivery {
-  assignedDriverId: string;
-  assignedDriverName: string;
+  assignedDriverId?: string;
+  assignedDriverName?: string;
   clientId: string;
   clientName: string;
   deliveryDate: string; // ISO string for the delivery date

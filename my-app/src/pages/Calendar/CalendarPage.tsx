@@ -291,8 +291,6 @@ const CalendarPage: React.FC = () => {
       const deliveryService = DeliveryService.getInstance();
       const createPromises = uniqueRecurrenceDates.map(date => {
         const eventToAdd: Partial<DeliveryEvent> = {
-          assignedDriverId: newDelivery.assignedDriverId,
-          assignedDriverName: newDelivery.assignedDriverName,
           clientId: newDelivery.clientId,
           clientName: newDelivery.clientName,
           deliveryDate: date, // Use the calculated/provided recurrence date
@@ -433,8 +431,6 @@ const CalendarPage: React.FC = () => {
           onClose={() => setIsModalOpen(false)}
           onAddDelivery={handleAddDelivery}
           clients={clients}
-          drivers={drivers}
-          setDrivers={setDrivers}
         />
       </Box>
     </Box>
