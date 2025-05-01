@@ -57,13 +57,25 @@ export const exportDeliveries = async (
 
     console.log("Grouped by Driver Name:", groupedByDriver);
 
+    // Check if the only group is "Unassigned"
+    const driverNames = Object.keys(groupedByDriver);
+    if (driverNames.length === 1 && driverNames[0] === "Unassigned" && groupedByDriver["Unassigned"].length > 0) {
+      alert("Cannot export: All selected deliveries are currently unassigned. Please assign drivers to clusters before exporting.");
+      return; // Stop the export
+    }
+
     const zip = new JSZip();
 
     for (const driverName in groupedByDriver) {
-      if (driverName === "Unassigned" && groupedByDriver[driverName].length > 0) {
-          console.warn("Skipping export for unassigned deliveries:", groupedByDriver[driverName]);
-          continue;
+      // Restore the check to skip unassigned drivers
+      if (driverName === "Unassigned") {
+          // Optionally log that unassigned are being skipped if needed for debugging
+          // console.log("Skipping export for unassigned deliveries group.");
+          continue; // Skip creating a file for the "Unassigned" group
       }
+
+      // Log the driver group being processed (this is still useful)
+      console.log(`Processing export for driver: ${driverName}`, groupedByDriver[driverName]);
 
       const csvData = groupedByDriver[driverName]
         .map((row) => {
