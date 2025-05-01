@@ -133,9 +133,10 @@ const UsersSpreadsheet: React.FC = () => {
       setRows(rows.filter((row) => row.uid !== uid));
       setActionFeedback({ type: 'success', message: 'User deleted successfully.' });
       setTimeout(() => setActionFeedback(null), 5000);
-    } catch (deleteError) {
+    } catch (deleteError: any) {
       console.error("Error deleting user: ", deleteError);
-      setActionFeedback({ type: 'error', message: 'Failed to delete user.' });
+      const errorMessage = deleteError.message || 'Failed to delete user. Please try again.';
+      setActionFeedback({ type: 'error', message: errorMessage });
     } finally {
       setIsDeleting(false);
       setDeleteModalOpen(false);
@@ -262,7 +263,7 @@ const UsersSpreadsheet: React.FC = () => {
               type="text"
               value={searchQuery}
               onChange={handleSearchChange}
-              placeholder="Search by Name, Role, Phone, or Email"
+              placeholder="Search"
               style={{
                 width: "100%",
                 height: "50px",
