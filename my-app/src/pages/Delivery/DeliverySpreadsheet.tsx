@@ -1262,6 +1262,21 @@ const DeliverySpreadsheet: React.FC = () => {
       >
         Generate Clusters
       </Button>
+
+      <Button
+        variant="primary"
+        size="medium"
+        style={{
+          whiteSpace: "nowrap",
+          padding: "0% 2%",
+          borderRadius: 5,
+          width: "auto",
+          marginRight: '16px'
+        }}
+        onClick={() => setPopupMode("Export")}
+      >
+        Export
+      </Button>
       </div>
 
       {/* Map Container */}
