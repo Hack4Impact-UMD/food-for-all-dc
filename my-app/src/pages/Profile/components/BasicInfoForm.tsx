@@ -323,7 +323,12 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
                   ? 'Edit Case Worker List'
                   : `${option.name}, ${option.organization}`
               }
-              sx = {{ width: '100%' }}
+              sx = {{ 
+                width: '100%',
+                '& .MuiAutocomplete-clearIndicator': {
+                  display: 'none',
+                },
+              }}
               renderInput = {(params) => (
                 <TextField
                   {...params}
@@ -357,6 +362,8 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
                   }
                 </li>
               )}
+              // disableClearable // Removed this prop due to type conflict with null value
+              forcePopupIcon={false} // Keep this to hide dropdown arrow
             />
           </>
         ) : (

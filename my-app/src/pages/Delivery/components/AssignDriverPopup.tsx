@@ -178,7 +178,13 @@ export default function AssignDriverPopup({ assignDriver, setPopupMode }: Assign
                 noOptionsText="No matching drivers found"
                 disabled={loading}
                 PaperComponent={({ children }) => <Paper elevation={3}>{children}</Paper>}
-                sx={{ minWidth: '250px' }}
+                forcePopupIcon={false}
+                sx={{ 
+                  minWidth: '250px',
+                  '& .MuiAutocomplete-clearIndicator': {
+                    display: 'none',
+                  },
+                }}
               />
 
               <DriverManagementModal
