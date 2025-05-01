@@ -1262,21 +1262,6 @@ const DeliverySpreadsheet: React.FC = () => {
       >
         Generate Clusters
       </Button>
-
-      <Button
-        variant="primary"
-        size="medium"
-        style={{
-          whiteSpace: "nowrap",
-          padding: "0% 2%",
-          borderRadius: 5,
-          width: "auto",
-          marginRight: '16px'
-        }}
-        onClick={() => setPopupMode("Export")}
-      >
-        Export
-      </Button>
       </div>
 
       {/* Map Container */}
@@ -1343,6 +1328,7 @@ const DeliverySpreadsheet: React.FC = () => {
             />
           </Box>
           <Box sx={{ display: "flex", justifyContent: "space-between", marginTop: "16px" }}>
+            {/* Left group: Assign Driver and Assign Time */}
             <Box sx={{ display: "flex", width: "100%", gap: "2%" }}>
               <Button
                 variant="primary"
@@ -1358,21 +1344,6 @@ const DeliverySpreadsheet: React.FC = () => {
               >
                 Assign Driver
               </Button>
-              {/* <Button
-                variant="secondary"
-                size="medium"
-                onClick={() => setPopupMode("Time")}
-                disabled={selectedRows.size <= 0}
-                style={{
-                  whiteSpace: "nowrap",
-                  padding: "0% 2%",
-                  borderRadius: 5,
-                  width: "10%",
-                }}
-              >
-                Assign Time
-              </Button> */}
-
               <Button
                 id="demo-positioned-button"
                 aria-controls={open ? 'demo-positioned-menu' : undefined}
@@ -1389,28 +1360,41 @@ const DeliverySpreadsheet: React.FC = () => {
               >
                 Assign Time
               </Button>
-                <Menu
-                  id="demo-positioned-menu"
-                  aria-labelledby="demo-positioned-button"
-                  anchorEl={anchorEl}
-                  open={menuOpen}
-                  onClose={handleClose}
-                  anchorOrigin={{
-                    vertical: 'bottom',
-                    horizontal: 'left',
-                  }}
-                  transformOrigin={{
-                    vertical: 'top',
-                    horizontal: 'left',
-                  }}
-                >
-                  {Object.values(times).map((
-                    {value, label, ...restUserProps}) => (
-                        <MenuItem key={value} data-key={value} onClick={handleClose} style={{ width: '130px' }}>{label}</MenuItem>
-                      ))
-                  }
-
-                </Menu>
+              <Menu
+                id="demo-positioned-menu"
+                aria-labelledby="demo-positioned-button"
+                anchorEl={anchorEl}
+                open={menuOpen}
+                onClose={handleClose}
+                anchorOrigin={{
+                  vertical: 'bottom',
+                  horizontal: 'left',
+                }}
+                transformOrigin={{
+                  vertical: 'top',
+                  horizontal: 'left',
+                }}
+              >
+                {Object.values(times).map(({value, label, ...restUserProps}) => (
+                  <MenuItem key={value} data-key={value} onClick={handleClose} style={{ width: '130px' }}>{label}</MenuItem>
+                ))}
+              </Menu>
+            </Box>
+            {/* Right group: Export button */}
+            <Box>
+              <Button
+                variant="primary"
+                size="medium"
+                style={{
+                  whiteSpace: "nowrap",
+                  padding: "0% 2%",
+                  borderRadius: 5,
+                  width: "6rem",
+                }}
+                onClick={() => setPopupMode("Export")}
+              >
+                Export
+              </Button>
             </Box>
           </Box>
         </Box>
