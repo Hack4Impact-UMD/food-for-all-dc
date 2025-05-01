@@ -2,13 +2,12 @@ import {
   collection,
   getDocs,
   doc,
-  deleteDoc,
   setDoc,
-  writeBatch,
 } from "firebase/firestore";
-import { getAuth, createUserWithEmailAndPassword, deleteUser as deleteFirebaseAuthUser } from "firebase/auth";
-import { db, app } from "../auth/firebaseConfig"; // Assuming db and app are exported from firebaseConfig
+import { getAuth, createUserWithEmailAndPassword } from "firebase/auth";
+import { db, app, functions } from "../auth/firebaseConfig"; // Assuming db and app are exported from firebaseConfig
 import { AuthUserRow, UserType } from "../types";
+import { httpsCallable } from "firebase/functions";
 
 // Helper to convert Firestore role string to UserType enum
 const mapRoleToUserType = (roleString: string): UserType => {
@@ -17,19 +16,13 @@ const mapRoleToUserType = (roleString: string): UserType => {
       return UserType.Admin;
     case "manager":
       return UserType.Manager;
-    case "client intake": // Match Firestore data which might not be enum keys
+    case "client intake":
       return UserType.ClientIntake;
     default:
-      // Handle unknown or missing roles appropriately
       console.warn(`Unknown role string encountered: ${roleString}`);
-      // Decide on a default or throw an error if necessary
-      // For now, let's default to ClientIntake or throw an error? Let's default safely.
-      // Returning null might be better if the calling code handles it.
-      // For spreadsheet display, a default might be okay.
-      return UserType.ClientIntake; // Or handle as an error/unknown state
+      return UserType.ClientIntake; // Or handle appropriately
   }
 };
-
 
 export class AuthUserService {
   private static instance: AuthUserService;
@@ -97,16 +90,15 @@ export class AuthUserService {
          await this.auth.updateCurrentUser(currentUser); // Important: Restore admin/manager context
       }
 
-
-      // Prepare data for Firestore, mapping enum back to string if needed
-      // Let's store the role as a string consistent with existing data
-      const roleString = userData.role.toString(); // Use the enum value directly as string for now
+      // Get the string representation of the UserType enum
+      // Ensure this matches how roles are displayed/stored if different from enum keys
+      const roleString = getRoleDisplayName(userData.role); // Use helper for consistency
 
       const newUserDoc = {
         name: userData.name,
         email: userData.email,
         phone: userData.phone || "", // Store empty string if undefined
-        role: roleString, // Store role as string
+        role: roleString, // Store consistent role string (e.g., "Client Intake")
       };
 
       // Add user document to Firestore with UID as document ID
@@ -139,20 +131,51 @@ export class AuthUserService {
   // NOTE: This does NOT delete the user from Firebase Authentication.
   // Deleting from Auth requires admin privileges, typically via a Cloud Function.
   async deleteUser(uid: string): Promise<void> {
+    console.log(`Initiating delete process for UID: ${uid} via Cloud Function.`);
     try {
-        // TODO: Implement Cloud Function call here to delete from Firebase Auth first.
-        // For now, we only delete from Firestore.
-        const userDocRef = doc(db, "users", uid);
-        await deleteDoc(userDocRef);
-        console.log(`User document ${uid} deleted successfully from Firestore.`);
-        // We should also call the backend function to delete the Auth user here
-        // Example: await deleteUserAccount(uid); // Hypothetical function call
-    } catch (error) {
-      console.error(`Error deleting user document ${uid} from Firestore: `, error);
-      throw error;
+        // Get a reference to the Cloud Function
+        const deleteUserAccountCallable = httpsCallable(functions, 'deleteUserAccount');
+
+        // Call the Cloud Function with the UID
+        // The Cloud Function now handles both Auth and Firestore deletion
+        const result = await deleteUserAccountCallable({ uid: uid });
+
+        // Optional: Log success result from function
+        console.log("Cloud Function deleteUserAccount result:", result.data);
+        console.log(`User ${uid} delete initiated successfully via Cloud Function.`);
+
+    } catch (error: any) { // Catch potential errors from the callable function
+        // Log the specific error from the Cloud Function
+        console.error(`Error calling deleteUserAccount Cloud Function for UID ${uid}:`, error);
+
+        // Re-throw a more user-friendly error or the specific error message
+        // The 'error' object from httpsCallable often has useful 'code' and 'message' properties
+        const errorMessage = error.message || "An error occurred while deleting the user account.";
+        const errorCode = error.code || 'unknown'; // Firebase function errors often have a code (e.g., 'functions/permission-denied')
+
+        // Customize the message based on the error code from the function
+        if (errorCode === 'functions/permission-denied' || errorCode === 'permission-denied') {
+             throw new Error("You do not have permission to delete this user.");
+        } else if (errorCode === 'functions/not-found' || errorCode === 'not-found') {
+             throw new Error("User not found. They may have already been deleted.");
+        } else if (errorCode === 'functions/invalid-argument' || errorCode === 'invalid-argument') {
+            throw new Error("Invalid request sent to delete user function.");
+        }
+        // Throw a generic message for other/unknown errors
+        throw new Error(`Failed to delete user: ${errorMessage}`);
     }
   }
 }
+
+// Function to get display name (can be moved to a utils file if used elsewhere)
+const getRoleDisplayName = (type: UserType): string => {
+    switch (type) {
+        case UserType.Admin: return "Admin";
+        case UserType.Manager: return "Manager";
+        case UserType.ClientIntake: return "Client Intake"; // Use the display name
+        default: return "Unknown";
+    }
+};
 
 // Export a singleton instance
 export const authUserService = AuthUserService.getInstance(); 

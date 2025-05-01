@@ -1,6 +1,7 @@
 import { initializeApp, FirebaseOptions, FirebaseApp } from "firebase/app";
 import { getFirestore, Firestore } from "firebase/firestore";
 import { getAuth, Auth } from "firebase/auth";
+import { getFunctions, Functions } from "firebase/functions";
 
 const firebaseConfig: FirebaseOptions = {
   apiKey: "AIzaSyCasSjeF-YMoHYZFfLWz96fGgNjYKOqRak",
@@ -18,4 +19,9 @@ const db: Firestore = getFirestore(app);
 
 const auth: Auth = getAuth(app);
 
-export { db, auth, firebaseConfig, app };
+// Initialize Firebase Functions
+const functions: Functions = getFunctions(app); // Default region (us-central1)
+// If your functions are in a different region, specify it:
+// const functions: Functions = getFunctions(app, 'your-region-here');
+
+export { db, auth, functions, firebaseConfig, app };

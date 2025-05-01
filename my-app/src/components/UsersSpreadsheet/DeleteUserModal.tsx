@@ -30,11 +30,11 @@ const DeleteUserModal = ({ open, handleClose, handleDelete, userName }: DeleteUs
         open={open}
         onClose={handleCloseDeleteConfirm}
         
-        slotProps={{
-          backdrop: {
-            style: { backgroundColor: "rgba(0, 0, 0, 0.02)" }
-          }
-        }}
+        // slotProps={{
+        //   backdrop: {
+        //     style: { backgroundColor: "rgba(0, 0, 0, 0.02)" }
+        //   }
+        // }}
         sx={{
           '& .MuiDialog-paper': {
             boxShadow: 'none !important',
