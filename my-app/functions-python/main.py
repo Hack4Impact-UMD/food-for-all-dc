@@ -27,8 +27,7 @@ optimal_route_fn = https_fn.on_request(region="us-central1")(calculate_optimal_c
 
 # --- New Callable Function for User Deletion ---
 @https_fn.on_call(
-    region="us-central1",
-    cors=options.CorsOptions(cors_origins="*", cors_methods=["post", "options"])
+    region="us-central1"
 )
 def deleteUserAccount(req: https_fn.CallableRequest):
     """
