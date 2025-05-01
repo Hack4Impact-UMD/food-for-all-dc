@@ -152,7 +152,7 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = ({
               <li {...props} key={option.id}>
                 <span>
                   <p style={{color: 'black', fontWeight: 'bold', display: 'inline-block', marginRight: '10px'}}>{option.name}</p>
-                  <p style={{color: 'grey', display: 'inline-block'}}>{option.phone ? `(${option.phone})` : ''}</p>
+                  <p style={{color: 'grey', display: 'inline-block'}}>{'phone' in option && option.phone ? `(${option.phone})` : ''}</p>
                 </span>
               </li>
             )

@@ -1,8 +1,8 @@
 import { Box, Card, Typography, Checkbox, useTheme } from "@mui/material";
-import { DeliveryRowData } from "../types/deliveryTypes";
+import { RowData } from "../types/deliveryTypes";
 
 interface CardProps {
-    client: DeliveryRowData;
+    client: RowData;
     index: number; 
     selectedClients: number[]; 
     setSelectedClients: React.Dispatch<React.SetStateAction<number[]>>;

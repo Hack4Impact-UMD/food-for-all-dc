@@ -44,7 +44,7 @@ import LoadingIndicator from "../../components/LoadingIndicator/LoadingIndicator
 import { exportDeliveries } from "./RouteExport";
 import Button from "../../components/common/Button";
 import ManualAssign from "./components/ManualAssignPopup";
-import { DeliveryRowData } from "./types/deliveryTypes";
+import { RowData as DeliveryRowData } from "./types/deliveryTypes";
 import { Driver } from '../../types/calendar-types';
 import { CustomRowData, useCustomColumns } from "../../hooks/useCustomColumns";
 
@@ -423,8 +423,8 @@ const DeliverySpreadsheet: React.FC = () => {
         const snapshot = await getDocs(q);
         const chunkData = snapshot.docs.map((doc) => ({
           id: doc.id,
-          ...(doc.data() as Omit<DeliveryRowData, "id">),
-        }));
+          ...doc.data(),
+        } as DeliveryRowData));
         clientsWithDeliveriesOnSelectedDate = clientsWithDeliveriesOnSelectedDate.concat(chunkData);
       }
       setRawClientData(clientsWithDeliveriesOnSelectedDate);

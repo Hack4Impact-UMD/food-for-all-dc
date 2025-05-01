@@ -11,7 +11,6 @@ import Profile from "./pages/Profile/Profile";
 import BasePage from "./pages/Base/Base";
 import CreateUsers from "./pages/CreateUsers/CreateUsers";
 import DeliverySpreadsheet from "./pages/Delivery/DeliverySpreadsheet";
-import TestCsvPage from "./pages/Delivery/TestCsvPage";
 
 import { useAuth } from "./auth/AuthProvider";
 import LoadingIndicator from "./components/LoadingIndicator/LoadingIndicator";
@@ -38,9 +37,6 @@ function App() {
   return (
     <Router>
       <Routes>
-        {/* Testing Routes */}
-        <Route path="/test-csv" element={<TestCsvPage />} />
-
         {/* Public routes */}
         <Route path="/" element={<Login />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
@@ -52,7 +48,6 @@ function App() {
           <Route path="profile/:clientId?" element={<Profile />} />
           <Route path="delivery" element={<DeliverySpreadsheet />} />
           <Route path="create-users" element={<CreateUsers />} />
-          <Route path="test-csv" element={<TestCsvPage />} />
         </Route>
       </Routes>
     </Router>
