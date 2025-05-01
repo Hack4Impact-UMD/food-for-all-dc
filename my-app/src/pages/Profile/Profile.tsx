@@ -719,8 +719,41 @@ const Profile = () => {
 
     try {
       const currentNotes = clientProfile.notes || ""; // Ensure notes is a string
-      const fetchedWard = await getWard(clientProfile.address); // Fetch ward before saving
-      const coordinates = await getCoordinates(clientProfile.address); //Calculate coordinates before saving
+
+      // --- Geocoding Optimization Start ---
+      let addressChanged = false;
+      if (isNewProfile || !prevClientProfile) {
+        // Always geocode for new profiles or if previous state is missing
+        addressChanged = true;
+      } else {
+        // Check if any address component changed
+        if (
+          clientProfile.address !== prevClientProfile.address ||
+          clientProfile.city !== prevClientProfile.city ||
+          clientProfile.state !== prevClientProfile.state ||
+          clientProfile.zipCode !== prevClientProfile.zipCode
+        ) {
+          addressChanged = true;
+        }
+      }
+
+      // Also force geocode if coordinates are missing or invalid
+      if (!addressChanged && (!clientProfile.coordinates || clientProfile.coordinates.length === 0 || (clientProfile.coordinates[0].lat === 0 && clientProfile.coordinates[0].lng === 0))) {
+          console.log("Forcing geocode due to missing/invalid coordinates.");
+          addressChanged = true;
+      }
+
+      let fetchedWard = clientProfile.ward; // Default to existing ward
+      let coordinatesToSave = clientProfile.coordinates; // Default to existing coordinates
+
+      if (addressChanged) {
+        console.log("Address changed, fetching new Ward and Coordinates...");
+        fetchedWard = await getWard(clientProfile.address); // Fetch ward only if address changed
+        coordinatesToSave = await getCoordinates(clientProfile.address); // Fetch coordinates only if address changed
+      } else {
+        console.log("Address unchanged, using existing Ward and Coordinates.");
+      }
+      // --- Geocoding Optimization End ---
 
       let updatedNotesTimestamp = checkIfNotesExists(
         currentNotes,
@@ -739,8 +772,8 @@ const Profile = () => {
         notesTimestamp: updatedNotesTimestamp, // Update the notesTimestamp
         updatedAt: new Date(),
         total: Number(clientProfile.adults || 0) + Number(clientProfile.children || 0) + Number(clientProfile.seniors || 0),
-        ward: fetchedWard, // Use the freshly fetched ward
-        coordinates: coordinates, //use freshly fetched coordinates
+        ward: fetchedWard, // Use potentially updated ward
+        coordinates: coordinatesToSave, // Use potentially updated coordinates
         // Ensure referralEntity is included based on selectedCaseWorker
         referralEntity: selectedCaseWorker
           ? { id: selectedCaseWorker.id, name: selectedCaseWorker.name, organization: selectedCaseWorker.organization }
