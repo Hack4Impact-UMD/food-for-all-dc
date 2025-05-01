@@ -241,6 +241,7 @@ const CalendarPage: React.FC = () => {
       setCalendarConfig((prev) => ({
         ...prev,
         events: calendarEvents,
+        startDate: currentDate,
         durationBarVisible: false,
       }));
 
