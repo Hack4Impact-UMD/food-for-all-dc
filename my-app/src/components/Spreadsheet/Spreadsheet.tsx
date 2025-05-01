@@ -124,7 +124,7 @@ const Spreadsheet: React.FC = () => {
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const [exportOption, setExportOption] = useState<"QueryResults" | "AllClients" | null>(null);
-  const [confirmDeleteModal, setConfirmDeleteModal] = useState<boolean>(false)
+  const [clientIdToDelete, setClientIdToDelete] = useState<string | null>(null);
 
   const navigate = useNavigate();
 
@@ -838,7 +838,7 @@ const Spreadsheet: React.FC = () => {
               </MenuItem>
               <MenuItem
                 onClick={() => {
-                  if (selectedRowId) handleDeleteRow(selectedRowId);
+                  if (selectedRowId) setClientIdToDelete(selectedRowId);
                   handleMenuClose();
                 }}
                 sx={{ py: 1.5 }}
@@ -1189,14 +1189,14 @@ const Spreadsheet: React.FC = () => {
                         </MenuItem>
                         <MenuItem
                           onClick={() => {
-                            setConfirmDeleteModal(true)
+                            setClientIdToDelete(row.uid);
+                            handleMenuClose();
                           }}
                           sx={{ py: 1.5 }}
                         >
                           <DeleteIcon fontSize="small" sx={{ mr: 1 }} /> Delete
                         </MenuItem>
                       </Menu>
-                      <DeleteClientModal handleMenuClose={handleMenuClose} handleDeleteRow={handleDeleteRow} open={confirmDeleteModal} setOpen={setConfirmDeleteModal} id={row.uid}/>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -1205,6 +1205,18 @@ const Spreadsheet: React.FC = () => {
           </TableContainer>
         )}
       </Box>
+      {/* Centralized Delete Confirmation Modal */}
+      <DeleteClientModal
+        handleMenuClose={() => setClientIdToDelete(null)}
+        handleDeleteRow={handleDeleteRow}
+        open={Boolean(clientIdToDelete)}
+        setOpen={(isOpen: boolean) => {
+          if (!isOpen) {
+            setClientIdToDelete(null);
+          }
+        }}
+        id={clientIdToDelete ?? ""}
+      />
     </Box>
   );
 };

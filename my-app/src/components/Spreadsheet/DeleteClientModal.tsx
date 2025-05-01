@@ -52,11 +52,11 @@ const DeleteClientModal = ({ handleMenuClose, handleDeleteRow, open, setOpen ,id
         open={open}
         onClose={handleCloseDeleteConfirm} // Close if clicking outside
         
-        slotProps={{
-          backdrop: {
-            style: { backgroundColor: "rgba(0, 0, 0, 0.02)" }
-          }
-        }}
+        // slotProps={{
+        //   backdrop: {
+        //     style: { backgroundColor: "rgba(0, 0, 0, 0.02)" }
+        //   }
+        // }}
         sx={{
           '& .MuiDialog-paper': {
             boxShadow: 'none !important',
