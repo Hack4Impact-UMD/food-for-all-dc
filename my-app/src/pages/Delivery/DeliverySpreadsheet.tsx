@@ -736,13 +736,7 @@ const DeliverySpreadsheet: React.FC = () => {
       if (clusterId !== "doordash") { 
         // The value in clusterMap[clusterId] is already the array of client IDs
         const clientIdsForCluster = clusterMap[clusterId]; 
-
-        // Validate that clientIdsForCluster is an array (for type safety)
-        if (!Array.isArray(clientIdsForCluster)) {
-          console.warn(`Invalid data format for cluster ${clusterId} in clusterMap. Skipping.`);
-          return; // Skip this clusterId
-        }
-
+        
         newClusters.push({
           deliveries: clientIdsForCluster, // Directly use the array of client IDs
           driver: "", // Initialize with defaults or fetch existing if needed
@@ -1715,7 +1709,11 @@ const DeliverySpreadsheet: React.FC = () => {
                                             )
                                           ) : 
                                           col.propertyKey !== "none" ? (
-                                            (row[col.propertyKey as keyof DeliveryRowData]?.toString() ?? "N/A")
+                                            // Check if the property key is 'referralEntity' and the value is an object
+                                            col.propertyKey === 'referralEntity' && typeof row.referralEntity === 'object' && row.referralEntity !== null ?
+                                            // Format as "Name, Organization"
+                                            `${row.referralEntity.name ?? 'N/A'}, ${row.referralEntity.organization ?? 'N/A'}`
+                                            : (row[col.propertyKey as keyof DeliveryRowData]?.toString() ?? "N/A") // Fallback for other types
                                           ) : (
                                             "N/A"
                                           )}

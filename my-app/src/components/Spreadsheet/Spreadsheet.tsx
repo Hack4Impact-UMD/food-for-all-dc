@@ -1122,7 +1122,11 @@ const Spreadsheet: React.FC = () => {
                           )
                         ) :
                           col.propertyKey !== "none" ? (
-                            (row[col.propertyKey as keyof RowData]?.toString() ?? "N/A")
+                            // For referralEntity specifically (it's an object)
+                            col.propertyKey === 'referralEntity' && row[col.propertyKey as keyof RowData] ? 
+                            // Safely access properties using any type
+                            `${(row[col.propertyKey as keyof RowData] as any).name || 'N/A'}, ${(row[col.propertyKey as keyof RowData] as any).organization || 'N/A'}`
+                            : (row[col.propertyKey as keyof RowData]?.toString() ?? "N/A")
                           ) : (
                             "N/A"
                           )}
