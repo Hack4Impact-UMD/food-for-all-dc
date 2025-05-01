@@ -64,6 +64,9 @@ const CaseWorkerFormFields: React.FC<CaseWorkerFormProps> = ({
               "& .MuiOutlinedInput-root": {
                 backgroundColor: "#fff",
               },
+              "& .MuiInputLabel-outlined:not(.MuiInputLabel-shrink)": {
+                transform: "translate(14px, 5px) scale(1)",
+              },
             }}
           />
         </Grid>

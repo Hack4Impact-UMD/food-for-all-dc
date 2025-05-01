@@ -75,7 +75,9 @@ const DriverFormFields: React.FC<DriverFormProps> = ({ value, onChange, errors, 
             sx={{
               "& .MuiOutlinedInput-root": {
                 backgroundColor: "#fff",
-                padding: '0px 14px',
+              },
+              "& .MuiInputLabel-outlined:not(.MuiInputLabel-shrink)": {
+                transform: "translate(14px, 5px) scale(1)",
               },
             }}
           />
@@ -259,12 +261,12 @@ const DriverManagementModal: React.FC<DriverManagementModalProps> = ({
                 mb: 3,
                 mt: 2,
                 backgroundColor: "rgba(37, 126, 104, 0.04)",
-                p: 3,
+                p: '20px',
                 borderRadius: "8px",
                 border: "1px solid rgba(37, 126, 104, 0.2)",
               }}
             >
-              <Typography variant="h6" sx={{ mb: 7, color: "#257E68", fontWeight: 500 }}>
+              <Typography variant="h6" sx={{ mb: 3, color: "#257E68", fontWeight: 500 }}>
                 Add New Driver
               </Typography>
               <DriverFormFields
@@ -491,6 +493,7 @@ const DriverManagementModal: React.FC<DriverManagementModalProps> = ({
                                 },
                               }}
                               size="small"
+                              disabled={d.name === "DoorDash"}
                             >
                               <Delete />
                             </IconButton>
