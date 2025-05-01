@@ -43,7 +43,6 @@ const CreateUsers: React.FC = () => {
   const [registrationPassword, setRegistrationPassword] = useState("");
   const [retypePassword, setRetypePassword] = useState("");
   const [newUserName, setNewUserName] = useState("");
-  const [departmentId, setDepartmentId] = useState("");
   const [registrationError, setRegistrationError] = useState("");
   const [registrationSuccess, setRegistrationSuccess] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -104,7 +103,6 @@ const CreateUsers: React.FC = () => {
     setRegistrationPassword("");
     setRetypePassword("");
     setNewUserName("");
-    setDepartmentId("");
     setShowPassword(false);
     setShowRetypePassword(false);
   };
@@ -124,11 +122,6 @@ const CreateUsers: React.FC = () => {
 
     if (registrationPassword !== retypePassword) {
       setRegistrationError("Passwords do not match.");
-      return;
-    }
-
-    if (newUserType === UserType.ClientIntake && !departmentId.trim()) {
-      setRegistrationError("Department ID is required for Client Intake.");
       return;
     }
 
@@ -159,13 +152,6 @@ const CreateUsers: React.FC = () => {
       //     break;
       //   case UserType.ClientIntake:
       //     await createClientIntakeUser(userId, registrationEmail, newUserName);
-      //     if (departmentId) {
-      //       const deptRef = doc(db, "departmentIds", departmentId);
-      //       const deptDoc = await getDoc(deptRef);
-      //       if (!deptDoc.exists()) {
-      //         await setDoc(deptRef, { departmentId });
-      //       }
-      //     }
       //     break;
       // }
 
@@ -214,26 +200,14 @@ const CreateUsers: React.FC = () => {
           ))}
         </div>
 
-        <div className={`name-id ${newUserType !== UserType.ClientIntake ? "full-width" : ""}`}>
-          <input
-            type="text"
-            placeholder="Name"
-            value={newUserName}
-            onChange={(e) => setNewUserName(e.target.value)}
-            className="user-input-field"
-            required
-          />
-          {newUserType === UserType.ClientIntake && (
-            <input
-              type="text"
-              placeholder="Department ID"
-              value={departmentId}
-              onChange={(e) => setDepartmentId(e.target.value)}
-              className="user-input-field"
-              required
-            />
-          )}
-        </div>
+        <input
+          type="text"
+          placeholder="Name"
+          value={newUserName}
+          onChange={(e) => setNewUserName(e.target.value)}
+          className="user-input-field"
+          required
+        />
 
         <input
           type="email"
