@@ -1665,9 +1665,10 @@ const DeliverySpreadsheet: React.FC = () => {
       </Dialog>
 
       {/* Export Options Popup */}
+      
       <Dialog open={popupMode === "Export"} onClose={resetSelections} maxWidth="xs" fullWidth>
         <DialogTitle>Export Options</DialogTitle>
-        <DialogContent>
+        <DialogContent sx={{ pt: 3, overflow: "visible" }}>
           {!exportOption ? (
             <Box sx={{ display: "flex", flexDirection: "column", gap: "16px" }}>
               <Button variant="primary" color="primary" onClick={() => setExportOption("Routes")}>

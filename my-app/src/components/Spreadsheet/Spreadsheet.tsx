@@ -669,14 +669,14 @@ const Spreadsheet: React.FC = () => {
 
             <Dialog open={exportDialogOpen} onClose={handleCancel} maxWidth="xs" fullWidth>
               <DialogTitle>Export Options</DialogTitle>
-              <DialogContent>
+              <DialogContent sx={{ pt: 3, overflow: "visible" }}>
                 <Box sx={{ display: "flex", flexDirection: "column", gap: "16px" }}>
                   <Button
                     variant="contained"
                     color="primary"
                     onClick={() => handleExportOptionSelect("QueryResults")}
                   >
-                    Export Results from the Query
+                    Export Query Results
                   </Button>
                   <Button
                     variant="contained"
