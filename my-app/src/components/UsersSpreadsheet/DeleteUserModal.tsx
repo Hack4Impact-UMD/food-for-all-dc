@@ -5,6 +5,7 @@ import {
   DialogContent,
   DialogActions,
   Button,
+  CircularProgress,
 } from "@mui/material";
 
 type DeleteUserModalProps = {
@@ -12,9 +13,10 @@ type DeleteUserModalProps = {
   handleClose: () => void;
   handleDelete: () => void;
   userName?: string;
+  loading?: boolean;
 };
 
-const DeleteUserModal = ({ open, handleClose, handleDelete, userName }: DeleteUserModalProps) => {
+const DeleteUserModal = ({ open, handleClose, handleDelete, userName, loading }: DeleteUserModalProps) => {
 
   const handleCloseDeleteConfirm = () => {
     handleClose();
@@ -55,10 +57,16 @@ const DeleteUserModal = ({ open, handleClose, handleDelete, userName }: DeleteUs
           </DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleCloseDeleteConfirm} color="primary">
+          <Button onClick={handleCloseDeleteConfirm} color="primary" disabled={loading}>
             Cancel
           </Button>
-          <Button onClick={handleConfirmDelete} color="error" autoFocus>
+          <Button 
+            onClick={handleConfirmDelete} 
+            color="error" 
+            autoFocus 
+            disabled={loading}
+            startIcon={loading ? <CircularProgress size={20} color="inherit" /> : null}
+          >
             Delete User
           </Button>
         </DialogActions>

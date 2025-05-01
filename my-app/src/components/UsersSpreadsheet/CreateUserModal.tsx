@@ -234,16 +234,15 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({ open, handleClose }) 
                   </Box>
               </DialogContent>
               <DialogActions>
-                  <Button onClick={() => handleClose()} color="secondary" disabled={isSubmitting}>
-                      Cancel
-                  </Button>
+                  <Button onClick={() => handleClose()} disabled={isSubmitting}>Cancel</Button> {/* Disable Cancel if submitting */}
                   <Button 
-                      type="submit" // Submit the form
-                      variant="contained" 
-                      color="primary" 
-                      disabled={isSubmitting}
+                    type="submit" // Use type="submit" for the form
+                    variant="contained" 
+                    color="primary" 
+                    disabled={isSubmitting} // Disable Create if submitting
+                    startIcon={isSubmitting ? <CircularProgress size={20} color="inherit" /> : null} // Show spinner when submitting
                   >
-                      {isSubmitting ? <CircularProgress size={24} /> : 'Create User'}
+                    Create User
                   </Button>
               </DialogActions>
             </form>

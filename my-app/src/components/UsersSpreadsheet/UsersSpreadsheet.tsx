@@ -70,6 +70,7 @@ const UsersSpreadsheet: React.FC = () => {
   const [deleteModalOpen, setDeleteModalOpen] = useState<boolean>(false);
   const [createModalOpen, setCreateModalOpen] = useState<boolean>(false);
   const [actionFeedback, setActionFeedback] = useState<{ type: 'success' | 'error', message: string } | null>(null);
+  const [isDeleting, setIsDeleting] = useState<boolean>(false);
 
   const navigate = useNavigate();
 
@@ -126,6 +127,7 @@ const UsersSpreadsheet: React.FC = () => {
   // Handle deleting a user (only Firestore deletion for now)
   const handleDeleteUser = async (uid: string) => {
     setActionFeedback(null);
+    setIsDeleting(true);
     try {
       await authUserService.deleteUser(uid);
       setRows(rows.filter((row) => row.uid !== uid));
@@ -135,6 +137,7 @@ const UsersSpreadsheet: React.FC = () => {
       console.error("Error deleting user: ", deleteError);
       setActionFeedback({ type: 'error', message: 'Failed to delete user.' });
     } finally {
+      setIsDeleting(false);
       setDeleteModalOpen(false);
       setSelectedRowId(null);
     }
@@ -542,6 +545,7 @@ const UsersSpreadsheet: React.FC = () => {
             }
         }}
         userName={rows.find(r => r.uid === selectedRowId)?.name || 'this user'}
+        loading={isDeleting}
       />
       <CreateUserModal
         open={createModalOpen}

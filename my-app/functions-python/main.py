@@ -26,7 +26,10 @@ k_means_fn = https_fn.on_request(region="us-central1", memory=512, timeout_sec=3
 optimal_route_fn = https_fn.on_request(region="us-central1")(calculate_optimal_cluster_route)
 
 # --- New Callable Function for User Deletion ---
-@https_fn.on_call(region="us-central1") # Specify region if needed
+@https_fn.on_call(
+    region="us-central1",
+    cors=options.CorsOptions(cors_origins="*", cors_methods=["post", "options"])
+)
 def deleteUserAccount(req: https_fn.CallableRequest):
     """
     Deletes a user's Firebase Auth account and their Firestore document.
