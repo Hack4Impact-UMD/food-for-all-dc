@@ -10,6 +10,7 @@ import DeleteIcon from "@mui/icons-material/Delete";
 
 import "./DeliverySpreadsheet.css";
 import 'leaflet/dist/leaflet.css';
+import PageDatePicker from "../../components/PageDatePicker/PageDatePicker";
 import {
   Box,
   Table,
@@ -1114,6 +1115,9 @@ useEffect(() => {
         >
           Today
         </Button>
+        <Box sx={{ display: "flex", alignItems: "center" }}>
+          <PageDatePicker setSelectedDate={(date) => setSelectedDate(date)} marginLeft="1rem" />
+        </Box>
       </Box>
       <Button
         variant="primary"

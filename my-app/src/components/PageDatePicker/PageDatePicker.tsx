@@ -5,13 +5,17 @@ import "react-datepicker/dist/react-datepicker.css";
 import "./pagedatepicker.css";
 import CalendarTodayIcon from "@mui/icons-material/CalendarToday";
 
-const StyledCalendarButton = styled("button")({
+interface StyledButtonProps {
+  marginLeft?: string;
+}
+
+const StyledCalendarButton = styled("button")<StyledButtonProps>(({ marginLeft = "2rem" }) => ({
   all: "unset",
   cursor: "pointer",
   fontSize: "12px",
   width: "2.5rem",
   height: "2.5rem",
-  marginLeft: "2rem",
+  marginLeft,
   backgroundColor: "var(--color-primary)",
   color: "#fff",
   borderRadius: "var(--border-radius-md)",
@@ -25,11 +29,11 @@ const StyledCalendarButton = styled("button")({
   "&:active": {
     transform: "scale(0.95)",
   },
-});
+}));
 
 // Custom button to trigger DatePicker
-const CalendarButton = forwardRef<HTMLButtonElement, any>(({ onClick }, ref) => (
-  <StyledCalendarButton ref={ref} onClick={onClick} aria-label="Pick a date">
+const CalendarButton = forwardRef<HTMLButtonElement, any>(({ onClick, marginLeft }, ref) => (
+  <StyledCalendarButton ref={ref} onClick={onClick} marginLeft={marginLeft} aria-label="Pick a date">
     <CalendarTodayIcon fontSize="medium" />
   </StyledCalendarButton>
 ));
@@ -37,9 +41,10 @@ CalendarButton.displayName = "CalendarButton";
 
 interface PageDatePickerProps {
   setSelectedDate: (date: Date) => void;
+  marginLeft?: string;
 }
 
-const PageDatePicker = ({ setSelectedDate }: PageDatePickerProps) => {
+const PageDatePicker = ({ setSelectedDate, marginLeft }: PageDatePickerProps) => {
   const handleDateChange = (newDate: Date | null) => {
     if (!newDate) return;
 
@@ -49,7 +54,7 @@ const PageDatePicker = ({ setSelectedDate }: PageDatePickerProps) => {
   return (
     <DatePicker
       onChange={(date) => handleDateChange(date)}
-      customInput={<CalendarButton />}
+      customInput={<CalendarButton marginLeft={marginLeft} />}
       popperPlacement="bottom-start"
     />
   );
