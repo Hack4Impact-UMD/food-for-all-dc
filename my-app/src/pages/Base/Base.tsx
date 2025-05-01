@@ -25,6 +25,7 @@ import { Typography, useMediaQuery } from "@mui/material";
 import { useAuth } from "../../auth/AuthProvider";
 import { useNavigate, useLocation, Outlet } from "react-router-dom";
 import { useEffect } from "react";
+import { UserType } from "../../types";
 
 const drawerWidth = 240;
 
@@ -41,7 +42,6 @@ const Main = styled("main", { shouldForwardProp: (prop) => prop !== "open" })<{
   width: "100%",
   paddingTop: "76px",
   paddingBottom: isMobile ? "60px" : 0,
-  padding: "0 !important",
 }));
 
 interface AppBarProps extends MuiAppBarProps {
@@ -103,7 +103,7 @@ export default function BasePage() {
   const [open, setOpen] = React.useState(false);
   const [tab, setTab] = React.useState("Delivery Schedule");
   const [pageTitle, setPageTitle] = React.useState("");
-  const { logout } = useAuth();
+  const { logout, userRole } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -149,11 +149,28 @@ export default function BasePage() {
     }
   };
 
-  const navItems = [
+  // Define base navigation items
+  const baseNavItems = [
     { text: "Clients", icon: <StorageIcon />, link: "/clients" },
     { text: "Calendar", icon: <CalendarTodayIcon />, link: "/calendar" },
-    { text: "Delivery", icon: <LocalShippingIcon />, link: "/delivery" },
+    // Delivery item added conditionally below
   ];
+
+  // Conditionally add items based on role
+  const navItems = React.useMemo(() => {
+    const items = [...baseNavItems];
+
+    // Add Delivery only if user is Admin or Manager
+    if (userRole === UserType.Admin || userRole === UserType.Manager) {
+      items.push({ text: "Delivery", icon: <LocalShippingIcon />, link: "/delivery" });
+    }
+
+    // Assuming Users page is accessible by all roles for now based on App.tsx setup
+    // If Users page needs restriction, add condition here
+    items.push({ text: "Users", icon: <AddCircleIcon />, link: "/users" });
+
+    return items;
+  }, [userRole]);
 
   return (
     <Box sx={{ display: "flex" }}>
@@ -241,7 +258,7 @@ export default function BasePage() {
           </IconButton>
         </DrawerHeader>
         <Divider sx={{ margin: "0 16px", backgroundColor: "rgba(0, 0, 0, 0.06)" }} />
-        <List sx={{ padding: "16px 8px" }}>
+        <List sx={{ padding: "16px 8px", flexGrow: 1 }}> 
           {navItems.map(({ text, icon, link }) => (
             <ListItem key={text} disablePadding sx={{ mb: 1 }}>
               <Tab
@@ -255,20 +272,11 @@ export default function BasePage() {
             </ListItem>
           ))}
         </List>
-        <List
-          sx={{
-            display: "flex",
-            flexDirection: "column",
-            height: "100%",
-            padding: "16px",
-            justifyContent: "end",
-            marginTop: "auto",
-          }}
-        >
-          <ListItem disablePadding>
+        <Divider sx={{ margin: "0 16px", backgroundColor: "rgba(0, 0, 0, 0.06)" }} />
+        <List sx={{ padding: "8px" }}>
+          <ListItem key="Logout" disablePadding>
             <ListItemButton
               onClick={handleLogout}
-              aria-label="Logout"
               sx={{ 
                 backgroundColor: "#c0d4c5",
                 borderRadius: "8px",
@@ -294,8 +302,7 @@ export default function BasePage() {
           </ListItem>
         </List>
       </Drawer>
-      <Main open={open} isMobile={isMobile} sx={{ flexGrow: 1, p: 3 }}>
-        <DrawerHeader />
+      <Main open={open} isMobile={isMobile}>
         <Outlet />
       </Main>
     </Box>

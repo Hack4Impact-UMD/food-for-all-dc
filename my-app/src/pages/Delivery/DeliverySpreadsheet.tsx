@@ -1365,10 +1365,12 @@ const DeliverySpreadsheet: React.FC = () => {
           height: "400px",
           width: "100%",
           backgroundColor: "#fff",
+          // Removed position: "relative"
         }}
       >
         {isLoading ? (
-          <LoadingIndicator />
+          // Revert to rendering the indicator directly
+          <LoadingIndicator /> 
         ) : visibleRows.length > 0 ? (
           <ClusterMap clusters={clusters} visibleRows={visibleRows as any} />
         ) : (
