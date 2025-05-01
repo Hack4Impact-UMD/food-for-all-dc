@@ -140,6 +140,11 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({ open, handleClose }) 
                           onChange={(e) => setName(e.target.value)}
                           required
                           disabled={isSubmitting}
+                          sx={{
+                            "& .MuiInputLabel-outlined:not(.MuiInputLabel-shrink)": {
+                              transform: "translate(14px, 5px) scale(1)",
+                            },
+                          }}
                       />
                       <TextField
                           label="Email Address"
@@ -149,6 +154,11 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({ open, handleClose }) 
                           onChange={(e) => setEmail(e.target.value)}
                           required
                           disabled={isSubmitting}
+                          sx={{
+                            "& .MuiInputLabel-outlined:not(.MuiInputLabel-shrink)": {
+                              transform: "translate(14px, 5px) scale(1)",
+                            },
+                          }}
                       />
                       <TextField
                           label="Phone Number (Optional)"
@@ -156,6 +166,11 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({ open, handleClose }) 
                           value={phone}
                           onChange={(e) => setPhone(e.target.value)}
                           disabled={isSubmitting}
+                          sx={{
+                            "& .MuiInputLabel-outlined:not(.MuiInputLabel-shrink)": {
+                              transform: "translate(14px, 5px) scale(1)",
+                            },
+                          }}
                       />
 
                       {/* Role Selection Radio Group */}
