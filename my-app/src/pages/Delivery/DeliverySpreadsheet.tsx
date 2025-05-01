@@ -102,7 +102,7 @@ type Field =
       key: "clusterIdChange";
       label: "Cluster ID";
       type: "select";
-      compute?: (data: RowData) => string;
+      compute?: (data: DeliveryRowData) => string;
     }
   | {
       key: Exclude<keyof Omit<DeliveryRowData, "id" | "firstName" | "lastName" | "deliveryDetails">, "coordinates">;
@@ -179,7 +179,7 @@ const fields: Field[] = [
     key: "clusterIdChange",
     label: "Cluster ID",
     type: "select",
-    compute: (data: RowData) => {
+    compute: (data: DeliveryRowData) => {
       const cluster = data.clusterId;
       return cluster;
     },
@@ -1047,7 +1047,7 @@ const DeliverySpreadsheet: React.FC = () => {
         
         // Check static fields with a substring match
         const matchesStaticField = fields.some((field) => {
-          const fieldValue = field.compute ? field.compute(row, clusters) : row[field.key as keyof RowData];
+          const fieldValue = field.compute ? field.compute(row, clusters) : row[field.key as keyof DeliveryRowData];
           return (
             fieldValue != null &&
             fieldValue.toString().toLowerCase().includes(strippedValue)
@@ -1057,7 +1057,7 @@ const DeliverySpreadsheet: React.FC = () => {
         // Check custom columns with a substring match
         const matchesCustomColumn = customColumns.some((col) => {
           if (col.propertyKey !== "none") {
-            const fieldValue = row[col.propertyKey as keyof RowData];
+            const fieldValue = row[col.propertyKey as keyof DeliveryRowData];
             return (
               fieldValue != null &&
               fieldValue.toString().toLowerCase().includes(strippedValue)
@@ -1081,7 +1081,7 @@ const DeliverySpreadsheet: React.FC = () => {
             // Use substring matching instead of exact equality
             const strippedQuery = query.slice(1, -1).trim().toLowerCase();
             const matchesStaticField = fields.some((field) => {
-              const fieldValue = field.compute ? field.compute(row, clusters) : row[field.key as keyof RowData];
+              const fieldValue = field.compute ? field.compute(row, clusters) : row[field.key as keyof DeliveryRowData];
               return (
                 fieldValue != null &&
                 fieldValue.toString().toLowerCase().includes(strippedQuery)
@@ -1089,7 +1089,7 @@ const DeliverySpreadsheet: React.FC = () => {
             });
             const matchesCustomColumn = customColumns.some((col) => {
               if (col.propertyKey !== "none") {
-                const fieldValue = row[col.propertyKey as keyof RowData];
+                const fieldValue = row[col.propertyKey as keyof DeliveryRowData];
                 return (
                   fieldValue != null &&
                   fieldValue.toString().toLowerCase().includes(strippedQuery)
@@ -1111,13 +1111,13 @@ const DeliverySpreadsheet: React.FC = () => {
                 return true;
               }
               const matchesStaticField = fields.some((field) => {
-                const fieldValue = field.compute ? field.compute(row, clusters) : row[field.key as keyof RowData];
+                const fieldValue = field.compute ? field.compute(row, clusters) : row[field.key as keyof DeliveryRowData];
                 if (fieldValue == null) return false;
                 return fieldValue.toString().toLowerCase().includes(strippedQuery);
               });
               const matchesCustomColumn = customColumns.some((col) => {
                 if (col.propertyKey !== "none") {
-                  const fieldValue = row[col.propertyKey as keyof RowData];
+                  const fieldValue = row[col.propertyKey as keyof DeliveryRowData];
                   return (
                     fieldValue != null &&
                     fieldValue.toString().toLowerCase().includes(strippedQuery)
@@ -1277,7 +1277,7 @@ const DeliverySpreadsheet: React.FC = () => {
         {isLoading ? (
           <LoadingIndicator />
         ) : visibleRows.length > 0 ? (
-          <ClusterMap clusters={clusters} visibleRows={visibleRows} />
+          <ClusterMap clusters={clusters} visibleRows={visibleRows as any} />
         ) : (
           <Box
             sx={{
@@ -1599,7 +1599,7 @@ const DeliverySpreadsheet: React.FC = () => {
                                           {editingRowId === row.id ? (
                                             col.propertyKey !== "none" ? (
                                               <TextField
-                                                value={row[col.propertyKey as keyof RowData] ?? ""}
+                                                value={row[col.propertyKey as keyof DeliveryRowData] ?? ""}
                                                 onChange={(e) =>
                                                   handleCustomColumnChange(
                                                     e,
@@ -1617,7 +1617,7 @@ const DeliverySpreadsheet: React.FC = () => {
                                             )
                                           ) : 
                                           col.propertyKey !== "none" ? (
-                                            (row[col.propertyKey as keyof RowData]?.toString() ?? "N/A")
+                                            (row[col.propertyKey as keyof DeliveryRowData]?.toString() ?? "N/A")
                                           ) : (
                                             "N/A"
                                           )}
@@ -1716,7 +1716,7 @@ const DeliverySpreadsheet: React.FC = () => {
           <DialogContent>
             <ManualAssign
               manualAssign={manualAssign}
-              allDeliveries = {visibleRows}
+              allDeliveries = {visibleRows as any}
               onClose={resetSelections}
             />
           </DialogContent>
