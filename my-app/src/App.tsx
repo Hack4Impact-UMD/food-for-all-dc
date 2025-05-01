@@ -6,10 +6,10 @@ import ForgotPasswordPage from "./pages/Login/forgot-password";
 import Login from "./pages/Login/Login";
 import CalendarPage from "./pages/Calendar/CalendarPage";
 import Spreadsheet from "./components/Spreadsheet/Spreadsheet";
+import UsersSpreadsheet from "./components/UsersSpreadsheet/UsersSpreadsheet";
 
 import Profile from "./pages/Profile/Profile";
 import BasePage from "./pages/Base/Base";
-import CreateUsers from "./pages/CreateUsers/CreateUsers";
 import DeliverySpreadsheet from "./pages/Delivery/DeliverySpreadsheet";
 
 import { useAuth } from "./auth/AuthProvider";
@@ -53,9 +53,8 @@ function App() {
           <Route element={<ProtectedRoute allowedRoles={[UserType.Admin, UserType.Manager]} />}>
             {/* Nested route for Delivery, accessible only via ProtectedRoute */}
             <Route path="delivery" element={<DeliverySpreadsheet />} />
+            <Route path="users" element={<UsersSpreadsheet />} /> 
           </Route>
-          {/* Assuming CreateUsers is accessible by ClientIntake as well */}
-          <Route path="users" element={<CreateUsers />} /> 
         </Route>
       </Routes>
     </Router>

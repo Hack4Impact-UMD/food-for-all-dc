@@ -25,3 +25,12 @@ export const canCreateUserType = (currentUserType: UserType, newUserType: UserTy
 // - client-types.ts: ClientProfile, DeliveryDetails, DietaryRestrictions
 // - user-types.ts: CaseWorker and related interfaces
 // - delivery-types.ts: Delivery, Route, Volunteer
+
+export interface AuthUserRow {
+  id: string; // Firestore doc id
+  uid: string; // Auth uid (same as id, kept for parity with client grid)
+  name: string; // Combined first and last name for simplicity, or keep separate?
+  role: UserType; // Use the existing enum
+  phone?: string;
+  email: string;
+}
