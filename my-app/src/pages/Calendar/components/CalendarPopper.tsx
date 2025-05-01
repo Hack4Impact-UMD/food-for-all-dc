@@ -136,7 +136,6 @@ const CalendarPopper = ({
   if (viewType === "Month") {
     const customCalendarConfig = {
       ...calendarConfig,
-
       onBeforeCellRender: (args: any) => {
         const cellDate = args.cell.start;
         const dateKey = cellDate.toString("yyyy-MM-dd");
