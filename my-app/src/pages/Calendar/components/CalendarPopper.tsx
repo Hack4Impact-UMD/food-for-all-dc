@@ -13,7 +13,7 @@ import {
   Switch,
   Typography,
 } from "@mui/material";
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { getDefaultLimit, setDefaultLimit } from "./CalendarUtils";
 import { useLimits } from "./useLimits";
 import { DeliveryService } from "../../../services";
@@ -70,6 +70,17 @@ const CalendarPopper = ({
     }
   };
 
+  useEffect(() => {
+    
+    if (anchorEl === null) {
+      // Reset the bulkEdit state to false.
+      setBulkEdit(false);
+      setLimitEditDate(null);
+      setClickPosition(null);
+    }
+    // The effect depends on the anchorEl prop.
+  }, [anchorEl]);
+
   const handleClick = (event: React.MouseEvent) => {
     setClickPosition({
       x: event.clientX,
@@ -125,7 +136,6 @@ const CalendarPopper = ({
   if (viewType === "Month") {
     const customCalendarConfig = {
       ...calendarConfig,
-
       onBeforeCellRender: (args: any) => {
         const cellDate = args.cell.start;
         const dateKey = cellDate.toString("yyyy-MM-dd");
