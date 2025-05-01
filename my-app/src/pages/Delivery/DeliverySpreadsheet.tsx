@@ -137,7 +137,8 @@ type Field =
       compute: (data: DeliveryRowData) => string;
     };
 
-interface Cluster {
+// Export the Cluster interface
+export interface Cluster {
   id: string;
   driver?: any;
   time: string;
@@ -645,7 +646,8 @@ const DeliverySpreadsheet: React.FC = () => {
         console.log("Emailing Routes...");
         // Add your email logic here
       } else if (option === "Download") {
-        exportDeliveries(format(selectedDate, "yyyy-MM-dd"));
+        // Pass visibleRows and clusters to exportDeliveries
+        exportDeliveries(format(selectedDate, "yyyy-MM-dd"), rows, clusters);
         console.log("Downloading Routes...");
         // Add your download logic here
       }
@@ -823,6 +825,7 @@ const DeliverySpreadsheet: React.FC = () => {
     assignedClusters.forEach((clusterIndex, deliveryIndex) => {
       const numericIndex = parseInt(clusterIndex) - 1;
       if (numericIndex >= 0 && numericIndex < newClusters.length) {
+        // Use visibleRows here
         newClusters[numericIndex].deliveries.push(visibleRows[deliveryIndex].id);
       } else {
         console.warn(`Invalid cluster index: ${clusterIndex}`);
@@ -868,6 +871,7 @@ const DeliverySpreadsheet: React.FC = () => {
     if (!clusterNum || clusterNum <= 0) {
       throw new Error("Please enter a valid number of clusters (must be at least 1)");
     }
+    // Use visibleRows here
     if (visibleRows.length === 0) {
       throw new Error("No deliveries scheduled for the selected date or matching filters");
     }
