@@ -47,7 +47,7 @@ function App() {
           <Route path="calendar" element={<CalendarPage />} />
           <Route path="profile/:clientId?" element={<Profile />} />
           <Route path="delivery" element={<DeliverySpreadsheet />} />
-          <Route path="create-users" element={<CreateUsers />} />
+          <Route path="users" element={<CreateUsers />} />
         </Route>
       </Routes>
     </Router>

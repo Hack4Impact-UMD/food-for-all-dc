@@ -116,8 +116,8 @@ export default function BasePage() {
     } else if (currentPath === "/calendar") { // Changed from /deliveries
       setPageTitle("Calendar");
       setTab("Calendar");
-    } else if (currentPath === "/create-users") { // Changed from /users
-      setPageTitle("Users"); // Keep title as Users maybe?
+    } else if (currentPath === "/users") { // Update path check
+      setPageTitle("Users");
       setTab("Users");
     } else if (currentPath === "/delivery") { // Changed from /routes
       setPageTitle("Delivery"); // Keep title as Delivery?
