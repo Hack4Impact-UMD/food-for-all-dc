@@ -519,8 +519,8 @@ const UsersSpreadsheet: React.FC = () => {
           onClick={() => {
             if (selectedRowId) {
               setDeleteModalOpen(true);
+              setMenuAnchorEl(null);
             }
-            handleMenuClose();
           }}
           sx={{ py: 1.5, color: 'error.main' }}
         >
@@ -529,14 +529,20 @@ const UsersSpreadsheet: React.FC = () => {
       </Menu>
 
       {/* Modals */}
-      {selectedRowId && (
-        <DeleteUserModal
-          open={deleteModalOpen}
-          handleClose={handleCloseDeleteModal}
-          handleDelete={() => handleDeleteUser(selectedRowId)}
-          userName={rows.find(r => r.uid === selectedRowId)?.name || 'this user'}
-        />
-      )}
+      <DeleteUserModal
+        open={deleteModalOpen}
+        handleClose={handleCloseDeleteModal}
+        handleDelete={() => { 
+            if (selectedRowId) {
+              handleDeleteUser(selectedRowId)
+            } else {
+              console.error("No user selected for deletion.");
+              setActionFeedback({ type: 'error', message: 'Error: No user selected.' });
+              handleCloseDeleteModal();
+            }
+        }}
+        userName={rows.find(r => r.uid === selectedRowId)?.name || 'this user'}
+      />
       <CreateUserModal
         open={createModalOpen}
         handleClose={handleCloseCreateModal}
