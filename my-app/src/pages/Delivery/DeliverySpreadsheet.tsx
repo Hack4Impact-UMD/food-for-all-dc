@@ -1473,9 +1473,13 @@ const DeliverySpreadsheet: React.FC = () => {
                   vertical: 'top',
                   horizontal: 'left',
                 }}
+                 MenuListProps={{
+                  "aria-labelledby": "basic-button",
+                  sx: { width: anchorEl && anchorEl.offsetWidth } 
+                }}
               >
                 {Object.values(times).map(({value, label, ...restUserProps}) => (
-                  <MenuItem key={value} data-key={value} onClick={handleClose} style={{ width: '130px' }}>{label}</MenuItem>
+                  <MenuItem key={value} data-key={value} onClick={handleClose}>{label}</MenuItem>
                 ))}
               </Menu>
             </Box>
