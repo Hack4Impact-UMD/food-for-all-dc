@@ -107,29 +107,7 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
           alignItems: "center",
         }}
       >
-        <Typography variant="h4" sx={{ marginRight: 2, color: "#787777" }}>
-          {viewType === "Day" && daysOfWeek[currentDate.getDayOfWeek()]}
-          {viewType === "Month" && currentDate.toString("MMMM")}
-        </Typography>
-        {viewType === "Day" && (
-          <Box
-            sx={{
-              display: "flex",
-              justifyContent: "center",
-              alignItems: "center",
-              width: "40px",
-              height: "40px",
-              backgroundColor: "#257E68",
-              borderRadius: "90%",
-              marginRight: 2,
-            }}
-          >
-            <Typography variant="h5" sx={{ color: "#fff" }}>
-              {currentDate.toString("d")}
-            </Typography>
-          </Box>
-        )}
-        <IconButton onClick={onNavigatePrev} size="large" sx={{ color: "#257E68" }}>
+         <IconButton onClick={onNavigatePrev} size="large" sx={{ color: "#257E68" }}>
           <Box
             sx={{
               width: 12,
@@ -140,6 +118,13 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
             }}
           />
         </IconButton>
+
+        <Typography variant="h4" sx={{ marginRight: 2, color: "#787777" }}>
+          {viewType === "Day" && currentDate.toString("dddd - MMMM, dd/yyyy")}
+          {viewType === "Month" && currentDate.toString("MMMM yyyy")}
+        </Typography>
+       
+       
         <IconButton onClick={onNavigateNext} size="large" sx={{ color: "#257E68" }}>
           <Box
             sx={{
