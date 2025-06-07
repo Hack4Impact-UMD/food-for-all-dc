@@ -32,7 +32,9 @@ import {
   SelectChangeEvent,
   TextField,
   Menu,
+  Chip,
 } from "@mui/material";
+import { styled } from "@mui/material/styles";
 import { collection, getDocs, doc, setDoc } from "firebase/firestore";
 import { auth } from "../../auth/firebaseConfig";
 import { onAuthStateChanged } from "firebase/auth";
@@ -85,6 +87,28 @@ interface RowData {
 //   email: string;
 // }
 
+const StyleChip = styled(Chip)({
+  backgroundColor: 'var(--color-primary)',
+  color: '#fff',
+  ":hover" : { 
+    backgroundColor: 'var(--color-primary)',
+    cursor: 'text'
+  },
+  // Disable ripple effect and pointer events
+  '& .MuiTouchRipple-root': {
+    display: 'none'
+  },
+  '&:active': {
+    boxShadow: 'none',
+    transform: 'none'
+  },
+  '&:focus': {
+    boxShadow: 'none'
+  },
+  // Make text selectable
+  userSelect: 'text',
+  WebkitUserSelect: 'text'
+});
 
 // Define a type for fields that can either be computed or direct keys of DeliveryRowData
 type Field =
@@ -1265,26 +1289,10 @@ const DeliverySpreadsheet: React.FC = () => {
         top: 0,
         width: "100%"
       }}>
-        <Typography variant="h4" sx={{ marginRight: 2, width: "170px", color: "#787777" }}>
-          {format(selectedDate, 'EEEE')}
+        <Typography variant="h5" sx={{ marginRight: 2,  color: "#787777" }}>
+          {format(selectedDate, 'EEEE - MMMM, dd/yyyy',)} 
         </Typography>
         
-        <Box
-          sx={{
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-            width: "40px",
-            height: "40px",
-            backgroundColor: "#257E68",
-            borderRadius: "90%",
-            marginRight: 2,
-          }}
-        >
-          <Typography variant="h5" sx={{ color: "#fff"}}>
-            {format(selectedDate, 'd')}
-          </Typography>
-        </Box>
   
         <IconButton
           onClick={() => setSelectedDate(addDays(selectedDate, -1))}
@@ -1344,7 +1352,7 @@ const DeliverySpreadsheet: React.FC = () => {
       >
         Manual Assign
       </Button>
-
+        
       <Button
         variant="primary"
         size="medium"
@@ -1681,49 +1689,68 @@ const DeliverySpreadsheet: React.FC = () => {
                           field.key === "assignedDriver" || field.key === "assignedTime" ? (
                             field.compute(row, clusters)
                           ) : (
+                            field.key === "tags" ? (
+                              // Render tags field
+                              row.tags && row.tags.length > 0 ? (
+                                <Box sx={{ display: "flex", flexWrap: "wrap", gap: "2px" }}>
+                                  {row.tags.map((tag, index) => (
+                                    <StyleChip key={index}
+                                      label={tag}
+                                      size="small"
+                                      onClick={(e) => {
+                                        e.preventDefault()
+                                        e.stopPropagation();
+                                      }}
+                                     />
+                                  ))}
+                                </Box>
+                              ) : (
+                                "No Tags"
+                              )
+                            ) : ( 
                             field.compute(row)
                           ) // Assumes other compute fields don't need clusters
-                        ) : isRegularField(field) ? (
+                        )) : isRegularField(field) ? (
                           // Render regular fields (address, ward)
                           // Cast to string as these are the only expected types here
-                          String(row[field.key as "address" | "ward"] ?? "")
+                          String(row[field.key as "address" | "ward"] ?? "TEST")
                         ) : // Default case: render nothing or a placeholder
                           null}
                       </TableCell>
                     ); // End return for TableCell
                   })}
                    {customColumns.map((col) => (
-                                        <TableCell key={col.id} sx={{ py: 2 }}>
-                                          {editingRowId === row.id ? (
-                                            col.propertyKey !== "none" ? (
-                                              <TextField
-                                                value={row[col.propertyKey as keyof DeliveryRowData] ?? ""}
-                                                onChange={(e) =>
-                                                  handleCustomColumnChange(
-                                                    e,
-                                                    row.id,
-                                                    col.propertyKey as keyof CustomRowData,
-                                                    setCustomRows
-                                                  )
-                                                }
-                                                variant="outlined"
-                                                size="small"
-                                                fullWidth
-                                              />
-                                            ) : (
-                                              "N/A"
-                                            )
-                                          ) : 
-                                          col.propertyKey !== "none" ? (
-                                            // Check if the property key is 'referralEntity' and the value is an object
-                                            col.propertyKey === 'referralEntity' && typeof row.referralEntity === 'object' && row.referralEntity !== null ?
-                                            // Format as "Name, Organization"
-                                            `${row.referralEntity.name ?? 'N/A'}, ${row.referralEntity.organization ?? 'N/A'}`
-                                            : (row[col.propertyKey as keyof DeliveryRowData]?.toString() ?? "N/A") // Fallback for other types
-                                          ) : (
-                                            "N/A"
-                                          )}
-                                        </TableCell>
+                        <TableCell key={col.id} sx={{ py: 2 }}>
+                          {editingRowId === row.id ? (
+                            col.propertyKey !== "none" ? (
+                              <TextField
+                                value={row[col.propertyKey as keyof DeliveryRowData] ?? ""}
+                                onChange={(e) =>
+                                  handleCustomColumnChange(
+                                    e,
+                                    row.id,
+                                    col.propertyKey as keyof CustomRowData,
+                                    setCustomRows
+                                  )
+                                }
+                                variant="outlined"
+                                size="small"
+                                fullWidth
+                              />
+                            ) : (
+                              "N/A"
+                            )
+                          ) : 
+                          col.propertyKey !== "none" ? (
+                            // Check if the property key is 'referralEntity' and the value is an object
+                            col.propertyKey === 'referralEntity' && typeof row.referralEntity === 'object' && row.referralEntity !== null ?
+                            // Format as "Name, Organization"
+                            `${row.referralEntity.name ?? 'N/A'}, ${row.referralEntity.organization ?? 'N/A'}`
+                            : (row[col.propertyKey as keyof DeliveryRowData]?.toString() ?? "N/A") // Fallback for other types
+                          ) : (
+                            "N/A"
+                          )} 
+                        </TableCell>
                                       ))}
                   {/* Empty Table cell so custom columns dont look weird */}
                   <TableCell></TableCell>

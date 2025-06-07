@@ -5,6 +5,7 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
 import SaveIcon from "@mui/icons-material/Save";
+import { styled } from "@mui/material/styles";
 import {
   Box,
   Button,
@@ -136,6 +137,30 @@ const Spreadsheet: React.FC = () => {
     handleRemoveCustomColumn,
     handleCustomColumnChange,
   } = useCustomColumns();
+
+
+const StyleChip = styled(Chip)({
+  backgroundColor: 'var(--color-primary)',
+  color: '#fff',
+  ":hover" : { 
+    backgroundColor: 'var(--color-primary)',
+    cursor: 'text'
+  },
+  // Disable ripple effect and pointer events
+  '& .MuiTouchRipple-root': {
+    display: 'none'
+  },
+  '&:active': {
+    boxShadow: 'none',
+    transform: 'none'
+  },
+  '&:focus': {
+    boxShadow: 'none'
+  },
+  // Make text selectable
+  userSelect: 'text',
+  WebkitUserSelect: 'text'
+});
 
 
   // const [customColumns, setCustomColumns] = useState<CustomColumn[]>([]);
@@ -787,16 +812,17 @@ const Spreadsheet: React.FC = () => {
                     <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ mt: 0.5 }}>
                       {fields.find(f => f.key === "deliveryDetails.dietaryRestrictions")?.compute?.(row)?.split(", ").map((restriction, i) => (
                         restriction !== "None" && (
-                          <Chip
-                            key={i}
-                            label={restriction}
-                            size="small"
-                            sx={{
-                              backgroundColor: "#e8f5e9",
-                              color: "#2E5B4C",
-                              mb: 0.5
-                            }}
-                          />
+                          // <Chip
+                          //   key={i}
+                          //   label="{restriction}"
+                          //   size="small"
+                          //   sx={{
+                          //     backgroundColor: "#e8f5e9",
+                          //     color: "#2E5B4C",
+                          //     mb: 0.5
+                          //   }}
+                          // />
+                          "test"
                         )
                       )) || <Typography variant="body2">None</Typography>}
                     </Stack>
@@ -1081,11 +1107,13 @@ const Spreadsheet: React.FC = () => {
                                     key={i}
                                     label={restriction}
                                     size="small"
+                                    onClick={(e) => e.preventDefault()}
                                     sx={{
                                       backgroundColor: "#e8f5e9",
                                       color: "#2E5B4C",
                                       mb: 0.5
-                                    }}
+                                    }
+                                  }
                                   />
                                 )
                               )) || null}
@@ -1125,7 +1153,23 @@ const Spreadsheet: React.FC = () => {
                             // For referralEntity specifically (it's an object)
                             col.propertyKey === 'referralEntity' && row[col.propertyKey as keyof RowData] ? 
                             // Safely access properties using any type
-                            `${(row[col.propertyKey as keyof RowData] as any).name || 'N/A'}, ${(row[col.propertyKey as keyof RowData] as any).organization || 'N/A'}`
+                            `${(row[col.propertyKey as keyof RowData] as any).name || 'N/A'}, 
+                            ${(row[col.propertyKey as keyof RowData] as any).organization || 'N/A'}`
+                            : col.propertyKey === "tags" && Array.isArray(row[col.propertyKey as keyof RowData]) ?
+                              (row[col.propertyKey as keyof RowData] as unknown as string[]).map((tag, i) => (
+                                <StyleChip
+                                  key={i}
+                                  label={tag}
+                                  size="small"
+                                   onClick={(e) => {
+                                        e.preventDefault()
+                                      }}
+                                  sx={{
+                                    mb: 0.5,
+                                    mr: 0.5
+                                  }}
+                                />
+                              ))
                             : (row[col.propertyKey as keyof RowData]?.toString() ?? "N/A")
                           ) : (
                             "N/A"
