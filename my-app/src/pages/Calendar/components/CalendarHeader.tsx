@@ -3,6 +3,8 @@ import { Add, ChevronRight, EditCalendar } from "@mui/icons-material";
 import { Box, Button, IconButton, Menu, MenuItem, Typography } from "@mui/material";
 import React, { useCallback } from "react";
 import PageDatePicker from "../../../components/PageDatePicker/PageDatePicker";
+import { useAuth } from "../../../auth/AuthProvider";
+import { UserType } from "../../../types";
 
 interface CalendarHeaderProps {
   viewType: "Day" | "Month";
@@ -32,7 +34,7 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
   onEditLimits,
 }) => {
   const [viewAnchorEl, setViewAnchorEl] = React.useState<null | HTMLElement>(null);
-
+  const { userRole } = useAuth();
   const daysOfWeek = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
   const handleDateSelect = useCallback(
@@ -158,6 +160,7 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
           variant="contained"
           startIcon={<Add />}
           onClick={onAddDelivery}
+          disabled={userRole === UserType.ClientIntake}
           sx={{
             marginRight: 4,
             width: 166,

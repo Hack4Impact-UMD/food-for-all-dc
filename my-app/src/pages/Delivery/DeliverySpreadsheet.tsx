@@ -49,6 +49,8 @@ import { Driver } from '../../types/calendar-types';
 import { CustomRowData, useCustomColumns } from "../../hooks/useCustomColumns";
 import ClientService from "../../services/client-service";
 import { LatLngTuple } from "leaflet";
+import { UserType } from "../../types";
+import { useAuth } from "../../auth/AuthProvider";
 
 interface RowData {
   id: string;
@@ -264,6 +266,7 @@ const isRegularField = (
 
 const DeliverySpreadsheet: React.FC = () => {
   const testing = false;
+  const { userRole } = useAuth();
   const [rows, setRows] = useState<DeliveryRowData[]>([]);
   const [rawClientData, setRawClientData] = useState<DeliveryRowData[]>([]);
   const [searchQuery, setSearchQuery] = useState<string>("");
@@ -1333,6 +1336,7 @@ const DeliverySpreadsheet: React.FC = () => {
       <Button
         variant="primary"
         size="medium"
+        disabled={userRole === UserType.ClientIntake}
         style={{
           whiteSpace: "nowrap",
           padding: "0% 2%",
@@ -1348,6 +1352,7 @@ const DeliverySpreadsheet: React.FC = () => {
       <Button
         variant="primary"
         size="medium"
+        disabled={userRole === UserType.ClientIntake}
         style={{
           whiteSpace: "nowrap",
           padding: "0% 2%",
@@ -1642,6 +1647,7 @@ const DeliverySpreadsheet: React.FC = () => {
                         {field.type === "checkbox" ? (
                           <Checkbox
                             size="small"
+                            disabled={userRole === UserType.ClientIntake}
                             checked={selectedRows.has(row.id)}
                             onChange={() => handleCheckboxChange(row)}
                           />
@@ -1656,6 +1662,7 @@ const DeliverySpreadsheet: React.FC = () => {
                               labelId={`cluster-select-label-${row.id}`}
                               id={`cluster-select-${row.id}`}
                               value={row.clusterId || ""}
+                              disabled={userRole === UserType.ClientIntake}
                               onChange={(event: SelectChangeEvent<string>) =>
                                 handleClusterChange(row, event.target.value)
                               }

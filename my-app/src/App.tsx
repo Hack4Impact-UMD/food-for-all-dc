@@ -49,10 +49,10 @@ function App() {
           <Route path="clients" element={<Spreadsheet />} />
           <Route path="calendar" element={<CalendarPage />} />
           <Route path="profile/:clientId?" element={<Profile />} />
+          <Route path="delivery" element={<DeliverySpreadsheet />} />
           {/* Routes with specific role requirements */}
           <Route element={<ProtectedRoute allowedRoles={[UserType.Admin, UserType.Manager]} />}>
             {/* Nested route for Delivery, accessible only via ProtectedRoute */}
-            <Route path="delivery" element={<DeliverySpreadsheet />} />
             <Route path="users" element={<UsersSpreadsheet />} /> 
           </Route>
         </Route>

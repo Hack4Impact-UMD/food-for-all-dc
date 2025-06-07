@@ -1,4 +1,3 @@
-import AddIcon from "@mui/icons-material/Add";
 import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
 import ArrowDropUpIcon from "@mui/icons-material/ArrowDropUp";
 import DeleteIcon from "@mui/icons-material/Delete";
@@ -23,10 +22,6 @@ import {
   Stack,
   Chip,
   Divider,
-  Dialog,
-  DialogActions,
-  DialogTitle,
-  DialogContent,
   Alert,
   CircularProgress,
 } from "@mui/material";
@@ -39,6 +34,7 @@ import "./UsersSpreadsheet.css";
 import DeleteUserModal from "./DeleteUserModal";
 import CreateUserModal from "./CreateUserModal";
 import { AuthUserRow, UserType } from "../../types";
+import { useAuth } from "../../auth/AuthProvider";
 
 // Define a type for fields that can either be computed or direct keys of AuthUserRow
 type Field = {
@@ -70,7 +66,7 @@ const UsersSpreadsheet: React.FC = () => {
   const [deleteModalOpen, setDeleteModalOpen] = useState<boolean>(false);
   const [createModalOpen, setCreateModalOpen] = useState<boolean>(false);
   const [actionFeedback, setActionFeedback] = useState<{ type: 'success' | 'error', message: string } | null>(null);
-
+  const { userRole } = useAuth();
   const navigate = useNavigate();
 
   //Route Protection
@@ -528,6 +524,7 @@ const UsersSpreadsheet: React.FC = () => {
         PaperProps={{ elevation: 3, sx: { borderRadius: "8px", minWidth: "150px" } }}
       >
         <MenuItem
+          disabled = {userRole === UserType.Manager && rows.find(r => r.uid === selectedRowId)?.role === UserType.Admin} //Client Intake does not have access to this page
           onClick={() => {
             if (selectedRowId) {
               setDeleteModalOpen(true);
