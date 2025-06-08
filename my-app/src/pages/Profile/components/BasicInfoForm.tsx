@@ -363,7 +363,7 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
                 </li>
               )}
               // disableClearable // Removed this prop due to type conflict with null value
-              // forcePopupIcon={false} // Keep this to hide dropdown arrow
+              // forcePopupIcon={false} // Keep this to hide dropdown arrow // Keep this commented to show dropdown arrow
             />
           </>
         ) : (
