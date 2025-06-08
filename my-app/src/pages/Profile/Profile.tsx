@@ -1166,6 +1166,147 @@ const Profile = () => {
       );
     }
 
+    if (fieldPath === "gender") {
+      if (!isEditing) {
+        return <Box>{clientProfile.gender}</Box>;
+      }
+    
+      const preDefinedOptions = [
+        "Male",
+        "Female",
+        "Other"
+      ];
+    
+      const isPredefined = preDefinedOptions.includes(clientProfile.gender);
+      const selectValue = isPredefined ? clientProfile.gender : "Other";
+    
+      const handleGenderSelectChange = (e: any) => {
+        const newVal = e.target.value;
+          // Update with selected value
+          handleChange({ target: { name: "gender", value: newVal } } as any);
+      };
+    
+    
+      return (
+        <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+          <Select
+            name="gender"
+            value={selectValue}
+            onChange={handleGenderSelectChange}
+            sx={{
+              backgroundColor: "white",
+              width: "100%",
+              height: "1.813rem",
+              padding: "0.1rem 0.5rem",
+              borderRadius: "5px",
+              border: ".1rem solid black",
+              marginTop: "0px"
+            }}
+          >
+            {preDefinedOptions.map((option) => (
+              <MenuItem key={option} value={option}>
+                {option}
+              </MenuItem>
+            ))}
+          </Select>
+        </Box>
+      );
+    }
+
+    if (fieldPath === "headOfHousehold") {
+      if (!isEditing) {
+        return <Box>{clientProfile.headOfHousehold}</Box>;
+      }
+    
+      const preDefinedOptions = [
+        "Adult",
+        "Senior",
+      ];
+    
+      const isPredefined = preDefinedOptions.includes(clientProfile.headOfHousehold);
+      const selectValue = isPredefined ? clientProfile.headOfHousehold : "Adult";
+    
+      const handleHeadOfHouseholdSelectChange = (e: any) => {
+        const newVal = e.target.value;
+          // Update with selected value
+          handleChange({ target: { name: "headOfHousehold", value: newVal } } as any);
+  
+      };
+    
+      return (
+        <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+          <Select
+            name="headOfHousehold"
+            value={selectValue}
+            onChange={handleHeadOfHouseholdSelectChange}
+            sx={{
+              backgroundColor: "white",
+              width: "100%",
+              height: "1.813rem",
+              padding: "0.1rem 0.5rem",
+              borderRadius: "5px",
+              border: ".1rem solid black",
+              marginTop: "0px"
+            }}
+          >
+            {preDefinedOptions.map((option) => (
+              <MenuItem key={option} value={option}>
+                {option}
+              </MenuItem>
+            ))}
+          </Select>
+        </Box>
+      );
+    }
+
+        if (fieldPath === "recurrence") {
+      if (!isEditing) {
+        return <Box>{clientProfile.headOfHousehold}</Box>;
+      }
+    
+      const preDefinedOptions = [
+        "None",
+        "Weekly",
+        "2x-Monthly",
+        "Monthly"
+      ];
+    
+      const isPredefined = preDefinedOptions.includes(clientProfile.recurrence);
+      const selectValue = isPredefined ? clientProfile.recurrence : "None";
+    
+      const handleRecurrenceSelectChange = (e: any) => {
+        const newVal = e.target.value;
+          // Update with selected value
+          handleChange({ target: { name: "recurrence", value: newVal } } as any);
+  
+      };
+    
+      return (
+        <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+          <Select
+            name="recurrence"
+            value={selectValue}
+            onChange={handleRecurrenceSelectChange}
+            sx={{
+              backgroundColor: "white",
+              width: "100%",
+              height: "1.813rem",
+              padding: "0.1rem 0.5rem",
+              borderRadius: "5px",
+              border: ".1rem solid black",
+              marginTop: "0px"
+            }}
+          >
+            {preDefinedOptions.map((option) => (
+              <MenuItem key={option} value={option}>
+                {option}
+              </MenuItem>
+            ))}
+          </Select>
+        </Box>
+      );
+    }
+
 
     const value = fieldPath.includes(".")
       ? getNestedValue(clientProfile, fieldPath)
