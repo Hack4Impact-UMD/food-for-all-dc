@@ -113,7 +113,7 @@ export const getNextMonthlyDate = (originalDate: Date, currentDate: Date, target
 export const calculateRecurrenceDates = (newDelivery: NewDelivery): Date[] => {
   const recurrenceDates: Date[] = [];
   const originalDate = new Date(newDelivery.deliveryDate);
-  let currentDate = new Date(originalDate);
+  const currentDate = new Date(originalDate);
 
   recurrenceDates.push(new Date(originalDate)); // Always include the original date
 
@@ -124,20 +124,8 @@ export const calculateRecurrenceDates = (newDelivery: NewDelivery): Date[] => {
     const interval = 14; // 2x-Monthly interval
     addRecurrenceDates(interval);
   } else if (newDelivery.recurrence === "Monthly") {
-    if (newDelivery.repeatsEndDate) {
-      const endDate = new Date(newDelivery.repeatsEndDate);
-      if (originalDate.getDate() <= 30) {
-        // Fix for potential date issue
-        originalDate.setDate(originalDate.getDate() + 1);
-      }
-      // If 31st it goes to next month so it will skip a month
-      while (currentDate <= endDate) {
-        currentDate = getNextMonthlyDate(originalDate, currentDate);
-        if (currentDate <= endDate) {
-          recurrenceDates.push(new Date(currentDate));
-        }
-      }
-    }
+    const interval = 28; // Monthly
+    addRecurrenceDates(interval);
   }
 
   return recurrenceDates;
