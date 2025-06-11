@@ -1261,7 +1261,7 @@ const Profile = () => {
 
         if (fieldPath === "recurrence") {
       if (!isEditing) {
-        return <Box>{clientProfile.headOfHousehold}</Box>;
+        return <Box>{clientProfile.recurrence}</Box>;
       }
     
       const preDefinedOptions = [
