@@ -362,32 +362,169 @@ const Spreadsheet: React.FC = () => {
     setSelectedRowId(null);
   };
 
-  // Handle exporting data
+  // ...existing code...
   const handleExportClick = () => {
     setExportDialogOpen(true);
   };
 
   // Display only the rows that match the search query
-  const filteredRows = rows.filter((row) =>
-    `${row.firstName} ${row.lastName}`.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredRows = rows.filter((row) => {
+    const trimmedSearchQuery = searchQuery.trim();
+    if (!trimmedSearchQuery) {
+      return true; // Show all if search is empty
+    }
+
+    // Helper function to check if a value contains the search query string
+    const checkStringContains = (value: any, query: string): boolean => {
+      if (value === undefined || value === null) {
+        return false;
+      }
+      return String(value).toLowerCase().includes(query.toLowerCase());
+    };
+
+    // Helper for numbers, dates (as strings/numbers), or items in an array
+    // Checks if the string representation of the value or any array item includes the query
+    const checkValueOrInArray = (value: any, query: string): boolean => {
+        if (value === undefined || value === null) {
+            return false;
+        }
+        const lowerQuery = query.toLowerCase();
+        if (Array.isArray(value)) {
+            return value.some(item => String(item).toLowerCase().includes(lowerQuery));
+        }
+        return String(value).toLowerCase().includes(lowerQuery);
+    };
+
+    const parts = trimmedSearchQuery.split(/:/); // Split only on the first colon
+    let isKeyValueSearch = false;
+    let keyword = "";
+    let searchValue = "";
+
+    if (parts.length > 1) {
+      keyword = parts[0].trim().toLowerCase();
+      searchValue = parts.slice(1).join(':').trim(); // Value can contain colons
+      if (searchValue) { // Ensure there's a value after the colon
+        isKeyValueSearch = true;
+      }
+    }
+
+    if (isKeyValueSearch) {
+      // Perform key-value search
+      switch (keyword) {
+        case "name":
+          return checkStringContains(`${row.firstName} ${row.lastName}`, searchValue) ||
+                 checkStringContains(row.firstName, searchValue) ||
+                 checkStringContains(row.lastName, searchValue);
+        case "address":
+          return checkStringContains(row.address, searchValue);
+        case "phone":
+          return checkStringContains(row.phone, searchValue);
+        case "dietary restrictions": {
+          const dietaryField = fields.find(f => f.key === "deliveryDetails.dietaryRestrictions");
+          return dietaryField?.compute ? checkStringContains(dietaryField.compute(row), searchValue) : false;
+        }
+        case "delivery instructions": {
+          const instructionsField = fields.find(f => f.key === "deliveryDetails.deliveryInstructions");
+          return instructionsField?.compute ? checkStringContains(instructionsField.compute(row), searchValue) : false;
+        }
+        case "ethnicity":
+          return checkStringContains(row.ethnicity, searchValue);
+        case "adults":
+          return checkValueOrInArray((row as any).adults, searchValue);
+        case "children":
+          return checkValueOrInArray((row as any).children, searchValue);
+        case "gender":
+          return checkStringContains((row as any).gender, searchValue);
+        case "notes":
+          return checkStringContains((row as any).notes, searchValue);
+        case "referral entity":
+        case "referral": {
+          const referralEntity = (row as any).referralEntity;
+          if (referralEntity && typeof referralEntity === 'object') {
+            return checkStringContains(referralEntity.name, searchValue) ||
+                   checkStringContains(referralEntity.organization, searchValue);
+          }
+          return false;
+        }
+        case "referral entity name":
+            return checkStringContains((row as any).referralEntity?.name, searchValue);
+        case "referral entity organization":
+            return checkStringContains((row as any).referralEntity?.organization, searchValue);
+        case "tags":
+        case "tag":
+          return checkValueOrInArray((row as any).tags, searchValue);
+        case "dob":
+          return checkValueOrInArray((row as any).dob, searchValue);
+        case "ward":
+          return checkValueOrInArray((row as any).ward, searchValue);
+        case "client id":
+        case "clientid":
+          return checkValueOrInArray(row.clientid, searchValue) || checkValueOrInArray(row.uid, searchValue);
+        case "delivery freq":
+        case "delivery frequency":
+          return checkStringContains((row as any).deliveryFreq, searchValue);
+        case "language":
+          return checkStringContains((row as any).language, searchValue);
+        case "tefap cert":
+        case "tefap":
+          return checkStringContains((row as any).tefapCert, searchValue);
+        default:
+          // If the keyword is not recognized, don't match
+          return false;
+      }
+    } else {
+      // Fallback to global search (searches the query in all relevant fields)
+      const globalSearchValue = trimmedSearchQuery.toLowerCase();
+
+      if (checkStringContains(`${row.firstName} ${row.lastName}`, globalSearchValue)) return true;
+      if (checkStringContains(row.address, globalSearchValue)) return true;
+      if (checkStringContains(row.phone, globalSearchValue)) return true;
+
+      const dietaryField = fields.find(f => f.key === "deliveryDetails.dietaryRestrictions");
+      if (dietaryField?.compute && checkStringContains(dietaryField.compute(row), globalSearchValue)) return true;
+
+      const instructionsField = fields.find(f => f.key === "deliveryDetails.deliveryInstructions");
+      if (instructionsField?.compute && checkStringContains(instructionsField.compute(row), globalSearchValue)) return true;
+      
+      if (checkStringContains(row.ethnicity, globalSearchValue)) return true;
+
+      const dynamicKeysAndValues: any[] = [
+        (row as any).adults, (row as any).children, (row as any).deliveryFreq,
+        (row as any).gender, (row as any).language, (row as any).notes,
+        (row as any).tefapCert, (row as any).dob, (row as any).ward,
+        row.clientid, row.uid
+      ];
+      if (dynamicKeysAndValues.some(val => checkValueOrInArray(val, globalSearchValue))) return true;
+
+      if (checkValueOrInArray((row as any).tags, globalSearchValue)) return true;
+
+      const referralEntity = (row as any).referralEntity;
+      if (referralEntity && typeof referralEntity === 'object') {
+        if (checkStringContains(referralEntity.name, globalSearchValue)) return true;
+        if (checkStringContains(referralEntity.organization, globalSearchValue)) return true;
+      }
+      
+      return false;
+    }
+  });
 
   const handleExportOptionSelect = (option: "QueryResults" | "AllClients") => {
-    setExportOption(option);
-    setExportDialogOpen(false);
-
-    if (option === "QueryResults") {
-      exportQueryResults(filteredRows);
-    } else if (option === "AllClients") {
-      exportAllClients(rows);
-    }
-  };
+// ...existing code...
+  setExportOption(option);
+  setExportDialogOpen(false);
+  if (option === "QueryResults") {
+    exportQueryResults(filteredRows);
+  } else if (option === "AllClients") {
+    exportAllClients(rows);
+  }
+};
 
   const handleCancel = () => {
     setExportDialogOpen(false);
     setExportOption(null);
   };
 
+  
 
   // Handle toggling sort order for the Name column
   const toggleSortOrder = () => {
@@ -427,118 +564,6 @@ const Spreadsheet: React.FC = () => {
     navigate("/profile");
   };
 
-  const visibleRows = rows.filter((row) => {
-  const keywordRegex = /(\w+)(?:\s+\w+)*:\s*("[^"]+"|\S+)/g; // Updated regex to handle multi-word keys
-  const matches = [...searchQuery.matchAll(keywordRegex)];
-  
-  if (matches.length > 0) {
-    // For keyword queries, check each key-value pair
-    return matches.every(([_, key, value]) => {
-      const strippedValue = value.replace(/"/g, "").toLowerCase();
-      const searchKey = key.toLowerCase();
-      
-      // List of numeric fields that should be exactly matched
-      const numericFields = ['adults', 'children', 'seniors', 'total'];
-      
-      // Handle special case for dietary restrictions - check both forms of the key
-      if (searchKey === 'dietary' || searchKey === 'dietary restrictions') {
-        const dietaryField = fields.find(f => f.key === 'deliveryDetails.dietaryRestrictions');
-        if (dietaryField?.compute) {
-          const restrictions = dietaryField.compute(row).toLowerCase();
-          return restrictions.includes(strippedValue);
-        }
-        return false;
-      }
-      
-      // Check if we're searching for a numeric field
-      if (numericFields.includes(searchKey)) {
-        const numValue = parseInt(strippedValue);
-        const fieldValue = row[searchKey as keyof RowData];
-        return fieldValue === numValue;
-      }
-
-      // For non-numeric fields, check static fields with substring match
-      const matchesStaticField = fields.some((field) => {
-        if (field.key.toLowerCase() === searchKey) {
-          const fieldValue = field.compute ? field.compute(row) : row[field.key as keyof RowData];
-          return fieldValue != null && fieldValue.toString().toLowerCase().includes(strippedValue);
-        }
-        return false;
-      });
-
-      // Check custom columns that match the search key
-      const matchesCustomColumn = customColumns.some((col) => {
-        if (col.propertyKey.toLowerCase() === searchKey) {
-          const fieldValue = row[col.propertyKey as keyof RowData];
-          return fieldValue != null && fieldValue.toString().toLowerCase().includes(strippedValue);
-        }
-        return false;
-      });
-
-      return matchesStaticField || matchesCustomColumn;
-    });
-       
-    } else {
-      // Fallback to general search logic for non-keyword queries
-      const eachQuery = searchQuery.match(/"[^"]+"|\S+/g) || [];
-  
-      const quotedQueries = eachQuery.filter(s => s.startsWith('"') && s.endsWith('"') && s.length > 1) || [];
-      const nonQuotedQueries = eachQuery.filter(s => s.length === 1 || !s.endsWith('"')) || [];
-  
-      const containsQuotedQueries = quotedQueries.length === 0
-        ? true
-        : quotedQueries.every((query) => {
-            // Use substring matching instead of exact equality (convert to string)
-            const strippedQuery = query.slice(1, -1).trim().toLowerCase();
-            const matchesStaticField = fields.some((field) => {
-              const fieldValue = field.compute ? field.compute(row) : row[field.key as keyof RowData];
-              return (
-                fieldValue != null &&
-                fieldValue.toString().toLowerCase().includes(strippedQuery)
-              );
-            });
-            const matchesCustomColumn = customColumns.some((col) => {
-              if (col.propertyKey !== "none") {
-                const fieldValue = row[col.propertyKey as keyof RowData];
-                return (
-                  fieldValue != null &&
-                  fieldValue.toString().toLowerCase().includes(strippedQuery)
-                );
-              }
-              return false;
-            });
-            return matchesStaticField || matchesCustomColumn;
-          });
-  
-      if (containsQuotedQueries) {
-        const containsRegularQuery = nonQuotedQueries.length === 0
-          ? true
-          : nonQuotedQueries.some((query) => {
-              const strippedQuery = query.startsWith('"')
-                ? query.slice(1).trim().toLowerCase()
-                : query.trim().toLowerCase();
-              if (strippedQuery.length === 0) {
-                return true;
-              }
-              const matchesStaticField = fields.some((field) => {
-                const fieldValue = field.compute ? field.compute(row) : row[field.key as keyof RowData];
-                return fieldValue != null && fieldValue.toString().toLowerCase().includes(strippedQuery);
-              });
-              const matchesCustomColumn = customColumns.some((col) => {
-                if (col.propertyKey !== "none") {
-                  const fieldValue = row[col.propertyKey as keyof RowData];
-                  return fieldValue != null && fieldValue.toString().toLowerCase().includes(strippedQuery);
-                }
-                return false;
-              });
-              return matchesStaticField || matchesCustomColumn;
-            });
-        return containsRegularQuery;
-      } else {
-        return false;
-      }
-    }
-  });
 
   useEffect(() => {
     console.log("this is search query");
@@ -741,7 +766,7 @@ const Spreadsheet: React.FC = () => {
         {/* Mobile Card View for Small Screens */}
         {isMobile ? (
           <Stack spacing={2} sx={{ overflowY: "auto", width: "100%" }}>
-            {visibleRows.map((row) => (
+            {filteredRows.map((row) => (
               <Card
                 key={row.id}
                 sx={{
@@ -978,7 +1003,7 @@ const Spreadsheet: React.FC = () => {
               </TableHead>
 
               <TableBody>
-                {visibleRows.map((row) => (
+                {filteredRows.map((row) => (
                   <TableRow
                     key={row.id}
                     className={editingRowId === row.id ? "table-row editing-row" : "table-row"}

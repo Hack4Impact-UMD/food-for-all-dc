@@ -93,6 +93,11 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = ({
                 ...newDelivery,
                 clientId: newValue.uid,
                 clientName: `${newValue.firstName} ${newValue.lastName}`,
+                recurrence: (newValue.recurrence as "None" | "Weekly" | "2x-Monthly" | "Monthly" | "Custom") || "Weekly",
+                repeatsEndDate: newValue.endDate ||
+                  // Calculate a default end date (e.g. one month from today) if not provided
+                  new Date(new Date().setMonth(new Date().getMonth() + 1))
+                    .toISOString().split("T")[0],
               });
             }
           }}
