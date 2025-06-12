@@ -1,5 +1,6 @@
 import AddIcon from "@mui/icons-material/Add";
 import EditIcon from '@mui/icons-material/Edit';
+import NewIcon from "@mui/icons-material/NewLabel";
 import CloseIcon from "@mui/icons-material/Close";
 import LocalOfferIcon from '@mui/icons-material/LocalOffer';
 import { Box, Tooltip, Typography, DialogTitle, DialogContent, DialogActions, Button, Fade } from "@mui/material";
@@ -151,7 +152,7 @@ const Tag: React.FC<TagProps> = ({
             setInnerPopup(true);
           }}
         >
-          <EditIcon
+          <NewIcon
             sx={{
               fontSize: "18px",
               color: "var(--color-primary)",

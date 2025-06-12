@@ -9,7 +9,7 @@ import {
   Typography,
   Checkbox,
   FormControlLabel,
-  Grid2,
+  Grid,
   Select,
 } from "@mui/material";
 import { ClientProfileKey } from '../types';
@@ -128,11 +128,11 @@ const FormField: React.FC<FormFieldProps> = ({
 
     if (isEditing) {
       return (
-        <Grid2 container spacing={1}>
+        <Grid container spacing={1}>
           {Object.entries(restrictions)
             .filter(([key, value]) => typeof value === "boolean")
             .map(([key, value]) => (
-              <Grid2 key={key}>
+              <Grid key={key}>
                 <FormControlLabel
                   sx={{ textAlign: "left" }}
                   control={
@@ -149,9 +149,9 @@ const FormField: React.FC<FormFieldProps> = ({
                   }
                   label={capitalizeFirstLetter(key.replace(/([A-Z])/g, " $1").trim())}
                 />
-              </Grid2>
+              </Grid>
             ))}
-        </Grid2>
+        </Grid>
       );
     }
 
