@@ -211,7 +211,7 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
         >
           GENDER <span className="required-asterisk">*</span>
         </Typography>
-        {renderField("gender", "select")}
+        {renderField("gender", "text")}
         {errors.gender && (
           <Typography color="error" variant="body2">
             {errors.gender}
@@ -363,7 +363,7 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
                 </li>
               )}
               // disableClearable // Removed this prop due to type conflict with null value
-              forcePopupIcon={false} // Keep this to hide dropdown arrow
+              // forcePopupIcon={false} // Keep this to hide dropdown arrow // Keep this commented to show dropdown arrow
             />
           </>
         ) : (
