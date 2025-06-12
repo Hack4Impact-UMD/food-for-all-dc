@@ -256,6 +256,8 @@ const CalendarPage: React.FC = () => {
     try {
       let recurrenceDates: Date[] = [];
 
+      //create unique id for each recurrence group. All events for this recurrence will have the same id
+      const recurrenceId = crypto.randomUUID();
       if (newDelivery.recurrence === "Custom") {
         // Use customDates directly if recurrence is Custom
         // Ensure customDates exist and map string dates back to Date objects
@@ -298,6 +300,7 @@ const CalendarPage: React.FC = () => {
           recurrence: newDelivery.recurrence,
           time: "",
           cluster: 0,
+          recurrenceId: recurrenceId,
         };
 
         // Add customDates array if recurrence is Custom

@@ -19,6 +19,7 @@ export interface DateLimit {
 export interface DeliveryEvent extends Delivery {
   recurrence: "None" | "Weekly" | "2x-Monthly" | "Monthly" | "Custom";
   customDates?: string[];
+  recurrenceId: string;
 }
 
 export interface NewDelivery {
