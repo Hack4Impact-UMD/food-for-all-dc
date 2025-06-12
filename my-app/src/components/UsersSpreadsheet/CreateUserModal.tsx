@@ -22,6 +22,7 @@ import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import { UserType } from '../../types'; // Assuming UserType enum is here
 import { authUserService } from '../../services/AuthUserService';
+import { useAuth } from '../../auth/AuthProvider';
 
 // Define props for the modal
 type CreateUserModalProps = {
@@ -54,6 +55,9 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({ open, handleClose }) 
     const [showRetypePassword, setShowRetypePassword] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
+
+    //user
+    const { userRole } = useAuth();
 
     // Reset form when modal opens or closes
     useEffect(() => {
@@ -188,6 +192,7 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({ open, handleClose }) 
                                 <FormControlLabel 
                                     key={type}
                                     value={type}
+                                    disabled={userRole === UserType.Manager && type === UserType.Admin}
                                     control={<Radio />} 
                                     label={getRoleDisplayName(type)} 
                                 />

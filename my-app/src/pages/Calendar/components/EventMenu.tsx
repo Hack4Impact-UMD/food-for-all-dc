@@ -23,6 +23,8 @@ import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, query, where, Time
 import { db } from "../../../auth/firebaseConfig";
 import { DeliveryEvent, NewDelivery } from "../../../types/calendar-types";
 import { calculateRecurrenceDates, getNextMonthlyDate } from "./CalendarUtils";
+import { UserType } from "../../../types";
+import { useAuth } from "../../../auth/AuthProvider";
 
 interface EventMenuProps {
   event: DeliveryEvent;
@@ -30,6 +32,7 @@ interface EventMenuProps {
 }
 
 const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
+  const { userRole } = useAuth();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -209,8 +212,8 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
       </IconButton>
 
       <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={handleMenuClose}>
-        <MenuItem onClick={handleEditClick}>Edit</MenuItem>
-        <MenuItem onClick={handleDeleteClick}>Delete</MenuItem>
+        <MenuItem disabled = {userRole === UserType.ClientIntake} onClick={handleEditClick}>Edit</MenuItem>
+        <MenuItem disabled = {userRole === UserType.ClientIntake} onClick={handleDeleteClick}>Delete</MenuItem>
       </Menu>
 
       {/* Edit Dialog */}

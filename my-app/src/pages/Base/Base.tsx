@@ -162,13 +162,12 @@ export default function BasePage() {
 
     // Add Delivery only if user is Admin or Manager
     if (userRole === UserType.Admin || userRole === UserType.Manager) {
-      items.push({ text: "Delivery", icon: <LocalShippingIcon />, link: "/delivery" });
+      items.push({ text: "Users", icon: <AddCircleIcon />, link: "/users" });
     }
 
-    // Assuming Users page is accessible by all roles for now based on App.tsx setup
-    // If Users page needs restriction, add condition here
-    items.push({ text: "Users", icon: <AddCircleIcon />, link: "/users" });
-
+    // Assuming deliveries page is accessible by all roles for now based on App.tsx setup
+    // If delivery page needs restriction, add condition here
+    items.push({ text: "Delivery", icon: <LocalShippingIcon />, link: "/delivery" });
     return items;
   }, [userRole]);
 
@@ -260,7 +259,7 @@ export default function BasePage() {
         <Divider sx={{ margin: "0 16px", backgroundColor: "rgba(0, 0, 0, 0.06)" }} />
         <List sx={{ padding: "16px 8px", flexGrow: 1 }}> 
           {navItems.map(({ text, icon, link }) => (
-            <ListItem key={text} disablePadding sx={{ mb: 1 }}>
+             <ListItem key={text} disablePadding sx={{ mb: 1 }}>
               <Tab
                 text={text}
                 icon={icon}
@@ -270,7 +269,7 @@ export default function BasePage() {
                 setOpen={setOpen}
               />
             </ListItem>
-          ))}
+            ))}
         </List>
         <Divider sx={{ margin: "0 16px", backgroundColor: "rgba(0, 0, 0, 0.06)" }} />
         <List sx={{ padding: "8px" }}>
