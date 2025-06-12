@@ -27,7 +27,7 @@ import { useNavigate, useLocation, Outlet } from "react-router-dom";
 import { useEffect } from "react";
 import { UserType } from "../../types";
 
-const drawerWidth = 240;
+const drawerWidth = "20%";
 
 const Main = styled("main", { shouldForwardProp: (prop) => prop !== "open" })<{
   open?: boolean;
@@ -38,7 +38,7 @@ const Main = styled("main", { shouldForwardProp: (prop) => prop !== "open" })<{
     easing: theme.transitions.easing.sharp,
     duration: theme.transitions.duration.leavingScreen,
   }),
-  marginLeft: isMobile ? 0 : (open ? 0 : `-${drawerWidth}px`),
+  marginLeft: isMobile ? 0 : (open ? 0 : `-${drawerWidth}`),
   width: "100%",
   paddingTop: "76px",
   paddingBottom: isMobile ? "60px" : 0,
