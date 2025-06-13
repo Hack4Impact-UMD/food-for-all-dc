@@ -812,17 +812,16 @@ const StyleChip = styled(Chip)({
                     <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ mt: 0.5 }}>
                       {fields.find(f => f.key === "deliveryDetails.dietaryRestrictions")?.compute?.(row)?.split(", ").map((restriction, i) => (
                         restriction !== "None" && (
-                          // <Chip
-                          //   key={i}
-                          //   label="{restriction}"
-                          //   size="small"
-                          //   sx={{
-                          //     backgroundColor: "#e8f5e9",
-                          //     color: "#2E5B4C",
-                          //     mb: 0.5
-                          //   }}
-                          // />
-                          "test"
+                          <Chip
+                            key={i}
+                            label={restriction}
+                            size="small"
+                            sx={{
+                              backgroundColor: "#e8f5e9",
+                              color: "#2E5B4C",
+                              mb: 0.5
+                            }}
+                          />
                         )
                       )) || <Typography variant="body2">None</Typography>}
                     </Stack>
@@ -1112,8 +1111,7 @@ const StyleChip = styled(Chip)({
                                       backgroundColor: "#e8f5e9",
                                       color: "#2E5B4C",
                                       mb: 0.5
-                                    }
-                                  }
+                                    }}
                                   />
                                 )
                               )) || null}
