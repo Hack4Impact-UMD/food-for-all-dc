@@ -1474,8 +1474,8 @@ const DeliverySpreadsheet: React.FC = () => {
                   horizontal: 'left',
                 }}
                  MenuListProps={{
-                  "aria-labelledby": "basic-button",
-                  sx: { width: anchorEl && anchorEl.offsetWidth } 
+                  "aria-labelledby": "demo-positioned-button",
+                  sx: { width: anchorEl ? anchorEl.offsetWidth : '200px' } 
                 }}
               >
                 {Object.values(times).map(({value, label, ...restUserProps}) => (
