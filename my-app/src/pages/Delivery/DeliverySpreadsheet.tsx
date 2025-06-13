@@ -1713,7 +1713,7 @@ const DeliverySpreadsheet: React.FC = () => {
                         )) : isRegularField(field) ? (
                           // Render regular fields (address, ward)
                           // Cast to string as these are the only expected types here
-                          String(row[field.key as "address" | "ward"] ?? "TEST")
+                          String(row[field.key as "address" | "ward"] ?? "")
                         ) : // Default case: render nothing or a placeholder
                           null}
                       </TableCell>
