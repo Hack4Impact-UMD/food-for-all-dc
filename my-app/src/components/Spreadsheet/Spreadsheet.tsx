@@ -1150,9 +1150,7 @@ const StyleChip = styled(Chip)({
                           col.propertyKey !== "none" ? (
                             // For referralEntity specifically (it's an object)
                             col.propertyKey === 'referralEntity' && row[col.propertyKey as keyof RowData] ? 
-                            // Safely access properties using any type
-                            `${(row[col.propertyKey as keyof RowData] as any).name || 'N/A'}, 
-                            ${(row[col.propertyKey as keyof RowData] as any).organization || 'N/A'}`
+                            `${(row[col.propertyKey as keyof RowData] as any).name || 'N/A'}, ${(row[col.propertyKey as keyof RowData] as any).organization || 'N/A'}`
                             : col.propertyKey === "tags" && Array.isArray(row[col.propertyKey as keyof RowData]) ?
                               (row[col.propertyKey as keyof RowData] as unknown as string[]).map((tag, i) => (
                                 <StyleChip
