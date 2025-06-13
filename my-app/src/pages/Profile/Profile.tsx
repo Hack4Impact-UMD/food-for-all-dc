@@ -15,7 +15,7 @@ import {
   Typography,
   styled,
 } from "@mui/material";
-import { FormControlLabel, Checkbox} from '@mui/material';
+import { FormControlLabel, Checkbox } from '@mui/material';
 import {
   addDoc,
   collection,
@@ -212,7 +212,7 @@ const Profile = () => {
         foodAllergens: [],
         otherText: "",
         other: false,     // Changed from string to boolean
-   
+
       },
     },
     lifeChallenges: "",
@@ -484,29 +484,29 @@ const Profile = () => {
   };
 
   const getCoordinates = async (address: string) => {
-    try{
-        const token = await auth.currentUser?.getIdToken();
-        const response = await fetch('https://geocode-addresses-endpoint-lzrplp4tfa-uc.a.run.app', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            addresses: [address]
-          }),
-        });
+    try {
+      const token = await auth.currentUser?.getIdToken();
+      const response = await fetch('https://geocode-addresses-endpoint-lzrplp4tfa-uc.a.run.app', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          addresses: [address]
+        }),
+      });
 
-        //API returns {[coordinates[]]} so destructure and return index 0
-        if(response.ok){
-          const { coordinates } = await response.json();
-          return coordinates[0];
-        }
+      //API returns {[coordinates[]]} so destructure and return index 0
+      if (response.ok) {
+        const { coordinates } = await response.json();
+        return coordinates[0];
+      }
     }
-    catch (error){
+    catch (error) {
       //[0,0] is an invalid coordinate handled in DelivertSpreadsheet.tsx
       console.error(error)
-      return [0,0];
+      return [0, 0];
     }
   }
 
@@ -721,7 +721,7 @@ const Profile = () => {
     // setIsLoading(true);
 
     try {
-      
+
 
       // --- Geocoding Optimization Start ---
       let addressChanged = false;
@@ -742,8 +742,8 @@ const Profile = () => {
 
       // Also force geocode if coordinates are missing or invalid
       if (!addressChanged && (!clientProfile.coordinates || clientProfile.coordinates.length === 0 || (clientProfile.coordinates[0].lat === 0 && clientProfile.coordinates[0].lng === 0))) {
-          console.log("Forcing geocode due to missing/invalid coordinates.");
-          addressChanged = true;
+        console.log("Forcing geocode due to missing/invalid coordinates.");
+        addressChanged = true;
       }
 
       let fetchedWard = clientProfile.ward; // Default to existing ward
@@ -949,10 +949,10 @@ const Profile = () => {
         { name: "noCookingEquipment", label: "No Cooking Equipment" },
         { name: "heartFriendly", label: "Heart Friendly" }
       ] as const;
-    
+
       interface DietaryOption {
-        name: 'lowSugar' | 'kidneyFriendly' | 'vegan' | 'vegetarian' | 'halal' | 
-              'microwaveOnly' | 'softFood' | 'lowSodium' | 'noCookingEquipment' | 'heartFriendly';
+        name: 'lowSugar' | 'kidneyFriendly' | 'vegan' | 'vegetarian' | 'halal' |
+        'microwaveOnly' | 'softFood' | 'lowSodium' | 'noCookingEquipment' | 'heartFriendly';
         label: string;
       }
 
@@ -974,48 +974,48 @@ const Profile = () => {
       return (
         <>
 
-{dietaryOptions.map((option: DietaryOption) => (
-  <FormControlLabel
-    key={option.name}
-    control={
-      <Checkbox
-        checked={Boolean(clientProfile.deliveryDetails?.dietaryRestrictions?.[option.name])}
-        onChange={handleDietaryRestrictionChange}
-        name={option.name}
-      />
-    }
-    label={option.label}
-  />
-))}
+          {dietaryOptions.map((option: DietaryOption) => (
+            <FormControlLabel
+              key={option.name}
+              control={
+                <Checkbox
+                  checked={Boolean(clientProfile.deliveryDetails?.dietaryRestrictions?.[option.name])}
+                  onChange={handleDietaryRestrictionChange}
+                  name={option.name}
+                />
+              }
+              label={option.label}
+            />
+          ))}
 
-<Box sx={{ 
-  display: 'flex', 
-  alignItems: 'center',
-  gap: 1,
-  width: '100%',
-}}>
-  <FormControlLabel
-    control={
-      <Checkbox
-        checked={clientProfile.deliveryDetails?.dietaryRestrictions?.other || false}
-        onChange={handleDietaryRestrictionChange}
-        name="other"
-      />
-    }
-    label="Other"
-  />
-  {clientProfile.deliveryDetails?.dietaryRestrictions?.other && (
-    <TextField
-      name="otherText"
-      value={clientProfile.deliveryDetails?.dietaryRestrictions?.otherText || ""}
-      onChange={handleDietaryRestrictionChange}
-      placeholder="Please specify other dietary restrictions"
-      variant="outlined"
-      size="small"
-      sx={{ flexGrow: 1, marginTop: '5%' }}
-    />
-  )}
-</Box>
+          <Box sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1,
+            width: '100%',
+          }}>
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={clientProfile.deliveryDetails?.dietaryRestrictions?.other || false}
+                  onChange={handleDietaryRestrictionChange}
+                  name="other"
+                />
+              }
+              label="Other"
+            />
+            {clientProfile.deliveryDetails?.dietaryRestrictions?.other && (
+              <TextField
+                name="otherText"
+                value={clientProfile.deliveryDetails?.dietaryRestrictions?.otherText || ""}
+                onChange={handleDietaryRestrictionChange}
+                placeholder="Please specify other dietary restrictions"
+                variant="outlined"
+                size="small"
+                sx={{ flexGrow: 1, marginTop: '5%' }}
+              />
+            )}
+          </Box>
         </>
       );
     }
@@ -1024,12 +1024,12 @@ const Profile = () => {
       if (!isEditing) {
         return <Box>{clientProfile.language}</Box>;
       }
-  
+
       const preDefinedOptions = ["English", "Spanish"];
       // If the stored language is not one of the predefined ones, we default to "Other"
       const isPredefined = preDefinedOptions.includes(clientProfile.language);
       const selectValue = isPredefined ? clientProfile.language : "Other";
-  
+
       const handleLanguageSelectChange = (e: any) => {
         const newVal = e.target.value;
         if (newVal !== "Other") {
@@ -1040,11 +1040,11 @@ const Profile = () => {
           handleChange({ target: { name: "language", value: "" } } as any);
         }
       };
-  
+
       const handleCustomLanguageChange = (e: any) => {
         handleChange(e);
       };
-  
+
       return (
         <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
           <Select
@@ -1080,7 +1080,7 @@ const Profile = () => {
                 height: "1.813rem",
                 padding: "0.1rem 0.5rem",
                 borderRadius: "5px",
-               
+
                 marginTop: "0px"
               }}
             />
@@ -1093,7 +1093,7 @@ const Profile = () => {
       if (!isEditing) {
         return <Box>{clientProfile.ethnicity}</Box>;
       }
-    
+
       const preDefinedOptions = [
         "White",
         "Asian",
@@ -1104,10 +1104,10 @@ const Profile = () => {
         "Native Hawaiian or Pacific Islander",
         "Prefer Not to Say"
       ];
-    
+
       const isPredefined = preDefinedOptions.includes(clientProfile.ethnicity);
       const selectValue = isPredefined ? clientProfile.ethnicity : "Other";
-    
+
       const handleEthnicitySelectChange = (e: any) => {
         const newVal = e.target.value;
         if (newVal !== "Other") {
@@ -1118,11 +1118,11 @@ const Profile = () => {
           handleChange({ target: { name: "ethnicity", value: "" } } as any);
         }
       };
-    
+
       const handleEthnicityCustomChange = (e: any) => {
         handleChange(e);
       };
-    
+
       return (
         <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
           <Select
@@ -1219,39 +1219,39 @@ const Profile = () => {
   const handleDietaryRestrictionChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, type } = e.target;
     handlePrevClientCopying();
-    
+
     if (type === "checkbox") {
-        const { checked } = e.target;
-        setClientProfile((prevState) => ({
-            ...prevState,
-            deliveryDetails: {
-                ...prevState.deliveryDetails,
-                dietaryRestrictions: {
-                    ...prevState.deliveryDetails.dietaryRestrictions,
-                    [name]: checked,
-                    ...(name === "other" && {
-                        other: checked,
-                        // Keep the existing otherText when checking, clear it when unchecking
-                        otherText: checked ? prevState.deliveryDetails.dietaryRestrictions.otherText : ""
-                    })
-                },
-            },
-        }));
+      const { checked } = e.target;
+      setClientProfile((prevState) => ({
+        ...prevState,
+        deliveryDetails: {
+          ...prevState.deliveryDetails,
+          dietaryRestrictions: {
+            ...prevState.deliveryDetails.dietaryRestrictions,
+            [name]: checked,
+            ...(name === "other" && {
+              other: checked,
+              // Keep the existing otherText when checking, clear it when unchecking
+              otherText: checked ? prevState.deliveryDetails.dietaryRestrictions.otherText : ""
+            })
+          },
+        },
+      }));
     } else if (type === "text" && name === "otherText") {
-        const value = e.target.value;
-        setClientProfile((prevState) => ({
-            ...prevState,
-            deliveryDetails: {
-                ...prevState.deliveryDetails,
-                dietaryRestrictions: {
-                    ...prevState.deliveryDetails.dietaryRestrictions,
-                    otherText: value,
-                    other: true // Ensure the checkbox stays checked when typing
-                },
-            },
-        }));
+      const value = e.target.value;
+      setClientProfile((prevState) => ({
+        ...prevState,
+        deliveryDetails: {
+          ...prevState.deliveryDetails,
+          dietaryRestrictions: {
+            ...prevState.deliveryDetails.dietaryRestrictions,
+            otherText: value,
+            other: true // Ensure the checkbox stays checked when typing
+          },
+        },
+      }));
     }
-};
+  };
 
   //google places autocomplete
   const addressInputRef = useRef<HTMLInputElement>(null);
@@ -1616,7 +1616,7 @@ const Profile = () => {
 
           {/* Delivery Log Section */}
           <SectionBox mb={3}>
-            <SectionTitle sx={{ textAlign: 'left', width: '100%' }}>Delivery Log</SectionTitle>
+            <SectionTitle sx={{ textAlign: 'left', width: '100%' }}>Deliveries</SectionTitle>
             <DeliveryLogForm
               pastDeliveries={pastDeliveries}
               futureDeliveries={futureDeliveries}
