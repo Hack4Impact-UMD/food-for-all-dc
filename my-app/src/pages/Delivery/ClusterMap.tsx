@@ -1,6 +1,8 @@
 import React, { useEffect, useRef } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import "leaflet.awesome-markers";
+import "leaflet.awesome-markers/dist/leaflet.awesome-markers.css";
 
 interface Coordinate {
   lat: number;
@@ -120,17 +122,33 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters }) => {
                hash = clusterId.charCodeAt(i) + ((hash << 5) - hash);
            }
            colorIndex = Math.abs(hash) % clusterColors.length;
-        }
-      }
+        }      }        const numberIcon = L.divIcon({
+      html: `<div style="
+              width: 25px;
+              height: 25px;
+              background-color: ${clusterId ? clusterColors[colorIndex] : "#257E68"};
+              border: 2px solid black;
+              border-radius: 50%;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              font-weight: bold;
+              font-size: 12px;
+              color: white;
+              text-shadow: 1px 1px 1px rgba(0,0,0,0.7);
+              box-sizing: border-box;
+              opacity: 0.9;
+            ">${clusterId}</div>`,
+      iconSize: [0, 0],
+      iconAnchor: [16, 16],
+      popupAnchor: [0, -16]
+    });
+      
 
       //create marker
-      const marker = L.circleMarker([coord.lat, coord.lng], {
-        radius: 8,
-        fillColor: clusterId ? clusterColors[colorIndex] : "#257E68", // Use default color if no cluster
-        color: "#000",
-        weight: 1,
+      const marker = L.marker([coord.lat, coord.lng], {
+        icon: numberIcon,
         opacity: 1,
-        fillOpacity: 0.8
       });
 
       //build popup content

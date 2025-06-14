@@ -1730,7 +1730,7 @@ const DeliverySpreadsheet: React.FC = () => {
                                   <Chip
                                     label={option.label === "Unassigned" ? option.label : option.label}
                                     style={typeof option.color === 'string' ? 
-                                      { backgroundColor: option.color, color: 'white', border: '1px solid black', fontWeight: 'bold', textShadow: '#000 0px 0px 1px' } 
+                                      { backgroundColor: option.color, color: 'white', border: '1px solid black', fontWeight: 'bold', textShadow: '.5px .5px .5px #000, -.5px .5px .5px #000, -.5px -.5px 0px #000, .5px -.5px 0px #000' } 
                                       : undefined}
                                   />
                                 </MenuItem>
