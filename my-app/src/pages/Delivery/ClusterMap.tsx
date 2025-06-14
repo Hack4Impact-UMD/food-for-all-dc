@@ -124,8 +124,8 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters }) => {
            colorIndex = Math.abs(hash) % clusterColors.length;
         }      }        const numberIcon = L.divIcon({
       html: `<div style="
-              width: 25px;
-              height: 25px;
+              width: 20px;
+              height: 20px;
               background-color: ${clusterId ? clusterColors[colorIndex] : "#257E68"};
               border: 1px solid black;
               border-radius: 50%;
