@@ -16,6 +16,7 @@ import {
 } from '@mui/material';
 import AddCircleIcon from '@mui/icons-material/AddCircle';
 import WarningAmberRoundedIcon from '@mui/icons-material/WarningAmberRounded';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CloseIcon from '@mui/icons-material/Close';
 import { doc, setDoc, getDoc, collection, query, where, getDocs, writeBatch } from 'firebase/firestore';
 import { db } from '../../../auth/firebaseConfig';
@@ -119,11 +120,11 @@ export default function TagManager({ allTags, values, handleTag, setInnerPopup, 
       console.error("Error fetching tags from Firebase:", error);
     }
   };
-
   const [openAddTagModal, setOpenAddTagModal] = useState(false);
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [modalMode, setModalMode] = useState<"add" | "remove">("add");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showDeleteSuccess, setShowDeleteSuccess] = useState(false);
   const [tagToDelete, setTagToDeleteState] = useState<string | null>(null);
 
   // Filter already applied tags (for adding)
@@ -168,9 +169,9 @@ export default function TagManager({ allTags, values, handleTag, setInnerPopup, 
     setTagToDeleteState(tagToRemove);
     setShowDeleteConfirm(true);
   };
-
   const confirmRemoveTag = async () => {
     if (!tagToDelete) return;
+    const deletedTagName = tagToDelete; // Store the tag name for success message
     const newAllTags = masterTags.filter((tag: string) => tag !== tagToDelete);
     try {
       await setDoc(
@@ -194,13 +195,20 @@ export default function TagManager({ allTags, values, handleTag, setInnerPopup, 
       if (values.includes(tagToDelete)) {
         handleTag(tagToDelete);
       }
+      
+      // Show success dialog after successful deletion
+      setShowDeleteConfirm(false);
+      setTagToDeleteState(deletedTagName); // Keep the tag name for the success message
+      setShowDeleteSuccess(true);
+      setModalMode("add");
+      setSelectedTag(null);
     } catch (error) {
       console.error("Error removing tag from Firebase:", error);
+      setShowDeleteConfirm(false);
+      setTagToDeleteState(null);
+      setModalMode("add");
+      setSelectedTag(null);
     }
-    setShowDeleteConfirm(false);
-    setTagToDeleteState(null);
-    setModalMode("add");
-    setSelectedTag(null);
   };
 
   return (
@@ -374,7 +382,53 @@ export default function TagManager({ allTags, values, handleTag, setInnerPopup, 
             onClick={() => setShowDeleteConfirm(false)}
             sx={{ borderRadius: 20, color: 'var(--color-primary)', fontWeight: 600 }}
           >
-            Cancel
+            Cancel          </Button>
+        </DialogActions>
+      </StyledDialog>
+
+      {/* Delete Success Dialog */}
+      <StyledDialog
+        open={showDeleteSuccess}
+        onClose={() => {
+          setShowDeleteSuccess(false);
+          setTagToDeleteState(null);
+        }}
+        TransitionComponent={Fade}
+      >
+        <DialogTitle sx={{ textAlign: "center", color: '#2e7d32', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
+          <CheckCircleIcon color="success" fontSize="large" />
+          Tag Deleted Successfully!
+        </DialogTitle>
+        <DialogContent
+          sx={{
+            display: "flex",
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: 2,
+            minWidth: 320,
+            textAlign: "center",
+          }}
+        >          <Typography sx={{ color: 'var(--color-text-secondary)' }}>
+            The tag <b>&ldquo;{tagToDelete}&rdquo;</b> has been successfully deleted from all profiles.
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ justifyContent: 'center', pb: 2 }}>
+          <Button
+            onClick={() => {
+              setShowDeleteSuccess(false);
+              setTagToDeleteState(null);
+            }}
+            variant="contained"
+            sx={{ 
+              background: 'var(--color-primary)', 
+              borderRadius: 20, 
+              fontWeight: 600,
+              '&:hover': {
+                background: '#1e6656',
+              }
+            }}
+          >
+            OK
           </Button>
         </DialogActions>
       </StyledDialog>
