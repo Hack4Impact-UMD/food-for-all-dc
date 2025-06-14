@@ -127,7 +127,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters }) => {
               width: 25px;
               height: 25px;
               background-color: ${clusterId ? clusterColors[colorIndex] : "#257E68"};
-              border: 2px solid black;
+              border: 1px solid black;
               border-radius: 50%;
               display: flex;
               align-items: center;
