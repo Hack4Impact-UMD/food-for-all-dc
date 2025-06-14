@@ -135,7 +135,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters }) => {
               font-weight: bold;
               font-size: 12px;
               color: white;
-              text-shadow: 1px 1px 1px rgba(0,0,0,0.7);
+              text-shadow: .5px .5px .5px #000, -.5px .5px .5px #000, -.5px -.5px 0px #000, .5px -.5px 0px #000;
               box-sizing: border-box;
               opacity: 0.9;
             ">${clusterId}</div>`,
