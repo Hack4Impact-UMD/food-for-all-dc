@@ -1,7 +1,11 @@
 // useCustomColumns.ts
 import { SelectChangeEvent } from "@mui/material";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { DeliveryDetails, DietaryRestrictions } from '../types';
+
+interface useCustomColumnsProps {
+  page: string
+}
 
 // Define the CustomColumn interface to ensure type-safety
 export interface CustomColumn {
@@ -23,9 +27,17 @@ export interface CustomRowData {
   ethnicity: string;
 }
 
-export const useCustomColumns = () => {
-  // Manage the custom columns state
-  const [customColumns, setCustomColumns] = useState<CustomColumn[]>([]);
+export const useCustomColumns = ({page}: useCustomColumnsProps) => {
+  // Manage the custom columns state. Default to [] if not found in local storage
+  const [customColumns, setCustomColumns] = useState<CustomColumn[]>(() => {
+    const saved = localStorage.getItem(`ffaCustomColumns${page}`);
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  //detect custom column change and update local store
+  useEffect(()=>{
+    localStorage.setItem(`ffaCustomColumns${page}`, JSON.stringify(customColumns))
+  },[customColumns])
 
   // Function to add a new custom column
   const handleAddCustomColumn = () => {

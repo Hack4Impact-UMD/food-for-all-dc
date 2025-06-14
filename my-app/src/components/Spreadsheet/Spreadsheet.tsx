@@ -121,10 +121,15 @@ const Spreadsheet: React.FC = () => {
   const [editingRowId, setEditingRowId] = useState<string | null>(null);
   const [menuAnchorEl, setMenuAnchorEl] = useState<null | HTMLElement>(null);
   const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const [exportOption, setExportOption] = useState<"QueryResults" | "AllClients" | null>(null);
   const [clientIdToDelete, setClientIdToDelete] = useState<string | null>(null);
+
+  //default to asc if not found in local store
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">(() => {
+    const stored = localStorage.getItem("ffaSortOrderSpreadsheet");
+    return stored === "desc" ? "desc" : "asc";
+  });
 
   const navigate = useNavigate();
 
@@ -135,7 +140,7 @@ const Spreadsheet: React.FC = () => {
     handleCustomHeaderChange,
     handleRemoveCustomColumn,
     handleCustomColumnChange,
-  } = useCustomColumns();
+  } = useCustomColumns({ page: "Spreadsheet" });
 
 
   // const [customColumns, setCustomColumns] = useState<CustomColumn[]>([]);
@@ -217,6 +222,11 @@ const Spreadsheet: React.FC = () => {
     return () => unsubscribe();
   }, [navigate]);
 
+  //detect sort order change and store locally
+  useEffect(() => {
+    localStorage.setItem("ffaSortOrderSpreadsheet", sortOrder);
+  }, [sortOrder]);
+
   // Define fields for table columns
   const fields: Field[] = [
     {
@@ -275,6 +285,30 @@ const Spreadsheet: React.FC = () => {
     };
     fetchData();
   }, []);
+
+  //sort the rows whenever sortOrder or rows change
+  useEffect(() => {
+    if (rows.length > 0) {
+      const sortedRows = [...rows].sort((a, b) => {
+        if (a.firstName === b.firstName) {
+          return sortOrder === "asc"
+            ? a.lastName.localeCompare(b.lastName)
+            : b.lastName.localeCompare(a.lastName);
+        }
+        return sortOrder === "asc"
+          ? a.firstName.localeCompare(b.firstName)
+          : b.firstName.localeCompare(a.firstName);
+      });
+      // Only update if the order actually changed
+      if (JSON.stringify(sortedRows) !== JSON.stringify(rows)) {
+        setRows(sortedRows);
+      }
+    }
+  }, [sortOrder, rows]);
+
+  const toggleSortOrder = () => {
+    setSortOrder(prev => prev === "asc" ? "desc" : "asc");
+  };
 
   // Handle search input change
   const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -386,23 +420,6 @@ const Spreadsheet: React.FC = () => {
   const handleCancel = () => {
     setExportDialogOpen(false);
     setExportOption(null);
-  };
-
-
-  // Handle toggling sort order for the Name column
-  const toggleSortOrder = () => {
-    const sortedRows = [...rows].sort((a, b) => {
-      if (a.firstName === b.firstName) {
-        return sortOrder === "asc"
-          ? a.lastName.localeCompare(b.lastName)
-          : b.lastName.localeCompare(a.lastName);
-      }
-      return sortOrder === "asc"
-        ? a.firstName.localeCompare(b.firstName)
-        : b.firstName.localeCompare(a.firstName);
-    });
-    setRows(sortedRows);
-    setSortOrder(sortOrder === "asc" ? "desc" : "asc");
   };
 
   const toggleSortOrder2 = (fieldKey: keyof RowData) => {
