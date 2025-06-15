@@ -612,37 +612,7 @@ const DeliverySpreadsheet: React.FC = () => {
 
     if (exportOption === "Routes") {
       if (option === "Email") {
-        // Logic to email Routes
-
-        try {
-          // Trigger the Google Cloud Function for emailing Routes
-          const response = await fetch(
-            `https://route-exports-251910218620.us-central1.run.app?deliveryDate=${format(selectedDate, "yyyy-MM-dd")}`,
-            {
-              method: "GET",
-              headers: {
-                "Content-Type": "application/json",
-              },
-            }
-          );
-
-          if (response.ok) {
-            const result = await response.text();
-            console.log("Email sent successfully:", result);
-            alert("Routes emailed successfully!");
-          } else {
-            console.error("Failed to email Routes:", response.statusText);
-            alert("Failed to email Routes. Please try again.");
-          }
-        } catch (error) {
-          console.error("Error emailing Routes:", error);
-          alert("An error occurred while emailing Routes. Please try again.");
-        }
-
-
-
-        console.log("Emailing Routes...");
-        // Add your email logic here
+        alert("Unimplemented");
       } else if (option === "Download") {
         // Pass rows and clusters to exportDeliveries
         exportDeliveries(format(selectedDate, "yyyy-MM-dd"), rows, clusters);
@@ -651,34 +621,7 @@ const DeliverySpreadsheet: React.FC = () => {
       }
     } else if (exportOption === "Doordash") {
       if (option === "Email") {
-        // Logic to email Doordash
-        console.log("Emailing Doordash...");
-
-        try {
-          // Trigger the Google Cloud Function for emailing Doordash
-          const response = await fetch(
-            `https://route-exports-251910218620.us-central1.run.app?deliveryDate=${format(selectedDate, "yyyy-MM-dd")}`,
-            {
-              method: "GET",
-              headers: {
-                "Content-Type": "application/json",
-              },
-            }
-          );
-
-          if (response.ok) {
-            const result = await response.text();
-            console.log("Email sent successfully:", result);
-            alert("Doordash deliveries emailed successfully!");
-          } else {
-            console.error("Failed to email Doordash deliveries:", response.statusText);
-            alert("Failed to email Doordash deliveries. Please try again.");
-          }
-        } catch (error) {
-          console.error("Error emailing Doordash deliveries:", error);
-          alert("An error occurred while emailing Doordash deliveries. Please try again.");
-        }
-        // Add your email logic here
+        alert("Unimplemented");
       } else if (option === "Download") {
         // Logic to download Doordash
         console.log("Downloading Doordash...");
