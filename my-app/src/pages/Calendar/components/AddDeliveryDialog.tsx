@@ -14,7 +14,7 @@ import {
   Box,
   Typography,
 } from "@mui/material";
-import { Driver, NewDelivery } from "../../../types/calendar-types";
+import { NewDelivery } from "../../../types/calendar-types";
 import { ClientProfile } from "../../../types/client-types";
 import CalendarMultiSelect from "./CalendarMultiSelect";
 
@@ -63,24 +63,89 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = ({
       deliveryToSubmit.customDates = customDates.map(date => date.toISOString().split("T")[0]);
       deliveryToSubmit.deliveryDate = customDates[0]?.toISOString().split("T")[0] || "";
       deliveryToSubmit.repeatsEndDate = undefined;
-    }
-    onAddDelivery(deliveryToSubmit as NewDelivery);
+    }    onAddDelivery(deliveryToSubmit as NewDelivery);
     setCustomDates([]);
     resetFormAndClose();
   };
 
   const isFormValid =
     newDelivery.clientId !== "" &&
-    (newDelivery.recurrence !== "Custom" || customDates.length > 0);
+    (newDelivery.recurrence !== "Custom" || customDates.length > 0);  // Filter out duplicate clients based on UID - memoized for performance
+  const uniqueClients = React.useMemo(() => {
+    const filtered = clients.filter((client, index, self) => 
+      index === self.findIndex(c => c.uid === client.uid)
+    );
+    
+    // Console log all clients with their details
+    console.log('All clients:', clients.map(client => ({
+      firstName: client.firstName,
+      lastName: client.lastName,
+      uid: client.uid,
+      email: client.email
+    })));
+    
+    return filtered;
+  }, [clients]);
 
+  // Simple display label showing only the name
+  const getDisplayLabel = (option: ClientProfile) => {
+    return `${option.firstName} ${option.lastName}`;
+  };  // Custom filter function to ensure we never see duplicates
+  const filterOptions = React.useCallback((options: ClientProfile[], { inputValue }: { inputValue: string }) => {
+    // Start with our unique clients, not the passed options
+    const uniqueOptions = uniqueClients.filter((client, index, self) => 
+      index === self.findIndex(c => c.uid === client.uid)
+    );
+    
+    // Apply text filtering
+    const textFiltered = uniqueOptions.filter((option) =>
+      getDisplayLabel(option).toLowerCase().includes(inputValue.toLowerCase())
+    );
+    
+    return textFiltered;
+  }, [uniqueClients]);
   return (
     <Dialog open={open} onClose={resetFormAndClose} maxWidth="sm" fullWidth>
       <DialogTitle>Add Delivery</DialogTitle>
-      <DialogContent sx={{ maxHeight: '70vh', overflowY: 'auto' }}>
-        <Autocomplete
-          options={clients}
-          getOptionLabel={(option) => `${option.firstName} ${option.lastName}`}
-          value={newDelivery.clientId ? clients.find(c => c.uid === newDelivery.clientId) || null : null}
+      <DialogContent sx={{ maxHeight: '70vh', overflowY: 'auto' }}>        <Autocomplete
+          options={uniqueClients}
+          getOptionLabel={getDisplayLabel}
+          getOptionKey={(option) => option.uid}
+          filterOptions={filterOptions}
+          value={newDelivery.clientId ? uniqueClients.find(c => c.uid === newDelivery.clientId) || null : null}          renderOption={(props, option) => {
+            const { key, ...otherProps } = props;
+            return (
+              <Box 
+                component="li" 
+                key={key} 
+                {...otherProps} 
+                sx={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  padding: '8px 16px',
+                  width: '100%'
+                }}
+              >
+                <Typography variant="body1" sx={{ flexShrink: 0 }}>
+                  {getDisplayLabel(option)}
+                </Typography>
+                <Typography 
+                  variant="body2" 
+                  color="text.secondary" 
+                  sx={{ 
+                    fontStyle: 'italic',
+                    marginLeft: 'auto',
+                    paddingLeft: '16px',
+                    minWidth: 0,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis'
+                  }}
+                >
+                  {option.email || 'No email'}
+                </Typography>
+              </Box>
+            );
+          }}
           onChange={(event, newValue) => {
             if (!newValue) {
               setNewDelivery({
