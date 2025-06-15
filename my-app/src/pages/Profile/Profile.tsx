@@ -1774,7 +1774,37 @@ const Profile = () => {
               renderField={renderField}
               fieldLabelStyles={fieldLabelStyles}
               errors={errors}
-            />
+            />          </SectionBox>
+          <SectionBox sx={{ textAlign: 'right', width: '100%' }}>
+            <Box display="flex" alignItems="center" justifyContent="flex-end" gap={1}>
+              <StyledIconButton
+                  onClick={() => {
+                    if (isEditing) handleCancel();
+                    setIsEditing((prev) => !prev);
+                  }}
+                  size="small"
+                >
+                  <Tooltip title={isEditing ? "Cancel Editing" : "Edit All"}>
+                    {isEditing ? (
+                      <span className="cancel-btn">
+                        <CloseIcon />
+                      </span>
+                    ) : (
+                      <EditIcon />
+                    )}
+                  </Tooltip>
+                </StyledIconButton>
+                {isEditing && (
+                  <StyledIconButton
+                    color="primary"
+                    onClick={handleSave}
+                    aria-label="save"
+                    size="small"
+                  >
+                    <SaveIcon />
+                  </StyledIconButton>
+                )}
+            </Box>
           </SectionBox>
         </Box> {/* End centered-box */}
       </Box> {/* End profile-main */}
