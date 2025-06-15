@@ -2,8 +2,8 @@ import { getFirestore, collection, getDocs } from "firebase/firestore";
 import JSZip from "jszip";
 import { saveAs } from "file-saver";
 import Papa from "papaparse";
-import { RowData as DeliveryRowData } from "./types/deliveryTypes"; // Import the type used in DeliverySpreadsheet
 import { Cluster } from "./DeliverySpreadsheet"; // Import Cluster type
+import { RowData } from "./types/deliveryTypes"; // Import the correct type
 
 interface SpreadsheetClientProfile {
   uid: string;
@@ -25,7 +25,7 @@ interface SpreadsheetClientProfile {
 
 export const exportDeliveries = async (
   deliveryDate: string,
-  rowsToExport: DeliveryRowData[],
+  rowsToExport: RowData[],
   clusters: Cluster[]
 ) => {
   try {
@@ -35,16 +35,7 @@ export const exportDeliveries = async (
     }
     console.log("Rows to Export:", rowsToExport);
 
-    const db = getFirestore();
-    const volunteersSnapshot = await getDocs(collection(db, "Drivers"));
-    const volunteers = volunteersSnapshot.docs.reduce((acc: Record<string, { id: string; name: string }>, doc) => {
-       const data = doc.data();
-       acc[data.name] = { id: doc.id, name: data.name };
-      return acc;
-    }, {});
-     console.log("Fetched Volunteers (indexed by name):", volunteers);
-
-    const groupedByDriver: Record<string, DeliveryRowData[]> = {};
+    const groupedByDriver: Record<string, RowData[]> = {};
     rowsToExport.forEach((row) => {
       const cluster = clusters.find(c => c.deliveries?.includes(row.id));
       const driverName = cluster?.driver || "Unassigned";
@@ -65,59 +56,87 @@ export const exportDeliveries = async (
     }
 
     const zip = new JSZip();
+    let filesCreated = 0;
 
     for (const driverName in groupedByDriver) {
-      // Restore the check to skip unassigned drivers
+      // Skip unassigned drivers
       if (driverName === "Unassigned") {
-          // Optionally log that unassigned are being skipped if needed for debugging
-          // console.log("Skipping export for unassigned deliveries group.");
-          continue; // Skip creating a file for the "Unassigned" group
+          console.log("Skipping export for unassigned deliveries group.");
+          continue;
       }
 
-      // Log the driver group being processed (this is still useful)
       console.log(`Processing export for driver: ${driverName}`, groupedByDriver[driverName]);
 
       const csvData = groupedByDriver[driverName]
         .map((row) => {
-          const dietaryPreferences = row.deliveryDetails?.dietaryRestrictions
-            ? Object.entries(row.deliveryDetails.dietaryRestrictions || {})
-                .filter(([key, value]) => value === true)
-                .map(([key]) => key)
-                .join(", ")
-            : "";
+          try {
+            const dietaryPreferences = row.deliveryDetails?.dietaryRestrictions
+              ? Object.entries(row.deliveryDetails.dietaryRestrictions || {})
+                  .filter(([key, value]) => value === true)
+                  .map(([key]) => key)
+                  .join(", ")
+              : "";
 
-          return {
-            firstName: row.firstName,
-            lastName: row.lastName,
-            address: row.address,
-            apt: row.apt || "",
-            zip: row.zipCode,
-            quadrant: row.quadrant || "",
-            ward: row.ward || "",
-            phone: row.phone,
-            adults: row.adults,
-            children: row.children,
-            total: row.total,
-            deliveryInstructions: row.deliveryDetails?.deliveryInstructions || "",
-            dietaryPreferences: dietaryPreferences,
-            tefapFY25: row.tags?.includes("Tefap") ? "Y" : "N",
-            deliveryDate: deliveryDate,
-            cluster: row.clusterId || "",
-          };
+            // Find the cluster for this row to get the cluster ID
+            const cluster = clusters.find(c => c.deliveries?.includes(row.id));
+            const clusterNumber = cluster?.id || "";
+
+            // Handle apt field - it might not exist in RowData, so use dynamic access
+            const rowData = row as any;
+
+            return {
+              firstName: row.firstName || "",
+              lastName: row.lastName || "",
+              address: row.address || "",
+              zip: row.zipCode || "",
+              quadrant: rowData.quadrant || "",
+              ward: row.ward || "",
+              phone: row.phone || "",
+              adults: rowData.adults || 0,
+              children: rowData.children || 0,
+              total: rowData.total || (rowData.adults || 0) + (rowData.children || 0),
+              deliveryInstructions: row.deliveryDetails?.deliveryInstructions || "",
+              dietaryPreferences: dietaryPreferences,
+              tefapFY25: row.tags?.includes("Tefap") ? "Y" : "N",
+              deliveryDate: deliveryDate,
+              cluster: clusterNumber, // Use the cluster ID from the cluster lookup
+            };
+          } catch (error) {
+            console.error(`Error processing row ${row.id}:`, error);
+            return null;
+          }
         })
         .filter(Boolean);
 
-      const csv = Papa.unparse(csvData);
+      if (csvData.length === 0) {
+        console.warn(`No valid data for driver: ${driverName}`);
+        continue;
+      }
 
-      const fileName = `FFA ${deliveryDate} - ${driverName}.csv`;
-      zip.file(fileName, csv);
+      try {
+        const csv = Papa.unparse(csvData);
+        const fileName = `FFA ${deliveryDate} - ${driverName}.csv`;
+        zip.file(fileName, csv);
+        filesCreated++;
+      } catch (error) {
+        console.error(`Error creating CSV for driver ${driverName}:`, error);
+      }
     }
 
-    zip.generateAsync({ type: "blob" }).then((content) => {
-      saveAs(content, `FFA ${deliveryDate}.zip`);
-    });
+    if (filesCreated === 0) {
+      alert("No files could be created for export. Please check that drivers are assigned and data is valid.");
+      return;
+    }
 
-    alert("ZIP file generated successfully!");
+    try {
+      const content = await zip.generateAsync({ type: "blob" });
+      saveAs(content, `FFA ${deliveryDate}.zip`);
+      alert(`ZIP file generated successfully with ${filesCreated} driver route(s)!`);
+    } catch (error) {
+      console.error("Error generating ZIP file:", error);
+      alert("Error generating ZIP file. Please try again.");
+    }
+
   } catch (error) {
     console.error("Error generating ZIPs:", error);
     const errorMessage = error instanceof Error ? error.message : "Unknown error";

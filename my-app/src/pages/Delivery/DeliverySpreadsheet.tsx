@@ -53,35 +53,6 @@ import ClientService from "../../services/client-service";
 import { LatLngTuple } from "leaflet";
 import { UserType } from "../../types";
 import { useAuth } from "../../auth/AuthProvider";
-
-interface RowData {
-  id: string;
-  clientid: string;
-  firstName: string;
-  lastName: string;
-  address: string;
-  tags?: string[];
-  ward?: string;
-  clusterId: string;
-  coordinates: { lat: number; lng: number }[];
-  deliveryDetails: {
-    deliveryInstructions: string;
-    dietaryRestrictions: {
-      foodAllergens: string[];
-      halal: boolean;
-      kidneyFriendly: boolean;
-      lowSodium: boolean;
-      lowSugar: boolean;
-      microwaveOnly: boolean;
-      noCookingEquipment: boolean;
-      other: string[];
-      softFood: boolean;
-      vegan: boolean;
-      vegetarian: boolean;
-    };
-  };
-}
-
 // interface Driver {
 //   id: string;
 //   name: string;
@@ -673,7 +644,7 @@ const DeliverySpreadsheet: React.FC = () => {
         console.log("Emailing Routes...");
         // Add your email logic here
       } else if (option === "Download") {
-        // Pass visibleRows and clusters to exportDeliveries
+        // Pass rows and clusters to exportDeliveries
         exportDeliveries(format(selectedDate, "yyyy-MM-dd"), rows, clusters);
         console.log("Downloading Routes...");
         // Add your download logic here
