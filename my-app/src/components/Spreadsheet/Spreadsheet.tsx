@@ -538,7 +538,7 @@ const StyleChip = styled(Chip)({
   setExportOption(option);
   setExportDialogOpen(false);
   if (option === "QueryResults") {
-    exportQueryResults(filteredRows);
+    exportQueryResults(filteredRows, customColumns);
   } else if (option === "AllClients") {
     exportAllClients(rows);
   }
