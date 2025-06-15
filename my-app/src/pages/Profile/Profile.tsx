@@ -1,6 +1,5 @@
 import CloseIcon from "@mui/icons-material/Close";
 import EditIcon from "@mui/icons-material/Edit";
-import PersonIcon from "@mui/icons-material/Person";
 import SaveIcon from "@mui/icons-material/Save";
 import {
   Autocomplete,
@@ -414,9 +413,9 @@ const Profile = () => {
         console.error("Failed to fetch delivery history", error);
       }
     };
-
+    console.log('ran')
     fetchDeliveryHistory();
-  }, [clientId]);
+  }, [clientId, isDeliveryModalOpen]);
 
   const calculateAge = (dob: Date) => {
     const diff = Date.now() - dob.getTime();
