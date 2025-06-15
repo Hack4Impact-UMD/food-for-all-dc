@@ -43,7 +43,7 @@ import AssignDriverPopup from "./components/AssignDriverPopup";
 import GenerateClustersPopup from "./components/GenerateClustersPopup";
 import AssignTimePopup from "./components/AssignTimePopup";
 import LoadingIndicator from "../../components/LoadingIndicator/LoadingIndicator";
-import { exportDeliveries } from "./RouteExport";
+import { exportDeliveries, exportDoordashDeliveries } from "./RouteExport";
 import Button from "../../components/common/Button";
 import ManualAssign from "./components/ManualAssignPopup";
 import { RowData as DeliveryRowData } from "./types/deliveryTypes";
@@ -623,9 +623,9 @@ const DeliverySpreadsheet: React.FC = () => {
       if (option === "Email") {
         alert("Unimplemented");
       } else if (option === "Download") {
-        // Logic to download Doordash
+        // Export DoorDash deliveries grouped by time
+        exportDoordashDeliveries(format(selectedDate, "yyyy-MM-dd"), rows, clusters);
         console.log("Downloading Doordash...");
-        // Add your download logic here
       }
     }
   };
