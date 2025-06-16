@@ -5,6 +5,20 @@ import Papa from "papaparse";
 import { Cluster } from "./DeliverySpreadsheet"; // Import Cluster type
 import { RowData } from "./types/deliveryTypes"; // Import the correct type
 
+// Helper function to format time consistently
+const formatTime = (time: string): string => {
+  if (!time) return "No time assigned";
+
+  // Convert 24-hour format to 12-hour AM/PM format
+  const [hours, minutes] = time.split(":");
+  let hours12 = parseInt(hours, 10);
+  const ampm = hours12 >= 12 ? "PM" : "AM";
+  hours12 = hours12 % 12;
+  hours12 = hours12 ? hours12 : 12; // Convert 0 to 12 for 12 AM
+
+  return `${hours12}:${minutes} ${ampm}`;
+};
+
 interface SpreadsheetClientProfile {
   uid: string;
   firstName: string;
@@ -77,9 +91,10 @@ export const exportDeliveries = async (
                   .join(", ")
               : "";
 
-            // Find the cluster for this row to get the cluster ID
+            // Find the cluster for this row to get the cluster ID and time
             const cluster = clusters.find(c => c.deliveries?.includes(row.id));
             const clusterNumber = cluster?.id || "";
+            const assignedTime = formatTime(cluster?.time || "");
 
             // Handle apt field - it might not exist in RowData, so use dynamic access
             const rowData = row as any;
@@ -100,6 +115,7 @@ export const exportDeliveries = async (
               tefapFY25: row.tags?.includes("Tefap") ? "Y" : "N",
               deliveryDate: deliveryDate,
               cluster: clusterNumber, // Use the cluster ID from the cluster lookup
+              time: assignedTime, // Add the formatted time column
             };
           } catch (error) {
             console.error(`Error processing row ${row.id}:`, error);
@@ -203,9 +219,10 @@ export const exportDoordashDeliveries = async (
                   .join(", ")
               : "";
 
-            // Find the cluster for this row to get the cluster ID
+            // Find the cluster for this row to get the cluster ID and time
             const cluster = clusters.find(c => c.deliveries?.includes(row.id));
             const clusterNumber = cluster?.id || "";
+            const assignedTime = formatTime(cluster?.time || "");
 
             // Handle apt field - it might not exist in RowData, so use dynamic access
             const rowData = row as any;
@@ -226,6 +243,7 @@ export const exportDoordashDeliveries = async (
               tefapFY25: row.tags?.includes("Tefap") ? "Y" : "N",
               deliveryDate: deliveryDate,
               cluster: clusterNumber,
+              time: assignedTime, // Add the formatted time column
             };
           } catch (error) {
             console.error(`Error processing row ${row.id}:`, error);
