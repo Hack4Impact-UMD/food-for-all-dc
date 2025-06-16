@@ -614,8 +614,8 @@ const DeliverySpreadsheet: React.FC = () => {
       if (option === "Email") {
         alert("Unimplemented");
       } else if (option === "Download") {
-        // Pass visibleRows and clusters to exportDeliveries
-        exportDeliveries(format(selectedDate, "yyyy-MM-dd"), visibleRows, clusters);
+        // Pass rows and clusters to exportDeliveries
+        exportDeliveries(format(selectedDate, "yyyy-MM-dd"), rows, clusters);
         console.log("Downloading Routes...");
         // Add your download logic here
       }
@@ -624,7 +624,7 @@ const DeliverySpreadsheet: React.FC = () => {
         alert("Unimplemented");
       } else if (option === "Download") {
         // Export DoorDash deliveries grouped by time
-        exportDoordashDeliveries(format(selectedDate, "yyyy-MM-dd"), visibleRows, clusters);
+        exportDoordashDeliveries(format(selectedDate, "yyyy-MM-dd"), rows, clusters);
         console.log("Downloading Doordash...");
       }
     }
