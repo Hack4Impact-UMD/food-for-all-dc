@@ -67,22 +67,15 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = ({
     setCustomDates([]);
     resetFormAndClose();
   };
-
   const isFormValid =
     newDelivery.clientId !== "" &&
-    (newDelivery.recurrence !== "Custom" || customDates.length > 0);  // Filter out duplicate clients based on UID - memoized for performance
+    (newDelivery.recurrence !== "Custom" || customDates.length > 0);
+
+  // Filter out duplicate clients based on UID - memoized for performance
   const uniqueClients = React.useMemo(() => {
     const filtered = clients.filter((client, index, self) => 
       index === self.findIndex(c => c.uid === client.uid)
     );
-    
-    // Console log all clients with their details
-    console.log('All clients:', clients.map(client => ({
-      firstName: client.firstName,
-      lastName: client.lastName,
-      uid: client.uid,
-      email: client.email
-    })));
     
     return filtered;
   }, [clients]);
