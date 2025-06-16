@@ -128,8 +128,7 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = ({
               >
                 <Typography variant="body1" sx={{ flexShrink: 0 }}>
                   {getDisplayLabel(option)}
-                </Typography>
-                <Typography 
+                </Typography>                <Typography 
                   variant="body2" 
                   color="text.secondary" 
                   sx={{ 
@@ -141,7 +140,7 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = ({
                     textOverflow: 'ellipsis'
                   }}
                 >
-                  {option.email || 'No email'}
+                  {option.address || 'No address'}
                 </Typography>
               </Box>
             );
