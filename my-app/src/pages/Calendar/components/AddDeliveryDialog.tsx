@@ -40,7 +40,7 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = ({
     return {
       clientId: "",
       clientName: "",
-      deliveryDate: startDate.toString().split("T")[0],
+      deliveryDate: startDate.toString("yyyy-MM-dd"),
       recurrence: "None",
       repeatsEndDate: "",
     };
@@ -48,21 +48,21 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = ({
 
   const [customDates, setCustomDates] = useState<Date[]>([]);
 
-  //update newDelivery with the correct date when the dialog is opened
+  //update newDelivery with the correct date when the dialog is first opened
   useEffect(() => {
     if (open) {
       setNewDelivery(prev => ({
         ...prev,
-        deliveryDate: startDate.toString().split("T")[0],
+        deliveryDate: startDate.toString("yyyy-MM-dd"),
       }));
     }
-  }, [startDate, open]);
+  }, [open]); // Removed startDate dependency to prevent overwriting user input
 
   const resetFormAndClose = () => {
     setNewDelivery({
       clientId: "",
       clientName: "",
-      deliveryDate: startDate.toString().split("T")[0],
+      deliveryDate: startDate.toString("yyyy-MM-dd"),
       recurrence: "None",
       repeatsEndDate: "",
     });
