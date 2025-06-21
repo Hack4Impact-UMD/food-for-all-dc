@@ -387,7 +387,6 @@ const DeliverySpreadsheet: React.FC = () => {
       ...availableIds.map(id => ({ value: id, label: id, color: clusterColorMap(id) })),
       { value: nextId, label: nextId, color: clusterColorMap(nextId) } // Add next available ID
     ];
-    console.log("Cluster Options:", options);
     options.pop();
     if (options.length == 0) {
       options.push({
