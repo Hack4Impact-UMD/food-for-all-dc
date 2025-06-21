@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Dialog,
   DialogTitle,
@@ -17,12 +17,14 @@ import {
 import { NewDelivery } from "../../../types/calendar-types";
 import { ClientProfile } from "../../../types/client-types";
 import CalendarMultiSelect from "./CalendarMultiSelect";
+import { DayPilot } from "@daypilot/daypilot-lite-react";
 
 interface AddDeliveryDialogProps {
   open: boolean;
   onClose: () => void;
   onAddDelivery: (newDelivery: NewDelivery) => void;
   clients: ClientProfile[];
+  startDate: DayPilot.Date;
 }
 
 const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = ({
@@ -30,13 +32,15 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = ({
   onClose,
   onAddDelivery,
   clients,
+  startDate
 }) => {
+
   const [newDelivery, setNewDelivery] = useState<NewDelivery>(() => {
-    const today = new Date().toISOString().split("T")[0];
+    
     return {
       clientId: "",
       clientName: "",
-      deliveryDate: today,
+      deliveryDate: startDate.toString("yyyy-MM-dd"),
       recurrence: "None",
       repeatsEndDate: "",
     };
@@ -44,12 +48,21 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = ({
 
   const [customDates, setCustomDates] = useState<Date[]>([]);
 
+  //update newDelivery with the correct date when the dialog is first opened
+  useEffect(() => {
+    if (open) {
+      setNewDelivery(prev => ({
+        ...prev,
+        deliveryDate: startDate.toString("yyyy-MM-dd"),
+      }));
+    }
+  }, [open]); // Removed startDate dependency to prevent overwriting user input
+
   const resetFormAndClose = () => {
-    const today = new Date().toISOString().split("T")[0];
     setNewDelivery({
       clientId: "",
       clientName: "",
-      deliveryDate: today,
+      deliveryDate: startDate.toString("yyyy-MM-dd"),
       recurrence: "None",
       repeatsEndDate: "",
     });

@@ -314,6 +314,39 @@ const DeliverySpreadsheet: React.FC = () => {
     setOpen(false);
   };
 
+  const clusterColors = [
+    "#FF0000", "#00FF00", "#0000FF", "#FFFF00", "#FF00FF",
+    "#00FFFF", "#FFA500", "#800080", "#008000", "#000080",
+    "#FF4500", "#4B0082", "#FF6347", "#32CD32", "#9370DB",
+    "#FF69B4", "#40E0D0", "#FF8C00", "#7CFC00", "#8A2BE2",
+    "#FF1493", "#1E90FF", "#228B22", "#9400D3", "#DC143C",
+    "#20B2AA", "#9932CC", "#FFD700", "#8B0000", "#4169E1"
+  ];
+  const clusterColorMap = (id: string) :string => {
+
+      const clusterId = id || "";
+      let colorIndex = 0;
+
+      if (clusterId) {
+        // Assuming cluster IDs are like "Cluster 1", "Cluster 2", etc.
+        // Extract the number part for color assignment.
+        // If format is different, adjust parsing logic.
+        const match = clusterId.match(/\d+/); 
+        const clusterNumber = match ? parseInt(match[0], 10) : 0;
+        if (!isNaN(clusterNumber)) {
+          colorIndex = (clusterNumber -1) % clusterColors.length; // Use number-1 for 0-based index
+        } else {
+           // Fallback for non-numeric IDs or parsing failures - hash the ID?
+           let hash = 0;
+           for (let i = 0; i < clusterId.length; i++) {
+               hash = clusterId.charCodeAt(i) + ((hash << 5) - hash);
+           }
+           colorIndex = Math.abs(hash) % clusterColors.length;
+        }
+      }
+
+      return clusterColors[colorIndex];
+  };
 
   // Calculate Cluster Options
   const clusterOptions = useMemo(() => {
@@ -322,12 +355,15 @@ const DeliverySpreadsheet: React.FC = () => {
     const nextId = (maxId + 1).toString();
     const availableIds = clusters.map(c => c.id).sort((a, b) => parseInt(a, 10) - parseInt(b, 10));
     const options = [
-      ...availableIds.map(id => ({ value: id, label: id })),
-      { value: nextId, label: nextId }
+      ...availableIds.map(id => ({ value: id, label: id, color: clusterColorMap(id) })),
+      { value: nextId, label: nextId, color: clusterColorMap(nextId) } // Add next available ID
     ];
-    options.pop()
-    if(options.length == 0){
-      options.push({value:"", label:"No Current Clusters"})
+    options.pop();
+    if (options.length == 0) {
+      options.push({
+        value: "", label: "No Current Clusters",
+        color: "#cccccc"
+      });
     }
     return options;
   }, [clusters]);
@@ -1604,7 +1640,12 @@ const DeliverySpreadsheet: React.FC = () => {
                             >
                               {clusterOptions.map((option) => (
                                 <MenuItem key={option.value} value={option.value}>
-                                  {option.label === "Unassigned" ? option.label : option.label}
+                                  <Chip
+                                    label={option.label === "Unassigned" ? option.label : option.label}
+                                    style={typeof option.color === 'string' ? 
+                                      { backgroundColor: option.color, color: 'white', border: '1px solid black', fontWeight: 'bold', textShadow: '#000 0px 0px 1px' } 
+                                      : undefined}
+                                  />
                                 </MenuItem>
                               ))}
                             </Select>

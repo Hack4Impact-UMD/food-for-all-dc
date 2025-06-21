@@ -436,6 +436,7 @@ const CalendarPage: React.FC = () => {
           onClose={() => setIsModalOpen(false)}
           onAddDelivery={handleAddDelivery}
           clients={clients}
+          startDate={currentDate}
         />
       </Box>
     </Box>
