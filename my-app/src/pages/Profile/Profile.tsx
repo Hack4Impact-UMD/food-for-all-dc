@@ -29,6 +29,7 @@ import {
   updateDoc,
   where,
   Timestamp,
+  deleteDoc,
 } from "firebase/firestore";
 import React, { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
@@ -52,7 +53,8 @@ import TagManager from "./Tags/TagManager";
 // Import types
 import { CaseWorker, ClientProfile } from "../../types";
 import { ClientProfileKey, InputType } from "./types";
-import { DeliveryEvent } from "../../types";
+import { DeliveryEvent } from "../../types/calendar-types";
+import { Delivery } from '../../types/delivery-types';
 
 // Styling
 const fieldStyles = {
@@ -742,7 +744,6 @@ const Profile = () => {
 
       // Also force geocode if coordinates are missing or invalid
       if (!addressChanged && (!clientProfile.coordinates || clientProfile.coordinates.length === 0 || (clientProfile.coordinates[0].lat === 0 && clientProfile.coordinates[0].lng === 0))) {
-          console.log("Forcing geocode due to missing/invalid coordinates.");
           addressChanged = true;
       }
 
@@ -750,11 +751,8 @@ const Profile = () => {
       let coordinatesToSave = clientProfile.coordinates; // Default to existing coordinates
 
       if (addressChanged) {
-        console.log("Address changed, fetching new Ward and Coordinates...");
         fetchedWard = await getWard(clientProfile.address); // Fetch ward only if address changed
         coordinatesToSave = await getCoordinates(clientProfile.address); // Fetch coordinates only if address changed
-      } else {
-        console.log("Address unchanged, using existing Ward and Coordinates.");
       }
       // --- Geocoding Optimization End ---
 
@@ -1762,6 +1760,15 @@ const Profile = () => {
               pastDeliveries={pastDeliveries}
               futureDeliveries={futureDeliveries}
               fieldLabelStyles={fieldLabelStyles}
+              onDeleteDelivery={async (delivery: DeliveryEvent) => {
+                try {
+                  const updatedFutureDeliveries = futureDeliveries.filter(d => d.id !== delivery.id);
+                  setFutureDeliveries(updatedFutureDeliveries);
+                  // Optionally, add Firestore deletion logic here
+                } catch (error) {
+                  console.error('Error deleting delivery:', error);
+                }
+              }}
             />
           </SectionBox>
 

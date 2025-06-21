@@ -20,6 +20,8 @@ export interface DeliveryEvent extends Delivery {
   recurrence: "None" | "Weekly" | "2x-Monthly" | "Monthly" | "Custom";
   customDates?: string[];
   recurrenceId: string;
+  isZoomingOut?: boolean;
+  isZoomingIn?: boolean;
 }
 
 export interface NewDelivery {
@@ -48,4 +50,4 @@ export interface CalendarConfig {
   viewType: DayPilotViewType | ViewType;
   startDate: DayPilot.Date;
   events: CalendarEvent[];
-} 
+}

@@ -60,11 +60,19 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
   };
 
   const handleDeleteClick = () => {
+    if (new Date(event.deliveryDate) < new Date()) {
+      console.warn("Cannot delete past events.");
+      return;
+    }
     setIsDeleteDialogOpen(true);
     handleMenuClose();
   };
 
   const handleEditClick = () => {
+    if (new Date(event.deliveryDate) < new Date()) {
+      console.warn("Cannot edit past events.");
+      return;
+    }
     setIsEditDialogOpen(true);
     handleMenuClose();
   };
@@ -186,10 +194,13 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
     setIsEditDialogOpen(false);
   };
 
+  const isPastEvent = new Date(event.deliveryDate) < new Date();
+
   return (
     <>
       <IconButton
         onClick={handleMenuOpen}
+        disabled={isPastEvent}
         sx={{
           backgroundColor: 'var(--color-background-light)',
           borderRadius: '50%',
@@ -197,14 +208,13 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
           color: 'var(--color-primary)',
           transition: 'background 0.2s, color 0.2s',
           '&:hover': {
-            backgroundColor: 'rgba(37, 126, 104, 0.12)', // var(--color-primary) with opacity
+            backgroundColor: 'rgba(37, 126, 104, 0.12)',
             color: 'var(--color-primary-dark)',
           },
           width: 40,
           height: 40,
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'center',
         }}
         aria-label="Open event menu"
       >
@@ -212,8 +222,8 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
       </IconButton>
 
       <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={handleMenuClose}>
-        <MenuItem disabled = {userRole === UserType.ClientIntake} onClick={handleEditClick}>Edit</MenuItem>
-        <MenuItem disabled = {userRole === UserType.ClientIntake} onClick={handleDeleteClick}>Delete</MenuItem>
+        <MenuItem disabled={isPastEvent || userRole === UserType.ClientIntake} onClick={handleEditClick}>Edit</MenuItem>
+        <MenuItem disabled={isPastEvent || userRole === UserType.ClientIntake} onClick={handleDeleteClick}>Delete</MenuItem>
       </Menu>
 
       {/* Edit Dialog */}
@@ -268,25 +278,23 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
                 </Select>
               </FormControl>
 
-              {editRecurrence.recurrence !== "None" && (
-                <Box>
-                  <Typography variant="subtitle1">End Date</Typography>
-                  <TextField
-                    label="End Date"
-                    type="date"
-                    value={editRecurrence.repeatsEndDate}
-                    onChange={(e) =>
-                      setEditRecurrence({
-                        ...editRecurrence,
-                        repeatsEndDate: e.target.value,
-                      })
-                    }
-                    fullWidth
-                    margin="normal"
-                    InputLabelProps={{ shrink: true }}
-                  />
-                </Box>
-              )}
+              <Box>
+                <Typography variant="subtitle1">End Date</Typography>
+                <TextField
+                  label="End Date"
+                  type="date"
+                  value={editRecurrence.repeatsEndDate}
+                  onChange={(e) =>
+                    setEditRecurrence({
+                      ...editRecurrence,
+                      repeatsEndDate: e.target.value,
+                    })
+                  }
+                  fullWidth
+                  margin="normal"
+                  InputLabelProps={{ shrink: true }}
+                />
+              </Box>
             </>
           )}
         </DialogContent>

@@ -21,6 +21,10 @@ const CalendarMultiSelect: React.FC<CalendarMultiSelectProps> = ({ selectedDates
   };
 
   const handleDeleteDate = (dateToDelete: Date) => {
+    if (dateToDelete < new Date()) {
+      console.warn("Cannot delete chips for past dates.");
+      return;
+    }
     setSelectedDates(selectedDates.filter(d => d.toDateString() !== dateToDelete.toDateString()));
   };
 
@@ -66,4 +70,4 @@ const CalendarMultiSelect: React.FC<CalendarMultiSelectProps> = ({ selectedDates
   );
 };
 
-export default CalendarMultiSelect; 
+export default CalendarMultiSelect;
