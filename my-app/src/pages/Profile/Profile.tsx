@@ -2009,7 +2009,6 @@ const Profile = () => {
 
           {/* Delivery Log Section */}
           <SectionBox mb={3}>
-<<<<<<< HEAD
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
             <SectionTitle sx={{ textAlign: 'left', width: '100%' }}>Delivery Log</SectionTitle>
             <Button
@@ -2032,10 +2031,9 @@ const Profile = () => {
               onClose={() => setIsDeliveryModalOpen(false)}
               onAddDelivery={handleAddDelivery}
               clients={clients}
+              startDate={new DayPilot.Date()}
             />
-=======
             <SectionTitle sx={{ textAlign: 'left', width: '100%' }}>Deliveries</SectionTitle>
->>>>>>> origin/main
             <DeliveryLogForm
               pastDeliveries={pastDeliveries}
               futureDeliveries={futureDeliveries}
