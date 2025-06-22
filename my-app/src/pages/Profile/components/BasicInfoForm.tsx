@@ -14,6 +14,7 @@ interface BasicInfoFormProps {
   caseWorkers: CaseWorker[];
   setShowCaseWorkerModal: React.Dispatch<React.SetStateAction<boolean>>;
   handleCaseWorkerChange: (cw: CaseWorker | null) => void;
+  addressError?: string; // Add this new prop
 }
 
 const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
@@ -26,6 +27,7 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
   caseWorkers,
   setShowCaseWorkerModal,
   handleCaseWorkerChange,
+  addressError, // Add this new prop
 }) => {
   return (
     <Box
@@ -89,6 +91,20 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
         {errors.address && (
           <Typography color="error" variant="body2">
             {errors.address}
+          </Typography>
+        )}
+        {/* Add address error display */}
+        {addressError && (
+          <Typography 
+            color="error" 
+            variant="body2"
+            sx={{ 
+              fontSize: '0.75rem',
+              marginTop: '4px',
+              fontStyle: 'italic'
+            }}
+          >
+            {addressError}
           </Typography>
         )}
       </Box>

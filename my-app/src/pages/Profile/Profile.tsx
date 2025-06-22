@@ -256,6 +256,9 @@ const Profile = () => {
   const [futureDeliveries, setFutureDeliveries] = useState<DeliveryEvent[]>([]);
   const [events, setEvents] = useState<DeliveryEvent[]>([]);
   const [clients, setClients] = useState<ClientProfile[]>([]);
+  const [addressError, setAddressError] = useState<string>("");
+  const [userTypedAddress, setUserTypedAddress] = useState<string>("");
+  const [isAddressValidated, setIsAddressValidated] = useState<boolean>(true);
 
   // Function to fetch profile data by ID
   const getProfileById = async (id: string) => {
@@ -567,11 +570,20 @@ const Profile = () => {
       | SelectChangeEvent
   ) => {
     const { name, value } = e.target;
-
+  
     // Always mark as unsaved when a change occurs
     setIsSaved(false);
     handlePrevClientCopying();
-
+  
+    // Special handling for address field to avoid conflicts with Google Places
+    if (name === "address") {
+      // Clear address error when user manually changes address
+      if (addressError) {
+        setAddressError("");
+        setIsAddressValidated(true);
+      }
+    }
+  
     if (name === "dob" || name === "tefapCert") {
       const date = e.target.value; // this will be in the format YYYY-MM-DD
       setClientProfile((prevState) => ({
@@ -594,7 +606,7 @@ const Profile = () => {
         ...prevState,
         [name]: value,
       }));
-
+  
       // Special handling for deliveryInstructions field
       if (name === "deliveryDetails.deliveryInstructions") {
         setClientProfile((prev) => ({
@@ -719,7 +731,13 @@ const Profile = () => {
 
   const handleSave = async () => {
     const validation = validateProfile();
-
+  
+    // Check for address validation error
+    if (addressError) {
+      alert("Please fix the address error before saving. Make sure to select a valid address from the Google Places suggestions.");
+      return;
+    }
+  
     if (Object.keys(validation).length > 0) {
       const errorFields = Object.entries(validation)
         .map(([field, message]) => `- ${message}`)
@@ -727,13 +745,12 @@ const Profile = () => {
       alert(`Please fix the following before saving:\n${errorFields}`);
       return;
     }
-
+  
     // Show saving indicator? (Optional)
     // setIsLoading(true);
-
+  
     try {
-
-
+      // ... rest of the existing handleSave function code remains the same
       // --- Geocoding Optimization Start ---
       let addressChanged = false;
       if (isNewProfile || !prevClientProfile) {
@@ -750,16 +767,16 @@ const Profile = () => {
           addressChanged = true;
         }
       }
-
+  
       // Also force geocode if coordinates are missing or invalid
       if (!addressChanged && (!clientProfile.coordinates || clientProfile.coordinates.length === 0 || (clientProfile.coordinates[0].lat === 0 && clientProfile.coordinates[0].lng === 0))) {
         console.log("Forcing geocode due to missing/invalid coordinates.");
         addressChanged = true;
       }
-
+  
       let fetchedWard = clientProfile.ward; // Default to existing ward
       let coordinatesToSave = clientProfile.coordinates; // Default to existing coordinates
-
+  
       if (addressChanged) {
         console.log("Address changed, fetching new Ward and Coordinates...");
         fetchedWard = await getWard(clientProfile.address); // Fetch ward only if address changed
@@ -768,7 +785,7 @@ const Profile = () => {
         console.log("Address unchanged, using existing Ward and Coordinates.");
       }
       // --- Geocoding Optimization End ---
-
+  
       const currentNotes = clientProfile.notes || ""; // Ensure notes is a string
       let updatedNotesTimestamp = checkIfNotesExists(
         currentNotes,
@@ -779,7 +796,7 @@ const Profile = () => {
         currentNotes,
         updatedNotesTimestamp
       );
-
+  
       // Delivery Instructions Timestamp
       const prevDeliveryInstructions = prevClientProfile?.deliveryDetails.deliveryInstructions || "";
       const currentDeliveryInstructions = clientProfile.deliveryDetails.deliveryInstructions || "";
@@ -792,7 +809,7 @@ const Profile = () => {
         currentDeliveryInstructions,
         updatedDeliveryInstructionsTimestamp
       );
-
+  
       // Life Challenges Timestamp
       const prevLifeChallenges = prevClientProfile?.lifeChallenges || "";
       const currentLifeChallenges = clientProfile.lifeChallenges || "";
@@ -805,7 +822,7 @@ const Profile = () => {
         currentLifeChallenges,
         updatedLifeChallengesTimestamp
       );
-
+  
       // Lifestyle Goals Timestamp
       const prevLifestyleGoals = prevClientProfile?.lifestyleGoals || "";
       const currentLifestyleGoals = clientProfile.lifestyleGoals || "";
@@ -818,7 +835,7 @@ const Profile = () => {
         currentLifestyleGoals,
         updatedLifestyleGoalsTimestamp
       );
-
+  
       // Update the clientProfile object with the latest tags state and other calculated fields
       const updatedProfile: ClientProfile = {
         ...clientProfile,
@@ -836,12 +853,12 @@ const Profile = () => {
           ? { id: selectedCaseWorker.id, name: selectedCaseWorker.name, organization: selectedCaseWorker.organization }
           : null, // Use null if no case worker is selected
       };
-
+  
       // Sort allTags before potentially saving them (ensures consistent order)
       // Combine current tags and all known tags, remove duplicates, then sort
       const combinedTags = Array.from(new Set([...allTags, ...tags])); // Use Array.from for compatibility
       const sortedAllTags = combinedTags.sort((a, b) => a.localeCompare(b));
-
+  
       if (isNewProfile) {
         // Generate new UID for new profile
         const newUid = await generateUID();
@@ -850,13 +867,13 @@ const Profile = () => {
           uid: newUid,
           createdAt: new Date(), // Set createdAt for new profile
         };
-
+  
         // Save to Firestore for new profile
         console.log("Creating new profile:", newProfile);
         await setDoc(doc(db, "clients", newUid), newProfile);
         // Update the central tags list
         await setDoc(doc(db, "tags", "oGuiR2dQQeOBXHCkhDeX"), { tags: sortedAllTags }, { merge: true });
-
+  
         // Update state *before* navigating
         setClientProfile(newProfile); // Update with the full new profile data including UID/createdAt
         setPrevClientProfile(null); // Clear previous state backup
@@ -866,11 +883,11 @@ const Profile = () => {
         setIsSaved(true);       // Indicate save was successful
         setErrors({});          // Clear validation errors
         setAllTags(sortedAllTags); // Update the local list of all tags
-
+  
         console.log("New profile created with ID: ", newUid);
         // Navigate *after* state updates. The component will remount with isEditing=false.
         navigate(`/profile/${newUid}`);
-
+  
       } else {
         // Update existing profile
         if (!clientProfile.uid) {
@@ -882,7 +899,7 @@ const Profile = () => {
         await setDoc(doc(db, "clients", clientProfile.uid), updatedProfile, { merge: true }); // Use merge: true for updates
         // Update the central tags list
         await setDoc(doc(db, "tags", "oGuiR2dQQeOBXHCkhDeX"), { tags: sortedAllTags }, { merge: true });
-
+  
         // Update state *after* successful save for existing profile
         setClientProfile(updatedProfile); // Update with latest data
         setPrevClientProfile(null); // Clear previous state backup
@@ -891,15 +908,15 @@ const Profile = () => {
         setIsEditing(false); // <<<<<< EXIT EDIT MODE HERE for existing profiles
         setErrors({}); // Clear validation errors
         setAllTags(sortedAllTags); // Update the local list of all tags
-
+  
         console.log("Profile updated:", clientProfile.uid);
       }
-
+  
       // Common post-save actions (Popup notification)
       // setEditMode(false); <-- Removed redundant call
       setShowSavePopup(true);
       setTimeout(() => setShowSavePopup(false), 2000);
-
+  
     } catch (e) {
       console.error("Error saving document: ", e);
       alert(`Failed to save profile: ${e instanceof Error ? e.message : String(e)}`);
@@ -1552,114 +1569,182 @@ const Profile = () => {
     };
   }, []); // Run once on component mount
 
-  // Initialize autocomplete when editing and API is loaded and input ref exists
-  useEffect(() => {
-    // Only initialize when all dependencies are ready
-    if (!isEditing || !isGoogleApiLoaded || !addressInputRef.current) {
-      return;
-    }
 
-    console.log("Initializing Google Places autocomplete...");
+// Initialize autocomplete when editing and API is loaded and input ref exists
+useEffect(() => {
+  // Only initialize when all dependencies are ready
+  if (!isEditing || !isGoogleApiLoaded || !addressInputRef.current) {
+    return;
+  }
 
-    // Clean up previous instance if it exists
-    if (autocompleteRef.current) {
-      try {
-        window.google.maps.event.clearInstanceListeners(autocompleteRef.current);
-      } catch (err) {
-        console.warn("Failed to clear listeners from previous autocomplete instance", err);
-      }
-      autocompleteRef.current = null;
-    }
+  console.log("Initializing Google Places autocomplete...");
 
+  // Clean up previous instance if it exists
+  if (autocompleteRef.current) {
     try {
-      // Create new autocomplete instance
-      autocompleteRef.current = new window.google.maps.places.Autocomplete(
-        addressInputRef.current,
-        {
-          types: ["address"],
-          componentRestrictions: { country: "us" },
-          fields: ["address_components", "formatted_address", "geometry", "place_id"],
-        }
-      );
-
-      // Add place_changed listener
-      const listener = autocompleteRef.current.addListener("place_changed", () => {
-        const place = autocompleteRef.current?.getPlace();
-        console.log("Place selected:", place);
-
-        if (!place || !place.address_components) {
-          console.warn("No valid place selected or missing address components");
-          return;
-        }
-
-        if (place?.formatted_address) {
-          const address = place.formatted_address;
-          const addressComponents = place.address_components;
-
-          let streetNumber = "";
-          let streetName = "";
-          let city = "";
-          let state = "";
-          let zipCode = "";
-          let quadrant = "";
-
-          if (addressComponents) {
-            for (const component of addressComponents) {
-              const types = component.types;
-
-              if (types.includes("street_number")) {
-                streetNumber = component.long_name;
-              }
-
-              if (types.includes("route")) {
-                streetName = component.long_name;
-              }
-
-              if (types.includes("locality") || types.includes("sublocality")) {
-                city = component.long_name;
-              }
-
-              if (types.includes("administrative_area_level_1")) {
-                state = component.short_name;
-              }
-
-              if (types.includes("postal_code")) {
-                zipCode = component.long_name;
-              }
-            }
-
-            const quadrantMatch = address.match(/(NW|NE|SW|SE)(\s|,|$)/);
-            if (state === "DC" && quadrantMatch) {
-              quadrant = quadrantMatch[1];
-            }
-
-            console.log("Setting address components:", {
-              address: `${streetNumber} ${streetName}`.trim(),
-              city,
-              state,
-              zipCode,
-              quadrant
-            });
-
-            setClientProfile((prev) => ({
-              ...prev,
-              address: `${streetNumber} ${streetName}`.trim(),
-              city: city,
-              state: state,
-              zipCode: zipCode,
-              quadrant: quadrant,
-            }));
-          }
-        }
-      });
-
-      console.log("Google Places autocomplete initialized successfully");
-    } catch (error) {
-      console.error("Error initializing Google Places autocomplete:", error);
+      window.google.maps.event.clearInstanceListeners(autocompleteRef.current);
+    } catch (err) {
+      console.warn("Failed to clear listeners from previous autocomplete instance", err);
     }
+    autocompleteRef.current = null;
+  }
 
-    // Cleanup function
+  try {
+    // Create new autocomplete instance
+    autocompleteRef.current = new window.google.maps.places.Autocomplete(
+      addressInputRef.current,
+      {
+        types: ["address"],
+        componentRestrictions: { country: "us" },
+        fields: ["address_components", "formatted_address", "geometry", "place_id"],
+      }
+    );
+
+    // Add place_changed listener
+    const listener = autocompleteRef.current.addListener("place_changed", () => {
+      const place = autocompleteRef.current?.getPlace();
+      console.log("Place selected:", place);
+
+      if (!place || !place.address_components) {
+        console.warn("No valid place selected or missing address components");
+        return;
+      }
+
+      // Clear any previous address error since a valid place was selected
+      setAddressError("");
+      setIsAddressValidated(true);
+
+      if (place?.formatted_address) {
+        const address = place.formatted_address;
+        const addressComponents = place.address_components;
+
+        let streetNumber = "";
+        let streetName = "";
+        let city = "";
+        let state = "";
+        let zipCode = "";
+        let quadrant = "";
+
+        if (addressComponents) {
+          for (const component of addressComponents) {
+            const types = component.types;
+
+            if (types.includes("street_number")) {
+              streetNumber = component.long_name;
+            }
+
+            if (types.includes("route")) {
+              streetName = component.long_name;
+            }
+
+            if (types.includes("locality") || types.includes("sublocality")) {
+              city = component.long_name;
+            }
+
+            if (types.includes("administrative_area_level_1")) {
+              state = component.short_name;
+            }
+
+            if (types.includes("postal_code")) {
+              zipCode = component.long_name;
+            }
+          }
+
+          const quadrantMatch = address.match(/(NW|NE|SW|SE)(\s|,|$)/);
+          if (state === "DC" && quadrantMatch) {
+            quadrant = quadrantMatch[1];
+          }
+
+          console.log("Setting address components:", {
+            address: `${streetNumber} ${streetName}`.trim(),
+            city,
+            state,
+            zipCode,
+            quadrant
+          });
+
+          setClientProfile((prev) => ({
+            ...prev,
+            address: `${streetNumber} ${streetName}`.trim(),
+            city: city,
+            state: state,
+            zipCode: zipCode,
+            quadrant: quadrant,
+          }));
+
+          // Update the user typed address to match the selected address
+          setUserTypedAddress(`${streetNumber} ${streetName}`.trim());
+        }
+      }
+    });
+
+    // Modified input event listener - use debouncing to reduce conflicts
+    let inputTimeout: NodeJS.Timeout;
+    const inputListener = () => {
+      if (addressInputRef.current) {
+        const currentValue = addressInputRef.current.value;
+        
+        // Clear previous timeout
+        if (inputTimeout) {
+          clearTimeout(inputTimeout);
+        }
+        
+        // Debounce the state updates to avoid conflicts
+        inputTimeout = setTimeout(() => {
+          setUserTypedAddress(currentValue);
+          
+          // Clear address error when user starts typing again
+          if (addressError) {
+            setAddressError("");
+            setIsAddressValidated(true);
+          }
+        }, 150); // 150ms debounce
+      }
+    };
+
+    // Simplified blur event listener
+    const blurListener = () => {
+      if (addressInputRef.current) {
+        const currentValue = addressInputRef.current.value.trim();
+        
+        // Clear any pending input timeout
+        if (inputTimeout) {
+          clearTimeout(inputTimeout);
+        }
+        
+        // Only validate if there's a value and it doesn't match what's in clientProfile.address
+        if (currentValue && currentValue !== clientProfile.address) {
+          // Use a small delay to allow Google Places to process first
+          setTimeout(() => {
+            if (addressInputRef.current && 
+                addressInputRef.current.value.trim() === currentValue && 
+                currentValue !== clientProfile.address) {
+              setAddressError("Please select a valid address autofill suggestions.");
+              setIsAddressValidated(false);
+            }
+          }, 300);
+        } else if (currentValue === clientProfile.address) {
+          // Address matches the validated one
+          setAddressError("");
+          setIsAddressValidated(true);
+        }
+      }
+    };
+
+    // Use addEventListener with passive option to improve performance
+    addressInputRef.current.addEventListener('input', inputListener, { passive: true });
+    addressInputRef.current.addEventListener('blur', blurListener);
+
+    console.log("Google Places autocomplete initialized successfully");
+
+    // Store listeners for cleanup
+    const currentRef = addressInputRef.current;
     return () => {
+      // Clear any pending timeout
+      if (inputTimeout) {
+        clearTimeout(inputTimeout);
+      }
+      
       if (autocompleteRef.current) {
         try {
           window.google.maps.event.clearInstanceListeners(autocompleteRef.current);
@@ -1669,8 +1754,31 @@ const Profile = () => {
         }
         autocompleteRef.current = null;
       }
+      
+      // Clean up event listeners
+      if (currentRef) {
+        currentRef.removeEventListener('input', inputListener);
+        currentRef.removeEventListener('blur', blurListener);
+      }
     };
-  }, [isEditing, isGoogleApiLoaded, addressInputRef.current]);
+  } catch (error) {
+    console.error("Error initializing Google Places autocomplete:", error);
+  }
+}, [isEditing, isGoogleApiLoaded]); // Remove addressInputRef.current from dependencies
+
+// Add a separate useEffect to handle the ref attachment
+useEffect(() => {
+  // Small delay to ensure the input is rendered before trying to attach autocomplete
+  if (isEditing && isGoogleApiLoaded && addressInputRef.current) {
+    const timer = setTimeout(() => {
+      // This will trigger the main autocomplete useEffect to run again
+      setIsAddressValidated(prev => prev);
+    }, 100);
+    
+    return () => clearTimeout(timer);
+  }
+}, [isEditing, isGoogleApiLoaded, clientProfile.address]);
+
 
   const initializeAutocomplete = () => {
     // This function is now deprecated in favor of the useEffect above
@@ -1678,29 +1786,34 @@ const Profile = () => {
   };
 
   // Function to handle cancelling edits
-  const handleCancel = () => {
-    // If we have a previous state of the client profile, restore it
-    if (prevClientProfile) {
-      setClientProfile(prevClientProfile);
-      setPrevClientProfile(null);
-    }
+const handleCancel = () => {
+  // If we have a previous state of the client profile, restore it
+  if (prevClientProfile) {
+    setClientProfile(prevClientProfile);
+    setPrevClientProfile(null);
+  }
 
-    // If we have a previous state of tags, restore it
-    if (prevTags) {
-      setTags(prevTags);
-      setPrevTags(null);
-    }
+  // If we have a previous state of tags, restore it
+  if (prevTags) {
+    setTags(prevTags);
+    setPrevTags(null);
+  }
 
-    // Reset autocomplete instance when cancelling
-    if (autocompleteRef.current) {
-      try {
-        window.google.maps.event.clearInstanceListeners(autocompleteRef.current);
-      } catch (err) {
-        console.warn("Failed to clear listeners during cancel", err);
-      }
-      autocompleteRef.current = null;
+  // Clear address validation errors
+  setAddressError("");
+  setIsAddressValidated(true);
+  setUserTypedAddress("");
+
+  // Reset autocomplete instance when cancelling
+  if (autocompleteRef.current) {
+    try {
+      window.google.maps.event.clearInstanceListeners(autocompleteRef.current);
+    } catch (err) {
+      console.warn("Failed to clear listeners during cancel", err);
     }
-  };
+    autocompleteRef.current = null;
+  }
+};
 
   // Function to handle selecting a case worker
   const handleCaseWorkerChange = (caseWorker: CaseWorker | null) => {
@@ -1980,6 +2093,7 @@ const Profile = () => {
               caseWorkers={caseWorkers}
               setShowCaseWorkerModal={setShowCaseWorkerModal}
               handleCaseWorkerChange={handleCaseWorkerChange}
+              addressError={addressError} // Add this line
             />
           </SectionBox>
 
