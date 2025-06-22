@@ -43,7 +43,7 @@ import AssignDriverPopup from "./components/AssignDriverPopup";
 import GenerateClustersPopup from "./components/GenerateClustersPopup";
 import AssignTimePopup from "./components/AssignTimePopup";
 import LoadingIndicator from "../../components/LoadingIndicator/LoadingIndicator";
-import { exportDeliveries } from "./RouteExport";
+import { exportDeliveries, exportDoordashDeliveries } from "./RouteExport";
 import Button from "../../components/common/Button";
 import ManualAssign from "./components/ManualAssignPopup";
 import { RowData as DeliveryRowData } from "./types/deliveryTypes";
@@ -53,35 +53,6 @@ import ClientService from "../../services/client-service";
 import { LatLngTuple } from "leaflet";
 import { UserType } from "../../types";
 import { useAuth } from "../../auth/AuthProvider";
-
-interface RowData {
-  id: string;
-  clientid: string;
-  firstName: string;
-  lastName: string;
-  address: string;
-  tags?: string[];
-  ward?: string;
-  clusterId: string;
-  coordinates: { lat: number; lng: number }[];
-  deliveryDetails: {
-    deliveryInstructions: string;
-    dietaryRestrictions: {
-      foodAllergens: string[];
-      halal: boolean;
-      kidneyFriendly: boolean;
-      lowSodium: boolean;
-      lowSugar: boolean;
-      microwaveOnly: boolean;
-      noCookingEquipment: boolean;
-      other: string[];
-      softFood: boolean;
-      vegan: boolean;
-      vegetarian: boolean;
-    };
-  };
-}
-
 // interface Driver {
 //   id: string;
 //   name: string;
@@ -387,7 +358,6 @@ const DeliverySpreadsheet: React.FC = () => {
       ...availableIds.map(id => ({ value: id, label: id, color: clusterColorMap(id) })),
       { value: nextId, label: nextId, color: clusterColorMap(nextId) } // Add next available ID
     ];
-    console.log("Cluster Options:", options);
     options.pop();
     if (options.length == 0) {
       options.push({
@@ -678,77 +648,20 @@ const DeliverySpreadsheet: React.FC = () => {
 
     if (exportOption === "Routes") {
       if (option === "Email") {
-        // Logic to email Routes
-
-        try {
-          // Trigger the Google Cloud Function for emailing Routes
-          const response = await fetch(
-            `https://route-exports-251910218620.us-central1.run.app?deliveryDate=${format(selectedDate, "yyyy-MM-dd")}`,
-            {
-              method: "GET",
-              headers: {
-                "Content-Type": "application/json",
-              },
-            }
-          );
-
-          if (response.ok) {
-            const result = await response.text();
-            console.log("Email sent successfully:", result);
-            alert("Routes emailed successfully!");
-          } else {
-            console.error("Failed to email Routes:", response.statusText);
-            alert("Failed to email Routes. Please try again.");
-          }
-        } catch (error) {
-          console.error("Error emailing Routes:", error);
-          alert("An error occurred while emailing Routes. Please try again.");
-        }
-
-
-
-        console.log("Emailing Routes...");
-        // Add your email logic here
+        alert("Unimplemented");
       } else if (option === "Download") {
-        // Pass visibleRows and clusters to exportDeliveries
+        // Pass rows and clusters to exportDeliveries
         exportDeliveries(format(selectedDate, "yyyy-MM-dd"), rows, clusters);
         console.log("Downloading Routes...");
         // Add your download logic here
       }
     } else if (exportOption === "Doordash") {
       if (option === "Email") {
-        // Logic to email Doordash
-        console.log("Emailing Doordash...");
-
-        try {
-          // Trigger the Google Cloud Function for emailing Doordash
-          const response = await fetch(
-            `https://route-exports-251910218620.us-central1.run.app?deliveryDate=${format(selectedDate, "yyyy-MM-dd")}`,
-            {
-              method: "GET",
-              headers: {
-                "Content-Type": "application/json",
-              },
-            }
-          );
-
-          if (response.ok) {
-            const result = await response.text();
-            console.log("Email sent successfully:", result);
-            alert("Doordash deliveries emailed successfully!");
-          } else {
-            console.error("Failed to email Doordash deliveries:", response.statusText);
-            alert("Failed to email Doordash deliveries. Please try again.");
-          }
-        } catch (error) {
-          console.error("Error emailing Doordash deliveries:", error);
-          alert("An error occurred while emailing Doordash deliveries. Please try again.");
-        }
-        // Add your email logic here
+        alert("Unimplemented");
       } else if (option === "Download") {
-        // Logic to download Doordash
+        // Export DoorDash deliveries grouped by time
+        exportDoordashDeliveries(format(selectedDate, "yyyy-MM-dd"), rows, clusters);
         console.log("Downloading Doordash...");
-        // Add your download logic here
       }
     }
   };

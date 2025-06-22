@@ -3,6 +3,8 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "leaflet.awesome-markers";
 import "leaflet.awesome-markers/dist/leaflet.awesome-markers.css";
+import { Box, Button } from "@mui/material";
+import FFAIcon from '../../assets/food-for-all-dc-logo.jpg';
 
 interface Coordinate {
   lat: number;
@@ -29,6 +31,8 @@ interface ClusterMapProps {
   clusters: Cluster[];
   visibleRows: Client[];
 }
+
+const ffaCoordinates: L.LatLngExpression = [38.914330, -77.036942];
 
 const isValidCoordinate = (coord: any): boolean => {
   if (!coord) return false;
@@ -75,8 +79,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters }) => {
 
   useEffect(() => {
     if (!mapRef.current && visibleRows.length > 0) {
-      const dcCenter: L.LatLngExpression = [38.9072, -77.0369];
-      mapRef.current = L.map("cluster-map").setView(dcCenter, 11);
+      mapRef.current = L.map("cluster-map").setView(ffaCoordinates, 11);
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(mapRef.current);
       markerGroupRef.current = L.featureGroup().addTo(mapRef.current);
     }
@@ -171,6 +174,29 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters }) => {
         .addTo(markerGroupRef.current!);
     });
 
+    //Add FFA Headquarter Marker
+    const ffaIcon = L.divIcon({
+      className: "custom-ffa-icon",
+      html: `<div style="
+        background-color: white;
+        border: 2px solid purple;
+        border-radius: 50%;
+        width: 30px;
+        height: 30px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      ">
+        <img src="${FFAIcon}" style="width: 18px; height: 18px;" />
+      </div>`,
+      iconSize: [30, 30],
+      iconAnchor: [15, 15],
+      popupAnchor: [0, -15]
+    });
+
+    const ffaMarker = L.marker(ffaCoordinates, { icon: ffaIcon });
+    ffaMarker.addTo(markerGroupRef.current!);
+
     //fit map to markers if there are any
     if (markerGroupRef.current!.getLayers().length > 0) {
       mapRef.current!.fitBounds(markerGroupRef.current!.getBounds(), {
@@ -183,6 +209,10 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters }) => {
     (client) => !isValidCoordinate(client.coordinates)
   ).length;
 
+  const centerMap = ()=>{
+    mapRef.current?.setView(ffaCoordinates, 11)
+  }
+
   return (
     <div style={{ position: 'relative' }}>
       <div id="cluster-map" style={{ 
@@ -192,6 +222,29 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters }) => {
         border: "1px solid #ddd",
         borderRadius: "4px"
       }} />
+      <Box
+        sx={{
+          backgroundColor: "white",
+          border: "2px solid purple",
+          borderRadius: "50%",
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          position: 'absolute',
+          top: '10px',
+          left: '60px',
+          width: 50,
+          height: 50,
+          zIndex: 1000,
+          cursor: 'pointer',
+          "&:hover": {
+            opacity: "80%"
+          }
+        }}
+        onClick={centerMap}
+      >
+        <img src={FFAIcon} style={{ width: 30, height: 30 }} alt="Center On FFA" />
+      </Box>
       {invalidCount > 0 && (
         <div style={{
           position: 'absolute',

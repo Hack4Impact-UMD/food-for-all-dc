@@ -114,6 +114,7 @@ const CalendarPage: React.FC = () => {
           zipCode: data.zipCode || "",
           address: data.address || "",
           address2: data.address2 || "",
+          email: data.email || "",
           city: data.city || "",
           state: data.state || "",
           quadrant: data.quadrant || "",
@@ -435,6 +436,7 @@ const CalendarPage: React.FC = () => {
           onClose={() => setIsModalOpen(false)}
           onAddDelivery={handleAddDelivery}
           clients={clients}
+          startDate={currentDate}
         />
       </Box>
     </Box>

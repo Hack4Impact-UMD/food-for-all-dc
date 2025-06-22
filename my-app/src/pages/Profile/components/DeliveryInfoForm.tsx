@@ -90,7 +90,7 @@ const DeliveryInfoForm: React.FC<DeliveryInfoFormProps> = ({
           </Typography>
           {renderField("recurrence", "select")}
         </Box>
-        
+
         {/* Last Delivery Date */}
         <Box>
           <Typography className="field-descriptor" sx={fieldLabelStyles}>
@@ -114,9 +114,9 @@ const DeliveryInfoForm: React.FC<DeliveryInfoFormProps> = ({
                 clientProfile.deliveryInstructionsTimestamp.timestamp &&
                 new Date(
                   typeof clientProfile.deliveryInstructionsTimestamp.timestamp === 'object' &&
-                  clientProfile.deliveryInstructionsTimestamp.timestamp !== null &&
-                  'toDate' in clientProfile.deliveryInstructionsTimestamp.timestamp &&
-                  typeof clientProfile.deliveryInstructionsTimestamp.timestamp.toDate === 'function'
+                    clientProfile.deliveryInstructionsTimestamp.timestamp !== null &&
+                    'toDate' in clientProfile.deliveryInstructionsTimestamp.timestamp &&
+                    typeof clientProfile.deliveryInstructionsTimestamp.timestamp.toDate === 'function'
                     ? clientProfile.deliveryInstructionsTimestamp.timestamp.toDate()
                     : clientProfile.deliveryInstructionsTimestamp.timestamp
                 ).toLocaleString()}
@@ -137,9 +137,9 @@ const DeliveryInfoForm: React.FC<DeliveryInfoFormProps> = ({
                 clientProfile.notesTimestamp.timestamp &&
                 new Date(
                   typeof clientProfile.notesTimestamp.timestamp === 'object' &&
-                  clientProfile.notesTimestamp.timestamp !== null &&
-                  'toDate' in clientProfile.notesTimestamp.timestamp &&
-                  typeof clientProfile.notesTimestamp.timestamp.toDate === 'function'
+                    clientProfile.notesTimestamp.timestamp !== null &&
+                    'toDate' in clientProfile.notesTimestamp.timestamp &&
+                    typeof clientProfile.notesTimestamp.timestamp.toDate === 'function'
                     ? clientProfile.notesTimestamp.timestamp.toDate()
                     : clientProfile.notesTimestamp.timestamp
                 ).toLocaleString()}
