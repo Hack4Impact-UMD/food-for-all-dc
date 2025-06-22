@@ -988,7 +988,7 @@ const Profile = () => {
   />
 ))}
 
-          <Box sx={{
+    <Box sx={{
             display: 'flex',
             alignItems: 'center',
             gap: 1,
@@ -1016,7 +1016,6 @@ const Profile = () => {
               />
             )}
           </Box>
-=======
 {dietaryOptions.map((option: DietaryOption) => (
   <FormControlLabel
     key={option.name}
@@ -1097,7 +1096,6 @@ const Profile = () => {
     />
   )}
 </Box>
->>>>>>> origin/main
         </>
       );
     }
@@ -1126,16 +1124,10 @@ const Profile = () => {
       const handleCustomLanguageChange = (e: any) => {
         handleChange(e);
       };
-<<<<<<< HEAD
-
       return (
         <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
           <Select
             name="language"
-=======
-  
-      return (        <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>          <Select            name="language"
->>>>>>> origin/main
             value={selectValue}
             onChange={handleLanguageSelectChange}
             sx={{
@@ -1169,10 +1161,6 @@ const Profile = () => {
                 height: "1.813rem",
                 padding: "0.1rem 0.5rem",
                 borderRadius: "5px",
-<<<<<<< HEAD
-
-                marginTop: "0px"
-=======
                 marginTop: "0px",
                 '& .MuiOutlinedInput-root': {
                   '&.Mui-focused fieldset': {
@@ -1180,7 +1168,6 @@ const Profile = () => {
                     boxShadow: "0 0 8px rgba(37, 126, 104, 0.4), 0 0 16px rgba(37, 126, 104, 0.2)",
                   },
                 },
->>>>>>> origin/main
               }}
             />
           )}
@@ -1221,16 +1208,11 @@ const Profile = () => {
       const handleEthnicityCustomChange = (e: any) => {
         handleChange(e);
       };
-<<<<<<< HEAD
 
       return (
         <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
           <Select
             name="ethnicity"
-=======
-    
-      return (        <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>          <Select            name="ethnicity"
->>>>>>> origin/main
             value={selectValue}
             onChange={handleEthnicitySelectChange}
             sx={{
