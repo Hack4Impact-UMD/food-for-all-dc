@@ -73,17 +73,17 @@ const CustomTextField = styled(TextField)({
     },
     "&:hover fieldset": {
       borderColor: "var(--color-primary)",
-    },
-    "&.Mui-focused fieldset": {
-      borderColor: "var(--color-primary)",
+    },    "&.Mui-focused fieldset": {
+      borderColor: "#257E68",
+      border: "2px solid #257E68",
     },
   },
   "& .MuiInputBase-input": {
     ...fieldStyles,
-    transition: "all 0.3s ease",
-    "&:focus": {
-      borderColor: "var(--color-primary)",
-      boxShadow: "0 0 0 2px rgba(37, 126, 104, 0.2)",
+    transition: "all 0.3s ease",    "&:focus": {
+      border: "2px solid #257E68",
+      outline: "none",
+      boxShadow: "0 0 8px rgba(37, 126, 104, 0.4), 0 0 16px rgba(37, 126, 104, 0.2)",
     },
   },
 });
@@ -974,19 +974,19 @@ const Profile = () => {
       return (
         <>
 
-          {dietaryOptions.map((option: DietaryOption) => (
-            <FormControlLabel
-              key={option.name}
-              control={
-                <Checkbox
-                  checked={Boolean(clientProfile.deliveryDetails?.dietaryRestrictions?.[option.name])}
-                  onChange={handleDietaryRestrictionChange}
-                  name={option.name}
-                />
-              }
-              label={option.label}
-            />
-          ))}
+{dietaryOptions.map((option: DietaryOption) => (
+  <FormControlLabel
+    key={option.name}
+    control={
+      <Checkbox
+        checked={Boolean(clientProfile.deliveryDetails?.dietaryRestrictions?.[option.name])}
+        onChange={handleDietaryRestrictionChange}
+        name={option.name}
+      />
+    }
+    label={option.label}
+  />
+))}
 
           <Box sx={{
             display: 'flex',
@@ -1016,6 +1016,88 @@ const Profile = () => {
               />
             )}
           </Box>
+=======
+{dietaryOptions.map((option: DietaryOption) => (
+  <FormControlLabel
+    key={option.name}
+    control={      <Checkbox
+        checked={Boolean(clientProfile.deliveryDetails?.dietaryRestrictions?.[option.name])}
+        onChange={handleDietaryRestrictionChange}
+        name={option.name}
+        sx={{
+          "&:focus": {
+            outline: "none",
+          },
+          "&.Mui-focusVisible": {
+            outline: "none",
+            "& .MuiSvgIcon-root": {
+              color: "#257E68",
+              filter: "drop-shadow(0 0 8px rgba(37, 126, 104, 0.4)) drop-shadow(0 0 16px rgba(37, 126, 104, 0.2))",
+            },
+          },
+          "& input:focus + .MuiSvgIcon-root": {
+            color: "#257E68",
+            filter: "drop-shadow(0 0 8px rgba(37, 126, 104, 0.4)) drop-shadow(0 0 16px rgba(37, 126, 104, 0.2))",
+          },
+        }}
+      />
+    }
+    label={option.label}
+  />
+))}
+
+<Box sx={{ 
+  display: 'flex', 
+  alignItems: 'center',
+  gap: 1,
+  width: '100%',
+}}>
+  <FormControlLabel
+    control={      <Checkbox
+        checked={clientProfile.deliveryDetails?.dietaryRestrictions?.other || false}
+        onChange={handleDietaryRestrictionChange}
+        name="other"
+        sx={{
+          "&:focus": {
+            outline: "none",
+          },
+          "&.Mui-focusVisible": {
+            outline: "none",
+            "& .MuiSvgIcon-root": {
+              color: "#257E68",
+              filter: "drop-shadow(0 0 8px rgba(37, 126, 104, 0.4)) drop-shadow(0 0 16px rgba(37, 126, 104, 0.2))",
+            },
+          },
+          "& input:focus + .MuiSvgIcon-root": {
+            color: "#257E68",
+            filter: "drop-shadow(0 0 8px rgba(37, 126, 104, 0.4)) drop-shadow(0 0 16px rgba(37, 126, 104, 0.2))",
+          },
+        }}
+      />
+    }
+    label="Other"
+  />
+  {clientProfile.deliveryDetails?.dietaryRestrictions?.other && (    <TextField
+      name="otherText"
+      value={clientProfile.deliveryDetails?.dietaryRestrictions?.otherText || ""}
+      onChange={handleDietaryRestrictionChange}
+      placeholder="Please specify other dietary restrictions"
+      variant="outlined"
+      size="small"
+      sx={{ 
+        flexGrow: 1, 
+        marginTop: '5%',        '& .MuiOutlinedInput-root': {
+          '&.Mui-focused fieldset': {
+            borderColor: "#257E68",
+            border: "2px solid #257E68",
+            boxShadow: "0 0 8px rgba(37, 126, 104, 0.4), 0 0 16px rgba(37, 126, 104, 0.2)",
+          },
+        },
+      }}
+    />
+  )}
+</Box>
+>>>>>>> origin/main
         </>
       );
     }
@@ -1044,11 +1126,16 @@ const Profile = () => {
       const handleCustomLanguageChange = (e: any) => {
         handleChange(e);
       };
+<<<<<<< HEAD
 
       return (
         <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
           <Select
             name="language"
+=======
+  
+      return (        <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>          <Select            name="language"
+>>>>>>> origin/main
             value={selectValue}
             onChange={handleLanguageSelectChange}
             sx={{
@@ -1058,7 +1145,11 @@ const Profile = () => {
               padding: "0.1rem 0.5rem",
               borderRadius: "5px",
               border: ".1rem solid black",
-              marginTop: "0px"
+              marginTop: "0px",
+              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                border: "2px solid #257E68",
+                boxShadow: "0 0 8px rgba(37, 126, 104, 0.4), 0 0 16px rgba(37, 126, 104, 0.2)",
+              },
             }}
           >
             {preDefinedOptions.map((option) => (
@@ -1068,10 +1159,8 @@ const Profile = () => {
             ))}
             <MenuItem value="Other">Other</MenuItem>
           </Select>
-          {selectValue === "Other" && (
-            <TextField
-              name="language"
-              placeholder="Enter language"
+          {selectValue === "Other" && (            <TextField
+              name="language"              placeholder="Enter language"
               value={isPredefined ? "" : clientProfile.language}
               onChange={handleCustomLanguageChange}
               sx={{
@@ -1080,8 +1169,18 @@ const Profile = () => {
                 height: "1.813rem",
                 padding: "0.1rem 0.5rem",
                 borderRadius: "5px",
+<<<<<<< HEAD
 
                 marginTop: "0px"
+=======
+                marginTop: "0px",
+                '& .MuiOutlinedInput-root': {
+                  '&.Mui-focused fieldset': {
+                    border: "2px solid #257E68",
+                    boxShadow: "0 0 8px rgba(37, 126, 104, 0.4), 0 0 16px rgba(37, 126, 104, 0.2)",
+                  },
+                },
+>>>>>>> origin/main
               }}
             />
           )}
@@ -1122,11 +1221,16 @@ const Profile = () => {
       const handleEthnicityCustomChange = (e: any) => {
         handleChange(e);
       };
+<<<<<<< HEAD
 
       return (
         <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
           <Select
             name="ethnicity"
+=======
+    
+      return (        <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>          <Select            name="ethnicity"
+>>>>>>> origin/main
             value={selectValue}
             onChange={handleEthnicitySelectChange}
             sx={{
@@ -1136,7 +1240,11 @@ const Profile = () => {
               padding: "0.1rem 0.5rem",
               borderRadius: "5px",
               border: ".1rem solid black",
-              marginTop: "0px"
+              marginTop: "0px",
+              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                border: "2px solid #257E68",
+                boxShadow: "0 0 8px rgba(37, 126, 104, 0.4), 0 0 16px rgba(37, 126, 104, 0.2)",
+              },
             }}
           >
             {preDefinedOptions.map((option) => (
@@ -1146,10 +1254,8 @@ const Profile = () => {
             ))}
             <MenuItem value="Other">Other</MenuItem>
           </Select>
-          {selectValue === "Other" && (
-            <TextField
-              name="ethnicity"
-              placeholder="Enter ethnicity"
+          {selectValue === "Other" && (            <TextField
+              name="ethnicity"              placeholder="Enter ethnicity"
               value={isPredefined ? "" : clientProfile.ethnicity}
               onChange={handleEthnicityCustomChange}
               sx={{
@@ -1158,10 +1264,160 @@ const Profile = () => {
                 height: "1.813rem",
                 padding: "0.1rem 0.5rem",
                 borderRadius: "5px",
-                marginTop: "0px"
+                marginTop: "0px",
+                '& .MuiOutlinedInput-root': {
+                  '&.Mui-focused fieldset': {
+                    border: "2px solid #257E68",
+                    boxShadow: "0 0 8px rgba(37, 126, 104, 0.4), 0 0 16px rgba(37, 126, 104, 0.2)",
+                  },
+                },
               }}
             />
           )}
+        </Box>
+      );
+    }
+
+    if (fieldPath === "gender") {
+      if (!isEditing) {
+        return <Box>{clientProfile.gender}</Box>;
+      }
+    
+      const preDefinedOptions = [
+        "Male",
+        "Female",
+        "Other"
+      ];
+    
+      const isPredefined = preDefinedOptions.includes(clientProfile.gender);
+      const selectValue = isPredefined ? clientProfile.gender : "Other";
+    
+      const handleGenderSelectChange = (e: any) => {
+        const newVal = e.target.value;
+          // Update with selected value
+          handleChange({ target: { name: "gender", value: newVal } } as any);
+      };
+    
+    
+      return (        <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>          <Select            name="gender"
+            value={selectValue}
+            onChange={handleGenderSelectChange}
+            sx={{
+              backgroundColor: "white",
+              width: "100%",
+              height: "1.813rem",
+              padding: "0.1rem 0.5rem",
+              borderRadius: "5px",
+              border: ".1rem solid black",
+              marginTop: "0px",
+              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                border: "2px solid #257E68",
+                boxShadow: "0 0 8px rgba(37, 126, 104, 0.4), 0 0 16px rgba(37, 126, 104, 0.2)",
+              },
+            }}
+          >
+            {preDefinedOptions.map((option) => (
+              <MenuItem key={option} value={option}>
+                {option}
+              </MenuItem>
+            ))}
+          </Select>
+        </Box>
+      );
+    }
+
+    if (fieldPath === "headOfHousehold") {
+      if (!isEditing) {
+        return <Box>{clientProfile.headOfHousehold}</Box>;
+      }
+    
+      const preDefinedOptions = [
+        "Adult",
+        "Senior",
+      ];
+    
+      const isPredefined = preDefinedOptions.includes(clientProfile.headOfHousehold);
+      const selectValue = isPredefined ? clientProfile.headOfHousehold : "Adult";
+    
+      const handleHeadOfHouseholdSelectChange = (e: any) => {
+        const newVal = e.target.value;
+          // Update with selected value
+          handleChange({ target: { name: "headOfHousehold", value: newVal } } as any);
+  
+      };
+    
+      return (        <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>          <Select            name="headOfHousehold"
+            value={selectValue}
+            onChange={handleHeadOfHouseholdSelectChange}
+            sx={{
+              backgroundColor: "white",
+              width: "100%",
+              height: "1.813rem",
+              padding: "0.1rem 0.5rem",
+              borderRadius: "5px",
+              border: ".1rem solid black",
+              marginTop: "0px",
+              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                border: "2px solid #257E68",
+                boxShadow: "0 0 8px rgba(37, 126, 104, 0.4), 0 0 16px rgba(37, 126, 104, 0.2)",
+              },
+            }}
+          >
+            {preDefinedOptions.map((option) => (
+              <MenuItem key={option} value={option}>
+                {option}
+              </MenuItem>
+            ))}
+          </Select>
+        </Box>
+      );
+    }
+
+        if (fieldPath === "recurrence") {
+      if (!isEditing) {
+        return <Box>{clientProfile.recurrence}</Box>;
+      }
+    
+      const preDefinedOptions = [
+        "None",
+        "Weekly",
+        "2x-Monthly",
+        "Monthly"
+      ];
+    
+      const isPredefined = preDefinedOptions.includes(clientProfile.recurrence);
+      const selectValue = isPredefined ? clientProfile.recurrence : "None";
+    
+      const handleRecurrenceSelectChange = (e: any) => {
+        const newVal = e.target.value;
+          // Update with selected value
+          handleChange({ target: { name: "recurrence", value: newVal } } as any);
+  
+      };
+    
+      return (        <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>          <Select            name="recurrence"
+            value={selectValue}
+            onChange={handleRecurrenceSelectChange}
+            sx={{
+              backgroundColor: "white",
+              width: "100%",
+              height: "1.813rem",
+              padding: "0.1rem 0.5rem",
+              borderRadius: "5px",
+              border: ".1rem solid black",
+              marginTop: "0px",
+              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                border: "2px solid #257E68",
+                boxShadow: "0 0 8px rgba(37, 126, 104, 0.4), 0 0 16px rgba(37, 126, 104, 0.2)",
+              },
+            }}
+          >
+            {preDefinedOptions.map((option) => (
+              <MenuItem key={option} value={option}>
+                {option}
+              </MenuItem>
+            ))}
+          </Select>
         </Box>
       );
     }

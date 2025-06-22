@@ -19,10 +19,12 @@ import {
   Select,
 } from "@mui/material";
 import MoreHorizIcon from "@mui/icons-material/MoreHoriz";
-import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, query, where } from "firebase/firestore";
+import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, query, where, Timestamp} from "firebase/firestore";
 import { db } from "../../../auth/firebaseConfig";
 import { DeliveryEvent, NewDelivery } from "../../../types/calendar-types";
 import { calculateRecurrenceDates, getNextMonthlyDate } from "./CalendarUtils";
+import { UserType } from "../../../types";
+import { useAuth } from "../../../auth/AuthProvider";
 
 interface EventMenuProps {
   event: DeliveryEvent;
@@ -30,6 +32,7 @@ interface EventMenuProps {
 }
 
 const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
+  const { userRole } = useAuth();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -69,7 +72,8 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
   const handleDeleteConfirm = async () => {
     try {
       const eventsRef = collection(db, "events");
-
+      console.log("delete option")
+      console.log(deleteOption)
       if (deleteOption === "This event") {
         // Delete only this event
         await deleteDoc(doc(eventsRef, event.id));
@@ -79,20 +83,19 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
 
         const q = query(
           eventsRef,
-          where("recurrence", "==", event.recurrence),
-          where("clientId", "==", event.clientId),
+          where("recurrenceId", "==", event.recurrenceId),
           where("deliveryDate", ">", event.deliveryDate) // Include current and future events
         );
 
         const querySnapshot = await getDocs(q);
+
         const batch = querySnapshot.docs.map((doc) => deleteDoc(doc.ref));
         await Promise.all(batch);
       } else if (deleteOption === "All events for this recurrence") {
         // Delete all events (past, present, and future) for the same recurrence
         const q = query(
           eventsRef,
-          where("recurrence", "==", event.recurrence),
-          where("clientId", "==", event.clientId) // Match all events for this client and recurrence
+          where("recurrenceId", "==", event.recurrenceId)
         );
 
         const querySnapshot = await getDocs(q);
@@ -209,8 +212,8 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
       </IconButton>
 
       <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={handleMenuClose}>
-        <MenuItem onClick={handleEditClick}>Edit</MenuItem>
-        <MenuItem onClick={handleDeleteClick}>Delete</MenuItem>
+        <MenuItem disabled = {userRole === UserType.ClientIntake} onClick={handleEditClick}>Edit</MenuItem>
+        <MenuItem disabled = {userRole === UserType.ClientIntake} onClick={handleDeleteClick}>Delete</MenuItem>
       </Menu>
 
       {/* Edit Dialog */}

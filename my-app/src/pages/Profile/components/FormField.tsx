@@ -9,12 +9,13 @@ import {
   Typography,
   Checkbox,
   FormControlLabel,
-  Grid2,
+  Grid,
   Select,
 } from "@mui/material";
 import { ClientProfileKey } from '../types';
 import { DietaryRestrictions } from '../../../types';
 import TagManager from "../Tags/TagManager";
+import '../../../styles/checkbox-override.css';
 
 interface FormFieldProps {
   fieldPath: ClientProfileKey;
@@ -51,9 +52,29 @@ const CustomTextField = styled(TextField)({
     "& fieldset": {
       border: "none",
     },
-  },
-  "& .MuiInputBase-input": {
-    ...fieldStyles,
+    "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
+      border: "none",
+    },
+    "&:focus-within": {
+      "& .MuiInputBase-input": {
+        border: "2px solid #257E68",
+        outline: "none",
+        boxShadow: "0 0 8px rgba(37, 126, 104, 0.4), 0 0 16px rgba(37, 126, 104, 0.2)",
+      },
+    },
+  },  "& .MuiInputBase-input": {
+    backgroundColor: "white",
+    width: "100%",
+    height: "1.813rem",
+    padding: "0.1rem 0.5rem",
+    borderRadius: "5px",
+    border: ".1rem solid black",
+    marginTop: "0px",
+    "&:focus": {
+      border: "2px solid #257E68",
+      outline: "none",
+      boxShadow: "0 0 8px rgba(37, 126, 104, 0.4), 0 0 16px rgba(37, 126, 104, 0.2)",
+    },
   },
   "& .MuiInputBase-input.Mui-disabled": {
     backgroundColor: "#e0e0e0",
@@ -75,16 +96,23 @@ export const CustomSelect = styled(Select)({
     "& .MuiOutlinedInput-notchedOutline": {
       border: "none",
     },
+    "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
+      border: "none",
+    },
   },
   "& fieldset": {
     border: "none",
-  },
-  "& .MuiSelect-select": {
+  },  "& .MuiSelect-select": {
     ...fieldStyles,
     height: '100%',
     padding: '0 0.5rem',
     display: 'flex',
     alignItems: 'center',
+    "&:focus": {
+      border: "2px solid #257E68",
+      outline: "none",
+      boxShadow: "0 0 8px rgba(37, 126, 104, 0.4), 0 0 16px rgba(37, 126, 104, 0.2)",
+    },
   },
   "& .MuiSelect-icon": {
     display: "none",
@@ -99,6 +127,32 @@ export const CustomSelect = styled(Select)({
     fontWeight: 500,
     opacity: 1,
     padding: '0 0.5rem',
+  },
+});
+
+const CustomCheckbox = styled(Checkbox)({
+  "&.MuiCheckbox-root": {
+    "&:focus": {
+      outline: "none",
+    },
+    "&.Mui-focusVisible": {
+      "& .MuiSvgIcon-root": {
+        color: "#257E68",
+      },
+    },
+    "& .MuiTouchRipple-root": {
+      color: "rgba(37, 126, 104, 1)",
+      backgroundColor: "rgba(37, 126, 104, 1)",
+    },
+    "& .MuiTouchRipple-child": {
+      backgroundColor: "rgba(37, 126, 104, 1)",
+    },
+    "&:hover .MuiTouchRipple-root": {
+      color: "rgba(37, 126, 104, 1)",
+    },
+    "&.Mui-focusVisible .MuiTouchRipple-root": {
+      color: "rgba(37, 126, 104, 1)",
+    },
   },
 });
 
@@ -128,30 +182,24 @@ const FormField: React.FC<FormFieldProps> = ({
 
     if (isEditing) {
       return (
-        <Grid2 container spacing={1}>
+        <Grid container spacing={1}>
           {Object.entries(restrictions)
             .filter(([key, value]) => typeof value === "boolean")
             .map(([key, value]) => (
-              <Grid2 key={key}>
-                <FormControlLabel
+              <Grid key={key}>                <FormControlLabel
                   sx={{ textAlign: "left" }}
                   control={
-                    <Checkbox
+                    <CustomCheckbox
                       name={key}
                       checked={value as boolean}
                       onChange={handleDietaryRestrictionChange}
-                      sx={{
-                        "& .MuiSvgIcon-root": {
-                          borderRadius: "1rem",
-                        },
-                      }}
                     />
                   }
                   label={capitalizeFirstLetter(key.replace(/([A-Z])/g, " $1").trim())}
                 />
-              </Grid2>
+              </Grid>
             ))}
-        </Grid2>
+        </Grid>
       );
     }
 

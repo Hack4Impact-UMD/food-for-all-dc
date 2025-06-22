@@ -211,7 +211,7 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
         >
           GENDER <span className="required-asterisk">*</span>
         </Typography>
-        {renderField("gender", "select")}
+        {renderField("gender", "text")}
         {errors.gender && (
           <Typography color="error" variant="body2">
             {errors.gender}
@@ -328,8 +328,7 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
                 '& .MuiAutocomplete-clearIndicator': {
                   display: 'none',
                 },
-              }}
-              renderInput = {(params) => (
+              }}              renderInput = {(params) => (
                 <TextField
                   {...params}
                   variant = "outlined"
@@ -341,7 +340,10 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
                       '& fieldset': {
                         border: ".1rem solid black",
                         borderRadius: "5px",
-                      }, 
+                      },                      '&.Mui-focused fieldset': {
+                        border: "2px solid #257E68",
+                        boxShadow: "0 0 8px rgba(37, 126, 104, 0.4), 0 0 16px rgba(37, 126, 104, 0.2)",
+                      },
                     },
                     '& .MuiAutocomplete-input': {
                       padding: '1 !important',
@@ -363,7 +365,7 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
                 </li>
               )}
               // disableClearable // Removed this prop due to type conflict with null value
-              forcePopupIcon={false} // Keep this to hide dropdown arrow
+              // forcePopupIcon={false} // Keep this to hide dropdown arrow // Keep this commented to show dropdown arrow
             />
           </>
         ) : (

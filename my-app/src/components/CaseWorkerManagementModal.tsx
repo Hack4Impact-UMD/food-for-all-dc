@@ -48,7 +48,7 @@ const CaseWorkerFormFields: React.FC<CaseWorkerFormProps> = ({
   return (
     <Grid container spacing={3}>
       {fields.map((field) => (
-        <Grid item xs={12} sm={field.gridSize || 4} key={field.name}>
+        <Grid size={{ xs: 12, sm: field.gridSize || 4}} key={field.name}>
           <TextField
             fullWidth
             label={field.label}

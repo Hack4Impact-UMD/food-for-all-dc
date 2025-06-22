@@ -114,6 +114,7 @@ const CalendarPage: React.FC = () => {
           zipCode: data.zipCode || "",
           address: data.address || "",
           address2: data.address2 || "",
+          email: data.email || "",
           city: data.city || "",
           state: data.state || "",
           quadrant: data.quadrant || "",
@@ -256,6 +257,8 @@ const CalendarPage: React.FC = () => {
     try {
       let recurrenceDates: Date[] = [];
 
+      //create unique id for each recurrence group. All events for this recurrence will have the same id
+      const recurrenceId = crypto.randomUUID();
       if (newDelivery.recurrence === "Custom") {
         // Use customDates directly if recurrence is Custom
         // Ensure customDates exist and map string dates back to Date objects
@@ -298,6 +301,7 @@ const CalendarPage: React.FC = () => {
           recurrence: newDelivery.recurrence,
           time: "",
           cluster: 0,
+          recurrenceId: recurrenceId,
         };
 
         // Add customDates array if recurrence is Custom
@@ -432,6 +436,7 @@ const CalendarPage: React.FC = () => {
           onClose={() => setIsModalOpen(false)}
           onAddDelivery={handleAddDelivery}
           clients={clients}
+          startDate={currentDate}
         />
       </Box>
     </Box>
