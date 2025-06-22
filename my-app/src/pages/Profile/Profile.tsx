@@ -1,6 +1,5 @@
 import CloseIcon from "@mui/icons-material/Close";
 import EditIcon from "@mui/icons-material/Edit";
-import PersonIcon from "@mui/icons-material/Person";
 import SaveIcon from "@mui/icons-material/Save";
 import {
   Autocomplete,
@@ -35,7 +34,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { auth, db } from "../../auth/firebaseConfig";
 import CaseWorkerManagementModal from "../../components/CaseWorkerManagementModal";
 import "./Profile.css";
-import { DeliveryService } from "../../services";
+import { ClientService, DeliveryService } from "../../services";
 
 // Import new components from HEAD
 import BasicInfoForm from "./components/BasicInfoForm";
@@ -50,9 +49,14 @@ import TagManager from "./Tags/TagManager";
 // import TagPopup from "./Tags/TagPopup"; <--- Removed
 
 // Import types
-import { CaseWorker, ClientProfile } from "../../types";
+import { CalendarConfig, CalendarEvent, CaseWorker, ClientProfile, NewDelivery, UserType } from "../../types";
 import { ClientProfileKey, InputType } from "./types";
 import { DeliveryEvent } from "../../types";
+import { useAuth } from "../../auth/AuthProvider";
+import { Add } from "@mui/icons-material";
+import AddDeliveryDialog from "../Calendar/components/AddDeliveryDialog";
+import { calculateRecurrenceDates } from "../Calendar/components/CalendarUtils";
+import { DayPilot } from "@daypilot/daypilot-lite-react";
 
 // Styling
 const fieldStyles = {
@@ -162,6 +166,7 @@ const Profile = () => {
   const navigate = useNavigate();
   const params = useParams();
   const clientIdParam: string | null = params.clientId ?? null;
+  const { userRole } = useAuth();
 
   // #### STATE ####
   const [isEditing, setIsEditing] = useState(!clientIdParam);
@@ -171,6 +176,7 @@ const Profile = () => {
   const [tags, setTags] = useState<string[]>([]);
   const [allTags, setAllTags] = useState<string[]>([]);
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
+  const [isDeliveryModalOpen, setIsDeliveryModalOpen] = useState<boolean>(false);
   const [prevTags, setPrevTags] = useState<string[] | null>(null);
   const [prevClientProfile, setPrevClientProfile] = useState<ClientProfile | null>(null);
   const [clientProfile, setClientProfile] = useState<ClientProfile>({
@@ -248,6 +254,8 @@ const Profile = () => {
   const [selectedCaseWorker, setSelectedCaseWorker] = useState<CaseWorker | null>(null);
   const [pastDeliveries, setPastDeliveries] = useState<DeliveryEvent[]>([]);
   const [futureDeliveries, setFutureDeliveries] = useState<DeliveryEvent[]>([]);
+  const [events, setEvents] = useState<DeliveryEvent[]>([]);
+  const [clients, setClients] = useState<ClientProfile[]>([]);
 
   // Function to fetch profile data by ID
   const getProfileById = async (id: string) => {
@@ -267,6 +275,9 @@ const Profile = () => {
       navigate("/");
     }
   }, [navigate]);
+
+  useEffect(() => {
+    fetchClients();}, [])
 
   //get list of all tags
   useEffect(() => {
@@ -402,9 +413,9 @@ const Profile = () => {
         console.error("Failed to fetch delivery history", error);
       }
     };
-
+    console.log('ran')
     fetchDeliveryHistory();
-  }, [clientId]);
+  }, [clientId, isDeliveryModalOpen]);
 
   const calculateAge = (dob: Date) => {
     const diff = Date.now() - dob.getTime();
@@ -1723,6 +1734,150 @@ const Profile = () => {
     }));
   }, [clientProfile.adults, clientProfile.children, clientProfile.seniors]);
 
+
+    const handleAddDelivery = async (newDelivery: NewDelivery) => {
+      try {
+        let recurrenceDates: Date[] = [];
+  
+        //create unique id for each recurrence group. All events for this recurrence will have the same id
+        const recurrenceId = crypto.randomUUID();
+        if (newDelivery.recurrence === "Custom") {
+          // Use customDates directly if recurrence is Custom
+          // Ensure customDates exist and map string dates back to Date objects
+          recurrenceDates = newDelivery.customDates?.map(dateStr => {
+            const date = new Date(dateStr);
+            // Adjust for timezone offset if needed, similar to how it might be handled elsewhere
+            return new Date(date.getTime() + date.getTimezoneOffset() * 60000);
+          }) || [];
+          // Clear repeatsEndDate explicitly for custom recurrence in the submitted data
+          newDelivery.repeatsEndDate = undefined;
+        } else {
+          // Calculate recurrence dates for standard recurrence types
+          const deliveryDate = new Date(newDelivery.deliveryDate);
+          recurrenceDates =
+            newDelivery.recurrence === "None" ? [deliveryDate] : calculateRecurrenceDates(newDelivery);
+        }
+  
+        // Filter out dates that already have a delivery for the same client
+        const existingEventDates = new Set(
+          events
+            .filter(event => event.clientId === newDelivery.clientId)
+            .map(event => new DayPilot.Date(event.deliveryDate).toString("yyyy-MM-dd"))
+        );
+  
+        const uniqueRecurrenceDates = recurrenceDates.filter(date => 
+          !existingEventDates.has(new DayPilot.Date(date).toString("yyyy-MM-dd"))
+        );
+  
+        if (uniqueRecurrenceDates.length < recurrenceDates.length) {
+          console.warn("Some duplicate delivery dates were detected and skipped.");
+        }
+  
+        // Use DeliveryService to create events for unique dates only
+        const deliveryService = DeliveryService.getInstance();
+        const createPromises = uniqueRecurrenceDates.map(date => {
+          const eventToAdd: Partial<DeliveryEvent> = {
+            clientId: newDelivery.clientId,
+            clientName: newDelivery.clientName,
+            deliveryDate: date, // Use the calculated/provided recurrence date
+            recurrence: newDelivery.recurrence,
+            time: "",
+            cluster: 0,
+            recurrenceId: recurrenceId,
+          };
+  
+          // Add customDates array if recurrence is Custom
+          if (newDelivery.recurrence === "Custom") {
+            eventToAdd.customDates = newDelivery.customDates;
+          } else if (newDelivery.repeatsEndDate) {
+            // Only add repeatsEndDate for standard recurrence types
+            eventToAdd.repeatsEndDate = newDelivery.repeatsEndDate;
+          }
+  
+          return deliveryService.createEvent(eventToAdd);
+        });
+  
+        await Promise.all(createPromises);
+  
+        // // Refresh events after adding
+        // fetchEvents();
+      } catch (error) {
+        console.error("Error adding delivery:", error);
+      }
+    };
+
+
+
+     const fetchClients = async () => {
+    try {
+      // Use ClientService instead of direct Firebase calls
+      const clientService = ClientService.getInstance();
+      const clientsData = await clientService.getAllClients();
+      
+      // Map client data to Client type with explicit type casting for compatibility
+      const clientList = clientsData.map(data => {
+        // Ensure dietaryRestrictions has all required fields
+        const dietaryRestrictions = data.deliveryDetails?.dietaryRestrictions || {};
+        
+        return {
+          id: data.uid,
+          uid: data.uid,
+          firstName: data.firstName || "",
+          lastName: data.lastName || "",
+          streetName: data.streetName || "",
+          zipCode: data.zipCode || "",
+          address: data.address || "",
+          address2: data.address2 || "",
+          city: data.city || "",
+          state: data.state || "",
+          quadrant: data.quadrant || "",
+          dob: data.dob || "",
+          phone: data.phone || "",
+          alternativePhone: data.alternativePhone || "",
+          adults: data.adults || 0,
+          children: data.children || 0,
+          total: data.total || 0,
+          gender: data.gender || "Other",
+          ethnicity: data.ethnicity || "",
+          deliveryDetails: {
+            deliveryInstructions: data.deliveryDetails?.deliveryInstructions || "",
+            dietaryRestrictions: {
+              foodAllergens: dietaryRestrictions.foodAllergens || [],
+              halal: dietaryRestrictions.halal || false,
+              kidneyFriendly: dietaryRestrictions.kidneyFriendly || false,
+              lowSodium: dietaryRestrictions.lowSodium || false,
+              lowSugar: dietaryRestrictions.lowSugar || false,
+              microwaveOnly: dietaryRestrictions.microwaveOnly || false,
+              noCookingEquipment: dietaryRestrictions.noCookingEquipment || false,
+              other: dietaryRestrictions.other || [],
+              softFood: dietaryRestrictions.softFood || false,
+              vegan: dietaryRestrictions.vegan || false,
+              vegetarian: dietaryRestrictions.vegetarian || false,
+            },
+          },
+          lifeChallenges: data.lifeChallenges || "",
+          notes: data.notes || "",
+          notesTimestamp: data.notesTimestamp || null,
+          lifestyleGoals: data.lifestyleGoals || "",
+          language: data.language || "",
+          createdAt: data.createdAt || new Date(),
+          updatedAt: data.updatedAt || new Date(),
+          startDate: data.startDate || "",
+          endDate: data.endDate || "",
+          recurrence: data.recurrence || "None",
+          tags: data.tags || [],
+          ward: data.ward || "",
+          seniors: data.seniors || 0,
+          headOfHousehold: data.headOfHousehold || "Adult",
+        };
+      });
+      
+      // Cast the result to Client[] to satisfy type checking
+      setClients(clientList as unknown as ClientProfile[]);
+    } catch (error) {
+      console.error("Error fetching clients:", error);
+    }
+  };
   console.log(clientProfile)
   return (
     <Box className="profile-container" sx={{ backgroundColor: "#f8f9fa", minHeight: "100vh", pb: 4 }}>
@@ -1854,6 +2009,30 @@ const Profile = () => {
 
           {/* Delivery Log Section */}
           <SectionBox mb={3}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+            <SectionTitle sx={{ textAlign: 'left', width: '100%' }}>Delivery Log</SectionTitle>
+            <Button
+              variant="contained"
+              startIcon={<Add />}
+              onClick={() => setIsDeliveryModalOpen(true)}
+              disabled={userRole === UserType.ClientIntake}
+              sx={{
+                marginRight: 4,
+                width: 166,
+                color: "#fff",
+                backgroundColor: "#257E68",
+              }}
+            >
+              Add Delivery
+            </Button>
+            </Box>
+            <AddDeliveryDialog
+              open={isDeliveryModalOpen}
+              onClose={() => setIsDeliveryModalOpen(false)}
+              onAddDelivery={handleAddDelivery}
+              clients={clients}
+              startDate={new DayPilot.Date()}
+            />
             <SectionTitle sx={{ textAlign: 'left', width: '100%' }}>Deliveries</SectionTitle>
             <DeliveryLogForm
               pastDeliveries={pastDeliveries}
