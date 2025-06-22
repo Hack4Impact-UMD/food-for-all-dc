@@ -14,6 +14,11 @@
   justify-content: space-between;
   align-items: center;
   margin-right: var(--spacing-xl);
+  width: 220px;
+  min-width: 180px;
+  max-width: 280px;
+  box-sizing: border-box;
+  flex-shrink: 1;
 }
 
 .clientName {
@@ -77,4 +82,34 @@
 .infoValue {
   font-weight: bold;
   color: var(--color-text-secondary);
+}
+
+.clientNameLink {
+  color: #2E5B4C;
+  text-decoration: underline;
+  font-weight: 600;
+  font-size: 1.25rem;
+  cursor: pointer;
+}
+
+.deliveryTypeIndicator {
+  font-weight: 700;
+  font-size: 1.1rem;
+  margin-top: 0.5rem;
+}
+
+.weekly {
+  color: #27ae60;
+}
+.twoXMonthly {
+  color: #2980b9;
+}
+.monthly {
+  color: #8e44ad;
+}
+.custom {
+  color: #e67e22;
+}
+.oneOff {
+  color: #c0392b;
 }
