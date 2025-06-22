@@ -706,6 +706,57 @@ const Profile = () => {
     return prevNotesTimestamp;
   };
 
+  const validateAddress = async (address: string) => {
+    const apiKey = process.env.REACT_APP_GOOGLE_MAPS_API_KEY;
+  
+    if (!apiKey) {
+      console.error("Google Maps API key is missing in environment variables");
+      return { valid: false, message: "Address validation failed due to missing API key." };
+    }
+  
+    try {
+      const response = await fetch(
+        `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${apiKey}`
+      );
+  
+      if (!response.ok) {
+        throw new Error(`HTTP error! Status: ${response.status}`);
+      }
+  
+      const data = await response.json();
+  
+      if (data.results.length > 0) {
+        const validatedAddress = data.results[0];
+        const components = validatedAddress.address_components;
+  
+        // Extract related fields
+        interface AddressComponent {
+          long_name: string;
+          short_name: string;
+          types: string[];
+        }
+
+        const zipCode: string = components.find((c: AddressComponent) => c.types.includes("postal_code"))?.long_name || "";
+        const city: string = components.find((c: AddressComponent) => c.types.includes("locality"))?.long_name || "";
+        const state: string = components.find((c: AddressComponent) => c.types.includes("administrative_area_level_1"))?.short_name || "";
+        const quadrant = address.match(/(NW|NE|SW|SE)(\s|,|$)/)?.[1] || "";
+  
+        return {
+          valid: true,
+          zipCode,
+          city,
+          state,
+          quadrant,
+        };
+      } else {
+        return { valid: false, message: "Invalid address. Please enter a valid address." };
+      }
+    } catch (error) {
+      console.error("Error validating address:", error);
+      return { valid: false, message: "Address validation failed. Please try again." };
+    }
+  };
+
   const handleSave = async () => {
     const validation = validateProfile();
 
@@ -722,6 +773,12 @@ const Profile = () => {
 
     try {
       
+      const addressValidation = await validateAddress(clientProfile.address);
+
+      if (!addressValidation.valid) {
+        setErrors((prev) => ({ ...prev, address: addressValidation.message || "" }));
+        return;
+      }
 
       // --- Geocoding Optimization Start ---
       let addressChanged = false;
@@ -811,6 +868,10 @@ const Profile = () => {
       // Update the clientProfile object with the latest tags state and other calculated fields
       const updatedProfile: ClientProfile = {
         ...clientProfile,
+        zipCode: addressValidation.zipCode || "",
+        city: addressValidation.city || "",
+        state: addressValidation.state || "",
+        quadrant: addressValidation.quadrant || "",
         tags: tags, // Sync the tags state with clientProfile
         notesTimestamp: updatedNotesTimestamp, // Update the notesTimestamp
         deliveryInstructionsTimestamp: updatedDeliveryInstructionsTimestamp,

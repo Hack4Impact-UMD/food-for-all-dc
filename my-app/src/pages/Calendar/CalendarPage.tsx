@@ -17,6 +17,7 @@ import { ClientProfile } from "../../types/client-types";
 import { useLimits } from "./components/useLimits";
 import { DeliveryService, ClientService, DriverService } from "../../services";
 
+const CALENDAR_SELECTED_DATE_KEY = "calendarSelectedDate";
 const DAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
 
 const StyledCalendarContainer = styled(Box)(({ theme }) => ({
@@ -35,7 +36,22 @@ const CalendarContent = styled(Box)({
 
 const CalendarPage: React.FC = () => {
   const navigate = useNavigate();
-  const [currentDate, setCurrentDate] = useState<DayPilot.Date>(DayPilot.Date.today());
+  const [currentDate, setCurrentDate] = useState<DayPilot.Date>(() => {
+    const savedDateString = sessionStorage.getItem(CALENDAR_SELECTED_DATE_KEY);
+    if (savedDateString) {
+      try {
+        // DayPilot.Date can parse "YYYY-MM-DD" format
+        const savedDate = new DayPilot.Date(savedDateString);
+        // Basic validation if the parsed date is valid
+        if (savedDate && savedDate.toDate() instanceof Date && !isNaN(savedDate.toDate().getTime())) {
+          return savedDate;
+        }
+      } catch (error) {
+        console.error("Error parsing saved date from sessionStorage:", error);
+      }
+    }
+    return DayPilot.Date.today();
+  });
   const [viewType, setViewType] = useState<ViewType>("Day");
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [events, setEvents] = useState<DeliveryEvent[]>([]);
@@ -65,6 +81,14 @@ const CalendarPage: React.FC = () => {
     // Cleanup the listener when the component unmounts
     return () => unsubscribe();
   }, [navigate]);
+
+  useEffect(() => {
+    // Save currentDate to sessionStorage whenever it changes
+    if (currentDate) {
+      // Store in "YYYY-MM-DD" format
+      sessionStorage.setItem(CALENDAR_SELECTED_DATE_KEY, currentDate.toString("yyyy-MM-dd"));
+    }
+  }, [currentDate]);
 
   useEffect(() => {
     const handleDocumentClick = (event: MouseEvent) => {
