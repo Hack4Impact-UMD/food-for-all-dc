@@ -91,7 +91,8 @@ const CustomTextField = styled(TextField)({
 export const CustomSelect = styled(Select)({
   height: fieldStyles.height,
   boxSizing: 'border-box',
-    "& .MuiOutlinedInput-root": {
+
+  "& .MuiOutlinedInput-root": {
     "& .MuiOutlinedInput-notchedOutline": {
       border: "none",
     },
@@ -476,7 +477,7 @@ const FormField: React.FC<FormFieldProps> = ({
   }
 
   return (
-    <Typography variant="body1" sx={{ fontWeight: 600 }}>
+    <Typography variant="body1" sx={{ fontWeight: 600, textAlign: "left" }}>
       {renderFieldValue(fieldPath, value)}
     </Typography>
   );
