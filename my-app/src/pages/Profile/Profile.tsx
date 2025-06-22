@@ -1,6 +1,5 @@
 import CloseIcon from "@mui/icons-material/Close";
 import EditIcon from "@mui/icons-material/Edit";
-import PersonIcon from "@mui/icons-material/Person";
 import SaveIcon from "@mui/icons-material/Save";
 import {
   Autocomplete,
@@ -15,7 +14,7 @@ import {
   Typography,
   styled,
 } from "@mui/material";
-import { FormControlLabel, Checkbox} from '@mui/material';
+import { FormControlLabel, Checkbox } from '@mui/material';
 import {
   addDoc,
   collection,
@@ -35,7 +34,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { auth, db } from "../../auth/firebaseConfig";
 import CaseWorkerManagementModal from "../../components/CaseWorkerManagementModal";
 import "./Profile.css";
-import { DeliveryService } from "../../services";
+import { ClientService, DeliveryService } from "../../services";
 
 // Import new components from HEAD
 import BasicInfoForm from "./components/BasicInfoForm";
@@ -50,9 +49,14 @@ import TagManager from "./Tags/TagManager";
 // import TagPopup from "./Tags/TagPopup"; <--- Removed
 
 // Import types
-import { CaseWorker, ClientProfile } from "../../types";
+import { CalendarConfig, CalendarEvent, CaseWorker, ClientProfile, NewDelivery, UserType } from "../../types";
 import { ClientProfileKey, InputType } from "./types";
 import { DeliveryEvent } from "../../types";
+import { useAuth } from "../../auth/AuthProvider";
+import { Add } from "@mui/icons-material";
+import AddDeliveryDialog from "../Calendar/components/AddDeliveryDialog";
+import { calculateRecurrenceDates } from "../Calendar/components/CalendarUtils";
+import { DayPilot } from "@daypilot/daypilot-lite-react";
 
 // Styling
 const fieldStyles = {
@@ -73,17 +77,17 @@ const CustomTextField = styled(TextField)({
     },
     "&:hover fieldset": {
       borderColor: "var(--color-primary)",
-    },
-    "&.Mui-focused fieldset": {
-      borderColor: "var(--color-primary)",
+    },    "&.Mui-focused fieldset": {
+      borderColor: "#257E68",
+      border: "2px solid #257E68",
     },
   },
   "& .MuiInputBase-input": {
     ...fieldStyles,
-    transition: "all 0.3s ease",
-    "&:focus": {
-      borderColor: "var(--color-primary)",
-      boxShadow: "0 0 0 2px rgba(37, 126, 104, 0.2)",
+    transition: "all 0.3s ease",    "&:focus": {
+      border: "2px solid #257E68",
+      outline: "none",
+      boxShadow: "0 0 8px rgba(37, 126, 104, 0.4), 0 0 16px rgba(37, 126, 104, 0.2)",
     },
   },
 });
@@ -162,6 +166,7 @@ const Profile = () => {
   const navigate = useNavigate();
   const params = useParams();
   const clientIdParam: string | null = params.clientId ?? null;
+  const { userRole } = useAuth();
 
   // #### STATE ####
   const [isEditing, setIsEditing] = useState(!clientIdParam);
@@ -171,6 +176,7 @@ const Profile = () => {
   const [tags, setTags] = useState<string[]>([]);
   const [allTags, setAllTags] = useState<string[]>([]);
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
+  const [isDeliveryModalOpen, setIsDeliveryModalOpen] = useState<boolean>(false);
   const [prevTags, setPrevTags] = useState<string[] | null>(null);
   const [prevClientProfile, setPrevClientProfile] = useState<ClientProfile | null>(null);
   const [clientProfile, setClientProfile] = useState<ClientProfile>({
@@ -212,7 +218,7 @@ const Profile = () => {
         foodAllergens: [],
         otherText: "",
         other: false,     // Changed from string to boolean
-   
+
       },
     },
     lifeChallenges: "",
@@ -248,6 +254,8 @@ const Profile = () => {
   const [selectedCaseWorker, setSelectedCaseWorker] = useState<CaseWorker | null>(null);
   const [pastDeliveries, setPastDeliveries] = useState<DeliveryEvent[]>([]);
   const [futureDeliveries, setFutureDeliveries] = useState<DeliveryEvent[]>([]);
+  const [events, setEvents] = useState<DeliveryEvent[]>([]);
+  const [clients, setClients] = useState<ClientProfile[]>([]);
 
   // Function to fetch profile data by ID
   const getProfileById = async (id: string) => {
@@ -267,6 +275,9 @@ const Profile = () => {
       navigate("/");
     }
   }, [navigate]);
+
+  useEffect(() => {
+    fetchClients();}, [])
 
   //get list of all tags
   useEffect(() => {
@@ -402,9 +413,9 @@ const Profile = () => {
         console.error("Failed to fetch delivery history", error);
       }
     };
-
+    console.log('ran')
     fetchDeliveryHistory();
-  }, [clientId]);
+  }, [clientId, isDeliveryModalOpen]);
 
   const calculateAge = (dob: Date) => {
     const diff = Date.now() - dob.getTime();
@@ -484,29 +495,29 @@ const Profile = () => {
   };
 
   const getCoordinates = async (address: string) => {
-    try{
-        const token = await auth.currentUser?.getIdToken();
-        const response = await fetch('https://geocode-addresses-endpoint-lzrplp4tfa-uc.a.run.app', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            addresses: [address]
-          }),
-        });
+    try {
+      const token = await auth.currentUser?.getIdToken();
+      const response = await fetch('https://geocode-addresses-endpoint-lzrplp4tfa-uc.a.run.app', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          addresses: [address]
+        }),
+      });
 
-        //API returns {[coordinates[]]} so destructure and return index 0
-        if(response.ok){
-          const { coordinates } = await response.json();
-          return coordinates[0];
-        }
+      //API returns {[coordinates[]]} so destructure and return index 0
+      if (response.ok) {
+        const { coordinates } = await response.json();
+        return coordinates[0];
+      }
     }
-    catch (error){
+    catch (error) {
       //[0,0] is an invalid coordinate handled in DelivertSpreadsheet.tsx
       console.error(error)
-      return [0,0];
+      return [0, 0];
     }
   }
 
@@ -721,7 +732,7 @@ const Profile = () => {
     // setIsLoading(true);
 
     try {
-      
+
 
       // --- Geocoding Optimization Start ---
       let addressChanged = false;
@@ -742,8 +753,8 @@ const Profile = () => {
 
       // Also force geocode if coordinates are missing or invalid
       if (!addressChanged && (!clientProfile.coordinates || clientProfile.coordinates.length === 0 || (clientProfile.coordinates[0].lat === 0 && clientProfile.coordinates[0].lng === 0))) {
-          console.log("Forcing geocode due to missing/invalid coordinates.");
-          addressChanged = true;
+        console.log("Forcing geocode due to missing/invalid coordinates.");
+        addressChanged = true;
       }
 
       let fetchedWard = clientProfile.ward; // Default to existing ward
@@ -949,10 +960,10 @@ const Profile = () => {
         { name: "noCookingEquipment", label: "No Cooking Equipment" },
         { name: "heartFriendly", label: "Heart Friendly" }
       ] as const;
-    
+
       interface DietaryOption {
-        name: 'lowSugar' | 'kidneyFriendly' | 'vegan' | 'vegetarian' | 'halal' | 
-              'microwaveOnly' | 'softFood' | 'lowSodium' | 'noCookingEquipment' | 'heartFriendly';
+        name: 'lowSugar' | 'kidneyFriendly' | 'vegan' | 'vegetarian' | 'halal' |
+        'microwaveOnly' | 'softFood' | 'lowSodium' | 'noCookingEquipment' | 'heartFriendly';
         label: string;
       }
 
@@ -988,6 +999,63 @@ const Profile = () => {
   />
 ))}
 
+    <Box sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1,
+            width: '100%',
+          }}>
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={clientProfile.deliveryDetails?.dietaryRestrictions?.other || false}
+                  onChange={handleDietaryRestrictionChange}
+                  name="other"
+                />
+              }
+              label="Other"
+            />
+            {clientProfile.deliveryDetails?.dietaryRestrictions?.other && (
+              <TextField
+                name="otherText"
+                value={clientProfile.deliveryDetails?.dietaryRestrictions?.otherText || ""}
+                onChange={handleDietaryRestrictionChange}
+                placeholder="Please specify other dietary restrictions"
+                variant="outlined"
+                size="small"
+                sx={{ flexGrow: 1, marginTop: '5%' }}
+              />
+            )}
+          </Box>
+{dietaryOptions.map((option: DietaryOption) => (
+  <FormControlLabel
+    key={option.name}
+    control={      <Checkbox
+        checked={Boolean(clientProfile.deliveryDetails?.dietaryRestrictions?.[option.name])}
+        onChange={handleDietaryRestrictionChange}
+        name={option.name}
+        sx={{
+          "&:focus": {
+            outline: "none",
+          },
+          "&.Mui-focusVisible": {
+            outline: "none",
+            "& .MuiSvgIcon-root": {
+              color: "#257E68",
+              filter: "drop-shadow(0 0 8px rgba(37, 126, 104, 0.4)) drop-shadow(0 0 16px rgba(37, 126, 104, 0.2))",
+            },
+          },
+          "& input:focus + .MuiSvgIcon-root": {
+            color: "#257E68",
+            filter: "drop-shadow(0 0 8px rgba(37, 126, 104, 0.4)) drop-shadow(0 0 16px rgba(37, 126, 104, 0.2))",
+          },
+        }}
+      />
+    }
+    label={option.label}
+  />
+))}
+
 <Box sx={{ 
   display: 'flex', 
   alignItems: 'center',
@@ -995,24 +1063,47 @@ const Profile = () => {
   width: '100%',
 }}>
   <FormControlLabel
-    control={
-      <Checkbox
+    control={      <Checkbox
         checked={clientProfile.deliveryDetails?.dietaryRestrictions?.other || false}
         onChange={handleDietaryRestrictionChange}
         name="other"
+        sx={{
+          "&:focus": {
+            outline: "none",
+          },
+          "&.Mui-focusVisible": {
+            outline: "none",
+            "& .MuiSvgIcon-root": {
+              color: "#257E68",
+              filter: "drop-shadow(0 0 8px rgba(37, 126, 104, 0.4)) drop-shadow(0 0 16px rgba(37, 126, 104, 0.2))",
+            },
+          },
+          "& input:focus + .MuiSvgIcon-root": {
+            color: "#257E68",
+            filter: "drop-shadow(0 0 8px rgba(37, 126, 104, 0.4)) drop-shadow(0 0 16px rgba(37, 126, 104, 0.2))",
+          },
+        }}
       />
     }
     label="Other"
   />
-  {clientProfile.deliveryDetails?.dietaryRestrictions?.other && (
-    <TextField
+  {clientProfile.deliveryDetails?.dietaryRestrictions?.other && (    <TextField
       name="otherText"
       value={clientProfile.deliveryDetails?.dietaryRestrictions?.otherText || ""}
       onChange={handleDietaryRestrictionChange}
       placeholder="Please specify other dietary restrictions"
       variant="outlined"
       size="small"
-      sx={{ flexGrow: 1, marginTop: '5%' }}
+      sx={{ 
+        flexGrow: 1, 
+        marginTop: '5%',        '& .MuiOutlinedInput-root': {
+          '&.Mui-focused fieldset': {
+            borderColor: "#257E68",
+            border: "2px solid #257E68",
+            boxShadow: "0 0 8px rgba(37, 126, 104, 0.4), 0 0 16px rgba(37, 126, 104, 0.2)",
+          },
+        },
+      }}
     />
   )}
 </Box>
@@ -1024,12 +1115,12 @@ const Profile = () => {
       if (!isEditing) {
         return <Box>{clientProfile.language}</Box>;
       }
-  
+
       const preDefinedOptions = ["English", "Spanish"];
       // If the stored language is not one of the predefined ones, we default to "Other"
       const isPredefined = preDefinedOptions.includes(clientProfile.language);
       const selectValue = isPredefined ? clientProfile.language : "Other";
-  
+
       const handleLanguageSelectChange = (e: any) => {
         const newVal = e.target.value;
         if (newVal !== "Other") {
@@ -1040,11 +1131,10 @@ const Profile = () => {
           handleChange({ target: { name: "language", value: "" } } as any);
         }
       };
-  
+
       const handleCustomLanguageChange = (e: any) => {
         handleChange(e);
       };
-  
       return (
         <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
           <Select
@@ -1058,7 +1148,11 @@ const Profile = () => {
               padding: "0.1rem 0.5rem",
               borderRadius: "5px",
               border: ".1rem solid black",
-              marginTop: "0px"
+              marginTop: "0px",
+              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                border: "2px solid #257E68",
+                boxShadow: "0 0 8px rgba(37, 126, 104, 0.4), 0 0 16px rgba(37, 126, 104, 0.2)",
+              },
             }}
           >
             {preDefinedOptions.map((option) => (
@@ -1068,10 +1162,8 @@ const Profile = () => {
             ))}
             <MenuItem value="Other">Other</MenuItem>
           </Select>
-          {selectValue === "Other" && (
-            <TextField
-              name="language"
-              placeholder="Enter language"
+          {selectValue === "Other" && (            <TextField
+              name="language"              placeholder="Enter language"
               value={isPredefined ? "" : clientProfile.language}
               onChange={handleCustomLanguageChange}
               sx={{
@@ -1080,8 +1172,13 @@ const Profile = () => {
                 height: "1.813rem",
                 padding: "0.1rem 0.5rem",
                 borderRadius: "5px",
-               
-                marginTop: "0px"
+                marginTop: "0px",
+                '& .MuiOutlinedInput-root': {
+                  '&.Mui-focused fieldset': {
+                    border: "2px solid #257E68",
+                    boxShadow: "0 0 8px rgba(37, 126, 104, 0.4), 0 0 16px rgba(37, 126, 104, 0.2)",
+                  },
+                },
               }}
             />
           )}
@@ -1093,7 +1190,7 @@ const Profile = () => {
       if (!isEditing) {
         return <Box>{clientProfile.ethnicity}</Box>;
       }
-    
+
       const preDefinedOptions = [
         "White",
         "Asian",
@@ -1104,10 +1201,10 @@ const Profile = () => {
         "Native Hawaiian or Pacific Islander",
         "Prefer Not to Say"
       ];
-    
+
       const isPredefined = preDefinedOptions.includes(clientProfile.ethnicity);
       const selectValue = isPredefined ? clientProfile.ethnicity : "Other";
-    
+
       const handleEthnicitySelectChange = (e: any) => {
         const newVal = e.target.value;
         if (newVal !== "Other") {
@@ -1118,11 +1215,11 @@ const Profile = () => {
           handleChange({ target: { name: "ethnicity", value: "" } } as any);
         }
       };
-    
+
       const handleEthnicityCustomChange = (e: any) => {
         handleChange(e);
       };
-    
+
       return (
         <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
           <Select
@@ -1136,7 +1233,11 @@ const Profile = () => {
               padding: "0.1rem 0.5rem",
               borderRadius: "5px",
               border: ".1rem solid black",
-              marginTop: "0px"
+              marginTop: "0px",
+              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                border: "2px solid #257E68",
+                boxShadow: "0 0 8px rgba(37, 126, 104, 0.4), 0 0 16px rgba(37, 126, 104, 0.2)",
+              },
             }}
           >
             {preDefinedOptions.map((option) => (
@@ -1146,10 +1247,8 @@ const Profile = () => {
             ))}
             <MenuItem value="Other">Other</MenuItem>
           </Select>
-          {selectValue === "Other" && (
-            <TextField
-              name="ethnicity"
-              placeholder="Enter ethnicity"
+          {selectValue === "Other" && (            <TextField
+              name="ethnicity"              placeholder="Enter ethnicity"
               value={isPredefined ? "" : clientProfile.ethnicity}
               onChange={handleEthnicityCustomChange}
               sx={{
@@ -1158,7 +1257,13 @@ const Profile = () => {
                 height: "1.813rem",
                 padding: "0.1rem 0.5rem",
                 borderRadius: "5px",
-                marginTop: "0px"
+                marginTop: "0px",
+                '& .MuiOutlinedInput-root': {
+                  '&.Mui-focused fieldset': {
+                    border: "2px solid #257E68",
+                    boxShadow: "0 0 8px rgba(37, 126, 104, 0.4), 0 0 16px rgba(37, 126, 104, 0.2)",
+                  },
+                },
               }}
             />
           )}
@@ -1187,10 +1292,7 @@ const Profile = () => {
       };
     
     
-      return (
-        <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
-          <Select
-            name="gender"
+      return (        <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>          <Select            name="gender"
             value={selectValue}
             onChange={handleGenderSelectChange}
             sx={{
@@ -1200,7 +1302,11 @@ const Profile = () => {
               padding: "0.1rem 0.5rem",
               borderRadius: "5px",
               border: ".1rem solid black",
-              marginTop: "0px"
+              marginTop: "0px",
+              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                border: "2px solid #257E68",
+                boxShadow: "0 0 8px rgba(37, 126, 104, 0.4), 0 0 16px rgba(37, 126, 104, 0.2)",
+              },
             }}
           >
             {preDefinedOptions.map((option) => (
@@ -1233,10 +1339,7 @@ const Profile = () => {
   
       };
     
-      return (
-        <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
-          <Select
-            name="headOfHousehold"
+      return (        <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>          <Select            name="headOfHousehold"
             value={selectValue}
             onChange={handleHeadOfHouseholdSelectChange}
             sx={{
@@ -1246,7 +1349,11 @@ const Profile = () => {
               padding: "0.1rem 0.5rem",
               borderRadius: "5px",
               border: ".1rem solid black",
-              marginTop: "0px"
+              marginTop: "0px",
+              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                border: "2px solid #257E68",
+                boxShadow: "0 0 8px rgba(37, 126, 104, 0.4), 0 0 16px rgba(37, 126, 104, 0.2)",
+              },
             }}
           >
             {preDefinedOptions.map((option) => (
@@ -1281,10 +1388,7 @@ const Profile = () => {
   
       };
     
-      return (
-        <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
-          <Select
-            name="recurrence"
+      return (        <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>          <Select            name="recurrence"
             value={selectValue}
             onChange={handleRecurrenceSelectChange}
             sx={{
@@ -1294,7 +1398,11 @@ const Profile = () => {
               padding: "0.1rem 0.5rem",
               borderRadius: "5px",
               border: ".1rem solid black",
-              marginTop: "0px"
+              marginTop: "0px",
+              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                border: "2px solid #257E68",
+                boxShadow: "0 0 8px rgba(37, 126, 104, 0.4), 0 0 16px rgba(37, 126, 104, 0.2)",
+              },
             }}
           >
             {preDefinedOptions.map((option) => (
@@ -1360,39 +1468,39 @@ const Profile = () => {
   const handleDietaryRestrictionChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, type } = e.target;
     handlePrevClientCopying();
-    
+
     if (type === "checkbox") {
-        const { checked } = e.target;
-        setClientProfile((prevState) => ({
-            ...prevState,
-            deliveryDetails: {
-                ...prevState.deliveryDetails,
-                dietaryRestrictions: {
-                    ...prevState.deliveryDetails.dietaryRestrictions,
-                    [name]: checked,
-                    ...(name === "other" && {
-                        other: checked,
-                        // Keep the existing otherText when checking, clear it when unchecking
-                        otherText: checked ? prevState.deliveryDetails.dietaryRestrictions.otherText : ""
-                    })
-                },
-            },
-        }));
+      const { checked } = e.target;
+      setClientProfile((prevState) => ({
+        ...prevState,
+        deliveryDetails: {
+          ...prevState.deliveryDetails,
+          dietaryRestrictions: {
+            ...prevState.deliveryDetails.dietaryRestrictions,
+            [name]: checked,
+            ...(name === "other" && {
+              other: checked,
+              // Keep the existing otherText when checking, clear it when unchecking
+              otherText: checked ? prevState.deliveryDetails.dietaryRestrictions.otherText : ""
+            })
+          },
+        },
+      }));
     } else if (type === "text" && name === "otherText") {
-        const value = e.target.value;
-        setClientProfile((prevState) => ({
-            ...prevState,
-            deliveryDetails: {
-                ...prevState.deliveryDetails,
-                dietaryRestrictions: {
-                    ...prevState.deliveryDetails.dietaryRestrictions,
-                    otherText: value,
-                    other: true // Ensure the checkbox stays checked when typing
-                },
-            },
-        }));
+      const value = e.target.value;
+      setClientProfile((prevState) => ({
+        ...prevState,
+        deliveryDetails: {
+          ...prevState.deliveryDetails,
+          dietaryRestrictions: {
+            ...prevState.deliveryDetails.dietaryRestrictions,
+            otherText: value,
+            other: true // Ensure the checkbox stays checked when typing
+          },
+        },
+      }));
     }
-};
+  };
 
   //google places autocomplete
   const addressInputRef = useRef<HTMLInputElement>(null);
@@ -1626,6 +1734,150 @@ const Profile = () => {
     }));
   }, [clientProfile.adults, clientProfile.children, clientProfile.seniors]);
 
+
+    const handleAddDelivery = async (newDelivery: NewDelivery) => {
+      try {
+        let recurrenceDates: Date[] = [];
+  
+        //create unique id for each recurrence group. All events for this recurrence will have the same id
+        const recurrenceId = crypto.randomUUID();
+        if (newDelivery.recurrence === "Custom") {
+          // Use customDates directly if recurrence is Custom
+          // Ensure customDates exist and map string dates back to Date objects
+          recurrenceDates = newDelivery.customDates?.map(dateStr => {
+            const date = new Date(dateStr);
+            // Adjust for timezone offset if needed, similar to how it might be handled elsewhere
+            return new Date(date.getTime() + date.getTimezoneOffset() * 60000);
+          }) || [];
+          // Clear repeatsEndDate explicitly for custom recurrence in the submitted data
+          newDelivery.repeatsEndDate = undefined;
+        } else {
+          // Calculate recurrence dates for standard recurrence types
+          const deliveryDate = new Date(newDelivery.deliveryDate);
+          recurrenceDates =
+            newDelivery.recurrence === "None" ? [deliveryDate] : calculateRecurrenceDates(newDelivery);
+        }
+  
+        // Filter out dates that already have a delivery for the same client
+        const existingEventDates = new Set(
+          events
+            .filter(event => event.clientId === newDelivery.clientId)
+            .map(event => new DayPilot.Date(event.deliveryDate).toString("yyyy-MM-dd"))
+        );
+  
+        const uniqueRecurrenceDates = recurrenceDates.filter(date => 
+          !existingEventDates.has(new DayPilot.Date(date).toString("yyyy-MM-dd"))
+        );
+  
+        if (uniqueRecurrenceDates.length < recurrenceDates.length) {
+          console.warn("Some duplicate delivery dates were detected and skipped.");
+        }
+  
+        // Use DeliveryService to create events for unique dates only
+        const deliveryService = DeliveryService.getInstance();
+        const createPromises = uniqueRecurrenceDates.map(date => {
+          const eventToAdd: Partial<DeliveryEvent> = {
+            clientId: newDelivery.clientId,
+            clientName: newDelivery.clientName,
+            deliveryDate: date, // Use the calculated/provided recurrence date
+            recurrence: newDelivery.recurrence,
+            time: "",
+            cluster: 0,
+            recurrenceId: recurrenceId,
+          };
+  
+          // Add customDates array if recurrence is Custom
+          if (newDelivery.recurrence === "Custom") {
+            eventToAdd.customDates = newDelivery.customDates;
+          } else if (newDelivery.repeatsEndDate) {
+            // Only add repeatsEndDate for standard recurrence types
+            eventToAdd.repeatsEndDate = newDelivery.repeatsEndDate;
+          }
+  
+          return deliveryService.createEvent(eventToAdd);
+        });
+  
+        await Promise.all(createPromises);
+  
+        // // Refresh events after adding
+        // fetchEvents();
+      } catch (error) {
+        console.error("Error adding delivery:", error);
+      }
+    };
+
+
+
+     const fetchClients = async () => {
+    try {
+      // Use ClientService instead of direct Firebase calls
+      const clientService = ClientService.getInstance();
+      const clientsData = await clientService.getAllClients();
+      
+      // Map client data to Client type with explicit type casting for compatibility
+      const clientList = clientsData.map(data => {
+        // Ensure dietaryRestrictions has all required fields
+        const dietaryRestrictions = data.deliveryDetails?.dietaryRestrictions || {};
+        
+        return {
+          id: data.uid,
+          uid: data.uid,
+          firstName: data.firstName || "",
+          lastName: data.lastName || "",
+          streetName: data.streetName || "",
+          zipCode: data.zipCode || "",
+          address: data.address || "",
+          address2: data.address2 || "",
+          city: data.city || "",
+          state: data.state || "",
+          quadrant: data.quadrant || "",
+          dob: data.dob || "",
+          phone: data.phone || "",
+          alternativePhone: data.alternativePhone || "",
+          adults: data.adults || 0,
+          children: data.children || 0,
+          total: data.total || 0,
+          gender: data.gender || "Other",
+          ethnicity: data.ethnicity || "",
+          deliveryDetails: {
+            deliveryInstructions: data.deliveryDetails?.deliveryInstructions || "",
+            dietaryRestrictions: {
+              foodAllergens: dietaryRestrictions.foodAllergens || [],
+              halal: dietaryRestrictions.halal || false,
+              kidneyFriendly: dietaryRestrictions.kidneyFriendly || false,
+              lowSodium: dietaryRestrictions.lowSodium || false,
+              lowSugar: dietaryRestrictions.lowSugar || false,
+              microwaveOnly: dietaryRestrictions.microwaveOnly || false,
+              noCookingEquipment: dietaryRestrictions.noCookingEquipment || false,
+              other: dietaryRestrictions.other || [],
+              softFood: dietaryRestrictions.softFood || false,
+              vegan: dietaryRestrictions.vegan || false,
+              vegetarian: dietaryRestrictions.vegetarian || false,
+            },
+          },
+          lifeChallenges: data.lifeChallenges || "",
+          notes: data.notes || "",
+          notesTimestamp: data.notesTimestamp || null,
+          lifestyleGoals: data.lifestyleGoals || "",
+          language: data.language || "",
+          createdAt: data.createdAt || new Date(),
+          updatedAt: data.updatedAt || new Date(),
+          startDate: data.startDate || "",
+          endDate: data.endDate || "",
+          recurrence: data.recurrence || "None",
+          tags: data.tags || [],
+          ward: data.ward || "",
+          seniors: data.seniors || 0,
+          headOfHousehold: data.headOfHousehold || "Adult",
+        };
+      });
+      
+      // Cast the result to Client[] to satisfy type checking
+      setClients(clientList as unknown as ClientProfile[]);
+    } catch (error) {
+      console.error("Error fetching clients:", error);
+    }
+  };
   console.log(clientProfile)
   return (
     <Box className="profile-container" sx={{ backgroundColor: "#f8f9fa", minHeight: "100vh", pb: 4 }}>
@@ -1757,7 +2009,31 @@ const Profile = () => {
 
           {/* Delivery Log Section */}
           <SectionBox mb={3}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
             <SectionTitle sx={{ textAlign: 'left', width: '100%' }}>Delivery Log</SectionTitle>
+            <Button
+              variant="contained"
+              startIcon={<Add />}
+              onClick={() => setIsDeliveryModalOpen(true)}
+              disabled={userRole === UserType.ClientIntake}
+              sx={{
+                marginRight: 4,
+                width: 166,
+                color: "#fff",
+                backgroundColor: "#257E68",
+              }}
+            >
+              Add Delivery
+            </Button>
+            </Box>
+            <AddDeliveryDialog
+              open={isDeliveryModalOpen}
+              onClose={() => setIsDeliveryModalOpen(false)}
+              onAddDelivery={handleAddDelivery}
+              clients={clients}
+              startDate={new DayPilot.Date()}
+            />
+            <SectionTitle sx={{ textAlign: 'left', width: '100%' }}>Deliveries</SectionTitle>
             <DeliveryLogForm
               pastDeliveries={pastDeliveries}
               futureDeliveries={futureDeliveries}
@@ -1774,7 +2050,37 @@ const Profile = () => {
               renderField={renderField}
               fieldLabelStyles={fieldLabelStyles}
               errors={errors}
-            />
+            />          </SectionBox>
+          <SectionBox sx={{ textAlign: 'right', width: '100%' }}>
+            <Box display="flex" alignItems="center" justifyContent="flex-end" gap={1}>
+              <StyledIconButton
+                  onClick={() => {
+                    if (isEditing) handleCancel();
+                    setIsEditing((prev) => !prev);
+                  }}
+                  size="small"
+                >
+                  <Tooltip title={isEditing ? "Cancel Editing" : "Edit All"}>
+                    {isEditing ? (
+                      <span className="cancel-btn">
+                        <CloseIcon />
+                      </span>
+                    ) : (
+                      <EditIcon />
+                    )}
+                  </Tooltip>
+                </StyledIconButton>
+                {isEditing && (
+                  <StyledIconButton
+                    color="primary"
+                    onClick={handleSave}
+                    aria-label="save"
+                    size="small"
+                  >
+                    <SaveIcon />
+                  </StyledIconButton>
+                )}
+            </Box>
           </SectionBox>
         </Box> {/* End centered-box */}
       </Box> {/* End profile-main */}
