@@ -31,7 +31,15 @@ export const useCustomColumns = ({page}: useCustomColumnsProps) => {
   // Manage the custom columns state. Default to [] if not found in local storage
   const [customColumns, setCustomColumns] = useState<CustomColumn[]>(() => {
     const saved = localStorage.getItem(`ffaCustomColumns${page}`);
-    return saved ? JSON.parse(saved) : [];
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (error) {
+        console.warn('Failed to parse custom columns from localStorage:', error);
+        return [];
+      }
+    }
+    return [];
   });
 
   //detect custom column change and update local store
