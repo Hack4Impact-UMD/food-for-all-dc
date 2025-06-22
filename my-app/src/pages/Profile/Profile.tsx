@@ -260,6 +260,7 @@ const Profile = () => {
   const [userTypedAddress, setUserTypedAddress] = useState<string>("");
   const [isAddressValidated, setIsAddressValidated] = useState<boolean>(true);
 
+  
   // Function to fetch profile data by ID
   const getProfileById = async (id: string) => {
     const docRef = doc(db, "clients", id);
@@ -1600,6 +1601,9 @@ useEffect(() => {
       }
     );
 
+    // Track if a valid place was just selected
+    let placeJustSelected = false;
+
     // Add place_changed listener
     const listener = autocompleteRef.current.addListener("place_changed", () => {
       const place = autocompleteRef.current?.getPlace();
@@ -1609,6 +1613,9 @@ useEffect(() => {
         console.warn("No valid place selected or missing address components");
         return;
       }
+
+      // Mark that a valid place was just selected
+      placeJustSelected = true;
 
       // Clear any previous address error since a valid place was selected
       setAddressError("");
@@ -1663,9 +1670,11 @@ useEffect(() => {
             quadrant
           });
 
+          const newAddress = `${streetNumber} ${streetName}`.trim();
+          
           setClientProfile((prev) => ({
             ...prev,
-            address: `${streetNumber} ${streetName}`.trim(),
+            address: newAddress,
             city: city,
             state: state,
             zipCode: zipCode,
@@ -1673,12 +1682,17 @@ useEffect(() => {
           }));
 
           // Update the user typed address to match the selected address
-          setUserTypedAddress(`${streetNumber} ${streetName}`.trim());
+          setUserTypedAddress(newAddress);
+          
+          // Reset the flag after a short delay
+          setTimeout(() => {
+            placeJustSelected = false;
+          }, 500);
         }
       }
     });
 
-    // Modified input event listener - use debouncing to reduce conflicts
+    // Modified input event listener with improved debouncing
     let inputTimeout: NodeJS.Timeout;
     const inputListener = () => {
       if (addressInputRef.current) {
@@ -1698,42 +1712,53 @@ useEffect(() => {
             setAddressError("");
             setIsAddressValidated(true);
           }
-        }, 150); // 150ms debounce
+        }, 150);
       }
     };
 
-    // Simplified blur event listener
-    const blurListener = () => {
-      if (addressInputRef.current) {
-        const currentValue = addressInputRef.current.value.trim();
-        
-        // Clear any pending input timeout
-        if (inputTimeout) {
-          clearTimeout(inputTimeout);
-        }
-        
-        // Only validate if there's a value and it doesn't match what's in clientProfile.address
-        if (currentValue && currentValue !== clientProfile.address) {
-          // Use a small delay to allow Google Places to process first
-          setTimeout(() => {
-            if (addressInputRef.current && 
-                addressInputRef.current.value.trim() === currentValue && 
-                currentValue !== clientProfile.address) {
-              setAddressError("Please select a valid address autofill suggestions.");
-              setIsAddressValidated(false);
-            }
-          }, 300);
-        } else if (currentValue === clientProfile.address) {
-          // Address matches the validated one
+    // Improved blur event listener
+
+const blurListener = () => {
+  // Skip if just picked from dropdown
+  if (placeJustSelected) return;
+
+  const currentValue = addressInputRef.current?.value.trim() || "";
+  if (!currentValue) {
+    setAddressError("");
+    setIsAddressValidated(true);
+    return;
+  }
+
+  const service = new window.google.maps.places.AutocompleteService();
+  service.getPlacePredictions(
+    {
+      input: currentValue,
+      componentRestrictions: { country: "us" },
+      types: ["address"],
+    },
+    (predictions, status) => {
+      if (status === window.google.maps.places.PlacesServiceStatus.OK && predictions) {
+        const inputLower = currentValue.toLowerCase();
+        // compare only the street portion (before the first comma)
+        const hasMatch = predictions.some(p => {
+          const streetOnly = p.description.split(",")[0].toLowerCase();
+          return streetOnly === inputLower;
+        });
+
+        if (hasMatch) {
           setAddressError("");
           setIsAddressValidated(true);
+          return;
         }
       }
-    };
+      // no exact street match → invalid
+      setAddressError("Please select a valid address from the autocomplete suggestions.");
+      setIsAddressValidated(false);
+    }
+  );
+};
 
-    // Use addEventListener with passive option to improve performance
-    addressInputRef.current.addEventListener('input', inputListener, { passive: true });
-    addressInputRef.current.addEventListener('blur', blurListener);
+addressInputRef.current!.addEventListener("blur", blurListener);
 
     console.log("Google Places autocomplete initialized successfully");
 
@@ -1764,7 +1789,7 @@ useEffect(() => {
   } catch (error) {
     console.error("Error initializing Google Places autocomplete:", error);
   }
-}, [isEditing, isGoogleApiLoaded]); // Remove addressInputRef.current from dependencies
+}, [isEditing, isGoogleApiLoaded, clientProfile.address]); // Added clientProfile.address to dependencies
 
 // Add a separate useEffect to handle the ref attachment
 useEffect(() => {
