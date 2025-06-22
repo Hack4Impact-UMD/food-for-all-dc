@@ -222,9 +222,10 @@ const Spreadsheet: React.FC = () => {
     return () => unsubscribe();
   }, [navigate]);
 
-  //detect sort order change and store locally
+  //detect sort order, change rows, and store locally
   useEffect(() => {
     localStorage.setItem("ffaSortOrderSpreadsheet", sortOrder);
+    sortData(rows);
   }, [sortOrder]);
 
   // Define fields for table columns
@@ -278,7 +279,7 @@ const Spreadsheet: React.FC = () => {
         const clientService = ClientService.getInstance();
         const clients = await clientService.getAllClients();
         console.log("Fetched clients:", clients);
-        setRows(clients as unknown as RowData[]);
+        sortData(clients as unknown as RowData[]);
       } catch (error) {
         console.error("Error fetching data: ", error);
       }
@@ -286,8 +287,12 @@ const Spreadsheet: React.FC = () => {
     fetchData();
   }, []);
 
-  //sort the rows whenever sortOrder or rows change
-  useEffect(() => {
+  const toggleSortOrder = () => {
+    const order = sortOrder === "asc" ? "desc" : "asc";
+    setSortOrder(order);
+  };
+
+  const sortData = (rows: RowData[]) => {
     if (rows.length > 0) {
       const sortedRows = [...rows].sort((a, b) => {
         if (a.firstName === b.firstName) {
@@ -299,16 +304,9 @@ const Spreadsheet: React.FC = () => {
           ? a.firstName.localeCompare(b.firstName)
           : b.firstName.localeCompare(a.firstName);
       });
-      // Only update if the order actually changed
-      if (JSON.stringify(sortedRows) !== JSON.stringify(rows)) {
-        setRows(sortedRows);
-      }
+      setRows(sortedRows); 
     }
-  }, [sortOrder, rows]);
-
-  const toggleSortOrder = () => {
-    setSortOrder(prev => prev === "asc" ? "desc" : "asc");
-  };
+  }
 
   // Handle search input change
   const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {

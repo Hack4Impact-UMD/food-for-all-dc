@@ -37,7 +37,7 @@ export const useCustomColumns = ({page}: useCustomColumnsProps) => {
   //detect custom column change and update local store
   useEffect(()=>{
     localStorage.setItem(`ffaCustomColumns${page}`, JSON.stringify(customColumns))
-  },[customColumns])
+  },[customColumns, page])
 
   // Function to add a new custom column
   const handleAddCustomColumn = () => {
