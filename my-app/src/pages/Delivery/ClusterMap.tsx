@@ -1,6 +1,8 @@
 import React, { useEffect, useRef } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import "leaflet.awesome-markers";
+import "leaflet.awesome-markers/dist/leaflet.awesome-markers.css";
 import { Box, Button } from "@mui/material";
 import FFAIcon from '../../assets/food-for-all-dc-logo.jpg';
 
@@ -123,17 +125,33 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters }) => {
                hash = clusterId.charCodeAt(i) + ((hash << 5) - hash);
            }
            colorIndex = Math.abs(hash) % clusterColors.length;
-        }
-      }
+        }      }        const numberIcon = L.divIcon({
+      html: `<div style="
+              width: 20px;
+              height: 20px;
+              background-color: ${clusterId ? clusterColors[colorIndex] : "#257E68"};
+              border: 1px solid black;
+              border-radius: 50%;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              font-weight: bold;
+              font-size: 12px;
+              color: white;
+              text-shadow: .5px .5px .5px #000, -.5px .5px .5px #000, -.5px -.5px 0px #000, .5px -.5px 0px #000;
+              box-sizing: border-box;
+              opacity: 0.9;
+            ">${clusterId}</div>`,
+      iconSize: [0, 0],
+      iconAnchor: [16, 16],
+      popupAnchor: [0, -16]
+    });
+      
 
       //create marker
-      const marker = L.circleMarker([coord.lat, coord.lng], {
-        radius: 8,
-        fillColor: clusterId ? clusterColors[colorIndex] : "#257E68", // Use default color if no cluster
-        color: "#000",
-        weight: 1,
+      const marker = L.marker([coord.lat, coord.lng], {
+        icon: numberIcon,
         opacity: 1,
-        fillOpacity: 0.8
       });
 
       //build popup content
