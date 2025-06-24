@@ -35,6 +35,7 @@ interface FormFieldProps {
   isModalOpen: boolean;
   setIsModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
   handleTag: (tag: string) => void;
+  error?: string; // Add error prop
 }
 
 const fieldStyles = {
@@ -172,6 +173,7 @@ const FormField: React.FC<FormFieldProps> = ({
   isModalOpen,
   setIsModalOpen,
   handleTag,
+  error,
 }) => {
   const capitalizeFirstLetter = (value: string) => {
     return value[0].toUpperCase() + value.slice(1);
@@ -404,21 +406,28 @@ const FormField: React.FC<FormFieldProps> = ({
             fullWidth
             inputProps={{ minLength }}
           />
-        );
-      case "text":
+        );      case "text":
         if (["email"].includes(fieldPath)) minLength = 5;
         if (["address2"].includes(fieldPath)) minLength = 5;
         return (
-          <CustomTextField
-            type="text"
-            name={fieldPath}
-            value={String(value || "")}
-            onChange={handleChange}
-            fullWidth
-            disabled={isDisabledField}
-            inputRef={fieldPath === "address" ? addressInputRef : null}
-            inputProps={{ minLength }}
-          />
+          <>
+            <CustomTextField
+              type="text"
+              name={fieldPath}
+              value={String(value || "")}
+              onChange={handleChange}
+              fullWidth
+              disabled={isDisabledField}
+              inputRef={fieldPath === "address" ? addressInputRef : null}
+              inputProps={{ minLength }}
+              error={!!error}
+            />
+            {error && (
+              <Typography variant="caption" color="error" sx={{ display: 'block', mt: 0.5 }}>
+                {error}
+              </Typography>
+            )}
+          </>
         );
       case "textarea":
         if (fieldPath === "ward") {

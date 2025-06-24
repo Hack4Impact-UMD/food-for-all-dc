@@ -1,5 +1,6 @@
 import React from "react";
 import { Box, Typography, Select, MenuItem, Tooltip, Autocomplete, TextField } from "@mui/material";
+import InfoIcon from '@mui/icons-material/Info';
 import { ClientProfile } from '../../../types';
 import { ClientProfileKey, InputType } from '../types';
 import { CaseWorker } from "../../../types";
@@ -196,26 +197,70 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
             {errors.email}
           </Typography>
         )}
-      </Box>
-
-      {/* Phone */}
-      <Box>
-        <Typography className="field-descriptor" sx={fieldLabelStyles}>
-          PHONE <span className="required-asterisk">*</span>
-        </Typography>
-        {renderField("phone", "text")}
-        {errors.phone && (
-          <Typography color="error" variant="body2">
-            {errors.phone}
+      </Box>      {/* Phone */}
+      <Box>        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          <Typography className="field-descriptor" sx={fieldLabelStyles}>
+            PHONE <span className="required-asterisk">*</span>
           </Typography>
-        )}
+          <Tooltip 
+            title={
+              <React.Fragment>
+                <Typography variant="subtitle2">Allowed formats:</Typography>
+                <Typography variant="body2">(123) 456-7890</Typography>
+                <Typography variant="body2">123-456-7890</Typography>
+                <Typography variant="body2">123.456.7890</Typography>
+                <Typography variant="body2">123 456 7890</Typography>
+                <Typography variant="body2">1234567890</Typography>
+                <Typography variant="body2">+1 123-456-7890</Typography>
+              </React.Fragment>
+            } 
+            arrow
+          >
+            <InfoIcon 
+              sx={{ 
+                color: '#257E68', 
+                fontSize: '20px',
+                cursor: 'help',
+                verticalAlign: 'middle', 
+                marginTop: '-3px'
+              }} 
+            />
+          </Tooltip>
+        </Box>
+        {renderField("phone", "text")}
+        {/* Error is now displayed within the renderField component */}
       </Box>
 
-      {/* Alternative Phone */}
-      <Box>
-        <Typography className="field-descriptor" sx={fieldLabelStyles}>
-          ALTERNATIVE PHONE
-        </Typography>
+      {/* Alternative Phone */}      <Box>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          <Typography className="field-descriptor" sx={fieldLabelStyles}>
+            ALTERNATIVE PHONE
+          </Typography>
+          <Tooltip 
+            title={
+              <React.Fragment>
+                <Typography variant="subtitle2">Allowed formats:</Typography>
+                <Typography variant="body2">(123) 456-7890</Typography>
+                <Typography variant="body2">123-456-7890</Typography>
+                <Typography variant="body2">123.456.7890</Typography>
+                <Typography variant="body2">123 456 7890</Typography>
+                <Typography variant="body2">1234567890</Typography>
+                <Typography variant="body2">+1 123-456-7890</Typography>
+              </React.Fragment>
+            } 
+            arrow
+          >
+            <InfoIcon 
+              sx={{ 
+                color: '#257E68', 
+                fontSize: '20px',
+                cursor: 'help',
+                verticalAlign: 'middle',
+                marginTop: '-3px'
+              }} 
+            />
+          </Tooltip>
+        </Box>
         {renderField("alternativePhone", "text")}
       </Box>
 

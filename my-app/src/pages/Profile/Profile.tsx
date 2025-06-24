@@ -595,13 +595,42 @@ const Profile = () => {
       setClientProfile((prevState) => ({
         ...prevState,
         [name]: Number(value),
-      }));
-    } else if (name === "phone" || name === "alternativePhone") {
-      const numericValue = value.replace(/\D/g, "");
-      setClientProfile((prevState) => ({
-        ...prevState,
-        [name]: numericValue,
-      }));
+      }));    } else if (name === "phone" || name === "alternativePhone") {
+      setClientProfile((prevState) => {
+        const updatedProfile = {
+          ...prevState,
+          [name]: value,
+        };
+        
+        // Validate phone numbers on change
+        const countDigits = (str: string) => (str.match(/\d/g) || []).length;
+        const isValidPhoneFormat = (phone: string) => {
+          // Allowed formats: (123) 456-7890, 123-456-7890, 123.456.7890, 123 456 7890, 1234567890, +1 123-456-7890
+          return /^(\+\d{1,2}\s?)?((\(\d{3}\))|\d{3})[\s.-]?\d{3}[\s.-]?\d{4}$/.test(phone);
+        };
+        const newErrors = { ...errors };
+        
+        if (name === "phone") {
+          if (value.trim() === "") {
+            newErrors.phone = "Phone is required";
+          } else if (countDigits(value) < 10) {
+            newErrors.phone = "Phone number must contain at least 10 digits";          } else if (!isValidPhoneFormat(value)) {
+            newErrors.phone = `"${value}" is an invalid format. Please see the i icon for allowed formats.`;
+          } else {
+            delete newErrors.phone;
+          }
+        }
+          if (name === "alternativePhone") {
+          if (value.trim() !== "" && (countDigits(value) < 10 || !isValidPhoneFormat(value))) {
+            newErrors.alternativePhone = `"${value}" is an invalid format. Please see the i icon for allowed formats.`;
+          } else {
+            delete newErrors.alternativePhone;
+          }
+        }
+        
+        setErrors(newErrors);
+        return updatedProfile;
+      });
     } else {
       setClientProfile((prevState) => ({
         ...prevState,
@@ -674,17 +703,27 @@ const Profile = () => {
     }
     if (!clientProfile.language?.trim()) {
       newErrors.language = "Language is required";
-    }
-
-    // Validate that the total number of household members is not zero
+    }    // Validate that the total number of household members is not zero
     if (clientProfile.adults === 0 && clientProfile.seniors === 0) {
       newErrors.total = "At least one adult or senior is required";
     }
-    if (!/^\d{10}$/.test(clientProfile.phone || "")) {
-      newErrors.phone = "Phone number must be exactly 10 digits";
+    
+    // Count digits and validate phone number format
+    const countDigits = (str: string) => (str.match(/\d/g) || []).length;
+    const isValidPhoneFormat = (phone: string) => {
+      // Allowed formats: (123) 456-7890, 123-456-7890, 123.456.7890, 123 456 7890, 1234567890, +1 123-456-7890
+      return /^(\+\d{1,2}\s?)?((\(\d{3}\))|\d{3})[\s.-]?\d{3}[\s.-]?\d{4}$/.test(phone);
+    };
+    
+    if (!clientProfile.phone?.trim()) {
+      newErrors.phone = "Phone is required";
+    } else if (countDigits(clientProfile.phone) < 10) {
+      newErrors.phone = "Phone number must contain at least 10 digits";    } else if (!isValidPhoneFormat(clientProfile.phone)) {
+      newErrors.phone = `"${clientProfile.phone}" is an invalid format. Please see the i icon for allowed formats.`;
     }
-    if (clientProfile.alternativePhone && !/^\d{10}$/.test(clientProfile.alternativePhone)) {
-      newErrors.alternativePhone = "Alternative Phone number must be exactly 10 digits";
+      if (clientProfile.alternativePhone?.trim() && 
+        (countDigits(clientProfile.alternativePhone) < 10 || !isValidPhoneFormat(clientProfile.alternativePhone))) {
+      newErrors.alternativePhone = `"${clientProfile.alternativePhone}" is an invalid format. Please see the i icon for allowed formats.`;
     }
 
     // Validate referral entity if it exists
@@ -1441,8 +1480,7 @@ const Profile = () => {
     // Determine if the field should be disabled
     const isDisabledField = ["city", "state", "zipCode", "quadrant", "ward", "total"].includes(fieldPath);
 
-    return (
-      <Box sx={{
+    return (      <Box sx={{
         transition: "all 0.2s ease",
         '&:hover': {
           transform: isEditing ? 'translateY(-2px)' : 'none',
@@ -1463,6 +1501,7 @@ const Profile = () => {
           isModalOpen={isModalOpen}
           setIsModalOpen={setIsModalOpen}
           handleTag={handleTag}
+          error={errors[fieldPath]}
         />
       </Box>
     );
