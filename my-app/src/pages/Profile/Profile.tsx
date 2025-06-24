@@ -591,7 +591,12 @@ const Profile = () => {
         ...prevState,
         [name]: date,
       }));
+    } else if (name === "seniors" && Number(value) < 0) {
+      return
     } else if (name === "adults" || name === "children") {
+      if (Number(value) < 0) {
+        return; //do nothing if the input is negative
+      }
       setClientProfile((prevState) => ({
         ...prevState,
         [name]: Number(value),
@@ -686,6 +691,11 @@ const Profile = () => {
     if (clientProfile.alternativePhone && !/^\d{10}$/.test(clientProfile.alternativePhone)) {
       newErrors.alternativePhone = "Alternative Phone number must be exactly 10 digits";
     }
+
+    //validate head of household logic
+    if ((clientProfile.headOfHousehold === "Senior" && clientProfile.seniors == 0) || (clientProfile.headOfHousehold === "Adult" && clientProfile.adults == 0)){
+      newErrors.headOfHouseHold = `Head of household is ${clientProfile.headOfHousehold} but no ${clientProfile.headOfHousehold} listed`;
+    } 
 
     // Validate referral entity if it exists
     if (clientProfile.referralEntity) {
@@ -2016,7 +2026,7 @@ const handleCancel = () => {
       console.error("Error fetching clients:", error);
     }
   };
-  console.log(clientProfile)
+
   return (
     <Box className="profile-container" sx={{ backgroundColor: "#f8f9fa", minHeight: "100vh", pb: 4 }}>
       {showSavePopup && (
