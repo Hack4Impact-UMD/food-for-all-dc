@@ -410,7 +410,7 @@ const FormField: React.FC<FormFieldProps> = ({
         if (["email"].includes(fieldPath)) minLength = 5;
         if (["address2"].includes(fieldPath)) minLength = 5;
         return (
-          <>
+          <Box sx={{ width: "100%" }}>
             <CustomTextField
               type="text"
               name={fieldPath}
@@ -421,33 +421,30 @@ const FormField: React.FC<FormFieldProps> = ({
               inputRef={fieldPath === "address" ? addressInputRef : null}
               inputProps={{ minLength }}
               error={!!error}
+              sx={{ width: "100%" }}
             />
             {error && (
               <Typography variant="caption" color="error" sx={{ display: 'block', mt: 0.5 }}>
                 {error}
               </Typography>
             )}
-          </>
-        );
+          </Box>        );
       case "textarea":
         if (fieldPath === "ward") {
           return <CustomTextField name={fieldPath} value={String(value || "")} disabled fullWidth />;
         } else {
-          // Create block scope for lexical declaration
-          {
-            const isTallTextarea = ["lifeChallenges", "lifestyleGoals", "notes", "deliveryDetails.deliveryInstructions"].includes(fieldPath);
-            return (
-              <CustomTextField
-                name={fieldPath}
-                value={String(value || "")}
-                onChange={handleChange}
-                multiline
-                fullWidth
-                minRows={isTallTextarea ? 3 : 1}
-                inputProps={{ minLength: minLengthTextarea }}
-              />
-            );
-          }
+          const isTallTextarea = ["lifeChallenges", "lifestyleGoals", "notes", "deliveryDetails.deliveryInstructions"].includes(fieldPath);
+          return (
+            <CustomTextField
+              name={fieldPath}
+              value={String(value || "")}
+              onChange={handleChange}
+              multiline
+              fullWidth
+              minRows={isTallTextarea ? 3 : 1}
+              inputProps={{ minLength: minLengthTextarea }}
+            />
+          );
         }
       case "tags":
         return (
