@@ -196,8 +196,7 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
           <Typography color="error" variant="body2">
             {errors.email}
           </Typography>
-        )}
-      </Box>      {/* Phone */}
+        )}      </Box>      {/* Phone */}
       <Box>        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
           <Typography className="field-descriptor" sx={fieldLabelStyles}>
             PHONE <span className="required-asterisk">*</span>
@@ -228,10 +227,12 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
           </Tooltip>
         </Box>
         {renderField("phone", "text")}
-        {/* Error is now displayed within the renderField component */}
-      </Box>
-
-      {/* Alternative Phone */}      <Box>
+        {errors.phone && (
+          <Typography color="error" variant="body2" sx={{ fontSize: '0.75rem', mt: 0.5 }}>
+            {errors.phone}
+          </Typography>
+        )}
+      </Box>      {/* Alternative Phone */}      <Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
           <Typography className="field-descriptor" sx={fieldLabelStyles}>
             ALTERNATIVE PHONE
@@ -262,6 +263,11 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
           </Tooltip>
         </Box>
         {renderField("alternativePhone", "text")}
+        {errors.alternativePhone && (
+          <Typography color="error" variant="body2" sx={{ fontSize: '0.75rem', mt: 0.5 }}>
+            {errors.alternativePhone}
+          </Typography>
+        )}
       </Box>
 
       {/* Gender */}

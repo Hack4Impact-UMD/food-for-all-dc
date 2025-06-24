@@ -408,9 +408,11 @@ const FormField: React.FC<FormFieldProps> = ({
           />
         );      case "text":
         if (["email"].includes(fieldPath)) minLength = 5;
-        if (["address2"].includes(fieldPath)) minLength = 5;
-        return (
-          <Box sx={{ width: "100%" }}>
+        if (["address2"].includes(fieldPath)) minLength = 5;        return (
+          <Box sx={{ 
+            width: "100%",
+            position: "relative"
+          }}>
             <CustomTextField
               type="text"
               name={fieldPath}
@@ -421,14 +423,28 @@ const FormField: React.FC<FormFieldProps> = ({
               inputRef={fieldPath === "address" ? addressInputRef : null}
               inputProps={{ minLength }}
               error={!!error}
-              sx={{ width: "100%" }}
-            />
-            {error && (
-              <Typography variant="caption" color="error" sx={{ display: 'block', mt: 0.5 }}>
+              sx={{ 
+                width: "100%",
+                "& .MuiOutlinedInput-root": {
+                  height: fieldStyles.height, // Control inner element height
+                },
+                "& .MuiInputBase-input": {
+                  height: fieldStyles.height, // Control input element height
+                }
+              }}
+            />            {error && fieldPath !== "phone" && fieldPath !== "alternativePhone" && (
+              <Typography variant="caption" color="error" sx={{ 
+                display: 'block', 
+                position: "absolute", 
+                top: "calc(100% + 2px)",
+                left: 0,
+                mt: 0 
+              }}>
                 {error}
               </Typography>
             )}
-          </Box>        );
+          </Box>
+        );
       case "textarea":
         if (fieldPath === "ward") {
           return <CustomTextField name={fieldPath} value={String(value || "")} disabled fullWidth />;
