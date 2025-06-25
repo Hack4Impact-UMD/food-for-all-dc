@@ -286,14 +286,22 @@ const StyleChip = styled(Chip)({
   ];
 
   // Fetch data from Firebase without authentication checks
-  useEffect(() => {
-    const fetchData = async () => {
+  useEffect(() => {    const fetchData = async () => {
       try {
         // Use ClientService instead of direct Firebase calls
         const clientService = ClientService.getInstance();
         const clients = await clientService.getAllClients();
         console.log("Fetched clients:", clients);
-        setRows(clients as unknown as RowData[]);
+        
+        // Sort clients by lastName first, then firstName
+        const sortedClients = [...clients].sort((a, b) => {
+          if (a.lastName === b.lastName) {
+            return a.firstName.localeCompare(b.firstName);
+          }
+          return a.lastName.localeCompare(b.lastName);
+        });
+        
+        setRows(sortedClients as unknown as RowData[]);
       } catch (error) {
         console.error("Error fetching data: ", error);
       }
@@ -550,18 +558,17 @@ const StyleChip = styled(Chip)({
   };
 
   
-
   // Handle toggling sort order for the Name column
   const toggleSortOrder = () => {
     const sortedRows = [...rows].sort((a, b) => {
-      if (a.firstName === b.firstName) {
+      if (a.lastName === b.lastName) {
         return sortOrder === "asc"
-          ? a.lastName.localeCompare(b.lastName)
-          : b.lastName.localeCompare(a.lastName);
+          ? a.firstName.localeCompare(b.firstName)
+          : b.firstName.localeCompare(a.firstName);
       }
       return sortOrder === "asc"
-        ? a.firstName.localeCompare(b.firstName)
-        : b.firstName.localeCompare(a.firstName);
+        ? a.lastName.localeCompare(b.lastName)
+        : b.lastName.localeCompare(a.lastName);
     });
     setRows(sortedRows);
     setSortOrder(sortOrder === "asc" ? "desc" : "asc");

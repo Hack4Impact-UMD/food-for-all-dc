@@ -14,9 +14,11 @@ import {
   Box,
   Typography,
 } from "@mui/material";
+import { validateDateInput } from "../../../utils/dates";
 import { NewDelivery } from "../../../types/calendar-types";
 import { ClientProfile } from "../../../types/client-types";
 import CalendarMultiSelect from "./CalendarMultiSelect";
+import DateField from "./DateField";
 import { DayPilot } from "@daypilot/daypilot-lite-react";
 
 interface AddDeliveryDialogProps {
@@ -69,14 +71,14 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = ({
     setCustomDates([]);
     onClose();
   };
-
   const handleSubmit = () => {
     const deliveryToSubmit: Partial<NewDelivery> = { ...newDelivery };
     if (newDelivery.recurrence === "Custom") {
       deliveryToSubmit.customDates = customDates.map(date => date.toISOString().split("T")[0]);
       deliveryToSubmit.deliveryDate = customDates[0]?.toISOString().split("T")[0] || "";
       deliveryToSubmit.repeatsEndDate = undefined;
-    }    onAddDelivery(deliveryToSubmit as NewDelivery);
+    }
+    onAddDelivery(deliveryToSubmit as NewDelivery);
     setCustomDates([]);
     resetFormAndClose();
   };
@@ -189,18 +191,21 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = ({
               }}
             />
           )}
-        />
-
-        {newDelivery.recurrence !== "Custom" ? (
-          <TextField
+        />        {newDelivery.recurrence !== "Custom" ? (
+          <DateField
             label="Delivery Date"
-            type="date"
-            value={newDelivery.deliveryDate}
-            onChange={(e) => setNewDelivery({ ...newDelivery, deliveryDate: e.target.value })}
-            fullWidth
-            margin="normal"
-            InputLabelProps={{ shrink: true }}
-            required
+            value={newDelivery.deliveryDate || ""}
+            onChange={(dateStr) => setNewDelivery({ 
+              ...newDelivery, 
+              deliveryDate: dateStr,
+              _deliveryDateError: undefined 
+            })}
+            required={true}
+            error={newDelivery._deliveryDateError}
+            setError={(errorMsg) => setNewDelivery(prev => ({
+              ...prev,
+              _deliveryDateError: errorMsg || undefined
+            }))}
           />
         ) : null}
 
@@ -232,22 +237,22 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = ({
           <CalendarMultiSelect selectedDates={customDates} setSelectedDates={setCustomDates} />
         ) : null}
 
-        {newDelivery.recurrence !== "None" && newDelivery.recurrence !== "Custom" ? (
-          <Box>
+        {newDelivery.recurrence !== "None" && newDelivery.recurrence !== "Custom" ? (          <Box>
             <Typography variant="subtitle1">End Date</Typography>
-            <TextField
+            <DateField
               label="End Date"
-              type="date"
-              value={newDelivery.repeatsEndDate}
-              onChange={(e) =>
-                setNewDelivery({
-                  ...newDelivery,
-                  repeatsEndDate: e.target.value,
-                })
-              }
-              fullWidth
-              margin="normal"
-              InputLabelProps={{ shrink: true }}
+              value={newDelivery.repeatsEndDate || ""}
+              onChange={(dateStr) => setNewDelivery({
+                ...newDelivery,
+                repeatsEndDate: dateStr,
+                _repeatsEndDateError: undefined,
+              })}
+              required={true}
+              error={newDelivery._repeatsEndDateError}
+              setError={(errorMsg) => setNewDelivery(prev => ({
+                ...prev,
+                _repeatsEndDateError: errorMsg || undefined
+              }))}
             />
           </Box>
         ) : null}

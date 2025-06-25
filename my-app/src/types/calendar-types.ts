@@ -31,6 +31,9 @@ export interface NewDelivery {
   recurrence: "None" | "Weekly" | "2x-Monthly" | "Monthly" | "Custom";
   repeatsEndDate?: string;
   customDates?: string[];
+  // For validation error messages
+  _deliveryDateError?: string;
+  _repeatsEndDateError?: string;
 }
 
 export type ViewType = "Day" | "Month";

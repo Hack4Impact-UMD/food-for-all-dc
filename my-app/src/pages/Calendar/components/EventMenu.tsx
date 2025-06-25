@@ -18,6 +18,7 @@ import {
   InputLabel,
   Select,
 } from "@mui/material";
+import { validateDateInput } from "../../../utils/dates";
 import MoreHorizIcon from "@mui/icons-material/MoreHoriz";
 import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, query, where, Timestamp} from "firebase/firestore";
 import { db } from "../../../auth/firebaseConfig";
@@ -41,6 +42,8 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
   const [editDeliveryDate, setEditDeliveryDate] = useState<string>(
     event.deliveryDate.toISOString().split("T")[0]
   );
+  const [editDateError, setEditDateError] = useState<string | null>(null);
+  const [endDateError, setEndDateError] = useState<string | null>(null);
   const [editRecurrence, setEditRecurrence] = useState<Partial<NewDelivery>>({
     assignedDriverId: event.assignedDriverId,
     assignedDriverName: event.assignedDriverName,
@@ -234,17 +237,36 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
                 label="This and following events"
               />
             )}
-          </RadioGroup>
-
-          {/* New Delivery Date Picker */}
-          <TextField
+          </RadioGroup>          {/* New Delivery Date Picker */}          <TextField
             label="New Delivery Date"
             type="date"
-            value={editDeliveryDate}
-            onChange={(e) => setEditDeliveryDate(e.target.value)}
+            value={editDeliveryDate || ""}
+            onChange={(e) => {
+              // Clear any previous error
+              setEditDateError(null);              validateDateInput(
+                e.target.value,
+                (dateStr) => setEditDeliveryDate(dateStr),
+                null // Don't show error on change
+              )
+            }}
+            onBlur={(e) => {
+              if (e.target.value) {
+                validateDateInput(
+                  e.target.value,
+                  (dateStr) => setEditDeliveryDate(dateStr),
+                  (errorMsg) => setEditDateError(errorMsg)
+                );
+              }
+            }}
+            error={!!editDateError}
+            helperText={editDateError || " "}
             fullWidth
             margin="normal"
             InputLabelProps={{ shrink: true }}
+            inputProps={{
+              min: "1900-01-01",
+              max: "2100-12-31"
+            }}
           />
 
           {editOption === "This and following events" && (
@@ -268,22 +290,43 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
                 </Select>
               </FormControl>
 
-              {editRecurrence.recurrence !== "None" && (
-                <Box>
-                  <Typography variant="subtitle1">End Date</Typography>
-                  <TextField
+              {editRecurrence.recurrence !== "None" && (                <Box>                  
+                  <Typography variant="subtitle1">End Date</Typography>                  <TextField
                     label="End Date"
                     type="date"
-                    value={editRecurrence.repeatsEndDate}
-                    onChange={(e) =>
-                      setEditRecurrence({
-                        ...editRecurrence,
-                        repeatsEndDate: e.target.value,
-                      })
-                    }
+                    value={editRecurrence.repeatsEndDate || ""}
+                    onChange={(e) => {
+                      // Clear any previous error
+                      setEndDateError(null);                      validateDateInput(
+                        e.target.value,
+                        (dateStr) => setEditRecurrence({
+                          ...editRecurrence,
+                          repeatsEndDate: dateStr,
+                        }),
+                        null // Don't show error on change
+                      )
+                    }}
+                    onBlur={(e) => {
+                      if (e.target.value) {
+                        validateDateInput(
+                          e.target.value,
+                          (dateStr) => setEditRecurrence({
+                            ...editRecurrence,
+                            repeatsEndDate: dateStr,
+                          }),
+                          (errorMsg) => setEndDateError(errorMsg)
+                        );
+                      }
+                    }}
+                    error={!!endDateError}
+                    helperText={endDateError || " "}
                     fullWidth
                     margin="normal"
                     InputLabelProps={{ shrink: true }}
+                    inputProps={{
+                      min: "1900-01-01",
+                      max: "2100-12-31"
+                    }}
                   />
                 </Box>
               )}

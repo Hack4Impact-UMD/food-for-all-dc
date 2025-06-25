@@ -1,6 +1,7 @@
-import React from "react";
+import React, { useState } from "react";
 import { Box, Chip, Stack, Typography, TextField } from "@mui/material";
 import CloseIcon from '@mui/icons-material/Close';
+import { validateDateInput } from "../../../utils/dates";
 
 interface CalendarMultiSelectProps {
   selectedDates: Date[];
@@ -8,7 +9,8 @@ interface CalendarMultiSelectProps {
 }
 
 const CalendarMultiSelect: React.FC<CalendarMultiSelectProps> = ({ selectedDates, setSelectedDates }) => {
-  const [dateInput, setDateInput] = React.useState<string>("");
+  const [dateInput, setDateInput] = useState<string>("");
+  const [dateError, setDateError] = useState<string | null>(null);
 
   const handleAddDate = (date: Date | null) => {
     if (
@@ -28,22 +30,44 @@ const CalendarMultiSelect: React.FC<CalendarMultiSelectProps> = ({ selectedDates
     <Box sx={{ mt: 2 }}>
       <Typography variant="subtitle1" sx={{ mb: 1 }}>
         Select Custom Dates
-      </Typography>
-      <TextField
+      </Typography>      <TextField
         label="Add Date"
         type="date"
         fullWidth
         size="small"
         value={dateInput}
         onChange={(e) => {
-          const value = e.target.value;
-          setDateInput(value);
-          if (value) {
-            const date = new Date(`${value}T00:00:00`);
-            handleAddDate(date);
+          // Clear error when user starts typing
+          if (dateError) setDateError(null);
+          
+          validateDateInput(
+            e.target.value,
+            (dateStr) => {
+              setDateInput(dateStr);
+              handleAddDate(new Date(dateStr));
+            },
+            (errorMsg) => setDateError(errorMsg)
+          );
+        }}
+        onBlur={(e) => {
+          if (e.target.value) {
+            validateDateInput(
+              e.target.value,
+              (dateStr) => {
+                setDateInput(dateStr);
+                handleAddDate(new Date(dateStr));
+              },
+              (errorMsg) => setDateError(errorMsg)
+            );
           }
         }}
+        error={!!dateError}
+        helperText={dateError || " "}
         InputLabelProps={{ shrink: true }}
+        inputProps={{
+          min: "1900-01-01",
+          max: "2100-12-31"
+        }}
         sx={{ mb: 2 }}
       />
       <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', mt: 1 }}>

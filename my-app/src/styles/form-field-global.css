@@ -1,0 +1,200 @@
+/* Global Form Field Styling */
+
+/* Import form error styles that were previously separate */
+/* Form error styles to prevent layout shifts */
+.MuiFormHelperText-root {
+  min-height: 20px !important;
+  margin-top: 2px !important;
+}
+
+/* Error message container for non-MUI components */
+.error-message-container {
+  min-height: 20px;
+  margin-top: 2px;
+}
+
+/* Position error messages for all form fields */
+.MuiFormControl-root {
+  position: relative;
+}
+
+/* Position error messages below the input field, not overlapping */
+.MuiFormHelperText-root {
+  position: absolute;
+  bottom: -24px;
+  left: 0;
+}
+
+/* Only show error messages after user interaction */
+.MuiFormHelperText-root:empty {
+  display: none;
+}
+
+/* Make sure date fields have proper spacing */
+input[type="date"] {
+  height: 38px;
+  padding: 0 0.5rem;
+}
+
+/* Basic input styling */
+input:not([type="checkbox"]):not([type="radio"]), 
+select, 
+textarea,
+.MuiInputBase-input,
+.MuiOutlinedInput-input,
+.MuiFilledInput-input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--border-radius-sm);
+  font-size: var(--font-size-base);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  transition: all 0.2s ease-in-out;
+}
+
+/* Focus state with green glow */
+input:not([type="checkbox"]):not([type="radio"]):focus, 
+select:focus, 
+textarea:focus,
+.MuiInputBase-root.Mui-focused .MuiInputBase-input,
+.MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-input,
+.MuiFilledInput-root.Mui-focused .MuiFilledInput-input {
+  outline: none;
+  border-color: var(--color-primary); /* green border */
+  box-shadow: 0 0 0 3px rgba(37, 126, 104, 0.2); /* subtle green glow */
+}
+
+/* Error state styling */
+input.error:not([type="checkbox"]):not([type="radio"]), 
+select.error, 
+textarea.error,
+.MuiInputBase-root.Mui-error .MuiInputBase-input,
+.MuiOutlinedInput-root.Mui-error .MuiOutlinedInput-input,
+.MuiFilledInput-root.Mui-error .MuiFilledInput-input {
+  border-color: var(--color-error);
+  box-shadow: 0 0 0 1px rgba(255, 0, 0, 0.1);
+}
+
+/* Fix for double outline on select fields */
+.MuiOutlinedInput-notchedOutline {
+  border: none !important; /* Remove the default MUI outline */
+}
+
+.MuiSelect-select:focus {
+  background-color: transparent !important;
+}
+
+/* Global fix for MUI Select components */
+.MuiSelect-root {
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--border-radius-sm);
+}
+
+.MuiSelect-root.Mui-focused {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(37, 126, 104, 0.2);
+}
+
+/* Error messages */
+.form-error {
+  color: var(--color-error);
+  font-size: var(--font-size-sm);
+  margin: 3px 0;
+}
+
+/* Override MUI form fields */
+.MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline {
+  border-color: var(--color-primary) !important;
+  border-width: 1px !important;
+}
+
+.MuiOutlinedInput-root.Mui-error .MuiOutlinedInput-notchedOutline {
+  border-color: var(--color-error) !important;
+}
+
+/* Override MUI select component to fix double border */
+/* Completely reset all default MUI select styling to avoid conflicts */
+.MuiOutlinedInput-notchedOutline {
+  border: none !important;
+}
+
+.MuiSelect-root,
+.MuiSelect-select,
+.MuiInputBase-root,
+.MuiOutlinedInput-root {
+  background-color: transparent !important;
+}
+
+.MuiSelect-root .MuiOutlinedInput-notchedOutline,
+.MuiSelect-root:hover .MuiOutlinedInput-notchedOutline,
+.MuiSelect-root.Mui-focused .MuiOutlinedInput-notchedOutline {
+  border: none !important;
+}
+
+/* Override any shadow that might create double borders */
+.MuiSelect-root,
+.MuiSelect-select,
+.MuiOutlinedInput-root {
+  box-shadow: none !important;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease !important;
+}
+
+/* Specific fix for the gender select dropdown in light green background */
+.MuiSelect-root {
+  background: white;
+  /* Remove pseudo-elements that might cause double borders */
+  &::before, &::after {
+    display: none !important;
+  }
+}
+
+/* Override MUI form labels */
+.MuiInputLabel-root.Mui-focused {
+  color: var(--color-primary) !important;
+}
+
+.MuiInputLabel-root.Mui-error {
+  color: var(--color-error) !important;
+}
+
+/* Native date input styling */
+input[type="date"] {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--border-radius-sm);
+  font-size: var(--font-size-base);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+input[type="date"]:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(37, 126, 104, 0.2);
+}
+
+input[type="date"].error {
+  border-color: var(--color-error);
+  box-shadow: 0 0 0 1px rgba(255, 0, 0, 0.1);
+}
+
+/* Consistent field height for all components */
+.form-field {
+  min-height: 42px;
+}
+
+/* Form field validation state indicators */
+.field-validation-indicator {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 16px;
+  height: 16px;
+  pointer-events: none;
+}
+
+/* Position relative for wrapper elements to allow for validation indicators */
+.input-wrapper {
+  position: relative;
+}

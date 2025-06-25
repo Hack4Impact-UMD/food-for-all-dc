@@ -1,0 +1,34 @@
+/* Form error styles to prevent layout shifts */
+.MuiFormHelperText-root {
+  min-height: 20px !important;
+  margin-top: 2px !important;
+}
+
+/* Error message container for non-MUI components */
+.error-message-container {
+  min-height: 20px;
+  margin-top: 2px;
+}
+
+/* Position error messages for all form fields */
+.MuiFormControl-root {
+  position: relative;
+}
+
+/* Position error messages below the input field, not overlapping */
+.MuiFormHelperText-root {
+  position: absolute;
+  bottom: -24px;
+  left: 0;
+}
+
+/* Only show error messages after user interaction */
+.MuiFormHelperText-root:empty {
+  display: none;
+}
+
+/* Make sure date fields have proper spacing */
+input[type="date"] {
+  height: 38px;
+  padding: 0 0.5rem;
+}
