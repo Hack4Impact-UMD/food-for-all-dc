@@ -284,7 +284,7 @@ const DeliverySpreadsheet: React.FC = () => {
     handleCustomHeaderChange,
     handleRemoveCustomColumn,
     handleCustomColumnChange,
-  } = useCustomColumns();
+  } = useCustomColumns({page: 'DeliverySpreadsheet'});
   const [customRows, setCustomRows] = useState<CustomRowData[]>([])
 
 
