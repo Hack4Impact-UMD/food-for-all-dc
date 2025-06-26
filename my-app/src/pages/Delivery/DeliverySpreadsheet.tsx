@@ -671,8 +671,6 @@ const DeliverySpreadsheet: React.FC = () => {
     setPopupMode("");
     setExportOption(null);
     setEmailOrDownload(null);
-    setSelectedClusters(new Set());
-    setSelectedRows(new Set());
   };
 
   //Handle assigning driver
