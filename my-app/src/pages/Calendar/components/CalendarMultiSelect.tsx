@@ -1,6 +1,7 @@
 import React, { useState } from "react";
-import { Box, Chip, Stack, Typography, Button } from "@mui/material";
-import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
+import { Box, Chip, Stack, Typography } from "@mui/material";
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
 
 interface CalendarMultiSelectProps {
   selectedDates: Date[];
@@ -8,22 +9,20 @@ interface CalendarMultiSelectProps {
 }
 
 const CalendarMultiSelect: React.FC<CalendarMultiSelectProps> = ({ selectedDates, setSelectedDates }) => {
-  const [dateInput, setDateInput] = useState<string>("");
-  
-  // function to add a date to the selectedDates array
-  const handleAddDate = (date: Date | null) => {
-    if (
-      date &&
-      !selectedDates.some(d => d.toDateString() === date.toDateString())
-    ) {
-      const correctedDate = new Date(date);
-      correctedDate.setHours(24); //offsetting by one day 
-      setSelectedDates([...selectedDates, correctedDate]);
+  // Function to handle adding a new date
+  const handleDateChange = (date: Date | null) => {
+    if (!date) return;
+    
+    // Check if date already exists in the array
+    if (!selectedDates.some(d => d.toDateString() === date.toDateString())) {
+      // Add the new date and sort all dates chronologically
+      const updatedDates = [...selectedDates, date];
+      const sortedDates = updatedDates.sort((a, b) => a.getTime() - b.getTime());
+      setSelectedDates(sortedDates);
     }
-    setDateInput("");
   };
 
-  // function to delete a date from the selectedDates array
+  // Function to delete a date from the selectedDates array
   const handleDeleteDate = (dateToDelete: Date) => {
     setSelectedDates(selectedDates.filter(d => d.toDateString() !== dateToDelete.toDateString()));
   };
@@ -34,41 +33,51 @@ const CalendarMultiSelect: React.FC<CalendarMultiSelectProps> = ({ selectedDates
         Select Custom Dates
       </Typography>
       
-      <Box sx={{ display: 'flex', mb: 2, gap: 1 }}>
-        <input
-          type="date"
-          value={dateInput}
-          onChange={(e) => setDateInput(e.target.value)}
-          style={{
-            padding: '8px',
-            borderRadius: '4px',
-            border: '1px solid #ccc',
-            flexGrow: 1
+      <Box sx={{ 
+        '& .react-datepicker': { 
+          border: '1px solid #ccc',
+          borderRadius: '4px',
+          fontFamily: 'inherit'
+        },
+        '& .react-datepicker__header': {
+          backgroundColor: '#f5f5f5'
+        },
+        '& .react-datepicker__day--selected': {
+          backgroundColor: '#1976d2',
+          color: 'white'
+        },
+        '& .react-datepicker__day--highlighted': {
+          backgroundColor: '#e6f7ff',
+          borderRadius: '50%'
+        }
+      }}>
+        <DatePicker
+          inline
+          selected = {null}
+          onChange = {handleDateChange}
+          highlightDates = {selectedDates}
+          calendarClassName = "persistent-calendar"
+          dayClassName={(date) => {
+            // Highlight days that are already selected
+            return selectedDates.some(d => d.toDateString() === date.toDateString()) 
+              ? "highlighted-day" 
+              : "";
           }}
         />
-        <Button
-          variant="contained"
-          size="small"
-          startIcon={<CalendarMonthIcon />}
-          onClick={() => {
-            if (dateInput) {
-              handleAddDate(new Date(dateInput));
-            }
-          }}
-          disabled={!dateInput}
-        >
-          Add Date
-        </Button>
       </Box>
       
-      <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', mt: 1 }}>
+      <Typography variant="subtitle2" sx={{ mt: 2, mb: 1 }}>
+        Selected Dates:
+      </Typography>
+      
+      <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
         {selectedDates.map((date) => (
           <Chip
             key={date.toISOString()}
             label={date.toLocaleDateString()}
             onDelete={() => handleDeleteDate(date)}
-            onClick = {function() {return;}} // fix onClick error
-            sx={{ mb: 1 }}
+            sx={{ mb: 1, padding: '1rem .5rem' }}
+            onClick = {function() {return;}} //empty onclick to prevent error
           />
         ))}
         {selectedDates.length === 0 && (
