@@ -36,7 +36,7 @@ import {
 } from "@mui/material";
 import { onAuthStateChanged } from "firebase/auth";
 import { Filter, Search } from "lucide-react";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { auth } from "../../auth/firebaseConfig";
 import { useCustomColumns } from "../../hooks/useCustomColumns";
@@ -222,11 +222,26 @@ const Spreadsheet: React.FC = () => {
     return () => unsubscribe();
   }, [navigate]);
 
-  //detect sort order, change rows, and store locally
+  //store sort order locally
   useEffect(() => {
     localStorage.setItem("ffaSortOrderSpreadsheet", sortOrder);
-    sortData(rows);
   }, [sortOrder]);
+
+  // Compute sorted rows using useMemo to ensure data is always sorted
+  const sortedRows = useMemo(() => {
+    if (rows.length === 0) return rows;
+    
+    return [...rows].sort((a, b) => {
+      if (a.firstName === b.firstName) {
+        return sortOrder === "asc"
+          ? a.lastName.localeCompare(b.lastName)
+          : b.lastName.localeCompare(a.lastName);
+      }
+      return sortOrder === "asc"
+        ? a.firstName.localeCompare(b.firstName)
+        : b.firstName.localeCompare(a.firstName);
+    });
+  }, [rows, sortOrder]);
 
   // Define fields for table columns
   const fields: Field[] = [
@@ -279,7 +294,7 @@ const Spreadsheet: React.FC = () => {
         const clientService = ClientService.getInstance();
         const clients = await clientService.getAllClients();
         console.log("Fetched clients:", clients);
-        sortData(clients as unknown as RowData[]);
+        setRows(clients as unknown as RowData[]);
       } catch (error) {
         console.error("Error fetching data: ", error);
       }
@@ -291,22 +306,6 @@ const Spreadsheet: React.FC = () => {
     const order = sortOrder === "asc" ? "desc" : "asc";
     setSortOrder(order);
   };
-
-  const sortData = (rows: RowData[]) => {
-    if (rows.length > 0) {
-      const sortedRows = [...rows].sort((a, b) => {
-        if (a.firstName === b.firstName) {
-          return sortOrder === "asc"
-            ? a.lastName.localeCompare(b.lastName)
-            : b.lastName.localeCompare(a.lastName);
-        }
-        return sortOrder === "asc"
-          ? a.firstName.localeCompare(b.firstName)
-          : b.firstName.localeCompare(a.firstName);
-      });
-      setRows(sortedRows); 
-    }
-  }
 
   // Handle search input change
   const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -400,7 +399,7 @@ const Spreadsheet: React.FC = () => {
   };
 
   // Display only the rows that match the search query
-  const filteredRows = rows.filter((row) =>
+  const filteredRows = sortedRows.filter((row) =>
     `${row.firstName} ${row.lastName}`.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
@@ -411,7 +410,7 @@ const Spreadsheet: React.FC = () => {
     if (option === "QueryResults") {
       exportQueryResults(filteredRows);
     } else if (option === "AllClients") {
-      exportAllClients(rows);
+      exportAllClients(sortedRows);
     }
   };
 
@@ -421,20 +420,8 @@ const Spreadsheet: React.FC = () => {
   };
 
   const toggleSortOrder2 = (fieldKey: keyof RowData) => {
-    const sortedRows = [...rows].sort((a, b) => {
-      if (typeof a[fieldKey] === "string" && typeof b[fieldKey] === "string") {
-        return sortOrder === "asc"
-          ? (a[fieldKey] as string).localeCompare(b[fieldKey] as string)
-          : (b[fieldKey] as string).localeCompare(a[fieldKey] as string);
-      } else if (typeof a[fieldKey] === "number" && typeof b[fieldKey] === "number") {
-        return sortOrder === "asc"
-          ? (a[fieldKey] as number) - (b[fieldKey] as number)
-          : (b[fieldKey] as number) - (a[fieldKey] as number);
-      } else {
-        return 0; // Handle cases where types mismatch or are not sortable
-      }
-    });
-    setRows(sortedRows);
+    // This function is no longer needed since sorting is handled by useMemo
+    // Just toggle the sort order - the useMemo will handle the actual sorting
     setSortOrder(sortOrder === "asc" ? "desc" : "asc");
   };
 
@@ -442,7 +429,7 @@ const Spreadsheet: React.FC = () => {
     navigate("/profile");
   };
 
-  const visibleRows = rows.filter((row) => {
+  const visibleRows = sortedRows.filter((row) => {
   const keywordRegex = /(\w+)(?:\s+\w+)*:\s*("[^"]+"|\S+)/g; // Updated regex to handle multi-word keys
   const matches = [...searchQuery.matchAll(keywordRegex)];
   
@@ -562,10 +549,10 @@ const Spreadsheet: React.FC = () => {
 
   // Add this debugging function
   useEffect(() => {
-    if (rows.length > 0) {
-      console.log("Sample row data:", rows[0]);
+    if (sortedRows.length > 0) {
+      console.log("Sample row data:", sortedRows[0]);
     }
-  }, [rows]);
+  }, [sortedRows]);
 
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
