@@ -4,6 +4,7 @@ import { saveAs } from "file-saver";
 import Papa from "papaparse";
 import { Cluster } from "./DeliverySpreadsheet"; // Import Cluster type
 import { RowData } from "./types/deliveryTypes"; // Import the correct type
+import { getExportConfig } from "../../config/exportConfig"; // Import configuration
 
 // Helper function to format time consistently
 const formatTime = (time: string): string => {
@@ -130,8 +131,9 @@ export const exportDeliveries = async (
       }
 
       try {
+        const config = getExportConfig();
         const csv = Papa.unparse(csvData);
-        const fileName = `FFA ${deliveryDate} - ${driverName}.csv`;
+        const fileName = `${config.fileNamePrefix} ${deliveryDate} - ${driverName}.csv`;
         zip.file(fileName, csv);
         filesCreated++;
       } catch (error) {
@@ -145,8 +147,9 @@ export const exportDeliveries = async (
     }
 
     try {
+      const config = getExportConfig();
       const content = await zip.generateAsync({ type: "blob" });
-      saveAs(content, `FFA ${deliveryDate}.zip`);
+      saveAs(content, `${config.fileNamePrefix} ${deliveryDate}.zip`);
       alert(`ZIP file generated successfully with ${filesCreated} driver route(s)!`);
     } catch (error) {
       console.error("Error generating ZIP file:", error);
@@ -166,6 +169,9 @@ export const exportDoordashDeliveries = async (
   clusters: Cluster[]
 ) => {
   try {
+    // Get configuration
+    const config = getExportConfig();
+    
     if (rowsToExport.length === 0) {
       alert("No deliveries selected or available for export on the selected date.");
       return;
@@ -192,6 +198,31 @@ export const exportDoordashDeliveries = async (
       return;
     }
 
+
+
+    // Helper function to format time window (configurable duration)
+    const formatTimeWindow = (time: string): { start: string; end: string } => {
+      if (!time) return { start: "", end: "" };
+      
+      const [hours, minutes] = time.split(":");
+      const hour = parseInt(hours, 10);
+      const minute = parseInt(minutes, 10);
+      
+      // Format as 12-hour with AM/PM
+      const formatTime = (h: number, m: number) => {
+        const hour12 = h % 12 || 12;
+        const ampm = h >= 12 ? "PM" : "AM";
+        return `${hour12}:${m.toString().padStart(2, '0')}:00 ${ampm}`;
+      };
+      
+      const startTime = formatTime(hour, minute);
+      const endTime = formatTime(hour + config.doorDash.deliveryWindowHours, minute);
+      
+      return { start: startTime, end: endTime };
+    };
+
+
+
     // Group by time instead of driver
     const groupedByTime: Record<string, RowData[]> = {};
     doordashRows.forEach((row) => {
@@ -206,44 +237,42 @@ export const exportDoordashDeliveries = async (
 
     const zip = new JSZip();
     let filesCreated = 0;
+    let orderIdCounter = 1; // Global order ID counter across all time slots
 
     for (const time in groupedByTime) {
+      const timeWindow = formatTimeWindow(time);
 
       const csvData = groupedByTime[time]
         .map((row) => {
           try {
-            const dietaryPreferences = row.deliveryDetails?.dietaryRestrictions
-              ? Object.entries(row.deliveryDetails.dietaryRestrictions || {})
-                  .filter(([key, value]) => value === true)
-                  .map(([key]) => key)
-                  .join(", ")
-              : "";
-
-            // Find the cluster for this row to get the cluster ID and time
-            const cluster = clusters.find(c => c.deliveries?.includes(row.id));
-            const clusterNumber = cluster?.id || "";
-            const assignedTime = formatTime(cluster?.time || "");
-
-            // Handle apt field - it might not exist in RowData, so use dynamic access
-            const rowData = row as any;
+            // Use database fields directly when available, with fallbacks
+            const rowData = row as any; // Allow dynamic access for additional fields
+            const city = rowData.city || config.doorDash.defaultCity;
+            const state = rowData.state || config.doorDash.defaultState;
+            const unit = rowData.address2 || ""; // Use address2 field for unit
+            const streetAddress = row.address || "";
 
             return {
-              firstName: row.firstName || "",
-              lastName: row.lastName || "",
-              address: row.address || "",
-              zip: row.zipCode || "",
-              quadrant: rowData.quadrant || "",
-              ward: row.ward || "",
-              phone: row.phone || "",
-              adults: rowData.adults || 0,
-              children: rowData.children || 0,
-              total: rowData.total || (rowData.adults || 0) + (rowData.children || 0),
-              deliveryInstructions: row.deliveryDetails?.deliveryInstructions || "",
-              dietaryPreferences: dietaryPreferences,
-              tefapFY25: row.tags?.includes("Tefap") ? "Y" : "N",
-              deliveryDate: deliveryDate,
-              cluster: clusterNumber,
-              time: assignedTime, // Add the formatted time column
+              "Pickup Location ID*": config.doorDash.pickupLocationId,
+              "Order ID*": (orderIdCounter++).toString(),
+              "Date of Delivery*": deliveryDate,
+              "Pickup Window Start*": timeWindow.start,
+              "Pickup Window End*": timeWindow.end,
+              "Timezone*": config.doorDash.timezone,
+              "Client First Name*": row.firstName || "",
+              "Client Last Name*": row.lastName || "",
+              "Client Street Address*": streetAddress,
+              "Client Unit ": unit,
+              "Client City*": city,
+              "Client State*": state,
+              "Client ZIP*": row.zipCode || "",
+              "Client Phone*": row.phone || "",
+              "Number of Items*": config.doorDash.numberOfItems,
+              "Dropoff Instructions \n(250 character max)": row.deliveryDetails?.deliveryInstructions || "",
+              "Pickup Location Name": config.organization.name,
+              "Pickup Phone Number": config.organization.phone,
+              "Pickup Instructions": config.organization.pickupInstructions,
+              "Order Volume": config.doorDash.orderVolume
             };
           } catch (error) {
             console.error(`Error processing row ${row.id}:`, error);
@@ -262,7 +291,7 @@ export const exportDoordashDeliveries = async (
         const [h, m] = time.split(":");
         const hour = parseInt(h, 10);
         const formattedTime = `${hour % 12 || 12}:${m} ${hour >= 12 ? "PM" : "AM"}`;
-        const fileName = `FFA ${deliveryDate} - DoorDash - ${formattedTime}.csv`;
+        const fileName = `${config.fileNamePrefix} ${deliveryDate} - DoorDash - ${formattedTime}.csv`;
         zip.file(fileName, csv);
         filesCreated++;
       } catch (error) {
@@ -277,7 +306,7 @@ export const exportDoordashDeliveries = async (
 
     try {
       const content = await zip.generateAsync({ type: "blob" });
-      saveAs(content, `FFA ${deliveryDate} - DoorDash.zip`);
+      saveAs(content, `${config.fileNamePrefix} ${deliveryDate} - DoorDash.zip`);
       alert(`DoorDash ZIP file generated successfully with ${filesCreated} time slot(s)!`);
     } catch (error) {
       console.error("Error generating ZIP file:", error);

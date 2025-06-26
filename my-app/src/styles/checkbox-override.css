@@ -1,0 +1,41 @@
+/* Override Material-UI checkbox focus ring globally */
+.MuiCheckbox-root:focus-visible,
+.MuiCheckbox-root.Mui-focusVisible {
+  outline: none !important;
+}
+
+.MuiCheckbox-root:focus-visible::after,
+.MuiCheckbox-root.Mui-focusVisible::after {
+  content: '' !important;
+  position: absolute !important;
+  top: -8px !important;
+  left: -8px !important;
+  right: -8px !important;
+  bottom: -8px !important;
+  border-radius: 50% !important;
+  background-color: rgba(37, 126, 104, 1) !important;
+  z-index: -1 !important;
+  pointer-events: none !important;
+}
+
+.MuiCheckbox-root {
+  position: relative !important;
+}
+
+.MuiCheckbox-root.Mui-focusVisible .MuiSvgIcon-root {
+  color: #257E68 !important;
+}
+
+/* Override any ripple effects */
+.MuiCheckbox-root .MuiTouchRipple-root {
+  color: rgba(37, 126, 104, 1) !important;
+}
+
+.MuiCheckbox-root .MuiTouchRipple-child {
+  background-color: rgba(37, 126, 104, 1) !important;
+}
+
+/* Force override of default focus styles */
+.MuiButtonBase-root.MuiCheckbox-root:focus {
+  outline: none !important;
+}

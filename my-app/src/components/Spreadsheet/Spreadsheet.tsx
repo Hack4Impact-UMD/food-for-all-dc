@@ -37,7 +37,7 @@ import {
 } from "@mui/material";
 import { onAuthStateChanged } from "firebase/auth";
 import { Filter, Search } from "lucide-react";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { auth } from "../../auth/firebaseConfig";
 import { useCustomColumns } from "../../hooks/useCustomColumns";
@@ -122,10 +122,15 @@ const Spreadsheet: React.FC = () => {
   const [editingRowId, setEditingRowId] = useState<string | null>(null);
   const [menuAnchorEl, setMenuAnchorEl] = useState<null | HTMLElement>(null);
   const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const [exportOption, setExportOption] = useState<"QueryResults" | "AllClients" | null>(null);
   const [clientIdToDelete, setClientIdToDelete] = useState<string | null>(null);
+
+  //default to asc if not found in local store
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">(() => {
+    const stored = localStorage.getItem("ffaSortOrderSpreadsheet");
+    return stored === "desc" ? "desc" : "asc";
+  });
 
   const navigate = useNavigate();
 
@@ -136,7 +141,7 @@ const Spreadsheet: React.FC = () => {
     handleCustomHeaderChange,
     handleRemoveCustomColumn,
     handleCustomColumnChange,
-  } = useCustomColumns();
+  } = useCustomColumns({ page: "Spreadsheet" });
 
 
 const StyleChip = styled(Chip)({
@@ -242,6 +247,27 @@ const StyleChip = styled(Chip)({
     return () => unsubscribe();
   }, [navigate]);
 
+  //store sort order locally
+  useEffect(() => {
+    localStorage.setItem("ffaSortOrderSpreadsheet", sortOrder);
+  }, [sortOrder]);
+
+  // Compute sorted rows using useMemo to ensure data is always sorted
+  const sortedRows = useMemo(() => {
+    if (rows.length === 0) return rows;
+    
+    return [...rows].sort((a, b) => {
+      if (a.firstName === b.firstName) {
+        return sortOrder === "asc"
+          ? a.lastName.localeCompare(b.lastName)
+          : b.lastName.localeCompare(a.lastName);
+      }
+      return sortOrder === "asc"
+        ? a.firstName.localeCompare(b.firstName)
+        : b.firstName.localeCompare(a.firstName);
+    });
+  }, [rows, sortOrder]);
+
   // Define fields for table columns
   const fields: Field[] = [
     {
@@ -300,6 +326,11 @@ const StyleChip = styled(Chip)({
     };
     fetchData();
   }, []);
+
+  const toggleSortOrder = () => {
+    const order = sortOrder === "asc" ? "desc" : "asc";
+    setSortOrder(order);
+  };
 
   // Handle search input change
   const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -392,8 +423,8 @@ const StyleChip = styled(Chip)({
     setExportDialogOpen(true);
   };
 
-  // Display only the rows that match the search query
-  const filteredRows = rows.filter((row) => {
+  // Display only the rows that match the search query - combining advanced search with sorted rows
+  const filteredRows = sortedRows.filter((row) => {
     const trimmedSearchQuery = searchQuery.trim();
     if (!trimmedSearchQuery) {
       return true; // Show all if search is empty
@@ -534,61 +565,28 @@ const StyleChip = styled(Chip)({
   });
 
   const handleExportOptionSelect = (option: "QueryResults" | "AllClients") => {
-// ...existing code...
-  setExportOption(option);
-  setExportDialogOpen(false);
-  if (option === "QueryResults") {
-    exportQueryResults(filteredRows, customColumns);
-  } else if (option === "AllClients") {
-    exportAllClients(rows);
-  }
-};
+    setExportOption(option);
+    setExportDialogOpen(false);
+    if (option === "QueryResults") {
+      exportQueryResults(filteredRows, customColumns);
+    } else if (option === "AllClients") {
+      exportAllClients(sortedRows);
+    }
+  };
 
   const handleCancel = () => {
     setExportDialogOpen(false);
     setExportOption(null);
   };
-
-  
-
-  // Handle toggling sort order for the Name column
-  const toggleSortOrder = () => {
-    const sortedRows = [...rows].sort((a, b) => {
-      if (a.firstName === b.firstName) {
-        return sortOrder === "asc"
-          ? a.lastName.localeCompare(b.lastName)
-          : b.lastName.localeCompare(a.lastName);
-      }
-      return sortOrder === "asc"
-        ? a.firstName.localeCompare(b.firstName)
-        : b.firstName.localeCompare(a.firstName);
-    });
-    setRows(sortedRows);
-    setSortOrder(sortOrder === "asc" ? "desc" : "asc");
-  };
-
   const toggleSortOrder2 = (fieldKey: keyof RowData) => {
-    const sortedRows = [...rows].sort((a, b) => {
-      if (typeof a[fieldKey] === "string" && typeof b[fieldKey] === "string") {
-        return sortOrder === "asc"
-          ? (a[fieldKey] as string).localeCompare(b[fieldKey] as string)
-          : (b[fieldKey] as string).localeCompare(a[fieldKey] as string);
-      } else if (typeof a[fieldKey] === "number" && typeof b[fieldKey] === "number") {
-        return sortOrder === "asc"
-          ? (a[fieldKey] as number) - (b[fieldKey] as number)
-          : (b[fieldKey] as number) - (a[fieldKey] as number);
-      } else {
-        return 0; // Handle cases where types mismatch or are not sortable
-      }
-    });
-    setRows(sortedRows);
+    // This function is no longer needed since sorting is handled by useMemo
+    // Just toggle the sort order - the useMemo will handle the actual sorting
     setSortOrder(sortOrder === "asc" ? "desc" : "asc");
   };
 
   const addClient = () => {
     navigate("/profile");
   };
-
 
   useEffect(() => {
     console.log("this is search query");
@@ -597,10 +595,10 @@ const StyleChip = styled(Chip)({
 
   // Add this debugging function
   useEffect(() => {
-    if (rows.length > 0) {
-      console.log("Sample row data:", rows[0]);
+    if (sortedRows.length > 0) {
+      console.log("Sample row data:", sortedRows[0]);
     }
-  }, [rows]);
+  }, [sortedRows]);
 
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));

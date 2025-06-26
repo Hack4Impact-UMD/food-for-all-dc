@@ -3,7 +3,7 @@ import { AppBar, Box, styled } from "@mui/material";
 import { endOfWeek, startOfWeek } from "date-fns";
 import { onAuthStateChanged } from "firebase/auth";
 import React, { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { auth } from "../../auth/firebaseConfig";
 import "./CalendarPage.css";
 import AddDeliveryDialog from "./components/AddDeliveryDialog";
@@ -35,7 +35,34 @@ const CalendarContent = styled(Box)({
 
 const CalendarPage: React.FC = () => {
   const navigate = useNavigate();
-  const [currentDate, setCurrentDate] = useState<DayPilot.Date>(DayPilot.Date.today());
+  const [searchParams, setSearchParams] = useSearchParams();
+  
+  // Initialize currentDate from URL params or default to today
+  const getInitialDate = () => {
+    const dateParam = searchParams.get('date');
+    if (dateParam) {
+      try {
+        return new DayPilot.Date(dateParam);
+      } catch {
+        // If date param is invalid, fall back to today
+        return DayPilot.Date.today();
+      }
+    }
+    return DayPilot.Date.today();
+  };
+  
+  const [currentDate, setCurrentDate] = useState<DayPilot.Date>(getInitialDate());
+  
+  // Custom function to update both state and URL params
+  const updateCurrentDate = (newDate: DayPilot.Date) => {
+    setCurrentDate(newDate);
+    setSearchParams(prev => {
+      const newParams = new URLSearchParams(prev);
+      newParams.set('date', newDate.toString("yyyy-MM-dd"));
+      return newParams;
+    });
+  };
+  
   const [viewType, setViewType] = useState<ViewType>("Day");
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [events, setEvents] = useState<DeliveryEvent[]>([]);
@@ -114,6 +141,7 @@ const CalendarPage: React.FC = () => {
           zipCode: data.zipCode || "",
           address: data.address || "",
           address2: data.address2 || "",
+          email: data.email || "",
           city: data.city || "",
           state: data.state || "",
           quadrant: data.quadrant || "",
@@ -327,16 +355,16 @@ const CalendarPage: React.FC = () => {
 
   const handleNavigatePrev = () => {
     const newDate = viewType === "Month" ? currentDate.addMonths(-1) : currentDate.addDays(-1);
-    setCurrentDate(newDate);
+    updateCurrentDate(newDate);
   };
 
   const handleNavigateNext = () => {
     const newDate = viewType === "Month" ? currentDate.addMonths(1) : currentDate.addDays(1);
-    setCurrentDate(newDate);
+    updateCurrentDate(newDate);
   };
 
   const handleNavigateToday = () => {
-    setCurrentDate(DayPilot.Date.today());
+    updateCurrentDate(DayPilot.Date.today());
   };
 
   // Update calendar when view type, date, or clients change
@@ -346,6 +374,22 @@ const CalendarPage: React.FC = () => {
       fetchEvents();
     }
   }, [viewType, currentDate, clients]);
+
+  // Handle URL parameter changes (e.g., browser back/forward, direct URL access)
+  useEffect(() => {
+    const dateParam = searchParams.get('date');
+    if (dateParam) {
+      try {
+        const urlDate = new DayPilot.Date(dateParam);
+        // Only update if different from current date to avoid infinite loops
+        if (urlDate.toString("yyyy-MM-dd") !== currentDate.toString("yyyy-MM-dd")) {
+          setCurrentDate(urlDate);
+        }
+      } catch {
+        // If date param is invalid, don't update
+      }
+    }
+  }, [searchParams.get('date')]);
 
   // Initial data fetch
   useEffect(() => {
@@ -371,7 +415,7 @@ const CalendarPage: React.FC = () => {
             return acc;
           }, {} as Record<string, number>)}
           onTimeRangeSelected={(args: any) => {
-            setCurrentDate(args.start);
+            updateCurrentDate(args.start);
             setViewType("Day");
           }}
         />
@@ -403,7 +447,7 @@ const CalendarPage: React.FC = () => {
         <CalendarHeader 
           viewType={viewType}
           currentDate={currentDate}
-          setCurrentDate={setCurrentDate}
+          setCurrentDate={updateCurrentDate}
           onViewTypeChange={setViewType}
           onNavigatePrev={handleNavigatePrev}
           onNavigateToday={handleNavigateToday}
@@ -437,6 +481,7 @@ const CalendarPage: React.FC = () => {
           onClose={() => setIsModalOpen(false)}
           onAddDelivery={handleAddDelivery}
           clients={clients}
+          startDate={currentDate}
         />
       </Box>
     </Box>

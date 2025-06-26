@@ -14,6 +14,7 @@ interface BasicInfoFormProps {
   caseWorkers: CaseWorker[];
   setShowCaseWorkerModal: React.Dispatch<React.SetStateAction<boolean>>;
   handleCaseWorkerChange: (cw: CaseWorker | null) => void;
+  addressError?: string; // Add this new prop
 }
 
 const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
@@ -26,6 +27,7 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
   caseWorkers,
   setShowCaseWorkerModal,
   handleCaseWorkerChange,
+  addressError, // Add this new prop
 }) => {
   return (
     <Box
@@ -89,6 +91,20 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
         {errors.address && (
           <Typography color="error" variant="body2">
             {errors.address}
+          </Typography>
+        )}
+        {/* Add address error display */}
+        {addressError && (
+          <Typography 
+            color="error" 
+            variant="body2"
+            sx={{ 
+              fontSize: '0.75rem',
+              marginTop: '4px',
+              fontStyle: 'italic'
+            }}
+          >
+            {addressError}
           </Typography>
         )}
       </Box>
@@ -328,8 +344,7 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
                 '& .MuiAutocomplete-clearIndicator': {
                   display: 'none',
                 },
-              }}
-              renderInput = {(params) => (
+              }}              renderInput = {(params) => (
                 <TextField
                   {...params}
                   variant = "outlined"
@@ -341,7 +356,10 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
                       '& fieldset': {
                         border: ".1rem solid black",
                         borderRadius: "5px",
-                      }, 
+                      },                      '&.Mui-focused fieldset': {
+                        border: "2px solid #257E68",
+                        boxShadow: "0 0 8px rgba(37, 126, 104, 0.4), 0 0 16px rgba(37, 126, 104, 0.2)",
+                      },
                     },
                     '& .MuiAutocomplete-input': {
                       padding: '1 !important',
