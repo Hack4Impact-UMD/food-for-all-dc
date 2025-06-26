@@ -255,7 +255,6 @@ const Profile = () => {
   const [pastDeliveries, setPastDeliveries] = useState<DeliveryEvent[]>([]);
   const [futureDeliveries, setFutureDeliveries] = useState<DeliveryEvent[]>([]);
   const [events, setEvents] = useState<DeliveryEvent[]>([]);
-  const [clients, setClients] = useState<ClientProfile[]>([]);
   const [addressError, setAddressError] = useState<string>("");
   const [userTypedAddress, setUserTypedAddress] = useState<string>("");
   const [isAddressValidated, setIsAddressValidated] = useState<boolean>(true);
@@ -280,8 +279,7 @@ const Profile = () => {
     }
   }, [navigate]);
 
-  useEffect(() => {
-    fetchClients();}, [])
+
 
   //get list of all tags
   useEffect(() => {
@@ -1946,76 +1944,7 @@ const handleCancel = () => {
 
 
 
-     const fetchClients = async () => {
-    try {
-      // Use ClientService instead of direct Firebase calls
-      const clientService = ClientService.getInstance();
-      const clientsData = await clientService.getAllClients();
-      
-      // Map client data to Client type with explicit type casting for compatibility
-      const clientList = clientsData.map(data => {
-        // Ensure dietaryRestrictions has all required fields
-        const dietaryRestrictions = data.deliveryDetails?.dietaryRestrictions || {};
-        
-        return {
-          id: data.uid,
-          uid: data.uid,
-          firstName: data.firstName || "",
-          lastName: data.lastName || "",
-          streetName: data.streetName || "",
-          zipCode: data.zipCode || "",
-          address: data.address || "",
-          address2: data.address2 || "",
-          city: data.city || "",
-          state: data.state || "",
-          quadrant: data.quadrant || "",
-          dob: data.dob || "",
-          phone: data.phone || "",
-          alternativePhone: data.alternativePhone || "",
-          adults: data.adults || 0,
-          children: data.children || 0,
-          total: data.total || 0,
-          gender: data.gender || "Other",
-          ethnicity: data.ethnicity || "",
-          deliveryDetails: {
-            deliveryInstructions: data.deliveryDetails?.deliveryInstructions || "",
-            dietaryRestrictions: {
-              foodAllergens: dietaryRestrictions.foodAllergens || [],
-              halal: dietaryRestrictions.halal || false,
-              kidneyFriendly: dietaryRestrictions.kidneyFriendly || false,
-              lowSodium: dietaryRestrictions.lowSodium || false,
-              lowSugar: dietaryRestrictions.lowSugar || false,
-              microwaveOnly: dietaryRestrictions.microwaveOnly || false,
-              noCookingEquipment: dietaryRestrictions.noCookingEquipment || false,
-              other: dietaryRestrictions.other || [],
-              softFood: dietaryRestrictions.softFood || false,
-              vegan: dietaryRestrictions.vegan || false,
-              vegetarian: dietaryRestrictions.vegetarian || false,
-            },
-          },
-          lifeChallenges: data.lifeChallenges || "",
-          notes: data.notes || "",
-          notesTimestamp: data.notesTimestamp || null,
-          lifestyleGoals: data.lifestyleGoals || "",
-          language: data.language || "",
-          createdAt: data.createdAt || new Date(),
-          updatedAt: data.updatedAt || new Date(),
-          startDate: data.startDate || "",
-          endDate: data.endDate || "",
-          recurrence: data.recurrence || "None",
-          tags: data.tags || [],
-          ward: data.ward || "",
-          seniors: data.seniors || 0,
-          headOfHousehold: data.headOfHousehold || "Adult",
-        };
-      });
-      
-      // Cast the result to Client[] to satisfy type checking
-      setClients(clientList as unknown as ClientProfile[]);
-    } catch (error) {
-      console.error("Error fetching clients:", error);
-    }
-  };
+
   console.log(clientProfile)
   return (
     <Box className="profile-container" sx={{ backgroundColor: "#f8f9fa", minHeight: "100vh", pb: 4 }}>
@@ -2169,8 +2098,13 @@ const handleCancel = () => {
               open={isDeliveryModalOpen}
               onClose={() => setIsDeliveryModalOpen(false)}
               onAddDelivery={handleAddDelivery}
-              clients={clients}
+              clients={[]} // Empty array since we're using preSelectedClient
               startDate={new DayPilot.Date()}
+              preSelectedClient={{
+                clientId: clientId || "",
+                clientName: `${clientProfile.firstName} ${clientProfile.lastName}`,
+                clientProfile: clientProfile
+              }}
             />
             <SectionTitle sx={{ textAlign: 'left', width: '100%' }}>Deliveries</SectionTitle>
             <DeliveryLogForm
