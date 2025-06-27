@@ -19,6 +19,8 @@ const CalendarMultiSelect: React.FC<CalendarMultiSelectProps> = ({ selectedDates
       const updatedDates = [...selectedDates, date];
       const sortedDates = updatedDates.sort((a, b) => a.getTime() - b.getTime());
       setSelectedDates(sortedDates);
+    } else {
+      setSelectedDates(selectedDates.filter(d => d.toDateString() !== date.toDateString()));
     }
   };
 
@@ -57,12 +59,6 @@ const CalendarMultiSelect: React.FC<CalendarMultiSelectProps> = ({ selectedDates
           onChange = {handleDateChange}
           highlightDates = {selectedDates}
           calendarClassName = "persistent-calendar"
-          dayClassName={(date) => {
-            // Highlight days that are already selected
-            return selectedDates.some(d => d.toDateString() === date.toDateString()) 
-              ? "highlighted-day" 
-              : "";
-          }}
         />
       </Box>
       
