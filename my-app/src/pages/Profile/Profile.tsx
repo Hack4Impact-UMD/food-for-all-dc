@@ -35,6 +35,8 @@ import { auth, db } from "../../auth/firebaseConfig";
 import CaseWorkerManagementModal from "../../components/CaseWorkerManagementModal";
 import "./Profile.css";
 import { ClientService, DeliveryService } from "../../services";
+import PopUp from "../../components/PopUp";
+import ErrorPopUp from "../../components/ErrorPopUp";
 
 // Import new components from HEAD
 import BasicInfoForm from "./components/BasicInfoForm";
@@ -259,6 +261,10 @@ const Profile = () => {
   const [addressError, setAddressError] = useState<string>("");
   const [userTypedAddress, setUserTypedAddress] = useState<string>("");
   const [isAddressValidated, setIsAddressValidated] = useState<boolean>(true);
+  const [showDuplicatePopup, setShowDuplicatePopup] = useState(false);
+  const [duplicateErrorMessage, setDuplicateErrorMessage] = useState("A client with this name and address already exists in the system.");
+  const [showSimilarNamesInfo, setShowSimilarNamesInfo] = useState(false);
+  const [similarNamesMessage, setSimilarNamesMessage] = useState("");
 
   
   // Function to fetch profile data by ID
@@ -730,7 +736,111 @@ const Profile = () => {
     return prevNotesTimestamp;
   };
 
+// Function to normalize text fields for database storage
+// This ensures consistent storage format for case-insensitive comparisons
+const normalizeTextFields = (profile: ClientProfile): ClientProfile => {
+  // Create a deep copy to avoid modifying the original
+  const normalized = {
+    ...profile,
+    // Key fields for duplicate prevention - use lowercase for name fields
+    firstName: (profile.firstName || "").trim().toLowerCase(),
+    lastName: (profile.lastName || "").trim().toLowerCase(),
+    // Don't lowercase addresses, but trim them
+    address: (profile.address || "").trim(),
+    address2: (profile.address2 || "").trim(),
+    zipCode: (profile.zipCode || "").trim(),
+    city: (profile.city || "").trim(),
+    state: (profile.state || "").trim(),
+    email: (profile.email || "").trim().toLowerCase(),
+  };
+  return normalized;
+};
+
+// Function to check for duplicate client and return useful information
+// Return type for the enhanced duplicate check
+interface DuplicateCheckResult {
+  isDuplicate: boolean;
+  sameNameCount?: number;
+  sameNameDiffAddressCount?: number;
+}
+
+const checkDuplicateClient = async (firstName: string, lastName: string, address: string, zipCode: string, excludeUid?: string): Promise<boolean | DuplicateCheckResult> => {
+  // Normalize inputs for comparison only
+  const normalizeString = (str: string) => (str || '').trim().toLowerCase();
+  const normalizedFirstName = normalizeString(firstName);
+  const normalizedLastName = normalizeString(lastName);
+  const normalizedAddress = normalizeString(address);
+  const normalizedZipCode = normalizeString(zipCode);
+
+  // Skip check if any required field is empty
+  if (!normalizedFirstName || !normalizedLastName || !normalizedAddress || !normalizedZipCode) {
+    return false;
+  }
+
+  // Query Firestore for all clients with the same address and zip code
+  const clientService = ClientService.getInstance();
+  const db = clientService["db"];
+  const clientsCollection = clientService["clientsCollection"];
+  const addressZipQuery = query(
+    collection(db, clientsCollection),
+    where("address", "==", address),
+    where("zipCode", "==", zipCode)
+  );
+  const addressZipSnapshot = await getDocs(addressZipQuery);
+
+  // Filter for same name (case-insensitive)
+  const sameNameClients = addressZipSnapshot.docs.filter(docSnap => {
+    const data = docSnap.data();
+    return (
+      normalizeString(data.firstName) === normalizedFirstName &&
+      normalizeString(data.lastName) === normalizedLastName &&
+      (!excludeUid || data.uid !== excludeUid)
+    );
+  });
+
+  const sameNameClientsCount = sameNameClients.length;
+  const duplicateFound = sameNameClientsCount > 0;
+
+  // For similar name warning: query by zip only, then filter for same name but different address
+  let sameNameDiffAddressCount = 0;
+  if (!duplicateFound) {
+    const zipQuery = query(
+      collection(db, clientsCollection),
+      where("zipCode", "==", zipCode)
+    );
+    const zipSnapshot = await getDocs(zipQuery);
+    sameNameDiffAddressCount = zipSnapshot.docs.filter(docSnap => {
+      const data = docSnap.data();
+      return (
+        normalizeString(data.firstName) === normalizedFirstName &&
+        normalizeString(data.lastName) === normalizedLastName &&
+        normalizeString(data.address) !== normalizedAddress &&
+        (!excludeUid || data.uid !== excludeUid)
+      );
+    }).length;
+  }
+
+  if (duplicateFound) {
+    return {
+      isDuplicate: true,
+      sameNameCount: sameNameClientsCount,
+      sameNameDiffAddressCount
+    };
+  }
+
+  if (sameNameDiffAddressCount > 0) {
+    return {
+      isDuplicate: false,
+      sameNameCount: 0,
+      sameNameDiffAddressCount
+    };
+  }
+
+  return false;
+};
+
   const handleSave = async () => {
+    // Important: First validate basic requirements
     const validation = validateProfile();
   
     // Check for address validation error
@@ -746,12 +856,113 @@ const Profile = () => {
       alert(`Please fix the following before saving:\n${errorFields}`);
       return;
     }
+    
+    // Clear any previous duplicate popup states
+    setShowDuplicatePopup(false);
   
     // Show saving indicator? (Optional)
     // setIsLoading(true);
   
     try {
-      // ... rest of the existing handleSave function code remains the same
+      if (isNewProfile) {
+        // CRITICAL DEBUG CHECK - console logs visible in browser console
+        console.log("%c DUPLICATE CHECK INITIATED - NEW PROFILE ", "background: red; color: white; font-size: 20px;");
+        console.log({
+          firstName: clientProfile.firstName.trim(),
+          lastName: clientProfile.lastName.trim(),
+          address: clientProfile.address.trim(),
+          zipCode: clientProfile.zipCode.trim()
+        });
+        
+        // Force duplicate check to always happen with direct values, not through variables
+        const duplicateResult = await checkDuplicateClient(
+          String(clientProfile.firstName).trim(),
+          String(clientProfile.lastName).trim(),
+          String(clientProfile.address).trim(),
+          String(clientProfile.zipCode).trim()
+        );
+        
+        let isDuplicate = false;
+        let sameNameCount = 0;
+        let sameNameDiffAddressCount = 0;
+        
+        // Handle different result formats
+        if (typeof duplicateResult === 'boolean') {
+          isDuplicate = duplicateResult;
+        } else {
+          isDuplicate = duplicateResult.isDuplicate;
+          sameNameCount = duplicateResult.sameNameCount || 0;
+          sameNameDiffAddressCount = duplicateResult.sameNameDiffAddressCount || 0;
+        }
+        
+        if (isDuplicate) {
+          // Create a detailed error message including exact fields that caused the duplicate
+          const errorMsg = `DUPLICATE CLIENT DETECTED\n\nA client with the following details already exists in the system:\n\nName: ${clientProfile.firstName} ${clientProfile.lastName}\nAddress: ${clientProfile.address}\nZIP Code: ${clientProfile.zipCode}\n\nYou cannot save this client because it would create a duplicate record.\nPlease check if this is truly a new client with a unique name or address.`;
+          // Update error message and show the popup
+          setDuplicateErrorMessage(errorMsg);
+          setShowDuplicatePopup(true);
+          // No automatic timeout - let the user dismiss the error
+          return;
+        }
+        
+        // Warn if there are other clients with the same name in the same zip code
+        if (sameNameDiffAddressCount > 0) {
+          const warningMsg = `Note: There ${sameNameDiffAddressCount === 1 ? 'is' : 'are'} ${sameNameDiffAddressCount} other client${sameNameDiffAddressCount === 1 ? '' : 's'} with the name "${clientProfile.firstName} ${clientProfile.lastName}" in ZIP code "${clientProfile.zipCode}", but at different addresses.`;
+          console.warn(warningMsg);
+          setSimilarNamesMessage(warningMsg);
+          setShowSimilarNamesInfo(true);
+        }
+      } else {
+        // CRITICAL DEBUG CHECK - console logs visible in browser console
+        console.log("%c DUPLICATE CHECK INITIATED - EXISTING PROFILE ", "background: red; color: white; font-size: 20px;");
+        console.log({
+          firstName: clientProfile.firstName.trim(),
+          lastName: clientProfile.lastName.trim(),
+          address: clientProfile.address.trim(),
+          zipCode: clientProfile.zipCode.trim(),
+          uid: clientProfile.uid
+        });
+        
+        // Force duplicate check to always happen with direct values, not through variables
+        const duplicateResult = await checkDuplicateClient(
+          String(clientProfile.firstName).trim(),
+          String(clientProfile.lastName).trim(),
+          String(clientProfile.address).trim(),
+          String(clientProfile.zipCode).trim(),
+          String(clientProfile.uid)
+        );
+        
+        let isDuplicate = false;
+        let sameNameCount = 0;
+        let sameNameDiffAddressCount = 0;
+        
+        // Handle different result formats
+        if (typeof duplicateResult === 'boolean') {
+          isDuplicate = duplicateResult;
+        } else {
+          isDuplicate = duplicateResult.isDuplicate;
+          sameNameCount = duplicateResult.sameNameCount || 0;
+          sameNameDiffAddressCount = duplicateResult.sameNameDiffAddressCount || 0;
+        }
+        
+        if (isDuplicate) {
+          // Create a detailed error message including exact fields that caused the duplicate
+          const errorMsg = `DUPLICATE CLIENT DETECTED\n\nA client with the following details already exists in the system:\n\nName: ${clientProfile.firstName} ${clientProfile.lastName}\nAddress: ${clientProfile.address}\nZIP Code: ${clientProfile.zipCode}\n\nYou cannot save this client because it would create a duplicate record.\nPlease check if this is truly a different client with a unique name or address.`;
+          // Update error message and show the popup
+          setDuplicateErrorMessage(errorMsg);
+          setShowDuplicatePopup(true);
+          // No automatic timeout - let the user dismiss the error
+          return;
+        }
+        
+        // Warn if there are other clients with the same name in the same zip code
+        if (sameNameDiffAddressCount > 0) {
+          const warningMsg = `Note: There ${sameNameDiffAddressCount === 1 ? 'is' : 'are'} ${sameNameDiffAddressCount} other client${sameNameDiffAddressCount === 1 ? '' : 's'} with the name "${clientProfile.firstName} ${clientProfile.lastName}" in ZIP code "${clientProfile.zipCode}", but at different addresses.`;
+          console.warn(warningMsg);
+          setSimilarNamesMessage(warningMsg);
+          setShowSimilarNamesInfo(true);
+        }
+      }
       // --- Geocoding Optimization Start ---
       let addressChanged = false;
       if (isNewProfile || !prevClientProfile) {
@@ -863,18 +1074,17 @@ const Profile = () => {
       if (isNewProfile) {
         // Generate new UID for new profile
         const newUid = await generateUID();
+        // Save to Firestore for new profile (DO NOT normalize fields for saving)
         const newProfile = {
           ...updatedProfile,
           uid: newUid,
           createdAt: new Date(), // Set createdAt for new profile
         };
-  
         // Save to Firestore for new profile
         console.log("Creating new profile:", newProfile);
         await setDoc(doc(db, "clients", newUid), newProfile);
         // Update the central tags list
         await setDoc(doc(db, "tags", "oGuiR2dQQeOBXHCkhDeX"), { tags: sortedAllTags }, { merge: true });
-  
         // Update state *before* navigating
         setClientProfile(newProfile); // Update with the full new profile data including UID/createdAt
         setPrevClientProfile(null); // Clear previous state backup
@@ -884,11 +1094,9 @@ const Profile = () => {
         setIsSaved(true);       // Indicate save was successful
         setErrors({});          // Clear validation errors
         setAllTags(sortedAllTags); // Update the local list of all tags
-  
         console.log("New profile created with ID: ", newUid);
         // Navigate *after* state updates. The component will remount with isEditing=false.
         navigate(`/profile/${newUid}`);
-  
       } else {
         // Update existing profile
         if (!clientProfile.uid) {
@@ -896,11 +1104,11 @@ const Profile = () => {
           alert("Error: Cannot update profile, client ID is missing.");
           throw new Error("Client UID is missing for update.");
         }
+        // Save to Firestore for existing profile (DO NOT normalize fields for saving)
         console.log("Updating profile:", clientProfile.uid, updatedProfile);
         await setDoc(doc(db, "clients", clientProfile.uid), updatedProfile, { merge: true }); // Use merge: true for updates
         // Update the central tags list
         await setDoc(doc(db, "tags", "oGuiR2dQQeOBXHCkhDeX"), { tags: sortedAllTags }, { merge: true });
-  
         // Update state *after* successful save for existing profile
         setClientProfile(updatedProfile); // Update with latest data
         setPrevClientProfile(null); // Clear previous state backup
@@ -909,7 +1117,6 @@ const Profile = () => {
         setIsEditing(false); // <<<<<< EXIT EDIT MODE HERE for existing profiles
         setErrors({}); // Clear validation errors
         setAllTags(sortedAllTags); // Update the local list of all tags
-  
         console.log("Profile updated:", clientProfile.uid);
       }
   
@@ -963,8 +1170,6 @@ const Profile = () => {
 
   // Re-define renderField based on its likely structure before deletion in HEAD
   const renderField = (fieldPath: ClientProfileKey, type: InputType = "text") => {
-
-
     if (type === "dietaryRestrictions") {
       const dietaryOptions = [
         { name: "lowSugar", label: "Low Sugar" },
@@ -1525,320 +1730,122 @@ const Profile = () => {
   const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
   const [isGoogleApiLoaded, setIsGoogleApiLoaded] = useState(false);
 
-  // Improved Google Maps API loading
-  useEffect(() => {
-    // Check if the Google Maps API is already available
-    if (window.google && window.google.maps && window.google.maps.places) {
-      setIsGoogleApiLoaded(true);
+  // Helper to load Google Maps script if not present
+  function loadGoogleMapsScript(apiKey: string, callback: () => void) {
+    if (typeof window.google === 'object' && window.google.maps && window.google.maps.places) {
+      callback();
       return;
     }
-
-    // Check if API key exists
-    const apiKey = process.env.REACT_APP_GOOGLE_MAPS_API_KEY;
-    if (!apiKey) {
-      console.error("Google Maps API key is missing in environment variables");
-      return;
-    }
-
-    // Check if the script is already being loaded
     const existingScript = document.getElementById('google-maps-script');
     if (existingScript) {
-      return; // Script is already loading, wait for it
+      existingScript.addEventListener('load', callback);
+      return;
     }
-
-    // Create and load the script
-    const script = document.createElement("script");
+    const script = document.createElement('script');
     script.id = 'google-maps-script';
     script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
     script.async = true;
     script.defer = true;
-
-    script.onload = () => {
-      console.log("Google Maps API script loaded successfully");
-      setIsGoogleApiLoaded(true);
-    };
-
-    script.onerror = (error) => {
-      console.error("Failed to load Google Maps API script:", error);
-    };
-
-    document.head.appendChild(script);
-
-    // Cleanup
-    return () => {
-      // We don't remove the script on cleanup since other components might need it
-    };
-  }, []); // Run once on component mount
-
-
-// Initialize autocomplete when editing and API is loaded and input ref exists
-useEffect(() => {
-  // Only initialize when all dependencies are ready
-  if (!isEditing || !isGoogleApiLoaded || !addressInputRef.current) {
-    return;
+    script.onload = callback;
+    document.body.appendChild(script);
   }
 
-  console.log("Initializing Google Places autocomplete...");
-
-  // Clean up previous instance if it exists
-  if (autocompleteRef.current) {
-    try {
-      window.google.maps.event.clearInstanceListeners(autocompleteRef.current);
-    } catch (err) {
-      console.warn("Failed to clear listeners from previous autocomplete instance", err);
+  // Load Google Maps API on mount
+  useEffect(() => {
+    const apiKey = process.env.REACT_APP_GOOGLE_MAPS_API_KEY;
+    if (!apiKey) {
+      console.error('Google Maps API key is missing!');
+      return;
     }
-    autocompleteRef.current = null;
-  }
+    loadGoogleMapsScript(apiKey, () => setIsGoogleApiLoaded(true));
+  }, []);
 
-  try {
-    // Create new autocomplete instance
-    autocompleteRef.current = new window.google.maps.places.Autocomplete(
-      addressInputRef.current,
-      {
+  // Initialize Google Places Autocomplete when input and API are ready
+  useEffect(() => {
+    if (isGoogleApiLoaded && addressInputRef.current && window.google && window.google.maps && window.google.maps.places) {
+      if (autocompleteRef.current) return; // Prevent re-initialization
+      autocompleteRef.current = new window.google.maps.places.Autocomplete(addressInputRef.current, {
         types: ["address"],
         componentRestrictions: { country: "us" },
-        fields: ["address_components", "formatted_address", "geometry", "place_id"],
-      }
-    );
-
-    // Track if a valid place was just selected
-    let placeJustSelected = false;
-
-    // Add place_changed listener
-    const listener = autocompleteRef.current.addListener("place_changed", () => {
-      const place = autocompleteRef.current?.getPlace();
-      console.log("Place selected:", place);
-
-      if (!place || !place.address_components) {
-        console.warn("No valid place selected or missing address components");
-        return;
-      }
-
-      // Mark that a valid place was just selected
-      placeJustSelected = true;
-
-      // Clear any previous address error since a valid place was selected
-      setAddressError("");
-      setIsAddressValidated(true);
-
-      if (place?.formatted_address) {
-        const address = place.formatted_address;
-        const addressComponents = place.address_components;
-
-        let streetNumber = "";
-        let streetName = "";
+      });
+      autocompleteRef.current.addListener("place_changed", () => {
+        const place = autocompleteRef.current!.getPlace();
+        if (!place.address_components) return;
+        // Extract address components
+        let street = "";
         let city = "";
         let state = "";
-        let zipCode = "";
+        let zip = "";
         let quadrant = "";
-
-        if (addressComponents) {
-          for (const component of addressComponents) {
-            const types = component.types;
-
-            if (types.includes("street_number")) {
-              streetNumber = component.long_name;
-            }
-
-            if (types.includes("route")) {
-              streetName = component.long_name;
-            }
-
-            if (types.includes("locality") || types.includes("sublocality")) {
-              city = component.long_name;
-            }
-
-            if (types.includes("administrative_area_level_1")) {
-              state = component.short_name;
-            }
-
-            if (types.includes("postal_code")) {
-              zipCode = component.long_name;
+        for (const comp of place.address_components) {
+          if (comp.types.includes("street_number")) {
+            street = comp.long_name + " " + street;
+          } else if (comp.types.includes("route")) {
+            street += comp.long_name;
+          } else if (comp.types.includes("locality")) {
+            city = comp.long_name;
+          } else if (comp.types.includes("administrative_area_level_1")) {
+            state = comp.short_name;
+          } else if (comp.types.includes("postal_code")) {
+            zip = comp.long_name;
+          } else if (comp.types.includes("subpremise")) {
+            street += " " + comp.long_name;
+          } else if (comp.types.includes("neighborhood")) {
+            // Optionally use for quadrant if DC
+            if (!quadrant && comp.long_name.match(/(NW|NE|SW|SE)/i)) {
+              quadrant = comp.long_name;
             }
           }
-
-          const quadrantMatch = address.match(/(NW|NE|SW|SE)(\s|,|$)/);
-          if (state === "DC" && quadrantMatch) {
-            quadrant = quadrantMatch[1];
-          }
-
-          console.log("Setting address components:", {
-            address: `${streetNumber} ${streetName}`.trim(),
-            city,
-            state,
-            zipCode,
-            quadrant
-          });
-
-          const newAddress = `${streetNumber} ${streetName}`.trim();
-          
-          setClientProfile((prev) => ({
-            ...prev,
-            address: newAddress,
-            city: city,
-            state: state,
-            zipCode: zipCode,
-            quadrant: quadrant,
-          }));
-
-          // Update the user typed address to match the selected address
-          setUserTypedAddress(newAddress);
-          
-          // Reset the flag after a short delay
-          setTimeout(() => {
-            placeJustSelected = false;
-          }, 500);
         }
-      }
-    });
-
-    // Modified input event listener with improved debouncing
-    let inputTimeout: NodeJS.Timeout;
-    const inputListener = () => {
-      if (addressInputRef.current) {
-        const currentValue = addressInputRef.current.value;
-        
-        // Clear previous timeout
-        if (inputTimeout) {
-          clearTimeout(inputTimeout);
+        // If DC, try to extract quadrant from formatted address if not found
+        if (!quadrant && place.formatted_address && place.formatted_address.match(/(NW|NE|SW|SE)/i)) {
+          quadrant = place.formatted_address.match(/(NW|NE|SW|SE)/i)?.[0] || "";
         }
-        
-        // Debounce the state updates to avoid conflicts
-        inputTimeout = setTimeout(() => {
-          setUserTypedAddress(currentValue);
-          
-          // Clear address error when user starts typing again
-          if (addressError) {
-            setAddressError("");
-            setIsAddressValidated(true);
-          }
-        }, 150);
-      }
-    };
-
-    // Improved blur event listener
-
-const blurListener = () => {
-  // Skip if just picked from dropdown
-  if (placeJustSelected) return;
-
-  const currentValue = addressInputRef.current?.value.trim() || "";
-  if (!currentValue) {
-    setAddressError("");
-    setIsAddressValidated(true);
-    return;
-  }
-
-  const service = new window.google.maps.places.AutocompleteService();
-  service.getPlacePredictions(
-    {
-      input: currentValue,
-      componentRestrictions: { country: "us" },
-      types: ["address"],
-    },
-    (predictions, status) => {
-      if (status === window.google.maps.places.PlacesServiceStatus.OK && predictions) {
-        const inputLower = currentValue.toLowerCase();
-        // compare only the street portion (before the first comma)
-        const hasMatch = predictions.some(p => {
-          const streetOnly = p.description.split(",")[0].toLowerCase();
-          return streetOnly === inputLower;
-        });
-
-        if (hasMatch) {
-          setAddressError("");
-          setIsAddressValidated(true);
-          return;
-        }
-      }
-      // no exact street match → invalid
-      setAddressError("Please select a valid address from the autocomplete suggestions.");
-      setIsAddressValidated(false);
+        // Save only the street address in address field
+        setClientProfile((prev) => ({
+          ...prev,
+          address: street.trim(),
+          city,
+          state,
+          zipCode: zip,
+          quadrant,
+        }));
+        setIsAddressValidated(true);
+      });
     }
-  );
-};
+  }, [isGoogleApiLoaded, isEditing]);
 
-addressInputRef.current!.addEventListener("blur", blurListener);
-
-    console.log("Google Places autocomplete initialized successfully");
-
-    // Store listeners for cleanup
-    const currentRef = addressInputRef.current;
-    return () => {
-      // Clear any pending timeout
-      if (inputTimeout) {
-        clearTimeout(inputTimeout);
-      }
-      
-      if (autocompleteRef.current) {
-        try {
-          window.google.maps.event.clearInstanceListeners(autocompleteRef.current);
-          console.log("Cleaned up Google Places autocomplete instance");
-        } catch (err) {
-          console.warn("Error during autocomplete cleanup:", err);
-        }
-        autocompleteRef.current = null;
-      }
-      
-      // Clean up event listeners
-      if (currentRef) {
-        currentRef.removeEventListener('input', inputListener);
-        currentRef.removeEventListener('blur', blurListener);
-      }
-    };
-  } catch (error) {
-    console.error("Error initializing Google Places autocomplete:", error);
-  }
-}, [isEditing, isGoogleApiLoaded, clientProfile.address]); // Added clientProfile.address to dependencies
-
-// Add a separate useEffect to handle the ref attachment
-useEffect(() => {
-  // Small delay to ensure the input is rendered before trying to attach autocomplete
-  if (isEditing && isGoogleApiLoaded && addressInputRef.current) {
-    const timer = setTimeout(() => {
-      // This will trigger the main autocomplete useEffect to run again
-      setIsAddressValidated(prev => prev);
-    }, 100);
-    
-    return () => clearTimeout(timer);
-  }
-}, [isEditing, isGoogleApiLoaded, clientProfile.address]);
-
-
-  const initializeAutocomplete = () => {
-    // This function is now deprecated in favor of the useEffect above
-    console.warn("initializeAutocomplete is deprecated - using useEffect for initialization");
-  };
+  // Remove any stray {fieldPath === 'address' ...} JSX outside renderField
 
   // Function to handle cancelling edits
-const handleCancel = () => {
-  // If we have a previous state of the client profile, restore it
-  if (prevClientProfile) {
-    setClientProfile(prevClientProfile);
-    setPrevClientProfile(null);
-  }
-
-  // If we have a previous state of tags, restore it
-  if (prevTags) {
-    setTags(prevTags);
-    setPrevTags(null);
-  }
-
-  // Clear address validation errors
-  setAddressError("");
-  setIsAddressValidated(true);
-  setUserTypedAddress("");
-
-  // Reset autocomplete instance when cancelling
-  if (autocompleteRef.current) {
-    try {
-      window.google.maps.event.clearInstanceListeners(autocompleteRef.current);
-    } catch (err) {
-      console.warn("Failed to clear listeners during cancel", err);
+  const handleCancel = () => {
+    // If we have a previous state of the client profile, restore it
+    if (prevClientProfile) {
+      setClientProfile(prevClientProfile);
+      setPrevClientProfile(null);
     }
-    autocompleteRef.current = null;
-  }
-};
+
+    // If we have a previous state of tags, restore it
+    if (prevTags) {
+      setTags(prevTags);
+      setPrevTags(null);
+    }
+
+    // Clear address validation errors
+    setAddressError("");
+    setIsAddressValidated(true);
+    setUserTypedAddress("");
+
+    // Reset autocomplete instance when cancelling
+    if (autocompleteRef.current) {
+      try {
+        window.google.maps.event.clearInstanceListeners(autocompleteRef.current);
+      } catch (err) {
+        console.warn("Failed to clear listeners during cancel", err);
+      }
+      autocompleteRef.current = null;
+    }
+  };
 
   // Function to handle selecting a case worker
   const handleCaseWorkerChange = (caseWorker: CaseWorker | null) => {
@@ -1898,6 +1905,7 @@ const handleCancel = () => {
   
         // Filter out dates that already have a delivery for the same client
         const existingEventDates = new Set(
+
           events
             .filter(event => event.clientId === newDelivery.clientId)
             .map(event => new DayPilot.Date(event.deliveryDate).toString("yyyy-MM-dd"))
@@ -1948,26 +1956,38 @@ const handleCancel = () => {
 
      const fetchClients = async () => {
     try {
+      console.log("Fetching all clients");
       // Use ClientService instead of direct Firebase calls
       const clientService = ClientService.getInstance();
       const clientsData = await clientService.getAllClients();
+      
+      console.log(`Fetched ${clientsData.length} clients`);
       
       // Map client data to Client type with explicit type casting for compatibility
       const clientList = clientsData.map(data => {
         // Ensure dietaryRestrictions has all required fields
         const dietaryRestrictions = data.deliveryDetails?.dietaryRestrictions || {};
         
+        // Check if client data is normalized
+        if (data.firstName && data.firstName !== data.firstName.toLowerCase()) {
+          console.log(`⚠️ Client ${data.uid} has un-normalized firstName: "${data.firstName}"`);
+        }
+        if (data.lastName && data.lastName !== data.lastName.toLowerCase()) {
+          console.log(`⚠️ Client ${data.uid} has un-normalized lastName: "${data.lastName}"`);
+        }
+        
         return {
           id: data.uid,
           uid: data.uid,
-          firstName: data.firstName || "",
-          lastName: data.lastName || "",
+          // Ensure consistent format for all client data, even from the DB
+          firstName: (data.firstName || "").trim().toLowerCase(),
+          lastName: (data.lastName || "").trim().toLowerCase(),
           streetName: data.streetName || "",
-          zipCode: data.zipCode || "",
-          address: data.address || "",
-          address2: data.address2 || "",
-          city: data.city || "",
-          state: data.state || "",
+          zipCode: (data.zipCode || "").trim(),
+          address: (data.address || "").trim(),
+          address2: (data.address2 || "").trim(),
+          city: (data.city || "").trim(),
+          state: (data.state || "").trim(),
           quadrant: data.quadrant || "",
           dob: data.dob || "",
           phone: data.phone || "",
@@ -2025,6 +2045,19 @@ const handleCancel = () => {
           <Typography>Profile saved successfully!</Typography>
         </SaveNotification>
       )}
+      {showDuplicatePopup && (
+        <ErrorPopUp 
+          message={duplicateErrorMessage}
+          title="Duplicate Client Detected"
+          // No auto-close duration - user must dismiss manually
+        />
+      )}
+      {showSimilarNamesInfo && (
+        <PopUp 
+          message={similarNamesMessage}
+          duration={8000} 
+        />
+      )}
 
       {/* Spacer for navbar height */}
       <Box sx={{ height: '64px' }} />
@@ -2034,22 +2067,13 @@ const handleCancel = () => {
         firstName={clientProfile.firstName}
         lastName={clientProfile.lastName}
         isEditing={isEditing}
-        tags={tags}
-        allTags={allTags}
+        tags={clientProfile.tags || []}
+        allTags={allTags || []}
         handleTag={handleTag}
-        clientId={clientId}
+        clientId={clientProfile.uid || null}
       />
 
-      {/* Adopt daniel-address2 structure: profile-main > centered-box */}
-      <Box
-        className="profile-main"
-        sx={{
-          py: 3,
-          display: "flex",
-          justifyContent: "center",
-          backgroundColor: "#f8f9fa"
-        }}
-      >
+      <Box className="profile-main" sx={{ p: 2 }}>
         <Box
           className="centered-box"
           sx={{
