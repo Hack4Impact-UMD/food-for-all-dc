@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { db } from "../../auth/firebaseConfig";
 import { Search, Filter } from "lucide-react";
 import { query, Timestamp, updateDoc, where } from "firebase/firestore";
@@ -1652,6 +1652,21 @@ const DeliverySpreadsheet: React.FC = () => {
                           // Render computed fields (other than the select)
                           field.key === "assignedDriver" || field.key === "assignedTime" ? (
                             field.compute(row, clusters)
+                          ) : field.key === "fullname" ? (
+                            // Render fullname as a link to client profile
+                            <Link
+                              to={`/profile/${row.id}`}
+                              style={{
+                                color: "#2E5B4C",
+                                textDecoration: "none",
+                                fontWeight: "500",
+                              }}
+                              onMouseEnter={(e) => e.currentTarget.style.textDecoration = "underline"}
+                              onMouseLeave={(e) => e.currentTarget.style.textDecoration = "none"}
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              {field.compute(row)}
+                            </Link>
                           ) : (
                             field.key === "tags" ? (
                               // Render tags field
