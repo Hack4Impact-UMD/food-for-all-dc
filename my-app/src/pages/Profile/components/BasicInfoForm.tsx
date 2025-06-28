@@ -188,7 +188,7 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
       {/* Email */}
       <Box>
         <Typography className="field-descriptor" sx={fieldLabelStyles}>
-          EMAIL <span className="required-asterisk">*</span>
+          EMAIL
         </Typography>
         {renderField("email", "email")}
         {errors.email && (

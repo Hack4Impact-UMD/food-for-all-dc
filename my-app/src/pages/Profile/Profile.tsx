@@ -651,8 +651,10 @@ const Profile = () => {
     if (!clientProfile.dob) {
       newErrors.dob = "Date of Birth is required";
     }
-    if (!clientProfile.email?.trim()) {
-      newErrors.email = "Email is required";
+    if (clientProfile.email?.trim() &&
+        !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clientProfile.email.trim())
+    ) {
+      newErrors.email = "Invalid email format";
     }
     if (!clientProfile.startDate?.trim()) {
       newErrors.startDate = "Start date is required";
