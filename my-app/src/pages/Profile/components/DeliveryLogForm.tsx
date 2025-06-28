@@ -97,20 +97,24 @@ const DeliveryLogForm: React.FC<DeliveryLogProps> = ({
                         return;
                     }
 
-                    // Capture current IDs BEFORE removing the deleted delivery
+                    // Capture current IDs BEFORE any state changes or deletions
                     const currentIds = futureDeliveriesState.map((delivery) => delivery.id);
 
+                    // Delete from database first
                     await deliveryService.deleteEvent(selectedDelivery.id);
                     console.log(`Successfully deleted delivery with ID: ${selectedDelivery.id}`);
                     console.log(`Client ID associated with the deleted delivery: ${selectedDelivery.clientId}`);
 
-                    // Notify parent component about the deletion
-                    await onDeleteDelivery(selectedDelivery);
+                    // Notify parent component about the deletion - ensure this is awaited and errors are handled
+                    try {
+                        await onDeleteDelivery(selectedDelivery);
+                        console.log("Successfully notified parent of delivery deletion");
+                    } catch (parentError) {
+                        console.error("Error notifying parent of delivery deletion:", parentError);
+                        // Continue with local state update even if parent notification fails
+                    }
 
-                    // Remove the deleted delivery from the local state
-                    setFutureDeliveries((prev) => prev.filter((delivery) => delivery.id !== selectedDelivery.id));
-
-                    // Requery the database to ensure consistency
+                    // Requery the database to get the updated state
                     const allEvents = await deliveryService.getEventsByClientId(selectedDelivery.clientId);
                     const now = new Date();
                     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -119,7 +123,10 @@ const DeliveryLogForm: React.FC<DeliveryLogProps> = ({
                         .sort((a, b) => new Date(a.deliveryDate).getTime() - new Date(b.deliveryDate).getTime())
                         .slice(0, 5); // Ensure only the next 5 future deliveries are included
 
-                    const newDeliveries = futureDeliveries.filter((delivery) => !currentIds.includes(delivery.id));
+                    // Fix race condition: use currentIds (captured before any changes) to determine new deliveries
+                    // Filter out the deleted delivery ID from currentIds for accurate comparison
+                    const currentIdsWithoutDeleted = currentIds.filter(id => id !== selectedDelivery.id);
+                    const newDeliveries = futureDeliveries.filter((delivery) => !currentIdsWithoutDeleted.includes(delivery.id));
 
                     // Update state with all current future deliveries
                     setFutureDeliveries(futureDeliveries.map((delivery) => ({ 
@@ -144,6 +151,7 @@ const DeliveryLogForm: React.FC<DeliveryLogProps> = ({
                     }
                 } catch (error) {
                     console.error("Error deleting delivery:", error);
+                    // Additional error handling: revert any optimistic UI changes if needed
                 }
                 setDeletingChipId(null); // Reset zoom-out state
             }, 300); // Match zoom-out transition duration
