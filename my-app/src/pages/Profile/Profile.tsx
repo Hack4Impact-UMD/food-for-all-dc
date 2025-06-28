@@ -1812,11 +1812,19 @@ const Profile = () => {
               fieldLabelStyles={fieldLabelStyles}
               onDeleteDelivery={async (delivery: DeliveryEvent) => {
                 try {
+                  // Update the parent component's state to reflect the deletion
+                  // Note: Firestore deletion is already handled by DeliveryLogForm
                   const updatedFutureDeliveries = futureDeliveries.filter(d => d.id !== delivery.id);
                   setFutureDeliveries(updatedFutureDeliveries);
-                  // Optionally, add Firestore deletion logic here
+                  
+                  // Also refresh the delivery history to ensure consistency
+                  if (clientId) {
+                    const deliveryService = DeliveryService.getInstance();
+                    const { futureDeliveries: refreshedFutureDeliveries } = await deliveryService.getClientDeliveryHistory(clientId);
+                    setFutureDeliveries(refreshedFutureDeliveries);
+                  }
                 } catch (error) {
-                  console.error('Error deleting delivery:', error);
+                  console.error('Error updating delivery state after deletion:', error);
                 }
               }}
             />
