@@ -1050,7 +1050,19 @@ const StyleChip = styled(Chip)({
                     }}
                   >
                     {fields.map((field) => (
-                      <TableCell key={field.key} sx={{ py: 2 }}>
+                      <TableCell 
+                        key={field.key} 
+                        sx={{ 
+                          py: 2,
+                          // Add word-wrap styles for delivery instructions and dietary restrictions
+                          ...(field.key === "deliveryDetails.deliveryInstructions" && {
+                            maxWidth: '200px',
+                            wordWrap: 'break-word',
+                            overflowWrap: 'anywhere',
+                            whiteSpace: 'pre-wrap'
+                          })
+                        }}
+                      >
                         {editingRowId === row.id ? (
                           field.key === "fullname" ? (
                             <>
@@ -1120,36 +1132,55 @@ const StyleChip = styled(Chip)({
                               {row.firstName} {row.lastName}
                             </Typography>
                           )
-                        ) : field.compute ? (
+                        ) : (field as any).compute ? (
                           field.key === "deliveryDetails.dietaryRestrictions" ? (
                             <Stack direction="row" spacing={0.5} flexWrap="wrap">
-                              {field.compute?.(row)?.split(", ").map((restriction, i) => (
-                                restriction !== "None" && (
-                                  <Chip
-                                    key={i}
-                                    label={restriction}
-                                    size="small"
-                                    onClick={(e) => e.preventDefault()}
-                                    sx={{
-                                      backgroundColor: "#e8f5e9",
-                                      color: "#2E5B4C",
-                                      mb: 0.5
-                                    }}
-                                  />
-                                )
-                              )) || null}
+                              {(field as any).compute(row)?.split(", ").filter((restriction: string) => restriction !== "None").map((restriction: string, i: number) => (
+                                <Chip
+                                  key={i}
+                                  label={restriction}
+                                  size="small"
+                                  onClick={(e) => e.preventDefault()}
+                                  sx={{
+                                    backgroundColor: "#e8f5e9",
+                                    color: "#2E5B4C",
+                                    mb: 0.5
+                                  }}
+                                />
+                              ))}
                             </Stack>
+                          ) : field.key === "deliveryDetails.deliveryInstructions" ? (
+                            <div style={{
+                              maxWidth: '200px',
+                              wordWrap: 'break-word',
+                              overflowWrap: 'anywhere',
+                              whiteSpace: 'pre-wrap'
+                            }}>
+                              {(field as any).compute(row)}
+                            </div>
                           ) : (
-                            field.compute(row)
+                            (field as any).compute(row)
                           )
                         ) : (
-                          row[field.key]
+                          row[field.key as keyof RowData]
                         )}
                       </TableCell>
                     ))}
 
                     {customColumns.map((col) => (
-                      <TableCell key={col.id} sx={{ py: 2 }}>
+                      <TableCell 
+                        key={col.id} 
+                        sx={{ 
+                          py: 2,
+                          // Add word-wrap styles for text-heavy columns
+                          ...((col.propertyKey.includes('notes') || col.propertyKey.includes('deliveryInstructions')) && {
+                            maxWidth: '200px',
+                            wordWrap: 'break-word',
+                            overflowWrap: 'anywhere',
+                            whiteSpace: 'pre-wrap'
+                          })
+                        }}
+                      >
                         {editingRowId === row.id ? (
                           col.propertyKey !== "none" ? (
                             <TextField
@@ -1189,7 +1220,16 @@ const StyleChip = styled(Chip)({
                                   }}
                                 />
                               ))
-                            : (row[col.propertyKey as keyof RowData]?.toString() ?? "N/A")
+                            : col.propertyKey.includes('notes') || col.propertyKey.includes('deliveryInstructions') ? (
+                              <div style={{
+                                maxWidth: '200px',
+                                wordWrap: 'break-word',
+                                overflowWrap: 'anywhere',
+                                whiteSpace: 'pre-wrap'
+                              }}>
+                                {row[col.propertyKey as keyof RowData]?.toString() ?? "N/A"}
+                              </div>
+                            ) : (row[col.propertyKey as keyof RowData]?.toString() ?? "N/A")
                           ) : (
                             "N/A"
                           )}
