@@ -865,15 +865,6 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
   
     try {
       if (isNewProfile) {
-        // CRITICAL DEBUG CHECK - console logs visible in browser console
-        console.log("%c DUPLICATE CHECK INITIATED - NEW PROFILE ", "background: red; color: white; font-size: 20px;");
-        console.log({
-          firstName: clientProfile.firstName.trim(),
-          lastName: clientProfile.lastName.trim(),
-          address: clientProfile.address.trim(),
-          zipCode: clientProfile.zipCode.trim()
-        });
-        
         // Force duplicate check to always happen with direct values, not through variables
         const duplicateResult = await checkDuplicateClient(
           String(clientProfile.firstName).trim(),
@@ -908,21 +899,10 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
         // Warn if there are other clients with the same name in the same zip code
         if (sameNameDiffAddressCount > 0) {
           const warningMsg = `Note: There ${sameNameDiffAddressCount === 1 ? 'is' : 'are'} ${sameNameDiffAddressCount} other client${sameNameDiffAddressCount === 1 ? '' : 's'} with the name "${clientProfile.firstName} ${clientProfile.lastName}" in ZIP code "${clientProfile.zipCode}", but at different addresses.`;
-          console.warn(warningMsg);
           setSimilarNamesMessage(warningMsg);
           setShowSimilarNamesInfo(true);
         }
       } else {
-        // CRITICAL DEBUG CHECK - console logs visible in browser console
-        console.log("%c DUPLICATE CHECK INITIATED - EXISTING PROFILE ", "background: red; color: white; font-size: 20px;");
-        console.log({
-          firstName: clientProfile.firstName.trim(),
-          lastName: clientProfile.lastName.trim(),
-          address: clientProfile.address.trim(),
-          zipCode: clientProfile.zipCode.trim(),
-          uid: clientProfile.uid
-        });
-        
         // Force duplicate check to always happen with direct values, not through variables
         const duplicateResult = await checkDuplicateClient(
           String(clientProfile.firstName).trim(),
@@ -958,7 +938,6 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
         // Warn if there are other clients with the same name in the same zip code
         if (sameNameDiffAddressCount > 0) {
           const warningMsg = `Note: There ${sameNameDiffAddressCount === 1 ? 'is' : 'are'} ${sameNameDiffAddressCount} other client${sameNameDiffAddressCount === 1 ? '' : 's'} with the name "${clientProfile.firstName} ${clientProfile.lastName}" in ZIP code "${clientProfile.zipCode}", but at different addresses.`;
-          console.warn(warningMsg);
           setSimilarNamesMessage(warningMsg);
           setShowSimilarNamesInfo(true);
         }
@@ -982,7 +961,6 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
   
       // Also force geocode if coordinates are missing or invalid
       if (!addressChanged && (!clientProfile.coordinates || clientProfile.coordinates.length === 0 || (clientProfile.coordinates[0].lat === 0 && clientProfile.coordinates[0].lng === 0))) {
-        console.log("Forcing geocode due to missing/invalid coordinates.");
         addressChanged = true;
       }
   
@@ -990,11 +968,8 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
       let coordinatesToSave = clientProfile.coordinates; // Default to existing coordinates
   
       if (addressChanged) {
-        console.log("Address changed, fetching new Ward and Coordinates...");
         fetchedWard = await getWard(clientProfile.address); // Fetch ward only if address changed
         coordinatesToSave = await getCoordinates(clientProfile.address); // Fetch coordinates only if address changed
-      } else {
-        console.log("Address unchanged, using existing Ward and Coordinates.");
       }
       // --- Geocoding Optimization End ---
   
