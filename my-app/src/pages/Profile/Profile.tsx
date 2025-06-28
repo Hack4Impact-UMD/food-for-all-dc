@@ -591,9 +591,7 @@ const Profile = () => {
         ...prevState,
         [name]: date,
       }));
-    } else if (name === "seniors" && Number(value) < 0) {
-      return
-    } else if (name === "adults" || name === "children") {
+    } else if (name === "adults" || name === "children" || name === "seniors") {
       if (Number(value) < 0) {
         return; //do nothing if the input is negative
       }
