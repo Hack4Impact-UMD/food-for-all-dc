@@ -199,6 +199,24 @@ class DeliveryService {
     try {
       const docRef = doc(this.db, this.limitsCollection, this.limitsDocId);
       const snapshot = await getDoc(docRef);
+      
+      if (!snapshot.exists()) {
+        // Return default weekly limits if document doesn't exist
+        const defaultLimits: Record<string, number> = {
+          sunday: 60,
+          monday: 60,
+          tuesday: 60,
+          wednesday: 60,
+          thursday: 90,
+          friday: 90,
+          saturday: 60,
+        };
+        
+        // Create the document with default values
+        await setDoc(docRef, defaultLimits);
+        return defaultLimits;
+      }
+      
       return snapshot.data() as Record<string, number>;
     } catch (error) {
       console.error("Error fetching weekly limits:", error);
