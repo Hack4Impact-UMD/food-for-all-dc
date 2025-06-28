@@ -1,6 +1,7 @@
-import React from "react";
-import { Box, Chip, Stack, Typography, TextField } from "@mui/material";
-import CloseIcon from '@mui/icons-material/Close';
+import React, { useState } from "react";
+import { Box, Chip, Stack, Typography } from "@mui/material";
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
 
 interface CalendarMultiSelectProps {
   selectedDates: Date[];
@@ -8,18 +9,22 @@ interface CalendarMultiSelectProps {
 }
 
 const CalendarMultiSelect: React.FC<CalendarMultiSelectProps> = ({ selectedDates, setSelectedDates }) => {
-  const [dateInput, setDateInput] = React.useState<string>("");
-
-  const handleAddDate = (date: Date | null) => {
-    if (
-      date &&
-      !selectedDates.some(d => d.toDateString() === date.toDateString())
-    ) {
-      setSelectedDates([...selectedDates, date]);
+  // Function to handle adding a new date
+  const handleDateChange = (date: Date | null) => {
+    if (!date) return;
+    
+    // Check if date already exists in the array
+    if (!selectedDates.some(d => d.toDateString() === date.toDateString())) {
+      // Add the new date and sort all dates chronologically
+      const updatedDates = [...selectedDates, date];
+      const sortedDates = updatedDates.sort((a, b) => a.getTime() - b.getTime());
+      setSelectedDates(sortedDates);
+    } else {
+      setSelectedDates(selectedDates.filter(d => d.toDateString() !== date.toDateString()));
     }
-    setDateInput("");
   };
 
+  // Function to delete a date from the selectedDates array
   const handleDeleteDate = (dateToDelete: Date) => {
     setSelectedDates(selectedDates.filter(d => d.toDateString() !== dateToDelete.toDateString()));
   };
@@ -29,41 +34,56 @@ const CalendarMultiSelect: React.FC<CalendarMultiSelectProps> = ({ selectedDates
       <Typography variant="subtitle1" sx={{ mb: 1 }}>
         Select Custom Dates
       </Typography>
-      <TextField
-        label="Add Date"
-        type="date"
-        fullWidth
-        size="small"
-        value={dateInput}
-        onChange={(e) => {
-          const value = e.target.value;
-          setDateInput(value);
-          if (value) {
-            const date = new Date(`${value}T00:00:00`);
-            handleAddDate(date);
-          }
-        }}
-        InputLabelProps={{ shrink: true }}
-        sx={{ mb: 2 }}
-      />
-      <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', mt: 1 }}>
+      
+      <Box sx={{ 
+        '& .react-datepicker': { 
+          border: '1px solid #ccc',
+          borderRadius: '4px',
+          fontFamily: 'inherit'
+        },
+        '& .react-datepicker__header': {
+          backgroundColor: '#f5f5f5'
+        },
+        '& .react-datepicker__day--selected': {
+          backgroundColor: '#1976d2',
+          color: 'white'
+        },
+        '& .react-datepicker__day--highlighted': {
+          backgroundColor: '#e6f7ff',
+          borderRadius: '50%'
+        }
+      }}>
+        <DatePicker
+          inline
+          selected = {null}
+          onChange = {handleDateChange}
+          highlightDates = {selectedDates}
+          calendarClassName = "persistent-calendar"
+        />
+      </Box>
+      
+      <Typography variant="subtitle2" sx={{ mt: 2, mb: 1 }}>
+        Selected Dates:
+      </Typography>
+      
+      <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
         {selectedDates.map((date) => (
           <Chip
             key={date.toISOString()}
             label={date.toLocaleDateString()}
             onDelete={() => handleDeleteDate(date)}
-            deleteIcon={<CloseIcon />}
-            sx={{
-              backgroundColor: 'var(--color-primary)',
-              color: 'white',
-              fontWeight: 500,
-              mb: 1
-            }}
+            sx={{ mb: 1, padding: '1rem .5rem' }}
+            onClick = {function() {return;}} //empty onclick to prevent error
           />
         ))}
+        {selectedDates.length === 0 && (
+          <Typography variant="body2" color="text.secondary">
+            No dates selected
+          </Typography>
+        )}
       </Stack>
     </Box>
   );
 };
 
-export default CalendarMultiSelect; 
+export default CalendarMultiSelect;

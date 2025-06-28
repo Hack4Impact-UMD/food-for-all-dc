@@ -335,7 +335,6 @@ const CalendarPage: React.FC = () => {
         if (newDelivery.recurrence === "Custom") {
           eventToAdd.customDates = newDelivery.customDates;
         } else if (newDelivery.repeatsEndDate) {
-          // Only add repeatsEndDate for standard recurrence types
           eventToAdd.repeatsEndDate = newDelivery.repeatsEndDate;
         }
 
@@ -345,7 +344,10 @@ const CalendarPage: React.FC = () => {
       await Promise.all(createPromises);
 
       // Refresh events after adding
-      fetchEvents();
+      await fetchEvents();
+      
+      // Close the modal after successful addition
+      setIsModalOpen(false);
     } catch (error) {
       console.error("Error adding delivery:", error);
     }
