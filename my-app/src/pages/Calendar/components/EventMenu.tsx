@@ -278,23 +278,25 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
                 </Select>
               </FormControl>
 
-              <Box>
-                <Typography variant="subtitle1">End Date</Typography>
-                <TextField
-                  label="End Date"
-                  type="date"
-                  value={editRecurrence.repeatsEndDate}
-                  onChange={(e) =>
-                    setEditRecurrence({
-                      ...editRecurrence,
-                      repeatsEndDate: e.target.value,
-                    })
-                  }
-                  fullWidth
-                  margin="normal"
-                  InputLabelProps={{ shrink: true }}
-                />
-              </Box>
+              {editRecurrence.recurrence !== "None" && (
+                <Box>
+                  <Typography variant="subtitle1">End Date</Typography>
+                  <TextField
+                    label="End Date"
+                    type="date"
+                    value={editRecurrence.repeatsEndDate}
+                    onChange={(e) =>
+                      setEditRecurrence({
+                        ...editRecurrence,
+                        repeatsEndDate: e.target.value,
+                      })
+                    }
+                    fullWidth
+                    margin="normal"
+                    InputLabelProps={{ shrink: true }}
+                  />
+                </Box>
+              )}
             </>
           )}
         </DialogContent>
