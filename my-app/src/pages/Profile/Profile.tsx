@@ -1943,20 +1943,12 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
         // Ensure dietaryRestrictions has all required fields
         const dietaryRestrictions = data.deliveryDetails?.dietaryRestrictions || {};
         
-        // Check if client data is normalized
-        if (data.firstName && data.firstName !== data.firstName.toLowerCase()) {
-          console.log(`⚠️ Client ${data.uid} has un-normalized firstName: "${data.firstName}"`);
-        }
-        if (data.lastName && data.lastName !== data.lastName.toLowerCase()) {
-          console.log(`⚠️ Client ${data.uid} has un-normalized lastName: "${data.lastName}"`);
-        }
-        
         return {
           id: data.uid,
           uid: data.uid,
-          // Ensure consistent format for all client data, even from the DB
-          firstName: (data.firstName || "").trim().toLowerCase(),
-          lastName: (data.lastName || "").trim().toLowerCase(),
+          // Preserve original casing, only trim whitespace
+          firstName: (data.firstName || "").trim(),
+          lastName: (data.lastName || "").trim(),
           streetName: data.streetName || "",
           zipCode: (data.zipCode || "").trim(),
           address: (data.address || "").trim(),
