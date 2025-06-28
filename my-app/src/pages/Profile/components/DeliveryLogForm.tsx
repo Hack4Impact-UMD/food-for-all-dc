@@ -97,9 +97,15 @@ const DeliveryLogForm: React.FC<DeliveryLogProps> = ({
                         return;
                     }
 
+                    // Capture current IDs BEFORE removing the deleted delivery
+                    const currentIds = futureDeliveriesState.map((delivery) => delivery.id);
+
                     await deliveryService.deleteEvent(selectedDelivery.id);
                     console.log(`Successfully deleted delivery with ID: ${selectedDelivery.id}`);
                     console.log(`Client ID associated with the deleted delivery: ${selectedDelivery.clientId}`);
+
+                    // Notify parent component about the deletion
+                    await onDeleteDelivery(selectedDelivery);
 
                     // Remove the deleted delivery from the local state
                     setFutureDeliveries((prev) => prev.filter((delivery) => delivery.id !== selectedDelivery.id));
@@ -113,28 +119,29 @@ const DeliveryLogForm: React.FC<DeliveryLogProps> = ({
                         .sort((a, b) => new Date(a.deliveryDate).getTime() - new Date(b.deliveryDate).getTime())
                         .slice(0, 5); // Ensure only the next 5 future deliveries are included
 
-                    const currentIds = futureDeliveriesState.map((delivery) => delivery.id);
                     const newDeliveries = futureDeliveries.filter((delivery) => !currentIds.includes(delivery.id));
 
-                    // Add the new chip with hidden property
-                    setFutureDeliveries((prev) => [
-                        ...prev,
-                        ...newDeliveries.map((delivery) => ({ ...delivery, hidden: true })),
-                    ]);
+                    // Update state with all current future deliveries
+                    setFutureDeliveries(futureDeliveries.map((delivery) => ({ 
+                        ...delivery, 
+                        hidden: newDeliveries.some(newDel => newDel.id === delivery.id) 
+                    })));
 
-                    // Animate the new chip after the deletion process
-                    setTimeout(() => {
-                        newDeliveries.forEach((delivery) => {
-                            setZoomingInChipId(delivery.id);
-                            setFutureDeliveries((prev) => prev.map((d) =>
-                                d.id === delivery.id ? { ...d, hidden: false } : d
-                            ));
+                    // Animate the new chips after the deletion process
+                    if (newDeliveries.length > 0) {
+                        setTimeout(() => {
+                            newDeliveries.forEach((delivery) => {
+                                setZoomingInChipId(delivery.id);
+                                setFutureDeliveries((prev) => prev.map((d) =>
+                                    d.id === delivery.id ? { ...d, hidden: false } : d
+                                ));
 
-                            setTimeout(() => {
-                                setZoomingInChipId(null);
-                            }, 1200); // Match zoom-in transition duration
-                        });
-                    }, 100); // Initial delay to ensure DOM readiness
+                                setTimeout(() => {
+                                    setZoomingInChipId(null);
+                                }, 1200); // Match zoom-in transition duration
+                            });
+                        }, 100); // Initial delay to ensure DOM readiness
+                    }
                 } catch (error) {
                     console.error("Error deleting delivery:", error);
                 }
