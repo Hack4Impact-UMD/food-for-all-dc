@@ -185,7 +185,7 @@ class DeliveryService {
   public async setDailyLimit(dateKey: string, limit: number): Promise<void> {
     try {
       const docRef = doc(this.db, this.dailyLimitsCollection, dateKey);
-      await setDoc(docRef, { limit });
+      await setDoc(docRef, { date: dateKey, limit });
     } catch (error) {
       console.error("Error setting daily limit:", error);
       throw error;
