@@ -26,6 +26,10 @@ const CalendarMultiSelect: React.FC<CalendarMultiSelectProps> = ({ selectedDates
 
   // Function to delete a date from the selectedDates array
   const handleDeleteDate = (dateToDelete: Date) => {
+    if (dateToDelete < new Date()) {
+      console.warn("Cannot delete chips for past dates.");
+      return;
+    }
     setSelectedDates(selectedDates.filter(d => d.toDateString() !== dateToDelete.toDateString()));
   };
 

@@ -28,6 +28,7 @@ import {
   updateDoc,
   where,
   Timestamp,
+  deleteDoc,
 } from "firebase/firestore";
 import React, { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
@@ -53,7 +54,7 @@ import TagManager from "./Tags/TagManager";
 // Import types
 import { CalendarConfig, CalendarEvent, CaseWorker, ClientProfile, NewDelivery, UserType } from "../../types";
 import { ClientProfileKey, InputType } from "./types";
-import { DeliveryEvent } from "../../types";
+import { DeliveryEvent } from "../../types/calendar-types";
 import { useAuth } from "../../auth/AuthProvider";
 import { Add } from "@mui/icons-material";
 import AddDeliveryDialog from "../Calendar/components/AddDeliveryDialog";
@@ -971,7 +972,7 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
   
       // Also force geocode if coordinates are missing or invalid
       if (!addressChanged && (!clientProfile.coordinates || clientProfile.coordinates.length === 0 || (clientProfile.coordinates[0].lat === 0 && clientProfile.coordinates[0].lng === 0))) {
-        addressChanged = true;
+          addressChanged = true;
       }
   
       let fetchedWard = clientProfile.ward; // Default to existing ward
@@ -2178,6 +2179,23 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
               pastDeliveries={pastDeliveries}
               futureDeliveries={futureDeliveries}
               fieldLabelStyles={fieldLabelStyles}
+              onDeleteDelivery={async (delivery: DeliveryEvent) => {
+                try {
+                  // Update the parent component's state to reflect the deletion
+                  // Note: Firestore deletion is already handled by DeliveryLogForm
+                  const updatedFutureDeliveries = futureDeliveries.filter(d => d.id !== delivery.id);
+                  setFutureDeliveries(updatedFutureDeliveries);
+                  
+                  // Also refresh the delivery history to ensure consistency
+                  if (clientId) {
+                    const deliveryService = DeliveryService.getInstance();
+                    const { futureDeliveries: refreshedFutureDeliveries } = await deliveryService.getClientDeliveryHistory(clientId);
+                    setFutureDeliveries(refreshedFutureDeliveries);
+                  }
+                } catch (error) {
+                  console.error('Error updating delivery state after deletion:', error);
+                }
+              }}
             />
           </SectionBox>
 
