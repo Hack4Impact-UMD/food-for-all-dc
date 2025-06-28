@@ -1132,24 +1132,22 @@ const StyleChip = styled(Chip)({
                               {row.firstName} {row.lastName}
                             </Typography>
                           )
-                        ) : "compute" in field ? (
+                        ) : (field as any).compute ? (
                           field.key === "deliveryDetails.dietaryRestrictions" ? (
                             <Stack direction="row" spacing={0.5} flexWrap="wrap">
-                              {(field as any).compute(row)?.split(", ").map((restriction: string, i: number) => 
-                                restriction !== "None" ? (
-                                  <Chip
-                                    key={i}
-                                    label={restriction}
-                                    size="small"
-                                    onClick={(e) => e.preventDefault()}
-                                    sx={{
-                                      backgroundColor: "#e8f5e9",
-                                      color: "#2E5B4C",
-                                      mb: 0.5
-                                    }}
-                                  />
-                                ) : null
-                              )}
+                              {(field as any).compute(row)?.split(", ").filter((restriction: string) => restriction !== "None").map((restriction: string, i: number) => (
+                                <Chip
+                                  key={i}
+                                  label={restriction}
+                                  size="small"
+                                  onClick={(e) => e.preventDefault()}
+                                  sx={{
+                                    backgroundColor: "#e8f5e9",
+                                    color: "#2E5B4C",
+                                    mb: 0.5
+                                  }}
+                                />
+                              ))}
                             </Stack>
                           ) : field.key === "deliveryDetails.deliveryInstructions" ? (
                             <div style={{
@@ -1164,7 +1162,7 @@ const StyleChip = styled(Chip)({
                             (field as any).compute(row)
                           )
                         ) : (
-                          row[field.key]
+                          row[field.key as keyof RowData]
                         )}
                       </TableCell>
                     ))}
