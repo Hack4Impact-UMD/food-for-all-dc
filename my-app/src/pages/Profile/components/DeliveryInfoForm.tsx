@@ -102,7 +102,20 @@ const DeliveryInfoForm: React.FC<DeliveryInfoFormProps> = ({
         </Box>
 
         {/* Delivery Instructions */}
-        <Box sx={{ gridColumn: { xs: '1', sm: 'span 1' } }}>
+        <Box sx={{ 
+          gridColumn: { xs: '1', sm: 'span 1' },
+          overflow: 'hidden !important',
+          maxWidth: '100% !important',
+          width: '100% !important',
+          wordWrap: 'break-word !important',
+          overflowWrap: 'anywhere !important',
+          '& *': {
+            wordWrap: 'break-word !important',
+            overflowWrap: 'anywhere !important',
+            wordBreak: 'break-all !important',
+            whiteSpace: 'pre-wrap !important'
+          }
+        }}>
           <Typography className="field-descriptor" sx={fieldLabelStyles}>
             DELIVERY INSTRUCTIONS
           </Typography>
@@ -125,7 +138,20 @@ const DeliveryInfoForm: React.FC<DeliveryInfoFormProps> = ({
         </Box>
 
         {/* Notes */}
-        <Box sx={{ gridColumn: { xs: '1', sm: 'span 1' } }}>
+        <Box sx={{ 
+          gridColumn: { xs: '1', sm: 'span 1' },
+          overflow: 'hidden !important',
+          maxWidth: '100% !important',
+          width: '100% !important',
+          wordWrap: 'break-word !important',
+          overflowWrap: 'anywhere !important',
+          '& *': {
+            wordWrap: 'break-word !important',
+            overflowWrap: 'anywhere !important',
+            wordBreak: 'break-all !important',
+            whiteSpace: 'pre-wrap !important'
+          }
+        }}>
           <Typography className="field-descriptor" sx={fieldLabelStyles}>
             ADMIN NOTES
           </Typography>

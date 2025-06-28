@@ -76,6 +76,26 @@ const CustomTextField = styled(TextField)({
       boxShadow: "0 0 8px rgba(37, 126, 104, 0.4), 0 0 16px rgba(37, 126, 104, 0.2)",
     },
   },
+  "& .MuiInputBase-inputMultiline": {
+    backgroundColor: "white",
+    width: "100%",
+    minHeight: "1.813rem",
+    height: "auto",
+    padding: "0.5rem",
+    borderRadius: "5px",
+    border: ".1rem solid black",
+    marginTop: "0px",
+    whiteSpace: "normal",
+    wordWrap: "break-word",
+    overflowWrap: "break-word",
+    wordBreak: "break-word",
+    resize: "vertical",
+    "&:focus": {
+      border: "2px solid #257E68",
+      outline: "none",
+      boxShadow: "0 0 8px rgba(37, 126, 104, 0.4), 0 0 16px rgba(37, 126, 104, 0.2)",
+    },
+  },
   "& .MuiInputBase-input.Mui-disabled": {
     backgroundColor: "#e0e0e0",
     color: "#757575",
@@ -477,7 +497,24 @@ const FormField: React.FC<FormFieldProps> = ({
   }
 
   return (
-    <Typography variant="body1" sx={{ fontWeight: 600, textAlign: "left" }}>
+    <Typography 
+      variant="body1" 
+      sx={{ 
+        fontWeight: 600, 
+        textAlign: "left",
+        whiteSpace: "pre-wrap !important",
+        wordWrap: "break-word !important",
+        overflowWrap: "anywhere !important",
+        wordBreak: "break-all !important",
+        maxWidth: "100% !important",
+        width: "100% !important",
+        display: "block !important",
+        overflow: "hidden !important",
+        // Additional CSS to ensure wrapping works
+        hyphens: "auto",
+        lineBreak: "anywhere"
+      }}
+    >
       {renderFieldValue(fieldPath, value)}
     </Typography>
   );
