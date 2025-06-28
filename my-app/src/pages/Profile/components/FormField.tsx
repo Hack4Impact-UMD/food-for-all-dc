@@ -411,6 +411,13 @@ const FormField: React.FC<FormFieldProps> = ({
             value={value as number}
             onChange={handleChange}
             fullWidth
+            slotProps={{
+              input: {
+                inputProps: {
+                  ...(["adults", "children", "seniors"].includes(fieldPath) && { min: 0 }),
+                },
+              },
+            }}
           />
         );
       case "email":
