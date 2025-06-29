@@ -2221,7 +2221,7 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
           {/* Delivery Log Section */}
           <SectionBox mb={3}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
-            <SectionTitle sx={{ textAlign: 'left', width: '100%' }}>Delivery Log</SectionTitle>
+            <SectionTitle sx={{ textAlign: 'left', width: '100%' }}>Deliveries</SectionTitle>
             <Button
               variant="contained"
               startIcon={<Add />}
@@ -2249,8 +2249,7 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
                 clientProfile: clientProfile
               }}
             />
-            <SectionTitle sx={{ textAlign: 'left', width: '100%' }}>Deliveries</SectionTitle>
-            <DeliveryLogForm
+           <DeliveryLogForm
               pastDeliveries={pastDeliveries}
               futureDeliveries={futureDeliveries}
               fieldLabelStyles={fieldLabelStyles}
