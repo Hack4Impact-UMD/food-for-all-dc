@@ -1,14 +1,58 @@
 .button {
   height: var(--button-height);
-  padding: var(--spacing-sm) var(--spacing-xl);
+  padding: var(--spacing-sm) calc(var(--spacing-xl) + 8px);
   border-radius: var(--border-radius-xl);
   font-weight: bold;
   font-size: var(--font-size-base);
   cursor: pointer;
   border: none;
-  transition: background-color 0.3s ease;
+  transition: background-color 0.3s ease, width 0.3s ease;
   text-transform: none;
   box-shadow: var(--shadow-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: fit-content;
+  overflow: visible;
+}
+
+.icon {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  font-size: 18px;
+}
+
+.icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.text {
+  white-space: nowrap;
+  overflow: visible;
+  text-overflow: clip;
+  transition: opacity 0.3s ease, width 0.3s ease;
+  flex-shrink: 0;
+}
+
+.text.hidden {
+  opacity: 0;
+  width: 0;
+  margin: 0;
+  padding: 0;
+}
+
+.iconOnly {
+  min-width: 40px;
+  width: auto;
+  padding: var(--spacing-sm);
+}
+
+.iconOnly.small {
+  min-width: 32px;
+  padding: var(--spacing-xs);
 }
 
 .primary {
@@ -36,7 +80,16 @@
 
 .small {
   height: auto;
-  padding: var(--spacing-xs) var(--spacing-md);
+  padding: var(--spacing-xs) calc(var(--spacing-md) + 4px);
   font-size: var(--font-size-sm);
   border-radius: var(--border-radius-md);
+}
+
+.small .icon {
+  font-size: 16px;
+}
+
+.small .icon svg {
+  width: 16px;
+  height: 16px;
 }

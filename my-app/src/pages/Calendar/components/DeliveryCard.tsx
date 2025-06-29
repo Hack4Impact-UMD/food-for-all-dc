@@ -1,11 +1,11 @@
 import React from "react";
-import { Box, Typography, IconButton } from "@mui/material";
-import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
-import { useNavigate } from "react-router-dom";
+import { Box, Typography } from "@mui/material";
+import { Link } from "react-router-dom";
 import EventMenu from "./EventMenu";
 import { ClientProfile } from "../../../types/client-types";
 import { DeliveryEvent } from "../../../types/calendar-types";
 import styles from "./DeliveryCard.module.css";
+import DeliveryRecurrenceDisplay from "./DeliveryRecurrenceDisplay";
 
 interface DeliveryCardProps {
   event: DeliveryEvent;
@@ -14,8 +14,6 @@ interface DeliveryCardProps {
 }
 
 const DeliveryCard: React.FC<DeliveryCardProps> = ({ event, client, onEventModified }) => {
-  const navigate = useNavigate();
-
   const formatPhoneNumber = (phone: string): string => {
     const cleaned = ("" + phone).replace(/\D/g, ""); // Remove non-numeric characters
     const match = cleaned.match(/^(\d{3})(\d{3})(\d{4})$/); // Match the phone number pattern
@@ -37,20 +35,18 @@ const DeliveryCard: React.FC<DeliveryCardProps> = ({ event, client, onEventModif
     <Box className={styles.card}>
       <Box className={styles.clientSection}>
         <Box>
-          <Typography variant="h6" className={styles.clientName}>
+          {/* Displays the client name as a link */}
+          <Typography 
+            variant="h6"
+            component={Link}
+            to={client?.uid ? `/profile/${client.uid}` : "#"}
+            className={styles.clientNameLink}
+            aria-label={`View profile for ${event.clientName}`}
+          >
             {event.clientName}
           </Typography>
-          <Box 
-            className={styles.detailsLink}
-            onClick={() => {
-              navigate(`/profile/${client?.uid}`);
-            }}
-          >
-            <Typography variant="subtitle2" className={styles.detailsText}>
-              NOTES AND DETAILS
-            </Typography>
-            <KeyboardArrowDownIcon className={styles.detailsIcon} />
-          </Box>
+          {/* Displays if the delivery is apart of a recurrence and also shows the date range */}
+          <DeliveryRecurrenceDisplay event={event} />
         </Box>
       </Box>
 

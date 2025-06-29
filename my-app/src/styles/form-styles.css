@@ -1,0 +1,25 @@
+/* Global styles for form elements to prevent layout shifts */
+
+/* Ensure form field containers have consistent heights */
+.form-field-container {
+  min-height: 75px;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Ensure error messages have consistent heights */
+.form-error-container {
+  min-height: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  margin: 3px 0;
+}
+
+/* Override MUI helper text to have consistent height */
+.MuiFormHelperText-root {
+  min-height: 20px !important;
+  height: 20px !important;
+  margin: 3px 0 !important;
+  line-height: 20px !important;
+}

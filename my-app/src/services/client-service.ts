@@ -56,14 +56,21 @@ class ClientService {
 
   /**
    * Get all clients
-   */
-  public async getAllClients(): Promise<ClientProfile[]> {
+   */  public async getAllClients(): Promise<ClientProfile[]> {
     try {
       const snapshot = await getDocs(collection(this.db, this.clientsCollection));
-      return snapshot.docs.map((doc) => ({
+      const clients = snapshot.docs.map((doc) => ({
         ...(doc.data() as ClientProfile),
         uid: doc.id,
       }));
+      
+      // Sort clients by lastName first, then firstName
+      return clients.sort((a, b) => {
+        if (a.lastName === b.lastName) {
+          return a.firstName.localeCompare(b.firstName);
+        }
+        return a.lastName.localeCompare(b.lastName);
+      });
     } catch (error) {
       console.error("Error getting clients:", error);
       throw error;

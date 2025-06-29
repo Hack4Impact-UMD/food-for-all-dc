@@ -312,25 +312,28 @@ const StyleChip = styled(Chip)({
   ];
 
   // Fetch data from Firebase without authentication checks
-  useEffect(() => {
-    const fetchData = async () => {
+  useEffect(() => {    const fetchData = async () => {
       try {
         // Use ClientService instead of direct Firebase calls
         const clientService = ClientService.getInstance();
         const clients = await clientService.getAllClients();
         console.log("Fetched clients:", clients);
-        setRows(clients as unknown as RowData[]);
+        
+        // Sort clients by lastName first, then firstName
+        const sortedClients = [...clients].sort((a, b) => {
+          if (a.lastName === b.lastName) {
+            return a.firstName.localeCompare(b.firstName);
+          }
+          return a.lastName.localeCompare(b.lastName);
+        });
+        
+        setRows(sortedClients as unknown as RowData[]);
       } catch (error) {
         console.error("Error fetching data: ", error);
       }
     };
     fetchData();
   }, []);
-
-  const toggleSortOrder = () => {
-    const order = sortOrder === "asc" ? "desc" : "asc";
-    setSortOrder(order);
-  };
 
   // Handle search input change
   const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -578,6 +581,24 @@ const StyleChip = styled(Chip)({
     setExportDialogOpen(false);
     setExportOption(null);
   };
+
+  
+  // Handle toggling sort order for the Name column
+  const toggleSortOrder = () => {
+    const sortedRows = [...rows].sort((a, b) => {
+      if (a.lastName === b.lastName) {
+        return sortOrder === "asc"
+          ? a.firstName.localeCompare(b.firstName)
+          : b.firstName.localeCompare(a.firstName);
+      }
+      return sortOrder === "asc"
+        ? a.lastName.localeCompare(b.lastName)
+        : b.lastName.localeCompare(a.lastName);
+    });
+    setRows(sortedRows);
+    setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+  };
+
   const toggleSortOrder2 = (fieldKey: keyof RowData) => {
     // This function is no longer needed since sorting is handled by useMemo
     // Just toggle the sort order - the useMemo will handle the actual sorting
@@ -1050,7 +1071,19 @@ const StyleChip = styled(Chip)({
                     }}
                   >
                     {fields.map((field) => (
-                      <TableCell key={field.key} sx={{ py: 2 }}>
+                      <TableCell 
+                        key={field.key} 
+                        sx={{ 
+                          py: 2,
+                          // Add word-wrap styles for delivery instructions and dietary restrictions
+                          ...(field.key === "deliveryDetails.deliveryInstructions" && {
+                            maxWidth: '200px',
+                            wordWrap: 'break-word',
+                            overflowWrap: 'anywhere',
+                            whiteSpace: 'pre-wrap'
+                          })
+                        }}
+                      >
                         {editingRowId === row.id ? (
                           field.key === "fullname" ? (
                             <>
@@ -1120,36 +1153,55 @@ const StyleChip = styled(Chip)({
                               {row.firstName} {row.lastName}
                             </Typography>
                           )
-                        ) : field.compute ? (
+                        ) : (field as any).compute ? (
                           field.key === "deliveryDetails.dietaryRestrictions" ? (
                             <Stack direction="row" spacing={0.5} flexWrap="wrap">
-                              {field.compute?.(row)?.split(", ").map((restriction, i) => (
-                                restriction !== "None" && (
-                                  <Chip
-                                    key={i}
-                                    label={restriction}
-                                    size="small"
-                                    onClick={(e) => e.preventDefault()}
-                                    sx={{
-                                      backgroundColor: "#e8f5e9",
-                                      color: "#2E5B4C",
-                                      mb: 0.5
-                                    }}
-                                  />
-                                )
-                              )) || null}
+                              {(field as any).compute(row)?.split(", ").filter((restriction: string) => restriction !== "None").map((restriction: string, i: number) => (
+                                <Chip
+                                  key={i}
+                                  label={restriction}
+                                  size="small"
+                                  onClick={(e) => e.preventDefault()}
+                                  sx={{
+                                    backgroundColor: "#e8f5e9",
+                                    color: "#2E5B4C",
+                                    mb: 0.5
+                                  }}
+                                />
+                              ))}
                             </Stack>
+                          ) : field.key === "deliveryDetails.deliveryInstructions" ? (
+                            <div style={{
+                              maxWidth: '200px',
+                              wordWrap: 'break-word',
+                              overflowWrap: 'anywhere',
+                              whiteSpace: 'pre-wrap'
+                            }}>
+                              {(field as any).compute(row)}
+                            </div>
                           ) : (
-                            field.compute(row)
+                            (field as any).compute(row)
                           )
                         ) : (
-                          row[field.key]
+                          row[field.key as keyof RowData]
                         )}
                       </TableCell>
                     ))}
 
                     {customColumns.map((col) => (
-                      <TableCell key={col.id} sx={{ py: 2 }}>
+                      <TableCell 
+                        key={col.id} 
+                        sx={{ 
+                          py: 2,
+                          // Add word-wrap styles for text-heavy columns
+                          ...((col.propertyKey.includes('notes') || col.propertyKey.includes('deliveryInstructions')) && {
+                            maxWidth: '200px',
+                            wordWrap: 'break-word',
+                            overflowWrap: 'anywhere',
+                            whiteSpace: 'pre-wrap'
+                          })
+                        }}
+                      >
                         {editingRowId === row.id ? (
                           col.propertyKey !== "none" ? (
                             <TextField
@@ -1189,7 +1241,16 @@ const StyleChip = styled(Chip)({
                                   }}
                                 />
                               ))
-                            : (row[col.propertyKey as keyof RowData]?.toString() ?? "N/A")
+                            : col.propertyKey.includes('notes') || col.propertyKey.includes('deliveryInstructions') ? (
+                              <div style={{
+                                maxWidth: '200px',
+                                wordWrap: 'break-word',
+                                overflowWrap: 'anywhere',
+                                whiteSpace: 'pre-wrap'
+                              }}>
+                                {row[col.propertyKey as keyof RowData]?.toString() ?? "N/A"}
+                              </div>
+                            ) : (row[col.propertyKey as keyof RowData]?.toString() ?? "N/A")
                           ) : (
                             "N/A"
                           )}
