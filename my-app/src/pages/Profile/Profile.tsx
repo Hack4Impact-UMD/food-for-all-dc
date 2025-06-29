@@ -258,6 +258,8 @@ const Profile = () => {
   const [pastDeliveries, setPastDeliveries] = useState<DeliveryEvent[]>([]);
   const [futureDeliveries, setFutureDeliveries] = useState<DeliveryEvent[]>([]);
   const [events, setEvents] = useState<DeliveryEvent[]>([]);
+
+  // Add clients state for fetchClients()
   const [clients, setClients] = useState<ClientProfile[]>([]);
   const [addressError, setAddressError] = useState<string>("");
   const [userTypedAddress, setUserTypedAddress] = useState<string>("");
@@ -287,8 +289,7 @@ const Profile = () => {
     }
   }, [navigate]);
 
-  useEffect(() => {
-    fetchClients();}, [])
+
 
   //get list of all tags
   useEffect(() => {
@@ -2210,8 +2211,13 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
               open={isDeliveryModalOpen}
               onClose={() => setIsDeliveryModalOpen(false)}
               onAddDelivery={handleAddDelivery}
-              clients={clients}
+              clients={[]} // Empty array since we're using preSelectedClient
               startDate={new DayPilot.Date()}
+              preSelectedClient={{
+                clientId: clientId || "",
+                clientName: `${clientProfile.firstName} ${clientProfile.lastName}`,
+                clientProfile: clientProfile
+              }}
             />
             <SectionTitle sx={{ textAlign: 'left', width: '100%' }}>Deliveries</SectionTitle>
             <DeliveryLogForm
