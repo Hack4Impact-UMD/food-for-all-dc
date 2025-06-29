@@ -192,15 +192,40 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = ({
                 clientName: "",
               });
             } else {
+              // Helper function to convert YYYY-MM-DD to MM/DD/YYYY
+              const convertToMMDDYYYY = (dateStr: string): string => {
+                if (!dateStr) return '';
+                
+                // If it's already in MM/DD/YYYY format, return as is
+                if (dateStr.match(/^\d{2}\/\d{2}\/\d{4}$/)) {
+                  return dateStr;
+                }
+                
+                // If it's in YYYY-MM-DD format, convert it
+                if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                  const [year, month, day] = dateStr.split('-');
+                  return `${month}/${day}/${year}`;
+                }
+                
+                return dateStr;
+              };
+
+              // Calculate default end date (one month from today) in MM/DD/YYYY format
+              const defaultEndDate = (() => {
+                const oneMonthFromNow = new Date();
+                oneMonthFromNow.setMonth(oneMonthFromNow.getMonth() + 1);
+                const month = (oneMonthFromNow.getMonth() + 1).toString().padStart(2, '0');
+                const day = oneMonthFromNow.getDate().toString().padStart(2, '0');
+                const year = oneMonthFromNow.getFullYear().toString();
+                return `${month}/${day}/${year}`;
+              })();
+
               setNewDelivery({
                 ...newDelivery,
                 clientId: newValue.uid,
                 clientName: `${newValue.firstName} ${newValue.lastName}`,
                 recurrence: (newValue.recurrence as "None" | "Weekly" | "2x-Monthly" | "Monthly" | "Custom") || "Weekly",
-                repeatsEndDate: newValue.endDate ||
-                  // Calculate a default end date (e.g. one month from today) if not provided
-                  new Date(new Date().setMonth(new Date().getMonth() + 1))
-                    .toISOString().split("T")[0],
+                repeatsEndDate: newValue.endDate ? convertToMMDDYYYY(newValue.endDate) : defaultEndDate,
               });
             }
           }}
