@@ -1237,48 +1237,6 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
 {dietaryOptions.map((option: DietaryOption) => (
   <FormControlLabel
     key={option.name}
-    control={
-      <Checkbox
-        checked={Boolean(clientProfile.deliveryDetails?.dietaryRestrictions?.[option.name])}
-        onChange={handleDietaryRestrictionChange}
-        name={option.name}
-      />
-    }
-    label={option.label}
-  />
-))}
-
-    <Box sx={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 1,
-            width: '100%',
-          }}>
-            <FormControlLabel
-              control={
-                <Checkbox
-                  checked={clientProfile.deliveryDetails?.dietaryRestrictions?.other || false}
-                  onChange={handleDietaryRestrictionChange}
-                  name="other"
-                />
-              }
-              label="Other"
-            />
-            {clientProfile.deliveryDetails?.dietaryRestrictions?.other && (
-              <TextField
-                name="otherText"
-                value={clientProfile.deliveryDetails?.dietaryRestrictions?.otherText || ""}
-                onChange={handleDietaryRestrictionChange}
-                placeholder="Please specify other dietary restrictions"
-                variant="outlined"
-                size="small"
-                sx={{ flexGrow: 1, marginTop: '5%' }}
-              />
-            )}
-          </Box>
-{dietaryOptions.map((option: DietaryOption) => (
-  <FormControlLabel
-    key={option.name}
     control={      <Checkbox
         checked={Boolean(clientProfile.deliveryDetails?.dietaryRestrictions?.[option.name])}
         onChange={handleDietaryRestrictionChange}
