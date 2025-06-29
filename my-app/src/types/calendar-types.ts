@@ -21,6 +21,8 @@ export interface DeliveryEvent extends Delivery {
   customDates?: string[];
   recurrenceId: string;
   seriesStartDate?: string; // The original start date of a recurring series
+  isZoomingOut?: boolean;
+  isZoomingIn?: boolean;
 }
 
 export interface NewDelivery {
@@ -50,4 +52,4 @@ export interface CalendarConfig {
   viewType: DayPilotViewType | ViewType;
   startDate: DayPilot.Date;
   events: CalendarEvent[];
-} 
+}

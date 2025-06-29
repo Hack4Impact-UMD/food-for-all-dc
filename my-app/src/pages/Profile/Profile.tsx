@@ -1,6 +1,5 @@
 import CloseIcon from "@mui/icons-material/Close";
 import EditIcon from "@mui/icons-material/Edit";
-import PersonIcon from "@mui/icons-material/Person";
 import SaveIcon from "@mui/icons-material/Save";
 import {
   Autocomplete,
@@ -15,7 +14,7 @@ import {
   Typography,
   styled,
 } from "@mui/material";
-import { FormControlLabel, Checkbox} from '@mui/material';
+import { FormControlLabel, Checkbox } from '@mui/material';
 import {
   addDoc,
   collection,
@@ -29,13 +28,16 @@ import {
   updateDoc,
   where,
   Timestamp,
+  deleteDoc,
 } from "firebase/firestore";
 import React, { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { auth, db } from "../../auth/firebaseConfig";
 import CaseWorkerManagementModal from "../../components/CaseWorkerManagementModal";
 import "./Profile.css";
-import { DeliveryService } from "../../services";
+import { ClientService, DeliveryService } from "../../services";
+import PopUp from "../../components/PopUp";
+import ErrorPopUp from "../../components/ErrorPopUp";
 
 // Import new components from HEAD
 import BasicInfoForm from "./components/BasicInfoForm";
@@ -50,9 +52,14 @@ import TagManager from "./Tags/TagManager";
 // import TagPopup from "./Tags/TagPopup"; <--- Removed
 
 // Import types
-import { CaseWorker, ClientProfile } from "../../types";
+import { CalendarConfig, CalendarEvent, CaseWorker, ClientProfile, NewDelivery, UserType } from "../../types";
 import { ClientProfileKey, InputType } from "./types";
-import { DeliveryEvent } from "../../types";
+import { DeliveryEvent } from "../../types/calendar-types";
+import { useAuth } from "../../auth/AuthProvider";
+import { Add } from "@mui/icons-material";
+import AddDeliveryDialog from "../Calendar/components/AddDeliveryDialog";
+import { calculateRecurrenceDates } from "../Calendar/components/CalendarUtils";
+import { DayPilot } from "@daypilot/daypilot-lite-react";
 
 // Styling
 const fieldStyles = {
@@ -73,17 +80,17 @@ const CustomTextField = styled(TextField)({
     },
     "&:hover fieldset": {
       borderColor: "var(--color-primary)",
-    },
-    "&.Mui-focused fieldset": {
-      borderColor: "var(--color-primary)",
+    },    "&.Mui-focused fieldset": {
+      borderColor: "#257E68",
+      border: "2px solid #257E68",
     },
   },
   "& .MuiInputBase-input": {
     ...fieldStyles,
-    transition: "all 0.3s ease",
-    "&:focus": {
-      borderColor: "var(--color-primary)",
-      boxShadow: "0 0 0 2px rgba(37, 126, 104, 0.2)",
+    transition: "all 0.3s ease",    "&:focus": {
+      border: "2px solid #257E68",
+      outline: "none",
+      boxShadow: "0 0 8px rgba(37, 126, 104, 0.4), 0 0 16px rgba(37, 126, 104, 0.2)",
     },
   },
 });
@@ -162,6 +169,7 @@ const Profile = () => {
   const navigate = useNavigate();
   const params = useParams();
   const clientIdParam: string | null = params.clientId ?? null;
+  const { userRole } = useAuth();
 
   // #### STATE ####
   const [isEditing, setIsEditing] = useState(!clientIdParam);
@@ -171,6 +179,7 @@ const Profile = () => {
   const [tags, setTags] = useState<string[]>([]);
   const [allTags, setAllTags] = useState<string[]>([]);
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
+  const [isDeliveryModalOpen, setIsDeliveryModalOpen] = useState<boolean>(false);
   const [prevTags, setPrevTags] = useState<string[] | null>(null);
   const [prevClientProfile, setPrevClientProfile] = useState<ClientProfile | null>(null);
   const [clientProfile, setClientProfile] = useState<ClientProfile>({
@@ -212,7 +221,7 @@ const Profile = () => {
         foodAllergens: [],
         otherText: "",
         other: false,     // Changed from string to boolean
-   
+
       },
     },
     lifeChallenges: "",
@@ -248,7 +257,17 @@ const Profile = () => {
   const [selectedCaseWorker, setSelectedCaseWorker] = useState<CaseWorker | null>(null);
   const [pastDeliveries, setPastDeliveries] = useState<DeliveryEvent[]>([]);
   const [futureDeliveries, setFutureDeliveries] = useState<DeliveryEvent[]>([]);
+  const [events, setEvents] = useState<DeliveryEvent[]>([]);
+  const [clients, setClients] = useState<ClientProfile[]>([]);
+  const [addressError, setAddressError] = useState<string>("");
+  const [userTypedAddress, setUserTypedAddress] = useState<string>("");
+  const [isAddressValidated, setIsAddressValidated] = useState<boolean>(true);
+  const [showDuplicatePopup, setShowDuplicatePopup] = useState(false);
+  const [duplicateErrorMessage, setDuplicateErrorMessage] = useState("A client with this name and address already exists in the system.");
+  const [showSimilarNamesInfo, setShowSimilarNamesInfo] = useState(false);
+  const [similarNamesMessage, setSimilarNamesMessage] = useState("");
 
+  
   // Function to fetch profile data by ID
   const getProfileById = async (id: string) => {
     const docRef = doc(db, "clients", id);
@@ -267,6 +286,9 @@ const Profile = () => {
       navigate("/");
     }
   }, [navigate]);
+
+  useEffect(() => {
+    fetchClients();}, [])
 
   //get list of all tags
   useEffect(() => {
@@ -402,9 +424,9 @@ const Profile = () => {
         console.error("Failed to fetch delivery history", error);
       }
     };
-
+    console.log('ran')
     fetchDeliveryHistory();
-  }, [clientId]);
+  }, [clientId, isDeliveryModalOpen]);
 
   const calculateAge = (dob: Date) => {
     const diff = Date.now() - dob.getTime();
@@ -484,29 +506,29 @@ const Profile = () => {
   };
 
   const getCoordinates = async (address: string) => {
-    try{
-        const token = await auth.currentUser?.getIdToken();
-        const response = await fetch('https://geocode-addresses-endpoint-lzrplp4tfa-uc.a.run.app', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            addresses: [address]
-          }),
-        });
+    try {
+      const token = await auth.currentUser?.getIdToken();
+      const response = await fetch('https://geocode-addresses-endpoint-lzrplp4tfa-uc.a.run.app', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          addresses: [address]
+        }),
+      });
 
-        //API returns {[coordinates[]]} so destructure and return index 0
-        if(response.ok){
-          const { coordinates } = await response.json();
-          return coordinates[0];
-        }
+      //API returns {[coordinates[]]} so destructure and return index 0
+      if (response.ok) {
+        const { coordinates } = await response.json();
+        return coordinates[0];
+      }
     }
-    catch (error){
+    catch (error) {
       //[0,0] is an invalid coordinate handled in DelivertSpreadsheet.tsx
       console.error(error)
-      return [0,0];
+      return [0, 0];
     }
   }
 
@@ -556,18 +578,30 @@ const Profile = () => {
       | SelectChangeEvent
   ) => {
     const { name, value } = e.target;
-
+  
     // Always mark as unsaved when a change occurs
     setIsSaved(false);
     handlePrevClientCopying();
-
+  
+    // Special handling for address field to avoid conflicts with Google Places
+    if (name === "address") {
+      // Clear address error when user manually changes address
+      if (addressError) {
+        setAddressError("");
+        setIsAddressValidated(true);
+      }
+    }
+  
     if (name === "dob" || name === "tefapCert") {
       const date = e.target.value; // this will be in the format YYYY-MM-DD
       setClientProfile((prevState) => ({
         ...prevState,
         [name]: date,
       }));
-    } else if (name === "adults" || name === "children") {
+    } else if (name === "adults" || name === "children" || name === "seniors") {
+      if (Number(value) < 0) {
+        return; //do nothing if the input is negative
+      }
       setClientProfile((prevState) => ({
         ...prevState,
         [name]: Number(value),
@@ -583,7 +617,7 @@ const Profile = () => {
         ...prevState,
         [name]: value,
       }));
-
+  
       // Special handling for deliveryInstructions field
       if (name === "deliveryDetails.deliveryInstructions") {
         setClientProfile((prev) => ({
@@ -627,8 +661,10 @@ const Profile = () => {
     if (!clientProfile.dob) {
       newErrors.dob = "Date of Birth is required";
     }
-    if (!clientProfile.email?.trim()) {
-      newErrors.email = "Email is required";
+    if (clientProfile.email?.trim() &&
+        !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clientProfile.email.trim())
+    ) {
+      newErrors.email = "Invalid email format";
     }
     if (!clientProfile.startDate?.trim()) {
       newErrors.startDate = "Start date is required";
@@ -662,6 +698,11 @@ const Profile = () => {
     if (clientProfile.alternativePhone && !/^\d{10}$/.test(clientProfile.alternativePhone)) {
       newErrors.alternativePhone = "Alternative Phone number must be exactly 10 digits";
     }
+
+    //validate head of household logic
+    if ((clientProfile.headOfHousehold === "Senior" && clientProfile.seniors == 0) || (clientProfile.headOfHousehold === "Adult" && clientProfile.adults == 0)){
+      newErrors.headOfHousehold = `Head of household is ${clientProfile.headOfHousehold} but no ${clientProfile.headOfHousehold} listed`;
+    } 
 
     // Validate referral entity if it exists
     if (clientProfile.referralEntity) {
@@ -706,9 +747,119 @@ const Profile = () => {
     return prevNotesTimestamp;
   };
 
-  const handleSave = async () => {
-    const validation = validateProfile();
+// Function to normalize text fields for database storage
+// This ensures consistent storage format for case-insensitive comparisons
+const normalizeTextFields = (profile: ClientProfile): ClientProfile => {
+  // Create a deep copy to avoid modifying the original
+  const normalized = {
+    ...profile,
+    // Key fields for duplicate prevention - use lowercase for name fields
+    firstName: (profile.firstName || "").trim().toLowerCase(),
+    lastName: (profile.lastName || "").trim().toLowerCase(),
+    // Don't lowercase addresses, but trim them
+    address: (profile.address || "").trim(),
+    address2: (profile.address2 || "").trim(),
+    zipCode: (profile.zipCode || "").trim(),
+    city: (profile.city || "").trim(),
+    state: (profile.state || "").trim(),
+    email: (profile.email || "").trim().toLowerCase(),
+  };
+  return normalized;
+};
 
+// Function to check for duplicate client and return useful information
+// Return type for the enhanced duplicate check
+interface DuplicateCheckResult {
+  isDuplicate: boolean;
+  sameNameCount?: number;
+  sameNameDiffAddressCount?: number;
+}
+
+const checkDuplicateClient = async (firstName: string, lastName: string, address: string, zipCode: string, excludeUid?: string): Promise<boolean | DuplicateCheckResult> => {
+  // Normalize inputs for comparison only
+  const normalizeString = (str: string) => (str || '').trim().toLowerCase();
+  const normalizedFirstName = normalizeString(firstName);
+  const normalizedLastName = normalizeString(lastName);
+  const normalizedAddress = normalizeString(address);
+  const normalizedZipCode = normalizeString(zipCode);
+
+  // Skip check if any required field is empty
+  if (!normalizedFirstName || !normalizedLastName || !normalizedAddress || !normalizedZipCode) {
+    return false;
+  }
+
+  // Query Firestore for all clients with the same address and zip code
+  const clientService = ClientService.getInstance();
+  const db = clientService["db"];
+  const clientsCollection = clientService["clientsCollection"];
+  const addressZipQuery = query(
+    collection(db, clientsCollection),
+    where("address", "==", address),
+    where("zipCode", "==", zipCode)
+  );
+  const addressZipSnapshot = await getDocs(addressZipQuery);
+
+  // Filter for same name (case-insensitive)
+  const sameNameClients = addressZipSnapshot.docs.filter(docSnap => {
+    const data = docSnap.data();
+    return (
+      normalizeString(data.firstName) === normalizedFirstName &&
+      normalizeString(data.lastName) === normalizedLastName &&
+      (!excludeUid || data.uid !== excludeUid)
+    );
+  });
+
+  const sameNameClientsCount = sameNameClients.length;
+  const duplicateFound = sameNameClientsCount > 0;
+
+  // For similar name warning: query by zip only, then filter for same name but different address
+  let sameNameDiffAddressCount = 0;
+  if (!duplicateFound) {
+    const zipQuery = query(
+      collection(db, clientsCollection),
+      where("zipCode", "==", zipCode)
+    );
+    const zipSnapshot = await getDocs(zipQuery);
+    sameNameDiffAddressCount = zipSnapshot.docs.filter(docSnap => {
+      const data = docSnap.data();
+      return (
+        normalizeString(data.firstName) === normalizedFirstName &&
+        normalizeString(data.lastName) === normalizedLastName &&
+        normalizeString(data.address) !== normalizedAddress &&
+        (!excludeUid || data.uid !== excludeUid)
+      );
+    }).length;
+  }
+
+  if (duplicateFound) {
+    return {
+      isDuplicate: true,
+      sameNameCount: sameNameClientsCount,
+      sameNameDiffAddressCount
+    };
+  }
+
+  if (sameNameDiffAddressCount > 0) {
+    return {
+      isDuplicate: false,
+      sameNameCount: 0,
+      sameNameDiffAddressCount
+    };
+  }
+
+  return false;
+};
+
+  const handleSave = async () => {
+    // Important: First validate basic requirements
+    const validation = validateProfile();
+  
+    // Check for address validation error
+    if (addressError) {
+      alert("Please fix the address error before saving. Make sure to select a valid address from the Google Places suggestions.");
+      return;
+    }
+  
     if (Object.keys(validation).length > 0) {
       const errorFields = Object.entries(validation)
         .map(([field, message]) => `- ${message}`)
@@ -716,13 +867,92 @@ const Profile = () => {
       alert(`Please fix the following before saving:\n${errorFields}`);
       return;
     }
-
+    
+    // Clear any previous duplicate popup states
+    setShowDuplicatePopup(false);
+  
     // Show saving indicator? (Optional)
     // setIsLoading(true);
-
+  
     try {
-      
-
+      if (isNewProfile) {
+        // Force duplicate check to always happen with direct values, not through variables
+        const duplicateResult = await checkDuplicateClient(
+          String(clientProfile.firstName).trim(),
+          String(clientProfile.lastName).trim(),
+          String(clientProfile.address).trim(),
+          String(clientProfile.zipCode).trim()
+        );
+        
+        let isDuplicate = false;
+        let sameNameCount = 0;
+        let sameNameDiffAddressCount = 0;
+        
+        // Handle different result formats
+        if (typeof duplicateResult === 'boolean') {
+          isDuplicate = duplicateResult;
+        } else {
+          isDuplicate = duplicateResult.isDuplicate;
+          sameNameCount = duplicateResult.sameNameCount || 0;
+          sameNameDiffAddressCount = duplicateResult.sameNameDiffAddressCount || 0;
+        }
+        
+        if (isDuplicate) {
+          // Create a detailed error message including exact fields that caused the duplicate
+          const errorMsg = `DUPLICATE CLIENT DETECTED\n\nA client with the following details already exists in the system:\n\nName: ${clientProfile.firstName} ${clientProfile.lastName}\nAddress: ${clientProfile.address}\nZIP Code: ${clientProfile.zipCode}\n\nYou cannot save this client because it would create a duplicate record.\nPlease check if this is truly a new client with a unique name or address.`;
+          // Update error message and show the popup
+          setDuplicateErrorMessage(errorMsg);
+          setShowDuplicatePopup(true);
+          // No automatic timeout - let the user dismiss the error
+          return;
+        }
+        
+        // Warn if there are other clients with the same name in the same zip code
+        if (sameNameDiffAddressCount > 0) {
+          const warningMsg = `Note: There ${sameNameDiffAddressCount === 1 ? 'is' : 'are'} ${sameNameDiffAddressCount} other client${sameNameDiffAddressCount === 1 ? '' : 's'} with the name "${clientProfile.firstName} ${clientProfile.lastName}" in ZIP code "${clientProfile.zipCode}", but at different addresses.`;
+          setSimilarNamesMessage(warningMsg);
+          setShowSimilarNamesInfo(true);
+        }
+      } else {
+        // Force duplicate check to always happen with direct values, not through variables
+        const duplicateResult = await checkDuplicateClient(
+          String(clientProfile.firstName).trim(),
+          String(clientProfile.lastName).trim(),
+          String(clientProfile.address).trim(),
+          String(clientProfile.zipCode).trim(),
+          String(clientProfile.uid)
+        );
+        
+        let isDuplicate = false;
+        let sameNameCount = 0;
+        let sameNameDiffAddressCount = 0;
+        
+        // Handle different result formats
+        if (typeof duplicateResult === 'boolean') {
+          isDuplicate = duplicateResult;
+        } else {
+          isDuplicate = duplicateResult.isDuplicate;
+          sameNameCount = duplicateResult.sameNameCount || 0;
+          sameNameDiffAddressCount = duplicateResult.sameNameDiffAddressCount || 0;
+        }
+        
+        if (isDuplicate) {
+          // Create a detailed error message including exact fields that caused the duplicate
+          const errorMsg = `DUPLICATE CLIENT DETECTED\n\nA client with the following details already exists in the system:\n\nName: ${clientProfile.firstName} ${clientProfile.lastName}\nAddress: ${clientProfile.address}\nZIP Code: ${clientProfile.zipCode}\n\nYou cannot save this client because it would create a duplicate record.\nPlease check if this is truly a different client with a unique name or address.`;
+          // Update error message and show the popup
+          setDuplicateErrorMessage(errorMsg);
+          setShowDuplicatePopup(true);
+          // No automatic timeout - let the user dismiss the error
+          return;
+        }
+        
+        // Warn if there are other clients with the same name in the same zip code
+        if (sameNameDiffAddressCount > 0) {
+          const warningMsg = `Note: There ${sameNameDiffAddressCount === 1 ? 'is' : 'are'} ${sameNameDiffAddressCount} other client${sameNameDiffAddressCount === 1 ? '' : 's'} with the name "${clientProfile.firstName} ${clientProfile.lastName}" in ZIP code "${clientProfile.zipCode}", but at different addresses.`;
+          setSimilarNamesMessage(warningMsg);
+          setShowSimilarNamesInfo(true);
+        }
+      }
       // --- Geocoding Optimization Start ---
       let addressChanged = false;
       if (isNewProfile || !prevClientProfile) {
@@ -739,25 +969,21 @@ const Profile = () => {
           addressChanged = true;
         }
       }
-
+  
       // Also force geocode if coordinates are missing or invalid
       if (!addressChanged && (!clientProfile.coordinates || clientProfile.coordinates.length === 0 || (clientProfile.coordinates[0].lat === 0 && clientProfile.coordinates[0].lng === 0))) {
-          console.log("Forcing geocode due to missing/invalid coordinates.");
           addressChanged = true;
       }
-
+  
       let fetchedWard = clientProfile.ward; // Default to existing ward
       let coordinatesToSave = clientProfile.coordinates; // Default to existing coordinates
-
+  
       if (addressChanged) {
-        console.log("Address changed, fetching new Ward and Coordinates...");
         fetchedWard = await getWard(clientProfile.address); // Fetch ward only if address changed
         coordinatesToSave = await getCoordinates(clientProfile.address); // Fetch coordinates only if address changed
-      } else {
-        console.log("Address unchanged, using existing Ward and Coordinates.");
       }
       // --- Geocoding Optimization End ---
-
+  
       const currentNotes = clientProfile.notes || ""; // Ensure notes is a string
       let updatedNotesTimestamp = checkIfNotesExists(
         currentNotes,
@@ -768,7 +994,7 @@ const Profile = () => {
         currentNotes,
         updatedNotesTimestamp
       );
-
+  
       // Delivery Instructions Timestamp
       const prevDeliveryInstructions = prevClientProfile?.deliveryDetails.deliveryInstructions || "";
       const currentDeliveryInstructions = clientProfile.deliveryDetails.deliveryInstructions || "";
@@ -781,7 +1007,7 @@ const Profile = () => {
         currentDeliveryInstructions,
         updatedDeliveryInstructionsTimestamp
       );
-
+  
       // Life Challenges Timestamp
       const prevLifeChallenges = prevClientProfile?.lifeChallenges || "";
       const currentLifeChallenges = clientProfile.lifeChallenges || "";
@@ -794,7 +1020,7 @@ const Profile = () => {
         currentLifeChallenges,
         updatedLifeChallengesTimestamp
       );
-
+  
       // Lifestyle Goals Timestamp
       const prevLifestyleGoals = prevClientProfile?.lifestyleGoals || "";
       const currentLifestyleGoals = clientProfile.lifestyleGoals || "";
@@ -807,7 +1033,7 @@ const Profile = () => {
         currentLifestyleGoals,
         updatedLifestyleGoalsTimestamp
       );
-
+  
       // Update the clientProfile object with the latest tags state and other calculated fields
       const updatedProfile: ClientProfile = {
         ...clientProfile,
@@ -825,27 +1051,26 @@ const Profile = () => {
           ? { id: selectedCaseWorker.id, name: selectedCaseWorker.name, organization: selectedCaseWorker.organization }
           : null, // Use null if no case worker is selected
       };
-
+  
       // Sort allTags before potentially saving them (ensures consistent order)
       // Combine current tags and all known tags, remove duplicates, then sort
       const combinedTags = Array.from(new Set([...allTags, ...tags])); // Use Array.from for compatibility
       const sortedAllTags = combinedTags.sort((a, b) => a.localeCompare(b));
-
+  
       if (isNewProfile) {
         // Generate new UID for new profile
         const newUid = await generateUID();
+        // Save to Firestore for new profile (DO NOT normalize fields for saving)
         const newProfile = {
           ...updatedProfile,
           uid: newUid,
           createdAt: new Date(), // Set createdAt for new profile
         };
-
         // Save to Firestore for new profile
         console.log("Creating new profile:", newProfile);
         await setDoc(doc(db, "clients", newUid), newProfile);
         // Update the central tags list
         await setDoc(doc(db, "tags", "oGuiR2dQQeOBXHCkhDeX"), { tags: sortedAllTags }, { merge: true });
-
         // Update state *before* navigating
         setClientProfile(newProfile); // Update with the full new profile data including UID/createdAt
         setPrevClientProfile(null); // Clear previous state backup
@@ -855,11 +1080,9 @@ const Profile = () => {
         setIsSaved(true);       // Indicate save was successful
         setErrors({});          // Clear validation errors
         setAllTags(sortedAllTags); // Update the local list of all tags
-
         console.log("New profile created with ID: ", newUid);
         // Navigate *after* state updates. The component will remount with isEditing=false.
         navigate(`/profile/${newUid}`);
-
       } else {
         // Update existing profile
         if (!clientProfile.uid) {
@@ -867,11 +1090,11 @@ const Profile = () => {
           alert("Error: Cannot update profile, client ID is missing.");
           throw new Error("Client UID is missing for update.");
         }
+        // Save to Firestore for existing profile (DO NOT normalize fields for saving)
         console.log("Updating profile:", clientProfile.uid, updatedProfile);
         await setDoc(doc(db, "clients", clientProfile.uid), updatedProfile, { merge: true }); // Use merge: true for updates
         // Update the central tags list
         await setDoc(doc(db, "tags", "oGuiR2dQQeOBXHCkhDeX"), { tags: sortedAllTags }, { merge: true });
-
         // Update state *after* successful save for existing profile
         setClientProfile(updatedProfile); // Update with latest data
         setPrevClientProfile(null); // Clear previous state backup
@@ -880,15 +1103,14 @@ const Profile = () => {
         setIsEditing(false); // <<<<<< EXIT EDIT MODE HERE for existing profiles
         setErrors({}); // Clear validation errors
         setAllTags(sortedAllTags); // Update the local list of all tags
-
         console.log("Profile updated:", clientProfile.uid);
       }
-
+  
       // Common post-save actions (Popup notification)
       // setEditMode(false); <-- Removed redundant call
       setShowSavePopup(true);
       setTimeout(() => setShowSavePopup(false), 2000);
-
+  
     } catch (e) {
       console.error("Error saving document: ", e);
       alert(`Failed to save profile: ${e instanceof Error ? e.message : String(e)}`);
@@ -934,8 +1156,6 @@ const Profile = () => {
 
   // Re-define renderField based on its likely structure before deletion in HEAD
   const renderField = (fieldPath: ClientProfileKey, type: InputType = "text") => {
-
-
     if (type === "dietaryRestrictions") {
       const dietaryOptions = [
         { name: "lowSugar", label: "Low Sugar" },
@@ -949,10 +1169,10 @@ const Profile = () => {
         { name: "noCookingEquipment", label: "No Cooking Equipment" },
         { name: "heartFriendly", label: "Heart Friendly" }
       ] as const;
-    
+
       interface DietaryOption {
-        name: 'lowSugar' | 'kidneyFriendly' | 'vegan' | 'vegetarian' | 'halal' | 
-              'microwaveOnly' | 'softFood' | 'lowSodium' | 'noCookingEquipment' | 'heartFriendly';
+        name: 'lowSugar' | 'kidneyFriendly' | 'vegan' | 'vegetarian' | 'halal' |
+        'microwaveOnly' | 'softFood' | 'lowSodium' | 'noCookingEquipment' | 'heartFriendly';
         label: string;
       }
 
@@ -988,6 +1208,63 @@ const Profile = () => {
   />
 ))}
 
+    <Box sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1,
+            width: '100%',
+          }}>
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={clientProfile.deliveryDetails?.dietaryRestrictions?.other || false}
+                  onChange={handleDietaryRestrictionChange}
+                  name="other"
+                />
+              }
+              label="Other"
+            />
+            {clientProfile.deliveryDetails?.dietaryRestrictions?.other && (
+              <TextField
+                name="otherText"
+                value={clientProfile.deliveryDetails?.dietaryRestrictions?.otherText || ""}
+                onChange={handleDietaryRestrictionChange}
+                placeholder="Please specify other dietary restrictions"
+                variant="outlined"
+                size="small"
+                sx={{ flexGrow: 1, marginTop: '5%' }}
+              />
+            )}
+          </Box>
+{dietaryOptions.map((option: DietaryOption) => (
+  <FormControlLabel
+    key={option.name}
+    control={      <Checkbox
+        checked={Boolean(clientProfile.deliveryDetails?.dietaryRestrictions?.[option.name])}
+        onChange={handleDietaryRestrictionChange}
+        name={option.name}
+        sx={{
+          "&:focus": {
+            outline: "none",
+          },
+          "&.Mui-focusVisible": {
+            outline: "none",
+            "& .MuiSvgIcon-root": {
+              color: "#257E68",
+              filter: "drop-shadow(0 0 8px rgba(37, 126, 104, 0.4)) drop-shadow(0 0 16px rgba(37, 126, 104, 0.2))",
+            },
+          },
+          "& input:focus + .MuiSvgIcon-root": {
+            color: "#257E68",
+            filter: "drop-shadow(0 0 8px rgba(37, 126, 104, 0.4)) drop-shadow(0 0 16px rgba(37, 126, 104, 0.2))",
+          },
+        }}
+      />
+    }
+    label={option.label}
+  />
+))}
+
 <Box sx={{ 
   display: 'flex', 
   alignItems: 'center',
@@ -995,24 +1272,47 @@ const Profile = () => {
   width: '100%',
 }}>
   <FormControlLabel
-    control={
-      <Checkbox
+    control={      <Checkbox
         checked={clientProfile.deliveryDetails?.dietaryRestrictions?.other || false}
         onChange={handleDietaryRestrictionChange}
         name="other"
+        sx={{
+          "&:focus": {
+            outline: "none",
+          },
+          "&.Mui-focusVisible": {
+            outline: "none",
+            "& .MuiSvgIcon-root": {
+              color: "#257E68",
+              filter: "drop-shadow(0 0 8px rgba(37, 126, 104, 0.4)) drop-shadow(0 0 16px rgba(37, 126, 104, 0.2))",
+            },
+          },
+          "& input:focus + .MuiSvgIcon-root": {
+            color: "#257E68",
+            filter: "drop-shadow(0 0 8px rgba(37, 126, 104, 0.4)) drop-shadow(0 0 16px rgba(37, 126, 104, 0.2))",
+          },
+        }}
       />
     }
     label="Other"
   />
-  {clientProfile.deliveryDetails?.dietaryRestrictions?.other && (
-    <TextField
+  {clientProfile.deliveryDetails?.dietaryRestrictions?.other && (    <TextField
       name="otherText"
       value={clientProfile.deliveryDetails?.dietaryRestrictions?.otherText || ""}
       onChange={handleDietaryRestrictionChange}
       placeholder="Please specify other dietary restrictions"
       variant="outlined"
       size="small"
-      sx={{ flexGrow: 1, marginTop: '5%' }}
+      sx={{ 
+        flexGrow: 1, 
+        marginTop: '5%',        '& .MuiOutlinedInput-root': {
+          '&.Mui-focused fieldset': {
+            borderColor: "#257E68",
+            border: "2px solid #257E68",
+            boxShadow: "0 0 8px rgba(37, 126, 104, 0.4), 0 0 16px rgba(37, 126, 104, 0.2)",
+          },
+        },
+      }}
     />
   )}
 </Box>
@@ -1024,12 +1324,12 @@ const Profile = () => {
       if (!isEditing) {
         return <Box>{clientProfile.language}</Box>;
       }
-  
+
       const preDefinedOptions = ["English", "Spanish"];
       // If the stored language is not one of the predefined ones, we default to "Other"
       const isPredefined = preDefinedOptions.includes(clientProfile.language);
       const selectValue = isPredefined ? clientProfile.language : "Other";
-  
+
       const handleLanguageSelectChange = (e: any) => {
         const newVal = e.target.value;
         if (newVal !== "Other") {
@@ -1040,11 +1340,10 @@ const Profile = () => {
           handleChange({ target: { name: "language", value: "" } } as any);
         }
       };
-  
+
       const handleCustomLanguageChange = (e: any) => {
         handleChange(e);
       };
-  
       return (
         <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
           <Select
@@ -1058,7 +1357,11 @@ const Profile = () => {
               padding: "0.1rem 0.5rem",
               borderRadius: "5px",
               border: ".1rem solid black",
-              marginTop: "0px"
+              marginTop: "0px",
+              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                border: "2px solid #257E68",
+                boxShadow: "0 0 8px rgba(37, 126, 104, 0.4), 0 0 16px rgba(37, 126, 104, 0.2)",
+              },
             }}
           >
             {preDefinedOptions.map((option) => (
@@ -1068,10 +1371,8 @@ const Profile = () => {
             ))}
             <MenuItem value="Other">Other</MenuItem>
           </Select>
-          {selectValue === "Other" && (
-            <TextField
-              name="language"
-              placeholder="Enter language"
+          {selectValue === "Other" && (            <TextField
+              name="language"              placeholder="Enter language"
               value={isPredefined ? "" : clientProfile.language}
               onChange={handleCustomLanguageChange}
               sx={{
@@ -1080,8 +1381,13 @@ const Profile = () => {
                 height: "1.813rem",
                 padding: "0.1rem 0.5rem",
                 borderRadius: "5px",
-               
-                marginTop: "0px"
+                marginTop: "0px",
+                '& .MuiOutlinedInput-root': {
+                  '&.Mui-focused fieldset': {
+                    border: "2px solid #257E68",
+                    boxShadow: "0 0 8px rgba(37, 126, 104, 0.4), 0 0 16px rgba(37, 126, 104, 0.2)",
+                  },
+                },
               }}
             />
           )}
@@ -1093,7 +1399,7 @@ const Profile = () => {
       if (!isEditing) {
         return <Box>{clientProfile.ethnicity}</Box>;
       }
-    
+
       const preDefinedOptions = [
         "White",
         "Asian",
@@ -1104,10 +1410,10 @@ const Profile = () => {
         "Native Hawaiian or Pacific Islander",
         "Prefer Not to Say"
       ];
-    
+
       const isPredefined = preDefinedOptions.includes(clientProfile.ethnicity);
       const selectValue = isPredefined ? clientProfile.ethnicity : "Other";
-    
+
       const handleEthnicitySelectChange = (e: any) => {
         const newVal = e.target.value;
         if (newVal !== "Other") {
@@ -1118,11 +1424,11 @@ const Profile = () => {
           handleChange({ target: { name: "ethnicity", value: "" } } as any);
         }
       };
-    
+
       const handleEthnicityCustomChange = (e: any) => {
         handleChange(e);
       };
-    
+
       return (
         <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
           <Select
@@ -1136,7 +1442,11 @@ const Profile = () => {
               padding: "0.1rem 0.5rem",
               borderRadius: "5px",
               border: ".1rem solid black",
-              marginTop: "0px"
+              marginTop: "0px",
+              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                border: "2px solid #257E68",
+                boxShadow: "0 0 8px rgba(37, 126, 104, 0.4), 0 0 16px rgba(37, 126, 104, 0.2)",
+              },
             }}
           >
             {preDefinedOptions.map((option) => (
@@ -1146,10 +1456,8 @@ const Profile = () => {
             ))}
             <MenuItem value="Other">Other</MenuItem>
           </Select>
-          {selectValue === "Other" && (
-            <TextField
-              name="ethnicity"
-              placeholder="Enter ethnicity"
+          {selectValue === "Other" && (            <TextField
+              name="ethnicity"              placeholder="Enter ethnicity"
               value={isPredefined ? "" : clientProfile.ethnicity}
               onChange={handleEthnicityCustomChange}
               sx={{
@@ -1158,10 +1466,160 @@ const Profile = () => {
                 height: "1.813rem",
                 padding: "0.1rem 0.5rem",
                 borderRadius: "5px",
-                marginTop: "0px"
+                marginTop: "0px",
+                '& .MuiOutlinedInput-root': {
+                  '&.Mui-focused fieldset': {
+                    border: "2px solid #257E68",
+                    boxShadow: "0 0 8px rgba(37, 126, 104, 0.4), 0 0 16px rgba(37, 126, 104, 0.2)",
+                  },
+                },
               }}
             />
           )}
+        </Box>
+      );
+    }
+
+    if (fieldPath === "gender") {
+      if (!isEditing) {
+        return <Box>{clientProfile.gender}</Box>;
+      }
+    
+      const preDefinedOptions = [
+        "Male",
+        "Female",
+        "Other"
+      ];
+    
+      const isPredefined = preDefinedOptions.includes(clientProfile.gender);
+      const selectValue = isPredefined ? clientProfile.gender : "Other";
+    
+      const handleGenderSelectChange = (e: any) => {
+        const newVal = e.target.value;
+          // Update with selected value
+          handleChange({ target: { name: "gender", value: newVal } } as any);
+      };
+    
+    
+      return (        <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>          <Select            name="gender"
+            value={selectValue}
+            onChange={handleGenderSelectChange}
+            sx={{
+              backgroundColor: "white",
+              width: "100%",
+              height: "1.813rem",
+              padding: "0.1rem 0.5rem",
+              borderRadius: "5px",
+              border: ".1rem solid black",
+              marginTop: "0px",
+              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                border: "2px solid #257E68",
+                boxShadow: "0 0 8px rgba(37, 126, 104, 0.4), 0 0 16px rgba(37, 126, 104, 0.2)",
+              },
+            }}
+          >
+            {preDefinedOptions.map((option) => (
+              <MenuItem key={option} value={option}>
+                {option}
+              </MenuItem>
+            ))}
+          </Select>
+        </Box>
+      );
+    }
+
+    if (fieldPath === "headOfHousehold") {
+      if (!isEditing) {
+        return <Box>{clientProfile.headOfHousehold}</Box>;
+      }
+    
+      const preDefinedOptions = [
+        "Adult",
+        "Senior",
+      ];
+    
+      const isPredefined = preDefinedOptions.includes(clientProfile.headOfHousehold);
+      const selectValue = isPredefined ? clientProfile.headOfHousehold : "Adult";
+    
+      const handleHeadOfHouseholdSelectChange = (e: any) => {
+        const newVal = e.target.value;
+          // Update with selected value
+          handleChange({ target: { name: "headOfHousehold", value: newVal } } as any);
+  
+      };
+    
+      return (        <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>          <Select            name="headOfHousehold"
+            value={selectValue}
+            onChange={handleHeadOfHouseholdSelectChange}
+            sx={{
+              backgroundColor: "white",
+              width: "100%",
+              height: "1.813rem",
+              padding: "0.1rem 0.5rem",
+              borderRadius: "5px",
+              border: ".1rem solid black",
+              marginTop: "0px",
+              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                border: "2px solid #257E68",
+                boxShadow: "0 0 8px rgba(37, 126, 104, 0.4), 0 0 16px rgba(37, 126, 104, 0.2)",
+              },
+            }}
+          >
+            {preDefinedOptions.map((option) => (
+              <MenuItem key={option} value={option}>
+                {option}
+              </MenuItem>
+            ))}
+          </Select>
+        </Box>
+      );
+    }
+
+        if (fieldPath === "recurrence") {
+      if (!isEditing) {
+        return <Box>{clientProfile.recurrence}</Box>;
+      }
+    
+      const preDefinedOptions = [
+        "None",
+        "Weekly",
+        "2x-Monthly",
+        "Monthly"
+      ];
+    
+      const isPredefined = preDefinedOptions.includes(clientProfile.recurrence);
+      const selectValue = isPredefined ? clientProfile.recurrence : "None";
+    
+      const handleRecurrenceSelectChange = (e: any) => {
+        const newVal = e.target.value;
+          // Update with selected value
+          handleChange({ target: { name: "recurrence", value: newVal } } as any);
+  
+      };
+    
+      return (        <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>          <Select            name="recurrence"
+            value={selectValue}
+            onChange={handleRecurrenceSelectChange}
+            sx={{
+              backgroundColor: "white",
+              width: "100%",
+              height: "1.813rem",
+              padding: "0.1rem 0.5rem",
+              borderRadius: "5px",
+              border: ".1rem solid black",
+              marginTop: "0px",
+              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                border: "2px solid #257E68",
+                boxShadow: "0 0 8px rgba(37, 126, 104, 0.4), 0 0 16px rgba(37, 126, 104, 0.2)",
+              },
+            }}
+          >
+            {preDefinedOptions.map((option) => (
+              <MenuItem key={option} value={option}>
+                {option}
+              </MenuItem>
+            ))}
+          </Select>
         </Box>
       );
     }
@@ -1219,214 +1677,131 @@ const Profile = () => {
   const handleDietaryRestrictionChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, type } = e.target;
     handlePrevClientCopying();
-    
+
     if (type === "checkbox") {
-        const { checked } = e.target;
-        setClientProfile((prevState) => ({
-            ...prevState,
-            deliveryDetails: {
-                ...prevState.deliveryDetails,
-                dietaryRestrictions: {
-                    ...prevState.deliveryDetails.dietaryRestrictions,
-                    [name]: checked,
-                    ...(name === "other" && {
-                        other: checked,
-                        // Keep the existing otherText when checking, clear it when unchecking
-                        otherText: checked ? prevState.deliveryDetails.dietaryRestrictions.otherText : ""
-                    })
-                },
-            },
-        }));
+      const { checked } = e.target;
+      setClientProfile((prevState) => ({
+        ...prevState,
+        deliveryDetails: {
+          ...prevState.deliveryDetails,
+          dietaryRestrictions: {
+            ...prevState.deliveryDetails.dietaryRestrictions,
+            [name]: checked,
+            ...(name === "other" && {
+              other: checked,
+              // Keep the existing otherText when checking, clear it when unchecking
+              otherText: checked ? prevState.deliveryDetails.dietaryRestrictions.otherText : ""
+            })
+          },
+        },
+      }));
     } else if (type === "text" && name === "otherText") {
-        const value = e.target.value;
-        setClientProfile((prevState) => ({
-            ...prevState,
-            deliveryDetails: {
-                ...prevState.deliveryDetails,
-                dietaryRestrictions: {
-                    ...prevState.deliveryDetails.dietaryRestrictions,
-                    otherText: value,
-                    other: true // Ensure the checkbox stays checked when typing
-                },
-            },
-        }));
+      const value = e.target.value;
+      setClientProfile((prevState) => ({
+        ...prevState,
+        deliveryDetails: {
+          ...prevState.deliveryDetails,
+          dietaryRestrictions: {
+            ...prevState.deliveryDetails.dietaryRestrictions,
+            otherText: value,
+            other: true // Ensure the checkbox stays checked when typing
+          },
+        },
+      }));
     }
-};
+  };
 
   //google places autocomplete
   const addressInputRef = useRef<HTMLInputElement>(null);
   const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
   const [isGoogleApiLoaded, setIsGoogleApiLoaded] = useState(false);
 
-  // Improved Google Maps API loading
-  useEffect(() => {
-    // Check if the Google Maps API is already available
-    if (window.google && window.google.maps && window.google.maps.places) {
-      setIsGoogleApiLoaded(true);
+  // Helper to load Google Maps script if not present
+  function loadGoogleMapsScript(apiKey: string, callback: () => void) {
+    if (typeof window.google === 'object' && window.google.maps && window.google.maps.places) {
+      callback();
       return;
     }
-
-    // Check if API key exists
-    const apiKey = process.env.REACT_APP_GOOGLE_MAPS_API_KEY;
-    if (!apiKey) {
-      console.error("Google Maps API key is missing in environment variables");
-      return;
-    }
-
-    // Check if the script is already being loaded
     const existingScript = document.getElementById('google-maps-script');
     if (existingScript) {
-      return; // Script is already loading, wait for it
+      existingScript.addEventListener('load', callback);
+      return;
     }
-
-    // Create and load the script
-    const script = document.createElement("script");
+    const script = document.createElement('script');
     script.id = 'google-maps-script';
     script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
     script.async = true;
     script.defer = true;
+    script.onload = callback;
+    document.body.appendChild(script);
+  }
 
-    script.onload = () => {
-      console.log("Google Maps API script loaded successfully");
-      setIsGoogleApiLoaded(true);
-    };
-
-    script.onerror = (error) => {
-      console.error("Failed to load Google Maps API script:", error);
-    };
-
-    document.head.appendChild(script);
-
-    // Cleanup
-    return () => {
-      // We don't remove the script on cleanup since other components might need it
-    };
-  }, []); // Run once on component mount
-
-  // Initialize autocomplete when editing and API is loaded and input ref exists
+  // Load Google Maps API on mount
   useEffect(() => {
-    // Only initialize when all dependencies are ready
-    if (!isEditing || !isGoogleApiLoaded || !addressInputRef.current) {
+    const apiKey = process.env.REACT_APP_GOOGLE_MAPS_API_KEY;
+    if (!apiKey) {
+      console.error('Google Maps API key is missing!');
       return;
     }
+    loadGoogleMapsScript(apiKey, () => setIsGoogleApiLoaded(true));
+  }, []);
 
-    console.log("Initializing Google Places autocomplete...");
-
-    // Clean up previous instance if it exists
-    if (autocompleteRef.current) {
-      try {
-        window.google.maps.event.clearInstanceListeners(autocompleteRef.current);
-      } catch (err) {
-        console.warn("Failed to clear listeners from previous autocomplete instance", err);
-      }
-      autocompleteRef.current = null;
-    }
-
-    try {
-      // Create new autocomplete instance
-      autocompleteRef.current = new window.google.maps.places.Autocomplete(
-        addressInputRef.current,
-        {
-          types: ["address"],
-          componentRestrictions: { country: "us" },
-          fields: ["address_components", "formatted_address", "geometry", "place_id"],
-        }
-      );
-
-      // Add place_changed listener
-      const listener = autocompleteRef.current.addListener("place_changed", () => {
-        const place = autocompleteRef.current?.getPlace();
-        console.log("Place selected:", place);
-
-        if (!place || !place.address_components) {
-          console.warn("No valid place selected or missing address components");
-          return;
-        }
-
-        if (place?.formatted_address) {
-          const address = place.formatted_address;
-          const addressComponents = place.address_components;
-
-          let streetNumber = "";
-          let streetName = "";
-          let city = "";
-          let state = "";
-          let zipCode = "";
-          let quadrant = "";
-
-          if (addressComponents) {
-            for (const component of addressComponents) {
-              const types = component.types;
-
-              if (types.includes("street_number")) {
-                streetNumber = component.long_name;
-              }
-
-              if (types.includes("route")) {
-                streetName = component.long_name;
-              }
-
-              if (types.includes("locality") || types.includes("sublocality")) {
-                city = component.long_name;
-              }
-
-              if (types.includes("administrative_area_level_1")) {
-                state = component.short_name;
-              }
-
-              if (types.includes("postal_code")) {
-                zipCode = component.long_name;
-              }
+  // Initialize Google Places Autocomplete when input and API are ready
+  useEffect(() => {
+    if (isGoogleApiLoaded && addressInputRef.current && window.google && window.google.maps && window.google.maps.places) {
+      if (autocompleteRef.current) return; // Prevent re-initialization
+      autocompleteRef.current = new window.google.maps.places.Autocomplete(addressInputRef.current, {
+        types: ["address"],
+        componentRestrictions: { country: "us" },
+      });
+      autocompleteRef.current.addListener("place_changed", () => {
+        const place = autocompleteRef.current!.getPlace();
+        if (!place.address_components) return;
+        // Extract address components
+        let street = "";
+        let city = "";
+        let state = "";
+        let zip = "";
+        let quadrant = "";
+        for (const comp of place.address_components) {
+          if (comp.types.includes("street_number")) {
+            street = comp.long_name + " " + street;
+          } else if (comp.types.includes("route")) {
+            street += comp.long_name;
+          } else if (comp.types.includes("locality")) {
+            city = comp.long_name;
+          } else if (comp.types.includes("administrative_area_level_1")) {
+            state = comp.short_name;
+          } else if (comp.types.includes("postal_code")) {
+            zip = comp.long_name;
+          } else if (comp.types.includes("subpremise")) {
+            street += " " + comp.long_name;
+          } else if (comp.types.includes("neighborhood")) {
+            // Optionally use for quadrant if DC
+            if (!quadrant && comp.long_name.match(/(NW|NE|SW|SE)/i)) {
+              quadrant = comp.long_name;
             }
-
-            const quadrantMatch = address.match(/(NW|NE|SW|SE)(\s|,|$)/);
-            if (state === "DC" && quadrantMatch) {
-              quadrant = quadrantMatch[1];
-            }
-
-            console.log("Setting address components:", {
-              address: `${streetNumber} ${streetName}`.trim(),
-              city,
-              state,
-              zipCode,
-              quadrant
-            });
-
-            setClientProfile((prev) => ({
-              ...prev,
-              address: `${streetNumber} ${streetName}`.trim(),
-              city: city,
-              state: state,
-              zipCode: zipCode,
-              quadrant: quadrant,
-            }));
           }
         }
-      });
-
-      console.log("Google Places autocomplete initialized successfully");
-    } catch (error) {
-      console.error("Error initializing Google Places autocomplete:", error);
-    }
-
-    // Cleanup function
-    return () => {
-      if (autocompleteRef.current) {
-        try {
-          window.google.maps.event.clearInstanceListeners(autocompleteRef.current);
-          console.log("Cleaned up Google Places autocomplete instance");
-        } catch (err) {
-          console.warn("Error during autocomplete cleanup:", err);
+        // If DC, try to extract quadrant from formatted address if not found
+        if (!quadrant && place.formatted_address && place.formatted_address.match(/(NW|NE|SW|SE)/i)) {
+          quadrant = place.formatted_address.match(/(NW|NE|SW|SE)/i)?.[0] || "";
         }
-        autocompleteRef.current = null;
-      }
-    };
-  }, [isEditing, isGoogleApiLoaded, addressInputRef.current]);
+        // Save only the street address in address field
+        setClientProfile((prev) => ({
+          ...prev,
+          address: street.trim(),
+          city,
+          state,
+          zipCode: zip,
+          quadrant,
+        }));
+        setIsAddressValidated(true);
+      });
+    }
+  }, [isGoogleApiLoaded, isEditing]);
 
-  const initializeAutocomplete = () => {
-    // This function is now deprecated in favor of the useEffect above
-    console.warn("initializeAutocomplete is deprecated - using useEffect for initialization");
-  };
+  // Remove any stray {fieldPath === 'address' ...} JSX outside renderField
 
   // Function to handle cancelling edits
   const handleCancel = () => {
@@ -1441,6 +1816,11 @@ const Profile = () => {
       setTags(prevTags);
       setPrevTags(null);
     }
+
+    // Clear address validation errors
+    setAddressError("");
+    setIsAddressValidated(true);
+    setUserTypedAddress("");
 
     // Reset autocomplete instance when cancelling
     if (autocompleteRef.current) {
@@ -1485,7 +1865,156 @@ const Profile = () => {
     }));
   }, [clientProfile.adults, clientProfile.children, clientProfile.seniors]);
 
-  console.log(clientProfile)
+
+    const handleAddDelivery = async (newDelivery: NewDelivery) => {
+      try {
+        let recurrenceDates: Date[] = [];
+  
+        //create unique id for each recurrence group. All events for this recurrence will have the same id
+        const recurrenceId = crypto.randomUUID();
+        if (newDelivery.recurrence === "Custom") {
+          // Use customDates directly if recurrence is Custom
+          // Ensure customDates exist and map string dates back to Date objects
+          recurrenceDates = newDelivery.customDates?.map(dateStr => {
+            const date = new Date(dateStr);
+            // Adjust for timezone offset if needed, similar to how it might be handled elsewhere
+            return new Date(date.getTime() + date.getTimezoneOffset() * 60000);
+          }) || [];
+          // Clear repeatsEndDate explicitly for custom recurrence in the submitted data
+          newDelivery.repeatsEndDate = undefined;
+        } else {
+          // Calculate recurrence dates for standard recurrence types
+          const deliveryDate = new Date(newDelivery.deliveryDate);
+          recurrenceDates =
+            newDelivery.recurrence === "None" ? [deliveryDate] : calculateRecurrenceDates(newDelivery);
+        }
+  
+        // Filter out dates that already have a delivery for the same client
+        const existingEventDates = new Set(
+
+          events
+            .filter(event => event.clientId === newDelivery.clientId)
+            .map(event => new DayPilot.Date(event.deliveryDate).toString("yyyy-MM-dd"))
+        );
+  
+        const uniqueRecurrenceDates = recurrenceDates.filter(date => 
+          !existingEventDates.has(new DayPilot.Date(date).toString("yyyy-MM-dd"))
+        );
+  
+        if (uniqueRecurrenceDates.length < recurrenceDates.length) {
+          console.warn("Some duplicate delivery dates were detected and skipped.");
+        }
+  
+        // Use DeliveryService to create events for unique dates only
+        const deliveryService = DeliveryService.getInstance();
+        const createPromises = uniqueRecurrenceDates.map(date => {
+          const eventToAdd: Partial<DeliveryEvent> = {
+            clientId: newDelivery.clientId,
+            clientName: newDelivery.clientName,
+            deliveryDate: date, // Use the calculated/provided recurrence date
+            recurrence: newDelivery.recurrence,
+            time: "",
+            cluster: 0,
+            recurrenceId: recurrenceId,
+          };
+  
+          // Add customDates array if recurrence is Custom
+          if (newDelivery.recurrence === "Custom") {
+            eventToAdd.customDates = newDelivery.customDates;
+          } else if (newDelivery.repeatsEndDate) {
+            // Only add repeatsEndDate for standard recurrence types
+            eventToAdd.repeatsEndDate = newDelivery.repeatsEndDate;
+          }
+  
+          return deliveryService.createEvent(eventToAdd);
+        });
+  
+        await Promise.all(createPromises);
+  
+        // // Refresh events after adding
+        // fetchEvents();
+      } catch (error) {
+        console.error("Error adding delivery:", error);
+      }
+    };
+
+
+
+     const fetchClients = async () => {
+    try {
+      console.log("Fetching all clients");
+      // Use ClientService instead of direct Firebase calls
+      const clientService = ClientService.getInstance();
+      const clientsData = await clientService.getAllClients();
+      
+      console.log(`Fetched ${clientsData.length} clients`);
+      
+      // Map client data to Client type with explicit type casting for compatibility
+      const clientList = clientsData.map(data => {
+        // Ensure dietaryRestrictions has all required fields
+        const dietaryRestrictions = data.deliveryDetails?.dietaryRestrictions || {};
+        
+        return {
+          id: data.uid,
+          uid: data.uid,
+          // Preserve original casing, only trim whitespace
+          firstName: (data.firstName || "").trim(),
+          lastName: (data.lastName || "").trim(),
+          streetName: data.streetName || "",
+          zipCode: (data.zipCode || "").trim(),
+          address: (data.address || "").trim(),
+          address2: (data.address2 || "").trim(),
+          city: (data.city || "").trim(),
+          state: (data.state || "").trim(),
+          quadrant: data.quadrant || "",
+          dob: data.dob || "",
+          phone: data.phone || "",
+          alternativePhone: data.alternativePhone || "",
+          adults: data.adults || 0,
+          children: data.children || 0,
+          total: data.total || 0,
+          gender: data.gender || "Other",
+          ethnicity: data.ethnicity || "",
+          deliveryDetails: {
+            deliveryInstructions: data.deliveryDetails?.deliveryInstructions || "",
+            dietaryRestrictions: {
+              foodAllergens: dietaryRestrictions.foodAllergens || [],
+              halal: dietaryRestrictions.halal || false,
+              kidneyFriendly: dietaryRestrictions.kidneyFriendly || false,
+              lowSodium: dietaryRestrictions.lowSodium || false,
+              lowSugar: dietaryRestrictions.lowSugar || false,
+              microwaveOnly: dietaryRestrictions.microwaveOnly || false,
+              noCookingEquipment: dietaryRestrictions.noCookingEquipment || false,
+              other: dietaryRestrictions.other || [],
+              softFood: dietaryRestrictions.softFood || false,
+              vegan: dietaryRestrictions.vegan || false,
+              vegetarian: dietaryRestrictions.vegetarian || false,
+            },
+          },
+          lifeChallenges: data.lifeChallenges || "",
+          notes: data.notes || "",
+          notesTimestamp: data.notesTimestamp || null,
+          lifestyleGoals: data.lifestyleGoals || "",
+          language: data.language || "",
+          createdAt: data.createdAt || new Date(),
+          updatedAt: data.updatedAt || new Date(),
+          startDate: data.startDate || "",
+          endDate: data.endDate || "",
+          recurrence: data.recurrence || "None",
+          tags: data.tags || [],
+          ward: data.ward || "",
+          seniors: data.seniors || 0,
+          headOfHousehold: data.headOfHousehold || "Adult",
+        };
+      });
+      
+      // Cast the result to Client[] to satisfy type checking
+      setClients(clientList as unknown as ClientProfile[]);
+    } catch (error) {
+      console.error("Error fetching clients:", error);
+    }
+  };
+
   return (
     <Box className="profile-container" sx={{ backgroundColor: "#f8f9fa", minHeight: "100vh", pb: 4 }}>
       {showSavePopup && (
@@ -1493,6 +2022,19 @@ const Profile = () => {
           <SaveIcon fontSize="small" />
           <Typography>Profile saved successfully!</Typography>
         </SaveNotification>
+      )}
+      {showDuplicatePopup && (
+        <ErrorPopUp 
+          message={duplicateErrorMessage}
+          title="Duplicate Client Detected"
+          // No auto-close duration - user must dismiss manually
+        />
+      )}
+      {showSimilarNamesInfo && (
+        <PopUp 
+          message={similarNamesMessage}
+          duration={8000} 
+        />
       )}
 
       {/* Spacer for navbar height */}
@@ -1503,22 +2045,13 @@ const Profile = () => {
         firstName={clientProfile.firstName}
         lastName={clientProfile.lastName}
         isEditing={isEditing}
-        tags={tags}
-        allTags={allTags}
+        tags={clientProfile.tags || []}
+        allTags={allTags || []}
         handleTag={handleTag}
-        clientId={clientId}
+        clientId={clientProfile.uid || null}
       />
 
-      {/* Adopt daniel-address2 structure: profile-main > centered-box */}
-      <Box
-        className="profile-main"
-        sx={{
-          py: 3,
-          display: "flex",
-          justifyContent: "center",
-          backgroundColor: "#f8f9fa"
-        }}
-      >
+      <Box className="profile-main" sx={{ p: 2 }}>
         <Box
           className="centered-box"
           sx={{
@@ -1587,6 +2120,7 @@ const Profile = () => {
               caseWorkers={caseWorkers}
               setShowCaseWorkerModal={setShowCaseWorkerModal}
               handleCaseWorkerChange={handleCaseWorkerChange}
+              addressError={addressError} // Add this line
             />
           </SectionBox>
 
@@ -1616,11 +2150,52 @@ const Profile = () => {
 
           {/* Delivery Log Section */}
           <SectionBox mb={3}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
             <SectionTitle sx={{ textAlign: 'left', width: '100%' }}>Delivery Log</SectionTitle>
+            <Button
+              variant="contained"
+              startIcon={<Add />}
+              onClick={() => setIsDeliveryModalOpen(true)}
+              disabled={userRole === UserType.ClientIntake}
+              sx={{
+                marginRight: 4,
+                width: 166,
+                color: "#fff",
+                backgroundColor: "#257E68",
+              }}
+            >
+              Add Delivery
+            </Button>
+            </Box>
+            <AddDeliveryDialog
+              open={isDeliveryModalOpen}
+              onClose={() => setIsDeliveryModalOpen(false)}
+              onAddDelivery={handleAddDelivery}
+              clients={clients}
+              startDate={new DayPilot.Date()}
+            />
+            <SectionTitle sx={{ textAlign: 'left', width: '100%' }}>Deliveries</SectionTitle>
             <DeliveryLogForm
               pastDeliveries={pastDeliveries}
               futureDeliveries={futureDeliveries}
               fieldLabelStyles={fieldLabelStyles}
+              onDeleteDelivery={async (delivery: DeliveryEvent) => {
+                try {
+                  // Update the parent component's state to reflect the deletion
+                  // Note: Firestore deletion is already handled by DeliveryLogForm
+                  const updatedFutureDeliveries = futureDeliveries.filter(d => d.id !== delivery.id);
+                  setFutureDeliveries(updatedFutureDeliveries);
+                  
+                  // Also refresh the delivery history to ensure consistency
+                  if (clientId) {
+                    const deliveryService = DeliveryService.getInstance();
+                    const { futureDeliveries: refreshedFutureDeliveries } = await deliveryService.getClientDeliveryHistory(clientId);
+                    setFutureDeliveries(refreshedFutureDeliveries);
+                  }
+                } catch (error) {
+                  console.error('Error updating delivery state after deletion:', error);
+                }
+              }}
             />
           </SectionBox>
 
@@ -1633,7 +2208,37 @@ const Profile = () => {
               renderField={renderField}
               fieldLabelStyles={fieldLabelStyles}
               errors={errors}
-            />
+            />          </SectionBox>
+          <SectionBox sx={{ textAlign: 'right', width: '100%' }}>
+            <Box display="flex" alignItems="center" justifyContent="flex-end" gap={1}>
+              <StyledIconButton
+                  onClick={() => {
+                    if (isEditing) handleCancel();
+                    setIsEditing((prev) => !prev);
+                  }}
+                  size="small"
+                >
+                  <Tooltip title={isEditing ? "Cancel Editing" : "Edit All"}>
+                    {isEditing ? (
+                      <span className="cancel-btn">
+                        <CloseIcon />
+                      </span>
+                    ) : (
+                      <EditIcon />
+                    )}
+                  </Tooltip>
+                </StyledIconButton>
+                {isEditing && (
+                  <StyledIconButton
+                    color="primary"
+                    onClick={handleSave}
+                    aria-label="save"
+                    size="small"
+                  >
+                    <SaveIcon />
+                  </StyledIconButton>
+                )}
+            </Box>
           </SectionBox>
         </Box> {/* End centered-box */}
       </Box> {/* End profile-main */}

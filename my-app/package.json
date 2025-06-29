@@ -27,11 +27,12 @@
     "firebase-admin": "^12.7.0",
     "firebase-functions": "^6.3.2",
     "firebase-tools": "^14.0.1",
+    "font-awesome": "^4.7.0",
     "js-cookie": "^3.0.5",
     "jszip": "^3.10.1",
     "leaflet": "^1.9.4",
+    "leaflet.awesome-markers": "^2.0.5",
     "lucide-react": "^0.453.0",
-    "my-app": "file:",
     "nodemailer": "^6.10.0",
     "papaparse": "^5.5.2",
     "react": "^18.3.1",
@@ -43,7 +44,6 @@
     "react-icons": "^5.5.0",
     "react-router-dom": "^6.26.2",
     "react-scripts": "5.0.1",
-    "typescript": "^4.9.5",
     "web-vitals": "^2.1.4"
   },
   "scripts": {
@@ -80,6 +80,7 @@
     "@types/google.maps": "^3.58.1",
     "@types/jszip": "^3.4.0",
     "@types/leaflet": "^1.9.17",
+    "@types/leaflet.awesome-markers": "^2.0.28",
     "@types/nodemailer": "^6.4.17",
     "@types/papaparse": "^5.3.15",
     "@types/react-big-calendar": "^1.8.12",
@@ -91,6 +92,7 @@
     "eslint-plugin-react-hooks": "^4.6.0",
     "prettier": "^3.3.3",
     "stream-browserify": "^3.0.0",
+    "typescript": "^4.9.5",
     "util": "^0.12.5"
   }
 }

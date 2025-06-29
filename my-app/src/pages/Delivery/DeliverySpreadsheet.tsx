@@ -7,6 +7,12 @@ import { format, addDays } from "date-fns";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
 import AddIcon from "@mui/icons-material/Add";
 import DeleteIcon from "@mui/icons-material/Delete";
+import AssignmentIndIcon from "@mui/icons-material/AssignmentInd";
+import AccessTimeIcon from "@mui/icons-material/AccessTime";
+import FileDownloadIcon from "@mui/icons-material/FileDownload";
+import GroupWorkIcon from "@mui/icons-material/GroupWork";
+import PersonAddIcon from "@mui/icons-material/PersonAdd";
+import TodayIcon from "@mui/icons-material/Today";
 
 import "./DeliverySpreadsheet.css";
 import "leaflet/dist/leaflet.css";
@@ -32,7 +38,9 @@ import {
   SelectChangeEvent,
   TextField,
   Menu,
+  Chip,
 } from "@mui/material";
+import { styled } from "@mui/material/styles";
 import { collection, getDocs, doc, setDoc } from "firebase/firestore";
 import { auth } from "../../auth/firebaseConfig";
 import { onAuthStateChanged } from "firebase/auth";
@@ -41,7 +49,7 @@ import AssignDriverPopup from "./components/AssignDriverPopup";
 import GenerateClustersPopup from "./components/GenerateClustersPopup";
 import AssignTimePopup from "./components/AssignTimePopup";
 import LoadingIndicator from "../../components/LoadingIndicator/LoadingIndicator";
-import { exportDeliveries } from "./RouteExport";
+import { exportDeliveries, exportDoordashDeliveries } from "./RouteExport";
 import Button from "../../components/common/Button";
 import ManualAssign from "./components/ManualAssignPopup";
 import { RowData as DeliveryRowData } from "./types/deliveryTypes";
@@ -49,35 +57,8 @@ import { Driver } from '../../types/calendar-types';
 import { CustomRowData, useCustomColumns } from "../../hooks/useCustomColumns";
 import ClientService from "../../services/client-service";
 import { LatLngTuple } from "leaflet";
-
-interface RowData {
-  id: string;
-  clientid: string;
-  firstName: string;
-  lastName: string;
-  address: string;
-  tags?: string[];
-  ward?: string;
-  clusterId: string;
-  coordinates: { lat: number; lng: number }[];
-  deliveryDetails: {
-    deliveryInstructions: string;
-    dietaryRestrictions: {
-      foodAllergens: string[];
-      halal: boolean;
-      kidneyFriendly: boolean;
-      lowSodium: boolean;
-      lowSugar: boolean;
-      microwaveOnly: boolean;
-      noCookingEquipment: boolean;
-      other: string[];
-      softFood: boolean;
-      vegan: boolean;
-      vegetarian: boolean;
-    };
-  };
-}
-
+import { UserType } from "../../types";
+import { useAuth } from "../../auth/AuthProvider";
 // interface Driver {
 //   id: string;
 //   name: string;
@@ -85,6 +66,28 @@ interface RowData {
 //   email: string;
 // }
 
+const StyleChip = styled(Chip)({
+  backgroundColor: 'var(--color-primary)',
+  color: '#fff',
+  ":hover" : { 
+    backgroundColor: 'var(--color-primary)',
+    cursor: 'text'
+  },
+  // Disable ripple effect and pointer events
+  '& .MuiTouchRipple-root': {
+    display: 'none'
+  },
+  '&:active': {
+    boxShadow: 'none',
+    transform: 'none'
+  },
+  '&:focus': {
+    boxShadow: 'none'
+  },
+  // Make text selectable
+  userSelect: 'text',
+  WebkitUserSelect: 'text'
+});
 
 // Define a type for fields that can either be computed or direct keys of DeliveryRowData
 type Field =
@@ -236,6 +239,15 @@ const fields: Field[] = [
       return `${hours12}:${minutes} ${ampm}`;
     },
   },
+  {
+    key: "deliveryDetails.deliveryInstructions",
+    label: "Delivery Instructions",
+    type: "text",
+    compute: (data: DeliveryRowData) => {
+      const instructions = data.deliveryDetails?.deliveryInstructions;
+      return instructions && instructions.trim() !== '' ? instructions : 'No instructions';
+    },
+  },
 ];
 
 const times = [
@@ -264,6 +276,7 @@ const isRegularField = (
 
 const DeliverySpreadsheet: React.FC = () => {
   const testing = false;
+  const { userRole } = useAuth();
   const [rows, setRows] = useState<DeliveryRowData[]>([]);
   const [rawClientData, setRawClientData] = useState<DeliveryRowData[]>([]);
   const [searchQuery, setSearchQuery] = useState<string>("");
@@ -286,7 +299,7 @@ const DeliverySpreadsheet: React.FC = () => {
     handleCustomHeaderChange,
     handleRemoveCustomColumn,
     handleCustomColumnChange,
-  } = useCustomColumns();
+  } = useCustomColumns({page: 'DeliverySpreadsheet'});
   const [customRows, setCustomRows] = useState<CustomRowData[]>([])
 
 
@@ -316,6 +329,39 @@ const DeliverySpreadsheet: React.FC = () => {
     setOpen(false);
   };
 
+  const clusterColors = [
+    "#FF0000", "#00FF00", "#0000FF", "#FFFF00", "#FF00FF",
+    "#00FFFF", "#FFA500", "#800080", "#008000", "#000080",
+    "#FF4500", "#4B0082", "#FF6347", "#32CD32", "#9370DB",
+    "#FF69B4", "#40E0D0", "#FF8C00", "#7CFC00", "#8A2BE2",
+    "#FF1493", "#1E90FF", "#228B22", "#9400D3", "#DC143C",
+    "#20B2AA", "#9932CC", "#FFD700", "#8B0000", "#4169E1"
+  ];
+  const clusterColorMap = (id: string) :string => {
+
+      const clusterId = id || "";
+      let colorIndex = 0;
+
+      if (clusterId) {
+        // Assuming cluster IDs are like "Cluster 1", "Cluster 2", etc.
+        // Extract the number part for color assignment.
+        // If format is different, adjust parsing logic.
+        const match = clusterId.match(/\d+/); 
+        const clusterNumber = match ? parseInt(match[0], 10) : 0;
+        if (!isNaN(clusterNumber)) {
+          colorIndex = (clusterNumber -1) % clusterColors.length; // Use number-1 for 0-based index
+        } else {
+           // Fallback for non-numeric IDs or parsing failures - hash the ID?
+           let hash = 0;
+           for (let i = 0; i < clusterId.length; i++) {
+               hash = clusterId.charCodeAt(i) + ((hash << 5) - hash);
+           }
+           colorIndex = Math.abs(hash) % clusterColors.length;
+        }
+      }
+
+      return clusterColors[colorIndex];
+  };
 
   // Calculate Cluster Options
   const clusterOptions = useMemo(() => {
@@ -324,12 +370,15 @@ const DeliverySpreadsheet: React.FC = () => {
     const nextId = (maxId + 1).toString();
     const availableIds = clusters.map(c => c.id).sort((a, b) => parseInt(a, 10) - parseInt(b, 10));
     const options = [
-      ...availableIds.map(id => ({ value: id, label: id })),
-      { value: nextId, label: nextId }
+      ...availableIds.map(id => ({ value: id, label: id, color: clusterColorMap(id) })),
+      { value: nextId, label: nextId, color: clusterColorMap(nextId) } // Add next available ID
     ];
-    options.pop()
-    if(options.length == 0){
-      options.push({value:"", label:"No Current Clusters"})
+    options.pop();
+    if (options.length == 0) {
+      options.push({
+        value: "", label: "No Current Clusters",
+        color: "#cccccc"
+      });
     }
     return options;
   }, [clusters]);
@@ -614,77 +663,20 @@ const DeliverySpreadsheet: React.FC = () => {
 
     if (exportOption === "Routes") {
       if (option === "Email") {
-        // Logic to email Routes
-
-        try {
-          // Trigger the Google Cloud Function for emailing Routes
-          const response = await fetch(
-            `https://route-exports-251910218620.us-central1.run.app?deliveryDate=${format(selectedDate, "yyyy-MM-dd")}`,
-            {
-              method: "GET",
-              headers: {
-                "Content-Type": "application/json",
-              },
-            }
-          );
-
-          if (response.ok) {
-            const result = await response.text();
-            console.log("Email sent successfully:", result);
-            alert("Routes emailed successfully!");
-          } else {
-            console.error("Failed to email Routes:", response.statusText);
-            alert("Failed to email Routes. Please try again.");
-          }
-        } catch (error) {
-          console.error("Error emailing Routes:", error);
-          alert("An error occurred while emailing Routes. Please try again.");
-        }
-
-
-
-        console.log("Emailing Routes...");
-        // Add your email logic here
+        alert("Unimplemented");
       } else if (option === "Download") {
-        // Pass visibleRows and clusters to exportDeliveries
+        // Pass rows and clusters to exportDeliveries
         exportDeliveries(format(selectedDate, "yyyy-MM-dd"), rows, clusters);
         console.log("Downloading Routes...");
         // Add your download logic here
       }
     } else if (exportOption === "Doordash") {
       if (option === "Email") {
-        // Logic to email Doordash
-        console.log("Emailing Doordash...");
-
-        try {
-          // Trigger the Google Cloud Function for emailing Doordash
-          const response = await fetch(
-            `https://route-exports-251910218620.us-central1.run.app?deliveryDate=${format(selectedDate, "yyyy-MM-dd")}`,
-            {
-              method: "GET",
-              headers: {
-                "Content-Type": "application/json",
-              },
-            }
-          );
-
-          if (response.ok) {
-            const result = await response.text();
-            console.log("Email sent successfully:", result);
-            alert("Doordash deliveries emailed successfully!");
-          } else {
-            console.error("Failed to email Doordash deliveries:", response.statusText);
-            alert("Failed to email Doordash deliveries. Please try again.");
-          }
-        } catch (error) {
-          console.error("Error emailing Doordash deliveries:", error);
-          alert("An error occurred while emailing Doordash deliveries. Please try again.");
-        }
-        // Add your email logic here
+        alert("Unimplemented");
       } else if (option === "Download") {
-        // Logic to download Doordash
+        // Export DoorDash deliveries grouped by time
+        exportDoordashDeliveries(format(selectedDate, "yyyy-MM-dd"), rows, clusters);
         console.log("Downloading Doordash...");
-        // Add your download logic here
       }
     }
   };
@@ -694,8 +686,6 @@ const DeliverySpreadsheet: React.FC = () => {
     setPopupMode("");
     setExportOption(null);
     setEmailOrDownload(null);
-    setSelectedClusters(new Set());
-    setSelectedRows(new Set());
   };
 
   //Handle assigning driver
@@ -1265,26 +1255,10 @@ const DeliverySpreadsheet: React.FC = () => {
         top: 0,
         width: "100%"
       }}>
-        <Typography variant="h4" sx={{ marginRight: 2, width: "170px", color: "#787777" }}>
-          {format(selectedDate, 'EEEE')}
+        <Typography variant="h5" sx={{ marginRight: 2,  color: "#787777" }}>
+          {format(selectedDate, 'EEEE - MMMM, dd/yyyy',)} 
         </Typography>
         
-        <Box
-          sx={{
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-            width: "40px",
-            height: "40px",
-            backgroundColor: "#257E68",
-            borderRadius: "90%",
-            marginRight: 2,
-          }}
-        >
-          <Typography variant="h5" sx={{ color: "#fff"}}>
-            {format(selectedDate, 'd')}
-          </Typography>
-        </Box>
   
         <IconButton
           onClick={() => setSelectedDate(addDays(selectedDate, -1))}
@@ -1320,8 +1294,14 @@ const DeliverySpreadsheet: React.FC = () => {
   
         <Button
           variant="secondary"
-          size="small"
-          style={{ width: 50, fontSize: 12, marginLeft: 16 }}
+          size="medium"
+          icon={<TodayIcon />}
+          style={{ 
+            fontSize: 12, 
+            marginLeft: 16, 
+            height: "2.5rem",
+            minHeight: "2.5rem"
+          }}
           onClick={() => setSelectedDate(new Date())}
         >
           Today
@@ -1333,26 +1313,26 @@ const DeliverySpreadsheet: React.FC = () => {
       <Button
         variant="primary"
         size="medium"
+        icon={<PersonAddIcon />}
+        disabled={userRole === UserType.ClientIntake}
         style={{
           whiteSpace: "nowrap",
-          padding: "0% 2%",
           borderRadius: 5,
-          width: "auto",
           marginRight: '16px'
         }}
         onClick={() => setPopupMode("ManualClusters")}
       >
         Manual Assign
       </Button>
-
+        
       <Button
         variant="primary"
         size="medium"
+        icon={<GroupWorkIcon />}
+        disabled={userRole === UserType.ClientIntake}
         style={{
           whiteSpace: "nowrap",
-          padding: "0% 2%",
           borderRadius: 5,
-          width: "auto",
           marginRight: '16px'
         }}
         onClick={() => setPopupMode("Clusters")}
@@ -1428,33 +1408,35 @@ const DeliverySpreadsheet: React.FC = () => {
           </Box>
           <Box sx={{ display: "flex", justifyContent: "space-between", marginTop: "16px" }}>
             {/* Left group: Assign Driver and Assign Time */}
-            <Box sx={{ display: "flex", width: "100%", gap: "2%" }}>
+            <Box sx={{ display: "flex", width: "100%", gap: "8px", flexWrap: "wrap" }}>
               <Button
                 variant="primary"
                 size="medium"
+                icon={<AssignmentIndIcon />}
                 disabled={selectedRows.size <= 0}
                 style={{
                   whiteSpace: "nowrap",
-                  padding: "0% 2%",
                   borderRadius: 5,
-                  width: "10%",
+                  marginRight: '8px'
                 }}
                 onClick={() => setPopupMode("Driver")}
               >
                 Assign Driver
               </Button>
               <Button
+                variant="primary"
+                size="medium"
                 id="demo-positioned-button"
                 aria-controls={open ? 'demo-positioned-menu' : undefined}
                 aria-haspopup="true"
                 aria-expanded={open ? 'true' : undefined}
+                icon={<AccessTimeIcon />}
                 onClick={handleClick}
                 disabled={selectedRows.size <= 0}
                 style={{
                   whiteSpace: "nowrap",
-                  padding: "0% 2%",
                   borderRadius: 5,
-                  width: "10%",
+                  marginRight: '8px'
                 }}
               >
                 Assign Time
@@ -1473,9 +1455,13 @@ const DeliverySpreadsheet: React.FC = () => {
                   vertical: 'top',
                   horizontal: 'left',
                 }}
+                 MenuListProps={{
+                  "aria-labelledby": "demo-positioned-button",
+                  sx: { width: anchorEl ? anchorEl.offsetWidth : '200px' } 
+                }}
               >
                 {Object.values(times).map(({value, label, ...restUserProps}) => (
-                  <MenuItem key={value} data-key={value} onClick={handleClose} style={{ width: '130px' }}>{label}</MenuItem>
+                  <MenuItem key={value} data-key={value} onClick={handleClose}>{label}</MenuItem>
                 ))}
               </Menu>
             </Box>
@@ -1484,11 +1470,13 @@ const DeliverySpreadsheet: React.FC = () => {
               <Button
                 variant="primary"
                 size="medium"
+                icon={<FileDownloadIcon />}
                 style={{
                   whiteSpace: "nowrap",
-                  padding: "0% 2%",
                   borderRadius: 5,
-                  width: "6rem",
+                  marginRight: '8px',
+                  padding: 'var(--spacing-sm) calc(var(--spacing-xl) + 8px)',
+                  height: 'var(--button-height)'
                 }}
                 onClick={() => setPopupMode("Export")}
               >
@@ -1518,7 +1506,7 @@ const DeliverySpreadsheet: React.FC = () => {
             width: "100%",
           }}
         >
-          <Table>
+          <Table sx={{ tableLayout: 'auto', width: '100%' }}>
             <TableHead>
               <TableRow>
                 {fields.map((field) => (
@@ -1637,11 +1625,16 @@ const DeliverySpreadsheet: React.FC = () => {
                           textAlign: "center",
                           padding: "10px",
                           minWidth: field.type === "select" ? "150px" : "auto",
+                          maxWidth: field.key === "address" || field.key === "deliveryDetails.deliveryInstructions" ? "200px" : "auto",
+                          wordWrap: "break-word",
+                          overflowWrap: "anywhere",
+                          whiteSpace: "pre-wrap",
                         }}
                       >
                         {field.type === "checkbox" ? (
                           <Checkbox
                             size="small"
+                            disabled={userRole === UserType.ClientIntake}
                             checked={selectedRows.has(row.id)}
                             onChange={() => handleCheckboxChange(row)}
                           />
@@ -1656,6 +1649,7 @@ const DeliverySpreadsheet: React.FC = () => {
                               labelId={`cluster-select-label-${row.id}`}
                               id={`cluster-select-${row.id}`}
                               value={row.clusterId || ""}
+                              disabled={userRole === UserType.ClientIntake}
                               onChange={(event: SelectChangeEvent<string>) =>
                                 handleClusterChange(row, event.target.value)
                               }
@@ -1671,7 +1665,12 @@ const DeliverySpreadsheet: React.FC = () => {
                             >
                               {clusterOptions.map((option) => (
                                 <MenuItem key={option.value} value={option.value}>
-                                  {option.label === "Unassigned" ? option.label : option.label}
+                                  <Chip
+                                    label={option.label === "Unassigned" ? option.label : option.label}
+                                    style={typeof option.color === 'string' ? 
+                                      { backgroundColor: option.color, color: 'white', border: '1px solid black', fontWeight: 'bold', textShadow: '.5px .5px .5px #000, -.5px .5px .5px #000, -.5px -.5px 0px #000, .5px -.5px 0px #000' } 
+                                      : undefined}
+                                  />
                                 </MenuItem>
                               ))}
                             </Select>
@@ -1680,9 +1679,41 @@ const DeliverySpreadsheet: React.FC = () => {
                           // Render computed fields (other than the select)
                           field.key === "assignedDriver" || field.key === "assignedTime" ? (
                             field.compute(row, clusters)
-                          ) : (
-                            field.compute(row)
-                          ) // Assumes other compute fields don't need clusters
+                          ) : field.key === "deliveryDetails.deliveryInstructions" ? (
+                            // Render delivery instructions with word wrapping
+                            <div style={{ 
+                              maxWidth: '200px', 
+                              wordWrap: 'break-word', 
+                              overflowWrap: 'anywhere', 
+                              whiteSpace: 'pre-wrap' 
+                            }}>
+                              {(field as Extract<Field, { key: "deliveryDetails.deliveryInstructions" }>).compute(row)}
+                            </div>
+                          ) : field.key === "tags" ? (
+                              // Render tags field
+                              row.tags && row.tags.length > 0 ? (
+                                <Box sx={{ display: "flex", flexWrap: "wrap", gap: "2px" }}>
+                                  {row.tags.map((tag, index) => (
+                                    <StyleChip key={index}
+                                      label={tag}
+                                      size="small"
+                                      onClick={(e) => {
+                                        e.preventDefault()
+                                        e.stopPropagation();
+                                      }}
+                                     />
+                                  ))}
+                                </Box>
+                              ) : (
+                                "No Tags"
+                              )
+                            ) : field.key === "fullname" ? (
+                              // Handle fullname compute function (one parameter)
+                              (field as Extract<Field, { key: "fullname" }>).compute(row)
+                            ) : ( 
+                            // Handle other compute functions (shouldn't reach here)
+                            null
+                          )
                         ) : isRegularField(field) ? (
                           // Render regular fields (address, ward)
                           // Cast to string as these are the only expected types here
@@ -1693,37 +1724,55 @@ const DeliverySpreadsheet: React.FC = () => {
                     ); // End return for TableCell
                   })}
                    {customColumns.map((col) => (
-                                        <TableCell key={col.id} sx={{ py: 2 }}>
-                                          {editingRowId === row.id ? (
-                                            col.propertyKey !== "none" ? (
-                                              <TextField
-                                                value={row[col.propertyKey as keyof DeliveryRowData] ?? ""}
-                                                onChange={(e) =>
-                                                  handleCustomColumnChange(
-                                                    e,
-                                                    row.id,
-                                                    col.propertyKey as keyof CustomRowData,
-                                                    setCustomRows
-                                                  )
-                                                }
-                                                variant="outlined"
-                                                size="small"
-                                                fullWidth
-                                              />
-                                            ) : (
-                                              "N/A"
-                                            )
-                                          ) : 
-                                          col.propertyKey !== "none" ? (
-                                            // Check if the property key is 'referralEntity' and the value is an object
-                                            col.propertyKey === 'referralEntity' && typeof row.referralEntity === 'object' && row.referralEntity !== null ?
-                                            // Format as "Name, Organization"
-                                            `${row.referralEntity.name ?? 'N/A'}, ${row.referralEntity.organization ?? 'N/A'}`
-                                            : (row[col.propertyKey as keyof DeliveryRowData]?.toString() ?? "N/A") // Fallback for other types
-                                          ) : (
-                                            "N/A"
-                                          )}
-                                        </TableCell>
+                        <TableCell 
+                          key={col.id} 
+                          sx={{ 
+                            py: 2,
+                            maxWidth: '200px',
+                            overflow: 'hidden',
+                            wordWrap: 'break-word',
+                            overflowWrap: 'anywhere',
+                            whiteSpace: 'pre-wrap'
+                          }}
+                        >
+                          {editingRowId === row.id ? (
+                            col.propertyKey !== "none" ? (
+                              <TextField
+                                value={row[col.propertyKey as keyof DeliveryRowData] ?? ""}
+                                onChange={(e) =>
+                                  handleCustomColumnChange(
+                                    e,
+                                    row.id,
+                                    col.propertyKey as keyof CustomRowData,
+                                    setCustomRows
+                                  )
+                                }
+                                variant="outlined"
+                                size="small"
+                                fullWidth
+                                multiline={col.propertyKey.includes('deliveryInstructions') || col.propertyKey.includes('notes')}
+                                maxRows={4}
+                              />
+                            ) : (
+                              "N/A"
+                            )
+                          ) : 
+                          col.propertyKey !== "none" ? (
+                            // Check if the property key is 'referralEntity' and the value is an object
+                            col.propertyKey === 'referralEntity' && typeof row.referralEntity === 'object' && row.referralEntity !== null ?
+                            // Format as "Name, Organization"
+                            `${row.referralEntity.name ?? 'N/A'}, ${row.referralEntity.organization ?? 'N/A'}`
+                            : col.propertyKey.includes('deliveryInstructions') ? (
+                              // Handle nested delivery instructions access
+                              (() => {
+                                const instructions = row.deliveryDetails?.deliveryInstructions;
+                                return instructions && instructions.trim() !== '' ? instructions : 'No instructions';
+                              })()
+                            ) : (row[col.propertyKey as keyof DeliveryRowData]?.toString() ?? "N/A") // Fallback for other types
+                          ) : (
+                            "N/A"
+                          )} 
+                        </TableCell>
                                       ))}
                   {/* Empty Table cell so custom columns dont look weird */}
                   <TableCell></TableCell>

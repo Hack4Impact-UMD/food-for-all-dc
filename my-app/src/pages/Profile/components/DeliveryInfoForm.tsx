@@ -1,9 +1,10 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Box, Typography, MenuItem } from "@mui/material";
 import { CaseWorker, ClientProfile } from '../../../types';
 import { ClientProfileKey, InputType } from '../types';
 import { styled, Select } from "@mui/material";
 import TagManager from "../Tags/TagManager";
+import { validateDateRange } from "../../../utils/dateValidation";
 
 interface DeliveryInfoFormProps {
   clientProfile: ClientProfile;
@@ -12,6 +13,7 @@ interface DeliveryInfoFormProps {
   fieldLabelStyles: any;
   lastDeliveryDate: string | null;
   isSaved: boolean;
+  onDateValidationChange?: (isValid: boolean, startDateError?: string, endDateError?: string) => void;
 }
 
 const fieldStyles = {
@@ -51,7 +53,34 @@ const DeliveryInfoForm: React.FC<DeliveryInfoFormProps> = ({
   fieldLabelStyles,
   lastDeliveryDate,
   isSaved,
+  onDateValidationChange,
 }) => {
+  const [startDateError, setStartDateError] = useState<string>("");
+  const [endDateError, setEndDateError] = useState<string>("");
+
+  // Validate date range whenever start or end date changes
+  useEffect(() => {
+    if (clientProfile.startDate || clientProfile.endDate) {
+      const validation = validateDateRange(clientProfile.startDate, clientProfile.endDate);
+      const startError = validation.startDateError || "";
+      const endError = validation.endDateError || "";
+      
+      setStartDateError(startError);
+      setEndDateError(endError);
+      
+      // Notify parent component of validation state
+      if (onDateValidationChange) {
+        onDateValidationChange(validation.isValid, startError, endError);
+      }
+    } else {
+      setStartDateError("");
+      setEndDateError("");
+      if (onDateValidationChange) {
+        onDateValidationChange(true);
+      }
+    }
+  }, [clientProfile.startDate, clientProfile.endDate, onDateValidationChange]);
+
   return (
     <>
       <Box
@@ -73,6 +102,21 @@ const DeliveryInfoForm: React.FC<DeliveryInfoFormProps> = ({
             START DATE <span className="required-asterisk">*</span>
           </Typography>
           {renderField("startDate", "date")}
+          {startDateError && (
+            <Typography 
+              color="error" 
+              variant="body2" 
+              sx={{ 
+                fontSize: '0.75rem', 
+                marginTop: '4px',
+                fontStyle: 'italic'
+              }}
+              role="alert"
+              aria-live="polite"
+            >
+              {startDateError}
+            </Typography>
+          )}
         </Box>
 
         {/* End Date */}
@@ -81,6 +125,21 @@ const DeliveryInfoForm: React.FC<DeliveryInfoFormProps> = ({
             END DATE <span className="required-asterisk">*</span>
           </Typography>
           {renderField("endDate", "date")}
+          {endDateError && (
+            <Typography 
+              color="error" 
+              variant="body2" 
+              sx={{ 
+                fontSize: '0.75rem', 
+                marginTop: '4px',
+                fontStyle: 'italic'
+              }}
+              role="alert"
+              aria-live="polite"
+            >
+              {endDateError}
+            </Typography>
+          )}
         </Box>
 
         {/* Recurrence */}
@@ -90,7 +149,7 @@ const DeliveryInfoForm: React.FC<DeliveryInfoFormProps> = ({
           </Typography>
           {renderField("recurrence", "select")}
         </Box>
-        
+
         {/* Last Delivery Date */}
         <Box>
           <Typography className="field-descriptor" sx={fieldLabelStyles}>
@@ -102,7 +161,20 @@ const DeliveryInfoForm: React.FC<DeliveryInfoFormProps> = ({
         </Box>
 
         {/* Delivery Instructions */}
-        <Box sx={{ gridColumn: { xs: '1', sm: 'span 1' } }}>
+        <Box sx={{ 
+          gridColumn: { xs: '1', sm: 'span 1' },
+          overflow: 'hidden !important',
+          maxWidth: '100% !important',
+          width: '100% !important',
+          wordWrap: 'break-word !important',
+          overflowWrap: 'anywhere !important',
+          '& *': {
+            wordWrap: 'break-word !important',
+            overflowWrap: 'anywhere !important',
+            wordBreak: 'break-all !important',
+            whiteSpace: 'pre-wrap !important'
+          }
+        }}>
           <Typography className="field-descriptor" sx={fieldLabelStyles}>
             DELIVERY INSTRUCTIONS
           </Typography>
@@ -114,9 +186,9 @@ const DeliveryInfoForm: React.FC<DeliveryInfoFormProps> = ({
                 clientProfile.deliveryInstructionsTimestamp.timestamp &&
                 new Date(
                   typeof clientProfile.deliveryInstructionsTimestamp.timestamp === 'object' &&
-                  clientProfile.deliveryInstructionsTimestamp.timestamp !== null &&
-                  'toDate' in clientProfile.deliveryInstructionsTimestamp.timestamp &&
-                  typeof clientProfile.deliveryInstructionsTimestamp.timestamp.toDate === 'function'
+                    clientProfile.deliveryInstructionsTimestamp.timestamp !== null &&
+                    'toDate' in clientProfile.deliveryInstructionsTimestamp.timestamp &&
+                    typeof clientProfile.deliveryInstructionsTimestamp.timestamp.toDate === 'function'
                     ? clientProfile.deliveryInstructionsTimestamp.timestamp.toDate()
                     : clientProfile.deliveryInstructionsTimestamp.timestamp
                 ).toLocaleString()}
@@ -125,7 +197,20 @@ const DeliveryInfoForm: React.FC<DeliveryInfoFormProps> = ({
         </Box>
 
         {/* Notes */}
-        <Box sx={{ gridColumn: { xs: '1', sm: 'span 1' } }}>
+        <Box sx={{ 
+          gridColumn: { xs: '1', sm: 'span 1' },
+          overflow: 'hidden !important',
+          maxWidth: '100% !important',
+          width: '100% !important',
+          wordWrap: 'break-word !important',
+          overflowWrap: 'anywhere !important',
+          '& *': {
+            wordWrap: 'break-word !important',
+            overflowWrap: 'anywhere !important',
+            wordBreak: 'break-all !important',
+            whiteSpace: 'pre-wrap !important'
+          }
+        }}>
           <Typography className="field-descriptor" sx={fieldLabelStyles}>
             ADMIN NOTES
           </Typography>
@@ -137,9 +222,9 @@ const DeliveryInfoForm: React.FC<DeliveryInfoFormProps> = ({
                 clientProfile.notesTimestamp.timestamp &&
                 new Date(
                   typeof clientProfile.notesTimestamp.timestamp === 'object' &&
-                  clientProfile.notesTimestamp.timestamp !== null &&
-                  'toDate' in clientProfile.notesTimestamp.timestamp &&
-                  typeof clientProfile.notesTimestamp.timestamp.toDate === 'function'
+                    clientProfile.notesTimestamp.timestamp !== null &&
+                    'toDate' in clientProfile.notesTimestamp.timestamp &&
+                    typeof clientProfile.notesTimestamp.timestamp.toDate === 'function'
                     ? clientProfile.notesTimestamp.timestamp.toDate()
                     : clientProfile.notesTimestamp.timestamp
                 ).toLocaleString()}

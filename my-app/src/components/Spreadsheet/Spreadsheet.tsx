@@ -5,6 +5,7 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
 import SaveIcon from "@mui/icons-material/Save";
+import { styled } from "@mui/material/styles";
 import {
   Box,
   Button,
@@ -36,7 +37,7 @@ import {
 } from "@mui/material";
 import { onAuthStateChanged } from "firebase/auth";
 import { Filter, Search } from "lucide-react";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { auth } from "../../auth/firebaseConfig";
 import { useCustomColumns } from "../../hooks/useCustomColumns";
@@ -121,10 +122,15 @@ const Spreadsheet: React.FC = () => {
   const [editingRowId, setEditingRowId] = useState<string | null>(null);
   const [menuAnchorEl, setMenuAnchorEl] = useState<null | HTMLElement>(null);
   const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const [exportOption, setExportOption] = useState<"QueryResults" | "AllClients" | null>(null);
   const [clientIdToDelete, setClientIdToDelete] = useState<string | null>(null);
+
+  //default to asc if not found in local store
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">(() => {
+    const stored = localStorage.getItem("ffaSortOrderSpreadsheet");
+    return stored === "desc" ? "desc" : "asc";
+  });
 
   const navigate = useNavigate();
 
@@ -135,7 +141,31 @@ const Spreadsheet: React.FC = () => {
     handleCustomHeaderChange,
     handleRemoveCustomColumn,
     handleCustomColumnChange,
-  } = useCustomColumns();
+  } = useCustomColumns({ page: "Spreadsheet" });
+
+
+const StyleChip = styled(Chip)({
+  backgroundColor: 'var(--color-primary)',
+  color: '#fff',
+  ":hover" : { 
+    backgroundColor: 'var(--color-primary)',
+    cursor: 'text'
+  },
+  // Disable ripple effect and pointer events
+  '& .MuiTouchRipple-root': {
+    display: 'none'
+  },
+  '&:active': {
+    boxShadow: 'none',
+    transform: 'none'
+  },
+  '&:focus': {
+    boxShadow: 'none'
+  },
+  // Make text selectable
+  userSelect: 'text',
+  WebkitUserSelect: 'text'
+});
 
 
   // const [customColumns, setCustomColumns] = useState<CustomColumn[]>([]);
@@ -217,6 +247,27 @@ const Spreadsheet: React.FC = () => {
     return () => unsubscribe();
   }, [navigate]);
 
+  //store sort order locally
+  useEffect(() => {
+    localStorage.setItem("ffaSortOrderSpreadsheet", sortOrder);
+  }, [sortOrder]);
+
+  // Compute sorted rows using useMemo to ensure data is always sorted
+  const sortedRows = useMemo(() => {
+    if (rows.length === 0) return rows;
+    
+    return [...rows].sort((a, b) => {
+      if (a.firstName === b.firstName) {
+        return sortOrder === "asc"
+          ? a.lastName.localeCompare(b.lastName)
+          : b.lastName.localeCompare(a.lastName);
+      }
+      return sortOrder === "asc"
+        ? a.firstName.localeCompare(b.firstName)
+        : b.firstName.localeCompare(a.firstName);
+    });
+  }, [rows, sortOrder]);
+
   // Define fields for table columns
   const fields: Field[] = [
     {
@@ -275,6 +326,11 @@ const Spreadsheet: React.FC = () => {
     };
     fetchData();
   }, []);
+
+  const toggleSortOrder = () => {
+    const order = sortOrder === "asc" ? "desc" : "asc";
+    setSortOrder(order);
+  };
 
   // Handle search input change
   const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -367,8 +423,8 @@ const Spreadsheet: React.FC = () => {
     setExportDialogOpen(true);
   };
 
-  // Display only the rows that match the search query
-  const filteredRows = rows.filter((row) => {
+  // Display only the rows that match the search query - combining advanced search with sorted rows
+  const filteredRows = sortedRows.filter((row) => {
     const trimmedSearchQuery = searchQuery.trim();
     if (!trimmedSearchQuery) {
       return true; // Show all if search is empty
@@ -509,61 +565,28 @@ const Spreadsheet: React.FC = () => {
   });
 
   const handleExportOptionSelect = (option: "QueryResults" | "AllClients") => {
-// ...existing code...
-  setExportOption(option);
-  setExportDialogOpen(false);
-  if (option === "QueryResults") {
-    exportQueryResults(filteredRows);
-  } else if (option === "AllClients") {
-    exportAllClients(rows);
-  }
-};
+    setExportOption(option);
+    setExportDialogOpen(false);
+    if (option === "QueryResults") {
+      exportQueryResults(filteredRows, customColumns);
+    } else if (option === "AllClients") {
+      exportAllClients(sortedRows);
+    }
+  };
 
   const handleCancel = () => {
     setExportDialogOpen(false);
     setExportOption(null);
   };
-
-  
-
-  // Handle toggling sort order for the Name column
-  const toggleSortOrder = () => {
-    const sortedRows = [...rows].sort((a, b) => {
-      if (a.firstName === b.firstName) {
-        return sortOrder === "asc"
-          ? a.lastName.localeCompare(b.lastName)
-          : b.lastName.localeCompare(a.lastName);
-      }
-      return sortOrder === "asc"
-        ? a.firstName.localeCompare(b.firstName)
-        : b.firstName.localeCompare(a.firstName);
-    });
-    setRows(sortedRows);
-    setSortOrder(sortOrder === "asc" ? "desc" : "asc");
-  };
-
   const toggleSortOrder2 = (fieldKey: keyof RowData) => {
-    const sortedRows = [...rows].sort((a, b) => {
-      if (typeof a[fieldKey] === "string" && typeof b[fieldKey] === "string") {
-        return sortOrder === "asc"
-          ? (a[fieldKey] as string).localeCompare(b[fieldKey] as string)
-          : (b[fieldKey] as string).localeCompare(a[fieldKey] as string);
-      } else if (typeof a[fieldKey] === "number" && typeof b[fieldKey] === "number") {
-        return sortOrder === "asc"
-          ? (a[fieldKey] as number) - (b[fieldKey] as number)
-          : (b[fieldKey] as number) - (a[fieldKey] as number);
-      } else {
-        return 0; // Handle cases where types mismatch or are not sortable
-      }
-    });
-    setRows(sortedRows);
+    // This function is no longer needed since sorting is handled by useMemo
+    // Just toggle the sort order - the useMemo will handle the actual sorting
     setSortOrder(sortOrder === "asc" ? "desc" : "asc");
   };
 
   const addClient = () => {
     navigate("/profile");
   };
-
 
   useEffect(() => {
     console.log("this is search query");
@@ -572,10 +595,10 @@ const Spreadsheet: React.FC = () => {
 
   // Add this debugging function
   useEffect(() => {
-    if (rows.length > 0) {
-      console.log("Sample row data:", rows[0]);
+    if (sortedRows.length > 0) {
+      console.log("Sample row data:", sortedRows[0]);
     }
-  }, [rows]);
+  }, [sortedRows]);
 
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -1027,7 +1050,19 @@ const Spreadsheet: React.FC = () => {
                     }}
                   >
                     {fields.map((field) => (
-                      <TableCell key={field.key} sx={{ py: 2 }}>
+                      <TableCell 
+                        key={field.key} 
+                        sx={{ 
+                          py: 2,
+                          // Add word-wrap styles for delivery instructions and dietary restrictions
+                          ...(field.key === "deliveryDetails.deliveryInstructions" && {
+                            maxWidth: '200px',
+                            wordWrap: 'break-word',
+                            overflowWrap: 'anywhere',
+                            whiteSpace: 'pre-wrap'
+                          })
+                        }}
+                      >
                         {editingRowId === row.id ? (
                           field.key === "fullname" ? (
                             <>
@@ -1097,35 +1132,55 @@ const Spreadsheet: React.FC = () => {
                               {row.firstName} {row.lastName}
                             </Typography>
                           )
-                        ) : field.compute ? (
+                        ) : (field as any).compute ? (
                           field.key === "deliveryDetails.dietaryRestrictions" ? (
                             <Stack direction="row" spacing={0.5} flexWrap="wrap">
-                              {field.compute?.(row)?.split(", ").map((restriction, i) => (
-                                restriction !== "None" && (
-                                  <Chip
-                                    key={i}
-                                    label={restriction}
-                                    size="small"
-                                    sx={{
-                                      backgroundColor: "#e8f5e9",
-                                      color: "#2E5B4C",
-                                      mb: 0.5
-                                    }}
-                                  />
-                                )
-                              )) || null}
+                              {(field as any).compute(row)?.split(", ").filter((restriction: string) => restriction !== "None").map((restriction: string, i: number) => (
+                                <Chip
+                                  key={i}
+                                  label={restriction}
+                                  size="small"
+                                  onClick={(e) => e.preventDefault()}
+                                  sx={{
+                                    backgroundColor: "#e8f5e9",
+                                    color: "#2E5B4C",
+                                    mb: 0.5
+                                  }}
+                                />
+                              ))}
                             </Stack>
+                          ) : field.key === "deliveryDetails.deliveryInstructions" ? (
+                            <div style={{
+                              maxWidth: '200px',
+                              wordWrap: 'break-word',
+                              overflowWrap: 'anywhere',
+                              whiteSpace: 'pre-wrap'
+                            }}>
+                              {(field as any).compute(row)}
+                            </div>
                           ) : (
-                            field.compute(row)
+                            (field as any).compute(row)
                           )
                         ) : (
-                          row[field.key]
+                          row[field.key as keyof RowData]
                         )}
                       </TableCell>
                     ))}
 
                     {customColumns.map((col) => (
-                      <TableCell key={col.id} sx={{ py: 2 }}>
+                      <TableCell 
+                        key={col.id} 
+                        sx={{ 
+                          py: 2,
+                          // Add word-wrap styles for text-heavy columns
+                          ...((col.propertyKey.includes('notes') || col.propertyKey.includes('deliveryInstructions')) && {
+                            maxWidth: '200px',
+                            wordWrap: 'break-word',
+                            overflowWrap: 'anywhere',
+                            whiteSpace: 'pre-wrap'
+                          })
+                        }}
+                      >
                         {editingRowId === row.id ? (
                           col.propertyKey !== "none" ? (
                             <TextField
@@ -1149,9 +1204,32 @@ const Spreadsheet: React.FC = () => {
                           col.propertyKey !== "none" ? (
                             // For referralEntity specifically (it's an object)
                             col.propertyKey === 'referralEntity' && row[col.propertyKey as keyof RowData] ? 
-                            // Safely access properties using any type
                             `${(row[col.propertyKey as keyof RowData] as any).name || 'N/A'}, ${(row[col.propertyKey as keyof RowData] as any).organization || 'N/A'}`
-                            : (row[col.propertyKey as keyof RowData]?.toString() ?? "N/A")
+                            : col.propertyKey === "tags" && Array.isArray(row[col.propertyKey as keyof RowData]) ?
+                              (row[col.propertyKey as keyof RowData] as unknown as string[]).map((tag, i) => (
+                                <StyleChip
+                                  key={i}
+                                  label={tag}
+                                  size="small"
+                                   onClick={(e) => {
+                                        e.preventDefault()
+                                      }}
+                                  sx={{
+                                    mb: 0.5,
+                                    mr: 0.5
+                                  }}
+                                />
+                              ))
+                            : col.propertyKey.includes('notes') || col.propertyKey.includes('deliveryInstructions') ? (
+                              <div style={{
+                                maxWidth: '200px',
+                                wordWrap: 'break-word',
+                                overflowWrap: 'anywhere',
+                                whiteSpace: 'pre-wrap'
+                              }}>
+                                {row[col.propertyKey as keyof RowData]?.toString() ?? "N/A"}
+                              </div>
+                            ) : (row[col.propertyKey as keyof RowData]?.toString() ?? "N/A")
                           ) : (
                             "N/A"
                           )}
