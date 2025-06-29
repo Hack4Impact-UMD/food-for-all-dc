@@ -1723,10 +1723,7 @@ const DeliverySpreadsheet: React.FC = () => {
                               ) : (
                                 "No Tags"
                               )
-                            ) : field.key === "fullname" ? (
-                              // Handle fullname compute function (one parameter)
-                              (field as Extract<Field, { key: "fullname" }>).compute(row)
-                            ) : ( 
+                            ) : (
                             // Handle other compute functions (shouldn't reach here)
                             null
                           )
