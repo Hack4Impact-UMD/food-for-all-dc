@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Box, Chip, Stack, Typography, TextField } from "@mui/material";
-import CloseIcon from '@mui/icons-material/Close';
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
 import { validateDateInput } from "../../../utils/dates";
 
 interface CalendarMultiSelectProps {
@@ -22,7 +23,27 @@ const CalendarMultiSelect: React.FC<CalendarMultiSelectProps> = ({ selectedDates
     setDateInput("");
   };
 
+   // Function to handle adding a new date
+   const handleDateChange = (date: Date | null) => {
+    if (!date) return;
+    
+    // Check if date already exists in the array
+    if (!selectedDates.some(d => d.toDateString() === date.toDateString())) {
+      // Add the new date and sort all dates chronologically
+      const updatedDates = [...selectedDates, date];
+      const sortedDates = updatedDates.sort((a, b) => a.getTime() - b.getTime());
+      setSelectedDates(sortedDates);
+    } else {
+      setSelectedDates(selectedDates.filter(d => d.toDateString() !== date.toDateString()));
+    }
+  };
+
+  // Function to delete a date from the selectedDates array
   const handleDeleteDate = (dateToDelete: Date) => {
+    if (dateToDelete < new Date()) {
+      console.warn("Cannot delete chips for past dates.");
+      return;
+    }
     setSelectedDates(selectedDates.filter(d => d.toDateString() !== dateToDelete.toDateString()));
   };
 
@@ -76,18 +97,18 @@ const CalendarMultiSelect: React.FC<CalendarMultiSelectProps> = ({ selectedDates
             key={date.toISOString()}
             label={date.toLocaleDateString()}
             onDelete={() => handleDeleteDate(date)}
-            deleteIcon={<CloseIcon />}
-            sx={{
-              backgroundColor: 'var(--color-primary)',
-              color: 'white',
-              fontWeight: 500,
-              mb: 1
-            }}
+            sx={{ mb: 1, padding: '1rem .5rem' }}
+            onClick = {function() {return;}} //empty onclick to prevent error
           />
         ))}
+        {selectedDates.length === 0 && (
+          <Typography variant="body2" color="text.secondary">
+            No dates selected
+          </Typography>
+        )}
       </Stack>
     </Box>
   );
 };
 
-export default CalendarMultiSelect; 
+export default CalendarMultiSelect;

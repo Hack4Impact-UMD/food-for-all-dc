@@ -20,6 +20,7 @@ import { ClientProfile } from "../../../types/client-types";
 import CalendarMultiSelect from "./CalendarMultiSelect";
 import DateField from "./DateField";
 import { DayPilot } from "@daypilot/daypilot-lite-react";
+import { validateDeliveryDateRange } from "../../../utils/dateValidation";
 
 interface AddDeliveryDialogProps {
   open: boolean;
@@ -49,6 +50,21 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = ({
   });
 
   const [customDates, setCustomDates] = useState<Date[]>([]);
+  const [startDateError, setStartDateError] = useState<string>("");
+  const [endDateError, setEndDateError] = useState<string>("");
+
+  // Validate date range whenever delivery date or end date changes
+  useEffect(() => {
+    if (newDelivery.recurrence !== "None" && newDelivery.recurrence !== "Custom" && 
+        newDelivery.deliveryDate && newDelivery.repeatsEndDate) {
+      const validation = validateDeliveryDateRange(newDelivery.deliveryDate, newDelivery.repeatsEndDate);
+      setStartDateError(validation.startDateError || "");
+      setEndDateError(validation.endDateError || "");
+    } else {
+      setStartDateError("");
+      setEndDateError("");
+    }
+  }, [newDelivery.deliveryDate, newDelivery.repeatsEndDate, newDelivery.recurrence]);
 
   //update newDelivery with the correct date when the dialog is first opened
   useEffect(() => {
@@ -69,9 +85,22 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = ({
       repeatsEndDate: "",
     });
     setCustomDates([]);
+    setStartDateError("");
+    setEndDateError("");
     onClose();
   };
   const handleSubmit = () => {
+    // Validate dates before submission
+    if (newDelivery.recurrence !== "None" && newDelivery.recurrence !== "Custom" && 
+        newDelivery.deliveryDate && newDelivery.repeatsEndDate) {
+      const validation = validateDeliveryDateRange(newDelivery.deliveryDate, newDelivery.repeatsEndDate);
+      if (!validation.isValid) {
+        setStartDateError(validation.startDateError || "");
+        setEndDateError(validation.endDateError || "");
+        return;
+      }
+    }
+
     const deliveryToSubmit: Partial<NewDelivery> = { ...newDelivery };
     if (newDelivery.recurrence === "Custom") {
       deliveryToSubmit.customDates = customDates.map(date => date.toISOString().split("T")[0]);
@@ -82,9 +111,11 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = ({
     setCustomDates([]);
     resetFormAndClose();
   };
+
   const isFormValid =
     newDelivery.clientId !== "" &&
-    (newDelivery.recurrence !== "Custom" || customDates.length > 0);
+    (newDelivery.recurrence !== "Custom" || customDates.length > 0) &&
+    !startDateError && !endDateError;
 
   // Filter out duplicate clients based on UID - memoized for performance
   const uniqueClients = React.useMemo(() => {

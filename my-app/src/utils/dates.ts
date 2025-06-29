@@ -82,7 +82,7 @@ export const formatDateToYYYYMMDD = (date: Date): string => {
  */
 export const formatDate = (date: Date | string): string => {
   const dateObj = typeof date === 'string' ? new Date(date) : date;
-  if (isNaN(dateObj.getTime())) {
+  if (!(dateObj instanceof Date) || isNaN(dateObj.getTime())) {
     return 'Invalid date';
   }
   return dateObj.toUTCString().split(' ').slice(0, 4).join(' ');

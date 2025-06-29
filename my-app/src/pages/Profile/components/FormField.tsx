@@ -35,6 +35,7 @@ interface FormFieldProps {
   isModalOpen: boolean;
   setIsModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
   handleTag: (tag: string) => void;
+  error?: string; // Add error prop
 }
 
 const fieldStyles = {
@@ -83,6 +84,26 @@ const CustomTextField = styled(TextField)({
     borderRadius: "5px",
     border: ".1rem solid black",
     marginTop: "0px",
+    "&:focus": {
+      border: "2px solid #257E68",
+      outline: "none",
+      boxShadow: "0 0 8px rgba(37, 126, 104, 0.4), 0 0 16px rgba(37, 126, 104, 0.2)",
+    },
+  },
+  "& .MuiInputBase-inputMultiline": {
+    backgroundColor: "white",
+    width: "100%",
+    minHeight: "1.813rem",
+    height: "auto",
+    padding: "0.5rem",
+    borderRadius: "5px",
+    border: ".1rem solid black",
+    marginTop: "0px",
+    whiteSpace: "normal",
+    wordWrap: "break-word",
+    overflowWrap: "break-word",
+    wordBreak: "break-word",
+    resize: "vertical",
     "&:focus": {
       border: "2px solid #257E68",
       outline: "none",
@@ -320,6 +341,7 @@ const FormField: React.FC<FormFieldProps> = ({
   isModalOpen,
   setIsModalOpen,
   handleTag,
+  error,
 }) => {
   const capitalizeFirstLetter = (value: string) => {
     return value[0].toUpperCase() + value.slice(1);
@@ -542,6 +564,13 @@ const FormField: React.FC<FormFieldProps> = ({
             value={value as number}
             onChange={handleChange}
             fullWidth
+            slotProps={{
+              input: {
+                inputProps: {
+                  ...(["adults", "children", "seniors"].includes(fieldPath) && { min: 0 }),
+                },
+              },
+            }}
           />
         );
       case "email":
@@ -555,41 +584,61 @@ const FormField: React.FC<FormFieldProps> = ({
             fullWidth
             inputProps={{ minLength }}
           />
-        );
-      case "text":
+        );      case "text":
         if (["email"].includes(fieldPath)) minLength = 5;
-        if (["address2"].includes(fieldPath)) minLength = 5;
-        return (
-          <CustomTextField
-            type="text"
-            name={fieldPath}
-            value={String(value || "")}
-            onChange={handleChange}
-            fullWidth
-            disabled={isDisabledField}
-            inputRef={fieldPath === "address" ? addressInputRef : null}
-            inputProps={{ minLength }}
-          />
+        if (["address2"].includes(fieldPath)) minLength = 5;        return (
+          <Box sx={{ 
+            width: "100%",
+            position: "relative"
+          }}>
+            <CustomTextField
+              type="text"
+              name={fieldPath}
+              value={String(value || "")}
+              onChange={handleChange}
+              fullWidth
+              disabled={isDisabledField}
+              inputRef={fieldPath === "address" ? addressInputRef : null}
+              inputProps={{ minLength }}
+              error={!!error}
+              sx={{ 
+                width: "100%",
+                "& .MuiOutlinedInput-root": {
+                  height: fieldStyles.height, // Control inner element height
+                },
+                "& .MuiInputBase-input": {
+                  height: fieldStyles.height, // Control input element height
+                }
+              }}
+            />            {error && fieldPath !== "phone" && fieldPath !== "alternativePhone" && (
+              <Typography variant="caption" color="error" sx={{ 
+                display: 'block', 
+                position: "absolute", 
+                top: "calc(100% + 2px)",
+                left: 0,
+                mt: 0 
+              }}>
+                {error}
+              </Typography>
+            )}
+          </Box>
         );
       case "textarea":
         if (fieldPath === "ward") {
           return <CustomTextField name={fieldPath} value={String(value || "")} disabled fullWidth />;
         } else {
-          // Create block scope for lexical declaration
-          {
-            const isTallTextarea = ["lifeChallenges", "lifestyleGoals", "notes", "deliveryDetails.deliveryInstructions"].includes(fieldPath);
-            return (
-              <CustomTextField
-                name={fieldPath}
-                value={String(value || "")}
-                onChange={handleChange}
-                multiline
-                fullWidth
-                minRows={isTallTextarea ? 3 : 1}
-                inputProps={{ minLength: minLengthTextarea }}
-              />
-            );
-          }
+          const isTallTextarea = ["lifeChallenges", "lifestyleGoals", "notes", "deliveryDetails.deliveryInstructions"].includes(fieldPath);
+          return (
+            <CustomTextField
+              name={fieldPath}
+              value={String(value || "")}
+              onChange={handleChange}
+              multiline
+              fullWidth
+              minRows={isTallTextarea ? 3 : 1}
+              inputProps={{ minLength: minLengthTextarea }}
+            />
+          );
         }
       case "tags":
         return (
@@ -628,7 +677,24 @@ const FormField: React.FC<FormFieldProps> = ({
   }
 
   return (
-    <Typography variant="body1" sx={{ fontWeight: 600, textAlign: "left" }}>
+    <Typography 
+      variant="body1" 
+      sx={{ 
+        fontWeight: 600, 
+        textAlign: "left",
+        whiteSpace: "pre-wrap !important",
+        wordWrap: "break-word !important",
+        overflowWrap: "anywhere !important",
+        wordBreak: "break-all !important",
+        maxWidth: "100% !important",
+        width: "100% !important",
+        display: "block !important",
+        overflow: "hidden !important",
+        // Additional CSS to ensure wrapping works
+        hyphens: "auto",
+        lineBreak: "anywhere"
+      }}
+    >
       {renderFieldValue(fieldPath, value)}
     </Typography>
   );

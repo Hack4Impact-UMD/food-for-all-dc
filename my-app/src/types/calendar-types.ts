@@ -20,6 +20,9 @@ export interface DeliveryEvent extends Delivery {
   recurrence: "None" | "Weekly" | "2x-Monthly" | "Monthly" | "Custom";
   customDates?: string[];
   recurrenceId: string;
+  seriesStartDate?: string; // The original start date of a recurring series
+  isZoomingOut?: boolean;
+  isZoomingIn?: boolean;
 }
 
 export interface NewDelivery {
@@ -34,6 +37,7 @@ export interface NewDelivery {
   // For validation error messages
   _deliveryDateError?: string;
   _repeatsEndDateError?: string;
+  seriesStartDate?: string; // The original start date of a recurring series
 }
 
 export type ViewType = "Day" | "Month";
@@ -51,4 +55,4 @@ export interface CalendarConfig {
   viewType: DayPilotViewType | ViewType;
   startDate: DayPilot.Date;
   events: CalendarEvent[];
-} 
+}
