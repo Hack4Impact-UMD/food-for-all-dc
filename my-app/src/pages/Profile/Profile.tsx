@@ -1699,17 +1699,47 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
     );
   };
 
-  const handleTag = (text: any) => {
+  const handleTag = async (text: any) => {
     if (!prevTags) {
       setPrevTags(deepCopy(tags));
     }
 
+    let updatedTags: string[];
     if (tags.includes(text)) {
-      const updatedTags = tags.filter((t) => t !== text);
-      setTags(updatedTags);
+      updatedTags = tags.filter((t) => t !== text);
+      console.log(`Removing tag "${text}" from client. Updated tags:`, updatedTags);
     } else if (text.trim() !== "") {
-      const updatedTags = [...tags, text.trim()];
-      setTags(updatedTags);
+      updatedTags = [...tags, text.trim()];
+      console.log(`Adding tag "${text}" to client. Updated tags:`, updatedTags);
+    } else {
+      return; // No change needed
+    }
+
+    // Update local state immediately
+    setTags(updatedTags);
+
+    // Update Firebase immediately if we have a client UID
+    if (clientProfile.uid) {
+      try {
+        console.log(`Updating Firebase for client ${clientProfile.uid} with tags:`, updatedTags);
+        await setDoc(doc(db, "clients", clientProfile.uid), { tags: updatedTags }, { merge: true });
+        console.log("Tags successfully updated in Firebase for client:", clientProfile.uid);
+        
+        // Also update the local clientProfile.tags to keep it in sync
+        setClientProfile(prev => ({
+          ...prev,
+          tags: updatedTags
+        }));
+      } catch (error) {
+        console.error("Error updating client tags in Firebase:", error);
+        console.error("Client UID:", clientProfile.uid);
+        console.error("Attempted tags update:", updatedTags);
+        // Revert local state if Firebase update fails
+        setTags(tags);
+        alert(`Failed to update tags in Firebase: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
+    } else {
+      console.warn("No client UID available, cannot update tags in Firebase");
     }
   };
 
@@ -2085,7 +2115,7 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
         firstName={clientProfile.firstName}
         lastName={clientProfile.lastName}
         isEditing={isEditing}
-        tags={clientProfile.tags || []}
+        tags={tags}
         allTags={allTags || []}
         handleTag={handleTag}
         clientId={clientProfile.uid || null}
