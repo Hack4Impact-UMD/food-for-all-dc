@@ -1,7 +1,8 @@
 import React, { useState } from "react";
-import { Box, Chip, Stack, Typography } from "@mui/material";
+import { Box, Chip, Stack, Typography, TextField } from "@mui/material";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
+import { validateDateInput } from "../../../utils/dates";
 
 interface CalendarMultiSelectProps {
   selectedDates: Date[];
@@ -9,8 +10,21 @@ interface CalendarMultiSelectProps {
 }
 
 const CalendarMultiSelect: React.FC<CalendarMultiSelectProps> = ({ selectedDates, setSelectedDates }) => {
-  // Function to handle adding a new date
-  const handleDateChange = (date: Date | null) => {
+  const [dateInput, setDateInput] = useState<string>("");
+  const [dateError, setDateError] = useState<string | null>(null);
+
+  const handleAddDate = (date: Date | null) => {
+    if (
+      date &&
+      !selectedDates.some(d => d.toDateString() === date.toDateString())
+    ) {
+      setSelectedDates([...selectedDates, date]);
+    }
+    setDateInput("");
+  };
+
+   // Function to handle adding a new date
+   const handleDateChange = (date: Date | null) => {
     if (!date) return;
     
     // Check if date already exists in the array
@@ -37,40 +51,47 @@ const CalendarMultiSelect: React.FC<CalendarMultiSelectProps> = ({ selectedDates
     <Box sx={{ mt: 2 }}>
       <Typography variant="subtitle1" sx={{ mb: 1 }}>
         Select Custom Dates
-      </Typography>
-      
-      <Box sx={{ 
-        '& .react-datepicker': { 
-          border: '1px solid #ccc',
-          borderRadius: '4px',
-          fontFamily: 'inherit'
-        },
-        '& .react-datepicker__header': {
-          backgroundColor: '#f5f5f5'
-        },
-        '& .react-datepicker__day--selected': {
-          backgroundColor: '#1976d2',
-          color: 'white'
-        },
-        '& .react-datepicker__day--highlighted': {
-          backgroundColor: '#e6f7ff',
-          borderRadius: '50%'
-        }
-      }}>
-        <DatePicker
-          inline
-          selected = {null}
-          onChange = {handleDateChange}
-          highlightDates = {selectedDates}
-          calendarClassName = "persistent-calendar"
-        />
-      </Box>
-      
-      <Typography variant="subtitle2" sx={{ mt: 2, mb: 1 }}>
-        Selected Dates:
-      </Typography>
-      
-      <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
+      </Typography>      <TextField
+        label="Add Date"
+        type="date"
+        fullWidth
+        size="small"
+        value={dateInput}
+        onChange={(e) => {
+          // Clear error when user starts typing
+          if (dateError) setDateError(null);
+          
+          validateDateInput(
+            e.target.value,
+            (dateStr) => {
+              setDateInput(dateStr);
+              handleAddDate(new Date(dateStr));
+            },
+            (errorMsg) => setDateError(errorMsg)
+          );
+        }}
+        onBlur={(e) => {
+          if (e.target.value) {
+            validateDateInput(
+              e.target.value,
+              (dateStr) => {
+                setDateInput(dateStr);
+                handleAddDate(new Date(dateStr));
+              },
+              (errorMsg) => setDateError(errorMsg)
+            );
+          }
+        }}
+        error={!!dateError}
+        helperText={dateError || " "}
+        InputLabelProps={{ shrink: true }}
+        inputProps={{
+          min: "1900-01-01",
+          max: "2100-12-31"
+        }}
+        sx={{ mb: 2 }}
+      />
+      <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', mt: 1 }}>
         {selectedDates.map((date) => (
           <Chip
             key={date.toISOString()}
