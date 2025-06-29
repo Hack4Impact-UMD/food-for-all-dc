@@ -162,18 +162,17 @@ const MaskedDateField: React.FC<MaskedDateFieldProps> = ({
 
   // Handle year input
   const handleYearChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // Mark as touched
-    if (!fieldTouched) setFieldTouched(true);
+    const value = e.target.value.replace(/\D/g, ''); // Only allow digits
     
-    let year = e.target.value.replace(/\D/g, '');
+    // Limit to 4 digits maximum
+    const limitedValue = value.slice(0, 4);
     
-    if (year.length > 4) year = year.slice(0, 4);
+    setDateValue(prev => ({ ...prev, year: limitedValue }));
+    notifyChange(dateValue.month, dateValue.day, limitedValue);
     
-    setDateValue(prev => ({ ...prev, year }));
-
-    // If we have a complete date, notify
-    if (dateValue.month && dateValue.day && year.length === 4) {
-      notifyChange(dateValue.month, dateValue.day, year);
+    // Auto-focus to month when year is complete
+    if (limitedValue.length === 4) {
+      monthRef.current?.focus();
     }
   };
     // Handle blur event
@@ -367,9 +366,10 @@ const MaskedDateField: React.FC<MaskedDateFieldProps> = ({
           onBlur={handleBlur}
           onKeyDown={(e) => handleKeyDown(e, 'year')}
           style={{
-            width: '40px',
+            width: '48px',
             border: 'none',
             background: 'transparent',
+            textAlign: 'center',
             outline: 'none',
             fontSize: '16px',
           }}

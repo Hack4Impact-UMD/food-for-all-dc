@@ -121,7 +121,6 @@ export const validateDateInput = (
   
   if (!dateStr) {
     const errorMessage = "Date is required. Format must be MM/DD/YYYY";
-    console.log("validateDateInput error - empty:", errorMessage);
     if (onError) onError(errorMessage);
     return { isValid: false, errorMessage };
   }
@@ -132,15 +131,25 @@ export const validateDateInput = (
     if (onError) onError(errorMessage);
     return { isValid: false, errorMessage };
   }
+
+  // Handle both MM/DD/YYYY and YYYY-MM-DD formats
+  let normalizedDateStr = dateStr;
   
-  // Enforce MM/DD/YYYY format
-  if (!dateStr.includes('/')) {
+  // If it's YYYY-MM-DD format, convert to MM/DD/YYYY
+  if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
+    const [year, month, day] = dateStr.split('-');
+    normalizedDateStr = `${month}/${day}/${year}`;
+  }
+  
+  // Enforce MM/DD/YYYY format after normalization
+  if (!normalizedDateStr.includes('/')) {
     const errorMessage = "Date must be in MM/DD/YYYY format";
     if (onError) onError(errorMessage);
     return { isValid: false, errorMessage };
   }
-    // Handle MM/DD/YYYY format only
-  const parts = dateStr.split('/');
+
+  // Handle MM/DD/YYYY format only
+  const parts = normalizedDateStr.split('/');
   
   // Basic format validation
   if (parts.length !== 3) {
@@ -148,10 +157,10 @@ export const validateDateInput = (
     if (onError) onError(errorMessage);
     return { isValid: false, errorMessage };
   }
-  
+
   // Check format pattern matches MM/DD/YYYY
   const dateRegex = /^(0?[1-9]|1[0-2])\/(0?[1-9]|[12]\d|3[01])\/(\d{4})$/;
-  if (!dateRegex.test(dateStr)) {
+  if (!dateRegex.test(normalizedDateStr)) {
     const errorMessage = "Date must be in MM/DD/YYYY format";
     if (onError) onError(errorMessage);
     return { isValid: false, errorMessage };
@@ -159,8 +168,8 @@ export const validateDateInput = (
   
   const [month, day, year] = parts.map(p => parseInt(p, 10));
   
-  // Check year is valid
-  if (isNaN(year) || year < minYear || year > maxYear) {
+  // Check year is valid and exactly 4 digits
+  if (isNaN(year) || year < minYear || year > maxYear || parts[2].length !== 4) {
     const errorMessage = `Year must be between ${minYear} and ${maxYear}`;
     if (onError) onError(errorMessage);
     return { isValid: false, errorMessage };
@@ -187,8 +196,8 @@ export const validateDateInput = (
     return { isValid: false, errorMessage };
   }
   
-  // Date is valid, call the provided callback
-  onValid(dateStr);
+  // Date is valid, call the provided callback with MM/DD/YYYY format
+  onValid(normalizedDateStr);
   return { isValid: true };
 };
 

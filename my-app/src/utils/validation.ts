@@ -142,6 +142,9 @@ export const isValidDateFormat = (
   minYear = 1900, 
   maxYear = 2100
 ): boolean => {
+  // Check if empty
+  if (!dateString) return false;
+  
   // Check if the input matches MM/DD/YYYY pattern without any extra characters
   const dateRegex = /^(0[1-9]|1[0-2])\/(0[1-9]|[12]\d|3[01])\/(\d{4})$/;
   if (!dateRegex.test(dateString)) {
@@ -154,8 +157,8 @@ export const isValidDateFormat = (
   const day = parseInt(dayStr, 10);
   const year = parseInt(yearStr, 10);
 
-  // Check year is within valid range
-  if (year < minYear || year > maxYear) {
+  // Check year is within valid range and exactly 4 digits
+  if (year < minYear || year > maxYear || yearStr.length !== 4) {
     return false;
   }
 

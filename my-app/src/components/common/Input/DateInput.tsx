@@ -45,7 +45,7 @@ const DateInput: React.FC<DateInputProps> = ({
 
   // Handle input change and validate format
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const inputValue = e.target.value;
+    let inputValue = e.target.value;
     
     // Allow empty values if not required
     if (!inputValue) {
@@ -59,19 +59,51 @@ const DateInput: React.FC<DateInputProps> = ({
       setError('Only numbers and / are allowed');
       return;
     }
-      // For partial input during typing, be lenient
-    onChange(inputValue);
-    if (inputValue.length > 0 && inputValue.length < 10) {
+
+    // Enforce 4-digit year limit by checking parts
+    const parts = inputValue.split('/');
+    if (parts.length === 3 && parts[2] && parts[2].length > 4) {
+      // Truncate year to 4 digits
+      parts[2] = parts[2].slice(0, 4);
+      inputValue = parts.join('/');
+    }
+    
+    // Auto-add slashes as user types
+    let formattedValue = inputValue;
+    
+    // Remove any existing slashes for clean processing
+    const digitsOnly = inputValue.replace(/\D/g, '');
+    
+    if (digitsOnly.length >= 2) {
+      formattedValue = digitsOnly.slice(0, 2);
+      if (digitsOnly.length >= 4) {
+        formattedValue += '/' + digitsOnly.slice(2, 4);
+        if (digitsOnly.length >= 6) {
+          formattedValue += '/' + digitsOnly.slice(4, 8); // Limit year to 4 digits
+        }
+      } else if (digitsOnly.length > 2) {
+        formattedValue += '/' + digitsOnly.slice(2);
+      }
+    } else {
+      formattedValue = digitsOnly;
+    }
+    
+    // Update the input value
+    onChange(formattedValue);
+    
+    // For partial input during typing, be lenient with errors
+    if (formattedValue.length > 0 && formattedValue.length < 10) {
       setError('');
-    } else if (inputValue.length === 10) {
+    } else if (formattedValue.length === 10) {
       // If we have a complete date, validate it
-      if (isValidDateFormat(inputValue, minYear, maxYear)) {
+      if (isValidDateFormat(formattedValue, minYear, maxYear)) {
         setError('');
       } else {
         setError(`Invalid date. Format must be MM/DD/YYYY with year between ${minYear}-${maxYear}`);
       }
     }
   };
+
   // Validate on blur (when user tabs out of field)
   const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
     const inputValue = e.target.value;
@@ -104,34 +136,18 @@ const DateInput: React.FC<DateInputProps> = ({
         } else {
           setError(`Invalid date. Format must be MM/DD/YYYY with valid date`);
         }
+      } else {
+        setError('');
       }
     }
   };
 
-  // Ensure slashes are automatically added as user types
-  const handleKeyUp = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    const input = e.target as HTMLInputElement;
-    const value = input.value;
-    
-    // If the value already has slashes, don't mess with it
-    if (value.includes('/')) return;
-    
-    // Add slashes as the user types
-    if (value.length === 2) {
-      input.value = value + '/';
-      onChange(input.value);
-    } else if (value.length === 5) {
-      input.value = value + '/';
-      onChange(input.value);
-    }
-  };
   return (
     <Input
       label={label}
       value={value}
       onChange={handleChange}
       onBlur={handleBlur}
-      onKeyUp={handleKeyUp}
       placeholder={placeholder}
       error={!!error}
       errorMessage={error}

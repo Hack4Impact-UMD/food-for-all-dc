@@ -31,62 +31,92 @@ const DateField: React.FC<DateFieldProps> = ({
     if (setExternalError) {
       setExternalError(errorMessage);
     }
-  };  // Use the imported normalizeDate function
-  
+  };
+
+  // Convert MM/DD/YYYY to YYYY-MM-DD for HTML date input
+  const convertToHtmlDateFormat = (mmddyyyy: string): string => {
+    if (!mmddyyyy || mmddyyyy.length !== 10) return '';
+    
+    const [month, day, year] = mmddyyyy.split('/');
+    if (!month || !day || !year || year.length !== 4) return '';
+    
+    return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+  };
+
+  // Convert YYYY-MM-DD to MM/DD/YYYY
+  const convertFromHtmlDateFormat = (yyyymmdd: string): string => {
+    if (!yyyymmdd || yyyymmdd.length !== 10) return '';
+    
+    const [year, month, day] = yyyymmdd.split('-');
+    if (!year || !month || !day) return '';
+    
+    return `${month}/${day}/${year}`;
+  };
+
   // Check for placeholder text in input as user types
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let inputValue = e.target.value;
+    const htmlDateValue = e.target.value; // This is in YYYY-MM-DD format
     
-    // Check for placeholder text
-    if (/dd|mm|yy/i.test(inputValue)) {
-      setError("Please replace placeholders with actual values");
-      return;
-    }
-    
-    // Try to normalize the date format before validation
-    const normalizedValue = normalizeDate(inputValue);
-    if (normalizedValue !== inputValue) {
-      inputValue = normalizedValue;
-      // Update the input value for better user experience
-      e.target.value = normalizedValue;
-    }
-    
-    // Clear prior errors when user starts typing again
+    // Clear error when user starts typing
     if (error) setError(null);
     
+    if (!htmlDateValue) {
+      onChange('');
+      return;
+    }
+
+    // Convert HTML date format to MM/DD/YYYY format
+    const mmddyyyyValue = convertFromHtmlDateFormat(htmlDateValue);
+    
+    // Validate the converted date
     validateDateInput(
-      inputValue,
-      (dateStr) => onChange(dateStr),
-      // Light validation during typing, only show certain errors immediately
+      mmddyyyyValue,
+      (validatedDate) => onChange(validatedDate),
       (errorMsg) => {
-        // Only show critical errors during typing like invalid format
-        if (errorMsg.includes("placeholder") || 
-            errorMsg.includes("Year must be") || 
-            errorMsg.includes("complete date")) {
+        // Only show critical errors during typing
+        if (errorMsg.includes("Year must be") || 
+            errorMsg.includes("Invalid date")) {
           setError(errorMsg);
         }
       }
     );
   };
-  return (    <TextField
+
+  return (
+    <TextField
       label={label}
-      type="date"      value={value || ""}
+      type="date"
+      value={convertToHtmlDateFormat(value) || ""}
       className={error ? 'error' : ''}
       onChange={handleInputChange}
       onBlur={(e) => {
-        // Always validate on blur, even if empty (to show required error)
+        const htmlDateValue = e.target.value;
+        
+        if (!htmlDateValue && required) {
+          setError("Date is required");
+          return;
+        }
+        
+        if (!htmlDateValue && !required) {
+          setError(null);
+          return;
+        }
+
+        // Convert and validate on blur
+        const mmddyyyyValue = convertFromHtmlDateFormat(htmlDateValue);
+        
         validateDateInput(
-            e.target.value,
-            (validatedDate) => {
-              // We don't update the value on blur, only show validation errors
-              // This prevents unexpected input field changes when user tabs out
-            },
-            (errorMsg) => {
-              console.log("DateField validation error on blur:", errorMsg);
-              setError(errorMsg);
-            }
-        );      }}      
-      error={Boolean(error)}      
+          mmddyyyyValue,
+          (validatedDate) => {
+            // Date is valid, no need to change the value as it's already set
+            setError(null);
+          },
+          (errorMsg) => {
+            setError(errorMsg);
+          }
+        );
+      }}
+      error={Boolean(error)}
       helperText={error || " "}
       FormHelperTextProps={{ 
         className: 'form-error',
@@ -96,7 +126,8 @@ const DateField: React.FC<DateFieldProps> = ({
         } 
       }}
       fullWidth
-      margin="normal"      InputLabelProps={{ shrink: true }}
+      margin="normal"
+      InputLabelProps={{ shrink: true }}
       inputProps={{
         min: "1900-01-01", 
         max: "2100-12-31",
