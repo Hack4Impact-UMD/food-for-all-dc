@@ -1,0 +1,64 @@
+/* Override Material-UI radio button styles to match checkboxes */
+.MuiRadio-root:focus-visible,
+.MuiRadio-root.Mui-focusVisible {
+  outline: none !important;
+}
+
+.MuiRadio-root:focus-visible::after,
+.MuiRadio-root.Mui-focusVisible::after {
+  content: '' !important;
+  position: absolute !important;
+  top: -8px !important;
+  left: -8px !important;
+  right: -8px !important;
+  bottom: -8px !important;
+  border-radius: 50% !important;
+  background-color: rgba(37, 126, 104, 0.1) !important;
+  z-index: -1 !important;
+  pointer-events: none !important;
+}
+
+.MuiRadio-root {
+  position: relative !important;
+  color: var(--color-border-light) !important;
+}
+
+/* Checked state - ensure it matches checkbox color */
+.MuiRadio-root.Mui-checked {
+  color: #257E68 !important; /* Same green as checkboxes */
+}
+
+/* Focused state - ensure it matches checkbox focus color */
+.MuiRadio-root.Mui-focusVisible .MuiSvgIcon-root {
+  color: #257E68 !important; /* Same green as checkboxes */
+}
+
+/* Override any ripple effects */
+.MuiRadio-root .MuiTouchRipple-root {
+  color: rgba(37, 126, 104, 1) !important;
+}
+
+.MuiRadio-root .MuiTouchRipple-child {
+  background-color: rgba(37, 126, 104, 1) !important;
+}
+
+/* Force override of default focus styles */
+.MuiButtonBase-root.MuiRadio-root:focus {
+  outline: none !important;
+}
+
+/* Add hover state to match checkbox */
+.MuiRadio-root:hover {
+  background-color: rgba(37, 126, 104, 0.04) !important;
+}
+
+/* Override the form control label (the text next to the radio) */
+.MuiFormControlLabel-root:has(.MuiRadio-root.Mui-checked) .MuiFormControlLabel-label {
+  color: var(--color-text-primary);
+  font-weight: 500;
+}
+
+/* Make radio group spacing consistent */
+.MuiRadioGroup-root {
+  margin: 8px 0;
+}

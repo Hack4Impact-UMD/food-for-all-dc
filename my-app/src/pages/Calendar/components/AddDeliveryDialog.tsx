@@ -14,10 +14,13 @@ import {
   Box,
   Typography,
 } from "@mui/material";
+import { validateDateInput } from "../../../utils/dates";
 import { NewDelivery } from "../../../types/calendar-types";
 import { ClientProfile } from "../../../types/client-types";
 import CalendarMultiSelect from "./CalendarMultiSelect";
+import DateField from "./DateField";
 import { DayPilot } from "@daypilot/daypilot-lite-react";
+import { validateDeliveryDateRange } from "../../../utils/dateValidation";
 
 interface AddDeliveryDialogProps {
   open: boolean;
@@ -65,6 +68,21 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = ({
   });
 
   const [customDates, setCustomDates] = useState<Date[]>([]);
+  const [startDateError, setStartDateError] = useState<string>("");
+  const [endDateError, setEndDateError] = useState<string>("");
+
+  // Validate date range whenever delivery date or end date changes
+  useEffect(() => {
+    if (newDelivery.recurrence !== "None" && newDelivery.recurrence !== "Custom" && 
+        newDelivery.deliveryDate && newDelivery.repeatsEndDate) {
+      const validation = validateDeliveryDateRange(newDelivery.deliveryDate, newDelivery.repeatsEndDate);
+      setStartDateError(validation.startDateError || "");
+      setEndDateError(validation.endDateError || "");
+    } else {
+      setStartDateError("");
+      setEndDateError("");
+    }
+  }, [newDelivery.deliveryDate, newDelivery.repeatsEndDate, newDelivery.recurrence]);
 
   //update newDelivery with the correct date when the dialog is first opened
   useEffect(() => {
@@ -98,16 +116,29 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = ({
       });
     }
     setCustomDates([]);
+    setStartDateError("");
+    setEndDateError("");
     onClose();
   };
-
   const handleSubmit = () => {
+    // Validate dates before submission
+    if (newDelivery.recurrence !== "None" && newDelivery.recurrence !== "Custom" && 
+        newDelivery.deliveryDate && newDelivery.repeatsEndDate) {
+      const validation = validateDeliveryDateRange(newDelivery.deliveryDate, newDelivery.repeatsEndDate);
+      if (!validation.isValid) {
+        setStartDateError(validation.startDateError || "");
+        setEndDateError(validation.endDateError || "");
+        return;
+      }
+    }
+
     const deliveryToSubmit: Partial<NewDelivery> = { ...newDelivery };
     if (newDelivery.recurrence === "Custom") {
       deliveryToSubmit.customDates = customDates.map(date => date.toISOString().split("T")[0]);
       deliveryToSubmit.deliveryDate = customDates[0]?.toISOString().split("T")[0] || "";
       deliveryToSubmit.repeatsEndDate = undefined;
-    }    onAddDelivery(deliveryToSubmit as NewDelivery);
+    }
+    onAddDelivery(deliveryToSubmit as NewDelivery);
     setCustomDates([]);
     resetFormAndClose();
   };
@@ -200,15 +231,40 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = ({
                   clientName: "",
                 });
               } else {
+                // Helper function to convert YYYY-MM-DD to MM/DD/YYYY
+                const convertToMMDDYYYY = (dateStr: string): string => {
+                  if (!dateStr) return '';
+                  
+                  // If it's already in MM/DD/YYYY format, return as is
+                  if (dateStr.match(/^\d{2}\/\d{2}\/\d{4}$/)) {
+                    return dateStr;
+                  }
+                  
+                  // If it's in YYYY-MM-DD format, convert it
+                  if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                    const [year, month, day] = dateStr.split('-');
+                    return `${month}/${day}/${year}`;
+                  }
+                  
+                  return dateStr;
+                };
+  
+                // Calculate default end date (one month from today) in MM/DD/YYYY format
+                const defaultEndDate = (() => {
+                  const oneMonthFromNow = new Date();
+                  oneMonthFromNow.setMonth(oneMonthFromNow.getMonth() + 1);
+                  const month = (oneMonthFromNow.getMonth() + 1).toString().padStart(2, '0');
+                  const day = oneMonthFromNow.getDate().toString().padStart(2, '0');
+                  const year = oneMonthFromNow.getFullYear().toString();
+                  return `${month}/${day}/${year}`;
+                })();
+  
                 setNewDelivery({
                   ...newDelivery,
                   clientId: newValue.uid,
                   clientName: `${newValue.firstName} ${newValue.lastName}`,
                   recurrence: (newValue.recurrence as "None" | "Weekly" | "2x-Monthly" | "Monthly" | "Custom") || "Weekly",
-                  repeatsEndDate: newValue.endDate ||
-                    // Calculate a default end date (e.g. one month from today) if not provided
-                    new Date(new Date().setMonth(new Date().getMonth() + 1))
-                      .toISOString().split("T")[0],
+                  repeatsEndDate: newValue.endDate ? convertToMMDDYYYY(newValue.endDate) : defaultEndDate,
                 });
               }
             }}
@@ -251,13 +307,15 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = ({
         {newDelivery.recurrence !== "Custom" ? (
           <TextField
             label="Delivery Date"
-            type="date"
-            value={newDelivery.deliveryDate}
-            onChange={(e) => setNewDelivery({ ...newDelivery, deliveryDate: e.target.value })}
-            fullWidth
-            margin="normal"
-            InputLabelProps={{ shrink: true }}
+            value={newDelivery.deliveryDate || ""}
+            onChange={(e) => setNewDelivery({ 
+              ...newDelivery, 
+              deliveryDate: e.target.value,
+              _deliveryDateError: undefined 
+            })}
             required
+            error={Boolean(newDelivery._deliveryDateError)}
+            helperText={newDelivery._deliveryDateError}
           />
         ) : null}
 
@@ -289,22 +347,22 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = ({
           <CalendarMultiSelect selectedDates={customDates} setSelectedDates={setCustomDates} />
         ) : null}
 
-        {newDelivery.recurrence !== "None" && newDelivery.recurrence !== "Custom" ? (
-          <Box>
+        {newDelivery.recurrence !== "None" && newDelivery.recurrence !== "Custom" ? (          <Box>
             <Typography variant="subtitle1">End Date</Typography>
-            <TextField
+            <DateField
               label="End Date"
-              type="date"
-              value={newDelivery.repeatsEndDate}
-              onChange={(e) =>
-                setNewDelivery({
-                  ...newDelivery,
-                  repeatsEndDate: e.target.value,
-                })
-              }
-              fullWidth
-              margin="normal"
-              InputLabelProps={{ shrink: true }}
+              value={newDelivery.repeatsEndDate || ""}
+              onChange={(dateStr) => setNewDelivery({
+                ...newDelivery,
+                repeatsEndDate: dateStr,
+                _repeatsEndDateError: undefined,
+              })}
+              required={true}
+              error={newDelivery._repeatsEndDateError}
+              setError={(errorMsg) => setNewDelivery(prev => ({
+                ...prev,
+                _repeatsEndDateError: errorMsg || undefined
+              }))}
             />
           </Box>
         ) : null}
