@@ -23,6 +23,7 @@ export interface DeliveryEvent extends Delivery {
   seriesStartDate?: string; // The original start date of a recurring series
   isZoomingOut?: boolean;
   isZoomingIn?: boolean;
+  hidden?: boolean; // Add hidden property for chip visibility
 }
 
 export interface NewDelivery {

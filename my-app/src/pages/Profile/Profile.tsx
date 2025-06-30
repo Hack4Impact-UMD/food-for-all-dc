@@ -60,6 +60,7 @@ import { Add } from "@mui/icons-material";
 import AddDeliveryDialog from "../Calendar/components/AddDeliveryDialog";
 import { calculateRecurrenceDates } from "../Calendar/components/CalendarUtils";
 import { DayPilot } from "@daypilot/daypilot-lite-react";
+import { toJSDate } from '../../utils/timestamp';
 
 // Styling
 const fieldStyles = {
@@ -1922,7 +1923,10 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
 
           events
             .filter(event => event.clientId === newDelivery.clientId)
-            .map(event => new DayPilot.Date(event.deliveryDate).toString("yyyy-MM-dd"))
+            .map(event => {
+              const jsDate = toJSDate(event.deliveryDate);
+              return new DayPilot.Date(jsDate).toString("yyyy-MM-dd");
+            })
         );
   
         const uniqueRecurrenceDates = recurrenceDates.filter(date => 
