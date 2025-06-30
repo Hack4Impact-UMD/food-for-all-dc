@@ -85,6 +85,7 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
       const eventsRef = collection(db, "events");
       console.log("delete option")
       console.log(deleteOption)
+
       if (deleteOption === "This event") {
         // Delete only this event
         await deleteDoc(doc(eventsRef, event.id));
@@ -110,6 +111,7 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
         );
 
         const querySnapshot = await getDocs(q);
+
         const batch = querySnapshot.docs.map((doc) => deleteDoc(doc.ref));
         await Promise.all(batch);
       }
@@ -197,7 +199,13 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
     setIsEditDialogOpen(false);
   };
 
-  const isPastEvent = new Date(event.deliveryDate) < new Date();
+  // Only disable for events that are from previous days (not today)
+  const today = new Date();
+  today.setHours(0, 0, 0, 0); // Set to start of today
+  const eventDate = new Date(event.deliveryDate);
+  eventDate.setHours(0, 0, 0, 0); // Set to start of event day
+  eventDate.setDate(eventDate.getDate() + 1); // Include the whole day
+  const isPastEvent = eventDate < today;
 
   return (
     <>
