@@ -16,6 +16,7 @@ import { CalendarConfig, CalendarEvent, DateLimit, DeliveryEvent, Driver, NewDel
 import { ClientProfile } from "../../types/client-types";
 import { useLimits } from "./components/useLimits";
 import { DeliveryService, ClientService, DriverService } from "../../services";
+import { toJSDate, toDayPilotDateString } from '../../utils/timestamp';
 
 const DAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
 
@@ -261,7 +262,7 @@ const CalendarPage: React.FC = () => {
       // Deduplicate events based on clientId and deliveryDate
       const uniqueEventsMap = new Map<string, DeliveryEvent>();
       updatedEvents.forEach(event => {
-        const key = `${event.clientId}_${new DayPilot.Date(event.deliveryDate).toString("yyyy-MM-dd")}`;
+        const key = `${event.clientId}_${toDayPilotDateString(event.deliveryDate)}`;
         if (!uniqueEventsMap.has(key)) {
           uniqueEventsMap.set(key, event);
         }
@@ -271,17 +272,17 @@ const CalendarPage: React.FC = () => {
       setEvents(uniqueFilteredEvents);
 
       // Update calendar configuration with new events
-      const calendarEvents: CalendarEvent[] = uniqueFilteredEvents.map((event) => ({
+      const formattedEvents = Array.from(uniqueEventsMap.values()).map(event => ({
         id: event.id,
         text: `Client: ${event.clientName} (Driver: ${event.assignedDriverName})`,
-        start: new DayPilot.Date(event.deliveryDate),
-        end: new DayPilot.Date(event.deliveryDate),
+        start: new DayPilot.Date(toDayPilotDateString(event.deliveryDate)),
+        end: new DayPilot.Date(toDayPilotDateString(event.deliveryDate)),
         backColor: "#257E68",
       }));
 
       setCalendarConfig((prev) => ({
         ...prev,
-        events: calendarEvents,
+        events: formattedEvents,
         startDate: currentDate,
         durationBarVisible: false,
       }));
@@ -320,7 +321,10 @@ const CalendarPage: React.FC = () => {
       const existingEventDates = new Set(
         events
           .filter(event => event.clientId === newDelivery.clientId)
-          .map(event => new DayPilot.Date(event.deliveryDate).toString("yyyy-MM-dd"))
+          .map(event => {
+            const jsDate = toJSDate(event.deliveryDate);
+            return new DayPilot.Date(jsDate).toString("yyyy-MM-dd");
+          })
       );
 
       const uniqueRecurrenceDates = recurrenceDates.filter(date => 

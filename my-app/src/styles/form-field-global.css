@@ -198,3 +198,27 @@ input[type="date"].error {
 .input-wrapper {
   position: relative;
 }
+
+.uniform-input {
+  height: 56px !important;
+  min-height: 56px !important;
+  box-sizing: border-box !important;
+}
+
+.uniform-mui-input {
+  height: 56px !important;
+  min-height: 56px !important;
+  box-sizing: border-box !important;
+  display: flex !important;
+  align-items: center !important;
+}
+
+[data-testid="client-autocomplete-input"] ~ .MuiOutlinedInput-root,
+[data-testid="date-input"] ~ .MuiOutlinedInput-root,
+[data-testid="recurrence-select-input"] ~ .MuiOutlinedInput-root {
+  height: 56px !important;
+  min-height: 56px !important;
+  box-sizing: border-box !important;
+  display: flex !important;
+  align-items: center !important;
+}

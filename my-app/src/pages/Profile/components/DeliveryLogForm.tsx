@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Box, Typography, Chip, Stack, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Button } from "@mui/material";
 import { DeliveryEvent } from "../../../types";
 import DeliveryService from "../../../services/delivery-service";
+import { toJSDate } from '../../../utils/timestamp';
 
 // Ensure DeliveryLogProps is properly defined
 interface DeliveryEventWithHidden extends DeliveryEvent {
@@ -40,9 +41,17 @@ const DeliveryLogForm: React.FC<DeliveryLogProps> = ({
         return `${month}/${day}/${year}`;
     };
 
+    const sortDeliveryDates = (deliveries: DeliveryEvent[]) => {
+        return [...deliveries].sort((a, b) => {
+            const dateA = toJSDate(a.deliveryDate).getTime();
+            const dateB = toJSDate(b.deliveryDate).getTime();
+            return dateA - dateB;
+        });
+    };
+
     // Sort the delivery dates before rendering the Chips
-    const sortedFutureDeliveries = [...futureDeliveriesState].sort((a, b) => new Date(a.deliveryDate).getTime() - new Date(b.deliveryDate).getTime());
-    const sortedPastDeliveries = [...pastDeliveries].sort((a, b) => new Date(a.deliveryDate).getTime() - new Date(b.deliveryDate).getTime());
+    const sortedFutureDeliveries = sortDeliveryDates(futureDeliveriesState);
+    const sortedPastDeliveries = sortDeliveryDates(pastDeliveries);
 
     const handleDeleteClick = (delivery: DeliveryEvent) => {
         setSelectedDelivery(delivery);
@@ -59,9 +68,9 @@ const DeliveryLogForm: React.FC<DeliveryLogProps> = ({
             const now = new Date();
             const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
-            const futureDeliveries = allEvents.filter((event) => event.deliveryDate >= today)
-                .sort((a, b) => new Date(a.deliveryDate).getTime() - new Date(b.deliveryDate).getTime())
-                .slice(0, 5); // Ensure only the next 5 future deliveries are included
+            const futureDeliveries = sortDeliveryDates(
+                allEvents.filter((event) => toJSDate(event.deliveryDate) >= today)
+            ).slice(0, 5); // Ensure only the next 5 future deliveries are included
 
             const currentIds = futureDeliveriesState.map((delivery) => delivery.id);
             const newDeliveries = futureDeliveries.filter((delivery) => !currentIds.includes(delivery.id));
@@ -119,9 +128,9 @@ const DeliveryLogForm: React.FC<DeliveryLogProps> = ({
                     const now = new Date();
                     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
-                    const futureDeliveries = allEvents.filter((event) => event.deliveryDate >= today)
-                        .sort((a, b) => new Date(a.deliveryDate).getTime() - new Date(b.deliveryDate).getTime())
-                        .slice(0, 5); // Ensure only the next 5 future deliveries are included
+                    const futureDeliveries = sortDeliveryDates(
+                        allEvents.filter((event) => toJSDate(event.deliveryDate) >= today)
+                    ).slice(0, 5); // Ensure only the next 5 future deliveries are included
 
                     // Fix race condition: use currentIds (captured before any changes) to determine new deliveries
                     // Filter out the deleted delivery ID from currentIds for accurate comparison
@@ -165,35 +174,12 @@ const DeliveryLogForm: React.FC<DeliveryLogProps> = ({
         setSelectedDelivery(null);
     };
 
-    // Apply transition styles to Chips
-    const chipStyle = (deliveryId: string, hidden = false) => {
-        if (hidden) {
-            return {
-                opacity: 0,
-                transform: "scale(0.8)", // Slightly shrink before disappearing
-                transition: "opacity 0.5s ease, transform 0.3s ease", // Smooth transition
-            };
-        }
-        if (deletingChipId === deliveryId) {
-            return {
-                transform: "scale(0.8)", // Shrink slightly before disappearing
-                opacity: 0, // Fade out
-                transition: "opacity 0.75s ease, transform 0.5s ease", // Smooth fade-out
-            };
-        }
-        if (zoomingInChipId === deliveryId) {
-            return {
-                transform: "scale(1)",
-                opacity: 1,
-                transition: "transform 0.5s ease-in-out, opacity 0.5s ease-in-out", // Smooth zoom-in
-            };
-        }
-        return {
-            opacity: 1,
-            transform: "scale(1)",
-            transition: "opacity 0.3s ease, transform 0.3s ease", // Default smooth transition
-        };
-    };
+    // Update the chipStyle function to handle optional hidden property
+    const chipStyle = (id: string, hidden?: boolean) => ({
+        opacity: hidden ? 0.5 : 1,
+        transform: "scale(1)",
+        transition: "opacity 0.3s ease, transform 0.3s ease", // Default smooth transition
+    });
 
     useEffect(() => {
         setFutureDeliveries(futureDeliveries);
@@ -244,12 +230,12 @@ const DeliveryLogForm: React.FC<DeliveryLogProps> = ({
                             sortedFutureDeliveries.map((delivery, index) => (
                                 <Chip
                                     key={delivery.id}
-                                    label={formatDate(delivery.deliveryDate)}
+                                    label={formatDate(toJSDate(delivery.deliveryDate))}
                                     variant="outlined"
                                     color="primary"
                                     onClick={() => console.log('Chip clicked:', delivery)}
                                     onDelete={() => handleDeleteClick(delivery)}
-                                    sx={chipStyle(delivery.id, delivery.hidden)}
+                                    sx={chipStyle(delivery.id, delivery.hidden || false)}
                                 />
                             ))
                         ) : (
@@ -268,7 +254,7 @@ const DeliveryLogForm: React.FC<DeliveryLogProps> = ({
                             sortedPastDeliveries.map((delivery, index) => (
                                 <Chip
                                     key={delivery.id}
-                                    label={formatDate(delivery.deliveryDate)}
+                                    label={formatDate(toJSDate(delivery.deliveryDate))}
                                     variant="outlined"
                                     color="secondary"
                                     clickable={false} // Ensure past Chips are not clickable

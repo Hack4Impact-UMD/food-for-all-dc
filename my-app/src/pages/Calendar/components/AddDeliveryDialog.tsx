@@ -14,6 +14,7 @@ import {
   Box,
   Typography,
 } from "@mui/material";
+import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 import { validateDateInput } from "../../../utils/dates";
 import { NewDelivery } from "../../../types/calendar-types";
 import { ClientProfile } from "../../../types/client-types";
@@ -180,169 +181,236 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = ({
   return (
     <Dialog open={open} onClose={resetFormAndClose} maxWidth="sm" fullWidth>
       <DialogTitle>Add Delivery</DialogTitle>
-      <DialogContent sx={{ maxHeight: '70vh', overflowY: 'auto' }}>
-        {/* Conditionally render client selection only if no pre-selected client */}
-        {!preSelectedClient && (
-          <Autocomplete
-            options={uniqueClients}
-            getOptionLabel={getDisplayLabel}
-            getOptionKey={(option) => option.uid}
-            filterOptions={filterOptions}
-            value={newDelivery.clientId ? uniqueClients.find(c => c.uid === newDelivery.clientId) || null : null}
-            renderOption={(props, option) => {
-              const { key, ...otherProps } = props;
-              return (
-                <Box 
-                  component="li" 
-                  key={key} 
-                  {...otherProps} 
-                  sx={{ 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    padding: '8px 16px',
-                    width: '100%'
-                  }}
-                >
-                  <Typography variant="body1" sx={{ flexShrink: 0 }}>
-                    {getDisplayLabel(option)}
-                  </Typography>
-                  <Typography 
-                    variant="body2" 
-                    color="text.secondary" 
+      <DialogContent sx={{ maxHeight: '70vh', overflowY: 'auto', overflowX: 'hidden' }}>
+        {/* Unified layout for all fields */}
+        <Box display="flex" flexDirection="column" gap={2}>
+          {/* Conditionally render client selection only if no pre-selected client */}
+          {!preSelectedClient && (
+            <Autocomplete
+              fullWidth
+              disableClearable
+              options={uniqueClients}
+              getOptionLabel={getDisplayLabel}
+              getOptionKey={(option) => option.uid}
+              filterOptions={filterOptions}
+              value={newDelivery.clientId ? uniqueClients.find(c => c.uid === newDelivery.clientId) : undefined}
+              sx={{
+                width: 'calc(100% + 38px)',
+                maxWidth: 'calc(100% + 38px)',
+                '.MuiInputBase-root': { width: '100%' },
+                '.MuiOutlinedInput-root': {
+                  width: '100%',
+                  height: '56px',
+                  minHeight: '56px',
+                  boxSizing: 'border-box',
+                },
+                '.MuiOutlinedInput-input': {
+                  height: '56px',
+                  minHeight: '56px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  boxSizing: 'border-box',
+                },
+              }}
+              componentsProps={{
+                popupIndicator: {
+                  style: {
+                    position: 'absolute',
+                    right: 14,
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    pointerEvents: 'none',
+                  }
+                }
+              }}
+              disablePortal={false}
+              renderOption={(props, option) => {
+                const { key, ...otherProps } = props;
+                return (
+                  <Box 
+                    component="li" 
+                    key={key} 
+                    {...otherProps} 
                     sx={{ 
-                      fontStyle: 'italic',
-                      marginLeft: 'auto',
-                      paddingLeft: '16px',
-                      minWidth: 0,
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis'
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      padding: '8px 16px',
+                      width: '100%'
                     }}
                   >
-                    {option.address || 'No address'}
-                  </Typography>
-                </Box>
-              );
-            }}
-            onChange={(event, newValue) => {
-              if (!newValue) {
-                setNewDelivery({
-                  ...newDelivery,
-                  clientId: "",
-                  clientName: "",
-                });
-              } else {
-                // Helper function to convert YYYY-MM-DD to MM/DD/YYYY
-                const convertToMMDDYYYY = (dateStr: string): string => {
-                  if (!dateStr) return '';
-                  
-                  // If it's already in MM/DD/YYYY format, return as is
-                  if (dateStr.match(/^\d{2}\/\d{2}\/\d{4}$/)) {
+                    <Typography variant="body1" sx={{ flexShrink: 0 }}>
+                      {getDisplayLabel(option)}
+                    </Typography>
+                    <Typography 
+                      variant="body2" 
+                      color="text.secondary" 
+                      sx={{ 
+                        fontStyle: 'italic',
+                        marginLeft: 'auto',
+                        paddingLeft: '16px',
+                        minWidth: 0,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis'
+                      }}
+                    >
+                      {option.address || 'No address'}
+                    </Typography>
+                  </Box>
+                );
+              }}
+              onChange={(event, newValue) => {
+                if (!newValue) {
+                  setNewDelivery({
+                    ...newDelivery,
+                    clientId: "",
+                    clientName: "",
+                  });
+                } else {
+                  // Helper function to convert YYYY-MM-DD to MM/DD/YYYY
+                  const convertToMMDDYYYY = (dateStr: string): string => {
+                    if (!dateStr) return '';
+                    if (dateStr.match(/^\d{2}\/\d{2}\/\d{4}$/)) {
+                      return dateStr;
+                    }
+                    if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                      const [year, month, day] = dateStr.split('-');
+                      return `${month}/${day}/${year}`;
+                    }
                     return dateStr;
-                  }
-                  
-                  // If it's in YYYY-MM-DD format, convert it
-                  if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
-                    const [year, month, day] = dateStr.split('-');
+                  };
+                  const defaultEndDate = (() => {
+                    const oneMonthFromNow = new Date();
+                    oneMonthFromNow.setMonth(oneMonthFromNow.getMonth() + 1);
+                    const month = (oneMonthFromNow.getMonth() + 1).toString().padStart(2, '0');
+                    const day = oneMonthFromNow.getDate().toString().padStart(2, '0');
+                    const year = oneMonthFromNow.getFullYear().toString();
                     return `${month}/${day}/${year}`;
-                  }
-                  
-                  return dateStr;
-                };
-  
-                // Calculate default end date (one month from today) in MM/DD/YYYY format
-                const defaultEndDate = (() => {
-                  const oneMonthFromNow = new Date();
-                  oneMonthFromNow.setMonth(oneMonthFromNow.getMonth() + 1);
-                  const month = (oneMonthFromNow.getMonth() + 1).toString().padStart(2, '0');
-                  const day = oneMonthFromNow.getDate().toString().padStart(2, '0');
-                  const year = oneMonthFromNow.getFullYear().toString();
-                  return `${month}/${day}/${year}`;
-                })();
-  
+                  })();
+                  setNewDelivery({
+                    ...newDelivery,
+                    clientId: newValue.uid,
+                    clientName: `${newValue.firstName} ${newValue.lastName}`,
+                    recurrence: (newValue.recurrence as "None" | "Weekly" | "2x-Monthly" | "Monthly" | "Custom") || "Weekly",
+                    repeatsEndDate: newValue.endDate ? convertToMMDDYYYY(newValue.endDate) : defaultEndDate,
+                  });
+                }
+              }}
+              popupIcon={
+                <ArrowDropDownIcon sx={{
+                  position: 'absolute',
+                  right: '14px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  pointerEvents: 'none',
+                  color: 'action.active',
+                  fontSize: 28,
+                }} />
+              }
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Client"
+                  margin="normal"
+                  fullWidth
+                  variant="outlined"
+                  size="medium"
+                  InputLabelProps={{ shrink: true }}
+                  sx={{
+                    width: '100%',
+                    '.MuiInputBase-root': { width: '100%' },
+                    '.MuiOutlinedInput-root': {
+                      width: '100%',
+                      height: '56px',
+                      minHeight: '56px',
+                      boxSizing: 'border-box',
+                    },
+                    '.MuiOutlinedInput-input': {
+                      height: '56px',
+                      minHeight: '56px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      boxSizing: 'border-box',
+                    },
+                  }}
+                />
+              )}
+            />
+          )}
+
+          {/* Show selected client info if pre-selected */}
+          {preSelectedClient && (
+            <Box sx={{ mb: 2, p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
+              <Typography variant="body2" color="text.secondary">
+                Adding delivery for:
+              </Typography>
+              <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                {preSelectedClient.clientName}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                {preSelectedClient.clientProfile.address || 'No address'}
+              </Typography>
+            </Box>
+          )}
+
+          {newDelivery.recurrence !== "Custom" ? (
+            <TextField
+              label="Delivery Date"
+              type="date"
+              value={newDelivery.deliveryDate || ""}
+              onChange={(e) => setNewDelivery({ 
+                ...newDelivery, 
+                deliveryDate: e.target.value,
+                _deliveryDateError: undefined 
+              })}
+              margin="normal"
+              fullWidth
+              required
+              InputLabelProps={{ shrink: true }}
+              error={Boolean(newDelivery._deliveryDateError)}
+              helperText={newDelivery._deliveryDateError}
+              inputProps={{ 'data-testid': 'date-input' }}
+              sx={{
+                '.MuiOutlinedInput-root': {
+                  '& input[type="date"]::-webkit-calendar-picker-indicator': {
+                    position: 'absolute',
+                    right: '14px',
+                    cursor: 'pointer',
+                  },
+                },
+                '.MuiOutlinedInput-input': {
+                  display: 'flex',
+                  alignItems: 'center',
+                  paddingRight: '40px',
+                },
+              }}
+            />
+          ) : null}
+
+          <FormControl fullWidth variant="outlined" margin="normal">
+            <InputLabel id="recurrence-label">Recurrence</InputLabel>
+            <Select
+              label="Recurrence"
+              labelId="recurrence-label"
+              value={newDelivery.recurrence}
+              onChange={(e) => {
+                const value = e.target.value as NewDelivery['recurrence'];
                 setNewDelivery({
                   ...newDelivery,
-                  clientId: newValue.uid,
-                  clientName: `${newValue.firstName} ${newValue.lastName}`,
-                  recurrence: (newValue.recurrence as "None" | "Weekly" | "2x-Monthly" | "Monthly" | "Custom") || "Weekly",
-                  repeatsEndDate: newValue.endDate ? convertToMMDDYYYY(newValue.endDate) : defaultEndDate,
+                  recurrence: value,
+                  ...(value !== "Custom" ? { customDates: undefined } : {}),
                 });
-              }
-            }}
-            renderInput={(params) => (
-              <TextField
-                {...params}
-                label="Client"
-                margin="normal"
-                fullWidth
-                required
-                sx={{
-                  '.MuiOutlinedInput-root': {
-                    height: '56px',
-                  },
-                  '.MuiOutlinedInput-input': {
-                    display: 'flex',
-                    alignItems: 'center',
-                  },
-                }}
-              />
-            )}
-          />
-        )}
-
-        {/* Show selected client info if pre-selected */}
-        {preSelectedClient && (
-          <Box sx={{ mb: 2, p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
-            <Typography variant="body2" color="text.secondary">
-              Adding delivery for:
-            </Typography>
-            <Typography variant="h6" sx={{ fontWeight: 600 }}>
-              {preSelectedClient.clientName}
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              {preSelectedClient.clientProfile.address || 'No address'}
-            </Typography>
-          </Box>
-        )}
-
-        {newDelivery.recurrence !== "Custom" ? (
-          <TextField
-            label="Delivery Date"
-            value={newDelivery.deliveryDate || ""}
-            onChange={(e) => setNewDelivery({ 
-              ...newDelivery, 
-              deliveryDate: e.target.value,
-              _deliveryDateError: undefined 
-            })}
-            required
-            error={Boolean(newDelivery._deliveryDateError)}
-            helperText={newDelivery._deliveryDateError}
-          />
-        ) : null}
-
-        <FormControl fullWidth variant="outlined" margin="normal">
-          <InputLabel id="recurrence-label">Recurrence</InputLabel>
-          <Select
-            label="Recurrence"
-            labelId="recurrence-label"
-            value={newDelivery.recurrence}
-            onChange={(e) => {
-              const value = e.target.value as NewDelivery['recurrence'];
-              setNewDelivery({
-                ...newDelivery,
-                recurrence: value,
-                ...(value !== "Custom" ? { customDates: undefined } : {}),
-              });
-              if (value !== "Custom") setCustomDates([]);
-            }}
-          >
-            <MenuItem value="None">None</MenuItem>
-            <MenuItem value="Weekly">Weekly</MenuItem>
-            <MenuItem value="2x-Monthly">2x-Monthly</MenuItem>
-            <MenuItem value="Monthly">Monthly</MenuItem>
-            <MenuItem value="Custom">Custom (Select Dates)</MenuItem>
-          </Select>
-        </FormControl>
-
+                if (value !== "Custom") setCustomDates([]);
+              }}
+              inputProps={{ 'data-testid': 'recurrence-select-input' }}
+            >
+              <MenuItem value="None">None</MenuItem>
+              <MenuItem value="Weekly">Weekly</MenuItem>
+              <MenuItem value="2x-Monthly">2x-Monthly</MenuItem>
+              <MenuItem value="Monthly">Monthly</MenuItem>
+              <MenuItem value="Custom">Custom (Select Dates)</MenuItem>
+            </Select>
+          </FormControl>
+        </Box>
         {newDelivery.recurrence === "Custom" ? (
           <CalendarMultiSelect selectedDates={customDates} setSelectedDates={setCustomDates} />
         ) : null}
