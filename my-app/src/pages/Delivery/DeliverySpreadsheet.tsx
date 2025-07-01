@@ -59,6 +59,7 @@ import ClientService from "../../services/client-service";
 import { LatLngTuple } from "leaflet";
 import { UserType } from "../../types";
 import { useAuth } from "../../auth/AuthProvider";
+import EventCountHeader from "../../components/EventCountHeader";
 // interface Driver {
 //   id: string;
 //   name: string;
@@ -1486,7 +1487,7 @@ const DeliverySpreadsheet: React.FC = () => {
           </Box>
         </Box>
       </Box>
-
+      <EventCountHeader events = {rows}/>
       <Box
         sx={{
           flex: 1,
