@@ -1,8 +1,9 @@
 import React from "react";
 import { Box, Typography } from "@mui/material";
 import LocalShippingIcon from "@mui/icons-material/LocalShipping";
+import { Delivery } from "../types";
 interface DeliveryCountHeaderProps {
-    events: any[]
+    events: Delivery[]
 }
 export default function DeliveryCountHeader({events}: DeliveryCountHeaderProps) {
     return (
