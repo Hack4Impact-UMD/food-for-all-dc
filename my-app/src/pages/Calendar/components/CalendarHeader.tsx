@@ -121,11 +121,18 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
           />
         </IconButton>
 
-        <Typography variant="h4" sx={{ marginRight: 2, color: "#787777" }}>
+        <Typography
+          variant="h4"
+          sx={{
+            marginRight: 2,
+            color: "#787777",
+            width: "425px",
+            textAlign: "center"
+          }}
+        >
           {viewType === "Day" && currentDate.toString("dddd - MMMM, dd/yyyy")}
           {viewType === "Month" && currentDate.toString("MMMM yyyy")}
         </Typography>
-       
        
         <IconButton onClick={onNavigateNext} size="large" sx={{ color: "#257E68" }}>
           <Box
