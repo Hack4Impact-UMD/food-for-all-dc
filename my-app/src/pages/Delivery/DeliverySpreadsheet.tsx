@@ -6,6 +6,8 @@ import { query, Timestamp, updateDoc, where } from "firebase/firestore";
 import { format, addDays } from "date-fns";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
 import AddIcon from "@mui/icons-material/Add";
+import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
+import ArrowDropUpIcon from "@mui/icons-material/ArrowDropUp";
 import DeleteIcon from "@mui/icons-material/Delete";
 import AssignmentIndIcon from "@mui/icons-material/AssignmentInd";
 import AccessTimeIcon from "@mui/icons-material/AccessTime";
@@ -13,6 +15,7 @@ import FileDownloadIcon from "@mui/icons-material/FileDownload";
 import GroupWorkIcon from "@mui/icons-material/GroupWork";
 import PersonAddIcon from "@mui/icons-material/PersonAdd";
 import TodayIcon from "@mui/icons-material/Today";
+import UnfoldMoreIcon from "@mui/icons-material/UnfoldMore";
 
 import "./DeliverySpreadsheet.css";
 import "leaflet/dist/leaflet.css";
@@ -291,8 +294,13 @@ const DeliverySpreadsheet: React.FC = () => {
   const [deliveriesForDate, setDeliveriesForDate] = useState<DeliveryEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [clusterDoc, setClusterDoc] = useState<ClusterDoc | null>();
-  const navigate = useNavigate();
-    const [editingRowId, setEditingRowId] = useState<string | null>(null);
+  const navigate = useNavigate();  const [editingRowId, setEditingRowId] = useState<string | null>(null);
+  
+  // Sorting state - default to sorting by fullname (Client) in ascending order
+  const [sortedColumn, setSortedColumn] = useState<string>("fullname");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
+  const [sortTimestamp, setSortTimestamp] = useState<number>(Date.now());
+
   const {
     customColumns,
     handleAddCustomColumn,
@@ -300,7 +308,6 @@ const DeliverySpreadsheet: React.FC = () => {
     handleRemoveCustomColumn,
     handleCustomColumnChange,
   } = useCustomColumns({page: 'DeliverySpreadsheet'});
-  const [customRows, setCustomRows] = useState<CustomRowData[]>([])
 
 
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
@@ -524,6 +531,13 @@ const DeliverySpreadsheet: React.FC = () => {
   useEffect(() => {
     setInnerPopup(popupMode !== "");
   }, [popupMode]);
+
+
+
+  // Helper function to determine if a field is a regular (non-computed) field
+  const isRegularField = (field: Field): field is Extract<Field, { compute?: never }> => {
+    return !field.compute;
+  };
 
   const fetchClustersFromToday = async (dateForFetch: Date) => {
     try {
@@ -1221,6 +1235,218 @@ const DeliverySpreadsheet: React.FC = () => {
     }
   });
 
+  // Create sorted version of visible rows - supports fullname, clusterIdChange, tags, address, ward, assignedDriver, assignedTime, deliveryInstructions, and custom columns sorting
+  const sortedRows = useMemo(() => {
+    const sorted = [...visibleRows].sort((a, b) => {
+      if (sortedColumn === "fullname") {
+        // For fullname field, sort by lastname, firstname format
+        const fullnameA = `${a.lastName}, ${a.firstName}`.toLowerCase();
+        const fullnameB = `${b.lastName}, ${b.firstName}`.toLowerCase();
+
+        // Handle empty values - empty strings sort first in ascending, last in descending
+        if (!fullnameA && !fullnameB) return 0;
+        if (!fullnameA) return sortOrder === "asc" ? -1 : 1;
+        if (!fullnameB) return sortOrder === "asc" ? 1 : -1;
+
+        const result = sortOrder === "asc"
+          ? fullnameA.localeCompare(fullnameB, undefined, { sensitivity: 'base' })
+          : fullnameB.localeCompare(fullnameA, undefined, { sensitivity: 'base' });
+
+        return result;
+      } else if (sortedColumn === "clusterIdChange") {
+        // For clusterId field, sort by the current clusterId value (dropdown selection)
+        const clusterIdA = a.clusterId || "";
+        const clusterIdB = b.clusterId || "";
+
+        // Handle empty values - empty strings (unassigned) sort first in ascending, last in descending
+        if (!clusterIdA && !clusterIdB) return 0;
+        if (!clusterIdA) return sortOrder === "asc" ? -1 : 1;
+        if (!clusterIdB) return sortOrder === "asc" ? 1 : -1;
+
+        // Parse as numbers for proper numeric sorting
+        const numA = parseInt(clusterIdA, 10);
+        const numB = parseInt(clusterIdB, 10);
+
+        // If both are valid numbers, sort numerically
+        if (!isNaN(numA) && !isNaN(numB)) {
+          const result = sortOrder === "asc" ? numA - numB : numB - numA;
+          return result;
+        }
+
+        // If one or both are not numbers, fall back to string comparison
+        return sortOrder === "asc"
+          ? clusterIdA.localeCompare(clusterIdB, undefined, { sensitivity: 'base' })
+          : clusterIdB.localeCompare(clusterIdA, undefined, { sensitivity: 'base' });
+      } else if (sortedColumn === "tags") {
+        // For tags field, sort by presence of tags
+        const hasTagsA = a.tags && Array.isArray(a.tags) && a.tags.length > 0;
+        const hasTagsB = b.tags && Array.isArray(b.tags) && b.tags.length > 0;
+
+        // If both have tags or both don't have tags, maintain original order
+        if (hasTagsA === hasTagsB) return 0;
+
+        // Sort by presence: with tags first in ascending, without tags first in descending
+        if (sortOrder === "asc") {
+          return hasTagsA ? -1 : 1; // hasTagsA comes first
+        } else {
+          return hasTagsA ? 1 : -1; // !hasTagsA (no tags) comes first
+        }
+      } else if (sortedColumn === "address") {
+        // For address field, sort alphabetically (A-Z/Z-A)
+        const addressA = (a.address || "").toLowerCase();
+        const addressB = (b.address || "").toLowerCase();
+
+        // Handle empty values - empty strings sort first in ascending, last in descending
+        if (!addressA && !addressB) return 0;
+        if (!addressA) return sortOrder === "asc" ? -1 : 1;
+        if (!addressB) return sortOrder === "asc" ? 1 : -1;
+
+        return sortOrder === "asc"
+          ? addressA.localeCompare(addressB, undefined, { sensitivity: 'base' })
+          : addressB.localeCompare(addressA, undefined, { sensitivity: 'base' });
+      } else if (sortedColumn === "ward") {
+        // For ward field, sort alphabetically (A-Z/Z-A)
+        const wardA = (a.ward || "").toLowerCase();
+        const wardB = (b.ward || "").toLowerCase();
+
+        // Handle empty values - empty strings sort first in ascending, last in descending
+        if (!wardA && !wardB) return 0;
+        if (!wardA) return sortOrder === "asc" ? -1 : 1;
+        if (!wardB) return sortOrder === "asc" ? 1 : -1;
+
+        return sortOrder === "asc"
+          ? wardA.localeCompare(wardB, undefined, { sensitivity: 'base' })
+          : wardB.localeCompare(wardA, undefined, { sensitivity: 'base' });
+      } else if (sortedColumn === "assignedDriver") {
+        // For assignedDriver field, sort by driver name alphabetically
+        // Use the compute function to get the driver name
+        let driverA = "";
+        let driverB = "";
+        
+        clusters.forEach((cluster) => {
+          if (cluster.deliveries?.some((id) => id === a.id)) {
+            driverA = cluster.driver || "";
+          }
+          if (cluster.deliveries?.some((id) => id === b.id)) {
+            driverB = cluster.driver || "";
+          }
+        });
+
+        driverA = driverA.toLowerCase();
+        driverB = driverB.toLowerCase();
+
+        // Handle empty values - empty strings (no driver assigned) sort first in ascending, last in descending
+        if (!driverA && !driverB) return 0;
+        if (!driverA) return sortOrder === "asc" ? -1 : 1;
+        if (!driverB) return sortOrder === "asc" ? 1 : -1;
+
+        return sortOrder === "asc"
+          ? driverA.localeCompare(driverB, undefined, { sensitivity: 'base' })
+          : driverB.localeCompare(driverA, undefined, { sensitivity: 'base' });
+      } else if (sortedColumn === "assignedTime") {
+        // For assignedTime field, sort by time in chronological order (AM before PM)
+        // Use the compute function to get the time string
+        let timeA = "";
+        let timeB = "";
+        
+        clusters.forEach((cluster) => {
+          if (cluster.deliveries?.some((id) => id === a.id)) {
+            timeA = cluster.time || "";
+          }
+          if (cluster.deliveries?.some((id) => id === b.id)) {
+            timeB = cluster.time || "";
+          }
+        });
+
+        // Handle empty values - empty strings (no time assigned) sort first in ascending, last in descending
+        if (!timeA && !timeB) return 0;
+        if (!timeA) return sortOrder === "asc" ? -1 : 1;
+        if (!timeB) return sortOrder === "asc" ? 1 : -1;
+
+        // Convert time strings to comparable format (24-hour for proper chronological sorting)
+        const parseTime = (timeStr: string): number => {
+          if (!timeStr) return 0;
+          const [hours, minutes] = timeStr.split(":");
+          return parseInt(hours, 10) * 60 + parseInt(minutes, 10);
+        };
+
+        const timeValueA = parseTime(timeA);
+        const timeValueB = parseTime(timeB);
+
+        return sortOrder === "asc" ? timeValueA - timeValueB : timeValueB - timeValueA;
+      } else if (sortedColumn === "deliveryDetails.deliveryInstructions") {
+        // For delivery instructions field, sort alphabetically with special handling for empty instructions
+        const instructionsA = (a.deliveryDetails?.deliveryInstructions || "").toLowerCase().trim();
+        const instructionsB = (b.deliveryDetails?.deliveryInstructions || "").toLowerCase().trim();
+
+        // Handle empty values - empty instructions sort first in ascending, last in descending
+        if (!instructionsA && !instructionsB) return 0;
+        if (!instructionsA) return sortOrder === "asc" ? -1 : 1;
+        if (!instructionsB) return sortOrder === "asc" ? 1 : -1;
+
+        return sortOrder === "asc"
+          ? instructionsA.localeCompare(instructionsB, undefined, { sensitivity: 'base' })
+          : instructionsB.localeCompare(instructionsA, undefined, { sensitivity: 'base' });
+      } else {
+        // Handle custom column sorting
+        const customColumn = customColumns.find(col => col.propertyKey === sortedColumn);
+        if (customColumn && customColumn.propertyKey !== "none") {
+          let valueA = "";
+          let valueB = "";
+
+          // Get values for custom column
+          if (customColumn.propertyKey === 'referralEntity' && typeof a.referralEntity === 'object' && a.referralEntity !== null) {
+            valueA = `${a.referralEntity.name ?? ''}, ${a.referralEntity.organization ?? ''}`.toLowerCase();
+          } else if (customColumn.propertyKey.includes('deliveryInstructions')) {
+            valueA = (a.deliveryDetails?.deliveryInstructions || "").toLowerCase().trim();
+          } else {
+            const rawValueA = a[customColumn.propertyKey as keyof DeliveryRowData];
+            if (typeof rawValueA === 'object' && rawValueA !== null) {
+              if (rawValueA.name || rawValueA.organization) {
+                valueA = `${rawValueA.name || ""} ${rawValueA.organization || ""}`.trim().toLowerCase();
+              } else {
+                valueA = JSON.stringify(rawValueA).toLowerCase();
+              }
+            } else {
+              valueA = String(rawValueA || "").toLowerCase();
+            }
+          }
+
+          if (customColumn.propertyKey === 'referralEntity' && typeof b.referralEntity === 'object' && b.referralEntity !== null) {
+            valueB = `${b.referralEntity.name ?? ''}, ${b.referralEntity.organization ?? ''}`.toLowerCase();
+          } else if (customColumn.propertyKey.includes('deliveryInstructions')) {
+            valueB = (b.deliveryDetails?.deliveryInstructions || "").toLowerCase().trim();
+          } else {
+            const rawValueB = b[customColumn.propertyKey as keyof DeliveryRowData];
+            if (typeof rawValueB === 'object' && rawValueB !== null) {
+              if (rawValueB.name || rawValueB.organization) {
+                valueB = `${rawValueB.name || ""} ${rawValueB.organization || ""}`.trim().toLowerCase();
+              } else {
+                valueB = JSON.stringify(rawValueB).toLowerCase();
+              }
+            } else {
+              valueB = String(rawValueB || "").toLowerCase();
+            }
+          }
+
+          // Handle empty values - empty strings sort first in ascending, last in descending
+          if (!valueA && !valueB) return 0;
+          if (!valueA) return sortOrder === "asc" ? -1 : 1;
+          if (!valueB) return sortOrder === "asc" ? 1 : -1;
+
+          return sortOrder === "asc"
+            ? valueA.localeCompare(valueB, undefined, { sensitivity: 'base' })
+            : valueB.localeCompare(valueA, undefined, { sensitivity: 'base' });
+        }
+      }
+
+      // If no sorting column is set or unsupported column, return unsorted
+      return 0;
+    });
+
+    return sorted;
+  }, [visibleRows, sortOrder, sortedColumn, clusters, customColumns]);
+
   // Synchronize rows state with rawClientData and clusters
   useEffect(() => {
     if (rawClientData.length === 0) {
@@ -1240,6 +1466,31 @@ const DeliverySpreadsheet: React.FC = () => {
 
     setRows(synchronizedRows);
   }, [rawClientData, clusters]);
+
+  // Handle column header click for sorting - supports fullname, clusterIdChange, tags, address, ward, assignedDriver, assignedTime, deliveryInstructions, and custom columns
+  const handleSort = (field: Field | { key: string }) => {
+    const fieldKey = String(field.key);
+    
+    // Allow sorting on supported columns and any custom column
+    const supportedColumns = ["fullname", "clusterIdChange", "tags", "address", "ward", "assignedDriver", "assignedTime", "deliveryDetails.deliveryInstructions"];
+    const isCustomColumn = customColumns.some(col => col.propertyKey === fieldKey);
+    
+    if (!supportedColumns.includes(fieldKey) && !isCustomColumn) {
+      return;
+    }
+
+    if (fieldKey === sortedColumn) {
+      // Toggle sort order if clicking the same column
+      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+    } else {
+      // Set new column and default to ascending
+      setSortedColumn(fieldKey);
+      setSortOrder("asc");
+    }
+    
+    // Force table re-render with new timestamp
+    setSortTimestamp(Date.now());
+  };
 
   return (
     <Box className="box" sx={{ display: "flex", flexDirection: "column", height: "100vh" }}>
@@ -1517,54 +1768,75 @@ const DeliverySpreadsheet: React.FC = () => {
                       width: field.type === "checkbox" ? "20px" : "auto",
                       textAlign: "center",
                       padding: "10px",
+                      cursor: (field.key === "fullname" || field.key === "clusterIdChange" || field.key === "tags" || field.key === "address" || field.key === "ward" || field.key === "assignedDriver" || field.key === "assignedTime" || field.key === "deliveryDetails.deliveryInstructions") ? "pointer" : "default",
+                      userSelect: "none",
                     }}
+                    onClick={() => (field.key === "fullname" || field.key === "clusterIdChange" || field.key === "tags" || field.key === "address" || field.key === "ward" || field.key === "assignedDriver" || field.key === "assignedTime" || field.key === "deliveryDetails.deliveryInstructions") && handleSort(field)}
                   >
-                    {field.label}
+                    <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 1 }}>
+                      {field.label}
+                      {(field.key === "fullname" || field.key === "clusterIdChange" || field.key === "tags" || field.key === "address" || field.key === "ward" || field.key === "assignedDriver" || field.key === "assignedTime" || field.key === "deliveryDetails.deliveryInstructions") && (
+                        <>
+                          {String(field.key) === sortedColumn ? (
+                            sortOrder === "asc" ? <ArrowDropUpIcon /> : <ArrowDropDownIcon />
+                          ) : (
+                            <UnfoldMoreIcon sx={{ opacity: 0.3 }} />
+                          )}
+                        </>
+                      )}
+                    </Box>
                   </TableCell>
                 ))}
                 {customColumns.map((col) => (
                     <TableCell 
                       className="table-header" 
                       key={col.id}
-                      sx={{
-                        backgroundColor: "#f5f9f7",
-                        borderBottom: "2px solid #e0e0e0",
+                      style={{
+                        userSelect: "none",
+                        cursor: col.propertyKey !== "none" ? "pointer" : "default",
                       }}
+                      onClick={() => col.propertyKey !== "none" && handleSort({ key: col.propertyKey } as Field)}
                     >
                       <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                        <Select
-                          value={col.propertyKey}
-                          onChange={(event) => handleCustomHeaderChange(event, col.id)}
-                          variant="outlined"
-                          displayEmpty
-                          size="small"
-                          sx={{ 
-                            minWidth: 120, 
-                            color: "#257e68",
-                            "& .MuiOutlinedInput-notchedOutline": {
-                              borderColor: "#bfdfd4",
-                            },
-                            "&:hover .MuiOutlinedInput-notchedOutline": {
-                              borderColor: "#257e68",
-                            },
-                          }}
-                        >
-                        <MenuItem value="none">None</MenuItem>
-                        <MenuItem value="adults">Adults</MenuItem>
-                        <MenuItem value="children">Children</MenuItem>
-                        <MenuItem value="deliveryFreq">Delivery Freq</MenuItem>
-                        <MenuItem value="ethnicity">Ethnicity</MenuItem>
-                        <MenuItem value="gender">Gender</MenuItem>
-                        <MenuItem value="language">Language</MenuItem>
-                        <MenuItem value="notes">Notes</MenuItem>
-                        <MenuItem value="referralEntity">Referral Entity</MenuItem>
-                        <MenuItem value="tefapCert">TEFAP Cert</MenuItem>
-                        <MenuItem value="dob">DOB</MenuItem>
-                        </Select>
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                          <Select
+                            value={col.propertyKey}
+                            onChange={(event) => handleCustomHeaderChange(event, col.id)}
+                            variant="outlined"
+                            displayEmpty
+                            size="small"
+                            onClick={(e) => e.stopPropagation()} // Prevent sorting when clicking dropdown
+                            sx={{ 
+                              minWidth: 120, 
+                              color: "#257e68",
+                              "& .MuiOutlinedInput-notchedOutline": {
+                                borderColor: "#bfdfd4",
+                              },
+                              "&:hover .MuiOutlinedInput-notchedOutline": {
+                                borderColor: "#257e68",
+                              },
+                            }}
+                          >
+                          <MenuItem value="none">None</MenuItem>
+                          <MenuItem value="adults">Adults</MenuItem>
+                          <MenuItem value="children">Children</MenuItem>
+                          <MenuItem value="deliveryFreq">Delivery Freq</MenuItem>
+                          <MenuItem value="ethnicity">Ethnicity</MenuItem>
+                          <MenuItem value="gender">Gender</MenuItem>
+                          <MenuItem value="language">Language</MenuItem>
+                          <MenuItem value="notes">Notes</MenuItem>
+                          <MenuItem value="referralEntity">Referral Entity</MenuItem>
+                          <MenuItem value="tefapCert">TEFAP Cert</MenuItem>
+                          <MenuItem value="dob">DOB</MenuItem>
+                          </Select>
+                        </Box>
                         {/*Add Remove Button*/}
                         <IconButton
                           size="small"
-                          onClick={() => handleRemoveCustomColumn(col.id)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRemoveCustomColumn(col.id);
+                          }}
                           aria-label={`Remove ${col.label || "custom"} column`}
                           title={`Remove ${col.label || "custom"} column`}
                           sx={{
@@ -1576,6 +1848,14 @@ const DeliverySpreadsheet: React.FC = () => {
                         >
                           <DeleteIcon fontSize="small" />
                         </IconButton>
+                        {/* Show sort icon if this custom column is currently sorted */}
+                        {col.propertyKey !== "none" && (
+                          sortedColumn === col.propertyKey ? (
+                            sortOrder === "asc" ? <ArrowDropUpIcon /> : <ArrowDropDownIcon />
+                          ) : (
+                            <UnfoldMoreIcon sx={{ opacity: 0.3 }} />
+                          )
+                        )}
                       </Box>
                     </TableCell>
                   ))}
@@ -1583,10 +1863,6 @@ const DeliverySpreadsheet: React.FC = () => {
                   <TableCell 
                     className="table-header" 
                     align="right"
-                    sx={{
-                      backgroundColor: "#f5f9f7",
-                      borderBottom: "2px solid #e0e0e0",
-                    }}
                   >
                     <IconButton
                       onClick={handleAddCustomColumn}
@@ -1614,8 +1890,8 @@ const DeliverySpreadsheet: React.FC = () => {
               </TableRow>
             </TableHead>
             <TableBody>
-              {visibleRows.map((row) => (
-                <TableRow key={row.id} className="table-row">
+              {sortedRows.map((row, index) => (
+                <TableRow key={`${sortTimestamp}-${index}-${row.id}`} className="table-row">
                   {fields.map((field) => {
                     // Render the table cell based on field type
                     return (
@@ -1736,58 +2012,33 @@ const DeliverySpreadsheet: React.FC = () => {
                       </TableCell>
                     ); // End return for TableCell
                   })}
-                   {customColumns.map((col) => (
-                        <TableCell 
-                          key={col.id} 
-                          sx={{ 
-                            py: 2,
-                            maxWidth: '200px',
-                            overflow: 'hidden',
-                            wordWrap: 'break-word',
-                            overflowWrap: 'anywhere',
-                            whiteSpace: 'pre-wrap'
-                          }}
-                        >
-                          {editingRowId === row.id ? (
-                            col.propertyKey !== "none" ? (
-                              <TextField
-                                value={row[col.propertyKey as keyof DeliveryRowData] ?? ""}
-                                onChange={(e) =>
-                                  handleCustomColumnChange(
-                                    e,
-                                    row.id,
-                                    col.propertyKey as keyof CustomRowData,
-                                    setCustomRows
-                                  )
-                                }
-                                variant="outlined"
-                                size="small"
-                                fullWidth
-                                multiline={col.propertyKey.includes('deliveryInstructions') || col.propertyKey.includes('notes')}
-                                maxRows={4}
-                              />
-                            ) : (
-                              "N/A"
-                            )
-                          ) : 
-                          col.propertyKey !== "none" ? (
-                            // Check if the property key is 'referralEntity' and the value is an object
-                            col.propertyKey === 'referralEntity' && typeof row.referralEntity === 'object' && row.referralEntity !== null ?
-                            // Format as "Name, Organization"
-                            `${row.referralEntity.name ?? 'N/A'}, ${row.referralEntity.organization ?? 'N/A'}`
-                            : col.propertyKey.includes('deliveryInstructions') ? (
-                              // Handle nested delivery instructions access
-                              (() => {
-                                const instructions = row.deliveryDetails?.deliveryInstructions;
-                                return instructions && instructions.trim() !== '' ? instructions : 'No instructions';
-                              })()
-                            ) : (row[col.propertyKey as keyof DeliveryRowData]?.toString() ?? "N/A") // Fallback for other types
-                          ) : (
-                            "N/A"
-                          )} 
-                        </TableCell>
-                                      ))}
-                  {/* Empty Table cell so custom columns dont look weird */}
+                  {customColumns.map((col) => (
+                    <TableCell 
+                      key={col.id} 
+                      sx={{ 
+                        py: 2,
+                        maxWidth: '200px',
+                        overflow: 'hidden',
+                        wordWrap: 'break-word',
+                        overflowWrap: 'anywhere',
+                        whiteSpace: 'pre-wrap'
+                      }}
+                    >
+                      {col.propertyKey !== "none" ? (
+                        col.propertyKey === 'referralEntity' && typeof row.referralEntity === 'object' && row.referralEntity !== null ?
+                        `${row.referralEntity.name ?? 'N/A'}, ${row.referralEntity.organization ?? 'N/A'}`
+                        : col.propertyKey.includes('deliveryInstructions') ? (
+                          (() => {
+                            const instructions = row.deliveryDetails?.deliveryInstructions;
+                            return instructions && instructions.trim() !== '' ? instructions : 'No instructions';
+                          })()
+                        ) : (row[col.propertyKey as keyof DeliveryRowData]?.toString() ?? "N/A")
+                      ) : (
+                        "N/A"
+                      )} 
+                    </TableCell>
+                  ))}
+                  {/* Add button cell */}
                   <TableCell></TableCell>
                 </TableRow>
                 

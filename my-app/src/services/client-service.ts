@@ -64,13 +64,7 @@ class ClientService {
         uid: doc.id,
       }));
       
-      // Sort clients by lastName first, then firstName
-      return clients.sort((a, b) => {
-        if (a.lastName === b.lastName) {
-          return a.firstName.localeCompare(b.firstName);
-        }
-        return a.lastName.localeCompare(b.lastName);
-      });
+      return clients;
     } catch (error) {
       console.error("Error getting clients:", error);
       throw error;
