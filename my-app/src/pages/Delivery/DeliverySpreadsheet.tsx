@@ -202,7 +202,7 @@ const fields: Field[] = [
       return tags.length > 0 ? tags.join(", ") : "None";
     },
   },
-  { key: "address", label: "Address", type: "text" },
+  { key: "zipCode", label: "Zip Code", type: "text" },
   { key: "ward", label: "Ward", type: "text" },
   {
     key: "assignedDriver",
@@ -1291,19 +1291,19 @@ const DeliverySpreadsheet: React.FC = () => {
         } else {
           return hasTagsA ? 1 : -1; // !hasTagsA (no tags) comes first
         }
-      } else if (sortedColumn === "address") {
-        // For address field, sort alphabetically (A-Z/Z-A)
-        const addressA = (a.address || "").toLowerCase();
-        const addressB = (b.address || "").toLowerCase();
+      } else if (sortedColumn === "zipCode") {
+        // For zipCode field, sort alphabetically (A-Z/Z-A)
+        const zipCodeA = (a.zipCode || "").toLowerCase();
+        const zipCodeB = (b.zipCode || "").toLowerCase();
 
         // Handle empty values - empty strings sort first in ascending, last in descending
-        if (!addressA && !addressB) return 0;
-        if (!addressA) return sortOrder === "asc" ? -1 : 1;
-        if (!addressB) return sortOrder === "asc" ? 1 : -1;
+        if (!zipCodeA && !zipCodeB) return 0;
+        if (!zipCodeA) return sortOrder === "asc" ? -1 : 1;
+        if (!zipCodeB) return sortOrder === "asc" ? 1 : -1;
 
         return sortOrder === "asc"
-          ? addressA.localeCompare(addressB, undefined, { sensitivity: 'base' })
-          : addressB.localeCompare(addressA, undefined, { sensitivity: 'base' });
+          ? zipCodeA.localeCompare(zipCodeB, undefined, { sensitivity: 'base' })
+          : zipCodeB.localeCompare(zipCodeA, undefined, { sensitivity: 'base' });
       } else if (sortedColumn === "ward") {
         // For ward field, sort alphabetically (A-Z/Z-A)
         const wardA = (a.ward || "").toLowerCase();
@@ -1472,7 +1472,7 @@ const DeliverySpreadsheet: React.FC = () => {
     const fieldKey = String(field.key);
     
     // Allow sorting on supported columns and any custom column
-    const supportedColumns = ["fullname", "clusterIdChange", "tags", "address", "ward", "assignedDriver", "assignedTime", "deliveryDetails.deliveryInstructions"];
+    const supportedColumns = ["fullname", "clusterIdChange", "tags", "zipCode", "ward", "assignedDriver", "assignedTime", "deliveryDetails.deliveryInstructions"];
     const isCustomColumn = customColumns.some(col => col.propertyKey === fieldKey);
     
     if (!supportedColumns.includes(fieldKey) && !isCustomColumn) {
@@ -1768,14 +1768,14 @@ const DeliverySpreadsheet: React.FC = () => {
                       width: field.type === "checkbox" ? "20px" : "auto",
                       textAlign: "center",
                       padding: "10px",
-                      cursor: (field.key === "fullname" || field.key === "clusterIdChange" || field.key === "tags" || field.key === "address" || field.key === "ward" || field.key === "assignedDriver" || field.key === "assignedTime" || field.key === "deliveryDetails.deliveryInstructions") ? "pointer" : "default",
+                      cursor: (field.key === "fullname" || field.key === "clusterIdChange" || field.key === "tags" || field.key === "zipCode" || field.key === "ward" || field.key === "assignedDriver" || field.key === "assignedTime" || field.key === "deliveryDetails.deliveryInstructions") ? "pointer" : "default",
                       userSelect: "none",
                     }}
-                    onClick={() => (field.key === "fullname" || field.key === "clusterIdChange" || field.key === "tags" || field.key === "address" || field.key === "ward" || field.key === "assignedDriver" || field.key === "assignedTime" || field.key === "deliveryDetails.deliveryInstructions") && handleSort(field)}
+                    onClick={() => (field.key === "fullname" || field.key === "clusterIdChange" || field.key === "tags" || field.key === "zipCode" || field.key === "ward" || field.key === "assignedDriver" || field.key === "assignedTime" || field.key === "deliveryDetails.deliveryInstructions") && handleSort(field)}
                   >
                     <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 1 }}>
                       {field.label}
-                      {(field.key === "fullname" || field.key === "clusterIdChange" || field.key === "tags" || field.key === "address" || field.key === "ward" || field.key === "assignedDriver" || field.key === "assignedTime" || field.key === "deliveryDetails.deliveryInstructions") && (
+                      {(field.key === "fullname" || field.key === "clusterIdChange" || field.key === "tags" || field.key === "zipCode" || field.key === "ward" || field.key === "assignedDriver" || field.key === "assignedTime" || field.key === "deliveryDetails.deliveryInstructions") && (
                         <>
                           {String(field.key) === sortedColumn ? (
                             sortOrder === "asc" ? <ArrowDropUpIcon /> : <ArrowDropDownIcon />
@@ -1818,6 +1818,7 @@ const DeliverySpreadsheet: React.FC = () => {
                             }}
                           >
                           <MenuItem value="none">None</MenuItem>
+                          <MenuItem value="address">Address</MenuItem>
                           <MenuItem value="adults">Adults</MenuItem>
                           <MenuItem value="children">Children</MenuItem>
                           <MenuItem value="deliveryFreq">Delivery Freq</MenuItem>
@@ -1901,7 +1902,7 @@ const DeliverySpreadsheet: React.FC = () => {
                           textAlign: "center",
                           padding: "10px",
                           minWidth: field.type === "select" ? "150px" : "auto",
-                          maxWidth: field.key === "address" || field.key === "deliveryDetails.deliveryInstructions" ? "200px" : "auto",
+                          maxWidth: field.key === "zipCode" || field.key === "deliveryDetails.deliveryInstructions" ? "200px" : "auto",
                           wordWrap: "break-word",
                           overflowWrap: "anywhere",
                           whiteSpace: "pre-wrap",
@@ -2004,9 +2005,9 @@ const DeliverySpreadsheet: React.FC = () => {
                             null
                           )
                         ) : isRegularField(field) ? (
-                          // Render regular fields (address, ward)
+                          // Render regular fields (zipCode, ward)
                           // Cast to string as these are the only expected types here
-                          String(row[field.key as "address" | "ward"] ?? "")
+                          String(row[field.key as "zipCode" | "ward"] ?? "")
                         ) : // Default case: render nothing or a placeholder
                           null}
                       </TableCell>
