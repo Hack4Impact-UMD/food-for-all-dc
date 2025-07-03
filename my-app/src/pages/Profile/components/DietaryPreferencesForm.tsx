@@ -35,6 +35,26 @@ const DietaryPreferencesForm: React.FC<DietaryPreferencesFormProps> = ({
       >
         {renderField("deliveryDetails.dietaryRestrictions", "dietaryRestrictions")}
       </Box>
+
+      <Typography className="field-descriptor" sx={fieldLabelStyles}>
+        DIETARY PREFERNCES
+      </Typography>
+      <Box sx={{
+        gridColumn: { xs: '1', sm: 'span 1' },
+        overflow: 'hidden !important',
+        maxWidth: '100% !important',
+        width: '100% !important',
+        wordWrap: 'break-word !important',
+        overflowWrap: 'anywhere !important',
+        '& *': {
+          wordWrap: 'break-word !important',
+          overflowWrap: 'anywhere !important',
+          wordBreak: 'break-all !important',
+          whiteSpace: 'pre-wrap !important'
+        }
+      }}>
+        {renderField("notes", "textarea")}
+      </Box>
     </Box>
   );
 };
