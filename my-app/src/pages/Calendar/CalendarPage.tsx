@@ -1,6 +1,6 @@
 import { DayPilot } from "@daypilot/daypilot-lite-react";
 import { AppBar, Box, styled } from "@mui/material";
-import { endOfWeek, startOfWeek } from "date-fns";
+import { Time, TimeUtils } from "../../utils/timeUtils";
 import { onAuthStateChanged } from "firebase/auth";
 import React, { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
@@ -174,8 +174,8 @@ const CalendarPage: React.FC = () => {
           notesTimestamp: data.notesTimestamp || null,
           lifestyleGoals: data.lifestyleGoals || "",
           language: data.language || "",
-          createdAt: data.createdAt || new Date(),
-          updatedAt: data.updatedAt || new Date(),
+          createdAt: data.createdAt || TimeUtils.now().toJSDate(),
+          updatedAt: data.updatedAt || TimeUtils.now().toJSDate(),
           startDate: data.startDate || "",
           endDate: data.endDate || "",
           recurrence: data.recurrence || "None",
@@ -218,8 +218,10 @@ const CalendarPage: React.FC = () => {
           const monthEnd = currentDate.lastDayOfMonth();
 
           // Convert from DayPilot to JS date obj & calc the grid's start and end dates
-          const gridStart = startOfWeek(monthStart.toDate(), { weekStartsOn: 0 });
-          const gridEnd = endOfWeek(monthEnd.toDate(), { weekStartsOn: 0 });
+          const monthStartLuxon = TimeUtils.fromJSDate(monthStart.toDate());
+          const monthEndLuxon = TimeUtils.fromJSDate(monthEnd.toDate());
+          const gridStart = monthStartLuxon.startOf('week').toJSDate();
+          const gridEnd = monthEndLuxon.endOf('week').toJSDate();
 
           // Convert back to DayPilot date obj.
           start = new DayPilot.Date(gridStart);
@@ -290,15 +292,14 @@ const CalendarPage: React.FC = () => {
         // Use customDates directly if recurrence is Custom
         // Ensure customDates exist and map string dates back to Date objects
         recurrenceDates = newDelivery.customDates?.map(dateStr => {
-          const date = new Date(dateStr);
-          // Adjust for timezone offset if needed, similar to how it might be handled elsewhere
-          return new Date(date.getTime() + date.getTimezoneOffset() * 60000);
+          // Use TimeUtils for proper timezone handling
+          return TimeUtils.fromISO(dateStr).toJSDate();
         }) || [];
         // Clear repeatsEndDate explicitly for custom recurrence in the submitted data
         newDelivery.repeatsEndDate = undefined;
       } else {
         // Calculate recurrence dates for standard recurrence types
-        const deliveryDate = new Date(newDelivery.deliveryDate);
+        const deliveryDate = TimeUtils.fromISO(newDelivery.deliveryDate).toJSDate();
         recurrenceDates =
           newDelivery.recurrence === "None" ? [deliveryDate] : calculateRecurrenceDates(newDelivery);
       }

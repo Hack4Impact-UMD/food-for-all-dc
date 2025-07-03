@@ -1,5 +1,5 @@
 import { Box, Button, IconButton, Typography } from "@mui/material";
-import { addDays, format } from "date-fns";
+import { TimeUtils } from "../../../utils/timeUtils";
 import React from "react";
 import PageDatePicker from "../../../components/PageDatePicker/PageDatePicker";
 
@@ -35,7 +35,7 @@ const DateHeader: React.FC<DateHeaderProps> = ({
         }}
       >
         <Typography variant="h4" sx={{ marginRight: 2, width: "170px", color: "#787777" }}>
-          {format(selectedDate, "EEEE")}
+          {TimeUtils.fromJSDate(selectedDate).toFormat('cccc')}
         </Typography>
 
         <Box
@@ -51,12 +51,12 @@ const DateHeader: React.FC<DateHeaderProps> = ({
           }}
         >
           <Typography variant="h5" sx={{ color: "#fff" }}>
-            {format(selectedDate, "d")}
+            {TimeUtils.fromJSDate(selectedDate).toFormat('d')}
           </Typography>
         </Box>
 
         <IconButton
-          onClick={() => setSelectedDate(addDays(selectedDate, -1))}
+          onClick={() => setSelectedDate(TimeUtils.fromJSDate(selectedDate).minus({ days: 1 }).toJSDate())}
           size="large"
           sx={{ color: "#257E68" }}
         >
@@ -72,7 +72,7 @@ const DateHeader: React.FC<DateHeaderProps> = ({
         </IconButton>
 
         <IconButton
-          onClick={() => setSelectedDate(addDays(selectedDate, 1))}
+          onClick={() => setSelectedDate(TimeUtils.fromJSDate(selectedDate).plus({ days: 1 }).toJSDate())}
           size="large"
           sx={{ color: "#257E68" }}
         >
@@ -91,7 +91,7 @@ const DateHeader: React.FC<DateHeaderProps> = ({
 
         <Button
           sx={{ width: 50, fontSize: 12, marginLeft: 4 }}
-          onClick={() => setSelectedDate(new Date())}
+          onClick={() => setSelectedDate(TimeUtils.now().toJSDate())}
         >
           Today
         </Button>

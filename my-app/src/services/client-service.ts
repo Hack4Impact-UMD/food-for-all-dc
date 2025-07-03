@@ -6,14 +6,12 @@ import {
   setDoc,
   updateDoc,
   deleteDoc,
-  query,
-  where,
-  Timestamp,
   writeBatch,
 } from "firebase/firestore";
 import FirebaseService from "./firebase-service";
 import { ClientProfile } from '../types';
 import { LatLngTuple } from "leaflet"; // Or use appropriate coordinate type
+import { Time, TimeUtils } from "../utils/timeUtils";
 
 /**
  * Client Service - Handles all client-related operations with Firebase
@@ -77,8 +75,8 @@ class ClientService {
     try {
       await setDoc(doc(this.db, this.clientsCollection, client.uid), {
         ...client,
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        createdAt: Time.Firebase.toTimestamp(TimeUtils.now()),
+        updatedAt: Time.Firebase.toTimestamp(TimeUtils.now()),
       });
       return client.uid;
     } catch (error) {
@@ -94,7 +92,7 @@ class ClientService {
     try {
       await updateDoc(doc(this.db, this.clientsCollection, uid), {
         ...data,
-        updatedAt: new Date(),
+        updatedAt: Time.Firebase.toTimestamp(TimeUtils.now()),
       });
     } catch (error) {
       console.error("Error updating client:", error);
@@ -176,7 +174,7 @@ class ClientService {
     try {
       await updateDoc(clientRef, {
         coordinates: coordinates, // Ensure this field name matches Firestore
-        updatedAt: new Date() // Optionally update the timestamp
+        updatedAt: Time.Firebase.toTimestamp(TimeUtils.now()) // Optionally update the timestamp
       });
       console.log(`Successfully updated coordinates for client ${clientId}`);
     } catch (error) {
