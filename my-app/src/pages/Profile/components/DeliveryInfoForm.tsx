@@ -19,7 +19,7 @@ interface DeliveryInfoFormProps {
 const fieldStyles = {
   backgroundColor: "white",
   width: "60%",
-  height: "1.813rem",
+  height: "56px",
   padding: "0.1rem 0.5rem",
   borderRadius: "5px",
   border: ".1rem solid black",
@@ -29,7 +29,7 @@ const fieldStyles = {
 const CustomSelect = styled(Select)({
   // Target the outlined border
   "& .MuiOutlinedInput-root": {
-    height: "1.813rem",
+    height: "56px",
     width: "100%",
     "& .MuiOutlinedInput-notchedOutline": {
       border: "none", // removes the border

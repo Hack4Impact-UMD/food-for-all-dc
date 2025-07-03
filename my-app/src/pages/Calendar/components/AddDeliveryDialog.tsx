@@ -386,7 +386,7 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = ({
             />
           ) : null}
 
-          <FormControl fullWidth variant="outlined" margin="normal">
+          <FormControl fullWidth variant="outlined" margin="normal" sx={{ width: '100%' }}>
             <InputLabel id="recurrence-label">Recurrence</InputLabel>
             <Select
               label="Recurrence"

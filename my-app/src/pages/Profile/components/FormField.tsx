@@ -41,7 +41,7 @@ interface FormFieldProps {
 const fieldStyles = {
   backgroundColor: "white",
   width: "100%",
-  height: "1.813rem",
+  height: "56px",
   padding: "0.1rem 0.5rem",
   borderRadius: "5px",
   border: "1px solid var(--color-border-light)",
@@ -76,10 +76,10 @@ const CustomTextField = styled(TextField)({
     "&.Mui-error": {
       color: "var(--color-error)",
     }
-  },"& .MuiInputBase-input": {
+  },  "& .MuiInputBase-input": {
     backgroundColor: "white",
     width: "100%",
-    height: "1.813rem",
+    height: "56px",
     padding: "0.1rem 0.5rem",
     borderRadius: "5px",
     border: ".1rem solid black",
@@ -93,7 +93,7 @@ const CustomTextField = styled(TextField)({
   "& .MuiInputBase-inputMultiline": {
     backgroundColor: "white",
     width: "100%",
-    minHeight: "1.813rem",
+    minHeight: "56px",
     height: "auto",
     padding: "0.5rem",
     borderRadius: "5px",
@@ -126,20 +126,21 @@ export const CustomSelect = styled(Select)({
   height: fieldStyles.height,
   boxSizing: 'border-box',
   width: '100%',
+  position: 'relative',
   
-  // Remove the default Material UI outline
+  // Remove the default Material UI outline completely
   '&.MuiOutlinedInput-root': {
     '& fieldset.MuiOutlinedInput-notchedOutline': {
-      border: 'none',
+      display: 'none',
     },
   },
   
-  // Apply a single clean border directly on the root element
+  // Apply our own border and background
   border: `1px solid var(--color-border-light)`,
   borderRadius: '5px',
   backgroundColor: 'white',
   
-  // Focus state with single border and subtle shadow
+  // Focus state
   '&:focus-within': {
     border: `1px solid var(--color-primary)`,
     boxShadow: '0 0 0 3px rgba(37, 126, 104, 0.2)',
@@ -149,25 +150,39 @@ export const CustomSelect = styled(Select)({
   // Style the select content area
   '& .MuiSelect-select': {
     height: '100%',
-    padding: '0 0.5rem',
+    padding: '0 48px 0 14px', // Increased right padding to prevent text overlap with arrow
     display: 'flex',
     alignItems: 'center',
-    borderRadius: 'inherit',
+    position: 'relative',
+    border: 'none',
+    outline: 'none',
   },
   
-  // Hide the default dropdown icon
+  // Position the real MUI arrow inside the field
   '& .MuiSelect-icon': {
-    display: 'none',
+    position: 'absolute !important',
+    right: '12px !important',
+    top: '50% !important',
+    transform: 'translateY(-50%) !important',
+    color: '#666 !important',
+    fontSize: '1.2rem !important',
+    pointerEvents: 'none !important',
+    zIndex: 2,
   },
   
   // Disabled state
-  '&.Mui-disabled .MuiSelect-select': {
+  '&.Mui-disabled': {
     backgroundColor: "#e0e0e0",
     color: "#757575",
     cursor: "not-allowed",
-    fontWeight: 500,
-    opacity: 1,
-    padding: '0 0.5rem',
+    
+    '& .MuiSelect-select': {
+      color: "#757575",
+    },
+    
+    '& .MuiSelect-icon': {
+      color: "#999",
+    }
   },
 });
 
@@ -293,6 +308,7 @@ const DateFieldComponent = ({
         onFocus={() => setFieldTouched(true)}        
         error={fieldTouched && !!dateError}
         helperText={fieldTouched && dateError ? dateError : " "}
+        InputLabelProps={{ shrink: true }}
         FormHelperTextProps={{
           sx: {
             visibility: fieldTouched && dateError ? 'visible' : 'hidden',
@@ -492,6 +508,7 @@ const FormField: React.FC<FormFieldProps> = ({
                 onChange={(e) => handleChange(e as SelectChangeEvent<string>)}
                 displayEmpty
                 inputProps={selectInputProps}
+                sx={{ width: '100%' }}
                 MenuProps={{ 
                   sx: { marginTop: '2px' } // Separate the dropdown from the field slightly
                 }}
@@ -513,6 +530,7 @@ const FormField: React.FC<FormFieldProps> = ({
               onChange={(e) => handleChange(e as SelectChangeEvent<string>)}
               displayEmpty
               inputProps={selectInputProps}
+              sx={{ width: '100%' }}
             >
               <MenuItem value="" disabled>
                 Select
@@ -541,7 +559,18 @@ const FormField: React.FC<FormFieldProps> = ({
                 <MenuItem key="Not Hispanic or Latino" value="Not Hispanic or Latino">Not Hispanic or Latino</MenuItem>,
                 <MenuItem key="Unknown" value="Unknown">Unknown</MenuItem>,
               ]}
-              {/* Add referralEntity options if needed */}
+              {fieldPath === "referralEntity" && [
+                <MenuItem key="" value="" disabled>Select</MenuItem>,
+                <MenuItem key="Healthcare Provider" value="Healthcare Provider">Healthcare Provider</MenuItem>,
+                <MenuItem key="Social Services" value="Social Services">Social Services</MenuItem>,
+                <MenuItem key="Community Organization" value="Community Organization">Community Organization</MenuItem>,
+                <MenuItem key="School/Educational Institution" value="School/Educational Institution">School/Educational Institution</MenuItem>,
+                <MenuItem key="Religious Organization" value="Religious Organization">Religious Organization</MenuItem>,
+                <MenuItem key="Government Agency" value="Government Agency">Government Agency</MenuItem>,
+                <MenuItem key="Family/Friend" value="Family/Friend">Family/Friend</MenuItem>,
+                <MenuItem key="Self-Referred" value="Self-Referred">Self-Referred</MenuItem>,
+                <MenuItem key="Other" value="Other">Other</MenuItem>,
+              ]}
             </CustomSelect>
           );
         }        break;      

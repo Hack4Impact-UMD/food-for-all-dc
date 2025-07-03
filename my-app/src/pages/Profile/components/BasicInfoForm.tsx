@@ -401,8 +401,32 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
               }
               sx = {{ 
                 width: '100%',
+                position: 'relative',
+                // Ensure proper container bounds
                 '& .MuiAutocomplete-clearIndicator': {
                   display: 'none',
+                },
+                // Position the dropdown arrow inside the field bounds
+                '& .MuiAutocomplete-popupIndicator': {
+                  position: 'absolute !important',
+                  right: '12px !important',
+                  top: '50% !important',
+                  transform: 'translateY(-50%) !important',
+                  color: '#666 !important',
+                  fontSize: '1.2rem !important',
+                  padding: '4px !important',
+                  zIndex: 10,
+                  width: '24px',
+                  height: '24px',
+                },
+                // Ensure the input container has proper bounds and padding
+                '& .MuiOutlinedInput-root': {
+                  paddingRight: '48px !important', // Adequate space for the arrow
+                  overflow: 'hidden',
+                },
+                // Make sure input text doesn't overlap arrow
+                '& .MuiAutocomplete-input': {
+                  paddingRight: '8px !important',
                 },
               }}              renderInput = {(params) => (
                 <TextField
@@ -411,7 +435,7 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
                   sx={{
                     backgroundColor: "white",
                     '& .MuiOutlinedInput-root': {
-                      height: "1.813rem",
+                      height: "56px",
                       padding: "0.1rem 0.5rem",
                       '& fieldset': {
                         border: ".1rem solid black",
@@ -440,8 +464,8 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
                   }
                 </li>
               )}
-              // disableClearable // Removed this prop due to type conflict with null value
-              // forcePopupIcon={false} // Keep this to hide dropdown arrow // Keep this commented to show dropdown arrow
+              // Enable the dropdown arrow
+              forcePopupIcon={true}
             />
           </>
         ) : (
