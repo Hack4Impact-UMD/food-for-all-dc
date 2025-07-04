@@ -456,54 +456,115 @@ const Profile = () => {
 
   const getWard = async (searchAddress: string) => {
     console.log("getting ward");
-    const baseurl = "https://datagate.dc.gov/mar/open/api/v2.2";
-    const apikey = process.env.REACT_APP_DC_WARD_API_KEY;
-    const marURL = baseurl + "/locations/";
-    const marZone = "ward";
     let wardName;
 
-    // Construct the URL with query parameters
-    const marGeocodeURL = new URL(marURL + searchAddress + "/" + marZone + "/true");
-    const params = new URLSearchParams();
-    if (apikey) {
-      params.append("apikey", apikey);
-    } else {
-      console.error("API key is undefined");
-    }
-    marGeocodeURL.search = params.toString();
-
     try {
-      // Make the API request
-      const response = await fetch(marGeocodeURL.toString());
+      // First get coordinates for the address
+      const coordinates = await getCoordinates(searchAddress);
+      
+      if (!coordinates || coordinates.length !== 2 || coordinates[0] === 0 || coordinates[1] === 0) {
+        console.log("Invalid coordinates for ward lookup");
+        wardName = "No address";
+        clientProfile.ward = wardName;
+        setWard(wardName);
+        return wardName;
+      }
+
+      // Use DC Government ArcGIS REST service to find ward by coordinates
+      // coordinates are in [lat, lng] format, but ArcGIS expects x,y (lng,lat)
+      const lng = coordinates[1];
+      const lat = coordinates[0];
+      
+      const wardServiceURL = `https://maps2.dcgis.dc.gov/dcgis/rest/services/DCGIS_DATA/Administrative_Other_Boundaries_WebMercator/MapServer/53/query`;
+      const params = new URLSearchParams({
+        f: 'json',
+        geometry: `${lng},${lat}`,
+        geometryType: 'esriGeometryPoint',
+        inSR: '4326',
+        spatialRel: 'esriSpatialRelIntersects',
+        outFields: 'NAME,WARD',
+        returnGeometry: 'false'
+      });
+
+      const response = await fetch(`${wardServiceURL}?${params.toString()}`);
 
       if (!response.ok) {
         throw new Error(`HTTP error! Status: ${response.status}`);
       }
 
-      // Parse the JSON response
       const data = await response.json();
 
-      // Check if the response is successful and contains the expected data
-      if (data.Success === true && data.Result.addresses && data.Result.addresses.length > 0) {
-        const result = data.Result.addresses[0];
-
-        if (result.zones && result.zones.ward[0]) {
-          wardName = result.zones.ward[0].properties.NAME;
-        } else {
-          console.log("No ward information found in the response.");
-          wardName = "No ward";
-        }
+      // Check if we found a ward
+      if (data.features && data.features.length > 0) {
+        const wardFeature = data.features[0];
+        wardName = wardFeature.attributes.NAME || `Ward ${wardFeature.attributes.WARD}`;
       } else {
-        console.log("No address found or invalid response.");
-        wardName = "No address";
+        console.log("No ward found for the given coordinates.");
+        wardName = "No ward";
       }
     } catch (error) {
       console.error("Error fetching ward information:", error);
       wardName = "Error";
     }
+    
     clientProfile.ward = wardName;
     setWard(wardName);
     return wardName;
+  };
+
+  const getWardAndCoordinates = async (searchAddress: string) => {
+    console.log("getting ward and coordinates");
+    let wardName;
+    let coordinates;
+
+    try {
+      // Get coordinates for the address
+      coordinates = await getCoordinates(searchAddress);
+      
+      if (!coordinates || coordinates.length !== 2 || coordinates[0] === 0 || coordinates[1] === 0) {
+        console.log("Invalid coordinates for ward lookup");
+        wardName = "No address";
+        return { ward: wardName, coordinates };
+      }
+
+      // Use DC Government ArcGIS REST service to find ward by coordinates
+      // coordinates are in [lat, lng] format, but ArcGIS expects x,y (lng,lat)
+      const lng = coordinates[1];
+      const lat = coordinates[0];
+      
+      const wardServiceURL = `https://maps2.dcgis.dc.gov/dcgis/rest/services/DCGIS_DATA/Administrative_Other_Boundaries_WebMercator/MapServer/53/query`;
+      const params = new URLSearchParams({
+        f: 'json',
+        geometry: `${lng},${lat}`,
+        geometryType: 'esriGeometryPoint',
+        inSR: '4326',
+        spatialRel: 'esriSpatialRelIntersects',
+        outFields: 'NAME,WARD',
+        returnGeometry: 'false'
+      });
+
+      const response = await fetch(`${wardServiceURL}?${params.toString()}`);
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! Status: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      // Check if we found a ward
+      if (data.features && data.features.length > 0) {
+        const wardFeature = data.features[0];
+        wardName = wardFeature.attributes.NAME || `Ward ${wardFeature.attributes.WARD}`;
+      } else {
+        console.log("No ward found for the given coordinates.");
+        wardName = "No ward";
+      }
+    } catch (error) {
+      console.error("Error fetching ward information:", error);
+      wardName = "Error";
+    }
+    
+    return { ward: wardName, coordinates };
   };
 
   const getCoordinates = async (address: string) => {
@@ -1019,8 +1080,12 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
       let coordinatesToSave = clientProfile.coordinates; // Default to existing coordinates
   
       if (addressChanged) {
-        fetchedWard = await getWard(clientProfile.address); // Fetch ward only if address changed
-        coordinatesToSave = await getCoordinates(clientProfile.address); // Fetch coordinates only if address changed
+        const { ward, coordinates: fetchedCoordinates } = await getWardAndCoordinates(clientProfile.address);
+        fetchedWard = ward;
+        coordinatesToSave = fetchedCoordinates; // Use coordinates from the combined call
+        // Update the ward state
+        clientProfile.ward = fetchedWard;
+        setWard(fetchedWard);
       }
       // --- Geocoding Optimization End ---
   
@@ -1782,7 +1847,7 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
         types: ["address"],
         componentRestrictions: { country: "us" },
       });
-      autocompleteRef.current.addListener("place_changed", () => {
+      autocompleteRef.current.addListener("place_changed", async () => {
         const place = autocompleteRef.current!.getPlace();
         if (!place.address_components) return;
         // Extract address components
@@ -1815,6 +1880,17 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
         if (!quadrant && place.formatted_address && place.formatted_address.match(/(NW|NE|SW|SE)/i)) {
           quadrant = place.formatted_address.match(/(NW|NE|SW|SE)/i)?.[0] || "";
         }
+        
+        // Get ward for the selected address
+        let ward = "";
+        try {
+          const fullAddress = `${street.trim()}, ${city}, ${state} ${zip}`;
+          ward = await getWard(fullAddress);
+        } catch (error) {
+          console.error("Error getting ward for selected address:", error);
+          ward = "";
+        }
+        
         // Save only the street address in address field
         setClientProfile((prev) => ({
           ...prev,
@@ -1823,11 +1899,35 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
           state,
           zipCode: zip,
           quadrant,
+          ward,
         }));
         setIsAddressValidated(true);
       });
     }
   }, [isGoogleApiLoaded, isEditing]);
+
+  // Debounced ward lookup for manually typed addresses
+  useEffect(() => {
+    if (!isEditing || !clientProfile.address) return;
+    
+    const timeoutId = setTimeout(async () => {
+      // Only trigger ward lookup if the address is different from the previous one
+      // and it's not empty
+      if (clientProfile.address.trim() && clientProfile.address !== prevClientProfile?.address) {
+        try {
+          const ward = await getWard(clientProfile.address.trim());
+          setClientProfile((prev) => ({
+            ...prev,
+            ward,
+          }));
+        } catch (error) {
+          console.error("Error getting ward for manually typed address:", error);
+        }
+      }
+    }, 1500); // Wait 1.5 seconds after user stops typing
+    
+    return () => clearTimeout(timeoutId);
+  }, [clientProfile.address, isEditing, prevClientProfile?.address]);
 
   // Remove any stray {fieldPath === 'address' ...} JSX outside renderField
 
