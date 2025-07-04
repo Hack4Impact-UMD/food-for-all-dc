@@ -72,7 +72,7 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
         </Box>
       </Box>      {/* Date of Birth */}      <Box sx={{ minHeight: '130px' }}>
         <Typography className="field-descriptor" sx={fieldLabelStyles}>
-          DATE OF BIRTH <span className="required-asterisk">*</span>
+          DATE OF BIRTH
         </Typography>
         {renderField("dob", "date")}
         {/* This error box is for form validation errors, not field-level errors */}
@@ -197,16 +197,43 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
 
       {/* Email */}
       <Box>
-        <Typography className="field-descriptor" sx={fieldLabelStyles}>
-          EMAIL
-        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          <Typography className="field-descriptor" sx={fieldLabelStyles}>
+            EMAIL
+          </Typography>
+          <Tooltip 
+            title={
+              <React.Fragment>
+                <Typography variant="subtitle2">Allowed formats:</Typography>
+                <Typography variant="body2">name@example.com</Typography>
+                <Typography variant="body2">name@domain.com</Typography>
+                <Typography variant="body2">name@company.org</Typography>
+              </React.Fragment>
+            } 
+            arrow
+          >
+            <InfoIcon 
+              sx={{ 
+                color: '#257E68', 
+                fontSize: '20px',
+                cursor: 'help',
+                verticalAlign: 'middle',
+                marginTop: '-12px'
+              }} 
+            />
+          </Tooltip>
+        </Box>
         {renderField("email", "email")}
         {errors.email && (
           <Typography color="error" variant="body2">
             {errors.email}
           </Typography>
-        )}      </Box>      {/* Phone */}
-      <Box>        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+        )}
+      </Box>
+
+      {/* Phone */}
+      <Box>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
           <Typography className="field-descriptor" sx={fieldLabelStyles}>
             PHONE <span className="required-asterisk">*</span>
           </Typography>
@@ -230,7 +257,7 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
                 fontSize: '20px',
                 cursor: 'help',
                 verticalAlign: 'middle', 
-                marginTop: '-3px'
+                marginTop: '-12px'
               }} 
             />
           </Tooltip>
@@ -241,7 +268,10 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
             {errors.phone}
           </Typography>
         )}
-      </Box>      {/* Alternative Phone */}      <Box>
+      </Box>
+
+      {/* Alternative Phone */}
+      <Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
           <Typography className="field-descriptor" sx={fieldLabelStyles}>
             ALTERNATIVE PHONE
@@ -266,7 +296,7 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
                 fontSize: '20px',
                 cursor: 'help',
                 verticalAlign: 'middle',
-                marginTop: '-3px'
+                marginTop: '-12px'
               }} 
             />
           </Tooltip>

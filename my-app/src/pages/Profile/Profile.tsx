@@ -720,9 +720,10 @@ const Profile = () => {
     if (!clientProfile.state) {
       newErrors.state = "State is required";
     }
-    if (!clientProfile.dob) {
-      newErrors.dob = "Date of Birth is required";
-    }
+    // Remove DOB validation - no longer required
+    // if (!clientProfile.dob) {
+    //   newErrors.dob = "Date of Birth is required";
+    // }
     if (clientProfile.email?.trim() &&
         !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clientProfile.email.trim())
     ) {

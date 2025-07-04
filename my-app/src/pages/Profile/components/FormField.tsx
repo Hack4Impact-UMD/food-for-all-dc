@@ -233,9 +233,9 @@ const DateFieldComponent = ({
     
     const value = e.target.value;
     
-    // If the field is empty
+    // If the field is empty, it's now valid (DOB is optional)
     if (!value) {
-      setDateError("Date is required. Format must be MM/DD/YYYY");
+      setDateError(null);
       return;
     }
     
