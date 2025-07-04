@@ -1,10 +1,11 @@
 import React from "react";
-import { Box, Typography } from "@mui/material";
+import { Box, Typography, LinearProgress } from "@mui/material";
 import LocalShippingIcon from "@mui/icons-material/LocalShipping";
 interface DeliveryCountHeaderProps {
-    events: any[]
+    events: any[];
+    limit?: number;
 }
-export default function DeliveryCountHeader({events}: DeliveryCountHeaderProps) {
+export default function DeliveryCountHeader({events, limit}: DeliveryCountHeaderProps) {
     return (
         <Box
             sx={{
@@ -35,7 +36,7 @@ export default function DeliveryCountHeader({events}: DeliveryCountHeaderProps) 
             >
                 <LocalShippingIcon sx={{ color: "#fff", fontSize: "1rem" }} />
             </Box>
-            <Box>
+            <Box sx={{ flex: 1 }}>
                 <Typography
                     variant="h5"
                     sx={{
@@ -46,7 +47,7 @@ export default function DeliveryCountHeader({events}: DeliveryCountHeaderProps) 
                         minWidth: "2ch", // Ensures consistent width for numbers
                     }}
                 >
-                    {events.length}
+                    {events.length}{limit ? ` / ${limit}` : ''}
                 </Typography>
                 <Typography
                     variant="body2"
@@ -57,10 +58,28 @@ export default function DeliveryCountHeader({events}: DeliveryCountHeaderProps) 
                         fontSize: "0.75rem",
                         letterSpacing: "0.4px",
                         whiteSpace: "nowrap", // Prevents text wrapping
+                        marginBottom: limit ? 0.5 : 0,
                     }}
                 >
                     {events.length === 1 ? "Delivery" : "Deliveries"} Today
                 </Typography>
+                {limit && (
+                    <Box sx={{ width: '100%', mt: 0.5 }}>
+                        <LinearProgress
+                            variant="determinate"
+                            value={Math.min((events.length / limit) * 100, 100)}
+                            sx={{
+                                height: 6,
+                                borderRadius: 3,
+                                backgroundColor: '#e0e0e0',
+                                '& .MuiLinearProgress-bar': {
+                                    backgroundColor: events.length > limit ? '#ff4444' : '#257E68',
+                                    borderRadius: 3,
+                                },
+                            }}
+                        />
+                    </Box>
+                )}
             </Box>
         </Box>
     )
