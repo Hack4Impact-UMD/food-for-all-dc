@@ -16,6 +16,7 @@ import { CalendarConfig, CalendarEvent, DateLimit, DeliveryEvent, Driver, NewDel
 import { ClientProfile } from "../../types/client-types";
 import { useLimits } from "./components/useLimits";
 import { DeliveryService, ClientService, DriverService } from "../../services";
+import { toJSDate, toDayPilotDateString } from '../../utils/timestamp';
 
 const DAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
 
@@ -247,10 +248,23 @@ const CalendarPage: React.FC = () => {
       const activeClientIds = new Set(clients.map(client => client.uid));
       const filteredEventsByClient = fetchedEvents.filter(event => activeClientIds.has(event.clientId));
 
+      // Update client names in events with current client data
+      const updatedEvents = filteredEventsByClient.map(event => {
+        const client = clients.find(client => client.uid === event.clientId);
+        if (client) {
+          const fullName = `${client.firstName} ${client.lastName}`.trim();
+          return {
+            ...event,
+            clientName: fullName
+          };
+        }
+        return event;
+      });
+
       // Deduplicate events based on clientId and deliveryDate
       const uniqueEventsMap = new Map<string, DeliveryEvent>();
-      filteredEventsByClient.forEach(event => {
-        const key = `${event.clientId}_${new DayPilot.Date(event.deliveryDate).toString("yyyy-MM-dd")}`;
+      updatedEvents.forEach(event => {
+        const key = `${event.clientId}_${toDayPilotDateString(event.deliveryDate)}`;
         if (!uniqueEventsMap.has(key)) {
           uniqueEventsMap.set(key, event);
         }
@@ -260,17 +274,17 @@ const CalendarPage: React.FC = () => {
       setEvents(uniqueFilteredEvents);
 
       // Update calendar configuration with new events
-      const calendarEvents: CalendarEvent[] = uniqueFilteredEvents.map((event) => ({
+      const formattedEvents = Array.from(uniqueEventsMap.values()).map(event => ({
         id: event.id,
         text: `Client: ${event.clientName} (Driver: ${event.assignedDriverName})`,
-        start: new DayPilot.Date(event.deliveryDate),
-        end: new DayPilot.Date(event.deliveryDate),
+        start: new DayPilot.Date(toDayPilotDateString(event.deliveryDate)),
+        end: new DayPilot.Date(toDayPilotDateString(event.deliveryDate)),
         backColor: "#257E68",
       }));
 
       setCalendarConfig((prev) => ({
         ...prev,
-        events: calendarEvents,
+        events: formattedEvents,
         startDate: currentDate,
         durationBarVisible: false,
       }));
@@ -308,7 +322,10 @@ const CalendarPage: React.FC = () => {
       const existingEventDates = new Set(
         events
           .filter(event => event.clientId === newDelivery.clientId)
-          .map(event => new DayPilot.Date(event.deliveryDate).toString("yyyy-MM-dd"))
+          .map(event => {
+            const jsDate = toJSDate(event.deliveryDate);
+            return new DayPilot.Date(jsDate).toString("yyyy-MM-dd");
+          })
       );
 
       const uniqueRecurrenceDates = recurrenceDates.filter(date => 
@@ -321,12 +338,15 @@ const CalendarPage: React.FC = () => {
 
       // Use DeliveryService to create events for unique dates only
       const deliveryService = DeliveryService.getInstance();
+      const seriesStartDate = newDelivery.deliveryDate; // Saves the original start date
+
       const createPromises = uniqueRecurrenceDates.map(date => {
         const eventToAdd: Partial<DeliveryEvent> = {
           clientId: newDelivery.clientId,
           clientName: newDelivery.clientName,
           deliveryDate: date, // Use the calculated/provided recurrence date
           recurrence: newDelivery.recurrence,
+          seriesStartDate: seriesStartDate, 
           time: "",
           cluster: 0,
           recurrenceId: recurrenceId,
@@ -367,6 +387,11 @@ const CalendarPage: React.FC = () => {
   const handleNavigateToday = () => {
     updateCurrentDate(DayPilot.Date.today());
   };
+
+  // Clear events immediately when view type changes to prevent flickering
+  useEffect(() => {
+    setEvents([]);
+  }, [viewType]);
 
   // Update calendar when view type, date, or clients change
   useEffect(() => {

@@ -312,25 +312,28 @@ const StyleChip = styled(Chip)({
   ];
 
   // Fetch data from Firebase without authentication checks
-  useEffect(() => {
-    const fetchData = async () => {
+  useEffect(() => {    const fetchData = async () => {
       try {
         // Use ClientService instead of direct Firebase calls
         const clientService = ClientService.getInstance();
         const clients = await clientService.getAllClients();
         console.log("Fetched clients:", clients);
-        setRows(clients as unknown as RowData[]);
+        
+        // Sort clients by lastName first, then firstName
+        const sortedClients = [...clients].sort((a, b) => {
+          if (a.lastName === b.lastName) {
+            return a.firstName.localeCompare(b.firstName);
+          }
+          return a.lastName.localeCompare(b.lastName);
+        });
+        
+        setRows(sortedClients as unknown as RowData[]);
       } catch (error) {
         console.error("Error fetching data: ", error);
       }
     };
     fetchData();
   }, []);
-
-  const toggleSortOrder = () => {
-    const order = sortOrder === "asc" ? "desc" : "asc";
-    setSortOrder(order);
-  };
 
   // Handle search input change
   const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -578,6 +581,24 @@ const StyleChip = styled(Chip)({
     setExportDialogOpen(false);
     setExportOption(null);
   };
+
+  
+  // Handle toggling sort order for the Name column
+  const toggleSortOrder = () => {
+    const sortedRows = [...rows].sort((a, b) => {
+      if (a.lastName === b.lastName) {
+        return sortOrder === "asc"
+          ? a.firstName.localeCompare(b.firstName)
+          : b.firstName.localeCompare(a.firstName);
+      }
+      return sortOrder === "asc"
+        ? a.lastName.localeCompare(b.lastName)
+        : b.lastName.localeCompare(a.lastName);
+    });
+    setRows(sortedRows);
+    setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+  };
+
   const toggleSortOrder2 = (fieldKey: keyof RowData) => {
     // This function is no longer needed since sorting is handled by useMemo
     // Just toggle the sort order - the useMemo will handle the actual sorting

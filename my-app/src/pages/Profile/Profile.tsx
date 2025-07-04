@@ -61,16 +61,47 @@ import { Time, TimeUtils } from "../../utils/timeUtils";
 import AddDeliveryDialog from "../Calendar/components/AddDeliveryDialog";
 import { calculateRecurrenceDates } from "../Calendar/components/CalendarUtils";
 import { DayPilot } from "@daypilot/daypilot-lite-react";
+import { toJSDate } from '../../utils/timestamp';
 
 // Styling
 const fieldStyles = {
   backgroundColor: "white",
   width: "60%",
-  height: "1.813rem",
+  height: "56px",
   padding: "0.1rem 0.5rem",
   borderRadius: "5px",
   border: ".1rem solid black",
   marginTop: "0px",
+};
+
+// Simple dropdown styling - use native MUI arrow positioned inside field
+const simpleDropdownStyles = {
+  backgroundColor: "white",
+  width: "100%",
+  height: "56px",
+  borderRadius: "5px",
+  border: ".1rem solid black",
+  marginTop: "0px",
+  '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+    border: "2px solid #257E68",
+    boxShadow: "0 0 8px rgba(37, 126, 104, 0.4), 0 0 16px rgba(37, 126, 104, 0.2)",
+  },
+  '& .MuiOutlinedInput-notchedOutline': {
+    display: 'none', // Remove MUI border
+  },
+  '& .MuiSelect-select': {
+    padding: '0 48px 0 14px', // Increased right padding to 48px to avoid arrow overlap
+    display: 'flex',
+    alignItems: 'center',
+  },
+  '& .MuiSelect-icon': {
+    position: 'absolute',
+    right: '12px',
+    top: '50%',
+    transform: 'translateY(-50%)',
+    color: '#666',
+    fontSize: '1.2rem',
+  },
 };
 
 // Enhanced styling for text fields
@@ -259,6 +290,8 @@ const Profile = () => {
   const [pastDeliveries, setPastDeliveries] = useState<DeliveryEvent[]>([]);
   const [futureDeliveries, setFutureDeliveries] = useState<DeliveryEvent[]>([]);
   const [events, setEvents] = useState<DeliveryEvent[]>([]);
+
+  // Add clients state for fetchClients()
   const [clients, setClients] = useState<ClientProfile[]>([]);
   const [addressError, setAddressError] = useState<string>("");
   const [userTypedAddress, setUserTypedAddress] = useState<string>("");
@@ -288,8 +321,7 @@ const Profile = () => {
     }
   }, [navigate]);
 
-  useEffect(() => {
-    fetchClients();}, [])
+
 
   //get list of all tags
   useEffect(() => {
@@ -606,13 +638,42 @@ const Profile = () => {
       setClientProfile((prevState) => ({
         ...prevState,
         [name]: Number(value),
-      }));
-    } else if (name === "phone" || name === "alternativePhone") {
-      const numericValue = value.replace(/\D/g, "");
-      setClientProfile((prevState) => ({
-        ...prevState,
-        [name]: numericValue,
-      }));
+      }));    } else if (name === "phone" || name === "alternativePhone") {
+      setClientProfile((prevState) => {
+        const updatedProfile = {
+          ...prevState,
+          [name]: value,
+        };
+        
+        // Validate phone numbers on change
+        const countDigits = (str: string) => (str.match(/\d/g) || []).length;
+        const isValidPhoneFormat = (phone: string) => {
+          // Allowed formats: (123) 456-7890, 123-456-7890, 123.456.7890, 123 456 7890, 1234567890, +1 123-456-7890
+          return /^(\+\d{1,2}\s?)?((\(\d{3}\))|\d{3})[\s.-]?\d{3}[\s.-]?\d{4}$/.test(phone);
+        };
+        const newErrors = { ...errors };
+        
+        if (name === "phone") {
+          if (value.trim() === "") {
+            newErrors.phone = "Phone is required";
+          } else if (countDigits(value) < 10) {
+            newErrors.phone = "Phone number must contain at least 10 digits";          } else if (!isValidPhoneFormat(value)) {
+            newErrors.phone = `"${value}" is an invalid format. Please see the i icon for allowed formats.`;
+          } else {
+            delete newErrors.phone;
+          }
+        }
+          if (name === "alternativePhone") {
+          if (value.trim() !== "" && (countDigits(value) < 10 || !isValidPhoneFormat(value))) {
+            newErrors.alternativePhone = `"${value}" is an invalid format. Please see the i icon for allowed formats.`;
+          } else {
+            delete newErrors.alternativePhone;
+          }
+        }
+        
+        setErrors(newErrors);
+        return updatedProfile;
+      });
     } else {
       setClientProfile((prevState) => ({
         ...prevState,
@@ -687,17 +748,27 @@ const Profile = () => {
     }
     if (!clientProfile.language?.trim()) {
       newErrors.language = "Language is required";
-    }
-
-    // Validate that the total number of household members is not zero
+    }    // Validate that the total number of household members is not zero
     if (clientProfile.adults === 0 && clientProfile.seniors === 0) {
       newErrors.total = "At least one adult or senior is required";
     }
-    if (!/^\d{10}$/.test(clientProfile.phone || "")) {
-      newErrors.phone = "Phone number must be exactly 10 digits";
+    
+    // Count digits and validate phone number format
+    const countDigits = (str: string) => (str.match(/\d/g) || []).length;
+    const isValidPhoneFormat = (phone: string) => {
+      // Allowed formats: (123) 456-7890, 123-456-7890, 123.456.7890, 123 456 7890, 1234567890, +1 123-456-7890
+      return /^(\+\d{1,2}\s?)?((\(\d{3}\))|\d{3})[\s.-]?\d{3}[\s.-]?\d{4}$/.test(phone);
+    };
+    
+    if (!clientProfile.phone?.trim()) {
+      newErrors.phone = "Phone is required";
+    } else if (countDigits(clientProfile.phone) < 10) {
+      newErrors.phone = "Phone number must contain at least 10 digits";    } else if (!isValidPhoneFormat(clientProfile.phone)) {
+      newErrors.phone = `"${clientProfile.phone}" is an invalid format. Please see the i icon for allowed formats.`;
     }
-    if (clientProfile.alternativePhone && !/^\d{10}$/.test(clientProfile.alternativePhone)) {
-      newErrors.alternativePhone = "Alternative Phone number must be exactly 10 digits";
+      if (clientProfile.alternativePhone?.trim() && 
+        (countDigits(clientProfile.alternativePhone) < 10 || !isValidPhoneFormat(clientProfile.alternativePhone))) {
+      newErrors.alternativePhone = `"${clientProfile.alternativePhone}" is an invalid format. Please see the i icon for allowed formats.`;
     }
 
     //validate head of household logic
@@ -1198,48 +1269,6 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
 {dietaryOptions.map((option: DietaryOption) => (
   <FormControlLabel
     key={option.name}
-    control={
-      <Checkbox
-        checked={Boolean(clientProfile.deliveryDetails?.dietaryRestrictions?.[option.name])}
-        onChange={handleDietaryRestrictionChange}
-        name={option.name}
-      />
-    }
-    label={option.label}
-  />
-))}
-
-    <Box sx={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 1,
-            width: '100%',
-          }}>
-            <FormControlLabel
-              control={
-                <Checkbox
-                  checked={clientProfile.deliveryDetails?.dietaryRestrictions?.other || false}
-                  onChange={handleDietaryRestrictionChange}
-                  name="other"
-                />
-              }
-              label="Other"
-            />
-            {clientProfile.deliveryDetails?.dietaryRestrictions?.other && (
-              <TextField
-                name="otherText"
-                value={clientProfile.deliveryDetails?.dietaryRestrictions?.otherText || ""}
-                onChange={handleDietaryRestrictionChange}
-                placeholder="Please specify other dietary restrictions"
-                variant="outlined"
-                size="small"
-                sx={{ flexGrow: 1, marginTop: '5%' }}
-              />
-            )}
-          </Box>
-{dietaryOptions.map((option: DietaryOption) => (
-  <FormControlLabel
-    key={option.name}
     control={      <Checkbox
         checked={Boolean(clientProfile.deliveryDetails?.dietaryRestrictions?.[option.name])}
         onChange={handleDietaryRestrictionChange}
@@ -1351,19 +1380,7 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
             name="language"
             value={selectValue}
             onChange={handleLanguageSelectChange}
-            sx={{
-              backgroundColor: "white",
-              width: "100%",
-              height: "1.813rem",
-              padding: "0.1rem 0.5rem",
-              borderRadius: "5px",
-              border: ".1rem solid black",
-              marginTop: "0px",
-              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                border: "2px solid #257E68",
-                boxShadow: "0 0 8px rgba(37, 126, 104, 0.4), 0 0 16px rgba(37, 126, 104, 0.2)",
-              },
-            }}
+            sx={simpleDropdownStyles}
           >
             {preDefinedOptions.map((option) => (
               <MenuItem key={option} value={option}>
@@ -1379,7 +1396,7 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
               sx={{
                 backgroundColor: "white",
                 width: "100%",
-                height: "1.813rem",
+                height: "56px",
                 padding: "0.1rem 0.5rem",
                 borderRadius: "5px",
                 marginTop: "0px",
@@ -1436,19 +1453,7 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
             name="ethnicity"
             value={selectValue}
             onChange={handleEthnicitySelectChange}
-            sx={{
-              backgroundColor: "white",
-              width: "100%",
-              height: "1.813rem",
-              padding: "0.1rem 0.5rem",
-              borderRadius: "5px",
-              border: ".1rem solid black",
-              marginTop: "0px",
-              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                border: "2px solid #257E68",
-                boxShadow: "0 0 8px rgba(37, 126, 104, 0.4), 0 0 16px rgba(37, 126, 104, 0.2)",
-              },
-            }}
+            sx={simpleDropdownStyles}
           >
             {preDefinedOptions.map((option) => (
               <MenuItem key={option} value={option}>
@@ -1464,7 +1469,7 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
               sx={{
                 backgroundColor: "white",
                 width: "100%",
-                height: "1.813rem",
+                height: "56px",
                 padding: "0.1rem 0.5rem",
                 borderRadius: "5px",
                 marginTop: "0px",
@@ -1505,19 +1510,7 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
       return (        <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>          <Select            name="gender"
             value={selectValue}
             onChange={handleGenderSelectChange}
-            sx={{
-              backgroundColor: "white",
-              width: "100%",
-              height: "1.813rem",
-              padding: "0.1rem 0.5rem",
-              borderRadius: "5px",
-              border: ".1rem solid black",
-              marginTop: "0px",
-              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                border: "2px solid #257E68",
-                boxShadow: "0 0 8px rgba(37, 126, 104, 0.4), 0 0 16px rgba(37, 126, 104, 0.2)",
-              },
-            }}
+            sx={simpleDropdownStyles}
           >
             {preDefinedOptions.map((option) => (
               <MenuItem key={option} value={option}>
@@ -1552,19 +1545,7 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
       return (        <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>          <Select            name="headOfHousehold"
             value={selectValue}
             onChange={handleHeadOfHouseholdSelectChange}
-            sx={{
-              backgroundColor: "white",
-              width: "100%",
-              height: "1.813rem",
-              padding: "0.1rem 0.5rem",
-              borderRadius: "5px",
-              border: ".1rem solid black",
-              marginTop: "0px",
-              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                border: "2px solid #257E68",
-                boxShadow: "0 0 8px rgba(37, 126, 104, 0.4), 0 0 16px rgba(37, 126, 104, 0.2)",
-              },
-            }}
+            sx={simpleDropdownStyles}
           >
             {preDefinedOptions.map((option) => (
               <MenuItem key={option} value={option}>
@@ -1601,19 +1582,7 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
       return (        <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>          <Select            name="recurrence"
             value={selectValue}
             onChange={handleRecurrenceSelectChange}
-            sx={{
-              backgroundColor: "white",
-              width: "100%",
-              height: "1.813rem",
-              padding: "0.1rem 0.5rem",
-              borderRadius: "5px",
-              border: ".1rem solid black",
-              marginTop: "0px",
-              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                border: "2px solid #257E68",
-                boxShadow: "0 0 8px rgba(37, 126, 104, 0.4), 0 0 16px rgba(37, 126, 104, 0.2)",
-              },
-            }}
+            sx={simpleDropdownStyles}
           >
             {preDefinedOptions.map((option) => (
               <MenuItem key={option} value={option}>
@@ -1633,8 +1602,7 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
     // Determine if the field should be disabled
     const isDisabledField = ["city", "state", "zipCode", "quadrant", "ward", "total"].includes(fieldPath);
 
-    return (
-      <Box sx={{
+    return (      <Box sx={{
         transition: "all 0.2s ease",
         '&:hover': {
           transform: isEditing ? 'translateY(-2px)' : 'none',
@@ -1655,22 +1623,53 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
           isModalOpen={isModalOpen}
           setIsModalOpen={setIsModalOpen}
           handleTag={handleTag}
+          error={errors[fieldPath]}
         />
       </Box>
     );
   };
 
-  const handleTag = (text: any) => {
+  const handleTag = async (text: any) => {
     if (!prevTags) {
       setPrevTags(deepCopy(tags));
     }
 
+    let updatedTags: string[];
     if (tags.includes(text)) {
-      const updatedTags = tags.filter((t) => t !== text);
-      setTags(updatedTags);
+      updatedTags = tags.filter((t) => t !== text);
+      console.log(`Removing tag "${text}" from client. Updated tags:`, updatedTags);
     } else if (text.trim() !== "") {
-      const updatedTags = [...tags, text.trim()];
-      setTags(updatedTags);
+      updatedTags = [...tags, text.trim()];
+      console.log(`Adding tag "${text}" to client. Updated tags:`, updatedTags);
+    } else {
+      return; // No change needed
+    }
+
+    // Update local state immediately
+    setTags(updatedTags);
+
+    // Update Firebase immediately if we have a client UID
+    if (clientProfile.uid) {
+      try {
+        console.log(`Updating Firebase for client ${clientProfile.uid} with tags:`, updatedTags);
+        await setDoc(doc(db, "clients", clientProfile.uid), { tags: updatedTags }, { merge: true });
+        console.log("Tags successfully updated in Firebase for client:", clientProfile.uid);
+        
+        // Also update the local clientProfile.tags to keep it in sync
+        setClientProfile(prev => ({
+          ...prev,
+          tags: updatedTags
+        }));
+      } catch (error) {
+        console.error("Error updating client tags in Firebase:", error);
+        console.error("Client UID:", clientProfile.uid);
+        console.error("Attempted tags update:", updatedTags);
+        // Revert local state if Firebase update fails
+        setTags(tags);
+        alert(`Failed to update tags in Firebase: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
+    } else {
+      console.warn("No client UID available, cannot update tags in Firebase");
     }
   };
 
@@ -1894,7 +1893,10 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
 
           events
             .filter(event => event.clientId === newDelivery.clientId)
-            .map(event => new DayPilot.Date(event.deliveryDate).toString("yyyy-MM-dd"))
+            .map(event => {
+              const jsDate = toJSDate(event.deliveryDate);
+              return new DayPilot.Date(jsDate).toString("yyyy-MM-dd");
+            })
         );
   
         const uniqueRecurrenceDates = recurrenceDates.filter(date => 
@@ -2045,7 +2047,7 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
         firstName={clientProfile.firstName}
         lastName={clientProfile.lastName}
         isEditing={isEditing}
-        tags={clientProfile.tags || []}
+        tags={tags}
         allTags={allTags || []}
         handleTag={handleTag}
         clientId={clientProfile.uid || null}
@@ -2151,7 +2153,7 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
           {/* Delivery Log Section */}
           <SectionBox mb={3}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
-            <SectionTitle sx={{ textAlign: 'left', width: '100%' }}>Delivery Log</SectionTitle>
+            <SectionTitle sx={{ textAlign: 'left', width: '100%' }}>Deliveries</SectionTitle>
             <Button
               variant="contained"
               startIcon={<Add />}
@@ -2171,11 +2173,15 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
               open={isDeliveryModalOpen}
               onClose={() => setIsDeliveryModalOpen(false)}
               onAddDelivery={handleAddDelivery}
-              clients={clients}
+              clients={[]} // Empty array since we're using preSelectedClient
               startDate={new DayPilot.Date()}
+              preSelectedClient={{
+                clientId: clientId || "",
+                clientName: `${clientProfile.firstName} ${clientProfile.lastName}`,
+                clientProfile: clientProfile
+              }}
             />
-            <SectionTitle sx={{ textAlign: 'left', width: '100%' }}>Deliveries</SectionTitle>
-            <DeliveryLogForm
+           <DeliveryLogForm
               pastDeliveries={pastDeliveries}
               futureDeliveries={futureDeliveries}
               fieldLabelStyles={fieldLabelStyles}

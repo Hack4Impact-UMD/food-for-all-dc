@@ -4,7 +4,7 @@ import "leaflet/dist/leaflet.css";
 import "leaflet.awesome-markers";
 import "leaflet.awesome-markers/dist/leaflet.awesome-markers.css";
 import { Box, Button } from "@mui/material";
-import FFAIcon from '../../assets/food-for-all-dc-logo.jpg';
+import FFAIcon from '../../assets/tsp-food-for-all-dc-logo.png'
 
 interface Coordinate {
   lat: number;
@@ -187,7 +187,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters }) => {
         justify-content: center;
         align-items: center;
       ">
-        <img src="${FFAIcon}" style="width: 18px; height: 18px;" />
+        <img src="${FFAIcon}" style="width: 100%; height: 100%;" />
       </div>`,
       iconSize: [30, 30],
       iconAnchor: [15, 15],
@@ -243,7 +243,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters }) => {
         }}
         onClick={centerMap}
       >
-        <img src={FFAIcon} style={{ width: 30, height: 30 }} alt="Center On FFA" />
+        <img src={FFAIcon} style={{ width: '100%', height: '100%' }} alt="Center On FFA" />
       </Box>
       {invalidCount > 0 && (
         <div style={{

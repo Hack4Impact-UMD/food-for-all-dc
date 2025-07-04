@@ -2,6 +2,9 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import "./index.css";
 import "font-awesome/css/font-awesome.min.css";
+import "./styles/form-styles.css";
+import "./styles/form-field-global.css"; // Global form field styling with green glow and error states
+import "./styles/radio-override.css"; // Match radio button styles to checkbox green color
 import App from "./App";
 import reportWebVitals from "./reportWebVitals";
 import { AuthProvider } from "./auth/AuthProvider";
