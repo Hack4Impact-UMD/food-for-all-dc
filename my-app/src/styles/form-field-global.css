@@ -148,6 +148,55 @@ textarea.error,
   }
 }
 
+/* Uniform height for all form fields */
+.MuiTextField-root .MuiInputBase-root,
+.MuiOutlinedInput-root,
+.MuiFormControl-root .MuiInputBase-root,
+.MuiSelect-root,
+input:not([type="checkbox"]):not([type="radio"]),
+select,
+textarea {
+  min-height: 56px !important;
+  height: 56px !important;
+  box-sizing: border-box !important;
+}
+
+/* Ensure multiline text areas can expand but start at proper height */
+.MuiInputBase-inputMultiline {
+  min-height: 56px !important;
+  height: auto !important;
+}
+
+/* Make sure date fields have the same height */
+input[type="date"] {
+  min-height: 56px !important;
+  height: 56px !important;
+  box-sizing: border-box !important;
+}
+
+/* Ensure Select dropdowns have uniform height */
+.MuiSelect-select {
+  min-height: 56px !important;
+  height: 56px !important;
+  box-sizing: border-box !important;
+  display: flex !important;
+  align-items: center !important;
+  padding: 16px 14px !important;
+}
+
+/* Fix for small size TextField components */
+.MuiTextField-root.MuiTextField-size-small .MuiInputBase-root {
+  min-height: 56px !important;
+  height: 56px !important;
+}
+
+/* Autocomplete fields */
+.MuiAutocomplete-root .MuiInputBase-root {
+  min-height: 56px !important;
+  height: 56px !important;
+  box-sizing: border-box !important;
+}
+
 /* Override MUI form labels */
 .MuiInputLabel-root.Mui-focused {
   color: var(--color-primary) !important;
@@ -155,6 +204,30 @@ textarea.error,
 
 .MuiInputLabel-root.Mui-error {
   color: var(--color-error) !important;
+}
+
+/* Only target outlined variant labels that need fixing - don't affect standard variant */
+.MuiInputLabel-outlined.MuiInputLabel-shrink {
+  transform: translate(14px, -9px) scale(0.75) !important;
+  background-color: white !important;
+  padding: 0 4px !important;
+  z-index: 1 !important;
+}
+
+/* Specifically target date inputs with outlined variant */
+.MuiTextField-root:has(input[type="date"]) .MuiInputLabel-outlined {
+  transform: translate(14px, -9px) scale(0.75) !important;
+  background-color: white !important;
+  padding: 0 4px !important;
+  z-index: 1 !important;
+}
+
+/* Force shrink for outlined date inputs specifically */
+.MuiOutlinedInput-root:has(input[type="date"]) ~ .MuiInputLabel-outlined {
+  transform: translate(14px, -9px) scale(0.75) !important;
+  background-color: white !important;
+  padding: 0 4px !important;
+  z-index: 1 !important;
 }
 
 /* Native date input styling */
@@ -197,4 +270,108 @@ input[type="date"].error {
 /* Position relative for wrapper elements to allow for validation indicators */
 .input-wrapper {
   position: relative;
+}
+
+.uniform-input {
+  height: 56px !important;
+  min-height: 56px !important;
+  box-sizing: border-box !important;
+}
+
+.uniform-mui-input {
+  height: 56px !important;
+  min-height: 56px !important;
+  box-sizing: border-box !important;
+  display: flex !important;
+  align-items: center !important;
+}
+
+[data-testid="client-autocomplete-input"] ~ .MuiOutlinedInput-root,
+[data-testid="date-input"] ~ .MuiOutlinedInput-root,
+[data-testid="recurrence-select-input"] ~ .MuiOutlinedInput-root {
+  height: 56px !important;
+  min-height: 56px !important;
+  box-sizing: border-box !important;
+  display: flex !important;
+  align-items: center !important;
+}
+
+/* Global override for ALL form components to ensure uniform height */
+.MuiTextField-root,
+.MuiFormControl-root,
+.MuiOutlinedInput-root,
+.MuiFilledInput-root,
+.MuiInput-root {
+  & .MuiInputBase-root {
+    min-height: 56px !important;
+    height: 56px !important;
+    box-sizing: border-box !important;
+  }
+  
+  & .MuiInputBase-input {
+    padding: 16px 14px !important;
+    box-sizing: border-box !important;
+  }
+  
+  & .MuiSelect-select {
+    padding: 16px 48px 16px 14px !important;
+    min-height: 24px !important;
+    display: flex !important;
+    align-items: center !important;
+  }
+}
+
+/* Ensure CustomTextField components also follow the uniform height */
+.form-field .MuiInputBase-root,
+.form-field input,
+.form-field select {
+  min-height: 56px !important;
+  height: 56px !important;
+  box-sizing: border-box !important;
+}
+
+/* Position all MUI select arrows inside field bounds */
+.MuiSelect-icon,
+.MuiSelect-iconOutlined {
+  position: absolute !important;
+  right: 12px !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  color: #666 !important;
+  font-size: 1.2rem !important;
+  pointer-events: none !important;
+  z-index: 2 !important;
+  width: 20px !important;
+  height: 20px !important;
+}
+
+/* Ensure all Select components have proper padding for the arrow */
+.MuiSelect-select {
+  padding-right: 48px !important;
+  padding-left: 14px !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+/* Position Autocomplete popup indicators (arrows) inside field bounds */
+.MuiAutocomplete-popupIndicator {
+  position: absolute !important;
+  right: 12px !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  color: #666 !important;
+  padding: 4px !important;
+  z-index: 10 !important;
+  width: 24px !important;
+  height: 24px !important;
+}
+
+/* Ensure Autocomplete input has proper padding for the arrow */
+.MuiAutocomplete-root .MuiOutlinedInput-root {
+  padding-right: 48px !important;
+}
+
+.MuiAutocomplete-input {
+  padding-right: 8px !important;
 }

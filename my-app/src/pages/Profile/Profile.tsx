@@ -60,16 +60,47 @@ import { Add } from "@mui/icons-material";
 import AddDeliveryDialog from "../Calendar/components/AddDeliveryDialog";
 import { calculateRecurrenceDates } from "../Calendar/components/CalendarUtils";
 import { DayPilot } from "@daypilot/daypilot-lite-react";
+import { toJSDate } from '../../utils/timestamp';
 
 // Styling
 const fieldStyles = {
   backgroundColor: "white",
   width: "60%",
-  height: "1.813rem",
+  height: "56px",
   padding: "0.1rem 0.5rem",
   borderRadius: "5px",
   border: ".1rem solid black",
   marginTop: "0px",
+};
+
+// Simple dropdown styling - use native MUI arrow positioned inside field
+const simpleDropdownStyles = {
+  backgroundColor: "white",
+  width: "100%",
+  height: "56px",
+  borderRadius: "5px",
+  border: ".1rem solid black",
+  marginTop: "0px",
+  '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+    border: "2px solid #257E68",
+    boxShadow: "0 0 8px rgba(37, 126, 104, 0.4), 0 0 16px rgba(37, 126, 104, 0.2)",
+  },
+  '& .MuiOutlinedInput-notchedOutline': {
+    display: 'none', // Remove MUI border
+  },
+  '& .MuiSelect-select': {
+    padding: '0 48px 0 14px', // Increased right padding to 48px to avoid arrow overlap
+    display: 'flex',
+    alignItems: 'center',
+  },
+  '& .MuiSelect-icon': {
+    position: 'absolute',
+    right: '12px',
+    top: '50%',
+    transform: 'translateY(-50%)',
+    color: '#666',
+    fontSize: '1.2rem',
+  },
 };
 
 // Enhanced styling for text fields
@@ -1348,19 +1379,7 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
             name="language"
             value={selectValue}
             onChange={handleLanguageSelectChange}
-            sx={{
-              backgroundColor: "white",
-              width: "100%",
-              height: "1.813rem",
-              padding: "0.1rem 0.5rem",
-              borderRadius: "5px",
-              border: ".1rem solid black",
-              marginTop: "0px",
-              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                border: "2px solid #257E68",
-                boxShadow: "0 0 8px rgba(37, 126, 104, 0.4), 0 0 16px rgba(37, 126, 104, 0.2)",
-              },
-            }}
+            sx={simpleDropdownStyles}
           >
             {preDefinedOptions.map((option) => (
               <MenuItem key={option} value={option}>
@@ -1376,7 +1395,7 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
               sx={{
                 backgroundColor: "white",
                 width: "100%",
-                height: "1.813rem",
+                height: "56px",
                 padding: "0.1rem 0.5rem",
                 borderRadius: "5px",
                 marginTop: "0px",
@@ -1433,19 +1452,7 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
             name="ethnicity"
             value={selectValue}
             onChange={handleEthnicitySelectChange}
-            sx={{
-              backgroundColor: "white",
-              width: "100%",
-              height: "1.813rem",
-              padding: "0.1rem 0.5rem",
-              borderRadius: "5px",
-              border: ".1rem solid black",
-              marginTop: "0px",
-              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                border: "2px solid #257E68",
-                boxShadow: "0 0 8px rgba(37, 126, 104, 0.4), 0 0 16px rgba(37, 126, 104, 0.2)",
-              },
-            }}
+            sx={simpleDropdownStyles}
           >
             {preDefinedOptions.map((option) => (
               <MenuItem key={option} value={option}>
@@ -1461,7 +1468,7 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
               sx={{
                 backgroundColor: "white",
                 width: "100%",
-                height: "1.813rem",
+                height: "56px",
                 padding: "0.1rem 0.5rem",
                 borderRadius: "5px",
                 marginTop: "0px",
@@ -1502,19 +1509,7 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
       return (        <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>          <Select            name="gender"
             value={selectValue}
             onChange={handleGenderSelectChange}
-            sx={{
-              backgroundColor: "white",
-              width: "100%",
-              height: "1.813rem",
-              padding: "0.1rem 0.5rem",
-              borderRadius: "5px",
-              border: ".1rem solid black",
-              marginTop: "0px",
-              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                border: "2px solid #257E68",
-                boxShadow: "0 0 8px rgba(37, 126, 104, 0.4), 0 0 16px rgba(37, 126, 104, 0.2)",
-              },
-            }}
+            sx={simpleDropdownStyles}
           >
             {preDefinedOptions.map((option) => (
               <MenuItem key={option} value={option}>
@@ -1549,19 +1544,7 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
       return (        <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>          <Select            name="headOfHousehold"
             value={selectValue}
             onChange={handleHeadOfHouseholdSelectChange}
-            sx={{
-              backgroundColor: "white",
-              width: "100%",
-              height: "1.813rem",
-              padding: "0.1rem 0.5rem",
-              borderRadius: "5px",
-              border: ".1rem solid black",
-              marginTop: "0px",
-              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                border: "2px solid #257E68",
-                boxShadow: "0 0 8px rgba(37, 126, 104, 0.4), 0 0 16px rgba(37, 126, 104, 0.2)",
-              },
-            }}
+            sx={simpleDropdownStyles}
           >
             {preDefinedOptions.map((option) => (
               <MenuItem key={option} value={option}>
@@ -1598,19 +1581,7 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
       return (        <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>          <Select            name="recurrence"
             value={selectValue}
             onChange={handleRecurrenceSelectChange}
-            sx={{
-              backgroundColor: "white",
-              width: "100%",
-              height: "1.813rem",
-              padding: "0.1rem 0.5rem",
-              borderRadius: "5px",
-              border: ".1rem solid black",
-              marginTop: "0px",
-              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                border: "2px solid #257E68",
-                boxShadow: "0 0 8px rgba(37, 126, 104, 0.4), 0 0 16px rgba(37, 126, 104, 0.2)",
-              },
-            }}
+            sx={simpleDropdownStyles}
           >
             {preDefinedOptions.map((option) => (
               <MenuItem key={option} value={option}>
@@ -1922,7 +1893,10 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
 
           events
             .filter(event => event.clientId === newDelivery.clientId)
-            .map(event => new DayPilot.Date(event.deliveryDate).toString("yyyy-MM-dd"))
+            .map(event => {
+              const jsDate = toJSDate(event.deliveryDate);
+              return new DayPilot.Date(jsDate).toString("yyyy-MM-dd");
+            })
         );
   
         const uniqueRecurrenceDates = recurrenceDates.filter(date => 
