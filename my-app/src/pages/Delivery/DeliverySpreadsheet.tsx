@@ -3,7 +3,7 @@ import { useNavigate, Link } from "react-router-dom";
 import { db } from "../../auth/firebaseConfig";
 import { Search, Filter } from "lucide-react";
 import { query, Timestamp, updateDoc, where } from "firebase/firestore";
-import { format, addDays } from "date-fns";
+import { TimeUtils } from "../../utils/timeUtils";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
 import AddIcon from "@mui/icons-material/Add";
 import DeleteIcon from "@mui/icons-material/Delete";
@@ -667,7 +667,7 @@ const DeliverySpreadsheet: React.FC = () => {
         alert("Unimplemented");
       } else if (option === "Download") {
         // Pass rows and clusters to exportDeliveries
-        exportDeliveries(format(selectedDate, "yyyy-MM-dd"), rows, clusters);
+        exportDeliveries(TimeUtils.fromJSDate(selectedDate).toISODate() || "", rows, clusters);
         console.log("Downloading Routes...");
         // Add your download logic here
       }
@@ -676,7 +676,7 @@ const DeliverySpreadsheet: React.FC = () => {
         alert("Unimplemented");
       } else if (option === "Download") {
         // Export DoorDash deliveries grouped by time
-        exportDoordashDeliveries(format(selectedDate, "yyyy-MM-dd"), rows, clusters);
+        exportDoordashDeliveries(TimeUtils.fromJSDate(selectedDate).toISODate() || "", rows, clusters);
         console.log("Downloading Doordash...");
       }
     }
@@ -1257,12 +1257,12 @@ const DeliverySpreadsheet: React.FC = () => {
         width: "100%"
       }}>
         <Typography variant="h5" sx={{ marginRight: 2,  color: "#787777" }}>
-          {format(selectedDate, 'EEEE - MMMM, dd/yyyy',)} 
+          {TimeUtils.fromJSDate(selectedDate).toFormat('cccc - MMMM, dd/yyyy')} 
         </Typography>
         
   
         <IconButton
-          onClick={() => setSelectedDate(addDays(selectedDate, -1))}
+          onClick={() => setSelectedDate(TimeUtils.fromJSDate(selectedDate).minus({ days: 1 }).toJSDate())}
           size="large"
           sx={{ color: "#257E68" }}
         >
@@ -1278,7 +1278,7 @@ const DeliverySpreadsheet: React.FC = () => {
         </IconButton>
   
         <IconButton
-          onClick={() => setSelectedDate(addDays(selectedDate, 1))}
+          onClick={() => setSelectedDate(TimeUtils.fromJSDate(selectedDate).plus({ days: 1 }).toJSDate())}
           size="large"
           sx={{ color: "#257E68" }}
         >

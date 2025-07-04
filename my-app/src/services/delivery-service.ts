@@ -11,10 +11,10 @@ import {
   where,
   orderBy,
   limit,
-  Timestamp,
 } from "firebase/firestore";
 import FirebaseService from "./firebase-service";
 import { DeliveryEvent } from "../types/calendar-types";
+import { Time, TimeUtils } from "../utils/timeUtils";
 
 /**
  * Delivery Service - Handles all delivery-related operations with Firebase
@@ -51,7 +51,7 @@ class DeliveryService {
         return {
           id: doc.id,
           ...data,
-          deliveryDate: data.deliveryDate.toDate(), // Convert Timestamp to Date
+          deliveryDate: Time.Firebase.fromTimestamp(data.deliveryDate).toJSDate(),
         } as DeliveryEvent;
       });
     } catch (error) {
@@ -65,16 +65,19 @@ class DeliveryService {
    */
   public async getEventsByDateRange(startDate: Date, endDate: Date): Promise<DeliveryEvent[]> {
     try {
+      const startTimestamp = Time.Firebase.toTimestamp(TimeUtils.fromJSDate(startDate));
+      const endTimestamp = Time.Firebase.toTimestamp(TimeUtils.fromJSDate(endDate));
+      
       const q = query(
         collection(this.db, this.eventsCollection),
-        where("deliveryDate", ">=", startDate),
-        where("deliveryDate", "<", endDate)
+        where("deliveryDate", ">=", startTimestamp),
+        where("deliveryDate", "<", endTimestamp)
       );
 
       const querySnapshot = await getDocs(q);
       return querySnapshot.docs.map((doc) => {
         const data = doc.data();
-        const deliveryDate = data.deliveryDate.toDate(); // Use JS Date directly
+        const deliveryDate = Time.Firebase.fromTimestamp(data.deliveryDate).toJSDate();
 
         return {
           id: doc.id,
@@ -148,10 +151,10 @@ class DeliveryService {
                     return null;
                 }
 
-                // Convert to Date object
+                // Convert to Date object using Time utilities
                 const deliveryDate = data.deliveryDate.toDate
-                    ? data.deliveryDate.toDate()
-                    : new Date(data.deliveryDate);
+                    ? Time.Firebase.fromTimestamp(data.deliveryDate).toJSDate()
+                    : TimeUtils.fromAny(data.deliveryDate).toJSDate();
 
                 return {
                     id: doc.id,
@@ -242,11 +245,11 @@ class DeliveryService {
    */
   public async getPreviousDeliveries(clientId: string): Promise<DeliveryEvent[]> {
     try {
-      const now = new Date();
-      if (isNaN(now.getTime())) {
+      const todayDateTime = TimeUtils.today();
+      if (!todayDateTime.isValid) {
         throw new Error("Invalid date object");
       }
-      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const today = Time.Firebase.toTimestamp(todayDateTime);
 
       const pastQuery = query(
         collection(this.db, this.eventsCollection),
@@ -262,7 +265,7 @@ class DeliveryService {
         return {
           id: doc.id, // Ensure the document ID is included
           ...data,
-          deliveryDate: data.deliveryDate.toDate ? data.deliveryDate.toDate() : new Date(data.deliveryDate),
+          deliveryDate: data.deliveryDate.toDate ? Time.Firebase.fromTimestamp(data.deliveryDate).toJSDate() : TimeUtils.fromAny(data.deliveryDate).toJSDate(),
         } as DeliveryEvent;
       });
     } catch (error) {
@@ -276,11 +279,11 @@ class DeliveryService {
    */
   public async getNextDeliveries(clientId: string): Promise<DeliveryEvent[]> {
     try {
-      const now = new Date();
-      if (isNaN(now.getTime())) {
+      const todayDateTime = TimeUtils.today();
+      if (!todayDateTime.isValid) {
         throw new Error("Invalid date object");
       }
-      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const today = Time.Firebase.toTimestamp(todayDateTime);
 
       const futureQuery = query(
         collection(this.db, this.eventsCollection),
@@ -296,7 +299,7 @@ class DeliveryService {
         return {
           id: doc.id, // Ensure the document ID is included
           ...data,
-          deliveryDate: data.deliveryDate.toDate ? data.deliveryDate.toDate() : new Date(data.deliveryDate),
+          deliveryDate: data.deliveryDate.toDate ? Time.Firebase.fromTimestamp(data.deliveryDate).toJSDate() : TimeUtils.fromAny(data.deliveryDate).toJSDate(),
         } as DeliveryEvent;
       });
     } catch (error) {
@@ -328,17 +331,3 @@ class DeliveryService {
 
 export default DeliveryService;
 
-const chipStyle = (deliveryId: string, hidden = false) => {
-        if (hidden) {
-            return {
-                opacity: 0,
-                transform: "scale(0.8)", // Slightly shrink before disappearing
-                transition: "opacity 0.3s ease, transform 0.3s ease", // Smooth transition
-            };
-        }
-        return {
-            opacity: 1,
-            transform: "scale(1)",
-            transition: "opacity 0.3s ease, transform 0.3s ease", // Default smooth transition
-        };
-    };

@@ -18,17 +18,6 @@ export const formatPhoneNumber = (phone: string): string => {
   return phone; // Return the original phone if it doesn't match the pattern
 };
 
-/**
- * Gets the ordinal suffix for a number (1st, 2nd, 3rd, etc.)
- * @param num The number to get the suffix for
- * @returns The ordinal suffix
- */
-export const getOrdinalSuffix = (num: number): string => {
-  if (num === 1 || num === 21 || num === 31) return "st";
-  if (num === 2 || num === 22) return "nd";
-  if (num === 3 || num === 23) return "rd";
-  return "th";
-};
 
 /**
  * Capitalizes the first letter of a string
@@ -56,13 +45,4 @@ export const formatDietaryRestrictions = (restrictions: DietaryRestrictions): st
   return allRestrictions.length > 0 ? allRestrictions.join(", ") : "None";
 };
 
-/**
- * Calculate age from date of birth
- * @param dob Date of birth
- * @returns Age in years
- */
-export const calculateAge = (dob: Date): number => {
-  const diff = Date.now() - dob.getTime();
-  const ageDt = new Date(diff);
-  return Math.abs(ageDt.getUTCFullYear() - 1970);
-}; 
+ 

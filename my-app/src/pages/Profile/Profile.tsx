@@ -57,6 +57,7 @@ import { ClientProfileKey, InputType } from "./types";
 import { DeliveryEvent } from "../../types/calendar-types";
 import { useAuth } from "../../auth/AuthProvider";
 import { Add } from "@mui/icons-material";
+import { Time, TimeUtils } from "../../utils/timeUtils";
 import AddDeliveryDialog from "../Calendar/components/AddDeliveryDialog";
 import { calculateRecurrenceDates } from "../Calendar/components/CalendarUtils";
 import { DayPilot } from "@daypilot/daypilot-lite-react";
@@ -263,8 +264,8 @@ const Profile = () => {
     lifestyleGoalsTimestamp: null,
     lifestyleGoals: "",
     language: "",
-    createdAt: new Date(),
-    updatedAt: new Date(),
+    createdAt: TimeUtils.now().toJSDate(),
+    updatedAt: TimeUtils.now().toJSDate(),
     startDate: "",
     endDate: "",
     recurrence: "None",
@@ -366,8 +367,8 @@ const Profile = () => {
       setIsNewProfile(true);
       setClientProfile({
         ...clientProfile,
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        createdAt: TimeUtils.now().toJSDate(),
+        updatedAt: TimeUtils.now().toJSDate(),
         referralEntity: null,
       });
       setTags([]);
@@ -392,8 +393,8 @@ const Profile = () => {
 
           if (!querySnapshot.empty) {
             const lastEvent = querySnapshot.docs[0].data();
-            const deliveryDate = lastEvent.deliveryDate.toDate();
-            setLastDeliveryDate(deliveryDate.toISOString().split("T")[0]);
+            const deliveryDate = Time.Firebase.fromTimestamp(lastEvent.deliveryDate);
+            setLastDeliveryDate(deliveryDate.toISODate() || "");
           } else {
             setLastDeliveryDate("No deliveries found");
           }
@@ -799,7 +800,7 @@ const Profile = () => {
     prevNotesTimestamp: { notes: string; timestamp: Date } | null
   ) => {
     if (!prevNotesTimestamp && notes.trim() !== "") {
-      return { notes, timestamp: new Date() };
+      return { notes, timestamp: TimeUtils.now().toJSDate() };
     }
 
     return prevNotesTimestamp;
@@ -813,7 +814,7 @@ const Profile = () => {
     // Compare trimmed versions of notes to avoid whitespace issues
     if (prevNotes.trim() !== newNotes.trim()) {
       console.log("Notes changed from:", prevNotes.trim(), "to:", newNotes.trim());
-      return { notes: newNotes, timestamp: new Date() };
+      return { notes: newNotes, timestamp: TimeUtils.now().toJSDate() };
     }
     return prevNotesTimestamp;
   };
@@ -1113,7 +1114,7 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
         deliveryInstructionsTimestamp: updatedDeliveryInstructionsTimestamp,
         lifeChallengesTimestamp: updatedLifeChallengesTimestamp,
         lifestyleGoalsTimestamp: updatedLifestyleGoalsTimestamp,
-        updatedAt: new Date(),
+        updatedAt: TimeUtils.now().toJSDate(),
         total: Number(clientProfile.adults || 0) + Number(clientProfile.children || 0) + Number(clientProfile.seniors || 0),
         ward: fetchedWard, // Use potentially updated ward
         coordinates: coordinatesToSave, // Use potentially updated coordinates
@@ -1135,7 +1136,7 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
         const newProfile = {
           ...updatedProfile,
           uid: newUid,
-          createdAt: new Date(), // Set createdAt for new profile
+          createdAt: TimeUtils.now().toJSDate(), // Set createdAt for new profile
         };
         // Save to Firestore for new profile
         console.log("Creating new profile:", newProfile);
@@ -1875,15 +1876,14 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
           // Use customDates directly if recurrence is Custom
           // Ensure customDates exist and map string dates back to Date objects
           recurrenceDates = newDelivery.customDates?.map(dateStr => {
-            const date = new Date(dateStr);
-            // Adjust for timezone offset if needed, similar to how it might be handled elsewhere
-            return new Date(date.getTime() + date.getTimezoneOffset() * 60000);
+            // Use TimeUtils for proper timezone handling
+            return TimeUtils.fromISO(dateStr).toJSDate();
           }) || [];
           // Clear repeatsEndDate explicitly for custom recurrence in the submitted data
           newDelivery.repeatsEndDate = undefined;
         } else {
           // Calculate recurrence dates for standard recurrence types
-          const deliveryDate = new Date(newDelivery.deliveryDate);
+          const deliveryDate = TimeUtils.fromISO(newDelivery.deliveryDate).toJSDate();
           recurrenceDates =
             newDelivery.recurrence === "None" ? [deliveryDate] : calculateRecurrenceDates(newDelivery);
         }
@@ -1998,8 +1998,8 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
           notesTimestamp: data.notesTimestamp || null,
           lifestyleGoals: data.lifestyleGoals || "",
           language: data.language || "",
-          createdAt: data.createdAt || new Date(),
-          updatedAt: data.updatedAt || new Date(),
+          createdAt: data.createdAt || TimeUtils.now().toJSDate(),
+          updatedAt: data.updatedAt || TimeUtils.now().toJSDate(),
           startDate: data.startDate || "",
           endDate: data.endDate || "",
           recurrence: data.recurrence || "None",
