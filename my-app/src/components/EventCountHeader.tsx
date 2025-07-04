@@ -1,9 +1,9 @@
 import React from "react";
-import { Box, Typography, LinearProgress } from "@mui/material";
+import { Box, Typography } from "@mui/material";
 import LocalShippingIcon from "@mui/icons-material/LocalShipping";
 interface DeliveryCountHeaderProps {
-    events: any[];
-    limit?: number;
+    events: any[]
+    limit?: number
 }
 export default function DeliveryCountHeader({events, limit}: DeliveryCountHeaderProps) {
     return (
@@ -13,7 +13,7 @@ export default function DeliveryCountHeader({events, limit}: DeliveryCountHeader
                 alignItems: "center",
                 justifyContent: "flex-start",
                 marginBottom: 2.4,
-                padding: 1.9,
+                padding: 0.8075,
                 backgroundColor: "#f8fffe",
                 borderRadius: 2,
                 borderLeft: "4px solid #257E68",
@@ -36,7 +36,7 @@ export default function DeliveryCountHeader({events, limit}: DeliveryCountHeader
             >
                 <LocalShippingIcon sx={{ color: "#fff", fontSize: "1rem" }} />
             </Box>
-            <Box sx={{ flex: 1 }}>
+            <Box>
                 <Typography
                     variant="h5"
                     sx={{
@@ -47,7 +47,7 @@ export default function DeliveryCountHeader({events, limit}: DeliveryCountHeader
                         minWidth: "2ch", // Ensures consistent width for numbers
                     }}
                 >
-                    {events.length}{limit ? ` / ${limit}` : ''}
+                    {limit !== undefined ? `${events.length} / ${limit}` : events.length}
                 </Typography>
                 <Typography
                     variant="body2"
@@ -58,28 +58,10 @@ export default function DeliveryCountHeader({events, limit}: DeliveryCountHeader
                         fontSize: "0.75rem",
                         letterSpacing: "0.4px",
                         whiteSpace: "nowrap", // Prevents text wrapping
-                        marginBottom: limit ? 0.5 : 0,
                     }}
                 >
                     {events.length === 1 ? "Delivery" : "Deliveries"} Today
                 </Typography>
-                {limit && (
-                    <Box sx={{ width: '100%', mt: 0.5 }}>
-                        <LinearProgress
-                            variant="determinate"
-                            value={Math.min((events.length / limit) * 100, 100)}
-                            sx={{
-                                height: 6,
-                                borderRadius: 3,
-                                backgroundColor: '#e0e0e0',
-                                '& .MuiLinearProgress-bar': {
-                                    backgroundColor: events.length > limit ? '#ff4444' : '#257E68',
-                                    borderRadius: 3,
-                                },
-                            }}
-                        />
-                    </Box>
-                )}
             </Box>
         </Box>
     )
