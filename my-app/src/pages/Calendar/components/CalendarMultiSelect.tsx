@@ -57,6 +57,7 @@ const CalendarMultiSelect: React.FC<CalendarMultiSelectProps> = ({ selectedDates
         fullWidth
         size="small"
         value={dateInput}
+        InputLabelProps={{ shrink: true }}
         onChange={(e) => {
           // Clear error when user starts typing
           if (dateError) setDateError(null);
@@ -84,12 +85,11 @@ const CalendarMultiSelect: React.FC<CalendarMultiSelectProps> = ({ selectedDates
         }}
         error={!!dateError}
         helperText={dateError || " "}
-        InputLabelProps={{ shrink: true }}
         inputProps={{
           min: "1900-01-01",
           max: "2100-12-31"
         }}
-        sx={{ mb: 2 }}
+        sx={{ mb: 2, width: '100%' }}
       />
       <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', mt: 1 }}>
         {selectedDates.map((date) => (

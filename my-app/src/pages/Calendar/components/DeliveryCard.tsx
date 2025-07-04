@@ -32,7 +32,17 @@ const DeliveryCard: React.FC<DeliveryCardProps> = ({ event, client, onEventModif
   const dietaryRestrictions = [...trueRestrictions, ...(Array.isArray(foodAllergens) ? foodAllergens : []), ...(Array.isArray(other) ? other : [])];
 
   return (
-    <Box className={styles.card}>
+    <Box 
+      className={styles.card}
+      onClick={(e) => {
+        e.stopPropagation();
+        e.preventDefault();
+      }}
+      sx={{
+        position: 'relative',
+        cursor: 'default',
+      }}
+    >
       <Box className={styles.clientSection}>
         <Box>
           {/* Displays the client name as a link */}
@@ -42,6 +52,7 @@ const DeliveryCard: React.FC<DeliveryCardProps> = ({ event, client, onEventModif
             to={client?.uid ? `/profile/${client.uid}` : "#"}
             className={styles.clientNameLink}
             aria-label={`View profile for ${event.clientName}`}
+            onClick={(e) => e.stopPropagation()}
           >
             {event.clientName}
           </Typography>
@@ -85,7 +96,22 @@ const DeliveryCard: React.FC<DeliveryCardProps> = ({ event, client, onEventModif
           </Box>
         ))}
       </Box>
-      <Box sx={{ display: 'flex', alignItems: 'center', marginLeft: 'auto' }}>
+      
+      <Box 
+        sx={{ 
+          position: 'absolute',
+          right: 8,
+          top: '50%',
+          transform: 'translateY(-50%)',
+          zIndex: 1,
+          height: 'fit-content',
+        }}
+        className="menu-button"
+        onClick={(e) => {
+          e.stopPropagation();
+          e.preventDefault();
+        }}
+      >
         <EventMenu event={event} onEventModified={onEventModified} />
       </Box>
     </Box>
