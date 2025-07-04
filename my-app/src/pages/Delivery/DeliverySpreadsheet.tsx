@@ -158,6 +158,7 @@ interface ClusterDoc {
   docId: string;
   date: Timestamp;
   clusters: Cluster[];
+  clientOverrides?: ClientOverride[];
 }
 
 interface DeliveryEvent {
@@ -599,12 +600,15 @@ const DeliverySpreadsheet: React.FC = () => {
           docId: doc.id,
           date: doc.data().date.toDate(),
           clusters: doc.data().clusters || [],
+          clientOverrides: doc.data().clientOverrides || [],
         };
         setClusterDoc(clustersData);
         setClusters(clustersData.clusters);
+        setClientOverrides(clustersData.clientOverrides || []);
       } else {
         setClusterDoc(null); // Clear clusterDoc when no clusters found
         setClusters([]);
+        setClientOverrides([]);
       }
     } catch (error) {
       console.error("Error fetching clusters:", error);
@@ -612,6 +616,7 @@ const DeliverySpreadsheet: React.FC = () => {
       if (dateForFetch.getTime() === selectedDate.getTime()) {
         setClusterDoc(null);
         setClusters([]);
+        setClientOverrides([]);
       }
     }
   };
@@ -796,9 +801,12 @@ const DeliverySpreadsheet: React.FC = () => {
       // Update cluster state
       setClusters(updatedClusters);
 
-      // Update Firebase with cluster changes
+      // Update Firebase with cluster changes and client overrides
       const clusterRef = doc(db, "clusters", clusterDoc.docId);
-      await updateDoc(clusterRef, { clusters: updatedClusters });
+      await updateDoc(clusterRef, { 
+        clusters: updatedClusters,
+        clientOverrides: updatedOverrides
+      });
 
       // Remove the client from selected rows since their cluster assignment changed
       if (oldClusterId !== newClusterId) {
@@ -894,7 +902,10 @@ const DeliverySpreadsheet: React.FC = () => {
       setClientOverrides(updatedOverrides);
 
       const clusterRef = doc(db, "clusters", clusterDoc.docId);
-      await updateDoc(clusterRef, { clusters: updatedClusters });
+      await updateDoc(clusterRef, { 
+        clusters: updatedClusters,
+        clientOverrides: updatedOverrides
+      });
 
       resetSelections();
     } catch (error) {
@@ -972,7 +983,10 @@ const DeliverySpreadsheet: React.FC = () => {
         // Update Firestore using updateDoc
         const clusterRef = doc(db, "clusters", clusterDoc.docId);
         // Only update the 'clusters' field
-        await updateDoc(clusterRef, { clusters: updatedClusters });
+        await updateDoc(clusterRef, { 
+          clusters: updatedClusters,
+          clientOverrides: updatedOverrides
+        });
 
         resetSelections();
       } catch (error) {
@@ -995,13 +1009,15 @@ const DeliverySpreadsheet: React.FC = () => {
     const newClusterDoc = {
       clusters: newClusters,
       docId: docRef.id,
-      date: Timestamp.fromDate(clusterDate) // Use consistent date
+      date: Timestamp.fromDate(clusterDate), // Use consistent date
+      clientOverrides: []
     }
 
     // Firestore expects the data object directly for setDoc - Corrected
     await setDoc(docRef, newClusterDoc); 
     setClusters(newClusters); // Update state after successful Firestore creation
     setClusterDoc(newClusterDoc)
+    setClientOverrides([]);
   }
 
   const manualAssign = async (assignedClusters: string[], clusters: number) => {
@@ -1028,7 +1044,10 @@ const DeliverySpreadsheet: React.FC = () => {
     if(clusterDoc){
       const clusterRef = doc(db, "clusters", clusterDoc.docId);
       // Only update the 'clusters' field using updateDoc
-      await updateDoc(clusterRef, { clusters: newClusters });
+      await updateDoc(clusterRef, { 
+        clusters: newClusters,
+        clientOverrides: clientOverrides
+      });
       setClusters(newClusters); // Update state after successful Firestore update
       // Update the local clusterDoc state's clusters as well
       setClusterDoc(prevDoc => prevDoc ? { ...prevDoc, clusters: newClusters } : null);
@@ -1254,7 +1273,10 @@ const DeliverySpreadsheet: React.FC = () => {
 
       if (clusterDoc) {
         const clusterRef = doc(db, "clusters", clusterDoc.docId);
-        await updateDoc(clusterRef, { clusters: newClusters });
+        await updateDoc(clusterRef, { 
+          clusters: newClusters,
+          clientOverrides: clientOverrides
+        });
         setClusters(newClusters);
         setClusterDoc(prevDoc => prevDoc ? { ...prevDoc, clusters: newClusters } : null);
       } else {
