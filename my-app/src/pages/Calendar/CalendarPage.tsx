@@ -426,8 +426,17 @@ const CalendarPage: React.FC = () => {
 
   const renderCalendarView = () => {
     if (viewType === "Day") {
+      // Calculate the daily limit for the current day
+      const currentDayOfWeek = currentDate.dayOfWeek(); // 0 = Sunday, 1 = Monday, etc.
+      const dailyLimit = limits[currentDayOfWeek];
+      
       return (
-        <DayView events={events} clients={clients} onEventModified={fetchEvents} />
+        <DayView 
+          events={events} 
+          clients={clients} 
+          onEventModified={fetchEvents} 
+          dailyLimit={dailyLimit}
+        />
       );
     }
     
