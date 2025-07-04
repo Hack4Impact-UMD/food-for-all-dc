@@ -387,6 +387,11 @@ const CalendarPage: React.FC = () => {
     updateCurrentDate(DayPilot.Date.today());
   };
 
+  // Clear events immediately when view type changes to prevent flickering
+  useEffect(() => {
+    setEvents([]);
+  }, [viewType]);
+
   // Update calendar when view type, date, or clients change
   useEffect(() => {
     // Only fetch events if clients have been loaded
