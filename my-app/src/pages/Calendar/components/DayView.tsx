@@ -11,12 +11,13 @@ interface DayViewProps {
   events: DeliveryEvent[];
   clients: ClientProfile[];
   onEventModified: () => void;
+  dailyLimit?: number;
 }
 
-const DayView: React.FC<DayViewProps> = ({ events, clients, onEventModified }) => {
+const DayView: React.FC<DayViewProps> = ({ events, clients, onEventModified, dailyLimit }) => {
   return (
     <Box sx={{ padding: 2, width: "100%", maxWidth: "100%" }}>
-      <EventCountHeader events = {events}/>
+      <EventCountHeader events={events} limit={dailyLimit} />
 
       {events.length === 0 ? (
         <Typography>No deliveries scheduled for this day.</Typography>

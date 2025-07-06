@@ -67,6 +67,7 @@ interface ClientOverride {
 }
 import { useAuth } from "../../auth/AuthProvider";
 import EventCountHeader from "../../components/EventCountHeader";
+import { useLimits } from "../Calendar/components/useLimits";
 // interface Driver {
 //   id: string;
 //   name: string;
@@ -306,6 +307,7 @@ const isRegularField = (
 const DeliverySpreadsheet: React.FC = () => {
   const testing = false;
   const { userRole } = useAuth();
+  const limits = useLimits();
   const [rows, setRows] = useState<DeliveryRowData[]>([]);
   const [rawClientData, setRawClientData] = useState<DeliveryRowData[]>([]);
   const [searchQuery, setSearchQuery] = useState<string>("");
@@ -1730,7 +1732,16 @@ const DeliverySpreadsheet: React.FC = () => {
           </Box>
         </Box>
       </Box>
-      <EventCountHeader events = {rows}/>
+      {/* Add daily limit calculation and pass to EventCountHeader */}
+      {(() => {
+        // Calculate the daily limit for the selected date
+        const selectedDateObj = TimeUtils.fromJSDate(selectedDate);
+        const dayOfWeek = selectedDateObj.weekday % 7; // Luxon weekday: 1=Monday, convert to 0=Sunday format
+        const adjustedDayOfWeek = dayOfWeek === 7 ? 0 : dayOfWeek; // Convert Sunday from 7 to 0
+        const dailyLimit = limits && limits.length > adjustedDayOfWeek ? limits[adjustedDayOfWeek] : undefined;
+        
+        return <EventCountHeader events={rows} limit={dailyLimit} />;
+      })()}
       <Box
         sx={{
           flex: 1,

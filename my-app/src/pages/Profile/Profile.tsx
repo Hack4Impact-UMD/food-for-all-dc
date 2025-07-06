@@ -57,7 +57,6 @@ import { ClientProfileKey, InputType } from "./types";
 import { DeliveryEvent } from "../../types/calendar-types";
 import { useAuth } from "../../auth/AuthProvider";
 import { Add } from "@mui/icons-material";
-import { Time, TimeUtils } from "../../utils/timeUtils";
 import AddDeliveryDialog from "../Calendar/components/AddDeliveryDialog";
 import { calculateRecurrenceDates } from "../Calendar/components/CalendarUtils";
 import { DayPilot } from "@daypilot/daypilot-lite-react";
@@ -67,41 +66,11 @@ import { toJSDate } from '../../utils/timestamp';
 const fieldStyles = {
   backgroundColor: "white",
   width: "60%",
-  height: "56px",
+  height: "1.813rem",
   padding: "0.1rem 0.5rem",
   borderRadius: "5px",
   border: ".1rem solid black",
   marginTop: "0px",
-};
-
-// Simple dropdown styling - use native MUI arrow positioned inside field
-const simpleDropdownStyles = {
-  backgroundColor: "white",
-  width: "100%",
-  height: "56px",
-  borderRadius: "5px",
-  border: ".1rem solid black",
-  marginTop: "0px",
-  '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-    border: "2px solid #257E68",
-    boxShadow: "0 0 8px rgba(37, 126, 104, 0.4), 0 0 16px rgba(37, 126, 104, 0.2)",
-  },
-  '& .MuiOutlinedInput-notchedOutline': {
-    display: 'none', // Remove MUI border
-  },
-  '& .MuiSelect-select': {
-    padding: '0 48px 0 14px', // Increased right padding to 48px to avoid arrow overlap
-    display: 'flex',
-    alignItems: 'center',
-  },
-  '& .MuiSelect-icon': {
-    position: 'absolute',
-    right: '12px',
-    top: '50%',
-    transform: 'translateY(-50%)',
-    color: '#666',
-    fontSize: '1.2rem',
-  },
 };
 
 // Enhanced styling for text fields
@@ -264,8 +233,8 @@ const Profile = () => {
     lifestyleGoalsTimestamp: null,
     lifestyleGoals: "",
     language: "",
-    createdAt: TimeUtils.now().toJSDate(),
-    updatedAt: TimeUtils.now().toJSDate(),
+    createdAt: new Date(),
+    updatedAt: new Date(),
     startDate: "",
     endDate: "",
     recurrence: "None",
@@ -367,8 +336,8 @@ const Profile = () => {
       setIsNewProfile(true);
       setClientProfile({
         ...clientProfile,
-        createdAt: TimeUtils.now().toJSDate(),
-        updatedAt: TimeUtils.now().toJSDate(),
+        createdAt: new Date(),
+        updatedAt: new Date(),
         referralEntity: null,
       });
       setTags([]);
@@ -393,8 +362,8 @@ const Profile = () => {
 
           if (!querySnapshot.empty) {
             const lastEvent = querySnapshot.docs[0].data();
-            const deliveryDate = Time.Firebase.fromTimestamp(lastEvent.deliveryDate);
-            setLastDeliveryDate(deliveryDate.toISODate() || "");
+            const deliveryDate = lastEvent.deliveryDate.toDate();
+            setLastDeliveryDate(deliveryDate.toISOString().split("T")[0]);
           } else {
             setLastDeliveryDate("No deliveries found");
           }
@@ -781,10 +750,9 @@ const Profile = () => {
     if (!clientProfile.state) {
       newErrors.state = "State is required";
     }
-    // Remove DOB validation - no longer required
-    // if (!clientProfile.dob) {
-    //   newErrors.dob = "Date of Birth is required";
-    // }
+    if (!clientProfile.dob) {
+      newErrors.dob = "Date of Birth is required";
+    }
     if (clientProfile.email?.trim() &&
         !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clientProfile.email.trim())
     ) {
@@ -862,7 +830,7 @@ const Profile = () => {
     prevNotesTimestamp: { notes: string; timestamp: Date } | null
   ) => {
     if (!prevNotesTimestamp && notes.trim() !== "") {
-      return { notes, timestamp: TimeUtils.now().toJSDate() };
+      return { notes, timestamp: new Date() };
     }
 
     return prevNotesTimestamp;
@@ -876,7 +844,7 @@ const Profile = () => {
     // Compare trimmed versions of notes to avoid whitespace issues
     if (prevNotes.trim() !== newNotes.trim()) {
       console.log("Notes changed from:", prevNotes.trim(), "to:", newNotes.trim());
-      return { notes: newNotes, timestamp: TimeUtils.now().toJSDate() };
+      return { notes: newNotes, timestamp: new Date() };
     }
     return prevNotesTimestamp;
   };
@@ -1180,7 +1148,7 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
         deliveryInstructionsTimestamp: updatedDeliveryInstructionsTimestamp,
         lifeChallengesTimestamp: updatedLifeChallengesTimestamp,
         lifestyleGoalsTimestamp: updatedLifestyleGoalsTimestamp,
-        updatedAt: TimeUtils.now().toJSDate(),
+        updatedAt: new Date(),
         total: Number(clientProfile.adults || 0) + Number(clientProfile.children || 0) + Number(clientProfile.seniors || 0),
         ward: fetchedWard, // Use potentially updated ward
         coordinates: coordinatesToSave, // Use potentially updated coordinates
@@ -1202,7 +1170,7 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
         const newProfile = {
           ...updatedProfile,
           uid: newUid,
-          createdAt: TimeUtils.now().toJSDate(), // Set createdAt for new profile
+          createdAt: new Date(), // Set createdAt for new profile
         };
         // Save to Firestore for new profile
         console.log("Creating new profile:", newProfile);
@@ -1446,7 +1414,19 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
             name="language"
             value={selectValue}
             onChange={handleLanguageSelectChange}
-            sx={simpleDropdownStyles}
+            sx={{
+              backgroundColor: "white",
+              width: "100%",
+              height: "1.813rem",
+              padding: "0.1rem 0.5rem",
+              borderRadius: "5px",
+              border: ".1rem solid black",
+              marginTop: "0px",
+              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                border: "2px solid #257E68",
+                boxShadow: "0 0 8px rgba(37, 126, 104, 0.4), 0 0 16px rgba(37, 126, 104, 0.2)",
+              },
+            }}
           >
             {preDefinedOptions.map((option) => (
               <MenuItem key={option} value={option}>
@@ -1462,7 +1442,7 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
               sx={{
                 backgroundColor: "white",
                 width: "100%",
-                height: "56px",
+                height: "1.813rem",
                 padding: "0.1rem 0.5rem",
                 borderRadius: "5px",
                 marginTop: "0px",
@@ -1519,7 +1499,19 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
             name="ethnicity"
             value={selectValue}
             onChange={handleEthnicitySelectChange}
-            sx={simpleDropdownStyles}
+            sx={{
+              backgroundColor: "white",
+              width: "100%",
+              height: "1.813rem",
+              padding: "0.1rem 0.5rem",
+              borderRadius: "5px",
+              border: ".1rem solid black",
+              marginTop: "0px",
+              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                border: "2px solid #257E68",
+                boxShadow: "0 0 8px rgba(37, 126, 104, 0.4), 0 0 16px rgba(37, 126, 104, 0.2)",
+              },
+            }}
           >
             {preDefinedOptions.map((option) => (
               <MenuItem key={option} value={option}>
@@ -1535,7 +1527,7 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
               sx={{
                 backgroundColor: "white",
                 width: "100%",
-                height: "56px",
+                height: "1.813rem",
                 padding: "0.1rem 0.5rem",
                 borderRadius: "5px",
                 marginTop: "0px",
@@ -1576,7 +1568,19 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
       return (        <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>          <Select            name="gender"
             value={selectValue}
             onChange={handleGenderSelectChange}
-            sx={simpleDropdownStyles}
+            sx={{
+              backgroundColor: "white",
+              width: "100%",
+              height: "1.813rem",
+              padding: "0.1rem 0.5rem",
+              borderRadius: "5px",
+              border: ".1rem solid black",
+              marginTop: "0px",
+              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                border: "2px solid #257E68",
+                boxShadow: "0 0 8px rgba(37, 126, 104, 0.4), 0 0 16px rgba(37, 126, 104, 0.2)",
+              },
+            }}
           >
             {preDefinedOptions.map((option) => (
               <MenuItem key={option} value={option}>
@@ -1611,7 +1615,19 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
       return (        <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>          <Select            name="headOfHousehold"
             value={selectValue}
             onChange={handleHeadOfHouseholdSelectChange}
-            sx={simpleDropdownStyles}
+            sx={{
+              backgroundColor: "white",
+              width: "100%",
+              height: "1.813rem",
+              padding: "0.1rem 0.5rem",
+              borderRadius: "5px",
+              border: ".1rem solid black",
+              marginTop: "0px",
+              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                border: "2px solid #257E68",
+                boxShadow: "0 0 8px rgba(37, 126, 104, 0.4), 0 0 16px rgba(37, 126, 104, 0.2)",
+              },
+            }}
           >
             {preDefinedOptions.map((option) => (
               <MenuItem key={option} value={option}>
@@ -1648,7 +1664,19 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
       return (        <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>          <Select            name="recurrence"
             value={selectValue}
             onChange={handleRecurrenceSelectChange}
-            sx={simpleDropdownStyles}
+            sx={{
+              backgroundColor: "white",
+              width: "100%",
+              height: "1.813rem",
+              padding: "0.1rem 0.5rem",
+              borderRadius: "5px",
+              border: ".1rem solid black",
+              marginTop: "0px",
+              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                border: "2px solid #257E68",
+                boxShadow: "0 0 8px rgba(37, 126, 104, 0.4), 0 0 16px rgba(37, 126, 104, 0.2)",
+              },
+            }}
           >
             {preDefinedOptions.map((option) => (
               <MenuItem key={option} value={option}>
@@ -1977,14 +2005,15 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
           // Use customDates directly if recurrence is Custom
           // Ensure customDates exist and map string dates back to Date objects
           recurrenceDates = newDelivery.customDates?.map(dateStr => {
-            // Use TimeUtils for proper timezone handling
-            return TimeUtils.fromISO(dateStr).toJSDate();
+            const date = new Date(dateStr);
+            // Adjust for timezone offset if needed, similar to how it might be handled elsewhere
+            return new Date(date.getTime() + date.getTimezoneOffset() * 60000);
           }) || [];
           // Clear repeatsEndDate explicitly for custom recurrence in the submitted data
           newDelivery.repeatsEndDate = undefined;
         } else {
           // Calculate recurrence dates for standard recurrence types
-          const deliveryDate = TimeUtils.fromISO(newDelivery.deliveryDate).toJSDate();
+          const deliveryDate = new Date(newDelivery.deliveryDate);
           recurrenceDates =
             newDelivery.recurrence === "None" ? [deliveryDate] : calculateRecurrenceDates(newDelivery);
         }
@@ -1994,10 +2023,7 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
 
           events
             .filter(event => event.clientId === newDelivery.clientId)
-            .map(event => {
-              const jsDate = toJSDate(event.deliveryDate);
-              return new DayPilot.Date(jsDate).toString("yyyy-MM-dd");
-            })
+            .map(event => new DayPilot.Date(toJSDate(event.deliveryDate)).toString("yyyy-MM-dd"))
         );
   
         const uniqueRecurrenceDates = recurrenceDates.filter(date => 
@@ -2099,8 +2125,8 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
           notesTimestamp: data.notesTimestamp || null,
           lifestyleGoals: data.lifestyleGoals || "",
           language: data.language || "",
-          createdAt: data.createdAt || TimeUtils.now().toJSDate(),
-          updatedAt: data.updatedAt || TimeUtils.now().toJSDate(),
+          createdAt: data.createdAt || new Date(),
+          updatedAt: data.updatedAt || new Date(),
           startDate: data.startDate || "",
           endDate: data.endDate || "",
           recurrence: data.recurrence || "None",
