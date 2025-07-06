@@ -1212,6 +1212,21 @@ const DeliverySpreadsheet: React.FC = () => {
     }
   });
 
+  const sortRows = (rowsToSort: DeliveryRowData[], order: "asc" | "desc") => {
+    return [...rowsToSort].sort((a, b) => {
+      const clusterCompare = order === "asc"
+        ? (a.clusterId || "").localeCompare(b.clusterId || "")
+        : (b.clusterId || "").localeCompare(a.clusterId || "");
+
+      if (clusterCompare !== 0) return clusterCompare;
+
+      const firstNameCompare = (a.firstName || "").localeCompare(b.firstName || "");
+      if (firstNameCompare !== 0) return firstNameCompare;
+
+      return (a.lastName || "").localeCompare(b.lastName || "");
+    });
+  };
+
   // Synchronize rows state with rawClientData and clusters
   useEffect(() => {
     if (rawClientData.length === 0) {
@@ -1229,25 +1244,13 @@ const DeliverySpreadsheet: React.FC = () => {
       return { ...client, clusterId: assignedClusterId };
     });
 
-    setRows(synchronizedRows);
-  }, [rawClientData, clusters]);
+    setRows(sortRows(synchronizedRows, sortClusterOrder));
+  }, [rawClientData, clusters, sortClusterOrder]);
 
-  // Handle toggling sort order for the Cluster ID column
   const toggleSortClusterOrder = () => {
-    const sortedRows = [...rows].sort((a, b) => {
-      const clusterCompare = sortClusterOrder === "asc"
-        ? a.clusterId.localeCompare(b.clusterId)
-        : b.clusterId.localeCompare(a.clusterId);
-
-      if (clusterCompare !== 0) return clusterCompare;
-
-      const firstNameCompare = a.firstName.localeCompare(b.firstName);
-      if (firstNameCompare !== 0) return firstNameCompare;
-
-      return a.lastName.localeCompare(b.lastName);
-    });
-    setRows(sortedRows);
-    setSortClusterOrder(sortClusterOrder === "asc" ? "desc" : "asc");
+    const newSortOrder = sortClusterOrder === "asc" ? "desc" : "asc";
+    setSortClusterOrder(newSortOrder);
+    setRows(sortRows(rows, newSortOrder));
   };
 
   return (
@@ -1534,7 +1537,6 @@ const DeliverySpreadsheet: React.FC = () => {
                         sortClusterOrder === "asc" ? <ArrowDropUpIcon /> : <ArrowDropDownIcon />
                       )}
                     </Stack>
-
                   </TableCell>
                 ))}
                 {customColumns.map((col) => (
