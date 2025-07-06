@@ -1256,7 +1256,7 @@ const DeliverySpreadsheet: React.FC = () => {
         top: 0,
         width: "100%"
       }}>
-        <Typography variant="h5" sx={{ marginRight: 2,  color: "#787777" }}>
+        <Typography variant="h5" sx={{ marginRight: 2,  color: "#787777" , width: '37%'}}>
           {TimeUtils.fromJSDate(selectedDate).toFormat('cccc - MMMM, dd/yyyy')} 
         </Typography>
         
