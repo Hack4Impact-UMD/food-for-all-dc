@@ -441,21 +441,21 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
               <div style="font-weight: bold; margin-bottom: 10px;">${clientName}</div>
               <div style="margin-bottom: 8px; display: flex; align-items: center; gap: 8px;">
                 <label style="font-weight: bold; min-width: 60px; font-size: 12px;">Cluster:</label>
-                <select id="cluster-select-${clientId}" style="flex: 1; padding: 3px; border: 1px solid #ccc; border-radius: 3px; font-size: 11px; background-color: ${clusterId ? getClusterColor(clusterId) : '#ffffff'}; color: ${clusterId ? 'white' : 'black'};">
+                <select id="cluster-select-${clientId}" style="flex: 1; padding: 3px; border: 1px solid #ccc; border-radius: 3px; font-size: 11px; background-color: ${clusterId ? getClusterColor(clusterId) : '#ffffff'}; color: ${clusterId ? 'white' : 'black'}; height: 24px !important; min-height: 24px !important; max-height: 24px !important; line-height: 1.1 !important;">
                   <option value="" style="background-color: #ffffff; color: black;">No cluster</option>
                   ${clusters.map(c => `<option value="${c.id}" ${c.id === clusterId ? 'selected' : ''} style="background-color: ${getClusterColor(c.id)}; color: white;">${c.id}</option>`).join('')}
                 </select>
               </div>
               <div style="margin-bottom: 8px; display: flex; align-items: center; gap: 8px;">
                 <label style="font-weight: bold; min-width: 60px; font-size: 12px;">Driver:</label>
-                <select id="driver-select-${clientId}" style="flex: 1; padding: 3px; border: 1px solid #ccc; border-radius: 3px; font-size: 11px;">
+                <select id="driver-select-${clientId}" style="flex: 1; padding: 3px; border: 1px solid #ccc; border-radius: 3px; font-size: 11px; height: 24px !important; min-height: 24px !important; max-height: 24px !important; line-height: 1.1 !important;">
                   <option value="">No driver</option>
                   ${drivers.map(d => `<option value="${d.name}" ${d.name === effectiveDriver ? 'selected' : ''}>${d.name}${d.phone ? ` - ${d.phone}` : ''}</option>`).join('')}
                 </select>
               </div>
               <div style="margin-bottom: 10px; display: flex; align-items: center; gap: 8px;">
                 <label style="font-weight: bold; min-width: 60px; font-size: 12px;">Time:</label>
-                <select id="time-select-${clientId}" style="flex: 1; padding: 3px; border: 1px solid #ccc; border-radius: 3px; font-size: 11px;">
+                <select id="time-select-${clientId}" style="flex: 1; padding: 3px; border: 1px solid #ccc; border-radius: 3px; font-size: 11px; height: 24px !important; min-height: 24px !important; max-height: 24px !important; line-height: 1.1 !important;">
                   <option value="">No time</option>
                   ${TIME_SLOTS.map(t => `<option value="${t}" ${t === formatTimeForDisplay(effectiveTime) ? 'selected' : ''}>${t}</option>`).join('')}
                 </select>
@@ -497,6 +497,23 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
           editBtn.addEventListener('click', () => {
             viewMode.style.display = 'none';
             editMode.style.display = 'block';
+            // Ensure popup stays in view after switching to edit mode
+            setTimeout(() => {
+              // Find the marker for this popup
+              if (markerGroupRef.current && mapRef.current) {
+                markerGroupRef.current.eachLayer(function(layer) {
+                  // Only proceed if this is a marker
+                  if ((layer as L.Marker).getPopup && (layer as L.Marker).getPopup() && (layer as L.Marker).getPopup()!.getContent() === popupContainer) {
+                    const marker = layer as L.Marker;
+                    const popup = marker.getPopup();
+                    if (popup && mapRef.current && marker.getLatLng) {
+                      popup.update();
+                      mapRef.current.panInside(marker.getLatLng(), { padding: [30, 30] });
+                    }
+                  }
+                });
+              }
+            }, 0);
           });
         }
 
@@ -564,7 +581,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
 
       //add popup and marker to group
       marker
-        .bindPopup(popupContent)
+        .bindPopup(popupContent, { autoPan: true, keepInView: true })
         .addTo(markerGroupRef.current!);
     });
 
