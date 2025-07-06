@@ -200,7 +200,7 @@ const fields: Field[] = [
       return tags.length > 0 ? tags.join(", ") : "None";
     },
   },
-  { key: "address", label: "Address", type: "text" },
+  { key: "zipCode", label: "Zip Code", type: "text" },
   { key: "ward", label: "Ward", type: "text" },
   {
     key: "assignedDriver",
@@ -984,7 +984,7 @@ const DeliverySpreadsheet: React.FC = () => {
       // Adjust clusterNum if it exceeds the number of valid points
       const adjustedClusterNum = Math.min(clusterNum, validCoordsForClustering.length);
       if (adjustedClusterNum !== clusterNum) {
-         console.warn(`Adjusted cluster count from ${clusterNum} to ${adjustedClusterNum} due to invalid coordinates.`);
+        console.warn(`Adjusted cluster count from ${clusterNum} to ${adjustedClusterNum} due to invalid coordinates.`);
       }
 
       // Adjust min/max deliveries if necessary based on valid coordinates count
@@ -1125,100 +1125,174 @@ const DeliverySpreadsheet: React.FC = () => {
   // });
 
   const visibleRows = rows.filter((row) => {
-    const keywordRegex = /(\w+):\s*("[^"]+"|\S+)/g; // Matches key: "value" or key: value
-    const matches = [...searchQuery.matchAll(keywordRegex)];
-  
-    if (matches.length > 0) {
-      // For keyword queries, check that each provided value is a substring of the corresponding field
-      return matches.every(([_, key, value]) => {
-        const strippedValue = value.replace(/"/g, "").toLowerCase(); // Remove quotes and lowercase
-        
-        // Check static fields with a substring match
-        const matchesStaticField = fields.some((field) => {
-          const fieldValue = field.compute ? field.compute(row, clusters) : row[field.key as keyof DeliveryRowData];
-          return (
-            fieldValue != null &&
-            fieldValue.toString().toLowerCase().includes(strippedValue)
-          );
-        });
-    
-        // Check custom columns with a substring match
-        const matchesCustomColumn = customColumns.some((col) => {
-          if (col.propertyKey !== "none") {
-            const fieldValue = row[col.propertyKey as keyof DeliveryRowData];
-            return (
-              fieldValue != null &&
-              fieldValue.toString().toLowerCase().includes(strippedValue)
-            );
-          }
-          return false;
-        });
-    
-        return matchesStaticField || matchesCustomColumn;
-      });
-    } else {
-      // Fallback to general search logic
-      const eachQuery = searchQuery.match(/"[^"]+"|\S+/g) || [];
-      
-      const quotedQueries = eachQuery.filter(s => s.startsWith('"') && s.endsWith('"') && s.length > 1) || [];
-      const nonQuotedQueries = eachQuery.filter(s => s.length === 1 || !s.endsWith('"')) || [];
-    
-      const containsQuotedQueries = quotedQueries.length === 0
-        ? true
-        : quotedQueries.every((query) => {
-            // Use substring matching instead of exact equality
-            const strippedQuery = query.slice(1, -1).trim().toLowerCase();
-            const matchesStaticField = fields.some((field) => {
-              const fieldValue = field.compute ? field.compute(row, clusters) : row[field.key as keyof DeliveryRowData];
-              return (
-                fieldValue != null &&
-                fieldValue.toString().toLowerCase().includes(strippedQuery)
-              );
-            });
-            const matchesCustomColumn = customColumns.some((col) => {
-              if (col.propertyKey !== "none") {
-                const fieldValue = row[col.propertyKey as keyof DeliveryRowData];
-                return (
-                  fieldValue != null &&
-                  fieldValue.toString().toLowerCase().includes(strippedQuery)
-                );
-              }
-              return false;
-            });
-            return matchesStaticField || matchesCustomColumn;
-          });
-    
-      if (containsQuotedQueries) {
-        const containsRegularQuery = nonQuotedQueries.length === 0
-          ? true
-          : nonQuotedQueries.some((query) => {
-              const strippedQuery = query.startsWith('"')
-                ? query.slice(1).trim().toLowerCase()
-                : query.trim().toLowerCase();
-              if (strippedQuery.length === 0) {
-                return true;
-              }
-              const matchesStaticField = fields.some((field) => {
-                const fieldValue = field.compute ? field.compute(row, clusters) : row[field.key as keyof DeliveryRowData];
-                if (fieldValue == null) return false;
-                return fieldValue.toString().toLowerCase().includes(strippedQuery);
-              });
-              const matchesCustomColumn = customColumns.some((col) => {
-                if (col.propertyKey !== "none") {
-                  const fieldValue = row[col.propertyKey as keyof DeliveryRowData];
-                  return (
-                    fieldValue != null &&
-                    fieldValue.toString().toLowerCase().includes(strippedQuery)
-                  );
-                }
-                return false;
-              });
-              return matchesStaticField || matchesCustomColumn;
-            });
-        return containsRegularQuery;
-      } else {
+    const trimmedSearchQuery = searchQuery.trim();
+    if (!trimmedSearchQuery) {
+      return true; // Show all if search is empty
+    }
+
+    // Helper function to check if a value contains the search query string
+    const checkStringContains = (value: any, query: string): boolean => {
+      if (value === undefined || value === null) {
         return false;
       }
+      return String(value).toLowerCase().includes(query.toLowerCase());
+    };
+
+    // Helper for numbers, dates (as strings/numbers), or items in an array
+    const checkValueOrInArray = (value: any, query: string): boolean => {
+      if (value === undefined || value === null) {
+        return false;
+      }
+      const lowerQuery = query.toLowerCase();
+      if (Array.isArray(value)) {
+        return value.some(item => String(item).toLowerCase().includes(lowerQuery));
+      }
+      return String(value).toLowerCase().includes(lowerQuery);
+    };
+
+    const parts = trimmedSearchQuery.split(/:/);
+    let isKeyValueSearch = false;
+    let keyword = "";
+    let searchValue = "";
+
+    if (parts.length > 1) {
+      keyword = parts[0].trim().toLowerCase();
+      searchValue = parts.slice(1).join(':').trim();
+      if (searchValue) {
+        isKeyValueSearch = true;
+      }
+    }
+
+    if (isKeyValueSearch) {
+      // Perform key-value search
+      switch (keyword) {
+        case "name":
+        case "client":
+          return checkStringContains(`${row.firstName} ${row.lastName}`, searchValue) ||
+                 checkStringContains(row.firstName, searchValue) ||
+                 checkStringContains(row.lastName, searchValue);
+        case "address":
+          return checkStringContains(row.address, searchValue);
+        case "ward":
+          return checkStringContains(row.ward, searchValue);
+        case "zip":
+        case "zipcode":
+        case "zip code":
+          return checkStringContains(row.zipCode, searchValue);
+        case "cluster":
+        case "cluster id":
+          return checkStringContains(row.clusterId, searchValue);
+        case "driver":
+        case "assigned driver": {
+          const driverName = fields.find(f => f.key === "assignedDriver")?.compute?.(row, clusters);
+          return checkStringContains(driverName, searchValue);
+        }
+        case "time":
+        case "assigned time": {
+          const assignedTime = fields.find(f => f.key === "assignedTime")?.compute?.(row, clusters);
+          return checkStringContains(assignedTime, searchValue);
+        }
+        case "delivery instructions":
+        case "instructions": {
+          const instructions = (fields.find(f => f.key === "deliveryDetails.deliveryInstructions") as Extract<Field, { key: "deliveryDetails.deliveryInstructions" }>).compute?.(row);
+          return checkStringContains(instructions, searchValue);
+        }
+        case "tags":
+        case "tag":
+          return checkValueOrInArray(row.tags, searchValue);
+        case "phone":
+          return checkStringContains(row.phone, searchValue);
+        case "ethnicity":
+          return checkStringContains(row.ethnicity, searchValue);
+        case "adults":
+          return checkValueOrInArray(row.adults, searchValue);
+        case "children":
+          return checkValueOrInArray(row.children, searchValue);
+        case "delivery freq":
+        case "delivery frequency":
+          return checkStringContains(row.deliveryFreq, searchValue);
+        case "gender":
+          return checkStringContains(row.gender, searchValue);
+        case "language":
+          return checkStringContains(row.language, searchValue);
+        case "notes":
+          return checkStringContains(row.notes, searchValue);
+        case "tefap":
+        case "tefap cert":
+          return checkStringContains(row.tefapCert, searchValue);
+        case "dob":
+          return checkValueOrInArray(row.dob, searchValue);
+        case "referral entity":
+        case "referral": {
+          if (row.referralEntity && typeof row.referralEntity === 'object') {
+            return checkStringContains(row.referralEntity.name, searchValue) ||
+                   checkStringContains(row.referralEntity.organization, searchValue);
+          }
+          return false;
+        }
+        default: {
+          // Check custom columns
+          const matchesCustomColumn = customColumns.some((col) => {
+            if (col.propertyKey !== "none" && col.propertyKey.toLowerCase().includes(keyword)) {
+              const fieldValue = row[col.propertyKey as keyof DeliveryRowData];
+              return checkStringContains(fieldValue, searchValue);
+            }
+            return false;
+          });
+          return matchesCustomColumn;
+        }
+      }
+    } else {
+      // Global search - search across all fields
+      const globalSearchValue = trimmedSearchQuery.toLowerCase();
+
+      // Search in basic client info
+      if (checkStringContains(`${row.firstName} ${row.lastName}`, globalSearchValue)) return true;
+      if (checkStringContains(row.address, globalSearchValue)) return true;
+      if (checkStringContains(row.ward, globalSearchValue)) return true;
+      if (checkStringContains(row.zipCode, globalSearchValue)) return true;
+      if (checkStringContains(row.clusterId, globalSearchValue)) return true;
+      if (checkStringContains(row.phone, globalSearchValue)) return true;
+
+      // Search in computed fields
+      const driverName = fields.find(f => f.key === "assignedDriver")?.compute?.(row, clusters);
+      if (checkStringContains(driverName, globalSearchValue)) return true;
+
+      const assignedTime = fields.find(f => f.key === "assignedTime")?.compute?.(row, clusters);
+      if (checkStringContains(assignedTime, globalSearchValue)) return true;
+
+      const instructions = (fields.find(f => f.key === "deliveryDetails.deliveryInstructions") as Extract<Field, { key: "deliveryDetails.deliveryInstructions" }>)?.compute?.(row);
+      if (checkStringContains(instructions, globalSearchValue)) return true;
+
+      // Search in additional fields
+      if (checkValueOrInArray(row.tags, globalSearchValue)) return true;
+      if (checkStringContains(row.ethnicity, globalSearchValue)) return true;
+      if (checkValueOrInArray(row.adults, globalSearchValue)) return true;
+      if (checkValueOrInArray(row.children, globalSearchValue)) return true;
+      if (checkStringContains(row.deliveryFreq, globalSearchValue)) return true;
+      if (checkStringContains(row.gender, globalSearchValue)) return true;
+      if (checkStringContains(row.language, globalSearchValue)) return true;
+      if (checkStringContains(row.notes, globalSearchValue)) return true;
+      if (checkStringContains(row.tefapCert, globalSearchValue)) return true;
+      if (checkValueOrInArray(row.dob, globalSearchValue)) return true;
+
+      // Search in referral entity
+      if (row.referralEntity && typeof row.referralEntity === 'object') {
+        if (checkStringContains(row.referralEntity.name, globalSearchValue)) return true;
+        if (checkStringContains(row.referralEntity.organization, globalSearchValue)) return true;
+      }
+
+      // Search in custom columns
+      const matchesCustomColumn = customColumns.some((col) => {
+        if (col.propertyKey !== "none") {
+          const fieldValue = row[col.propertyKey as keyof DeliveryRowData];
+          return checkStringContains(fieldValue, globalSearchValue);
+        }
+        return false;
+      });
+      if (matchesCustomColumn) return true;
+
+      return false;
     }
   });
 
@@ -1561,6 +1635,7 @@ const DeliverySpreadsheet: React.FC = () => {
                         <MenuItem value="referralEntity">Referral Entity</MenuItem>
                         <MenuItem value="tefapCert">TEFAP Cert</MenuItem>
                         <MenuItem value="dob">DOB</MenuItem>
+                        <MenuItem value="address">Address</MenuItem>
                         </Select>
                         {/*Add Remove Button*/}
                         <IconButton
