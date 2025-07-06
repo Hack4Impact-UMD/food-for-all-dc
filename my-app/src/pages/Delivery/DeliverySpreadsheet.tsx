@@ -891,13 +891,13 @@ const DeliverySpreadsheet: React.FC = () => {
         }
       });
 
-      const updatedOverrides = clientOverrides.filter(override => 
-        !affectedClientIds.has(override.clientId) || !override.driver
-      ).map(override => 
-        affectedClientIds.has(override.clientId) 
-          ? { ...override, driver: undefined }
-          : override
-      ).filter(override => override.driver || override.time); // Remove overrides with no data
+      const updatedOverrides = clientOverrides.map(override => {
+        if (affectedClientIds.has(override.clientId)) {
+          // Clear the driver field for affected clients
+          return { ...override, driver: undefined };
+        }
+        return override;
+      }).filter(override => override.driver || override.time); // Remove overrides with no data
 
       setClientOverrides(updatedOverrides);
 
@@ -970,13 +970,13 @@ const DeliverySpreadsheet: React.FC = () => {
           }
         });
 
-        const updatedOverrides = clientOverrides.filter(override => 
-          !affectedClientIds.has(override.clientId) || !override.time
-        ).map(override => 
-          affectedClientIds.has(override.clientId) 
-            ? { ...override, time: undefined }
-            : override
-        ).filter(override => override.driver || override.time); // Remove overrides with no data
+        const updatedOverrides = clientOverrides.map(override => {
+          if (affectedClientIds.has(override.clientId)) {
+            // Clear the time field for affected clients
+            return { ...override, time: undefined };
+          }
+          return override;
+        }).filter(override => override.driver || override.time); // Remove overrides with no data
 
         setClientOverrides(updatedOverrides);
 
