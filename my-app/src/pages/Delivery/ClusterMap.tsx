@@ -493,8 +493,19 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
           });
         }
 
+        // Store initial values for reset on cancel
+        let initialClusterId = clusterSelect ? clusterSelect.value : '';
+        const driverSelect = popupContainer.querySelector(`#driver-select-${clientId}`) as HTMLSelectElement;
+        const timeSelect = popupContainer.querySelector(`#time-select-${clientId}`) as HTMLSelectElement;
+        let initialDriver = driverSelect ? driverSelect.value : '';
+        let initialTime = timeSelect ? timeSelect.value : '';
+
         if (editBtn) {
           editBtn.addEventListener('click', () => {
+            // Capture initial values when entering edit mode
+            if (clusterSelect) initialClusterId = clusterSelect.value;
+            if (driverSelect) initialDriver = driverSelect.value;
+            if (timeSelect) initialTime = timeSelect.value;
             viewMode.style.display = 'none';
             editMode.style.display = 'block';
             // Ensure popup stays in view after switching to edit mode
@@ -519,6 +530,16 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
 
         if (cancelBtn) {
           cancelBtn.addEventListener('click', () => {
+            // Reset dropdowns to their initial values
+            if (clusterSelect) {
+              clusterSelect.value = initialClusterId;
+              // Update color
+              const selectedColor = initialClusterId ? getClusterColor(initialClusterId) : '#ffffff';
+              clusterSelect.style.backgroundColor = selectedColor;
+              clusterSelect.style.color = initialClusterId ? 'white' : 'black';
+            }
+            if (driverSelect) driverSelect.value = initialDriver;
+            if (timeSelect) timeSelect.value = initialTime;
             viewMode.style.display = 'block';
             editMode.style.display = 'none';
           });
