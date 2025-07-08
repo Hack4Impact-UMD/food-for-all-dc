@@ -62,7 +62,7 @@ export const validateDeliveryDateRange = (
     const endDateTime = TimeUtils.fromAny(repeatsEndDate);
 
     const validation = Time.Validation.validateDeliveryDateRange(deliveryDateTime, endDateTime);
-    
+
     if (!validation.isValid) {
       result.endDateError = validation.endDateError;
       result.isValid = false;
