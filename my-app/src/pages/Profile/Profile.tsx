@@ -1,6 +1,7 @@
 import CloseIcon from "@mui/icons-material/Close";
 import EditIcon from "@mui/icons-material/Edit";
 import SaveIcon from "@mui/icons-material/Save";
+import { TimeUtils } from '../../utils/timeUtils';
 import {
   Autocomplete,
   Box,
@@ -233,9 +234,9 @@ const Profile = () => {
     lifestyleGoalsTimestamp: null,
     lifestyleGoals: "",
     language: "",
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    startDate: "",
+    createdAt: TimeUtils.now().toJSDate(),
+    updatedAt: TimeUtils.now().toJSDate(),
+    startDate: TimeUtils.now().toFormat('yyyy-MM-dd'),
     endDate: "",
     recurrence: "None",
     tags: [],
@@ -750,6 +751,9 @@ const Profile = () => {
     if (!clientProfile.state) {
       newErrors.state = "State is required";
     }
+    if (clientProfile.state !== "DC" && clientProfile.state !== "MD" && clientProfile.state !== "VA") {
+      newErrors.state = "State must be DC, MD, or VA";
+    } 
     if (!clientProfile.dob) {
       newErrors.dob = "Date of Birth is required";
     }
