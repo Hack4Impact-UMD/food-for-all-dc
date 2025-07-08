@@ -151,6 +151,19 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
             {errors.state}
           </Typography>
         )}
+        {/* Add state warning for non-DC states */}
+        {clientProfile.state && clientProfile.state !== "DC" && !errors.state && (
+            <Typography
+              variant="body2"
+              sx={{
+              color: '#d32f2f',
+              fontSize: '0.875rem',
+              marginTop: '4px'
+            }}
+            >
+              Warning: State is outside DC ({clientProfile.state})
+            </Typography>
+        )}
       </Box>
 
       {/* ZIP CODE */}

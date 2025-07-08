@@ -751,6 +751,9 @@ const Profile = () => {
     if (!clientProfile.state) {
       newErrors.state = "State is required";
     }
+    if (clientProfile.state !== "DC" && clientProfile.state !== "MD" && clientProfile.state !== "VA") {
+      newErrors.state = "State must be DC, MD, or VA";
+    } 
     if (!clientProfile.dob) {
       newErrors.dob = "Date of Birth is required";
     }
