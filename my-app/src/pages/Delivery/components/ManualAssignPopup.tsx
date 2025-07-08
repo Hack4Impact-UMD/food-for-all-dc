@@ -12,8 +12,8 @@ interface GenerateClustersPopupProps {
 
 export default function ManualAssign({ manualAssign, onClose, allDeliveries }: GenerateClustersPopupProps) {
   const [values, setValues] = useState({
-    clusterNum: "1",
-    assignedCluster: "1"
+    clusterNum: "",
+    assignedCluster: ""
   });
   const [errors, setErrors] = useState({
     clusterNum: "",
@@ -26,42 +26,6 @@ export default function ManualAssign({ manualAssign, onClose, allDeliveries }: G
     Array(allDeliveries.length).fill('0')
   );
 
-  const validateFields = () => {
-    const newErrors = {
-      clusterNum: "",
-      assignedCluster: "",
-      form: ""
-    };
-
-    //validate clusterNum
-    if (values.clusterNum === "") {
-      newErrors.clusterNum = "Required";
-    } else if (isNaN(Number(values.clusterNum))) {
-      newErrors.clusterNum = "Must be a number";
-    } else if (Number(values.clusterNum) <= 0) {
-      newErrors.clusterNum = "Must be positive";
-    }
-
-    //validate assignedCluster
-    if (values.assignedCluster === "") {
-      newErrors.assignedCluster = "Required";
-    } else if (isNaN(Number(values.assignedCluster))) {
-      newErrors.assignedCluster = "Must be a number";
-    } else {
-      const clusterNumValue = Number(values.clusterNum);
-      const assignedValue = Number(values.assignedCluster);
-      
-      if (assignedValue <= 0) {
-        newErrors.assignedCluster = "Must be positive";
-      } else if (assignedValue > clusterNumValue) {
-        newErrors.assignedCluster = `Must be ≤ ${clusterNumValue}`;
-      }
-    }
-
-    setErrors(newErrors);
-    return !newErrors.clusterNum && !newErrors.assignedCluster;
-  };
-
   const handleInputChange = (name: keyof typeof values, value: string) => {
     //only allow numbers or empty string
     if (value !== "" && !/^\d*$/.test(value)) return;
@@ -70,47 +34,53 @@ export default function ManualAssign({ manualAssign, onClose, allDeliveries }: G
     setValues(newValues);
 
     //validate immediately with new values
-    const newErrors = { ...errors };
-    if (name === "clusterNum") {
-      newErrors.clusterNum = "";
-      if (value === "") {
-        newErrors.clusterNum = "Required";
-      } else if (isNaN(Number(value))) {
-        newErrors.clusterNum = "Must be a number";
-      } else if (Number(value) <= 0) {
-        newErrors.clusterNum = "Must be positive";
-      }
+    const newErrors = validateFieldsWithValues(newValues);
+    setErrors(newErrors);
+  };
 
-      //also validate assignedCluster against new clusterNum
-      if (values.assignedCluster !== "") {
-        const assignedValue = Number(values.assignedCluster);
-        const newClusterNum = Number(value);
-        if (assignedValue > newClusterNum) {
-          newErrors.assignedCluster = `Must be ≤ ${newClusterNum}`;
-        } else {
-          newErrors.assignedCluster = "";
-        }
-      }
-    } else if (name === "assignedCluster") {
-      newErrors.assignedCluster = "";
-      if (value === "") {
-        newErrors.assignedCluster = "Required";
-      } else if (isNaN(Number(value))) {
-        newErrors.assignedCluster = "Must be a number";
-      } else {
-        const assignedValue = Number(value);
-        const clusterNumValue = Number(values.clusterNum);
-        
-        if (assignedValue <= 0) {
-          newErrors.assignedCluster = "Must be positive";
-        } else if (assignedValue > clusterNumValue) {
-          newErrors.assignedCluster = `Must be ≤ ${clusterNumValue}`;
-        }
+  const validateFieldsWithValues = (currentValues: typeof values) => {
+    const newErrors = {
+      clusterNum: "",
+      assignedCluster: "",
+      form: ""
+    };
+
+    //validate clusterNum
+    if (currentValues.clusterNum === "") {
+      newErrors.clusterNum = "Required";
+    } else if (isNaN(Number(currentValues.clusterNum))) {
+      newErrors.clusterNum = "Must be a number";
+    } else if (Number(currentValues.clusterNum) <= 0) {
+      newErrors.clusterNum = "Must be positive";
+    }
+
+    //validate assignedCluster
+    if (currentValues.assignedCluster === "") {
+      newErrors.assignedCluster = "Required";
+    } else if (isNaN(Number(currentValues.assignedCluster))) {
+      newErrors.assignedCluster = "Must be a number";
+    } else {
+      const clusterNumValue = Number(currentValues.clusterNum);
+      const assignedValue = Number(currentValues.assignedCluster);
+      
+      if (assignedValue <= 0) {
+        newErrors.assignedCluster = "Must be positive";
+      } else if (assignedValue > clusterNumValue) {
+        newErrors.assignedCluster = `Must be ≤ ${clusterNumValue}`;
       }
     }
 
-    setErrors(newErrors);
+    return newErrors;
   };
+
+  const validateFields = () => {
+    const newErrors = validateFieldsWithValues(values);
+    setErrors(newErrors);
+    return !newErrors.clusterNum && !newErrors.assignedCluster;
+  };
+
+
+
 
   const handleManualAssign = async () => {
     if (!validateFields()) return;
@@ -127,7 +97,7 @@ export default function ManualAssign({ manualAssign, onClose, allDeliveries }: G
 
     let valid = true;
     clusterState.forEach((c) => {
-      if (c === undefined) {
+      if (c === "") {
         valid = false;
       } else {
         const cluster = parseInt(c);
