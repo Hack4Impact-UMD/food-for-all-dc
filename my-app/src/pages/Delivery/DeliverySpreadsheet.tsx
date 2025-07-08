@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import { db } from "../../auth/firebaseConfig";
 import { Search, Filter } from "lucide-react";
 import { query, Timestamp, updateDoc, where } from "firebase/firestore";
@@ -318,7 +318,21 @@ const DeliverySpreadsheet: React.FC = () => {
   const [selectedClusters, setSelectedClusters] = useState<Set<any>>(new Set());
   const [exportOption, setExportOption] = useState<"Routes" | "Doordash" | null>(null);
   const [emailOrDownload, setEmailOrDownload] = useState<"Email" | "Download" | null>(null);
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+
+  const parseDateFromUrl = (dateString: string | null): Date => {
+    if (!dateString) return new Date();
+    try {
+      const date = new Date(dateString);
+      return isNaN(date.getTime()) ? new Date() : date;
+    } catch {
+      return new Date();
+    }
+  };
+
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialDate = searchParams.get('date');
+  const [selectedDate, setSelectedDate] = useState<Date>(parseDateFromUrl(initialDate));
+
   const [deliveriesForDate, setDeliveriesForDate] = useState<DeliveryEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [clusterDoc, setClusterDoc] = useState<ClusterDoc | null>();
@@ -1341,16 +1355,12 @@ const DeliverySpreadsheet: React.FC = () => {
     deliveriesForDate.some((delivery) => delivery.clientId === row.id)
   );
 
-  // const visibleRows = rows.filter(row => {
-  //   if (!searchQuery) return true; // Show all if no search query
-
-  //   const searchTerm = searchQuery.toLowerCase().trim();
-
-  //   return (
-  //     row.firstName.toLowerCase().includes(searchTerm) ||
-  //     row.lastName.toLowerCase().includes(searchTerm)
-  //   );
-  // });
+  const handleDateChange = (date: Date) => {
+    setSelectedDate(date);
+    const newSearchParams = new URLSearchParams(searchParams);
+    newSearchParams.set('date', date.toISOString());
+    setSearchParams(newSearchParams);
+  };
 
   const visibleRows = rows.filter((row) => {
     const keywordRegex = /(\w+):\s*("[^"]+"|\S+)/g; // Matches key: "value" or key: value
@@ -1511,7 +1521,7 @@ const DeliverySpreadsheet: React.FC = () => {
         
   
         <IconButton
-          onClick={() => setSelectedDate(addDays(selectedDate, -1))}
+          onClick={() => handleDateChange(addDays(selectedDate, -1))}
           size="large"
           sx={{ color: "#257E68" }}
         >
@@ -1527,7 +1537,7 @@ const DeliverySpreadsheet: React.FC = () => {
         </IconButton>
   
         <IconButton
-          onClick={() => setSelectedDate(addDays(selectedDate, 1))}
+          onClick={() => handleDateChange(addDays(selectedDate, 1))}
           size="large"
           sx={{ color: "#257E68" }}
         >
@@ -1546,12 +1556,12 @@ const DeliverySpreadsheet: React.FC = () => {
           variant="secondary"
           size="small"
           style={{ width: 50, fontSize: 12, marginLeft: 16 }}
-          onClick={() => setSelectedDate(new Date())}
+          onClick={() => handleDateChange(new Date())}
         >
           Today
         </Button>
         <Box sx={{ display: "flex", alignItems: "center" }}>
-          <PageDatePicker setSelectedDate={(date) => setSelectedDate(date)} marginLeft="1rem" />
+          <PageDatePicker setSelectedDate={handleDateChange}  marginLeft="1rem" />
         </Box>
       </Box>
       <Button
