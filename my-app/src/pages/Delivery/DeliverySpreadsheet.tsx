@@ -319,12 +319,19 @@ const DeliverySpreadsheet: React.FC = () => {
   const [exportOption, setExportOption] = useState<"Routes" | "Doordash" | null>(null);
   const [emailOrDownload, setEmailOrDownload] = useState<"Email" | "Download" | null>(null);
 
-  // Replace the current selectedDate state declaration with this:
+  const parseDateFromUrl = (dateString: string | null): Date => {
+    if (!dateString) return new Date();
+    try {
+      const date = new Date(dateString);
+      return isNaN(date.getTime()) ? new Date() : date;
+    } catch {
+      return new Date();
+    }
+  };
+
   const [searchParams, setSearchParams] = useSearchParams();
   const initialDate = searchParams.get('date');
-  const [selectedDate, setSelectedDate] = useState<Date>(
-    initialDate ? new Date(initialDate) : new Date()
-  );
+  const [selectedDate, setSelectedDate] = useState<Date>(parseDateFromUrl(initialDate));
 
   const [deliveriesForDate, setDeliveriesForDate] = useState<DeliveryEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -1350,7 +1357,6 @@ const DeliverySpreadsheet: React.FC = () => {
 
   const handleDateChange = (date: Date) => {
     setSelectedDate(date);
-    // Update URL param without affecting other params
     const newSearchParams = new URLSearchParams(searchParams);
     newSearchParams.set('date', date.toISOString());
     setSearchParams(newSearchParams);
