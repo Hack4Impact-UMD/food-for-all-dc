@@ -326,11 +326,19 @@ const DeliverySpreadsheet: React.FC = () => {
   const [deliveriesForDate, setDeliveriesForDate] = useState<DeliveryEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [clusterDoc, setClusterDoc] = useState<ClusterDoc | null>();
+  const [clientOverrides, setClientOverrides] = useState<ClientOverride[]>([]);
   const navigate = useNavigate();  const [editingRowId, setEditingRowId] = useState<string | null>(null);
   
   // Sorting state - default to sorting by fullname (Client) in ascending order
-  const [sortedColumn, setSortedColumn] = useState<string>("fullname");
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
+  // Always default to sorting by name (fullname) ascending on first load or reload
+  const [sortedColumn, setSortedColumn] = useState<string>(() => {
+    // Ignore any persisted value, always default to fullname
+    return "fullname";
+  });
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">(() => {
+    // Ignore any persisted value, always default to asc
+    return "asc";
+  });
   const [sortTimestamp, setSortTimestamp] = useState<number>(Date.now());
 
   const {
@@ -701,7 +709,7 @@ const DeliverySpreadsheet: React.FC = () => {
         `Successfully moved ${row.id} from cluster ${oldClusterId || "none"} to ${newClusterId || "none"}`
       );
 
-      // setRows(prevRows => prevRows.map(r => r.id === row.id ? { ...r, clusterId: newClusterId } : r));
+      // setRows(prevRows => prevRows.map r => r.id === row.id ? { ...r, clusterId: newClusterId } : r));
     } catch (error) {
       console.error("Error updating clusters in Firestore:", error);
     }
@@ -1466,6 +1474,16 @@ const DeliverySpreadsheet: React.FC = () => {
   // Create sorted version of visible rows - supports fullname, clusterIdChange, tags, address, ward, assignedDriver, assignedTime, deliveryInstructions, and custom columns sorting
   const sortedRows = useMemo(() => {
     const sorted = [...visibleRows].sort((a, b) => {
+      // Dietary Restrictions sorting: group all with tags before all without tags (no interleaving)
+      if (sortedColumn === "dietaryRestrictions") {
+        const hasDietA = Array.isArray(a.tags) && a.tags.length > 0;
+        const hasDietB = Array.isArray(b.tags) && b.tags.length > 0;
+        // Always group: all with tags, then all without tags, preserving original order within each group
+        if (hasDietA && !hasDietB) return sortOrder === "asc" ? -1 : 1;
+        if (!hasDietA && hasDietB) return sortOrder === "asc" ? 1 : -1;
+        // If both are the same (both have tags or both don't), preserve original order
+        return 0;
+      }
       if (sortedColumn === "fullname") {
         // For fullname field, sort by lastname, firstname format
         const fullnameA = `${a.lastName}, ${a.firstName}`.toLowerCase();
@@ -1774,8 +1792,22 @@ const DeliverySpreadsheet: React.FC = () => {
         <Button
           variant="secondary"
           size="small"
-          style={{ width: 50, fontSize: 12, marginLeft: 16 }}
+          style={{
+            width: '4.25rem',
+            height: '2.5rem',
+            minWidth: '4.25rem',
+            minHeight: '2.5rem',
+            maxHeight: '2.5rem',
+            fontSize: 12,
+            marginLeft: 16,
+            borderRadius: 'var(--border-radius-md)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 0
+          }}
           onClick={() => setSelectedDate(new Date())}
+          startIcon={<TodayIcon sx={{ marginRight: '-8px', marginLeft: '-2px' }} />}
         >
           Today
         </Button>
@@ -1795,6 +1827,7 @@ const DeliverySpreadsheet: React.FC = () => {
           marginRight: '16px'
         }}
         onClick={() => setPopupMode("ManualClusters")}
+        startIcon={<AddIcon />}
       >
         Manual Assign
       </Button>
@@ -1811,6 +1844,7 @@ const DeliverySpreadsheet: React.FC = () => {
           marginRight: '16px'
         }}
         onClick={() => setPopupMode("Clusters")}
+        startIcon={<GroupWorkIcon />}
       >
         Generate Clusters
       </Button>
@@ -1882,7 +1916,9 @@ const DeliverySpreadsheet: React.FC = () => {
             />
           </Box>
           <Box sx={{ display: "flex", justifyContent: "space-between", marginTop: "16px" }}>
-            {/* Left group: Assign Driver and Assign Time */}
+
+
+                       {/* Left group: Assign Driver and Assign Time */}
             <Box sx={{ display: "flex", width: "100%", gap: "8px", flexWrap: "wrap" }}>
               <Button
                 variant="primary"
@@ -1902,6 +1938,7 @@ const DeliverySpreadsheet: React.FC = () => {
                 variant="primary"
                 size="medium"
                 id="demo-positioned-button"
+
                 aria-controls={open ? 'demo-positioned-menu' : undefined}
                 aria-haspopup="true"
                 aria-expanded={open ? 'true' : undefined}
@@ -2064,6 +2101,14 @@ const DeliverySpreadsheet: React.FC = () => {
                           <MenuItem value="dob">DOB</MenuItem>
                           </Select>
                         </Box>
+                        {/* Show sort icon if this custom column is currently sorted */}
+                        {col.propertyKey !== "none" && (
+                          sortedColumn === col.propertyKey ? (
+                            sortOrder === "asc" ? <ArrowDropUpIcon /> : <ArrowDropDownIcon />
+                          ) : (
+                            <UnfoldMoreIcon sx={{ opacity: 0.3 }} />
+                          )
+                        )}
                         {/*Add Remove Button*/}
                         <IconButton
                           size="small"
@@ -2082,14 +2127,6 @@ const DeliverySpreadsheet: React.FC = () => {
                         >
                           <DeleteIcon fontSize="small" />
                         </IconButton>
-                        {/* Show sort icon if this custom column is currently sorted */}
-                        {col.propertyKey !== "none" && (
-                          sortedColumn === col.propertyKey ? (
-                            sortOrder === "asc" ? <ArrowDropUpIcon /> : <ArrowDropDownIcon />
-                          ) : (
-                            <UnfoldMoreIcon sx={{ opacity: 0.3 }} />
-                          )
-                        )}
                       </Box>
                     </TableCell>
                   ))}
@@ -2311,13 +2348,14 @@ const DeliverySpreadsheet: React.FC = () => {
         <DialogContent sx={{ pt: 3, overflow: "visible" }}>
           {!exportOption ? (
             <Box sx={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-              <Button variant="primary" color="primary" onClick={() => setExportOption("Routes")}>
+              <Button variant="primary" color="primary" onClick={() => setExportOption("Routes")} startIcon={<FileDownloadIcon />}> 
                 Routes
               </Button>
               <Button
                 variant="secondary"
                 color="secondary"
                 onClick={() => setExportOption("Doordash")}
+                startIcon={<FileDownloadIcon />}
               >
                 Doordash
               </Button>

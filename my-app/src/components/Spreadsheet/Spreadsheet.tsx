@@ -129,33 +129,21 @@ const Spreadsheet: React.FC = () => {
 
   // Track which column is currently being sorted
   const [sortedColumn, setSortedColumn] = useState<string>(() => {
-    const stored = localStorage.getItem("ffaSortedColumnSpreadsheet");
-    return stored || "fullname"; // Default to fullname column
+    // Always default to fullname (Name) column, ignore persisted value
+    return "fullname";
   });
 
   //default to asc if not found in local store
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">(() => {
-    const stored = localStorage.getItem("ffaSortOrderSpreadsheet");
-    console.log("Initial sortOrder from localStorage:", stored);
-    return stored === "desc" ? "desc" : "asc"; // Always default to "asc" unless explicitly "desc"
+    // Always default to ascending order, ignore persisted value
+    return "asc";
   });
 
   // Initialize default sorting on first load
   useEffect(() => {
-    // Always ensure we start with ascending sort for first-time users
-    const storedColumn = localStorage.getItem("ffaSortedColumnSpreadsheet");
-    const storedOrder = localStorage.getItem("ffaSortOrderSpreadsheet");
-    
-    if (!storedColumn && !storedOrder) {
-      console.log("Setting default sort: fullname, asc (first time)");
-      setSortedColumn("fullname");
-      setSortOrder("asc");
-      // Explicitly save to localStorage to prevent confusion
-      localStorage.setItem("ffaSortedColumnSpreadsheet", "fullname");
-      localStorage.setItem("ffaSortOrderSpreadsheet", "asc");
-    } else {
-      console.log("Using stored sort:", storedColumn, storedOrder);
-    }
+    // Always set default sort to fullname ascending on first load
+    setSortedColumn("fullname");
+    setSortOrder("asc");
   }, []);
 
   const navigate = useNavigate();
@@ -282,129 +270,100 @@ const StyleChip = styled(Chip)({
   // Compute sorted rows using useMemo to ensure data is always sorted
   const sortedRows = useMemo(() => {
     if (rows.length === 0) return rows;
-    
+
     return [...rows].sort((a, b) => {
+      // Special grouping logic for dietary restrictions
+      if (sortedColumn === "deliveryDetails.dietaryRestrictions") {
+        // Group all with any dietary restrictions (not empty/none) together, and all without together, preserving original order within each group
+        const hasDietA = (() => {
+          const dr = a.deliveryDetails?.dietaryRestrictions;
+          if (!dr) return false;
+          // Check for any true boolean or non-empty array
+          return (
+            dr.halal || dr.kidneyFriendly || dr.lowSodium || dr.lowSugar || dr.microwaveOnly || dr.noCookingEquipment || dr.softFood || dr.vegan || dr.vegetarian || dr.heartFriendly ||
+            (Array.isArray(dr.foodAllergens) && dr.foodAllergens.length > 0) ||
+            (Array.isArray(dr.other) && dr.other.length > 0)
+          );
+        })();
+        const hasDietB = (() => {
+          const dr = b.deliveryDetails?.dietaryRestrictions;
+          if (!dr) return false;
+          return (
+            dr.halal || dr.kidneyFriendly || dr.lowSodium || dr.lowSugar || dr.microwaveOnly || dr.noCookingEquipment || dr.softFood || dr.vegan || dr.vegetarian || dr.heartFriendly ||
+            (Array.isArray(dr.foodAllergens) && dr.foodAllergens.length > 0) ||
+            (Array.isArray(dr.other) && dr.other.length > 0)
+          );
+        })();
+        if (hasDietA && !hasDietB) return sortOrder === "asc" ? -1 : 1;
+        if (!hasDietA && hasDietB) return sortOrder === "asc" ? 1 : -1;
+        // If both are the same (both have or both don't), preserve original order
+        return 0;
+      }
+
+      // ...existing code for other columns...
       let valueA = "";
       let valueB = "";
-      
-      // Helper functions defined outside switch to avoid lexical declaration issues
+
       const getFullName = (row: RowData) => {
         const lastName = (row.lastName || "").trim();
         const firstName = (row.firstName || "").trim();
-        
-        if (!lastName && !firstName) {
-          return ""; // Empty names sort first
-        }
-        
-        if (!lastName) {
-          return firstName.toLowerCase(); // Only first name available
-        }
-        
-        if (!firstName) {
-          return lastName.toLowerCase(); // Only last name available
-        }
-        
-        // Both available: sort by "LastName, FirstName" format
+        if (!lastName && !firstName) return "";
+        if (!lastName) return firstName.toLowerCase();
+        if (!firstName) return lastName.toLowerCase();
         return `${lastName}, ${firstName}`.toLowerCase();
       };
-      
-      const getDietaryRestrictions = (row: RowData) => {
-        const restrictions = [];
-        const dietaryRestrictions = row.deliveryDetails?.dietaryRestrictions;
-        if (!dietaryRestrictions) return "none";
-        if (dietaryRestrictions.halal) restrictions.push("halal");
-        if (dietaryRestrictions.kidneyFriendly) restrictions.push("kidney friendly");
-        if (dietaryRestrictions.lowSodium) restrictions.push("low sodium");
-        if (dietaryRestrictions.other && Array.isArray(dietaryRestrictions.other)) {
-          restrictions.push(...dietaryRestrictions.other);
-        }
-        return restrictions.length > 0 ? restrictions.join(", ").toLowerCase() : "none";
-      };
-      
-      // Get sort values based on the selected column
+
+      // ...existing code for switch/case and default sorting...
       switch (sortedColumn) {
         case "fullname":
           valueA = getFullName(a);
           valueB = getFullName(b);
           break;
-          
         case "address":
           valueA = (a.address || "").toLowerCase();
           valueB = (b.address || "").toLowerCase();
           break;
-          
         case "phone":
           valueA = (a.phone || "").toLowerCase();
           valueB = (b.phone || "").toLowerCase();
           break;
-          
-        case "deliveryDetails.dietaryRestrictions":
-          valueA = getDietaryRestrictions(a);
-          valueB = getDietaryRestrictions(b);
-          break;
-          
         case "deliveryDetails.deliveryInstructions":
           valueA = (a.deliveryDetails?.deliveryInstructions || "none").toLowerCase();
           valueB = (b.deliveryDetails?.deliveryInstructions || "none").toLowerCase();
           break;
-          
         default: {
-          // For custom columns or any other field, handle different data types
           const rawValueA = a[sortedColumn as keyof RowData];
           const rawValueB = b[sortedColumn as keyof RowData];
-          
-          // Check if both values are numeric for proper numeric sorting
           const numA = Number(rawValueA);
           const numB = Number(rawValueB);
           const isNumericA = !isNaN(numA) && isFinite(numA) && rawValueA !== null && rawValueA !== undefined && String(rawValueA).trim() !== "";
           const isNumericB = !isNaN(numB) && isFinite(numB) && rawValueB !== null && rawValueB !== undefined && String(rawValueB).trim() !== "";
-          
           if (isNumericA && isNumericB) {
-            // Both are numbers - sort numerically
             const result = sortOrder === "asc" ? numA - numB : numB - numA;
             return result;
           }
-          
-          // Helper function to convert any value to a sortable string
           const getSortableValue = (value: any): string => {
-            if (value === null || value === undefined) {
-              return "";
-            }
-            
-            // Handle arrays (like tags)
-            if (Array.isArray(value)) {
-              return value.join(", ").toLowerCase();
-            }
-            
-            // Handle objects (like referralEntity)
+            if (value === null || value === undefined) return "";
+            if (Array.isArray(value)) return value.join(", ").toLowerCase();
             if (typeof value === 'object') {
-              // For referralEntity, combine name and organization
               if (value.name || value.organization) {
                 return `${value.name || ""} ${value.organization || ""}`.trim().toLowerCase();
               }
-              // For other objects, convert to JSON string
               return JSON.stringify(value).toLowerCase();
             }
-            
-            // Handle primitive values
             return String(value).toLowerCase();
           };
-          
           valueA = getSortableValue(rawValueA);
           valueB = getSortableValue(rawValueB);
           break;
         }
       }
-      
-      // Handle empty values - empty strings sort first in ascending, last in descending
       if (!valueA && !valueB) return 0;
       if (!valueA) return sortOrder === "asc" ? -1 : 1;
       if (!valueB) return sortOrder === "asc" ? 1 : -1;
-      
       const result = sortOrder === "asc"
         ? valueA.localeCompare(valueB, undefined, { sensitivity: 'base' })
         : valueB.localeCompare(valueA, undefined, { sensitivity: 'base' });
-      
       return result;
     });
   }, [rows, sortOrder, sortedColumn]);
