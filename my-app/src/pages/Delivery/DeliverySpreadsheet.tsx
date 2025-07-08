@@ -3,6 +3,7 @@ import { useNavigate, Link } from "react-router-dom";
 import { db } from "../../auth/firebaseConfig";
 import { Search, Filter } from "lucide-react";
 import { query, Timestamp, updateDoc, where } from "firebase/firestore";
+import { TimeUtils } from "../../utils/timeUtils";
 import { format, addDays } from "date-fns";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
 import AddIcon from "@mui/icons-material/Add";
@@ -42,6 +43,7 @@ import {
   TextField,
   Menu,
   Chip,
+  Stack,
 } from "@mui/material";
 import { styled } from "@mui/material/styles";
 import { collection, getDocs, doc, setDoc } from "firebase/firestore";
@@ -61,7 +63,15 @@ import { CustomRowData, useCustomColumns } from "../../hooks/useCustomColumns";
 import ClientService from "../../services/client-service";
 import { LatLngTuple } from "leaflet";
 import { UserType } from "../../types";
+
+interface ClientOverride {
+  clientId: string;
+  driver?: string;
+  time?: string;
+}
 import { useAuth } from "../../auth/AuthProvider";
+import EventCountHeader from "../../components/EventCountHeader";
+import { useLimits } from "../Calendar/components/useLimits";
 // interface Driver {
 //   id: string;
 //   name: string;
@@ -72,7 +82,7 @@ import { useAuth } from "../../auth/AuthProvider";
 const StyleChip = styled(Chip)({
   backgroundColor: 'var(--color-primary)',
   color: '#fff',
-  ":hover" : { 
+  ":hover": {
     backgroundColor: 'var(--color-primary)',
     cursor: 'text'
   },
@@ -101,47 +111,47 @@ type Field =
     compute?: never;
   }
   | {
-      key: "fullname";
-      label: "Client";
-      type: "text";
-      compute: (data: DeliveryRowData) => string;
-    }
-    | {
-      key: "clusterIdChange";
-      label: "Cluster ID";
-      type: "select";
-      compute?: (data: DeliveryRowData) => string;
-    }
+    key: "fullname";
+    label: "Client";
+    type: "text";
+    compute: (data: DeliveryRowData) => string;
+  }
   | {
-      key: Exclude<keyof Omit<DeliveryRowData, "id" | "firstName" | "lastName" | "deliveryDetails">, "coordinates">;
-      label: string;
-      type: string;
-      compute?: never;
-    }
+    key: "clusterIdChange";
+    label: "Cluster ID";
+    type: "select";
+    compute?: (data: DeliveryRowData) => string;
+  }
   | {
-      key: "tags";
-      label: "Tags";
-      type: "text";
-      compute: (data: DeliveryRowData) => string;
-    }
+    key: Exclude<keyof Omit<DeliveryRowData, "id" | "firstName" | "lastName" | "deliveryDetails">, "coordinates">;
+    label: string;
+    type: string;
+    compute?: never;
+  }
+  | {
+    key: "tags";
+    label: "Tags";
+    type: "text";
+    compute: (data: DeliveryRowData) => string;
+  }
   | {
       key: "assignedDriver";
       label: "Assigned Driver";
       type: "text";
-      compute: (data: DeliveryRowData, clusters: Cluster[]) => string;
+      compute: (data: DeliveryRowData, clusters: Cluster[], clientOverrides?: ClientOverride[]) => string;
     }
   | {
       key: "assignedTime";
       label: "Assigned Time";
       type: "text";
-      compute: (data: DeliveryRowData, clusters: Cluster[]) => string;
+      compute: (data: DeliveryRowData, clusters: Cluster[], clientOverrides?: ClientOverride[]) => string;
     }
   | {
-      key: "deliveryDetails.deliveryInstructions";
-      label: "Delivery Instructions";
-      type: "text";
-      compute: (data: DeliveryRowData) => string;
-    };
+    key: "deliveryDetails.deliveryInstructions";
+    label: "Delivery Instructions";
+    type: "text";
+    compute: (data: DeliveryRowData) => string;
+  };
 
 // Export the Cluster interface
 export interface Cluster {
@@ -155,6 +165,7 @@ interface ClusterDoc {
   docId: string;
   date: Timestamp;
   clusters: Cluster[];
+  clientOverrides?: ClientOverride[];
 }
 
 interface DeliveryEvent {
@@ -208,7 +219,14 @@ const fields: Field[] = [
     key: "assignedDriver",
     label: "Assigned Driver",
     type: "text",
-    compute: (data: DeliveryRowData, clusters: Cluster[]) => {
+    compute: (data: DeliveryRowData, clusters: Cluster[], clientOverrides: ClientOverride[] = []) => {
+      // Check for individual override first
+      const override = clientOverrides.find(override => override.clientId === data.id);
+      if (override && override.driver) {
+        return override.driver;
+      }
+      
+      // Fall back to cluster assignment
       let driver = "";
       clusters.forEach((cluster) => {
         if (cluster.deliveries?.some((id) => id == data.id)) {
@@ -222,7 +240,20 @@ const fields: Field[] = [
     key: "assignedTime",
     label: "Assigned Time",
     type: "text",
-    compute: (data: DeliveryRowData, clusters: Cluster[]) => {
+    compute: (data: DeliveryRowData, clusters: Cluster[], clientOverrides: ClientOverride[] = []) => {
+      // Check for individual override first
+      const override = clientOverrides.find(override => override.clientId === data.id);
+      if (override && override.time) {
+        // Convert 24-hour format to 12-hour AM/PM format
+        const [hours, minutes] = override.time.split(":");
+        let hours12 = parseInt(hours, 10);
+        const ampm = hours12 >= 12 ? "PM" : "AM";
+        hours12 = hours12 % 12;
+        hours12 = hours12 ? hours12 : 12; // Convert 0 to 12 for 12 AM
+        return `${hours12}:${minutes} ${ampm}`;
+      }
+      
+      // Fall back to cluster assignment
       let time = "";
       clusters.forEach((cluster) => {
         if (cluster.deliveries?.some((id) => id === data.id)) {
@@ -270,16 +301,17 @@ const times = [
 const isRegularField = (
   field: Field
 ): field is Extract<Field, { key: Exclude<keyof DeliveryRowData, "coordinates"> }> => {
-  return field.key !== "fullname" && 
-         field.key !== "tags" && 
-         field.key !== "assignedDriver" &&
-         field.key !== "assignedTime" &&
-         field.key !== "deliveryDetails.deliveryInstructions";
+  return field.key !== "fullname" &&
+    field.key !== "tags" &&
+    field.key !== "assignedDriver" &&
+    field.key !== "assignedTime" &&
+    field.key !== "deliveryDetails.deliveryInstructions";
 };
 
 const DeliverySpreadsheet: React.FC = () => {
   const testing = false;
   const { userRole } = useAuth();
+  const limits = useLimits();
   const [rows, setRows] = useState<DeliveryRowData[]>([]);
   const [rawClientData, setRawClientData] = useState<DeliveryRowData[]>([]);
   const [searchQuery, setSearchQuery] = useState<string>("");
@@ -326,9 +358,9 @@ const DeliverySpreadsheet: React.FC = () => {
     ) {
       return;
     }
-    if(event && 'nativeEvent' in event) {
+    if (event && 'nativeEvent' in event) {
       const target = event.nativeEvent.target as HTMLElement;
-      const timeValue =  target.getAttribute("data-key");
+      const timeValue = target.getAttribute("data-key");
       if (timeValue) {
         assignTime(timeValue);
       }
@@ -344,30 +376,30 @@ const DeliverySpreadsheet: React.FC = () => {
     "#FF1493", "#1E90FF", "#228B22", "#9400D3", "#DC143C",
     "#20B2AA", "#9932CC", "#FFD700", "#8B0000", "#4169E1"
   ];
-  const clusterColorMap = (id: string) :string => {
+  const clusterColorMap = (id: string): string => {
 
-      const clusterId = id || "";
-      let colorIndex = 0;
+    const clusterId = id || "";
+    let colorIndex = 0;
 
-      if (clusterId) {
-        // Assuming cluster IDs are like "Cluster 1", "Cluster 2", etc.
-        // Extract the number part for color assignment.
-        // If format is different, adjust parsing logic.
-        const match = clusterId.match(/\d+/); 
-        const clusterNumber = match ? parseInt(match[0], 10) : 0;
-        if (!isNaN(clusterNumber)) {
-          colorIndex = (clusterNumber -1) % clusterColors.length; // Use number-1 for 0-based index
-        } else {
-           // Fallback for non-numeric IDs or parsing failures - hash the ID?
-           let hash = 0;
-           for (let i = 0; i < clusterId.length; i++) {
-               hash = clusterId.charCodeAt(i) + ((hash << 5) - hash);
-           }
-           colorIndex = Math.abs(hash) % clusterColors.length;
+    if (clusterId) {
+      // Assuming cluster IDs are like "Cluster 1", "Cluster 2", etc.
+      // Extract the number part for color assignment.
+      // If format is different, adjust parsing logic.
+      const match = clusterId.match(/\d+/);
+      const clusterNumber = match ? parseInt(match[0], 10) : 0;
+      if (!isNaN(clusterNumber)) {
+        colorIndex = (clusterNumber - 1) % clusterColors.length; // Use number-1 for 0-based index
+      } else {
+        // Fallback for non-numeric IDs or parsing failures - hash the ID?
+        let hash = 0;
+        for (let i = 0; i < clusterId.length; i++) {
+          hash = clusterId.charCodeAt(i) + ((hash << 5) - hash);
         }
+        colorIndex = Math.abs(hash) % clusterColors.length;
       }
+    }
 
-      return clusterColors[colorIndex];
+    return clusterColors[colorIndex];
   };
 
   // Calculate Cluster Options
@@ -466,49 +498,49 @@ const DeliverySpreadsheet: React.FC = () => {
       // setIsLoading(true) is moved here to only show loading when processing clients
       // setIsLoading(true); // Already set by the caller effect
 
-    try {
-      // Get the client IDs for the deliveries on the selected date
-      const clientIds = deliveriesForDate.map(delivery => delivery.clientId).filter(id => id && id.trim() !== "");
-      // Firestore 'in' queries are limited to 10 items per query
-      const chunkSize = 10;
-      let clientsWithDeliveriesOnSelectedDate: DeliveryRowData[] = [];
-      for (let i = 0; i < clientIds.length; i += chunkSize) {
-        const chunk = clientIds.slice(i, i + chunkSize);
-        if (chunk.length === 0) continue;
-        const q = query(
-          collection(db, "clients"),
-          where("__name__", "in", chunk)
-        );
-        const snapshot = await getDocs(q);
-        const chunkData = snapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        } as DeliveryRowData));
-        clientsWithDeliveriesOnSelectedDate = clientsWithDeliveriesOnSelectedDate.concat(chunkData);
+      try {
+        // Get the client IDs for the deliveries on the selected date
+        const clientIds = deliveriesForDate.map(delivery => delivery.clientId).filter(id => id && id.trim() !== "");
+        // Firestore 'in' queries are limited to 10 items per query
+        const chunkSize = 10;
+        let clientsWithDeliveriesOnSelectedDate: DeliveryRowData[] = [];
+        for (let i = 0; i < clientIds.length; i += chunkSize) {
+          const chunk = clientIds.slice(i, i + chunkSize);
+          if (chunk.length === 0) continue;
+          const q = query(
+            collection(db, "clients"),
+            where("__name__", "in", chunk)
+          );
+          const snapshot = await getDocs(q);
+          const chunkData = snapshot.docs.map((doc) => ({
+            id: doc.id,
+            ...doc.data(),
+          } as DeliveryRowData));
+          clientsWithDeliveriesOnSelectedDate = clientsWithDeliveriesOnSelectedDate.concat(chunkData);
+        }
+        setRawClientData(clientsWithDeliveriesOnSelectedDate);
+      } catch (error) {
+        console.error("Error fetching/geocoding client data:", error);
+        setRawClientData([]); // Clear data on error
+      } finally {
+        //Stop loading after processing
+        setIsLoading(false);
       }
-      setRawClientData(clientsWithDeliveriesOnSelectedDate);
-    } catch (error) {
-      console.error("Error fetching/geocoding client data:", error);
-      setRawClientData([]); // Clear data on error
-    } finally {
-      //Stop loading after processing
-      setIsLoading(false); 
+    };
+
+    if (deliveriesForDate.length > 0) {
+      // Set loading to true *before* starting the async fetch/geocode process
+      setIsLoading(true);
+      fetchDataAndGeocode();
+    } else {
+      // If deliveries are empty (either initially or after fetch),
+      // ensure client data is clear and loading is stopped.
+      setRawClientData([]);
+      // Do NOT clear clusters here, as they are fetched independently
+      setIsLoading(false);
     }
-  };
-  
-  if (deliveriesForDate.length > 0) {
-    // Set loading to true *before* starting the async fetch/geocode process
-    setIsLoading(true);
-    fetchDataAndGeocode();
-  } else {
-    // If deliveries are empty (either initially or after fetch),
-    // ensure client data is clear and loading is stopped.
-    setRawClientData([]);
-    // Do NOT clear clusters here, as they are fetched independently
-    setIsLoading(false);
-  }
-// Only depends on deliveriesForDate. isLoading is managed internally.
-}, [deliveriesForDate]);
+    // Only depends on deliveriesForDate. isLoading is managed internally.
+  }, [deliveriesForDate]);
 
   //get clusters
   useEffect(() => {
@@ -586,12 +618,15 @@ const DeliverySpreadsheet: React.FC = () => {
           docId: doc.id,
           date: doc.data().date.toDate(),
           clusters: doc.data().clusters || [],
+          clientOverrides: doc.data().clientOverrides || [],
         };
         setClusterDoc(clustersData);
         setClusters(clustersData.clusters);
+        setClientOverrides(clustersData.clientOverrides || []);
       } else {
         setClusterDoc(null); // Clear clusterDoc when no clusters found
         setClusters([]);
+        setClientOverrides([]);
       }
     } catch (error) {
       console.error("Error fetching clusters:", error);
@@ -599,6 +634,7 @@ const DeliverySpreadsheet: React.FC = () => {
       if (dateForFetch.getTime() === selectedDate.getTime()) {
         setClusterDoc(null);
         setClusters([]);
+        setClientOverrides([]);
       }
     }
   };
@@ -680,7 +716,7 @@ const DeliverySpreadsheet: React.FC = () => {
         alert("Unimplemented");
       } else if (option === "Download") {
         // Pass rows and clusters to exportDeliveries
-        exportDeliveries(format(selectedDate, "yyyy-MM-dd"), rows, clusters);
+        exportDeliveries(TimeUtils.fromJSDate(selectedDate).toISODate() || "", rows, clusters);
         console.log("Downloading Routes...");
         // Add your download logic here
       }
@@ -689,17 +725,153 @@ const DeliverySpreadsheet: React.FC = () => {
         alert("Unimplemented");
       } else if (option === "Download") {
         // Export DoorDash deliveries grouped by time
-        exportDoordashDeliveries(format(selectedDate, "yyyy-MM-dd"), rows, clusters);
+        exportDoordashDeliveries(TimeUtils.fromJSDate(selectedDate).toISODate() || "", rows, clusters);
         console.log("Downloading Doordash...");
       }
     }
   };
 
   // reset popup selections when closing popup
+  // Handle individual client updates from the map (individual overrides)
+  const handleIndividualClientUpdate = async (clientId: string, newClusterId: string, newDriver?: string, newTime?: string) => {
+    if (!clusterDoc) {
+      console.log("Individual client update aborted: clusterDoc is missing.");
+      return;
+    }
+
+    try {
+      // Update or add individual client override
+      const existingOverrideIndex = clientOverrides.findIndex(override => override.clientId === clientId);
+      let updatedOverrides = [...clientOverrides];
+
+      if (existingOverrideIndex >= 0) {
+        // Update existing override
+        updatedOverrides[existingOverrideIndex] = {
+          clientId,
+          driver: newDriver,
+          time: newTime
+        };
+      } else {
+        // Add new override
+        updatedOverrides.push({
+          clientId,
+          driver: newDriver,
+          time: newTime
+        });
+      }
+
+      // Remove override if both driver and time are empty/undefined
+      if (!newDriver && !newTime) {
+        updatedOverrides = updatedOverrides.filter(override => override.clientId !== clientId);
+      }
+
+      // Update local state
+      setClientOverrides(updatedOverrides);
+
+      // Handle cluster assignment separately
+      const currentClient = rows.find(row => row.id === clientId);
+      const oldClusterId = currentClient?.clusterId || "";
+
+      let updatedClusters = [...clusters];
+
+      // Remove client from old cluster if it exists
+      if (oldClusterId && oldClusterId !== newClusterId) {
+        updatedClusters = updatedClusters.map(cluster => {
+          if (cluster.id === oldClusterId) {
+            return {
+              ...cluster,
+              deliveries: cluster.deliveries?.filter(id => id !== clientId) ?? []
+            };
+          }
+          return cluster;
+        });
+      }
+
+      // Add client to new cluster if specified and different from current
+      if (newClusterId && newClusterId !== oldClusterId) {
+        const clusterExists = clusters.some((cluster) => cluster.id === newClusterId);
+        
+        if (clusterExists) {
+          updatedClusters = updatedClusters.map((cluster) => {
+            if (cluster.id === newClusterId) {
+              return {
+                ...cluster,
+                deliveries: [...(cluster.deliveries ?? []), clientId],
+              };
+            }
+            return cluster;
+          });
+        } else {
+          // Create new cluster without driver/time (those should be set at cluster level)
+          const newCluster: Cluster = {
+            id: newClusterId,
+            deliveries: [clientId],
+            driver: "",
+            time: "",
+          };
+          updatedClusters.push(newCluster);
+        }
+      }
+
+      // Sort clusters numerically
+      updatedClusters.sort((a, b) => parseInt(a.id, 10) - parseInt(b.id, 10));
+
+      // Update cluster state
+      setClusters(updatedClusters);
+
+      // Update Firebase with cluster changes and client overrides
+      const clusterRef = doc(db, "clusters", clusterDoc.docId);
+      await updateDoc(clusterRef, { 
+        clusters: updatedClusters,
+        clientOverrides: updatedOverrides
+      });
+
+      // Remove the client from selected rows since their cluster assignment changed
+      if (oldClusterId !== newClusterId) {
+        const newSelectedRows = new Set(selectedRows);
+        const newSelectedClusters = new Set(selectedClusters);
+        
+        // Remove the client from selected rows
+        newSelectedRows.delete(clientId);
+        
+        // If the old cluster no longer has any selected clients, remove it from selected clusters
+        if (oldClusterId) {
+          const oldCluster = clusters.find(c => c.id === oldClusterId);
+          if (oldCluster) {
+            const hasSelectedClientsInOldCluster = oldCluster.deliveries.some(id => 
+              id !== clientId && newSelectedRows.has(id)
+            );
+            if (!hasSelectedClientsInOldCluster) {
+              // Remove the old cluster from selected clusters
+              const clusterToRemove = Array.from(newSelectedClusters).find(c => c.id === oldClusterId);
+              if (clusterToRemove) {
+                newSelectedClusters.delete(clusterToRemove);
+              }
+            }
+          }
+        }
+        
+        setSelectedRows(newSelectedRows);
+        setSelectedClusters(newSelectedClusters);
+      }
+
+      console.log(
+        `Successfully updated client ${clientId}:`,
+        `cluster: ${oldClusterId || "none"} -> ${newClusterId || "none"}`,
+        newDriver ? `driver override: ${newDriver}` : '',
+        newTime ? `time override: ${newTime}` : ''
+      );
+
+    } catch (error) {
+      console.error("Error updating individual client:", error);
+    }
+  };
+
   const resetSelections = () => {
     setPopupMode("");
     setExportOption(null);
     setEmailOrDownload(null);
+    // Keep selectedRows and selectedClusters checked so users can make multiple assignments
   };
 
   //Handle assigning driver
@@ -726,8 +898,32 @@ const DeliverySpreadsheet: React.FC = () => {
 
       setClusters(updatedClusters);
 
+      // Clear individual driver overrides for clients in the affected clusters
+      const affectedClientIds = new Set<string>();
+      clusters.forEach((cluster) => {
+        const isSelected = Array.from(selectedClusters).some(
+          (selected) => selected.id === cluster.id
+        );
+        if (isSelected) {
+          cluster.deliveries.forEach(clientId => affectedClientIds.add(clientId));
+        }
+      });
+
+      const updatedOverrides = clientOverrides.map(override => {
+        if (affectedClientIds.has(override.clientId)) {
+          // Clear the driver field for affected clients
+          return { ...override, driver: undefined };
+        }
+        return override;
+      }).filter(override => override.driver || override.time); // Remove overrides with no data
+
+      setClientOverrides(updatedOverrides);
+
       const clusterRef = doc(db, "clusters", clusterDoc.docId);
-      await updateDoc(clusterRef, { clusters: updatedClusters });
+      await updateDoc(clusterRef, { 
+        clusters: updatedClusters,
+        clientOverrides: updatedOverrides
+      });
 
       resetSelections();
     } catch (error) {
@@ -739,10 +935,10 @@ const DeliverySpreadsheet: React.FC = () => {
     const newClusters: Cluster[] = [];
     Object.keys(clusterMap).forEach((clusterId) => {
       // Exclude "doordash" if it's a special case (though unlikely with ID mapping now)
-      if (clusterId !== "doordash") { 
+      if (clusterId !== "doordash") {
         // The value in clusterMap[clusterId] is already the array of client IDs
-        const clientIdsForCluster = clusterMap[clusterId]; 
-        
+        const clientIdsForCluster = clusterMap[clusterId];
+
         newClusters.push({
           deliveries: clientIdsForCluster, // Directly use the array of client IDs
           driver: "", // Initialize with defaults or fetch existing if needed
@@ -781,10 +977,34 @@ const DeliverySpreadsheet: React.FC = () => {
 
         setClusters(updatedClusters); // Update state with the new immutable array
 
+        // Clear individual time overrides for clients in the affected clusters
+        const affectedClientIds = new Set<string>();
+        clusters.forEach((cluster) => {
+          const isSelected = Array.from(selectedClusters).some(
+            (selected) => selected.id === cluster.id
+          );
+          if (isSelected) {
+            cluster.deliveries.forEach(clientId => affectedClientIds.add(clientId));
+          }
+        });
+
+        const updatedOverrides = clientOverrides.map(override => {
+          if (affectedClientIds.has(override.clientId)) {
+            // Clear the time field for affected clients
+            return { ...override, time: undefined };
+          }
+          return override;
+        }).filter(override => override.driver || override.time); // Remove overrides with no data
+
+        setClientOverrides(updatedOverrides);
+
         // Update Firestore using updateDoc
         const clusterRef = doc(db, "clusters", clusterDoc.docId);
         // Only update the 'clusters' field
-        await updateDoc(clusterRef, { clusters: updatedClusters });
+        await updateDoc(clusterRef, { 
+          clusters: updatedClusters,
+          clientOverrides: updatedOverrides
+        });
 
         resetSelections();
       } catch (error) {
@@ -807,13 +1027,15 @@ const DeliverySpreadsheet: React.FC = () => {
     const newClusterDoc = {
       clusters: newClusters,
       docId: docRef.id,
-      date: Timestamp.fromDate(clusterDate) // Use consistent date
+      date: Timestamp.fromDate(clusterDate), // Use consistent date
+      clientOverrides: []
     }
 
     // Firestore expects the data object directly for setDoc - Corrected
-    await setDoc(docRef, newClusterDoc); 
+    await setDoc(docRef, newClusterDoc);
     setClusters(newClusters); // Update state after successful Firestore creation
     setClusterDoc(newClusterDoc)
+    setClientOverrides([]);
   }
 
   const manualAssign = async (assignedClusters: string[], clusters: number) => {
@@ -824,7 +1046,7 @@ const DeliverySpreadsheet: React.FC = () => {
       time: "",
       deliveries: [],
     }));
-    
+
     //populate deliveries for clusters
     assignedClusters.forEach((clusterIndex, deliveryIndex) => {
       const numericIndex = parseInt(clusterIndex) - 1;
@@ -837,17 +1059,20 @@ const DeliverySpreadsheet: React.FC = () => {
     });
 
 
-    if(clusterDoc){
+    if (clusterDoc) {
       const clusterRef = doc(db, "clusters", clusterDoc.docId);
       // Only update the 'clusters' field using updateDoc
-      await updateDoc(clusterRef, { clusters: newClusters });
+      await updateDoc(clusterRef, { 
+        clusters: newClusters,
+        clientOverrides: clientOverrides
+      });
       setClusters(newClusters); // Update state after successful Firestore update
       // Update the local clusterDoc state's clusters as well
       setClusterDoc(prevDoc => prevDoc ? { ...prevDoc, clusters: newClusters } : null);
     }
-    else{
+    else {
       initClustersForDay(newClusters);
-    }       
+    }
     resetSelections()
   };
 
@@ -890,7 +1115,7 @@ const DeliverySpreadsheet: React.FC = () => {
       );
     }
     if (visibleRows.length > totalMaxAllowed) {
-       throw new Error(
+      throw new Error(
         `Too many deliveries for ${clusterNum} clusters with maximum ${maxDeliveries} each.\n` +
         `Allowed: ${totalMaxAllowed} | Available: ${visibleRows.length}\n` +
         `Please increase cluster count or maximum deliveries.`
@@ -920,12 +1145,12 @@ const DeliverySpreadsheet: React.FC = () => {
       // 1 & 2: Separate clients and collect existing coords
       visibleRows.forEach((row: DeliveryRowData, index: number) => {
         if (isValidCoordinate(row.coordinates)) {
-           // Normalize coordinate format if necessary (e.g., always use [lat, lng])
-           const coords = Array.isArray(row.coordinates)
-             ? row.coordinates
-             : [row.coordinates.lat, row.coordinates.lng];
-           existingCoordsMap.set(row.id, coords as LatLngTuple);
-           finalCoordinates[index] = coords as LatLngTuple; // Pre-fill with existing
+          // Normalize coordinate format if necessary (e.g., always use [lat, lng])
+          const coords = Array.isArray(row.coordinates)
+            ? row.coordinates
+            : [row.coordinates.lat, row.coordinates.lng];
+          existingCoordsMap.set(row.id, coords as LatLngTuple);
+          finalCoordinates[index] = coords as LatLngTuple; // Pre-fill with existing
         } else {
           clientsToGeocode.push({ id: row.id, address: row.address, originalIndex: index });
         }
@@ -956,7 +1181,7 @@ const DeliverySpreadsheet: React.FC = () => {
         const { coordinates: fetchedCoords } = await geocodeResponse.json();
 
         if (!Array.isArray(fetchedCoords) || fetchedCoords.length !== clientsToGeocode.length) {
-           throw new Error("Geocoding response format is incorrect or length mismatch.");
+          throw new Error("Geocoding response format is incorrect or length mismatch.");
         }
 
         // 4. Update Firestore & 5. Combine Coordinates (Part 1: Newly fetched)
@@ -967,8 +1192,8 @@ const DeliverySpreadsheet: React.FC = () => {
             finalCoordinates[client.originalIndex] = coords; // Add newly fetched coords
             // Schedule Firestore update (don't await here individually to speed up)
             updatePromises.push(
-               ClientService.getInstance().updateClientCoordinates(client.id, coords)
-                 .catch(err => console.error(`Failed to update coordinates for client ${client.id}:`, err)) // Log errors but don't fail the whole process
+              ClientService.getInstance().updateClientCoordinates(client.id, coords)
+                .catch(err => console.error(`Failed to update coordinates for client ${client.id}:`, err)) // Log errors but don't fail the whole process
             );
           } else {
             console.warn(`Failed to geocode address for client ${client.id}: ${client.address}. Skipping this client.`);
@@ -976,9 +1201,9 @@ const DeliverySpreadsheet: React.FC = () => {
           }
         });
 
-         // Wait for all Firestore updates to attempt completion
-         await Promise.all(updatePromises);
-         console.log("Finished attempting coordinate updates in Firestore.");
+        // Wait for all Firestore updates to attempt completion
+        await Promise.all(updatePromises);
+        console.log("Finished attempting coordinate updates in Firestore.");
       } else {
         console.log("No new addresses to geocode.");
       }
@@ -987,17 +1212,17 @@ const DeliverySpreadsheet: React.FC = () => {
       const validCoordsForClustering = finalCoordinates.filter(coords => coords !== null) as LatLngTuple[];
       // Keep track of the original indices corresponding to validCoordsForClustering
       const originalIndicesForValidCoords = visibleRows
-         .map((_: DeliveryRowData, index: number) => index)
-         .filter((index: number) => finalCoordinates[index] !== null);
+        .map((_: DeliveryRowData, index: number) => index)
+        .filter((index: number) => finalCoordinates[index] !== null);
 
       if (validCoordsForClustering.length === 0) {
-         throw new Error("No valid coordinates available for clustering after geocoding.");
+        throw new Error("No valid coordinates available for clustering after geocoding.");
       }
 
       // Adjust clusterNum if it exceeds the number of valid points
       const adjustedClusterNum = Math.min(clusterNum, validCoordsForClustering.length);
       if (adjustedClusterNum !== clusterNum) {
-         console.warn(`Adjusted cluster count from ${clusterNum} to ${adjustedClusterNum} due to invalid coordinates.`);
+        console.warn(`Adjusted cluster count from ${clusterNum} to ${adjustedClusterNum} due to invalid coordinates.`);
       }
 
       // Adjust min/max deliveries if necessary based on valid coordinates count
@@ -1015,7 +1240,7 @@ const DeliverySpreadsheet: React.FC = () => {
         );
       }
       if (validCoordsForClustering.length > adjustedTotalMaxAllowed) {
-         throw new Error(
+        throw new Error(
           `Too many valid deliveries (${validCoordsForClustering.length}) for ${adjustedClusterNum} clusters with adjusted maximum ${adjustedMaxDeliveries} each.\n` +
           `Allowed: ${adjustedTotalMaxAllowed}. Issue might be due to failed geocoding.`
         );
@@ -1066,7 +1291,10 @@ const DeliverySpreadsheet: React.FC = () => {
 
       if (clusterDoc) {
         const clusterRef = doc(db, "clusters", clusterDoc.docId);
-        await updateDoc(clusterRef, { clusters: newClusters });
+        await updateDoc(clusterRef, { 
+          clusters: newClusters,
+          clientOverrides: clientOverrides
+        });
         setClusters(newClusters);
         setClusterDoc(prevDoc => prevDoc ? { ...prevDoc, clusters: newClusters } : null);
       } else {
@@ -1076,9 +1304,9 @@ const DeliverySpreadsheet: React.FC = () => {
       resetSelections();
 
     } catch (error: any) {
-       console.error("Error during cluster generation:", error);
-       // Re-throw the error so the popup can display it
-       throw error;
+      console.error("Error during cluster generation:", error);
+      // Re-throw the error so the popup can display it
+      throw error;
     } finally {
       setIsLoading(false); // Ensure loading indicator is turned off
     }
@@ -1125,12 +1353,12 @@ const DeliverySpreadsheet: React.FC = () => {
   const clientsWithDeliveriesOnSelectedDate = rows.filter((row) =>
     deliveriesForDate.some((delivery) => delivery.clientId === row.id)
   );
-  
+
   // const visibleRows = rows.filter(row => {
   //   if (!searchQuery) return true; // Show all if no search query
-    
+
   //   const searchTerm = searchQuery.toLowerCase().trim();
-    
+
   //   return (
   //     row.firstName.toLowerCase().includes(searchTerm) ||
   //     row.lastName.toLowerCase().includes(searchTerm)
@@ -1140,21 +1368,21 @@ const DeliverySpreadsheet: React.FC = () => {
   const visibleRows = rows.filter((row) => {
     const keywordRegex = /(\w+):\s*("[^"]+"|\S+)/g; // Matches key: "value" or key: value
     const matches = [...searchQuery.matchAll(keywordRegex)];
-  
+
     if (matches.length > 0) {
       // For keyword queries, check that each provided value is a substring of the corresponding field
       return matches.every(([_, key, value]) => {
         const strippedValue = value.replace(/"/g, "").toLowerCase(); // Remove quotes and lowercase
-        
+
         // Check static fields with a substring match
         const matchesStaticField = fields.some((field) => {
-          const fieldValue = field.compute ? field.compute(row, clusters) : row[field.key as keyof DeliveryRowData];
+          const fieldValue = field.compute ? field.compute(row, clusters, clientOverrides) : row[field.key as keyof DeliveryRowData];
           return (
             fieldValue != null &&
             fieldValue.toString().toLowerCase().includes(strippedValue)
           );
         });
-    
+
         // Check custom columns with a substring match
         const matchesCustomColumn = customColumns.some((col) => {
           if (col.propertyKey !== "none") {
@@ -1166,23 +1394,23 @@ const DeliverySpreadsheet: React.FC = () => {
           }
           return false;
         });
-    
+
         return matchesStaticField || matchesCustomColumn;
       });
     } else {
       // Fallback to general search logic
       const eachQuery = searchQuery.match(/"[^"]+"|\S+/g) || [];
-      
+
       const quotedQueries = eachQuery.filter(s => s.startsWith('"') && s.endsWith('"') && s.length > 1) || [];
       const nonQuotedQueries = eachQuery.filter(s => s.length === 1 || !s.endsWith('"')) || [];
-    
+
       const containsQuotedQueries = quotedQueries.length === 0
         ? true
         : quotedQueries.every((query) => {
             // Use substring matching instead of exact equality
             const strippedQuery = query.slice(1, -1).trim().toLowerCase();
             const matchesStaticField = fields.some((field) => {
-              const fieldValue = field.compute ? field.compute(row, clusters) : row[field.key as keyof DeliveryRowData];
+              const fieldValue = field.compute ? field.compute(row, clusters, clientOverrides) : row[field.key as keyof DeliveryRowData];
               return (
                 fieldValue != null &&
                 fieldValue.toString().toLowerCase().includes(strippedQuery)
@@ -1212,7 +1440,7 @@ const DeliverySpreadsheet: React.FC = () => {
                 return true;
               }
               const matchesStaticField = fields.some((field) => {
-                const fieldValue = field.compute ? field.compute(row, clusters) : row[field.key as keyof DeliveryRowData];
+                const fieldValue = field.compute ? field.compute(row, clusters, clientOverrides) : row[field.key as keyof DeliveryRowData];
                 if (fieldValue == null) return false;
                 return fieldValue.toString().toLowerCase().includes(strippedQuery);
               });
@@ -1494,7 +1722,7 @@ const DeliverySpreadsheet: React.FC = () => {
 
   return (
     <Box className="box" sx={{ display: "flex", flexDirection: "column", height: "100vh" }}>
-      <div style={{display: "flex", alignItems: "center", justifyContent:"space-between"}}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
 
       <Box sx={{ 
         display: "flex",
@@ -1545,14 +1773,8 @@ const DeliverySpreadsheet: React.FC = () => {
   
         <Button
           variant="secondary"
-          size="medium"
-          icon={<TodayIcon />}
-          style={{ 
-            fontSize: 12, 
-            marginLeft: 16, 
-            height: "2.5rem",
-            minHeight: "2.5rem"
-          }}
+          size="small"
+          style={{ width: 50, fontSize: 12, marginLeft: 16 }}
           onClick={() => setSelectedDate(new Date())}
         >
           Today
@@ -1564,11 +1786,12 @@ const DeliverySpreadsheet: React.FC = () => {
       <Button
         variant="primary"
         size="medium"
-        icon={<PersonAddIcon />}
         disabled={userRole === UserType.ClientIntake}
         style={{
           whiteSpace: "nowrap",
+          padding: "0% 2%",
           borderRadius: 5,
+          width: "auto",
           marginRight: '16px'
         }}
         onClick={() => setPopupMode("ManualClusters")}
@@ -1579,11 +1802,12 @@ const DeliverySpreadsheet: React.FC = () => {
       <Button
         variant="primary"
         size="medium"
-        icon={<GroupWorkIcon />}
         disabled={userRole === UserType.ClientIntake}
         style={{
           whiteSpace: "nowrap",
+          padding: "0% 2%",
           borderRadius: 5,
+          width: "auto",
           marginRight: '16px'
         }}
         onClick={() => setPopupMode("Clusters")}
@@ -1605,9 +1829,9 @@ const DeliverySpreadsheet: React.FC = () => {
       >
         {isLoading ? (
           // Revert to rendering the indicator directly
-          <LoadingIndicator /> 
+          <LoadingIndicator />
         ) : visibleRows.length > 0 ? (
-          <ClusterMap clusters={clusters} visibleRows={visibleRows as any} />
+          <ClusterMap clusters={clusters} visibleRows={visibleRows as any} clientOverrides={clientOverrides} onClusterUpdate={handleIndividualClientUpdate} />
         ) : (
           <Box
             sx={{
@@ -1706,12 +1930,12 @@ const DeliverySpreadsheet: React.FC = () => {
                   vertical: 'top',
                   horizontal: 'left',
                 }}
-                 MenuListProps={{
+                MenuListProps={{
                   "aria-labelledby": "demo-positioned-button",
-                  sx: { width: anchorEl ? anchorEl.offsetWidth : '200px' } 
+                  sx: { width: anchorEl ? anchorEl.offsetWidth : '200px' }
                 }}
               >
-                {Object.values(times).map(({value, label, ...restUserProps}) => (
+                {Object.values(times).map(({ value, label, ...restUserProps }) => (
                   <MenuItem key={value} data-key={value} onClick={handleClose}>{label}</MenuItem>
                 ))}
               </Menu>
@@ -1737,7 +1961,16 @@ const DeliverySpreadsheet: React.FC = () => {
           </Box>
         </Box>
       </Box>
-
+      {/* Add daily limit calculation and pass to EventCountHeader */}
+      {(() => {
+        // Calculate the daily limit for the selected date
+        const selectedDateObj = TimeUtils.fromJSDate(selectedDate);
+        const dayOfWeek = selectedDateObj.weekday % 7; // Luxon weekday: 1=Monday, convert to 0=Sunday format
+        const adjustedDayOfWeek = dayOfWeek === 7 ? 0 : dayOfWeek; // Convert Sunday from 7 to 0
+        const dailyLimit = limits && limits.length > adjustedDayOfWeek ? limits[adjustedDayOfWeek] : undefined;
+        
+        return <EventCountHeader events={rows} limit={dailyLimit} />;
+      })()}
       <Box
         sx={{
           flex: 1,
@@ -1944,9 +2177,16 @@ const DeliverySpreadsheet: React.FC = () => {
                                 <MenuItem key={option.value} value={option.value}>
                                   <Chip
                                     label={option.label === "Unassigned" ? option.label : option.label}
-                                    style={typeof option.color === 'string' ? 
-                                      { backgroundColor: option.color, color: 'white', border: '1px solid black', fontWeight: 'bold', textShadow: '.5px .5px .5px #000, -.5px .5px .5px #000, -.5px -.5px 0px #000, .5px -.5px 0px #000' } 
+                                    style={typeof option.color === 'string' ?
+                                      { backgroundColor: option.color, color: 'white', border: '1px solid black', fontWeight: 'bold', textShadow: '.5px .5px .5px #000, -.5px .5px .5px #000, -.5px -.5px 0px #000, .5px -.5px 0px #000' }
                                       : undefined}
+                                    onClick={(e) => e.stopPropagation()}
+                                    sx={{
+                                      pointerEvents: 'none',
+                                      '& .MuiTouchRipple-root': {
+                                        display: 'none'
+                                      }
+                                    }}
                                   />
                                 </MenuItem>
                               ))}
@@ -1955,7 +2195,7 @@ const DeliverySpreadsheet: React.FC = () => {
                         ) : field.compute ? (
                           // Render computed fields (other than the select)
                           field.key === "assignedDriver" || field.key === "assignedTime" ? (
-                            field.compute(row, clusters)
+                            field.compute(row, clusters, clientOverrides)
                           ) : field.key === "fullname" ? (
                             // Render fullname as a link to client profile
                             <Link
@@ -1994,16 +2234,15 @@ const DeliverySpreadsheet: React.FC = () => {
                                         e.preventDefault()
                                         e.stopPropagation();
                                       }}
-                                     />
+                                    />
                                   ))}
                                 </Box>
                               ) : (
                                 "No Tags"
                               )
-                            ) : (
-                            // Handle other compute functions (shouldn't reach here)
-                            null
-                          )
+                            ) : ( 
+                            field.compute(row)
+                          ) // Assumes other compute fields don't need clusters
                         ) : isRegularField(field) ? (
                           // Render regular fields (zipCode, ward)
                           // Cast to string as these are the only expected types here
@@ -2042,7 +2281,7 @@ const DeliverySpreadsheet: React.FC = () => {
                   {/* Add button cell */}
                   <TableCell></TableCell>
                 </TableRow>
-                
+
               ))}
             </TableBody>
           </Table>
@@ -2066,7 +2305,7 @@ const DeliverySpreadsheet: React.FC = () => {
       </Dialog>
 
       {/* Export Options Popup */}
-      
+
       <Dialog open={popupMode === "Export"} onClose={resetSelections} maxWidth="xs" fullWidth>
         <DialogTitle>Export Options</DialogTitle>
         <DialogContent sx={{ pt: 3, overflow: "visible" }}>
@@ -2133,7 +2372,7 @@ const DeliverySpreadsheet: React.FC = () => {
           <DialogContent>
             <ManualAssign
               manualAssign={manualAssign}
-              allDeliveries = {visibleRows as any}
+              allDeliveries={visibleRows as any}
               onClose={resetSelections}
             />
           </DialogContent>

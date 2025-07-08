@@ -72,7 +72,7 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
         </Box>
       </Box>      {/* Date of Birth */}      <Box sx={{ minHeight: '130px' }}>
         <Typography className="field-descriptor" sx={fieldLabelStyles}>
-          DATE OF BIRTH <span className="required-asterisk">*</span>
+          DATE OF BIRTH
         </Typography>
         {renderField("dob", "date")}
         {/* This error box is for form validation errors, not field-level errors */}
@@ -197,16 +197,43 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
 
       {/* Email */}
       <Box>
-        <Typography className="field-descriptor" sx={fieldLabelStyles}>
-          EMAIL
-        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          <Typography className="field-descriptor" sx={fieldLabelStyles}>
+            EMAIL
+          </Typography>
+          <Tooltip 
+            title={
+              <React.Fragment>
+                <Typography variant="subtitle2">Allowed formats:</Typography>
+                <Typography variant="body2">name@example.com</Typography>
+                <Typography variant="body2">name@domain.com</Typography>
+                <Typography variant="body2">name@company.org</Typography>
+              </React.Fragment>
+            } 
+            arrow
+          >
+            <InfoIcon 
+              sx={{ 
+                color: '#257E68', 
+                fontSize: '20px',
+                cursor: 'help',
+                verticalAlign: 'middle',
+                marginTop: '-12px'
+              }} 
+            />
+          </Tooltip>
+        </Box>
         {renderField("email", "email")}
         {errors.email && (
           <Typography color="error" variant="body2">
             {errors.email}
           </Typography>
-        )}      </Box>      {/* Phone */}
-      <Box>        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+        )}
+      </Box>
+
+      {/* Phone */}
+      <Box>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
           <Typography className="field-descriptor" sx={fieldLabelStyles}>
             PHONE <span className="required-asterisk">*</span>
           </Typography>
@@ -230,7 +257,7 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
                 fontSize: '20px',
                 cursor: 'help',
                 verticalAlign: 'middle', 
-                marginTop: '-3px'
+                marginTop: '-12px'
               }} 
             />
           </Tooltip>
@@ -241,7 +268,10 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
             {errors.phone}
           </Typography>
         )}
-      </Box>      {/* Alternative Phone */}      <Box>
+      </Box>
+
+      {/* Alternative Phone */}
+      <Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
           <Typography className="field-descriptor" sx={fieldLabelStyles}>
             ALTERNATIVE PHONE
@@ -266,7 +296,7 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
                 fontSize: '20px',
                 cursor: 'help',
                 verticalAlign: 'middle',
-                marginTop: '-3px'
+                marginTop: '-12px'
               }} 
             />
           </Tooltip>
@@ -401,8 +431,32 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
               }
               sx = {{ 
                 width: '100%',
+                position: 'relative',
+                // Ensure proper container bounds
                 '& .MuiAutocomplete-clearIndicator': {
                   display: 'none',
+                },
+                // Position the dropdown arrow inside the field bounds
+                '& .MuiAutocomplete-popupIndicator': {
+                  position: 'absolute !important',
+                  right: '12px !important',
+                  top: '50% !important',
+                  transform: 'translateY(-50%) !important',
+                  color: '#666 !important',
+                  fontSize: '1.2rem !important',
+                  padding: '4px !important',
+                  zIndex: 10,
+                  width: '24px',
+                  height: '24px',
+                },
+                // Ensure the input container has proper bounds and padding
+                '& .MuiOutlinedInput-root': {
+                  paddingRight: '48px !important', // Adequate space for the arrow
+                  overflow: 'hidden',
+                },
+                // Make sure input text doesn't overlap arrow
+                '& .MuiAutocomplete-input': {
+                  paddingRight: '8px !important',
                 },
               }}              renderInput = {(params) => (
                 <TextField
@@ -411,7 +465,7 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
                   sx={{
                     backgroundColor: "white",
                     '& .MuiOutlinedInput-root': {
-                      height: "1.813rem",
+                      height: "56px",
                       padding: "0.1rem 0.5rem",
                       '& fieldset': {
                         border: ".1rem solid black",
@@ -440,8 +494,8 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
                   }
                 </li>
               )}
-              // disableClearable // Removed this prop due to type conflict with null value
-              // forcePopupIcon={false} // Keep this to hide dropdown arrow // Keep this commented to show dropdown arrow
+              // Enable the dropdown arrow
+              forcePopupIcon={true}
             />
           </>
         ) : (
