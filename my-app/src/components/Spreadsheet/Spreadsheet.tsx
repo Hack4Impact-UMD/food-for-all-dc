@@ -5,6 +5,7 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
 import SaveIcon from "@mui/icons-material/Save";
+import UnfoldMoreIcon from "@mui/icons-material/UnfoldMore";
 import { styled } from "@mui/material/styles";
 import {
   Box,
@@ -126,11 +127,24 @@ const Spreadsheet: React.FC = () => {
   const [exportOption, setExportOption] = useState<"QueryResults" | "AllClients" | null>(null);
   const [clientIdToDelete, setClientIdToDelete] = useState<string | null>(null);
 
+  // Track which column is currently being sorted
+  const [sortedColumn, setSortedColumn] = useState<string>(() => {
+    // Always default to fullname (Name) column, ignore persisted value
+    return "fullname";
+  });
+
   //default to asc if not found in local store
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">(() => {
-    const stored = localStorage.getItem("ffaSortOrderSpreadsheet");
-    return stored === "desc" ? "desc" : "asc";
+    // Always default to ascending order, ignore persisted value
+    return "asc";
   });
+
+  // Initialize default sorting on first load
+  useEffect(() => {
+    // Always set default sort to fullname ascending on first load
+    setSortedColumn("fullname");
+    setSortOrder("asc");
+  }, []);
 
   const navigate = useNavigate();
 
@@ -247,26 +261,112 @@ const StyleChip = styled(Chip)({
     return () => unsubscribe();
   }, [navigate]);
 
-  //store sort order locally
+  //store sort order and column locally
   useEffect(() => {
     localStorage.setItem("ffaSortOrderSpreadsheet", sortOrder);
-  }, [sortOrder]);
+    localStorage.setItem("ffaSortedColumnSpreadsheet", sortedColumn);
+  }, [sortOrder, sortedColumn]);
 
   // Compute sorted rows using useMemo to ensure data is always sorted
   const sortedRows = useMemo(() => {
     if (rows.length === 0) return rows;
-    
+
     return [...rows].sort((a, b) => {
-      if (a.firstName === b.firstName) {
-        return sortOrder === "asc"
-          ? a.lastName.localeCompare(b.lastName)
-          : b.lastName.localeCompare(a.lastName);
+      // Special grouping logic for dietary restrictions
+      if (sortedColumn === "deliveryDetails.dietaryRestrictions") {
+        // Group all with any dietary restrictions (not empty/none) together, and all without together, preserving original order within each group
+        const hasDietA = (() => {
+          const dr = a.deliveryDetails?.dietaryRestrictions;
+          if (!dr) return false;
+          // Check for any true boolean or non-empty array
+          return (
+            dr.halal || dr.kidneyFriendly || dr.lowSodium || dr.lowSugar || dr.microwaveOnly || dr.noCookingEquipment || dr.softFood || dr.vegan || dr.vegetarian || dr.heartFriendly ||
+            (Array.isArray(dr.foodAllergens) && dr.foodAllergens.length > 0) ||
+            (Array.isArray(dr.other) && dr.other.length > 0)
+          );
+        })();
+        const hasDietB = (() => {
+          const dr = b.deliveryDetails?.dietaryRestrictions;
+          if (!dr) return false;
+          return (
+            dr.halal || dr.kidneyFriendly || dr.lowSodium || dr.lowSugar || dr.microwaveOnly || dr.noCookingEquipment || dr.softFood || dr.vegan || dr.vegetarian || dr.heartFriendly ||
+            (Array.isArray(dr.foodAllergens) && dr.foodAllergens.length > 0) ||
+            (Array.isArray(dr.other) && dr.other.length > 0)
+          );
+        })();
+        if (hasDietA && !hasDietB) return sortOrder === "asc" ? -1 : 1;
+        if (!hasDietA && hasDietB) return sortOrder === "asc" ? 1 : -1;
+        // If both are the same (both have or both don't), preserve original order
+        return 0;
       }
-      return sortOrder === "asc"
-        ? a.firstName.localeCompare(b.firstName)
-        : b.firstName.localeCompare(a.firstName);
+
+      // ...existing code for other columns...
+      let valueA = "";
+      let valueB = "";
+
+      const getFullName = (row: RowData) => {
+        const lastName = (row.lastName || "").trim();
+        const firstName = (row.firstName || "").trim();
+        if (!lastName && !firstName) return "";
+        if (!lastName) return firstName.toLowerCase();
+        if (!firstName) return lastName.toLowerCase();
+        return `${lastName}, ${firstName}`.toLowerCase();
+      };
+
+      // ...existing code for switch/case and default sorting...
+      switch (sortedColumn) {
+        case "fullname":
+          valueA = getFullName(a);
+          valueB = getFullName(b);
+          break;
+        case "address":
+          valueA = (a.address || "").toLowerCase();
+          valueB = (b.address || "").toLowerCase();
+          break;
+        case "phone":
+          valueA = (a.phone || "").toLowerCase();
+          valueB = (b.phone || "").toLowerCase();
+          break;
+        case "deliveryDetails.deliveryInstructions":
+          valueA = (a.deliveryDetails?.deliveryInstructions || "none").toLowerCase();
+          valueB = (b.deliveryDetails?.deliveryInstructions || "none").toLowerCase();
+          break;
+        default: {
+          const rawValueA = a[sortedColumn as keyof RowData];
+          const rawValueB = b[sortedColumn as keyof RowData];
+          const numA = Number(rawValueA);
+          const numB = Number(rawValueB);
+          const isNumericA = !isNaN(numA) && isFinite(numA) && rawValueA !== null && rawValueA !== undefined && String(rawValueA).trim() !== "";
+          const isNumericB = !isNaN(numB) && isFinite(numB) && rawValueB !== null && rawValueB !== undefined && String(rawValueB).trim() !== "";
+          if (isNumericA && isNumericB) {
+            const result = sortOrder === "asc" ? numA - numB : numB - numA;
+            return result;
+          }
+          const getSortableValue = (value: any): string => {
+            if (value === null || value === undefined) return "";
+            if (Array.isArray(value)) return value.join(", ").toLowerCase();
+            if (typeof value === 'object') {
+              if (value.name || value.organization) {
+                return `${value.name || ""} ${value.organization || ""}`.trim().toLowerCase();
+              }
+              return JSON.stringify(value).toLowerCase();
+            }
+            return String(value).toLowerCase();
+          };
+          valueA = getSortableValue(rawValueA);
+          valueB = getSortableValue(rawValueB);
+          break;
+        }
+      }
+      if (!valueA && !valueB) return 0;
+      if (!valueA) return sortOrder === "asc" ? -1 : 1;
+      if (!valueB) return sortOrder === "asc" ? 1 : -1;
+      const result = sortOrder === "asc"
+        ? valueA.localeCompare(valueB, undefined, { sensitivity: 'base' })
+        : valueB.localeCompare(valueA, undefined, { sensitivity: 'base' });
+      return result;
     });
-  }, [rows, sortOrder]);
+  }, [rows, sortOrder, sortedColumn]);
 
   // Define fields for table columns
   const fields: Field[] = [
@@ -312,22 +412,16 @@ const StyleChip = styled(Chip)({
   ];
 
   // Fetch data from Firebase without authentication checks
-  useEffect(() => {    const fetchData = async () => {
+  useEffect(() => {
+    const fetchData = async () => {
       try {
         // Use ClientService instead of direct Firebase calls
         const clientService = ClientService.getInstance();
         const clients = await clientService.getAllClients();
         console.log("Fetched clients:", clients);
         
-        // Sort clients by lastName first, then firstName
-        const sortedClients = [...clients].sort((a, b) => {
-          if (a.lastName === b.lastName) {
-            return a.firstName.localeCompare(b.firstName);
-          }
-          return a.lastName.localeCompare(b.lastName);
-        });
-        
-        setRows(sortedClients as unknown as RowData[]);
+        // No default sorting - let our sortedRows useMemo handle all sorting
+        setRows(clients as unknown as RowData[]);
       } catch (error) {
         console.error("Error fetching data: ", error);
       }
@@ -583,26 +677,16 @@ const StyleChip = styled(Chip)({
   };
 
   
-  // Handle toggling sort order for the Name column
-  const toggleSortOrder = () => {
-    const sortedRows = [...rows].sort((a, b) => {
-      if (a.lastName === b.lastName) {
-        return sortOrder === "asc"
-          ? a.firstName.localeCompare(b.firstName)
-          : b.firstName.localeCompare(a.firstName);
-      }
-      return sortOrder === "asc"
-        ? a.lastName.localeCompare(b.lastName)
-        : b.lastName.localeCompare(a.lastName);
-    });
-    setRows(sortedRows);
-    setSortOrder(sortOrder === "asc" ? "desc" : "asc");
-  };
-
-  const toggleSortOrder2 = (fieldKey: keyof RowData) => {
-    // This function is no longer needed since sorting is handled by useMemo
-    // Just toggle the sort order - the useMemo will handle the actual sorting
-    setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+  // Handle toggling sort order for any column
+  const handleColumnSort = (columnKey: string) => {
+    if (sortedColumn === columnKey) {
+      // Same column clicked - toggle sort order
+      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+    } else {
+      // Different column clicked - switch to new column with ascending order
+      setSortedColumn(columnKey);
+      setSortOrder("asc");
+    }
   };
 
   const addClient = () => {
@@ -945,15 +1029,17 @@ const StyleChip = styled(Chip)({
                         alignItems="center"
                         spacing={0.5}
                         sx={{
-                          cursor: field.key === "fullname" ? "pointer" : "default",
+                          cursor: "pointer", // All columns are now sortable
                         }}
-                        onClick={field.key === "fullname" ? toggleSortOrder : undefined}
+                        onClick={() => handleColumnSort(field.key)}
                       >
                         <Typography variant="subtitle2" sx={{ fontWeight: 600, color: "#2E5B4C" }}>
                           {field.label}
                         </Typography>
-                        {field.key === "fullname" && (
+                        {sortedColumn === field.key ? (
                           sortOrder === "asc" ? <ArrowDropUpIcon /> : <ArrowDropDownIcon />
+                        ) : (
+                          <UnfoldMoreIcon sx={{ color: "#9E9E9E", fontSize: "1.2rem" }} />
                         )}
                       </Stack>
                     </TableCell>
@@ -969,54 +1055,76 @@ const StyleChip = styled(Chip)({
                         borderBottom: "2px solid #e0e0e0",
                       }}
                     >
-                      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                        <Select
-                          value={col.propertyKey}
-                          onChange={(event) => handleCustomHeaderChange(event, col.id)}
-                          variant="outlined"
-                          displayEmpty
-                          size="small"
-                          sx={{
-                            minWidth: 120,
-                            color: "#257e68",
-                            "& .MuiOutlinedInput-notchedOutline": {
-                              borderColor: "#bfdfd4",
-                            },
-                            "&:hover .MuiOutlinedInput-notchedOutline": {
-                              borderColor: "#257e68",
-                            },
-                          }}
-                        >
-                          <MenuItem value="none">None</MenuItem>
-                          <MenuItem value="adults">Adults</MenuItem>
-                          <MenuItem value="children">Children</MenuItem>
-                          <MenuItem value="deliveryFreq">Delivery Freq</MenuItem>
-                          <MenuItem value="ethnicity">Ethnicity</MenuItem>
-                          <MenuItem value="gender">Gender</MenuItem>
-                          <MenuItem value="language">Language</MenuItem>
-                          <MenuItem value="notes">Notes</MenuItem>
-                          <MenuItem value="referralEntity">Referral Entity</MenuItem>
-                          <MenuItem value="tefapCert">TEFAP Cert</MenuItem>
-                          <MenuItem value="tags">Tags</MenuItem>
-                          <MenuItem value="dob">DOB</MenuItem>
-                          <MenuItem value="ward">Ward</MenuItem>
-                        </Select>
-                        {/*Add Remove Button*/}
-                        <IconButton
-                          size="small"
-                          onClick={() => handleRemoveCustomColumn(col.id)}
-                          aria-label={`Remove ${col.label || "custom"} column`}
-                          title={`Remove ${col.label || "custom"} column`}
-                          sx={{
-                            color: "#d32f2f",
-                            "&:hover": {
-                              backgroundColor: "rgba(211, 47, 47, 0.04)",
-                            }
-                          }}
-                        >
-                          <DeleteIcon fontSize="small" />
-                        </IconButton>
-                      </Box>
+                      <Stack
+                        direction="row"
+                        alignItems="center"
+                        spacing={0.5}
+                        sx={{
+                          cursor: col.propertyKey !== "none" ? "pointer" : "default", // Only sortable if column has data
+                        }}
+                        onClick={() => col.propertyKey !== "none" && handleColumnSort(col.propertyKey)}
+                      >
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                          <Select
+                            value={col.propertyKey}
+                            onChange={(event) => handleCustomHeaderChange(event, col.id)}
+                            variant="outlined"
+                            displayEmpty
+                            size="small"
+                            sx={{
+                              minWidth: 120,
+                              color: "#257e68",
+                              "& .MuiOutlinedInput-notchedOutline": {
+                                borderColor: "#bfdfd4",
+                              },
+                              "&:hover .MuiOutlinedInput-notchedOutline": {
+                                borderColor: "#257e68",
+                              },
+                            }}
+                            onClick={(e) => e.stopPropagation()} // Prevent sort when clicking dropdown
+                          >
+                            <MenuItem value="none">None</MenuItem>
+                            <MenuItem value="adults">Adults</MenuItem>
+                            <MenuItem value="children">Children</MenuItem>
+                            <MenuItem value="deliveryFreq">Delivery Freq</MenuItem>
+                            <MenuItem value="ethnicity">Ethnicity</MenuItem>
+                            <MenuItem value="gender">Gender</MenuItem>
+                            <MenuItem value="language">Language</MenuItem>
+                            <MenuItem value="notes">Notes</MenuItem>
+                            <MenuItem value="referralEntity">Referral Entity</MenuItem>
+                            <MenuItem value="tefapCert">TEFAP Cert</MenuItem>
+                            <MenuItem value="tags">Tags</MenuItem>
+                            <MenuItem value="dob">DOB</MenuItem>
+                            <MenuItem value="ward">Ward</MenuItem>
+                          </Select>
+                          {/*Add Remove Button*/}
+                          <IconButton
+                            size="small"
+                            onClick={(e) => {
+                              e.stopPropagation(); // Prevent sort when clicking remove
+                              handleRemoveCustomColumn(col.id);
+                            }}
+                            aria-label={`Remove ${col.label || "custom"} column`}
+                            title={`Remove ${col.label || "custom"} column`}
+                            sx={{
+                              color: "#d32f2f",
+                              "&:hover": {
+                                backgroundColor: "rgba(211, 47, 47, 0.04)",
+                              }
+                            }}
+                          >
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        </Box>
+                        {/* Show sort icon if this custom column is currently sorted */}
+                        {col.propertyKey !== "none" && (
+                          sortedColumn === col.propertyKey ? (
+                            sortOrder === "asc" ? <ArrowDropUpIcon /> : <ArrowDropDownIcon />
+                          ) : (
+                            <UnfoldMoreIcon sx={{ color: "#9E9E9E", fontSize: "1.2rem" }} />
+                          )
+                        )}
+                      </Stack>
                     </TableCell>
                   ))}
 

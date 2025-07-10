@@ -5,17 +5,18 @@ import { ClientProfile } from '../../../types';
 import { ClientProfileKey, InputType } from '../types';
 import { CaseWorker } from "../../../types";
 
-interface BasicInfoFormProps {
+export interface BasicInfoFormProps {
   clientProfile: ClientProfile;
   isEditing: boolean;
   errors: { [key: string]: string };
-  renderField: (fieldPath: ClientProfileKey, type?: InputType) => React.ReactNode;
+  renderField: (fieldPath: ClientProfileKey, type?: InputType, addressInputRef?: React.RefObject<HTMLInputElement>) => React.ReactNode;
   fieldLabelStyles: any;
   selectedCaseWorker: CaseWorker | null;
   caseWorkers: CaseWorker[];
   setShowCaseWorkerModal: React.Dispatch<React.SetStateAction<boolean>>;
   handleCaseWorkerChange: (cw: CaseWorker | null) => void;
-  addressError?: string; // Add this new prop
+  addressError?: string;
+  addressInputRef?: React.RefObject<HTMLInputElement>;
 }
 
 const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
@@ -28,7 +29,8 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
   caseWorkers,
   setShowCaseWorkerModal,
   handleCaseWorkerChange,
-  addressError, // Add this new prop
+  addressError,
+  addressInputRef,
 }) => {
   return (
     <Box
@@ -96,7 +98,7 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
         <Typography className="field-descriptor" sx={fieldLabelStyles}>
           ADDRESS <span className="required-asterisk">*</span>
         </Typography>
-        {renderField("address", "text")}        <Box sx={{ minHeight: '24px' }}>  {/* Fixed height error container */}
+        {renderField("address", "text", addressInputRef)}        <Box sx={{ minHeight: '24px' }}>  {/* Fixed height error container */}
           {errors.address && (
             <Typography color="error" variant="body2">
               {errors.address}

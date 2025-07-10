@@ -1260,8 +1260,8 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
     return path.split(".").reduce((acc, part) => acc?.[part], obj);
   };
 
-  // Re-define renderField based on its likely structure before deletion in HEAD
-  const renderField = (fieldPath: ClientProfileKey, type: InputType = "text") => {
+  // Re-define renderField to accept addressInputRef and forward it to FormField
+  const renderField = (fieldPath: ClientProfileKey, type: InputType = "text", addressInputRef?: React.RefObject<HTMLInputElement>) => {
     if (type === "dietaryRestrictions") {
       const dietaryOptions = [
         { name: "lowSugar", label: "Low Sugar" },
@@ -2249,7 +2249,8 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
               caseWorkers={caseWorkers}
               setShowCaseWorkerModal={setShowCaseWorkerModal}
               handleCaseWorkerChange={handleCaseWorkerChange}
-              addressError={addressError} // Add this line
+              addressError={addressError}
+              addressInputRef={addressInputRef}
             />
           </SectionBox>
 
