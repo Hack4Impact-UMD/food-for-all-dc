@@ -937,22 +937,35 @@ const StyleChip = styled(Chip)({
                   )}
                   <Box>
                     <Typography variant="body2" color="text.secondary">Dietary Restrictions</Typography>
-                    <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ mt: 0.5 }}>
-                      {fields.find(f => f.key === "deliveryDetails.dietaryRestrictions")?.compute?.(row)?.split(", ").map((restriction, i) => (
-                        restriction !== "None" && (
-                          <Chip
-                            key={i}
-                            label={restriction}
-                            size="small"
-                            sx={{
-                              backgroundColor: "#e8f5e9",
-                              color: "#2E5B4C",
-                              mb: 0.5
-                            }}
-                          />
-                        )
-                      )) || <Typography variant="body2">None</Typography>}
-                    </Stack>
+                    {(() => {
+                      const restrictions = fields.find(f => f.key === "deliveryDetails.dietaryRestrictions")?.compute?.(row);
+                      if (restrictions === "None") {
+                        return <Typography variant="body2" color="text.secondary">None</Typography>;
+                      }
+                      return (
+                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.5 }}>
+                          {restrictions?.split(", ").map((restriction, i) => (
+                            <Chip
+                              key={i}
+                              label={restriction}
+                              size="small"
+                              sx={{
+                                backgroundColor: "#e8f5e9",
+                                color: "#2E5B4C",
+                                fontSize: "0.75rem",
+                                height: "24px",
+                                fontWeight: 500,
+                                border: "1px solid #c8e6c9",
+                                "&:hover": {
+                                  backgroundColor: "#e8f5e9",
+                                  cursor: "default"
+                                }
+                              }}
+                            />
+                          ))}
+                        </Box>
+                      );
+                    })()}
                   </Box>
                   {/* Custom columns for mobile */}
                   {customColumns.map((col) => (
@@ -1263,21 +1276,46 @@ const StyleChip = styled(Chip)({
                           )
                         ) : (field as any).compute ? (
                           field.key === "deliveryDetails.dietaryRestrictions" ? (
-                            <Stack direction="row" spacing={0.5} flexWrap="wrap">
-                              {(field as any).compute(row)?.split(", ").filter((restriction: string) => restriction !== "None").map((restriction: string, i: number) => (
-                                <Chip
-                                  key={i}
-                                  label={restriction}
-                                  size="small"
-                                  onClick={(e) => e.preventDefault()}
-                                  sx={{
-                                    backgroundColor: "#e8f5e9",
-                                    color: "#2E5B4C",
-                                    mb: 0.5
-                                  }}
-                                />
-                              ))}
-                            </Stack>
+                            (() => {
+                              const restrictions = (field as any).compute(row);
+                              if (restrictions === "None") {
+                                return (
+                                  <Typography sx={{ 
+                                    fontSize: '0.875rem',
+                                    color: "#757575",
+                                    fontStyle: "italic"
+                                  }}>
+                                    None
+                                  </Typography>
+                                );
+                              }
+                              return (
+                                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, maxWidth: '250px' }}>
+                                  {restrictions.split(", ").map((restriction: string, i: number) => (
+                                    <Chip
+                                      key={i}
+                                      label={restriction}
+                                      size="small"
+                                      sx={{
+                                        backgroundColor: "#e8f5e9",
+                                        color: "#2E5B4C",
+                                        fontSize: "0.75rem",
+                                        height: "20px",
+                                        fontWeight: 500,
+                                        border: "1px solid #c8e6c9",
+                                        "& .MuiChip-label": {
+                                          px: 1
+                                        },
+                                        "&:hover": {
+                                          backgroundColor: "#e8f5e9",
+                                          cursor: "default"
+                                        }
+                                      }}
+                                    />
+                                  ))}
+                                </Box>
+                              );
+                            })()
                           ) : field.key === "deliveryDetails.deliveryInstructions" ? (
                             <div style={{
                               maxWidth: '200px',
