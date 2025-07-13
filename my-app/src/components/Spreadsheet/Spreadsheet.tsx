@@ -621,9 +621,26 @@ const StyleChip = styled(Chip)({
         case "tefap cert":
         case "tefap":
           return checkStringContains((row as any).tefapCert, searchValue);
+        case "zip":
+        case "zipcode":
+        case "zip code":
+          return checkStringContains((row as any).zipCode, searchValue);
+        case "house number":
+          return checkValueOrInArray(row.houseNumber, searchValue);
+        case "coordinates":
+          return checkStringContains((row as any).coordinates, searchValue);
         default:
-          // If the keyword is not recognized, don't match
-          return false;
+          {
+          // Check custom columns if keyword matches
+          const matchesCustomColumn = customColumns.some((col) => {
+            if (col.propertyKey !== "none" && col.propertyKey.toLowerCase().includes(keyword)) {
+              const fieldValue = row[col.propertyKey as keyof RowData];
+              return checkStringContains(fieldValue, searchValue);
+            }
+            return false;
+          });
+          return matchesCustomColumn;
+          }
       }
     } else {
       // Fallback to global search (searches the query in all relevant fields)
@@ -645,6 +662,7 @@ const StyleChip = styled(Chip)({
         (row as any).adults, (row as any).children, (row as any).deliveryFreq,
         (row as any).gender, (row as any).language, (row as any).notes,
         (row as any).tefapCert, (row as any).dob, (row as any).ward,
+        (row as any).zipCode, row.houseNumber, (row as any).coordinates,
         row.clientid, row.uid
       ];
       if (dynamicKeysAndValues.some(val => checkValueOrInArray(val, globalSearchValue))) return true;
@@ -656,6 +674,16 @@ const StyleChip = styled(Chip)({
         if (checkStringContains(referralEntity.name, globalSearchValue)) return true;
         if (checkStringContains(referralEntity.organization, globalSearchValue)) return true;
       }
+
+      // Check custom columns
+      const matchesCustomColumn = customColumns.some((col) => {
+        if (col.propertyKey !== "none") {
+          const fieldValue = row[col.propertyKey as keyof RowData];
+          return checkStringContains(fieldValue, globalSearchValue);
+        }
+        return false;
+      });
+      if (matchesCustomColumn) return true;
       
       return false;
     }
@@ -1109,6 +1137,7 @@ const StyleChip = styled(Chip)({
                             <MenuItem value="tags">Tags</MenuItem>
                             <MenuItem value="dob">DOB</MenuItem>
                             <MenuItem value="ward">Ward</MenuItem>
+                            <MenuItem value="zipCode">Zip Code</MenuItem>
                           </Select>
                           {/*Add Remove Button*/}
                           <IconButton
