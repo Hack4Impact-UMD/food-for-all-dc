@@ -52,11 +52,6 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
           FIRST NAME <span className="required-asterisk">*</span>
         </Typography>
         {renderField("firstName", "text")}        <Box sx={{ minHeight: '24px' }}>  {/* Fixed height error container */}
-          {errors.firstName && (
-            <Typography color="error" variant="body2">
-              {errors.firstName}
-            </Typography>
-          )}
         </Box>
       </Box>
 
@@ -65,32 +60,14 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
         <Typography className="field-descriptor" sx={fieldLabelStyles}>
           LAST NAME <span className="required-asterisk">*</span>
         </Typography>
-        {renderField("lastName", "text")}        <Box sx={{ minHeight: '24px' }}>  {/* Fixed height error container */}
-          {errors.lastName && (
-            <Typography color="error" variant="body2">
-              {errors.lastName}
-            </Typography>
-          )}
-        </Box>
+        {renderField("lastName", "text")}       
+      
       </Box>      {/* Date of Birth */}      <Box sx={{ minHeight: '130px' }}>
         <Typography className="field-descriptor" sx={fieldLabelStyles}>
-          DATE OF BIRTH
+          DATE OF BIRTH <span className="required-asterisk">*</span>
         </Typography>
         {renderField("dob", "date")}
-        {/* This error box is for form validation errors, not field-level errors */}
-        <Box sx={{ 
-          minHeight: '24px', 
-          height: '24px',
-          marginTop: '24px', /* Add space for error message */
-          display: 'flex', 
-          alignItems: 'center' 
-        }}>
-          {errors.dob && (
-            <Typography color="error" variant="body2" className="error-message-container">
-              {errors.dob}
-            </Typography>
-          )}
-        </Box>
+        <Box sx={{ minHeight: '24px' }}></Box>
       </Box>
 
       {/* Address 1 */}
@@ -99,26 +76,7 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
           ADDRESS <span className="required-asterisk">*</span>
         </Typography>
         {renderField("address", "text", addressInputRef)}        <Box sx={{ minHeight: '24px' }}>  {/* Fixed height error container */}
-          {errors.address && (
-            <Typography color="error" variant="body2">
-              {errors.address}
-            </Typography>
-          )}
         </Box>
-        {/* Add address error display */}
-        {addressError && (
-          <Typography 
-            color="error" 
-            variant="body2"
-            sx={{ 
-              fontSize: '0.75rem',
-              marginTop: '4px',
-              fontStyle: 'italic'
-            }}
-          >
-            {addressError}
-          </Typography>
-        )}
       </Box>
 
       {/* Address 2 */}
@@ -126,7 +84,7 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
         <Typography className="field-descriptor" sx={fieldLabelStyles}>
           ADDRESS 2
         </Typography>
-        {renderField("address2", "textarea")}
+        {renderField("address2", "textarea")} 
       </Box>
 
       {/* City */}
@@ -135,11 +93,6 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
           CITY <span className="required-asterisk">*</span>
         </Typography>
         {renderField("city", "text")}
-        {errors.city && (
-          <Typography color="error" variant="body2">
-            {errors.city}
-          </Typography>
-        )}
       </Box>
 
       {/* State */}
@@ -148,11 +101,6 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
           STATE <span className="required-asterisk">*</span>
         </Typography>
         {renderField("state", "text")}
-        {errors.state && (
-          <Typography color="error" variant="body2">
-            {errors.state}
-          </Typography>
-        )}
         {/* Add state warning for non-DC states */}
         {clientProfile.state && clientProfile.state !== "DC" && !errors.state && (
             <Typography
@@ -174,11 +122,6 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
           ZIP CODE <span className="required-asterisk">*</span>
         </Typography>
         {renderField("zipCode", "text")}
-        {errors.zipCode && (
-          <Typography color="error" variant="body2">
-            {errors.zipCode}
-          </Typography>
-        )}
       </Box>
 
       {/* Quadrant */}
@@ -187,11 +130,6 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
           QUADRANT
         </Typography>
         {renderField("quadrant", "text")}
-        {errors.quadrant && (
-          <Typography color="error" variant="body2">
-            {errors.quadrant}
-          </Typography>
-        )}
       </Box>
 
       {/* Ward */}
@@ -346,11 +284,7 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
           ETHNICITY <span className="required-asterisk">*</span>
         </Typography>
         {renderField("ethnicity", "text")}
-        {errors.ethnicity && (
-          <Typography color="error" variant="body2">
-            {errors.ethnicity}
-          </Typography>
-        )}
+         <Box sx={{ minHeight: '24px' }}></Box>
       </Box>
 
       {/* Language */}
@@ -359,11 +293,7 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
           LANGUAGE <span className="required-asterisk">*</span>
         </Typography>
         {renderField("language", "text")}
-        {errors.language && (
-          <Typography color="error" variant="body2">
-            {errors.language}
-          </Typography>
-        )}
+        <Box sx={{ minHeight: '24px' }}></Box>
       </Box>
 
       {/* Adults */}
@@ -414,11 +344,6 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
           HEAD OF HOUSEHOLD
         </Typography>
         {renderField("headOfHousehold", "select")}
-        {errors.headOfHousehold && (
-          <Typography color="error" variant="body2">
-            {errors.headOfHousehold}
-          </Typography>
-        )}
       </Box>
 
       {/* Referral Entity */}
