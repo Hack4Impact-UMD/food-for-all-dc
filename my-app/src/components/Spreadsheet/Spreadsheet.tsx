@@ -617,7 +617,7 @@ const StyleChip = styled(Chip)({
       if (a.lastName === b.lastName) {
         return sortOrder === "asc"
           ? a.firstName.localeCompare(b.firstName)
-          : b.firstName.localeCompare(a.lastName);
+          : b.firstName.localeCompare(a.firstName);
       }
       return sortOrder === "asc"
         ? a.lastName.localeCompare(b.lastName)
