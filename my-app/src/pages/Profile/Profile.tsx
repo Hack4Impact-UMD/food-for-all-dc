@@ -1418,18 +1418,15 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
             name="language"
             value={selectValue}
             onChange={handleLanguageSelectChange}
+            error={!!errors.language}
             sx={{
               backgroundColor: "white",
               width: "100%",
               height: "1.813rem",
               padding: "0.1rem 0.5rem",
               borderRadius: "5px",
-              border: ".1rem solid black",
+              border: errors.language ? "1px solid red" : ".1rem solid black", // ← Add this conditional border
               marginTop: "0px",
-              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                border: "2px solid #257E68",
-                boxShadow: "0 0 8px rgba(37, 126, 104, 0.4), 0 0 16px rgba(37, 126, 104, 0.2)",
-              },
             }}
           >
             {preDefinedOptions.map((option) => (
@@ -1443,6 +1440,7 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
               name="language"              placeholder="Enter language"
               value={isPredefined ? "" : clientProfile.language}
               onChange={handleCustomLanguageChange}
+              
               sx={{
                 backgroundColor: "white",
                 width: "100%",
@@ -1451,9 +1449,14 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
                 borderRadius: "5px",
                 marginTop: "0px",
                 '& .MuiOutlinedInput-root': {
+                  '& fieldset': {
+                    border: errors.language ? "1px solid #d32f2f" : "1px solid black", // Red border on error
+                  },
                   '&.Mui-focused fieldset': {
-                    border: "2px solid #257E68",
-                    boxShadow: "0 0 8px rgba(37, 126, 104, 0.4), 0 0 16px rgba(37, 126, 104, 0.2)",
+                    border: errors.language ? "2px solid #d32f2f" : "2px solid #257E68", // Red focus border on error
+                    boxShadow: errors.language 
+                      ? "0 0 8px rgba(211, 47, 47, 0.4), 0 0 16px rgba(211, 47, 47, 0.2)" 
+                      : "0 0 8px rgba(37, 126, 104, 0.4), 0 0 16px rgba(37, 126, 104, 0.2)",
                   },
                 },
               }}
@@ -1516,18 +1519,15 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
             name="ethnicity"
             value={selectValue}
             onChange={handleEthnicitySelectChange}
+            error = {!!errors.ethnicity}
             sx={{
               backgroundColor: "white",
               width: "100%",
               height: "1.813rem",
               padding: "0.1rem 0.5rem",
               borderRadius: "5px",
-              border: ".1rem solid black",
+              border: errors.ethnicity ? "1px solid red" : "1px solid black", //add conditional border
               marginTop: "0px",
-              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                border: "2px solid #257E68",
-                boxShadow: "0 0 8px rgba(37, 126, 104, 0.4), 0 0 16px rgba(37, 126, 104, 0.2)",
-              },
             }}
           >
             {preDefinedOptions.map((option) => (
@@ -1548,12 +1548,6 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
                 padding: "0.1rem 0.5rem",
                 borderRadius: "5px",
                 marginTop: "0px",
-                '& .MuiOutlinedInput-root': {
-                  '&.Mui-focused fieldset': {
-                    border: "2px solid #257E68",
-                    boxShadow: "0 0 8px rgba(37, 126, 104, 0.4), 0 0 16px rgba(37, 126, 104, 0.2)",
-                  },
-                },
               }}
             />
           )}
