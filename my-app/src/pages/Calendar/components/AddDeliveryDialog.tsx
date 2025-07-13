@@ -127,6 +127,7 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = ({
         newDelivery.deliveryDate && newDelivery.repeatsEndDate) {
       const validation = validateDeliveryDateRange(newDelivery.deliveryDate, newDelivery.repeatsEndDate);
       if (!validation.isValid) {
+        console.log(validation.endDateError)
         setStartDateError(validation.startDateError || "");
         setEndDateError(validation.endDateError || "");
         return;
@@ -353,37 +354,40 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = ({
           )}
 
           {newDelivery.recurrence !== "Custom" ? (
-            <TextField
-              label="Delivery Date"
-              type="date"
-              value={newDelivery.deliveryDate || ""}
-              onChange={(e) => setNewDelivery({ 
-                ...newDelivery, 
-                deliveryDate: e.target.value,
-                _deliveryDateError: undefined 
-              })}
-              margin="normal"
-              fullWidth
-              required
-              InputLabelProps={{ shrink: true }}
-              error={Boolean(newDelivery._deliveryDateError)}
-              helperText={newDelivery._deliveryDateError}
-              inputProps={{ 'data-testid': 'date-input' }}
-              sx={{
-                '.MuiOutlinedInput-root': {
-                  '& input[type="date"]::-webkit-calendar-picker-indicator': {
-                    position: 'absolute',
-                    right: '14px',
-                    cursor: 'pointer',
+            <>
+              <TextField
+                label="Delivery Date"
+                type="date"
+                value={newDelivery.deliveryDate || ""}
+                onChange={(e) => setNewDelivery({ 
+                  ...newDelivery, 
+                  deliveryDate: e.target.value,
+                  _deliveryDateError: undefined 
+                })}
+                margin="normal"
+                fullWidth
+                required
+                InputLabelProps={{ shrink: true }}
+                error={Boolean(newDelivery._deliveryDateError)}
+                helperText={newDelivery._deliveryDateError}
+                inputProps={{ 'data-testid': 'date-input' }}
+                sx={{
+                  '.MuiOutlinedInput-root': {
+                    '& input[type="date"]::-webkit-calendar-picker-indicator': {
+                      position: 'absolute',
+                      right: '14px',
+                      cursor: 'pointer',
+                    },
                   },
-                },
-                '.MuiOutlinedInput-input': {
-                  display: 'flex',
-                  alignItems: 'center',
-                  paddingRight: '40px',
-                },
-              }}
-            />
+                  '.MuiOutlinedInput-input': {
+                    display: 'flex',
+                    alignItems: 'center',
+                    paddingRight: '40px',
+                  },
+                }}
+              />
+              <Typography sx={{color:"red"}}>{startDateError}</Typography>
+            </>
           ) : null}
 
           <FormControl fullWidth variant="outlined" margin="normal" sx={{ width: '100%' }}>
@@ -415,24 +419,28 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = ({
           <CalendarMultiSelect selectedDates={customDates} setSelectedDates={setCustomDates} />
         ) : null}
 
-        {newDelivery.recurrence !== "None" && newDelivery.recurrence !== "Custom" ? (          <Box>
-            <Typography variant="subtitle1">End Date</Typography>
-            <DateField
-              label="End Date"
-              value={newDelivery.repeatsEndDate || ""}
-              onChange={(dateStr) => setNewDelivery({
-                ...newDelivery,
-                repeatsEndDate: dateStr,
-                _repeatsEndDateError: undefined,
-              })}
-              required={true}
-              error={newDelivery._repeatsEndDateError}
-              setError={(errorMsg) => setNewDelivery(prev => ({
-                ...prev,
-                _repeatsEndDateError: errorMsg || undefined
-              }))}
-            />
-          </Box>
+        {newDelivery.recurrence !== "None" && newDelivery.recurrence !== "Custom" ? (     
+          <>
+            <Box>
+              <Typography variant="subtitle1">End Date</Typography>
+              <DateField
+                label="End Date"
+                value={newDelivery.repeatsEndDate || ""}
+                onChange={(dateStr) => setNewDelivery({
+                  ...newDelivery,
+                  repeatsEndDate: dateStr,
+                  _repeatsEndDateError: undefined,
+                })}
+                required={true}
+                error={newDelivery._repeatsEndDateError}
+                setError={(errorMsg) => setNewDelivery(prev => ({
+                  ...prev,
+                  _repeatsEndDateError: errorMsg || undefined
+                }))}
+              />
+            </Box>
+            <Typography sx={{color:"red"}}>{endDateError}</Typography>
+          </>    
         ) : null}
       </DialogContent>
       <DialogActions>
