@@ -1,100 +1,199 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { TextField, Typography, DialogActions, Box } from "@mui/material";
-import Button from '../../../components/common/Button'; // Corrected import path
+import Button from '../../../components/common/Button';
 
 interface GenerateClustersPopupProps {
   onGenerateClusters: (clusterNum: number, minDeliveries: number, maxDeliveries: number) => Promise<void>;
   onClose: () => void;
-  // visibleRows: any[]; // Add if needed, but currently unused in this component itself
 }
 
 export default function GenerateClustersPopup({ onGenerateClusters, onClose }: GenerateClustersPopupProps) {
-  const [maxDeliveries, setMaxDeliveries] = useState(5);
-  const [minDeliveries, setMinDeliveries] = useState(1);
-  const [clusterError, setClusterError] = useState<string>(""); // Explicitly type state
-  const [clusterNum, setClusterNum] = useState(1);
-  const [isSubmitting, setIsSubmitting] = useState(false); // Add submitting state
+  const [values, setValues] = useState({
+    clusterNum: "",
+    minDeliveries: "",
+    maxDeliveries: ""
+  });
+  const [errors, setErrors] = useState({
+    clusterNum: "",
+    minDeliveries: "",
+    maxDeliveries: "",
+    form: ""
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  //validate fields using current values
+  const validateFields = (currentValues: typeof values) => {
+    const newErrors = {
+      clusterNum: "",
+      minDeliveries: "",
+      maxDeliveries: "",
+      form: ""
+    };
+
+    //validate clusterNum
+    if (currentValues.clusterNum === "") {
+      newErrors.clusterNum = "This field is required";
+    } else if (isNaN(Number(currentValues.clusterNum))) {
+      newErrors.clusterNum = "Must be a number";
+    } else if (Number(currentValues.clusterNum) <= 0) {
+      newErrors.clusterNum = "Must be positive";
+    }
+
+    //validate minDeliveries
+    if (currentValues.minDeliveries === "") {
+      newErrors.minDeliveries = "This field is required";
+    } else if (isNaN(Number(currentValues.minDeliveries))) {
+      newErrors.minDeliveries = "Must be a number";
+    } else if (Number(currentValues.minDeliveries) <= 0) {
+      newErrors.minDeliveries = "Must be positive";
+    }
+
+    //validate maxDeliveries
+    if (currentValues.maxDeliveries === "") {
+      newErrors.maxDeliveries = "This field is required";
+    } else if (isNaN(Number(currentValues.maxDeliveries))) {
+      newErrors.maxDeliveries = "Must be a number";
+    } else if (Number(currentValues.maxDeliveries) <= 0) {
+      newErrors.maxDeliveries = "Must be positive";
+    }
+
+    //cross validate min and max but only if both have values
+    if (currentValues.minDeliveries && currentValues.maxDeliveries) {
+      const minNum = Number(currentValues.minDeliveries);
+      const maxNum = Number(currentValues.maxDeliveries);
+
+      if (minNum > maxNum) {
+        newErrors.minDeliveries = "Cannot be greater than maximum";
+        newErrors.maxDeliveries = "Cannot be less than minimum";
+      }
+    }
+
+    return newErrors;
+  };
+
+  const handleInputChange = (name: keyof typeof values, value: string) => {
+    //only allow numbers or empty string
+    if(value !== "" && !/^\d*$/.test(value)) return;
+
+    //update values optimistically
+    const newValues = { ...values, [name]: value };
+    setValues(newValues);
+
+    //validate with the new values immediately
+    const newErrors = validateFields(newValues);
+    setErrors(newErrors);
+  };
 
   const handleGenerate = async () => {
+    //final validation check
+    const newErrors = validateFields(values);
+    setErrors(newErrors);
+
+    if (newErrors.clusterNum || newErrors.minDeliveries || newErrors.maxDeliveries) {
+      return;
+    }
+
     setIsSubmitting(true);
-    setClusterError(""); // Clear previous errors
     try {
-      await onGenerateClusters(clusterNum, minDeliveries, maxDeliveries);
-      resetAndClose(); // Close only on success
+      await onGenerateClusters(
+        Number(values.clusterNum),
+        Number(values.minDeliveries),
+        Number(values.maxDeliveries)
+      );
+      onClose();
     } catch (e: any) {
-      setClusterError(e.message || "An unexpected error occurred."); // Set error message
+      setErrors(prev => ({ ...prev, form: e.message || "Failed to generate clusters" }));
     } finally {
-      setIsSubmitting(false); // Re-enable button
+      setIsSubmitting(false);
     }
   };
 
   const resetAndClose = () => {
-    setMaxDeliveries(5);
-    setMinDeliveries(1);
-    setClusterError("");
-    setClusterNum(1);
-    setIsSubmitting(false);
-    if (onClose) onClose();
+    setValues({
+      clusterNum: "",
+      minDeliveries: "",
+      maxDeliveries: ""
+    });
+    setErrors({
+      clusterNum: "",
+      minDeliveries: "",
+      maxDeliveries: "",
+      form: ""
+    });
+    onClose();
+  };
+
+  const isFormValid = () => {
+    return (
+      values.clusterNum !== "" &&
+      values.minDeliveries !== "" &&
+      values.maxDeliveries !== "" &&
+      !errors.clusterNum &&
+      !errors.minDeliveries &&
+      !errors.maxDeliveries
+    );
   };
 
   return (
     <>
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, p: 1 /* Add padding inside DialogContent */ }}>
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, p: 1 }}>
         {/* Cluster Number Input */}
-        <TextField
-          label="Number of Clusters"
-          type="number"
-          value={clusterNum}
-          onChange={(e) => setClusterNum(Math.max(1, Number(e.target.value)))} // Ensure >= 1
-          inputProps={{ min: 1 }}
-          variant="outlined"
-          fullWidth // Take full width for better alignment
-          size="small"
-          error={!!clusterError} // Show error state if general error exists
-        />
+        <Box>
+          <TextField
+            label="Number of Clusters"
+            value={values.clusterNum}
+            onChange={(e) => handleInputChange("clusterNum", e.target.value)}
+            variant="outlined"
+            fullWidth
+            size="small"
+            error={!!errors.clusterNum}
+            helperText={errors.clusterNum}
+            placeholder="Enter number"
+          />
+        </Box>
 
         {/* Deliveries Range Input */}
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-           <Typography variant="body1" fontWeight="medium">
-             Deliveries Per Cluster:
-           </Typography>
-          <Box sx={{ display: 'flex', gap: 2, justifyContent: 'space-between', alignItems: 'center' }}>
+          <Typography variant="body1" fontWeight="medium">
+            Deliveries Per Cluster:
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 2 }}>
             <TextField
               label="Minimum"
-              type="number"
-              value={minDeliveries}
-              onChange={(e) => setMinDeliveries(Math.max(0, Number(e.target.value)))} // Ensure >= 0
-              inputProps={{ min: 0 }}
+              value={values.minDeliveries}
+              onChange={(e) => handleInputChange("minDeliveries", e.target.value)}
               variant="outlined"
               size="small"
-              error={!!clusterError} // Show error state
-              sx={{ flexGrow: 1 }} // Allow fields to grow
+              error={!!errors.minDeliveries}
+              helperText={errors.minDeliveries}
+              placeholder="Enter number"
+              fullWidth
             />
             <TextField
               label="Maximum"
-              type="number"
-              value={maxDeliveries}
-              onChange={(e) => setMaxDeliveries(Math.max(0, Number(e.target.value)))} // Ensure >= 0
-              inputProps={{ min: 0 }}
+              value={values.maxDeliveries}
+              onChange={(e) => handleInputChange("maxDeliveries", e.target.value)}
               variant="outlined"
               size="small"
-              error={!!clusterError} // Show error state
-              sx={{ flexGrow: 1 }} // Allow fields to grow
+              error={!!errors.maxDeliveries}
+              helperText={errors.maxDeliveries}
+              placeholder="Enter number"
+              fullWidth
             />
           </Box>
         </Box>
 
-        {/* Error Message Display */}
-        {clusterError && (
-          <Typography color="error" variant="body2" sx={{ mt: -1 /* Adjust spacing */ }}>
-            {clusterError}
+        {/* Form-level error */}
+        {errors.form && (
+          <Typography color="error" variant="body2">
+            {errors.form}
           </Typography>
         )}
       </Box>
 
       <DialogActions sx={{ pt: 2, pb: 1, pr: 1 }}>
         <Button
-          variant="secondary" // Use secondary variant for Cancel
+          variant="secondary"
           onClick={resetAndClose}
           disabled={isSubmitting}
           size="medium"
@@ -102,15 +201,14 @@ export default function GenerateClustersPopup({ onGenerateClusters, onClose }: G
           Cancel
         </Button>
         <Button
-          variant="primary" // Use primary variant for Generate
+          variant="primary"
           onClick={handleGenerate}
-          disabled={isSubmitting || clusterNum <= 0 || minDeliveries < 0 || maxDeliveries <= 0 || minDeliveries > maxDeliveries} // Basic client-side validation
+          disabled={!isFormValid() || isSubmitting}
           size="medium"
         >
-          {isSubmitting ? "Generating..." : "Generate"} {/* Show loading text */}
+          {isSubmitting ? "Generating..." : "Generate"}
         </Button>
       </DialogActions>
     </>
   );
 }
-
