@@ -1459,6 +1459,19 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
               }}
             />
           )}
+          {errors.language && (
+            <Typography 
+              variant="caption" 
+              color="error" 
+              sx={{ 
+                display: 'block',
+                marginTop: '1rem',
+                textAlign: 'left',
+              }}
+            >
+              {errors.language}
+            </Typography>
+          )}
         </Box>
       );
     }
@@ -1544,6 +1557,19 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
               }}
             />
           )}
+          {errors.ethnicity && (
+            <Typography 
+              variant="caption" 
+              color="error" 
+              sx={{ 
+                display: 'block',
+                marginTop: '1rem',
+                textAlign: 'left',
+              }}
+            >
+              {errors.ethnicity}
+            </Typography>
+          )}
         </Box>
       );
     }
@@ -1616,7 +1642,10 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
   
       };
     
-      return (        <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>          <Select            name="headOfHousehold"
+      return (
+        <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+          <Select
+            name="headOfHousehold"
             value={selectValue}
             onChange={handleHeadOfHouseholdSelectChange}
             sx={{
@@ -1639,11 +1668,24 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
               </MenuItem>
             ))}
           </Select>
+          {/* Add error display */}
+          {errors.headOfHousehold && (
+            <Typography 
+              variant="caption" 
+              color="error" 
+              sx={{ 
+                display: 'block',
+                marginTop: '2px'
+              }}
+            >
+              {errors.headOfHousehold}
+            </Typography>
+          )}
         </Box>
       );
     }
 
-        if (fieldPath === "recurrence") {
+    if (fieldPath === "recurrence") {
       if (!isEditing) {
         return <Box>{clientProfile.recurrence}</Box>;
       }
