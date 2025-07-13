@@ -399,23 +399,23 @@ const DeliverySpreadsheet: React.FC = () => {
     "#20B2AA", "#9932CC", "#FFD700", "#8B0000", "#4169E1"
   ];
   const clusterColorMap = (id: string): string => {
-
     const clusterId = id || "";
     let colorIndex = 0;
 
     if (clusterId) {
-      // Assuming cluster IDs are like "Cluster 1", "Cluster 2", etc.
+      // Ensure clusterId is a string before calling .match()
+      const clusterIdStr = String(clusterId);
+      // Assuming cluster IDs are like "1", "2", etc.
       // Extract the number part for color assignment.
-      // If format is different, adjust parsing logic.
-      const match = clusterId.match(/\d+/);
-      const clusterNumber = match ? parseInt(match[0], 10) : 0;
-      if (!isNaN(clusterNumber)) {
+      const match = clusterIdStr.match(/\d+/);
+      const clusterNumber = match ? parseInt(match[0], 10) : NaN;
+      if (!isNaN(clusterNumber) && clusterNumber > 0) {
         colorIndex = (clusterNumber - 1) % clusterColors.length; // Use number-1 for 0-based index
       } else {
-        // Fallback for non-numeric IDs or parsing failures - hash the ID?
+        // Fallback for non-numeric IDs or parsing failures - hash the ID
         let hash = 0;
-        for (let i = 0; i < clusterId.length; i++) {
-          hash = clusterId.charCodeAt(i) + ((hash << 5) - hash);
+        for (let i = 0; i < clusterIdStr.length; i++) {
+          hash = clusterIdStr.charCodeAt(i) + ((hash << 5) - hash);
         }
         colorIndex = Math.abs(hash) % clusterColors.length;
       }
@@ -1899,7 +1899,7 @@ const DeliverySpreadsheet: React.FC = () => {
       <Box
         sx={{
           width: "100%",
-          zIndex: 8,
+          zIndex:  8,
           backgroundColor: "#fff",
           padding: "16px 0",
           top: "472px",

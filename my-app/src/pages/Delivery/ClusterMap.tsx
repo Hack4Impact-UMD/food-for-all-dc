@@ -313,18 +313,21 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
         // Assuming cluster IDs are like "Cluster 1", "Cluster 2", etc.
         // Extract the number part for color assignment.
         // If format is different, adjust parsing logic.
-        const match = clusterId.match(/\d+/); 
-        const clusterNumber = match ? parseInt(match[0], 10) : 0;
-        if (!isNaN(clusterNumber)) {
-          colorIndex = (clusterNumber -1) % clusterColors.length; // Use number-1 for 0-based index
+        const clusterIdStr = String(clusterId); // Ensure clusterId is a string
+        const match = clusterIdStr.match(/\d+/); 
+        const clusterNumber = match ? parseInt(match[0], 10) : NaN;
+        if (!isNaN(clusterNumber) && clusterNumber > 0) {
+          colorIndex = (clusterNumber - 1) % clusterColors.length; // Use number-1 for 0-based index
         } else {
            // Fallback for non-numeric IDs or parsing failures - hash the ID?
            let hash = 0;
-           for (let i = 0; i < clusterId.length; i++) {
-               hash = clusterId.charCodeAt(i) + ((hash << 5) - hash);
+           for (let i = 0; i < clusterIdStr.length; i++) {
+               hash = clusterIdStr.charCodeAt(i) + ((hash << 5) - hash);
            }
            colorIndex = Math.abs(hash) % clusterColors.length;
-        }      }        const numberIcon = L.divIcon({
+        }
+      }
+      const numberIcon = L.divIcon({
       html: `<div style="
               width: 20px;
               height: 20px;
@@ -364,14 +367,15 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
         // Helper function to get cluster color
         const getClusterColor = (clusterIdToCheck: string) => {
           if (!clusterIdToCheck) return "#ffffff";
-          const match = clusterIdToCheck.match(/\d+/); 
-          const clusterNumber = match ? parseInt(match[0], 10) : 0;
-          if (!isNaN(clusterNumber)) {
+          const clusterIdStr = String(clusterIdToCheck); // Ensure it's a string
+          const match = clusterIdStr.match(/\d+/); 
+          const clusterNumber = match ? parseInt(match[0], 10) : NaN;
+          if (!isNaN(clusterNumber) && clusterNumber > 0) {
             return clusterColors[(clusterNumber - 1) % clusterColors.length];
           } else {
             let hash = 0;
-            for (let i = 0; i < clusterIdToCheck.length; i++) {
-              hash = clusterIdToCheck.charCodeAt(i) + ((hash << 5) - hash);
+            for (let i = 0; i < clusterIdStr.length; i++) {
+              hash = clusterIdStr.charCodeAt(i) + ((hash << 5) - hash);
             }
             return clusterColors[Math.abs(hash) % clusterColors.length];
           }
