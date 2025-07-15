@@ -40,8 +40,7 @@ const DeliveryCard: React.FC<DeliveryCardProps> = ({ event, client, onEventModif
       }}
       sx={{
         position: 'relative',
-        cursor: 'default',
-        width: "100%"
+        cursor: 'default'
       }}
     >
       <Box className={styles.clientSection}>

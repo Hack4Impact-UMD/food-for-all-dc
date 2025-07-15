@@ -72,7 +72,6 @@
   display: flex;
   flex-direction: column;
   margin-left: var(--spacing-md);
-  flex: 1 1 120px;
   width: 150px;
 }
 
