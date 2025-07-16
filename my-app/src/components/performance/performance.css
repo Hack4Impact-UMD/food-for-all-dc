@@ -1,0 +1,255 @@
+/* Performance-optimized animations */
+@keyframes skeleton-pulse {
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Performance-optimized loading states */
+.progressive-loader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  min-height: 200px;
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #3498db;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 1rem;
+}
+
+.progress-bar {
+  width: 200px;
+  height: 4px;
+  background-color: #f0f0f0;
+  border-radius: 2px;
+  overflow: hidden;
+  margin: 1rem 0;
+}
+
+.progress-fill {
+  height: 100%;
+  background-color: #3498db;
+  transition: width 0.3s ease;
+}
+
+.timeout-message {
+  color: #e74c3c;
+  font-size: 0.9rem;
+  margin-top: 1rem;
+  text-align: center;
+}
+
+/* Skeleton loader styles */
+.skeleton-loader {
+  padding: 1rem;
+}
+
+.skeleton-line {
+  background: linear-gradient(
+    90deg,
+    #f0f0f0 25%,
+    #e0e0e0 50%,
+    #f0f0f0 75%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
+}
+
+/* Error boundary styles */
+.error-fallback {
+  padding: 2rem;
+  text-align: center;
+  background-color: #fee;
+  border: 1px solid #fcc;
+  border-radius: 4px;
+  margin: 1rem;
+}
+
+.error-fallback h2 {
+  color: #c33;
+  margin-bottom: 1rem;
+}
+
+.error-fallback button {
+  background-color: #3498db;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.error-fallback button:hover {
+  background-color: #2980b9;
+}
+
+/* Optimized image styles */
+.optimized-image {
+  position: relative;
+  overflow: hidden;
+}
+
+.image-error {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #f8f9fa;
+  border: 1px dashed #dee2e6;
+  color: #6c757d;
+  padding: 2rem;
+  text-align: center;
+}
+
+/* Virtual scrolling optimizations */
+.virtualized-container {
+  contain: layout style paint;
+  transform: translateZ(0); /* Force GPU acceleration */
+}
+
+.virtualized-row {
+  contain: layout style paint;
+  will-change: transform;
+}
+
+/* Performance-optimized spreadsheet */
+.spreadsheet-controls {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
+.spreadsheet-controls button {
+  padding: 0.5rem 1rem;
+  border: 1px solid #ddd;
+  background: white;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.spreadsheet-controls button:hover {
+  background-color: #f8f9fa;
+}
+
+.search-input {
+  padding: 0.5rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  width: 200px;
+  transition: border-color 0.2s;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: #3498db;
+}
+
+/* Performance optimizations */
+.defer-render {
+  opacity: 0;
+  animation: fade-in 0.3s ease forwards;
+}
+
+.lazy-component {
+  contain: layout style paint;
+  transform: translateZ(0);
+}
+
+/* Responsive optimizations */
+@media (max-width: 768px) {
+  .progressive-loader {
+    min-height: 150px;
+    padding: 1rem;
+  }
+  
+  .loading-spinner {
+    width: 30px;
+    height: 30px;
+  }
+  
+  .progress-bar {
+    width: 150px;
+  }
+  
+  .spreadsheet-controls {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  
+  .search-input {
+    width: 100%;
+  }
+}
+
+/* Accessibility optimizations */
+@media (prefers-reduced-motion: reduce) {
+  .loading-spinner {
+    animation: none;
+  }
+  
+  .skeleton-line {
+    animation: none;
+  }
+  
+  .defer-render {
+    animation: none;
+    opacity: 1;
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .skeleton-line {
+    background: #000;
+  }
+  
+  .loading-spinner {
+    border-color: #000;
+    border-top-color: #fff;
+  }
+}
+
+/* Print optimizations */
+@media print {
+  .loading-spinner,
+  .skeleton-loader,
+  .progressive-loader {
+    display: none;
+  }
+}
