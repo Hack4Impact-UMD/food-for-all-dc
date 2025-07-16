@@ -322,6 +322,7 @@ const DeliverySpreadsheet: React.FC = () => {
   const [selectedClusters, setSelectedClusters] = useState<Set<any>>(new Set());
   const [exportOption, setExportOption] = useState<"Routes" | "Doordash" | null>(null);
   const [emailOrDownload, setEmailOrDownload] = useState<"Email" | "Download" | null>(null);
+  const [driversRefreshTrigger, setDriversRefreshTrigger] = useState<number>(0);
 
   const parseDateFromUrl = (dateString: string | null): Date => {
     if (!dateString) return new Date();
@@ -363,6 +364,10 @@ const DeliverySpreadsheet: React.FC = () => {
     handleCustomColumnChange,
   } = useCustomColumns({page: 'DeliverySpreadsheet'});
 
+  // Function to trigger driver refresh across components
+  const triggerDriverRefresh = () => {
+    setDriversRefreshTrigger(prev => prev + 1);
+  };
 
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
   const open = Boolean(anchorEl);
@@ -1949,7 +1954,7 @@ const DeliverySpreadsheet: React.FC = () => {
           // Revert to rendering the indicator directly
           <LoadingIndicator />
         ) : visibleRows.length > 0 ? (
-          <ClusterMap clusters={clusters} visibleRows={visibleRows as any} clientOverrides={clientOverrides} onClusterUpdate={handleIndividualClientUpdate} />
+          <ClusterMap clusters={clusters} visibleRows={visibleRows} clientOverrides={clientOverrides} onClusterUpdate={handleIndividualClientUpdate} refreshDriversTrigger={driversRefreshTrigger} />
         ) : (
           <Box
             sx={{
@@ -2411,7 +2416,11 @@ const DeliverySpreadsheet: React.FC = () => {
       <Dialog open={popupMode === "Driver"} onClose={resetSelections} maxWidth="xs" fullWidth>
         <DialogTitle>Assign Driver</DialogTitle>
         <DialogContent>
-          <AssignDriverPopup assignDriver={assignDriver} setPopupMode={setPopupMode} />
+          <AssignDriverPopup 
+            assignDriver={assignDriver} 
+            setPopupMode={setPopupMode}
+            onDriversUpdated={triggerDriverRefresh}
+          />
         </DialogContent>
       </Dialog>
 

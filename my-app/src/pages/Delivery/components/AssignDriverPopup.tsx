@@ -1,17 +1,17 @@
 import { Autocomplete, DialogActions, Paper, TextField, Box, Typography } from "@mui/material";
-import { collection, getDocs } from "firebase/firestore";
-import { useEffect, useState } from "react";
-import { db } from "../../../auth/firebaseConfig";
+import { useEffect, useState, useCallback } from "react";
 import Button from '../../../components/common/Button';
 import DriverManagementModal from "../../../components/DriverManagementModal";
 import { Driver } from "../../../types/calendar-types";
+import DriverService from "../../../services/driver-service";
 
 interface AssignDriverPopupProps {
   assignDriver: (driver: Driver | null) => void;
   setPopupMode: (mode: string) => void;
+  onDriversUpdated?: () => void; // Optional callback when drivers are updated
 }
 
-export default function AssignDriverPopup({ assignDriver, setPopupMode }: AssignDriverPopupProps) {
+export default function AssignDriverPopup({ assignDriver, setPopupMode, onDriversUpdated }: AssignDriverPopupProps) {
     const [driver, setDriver] = useState<Driver | null>(null);
     const [drivers, setDrivers] = useState<Driver[]>([]);
     const [driverSearchQuery, setDriverSearchQuery] = useState<string>("");
@@ -36,34 +36,36 @@ export default function AssignDriverPopup({ assignDriver, setPopupMode }: Assign
       resetAndClose();
     };
 
-    useEffect(() => {
-        const fetchDrivers = async () => {
-          setLoading(true);
-          setError("");
-          try {
-            const driversCollectionRef = collection(db, "Drivers");
-            const driversSnapshot = await getDocs(driversCollectionRef);
-
-            if (!driversSnapshot.empty) {
-              const driversData = driversSnapshot.docs.map((doc) => ({
-                id: doc.id,
-                name: doc.data().name || "Unknown Driver",
-                phone: doc.data().phone || "",
-                email: doc.data().email || "",
-              }));
-              setDrivers(driversData);
-            } else {
-              setDrivers([]); 
-            }
-          } catch (error) {
+    // Create a memoized fetch function that can be called from multiple places
+    const fetchDrivers = useCallback(async () => {
+        setLoading(true);
+        setError("");
+        try {
+            const driverService = DriverService.getInstance();
+            const driversData = await driverService.getAllDrivers();
+            setDrivers(driversData);
+        } catch (error) {
             console.error("Error fetching drivers:", error);
             setError("Failed to load drivers. Please try again.");
-          } finally {
+            setDrivers([]);
+        } finally {
             setLoading(false);
-          }
-        };
+        }
+    }, []);
+
+    // Initial fetch on component mount
+    useEffect(() => {
         fetchDrivers();
-      }, []);
+    }, [fetchDrivers]);
+
+    // Handle drivers change from DriverManagementModal
+    const handleDriversChange = useCallback((updatedDrivers: Driver[]) => {
+        setDrivers(updatedDrivers);
+        // Call the callback to notify parent component
+        if (onDriversUpdated) {
+            onDriversUpdated();
+        }
+    }, [onDriversUpdated]);
 
     return (
         <>
@@ -191,9 +193,7 @@ export default function AssignDriverPopup({ assignDriver, setPopupMode }: Assign
                 open={isDriverModalOpen}
                 onClose={() => setIsDriverModalOpen(false)}
                 drivers={drivers}
-                onDriversChange={(updatedDrivers) => {
-                  setDrivers(updatedDrivers);
-                }}
+                onDriversChange={handleDriversChange}
               />
             </Box>
 
