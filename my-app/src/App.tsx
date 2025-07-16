@@ -20,59 +20,68 @@ import Preloader from "./components/common/Preloader";
 import ProtectedRoute from "./auth/ProtectedRoute";
 import { UserType } from "./types";
 
+// Performance monitoring
+import { usePerformanceMonitor } from "./hooks/usePerformance";
+import { ErrorBoundary } from "./components/performance/LoadingComponents";
+
 function App() {
   const { loading } = useAuth();
+  
+  // Monitor app performance
+  usePerformanceMonitor('App');
 
   if (loading) {
     return <Preloader message="Initializing app..." showMessage={true} />;
   }
 
   return (
-    <Router>
-      <Routes>
-        {/* Public routes */}
-        <Route path="/" element={<Login />} />
-        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+    <ErrorBoundary>
+      <Router>
+        <Routes>
+          {/* Public routes */}
+          <Route path="/" element={<Login />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
 
-        {/* Main app structure wrapped by BasePage */} 
-        <Route path="/*" element={
-          <Suspense fallback={<Preloader message="Loading dashboard..." showMessage={true} />}>
-            <BasePage />
-          </Suspense>
-        }>
-          {/* Routes accessible to all authenticated users */}
-          <Route path="clients" element={
-            <Suspense fallback={<LoadingIndicator size={40} />}>
-              <Spreadsheet />
+          {/* Main app structure wrapped by BasePage */} 
+          <Route path="/*" element={
+            <Suspense fallback={<Preloader message="Loading dashboard..." showMessage={true} />}>
+              <BasePage />
             </Suspense>
-          } />
-          <Route path="calendar" element={
-            <Suspense fallback={<LoadingIndicator size={40} />}>
-              <CalendarPage />
-            </Suspense>
-          } />
-          <Route path="profile/:clientId?" element={
-            <Suspense fallback={<LoadingIndicator size={40} />}>
-              <Profile />
-            </Suspense>
-          } />
-          <Route path="delivery" element={
-            <Suspense fallback={<LoadingIndicator size={40} />}>
-              <DeliverySpreadsheet />
-            </Suspense>
-          } />
-          {/* Routes with specific role requirements */}
-          <Route element={<ProtectedRoute allowedRoles={[UserType.Admin, UserType.Manager]} />}>
-            {/* Nested route for users, accessible only via ProtectedRoute */}
-            <Route path="users" element={
+          }>
+            {/* Routes accessible to all authenticated users */}
+            <Route path="clients" element={
               <Suspense fallback={<LoadingIndicator size={40} />}>
-                <UsersSpreadsheet />
+                <Spreadsheet />
               </Suspense>
             } />
+            <Route path="calendar" element={
+              <Suspense fallback={<LoadingIndicator size={40} />}>
+                <CalendarPage />
+              </Suspense>
+            } />
+            <Route path="profile/:clientId?" element={
+              <Suspense fallback={<LoadingIndicator size={40} />}>
+                <Profile />
+              </Suspense>
+            } />
+            <Route path="delivery" element={
+              <Suspense fallback={<LoadingIndicator size={40} />}>
+                <DeliverySpreadsheet />
+              </Suspense>
+            } />
+            {/* Routes with specific role requirements */}
+            <Route element={<ProtectedRoute allowedRoles={[UserType.Admin, UserType.Manager]} />}>
+              {/* Nested route for users, accessible only via ProtectedRoute */}
+              <Route path="users" element={
+                <Suspense fallback={<LoadingIndicator size={40} />}>
+                  <UsersSpreadsheet />
+                </Suspense>
+              } />
+            </Route>
           </Route>
-        </Route>
-      </Routes>
-    </Router>
+        </Routes>
+      </Router>
+    </ErrorBoundary>
   );
 }
 
