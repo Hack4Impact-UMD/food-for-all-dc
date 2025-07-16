@@ -5,8 +5,8 @@ import {
   type User,
   type IdTokenResult,
 } from "@firebase/auth";
-import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
-import { app, db } from "./firebaseConfig";
+import React, { createContext, useContext, useEffect, useState, useCallback, useMemo } from "react";
+import { getFirebaseAuth, getFirebaseDb } from "./firebaseConfig";
 import { doc, getDoc } from "firebase/firestore";
 import { UserType } from "../types";
 
@@ -33,8 +33,14 @@ const defaultAuthContext: AuthContextType = {
 
 const AuthContext = createContext<AuthContextType>(defaultAuthContext);
 
-// Cache for user roles to avoid repeated Firestore calls
-const userRoleCache = new Map<string, UserType | null>();
+// Enhanced cache with expiration
+interface CacheEntry {
+  role: UserType | null;
+  timestamp: number;
+}
+
+const userRoleCache = new Map<string, CacheEntry>();
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
 export const AuthProvider = ({ children }: Props): React.ReactElement => {
   const [user, setUser] = useState<User | null>(null);
@@ -43,7 +49,7 @@ export const AuthProvider = ({ children }: Props): React.ReactElement => {
   const [userRole, setUserRole] = useState<UserType | null>(null);
 
   const logout = useCallback(async () => {
-    const auth = getAuth(app);
+    const auth = getFirebaseAuth();
     try {
       await signOut(auth);
       setUser(null);
@@ -57,12 +63,14 @@ export const AuthProvider = ({ children }: Props): React.ReactElement => {
   }, []);
 
   const fetchUserRole = useCallback(async (uid: string): Promise<UserType | null> => {
-    // Check cache first
-    if (userRoleCache.has(uid)) {
-      return userRoleCache.get(uid) || null;
+    // Check cache first with expiration
+    const cachedEntry = userRoleCache.get(uid);
+    if (cachedEntry && (Date.now() - cachedEntry.timestamp) < CACHE_DURATION) {
+      return cachedEntry.role;
     }
 
     try {
+      const db = getFirebaseDb();
       const userDocRef = doc(db, "users", uid);
       const userDoc = await getDoc(userDocRef);
 
@@ -88,12 +96,18 @@ export const AuthProvider = ({ children }: Props): React.ReactElement => {
           }
         }
 
-        // Cache the result
-        userRoleCache.set(uid, roleEnum);
+        // Cache the result with timestamp
+        userRoleCache.set(uid, {
+          role: roleEnum,
+          timestamp: Date.now()
+        });
         return roleEnum;
       } else {
         console.warn(`User document not found in Firestore for UID: ${uid}`);
-        userRoleCache.set(uid, null);
+        userRoleCache.set(uid, {
+          role: null,
+          timestamp: Date.now()
+        });
         return null;
       }
     } catch (error) {
@@ -103,16 +117,24 @@ export const AuthProvider = ({ children }: Props): React.ReactElement => {
   }, []);
 
   useEffect(() => {
-    const auth = getAuth(app);
+    const auth = getFirebaseAuth();
     const unsubscribe = onAuthStateChanged(auth, async (newUser) => {
       setUser(newUser);
 
       if (newUser) {
         try {
-          // Fetch token and role concurrently
-          const [tokenResult, role] = await Promise.all([
-            newUser.getIdTokenResult(),
-            fetchUserRole(newUser.uid)
+          // Fetch token and role concurrently with timeout
+          const tokenPromise = newUser.getIdTokenResult();
+          const rolePromise = fetchUserRole(newUser.uid);
+
+          // Add timeout to prevent hanging
+          const timeoutPromise = new Promise<never>((_, reject) => {
+            setTimeout(() => reject(new Error('Auth timeout')), 10000);
+          });
+
+          const [tokenResult, role] = await Promise.race([
+            Promise.all([tokenPromise, rolePromise]),
+            timeoutPromise
           ]);
 
           setToken(tokenResult);
@@ -133,8 +155,17 @@ export const AuthProvider = ({ children }: Props): React.ReactElement => {
     return unsubscribe;
   }, [fetchUserRole]);
 
+  // Memoize the context value to prevent unnecessary re-renders
+  const contextValue = useMemo(() => ({
+    user,
+    token,
+    loading,
+    userRole,
+    logout
+  }), [user, token, loading, userRole, logout]);
+
   return (
-    <AuthContext.Provider value={{ user, token, loading, userRole, logout }}>
+    <AuthContext.Provider value={contextValue}>
       {children}
     </AuthContext.Provider>
   );

@@ -1,7 +1,7 @@
 import { initializeApp, FirebaseOptions, FirebaseApp } from "firebase/app";
-import { getFirestore, Firestore } from "firebase/firestore";
+import { getFirestore, Firestore, enableNetwork, disableNetwork } from "firebase/firestore";
 import { getAuth, Auth } from "firebase/auth";
-import { getFunctions, Functions } from "firebase/functions";
+import { getFunctions, Functions, connectFunctionsEmulator } from "firebase/functions";
 
 const firebaseConfig: FirebaseOptions = {
   apiKey: "AIzaSyCasSjeF-YMoHYZFfLWz96fGgNjYKOqRak",
@@ -16,12 +16,52 @@ const firebaseConfig: FirebaseOptions = {
 // Initialize Firebase app once
 const app: FirebaseApp = initializeApp(firebaseConfig);
 
-// Initialize services with optimizations
-const db: Firestore = getFirestore(app);
-const auth: Auth = getAuth(app);
-const functions: Functions = getFunctions(app);
+// Lazy initialization of Firebase services
+let _db: Firestore | null = null;
+let _auth: Auth | null = null;
+let _functions: Functions | null = null;
 
-// Enable auth persistence by default
-auth.useDeviceLanguage();
+export const getFirebaseDb = (): Firestore => {
+  if (!_db) {
+    _db = getFirestore(app);
+    
+    // Enable offline capabilities for better performance
+    if (process.env.NODE_ENV === 'production') {
+      enableNetwork(_db).catch((err: any) => {
+        console.warn('Firestore network enable failed:', err);
+      });
+    }
+  }
+  return _db;
+};
 
-export { db, auth, functions, firebaseConfig, app };
+export const getFirebaseAuth = (): Auth => {
+  if (!_auth) {
+    _auth = getAuth(app);
+    _auth.useDeviceLanguage();
+  }
+  return _auth;
+};
+
+export const getFirebaseFunctions = (): Functions => {
+  if (!_functions) {
+    _functions = getFunctions(app);
+    
+    // Connect to emulator in development
+    if (process.env.NODE_ENV === 'development') {
+      try {
+        connectFunctionsEmulator(_functions, 'localhost', 5001);
+      } catch (err) {
+        // Emulator connection failed or already connected
+      }
+    }
+  }
+  return _functions;
+};
+
+// Backwards compatibility - these will be lazy-loaded
+export const db = getFirebaseDb();
+export const auth = getFirebaseAuth();
+export const functions = getFirebaseFunctions();
+
+export { firebaseConfig, app };

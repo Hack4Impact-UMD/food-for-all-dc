@@ -1,5 +1,6 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
+import "./critical.css"; // Critical CSS loaded first
 import "./index.css";
 import "font-awesome/css/font-awesome.min.css";
 import "./styles/form-styles.css";
@@ -23,3 +24,11 @@ if (process.env.NODE_ENV === 'production') {
     reportWebVitals();
   });
 }
+
+// Preload critical routes after initial load
+setTimeout(() => {
+  // Preload commonly used routes
+  import('./pages/Calendar/CalendarPage');
+  import('./components/Spreadsheet/Spreadsheet');
+  import('./pages/Profile/Profile');
+}, 2000);
