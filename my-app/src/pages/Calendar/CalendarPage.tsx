@@ -1,9 +1,9 @@
 import { DayPilot } from "@daypilot/daypilot-lite-react";
 import { AppBar, Box, styled } from "@mui/material";
-import { endOfWeek, startOfWeek } from "date-fns";
+import { Time, TimeUtils } from "../../utils/timeUtils";
 import { onAuthStateChanged } from "firebase/auth";
 import React, { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { auth } from "../../auth/firebaseConfig";
 import "./CalendarPage.css";
 import AddDeliveryDialog from "./components/AddDeliveryDialog";
@@ -16,6 +16,7 @@ import { CalendarConfig, CalendarEvent, DateLimit, DeliveryEvent, Driver, NewDel
 import { ClientProfile } from "../../types/client-types";
 import { useLimits } from "./components/useLimits";
 import { DeliveryService, ClientService, DriverService } from "../../services";
+import { toJSDate, toDayPilotDateString } from '../../utils/timestamp';
 
 const DAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
 
@@ -35,7 +36,34 @@ const CalendarContent = styled(Box)({
 
 const CalendarPage: React.FC = () => {
   const navigate = useNavigate();
-  const [currentDate, setCurrentDate] = useState<DayPilot.Date>(DayPilot.Date.today());
+  const [searchParams, setSearchParams] = useSearchParams();
+  
+  // Initialize currentDate from URL params or default to today
+  const getInitialDate = () => {
+    const dateParam = searchParams.get('date');
+    if (dateParam) {
+      try {
+        return new DayPilot.Date(dateParam);
+      } catch {
+        // If date param is invalid, fall back to today
+        return DayPilot.Date.today();
+      }
+    }
+    return DayPilot.Date.today();
+  };
+  
+  const [currentDate, setCurrentDate] = useState<DayPilot.Date>(getInitialDate());
+  
+  // Custom function to update both state and URL params
+  const updateCurrentDate = (newDate: DayPilot.Date) => {
+    setCurrentDate(newDate);
+    setSearchParams(prev => {
+      const newParams = new URLSearchParams(prev);
+      newParams.set('date', newDate.toString("yyyy-MM-dd"));
+      return newParams;
+    });
+  };
+  
   const [viewType, setViewType] = useState<ViewType>("Day");
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [events, setEvents] = useState<DeliveryEvent[]>([]);
@@ -114,6 +142,7 @@ const CalendarPage: React.FC = () => {
           zipCode: data.zipCode || "",
           address: data.address || "",
           address2: data.address2 || "",
+          email: data.email || "",
           city: data.city || "",
           state: data.state || "",
           quadrant: data.quadrant || "",
@@ -146,8 +175,8 @@ const CalendarPage: React.FC = () => {
           notesTimestamp: data.notesTimestamp || null,
           lifestyleGoals: data.lifestyleGoals || "",
           language: data.language || "",
-          createdAt: data.createdAt || new Date(),
-          updatedAt: data.updatedAt || new Date(),
+          createdAt: data.createdAt || TimeUtils.now().toJSDate(),
+          updatedAt: data.updatedAt || TimeUtils.now().toJSDate(),
           startDate: data.startDate || "",
           endDate: data.endDate || "",
           recurrence: data.recurrence || "None",
@@ -190,8 +219,10 @@ const CalendarPage: React.FC = () => {
           const monthEnd = currentDate.lastDayOfMonth();
 
           // Convert from DayPilot to JS date obj & calc the grid's start and end dates
-          const gridStart = startOfWeek(monthStart.toDate(), { weekStartsOn: 0 });
-          const gridEnd = endOfWeek(monthEnd.toDate(), { weekStartsOn: 0 });
+          const monthStartLuxon = TimeUtils.fromJSDate(monthStart.toDate());
+          const monthEndLuxon = TimeUtils.fromJSDate(monthEnd.toDate());
+          const gridStart = monthStartLuxon.startOf('week').toJSDate();
+          const gridEnd = monthEndLuxon.endOf('week').toJSDate();
 
           // Convert back to DayPilot date obj.
           start = new DayPilot.Date(gridStart);
@@ -217,10 +248,23 @@ const CalendarPage: React.FC = () => {
       const activeClientIds = new Set(clients.map(client => client.uid));
       const filteredEventsByClient = fetchedEvents.filter(event => activeClientIds.has(event.clientId));
 
+      // Update client names in events with current client data
+      const updatedEvents = filteredEventsByClient.map(event => {
+        const client = clients.find(client => client.uid === event.clientId);
+        if (client) {
+          const fullName = `${client.firstName} ${client.lastName}`.trim();
+          return {
+            ...event,
+            clientName: fullName
+          };
+        }
+        return event;
+      });
+
       // Deduplicate events based on clientId and deliveryDate
       const uniqueEventsMap = new Map<string, DeliveryEvent>();
-      filteredEventsByClient.forEach(event => {
-        const key = `${event.clientId}_${new DayPilot.Date(event.deliveryDate).toString("yyyy-MM-dd")}`;
+      updatedEvents.forEach(event => {
+        const key = `${event.clientId}_${toDayPilotDateString(event.deliveryDate)}`;
         if (!uniqueEventsMap.has(key)) {
           uniqueEventsMap.set(key, event);
         }
@@ -230,17 +274,17 @@ const CalendarPage: React.FC = () => {
       setEvents(uniqueFilteredEvents);
 
       // Update calendar configuration with new events
-      const calendarEvents: CalendarEvent[] = uniqueFilteredEvents.map((event) => ({
+      const formattedEvents = Array.from(uniqueEventsMap.values()).map(event => ({
         id: event.id,
         text: `Client: ${event.clientName} (Driver: ${event.assignedDriverName})`,
-        start: new DayPilot.Date(event.deliveryDate),
-        end: new DayPilot.Date(event.deliveryDate),
+        start: new DayPilot.Date(toDayPilotDateString(event.deliveryDate)),
+        end: new DayPilot.Date(toDayPilotDateString(event.deliveryDate)),
         backColor: "#257E68",
       }));
 
       setCalendarConfig((prev) => ({
         ...prev,
-        events: calendarEvents,
+        events: formattedEvents,
         startDate: currentDate,
         durationBarVisible: false,
       }));
@@ -256,19 +300,20 @@ const CalendarPage: React.FC = () => {
     try {
       let recurrenceDates: Date[] = [];
 
+      //create unique id for each recurrence group. All events for this recurrence will have the same id
+      const recurrenceId = crypto.randomUUID();
       if (newDelivery.recurrence === "Custom") {
         // Use customDates directly if recurrence is Custom
         // Ensure customDates exist and map string dates back to Date objects
         recurrenceDates = newDelivery.customDates?.map(dateStr => {
-          const date = new Date(dateStr);
-          // Adjust for timezone offset if needed, similar to how it might be handled elsewhere
-          return new Date(date.getTime() + date.getTimezoneOffset() * 60000);
+          // Use TimeUtils for proper timezone handling
+          return TimeUtils.fromISO(dateStr).toJSDate();
         }) || [];
         // Clear repeatsEndDate explicitly for custom recurrence in the submitted data
         newDelivery.repeatsEndDate = undefined;
       } else {
         // Calculate recurrence dates for standard recurrence types
-        const deliveryDate = new Date(newDelivery.deliveryDate);
+        const deliveryDate = TimeUtils.fromISO(newDelivery.deliveryDate).toJSDate();
         recurrenceDates =
           newDelivery.recurrence === "None" ? [deliveryDate] : calculateRecurrenceDates(newDelivery);
       }
@@ -277,7 +322,10 @@ const CalendarPage: React.FC = () => {
       const existingEventDates = new Set(
         events
           .filter(event => event.clientId === newDelivery.clientId)
-          .map(event => new DayPilot.Date(event.deliveryDate).toString("yyyy-MM-dd"))
+          .map(event => {
+            const jsDate = toJSDate(event.deliveryDate);
+            return new DayPilot.Date(jsDate).toString("yyyy-MM-dd");
+          })
       );
 
       const uniqueRecurrenceDates = recurrenceDates.filter(date => 
@@ -290,21 +338,24 @@ const CalendarPage: React.FC = () => {
 
       // Use DeliveryService to create events for unique dates only
       const deliveryService = DeliveryService.getInstance();
+      const seriesStartDate = newDelivery.deliveryDate; // Saves the original start date
+
       const createPromises = uniqueRecurrenceDates.map(date => {
         const eventToAdd: Partial<DeliveryEvent> = {
           clientId: newDelivery.clientId,
           clientName: newDelivery.clientName,
           deliveryDate: date, // Use the calculated/provided recurrence date
           recurrence: newDelivery.recurrence,
+          seriesStartDate: seriesStartDate, 
           time: "",
           cluster: 0,
+          recurrenceId: recurrenceId,
         };
 
         // Add customDates array if recurrence is Custom
         if (newDelivery.recurrence === "Custom") {
           eventToAdd.customDates = newDelivery.customDates;
         } else if (newDelivery.repeatsEndDate) {
-          // Only add repeatsEndDate for standard recurrence types
           eventToAdd.repeatsEndDate = newDelivery.repeatsEndDate;
         }
 
@@ -314,7 +365,10 @@ const CalendarPage: React.FC = () => {
       await Promise.all(createPromises);
 
       // Refresh events after adding
-      fetchEvents();
+      await fetchEvents();
+      
+      // Close the modal after successful addition
+      setIsModalOpen(false);
     } catch (error) {
       console.error("Error adding delivery:", error);
     }
@@ -322,17 +376,22 @@ const CalendarPage: React.FC = () => {
 
   const handleNavigatePrev = () => {
     const newDate = viewType === "Month" ? currentDate.addMonths(-1) : currentDate.addDays(-1);
-    setCurrentDate(newDate);
+    updateCurrentDate(newDate);
   };
 
   const handleNavigateNext = () => {
     const newDate = viewType === "Month" ? currentDate.addMonths(1) : currentDate.addDays(1);
-    setCurrentDate(newDate);
+    updateCurrentDate(newDate);
   };
 
   const handleNavigateToday = () => {
-    setCurrentDate(DayPilot.Date.today());
+    updateCurrentDate(DayPilot.Date.today());
   };
+
+  // Clear events immediately when view type changes to prevent flickering
+  useEffect(() => {
+    setEvents([]);
+  }, [viewType]);
 
   // Update calendar when view type, date, or clients change
   useEffect(() => {
@@ -341,6 +400,22 @@ const CalendarPage: React.FC = () => {
       fetchEvents();
     }
   }, [viewType, currentDate, clients]);
+
+  // Handle URL parameter changes (e.g., browser back/forward, direct URL access)
+  useEffect(() => {
+    const dateParam = searchParams.get('date');
+    if (dateParam) {
+      try {
+        const urlDate = new DayPilot.Date(dateParam);
+        // Only update if different from current date to avoid infinite loops
+        if (urlDate.toString("yyyy-MM-dd") !== currentDate.toString("yyyy-MM-dd")) {
+          setCurrentDate(urlDate);
+        }
+      } catch {
+        // If date param is invalid, don't update
+      }
+    }
+  }, [searchParams.get('date')]);
 
   // Initial data fetch
   useEffect(() => {
@@ -351,8 +426,17 @@ const CalendarPage: React.FC = () => {
 
   const renderCalendarView = () => {
     if (viewType === "Day") {
+      // Calculate the daily limit for the current day
+      const currentDayOfWeek = currentDate.dayOfWeek(); // 0 = Sunday, 1 = Monday, etc.
+      const dailyLimit = limits[currentDayOfWeek];
+      
       return (
-        <DayView events={events} clients={clients} onEventModified={fetchEvents} />
+        <DayView 
+          events={events} 
+          clients={clients} 
+          onEventModified={fetchEvents} 
+          dailyLimit={dailyLimit}
+        />
       );
     }
     
@@ -366,7 +450,7 @@ const CalendarPage: React.FC = () => {
             return acc;
           }, {} as Record<string, number>)}
           onTimeRangeSelected={(args: any) => {
-            setCurrentDate(args.start);
+            updateCurrentDate(args.start);
             setViewType("Day");
           }}
         />
@@ -398,7 +482,7 @@ const CalendarPage: React.FC = () => {
         <CalendarHeader 
           viewType={viewType}
           currentDate={currentDate}
-          setCurrentDate={setCurrentDate}
+          setCurrentDate={updateCurrentDate}
           onViewTypeChange={setViewType}
           onNavigatePrev={handleNavigatePrev}
           onNavigateToday={handleNavigateToday}
@@ -432,6 +516,7 @@ const CalendarPage: React.FC = () => {
           onClose={() => setIsModalOpen(false)}
           onAddDelivery={handleAddDelivery}
           clients={clients}
+          startDate={currentDate}
         />
       </Box>
     </Box>

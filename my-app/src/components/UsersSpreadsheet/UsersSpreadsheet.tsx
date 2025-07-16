@@ -1,8 +1,8 @@
-import AddIcon from "@mui/icons-material/Add";
 import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
 import ArrowDropUpIcon from "@mui/icons-material/ArrowDropUp";
 import DeleteIcon from "@mui/icons-material/Delete";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
+import UnfoldMoreIcon from "@mui/icons-material/UnfoldMore";
 import {
   Box,
   Button,
@@ -23,22 +23,20 @@ import {
   Stack,
   Chip,
   Divider,
-  Dialog,
-  DialogActions,
-  DialogTitle,
-  DialogContent,
   Alert,
   CircularProgress,
 } from "@mui/material";
 import { onAuthStateChanged } from "firebase/auth";
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { auth } from "../../auth/firebaseConfig";
 import { authUserService } from "../../services/AuthUserService";
+import { sortData, SortDirection } from "../../utils/sorting";
 import "./UsersSpreadsheet.css";
 import DeleteUserModal from "./DeleteUserModal";
 import CreateUserModal from "./CreateUserModal";
 import { AuthUserRow, UserType } from "../../types";
+import { useAuth } from "../../auth/AuthProvider";
 
 // Define a type for fields that can either be computed or direct keys of AuthUserRow
 type Field = {
@@ -65,12 +63,20 @@ const UsersSpreadsheet: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [menuAnchorEl, setMenuAnchorEl] = useState<null | HTMLElement>(null);
   const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
-  const [sortField, setSortField] = useState<keyof AuthUserRow | 'fullname'>('name');
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   const [deleteModalOpen, setDeleteModalOpen] = useState<boolean>(false);
   const [createModalOpen, setCreateModalOpen] = useState<boolean>(false);
   const [actionFeedback, setActionFeedback] = useState<{ type: 'success' | 'error', message: string } | null>(null);
-
+  
+  // Sort state for Name column - default to ascending
+  const [nameSortDirection, setNameSortDirection] = useState<SortDirection>("asc");
+  // Sort state for Role column - no default sort
+  const [roleSortDirection, setRoleSortDirection] = useState<SortDirection | null>(null);
+  // Sort state for Phone column - no default sort
+  const [phoneSortDirection, setPhoneSortDirection] = useState<SortDirection | null>(null);
+  // Sort state for Email column - no default sort
+  const [emailSortDirection, setEmailSortDirection] = useState<SortDirection | null>(null);
+  
+  const { userRole } = useAuth();
   const navigate = useNavigate();
 
   //Route Protection
@@ -117,6 +123,95 @@ const UsersSpreadsheet: React.FC = () => {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // Handle toggling sort for Name column (only asc/desc)
+  const toggleNameSort = () => {
+    setNameSortDirection(nameSortDirection === "asc" ? "desc" : "asc");
+    // Clear other sorts when name sort is activated
+    setRoleSortDirection(null);
+    setPhoneSortDirection(null);
+    setEmailSortDirection(null);
+  };
+
+  // Handle toggling sort for Role column (only asc/desc)
+  const toggleRoleSort = () => {
+    if (roleSortDirection) {
+      setRoleSortDirection(roleSortDirection === "asc" ? "desc" : "asc");
+    } else {
+      setRoleSortDirection("asc");
+    }
+    // Clear other sorts when role sort is activated
+    setNameSortDirection("asc"); // Reset to default but not active
+    setPhoneSortDirection(null);
+    setEmailSortDirection(null);
+  };
+
+  // Handle toggling sort for Phone column (only asc/desc)
+  const togglePhoneSort = () => {
+    if (phoneSortDirection) {
+      setPhoneSortDirection(phoneSortDirection === "asc" ? "desc" : "asc");
+    } else {
+      setPhoneSortDirection("asc");
+    }
+    // Clear other sorts when phone sort is activated
+    setNameSortDirection("asc"); // Reset to default but not active
+    setRoleSortDirection(null);
+    setEmailSortDirection(null);
+  };
+
+  // Handle toggling sort for Email column (only asc/desc)
+  const toggleEmailSort = () => {
+    if (emailSortDirection) {
+      setEmailSortDirection(emailSortDirection === "asc" ? "desc" : "asc");
+    } else {
+      setEmailSortDirection("asc");
+    }
+    // Clear other sorts when email sort is activated
+    setNameSortDirection("asc"); // Reset to default but not active
+    setRoleSortDirection(null);
+    setPhoneSortDirection(null);
+  };
+
+  // Apply sorting to rows when sort direction changes
+  const sortedRows = useMemo(() => {
+    // Determine which column to sort by
+    if (roleSortDirection) {
+      // Sort by role
+      return sortData(rows, {
+        key: "role",
+        direction: roleSortDirection,
+        getValue: (row: AuthUserRow) => getRoleDisplayName(row.role)
+      });
+    } else if (phoneSortDirection) {
+      // Sort by phone
+      return sortData(rows, {
+        key: "phone",
+        direction: phoneSortDirection,
+        getValue: (row: AuthUserRow) => {
+          const phone = row.phone || "";
+          // Sort empty values last in ascending order, first in descending order
+          if (!phone || phone.trim() === "") {
+            return phoneSortDirection === "asc" ? "zzz_empty" : "aaa_empty";
+          }
+          return phone;
+        }
+      });
+    } else if (emailSortDirection) {
+      // Sort by email
+      return sortData(rows, {
+        key: "email",
+        direction: emailSortDirection,
+        getValue: (row: AuthUserRow) => row.email || ""
+      });
+    } else {
+      // Sort by name (default) - simple alphabetical sorting
+      return sortData(rows, {
+        key: "name",
+        direction: nameSortDirection,
+        getValue: (row: AuthUserRow) => row.name.trim().toLowerCase()
+      });
+    }
+  }, [rows, nameSortDirection, roleSortDirection, phoneSortDirection, emailSortDirection]);
 
   // Handle search input change
   const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -165,34 +260,13 @@ const UsersSpreadsheet: React.FC = () => {
     setSelectedRowId(null);
   };
 
-  // Simplified sorting logic
-  const toggleSortOrder = (fieldKey: keyof AuthUserRow | 'fullname') => {
-    const newOrder = sortField === fieldKey && sortOrder === 'asc' ? 'desc' : 'asc';
-    setSortField(fieldKey);
-    setSortOrder(newOrder);
-
-    const sortedRows = [...rows].sort((a, b) => {
-      const valA = a[fieldKey as keyof AuthUserRow];
-      const valB = b[fieldKey as keyof AuthUserRow];
-
-      // Handle potential undefined values (e.g., optional phone)
-      const definedA = valA ?? ''; // Default undefined to empty string for comparison
-      const definedB = valB ?? ''; // Default undefined to empty string for comparison
-
-      if (definedA < definedB) return newOrder === 'asc' ? -1 : 1;
-      if (definedA > definedB) return newOrder === 'asc' ? 1 : -1;
-      return 0;
-    });
-    setRows(sortedRows);
-  };
-
   // Handle opening the create user modal
   const handleOpenCreateModal = () => {
     setCreateModalOpen(true);
   };
 
   // Simplified search logic
-  const visibleRows = rows.filter((row) => {
+  const visibleRows = sortedRows.filter((row) => {
     const query = searchQuery.toLowerCase().trim();
     if (!query) return true;
 
@@ -455,14 +529,42 @@ const UsersSpreadsheet: React.FC = () => {
                           direction="row"
                           alignItems="center"
                           spacing={0.5}
-                          sx={{ cursor: "pointer" }}
-                          onClick={() => toggleSortOrder(field.key)}
+                          sx={{
+                            cursor: "pointer",
+                          }}
+                          onClick={
+                            field.key === "name" ? toggleNameSort :
+                            field.key === "role" ? toggleRoleSort :
+                            field.key === "phone" ? togglePhoneSort :
+                            field.key === "email" ? toggleEmailSort :
+                            undefined
+                          }
                         >
                           <Typography variant="subtitle2" sx={{ fontWeight: 600, color: "#2E5B4C" }}>
                             {field.label}
                           </Typography>
-                          {sortField === field.key && (
-                            sortOrder === "asc" ? <ArrowDropUpIcon /> : <ArrowDropDownIcon />
+                          {field.key === "name" && (
+                            !roleSortDirection && !phoneSortDirection && !emailSortDirection ? (
+                              nameSortDirection === "asc" ? <ArrowDropUpIcon /> : nameSortDirection === "desc" ? <ArrowDropDownIcon /> : <UnfoldMoreIcon sx={{ color: "#9E9E9E", fontSize: "1.2rem" }} />
+                            ) : (
+                              roleSortDirection || phoneSortDirection || emailSortDirection ? 
+                              <UnfoldMoreIcon sx={{ color: "#9E9E9E", fontSize: "1.2rem" }} /> : null
+                            )
+                          )}
+                          {field.key === "role" && (
+                            roleSortDirection ? (
+                              roleSortDirection === "asc" ? <ArrowDropUpIcon /> : <ArrowDropDownIcon />
+                            ) : <UnfoldMoreIcon sx={{ color: "#9E9E9E", fontSize: "1.2rem" }} />
+                          )}
+                          {field.key === "phone" && (
+                            phoneSortDirection ? (
+                              phoneSortDirection === "asc" ? <ArrowDropUpIcon /> : <ArrowDropDownIcon />
+                            ) : <UnfoldMoreIcon sx={{ color: "#9E9E9E", fontSize: "1.2rem" }} />
+                          )}
+                          {field.key === "email" && (
+                            emailSortDirection ? (
+                              emailSortDirection === "asc" ? <ArrowDropUpIcon /> : <ArrowDropDownIcon />
+                            ) : <UnfoldMoreIcon sx={{ color: "#9E9E9E", fontSize: "1.2rem" }} />
                           )}
                         </Stack>
                       </TableCell>
@@ -528,6 +630,7 @@ const UsersSpreadsheet: React.FC = () => {
         PaperProps={{ elevation: 3, sx: { borderRadius: "8px", minWidth: "150px" } }}
       >
         <MenuItem
+          disabled = {userRole === UserType.Manager && rows.find(r => r.uid === selectedRowId)?.role === UserType.Admin} //Client Intake does not have access to this page
           onClick={() => {
             if (selectedRowId) {
               setDeleteModalOpen(true);

@@ -1,3 +1,5 @@
+import { Timestamp } from "firebase/firestore";
+
 // Type definitions for deliveries, routes, and related entities
 
 export interface Volunteer {
@@ -12,7 +14,7 @@ export interface Delivery {
   assignedDriverName: string;
   clientId: string;
   clientName: string;
-  deliveryDate: Date; // The date of the delivery
+  deliveryDate: Date | Timestamp; // Can be either Date or Firestore Timestamp
   time: string; // The time of the delivery;
   cluster: number;
   recurrence: "None" | "Weekly" | "2x-Monthly" | "Monthly" | "Custom"; // Updated recurrence options
@@ -22,4 +24,4 @@ export interface Delivery {
 export interface Route {
   volunteer: Volunteer;
   deliveries: Delivery[];
-} 
+}

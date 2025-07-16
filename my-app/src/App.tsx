@@ -56,19 +56,19 @@ function App() {
               <Profile />
             </Suspense>
           } />
+          <Route path="delivery" element={
+            <Suspense fallback={<LoadingIndicator size={40} />}>
+              <DeliverySpreadsheet />
+            </Suspense>
+          } />
           {/* Routes with specific role requirements */}
           <Route element={<ProtectedRoute allowedRoles={[UserType.Admin, UserType.Manager]} />}>
-            {/* Nested route for Delivery, accessible only via ProtectedRoute */}
-            <Route path="delivery" element={
-              <Suspense fallback={<LoadingIndicator size={40} />}>
-                <DeliverySpreadsheet />
-              </Suspense>
-            } />
+            {/* Nested route for users, accessible only via ProtectedRoute */}
             <Route path="users" element={
               <Suspense fallback={<LoadingIndicator size={40} />}>
                 <UsersSpreadsheet />
               </Suspense>
-            } /> 
+            } />
           </Route>
         </Route>
       </Routes>

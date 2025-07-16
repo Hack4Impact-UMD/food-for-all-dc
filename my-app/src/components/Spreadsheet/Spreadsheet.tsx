@@ -5,6 +5,8 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
 import SaveIcon from "@mui/icons-material/Save";
+import UnfoldMoreIcon from "@mui/icons-material/UnfoldMore";
+import { styled } from "@mui/material/styles";
 import {
   Box,
   Button,
@@ -36,7 +38,7 @@ import {
 } from "@mui/material";
 import { onAuthStateChanged } from "firebase/auth";
 import { Filter, Search } from "lucide-react";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { auth } from "../../auth/firebaseConfig";
 import { useCustomColumns } from "../../hooks/useCustomColumns";
@@ -121,10 +123,28 @@ const Spreadsheet: React.FC = () => {
   const [editingRowId, setEditingRowId] = useState<string | null>(null);
   const [menuAnchorEl, setMenuAnchorEl] = useState<null | HTMLElement>(null);
   const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const [exportOption, setExportOption] = useState<"QueryResults" | "AllClients" | null>(null);
   const [clientIdToDelete, setClientIdToDelete] = useState<string | null>(null);
+
+  // Track which column is currently being sorted
+  const [sortedColumn, setSortedColumn] = useState<string>(() => {
+    // Always default to fullname (Name) column, ignore persisted value
+    return "fullname";
+  });
+
+  //default to asc if not found in local store
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">(() => {
+    // Always default to ascending order, ignore persisted value
+    return "asc";
+  });
+
+  // Initialize default sorting on first load
+  useEffect(() => {
+    // Always set default sort to fullname ascending on first load
+    setSortedColumn("fullname");
+    setSortOrder("asc");
+  }, []);
 
   const navigate = useNavigate();
 
@@ -135,7 +155,31 @@ const Spreadsheet: React.FC = () => {
     handleCustomHeaderChange,
     handleRemoveCustomColumn,
     handleCustomColumnChange,
-  } = useCustomColumns();
+  } = useCustomColumns({ page: "Spreadsheet" });
+
+
+const StyleChip = styled(Chip)({
+  backgroundColor: 'var(--color-primary)',
+  color: '#fff',
+  ":hover" : { 
+    backgroundColor: 'var(--color-primary)',
+    cursor: 'text'
+  },
+  // Disable ripple effect and pointer events
+  '& .MuiTouchRipple-root': {
+    display: 'none'
+  },
+  '&:active': {
+    boxShadow: 'none',
+    transform: 'none'
+  },
+  '&:focus': {
+    boxShadow: 'none'
+  },
+  // Make text selectable
+  userSelect: 'text',
+  WebkitUserSelect: 'text'
+});
 
 
   // const [customColumns, setCustomColumns] = useState<CustomColumn[]>([]);
@@ -217,6 +261,113 @@ const Spreadsheet: React.FC = () => {
     return () => unsubscribe();
   }, [navigate]);
 
+  //store sort order and column locally
+  useEffect(() => {
+    localStorage.setItem("ffaSortOrderSpreadsheet", sortOrder);
+    localStorage.setItem("ffaSortedColumnSpreadsheet", sortedColumn);
+  }, [sortOrder, sortedColumn]);
+
+  // Compute sorted rows using useMemo to ensure data is always sorted
+  const sortedRows = useMemo(() => {
+    if (rows.length === 0) return rows;
+
+    return [...rows].sort((a, b) => {
+      // Special grouping logic for dietary restrictions
+      if (sortedColumn === "deliveryDetails.dietaryRestrictions") {
+        // Group all with any dietary restrictions (not empty/none) together, and all without together, preserving original order within each group
+        const hasDietA = (() => {
+          const dr = a.deliveryDetails?.dietaryRestrictions;
+          if (!dr) return false;
+          // Check for any true boolean or non-empty array
+          return (
+            dr.halal || dr.kidneyFriendly || dr.lowSodium || dr.lowSugar || dr.microwaveOnly || dr.noCookingEquipment || dr.softFood || dr.vegan || dr.vegetarian || dr.heartFriendly ||
+            (Array.isArray(dr.foodAllergens) && dr.foodAllergens.length > 0) ||
+            (Array.isArray(dr.other) && dr.other.length > 0)
+          );
+        })();
+        const hasDietB = (() => {
+          const dr = b.deliveryDetails?.dietaryRestrictions;
+          if (!dr) return false;
+          return (
+            dr.halal || dr.kidneyFriendly || dr.lowSodium || dr.lowSugar || dr.microwaveOnly || dr.noCookingEquipment || dr.softFood || dr.vegan || dr.vegetarian || dr.heartFriendly ||
+            (Array.isArray(dr.foodAllergens) && dr.foodAllergens.length > 0) ||
+            (Array.isArray(dr.other) && dr.other.length > 0)
+          );
+        })();
+        if (hasDietA && !hasDietB) return sortOrder === "asc" ? -1 : 1;
+        if (!hasDietA && hasDietB) return sortOrder === "asc" ? 1 : -1;
+        // If both are the same (both have or both don't), preserve original order
+        return 0;
+      }
+
+      // ...existing code for other columns...
+      let valueA = "";
+      let valueB = "";
+
+      const getFullName = (row: RowData) => {
+        const lastName = (row.lastName || "").trim();
+        const firstName = (row.firstName || "").trim();
+        if (!lastName && !firstName) return "";
+        if (!lastName) return firstName.toLowerCase();
+        if (!firstName) return lastName.toLowerCase();
+        return `${lastName}, ${firstName}`.toLowerCase();
+      };
+
+      // ...existing code for switch/case and default sorting...
+      switch (sortedColumn) {
+        case "fullname":
+          valueA = getFullName(a);
+          valueB = getFullName(b);
+          break;
+        case "address":
+          valueA = (a.address || "").toLowerCase();
+          valueB = (b.address || "").toLowerCase();
+          break;
+        case "phone":
+          valueA = (a.phone || "").toLowerCase();
+          valueB = (b.phone || "").toLowerCase();
+          break;
+        case "deliveryDetails.deliveryInstructions":
+          valueA = (a.deliveryDetails?.deliveryInstructions || "none").toLowerCase();
+          valueB = (b.deliveryDetails?.deliveryInstructions || "none").toLowerCase();
+          break;
+        default: {
+          const rawValueA = a[sortedColumn as keyof RowData];
+          const rawValueB = b[sortedColumn as keyof RowData];
+          const numA = Number(rawValueA);
+          const numB = Number(rawValueB);
+          const isNumericA = !isNaN(numA) && isFinite(numA) && rawValueA !== null && rawValueA !== undefined && String(rawValueA).trim() !== "";
+          const isNumericB = !isNaN(numB) && isFinite(numB) && rawValueB !== null && rawValueB !== undefined && String(rawValueB).trim() !== "";
+          if (isNumericA && isNumericB) {
+            const result = sortOrder === "asc" ? numA - numB : numB - numA;
+            return result;
+          }
+          const getSortableValue = (value: any): string => {
+            if (value === null || value === undefined) return "";
+            if (Array.isArray(value)) return value.join(", ").toLowerCase();
+            if (typeof value === 'object') {
+              if (value.name || value.organization) {
+                return `${value.name || ""} ${value.organization || ""}`.trim().toLowerCase();
+              }
+              return JSON.stringify(value).toLowerCase();
+            }
+            return String(value).toLowerCase();
+          };
+          valueA = getSortableValue(rawValueA);
+          valueB = getSortableValue(rawValueB);
+          break;
+        }
+      }
+      if (!valueA && !valueB) return 0;
+      if (!valueA) return sortOrder === "asc" ? -1 : 1;
+      if (!valueB) return sortOrder === "asc" ? 1 : -1;
+      const result = sortOrder === "asc"
+        ? valueA.localeCompare(valueB, undefined, { sensitivity: 'base' })
+        : valueB.localeCompare(valueA, undefined, { sensitivity: 'base' });
+      return result;
+    });
+  }, [rows, sortOrder, sortedColumn]);
+
   // Define fields for table columns
   const fields: Field[] = [
     {
@@ -268,6 +419,8 @@ const Spreadsheet: React.FC = () => {
         const clientService = ClientService.getInstance();
         const clients = await clientService.getAllClients();
         console.log("Fetched clients:", clients);
+        
+        // No default sorting - let our sortedRows useMemo handle all sorting
         setRows(clients as unknown as RowData[]);
       } catch (error) {
         console.error("Error fetching data: ", error);
@@ -362,24 +515,187 @@ const Spreadsheet: React.FC = () => {
     setSelectedRowId(null);
   };
 
-  // Handle exporting data
+  // ...existing code...
   const handleExportClick = () => {
     setExportDialogOpen(true);
   };
 
-  // Display only the rows that match the search query
-  const filteredRows = rows.filter((row) =>
-    `${row.firstName} ${row.lastName}`.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Display only the rows that match the search query - combining advanced search with sorted rows
+  const filteredRows = sortedRows.filter((row) => {
+    const trimmedSearchQuery = searchQuery.trim();
+    if (!trimmedSearchQuery) {
+      return true; // Show all if search is empty
+    }
+
+    // Helper function to check if a value contains the search query string
+    const checkStringContains = (value: any, query: string): boolean => {
+      if (value === undefined || value === null) {
+        return false;
+      }
+      return String(value).toLowerCase().includes(query.toLowerCase());
+    };
+
+    // Helper for numbers, dates (as strings/numbers), or items in an array
+    // Checks if the string representation of the value or any array item includes the query
+    const checkValueOrInArray = (value: any, query: string): boolean => {
+        if (value === undefined || value === null) {
+            return false;
+        }
+        const lowerQuery = query.toLowerCase();
+        if (Array.isArray(value)) {
+            return value.some(item => String(item).toLowerCase().includes(lowerQuery));
+        }
+        return String(value).toLowerCase().includes(lowerQuery);
+    };
+
+    const parts = trimmedSearchQuery.split(/:/); // Split only on the first colon
+    let isKeyValueSearch = false;
+    let keyword = "";
+    let searchValue = "";
+
+    if (parts.length > 1) {
+      keyword = parts[0].trim().toLowerCase();
+      searchValue = parts.slice(1).join(':').trim(); // Value can contain colons
+      if (searchValue) { // Ensure there's a value after the colon
+        isKeyValueSearch = true;
+      }
+    }
+
+    if (isKeyValueSearch) {
+      // Perform key-value search
+      switch (keyword) {
+        case "name":
+          return checkStringContains(`${row.firstName} ${row.lastName}`, searchValue) ||
+                 checkStringContains(row.firstName, searchValue) ||
+                 checkStringContains(row.lastName, searchValue);
+        case "address":
+          return checkStringContains(row.address, searchValue);
+        case "phone":
+          return checkStringContains(row.phone, searchValue);
+        case "dietary restrictions": {
+          const dietaryField = fields.find(f => f.key === "deliveryDetails.dietaryRestrictions");
+          return dietaryField?.compute ? checkStringContains(dietaryField.compute(row), searchValue) : false;
+        }
+        case "delivery instructions": {
+          const instructionsField = fields.find(f => f.key === "deliveryDetails.deliveryInstructions");
+          return instructionsField?.compute ? checkStringContains(instructionsField.compute(row), searchValue) : false;
+        }
+        case "ethnicity":
+          return checkStringContains(row.ethnicity, searchValue);
+        case "adults":
+          return checkValueOrInArray((row as any).adults, searchValue);
+        case "children":
+          return checkValueOrInArray((row as any).children, searchValue);
+        case "gender":
+          return checkStringContains((row as any).gender, searchValue);
+        case "notes":
+          return checkStringContains((row as any).notes, searchValue);
+        case "referral entity":
+        case "referral": {
+          const referralEntity = (row as any).referralEntity;
+          if (referralEntity && typeof referralEntity === 'object') {
+            return checkStringContains(referralEntity.name, searchValue) ||
+                   checkStringContains(referralEntity.organization, searchValue);
+          }
+          return false;
+        }
+        case "referral entity name":
+            return checkStringContains((row as any).referralEntity?.name, searchValue);
+        case "referral entity organization":
+            return checkStringContains((row as any).referralEntity?.organization, searchValue);
+        case "tags":
+        case "tag":
+          return checkValueOrInArray((row as any).tags, searchValue);
+        case "dob":
+          return checkValueOrInArray((row as any).dob, searchValue);
+        case "ward":
+          return checkValueOrInArray((row as any).ward, searchValue);
+        case "client id":
+        case "clientid":
+          return checkValueOrInArray(row.clientid, searchValue) || checkValueOrInArray(row.uid, searchValue);
+        case "delivery freq":
+        case "delivery frequency":
+          return checkStringContains((row as any).deliveryFreq, searchValue);
+        case "language":
+          return checkStringContains((row as any).language, searchValue);
+        case "tefap cert":
+        case "tefap":
+          return checkStringContains((row as any).tefapCert, searchValue);
+        case "zip":
+        case "zipcode":
+        case "zip code":
+          return checkStringContains((row as any).zipCode, searchValue);
+        case "house number":
+          return checkValueOrInArray(row.houseNumber, searchValue);
+        case "coordinates":
+          return checkStringContains((row as any).coordinates, searchValue);
+        default:
+          {
+          // Check custom columns if keyword matches
+          const matchesCustomColumn = customColumns.some((col) => {
+            if (col.propertyKey !== "none" && col.propertyKey.toLowerCase().includes(keyword)) {
+              const fieldValue = row[col.propertyKey as keyof RowData];
+              return checkStringContains(fieldValue, searchValue);
+            }
+            return false;
+          });
+          return matchesCustomColumn;
+          }
+      }
+    } else {
+      // Fallback to global search (searches the query in all relevant fields)
+      const globalSearchValue = trimmedSearchQuery.toLowerCase();
+
+      if (checkStringContains(`${row.firstName} ${row.lastName}`, globalSearchValue)) return true;
+      if (checkStringContains(row.address, globalSearchValue)) return true;
+      if (checkStringContains(row.phone, globalSearchValue)) return true;
+
+      const dietaryField = fields.find(f => f.key === "deliveryDetails.dietaryRestrictions");
+      if (dietaryField?.compute && checkStringContains(dietaryField.compute(row), globalSearchValue)) return true;
+
+      const instructionsField = fields.find(f => f.key === "deliveryDetails.deliveryInstructions");
+      if (instructionsField?.compute && checkStringContains(instructionsField.compute(row), globalSearchValue)) return true;
+      
+      if (checkStringContains(row.ethnicity, globalSearchValue)) return true;
+
+      const dynamicKeysAndValues: any[] = [
+        (row as any).adults, (row as any).children, (row as any).deliveryFreq,
+        (row as any).gender, (row as any).language, (row as any).notes,
+        (row as any).tefapCert, (row as any).dob, (row as any).ward,
+        (row as any).zipCode, row.houseNumber, (row as any).coordinates,
+        row.clientid, row.uid
+      ];
+      if (dynamicKeysAndValues.some(val => checkValueOrInArray(val, globalSearchValue))) return true;
+
+      if (checkValueOrInArray((row as any).tags, globalSearchValue)) return true;
+
+      const referralEntity = (row as any).referralEntity;
+      if (referralEntity && typeof referralEntity === 'object') {
+        if (checkStringContains(referralEntity.name, globalSearchValue)) return true;
+        if (checkStringContains(referralEntity.organization, globalSearchValue)) return true;
+      }
+
+      // Check custom columns
+      const matchesCustomColumn = customColumns.some((col) => {
+        if (col.propertyKey !== "none") {
+          const fieldValue = row[col.propertyKey as keyof RowData];
+          return checkStringContains(fieldValue, globalSearchValue);
+        }
+        return false;
+      });
+      if (matchesCustomColumn) return true;
+      
+      return false;
+    }
+  });
 
   const handleExportOptionSelect = (option: "QueryResults" | "AllClients") => {
     setExportOption(option);
     setExportDialogOpen(false);
-
     if (option === "QueryResults") {
-      exportQueryResults(filteredRows);
+      exportQueryResults(filteredRows, customColumns);
     } else if (option === "AllClients") {
-      exportAllClients(rows);
+      exportAllClients(sortedRows);
     }
   };
 
@@ -388,157 +704,22 @@ const Spreadsheet: React.FC = () => {
     setExportOption(null);
   };
 
-
-  // Handle toggling sort order for the Name column
-  const toggleSortOrder = () => {
-    const sortedRows = [...rows].sort((a, b) => {
-      if (a.firstName === b.firstName) {
-        return sortOrder === "asc"
-          ? a.lastName.localeCompare(b.lastName)
-          : b.lastName.localeCompare(a.lastName);
-      }
-      return sortOrder === "asc"
-        ? a.firstName.localeCompare(b.firstName)
-        : b.firstName.localeCompare(a.firstName);
-    });
-    setRows(sortedRows);
-    setSortOrder(sortOrder === "asc" ? "desc" : "asc");
-  };
-
-  const toggleSortOrder2 = (fieldKey: keyof RowData) => {
-    const sortedRows = [...rows].sort((a, b) => {
-      if (typeof a[fieldKey] === "string" && typeof b[fieldKey] === "string") {
-        return sortOrder === "asc"
-          ? (a[fieldKey] as string).localeCompare(b[fieldKey] as string)
-          : (b[fieldKey] as string).localeCompare(a[fieldKey] as string);
-      } else if (typeof a[fieldKey] === "number" && typeof b[fieldKey] === "number") {
-        return sortOrder === "asc"
-          ? (a[fieldKey] as number) - (b[fieldKey] as number)
-          : (b[fieldKey] as number) - (a[fieldKey] as number);
-      } else {
-        return 0; // Handle cases where types mismatch or are not sortable
-      }
-    });
-    setRows(sortedRows);
-    setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+  
+  // Handle toggling sort order for any column
+  const handleColumnSort = (columnKey: string) => {
+    if (sortedColumn === columnKey) {
+      // Same column clicked - toggle sort order
+      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+    } else {
+      // Different column clicked - switch to new column with ascending order
+      setSortedColumn(columnKey);
+      setSortOrder("asc");
+    }
   };
 
   const addClient = () => {
     navigate("/profile");
   };
-
-  const visibleRows = rows.filter((row) => {
-  const keywordRegex = /(\w+)(?:\s+\w+)*:\s*("[^"]+"|\S+)/g; // Updated regex to handle multi-word keys
-  const matches = [...searchQuery.matchAll(keywordRegex)];
-  
-  if (matches.length > 0) {
-    // For keyword queries, check each key-value pair
-    return matches.every(([_, key, value]) => {
-      const strippedValue = value.replace(/"/g, "").toLowerCase();
-      const searchKey = key.toLowerCase();
-      
-      // List of numeric fields that should be exactly matched
-      const numericFields = ['adults', 'children', 'seniors', 'total'];
-      
-      // Handle special case for dietary restrictions - check both forms of the key
-      if (searchKey === 'dietary' || searchKey === 'dietary restrictions') {
-        const dietaryField = fields.find(f => f.key === 'deliveryDetails.dietaryRestrictions');
-        if (dietaryField?.compute) {
-          const restrictions = dietaryField.compute(row).toLowerCase();
-          return restrictions.includes(strippedValue);
-        }
-        return false;
-      }
-      
-      // Check if we're searching for a numeric field
-      if (numericFields.includes(searchKey)) {
-        const numValue = parseInt(strippedValue);
-        const fieldValue = row[searchKey as keyof RowData];
-        return fieldValue === numValue;
-      }
-
-      // For non-numeric fields, check static fields with substring match
-      const matchesStaticField = fields.some((field) => {
-        if (field.key.toLowerCase() === searchKey) {
-          const fieldValue = field.compute ? field.compute(row) : row[field.key as keyof RowData];
-          return fieldValue != null && fieldValue.toString().toLowerCase().includes(strippedValue);
-        }
-        return false;
-      });
-
-      // Check custom columns that match the search key
-      const matchesCustomColumn = customColumns.some((col) => {
-        if (col.propertyKey.toLowerCase() === searchKey) {
-          const fieldValue = row[col.propertyKey as keyof RowData];
-          return fieldValue != null && fieldValue.toString().toLowerCase().includes(strippedValue);
-        }
-        return false;
-      });
-
-      return matchesStaticField || matchesCustomColumn;
-    });
-       
-    } else {
-      // Fallback to general search logic for non-keyword queries
-      const eachQuery = searchQuery.match(/"[^"]+"|\S+/g) || [];
-  
-      const quotedQueries = eachQuery.filter(s => s.startsWith('"') && s.endsWith('"') && s.length > 1) || [];
-      const nonQuotedQueries = eachQuery.filter(s => s.length === 1 || !s.endsWith('"')) || [];
-  
-      const containsQuotedQueries = quotedQueries.length === 0
-        ? true
-        : quotedQueries.every((query) => {
-            // Use substring matching instead of exact equality (convert to string)
-            const strippedQuery = query.slice(1, -1).trim().toLowerCase();
-            const matchesStaticField = fields.some((field) => {
-              const fieldValue = field.compute ? field.compute(row) : row[field.key as keyof RowData];
-              return (
-                fieldValue != null &&
-                fieldValue.toString().toLowerCase().includes(strippedQuery)
-              );
-            });
-            const matchesCustomColumn = customColumns.some((col) => {
-              if (col.propertyKey !== "none") {
-                const fieldValue = row[col.propertyKey as keyof RowData];
-                return (
-                  fieldValue != null &&
-                  fieldValue.toString().toLowerCase().includes(strippedQuery)
-                );
-              }
-              return false;
-            });
-            return matchesStaticField || matchesCustomColumn;
-          });
-  
-      if (containsQuotedQueries) {
-        const containsRegularQuery = nonQuotedQueries.length === 0
-          ? true
-          : nonQuotedQueries.some((query) => {
-              const strippedQuery = query.startsWith('"')
-                ? query.slice(1).trim().toLowerCase()
-                : query.trim().toLowerCase();
-              if (strippedQuery.length === 0) {
-                return true;
-              }
-              const matchesStaticField = fields.some((field) => {
-                const fieldValue = field.compute ? field.compute(row) : row[field.key as keyof RowData];
-                return fieldValue != null && fieldValue.toString().toLowerCase().includes(strippedQuery);
-              });
-              const matchesCustomColumn = customColumns.some((col) => {
-                if (col.propertyKey !== "none") {
-                  const fieldValue = row[col.propertyKey as keyof RowData];
-                  return fieldValue != null && fieldValue.toString().toLowerCase().includes(strippedQuery);
-                }
-                return false;
-              });
-              return matchesStaticField || matchesCustomColumn;
-            });
-        return containsRegularQuery;
-      } else {
-        return false;
-      }
-    }
-  });
 
   useEffect(() => {
     console.log("this is search query");
@@ -547,10 +728,10 @@ const Spreadsheet: React.FC = () => {
 
   // Add this debugging function
   useEffect(() => {
-    if (rows.length > 0) {
-      console.log("Sample row data:", rows[0]);
+    if (sortedRows.length > 0) {
+      console.log("Sample row data:", sortedRows[0]);
     }
-  }, [rows]);
+  }, [sortedRows]);
 
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -741,7 +922,7 @@ const Spreadsheet: React.FC = () => {
         {/* Mobile Card View for Small Screens */}
         {isMobile ? (
           <Stack spacing={2} sx={{ overflowY: "auto", width: "100%" }}>
-            {visibleRows.map((row) => (
+            {filteredRows.map((row) => (
               <Card
                 key={row.id}
                 sx={{
@@ -784,22 +965,35 @@ const Spreadsheet: React.FC = () => {
                   )}
                   <Box>
                     <Typography variant="body2" color="text.secondary">Dietary Restrictions</Typography>
-                    <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ mt: 0.5 }}>
-                      {fields.find(f => f.key === "deliveryDetails.dietaryRestrictions")?.compute?.(row)?.split(", ").map((restriction, i) => (
-                        restriction !== "None" && (
-                          <Chip
-                            key={i}
-                            label={restriction}
-                            size="small"
-                            sx={{
-                              backgroundColor: "#e8f5e9",
-                              color: "#2E5B4C",
-                              mb: 0.5
-                            }}
-                          />
-                        )
-                      )) || <Typography variant="body2">None</Typography>}
-                    </Stack>
+                    {(() => {
+                      const restrictions = fields.find(f => f.key === "deliveryDetails.dietaryRestrictions")?.compute?.(row);
+                      if (restrictions === "None") {
+                        return <Typography variant="body2" color="text.secondary">None</Typography>;
+                      }
+                      return (
+                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.5 }}>
+                          {restrictions?.split(", ").map((restriction, i) => (
+                            <Chip
+                              key={i}
+                              label={restriction}
+                              size="small"
+                              sx={{
+                                backgroundColor: "#e8f5e9",
+                                color: "#2E5B4C",
+                                fontSize: "0.75rem",
+                                height: "24px",
+                                fontWeight: 500,
+                                border: "1px solid #c8e6c9",
+                                "&:hover": {
+                                  backgroundColor: "#e8f5e9",
+                                  cursor: "default"
+                                }
+                              }}
+                            />
+                          ))}
+                        </Box>
+                      );
+                    })()}
                   </Box>
                   {/* Custom columns for mobile */}
                   {customColumns.map((col) => (
@@ -876,15 +1070,17 @@ const Spreadsheet: React.FC = () => {
                         alignItems="center"
                         spacing={0.5}
                         sx={{
-                          cursor: field.key === "fullname" ? "pointer" : "default",
+                          cursor: "pointer", // All columns are now sortable
                         }}
-                        onClick={field.key === "fullname" ? toggleSortOrder : undefined}
+                        onClick={() => handleColumnSort(field.key)}
                       >
                         <Typography variant="subtitle2" sx={{ fontWeight: 600, color: "#2E5B4C" }}>
                           {field.label}
                         </Typography>
-                        {field.key === "fullname" && (
+                        {sortedColumn === field.key ? (
                           sortOrder === "asc" ? <ArrowDropUpIcon /> : <ArrowDropDownIcon />
+                        ) : (
+                          <UnfoldMoreIcon sx={{ color: "#9E9E9E", fontSize: "1.2rem" }} />
                         )}
                       </Stack>
                     </TableCell>
@@ -900,54 +1096,77 @@ const Spreadsheet: React.FC = () => {
                         borderBottom: "2px solid #e0e0e0",
                       }}
                     >
-                      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                        <Select
-                          value={col.propertyKey}
-                          onChange={(event) => handleCustomHeaderChange(event, col.id)}
-                          variant="outlined"
-                          displayEmpty
-                          size="small"
-                          sx={{
-                            minWidth: 120,
-                            color: "#257e68",
-                            "& .MuiOutlinedInput-notchedOutline": {
-                              borderColor: "#bfdfd4",
-                            },
-                            "&:hover .MuiOutlinedInput-notchedOutline": {
-                              borderColor: "#257e68",
-                            },
-                          }}
-                        >
-                          <MenuItem value="none">None</MenuItem>
-                          <MenuItem value="adults">Adults</MenuItem>
-                          <MenuItem value="children">Children</MenuItem>
-                          <MenuItem value="deliveryFreq">Delivery Freq</MenuItem>
-                          <MenuItem value="ethnicity">Ethnicity</MenuItem>
-                          <MenuItem value="gender">Gender</MenuItem>
-                          <MenuItem value="language">Language</MenuItem>
-                          <MenuItem value="notes">Notes</MenuItem>
-                          <MenuItem value="referralEntity">Referral Entity</MenuItem>
-                          <MenuItem value="tefapCert">TEFAP Cert</MenuItem>
-                          <MenuItem value="tags">Tags</MenuItem>
-                          <MenuItem value="dob">DOB</MenuItem>
-                          <MenuItem value="ward">Ward</MenuItem>
-                        </Select>
-                        {/*Add Remove Button*/}
-                        <IconButton
-                          size="small"
-                          onClick={() => handleRemoveCustomColumn(col.id)}
-                          aria-label={`Remove ${col.label || "custom"} column`}
-                          title={`Remove ${col.label || "custom"} column`}
-                          sx={{
-                            color: "#d32f2f",
-                            "&:hover": {
-                              backgroundColor: "rgba(211, 47, 47, 0.04)",
-                            }
-                          }}
-                        >
-                          <DeleteIcon fontSize="small" />
-                        </IconButton>
-                      </Box>
+                      <Stack
+                        direction="row"
+                        alignItems="center"
+                        spacing={0.5}
+                        sx={{
+                          cursor: col.propertyKey !== "none" ? "pointer" : "default", // Only sortable if column has data
+                        }}
+                        onClick={() => col.propertyKey !== "none" && handleColumnSort(col.propertyKey)}
+                      >
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                          <Select
+                            value={col.propertyKey}
+                            onChange={(event) => handleCustomHeaderChange(event, col.id)}
+                            variant="outlined"
+                            displayEmpty
+                            size="small"
+                            sx={{
+                              minWidth: 120,
+                              color: "#257e68",
+                              "& .MuiOutlinedInput-notchedOutline": {
+                                borderColor: "#bfdfd4",
+                              },
+                              "&:hover .MuiOutlinedInput-notchedOutline": {
+                                borderColor: "#257e68",
+                              },
+                            }}
+                            onClick={(e) => e.stopPropagation()} // Prevent sort when clicking dropdown
+                          >
+                            <MenuItem value="none">None</MenuItem>
+                            <MenuItem value="adults">Adults</MenuItem>
+                            <MenuItem value="children">Children</MenuItem>
+                            <MenuItem value="deliveryFreq">Delivery Freq</MenuItem>
+                            <MenuItem value="ethnicity">Ethnicity</MenuItem>
+                            <MenuItem value="gender">Gender</MenuItem>
+                            <MenuItem value="language">Language</MenuItem>
+                            <MenuItem value="notes">Notes</MenuItem>
+                            <MenuItem value="referralEntity">Referral Entity</MenuItem>
+                            <MenuItem value="tefapCert">TEFAP Cert</MenuItem>
+                            <MenuItem value="tags">Tags</MenuItem>
+                            <MenuItem value="dob">DOB</MenuItem>
+                            <MenuItem value="ward">Ward</MenuItem>
+                            <MenuItem value="zipCode">Zip Code</MenuItem>
+                          </Select>
+                          {/*Add Remove Button*/}
+                          <IconButton
+                            size="small"
+                            onClick={(e) => {
+                              e.stopPropagation(); // Prevent sort when clicking remove
+                              handleRemoveCustomColumn(col.id);
+                            }}
+                            aria-label={`Remove ${col.label || "custom"} column`}
+                            title={`Remove ${col.label || "custom"} column`}
+                            sx={{
+                              color: "#d32f2f",
+                              "&:hover": {
+                                backgroundColor: "rgba(211, 47, 47, 0.04)",
+                              }
+                            }}
+                          >
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        </Box>
+                        {/* Show sort icon if this custom column is currently sorted */}
+                        {col.propertyKey !== "none" && (
+                          sortedColumn === col.propertyKey ? (
+                            sortOrder === "asc" ? <ArrowDropUpIcon /> : <ArrowDropDownIcon />
+                          ) : (
+                            <UnfoldMoreIcon sx={{ color: "#9E9E9E", fontSize: "1.2rem" }} />
+                          )
+                        )}
+                      </Stack>
                     </TableCell>
                   ))}
 
@@ -978,7 +1197,7 @@ const Spreadsheet: React.FC = () => {
               </TableHead>
 
               <TableBody>
-                {visibleRows.map((row) => (
+                {filteredRows.map((row) => (
                   <TableRow
                     key={row.id}
                     className={editingRowId === row.id ? "table-row editing-row" : "table-row"}
@@ -1002,7 +1221,19 @@ const Spreadsheet: React.FC = () => {
                     }}
                   >
                     {fields.map((field) => (
-                      <TableCell key={field.key} sx={{ py: 2 }}>
+                      <TableCell 
+                        key={field.key} 
+                        sx={{ 
+                          py: 2,
+                          // Add word-wrap styles for delivery instructions and dietary restrictions
+                          ...(field.key === "deliveryDetails.deliveryInstructions" && {
+                            maxWidth: '200px',
+                            wordWrap: 'break-word',
+                            overflowWrap: 'anywhere',
+                            whiteSpace: 'pre-wrap'
+                          })
+                        }}
+                      >
                         {editingRowId === row.id ? (
                           field.key === "fullname" ? (
                             <>
@@ -1072,35 +1303,80 @@ const Spreadsheet: React.FC = () => {
                               {row.firstName} {row.lastName}
                             </Typography>
                           )
-                        ) : field.compute ? (
+                        ) : (field as any).compute ? (
                           field.key === "deliveryDetails.dietaryRestrictions" ? (
-                            <Stack direction="row" spacing={0.5} flexWrap="wrap">
-                              {field.compute?.(row)?.split(", ").map((restriction, i) => (
-                                restriction !== "None" && (
-                                  <Chip
-                                    key={i}
-                                    label={restriction}
-                                    size="small"
-                                    sx={{
-                                      backgroundColor: "#e8f5e9",
-                                      color: "#2E5B4C",
-                                      mb: 0.5
-                                    }}
-                                  />
-                                )
-                              )) || null}
-                            </Stack>
+                            (() => {
+                              const restrictions = (field as any).compute(row);
+                              if (restrictions === "None") {
+                                return (
+                                  <Typography sx={{ 
+                                    fontSize: '0.875rem',
+                                    color: "#757575",
+                                    fontStyle: "italic"
+                                  }}>
+                                    None
+                                  </Typography>
+                                );
+                              }
+                              return (
+                                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, maxWidth: '250px' }}>
+                                  {restrictions.split(", ").map((restriction: string, i: number) => (
+                                    <Chip
+                                      key={i}
+                                      label={restriction}
+                                      size="small"
+                                      sx={{
+                                        backgroundColor: "#e8f5e9",
+                                        color: "#2E5B4C",
+                                        fontSize: "0.75rem",
+                                        height: "20px",
+                                        fontWeight: 500,
+                                        border: "1px solid #c8e6c9",
+                                        "& .MuiChip-label": {
+                                          px: 1
+                                        },
+                                        "&:hover": {
+                                          backgroundColor: "#e8f5e9",
+                                          cursor: "default"
+                                        }
+                                      }}
+                                    />
+                                  ))}
+                                </Box>
+                              );
+                            })()
+                          ) : field.key === "deliveryDetails.deliveryInstructions" ? (
+                            <div style={{
+                              maxWidth: '200px',
+                              wordWrap: 'break-word',
+                              overflowWrap: 'anywhere',
+                              whiteSpace: 'pre-wrap'
+                            }}>
+                              {(field as any).compute(row)}
+                            </div>
                           ) : (
-                            field.compute(row)
+                            (field as any).compute(row)
                           )
                         ) : (
-                          row[field.key]
+                          row[field.key as keyof RowData]
                         )}
                       </TableCell>
                     ))}
 
                     {customColumns.map((col) => (
-                      <TableCell key={col.id} sx={{ py: 2 }}>
+                      <TableCell 
+                        key={col.id} 
+                        sx={{ 
+                          py: 2,
+                          // Add word-wrap styles for text-heavy columns
+                          ...((col.propertyKey.includes('notes') || col.propertyKey.includes('deliveryInstructions')) && {
+                            maxWidth: '200px',
+                            wordWrap: 'break-word',
+                            overflowWrap: 'anywhere',
+                            whiteSpace: 'pre-wrap'
+                          })
+                        }}
+                      >
                         {editingRowId === row.id ? (
                           col.propertyKey !== "none" ? (
                             <TextField
@@ -1124,9 +1400,32 @@ const Spreadsheet: React.FC = () => {
                           col.propertyKey !== "none" ? (
                             // For referralEntity specifically (it's an object)
                             col.propertyKey === 'referralEntity' && row[col.propertyKey as keyof RowData] ? 
-                            // Safely access properties using any type
                             `${(row[col.propertyKey as keyof RowData] as any).name || 'N/A'}, ${(row[col.propertyKey as keyof RowData] as any).organization || 'N/A'}`
-                            : (row[col.propertyKey as keyof RowData]?.toString() ?? "N/A")
+                            : col.propertyKey === "tags" && Array.isArray(row[col.propertyKey as keyof RowData]) ?
+                              (row[col.propertyKey as keyof RowData] as unknown as string[]).map((tag, i) => (
+                                <StyleChip
+                                  key={i}
+                                  label={tag}
+                                  size="small"
+                                   onClick={(e) => {
+                                        e.preventDefault()
+                                      }}
+                                  sx={{
+                                    mb: 0.5,
+                                    mr: 0.5
+                                  }}
+                                />
+                              ))
+                            : col.propertyKey.includes('notes') || col.propertyKey.includes('deliveryInstructions') ? (
+                              <div style={{
+                                maxWidth: '200px',
+                                wordWrap: 'break-word',
+                                overflowWrap: 'anywhere',
+                                whiteSpace: 'pre-wrap'
+                              }}>
+                                {row[col.propertyKey as keyof RowData]?.toString() ?? "N/A"}
+                              </div>
+                            ) : (row[col.propertyKey as keyof RowData]?.toString() ?? "N/A")
                           ) : (
                             "N/A"
                           )}

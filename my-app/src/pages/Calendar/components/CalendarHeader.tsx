@@ -1,8 +1,10 @@
 import { DayPilot } from "@daypilot/daypilot-lite-react";
-import { Add, ChevronRight, EditCalendar } from "@mui/icons-material";
-import { Box, Button, IconButton, Menu, MenuItem, Typography } from "@mui/material";
+import { Add, EditCalendar } from "@mui/icons-material";
+import { Box, Button, IconButton, Typography } from "@mui/material";
 import React, { useCallback } from "react";
 import PageDatePicker from "../../../components/PageDatePicker/PageDatePicker";
+import { useAuth } from "../../../auth/AuthProvider";
+import { UserType } from "../../../types";
 
 interface CalendarHeaderProps {
   viewType: "Day" | "Month";
@@ -31,8 +33,7 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
   onAddDelivery,
   onEditLimits,
 }) => {
-  const [viewAnchorEl, setViewAnchorEl] = React.useState<null | HTMLElement>(null);
-
+  const { userRole } = useAuth();
   const daysOfWeek = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
   const handleDateSelect = useCallback(
@@ -49,6 +50,10 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
     },
     [setCurrentDate]
   );
+
+  const handleViewToggle = () => {
+    onViewTypeChange(viewType === "Day" ? "Month" : "Day");
+  };
 
   return (
     <Box
@@ -69,30 +74,21 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
         }}
       >
         <Button
-          sx={{ width: 100, display: "flex", alignItems: "center" }}
-          onClick={(e) => setViewAnchorEl(e.currentTarget)}
-          endIcon={<ChevronRight />}
+          onClick={handleViewToggle}
           variant="outlined"
+          sx={{
+            width: 80,
+            backgroundColor: '#257E68',
+            color: '#fff',
+            border: '1px solid #257E68',
+            '&:hover': {
+              backgroundColor: '#1e6b57',
+              border: '1px solid #1e6b57',
+            },
+          }}
         >
           {viewType}
         </Button>
-        <Menu
-          anchorEl={viewAnchorEl}
-          open={Boolean(viewAnchorEl)}
-          onClose={() => setViewAnchorEl(null)}
-        >
-          {(["Day", "Month"] as const).map((type) => (
-            <MenuItem
-              key={type}
-              onClick={() => {
-                onViewTypeChange(type);
-                setViewAnchorEl(null);
-              }}
-            >
-              {type}
-            </MenuItem>
-          ))}
-        </Menu>
         <Button sx={{ width: 50, fontSize: 12, display: "flex", alignItems: "center" }} onClick={onNavigateToday}>
           Today
         </Button>
@@ -107,29 +103,7 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
           alignItems: "center",
         }}
       >
-        <Typography variant="h4" sx={{ marginRight: 2, color: "#787777" }}>
-          {viewType === "Day" && daysOfWeek[currentDate.getDayOfWeek()]}
-          {viewType === "Month" && currentDate.toString("MMMM")}
-        </Typography>
-        {viewType === "Day" && (
-          <Box
-            sx={{
-              display: "flex",
-              justifyContent: "center",
-              alignItems: "center",
-              width: "40px",
-              height: "40px",
-              backgroundColor: "#257E68",
-              borderRadius: "90%",
-              marginRight: 2,
-            }}
-          >
-            <Typography variant="h5" sx={{ color: "#fff" }}>
-              {currentDate.toString("d")}
-            </Typography>
-          </Box>
-        )}
-        <IconButton onClick={onNavigatePrev} size="large" sx={{ color: "#257E68" }}>
+         <IconButton onClick={onNavigatePrev} size="large" sx={{ color: "#257E68" }}>
           <Box
             sx={{
               width: 12,
@@ -140,6 +114,20 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
             }}
           />
         </IconButton>
+
+        <Typography
+          variant="h4"
+          sx={{
+            marginRight: 2,
+            color: "#787777",
+            width: "425px",
+            textAlign: "center"
+          }}
+        >
+          {viewType === "Day" && currentDate.toString("dddd - MMMM, dd/yyyy")}
+          {viewType === "Month" && currentDate.toString("MMMM yyyy")}
+        </Typography>
+       
         <IconButton onClick={onNavigateNext} size="large" sx={{ color: "#257E68" }}>
           <Box
             sx={{
@@ -158,6 +146,7 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
           variant="contained"
           startIcon={<Add />}
           onClick={onAddDelivery}
+          disabled={userRole === UserType.ClientIntake}
           sx={{
             marginRight: 4,
             width: 166,

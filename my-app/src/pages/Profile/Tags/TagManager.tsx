@@ -16,9 +16,19 @@ import {
 } from '@mui/material';
 import AddCircleIcon from '@mui/icons-material/AddCircle';
 import WarningAmberRoundedIcon from '@mui/icons-material/WarningAmberRounded';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CloseIcon from '@mui/icons-material/Close';
 import { doc, setDoc, getDoc, collection, query, where, getDocs, writeBatch } from 'firebase/firestore';
 import { db } from '../../../auth/firebaseConfig';
+
+// Define interfaces for tag animations
+interface TagWithAnimation {
+  id: string;
+  text: string;
+  hidden?: boolean;
+  isDeleting?: boolean;
+  isAdding?: boolean;
+}
 
 interface TagsProps {
   allTags: string[];
@@ -98,9 +108,17 @@ const CloseBtn = styled(IconButton)(({ theme }) => ({
 
 export default function TagManager({ allTags, values, handleTag, setInnerPopup, deleteMode, setTagToDelete, clientUid }: TagsProps) {
   const [masterTags, setMasterTags] = useState<string[]>(allTags);
+  
+  // Animation states - similar to delivery animations
+  const [tagsWithAnimation, setTagsWithAnimation] = useState<TagWithAnimation[]>([]);
+  const [deletingTagId, setDeletingTagId] = useState<string | null>(null);
+  const [addingTagId, setAddingTagId] = useState<string | null>(null);
+  
   useEffect(() => {
     setMasterTags(allTags);
-  }, [allTags]);
+    // Initialize tags with animation data
+    setTagsWithAnimation(values.map(tag => ({ id: tag, text: tag, hidden: false })));
+  }, [allTags, values]);
 
   // Function to refresh tags directly from Firebase
   const refreshMasterTags = async () => {
@@ -119,15 +137,43 @@ export default function TagManager({ allTags, values, handleTag, setInnerPopup, 
       console.error("Error fetching tags from Firebase:", error);
     }
   };
-
+  
   const [openAddTagModal, setOpenAddTagModal] = useState(false);
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [modalMode, setModalMode] = useState<"add" | "remove">("add");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showDeleteSuccess, setShowDeleteSuccess] = useState(false);
   const [tagToDelete, setTagToDeleteState] = useState<string | null>(null);
 
   // Filter already applied tags (for adding)
   const availableTags = masterTags.filter((tag: string) => !values.includes(tag));
+
+  // Animation helper function - similar to delivery components
+  const getTagStyle = (tagId: string) => {
+    const animatedTag = tagsWithAnimation.find(t => t.id === tagId);
+    
+    if (animatedTag?.hidden || deletingTagId === tagId) {
+      return {
+        opacity: 0,
+        transform: "scale(0.8)",
+        transition: "opacity 0.3s ease, transform 0.3s ease",
+      };
+    }
+    
+    if (addingTagId === tagId) {
+      return {
+        opacity: 1,
+        transform: "scale(1)",
+        transition: "opacity 0.5s ease-in-out, transform 0.5s ease-in-out",
+      };
+    }
+    
+    return {
+      opacity: 1,
+      transform: "scale(1)",
+      transition: "opacity 0.3s ease, transform 0.3s ease",
+    };
+  };
 
   const handleCreateTagClick = () => {
     setModalMode("add");
@@ -135,16 +181,58 @@ export default function TagManager({ allTags, values, handleTag, setInnerPopup, 
     setOpenAddTagModal(true);
   };
 
+  // Enhanced handleTag wrapper with animations
+  const handleTagWithAnimation = (tagText: string) => {
+    const isRemoving = values.includes(tagText);
+    
+    if (isRemoving) {
+      // Set up removal animation
+      setDeletingTagId(tagText);
+      
+      // Update animation state to mark as deleting
+      setTagsWithAnimation(prev => 
+        prev.map(tag => 
+          tag.id === tagText 
+            ? { ...tag, isDeleting: true, hidden: true }
+            : tag
+        )
+      );
+      
+      // Delay the actual removal to allow animation
+      setTimeout(() => {
+        handleTag(tagText); // Call the original handleTag
+        
+        // Clean up animation state after removal
+        setTimeout(() => {
+          setDeletingTagId(null);
+          setTagsWithAnimation(prev => 
+            prev.filter(tag => tag.id !== tagText)
+          );
+        }, 300); // Match animation duration
+      }, 300);
+    } else {
+      // For adding tags, use the regular handleTag (animation handled in handleAddTag)
+      handleTag(tagText);
+    }
+  };
+
   // Adding tags: update both the client (Firebase record) and master tags if the tag is new
   const handleAddTag = async () => {
     if (selectedTag && selectedTag.trim() !== "") {
+      // Set up animation state for the new tag
+      const newTagId = selectedTag.trim();
+      setAddingTagId(newTagId);
+      
+      // Add to local animation state immediately with hidden: true
+      setTagsWithAnimation(prev => [
+        ...prev,
+        { id: newTagId, text: newTagId, hidden: true, isAdding: true }
+      ]);
+      
+      // Let handleTag function handle the client's tag update in Firebase
       handleTag(selectedTag);
-      const newClientTags = [...values, selectedTag].sort((a, b) => a.localeCompare(b));
-      try {
-        await setDoc(doc(db, "clients", clientUid), { tags: newClientTags }, { merge: true });
-      } catch (error) {
-        console.error("Error updating client tags in Firebase:", error);
-      }
+      
+      // Only update the master tags list if it's a new tag
       if (!masterTags.includes(selectedTag)) {
         const newAllTags = [...masterTags, selectedTag].sort((a, b) => a.localeCompare(b));
         try {
@@ -158,6 +246,30 @@ export default function TagManager({ allTags, values, handleTag, setInnerPopup, 
           console.error("Error updating tags in Firebase:", error);
         }
       }
+      
+      // Animate the new tag in after a brief delay
+      setTimeout(() => {
+        setTagsWithAnimation(prev => 
+          prev.map(tag => 
+            tag.id === newTagId 
+              ? { ...tag, hidden: false, isAdding: true }
+              : tag
+          )
+        );
+        
+        // Clear animation state after animation completes
+        setTimeout(() => {
+          setAddingTagId(null);
+          setTagsWithAnimation(prev => 
+            prev.map(tag => 
+              tag.id === newTagId 
+                ? { ...tag, isAdding: false }
+                : tag
+            )
+          );
+        }, 500); // Match animation duration
+      }, 100);
+      
       setSelectedTag(null);
       setOpenAddTagModal(false);
     }
@@ -168,9 +280,10 @@ export default function TagManager({ allTags, values, handleTag, setInnerPopup, 
     setTagToDeleteState(tagToRemove);
     setShowDeleteConfirm(true);
   };
-
+  
   const confirmRemoveTag = async () => {
     if (!tagToDelete) return;
+    const deletedTagName = tagToDelete; // Store the tag name for success message
     const newAllTags = masterTags.filter((tag: string) => tag !== tagToDelete);
     try {
       await setDoc(
@@ -194,13 +307,20 @@ export default function TagManager({ allTags, values, handleTag, setInnerPopup, 
       if (values.includes(tagToDelete)) {
         handleTag(tagToDelete);
       }
+      
+      // Show success dialog after successful deletion
+      setShowDeleteConfirm(false);
+      setTagToDeleteState(deletedTagName); // Keep the tag name for the success message
+      setShowDeleteSuccess(true);
+      setModalMode("add");
+      setSelectedTag(null);
     } catch (error) {
       console.error("Error removing tag from Firebase:", error);
+      setShowDeleteConfirm(false);
+      setTagToDeleteState(null);
+      setModalMode("add");
+      setSelectedTag(null);
     }
-    setShowDeleteConfirm(false);
-    setTagToDeleteState(null);
-    setModalMode("add");
-    setSelectedTag(null);
   };
 
   return (
@@ -220,16 +340,17 @@ export default function TagManager({ allTags, values, handleTag, setInnerPopup, 
         }}
       >
         {values && values.length > 0 ? values.map((v: string) => (
-          <Tag 
-            key={v}
-            text={v} 
-            handleTag={handleTag} 
-            values={values} 
-            createTag={false} 
-            setInnerPopup={setInnerPopup} 
-            deleteMode={deleteMode} 
-            setTagToDelete={setTagToDelete}
-          />
+          <Box key={v} sx={getTagStyle(v)}>
+            <Tag 
+              text={v} 
+              handleTag={handleTagWithAnimation} 
+              values={values} 
+              createTag={false} 
+              setInnerPopup={setInnerPopup} 
+              deleteMode={deleteMode} 
+              setTagToDelete={setTagToDelete}
+            />
+          </Box>
         )) : null}
         <Box
           onClick={handleCreateTagClick}
@@ -237,7 +358,7 @@ export default function TagManager({ allTags, values, handleTag, setInnerPopup, 
         >
           <Tag 
             text={""} 
-            handleTag={handleTag} 
+            handleTag={handleTagWithAnimation} 
             values={values} 
             createTag={true} 
             setInnerPopup={(isOpen: boolean) => { /* no-op: not needed here */ }}
@@ -374,7 +495,53 @@ export default function TagManager({ allTags, values, handleTag, setInnerPopup, 
             onClick={() => setShowDeleteConfirm(false)}
             sx={{ borderRadius: 20, color: 'var(--color-primary)', fontWeight: 600 }}
           >
-            Cancel
+            Cancel          </Button>
+        </DialogActions>
+      </StyledDialog>
+
+      {/* Delete Success Dialog */}
+      <StyledDialog
+        open={showDeleteSuccess}
+        onClose={() => {
+          setShowDeleteSuccess(false);
+          setTagToDeleteState(null);
+        }}
+        TransitionComponent={Fade}
+      >
+        <DialogTitle sx={{ textAlign: "center", color: '#2e7d32', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
+          <CheckCircleIcon color="success" fontSize="large" />
+          Tag Deleted Successfully!
+        </DialogTitle>
+        <DialogContent
+          sx={{
+            display: "flex",
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: 2,
+            minWidth: 320,
+            textAlign: "center",
+          }}
+        >          <Typography sx={{ color: 'var(--color-text-secondary)' }}>
+            The tag <b>&ldquo;{tagToDelete}&rdquo;</b> has been successfully deleted from all profiles.
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ justifyContent: 'center', pb: 2 }}>
+          <Button
+            onClick={() => {
+              setShowDeleteSuccess(false);
+              setTagToDeleteState(null);
+            }}
+            variant="contained"
+            sx={{ 
+              background: 'var(--color-primary)', 
+              borderRadius: 20, 
+              fontWeight: 600,
+              '&:hover': {
+                background: '#1e6656',
+              }
+            }}
+          >
+            OK
           </Button>
         </DialogActions>
       </StyledDialog>

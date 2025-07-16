@@ -22,6 +22,7 @@ import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import { UserType } from '../../types'; // Assuming UserType enum is here
 import { authUserService } from '../../services/AuthUserService';
+import { useAuth } from '../../auth/AuthProvider';
 
 // Define props for the modal
 type CreateUserModalProps = {
@@ -54,6 +55,9 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({ open, handleClose }) 
     const [showRetypePassword, setShowRetypePassword] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
+
+    //user
+    const { userRole } = useAuth();
 
     // Reset form when modal opens or closes
     useEffect(() => {
@@ -132,136 +136,277 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({ open, handleClose }) 
                   {/* Display Error Alert */}
                   {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
-                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                      <TextField
-                          label="Full Name"
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25 }}>
+                      {/* Shared input style for all fields */}
+                      {[
+                        {
+                          label: 'Full Name',
+                          type: 'text',
+                          value: name,
+                          onChange: (e: any) => setName(e.target.value),
+                          required: true,
+                          error: false,
+                          helperText: '',
+                          key: 'name',
+                        },
+                        {
+                          label: 'Email Address',
+                          type: 'email',
+                          value: email,
+                          onChange: (e: any) => setEmail(e.target.value),
+                          required: true,
+                          error: false,
+                          helperText: '',
+                          key: 'email',
+                        },
+                        {
+                          label: 'Phone Number (Optional)',
+                          type: 'text',
+                          value: phone,
+                          onChange: (e: any) => setPhone(e.target.value),
+                          required: false,
+                          error: false,
+                          helperText: '',
+                          key: 'phone',
+                        },
+                      ].map((field) => (
+                        <TextField
+                          key={field.key}
+                          label={field.label}
+                          type={field.type}
                           variant="outlined"
-                          value={name}
-                          onChange={(e) => setName(e.target.value)}
-                          required
+                          value={field.value}
+                          onChange={field.onChange}
+                          required={field.required}
                           disabled={isSubmitting}
-                          sx={{
-                            "& .MuiInputLabel-outlined:not(.MuiInputLabel-shrink)": {
-                              transform: "translate(14px, 5px) scale(1)",
+                          fullWidth
+                          error={field.error}
+                          helperText={field.helperText}
+                          InputProps={{
+                            sx: {
+                              height: '56px',
+                              boxSizing: 'border-box',
+                              paddingRight: '14px',
+                            },
+                            inputProps: {
+                              sx: {
+                                height: '56px',
+                                boxSizing: 'border-box',
+                                padding: '16.5px 14px',
+                              },
                             },
                           }}
-                      />
-                      <TextField
-                          label="Email Address"
-                          type="email"
-                          variant="outlined"
-                          value={email}
-                          onChange={(e) => setEmail(e.target.value)}
-                          required
-                          disabled={isSubmitting}
                           sx={{
-                            "& .MuiInputLabel-outlined:not(.MuiInputLabel-shrink)": {
-                              transform: "translate(14px, 5px) scale(1)",
+                            '& .MuiOutlinedInput-root': {
+                              height: '56px',
+                              boxSizing: 'border-box',
+                            },
+                            '& input': {
+                              height: '56px',
+                              boxSizing: 'border-box',
+                              padding: '16.5px 14px',
                             },
                           }}
-                      />
-                      <TextField
-                          label="Phone Number (Optional)"
-                          variant="outlined"
-                          value={phone}
-                          onChange={(e) => setPhone(e.target.value)}
-                          disabled={isSubmitting}
-                          sx={{
-                            "& .MuiInputLabel-outlined:not(.MuiInputLabel-shrink)": {
-                              transform: "translate(14px, 5px) scale(1)",
-                            },
-                          }}
-                      />
+                        />
+                      ))}
 
-                      {/* Role Selection Radio Group */}
-                      <FormControl component="fieldset" disabled={isSubmitting}>
-                        <FormLabel component="legend">User Role</FormLabel>
-                        <RadioGroup
-                            row // Display options horizontally
-                            aria-label="user-role"
-                            name="user-role-group"
-                            value={role}
-                            onChange={(e) => setRole(e.target.value as UserType)}
-                        >
-                            {/* Dynamically create radio buttons for each UserType */}
-                            {[UserType.Admin, UserType.Manager, UserType.ClientIntake].map((type) => (
-                                <FormControlLabel 
-                                    key={type}
-                                    value={type}
-                                    control={<Radio />} 
-                                    label={getRoleDisplayName(type)} 
-                                />
-                            ))}
-                        </RadioGroup>
-                      </FormControl>
+                    {/* Role Selection Radio Group */}
+                    <FormControl component="fieldset" disabled={isSubmitting}>
+                      <FormLabel component="legend">User Role</FormLabel>
+                      <RadioGroup
+                          row // Display options horizontally
+                          aria-label="user-role"
+                          name="user-role-group"
+                          value={role}
+                          onChange={(e) => setRole(e.target.value as UserType)}
+                      >
+                          {/* Dynamically create radio buttons for each UserType */}
+                          {[UserType.Admin, UserType.Manager, UserType.ClientIntake].map((type) => (
+                              <FormControlLabel 
+                                  key={type}
+                                  value={type}
+                                  disabled={userRole === UserType.Manager && type === UserType.Admin}
+                                  control={<Radio />} 
+                                  label={getRoleDisplayName(type)} 
+                              />
+                          ))}
+                      </RadioGroup>
+                    </FormControl>
 
-                      {/* Password Input */} 
-                      <TextField
-                          label="Password"
-                          type={showPassword ? "text" : "password"}
-                          variant="outlined"
-                          value={password}
-                          onChange={(e) => setPassword(e.target.value)}
-                          required
-                          disabled={isSubmitting}
-                          InputProps={{ // Add visibility toggle
-                              endAdornment: (
-                                  <InputAdornment position="end">
-                                      <IconButton
-                                          aria-label="toggle password visibility"
-                                          onClick={togglePasswordVisibility}
-                                          edge="end"
-                                          disabled={isSubmitting}
-                                      >
-                                          {showPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
-                                      </IconButton>
-                                  </InputAdornment>
-                              )
-                          }}
-                      />
-                      
-                      {/* Re-type Password Input */}
-                       <TextField
-                          label="Re-type Password"
-                          type={showRetypePassword ? "text" : "password"}
-                          variant="outlined"
-                          value={retypePassword}
-                          onChange={(e) => setRetypePassword(e.target.value)}
-                          required
-                          disabled={isSubmitting}
-                          error={password !== retypePassword && retypePassword !== ""} // Show error if passwords don't match
-                          helperText={password !== retypePassword && retypePassword !== "" ? "Passwords do not match" : ""}
-                          InputProps={{ // Add visibility toggle
-                              endAdornment: (
-                                  <InputAdornment position="end">
-                                      <IconButton
-                                          aria-label="toggle retype password visibility"
-                                          onClick={toggleRetypePasswordVisibility}
-                                          edge="end"
-                                          disabled={isSubmitting}
-                                      >
-                                          {showRetypePassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
-                                      </IconButton>
-                                  </InputAdornment>
-                              )
-                          }}
-                      />
-                  </Box>
-              </DialogContent>
-              <DialogActions>
-                  <Button onClick={() => handleClose()} disabled={isSubmitting}>Cancel</Button> {/* Disable Cancel if submitting */}
-                  <Button 
-                    type="submit" // Use type="submit" for the form
-                    variant="contained" 
-                    color="primary" 
-                    disabled={isSubmitting} // Disable Create if submitting
-                    startIcon={isSubmitting ? <CircularProgress size={20} color="inherit" /> : null} // Show spinner when submitting
-                  >
-                    Create User
-                  </Button>
-              </DialogActions>
-            </form>
-        </Dialog>
+                    {/* Password Input */} 
+                    <TextField
+                      label="Password"
+                      type={showPassword ? "text" : "password"}
+                      variant="outlined"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                      disabled={isSubmitting}
+                      fullWidth
+                      InputProps={{
+                        endAdornment: (
+                          <InputAdornment position="end" sx={{ height: '56px', display: 'flex', alignItems: 'center' }}>
+                            <IconButton
+                              aria-label="toggle password visibility"
+                              onClick={togglePasswordVisibility}
+                              edge="end"
+                              disabled={isSubmitting}
+                              sx={{ 
+                                height: '40px',
+                                width: '40px',
+                                padding: 0,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                              }}
+                              tabIndex={-1}
+                            >
+                              {showPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
+                            </IconButton>
+                          </InputAdornment>
+                        ),
+                        sx: {
+                          height: '56px',
+                          boxSizing: 'border-box',
+                          paddingRight: '14px',
+                          display: 'flex',
+                          alignItems: 'center'
+                        },
+                        inputProps: {
+                          sx: {
+                            height: '56px',
+                            boxSizing: 'border-box',
+                            padding: '16.5px 14px',
+                          },
+                        },
+                      }}
+                      sx={{
+                        '& .MuiOutlinedInput-root': {
+                          height: '56px',
+                          boxSizing: 'border-box',
+                        },
+                        '& input': {
+                          height: '56px',
+                          boxSizing: 'border-box',
+                          padding: '16.5px 14px',
+                        },
+                        '& .MuiInputAdornment-root': {
+                          height: '56px',
+                          margin: 0,
+                          display: 'flex',
+                          alignItems: 'center',
+                        },
+                        '& .MuiIconButton-root': {
+                          height: '40px',
+                          width: '40px',
+                          padding: 0,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        },
+                      }}
+                    />
+                    
+                    {/* Re-type Password Input */}
+                     <TextField
+                      label="Re-type Password"
+                      type={showRetypePassword ? "text" : "password"}
+                      variant="outlined"
+                      value={retypePassword}
+                      onChange={(e) => setRetypePassword(e.target.value)}
+                      required
+                      disabled={isSubmitting}
+                      error={password !== retypePassword && retypePassword !== ""} // Show error if passwords don't match
+                      helperText={password !== retypePassword && retypePassword !== "" ? "Passwords do not match" : ""}
+                      fullWidth
+                      InputProps={{
+                        endAdornment: (
+                          <InputAdornment position="end" sx={{ 
+                            height: '56px', 
+                            display: 'flex', 
+                            alignItems: 'center',
+                            margin: 0,
+                            marginRight: '-14px'
+                          }}>
+                            <IconButton
+                              aria-label="toggle retype password visibility"
+                              onClick={toggleRetypePasswordVisibility}
+                              edge="end"
+                              disabled={isSubmitting}
+                              sx={{ 
+                                height: '40px',
+                                width: '40px',
+                                padding: 0,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                '& svg': {
+                                  fontSize: '1.25rem'
+                                }
+                              }}
+                              tabIndex={-1}
+                            >
+                              {showRetypePassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
+                            </IconButton>
+                          </InputAdornment>
+                        ),
+                        sx: {
+                          height: '56px',
+                          boxSizing: 'border-box',
+                          paddingRight: '14px',
+                          display: 'flex',
+                          alignItems: 'center'
+                        },
+                        inputProps: {
+                          sx: {
+                            height: '56px',
+                            boxSizing: 'border-box',
+                            padding: '16.5px 14px',
+                          },
+                        },
+                      }}
+                      sx={{
+                        '& .MuiOutlinedInput-root': {
+                          height: '56px',
+                          boxSizing: 'border-box',
+                        },
+                        '& input': {
+                          height: '56px',
+                          boxSizing: 'border-box',
+                          padding: '16.5px 14px',
+                        },
+                        '& .MuiInputAdornment-root': {
+                          height: '56px',
+                          margin: 0,
+                          display: 'flex',
+                          alignItems: 'center',
+                        },
+                        '& .MuiIconButton-root': {
+                          height: '40px',
+                          width: '40px',
+                          padding: 0,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        },
+                      }}
+                    />
+                </Box>
+            </DialogContent>
+            <DialogActions>
+                <Button onClick={() => handleClose()} disabled={isSubmitting}>Cancel</Button> {/* Disable Cancel if submitting */}
+                <Button 
+                  type="submit" // Use type="submit" for the form
+                  variant="contained" 
+                  color="primary" 
+                  disabled={isSubmitting} // Disable Create if submitting
+                  startIcon={isSubmitting ? <CircularProgress size={20} color="inherit" /> : null} // Show spinner when submitting
+                >
+                  Create User
+                </Button>
+            </DialogActions>
+          </form>
+      </Dialog>
     );
 };
 
