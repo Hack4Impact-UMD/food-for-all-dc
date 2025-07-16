@@ -1,0 +1,127 @@
+// Optimized Material-UI imports
+// Common components used across the app
+export {
+  Box,
+  Button,
+  Typography,
+  TextField,
+  CircularProgress,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  IconButton,
+  Tooltip,
+  Chip,
+  Stack,
+  Paper,
+  Card,
+  CardContent,
+  Divider,
+  Alert,
+  Snackbar,
+  Grid,
+  Container,
+  AppBar,
+  Toolbar,
+  Drawer,
+  List,
+  ListItem,
+  ListItemButton,
+  ListItemText,
+  ListItemIcon,
+  useTheme,
+  useMediaQuery,
+  styled,
+  ThemeProvider,
+  createTheme,
+} from '@mui/material';
+
+// Icons commonly used
+export {
+  Edit as EditIcon,
+  Delete as DeleteIcon,
+  Save as SaveIcon,
+  Close as CloseIcon,
+  Add as AddIcon,
+  MoreVert as MoreVertIcon,
+  Check as CheckIcon,
+  Cancel as CancelIcon,
+  Person as PersonIcon,
+  Email as EmailIcon,
+  Phone as PhoneIcon,
+  LocationOn as LocationOnIcon,
+  CalendarToday as CalendarTodayIcon,
+  Storage as StorageIcon,
+  Dashboard as DashboardIcon,
+  Menu as MenuIcon,
+  Logout as LogoutIcon,
+  ArrowBack as ArrowBackIcon,
+  ArrowForward as ArrowForwardIcon,
+  Search as SearchIcon,
+  FilterList as FilterListIcon,
+  Download as DownloadIcon,
+  Upload as UploadIcon,
+  Refresh as RefreshIcon,
+  Settings as SettingsIcon,
+  Visibility as VisibilityIcon,
+  VisibilityOff as VisibilityOffIcon,
+  Warning as WarningIcon,
+  Error as ErrorIcon,
+  Info as InfoIcon,
+  CheckCircle as SuccessIcon,
+} from '@mui/icons-material';
+
+// Date picker components
+export {
+  LocalizationProvider,
+  DatePicker,
+  TimePicker,
+  DateTimePicker,
+} from '@mui/x-date-pickers';
+
+// Form components
+export {
+  FormControl,
+  FormControlLabel,
+  FormGroup,
+  FormLabel,
+  FormHelperText,
+  InputLabel,
+  Select,
+  MenuItem,
+  Checkbox,
+  Radio,
+  RadioGroup,
+  Switch,
+  Slider,
+  Autocomplete,
+} from '@mui/material';
+
+// Table components
+export {
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  TablePagination,
+  TableSortLabel,
+} from '@mui/material';
+
+// Navigation components
+export {
+  Tabs,
+  Tab,
+  Breadcrumbs,
+  Link,
+  Menu,
+  MenuList,
+  Popper,
+  Fade,
+  Grow,
+  Slide,
+  Zoom,
+  Collapse,
+} from '@mui/material';

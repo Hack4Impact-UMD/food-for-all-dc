@@ -13,15 +13,15 @@ const firebaseConfig: FirebaseOptions = {
   measurementId: "G-GE0VWH1PQX",
 };
 
+// Initialize Firebase app once
 const app: FirebaseApp = initializeApp(firebaseConfig);
 
+// Initialize services with optimizations
 const db: Firestore = getFirestore(app);
-
 const auth: Auth = getAuth(app);
+const functions: Functions = getFunctions(app);
 
-// Initialize Firebase Functions
-const functions: Functions = getFunctions(app); // Default region (us-central1)
-// If your functions are in a different region, specify it:
-// const functions: Functions = getFunctions(app, 'your-region-here');
+// Enable auth persistence by default
+auth.useDeviceLanguage();
 
 export { db, auth, functions, firebaseConfig, app };

@@ -5,7 +5,7 @@ import {
   type User,
   type IdTokenResult,
 } from "@firebase/auth";
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { app, db } from "./firebaseConfig";
 import { doc, getDoc } from "firebase/firestore";
 import { UserType } from "../types";
@@ -28,11 +28,13 @@ const defaultAuthContext: AuthContextType = {
   token: null,
   loading: true,
   userRole: null,
-  // This is a placeholder implementation that will be overridden by the actual implementation in AuthProvider
   logout: async () => { /* Default implementation, will be replaced */ },
 };
 
 const AuthContext = createContext<AuthContextType>(defaultAuthContext);
+
+// Cache for user roles to avoid repeated Firestore calls
+const userRoleCache = new Map<string, UserType | null>();
 
 export const AuthProvider = ({ children }: Props): React.ReactElement => {
   const [user, setUser] = useState<User | null>(null);
@@ -40,17 +42,65 @@ export const AuthProvider = ({ children }: Props): React.ReactElement => {
   const [loading, setLoading] = useState<boolean>(true);
   const [userRole, setUserRole] = useState<UserType | null>(null);
 
-  const logout = async () => {
+  const logout = useCallback(async () => {
     const auth = getAuth(app);
     try {
       await signOut(auth);
       setUser(null);
       setToken(null);
       setUserRole(null);
+      // Clear cache on logout
+      userRoleCache.clear();
     } catch (error) {
       console.error("Logout error:", error);
     }
-  };
+  }, []);
+
+  const fetchUserRole = useCallback(async (uid: string): Promise<UserType | null> => {
+    // Check cache first
+    if (userRoleCache.has(uid)) {
+      return userRoleCache.get(uid) || null;
+    }
+
+    try {
+      const userDocRef = doc(db, "users", uid);
+      const userDoc = await getDoc(userDocRef);
+
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        const roleString = userData.role;
+        let roleEnum: UserType | null = null;
+
+        if (roleString) {
+          switch (roleString) {
+            case "Admin":
+              roleEnum = UserType.Admin;
+              break;
+            case "Manager":
+              roleEnum = UserType.Manager;
+              break;
+            case "Client Intake":
+              roleEnum = UserType.ClientIntake;
+              break;
+            default:
+              console.warn(`Unknown role found in Firestore: ${roleString}`);
+              roleEnum = null;
+          }
+        }
+
+        // Cache the result
+        userRoleCache.set(uid, roleEnum);
+        return roleEnum;
+      } else {
+        console.warn(`User document not found in Firestore for UID: ${uid}`);
+        userRoleCache.set(uid, null);
+        return null;
+      }
+    } catch (error) {
+      console.error("Error fetching user role:", error);
+      return null;
+    }
+  }, []);
 
   useEffect(() => {
     const auth = getAuth(app);
@@ -59,38 +109,14 @@ export const AuthProvider = ({ children }: Props): React.ReactElement => {
 
       if (newUser) {
         try {
-          const tokenResult = await newUser.getIdTokenResult();
+          // Fetch token and role concurrently
+          const [tokenResult, role] = await Promise.all([
+            newUser.getIdTokenResult(),
+            fetchUserRole(newUser.uid)
+          ]);
+
           setToken(tokenResult);
-
-          const userDocRef = doc(db, "users", newUser.uid);
-          const userDoc = await getDoc(userDocRef);
-
-          if (userDoc.exists()) {
-            const userData = userDoc.data();
-            const roleString = userData.role;
-            let roleEnum: UserType | null = null;
-
-            if (roleString) {
-              switch (roleString) {
-                case "Admin":
-                  roleEnum = UserType.Admin;
-                  break;
-                case "Manager":
-                  roleEnum = UserType.Manager;
-                  break;
-                case "Client Intake":
-                  roleEnum = UserType.ClientIntake;
-                  break;
-                default:
-                  console.warn(`Unknown role found in Firestore: ${roleString}`);
-                  roleEnum = null;
-              }
-            }
-            setUserRole(roleEnum);
-          } else {
-            console.warn(`User document not found in Firestore for UID: ${newUser.uid}`);
-            setUserRole(null);
-          }
+          setUserRole(role);
         } catch (error) {
           console.error("Error fetching user token or role:", error);
           setToken(null);
@@ -105,7 +131,7 @@ export const AuthProvider = ({ children }: Props): React.ReactElement => {
     });
 
     return unsubscribe;
-  }, []);
+  }, [fetchUserRole]);
 
   return (
     <AuthContext.Provider value={{ user, token, loading, userRole, logout }}>
