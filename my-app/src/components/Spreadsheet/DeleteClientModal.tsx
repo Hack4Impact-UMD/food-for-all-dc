@@ -1,92 +1,52 @@
-import DialogContentText from '@mui/material/DialogContentText';
-import {
-  IconButton,
-  Menu,
-  MenuItem,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Button,
-  RadioGroup,
-  FormControlLabel,
-  Radio,
-  Typography,
-  TextField,
-  Box,
-  FormControl,
-  InputLabel,
-  Select,
-} from "@mui/material";
+import React from 'react';
+import ConfirmationModal from '../ConfirmationModal';
 
-import { styled } from '@mui/material/styles';
-
-type DeleteClientModalProps = {
+/**
+ * Modal for confirming client deletion
+ */
+interface DeleteClientModalProps {
+  /** Function to call when menu should close */
   handleMenuClose: () => void;
+  /** Function to call when row should be deleted */
   handleDeleteRow: (id: string) => Promise<void>;
+  /** Whether the modal is open */
   open: boolean;
+  /** Function to set modal open state */
   setOpen: (open: boolean) => void;
+  /** ID of the client to delete */
   id: string;
-};
+}
 
-const DeleteClientModal = ({ handleMenuClose, handleDeleteRow, open, setOpen ,id }: DeleteClientModalProps) => {
-
-
-  const handleCloseDeleteConfirm = () => {
-    setOpen(false);    // Close the dialog
+const DeleteClientModal: React.FC<DeleteClientModalProps> = ({ 
+  handleMenuClose, 
+  handleDeleteRow, 
+  open, 
+  setOpen, 
+  id 
+}) => {
+  const handleClose = () => {
+    setOpen(false);
     handleMenuClose();
   };
 
-  const handleConfirmDelete = () => {
+  const handleConfirm = async () => {
     if (id) {
-      console.log("DELETED")
-      handleDeleteRow(id); 
+      console.log("DELETED");
+      await handleDeleteRow(id);
     }
-    handleCloseDeleteConfirm();    
   };
 
-
   return (
-    <> 
-      <Dialog
-        open={open}
-        onClose={handleCloseDeleteConfirm} // Close if clicking outside
-        
-        // slotProps={{
-        //   backdrop: {
-        //     style: { backgroundColor: "rgba(0, 0, 0, 0.02)" }
-        //   }
-        // }}
-        sx={{
-          '& .MuiDialog-paper': {
-            boxShadow: 'none !important',
-            overflow: 'visible',
-            background: 'white',
-            borderTop: '1px solid rgba(0, 0, 0, 0.12)',
-            borderRadius: '8px'
-          }
-        }}
-      
-      >
-        <DialogTitle id="delete-confirm-dialog-title">
-          Confirm Deletion
-        </DialogTitle>
-        <DialogContent>
-          <DialogContentText id="delete-confirm-dialog-description">
-            Are you sure you want to delete this client? This action cannot be undone.
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseDeleteConfirm} color="primary">
-            Cancel
-          </Button>
-          <Button onClick={handleConfirmDelete} color="error" autoFocus>
-            Delete
-          </Button>
-        </DialogActions>
-      </Dialog>
-    </>
+    <ConfirmationModal
+      open={open}
+      onClose={handleClose}
+      onConfirm={handleConfirm}
+      title="Confirm Deletion"
+      message="Are you sure you want to delete this client? This action cannot be undone."
+      confirmText="Delete"
+      confirmColor="error"
+    />
   );
-}
+};
 
 export default DeleteClientModal;

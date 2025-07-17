@@ -1,0 +1,57 @@
+.modal {
+  z-index: 1300;
+}
+
+.modalTitle {
+  padding: var(--spacing-lg) var(--spacing-lg) var(--spacing-md);
+  border-bottom: 1px solid var(--color-border-light);
+  background-color: var(--color-background-main);
+}
+
+.titleText {
+  font-weight: 600;
+  font-size: 1.25rem;
+  color: var(--color-text-primary);
+}
+
+.closeButton {
+  color: var(--color-text-secondary);
+  transition: color 0.2s ease;
+}
+
+.closeButton:hover {
+  color: var(--color-text-primary);
+  background-color: var(--color-background-hover);
+}
+
+.modalContent {
+  padding: var(--spacing-lg);
+  min-height: 60px;
+}
+
+.modalActions {
+  padding: var(--spacing-md) var(--spacing-lg) var(--spacing-lg);
+  border-top: 1px solid var(--color-border-light);
+  background-color: var(--color-background-main);
+  gap: var(--spacing-sm);
+}
+
+.modalActions button {
+  min-width: 80px;
+}
+
+/* Animation enhancements */
+.modal .MuiDialog-paper {
+  animation: modalSlideIn 0.3s ease-out;
+}
+
+@keyframes modalSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-50px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}

@@ -221,10 +221,11 @@ const UsersSpreadsheet: React.FC = () => {
   // Handle deleting a user (only Firestore deletion for now)
   const handleDeleteUser = async (uid: string) => {
     const originalRows = [...rows]; // Store original rows for potential rollback
-    const userToDelete = rows.find(r => r.uid === uid); // Find user for feedback messages
+    const safeRows = Array.isArray(rows) ? rows : [];
+    const userToDelete = safeRows.find(r => r.uid === uid); // Find user for feedback messages
 
     // --- Optimistic UI Update ---
-    setRows(rows.filter((row) => row.uid !== uid)); // Remove user from UI immediately
+    setRows(safeRows.filter((row) => row.uid !== uid)); // Remove user from UI immediately
     setDeleteModalOpen(false); // Close modal immediately
     setSelectedRowId(null);
     setActionFeedback(null); // Clear previous feedback
@@ -266,7 +267,8 @@ const UsersSpreadsheet: React.FC = () => {
   };
 
   // Simplified search logic
-  const visibleRows = sortedRows.filter((row) => {
+  const safeSortedRows = Array.isArray(sortedRows) ? sortedRows : [];
+  const visibleRows = safeSortedRows.filter((row) => {
     const query = searchQuery.toLowerCase().trim();
     if (!query) return true;
 
@@ -630,7 +632,7 @@ const UsersSpreadsheet: React.FC = () => {
         PaperProps={{ elevation: 3, sx: { borderRadius: "8px", minWidth: "150px" } }}
       >
         <MenuItem
-          disabled = {userRole === UserType.Manager && rows.find(r => r.uid === selectedRowId)?.role === UserType.Admin} //Client Intake does not have access to this page
+          disabled = {userRole === UserType.Manager && (Array.isArray(rows) ? rows : []).find(r => r.uid === selectedRowId)?.role === UserType.Admin} //Client Intake does not have access to this page
           onClick={() => {
             if (selectedRowId) {
               setDeleteModalOpen(true);
@@ -656,7 +658,7 @@ const UsersSpreadsheet: React.FC = () => {
               handleCloseDeleteModal();
             }
         }}
-        userName={rows.find(r => r.uid === selectedRowId)?.name || 'this user'}
+        userName={(Array.isArray(rows) ? rows : []).find(r => r.uid === selectedRowId)?.name || 'this user'}
       />
       <CreateUserModal
         open={createModalOpen}

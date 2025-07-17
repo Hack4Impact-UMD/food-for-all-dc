@@ -8,6 +8,7 @@ import {
   UserCredential,
   IdTokenResult,
 } from "firebase/auth";
+import { AuthError } from "../types/user-types";
 import FirebaseService from "./firebase-service";
 
 /**
@@ -36,9 +37,16 @@ class AuthService {
   public async signIn(email: string, password: string): Promise<UserCredential> {
     try {
       return await signInWithEmailAndPassword(this.auth, email, password);
-    } catch (error) {
-      console.error("Error signing in:", error);
-      throw error;
+    } catch (error: any) {
+      const authError: AuthError = {
+        code: error.code || "auth/signin-error",
+        message:
+          error.code === "auth/user-not-found" || error.code === "auth/wrong-password"
+            ? "Invalid email or password."
+            : error.message || "Error signing in."
+      };
+      console.error("Error signing in:", authError);
+      throw authError;
     }
   }
 
@@ -48,9 +56,13 @@ class AuthService {
   public async createUser(email: string, password: string): Promise<UserCredential> {
     try {
       return await createUserWithEmailAndPassword(this.auth, email, password);
-    } catch (error) {
-      console.error("Error creating user:", error);
-      throw error;
+    } catch (error: any) {
+      const authError: AuthError = {
+        code: error.code || "auth/createuser-error",
+        message: error.message || "Error creating user."
+      };
+      console.error("Error creating user:", authError);
+      throw authError;
     }
   }
 
@@ -60,9 +72,13 @@ class AuthService {
   public async signOut(): Promise<void> {
     try {
       await signOut(this.auth);
-    } catch (error) {
-      console.error("Error signing out:", error);
-      throw error;
+    } catch (error: any) {
+      const authError: AuthError = {
+        code: error.code || "auth/signout-error",
+        message: error.message || "Error signing out."
+      };
+      console.error("Error signing out:", authError);
+      throw authError;
     }
   }
 
@@ -72,9 +88,16 @@ class AuthService {
   public async sendPasswordResetEmail(email: string): Promise<void> {
     try {
       await sendPasswordResetEmail(this.auth, email);
-    } catch (error) {
-      console.error("Error sending password reset email:", error);
-      throw error;
+    } catch (error: any) {
+      const authError: AuthError = {
+        code: error.code || "auth/reset-error",
+        message:
+          error.code === "auth/user-not-found"
+            ? "No account found with that email address."
+            : error.message || "Error sending password reset email."
+      };
+      console.error("Error sending password reset email:", authError);
+      throw authError;
     }
   }
 
@@ -98,9 +121,13 @@ class AuthService {
   public async getUserClaims(user: User): Promise<IdTokenResult> {
     try {
       return await user.getIdTokenResult();
-    } catch (error) {
-      console.error("Error getting user claims:", error);
-      throw error;
+    } catch (error: any) {
+      const authError: AuthError = {
+        code: error.code || "auth/claims-error",
+        message: error.message || "Error getting user claims."
+      };
+      console.error("Error getting user claims:", authError);
+      throw authError;
     }
   }
 }

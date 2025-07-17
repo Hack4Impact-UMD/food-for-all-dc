@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { signInWithEmailAndPassword, sendPasswordResetEmail, onAuthStateChanged } from "firebase/auth";
+import { AuthError } from "../../types/user-types";
 import { useNavigate } from "react-router-dom";
 import Button from "@mui/material/Button";
 import { InputAdornment, TextField, CircularProgress } from "@mui/material";
@@ -21,7 +22,7 @@ import foodForAllDCLogo from "../../assets/food-for-all-dc-logo.jpg";
 function Login() {
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
-  const [loginError, setLoginError] = useState("");
+  const [loginError, setLoginError] = useState<AuthError | null>(null);
   const [resetPasswordMessage, setResetPasswordMessage] = useState("");
   const [forgotPasswordEmail, setForgotPasswordEmail] = useState("");
   const [openDialog, setOpenDialog] = useState(false);
@@ -56,51 +57,71 @@ function Login() {
     return () => unsubscribe();
   }, [navigate]);
   
+  // Helper to map Firebase login errors to AuthError
+  const mapLoginError = (error: any): AuthError => {
+    if (!error || !error.code) {
+      return { code: "auth/unknown", message: "An error occurred during login. Please try again." };
+    }
+    switch (error.code) {
+      case "auth/user-not-found":
+      case "auth/wrong-password":
+      case "auth/invalid-credential":
+        return { code: error.code, message: "Invalid email or password." };
+      case "auth/missing-fields":
+        return { code: error.code, message: "Please enter both email and password." };
+      default:
+        return { code: error.code, message: "An error occurred during login. Please try again." };
+    }
+  };
+
   const handleLogin = async () => {
     if (!loginEmail || !loginPassword) {
-      setLoginError("Please enter both email and password");
+      setLoginError(mapLoginError({ code: "auth/missing-fields" }));
       return;
     }
-    
     setIsLoading(true);
-    setLoginError("");
+    setLoginError(null);
     setResetPasswordMessage("");
     try {
       await signInWithEmailAndPassword(auth, loginEmail, loginPassword);
       navigate("/clients");
     } catch (error: any) {
       console.error("Login Error:", error);
-      if (
-        error.code === "auth/user-not-found" ||
-        error.code === "auth/wrong-password" ||
-        error.code === "auth/invalid-credential"
-      ) {
-        setLoginError("Invalid email or password.");
-      } else {
-        setLoginError("An error occurred during login. Please try again.");
-      }
+      setLoginError(mapLoginError(error));
     } finally {
       setIsLoading(false);
     }
   };
 
+  // Helper to map Firebase password reset errors to message
+  const mapPasswordResetError = (error: any): string => {
+    if (!error || !error.code) {
+      return "An error occurred while sending the password reset email. Please try again.";
+    }
+    switch (error.code) {
+      case "auth/user-not-found":
+        return "No account found with that email address.";
+      default:
+        return "An error occurred while sending the password reset email. Please try again.";
+    }
+  };
+
   const handleForgotPassword = async () => {
     if (!forgotPasswordEmail) {
-      setResetPasswordMessage("Please enter your email address");
+      setResetPasswordMessage("Please enter your email address.");
       return;
     }
-    
     try {
       setIsLoading(true);
       await sendPasswordResetEmail(auth, forgotPasswordEmail);
       setResetPasswordMessage(
-        "If you have an email account with us, you should get an email soon!"
+        "If you have an account with us, you should get an email soon!"
       );
-      setForgotPasswordEmail(""); // Clear the forgot password input field
-      setOpenDialog(false); // Close the dialog after sending the email
+      setForgotPasswordEmail("");
+      setOpenDialog(false);
     } catch (error: any) {
-      console.error("Error sending password reset email:", error.message);
-      setResetPasswordMessage("Error: " + error.message);
+      console.error("Error sending password reset email:", error);
+      setResetPasswordMessage(mapPasswordResetError(error));
     } finally {
       setIsLoading(false);
     }
@@ -174,7 +195,7 @@ function Login() {
               </p>
             </div>
             
-            {loginError && <p className={styles.error} role="alert">{loginError}</p>}
+            {loginError && <p className={styles.error} role="alert">{loginError.message}</p>}
             {resetPasswordMessage && <p className={styles.resetMessage}>{resetPasswordMessage}</p>}
             
             <Button 

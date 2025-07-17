@@ -1,36 +1,70 @@
 import { useEffect, useState } from "react";
 import styles from "./PopUp.module.css";
 
-// Example usage:
-// After importing to another component, have some state that controls whether
-// the pop up is shown - i.e: const [showPopUp, setShowPopUp] = useState(false);
-// Then upon a successful save, set the variable to true and have a timeout
-// to reset it - i.e:
-// Show the notification
-// setShowNotification(true);
-// Reset the state after a delay (matching the PopUp's duration)
-// setTimeout(() => setShowNotification(false), 2500);
-
+/**
+ * PopUp notification component with auto-dismiss functionality
+ * 
+ * @example
+ * // Basic success notification
+ * <PopUp message="Data saved successfully!" type="success" />
+ * 
+ * // Error notification with custom duration
+ * <PopUp 
+ *   message="Failed to save data" 
+ *   type="error" 
+ *   duration={5000} 
+ * />
+ * 
+ * // Usage with state management:
+ * const [showPopUp, setShowPopUp] = useState(false);
+ * 
+ * const handleSave = () => {
+ *   // ... save logic
+ *   setShowPopUp(true);
+ *   setTimeout(() => setShowPopUp(false), 3000);
+ * };
+ */
 interface PopUpProps {
+  /** Message to display in the popup */
   message: string;
-  duration: number;
+  /** Duration in milliseconds before auto-dismiss */
+  duration?: number;
+  /** Type of notification (affects styling) */
+  type?: 'success' | 'error' | 'warning' | 'info';
+  /** Callback when popup is dismissed */
+  onDismiss?: () => void;
 }
 
-const PopUp: React.FC<PopUpProps> = ({ message, duration }) => {
+const PopUp: React.FC<PopUpProps> = ({ 
+  message, 
+  duration = 3000, 
+  type = 'success',
+  onDismiss 
+}) => {
   const [visible, setVisible] = useState(true);
 
   useEffect(() => {
     const timer = setTimeout(() => {
       setVisible(false);
+      onDismiss?.();
     }, duration);
 
-    // Clean up the timer.
+    // Clean up the timer
     return () => clearTimeout(timer);
-  }, [duration]);
+  }, [duration, onDismiss]);
 
   if (!visible) return null;
 
-  return <div className={styles.popupContainer}>{message}</div>;
+  const popupClasses = [
+    styles.popupContainer,
+    styles[type] || styles.success
+  ].join(' ');
+
+  return (
+    <div className={popupClasses}>
+      {message}
+    </div>
+  );
 };
 
 export default PopUp;

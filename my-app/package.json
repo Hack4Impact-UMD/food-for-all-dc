@@ -6,6 +6,7 @@
     "@daypilot/daypilot-lite-react": "^3.28.0",
     "@emotion/react": "^11.13.3",
     "@emotion/styled": "^11.13.0",
+    "@firebase/auth": "^1.10.8",
     "@iconify/react": "^5.0.2",
     "@mui/icons-material": "^7.1.1",
     "@mui/material": "^7.1.1",
@@ -49,7 +50,8 @@
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
-    "test": "react-scripts test",
+    "test": "react-scripts test --watchAll=false",
+    "test:ci": "react-scripts test --ci --coverage --watchAll=false",
     "eject": "react-scripts eject",
     "lint": "eslint src --ext .js,.jsx,.ts,.tsx",
     "lint:fix": "eslint src --ext .js,.jsx,.ts,.tsx --fix",
@@ -97,4 +99,5 @@
     "typescript": "^4.9.5",
     "util": "^0.12.5"
   }
+  
 }

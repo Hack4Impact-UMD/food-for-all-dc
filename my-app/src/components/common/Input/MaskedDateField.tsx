@@ -21,7 +21,9 @@ const MaskedDateField: React.FC<MaskedDateFieldProps> = ({
   onError,
   onBlur,
   fieldTouched = false,
-  setFieldTouched = () => {},
+  setFieldTouched = () => {
+    // No-op default function
+  },
   ...props
 }) => {  const [dateValue, setDateValue] = useState({
     month: '',

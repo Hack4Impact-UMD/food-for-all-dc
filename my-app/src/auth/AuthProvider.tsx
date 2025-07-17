@@ -2,24 +2,25 @@ import {
   getAuth,
   onAuthStateChanged,
   signOut,
-  type User,
   type IdTokenResult,
 } from "@firebase/auth";
+import { AuthUser, AuthError } from "../types/user-types";
 import React, { createContext, useContext, useEffect, useState, useCallback, useMemo } from "react";
 import { getFirebaseAuth, getFirebaseDb } from "./firebaseConfig";
 import { doc, getDoc } from "firebase/firestore";
 import { UserType } from "../types";
 
-interface Props {
-  children: JSX.Element;
-}
-
-interface AuthContextType {
-  user: User | null;
+export interface AuthContextType {
+  user: AuthUser | null;
   token: IdTokenResult | null;
   loading: boolean;
   userRole: UserType | null;
+  error: AuthError | null;
   logout: () => Promise<void>;
+}
+
+interface Props {
+  children: JSX.Element;
 }
 
 // Create a default context value
@@ -28,7 +29,9 @@ const defaultAuthContext: AuthContextType = {
   token: null,
   loading: true,
   userRole: null,
-  logout: async () => { /* Default implementation, will be replaced */ },
+  error: null,
+  // eslint-disable-next-line @typescript-eslint/no-empty-function
+  logout: async () => {},
 };
 
 const AuthContext = createContext<AuthContextType>(defaultAuthContext);
@@ -43,10 +46,11 @@ const userRoleCache = new Map<string, CacheEntry>();
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
 export const AuthProvider = ({ children }: Props): React.ReactElement => {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<AuthUser | null>(null);
   const [token, setToken] = useState<IdTokenResult | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [userRole, setUserRole] = useState<UserType | null>(null);
+  const [error, setError] = useState<AuthError | null>(null);
 
   const logout = useCallback(async () => {
     const auth = getFirebaseAuth();
@@ -55,10 +59,11 @@ export const AuthProvider = ({ children }: Props): React.ReactElement => {
       setUser(null);
       setToken(null);
       setUserRole(null);
-      // Clear cache on logout
+      setError(null);
       userRoleCache.clear();
-    } catch (error) {
-      console.error("Logout error:", error);
+    } catch (err: any) {
+      setError({ code: err.code || "auth/logout-error", message: err.message || "Logout failed." });
+      console.error("Logout error:", err);
     }
   }, []);
 
@@ -119,36 +124,43 @@ export const AuthProvider = ({ children }: Props): React.ReactElement => {
   useEffect(() => {
     const auth = getFirebaseAuth();
     const unsubscribe = onAuthStateChanged(auth, async (newUser) => {
-      setUser(newUser);
-
       if (newUser) {
+        // Map Firebase User to AuthUser
+        const mappedUser: AuthUser = {
+          uid: newUser.uid,
+          email: newUser.email,
+          displayName: newUser.displayName,
+          photoURL: newUser.photoURL,
+          emailVerified: newUser.emailVerified,
+          phoneNumber: newUser.phoneNumber,
+          providerId: newUser.providerId,
+        };
+        setUser(mappedUser);
         try {
-          // Fetch token and role concurrently with timeout
           const tokenPromise = newUser.getIdTokenResult();
           const rolePromise = fetchUserRole(newUser.uid);
-
-          // Add timeout to prevent hanging
           const timeoutPromise = new Promise<never>((_, reject) => {
             setTimeout(() => reject(new Error('Auth timeout')), 10000);
           });
-
           const [tokenResult, role] = await Promise.race([
             Promise.all([tokenPromise, rolePromise]),
             timeoutPromise
           ]);
-
           setToken(tokenResult);
           setUserRole(role);
-        } catch (error) {
-          console.error("Error fetching user token or role:", error);
+          setError(null);
+        } catch (err: any) {
           setToken(null);
           setUserRole(null);
+          setError({ code: err.code || "auth/token-role-error", message: err.message || "Failed to fetch token or role." });
+          console.error("Error fetching user token or role:", err);
         }
       } else {
+        setUser(null);
         setToken(null);
         setUserRole(null);
+        setError(null);
       }
-
       setLoading(false);
     });
 
@@ -161,8 +173,9 @@ export const AuthProvider = ({ children }: Props): React.ReactElement => {
     token,
     loading,
     userRole,
+    error,
     logout
-  }), [user, token, loading, userRole, logout]);
+  }), [user, token, loading, userRole, error, logout]);
 
   return (
     <AuthContext.Provider value={contextValue}>

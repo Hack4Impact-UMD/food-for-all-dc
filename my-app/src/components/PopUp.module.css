@@ -3,12 +3,49 @@
   bottom: var(--spacing-xl);
   left: var(--spacing-xl);
   font-weight: bold;
-  padding: var(--spacing-xl);
-  border: 3px solid var(--color-primary);
+  padding: var(--spacing-lg);
   background-color: var(--color-background-main);
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-md);
   border-radius: var(--border-radius-md);
-  z-index: 10;
+  z-index: 1400;
+  animation: slideIn 0.3s ease-out;
+  max-width: 400px;
+  word-wrap: break-word;
+}
+
+.success {
+  border: 3px solid var(--color-primary);
+  background-color: #f0f9f0;
+  color: #2e5b4c;
+}
+
+.error {
+  border: 3px solid #ff0000;
+  background-color: #fff0f0;
+  color: #d32f2f;
+}
+
+.warning {
+  border: 3px solid #ff9800;
+  background-color: #fff8e1;
+  color: #ef6c00;
+}
+
+.info {
+  border: 3px solid #2196f3;
+  background-color: #e3f2fd;
+  color: #1565c0;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 .errorPopupOverlay {
