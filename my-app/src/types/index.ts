@@ -8,6 +8,7 @@ export enum UserType {
   Admin = "Admin",
   Manager = "Manager",
   ClientIntake = "ClientIntake",
+  Driver = "Driver",
 }
 
 export const canCreateUserType = (currentUserType: UserType, newUserType: UserType): boolean => {
