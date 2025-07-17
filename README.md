@@ -34,7 +34,7 @@ This repository contains all the code, documentation, and setup guides you need 
 - [🎨 Style Guide](#-style-guide)
 - [🗺️ System Overview](#%EF%B8%8F-system-overview)
 - [🚀 Performance Tuning](./performance-tuning.md)
-- [🧑‍💻 Clean Code: User Management](./clean-code-users.md)
+- [🧑‍💻 Clean Code Overview](./clean-code.md)
 
 ---
 
