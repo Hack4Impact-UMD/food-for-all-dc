@@ -1,9 +1,9 @@
 import {
   getAuth,
   onAuthStateChanged,
-  signOut,
-  type IdTokenResult,
-} from "@firebase/auth";
+  signOut, 
+  type IdTokenResult, 
+} from "firebase/auth";
 import { AuthUser, AuthError } from "../types/user-types";
 import React, { createContext, useContext, useEffect, useState, useCallback, useMemo } from "react";
 import { getFirebaseAuth, getFirebaseDb } from "./firebaseConfig";
@@ -123,7 +123,7 @@ export const AuthProvider = ({ children }: Props): React.ReactElement => {
 
   useEffect(() => {
     const auth = getFirebaseAuth();
-    const unsubscribe = onAuthStateChanged(auth, async (newUser) => {
+    const unsubscribe = onAuthStateChanged(auth, async (newUser: any) => {
       if (newUser) {
         // Map Firebase User to AuthUser
         const mappedUser: AuthUser = {

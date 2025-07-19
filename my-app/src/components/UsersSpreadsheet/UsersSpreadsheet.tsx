@@ -56,7 +56,11 @@ const getRoleDisplayName = (role: UserType): string => {
   }
 };
 
-const UsersSpreadsheet: React.FC = () => {
+interface UsersSpreadsheetProps {
+  onAuthStateChangedOverride?: (auth: any, callback: any) => () => void;
+}
+
+const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedOverride }) => {
   const [rows, setRows] = useState<AuthUserRow[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -81,16 +85,15 @@ const UsersSpreadsheet: React.FC = () => {
 
   //Route Protection
   React.useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user: any) => {
+    const handler = onAuthStateChangedOverride || onAuthStateChanged;
+    const unsubscribe = handler(auth, (user: any) => {
       if (!user) {
         console.log("No user is signed in, redirecting to /");
         navigate("/");
       }
     });
-
-    // Cleanup the listener when the component unmounts
     return () => unsubscribe();
-  }, [navigate]);
+  }, [navigate, onAuthStateChangedOverride]);
 
   // Define fields for the user table columns
   const fields: Field[] = [
