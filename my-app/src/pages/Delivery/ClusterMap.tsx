@@ -1,11 +1,10 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "leaflet.awesome-markers";
 import "leaflet.awesome-markers/dist/leaflet.awesome-markers.css";
 import { Box, Button, FormControlLabel, Switch, Typography } from "@mui/material";
-import { collection, getDocs } from "firebase/firestore";
-import { db } from "../../auth/firebaseConfig";
+import DriverService from "../../services/driver-service";
 import FFAIcon from '../../assets/tsp-food-for-all-dc-logo.png'
 
 interface Driver {
@@ -42,11 +41,22 @@ interface ClientOverride {
   time?: string;
 }
 
+interface VisibleRow {
+  id: string;
+  firstName: string;
+  lastName: string;
+  address: string;
+  coordinates?: [number, number] | { lat: number; lng: number };
+  clusterId?: string;
+  ward?: string;
+}
+
 interface ClusterMapProps {
+  visibleRows: VisibleRow[];
   clusters: Cluster[];
-  visibleRows: Client[];
-  clientOverrides?: ClientOverride[]; // Individual client overrides
-  onClusterUpdate?: (clientId: string, newClusterId: string, newDriver?: string, newTime?: string) => void;
+  clientOverrides?: ClientOverride[];
+  onClusterUpdate: (clientId: string, newClusterId: string, newDriver?: string, newTime?: string) => void;
+  refreshDriversTrigger?: number; // Optional prop to trigger driver refresh
 }
 
 // DC Ward colors - each ward gets a unique translucent color
@@ -99,7 +109,7 @@ const TIME_SLOTS = [
   "4:00 PM", "5:00 PM"
 ];
 
-const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOverrides = [], onClusterUpdate }) => {
+const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOverrides = [], onClusterUpdate, refreshDriversTrigger }) => {
   const mapRef = useRef<L.Map | null>(null);
   const markerGroupRef = useRef<L.FeatureGroup | null>(null);
   const wardLayerGroupRef = useRef<L.FeatureGroup | null>(null);
@@ -146,6 +156,33 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
       setWardDataLoading(false);
     }
   };
+
+  // Create a memoized fetch function for drivers that can be called from multiple places
+  const fetchDrivers = useCallback(async () => {
+    setLoadingDrivers(true);
+    try {
+      const driverService = DriverService.getInstance();
+      const driversData = await driverService.getAllDrivers();
+      setDrivers(driversData);
+    } catch (error) {
+      console.error("Error fetching drivers:", error);
+      setDrivers([]);
+    } finally {
+      setLoadingDrivers(false);
+    }
+  }, []);
+
+  // Fetch drivers from Firebase
+  useEffect(() => {
+    fetchDrivers();
+  }, [fetchDrivers]);
+
+  // Add effect to handle external driver refresh triggers
+  useEffect(() => {
+    if (refreshDriversTrigger !== undefined && refreshDriversTrigger > 0) {
+      fetchDrivers();
+    }
+  }, [refreshDriversTrigger, fetchDrivers]);
 
   // Function to add ward overlays to the map
   const addWardOverlays = async () => {
@@ -253,36 +290,6 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
       addWardOverlays();
     }
   }, [showWardOverlays, mapRef.current, wardLayerGroupRef.current]);
-
-  // Fetch drivers from Firebase
-  useEffect(() => {
-    const fetchDrivers = async () => {
-      setLoadingDrivers(true);
-      try {
-        const driversCollectionRef = collection(db, "Drivers");
-        const driversSnapshot = await getDocs(driversCollectionRef);
-
-        if (!driversSnapshot.empty) {
-          const driversData = driversSnapshot.docs.map((doc) => ({
-            id: doc.id,
-            name: doc.data().name || "Unknown Driver",
-            phone: doc.data().phone || "",
-            email: doc.data().email || "",
-          }));
-          setDrivers(driversData);
-        } else {
-          setDrivers([]);
-        }
-      } catch (error) {
-        console.error("Error fetching drivers:", error);
-        setDrivers([]);
-      } finally {
-        setLoadingDrivers(false);
-      }
-    };
-
-    fetchDrivers();
-  }, []);
 
   useEffect(() => {
     if (!mapRef.current || !markerGroupRef.current || visibleRows.length < 1) return;
