@@ -13,6 +13,7 @@ import {
   Select,
 } from "@mui/material";
 import { validateDateInput } from "../../../utils/dates";
+import { isValidHtmlDateFormat } from "../../../utils/validation";
 import { ClientProfileKey } from '../types';
 import { DietaryRestrictions } from '../../../types';
 import TagManager from "../Tags/TagManager";
@@ -212,71 +213,59 @@ const CustomCheckbox = styled(Checkbox)({
   },
 });
 
-// DateFieldComponent for handling date inputs with error validation
 const DateFieldComponent = ({ 
   fieldPath, 
   value, 
   handleChange, 
-  dateInputProps 
+  dateInputProps,
+  error
 }: {
   fieldPath: string;
   value: any;
   handleChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement> | SelectChangeEvent) => void;
   dateInputProps: Record<string, any>;
+  error?: string;
 }) => {
-  // Initialize with no error - don't show errors until user interacts with field
   const [dateError, setDateError] = useState<string | null>(null);
   const [fieldTouched, setFieldTouched] = useState<boolean>(false);
-    const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+
+  // Determine what error to show:
+  // 1. External error (from Profile validation) takes priority
+  // 2. Internal dateError only shows if field was touched
+  const displayError = error || (fieldTouched && dateError);
+
+  const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
     // Mark field as touched on blur
     setFieldTouched(true);
     
     const value = e.target.value;
     
-    // If the field is empty, it's now valid (DOB is optional)
+    // If the field is empty, it's valid (DOB is optional)
     if (!value) {
       setDateError(null);
       return;
     }
     
-    // Validate the date is within range
-    try {
-      // For HTML date inputs, value will be in format YYYY-MM-DD
-      if (value.match(/^\d{4}-\d{2}-\d{2}$/)) {
-        const [yearStr] = value.split('-');
-        const year = parseInt(yearStr, 10);
-        
-        // Direct check on the year part to avoid timezone issues
-        if (year < 1900 || year > 2100) {
-          setDateError("Year must be between 1900-2100");
-          return;
-        }
-        
-        // Create date to validate it's a real date (Feb 30, etc.)
-        const date = new Date(value + 'T12:00:00'); // Use noon to avoid timezone issues
-        if (isNaN(date.getTime())) {
-          setDateError("Invalid date");
-          return;
-        }
+    // Use the isValidHtmlDateFormat function for HTML date input validation
+    if (!isValidHtmlDateFormat(value, 1900, 2100)) {
+      // Provide more specific error messages
+      if (!value.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        setDateError("Please select a valid date");
       } else {
-        // For non-standard formats (could happen with direct input)
         const date = new Date(value);
         if (isNaN(date.getTime())) {
-          setDateError("Invalid date");
-          return;
-        }
-        
-        const year = date.getFullYear();
-        if (year < 1900 || year > 2100) {
-          setDateError("Year must be between 1900-2100");
-          return;
+          setDateError("Please select a valid date");
+        } else {
+          const year = date.getFullYear();
+          if (year < 1900 || year > 2100) {
+            setDateError("Year must be between 1900-2100");
+          } else {
+            setDateError("Please select a valid date");
+          }
         }
       }
-      
-      // Valid date
+    } else {
       setDateError(null);
-    } catch (err) {
-      setDateError("Invalid date format");
     }
   };
   
@@ -289,8 +278,9 @@ const DateFieldComponent = ({
         width: '100%',
         marginBottom: '24px', // Space for any error message
       }}
-    >      <CustomTextField
-        type="date" // Keep the original date type as requested
+    >
+      <CustomTextField
+        type="date"
         name={fieldPath}
         value={value || ""}
         className={(fieldTouched && !!dateError) ? 'error' : ''}
@@ -298,7 +288,7 @@ const DateFieldComponent = ({
           // Mark field as touched on change
           if (!fieldTouched) setFieldTouched(true);
           
-          // Clear error when user starts typing with valid input  
+          // Clear error when user starts typing
           if (dateError) setDateError(null);
           
           // Pass to the handler
@@ -306,17 +296,17 @@ const DateFieldComponent = ({
         }}
         onBlur={handleBlur}
         onFocus={() => setFieldTouched(true)}        
-        error={fieldTouched && !!dateError}
-        helperText={fieldTouched && dateError ? dateError : " "}
+        error={!!displayError}
+        helperText={displayError || " "}
         InputLabelProps={{ shrink: true }}
         FormHelperTextProps={{
           sx: {
-            visibility: fieldTouched && dateError ? 'visible' : 'hidden',
+            visibility: displayError ? 'visible' : 'hidden',
             position: 'absolute',
-            bottom: '-20px',
+            bottom: '-2.65rem',
             left: 0,
-            margin: 0,
-            color: 'var(--color-error)',
+            margin: '1rem 0 0 0',
+            color: '#d32f2f !important', // unsure why we need to specifically enforce this color here
           }
         }}
         InputProps={{
@@ -331,7 +321,8 @@ const DateFieldComponent = ({
         sx={{ 
           '& .MuiInputBase-root': { height: '38px' },
           mb: 0
-        }}        inputProps={{
+        }}
+        inputProps={{
           min: "1900-01-01",
           max: "2100-12-31",
           ...dateInputProps
@@ -462,11 +453,16 @@ const FormField: React.FC<FormFieldProps> = ({
 
       // Ensure dobDate is valid
       if (isNaN(dobDate.getTime())) {
-        dobDate = new Date(); // Fallback to current date if invalid
+        return "Invalid date";
       }
 
-      // Format the date and calculate the age
-      const formattedDate = dobDate.toUTCString().split(" ").slice(0, 4).join(" ");
+      // Format the date in a more readable format
+      const options: Intl.DateTimeFormatOptions = { 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric' 
+      };
+      const formattedDate = dobDate.toLocaleDateString('en-US', options);
       const age = Math.floor((new Date().getTime() - dobDate.getTime()) / (365.25 * 24 * 60 * 60 * 1000));
 
       return `${formattedDate} (Age ${age})`;
@@ -582,6 +578,7 @@ const FormField: React.FC<FormFieldProps> = ({
             value={value}
             handleChange={handleChange}
             dateInputProps={dateInputProps}
+            error={error}
           />
         );
         break;
