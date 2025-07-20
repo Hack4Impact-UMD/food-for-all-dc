@@ -35,6 +35,7 @@ This repository contains all the code, documentation, and setup guides you need 
 - [🗺️ System Overview](#%EF%B8%8F-system-overview)
 - [🚀 Performance Tuning](./performance-tuning.md)
 - [🧑‍💻 Clean Code Overview](./clean-code.md)
+- [🧪 Test Suite & Coverage](./my-app/TESTS.md)
 
 ---
 
