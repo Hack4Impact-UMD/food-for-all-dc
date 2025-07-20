@@ -23,6 +23,23 @@ import { UserType } from "./types";
 // Performance monitoring
 import { usePerformanceMonitor } from "./hooks/usePerformance";
 import { ErrorBoundary } from "./components/performance/LoadingComponents";
+import { routesConfig } from "./routesConfig";
+import NotFoundPage from "./components/NotFoundPage";
+
+function renderRoutes(config: Array<any>) {
+  return config.map((route: any, idx: number) => {
+    if (route.children) {
+      return (
+        <Route key={idx} path={route.path} element={route.element}>
+          {renderRoutes(route.children)}
+        </Route>
+      );
+    }
+    return (
+      <Route key={idx} path={route.path} element={route.element} />
+    );
+  });
+}
 
 function App() {
   const { loading } = useAuth();
@@ -38,47 +55,8 @@ function App() {
     <ErrorBoundary>
       <Router>
         <Routes>
-          {/* Public routes */}
-          <Route path="/" element={<Login />} />
-          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-
-          {/* Main app structure wrapped by BasePage */} 
-          <Route path="/*" element={
-            <Suspense fallback={<Preloader message="Loading dashboard..." showMessage={true} />}>
-              <BasePage />
-            </Suspense>
-          }>
-            {/* Routes accessible to all authenticated users */}
-            <Route path="clients" element={
-              <Suspense fallback={<LoadingIndicator size={40} />}>
-                <Spreadsheet />
-              </Suspense>
-            } />
-            <Route path="calendar" element={
-              <Suspense fallback={<LoadingIndicator size={40} />}>
-                <CalendarPage />
-              </Suspense>
-            } />
-            <Route path="profile/:clientId?" element={
-              <Suspense fallback={<LoadingIndicator size={40} />}>
-                <Profile />
-              </Suspense>
-            } />
-            <Route path="delivery" element={
-              <Suspense fallback={<LoadingIndicator size={40} />}>
-                <DeliverySpreadsheet />
-              </Suspense>
-            } />
-            {/* Routes with specific role requirements */}
-            <Route element={<ProtectedRoute allowedRoles={[UserType.Admin, UserType.Manager]} />}>
-              {/* Nested route for users, accessible only via ProtectedRoute */}
-              <Route path="users" element={
-                <Suspense fallback={<LoadingIndicator size={40} />}>
-                  <UsersSpreadsheet />
-                </Suspense>
-              } />
-            </Route>
-          </Route>
+          {renderRoutes(routesConfig)}
+          <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </Router>
     </ErrorBoundary>

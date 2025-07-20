@@ -1,5 +1,7 @@
 # 🚀 Performance Tuning Guide - Food for All DC
 
+[⬅️ Back to README](./README.md)
+
 ## Overview
 
 This document outlines the comprehensive performance optimization strategy implemented for the Food for All DC React application. The optimizations resulted in a **40% reduction in bundle size** and significant improvements in startup time and user experience.
@@ -226,7 +228,7 @@ const ProgressiveLoader = ({ isLoading, timeout = 10000 }) => {
 - ✅ **Smooth animations** - GPU acceleration for 60fps
 - ✅ **Accessibility** - Respects reduced motion preferences
 - ✅ **Performance** - Optimized CSS with containment
-- ✅ **Responsive** - Mobile-optimized animations
+- ✅ **Responsive** - Animations
 
 **Files Created:**
 - `src/components/performance/performance.css` - Optimized animations
@@ -391,7 +393,7 @@ The comprehensive performance optimization strategy successfully:
 ✅ **Enhanced user experience** with smooth loading states  
 ✅ **Implemented offline capability** with service worker  
 ✅ **Added performance monitoring** for continuous improvement  
-✅ **Optimized for mobile** with responsive design  
+✅ **Optimized** with responsive design  
 ✅ **Improved accessibility** with reduced motion support  
 ✅ **Enterprise-grade caching** with multi-tier strategy  
 

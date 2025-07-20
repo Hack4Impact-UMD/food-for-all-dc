@@ -98,9 +98,6 @@ function MyForm() {
 
 ## File Organization
 
-- Component styles should be co-located with their components
-- Global styles and theme variables are in `src/styles/`
-- Common UI components are in `src/components/common/`
 
 ## Migration Guide
 

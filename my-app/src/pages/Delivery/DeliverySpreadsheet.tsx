@@ -318,11 +318,24 @@ const DeliverySpreadsheet: React.FC = () => {
   const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
   const [innerPopup, setInnerPopup] = useState(false);
   const [popupMode, setPopupMode] = useState("");
-  const [clusters, setClusters] = useState<Cluster[]>([]);
+  const [clusters, setClustersOriginal] = useState<Cluster[]>([]);
   const [selectedClusters, setSelectedClusters] = useState<Set<any>>(new Set());
   const [exportOption, setExportOption] = useState<"Routes" | "Doordash" | null>(null);
   const [emailOrDownload, setEmailOrDownload] = useState<"Email" | "Download" | null>(null);
   const [driversRefreshTrigger, setDriversRefreshTrigger] = useState<number>(0);
+
+  // Helper function to deduplicate clusters by ID
+  const deduplicateClusters = (clusters: Cluster[]): Cluster[] => {
+    return clusters.filter((cluster: Cluster, index: number, self: Cluster[]) => 
+      index === self.findIndex((c: Cluster) => c.id === cluster.id)
+    );
+  };
+
+  // Safe wrapper for setClusters that always deduplicates
+  const setClusters = (clusters: Cluster[]) => {
+    const deduplicated = deduplicateClusters(clusters);
+    setClustersOriginal(deduplicated);
+  };
 
   const parseDateFromUrl = (dateString: string | null): Date => {
     if (!dateString) return new Date();
@@ -431,15 +444,15 @@ const DeliverySpreadsheet: React.FC = () => {
 
   // Calculate Cluster Options
   const clusterOptions = useMemo(() => {
-    const existingIds = clusters.map((c) => parseInt(c.id, 10)).filter((id) => !isNaN(id));
-    const maxId = existingIds.length > 0 ? Math.max(...existingIds) : 0;
-    const nextId = (maxId + 1).toString();
-    const availableIds = clusters.map(c => c.id).sort((a, b) => parseInt(a, 10) - parseInt(b, 10));
-    const options = [
-      ...availableIds.map(id => ({ value: id, label: id, color: clusterColorMap(id) })),
-      { value: nextId, label: nextId, color: clusterColorMap(nextId) } // Add next available ID
-    ];
-    options.pop();
+    // Get unique cluster IDs and remove duplicates
+    const uniqueIds = [...new Set(clusters.map(c => c.id))];
+    
+    // Sort the unique IDs
+    const availableIds = uniqueIds.sort((a, b) => parseInt(a, 10) - parseInt(b, 10));
+    
+    // Create options from existing unique IDs ONLY
+    const options = availableIds.map(id => ({ value: id, label: id, color: clusterColorMap(id) }));
+    
     if (options.length == 0) {
       options.push({
         value: "", label: "No Current Clusters",
@@ -648,6 +661,7 @@ const DeliverySpreadsheet: React.FC = () => {
           clientOverrides: doc.data().clientOverrides || [],
         };
         setClusterDoc(clustersData);
+        // Set clusters (deduplication is handled automatically by setClusters wrapper)
         setClusters(clustersData.clusters);
         setClientOverrides(clustersData.clientOverrides || []);
       } else {
@@ -719,11 +733,12 @@ const DeliverySpreadsheet: React.FC = () => {
 
     updatedClusters.sort((a, b) => parseInt(a.id, 10) - parseInt(b.id, 10));
 
+    // Set clusters (deduplication is handled automatically by setClusters wrapper)
     setClusters(updatedClusters);
 
     try {
       const clusterRef = doc(db, "clusters", clusterDoc.docId);
-      await updateDoc(clusterRef, { clusters: updatedClusters });
+      await updateDoc(clusterRef, { clusters: deduplicateClusters(updatedClusters) });
       console.log(
         `Successfully moved ${row.id} from cluster ${oldClusterId || "none"} to ${newClusterId || "none"}`
       );
@@ -843,13 +858,13 @@ const DeliverySpreadsheet: React.FC = () => {
       // Sort clusters numerically
       updatedClusters.sort((a, b) => parseInt(a.id, 10) - parseInt(b.id, 10));
 
-      // Update cluster state
+      // Set clusters (deduplication is handled automatically by setClusters wrapper)
       setClusters(updatedClusters);
 
       // Update Firebase with cluster changes and client overrides
       const clusterRef = doc(db, "clusters", clusterDoc.docId);
       await updateDoc(clusterRef, { 
-        clusters: updatedClusters,
+        clusters: deduplicateClusters(updatedClusters),
         clientOverrides: updatedOverrides
       });
 
@@ -923,6 +938,7 @@ const DeliverySpreadsheet: React.FC = () => {
         return cluster;
       });
 
+      // Set clusters (deduplication is handled automatically by setClusters wrapper)
       setClusters(updatedClusters);
 
       // Clear individual driver overrides for clients in the affected clusters
@@ -948,7 +964,7 @@ const DeliverySpreadsheet: React.FC = () => {
 
       const clusterRef = doc(db, "clusters", clusterDoc.docId);
       await updateDoc(clusterRef, { 
-        clusters: updatedClusters,
+        clusters: deduplicateClusters(updatedClusters),
         clientOverrides: updatedOverrides
       });
 
@@ -977,8 +993,11 @@ const DeliverySpreadsheet: React.FC = () => {
 
     // Sort clusters numerically by ID for consistency
     newClusters.sort((a, b) => parseInt(a.id, 10) - parseInt(b.id, 10));
+    
+    // Deduplicate clusters before returning
+    const uniqueClusters = deduplicateClusters(newClusters);
 
-    return newClusters;
+    return uniqueClusters;
   };
 
   //Handle assigning time
@@ -1002,6 +1021,7 @@ const DeliverySpreadsheet: React.FC = () => {
           return cluster;
         });
 
+        // Set clusters (deduplication is handled automatically by setClusters wrapper)
         setClusters(updatedClusters); // Update state with the new immutable array
 
         // Clear individual time overrides for clients in the affected clusters
@@ -1029,7 +1049,7 @@ const DeliverySpreadsheet: React.FC = () => {
         const clusterRef = doc(db, "clusters", clusterDoc.docId);
         // Only update the 'clusters' field
         await updateDoc(clusterRef, { 
-          clusters: updatedClusters,
+          clusters: deduplicateClusters(updatedClusters),
           clientOverrides: updatedOverrides
         });
 
@@ -1339,37 +1359,30 @@ const DeliverySpreadsheet: React.FC = () => {
     }
   };
 
-  // Handle checkbox selection
+  // Handle checkbox selection (radio button behavior - only one cluster can be selected)
   const handleCheckboxChange = (row: DeliveryRowData) => {
-    const newSelectedRows = new Set(selectedRows);
-    const newSelectedClusters = new Set(selectedClusters);
-    const rowToToggle = row;
+    const newSelectedRows = new Set<string>();
+    const newSelectedClusters = new Set<any>();
+    const clickedClusterId = row.clusterId;
 
-    if (rowToToggle) {
-      const clusterId = rowToToggle.clusterId;
-      if (clusterId) {
-        const cluster = clusters?.find((c) => c.id.toString() === clusterId);
-        const rowsWithSameClusterID = rows.filter((row) => row.clusterId === clusterId);
+    if (clickedClusterId) {
+      const clickedCluster = clusters?.find((c) => c.id.toString() === clickedClusterId);
+      
+      if (clickedCluster) {
+        // Check if this cluster is already selected
+        const isCurrentlySelected = Array.from(selectedClusters).some(
+          (selected) => selected.id === clickedClusterId
+        );
 
-        if (cluster) {
-          // Check if the current row is already selected
-          const isSelected = newSelectedRows.has(row.id);
-
-          // Toggle selection for all rows with the same clusterId
+        if (!isCurrentlySelected) {
+          // Select all rows with the clicked cluster ID
+          const rowsWithSameClusterID = rows.filter((row) => row.clusterId === clickedClusterId);
           rowsWithSameClusterID.forEach((row) => {
-            if (isSelected) {
-              newSelectedRows.delete(row.id); // Deselect all
-            } else {
-              newSelectedRows.add(row.id); // Select all
-            }
+            newSelectedRows.add(row.id);
           });
-
-          if (isSelected) {
-            newSelectedClusters.delete(cluster);
-          } else {
-            newSelectedClusters.add(cluster);
-          }
+          newSelectedClusters.add(clickedCluster);
         }
+        // If it's already selected, clicking it will deselect (newSelectedRows and newSelectedClusters remain empty)
       }
     }
 
@@ -1654,30 +1667,25 @@ const DeliverySpreadsheet: React.FC = () => {
           : wardB.localeCompare(wardA, undefined, { sensitivity: 'base' });
       } else if (sortedColumn === "assignedDriver") {
         // For assignedDriver field, sort by driver name alphabetically
-        // Use the compute function to get the driver name
-        let driverA = "";
-        let driverB = "";
+        // Use the compute function to get the driver name (accounts for individual overrides)
+        const assignedDriverField = fields.find(f => f.key === "assignedDriver") as Extract<Field, { key: "assignedDriver" }>;
+        const driverA = assignedDriverField?.compute?.(a, clusters, clientOverrides) || "";
+        const driverB = assignedDriverField?.compute?.(b, clusters, clientOverrides) || "";
+
+        const driverALower = driverA.toLowerCase();
+        const driverBLower = driverB.toLowerCase();
+
+        // Group "No driver assigned" entries together and sort them last in ascending order
+        const noDriverA = driverA === "No driver assigned";
+        const noDriverB = driverB === "No driver assigned";
         
-        clusters.forEach((cluster) => {
-          if (cluster.deliveries?.some((id) => id === a.id)) {
-            driverA = cluster.driver || "";
-          }
-          if (cluster.deliveries?.some((id) => id === b.id)) {
-            driverB = cluster.driver || "";
-          }
-        });
-
-        driverA = driverA.toLowerCase();
-        driverB = driverB.toLowerCase();
-
-        // Handle empty values - empty strings (no driver assigned) sort first in ascending, last in descending
-        if (!driverA && !driverB) return 0;
-        if (!driverA) return sortOrder === "asc" ? -1 : 1;
-        if (!driverB) return sortOrder === "asc" ? 1 : -1;
+        if (noDriverA && noDriverB) return 0;
+        if (noDriverA) return sortOrder === "asc" ? 1 : -1;  // No driver assigned goes to end in asc
+        if (noDriverB) return sortOrder === "asc" ? -1 : 1;  // No driver assigned goes to end in asc
 
         return sortOrder === "asc"
-          ? driverA.localeCompare(driverB, undefined, { sensitivity: 'base' })
-          : driverB.localeCompare(driverA, undefined, { sensitivity: 'base' });
+          ? driverALower.localeCompare(driverBLower, undefined, { sensitivity: 'base' })
+          : driverBLower.localeCompare(driverALower, undefined, { sensitivity: 'base' });
       } else if (sortedColumn === "assignedTime") {
         // For assignedTime field, sort by time in chronological order (AM before PM)
         // Use the compute function to get the time string
@@ -2017,7 +2025,11 @@ const DeliverySpreadsheet: React.FC = () => {
                 style={{
                   whiteSpace: "nowrap",
                   borderRadius: 5,
-                  marginRight: '8px'
+                  marginRight: '0px',
+                  minWidth: 'auto',
+                  width: 'auto',
+                  fontSize: '0.875rem',
+                  padding: '8px 16px'
                 }}
                 onClick={() => setPopupMode("Driver")}
               >
@@ -2037,7 +2049,11 @@ const DeliverySpreadsheet: React.FC = () => {
                 style={{
                   whiteSpace: "nowrap",
                   borderRadius: 5,
-                  marginRight: '8px'
+                  marginRight: '0px',
+                  minWidth: 'auto',
+                  width: 'auto',
+                  fontSize: '0.875rem',
+                  padding: '8px 16px'
                 }}
               >
                 Assign Time
@@ -2075,9 +2091,11 @@ const DeliverySpreadsheet: React.FC = () => {
                 style={{
                   whiteSpace: "nowrap",
                   borderRadius: 5,
-                  marginRight: '8px',
-                  padding: 'var(--spacing-sm) calc(var(--spacing-xl) + 8px)',
-                  height: 'var(--button-height)'
+                  marginRight: '0px',
+                  minWidth: 'auto',
+                  width: 'auto',
+                  fontSize: '0.875rem',
+                  padding: '8px 16px'
                 }}
                 onClick={() => setPopupMode("Export")}
               >
@@ -2249,7 +2267,7 @@ const DeliverySpreadsheet: React.FC = () => {
             </TableHead>
             <TableBody>
               {sortedRows.map((row, index) => (
-                <TableRow key={`${sortTimestamp}-${index}-${row.id}`} className="table-row">
+                <TableRow key={`${sortTimestamp}-${index}-${row.id}`} className="table-row delivery-anim-row">
                   {fields.map((field) => {
                     // Render the table cell based on field type
                     return (

@@ -13,50 +13,59 @@ const firebaseConfig: FirebaseOptions = {
   measurementId: "G-GE0VWH1PQX",
 };
 
+
 // Initialize Firebase app once
 const app: FirebaseApp = initializeApp(firebaseConfig);
 
 // Lazy initialization of Firebase services
-let _db: Firestore | null = null;
-let _auth: Auth | null = null;
-let _functions: Functions | null = null;
+let firestoreInstance: Firestore | null = null;
+let authInstance: Auth | null = null;
+let functionsInstance: Functions | null = null;
 
+/**
+ * Returns the Firestore instance, initializing if necessary.
+ * Enables offline capabilities in production.
+ */
 export const getFirebaseDb = (): Firestore => {
-  if (!_db) {
-    _db = getFirestore(app);
-    
-    // Enable offline capabilities for better performance
+  if (!firestoreInstance) {
+    firestoreInstance = getFirestore(app);
     if (process.env.NODE_ENV === 'production') {
-      enableNetwork(_db).catch((err: any) => {
+      enableNetwork(firestoreInstance).catch((err: unknown) => {
         console.warn('Firestore network enable failed:', err);
       });
     }
   }
-  return _db;
+  return firestoreInstance;
 };
 
+/**
+ * Returns the Auth instance, initializing if necessary.
+ * Sets device language for authentication.
+ */
 export const getFirebaseAuth = (): Auth => {
-  if (!_auth) {
-    _auth = getAuth(app);
-    _auth.useDeviceLanguage();
+  if (!authInstance) {
+    authInstance = getAuth(app);
+    authInstance.useDeviceLanguage();
   }
-  return _auth;
+  return authInstance;
 };
 
+/**
+ * Returns the Functions instance, initializing if necessary.
+ * Connects to emulator in development mode.
+ */
 export const getFirebaseFunctions = (): Functions => {
-  if (!_functions) {
-    _functions = getFunctions(app);
-    
-    // Connect to emulator in development
+  if (!functionsInstance) {
+    functionsInstance = getFunctions(app);
     if (process.env.NODE_ENV === 'development') {
       try {
-        connectFunctionsEmulator(_functions, 'localhost', 5001);
+        connectFunctionsEmulator(functionsInstance, 'localhost', 5001);
       } catch (err) {
-        // Emulator connection failed or already connected
+        console.warn('Functions emulator connection failed:', err);
       }
     }
   }
-  return _functions;
+  return functionsInstance;
 };
 
 // Backwards compatibility - these will be lazy-loaded

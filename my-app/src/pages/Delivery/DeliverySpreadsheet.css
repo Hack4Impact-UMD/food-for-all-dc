@@ -1,3 +1,19 @@
+/* Delivery row animation: match tag animation speeds */
+.delivery-anim-row {
+  opacity: 1;
+  transform: scale(1);
+  transition: opacity 0.5s ease-in-out, transform 0.5s ease-in-out;
+}
+.delivery-anim-row.adding {
+  opacity: 1;
+  transform: scale(1);
+  transition: opacity 0.5s ease-in-out, transform 0.5s ease-in-out;
+}
+.delivery-anim-row.removing {
+  opacity: 0;
+  transform: scale(0.8);
+  transition: opacity 0.5s ease-in-out, transform 0.5s ease-in-out;
+}
 html,
 body {
   height: 100%;
