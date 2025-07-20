@@ -791,7 +791,8 @@ const StyleChip = styled(Chip)({
         position: "relative",
         display: "flex",
         flexDirection: "column",
-        height: "100vh"
+        height: "85vh",
+        mt:0
       }}
     >
       {/* Fixed Container for Search Bar and Create Client Button */}
