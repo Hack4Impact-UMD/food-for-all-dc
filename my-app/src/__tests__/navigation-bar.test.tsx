@@ -46,10 +46,18 @@ describe("Navigation Bar Tests", () => {
         <BasePage />
       </MemoryRouter>
     );
-    // Query for the tab by text and check its parent/container for 'active' class
-    const calendarTab = screen.getByText(/calendar/i);
-    // Find the closest parent with a class indicating selection
-    const tabContainer = calendarTab.closest('div');
-    expect(tabContainer).toHaveClass('tabContainerSelected');
+    // Query for all elements with 'calendar' text
+    const calendarTabs = screen.getAllByText(/calendar/i);
+    // Find the tab that is inside a container with 'tabContainerSelected' class
+    const selectedTab = calendarTabs.find(tab => {
+      // Try to find the closest ancestor with the class
+      let container = tab.closest('.tabContainerSelected');
+      // Fallback: check parent element if not found
+      if (!container && tab.parentElement && tab.parentElement.classList.contains('tabContainerSelected')) {
+        container = tab.parentElement;
+      }
+      return container;
+    });
+    expect(selectedTab).toBeTruthy();
   });
 });

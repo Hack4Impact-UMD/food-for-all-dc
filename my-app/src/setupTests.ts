@@ -73,6 +73,35 @@ global.TextEncoder = TextEncoder;
 global.TextDecoder = TextDecoder;
 
 // Polyfill for ReadableStream for Firebase Auth in Node test environment
+// Polyfill for setImmediate for Node test environment (needed for Firebase/gRPC)
+if (typeof global.setImmediate === 'undefined') {
+  // @ts-ignore: Node Immediate type mismatch is safe for test polyfill
+  global.setImmediate = (fn: (...args: any[]) => void, ...args: any[]) => setTimeout(fn, 0, ...args);
+}
 if (typeof global.ReadableStream === 'undefined') {
   global.ReadableStream = class {};
 }
+
+// Global teardown to clean up timers, observers, and listeners after all tests
+afterAll(() => {
+  // Clear all timers
+  jest.clearAllTimers();
+  jest.useRealTimers();
+
+  // Disconnect all observers if needed
+  if (global.IntersectionObserver && typeof global.IntersectionObserver.prototype.disconnect === 'function') {
+    try {
+      global.IntersectionObserver.prototype.disconnect();
+    } catch (e) {}
+  }
+  if (global.ResizeObserver && typeof global.ResizeObserver.prototype.disconnect === 'function') {
+    try {
+      global.ResizeObserver.prototype.disconnect();
+    } catch (e) {}
+  }
+
+  // Remove any event listeners if you add them globally
+  if (typeof window !== 'undefined' && window.removeEventListener) {
+    // Example: window.removeEventListener('resize', ...)
+  }
+});

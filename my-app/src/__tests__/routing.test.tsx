@@ -12,6 +12,14 @@ jest.mock("../auth/AuthProvider", () => ({
 let mockUserRole: UserType | null = null;
 
 describe("Minimal Routing Tests", () => {
+  let consoleWarnSpy: jest.SpyInstance;
+  beforeEach(() => {
+    consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+  });
+  afterEach(() => {
+    mockUserRole = null;
+    consoleWarnSpy.mockRestore();
+  });
   afterEach(() => { mockUserRole = null; });
 
   it("renders public routes for unauthenticated users", () => {

@@ -12,4 +12,6 @@ export {
   DeliveryService,
   DriverService,
   ClusterService
-}; 
+};
+
+export * from './AuthUserService';

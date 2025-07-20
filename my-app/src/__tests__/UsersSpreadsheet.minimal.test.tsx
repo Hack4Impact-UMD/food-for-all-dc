@@ -1,20 +1,10 @@
-jest.setTimeout(20000);
-// Polyfill for setImmediate for Node test environment (needed for Firebase/gRPC)
-if (typeof global.setImmediate === 'undefined') {
-  // @ts-ignore: Node Immediate type mismatch is safe for test polyfill
-  global.setImmediate = (fn: (...args: any[]) => void, ...args: any[]) => setTimeout(fn, 0, ...args);
-}
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
-import UsersSpreadsheet from '../UsersSpreadsheet';
+import UsersSpreadsheet from '../components/UsersSpreadsheet/UsersSpreadsheet';
 import { MemoryRouter } from 'react-router-dom';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
-
-const theme = createTheme();
-
-jest.mock('../../../services/AuthUserService');
-import { authUserService } from '../../../services/AuthUserService';
-
+import { authUserService } from '../services/AuthUserService';
+jest.mock('../services/AuthUserService');
 beforeEach(() => {
   (authUserService.getAllUsers as jest.Mock).mockResolvedValue([
     {
@@ -27,6 +17,8 @@ beforeEach(() => {
     },
   ]);
 });
+
+const theme = createTheme();
 
 describe('UsersSpreadsheet minimal integration', () => {
   it('renders with minimal props and providers', async () => {
