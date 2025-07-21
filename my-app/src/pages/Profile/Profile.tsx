@@ -1289,6 +1289,7 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
       // Common post-save actions (Popup notification)
       // setEditMode(false); <-- Removed redundant call
       setShowSavePopup(true);
+      setIsEditing(false)
       setTimeout(() => setShowSavePopup(false), 2000);
   
     } catch (e) {
