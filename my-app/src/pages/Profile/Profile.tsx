@@ -183,6 +183,7 @@ const Profile = () => {
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [isDeliveryModalOpen, setIsDeliveryModalOpen] = useState<boolean>(false);
   const [prevTags, setPrevTags] = useState<string[] | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
   const [prevClientProfile, setPrevClientProfile] = useState<ClientProfile | null>(null);
   const [clientProfile, setClientProfile] = useState<ClientProfile>({
     uid: "",
@@ -1028,6 +1029,7 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
 
   const handleSave = async () => {
     // Important: First validate basic requirements
+    setIsSaving(true)
     const validation = validateProfile();
   
     // Check for address validation error
@@ -1299,6 +1301,7 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
     } finally {
       // Hide saving indicator? (Optional)
       // setIsLoading(false);
+      setIsSaving(false)
     }
   };
 
@@ -2341,6 +2344,7 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
                     color="primary"
                     onClick={handleSave}
                     aria-label="save"
+                    disabled = {isSaving}
                     size="small"
                   >
                     <SaveIcon />
@@ -2477,6 +2481,7 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
                   <StyledIconButton
                     color="primary"
                     onClick={handleSave}
+                    disabled = {isSaving}
                     aria-label="save"
                     size="small"
                   >
