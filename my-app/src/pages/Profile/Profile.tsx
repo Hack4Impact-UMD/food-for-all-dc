@@ -1035,6 +1035,7 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
     // Check for address validation error
     if (addressError) {
       alert("Please fix the address error before saving. Make sure to select a valid address from the Google Places suggestions.");
+      setIsSaving(false)
       return;
     }
   
@@ -1043,6 +1044,7 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
         .map(([field, message]) => `- ${message}`)
         .join('\n');
       alert(`Please fix the following before saving:\n${errorFields}`);
+      setIsSaving(false)
       return;
     }
     
