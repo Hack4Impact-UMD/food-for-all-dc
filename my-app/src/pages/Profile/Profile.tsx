@@ -1282,7 +1282,6 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
         setPrevClientProfile(null); // Clear previous state backup
         setPrevNotes(updatedProfile.notes || ""); // Update prevNotes
         setIsSaved(true); // Indicate save was successful
-        setIsEditing(false); // <<<<<< EXIT EDIT MODE HERE for existing profiles
         setErrors({}); // Clear validation errors
         setAllTags(sortedAllTags); // Update the local list of all tags
         console.log("Profile updated:", clientProfile.uid);
