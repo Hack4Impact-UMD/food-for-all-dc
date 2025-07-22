@@ -16,8 +16,8 @@ import DialogContentText from "@mui/material/DialogContentText";
 import DialogTitle from "@mui/material/DialogTitle";
 import { auth } from "../../auth/firebaseConfig"; // Use the initialized auth from firebaseConfig.js
 import styles from "./Login.module.css";
-import foodForAllDCLogin from "../../assets/food-for-all-dc-login.png";
-import foodForAllDCLogo from "../../assets/food-for-all-dc-logo.jpg";
+import foodForAllDCLogin from "../../../assets/food-for-all-dc-login.png";
+import foodForAllDCLogo from "../../../assets/food-for-all-dc-logo.jpg";
 
 function Login() {
   const [loginEmail, setLoginEmail] = useState("");

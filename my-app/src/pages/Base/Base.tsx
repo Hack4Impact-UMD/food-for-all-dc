@@ -1,4 +1,5 @@
-import * as React from "react";
+import React, { useState, useMemo, useEffect } from "react";
+import type { ImgHTMLAttributes } from "react";
 import { styled, useTheme } from "@mui/material/styles";
 import Box from "@mui/material/Box";
 import Drawer from "@mui/material/Drawer";
@@ -20,11 +21,10 @@ import AddCircleIcon from "@mui/icons-material/AddCircle";
 import LogoutIcon from "@mui/icons-material/Logout";
 import LocalShippingIcon from "@mui/icons-material/LocalShipping";
 import Tab from "./NavBar/Tab";
-import logo from "../../assets/ffa-banner-logo.webp";
+import logo from "../../../assets/ffa-banner-logo.webp";
 import { Typography, useMediaQuery } from "@mui/material";
 import { useAuth } from "../../auth/AuthProvider";
 import { useNavigate, useLocation, Outlet } from "react-router-dom";
-import { useEffect } from "react";
 import { UserType } from "../../types";
 
 const drawerWidth = "20%";
@@ -100,9 +100,9 @@ const LogoImage = styled("img")({
 export default function BasePage() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-  const [open, setOpen] = React.useState(false);
-  const [tab, setTab] = React.useState("Delivery Schedule");
-  const [pageTitle, setPageTitle] = React.useState("");
+  const [open, setOpen] = useState(false);
+  const [tab, setTab] = useState("Delivery Schedule");
+  const [pageTitle, setPageTitle] = useState("");
   const { logout, userRole } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -157,7 +157,7 @@ export default function BasePage() {
   ];
 
   // Conditionally add items based on role
-  const navItems = React.useMemo(() => {
+  const navItems = useMemo(() => {
     const items = [...baseNavItems];
 
     // Add Delivery only if user is Admin or Manager

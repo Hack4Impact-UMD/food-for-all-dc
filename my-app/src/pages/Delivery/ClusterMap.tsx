@@ -5,7 +5,7 @@ import "leaflet.awesome-markers";
 import "leaflet.awesome-markers/dist/leaflet.awesome-markers.css";
 import { Box, Button, FormControlLabel, Switch, Typography } from "@mui/material";
 import DriverService from "../../services/driver-service";
-import FFAIcon from '../../assets/tsp-food-for-all-dc-logo.png'
+import FFAIcon from '../../../assets/tsp-food-for-all-dc-logo.png'
 
 interface Driver {
   id: string;
