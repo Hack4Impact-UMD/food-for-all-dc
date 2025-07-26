@@ -1,4 +1,5 @@
 // Centralized route configuration for Food for All DC
+import React from 'react';
 import Login from "./pages/Login/Login";
 import ForgotPasswordPage from "./pages/Login/forgot-password";
 import CalendarPage from "./pages/Calendar/CalendarPage";

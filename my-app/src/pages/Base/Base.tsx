@@ -21,7 +21,7 @@ import AddCircleIcon from "@mui/icons-material/AddCircle";
 import LogoutIcon from "@mui/icons-material/Logout";
 import LocalShippingIcon from "@mui/icons-material/LocalShipping";
 import Tab from "./NavBar/Tab";
-import logo from "../../../assets/ffa-banner-logo.webp";
+import logo from "../../assets/ffa-banner-logo.webp";
 import { Typography, useMediaQuery } from "@mui/material";
 import { useAuth } from "../../auth/AuthProvider";
 import { useNavigate, useLocation, Outlet } from "react-router-dom";

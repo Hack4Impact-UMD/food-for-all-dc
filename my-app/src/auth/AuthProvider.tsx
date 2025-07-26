@@ -20,7 +20,7 @@ export interface AuthContextType {
 }
 
 interface Props {
-  children: JSX.Element;
+  children: React.ReactNode;
 }
 
 // Create a default context value

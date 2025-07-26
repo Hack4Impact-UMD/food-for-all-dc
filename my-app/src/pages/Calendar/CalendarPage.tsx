@@ -15,7 +15,9 @@ import MonthView from "./components/MonthView";
 import { CalendarConfig, CalendarEvent, DateLimit, DeliveryEvent, Driver, NewDelivery, ViewType } from "../../types/calendar-types";
 import { ClientProfile } from "../../types/client-types";
 import { useLimits } from "./components/useLimits";
-import { DeliveryService, ClientService, DriverService } from "../../services";
+import DeliveryService from "../../services/delivery-service";
+import ClientService from "../../services/client-service";
+import DriverService from "../../services/driver-service";
 import { toJSDate, toDayPilotDateString } from '../../utils/timestamp';
 
 const DAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
@@ -129,7 +131,7 @@ const CalendarPage: React.FC = () => {
       const clientsData = await clientService.getAllClients();
       
       // Map client data to Client type with explicit type casting for compatibility
-      const clientList = clientsData.map(data => {
+      const clientList = clientsData.clients.map((data: ClientProfile) => {
         // Ensure dietaryRestrictions has all required fields
         const dietaryRestrictions = data.deliveryDetails?.dietaryRestrictions || {};
         

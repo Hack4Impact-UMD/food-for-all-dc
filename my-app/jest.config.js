@@ -15,6 +15,12 @@ module.exports = {
     // Explicitly mock react-datepicker CSS
     '^react-datepicker/dist/react-datepicker.css$': 'identity-obj-proxy',
     '^src/(.*)$': '<rootDir>/src/$1',
+    // Map firebase-service to the mock for all test imports (any relative path)
+    '^(.*)/firebase-service$': '<rootDir>/src/services/__mocks__/firebase-service.ts',
+    // Map firebaseConfig to the manual mock for all test imports (any relative path)
+    '^(.*)/firebaseConfig$': '<rootDir>/src/auth/__mocks__/firebaseConfig.ts',
+    // Map retry to the manual mock for all test imports (any relative path)
+    '^(.*)/retry$': '<rootDir>/src/utils/__mocks__/retry.ts',
   },
   collectCoverage: true,
   coverageDirectory: '<rootDir>/coverage',

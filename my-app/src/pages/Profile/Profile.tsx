@@ -36,7 +36,8 @@ import { useNavigate, useParams } from "react-router-dom";
 import { auth, db } from "../../auth/firebaseConfig";
 import CaseWorkerManagementModal from "../../components/CaseWorkerManagementModal";
 import "./Profile.css";
-import { ClientService, DeliveryService } from "../../services";
+import ClientService from "../../services/client-service";
+import DeliveryService from "../../services/delivery-service";
 import PopUp from "../../components/PopUp";
 import ErrorPopUp from "../../components/ErrorPopUp";
 
@@ -1335,7 +1336,7 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
   };
 
   // Re-define renderField to accept addressInputRef and forward it to FormField
-  const renderField = (fieldPath: ClientProfileKey, type: InputType = "text", addressInputRef?: React.RefObject<HTMLInputElement>) => {
+  const renderField = (fieldPath: ClientProfileKey, type: InputType = "text", addressInputRef?: React.RefObject<HTMLInputElement | null>) => {
     if (type === "dietaryRestrictions") {
       const dietaryOptions = [
         { name: "lowSugar", label: "Low Sugar" },
@@ -2186,10 +2187,10 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
       const clientService = ClientService.getInstance();
       const clientsData = await clientService.getAllClients();
       
-      console.log(`Fetched ${clientsData.length} clients`);
+      console.log(`Fetched ${clientsData.clients.length} clients`);
       
       // Map client data to Client type with explicit type casting for compatibility
-      const clientList = clientsData.map(data => {
+      const clientList = clientsData.clients.map((data: ClientProfile) => {
         // Ensure dietaryRestrictions has all required fields
         const dietaryRestrictions = data.deliveryDetails?.dietaryRestrictions || {};
         

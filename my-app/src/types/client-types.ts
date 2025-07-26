@@ -98,4 +98,5 @@ export interface ClientProfile {
   endDate: string;
   recurrence: string;
   tefapCert?: string;
-} 
+  clusterID?: string;
+}

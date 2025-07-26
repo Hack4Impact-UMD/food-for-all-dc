@@ -28,7 +28,7 @@ interface FormFieldProps {
   ) => void;
   getNestedValue: (obj: any, path: string) => any;
   handleDietaryRestrictionChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  addressInputRef?: React.RefObject<HTMLInputElement>;
+  addressInputRef?: React.RefObject<HTMLInputElement | null>;
   isDisabledField?: boolean;
   ward?: string;
   tags: string[];

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, Suspense } from "react";
 import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import { db } from "../../auth/firebaseConfig";
 import { Search, Filter } from "lucide-react";
@@ -49,7 +49,8 @@ import { styled } from "@mui/material/styles";
 import { collection, getDocs, doc, setDoc } from "firebase/firestore";
 import { auth } from "../../auth/firebaseConfig";
 import { onAuthStateChanged } from "firebase/auth";
-import ClusterMap from "./ClusterMap";
+// ...existing code...
+const ClusterMap = React.lazy(() => import("./ClusterMap"));
 import AssignDriverPopup from "./components/AssignDriverPopup";
 import GenerateClustersPopup from "./components/GenerateClustersPopup";
 import AssignTimePopup from "./components/AssignTimePopup";
@@ -1962,7 +1963,9 @@ const DeliverySpreadsheet: React.FC = () => {
           // Revert to rendering the indicator directly
           <LoadingIndicator />
         ) : visibleRows.length > 0 ? (
-          <ClusterMap clusters={clusters} visibleRows={visibleRows} clientOverrides={clientOverrides} onClusterUpdate={handleIndividualClientUpdate} refreshDriversTrigger={driversRefreshTrigger} />
+          <Suspense fallback={<LoadingIndicator />}>
+            <ClusterMap clusters={clusters} visibleRows={visibleRows} clientOverrides={clientOverrides} onClusterUpdate={handleIndividualClientUpdate} refreshDriversTrigger={driversRefreshTrigger} />
+          </Suspense>
         ) : (
           <Box
             sx={{

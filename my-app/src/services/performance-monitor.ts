@@ -1,4 +1,6 @@
 // Performance monitoring service
+import { retry } from '../utils/retry';
+import { ServiceError, formatServiceError } from '../utils/serviceError';
 class PerformanceMonitor {
   private static instance: PerformanceMonitor;
   private metrics: Map<string, number[]> = new Map();
@@ -187,78 +189,92 @@ class PerformanceMonitor {
 
   // Bundle size monitoring
   async measureBundleSize() {
-    if ('navigator' in window && 'connection' in navigator) {
-      const connection = (navigator as any).connection;
-      if (connection) {
-        console.log('Connection type:', connection.effectiveType);
-        console.log('Downlink speed:', connection.downlink);
-      }
+    try {
+      await retry(async () => {
+        if ('navigator' in window && 'connection' in navigator) {
+          const connection = (navigator as any).connection;
+          if (connection) {
+            console.log('Connection type:', connection.effectiveType);
+            console.log('Downlink speed:', connection.downlink);
+          }
+        }
+        // Monitor resource sizes
+        const resources = performance.getEntriesByType('resource') as PerformanceResourceTiming[];
+        let totalSize = 0;
+        resources.forEach((resource) => {
+          if (resource.transferSize) {
+            totalSize += resource.transferSize;
+          }
+        });
+        console.log('Total resource size:', totalSize);
+      });
+    } catch (error) {
+      throw formatServiceError(error, 'Failed to measure bundle size');
     }
-
-    // Monitor resource sizes
-    const resources = performance.getEntriesByType('resource') as PerformanceResourceTiming[];
-    let totalSize = 0;
-    
-    resources.forEach((resource) => {
-      if (resource.transferSize) {
-        totalSize += resource.transferSize;
-      }
-    });
-    
-    console.log('Total resource size:', totalSize);
   }
 
   // Memory usage monitoring
   measureMemoryUsage() {
-    if ('memory' in performance) {
-      const memory = (performance as any).memory;
-      console.log('Memory usage:', {
-        used: memory.usedJSHeapSize,
-        total: memory.totalJSHeapSize,
-        limit: memory.jsHeapSizeLimit
-      });
+    try {
+      if ('memory' in performance) {
+        const memory = (performance as any).memory;
+        console.log('Memory usage:', {
+          used: memory.usedJSHeapSize,
+          total: memory.totalJSHeapSize,
+          limit: memory.jsHeapSizeLimit
+        });
+      }
+    } catch (error) {
+      throw formatServiceError(error, 'Failed to measure memory usage');
     }
   }
 
   // Performance recommendations
   getRecommendations(): string[] {
-    const recommendations: string[] = [];
-    const metrics = this.getMetrics();
-    
-    if (metrics.lcp && metrics.lcp.latest > 2500) {
-      recommendations.push('LCP is slow - consider optimizing images and critical resources');
+    try {
+      const recommendations: string[] = [];
+      const metrics = this.getMetrics();
+      if (metrics.lcp && metrics.lcp.latest > 2500) {
+        recommendations.push('LCP is slow - consider optimizing images and critical resources');
+      }
+      if (metrics.fid && metrics.fid.latest > 100) {
+        recommendations.push('FID is high - consider reducing JavaScript execution time');
+      }
+      if (metrics.cls && metrics.cls.latest > 0.1) {
+        recommendations.push('CLS is high - ensure elements have defined dimensions');
+      }
+      return recommendations;
+    } catch (error) {
+      throw formatServiceError(error, 'Failed to get performance recommendations');
     }
-    
-    if (metrics.fid && metrics.fid.latest > 100) {
-      recommendations.push('FID is high - consider reducing JavaScript execution time');
-    }
-    
-    if (metrics.cls && metrics.cls.latest > 0.1) {
-      recommendations.push('CLS is high - ensure elements have defined dimensions');
-    }
-    
-    return recommendations;
   }
 
   // Export metrics for analysis
   exportMetrics(): string {
-    const metrics = this.getMetrics();
-    const recommendations = this.getRecommendations();
-    
-    return JSON.stringify({
-      timestamp: new Date().toISOString(),
-      metrics,
-      recommendations,
-      userAgent: navigator.userAgent,
-      url: window.location.href
-    }, null, 2);
+    try {
+      const metrics = this.getMetrics();
+      const recommendations = this.getRecommendations();
+      return JSON.stringify({
+        timestamp: new Date().toISOString(),
+        metrics,
+        recommendations,
+        userAgent: navigator.userAgent,
+        url: window.location.href
+      }, null, 2);
+    } catch (error) {
+      throw formatServiceError(error, 'Failed to export performance metrics');
+    }
   }
 
   // Cleanup
   destroy() {
-    this.observers.forEach(observer => observer.disconnect());
-    this.observers = [];
-    this.metrics.clear();
+    try {
+      this.observers.forEach(observer => observer.disconnect());
+      this.observers = [];
+      this.metrics.clear();
+    } catch (error) {
+      throw formatServiceError(error, 'Failed to destroy performance monitor');
+    }
   }
 }
 
