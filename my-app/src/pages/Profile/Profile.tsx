@@ -62,6 +62,7 @@ import AddDeliveryDialog from "../Calendar/components/AddDeliveryDialog";
 import { calculateRecurrenceDates } from "../Calendar/components/CalendarUtils";
 import { DayPilot } from "@daypilot/daypilot-lite-react";
 import { toJSDate } from '../../utils/timestamp';
+import HealthConditionsForm from "./components/HealthConditionsForm";
 
 // Styling
 const fieldStyles = {
@@ -243,7 +244,24 @@ const Profile = () => {
     ward: "",
     tefapCert: "",
     referralEntity: null,
-    coordinates: []
+    coordinates: [],
+    physicalAilments: {
+    diabetes: false,
+    hypertension: false,
+    heartDisease: false,
+    kidneyDisease: false,
+    cancer: false,
+    otherText: "",
+    other: false,
+  },
+  physicalDisability: {
+    otherText: "",
+    other: false,
+  },
+  mentalHealthConditions: {
+    otherText: "",
+    other: false
+  },
   });
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [fieldEditStates, setFieldEditStates] = useState<{ [key: string]: boolean }>({});
@@ -1336,6 +1354,225 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
 
   // Re-define renderField to accept addressInputRef and forward it to FormField
   const renderField = (fieldPath: ClientProfileKey, type: InputType = "text", addressInputRef?: React.RefObject<HTMLInputElement>) => {
+
+if (type === 'mentalHealthConditions') {
+      return (
+      <>
+      <Box sx={{ 
+        display: 'flex', 
+        alignItems: 'center',
+        gap: 1,
+        width: '100%',
+      }}>
+  <FormControlLabel
+    control={      <Checkbox
+        checked={clientProfile.mentalHealthConditions?.other || false}
+        onChange={handleMentalHealthConditionsChange}
+        name="other"
+        sx={{
+          "&:focus": {
+            outline: "none",
+          },
+          "&.Mui-focusVisible": {
+            outline: "none",
+            "& .MuiSvgIcon-root": {
+              color: "#257E68",
+              filter: "drop-shadow(0 0 8px rgba(37, 126, 104, 0.4)) drop-shadow(0 0 16px rgba(37, 126, 104, 0.2))",
+            },
+          },
+          "& input:focus + .MuiSvgIcon-root": {
+            color: "#257E68",
+            filter: "drop-shadow(0 0 8px rgba(37, 126, 104, 0.4)) drop-shadow(0 0 16px rgba(37, 126, 104, 0.2))",
+          },
+        }}
+      />
+    }
+    label="Other"
+  />
+  {clientProfile.mentalHealthConditions?.other && (    <TextField
+      name="otherText"
+      value={clientProfile.mentalHealthConditions?.otherText || ""}
+      onChange={handlePhysicalDisabilityChange}
+      placeholder="Please specify other mental health conditions"
+      variant="outlined"
+      size="small"
+      sx={{ 
+        flexGrow: 1, 
+        marginTop: '5%',        '& .MuiOutlinedInput-root': {
+          '&.Mui-focused fieldset': {
+            borderColor: "#257E68",
+            border: "2px solid #257E68",
+            boxShadow: "0 0 8px rgba(37, 126, 104, 0.4), 0 0 16px rgba(37, 126, 104, 0.2)",
+          },
+        },
+      }}
+    />
+  )}
+</Box>
+        </>
+      );
+    }
+
+    if (type === 'physicalDisablity') {
+      return (
+      <>
+      <Box sx={{ 
+        display: 'flex', 
+        alignItems: 'center',
+        gap: 1,
+        width: '100%',
+      }}>
+  <FormControlLabel
+    control={      <Checkbox
+        checked={clientProfile.physicalDisability?.other || false}
+        onChange={handlePhysicalDisabilityChange}
+        name="other"
+        sx={{
+          "&:focus": {
+            outline: "none",
+          },
+          "&.Mui-focusVisible": {
+            outline: "none",
+            "& .MuiSvgIcon-root": {
+              color: "#257E68",
+              filter: "drop-shadow(0 0 8px rgba(37, 126, 104, 0.4)) drop-shadow(0 0 16px rgba(37, 126, 104, 0.2))",
+            },
+          },
+          "& input:focus + .MuiSvgIcon-root": {
+            color: "#257E68",
+            filter: "drop-shadow(0 0 8px rgba(37, 126, 104, 0.4)) drop-shadow(0 0 16px rgba(37, 126, 104, 0.2))",
+          },
+        }}
+      />
+    }
+    label="Other"
+  />
+  {clientProfile.physicalDisability?.other && (    <TextField
+      name="otherText"
+      value={clientProfile.physicalDisability?.otherText || ""}
+      onChange={handlePhysicalDisabilityChange}
+      placeholder="Please specify other physical disabilities"
+      variant="outlined"
+      size="small"
+      sx={{ 
+        flexGrow: 1, 
+        marginTop: '5%',        '& .MuiOutlinedInput-root': {
+          '&.Mui-focused fieldset': {
+            borderColor: "#257E68",
+            border: "2px solid #257E68",
+            boxShadow: "0 0 8px rgba(37, 126, 104, 0.4), 0 0 16px rgba(37, 126, 104, 0.2)",
+          },
+        },
+      }}
+    />
+  )}
+</Box>
+        </>
+      );
+    }
+
+
+    if (type === "physicalAilments") {
+      const physicalAilmentsOptions = [
+        { name: "diabetes", label: "Diabetes" },
+        { name: "hypertension", label: "Hypertension" },
+        { name: "heartDisease", label: "Heart Disease" },
+        { name: "kidneyDisease", label: "Kidney Disease" },
+        { name: "cancer", label: "Cancer" },
+      ] as const;
+
+      interface physicalAilmentsOption {
+        name: 'diabetes' | 'hypertension' | 'heartDisease' | 'kidneyDisease' | 'cancer';
+        label: string;
+      }
+
+      return (
+        <>
+
+{physicalAilmentsOptions.map((option: physicalAilmentsOption) => (
+  <FormControlLabel
+    key={option.name}
+    control={      <Checkbox
+        checked={Boolean(clientProfile.physicalAilments?.[option.name])}
+        onChange={handlePhysicalAilmentsChange}
+        name={option.name}
+        sx={{
+          "&:focus": {
+            outline: "none",
+          },
+          "&.Mui-focusVisible": {
+            outline: "none",
+            "& .MuiSvgIcon-root": {
+              color: "#257E68",
+              filter: "drop-shadow(0 0 8px rgba(37, 126, 104, 0.4)) drop-shadow(0 0 16px rgba(37, 126, 104, 0.2))",
+            },
+          },
+          "& input:focus + .MuiSvgIcon-root": {
+            color: "#257E68",
+            filter: "drop-shadow(0 0 8px rgba(37, 126, 104, 0.4)) drop-shadow(0 0 16px rgba(37, 126, 104, 0.2))",
+          },
+        }}
+      />
+    }
+    label={option.label}
+  />
+))}
+
+<Box sx={{ 
+  display: 'flex', 
+  alignItems: 'center',
+  gap: 1,
+  width: '100%',
+}}>
+  <FormControlLabel
+    control={      <Checkbox
+        checked={clientProfile.physicalAilments?.other || false}
+        onChange={handlePhysicalAilmentsChange}
+        name="other"
+        sx={{
+          "&:focus": {
+            outline: "none",
+          },
+          "&.Mui-focusVisible": {
+            outline: "none",
+            "& .MuiSvgIcon-root": {
+              color: "#257E68",
+              filter: "drop-shadow(0 0 8px rgba(37, 126, 104, 0.4)) drop-shadow(0 0 16px rgba(37, 126, 104, 0.2))",
+            },
+          },
+          "& input:focus + .MuiSvgIcon-root": {
+            color: "#257E68",
+            filter: "drop-shadow(0 0 8px rgba(37, 126, 104, 0.4)) drop-shadow(0 0 16px rgba(37, 126, 104, 0.2))",
+          },
+        }}
+      />
+    }
+    label="Other"
+  />
+  {clientProfile.physicalAilments?.other && (    <TextField
+      name="otherText"
+      value={clientProfile.physicalAilments?.otherText || ""}
+      onChange={handlePhysicalAilmentsChange}
+      placeholder="Please specify other physical ailments"
+      variant="outlined"
+      size="small"
+      sx={{ 
+        flexGrow: 1, 
+        marginTop: '5%',        '& .MuiOutlinedInput-root': {
+          '&.Mui-focused fieldset': {
+            borderColor: "#257E68",
+            border: "2px solid #257E68",
+            boxShadow: "0 0 8px rgba(37, 126, 104, 0.4), 0 0 16px rgba(37, 126, 104, 0.2)",
+          },
+        },
+      }}
+    />
+  )}
+</Box>
+        </>
+      );
+    }
+
     if (type === "dietaryRestrictions") {
       const dietaryOptions = [
         { name: "lowSugar", label: "Low Sugar" },
@@ -1915,6 +2152,122 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
     }
   };
 
+
+  const handlePhysicalAilmentsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const { name, type } = e.target;
+  handlePrevClientCopying();
+
+  setClientProfile((prevState) => {
+
+    if (type === "checkbox") {
+      console.log('Physical Ailment ' + name + ' checkbox toggled')
+      const { checked } = e.target;
+      return {
+        ...prevState,
+        physicalAilments: {
+          ...prevState.physicalAilments,
+          [name]: checked,
+          ...(name === "other" && {
+            otherText: checked ? prevState.physicalAilments?.otherText : ""
+          })
+        }
+      };
+    }
+
+    if (type === "text" && name === "otherText") {
+      console.log('Physical Ailment textbox toggled')
+      const value = e.target.value;
+      return {
+        ...prevState,
+        physicalAilments: {
+          ...prevState.physicalAilments,
+          otherText: value,
+          other: true
+        }
+      };
+    }
+    console.log('Defaulting to previous physical ailments')
+    return prevState; // fallback
+  });
+};
+
+
+const handlePhysicalDisabilityChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const { name, type } = e.target;
+  handlePrevClientCopying();
+
+  setClientProfile((prevState) => {
+
+    if (type === "checkbox") {
+      console.log('physical Disability ' + name + ' checkbox toggled')
+      const { checked } = e.target;
+      return {
+        ...prevState,
+        physicalDisability: {
+          ...prevState.physicalDisability,
+          [name]: checked,
+          ...(name === "other" && {
+            otherText: checked ? prevState.physicalDisability?.otherText : ""
+          })
+        }
+      };
+    }
+
+    if (type === "text" && name === "otherText") {
+      console.log('physical Disability textbox toggled')
+      const value = e.target.value;
+      return {
+        ...prevState,
+        physicalDisability: {
+          ...prevState.physicalDisability,
+          otherText: value,
+          other: true
+        }
+      };
+    }
+    console.log('Defaulting to previous physical disability')
+    return prevState; // fallback
+  });
+};
+
+const handleMentalHealthConditionsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const { name, type } = e.target;
+  handlePrevClientCopying();
+
+  setClientProfile((prevState) => {
+
+    if (type === "checkbox") {
+      console.log('mental Health Conditions ' + name + ' checkbox toggled')
+      const { checked } = e.target;
+      return {
+        ...prevState,
+        mentalHealthConditions: {
+          ...prevState.mentalHealthConditions,
+          [name]: checked,
+          ...(name === "other" && {
+            otherText: checked ? prevState.mentalHealthConditions?.otherText : ""
+          })
+        }
+      };
+    }
+
+    if (type === "text" && name === "otherText") {
+      console.log('mental Health Conditions textbox toggled')
+      const value = e.target.value;
+      return {
+        ...prevState,
+        mentalHealthConditions: {
+          ...prevState.mentalHealthConditions,
+          otherText: value,
+          other: true
+        }
+      };
+    }
+    console.log('Defaulting to previous physical disability')
+    return prevState; // fallback
+  });
+};
+
   //google places autocomplete
   const addressInputRef = useRef<HTMLInputElement>(null);
   const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
@@ -2381,6 +2734,17 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
           <SectionBox mb={3}>
             <SectionTitle sx={{ textAlign: 'left', width: '100%' }}>Dietary Preferences</SectionTitle>
             <DietaryPreferencesForm
+              isEditing={isEditing}
+              fieldLabelStyles={fieldLabelStyles}
+              dietaryRestrictions={clientProfile.deliveryDetails.dietaryRestrictions}
+              renderField={renderField}
+            />
+          </SectionBox>
+
+          {/*Health Section*/}
+          <SectionBox mb={3}>
+            <SectionTitle sx={{ textAlign: 'left', width: '100%' }}>Health Conditions</SectionTitle>
+            <HealthConditionsForm
               isEditing={isEditing}
               fieldLabelStyles={fieldLabelStyles}
               dietaryRestrictions={clientProfile.deliveryDetails.dietaryRestrictions}

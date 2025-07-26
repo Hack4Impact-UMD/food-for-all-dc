@@ -22,4 +22,7 @@ export type InputType =
   | "textarea"
   | "checkbox"
   | "dietaryRestrictions"
+  | "physicalAilments"
+  | "physicalDisablity"
+  | "mentalHealthConditions"
   | "email";
