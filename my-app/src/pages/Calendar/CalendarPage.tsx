@@ -430,7 +430,7 @@ const CalendarPage: React.FC = () => {
       sx={{
         display: "flex",
         flexDirection: "column",
-        minHeight: "100vh",
+        height: "90vh",
         minWidth: "95vw",
       }}
     >
@@ -440,8 +440,7 @@ const CalendarPage: React.FC = () => {
         component="main"
         sx={{
           flexGrow: 1,
-          overflow: "hidden",
-          marginTop: 10,
+          overflow: "hidden"
         }}
       >
         <CalendarHeader 

@@ -57,7 +57,6 @@ import AssignTimePopup from "./components/AssignTimePopup";
 import LoadingIndicator from "../../components/LoadingIndicator/LoadingIndicator";
 import { exportDeliveries, exportDoordashDeliveries } from "./RouteExport";
 import Button from "../../components/common/Button";
-import ManualAssign from "./components/ManualAssignPopup";
 import { RowData as DeliveryRowData } from "./types/deliveryTypes";
 import { Driver } from '../../types/calendar-types';
 import { CustomRowData, useCustomColumns } from "../../hooks/useCustomColumns";
@@ -1086,44 +1085,6 @@ const DeliverySpreadsheet: React.FC = () => {
     setClientOverrides([]);
   }
 
-  const manualAssign = async (assignedClusters: string[], clusters: number) => {
-    //make blank cluster template
-    const newClusters: Cluster[] = Array.from({ length: clusters }, (_, i) => ({
-      id: (i + 1).toString(),
-      driver: "",
-      time: "",
-      deliveries: [],
-    }));
-
-    //populate deliveries for clusters
-    assignedClusters.forEach((clusterIndex, deliveryIndex) => {
-      const numericIndex = parseInt(clusterIndex) - 1;
-      if (numericIndex >= 0 && numericIndex < newClusters.length) {
-        // Use visibleRows here
-        newClusters[numericIndex].deliveries.push(visibleRows[deliveryIndex].id);
-      } else {
-        console.warn(`Invalid cluster index: ${clusterIndex}`);
-      }
-    });
-
-
-    if (clusterDoc) {
-      const clusterRef = doc(db, "clusters", clusterDoc.docId);
-      // Only update the 'clusters' field using updateDoc
-      await updateDoc(clusterRef, { 
-        clusters: newClusters,
-        clientOverrides: clientOverrides
-      });
-      setClusters(newClusters); // Update state after successful Firestore update
-      // Update the local clusterDoc state's clusters as well
-      setClusterDoc(prevDoc => prevDoc ? { ...prevDoc, clusters: newClusters } : null);
-    }
-    else {
-      initClustersForDay(newClusters);
-    }
-    resetSelections()
-  };
-
   // Helper function to check if coordinates are valid
   const isValidCoordinate = (coord: LatLngTuple | { lat: number; lng: number } | undefined | null): coord is LatLngTuple | { lat: number; lng: number } => {
     if (!coord) return false;
@@ -1913,22 +1874,6 @@ const DeliverySpreadsheet: React.FC = () => {
           <PageDatePicker setSelectedDate={handleDateChange}  marginLeft="1rem" />
         </Box>
       </Box>
-      <Button
-        variant="primary"
-        size="medium"
-        disabled={userRole === UserType.ClientIntake}
-        style={{
-          whiteSpace: "nowrap",
-          padding: "0% 2%",
-          borderRadius: 5,
-          width: "auto",
-          marginRight: '16px'
-        }}
-        onClick={() => setPopupMode("ManualClusters")}
-        startIcon={<AddIcon />}
-      >
-        Manual Assign
-      </Button>
         
       <Button
         variant="primary"
@@ -2510,19 +2455,6 @@ const DeliverySpreadsheet: React.FC = () => {
           <DialogContent>
             <GenerateClustersPopup
               onGenerateClusters={generateClusters}
-              onClose={resetSelections}
-            />
-          </DialogContent>
-        </Dialog>
-      )}
-
-      {popupMode === "ManualClusters" && (
-        <Dialog open onClose={resetSelections} maxWidth="xs" fullWidth>
-          <DialogTitle>Assign Clusters</DialogTitle>
-          <DialogContent>
-            <ManualAssign
-              manualAssign={manualAssign}
-              allDeliveries={visibleRows as any}
               onClose={resetSelections}
             />
           </DialogContent>
