@@ -1,7 +1,7 @@
 import { validateDriver } from '../utils/firestoreValidation';
 import { retry } from '../utils/retry';
 import { ServiceError, formatServiceError } from '../utils/serviceError';
-import FirebaseService from "./firebase-service";
+import { db } from "./firebase";
 import { Driver } from '../types';
 import {
   collection,
@@ -24,7 +24,7 @@ import {
  */
 class DriverService {
   private static instance: DriverService;
-  private db = FirebaseService.getInstance().getFirestore();
+  private db = db;
   private driversCollection = "Drivers";
 
   // Private constructor to prevent direct instantiation

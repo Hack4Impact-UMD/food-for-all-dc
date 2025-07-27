@@ -14,7 +14,7 @@ export function validateDriver(data: any): data is Driver {
 }
 
 export function validateDeliveryEvent(data: any): data is DeliveryEvent {
-  return !!data && typeof data.id === 'string' && typeof data.clientId === 'string' && typeof data.driverId === 'string';
+  return !!data && typeof data.id === 'string' && typeof data.clientId === 'string';
 }
 
 export function validateCluster(data: any): data is Cluster {

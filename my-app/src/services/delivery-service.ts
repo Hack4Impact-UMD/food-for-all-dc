@@ -12,7 +12,7 @@ import {
   orderBy,
   limit,
 } from "firebase/firestore";
-import FirebaseService from "./firebase-service";
+import { db } from "./firebase";
 import { DeliveryEvent } from "../types/calendar-types";
 import { validateDeliveryEvent } from '../utils/firestoreValidation';
 import { Time, TimeUtils } from "../utils/timeUtils";
@@ -24,7 +24,7 @@ import { ServiceError, formatServiceError } from '../utils/serviceError';
  */
 class DeliveryService {
   private static instance: DeliveryService;
-  private db = FirebaseService.getInstance().getFirestore();
+  private db = db;
   private eventsCollection = "events";
   private dailyLimitsCollection = "dailyLimits";
   private limitsCollection = "limits";
@@ -72,23 +72,27 @@ class DeliveryService {
   public async getEventsByDateRange(startDate: Date, endDate: Date): Promise<DeliveryEvent[]> {
     try {
       return await retry(async () => {
-        const startTimestamp = Time.Firebase.toTimestamp(TimeUtils.fromJSDate(startDate));
-        const endTimestamp = Time.Firebase.toTimestamp(TimeUtils.fromJSDate(endDate));
-        console.log('[DeliveryService] getEventsByDateRange params:', { startDate, endDate, startTimestamp, endTimestamp });
+        // Always use start of day for startDate and end of day for endDate
+        const startDateTime = TimeUtils.fromJSDate(startDate).startOf('day');
+        const endDateTime = TimeUtils.fromJSDate(endDate).endOf('day');
+        const startTimestamp = Time.Firebase.toTimestamp(startDateTime);
+        const endTimestamp = Time.Firebase.toTimestamp(endDateTime);
+        // ...existing code...
         const q = query(
           collection(this.db, this.eventsCollection),
           where("deliveryDate", ">=", startTimestamp),
           where("deliveryDate", "<", endTimestamp)
         );
-        console.log('[DeliveryService] getEventsByDateRange Firestore query:', q);
         const querySnapshot = await getDocs(q);
         const events = querySnapshot.docs
           .map((doc) => {
             const raw = doc.data();
+            // ...existing code...
             const data = { id: doc.id, ...raw, deliveryDate: Time.Firebase.fromTimestamp(raw.deliveryDate).toJSDate() };
             return validateDeliveryEvent(data) ? data : undefined;
           })
           .filter((event) => event !== undefined) as DeliveryEvent[];
+        // ...existing code...
         return events;
       });
     } catch (error) {

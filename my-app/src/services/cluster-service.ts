@@ -10,7 +10,7 @@ import {
   DocumentReference,
   onSnapshot,
 } from "firebase/firestore";
-import FirebaseService from "./firebase-service";
+import { db } from "./firebase";
 import { retry } from '../utils/retry';
 import { ServiceError, formatServiceError } from '../utils/serviceError';
 import { Cluster } from "../pages/Delivery/types/deliveryTypes";
@@ -22,7 +22,7 @@ import ClientService from "./client-service";
  */
 class ClusterService {
   private static instance: ClusterService;
-  private db = FirebaseService.getInstance().getFirestore();
+  private db = db;
   private clustersCollection = "clusters";
   private clientService = ClientService.getInstance();
 

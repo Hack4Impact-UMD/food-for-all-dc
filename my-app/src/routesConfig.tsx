@@ -53,6 +53,7 @@ export const routesConfig: AppRoute[] = [
         element: <CalendarPage />,
         meta: { title: "Calendar", description: "Delivery and event calendar", icon: "calendar_today" },
       },
+      // DEV ROUTE: Print all event dates under /calendar
       {
         path: "profile/:clientId?",
         element: <Profile />,

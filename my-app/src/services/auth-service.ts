@@ -8,8 +8,9 @@ import {
   UserCredential,
   IdTokenResult,
 } from "firebase/auth";
+
 import { AuthError } from "../types/user-types";
-import FirebaseService from "./firebase-service";
+import { auth } from "./firebase";
 import { retry } from '../utils/retry';
 import { ServiceError, formatServiceError } from '../utils/serviceError';
 
@@ -18,7 +19,7 @@ import { ServiceError, formatServiceError } from '../utils/serviceError';
  */
 class AuthService {
   private static instance: AuthService;
-  private auth = FirebaseService.getInstance().getAuth();
+  private auth = auth;
 
   // Private constructor to prevent direct instantiation
   // This is part of the singleton pattern

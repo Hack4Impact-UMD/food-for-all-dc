@@ -125,72 +125,15 @@ const CalendarPage: React.FC = () => {
   };
 
   const fetchClients = async () => {
+    // DEBUG: Clear and print clients after fetch
     try {
       // Use ClientService instead of direct Firebase calls
       const clientService = ClientService.getInstance();
       const clientsData = await clientService.getAllClients();
-      
-      // Map client data to Client type with explicit type casting for compatibility
-      const clientList = clientsData.clients.map((data: ClientProfile) => {
-        // Ensure dietaryRestrictions has all required fields
-        const dietaryRestrictions = data.deliveryDetails?.dietaryRestrictions || {};
-        
-        return {
-          id: data.uid,
-          uid: data.uid,
-          firstName: data.firstName || "",
-          lastName: data.lastName || "",
-          streetName: data.streetName || "",
-          zipCode: data.zipCode || "",
-          address: data.address || "",
-          address2: data.address2 || "",
-          email: data.email || "",
-          city: data.city || "",
-          state: data.state || "",
-          quadrant: data.quadrant || "",
-          dob: data.dob || "",
-          phone: data.phone || "",
-          alternativePhone: data.alternativePhone || "",
-          adults: data.adults || 0,
-          children: data.children || 0,
-          total: data.total || 0,
-          gender: data.gender || "Other",
-          ethnicity: data.ethnicity || "",
-          deliveryDetails: {
-            deliveryInstructions: data.deliveryDetails?.deliveryInstructions || "",
-            dietaryRestrictions: {
-              foodAllergens: dietaryRestrictions.foodAllergens || [],
-              halal: dietaryRestrictions.halal || false,
-              kidneyFriendly: dietaryRestrictions.kidneyFriendly || false,
-              lowSodium: dietaryRestrictions.lowSodium || false,
-              lowSugar: dietaryRestrictions.lowSugar || false,
-              microwaveOnly: dietaryRestrictions.microwaveOnly || false,
-              noCookingEquipment: dietaryRestrictions.noCookingEquipment || false,
-              other: dietaryRestrictions.other || [],
-              softFood: dietaryRestrictions.softFood || false,
-              vegan: dietaryRestrictions.vegan || false,
-              vegetarian: dietaryRestrictions.vegetarian || false,
-            },
-          },
-          lifeChallenges: data.lifeChallenges || "",
-          notes: data.notes || "",
-          notesTimestamp: data.notesTimestamp || null,
-          lifestyleGoals: data.lifestyleGoals || "",
-          language: data.language || "",
-          createdAt: data.createdAt || TimeUtils.now().toJSDate(),
-          updatedAt: data.updatedAt || TimeUtils.now().toJSDate(),
-          startDate: data.startDate || "",
-          endDate: data.endDate || "",
-          recurrence: data.recurrence || "None",
-          tags: data.tags || [],
-          ward: data.ward || "",
-          seniors: data.seniors || 0,
-          headOfHousehold: data.headOfHousehold || "Adult",
-        };
-      });
-      
-      // Cast the result to Client[] to satisfy type checking
-      setClients(clientList as unknown as ClientProfile[]);
+      // Use the client objects as returned from client-service.ts to ensure uid matches Firestore doc id
+      setClients(clientsData.clients as ClientProfile[]);
+      const clientUids = clientsData.clients.map((c: any) => c.uid);
+      console.log('[CalendarPage][DEBUG] Loaded client uids:', clientUids);
     } catch (error) {
       console.error("Error fetching clients:", error);
     }
@@ -208,6 +151,8 @@ const CalendarPage: React.FC = () => {
   };
 
   const fetchEvents = async () => {
+    // DEBUG: Print current date range and viewType
+    console.log('[CalendarPage] Fetching events for', { viewType, currentDate });
     try {
       let start = new DayPilot.Date(currentDate);
       let endDate;
@@ -245,10 +190,27 @@ const CalendarPage: React.FC = () => {
         start.toDate(),
         endDate.toDate()
       );
+      console.log('[CalendarPage] Raw fetched events:', fetchedEvents);
+
+
+      // Debug: Print all event clientIds and all client uids
+      const eventClientIds = fetchedEvents.map(event => event.clientId);
+      const clientUids = clients.map(client => client.uid);
+      const eventClientIdSet = new Set(eventClientIds);
+      const clientUidSet = new Set(clientUids);
+      const intersection = eventClientIds.filter(id => clientUidSet.has(id));
+      const missingInClients = eventClientIds.filter(id => !clientUidSet.has(id));
+      const missingInEvents = clientUids.filter(uid => !eventClientIdSet.has(uid));
+      console.log('[CalendarPage][DEBUG] All event clientIds:', eventClientIds);
+      console.log('[CalendarPage][DEBUG] All client uids:', clientUids);
+      console.log('[CalendarPage][DEBUG] Intersection (should display):', intersection);
+      console.log('[CalendarPage][DEBUG] Event clientIds missing in clients:', missingInClients);
+      console.log('[CalendarPage][DEBUG] Client uids missing in events:', missingInEvents);
 
       // Filter out events associated with deleted clients
       const activeClientIds = new Set(clients.map(client => client.uid));
       const filteredEventsByClient = fetchedEvents.filter(event => activeClientIds.has(event.clientId));
+      console.log('[CalendarPage] Filtered events by client:', filteredEventsByClient);
 
       // Update client names in events with current client data
       const updatedEvents = filteredEventsByClient.map(event => {
@@ -274,6 +236,7 @@ const CalendarPage: React.FC = () => {
       const uniqueFilteredEvents = Array.from(uniqueEventsMap.values());
 
       setEvents(uniqueFilteredEvents);
+      console.log('[CalendarPage] Final unique events set:', uniqueFilteredEvents);
 
       // Update calendar configuration with new events
       const formattedEvents = Array.from(uniqueEventsMap.values()).map(event => ({

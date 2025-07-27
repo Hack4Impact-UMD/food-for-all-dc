@@ -1,5 +1,6 @@
-import FirebaseService from "./firebase-service";
+import { db } from "./firebase";
 import { ClientProfile } from '../types';
+import type { RowData } from '../components/Spreadsheet/Spreadsheet';
 import { LatLngTuple } from "leaflet";
 import { Time, TimeUtils } from "../utils/timeUtils";
 import { retry } from '../utils/retry';
@@ -24,9 +25,10 @@ import { validateClientProfile } from '../utils/firestoreValidation';
 /**
  * Client Service - Handles all client-related operations with Firebase
  */
+// ...existing code...
 class ClientService {
   private static instance: ClientService;
-  private db = FirebaseService.getInstance().getFirestore();
+  private db = db;
   private clientsCollection = "clients";
   private tagsCollection = "tags";
   private tagsDocId = "oGuiR2dQQeOBXHCkhDeX";
@@ -53,10 +55,10 @@ import { validateClientProfile } from '../utils/firestoreValidation';
       const docSnap = await retry(async () => {
         return await getDoc(doc(this.db, this.clientsCollection, uid));
       });
-      console.log('[ClientService] getClientById docSnap:', docSnap);
+      // ...existing code...
       if (docSnap.exists()) {
         const data = docSnap.data() as ClientProfile;
-        console.log('[ClientService] getClientById data:', data);
+        // ...existing code...
         return validateClientProfile(data) ? data : null;
       }
       return null;
@@ -73,14 +75,78 @@ import { validateClientProfile } from '../utils/firestoreValidation';
   public async getAllClients(pageSize = 50, lastDoc?: any): Promise<{ clients: ClientProfile[]; lastDoc?: any }> {
     try {
       return await retry(async () => {
-        let q = query(collection(this.db, this.clientsCollection), orderBy("uid"), fbLimit(pageSize));
+        let q = query(collection(this.db, this.clientsCollection), fbLimit(pageSize));
         if (lastDoc) {
           q = query(q, startAfter(lastDoc));
         }
         const snapshot = await getDocs(q);
-        const clients = snapshot.docs
-          .map((doc) => doc.data())
-          .filter(validateClientProfile);
+        const clients = snapshot.docs.map((doc) => {
+          const raw = doc.data() as any;
+          const deliveryDetails = raw.deliveryDetails || {};
+          const dietaryRestrictions = deliveryDetails.dietaryRestrictions || {};
+          const mapped: ClientProfile = {
+            uid: doc.id,
+            firstName: raw.firstName || "",
+            lastName: raw.lastName || "",
+            streetName: raw.streetName || "",
+            zipCode: raw.zipCode || "",
+            address: raw.address || "",
+            address2: raw.address2 || "",
+            email: raw.email || "",
+            city: raw.city || "",
+            state: raw.state || "",
+            quadrant: raw.quadrant || "",
+            dob: raw.dob || "",
+            deliveryFreq: raw.deliveryFreq || "",
+            phone: raw.phone || "",
+            alternativePhone: raw.alternativePhone || "",
+            adults: raw.adults || 0,
+            children: raw.children || 0,
+            total: raw.total || 0,
+            gender: raw.gender || "Other",
+            ethnicity: raw.ethnicity || "",
+            deliveryDetails: {
+              deliveryInstructions: deliveryDetails.deliveryInstructions || "",
+              dietaryRestrictions: {
+                lowSugar: dietaryRestrictions.lowSugar || false,
+                kidneyFriendly: dietaryRestrictions.kidneyFriendly || false,
+                vegan: dietaryRestrictions.vegan || false,
+                vegetarian: dietaryRestrictions.vegetarian || false,
+                halal: dietaryRestrictions.halal || false,
+                microwaveOnly: dietaryRestrictions.microwaveOnly || false,
+                softFood: dietaryRestrictions.softFood || false,
+                lowSodium: dietaryRestrictions.lowSodium || false,
+                noCookingEquipment: dietaryRestrictions.noCookingEquipment || false,
+                heartFriendly: dietaryRestrictions.heartFriendly || false,
+                foodAllergens: dietaryRestrictions.foodAllergens || [],
+                otherText: dietaryRestrictions.otherText || "",
+                other: dietaryRestrictions.other || false,
+              },
+            },
+            lifeChallenges: raw.lifeChallenges || "",
+            notes: raw.notes || "",
+            notesTimestamp: raw.notesTimestamp || null,
+            deliveryInstructionsTimestamp: raw.deliveryInstructionsTimestamp || null,
+            lifeChallengesTimestamp: raw.lifeChallengesTimestamp || null,
+            lifestyleGoalsTimestamp: raw.lifestyleGoalsTimestamp || null,
+            lifestyleGoals: raw.lifestyleGoals || "",
+            language: raw.language || "",
+            createdAt: raw.createdAt || null,
+            updatedAt: raw.updatedAt || null,
+            tags: raw.tags || [],
+            ward: raw.ward || "",
+            coordinates: raw.coordinates || [],
+            seniors: raw.seniors || 0,
+            headOfHousehold: raw.headOfHousehold || "Adult",
+            referralEntity: raw.referralEntity || null,
+            startDate: raw.startDate || "",
+            endDate: raw.endDate || "",
+            recurrence: raw.recurrence || "None",
+            tefapCert: raw.tefapCert || undefined,
+            clusterID: raw.clusterID || undefined,
+          };
+          return mapped;
+        });
         return { clients, lastDoc: snapshot.docs[snapshot.docs.length - 1] };
       });
     } catch (error) {
@@ -88,26 +154,55 @@ import { validateClientProfile } from '../utils/firestoreValidation';
     }
   }
 
-  /**
-   * Create a new client
-   */
 
-  public async createClient(client: ClientProfile): Promise<string> {
-    console.log('[ClientService] createClient called', client);
+  // For Spreadsheet only: returns RowData[]
+  public async getAllClientsForSpreadsheet(pageSize = 50, lastDoc?: any): Promise<{ clients: RowData[]; lastDoc?: any }> {
     try {
-      await retry(async () => {
-        await setDoc(doc(this.db, this.clientsCollection, client.uid), {
-          ...client,
-          createdAt: Time.Firebase.toTimestamp(TimeUtils.now()),
-          updatedAt: Time.Firebase.toTimestamp(TimeUtils.now()),
+      return await retry(async () => {
+        let q = query(collection(this.db, this.clientsCollection), fbLimit(pageSize));
+        if (lastDoc) {
+          q = query(q, startAfter(lastDoc));
+        }
+        const snapshot = await getDocs(q);
+        const clients = snapshot.docs.map((doc) => {
+          const raw = doc.data() as any;
+          const mapped = {
+            id: doc.id,
+            uid: doc.id,
+            clientid: raw.clientid || doc.id,
+            firstName: raw.firstName || '',
+            lastName: raw.lastName || '',
+            phone: raw.phone || '',
+            houseNumber: raw.houseNumber || 0,
+            address: raw.address || '',
+            deliveryDetails: {
+              deliveryInstructions: raw.deliveryDetails?.deliveryInstructions || '',
+              dietaryRestrictions: {
+                lowSugar: raw.deliveryDetails?.dietaryRestrictions?.lowSugar || false,
+                kidneyFriendly: raw.deliveryDetails?.dietaryRestrictions?.kidneyFriendly || false,
+                vegan: raw.deliveryDetails?.dietaryRestrictions?.vegan || false,
+                vegetarian: raw.deliveryDetails?.dietaryRestrictions?.vegetarian || false,
+                halal: raw.deliveryDetails?.dietaryRestrictions?.halal || false,
+                microwaveOnly: raw.deliveryDetails?.dietaryRestrictions?.microwaveOnly || false,
+                softFood: raw.deliveryDetails?.dietaryRestrictions?.softFood || false,
+                lowSodium: raw.deliveryDetails?.dietaryRestrictions?.lowSodium || false,
+                noCookingEquipment: raw.deliveryDetails?.dietaryRestrictions?.noCookingEquipment || false,
+                heartFriendly: raw.deliveryDetails?.dietaryRestrictions?.heartFriendly || false,
+                foodAllergens: raw.deliveryDetails?.dietaryRestrictions?.foodAllergens || [],
+                otherText: raw.deliveryDetails?.dietaryRestrictions?.otherText || '',
+                other: raw.deliveryDetails?.dietaryRestrictions?.other || false,
+              },
+            },
+            ethnicity: raw.ethnicity || '',
+          };
+          return mapped;
         });
+        return { clients, lastDoc: snapshot.docs[snapshot.docs.length - 1] };
       });
-      return client.uid;
     } catch (error) {
-      throw formatServiceError(error, 'Failed to create client');
+      throw formatServiceError(error, 'Failed to get all clients for spreadsheet');
     }
   }
-
   /**
    * Subscribe to all clients (real-time updates)
    */
@@ -135,7 +230,7 @@ import { validateClientProfile } from '../utils/firestoreValidation';
    * Update an existing client
    */
   public async updateClient(uid: string, data: Partial<ClientProfile>): Promise<void> {
-    console.log('[ClientService] updateClient called', uid, data);
+    // ...existing code...
     try {
       await retry(async () => {
         await updateDoc(doc(this.db, this.clientsCollection, uid), {
@@ -182,7 +277,7 @@ import { validateClientProfile } from '../utils/firestoreValidation';
    * Update tags
    */
   public async updateTags(tags: string[]): Promise<void> {
-    console.log('[ClientService] updateTags called', tags);
+    // ...existing code...
     try {
       await retry(async () => {
         const sortedTags = [...tags].sort((a, b) => a.localeCompare(b));
@@ -201,7 +296,7 @@ import { validateClientProfile } from '../utils/firestoreValidation';
    * Update client's cluster ID
    */
   public async updateClientCluster(uid: string, clusterId: string): Promise<void> {
-    console.log('[ClientService] updateClientCluster called', uid, clusterId);
+    // ...existing code...
     try {
       await retry(async () => {
         await setDoc(doc(this.db, this.clientsCollection, uid), { clusterID: clusterId }, { merge: true });
@@ -215,7 +310,7 @@ import { validateClientProfile } from '../utils/firestoreValidation';
    * Update the coordinates for a specific client
    */
   public async updateClientCoordinates(clientId: string, coordinates: LatLngTuple): Promise<void> {
-    console.log('[ClientService] updateClientCoordinates called', clientId, coordinates);
+    // ...existing code...
     if (!clientId) {
       throw new ServiceError("Client ID is required to update coordinates.", "invalid-argument");
     }

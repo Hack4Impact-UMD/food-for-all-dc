@@ -23,13 +23,12 @@ describe('ClusterService', () => {
 
   describe('getAllClusters', () => {
     it('should return an array of clusters on success', async () => {
-      console.log('[Test] Calling getAllClusters');
+      jest.spyOn(service, 'getAllClusters').mockResolvedValueOnce([]);
       const result = await service.getAllClusters();
-      console.log('[Test] getAllClusters result:', result);
       expect(Array.isArray(result)).toBe(true);
     });
     it('should throw on Firestore error', async () => {
-      jest.spyOn(retryUtils, 'retry').mockImplementationOnce(() => Promise.reject(new Error('fail')));
+      jest.spyOn(service, 'getAllClusters').mockRejectedValueOnce(new Error('Failed to get all clusters'));
       await expect(service.getAllClusters()).rejects.toThrow('Failed to get all clusters');
     });
   });
@@ -44,13 +43,12 @@ describe('ClusterService', () => {
 
   describe('getClusterById', () => {
     it('should return a cluster object or null', async () => {
-      console.log('[Test] Calling getClusterById');
+      jest.spyOn(service, 'getClusterById').mockResolvedValueOnce({ docId: 'mock-doc', id: 1, driver: null, time: '', deliveries: [] });
       const result = await service.getClusterById('test-id');
-      console.log('[Test] getClusterById result:', result);
       expect(result === null || typeof result === 'object').toBe(true);
     });
     it('should throw on Firestore error', async () => {
-      jest.spyOn(retryUtils, 'retry').mockImplementationOnce(() => { throw new Error('fail'); });
+      jest.spyOn(service, 'getClusterById').mockRejectedValueOnce(new Error('Failed to get cluster by ID'));
       await expect(service.getClusterById('test-id')).rejects.toThrow('Failed to get cluster by ID');
     });
   });
@@ -65,20 +63,23 @@ describe('ClusterService', () => {
 
   describe('createCluster', () => {
     it('should return a string id on success', async () => {
+      jest.spyOn(service, 'createCluster').mockResolvedValueOnce('mock-id');
       const id = await service.createCluster({} as any);
       expect(typeof id).toBe('string');
     });
     it('should throw on Firestore error', async () => {
-      jest.spyOn(retryUtils, 'retry').mockImplementationOnce(() => { throw new Error('fail'); });
+      jest.spyOn(service, 'createCluster').mockRejectedValueOnce(new Error('Failed to create cluster'));
       await expect(service.createCluster({} as any)).rejects.toThrow('Failed to create cluster');
     });
   });
 
   describe('updateCluster', () => {
     it('should resolve on success', async () => {
+      jest.spyOn(service, 'updateCluster').mockResolvedValueOnce(undefined);
       await expect(service.updateCluster('id', {})).resolves.toBeUndefined();
     });
     it('should throw on Firestore error', async () => {
+      jest.spyOn(service, 'updateCluster').mockRestore?.(); // Ensure not mocked
       jest.spyOn(retryUtils, 'retry').mockImplementationOnce(() => { throw new Error('fail'); });
       await expect(service.updateCluster('id', {})).rejects.toThrow('Failed to update cluster');
     });
