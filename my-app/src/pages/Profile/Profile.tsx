@@ -62,6 +62,8 @@ import AddDeliveryDialog from "../Calendar/components/AddDeliveryDialog";
 import { calculateRecurrenceDates } from "../Calendar/components/CalendarUtils";
 import { DayPilot } from "@daypilot/daypilot-lite-react";
 import { toJSDate } from '../../utils/timestamp';
+import HealthConditionsForm from "./components/HealthConditionsForm";
+import HealthCheckbox from "./components/HealthCheckbox";
 
 // Styling
 const fieldStyles = {
@@ -244,7 +246,24 @@ const Profile = () => {
     ward: "",
     tefapCert: "",
     referralEntity: null,
-    coordinates: []
+    coordinates: [],
+    physicalAilments: {
+    diabetes: false,
+    hypertension: false,
+    heartDisease: false,
+    kidneyDisease: false,
+    cancer: false,
+    otherText: "",
+    other: false,
+  },
+  physicalDisability: {
+    otherText: "",
+    other: false,
+  },
+  mentalHealthConditions: {
+    otherText: "",
+    other: false
+  },
   });
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [fieldEditStates, setFieldEditStates] = useState<{ [key: string]: boolean }>({});
@@ -1341,6 +1360,68 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
 
   // Re-define renderField to accept addressInputRef and forward it to FormField
   const renderField = (fieldPath: ClientProfileKey, type: InputType = "text", addressInputRef?: React.RefObject<HTMLInputElement>) => {
+
+if (type === "physicalAilments") {
+      const options = [
+        { name: "diabetes", label: "Diabetes" },
+        { name: "hypertension", label: "Hypertension" },
+        { name: "heartDisease", label: "Heart Disease" },
+        { name: "kidneyDisease", label: "Kidney Disease" },
+        { name: "cancer", label: "Cancer" },
+      ];
+      
+      return (
+        <>
+          {options.map((option) => (
+            <HealthCheckbox
+              key={option.name}
+              checked={Boolean(clientProfile.physicalAilments?.[option.name as keyof typeof clientProfile.physicalAilments])}
+              onChange={handlePhysicalAilmentsChange}
+              name={option.name}
+              label={option.label}
+            />
+          ))}
+          <HealthCheckbox
+            checked={clientProfile.physicalAilments?.other || false}
+            onChange={handlePhysicalAilmentsChange}
+            name="other"
+            label="Other"
+            showOtherText={true}
+            otherTextValue={clientProfile.physicalAilments?.otherText || ""}
+            placeholder="Please specify other physical ailments"
+          />
+        </>
+      );
+    }
+
+    if (type === 'physicalDisability') {
+      return (
+        <HealthCheckbox
+          checked={clientProfile.physicalDisability?.other || false}
+          onChange={handlePhysicalDisabilityChange}
+          name="other"
+          label="Other"
+          showOtherText={true}
+          otherTextValue={clientProfile.physicalDisability?.otherText || ""}
+          placeholder="Please specify other physical disabilities"
+        />
+      );
+    }
+
+    if (type === 'mentalHealthConditions') {
+      return (
+        <HealthCheckbox
+          checked={clientProfile.mentalHealthConditions?.other || false}
+          onChange={handleMentalHealthConditionsChange}
+          name="other"
+          label="Other"
+          showOtherText={true}
+          otherTextValue={clientProfile.mentalHealthConditions?.otherText || ""}
+          placeholder="Please specify other mental health conditions"
+        />
+      );
+    }
+
     if (type === "dietaryRestrictions") {
       const dietaryOptions = [
         { name: "lowSugar", label: "Low Sugar" },
@@ -1920,6 +2001,113 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
     }
   };
 
+
+  const handlePhysicalAilmentsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const { name, type } = e.target;
+  handlePrevClientCopying();
+
+  setClientProfile((prevState) => {
+
+    if (type === "checkbox") {
+      const { checked } = e.target;
+      return {
+        ...prevState,
+        physicalAilments: {
+          ...(prevState.physicalAilments || {}),
+          [name]: checked,
+          ...(name === "other" && {
+            otherText: checked ? (prevState.physicalAilments?.otherText || "") : ""
+          })
+        }
+      };
+    }
+
+    if (type === "text" && name === "otherText") {
+      const value = e.target.value;
+      return {
+        ...prevState,
+        physicalAilments: {
+          ...(prevState.physicalAilments || {}),
+          otherText: value,
+          other: true
+        }
+      };
+    }
+    return prevState; // fallback
+  });
+};
+
+
+const handlePhysicalDisabilityChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const { name, type } = e.target;
+  handlePrevClientCopying();
+
+  setClientProfile((prevState) => {
+
+    if (type === "checkbox") {
+      const { checked } = e.target;
+      return {
+        ...prevState,
+        physicalDisability: {
+          ...(prevState.physicalDisability || {}),
+          [name]: checked,
+          ...(name === "other" && {
+            otherText: checked ? (prevState.physicalDisability?.otherText || "") : ""
+          })
+        }
+      };
+    }
+
+    if (type === "text" && name === "otherText") {
+      const value = e.target.value;
+      return {
+        ...prevState,
+        physicalDisability: {
+          ...(prevState.physicalDisability || {}),
+          otherText: value,
+          other: true
+        }
+      };
+    }
+    return prevState; // fallback
+  });
+};
+
+const handleMentalHealthConditionsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const { name, type } = e.target;
+  handlePrevClientCopying();
+
+  setClientProfile((prevState) => {
+
+    if (type === "checkbox") {
+      const { checked } = e.target;
+      return {
+        ...prevState,
+        mentalHealthConditions: {
+          ...(prevState.mentalHealthConditions || {}),
+          [name]: checked,
+          ...(name === "other" && {
+            otherText: checked ? (prevState.mentalHealthConditions?.otherText || "") : ""
+          })
+        }
+      };
+    }
+
+    if (type === "text" && name === "otherText") {
+      const value = e.target.value;
+      return {
+        ...prevState,
+        mentalHealthConditions: {
+          ...(prevState.mentalHealthConditions || {}),
+          otherText: value,
+          other: true
+        }
+      };
+    }
+    return prevState; // fallback
+  });
+};
+
   //google places autocomplete
   const addressInputRef = useRef<HTMLInputElement>(null);
   const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
@@ -2387,6 +2575,17 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
           <SectionBox mb={3}>
             <SectionTitle sx={{ textAlign: 'left', width: '100%' }}>Dietary Preferences</SectionTitle>
             <DietaryPreferencesForm
+              isEditing={isEditing}
+              fieldLabelStyles={fieldLabelStyles}
+              dietaryRestrictions={clientProfile.deliveryDetails.dietaryRestrictions}
+              renderField={renderField}
+            />
+          </SectionBox>
+
+          {/*Health Section*/}
+          <SectionBox mb={3}>
+            <SectionTitle sx={{ textAlign: 'left', width: '100%' }}>Health Conditions</SectionTitle>
+            <HealthConditionsForm
               isEditing={isEditing}
               fieldLabelStyles={fieldLabelStyles}
               dietaryRestrictions={clientProfile.deliveryDetails.dietaryRestrictions}

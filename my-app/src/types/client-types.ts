@@ -98,4 +98,21 @@ export interface ClientProfile {
   endDate: string;
   recurrence: string;
   tefapCert?: string;
+  physicalAilments: {
+    diabetes: boolean
+    hypertension: boolean
+    heartDisease: boolean
+    kidneyDisease: boolean
+    cancer: boolean
+    otherText: string
+    other: boolean
+  };
+  physicalDisability: {
+    otherText: string
+    other: boolean
+  };
+  mentalHealthConditions: {
+    otherText: string
+    other: boolean
+  }
 } 
