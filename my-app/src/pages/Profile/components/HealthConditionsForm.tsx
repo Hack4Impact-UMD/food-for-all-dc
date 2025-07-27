@@ -50,7 +50,7 @@ const HealthConditionsForm: React.FC<HealthConditionsFormProps> = ({
           mt: 2,
         }}
       >
-        {renderField("physicalDisability", "physicalDisablity")}
+        {renderField("physicalDisability", "physicalDisability")}
       </Box>
 
       <Typography className="field-descriptor" sx={fieldLabelStyles}>

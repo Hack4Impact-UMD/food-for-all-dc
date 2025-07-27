@@ -23,6 +23,6 @@ export type InputType =
   | "checkbox"
   | "dietaryRestrictions"
   | "physicalAilments"
-  | "physicalDisablity"
+  | "physicalDisability"
   | "mentalHealthConditions"
   | "email";
