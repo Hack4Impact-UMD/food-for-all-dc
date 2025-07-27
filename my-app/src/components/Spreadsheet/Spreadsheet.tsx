@@ -42,13 +42,13 @@ import React, { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { auth } from "../../auth/firebaseConfig";
 import { useCustomColumns } from "../../hooks/useCustomColumns";
-import { ClientService } from "../../services";
+import ClientService from "../../services/client-service";
 import { exportQueryResults, exportAllClients } from "./export";
 import "./Spreadsheet.css";
 import DeleteClientModal from "./DeleteClientModal";
 
 // Define TypeScript types for row data
-interface RowData {
+export interface RowData {
   id: string;
   clientid?: string;
   uid: string;
@@ -268,10 +268,10 @@ const StyleChip = styled(Chip)({
   }, [sortOrder, sortedColumn]);
 
   // Compute sorted rows using useMemo to ensure data is always sorted
+  const safeRows = Array.isArray(rows) ? rows : [];
   const sortedRows = useMemo(() => {
-    if (rows.length === 0) return rows;
-
-    return [...rows].sort((a, b) => {
+    if (safeRows.length === 0) return safeRows;
+    return [...safeRows].sort((a, b) => {
       // Special grouping logic for dietary restrictions
       if (sortedColumn === "deliveryDetails.dietaryRestrictions") {
         // Group all with any dietary restrictions (not empty/none) together, and all without together, preserving original order within each group
@@ -417,11 +417,10 @@ const StyleChip = styled(Chip)({
       try {
         // Use ClientService instead of direct Firebase calls
         const clientService = ClientService.getInstance();
-        const clients = await clientService.getAllClients();
-        console.log("Fetched clients:", clients);
-        
+        const { clients } = await clientService.getAllClientsForSpreadsheet();
+        // ...existing code...
         // No default sorting - let our sortedRows useMemo handle all sorting
-        setRows(clients as unknown as RowData[]);
+        setRows(clients);
       } catch (error) {
         console.error("Error fetching data: ", error);
       }
@@ -431,9 +430,7 @@ const StyleChip = styled(Chip)({
 
   // Handle search input change
   const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    console.log("hello");
-    console.log(`This is the new search${event.target.value}`);
-    console.log(event.target.value);
+    // ...existing code...
     setSearchQuery(event.target.value);
   };
 
@@ -454,7 +451,7 @@ const StyleChip = styled(Chip)({
     try {
       // Use ClientService instead of direct Firebase calls
       const clientService = ClientService.getInstance();
-      console.log("Deleting client with ID:", id);
+      // ...existing code...
       await clientService.deleteClient(id);
       setRows(rows.filter((row) => row.uid !== id)); // Filter based on uid
     } catch (error) {
@@ -464,7 +461,7 @@ const StyleChip = styled(Chip)({
 
   // Handle editing a row
   const handleEditRow = (id: string) => {
-    console.log("Editing client with ID:", id);
+    // ...existing code...
     const rowToEdit = rows.find((row) => row.uid === id);
     if (rowToEdit) {
       // Use useNavigate to navigate to the profile page with the user's data
@@ -484,7 +481,7 @@ const StyleChip = styled(Chip)({
         const { id, uid, ...rowWithoutIds } = rowToUpdate;
         // Use ClientService instead of direct Firebase calls
         const clientService = ClientService.getInstance();
-        console.log("Updating client with ID:", uid);
+        // ...existing code...
         await clientService.updateClient(uid, rowWithoutIds as Omit<RowData, "id" | "uid">);
         setEditingRowId(null);
       } catch (error) {
@@ -495,7 +492,7 @@ const StyleChip = styled(Chip)({
 
   // Handle navigating to user details page
   const handleRowClick = (uid: string) => {
-    console.log("Navigating to profile with ID:", uid);
+    // ...existing code...
     if (!uid) {
       console.error("Invalid ID for navigation:", uid);
       return;
@@ -764,14 +761,13 @@ const StyleChip = styled(Chip)({
   };
 
   useEffect(() => {
-    console.log("this is search query");
-    console.log(searchQuery);
+    // ...existing code...
   }, [searchQuery]);
 
   // Add this debugging function
   useEffect(() => {
     if (sortedRows.length > 0) {
-      console.log("Sample row data:", sortedRows[0]);
+      // ...existing code...
     }
   }, [sortedRows]);
 
@@ -965,7 +961,7 @@ const StyleChip = styled(Chip)({
         {/* Mobile Card View for Small Screens */}
         {isMobile ? (
           <Stack spacing={2} sx={{ overflowY: "auto", width: "100%" }}>
-            {filteredRows.map((row) => (
+            {(Array.isArray(filteredRows) ? filteredRows : []).map((row) => (
               <Card
                 key={row.id}
                 sx={{
@@ -1240,7 +1236,7 @@ const StyleChip = styled(Chip)({
               </TableHead>
 
               <TableBody>
-                {filteredRows.map((row) => (
+                {(Array.isArray(filteredRows) ? filteredRows : []).map((row) => (
                   <TableRow
                     key={row.id}
                     className={editingRowId === row.id ? "table-row editing-row" : "table-row"}

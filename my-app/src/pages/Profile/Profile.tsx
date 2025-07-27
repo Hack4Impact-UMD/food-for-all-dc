@@ -36,7 +36,8 @@ import { useNavigate, useParams } from "react-router-dom";
 import { auth, db } from "../../auth/firebaseConfig";
 import CaseWorkerManagementModal from "../../components/CaseWorkerManagementModal";
 import "./Profile.css";
-import { ClientService, DeliveryService } from "../../services";
+import ClientService from "../../services/client-service";
+import DeliveryService from "../../services/delivery-service";
 import PopUp from "../../components/PopUp";
 import ErrorPopUp from "../../components/ErrorPopUp";
 
@@ -735,74 +736,6 @@ const Profile = () => {
             },
           };
         }
-        // If any delivery info field changes, recalculate future deliveries
-        if (["startDate", "endDate", "recurrence", "deliveryDetails.deliveryInstructions"].includes(name)) {
-          // Use calculateRecurrenceDates to get new delivery dates
-          const deliveryInfo = {
-            startDate: name === "startDate" ? value : updatedProfile.startDate,
-            endDate: name === "endDate" ? value : updatedProfile.endDate,
-            recurrence: name === "recurrence" ? value : updatedProfile.recurrence,
-            deliveryInstructions: name === "deliveryDetails.deliveryInstructions" ? value : updatedProfile.deliveryDetails?.deliveryInstructions,
-          };
-          // Build a NewDelivery object for calculation
-          const validRecurrence = ["None", "Weekly", "2x-Monthly", "Monthly", "Custom"].includes(deliveryInfo.recurrence)
-            ? (deliveryInfo.recurrence as "None" | "Weekly" | "2x-Monthly" | "Monthly" | "Custom")
-            : "None";
-          const newDelivery: NewDelivery = {
-            clientId: updatedProfile.uid ? String(updatedProfile.uid) : String(clientId || ""),
-            clientName: `${updatedProfile.firstName} ${updatedProfile.lastName}`,
-            deliveryDate: deliveryInfo.startDate,
-            recurrence: validRecurrence,
-            repeatsEndDate: deliveryInfo.endDate,
-          };
-          // Calculate recurrence dates
-          let recurrenceDates: Date[] = [];
-          if (newDelivery.recurrence === "None") {
-            recurrenceDates = [new Date(newDelivery.deliveryDate)];
-          } else {
-            recurrenceDates = calculateRecurrenceDates(newDelivery);
-          }
-          // Filter out dates that already have a delivery for the same client
-          const existingEventDates = new Set(
-            events
-              .filter(event => (event.clientId || "") === newDelivery.clientId)
-              .map(event => {
-                let dateObj: Date;
-                if (event.deliveryDate instanceof Date) {
-                  dateObj = event.deliveryDate;
-                } else if (typeof event.deliveryDate?.toDate === "function") {
-                  dateObj = event.deliveryDate.toDate();
-                } else if (typeof event.deliveryDate === "object" && event.deliveryDate && "toDate" in event.deliveryDate) {
-                  // Firestore Timestamp object
-                  dateObj = event.deliveryDate.toDate();
-                } else {
-                  dateObj = new Date(event.deliveryDate as string);
-                }
-                return dateObj.toISOString().split("T")[0];
-              })
-          );
-          const uniqueRecurrenceDates = recurrenceDates.filter(date =>
-            !existingEventDates.has(date.toISOString().split("T")[0])
-          );
-          // Build future deliveries array
-          const updatedFutureDeliveries = uniqueRecurrenceDates
-            .sort((a, b) => a.getTime() - b.getTime())
-            .slice(0, 5)
-            .map(date => ({
-              id: `${newDelivery.clientId}_${date.toISOString()}`,
-              assignedDriverId: "",
-              assignedDriverName: "",
-              clientId: newDelivery.clientId || "",
-              clientName: newDelivery.clientName,
-              deliveryDate: date,
-              time: "",
-              recurrence: newDelivery.recurrence as "None" | "Weekly" | "2x-Monthly" | "Monthly" | "Custom",
-              repeatsEndDate: newDelivery.repeatsEndDate,
-              recurrenceId: "",
-              cluster: 0,
-            }));
-          setFutureDeliveries(updatedFutureDeliveries);
-        }
         if (name === "notes") {
           // Special handling for notes field
           console.log("Notes changed to:", value);
@@ -1353,7 +1286,7 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
   };
 
   // Re-define renderField to accept addressInputRef and forward it to FormField
-  const renderField = (fieldPath: ClientProfileKey, type: InputType = "text", addressInputRef?: React.RefObject<HTMLInputElement>) => {
+  const renderField = (fieldPath: ClientProfileKey, type: InputType = "text", addressInputRef?: React.RefObject<HTMLInputElement | null>) => {
 
 if (type === "physicalAilments") {
       const options = [
@@ -2373,10 +2306,10 @@ const handleMentalHealthConditionsChange = (e: React.ChangeEvent<HTMLInputElemen
       const clientService = ClientService.getInstance();
       const clientsData = await clientService.getAllClients();
       
-      console.log(`Fetched ${clientsData.length} clients`);
+      console.log(`Fetched ${clientsData.clients.length} clients`);
       
       // Map client data to Client type with explicit type casting for compatibility
-      const clientList = clientsData.map(data => {
+      const clientList = clientsData.clients.map((data: ClientProfile) => {
         // Ensure dietaryRestrictions has all required fields
         const dietaryRestrictions = data.deliveryDetails?.dietaryRestrictions || {};
         

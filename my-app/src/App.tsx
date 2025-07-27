@@ -54,10 +54,12 @@ function App() {
   return (
     <ErrorBoundary>
       <Router>
-        <Routes>
-          {renderRoutes(routesConfig)}
-          <Route path="*" element={<NotFoundPage />} />
-        </Routes>
+        <Suspense fallback={<LoadingIndicator />}>
+          <Routes>
+            {renderRoutes(routesConfig)}
+            <Route path="*" element={<NotFoundPage />} />
+          </Routes>
+        </Suspense>
       </Router>
     </ErrorBoundary>
   );

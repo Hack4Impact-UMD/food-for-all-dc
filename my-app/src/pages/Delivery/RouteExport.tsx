@@ -1,5 +1,5 @@
 import { getFirestore, collection, getDocs } from "firebase/firestore";
-import JSZip from "jszip";
+// ...existing code...
 import { saveAs } from "file-saver";
 import Papa from "papaparse";
 import { Cluster } from "./DeliverySpreadsheet"; // Import Cluster type
@@ -70,7 +70,8 @@ export const exportDeliveries = async (
       return; // Stop the export
     }
 
-    const zip = new JSZip();
+    const JSZipDeliveries = (await import('jszip')).default;
+    const zip = new JSZipDeliveries();
     let filesCreated = 0;
 
     for (const driverName in groupedByDriver) {
@@ -235,7 +236,8 @@ export const exportDoordashDeliveries = async (
       groupedByTime[time].push(row);
     });
 
-    const zip = new JSZip();
+    const JSZipDoordash = (await import('jszip')).default;
+    const zip = new JSZipDoordash();
     let filesCreated = 0;
     let orderIdCounter = 1; // Global order ID counter across all time slots
 

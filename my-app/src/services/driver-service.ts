@@ -1,3 +1,8 @@
+import { validateDriver } from '../utils/firestoreValidation';
+import { retry } from '../utils/retry';
+import { ServiceError, formatServiceError } from '../utils/serviceError';
+import { db } from "./firebase";
+import { Driver } from '../types';
 import {
   collection,
   doc,
@@ -7,16 +12,19 @@ import {
   setDoc,
   updateDoc,
   deleteDoc,
+  onSnapshot,
+  query,
+  orderBy,
+  limit as fbLimit,
+  startAfter
 } from "firebase/firestore";
-import FirebaseService from "./firebase-service";
-import { Driver } from "../pages/Delivery/types/deliveryTypes";
 
 /**
  * Driver Service - Handles all driver-related operations with Firebase
  */
 class DriverService {
   private static instance: DriverService;
-  private db = FirebaseService.getInstance().getFirestore();
+  private db = db;
   private driversCollection = "Drivers";
 
   // Private constructor to prevent direct instantiation
@@ -33,19 +41,64 @@ class DriverService {
   }
 
   /**
-   * Get all drivers
+   * Get all drivers (returns all, for compatibility)
    */
   public async getAllDrivers(): Promise<Driver[]> {
     try {
-      const snapshot = await getDocs(collection(this.db, this.driversCollection));
-      return snapshot.docs.map((doc) => ({
-        ...(doc.data() as Omit<Driver, "id">),
-        id: doc.id,
-      }));
+      return await retry(async () => {
+        const snapshot = await getDocs(collection(this.db, this.driversCollection));
+        return snapshot.docs
+          .map((doc) => ({ ...(doc.data() as Omit<Driver, "id">), id: doc.id }))
+          .filter(validateDriver);
+      });
     } catch (error) {
-      console.error("Error getting drivers:", error);
-      throw error;
+      throw formatServiceError(error, 'Failed to get all drivers');
     }
+  }
+
+  /**
+   * Get all drivers with pagination support (new method)
+   * @param pageSize Number of drivers per page
+   * @param lastDoc Last document from previous page (for pagination)
+   */
+  public async getAllDriversPaginated(pageSize = 50, lastDoc?: any): Promise<{ drivers: Driver[]; lastDoc?: any }> {
+    try {
+      return await retry(async () => {
+        let q = query(collection(this.db, this.driversCollection), orderBy("id"), fbLimit(pageSize));
+        if (lastDoc) {
+          q = query(q, startAfter(lastDoc));
+        }
+        const snapshot = await getDocs(q);
+        const drivers = snapshot.docs
+          .map((doc) => ({ ...(doc.data() as Omit<Driver, "id">), id: doc.id }))
+          .filter(validateDriver);
+        return { drivers, lastDoc: snapshot.docs[snapshot.docs.length - 1] };
+      });
+    } catch (error) {
+      return { drivers: [], lastDoc: undefined };
+    }
+  }
+
+  /**
+   * Subscribe to all drivers (real-time updates)
+   */
+  public subscribeToAllDrivers(
+    onData: (drivers: Driver[]) => void,
+    onError?: (error: ServiceError) => void
+  ): () => void {
+    const unsubscribe = onSnapshot(
+      collection(this.db, this.driversCollection),
+      (snapshot) => {
+        const drivers = snapshot.docs
+          .map((doc) => ({ ...(doc.data() as Omit<Driver, "id">), id: doc.id }))
+          .filter(validateDriver);
+        onData(drivers);
+      },
+      (error) => {
+        if (onError) onError(formatServiceError(error, 'Real-time drivers listener error'));
+      }
+    );
+    return unsubscribe;
   }
 
   /**
@@ -53,30 +106,55 @@ class DriverService {
    */
   public async getDriverById(id: string): Promise<Driver | null> {
     try {
-      const driverDoc = await getDoc(doc(this.db, this.driversCollection, id));
-      if (driverDoc.exists()) {
-        return {
-          ...(driverDoc.data() as Omit<Driver, "id">),
-          id: driverDoc.id,
-        };
-      }
-      return null;
+      return await retry(async () => {
+        const driverDoc = await getDoc(doc(this.db, this.driversCollection, id));
+        if (driverDoc.exists()) {
+          const data = { ...(driverDoc.data() as Omit<Driver, "id">), id: driverDoc.id };
+          return validateDriver(data) ? data : null;
+        }
+        return null;
+      });
     } catch (error) {
-      console.error("Error getting driver:", error);
-      throw error;
+      throw formatServiceError(error, 'Failed to get driver by ID');
     }
   }
 
+
+  /**
+   * Subscribe to a driver by ID (real-time updates)
+   */
+  public subscribeToDriverById(
+    id: string,
+    onData: (driver: Driver | null) => void,
+    onError?: (error: ServiceError) => void
+  ): () => void {
+    const unsubscribe = onSnapshot(
+      doc(this.db, this.driversCollection, id),
+      (snapshot) => {
+        if (snapshot.exists()) {
+          const data = { ...(snapshot.data() as Omit<Driver, "id">), id: snapshot.id };
+          onData(validateDriver(data) ? data : null);
+        } else {
+          onData(null);
+        }
+      },
+      (error) => {
+        if (onError) onError(formatServiceError(error, 'Real-time driver listener error'));
+      }
+    );
+    return unsubscribe;
+  }
   /**
    * Create a new driver
    */
   public async createDriver(driver: Omit<Driver, "id">): Promise<string> {
     try {
-      const docRef = await addDoc(collection(this.db, this.driversCollection), driver);
-      return docRef.id;
+      return await retry(async () => {
+        const docRef = await addDoc(collection(this.db, this.driversCollection), driver);
+        return docRef.id;
+      });
     } catch (error) {
-      console.error("Error creating driver:", error);
-      throw error;
+      throw formatServiceError(error, 'Failed to create driver');
     }
   }
 
@@ -85,10 +163,11 @@ class DriverService {
    */
   public async updateDriver(id: string, data: Partial<Driver>): Promise<void> {
     try {
-      await updateDoc(doc(this.db, this.driversCollection, id), data);
+      await retry(async () => {
+        await updateDoc(doc(this.db, this.driversCollection, id), data);
+      });
     } catch (error) {
-      console.error("Error updating driver:", error);
-      throw error;
+      throw formatServiceError(error, 'Failed to update driver');
     }
   }
 
@@ -97,10 +176,11 @@ class DriverService {
    */
   public async deleteDriver(id: string): Promise<void> {
     try {
-      await deleteDoc(doc(this.db, this.driversCollection, id));
+      await retry(async () => {
+        await deleteDoc(doc(this.db, this.driversCollection, id));
+      });
     } catch (error) {
-      console.error("Error deleting driver:", error);
-      throw error;
+      throw formatServiceError(error, 'Failed to delete driver');
     }
   }
 }

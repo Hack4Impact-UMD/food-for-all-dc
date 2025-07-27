@@ -1,4 +1,3 @@
-// Jest manual mock for firebase/app
 
 // Manual mock for firebase/app that simulates a default app instance
 let defaultApp = null;
@@ -16,4 +15,10 @@ module.exports = {
   }),
   FirebaseOptions: jest.fn(),
   FirebaseApp: jest.fn(),
+};
+
+// Jest manual mock for firebase/app
+module.exports = {
+  initializeApp: jest.fn(() => ({ name: 'mockApp' })),
+  getApp: jest.fn(() => ({ name: 'mockApp' })),
 };

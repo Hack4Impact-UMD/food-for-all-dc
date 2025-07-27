@@ -1,4 +1,4 @@
-// Jest mock for FirebaseService to support relative imports in tests
+// Jest manual mock for FirebaseService singleton
 const mockFirestore = {};
 
 const FirebaseService = {

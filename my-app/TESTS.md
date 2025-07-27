@@ -64,3 +64,43 @@ This project uses Jest, a popular JavaScript testing framework, to make sure our
 
 ## src/__tests__/route-config.test.tsx
 - **renders correct component for route: [path]** – Checks that the correct component is rendered for each route.
+
+## src/services/__tests__/client-service.test.ts
+- **fetches all clients successfully** – Ensures all clients are fetched and returned as an array.
+- **fetches a client by ID** – Verifies fetching a single client by ID returns the correct client object.
+- **handles missing client by ID** – Checks that fetching a non-existent client returns null.
+- **creates a new client** – Ensures a new client can be created and returned with an ID.
+- **updates an existing client** – Verifies an existing client can be updated and changes are saved.
+- **deletes a client** – Ensures a client can be deleted by ID and is no longer returned.
+- **handles errors and retries** – Confirms service throws on error and retries as expected.
+
+## src/services/__tests__/delivery-service.test.ts
+- **fetches all delivery events** – Ensures all delivery events are fetched and returned as an array.
+- **fetches events by date range** – Verifies events within a date range are returned correctly.
+- **creates a new delivery event** – Ensures a new delivery event can be created and returned with an ID.
+- **updates a delivery event** – Verifies an existing delivery event can be updated and changes are saved.
+- **deletes a delivery event** – Ensures a delivery event can be deleted by ID and is no longer returned.
+- **handles Firestore and service errors** – Confirms service throws on error and retries as expected.
+
+## src/services/__tests__/driver-service.test.ts
+- **fetches all drivers** – Ensures all drivers are fetched and returned as an array.
+- **fetches a driver by ID** – Verifies fetching a single driver by ID returns the correct driver object.
+- **creates a new driver** – Ensures a new driver can be created and returned with an ID.
+- **updates a driver** – Verifies an existing driver can be updated and changes are saved.
+- **deletes a driver** – Ensures a driver can be deleted by ID and is no longer returned.
+- **handles errors and retries** – Confirms service throws on error and retries as expected.
+
+## src/services/__tests__/cluster-service.test.ts
+- **fetches all clusters** – Ensures all clusters are fetched and returned as an array.
+- **creates a new cluster** – Ensures a new cluster can be created and returned with an ID.
+- **updates a cluster** – Verifies an existing cluster can be updated and changes are saved.
+- **deletes a cluster** – Ensures a cluster can be deleted by ID and is no longer returned.
+- **handles errors and retries** – Confirms service throws on error and retries as expected.
+
+## src/services/__tests__/timeUtils.test.ts
+- **converts between Date, Timestamp, and DateTime** – Verifies conversion functions between JS Date, Firestore Timestamp, and Luxon DateTime.
+- **formats and parses ISO strings** – Ensures ISO string formatting and parsing is correct and timezone-safe.
+- **adds and subtracts time** – Checks add/subtract helpers for days, weeks, etc.
+- **validates today, past, and future** – Tests isToday, isPast, isFuture helpers.
+- **calculates age** – Verifies age calculation from date of birth.
+- **handles invalid and edge cases** – Ensures utility functions handle invalid input gracefully.

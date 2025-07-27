@@ -98,6 +98,7 @@ export interface ClientProfile {
   endDate: string;
   recurrence: string;
   tefapCert?: string;
+  clusterID?: string;
   physicalAilments: {
     diabetes: boolean
     hypertension: boolean
@@ -115,4 +116,4 @@ export interface ClientProfile {
     otherText: string
     other: boolean
   }
-} 
+}

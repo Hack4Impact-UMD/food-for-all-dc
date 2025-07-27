@@ -9,14 +9,14 @@ export interface BasicInfoFormProps {
   clientProfile: ClientProfile;
   isEditing: boolean;
   errors: { [key: string]: string };
-  renderField: (fieldPath: ClientProfileKey, type?: InputType, addressInputRef?: React.RefObject<HTMLInputElement>) => React.ReactNode;
+  renderField: (fieldPath: ClientProfileKey, type?: InputType, addressInputRef?: React.RefObject<HTMLInputElement | null>) => React.ReactNode;
   fieldLabelStyles: any;
   selectedCaseWorker: CaseWorker | null;
   caseWorkers: CaseWorker[];
   setShowCaseWorkerModal: React.Dispatch<React.SetStateAction<boolean>>;
   handleCaseWorkerChange: (cw: CaseWorker | null) => void;
   addressError?: string;
-  addressInputRef?: React.RefObject<HTMLInputElement>;
+  addressInputRef?: React.RefObject<HTMLInputElement | null>;
 }
 
 const BasicInfoForm: React.FC<BasicInfoFormProps> = ({

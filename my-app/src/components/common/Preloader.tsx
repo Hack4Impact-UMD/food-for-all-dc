@@ -20,7 +20,6 @@ const Preloader: React.FC<PreloaderProps> = ({
         justifyContent: 'center', 
         alignItems: 'center', 
         height: '100vh',
-        backgroundColor: '#f5f5f5',
         gap: 2
       }}
     >
