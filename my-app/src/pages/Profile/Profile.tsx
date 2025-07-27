@@ -704,24 +704,18 @@ const Profile = () => {
         };
         const newErrors = { ...errors };
         
-        if (name === "phone") {
-          if (value.trim() === "") {
-            newErrors.phone = "Phone is required";
+        if (name === "phone" || name === "alternativePhone") {
+          if (value.trim() === "" && name === "phone") {
+            newErrors[name] = "Phone is required";
           } else if (countDigits(value) < 10) {
-            newErrors.phone = "Phone number must contain at least 10 digits";          } else if (!isValidPhoneFormat(value)) {
-            newErrors.phone = `"${value}" is an invalid format. Please see the i icon for allowed formats.`;
+            newErrors[name] = "Phone number must contain at least 10 digits";          
+          } else if (!isValidPhoneFormat(value)) {
+            newErrors[name] = `"${value}" is an invalid format. Please see the i icon for allowed formats.`;
           } else {
-            delete newErrors.phone;
+            delete newErrors[name];
           }
         }
-          if (name === "alternativePhone") {
-          if (value.trim() !== "" && (countDigits(value) < 10 || !isValidPhoneFormat(value))) {
-            newErrors.alternativePhone = `"${value}" is an invalid format. Please see the i icon for allowed formats.`;
-          } else {
-            delete newErrors.alternativePhone;
-          }
-        }
-        
+      
         setErrors(newErrors);
         return updatedProfile;
       });
