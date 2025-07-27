@@ -56,6 +56,7 @@ pubsub-debug.log*
 *.local
 food-for-all-dc-caf23-firebase-adminsdk-*.json
 *-firebase-adminsdk-*.json
+csv-one-line-client-database.json
 
 # Logs
 logs/
