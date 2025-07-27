@@ -183,6 +183,7 @@ const Profile = () => {
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [isDeliveryModalOpen, setIsDeliveryModalOpen] = useState<boolean>(false);
   const [prevTags, setPrevTags] = useState<string[] | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
   const [prevClientProfile, setPrevClientProfile] = useState<ClientProfile | null>(null);
   const [clientProfile, setClientProfile] = useState<ClientProfile>({
     uid: "",
@@ -1028,11 +1029,13 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
 
   const handleSave = async () => {
     // Important: First validate basic requirements
+    setIsSaving(true)
     const validation = validateProfile();
   
     // Check for address validation error
     if (addressError) {
       alert("Please fix the address error before saving. Make sure to select a valid address from the Google Places suggestions.");
+      setIsSaving(false)
       return;
     }
   
@@ -1041,6 +1044,7 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
         .map(([field, message]) => `- ${message}`)
         .join('\n');
       alert(`Please fix the following before saving:\n${errorFields}`);
+      setIsSaving(false)
       return;
     }
     
@@ -1280,7 +1284,6 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
         setPrevClientProfile(null); // Clear previous state backup
         setPrevNotes(updatedProfile.notes || ""); // Update prevNotes
         setIsSaved(true); // Indicate save was successful
-        setIsEditing(false); // <<<<<< EXIT EDIT MODE HERE for existing profiles
         setErrors({}); // Clear validation errors
         setAllTags(sortedAllTags); // Update the local list of all tags
         console.log("Profile updated:", clientProfile.uid);
@@ -1289,6 +1292,7 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
       // Common post-save actions (Popup notification)
       // setEditMode(false); <-- Removed redundant call
       setShowSavePopup(true);
+      setIsEditing(false)
       setTimeout(() => setShowSavePopup(false), 2000);
   
     } catch (e) {
@@ -1298,6 +1302,7 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
     } finally {
       // Hide saving indicator? (Optional)
       // setIsLoading(false);
+      setIsSaving(false)
     }
   };
 
@@ -2340,6 +2345,7 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
                     color="primary"
                     onClick={handleSave}
                     aria-label="save"
+                    disabled={isSaving}
                     size="small"
                   >
                     <SaveIcon />
@@ -2476,6 +2482,7 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
                   <StyledIconButton
                     color="primary"
                     onClick={handleSave}
+                    disabled={isSaving}
                     aria-label="save"
                     size="small"
                   >
