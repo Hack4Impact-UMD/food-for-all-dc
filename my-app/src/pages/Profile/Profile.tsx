@@ -2008,10 +2008,10 @@ if (type === "physicalAilments") {
       return {
         ...prevState,
         physicalAilments: {
-          ...prevState.physicalAilments,
+          ...(prevState.physicalAilments || {}),
           [name]: checked,
           ...(name === "other" && {
-            otherText: checked ? prevState.physicalAilments?.otherText : ""
+            otherText: checked ? (prevState.physicalAilments?.otherText || "") : ""
           })
         }
       };
@@ -2022,7 +2022,7 @@ if (type === "physicalAilments") {
       return {
         ...prevState,
         physicalAilments: {
-          ...prevState.physicalAilments,
+          ...(prevState.physicalAilments || {}),
           otherText: value,
           other: true
         }
@@ -2044,10 +2044,10 @@ const handlePhysicalDisabilityChange = (e: React.ChangeEvent<HTMLInputElement>) 
       return {
         ...prevState,
         physicalDisability: {
-          ...prevState.physicalDisability,
+          ...(prevState.physicalDisability || {}),
           [name]: checked,
           ...(name === "other" && {
-            otherText: checked ? prevState.physicalDisability?.otherText : ""
+            otherText: checked ? (prevState.physicalDisability?.otherText || "") : ""
           })
         }
       };
@@ -2058,7 +2058,7 @@ const handlePhysicalDisabilityChange = (e: React.ChangeEvent<HTMLInputElement>) 
       return {
         ...prevState,
         physicalDisability: {
-          ...prevState.physicalDisability,
+          ...(prevState.physicalDisability || {}),
           otherText: value,
           other: true
         }
@@ -2079,10 +2079,10 @@ const handleMentalHealthConditionsChange = (e: React.ChangeEvent<HTMLInputElemen
       return {
         ...prevState,
         mentalHealthConditions: {
-          ...prevState.mentalHealthConditions,
+          ...(prevState.mentalHealthConditions || {}),
           [name]: checked,
           ...(name === "other" && {
-            otherText: checked ? prevState.mentalHealthConditions?.otherText : ""
+            otherText: checked ? (prevState.mentalHealthConditions?.otherText || "") : ""
           })
         }
       };
@@ -2093,7 +2093,7 @@ const handleMentalHealthConditionsChange = (e: React.ChangeEvent<HTMLInputElemen
       return {
         ...prevState,
         mentalHealthConditions: {
-          ...prevState.mentalHealthConditions,
+          ...(prevState.mentalHealthConditions || {}),
           otherText: value,
           other: true
         }
