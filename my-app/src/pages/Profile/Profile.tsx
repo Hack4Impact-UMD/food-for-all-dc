@@ -2345,7 +2345,7 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
                     color="primary"
                     onClick={handleSave}
                     aria-label="save"
-                    disabled = {isSaving}
+                    disabled={isSaving}
                     size="small"
                   >
                     <SaveIcon />
@@ -2482,7 +2482,7 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
                   <StyledIconButton
                     color="primary"
                     onClick={handleSave}
-                    disabled = {isSaving}
+                    disabled={isSaving}
                     aria-label="save"
                     size="small"
                   >
