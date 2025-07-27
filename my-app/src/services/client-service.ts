@@ -144,6 +144,9 @@ import { validateClientProfile } from '../utils/firestoreValidation';
             recurrence: raw.recurrence || "None",
             tefapCert: raw.tefapCert || undefined,
             clusterID: raw.clusterID || undefined,
+            physicalAilments: raw.physicalAilments || "",
+            physicalDisability: raw.physicalDisability || "",
+            mentalHealthConditions: raw.mentalHealthConditions || "",
           };
           return mapped;
         });

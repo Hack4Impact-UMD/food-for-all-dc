@@ -1286,7 +1286,7 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
   };
 
   // Re-define renderField to accept addressInputRef and forward it to FormField
-  const renderField = (fieldPath: ClientProfileKey, type: InputType = "text", addressInputRef?: React.RefObject<HTMLInputElement>) => {
+  const renderField = (fieldPath: ClientProfileKey, type: InputType = "text", addressInputRef?: React.RefObject<HTMLInputElement | null>) => {
 
 if (type === "physicalAilments") {
       const options = [
