@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { onAuthStateChanged, signOut } from "firebase/auth";
-import { auth } from "../../../auth/firebaseConfig";
+import { auth } from "../auth/firebaseConfig";
 import { Button, Dialog, DialogContent, DialogTitle, Typography, Box } from "@mui/material";
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';

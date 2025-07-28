@@ -25,7 +25,7 @@ import { usePerformanceMonitor } from "./hooks/usePerformance";
 import { ErrorBoundary } from "./components/performance/LoadingComponents";
 import { routesConfig } from "./routesConfig";
 import NotFoundPage from "./components/NotFoundPage";
-import AutoLogout from "./pages/Calendar/components/AutoLogout";
+import AutoLogout from "./components/AutoLogout";
 
 function renderRoutes(config: Array<any>) {
   return config.map((route: any, idx: number) => {
