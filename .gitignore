@@ -57,6 +57,10 @@ pubsub-debug.log*
 food-for-all-dc-caf23-firebase-adminsdk-*.json
 *-firebase-adminsdk-*.json
 csv-one-line-client-database.json
+csv-one-line-client-database_w_referral.json
+combined3.csv
+Client Referral Form.csv
+FFA CLIENT DATABASE.csv
 
 # Logs
 logs/
