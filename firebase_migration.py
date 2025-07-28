@@ -157,8 +157,15 @@ class FirestoreMigration:
             data = response.json()
             
             if data['status'] == 'OK' and data['results']:
-                location = data['results'][0]['geometry']['location']
-                return [location['lat'], location['lng']]
+                # prefer DC/MD/VA result
+                for res in data['results']:
+                    for comp in res['address_components']:
+                        if 'administrative_area_level_1' in comp['types'] and comp.get('short_name') in ('DC','MD','VA'):
+                            loc = res['geometry']['location']
+                            return [loc['lat'], loc['lng']]
+                # fallback to first result
+                loc = data['results'][0]['geometry']['location']
+                return [loc['lat'], loc['lng']]
             else:
                 logger.warning(f"No coordinates found for address: {address}")
                 return None
@@ -231,13 +238,26 @@ class FirestoreMigration:
             if response.status_code != 200:
                 return {"street": address, "city": "", "state": "", "zip": "", "quadrant": ""}
             data = response.json()
+            
             if data.get('status') != 'OK' or not data.get('results'):
                 return {"street": address, "city": "", "state": "", "zip": "", "quadrant": ""}
             
-            comps = data['results'][0]['address_components']
-            fmt = data['results'][0]['formatted_address']
+            # prefer DC/MD/VA result
+            for res in data['results']:
+                state = next((c['short_name'] 
+                              for c in res['address_components'] 
+                              if 'administrative_area_level_1' in c['types']), None)
+                if state in ('DC','MD','VA'):
+                    components = res['address_components']
+                    formatted = res['formatted_address']
+                    break
+            else:
+                # no preferred state found
+                components = data['results'][0]['address_components']
+                formatted = data['results'][0]['formatted_address']
+            
             street = city = state = zip_code = quadrant = ""
-            for comp in comps:
+            for comp in components:
                 types = comp['types']
                 if 'street_number' in types:
                     street = comp['long_name'] + " " + street
@@ -253,9 +273,9 @@ class FirestoreMigration:
                     street += " " + comp['long_name']
                 elif 'neighborhood' in types and any(q in comp['long_name'].upper() for q in ['NW','NE','SW','SE']):
                     quadrant = comp['long_name']
-            if not quadrant and fmt:
+            if not quadrant and formatted:
                 import re
-                m = re.search(r'\b(NW|NE|SW|SE)\b', fmt, re.IGNORECASE)
+                m = re.search(r'\b(NW|NE|SW|SE)\b', formatted, re.IGNORECASE)
                 if m: quadrant = m.group(0).upper()
             return {"street": street.strip(), "city": city, "state": state, "zip": zip_code, "quadrant": quadrant}
         except Exception as e:
@@ -297,12 +317,12 @@ class FirestoreMigration:
         freq = str(frequency_str).strip().lower()
         
         # Check for emergency/one-time deliveries first
-        emergency_keywords = ["emergency", "only", "two time only", "one time only"]
+        emergency_keywords = ["emergency", "only", "two time only", "one time only", "emerg"]
         if any(keyword in freq for keyword in emergency_keywords):
             return "Emergency"
         
         # Check for periodic
-        if "periodic" in freq:
+        if "periodic" or "PERIODIC" or "Periodic"  or "perodic" in freq:
             return "Periodic"
         
         # Define mapping patterns for regular frequencies
@@ -845,8 +865,26 @@ class FirestoreMigration:
         # Parse age group to determine senior vs adult classification
         adults_count = int(row.get("Adults_database", 0)) if row.get("Adults_database") else 0
         children_count = int(row.get("kids", 0)) if row.get("kids") else 0
-        age_group_data = self.parse_age_group(row.get("age_group", ""), adults_count)
-        
+
+        # Check vulnerability fields for explicit "senior"
+        vuln_fields = [
+            row.get("MainVulnerability", ""),
+            row.get("Eligibility_database", ""),
+            row.get("Notes", ""),
+            row.get("Eligibility_referral", ""),
+            row.get("further_information", ""),
+            row.get("STATUS_WITH_DATE", "")
+        ]
+        if any("senior" in str(val).lower() for val in vuln_fields) and adults_count > 0:
+            # shift one adult to senior
+            age_group_data = {
+                "adults": max(0, adults_count - 1),
+                "seniors": 1,
+                "headOfHousehold": "Senior"
+            }
+        else:
+            age_group_data = self.parse_age_group(row.get("age_group", ""), adults_count)
+
         # Calculate total household size
         total_household = age_group_data["adults"] + age_group_data["seniors"] + children_count
 
