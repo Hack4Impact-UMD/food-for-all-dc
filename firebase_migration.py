@@ -55,9 +55,12 @@ class FirestoreMigration:
         """
         self.project_id = project_id
         self.collection_name = collection_name
-        self.google_maps_api_key = ""
+        self.google_maps_api_key = google_maps_api_key or ""
         self.stats = MigrationStats()
-        
+        self.processed_names = set()  # Track processed names for duplicate checking
+        self.case_workers = {}  # Track case workers by name (case-insensitive)
+        self.failed_geocoding_clients: List[str] = []  # Track clients with no coords
+
         # Initialize Firebase Admin SDK
         if not firebase_admin._apps:
             cred = credentials.Certificate(service_account_path)
@@ -184,8 +187,7 @@ class FirestoreMigration:
             result["coordinates"] = coordinates
             
             # Use DC Government ArcGIS REST service to find ward by coordinates
-            lng, lat = coordinates[1], coordinates[0]  # ArcGIS expects lng, lat
-            
+            lng, lat = coordinates[1], coordinates[0]
             ward_service_url = "https://maps2.dcgis.dc.gov/dcgis/rest/services/DCGIS_DATA/Administrative_Other_Boundaries_WebMercator/MapServer/53/query"
             params = {
                 'f': 'json',
@@ -196,7 +198,6 @@ class FirestoreMigration:
                 'outFields': 'NAME,WARD',
                 'returnGeometry': 'false'
             }
-            
             response = requests.get(ward_service_url, params=params, timeout=10)
             
             if response.status_code != 200:
@@ -205,19 +206,15 @@ class FirestoreMigration:
                 return result
             
             data = response.json()
-            
-            if data.get('features') and len(data['features']) > 0:
-                ward_feature = data['features'][0]
-                ward_name = ward_feature['attributes'].get('NAME') or f"Ward {ward_feature['attributes'].get('WARD', '')}"
-                result["ward"] = ward_name
+            if data.get('features'):
+                feat = data['features'][0]['attributes']
+                result["ward"] = feat.get('NAME') or f"Ward {feat.get('WARD','')}"
             else:
                 logger.warning(f"No ward found for coordinates: {coordinates}")
                 result["ward"] = "No ward"
-                
         except Exception as e:
             logger.error(f"Error getting ward information for {address}: {str(e)}")
             result["ward"] = "Error"
-            
         return result
 
     def parse_google_address(self, address: str) -> Dict[str, str]:
@@ -228,35 +225,20 @@ class FirestoreMigration:
             return {"street": address, "city": "", "state": "", "zip": "", "quadrant": ""}
             
         try:
-            params = {
-                'address': address,
-                'key': self.google_maps_api_key
-            }
-            
+            params = {'address': address, 'key': self.google_maps_api_key}
             url = f"https://maps.googleapis.com/maps/api/geocode/json?{urlencode(params)}"
             response = requests.get(url, timeout=10)
-            
             if response.status_code != 200:
                 return {"street": address, "city": "", "state": "", "zip": "", "quadrant": ""}
-                
             data = response.json()
-            
-            if data['status'] != 'OK' or not data['results']:
+            if data.get('status') != 'OK' or not data.get('results'):
                 return {"street": address, "city": "", "state": "", "zip": "", "quadrant": ""}
-                
-            # Parse address components similar to the JavaScript code
-            components = data['results'][0]['address_components']
-            formatted_address = data['results'][0]['formatted_address']
             
-            street = ""
-            city = ""
-            state = ""
-            zip_code = ""
-            quadrant = ""
-            
-            for comp in components:
+            comps = data['results'][0]['address_components']
+            fmt = data['results'][0]['formatted_address']
+            street = city = state = zip_code = quadrant = ""
+            for comp in comps:
                 types = comp['types']
-                
                 if 'street_number' in types:
                     street = comp['long_name'] + " " + street
                 elif 'route' in types:
@@ -269,42 +251,62 @@ class FirestoreMigration:
                     zip_code = comp['long_name']
                 elif 'subpremise' in types:
                     street += " " + comp['long_name']
-                elif 'neighborhood' in types:
-                    # Check if neighborhood contains DC quadrant
-                    if any(q in comp['long_name'].upper() for q in ['NW', 'NE', 'SW', 'SE']):
-                        quadrant = comp['long_name']
-            
-            # Extract quadrant from formatted address if not found in components
-            if not quadrant and formatted_address:
+                elif 'neighborhood' in types and any(q in comp['long_name'].upper() for q in ['NW','NE','SW','SE']):
+                    quadrant = comp['long_name']
+            if not quadrant and fmt:
                 import re
-                match = re.search(r'\b(NW|NE|SW|SE)\b', formatted_address, re.IGNORECASE)
-                if match:
-                    quadrant = match.group(0).upper()
-            
-            return {
-                "street": street.strip(),
-                "city": city,
-                "state": state,
-                "zip": zip_code,
-                "quadrant": quadrant
-            }
-            
+                m = re.search(r'\b(NW|NE|SW|SE)\b', fmt, re.IGNORECASE)
+                if m: quadrant = m.group(0).upper()
+            return {"street": street.strip(), "city": city, "state": state, "zip": zip_code, "quadrant": quadrant}
         except Exception as e:
             logger.error(f"Error parsing address {address}: {str(e)}")
             return {"street": address, "city": "", "state": "", "zip": "", "quadrant": ""}
 
+    def check_recent_deliveries(self, row: Dict[str, Any]) -> bool:
+        """
+        Check if client has had any deliveries in the last 6 months
+        Returns True if any delivery field has a value
+        """
+        delivery_fields = [
+            "Delivery_1_31_2025", "Delivery_2_7_2025", "Delivery_2_14_2025", 
+            "Delivery_2_21_2025", "Delivery_2_28_2025", "Delivery_3_7_2025",
+            "Delivery_3_14_2025", "Delivery_3_21_2025", "Delivery_3_28_2025",
+            "Delivery_4_4_2025", "Delivery_4_11_2025", "Delivery_4_18_2025",
+            "Delivery_4_25_2025", "Delivery_5_2_2025", "Delivery_5_9_2025",
+            "Delivery_5_16_2025", "Delivery_5_23_2025", "Delivery_5_30_2025",
+            "Delivery_6_6_2025", "Delivery_6_13_2025", "Delivery_6_20_2025",
+            "Delivery_6_27_2025", "Delivery_7_4_2025", "Delivery_7_11_2025",
+            "Delivery_7_18_2025"
+        ]
+        
+        for field in delivery_fields:
+            value = row.get(field, "")
+            if value and str(value).strip() and str(value).strip().lower() not in ['', 'false', 'no', '0']:
+                return True
+        
+        return False
+
     def parse_frequency(self, frequency_str: str) -> str:
         """
         Parse frequency string to match predefined categories
-        Returns one of: "None", "Weekly", "2x-Monthly", "Monthly"
+        Returns one of: "None", "Weekly", "2x-Monthly", "Monthly", "Emergency", "Periodic"
         """
         if not frequency_str or not str(frequency_str).strip():
             return "None"
         
         freq = str(frequency_str).strip().lower()
         
-        # Define mapping patterns
-        if freq in ["periodic", "none", "n/a", "na", ""]:
+        # Check for emergency/one-time deliveries first
+        emergency_keywords = ["emergency", "only", "two time only", "one time only"]
+        if any(keyword in freq for keyword in emergency_keywords):
+            return "Emergency"
+        
+        # Check for periodic
+        if "periodic" in freq:
+            return "Periodic"
+        
+        # Define mapping patterns for regular frequencies
+        if freq in ["none", "n/a", "na", ""]:
             return "None"
         elif "weekly" in freq or "week" in freq or freq in ["1x/week", "once/week", "every week"]:
             return "Weekly"
@@ -326,10 +328,451 @@ class FirestoreMigration:
             else:
                 return "None"  # Default fallback
 
+    def parse_physical_ailments(self, main_vulnerability: str, eligibility_database: str, unnamed_29: str, further_information: str = "") -> Dict[str, Any]:
+        """
+        Parse physical ailments from various fields
+        """
+        ailments = {
+            "diabetes": False,
+            "hypertension": False,
+            "heartDisease": False,
+            "kidneyDisease": False,
+            "cancer": False,
+            "otherText": "",
+            "other": False
+        }
+        
+        # Combine all relevant fields including further_information
+        all_text = []
+        for field in [main_vulnerability, eligibility_database, unnamed_29, further_information]:
+            if field and str(field).strip():
+                all_text.append(str(field).lower())
+        
+        combined_text = ' '.join(all_text)
+        
+        if 'diabetes' in combined_text or 'diabetic' in combined_text:
+            ailments["diabetes"] = True
+        if 'hypertension' in combined_text or 'high blood pressure' in combined_text or 'blood pressure' in combined_text:
+            ailments["hypertension"] = True
+        if 'heart' in combined_text or 'cardiac' in combined_text or 'cardiovascular' in combined_text:
+            ailments["heartDisease"] = True
+        if 'kidney' in combined_text or 'renal' in combined_text:
+            ailments["kidneyDisease"] = True
+        if 'cancer' in combined_text or 'tumor' in combined_text or 'oncology' in combined_text:
+            ailments["cancer"] = True
+        
+        # Check for other medical conditions
+        medical_keywords = ['medical', 'illness', 'disease', 'condition', 'health', 'medication', 'treatment']
+        has_medical = any(keyword in combined_text for keyword in medical_keywords)
+        
+        if has_medical and not any([ailments["diabetes"], ailments["hypertension"], ailments["heartDisease"], ailments["kidneyDisease"], ailments["cancer"]]):
+            ailments["other"] = True
+            ailments["otherText"] = combined_text[:200]  # Limit text length
+        
+        return ailments
+
+    def parse_physical_disability(self, main_vulnerability: str, eligibility_database: str, unnamed_29: str, further_information: str = "") -> Dict[str, Any]:
+        """
+        Parse physical disability information
+        """
+        disability = {
+            "otherText": "",
+            "other": False
+        }
+        
+        # Combine all relevant fields including further_information
+        all_text = []
+        for field in [main_vulnerability, eligibility_database, unnamed_29, further_information]:
+            if field and str(field).strip():
+                all_text.append(str(field).lower())
+        
+        combined_text = ' '.join(all_text)
+        
+        disability_keywords = ['disability', 'disabled', 'wheelchair', 'mobility', 'impaired', 'handicap', 'physical limitation']
+        
+        if any(keyword in combined_text for keyword in disability_keywords):
+            disability["other"] = True
+            disability["otherText"] = combined_text[:200]  # Limit text length
+        
+        return disability
+
+    def parse_mental_health_conditions(self, main_vulnerability: str, eligibility_database: str, unnamed_29: str, further_information: str = "") -> Dict[str, Any]:
+        """
+        Parse mental health conditions
+        """
+        mental_health = {
+            "otherText": "",
+            "other": False
+        }
+        
+        # Combine all relevant fields including further_information
+        all_text = []
+        for field in [main_vulnerability, eligibility_database, unnamed_29, further_information]:
+            if field and str(field).strip():
+                all_text.append(str(field).lower())
+        
+        combined_text = ' '.join(all_text)
+        
+        mental_health_keywords = ['mental', 'depression', 'anxiety', 'ptsd', 'bipolar', 'schizophrenia', 'psychiatric', 'psychological', 'therapy', 'counseling']
+        
+        if any(keyword in combined_text for keyword in mental_health_keywords):
+            mental_health["other"] = True
+            mental_health["otherText"] = combined_text[:200]  # Limit text length
+        
+        return mental_health
+
+    def parse_life_challenges(self, main_vulnerability: str, eligibility_database: str, unnamed_29: str, further_information: str = "") -> str:
+        """
+        Parse life challenges from vulnerability fields, excluding medical/disability content
+        """
+        all_text = []
+        for field in [main_vulnerability, eligibility_database, unnamed_29, further_information]:
+            if field and str(field).strip():
+                all_text.append(str(field))
+        
+        combined_text = ' '.join(all_text)
+        
+        # Filter out medical/disability keywords to focus on other life challenges
+        exclude_keywords = ['diabetes', 'hypertension', 'heart', 'kidney', 'cancer', 'disability', 'wheelchair', 'mental', 'depression', 'anxiety']
+        
+        # Simple filtering - if text contains mainly medical terms, return empty
+        lower_text = combined_text.lower()
+        medical_count = sum(1 for keyword in exclude_keywords if keyword in lower_text)
+        
+        if medical_count > 2:  # If heavy medical content, return filtered version
+            words = combined_text.split()
+            filtered_words = [word for word in words if not any(keyword in word.lower() for keyword in exclude_keywords)]
+            return ' '.join(filtered_words)[:200]
+        
+        return combined_text[:200]  # Limit text length
+
+    def parse_referral_entity(self, row: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Parse referral entity information from various fields
+        """
+        # Check for explicit fields first
+        case_manager_name = row.get("Name_case_manager", "").strip()
+        agency_name = row.get("Agency_name", "").strip()
+        case_manager_phone = row.get("Phone_contact_case_manager", "").strip()
+        case_manager_email = row.get("EmailAddress", "").strip()
+        
+        # If we have explicit case manager info, use it
+        if case_manager_name or agency_name:
+            return {
+                "id": "",
+                "name": case_manager_name,
+                "organization": agency_name,
+                "phone": case_manager_phone,
+                "email": case_manager_email
+            }
+        
+        # Otherwise, try to parse from REFERRAL_ENTITY field
+        referral_entity = row.get("REFERRAL_ENTITY", "").strip()
+        if referral_entity:
+            import re
+            
+            # Initialize result
+            result = {
+                "id": "",
+                "name": "",
+                "organization": "",
+                "phone": "",
+                "email": ""
+            }
+            
+            # Extract phone number (various formats)
+            phone_patterns = [
+                r'\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}',  # (202) 715-6064, 202-821-1118, etc.
+                r'\d{3}[-.\s]\d{3}[-.\s]\d{4}',
+                r'\d{10}'
+            ]
+            
+            phone_match = None
+            for pattern in phone_patterns:
+                phone_match = re.search(pattern, referral_entity)
+                if phone_match:
+                    result["phone"] = phone_match.group(0).strip()
+                    # Remove phone from string for further parsing
+                    referral_entity = referral_entity.replace(phone_match.group(0), '').strip()
+                    break
+            
+            # Extract email
+            email_match = re.search(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b', referral_entity)
+            if email_match:
+                result["email"] = email_match.group(0).strip()
+                # Remove email from string for further parsing
+                referral_entity = referral_entity.replace(email_match.group(0), '').strip()
+            
+            # Clean up remaining text (remove extra commas, spaces)
+            referral_entity = re.sub(r'[,\s]+$', '', referral_entity)  # Remove trailing commas/spaces
+            referral_entity = re.sub(r'^[,\s]+', '', referral_entity)  # Remove leading commas/spaces
+            referral_entity = re.sub(r'\s*,\s*$', '', referral_entity)  # Remove trailing comma
+            
+            # Now parse name and organization from remaining text
+            if referral_entity:
+                # Try different parsing strategies based on common patterns
+                
+                # Strategy 1: "Name, Organization" format
+                if ',' in referral_entity:
+                    parts = [part.strip() for part in referral_entity.split(',')]
+                    if len(parts) >= 2:
+                        # First part is likely name, rest is organization
+                        potential_name = parts[0]
+                        potential_org = ', '.join(parts[1:])
+                        
+                        # Check if first part looks like a person's name (has space and proper case)
+                        if ' ' in potential_name and any(word[0].isupper() for word in potential_name.split()):
+                            result["name"] = potential_name
+                            result["organization"] = potential_org
+                        else:
+                            # First part might be organization
+                            result["organization"] = potential_name
+                            if len(parts) > 1:
+                                result["name"] = potential_org
+                
+                # Strategy 2: Look for patterns like "Name - Organization" or "Name: Organization"
+                elif any(sep in referral_entity for sep in [' - ', ': ', ' : ']):
+                    for sep in [' - ', ': ', ' : ']:
+                        if sep in referral_entity:
+                            parts = referral_entity.split(sep, 1)
+                            if len(parts) == 2:
+                                left, right = parts[0].strip(), parts[1].strip()
+                                # Check which part looks more like a name
+                                if ' ' in left and any(word[0].isupper() for word in left.split()):
+                                    result["name"] = left
+                                    result["organization"] = right
+                                else:
+                                    result["organization"] = left
+                                    result["name"] = right
+                            break
+                
+                # Strategy 3: Look for organization indicators and split accordingly
+                elif any(org_word in referral_entity.lower() for org_word in ['hospital', 'clinic', 'center', 'university', 'health', 'medical', 'plan', 'services', 'organization']):
+                    # Try to split at organization indicators
+                    org_indicators = ['hospital', 'clinic', 'center', 'university', 'health', 'medical', 'plan', 'services', 'organization']
+                    
+                    for indicator in org_indicators:
+                        if indicator in referral_entity.lower():
+                            # Find the position of the indicator
+                            idx = referral_entity.lower().find(indicator)
+                            # Look for word boundaries
+                            words = referral_entity.split()
+                            
+                            for i, word in enumerate(words):
+                                if indicator in word.lower():
+                                    # Everything from this word onwards is likely organization
+                                    if i > 0:
+                                        result["name"] = ' '.join(words[:i]).strip()
+                                        result["organization"] = ' '.join(words[i:]).strip()
+                                    else:
+                                        result["organization"] = referral_entity
+                                    break
+                            break
+                
+                # Strategy 4: If no clear pattern, check if it looks like a person's name
+                else:
+                    words = referral_entity.split()
+                    # If 2-3 words with proper capitalization, likely a name
+                    if 2 <= len(words) <= 3 and all(word[0].isupper() for word in words if word):
+                        result["name"] = referral_entity
+                    else:
+                        # Otherwise, treat as organization
+                        result["organization"] = referral_entity
+            
+            # Clean up results
+            for key in ["name", "organization"]:
+                if result[key]:
+                    # Remove extra whitespace and clean up
+                    result[key] = ' '.join(result[key].split())
+                    # Remove trailing commas
+                    result[key] = result[key].rstrip(',').strip()
+            
+            return result
+        
+        return None
+
+    def is_duplicate(self, first_name: str, last_name: str) -> bool:
+        """
+        Check if a client with the same name (case-insensitive) has already been processed
+        """
+        if not first_name or not last_name:
+            return False
+            
+        full_name = f"{first_name.strip().lower()} {last_name.strip().lower()}"
+        
+        if full_name in self.processed_names:
+            return True
+        
+        self.processed_names.add(full_name)
+        return False
+
+    def add_or_update_case_worker(self, referral_entity: Dict[str, Any]) -> None:
+        """
+        Add or update a case worker in the collection, avoiding duplicates and merging data
+        """
+        if not referral_entity:
+            return
+        
+        name = referral_entity.get("name", "").strip()
+        organization = referral_entity.get("organization", "").strip()
+        phone = referral_entity.get("phone", "").strip()
+        email = referral_entity.get("email", "").strip()
+        
+        # Skip if no meaningful data
+        if not name and not organization:
+            return
+        
+        # Use name as the primary key, fallback to organization if no name
+        key = name.lower() if name else organization.lower()
+        
+        if key in self.case_workers:
+            # Merge with existing data - fill in missing fields
+            existing = self.case_workers[key]
+            
+            # Update fields if they're empty in existing but have value in new
+            if not existing["name"] and name:
+                existing["name"] = name
+            if not existing["organization"] and organization:
+                existing["organization"] = organization
+            if not existing["phone"] and phone:
+                existing["phone"] = phone
+            if not existing["email"] and email:
+                existing["email"] = email
+                
+            logger.debug(f"Updated case worker: {key}")
+        else:
+            # Add new case worker
+            self.case_workers[key] = {
+                "name": name,
+                "organization": organization,
+                "phone": phone,
+                "email": email
+            }
+            logger.debug(f"Added new case worker: {key}")
+
+    def save_case_workers_to_firestore(self) -> None:
+        """
+        Save all collected case workers to the new_case_workers collection
+        """
+        if not self.case_workers:
+            logger.info("No case workers to save")
+            return
+        
+        collection_name = "new_case_workers"
+        successful = 0
+        failed = 0
+        
+        try:
+            # Process case workers in batches
+            case_worker_list = list(self.case_workers.values())
+            batch_size = 500  # Firestore batch limit
+            
+            for i in range(0, len(case_worker_list), batch_size):
+                batch = self.db.batch()
+                batch_items = case_worker_list[i:i + batch_size]
+                
+                for case_worker in batch_items:
+                    try:
+                        # Create a unique document ID based on name or organization
+                        doc_id = case_worker["name"] if case_worker["name"] else case_worker["organization"]
+                        # Clean the doc_id for Firestore (remove invalid characters)
+                        doc_id = "".join(c for c in doc_id if c.isalnum() or c in (' ', '-', '_')).strip()
+                        doc_id = doc_id.replace(' ', '_')
+                        
+                        if not doc_id:
+                            continue
+                        
+                        # Add timestamps
+                        case_worker_doc = {
+                            **case_worker,
+                            "createdAt": datetime.utcnow(),
+                            "updatedAt": datetime.utcnow()
+                        }
+                        
+                        doc_ref = self.db.collection(collection_name).document(doc_id)
+                        batch.set(doc_ref, case_worker_doc)
+                        successful += 1
+                        
+                    except Exception as e:
+                        logger.error(f"Failed to prepare case worker {case_worker}: {str(e)}")
+                        failed += 1
+                
+                # Commit the batch
+                if successful > 0:
+                    batch.commit()
+                    logger.info(f"Committed case worker batch: {len(batch_items)} items")
+            
+            logger.info(f"Case workers saved: {successful} successful, {failed} failed")
+            
+        except Exception as e:
+            logger.error(f"Error saving case workers: {str(e)}")
+
+    def parse_age_group(self, age_group_str: str, adults_count: int) -> Dict[str, Any]:
+        """
+        Parse age group to determine if household head is senior or adult
+        Returns dict with 'adults', 'seniors', 'headOfHousehold' keys
+        """
+        result = {
+            "adults": adults_count,
+            "seniors": 0,
+            "headOfHousehold": "Adult"
+        }
+        
+        if not age_group_str or not str(age_group_str).strip():
+            return result
+        
+        age_group = str(age_group_str).strip().lower()
+        
+        # Check for senior indicators (65+)
+        senior_patterns = [
+            "65+", "65 +", "65 plus", "65 - 74", "75+", "75 +", "80+", "80 +",
+            "65 + years", "65+ years", "senior", "elderly"
+        ]
+        
+        # Check for explicit age ranges starting at 65 or higher
+        import re
+        age_range_match = re.search(r'(\d+)\s*[-–—]\s*(\d+)', age_group)
+        if age_range_match:
+            start_age = int(age_range_match.group(1))
+            if start_age >= 65:
+                # This person is a senior, not an adult
+                result["adults"] = max(0, adults_count - 1)  # Remove one from adults
+                result["seniors"] = 1
+                result["headOfHousehold"] = "Senior"
+                return result
+        
+        # Check for single age mentions of 65+
+        single_age_match = re.search(r'(\d+)\s*\+', age_group)
+        if single_age_match:
+            age = int(single_age_match.group(1))
+            if age >= 65:
+                result["adults"] = max(0, adults_count - 1)
+                result["seniors"] = 1
+                result["headOfHousehold"] = "Senior"
+                return result
+        
+        # Check for senior keyword patterns
+        if any(pattern in age_group for pattern in senior_patterns):
+            result["adults"] = max(0, adults_count - 1)
+            result["seniors"] = 1
+            result["headOfHousehold"] = "Senior"
+            return result
+        
+        # Default to adult if no senior indicators found
+        return result
+
     def transform_record(self, row: Dict[str, Any]) -> Dict[str, Any]:
         """
         Python port of the JavaScript transform function with Google Maps integration
         """
+        # Check for duplicates first
+        first_name = row.get("FIRST", "")
+        last_name = row.get("LAST", "")
+        
+        if self.is_duplicate(first_name, last_name):
+            logger.warning(f"Skipping duplicate: {first_name} {last_name}")
+            return None
+
         # Handle phone/email logic
         phone = ""
         email = ""
@@ -346,30 +789,80 @@ class FirestoreMigration:
             row.get("DietaryRestrictions")
         )
 
+        # Parse health-related fields including further_information
+        main_vulnerability = row.get("MainVulnerability", "")
+        eligibility_database = row.get("Eligibility_database", "")
+        unnamed_29 = row.get("Unnamed: 29", "")
+        further_information = row.get("further_information", "")
+
+        physical_ailments = self.parse_physical_ailments(main_vulnerability, eligibility_database, unnamed_29, further_information)
+        physical_disability = self.parse_physical_disability(main_vulnerability, eligibility_database, unnamed_29, further_information)
+        mental_health_conditions = self.parse_mental_health_conditions(main_vulnerability, eligibility_database, unnamed_29, further_information)
+        life_challenges = self.parse_life_challenges(main_vulnerability, eligibility_database, unnamed_29, further_information)
+
+        # Parse referral entity
+        referral_entity = self.parse_referral_entity(row)
+        
+        # Add case worker to collection if valid
+        if referral_entity:
+            self.add_or_update_case_worker(referral_entity)
+        
+        # Handle fallback phone logic if client has no phone
+        notes = row.get("Notes", "")
+        if not phone and referral_entity and referral_entity.get("phone"):
+            phone = referral_entity["phone"]
+            # Add note about using referral entity's phone
+            if notes:
+                notes += " | Phone number is from Referral Entity."
+            else:
+                notes = "Phone number is from Referral Entity."
+
+        # Check active status and recent deliveries
+        active_status = row.get("Active", "")
+        has_recent_deliveries = self.check_recent_deliveries(row)
+        
+        # If marked as inactive but has recent deliveries, override to active
+        if has_recent_deliveries and str(active_status).lower() in ['no', 'false', '0', 'inactive']:
+            active_status = "Yes"
+            # Add note about status change
+            if notes:
+                notes += " | Status changed to Active due to recent deliveries."
+            else:
+                notes = "Status changed to Active due to recent deliveries."
+
         # Create tags
         tags = []
         if row.get("TEFAP_FY25") and str(row["TEFAP_FY25"]).lower() != 'false':
             tags.append("TEFAPOnFile")
+        
+        # Add active status to tags if applicable
+        if str(active_status).lower() in ['yes', 'true', '1', 'active']:
+            tags.append("Active")
 
-        # Parse frequency
+        # Parse frequency with new emergency and periodic handling
         delivery_freq = self.parse_frequency(row.get("Frequency", ""))
+
+        # Parse age group to determine senior vs adult classification
+        adults_count = int(row.get("Adults_database", 0)) if row.get("Adults_database") else 0
+        children_count = int(row.get("kids", 0)) if row.get("kids") else 0
+        age_group_data = self.parse_age_group(row.get("age_group", ""), adults_count)
+        
+        # Calculate total household size
+        total_household = age_group_data["adults"] + age_group_data["seniors"] + children_count
 
         # Process address with Google Maps if API key is available
         address_components = {"street": "", "city": "", "state": "", "zip": "", "quadrant": ""}
         ward = ""
         coordinates = []
-        
+
         if self.google_maps_api_key and row.get("ADDRESS"):
-            # Build full address for geocoding
             full_address = row.get("ADDRESS", "")
-            if row.get("APT"):
-                full_address += f" {row['APT']}"
             if row.get("ZIP"):
                 full_address += f", {row['ZIP']}"
-            
+
             # Parse address components
             address_components = self.parse_google_address(full_address)
-            
+
             # Get ward and coordinates
             try:
                 import asyncio
@@ -389,40 +882,49 @@ class FirestoreMigration:
             address_components["zip"] = str(row.get("ZIP", ""))
             ward = str(row.get("Ward", ""))
 
-        # Build the client profile
+        # record failures
+        if not coordinates:
+            self.failed_geocoding_clients.append(str(row.get("ID", "")))
+
+        # Build the client profile with updated model
         client_profile = {
-            "firstName": row.get("FIRST", ""),
-            "lastName": row.get("LAST", ""),
-            "address": address_components["street"] or row.get("ADDRESS", ""),
+            "uid": row.get("ID", ""),
+            "firstName": first_name,
+            "lastName": last_name,
+            "streetName": address_components["street"] or row.get("ADDRESS", ""),
+            "address":    address_components["street"] or row.get("ADDRESS", ""),
             "address2": row.get("APT", ""),
-            "zipCode": address_components["zip"] or str(row.get("ZIP", "")),
-            "city": address_components["city"],
-            "state": address_components["state"],
-            "quadrant": address_components["quadrant"] or row.get("Quadrant", ""),
+            "zipCode":    address_components["zip"]    or str(row.get("ZIP", "")),
+            "city":       address_components["city"],
+            "state":      address_components["state"],
+            "quadrant":   address_components["quadrant"] or row.get("Quadrant", ""),
             "dob": "",
             "deliveryFreq": delivery_freq,
             "phone": phone,
             "email": email,
             "alternativePhone": "",
-            "adults": int(row.get("Adultnum", 0)) if row.get("Adultnum") else 0,
-            "children": int(row.get("kidsnum", 0)) if row.get("kidsnum") else 0,
-            "total": int(row.get("HHSize", 0)) if row.get("HHSize") else 0,
+            "adults": age_group_data["adults"],
+            "children": children_count,
+            "total": total_household,
             "gender": "Other",
             "ethnicity": "",
             "deliveryDetails": {
                 "deliveryInstructions": row.get("DeliveryInstructions", ""),
                 "dietaryRestrictions": restrictions
             },
-            "lifeChallenges": row.get("VulnerabilityClassification", ""),
-            "notes": row.get("Notes", ""),
+            "lifeChallenges": life_challenges,
+            "physicalAilments": physical_ailments,
+            "physicalDisability": physical_disability,
+            "mentalHealthConditions": mental_health_conditions,
+            "notes": notes,
             "language": row.get("Language", ""),
             "createdAt": datetime.utcnow(),
             "updatedAt": datetime.utcnow(),
             "tags": tags,
             "ward": ward or str(row.get("Ward", "")),
-            "coordinates": coordinates,
-            "seniors": 0,
-            "headOfHousehold": "Adult",
+            "coordinates":coordinates,
+            "seniors": age_group_data["seniors"],
+            "headOfHousehold": age_group_data["headOfHousehold"],
             "startDate": row.get("StartDate", ""),
             "endDate": row.get("EndDate", ""),
             "recurrence": "",
@@ -431,15 +933,17 @@ class FirestoreMigration:
             "deliveryInstructionsTimestamp": None,
             "lifeChallengesTimestamp": None,
             "lifestyleGoalsTimestamp": None,
-            "lifestyleGoals": ""
+            "lifestyleGoals": "",
+            "activeStatus": str(active_status).lower() in ['yes', 'true', '1', 'active']  # Add boolean active status
         }
 
-        # Handle referral entity
-        if row.get("REFERRAL_ENTITY"):
+        # Handle referral entity - only include if we have meaningful data
+        if referral_entity and (referral_entity.get("name") or referral_entity.get("organization")):
+            # Remove phone and email from referral entity before storing (they're not in the target schema)
             client_profile["referralEntity"] = {
-                "id": "",
-                "name": row["REFERRAL_ENTITY"],
-                "organization": ""
+                "id": referral_entity.get("id", ""),
+                "name": referral_entity.get("name", ""),
+                "organization": referral_entity.get("organization", "")
             }
         else:
             client_profile["referralEntity"] = None
@@ -453,6 +957,11 @@ class FirestoreMigration:
         try:
             # Transform the record
             transformed = self.transform_record(row)
+            
+            # Skip if duplicate
+            if transformed is None:
+                self.stats.skipped_records += 1
+                return True  # Not a failure, just skipped
             
             # Use the ID field as the document ID, or generate one
             doc_id = row.get("ID", "").strip()
@@ -478,12 +987,18 @@ class FirestoreMigration:
         batch = self.db.batch()
         successful = 0
         failed = 0
+        skipped = 0
         
         try:
             for row in records:
                 try:
                     # Transform the record
                     transformed = self.transform_record(row)
+                    
+                    # Skip if duplicate
+                    if transformed is None:
+                        skipped += 1
+                        continue
                     
                     # Use the ID field as the document ID
                     doc_id = row.get("ID", "").strip()
@@ -505,6 +1020,9 @@ class FirestoreMigration:
             if successful > 0:
                 batch.commit()
                 logger.info(f"Successfully committed batch with {successful} records")
+            
+            # Update stats
+            self.stats.skipped_records += skipped
             
         except Exception as e:
             logger.error(f"Batch commit failed: {str(e)}")
@@ -555,6 +1073,10 @@ class FirestoreMigration:
             use_threading: Whether to use threading for parallel processing
             limit: Maximum number of records to process (None for all records)
         """
+        # Reset processed names and case workers for each migration run
+        self.processed_names = set()
+        self.case_workers = {}
+        
         self.stats = MigrationStats()
         self.stats.start_time = datetime.utcnow()
         
@@ -624,8 +1146,19 @@ class FirestoreMigration:
         logger.info(f"Total records: {self.stats.total_records}")
         logger.info(f"Successful: {self.stats.successful_imports}")
         logger.info(f"Failed: {self.stats.failed_imports}")
+        logger.info(f"Skipped (duplicates): {self.stats.skipped_records}")
         logger.info(f"Success rate: {(self.stats.successful_imports/self.stats.total_records)*100:.2f}%")
         
+        # Save case workers to Firestore
+        logger.info(f"Saving {len(self.case_workers)} unique case workers...")
+        self.save_case_workers_to_firestore()
+
+        # Log clients without coordinates
+        if self.failed_geocoding_clients:
+            logger.info("Clients missing coordinates:")
+            for cid in self.failed_geocoding_clients:
+                logger.info(f"  - {cid}")
+
         return self.stats
 
 def main():
@@ -635,8 +1168,8 @@ def main():
     # Configuration
     SERVICE_ACCOUNT_PATH = "food-for-all-dc-caf23-firebase-adminsdk-fbsvc-f985f354df.json"
     PROJECT_ID = "food-for-all-dc-caf23"
-    COLLECTION_NAME = "client-profile1"
-    JSON_FILE_PATH = "csv-one-line-client-database.json"
+    COLLECTION_NAME = "client-profile2"
+    JSON_FILE_PATH = "csv-one-line-client-database_w_referral.json"
     GOOGLE_MAPS_API_KEY = os.getenv("GOOGLE_MAPS_API_KEY")  # Set this environment variable
     
     # Initialize migration with Google Maps API key
@@ -657,6 +1190,7 @@ def main():
     )
     
     print(f"Migration completed: {stats.successful_imports}/{stats.total_records} successful")
+    print(f"Case workers collected: {len(migration.case_workers)}")
     
     # Report unmapped frequencies
     if stats.unmapped_frequencies:

@@ -46,6 +46,10 @@ pubsub-debug.log*
 
 # Environment variables and secrets
 csv-one-line-client-database.json
+csv-one-line-client-database_w_referral.json
+combined3.csv
+Client Referral Form.csv
+FFA CLIENT DATABASE.csv
 .env
 .env.local
 .env.development
