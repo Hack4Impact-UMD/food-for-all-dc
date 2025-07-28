@@ -100,6 +100,7 @@ const CustomTextField = styled(TextField)({
     borderRadius: "5px",
     border: ".1rem solid black",
     marginTop: "0px",
+    marginBottom: "-20px",
     whiteSpace: "normal",
     wordWrap: "break-word",
     overflowWrap: "break-word",
