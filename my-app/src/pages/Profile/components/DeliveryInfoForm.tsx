@@ -163,16 +163,18 @@ const DeliveryInfoForm: React.FC<DeliveryInfoFormProps> = ({
         {/* Delivery Instructions */}
         <Box sx={{ 
           gridColumn: { xs: '1', sm: 'span 1' },
-          overflow: 'hidden !important',
-          maxWidth: '100% !important',
-          width: '100% !important',
-          wordWrap: 'break-word !important',
-          overflowWrap: 'anywhere !important',
-          '& *': {
-            wordWrap: 'break-word !important',
-            overflowWrap: 'anywhere !important',
-            wordBreak: 'break-all !important',
-            whiteSpace: 'pre-wrap !important'
+          width: '100%',
+          '& .MuiTextField-root': {
+            width: '100%',
+            '& .MuiInputBase-root': {
+              minHeight: '56px',
+              height: 'auto',
+              alignItems: 'flex-start',
+            },
+            '& .MuiInputBase-inputMultiline': {
+              minHeight: '80px !important',
+              padding: '16px 14px !important',
+            }
           }
         }}>
           <Typography className="field-descriptor" sx={fieldLabelStyles}>
@@ -199,16 +201,18 @@ const DeliveryInfoForm: React.FC<DeliveryInfoFormProps> = ({
         {/* Notes */}
         <Box sx={{ 
           gridColumn: { xs: '1', sm: 'span 1' },
-          overflow: 'hidden !important',
-          maxWidth: '100% !important',
-          width: '100% !important',
-          wordWrap: 'break-word !important',
-          overflowWrap: 'anywhere !important',
-          '& *': {
-            wordWrap: 'break-word !important',
-            overflowWrap: 'anywhere !important',
-            wordBreak: 'break-all !important',
-            whiteSpace: 'pre-wrap !important'
+          width: '100%',
+          '& .MuiTextField-root': {
+            width: '100%',
+            '& .MuiInputBase-root': {
+              minHeight: '56px',
+              height: 'auto',
+              alignItems: 'flex-start',
+            },
+            '& .MuiInputBase-inputMultiline': {
+              minHeight: '80px !important',
+              padding: '16px 14px !important',
+            }
           }
         }}>
           <Typography className="field-descriptor" sx={fieldLabelStyles}>

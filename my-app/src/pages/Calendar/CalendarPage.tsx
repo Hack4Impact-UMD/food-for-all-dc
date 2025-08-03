@@ -159,7 +159,6 @@ const CalendarPage: React.FC = () => {
 
       // Determine the date range based on the view type
       switch (viewType) {
-        // Expand the date range of the query to cover the entire calendar grid for the month.
         case "Month": {
           // Start and end dates of the current month
           const monthStart = currentDate.firstDayOfMonth();
@@ -171,9 +170,30 @@ const CalendarPage: React.FC = () => {
           const gridStart = monthStartLuxon.startOf('week').toJSDate();
           const gridEnd = monthEndLuxon.endOf('week').toJSDate();
 
+          // For consistent event counting across month boundaries, we need to fetch
+          // events for a wider range that covers all possible dates that could appear
+          // in any month view. This ensures that any date (like June 25th, 26th, 29th)
+          // always has the same count whether viewed from June or July.
+          // 
+          // We extend by 2 weeks on each side to handle extreme edge cases:
+          // - A month that starts on Sunday and ends on Saturday
+          // - A month that starts on Monday and ends on Friday
+          // - Any combination in between
+          const extendedStart = TimeUtils.fromJSDate(gridStart).minus({ weeks: 2 }).toJSDate();
+          const extendedEnd = TimeUtils.fromJSDate(gridEnd).plus({ weeks: 2 }).toJSDate();
+
           // Convert back to DayPilot date obj.
-          start = new DayPilot.Date(gridStart);
-          endDate = new DayPilot.Date(gridEnd);
+          start = new DayPilot.Date(extendedStart);
+          endDate = new DayPilot.Date(extendedEnd);
+          
+          console.log('[CalendarPage] Month view - fetching events for extended grid:', {
+            gridStart: gridStart.toISOString().split('T')[0],
+            gridEnd: gridEnd.toISOString().split('T')[0],
+            extendedStart: start.toString("yyyy-MM-dd"),
+            extendedEnd: endDate.toString("yyyy-MM-dd"),
+            monthStart: monthStart.toString("yyyy-MM-dd"),
+            monthEnd: monthEnd.toString("yyyy-MM-dd")
+          });
           break;
         }
         case "Day": {
