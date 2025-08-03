@@ -5,6 +5,7 @@ import Papa from "papaparse";
 import { Cluster } from "./DeliverySpreadsheet"; // Import Cluster type
 import { RowData } from "./types/deliveryTypes"; // Import the correct type
 import { getExportConfig } from "../../config/exportConfig"; // Import configuration
+import { emailRoutes } from "../../backend/cloudFunctionsCalls";
 
 // Helper function to format time consistently
 const formatTime = (time: string): string => {
@@ -161,6 +162,94 @@ export const exportDeliveries = async (
     console.error("Error generating ZIPs:", error);
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
     alert(`An error occurred while generating ZIPs: ${errorMessage}`);
+  }
+};
+
+export const emailDeliveries = async (
+  deliveryDate: string,
+  rowsToExport: RowData[],
+  clusters: Cluster[],
+  drivers: any[]
+) => {
+  try {
+    if (rowsToExport.length === 0) {
+      alert("No deliveries selected or available for export on the selected date.");
+      return;
+    }
+
+    const groupedByDriver: Record<string, RowData[]> = {};
+    rowsToExport.forEach((row) => {
+      const cluster = clusters.find(c => c.deliveries?.includes(row.id));
+      const driverName = cluster?.driver || "Unassigned";
+      if (!groupedByDriver[driverName]) groupedByDriver[driverName] = [];
+      groupedByDriver[driverName].push(row);
+    });
+
+    const driverNames = Object.keys(groupedByDriver);
+    if (driverNames.length === 1 && driverNames[0] === "Unassigned") {
+      alert("Cannot export: All selected deliveries are currently unassigned. Please assign drivers to clusters before exporting.");
+      return;
+    }
+
+    const results: { driver: string; success: boolean; error?: string }[] = [];
+
+    for (const driverName in groupedByDriver) {
+      if (driverName === "Unassigned") continue;
+
+      const driver = drivers.find(d => d.name === driverName);
+      if (!driver?.email) {
+        results.push({ driver: driverName, success: false, error: "No email found" });
+        continue;
+      }
+
+      try {
+        const csvData = groupedByDriver[driverName].map((row) => {
+          const cluster = clusters.find(c => c.deliveries?.includes(row.id));
+          const dietaryPreferences = row.deliveryDetails?.dietaryRestrictions
+            ? Object.entries(row.deliveryDetails.dietaryRestrictions || {})
+                .filter(([, value]) => value === true)
+                .map(([key]) => key)
+                .join(", ")
+            : "";
+
+          return {
+            firstName: row.firstName || "",
+            lastName: row.lastName || "",
+            address: row.address || "",
+            zip: row.zipCode || "",
+            phone: row.phone || "",
+            deliveryInstructions: row.deliveryDetails?.deliveryInstructions || "",
+            dietaryPreferences,
+            tefapFY25: row.tags?.includes("Tefap") ? "Y" : "N",
+            deliveryDate,
+            cluster: cluster?.id || "",
+            time: formatTime(cluster?.time || ""),
+          };
+        });
+
+        const csv = Papa.unparse(csvData);
+        const base64CSV = btoa(csv);
+        
+        await emailRoutes(base64CSV, driver.email, driverName, deliveryDate);
+        results.push({ driver: driverName, success: true });
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : "Unknown error";
+        results.push({ driver: driverName, success: false, error: errorMsg });
+      }
+    }
+    
+    const successful = results.filter(r => r.success);
+    const failed = results.filter(r => !r.success);
+    
+    if (failed.length === 0) {
+      alert(`Emails sent successfully to all ${successful.length} drivers!`);
+    } else {
+      const failedDrivers = failed.map(f => `${f.driver}: ${f.error}`).join('\n');
+      alert(`Emails sent to ${successful.length} drivers.\n\nFailed to send to:\n${failedDrivers}`);
+    }
+  } catch (error) {
+    console.error("Error sending emails:", error);
+    alert(`Error sending emails: ${error instanceof Error ? error.message : "Unknown error"}`);
   }
 };
 

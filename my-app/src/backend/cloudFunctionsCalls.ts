@@ -62,3 +62,22 @@ export function createClientIntakeUser(userId: string, email: string, name: stri
       });
   });
 }
+
+export function emailRoutes(csvData: string, driverEmail: string, driverName: string, deliveryDate: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const functions = getFunctions();
+    const emailRoutesFunction = httpsCallable(functions, "emailRoutes");
+
+    emailRoutesFunction({
+      csvData,
+      driverEmail,
+      driverName,
+      deliveryDate,
+    })
+      .then(() => resolve())
+      .catch((error) => {
+        console.log(error.message);
+        reject(error);
+      });
+  });
+}

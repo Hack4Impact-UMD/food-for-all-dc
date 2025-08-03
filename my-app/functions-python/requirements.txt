@@ -10,4 +10,5 @@ k-means-constrained==0.7.3
 kmedoids==0.5.3
 firebase-admin
 folium==0.14.0
+mailjet-rest==1.3.4
 
