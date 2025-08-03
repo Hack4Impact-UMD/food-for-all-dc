@@ -55,12 +55,13 @@ import AssignDriverPopup from "./components/AssignDriverPopup";
 import GenerateClustersPopup from "./components/GenerateClustersPopup";
 import AssignTimePopup from "./components/AssignTimePopup";
 import LoadingIndicator from "../../components/LoadingIndicator/LoadingIndicator";
-import { exportDeliveries, exportDoordashDeliveries } from "./RouteExport";
+import { exportDeliveries, exportDoordashDeliveries, emailDeliveries } from "./RouteExport";
 import Button from "../../components/common/Button";
 import { RowData as DeliveryRowData } from "./types/deliveryTypes";
 import { Driver } from '../../types/calendar-types';
 import { CustomRowData, useCustomColumns } from "../../hooks/useCustomColumns";
 import ClientService from "../../services/client-service";
+import DriverService from "../../services/driver-service";
 import { LatLngTuple } from "leaflet";
 import { UserType } from "../../types";
 
@@ -323,6 +324,7 @@ const DeliverySpreadsheet: React.FC = () => {
   const [exportOption, setExportOption] = useState<"Routes" | "Doordash" | null>(null);
   const [emailOrDownload, setEmailOrDownload] = useState<"Email" | "Download" | null>(null);
   const [driversRefreshTrigger, setDriversRefreshTrigger] = useState<number>(0);
+  const [drivers, setDrivers] = useState<Driver[]>([]);
 
   // Helper function to deduplicate clusters by ID
   const deduplicateClusters = (clusters: Cluster[]): Cluster[] => {
@@ -587,6 +589,20 @@ const DeliverySpreadsheet: React.FC = () => {
     fetchClustersFromToday(selectedDate);
   }, [selectedDate]);
 
+  // Fetch drivers for email functionality
+  useEffect(() => {
+    const fetchDrivers = async () => {
+      try {
+        const driverService = DriverService.getInstance();
+        const driversData = await driverService.getAllDrivers();
+        setDrivers(driversData);
+      } catch (error) {
+        console.error("Error fetching drivers:", error);
+      }
+    };
+    fetchDrivers();
+  }, [driversRefreshTrigger]);
+
   // Route Protection
   React.useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user: any) => {
@@ -755,20 +771,15 @@ const DeliverySpreadsheet: React.FC = () => {
 
     if (exportOption === "Routes") {
       if (option === "Email") {
-        alert("Unimplemented");
+        emailDeliveries(TimeUtils.fromJSDate(selectedDate).toISODate() || "", rows, clusters, drivers);
       } else if (option === "Download") {
-        // Pass rows and clusters to exportDeliveries
         exportDeliveries(TimeUtils.fromJSDate(selectedDate).toISODate() || "", rows, clusters);
-        console.log("Downloading Routes...");
-        // Add your download logic here
       }
     } else if (exportOption === "Doordash") {
       if (option === "Email") {
-        alert("Unimplemented");
+        alert("Email not supported for DoorDash deliveries");
       } else if (option === "Download") {
-        // Export DoorDash deliveries grouped by time
         exportDoordashDeliveries(TimeUtils.fromJSDate(selectedDate).toISODate() || "", rows, clusters);
-        console.log("Downloading Doordash...");
       }
     }
   };
