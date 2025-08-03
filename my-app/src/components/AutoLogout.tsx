@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { auth } from "../auth/firebaseConfig";
 import { Button, Dialog, DialogContent, DialogTitle, Typography, Box } from "@mui/material";
@@ -15,6 +15,7 @@ enum AutoLogoutType {
 const AutoLogout = () => {
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const warningRef = useRef<NodeJS.Timeout | null>(null);
+  const debounceRef = useRef<NodeJS.Timeout | null>(null);
   const [type, setType] = useState<AutoLogoutType>(AutoLogoutType.NONE);
 
   const FIVE_MINUTES = 5 * 60 * 1000;
@@ -48,14 +49,19 @@ const AutoLogout = () => {
   };
 
   useEffect(() => {
-    const activityEvents = ["mousemove", "keydown", "click", "scroll", "touchstart"];
+    const activityEvents = ["keydown", "click", "scroll", "touchstart"];
 
-    const handleActivity = () => {
+    const handleActivity = useCallback(() => {
       if (auth.currentUser) {
         setType(AutoLogoutType.NONE);
-        startTimer();
+        
+        // Debounce the timer reset to prevent excessive calls
+        clearTimeout(debounceRef.current!);
+        debounceRef.current = setTimeout(() => {
+          startTimer();
+        }, 500); // 500ms debounce
       }
-    };
+    }, []);
 
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       //cleanup if user logs out
@@ -77,6 +83,7 @@ const AutoLogout = () => {
       activityEvents.forEach((event) => document.removeEventListener(event, handleActivity, true));
       clearTimeout(timeoutRef.current!);
       clearTimeout(warningRef.current!);
+      clearTimeout(debounceRef.current!);
     };
   }, []);
 
@@ -90,11 +97,13 @@ const AutoLogout = () => {
           mt: 5,
         },
       }}
-      PaperProps={{
-        sx: {
-          borderLeft: `6px solid ${borderColor}`,
-          padding: 2,
-          maxWidth: "400px",
+      slotProps={{
+        paper: {
+          sx: {
+            borderLeft: `6px solid ${borderColor}`,
+            padding: 2,
+            maxWidth: "400px",
+          },
         },
       }}
     >
@@ -116,7 +125,7 @@ const AutoLogout = () => {
             color={color}
             onClick={() => setType(AutoLogoutType.NONE)}
           >
-            Okay
+            {isLogout ? "Okay" : "Stay Logged In"}
           </Button>
         </Box>
       </DialogContent>
