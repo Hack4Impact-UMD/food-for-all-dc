@@ -70,6 +70,8 @@ yarn-debug.log*
 yarn-error.log*
 firebase-debug.log*
 firebase-error.log*
+address_fix_*.json
+ID-2890.txt
 
 # Python
 __pycache__/
