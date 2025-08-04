@@ -514,7 +514,6 @@ const DeliverySpreadsheet: React.FC = () => {
       }) as DeliveryEvent[];
 
       //set the deliveries for the date
-      console.log(events)
       setDeliveriesForDate(events);
     } catch (error) {
       console.error("Error fetching deliveries:", error);
@@ -616,14 +615,34 @@ const DeliverySpreadsheet: React.FC = () => {
   const fetchClustersFromToday = async (dateForFetch: Date) => {
     try {
       // account for timezone issues
-      const startDate = new DayPilot.Date(selectedDate);
-      const endDate = startDate.addDays(1);
+      const startDate = new Date(
+        Date.UTC(
+          dateForFetch.getFullYear(),
+          dateForFetch.getMonth(),
+          dateForFetch.getDate(),
+          0,
+          0,
+          0
+        )
+      );
+
+      const endDate = new Date(
+        Date.UTC(
+          dateForFetch.getFullYear(),
+          dateForFetch.getMonth(),
+          dateForFetch.getDate(),
+          23,
+          59,
+          59
+        )
+      );
+
     
       const clustersCollectionRef = collection(db, "clusters");
       const q = query(
         clustersCollectionRef,
-        where("date", ">=", Timestamp.fromDate(startDate.toDate())),
-        where("date", "<=", Timestamp.fromDate(endDate.toDate()))
+        where("date", ">=", Timestamp.fromDate(startDate)),
+        where("date", "<=", Timestamp.fromDate(endDate))
       );
 
       const clustersSnapshot = await getDocs(q);
