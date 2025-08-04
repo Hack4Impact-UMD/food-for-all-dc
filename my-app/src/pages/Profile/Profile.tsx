@@ -663,7 +663,6 @@ const Profile = () => {
       | SelectChangeEvent
   ) => {
     const { name, value } = e.target;
-  
     // Always mark as unsaved when a change occurs
     setIsSaved(false);
     handlePrevClientCopying();
@@ -2495,6 +2494,7 @@ const handleMentalHealthConditionsChange = (e: React.ChangeEvent<HTMLInputElemen
               renderField={renderField}
               lastDeliveryDate={lastDeliveryDate}
               isSaved={isSaved}
+              isNewProfile={isNewProfile}
             />
           </SectionBox>
 
