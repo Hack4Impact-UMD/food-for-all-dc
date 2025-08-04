@@ -72,6 +72,7 @@ interface ClientOverride {
 import { useAuth } from "../../auth/AuthProvider";
 import EventCountHeader from "../../components/EventCountHeader";
 import { useLimits } from "../Calendar/components/useLimits";
+import { DayPilot } from "@daypilot/daypilot-lite-react";
 // interface Driver {
 //   id: string;
 //   name: string;
@@ -513,6 +514,7 @@ const DeliverySpreadsheet: React.FC = () => {
       }) as DeliveryEvent[];
 
       //set the deliveries for the date
+      console.log(events)
       setDeliveriesForDate(events);
     } catch (error) {
       console.error("Error fetching deliveries:", error);
@@ -614,33 +616,14 @@ const DeliverySpreadsheet: React.FC = () => {
   const fetchClustersFromToday = async (dateForFetch: Date) => {
     try {
       // account for timezone issues
-      const startDate = new Date(
-        Date.UTC(
-          dateForFetch.getFullYear(),
-          dateForFetch.getMonth(),
-          dateForFetch.getDate(),
-          0,
-          0,
-          0
-        )
-      );
-
-      const endDate = new Date(
-        Date.UTC(
-          dateForFetch.getFullYear(),
-          dateForFetch.getMonth(),
-          dateForFetch.getDate(),
-          23,
-          59,
-          59
-        )
-      );
-
+      const startDate = new DayPilot.Date(selectedDate);
+      const endDate = startDate.addDays(1);
+    
       const clustersCollectionRef = collection(db, "clusters");
       const q = query(
         clustersCollectionRef,
-        where("date", ">=", Timestamp.fromDate(startDate)),
-        where("date", "<=", Timestamp.fromDate(endDate))
+        where("date", ">=", Timestamp.fromDate(startDate.toDate())),
+        where("date", "<=", Timestamp.fromDate(endDate.toDate()))
       );
 
       const clustersSnapshot = await getDocs(q);
@@ -1811,7 +1794,7 @@ const DeliverySpreadsheet: React.FC = () => {
         top: 0,
         width: "100%"
       }}>
-        <Typography variant="h5" sx={{ marginRight: 2,  color: "#787777" }}>
+        <Typography variant="h5" sx={{color: "#787777", width: '350px', textAlign:'center'}}>
           {format(selectedDate, 'EEEE - MMMM, dd/yyyy',)} 
         </Typography>
         
@@ -1835,7 +1818,7 @@ const DeliverySpreadsheet: React.FC = () => {
         <IconButton
           onClick={() => handleDateChange(addDays(selectedDate, 1))}
           size="large"
-          sx={{ color: "#257E68" }}
+          sx={{ color: "#257E68", marginRight: 2 }}
         >
           <Box
             sx={{
