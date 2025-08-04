@@ -14,6 +14,7 @@ interface DeliveryInfoFormProps {
   lastDeliveryDate: string | null;
   isSaved: boolean;
   onDateValidationChange?: (isValid: boolean, startDateError?: string, endDateError?: string) => void;
+  isNewProfile: boolean;
 }
 
 const fieldStyles = {
@@ -54,6 +55,7 @@ const DeliveryInfoForm: React.FC<DeliveryInfoFormProps> = ({
   lastDeliveryDate,
   isSaved,
   onDateValidationChange,
+  isNewProfile
 }) => {
   const [startDateError, setStartDateError] = useState<string>("");
   const [endDateError, setEndDateError] = useState<string>("");
@@ -62,15 +64,20 @@ const DeliveryInfoForm: React.FC<DeliveryInfoFormProps> = ({
   useEffect(() => {
     if (clientProfile.startDate || clientProfile.endDate) {
       const validation = validateDateRange(clientProfile.startDate, clientProfile.endDate);
-      const startError = validation.startDateError || "";
+      let startError = validation.startDateError || "";
       const endError = validation.endDateError || "";
-      
+
+      if (!isNewProfile && startError === "Date cannot be in the past") {
+        startError = "";
+      }
+
       setStartDateError(startError);
       setEndDateError(endError);
-      
+
       // Notify parent component of validation state
       if (onDateValidationChange) {
-        onDateValidationChange(validation.isValid, startError, endError);
+        const isValid = startError === "" && endError === "";
+        onDateValidationChange(isValid, startError, endError);
       }
     } else {
       setStartDateError("");
@@ -79,7 +86,8 @@ const DeliveryInfoForm: React.FC<DeliveryInfoFormProps> = ({
         onDateValidationChange(true);
       }
     }
-  }, [clientProfile.startDate, clientProfile.endDate, onDateValidationChange]);
+  }, [clientProfile.startDate, clientProfile.endDate, onDateValidationChange, isNewProfile]);
+
 
   return (
     <>
