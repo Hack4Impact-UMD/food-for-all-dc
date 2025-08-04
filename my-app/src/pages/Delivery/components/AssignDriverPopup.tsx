@@ -82,10 +82,7 @@ export default function AssignDriverPopup({ assignDriver, setPopupMode, onDriver
                     driver.name.toLowerCase().includes(state.inputValue.toLowerCase())
                   );
 
-                  // Limit total displayed items to 10, including the special option
-                  const limitedDrivers = filteredDrivers.slice(0, 9); // 9 + 1 = 10 total
-
-                  return [specialOption, ...limitedDrivers];
+                  return [specialOption, ...filteredDrivers];
                 }}
                 value={driver}
                 onChange={(event, newValue) => {
