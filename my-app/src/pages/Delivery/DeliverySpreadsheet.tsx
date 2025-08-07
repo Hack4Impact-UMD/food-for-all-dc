@@ -54,7 +54,8 @@ import Button from "../../components/common/Button";
 import ManualAssign from "./components/ManualAssignPopup";
 import { RowData as DeliveryRowData } from "./types/deliveryTypes";
 import { Driver } from '../../types/calendar-types';
-import { CustomRowData, useCustomColumns } from "../../hooks/useCustomColumns";
+import type { RowData } from "../../types/row-types";
+import { useCustomColumns } from "../../hooks/useCustomColumns";
 import ClientService from "../../services/client-service";
 import { LatLngTuple } from "leaflet";
 import { UserType } from "../../types";
@@ -69,7 +70,7 @@ import { useAuth } from "../../auth/AuthProvider";
 const StyleChip = styled(Chip)({
   backgroundColor: 'var(--color-primary)',
   color: '#fff',
-  ":hover" : { 
+  ":hover": {
     backgroundColor: 'var(--color-primary)',
     cursor: 'text'
   },
@@ -98,47 +99,47 @@ type Field =
     compute?: never;
   }
   | {
-      key: "fullname";
-      label: "Client";
-      type: "text";
-      compute: (data: DeliveryRowData) => string;
-    }
-    | {
-      key: "clusterIdChange";
-      label: "Cluster ID";
-      type: "select";
-      compute?: (data: DeliveryRowData) => string;
-    }
+    key: "fullname";
+    label: "Client";
+    type: "text";
+    compute: (data: DeliveryRowData) => string;
+  }
   | {
-      key: Exclude<keyof Omit<DeliveryRowData, "id" | "firstName" | "lastName" | "deliveryDetails">, "coordinates">;
-      label: string;
-      type: string;
-      compute?: never;
-    }
+    key: "clusterIdChange";
+    label: "Cluster ID";
+    type: "select";
+    compute?: (data: DeliveryRowData) => string;
+  }
   | {
-      key: "tags";
-      label: "Tags";
-      type: "text";
-      compute: (data: DeliveryRowData) => string;
-    }
+    key: Exclude<keyof Omit<DeliveryRowData, "id" | "firstName" | "lastName" | "deliveryDetails">, "coordinates">;
+    label: string;
+    type: string;
+    compute?: never;
+  }
   | {
-      key: "assignedDriver";
-      label: "Assigned Driver";
-      type: "text";
-      compute: (data: DeliveryRowData, clusters: Cluster[]) => string;
-    }
+    key: "tags";
+    label: "Tags";
+    type: "text";
+    compute: (data: DeliveryRowData) => string;
+  }
   | {
-      key: "assignedTime";
-      label: "Assigned Time";
-      type: "text";
-      compute: (data: DeliveryRowData, clusters: Cluster[]) => string;
-    }
+    key: "assignedDriver";
+    label: "Assigned Driver";
+    type: "text";
+    compute: (data: DeliveryRowData, clusters: Cluster[]) => string;
+  }
   | {
-      key: "deliveryDetails.deliveryInstructions";
-      label: "Delivery Instructions";
-      type: "text";
-      compute: (data: DeliveryRowData) => string;
-    };
+    key: "assignedTime";
+    label: "Assigned Time";
+    type: "text";
+    compute: (data: DeliveryRowData, clusters: Cluster[]) => string;
+  }
+  | {
+    key: "deliveryDetails.deliveryInstructions";
+    label: "Delivery Instructions";
+    type: "text";
+    compute: (data: DeliveryRowData) => string;
+  };
 
 // Export the Cluster interface
 export interface Cluster {
@@ -267,11 +268,11 @@ const times = [
 const isRegularField = (
   field: Field
 ): field is Extract<Field, { key: Exclude<keyof DeliveryRowData, "coordinates"> }> => {
-  return field.key !== "fullname" && 
-         field.key !== "tags" && 
-         field.key !== "assignedDriver" &&
-         field.key !== "assignedTime" &&
-         field.key !== "deliveryDetails.deliveryInstructions";
+  return field.key !== "fullname" &&
+    field.key !== "tags" &&
+    field.key !== "assignedDriver" &&
+    field.key !== "assignedTime" &&
+    field.key !== "deliveryDetails.deliveryInstructions";
 };
 
 const DeliverySpreadsheet: React.FC = () => {
@@ -292,15 +293,15 @@ const DeliverySpreadsheet: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [clusterDoc, setClusterDoc] = useState<ClusterDoc | null>();
   const navigate = useNavigate();
-    const [editingRowId, setEditingRowId] = useState<string | null>(null);
+  const [editingRowId, setEditingRowId] = useState<string | null>(null);
   const {
     customColumns,
     handleAddCustomColumn,
     handleCustomHeaderChange,
     handleRemoveCustomColumn,
     handleCustomColumnChange,
-  } = useCustomColumns({page: 'DeliverySpreadsheet'});
-  const [customRows, setCustomRows] = useState<CustomRowData[]>([])
+  } = useCustomColumns({ page: 'DeliverySpreadsheet' });
+  const [customRows, setCustomRows] = useState<RowData[]>([])
 
 
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
@@ -319,9 +320,9 @@ const DeliverySpreadsheet: React.FC = () => {
     ) {
       return;
     }
-    if(event && 'nativeEvent' in event) {
+    if (event && 'nativeEvent' in event) {
       const target = event.nativeEvent.target as HTMLElement;
-      const timeValue =  target.getAttribute("data-key");
+      const timeValue = target.getAttribute("data-key");
       if (timeValue) {
         assignTime(timeValue);
       }
@@ -337,30 +338,30 @@ const DeliverySpreadsheet: React.FC = () => {
     "#FF1493", "#1E90FF", "#228B22", "#9400D3", "#DC143C",
     "#20B2AA", "#9932CC", "#FFD700", "#8B0000", "#4169E1"
   ];
-  const clusterColorMap = (id: string) :string => {
+  const clusterColorMap = (id: string): string => {
 
-      const clusterId = id || "";
-      let colorIndex = 0;
+    const clusterId = id || "";
+    let colorIndex = 0;
 
-      if (clusterId) {
-        // Assuming cluster IDs are like "Cluster 1", "Cluster 2", etc.
-        // Extract the number part for color assignment.
-        // If format is different, adjust parsing logic.
-        const match = clusterId.match(/\d+/); 
-        const clusterNumber = match ? parseInt(match[0], 10) : 0;
-        if (!isNaN(clusterNumber)) {
-          colorIndex = (clusterNumber -1) % clusterColors.length; // Use number-1 for 0-based index
-        } else {
-           // Fallback for non-numeric IDs or parsing failures - hash the ID?
-           let hash = 0;
-           for (let i = 0; i < clusterId.length; i++) {
-               hash = clusterId.charCodeAt(i) + ((hash << 5) - hash);
-           }
-           colorIndex = Math.abs(hash) % clusterColors.length;
+    if (clusterId) {
+      // Assuming cluster IDs are like "Cluster 1", "Cluster 2", etc.
+      // Extract the number part for color assignment.
+      // If format is different, adjust parsing logic.
+      const match = clusterId.match(/\d+/);
+      const clusterNumber = match ? parseInt(match[0], 10) : 0;
+      if (!isNaN(clusterNumber)) {
+        colorIndex = (clusterNumber - 1) % clusterColors.length; // Use number-1 for 0-based index
+      } else {
+        // Fallback for non-numeric IDs or parsing failures - hash the ID?
+        let hash = 0;
+        for (let i = 0; i < clusterId.length; i++) {
+          hash = clusterId.charCodeAt(i) + ((hash << 5) - hash);
         }
+        colorIndex = Math.abs(hash) % clusterColors.length;
       }
+    }
 
-      return clusterColors[colorIndex];
+    return clusterColors[colorIndex];
   };
 
   // Calculate Cluster Options
@@ -459,49 +460,49 @@ const DeliverySpreadsheet: React.FC = () => {
       // setIsLoading(true) is moved here to only show loading when processing clients
       // setIsLoading(true); // Already set by the caller effect
 
-    try {
-      // Get the client IDs for the deliveries on the selected date
-      const clientIds = deliveriesForDate.map(delivery => delivery.clientId).filter(id => id && id.trim() !== "");
-      // Firestore 'in' queries are limited to 10 items per query
-      const chunkSize = 10;
-      let clientsWithDeliveriesOnSelectedDate: DeliveryRowData[] = [];
-      for (let i = 0; i < clientIds.length; i += chunkSize) {
-        const chunk = clientIds.slice(i, i + chunkSize);
-        if (chunk.length === 0) continue;
-        const q = query(
-          collection(db, "clients"),
-          where("__name__", "in", chunk)
-        );
-        const snapshot = await getDocs(q);
-        const chunkData = snapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        } as DeliveryRowData));
-        clientsWithDeliveriesOnSelectedDate = clientsWithDeliveriesOnSelectedDate.concat(chunkData);
+      try {
+        // Get the client IDs for the deliveries on the selected date
+        const clientIds = deliveriesForDate.map(delivery => delivery.clientId).filter(id => id && id.trim() !== "");
+        // Firestore 'in' queries are limited to 10 items per query
+        const chunkSize = 10;
+        let clientsWithDeliveriesOnSelectedDate: DeliveryRowData[] = [];
+        for (let i = 0; i < clientIds.length; i += chunkSize) {
+          const chunk = clientIds.slice(i, i + chunkSize);
+          if (chunk.length === 0) continue;
+          const q = query(
+            collection(db, "clients"),
+            where("__name__", "in", chunk)
+          );
+          const snapshot = await getDocs(q);
+          const chunkData = snapshot.docs.map((doc) => ({
+            id: doc.id,
+            ...doc.data(),
+          } as DeliveryRowData));
+          clientsWithDeliveriesOnSelectedDate = clientsWithDeliveriesOnSelectedDate.concat(chunkData);
+        }
+        setRawClientData(clientsWithDeliveriesOnSelectedDate);
+      } catch (error) {
+        console.error("Error fetching/geocoding client data:", error);
+        setRawClientData([]); // Clear data on error
+      } finally {
+        //Stop loading after processing
+        setIsLoading(false);
       }
-      setRawClientData(clientsWithDeliveriesOnSelectedDate);
-    } catch (error) {
-      console.error("Error fetching/geocoding client data:", error);
-      setRawClientData([]); // Clear data on error
-    } finally {
-      //Stop loading after processing
-      setIsLoading(false); 
+    };
+
+    if (deliveriesForDate.length > 0) {
+      // Set loading to true *before* starting the async fetch/geocode process
+      setIsLoading(true);
+      fetchDataAndGeocode();
+    } else {
+      // If deliveries are empty (either initially or after fetch),
+      // ensure client data is clear and loading is stopped.
+      setRawClientData([]);
+      // Do NOT clear clusters here, as they are fetched independently
+      setIsLoading(false);
     }
-  };
-  
-  if (deliveriesForDate.length > 0) {
-    // Set loading to true *before* starting the async fetch/geocode process
-    setIsLoading(true);
-    fetchDataAndGeocode();
-  } else {
-    // If deliveries are empty (either initially or after fetch),
-    // ensure client data is clear and loading is stopped.
-    setRawClientData([]);
-    // Do NOT clear clusters here, as they are fetched independently
-    setIsLoading(false);
-  }
-// Only depends on deliveriesForDate. isLoading is managed internally.
-}, [deliveriesForDate]);
+    // Only depends on deliveriesForDate. isLoading is managed internally.
+  }, [deliveriesForDate]);
 
   //get clusters
   useEffect(() => {
@@ -725,10 +726,10 @@ const DeliverySpreadsheet: React.FC = () => {
     const newClusters: Cluster[] = [];
     Object.keys(clusterMap).forEach((clusterId) => {
       // Exclude "doordash" if it's a special case (though unlikely with ID mapping now)
-      if (clusterId !== "doordash") { 
+      if (clusterId !== "doordash") {
         // The value in clusterMap[clusterId] is already the array of client IDs
-        const clientIdsForCluster = clusterMap[clusterId]; 
-        
+        const clientIdsForCluster = clusterMap[clusterId];
+
         newClusters.push({
           deliveries: clientIdsForCluster, // Directly use the array of client IDs
           driver: "", // Initialize with defaults or fetch existing if needed
@@ -797,7 +798,7 @@ const DeliverySpreadsheet: React.FC = () => {
     }
 
     // Firestore expects the data object directly for setDoc - Corrected
-    await setDoc(docRef, newClusterDoc); 
+    await setDoc(docRef, newClusterDoc);
     setClusters(newClusters); // Update state after successful Firestore creation
     setClusterDoc(newClusterDoc)
   }
@@ -810,7 +811,7 @@ const DeliverySpreadsheet: React.FC = () => {
       time: "",
       deliveries: [],
     }));
-    
+
     //populate deliveries for clusters
     assignedClusters.forEach((clusterIndex, deliveryIndex) => {
       const numericIndex = parseInt(clusterIndex) - 1;
@@ -823,7 +824,7 @@ const DeliverySpreadsheet: React.FC = () => {
     });
 
 
-    if(clusterDoc){
+    if (clusterDoc) {
       const clusterRef = doc(db, "clusters", clusterDoc.docId);
       // Only update the 'clusters' field using updateDoc
       await updateDoc(clusterRef, { clusters: newClusters });
@@ -831,9 +832,9 @@ const DeliverySpreadsheet: React.FC = () => {
       // Update the local clusterDoc state's clusters as well
       setClusterDoc(prevDoc => prevDoc ? { ...prevDoc, clusters: newClusters } : null);
     }
-    else{
+    else {
       initClustersForDay(newClusters);
-    }       
+    }
     resetSelections()
   };
 
@@ -876,7 +877,7 @@ const DeliverySpreadsheet: React.FC = () => {
       );
     }
     if (visibleRows.length > totalMaxAllowed) {
-       throw new Error(
+      throw new Error(
         `Too many deliveries for ${clusterNum} clusters with maximum ${maxDeliveries} each.\n` +
         `Allowed: ${totalMaxAllowed} | Available: ${visibleRows.length}\n` +
         `Please increase cluster count or maximum deliveries.`
@@ -906,12 +907,12 @@ const DeliverySpreadsheet: React.FC = () => {
       // 1 & 2: Separate clients and collect existing coords
       visibleRows.forEach((row: DeliveryRowData, index: number) => {
         if (isValidCoordinate(row.coordinates)) {
-           // Normalize coordinate format if necessary (e.g., always use [lat, lng])
-           const coords = Array.isArray(row.coordinates)
-             ? row.coordinates
-             : [row.coordinates.lat, row.coordinates.lng];
-           existingCoordsMap.set(row.id, coords as LatLngTuple);
-           finalCoordinates[index] = coords as LatLngTuple; // Pre-fill with existing
+          // Normalize coordinate format if necessary (e.g., always use [lat, lng])
+          const coords = Array.isArray(row.coordinates)
+            ? row.coordinates
+            : [row.coordinates.lat, row.coordinates.lng];
+          existingCoordsMap.set(row.id, coords as LatLngTuple);
+          finalCoordinates[index] = coords as LatLngTuple; // Pre-fill with existing
         } else {
           clientsToGeocode.push({ id: row.id, address: row.address, originalIndex: index });
         }
@@ -942,7 +943,7 @@ const DeliverySpreadsheet: React.FC = () => {
         const { coordinates: fetchedCoords } = await geocodeResponse.json();
 
         if (!Array.isArray(fetchedCoords) || fetchedCoords.length !== clientsToGeocode.length) {
-           throw new Error("Geocoding response format is incorrect or length mismatch.");
+          throw new Error("Geocoding response format is incorrect or length mismatch.");
         }
 
         // 4. Update Firestore & 5. Combine Coordinates (Part 1: Newly fetched)
@@ -953,8 +954,8 @@ const DeliverySpreadsheet: React.FC = () => {
             finalCoordinates[client.originalIndex] = coords; // Add newly fetched coords
             // Schedule Firestore update (don't await here individually to speed up)
             updatePromises.push(
-               ClientService.getInstance().updateClientCoordinates(client.id, coords)
-                 .catch(err => console.error(`Failed to update coordinates for client ${client.id}:`, err)) // Log errors but don't fail the whole process
+              ClientService.getInstance().updateClientCoordinates(client.id, coords)
+                .catch(err => console.error(`Failed to update coordinates for client ${client.id}:`, err)) // Log errors but don't fail the whole process
             );
           } else {
             console.warn(`Failed to geocode address for client ${client.id}: ${client.address}. Skipping this client.`);
@@ -962,9 +963,9 @@ const DeliverySpreadsheet: React.FC = () => {
           }
         });
 
-         // Wait for all Firestore updates to attempt completion
-         await Promise.all(updatePromises);
-         console.log("Finished attempting coordinate updates in Firestore.");
+        // Wait for all Firestore updates to attempt completion
+        await Promise.all(updatePromises);
+        console.log("Finished attempting coordinate updates in Firestore.");
       } else {
         console.log("No new addresses to geocode.");
       }
@@ -973,17 +974,17 @@ const DeliverySpreadsheet: React.FC = () => {
       const validCoordsForClustering = finalCoordinates.filter(coords => coords !== null) as LatLngTuple[];
       // Keep track of the original indices corresponding to validCoordsForClustering
       const originalIndicesForValidCoords = visibleRows
-         .map((_: DeliveryRowData, index: number) => index)
-         .filter((index: number) => finalCoordinates[index] !== null);
+        .map((_: DeliveryRowData, index: number) => index)
+        .filter((index: number) => finalCoordinates[index] !== null);
 
       if (validCoordsForClustering.length === 0) {
-         throw new Error("No valid coordinates available for clustering after geocoding.");
+        throw new Error("No valid coordinates available for clustering after geocoding.");
       }
 
       // Adjust clusterNum if it exceeds the number of valid points
       const adjustedClusterNum = Math.min(clusterNum, validCoordsForClustering.length);
       if (adjustedClusterNum !== clusterNum) {
-         console.warn(`Adjusted cluster count from ${clusterNum} to ${adjustedClusterNum} due to invalid coordinates.`);
+        console.warn(`Adjusted cluster count from ${clusterNum} to ${adjustedClusterNum} due to invalid coordinates.`);
       }
 
       // Adjust min/max deliveries if necessary based on valid coordinates count
@@ -1001,7 +1002,7 @@ const DeliverySpreadsheet: React.FC = () => {
         );
       }
       if (validCoordsForClustering.length > adjustedTotalMaxAllowed) {
-         throw new Error(
+        throw new Error(
           `Too many valid deliveries (${validCoordsForClustering.length}) for ${adjustedClusterNum} clusters with adjusted maximum ${adjustedMaxDeliveries} each.\n` +
           `Allowed: ${adjustedTotalMaxAllowed}. Issue might be due to failed geocoding.`
         );
@@ -1062,9 +1063,9 @@ const DeliverySpreadsheet: React.FC = () => {
       resetSelections();
 
     } catch (error: any) {
-       console.error("Error during cluster generation:", error);
-       // Re-throw the error so the popup can display it
-       throw error;
+      console.error("Error during cluster generation:", error);
+      // Re-throw the error so the popup can display it
+      throw error;
     } finally {
       setIsLoading(false); // Ensure loading indicator is turned off
     }
@@ -1111,12 +1112,12 @@ const DeliverySpreadsheet: React.FC = () => {
   const clientsWithDeliveriesOnSelectedDate = rows.filter((row) =>
     deliveriesForDate.some((delivery) => delivery.clientId === row.id)
   );
-  
+
   // const visibleRows = rows.filter(row => {
   //   if (!searchQuery) return true; // Show all if no search query
-    
+
   //   const searchTerm = searchQuery.toLowerCase().trim();
-    
+
   //   return (
   //     row.firstName.toLowerCase().includes(searchTerm) ||
   //     row.lastName.toLowerCase().includes(searchTerm)
@@ -1126,12 +1127,12 @@ const DeliverySpreadsheet: React.FC = () => {
   const visibleRows = rows.filter((row) => {
     const keywordRegex = /(\w+):\s*("[^"]+"|\S+)/g; // Matches key: "value" or key: value
     const matches = [...searchQuery.matchAll(keywordRegex)];
-  
+
     if (matches.length > 0) {
       // For keyword queries, check that each provided value is a substring of the corresponding field
       return matches.every(([_, key, value]) => {
         const strippedValue = value.replace(/"/g, "").toLowerCase(); // Remove quotes and lowercase
-        
+
         // Check static fields with a substring match
         const matchesStaticField = fields.some((field) => {
           const fieldValue = field.compute ? field.compute(row, clusters) : row[field.key as keyof DeliveryRowData];
@@ -1140,7 +1141,7 @@ const DeliverySpreadsheet: React.FC = () => {
             fieldValue.toString().toLowerCase().includes(strippedValue)
           );
         });
-    
+
         // Check custom columns with a substring match
         const matchesCustomColumn = customColumns.some((col) => {
           if (col.propertyKey !== "none") {
@@ -1152,27 +1153,55 @@ const DeliverySpreadsheet: React.FC = () => {
           }
           return false;
         });
-    
+
         return matchesStaticField || matchesCustomColumn;
       });
     } else {
       // Fallback to general search logic
       const eachQuery = searchQuery.match(/"[^"]+"|\S+/g) || [];
-      
+
       const quotedQueries = eachQuery.filter(s => s.startsWith('"') && s.endsWith('"') && s.length > 1) || [];
       const nonQuotedQueries = eachQuery.filter(s => s.length === 1 || !s.endsWith('"')) || [];
-    
+
       const containsQuotedQueries = quotedQueries.length === 0
         ? true
         : quotedQueries.every((query) => {
-            // Use substring matching instead of exact equality
-            const strippedQuery = query.slice(1, -1).trim().toLowerCase();
-            const matchesStaticField = fields.some((field) => {
-              const fieldValue = field.compute ? field.compute(row, clusters) : row[field.key as keyof DeliveryRowData];
+          // Use substring matching instead of exact equality
+          const strippedQuery = query.slice(1, -1).trim().toLowerCase();
+          const matchesStaticField = fields.some((field) => {
+            const fieldValue = field.compute ? field.compute(row, clusters) : row[field.key as keyof DeliveryRowData];
+            return (
+              fieldValue != null &&
+              fieldValue.toString().toLowerCase().includes(strippedQuery)
+            );
+          });
+          const matchesCustomColumn = customColumns.some((col) => {
+            if (col.propertyKey !== "none") {
+              const fieldValue = row[col.propertyKey as keyof DeliveryRowData];
               return (
                 fieldValue != null &&
                 fieldValue.toString().toLowerCase().includes(strippedQuery)
               );
+            }
+            return false;
+          });
+          return matchesStaticField || matchesCustomColumn;
+        });
+
+      if (containsQuotedQueries) {
+        const containsRegularQuery = nonQuotedQueries.length === 0
+          ? true
+          : nonQuotedQueries.some((query) => {
+            const strippedQuery = query.startsWith('"')
+              ? query.slice(1).trim().toLowerCase()
+              : query.trim().toLowerCase();
+            if (strippedQuery.length === 0) {
+              return true;
+            }
+            const matchesStaticField = fields.some((field) => {
+              const fieldValue = field.compute ? field.compute(row, clusters) : row[field.key as keyof DeliveryRowData];
+              if (fieldValue == null) return false;
+              return fieldValue.toString().toLowerCase().includes(strippedQuery);
             });
             const matchesCustomColumn = customColumns.some((col) => {
               if (col.propertyKey !== "none") {
@@ -1186,34 +1215,6 @@ const DeliverySpreadsheet: React.FC = () => {
             });
             return matchesStaticField || matchesCustomColumn;
           });
-    
-      if (containsQuotedQueries) {
-        const containsRegularQuery = nonQuotedQueries.length === 0
-          ? true
-          : nonQuotedQueries.some((query) => {
-              const strippedQuery = query.startsWith('"')
-                ? query.slice(1).trim().toLowerCase()
-                : query.trim().toLowerCase();
-              if (strippedQuery.length === 0) {
-                return true;
-              }
-              const matchesStaticField = fields.some((field) => {
-                const fieldValue = field.compute ? field.compute(row, clusters) : row[field.key as keyof DeliveryRowData];
-                if (fieldValue == null) return false;
-                return fieldValue.toString().toLowerCase().includes(strippedQuery);
-              });
-              const matchesCustomColumn = customColumns.some((col) => {
-                if (col.propertyKey !== "none") {
-                  const fieldValue = row[col.propertyKey as keyof DeliveryRowData];
-                  return (
-                    fieldValue != null &&
-                    fieldValue.toString().toLowerCase().includes(strippedQuery)
-                  );
-                }
-                return false;
-              });
-              return matchesStaticField || matchesCustomColumn;
-            });
         return containsRegularQuery;
       } else {
         return false;
@@ -1243,102 +1244,102 @@ const DeliverySpreadsheet: React.FC = () => {
 
   return (
     <Box className="box" sx={{ display: "flex", flexDirection: "column", height: "100vh" }}>
-      <div style={{display: "flex", alignItems: "center", justifyContent:"space-between"}}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
 
-      <Box sx={{ 
-        display: "flex",
-        alignItems: "center",
-        padding: "16px",
-        backgroundColor: "#fff",
-        zIndex: 10,
-        position: "sticky",
-        top: 0,
-        width: "100%"
-      }}>
-        <Typography variant="h5" sx={{ marginRight: 2,  color: "#787777" }}>
-          {format(selectedDate, 'EEEE - MMMM, dd/yyyy',)} 
-        </Typography>
-        
-  
-        <IconButton
-          onClick={() => setSelectedDate(addDays(selectedDate, -1))}
-          size="large"
-          sx={{ color: "#257E68" }}
-        >
-          <Box
-            sx={{
-              width: 12,
-              height: 12,
-              borderLeft: "2px solid #257E68",
-              borderBottom: "2px solid #257E68",
-              transform: "rotate(45deg)",
+        <Box sx={{
+          display: "flex",
+          alignItems: "center",
+          padding: "16px",
+          backgroundColor: "#fff",
+          zIndex: 10,
+          position: "sticky",
+          top: 0,
+          width: "100%"
+        }}>
+          <Typography variant="h5" sx={{ marginRight: 2, color: "#787777" }}>
+            {format(selectedDate, 'EEEE - MMMM, dd/yyyy',)}
+          </Typography>
+
+
+          <IconButton
+            onClick={() => setSelectedDate(addDays(selectedDate, -1))}
+            size="large"
+            sx={{ color: "#257E68" }}
+          >
+            <Box
+              sx={{
+                width: 12,
+                height: 12,
+                borderLeft: "2px solid #257E68",
+                borderBottom: "2px solid #257E68",
+                transform: "rotate(45deg)",
+              }}
+            />
+          </IconButton>
+
+          <IconButton
+            onClick={() => setSelectedDate(addDays(selectedDate, 1))}
+            size="large"
+            sx={{ color: "#257E68" }}
+          >
+            <Box
+              sx={{
+                width: 12,
+                height: 12,
+                borderLeft: "2px solid #257E68",
+                borderBottom: "2px solid #257E68",
+                transform: "rotate(-135deg)",
+              }}
+            />
+          </IconButton>
+
+          <Button
+            variant="secondary"
+            size="medium"
+            icon={<TodayIcon />}
+            style={{
+              fontSize: 12,
+              marginLeft: 16,
+              height: "2.5rem",
+              minHeight: "2.5rem"
             }}
-          />
-        </IconButton>
-  
-        <IconButton
-          onClick={() => setSelectedDate(addDays(selectedDate, 1))}
-          size="large"
-          sx={{ color: "#257E68" }}
-        >
-          <Box
-            sx={{
-              width: 12,
-              height: 12,
-              borderLeft: "2px solid #257E68",
-              borderBottom: "2px solid #257E68",
-              transform: "rotate(-135deg)",
-            }}
-          />
-        </IconButton>
-  
-        <Button
-          variant="secondary"
-          size="medium"
-          icon={<TodayIcon />}
-          style={{ 
-            fontSize: 12, 
-            marginLeft: 16, 
-            height: "2.5rem",
-            minHeight: "2.5rem"
-          }}
-          onClick={() => setSelectedDate(new Date())}
-        >
-          Today
-        </Button>
-        <Box sx={{ display: "flex", alignItems: "center" }}>
-          <PageDatePicker setSelectedDate={(date) => setSelectedDate(date)} marginLeft="1rem" />
+            onClick={() => setSelectedDate(new Date())}
+          >
+            Today
+          </Button>
+          <Box sx={{ display: "flex", alignItems: "center" }}>
+            <PageDatePicker setSelectedDate={(date) => setSelectedDate(date)} marginLeft="1rem" />
+          </Box>
         </Box>
-      </Box>
-      <Button
-        variant="primary"
-        size="medium"
-        icon={<PersonAddIcon />}
-        disabled={userRole === UserType.ClientIntake}
-        style={{
-          whiteSpace: "nowrap",
-          borderRadius: 5,
-          marginRight: '16px'
-        }}
-        onClick={() => setPopupMode("ManualClusters")}
-      >
-        Manual Assign
-      </Button>
-        
-      <Button
-        variant="primary"
-        size="medium"
-        icon={<GroupWorkIcon />}
-        disabled={userRole === UserType.ClientIntake}
-        style={{
-          whiteSpace: "nowrap",
-          borderRadius: 5,
-          marginRight: '16px'
-        }}
-        onClick={() => setPopupMode("Clusters")}
-      >
-        Generate Clusters
-      </Button>
+        <Button
+          variant="primary"
+          size="medium"
+          icon={<PersonAddIcon />}
+          disabled={userRole === UserType.ClientIntake}
+          style={{
+            whiteSpace: "nowrap",
+            borderRadius: 5,
+            marginRight: '16px'
+          }}
+          onClick={() => setPopupMode("ManualClusters")}
+        >
+          Manual Assign
+        </Button>
+
+        <Button
+          variant="primary"
+          size="medium"
+          icon={<GroupWorkIcon />}
+          disabled={userRole === UserType.ClientIntake}
+          style={{
+            whiteSpace: "nowrap",
+            borderRadius: 5,
+            marginRight: '16px'
+          }}
+          onClick={() => setPopupMode("Clusters")}
+        >
+          Generate Clusters
+        </Button>
       </div>
 
       {/* Map Container */}
@@ -1354,7 +1355,7 @@ const DeliverySpreadsheet: React.FC = () => {
       >
         {isLoading ? (
           // Revert to rendering the indicator directly
-          <LoadingIndicator /> 
+          <LoadingIndicator />
         ) : visibleRows.length > 0 ? (
           <ClusterMap clusters={clusters} visibleRows={visibleRows as any} />
         ) : (
@@ -1455,12 +1456,12 @@ const DeliverySpreadsheet: React.FC = () => {
                   vertical: 'top',
                   horizontal: 'left',
                 }}
-                 MenuListProps={{
+                MenuListProps={{
                   "aria-labelledby": "demo-positioned-button",
-                  sx: { width: anchorEl ? anchorEl.offsetWidth : '200px' } 
+                  sx: { width: anchorEl ? anchorEl.offsetWidth : '200px' }
                 }}
               >
-                {Object.values(times).map(({value, label, ...restUserProps}) => (
+                {Object.values(times).map(({ value, label, ...restUserProps }) => (
                   <MenuItem key={value} data-key={value} onClick={handleClose}>{label}</MenuItem>
                 ))}
               </Menu>
@@ -1523,32 +1524,32 @@ const DeliverySpreadsheet: React.FC = () => {
                   </TableCell>
                 ))}
                 {customColumns.map((col) => (
-                    <TableCell 
-                      className="table-header" 
-                      key={col.id}
-                      sx={{
-                        backgroundColor: "#f5f9f7",
-                        borderBottom: "2px solid #e0e0e0",
-                      }}
-                    >
-                      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                        <Select
-                          value={col.propertyKey}
-                          onChange={(event) => handleCustomHeaderChange(event, col.id)}
-                          variant="outlined"
-                          displayEmpty
-                          size="small"
-                          sx={{ 
-                            minWidth: 120, 
-                            color: "#257e68",
-                            "& .MuiOutlinedInput-notchedOutline": {
-                              borderColor: "#bfdfd4",
-                            },
-                            "&:hover .MuiOutlinedInput-notchedOutline": {
-                              borderColor: "#257e68",
-                            },
-                          }}
-                        >
+                  <TableCell
+                    className="table-header"
+                    key={col.id}
+                    sx={{
+                      backgroundColor: "#f5f9f7",
+                      borderBottom: "2px solid #e0e0e0",
+                    }}
+                  >
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                      <Select
+                        value={col.propertyKey}
+                        onChange={(event) => handleCustomHeaderChange(event, col.id)}
+                        variant="outlined"
+                        displayEmpty
+                        size="small"
+                        sx={{
+                          minWidth: 120,
+                          color: "#257e68",
+                          "& .MuiOutlinedInput-notchedOutline": {
+                            borderColor: "#bfdfd4",
+                          },
+                          "&:hover .MuiOutlinedInput-notchedOutline": {
+                            borderColor: "#257e68",
+                          },
+                        }}
+                      >
                         <MenuItem value="none">None</MenuItem>
                         <MenuItem value="adults">Adults</MenuItem>
                         <MenuItem value="children">Children</MenuItem>
@@ -1560,48 +1561,48 @@ const DeliverySpreadsheet: React.FC = () => {
                         <MenuItem value="referralEntity">Referral Entity</MenuItem>
                         <MenuItem value="tefapCert">TEFAP Cert</MenuItem>
                         <MenuItem value="dob">DOB</MenuItem>
-                        </Select>
-                        {/*Add Remove Button*/}
-                        <IconButton
-                          size="small"
-                          onClick={() => handleRemoveCustomColumn(col.id)}
-                          aria-label={`Remove ${col.label || "custom"} column`}
-                          title={`Remove ${col.label || "custom"} column`}
-                          sx={{
-                            color: "#d32f2f",
-                            "&:hover": {
-                              backgroundColor: "rgba(211, 47, 47, 0.04)",
-                            }
-                          }}
-                        >
-                          <DeleteIcon fontSize="small" />
-                        </IconButton>
-                      </Box>
-                    </TableCell>
-                  ))}
-                  {/* Add button cell */}
-                  <TableCell 
-                    className="table-header" 
-                    align="right"
+                      </Select>
+                      {/*Add Remove Button*/}
+                      <IconButton
+                        size="small"
+                        onClick={() => handleRemoveCustomColumn(col.id)}
+                        aria-label={`Remove ${col.label || "custom"} column`}
+                        title={`Remove ${col.label || "custom"} column`}
+                        sx={{
+                          color: "#d32f2f",
+                          "&:hover": {
+                            backgroundColor: "rgba(211, 47, 47, 0.04)",
+                          }
+                        }}
+                      >
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </Box>
+                  </TableCell>
+                ))}
+                {/* Add button cell */}
+                <TableCell
+                  className="table-header"
+                  align="right"
+                  sx={{
+                    backgroundColor: "#f5f9f7",
+                    borderBottom: "2px solid #e0e0e0",
+                  }}
+                >
+                  <IconButton
+                    onClick={handleAddCustomColumn}
+                    color="primary"
+                    aria-label="add custom column"
                     sx={{
-                      backgroundColor: "#f5f9f7",
-                      borderBottom: "2px solid #e0e0e0",
+                      backgroundColor: "rgba(37, 126, 104, 0.06)",
+                      "&:hover": {
+                        backgroundColor: "rgba(37, 126, 104, 0.12)",
+                      }
                     }}
                   >
-                    <IconButton
-                      onClick={handleAddCustomColumn}
-                      color="primary"
-                      aria-label="add custom column"
-                      sx={{
-                        backgroundColor: "rgba(37, 126, 104, 0.06)",
-                        "&:hover": {
-                          backgroundColor: "rgba(37, 126, 104, 0.12)",
-                        }
-                      }}
-                    >
-                      <AddIcon sx={{ color: "#257e68" }} />
-                    </IconButton>
-                  </TableCell>
+                    <AddIcon sx={{ color: "#257e68" }} />
+                  </IconButton>
+                </TableCell>
                 {/* Add empty cell for the action menu - keeping this for now */}
                 {/* <TableCell 
                   className="table-header"
@@ -1667,8 +1668,8 @@ const DeliverySpreadsheet: React.FC = () => {
                                 <MenuItem key={option.value} value={option.value}>
                                   <Chip
                                     label={option.label === "Unassigned" ? option.label : option.label}
-                                    style={typeof option.color === 'string' ? 
-                                      { backgroundColor: option.color, color: 'white', border: '1px solid black', fontWeight: 'bold', textShadow: '.5px .5px .5px #000, -.5px .5px .5px #000, -.5px -.5px 0px #000, .5px -.5px 0px #000' } 
+                                    style={typeof option.color === 'string' ?
+                                      { backgroundColor: option.color, color: 'white', border: '1px solid black', fontWeight: 'bold', textShadow: '.5px .5px .5px #000, -.5px .5px .5px #000, -.5px -.5px 0px #000, .5px -.5px 0px #000' }
                                       : undefined}
                                   />
                                 </MenuItem>
@@ -1696,34 +1697,34 @@ const DeliverySpreadsheet: React.FC = () => {
                             </Link>
                           ) : field.key === "deliveryDetails.deliveryInstructions" ? (
                             // Render delivery instructions with word wrapping
-                            <div style={{ 
-                              maxWidth: '200px', 
-                              wordWrap: 'break-word', 
-                              overflowWrap: 'anywhere', 
-                              whiteSpace: 'pre-wrap' 
+                            <div style={{
+                              maxWidth: '200px',
+                              wordWrap: 'break-word',
+                              overflowWrap: 'anywhere',
+                              whiteSpace: 'pre-wrap'
                             }}>
                               {(field as Extract<Field, { key: "deliveryDetails.deliveryInstructions" }>).compute(row)}
                             </div>
                           ) : field.key === "tags" ? (
 
-                              // Render tags field
-                              row.tags && row.tags.length > 0 ? (
-                                <Box sx={{ display: "flex", flexWrap: "wrap", gap: "2px" }}>
-                                  {row.tags.map((tag, index) => (
-                                    <StyleChip key={index}
-                                      label={tag}
-                                      size="small"
-                                      onClick={(e) => {
-                                        e.preventDefault()
-                                        e.stopPropagation();
-                                      }}
-                                     />
-                                  ))}
-                                </Box>
-                              ) : (
-                                "No Tags"
-                              )
+                            // Render tags field
+                            row.tags && row.tags.length > 0 ? (
+                              <Box sx={{ display: "flex", flexWrap: "wrap", gap: "2px" }}>
+                                {row.tags.map((tag, index) => (
+                                  <StyleChip key={index}
+                                    label={tag}
+                                    size="small"
+                                    onClick={(e) => {
+                                      e.preventDefault()
+                                      e.stopPropagation();
+                                    }}
+                                  />
+                                ))}
+                              </Box>
                             ) : (
+                              "No Tags"
+                            )
+                          ) : (
                             // Handle other compute functions (shouldn't reach here)
                             null
                           )
@@ -1736,43 +1737,43 @@ const DeliverySpreadsheet: React.FC = () => {
                       </TableCell>
                     ); // End return for TableCell
                   })}
-                   {customColumns.map((col) => (
-                        <TableCell 
-                          key={col.id} 
-                          sx={{ 
-                            py: 2,
-                            maxWidth: '200px',
-                            overflow: 'hidden',
-                            wordWrap: 'break-word',
-                            overflowWrap: 'anywhere',
-                            whiteSpace: 'pre-wrap'
-                          }}
-                        >
-                          {editingRowId === row.id ? (
-                            col.propertyKey !== "none" ? (
-                              <TextField
-                                value={row[col.propertyKey as keyof DeliveryRowData] ?? ""}
-                                onChange={(e) =>
-                                  handleCustomColumnChange(
-                                    e,
-                                    row.id,
-                                    col.propertyKey as keyof CustomRowData,
-                                    setCustomRows
-                                  )
-                                }
-                                variant="outlined"
-                                size="small"
-                                fullWidth
-                                multiline={col.propertyKey.includes('deliveryInstructions') || col.propertyKey.includes('notes')}
-                                maxRows={4}
-                              />
-                            ) : (
-                              "N/A"
-                            )
-                          ) : 
-                          col.propertyKey !== "none" ? (
-                            // Check if the property key is 'referralEntity' and the value is an object
-                            col.propertyKey === 'referralEntity' && typeof row.referralEntity === 'object' && row.referralEntity !== null ?
+                  {customColumns.map((col) => (
+                    <TableCell
+                      key={col.id}
+                      sx={{
+                        py: 2,
+                        maxWidth: '200px',
+                        overflow: 'hidden',
+                        wordWrap: 'break-word',
+                        overflowWrap: 'anywhere',
+                        whiteSpace: 'pre-wrap'
+                      }}
+                    >
+                      {editingRowId === row.id ? (
+                        col.propertyKey !== "none" ? (
+                          <TextField
+                            value={row[col.propertyKey as keyof DeliveryRowData] ?? ""}
+                            onChange={(e) =>
+                              handleCustomColumnChange(
+                                e,
+                                row.id,
+                                col.propertyKey as keyof RowData,
+                                setCustomRows
+                              )
+                            }
+                            variant="outlined"
+                            size="small"
+                            fullWidth
+                            multiline={col.propertyKey.includes('deliveryInstructions') || col.propertyKey.includes('notes')}
+                            maxRows={4}
+                          />
+                        ) : (
+                          "N/A"
+                        )
+                      ) :
+                        col.propertyKey !== "none" ? (
+                          // Check if the property key is 'referralEntity' and the value is an object
+                          col.propertyKey === 'referralEntity' && typeof row.referralEntity === 'object' && row.referralEntity !== null ?
                             // Format as "Name, Organization"
                             `${row.referralEntity.name ?? 'N/A'}, ${row.referralEntity.organization ?? 'N/A'}`
                             : col.propertyKey.includes('deliveryInstructions') ? (
@@ -1782,15 +1783,15 @@ const DeliverySpreadsheet: React.FC = () => {
                                 return instructions && instructions.trim() !== '' ? instructions : 'No instructions';
                               })()
                             ) : (row[col.propertyKey as keyof DeliveryRowData]?.toString() ?? "N/A") // Fallback for other types
-                          ) : (
-                            "N/A"
-                          )} 
-                        </TableCell>
-                                      ))}
+                        ) : (
+                          "N/A"
+                        )}
+                    </TableCell>
+                  ))}
                   {/* Empty Table cell so custom columns dont look weird */}
                   <TableCell></TableCell>
                 </TableRow>
-                
+
               ))}
             </TableBody>
           </Table>
@@ -1814,7 +1815,7 @@ const DeliverySpreadsheet: React.FC = () => {
       </Dialog>
 
       {/* Export Options Popup */}
-      
+
       <Dialog open={popupMode === "Export"} onClose={resetSelections} maxWidth="xs" fullWidth>
         <DialogTitle>Export Options</DialogTitle>
         <DialogContent sx={{ pt: 3, overflow: "visible" }}>
@@ -1881,7 +1882,7 @@ const DeliverySpreadsheet: React.FC = () => {
           <DialogContent>
             <ManualAssign
               manualAssign={manualAssign}
-              allDeliveries = {visibleRows as any}
+              allDeliveries={visibleRows as any}
               onClose={resetSelections}
             />
           </DialogContent>

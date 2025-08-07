@@ -37,7 +37,7 @@ const DietaryPreferencesForm: React.FC<DietaryPreferencesFormProps> = ({
       </Box>
 
       <Typography className="field-descriptor" sx={fieldLabelStyles}>
-        DIETARY PREFERNCES
+        DIETARY PREFERENCES
       </Typography>
       <Box sx={{
         gridColumn: { xs: '1', sm: 'span 1' },

@@ -2,6 +2,7 @@
 import { SelectChangeEvent } from "@mui/material";
 import { useEffect, useState } from "react";
 import { DeliveryDetails, DietaryRestrictions } from '../types';
+import type { RowData } from '../types/row-types';
 
 interface useCustomColumnsProps {
   page: string
@@ -27,7 +28,7 @@ export interface CustomRowData {
   ethnicity: string;
 }
 
-export const useCustomColumns = ({page}: useCustomColumnsProps) => {
+export const useCustomColumns = ({ page }: useCustomColumnsProps) => {
   // Manage the custom columns state. Default to [] if not found in local storage
   const [customColumns, setCustomColumns] = useState<CustomColumn[]>(() => {
     const saved = localStorage.getItem(`ffaCustomColumns${page}`);
@@ -43,9 +44,9 @@ export const useCustomColumns = ({page}: useCustomColumnsProps) => {
   });
 
   //detect custom column change and update local store
-  useEffect(()=>{
+  useEffect(() => {
     localStorage.setItem(`ffaCustomColumns${page}`, JSON.stringify(customColumns))
-  },[customColumns, page])
+  }, [customColumns, page])
 
   // Function to add a new custom column
   const handleAddCustomColumn = () => {
@@ -61,8 +62,8 @@ export const useCustomColumns = ({page}: useCustomColumnsProps) => {
   const handleCustomColumnChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
     id: string, // ID of the row being edited
-    propertyKey: keyof CustomRowData,
-    setRows: React.Dispatch<React.SetStateAction<CustomRowData[]>>
+    propertyKey: keyof RowData,
+    setRows: React.Dispatch<React.SetStateAction<RowData[]>>
   ) => {
     const newValue = e.target.value; // Get the new value from the input
 

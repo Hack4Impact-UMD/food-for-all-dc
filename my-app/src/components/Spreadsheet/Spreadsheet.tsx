@@ -47,36 +47,7 @@ import "./Spreadsheet.css";
 import DeleteClientModal from "./DeleteClientModal";
 
 // Define TypeScript types for row data
-interface RowData {
-  id: string;
-  clientid?: string;
-  uid: string;
-  firstName: string;
-  lastName: string;
-  phone?: string;
-  houseNumber?: number;
-  address: string;
-  deliveryDetails: {
-    deliveryInstructions: string;
-    dietaryRestrictions: {
-      foodAllergens: string[];
-      halal: boolean;
-      kidneyFriendly: boolean;
-      lowSodium: boolean;
-      lowSugar: boolean;
-      microwaveOnly: boolean;
-      noCookingEquipment: boolean;
-      otherText: string;
-      other: boolean;
-      softFood: boolean;
-      vegan: boolean;
-      heartFriendly: boolean;
-      vegetarian: boolean;
-    };
-  };
-  ethnicity: string;
-}
-
+import type { RowData } from '../../types/row-types';
 // ADDED
 interface CustomColumn {
   id: string; // Unique identifier for the column
@@ -144,95 +115,31 @@ const Spreadsheet: React.FC = () => {
   } = useCustomColumns({ page: "Spreadsheet" });
 
 
-const StyleChip = styled(Chip)({
-  backgroundColor: 'var(--color-primary)',
-  color: '#fff',
-  ":hover" : { 
+  const StyleChip = styled(Chip)({
     backgroundColor: 'var(--color-primary)',
-    cursor: 'text'
-  },
-  // Disable ripple effect and pointer events
-  '& .MuiTouchRipple-root': {
-    display: 'none'
-  },
-  '&:active': {
-    boxShadow: 'none',
-    transform: 'none'
-  },
-  '&:focus': {
-    boxShadow: 'none'
-  },
-  // Make text selectable
-  userSelect: 'text',
-  WebkitUserSelect: 'text'
-});
+    color: '#fff',
+    ":hover": {
+      backgroundColor: 'var(--color-primary)',
+      cursor: 'text'
+    },
+    // Disable ripple effect and pointer events
+    '& .MuiTouchRipple-root': {
+      display: 'none'
+    },
+    '&:active': {
+      boxShadow: 'none',
+      transform: 'none'
+    },
+    '&:focus': {
+      boxShadow: 'none'
+    },
+    // Make text selectable
+    userSelect: 'text',
+    WebkitUserSelect: 'text'
+  });
 
 
-  // const [customColumns, setCustomColumns] = useState<CustomColumn[]>([]);
-  // const handleAddCustomColumn = () => {
-  //   const newColumnId = `custom-${Date.now()}`; // unique ID generation
-  //   const newColumn: CustomColumn = {
-  //     id: newColumnId,
-  //     label: `Custom ${customColumns.length + 1}`,
-  //     propertyKey: "none",
-  //   };
-  //   setCustomColumns([...customColumns, newColumn]);
-  // };
 
-  // // ADDED
-  // const handleCustomColumnChange = (
-  //   e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
-  //   id: string, // ID of the row being edited
-  //   propertyKey: keyof RowData
-  // ) => {
-  //   const newValue = e.target.value; // Get the new value from the input
-
-  //   setRows((prevRows) =>
-  //     prevRows.map((row) => {
-  //       if (row.id === id) {
-  //         return {
-  //           ...row,
-  //           [propertyKey]: newValue, // Update the property w/ key
-  //         };
-  //       }
-  //       return row;
-  //     })
-  //   );
-  // };
-
-  // // ADDED
-  // const handleCustomHeaderChange = (
-  //   event: SelectChangeEvent<keyof RowData | "none">,
-  //   columnId: string
-  // ) => {
-  //   const newPropertyKey = event.target.value as keyof RowData | "none"; // Get selected val
-
-  //   setCustomColumns((prevColumns) =>
-  //     prevColumns.map((col) => {
-  //       if (col.id === columnId) {
-  //         return {
-  //           ...col,
-  //           propertyKey: newPropertyKey,
-  //         };
-  //       }
-  //       return col;
-  //     })
-  //   );
-
-  //   console.log(
-  //     `Custom Column ID: ${columnId}, New Property Key: ${newPropertyKey}`
-  //   ); // debugging
-  // };
-
-  // const handleRemoveCustomColumn = (columnIdToRemove: string) => {
-  //   // Use the state setter function for customColumns
-  //   setCustomColumns(
-  //     (prevColumns) =>
-  //       // Filter the previous columns array
-  //       prevColumns.filter((column) => column.id !== columnIdToRemove)
-  //     // Keep only the columns whose ID does NOT match the one to remove
-  //   );
-  // };
 
   //Route Protection
   React.useEffect(() => {
@@ -255,7 +162,7 @@ const StyleChip = styled(Chip)({
   // Compute sorted rows using useMemo to ensure data is always sorted
   const sortedRows = useMemo(() => {
     if (rows.length === 0) return rows;
-    
+
     return [...rows].sort((a, b) => {
       if (a.firstName === b.firstName) {
         return sortOrder === "asc"
@@ -283,7 +190,7 @@ const StyleChip = styled(Chip)({
       label: "Dietary Restrictions",
       type: "text",
       compute: (data: RowData) => {
-        const restrictions = [];
+        const restrictions: string[] = [];
         const dietaryRestrictions = data.deliveryDetails?.dietaryRestrictions;
         if (!dietaryRestrictions) return "None";
         if (dietaryRestrictions.halal) restrictions.push("Halal");
@@ -295,10 +202,10 @@ const StyleChip = styled(Chip)({
         if (dietaryRestrictions.softFood) restrictions.push("Soft Food");
         if (dietaryRestrictions.vegan) restrictions.push("Vegan");
         if (dietaryRestrictions.vegetarian) restrictions.push("Vegetarian");
-        if (Array.isArray(dietaryRestrictions.foodAllergens) && dietaryRestrictions.foodAllergens.length > 0)
-          restrictions.push(...dietaryRestrictions.foodAllergens);
-        if (Array.isArray(dietaryRestrictions.other) && dietaryRestrictions.other.length > 0)
-          restrictions.push(...dietaryRestrictions.other);
+        if (dietaryRestrictions.allergiesText && typeof dietaryRestrictions.allergiesText === "string" && dietaryRestrictions.allergiesText.trim().length > 0)
+          restrictions.push(...dietaryRestrictions.allergiesText);
+        if (dietaryRestrictions.other && typeof dietaryRestrictions.otherText === "string" && dietaryRestrictions.otherText.trim().length > 0)
+          restrictions.push(dietaryRestrictions.otherText);
         return restrictions.length > 0 ? restrictions.join(", ") : "None";
       },
     },
@@ -312,13 +219,14 @@ const StyleChip = styled(Chip)({
   ];
 
   // Fetch data from Firebase without authentication checks
-  useEffect(() => {    const fetchData = async () => {
+  useEffect(() => {
+    const fetchData = async () => {
       try {
         // Use ClientService instead of direct Firebase calls
         const clientService = ClientService.getInstance();
         const clients = await clientService.getAllClients();
         console.log("Fetched clients:", clients);
-        
+
         // Sort clients by lastName first, then firstName
         const sortedClients = [...clients].sort((a, b) => {
           if (a.lastName === b.lastName) {
@@ -326,7 +234,7 @@ const StyleChip = styled(Chip)({
           }
           return a.lastName.localeCompare(b.lastName);
         });
-        
+
         setRows(sortedClients as unknown as RowData[]);
       } catch (error) {
         console.error("Error fetching data: ", error);
@@ -444,14 +352,14 @@ const StyleChip = styled(Chip)({
     // Helper for numbers, dates (as strings/numbers), or items in an array
     // Checks if the string representation of the value or any array item includes the query
     const checkValueOrInArray = (value: any, query: string): boolean => {
-        if (value === undefined || value === null) {
-            return false;
-        }
-        const lowerQuery = query.toLowerCase();
-        if (Array.isArray(value)) {
-            return value.some(item => String(item).toLowerCase().includes(lowerQuery));
-        }
-        return String(value).toLowerCase().includes(lowerQuery);
+      if (value === undefined || value === null) {
+        return false;
+      }
+      const lowerQuery = query.toLowerCase();
+      if (Array.isArray(value)) {
+        return value.some(item => String(item).toLowerCase().includes(lowerQuery));
+      }
+      return String(value).toLowerCase().includes(lowerQuery);
     };
 
     const parts = trimmedSearchQuery.split(/:/); // Split only on the first colon
@@ -472,8 +380,8 @@ const StyleChip = styled(Chip)({
       switch (keyword) {
         case "name":
           return checkStringContains(`${row.firstName} ${row.lastName}`, searchValue) ||
-                 checkStringContains(row.firstName, searchValue) ||
-                 checkStringContains(row.lastName, searchValue);
+            checkStringContains(row.firstName, searchValue) ||
+            checkStringContains(row.lastName, searchValue);
         case "address":
           return checkStringContains(row.address, searchValue);
         case "phone":
@@ -501,14 +409,14 @@ const StyleChip = styled(Chip)({
           const referralEntity = (row as any).referralEntity;
           if (referralEntity && typeof referralEntity === 'object') {
             return checkStringContains(referralEntity.name, searchValue) ||
-                   checkStringContains(referralEntity.organization, searchValue);
+              checkStringContains(referralEntity.organization, searchValue);
           }
           return false;
         }
         case "referral entity name":
-            return checkStringContains((row as any).referralEntity?.name, searchValue);
+          return checkStringContains((row as any).referralEntity?.name, searchValue);
         case "referral entity organization":
-            return checkStringContains((row as any).referralEntity?.organization, searchValue);
+          return checkStringContains((row as any).referralEntity?.organization, searchValue);
         case "tags":
         case "tag":
           return checkValueOrInArray((row as any).tags, searchValue);
@@ -544,7 +452,7 @@ const StyleChip = styled(Chip)({
 
       const instructionsField = fields.find(f => f.key === "deliveryDetails.deliveryInstructions");
       if (instructionsField?.compute && checkStringContains(instructionsField.compute(row), globalSearchValue)) return true;
-      
+
       if (checkStringContains(row.ethnicity, globalSearchValue)) return true;
 
       const dynamicKeysAndValues: any[] = [
@@ -562,7 +470,7 @@ const StyleChip = styled(Chip)({
         if (checkStringContains(referralEntity.name, globalSearchValue)) return true;
         if (checkStringContains(referralEntity.organization, globalSearchValue)) return true;
       }
-      
+
       return false;
     }
   });
@@ -582,7 +490,7 @@ const StyleChip = styled(Chip)({
     setExportOption(null);
   };
 
-  
+
   // Handle toggling sort order for the Name column
   const toggleSortOrder = () => {
     const sortedRows = [...rows].sort((a, b) => {
@@ -1071,9 +979,9 @@ const StyleChip = styled(Chip)({
                     }}
                   >
                     {fields.map((field) => (
-                      <TableCell 
-                        key={field.key} 
-                        sx={{ 
+                      <TableCell
+                        key={field.key}
+                        sx={{
                           py: 2,
                           // Add word-wrap styles for delivery instructions and dietary restrictions
                           ...(field.key === "deliveryDetails.deliveryInstructions" && {
@@ -1156,7 +1064,7 @@ const StyleChip = styled(Chip)({
                         ) : (field as any).compute ? (
                           field.key === "deliveryDetails.dietaryRestrictions" ? (
                             <Stack direction="row" spacing={0.5} flexWrap="wrap">
-                              {(field as any).compute(row)?.split(", ").filter((restriction: string) => restriction !== "None").map((restriction: string, i: number) => (
+                              {(field as any).compute(row)?.split(", ").filter((restriction: string) => restriction !== "None" && restriction.trim() !== "").map((restriction: string, i: number) => (
                                 <Chip
                                   key={i}
                                   label={restriction}
@@ -1189,9 +1097,9 @@ const StyleChip = styled(Chip)({
                     ))}
 
                     {customColumns.map((col) => (
-                      <TableCell 
-                        key={col.id} 
-                        sx={{ 
+                      <TableCell
+                        key={col.id}
+                        sx={{
                           py: 2,
                           // Add word-wrap styles for text-heavy columns
                           ...((col.propertyKey.includes('notes') || col.propertyKey.includes('deliveryInstructions')) && {
@@ -1224,33 +1132,33 @@ const StyleChip = styled(Chip)({
                         ) :
                           col.propertyKey !== "none" ? (
                             // For referralEntity specifically (it's an object)
-                            col.propertyKey === 'referralEntity' && row[col.propertyKey as keyof RowData] ? 
-                            `${(row[col.propertyKey as keyof RowData] as any).name || 'N/A'}, ${(row[col.propertyKey as keyof RowData] as any).organization || 'N/A'}`
-                            : col.propertyKey === "tags" && Array.isArray(row[col.propertyKey as keyof RowData]) ?
-                              (row[col.propertyKey as keyof RowData] as unknown as string[]).map((tag, i) => (
-                                <StyleChip
-                                  key={i}
-                                  label={tag}
-                                  size="small"
-                                   onClick={(e) => {
-                                        e.preventDefault()
-                                      }}
-                                  sx={{
-                                    mb: 0.5,
-                                    mr: 0.5
-                                  }}
-                                />
-                              ))
-                            : col.propertyKey.includes('notes') || col.propertyKey.includes('deliveryInstructions') ? (
-                              <div style={{
-                                maxWidth: '200px',
-                                wordWrap: 'break-word',
-                                overflowWrap: 'anywhere',
-                                whiteSpace: 'pre-wrap'
-                              }}>
-                                {row[col.propertyKey as keyof RowData]?.toString() ?? "N/A"}
-                              </div>
-                            ) : (row[col.propertyKey as keyof RowData]?.toString() ?? "N/A")
+                            col.propertyKey === 'referralEntity' && row[col.propertyKey as keyof RowData] ?
+                              `${(row[col.propertyKey as keyof RowData] as any).name || 'N/A'}, ${(row[col.propertyKey as keyof RowData] as any).organization || 'N/A'}`
+                              : col.propertyKey === "tags" && Array.isArray(row[col.propertyKey as keyof RowData]) ?
+                                (row[col.propertyKey as keyof RowData] as unknown as string[]).map((tag, i) => (
+                                  <StyleChip
+                                    key={i}
+                                    label={tag}
+                                    size="small"
+                                    onClick={(e) => {
+                                      e.preventDefault()
+                                    }}
+                                    sx={{
+                                      mb: 0.5,
+                                      mr: 0.5
+                                    }}
+                                  />
+                                ))
+                                : col.propertyKey.includes('notes') || col.propertyKey.includes('deliveryInstructions') ? (
+                                  <div style={{
+                                    maxWidth: '200px',
+                                    wordWrap: 'break-word',
+                                    overflowWrap: 'anywhere',
+                                    whiteSpace: 'pre-wrap'
+                                  }}>
+                                    {row[col.propertyKey as keyof RowData]?.toString() ?? "N/A"}
+                                  </div>
+                                ) : (row[col.propertyKey as keyof RowData]?.toString() ?? "N/A")
                           ) : (
                             "N/A"
                           )}

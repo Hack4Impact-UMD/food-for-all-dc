@@ -59,6 +59,8 @@ export interface ClientProfile {
       foodAllergens: string[];
       otherText: string;
       other: boolean;
+      allergies: boolean; // New field for allergies
+      allergiesText: string; // New field for allergies text
       [key: string]: boolean | string[] | string;
     };
   };

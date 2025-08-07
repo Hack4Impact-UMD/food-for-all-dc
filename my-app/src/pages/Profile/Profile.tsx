@@ -221,6 +221,8 @@ const Profile = () => {
         foodAllergens: [],
         otherText: "",
         other: false,     // Changed from string to boolean
+        allergies: false, // New field for allergies
+        allergiesText: "", // New field for allergies text
 
       },
     },
@@ -1192,6 +1194,24 @@ const Profile = () => {
     },
   };
 
+  const checkboxStyles = {
+    "&:focus": {
+      outline: "none",
+    },
+    "&.Mui-focusVisible": {
+      outline: "none",
+      "& .MuiSvgIcon-root": {
+        color: "#257E68",
+        filter: "drop-shadow(0 0 8px rgba(37, 126, 104, 0.4)) drop-shadow(0 0 16px rgba(37, 126, 104, 0.2))",
+      },
+    },
+    "& input:focus + .MuiSvgIcon-root": {
+      color: "#257E68",
+      filter: "drop-shadow(0 0 8px rgba(37, 126, 104, 0.4)) drop-shadow(0 0 16px rgba(37, 126, 104, 0.2))",
+    },
+  };
+
+
   // Helper function to get nested values
   const getNestedValue = (obj: any, path: string) => {
     return path.split(".").reduce((acc, part) => acc?.[part], obj);
@@ -1210,13 +1230,12 @@ const Profile = () => {
         { name: "softFood", label: "Soft Food" },
         { name: "lowSodium", label: "Low Sodium" },
         { name: "noCookingEquipment", label: "No Cooking Equipment" },
-        { name: "heartFriendly", label: "Heart Friendly" },
-        { name: "allergies", label: "Allergies" }
+        { name: "heartFriendly", label: "Heart Friendly" }
       ] as const;
 
       interface DietaryOption {
         name: 'lowSugar' | 'kidneyFriendly' | 'vegan' | 'vegetarian' | 'halal' |
-        'microwaveOnly' | 'softFood' | 'lowSodium' | 'noCookingEquipment' | 'heartFriendly' | 'allergies';
+        'microwaveOnly' | 'softFood' | 'lowSodium' | 'noCookingEquipment' | 'heartFriendly';
         label: string;
       }
 
@@ -1233,13 +1252,25 @@ const Profile = () => {
         heartFriendly: boolean;
         other: boolean;
         otherText: string;
-        allergies: boolean;
-        allergiesText: string;
       }
 
       return (
         <>
+          <Box
+            sx={{
+              display: "grid",
+              gap: isEditing ? 3 : 5,
+              gridTemplateColumns: {
+                xs: "1fr",
+                sm: "repeat(2, 1fr)",
+                md: "repeat(3, 1fr)",
+              },
+              alignItems: "flex-start",
+            }}
+            className="info-grid"
+          >
 
+          </Box>
           {dietaryOptions.map((option: DietaryOption) => (
             <FormControlLabel
               key={option.name}
@@ -1247,22 +1278,7 @@ const Profile = () => {
                 checked={Boolean(clientProfile.deliveryDetails?.dietaryRestrictions?.[option.name])}
                 onChange={handleDietaryRestrictionChange}
                 name={option.name}
-                sx={{
-                  "&:focus": {
-                    outline: "none",
-                  },
-                  "&.Mui-focusVisible": {
-                    outline: "none",
-                    "& .MuiSvgIcon-root": {
-                      color: "#257E68",
-                      filter: "drop-shadow(0 0 8px rgba(37, 126, 104, 0.4)) drop-shadow(0 0 16px rgba(37, 126, 104, 0.2))",
-                    },
-                  },
-                  "& input:focus + .MuiSvgIcon-root": {
-                    color: "#257E68",
-                    filter: "drop-shadow(0 0 8px rgba(37, 126, 104, 0.4)) drop-shadow(0 0 16px rgba(37, 126, 104, 0.2))",
-                  },
-                }}
+                sx={checkboxStyles}
               />
               }
               label={option.label}
@@ -1270,9 +1286,29 @@ const Profile = () => {
           ))}
 
           <Box sx={{
-            display: 'flex',
-            alignItems: 'center',
+            display: "flex",
+            flexDirection: "column",
             gap: 1,
+            gridColumn: { xs: '1', sm: 'span 1' },
+            width: '100%',
+          }}>
+            <FormControlLabel
+              control={<Checkbox
+                checked={clientProfile.deliveryDetails?.dietaryRestrictions?.allergies || false}
+                onChange={handleDietaryRestrictionChange}
+                name="allergies"
+                sx={checkboxStyles}
+              />
+              }
+              label="Allergies"
+            />
+            {renderField("deliveryDetails.deliveryInstructions", "textarea")}
+          </Box>
+          <Box sx={{
+            display: "flex",
+            flexDirection: "column",
+            gap: 1,
+            gridColumn: { xs: '1', sm: 'span 1' },
             width: '100%',
           }}>
             <FormControlLabel
@@ -1280,27 +1316,13 @@ const Profile = () => {
                 checked={clientProfile.deliveryDetails?.dietaryRestrictions?.other || false}
                 onChange={handleDietaryRestrictionChange}
                 name="other"
-                sx={{
-                  "&:focus": {
-                    outline: "none",
-                  },
-                  "&.Mui-focusVisible": {
-                    outline: "none",
-                    "& .MuiSvgIcon-root": {
-                      color: "#257E68",
-                      filter: "drop-shadow(0 0 8px rgba(37, 126, 104, 0.4)) drop-shadow(0 0 16px rgba(37, 126, 104, 0.2))",
-                    },
-                  },
-                  "& input:focus + .MuiSvgIcon-root": {
-                    color: "#257E68",
-                    filter: "drop-shadow(0 0 8px rgba(37, 126, 104, 0.4)) drop-shadow(0 0 16px rgba(37, 126, 104, 0.2))",
-                  },
-                }}
+                sx={checkboxStyles}
               />
               }
               label="Other"
             />
-            {clientProfile.deliveryDetails?.dietaryRestrictions?.other && (<TextField
+            {renderField("deliveryDetails.deliveryInstructions", "textarea")}
+            {/* {clientProfile.deliveryDetails?.dietaryRestrictions?.other && (<TextField
               name="otherText"
               value={clientProfile.deliveryDetails?.dietaryRestrictions?.otherText || ""}
               onChange={handleDietaryRestrictionChange}
@@ -1318,7 +1340,7 @@ const Profile = () => {
                 },
               }}
             />
-            )}
+            )} */}
           </Box>
         </>
       );
@@ -1725,7 +1747,11 @@ const Profile = () => {
               other: checked,
               // Keep the existing otherText when checking, clear it when unchecking
               otherText: checked ? prevState.deliveryDetails.dietaryRestrictions.otherText : ""
-            })
+            }),
+            ...(name === "allergies" && {
+              allergies: checked,
+              allergiesText: checked ? prevState.deliveryDetails.dietaryRestrictions.allergiesText : ""
+            }),
           },
         },
       }));
@@ -1738,7 +1764,9 @@ const Profile = () => {
           dietaryRestrictions: {
             ...prevState.deliveryDetails.dietaryRestrictions,
             otherText: value,
-            other: true // Ensure the checkbox stays checked when typing
+            other: true, // Ensure the checkbox stays checked when typing
+            allergiesText: value,
+            allergies: true
           },
         },
       }));
