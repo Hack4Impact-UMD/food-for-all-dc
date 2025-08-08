@@ -32,7 +32,7 @@ const AutoLogout = () => {
     : "You will be logged out in 30 seconds due to inactivity.";
 
   // Start or reset inactivity timer
-  const startTimer = () => {
+  const startTimer = useCallback(() => {
     clearTimeout(timeoutRef.current!);
     clearTimeout(warningRef.current!);
 
@@ -46,22 +46,22 @@ const AutoLogout = () => {
       signOut(auth);
       setType(AutoLogoutType.LOGOUT);
     }, FIVE_MINUTES);
-  };
+  }, []);
+
+  const handleActivity = useCallback(() => {
+    if (auth.currentUser) {
+      setType(AutoLogoutType.NONE);
+      
+      // Debounce the timer reset to prevent excessive calls
+      clearTimeout(debounceRef.current!);
+      debounceRef.current = setTimeout(() => {
+        startTimer();
+      }, 500); // 500ms debounce
+    }
+  }, [startTimer]);
 
   useEffect(() => {
     const activityEvents = ["keydown", "click", "scroll", "touchstart"];
-
-    const handleActivity = useCallback(() => {
-      if (auth.currentUser) {
-        setType(AutoLogoutType.NONE);
-        
-        // Debounce the timer reset to prevent excessive calls
-        clearTimeout(debounceRef.current!);
-        debounceRef.current = setTimeout(() => {
-          startTimer();
-        }, 500); // 500ms debounce
-      }
-    }, []);
 
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       //cleanup if user logs out
@@ -85,7 +85,7 @@ const AutoLogout = () => {
       clearTimeout(warningRef.current!);
       clearTimeout(debounceRef.current!);
     };
-  }, []);
+  }, [handleActivity, startTimer]);
 
   return (
     <Dialog
