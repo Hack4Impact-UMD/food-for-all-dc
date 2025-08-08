@@ -8,6 +8,10 @@ import UsersSpreadsheet from "./components/UsersSpreadsheet/UsersSpreadsheet";
 import Profile from "./pages/Profile/Profile";
 import BasePage from "./pages/Base/Base";
 import DeliverySpreadsheet from "./pages/Delivery/DeliverySpreadsheet";
+import SummaryReport from "./pages/Reports/SummaryReport";
+import ClientReport from "./pages/Reports/ClientReport";
+import ReferralAgenciesReport from "./pages/Reports/ReferralAgenciesReport";
+import CaseworkerReport from "./pages/Reports/CaseworkerReport";
 import ProtectedRoute from "./auth/ProtectedRoute";
 import { UserType } from "./types";
 
@@ -63,6 +67,26 @@ export const routesConfig: AppRoute[] = [
         path: "delivery",
         element: <DeliverySpreadsheet />,
         meta: { title: "Delivery", description: "Delivery management", icon: "local_shipping" },
+      },
+      {
+        path: "reports/summary",
+        element: <SummaryReport />,
+        meta: { title: "Summary Report", icon: "assessment" },
+      },
+      {
+        path: "reports/clients",
+        element: <ClientReport />,
+        meta: { title: "Client Report", icon: "group" },
+      },
+      {
+        path: "reports/referral-agencies",
+        element: <ReferralAgenciesReport />,
+        meta: { title: "Referral Agencies Report", icon: "business" },
+      },
+      {
+        path: "reports/caseworker",
+        element: <CaseworkerReport />,
+        meta: { title: "Caseworker Report", icon: "person" },
       },
       {
         element: <ProtectedRoute allowedRoles={[UserType.Admin, UserType.Manager]} />,

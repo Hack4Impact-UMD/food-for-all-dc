@@ -20,9 +20,10 @@ import StorageIcon from "@mui/icons-material/Storage";
 import AddCircleIcon from "@mui/icons-material/AddCircle";
 import LogoutIcon from "@mui/icons-material/Logout";
 import LocalShippingIcon from "@mui/icons-material/LocalShipping";
+import AssessmentIcon from "@mui/icons-material/Assessment";
 import Tab from "./NavBar/Tab";
 import logo from "../../assets/ffa-banner-logo.webp";
-import { Typography, useMediaQuery } from "@mui/material";
+import { Typography, useMediaQuery, MenuItem, Select } from "@mui/material";
 import { useAuth } from "../../auth/AuthProvider";
 import { useNavigate, useLocation, Outlet } from "react-router-dom";
 import { UserType } from "../../types";
@@ -113,22 +114,33 @@ export default function BasePage() {
     if (currentPath === "/clients") {
       setPageTitle("Clients");
       setTab("Clients");
-    } else if (currentPath === "/calendar") { // Changed from /deliveries
+    } else if (currentPath === "/calendar") {
       setPageTitle("Calendar");
       setTab("Calendar");
-    } else if (currentPath === "/users") { // Update path check
+    } else if (currentPath === "/users") {
       setPageTitle("Users");
       setTab("Users");
-    } else if (currentPath === "/delivery") { // Changed from /routes
-      setPageTitle("Delivery"); // Keep title as Delivery?
+    } else if (currentPath === "/delivery") {
+      setPageTitle("Delivery");
       setTab("Delivery");
-    } else if (currentPath.startsWith("/profile")) { // Handle profile page potentially with ID
+    } else if (currentPath.startsWith("/reports")) {
+      // Handle reports routes
+      if (currentPath === "/reports/summary") {
+        setPageTitle("Summary Report");
+      } else if (currentPath === "/reports/clients") {
+        setPageTitle("Client Report");
+      } else if (currentPath === "/reports/referral-agencies") {
+        setPageTitle("Referral Agencies");
+      } else if (currentPath === "/reports/caseworker") {
+        setPageTitle("Caseworker Report");
+      } else {
+        setPageTitle("Reports");
+      }
+      setTab("Reports");
+    } else if (currentPath.startsWith("/profile")) {
       setPageTitle("Profile");
-      // Decide if a tab should be active for profile, or maybe none?
-      // setTab("Profile"); // Example: If there was a Profile tab
     } else {
-      setPageTitle(""); // Default empty title
-      // setTab(""); // Reset tab if needed
+      setPageTitle("");
     }
   }, [location]);
 
@@ -160,14 +172,14 @@ export default function BasePage() {
   const navItems = useMemo(() => {
     const items = [...baseNavItems];
 
-    // Add Delivery only if user is Admin or Manager
+    items.push({ text: "Delivery", icon: <LocalShippingIcon />, link: "/delivery" });
+
     if (userRole === UserType.Admin || userRole === UserType.Manager) {
       items.push({ text: "Users", icon: <AddCircleIcon />, link: "/users" });
     }
 
-    // Assuming deliveries page is accessible by all roles for now based on App.tsx setup
-    // If delivery page needs restriction, add condition here
-    items.push({ text: "Delivery", icon: <LocalShippingIcon />, link: "/delivery" });
+    items.push({ text: "Reports", icon: <AssessmentIcon />, link: "/reports/summary" });
+    
     return items;
   }, [userRole]);
 
@@ -198,20 +210,61 @@ export default function BasePage() {
               <MenuRoundedIcon />
             </IconButton>
           </Box>
-          <Typography 
-            variant="h6" 
-            sx={{ 
-              fontWeight: 600,
-              color: "#000000",
-              letterSpacing: "0.5px",
-              position: "absolute",
-              left: "50%",
-              transform: "translateX(-50%)",
-              fontSize: isMobile ? "1rem" : "1.25rem",
-            }}
-          >
-            {pageTitle}
-          </Typography>
+          
+          <Box sx={{ 
+            position: "absolute",
+            left: "50%",
+            transform: "translateX(-50%)",
+            display: "flex",
+            alignItems: "center",
+          }}>
+            {location.pathname.startsWith("/reports") ? (
+              <Select
+                value={location.pathname}
+                onChange={(e) => navigate(e.target.value)}
+                variant="standard"
+                disableUnderline
+                sx={{
+                  '& .MuiSelect-select': {
+                    fontWeight: 600,
+                    color: "#000000",
+                    letterSpacing: "0.5px",
+                    fontSize: isMobile ? "1rem" : "1.25rem",
+                    padding: 0,
+                    border: 'none',
+                    '&:focus': {
+                      backgroundColor: 'transparent',
+                    }
+                  },
+                  '& .MuiSelect-icon': {
+                    color: "#000000",
+                    fontSize: isMobile ? "1.2rem" : "1.5rem",
+                  },
+                  '& fieldset': {
+                    border: 'none',
+                  }
+                }}
+              >
+                <MenuItem value="/reports/summary">Summary Report</MenuItem>
+                <MenuItem value="/reports/clients">Client Report</MenuItem>
+                <MenuItem value="/reports/referral-agencies">Referral Agencies</MenuItem>
+                <MenuItem value="/reports/caseworker">Caseworker Report</MenuItem>
+              </Select>
+            ) : (
+              <Typography 
+                variant="h6" 
+                sx={{ 
+                  fontWeight: 600,
+                  color: "#000000",
+                  letterSpacing: "0.5px",
+                  fontSize: isMobile ? "1rem" : "1.25rem",
+                }}
+              >
+                {pageTitle}
+              </Typography>
+            )}
+          </Box>
+          
           <Box sx={{ width: 40 }} /> {/* Spacer for balanced layout */}
         </Toolbar>
       </AppBar>
