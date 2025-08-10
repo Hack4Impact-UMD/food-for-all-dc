@@ -651,22 +651,21 @@ const FormField: React.FC<FormFieldProps> = ({
           </Box>
         );
       case "textarea":
-        if (fieldPath === "ward") {
-          return <CustomTextField name={fieldPath} value={String(value || "")} disabled fullWidth />;
-        } else {
-          const isTallTextarea = ["lifeChallenges", "lifestyleGoals", "notes", "deliveryDetails.deliveryInstructions"].includes(fieldPath);
-          return (
-            <CustomTextField
-              name={fieldPath}
-              value={String(value || "")}
-              onChange={handleChange}
-              multiline
-              fullWidth
-              minRows={isTallTextarea ? 3 : 1}
-              inputProps={{ minLength: minLengthTextarea }}
-            />
-          );
-        }
+        // All textareas use the same size and style
+        return (
+          <CustomTextField
+            name={fieldPath}
+            value={String(value || "")}
+            onChange={handleChange}
+            multiline
+            fullWidth
+            minRows={4}
+            maxRows={4}
+            inputProps={{ minLength: minLengthTextarea }}
+            sx={{ minHeight: 120, width: '100%' }}
+            disabled={fieldPath === "ward"}
+          />
+        );
       case "tags":
         return (
           <>

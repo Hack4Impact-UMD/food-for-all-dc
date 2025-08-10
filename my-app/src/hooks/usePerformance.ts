@@ -35,7 +35,7 @@ export function usePerformanceMonitor(componentName: string) {
     const renderTime = renderEnd - renderStart;
     
     if (renderTime > 16) { // More than one frame (16ms)
-      console.warn(`${componentName} render took ${renderTime.toFixed(2)}ms`);
+  // console.warn(`${componentName} render took ${renderTime.toFixed(2)}ms`);
     }
   });
 }

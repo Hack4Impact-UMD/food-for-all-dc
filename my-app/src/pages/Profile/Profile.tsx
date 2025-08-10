@@ -174,9 +174,11 @@ const Profile = () => {
   const navigate = useNavigate();
   const params = useParams();
   const clientIdParam: string | null = params.clientId ?? null;
-  const { userRole } = useAuth();
+  const { user, loading, userRole } = useAuth();
 
   // #### STATE ####
+  // State for config fields loaded from bucket
+  const [configFields, setConfigFields] = useState<any[]>([]);
   const [isEditing, setIsEditing] = useState(!clientIdParam);
   const [isNewProfile, setIsNewProfile] = useState(!clientIdParam);
   const [clientId, setClientId] = useState<string | null>(clientIdParam);
@@ -192,7 +194,6 @@ const Profile = () => {
     uid: "",
     firstName: "",
     lastName: "",
-    streetName: "",
     zipCode: "",
     address: "",
     address2: "",
@@ -271,6 +272,8 @@ const Profile = () => {
   const [formData, setFormData] = useState({});
   const [isSaved, setIsSaved] = useState(false);
   const [ward, setWard] = useState(clientProfile.ward);
+  // State for dynamic fields from MiscellaneousForm
+  const [dynamicFields, setDynamicFields] = useState<{ [key: string]: string }>({});
   const [lastDeliveryDate, setLastDeliveryDate] = useState<string | null>(null);
   const [profileLoaded, setProfileLoaded] = useState(false);
   const [prevNotes, setPrevNotes] = useState("");
@@ -305,12 +308,34 @@ const Profile = () => {
     }
   };
 
-  //Route Protection
+  // Robust Route Protection: redirect to login if not authenticated
+  // Fetch config file from Firebase Storage bucket on mount
+  useEffect(() => {
+    async function fetchConfigFromBucket() {
+      try {
+        // Use Firebase Storage SDK helper for authenticated access
+        const { getProfileFieldsConfigUrl } = await import("../../services/firebase-storage");
+        const configUrl = await getProfileFieldsConfigUrl();
+        const response = await fetch(configUrl);
+        if (!response.ok) throw new Error('Failed to fetch config file');
+        const configData = await response.json();
+        if (Array.isArray(configData.miscellaneousFields)) {
+          setConfigFields(configData.miscellaneousFields);
+        } else {
+          setConfigFields([]);
+        }
+      } catch (err) {
+        console.error('Error fetching config from bucket:', err);
+        setConfigFields([]);
+      }
+    }
+    fetchConfigFromBucket();
+  }, []);
   React.useEffect(() => {
-    if (auth.currentUser === null) {
+    if (!loading && !user) {
       navigate("/");
     }
-  }, [navigate]);
+  }, [user, loading, navigate]);
 
 
 
@@ -343,8 +368,19 @@ const Profile = () => {
       getProfileById(clientIdParam).then((profileData) => {
         if (profileData) {
           setTags(profileData.tags?.filter((tag) => allTags.includes(tag)) || []);
+          // Remove config-driven dynamic fields from top-level profileData
+          if (profileData.miscellaneousDynamicFields) {
+            const configFieldIds: string[] = Array.isArray(configFields)
+              ? configFields.map((f) => f.id)
+              : Object.keys(profileData.miscellaneousDynamicFields);
+            for (const key of configFieldIds) {
+              if (key in profileData) {
+                delete ((profileData as unknown) as Record<string, unknown>)[key];
+              }
+            }
+            setDynamicFields(profileData.miscellaneousDynamicFields || {});
+          }
           setClientProfile(profileData);
-
           // Set prevNotes only when the profile is loaded from Firebase
           if (!profileLoaded) {
             setPrevNotes(profileData.notes || "");
@@ -1165,8 +1201,35 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
       );
   
       // Update the clientProfile object with the latest tags state and other calculated fields
+      // Only save config-defined dynamic fields
+      let configFieldIds: string[] = [];
+      // Get config-driven dynamic field IDs
+      if (window && window.localStorage) {
+        try {
+          const config = JSON.parse(window.localStorage.getItem('profileFieldsConfig') || '{}');
+          if (Array.isArray(config.miscellaneousFields)) {
+            configFieldIds = config.miscellaneousFields.map((f: any) => f.id);
+          }
+        } catch (err) {
+          // Intentionally ignore config load errors; fallback will be used
+        }
+      }
+      if (configFieldIds.length === 0) {
+        configFieldIds = Object.keys(dynamicFields);
+      }
+      // Filter dynamic fields to only config-driven ones
+      const filteredDynamicFields = Object.fromEntries(
+        Object.entries(dynamicFields).filter(([key]) => configFieldIds.includes(key))
+      );
+      // Remove ALL config-driven dynamic field keys from top-level profile before saving
+      const cleanedProfile = { ...clientProfile };
+      for (const key of configFieldIds) {
+        if (key in cleanedProfile) {
+          delete (cleanedProfile as Record<string, unknown>)[key];
+        }
+      }
       const updatedProfile: ClientProfile = {
-        ...clientProfile,
+        ...cleanedProfile,
         tags: tags, // Sync the tags state with clientProfile
         notesTimestamp: updatedNotesTimestamp, // Update the notesTimestamp
         deliveryInstructionsTimestamp: updatedDeliveryInstructionsTimestamp,
@@ -1176,7 +1239,6 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
         total: Number(clientProfile.adults || 0) + Number(clientProfile.children || 0) + Number(clientProfile.seniors || 0),
         ward: fetchedWard, // Use potentially updated ward
         coordinates: coordinatesToSave, // Use potentially updated coordinates
-        // Ensure referralEntity is included based on selectedCaseWorker
         referralEntity: selectedCaseWorker
           ? { id: selectedCaseWorker.id, name: selectedCaseWorker.name, organization: selectedCaseWorker.organization }
           : null, // Use null if no case worker is selected
@@ -1385,9 +1447,7 @@ if (type === "physicalAilments") {
       }
 
       return (
-        <>
-
-{dietaryOptions.map((option: DietaryOption) => (
+        <>          {dietaryOptions.map((option: DietaryOption) => (
   <FormControlLabel
     key={option.name}
     control={      <Checkbox
@@ -2319,7 +2379,6 @@ const handleMentalHealthConditionsChange = (e: React.ChangeEvent<HTMLInputElemen
           // Preserve original casing, only trim whitespace
           firstName: (data.firstName || "").trim(),
           lastName: (data.lastName || "").trim(),
-          streetName: data.streetName || "",
           zipCode: (data.zipCode || "").trim(),
           address: (data.address || "").trim(),
           address2: (data.address2 || "").trim(),
@@ -2584,6 +2643,9 @@ const handleMentalHealthConditionsChange = (e: React.ChangeEvent<HTMLInputElemen
               renderField={renderField}
               fieldLabelStyles={fieldLabelStyles}
               errors={errors}
+              configFields={configFields}
+              fieldValues={dynamicFields}
+              handleFieldChange={(key, value) => setDynamicFields(prev => ({ ...prev, [key]: value }))}
             />          </SectionBox>
           <SectionBox sx={{ textAlign: 'right', width: '100%' }}>
             <Box display="flex" alignItems="center" justifyContent="flex-end" gap={1}>
