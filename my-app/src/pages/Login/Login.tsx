@@ -151,21 +151,19 @@ function Login() {
 
           <p className={styles.label}>Admin Login</p>
 
-          <FormControl sx={{ m: 1, width: "100%", margin: "2%" }} variant="standard">
-            <InputLabel htmlFor="standard-adornment-email">Email</InputLabel>
-            <Input
-              id="standard-adornment-email"
-              type={"email"}
-              value={loginEmail}
-              onChange={(e) => setLoginEmail(e.target.value)}
-              onKeyPress={handleKeyPress}
-              fullWidth
-              required
-              aria-label="Email Address"
-              className={styles.inputField}
-              autoComplete="email"
-            />
-          </FormControl>
+          <TextField
+            label="Email"
+            variant="outlined"
+            type="email"
+            value={loginEmail}
+            onChange={(e) => setLoginEmail(e.target.value)}
+            onKeyPress={handleKeyPress}
+            fullWidth
+            aria-label="Email Address"
+            className={styles.inputField}
+            autoComplete="email"
+            margin="normal"
+          />
 
           <form
             onSubmit={(e) => {
@@ -173,21 +171,19 @@ function Login() {
               handleLogin();
             }}
           >
-            <FormControl sx={{ m: 1, width: "100%", margin: "2%" }} variant="standard">
-              <InputLabel htmlFor="standard-adornment-password">Password</InputLabel>
-              <Input
-                id="standard-adornment-password"
-                type={"password"}
-                value={loginPassword}
-                onChange={(e) => setLoginPassword(e.target.value)}
-                onKeyPress={handleKeyPress}
-                fullWidth
-                required
-                aria-label="Password"
-                className={styles.inputField}
-                autoComplete="current-password"
-              />
-            </FormControl>
+            <TextField
+              label="Password"
+              variant="outlined"
+              type="password"
+              value={loginPassword}
+              onChange={(e) => setLoginPassword(e.target.value)}
+              onKeyPress={handleKeyPress}
+              fullWidth
+              aria-label="Password"
+              className={styles.inputField}
+              autoComplete="current-password"
+              margin="normal"
+            />
             
             <div className={styles.forgotPasswordWrapper}>
               <p className={styles.forgotPasswordButton} onClick={handleDialogOpen}>
