@@ -1,6 +1,13 @@
 import React, { useState, useEffect } from "react";
-import { TextField, Typography, DialogActions, Box } from "@mui/material";
+import { TextField, Typography, DialogActions, Box, styled } from "@mui/material";
 import Button from '../../../components/common/Button';
+
+//added component to center label
+const CenteredTextField = styled(TextField)({
+  '& .MuiInputLabel-root': {
+    top: '15%',
+  },
+});
 
 interface GenerateClustersPopupProps {
   onGenerateClusters: (clusterNum: number, minDeliveries: number, maxDeliveries: number) => Promise<void>;
@@ -139,7 +146,7 @@ export default function GenerateClustersPopup({ onGenerateClusters, onClose }: G
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, p: 1 }}>
         {/* Cluster Number Input */}
         <Box>
-          <TextField
+          <CenteredTextField
             label="Number of Clusters"
             value={values.clusterNum}
             onChange={(e) => handleInputChange("clusterNum", e.target.value)}
@@ -158,7 +165,7 @@ export default function GenerateClustersPopup({ onGenerateClusters, onClose }: G
             Deliveries Per Cluster:
           </Typography>
           <Box sx={{ display: 'flex', gap: 2 }}>
-            <TextField
+            <CenteredTextField
               label="Minimum"
               value={values.minDeliveries}
               onChange={(e) => handleInputChange("minDeliveries", e.target.value)}
@@ -169,7 +176,7 @@ export default function GenerateClustersPopup({ onGenerateClusters, onClose }: G
               placeholder="Enter number"
               fullWidth
             />
-            <TextField
+            <CenteredTextField
               label="Maximum"
               value={values.maxDeliveries}
               onChange={(e) => handleInputChange("maxDeliveries", e.target.value)}
