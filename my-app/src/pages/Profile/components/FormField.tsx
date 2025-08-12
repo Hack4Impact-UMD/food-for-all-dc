@@ -23,7 +23,7 @@ interface FormFieldProps {
   fieldPath: ClientProfileKey;
   value: any;
   type?: string;
-  isEditing: boolean;  handleChange: (
+  isEditing: boolean; handleChange: (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement> | SelectChangeEvent
   ) => void;
   getNestedValue: (obj: any, path: string) => any;
@@ -77,7 +77,7 @@ const CustomTextField = styled(TextField)({
     "&.Mui-error": {
       color: "var(--color-error)",
     }
-  },  "& .MuiInputBase-input": {
+  }, "& .MuiInputBase-input": {
     backgroundColor: "white",
     width: "100%",
     height: "56px",
@@ -129,26 +129,26 @@ export const CustomSelect = styled(Select)({
   boxSizing: 'border-box',
   width: '100%',
   position: 'relative',
-  
+
   // Remove the default Material UI outline completely
   '&.MuiOutlinedInput-root': {
     '& fieldset.MuiOutlinedInput-notchedOutline': {
       display: 'none',
     },
   },
-  
+
   // Apply our own border and background
   border: `1px solid var(--color-border-light)`,
   borderRadius: '5px',
   backgroundColor: 'white',
-  
+
   // Focus state
   '&:focus-within': {
     border: `1px solid var(--color-primary)`,
     boxShadow: '0 0 0 3px rgba(37, 126, 104, 0.2)',
     outline: 'none',
   },
-  
+
   // Style the select content area
   '& .MuiSelect-select': {
     height: '100%',
@@ -159,7 +159,7 @@ export const CustomSelect = styled(Select)({
     border: 'none',
     outline: 'none',
   },
-  
+
   // Position the real MUI arrow inside the field
   '& .MuiSelect-icon': {
     position: 'absolute !important',
@@ -171,17 +171,17 @@ export const CustomSelect = styled(Select)({
     pointerEvents: 'none !important',
     zIndex: 2,
   },
-  
+
   // Disabled state
   '&.Mui-disabled': {
     backgroundColor: "#e0e0e0",
     color: "#757575",
     cursor: "not-allowed",
-    
+
     '& .MuiSelect-select': {
       color: "#757575",
     },
-    
+
     '& .MuiSelect-icon': {
       color: "#999",
     }
@@ -214,10 +214,10 @@ const CustomCheckbox = styled(Checkbox)({
   },
 });
 
-const DateFieldComponent = ({ 
-  fieldPath, 
-  value, 
-  handleChange, 
+const DateFieldComponent = ({
+  fieldPath,
+  value,
+  handleChange,
   dateInputProps,
   error
 }: {
@@ -238,15 +238,15 @@ const DateFieldComponent = ({
   const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
     // Mark field as touched on blur
     setFieldTouched(true);
-    
+
     const value = e.target.value;
-    
+
     // If the field is empty, it's valid (DOB is optional)
     if (!value) {
       setDateError(null);
       return;
     }
-    
+
     // Use the isValidHtmlDateFormat function for HTML date input validation
     if (!isValidHtmlDateFormat(value, 1900, 2100)) {
       // Provide more specific error messages
@@ -269,12 +269,12 @@ const DateFieldComponent = ({
       setDateError(null);
     }
   };
-  
+
   return (
-    <Box 
-      sx={{ 
+    <Box
+      sx={{
         position: 'relative',
-        display: 'flex', 
+        display: 'flex',
         flexDirection: 'column',
         width: '100%',
         marginBottom: '24px', // Space for any error message
@@ -288,15 +288,15 @@ const DateFieldComponent = ({
         onChange={(e) => {
           // Mark field as touched on change
           if (!fieldTouched) setFieldTouched(true);
-          
+
           // Clear error when user starts typing
           if (dateError) setDateError(null);
-          
+
           // Pass to the handler
           handleChange(e);
         }}
         onBlur={handleBlur}
-        onFocus={() => setFieldTouched(true)}        
+        onFocus={() => setFieldTouched(true)}
         error={!!displayError}
         helperText={displayError || " "}
         InputLabelProps={{ shrink: true }}
@@ -319,7 +319,7 @@ const DateFieldComponent = ({
         }}
         fullWidth
         margin="none"
-        sx={{ 
+        sx={{
           '& .MuiInputBase-root': { height: '38px' },
           mb: 0
         }}
@@ -365,16 +365,16 @@ const FormField: React.FC<FormFieldProps> = ({
             .filter(([key, value]) => typeof value === "boolean")
             .map(([key, value]) => (
               <Grid key={key}>                <FormControlLabel
-                  sx={{ textAlign: "left" }}
-                  control={
-                    <CustomCheckbox
-                      name={key}
-                      checked={value as boolean}
-                      onChange={handleDietaryRestrictionChange}
-                    />
-                  }
-                  label={capitalizeFirstLetter(key.replace(/([A-Z])/g, " $1").trim())}
-                />
+                sx={{ textAlign: "left" }}
+                control={
+                  <CustomCheckbox
+                    name={key}
+                    checked={value as boolean}
+                    onChange={handleDietaryRestrictionChange}
+                  />
+                }
+                label={capitalizeFirstLetter(key.replace(/([A-Z])/g, " $1").trim())}
+              />
               </Grid>
             ))}
         </Grid>
@@ -454,14 +454,14 @@ const FormField: React.FC<FormFieldProps> = ({
 
       // Ensure dobDate is valid
       if (isNaN(dobDate.getTime())) {
-        return "Invalid date";
+        return "";
       }
 
       // Format the date in a more readable format
-      const options: Intl.DateTimeFormatOptions = { 
-        year: 'numeric', 
-        month: 'long', 
-        day: 'numeric' 
+      const options: Intl.DateTimeFormatOptions = {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
       };
       const formattedDate = dobDate.toLocaleDateString('en-US', options);
       const age = Math.floor((new Date().getTime() - dobDate.getTime()) / (365.25 * 24 * 60 * 60 * 1000));
@@ -496,85 +496,85 @@ const FormField: React.FC<FormFieldProps> = ({
     const selectInputProps = { minLength: 2 };
     const dateInputProps = { minLength: 10 };
     switch (type) {
-      case "select":        if (fieldPath === "gender") {
-          return (
-            <Box sx={{ position: 'relative', width: '100%' }}>
-              <CustomSelect
-                name={fieldPath}
-                value={value as string || ''}
-                onChange={(e) => handleChange(e as SelectChangeEvent<string>)}
-                displayEmpty
-                inputProps={selectInputProps}
-                sx={{ width: '100%' }}
-                MenuProps={{ 
-                  sx: { marginTop: '2px' } // Separate the dropdown from the field slightly
-                }}
-              >
-                <MenuItem value="" disabled>
-                  Select
-                </MenuItem>
-                <MenuItem value="Male">Male</MenuItem>
-                <MenuItem value="Female">Female</MenuItem>
-                <MenuItem value="Other">Other</MenuItem>
-              </CustomSelect>
-            </Box>
-          );
-        } else if (fieldPath === "headOfHousehold") {
-          return (
+      case "select": if (fieldPath === "gender") {
+        return (
+          <Box sx={{ position: 'relative', width: '100%' }}>
             <CustomSelect
               name={fieldPath}
-              value={value as string}
+              value={value as string || ''}
               onChange={(e) => handleChange(e as SelectChangeEvent<string>)}
               displayEmpty
               inputProps={selectInputProps}
               sx={{ width: '100%' }}
+              MenuProps={{
+                sx: { marginTop: '2px' } // Separate the dropdown from the field slightly
+              }}
             >
               <MenuItem value="" disabled>
                 Select
               </MenuItem>
-              <MenuItem value="Adult">Adult</MenuItem>
-              <MenuItem value="Senior">Senior</MenuItem>
+              <MenuItem value="Male">Male</MenuItem>
+              <MenuItem value="Female">Female</MenuItem>
+              <MenuItem value="Other">Other</MenuItem>
             </CustomSelect>
-          );
-        } else if (fieldPath === "ethnicity" || fieldPath === "referralEntity" || fieldPath === "recurrence") {
-          return (
-            <CustomSelect
-              name={fieldPath}
-              value={value as string}
-              onChange={(e) => handleChange(e as SelectChangeEvent<string>)}
-              inputProps={selectInputProps}
-            >
-              {fieldPath === "recurrence" && [
-                <MenuItem key="None" value="None">None</MenuItem>,
-                <MenuItem key="Weekly" value="Weekly">Weekly</MenuItem>,
-                <MenuItem key="2x-Monthly" value="2x-Monthly">2x-Monthly</MenuItem>,
-                <MenuItem key="Monthly" value="Monthly">Monthly</MenuItem>,
-              ]}
-              {fieldPath === "ethnicity" && [
-                <MenuItem key="" value="" disabled>Select</MenuItem>,
-                <MenuItem key="Hispanic or Latino" value="Hispanic or Latino">Hispanic or Latino</MenuItem>,
-                <MenuItem key="Not Hispanic or Latino" value="Not Hispanic or Latino">Not Hispanic or Latino</MenuItem>,
-                <MenuItem key="Unknown" value="Unknown">Unknown</MenuItem>,
-              ]}
-              {fieldPath === "referralEntity" && [
-                <MenuItem key="" value="" disabled>Select</MenuItem>,
-                <MenuItem key="Healthcare Provider" value="Healthcare Provider">Healthcare Provider</MenuItem>,
-                <MenuItem key="Social Services" value="Social Services">Social Services</MenuItem>,
-                <MenuItem key="Community Organization" value="Community Organization">Community Organization</MenuItem>,
-                <MenuItem key="School/Educational Institution" value="School/Educational Institution">School/Educational Institution</MenuItem>,
-                <MenuItem key="Religious Organization" value="Religious Organization">Religious Organization</MenuItem>,
-                <MenuItem key="Government Agency" value="Government Agency">Government Agency</MenuItem>,
-                <MenuItem key="Family/Friend" value="Family/Friend">Family/Friend</MenuItem>,
-                <MenuItem key="Self-Referred" value="Self-Referred">Self-Referred</MenuItem>,
-                <MenuItem key="Other" value="Other">Other</MenuItem>,
-              ]}
-            </CustomSelect>
-          );
-        }        break;      
+          </Box>
+        );
+      } else if (fieldPath === "headOfHousehold") {
+        return (
+          <CustomSelect
+            name={fieldPath}
+            value={value as string}
+            onChange={(e) => handleChange(e as SelectChangeEvent<string>)}
+            displayEmpty
+            inputProps={selectInputProps}
+            sx={{ width: '100%' }}
+          >
+            <MenuItem value="" disabled>
+              Select
+            </MenuItem>
+            <MenuItem value="Adult">Adult</MenuItem>
+            <MenuItem value="Senior">Senior</MenuItem>
+          </CustomSelect>
+        );
+      } else if (fieldPath === "ethnicity" || fieldPath === "referralEntity" || fieldPath === "recurrence") {
+        return (
+          <CustomSelect
+            name={fieldPath}
+            value={value as string}
+            onChange={(e) => handleChange(e as SelectChangeEvent<string>)}
+            inputProps={selectInputProps}
+          >
+            {fieldPath === "recurrence" && [
+              <MenuItem key="None" value="None">None</MenuItem>,
+              <MenuItem key="Weekly" value="Weekly">Weekly</MenuItem>,
+              <MenuItem key="2x-Monthly" value="2x-Monthly">2x-Monthly</MenuItem>,
+              <MenuItem key="Monthly" value="Monthly">Monthly</MenuItem>,
+            ]}
+            {fieldPath === "ethnicity" && [
+              <MenuItem key="" value="" disabled>Select</MenuItem>,
+              <MenuItem key="Hispanic or Latino" value="Hispanic or Latino">Hispanic or Latino</MenuItem>,
+              <MenuItem key="Not Hispanic or Latino" value="Not Hispanic or Latino">Not Hispanic or Latino</MenuItem>,
+              <MenuItem key="Unknown" value="Unknown">Unknown</MenuItem>,
+            ]}
+            {fieldPath === "referralEntity" && [
+              <MenuItem key="" value="" disabled>Select</MenuItem>,
+              <MenuItem key="Healthcare Provider" value="Healthcare Provider">Healthcare Provider</MenuItem>,
+              <MenuItem key="Social Services" value="Social Services">Social Services</MenuItem>,
+              <MenuItem key="Community Organization" value="Community Organization">Community Organization</MenuItem>,
+              <MenuItem key="School/Educational Institution" value="School/Educational Institution">School/Educational Institution</MenuItem>,
+              <MenuItem key="Religious Organization" value="Religious Organization">Religious Organization</MenuItem>,
+              <MenuItem key="Government Agency" value="Government Agency">Government Agency</MenuItem>,
+              <MenuItem key="Family/Friend" value="Family/Friend">Family/Friend</MenuItem>,
+              <MenuItem key="Self-Referred" value="Self-Referred">Self-Referred</MenuItem>,
+              <MenuItem key="Other" value="Other">Other</MenuItem>,
+            ]}
+          </CustomSelect>
+        );
+      } break;
       case "date":
         // Use a separate component to avoid React Hook warning
         return (
-          <DateFieldComponent 
+          <DateFieldComponent
             fieldPath={fieldPath}
             value={value}
             handleChange={handleChange}
@@ -611,10 +611,10 @@ const FormField: React.FC<FormFieldProps> = ({
             fullWidth
             inputProps={{ minLength }}
           />
-        );      case "text":
+        ); case "text":
         if (["email"].includes(fieldPath)) minLength = 5;
-        if (["address2"].includes(fieldPath)) minLength = 5;        return (
-          <Box sx={{ 
+        if (["address2"].includes(fieldPath)) minLength = 5; return (
+          <Box sx={{
             width: "100%",
             position: "relative"
           }}>
@@ -628,7 +628,7 @@ const FormField: React.FC<FormFieldProps> = ({
               inputRef={fieldPath === "address" ? addressInputRef : null}
               inputProps={{ minLength }}
               error={!!error}
-              sx={{ 
+              sx={{
                 width: "100%",
                 "& .MuiOutlinedInput-root": {
                   height: fieldStyles.height, // Control inner element height
@@ -638,12 +638,12 @@ const FormField: React.FC<FormFieldProps> = ({
                 }
               }}
             />            {error && fieldPath !== "phone" && fieldPath !== "alternativePhone" && (
-              <Typography variant="caption" color="error" sx={{ 
-                display: 'block', 
-                position: "absolute", 
+              <Typography variant="caption" color="error" sx={{
+                display: 'block',
+                position: "absolute",
                 top: "calc(100% + 2px)",
                 left: 0,
-                mt: 0 
+                mt: 0
               }}>
                 {error}
               </Typography>
@@ -704,10 +704,10 @@ const FormField: React.FC<FormFieldProps> = ({
   }
 
   return (
-    <Typography 
-      variant="body1" 
-      sx={{ 
-        fontWeight: 600, 
+    <Typography
+      variant="body1"
+      sx={{
+        fontWeight: 600,
         textAlign: "left",
         whiteSpace: "pre-wrap !important",
         wordWrap: "break-word !important",
