@@ -12,19 +12,19 @@ export default function ReportTables({data}: ReportDataProps) {
     const [expandedPanels, setExpandedPanels] = useState<number[]>([]);
     const sectionNames = Object.keys(data);
     const handleToggle = (index: number) => {
-    setExpandedPanels((prev) =>
-        prev.includes(index)
-        ? prev.filter((i) => i !== index)
-        : [...prev, index]
-    );
+        setExpandedPanels((prev) =>
+            prev.includes(index)
+            ? prev.filter((i) => i !== index)
+            : [...prev, index]
+        );
     };
 
     const expandAllPanels = () => {
-    setExpandedPanels(sectionNames.map((_, i) => i));
+        setExpandedPanels(sectionNames.map((_, i) => i));
     };
 
     const collapseAllPanels = () => {
-    setExpandedPanels([]);
+        setExpandedPanels([]);
     };
     return (
         <>
