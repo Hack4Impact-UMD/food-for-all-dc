@@ -4,6 +4,7 @@ import ReportHeader from "./ReportHeader";
 import ReportTables from "./ReportTables";
 import UsersSpreadsheet from "../../components/UsersSpreadsheet/UsersSpreadsheet";
 import Spreadsheet from "../../components/Spreadsheet/Spreadsheet";
+import { Typography } from "@mui/material";
 
 const ClientReport: React.FC = () => {
   const [startDate, setStartDate] = useState<Date | null>(null)
@@ -20,7 +21,11 @@ const ClientReport: React.FC = () => {
       }}
     >
         <ReportHeader startDate={startDate} endDate = {endDate} setStartDate = {setStartDate} setEndDate = {setEndDate}></ReportHeader>
-        <Spreadsheet></Spreadsheet>
+        <Typography sx={{color:"var(--color-primary)", fontSize:"30px", fontWeight:"bold"}}>Active Clients</Typography>
+        <Spreadsheet editable={false}></Spreadsheet>
+
+         <Typography sx={{color:"var(--color-primary)", fontSize:"30px", fontWeight:"bold"}}>Lapsed Clients</Typography>
+        <Spreadsheet editable={false}></Spreadsheet>
     </div>
   );
 };
