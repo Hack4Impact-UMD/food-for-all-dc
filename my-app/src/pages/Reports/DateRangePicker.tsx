@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { TextField, IconButton, Box, Typography } from "@mui/material";
 import CalendarTodayIcon from "@mui/icons-material/CalendarToday";
 import { DatePicker, LocalizationProvider } from "@mui/x-date-pickers";
@@ -20,6 +20,16 @@ export default function DateRangePicker({
 }: DateRangePickerProps) {
   const [openStart, setOpenStart] = useState(false);
   const [openEnd, setOpenEnd] = useState(false);
+
+  useEffect(()=>{
+    if (startDate != null) {
+      localStorage.setItem("ffaReportDateRangeStart", startDate.toString());
+    }
+
+    if (endDate != null) {
+      localStorage.setItem("ffaReportDateRangeEnd", endDate.toString());
+    }
+  },[startDate, endDate])
 
   const formatDate = (date: Date | null) =>
     date ? formatAppDate(date) : "Select date";

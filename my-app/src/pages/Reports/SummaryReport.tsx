@@ -5,8 +5,22 @@ import ReportTables from "./ReportTables";
 import ReportHeader from "./ReportHeader";
 
 const SummaryReport: React.FC = () => {
-  const [startDate, setStartDate] = useState<Date | null>(null)
-  const [endDate, setEndDate] = useState<Date | null>(null)
+  const [startDate, setStartDate] = useState<Date | null>(() => {
+    const start = localStorage.getItem("ffaReportDateRangeStart");
+    if (start) {
+      return new Date(start);
+    } else {
+      return null;
+    }
+  });
+  const [endDate, setEndDate] = useState<Date | null>(() => {
+    const end = localStorage.getItem("ffaReportDateRangeEnd");
+    if (end) {
+      return new Date(end);
+    } else {
+      return null;
+    }
+  });
 
   //hardcoded data which will later be fetched and calculated 
   const data: { [section: string]: ReportField[] } = {
