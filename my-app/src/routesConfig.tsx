@@ -83,11 +83,11 @@ export const routesConfig: AppRoute[] = [
         element: <ReferralAgenciesReport />,
         meta: { title: "Referral Agencies Report", icon: "business" },
       },
-      {
-        path: "reports/caseworker",
-        element: <CaseworkerReport />,
-        meta: { title: "Caseworker Report", icon: "person" },
-      },
+      // {
+      //   path: "reports/caseworker",
+      //   element: <CaseworkerReport />,
+      //   meta: { title: "Caseworker Report", icon: "person" },
+      // },
       {
         element: <ProtectedRoute allowedRoles={[UserType.Admin, UserType.Manager]} />,
         children: [
