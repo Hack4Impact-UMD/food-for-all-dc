@@ -131,9 +131,11 @@ export default function BasePage() {
         setPageTitle("Client Report");
       } else if (currentPath === "/reports/referral-agencies") {
         setPageTitle("Referral Agencies");
-      } else if (currentPath === "/reports/caseworker") {
-        setPageTitle("Caseworker Report");
-      } else {
+      } 
+      // else if (currentPath === "/reports/caseworker") {
+      //   setPageTitle("Caseworker Report");
+      // } 
+      else {
         setPageTitle("Reports");
       }
       setTab("Reports");
@@ -248,7 +250,7 @@ export default function BasePage() {
                 <MenuItem value="/reports/summary">Summary Report</MenuItem>
                 <MenuItem value="/reports/clients">Client Report</MenuItem>
                 <MenuItem value="/reports/referral-agencies">Referral Agencies</MenuItem>
-                <MenuItem value="/reports/caseworker">Caseworker Report</MenuItem>
+                {/* <MenuItem value="/reports/caseworker">Caseworker Report</MenuItem> */}
               </Select>
             ) : (
               <Typography 
