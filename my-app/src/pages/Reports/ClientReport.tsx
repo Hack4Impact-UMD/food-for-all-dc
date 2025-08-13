@@ -35,10 +35,10 @@ const ClientReport: React.FC = () => {
       }}
     >
         <ReportHeader startDate={startDate} endDate = {endDate} setStartDate = {setStartDate} setEndDate = {setEndDate}></ReportHeader>
-        <Typography sx={{color:"var(--color-primary)", fontSize:"30px", fontWeight:"bold"}}>Active Clients</Typography>
+        <Typography sx={{color:"var(--color-primary)", fontSize:"30px", fontWeight:"bold", textDecoration:"underline"}}>Active Clients</Typography>
         <Spreadsheet editable={false}></Spreadsheet>
 
-         <Typography sx={{color:"var(--color-primary)", fontSize:"30px", fontWeight:"bold"}}>Lapsed Clients</Typography>
+        <Typography sx={{color:"var(--color-primary)", fontSize:"30px", fontWeight:"bold", textDecoration:"underline"}}>Lapsed Clients</Typography>
         <Spreadsheet editable={false}></Spreadsheet>
     </div>
   );

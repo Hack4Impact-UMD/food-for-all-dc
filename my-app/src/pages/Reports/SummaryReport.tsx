@@ -66,7 +66,7 @@ const SummaryReport: React.FC = () => {
       }}
     >
         <ReportHeader startDate={startDate} endDate = {endDate} setStartDate = {setStartDate} setEndDate = {setEndDate}></ReportHeader>
-        <ReportTables data={data}></ReportTables>
+        <ReportTables data={data} loading={false}></ReportTables>
     </div>
   );
 };

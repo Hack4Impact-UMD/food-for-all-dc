@@ -5,10 +5,11 @@ import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import { ReportField } from "../../types/reports-types";
 
 interface ReportDataProps {
-    data: { [section: string]: ReportField[] }
+    data: { [section: string]: ReportField[] },
+    loading: boolean
 }
 
-export default function ReportTables({data}: ReportDataProps) {
+export default function ReportTables({data, loading}: ReportDataProps) {
     const [expandedPanels, setExpandedPanels] = useState<number[]>([]);
     const sectionNames = Object.keys(data);
     const handleToggle = (index: number) => {
@@ -112,7 +113,20 @@ export default function ReportTables({data}: ReportDataProps) {
                         padding: "0px"
                     }}
                     >
-                    <Table data={data[name]} />
+                    {loading ? 
+                        <Box
+                            key={index}
+                            sx={{
+                                height: "100px",
+                                backgroundColor: "#f0f0f0ff",
+                                display: "flex",       
+                                alignItems: "center",     
+                                justifyContent: "center", 
+                            }}
+                            >
+                            <p>Select a timeframe and click &quot;Generate&quot; to see results</p>
+                        </Box>
+                    : <Table data={data[name]} />}
                     </AccordionDetails>
                 </Accordion>
                 ))}
