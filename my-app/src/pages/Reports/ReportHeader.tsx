@@ -2,9 +2,14 @@ import { Button } from "@mui/material";
 import DateRangePicker from "./DateRangePicker";
 import { useState } from "react";
 
-export default function ReportHeader() {
-    const [startDate, setStartDate] = useState<Date | null>(null)
-    const [endDate, setEndDate] = useState<Date | null>(null)
+interface ReportHeaderProps {
+  startDate: Date | null;
+  endDate: Date | null;
+  setStartDate: (date: Date | null) => void;
+  setEndDate: (date: Date | null) => void;
+}
+
+export default function ReportHeader({startDate, endDate, setStartDate, setEndDate}: ReportHeaderProps) {
     return (
         <div
             style={{

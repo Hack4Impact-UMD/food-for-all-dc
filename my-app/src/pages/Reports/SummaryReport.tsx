@@ -5,8 +5,8 @@ import ReportTables from "./ReportTables";
 import ReportHeader from "./ReportHeader";
 
 const SummaryReport: React.FC = () => {
-  const [startDate, setStartDate] = useState(new Date())
-  const [endDate, setEndDate] = useState(new Date())
+  const [startDate, setStartDate] = useState<Date | null>(null)
+  const [endDate, setEndDate] = useState<Date | null>(null)
 
   //hardcoded data which will later be fetched and calculated 
   const data: { [section: string]: ReportField[] } = {
@@ -51,7 +51,7 @@ const SummaryReport: React.FC = () => {
         height: "100vh", 
       }}
     >
-        <ReportHeader></ReportHeader>
+        <ReportHeader startDate={startDate} endDate = {endDate} setStartDate = {setStartDate} setEndDate = {setEndDate}></ReportHeader>
         <ReportTables data={data}></ReportTables>
     </div>
   );

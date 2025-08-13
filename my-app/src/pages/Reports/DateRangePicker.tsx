@@ -3,7 +3,7 @@ import { TextField, IconButton, Box, Typography } from "@mui/material";
 import CalendarTodayIcon from "@mui/icons-material/CalendarToday";
 import { DatePicker, LocalizationProvider } from "@mui/x-date-pickers";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
-import { format } from "date-fns";
+import { formatDate as formatAppDate } from "../../utils/dates";
 
 interface DateRangePickerProps {
   startDate: Date | null;
@@ -22,7 +22,7 @@ export default function DateRangePicker({
   const [openEnd, setOpenEnd] = useState(false);
 
   const formatDate = (date: Date | null) =>
-    date ? format(date, "MMMM d, yyyy") : "Select date";
+    date ? formatAppDate(date) : "Select date";
 
   return (
     <LocalizationProvider dateAdapter={AdapterDateFns}>
@@ -40,6 +40,7 @@ export default function DateRangePicker({
           onClose={() => setOpenStart(false)}
           value={startDate}
           onChange={(newValue) => setStartDate(newValue)}
+          maxDate={endDate ?? undefined}
           slotProps={{
             textField: { sx: { display: "none" } }
           }}
@@ -60,6 +61,7 @@ export default function DateRangePicker({
           onClose={() => setOpenEnd(false)}
           value={endDate}
           onChange={(newValue) => setEndDate(newValue)}
+          minDate={startDate ?? undefined}
           slotProps={{
             textField: { sx: { display: "none" } }
           }}
