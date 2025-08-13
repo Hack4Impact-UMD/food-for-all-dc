@@ -6,6 +6,7 @@ import Spreadsheet from "../../components/Spreadsheet/Spreadsheet";
 
 const ReferralAgenciesReport: React.FC = () => {
   const [expandedPanels, setExpandedPanels] = useState<number[]>([]);
+  const [loading, setLoading] = useState(false);
   const [startDate, setStartDate] = useState<Date | null>(() => {
     const start = localStorage.getItem("ffaReportDateRangeStart");
     if (start) {
@@ -23,8 +24,11 @@ const ReferralAgenciesReport: React.FC = () => {
     }
   });
 
-  //hardcoded data which will later be fetched and calculated
-  interface Agency{ name: string; lastDelivery: string }
+  interface Agency { 
+    name: string; 
+    lastDelivery: string 
+  }
+
   const agencies: { [key: string]: Agency[] } = {
     "Peter Sage - Food For All DC": [
       {name: "Margot Robbie", lastDelivery: "7/07/2025"}
@@ -44,24 +48,26 @@ const ReferralAgenciesReport: React.FC = () => {
     "Mr. Bean - Pinterest": [
       {name: "Chris Evans", lastDelivery: "7/07/25"}
     ]
-  }
+  };
+
   const agencyNames = Object.keys(agencies);
 
-    const handleToggle = (index: number) => {
-      setExpandedPanels((prev) =>
-          prev.includes(index)
-          ? prev.filter((i) => i !== index)
-          : [...prev, index]
-      );
-    };
+  const handleToggle = (index: number) => {
+    setExpandedPanels((prev) =>
+      prev.includes(index)
+        ? prev.filter((i) => i !== index)
+        : [...prev, index]
+    );
+  };
 
-    const expandAllPanels = () => {
-      setExpandedPanels(agencyNames.map((_, i) => i));
-    };
+  const expandAllPanels = () => {
+    setExpandedPanels(agencyNames.map((_, i) => i));
+  };
 
-    const collapseAllPanels = () => {
-      setExpandedPanels([]);
-    };
+  const collapseAllPanels = () => {
+    setExpandedPanels([]);
+  };
+
   return (
     <div
       style={{
@@ -70,114 +76,142 @@ const ReferralAgenciesReport: React.FC = () => {
         height: "100vh", 
       }}
     >
-      {}
-        <ReportHeader startDate={startDate} endDate = {endDate} setStartDate = {setStartDate} setEndDate = {setEndDate}></ReportHeader>
-          <div
-                style={{
-                flex: 1,
-                overflowY: "auto",
-                padding: "16px",
-                width: "90vw",
-                backgroundColor: "white"
-                }}
+      <ReportHeader 
+        startDate={startDate} 
+        endDate={endDate} 
+        setStartDate={setStartDate} 
+        setEndDate={setEndDate}
+      />
+      <div
+        style={{
+          flex: 1,
+          overflowY: "auto",
+          padding: "16px",
+          width: "90vw",
+          backgroundColor: "white"
+        }}
+      >
+        <Box
+          sx={{
+            display: "flex",
+            gap: "5px",
+            color: "var(--color-primary)",
+            fontWeight: "bold",
+            alignItems: "center",
+            marginBottom: "10px"
+          }}
+        >
+          <Typography
+            onClick={expandAllPanels}
+            sx={{
+              fontWeight: "bold",
+              cursor: "pointer",
+              "&:hover": {
+                opacity: 0.7
+              }
+            }}
+          >
+            Expand All
+          </Typography>
+
+          <Typography>|</Typography>
+
+          <Typography
+            onClick={collapseAllPanels}
+            sx={{
+              fontWeight: "bold",
+              cursor: "pointer",
+              "&:hover": {
+                opacity: 0.9
+              }
+            }}
+          >
+            Collapse All
+          </Typography>
+        </Box>
+        {agencyNames.map((name, index) => (
+          <Accordion
+            key={name}
+            expanded={expandedPanels.includes(index)}
+            onChange={() => handleToggle(index)}
+            sx={{
+              width: "100%",
+              marginBottom: "8px",
+              backgroundColor: "white",
+              border: "none",         
+              boxShadow: "none",       
+              borderRadius: "8px",   
+              overflow: "hidden",
+              padding: "0px"
+            }}
+          >
+            <AccordionSummary
+              expandIcon={<ExpandMoreIcon sx={{ color: "white" }} />}
+              aria-controls={`panel${index}-content`}
+              id={`panel${index}-header`}
+              sx={{
+                backgroundColor: "var(--color-primary)",
+                color: "white",
+                marginBottom: "5px",
+                borderTopLeftRadius: "8px",
+                borderTopRightRadius: "8px",
+              }}
             >
+              <Typography variant="h6">{name}</Typography>
+            </AccordionSummary>
+            <AccordionDetails
+              sx={{
+                backgroundColor: "white",
+                color: "black",
+                padding: "0px"
+              }}
+            >
+              {loading ? (
                 <Box
-                sx={{
-                    display: "flex",
-                    gap: "5px",
-                    color: "var(--color-primary)",
-                    fontWeight: "bold",
-                    alignItems: "center",
-                    marginBottom: "10px"
-                }}
+                  key={`loading-${index}`}
+                  sx={{
+                    height: "100px",
+                    backgroundColor: "#f0f0f0ff",
+                    display: "flex",       
+                    alignItems: "center",     
+                    justifyContent: "center", 
+                  }}
                 >
-                <Typography
-                    onClick={expandAllPanels}
-                    sx={{
-                    fontWeight: "bold",
-                    cursor: "pointer",
-                    "&:hover": {
-                        opacity: 0.7
-                    }
-                    }}
-                >
-                    Expand All
-                </Typography>
-
-                <Typography>|</Typography>
-
-                <Typography
-                    onClick={collapseAllPanels}
-                    sx={{
-                    fontWeight: "bold",
-                    cursor: "pointer",
-                    "&:hover": {
-                        opacity: 0.9
-                    }
-                    }}
-                >
-                    Collapse All
-                </Typography>
+                  <p>Select a timeframe and click &quot;Generate&quot; to see results</p>
                 </Box>
-                {agencyNames.map((name, index) => (
-                <Accordion
-                    key={name}
-                    expanded={expandedPanels.includes(index)}
-                    onChange={() => handleToggle(index)}
+              ) : (
+                agencies[name].map((agency, agencyIndex) => (
+                  <Box
+                    key={`${index}-${agencyIndex}`}
                     sx={{
-                    width: "100%",
-                    marginBottom: "8px",
-                    backgroundColor: "white",
-                    border: "none",         
-                    boxShadow: "none",       
-                    borderRadius: "8px",   
-                    overflow: "hidden",
-                    padding: "0px"
+                      height: "100px",
+                      backgroundColor: "#f0f0f0ff",
+                      marginBottom: "10px",
+                      width: "100%",
+                      display: "flex",
+                      padding: "20px",
+                      justifyContent: "center",
+                      flexDirection: "column"
                     }}
-                >
-                    <AccordionSummary
-                    expandIcon={<ExpandMoreIcon sx={{ color: "white" }} />}
-                    aria-controls={`panel${index}-content`}
-                    id={`panel${index}-header`}
-                    sx={{
-                        backgroundColor: "var(--color-primary)",
-                        color: "white",
-                        marginBottom: "5px",
-                        borderTopLeftRadius: "8px",
-                        borderTopRightRadius: "8px",
-                    }}
-                    >
-                    <Typography variant="h6">{name}</Typography>
-                    </AccordionSummary>
-                    <AccordionDetails
-                    sx={{
-                        backgroundColor: "white",
-                        color: "black",
-                        padding: "0px"
-                    }}
-                    >
-                      {agencies[name].map(({name, lastDelivery}: Agency)=>(
-                        <Box
-                          key={index}
-                          sx={{
-                            height: "100px",
-                            backgroundColor: "#f0f0f0ff",
-                            marginBottom: "10px",
-                            width: "100%",
-                            display: "flex",
-                            padding:"20px",
-                            justifyContent: "center",
-                            flexDirection: "column"
-                          }}
-                        >
-                          <Typography sx={{color:"var(--color-primary)", fontWeight:"bold", textDecoration:"underline", fontSize:"17px"}}>{name}</Typography>
-                          <p style={{ margin: 0 }}>Last Delivered: {lastDelivery}</p>
-                        </Box>
-                      ))}
-                    </AccordionDetails>
-                </Accordion>
-                ))}
-            </div>
+                  >
+                    <Typography sx={{
+                      color: "var(--color-primary)", 
+                      fontWeight: "bold", 
+                      textDecoration: "underline", 
+                      fontSize: "17px"
+                    }}>
+                      {agency.name}
+                    </Typography>
+                    <Typography sx={{ margin: 0 }}>
+                      Last Delivered: {agency.lastDelivery}
+                    </Typography>
+                  </Box>
+                ))
+              )}
+            </AccordionDetails>
+          </Accordion>
+        ))}
+      </div>
     </div>
   );
 };
