@@ -1,32 +1,29 @@
-// ...existing code...
-// ...existing code...
 import React from "react";
-import { Box, Typography, TextField } from "@mui/material";
+import { Box, Typography } from "@mui/material";
 import { ClientProfileKey, InputType } from "../types";
 
+interface ConfigField {
+  id: string;
+  label: string;
+  type: string;
+}
+
 interface MiscellaneousFormProps {
-  fieldLabelStyles?: object;
   clientProfile: any;
   isEditing: boolean;
-  errors?: any;
   renderField: (fieldPath: ClientProfileKey, type?: InputType, addressInputRef?: React.RefObject<HTMLInputElement | null>) => JSX.Element;
-  configFields: any[];
-  fieldValues: any;
-  handleFieldChange: (key: string, value: any) => void;
-  loadingConfig?: boolean;
-  configError?: string;
+  configFields: ConfigField[];
+  fieldValues: Record<string, string>;
+  handleFieldChange: (key: string, value: string) => void;
 }
 
 const MiscellaneousForm: React.FC<MiscellaneousFormProps> = ({
   clientProfile,
   isEditing,
-  errors = {},
   renderField,
   configFields = [],
-  fieldValues = {},
-  handleFieldChange,
-  loadingConfig = false,
-  configError = ""
+  fieldValues,
+  handleFieldChange
 }) => {
   return (
     <Box sx={{ width: '100%' }}>
@@ -102,7 +99,7 @@ const MiscellaneousForm: React.FC<MiscellaneousFormProps> = ({
             {isEditing ? (
               field.type === "textarea"
                 ? <Box sx={{ minHeight: 120, width: '100%' }}>{renderField(field.id as ClientProfileKey, "textarea")}</Box>
-                : <Box sx={{ minHeight: 120, width: '100%' }}>{renderField(field.id as ClientProfileKey, field.type)}</Box>
+                : <Box sx={{ minHeight: 120, width: '100%' }}>{renderField(field.id as ClientProfileKey, "text")}</Box>
             ) : (
               <Typography sx={{ fontWeight: 400, fontSize: '1.15rem', lineHeight: 1, mt: 0, mb: 0, pt: 0, textAlign: 'left', pl: 0 }}>
                 {field.id && clientProfile[field.id as keyof typeof clientProfile] ? String(clientProfile[field.id as keyof typeof clientProfile]) : "N/A"}
@@ -111,17 +108,6 @@ const MiscellaneousForm: React.FC<MiscellaneousFormProps> = ({
           </Box>
         ))}
       </Box>
-      {/* Loading and error messages below fields */}
-      {loadingConfig && (
-        <Box sx={{ mt: 2, gridColumn: '1/-1' }}>
-          <Typography color="textSecondary">Loading configuration fields...</Typography>
-        </Box>
-      )}
-      {configError && (
-        <Box sx={{ mt: 2, gridColumn: '1/-1' }}>
-          <Typography color="error">{configError}</Typography>
-        </Box>
-      )}
     </Box>
   );
 };

@@ -178,7 +178,7 @@ const Profile = () => {
 
   // #### STATE ####
   // State for config fields loaded from bucket
-  const [configFields, setConfigFields] = useState<any[]>([]);
+  const [configFields, setConfigFields] = useState<Array<{id: string; label: string; type: string}>>([]);
   const [isEditing, setIsEditing] = useState(!clientIdParam);
   const [isNewProfile, setIsNewProfile] = useState(!clientIdParam);
   const [clientId, setClientId] = useState<string | null>(clientIdParam);
@@ -273,7 +273,7 @@ const Profile = () => {
   const [isSaved, setIsSaved] = useState(false);
   const [ward, setWard] = useState(clientProfile.ward);
   // State for dynamic fields from MiscellaneousForm
-  const [dynamicFields, setDynamicFields] = useState<{ [key: string]: string }>({});
+  const [dynamicFields, setDynamicFields] = useState<Record<string, string>>({});
   const [lastDeliveryDate, setLastDeliveryDate] = useState<string | null>(null);
   const [profileLoaded, setProfileLoaded] = useState(false);
   const [prevNotes, setPrevNotes] = useState("");
@@ -2641,8 +2641,6 @@ const handleMentalHealthConditionsChange = (e: React.ChangeEvent<HTMLInputElemen
               clientProfile={clientProfile}
               isEditing={isEditing}
               renderField={renderField}
-              fieldLabelStyles={fieldLabelStyles}
-              errors={errors}
               configFields={configFields}
               fieldValues={dynamicFields}
               handleFieldChange={(key, value) => setDynamicFields(prev => ({ ...prev, [key]: value }))}
