@@ -25,11 +25,15 @@ const SummaryReport: React.FC = () => {
   //hardcoded data which will later be fetched and calculated 
   const data: { [section: string]: ReportField[] } = {
     "Basic Output": [
-      { key: "Households Served", value: 200, isFullRow: false },
-      { key: "Children Served", value: 150, isFullRow: false },
-      { key: "Adults Served", value: 350, isFullRow: false },
-      { key: "Children Served", value: 150, isFullRow: false },
-      { key: "Children Served", value: 150, isFullRow: false },
+      { key: "Households Served (Duplicated)", value: 200, isFullRow: false },
+      { key: "Households Served (Unduplicated)", value: 150, isFullRow: false },
+      { key: "People Served (Duplicated)", value: 350, isFullRow: false },
+      { key: "People Served (Unduplicated)", value: 150, isFullRow: false },
+      { key: "Bags Delivered", value: 150, isFullRow: false },
+      { key: "New Households", value: 150, isFullRow: false },
+      { key: "New People", value: 150, isFullRow: false },
+      { key: "Active Clients", value: 150, isFullRow: false },
+      { key: "Lapsed Clients", value: 150, isFullRow: false },
     ],
     "Demographics": [
       { key: "Children Served", value: 150, isFullRow: false },
