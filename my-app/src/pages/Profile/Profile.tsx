@@ -85,14 +85,14 @@ const CustomTextField = styled(TextField)({
     },
     "&:hover fieldset": {
       borderColor: "var(--color-primary)",
-    },    "&.Mui-focused fieldset": {
+    }, "&.Mui-focused fieldset": {
       borderColor: "#257E68",
       border: "2px solid #257E68",
     },
   },
   "& .MuiInputBase-input": {
     ...fieldStyles,
-    transition: "all 0.3s ease",    "&:focus": {
+    transition: "all 0.3s ease", "&:focus": {
       border: "2px solid #257E68",
       outline: "none",
       boxShadow: "0 0 8px rgba(37, 126, 104, 0.4), 0 0 16px rgba(37, 126, 104, 0.2)",
@@ -249,22 +249,22 @@ const Profile = () => {
     referralEntity: null,
     coordinates: [],
     physicalAilments: {
-    diabetes: false,
-    hypertension: false,
-    heartDisease: false,
-    kidneyDisease: false,
-    cancer: false,
-    otherText: "",
-    other: false,
-  },
-  physicalDisability: {
-    otherText: "",
-    other: false,
-  },
-  mentalHealthConditions: {
-    otherText: "",
-    other: false
-  },
+      diabetes: false,
+      hypertension: false,
+      heartDisease: false,
+      kidneyDisease: false,
+      cancer: false,
+      otherText: "",
+      other: false,
+    },
+    physicalDisability: {
+      otherText: "",
+      other: false,
+    },
+    mentalHealthConditions: {
+      otherText: "",
+      other: false
+    },
   });
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [fieldEditStates, setFieldEditStates] = useState<{ [key: string]: boolean }>({});
@@ -292,7 +292,7 @@ const Profile = () => {
   const [showSimilarNamesInfo, setShowSimilarNamesInfo] = useState(false);
   const [similarNamesMessage, setSimilarNamesMessage] = useState("");
 
-  
+
   // Function to fetch profile data by ID
   const getProfileById = async (id: string) => {
     const docRef = doc(db, "clients", id);
@@ -484,7 +484,7 @@ const Profile = () => {
     try {
       // First get coordinates for the address
       const coordinates = await getCoordinates(searchAddress);
-      
+
       if (!coordinates || coordinates.length !== 2 || coordinates[0] === 0 || coordinates[1] === 0) {
         console.log("Invalid coordinates for ward lookup");
         wardName = "No address";
@@ -497,7 +497,7 @@ const Profile = () => {
       // coordinates are in [lat, lng] format, but ArcGIS expects x,y (lng,lat)
       const lng = coordinates[1];
       const lat = coordinates[0];
-      
+
       const wardServiceURL = `https://maps2.dcgis.dc.gov/dcgis/rest/services/DCGIS_DATA/Administrative_Other_Boundaries_WebMercator/MapServer/53/query`;
       const params = new URLSearchParams({
         f: 'json',
@@ -529,7 +529,7 @@ const Profile = () => {
       console.error("Error fetching ward information:", error);
       wardName = "Error";
     }
-    
+
     clientProfile.ward = wardName;
     setWard(wardName);
     return wardName;
@@ -543,7 +543,7 @@ const Profile = () => {
     try {
       // Get coordinates for the address
       coordinates = await getCoordinates(searchAddress);
-      
+
       if (!coordinates || coordinates.length !== 2 || coordinates[0] === 0 || coordinates[1] === 0) {
         console.log("Invalid coordinates for ward lookup");
         wardName = "No address";
@@ -554,7 +554,7 @@ const Profile = () => {
       // coordinates are in [lat, lng] format, but ArcGIS expects x,y (lng,lat)
       const lng = coordinates[1];
       const lat = coordinates[0];
-      
+
       const wardServiceURL = `https://maps2.dcgis.dc.gov/dcgis/rest/services/DCGIS_DATA/Administrative_Other_Boundaries_WebMercator/MapServer/53/query`;
       const params = new URLSearchParams({
         f: 'json',
@@ -586,7 +586,7 @@ const Profile = () => {
       console.error("Error fetching ward information:", error);
       wardName = "Error";
     }
-    
+
     return { ward: wardName, coordinates };
   };
 
@@ -663,11 +663,11 @@ const Profile = () => {
       | SelectChangeEvent
   ) => {
     const { name, value } = e.target;
-  
+
     // Always mark as unsaved when a change occurs
     setIsSaved(false);
     handlePrevClientCopying();
-  
+
     // Special handling for address field to avoid conflicts with Google Places
     if (name === "address") {
       // Clear address error when user manually changes address
@@ -676,7 +676,7 @@ const Profile = () => {
         setIsAddressValidated(true);
       }
     }
-  
+
     if (name === "dob" || name === "tefapCert") {
       const date = e.target.value; // this will be in the format YYYY-MM-DD
       setClientProfile((prevState) => ({
@@ -690,13 +690,14 @@ const Profile = () => {
       setClientProfile((prevState) => ({
         ...prevState,
         [name]: Number(value),
-      }));    } else if (name === "phone" || name === "alternativePhone") {
+      }));
+    } else if (name === "phone" || name === "alternativePhone") {
       setClientProfile((prevState) => {
         const updatedProfile = {
           ...prevState,
           [name]: value,
         };
-        
+
         // Validate phone numbers on change
         const countDigits = (str: string) => (str.match(/\d/g) || []).length;
         const isValidPhoneFormat = (phone: string) => {
@@ -704,19 +705,19 @@ const Profile = () => {
           return /^(\+\d{1,2}\s?)?((\(\d{3}\))|\d{3})[\s.-]?\d{3}[\s.-]?\d{4}$/.test(phone);
         };
         const newErrors = { ...errors };
-        
+
         if (name === "phone" || name === "alternativePhone") {
           if (value.trim() === "" && name === "phone") {
             newErrors[name] = "Phone is required";
           } else if (countDigits(value) < 10) {
-            newErrors[name] = "Phone number must contain at least 10 digits";          
+            newErrors[name] = "Phone number must contain at least 10 digits";
           } else if (!isValidPhoneFormat(value)) {
             newErrors[name] = `"${value}" is an invalid format. Please see the i icon for allowed formats.`;
           } else {
             delete newErrors[name];
           }
         }
-      
+
         setErrors(newErrors);
         return updatedProfile;
       });
@@ -770,12 +771,9 @@ const Profile = () => {
     }
     if (clientProfile.state !== "DC" && clientProfile.state !== "MD" && clientProfile.state !== "VA") {
       newErrors.state = "State must be DC, MD, or VA";
-    } 
-    if (!clientProfile.dob) {
-      newErrors.dob = "Date of Birth is required";
     }
     if (clientProfile.email?.trim() &&
-        !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clientProfile.email.trim())
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clientProfile.email.trim())
     ) {
       newErrors.email = "Invalid email format";
     }
@@ -803,29 +801,30 @@ const Profile = () => {
     if (clientProfile.adults === 0 && clientProfile.seniors === 0) {
       newErrors.total = "At least one adult or senior is required";
     }
-    
+
     // Count digits and validate phone number format
     const countDigits = (str: string) => (str.match(/\d/g) || []).length;
     const isValidPhoneFormat = (phone: string) => {
       // Allowed formats: (123) 456-7890, 123-456-7890, 123.456.7890, 123 456 7890, 1234567890, +1 123-456-7890
       return /^(\+\d{1,2}\s?)?((\(\d{3}\))|\d{3})[\s.-]?\d{3}[\s.-]?\d{4}$/.test(phone);
     };
-    
+
     if (!clientProfile.phone?.trim()) {
       newErrors.phone = "Phone is required";
     } else if (countDigits(clientProfile.phone) < 10) {
-      newErrors.phone = "Phone number must contain at least 10 digits";    } else if (!isValidPhoneFormat(clientProfile.phone)) {
+      newErrors.phone = "Phone number must contain at least 10 digits";
+    } else if (!isValidPhoneFormat(clientProfile.phone)) {
       newErrors.phone = `"${clientProfile.phone}" is an invalid format. Please see the i icon for allowed formats.`;
     }
-      if (clientProfile.alternativePhone?.trim() && 
-        (countDigits(clientProfile.alternativePhone) < 10 || !isValidPhoneFormat(clientProfile.alternativePhone))) {
+    if (clientProfile.alternativePhone?.trim() &&
+      (countDigits(clientProfile.alternativePhone) < 10 || !isValidPhoneFormat(clientProfile.alternativePhone))) {
       newErrors.alternativePhone = `"${clientProfile.alternativePhone}" is an invalid format. Please see the i icon for allowed formats.`;
     }
 
     //validate head of household logic
-    if ((clientProfile.headOfHousehold === "Senior" && clientProfile.seniors == 0) || (clientProfile.headOfHousehold === "Adult" && clientProfile.adults == 0)){
+    if ((clientProfile.headOfHousehold === "Senior" && clientProfile.seniors == 0) || (clientProfile.headOfHousehold === "Adult" && clientProfile.adults == 0)) {
       newErrors.headOfHousehold = `Head of household is ${clientProfile.headOfHousehold} but no ${clientProfile.headOfHousehold} listed`;
-    } 
+    }
 
     // Validate referral entity if it exists
     if (clientProfile.referralEntity) {
@@ -870,121 +869,121 @@ const Profile = () => {
     return prevNotesTimestamp;
   };
 
-// Function to normalize text fields for database storage
-// This ensures consistent storage format for case-insensitive comparisons
-const normalizeTextFields = (profile: ClientProfile): ClientProfile => {
-  // Create a deep copy to avoid modifying the original
-  const normalized = {
-    ...profile,
-    // Key fields for duplicate prevention - use lowercase for name fields
-    firstName: (profile.firstName || "").trim().toLowerCase(),
-    lastName: (profile.lastName || "").trim().toLowerCase(),
-    // Don't lowercase addresses, but trim them
-    address: (profile.address || "").trim(),
-    address2: (profile.address2 || "").trim(),
-    zipCode: (profile.zipCode || "").trim(),
-    city: (profile.city || "").trim(),
-    state: (profile.state || "").trim(),
-    email: (profile.email || "").trim().toLowerCase(),
+  // Function to normalize text fields for database storage
+  // This ensures consistent storage format for case-insensitive comparisons
+  const normalizeTextFields = (profile: ClientProfile): ClientProfile => {
+    // Create a deep copy to avoid modifying the original
+    const normalized = {
+      ...profile,
+      // Key fields for duplicate prevention - use lowercase for name fields
+      firstName: (profile.firstName || "").trim().toLowerCase(),
+      lastName: (profile.lastName || "").trim().toLowerCase(),
+      // Don't lowercase addresses, but trim them
+      address: (profile.address || "").trim(),
+      address2: (profile.address2 || "").trim(),
+      zipCode: (profile.zipCode || "").trim(),
+      city: (profile.city || "").trim(),
+      state: (profile.state || "").trim(),
+      email: (profile.email || "").trim().toLowerCase(),
+    };
+    return normalized;
   };
-  return normalized;
-};
 
-// Function to check for duplicate client and return useful information
-// Return type for the enhanced duplicate check
-interface DuplicateCheckResult {
-  isDuplicate: boolean;
-  sameNameCount?: number;
-  sameNameDiffAddressCount?: number;
-}
-
-const checkDuplicateClient = async (firstName: string, lastName: string, address: string, zipCode: string, excludeUid?: string): Promise<boolean | DuplicateCheckResult> => {
-  // Normalize inputs for comparison only
-  const normalizeString = (str: string) => (str || '').trim().toLowerCase();
-  const normalizedFirstName = normalizeString(firstName);
-  const normalizedLastName = normalizeString(lastName);
-  const normalizedAddress = normalizeString(address);
-  const normalizedZipCode = normalizeString(zipCode);
-
-  // Skip check if any required field is empty
-  if (!normalizedFirstName || !normalizedLastName || !normalizedAddress || !normalizedZipCode) {
-    return false;
+  // Function to check for duplicate client and return useful information
+  // Return type for the enhanced duplicate check
+  interface DuplicateCheckResult {
+    isDuplicate: boolean;
+    sameNameCount?: number;
+    sameNameDiffAddressCount?: number;
   }
 
-  // Query Firestore for all clients with the same address and zip code
-  const clientService = ClientService.getInstance();
-  const db = clientService["db"];
-  const clientsCollection = clientService["clientsCollection"];
-  const addressZipQuery = query(
-    collection(db, clientsCollection),
-    where("address", "==", address),
-    where("zipCode", "==", zipCode)
-  );
-  const addressZipSnapshot = await getDocs(addressZipQuery);
+  const checkDuplicateClient = async (firstName: string, lastName: string, address: string, zipCode: string, excludeUid?: string): Promise<boolean | DuplicateCheckResult> => {
+    // Normalize inputs for comparison only
+    const normalizeString = (str: string) => (str || '').trim().toLowerCase();
+    const normalizedFirstName = normalizeString(firstName);
+    const normalizedLastName = normalizeString(lastName);
+    const normalizedAddress = normalizeString(address);
+    const normalizedZipCode = normalizeString(zipCode);
 
-  // Filter for same name (case-insensitive)
-  const sameNameClients = addressZipSnapshot.docs.filter(docSnap => {
-    const data = docSnap.data();
-    return (
-      normalizeString(data.firstName) === normalizedFirstName &&
-      normalizeString(data.lastName) === normalizedLastName &&
-      (!excludeUid || data.uid !== excludeUid)
-    );
-  });
+    // Skip check if any required field is empty
+    if (!normalizedFirstName || !normalizedLastName || !normalizedAddress || !normalizedZipCode) {
+      return false;
+    }
 
-  const sameNameClientsCount = sameNameClients.length;
-  const duplicateFound = sameNameClientsCount > 0;
-
-  // For similar name warning: query by zip only, then filter for same name but different address
-  let sameNameDiffAddressCount = 0;
-  if (!duplicateFound) {
-    const zipQuery = query(
+    // Query Firestore for all clients with the same address and zip code
+    const clientService = ClientService.getInstance();
+    const db = clientService["db"];
+    const clientsCollection = clientService["clientsCollection"];
+    const addressZipQuery = query(
       collection(db, clientsCollection),
+      where("address", "==", address),
       where("zipCode", "==", zipCode)
     );
-    const zipSnapshot = await getDocs(zipQuery);
-    sameNameDiffAddressCount = zipSnapshot.docs.filter(docSnap => {
+    const addressZipSnapshot = await getDocs(addressZipQuery);
+
+    // Filter for same name (case-insensitive)
+    const sameNameClients = addressZipSnapshot.docs.filter(docSnap => {
       const data = docSnap.data();
       return (
         normalizeString(data.firstName) === normalizedFirstName &&
         normalizeString(data.lastName) === normalizedLastName &&
-        normalizeString(data.address) !== normalizedAddress &&
         (!excludeUid || data.uid !== excludeUid)
       );
-    }).length;
-  }
+    });
 
-  if (duplicateFound) {
-    return {
-      isDuplicate: true,
-      sameNameCount: sameNameClientsCount,
-      sameNameDiffAddressCount
-    };
-  }
+    const sameNameClientsCount = sameNameClients.length;
+    const duplicateFound = sameNameClientsCount > 0;
 
-  if (sameNameDiffAddressCount > 0) {
-    return {
-      isDuplicate: false,
-      sameNameCount: 0,
-      sameNameDiffAddressCount
-    };
-  }
+    // For similar name warning: query by zip only, then filter for same name but different address
+    let sameNameDiffAddressCount = 0;
+    if (!duplicateFound) {
+      const zipQuery = query(
+        collection(db, clientsCollection),
+        where("zipCode", "==", zipCode)
+      );
+      const zipSnapshot = await getDocs(zipQuery);
+      sameNameDiffAddressCount = zipSnapshot.docs.filter(docSnap => {
+        const data = docSnap.data();
+        return (
+          normalizeString(data.firstName) === normalizedFirstName &&
+          normalizeString(data.lastName) === normalizedLastName &&
+          normalizeString(data.address) !== normalizedAddress &&
+          (!excludeUid || data.uid !== excludeUid)
+        );
+      }).length;
+    }
 
-  return false;
-};
+    if (duplicateFound) {
+      return {
+        isDuplicate: true,
+        sameNameCount: sameNameClientsCount,
+        sameNameDiffAddressCount
+      };
+    }
+
+    if (sameNameDiffAddressCount > 0) {
+      return {
+        isDuplicate: false,
+        sameNameCount: 0,
+        sameNameDiffAddressCount
+      };
+    }
+
+    return false;
+  };
 
   const handleSave = async () => {
     // Important: First validate basic requirements
     setIsSaving(true)
     const validation = validateProfile();
-  
+
     // Check for address validation error
     if (addressError) {
       alert("Please fix the address error before saving. Make sure to select a valid address from the Google Places suggestions.");
       setIsSaving(false)
       return;
     }
-  
+
     if (Object.keys(validation).length > 0) {
       const errorFields = Object.entries(validation)
         .map(([field, message]) => `- ${message}`)
@@ -993,13 +992,13 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
       setIsSaving(false)
       return;
     }
-    
+
     // Clear any previous duplicate popup states
     setShowDuplicatePopup(false);
-  
+
     // Show saving indicator? (Optional)
     // setIsLoading(true);
-  
+
     try {
       if (isNewProfile) {
         // Force duplicate check to always happen with direct values, not through variables
@@ -1009,11 +1008,11 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
           String(clientProfile.address).trim(),
           String(clientProfile.zipCode).trim()
         );
-        
+
         let isDuplicate = false;
         let sameNameCount = 0;
         let sameNameDiffAddressCount = 0;
-        
+
         // Handle different result formats
         if (typeof duplicateResult === 'boolean') {
           isDuplicate = duplicateResult;
@@ -1022,7 +1021,7 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
           sameNameCount = duplicateResult.sameNameCount || 0;
           sameNameDiffAddressCount = duplicateResult.sameNameDiffAddressCount || 0;
         }
-        
+
         if (isDuplicate) {
           // Create a detailed error message including exact fields that caused the duplicate
           const errorMsg = `DUPLICATE CLIENT DETECTED\n\nA client with the following details already exists in the system:\n\nName: ${clientProfile.firstName} ${clientProfile.lastName}\nAddress: ${clientProfile.address}\nZIP Code: ${clientProfile.zipCode}\n\nYou cannot save this client because it would create a duplicate record.\nPlease check if this is truly a new client with a unique name or address.`;
@@ -1032,7 +1031,7 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
           // No automatic timeout - let the user dismiss the error
           return;
         }
-        
+
         // Warn if there are other clients with the same name in the same zip code
         if (sameNameDiffAddressCount > 0) {
           const warningMsg = `Note: There ${sameNameDiffAddressCount === 1 ? 'is' : 'are'} ${sameNameDiffAddressCount} other client${sameNameDiffAddressCount === 1 ? '' : 's'} with the name "${clientProfile.firstName} ${clientProfile.lastName}" in ZIP code "${clientProfile.zipCode}", but at different addresses.`;
@@ -1048,11 +1047,11 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
           String(clientProfile.zipCode).trim(),
           String(clientProfile.uid)
         );
-        
+
         let isDuplicate = false;
         let sameNameCount = 0;
         let sameNameDiffAddressCount = 0;
-        
+
         // Handle different result formats
         if (typeof duplicateResult === 'boolean') {
           isDuplicate = duplicateResult;
@@ -1061,7 +1060,7 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
           sameNameCount = duplicateResult.sameNameCount || 0;
           sameNameDiffAddressCount = duplicateResult.sameNameDiffAddressCount || 0;
         }
-        
+
         if (isDuplicate) {
           // Create a detailed error message including exact fields that caused the duplicate
           const errorMsg = `DUPLICATE CLIENT DETECTED\n\nA client with the following details already exists in the system:\n\nName: ${clientProfile.firstName} ${clientProfile.lastName}\nAddress: ${clientProfile.address}\nZIP Code: ${clientProfile.zipCode}\n\nYou cannot save this client because it would create a duplicate record.\nPlease check if this is truly a different client with a unique name or address.`;
@@ -1071,7 +1070,7 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
           // No automatic timeout - let the user dismiss the error
           return;
         }
-        
+
         // Warn if there are other clients with the same name in the same zip code
         if (sameNameDiffAddressCount > 0) {
           const warningMsg = `Note: There ${sameNameDiffAddressCount === 1 ? 'is' : 'are'} ${sameNameDiffAddressCount} other client${sameNameDiffAddressCount === 1 ? '' : 's'} with the name "${clientProfile.firstName} ${clientProfile.lastName}" in ZIP code "${clientProfile.zipCode}", but at different addresses.`;
@@ -1095,15 +1094,15 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
           addressChanged = true;
         }
       }
-  
+
       // Also force geocode if coordinates are missing or invalid
       if (!addressChanged && (!clientProfile.coordinates || clientProfile.coordinates.length === 0 || (clientProfile.coordinates[0].lat === 0 && clientProfile.coordinates[0].lng === 0))) {
-          addressChanged = true;
+        addressChanged = true;
       }
-  
+
       let fetchedWard = clientProfile.ward; // Default to existing ward
       let coordinatesToSave = clientProfile.coordinates; // Default to existing coordinates
-  
+
       if (addressChanged) {
         const { ward, coordinates: fetchedCoordinates } = await getWardAndCoordinates(clientProfile.address);
         fetchedWard = ward;
@@ -1113,7 +1112,7 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
         setWard(fetchedWard);
       }
       // --- Geocoding Optimization End ---
-  
+
       const currentNotes = clientProfile.notes || ""; // Ensure notes is a string
       let updatedNotesTimestamp = checkIfNotesExists(
         currentNotes,
@@ -1124,7 +1123,7 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
         currentNotes,
         updatedNotesTimestamp
       );
-  
+
       // Delivery Instructions Timestamp
       const prevDeliveryInstructions = prevClientProfile?.deliveryDetails.deliveryInstructions || "";
       const currentDeliveryInstructions = clientProfile.deliveryDetails.deliveryInstructions || "";
@@ -1137,7 +1136,7 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
         currentDeliveryInstructions,
         updatedDeliveryInstructionsTimestamp
       );
-  
+
       // Life Challenges Timestamp
       const prevLifeChallenges = prevClientProfile?.lifeChallenges || "";
       const currentLifeChallenges = clientProfile.lifeChallenges || "";
@@ -1150,7 +1149,7 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
         currentLifeChallenges,
         updatedLifeChallengesTimestamp
       );
-  
+
       // Lifestyle Goals Timestamp
       const prevLifestyleGoals = prevClientProfile?.lifestyleGoals || "";
       const currentLifestyleGoals = clientProfile.lifestyleGoals || "";
@@ -1163,7 +1162,7 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
         currentLifestyleGoals,
         updatedLifestyleGoalsTimestamp
       );
-  
+
       // Update the clientProfile object with the latest tags state and other calculated fields
       const updatedProfile: ClientProfile = {
         ...clientProfile,
@@ -1181,12 +1180,12 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
           ? { id: selectedCaseWorker.id, name: selectedCaseWorker.name, organization: selectedCaseWorker.organization }
           : null, // Use null if no case worker is selected
       };
-  
+
       // Sort allTags before potentially saving them (ensures consistent order)
       // Combine current tags and all known tags, remove duplicates, then sort
       const combinedTags = Array.from(new Set([...allTags, ...tags])); // Use Array.from for compatibility
       const sortedAllTags = combinedTags.sort((a, b) => a.localeCompare(b));
-  
+
       if (isNewProfile) {
         // Generate new UID for new profile
         const newUid = await generateUID();
@@ -1234,13 +1233,13 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
         setAllTags(sortedAllTags); // Update the local list of all tags
         console.log("Profile updated:", clientProfile.uid);
       }
-  
+
       // Common post-save actions (Popup notification)
       // setEditMode(false); <-- Removed redundant call
       setShowSavePopup(true);
       setIsEditing(false)
       setTimeout(() => setShowSavePopup(false), 2000);
-  
+
     } catch (e) {
       console.error("Error saving document: ", e);
       alert(`Failed to save profile: ${e instanceof Error ? e.message : String(e)}`);
@@ -1288,7 +1287,7 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
   // Re-define renderField to accept addressInputRef and forward it to FormField
   const renderField = (fieldPath: ClientProfileKey, type: InputType = "text", addressInputRef?: React.RefObject<HTMLInputElement | null>) => {
 
-if (type === "physicalAilments") {
+    if (type === "physicalAilments") {
       const options = [
         { name: "diabetes", label: "Diabetes" },
         { name: "hypertension", label: "Hypertension" },
@@ -1296,7 +1295,7 @@ if (type === "physicalAilments") {
         { name: "kidneyDisease", label: "Kidney Disease" },
         { name: "cancer", label: "Cancer" },
       ];
-      
+
       return (
         <>
           {options.map((option) => (
@@ -1387,86 +1386,86 @@ if (type === "physicalAilments") {
       return (
         <>
 
-{dietaryOptions.map((option: DietaryOption) => (
-  <FormControlLabel
-    key={option.name}
-    control={      <Checkbox
-        checked={Boolean(clientProfile.deliveryDetails?.dietaryRestrictions?.[option.name])}
-        onChange={handleDietaryRestrictionChange}
-        name={option.name}
-        sx={{
-          "&:focus": {
-            outline: "none",
-          },
-          "&.Mui-focusVisible": {
-            outline: "none",
-            "& .MuiSvgIcon-root": {
-              color: "#257E68",
-              filter: "drop-shadow(0 0 8px rgba(37, 126, 104, 0.4)) drop-shadow(0 0 16px rgba(37, 126, 104, 0.2))",
-            },
-          },
-          "& input:focus + .MuiSvgIcon-root": {
-            color: "#257E68",
-            filter: "drop-shadow(0 0 8px rgba(37, 126, 104, 0.4)) drop-shadow(0 0 16px rgba(37, 126, 104, 0.2))",
-          },
-        }}
-      />
-    }
-    label={option.label}
-  />
-))}
+          {dietaryOptions.map((option: DietaryOption) => (
+            <FormControlLabel
+              key={option.name}
+              control={<Checkbox
+                checked={Boolean(clientProfile.deliveryDetails?.dietaryRestrictions?.[option.name])}
+                onChange={handleDietaryRestrictionChange}
+                name={option.name}
+                sx={{
+                  "&:focus": {
+                    outline: "none",
+                  },
+                  "&.Mui-focusVisible": {
+                    outline: "none",
+                    "& .MuiSvgIcon-root": {
+                      color: "#257E68",
+                      filter: "drop-shadow(0 0 8px rgba(37, 126, 104, 0.4)) drop-shadow(0 0 16px rgba(37, 126, 104, 0.2))",
+                    },
+                  },
+                  "& input:focus + .MuiSvgIcon-root": {
+                    color: "#257E68",
+                    filter: "drop-shadow(0 0 8px rgba(37, 126, 104, 0.4)) drop-shadow(0 0 16px rgba(37, 126, 104, 0.2))",
+                  },
+                }}
+              />
+              }
+              label={option.label}
+            />
+          ))}
 
-<Box sx={{ 
-  display: 'flex', 
-  alignItems: 'center',
-  gap: 1,
-  width: '100%',
-}}>
-  <FormControlLabel
-    control={      <Checkbox
-        checked={clientProfile.deliveryDetails?.dietaryRestrictions?.other || false}
-        onChange={handleDietaryRestrictionChange}
-        name="other"
-        sx={{
-          "&:focus": {
-            outline: "none",
-          },
-          "&.Mui-focusVisible": {
-            outline: "none",
-            "& .MuiSvgIcon-root": {
-              color: "#257E68",
-              filter: "drop-shadow(0 0 8px rgba(37, 126, 104, 0.4)) drop-shadow(0 0 16px rgba(37, 126, 104, 0.2))",
-            },
-          },
-          "& input:focus + .MuiSvgIcon-root": {
-            color: "#257E68",
-            filter: "drop-shadow(0 0 8px rgba(37, 126, 104, 0.4)) drop-shadow(0 0 16px rgba(37, 126, 104, 0.2))",
-          },
-        }}
-      />
-    }
-    label="Other"
-  />
-  {clientProfile.deliveryDetails?.dietaryRestrictions?.other && (    <TextField
-      name="otherText"
-      value={clientProfile.deliveryDetails?.dietaryRestrictions?.otherText || ""}
-      onChange={handleDietaryRestrictionChange}
-      placeholder="Please specify other dietary restrictions"
-      variant="outlined"
-      size="small"
-      sx={{ 
-        flexGrow: 1, 
-        marginTop: '5%',        '& .MuiOutlinedInput-root': {
-          '&.Mui-focused fieldset': {
-            borderColor: "#257E68",
-            border: "2px solid #257E68",
-            boxShadow: "0 0 8px rgba(37, 126, 104, 0.4), 0 0 16px rgba(37, 126, 104, 0.2)",
-          },
-        },
-      }}
-    />
-  )}
-</Box>
+          <Box sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1,
+            width: '100%',
+          }}>
+            <FormControlLabel
+              control={<Checkbox
+                checked={clientProfile.deliveryDetails?.dietaryRestrictions?.other || false}
+                onChange={handleDietaryRestrictionChange}
+                name="other"
+                sx={{
+                  "&:focus": {
+                    outline: "none",
+                  },
+                  "&.Mui-focusVisible": {
+                    outline: "none",
+                    "& .MuiSvgIcon-root": {
+                      color: "#257E68",
+                      filter: "drop-shadow(0 0 8px rgba(37, 126, 104, 0.4)) drop-shadow(0 0 16px rgba(37, 126, 104, 0.2))",
+                    },
+                  },
+                  "& input:focus + .MuiSvgIcon-root": {
+                    color: "#257E68",
+                    filter: "drop-shadow(0 0 8px rgba(37, 126, 104, 0.4)) drop-shadow(0 0 16px rgba(37, 126, 104, 0.2))",
+                  },
+                }}
+              />
+              }
+              label="Other"
+            />
+            {clientProfile.deliveryDetails?.dietaryRestrictions?.other && (<TextField
+              name="otherText"
+              value={clientProfile.deliveryDetails?.dietaryRestrictions?.otherText || ""}
+              onChange={handleDietaryRestrictionChange}
+              placeholder="Please specify other dietary restrictions"
+              variant="outlined"
+              size="small"
+              sx={{
+                flexGrow: 1,
+                marginTop: '5%', '& .MuiOutlinedInput-root': {
+                  '&.Mui-focused fieldset': {
+                    borderColor: "#257E68",
+                    border: "2px solid #257E68",
+                    boxShadow: "0 0 8px rgba(37, 126, 104, 0.4), 0 0 16px rgba(37, 126, 104, 0.2)",
+                  },
+                },
+              }}
+            />
+            )}
+          </Box>
         </>
       );
     }
@@ -1519,37 +1518,37 @@ if (type === "physicalAilments") {
             ))}
             <MenuItem value="Other">Other</MenuItem>
           </Select>
-          {selectValue === "Other" && (            <TextField
-              name="language"              placeholder="Enter language"
-              value={isPredefined ? "" : clientProfile.language}
-              onChange={handleCustomLanguageChange}
-              
-              sx={{
-                backgroundColor: "white",
-                width: "100%",
-                height: "1.813rem",
-                padding: "0.1rem 0.5rem",
-                borderRadius: "5px",
-                marginTop: "0px",
-                '& .MuiOutlinedInput-root': {
-                  '& fieldset': {
-                    border: errors.language ? "1px solid #d32f2f" : "1px solid black", // Red border on error
-                  },
-                  '&.Mui-focused fieldset': {
-                    border: errors.language ? "2px solid #d32f2f" : "2px solid #257E68", // Red focus border on error
-                    boxShadow: errors.language 
-                      ? "0 0 8px rgba(211, 47, 47, 0.4), 0 0 16px rgba(211, 47, 47, 0.2)" 
-                      : "0 0 8px rgba(37, 126, 104, 0.4), 0 0 16px rgba(37, 126, 104, 0.2)",
-                  },
+          {selectValue === "Other" && (<TextField
+            name="language" placeholder="Enter language"
+            value={isPredefined ? "" : clientProfile.language}
+            onChange={handleCustomLanguageChange}
+
+            sx={{
+              backgroundColor: "white",
+              width: "100%",
+              height: "1.813rem",
+              padding: "0.1rem 0.5rem",
+              borderRadius: "5px",
+              marginTop: "0px",
+              '& .MuiOutlinedInput-root': {
+                '& fieldset': {
+                  border: errors.language ? "1px solid #d32f2f" : "1px solid black", // Red border on error
                 },
-              }}
-            />
+                '&.Mui-focused fieldset': {
+                  border: errors.language ? "2px solid #d32f2f" : "2px solid #257E68", // Red focus border on error
+                  boxShadow: errors.language
+                    ? "0 0 8px rgba(211, 47, 47, 0.4), 0 0 16px rgba(211, 47, 47, 0.2)"
+                    : "0 0 8px rgba(37, 126, 104, 0.4), 0 0 16px rgba(37, 126, 104, 0.2)",
+                },
+              },
+            }}
+          />
           )}
           {errors.language && (
-            <Typography 
-              variant="caption" 
-              color="error" 
-              sx={{ 
+            <Typography
+              variant="caption"
+              color="error"
+              sx={{
                 display: 'block',
                 marginTop: '1rem',
                 textAlign: 'left',
@@ -1602,7 +1601,7 @@ if (type === "physicalAilments") {
             name="ethnicity"
             value={selectValue}
             onChange={handleEthnicitySelectChange}
-            error = {!!errors.ethnicity}
+            error={!!errors.ethnicity}
             sx={{
               backgroundColor: "white",
               width: "100%",
@@ -1620,25 +1619,25 @@ if (type === "physicalAilments") {
             ))}
             <MenuItem value="Other">Other</MenuItem>
           </Select>
-          {selectValue === "Other" && (            <TextField
-              name="ethnicity"              placeholder="Enter ethnicity"
-              value={isPredefined ? "" : clientProfile.ethnicity}
-              onChange={handleEthnicityCustomChange}
-              sx={{
-                backgroundColor: "white",
-                width: "100%",
-                height: "1.813rem",
-                padding: "0.1rem 0.5rem",
-                borderRadius: "5px",
-                marginTop: "0px",
-              }}
-            />
+          {selectValue === "Other" && (<TextField
+            name="ethnicity" placeholder="Enter ethnicity"
+            value={isPredefined ? "" : clientProfile.ethnicity}
+            onChange={handleEthnicityCustomChange}
+            sx={{
+              backgroundColor: "white",
+              width: "100%",
+              height: "1.813rem",
+              padding: "0.1rem 0.5rem",
+              borderRadius: "5px",
+              marginTop: "0px",
+            }}
+          />
           )}
           {errors.ethnicity && (
-            <Typography 
-              variant="caption" 
-              color="error" 
-              sx={{ 
+            <Typography
+              variant="caption"
+              color="error"
+              sx={{
                 display: 'block',
                 marginTop: '1rem',
                 textAlign: 'left',
@@ -1655,47 +1654,47 @@ if (type === "physicalAilments") {
       if (!isEditing) {
         return <Box>{clientProfile.gender}</Box>;
       }
-    
+
       const preDefinedOptions = [
         "Male",
         "Female",
         "Other"
       ];
-    
+
       const isPredefined = preDefinedOptions.includes(clientProfile.gender);
       const selectValue = isPredefined ? clientProfile.gender : "Other";
-    
+
       const handleGenderSelectChange = (e: any) => {
         const newVal = e.target.value;
-          // Update with selected value
-          handleChange({ target: { name: "gender", value: newVal } } as any);
+        // Update with selected value
+        handleChange({ target: { name: "gender", value: newVal } } as any);
       };
-    
-    
-      return (        <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>          <Select            name="gender"
-            value={selectValue}
-            onChange={handleGenderSelectChange}
-            sx={{
-              backgroundColor: "white",
-              width: "100%",
-              height: "1.813rem",
-              padding: "0.1rem 0.5rem",
-              borderRadius: "5px",
-              border: ".1rem solid black",
-              marginTop: "0px",
-              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                border: "2px solid #257E68",
-                boxShadow: "0 0 8px rgba(37, 126, 104, 0.4), 0 0 16px rgba(37, 126, 104, 0.2)",
-              },
-            }}
-          >
-            {preDefinedOptions.map((option) => (
-              <MenuItem key={option} value={option}>
-                {option}
-              </MenuItem>
-            ))}
-          </Select>
-        </Box>
+
+
+      return (<Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>          <Select name="gender"
+        value={selectValue}
+        onChange={handleGenderSelectChange}
+        sx={{
+          backgroundColor: "white",
+          width: "100%",
+          height: "1.813rem",
+          padding: "0.1rem 0.5rem",
+          borderRadius: "5px",
+          border: ".1rem solid black",
+          marginTop: "0px",
+          '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+            border: "2px solid #257E68",
+            boxShadow: "0 0 8px rgba(37, 126, 104, 0.4), 0 0 16px rgba(37, 126, 104, 0.2)",
+          },
+        }}
+      >
+        {preDefinedOptions.map((option) => (
+          <MenuItem key={option} value={option}>
+            {option}
+          </MenuItem>
+        ))}
+      </Select>
+      </Box>
       );
     }
 
@@ -1703,22 +1702,22 @@ if (type === "physicalAilments") {
       if (!isEditing) {
         return <Box>{clientProfile.headOfHousehold}</Box>;
       }
-    
+
       const preDefinedOptions = [
         "Adult",
         "Senior",
       ];
-    
+
       const isPredefined = preDefinedOptions.includes(clientProfile.headOfHousehold);
       const selectValue = isPredefined ? clientProfile.headOfHousehold : "Adult";
-    
+
       const handleHeadOfHouseholdSelectChange = (e: any) => {
         const newVal = e.target.value;
-          // Update with selected value
-          handleChange({ target: { name: "headOfHousehold", value: newVal } } as any);
-  
+        // Update with selected value
+        handleChange({ target: { name: "headOfHousehold", value: newVal } } as any);
+
       };
-    
+
       return (
         <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
           <Select
@@ -1747,10 +1746,10 @@ if (type === "physicalAilments") {
           </Select>
           {/* Add error display */}
           {errors.headOfHousehold && (
-            <Typography 
-              variant="caption" 
-              color="error" 
-              sx={{ 
+            <Typography
+              variant="caption"
+              color="error"
+              sx={{
                 display: 'block',
                 marginTop: '2px'
               }}
@@ -1766,48 +1765,48 @@ if (type === "physicalAilments") {
       if (!isEditing) {
         return <Box>{clientProfile.recurrence}</Box>;
       }
-    
+
       const preDefinedOptions = [
         "None",
         "Weekly",
         "2x-Monthly",
         "Monthly"
       ];
-    
+
       const isPredefined = preDefinedOptions.includes(clientProfile.recurrence);
       const selectValue = isPredefined ? clientProfile.recurrence : "None";
-    
+
       const handleRecurrenceSelectChange = (e: any) => {
         const newVal = e.target.value;
-          // Update with selected value
-          handleChange({ target: { name: "recurrence", value: newVal } } as any);
-  
+        // Update with selected value
+        handleChange({ target: { name: "recurrence", value: newVal } } as any);
+
       };
-    
-      return (        <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>          <Select            name="recurrence"
-            value={selectValue}
-            onChange={handleRecurrenceSelectChange}
-            sx={{
-              backgroundColor: "white",
-              width: "100%",
-              height: "1.813rem",
-              padding: "0.1rem 0.5rem",
-              borderRadius: "5px",
-              border: ".1rem solid black",
-              marginTop: "0px",
-              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                border: "2px solid #257E68",
-                boxShadow: "0 0 8px rgba(37, 126, 104, 0.4), 0 0 16px rgba(37, 126, 104, 0.2)",
-              },
-            }}
-          >
-            {preDefinedOptions.map((option) => (
-              <MenuItem key={option} value={option}>
-                {option}
-              </MenuItem>
-            ))}
-          </Select>
-        </Box>
+
+      return (<Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>          <Select name="recurrence"
+        value={selectValue}
+        onChange={handleRecurrenceSelectChange}
+        sx={{
+          backgroundColor: "white",
+          width: "100%",
+          height: "1.813rem",
+          padding: "0.1rem 0.5rem",
+          borderRadius: "5px",
+          border: ".1rem solid black",
+          marginTop: "0px",
+          '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+            border: "2px solid #257E68",
+            boxShadow: "0 0 8px rgba(37, 126, 104, 0.4), 0 0 16px rgba(37, 126, 104, 0.2)",
+          },
+        }}
+      >
+        {preDefinedOptions.map((option) => (
+          <MenuItem key={option} value={option}>
+            {option}
+          </MenuItem>
+        ))}
+      </Select>
+      </Box>
       );
     }
 
@@ -1819,30 +1818,30 @@ if (type === "physicalAilments") {
     // Determine if the field should be disabled
     const isDisabledField = ["city", "state", "zipCode", "quadrant", "ward", "total"].includes(fieldPath);
 
-    return (      <Box sx={{
-        transition: "all 0.2s ease",
-        '&:hover': {
-          transform: isEditing ? 'translateY(-2px)' : 'none',
-        },
-      }}>
-        <FormField
-          fieldPath={fieldPath}
-          value={value}
-          type={type}
-          isEditing={isEditing}
-          handleChange={handleChange}
-          handleDietaryRestrictionChange={handleDietaryRestrictionChange}
-          addressInputRef={fieldPath === "address" ? addressInputRef : undefined}
-          isDisabledField={isDisabledField}
-          getNestedValue={getNestedValue}
-          tags={tags}
-          allTags={allTags}
-          isModalOpen={isModalOpen}
-          setIsModalOpen={setIsModalOpen}
-          handleTag={handleTag}
-          error={errors[fieldPath]}
-        />
-      </Box>
+    return (<Box sx={{
+      transition: "all 0.2s ease",
+      '&:hover': {
+        transform: isEditing ? 'translateY(-2px)' : 'none',
+      },
+    }}>
+      <FormField
+        fieldPath={fieldPath}
+        value={value}
+        type={type}
+        isEditing={isEditing}
+        handleChange={handleChange}
+        handleDietaryRestrictionChange={handleDietaryRestrictionChange}
+        addressInputRef={fieldPath === "address" ? addressInputRef : undefined}
+        isDisabledField={isDisabledField}
+        getNestedValue={getNestedValue}
+        tags={tags}
+        allTags={allTags}
+        isModalOpen={isModalOpen}
+        setIsModalOpen={setIsModalOpen}
+        handleTag={handleTag}
+        error={errors[fieldPath]}
+      />
+    </Box>
     );
   };
 
@@ -1871,7 +1870,7 @@ if (type === "physicalAilments") {
         console.log(`Updating Firebase for client ${clientProfile.uid} with tags:`, updatedTags);
         await setDoc(doc(db, "clients", clientProfile.uid), { tags: updatedTags }, { merge: true });
         console.log("Tags successfully updated in Firebase for client:", clientProfile.uid);
-        
+
         // Also update the local clientProfile.tags to keep it in sync
         setClientProfile(prev => ({
           ...prev,
@@ -1930,110 +1929,110 @@ if (type === "physicalAilments") {
 
 
   const handlePhysicalAilmentsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-  const { name, type } = e.target;
-  handlePrevClientCopying();
+    const { name, type } = e.target;
+    handlePrevClientCopying();
 
-  setClientProfile((prevState) => {
+    setClientProfile((prevState) => {
 
-    if (type === "checkbox") {
-      const { checked } = e.target;
-      return {
-        ...prevState,
-        physicalAilments: {
-          ...(prevState.physicalAilments || {}),
-          [name]: checked,
-          ...(name === "other" && {
-            otherText: checked ? (prevState.physicalAilments?.otherText || "") : ""
-          })
-        }
-      };
-    }
+      if (type === "checkbox") {
+        const { checked } = e.target;
+        return {
+          ...prevState,
+          physicalAilments: {
+            ...(prevState.physicalAilments || {}),
+            [name]: checked,
+            ...(name === "other" && {
+              otherText: checked ? (prevState.physicalAilments?.otherText || "") : ""
+            })
+          }
+        };
+      }
 
-    if (type === "text" && name === "otherText") {
-      const value = e.target.value;
-      return {
-        ...prevState,
-        physicalAilments: {
-          ...(prevState.physicalAilments || {}),
-          otherText: value,
-          other: true
-        }
-      };
-    }
-    return prevState; // fallback
-  });
-};
+      if (type === "text" && name === "otherText") {
+        const value = e.target.value;
+        return {
+          ...prevState,
+          physicalAilments: {
+            ...(prevState.physicalAilments || {}),
+            otherText: value,
+            other: true
+          }
+        };
+      }
+      return prevState; // fallback
+    });
+  };
 
 
-const handlePhysicalDisabilityChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-  const { name, type } = e.target;
-  handlePrevClientCopying();
+  const handlePhysicalDisabilityChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, type } = e.target;
+    handlePrevClientCopying();
 
-  setClientProfile((prevState) => {
+    setClientProfile((prevState) => {
 
-    if (type === "checkbox") {
-      const { checked } = e.target;
-      return {
-        ...prevState,
-        physicalDisability: {
-          ...(prevState.physicalDisability || {}),
-          [name]: checked,
-          ...(name === "other" && {
-            otherText: checked ? (prevState.physicalDisability?.otherText || "") : ""
-          })
-        }
-      };
-    }
+      if (type === "checkbox") {
+        const { checked } = e.target;
+        return {
+          ...prevState,
+          physicalDisability: {
+            ...(prevState.physicalDisability || {}),
+            [name]: checked,
+            ...(name === "other" && {
+              otherText: checked ? (prevState.physicalDisability?.otherText || "") : ""
+            })
+          }
+        };
+      }
 
-    if (type === "text" && name === "otherText") {
-      const value = e.target.value;
-      return {
-        ...prevState,
-        physicalDisability: {
-          ...(prevState.physicalDisability || {}),
-          otherText: value,
-          other: true
-        }
-      };
-    }
-    return prevState; // fallback
-  });
-};
+      if (type === "text" && name === "otherText") {
+        const value = e.target.value;
+        return {
+          ...prevState,
+          physicalDisability: {
+            ...(prevState.physicalDisability || {}),
+            otherText: value,
+            other: true
+          }
+        };
+      }
+      return prevState; // fallback
+    });
+  };
 
-const handleMentalHealthConditionsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-  const { name, type } = e.target;
-  handlePrevClientCopying();
+  const handleMentalHealthConditionsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, type } = e.target;
+    handlePrevClientCopying();
 
-  setClientProfile((prevState) => {
+    setClientProfile((prevState) => {
 
-    if (type === "checkbox") {
-      const { checked } = e.target;
-      return {
-        ...prevState,
-        mentalHealthConditions: {
-          ...(prevState.mentalHealthConditions || {}),
-          [name]: checked,
-          ...(name === "other" && {
-            otherText: checked ? (prevState.mentalHealthConditions?.otherText || "") : ""
-          })
-        }
-      };
-    }
+      if (type === "checkbox") {
+        const { checked } = e.target;
+        return {
+          ...prevState,
+          mentalHealthConditions: {
+            ...(prevState.mentalHealthConditions || {}),
+            [name]: checked,
+            ...(name === "other" && {
+              otherText: checked ? (prevState.mentalHealthConditions?.otherText || "") : ""
+            })
+          }
+        };
+      }
 
-    if (type === "text" && name === "otherText") {
-      const value = e.target.value;
-      return {
-        ...prevState,
-        mentalHealthConditions: {
-          ...(prevState.mentalHealthConditions || {}),
-          otherText: value,
-          other: true
-        }
-      };
-    }
-    return prevState; // fallback
-  });
-};
+      if (type === "text" && name === "otherText") {
+        const value = e.target.value;
+        return {
+          ...prevState,
+          mentalHealthConditions: {
+            ...(prevState.mentalHealthConditions || {}),
+            otherText: value,
+            other: true
+          }
+        };
+      }
+      return prevState; // fallback
+    });
+  };
 
   //google places autocomplete
   const addressInputRef = useRef<HTMLInputElement>(null);
@@ -2111,7 +2110,7 @@ const handleMentalHealthConditionsChange = (e: React.ChangeEvent<HTMLInputElemen
         if (!quadrant && place.formatted_address && place.formatted_address.match(/(NW|NE|SW|SE)/i)) {
           quadrant = place.formatted_address.match(/(NW|NE|SW|SE)/i)?.[0] || "";
         }
-        
+
         // Get ward for the selected address
         let ward = "";
         try {
@@ -2121,7 +2120,7 @@ const handleMentalHealthConditionsChange = (e: React.ChangeEvent<HTMLInputElemen
           console.error("Error getting ward for selected address:", error);
           ward = "";
         }
-        
+
         // Save only the street address in address field
         setClientProfile((prev) => ({
           ...prev,
@@ -2140,7 +2139,7 @@ const handleMentalHealthConditionsChange = (e: React.ChangeEvent<HTMLInputElemen
   // Debounced ward lookup for manually typed addresses
   useEffect(() => {
     if (!isEditing || !clientProfile.address) return;
-    
+
     const timeoutId = setTimeout(async () => {
       // Only trigger ward lookup if the address is different from the previous one
       // and it's not empty
@@ -2156,7 +2155,7 @@ const handleMentalHealthConditionsChange = (e: React.ChangeEvent<HTMLInputElemen
         }
       }
     }, 1500); // Wait 1.5 seconds after user stops typing
-    
+
     return () => clearTimeout(timeoutId);
   }, [clientProfile.address, isEditing, prevClientProfile?.address]);
 
@@ -2225,94 +2224,94 @@ const handleMentalHealthConditionsChange = (e: React.ChangeEvent<HTMLInputElemen
   }, [clientProfile.adults, clientProfile.children, clientProfile.seniors]);
 
 
-    const handleAddDelivery = async (newDelivery: NewDelivery) => {
-      try {
-        let recurrenceDates: Date[] = [];
-  
-        //create unique id for each recurrence group. All events for this recurrence will have the same id
-        const recurrenceId = crypto.randomUUID();
-        if (newDelivery.recurrence === "Custom") {
-          // Use customDates directly if recurrence is Custom
-          // Ensure customDates exist and map string dates back to Date objects
-          recurrenceDates = newDelivery.customDates?.map(dateStr => {
-            const date = new Date(dateStr);
-            // Adjust for timezone offset if needed, similar to how it might be handled elsewhere
-            return new Date(date.getTime() + date.getTimezoneOffset() * 60000);
-          }) || [];
-          // Clear repeatsEndDate explicitly for custom recurrence in the submitted data
-          newDelivery.repeatsEndDate = undefined;
-        } else {
-          // Calculate recurrence dates for standard recurrence types
-          const deliveryDate = new Date(newDelivery.deliveryDate);
-          recurrenceDates =
-            newDelivery.recurrence === "None" ? [deliveryDate] : calculateRecurrenceDates(newDelivery);
-        }
-  
-        // Filter out dates that already have a delivery for the same client
-        const existingEventDates = new Set(
+  const handleAddDelivery = async (newDelivery: NewDelivery) => {
+    try {
+      let recurrenceDates: Date[] = [];
 
-          events
-            .filter(event => event.clientId === newDelivery.clientId)
-            .map(event => new DayPilot.Date(toJSDate(event.deliveryDate)).toString("yyyy-MM-dd"))
-        );
-  
-        const uniqueRecurrenceDates = recurrenceDates.filter(date => 
-          !existingEventDates.has(new DayPilot.Date(date).toString("yyyy-MM-dd"))
-        );
-  
-        if (uniqueRecurrenceDates.length < recurrenceDates.length) {
-          console.warn("Some duplicate delivery dates were detected and skipped.");
-        }
-  
-        // Use DeliveryService to create events for unique dates only
-        const deliveryService = DeliveryService.getInstance();
-        const createPromises = uniqueRecurrenceDates.map(date => {
-          const eventToAdd: Partial<DeliveryEvent> = {
-            clientId: newDelivery.clientId,
-            clientName: newDelivery.clientName,
-            deliveryDate: date, // Use the calculated/provided recurrence date
-            recurrence: newDelivery.recurrence,
-            time: "",
-            cluster: 0,
-            recurrenceId: recurrenceId,
-          };
-  
-          // Add customDates array if recurrence is Custom
-          if (newDelivery.recurrence === "Custom") {
-            eventToAdd.customDates = newDelivery.customDates;
-          } else if (newDelivery.repeatsEndDate) {
-            // Only add repeatsEndDate for standard recurrence types
-            eventToAdd.repeatsEndDate = newDelivery.repeatsEndDate;
-          }
-  
-          return deliveryService.createEvent(eventToAdd);
-        });
-  
-        await Promise.all(createPromises);
-  
-        // // Refresh events after adding
-        // fetchEvents();
-      } catch (error) {
-        console.error("Error adding delivery:", error);
+      //create unique id for each recurrence group. All events for this recurrence will have the same id
+      const recurrenceId = crypto.randomUUID();
+      if (newDelivery.recurrence === "Custom") {
+        // Use customDates directly if recurrence is Custom
+        // Ensure customDates exist and map string dates back to Date objects
+        recurrenceDates = newDelivery.customDates?.map(dateStr => {
+          const date = new Date(dateStr);
+          // Adjust for timezone offset if needed, similar to how it might be handled elsewhere
+          return new Date(date.getTime() + date.getTimezoneOffset() * 60000);
+        }) || [];
+        // Clear repeatsEndDate explicitly for custom recurrence in the submitted data
+        newDelivery.repeatsEndDate = undefined;
+      } else {
+        // Calculate recurrence dates for standard recurrence types
+        const deliveryDate = new Date(newDelivery.deliveryDate);
+        recurrenceDates =
+          newDelivery.recurrence === "None" ? [deliveryDate] : calculateRecurrenceDates(newDelivery);
       }
-    };
+
+      // Filter out dates that already have a delivery for the same client
+      const existingEventDates = new Set(
+
+        events
+          .filter(event => event.clientId === newDelivery.clientId)
+          .map(event => new DayPilot.Date(toJSDate(event.deliveryDate)).toString("yyyy-MM-dd"))
+      );
+
+      const uniqueRecurrenceDates = recurrenceDates.filter(date =>
+        !existingEventDates.has(new DayPilot.Date(date).toString("yyyy-MM-dd"))
+      );
+
+      if (uniqueRecurrenceDates.length < recurrenceDates.length) {
+        console.warn("Some duplicate delivery dates were detected and skipped.");
+      }
+
+      // Use DeliveryService to create events for unique dates only
+      const deliveryService = DeliveryService.getInstance();
+      const createPromises = uniqueRecurrenceDates.map(date => {
+        const eventToAdd: Partial<DeliveryEvent> = {
+          clientId: newDelivery.clientId,
+          clientName: newDelivery.clientName,
+          deliveryDate: date, // Use the calculated/provided recurrence date
+          recurrence: newDelivery.recurrence,
+          time: "",
+          cluster: 0,
+          recurrenceId: recurrenceId,
+        };
+
+        // Add customDates array if recurrence is Custom
+        if (newDelivery.recurrence === "Custom") {
+          eventToAdd.customDates = newDelivery.customDates;
+        } else if (newDelivery.repeatsEndDate) {
+          // Only add repeatsEndDate for standard recurrence types
+          eventToAdd.repeatsEndDate = newDelivery.repeatsEndDate;
+        }
+
+        return deliveryService.createEvent(eventToAdd);
+      });
+
+      await Promise.all(createPromises);
+
+      // // Refresh events after adding
+      // fetchEvents();
+    } catch (error) {
+      console.error("Error adding delivery:", error);
+    }
+  };
 
 
 
-     const fetchClients = async () => {
+  const fetchClients = async () => {
     try {
       console.log("Fetching all clients");
       // Use ClientService instead of direct Firebase calls
       const clientService = ClientService.getInstance();
       const clientsData = await clientService.getAllClients();
-      
+
       console.log(`Fetched ${clientsData.clients.length} clients`);
-      
+
       // Map client data to Client type with explicit type casting for compatibility
       const clientList = clientsData.clients.map((data: ClientProfile) => {
         // Ensure dietaryRestrictions has all required fields
         const dietaryRestrictions = data.deliveryDetails?.dietaryRestrictions || {};
-        
+
         return {
           id: data.uid,
           uid: data.uid,
@@ -2366,7 +2365,7 @@ const handleMentalHealthConditionsChange = (e: React.ChangeEvent<HTMLInputElemen
           headOfHousehold: data.headOfHousehold || "Adult",
         };
       });
-      
+
       // Cast the result to Client[] to satisfy type checking
       setClients(clientList as unknown as ClientProfile[]);
     } catch (error) {
@@ -2383,16 +2382,16 @@ const handleMentalHealthConditionsChange = (e: React.ChangeEvent<HTMLInputElemen
         </SaveNotification>
       )}
       {showDuplicatePopup && (
-        <ErrorPopUp 
+        <ErrorPopUp
           message={duplicateErrorMessage}
           title="Duplicate Client Detected"
-          // No auto-close duration - user must dismiss manually
+        // No auto-close duration - user must dismiss manually
         />
       )}
       {showSimilarNamesInfo && (
-        <PopUp 
+        <PopUp
           message={similarNamesMessage}
-          duration={8000} 
+          duration={8000}
         />
       )}
 
@@ -2523,21 +2522,21 @@ const handleMentalHealthConditionsChange = (e: React.ChangeEvent<HTMLInputElemen
           {/* Delivery Log Section */}
           <SectionBox mb={3}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
-            <SectionTitle sx={{ textAlign: 'left', width: '100%' }}>Deliveries</SectionTitle>
-            <Button
-              variant="contained"
-              startIcon={<Add />}
-              onClick={() => setIsDeliveryModalOpen(true)}
-              disabled={userRole === UserType.ClientIntake}
-              sx={{
-                marginRight: 4,
-                width: 166,
-                color: "#fff",
-                backgroundColor: "#257E68",
-              }}
-            >
-              Add Delivery
-            </Button>
+              <SectionTitle sx={{ textAlign: 'left', width: '100%' }}>Deliveries</SectionTitle>
+              <Button
+                variant="contained"
+                startIcon={<Add />}
+                onClick={() => setIsDeliveryModalOpen(true)}
+                disabled={userRole === UserType.ClientIntake}
+                sx={{
+                  marginRight: 4,
+                  width: 166,
+                  color: "#fff",
+                  backgroundColor: "#257E68",
+                }}
+              >
+                Add Delivery
+              </Button>
             </Box>
             <AddDeliveryDialog
               open={isDeliveryModalOpen}
@@ -2551,7 +2550,7 @@ const handleMentalHealthConditionsChange = (e: React.ChangeEvent<HTMLInputElemen
                 clientProfile: clientProfile
               }}
             />
-           <DeliveryLogForm
+            <DeliveryLogForm
               pastDeliveries={pastDeliveries}
               futureDeliveries={futureDeliveries}
               fieldLabelStyles={fieldLabelStyles}
@@ -2561,7 +2560,7 @@ const handleMentalHealthConditionsChange = (e: React.ChangeEvent<HTMLInputElemen
                   // Note: Firestore deletion is already handled by DeliveryLogForm
                   const updatedFutureDeliveries = futureDeliveries.filter(d => d.id !== delivery.id);
                   setFutureDeliveries(updatedFutureDeliveries);
-                  
+
                   // Also refresh the delivery history to ensure consistency
                   if (clientId) {
                     const deliveryService = DeliveryService.getInstance();
@@ -2588,33 +2587,33 @@ const handleMentalHealthConditionsChange = (e: React.ChangeEvent<HTMLInputElemen
           <SectionBox sx={{ textAlign: 'right', width: '100%' }}>
             <Box display="flex" alignItems="center" justifyContent="flex-end" gap={1}>
               <StyledIconButton
-                  onClick={() => {
-                    if (isEditing) handleCancel();
-                    setIsEditing((prev) => !prev);
-                  }}
+                onClick={() => {
+                  if (isEditing) handleCancel();
+                  setIsEditing((prev) => !prev);
+                }}
+                size="small"
+              >
+                <Tooltip title={isEditing ? "Cancel Editing" : "Edit All"}>
+                  {isEditing ? (
+                    <span className="cancel-btn">
+                      <CloseIcon />
+                    </span>
+                  ) : (
+                    <EditIcon />
+                  )}
+                </Tooltip>
+              </StyledIconButton>
+              {isEditing && (
+                <StyledIconButton
+                  color="primary"
+                  onClick={handleSave}
+                  disabled={isSaving}
+                  aria-label="save"
                   size="small"
                 >
-                  <Tooltip title={isEditing ? "Cancel Editing" : "Edit All"}>
-                    {isEditing ? (
-                      <span className="cancel-btn">
-                        <CloseIcon />
-                      </span>
-                    ) : (
-                      <EditIcon />
-                    )}
-                  </Tooltip>
+                  <SaveIcon />
                 </StyledIconButton>
-                {isEditing && (
-                  <StyledIconButton
-                    color="primary"
-                    onClick={handleSave}
-                    disabled={isSaving}
-                    aria-label="save"
-                    size="small"
-                  >
-                    <SaveIcon />
-                  </StyledIconButton>
-                )}
+              )}
             </Box>
           </SectionBox>
         </Box> {/* End centered-box */}

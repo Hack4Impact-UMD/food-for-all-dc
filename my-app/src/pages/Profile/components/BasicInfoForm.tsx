@@ -60,11 +60,11 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
         <Typography className="field-descriptor" sx={fieldLabelStyles}>
           LAST NAME <span className="required-asterisk">*</span>
         </Typography>
-        {renderField("lastName", "text")}       
-      
+        {renderField("lastName", "text")}
+
       </Box>      {/* Date of Birth */}      <Box sx={{ minHeight: '130px' }}>
         <Typography className="field-descriptor" sx={fieldLabelStyles}>
-          DATE OF BIRTH <span className="required-asterisk">*</span>
+          DATE OF BIRTH
         </Typography>
         {renderField("dob", "date")}
         <Box sx={{ minHeight: '24px' }}></Box>
@@ -84,7 +84,7 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
         <Typography className="field-descriptor" sx={fieldLabelStyles}>
           ADDRESS 2
         </Typography>
-        {renderField("address2", "textarea")} 
+        {renderField("address2", "textarea")}
       </Box>
 
       {/* City */}
@@ -103,16 +103,16 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
         {renderField("state", "text")}
         {/* Add state warning for non-DC states */}
         {clientProfile.state && clientProfile.state !== "DC" && !errors.state && (
-            <Typography
-              variant="body2"
-              sx={{
+          <Typography
+            variant="body2"
+            sx={{
               color: '#d32f2f',
               fontSize: '0.875rem',
               marginTop: '4px'
             }}
-            >
-              Warning: State is outside DC ({clientProfile.state})
-            </Typography>
+          >
+            Warning: State is outside DC ({clientProfile.state})
+          </Typography>
         )}
       </Box>
 
@@ -154,7 +154,7 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
           <Typography className="field-descriptor" sx={fieldLabelStyles}>
             EMAIL
           </Typography>
-          <Tooltip 
+          <Tooltip
             title={
               <React.Fragment>
                 <Typography variant="subtitle2">Allowed formats:</Typography>
@@ -162,17 +162,17 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
                 <Typography variant="body2">name@domain.com</Typography>
                 <Typography variant="body2">name@company.org</Typography>
               </React.Fragment>
-            } 
+            }
             arrow
           >
-            <InfoIcon 
-              sx={{ 
-                color: '#257E68', 
+            <InfoIcon
+              sx={{
+                color: '#257E68',
                 fontSize: '20px',
                 cursor: 'help',
                 verticalAlign: 'middle',
                 marginTop: '-12px'
-              }} 
+              }}
             />
           </Tooltip>
         </Box>
@@ -190,7 +190,7 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
           <Typography className="field-descriptor" sx={fieldLabelStyles}>
             PHONE <span className="required-asterisk">*</span>
           </Typography>
-          <Tooltip 
+          <Tooltip
             title={
               <React.Fragment>
                 <Typography variant="subtitle2">Allowed formats:</Typography>
@@ -201,17 +201,17 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
                 <Typography variant="body2">1234567890</Typography>
                 <Typography variant="body2">+1 123-456-7890</Typography>
               </React.Fragment>
-            } 
+            }
             arrow
           >
-            <InfoIcon 
-              sx={{ 
-                color: '#257E68', 
+            <InfoIcon
+              sx={{
+                color: '#257E68',
                 fontSize: '20px',
                 cursor: 'help',
-                verticalAlign: 'middle', 
+                verticalAlign: 'middle',
                 marginTop: '-12px'
-              }} 
+              }}
             />
           </Tooltip>
         </Box>
@@ -229,7 +229,7 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
           <Typography className="field-descriptor" sx={fieldLabelStyles}>
             ALTERNATIVE PHONE
           </Typography>
-          <Tooltip 
+          <Tooltip
             title={
               <React.Fragment>
                 <Typography variant="subtitle2">Allowed formats:</Typography>
@@ -240,17 +240,17 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
                 <Typography variant="body2">1234567890</Typography>
                 <Typography variant="body2">+1 123-456-7890</Typography>
               </React.Fragment>
-            } 
+            }
             arrow
           >
-            <InfoIcon 
-              sx={{ 
-                color: '#257E68', 
+            <InfoIcon
+              sx={{
+                color: '#257E68',
                 fontSize: '20px',
                 cursor: 'help',
                 verticalAlign: 'middle',
                 marginTop: '-12px'
-              }} 
+              }}
             />
           </Tooltip>
         </Box>
@@ -284,7 +284,7 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
           ETHNICITY <span className="required-asterisk">*</span>
         </Typography>
         {renderField("ethnicity", "text")}
-         <Box sx={{ minHeight: '24px' }}></Box>
+        <Box sx={{ minHeight: '24px' }}></Box>
       </Box>
 
       {/* Language */}
@@ -347,9 +347,9 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
       </Box>
 
       {/* Referral Entity */}
-      <Box> 
+      <Box>
         <Typography className="field-descriptor" sx={fieldLabelStyles}>
-        REFERRAL ENTITY
+          REFERRAL ENTITY
         </Typography>
         {isEditing ? (
           <>
@@ -363,13 +363,13 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
                 }
               }}
               // creating an object for the edit list option, rest of array is case workers
-              options = {[{ id: 'edit_list', name: 'Edit Case Worker List', organization: '' } as CaseWorker, ...caseWorkers]}
-              getOptionLabel = {(option) => 
-                option.id === 'edit_list' 
+              options={[{ id: 'edit_list', name: 'Edit Case Worker List', organization: '' } as CaseWorker, ...caseWorkers]}
+              getOptionLabel={(option) =>
+                option.id === 'edit_list'
                   ? 'Edit Case Worker List'
                   : `${option.name}, ${option.organization}`
               }
-              sx = {{ 
+              sx={{
                 width: '100%',
                 position: 'relative',
                 // Ensure proper container bounds
@@ -398,10 +398,10 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
                 '& .MuiAutocomplete-input': {
                   paddingRight: '8px !important',
                 },
-              }}              renderInput = {(params) => (
+              }} renderInput={(params) => (
                 <TextField
                   {...params}
-                  variant = "outlined"
+                  variant="outlined"
                   sx={{
                     backgroundColor: "white",
                     '& .MuiOutlinedInput-root': {
@@ -410,7 +410,7 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
                       '& fieldset': {
                         border: ".1rem solid black",
                         borderRadius: "5px",
-                      },                      '&.Mui-focused fieldset': {
+                      }, '&.Mui-focused fieldset': {
                         border: "2px solid #257E68",
                         boxShadow: "0 0 8px rgba(37, 126, 104, 0.4), 0 0 16px rgba(37, 126, 104, 0.2)",
                       },
@@ -424,11 +424,11 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
               )}
               // specifying the render option for the edit case worker option
               renderOption={(props, option) => (
-                <li {...props} style={{ 
+                <li {...props} style={{
                   color: option.id === 'edit_list' ? "#257E68" : 'inherit',
                   fontWeight: option.id === 'edit_list' ? "bold" : 'normal'
                 }}>
-                  {option.id === 'edit_list' 
+                  {option.id === 'edit_list'
                     ? 'Edit Case Worker List'
                     : `${option.name}, ${option.organization}`
                   }
