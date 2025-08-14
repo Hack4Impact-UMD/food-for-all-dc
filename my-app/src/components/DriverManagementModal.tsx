@@ -178,7 +178,12 @@ const DriverManagementModal: React.FC<DriverManagementModalProps> = ({
           // Add new driver
           const driversCollectionRef = collection(db, "Drivers");
           const docRef = await addDoc(driversCollectionRef, driver);
-          onDriversChange([...drivers, { ...driver, id: docRef.id }]);
+          //add new driver to the top but under DoorDash
+          onDriversChange([
+            drivers[0],                           
+            { ...driver, id: docRef.id },        
+            ...drivers.slice(1)                  
+          ]);
           setIsAddingDriver(false);
           setNewDriver({ name: "", phone: "", email: "" });
         }
