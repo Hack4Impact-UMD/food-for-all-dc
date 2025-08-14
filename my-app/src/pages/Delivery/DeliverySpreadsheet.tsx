@@ -1811,7 +1811,7 @@ const DeliverySpreadsheet: React.FC = () => {
         top: 0,
         width: "100%"
       }}>
-        <Typography variant="h5" sx={{ marginRight: 2,  color: "#787777" }}>
+        <Typography variant="h5" sx={{color: "#787777", width: '350px', textAlign:'center'}}>
           {format(selectedDate, 'EEEE - MMMM, dd/yyyy',)} 
         </Typography>
         
@@ -1835,7 +1835,7 @@ const DeliverySpreadsheet: React.FC = () => {
         <IconButton
           onClick={() => handleDateChange(addDays(selectedDate, 1))}
           size="large"
-          sx={{ color: "#257E68" }}
+          sx={{ color: "#257E68", marginRight: 2 }}
         >
           <Box
             sx={{
