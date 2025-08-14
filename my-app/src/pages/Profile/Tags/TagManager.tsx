@@ -395,6 +395,17 @@ export default function TagManager({ allTags, values, handleTag, setInnerPopup, 
                 onInputChange={(_event, newInputValue) => setSelectedTag(newInputValue)}
                 renderInput={(params) => <TextField {...params} label="Select tag or type new tag" variant="standard" />}
                 clearOnEscape
+                sx={{
+                  '& .MuiInputLabel-root': {
+                    fontSize: '16px',
+                    textAlign: 'center',
+                    left: '50% !important',
+                    transform: 'translate(-50%, 35px)',
+                  },
+                  '& .MuiInputLabel-root.Mui-focused': {
+                    transform: 'translate(-50%, 0px) scale(0.75)',
+                  },
+                }}
                 filterOptions={(options, state) => {
                   // Default filter, then limit to 10
                   const filtered = options.filter(option =>
@@ -412,6 +423,17 @@ export default function TagManager({ allTags, values, handleTag, setInnerPopup, 
               onChange={(_event, newValue) => setSelectedTag(newValue)}
               renderInput={(params) => <TextField {...params} label="Select tag to remove" variant="standard" />}
               clearOnEscape
+              sx={{
+                '& .MuiInputLabel-root': {
+                  fontSize: '16px',
+                  textAlign: 'center',
+                  left: '50% !important',
+                  transform: 'translate(-50%, 35px)',
+                },
+                '& .MuiInputLabel-root.Mui-focused': {
+                  transform: 'translate(-50%, 0px) scale(0.75)',
+                },
+              }}
               filterOptions={(options, state) => {
                 const filtered = options.filter(option =>
                   option.toLowerCase().includes(state.inputValue.toLowerCase())

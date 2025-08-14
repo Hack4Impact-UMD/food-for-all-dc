@@ -196,21 +196,29 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = ({
               filterOptions={filterOptions}
               value={newDelivery.clientId ? uniqueClients.find(c => c.uid === newDelivery.clientId) : undefined}
               sx={{
-                width: 'calc(100% + 38px)',
-                maxWidth: 'calc(100% + 38px)',
-                '.MuiInputBase-root': { width: '100%' },
+                width: 'calc(100% + 48px)',
+                '.MuiInputBase-root': { 
+                  width: '100%',
+                  minWidth: '100%',
+                },
                 '.MuiOutlinedInput-root': {
                   width: '100%',
+                  minWidth: '100%',
                   height: '56px',
                   minHeight: '56px',
                   boxSizing: 'border-box',
                 },
                 '.MuiOutlinedInput-input': {
+                  width: '100%',
                   height: '56px',
                   minHeight: '56px',
                   display: 'flex',
                   alignItems: 'center',
                   boxSizing: 'border-box',
+                },
+                '.MuiAutocomplete-root': {
+                  width: '100%',
+                  minWidth: '100%',
                 },
               }}
               componentsProps={{
@@ -304,7 +312,7 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = ({
                   transform: 'translateY(-50%)',
                   pointerEvents: 'none',
                   color: 'action.active',
-                  fontSize: 28,
+                  fontSize: 24,
                 }} />
               }
               renderInput={(params) => (
