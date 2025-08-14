@@ -11,7 +11,8 @@ export type ClientProfileKey =
   | keyof ClientProfile
   | "deliveryDetails.dietaryRestrictions"
   | "deliveryDetails.deliveryInstructions"
-  | "tefapCert";
+  | "tefapCert"
+  | "famStartDate";
 
 export type InputType =
   | "text"

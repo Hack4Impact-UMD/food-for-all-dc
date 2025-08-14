@@ -88,7 +88,6 @@ import { validateClientProfile } from '../utils/firestoreValidation';
             uid: doc.id,
             firstName: raw.firstName || "",
             lastName: raw.lastName || "",
-            streetName: raw.streetName || "",
             zipCode: raw.zipCode || "",
             address: raw.address || "",
             address2: raw.address2 || "",

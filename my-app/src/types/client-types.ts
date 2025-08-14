@@ -26,7 +26,7 @@ export interface ClientProfile {
   uid: string;
   firstName: string;
   lastName: string;
-  streetName: string;
+    miscellaneousDynamicFields?: { [key: string]: string };
   zipCode: string;
   address: string;
   address2: string;
