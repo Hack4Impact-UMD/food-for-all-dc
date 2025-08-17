@@ -76,9 +76,6 @@ textarea.error,
 }
 
 /* Fix for double outline on select fields */
-.MuiOutlinedInput-notchedOutline {
-  border: none !important; /* Remove the default MUI outline */
-}
 
 .MuiSelect-select:focus {
   background-color: transparent !important;

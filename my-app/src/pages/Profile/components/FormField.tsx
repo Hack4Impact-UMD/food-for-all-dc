@@ -91,7 +91,7 @@ const CustomTextField = styled(TextField)({
       boxShadow: "0 0 8px rgba(37, 126, 104, 0.4), 0 0 16px rgba(37, 126, 104, 0.2)",
     },
   },
-  "& .MuiInputBase-inputMultiline": {
+  "& .MuiInputBase-inputMultiline, & textarea": {
     backgroundColor: "white",
     width: "100%",
     minHeight: "56px",
@@ -105,7 +105,7 @@ const CustomTextField = styled(TextField)({
     wordWrap: "break-word",
     overflowWrap: "break-word",
     wordBreak: "break-word",
-    resize: "vertical",
+    resize: "vertical !important",
     "&:focus": {
       border: "2px solid #257E68",
       outline: "none",
@@ -663,6 +663,7 @@ const FormField: React.FC<FormFieldProps> = ({
             maxRows={4}
             inputProps={{ minLength: minLengthTextarea }}
             sx={{ minHeight: 120, width: '100%' }}
+            style={{ width: '100%' }}
             disabled={fieldPath === "ward"}
           />
         );
