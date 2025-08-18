@@ -18,6 +18,7 @@ import { auth } from "../../auth/firebaseConfig"; // Use the initialized auth fr
 import styles from "./Login.module.css";
 import foodForAllDCLogin from "../../assets/food-for-all-dc-login.png";
 import foodForAllDCLogo from "../../assets/food-for-all-dc-logo.jpg";
+import { isStrongPassword } from "../../utils/password";
 
 function Login() {
   const [loginEmail, setLoginEmail] = useState("");
@@ -56,7 +57,7 @@ function Login() {
     // Cleanup the listener when the component unmounts
     return () => unsubscribe();
   }, [navigate]);
-  
+
   // Helper to map Firebase login errors to AuthError
   const mapLoginError = (error: any): AuthError => {
     if (!error || !error.code) {
@@ -69,6 +70,8 @@ function Login() {
         return { code: error.code, message: "Invalid email or password." };
       case "auth/missing-fields":
         return { code: error.code, message: "Please enter both email and password." };
+      case "auth/invalid-password":
+        return { code: error.code, message: "Weak password. Must contain at least 8 characters, with at least 1 uppercase letter, 1 lowercase letter, 1 number, and 1 special character. Reset password email sent." };
       default:
         return { code: error.code, message: "An error occurred during login. Please try again." };
     }
@@ -77,6 +80,20 @@ function Login() {
   const handleLogin = async () => {
     if (!loginEmail || !loginPassword) {
       setLoginError(mapLoginError({ code: "auth/missing-fields" }));
+      return;
+    }
+    if (isStrongPassword(loginPassword) === false) {
+      setLoginError(mapLoginError({ code: "auth/invalid-password" }));
+      setIsLoading(true);
+      setResetPasswordMessage("");
+      try {
+        await sendPasswordResetEmail(auth, loginEmail);
+      } catch (error: any) {
+        console.error("Error sending password reset email:", error);
+        setResetPasswordMessage(mapPasswordResetError(error));
+      } finally {
+        setIsLoading(false);
+      }
       return;
     }
     setIsLoading(true);
@@ -188,20 +205,20 @@ function Login() {
                 autoComplete="current-password"
               />
             </FormControl>
-            
+
             <div className={styles.forgotPasswordWrapper}>
               <p className={styles.forgotPasswordButton} onClick={handleDialogOpen}>
                 Forgot password?
               </p>
             </div>
-            
+
             {loginError && <p className={styles.error} role="alert">{loginError.message}</p>}
             {resetPasswordMessage && <p className={styles.resetMessage}>{resetPasswordMessage}</p>}
-            
-            <Button 
-              variant="contained" 
-              color="primary" 
-              type="submit" 
+
+            <Button
+              variant="contained"
+              color="primary"
+              type="submit"
               fullWidth
               disabled={isLoading}
               aria-label="Sign in"
@@ -248,13 +265,13 @@ function Login() {
           />
         </DialogContent>
         <DialogActions>
-          <Button 
+          <Button
             onClick={handleDialogClose}
             style={{ borderRadius: 'var(--border-radius-xl)' }}
           >
             Cancel
           </Button>
-          <Button 
+          <Button
             type="submit"
             disabled={isLoading}
             style={{ borderRadius: 'var(--border-radius-xl)' }}
