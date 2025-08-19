@@ -374,6 +374,7 @@ const Profile = () => {
       if (clientId) {
         try {
           const eventsRef = collection(db, "events");
+          const clientRef = doc(db, "clients", clientId);
           const q = query(
             eventsRef,
             where("clientId", "==", clientId),
@@ -386,6 +387,7 @@ const Profile = () => {
             const lastEvent = querySnapshot.docs[0].data();
             const deliveryDate = lastEvent.deliveryDate.toDate();
             setLastDeliveryDate(deliveryDate.toISOString().split("T")[0]);
+            await updateDoc(clientRef, { lastDeliveryDate: deliveryDate.toISOString().split("T")[0] });
           } else {
             setLastDeliveryDate("No deliveries found");
           }

@@ -1,9 +1,10 @@
-import React, { useEffect, useState } from "react";
-import { TextField, IconButton, Box, Typography } from "@mui/material";
-import CalendarTodayIcon from "@mui/icons-material/CalendarToday";
-import { DatePicker, LocalizationProvider } from "@mui/x-date-pickers";
-import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
+import React, { useState, useEffect } from "react";
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
 import { formatDate as formatAppDate } from "../../utils/dates";
+import { Box, Typography } from "@mui/material";
+import CalendarTodayIcon from "@mui/icons-material/CalendarToday";
+import { styled } from "@mui/material/styles";
 
 interface DateRangePickerProps {
   startDate: Date | null;
@@ -12,16 +13,29 @@ interface DateRangePickerProps {
   setEndDate: (date: Date | null) => void;
 }
 
+
+const StyledDatePickerWrapper = styled(Box)({
+  "& .react-datepicker-popper": {
+    zIndex: 1000,
+  },
+  "& .react-datepicker": {
+    fontFamily: "inherit",
+    border: "none",
+    boxShadow: "0px 2px 10px rgba(0, 0, 0, 0.1)",
+  },
+});
+
+
 export default function DateRangePicker({
   startDate,
   endDate,
   setStartDate,
   setEndDate,
 }: DateRangePickerProps) {
-  const [openStart, setOpenStart] = useState(false);
-  const [openEnd, setOpenEnd] = useState(false);
+  const formatDate = (date: Date | null) =>
+    date ? formatAppDate(date) : "Select date";
 
-  useEffect(()=>{
+  useEffect(() => {
     if (startDate != null) {
       localStorage.setItem("ffaReportDateRangeStart", startDate.toString());
     }
@@ -29,54 +43,43 @@ export default function DateRangePicker({
     if (endDate != null) {
       localStorage.setItem("ffaReportDateRangeEnd", endDate.toString());
     }
-  },[startDate, endDate])
-
-  const formatDate = (date: Date | null) =>
-    date ? formatAppDate(date) : "Select date";
+  }, [startDate, endDate]);
 
   return (
-    <LocalizationProvider dateAdapter={AdapterDateFns}>
+    <StyledDatePickerWrapper>
       <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-        <Typography>{formatDate(startDate)}</Typography>
-        <IconButton
-          size="small"
-          onClick={() => setOpenStart(true)}
-          aria-label="Select start date"
-        >
-          <CalendarTodayIcon />
-        </IconButton>
         <DatePicker
-          open={openStart}
-          onClose={() => setOpenStart(false)}
-          value={startDate}
-          onChange={(newValue) => setStartDate(newValue)}
+          selected={startDate}
+          onChange={(date) => setStartDate(date)}
+          selectsStart
+          startDate={startDate}
           maxDate={endDate ?? undefined}
-          slotProps={{
-            textField: { sx: { display: "none" } }
-          }}
+          customInput={
+            <Box sx={{ display: "flex", alignItems: "center" }}>
+              <Typography>{formatDate(startDate)}</Typography>
+              <CalendarTodayIcon sx={{ ml: 1, cursor: "pointer" }} />
+            </Box>
+          }
+          wrapperClassName="date-picker"
         />
 
         <Typography> - </Typography>
 
-        <Typography>{formatDate(endDate)}</Typography>
-        <IconButton
-          size="small"
-          onClick={() => setOpenEnd(true)}
-          aria-label="Select end date"
-        >
-          <CalendarTodayIcon />
-        </IconButton>
         <DatePicker
-          open={openEnd}
-          onClose={() => setOpenEnd(false)}
-          value={endDate}
-          onChange={(newValue) => setEndDate(newValue)}
+          selected={endDate}
+          onChange={(date) => setEndDate(date)}
+          selectsEnd
+          endDate={endDate}
           minDate={startDate ?? undefined}
-          slotProps={{
-            textField: { sx: { display: "none" } }
-          }}
+          customInput={
+            <Box sx={{ display: "flex", alignItems: "center" }}>
+              <Typography>{formatDate(endDate)}</Typography>
+              <CalendarTodayIcon sx={{ ml: 1, cursor: "pointer" }} />
+            </Box>
+          }
+          wrapperClassName="date-picker"
         />
       </Box>
-    </LocalizationProvider>
+    </StyledDatePickerWrapper>
   );
 }

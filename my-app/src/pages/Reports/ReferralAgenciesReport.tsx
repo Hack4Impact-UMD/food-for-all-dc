@@ -1,12 +1,26 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import ReportHeader from "./ReportHeader";
 import { Accordion, AccordionDetails, AccordionSummary, Box, Typography } from "@mui/material";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import Spreadsheet from "../../components/Spreadsheet/Spreadsheet";
+import { db } from "../../auth/firebaseConfig";
+import { collection, getDocs, limit, query, where } from "firebase/firestore";
+import {Time, TimeUtils} from "../../utils/timeUtils";
+import { CaseWorker } from "../../types";
+import { useNavigate } from "react-router-dom";
+
+interface ReferralClient { 
+  id: string;
+  name: string; 
+  lastDelivery: string 
+}
 
 const ReferralAgenciesReport: React.FC = () => {
+  const navigate = useNavigate()
   const [expandedPanels, setExpandedPanels] = useState<number[]>([]);
   const [loading, setLoading] = useState(false);
+  const [agencies, setAgencies] = useState<any>({})
+  const [agencyNames, setAgencyNames] = useState<string[]>([])
   const [startDate, setStartDate] = useState<Date | null>(() => {
     const start = localStorage.getItem("ffaReportDateRangeStart");
     if (start) {
@@ -15,6 +29,7 @@ const ReferralAgenciesReport: React.FC = () => {
       return null;
     }
   });
+
   const [endDate, setEndDate] = useState<Date | null>(() => {
     const end = localStorage.getItem("ffaReportDateRangeEnd");
     if (end) {
@@ -24,33 +39,86 @@ const ReferralAgenciesReport: React.FC = () => {
     }
   });
 
-  interface Agency { 
-    name: string; 
-    lastDelivery: string 
+  //Get caseworkers
+  const getCaseWorkers = async () => {
+    try {
+      const caseworkerRef = collection(db, "new_case_workers");
+
+      // Convert Date | null to DateTime, or use a default fallback if null
+      const startDateTime = startDate ? TimeUtils.fromJSDate(startDate).startOf('day') : TimeUtils.fromJSDate(new Date(0));
+      const endDateTime = endDate ? TimeUtils.fromJSDate(endDate).endOf('day') : TimeUtils.fromJSDate(new Date(8640000000000000));
+      
+      const q = query(
+        caseworkerRef,
+        where("createdAt", ">=", Time.Firebase.toTimestamp(startDateTime)),
+        limit(10)
+      );
+
+      const snapshot = await getDocs(q);
+      const caseWorkers: CaseWorker[] = snapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          name: data.name,
+          organization: data.organization,
+          phone: data.phone,
+          email: data.email,
+        };
+      });
+      return caseWorkers
+    } catch (e) {
+      console.error(e)
+      return []
+    }
   }
 
-  const agencies: { [key: string]: Agency[] } = {
-    "Peter Sage - Food For All DC": [
-      {name: "Margot Robbie", lastDelivery: "7/07/2025"}
-    ],
-    "Jimmy Stevens - Catholic Charities": [
-      {name: "Chris Hemsworth", lastDelivery: "7/07/25"}
-    ],
-    "Buther Bailey - Google": [
-      {name: "Ryan Gosling", lastDelivery: "7/07/25"}
-    ],
-    "Versace Donatella - Meta": [
-      {name: "Emma Stone", lastDelivery: "7/07/25"}
-    ],
-    "Charolotte Altchison - Walmart": [
-      {name: "Pedro Pascal", lastDelivery: "7/07/25"}
-    ],
-    "Mr. Bean - Pinterest": [
-      {name: "Chris Evans", lastDelivery: "7/07/25"}
-    ]
-  };
+  //Get caseworkers
+  const getClientsForCaseworker = async (caseworkerId: string) => {
+    const clientRef = collection(db, "clients");
 
-  const agencyNames = Object.keys(agencies);
+    // Convert Date | null to DateTime, or use a default fallback if null
+    // const startDateTime = startDate ? TimeUtils.fromJSDate(startDate).startOf('day') : TimeUtils.fromJSDate(new Date(0));
+    // const endDateTime = endDate ? TimeUtils.fromJSDate(endDate).endOf('day') : TimeUtils.fromJSDate(new Date(8640000000000000));
+    const q = query(
+      clientRef,
+      where("referralEntity.id", "==", caseworkerId),
+      limit(10)
+    );
+
+    const snapshot = await getDocs(q);
+    const clients = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+    return clients;
+  }
+
+  // let agencies: { [key: string]: ReferralClient[] } = {};
+
+  const generateReport = async () => {
+    const caseworkers = await getCaseWorkers();
+    const report: { [key: string]: ReferralClient[] }  = {}
+    let counter = 0
+    const newAgencies: any = {}
+    for (const caseworker of caseworkers) {
+      console.log(caseworker.id)
+      console.log(counter)
+      counter += 1
+      const title = `${caseworker.name} - ${caseworker.organization} - (${caseworker.phone},  ${caseworker.email})`;
+      const clients = await getClientsForCaseworker(caseworker.id);
+      if (clients.length > 0) {
+        newAgencies[title] = []
+        clients.forEach((client: any)=>{
+          newAgencies[title].push({name: `${client.firstName} ${client.lastName}`, id: client.id, lastDelivery: client.lastDeliveryDate})
+        })
+      }
+    }
+    setAgencies(newAgencies)
+  }
+
+  useEffect(()=>{
+    setAgencyNames(Object.keys(agencies));
+  },[agencies])
 
   const handleToggle = (index: number) => {
     setExpandedPanels((prev) =>
@@ -61,7 +129,7 @@ const ReferralAgenciesReport: React.FC = () => {
   };
 
   const expandAllPanels = () => {
-    setExpandedPanels(agencyNames.map((_, i) => i));
+    setExpandedPanels(agencyNames.map((_: any, i: any) => i));
   };
 
   const collapseAllPanels = () => {
@@ -73,7 +141,7 @@ const ReferralAgenciesReport: React.FC = () => {
       style={{
         display: "flex",
         flexDirection: "column",
-        height: "100vh", 
+        height: "90vh", 
       }}
     >
       <ReportHeader 
@@ -81,6 +149,7 @@ const ReferralAgenciesReport: React.FC = () => {
         endDate={endDate} 
         setStartDate={setStartDate} 
         setEndDate={setEndDate}
+        generateReport = {generateReport}
       />
       <div
         style={{
@@ -180,7 +249,7 @@ const ReferralAgenciesReport: React.FC = () => {
                   <p>Select a timeframe and click &quot;Generate&quot; to see results</p>
                 </Box>
               ) : (
-                agencies[name].map((agency, agencyIndex) => (
+                agencies[name].map((agency: any, agencyIndex: any) => (
                   <Box
                     key={`${index}-${agencyIndex}`}
                     sx={{
@@ -194,17 +263,23 @@ const ReferralAgenciesReport: React.FC = () => {
                       flexDirection: "column"
                     }}
                   >
-                    <Typography sx={{
-                      color: "var(--color-primary)", 
-                      fontWeight: "bold", 
-                      textDecoration: "underline", 
-                      fontSize: "17px"
-                    }}>
-                      {agency.name}
-                    </Typography>
-                    <Typography sx={{ margin: 0 }}>
-                      Last Delivered: {agency.lastDelivery}
-                    </Typography>
+                    <>
+                      <Typography
+                        sx={{
+                          color: "var(--color-primary)", 
+                          fontWeight: "bold", 
+                          textDecoration: "underline", 
+                          fontSize: "17px"
+                        }}
+                        onClick={() => { navigate(`/profile/${agency.id}`); }}
+                        style={{ cursor: "pointer" }}
+                      >
+                        {agency.name}
+                      </Typography>
+                      <Typography sx={{ margin: 0 }}>
+                        Last Delivered: {agency.lastDelivery}
+                      </Typography>
+                    </>
                   </Box>
                 ))
               )}

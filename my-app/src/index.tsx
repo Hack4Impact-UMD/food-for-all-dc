@@ -35,17 +35,17 @@ if (process.env.NODE_ENV === 'production') {
 if (process.env.NODE_ENV === 'development') {
   // Log performance metrics every 10 seconds
   setInterval(() => {
-    const metrics = performanceMonitor.getMetrics();
-    const recommendations = performanceMonitor.getRecommendations();
+    // const metrics = performanceMonitor.getMetrics();
+    // const recommendations = performanceMonitor.getRecommendations();
     
-    if (Object.keys(metrics).length > 0) {
-      console.group('Performance Metrics');
-      console.table(metrics);
-      if (recommendations.length > 0) {
-        console.warn('Recommendations:', recommendations);
-      }
-      console.groupEnd();
-    }
+    // if (Object.keys(metrics).length > 0) {
+    //   console.group('Performance Metrics');
+    //   console.table(metrics);
+    //   if (recommendations.length > 0) {
+    //     console.warn('Recommendations:', recommendations);
+    //   }
+    //   console.groupEnd();
+    // }
   }, 10000);
 }
 

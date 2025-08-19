@@ -31,15 +31,21 @@ const ClientReport: React.FC = () => {
       style={{
         display: "flex",
         flexDirection: "column",
-        height: "100vh", 
+        height: "90vh", 
       }}
     >
+      <div
+        style={{
+          height: "fit-content",
+        }}
+      >
         <ReportHeader startDate={startDate} endDate = {endDate} setStartDate = {setStartDate} setEndDate = {setEndDate}></ReportHeader>
         <Typography sx={{color:"var(--color-primary)", fontSize:"30px", fontWeight:"bold", textDecoration:"underline"}}>Active Clients</Typography>
         <Spreadsheet editable={false}></Spreadsheet>
 
         <Typography sx={{color:"var(--color-primary)", fontSize:"30px", fontWeight:"bold", textDecoration:"underline"}}>Lapsed Clients</Typography>
         <Spreadsheet editable={false}></Spreadsheet>
+      </div>
     </div>
   );
 };

@@ -66,7 +66,7 @@ const SummaryReport: React.FC = () => {
       style={{
         display: "flex",
         flexDirection: "column",
-        height: "100vh", 
+        height: "90vh", 
       }}
     >
         <ReportHeader startDate={startDate} endDate = {endDate} setStartDate = {setStartDate} setEndDate = {setEndDate}></ReportHeader>

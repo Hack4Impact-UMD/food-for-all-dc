@@ -7,9 +7,10 @@ interface ReportHeaderProps {
   endDate: Date | null;
   setStartDate: (date: Date | null) => void;
   setEndDate: (date: Date | null) => void;
+  generateReport?: () => any
 }
 
-export default function ReportHeader({startDate, endDate, setStartDate, setEndDate}: ReportHeaderProps) {
+export default function ReportHeader({startDate, endDate, setStartDate, setEndDate, generateReport}: ReportHeaderProps) {
     return (
         <div
             style={{
@@ -19,7 +20,7 @@ export default function ReportHeader({startDate, endDate, setStartDate, setEndDa
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
-            marginTop: "3%"
+            marginTop: "0%"
             }}
         >
 
@@ -31,6 +32,7 @@ export default function ReportHeader({startDate, endDate, setStartDate, setEndDa
           <Button
             variant="contained"
             sx={{ backgroundColor: "var(--color-primary)" }}
+            onClick = {generateReport}
           >
             Generate
           </Button>
