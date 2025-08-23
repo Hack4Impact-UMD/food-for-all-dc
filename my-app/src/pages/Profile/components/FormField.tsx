@@ -212,6 +212,15 @@ const CustomCheckbox = styled(Checkbox)({
       color: "rgba(37, 126, 104, 1)",
     },
   },
+  "&.MuiCheckbox-root .MuiSvgIcon-root": {
+    color: "#257E68",
+  },
+  "&.Mui-checked .MuiSvgIcon-root": {
+    color: "#257E68",
+  },
+  "& .MuiSvgIcon-root": {
+    color: "#257E68",
+  },
 });
 
 const DateFieldComponent = ({
@@ -364,17 +373,24 @@ const FormField: React.FC<FormFieldProps> = ({
           {Object.entries(restrictions)
             .filter(([key, value]) => typeof value === "boolean")
             .map(([key, value]) => (
-              <Grid key={key}>                <FormControlLabel
-                sx={{ textAlign: "left" }}
-                control={
-                  <CustomCheckbox
-                    name={key}
-                    checked={value as boolean}
-                    onChange={handleDietaryRestrictionChange}
-                  />
-                }
-                label={capitalizeFirstLetter(key.replace(/([A-Z])/g, " $1").trim())}
-              />
+              <Grid key={key}>
+                <FormControlLabel
+                  sx={{ textAlign: "left" }}
+                  control={
+                    <CustomCheckbox
+                      name={key}
+                      checked={value as boolean}
+                      onChange={handleDietaryRestrictionChange}
+                  sx={!isEditing ? {
+                    '&.MuiCheckbox-root .MuiSvgIcon-root': { color: '#B6E5D8 !important' },
+                    '&.Mui-checked .MuiSvgIcon-root': { color: '#B6E5D8 !important' },
+                    '& .MuiSvgIcon-root': { color: '#B6E5D8 !important' },
+                  } : {}}
+                      disabled={!isEditing}
+                    />
+                  }
+                  label={capitalizeFirstLetter(key.replace(/([A-Z])/g, " $1").trim())}
+                />
               </Grid>
             ))}
         </Grid>
