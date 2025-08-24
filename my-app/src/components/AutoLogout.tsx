@@ -18,8 +18,8 @@ const AutoLogout = () => {
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
   const [type, setType] = useState<AutoLogoutType>(AutoLogoutType.NONE);
 
-  const FIVE_MINUTES = 5 * 60 * 1000;
-  const FOUR_AND_A_HALF_MINUTES = 4.5 * 60 * 1000;
+  const ONE_HOUR = 60 * 60 * 1000;
+  const FIFTY_NINE_AND_A_HALF_MINUTES = 59.5 * 60 * 1000;
 
   //dynamic dialog settings
   const isLogout = type === AutoLogoutType.LOGOUT;
@@ -39,13 +39,13 @@ const AutoLogout = () => {
     //30 second warning
     warningRef.current = setTimeout(() => {
       setType(AutoLogoutType.WARNING);
-    }, FOUR_AND_A_HALF_MINUTES);
+    }, FIFTY_NINE_AND_A_HALF_MINUTES);
 
-    //logout after 5 mins
+    //logout after 1 hour
     timeoutRef.current = setTimeout(() => {
       signOut(auth);
       setType(AutoLogoutType.LOGOUT);
-    }, FIVE_MINUTES);
+    }, ONE_HOUR);
   }, []);
 
   const handleActivity = useCallback(() => {
