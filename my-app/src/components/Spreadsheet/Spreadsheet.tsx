@@ -787,7 +787,7 @@ const StyleChip = styled(Chip)({
         position: "relative",
         display: "flex",
         flexDirection: "column",
-        height: "85vh",
+        // Remove height and overflowY to prevent outside scrollbar
         mt:0
       }}
     >
@@ -955,7 +955,7 @@ const StyleChip = styled(Chip)({
           mb: 3,
           width: "100%",
           flex: 1,
-          overflowY: "auto"
+          overflowY: "visible"
         }}
       >
         {/* Mobile Card View for Small Screens */}
@@ -1085,7 +1085,7 @@ const StyleChip = styled(Chip)({
           <TableContainer
             component={Paper}
             sx={{
-              maxHeight: "none",
+              maxHeight: "60vh",
               overflowY: "auto",
               boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
               borderRadius: "12px",
@@ -1093,7 +1093,7 @@ const StyleChip = styled(Chip)({
           >
             <Table stickyHeader>
               <TableHead>
-                <TableRow>
+                <TableRow sx={{ position: 'sticky', top: 0, zIndex: 2 }}>
                   {/* Static columns */}
                   {fields.map((field) => (
                     <TableCell

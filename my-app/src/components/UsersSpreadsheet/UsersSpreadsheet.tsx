@@ -314,7 +314,6 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
         position: "relative",
         display: "flex",
         flexDirection: "column",
-        height: "calc(100vh - 64px)",
       }}
     >
       {/* Feedback Alert */}
@@ -437,9 +436,8 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
           mt: 3,
           mb: 3,
           width: "100%",
-          flex: 1,
-          overflowY: "auto",
           position: 'relative',
+          overflow: 'visible',
         }}
       >
         {/* Loading Indicator */}
@@ -512,7 +510,7 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
             <TableContainer
               component={Paper}
               sx={{
-                maxHeight: "none",
+                maxHeight: 520,
                 overflowY: "auto",
                 boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
                 borderRadius: "12px",
@@ -526,6 +524,9 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
                         className="table-header"
                         key={field.key}
                         sx={{
+                          position: 'sticky',
+                          top: 0,
+                          zIndex: 3,
                           backgroundColor: "#f5f9f7",
                           borderBottom: "2px solid #e0e0e0",
                         }}
@@ -625,7 +626,7 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
             </TableContainer>
           )
         )}
-      </Box>
+  </Box>
 
       {/* Action Menu (simplified) */}
       <Menu
