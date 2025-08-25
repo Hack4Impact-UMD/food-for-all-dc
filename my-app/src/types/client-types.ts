@@ -23,6 +23,7 @@ export interface DeliveryDetails {
 }
 
 export interface ClientProfile {
+  famStartDate?: string | null;
   uid: string;
   firstName: string;
   lastName: string;
