@@ -1345,39 +1345,64 @@ const StyleChip = styled(Chip)({
                         ) : (field as any).compute ? (
                           field.key === "deliveryDetails.dietaryRestrictions" ? (
                             (() => {
-                              const restrictions = (field as any).compute(row);
-                              if (restrictions === "None") {
+                              const dr = row.deliveryDetails?.dietaryRestrictions;
+                              if (!dr) {
                                 return (
-                                  <Typography sx={{ 
-                                    fontSize: '0.875rem',
-                                    color: "#757575",
-                                    fontStyle: "italic"
-                                  }}>
-                                    None
-                                  </Typography>
+                                  <Typography sx={{ fontSize: '0.875rem', color: '#757575', fontStyle: 'italic' }}>None</Typography>
+                                );
+                              }
+                              const chips: { label: string; color: string; border: string; textColor: string }[] = [];
+                              // Boolean restrictions (green)
+                              [
+                                { key: 'halal', label: 'Halal' },
+                                { key: 'kidneyFriendly', label: 'Kidney Friendly' },
+                                { key: 'lowSodium', label: 'Low Sodium' },
+                                { key: 'lowSugar', label: 'Low Sugar' },
+                                { key: 'microwaveOnly', label: 'Microwave Only' },
+                                { key: 'noCookingEquipment', label: 'No Cooking Equipment' },
+                                { key: 'softFood', label: 'Soft Food' },
+                                { key: 'vegan', label: 'Vegan' },
+                                { key: 'vegetarian', label: 'Vegetarian' },
+                                { key: 'heartFriendly', label: 'Heart Friendly' },
+                              ].forEach(opt => {
+                                // Use type assertion to ensure key is keyof typeof dr
+                                if (dr[opt.key as keyof typeof dr]) {
+                                  chips.push({ label: opt.label, color: '#e8f5e9', border: '#c8e6c9', textColor: '#2E5B4C' });
+                                }
+                              });
+                              // Allergies (light red)
+                              if (Array.isArray(dr.foodAllergens) && dr.foodAllergens.length > 0) {
+                                dr.foodAllergens.forEach((allergy: string) => {
+                                  if (allergy && allergy.trim()) {
+                                    chips.push({ label: allergy, color: '#FFEBEE', border: '#FFCDD2', textColor: '#C62828' });
+                                  }
+                                });
+                              }
+                              // Other (light purple)
+                              if (dr.otherText && dr.otherText.trim()) {
+                                chips.push({ label: dr.otherText, color: '#F3E8FF', border: '#CEB8FF', textColor: '#6C2EB7' });
+                              }
+                              if (chips.length === 0) {
+                                return (
+                                  <Typography sx={{ fontSize: '0.875rem', color: '#757575', fontStyle: 'italic' }}>None</Typography>
                                 );
                               }
                               return (
                                 <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, maxWidth: '250px' }}>
-                                  {restrictions.split(", ").map((restriction: string, i: number) => (
+                                  {chips.map((chip, i) => (
                                     <Chip
                                       key={i}
-                                      label={restriction}
+                                      label={chip.label}
                                       size="small"
                                       sx={{
-                                        backgroundColor: "#e8f5e9",
-                                        color: "#2E5B4C",
-                                        fontSize: "0.75rem",
-                                        height: "20px",
+                                        backgroundColor: chip.color,
+                                        color: chip.textColor,
+                                        fontSize: '0.75rem',
+                                        height: '20px',
                                         fontWeight: 500,
-                                        border: "1px solid #c8e6c9",
-                                        "& .MuiChip-label": {
-                                          px: 1
-                                        },
-                                        "&:hover": {
-                                          backgroundColor: "#e8f5e9",
-                                          cursor: "default"
-                                        }
+                                        border: `1px solid ${chip.border}`,
+                                        '& .MuiChip-label': { px: 1 },
+                                        '&:hover': { backgroundColor: chip.color, cursor: 'default' }
                                       }}
                                     />
                                   ))}

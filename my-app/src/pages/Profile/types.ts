@@ -10,6 +10,7 @@ export type NestedKeyOf<T> = {
 export type ClientProfileKey =
   | keyof ClientProfile
   | "deliveryDetails.dietaryRestrictions"
+  | "deliveryDetails.dietaryRestrictions.dietaryPreferences"
   | "deliveryDetails.deliveryInstructions"
   | "tefapCert"
   | "famStartDate";

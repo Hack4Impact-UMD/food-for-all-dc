@@ -9,6 +9,7 @@ interface HealthCheckboxProps {
   showOtherText?: boolean;
   otherTextValue?: string;
   placeholder?: string;
+  isEditing?: boolean;
 }
 
 const checkboxStyles = {
@@ -45,16 +46,31 @@ const HealthCheckbox: React.FC<HealthCheckboxProps> = ({
   label,
   showOtherText = false,
   otherTextValue = "",
-  placeholder = "Please specify"
+  placeholder = "Please specify",
+  isEditing = true
 }) => {
+  // Only change color in read-only mode, keep default style
+  const checkboxProps = !isEditing
+    ? {
+      sx: {
+        '&.MuiCheckbox-root .MuiSvgIcon-root': { color: '#B6E5D8 !important' },
+        '&.Mui-checked .MuiSvgIcon-root': { color: '#B6E5D8 !important' },
+        '& .MuiSvgIcon-root': { color: '#B6E5D8 !important' },
+      },
+      disabled: true,
+    }
+    : {
+      sx: checkboxStyles,
+      disabled: false,
+    };
   if (name === "other" && showOtherText) {
     return (
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
         <FormControlLabel
-          control={<Checkbox checked={checked} onChange={onChange} name={name} sx={checkboxStyles} />}
-          label={label}
+          control={<Checkbox checked={checked} onChange={onChange} name={name} {...checkboxProps} />}
+          label={<span style={{ color: 'black' }}>{label}</span>}
         />
-        {checked && (
+        {checked && isEditing && (
           <TextField
             name="otherText"
             value={otherTextValue}
@@ -71,8 +87,8 @@ const HealthCheckbox: React.FC<HealthCheckboxProps> = ({
 
   return (
     <FormControlLabel
-      control={<Checkbox checked={checked} onChange={onChange} name={name} sx={checkboxStyles} />}
-      label={label}
+      control={<Checkbox checked={checked} onChange={onChange} name={name} {...checkboxProps} />}
+      label={<span style={{ color: 'black' }}>{label}</span>}
     />
   );
 };
