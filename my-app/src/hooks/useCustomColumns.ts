@@ -1,4 +1,25 @@
+// List of allowed property keys for custom columns
+export const allowedPropertyKeys = [
+  "none",
+  "address",
+  "adults",
+  "children",
+  "deliveryFreq",
+  "deliveryDetails.dietaryRestrictions",
+  "ethnicity",
+  "gender",
+  "language",
+  "notes",
+  "referralEntity",
+  "tefapCert",
+  "tags",
+  "dob",
+  "ward",
+  "zipCode"
+];
+
 // useCustomColumns.ts
+
 import { SelectChangeEvent } from "@mui/material";
 import { useEffect, useState } from "react";
 import { DeliveryDetails, DietaryRestrictions } from '../types';
@@ -47,6 +68,7 @@ export const useCustomColumns = ({page}: useCustomColumnsProps) => {
     localStorage.setItem(`ffaCustomColumns${page}`, JSON.stringify(customColumns))
   },[customColumns, page])
 
+
   // Function to add a new custom column
   const handleAddCustomColumn = () => {
     const newColumnId = `custom-${Date.now()}`; // Unique id generation
@@ -56,6 +78,9 @@ export const useCustomColumns = ({page}: useCustomColumnsProps) => {
       propertyKey: "none",
     };
     setCustomColumns([...customColumns, newColumn]);
+
+    // Optionally, you can pre-populate with Dietary Restrictions if desired
+    // setCustomColumns([...customColumns, { id: newColumnId + '-diet', label: 'Dietary Restrictions', propertyKey: 'deliveryDetails.dietaryRestrictions' }]);
   };
 
   const handleCustomColumnChange = (
@@ -88,7 +113,14 @@ export const useCustomColumns = ({page}: useCustomColumnsProps) => {
       )
     );
 
-    console.log(`Custom Column ID: ${columnId}, New Property Key: ${newPropertyKey}`);
+    // If Dietary Restrictions is selected, update label
+    setCustomColumns((prevColumns) =>
+      prevColumns.map((col) =>
+        col.id === columnId && newPropertyKey === "deliveryDetails.dietaryRestrictions"
+          ? { ...col, label: "Dietary Restrictions" }
+          : col
+      )
+    );
   };
 
   // Function to remove a custom column by filtering it out of the state

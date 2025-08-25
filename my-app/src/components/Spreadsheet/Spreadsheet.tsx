@@ -1,3 +1,5 @@
+// Import allowedPropertyKeys from useCustomColumns for single source of truth
+import { allowedPropertyKeys } from "../../hooks/useCustomColumns";
 import AddIcon from "@mui/icons-material/Add";
 import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
 import ArrowDropUpIcon from "@mui/icons-material/ArrowDropUp";
@@ -155,7 +157,7 @@ const Spreadsheet: React.FC = () => {
     handleCustomHeaderChange,
     handleRemoveCustomColumn,
     handleCustomColumnChange,
-  } = useCustomColumns({ page: "Spreadsheet" });
+  } = useCustomColumns({ page: "Deliveries" });
 
 
 const StyleChip = styled(Chip)({
@@ -271,34 +273,62 @@ const StyleChip = styled(Chip)({
   const safeRows = Array.isArray(rows) ? rows : [];
   const sortedRows = useMemo(() => {
     if (safeRows.length === 0) return safeRows;
-    return [...safeRows].sort((a, b) => {
-      // Special grouping logic for dietary restrictions
-      if (sortedColumn === "deliveryDetails.dietaryRestrictions") {
-        // Group all with any dietary restrictions (not empty/none) together, and all without together, preserving original order within each group
-        const hasDietA = (() => {
-          const dr = a.deliveryDetails?.dietaryRestrictions;
-          if (!dr) return false;
-          // Check for any true boolean or non-empty array
-          return (
-            dr.halal || dr.kidneyFriendly || dr.lowSodium || dr.lowSugar || dr.microwaveOnly || dr.noCookingEquipment || dr.softFood || dr.vegan || dr.vegetarian || dr.heartFriendly ||
-            (Array.isArray(dr.foodAllergens) && dr.foodAllergens.length > 0) ||
-            (Array.isArray(dr.other) && dr.other.length > 0)
-          );
-        })();
-        const hasDietB = (() => {
-          const dr = b.deliveryDetails?.dietaryRestrictions;
-          if (!dr) return false;
-          return (
-            dr.halal || dr.kidneyFriendly || dr.lowSodium || dr.lowSugar || dr.microwaveOnly || dr.noCookingEquipment || dr.softFood || dr.vegan || dr.vegetarian || dr.heartFriendly ||
-            (Array.isArray(dr.foodAllergens) && dr.foodAllergens.length > 0) ||
-            (Array.isArray(dr.other) && dr.other.length > 0)
-          );
-        })();
-        if (hasDietA && !hasDietB) return sortOrder === "asc" ? -1 : 1;
-        if (!hasDietA && hasDietB) return sortOrder === "asc" ? 1 : -1;
-        // If both are the same (both have or both don't), preserve original order
-        return 0;
+    if (sortedColumn === "deliveryDetails.dietaryRestrictions") {
+      const getDietString = (row: any) => {
+        const dr = row.deliveryDetails?.dietaryRestrictions;
+        if (!dr || typeof dr !== 'object') return "None";
+        const keys = [
+          "halal", "kidneyFriendly", "lowSodium", "lowSugar", "microwaveOnly", "noCookingEquipment", "softFood", "vegan", "vegetarian", "heartFriendly"
+        ];
+        const items = keys.filter(k => dr[k]).map(k => k);
+        if (Array.isArray(dr.foodAllergens) && dr.foodAllergens.length > 0) items.push("foodAllergens");
+        if (Array.isArray(dr.other) && dr.other.length > 0) items.push("other");
+        if (dr.otherText && dr.otherText.trim() !== "") items.push(dr.otherText.trim());
+        // Treat empty restrictions as 'None'
+        if (items.length === 0) return "None";
+        const joined = items.join(", ");
+        if (!joined || joined.trim() === "") return "None";
+        return joined;
+      };
+      const withChips: any[] = [];
+      const withNone: any[] = [];
+      for (const row of safeRows) {
+  if (getDietString(row) === "None") {
+          withNone.push(row);
+        } else {
+          withChips.push(row);
+        }
       }
+      // Sort chips group alphabetically by diet string
+      withChips.sort((a, b) => {
+        const dietA = getDietString(a);
+        const dietB = getDietString(b);
+        return sortOrder === "asc"
+          ? dietA.localeCompare(dietB, undefined, { sensitivity: 'base' })
+          : dietB.localeCompare(dietA, undefined, { sensitivity: 'base' });
+      });
+      // Sort 'None' group by name for stable order
+      const getFullName = (row: any) => {
+        const lastName = (row.lastName || "").trim();
+        const firstName = (row.firstName || "").trim();
+        if (!lastName && !firstName) return "";
+        if (!lastName) return firstName.toLowerCase();
+        if (!firstName) return lastName.toLowerCase();
+        return `${lastName}, ${firstName}`.toLowerCase();
+      };
+      withNone.sort((a, b) => {
+        const nameA = getFullName(a);
+        const nameB = getFullName(b);
+        return sortOrder === "asc"
+          ? nameA.localeCompare(nameB, undefined, { sensitivity: 'base' })
+          : nameB.localeCompare(nameA, undefined, { sensitivity: 'base' });
+      });
+      // Concatenate groups: chips first for asc, chips last for desc
+      return sortOrder === "asc"
+        ? [...withChips, ...withNone]
+        : [...withNone, ...withChips];
+    }
+    return [...safeRows].sort((a, b) => {
 
       // ...existing code for other columns...
       let valueA = "";
@@ -369,6 +399,7 @@ const StyleChip = styled(Chip)({
   }, [rows, sortOrder, sortedColumn]);
 
   // Define fields for table columns
+  // Always include 'deliveryDetails.dietaryRestrictions' in allowedPropertyKeys and fields for custom columns
   const fields: Field[] = [
     {
       key: "fullname",
@@ -378,6 +409,7 @@ const StyleChip = styled(Chip)({
     },
     { key: "address", label: "Address", type: "text" },
     { key: "phone", label: "Phone", type: "text" },
+    // Do NOT remove this field, always keep it for custom columns
     {
       key: "deliveryDetails.dietaryRestrictions",
       label: "Dietary Restrictions",
@@ -395,10 +427,13 @@ const StyleChip = styled(Chip)({
         if (dietaryRestrictions.softFood) restrictions.push("Soft Food");
         if (dietaryRestrictions.vegan) restrictions.push("Vegan");
         if (dietaryRestrictions.vegetarian) restrictions.push("Vegetarian");
+        if (dietaryRestrictions.heartFriendly) restrictions.push("Heart Friendly");
         if (Array.isArray(dietaryRestrictions.foodAllergens) && dietaryRestrictions.foodAllergens.length > 0)
           restrictions.push(...dietaryRestrictions.foodAllergens);
         if (Array.isArray(dietaryRestrictions.other) && dietaryRestrictions.other.length > 0)
           restrictions.push(...dietaryRestrictions.other);
+        if (dietaryRestrictions.otherText && dietaryRestrictions.otherText.trim() !== "")
+          restrictions.push(dietaryRestrictions.otherText.trim());
         return restrictions.length > 0 ? restrictions.join(", ") : "None";
       },
     },
@@ -1036,13 +1071,15 @@ const StyleChip = styled(Chip)({
                   </Box>
                   {/* Custom columns for mobile */}
                   {customColumns.map((col) => (
-                    col.propertyKey !== "none" && row[col.propertyKey as keyof RowData] && (
+                    col.propertyKey !== "none" && (
                       <Box key={col.id}>
                         <Typography variant="body2" color="text.secondary">
                           {col.label || col.propertyKey}
                         </Typography>
                         <Typography variant="body1">
-                          {row[col.propertyKey as keyof RowData]?.toString() || "N/A"}
+                          {col.propertyKey === "deliveryDetails.dietaryRestrictions"
+                            ? fields.find(f => f.key === "deliveryDetails.dietaryRestrictions")?.compute?.(row)
+                            : row[col.propertyKey as keyof RowData]?.toString() || "N/A"}
                         </Typography>
                       </Box>
                     )
@@ -1163,20 +1200,26 @@ const StyleChip = styled(Chip)({
                             }}
                             onClick={(e) => e.stopPropagation()} // Prevent sort when clicking dropdown
                           >
-                            <MenuItem value="none">None</MenuItem>
-                            <MenuItem value="adults">Adults</MenuItem>
-                            <MenuItem value="children">Children</MenuItem>
-                            <MenuItem value="deliveryFreq">Delivery Freq</MenuItem>
-                            <MenuItem value="ethnicity">Ethnicity</MenuItem>
-                            <MenuItem value="gender">Gender</MenuItem>
-                            <MenuItem value="language">Language</MenuItem>
-                            <MenuItem value="notes">Notes</MenuItem>
-                            <MenuItem value="referralEntity">Referral Entity</MenuItem>
-                            <MenuItem value="tefapCert">TEFAP Cert</MenuItem>
-                            <MenuItem value="tags">Tags</MenuItem>
-                            <MenuItem value="dob">DOB</MenuItem>
-                            <MenuItem value="ward">Ward</MenuItem>
-                            <MenuItem value="zipCode">Zip Code</MenuItem>
+                            {[...allowedPropertyKeys].map((key: string) => {
+                              let label = key;
+                              if (key === "none") label = "None";
+                              if (key === "address") label = "Address";
+                              if (key === "adults") label = "Adults";
+                              if (key === "children") label = "Children";
+                              if (key === "deliveryFreq") label = "Delivery Freq";
+                              if (key === "deliveryDetails.dietaryRestrictions") label = "Dietary Restrictions";
+                              if (key === "ethnicity") label = "Ethnicity";
+                              if (key === "gender") label = "Gender";
+                              if (key === "language") label = "Language";
+                              if (key === "notes") label = "Notes";
+                              if (key === "referralEntity") label = "Referral Entity";
+                              if (key === "tefapCert") label = "TEFAP Cert";
+                              if (key === "tags") label = "Tags";
+                              if (key === "dob") label = "DOB";
+                              if (key === "ward") label = "Ward";
+                              if (key === "zipCode") label = "Zip Code";
+                              return <MenuItem key={key} value={key}>{label}</MenuItem>;
+                            })}
                           </Select>
                           {/*Add Remove Button*/}
                           <IconButton
@@ -1437,9 +1480,54 @@ const StyleChip = styled(Chip)({
                           )
                         ) :
                           col.propertyKey !== "none" ? (
-                            // For referralEntity specifically (it's an object)
-                            col.propertyKey === 'referralEntity' && row[col.propertyKey as keyof RowData] ? 
-                            `${(row[col.propertyKey as keyof RowData] as any).name || 'N/A'}, ${(row[col.propertyKey as keyof RowData] as any).organization || 'N/A'}`
+                            col.propertyKey === "deliveryDetails.dietaryRestrictions" ? (
+                              row.deliveryDetails && row.deliveryDetails.dietaryRestrictions ? (
+                                (() => {
+                                  const restrictions = Object.entries(row.deliveryDetails.dietaryRestrictions)
+                                    .filter(([key, value]) => {
+                                      if (key === "foodAllergens" && Array.isArray(value) && value.length > 0) return true;
+                                      if (key === "otherText" && value) return true;
+                                      return value === true;
+                                    })
+                                    .map(([key, value]) => {
+                                      if (key === "foodAllergens") return (value as string[]).join(", ");
+                                      if (key === "otherText") return value as string;
+                                      return key.replace(/([A-Z])/g, " $1").replace(/^./, str => str.toUpperCase());
+                                    });
+                                  return restrictions.length > 0 ? (
+                                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, maxWidth: '250px' }}>
+                                      {restrictions.map((restriction: string, i: number) => (
+                                        <Chip
+                                          key={i}
+                                          label={restriction}
+                                          size="small"
+                                          sx={{
+                                            backgroundColor: "#e8f5e9",
+                                            color: "#2E5B4C",
+                                            fontSize: "0.75rem",
+                                            height: "20px",
+                                            fontWeight: 500,
+                                            border: "1px solid #c8e6c9",
+                                            "& .MuiChip-label": {
+                                              px: 1
+                                            },
+                                            "&:hover": {
+                                              backgroundColor: "#e8f5e9",
+                                              cursor: "default"
+                                            }
+                                          }}
+                                        />
+                                      ))}
+                                    </Box>
+                                  ) : (
+                                    <Typography sx={{ fontSize: '0.875rem', color: "#757575", fontStyle: "italic" }}>None</Typography>
+                                  );
+                                })()
+                              ) : (
+                                <Typography sx={{ fontSize: '0.875rem', color: "#d32f2f", fontStyle: "italic" }}>No dietary restrictions data</Typography>
+                              )
+                            ) : col.propertyKey === 'referralEntity' && row[col.propertyKey as keyof RowData] ? 
+                              `${(row[col.propertyKey as keyof RowData] as any).name || 'N/A'}, ${(row[col.propertyKey as keyof RowData] as any).organization || 'N/A'}`
                             : col.propertyKey === "tags" && Array.isArray(row[col.propertyKey as keyof RowData]) ?
                               (row[col.propertyKey as keyof RowData] as unknown as string[]).map((tag, i) => (
                                 <StyleChip
