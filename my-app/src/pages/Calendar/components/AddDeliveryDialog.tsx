@@ -220,6 +220,12 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = ({
                   width: '100%',
                   minWidth: '100%',
                 },
+                '.MuiAutocomplete-popupIndicator': {
+                  right: "30px !important", // moves the arrow left
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  position: 'absolute',
+                }
               }}
               componentsProps={{
                 popupIndicator: {
