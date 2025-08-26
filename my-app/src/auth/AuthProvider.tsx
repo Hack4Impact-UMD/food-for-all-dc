@@ -12,6 +12,7 @@ import { UserType } from "../types";
 
 export interface AuthContextType {
   user: AuthUser | null;
+  name: string | null;
   token: IdTokenResult | null;
   loading: boolean;
   userRole: UserType | null;
@@ -26,6 +27,7 @@ interface Props {
 // Create a default context value
 const defaultAuthContext: AuthContextType = {
   user: null,
+  name: null,
   token: null,
   loading: true,
   userRole: null,
@@ -39,6 +41,7 @@ const AuthContext = createContext<AuthContextType>(defaultAuthContext);
 // Enhanced cache with expiration
 interface CacheEntry {
   role: UserType | null;
+  name: string | null;
   timestamp: number;
 }
 
@@ -47,6 +50,7 @@ const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
 export const AuthProvider = ({ children }: Props): React.ReactElement => {
   const [user, setUser] = useState<AuthUser | null>(null);
+  const [name, setName] = useState<string | null>(null)
   const [token, setToken] = useState<IdTokenResult | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [userRole, setUserRole] = useState<UserType | null>(null);
@@ -67,11 +71,11 @@ export const AuthProvider = ({ children }: Props): React.ReactElement => {
     }
   }, []);
 
-  const fetchUserRole = useCallback(async (uid: string): Promise<UserType | null> => {
+  const fetchUserProfile = useCallback(async (uid: string): Promise<{ role: UserType | null, name: string | null }> => {
     // Check cache first with expiration
     const cachedEntry = userRoleCache.get(uid);
     if (cachedEntry && (Date.now() - cachedEntry.timestamp) < CACHE_DURATION) {
-      return cachedEntry.role;
+      return {role: cachedEntry.role, name: cachedEntry.name}
     }
 
     try {
@@ -82,6 +86,7 @@ export const AuthProvider = ({ children }: Props): React.ReactElement => {
       if (userDoc.exists()) {
         const userData = userDoc.data();
         const roleString = userData.role;
+        const userName = userData.name ?? null;
         let roleEnum: UserType | null = null;
 
         if (roleString) {
@@ -104,20 +109,22 @@ export const AuthProvider = ({ children }: Props): React.ReactElement => {
         // Cache the result with timestamp
         userRoleCache.set(uid, {
           role: roleEnum,
+          name: userName,
           timestamp: Date.now()
         });
-        return roleEnum;
+        return { role: roleEnum, name: userName };
       } else {
         console.warn(`User document not found in Firestore for UID: ${uid}`);
         userRoleCache.set(uid, {
           role: null,
+          name: null,
           timestamp: Date.now()
         });
-        return null;
+        return {role: null, name: null};
       }
     } catch (error) {
       console.error("Error fetching user role:", error);
-      return null;
+      return {role: null, name: null};
     }
   }, []);
 
@@ -138,19 +145,21 @@ export const AuthProvider = ({ children }: Props): React.ReactElement => {
         setUser(mappedUser);
         try {
           const tokenPromise = newUser.getIdTokenResult();
-          const rolePromise = fetchUserRole(newUser.uid);
+          const rolePromise = fetchUserProfile(newUser.uid);
           const timeoutPromise = new Promise<never>((_, reject) => {
             setTimeout(() => reject(new Error('Auth timeout')), 10000);
           });
-          const [tokenResult, role] = await Promise.race([
+          const [tokenResult, {role, name}] = await Promise.race([
             Promise.all([tokenPromise, rolePromise]),
             timeoutPromise
           ]);
           setToken(tokenResult);
           setUserRole(role);
+          setName(name)
           setError(null);
         } catch (err: any) {
           setToken(null);
+          setName(null)
           setUserRole(null);
           setError({ code: err.code || "auth/token-role-error", message: err.message || "Failed to fetch token or role." });
           console.error("Error fetching user token or role:", err);
@@ -165,17 +174,18 @@ export const AuthProvider = ({ children }: Props): React.ReactElement => {
     });
 
     return unsubscribe;
-  }, [fetchUserRole]);
+  }, [fetchUserProfile]);
 
   // Memoize the context value to prevent unnecessary re-renders
   const contextValue = useMemo(() => ({
     user,
+    name,
     token,
     loading,
     userRole,
     error,
     logout
-  }), [user, token, loading, userRole, error, logout]);
+  }), [user,name, token, loading, userRole, error, logout]);
 
   return (
     <AuthContext.Provider value={contextValue}>
