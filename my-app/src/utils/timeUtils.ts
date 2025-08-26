@@ -222,28 +222,9 @@ export class RecurrenceUtils {
    * Calculate next monthly occurrence handling edge cases like 5th week
    */
   static getNextMonthlyDate(originalDate: DateTime, currentDate: DateTime, targetDay?: number): DateTime {
-    const nextMonth = currentDate.plus({ months: 1 }).startOf('month');
-    const originalWeek = Math.ceil(originalDate.day / 7);
-    const targetWeek = originalWeek > 4 ? -1 : originalWeek; // Handle 5th week as last occurrence
-    const targetWeekday = targetDay ?? originalDate.weekday;
-
-    let targetDate: DateTime;
-
-    if (targetWeek === -1) {
-      // Find last occurrence of target weekday in month
-      targetDate = nextMonth.endOf('month');
-      while (targetDate.weekday !== targetWeekday) {
-        targetDate = targetDate.minus({ days: 1 });
-      }
-    } else {
-      // Find specific week occurrence
-      targetDate = nextMonth.plus({ days: (targetWeek - 1) * 7 });
-      while (targetDate.weekday !== targetWeekday) {
-        targetDate = targetDate.plus({ days: 1 });
-      }
-    }
-
-    return targetDate;
+  // Instead of monthly, schedule every 4 weeks (28 days) from originalDate
+  const nextDate = originalDate.plus({ days: 28 });
+  return nextDate;
   }
 
   /**
@@ -261,9 +242,10 @@ export class RecurrenceUtils {
     }
 
     let currentDate = deliveryDate;
-    const interval = recurrence === 'Weekly' ? { weeks: 1 } : 
-                    recurrence === '2x-Monthly' ? { weeks: 2 } : 
-                    { months: 1 };
+  const interval = recurrence === 'Weekly' ? { weeks: 1 } : 
+          recurrence === '2x-Monthly' ? { weeks: 2 } : 
+          recurrence === 'Monthly' ? { days: 28 } : 
+          { months: 1 };
 
     while (currentDate < endDate) {
       currentDate = currentDate.plus(interval);
