@@ -189,7 +189,7 @@ export class DateValidation {
     }
 
     if (TimeUtils.isAfter(deliveryDate, endDate)) {
-      return { isValid: false, endDateError: 'End date must be on or after delivery date' };
+      return { isValid: false, endDateError: 'Delivery date cannot be after End Date' };
     }
 
     return { isValid: true };
