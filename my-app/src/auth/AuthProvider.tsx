@@ -61,6 +61,7 @@ export const AuthProvider = ({ children }: Props): React.ReactElement => {
     try {
       await signOut(auth);
       setUser(null);
+      setName(null)
       setToken(null);
       setUserRole(null);
       setError(null);
@@ -166,6 +167,7 @@ export const AuthProvider = ({ children }: Props): React.ReactElement => {
         }
       } else {
         setUser(null);
+        setName(null)
         setToken(null);
         setUserRole(null);
         setError(null);
