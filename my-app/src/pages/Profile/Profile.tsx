@@ -1,7 +1,7 @@
 import CloseIcon from "@mui/icons-material/Close";
 import EditIcon from "@mui/icons-material/Edit";
 import SaveIcon from "@mui/icons-material/Save";
-import { TimeUtils } from '../../utils/timeUtils';
+import { CalendarUtils, TimeUtils } from '../../utils/timeUtils';
 import {
   Autocomplete,
   Box,
@@ -247,6 +247,7 @@ const Profile = () => {
     ward: "",
     tefapCert: "",
     referralEntity: null,
+    referredDate: "",
     coordinates: [],
     physicalAilments: {
     diabetes: false,
@@ -2207,12 +2208,14 @@ const handleMentalHealthConditionsChange = (e: React.ChangeEvent<HTMLInputElemen
           name: caseWorker.name,
           organization: caseWorker.organization,
         },
+        referredDate: CalendarUtils.toDayPilotString(TimeUtils.today())
       }));
     } else {
       // If no case worker selected, remove the referral entity
       setClientProfile((prev) => {
         const newProfile = { ...prev };
         delete newProfile.referralEntity;
+        delete newProfile.referredDate
         return newProfile;
       });
     }

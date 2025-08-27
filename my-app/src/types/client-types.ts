@@ -38,6 +38,7 @@ export interface ClientProfile {
   deliveryFreq: string;
   phone: string;
   alternativePhone: string;
+  referredDate?: string;
   adults: number;
   children: number;
   total: number;

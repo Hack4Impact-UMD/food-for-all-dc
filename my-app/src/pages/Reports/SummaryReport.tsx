@@ -10,16 +10,78 @@ import { collection, DocumentData, getDocs, limit, orderBy, query, QueryDocument
 import { db } from "../../auth/firebaseConfig";
 import { SummaryData } from "../../types/reports-types";
 import { formatCamelToTitle } from "../../utils";
+import Guide from "./Guide";
 
 const SummaryReport: React.FC = () => {
+  const [isLoading, setIsLoading] = useState(true)
+  const [data, setData] = useState<SummaryData>({
+      "Basic Output": {
+        "Households Served (Duplicated)": { value: 0, isFullRow: false },
+        "Households Served (Unduplicated)": { value: 0, isFullRow: false },
+        "People Served (Duplicated)": { value: 0, isFullRow: false },
+        "People Served (Unduplicated)": { value: 0, isFullRow: false },
+        "Bags Delivered": { value: 0, isFullRow: false },
+        "New Households": { value: 0, isFullRow: false },
+        "New People": { value: 0, isFullRow: false },
+        "Active Clients": { value: 0, isFullRow: false },
+        "Lapsed Clients": { value: 0, isFullRow: false },
+      },
+
+      "Demographics": {
+        "New Seniors": { value: 0, isFullRow: false },
+        "Total Seniors": { value: 0, isFullRow: false },
+        "New Single Parents": { value: 0, isFullRow: false },
+        "New Adults": { value: 0, isFullRow: false },
+        "Total Adults": { value: 0, isFullRow: false },
+        "New Children": { value: 0, isFullRow: false },
+        "Total Children": { value: 0, isFullRow: false },
+      },
+
+      "Health Conditions": {
+        "Client Health Conditions (Physical Ailments)": { value: 0, isFullRow: false },
+        "Client Health Conditions (Physical Disability)": { value: 0, isFullRow: false },
+        "Client Health Conditions (Mental Health Conditions)": { value: 0, isFullRow: false },
+      },
+
+      "Referrals": {
+        "New Client Referrals": { value: 0, isFullRow: false },
+        "New Referral Agency Names": { value: 0, isFullRow: false },
+      },
+
+      "Dietary Restrictions": {
+        "Lactose Intolerant": { value: 0, isFullRow: false },
+        "Microwave Only": { value: 0, isFullRow: false },
+        "Diabetes Friendly": { value: 0, isFullRow: false },
+        "No Cans": { value: 0, isFullRow: false },
+        "Food Allergen": { value: 0, isFullRow: false },
+        "No Cooking Equipment": { value: 0, isFullRow: false },
+        "Gluten Free": { value: 0, isFullRow: false },
+        "Soft Food": { value: 0, isFullRow: false },
+        "Halal": { value: 0, isFullRow: false },
+        "Vegan": { value: 0, isFullRow: false },
+        "Low Sodium": { value: 0, isFullRow: false },
+        "Low Sugar": { value: 0, isFullRow: false },
+        "Heart Friendly": { value: 0, isFullRow: false },
+        "Vegetarian": { value: 0, isFullRow: false },
+        "Kidney Friendly": { value: 0, isFullRow: false },
+        "Other": { value: 0, isFullRow: false },
+        "No Restrictions": { value: 0, isFullRow: false },
+      },
+
+      "FAM (Food as Medicine)": {
+        "Clients Receiving Medically Tailored Food": { value: 0, isFullRow: true },
+      },
+
+      "Tags": {},
+    })
   const [startDate, setStartDate] = useState<Date | null>(() => {
     const start = localStorage.getItem("ffaReportDateRangeStart");
-    if (start) {
-      return new Date(start);
-    } else {
-      return null;
-    }
-  });
+      if (start) {
+        return new Date(start);
+      } else {
+        return null;
+      }
+    });
   const [endDate, setEndDate] = useState<Date | null>(() => {
     const end = localStorage.getItem("ffaReportDateRangeEnd");
     if (end) {
@@ -28,68 +90,6 @@ const SummaryReport: React.FC = () => {
       return null;
     }
   });
-
-  //hardcoded data which will later be fetched and calculated 
-  const data: SummaryData = {
-    "Basic Output": {
-      "Households Served (Duplicated)": { value: 0, isFullRow: false },
-      "Households Served (Unduplicated)": { value: 0, isFullRow: false },
-      "People Served (Duplicated)": { value: 0, isFullRow: false },
-      "People Served (Unduplicated)": { value: 0, isFullRow: false },
-      "Bags Delivered": { value: 0, isFullRow: false },
-      "New Households": { value: 0, isFullRow: false },
-      "New People": { value: 0, isFullRow: false },
-      "Active Clients": { value: 0, isFullRow: false },
-      "Lapsed Clients": { value: 0, isFullRow: false },
-    },
-
-    "Demographics": {
-      "New Seniors": { value: 0, isFullRow: false },
-      "Total Seniors": { value: 0, isFullRow: false },
-      "New Single Parents": { value: 0, isFullRow: false },
-      "New Adults": { value: 0, isFullRow: false },
-      "Total Adults": { value: 0, isFullRow: false },
-      "New Children": { value: 0, isFullRow: false },
-      "Total Children": { value: 0, isFullRow: false },
-    },
-
-    "Health Conditions": {
-      "Client Health Conditions (Physical Ailments)": { value: 0, isFullRow: false },
-      "Client Health Conditions (Physical Disability)": { value: 0, isFullRow: false },
-      "Client Health Conditions (Mental Health Conditions)": { value: 0, isFullRow: false },
-    },
-
-    "Referrals": {
-      "New Client Referrals": { value: 0, isFullRow: false },
-      "New Referral Agency Names": { value: 0, isFullRow: false },
-    },
-
-    "Dietary Restrictions": {
-      "Lactose Intolerant": { value: 0, isFullRow: false },
-      "Microwave Only": { value: 0, isFullRow: false },
-      "Diabetes Friendly": { value: 0, isFullRow: false },
-      "No Cans": { value: 0, isFullRow: false },
-      "Food Allergen": { value: 0, isFullRow: false },
-      "No Cooking Equipment": { value: 0, isFullRow: false },
-      "Gluten Free": { value: 0, isFullRow: false },
-      "Soft Food": { value: 0, isFullRow: false },
-      "Halal": { value: 0, isFullRow: false },
-      "Vegan": { value: 0, isFullRow: false },
-      "Low Sodium": { value: 0, isFullRow: false },
-      "Low Sugar": { value: 0, isFullRow: false },
-      "Heart Friendly": { value: 0, isFullRow: false },
-      "Vegetarian": { value: 0, isFullRow: false },
-      "Kidney Friendly": { value: 0, isFullRow: false },
-      "Other": { value: 0, isFullRow: false },
-      "No Restrictions": { value: 0, isFullRow: false },
-    },
-
-    "FAM (Food as Medicine)": {
-      "Clients Receiving Medically Tailored Food": { value: 0, isFullRow: true },
-    },
-
-    "Tags": {},
-  };
 
 
   const processClientInfo = (client: any) => {
@@ -112,7 +112,7 @@ const SummaryReport: React.FC = () => {
     if (adults == 1 && children > 0) {
       basic["Single Parents"].value += 1;
     }
-    
+
     if (startDate && endDate) {
       const firstDelivery = DateTime.fromISO(client.deliveries[0]);
       const start = DateTime.fromJSDate(startDate).startOf("day");
@@ -237,11 +237,13 @@ const generateReport = async () => {
         // If we got fewer than BATCH_SIZE, we’re done
         if (snap.size < BATCH_SIZE) break;
       }
-
+      await setData(data)
       return { processed };
     } catch (err) {
       console.error("Failed to generate report:", err);
       return null;
+    } finally {
+      setIsLoading(false)
     }
   };
 
@@ -254,7 +256,7 @@ const generateReport = async () => {
       }}
     >
         <ReportHeader startDate={startDate} endDate = {endDate} setStartDate = {setStartDate} setEndDate = {setEndDate} generateReport={generateReport}></ReportHeader>
-        <ReportTables data={data} loading={false}></ReportTables>
+        {isLoading ? <Guide/>: <ReportTables data={data} loading={false}></ReportTables>}
     </div>
   );
 };
