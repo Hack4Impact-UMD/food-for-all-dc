@@ -346,6 +346,7 @@ def calculate_optimal_cluster_route(req: https_fn.Request) -> https_fn.Response:
     )
     
 
+
 def display_clusters_on_map(coords, clusters, name):
     """
     Display clusters on a map using folium.

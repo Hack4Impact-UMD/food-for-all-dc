@@ -3,6 +3,13 @@ import "./Reports.css";
 import { ReportField } from "../../types/reports-types";
 import ReportTables from "./ReportTables";
 import ReportHeader from "./ReportHeader";
+import TimeUtils from "../../utils/timeUtils";
+import { DateTime } from "luxon";
+import { exportAllClients } from "../../components/Spreadsheet/export";
+import { collection, DocumentData, getDocs, limit, orderBy, query, QueryDocumentSnapshot, startAfter } from "firebase/firestore";
+import { db } from "../../auth/firebaseConfig";
+import { SummaryData } from "../../types/reports-types";
+import { formatCamelToTitle } from "../../utils";
 
 const SummaryReport: React.FC = () => {
   const [startDate, setStartDate] = useState<Date | null>(() => {
@@ -23,42 +30,219 @@ const SummaryReport: React.FC = () => {
   });
 
   //hardcoded data which will later be fetched and calculated 
-  const data: { [section: string]: ReportField[] } = {
-    "Basic Output": [
-      { key: "Households Served (Duplicated)", value: 200, isFullRow: false },
-      { key: "Households Served (Unduplicated)", value: 150, isFullRow: false },
-      { key: "People Served (Duplicated)", value: 350, isFullRow: false },
-      { key: "People Served (Unduplicated)", value: 150, isFullRow: false },
-      { key: "Bags Delivered", value: 150, isFullRow: false },
-      { key: "New Households", value: 150, isFullRow: false },
-      { key: "New People", value: 150, isFullRow: false },
-      { key: "Active Clients", value: 150, isFullRow: false },
-      { key: "Lapsed Clients", value: 150, isFullRow: false },
-    ],
-    "Demographics": [
-      { key: "Children Served", value: 150, isFullRow: false },
-      { key: "Adults Served", value: 350, isFullRow: false }
-    ],
-    "Health Conditions": [
-      { key: "Children Served", value: 150, isFullRow: false },
-      { key: "Adults Served", value: 350, isFullRow: false }
-    ],
-    "Referrals": [
-      { key: "Children Served", value: 150, isFullRow: false },
-      { key: "Adults Served", value: 350, isFullRow: false }
-    ],
-    "Dietary Restrictions": [
-      { key: "Children Served", value: 150, isFullRow: false },
-      { key: "Adults Served", value: 350, isFullRow: false }
-    ],
-    "FAM (Food as Medicine)": [
-      { key: "Children Served", value: 150, isFullRow: false },
-      { key: "Adults Served", value: 350, isFullRow: false }
-    ],
-    "Tags": [
-      { key: "Children Served", value: 150, isFullRow: false },
-      { key: "Adults Served", value: 350, isFullRow: false }
-    ],
+  const data: SummaryData = {
+    "Basic Output": {
+      "Households Served (Duplicated)": { value: 0, isFullRow: false },
+      "Households Served (Unduplicated)": { value: 0, isFullRow: false },
+      "People Served (Duplicated)": { value: 0, isFullRow: false },
+      "People Served (Unduplicated)": { value: 0, isFullRow: false },
+      "Bags Delivered": { value: 0, isFullRow: false },
+      "New Households": { value: 0, isFullRow: false },
+      "New People": { value: 0, isFullRow: false },
+      "Active Clients": { value: 0, isFullRow: false },
+      "Lapsed Clients": { value: 0, isFullRow: false },
+    },
+
+    "Demographics": {
+      "New Seniors": { value: 0, isFullRow: false },
+      "Total Seniors": { value: 0, isFullRow: false },
+      "New Single Parents": { value: 0, isFullRow: false },
+      "New Adults": { value: 0, isFullRow: false },
+      "Total Adults": { value: 0, isFullRow: false },
+      "New Children": { value: 0, isFullRow: false },
+      "Total Children": { value: 0, isFullRow: false },
+    },
+
+    "Health Conditions": {
+      "Client Health Conditions (Physical Ailments)": { value: 0, isFullRow: false },
+      "Client Health Conditions (Physical Disability)": { value: 0, isFullRow: false },
+      "Client Health Conditions (Mental Health Conditions)": { value: 0, isFullRow: false },
+    },
+
+    "Referrals": {
+      "New Client Referrals": { value: 0, isFullRow: false },
+      "New Referral Agency Names": { value: 0, isFullRow: false },
+    },
+
+    "Dietary Restrictions": {
+      "Lactose Intolerant": { value: 0, isFullRow: false },
+      "Microwave Only": { value: 0, isFullRow: false },
+      "Diabetes Friendly": { value: 0, isFullRow: false },
+      "No Cans": { value: 0, isFullRow: false },
+      "Food Allergen": { value: 0, isFullRow: false },
+      "No Cooking Equipment": { value: 0, isFullRow: false },
+      "Gluten Free": { value: 0, isFullRow: false },
+      "Soft Food": { value: 0, isFullRow: false },
+      "Halal": { value: 0, isFullRow: false },
+      "Vegan": { value: 0, isFullRow: false },
+      "Low Sodium": { value: 0, isFullRow: false },
+      "Low Sugar": { value: 0, isFullRow: false },
+      "Heart Friendly": { value: 0, isFullRow: false },
+      "Vegetarian": { value: 0, isFullRow: false },
+      "Kidney Friendly": { value: 0, isFullRow: false },
+      "Other": { value: 0, isFullRow: false },
+      "No Restrictions": { value: 0, isFullRow: false },
+    },
+
+    "FAM (Food as Medicine)": {
+      "Clients Receiving Medically Tailored Food": { value: 0, isFullRow: true },
+    },
+
+    "Tags": {},
+  };
+
+
+  const processClientInfo = (client: any) => {
+    const basic = data["Basic Output"];
+    const demo = data["Demographics"];
+    const health = data["Health Conditions"]
+    const tags = data["Tags"]
+    const fam = data["FAM (Food as Medicine)"]
+
+    // Households Served (Duplicated)
+    basic["Households Served (Duplicated)"].value += 1;
+
+    // People Served (Duplicated)
+    const adults = client.adults || 0;
+    const seniors = client.seniors || 0;
+    const children = client.children || 0;
+    basic["People Served (Duplicated)"].value += adults + seniors + children;
+
+    //Single parents
+    if (adults == 1 && children > 0) {
+      basic["Single Parents"].value += 1;
+    }
+    
+    if (startDate && endDate) {
+      const firstDelivery = DateTime.fromISO(client.deliveries[0]);
+      const start = DateTime.fromJSDate(startDate).startOf("day");
+      const end = DateTime.fromJSDate(endDate).endOf("day");
+
+      if (firstDelivery >= start && firstDelivery <= end) {
+        basic["New Households"].value += 1;
+        basic["New People"].value += adults + seniors + children;
+
+        demo["New Seniors"].value += seniors;
+        demo["New Adults"].value += adults;
+        demo["New Children"].value += children;
+      }
+
+      //update households unduplicated
+      basic["Households Served (Unduplicated)"].value = basic["Households Served (Duplicated)"].value - basic["New Households"].value
+      basic["People Served (Unduplicated)"].value = basic["People Served (Duplicated)"].value - basic["New People"].value
+
+      // Totals
+      demo["Total Seniors"].value += seniors;
+      demo["Total Adults"].value += adults;
+      demo["Total Children"].value += children;
+    }
+
+    // Active Clients
+    basic["Active Clients"].value += 1;
+
+    //Health Conditions
+    if (client.physicalAilments) {
+      health["Client Health Conditions (Physical Ailments)"].value += 1
+    }
+    if (client.mentalHealthConditions) {
+      health["Client Health Conditions (Mental Health Conditions)"].value += 1
+    }
+    if (client.mentalHealthConditions) {
+      health["Client Health Conditions (Physical Disability)"].value += 1
+    }
+
+    // Dietary restrictions
+    const dietaryRestrictions = Object.keys(client.deliveryDetails.dietaryRestrictions);
+    let added = false
+
+    dietaryRestrictions.forEach((restriction: string) => {
+      if(restriction !== "foodAllergens") {
+        const formattedRestriction = formatCamelToTitle(restriction)
+        if (data["Dietary Restrictions"][formattedRestriction] && client.deliveryDetails.dietaryRestrictions[restriction]) {
+          data["Dietary Restrictions"][formattedRestriction].value += 1;
+          added = true
+        }
+      }
+    });
+
+    if (!added) {
+      data["Dietary Restrictions"]["No Restrictions"].value += 1;
+    }
+
+    //Tags
+    const clientTags = client.tags
+    clientTags.forEach((tag: string)=>{
+      //separate FAM
+      if (tag == "FAM") {
+        fam["Clients Receiving Medically Tailored Food"].value += 1
+      }
+
+      if (tags[tag]){
+        tags[tag].value += 1
+      } else {
+        tags[tag] = {value: 1, isFullRow: false}
+      }
+    })  
+  }
+
+const generateReport = async () => {
+    const BATCH_SIZE = 50; 
+    try {
+      let lastDoc: QueryDocumentSnapshot<DocumentData> | null = null;
+      let processed = 0;
+      const True = true;
+      while (True) {
+        // Order by document ID so we can paginate even without a timestamp field
+        const q = lastDoc
+          ? query(
+              collection(db, "clients"),
+              orderBy("__name__"),
+              startAfter(lastDoc),
+              limit(BATCH_SIZE)
+            )
+          : query(
+              collection(db, "clients"),
+              orderBy("__name__"),
+              limit(BATCH_SIZE)
+            );
+
+        const snap: any = await getDocs(q);
+        if (snap.empty) break;
+
+        // Process this batch
+        for (const doc of snap.docs) {
+          const client = doc.data();
+          const deliveries: string[] = client.deliveries ?? [];
+
+          if (deliveries.length && startDate && endDate) {
+            // Convert start and end to Luxon DateTime (normalize to start/end of day for safety)
+            const start = DateTime.fromJSDate(startDate).startOf("day");
+            const end = DateTime.fromJSDate(endDate).endOf("day");
+
+            // Check if at least one delivery date falls inside the range
+            const hadDeliveryInRange = deliveries.some(deliveryStr => {
+              const deliveryDate = DateTime.fromISO(deliveryStr); // parse "YYYY-MM-DD"
+              return deliveryDate >= start && deliveryDate <= end;
+            });
+
+            if (hadDeliveryInRange) {
+              processClientInfo(client)
+            }
+          }
+        }
+
+        processed += snap.size;
+        lastDoc = snap.docs[snap.docs.length - 1];
+
+        // If we got fewer than BATCH_SIZE, we’re done
+        if (snap.size < BATCH_SIZE) break;
+      }
+
+      return { processed };
+    } catch (err) {
+      console.error("Failed to generate report:", err);
+      return null;
+    }
   };
 
   return (
@@ -69,7 +253,7 @@ const SummaryReport: React.FC = () => {
         height: "90vh", 
       }}
     >
-        <ReportHeader startDate={startDate} endDate = {endDate} setStartDate = {setStartDate} setEndDate = {setEndDate}></ReportHeader>
+        <ReportHeader startDate={startDate} endDate = {endDate} setStartDate = {setStartDate} setEndDate = {setEndDate} generateReport={generateReport}></ReportHeader>
         <ReportTables data={data} loading={false}></ReportTables>
     </div>
   );
