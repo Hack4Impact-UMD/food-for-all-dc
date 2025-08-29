@@ -548,7 +548,7 @@ const FormField: React.FC<FormFieldProps> = ({
               <MenuItem key="None" value="None">None</MenuItem>,
               <MenuItem key="Weekly" value="Weekly">Weekly</MenuItem>,
               <MenuItem key="2x-Monthly" value="2x-Monthly">2x-Monthly</MenuItem>,
-              <MenuItem key="Monthly" value="Monthly">Monthly</MenuItem>,
+              <MenuItem key="Monthly" value="Monthly">Monthly (Every 4 Weeks)</MenuItem>,
             ]}
             {fieldPath === "ethnicity" && [
               <MenuItem key="" value="" disabled>Select</MenuItem>,
