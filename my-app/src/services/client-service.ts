@@ -196,6 +196,18 @@ import { validateClientProfile } from '../utils/firestoreValidation';
               },
             },
             ethnicity: raw.ethnicity || '',
+            adults: raw.adults ?? null,
+            children: raw.children ?? null,
+            deliveryFreq: raw.deliveryFreq ?? '',
+            gender: raw.gender ?? '',
+            language: raw.language ?? '',
+            notes: raw.notes ?? '',
+            tefapCert: raw.tefapCert ?? '',
+            dob: raw.dob ?? '',
+            ward: raw.ward ?? '',
+            zipCode: raw.zipCode ?? '',
+            tags: raw.tags ?? [],
+            referralEntity: raw.referralEntity ?? undefined,
           };
           return mapped;
         });

@@ -86,8 +86,8 @@ export const useCustomColumns = ({page}: useCustomColumnsProps) => {
   const handleCustomColumnChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
     id: string, // ID of the row being edited
-    propertyKey: keyof CustomRowData,
-    setRows: React.Dispatch<React.SetStateAction<CustomRowData[]>>
+    propertyKey: string,
+    setRows: React.Dispatch<React.SetStateAction<any[]>>
   ) => {
     const newValue = e.target.value; // Get the new value from the input
 

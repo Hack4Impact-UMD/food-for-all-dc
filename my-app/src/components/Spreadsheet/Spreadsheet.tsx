@@ -1,3 +1,7 @@
+// ...existing code...
+
+// Place helper functions after RowData type and StyleChip definition
+
 // Import allowedPropertyKeys from useCustomColumns for single source of truth
 import { allowedPropertyKeys } from "../../hooks/useCustomColumns";
 import AddIcon from "@mui/icons-material/Add";
@@ -38,6 +42,21 @@ import {
   DialogContent,
   DialogContentText,
 } from "@mui/material";
+
+// StyleChip definition for custom column rendering
+const StyleChip = styled(Chip)(({ theme }) => ({
+  fontWeight: 500,
+  fontSize: "0.85rem",
+  backgroundColor: theme.palette.primary.light,
+  color: theme.palette.primary.contrastText,
+  borderRadius: 8,
+  padding: "0 8px",
+  margin: "2px 2px 2px 0",
+  cursor: "pointer",
+  '&:hover': {
+    backgroundColor: theme.palette.primary.main,
+  },
+}));
 import { onAuthStateChanged } from "firebase/auth";
 import { Filter, Search } from "lucide-react";
 import React, { useEffect, useState, useMemo } from "react";
@@ -78,6 +97,73 @@ export interface RowData {
     };
   };
   ethnicity: string;
+  tags?: string[];
+  referralEntity?: {
+    id: string;
+    name: string;
+    organization: string;
+  };
+  adults?: number;
+  children?: number;
+  deliveryFreq?: string;
+  gender?: "Male" | "Female" | "Other";
+  language?: string;
+  notes?: string;
+  tefapCert?: string;
+  dob?: string;
+  ward?: string;
+  zipCode?: string;
+}
+// Place helper functions after RowData type and StyleChip definition
+function getCustomColumnValue(row: RowData, propertyKey: string): string {
+  if (!propertyKey || propertyKey === "none") return "";
+  if (propertyKey.includes(".")) {
+    const keys = propertyKey.split(".");
+    let value: any = row;
+    for (const k of keys) {
+      value = value && value[k as keyof typeof value];
+      if (value === undefined) return "";
+    }
+    return value !== undefined && value !== null ? value.toString() : "";
+  }
+  const val = row[propertyKey as keyof RowData];
+  return val !== undefined && val !== null ? val.toString() : "";
+}
+
+function getCustomColumnDisplay(row: RowData, propertyKey: string): React.ReactNode {
+  if (!propertyKey || propertyKey === "none") return "N/A";
+  // Handle referralEntity (object)
+  if (propertyKey === "referralEntity" && row.referralEntity) {
+    const entity = row.referralEntity;
+    return `${entity?.name ?? 'N/A'}, ${entity?.organization ?? 'N/A'}`;
+  }
+  // Handle tags (array)
+  if (propertyKey === "tags" && Array.isArray(row.tags)) {
+    return row.tags.length > 0
+      ? row.tags.map((tag: string, i: number) => (
+          <StyleChip
+            key={i}
+            label={tag}
+            size="small"
+            onClick={(e: React.MouseEvent) => e.preventDefault()}
+            sx={{ mb: 0.5, mr: 0.5 }}
+          />
+        ))
+      : "N/A";
+  }
+  // Handle nested keys
+  if (propertyKey.includes(".")) {
+    const keys = propertyKey.split(".");
+    let value: any = row;
+    for (const k of keys) {
+      value = value && value[k as keyof typeof value];
+      if (value === undefined) return "N/A";
+    }
+    return value !== undefined && value !== null ? value.toString() : "N/A";
+  }
+  // Default: direct value
+  const value = row[propertyKey as keyof RowData];
+  return value !== undefined && value !== null ? value.toString() : "N/A";
 }
 
 // ADDED
@@ -151,104 +237,20 @@ const Spreadsheet: React.FC = () => {
   const navigate = useNavigate();
 
   // ADDED
+
   const {
     customColumns,
     handleAddCustomColumn,
     handleCustomHeaderChange,
     handleRemoveCustomColumn,
     handleCustomColumnChange,
-  } = useCustomColumns({ page: "Deliveries" });
+  } = useCustomColumns({ page: "Spreadsheet" });
+
+// ...existing code...
 
 
-const StyleChip = styled(Chip)({
-  backgroundColor: 'var(--color-primary)',
-  color: '#fff',
-  ":hover" : { 
-    backgroundColor: 'var(--color-primary)',
-    cursor: 'text'
-  },
-  // Disable ripple effect and pointer events
-  '& .MuiTouchRipple-root': {
-    display: 'none'
-  },
-  '&:active': {
-    boxShadow: 'none',
-    transform: 'none'
-  },
-  '&:focus': {
-    boxShadow: 'none'
-  },
-  // Make text selectable
-  userSelect: 'text',
-  WebkitUserSelect: 'text'
-});
 
 
-  // const [customColumns, setCustomColumns] = useState<CustomColumn[]>([]);
-  // const handleAddCustomColumn = () => {
-  //   const newColumnId = `custom-${Date.now()}`; // unique ID generation
-  //   const newColumn: CustomColumn = {
-  //     id: newColumnId,
-  //     label: `Custom ${customColumns.length + 1}`,
-  //     propertyKey: "none",
-  //   };
-  //   setCustomColumns([...customColumns, newColumn]);
-  // };
-
-  // // ADDED
-  // const handleCustomColumnChange = (
-  //   e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
-  //   id: string, // ID of the row being edited
-  //   propertyKey: keyof RowData
-  // ) => {
-  //   const newValue = e.target.value; // Get the new value from the input
-
-  //   setRows((prevRows) =>
-  //     prevRows.map((row) => {
-  //       if (row.id === id) {
-  //         return {
-  //           ...row,
-  //           [propertyKey]: newValue, // Update the property w/ key
-  //         };
-  //       }
-  //       return row;
-  //     })
-  //   );
-  // };
-
-  // // ADDED
-  // const handleCustomHeaderChange = (
-  //   event: SelectChangeEvent<keyof RowData | "none">,
-  //   columnId: string
-  // ) => {
-  //   const newPropertyKey = event.target.value as keyof RowData | "none"; // Get selected val
-
-  //   setCustomColumns((prevColumns) =>
-  //     prevColumns.map((col) => {
-  //       if (col.id === columnId) {
-  //         return {
-  //           ...col,
-  //           propertyKey: newPropertyKey,
-  //         };
-  //       }
-  //       return col;
-  //     })
-  //   );
-
-  //   console.log(
-  //     `Custom Column ID: ${columnId}, New Property Key: ${newPropertyKey}`
-  //   ); // debugging
-  // };
-
-  // const handleRemoveCustomColumn = (columnIdToRemove: string) => {
-  //   // Use the state setter function for customColumns
-  //   setCustomColumns(
-  //     (prevColumns) =>
-  //       // Filter the previous columns array
-  //       prevColumns.filter((column) => column.id !== columnIdToRemove)
-  //     // Keep only the columns whose ID does NOT match the one to remove
-  //   );
-  // };
 
   //Route Protection
   React.useEffect(() => {
@@ -1450,7 +1452,6 @@ const StyleChip = styled(Chip)({
                         key={col.id} 
                         sx={{ 
                           py: 2,
-                          // Add word-wrap styles for text-heavy columns
                           ...((col.propertyKey.includes('notes') || col.propertyKey.includes('deliveryInstructions')) && {
                             maxWidth: '200px',
                             wordWrap: 'break-word',
@@ -1462,12 +1463,12 @@ const StyleChip = styled(Chip)({
                         {editingRowId === row.id ? (
                           col.propertyKey !== "none" ? (
                             <TextField
-                              value={row[col.propertyKey as keyof RowData] ?? ""}
+                              value={getCustomColumnValue(row, col.propertyKey) ?? ""}
                               onChange={(e) =>
                                 handleCustomColumnChange(
                                   e,
                                   row.id,
-                                  col.propertyKey as keyof RowData,
+                                  col.propertyKey,
                                   setRows
                                 )
                               }
@@ -1480,84 +1481,13 @@ const StyleChip = styled(Chip)({
                           )
                         ) :
                           col.propertyKey !== "none" ? (
-                            col.propertyKey === "deliveryDetails.dietaryRestrictions" ? (
-                              row.deliveryDetails && row.deliveryDetails.dietaryRestrictions ? (
-                                (() => {
-                                  const restrictions = Object.entries(row.deliveryDetails.dietaryRestrictions)
-                                    .filter(([key, value]) => {
-                                      if (key === "foodAllergens" && Array.isArray(value) && value.length > 0) return true;
-                                      if (key === "otherText" && value) return true;
-                                      return value === true;
-                                    })
-                                    .map(([key, value]) => {
-                                      if (key === "foodAllergens") return (value as string[]).join(", ");
-                                      if (key === "otherText") return value as string;
-                                      return key.replace(/([A-Z])/g, " $1").replace(/^./, str => str.toUpperCase());
-                                    });
-                                  return restrictions.length > 0 ? (
-                                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, maxWidth: '250px' }}>
-                                      {restrictions.map((restriction: string, i: number) => (
-                                        <Chip
-                                          key={i}
-                                          label={restriction}
-                                          size="small"
-                                          sx={{
-                                            backgroundColor: "#e8f5e9",
-                                            color: "#2E5B4C",
-                                            fontSize: "0.75rem",
-                                            height: "20px",
-                                            fontWeight: 500,
-                                            border: "1px solid #c8e6c9",
-                                            "& .MuiChip-label": {
-                                              px: 1
-                                            },
-                                            "&:hover": {
-                                              backgroundColor: "#e8f5e9",
-                                              cursor: "default"
-                                            }
-                                          }}
-                                        />
-                                      ))}
-                                    </Box>
-                                  ) : (
-                                    <Typography sx={{ fontSize: '0.875rem', color: "#757575", fontStyle: "italic" }}>None</Typography>
-                                  );
-                                })()
-                              ) : (
-                                <Typography sx={{ fontSize: '0.875rem', color: "#d32f2f", fontStyle: "italic" }}>No dietary restrictions data</Typography>
-                              )
-                            ) : col.propertyKey === 'referralEntity' && row[col.propertyKey as keyof RowData] ? 
-                              `${(row[col.propertyKey as keyof RowData] as any).name || 'N/A'}, ${(row[col.propertyKey as keyof RowData] as any).organization || 'N/A'}`
-                            : col.propertyKey === "tags" && Array.isArray(row[col.propertyKey as keyof RowData]) ?
-                              (row[col.propertyKey as keyof RowData] as unknown as string[]).map((tag, i) => (
-                                <StyleChip
-                                  key={i}
-                                  label={tag}
-                                  size="small"
-                                   onClick={(e) => {
-                                        e.preventDefault()
-                                      }}
-                                  sx={{
-                                    mb: 0.5,
-                                    mr: 0.5
-                                  }}
-                                />
-                              ))
-                            : col.propertyKey.includes('notes') || col.propertyKey.includes('deliveryInstructions') ? (
-                              <div style={{
-                                maxWidth: '200px',
-                                wordWrap: 'break-word',
-                                overflowWrap: 'anywhere',
-                                whiteSpace: 'pre-wrap'
-                              }}>
-                                {row[col.propertyKey as keyof RowData]?.toString() ?? "N/A"}
-                              </div>
-                            ) : (row[col.propertyKey as keyof RowData]?.toString() ?? "N/A")
+                            getCustomColumnDisplay(row, col.propertyKey)
                           ) : (
                             "N/A"
                           )}
                       </TableCell>
                     ))}
+
 
                     <TableCell align="right" sx={{ py: 2 }} onClick={(e) => e.stopPropagation()}>
                       {editingRowId === row.id ? (
