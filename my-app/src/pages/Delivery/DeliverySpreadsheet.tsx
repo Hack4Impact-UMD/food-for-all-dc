@@ -2097,8 +2097,8 @@ const DeliverySpreadsheet: React.FC = () => {
         <TableContainer
           component={Paper}
           sx={{
-            maxHeight: "none",
-            height: "auto",
+            maxHeight: 520,
+            overflowY: "auto",
             width: "100%",
           }}
         >
@@ -2110,11 +2110,15 @@ const DeliverySpreadsheet: React.FC = () => {
                     key={field.key}
                     className="table-header"
                     style={{
+                      position: 'sticky',
+                      top: 0,
+                      zIndex: 3,
                       width: field.type === "checkbox" ? "20px" : "auto",
                       textAlign: "center",
                       padding: "10px",
                       cursor: (field.key === "fullname" || field.key === "clusterIdChange" || field.key === "tags" || field.key === "zipCode" || field.key === "ward" || field.key === "assignedDriver" || field.key === "assignedTime" || field.key === "deliveryDetails.deliveryInstructions") ? "pointer" : "default",
                       userSelect: "none",
+                      backgroundColor: '#f5f9f7',
                     }}
                     onClick={() => (field.key === "fullname" || field.key === "clusterIdChange" || field.key === "tags" || field.key === "zipCode" || field.key === "ward" || field.key === "assignedDriver" || field.key === "assignedTime" || field.key === "deliveryDetails.deliveryInstructions") && handleSort(field)}
                   >
@@ -2137,8 +2141,12 @@ const DeliverySpreadsheet: React.FC = () => {
                       className="table-header" 
                       key={col.id}
                       style={{
+                        position: 'sticky',
+                        top: 0,
+                        zIndex: 3,
                         userSelect: "none",
                         cursor: col.propertyKey !== "none" ? "pointer" : "default",
+                        backgroundColor: '#f5f9f7',
                       }}
                       onClick={() => col.propertyKey !== "none" && handleSort({ key: col.propertyKey } as Field)}
                     >
@@ -2215,6 +2223,12 @@ const DeliverySpreadsheet: React.FC = () => {
                   <TableCell 
                     className="table-header" 
                     align="right"
+                    style={{
+                      position: 'sticky',
+                      top: 0,
+                      zIndex: 3,
+                      backgroundColor: '#f5f9f7',
+                    }}
                   >
                     <IconButton
                       onClick={handleAddCustomColumn}

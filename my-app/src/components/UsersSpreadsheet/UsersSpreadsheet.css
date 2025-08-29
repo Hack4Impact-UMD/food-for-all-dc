@@ -1,3 +1,9 @@
+/* Add black border on hover for data rows, keep alternating colors unchanged */
+.box .table-row:hover {
+  outline: 2px solid #000;
+  outline-offset: -2px;
+  /* Do not change background-color here to preserve alternating colors */
+}
 html,
 body {
   height: 100%;
