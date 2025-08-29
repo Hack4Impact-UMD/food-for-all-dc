@@ -52,6 +52,7 @@ const ForgotPasswordPage = () => {
             <TextField
               label="Email Address"
               type="email"
+              className="forgot-password-email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               fullWidth
