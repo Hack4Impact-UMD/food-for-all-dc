@@ -1,7 +1,7 @@
 // src/components/Login.tsx
 
 import React, { useState, useEffect } from "react";
-import { signInWithEmailAndPassword, sendPasswordResetEmail, onAuthStateChanged } from "firebase/auth";
+import { signInWithEmailAndPassword, sendPasswordResetEmail, onAuthStateChanged, signOut } from "firebase/auth";
 import { AuthError } from "../../types/user-types";
 import { useNavigate } from "react-router-dom";
 import Button from "@mui/material/Button";
@@ -71,7 +71,7 @@ function Login() {
       case "auth/missing-fields":
         return { code: error.code, message: "Please enter both email and password." };
       case "auth/invalid-password":
-        return { code: error.code, message: "Weak password. Must contain at least 8 characters, with at least 1 uppercase letter, 1 lowercase letter, 1 number, and 1 special character. Reset password email sent." };
+        return { code: error.code, message: "Weak password. Must be at least 8 characters, with at least 1 uppercase letter, 1 lowercase letter, 1 number, and 1 special character." };
       default:
         return { code: error.code, message: "An error occurred during login. Please try again." };
     }
@@ -82,25 +82,26 @@ function Login() {
       setLoginError(mapLoginError({ code: "auth/missing-fields" }));
       return;
     }
-    if (isStrongPassword(loginPassword) === false) {
-      setLoginError(mapLoginError({ code: "auth/invalid-password" }));
-      setIsLoading(true);
-      setResetPasswordMessage("");
-      try {
-        await sendPasswordResetEmail(auth, loginEmail);
-      } catch (error: any) {
-        console.error("Error sending password reset email:", error);
-        setResetPasswordMessage(mapPasswordResetError(error));
-      } finally {
-        setIsLoading(false);
-      }
-      return;
-    }
     setIsLoading(true);
     setLoginError(null);
     setResetPasswordMessage("");
     try {
       await signInWithEmailAndPassword(auth, loginEmail, loginPassword);
+
+      // After successful auth, force upgrade if the current password is weak
+      if (!isStrongPassword(loginPassword)) {
+        try {
+          await sendPasswordResetEmail(auth, loginEmail);
+          setLoginError(mapLoginError({ code: "auth/invalid-password" }));
+          setResetPasswordMessage("A password reset link has been sent to your email. Please update your password to a stronger one.");
+        } catch (error: any) {
+          console.error("Error sending password reset email:", error);
+          setResetPasswordMessage("We couldn't send the reset email. Please try again shortly or use 'Forgot password'.");
+        }
+        await signOut(auth); // Sign out the user to prevent access with weak password
+        return;
+      }
+
       navigate("/clients");
     } catch (error: any) {
       console.error("Login Error:", error);
