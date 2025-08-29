@@ -64,9 +64,9 @@ export const routesConfig: AppRoute[] = [
         meta: { title: "Profile", description: "Client profile page", icon: "person" },
       },
       {
-        path: "delivery",
+        path: "routes",
         element: <DeliverySpreadsheet />,
-        meta: { title: "Delivery", description: "Delivery management", icon: "local_shipping" },
+        meta: { title: "Routes", description: "Route management", icon: "local_shipping" },
       },
       {
         path: "reports/summary",

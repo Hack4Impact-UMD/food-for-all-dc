@@ -120,9 +120,9 @@ export default function BasePage() {
     } else if (currentPath === "/users") {
       setPageTitle("Users");
       setTab("Users");
-    } else if (currentPath === "/delivery") {
-      setPageTitle("Delivery");
-      setTab("Delivery");
+    } else if (currentPath === "/routes") {
+      setPageTitle("Routes");
+      setTab("Routes");
     } else if (currentPath.startsWith("/reports")) {
       // Handle reports routes
       if (currentPath === "/reports/summary") {
@@ -172,7 +172,7 @@ export default function BasePage() {
   const navItems = useMemo(() => {
     const items = [...baseNavItems];
 
-    items.push({ text: "Delivery", icon: <LocalShippingIcon />, link: "/delivery" });
+    items.push({ text: "Routes", icon: <LocalShippingIcon />, link: "/routes" });
 
     if (userRole === UserType.Admin || userRole === UserType.Manager) {
       items.push({ text: "Users", icon: <AddCircleIcon />, link: "/users" });
