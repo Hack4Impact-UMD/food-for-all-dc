@@ -91,7 +91,7 @@ const CustomTextField = styled(TextField)({
       boxShadow: "0 0 8px rgba(37, 126, 104, 0.4), 0 0 16px rgba(37, 126, 104, 0.2)",
     },
   },
-  "& .MuiInputBase-inputMultiline": {
+  "& .MuiInputBase-inputMultiline, & textarea": {
     backgroundColor: "white",
     width: "100%",
     minHeight: "56px",
@@ -105,7 +105,7 @@ const CustomTextField = styled(TextField)({
     wordWrap: "break-word",
     overflowWrap: "break-word",
     wordBreak: "break-word",
-    resize: "vertical",
+    resize: "vertical !important",
     "&:focus": {
       border: "2px solid #257E68",
       outline: "none",
@@ -211,6 +211,15 @@ const CustomCheckbox = styled(Checkbox)({
     "&.Mui-focusVisible .MuiTouchRipple-root": {
       color: "rgba(37, 126, 104, 1)",
     },
+  },
+  "&.MuiCheckbox-root .MuiSvgIcon-root": {
+    color: "#257E68",
+  },
+  "&.Mui-checked .MuiSvgIcon-root": {
+    color: "#257E68",
+  },
+  "& .MuiSvgIcon-root": {
+    color: "#257E68",
   },
 });
 
@@ -364,17 +373,24 @@ const FormField: React.FC<FormFieldProps> = ({
           {Object.entries(restrictions)
             .filter(([key, value]) => typeof value === "boolean")
             .map(([key, value]) => (
-              <Grid key={key}>                <FormControlLabel
-                sx={{ textAlign: "left" }}
-                control={
-                  <CustomCheckbox
-                    name={key}
-                    checked={value as boolean}
-                    onChange={handleDietaryRestrictionChange}
-                  />
-                }
-                label={capitalizeFirstLetter(key.replace(/([A-Z])/g, " $1").trim())}
-              />
+              <Grid key={key}>
+                <FormControlLabel
+                  sx={{ textAlign: "left" }}
+                  control={
+                    <CustomCheckbox
+                      name={key}
+                      checked={value as boolean}
+                      onChange={handleDietaryRestrictionChange}
+                  sx={!isEditing ? {
+                    '&.MuiCheckbox-root .MuiSvgIcon-root': { color: '#B6E5D8 !important' },
+                    '&.Mui-checked .MuiSvgIcon-root': { color: '#B6E5D8 !important' },
+                    '& .MuiSvgIcon-root': { color: '#B6E5D8 !important' },
+                  } : {}}
+                      disabled={!isEditing}
+                    />
+                  }
+                  label={capitalizeFirstLetter(key.replace(/([A-Z])/g, " $1").trim())}
+                />
               </Grid>
             ))}
         </Grid>
@@ -663,6 +679,7 @@ const FormField: React.FC<FormFieldProps> = ({
             maxRows={4}
             inputProps={{ minLength: minLengthTextarea }}
             sx={{ minHeight: 120, width: '100%' }}
+            style={{ width: '100%' }}
             disabled={fieldPath === "ward"}
           />
         );

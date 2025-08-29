@@ -215,19 +215,21 @@ const Profile = () => {
     deliveryDetails: {
       deliveryInstructions: "",
       dietaryRestrictions: {
-        lowSugar: false,
-        kidneyFriendly: false,
-        vegan: false,
-        vegetarian: false,
-        halal: false,
-        microwaveOnly: false,
-        softFood: false,
-        lowSodium: false,
-        noCookingEquipment: false,
-        heartFriendly: false,
-        foodAllergens: [],
-        otherText: "",
-        other: false,     // Changed from string to boolean
+  lowSugar: false,
+  kidneyFriendly: false,
+  vegan: false,
+  vegetarian: false,
+  halal: false,
+  microwaveOnly: false,
+  softFood: false,
+  lowSodium: false,
+  noCookingEquipment: false,
+  heartFriendly: false,
+  allergies: false,
+  allergiesText: "",
+  foodAllergens: [],
+  otherText: "",
+  other: false,     // Changed from string to boolean
 
       },
     },
@@ -236,7 +238,7 @@ const Profile = () => {
     notesTimestamp: null,
     deliveryInstructionsTimestamp: null, // New timestamp field for delivery instructions
     lifeChallengesTimestamp: null,       // New timestamp field for life challenges
-    lifestyleGoalsTimestamp: null,
+    lifestyleGoalsTimestamp: null,  
     lifestyleGoals: "",
     language: "",
     createdAt: TimeUtils.now().toJSDate(),
@@ -284,6 +286,16 @@ const Profile = () => {
   const [pastDeliveries, setPastDeliveries] = useState<DeliveryEvent[]>([]);
   const [futureDeliveries, setFutureDeliveries] = useState<DeliveryEvent[]>([]);
   const [events, setEvents] = useState<DeliveryEvent[]>([]);
+
+    // Allergies textbox state for editing
+    const [foodAllergensText, setFoodAllergensText] = useState<string>("");
+  // Sync allergies textbox with foodAllergens array when entering edit mode or when array changes
+  useEffect(() => {
+    if (isEditing) {
+      const allergensArr = clientProfile.deliveryDetails?.dietaryRestrictions?.foodAllergens;
+      setFoodAllergensText(Array.isArray(allergensArr) && allergensArr.length > 0 ? allergensArr.join(", ") : "");
+    }
+  }, [isEditing, clientProfile.deliveryDetails?.dietaryRestrictions?.foodAllergens]);
 
   // Add clients state for fetchClients()
   const [clients, setClients] = useState<ClientProfile[]>([]);
@@ -1363,7 +1375,7 @@ if (type === "physicalAilments") {
       ];
       
       return (
-        <>
+  <>
           {options.map((option) => (
             <HealthCheckbox
               key={option.name}
@@ -1371,6 +1383,7 @@ if (type === "physicalAilments") {
               onChange={handlePhysicalAilmentsChange}
               name={option.name}
               label={option.label}
+              isEditing={isEditing}
             />
           ))}
           <HealthCheckbox
@@ -1381,6 +1394,7 @@ if (type === "physicalAilments") {
             showOtherText={true}
             otherTextValue={clientProfile.physicalAilments?.otherText || ""}
             placeholder="Please specify other physical ailments"
+            isEditing={isEditing}
           />
         </>
       );
@@ -1396,6 +1410,7 @@ if (type === "physicalAilments") {
           showOtherText={true}
           otherTextValue={clientProfile.physicalDisability?.otherText || ""}
           placeholder="Please specify other physical disabilities"
+          isEditing={isEditing}
         />
       );
     }
@@ -1410,6 +1425,7 @@ if (type === "physicalAilments") {
           showOtherText={true}
           otherTextValue={clientProfile.mentalHealthConditions?.otherText || ""}
           placeholder="Please specify other mental health conditions"
+          isEditing={isEditing}
         />
       );
     }
@@ -1441,95 +1457,131 @@ if (type === "physicalAilments") {
         vegetarian: boolean;
         halal: boolean;
         microwaveOnly: boolean;
-        softFood: boolean;
-        lowSodium: boolean;
-        noCookingEquipment: boolean;
-        heartFriendly: boolean;
-        other: boolean;
-        otherText: string;
+  softFood: boolean;
+  lowSodium: boolean;
+  noCookingEquipment: boolean;
+  heartFriendly: boolean;
+  allergies: boolean;
+  allergiesText: string;
+  other: boolean;
+  otherText: string;
       }
 
       return (
-        <>          {dietaryOptions.map((option: DietaryOption) => (
-  <FormControlLabel
-    key={option.name}
-    control={      <Checkbox
-        checked={Boolean(clientProfile.deliveryDetails?.dietaryRestrictions?.[option.name])}
-        onChange={handleDietaryRestrictionChange}
-        name={option.name}
-        sx={{
-          "&:focus": {
-            outline: "none",
-          },
-          "&.Mui-focusVisible": {
-            outline: "none",
-            "& .MuiSvgIcon-root": {
-              color: "#257E68",
-              filter: "drop-shadow(0 0 8px rgba(37, 126, 104, 0.4)) drop-shadow(0 0 16px rgba(37, 126, 104, 0.2))",
-            },
-          },
-          "& input:focus + .MuiSvgIcon-root": {
-            color: "#257E68",
-            filter: "drop-shadow(0 0 8px rgba(37, 126, 104, 0.4)) drop-shadow(0 0 16px rgba(37, 126, 104, 0.2))",
-          },
-        }}
-      />
-    }
-    label={option.label}
-  />
-))}
+        <>
+          {dietaryOptions.map((option: DietaryOption) => {
+            return (
+              <HealthCheckbox
+                key={option.name}
+                checked={Boolean(clientProfile.deliveryDetails?.dietaryRestrictions?.[option.name])}
+                onChange={handleDietaryRestrictionChange}
+                name={option.name}
+                label={option.label}
+                isEditing={isEditing}
+              />
+            );
+          })}
 
-<Box sx={{ 
-  display: 'flex', 
-  alignItems: 'center',
-  gap: 1,
-  width: '100%',
-}}>
-  <FormControlLabel
-    control={      <Checkbox
-        checked={clientProfile.deliveryDetails?.dietaryRestrictions?.other || false}
-        onChange={handleDietaryRestrictionChange}
-        name="other"
-        sx={{
-          "&:focus": {
-            outline: "none",
-          },
-          "&.Mui-focusVisible": {
-            outline: "none",
-            "& .MuiSvgIcon-root": {
-              color: "#257E68",
-              filter: "drop-shadow(0 0 8px rgba(37, 126, 104, 0.4)) drop-shadow(0 0 16px rgba(37, 126, 104, 0.2))",
-            },
-          },
-          "& input:focus + .MuiSvgIcon-root": {
-            color: "#257E68",
-            filter: "drop-shadow(0 0 8px rgba(37, 126, 104, 0.4)) drop-shadow(0 0 16px rgba(37, 126, 104, 0.2))",
-          },
-        }}
-      />
-    }
-    label="Other"
-  />
-  {clientProfile.deliveryDetails?.dietaryRestrictions?.other && (    <TextField
-      name="otherText"
-      value={clientProfile.deliveryDetails?.dietaryRestrictions?.otherText || ""}
-      onChange={handleDietaryRestrictionChange}
-      placeholder="Please specify other dietary restrictions"
-      variant="outlined"
-      size="small"
-      sx={{ 
-        flexGrow: 1, 
-        marginTop: '5%',        '& .MuiOutlinedInput-root': {
-          '&.Mui-focused fieldset': {
-            borderColor: "#257E68",
-            border: "2px solid #257E68",
-            boxShadow: "0 0 8px rgba(37, 126, 104, 0.4), 0 0 16px rgba(37, 126, 104, 0.2)",
-          },
-        },
-      }}
-    />
-  )}
-</Box>
+          {/* Allergies title and text box */}
+          <Box sx={{ width: '100%' }}>
+            <Typography className="field-descriptor" sx={{ fontWeight: 700, fontSize: '1rem', mb: '10px' }}>
+              ALLERGIES
+            </Typography>
+            {isEditing ? (
+              <CustomTextField
+                name="foodAllergensText"
+                value={foodAllergensText}
+                onChange={e => {
+                  setFoodAllergensText(e.target.value);
+                }}
+                onBlur={e => {
+                  // On blur, update state and array
+                  const value = e.target.value;
+                  handlePrevClientCopying();
+                  setClientProfile(prev => ({
+                    ...prev,
+                    deliveryDetails: {
+                      ...prev.deliveryDetails,
+                      dietaryRestrictions: {
+                        ...prev.deliveryDetails.dietaryRestrictions,
+                        foodAllergens: value.split(",").map(s => s.trim()).filter(Boolean),
+                        allergiesText: value,
+                      }
+                    }
+                  }));
+                }}
+                placeholder="Please specify allergies (e.g. peanuts, shellfish)"
+                variant="outlined"
+                size="small"
+                multiline
+                minRows={2}
+                sx={{ width: '105%', marginLeft: 0, resize: 'vertical', '& textarea': { resize: 'vertical' }, '& .MuiOutlinedInput-root': { '&.Mui-focused fieldset': { borderColor: '#257E68' } } }}
+              />
+            ) : (
+              <Typography sx={{ width: '105%', fontSize: '1rem', padding: '10px', minHeight: '48px', textAlign: 'left' }}>
+                {clientProfile.deliveryDetails?.dietaryRestrictions?.foodAllergens?.join(", ") || ""}
+              </Typography>
+            )}
+          </Box>
+{/* ...existing code... */}
+
+          {/* Other title and text box */}
+          <Box sx={{ width: '100%' }}>
+            <Typography className="field-descriptor" sx={{ fontWeight: 700, fontSize: '1rem', mb: '10px' }}>
+              OTHER
+            </Typography>
+            {isEditing ? (
+              <CustomTextField
+                name="otherText"
+                value={clientProfile.deliveryDetails?.dietaryRestrictions?.otherText || ""}
+                onChange={handleDietaryRestrictionChange}
+                placeholder="Please specify other dietary restrictions"
+                variant="outlined"
+                size="small"
+                multiline
+                minRows={2}
+                sx={{ width: '105%', marginLeft: 0, resize: 'vertical', '& textarea': { resize: 'vertical' }, '& .MuiOutlinedInput-root': { '&.Mui-focused fieldset': { borderColor: "#257E68" } } }}
+              />
+            ) : (
+              <Typography sx={{ width: '105%', fontSize: '1rem', padding: '10px', minHeight: '48px', textAlign: 'left' }}>
+                {clientProfile.deliveryDetails?.dietaryRestrictions?.otherText || ""}
+              </Typography>
+            )}
+          </Box>
+
+            {/* Dietary Preferences textarea */}
+            {/* Dietary Preferences Subsection Heading */}
+            <Box sx={{ width: '100%', mt: 3 }}>
+              <SectionTitle sx={{ textAlign: 'left', width: '100%' }}>
+                Dietary Preferences
+              </SectionTitle>
+              <Typography className="field-descriptor" sx={{ fontWeight: 700, fontSize: '1rem', mb: '10px' }}>
+                DIETARY PREFERENCES
+              </Typography>
+              {isEditing ? (
+                <CustomTextField
+                  name="dietaryPreferences"
+                  value={typeof clientProfile.deliveryDetails?.dietaryRestrictions?.dietaryPreferences === 'string'
+                    ? clientProfile.deliveryDetails?.dietaryRestrictions?.dietaryPreferences
+                    : ''}
+                  onChange={handleDietaryRestrictionChange}
+                  placeholder="Please specify dietary preferences (e.g. kosher, gluten-free)"
+                  variant="outlined"
+                  size="small"
+                  multiline
+                  minRows={2}
+                  error={!!errors["deliveryDetails.dietaryRestrictions.dietaryPreferences"]}
+                  sx={{ width: '105%', marginLeft: 0, resize: 'vertical', '& textarea': { resize: 'vertical', textAlign: 'left !important' }, '& .MuiOutlinedInput-root': { '&.Mui-focused fieldset': { borderColor: '#257E68' } } }}
+                  inputProps={{ style: { textAlign: 'left' } }}
+                />
+              ) : (
+                <Typography sx={{ width: '105%', fontSize: '1rem', padding: '10px', minHeight: '48px', textAlign: 'left' }}>
+                  {typeof clientProfile.deliveryDetails?.dietaryRestrictions?.dietaryPreferences === 'string'
+                    ? clientProfile.deliveryDetails?.dietaryRestrictions?.dietaryPreferences
+                    : ''}
+                </Typography>
+              )}
+            </Box>
         </>
       );
     }
@@ -1954,12 +2006,12 @@ if (type === "physicalAilments") {
   };
 
   // Updated handler for dietary restrictions
-  const handleDietaryRestrictionChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleDietaryRestrictionChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, type } = e.target;
     handlePrevClientCopying();
 
     if (type === "checkbox") {
-      const { checked } = e.target;
+  const checked = (e.target as HTMLInputElement).checked;
       setClientProfile((prevState) => ({
         ...prevState,
         deliveryDetails: {
@@ -1975,16 +2027,17 @@ if (type === "physicalAilments") {
           },
         },
       }));
-    } else if (type === "text" && name === "otherText") {
-      const value = e.target.value;
+    } else if ((type === "text" || type === "textarea") && (name === "otherText" || name === "allergiesText" || name === "dietaryPreferences")) {
+      const value = (e.target as HTMLInputElement | HTMLTextAreaElement).value;
       setClientProfile((prevState) => ({
         ...prevState,
         deliveryDetails: {
           ...prevState.deliveryDetails,
           dietaryRestrictions: {
             ...prevState.deliveryDetails.dietaryRestrictions,
-            otherText: value,
-            other: true // Ensure the checkbox stays checked when typing
+            [name]: value,
+            ...(name === "otherText" && { other: true }), // Ensure the checkbox stays checked when typing in otherText
+            ...(name === "allergiesText" && { allergies: value.trim() !== "" }) // Checkbox checked if textbox not empty
           },
         },
       }));
@@ -2563,7 +2616,7 @@ const handleMentalHealthConditionsChange = (e: React.ChangeEvent<HTMLInputElemen
 
           {/* Dietary Preferences Section */}
           <SectionBox mb={3}>
-            <SectionTitle sx={{ textAlign: 'left', width: '100%' }}>Dietary Preferences</SectionTitle>
+            <SectionTitle sx={{ textAlign: 'left', width: '100%' }}>Dietary Options</SectionTitle>
             <DietaryPreferencesForm
               isEditing={isEditing}
               fieldLabelStyles={fieldLabelStyles}
