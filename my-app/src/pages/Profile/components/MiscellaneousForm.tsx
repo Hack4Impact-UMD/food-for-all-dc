@@ -43,7 +43,7 @@ const MiscellaneousForm: React.FC<MiscellaneousFormProps> = ({
           {isEditing ? (
             <Box sx={{ minHeight: 120, width: '100%' }}>{renderField("famStartDate", "date")}</Box>
           ) : (
-            <Typography sx={{ fontWeight: 400, fontSize: '1.15rem', lineHeight: 1, mt: 0, mb: 0, pt: 0, textAlign: 'left', pl: 0 }}>{clientProfile.startDate ? String(clientProfile.startDate) : "N/A"}</Typography>
+            <Typography sx={{ fontWeight: 400, fontSize: '1.15rem', lineHeight: 1, mt: 0, mb: 0, pt: 0, textAlign: 'left', pl: 0 }}>{clientProfile.famStartDate ? String(clientProfile.famStartDate) : "N/A"}</Typography>
           )}
         </Box>
         <Box>
