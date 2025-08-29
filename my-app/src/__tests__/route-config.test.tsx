@@ -56,7 +56,7 @@ const routesToTest = [
   { path: "/clients", text: /clients/i },
   { path: "/calendar", text: /calendar/i },
   { path: "/users", text: /users/i },
-  { path: "/delivery", text: /delivery/i },
+  { path: "/routes", text: /routes/i },
 ];
 
 describe("Route Config Tests", () => {

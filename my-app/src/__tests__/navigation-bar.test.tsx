@@ -23,7 +23,7 @@ describe("Navigation Bar Tests", () => {
     expect(screen.getByText(/clients/i)).toBeInTheDocument();
     expect(screen.getByText(/calendar/i)).toBeInTheDocument();
     expect(screen.getByText(/users/i)).toBeInTheDocument();
-    expect(screen.getByText(/delivery/i)).toBeInTheDocument();
+    expect(screen.getByText(/routes/i)).toBeInTheDocument();
   });
 
   it("renders correct links for Driver", () => {
@@ -35,7 +35,7 @@ describe("Navigation Bar Tests", () => {
     );
     expect(screen.getByText(/clients/i)).toBeInTheDocument();
     expect(screen.getByText(/calendar/i)).toBeInTheDocument();
-    expect(screen.getByText(/delivery/i)).toBeInTheDocument();
+    expect(screen.getByText(/routes/i)).toBeInTheDocument();
     expect(screen.queryByText(/users/i)).not.toBeInTheDocument();
   });
 
