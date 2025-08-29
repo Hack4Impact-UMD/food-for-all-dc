@@ -933,12 +933,13 @@ interface DuplicateCheckResult {
   sameNameDiffAddressCount?: number;
 }
 
-const checkDuplicateClient = async (firstName: string, lastName: string, address: string, zipCode: string, excludeUid?: string): Promise<boolean | DuplicateCheckResult> => {
+const checkDuplicateClient = async (firstName: string, lastName: string, address: string, address2: string, zipCode: string, excludeUid?: string): Promise<boolean | DuplicateCheckResult> => {
   // Normalize inputs for comparison only
   const normalizeString = (str: string) => (str || '').trim().toLowerCase();
   const normalizedFirstName = normalizeString(firstName);
   const normalizedLastName = normalizeString(lastName);
   const normalizedAddress = normalizeString(address);
+  const normalizedAddress2 = normalizeString(address2);
   const normalizedZipCode = normalizeString(zipCode);
 
   // Skip check if any required field is empty
@@ -953,6 +954,7 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
   const addressZipQuery = query(
     collection(db, clientsCollection),
     where("address", "==", address),
+    where("address2", "==", address2),
     where("zipCode", "==", zipCode)
   );
   const addressZipSnapshot = await getDocs(addressZipQuery);
@@ -983,7 +985,7 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
       return (
         normalizeString(data.firstName) === normalizedFirstName &&
         normalizeString(data.lastName) === normalizedLastName &&
-        normalizeString(data.address) !== normalizedAddress &&
+        (normalizeString(data.address) !== normalizedAddress || normalizeString(data.address2) !== normalizedAddress2) &&
         (!excludeUid || data.uid !== excludeUid)
       );
     }).length;
@@ -1042,6 +1044,7 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
           String(clientProfile.firstName).trim(),
           String(clientProfile.lastName).trim(),
           String(clientProfile.address).trim(),
+          String(clientProfile.address2).trim(),
           String(clientProfile.zipCode).trim()
         );
         
@@ -1080,6 +1083,7 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
           String(clientProfile.firstName).trim(),
           String(clientProfile.lastName).trim(),
           String(clientProfile.address).trim(),
+          String(clientProfile.address2).trim(),
           String(clientProfile.zipCode).trim(),
           String(clientProfile.uid)
         );
