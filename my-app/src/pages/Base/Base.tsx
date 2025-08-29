@@ -98,13 +98,15 @@ const LogoImage = styled("img")({
   },
 });
 
+
+
 export default function BasePage() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState("Delivery Schedule");
   const [pageTitle, setPageTitle] = useState("");
-  const { logout, userRole } = useAuth();
+  const { logout, name, userRole } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -324,6 +326,7 @@ export default function BasePage() {
             </ListItem>
             ))}
         </List>
+        <Typography sx={{ padding: "8px" }}>{`Logged in as: ${name} (${userRole ?? "Unknown"})`}</Typography>
         <Divider sx={{ margin: "0 16px", backgroundColor: "rgba(0, 0, 0, 0.06)" }} />
         <List sx={{ padding: "8px" }}>
           <ListItem key="Logout" disablePadding>
