@@ -94,18 +94,12 @@ const DeliveryInfoForm: React.FC<DeliveryInfoFormProps> = ({
       <Box
         sx={{
           display: "grid",
-          gap: isEditing ? 3 : 5,
-          gridTemplateColumns: {
-            xs: "1fr",
-            sm: "repeat(2, 1fr)",
-            md: "repeat(3, 1fr)",
-          },
-          alignItems: "flex-start",
+          gridTemplateColumns: '350px 350px 1fr',
         }}
         className="info-grid"
       >
         {/* Start Date */}
-        <Box>
+        <Box sx={{ width: 350 }}>
           <Typography className="field-descriptor" sx={fieldLabelStyles}>
             START DATE <span className="required-asterisk">*</span>
           </Typography>
@@ -128,7 +122,7 @@ const DeliveryInfoForm: React.FC<DeliveryInfoFormProps> = ({
         </Box>
 
         {/* End Date */}
-        <Box>
+        <Box sx={{ width: 350 }}>
           <Typography className="field-descriptor" sx={fieldLabelStyles}>
             END DATE <span className="required-asterisk">*</span>
           </Typography>
@@ -170,20 +164,9 @@ const DeliveryInfoForm: React.FC<DeliveryInfoFormProps> = ({
 
         {/* Delivery Instructions */}
         <Box sx={{ 
-          gridColumn: { xs: '1', sm: 'span 1' },
           width: '100%',
-          '& .MuiTextField-root': {
-            width: '100%',
-            '& .MuiInputBase-root': {
-              minHeight: '56px',
-              height: 'auto',
-              alignItems: 'flex-start',
-            },
-            '& .MuiInputBase-inputMultiline': {
-              minHeight: '80px !important',
-              padding: '16px 14px !important',
-            }
-          }
+          minHeight: '80px',
+          padding: '16px 14px',
         }}>
           <Typography className="field-descriptor" sx={fieldLabelStyles}>
             DELIVERY INSTRUCTIONS
@@ -208,20 +191,9 @@ const DeliveryInfoForm: React.FC<DeliveryInfoFormProps> = ({
 
         {/* Notes */}
         <Box sx={{ 
-          gridColumn: { xs: '1', sm: 'span 1' },
           width: '100%',
-          '& .MuiTextField-root': {
-            width: '100%',
-            '& .MuiInputBase-root': {
-              minHeight: '56px',
-              height: 'auto',
-              alignItems: 'flex-start',
-            },
-            '& .MuiInputBase-inputMultiline': {
-              minHeight: '80px !important',
-              padding: '16px 14px !important',
-            }
-          }
+          minHeight: '80px',
+          padding: '16px 14px',
         }}>
           <Typography className="field-descriptor" sx={fieldLabelStyles}>
             ADMIN NOTES

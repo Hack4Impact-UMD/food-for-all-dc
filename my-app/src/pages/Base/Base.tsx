@@ -98,13 +98,15 @@ const LogoImage = styled("img")({
   },
 });
 
+
+
 export default function BasePage() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState("Delivery Schedule");
   const [pageTitle, setPageTitle] = useState("");
-  const { logout, userRole } = useAuth();
+  const { logout, name, userRole } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -120,9 +122,9 @@ export default function BasePage() {
     } else if (currentPath === "/users") {
       setPageTitle("Users");
       setTab("Users");
-    } else if (currentPath === "/delivery") {
-      setPageTitle("Delivery");
-      setTab("Delivery");
+    } else if (currentPath === "/routes") {
+      setPageTitle("Routes");
+      setTab("Routes");
     } else if (currentPath.startsWith("/reports")) {
       // Handle reports routes
       if (currentPath === "/reports/summary") {
@@ -172,7 +174,7 @@ export default function BasePage() {
   const navItems = useMemo(() => {
     const items = [...baseNavItems];
 
-    items.push({ text: "Delivery", icon: <LocalShippingIcon />, link: "/delivery" });
+    items.push({ text: "Routes", icon: <LocalShippingIcon />, link: "/routes" });
 
     if (userRole === UserType.Admin || userRole === UserType.Manager) {
       items.push({ text: "Users", icon: <AddCircleIcon />, link: "/users" });
@@ -324,6 +326,7 @@ export default function BasePage() {
             </ListItem>
             ))}
         </List>
+        <Typography sx={{ padding: "8px" }}>{`Logged in as: ${name} (${userRole ?? "Unknown"})`}</Typography>
         <Divider sx={{ margin: "0 16px", backgroundColor: "rgba(0, 0, 0, 0.06)" }} />
         <List sx={{ padding: "8px" }}>
           <ListItem key="Logout" disablePadding>

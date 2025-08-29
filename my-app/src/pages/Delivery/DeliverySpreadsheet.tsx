@@ -59,7 +59,7 @@ import { exportDeliveries, exportDoordashDeliveries } from "./RouteExport";
 import Button from "../../components/common/Button";
 import { RowData as DeliveryRowData } from "./types/deliveryTypes";
 import { Driver } from '../../types/calendar-types';
-import { CustomRowData, useCustomColumns } from "../../hooks/useCustomColumns";
+import { CustomRowData, useCustomColumns, allowedPropertyKeys } from "../../hooks/useCustomColumns";
 import ClientService from "../../services/client-service";
 import { LatLngTuple } from "leaflet";
 import { UserType } from "../../types";
@@ -1696,12 +1696,36 @@ const DeliverySpreadsheet: React.FC = () => {
         // Handle custom column sorting
         const customColumn = customColumns.find(col => col.propertyKey === sortedColumn);
         if (customColumn && customColumn.propertyKey !== "none") {
+          // Special sorting for dietary restrictions custom column
+          if (customColumn.propertyKey === "deliveryDetails.dietaryRestrictions" || customColumn.propertyKey === "dietaryRestrictions") {
+            const getDietString = (row: DeliveryRowData) => {
+              const dr = row.deliveryDetails?.dietaryRestrictions;
+              if (!dr || typeof dr !== "object") return "None";
+              const keys = [
+                "halal", "kidneyFriendly", "lowSodium", "lowSugar", "microwaveOnly", "noCookingEquipment", "softFood", "vegan", "vegetarian", "heartFriendly"
+              ];
+              const items = keys.filter(k => dr[k]).map(k => k);
+              if (Array.isArray(dr.foodAllergens) && dr.foodAllergens.length > 0) items.push(...dr.foodAllergens);
+              if (Array.isArray(dr.other) && dr.other.length > 0) items.push(...dr.other);
+              if (dr.otherText && dr.otherText.trim() !== "") items.push(dr.otherText.trim());
+              if (items.length === 0) return "None";
+              return items.join(", ");
+            };
+            const dietA = getDietString(a);
+            const dietB = getDietString(b);
+            const isNoneA = dietA === "None";
+            const isNoneB = dietB === "None";
+            if (isNoneA && !isNoneB) return sortOrder === "asc" ? 1 : -1;
+            if (!isNoneA && isNoneB) return sortOrder === "asc" ? -1 : 1;
+            return sortOrder === "asc"
+              ? dietA.localeCompare(dietB, undefined, { sensitivity: 'base' })
+              : dietB.localeCompare(dietA, undefined, { sensitivity: 'base' });
+          }
+          // Default custom column sorting
           let valueA = "";
           let valueB = "";
-
-          // Get values for custom column
           if (customColumn.propertyKey === 'referralEntity' && typeof a.referralEntity === 'object' && a.referralEntity !== null) {
-            valueA = `${a.referralEntity.name ?? ''}, ${a.referralEntity.organization ?? ''}`.toLowerCase();
+            valueA = `${a.referralEntity.name || ''}, ${a.referralEntity.organization || ''}`.trim().toLowerCase();
           } else if (customColumn.propertyKey.includes('deliveryInstructions')) {
             valueA = (a.deliveryDetails?.deliveryInstructions || "").toLowerCase().trim();
           } else {
@@ -1716,7 +1740,6 @@ const DeliverySpreadsheet: React.FC = () => {
               valueA = String(rawValueA || "").toLowerCase();
             }
           }
-
           if (customColumn.propertyKey === 'referralEntity' && typeof b.referralEntity === 'object' && b.referralEntity !== null) {
             valueB = `${b.referralEntity.name ?? ''}, ${b.referralEntity.organization ?? ''}`.toLowerCase();
           } else if (customColumn.propertyKey.includes('deliveryInstructions')) {
@@ -1733,12 +1756,9 @@ const DeliverySpreadsheet: React.FC = () => {
               valueB = String(rawValueB || "").toLowerCase();
             }
           }
-
-          // Handle empty values - empty strings sort first in ascending, last in descending
           if (!valueA && !valueB) return 0;
           if (!valueA) return sortOrder === "asc" ? -1 : 1;
           if (!valueB) return sortOrder === "asc" ? 1 : -1;
-
           return sortOrder === "asc"
             ? valueA.localeCompare(valueB, undefined, { sensitivity: 'base' })
             : valueB.localeCompare(valueA, undefined, { sensitivity: 'base' });
@@ -2077,8 +2097,8 @@ const DeliverySpreadsheet: React.FC = () => {
         <TableContainer
           component={Paper}
           sx={{
-            maxHeight: "none",
-            height: "auto",
+            maxHeight: 520,
+            overflowY: "auto",
             width: "100%",
           }}
         >
@@ -2090,11 +2110,15 @@ const DeliverySpreadsheet: React.FC = () => {
                     key={field.key}
                     className="table-header"
                     style={{
+                      position: 'sticky',
+                      top: 0,
+                      zIndex: 3,
                       width: field.type === "checkbox" ? "20px" : "auto",
                       textAlign: "center",
                       padding: "10px",
                       cursor: (field.key === "fullname" || field.key === "clusterIdChange" || field.key === "tags" || field.key === "zipCode" || field.key === "ward" || field.key === "assignedDriver" || field.key === "assignedTime" || field.key === "deliveryDetails.deliveryInstructions") ? "pointer" : "default",
                       userSelect: "none",
+                      backgroundColor: '#f5f9f7',
                     }}
                     onClick={() => (field.key === "fullname" || field.key === "clusterIdChange" || field.key === "tags" || field.key === "zipCode" || field.key === "ward" || field.key === "assignedDriver" || field.key === "assignedTime" || field.key === "deliveryDetails.deliveryInstructions") && handleSort(field)}
                   >
@@ -2117,8 +2141,12 @@ const DeliverySpreadsheet: React.FC = () => {
                       className="table-header" 
                       key={col.id}
                       style={{
+                        position: 'sticky',
+                        top: 0,
+                        zIndex: 3,
                         userSelect: "none",
                         cursor: col.propertyKey !== "none" ? "pointer" : "default",
+                        backgroundColor: '#f5f9f7',
                       }}
                       onClick={() => col.propertyKey !== "none" && handleSort({ key: col.propertyKey } as Field)}
                     >
@@ -2141,18 +2169,26 @@ const DeliverySpreadsheet: React.FC = () => {
                             },
                           }}
                         >
-                        <MenuItem value="none">None</MenuItem>
-                        <MenuItem value="address">Address</MenuItem>
-                        <MenuItem value="adults">Adults</MenuItem>
-                        <MenuItem value="children">Children</MenuItem>
-                        <MenuItem value="deliveryFreq">Delivery Freq</MenuItem>
-                        <MenuItem value="ethnicity">Ethnicity</MenuItem>
-                        <MenuItem value="gender">Gender</MenuItem>
-                        <MenuItem value="language">Language</MenuItem>
-                        <MenuItem value="notes">Notes</MenuItem>
-                        <MenuItem value="referralEntity">Referral Entity</MenuItem>
-                        <MenuItem value="tefapCert">TEFAP Cert</MenuItem>
-                        <MenuItem value="dob">DOB</MenuItem>
+                        {allowedPropertyKeys.map((key: string) => {
+                          let label = key;
+                          if (key === "none") label = "None";
+                          if (key === "address") label = "Address";
+                          if (key === "adults") label = "Adults";
+                          if (key === "children") label = "Children";
+                          if (key === "deliveryFreq") label = "Delivery Freq";
+                          if (key === "deliveryDetails.dietaryRestrictions") label = "Dietary Restrictions";
+                          if (key === "ethnicity") label = "Ethnicity";
+                          if (key === "gender") label = "Gender";
+                          if (key === "language") label = "Language";
+                          if (key === "notes") label = "Notes";
+                          if (key === "referralEntity") label = "Referral Entity";
+                          if (key === "tefapCert") label = "TEFAP Cert";
+                          if (key === "tags") label = "Tags";
+                          if (key === "dob") label = "DOB";
+                          if (key === "ward") label = "Ward";
+                          if (key === "zipCode") label = "Zip Code";
+                          return <MenuItem key={key} value={key}>{label}</MenuItem>;
+                        })}
                         </Select>
                         {/* Show sort icon if this custom column is currently sorted */}
                         {col.propertyKey !== "none" && (
@@ -2187,6 +2223,12 @@ const DeliverySpreadsheet: React.FC = () => {
                   <TableCell 
                     className="table-header" 
                     align="right"
+                    style={{
+                      position: 'sticky',
+                      top: 0,
+                      zIndex: 3,
+                      backgroundColor: '#f5f9f7',
+                    }}
                   >
                     <IconButton
                       onClick={handleAddCustomColumn}
@@ -2355,8 +2397,53 @@ const DeliverySpreadsheet: React.FC = () => {
                       }}
                     >
                       {col.propertyKey !== "none" ? (
-                        col.propertyKey === 'referralEntity' && typeof row.referralEntity === 'object' && row.referralEntity !== null ?
-                        `${row.referralEntity.name ?? 'N/A'}, ${row.referralEntity.organization ?? 'N/A'}`
+                        col.propertyKey === "deliveryDetails.dietaryRestrictions" ? (
+                          (() => {
+                            const dr = row.deliveryDetails?.dietaryRestrictions;
+                            if (!dr) return <span style={{ color: '#757575', fontStyle: 'italic' }}>None</span>;
+                            const restrictions: string[] = [];
+                            if (dr.halal) restrictions.push("Halal");
+                            if (dr.kidneyFriendly) restrictions.push("Kidney Friendly");
+                            if (dr.lowSodium) restrictions.push("Low Sodium");
+                            if (dr.lowSugar) restrictions.push("Low Sugar");
+                            if (dr.microwaveOnly) restrictions.push("Microwave Only");
+                            if (dr.noCookingEquipment) restrictions.push("No Cooking Equipment");
+                            if (dr.softFood) restrictions.push("Soft Food");
+                            if (dr.vegan) restrictions.push("Vegan");
+                            if (dr.vegetarian) restrictions.push("Vegetarian");
+                            if (dr.heartFriendly) restrictions.push("Heart Friendly");
+                            if (Array.isArray(dr.foodAllergens) && dr.foodAllergens.length > 0)
+                              restrictions.push(...dr.foodAllergens);
+                            if (Array.isArray(dr.other) && dr.other.length > 0)
+                              restrictions.push(...dr.other);
+                            if (dr.otherText && dr.otherText.trim() !== "")
+                              restrictions.push(dr.otherText.trim());
+                            return restrictions.length > 0 ? (
+                              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, maxWidth: '250px' }}>
+                                {restrictions.map((restriction, i) => (
+                                  <Chip
+                                    key={i}
+                                    label={restriction}
+                                    size="small"
+                                    sx={{
+                                      backgroundColor: "#e8f5e9",
+                                      color: "#2E5B4C",
+                                      fontSize: "0.75rem",
+                                      height: "20px",
+                                      fontWeight: 500,
+                                      border: "1px solid #c8e6c9",
+                                      mb: 0.5,
+                                      mr: 0.5,
+                                      '& .MuiChip-label': { px: 1 },
+                                      '&:hover': { backgroundColor: '#e8f5e9', cursor: 'default' }
+                                    }}
+                                  />
+                                ))}
+                              </Box>
+                            ) : <span style={{ color: '#757575', fontStyle: 'italic' }}>None</span>;
+                          })()
+                        ) : col.propertyKey === 'referralEntity' && typeof row.referralEntity === 'object' && row.referralEntity !== null ?
+                          `${row.referralEntity.name ?? 'N/A'}, ${row.referralEntity.organization ?? 'N/A'}`
                         : col.propertyKey.includes('deliveryInstructions') ? (
                           (() => {
                             const instructions = row.deliveryDetails?.deliveryInstructions;

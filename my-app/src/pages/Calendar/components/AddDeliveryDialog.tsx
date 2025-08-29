@@ -418,7 +418,7 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = ({
               <MenuItem value="None">None</MenuItem>
               <MenuItem value="Weekly">Weekly</MenuItem>
               <MenuItem value="2x-Monthly">2x-Monthly</MenuItem>
-              <MenuItem value="Monthly">Monthly</MenuItem>
+              <MenuItem value="Monthly">Monthly (Every 4 Weeks)</MenuItem>
               <MenuItem value="Custom">Custom (Select Dates)</MenuItem>
             </Select>
           </FormControl>
