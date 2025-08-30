@@ -193,7 +193,7 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = ({
   }, [uniqueClients]);
 
   return (
-  <Dialog open={open} onClose={resetFormAndClose} maxWidth="sm" fullWidth className="add-delivery-modal-root">
+  <Dialog open={open} onClose={resetFormAndClose} maxWidth="sm" fullWidth className="add-delivery-modal-root" sx={{ top: '-35px' }}>
       <DialogTitle>Add Delivery</DialogTitle>
       {/* Shrink only DatePicker popups from this modal */}
       <GlobalStyles styles={{
