@@ -72,6 +72,9 @@ firebase-debug.log*
 firebase-error.log*
 address_fix_*.json
 ID-2890.txt
+IDs_deleted.txt
+duplicate_people_and_ids.txt
+deleted_duplicate_clients.json
 
 # Python
 __pycache__/
