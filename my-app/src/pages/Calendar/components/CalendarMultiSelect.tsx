@@ -1,16 +1,24 @@
+import { GlobalStyles } from '@mui/material';
+import { useEffect } from "react";
 import React, { useState } from "react";
 import { Box, Chip, Stack, Typography, TextField } from "@mui/material";
-import DatePicker from "react-datepicker";
-import "react-datepicker/dist/react-datepicker.css";
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
+// Removed react-datepicker import, only using MUI DatePicker
 import { validateDateInput } from "../../../utils/dates";
 
 interface CalendarMultiSelectProps {
   selectedDates: Date[];
   setSelectedDates: (dates: Date[]) => void;
+  endDate: Date;
 }
 
-const CalendarMultiSelect: React.FC<CalendarMultiSelectProps> = ({ selectedDates, setSelectedDates }) => {
-  const [dateInput, setDateInput] = useState<string>("");
+const CalendarMultiSelect: React.FC<CalendarMultiSelectProps> = ({ selectedDates, setSelectedDates, endDate }) => {
+  const [dateInput, setDateInput] = useState<Date | null>(null);
+
+  // Reset date input when dialog opens (when selectedDates is reset)
+  useEffect(() => {
+  setDateInput(null);
+  }, [selectedDates.length === 0]);
   const [dateError, setDateError] = useState<string | null>(null);
 
   const handleAddDate = (date: Date | null) => {
@@ -20,7 +28,7 @@ const CalendarMultiSelect: React.FC<CalendarMultiSelectProps> = ({ selectedDates
     ) {
       setSelectedDates([...selectedDates, date]);
     }
-    setDateInput("");
+  setDateInput(null);
   };
 
    // Function to handle adding a new date
@@ -48,66 +56,72 @@ const CalendarMultiSelect: React.FC<CalendarMultiSelectProps> = ({ selectedDates
   };
 
   return (
-    <Box sx={{ mt: 2 }}>
-      <Typography variant="subtitle1" sx={{ mb: 1 }}>
-        Select Custom Dates
-      </Typography>      <TextField
-        label="Add Date"
-        type="date"
-        fullWidth
-        size="small"
-        value={dateInput}
-        InputLabelProps={{ shrink: true }}
-        onChange={(e) => {
-          // Clear error when user starts typing
-          if (dateError) setDateError(null);
-          
-          validateDateInput(
-            e.target.value,
-            (dateStr) => {
-              setDateInput(dateStr);
-              handleAddDate(new Date(dateStr));
-            },
-            (errorMsg) => setDateError(errorMsg)
-          );
-        }}
-        onBlur={(e) => {
-          if (e.target.value) {
-            validateDateInput(
-              e.target.value,
-              (dateStr) => {
-                setDateInput(dateStr);
-                handleAddDate(new Date(dateStr));
-              },
-              (errorMsg) => setDateError(errorMsg)
-            );
-          }
-        }}
-        error={!!dateError}
-        helperText={dateError || " "}
-        inputProps={{
-          min: "1900-01-01",
-          max: "2100-12-31"
-        }}
-        sx={{ mb: 2, width: '100%' }}
-      />
-      <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', mt: 1 }}>
-        {selectedDates.map((date) => (
-          <Chip
-            key={date.toISOString()}
-            label={date.toLocaleDateString()}
-            onDelete={() => handleDeleteDate(date)}
-            sx={{ mb: 1, padding: '1rem .5rem' }}
-            onClick = {function() {return;}} //empty onclick to prevent error
+    <>
+      <GlobalStyles styles={{
+        '.MuiPaper-root.MuiPickerPopper-paper, .MuiPaper-root[class*="MuiPickerPopper-paper"]': {
+          transform: 'scale(0.5)',
+          transformOrigin: 'top right',
+        }
+      }} />
+      <Box sx={{ display: 'grid', gridTemplateRows: '56px 1fr', width: '100%', mt: 2 }}>
+        {/* DatePicker input always anchored at top, fixed height */}
+        <Box sx={{ height: 56, display: 'flex', alignItems: 'center', width: '100%' }}>
+          <DatePicker
+            label="Add Date"
+            value={dateInput}
+            onChange={(newValue: Date | null) => {
+              setDateInput(newValue);
+              setDateError(null);
+              if (!newValue) return;
+              if (newValue > endDate) {
+                setDateError('Date cannot be later than the current end date.');
+                return;
+              }
+              if (!selectedDates.some(d => d.toDateString() === newValue.toDateString())) {
+                setSelectedDates([...selectedDates, newValue]);
+              }
+            }}
+            slotProps={{
+              textField: { fullWidth: true, size: 'small', sx: { mb: 2, width: '100%' } },
+              popper: {
+                placement: 'top-end',
+                modifiers: [
+                  { name: 'offset', options: { offset: [0, -380] } }
+                ],
+                sx: {
+                  zIndex: 1500,
+                  boxSizing: 'border-box',
+                },
+                className: 'add-delivery-datepicker-popper',
+              }
+            }}
           />
-        ))}
-        {selectedDates.length === 0 && (
-          <Typography variant="body2" color="text.secondary">
-            No dates selected
+        </Box>
+        {dateError && (
+          <Typography variant="body2" color="error" sx={{ mt: 0.5, mb: 0.5 }}>
+            {dateError}
           </Typography>
         )}
-      </Stack>
-    </Box>
+        {/* Chip container grows below, never moves input */}
+        <Box sx={{ minHeight: 32, maxHeight: 64, overflowY: 'auto', width: '100%' }}>
+          <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', minWidth: 0, flexShrink: 1, mt: 0 }}>
+            {selectedDates.map((date) => (
+              <Chip
+                key={date.toISOString()}
+                label={date.toLocaleDateString()}
+                onDelete={() => setSelectedDates(selectedDates.filter(d => d.toDateString() !== date.toDateString()))}
+                sx={{ mb: 1, padding: '1rem .5rem' }}
+              />
+            ))}
+            {selectedDates.length === 0 && (
+              <Typography variant="body2" color="text.secondary">
+                No dates selected
+              </Typography>
+            )}
+          </Stack>
+        </Box>
+      </Box>
+    </>
   );
 };
 

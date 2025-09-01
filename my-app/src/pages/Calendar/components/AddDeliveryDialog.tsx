@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import {
+  GlobalStyles,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -71,6 +72,18 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = ({
   const [customDates, setCustomDates] = useState<Date[]>([]);
   const [startDateError, setStartDateError] = useState<string>("");
   const [endDateError, setEndDateError] = useState<string>("");
+
+  // Toggle body class for modal open state to control DatePicker popup scaling
+  useEffect(() => {
+    if (open) {
+      document.body.classList.add('add-delivery-modal-open');
+    } else {
+      document.body.classList.remove('add-delivery-modal-open');
+    }
+    return () => {
+      document.body.classList.remove('add-delivery-modal-open');
+    };
+  }, [open]);
 
   // Validate date range whenever delivery date or end date changes
   useEffect(() => {
@@ -180,8 +193,15 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = ({
   }, [uniqueClients]);
 
   return (
-    <Dialog open={open} onClose={resetFormAndClose} maxWidth="sm" fullWidth>
+  <Dialog open={open} onClose={resetFormAndClose} maxWidth="sm" fullWidth className="add-delivery-modal-root" sx={{ top: '-35px' }}>
       <DialogTitle>Add Delivery</DialogTitle>
+      {/* Shrink only DatePicker popups from this modal */}
+      <GlobalStyles styles={{
+        'body.add-delivery-modal-open [class*="MuiPaper-root"][class*="MuiPickerPopper-paper"]': {
+          transform: 'scale(0.8) !important',
+          transformOrigin: 'right top !important',
+        }
+      }} />
       <DialogContent sx={{ maxHeight: '70vh', overflowY: 'auto', overflowX: 'hidden' }}>
         {/* Unified layout for all fields */}
         <Box display="flex" flexDirection="column" gap={2}>
@@ -430,31 +450,47 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = ({
           </FormControl>
         </Box>
         {newDelivery.recurrence === "Custom" ? (
-          <CalendarMultiSelect selectedDates={customDates} setSelectedDates={setCustomDates} />
-        ) : null}
-
-        {newDelivery.recurrence !== "None" && newDelivery.recurrence !== "Custom" ? (     
           <>
-            <Box>
-              <Typography variant="subtitle1">End Date</Typography>
-              <DateField
-                label="End Date"
-                value={newDelivery.repeatsEndDate || ""}
-                onChange={(dateStr) => setNewDelivery({
-                  ...newDelivery,
-                  repeatsEndDate: dateStr,
-                  _repeatsEndDateError: undefined,
-                })}
-                required={true}
-                error={newDelivery._repeatsEndDateError}
-                setError={(errorMsg) => setNewDelivery(prev => ({
-                  ...prev,
-                  _repeatsEndDateError: errorMsg || undefined
-                }))}
-              />
+            <Box display="flex" alignItems="center" justifyContent="space-between" sx={{ width: '100%', m: 0, p: 0 }}>
+              <Typography variant="body1" sx={{ m: 0, p: 0 }}>
+                Select Custom Dates
+              </Typography>
+              <Typography sx={{ fontSize: '0.87rem', fontWeight: 400, m: 0, p: 0 }}>
+                Current End Date - {newDelivery.repeatsEndDate || "N/A"}
+              </Typography>
             </Box>
+            <CalendarMultiSelect 
+              selectedDates={customDates} 
+              setSelectedDates={setCustomDates} 
+              endDate={newDelivery.repeatsEndDate ? new Date(newDelivery.repeatsEndDate) : new Date()} 
+            />
+          </>
+        ) : (
+          <Box display="flex" justifyContent="flex-end" alignItems="center" sx={{ m: 0, p: 0 }}>
+            <Typography sx={{ fontSize: '0.87rem', fontWeight: 400, m: 0, p: 0 }}>
+              Current End Date - {newDelivery.repeatsEndDate || "N/A"}
+            </Typography>
+          </Box>
+        )}
+        {newDelivery.recurrence !== "None" && newDelivery.recurrence !== "Custom" ? (
+          <>
+            <DateField
+              label="End Date"
+              value={newDelivery.repeatsEndDate || ""}
+              onChange={(dateStr) => setNewDelivery({
+                ...newDelivery, 
+                repeatsEndDate: dateStr,
+                _repeatsEndDateError: undefined,
+              })}
+              required={true}
+              error={newDelivery._repeatsEndDateError}
+              setError={(errorMsg) => setNewDelivery(prev => ({
+                ...prev,
+                _repeatsEndDateError: errorMsg || undefined
+              }))}
+            />
             <Typography sx={{color:"red"}}>{endDateError}</Typography>
-          </>    
+          </>
         ) : null}
       </DialogContent>
       <DialogActions>
@@ -462,7 +498,13 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = ({
         <Button
           onClick={handleSubmit}
           variant="contained"
-          disabled={!isFormValid}
+          disabled={
+            !isFormValid || (
+              newDelivery.deliveryDate !== undefined && newDelivery.repeatsEndDate !== undefined &&
+              newDelivery.deliveryDate !== "" && newDelivery.repeatsEndDate !== "" &&
+              new Date(newDelivery.deliveryDate) > new Date(newDelivery.repeatsEndDate)
+            )
+          }
         >
           Add
         </Button>
