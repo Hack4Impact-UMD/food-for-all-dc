@@ -72,11 +72,11 @@ class DeliveryService {
   public async getEventsByDateRange(startDate: Date, endDate: Date): Promise<DeliveryEvent[]> {
     try {
       return await retry(async () => {
-        // Always use start of day for startDate and end of day for endDate
-        const startDateTime = TimeUtils.fromJSDate(startDate).startOf('day');
-        const endDateTime = TimeUtils.fromJSDate(endDate).endOf('day');
-        const startTimestamp = Time.Firebase.toTimestamp(startDateTime);
-        const endTimestamp = Time.Firebase.toTimestamp(endDateTime);
+  // Use start of day for startDate and start of day for endDate (exclusive)
+  const startDateTime = TimeUtils.fromJSDate(startDate).startOf('day');
+  const endDateTime = TimeUtils.fromJSDate(endDate).startOf('day');
+  const startTimestamp = Time.Firebase.toTimestamp(startDateTime);
+  const endTimestamp = Time.Firebase.toTimestamp(endDateTime);
         // ...existing code...
         const q = query(
           collection(this.db, this.eventsCollection),

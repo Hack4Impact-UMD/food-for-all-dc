@@ -38,14 +38,27 @@ interface AddDeliveryDialogProps {
   };
 }
 
-const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = ({
-  open,
-  onClose,
-  onAddDelivery,
-  clients,
-  startDate,
-  preSelectedClient
-}) => {
+const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props: AddDeliveryDialogProps) => {
+  const { open, onClose, onAddDelivery, clients, startDate, preSelectedClient } = props;
+  const [duplicateError, setDuplicateError] = useState<string>("");
+
+  // Helper to set time to 12:00:00 PM
+  function toNoonISOString(date: any) {
+    let jsDate;
+    if (typeof date === 'string') {
+      jsDate = new Date(date);
+    } else if (date instanceof Date) {
+      jsDate = new Date(date.getTime());
+    } else if (date && typeof date.toDate === 'function') {
+      jsDate = new Date(date.toDate().getTime());
+    } else if (date && typeof date.toJSDate === 'function') {
+      jsDate = new Date(date.toJSDate().getTime());
+    } else {
+      jsDate = new Date(date);
+    }
+    jsDate.setHours(12, 0, 0, 0);
+    return jsDate.toISOString();
+  }
 
   const [newDelivery, setNewDelivery] = useState<NewDelivery>(() => {
     // If we have a pre-selected client, initialize with their data
@@ -53,7 +66,7 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = ({
       return {
         clientId: preSelectedClient.clientId,
         clientName: preSelectedClient.clientName,
-        deliveryDate: startDate.toString("yyyy-MM-dd"),
+        deliveryDate: toNoonISOString(startDate),
         recurrence: (preSelectedClient.clientProfile.recurrence as "None" | "Weekly" | "2x-Monthly" | "Monthly" | "Custom") || "None",
         repeatsEndDate: preSelectedClient.clientProfile.endDate || 
           new Date(new Date().setMonth(new Date().getMonth() + 1)).toISOString().split("T")[0],
@@ -63,7 +76,7 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = ({
     return {
       clientId: "",
       clientName: "",
-      deliveryDate: startDate.toString("yyyy-MM-dd"),
+      deliveryDate: toNoonISOString(startDate),
       recurrence: "None",
       repeatsEndDate: "",
     };
@@ -103,7 +116,7 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = ({
     if (open) {
       setNewDelivery(prev => ({
         ...prev,
-        deliveryDate: startDate.toString("yyyy-MM-dd"),
+        deliveryDate: toNoonISOString(startDate),
       }));
     }
   }, [open]); // Removed startDate dependency to prevent overwriting user input
@@ -114,7 +127,7 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = ({
       setNewDelivery({
         clientId: preSelectedClient.clientId,
         clientName: preSelectedClient.clientName,
-        deliveryDate: startDate.toString("yyyy-MM-dd"),
+        deliveryDate: toNoonISOString(startDate),
         recurrence: (preSelectedClient.clientProfile.recurrence as "None" | "Weekly" | "2x-Monthly" | "Monthly" | "Custom") || "None",
         repeatsEndDate: preSelectedClient.clientProfile.endDate || 
           new Date(new Date().setMonth(new Date().getMonth() + 1)).toISOString().split("T")[0],
@@ -124,7 +137,7 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = ({
       setNewDelivery({
         clientId: "",
         clientName: "",
-        deliveryDate: startDate.toString("yyyy-MM-dd"),
+        deliveryDate: toNoonISOString(startDate),
         recurrence: "None",
         repeatsEndDate: "",
       });
@@ -136,26 +149,50 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = ({
   };
   const handleSubmit = () => {
     // Validate dates before submission
+    setDuplicateError("");
     if (newDelivery.recurrence !== "None" && newDelivery.recurrence !== "Custom" && 
         newDelivery.deliveryDate && newDelivery.repeatsEndDate) {
       const validation = validateDeliveryDateRange(newDelivery.deliveryDate, newDelivery.repeatsEndDate);
       if (!validation.isValid) {
-        console.log(validation.endDateError)
         setStartDateError(validation.startDateError || "");
         setEndDateError(validation.endDateError || "");
         return;
       }
     }
 
-    const deliveryToSubmit: Partial<NewDelivery> = { ...newDelivery };
-    if (newDelivery.recurrence === "Custom") {
-      deliveryToSubmit.customDates = customDates.map(date => date.toISOString().split("T")[0]);
-      deliveryToSubmit.deliveryDate = customDates[0]?.toISOString().split("T")[0] || "";
-      deliveryToSubmit.repeatsEndDate = undefined;
-    }
-    onAddDelivery(deliveryToSubmit as NewDelivery);
-    setCustomDates([]);
-    resetFormAndClose();
+    // Check for duplicate delivery for the same client on the same day
+    import("../../../services/delivery-service").then(({ default: DeliveryService }) => {
+      const service = DeliveryService.getInstance();
+      service.getEventsByClientId(newDelivery.clientId).then(events => {
+        const deliveryDateStr = newDelivery.deliveryDate;
+        const hasDuplicate = events.some((event: any) => {
+          let eventDate: Date;
+          if (event.deliveryDate instanceof Date) {
+            eventDate = event.deliveryDate;
+          } else if (event.deliveryDate && typeof event.deliveryDate === 'object' && typeof event.deliveryDate.toDate === 'function') {
+            eventDate = event.deliveryDate.toDate();
+          } else {
+            eventDate = new Date(String(event.deliveryDate));
+          }
+          // Compare only the date part (ignore time)
+          return eventDate.toISOString().split("T")[0] === deliveryDateStr;
+        });
+        if (hasDuplicate) {
+          setDuplicateError("This client already has a delivery scheduled for that day.");
+          return;
+        }
+        // No duplicate, proceed
+        const deliveryToSubmit: Partial<NewDelivery> = { ...newDelivery };
+        if (newDelivery.recurrence === "Custom") {
+          deliveryToSubmit.customDates = customDates.map(date => date.toISOString().split("T")[0]);
+          deliveryToSubmit.deliveryDate = customDates[0]?.toISOString().split("T")[0] || "";
+          deliveryToSubmit.repeatsEndDate = undefined;
+        }
+        onAddDelivery(deliveryToSubmit as NewDelivery);
+        setCustomDates([]);
+        resetFormAndClose();
+      });
+    });
   };
   
   // Update validation logic - if we have a pre-selected client, clientId is always valid
@@ -165,10 +202,9 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = ({
 
   // Filter out duplicate clients based on UID - memoized for performance
   const uniqueClients = React.useMemo(() => {
-    const filtered = clients.filter((client, index, self) => 
-      index === self.findIndex(c => c.uid === client.uid)
+    const filtered = clients.filter((client: ClientProfile, index: number, self: ClientProfile[]) => 
+      index === self.findIndex((c: ClientProfile) => c.uid === client.uid)
     );
-    
     return filtered;
   }, [clients]);
 
@@ -180,15 +216,13 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = ({
   // Custom filter function to ensure we never see duplicates
   const filterOptions = React.useCallback((options: ClientProfile[], { inputValue }: { inputValue: string }) => {
     // Start with our unique clients, not the passed options
-    const uniqueOptions = uniqueClients.filter((client, index, self) => 
-      index === self.findIndex(c => c.uid === client.uid)
+    const uniqueOptions = uniqueClients.filter((client: ClientProfile, index: number, self: ClientProfile[]) => 
+      index === self.findIndex((c: ClientProfile) => c.uid === client.uid)
     );
-    
     // Apply text filtering
-    const textFiltered = uniqueOptions.filter((option) =>
+    const textFiltered = uniqueOptions.filter((option: ClientProfile) =>
       getDisplayLabel(option).toLowerCase().includes(inputValue.toLowerCase())
     );
-    
     return textFiltered;
   }, [uniqueClients]);
 
@@ -203,6 +237,9 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = ({
         }
       }} />
       <DialogContent sx={{ maxHeight: '70vh', overflowY: 'auto', overflowX: 'hidden' }}>
+        {duplicateError && (
+          <Typography sx={{ color: 'red', mb: 2 }}>{duplicateError}</Typography>
+        )}
         {/* Unified layout for all fields */}
         <Box display="flex" flexDirection="column" gap={2}>
           {/* Conditionally render client selection only if no pre-selected client */}
@@ -511,6 +548,6 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = ({
       </DialogActions>
     </Dialog>
   );
-};
-
+}
 export default AddDeliveryDialog;
+
