@@ -1,3 +1,20 @@
+// Helper to set time to 12:00:00 PM
+function setToNoon(date: any) {
+  let jsDate;
+  if (typeof date === 'string') {
+    jsDate = new Date(date);
+  } else if (date instanceof Date) {
+    jsDate = new Date(date.getTime());
+  } else if (date && typeof date.toDate === 'function') {
+    jsDate = new Date(date.toDate().getTime());
+  } else if (date && typeof date.toJSDate === 'function') {
+    jsDate = new Date(date.toJSDate().getTime());
+  } else {
+    jsDate = new Date(date);
+  }
+  jsDate.setHours(12, 0, 0, 0);
+  return jsDate;
+}
 import { DayPilot } from "@daypilot/daypilot-lite-react";
 import { AppBar, Box, styled } from "@mui/material";
 import { Time, TimeUtils } from "../../utils/timeUtils";
@@ -19,6 +36,7 @@ import DeliveryService from "../../services/delivery-service";
 import ClientService from "../../services/client-service";
 import DriverService from "../../services/driver-service";
 import { toJSDate, toDayPilotDateString } from '../../utils/timestamp';
+import { DateTime } from 'luxon';
 
 const DAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
 
@@ -197,12 +215,20 @@ const CalendarPage: React.FC = () => {
           break;
         }
         case "Day": {
-          endDate = start.addDays(1); // Include only the current day
+          // Always interpret the selected date as midnight in Eastern Time
+          const easternZone = 'America/New_York';
+          const selectedDateStr = currentDate.toString("yyyy-MM-dd");
+          const selectedLuxon = DateTime.fromISO(selectedDateStr, { zone: easternZone }).startOf('day');
+          const nextDayLuxon = selectedLuxon.plus({ days: 1 });
+          start = new DayPilot.Date(selectedLuxon.toJSDate());
+          endDate = new DayPilot.Date(nextDayLuxon.toJSDate());
           break;
         }
         default:
           endDate = start.addDays(1);
       }
+
+      console.log('[CalendarPage] Fetching events for', { start, endDate });
 
       // Use DeliveryService to fetch events by date range
       const deliveryService = DeliveryService.getInstance();
@@ -227,54 +253,41 @@ const CalendarPage: React.FC = () => {
       console.log('[CalendarPage][DEBUG] Event clientIds missing in clients:', missingInClients);
       console.log('[CalendarPage][DEBUG] Client uids missing in events:', missingInEvents);
 
-      // Filter out events associated with deleted clients
-      const activeClientIds = new Set(clients.map(client => client.uid));
-      const filteredEventsByClient = fetchedEvents.filter(event => activeClientIds.has(event.clientId));
-      console.log('[CalendarPage] Filtered events by client:', filteredEventsByClient);
+        // Update client names in events if client exists, but do not filter out any events
+        const updatedEvents = fetchedEvents.map(event => {
+          const client = clients.find(client => client.uid === event.clientId);
+          if (client) {
+            const fullName = `${client.firstName} ${client.lastName}`.trim();
+            return {
+              ...event,
+              clientName: fullName
+            };
+          }
+          return event;
+        });
 
-      // Update client names in events with current client data
-      const updatedEvents = filteredEventsByClient.map(event => {
-        const client = clients.find(client => client.uid === event.clientId);
-        if (client) {
-          const fullName = `${client.firstName} ${client.lastName}`.trim();
-          return {
-            ...event,
-            clientName: fullName
-          };
-        }
-        return event;
-      });
+        // Use all events for display and counting
+        setEvents(updatedEvents);
+        console.log('[CalendarPage] Final events set (no deduplication):', updatedEvents);
 
-      // Deduplicate events based on clientId and deliveryDate
-      const uniqueEventsMap = new Map<string, DeliveryEvent>();
-      updatedEvents.forEach(event => {
-        const key = `${event.clientId}_${toDayPilotDateString(event.deliveryDate)}`;
-        if (!uniqueEventsMap.has(key)) {
-          uniqueEventsMap.set(key, event);
-        }
-      });
-      const uniqueFilteredEvents = Array.from(uniqueEventsMap.values());
+        // Update calendar configuration with new events
+        const formattedEvents = updatedEvents.map(event => ({
+          id: event.id,
+          // Removed date from display text
+          text: `Client: ${event.clientName} (Driver: ${event.assignedDriverName})`,
+          start: new DayPilot.Date(toDayPilotDateString(event.deliveryDate)),
+          end: new DayPilot.Date(toDayPilotDateString(event.deliveryDate)),
+          backColor: "#257E68",
+        }));
 
-      setEvents(uniqueFilteredEvents);
-      console.log('[CalendarPage] Final unique events set:', uniqueFilteredEvents);
+        setCalendarConfig((prev) => ({
+          ...prev,
+          events: formattedEvents,
+          startDate: currentDate,
+          durationBarVisible: false,
+        }));
 
-      // Update calendar configuration with new events
-      const formattedEvents = Array.from(uniqueEventsMap.values()).map(event => ({
-        id: event.id,
-        text: `Client: ${event.clientName} (Driver: ${event.assignedDriverName})`,
-        start: new DayPilot.Date(toDayPilotDateString(event.deliveryDate)),
-        end: new DayPilot.Date(toDayPilotDateString(event.deliveryDate)),
-        backColor: "#257E68",
-      }));
-
-      setCalendarConfig((prev) => ({
-        ...prev,
-        events: formattedEvents,
-        startDate: currentDate,
-        durationBarVisible: false,
-      }));
-
-      return uniqueFilteredEvents;
+        return updatedEvents;
     } catch (error) {
       console.error("Error fetching events:", error);
       return [];
@@ -285,6 +298,7 @@ const CalendarPage: React.FC = () => {
     try {
       let recurrenceDates: Date[] = [];
 
+
       //create unique id for each recurrence group. All events for this recurrence will have the same id
       const recurrenceId = crypto.randomUUID();
       if (newDelivery.recurrence === "Custom") {
@@ -292,15 +306,15 @@ const CalendarPage: React.FC = () => {
         // Ensure customDates exist and map string dates back to Date objects
         recurrenceDates = newDelivery.customDates?.map(dateStr => {
           // Use TimeUtils for proper timezone handling
-          return TimeUtils.fromISO(dateStr).toJSDate();
+          return setToNoon(TimeUtils.fromISO(dateStr).toJSDate());
         }) || [];
         // Clear repeatsEndDate explicitly for custom recurrence in the submitted data
         newDelivery.repeatsEndDate = undefined;
       } else {
         // Calculate recurrence dates for standard recurrence types
-        const deliveryDate = TimeUtils.fromISO(newDelivery.deliveryDate).toJSDate();
+        const deliveryDate = setToNoon(TimeUtils.fromISO(newDelivery.deliveryDate).toJSDate());
         recurrenceDates =
-          newDelivery.recurrence === "None" ? [deliveryDate] : calculateRecurrenceDates(newDelivery);
+          newDelivery.recurrence === "None" ? [deliveryDate] : calculateRecurrenceDates(newDelivery).map(setToNoon);
       }
 
       // Filter out dates that already have a delivery for the same client

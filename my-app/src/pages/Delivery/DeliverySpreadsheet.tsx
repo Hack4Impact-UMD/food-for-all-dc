@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useMemo, Suspense } from "react";
+import { getEventsByViewType } from '../Calendar/components/getEventsByViewType';
+import { DayPilot } from "@daypilot/daypilot-lite-react";
 import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import { db } from "../../auth/firebaseConfig";
 import { Search, Filter } from "lucide-react";
@@ -50,6 +52,7 @@ import { collection, getDocs, doc, setDoc } from "firebase/firestore";
 import { auth } from "../../auth/firebaseConfig";
 import { onAuthStateChanged } from "firebase/auth";
 // ...existing code...
+// Ensure clients are loaded for event query
 const ClusterMap = React.lazy(() => import("./ClusterMap"));
 import AssignDriverPopup from "./components/AssignDriverPopup";
 import GenerateClustersPopup from "./components/GenerateClustersPopup";
@@ -59,6 +62,9 @@ import { exportDeliveries, exportDoordashDeliveries } from "./RouteExport";
 import Button from "../../components/common/Button";
 import { RowData as DeliveryRowData } from "./types/deliveryTypes";
 import { Driver } from '../../types/calendar-types';
+import { ClientProfile } from '../../types/client-types';
+// ...existing code...
+// Remove top-level hooks for clients
 import { CustomRowData, useCustomColumns, allowedPropertyKeys } from "../../hooks/useCustomColumns";
 import ClientService from "../../services/client-service";
 import { LatLngTuple } from "leaflet";
@@ -309,6 +315,16 @@ const isRegularField = (
 };
 
 const DeliverySpreadsheet: React.FC = () => {
+  // Centralized clients state and fetch
+  const [clients, setClients] = useState<ClientProfile[]>([]);
+  useEffect(() => {
+    const fetchClients = async () => {
+      const clientService = ClientService.getInstance();
+      const clientsData = await clientService.getAllClients();
+      setClients(clientsData.clients as ClientProfile[]);
+    };
+    fetchClients();
+  }, []);
   const testing = false;
   const { userRole } = useAuth();
   const limits = useLimits();
@@ -351,7 +367,7 @@ const DeliverySpreadsheet: React.FC = () => {
   const initialDate = searchParams.get('date');
   const [selectedDate, setSelectedDate] = useState<Date>(parseDateFromUrl(initialDate));
 
-  const [deliveriesForDate, setDeliveriesForDate] = useState<DeliveryEvent[]>([]);
+  const [deliveriesForDate, setDeliveriesForDate] = useState<Array<Omit<DeliveryEvent, 'deliveryDate'> & { deliveryDate: Date | import('luxon').DateTime }>>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [clusterDoc, setClusterDoc] = useState<ClusterDoc | null>();
   const [clientOverrides, setClientOverrides] = useState<ClientOverride[]>([]);
@@ -463,60 +479,52 @@ const DeliverySpreadsheet: React.FC = () => {
   }, [clusters]);
 
   // fetch deliveries for the selected date
+  // Centralized event query for deliveries
   const fetchDeliveriesForDate = async (dateForFetch: Date) => {
     try {
-      // account for timezone issues
-      const startDate = new Date(
-        Date.UTC(
-          dateForFetch.getFullYear(),
-          dateForFetch.getMonth(),
-          dateForFetch.getDate(),
-          0,
-          0,
-          0
-        )
-      );
-
-      const endDate = new Date(
-        Date.UTC(
-          dateForFetch.getFullYear(),
-          dateForFetch.getMonth(),
-          dateForFetch.getDate(),
-          23,
-          59,
-          59
-        )
-      );
-
-      const eventsRef = collection(db, "events");
-      const q = query(
-        eventsRef,
-        where("deliveryDate", ">=", Timestamp.fromDate(startDate)),
-        where("deliveryDate", "<=", Timestamp.fromDate(endDate))
-      );
-
-      const querySnapshot = await getDocs(q);
-
+      // Use the same logic as the calendar: viewType 'Day', currentDate as DayPilot.Date
+      const { updatedEvents } = await getEventsByViewType({
+        viewType: 'Day',
+        currentDate: new DayPilot.Date(dateForFetch),
+        clients,
+      });
       // Check if the date is still the selected one before updating state
       if (dateForFetch.getTime() !== selectedDate.getTime()) {
         console.log("Stale delivery fetch ignored for date:", dateForFetch);
-        return; // Don't update state with stale data
+        return;
       }
-
-      const events = querySnapshot.docs.map((doc) => {
-        const data = doc.data();
-        return {
-          id: doc.id,
-          ...data,
-          deliveryDate: data.deliveryDate.toDate(), // preserve as-is (already correct local representation)
-        };
-      }) as DeliveryEvent[];
-
-      //set the deliveries for the date
-      setDeliveriesForDate(events);
+      // Convert event type for spreadsheet compatibility
+      const convertedEvents = updatedEvents
+        .map(event => {
+          let deliveryDate = event.deliveryDate;
+          // If it's a Firestore Timestamp, convert to JS Date
+          if (
+            deliveryDate &&
+            typeof deliveryDate === 'object' &&
+            'seconds' in deliveryDate &&
+            typeof deliveryDate.seconds === 'number' &&
+            typeof deliveryDate.toDate === 'function'
+          ) {
+            deliveryDate = deliveryDate.toDate();
+          }
+          // Only allow JS Date or Luxon DateTime
+          if (
+            deliveryDate instanceof Date ||
+            (deliveryDate && typeof deliveryDate === 'object' && 'isValid' in deliveryDate && typeof deliveryDate.isValid === 'boolean')
+          ) {
+            return {
+              ...event,
+              deliveryDate,
+              recurrence: event.recurrence === "Custom" ? "None" : event.recurrence
+            };
+          }
+          // Otherwise, skip this event
+          return null;
+        })
+        .filter(Boolean) as Array<Omit<DeliveryEvent, 'deliveryDate'> & { deliveryDate: Date | import('luxon').DateTime }>;
+      setDeliveriesForDate(convertedEvents);
     } catch (error) {
       console.error("Error fetching deliveries:", error);
-      // Clear state only if the error corresponds to the *currently* selected date
       if (dateForFetch.getTime() === selectedDate.getTime()) {
         setDeliveriesForDate([]);
       }
