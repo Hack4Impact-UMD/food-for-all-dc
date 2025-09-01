@@ -3,8 +3,6 @@ import React from 'react';
 import Login from "./pages/Login/Login";
 import ForgotPasswordPage from "./pages/Login/forgot-password";
 import CalendarPage from "./pages/Calendar/CalendarPage";
-import DeliveryDateConversionPage from "./pages/DeliveryDateConversionPage";
-import CleanupDeliveryDataPage from "./pages/CleanupDeliveryDataPage";
 import Spreadsheet from "./components/Spreadsheet/Spreadsheet";
 import UsersSpreadsheet from "./components/UsersSpreadsheet/UsersSpreadsheet";
 import Profile from "./pages/Profile/Profile";

@@ -177,11 +177,7 @@ export default function BasePage() {
 
     items.push({ text: "Routes", icon: <LocalShippingIcon />, link: "/routes" });
 
-    // Add Delivery Date Conversion page
-    items.push({ text: "Delivery Date Conversion", icon: <CalendarTodayIcon />, link: "/delivery-date-conversion" });
 
-    // Add Cleanup Delivery Data page
-    items.push({ text: "Cleanup Delivery Data", icon: <DeleteIcon />, link: "/cleanup-delivery-data" });
 
     if (userRole === UserType.Admin || userRole === UserType.Manager) {
       items.push({ text: "Users", icon: <AddCircleIcon />, link: "/users" });
