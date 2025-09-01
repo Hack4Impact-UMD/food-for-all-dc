@@ -46,7 +46,10 @@ pubsub-debug.log*
 
 # Environment variables and secrets
 csv-one-line-client-database.json
+IDs_deleted.txt
 csv-one-line-client-database_w_referral.json
+deleted_duplicate_clients.json
+duplicate_people_and_ids.txt
 combined3.csv
 Client Referral Form.csv
 FFA CLIENT DATABASE.csv
