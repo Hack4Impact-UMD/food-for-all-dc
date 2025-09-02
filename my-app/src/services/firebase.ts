@@ -1,9 +1,9 @@
 // Firebase initialization for app usage (not for tests)
 // WARNING: Do NOT import this file in test code. Use only in app/service code to avoid real Firebase calls in tests.
 // For production, consider loading firebaseConfig from environment variables instead of hardcoding.
-import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getFirestore } from 'firebase/firestore';
-import { getAuth } from 'firebase/auth';
+import { initializeApp, getApps, getApp } from "firebase/app";
+import { getFirestore } from "firebase/firestore";
+import { getAuth } from "firebase/auth";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCasSjeF-YMoHYZFfLWz96fGgNjYKOqRak", // Or use process.env.REACT_APP_FIREBASE_API_KEY

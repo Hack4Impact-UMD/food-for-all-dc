@@ -2,18 +2,25 @@
  * Centralized time utilities using Luxon for consistent date/time handling
  * Fixes off-by-one bugs and timezone inconsistencies throughout the app
  */
-import { DateTime, Settings } from 'luxon';
-import { Timestamp } from 'firebase/firestore';
+import { DateTime, Settings } from "luxon";
+import { Timestamp } from "firebase/firestore";
 
 // Configure default timezone to Eastern Time
-Settings.defaultZone = 'America/New_York';
+Settings.defaultZone = "America/New_York";
 
 export class TimeUtils {
   static now(): DateTime {
     return DateTime.now();
   }
 
-  static fromObject(obj: { year?: number; month?: number; day?: number; hour?: number; minute?: number; second?: number }): DateTime {
+  static fromObject(obj: {
+    year?: number;
+    month?: number;
+    day?: number;
+    hour?: number;
+    minute?: number;
+    second?: number;
+  }): DateTime {
     return DateTime.fromObject(obj);
   }
 
@@ -55,11 +62,11 @@ export class TimeUtils {
   }
 
   static toDateString(dateTime: DateTime): string {
-    return dateTime.toISODate() || '';
+    return dateTime.toISODate() || "";
   }
 
   static toISOString(dateTime: DateTime): string {
-    return dateTime.toISO() || '';
+    return dateTime.toISO() || "";
   }
 
   static toJSDate(dateTime: DateTime): Date {
@@ -71,11 +78,11 @@ export class TimeUtils {
   }
 
   static startOfDay(dateTime: DateTime): DateTime {
-    return dateTime.startOf('day');
+    return dateTime.startOf("day");
   }
 
   static endOfDay(dateTime: DateTime): DateTime {
-    return dateTime.endOf('day');
+    return dateTime.endOf("day");
   }
 
   static isValid(dateTime: DateTime): boolean {
@@ -86,11 +93,11 @@ export class TimeUtils {
    * Get today at midnight
    */
   static today(): DateTime {
-    return DateTime.now().startOf('day');
+    return DateTime.now().startOf("day");
   }
 
   static isToday(dateTime: DateTime): boolean {
-    return dateTime.hasSame(DateTime.now(), 'day');
+    return dateTime.hasSame(DateTime.now(), "day");
   }
 
   static isPast(dateTime: DateTime): boolean {
@@ -101,19 +108,47 @@ export class TimeUtils {
     return dateTime > TimeUtils.today();
   }
 
-  static add(dateTime: DateTime, duration: { days?: number; weeks?: number; months?: number; years?: number; hours?: number; minutes?: number }): DateTime {
+  static add(
+    dateTime: DateTime,
+    duration: {
+      days?: number;
+      weeks?: number;
+      months?: number;
+      years?: number;
+      hours?: number;
+      minutes?: number;
+    }
+  ): DateTime {
     return dateTime.plus(duration);
   }
 
-  static subtract(dateTime: DateTime, duration: { days?: number; weeks?: number; months?: number; years?: number; hours?: number; minutes?: number }): DateTime {
+  static subtract(
+    dateTime: DateTime,
+    duration: {
+      days?: number;
+      weeks?: number;
+      months?: number;
+      years?: number;
+      hours?: number;
+      minutes?: number;
+    }
+  ): DateTime {
     return dateTime.minus(duration);
   }
 
-  static diff(start: DateTime, end: DateTime, unit: 'days' | 'weeks' | 'months' | 'years' | 'hours' | 'minutes' = 'days'): number {
+  static diff(
+    start: DateTime,
+    end: DateTime,
+    unit: "days" | "weeks" | "months" | "years" | "hours" | "minutes" = "days"
+  ): number {
     return end.diff(start, unit).as(unit);
   }
 
-  static isSame(dt1: DateTime, dt2: DateTime, unit: 'day' | 'week' | 'month' | 'year' = 'day'): boolean {
+  static isSame(
+    dt1: DateTime,
+    dt2: DateTime,
+    unit: "day" | "week" | "month" | "year" = "day"
+  ): boolean {
     return dt1.hasSame(dt2, unit);
   }
 
@@ -132,13 +167,13 @@ export class TimeUtils {
 export class DateValidation {
   static validateNotPast(dateTime: DateTime): { isValid: boolean; errorMessage?: string } {
     if (!dateTime.isValid) {
-      return { isValid: false, errorMessage: 'Invalid date' };
+      return { isValid: false, errorMessage: "Invalid date" };
     }
-    
+
     if (TimeUtils.isPast(dateTime)) {
-      return { isValid: false, errorMessage: 'Date cannot be in the past' };
+      return { isValid: false, errorMessage: "Date cannot be in the past" };
     }
-    
+
     return { isValid: true };
   }
 
@@ -149,24 +184,26 @@ export class DateValidation {
     startDate: DateTime | null,
     endDate: DateTime | null
   ): { isValid: boolean; startDateError?: string; endDateError?: string } {
-    const result: { isValid: boolean; startDateError?: string; endDateError?: string } = { isValid: true };
+    const result: { isValid: boolean; startDateError?: string; endDateError?: string } = {
+      isValid: true,
+    };
 
     if (!startDate || !endDate) {
       return result;
     }
 
     if (!startDate.isValid) {
-      result.startDateError = 'Invalid start date';
+      result.startDateError = "Invalid start date";
       result.isValid = false;
     }
 
     if (!endDate.isValid) {
-      result.endDateError = 'Invalid end date';
+      result.endDateError = "Invalid end date";
       result.isValid = false;
     }
 
     if (startDate.isValid && endDate.isValid && TimeUtils.isAfter(startDate, endDate)) {
-      result.endDateError = 'End date must be on or after start date';
+      result.endDateError = "End date must be on or after start date";
       result.isValid = false;
     }
 
@@ -185,11 +222,11 @@ export class DateValidation {
     }
 
     if (!deliveryDate.isValid || !endDate.isValid) {
-      return { isValid: false, endDateError: 'Invalid date' };
+      return { isValid: false, endDateError: "Invalid date" };
     }
 
     if (TimeUtils.isAfter(deliveryDate, endDate)) {
-      return { isValid: false, endDateError: 'End date must be on or after delivery date' };
+      return { isValid: false, endDateError: "End date must be on or after delivery date" };
     }
 
     return { isValid: true };
@@ -207,22 +244,26 @@ export class RecurrenceUtils {
     const weekOfMonth = Math.ceil(dateTime.day / 7);
     const dayOfWeek = dateTime.weekdayLong;
     const ordinalSuffix = RecurrenceUtils.getOrdinalSuffix(weekOfMonth);
-    
+
     return `${weekOfMonth}${ordinalSuffix} ${dayOfWeek}`;
   }
 
   static getOrdinalSuffix(num: number): string {
-    if (num === 1 || num === 21 || num === 31) return 'st';
-    if (num === 2 || num === 22) return 'nd';
-    if (num === 3 || num === 23) return 'rd';
-    return 'th';
+    if (num === 1 || num === 21 || num === 31) return "st";
+    if (num === 2 || num === 22) return "nd";
+    if (num === 3 || num === 23) return "rd";
+    return "th";
   }
 
   /**
    * Calculate next monthly occurrence handling edge cases like 5th week
    */
-  static getNextMonthlyDate(originalDate: DateTime, currentDate: DateTime, targetDay?: number): DateTime {
-    const nextMonth = currentDate.plus({ months: 1 }).startOf('month');
+  static getNextMonthlyDate(
+    originalDate: DateTime,
+    currentDate: DateTime,
+    targetDay?: number
+  ): DateTime {
+    const nextMonth = currentDate.plus({ months: 1 }).startOf("month");
     const originalWeek = Math.ceil(originalDate.day / 7);
     const targetWeek = originalWeek > 4 ? -1 : originalWeek; // Handle 5th week as last occurrence
     const targetWeekday = targetDay ?? originalDate.weekday;
@@ -231,7 +272,7 @@ export class RecurrenceUtils {
 
     if (targetWeek === -1) {
       // Find last occurrence of target weekday in month
-      targetDate = nextMonth.endOf('month');
+      targetDate = nextMonth.endOf("month");
       while (targetDate.weekday !== targetWeekday) {
         targetDate = targetDate.minus({ days: 1 });
       }
@@ -251,19 +292,22 @@ export class RecurrenceUtils {
    */
   static calculateRecurrenceDates(
     deliveryDate: DateTime,
-    recurrence: 'Weekly' | '2x-Monthly' | 'Monthly' | 'None' | 'Custom',
+    recurrence: "Weekly" | "2x-Monthly" | "Monthly" | "None" | "Custom",
     endDate?: DateTime
   ): DateTime[] {
     const dates: DateTime[] = [deliveryDate];
 
-    if (recurrence === 'None' || recurrence === 'Custom' || !endDate) {
+    if (recurrence === "None" || recurrence === "Custom" || !endDate) {
       return dates;
     }
 
     let currentDate = deliveryDate;
-    const interval = recurrence === 'Weekly' ? { weeks: 1 } : 
-                    recurrence === '2x-Monthly' ? { weeks: 2 } : 
-                    { months: 1 };
+    const interval =
+      recurrence === "Weekly"
+        ? { weeks: 1 }
+        : recurrence === "2x-Monthly"
+          ? { weeks: 2 }
+          : { months: 1 };
 
     while (currentDate < endDate) {
       currentDate = currentDate.plus(interval);
@@ -281,22 +325,22 @@ export class RecurrenceUtils {
  */
 export class CalendarUtils {
   static toDayPilotString(dateTime: DateTime): string {
-    return dateTime.toFormat('yyyy-MM-dd');
+    return dateTime.toFormat("yyyy-MM-dd");
   }
 
   static fromDayPilotString(dateString: string): DateTime {
-    return DateTime.fromFormat(dateString, 'yyyy-MM-dd');
+    return DateTime.fromFormat(dateString, "yyyy-MM-dd");
   }
 
   static getWeekBounds(dateTime: DateTime): { start: DateTime; end: DateTime } {
-    const start = dateTime.startOf('week');
-    const end = dateTime.endOf('week');
+    const start = dateTime.startOf("week");
+    const end = dateTime.endOf("week");
     return { start, end };
   }
 
   static getMonthBounds(dateTime: DateTime): { start: DateTime; end: DateTime } {
-    const start = dateTime.startOf('month');
-    const end = dateTime.endOf('month');
+    const start = dateTime.startOf("month");
+    const end = dateTime.endOf("month");
     return { start, end };
   }
 }
@@ -318,7 +362,7 @@ export class FirebaseTimeUtils {
    */
   static prepareForStorage(input: string | Date | DateTime | null): Timestamp | null {
     if (!input) return null;
-    
+
     const dateTime = TimeUtils.fromAny(input);
     return dateTime.isValid ? FirebaseTimeUtils.toTimestamp(dateTime) : null;
   }
@@ -329,7 +373,7 @@ export class FirebaseTimeUtils {
   static calculateAge(dob: Date | DateTime): number {
     const dobDateTime = dob instanceof DateTime ? dob : TimeUtils.fromJSDate(dob);
     const now = TimeUtils.now();
-    const years = now.diff(dobDateTime, 'years');
+    const years = now.diff(dobDateTime, "years");
     return Math.floor(years.years);
   }
 }

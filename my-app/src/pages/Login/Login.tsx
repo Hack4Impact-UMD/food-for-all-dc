@@ -1,7 +1,12 @@
 // src/components/Login.tsx
 
 import React, { useState, useEffect } from "react";
-import { signInWithEmailAndPassword, sendPasswordResetEmail, onAuthStateChanged, signOut } from "firebase/auth";
+import {
+  signInWithEmailAndPassword,
+  sendPasswordResetEmail,
+  onAuthStateChanged,
+  signOut,
+} from "firebase/auth";
 import { AuthError } from "../../types/user-types";
 import { useNavigate } from "react-router-dom";
 import Button from "@mui/material/Button";
@@ -71,7 +76,11 @@ function Login() {
       case "auth/missing-fields":
         return { code: error.code, message: "Please enter both email and password." };
       case "auth/invalid-password":
-        return { code: error.code, message: "Weak password. Must be at least 8 characters, with at least 1 uppercase letter, 1 lowercase letter, 1 number, and 1 special character." };
+        return {
+          code: error.code,
+          message:
+            "Weak password. Must be at least 8 characters, with at least 1 uppercase letter, 1 lowercase letter, 1 number, and 1 special character.",
+        };
       default:
         return { code: error.code, message: "An error occurred during login. Please try again." };
     }
@@ -82,26 +91,21 @@ function Login() {
       setLoginError(mapLoginError({ code: "auth/missing-fields" }));
       return;
     }
+
+    // Check password strength before attempting authentication
+    if (!isStrongPassword(loginPassword)) {
+      setLoginError(mapLoginError({ code: "auth/invalid-password" }));
+      setResetPasswordMessage(
+        "Please use the 'Forgot password?' link below to reset your password to a stronger one."
+      );
+      return;
+    }
+
     setIsLoading(true);
     setLoginError(null);
     setResetPasswordMessage("");
     try {
       await signInWithEmailAndPassword(auth, loginEmail, loginPassword);
-
-      // After successful auth, force upgrade if the current password is weak
-      if (!isStrongPassword(loginPassword)) {
-        try {
-          await sendPasswordResetEmail(auth, loginEmail);
-          setLoginError(mapLoginError({ code: "auth/invalid-password" }));
-          setResetPasswordMessage("A password reset link has been sent to your email. Please update your password to a stronger one.");
-        } catch (error: any) {
-          console.error("Error sending password reset email:", error);
-          setResetPasswordMessage("We couldn't send the reset email. Please try again shortly or use 'Forgot password'.");
-        }
-        await signOut(auth); // Sign out the user to prevent access with weak password
-        return;
-      }
-
       navigate("/clients");
     } catch (error: any) {
       console.error("Login Error:", error);
@@ -132,9 +136,7 @@ function Login() {
     try {
       setIsLoading(true);
       await sendPasswordResetEmail(auth, forgotPasswordEmail);
-      setResetPasswordMessage(
-        "If you have an account with us, you should get an email soon!"
-      );
+      setResetPasswordMessage("If you have an account with us, you should get an email soon!");
       setForgotPasswordEmail("");
       setOpenDialog(false);
     } catch (error: any) {
@@ -213,7 +215,11 @@ function Login() {
               </p>
             </div>
 
-            {loginError && <p className={styles.error} role="alert">{loginError.message}</p>}
+            {loginError && (
+              <p className={styles.error} role="alert">
+                {loginError.message}
+              </p>
+            )}
             {resetPasswordMessage && <p className={styles.resetMessage}>{resetPasswordMessage}</p>}
 
             <Button
@@ -241,7 +247,7 @@ function Login() {
             event.preventDefault();
             handleForgotPassword();
           },
-          style: { borderRadius: '8px' }
+          style: { borderRadius: "8px" },
         }}
       >
         <DialogTitle id="reset-password-dialog-title">Reset Password</DialogTitle>
@@ -266,16 +272,13 @@ function Login() {
           />
         </DialogContent>
         <DialogActions>
-          <Button
-            onClick={handleDialogClose}
-            style={{ borderRadius: 'var(--border-radius-xl)' }}
-          >
+          <Button onClick={handleDialogClose} style={{ borderRadius: "var(--border-radius-xl)" }}>
             Cancel
           </Button>
           <Button
             type="submit"
             disabled={isLoading}
-            style={{ borderRadius: 'var(--border-radius-xl)' }}
+            style={{ borderRadius: "var(--border-radius-xl)" }}
             startIcon={isLoading ? <CircularProgress size={20} color="inherit" /> : null}
           >
             {isLoading ? "Sending..." : "Send Email"}

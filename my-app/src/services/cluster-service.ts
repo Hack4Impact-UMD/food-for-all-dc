@@ -11,10 +11,10 @@ import {
   onSnapshot,
 } from "firebase/firestore";
 import { db } from "./firebase";
-import { retry } from '../utils/retry';
-import { ServiceError, formatServiceError } from '../utils/serviceError';
+import { retry } from "../utils/retry";
+import { ServiceError, formatServiceError } from "../utils/serviceError";
 import { Cluster } from "../pages/Delivery/types/deliveryTypes";
-import { validateCluster } from '../utils/firestoreValidation';
+import { validateCluster } from "../utils/firestoreValidation";
 import ClientService from "./client-service";
 
 /**
@@ -48,18 +48,18 @@ class ClusterService {
         // NOTE: Add query constraints (where/orderBy/limit) for large collections and create indexes as needed.
         const clustersCollectionRef = collection(this.db, this.clustersCollection);
         const snapshot = await getDocs(clustersCollectionRef);
-        console.log('[ClusterService] getAllClusters snapshot:', snapshot);
+        console.log("[ClusterService] getAllClusters snapshot:", snapshot);
         const clusters = snapshot.docs
           .map((doc) => {
             const data = { docId: doc.id, ...doc.data() };
             return validateCluster(data) ? data : undefined;
           })
           .filter((cluster): cluster is Cluster => cluster !== undefined);
-        console.log('[ClusterService] getAllClusters clusters:', clusters);
+        console.log("[ClusterService] getAllClusters clusters:", clusters);
         return clusters;
       });
     } catch (error) {
-      throw formatServiceError(error, 'Failed to get all clusters');
+      throw formatServiceError(error, "Failed to get all clusters");
     }
   }
 
@@ -82,7 +82,7 @@ class ClusterService {
         onData(clusters);
       },
       (error) => {
-        if (onError) onError(formatServiceError(error, 'Real-time clusters listener error'));
+        if (onError) onError(formatServiceError(error, "Real-time clusters listener error"));
       }
     );
     return unsubscribe;
@@ -102,7 +102,7 @@ class ClusterService {
         return null;
       });
     } catch (error) {
-      throw formatServiceError(error, 'Failed to get cluster by ID');
+      throw formatServiceError(error, "Failed to get cluster by ID");
     }
   }
 
@@ -131,7 +131,7 @@ class ClusterService {
         }
       },
       (error) => {
-        if (onError) onError(formatServiceError(error, 'Real-time cluster listener error'));
+        if (onError) onError(formatServiceError(error, "Real-time cluster listener error"));
       }
     );
     return unsubscribe;
@@ -147,7 +147,7 @@ class ClusterService {
         return docRef.id;
       });
     } catch (error) {
-      throw formatServiceError(error, 'Failed to create cluster');
+      throw formatServiceError(error, "Failed to create cluster");
     }
   }
 
@@ -160,7 +160,7 @@ class ClusterService {
         await updateDoc(doc(this.db, this.clustersCollection, docId), data);
       });
     } catch (error) {
-      throw formatServiceError(error, 'Failed to update cluster');
+      throw formatServiceError(error, "Failed to update cluster");
     }
   }
 
@@ -173,7 +173,7 @@ class ClusterService {
         await deleteDoc(doc(this.db, this.clustersCollection, docId));
       });
     } catch (error) {
-      throw formatServiceError(error, 'Failed to delete cluster');
+      throw formatServiceError(error, "Failed to delete cluster");
     }
   }
 
@@ -191,14 +191,18 @@ class ClusterService {
         await Promise.all(updatePromises);
       });
     } catch (error) {
-      throw formatServiceError(error, 'Failed to assign driver to clusters');
+      throw formatServiceError(error, "Failed to assign driver to clusters");
     }
   }
 
   /**
    * Add a client to a cluster and update the client's clusterID
    */
-  public async addClientToCluster(clientId: string, clusterId: string, clusterId_number: number): Promise<void> {
+  public async addClientToCluster(
+    clientId: string,
+    clusterId: string,
+    clusterId_number: number
+  ): Promise<void> {
     try {
       await retry(async () => {
         // Update the client's clusterID
@@ -239,9 +243,12 @@ class ClusterService {
         }
       });
     } catch (error) {
-      throw formatServiceError(error, `Failed to remove client ${clientId} from cluster ${clusterId}`);
+      throw formatServiceError(
+        error,
+        `Failed to remove client ${clientId} from cluster ${clusterId}`
+      );
     }
   }
 }
 
-export default ClusterService; 
+export default ClusterService;

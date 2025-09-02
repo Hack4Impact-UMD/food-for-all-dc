@@ -11,10 +11,10 @@ import {
 import { getAuth, createUserWithEmailAndPassword } from "firebase/auth";
 import { db, app, functions } from "../auth/firebaseConfig"; // Assuming db and app are exported from firebaseConfig
 import { AuthUserRow, UserType } from "../types";
-import { validateAuthUserRow } from '../utils/firestoreValidation';
+import { validateAuthUserRow } from "../utils/firestoreValidation";
 import { httpsCallable } from "firebase/functions";
-import { retry } from '../utils/retry';
-import { ServiceError, formatServiceError } from '../utils/serviceError';
+import { retry } from "../utils/retry";
+import { ServiceError, formatServiceError } from "../utils/serviceError";
 
 // Helper to convert Firestore role string to UserType enum
 const mapRoleToUserType = (roleString: string): UserType => {
@@ -48,7 +48,6 @@ export class AuthUserService {
     return AuthUserService.instance;
   }
 
-
   // Fetch all users from Firestore
   async getAllUsers(): Promise<AuthUserRow[]> {
     try {
@@ -56,7 +55,12 @@ export class AuthUserService {
         const querySnapshot = await getDocs(this.collectionRef);
         const users: AuthUserRow[] = [];
         querySnapshot.forEach((doc) => {
-          const data = { id: doc.id, uid: doc.id, ...doc.data(), role: mapRoleToUserType(doc.data().role) };
+          const data = {
+            id: doc.id,
+            uid: doc.id,
+            ...doc.data(),
+            role: mapRoleToUserType(doc.data().role),
+          };
           if (validateAuthUserRow(data)) {
             users.push(data);
           }
@@ -64,7 +68,7 @@ export class AuthUserService {
         return users;
       });
     } catch (error) {
-      throw formatServiceError(error, 'Failed to fetch users from Firestore');
+      throw formatServiceError(error, "Failed to fetch users from Firestore");
     }
   }
 
@@ -80,7 +84,12 @@ export class AuthUserService {
       (snapshot: QuerySnapshot<DocumentData>) => {
         const users: AuthUserRow[] = [];
         snapshot.forEach((doc: any) => {
-          const data = { id: doc.id, uid: doc.id, ...doc.data(), role: mapRoleToUserType(doc.data().role) };
+          const data = {
+            id: doc.id,
+            uid: doc.id,
+            ...doc.data(),
+            role: mapRoleToUserType(doc.data().role),
+          };
           if (validateAuthUserRow(data)) {
             users.push(data);
           }
@@ -88,7 +97,7 @@ export class AuthUserService {
         onData(users);
       },
       (error: FirestoreError) => {
-        if (onError) onError(formatServiceError(error, 'Real-time users listener error'));
+        if (onError) onError(formatServiceError(error, "Real-time users listener error"));
       }
     );
     return unsubscribe;
@@ -124,17 +133,14 @@ export class AuthUserService {
         }
       },
       (error: FirestoreError) => {
-        if (onError) onError(formatServiceError(error, 'Real-time user listener error'));
+        if (onError) onError(formatServiceError(error, "Real-time user listener error"));
       }
     );
     return unsubscribe;
   }
 
   // Create a new user in Firebase Auth and Firestore
-  async createUser(
-    userData: Omit<AuthUserRow, "id" | "uid">,
-    password: string
-  ): Promise<string> {
+  async createUser(userData: Omit<AuthUserRow, "id" | "uid">, password: string): Promise<string> {
     const currentUser = this.auth.currentUser;
     try {
       return await retry(async () => {
@@ -166,12 +172,15 @@ export class AuthUserService {
           console.error("Failed to restore user context after creation error:", restoreError);
         }
       }
-      if (error.code === 'auth/email-already-in-use') {
+      if (error.code === "auth/email-already-in-use") {
         throw formatServiceError(error, "Email already in use. Please use a different email.");
-      } else if (error.code === 'auth/weak-password') {
+      } else if (error.code === "auth/weak-password") {
         throw formatServiceError(error, "Password is too weak. Please choose a stronger password.");
       }
-      throw formatServiceError(error, "Failed to create user. Please check the details and try again.");
+      throw formatServiceError(
+        error,
+        "Failed to create user. Please check the details and try again."
+      );
     }
   }
 
@@ -182,19 +191,19 @@ export class AuthUserService {
     console.log(`Initiating delete process for UID: ${uid} via Cloud Function.`);
     try {
       await retry(async () => {
-        const deleteUserAccountCallable = httpsCallable(functions, 'deleteUserAccount');
+        const deleteUserAccountCallable = httpsCallable(functions, "deleteUserAccount");
         const result = await deleteUserAccountCallable({ uid: uid });
         console.log("Cloud Function deleteUserAccount result:", result.data);
         console.log(`User ${uid} delete initiated successfully via Cloud Function.`);
       });
     } catch (error: any) {
       const errorMessage = error.message || "An error occurred while deleting the user account.";
-      const errorCode = error.code || 'unknown';
-      if (errorCode === 'functions/permission-denied' || errorCode === 'permission-denied') {
+      const errorCode = error.code || "unknown";
+      if (errorCode === "functions/permission-denied" || errorCode === "permission-denied") {
         throw formatServiceError(error, "You do not have permission to delete this user.");
-      } else if (errorCode === 'functions/not-found' || errorCode === 'not-found') {
+      } else if (errorCode === "functions/not-found" || errorCode === "not-found") {
         throw formatServiceError(error, "User not found. They may have already been deleted.");
-      } else if (errorCode === 'functions/invalid-argument' || errorCode === 'invalid-argument') {
+      } else if (errorCode === "functions/invalid-argument" || errorCode === "invalid-argument") {
         throw formatServiceError(error, "Invalid request sent to delete user function.");
       }
       throw formatServiceError(error, `Failed to delete user: ${errorMessage}`);
@@ -204,13 +213,17 @@ export class AuthUserService {
 
 // Function to get display name (can be moved to a utils file if used elsewhere)
 const getRoleDisplayName = (type: UserType): string => {
-    switch (type) {
-        case UserType.Admin: return "Admin";
-        case UserType.Manager: return "Manager";
-        case UserType.ClientIntake: return "Client Intake"; // Use the display name
-        default: return "Unknown";
-    }
+  switch (type) {
+    case UserType.Admin:
+      return "Admin";
+    case UserType.Manager:
+      return "Manager";
+    case UserType.ClientIntake:
+      return "Client Intake"; // Use the display name
+    default:
+      return "Unknown";
+  }
 };
 
 // Export a singleton instance
-export const authUserService = AuthUserService.getInstance(); 
+export const authUserService = AuthUserService.getInstance();

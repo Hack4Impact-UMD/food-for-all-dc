@@ -1,4 +1,4 @@
-import React from 'react';
+import React from "react";
 import { Menu, MenuItem } from "@mui/material";
 
 interface ExportMenuProps {
@@ -10,13 +10,13 @@ interface ExportMenuProps {
   handleFinalAction: (action: string) => void;
 }
 
-const ExportMenu: React.FC<ExportMenuProps> = ({ 
+const ExportMenu: React.FC<ExportMenuProps> = ({
   anchorEl,
   step,
   handleClose,
   parentChoice,
   handleParentSelect,
-  handleFinalAction
+  handleFinalAction,
 }) => {
   return (
     <>
@@ -40,9 +40,7 @@ const ExportMenu: React.FC<ExportMenuProps> = ({
       >
         {parentChoice === "Route" && (
           <>
-            <MenuItem onClick={() => handleFinalAction("Email Drivers")}>
-              Email Drivers
-            </MenuItem>
+            <MenuItem onClick={() => handleFinalAction("Email Drivers")}>Email Drivers</MenuItem>
             <MenuItem onClick={() => handleFinalAction("Download Drivers")}>
               Download Drivers
             </MenuItem>

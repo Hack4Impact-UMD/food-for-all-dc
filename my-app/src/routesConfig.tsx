@@ -1,5 +1,5 @@
 // Centralized route configuration for Food for All DC
-import React from 'react';
+import React from "react";
 import Login from "./pages/Login/Login";
 import ForgotPasswordPage from "./pages/Login/forgot-password";
 import CalendarPage from "./pages/Calendar/CalendarPage";
@@ -55,7 +55,11 @@ export const routesConfig: AppRoute[] = [
       {
         path: "calendar",
         element: <CalendarPage />,
-        meta: { title: "Calendar", description: "Delivery and event calendar", icon: "calendar_today" },
+        meta: {
+          title: "Calendar",
+          description: "Delivery and event calendar",
+          icon: "calendar_today",
+        },
       },
       // DEV ROUTE: Print all event dates under /calendar
       {
@@ -94,7 +98,11 @@ export const routesConfig: AppRoute[] = [
           {
             path: "users",
             element: <UsersSpreadsheet />,
-            meta: { title: "Users", description: "User management spreadsheet", icon: "admin_panel_settings" },
+            meta: {
+              title: "Users",
+              description: "User management spreadsheet",
+              icon: "admin_panel_settings",
+            },
           },
         ],
       },

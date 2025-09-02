@@ -7,20 +7,22 @@ import { UserType } from "../types";
 
 // Mock AuthProvider for different user roles and loading states
 jest.mock("../auth/AuthProvider", () => ({
-  useAuth: () => ({ userRole: mockUserRole, loading: false, logout: jest.fn() })
+  useAuth: () => ({ userRole: mockUserRole, loading: false, logout: jest.fn() }),
 }));
 let mockUserRole: UserType | null = null;
 
 describe("Minimal Routing Tests", () => {
   let consoleWarnSpy: jest.SpyInstance;
   beforeEach(() => {
-    consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    consoleWarnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
   });
   afterEach(() => {
     mockUserRole = null;
     consoleWarnSpy.mockRestore();
   });
-  afterEach(() => { mockUserRole = null; });
+  afterEach(() => {
+    mockUserRole = null;
+  });
 
   it("renders public routes for unauthenticated users", () => {
     render(<App />);
@@ -29,7 +31,7 @@ describe("Minimal Routing Tests", () => {
   });
 
   it("redirects unauthorized users from protected routes", () => {
-mockUserRole = UserType.Driver;
+    mockUserRole = UserType.Driver;
     render(
       <MemoryRouter initialEntries={["/users"]}>
         <Routes>
@@ -77,7 +79,11 @@ mockUserRole = UserType.Driver;
     render(
       <MemoryRouter initialEntries={["/users"]}>
         <Routes>
-          <Route element={<ProtectedRoute allowedRoles={[UserType.Admin]} redirectTo="/custom-redirect" />}>
+          <Route
+            element={
+              <ProtectedRoute allowedRoles={[UserType.Admin]} redirectTo="/custom-redirect" />
+            }
+          >
             <Route path="users" element={<div>Users Page</div>} />
           </Route>
           <Route path="/custom-redirect" element={<div>Custom Redirect Page</div>} />

@@ -1,10 +1,10 @@
 import { db } from "./firebase";
-import { ClientProfile } from '../types';
-import type { RowData } from '../components/Spreadsheet/Spreadsheet';
+import { ClientProfile } from "../types";
+import type { RowData } from "../components/Spreadsheet/Spreadsheet";
 import { LatLngTuple } from "leaflet";
 import { Time, TimeUtils } from "../utils/timeUtils";
-import { retry } from '../utils/retry';
-import { ServiceError, formatServiceError } from '../utils/serviceError';
+import { retry } from "../utils/retry";
+import { ServiceError, formatServiceError } from "../utils/serviceError";
 import {
   collection,
   doc,
@@ -18,9 +18,9 @@ import {
   query,
   orderBy,
   limit as fbLimit,
-  startAfter
+  startAfter,
 } from "firebase/firestore";
-import { validateClientProfile } from '../utils/firestoreValidation';
+import { validateClientProfile } from "../utils/firestoreValidation";
 
 /**
  * Client Service - Handles all client-related operations with Firebase
@@ -63,7 +63,7 @@ import { validateClientProfile } from '../utils/firestoreValidation';
       }
       return null;
     } catch (error) {
-      throw formatServiceError(error, 'Failed to get client by ID');
+      throw formatServiceError(error, "Failed to get client by ID");
     }
   }
 
@@ -72,7 +72,10 @@ import { validateClientProfile } from '../utils/firestoreValidation';
    * @param pageSize Number of clients per page
    * @param lastDoc Last document from previous page (for pagination)
    */
-  public async getAllClients(pageSize = 50, lastDoc?: any): Promise<{ clients: ClientProfile[]; lastDoc?: any }> {
+  public async getAllClients(
+    pageSize = 50,
+    lastDoc?: any
+  ): Promise<{ clients: ClientProfile[]; lastDoc?: any }> {
     try {
       return await retry(async () => {
         let q = query(collection(this.db, this.clientsCollection), fbLimit(pageSize));
@@ -153,13 +156,15 @@ import { validateClientProfile } from '../utils/firestoreValidation';
         return { clients, lastDoc: snapshot.docs[snapshot.docs.length - 1] };
       });
     } catch (error) {
-      throw formatServiceError(error, 'Failed to get all clients');
+      throw formatServiceError(error, "Failed to get all clients");
     }
   }
 
-
   // For Spreadsheet only: returns RowData[]
-  public async getAllClientsForSpreadsheet(pageSize = 50, lastDoc?: any): Promise<{ clients: RowData[]; lastDoc?: any }> {
+  public async getAllClientsForSpreadsheet(
+    pageSize = 50,
+    lastDoc?: any
+  ): Promise<{ clients: RowData[]; lastDoc?: any }> {
     try {
       return await retry(async () => {
         let q = query(collection(this.db, this.clientsCollection), fbLimit(pageSize));
@@ -173,13 +178,13 @@ import { validateClientProfile } from '../utils/firestoreValidation';
             id: doc.id,
             uid: doc.id,
             clientid: raw.clientid || doc.id,
-            firstName: raw.firstName || '',
-            lastName: raw.lastName || '',
-            phone: raw.phone || '',
+            firstName: raw.firstName || "",
+            lastName: raw.lastName || "",
+            phone: raw.phone || "",
             houseNumber: raw.houseNumber || 0,
-            address: raw.address || '',
+            address: raw.address || "",
             deliveryDetails: {
-              deliveryInstructions: raw.deliveryDetails?.deliveryInstructions || '',
+              deliveryInstructions: raw.deliveryDetails?.deliveryInstructions || "",
               dietaryRestrictions: {
                 lowSugar: raw.deliveryDetails?.dietaryRestrictions?.lowSugar || false,
                 kidneyFriendly: raw.deliveryDetails?.dietaryRestrictions?.kidneyFriendly || false,
@@ -189,21 +194,22 @@ import { validateClientProfile } from '../utils/firestoreValidation';
                 microwaveOnly: raw.deliveryDetails?.dietaryRestrictions?.microwaveOnly || false,
                 softFood: raw.deliveryDetails?.dietaryRestrictions?.softFood || false,
                 lowSodium: raw.deliveryDetails?.dietaryRestrictions?.lowSodium || false,
-                noCookingEquipment: raw.deliveryDetails?.dietaryRestrictions?.noCookingEquipment || false,
+                noCookingEquipment:
+                  raw.deliveryDetails?.dietaryRestrictions?.noCookingEquipment || false,
                 heartFriendly: raw.deliveryDetails?.dietaryRestrictions?.heartFriendly || false,
                 foodAllergens: raw.deliveryDetails?.dietaryRestrictions?.foodAllergens || [],
-                otherText: raw.deliveryDetails?.dietaryRestrictions?.otherText || '',
+                otherText: raw.deliveryDetails?.dietaryRestrictions?.otherText || "",
                 other: raw.deliveryDetails?.dietaryRestrictions?.other || false,
               },
             },
-            ethnicity: raw.ethnicity || '',
+            ethnicity: raw.ethnicity || "",
           };
           return mapped;
         });
         return { clients, lastDoc: snapshot.docs[snapshot.docs.length - 1] };
       });
     } catch (error) {
-      throw formatServiceError(error, 'Failed to get all clients for spreadsheet');
+      throw formatServiceError(error, "Failed to get all clients for spreadsheet");
     }
   }
   /**
@@ -223,7 +229,7 @@ import { validateClientProfile } from '../utils/firestoreValidation';
         onData(clients);
       },
       (error) => {
-        if (onError) onError(formatServiceError(error, 'Real-time clients listener error'));
+        if (onError) onError(formatServiceError(error, "Real-time clients listener error"));
       }
     );
     return unsubscribe;
@@ -242,7 +248,7 @@ import { validateClientProfile } from '../utils/firestoreValidation';
         });
       });
     } catch (error) {
-      throw formatServiceError(error, 'Failed to update client');
+      throw formatServiceError(error, "Failed to update client");
     }
   }
 
@@ -255,7 +261,7 @@ import { validateClientProfile } from '../utils/firestoreValidation';
         await deleteDoc(doc(this.db, this.clientsCollection, uid));
       });
     } catch (error) {
-      throw formatServiceError(error, 'Failed to delete client');
+      throw formatServiceError(error, "Failed to delete client");
     }
   }
 
@@ -272,7 +278,7 @@ import { validateClientProfile } from '../utils/firestoreValidation';
         return [];
       });
     } catch (error) {
-      throw formatServiceError(error, 'Failed to get tags');
+      throw formatServiceError(error, "Failed to get tags");
     }
   }
 
@@ -291,7 +297,7 @@ import { validateClientProfile } from '../utils/firestoreValidation';
         );
       });
     } catch (error) {
-      throw formatServiceError(error, 'Failed to update tags');
+      throw formatServiceError(error, "Failed to update tags");
     }
   }
 
@@ -302,7 +308,11 @@ import { validateClientProfile } from '../utils/firestoreValidation';
     // ...existing code...
     try {
       await retry(async () => {
-        await setDoc(doc(this.db, this.clientsCollection, uid), { clusterID: clusterId }, { merge: true });
+        await setDoc(
+          doc(this.db, this.clientsCollection, uid),
+          { clusterID: clusterId },
+          { merge: true }
+        );
       });
     } catch (error) {
       throw formatServiceError(error, `Failed to update cluster for client ${uid}`);
@@ -325,7 +335,7 @@ import { validateClientProfile } from '../utils/firestoreValidation';
       await retry(async () => {
         await updateDoc(clientRef, {
           coordinates: coordinates,
-          updatedAt: Time.Firebase.toTimestamp(TimeUtils.now())
+          updatedAt: Time.Firebase.toTimestamp(TimeUtils.now()),
         });
       });
     } catch (error) {
@@ -334,4 +344,4 @@ import { validateClientProfile } from '../utils/firestoreValidation';
   }
 }
 
-export default ClientService; 
+export default ClientService;

@@ -17,7 +17,7 @@ export const toJSDate = (date: Date | Timestamp): Date => {
  */
 export const toISODateString = (date: Date | Timestamp): string => {
   const jsDate = toJSDate(date);
-  return jsDate.toISOString().split('T')[0];
+  return jsDate.toISOString().split("T")[0];
 };
 
 /**

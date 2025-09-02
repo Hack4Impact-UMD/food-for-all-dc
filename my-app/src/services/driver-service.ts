@@ -1,8 +1,8 @@
-import { validateDriver } from '../utils/firestoreValidation';
-import { retry } from '../utils/retry';
-import { ServiceError, formatServiceError } from '../utils/serviceError';
+import { validateDriver } from "../utils/firestoreValidation";
+import { retry } from "../utils/retry";
+import { ServiceError, formatServiceError } from "../utils/serviceError";
 import { db } from "./firebase";
-import { Driver } from '../types';
+import { Driver } from "../types";
 import {
   collection,
   doc,
@@ -16,7 +16,7 @@ import {
   query,
   orderBy,
   limit as fbLimit,
-  startAfter
+  startAfter,
 } from "firebase/firestore";
 
 /**
@@ -52,7 +52,7 @@ class DriverService {
           .filter(validateDriver);
       });
     } catch (error) {
-      throw formatServiceError(error, 'Failed to get all drivers');
+      throw formatServiceError(error, "Failed to get all drivers");
     }
   }
 
@@ -61,10 +61,17 @@ class DriverService {
    * @param pageSize Number of drivers per page
    * @param lastDoc Last document from previous page (for pagination)
    */
-  public async getAllDriversPaginated(pageSize = 50, lastDoc?: any): Promise<{ drivers: Driver[]; lastDoc?: any }> {
+  public async getAllDriversPaginated(
+    pageSize = 50,
+    lastDoc?: any
+  ): Promise<{ drivers: Driver[]; lastDoc?: any }> {
     try {
       return await retry(async () => {
-        let q = query(collection(this.db, this.driversCollection), orderBy("id"), fbLimit(pageSize));
+        let q = query(
+          collection(this.db, this.driversCollection),
+          orderBy("id"),
+          fbLimit(pageSize)
+        );
         if (lastDoc) {
           q = query(q, startAfter(lastDoc));
         }
@@ -95,7 +102,7 @@ class DriverService {
         onData(drivers);
       },
       (error) => {
-        if (onError) onError(formatServiceError(error, 'Real-time drivers listener error'));
+        if (onError) onError(formatServiceError(error, "Real-time drivers listener error"));
       }
     );
     return unsubscribe;
@@ -115,10 +122,9 @@ class DriverService {
         return null;
       });
     } catch (error) {
-      throw formatServiceError(error, 'Failed to get driver by ID');
+      throw formatServiceError(error, "Failed to get driver by ID");
     }
   }
-
 
   /**
    * Subscribe to a driver by ID (real-time updates)
@@ -139,7 +145,7 @@ class DriverService {
         }
       },
       (error) => {
-        if (onError) onError(formatServiceError(error, 'Real-time driver listener error'));
+        if (onError) onError(formatServiceError(error, "Real-time driver listener error"));
       }
     );
     return unsubscribe;
@@ -154,7 +160,7 @@ class DriverService {
         return docRef.id;
       });
     } catch (error) {
-      throw formatServiceError(error, 'Failed to create driver');
+      throw formatServiceError(error, "Failed to create driver");
     }
   }
 
@@ -167,7 +173,7 @@ class DriverService {
         await updateDoc(doc(this.db, this.driversCollection, id), data);
       });
     } catch (error) {
-      throw formatServiceError(error, 'Failed to update driver');
+      throw formatServiceError(error, "Failed to update driver");
     }
   }
 
@@ -180,9 +186,9 @@ class DriverService {
         await deleteDoc(doc(this.db, this.driversCollection, id));
       });
     } catch (error) {
-      throw formatServiceError(error, 'Failed to delete driver');
+      throw formatServiceError(error, "Failed to delete driver");
     }
   }
 }
 
-export default DriverService; 
+export default DriverService;

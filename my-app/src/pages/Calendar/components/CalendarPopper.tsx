@@ -71,7 +71,6 @@ const CalendarPopper = ({
   };
 
   useEffect(() => {
-    
     if (anchorEl === null) {
       // Reset the bulkEdit state to false.
       setBulkEdit(false);
@@ -100,20 +99,16 @@ const CalendarPopper = ({
     const selectedValue = Number(e.target.value);
     setNewLimit(selectedValue);
     const dateKey = limitEditDate!.toString("yyyy-MM-dd");
-    
+
     if (!bulkEdit) {
       const deliveryService = DeliveryService.getInstance();
       await deliveryService.setDailyLimit(dateKey, selectedValue);
-      
+
       setDailyLimits((prev) => {
-        const existingIndex = prev.findIndex(
-          (item) => item.date === dateKey
-        );
+        const existingIndex = prev.findIndex((item) => item.date === dateKey);
         if (existingIndex !== -1) {
           return prev.map((item, index) =>
-            index === existingIndex
-              ? { ...item, limit: selectedValue }
-              : item
+            index === existingIndex ? { ...item, limit: selectedValue } : item
           );
         }
         return [
@@ -128,7 +123,7 @@ const CalendarPopper = ({
     } else {
       setDefaultLimit(limitEditDate!, selectedValue);
     }
-    
+
     setLimitEditDate(null);
     setClickPosition(null);
   };

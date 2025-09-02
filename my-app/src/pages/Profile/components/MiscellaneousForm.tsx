@@ -1,7 +1,7 @@
 import React from "react";
 import { Box, Typography } from "@mui/material";
 import { ClientProfileKey, InputType } from "../types";
-import {ClientProfile } from '../../../types';
+import { ClientProfile } from "../../../types";
 import TagManager from "../Tags/TagManager";
 
 interface MiscellaneousFormProps {
@@ -58,10 +58,10 @@ const MiscellaneousForm: React.FC<MiscellaneousFormProps> = ({
               {clientProfile.lifeChallengesTimestamp &&
                 clientProfile.lifeChallengesTimestamp.timestamp &&
                 new Date(
-                  typeof clientProfile.lifeChallengesTimestamp.timestamp === 'object' &&
+                  typeof clientProfile.lifeChallengesTimestamp.timestamp === "object" &&
                   clientProfile.lifeChallengesTimestamp.timestamp !== null &&
-                  'toDate' in clientProfile.lifeChallengesTimestamp.timestamp &&
-                  typeof clientProfile.lifeChallengesTimestamp.timestamp.toDate === 'function'
+                  "toDate" in clientProfile.lifeChallengesTimestamp.timestamp &&
+                  typeof clientProfile.lifeChallengesTimestamp.timestamp.toDate === "function"
                     ? clientProfile.lifeChallengesTimestamp.timestamp.toDate()
                     : clientProfile.lifeChallengesTimestamp.timestamp
                 ).toLocaleString()}
@@ -81,10 +81,10 @@ const MiscellaneousForm: React.FC<MiscellaneousFormProps> = ({
               {clientProfile.lifestyleGoalsTimestamp &&
                 clientProfile.lifestyleGoalsTimestamp.timestamp &&
                 new Date(
-                  typeof clientProfile.lifestyleGoalsTimestamp.timestamp === 'object' &&
+                  typeof clientProfile.lifestyleGoalsTimestamp.timestamp === "object" &&
                   clientProfile.lifestyleGoalsTimestamp.timestamp !== null &&
-                  'toDate' in clientProfile.lifestyleGoalsTimestamp.timestamp &&
-                  typeof clientProfile.lifestyleGoalsTimestamp.timestamp.toDate === 'function'
+                  "toDate" in clientProfile.lifestyleGoalsTimestamp.timestamp &&
+                  typeof clientProfile.lifestyleGoalsTimestamp.timestamp.toDate === "function"
                     ? clientProfile.lifestyleGoalsTimestamp.timestamp.toDate()
                     : clientProfile.lifestyleGoalsTimestamp.timestamp
                 ).toLocaleString()}

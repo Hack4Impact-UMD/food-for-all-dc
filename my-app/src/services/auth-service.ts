@@ -11,8 +11,8 @@ import {
 
 import { AuthError } from "../types/user-types";
 import { auth } from "./firebase";
-import { retry } from '../utils/retry';
-import { ServiceError, formatServiceError } from '../utils/serviceError';
+import { retry } from "../utils/retry";
+import { ServiceError, formatServiceError } from "../utils/serviceError";
 
 /**
  * Auth Service - Handles all authentication-related operations with Firebase
@@ -104,4 +104,4 @@ class AuthService {
   }
 }
 
-export default AuthService; 
+export default AuthService;

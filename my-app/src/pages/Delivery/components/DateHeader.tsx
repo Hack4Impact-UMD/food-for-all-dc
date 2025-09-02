@@ -35,7 +35,7 @@ const DateHeader: React.FC<DateHeaderProps> = ({
         }}
       >
         <Typography variant="h4" sx={{ marginRight: 2, width: "170px", color: "#787777" }}>
-          {TimeUtils.fromJSDate(selectedDate).toFormat('cccc')}
+          {TimeUtils.fromJSDate(selectedDate).toFormat("cccc")}
         </Typography>
 
         <Box
@@ -51,12 +51,14 @@ const DateHeader: React.FC<DateHeaderProps> = ({
           }}
         >
           <Typography variant="h5" sx={{ color: "#fff" }}>
-            {TimeUtils.fromJSDate(selectedDate).toFormat('d')}
+            {TimeUtils.fromJSDate(selectedDate).toFormat("d")}
           </Typography>
         </Box>
 
         <IconButton
-          onClick={() => setSelectedDate(TimeUtils.fromJSDate(selectedDate).minus({ days: 1 }).toJSDate())}
+          onClick={() =>
+            setSelectedDate(TimeUtils.fromJSDate(selectedDate).minus({ days: 1 }).toJSDate())
+          }
           size="large"
           sx={{ color: "#257E68" }}
         >
@@ -72,7 +74,9 @@ const DateHeader: React.FC<DateHeaderProps> = ({
         </IconButton>
 
         <IconButton
-          onClick={() => setSelectedDate(TimeUtils.fromJSDate(selectedDate).plus({ days: 1 }).toJSDate())}
+          onClick={() =>
+            setSelectedDate(TimeUtils.fromJSDate(selectedDate).plus({ days: 1 }).toJSDate())
+          }
           size="large"
           sx={{ color: "#257E68" }}
         >

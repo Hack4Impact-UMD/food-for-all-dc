@@ -6,7 +6,9 @@
   font-size: var(--font-size-base);
   cursor: pointer;
   border: none;
-  transition: background-color 0.3s ease, width 0.3s ease;
+  transition:
+    background-color 0.3s ease,
+    width 0.3s ease;
   text-transform: none;
   box-shadow: var(--shadow-sm);
   display: flex;
@@ -33,7 +35,9 @@
   white-space: nowrap;
   overflow: visible;
   text-overflow: clip;
-  transition: opacity 0.3s ease, width 0.3s ease;
+  transition:
+    opacity 0.3s ease,
+    width 0.3s ease;
   flex-shrink: 0;
 }
 

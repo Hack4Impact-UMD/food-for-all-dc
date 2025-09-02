@@ -22,7 +22,12 @@ import {
 import { Close, Add, Edit, Check, Delete } from "@mui/icons-material";
 import { doc, updateDoc, addDoc, deleteDoc, collection } from "firebase/firestore";
 import { db } from "../auth/firebaseConfig";
-import { CaseWorker, CaseWorkerFormProps, CaseWorkerManagementModalProps, ValidationErrors } from "../types";
+import {
+  CaseWorker,
+  CaseWorkerFormProps,
+  CaseWorkerManagementModalProps,
+  ValidationErrors,
+} from "../types";
 // Import shared utility functions directly from their specific files
 import { isValidEmail, isValidPhone, validateCaseWorkerFields } from "../utils/validation";
 import { formatPhoneNumber } from "../utils/format";
@@ -48,7 +53,7 @@ const CaseWorkerFormFields: React.FC<CaseWorkerFormProps> = ({
   return (
     <Grid container spacing={3}>
       {fields.map((field) => (
-        <Grid size={{ xs: 12, sm: field.gridSize || 4}} key={field.name}>
+        <Grid size={{ xs: 12, sm: field.gridSize || 4 }} key={field.name}>
           <TextField
             fullWidth
             label={field.label}
@@ -401,7 +406,9 @@ const CaseWorkerManagementModal: React.FC<CaseWorkerManagementModalProps> = ({
                           }}
                         />
                       ) : (
-                        <Typography sx={{ color: "#666" }}>{formatPhoneNumber(cw.phone)}</Typography>
+                        <Typography sx={{ color: "#666" }}>
+                          {formatPhoneNumber(cw.phone)}
+                        </Typography>
                       )}
                     </TableCell>
                     <TableCell>

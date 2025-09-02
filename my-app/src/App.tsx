@@ -36,17 +36,15 @@ function renderRoutes(config: Array<any>) {
         </Route>
       );
     }
-    return (
-      <Route key={idx} path={route.path} element={route.element} />
-    );
+    return <Route key={idx} path={route.path} element={route.element} />;
   });
 }
 
 function App() {
   const { loading } = useAuth();
-  
+
   // Monitor app performance
-  usePerformanceMonitor('App');
+  usePerformanceMonitor("App");
 
   if (loading) {
     return <Preloader message="Initializing app..." showMessage={true} />;

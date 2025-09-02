@@ -14,10 +14,10 @@ import {
 } from "firebase/firestore";
 import { db } from "./firebase";
 import { DeliveryEvent } from "../types/calendar-types";
-import { validateDeliveryEvent } from '../utils/firestoreValidation';
+import { validateDeliveryEvent } from "../utils/firestoreValidation";
 import { Time, TimeUtils } from "../utils/timeUtils";
-import { retry } from '../utils/retry';
-import { ServiceError, formatServiceError } from '../utils/serviceError';
+import { retry } from "../utils/retry";
+import { ServiceError, formatServiceError } from "../utils/serviceError";
 
 /**
  * Delivery Service - Handles all delivery-related operations with Firebase
@@ -50,19 +50,23 @@ class DeliveryService {
     try {
       return await retry(async () => {
         const snapshot = await getDocs(collection(this.db, this.eventsCollection));
-        console.log('[DeliveryService] getAllEvents snapshot:', snapshot);
+        console.log("[DeliveryService] getAllEvents snapshot:", snapshot);
         const events = snapshot.docs
           .map((doc) => {
             const raw = doc.data();
-            const data = { id: doc.id, ...raw, deliveryDate: Time.Firebase.fromTimestamp(raw.deliveryDate).toJSDate() };
+            const data = {
+              id: doc.id,
+              ...raw,
+              deliveryDate: Time.Firebase.fromTimestamp(raw.deliveryDate).toJSDate(),
+            };
             return validateDeliveryEvent(data) ? data : undefined;
           })
           .filter((event) => event !== undefined) as DeliveryEvent[];
-        console.log('[DeliveryService] getAllEvents events:', events);
+        console.log("[DeliveryService] getAllEvents events:", events);
         return events;
       });
     } catch (error) {
-      throw formatServiceError(error, 'Failed to get all events');
+      throw formatServiceError(error, "Failed to get all events");
     }
   }
 
@@ -73,8 +77,8 @@ class DeliveryService {
     try {
       return await retry(async () => {
         // Always use start of day for startDate and end of day for endDate
-        const startDateTime = TimeUtils.fromJSDate(startDate).startOf('day');
-        const endDateTime = TimeUtils.fromJSDate(endDate).endOf('day');
+        const startDateTime = TimeUtils.fromJSDate(startDate).startOf("day");
+        const endDateTime = TimeUtils.fromJSDate(endDate).endOf("day");
         const startTimestamp = Time.Firebase.toTimestamp(startDateTime);
         const endTimestamp = Time.Firebase.toTimestamp(endDateTime);
         // ...existing code...
@@ -88,7 +92,11 @@ class DeliveryService {
           .map((doc) => {
             const raw = doc.data();
             // ...existing code...
-            const data = { id: doc.id, ...raw, deliveryDate: Time.Firebase.fromTimestamp(raw.deliveryDate).toJSDate() };
+            const data = {
+              id: doc.id,
+              ...raw,
+              deliveryDate: Time.Firebase.fromTimestamp(raw.deliveryDate).toJSDate(),
+            };
             return validateDeliveryEvent(data) ? data : undefined;
           })
           .filter((event) => event !== undefined) as DeliveryEvent[];
@@ -96,7 +104,7 @@ class DeliveryService {
         return events;
       });
     } catch (error) {
-      throw formatServiceError(error, 'Failed to get events by date range');
+      throw formatServiceError(error, "Failed to get events by date range");
     }
   }
 
@@ -110,7 +118,7 @@ class DeliveryService {
         return docRef.id;
       });
     } catch (error) {
-      throw formatServiceError(error, 'Failed to create event');
+      throw formatServiceError(error, "Failed to create event");
     }
   }
 
@@ -123,7 +131,7 @@ class DeliveryService {
         await updateDoc(doc(this.db, this.eventsCollection, id), data);
       });
     } catch (error) {
-      throw formatServiceError(error, 'Failed to update event');
+      throw formatServiceError(error, "Failed to update event");
     }
   }
 
@@ -139,7 +147,7 @@ class DeliveryService {
         await deleteDoc(doc(this.db, this.eventsCollection, id));
       });
     } catch (error) {
-      throw formatServiceError(error, 'Failed to delete event');
+      throw formatServiceError(error, "Failed to delete event");
     }
   }
 
@@ -149,12 +157,12 @@ class DeliveryService {
   public async getEventsByClientId(clientId: string): Promise<DeliveryEvent[]> {
     try {
       return await retry(async () => {
-         console.log('[DeliveryService] getEventsByClientId param:', clientId);
-         const q = query(
-           collection(this.db, this.eventsCollection),
-           where("clientId", "==", clientId)
-         );
-         console.log('[DeliveryService] getEventsByClientId Firestore query:', q);
+        console.log("[DeliveryService] getEventsByClientId param:", clientId);
+        const q = query(
+          collection(this.db, this.eventsCollection),
+          where("clientId", "==", clientId)
+        );
+        console.log("[DeliveryService] getEventsByClientId Firestore query:", q);
         const querySnapshot = await getDocs(q);
         return querySnapshot.docs
           .map((doc) => {
@@ -175,7 +183,7 @@ class DeliveryService {
           .filter((event): event is DeliveryEvent => event !== null);
       });
     } catch (error) {
-      throw formatServiceError(error, 'Failed to get events by client ID');
+      throw formatServiceError(error, "Failed to get events by client ID");
     }
   }
 
@@ -186,10 +194,12 @@ class DeliveryService {
     try {
       return await retry(async () => {
         const snapshot = await getDocs(collection(this.db, this.dailyLimitsCollection));
-        return snapshot.docs.map((doc) => doc.data() as { id: string; date: string; limit: number });
+        return snapshot.docs.map(
+          (doc) => doc.data() as { id: string; date: string; limit: number }
+        );
       });
     } catch (error) {
-      throw formatServiceError(error, 'Failed to get daily limits');
+      throw formatServiceError(error, "Failed to get daily limits");
     }
   }
 
@@ -203,7 +213,7 @@ class DeliveryService {
         await setDoc(docRef, { date: dateKey, limit });
       });
     } catch (error) {
-      throw formatServiceError(error, 'Failed to set daily limit');
+      throw formatServiceError(error, "Failed to set daily limit");
     }
   }
 
@@ -233,7 +243,7 @@ class DeliveryService {
         return snapshot.data() as Record<string, number>;
       });
     } catch (error) {
-      throw formatServiceError(error, 'Failed to get weekly limits');
+      throw formatServiceError(error, "Failed to get weekly limits");
     }
   }
 
@@ -247,7 +257,7 @@ class DeliveryService {
         await setDoc(docRef, limits);
       });
     } catch (error) {
-      throw formatServiceError(error, 'Failed to update weekly limits');
+      throw formatServiceError(error, "Failed to update weekly limits");
     }
   }
 
@@ -257,32 +267,34 @@ class DeliveryService {
   public async getPreviousDeliveries(clientId: string): Promise<DeliveryEvent[]> {
     try {
       return await retry(async () => {
-        console.log('[DeliveryService] getPreviousDeliveries param:', clientId);
+        console.log("[DeliveryService] getPreviousDeliveries param:", clientId);
         const todayDateTime = TimeUtils.today();
         if (!todayDateTime.isValid) {
           throw new ServiceError("Invalid date object");
         }
         const today = Time.Firebase.toTimestamp(todayDateTime);
         const pastQuery = query(
-           collection(this.db, this.eventsCollection),
-           where("clientId", "==", clientId),
-           where("deliveryDate", "<", today),
-           orderBy("deliveryDate", "desc"),
-           limit(5)
-         );
-        console.log('[DeliveryService] getPreviousDeliveries Firestore query:', pastQuery);
+          collection(this.db, this.eventsCollection),
+          where("clientId", "==", clientId),
+          where("deliveryDate", "<", today),
+          orderBy("deliveryDate", "desc"),
+          limit(5)
+        );
+        console.log("[DeliveryService] getPreviousDeliveries Firestore query:", pastQuery);
         const pastSnapshot = await getDocs(pastQuery);
         return pastSnapshot.docs.map((doc) => {
           const data = doc.data();
           return {
             id: doc.id,
             ...data,
-            deliveryDate: data.deliveryDate.toDate ? Time.Firebase.fromTimestamp(data.deliveryDate).toJSDate() : TimeUtils.fromAny(data.deliveryDate).toJSDate(),
+            deliveryDate: data.deliveryDate.toDate
+              ? Time.Firebase.fromTimestamp(data.deliveryDate).toJSDate()
+              : TimeUtils.fromAny(data.deliveryDate).toJSDate(),
           } as DeliveryEvent;
         });
       });
     } catch (error) {
-      throw formatServiceError(error, 'Failed to get previous deliveries');
+      throw formatServiceError(error, "Failed to get previous deliveries");
     }
   }
 
@@ -292,32 +304,34 @@ class DeliveryService {
   public async getNextDeliveries(clientId: string): Promise<DeliveryEvent[]> {
     try {
       return await retry(async () => {
-        console.log('[DeliveryService] getNextDeliveries param:', clientId);
+        console.log("[DeliveryService] getNextDeliveries param:", clientId);
         const todayDateTime = TimeUtils.today();
         if (!todayDateTime.isValid) {
           throw new ServiceError("Invalid date object");
         }
         const today = Time.Firebase.toTimestamp(todayDateTime);
         const futureQuery = query(
-           collection(this.db, this.eventsCollection),
-           where("clientId", "==", clientId),
-           where("deliveryDate", ">=", today),
-           orderBy("deliveryDate", "asc"),
-           limit(5)
-         );
-        console.log('[DeliveryService] getNextDeliveries Firestore query:', futureQuery);
+          collection(this.db, this.eventsCollection),
+          where("clientId", "==", clientId),
+          where("deliveryDate", ">=", today),
+          orderBy("deliveryDate", "asc"),
+          limit(5)
+        );
+        console.log("[DeliveryService] getNextDeliveries Firestore query:", futureQuery);
         const futureSnapshot = await getDocs(futureQuery);
         return futureSnapshot.docs.map((doc) => {
           const data = doc.data();
           return {
             id: doc.id,
             ...data,
-            deliveryDate: data.deliveryDate.toDate ? Time.Firebase.fromTimestamp(data.deliveryDate).toJSDate() : TimeUtils.fromAny(data.deliveryDate).toJSDate(),
+            deliveryDate: data.deliveryDate.toDate
+              ? Time.Firebase.fromTimestamp(data.deliveryDate).toJSDate()
+              : TimeUtils.fromAny(data.deliveryDate).toJSDate(),
           } as DeliveryEvent;
         });
       });
     } catch (error) {
-      throw formatServiceError(error, 'Failed to get next deliveries');
+      throw formatServiceError(error, "Failed to get next deliveries");
     }
   }
 
@@ -337,10 +351,9 @@ class DeliveryService {
         return { pastDeliveries, futureDeliveries };
       });
     } catch (error) {
-      throw formatServiceError(error, 'Failed to get client delivery history');
+      throw formatServiceError(error, "Failed to get client delivery history");
     }
   }
 }
 
 export default DeliveryService;
-

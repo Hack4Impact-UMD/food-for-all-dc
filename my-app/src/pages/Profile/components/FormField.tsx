@@ -14,17 +14,20 @@ import {
 } from "@mui/material";
 import { validateDateInput } from "../../../utils/dates";
 import { isValidHtmlDateFormat } from "../../../utils/validation";
-import { ClientProfileKey } from '../types';
-import { DietaryRestrictions } from '../../../types';
+import { ClientProfileKey } from "../types";
+import { DietaryRestrictions } from "../../../types";
 import TagManager from "../Tags/TagManager";
-import '../../../styles/checkbox-override.css';
+import "../../../styles/checkbox-override.css";
 
 interface FormFieldProps {
   fieldPath: ClientProfileKey;
   value: any;
   type?: string;
-  isEditing: boolean;  handleChange: (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement> | SelectChangeEvent
+  isEditing: boolean;
+  handleChange: (
+    e:
+      | React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+      | SelectChangeEvent
   ) => void;
   getNestedValue: (obj: any, path: string) => any;
   handleDietaryRestrictionChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
@@ -67,17 +70,18 @@ const CustomTextField = styled(TextField)({
     "&.Mui-error .MuiInputBase-input": {
       border: "1px solid var(--color-error)",
       boxShadow: "0 0 0 1px rgba(255, 0, 0, 0.1)",
-    }
+    },
   },
   "& .MuiFormHelperText-root": {
-    minHeight: '20px',
-    height: '20px',
-    margin: '3px 0',
-    lineHeight: '20px',
+    minHeight: "20px",
+    height: "20px",
+    margin: "3px 0",
+    lineHeight: "20px",
     "&.Mui-error": {
       color: "var(--color-error)",
-    }
-  },  "& .MuiInputBase-input": {
+    },
+  },
+  "& .MuiInputBase-input": {
     backgroundColor: "white",
     width: "100%",
     height: "56px",
@@ -126,65 +130,65 @@ const CustomTextField = styled(TextField)({
 
 export const CustomSelect = styled(Select)({
   height: fieldStyles.height,
-  boxSizing: 'border-box',
-  width: '100%',
-  position: 'relative',
-  
+  boxSizing: "border-box",
+  width: "100%",
+  position: "relative",
+
   // Remove the default Material UI outline completely
-  '&.MuiOutlinedInput-root': {
-    '& fieldset.MuiOutlinedInput-notchedOutline': {
-      display: 'none',
+  "&.MuiOutlinedInput-root": {
+    "& fieldset.MuiOutlinedInput-notchedOutline": {
+      display: "none",
     },
   },
-  
+
   // Apply our own border and background
   border: `1px solid var(--color-border-light)`,
-  borderRadius: '5px',
-  backgroundColor: 'white',
-  
+  borderRadius: "5px",
+  backgroundColor: "white",
+
   // Focus state
-  '&:focus-within': {
+  "&:focus-within": {
     border: `1px solid var(--color-primary)`,
-    boxShadow: '0 0 0 3px rgba(37, 126, 104, 0.2)',
-    outline: 'none',
+    boxShadow: "0 0 0 3px rgba(37, 126, 104, 0.2)",
+    outline: "none",
   },
-  
+
   // Style the select content area
-  '& .MuiSelect-select': {
-    height: '100%',
-    padding: '0 48px 0 14px', // Increased right padding to prevent text overlap with arrow
-    display: 'flex',
-    alignItems: 'center',
-    position: 'relative',
-    border: 'none',
-    outline: 'none',
+  "& .MuiSelect-select": {
+    height: "100%",
+    padding: "0 48px 0 14px", // Increased right padding to prevent text overlap with arrow
+    display: "flex",
+    alignItems: "center",
+    position: "relative",
+    border: "none",
+    outline: "none",
   },
-  
+
   // Position the real MUI arrow inside the field
-  '& .MuiSelect-icon': {
-    position: 'absolute !important',
-    right: '12px !important',
-    top: '50% !important',
-    transform: 'translateY(-50%) !important',
-    color: '#666 !important',
-    fontSize: '1.2rem !important',
-    pointerEvents: 'none !important',
+  "& .MuiSelect-icon": {
+    position: "absolute !important",
+    right: "12px !important",
+    top: "50% !important",
+    transform: "translateY(-50%) !important",
+    color: "#666 !important",
+    fontSize: "1.2rem !important",
+    pointerEvents: "none !important",
     zIndex: 2,
   },
-  
+
   // Disabled state
-  '&.Mui-disabled': {
+  "&.Mui-disabled": {
     backgroundColor: "#e0e0e0",
     color: "#757575",
     cursor: "not-allowed",
-    
-    '& .MuiSelect-select': {
+
+    "& .MuiSelect-select": {
       color: "#757575",
     },
-    
-    '& .MuiSelect-icon': {
+
+    "& .MuiSelect-icon": {
       color: "#999",
-    }
+    },
   },
 });
 
@@ -214,16 +218,20 @@ const CustomCheckbox = styled(Checkbox)({
   },
 });
 
-const DateFieldComponent = ({ 
-  fieldPath, 
-  value, 
-  handleChange, 
+const DateFieldComponent = ({
+  fieldPath,
+  value,
+  handleChange,
   dateInputProps,
-  error
+  error,
 }: {
   fieldPath: string;
   value: any;
-  handleChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement> | SelectChangeEvent) => void;
+  handleChange: (
+    e:
+      | React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+      | SelectChangeEvent
+  ) => void;
   dateInputProps: Record<string, any>;
   error?: string;
 }) => {
@@ -238,15 +246,15 @@ const DateFieldComponent = ({
   const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
     // Mark field as touched on blur
     setFieldTouched(true);
-    
+
     const value = e.target.value;
-    
+
     // If the field is empty, it's valid (DOB is optional)
     if (!value) {
       setDateError(null);
       return;
     }
-    
+
     // Use the isValidHtmlDateFormat function for HTML date input validation
     if (!isValidHtmlDateFormat(value, 1900, 2100)) {
       // Provide more specific error messages
@@ -269,64 +277,64 @@ const DateFieldComponent = ({
       setDateError(null);
     }
   };
-  
+
   return (
-    <Box 
-      sx={{ 
-        position: 'relative',
-        display: 'flex', 
-        flexDirection: 'column',
-        width: '100%',
-        marginBottom: '24px', // Space for any error message
+    <Box
+      sx={{
+        position: "relative",
+        display: "flex",
+        flexDirection: "column",
+        width: "100%",
+        marginBottom: "24px", // Space for any error message
       }}
     >
       <CustomTextField
         type="date"
         name={fieldPath}
         value={value || ""}
-        className={(fieldTouched && !!dateError) ? 'error' : ''}
+        className={fieldTouched && !!dateError ? "error" : ""}
         onChange={(e) => {
           // Mark field as touched on change
           if (!fieldTouched) setFieldTouched(true);
-          
+
           // Clear error when user starts typing
           if (dateError) setDateError(null);
-          
+
           // Pass to the handler
           handleChange(e);
         }}
         onBlur={handleBlur}
-        onFocus={() => setFieldTouched(true)}        
+        onFocus={() => setFieldTouched(true)}
         error={!!displayError}
         helperText={displayError || " "}
         InputLabelProps={{ shrink: true }}
         FormHelperTextProps={{
           sx: {
-            visibility: displayError ? 'visible' : 'hidden',
-            position: 'absolute',
-            bottom: '-2.65rem',
+            visibility: displayError ? "visible" : "hidden",
+            position: "absolute",
+            bottom: "-2.65rem",
             left: 0,
-            margin: '1rem 0 0 0',
-            color: '#d32f2f !important', // unsure why we need to specifically enforce this color here
-          }
+            margin: "1rem 0 0 0",
+            color: "#d32f2f !important", // unsure why we need to specifically enforce this color here
+          },
         }}
         InputProps={{
           sx: {
-            '& input::-webkit-calendar-picker-indicator': {
-              cursor: 'pointer'
-            }
-          }
+            "& input::-webkit-calendar-picker-indicator": {
+              cursor: "pointer",
+            },
+          },
         }}
         fullWidth
         margin="none"
-        sx={{ 
-          '& .MuiInputBase-root': { height: '38px' },
-          mb: 0
+        sx={{
+          "& .MuiInputBase-root": { height: "38px" },
+          mb: 0,
         }}
         inputProps={{
           min: "1900-01-01",
           max: "2100-12-31",
-          ...dateInputProps
+          ...dateInputProps,
         }}
       />
     </Box>
@@ -364,7 +372,9 @@ const FormField: React.FC<FormFieldProps> = ({
           {Object.entries(restrictions)
             .filter(([key, value]) => typeof value === "boolean")
             .map(([key, value]) => (
-              <Grid key={key}>                <FormControlLabel
+              <Grid key={key}>
+                {" "}
+                <FormControlLabel
                   sx={{ textAlign: "left" }}
                   control={
                     <CustomCheckbox
@@ -386,20 +396,20 @@ const FormField: React.FC<FormFieldProps> = ({
       .map(([key]) => key.replace(/([A-Z])/g, " $1").trim());
 
     return (
-      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, minHeight: 40 }}>
+      <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, minHeight: 40 }}>
         {selectedRestrictions.length > 0 ? (
           selectedRestrictions.map((restriction) => (
             <Box
               key={restriction}
               sx={{
-                display: 'inline-block',
+                display: "inline-block",
                 px: 1.5,
                 py: 0.5,
-                bgcolor: '#e0f2f1',
-                color: '#257E68',
-                borderRadius: '16px',
+                bgcolor: "#e0f2f1",
+                color: "#257E68",
+                borderRadius: "16px",
                 fontWeight: 600,
-                fontSize: '0.95rem',
+                fontSize: "0.95rem",
                 mr: 1,
                 mb: 1,
                 letterSpacing: 0.2,
@@ -411,20 +421,20 @@ const FormField: React.FC<FormFieldProps> = ({
         ) : (
           <Box
             sx={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
               minWidth: 64,
               minHeight: 32,
               px: 1.5,
               py: 0.5,
-              bgcolor: '#f5f5f5',
-              color: '#888',
-              borderRadius: '16px',
+              bgcolor: "#f5f5f5",
+              color: "#888",
+              borderRadius: "16px",
               fontWeight: 500,
-              fontSize: '0.95rem',
+              fontSize: "0.95rem",
               letterSpacing: 0.2,
-              textAlign: 'center',
+              textAlign: "center",
             }}
           >
             None
@@ -458,13 +468,15 @@ const FormField: React.FC<FormFieldProps> = ({
       }
 
       // Format the date in a more readable format
-      const options: Intl.DateTimeFormatOptions = { 
-        year: 'numeric', 
-        month: 'long', 
-        day: 'numeric' 
+      const options: Intl.DateTimeFormatOptions = {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
       };
-      const formattedDate = dobDate.toLocaleDateString('en-US', options);
-      const age = Math.floor((new Date().getTime() - dobDate.getTime()) / (365.25 * 24 * 60 * 60 * 1000));
+      const formattedDate = dobDate.toLocaleDateString("en-US", options);
+      const age = Math.floor(
+        (new Date().getTime() - dobDate.getTime()) / (365.25 * 24 * 60 * 60 * 1000)
+      );
 
       return `${formattedDate} (Age ${age})`;
     }
@@ -496,18 +508,19 @@ const FormField: React.FC<FormFieldProps> = ({
     const selectInputProps = { minLength: 2 };
     const dateInputProps = { minLength: 10 };
     switch (type) {
-      case "select":        if (fieldPath === "gender") {
+      case "select":
+        if (fieldPath === "gender") {
           return (
-            <Box sx={{ position: 'relative', width: '100%' }}>
+            <Box sx={{ position: "relative", width: "100%" }}>
               <CustomSelect
                 name={fieldPath}
-                value={value as string || ''}
+                value={(value as string) || ""}
                 onChange={(e) => handleChange(e as SelectChangeEvent<string>)}
                 displayEmpty
                 inputProps={selectInputProps}
-                sx={{ width: '100%' }}
-                MenuProps={{ 
-                  sx: { marginTop: '2px' } // Separate the dropdown from the field slightly
+                sx={{ width: "100%" }}
+                MenuProps={{
+                  sx: { marginTop: "2px" }, // Separate the dropdown from the field slightly
                 }}
               >
                 <MenuItem value="" disabled>
@@ -527,7 +540,7 @@ const FormField: React.FC<FormFieldProps> = ({
               onChange={(e) => handleChange(e as SelectChangeEvent<string>)}
               displayEmpty
               inputProps={selectInputProps}
-              sx={{ width: '100%' }}
+              sx={{ width: "100%" }}
             >
               <MenuItem value="" disabled>
                 Select
@@ -536,7 +549,11 @@ const FormField: React.FC<FormFieldProps> = ({
               <MenuItem value="Senior">Senior</MenuItem>
             </CustomSelect>
           );
-        } else if (fieldPath === "ethnicity" || fieldPath === "referralEntity" || fieldPath === "recurrence") {
+        } else if (
+          fieldPath === "ethnicity" ||
+          fieldPath === "referralEntity" ||
+          fieldPath === "recurrence"
+        ) {
           return (
             <CustomSelect
               name={fieldPath}
@@ -545,36 +562,76 @@ const FormField: React.FC<FormFieldProps> = ({
               inputProps={selectInputProps}
             >
               {fieldPath === "recurrence" && [
-                <MenuItem key="None" value="None">None</MenuItem>,
-                <MenuItem key="Weekly" value="Weekly">Weekly</MenuItem>,
-                <MenuItem key="2x-Monthly" value="2x-Monthly">2x-Monthly</MenuItem>,
-                <MenuItem key="Monthly" value="Monthly">Monthly</MenuItem>,
+                <MenuItem key="None" value="None">
+                  None
+                </MenuItem>,
+                <MenuItem key="Weekly" value="Weekly">
+                  Weekly
+                </MenuItem>,
+                <MenuItem key="2x-Monthly" value="2x-Monthly">
+                  2x-Monthly
+                </MenuItem>,
+                <MenuItem key="Monthly" value="Monthly">
+                  Monthly
+                </MenuItem>,
               ]}
               {fieldPath === "ethnicity" && [
-                <MenuItem key="" value="" disabled>Select</MenuItem>,
-                <MenuItem key="Hispanic or Latino" value="Hispanic or Latino">Hispanic or Latino</MenuItem>,
-                <MenuItem key="Not Hispanic or Latino" value="Not Hispanic or Latino">Not Hispanic or Latino</MenuItem>,
-                <MenuItem key="Unknown" value="Unknown">Unknown</MenuItem>,
+                <MenuItem key="" value="" disabled>
+                  Select
+                </MenuItem>,
+                <MenuItem key="Hispanic or Latino" value="Hispanic or Latino">
+                  Hispanic or Latino
+                </MenuItem>,
+                <MenuItem key="Not Hispanic or Latino" value="Not Hispanic or Latino">
+                  Not Hispanic or Latino
+                </MenuItem>,
+                <MenuItem key="Unknown" value="Unknown">
+                  Unknown
+                </MenuItem>,
               ]}
               {fieldPath === "referralEntity" && [
-                <MenuItem key="" value="" disabled>Select</MenuItem>,
-                <MenuItem key="Healthcare Provider" value="Healthcare Provider">Healthcare Provider</MenuItem>,
-                <MenuItem key="Social Services" value="Social Services">Social Services</MenuItem>,
-                <MenuItem key="Community Organization" value="Community Organization">Community Organization</MenuItem>,
-                <MenuItem key="School/Educational Institution" value="School/Educational Institution">School/Educational Institution</MenuItem>,
-                <MenuItem key="Religious Organization" value="Religious Organization">Religious Organization</MenuItem>,
-                <MenuItem key="Government Agency" value="Government Agency">Government Agency</MenuItem>,
-                <MenuItem key="Family/Friend" value="Family/Friend">Family/Friend</MenuItem>,
-                <MenuItem key="Self-Referred" value="Self-Referred">Self-Referred</MenuItem>,
-                <MenuItem key="Other" value="Other">Other</MenuItem>,
+                <MenuItem key="" value="" disabled>
+                  Select
+                </MenuItem>,
+                <MenuItem key="Healthcare Provider" value="Healthcare Provider">
+                  Healthcare Provider
+                </MenuItem>,
+                <MenuItem key="Social Services" value="Social Services">
+                  Social Services
+                </MenuItem>,
+                <MenuItem key="Community Organization" value="Community Organization">
+                  Community Organization
+                </MenuItem>,
+                <MenuItem
+                  key="School/Educational Institution"
+                  value="School/Educational Institution"
+                >
+                  School/Educational Institution
+                </MenuItem>,
+                <MenuItem key="Religious Organization" value="Religious Organization">
+                  Religious Organization
+                </MenuItem>,
+                <MenuItem key="Government Agency" value="Government Agency">
+                  Government Agency
+                </MenuItem>,
+                <MenuItem key="Family/Friend" value="Family/Friend">
+                  Family/Friend
+                </MenuItem>,
+                <MenuItem key="Self-Referred" value="Self-Referred">
+                  Self-Referred
+                </MenuItem>,
+                <MenuItem key="Other" value="Other">
+                  Other
+                </MenuItem>,
               ]}
             </CustomSelect>
           );
-        }        break;      
+        }
+        break;
       case "date":
         // Use a separate component to avoid React Hook warning
         return (
-          <DateFieldComponent 
+          <DateFieldComponent
             fieldPath={fieldPath}
             value={value}
             handleChange={handleChange}
@@ -611,13 +668,17 @@ const FormField: React.FC<FormFieldProps> = ({
             fullWidth
             inputProps={{ minLength }}
           />
-        );      case "text":
+        );
+      case "text":
         if (["email"].includes(fieldPath)) minLength = 5;
-        if (["address2"].includes(fieldPath)) minLength = 5;        return (
-          <Box sx={{ 
-            width: "100%",
-            position: "relative"
-          }}>
+        if (["address2"].includes(fieldPath)) minLength = 5;
+        return (
+          <Box
+            sx={{
+              width: "100%",
+              position: "relative",
+            }}
+          >
             <CustomTextField
               type="text"
               name={fieldPath}
@@ -628,23 +689,28 @@ const FormField: React.FC<FormFieldProps> = ({
               inputRef={fieldPath === "address" ? addressInputRef : null}
               inputProps={{ minLength }}
               error={!!error}
-              sx={{ 
+              sx={{
                 width: "100%",
                 "& .MuiOutlinedInput-root": {
                   height: fieldStyles.height, // Control inner element height
                 },
                 "& .MuiInputBase-input": {
                   height: fieldStyles.height, // Control input element height
-                }
+                },
               }}
-            />            {error && fieldPath !== "phone" && fieldPath !== "alternativePhone" && (
-              <Typography variant="caption" color="error" sx={{ 
-                display: 'block', 
-                position: "absolute", 
-                top: "calc(100% + 2px)",
-                left: 0,
-                mt: 0 
-              }}>
+            />{" "}
+            {error && fieldPath !== "phone" && fieldPath !== "alternativePhone" && (
+              <Typography
+                variant="caption"
+                color="error"
+                sx={{
+                  display: "block",
+                  position: "absolute",
+                  top: "calc(100% + 2px)",
+                  left: 0,
+                  mt: 0,
+                }}
+              >
                 {error}
               </Typography>
             )}
@@ -652,9 +718,16 @@ const FormField: React.FC<FormFieldProps> = ({
         );
       case "textarea":
         if (fieldPath === "ward") {
-          return <CustomTextField name={fieldPath} value={String(value || "")} disabled fullWidth />;
+          return (
+            <CustomTextField name={fieldPath} value={String(value || "")} disabled fullWidth />
+          );
         } else {
-          const isTallTextarea = ["lifeChallenges", "lifestyleGoals", "notes", "deliveryDetails.deliveryInstructions"].includes(fieldPath);
+          const isTallTextarea = [
+            "lifeChallenges",
+            "lifestyleGoals",
+            "notes",
+            "deliveryDetails.deliveryInstructions",
+          ].includes(fieldPath);
           return (
             <CustomTextField
               name={fieldPath}
@@ -704,10 +777,10 @@ const FormField: React.FC<FormFieldProps> = ({
   }
 
   return (
-    <Typography 
-      variant="body1" 
-      sx={{ 
-        fontWeight: 600, 
+    <Typography
+      variant="body1"
+      sx={{
+        fontWeight: 600,
         textAlign: "left",
         whiteSpace: "pre-wrap !important",
         wordWrap: "break-word !important",
@@ -719,7 +792,7 @@ const FormField: React.FC<FormFieldProps> = ({
         overflow: "hidden !important",
         // Additional CSS to ensure wrapping works
         hyphens: "auto",
-        lineBreak: "anywhere"
+        lineBreak: "anywhere",
       }}
     >
       {renderFieldValue(fieldPath, value)}

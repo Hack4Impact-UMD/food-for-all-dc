@@ -1,13 +1,11 @@
-import React from 'react';
+import React from "react";
 import { Box, Typography } from "@mui/material";
 
 interface ExportModalProps {
   type: "CSV" | "Doordash";
 }
 
-const ExportModal: React.FC<ExportModalProps> = ({
-  type
-}) => {
+const ExportModal: React.FC<ExportModalProps> = ({ type }) => {
   return (
     <Box sx={{ alignItems: "center", textAlign: "center", padding: "1%" }}>
       <Typography variant="h5" sx={{ color: "#257e68", fontWeight: "bold" }}>

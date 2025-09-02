@@ -1,4 +1,4 @@
-import React from 'react';
+import React from "react";
 import { Filter, Search } from "lucide-react";
 import { Box, Button } from "@mui/material";
 
@@ -10,12 +10,12 @@ interface SearchSectionProps {
   handleButtonClick: (event: React.MouseEvent<HTMLButtonElement>) => void;
 }
 
-const SearchSection: React.FC<SearchSectionProps> = ({ 
-  searchQuery, 
+const SearchSection: React.FC<SearchSectionProps> = ({
+  searchQuery,
   handleSearchChange,
   selectedRows,
   setPopupMode,
-  handleButtonClick
+  handleButtonClick,
 }) => {
   return (
     <Box
@@ -63,7 +63,10 @@ const SearchSection: React.FC<SearchSectionProps> = ({
             <Button
               variant="contained"
               color="secondary"
-              onClick={() => searchQuery !== "" && handleSearchChange({ target: { value: "" } } as React.ChangeEvent<HTMLInputElement>)}
+              onClick={() =>
+                searchQuery !== "" &&
+                handleSearchChange({ target: { value: "" } } as React.ChangeEvent<HTMLInputElement>)
+              }
               className="view-all"
               sx={{
                 whiteSpace: "nowrap",

@@ -26,7 +26,7 @@ import {
   writeBatch,
 } from "firebase/firestore";
 import { db } from "../../auth/firebaseConfig";
-import Button from '../../components/common/Button';
+import Button from "../../components/common/Button";
 
 let firebaseApp: FirebaseApp;
 try {
@@ -247,7 +247,6 @@ const CreateUsers: React.FC = () => {
           </div>
         </div>
 
-        
         <Button variant="primary" onClick={handleRegister} fullWidth>
           Create User
         </Button>

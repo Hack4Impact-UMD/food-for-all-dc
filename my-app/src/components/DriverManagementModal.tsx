@@ -60,7 +60,7 @@ const DriverFormFields: React.FC<DriverFormProps> = ({ value, onChange, errors, 
   return (
     <Grid container spacing={3}>
       {fields.map((field) => (
-        <Grid size={{ xs: 12, sm: field.gridSize || 4}} key={field.name}>
+        <Grid size={{ xs: 12, sm: field.gridSize || 4 }} key={field.name}>
           <TextField
             fullWidth
             label={field.label}
@@ -261,7 +261,7 @@ const DriverManagementModal: React.FC<DriverManagementModalProps> = ({
                 mb: 3,
                 mt: 2,
                 backgroundColor: "rgba(37, 126, 104, 0.04)",
-                p: '20px',
+                p: "20px",
                 borderRadius: "8px",
                 border: "1px solid rgba(37, 126, 104, 0.2)",
               }}

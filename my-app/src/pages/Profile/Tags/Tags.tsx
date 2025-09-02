@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import Tag from './Tag';
+import { useState, useEffect } from "react";
+import Tag from "./Tag";
 import {
   Box,
   Dialog,
@@ -13,12 +13,21 @@ import {
   Fade,
   IconButton,
   styled,
-} from '@mui/material';
-import AddCircleIcon from '@mui/icons-material/AddCircle';
-import WarningAmberRoundedIcon from '@mui/icons-material/WarningAmberRounded';
-import CloseIcon from '@mui/icons-material/Close';
-import { doc, setDoc, getDoc, collection, query, where, getDocs, writeBatch } from 'firebase/firestore';
-import { db } from '../../../auth/firebaseConfig';
+} from "@mui/material";
+import AddCircleIcon from "@mui/icons-material/AddCircle";
+import WarningAmberRoundedIcon from "@mui/icons-material/WarningAmberRounded";
+import CloseIcon from "@mui/icons-material/Close";
+import {
+  doc,
+  setDoc,
+  getDoc,
+  collection,
+  query,
+  where,
+  getDocs,
+  writeBatch,
+} from "firebase/firestore";
+import { db } from "../../../auth/firebaseConfig";
 
 interface TagsProps {
   allTags: string[];
@@ -31,72 +40,80 @@ interface TagsProps {
 }
 
 const StyledDialog = styled(Dialog)(({ theme }) => ({
-  '& .MuiPaper-root': {
+  "& .MuiPaper-root": {
     borderRadius: 18,
-    boxShadow: '0 8px 32px rgba(37, 126, 104, 0.18)',
+    boxShadow: "0 8px 32px rgba(37, 126, 104, 0.18)",
     padding: theme.spacing(2, 2, 2, 2),
     maxWidth: 480,
-    width: '100%',
-    background: '#fff',
-    position: 'relative',
+    width: "100%",
+    background: "#fff",
+    position: "relative",
   },
 }));
 
 const SectionTitle = styled(Typography)(({ theme }) => ({
   fontWeight: 700,
-  fontSize: '1.35rem',
-  color: 'var(--color-primary)',
+  fontSize: "1.35rem",
+  color: "var(--color-primary)",
   letterSpacing: 0.5,
   marginBottom: theme.spacing(0.5),
 }));
 
 const Subtitle = styled(Typography)(({ theme }) => ({
-  color: 'var(--color-text-secondary)',
-  fontSize: '1rem',
+  color: "var(--color-text-secondary)",
+  fontSize: "1rem",
   marginBottom: theme.spacing(2),
 }));
 
 const TagGrid = styled(Box)(({ theme }) => ({
-  display: 'flex',
-  flexWrap: 'wrap',
+  display: "flex",
+  flexWrap: "wrap",
   gap: theme.spacing(1.2),
   margin: theme.spacing(1, 0, 2, 0),
-  justifyContent: 'flex-start',
+  justifyContent: "flex-start",
 }));
 
 const AddTagButton = styled(Button)(({ theme }) => ({
-  background: 'var(--color-primary)',
-  color: '#fff',
+  background: "var(--color-primary)",
+  color: "#fff",
   borderRadius: 20,
   fontWeight: 600,
-  textTransform: 'none',
-  boxShadow: '0 2px 8px rgba(37, 126, 104, 0.10)',
-  '&:hover': {
-    background: '#1e6656',
+  textTransform: "none",
+  boxShadow: "0 2px 8px rgba(37, 126, 104, 0.10)",
+  "&:hover": {
+    background: "#1e6656",
   },
   marginLeft: theme.spacing(1),
 }));
 
 const DeleteButton = styled(Button)(({ theme }) => ({
-  background: '#e53935',
-  color: '#fff',
+  background: "#e53935",
+  color: "#fff",
   borderRadius: 20,
   fontWeight: 600,
-  textTransform: 'none',
-  '&:hover': {
-    background: '#b71c1c',
+  textTransform: "none",
+  "&:hover": {
+    background: "#b71c1c",
   },
 }));
 
 const CloseBtn = styled(IconButton)(({ theme }) => ({
-  position: 'absolute',
+  position: "absolute",
   right: theme.spacing(1),
   top: theme.spacing(1),
-  color: 'var(--color-text-secondary)',
+  color: "var(--color-text-secondary)",
   zIndex: 2,
 }));
 
-export default function TagManager({ allTags, values, handleTag, setInnerPopup, deleteMode, setTagToDelete, clientUid }: TagsProps) {
+export default function TagManager({
+  allTags,
+  values,
+  handleTag,
+  setInnerPopup,
+  deleteMode,
+  setTagToDelete,
+  clientUid,
+}: TagsProps) {
   const [masterTags, setMasterTags] = useState<string[]>(allTags);
   useEffect(() => {
     setMasterTags(allTags);
@@ -109,7 +126,7 @@ export default function TagManager({ allTags, values, handleTag, setInnerPopup, 
       const docSnap = await getDoc(docRef);
       if (docSnap.exists()) {
         const data = docSnap.data();
-        if(data && data.tags) {
+        if (data && data.tags) {
           setMasterTags(data.tags);
         }
       } else {
@@ -163,7 +180,7 @@ export default function TagManager({ allTags, values, handleTag, setInnerPopup, 
     }
   };
 
-  // Removing tags from the master collection AND from all clients 
+  // Removing tags from the master collection AND from all clients
   const handleRemoveTag = async (tagToRemove: string) => {
     setTagToDeleteState(tagToRemove);
     setShowDeleteConfirm(true);
@@ -173,11 +190,7 @@ export default function TagManager({ allTags, values, handleTag, setInnerPopup, 
     if (!tagToDelete) return;
     const newAllTags = masterTags.filter((tag: string) => tag !== tagToDelete);
     try {
-      await setDoc(
-        doc(db, "tags", "oGuiR2dQQeOBXHCkhDeX"),
-        { tags: newAllTags },
-        { merge: true }
-      );
+      await setDoc(doc(db, "tags", "oGuiR2dQQeOBXHCkhDeX"), { tags: newAllTags }, { merge: true });
       setMasterTags(newAllTags);
       const clientsRef = collection(db, "clients");
       const q = query(clientsRef, where("tags", "array-contains", tagToDelete));
@@ -186,7 +199,7 @@ export default function TagManager({ allTags, values, handleTag, setInnerPopup, 
       querySnapshot.forEach((docSnap) => {
         const clientData = docSnap.data();
         const currentTags: string[] = clientData.tags || [];
-        const updatedTags = currentTags.filter(tag => tag !== tagToDelete);
+        const updatedTags = currentTags.filter((tag) => tag !== tagToDelete);
         const clientDocRef = doc(db, "clients", docSnap.id);
         batch.update(clientDocRef, { tags: updatedTags });
       });
@@ -206,40 +219,39 @@ export default function TagManager({ allTags, values, handleTag, setInnerPopup, 
     <>
       <Box
         sx={{
-          display: 'flex',
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: '10px',
-          maxHeight: '300px',
-          overflowY: 'auto',
-          flexWrap: 'wrap',
-          paddingTop: '0px',
+          display: "flex",
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: "10px",
+          maxHeight: "300px",
+          overflowY: "auto",
+          flexWrap: "wrap",
+          paddingTop: "0px",
         }}
       >
-        {values && values.length > 0 ? values.map((v: string) => (
-          <Tag 
-            key={v}
-            text={v} 
-            handleTag={handleTag} 
-            values={values} 
-            createTag={false} 
-            setInnerPopup={setInnerPopup} 
-            deleteMode={deleteMode} 
-            setTagToDelete={setTagToDelete}
-          />
-        )) : null}
-        <Box
-          onClick={handleCreateTagClick}
-          sx={{ cursor: 'pointer' }}
-        >
-          <Tag 
-            text={""} 
-            handleTag={handleTag} 
-            values={values} 
-            createTag={true} 
+        {values && values.length > 0
+          ? values.map((v: string) => (
+              <Tag
+                key={v}
+                text={v}
+                handleTag={handleTag}
+                values={values}
+                createTag={false}
+                setInnerPopup={setInnerPopup}
+                deleteMode={deleteMode}
+                setTagToDelete={setTagToDelete}
+              />
+            ))
+          : null}
+        <Box onClick={handleCreateTagClick} sx={{ cursor: "pointer" }}>
+          <Tag
+            text={""}
+            handleTag={handleTag}
+            values={values}
+            createTag={true}
             setInnerPopup={() => {}}
-            deleteMode={deleteMode} 
+            deleteMode={deleteMode}
             setTagToDelete={setTagToDelete}
           />
         </Box>
@@ -250,11 +262,11 @@ export default function TagManager({ allTags, values, handleTag, setInnerPopup, 
         onClose={() => setOpenAddTagModal(false)}
         TransitionComponent={Fade}
       >
-        <CloseBtn onClick={() => setOpenAddTagModal(false)}><CloseIcon /></CloseBtn>
+        <CloseBtn onClick={() => setOpenAddTagModal(false)}>
+          <CloseIcon />
+        </CloseBtn>
         <DialogTitle sx={{ pb: 0 }}>
-          <SectionTitle>
-            {modalMode === "add" ? "Add Tag" : "Remove Tag"}
-          </SectionTitle>
+          <SectionTitle>{modalMode === "add" ? "Add Tag" : "Remove Tag"}</SectionTitle>
           <Subtitle>
             {modalMode === "add"
               ? "Add a new tag or select from existing ones."
@@ -269,7 +281,9 @@ export default function TagManager({ allTags, values, handleTag, setInnerPopup, 
               value={selectedTag}
               onChange={(_event, newValue) => setSelectedTag(newValue)}
               onInputChange={(_event, newInputValue) => setSelectedTag(newInputValue)}
-              renderInput={(params) => <TextField {...params} label="Select tag or type new tag" variant="standard" />}
+              renderInput={(params) => (
+                <TextField {...params} label="Select tag or type new tag" variant="standard" />
+              )}
               clearOnEscape
             />
           ) : (
@@ -278,20 +292,35 @@ export default function TagManager({ allTags, values, handleTag, setInnerPopup, 
               options={masterTags}
               value={selectedTag}
               onChange={(_event, newValue) => setSelectedTag(newValue)}
-              renderInput={(params) => <TextField {...params} label="Select tag to remove" variant="standard" />}
+              renderInput={(params) => (
+                <TextField {...params} label="Select tag to remove" variant="standard" />
+              )}
               clearOnEscape
             />
           )}
         </DialogContent>
-        <DialogActions sx={{ justifyContent: 'space-between', px: 3, pb: 2 }}>
-          <Button onClick={() => setOpenAddTagModal(false)} sx={{ borderRadius: 20, color: 'var(--color-primary)', fontWeight: 600 }}>Cancel</Button>
+        <DialogActions sx={{ justifyContent: "space-between", px: 3, pb: 2 }}>
+          <Button
+            onClick={() => setOpenAddTagModal(false)}
+            sx={{ borderRadius: 20, color: "var(--color-primary)", fontWeight: 600 }}
+          >
+            Cancel
+          </Button>
           {modalMode === "add" && (
-            <AddTagButton onClick={handleAddTag} disabled={!selectedTag || selectedTag.trim() === ""} startIcon={<AddCircleIcon />}>
+            <AddTagButton
+              onClick={handleAddTag}
+              disabled={!selectedTag || selectedTag.trim() === ""}
+              startIcon={<AddCircleIcon />}
+            >
               Add Tag
             </AddTagButton>
           )}
           {modalMode === "remove" && (
-            <DeleteButton onClick={() => handleRemoveTag(selectedTag || "")} disabled={!selectedTag || selectedTag.trim() === ""} startIcon={<WarningAmberRoundedIcon />}>
+            <DeleteButton
+              onClick={() => handleRemoveTag(selectedTag || "")}
+              disabled={!selectedTag || selectedTag.trim() === ""}
+              startIcon={<WarningAmberRoundedIcon />}
+            >
               Remove Tag
             </DeleteButton>
           )}
@@ -304,35 +333,41 @@ export default function TagManager({ allTags, values, handleTag, setInnerPopup, 
         onClose={() => setShowDeleteConfirm(false)}
         TransitionComponent={Fade}
       >
-        <DialogTitle sx={{ textAlign: "center", color: '#e53935', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
+        <DialogTitle
+          sx={{
+            textAlign: "center",
+            color: "#e53935",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: 1,
+          }}
+        >
           <WarningAmberRoundedIcon color="error" fontSize="large" />
           Delete Tag?
         </DialogTitle>
         <DialogContent
           sx={{
             display: "flex",
-            flexDirection: 'column',
-            alignItems: 'center',
+            flexDirection: "column",
+            alignItems: "center",
             gap: 2,
             minWidth: 320,
             textAlign: "center",
           }}
         >
-          <Typography sx={{ color: 'var(--color-text-secondary)' }}>
+          <Typography sx={{ color: "var(--color-text-secondary)" }}>
             Deleting this tag will erase it from <b>ALL PROFILES</b>.<br />
             Are you sure you want to proceed?
           </Typography>
         </DialogContent>
-        <DialogActions sx={{ justifyContent: 'center', gap: 2, pb: 2 }}>
-          <DeleteButton
-            onClick={confirmRemoveTag}
-            variant="contained"
-          >
+        <DialogActions sx={{ justifyContent: "center", gap: 2, pb: 2 }}>
+          <DeleteButton onClick={confirmRemoveTag} variant="contained">
             Delete Tag
           </DeleteButton>
           <Button
             onClick={() => setShowDeleteConfirm(false)}
-            sx={{ borderRadius: 20, color: 'var(--color-primary)', fontWeight: 600 }}
+            sx={{ borderRadius: 20, color: "var(--color-primary)", fontWeight: 600 }}
           >
             Cancel
           </Button>

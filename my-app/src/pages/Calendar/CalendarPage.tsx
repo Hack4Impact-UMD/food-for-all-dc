@@ -12,13 +12,21 @@ import CalendarPopper from "./components/CalendarPopper";
 import { calculateRecurrenceDates } from "./components/CalendarUtils";
 import DayView from "./components/DayView";
 import MonthView from "./components/MonthView";
-import { CalendarConfig, CalendarEvent, DateLimit, DeliveryEvent, Driver, NewDelivery, ViewType } from "../../types/calendar-types";
+import {
+  CalendarConfig,
+  CalendarEvent,
+  DateLimit,
+  DeliveryEvent,
+  Driver,
+  NewDelivery,
+  ViewType,
+} from "../../types/calendar-types";
 import { ClientProfile } from "../../types/client-types";
 import { useLimits } from "./components/useLimits";
 import DeliveryService from "../../services/delivery-service";
 import ClientService from "../../services/client-service";
 import DriverService from "../../services/driver-service";
-import { toJSDate, toDayPilotDateString } from '../../utils/timestamp';
+import { toJSDate, toDayPilotDateString } from "../../utils/timestamp";
 
 const DAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
 
@@ -39,10 +47,10 @@ const CalendarContent = styled(Box)({
 const CalendarPage: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  
+
   // Initialize currentDate from URL params or default to today
   const getInitialDate = () => {
-    const dateParam = searchParams.get('date');
+    const dateParam = searchParams.get("date");
     if (dateParam) {
       try {
         return new DayPilot.Date(dateParam);
@@ -53,19 +61,19 @@ const CalendarPage: React.FC = () => {
     }
     return DayPilot.Date.today();
   };
-  
+
   const [currentDate, setCurrentDate] = useState<DayPilot.Date>(getInitialDate());
-  
+
   // Custom function to update both state and URL params
   const updateCurrentDate = (newDate: DayPilot.Date) => {
     setCurrentDate(newDate);
-    setSearchParams(prev => {
+    setSearchParams((prev) => {
       const newParams = new URLSearchParams(prev);
-      newParams.set('date', newDate.toString("yyyy-MM-dd"));
+      newParams.set("date", newDate.toString("yyyy-MM-dd"));
       return newParams;
     });
   };
-  
+
   const [viewType, setViewType] = useState<ViewType>("Day");
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [events, setEvents] = useState<DeliveryEvent[]>([]);
@@ -133,7 +141,7 @@ const CalendarPage: React.FC = () => {
       // Use the client objects as returned from client-service.ts to ensure uid matches Firestore doc id
       setClients(clientsData.clients as ClientProfile[]);
       const clientUids = clientsData.clients.map((c: any) => c.uid);
-      console.log('[CalendarPage][DEBUG] Loaded client uids:', clientUids);
+      console.log("[CalendarPage][DEBUG] Loaded client uids:", clientUids);
     } catch (error) {
       console.error("Error fetching clients:", error);
     }
@@ -152,7 +160,7 @@ const CalendarPage: React.FC = () => {
 
   const fetchEvents = async () => {
     // DEBUG: Print current date range and viewType
-    console.log('[CalendarPage] Fetching events for', { viewType, currentDate });
+    console.log("[CalendarPage] Fetching events for", { viewType, currentDate });
     try {
       let start = new DayPilot.Date(currentDate);
       let endDate;
@@ -167,14 +175,14 @@ const CalendarPage: React.FC = () => {
           // Convert from DayPilot to JS date obj & calc the grid's start and end dates
           const monthStartLuxon = TimeUtils.fromJSDate(monthStart.toDate());
           const monthEndLuxon = TimeUtils.fromJSDate(monthEnd.toDate());
-          const gridStart = monthStartLuxon.startOf('week').toJSDate();
-          const gridEnd = monthEndLuxon.endOf('week').toJSDate();
+          const gridStart = monthStartLuxon.startOf("week").toJSDate();
+          const gridEnd = monthEndLuxon.endOf("week").toJSDate();
 
           // For consistent event counting across month boundaries, we need to fetch
           // events for a wider range that covers all possible dates that could appear
           // in any month view. This ensures that any date (like June 25th, 26th, 29th)
           // always has the same count whether viewed from June or July.
-          // 
+          //
           // We extend by 2 weeks on each side to handle extreme edge cases:
           // - A month that starts on Sunday and ends on Saturday
           // - A month that starts on Monday and ends on Friday
@@ -185,14 +193,14 @@ const CalendarPage: React.FC = () => {
           // Convert back to DayPilot date obj.
           start = new DayPilot.Date(extendedStart);
           endDate = new DayPilot.Date(extendedEnd);
-          
-          console.log('[CalendarPage] Month view - fetching events for extended grid:', {
-            gridStart: gridStart.toISOString().split('T')[0],
-            gridEnd: gridEnd.toISOString().split('T')[0],
+
+          console.log("[CalendarPage] Month view - fetching events for extended grid:", {
+            gridStart: gridStart.toISOString().split("T")[0],
+            gridEnd: gridEnd.toISOString().split("T")[0],
             extendedStart: start.toString("yyyy-MM-dd"),
             extendedEnd: endDate.toString("yyyy-MM-dd"),
             monthStart: monthStart.toString("yyyy-MM-dd"),
-            monthEnd: monthEnd.toString("yyyy-MM-dd")
+            monthEnd: monthEnd.toString("yyyy-MM-dd"),
           });
           break;
         }
@@ -210,36 +218,37 @@ const CalendarPage: React.FC = () => {
         start.toDate(),
         endDate.toDate()
       );
-      console.log('[CalendarPage] Raw fetched events:', fetchedEvents);
-
+      console.log("[CalendarPage] Raw fetched events:", fetchedEvents);
 
       // Debug: Print all event clientIds and all client uids
-      const eventClientIds = fetchedEvents.map(event => event.clientId);
-      const clientUids = clients.map(client => client.uid);
+      const eventClientIds = fetchedEvents.map((event) => event.clientId);
+      const clientUids = clients.map((client) => client.uid);
       const eventClientIdSet = new Set(eventClientIds);
       const clientUidSet = new Set(clientUids);
-      const intersection = eventClientIds.filter(id => clientUidSet.has(id));
-      const missingInClients = eventClientIds.filter(id => !clientUidSet.has(id));
-      const missingInEvents = clientUids.filter(uid => !eventClientIdSet.has(uid));
-      console.log('[CalendarPage][DEBUG] All event clientIds:', eventClientIds);
-      console.log('[CalendarPage][DEBUG] All client uids:', clientUids);
-      console.log('[CalendarPage][DEBUG] Intersection (should display):', intersection);
-      console.log('[CalendarPage][DEBUG] Event clientIds missing in clients:', missingInClients);
-      console.log('[CalendarPage][DEBUG] Client uids missing in events:', missingInEvents);
+      const intersection = eventClientIds.filter((id) => clientUidSet.has(id));
+      const missingInClients = eventClientIds.filter((id) => !clientUidSet.has(id));
+      const missingInEvents = clientUids.filter((uid) => !eventClientIdSet.has(uid));
+      console.log("[CalendarPage][DEBUG] All event clientIds:", eventClientIds);
+      console.log("[CalendarPage][DEBUG] All client uids:", clientUids);
+      console.log("[CalendarPage][DEBUG] Intersection (should display):", intersection);
+      console.log("[CalendarPage][DEBUG] Event clientIds missing in clients:", missingInClients);
+      console.log("[CalendarPage][DEBUG] Client uids missing in events:", missingInEvents);
 
       // Filter out events associated with deleted clients
-      const activeClientIds = new Set(clients.map(client => client.uid));
-      const filteredEventsByClient = fetchedEvents.filter(event => activeClientIds.has(event.clientId));
-      console.log('[CalendarPage] Filtered events by client:', filteredEventsByClient);
+      const activeClientIds = new Set(clients.map((client) => client.uid));
+      const filteredEventsByClient = fetchedEvents.filter((event) =>
+        activeClientIds.has(event.clientId)
+      );
+      console.log("[CalendarPage] Filtered events by client:", filteredEventsByClient);
 
       // Update client names in events with current client data
-      const updatedEvents = filteredEventsByClient.map(event => {
-        const client = clients.find(client => client.uid === event.clientId);
+      const updatedEvents = filteredEventsByClient.map((event) => {
+        const client = clients.find((client) => client.uid === event.clientId);
         if (client) {
           const fullName = `${client.firstName} ${client.lastName}`.trim();
           return {
             ...event,
-            clientName: fullName
+            clientName: fullName,
           };
         }
         return event;
@@ -247,7 +256,7 @@ const CalendarPage: React.FC = () => {
 
       // Deduplicate events based on clientId and deliveryDate
       const uniqueEventsMap = new Map<string, DeliveryEvent>();
-      updatedEvents.forEach(event => {
+      updatedEvents.forEach((event) => {
         const key = `${event.clientId}_${toDayPilotDateString(event.deliveryDate)}`;
         if (!uniqueEventsMap.has(key)) {
           uniqueEventsMap.set(key, event);
@@ -256,10 +265,10 @@ const CalendarPage: React.FC = () => {
       const uniqueFilteredEvents = Array.from(uniqueEventsMap.values());
 
       setEvents(uniqueFilteredEvents);
-      console.log('[CalendarPage] Final unique events set:', uniqueFilteredEvents);
+      console.log("[CalendarPage] Final unique events set:", uniqueFilteredEvents);
 
       // Update calendar configuration with new events
-      const formattedEvents = Array.from(uniqueEventsMap.values()).map(event => ({
+      const formattedEvents = Array.from(uniqueEventsMap.values()).map((event) => ({
         id: event.id,
         text: `Client: ${event.clientName} (Driver: ${event.assignedDriverName})`,
         start: new DayPilot.Date(toDayPilotDateString(event.deliveryDate)),
@@ -290,31 +299,34 @@ const CalendarPage: React.FC = () => {
       if (newDelivery.recurrence === "Custom") {
         // Use customDates directly if recurrence is Custom
         // Ensure customDates exist and map string dates back to Date objects
-        recurrenceDates = newDelivery.customDates?.map(dateStr => {
-          // Use TimeUtils for proper timezone handling
-          return TimeUtils.fromISO(dateStr).toJSDate();
-        }) || [];
+        recurrenceDates =
+          newDelivery.customDates?.map((dateStr) => {
+            // Use TimeUtils for proper timezone handling
+            return TimeUtils.fromISO(dateStr).toJSDate();
+          }) || [];
         // Clear repeatsEndDate explicitly for custom recurrence in the submitted data
         newDelivery.repeatsEndDate = undefined;
       } else {
         // Calculate recurrence dates for standard recurrence types
         const deliveryDate = TimeUtils.fromISO(newDelivery.deliveryDate).toJSDate();
         recurrenceDates =
-          newDelivery.recurrence === "None" ? [deliveryDate] : calculateRecurrenceDates(newDelivery);
+          newDelivery.recurrence === "None"
+            ? [deliveryDate]
+            : calculateRecurrenceDates(newDelivery);
       }
 
       // Filter out dates that already have a delivery for the same client
       const existingEventDates = new Set(
         events
-          .filter(event => event.clientId === newDelivery.clientId)
-          .map(event => {
+          .filter((event) => event.clientId === newDelivery.clientId)
+          .map((event) => {
             const jsDate = toJSDate(event.deliveryDate);
             return new DayPilot.Date(jsDate).toString("yyyy-MM-dd");
           })
       );
 
-      const uniqueRecurrenceDates = recurrenceDates.filter(date => 
-        !existingEventDates.has(new DayPilot.Date(date).toString("yyyy-MM-dd"))
+      const uniqueRecurrenceDates = recurrenceDates.filter(
+        (date) => !existingEventDates.has(new DayPilot.Date(date).toString("yyyy-MM-dd"))
       );
 
       if (uniqueRecurrenceDates.length < recurrenceDates.length) {
@@ -325,13 +337,13 @@ const CalendarPage: React.FC = () => {
       const deliveryService = DeliveryService.getInstance();
       const seriesStartDate = newDelivery.deliveryDate; // Saves the original start date
 
-      const createPromises = uniqueRecurrenceDates.map(date => {
+      const createPromises = uniqueRecurrenceDates.map((date) => {
         const eventToAdd: Partial<DeliveryEvent> = {
           clientId: newDelivery.clientId,
           clientName: newDelivery.clientName,
           deliveryDate: date, // Use the calculated/provided recurrence date
           recurrence: newDelivery.recurrence,
-          seriesStartDate: seriesStartDate, 
+          seriesStartDate: seriesStartDate,
           time: "",
           cluster: 0,
           recurrenceId: recurrenceId,
@@ -351,7 +363,7 @@ const CalendarPage: React.FC = () => {
 
       // Refresh events after adding
       await fetchEvents();
-      
+
       // Close the modal after successful addition
       setIsModalOpen(false);
     } catch (error) {
@@ -388,7 +400,7 @@ const CalendarPage: React.FC = () => {
 
   // Handle URL parameter changes (e.g., browser back/forward, direct URL access)
   useEffect(() => {
-    const dateParam = searchParams.get('date');
+    const dateParam = searchParams.get("date");
     if (dateParam) {
       try {
         const urlDate = new DayPilot.Date(dateParam);
@@ -400,7 +412,7 @@ const CalendarPage: React.FC = () => {
         // If date param is invalid, don't update
       }
     }
-  }, [searchParams.get('date')]);
+  }, [searchParams.get("date")]);
 
   // Initial data fetch
   useEffect(() => {
@@ -414,26 +426,29 @@ const CalendarPage: React.FC = () => {
       // Calculate the daily limit for the current day
       const currentDayOfWeek = currentDate.dayOfWeek(); // 0 = Sunday, 1 = Monday, etc.
       const dailyLimit = limits[currentDayOfWeek];
-      
+
       return (
-        <DayView 
-          events={events} 
-          clients={clients} 
-          onEventModified={fetchEvents} 
+        <DayView
+          events={events}
+          clients={clients}
+          onEventModified={fetchEvents}
           dailyLimit={dailyLimit}
         />
       );
     }
-    
+
     if (viewType === "Month") {
       return (
-        <MonthView 
+        <MonthView
           calendarConfig={calendarConfig}
           dailyLimits={dailyLimits}
-          limits={DAYS.reduce((acc, day, index) => {
-            acc[day.charAt(0).toUpperCase() + day.slice(1)] = limits[index];
-            return acc;
-          }, {} as Record<string, number>)}
+          limits={DAYS.reduce(
+            (acc, day, index) => {
+              acc[day.charAt(0).toUpperCase() + day.slice(1)] = limits[index];
+              return acc;
+            },
+            {} as Record<string, number>
+          )}
           onTimeRangeSelected={(args: any) => {
             updateCurrentDate(args.start);
             setViewType("Day");
@@ -441,7 +456,7 @@ const CalendarPage: React.FC = () => {
         />
       );
     }
-    
+
     return null;
   };
 
@@ -460,10 +475,10 @@ const CalendarPage: React.FC = () => {
         component="main"
         sx={{
           flexGrow: 1,
-          overflow: "hidden"
+          overflow: "hidden",
         }}
       >
-        <CalendarHeader 
+        <CalendarHeader
           viewType={viewType}
           currentDate={currentDate}
           setCurrentDate={updateCurrentDate}
@@ -472,16 +487,15 @@ const CalendarPage: React.FC = () => {
           onNavigateToday={handleNavigateToday}
           onNavigateNext={handleNavigateNext}
           onAddDelivery={() => setIsModalOpen(true)}
-          onEditLimits={viewType === "Month" ? 
-            (event) => setAnchorEl(anchorEl ? null : event.currentTarget) : 
-            undefined
+          onEditLimits={
+            viewType === "Month"
+              ? (event) => setAnchorEl(anchorEl ? null : event.currentTarget)
+              : undefined
           }
         />
 
         <StyledCalendarContainer>
-          <CalendarContent>
-            {renderCalendarView()}
-          </CalendarContent>
+          <CalendarContent>{renderCalendarView()}</CalendarContent>
         </StyledCalendarContainer>
 
         <span ref={containerRef}>

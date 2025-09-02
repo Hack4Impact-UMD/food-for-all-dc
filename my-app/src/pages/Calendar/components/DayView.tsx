@@ -6,7 +6,6 @@ import { ClientProfile } from "../../../types/client-types";
 import DeliveryCard from "./DeliveryCard";
 import EventCountHeader from "../../../components/EventCountHeader";
 
-
 interface DayViewProps {
   events: DeliveryEvent[];
   clients: ClientProfile[];

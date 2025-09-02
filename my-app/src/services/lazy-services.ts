@@ -15,26 +15,26 @@ export class ServiceLoader {
   }
 
   static async getAuthUserService() {
-    return this.loadService('AuthUserService', () => import('./AuthUserService'));
+    return this.loadService("AuthUserService", () => import("./AuthUserService"));
   }
 
   static async getDeliveryService() {
-    return this.loadService('DeliveryService', () => import('./delivery-service'));
+    return this.loadService("DeliveryService", () => import("./delivery-service"));
   }
 
   static async getClientService() {
-    return this.loadService('ClientService', () => import('./client-service'));
+    return this.loadService("ClientService", () => import("./client-service"));
   }
 
   static async getClusterService() {
-    return this.loadService('ClusterService', () => import('./cluster-service'));
+    return this.loadService("ClusterService", () => import("./cluster-service"));
   }
 
   static async getDriverService() {
-    return this.loadService('DriverService', () => import('./driver-service'));
+    return this.loadService("DriverService", () => import("./driver-service"));
   }
 
   static async getFirebaseService() {
-    return this.loadService('FirebaseService', () => import('./firebase-service'));
+    return this.loadService("FirebaseService", () => import("./firebase-service"));
   }
 }

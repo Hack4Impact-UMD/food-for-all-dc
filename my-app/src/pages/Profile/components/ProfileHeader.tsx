@@ -10,10 +10,10 @@ const ModernHeaderContainer = styled(Box)(({ theme }) => ({
   boxShadow: "0 4px 12px rgba(0, 0, 0, 0.08)", // Subtle shadow
   padding: theme.spacing(7, 4, 3, 4), // Reduced top padding (Top, Right, Bottom, Left)
   marginBottom: theme.spacing(3),
-  display: 'flex',
-  alignItems: 'center',
+  display: "flex",
+  alignItems: "center",
   gap: theme.spacing(3), // Gap between avatar and info
-  width: '100%', // Ensure it takes full width within its container
+  width: "100%", // Ensure it takes full width within its container
 }));
 
 // Styled components for enhanced header (Keep Avatar, adjust others if needed)
@@ -27,8 +27,8 @@ const ProfileName = styled(Typography)(({ theme }) => ({
 const ClientIdText = styled(Typography)(({ theme }) => ({
   fontSize: "0.875rem",
   color: "var(--color-text-secondary)",
-  display: 'flex',
-  alignItems: 'center',
+  display: "flex",
+  alignItems: "center",
   gap: theme.spacing(0.5),
 }));
 
@@ -88,9 +88,9 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
   };
 
   return (
-    <ModernHeaderContainer sx={{ position: 'relative', pb: 0 }}>
-      <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', height: '100%' }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
+    <ModernHeaderContainer sx={{ position: "relative", pb: 0 }}>
+      <Box sx={{ flexGrow: 1, display: "flex", flexDirection: "column", height: "100%" }}>
+        <Box sx={{ display: "flex", alignItems: "center", mb: 0.5 }}>
           <ProfileName variant="h1" sx={{ mb: 0, mr: 2 }}>
             {displayName()}
           </ProfileName>
@@ -107,30 +107,30 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
           </TagsContainer>
         </Box>
         <Divider sx={{ mb: 2, mt: 2 }} />
-        <Box sx={{ flex: 1, display: 'flex', alignItems: 'flex-end', minHeight: 0, p: 0, m: 0 }}>
+        <Box sx={{ flex: 1, display: "flex", alignItems: "flex-end", minHeight: 0, p: 0, m: 0 }}>
           <Box
             sx={{
-              display: 'flex',
-              alignItems: 'flex-end',
-              borderBottom: '4px solid #488477',
-              width: 'fit-content',
+              display: "flex",
+              alignItems: "flex-end",
+              borderBottom: "4px solid #488477",
+              width: "fit-content",
               pb: 0,
               m: 0,
             }}
           >
-            <PersonIcon sx={{ color: '#488477', mr: 1, mb: 0.2, fontSize: '1.35rem' }} />
+            <PersonIcon sx={{ color: "#488477", mr: 1, mb: 0.2, fontSize: "1.35rem" }} />
             <Typography
               sx={{
-                color: '#488477',
+                color: "#488477",
                 fontWeight: 700,
-                fontSize: '1.35rem',
+                fontSize: "1.35rem",
                 letterSpacing: 0.5,
-                textTransform: 'uppercase',
-                display: 'inline-block',
+                textTransform: "uppercase",
+                display: "inline-block",
                 lineHeight: 1.1,
                 mb: 0,
                 pb: 0,
-                borderBottom: 'none',
+                borderBottom: "none",
               }}
             >
               OVERVIEW

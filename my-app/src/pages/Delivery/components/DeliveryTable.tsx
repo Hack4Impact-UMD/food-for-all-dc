@@ -1,4 +1,4 @@
-import React from 'react';
+import React from "react";
 import {
   Checkbox,
   TableContainer,
@@ -211,7 +211,9 @@ const DeliveryTable: React.FC<DeliveryTableProps> = ({
                   <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                     <Select
                       value={col.propertyKey}
-                      onChange={(event: SelectChangeEvent<string>) => handleCustomHeaderChange(event, col.id)}
+                      onChange={(event: SelectChangeEvent<string>) =>
+                        handleCustomHeaderChange(event, col.id)
+                      }
                       variant="outlined"
                       displayEmpty
                       sx={{ minWidth: 120, color: "#257e68" }}

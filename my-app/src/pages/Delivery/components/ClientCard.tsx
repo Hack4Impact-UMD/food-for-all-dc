@@ -2,21 +2,27 @@ import { Box, Card, Typography, Checkbox, useTheme } from "@mui/material";
 import { RowData } from "../types/deliveryTypes";
 
 interface CardProps {
-    client: RowData;
-    index: number; 
-    selectedClients: number[]; 
-    setSelectedClients: React.Dispatch<React.SetStateAction<number[]>>;
-  }
-  
-export default function ClientCard({ client, index, selectedClients, setSelectedClients }: CardProps) {
+  client: RowData;
+  index: number;
+  selectedClients: number[];
+  setSelectedClients: React.Dispatch<React.SetStateAction<number[]>>;
+}
+
+export default function ClientCard({
+  client,
+  index,
+  selectedClients,
+  setSelectedClients,
+}: CardProps) {
   const selected = selectedClients.includes(index);
   const theme = useTheme();
 
   const toggleSelected = () => {
-    setSelectedClients(prev => 
-      prev.includes(index)
-        ? prev.filter(i => i !== index) // Remove index if already selected
-        : [...prev, index] // Add index if not selected
+    setSelectedClients(
+      (prev) =>
+        prev.includes(index)
+          ? prev.filter((i) => i !== index) // Remove index if already selected
+          : [...prev, index] // Add index if not selected
     );
   };
 
@@ -35,17 +41,17 @@ export default function ClientCard({ client, index, selectedClients, setSelected
         border: `1px solid ${selected ? theme.palette.primary.main : theme.palette.divider}`,
         backgroundColor: selected ? theme.palette.action.selected : theme.palette.background.paper,
         boxShadow: theme.shadows[selected ? 4 : 1],
-        transition: 'all 0.2s ease',
-        display: 'flex',
-        alignItems: 'center',
-        padding: '0 16px',
+        transition: "all 0.2s ease",
+        display: "flex",
+        alignItems: "center",
+        padding: "0 16px",
         flexShrink: 0,
-        cursor: 'pointer',
-        '&:hover': {
-          transform: 'translateY(-2px)',
+        cursor: "pointer",
+        "&:hover": {
+          transform: "translateY(-2px)",
           boxShadow: theme.shadows[4],
           borderColor: theme.palette.primary.main,
-        }
+        },
       }}
     >
       <Checkbox
@@ -55,36 +61,36 @@ export default function ClientCard({ client, index, selectedClients, setSelected
         color="primary"
         sx={{
           marginRight: 2,
-          '& .MuiSvgIcon-root': {
+          "& .MuiSvgIcon-root": {
             fontSize: 28,
-          }
+          },
         }}
       />
 
       <Box sx={{ flex: 1 }}>
-        <Typography 
-          variant="subtitle1" 
+        <Typography
+          variant="subtitle1"
           fontWeight={600}
           sx={{
-            display: '-webkit-box',
+            display: "-webkit-box",
             WebkitLineClamp: 1,
-            WebkitBoxOrient: 'vertical',
-            overflow: 'hidden',
+            WebkitBoxOrient: "vertical",
+            overflow: "hidden",
             color: theme.palette.text.primary,
           }}
         >
           {`${client.firstName} ${client.lastName}`}
         </Typography>
-        
-        <Typography 
+
+        <Typography
           variant="body2"
           sx={{
-            display: '-webkit-box',
+            display: "-webkit-box",
             WebkitLineClamp: 1,
-            WebkitBoxOrient: 'vertical',
-            overflow: 'hidden',
+            WebkitBoxOrient: "vertical",
+            overflow: "hidden",
             color: theme.palette.text.secondary,
-            fontSize: '0.8rem',
+            fontSize: "0.8rem",
           }}
         >
           {client.address}

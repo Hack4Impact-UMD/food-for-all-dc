@@ -6,7 +6,7 @@
 
 .MuiCheckbox-root:focus-visible::after,
 .MuiCheckbox-root.Mui-focusVisible::after {
-  content: '' !important;
+  content: "" !important;
   position: absolute !important;
   top: -8px !important;
   left: -8px !important;
@@ -23,7 +23,7 @@
 }
 
 .MuiCheckbox-root.Mui-focusVisible .MuiSvgIcon-root {
-  color: #257E68 !important;
+  color: #257e68 !important;
 }
 
 /* Override any ripple effects */

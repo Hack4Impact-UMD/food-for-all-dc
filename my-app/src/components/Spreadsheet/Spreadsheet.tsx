@@ -88,29 +88,32 @@ interface CustomColumn {
 // Define a type for fields that can either be computed or direct keys of RowData
 type Field =
   | {
-    key: "fullname";
-    label: "Name";
-    type: "text";
-    compute: (data: RowData) => string;
-  }
+      key: "fullname";
+      label: "Name";
+      type: "text";
+      compute: (data: RowData) => string;
+    }
   | {
-    key: keyof Omit<RowData, "id" | "firstName" | "lastName" | "deliveryDetails" | "uid" | "clientid">;
-    label: string;
-    type: string;
-    compute?: never;
-  }
+      key: keyof Omit<
+        RowData,
+        "id" | "firstName" | "lastName" | "deliveryDetails" | "uid" | "clientid"
+      >;
+      label: string;
+      type: string;
+      compute?: never;
+    }
   | {
-    key: "deliveryDetails.dietaryRestrictions";
-    label: string;
-    type: string;
-    compute: (data: RowData) => string;
-  }
+      key: "deliveryDetails.dietaryRestrictions";
+      label: string;
+      type: string;
+      compute: (data: RowData) => string;
+    }
   | {
-    key: "deliveryDetails.deliveryInstructions";
-    label: string;
-    type: string;
-    compute: (data: RowData) => string;
-  };
+      key: "deliveryDetails.deliveryInstructions";
+      label: string;
+      type: string;
+      compute: (data: RowData) => string;
+    };
 
 // Type Guard to check if a field is a regular field
 const isRegularField = (field: Field): field is Extract<Field, { key: keyof RowData }> => {
@@ -157,30 +160,28 @@ const Spreadsheet: React.FC = () => {
     handleCustomColumnChange,
   } = useCustomColumns({ page: "Spreadsheet" });
 
-
-const StyleChip = styled(Chip)({
-  backgroundColor: 'var(--color-primary)',
-  color: '#fff',
-  ":hover" : { 
-    backgroundColor: 'var(--color-primary)',
-    cursor: 'text'
-  },
-  // Disable ripple effect and pointer events
-  '& .MuiTouchRipple-root': {
-    display: 'none'
-  },
-  '&:active': {
-    boxShadow: 'none',
-    transform: 'none'
-  },
-  '&:focus': {
-    boxShadow: 'none'
-  },
-  // Make text selectable
-  userSelect: 'text',
-  WebkitUserSelect: 'text'
-});
-
+  const StyleChip = styled(Chip)({
+    backgroundColor: "var(--color-primary)",
+    color: "#fff",
+    ":hover": {
+      backgroundColor: "var(--color-primary)",
+      cursor: "text",
+    },
+    // Disable ripple effect and pointer events
+    "& .MuiTouchRipple-root": {
+      display: "none",
+    },
+    "&:active": {
+      boxShadow: "none",
+      transform: "none",
+    },
+    "&:focus": {
+      boxShadow: "none",
+    },
+    // Make text selectable
+    userSelect: "text",
+    WebkitUserSelect: "text",
+  });
 
   // const [customColumns, setCustomColumns] = useState<CustomColumn[]>([]);
   // const handleAddCustomColumn = () => {
@@ -280,7 +281,16 @@ const StyleChip = styled(Chip)({
           if (!dr) return false;
           // Check for any true boolean or non-empty array
           return (
-            dr.halal || dr.kidneyFriendly || dr.lowSodium || dr.lowSugar || dr.microwaveOnly || dr.noCookingEquipment || dr.softFood || dr.vegan || dr.vegetarian || dr.heartFriendly ||
+            dr.halal ||
+            dr.kidneyFriendly ||
+            dr.lowSodium ||
+            dr.lowSugar ||
+            dr.microwaveOnly ||
+            dr.noCookingEquipment ||
+            dr.softFood ||
+            dr.vegan ||
+            dr.vegetarian ||
+            dr.heartFriendly ||
             (Array.isArray(dr.foodAllergens) && dr.foodAllergens.length > 0) ||
             (Array.isArray(dr.other) && dr.other.length > 0)
           );
@@ -289,7 +299,16 @@ const StyleChip = styled(Chip)({
           const dr = b.deliveryDetails?.dietaryRestrictions;
           if (!dr) return false;
           return (
-            dr.halal || dr.kidneyFriendly || dr.lowSodium || dr.lowSugar || dr.microwaveOnly || dr.noCookingEquipment || dr.softFood || dr.vegan || dr.vegetarian || dr.heartFriendly ||
+            dr.halal ||
+            dr.kidneyFriendly ||
+            dr.lowSodium ||
+            dr.lowSugar ||
+            dr.microwaveOnly ||
+            dr.noCookingEquipment ||
+            dr.softFood ||
+            dr.vegan ||
+            dr.vegetarian ||
+            dr.heartFriendly ||
             (Array.isArray(dr.foodAllergens) && dr.foodAllergens.length > 0) ||
             (Array.isArray(dr.other) && dr.other.length > 0)
           );
@@ -336,8 +355,18 @@ const StyleChip = styled(Chip)({
           const rawValueB = b[sortedColumn as keyof RowData];
           const numA = Number(rawValueA);
           const numB = Number(rawValueB);
-          const isNumericA = !isNaN(numA) && isFinite(numA) && rawValueA !== null && rawValueA !== undefined && String(rawValueA).trim() !== "";
-          const isNumericB = !isNaN(numB) && isFinite(numB) && rawValueB !== null && rawValueB !== undefined && String(rawValueB).trim() !== "";
+          const isNumericA =
+            !isNaN(numA) &&
+            isFinite(numA) &&
+            rawValueA !== null &&
+            rawValueA !== undefined &&
+            String(rawValueA).trim() !== "";
+          const isNumericB =
+            !isNaN(numB) &&
+            isFinite(numB) &&
+            rawValueB !== null &&
+            rawValueB !== undefined &&
+            String(rawValueB).trim() !== "";
           if (isNumericA && isNumericB) {
             const result = sortOrder === "asc" ? numA - numB : numB - numA;
             return result;
@@ -345,7 +374,7 @@ const StyleChip = styled(Chip)({
           const getSortableValue = (value: any): string => {
             if (value === null || value === undefined) return "";
             if (Array.isArray(value)) return value.join(", ").toLowerCase();
-            if (typeof value === 'object') {
+            if (typeof value === "object") {
               if (value.name || value.organization) {
                 return `${value.name || ""} ${value.organization || ""}`.trim().toLowerCase();
               }
@@ -361,9 +390,10 @@ const StyleChip = styled(Chip)({
       if (!valueA && !valueB) return 0;
       if (!valueA) return sortOrder === "asc" ? -1 : 1;
       if (!valueB) return sortOrder === "asc" ? 1 : -1;
-      const result = sortOrder === "asc"
-        ? valueA.localeCompare(valueB, undefined, { sensitivity: 'base' })
-        : valueB.localeCompare(valueA, undefined, { sensitivity: 'base' });
+      const result =
+        sortOrder === "asc"
+          ? valueA.localeCompare(valueB, undefined, { sensitivity: "base" })
+          : valueB.localeCompare(valueA, undefined, { sensitivity: "base" });
       return result;
     });
   }, [rows, sortOrder, sortedColumn]);
@@ -395,7 +425,10 @@ const StyleChip = styled(Chip)({
         if (dietaryRestrictions.softFood) restrictions.push("Soft Food");
         if (dietaryRestrictions.vegan) restrictions.push("Vegan");
         if (dietaryRestrictions.vegetarian) restrictions.push("Vegetarian");
-        if (Array.isArray(dietaryRestrictions.foodAllergens) && dietaryRestrictions.foodAllergens.length > 0)
+        if (
+          Array.isArray(dietaryRestrictions.foodAllergens) &&
+          dietaryRestrictions.foodAllergens.length > 0
+        )
           restrictions.push(...dietaryRestrictions.foodAllergens);
         if (Array.isArray(dietaryRestrictions.other) && dietaryRestrictions.other.length > 0)
           restrictions.push(...dietaryRestrictions.other);
@@ -406,8 +439,7 @@ const StyleChip = styled(Chip)({
       key: "deliveryDetails.deliveryInstructions",
       label: "Delivery Instructions",
       type: "text",
-      compute: (data: RowData) =>
-        data.deliveryDetails?.deliveryInstructions || "None",
+      compute: (data: RowData) => data.deliveryDetails?.deliveryInstructions || "None",
     },
   ];
 
@@ -522,32 +554,32 @@ const StyleChip = styled(Chip)({
     const regex = /(?:("|')((?:\\\1|.)+?)\1)|([^\s"']+)/g;
     const matches = [];
     let match;
-    
+
     while ((match = regex.exec(query)) !== null) {
-      //push either the quoted content or the unquoted term 
+      //push either the quoted content or the unquoted term
       matches.push(match[2] || match[3]);
     }
-    
+
     return matches;
   };
 
-    //function to determine if a search is incomplete or not
-    const hasUnclosedQuotes = (str: string): boolean => {
-      let singleQuotes = 0;
-      let doubleQuotes = 0;
-      let prevChar = '';
-      
-      for (const char of str) {
-        if (char === "'" && prevChar !== '\\') {
-          singleQuotes++;
-        } else if (char === '"' && prevChar !== '\\') {
-          doubleQuotes++;
-        }
-        prevChar = char;
+  //function to determine if a search is incomplete or not
+  const hasUnclosedQuotes = (str: string): boolean => {
+    let singleQuotes = 0;
+    let doubleQuotes = 0;
+    let prevChar = "";
+
+    for (const char of str) {
+      if (char === "'" && prevChar !== "\\") {
+        singleQuotes++;
+      } else if (char === '"' && prevChar !== "\\") {
+        doubleQuotes++;
       }
-      
-      return (singleQuotes % 2 !== 0) || (doubleQuotes % 2 !== 0);
-    };
+      prevChar = char;
+    }
+
+    return singleQuotes % 2 !== 0 || doubleQuotes % 2 !== 0;
+  };
 
   // Display only the rows that match the search query - combining advanced search with sorted rows
   const filteredRows = sortedRows.filter((row) => {
@@ -579,14 +611,14 @@ const StyleChip = styled(Chip)({
       }
       const lowerQuery = query.toLowerCase();
       if (Array.isArray(value)) {
-        return value.some(item => String(item).toLowerCase().includes(lowerQuery));
+        return value.some((item) => String(item).toLowerCase().includes(lowerQuery));
       }
       return String(value).toLowerCase().includes(lowerQuery);
     };
 
-    return searchTerms.every(term => {
+    return searchTerms.every((term) => {
       //check if this is a key:value search
-      const parts = term.split(/:(.*)/s) 
+      const parts = term.split(/:(.*)/s);
       let isKeyValueSearch = false;
       let keyword = "";
       let searchValue = "";
@@ -603,22 +635,32 @@ const StyleChip = styled(Chip)({
         //key value search logic
         switch (keyword) {
           case "name":
-            return checkStringContains(`${row.firstName} ${row.lastName}`, searchValue) ||
-                  checkStringContains(row.firstName, searchValue) ||
-                  checkStringContains(row.lastName, searchValue);
+            return (
+              checkStringContains(`${row.firstName} ${row.lastName}`, searchValue) ||
+              checkStringContains(row.firstName, searchValue) ||
+              checkStringContains(row.lastName, searchValue)
+            );
           case "address":
             return checkStringContains(row.address, searchValue);
           case "phone":
             return checkStringContains(row.phone, searchValue);
           case "dietary restrictions":
           case "dietary": {
-            const dietaryField = fields.find(f => f.key === "deliveryDetails.dietaryRestrictions");
-            return dietaryField?.compute ? checkStringContains(dietaryField.compute(row), searchValue) : false;
+            const dietaryField = fields.find(
+              (f) => f.key === "deliveryDetails.dietaryRestrictions"
+            );
+            return dietaryField?.compute
+              ? checkStringContains(dietaryField.compute(row), searchValue)
+              : false;
           }
           case "delivery instructions":
           case "instructions": {
-            const instructionsField = fields.find(f => f.key === "deliveryDetails.deliveryInstructions");
-            return instructionsField?.compute ? checkStringContains(instructionsField.compute(row), searchValue) : false;
+            const instructionsField = fields.find(
+              (f) => f.key === "deliveryDetails.deliveryInstructions"
+            );
+            return instructionsField?.compute
+              ? checkStringContains(instructionsField.compute(row), searchValue)
+              : false;
           }
           case "ethnicity":
             return checkStringContains(row.ethnicity, searchValue);
@@ -633,9 +675,11 @@ const StyleChip = styled(Chip)({
           case "referral entity":
           case "referral": {
             const referralEntity = (row as any).referralEntity;
-            if (referralEntity && typeof referralEntity === 'object') {
-              return checkStringContains(referralEntity.name, searchValue) ||
-                    checkStringContains(referralEntity.organization, searchValue);
+            if (referralEntity && typeof referralEntity === "object") {
+              return (
+                checkStringContains(referralEntity.name, searchValue) ||
+                checkStringContains(referralEntity.organization, searchValue)
+              );
             }
             return false;
           }
@@ -652,7 +696,10 @@ const StyleChip = styled(Chip)({
             return checkValueOrInArray((row as any).ward, searchValue);
           case "client id":
           case "clientid":
-            return checkValueOrInArray(row.clientid, searchValue) || checkValueOrInArray(row.uid, searchValue);
+            return (
+              checkValueOrInArray(row.clientid, searchValue) ||
+              checkValueOrInArray(row.uid, searchValue)
+            );
           case "delivery freq":
           case "delivery frequency":
             return checkStringContains((row as any).deliveryFreq, searchValue);
@@ -682,33 +729,53 @@ const StyleChip = styled(Chip)({
       } else {
         //global search for this term
         const globalSearchValue = term.toLowerCase();
-        
+
         //check all relevant fields
         if (checkStringContains(`${row.firstName} ${row.lastName}`, globalSearchValue)) return true;
         if (checkStringContains(row.address, globalSearchValue)) return true;
         if (checkStringContains(row.phone, globalSearchValue)) return true;
 
-        const dietaryField = fields.find(f => f.key === "deliveryDetails.dietaryRestrictions");
-        if (dietaryField?.compute && checkStringContains(dietaryField.compute(row), globalSearchValue)) return true;
+        const dietaryField = fields.find((f) => f.key === "deliveryDetails.dietaryRestrictions");
+        if (
+          dietaryField?.compute &&
+          checkStringContains(dietaryField.compute(row), globalSearchValue)
+        )
+          return true;
 
-        const instructionsField = fields.find(f => f.key === "deliveryDetails.deliveryInstructions");
-        if (instructionsField?.compute && checkStringContains(instructionsField.compute(row), globalSearchValue)) return true;
-        
+        const instructionsField = fields.find(
+          (f) => f.key === "deliveryDetails.deliveryInstructions"
+        );
+        if (
+          instructionsField?.compute &&
+          checkStringContains(instructionsField.compute(row), globalSearchValue)
+        )
+          return true;
+
         if (checkStringContains(row.ethnicity, globalSearchValue)) return true;
 
         const dynamicKeysAndValues: any[] = [
-          (row as any).adults, (row as any).children, (row as any).deliveryFreq,
-          (row as any).gender, (row as any).language, (row as any).notes,
-          (row as any).tefapCert, (row as any).dob, (row as any).ward,
-          (row as any).zipCode, row.houseNumber, (row as any).coordinates,
-          row.clientid, row.uid
+          (row as any).adults,
+          (row as any).children,
+          (row as any).deliveryFreq,
+          (row as any).gender,
+          (row as any).language,
+          (row as any).notes,
+          (row as any).tefapCert,
+          (row as any).dob,
+          (row as any).ward,
+          (row as any).zipCode,
+          row.houseNumber,
+          (row as any).coordinates,
+          row.clientid,
+          row.uid,
         ];
-        if (dynamicKeysAndValues.some(val => checkValueOrInArray(val, globalSearchValue))) return true;
+        if (dynamicKeysAndValues.some((val) => checkValueOrInArray(val, globalSearchValue)))
+          return true;
 
         if (checkValueOrInArray((row as any).tags, globalSearchValue)) return true;
 
         const referralEntity = (row as any).referralEntity;
-        if (referralEntity && typeof referralEntity === 'object') {
+        if (referralEntity && typeof referralEntity === "object") {
           if (checkStringContains(referralEntity.name, globalSearchValue)) return true;
           if (checkStringContains(referralEntity.organization, globalSearchValue)) return true;
         }
@@ -722,7 +789,7 @@ const StyleChip = styled(Chip)({
           return false;
         });
         if (matchesCustomColumn) return true;
-        
+
         return false;
       }
     });
@@ -743,7 +810,6 @@ const StyleChip = styled(Chip)({
     setExportOption(null);
   };
 
-  
   // Handle toggling sort order for any column
   const handleColumnSort = (columnKey: string) => {
     if (sortedColumn === columnKey) {
@@ -772,8 +838,8 @@ const StyleChip = styled(Chip)({
   }, [sortedRows]);
 
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-  const isTablet = useMediaQuery(theme.breakpoints.between('sm', 'md'));
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+  const isTablet = useMediaQuery(theme.breakpoints.between("sm", "md"));
 
   return (
     <Box
@@ -788,7 +854,7 @@ const StyleChip = styled(Chip)({
         display: "flex",
         flexDirection: "column",
         height: "85vh",
-        mt:0
+        mt: 0,
       }}
     >
       {/* Fixed Container for Search Bar and Create Client Button */}
@@ -803,7 +869,7 @@ const StyleChip = styled(Chip)({
           pt: 0,
           borderBottom: "none",
           boxShadow: "none",
-          margin: 0
+          margin: 0,
         }}
       >
         <Stack spacing={3}>
@@ -824,16 +890,15 @@ const StyleChip = styled(Chip)({
                 color: "#333333",
                 boxSizing: "border-box",
                 transition: "all 0.2s ease",
-                boxShadow: "inset 0 2px 3px rgba(0,0,0,0.05)"
+                boxShadow: "inset 0 2px 3px rgba(0,0,0,0.05)",
               }}
             />
           </Box>
           <Stack
-            direction={{ xs: 'column', sm: 'row' }}
+            direction={{ xs: "column", sm: "row" }}
             spacing={2}
-
-            alignItems={{ xs: 'stretch', sm: 'center' }}
-            sx={{ '& .MuiButton-root': { height: { sm: '36px' } } }}
+            alignItems={{ xs: "stretch", sm: "center" }}
+            sx={{ "& .MuiButton-root": { height: { sm: "36px" } } }}
           >
             <Button
               variant="contained"
@@ -844,8 +909,8 @@ const StyleChip = styled(Chip)({
                 borderRadius: "25px",
                 px: 2,
                 py: 0.5,
-                minWidth: { xs: '100%', sm: '100px' },
-                maxWidth: { sm: '120px' },
+                minWidth: { xs: "100%", sm: "100px" },
+                maxWidth: { sm: "120px" },
                 textTransform: "none",
                 fontSize: "0.875rem",
                 lineHeight: 1.5,
@@ -855,7 +920,7 @@ const StyleChip = styled(Chip)({
                   transform: "translateY(-2px)",
                   boxShadow: "0 4px 8px rgba(0,0,0,0.1)",
                 },
-                alignSelf: { xs: 'stretch', sm: 'flex-start' }
+                alignSelf: { xs: "stretch", sm: "flex-start" },
               }}
             >
               View All
@@ -869,8 +934,8 @@ const StyleChip = styled(Chip)({
                 borderRadius: "25px",
                 px: 2,
                 py: 0.5,
-                minWidth: { xs: '100%', sm: '100px' },
-                maxWidth: { sm: '120px' },
+                minWidth: { xs: "100%", sm: "100px" },
+                maxWidth: { sm: "120px" },
                 textTransform: "none",
                 fontSize: "0.875rem",
                 lineHeight: 1.5,
@@ -880,9 +945,8 @@ const StyleChip = styled(Chip)({
                   transform: "translateY(-2px)",
                   boxShadow: "0 4px 8px rgba(0,0,0,0.1)",
                 },
-                alignSelf: { xs: 'stretch', sm: 'flex-start' }
+                alignSelf: { xs: "stretch", sm: "flex-start" },
               }}
-
             >
               Export
             </Button>
@@ -914,7 +978,6 @@ const StyleChip = styled(Chip)({
               </DialogActions>
             </Dialog>
 
-
             <Box sx={{ flexGrow: 1, display: "flex", justifyContent: "flex-end" }}>
               <Button
                 variant="contained"
@@ -926,8 +989,8 @@ const StyleChip = styled(Chip)({
                   borderRadius: "25px",
                   px: 2,
                   py: 0.5,
-                  minWidth: { xs: '100%', sm: '140px' },
-                  maxWidth: { sm: '160px' },
+                  minWidth: { xs: "100%", sm: "140px" },
+                  maxWidth: { sm: "160px" },
                   textTransform: "none",
                   fontSize: "0.875rem",
                   lineHeight: 1.5,
@@ -938,7 +1001,7 @@ const StyleChip = styled(Chip)({
                     transform: "translateY(-2px)",
                     boxShadow: "0 4px 8px rgba(0,0,0,0.1)",
                   },
-                  alignSelf: { xs: 'stretch', sm: 'flex-end' }
+                  alignSelf: { xs: "stretch", sm: "flex-end" },
                 }}
               >
                 + Create Client
@@ -955,7 +1018,7 @@ const StyleChip = styled(Chip)({
           mb: 3,
           width: "100%",
           flex: 1,
-          overflowY: "auto"
+          overflowY: "auto",
         }}
       >
         {/* Mobile Card View for Small Screens */}
@@ -972,7 +1035,7 @@ const StyleChip = styled(Chip)({
                   "&:hover": {
                     transform: "translateY(-2px)",
                     boxShadow: "0 4px 12px rgba(0,0,0,0.12)",
-                  }
+                  },
                 }}
                 onClick={() => handleRowClick(row.uid)}
               >
@@ -993,24 +1056,36 @@ const StyleChip = styled(Chip)({
                 <Divider sx={{ my: 1 }} />
                 <Stack spacing={1.5}>
                   <Box>
-                    <Typography variant="body2" color="text.secondary">Address</Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Address
+                    </Typography>
                     <Typography variant="body1">{row.address}</Typography>
                   </Box>
                   {row.phone && (
                     <Box>
-                      <Typography variant="body2" color="text.secondary">Phone</Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Phone
+                      </Typography>
                       <Typography variant="body1">{row.phone}</Typography>
                     </Box>
                   )}
                   <Box>
-                    <Typography variant="body2" color="text.secondary">Dietary Restrictions</Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Dietary Restrictions
+                    </Typography>
                     {(() => {
-                      const restrictions = fields.find(f => f.key === "deliveryDetails.dietaryRestrictions")?.compute?.(row);
+                      const restrictions = fields
+                        .find((f) => f.key === "deliveryDetails.dietaryRestrictions")
+                        ?.compute?.(row);
                       if (restrictions === "None") {
-                        return <Typography variant="body2" color="text.secondary">None</Typography>;
+                        return (
+                          <Typography variant="body2" color="text.secondary">
+                            None
+                          </Typography>
+                        );
                       }
                       return (
-                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.5 }}>
+                        <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, mt: 0.5 }}>
                           {restrictions?.split(", ").map((restriction, i) => (
                             <Chip
                               key={i}
@@ -1025,8 +1100,8 @@ const StyleChip = styled(Chip)({
                                 border: "1px solid #c8e6c9",
                                 "&:hover": {
                                   backgroundColor: "#e8f5e9",
-                                  cursor: "default"
-                                }
+                                  cursor: "default",
+                                },
                               }}
                             />
                           ))}
@@ -1035,18 +1110,20 @@ const StyleChip = styled(Chip)({
                     })()}
                   </Box>
                   {/* Custom columns for mobile */}
-                  {customColumns.map((col) => (
-                    col.propertyKey !== "none" && row[col.propertyKey as keyof RowData] && (
-                      <Box key={col.id}>
-                        <Typography variant="body2" color="text.secondary">
-                          {col.label || col.propertyKey}
-                        </Typography>
-                        <Typography variant="body1">
-                          {row[col.propertyKey as keyof RowData]?.toString() || "N/A"}
-                        </Typography>
-                      </Box>
-                    )
-                  ))}
+                  {customColumns.map(
+                    (col) =>
+                      col.propertyKey !== "none" &&
+                      row[col.propertyKey as keyof RowData] && (
+                        <Box key={col.id}>
+                          <Typography variant="body2" color="text.secondary">
+                            {col.label || col.propertyKey}
+                          </Typography>
+                          <Typography variant="body1">
+                            {row[col.propertyKey as keyof RowData]?.toString() || "N/A"}
+                          </Typography>
+                        </Box>
+                      )
+                  )}
                 </Stack>
               </Card>
             ))}
@@ -1057,7 +1134,7 @@ const StyleChip = styled(Chip)({
               onClose={handleMenuClose}
               PaperProps={{
                 elevation: 3,
-                sx: { borderRadius: "8px", minWidth: "150px" }
+                sx: { borderRadius: "8px", minWidth: "150px" },
               }}
             >
               <MenuItem
@@ -1117,7 +1194,11 @@ const StyleChip = styled(Chip)({
                           {field.label}
                         </Typography>
                         {sortedColumn === field.key ? (
-                          sortOrder === "asc" ? <ArrowDropUpIcon /> : <ArrowDropDownIcon />
+                          sortOrder === "asc" ? (
+                            <ArrowDropUpIcon />
+                          ) : (
+                            <ArrowDropDownIcon />
+                          )
                         ) : (
                           <UnfoldMoreIcon sx={{ color: "#9E9E9E", fontSize: "1.2rem" }} />
                         )}
@@ -1142,7 +1223,9 @@ const StyleChip = styled(Chip)({
                         sx={{
                           cursor: col.propertyKey !== "none" ? "pointer" : "default", // Only sortable if column has data
                         }}
-                        onClick={() => col.propertyKey !== "none" && handleColumnSort(col.propertyKey)}
+                        onClick={() =>
+                          col.propertyKey !== "none" && handleColumnSort(col.propertyKey)
+                        }
                       >
                         <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                           <Select
@@ -1191,20 +1274,23 @@ const StyleChip = styled(Chip)({
                               color: "#d32f2f",
                               "&:hover": {
                                 backgroundColor: "rgba(211, 47, 47, 0.04)",
-                              }
+                              },
                             }}
                           >
                             <DeleteIcon fontSize="small" />
                           </IconButton>
                         </Box>
                         {/* Show sort icon if this custom column is currently sorted */}
-                        {col.propertyKey !== "none" && (
-                          sortedColumn === col.propertyKey ? (
-                            sortOrder === "asc" ? <ArrowDropUpIcon /> : <ArrowDropDownIcon />
+                        {col.propertyKey !== "none" &&
+                          (sortedColumn === col.propertyKey ? (
+                            sortOrder === "asc" ? (
+                              <ArrowDropUpIcon />
+                            ) : (
+                              <ArrowDropDownIcon />
+                            )
                           ) : (
                             <UnfoldMoreIcon sx={{ color: "#9E9E9E", fontSize: "1.2rem" }} />
-                          )
-                        )}
+                          ))}
                       </Stack>
                     </TableCell>
                   ))}
@@ -1226,7 +1312,7 @@ const StyleChip = styled(Chip)({
                         backgroundColor: "rgba(37, 126, 104, 0.06)",
                         "&:hover": {
                           backgroundColor: "rgba(37, 126, 104, 0.12)",
-                        }
+                        },
                       }}
                     >
                       <AddIcon sx={{ color: "#257e68" }} />
@@ -1251,7 +1337,7 @@ const StyleChip = styled(Chip)({
                       },
                       "&:nth-of-type(odd):hover": {
                         backgroundColor: "rgba(46, 91, 76, 0.06)",
-                      }
+                      },
                     }}
                     onClick={() => {
                       if (editingRowId !== row.id) {
@@ -1260,17 +1346,17 @@ const StyleChip = styled(Chip)({
                     }}
                   >
                     {fields.map((field) => (
-                      <TableCell 
-                        key={field.key} 
-                        sx={{ 
+                      <TableCell
+                        key={field.key}
+                        sx={{
                           py: 2,
                           // Add word-wrap styles for delivery instructions and dietary restrictions
                           ...(field.key === "deliveryDetails.deliveryInstructions" && {
-                            maxWidth: '200px',
-                            wordWrap: 'break-word',
-                            overflowWrap: 'anywhere',
-                            whiteSpace: 'pre-wrap'
-                          })
+                            maxWidth: "200px",
+                            wordWrap: "break-word",
+                            overflowWrap: "anywhere",
+                            whiteSpace: "pre-wrap",
+                          }),
                         }}
                       >
                         {editingRowId === row.id ? (
@@ -1312,7 +1398,7 @@ const StyleChip = styled(Chip)({
                                 textDecoration: "none",
                                 "&:hover": {
                                   textDecoration: "underline",
-                                }
+                                },
                               }}
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -1332,7 +1418,7 @@ const StyleChip = styled(Chip)({
                                 textDecoration: "none",
                                 "&:hover": {
                                   textDecoration: "underline",
-                                }
+                                },
                               }}
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -1348,49 +1434,62 @@ const StyleChip = styled(Chip)({
                               const restrictions = (field as any).compute(row);
                               if (restrictions === "None") {
                                 return (
-                                  <Typography sx={{ 
-                                    fontSize: '0.875rem',
-                                    color: "#757575",
-                                    fontStyle: "italic"
-                                  }}>
+                                  <Typography
+                                    sx={{
+                                      fontSize: "0.875rem",
+                                      color: "#757575",
+                                      fontStyle: "italic",
+                                    }}
+                                  >
                                     None
                                   </Typography>
                                 );
                               }
                               return (
-                                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, maxWidth: '250px' }}>
-                                  {restrictions.split(", ").map((restriction: string, i: number) => (
-                                    <Chip
-                                      key={i}
-                                      label={restriction}
-                                      size="small"
-                                      sx={{
-                                        backgroundColor: "#e8f5e9",
-                                        color: "#2E5B4C",
-                                        fontSize: "0.75rem",
-                                        height: "20px",
-                                        fontWeight: 500,
-                                        border: "1px solid #c8e6c9",
-                                        "& .MuiChip-label": {
-                                          px: 1
-                                        },
-                                        "&:hover": {
+                                <Box
+                                  sx={{
+                                    display: "flex",
+                                    flexWrap: "wrap",
+                                    gap: 0.5,
+                                    maxWidth: "250px",
+                                  }}
+                                >
+                                  {restrictions
+                                    .split(", ")
+                                    .map((restriction: string, i: number) => (
+                                      <Chip
+                                        key={i}
+                                        label={restriction}
+                                        size="small"
+                                        sx={{
                                           backgroundColor: "#e8f5e9",
-                                          cursor: "default"
-                                        }
-                                      }}
-                                    />
-                                  ))}
+                                          color: "#2E5B4C",
+                                          fontSize: "0.75rem",
+                                          height: "20px",
+                                          fontWeight: 500,
+                                          border: "1px solid #c8e6c9",
+                                          "& .MuiChip-label": {
+                                            px: 1,
+                                          },
+                                          "&:hover": {
+                                            backgroundColor: "#e8f5e9",
+                                            cursor: "default",
+                                          },
+                                        }}
+                                      />
+                                    ))}
                                 </Box>
                               );
                             })()
                           ) : field.key === "deliveryDetails.deliveryInstructions" ? (
-                            <div style={{
-                              maxWidth: '200px',
-                              wordWrap: 'break-word',
-                              overflowWrap: 'anywhere',
-                              whiteSpace: 'pre-wrap'
-                            }}>
+                            <div
+                              style={{
+                                maxWidth: "200px",
+                                wordWrap: "break-word",
+                                overflowWrap: "anywhere",
+                                whiteSpace: "pre-wrap",
+                              }}
+                            >
                               {(field as any).compute(row)}
                             </div>
                           ) : (
@@ -1403,17 +1502,18 @@ const StyleChip = styled(Chip)({
                     ))}
 
                     {customColumns.map((col) => (
-                      <TableCell 
-                        key={col.id} 
-                        sx={{ 
+                      <TableCell
+                        key={col.id}
+                        sx={{
                           py: 2,
                           // Add word-wrap styles for text-heavy columns
-                          ...((col.propertyKey.includes('notes') || col.propertyKey.includes('deliveryInstructions')) && {
-                            maxWidth: '200px',
-                            wordWrap: 'break-word',
-                            overflowWrap: 'anywhere',
-                            whiteSpace: 'pre-wrap'
-                          })
+                          ...((col.propertyKey.includes("notes") ||
+                            col.propertyKey.includes("deliveryInstructions")) && {
+                            maxWidth: "200px",
+                            wordWrap: "break-word",
+                            overflowWrap: "anywhere",
+                            whiteSpace: "pre-wrap",
+                          }),
                         }}
                       >
                         {editingRowId === row.id ? (
@@ -1435,39 +1535,47 @@ const StyleChip = styled(Chip)({
                           ) : (
                             "N/A"
                           )
-                        ) :
-                          col.propertyKey !== "none" ? (
-                            // For referralEntity specifically (it's an object)
-                            col.propertyKey === 'referralEntity' && row[col.propertyKey as keyof RowData] ? 
-                            `${(row[col.propertyKey as keyof RowData] as any).name || 'N/A'}, ${(row[col.propertyKey as keyof RowData] as any).organization || 'N/A'}`
-                            : col.propertyKey === "tags" && Array.isArray(row[col.propertyKey as keyof RowData]) ?
-                              (row[col.propertyKey as keyof RowData] as unknown as string[]).map((tag, i) => (
+                        ) : col.propertyKey !== "none" ? (
+                          // For referralEntity specifically (it's an object)
+                          col.propertyKey === "referralEntity" &&
+                          row[col.propertyKey as keyof RowData] ? (
+                            `${(row[col.propertyKey as keyof RowData] as any).name || "N/A"}, ${(row[col.propertyKey as keyof RowData] as any).organization || "N/A"}`
+                          ) : col.propertyKey === "tags" &&
+                            Array.isArray(row[col.propertyKey as keyof RowData]) ? (
+                            (row[col.propertyKey as keyof RowData] as unknown as string[]).map(
+                              (tag, i) => (
                                 <StyleChip
                                   key={i}
                                   label={tag}
                                   size="small"
-                                   onClick={(e) => {
-                                        e.preventDefault()
-                                      }}
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                  }}
                                   sx={{
                                     mb: 0.5,
-                                    mr: 0.5
+                                    mr: 0.5,
                                   }}
                                 />
-                              ))
-                            : col.propertyKey.includes('notes') || col.propertyKey.includes('deliveryInstructions') ? (
-                              <div style={{
-                                maxWidth: '200px',
-                                wordWrap: 'break-word',
-                                overflowWrap: 'anywhere',
-                                whiteSpace: 'pre-wrap'
-                              }}>
-                                {row[col.propertyKey as keyof RowData]?.toString() ?? "N/A"}
-                              </div>
-                            ) : (row[col.propertyKey as keyof RowData]?.toString() ?? "N/A")
+                              )
+                            )
+                          ) : col.propertyKey.includes("notes") ||
+                            col.propertyKey.includes("deliveryInstructions") ? (
+                            <div
+                              style={{
+                                maxWidth: "200px",
+                                wordWrap: "break-word",
+                                overflowWrap: "anywhere",
+                                whiteSpace: "pre-wrap",
+                              }}
+                            >
+                              {row[col.propertyKey as keyof RowData]?.toString() ?? "N/A"}
+                            </div>
                           ) : (
-                            "N/A"
-                          )}
+                            (row[col.propertyKey as keyof RowData]?.toString() ?? "N/A")
+                          )
+                        ) : (
+                          "N/A"
+                        )}
                       </TableCell>
                     ))}
 
@@ -1485,7 +1593,7 @@ const StyleChip = styled(Chip)({
                             boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
                             "&:hover": {
                               backgroundColor: "#234839",
-                            }
+                            },
                           }}
                         >
                           Save
@@ -1501,7 +1609,7 @@ const StyleChip = styled(Chip)({
                             "&:hover": {
                               backgroundColor: "rgba(0, 0, 0, 0.04)",
                               color: "#2E5B4C",
-                            }
+                            },
                           }}
                         >
                           <MoreVertIcon />
@@ -1513,7 +1621,7 @@ const StyleChip = styled(Chip)({
                         onClose={handleMenuClose}
                         PaperProps={{
                           elevation: 3,
-                          sx: { borderRadius: "8px", minWidth: "150px" }
+                          sx: { borderRadius: "8px", minWidth: "150px" },
                         }}
                       >
                         <MenuItem

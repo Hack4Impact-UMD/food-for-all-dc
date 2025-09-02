@@ -1,10 +1,10 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
-import PopUp from './PopUp';
+import React, { createContext, useContext, useState, useCallback } from "react";
+import PopUp from "./PopUp";
 
 /**
  * Notification types for different message categories
  */
-export type NotificationType = 'success' | 'error' | 'warning' | 'info';
+export type NotificationType = "success" | "error" | "warning" | "info";
 
 /**
  * Individual notification object
@@ -14,7 +14,7 @@ export interface Notification {
   message: string;
   type: NotificationType;
   duration?: number;
-  position?: 'top' | 'bottom';
+  position?: "top" | "bottom";
 }
 
 /**
@@ -22,7 +22,7 @@ export interface Notification {
  */
 interface NotificationContextType {
   notifications: Notification[];
-  addNotification: (notification: Omit<Notification, 'id'>) => void;
+  addNotification: (notification: Omit<Notification, "id">) => void;
   removeNotification: (id: string) => void;
   clearAll: () => void;
   showSuccess: (message: string, duration?: number) => void;
@@ -35,10 +35,10 @@ const NotificationContext = createContext<NotificationContextType | undefined>(u
 
 /**
  * Hook to use notifications in components
- * 
+ *
  * @example
  * const { showSuccess, showError } = useNotifications();
- * 
+ *
  * const handleSave = async () => {
  *   try {
  *     await saveData();
@@ -51,7 +51,7 @@ const NotificationContext = createContext<NotificationContextType | undefined>(u
 export const useNotifications = () => {
   const context = useContext(NotificationContext);
   if (!context) {
-    throw new Error('useNotifications must be used within a NotificationProvider');
+    throw new Error("useNotifications must be used within a NotificationProvider");
   }
   return context;
 };
@@ -66,41 +66,53 @@ interface NotificationProviderProps {
 export const NotificationProvider: React.FC<NotificationProviderProps> = ({ children }) => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
 
-  const addNotification = useCallback((notification: Omit<Notification, 'id'>) => {
+  const addNotification = useCallback((notification: Omit<Notification, "id">) => {
     const id = Date.now().toString() + Math.random().toString(36).substr(2, 9);
     const newNotification: Notification = {
       id,
       duration: 3000,
-      position: 'bottom',
+      position: "bottom",
       ...notification,
     };
-    
-    setNotifications(prev => [...prev, newNotification]);
+
+    setNotifications((prev) => [...prev, newNotification]);
   }, []);
 
   const removeNotification = useCallback((id: string) => {
-    setNotifications(prev => prev.filter(notification => notification.id !== id));
+    setNotifications((prev) => prev.filter((notification) => notification.id !== id));
   }, []);
 
   const clearAll = useCallback(() => {
     setNotifications([]);
   }, []);
 
-  const showSuccess = useCallback((message: string, duration?: number) => {
-    addNotification({ message, type: 'success', duration });
-  }, [addNotification]);
+  const showSuccess = useCallback(
+    (message: string, duration?: number) => {
+      addNotification({ message, type: "success", duration });
+    },
+    [addNotification]
+  );
 
-  const showError = useCallback((message: string, duration?: number) => {
-    addNotification({ message, type: 'error', duration: duration || 5000 });
-  }, [addNotification]);
+  const showError = useCallback(
+    (message: string, duration?: number) => {
+      addNotification({ message, type: "error", duration: duration || 5000 });
+    },
+    [addNotification]
+  );
 
-  const showWarning = useCallback((message: string, duration?: number) => {
-    addNotification({ message, type: 'warning', duration });
-  }, [addNotification]);
+  const showWarning = useCallback(
+    (message: string, duration?: number) => {
+      addNotification({ message, type: "warning", duration });
+    },
+    [addNotification]
+  );
 
-  const showInfo = useCallback((message: string, duration?: number) => {
-    addNotification({ message, type: 'info', duration });
-  }, [addNotification]);
+  const showInfo = useCallback(
+    (message: string, duration?: number) => {
+      addNotification({ message, type: "info", duration });
+    },
+    [addNotification]
+  );
 
   const value: NotificationContextType = {
     notifications,

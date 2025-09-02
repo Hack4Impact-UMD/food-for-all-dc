@@ -35,7 +35,7 @@ export {
   styled,
   ThemeProvider,
   createTheme,
-} from '@mui/material';
+} from "@mui/material";
 
 // Icons commonly used
 export {
@@ -70,15 +70,10 @@ export {
   Error as ErrorIcon,
   Info as InfoIcon,
   CheckCircle as SuccessIcon,
-} from '@mui/icons-material';
+} from "@mui/icons-material";
 
 // Date picker components
-export {
-  LocalizationProvider,
-  DatePicker,
-  TimePicker,
-  DateTimePicker,
-} from '@mui/x-date-pickers';
+export { LocalizationProvider, DatePicker, TimePicker, DateTimePicker } from "@mui/x-date-pickers";
 
 // Form components
 export {
@@ -96,7 +91,7 @@ export {
   Switch,
   Slider,
   Autocomplete,
-} from '@mui/material';
+} from "@mui/material";
 
 // Table components
 export {
@@ -108,7 +103,7 @@ export {
   TableRow,
   TablePagination,
   TableSortLabel,
-} from '@mui/material';
+} from "@mui/material";
 
 // Navigation components
 export {
@@ -124,4 +119,4 @@ export {
   Slide,
   Zoom,
   Collapse,
-} from '@mui/material';
+} from "@mui/material";

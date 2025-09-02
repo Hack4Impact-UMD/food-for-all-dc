@@ -79,12 +79,7 @@
 }
 
 .skeleton-line {
-  background: linear-gradient(
-    90deg,
-    #f0f0f0 25%,
-    #e0e0e0 50%,
-    #f0f0f0 75%
-  );
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
   background-size: 200% 100%;
   animation: skeleton-pulse 1.5s ease-in-out infinite;
 }
@@ -197,21 +192,21 @@
     min-height: 150px;
     padding: 1rem;
   }
-  
+
   .loading-spinner {
     width: 30px;
     height: 30px;
   }
-  
+
   .progress-bar {
     width: 150px;
   }
-  
+
   .spreadsheet-controls {
     flex-direction: column;
     gap: 0.5rem;
   }
-  
+
   .search-input {
     width: 100%;
   }
@@ -222,11 +217,11 @@
   .loading-spinner {
     animation: none;
   }
-  
+
   .skeleton-line {
     animation: none;
   }
-  
+
   .defer-render {
     animation: none;
     opacity: 1;
@@ -238,7 +233,7 @@
   .skeleton-line {
     background: #000;
   }
-  
+
   .loading-spinner {
     border-color: #000;
     border-top-color: #fff;

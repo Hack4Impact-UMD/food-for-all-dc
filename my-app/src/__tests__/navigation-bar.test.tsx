@@ -1,4 +1,4 @@
-jest.mock('firebase/firestore');
+jest.mock("firebase/firestore");
 import React from "react";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
@@ -6,12 +6,14 @@ import BasePage from "../pages/Base/Base";
 import { UserType } from "../types";
 
 jest.mock("../auth/AuthProvider", () => ({
-  useAuth: () => ({ userRole: mockUserRole, logout: jest.fn() })
+  useAuth: () => ({ userRole: mockUserRole, logout: jest.fn() }),
 }));
 let mockUserRole: UserType | null = null;
 
 describe("Navigation Bar Tests", () => {
-  afterEach(() => { mockUserRole = null; });
+  afterEach(() => {
+    mockUserRole = null;
+  });
 
   it("renders all expected links for Admin", () => {
     mockUserRole = UserType.Admin;
@@ -49,11 +51,15 @@ describe("Navigation Bar Tests", () => {
     // Query for all elements with 'calendar' text
     const calendarTabs = screen.getAllByText(/calendar/i);
     // Find the tab that is inside a container with 'tabContainerSelected' class
-    const selectedTab = calendarTabs.find(tab => {
+    const selectedTab = calendarTabs.find((tab) => {
       // Try to find the closest ancestor with the class
-      let container = tab.closest('.tabContainerSelected');
+      let container = tab.closest(".tabContainerSelected");
       // Fallback: check parent element if not found
-      if (!container && tab.parentElement && tab.parentElement.classList.contains('tabContainerSelected')) {
+      if (
+        !container &&
+        tab.parentElement &&
+        tab.parentElement.classList.contains("tabContainerSelected")
+      ) {
         container = tab.parentElement;
       }
       return container;

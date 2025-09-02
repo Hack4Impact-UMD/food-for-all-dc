@@ -49,10 +49,14 @@ type Field = {
 // Map UserType enum to display string
 const getRoleDisplayName = (role: UserType): string => {
   switch (role) {
-    case UserType.Admin: return "Admin";
-    case UserType.Manager: return "Manager";
-    case UserType.ClientIntake: return "Client Intake";
-    default: return "Unknown";
+    case UserType.Admin:
+      return "Admin";
+    case UserType.Manager:
+      return "Manager";
+    case UserType.ClientIntake:
+      return "Client Intake";
+    default:
+      return "Unknown";
   }
 };
 
@@ -69,8 +73,11 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
   const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
   const [deleteModalOpen, setDeleteModalOpen] = useState<boolean>(false);
   const [createModalOpen, setCreateModalOpen] = useState<boolean>(false);
-  const [actionFeedback, setActionFeedback] = useState<{ type: 'success' | 'error', message: string } | null>(null);
-  
+  const [actionFeedback, setActionFeedback] = useState<{
+    type: "success" | "error";
+    message: string;
+  } | null>(null);
+
   // Sort state for Name column - default to ascending
   const [nameSortDirection, setNameSortDirection] = useState<SortDirection>("asc");
   // Sort state for Role column - no default sort
@@ -79,7 +86,7 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
   const [phoneSortDirection, setPhoneSortDirection] = useState<SortDirection | null>(null);
   // Sort state for Email column - no default sort
   const [emailSortDirection, setEmailSortDirection] = useState<SortDirection | null>(null);
-  
+
   const { userRole } = useAuth();
   const navigate = useNavigate();
 
@@ -102,7 +109,12 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
       label: "Name",
       type: "text",
     },
-    { key: "role", label: "Role", type: "text", compute: (data: AuthUserRow) => getRoleDisplayName(data.role) },
+    {
+      key: "role",
+      label: "Role",
+      type: "text",
+      compute: (data: AuthUserRow) => getRoleDisplayName(data.role),
+    },
     { key: "phone", label: "Phone", type: "text" },
     { key: "email", label: "Email", type: "text" },
   ];
@@ -183,7 +195,7 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
       return sortData(rows, {
         key: "role",
         direction: roleSortDirection,
-        getValue: (row: AuthUserRow) => getRoleDisplayName(row.role)
+        getValue: (row: AuthUserRow) => getRoleDisplayName(row.role),
       });
     } else if (phoneSortDirection) {
       // Sort by phone
@@ -197,21 +209,21 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
             return phoneSortDirection === "asc" ? "zzz_empty" : "aaa_empty";
           }
           return phone;
-        }
+        },
       });
     } else if (emailSortDirection) {
       // Sort by email
       return sortData(rows, {
         key: "email",
         direction: emailSortDirection,
-        getValue: (row: AuthUserRow) => row.email || ""
+        getValue: (row: AuthUserRow) => row.email || "",
       });
     } else {
       // Sort by name (default) - simple alphabetical sorting
       return sortData(rows, {
         key: "name",
         direction: nameSortDirection,
-        getValue: (row: AuthUserRow) => row.name.trim().toLowerCase()
+        getValue: (row: AuthUserRow) => row.name.trim().toLowerCase(),
       });
     }
   }, [rows, nameSortDirection, roleSortDirection, phoneSortDirection, emailSortDirection]);
@@ -225,7 +237,7 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
   const handleDeleteUser = async (uid: string) => {
     const originalRows = [...rows]; // Store original rows for potential rollback
     const safeRows = Array.isArray(rows) ? rows : [];
-    const userToDelete = safeRows.find(r => r.uid === uid); // Find user for feedback messages
+    const userToDelete = safeRows.find((r) => r.uid === uid); // Find user for feedback messages
 
     // --- Optimistic UI Update ---
     setRows(safeRows.filter((row) => row.uid !== uid)); // Remove user from UI immediately
@@ -237,15 +249,19 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
       // --- Call backend service ---
       await authUserService.deleteUser(uid);
       // Backend succeeded! Show success message.
-      setActionFeedback({ type: 'success', message: `${userToDelete?.name || 'User'} deleted successfully.` });
+      setActionFeedback({
+        type: "success",
+        message: `${userToDelete?.name || "User"} deleted successfully.`,
+      });
       setTimeout(() => setActionFeedback(null), 5000); // Clear success message after 5s
-
     } catch (deleteError: any) {
       console.error("Error deleting user: ", deleteError);
       // --- Rollback UI on failure ---
       setRows(originalRows); // Restore original rows
-      const errorMessage = deleteError.message || `Failed to delete ${userToDelete?.name || 'user'}. Please try again.`;
-      setActionFeedback({ type: 'error', message: errorMessage });
+      const errorMessage =
+        deleteError.message ||
+        `Failed to delete ${userToDelete?.name || "user"}. Please try again.`;
+      setActionFeedback({ type: "error", message: errorMessage });
       // Keep error message visible until dismissed or another action occurs
     }
     // No 'finally' block needed for modal/ID reset as it's done optimistically
@@ -278,20 +294,20 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
     return (
       row.name.toLowerCase().includes(query) ||
       getRoleDisplayName(row.role).toLowerCase().includes(query) ||
-      (row.phone?.toLowerCase() || '').includes(query) ||
+      (row.phone?.toLowerCase() || "").includes(query) ||
       row.email.toLowerCase().includes(query)
     );
   });
 
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
   // Handle closing the create modal and potentially refreshing data
   const handleCloseCreateModal = (refreshNeeded?: boolean) => {
     setCreateModalOpen(false);
     if (refreshNeeded) {
       fetchData();
-      setActionFeedback({ type: 'success', message: 'User created successfully!' });
+      setActionFeedback({ type: "success", message: "User created successfully!" });
       setTimeout(() => setActionFeedback(null), 5000);
     }
   };
@@ -322,7 +338,7 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
         <Alert
           severity={actionFeedback.type}
           onClose={() => setActionFeedback(null)}
-          sx={{ position: 'sticky', top: 0, zIndex: 12, mb: 2 }}
+          sx={{ position: "sticky", top: 0, zIndex: 12, mb: 2 }}
         >
           {actionFeedback.message}
         </Alert>
@@ -341,7 +357,7 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
           borderBottom: "none",
           boxShadow: "none",
           margin: 0,
-          transition: 'top 0.3s ease-in-out',
+          transition: "top 0.3s ease-in-out",
         }}
       >
         <Stack spacing={3}>
@@ -362,15 +378,15 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
                 color: "#333333",
                 boxSizing: "border-box",
                 transition: "all 0.2s ease",
-                boxShadow: "inset 0 2px 3px rgba(0,0,0,0.05)"
+                boxShadow: "inset 0 2px 3px rgba(0,0,0,0.05)",
               }}
             />
           </Box>
           <Stack
-            direction={{ xs: 'column', sm: 'row' }}
+            direction={{ xs: "column", sm: "row" }}
             spacing={2}
-            alignItems={{ xs: 'stretch', sm: 'center' }}
-            sx={{ '& .MuiButton-root': { height: { sm: '36px' } } }}
+            alignItems={{ xs: "stretch", sm: "center" }}
+            sx={{ "& .MuiButton-root": { height: { sm: "36px" } } }}
           >
             <Button
               variant="contained"
@@ -381,8 +397,8 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
                 borderRadius: "25px",
                 px: 2,
                 py: 0.5,
-                minWidth: { xs: '100%', sm: '100px' },
-                maxWidth: { sm: '120px' },
+                minWidth: { xs: "100%", sm: "100px" },
+                maxWidth: { sm: "120px" },
                 textTransform: "none",
                 fontSize: "0.875rem",
                 lineHeight: 1.5,
@@ -392,13 +408,19 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
                   transform: "translateY(-2px)",
                   boxShadow: "0 4px 8px rgba(0,0,0,0.1)",
                 },
-                alignSelf: { xs: 'stretch', sm: 'flex-start' }
+                alignSelf: { xs: "stretch", sm: "flex-start" },
               }}
             >
               View All
             </Button>
 
-            <Box sx={{ flexGrow: 1, display: "flex", justifyContent: { xs: 'stretch', sm: 'flex-end'} }}>
+            <Box
+              sx={{
+                flexGrow: 1,
+                display: "flex",
+                justifyContent: { xs: "stretch", sm: "flex-end" },
+              }}
+            >
               <Button
                 variant="contained"
                 color="primary"
@@ -409,8 +431,8 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
                   borderRadius: "25px",
                   px: 2,
                   py: 0.5,
-                  minWidth: { xs: '100%', sm: '140px' },
-                  maxWidth: { sm: '160px' },
+                  minWidth: { xs: "100%", sm: "140px" },
+                  maxWidth: { sm: "160px" },
                   textTransform: "none",
                   fontSize: "0.875rem",
                   lineHeight: 1.5,
@@ -421,7 +443,7 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
                     transform: "translateY(-2px)",
                     boxShadow: "0 4px 8px rgba(0,0,0,0.1)",
                   },
-                  alignSelf: { xs: 'stretch', sm: 'flex-end' }
+                  alignSelf: { xs: "stretch", sm: "flex-end" },
                 }}
               >
                 + Create User
@@ -439,25 +461,42 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
           width: "100%",
           flex: 1,
           overflowY: "auto",
-          position: 'relative',
+          position: "relative",
         }}
       >
         {/* Loading Indicator */}
         {isLoading && (
-          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(255, 255, 255, 0.7)', zIndex: 11 }}>
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              height: "100%",
+              position: "absolute",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: "rgba(255, 255, 255, 0.7)",
+              zIndex: 11,
+            }}
+          >
             <CircularProgress />
           </Box>
         )}
 
         {/* Error Message */}
         {!isLoading && error && (
-          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+          <Box
+            sx={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100%" }}
+          >
             <Typography color="error">{error}</Typography>
           </Box>
         )}
 
-        {!isLoading && !error && (
-          isMobile ? (
+        {!isLoading &&
+          !error &&
+          (isMobile ? (
             <Stack spacing={2} sx={{ overflowY: "auto", width: "100%" }}>
               {visibleRows.map((row) => (
                 <Card
@@ -470,24 +509,23 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
                     "&:hover": {
                       transform: "translateY(-2px)",
                       boxShadow: "0 4px 12px rgba(0,0,0,0.12)",
-                    }
+                    },
                   }}
                 >
                   <Stack direction="row" justifyContent="space-between" alignItems="center" mb={1}>
                     <Typography variant="h6" sx={{ fontWeight: 600, color: "#2E5B4C" }}>
                       {row.name}
                     </Typography>
-                    <IconButton
-                      size="small"
-                      onClick={(e) => handleMenuOpen(e, row.uid)}
-                    >
+                    <IconButton size="small" onClick={(e) => handleMenuOpen(e, row.uid)}>
                       <MoreVertIcon />
                     </IconButton>
                   </Stack>
                   <Divider sx={{ my: 1 }} />
                   <Stack spacing={1.5}>
                     <Box>
-                      <Typography variant="body2" color="text.secondary">Role</Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Role
+                      </Typography>
                       <Chip
                         label={getRoleDisplayName(row.role)}
                         size="small"
@@ -496,12 +534,16 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
                     </Box>
                     {row.phone && (
                       <Box>
-                        <Typography variant="body2" color="text.secondary">Phone</Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          Phone
+                        </Typography>
                         <Typography variant="body1">{row.phone}</Typography>
                       </Box>
                     )}
                     <Box>
-                      <Typography variant="body2" color="text.secondary">Email</Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Email
+                      </Typography>
                       <Typography variant="body1">{row.email}</Typography>
                     </Box>
                   </Stack>
@@ -538,39 +580,65 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
                             cursor: "pointer",
                           }}
                           onClick={
-                            field.key === "name" ? toggleNameSort :
-                            field.key === "role" ? toggleRoleSort :
-                            field.key === "phone" ? togglePhoneSort :
-                            field.key === "email" ? toggleEmailSort :
-                            undefined
+                            field.key === "name"
+                              ? toggleNameSort
+                              : field.key === "role"
+                                ? toggleRoleSort
+                                : field.key === "phone"
+                                  ? togglePhoneSort
+                                  : field.key === "email"
+                                    ? toggleEmailSort
+                                    : undefined
                           }
                         >
-                          <Typography variant="subtitle2" sx={{ fontWeight: 600, color: "#2E5B4C" }}>
+                          <Typography
+                            variant="subtitle2"
+                            sx={{ fontWeight: 600, color: "#2E5B4C" }}
+                          >
                             {field.label}
                           </Typography>
-                          {field.key === "name" && (
-                            !roleSortDirection && !phoneSortDirection && !emailSortDirection ? (
-                              nameSortDirection === "asc" ? <ArrowDropUpIcon /> : nameSortDirection === "desc" ? <ArrowDropDownIcon /> : <UnfoldMoreIcon sx={{ color: "#9E9E9E", fontSize: "1.2rem" }} />
+                          {field.key === "name" &&
+                            (!roleSortDirection && !phoneSortDirection && !emailSortDirection ? (
+                              nameSortDirection === "asc" ? (
+                                <ArrowDropUpIcon />
+                              ) : nameSortDirection === "desc" ? (
+                                <ArrowDropDownIcon />
+                              ) : (
+                                <UnfoldMoreIcon sx={{ color: "#9E9E9E", fontSize: "1.2rem" }} />
+                              )
+                            ) : roleSortDirection || phoneSortDirection || emailSortDirection ? (
+                              <UnfoldMoreIcon sx={{ color: "#9E9E9E", fontSize: "1.2rem" }} />
+                            ) : null)}
+                          {field.key === "role" &&
+                            (roleSortDirection ? (
+                              roleSortDirection === "asc" ? (
+                                <ArrowDropUpIcon />
+                              ) : (
+                                <ArrowDropDownIcon />
+                              )
                             ) : (
-                              roleSortDirection || phoneSortDirection || emailSortDirection ? 
-                              <UnfoldMoreIcon sx={{ color: "#9E9E9E", fontSize: "1.2rem" }} /> : null
-                            )
-                          )}
-                          {field.key === "role" && (
-                            roleSortDirection ? (
-                              roleSortDirection === "asc" ? <ArrowDropUpIcon /> : <ArrowDropDownIcon />
-                            ) : <UnfoldMoreIcon sx={{ color: "#9E9E9E", fontSize: "1.2rem" }} />
-                          )}
-                          {field.key === "phone" && (
-                            phoneSortDirection ? (
-                              phoneSortDirection === "asc" ? <ArrowDropUpIcon /> : <ArrowDropDownIcon />
-                            ) : <UnfoldMoreIcon sx={{ color: "#9E9E9E", fontSize: "1.2rem" }} />
-                          )}
-                          {field.key === "email" && (
-                            emailSortDirection ? (
-                              emailSortDirection === "asc" ? <ArrowDropUpIcon /> : <ArrowDropDownIcon />
-                            ) : <UnfoldMoreIcon sx={{ color: "#9E9E9E", fontSize: "1.2rem" }} />
-                          )}
+                              <UnfoldMoreIcon sx={{ color: "#9E9E9E", fontSize: "1.2rem" }} />
+                            ))}
+                          {field.key === "phone" &&
+                            (phoneSortDirection ? (
+                              phoneSortDirection === "asc" ? (
+                                <ArrowDropUpIcon />
+                              ) : (
+                                <ArrowDropDownIcon />
+                              )
+                            ) : (
+                              <UnfoldMoreIcon sx={{ color: "#9E9E9E", fontSize: "1.2rem" }} />
+                            ))}
+                          {field.key === "email" &&
+                            (emailSortDirection ? (
+                              emailSortDirection === "asc" ? (
+                                <ArrowDropUpIcon />
+                              ) : (
+                                <ArrowDropDownIcon />
+                              )
+                            ) : (
+                              <UnfoldMoreIcon sx={{ color: "#9E9E9E", fontSize: "1.2rem" }} />
+                            ))}
                         </Stack>
                       </TableCell>
                     ))}
@@ -579,8 +647,7 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
                       className="table-header"
                       align="right"
                       sx={{ backgroundColor: "#f5f9f7", borderBottom: "2px solid #e0e0e0" }}
-                    >
-                    </TableCell>
+                    ></TableCell>
                   </TableRow>
                 </TableHead>
 
@@ -594,16 +661,16 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
                         transition: "background-color 0.2s",
                         "&:hover": { backgroundColor: "rgba(46, 91, 76, 0.04)" },
                         "&:nth-of-type(odd)": { backgroundColor: "rgba(246, 248, 250, 0.5)" },
-                        "&:nth-of-type(odd):hover": { backgroundColor: "rgba(46, 91, 76, 0.06)" }
+                        "&:nth-of-type(odd):hover": { backgroundColor: "rgba(46, 91, 76, 0.06)" },
                       }}
                     >
                       {fields.map((field) => (
                         <TableCell key={field.key} sx={{ py: 1.5 }}>
                           {field.compute
                             ? field.compute(row)
-                            : field.key === 'role'
-                                ? getRoleDisplayName(row[field.key as keyof AuthUserRow] as UserType)
-                                : row[field.key as keyof AuthUserRow]?.toString() ?? "N/A" }
+                            : field.key === "role"
+                              ? getRoleDisplayName(row[field.key as keyof AuthUserRow] as UserType)
+                              : (row[field.key as keyof AuthUserRow]?.toString() ?? "N/A")}
                         </TableCell>
                       ))}
 
@@ -612,7 +679,7 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
                           onClick={(e) => handleMenuOpen(e, row.uid)}
                           sx={{
                             color: "#757575",
-                            "&:hover": { backgroundColor: "rgba(0, 0, 0, 0.04)", color: "#2E5B4C" }
+                            "&:hover": { backgroundColor: "rgba(0, 0, 0, 0.04)", color: "#2E5B4C" },
                           }}
                         >
                           <MoreVertIcon />
@@ -623,8 +690,7 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
                 </TableBody>
               </Table>
             </TableContainer>
-          )
-        )}
+          ))}
       </Box>
 
       {/* Action Menu (simplified) */}
@@ -635,14 +701,18 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
         PaperProps={{ elevation: 3, sx: { borderRadius: "8px", minWidth: "150px" } }}
       >
         <MenuItem
-          disabled = {userRole === UserType.Manager && (Array.isArray(rows) ? rows : []).find(r => r.uid === selectedRowId)?.role === UserType.Admin} //Client Intake does not have access to this page
+          disabled={
+            userRole === UserType.Manager &&
+            (Array.isArray(rows) ? rows : []).find((r) => r.uid === selectedRowId)?.role ===
+              UserType.Admin
+          } //Client Intake does not have access to this page
           onClick={() => {
             if (selectedRowId) {
               setDeleteModalOpen(true);
               setMenuAnchorEl(null);
             }
           }}
-          sx={{ py: 1.5, color: 'error.main' }}
+          sx={{ py: 1.5, color: "error.main" }}
         >
           <DeleteIcon fontSize="small" sx={{ mr: 1 }} /> Delete
         </MenuItem>
@@ -652,21 +722,21 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
       <DeleteUserModal
         open={deleteModalOpen}
         handleClose={handleCloseDeleteModal}
-        handleDelete={() => { 
-            if (selectedRowId) {
-              handleDeleteUser(selectedRowId)
-            } else {
-              console.error("No user selected for deletion.");
-              setActionFeedback({ type: 'error', message: 'Error: No user selected.' });
-              handleCloseDeleteModal();
-            }
+        handleDelete={() => {
+          if (selectedRowId) {
+            handleDeleteUser(selectedRowId);
+          } else {
+            console.error("No user selected for deletion.");
+            setActionFeedback({ type: "error", message: "Error: No user selected." });
+            handleCloseDeleteModal();
+          }
         }}
-        userName={(Array.isArray(rows) ? rows : []).find(r => r.uid === selectedRowId)?.name || 'this user'}
+        userName={
+          (Array.isArray(rows) ? rows : []).find((r) => r.uid === selectedRowId)?.name ||
+          "this user"
+        }
       />
-      <CreateUserModal
-        open={createModalOpen}
-        handleClose={handleCloseCreateModal}
-      />
+      <CreateUserModal open={createModalOpen} handleClose={handleCloseCreateModal} />
     </Box>
   );
 };

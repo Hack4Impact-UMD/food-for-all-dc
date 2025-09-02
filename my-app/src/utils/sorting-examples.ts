@@ -3,8 +3,8 @@
  * This file demonstrates how to implement sorting for different column types
  */
 
-import React from 'react';
-import { sortData, SortDirection, createValueGetters, createSortState } from './sorting';
+import React from "react";
+import { sortData, SortDirection, createValueGetters, createSortState } from "./sorting";
 
 // Example data interface (similar to your RowData)
 interface ExampleRowData {
@@ -40,7 +40,7 @@ interface ExampleRowData {
 export function sortByAddress(data: ExampleRowData[], direction: SortDirection) {
   return sortData(data, {
     key: "address",
-    direction
+    direction,
   });
 }
 
@@ -49,7 +49,7 @@ export function sortByFullName(data: ExampleRowData[], direction: SortDirection)
   return sortData(data, {
     key: "fullname", // This key won't exist in data, but getValue will handle it
     direction,
-    getValue: (item) => `${item.lastName}, ${item.firstName}`
+    getValue: (item) => `${item.lastName}, ${item.firstName}`,
   });
 }
 
@@ -57,7 +57,7 @@ export function sortByFullName(data: ExampleRowData[], direction: SortDirection)
 export function sortByAdults(data: ExampleRowData[], direction: SortDirection) {
   return sortData(data, {
     key: "adults",
-    direction
+    direction,
   });
 }
 
@@ -66,7 +66,7 @@ export function sortByTags(data: ExampleRowData[], direction: SortDirection) {
   return sortData(data, {
     key: "tags",
     direction,
-    getValue: createValueGetters.array("tags")
+    getValue: createValueGetters.array("tags"),
   });
 }
 
@@ -74,7 +74,7 @@ export function sortByTags(data: ExampleRowData[], direction: SortDirection) {
 export function sortByDeliveryInstructions(data: ExampleRowData[], direction: SortDirection) {
   return sortData(data, {
     key: "deliveryDetails.deliveryInstructions",
-    direction
+    direction,
   });
 }
 
@@ -87,15 +87,15 @@ export function sortByDietaryRestrictions(data: ExampleRowData[], direction: Sor
       const restrictions = [];
       const dr = item.deliveryDetails?.dietaryRestrictions;
       if (!dr) return "None";
-      
+
       if (dr.vegan) restrictions.push("Vegan");
       if (dr.halal) restrictions.push("Halal");
       if (Array.isArray(dr.foodAllergens) && dr.foodAllergens.length > 0) {
         restrictions.push(...dr.foodAllergens);
       }
-      
+
       return restrictions.length > 0 ? restrictions.join(", ") : "None";
-    }
+    },
   });
 }
 
@@ -107,7 +107,7 @@ export function sortByReferralEntity(data: ExampleRowData[], direction: SortDire
     getValue: (item) => {
       if (!item.referralEntity) return "";
       return `${item.referralEntity.name} ${item.referralEntity.organization}`;
-    }
+    },
   });
 }
 
@@ -116,7 +116,7 @@ export function sortByDateOfBirth(data: ExampleRowData[], direction: SortDirecti
   return sortData(data, {
     key: "dob",
     direction,
-    getValue: (item) => new Date(item.dob)
+    getValue: (item) => new Date(item.dob),
   });
 }
 
@@ -136,12 +136,12 @@ export function useTableSorting<T extends Record<string, any>>(initialData: T[])
     setSortDirection(newSortState.sortDirection);
 
     const sortedData = sortState.getSortedData(
-      data, 
-      newSortState.sortKey, 
+      data,
+      newSortState.sortKey,
       newSortState.sortDirection,
       getValue ? (item: T, key: string) => getValue(item) : undefined
     );
-    
+
     setData(sortedData);
   };
 
@@ -150,7 +150,7 @@ export function useTableSorting<T extends Record<string, any>>(initialData: T[])
     sortKey,
     sortDirection,
     handleSort,
-    setData
+    setData,
   };
 }
 
@@ -169,33 +169,33 @@ export const exampleColumnConfigs: ColumnConfig<ExampleRowData>[] = [
     key: "fullname",
     label: "Name",
     sortable: true,
-    getValue: (item) => `${item.lastName}, ${item.firstName}`
+    getValue: (item) => `${item.lastName}, ${item.firstName}`,
   },
   {
     key: "address",
-    label: "Address", 
-    sortable: true
+    label: "Address",
+    sortable: true,
   },
   {
     key: "phone",
     label: "Phone",
-    sortable: true
+    sortable: true,
   },
   {
     key: "adults",
     label: "Adults",
-    sortable: true
+    sortable: true,
   },
   {
     key: "tags",
     label: "Tags",
     sortable: true,
-    getValue: createValueGetters.array("tags")
+    getValue: createValueGetters.array("tags"),
   },
   {
     key: "deliveryDetails.deliveryInstructions",
     label: "Delivery Instructions",
-    sortable: true
+    sortable: true,
   },
   {
     key: "dietaryRestrictions",
@@ -205,23 +205,23 @@ export const exampleColumnConfigs: ColumnConfig<ExampleRowData>[] = [
       const restrictions = [];
       const dr = item.deliveryDetails?.dietaryRestrictions;
       if (!dr) return "None";
-      
+
       if (dr.vegan) restrictions.push("Vegan");
       if (dr.halal) restrictions.push("Halal");
       if (Array.isArray(dr.foodAllergens) && dr.foodAllergens.length > 0) {
         restrictions.push(...dr.foodAllergens);
       }
-      
+
       return restrictions.length > 0 ? restrictions.join(", ") : "None";
-    }
-  }
+    },
+  },
 ];
 
 /**
  * Usage in a table component:
- * 
+ *
  * const { data, sortKey, sortDirection, handleSort } = useTableSorting(initialData);
- * 
+ *
  * // In your table header:
  * <TableCell onClick={() => handleSort("fullname", (item) => `${item.lastName}, ${item.firstName}`)}>
  *   Name

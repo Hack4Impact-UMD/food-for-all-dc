@@ -31,7 +31,9 @@
   justify-content: center;
   font-size: 2rem !important;
   font-weight: bold !important;
-  transition: background 0.2s, color 0.2s;
+  transition:
+    background 0.2s,
+    color 0.2s;
   margin-bottom: var(--spacing-md) !important;
   box-shadow: none !important;
 }
@@ -96,7 +98,10 @@
 .react-datepicker__day,
 .react-datepicker__day-name {
   border-radius: var(--border-radius-md) !important;
-  transition: background 0.2s, color 0.2s, border-radius 0.2s;
+  transition:
+    background 0.2s,
+    color 0.2s,
+    border-radius 0.2s;
 }
 
 .react-datepicker__day:hover {

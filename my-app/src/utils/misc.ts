@@ -35,7 +35,7 @@ export const checkIfNotesExists = (
  * @returns A promise that resolves after the delay
  */
 export const delay = (ms: number): Promise<void> => {
-  return new Promise(resolve => setTimeout(resolve, ms));
+  return new Promise((resolve) => setTimeout(resolve, ms));
 };
 
 /**
@@ -46,15 +46,15 @@ export const delay = (ms: number): Promise<void> => {
  * @returns The property value or default value
  */
 export const getNestedValue = (obj: any, path: string, defaultValue: any = undefined): any => {
-  const keys = path.split('.');
+  const keys = path.split(".");
   let result = obj;
-  
+
   for (const key of keys) {
     if (result === undefined || result === null) {
       return defaultValue;
     }
     result = result[key];
   }
-  
+
   return result !== undefined ? result : defaultValue;
-}; 
+};

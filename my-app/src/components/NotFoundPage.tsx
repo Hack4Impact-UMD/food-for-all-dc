@@ -5,7 +5,15 @@ import { useNavigate } from "react-router-dom";
 const NotFoundPage: React.FC = () => {
   const navigate = useNavigate();
   return (
-    <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "80vh" }}>
+    <Box
+      sx={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        height: "80vh",
+      }}
+    >
       <Typography variant="h2" color="error" gutterBottom>
         404
       </Typography>
@@ -15,7 +23,9 @@ const NotFoundPage: React.FC = () => {
       <Typography variant="body1" sx={{ mb: 2 }}>
         Sorry, the page you are looking for does not exist.
       </Typography>
-      <Button variant="contained" color="primary" onClick={() => navigate("/")}>Go Home</Button>
+      <Button variant="contained" color="primary" onClick={() => navigate("/")}>
+        Go Home
+      </Button>
     </Box>
   );
 };

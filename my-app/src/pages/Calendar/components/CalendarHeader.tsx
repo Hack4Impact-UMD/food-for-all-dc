@@ -78,18 +78,21 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
           variant="outlined"
           sx={{
             width: 80,
-            backgroundColor: '#257E68',
-            color: '#fff',
-            border: '1px solid #257E68',
-            '&:hover': {
-              backgroundColor: '#1e6b57',
-              border: '1px solid #1e6b57',
+            backgroundColor: "#257E68",
+            color: "#fff",
+            border: "1px solid #257E68",
+            "&:hover": {
+              backgroundColor: "#1e6b57",
+              border: "1px solid #1e6b57",
             },
           }}
         >
           {viewType}
         </Button>
-        <Button sx={{ width: 50, fontSize: 12, display: "flex", alignItems: "center" }} onClick={onNavigateToday}>
+        <Button
+          sx={{ width: 50, fontSize: 12, display: "flex", alignItems: "center" }}
+          onClick={onNavigateToday}
+        >
           Today
         </Button>
         <Box sx={{ display: "flex", alignItems: "center" }}>
@@ -103,7 +106,7 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
           alignItems: "center",
         }}
       >
-         <IconButton onClick={onNavigatePrev} size="large" sx={{ color: "#257E68" }}>
+        <IconButton onClick={onNavigatePrev} size="large" sx={{ color: "#257E68" }}>
           <Box
             sx={{
               width: 12,
@@ -121,13 +124,13 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
             marginRight: 2,
             color: "#787777",
             width: "425px",
-            textAlign: "center"
+            textAlign: "center",
           }}
         >
           {viewType === "Day" && currentDate.toString("dddd - MMMM, dd/yyyy")}
           {viewType === "Month" && currentDate.toString("MMMM yyyy")}
         </Typography>
-       
+
         <IconButton onClick={onNavigateNext} size="large" sx={{ color: "#257E68" }}>
           <Box
             sx={{

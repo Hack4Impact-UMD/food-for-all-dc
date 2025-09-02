@@ -1,19 +1,12 @@
-import React, { Suspense } from 'react';
-import { withPerformanceOptimization } from '../../hooks/usePerformance';
+import React, { Suspense } from "react";
+import { withPerformanceOptimization } from "../../hooks/usePerformance";
 
 // Lazy loading container with error boundaries
-const LazyLoadContainer = withPerformanceOptimization(
-  ({ children, fallback = <div>Loading...</div> }: { 
-    children: React.ReactNode;
-    fallback?: React.ReactNode;
-  }) => {
-    return (
-      <Suspense fallback={fallback}>
-        {children}
-      </Suspense>
-    );
-  }
-);
+const LazyLoadContainer = withPerformanceOptimization(({ children, fallback = <div>
+      Loading...
+    </div> }: { children: React.ReactNode; fallback?: React.ReactNode }) => {
+  return <Suspense fallback={fallback}>{children}</Suspense>;
+});
 
 // Virtualized list item for large datasets
 interface VirtualizedListItemProps {
@@ -24,12 +17,7 @@ interface VirtualizedListItemProps {
 }
 
 const VirtualizedListItem = withPerformanceOptimization(
-  ({ 
-    index, 
-    style, 
-    data, 
-    ItemComponent 
-  }: VirtualizedListItemProps) => {
+  ({ index, style, data, ItemComponent }: VirtualizedListItemProps) => {
     return (
       <div style={style}>
         <ItemComponent {...data[index]} />
@@ -52,23 +40,20 @@ interface ConditionalRenderProps {
 }
 
 const ConditionalRender = withPerformanceOptimization(
-  ({ 
-    condition, 
-    children, 
-    fallback = null 
-  }: ConditionalRenderProps) => {
+  ({ condition, children, fallback = null }: ConditionalRenderProps) => {
     return condition ? <>{children}</> : <>{fallback}</>;
   },
-  (prevProps: ConditionalRenderProps, nextProps: ConditionalRenderProps) => prevProps.condition === nextProps.condition
+  (prevProps: ConditionalRenderProps, nextProps: ConditionalRenderProps) =>
+    prevProps.condition === nextProps.condition
 );
 
 // Image component with lazy loading
 const LazyImage = withPerformanceOptimization(
-  ({ 
-    src, 
-    alt, 
+  ({
+    src,
+    alt,
     className,
-    placeholder = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iI2VlZSIvPjwvc3ZnPg=='
+    placeholder = "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iI2VlZSIvPjwvc3ZnPg==",
   }: {
     src: string;
     alt: string;
@@ -88,22 +73,17 @@ const LazyImage = withPerformanceOptimization(
     }, [src]);
 
     return (
-      <img 
-        src={imageSrc} 
-        alt={alt} 
-        className={`${className} ${isLoaded ? 'loaded' : 'loading'}`}
-        style={{ 
-          transition: 'opacity 0.3s ease',
-          opacity: isLoaded ? 1 : 0.7
+      <img
+        src={imageSrc}
+        alt={alt}
+        className={`${className} ${isLoaded ? "loaded" : "loading"}`}
+        style={{
+          transition: "opacity 0.3s ease",
+          opacity: isLoaded ? 1 : 0.7,
         }}
       />
     );
   }
 );
 
-export {
-  LazyLoadContainer,
-  VirtualizedListItem,
-  ConditionalRender,
-  LazyImage
-};
+export { LazyLoadContainer, VirtualizedListItem, ConditionalRender, LazyImage };

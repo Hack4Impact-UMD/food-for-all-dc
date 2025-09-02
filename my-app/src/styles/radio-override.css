@@ -6,7 +6,7 @@
 
 .MuiRadio-root:focus-visible::after,
 .MuiRadio-root.Mui-focusVisible::after {
-  content: '' !important;
+  content: "" !important;
   position: absolute !important;
   top: -8px !important;
   left: -8px !important;
@@ -25,12 +25,12 @@
 
 /* Checked state - ensure it matches checkbox color */
 .MuiRadio-root.Mui-checked {
-  color: #257E68 !important; /* Same green as checkboxes */
+  color: #257e68 !important; /* Same green as checkboxes */
 }
 
 /* Focused state - ensure it matches checkbox focus color */
 .MuiRadio-root.Mui-focusVisible .MuiSvgIcon-root {
-  color: #257E68 !important; /* Same green as checkboxes */
+  color: #257e68 !important; /* Same green as checkboxes */
 }
 
 /* Override any ripple effects */

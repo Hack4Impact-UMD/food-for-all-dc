@@ -1,5 +1,5 @@
-import React from 'react';
-import ConfirmationModal from '../ConfirmationModal';
+import React from "react";
+import ConfirmationModal from "../ConfirmationModal";
 
 /**
  * Modal for confirming client deletion
@@ -17,12 +17,12 @@ interface DeleteClientModalProps {
   id: string;
 }
 
-const DeleteClientModal: React.FC<DeleteClientModalProps> = ({ 
-  handleMenuClose, 
-  handleDeleteRow, 
-  open, 
-  setOpen, 
-  id 
+const DeleteClientModal: React.FC<DeleteClientModalProps> = ({
+  handleMenuClose,
+  handleDeleteRow,
+  open,
+  setOpen,
+  id,
 }) => {
   const handleClose = () => {
     setOpen(false);

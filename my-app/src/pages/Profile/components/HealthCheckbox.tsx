@@ -1,5 +1,5 @@
-import React from 'react';
-import { FormControlLabel, Checkbox, TextField, Box } from '@mui/material';
+import React from "react";
+import { FormControlLabel, Checkbox, TextField, Box } from "@mui/material";
 
 interface HealthCheckboxProps {
   checked: boolean;
@@ -17,20 +17,22 @@ const checkboxStyles = {
     outline: "none",
     "& .MuiSvgIcon-root": {
       color: "#257E68",
-      filter: "drop-shadow(0 0 8px rgba(37, 126, 104, 0.4)) drop-shadow(0 0 16px rgba(37, 126, 104, 0.2))",
+      filter:
+        "drop-shadow(0 0 8px rgba(37, 126, 104, 0.4)) drop-shadow(0 0 16px rgba(37, 126, 104, 0.2))",
     },
   },
   "& input:focus + .MuiSvgIcon-root": {
     color: "#257E68",
-    filter: "drop-shadow(0 0 8px rgba(37, 126, 104, 0.4)) drop-shadow(0 0 16px rgba(37, 126, 104, 0.2))",
+    filter:
+      "drop-shadow(0 0 8px rgba(37, 126, 104, 0.4)) drop-shadow(0 0 16px rgba(37, 126, 104, 0.2))",
   },
 };
 
 const textFieldStyles = {
   flexGrow: 1,
-  marginTop: '5%',
-  '& .MuiOutlinedInput-root': {
-    '&.Mui-focused fieldset': {
+  marginTop: "5%",
+  "& .MuiOutlinedInput-root": {
+    "&.Mui-focused fieldset": {
       borderColor: "#257E68",
       border: "2px solid #257E68",
       boxShadow: "0 0 8px rgba(37, 126, 104, 0.4), 0 0 16px rgba(37, 126, 104, 0.2)",
@@ -45,13 +47,15 @@ const HealthCheckbox: React.FC<HealthCheckboxProps> = ({
   label,
   showOtherText = false,
   otherTextValue = "",
-  placeholder = "Please specify"
+  placeholder = "Please specify",
 }) => {
   if (name === "other" && showOtherText) {
     return (
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
+      <Box sx={{ display: "flex", alignItems: "center", gap: 1, width: "100%" }}>
         <FormControlLabel
-          control={<Checkbox checked={checked} onChange={onChange} name={name} sx={checkboxStyles} />}
+          control={
+            <Checkbox checked={checked} onChange={onChange} name={name} sx={checkboxStyles} />
+          }
           label={label}
         />
         {checked && (

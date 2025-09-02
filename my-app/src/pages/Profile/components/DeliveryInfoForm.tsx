@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Box, Typography, MenuItem } from "@mui/material";
-import { CaseWorker, ClientProfile } from '../../../types';
-import { ClientProfileKey, InputType } from '../types';
+import { CaseWorker, ClientProfile } from "../../../types";
+import { ClientProfileKey, InputType } from "../types";
 import { styled, Select } from "@mui/material";
 import TagManager from "../Tags/TagManager";
 import { validateDateRange } from "../../../utils/dateValidation";
@@ -13,7 +13,11 @@ interface DeliveryInfoFormProps {
   fieldLabelStyles: any;
   lastDeliveryDate: string | null;
   isSaved: boolean;
-  onDateValidationChange?: (isValid: boolean, startDateError?: string, endDateError?: string) => void;
+  onDateValidationChange?: (
+    isValid: boolean,
+    startDateError?: string,
+    endDateError?: string
+  ) => void;
 }
 
 const fieldStyles = {
@@ -64,10 +68,10 @@ const DeliveryInfoForm: React.FC<DeliveryInfoFormProps> = ({
       const validation = validateDateRange(clientProfile.startDate, clientProfile.endDate);
       const startError = validation.startDateError || "";
       const endError = validation.endDateError || "";
-      
+
       setStartDateError(startError);
       setEndDateError(endError);
-      
+
       // Notify parent component of validation state
       if (onDateValidationChange) {
         onDateValidationChange(validation.isValid, startError, endError);
@@ -103,13 +107,13 @@ const DeliveryInfoForm: React.FC<DeliveryInfoFormProps> = ({
           </Typography>
           {renderField("startDate", "date")}
           {startDateError && (
-            <Typography 
-              color="error" 
-              variant="body2" 
-              sx={{ 
-                fontSize: '0.75rem', 
-                marginTop: '4px',
-                fontStyle: 'italic'
+            <Typography
+              color="error"
+              variant="body2"
+              sx={{
+                fontSize: "0.75rem",
+                marginTop: "4px",
+                fontStyle: "italic",
               }}
               role="alert"
               aria-live="polite"
@@ -126,13 +130,13 @@ const DeliveryInfoForm: React.FC<DeliveryInfoFormProps> = ({
           </Typography>
           {renderField("endDate", "date")}
           {endDateError && (
-            <Typography 
-              color="error" 
-              variant="body2" 
-              sx={{ 
-                fontSize: '0.75rem', 
-                marginTop: '4px',
-                fontStyle: 'italic'
+            <Typography
+              color="error"
+              variant="body2"
+              sx={{
+                fontSize: "0.75rem",
+                marginTop: "4px",
+                fontStyle: "italic",
               }}
               role="alert"
               aria-live="polite"
@@ -161,22 +165,24 @@ const DeliveryInfoForm: React.FC<DeliveryInfoFormProps> = ({
         </Box>
 
         {/* Delivery Instructions */}
-        <Box sx={{ 
-          gridColumn: { xs: '1', sm: 'span 1' },
-          width: '100%',
-          '& .MuiTextField-root': {
-            width: '100%',
-            '& .MuiInputBase-root': {
-              minHeight: '56px',
-              height: 'auto',
-              alignItems: 'flex-start',
+        <Box
+          sx={{
+            gridColumn: { xs: "1", sm: "span 1" },
+            width: "100%",
+            "& .MuiTextField-root": {
+              width: "100%",
+              "& .MuiInputBase-root": {
+                minHeight: "56px",
+                height: "auto",
+                alignItems: "flex-start",
+              },
+              "& .MuiInputBase-inputMultiline": {
+                minHeight: "80px !important",
+                padding: "16px 14px !important",
+              },
             },
-            '& .MuiInputBase-inputMultiline': {
-              minHeight: '80px !important',
-              padding: '16px 14px !important',
-            }
-          }
-        }}>
+          }}
+        >
           <Typography className="field-descriptor" sx={fieldLabelStyles}>
             DELIVERY INSTRUCTIONS
           </Typography>
@@ -187,10 +193,10 @@ const DeliveryInfoForm: React.FC<DeliveryInfoFormProps> = ({
               {clientProfile.deliveryInstructionsTimestamp &&
                 clientProfile.deliveryInstructionsTimestamp.timestamp &&
                 new Date(
-                  typeof clientProfile.deliveryInstructionsTimestamp.timestamp === 'object' &&
-                    clientProfile.deliveryInstructionsTimestamp.timestamp !== null &&
-                    'toDate' in clientProfile.deliveryInstructionsTimestamp.timestamp &&
-                    typeof clientProfile.deliveryInstructionsTimestamp.timestamp.toDate === 'function'
+                  typeof clientProfile.deliveryInstructionsTimestamp.timestamp === "object" &&
+                  clientProfile.deliveryInstructionsTimestamp.timestamp !== null &&
+                  "toDate" in clientProfile.deliveryInstructionsTimestamp.timestamp &&
+                  typeof clientProfile.deliveryInstructionsTimestamp.timestamp.toDate === "function"
                     ? clientProfile.deliveryInstructionsTimestamp.timestamp.toDate()
                     : clientProfile.deliveryInstructionsTimestamp.timestamp
                 ).toLocaleString()}
@@ -199,22 +205,24 @@ const DeliveryInfoForm: React.FC<DeliveryInfoFormProps> = ({
         </Box>
 
         {/* Notes */}
-        <Box sx={{ 
-          gridColumn: { xs: '1', sm: 'span 1' },
-          width: '100%',
-          '& .MuiTextField-root': {
-            width: '100%',
-            '& .MuiInputBase-root': {
-              minHeight: '56px',
-              height: 'auto',
-              alignItems: 'flex-start',
+        <Box
+          sx={{
+            gridColumn: { xs: "1", sm: "span 1" },
+            width: "100%",
+            "& .MuiTextField-root": {
+              width: "100%",
+              "& .MuiInputBase-root": {
+                minHeight: "56px",
+                height: "auto",
+                alignItems: "flex-start",
+              },
+              "& .MuiInputBase-inputMultiline": {
+                minHeight: "80px !important",
+                padding: "16px 14px !important",
+              },
             },
-            '& .MuiInputBase-inputMultiline': {
-              minHeight: '80px !important',
-              padding: '16px 14px !important',
-            }
-          }
-        }}>
+          }}
+        >
           <Typography className="field-descriptor" sx={fieldLabelStyles}>
             ADMIN NOTES
           </Typography>
@@ -225,10 +233,10 @@ const DeliveryInfoForm: React.FC<DeliveryInfoFormProps> = ({
               {clientProfile.notesTimestamp &&
                 clientProfile.notesTimestamp.timestamp &&
                 new Date(
-                  typeof clientProfile.notesTimestamp.timestamp === 'object' &&
-                    clientProfile.notesTimestamp.timestamp !== null &&
-                    'toDate' in clientProfile.notesTimestamp.timestamp &&
-                    typeof clientProfile.notesTimestamp.timestamp.toDate === 'function'
+                  typeof clientProfile.notesTimestamp.timestamp === "object" &&
+                  clientProfile.notesTimestamp.timestamp !== null &&
+                  "toDate" in clientProfile.notesTimestamp.timestamp &&
+                  typeof clientProfile.notesTimestamp.timestamp.toDate === "function"
                     ? clientProfile.notesTimestamp.timestamp.toDate()
                     : clientProfile.notesTimestamp.timestamp
                 ).toLocaleString()}

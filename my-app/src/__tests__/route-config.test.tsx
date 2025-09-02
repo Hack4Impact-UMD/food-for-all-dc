@@ -19,7 +19,7 @@ jest.mock("../auth/AuthProvider", () => {
   };
 });
 import "../setupTests";
-jest.mock('firebase/firestore');
+jest.mock("firebase/firestore");
 // ...existing code...
 jest.setTimeout(30000);
 import React from "react";

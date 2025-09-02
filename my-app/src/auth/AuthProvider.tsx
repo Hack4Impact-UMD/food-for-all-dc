@@ -1,9 +1,4 @@
-import {
-  getAuth,
-  onAuthStateChanged,
-  signOut, 
-  type IdTokenResult, 
-} from "firebase/auth";
+import { getAuth, onAuthStateChanged, signOut, type IdTokenResult } from "firebase/auth";
 import { AuthUser, AuthError } from "../types/user-types";
 import React, { createContext, useContext, useEffect, useState, useCallback, useMemo } from "react";
 import { getFirebaseAuth, getFirebaseDb } from "./firebaseConfig";
@@ -70,7 +65,7 @@ export const AuthProvider = ({ children }: Props): React.ReactElement => {
   const fetchUserRole = useCallback(async (uid: string): Promise<UserType | null> => {
     // Check cache first with expiration
     const cachedEntry = userRoleCache.get(uid);
-    if (cachedEntry && (Date.now() - cachedEntry.timestamp) < CACHE_DURATION) {
+    if (cachedEntry && Date.now() - cachedEntry.timestamp < CACHE_DURATION) {
       return cachedEntry.role;
     }
 
@@ -104,14 +99,14 @@ export const AuthProvider = ({ children }: Props): React.ReactElement => {
         // Cache the result with timestamp
         userRoleCache.set(uid, {
           role: roleEnum,
-          timestamp: Date.now()
+          timestamp: Date.now(),
         });
         return roleEnum;
       } else {
         console.warn(`User document not found in Firestore for UID: ${uid}`);
         userRoleCache.set(uid, {
           role: null,
-          timestamp: Date.now()
+          timestamp: Date.now(),
         });
         return null;
       }
@@ -140,11 +135,11 @@ export const AuthProvider = ({ children }: Props): React.ReactElement => {
           const tokenPromise = newUser.getIdTokenResult();
           const rolePromise = fetchUserRole(newUser.uid);
           const timeoutPromise = new Promise<never>((_, reject) => {
-            setTimeout(() => reject(new Error('Auth timeout')), 10000);
+            setTimeout(() => reject(new Error("Auth timeout")), 10000);
           });
           const [tokenResult, role] = await Promise.race([
             Promise.all([tokenPromise, rolePromise]),
-            timeoutPromise
+            timeoutPromise,
           ]);
           setToken(tokenResult);
           setUserRole(role);
@@ -152,7 +147,10 @@ export const AuthProvider = ({ children }: Props): React.ReactElement => {
         } catch (err: any) {
           setToken(null);
           setUserRole(null);
-          setError({ code: err.code || "auth/token-role-error", message: err.message || "Failed to fetch token or role." });
+          setError({
+            code: err.code || "auth/token-role-error",
+            message: err.message || "Failed to fetch token or role.",
+          });
           console.error("Error fetching user token or role:", err);
         }
       } else {
@@ -168,20 +166,19 @@ export const AuthProvider = ({ children }: Props): React.ReactElement => {
   }, [fetchUserRole]);
 
   // Memoize the context value to prevent unnecessary re-renders
-  const contextValue = useMemo(() => ({
-    user,
-    token,
-    loading,
-    userRole,
-    error,
-    logout
-  }), [user, token, loading, userRole, error, logout]);
-
-  return (
-    <AuthContext.Provider value={contextValue}>
-      {children}
-    </AuthContext.Provider>
+  const contextValue = useMemo(
+    () => ({
+      user,
+      token,
+      loading,
+      userRole,
+      error,
+      logout,
+    }),
+    [user, token, loading, userRole, error, logout]
   );
+
+  return <AuthContext.Provider value={contextValue}>{children}</AuthContext.Provider>;
 };
 
 export const useAuth = () => useContext(AuthContext);

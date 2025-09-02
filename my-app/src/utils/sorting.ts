@@ -14,10 +14,7 @@ export interface SortConfig<T> {
 /**
  * Generic sorting function that can handle various data types
  */
-export function sortData<T extends Record<string, any>>(
-  data: T[],
-  config: SortConfig<T>
-): T[] {
+export function sortData<T extends Record<string, any>>(data: T[], config: SortConfig<T>): T[] {
   if (!data || data.length === 0) {
     return data;
   }
@@ -36,7 +33,7 @@ export function sortData<T extends Record<string, any>>(
  * Example: getNestedValue(obj, "user.profile.name")
  */
 function getNestedValue(obj: any, path: string): any {
-  return path.split('.').reduce((current, key) => {
+  return path.split(".").reduce((current, key) => {
     return current && current[key] !== undefined ? current[key] : null;
   }, obj);
 }
@@ -70,7 +67,7 @@ function compareValues(a: any, b: any): number {
   // Default to string comparison
   const strA = String(normalizedA).toLowerCase();
   const strB = String(normalizedB).toLowerCase();
-  
+
   return strA.localeCompare(strB);
 }
 
@@ -88,7 +85,7 @@ function normalizeValue(value: any): any {
   // Handle objects - convert to string representation
   if (typeof value === "object" && value.constructor === Object) {
     // For objects like referralEntity, create a searchable string
-    const objValues = Object.values(value).filter(v => v != null);
+    const objValues = Object.values(value).filter((v) => v != null);
     return objValues.join(" ");
   }
 
@@ -160,37 +157,37 @@ export function createSortState<T extends Record<string, any>>(
   return {
     sortKey: initialKey || null,
     sortDirection: initialDirection,
-    
-    toggleSort: function(key: string, currentKey: string | null, currentDirection: SortDirection) {
+
+    toggleSort: function (key: string, currentKey: string | null, currentDirection: SortDirection) {
       if (currentKey === key) {
         // Same column, toggle direction
         return {
           sortKey: key,
-          sortDirection: currentDirection === "asc" ? "desc" : "asc" as SortDirection
+          sortDirection: currentDirection === "asc" ? "desc" : ("asc" as SortDirection),
         };
       } else {
         // Different column, start with ascending
         return {
           sortKey: key,
-          sortDirection: "asc" as SortDirection
+          sortDirection: "asc" as SortDirection,
         };
       }
     },
 
-    getSortedData: function(
-      data: T[], 
-      sortKey: string | null, 
-      sortDirection: SortDirection, 
+    getSortedData: function (
+      data: T[],
+      sortKey: string | null,
+      sortDirection: SortDirection,
       getValue?: (item: T, key: string) => any
     ): T[] {
       if (!sortKey) return data;
-      
+
       return sortData(data, {
         key: sortKey,
         direction: sortDirection,
-        getValue: getValue ? (item: T) => getValue(item, sortKey) : undefined
+        getValue: getValue ? (item: T) => getValue(item, sortKey) : undefined,
       });
-    }
+    },
   };
 }
 
@@ -206,24 +203,33 @@ export const createValueGetters = {
   /**
    * For nested object properties
    */
-  nested: <T>(path: string) => (item: T) => getNestedValue(item, path),
+  nested:
+    <T>(path: string) =>
+    (item: T) =>
+      getNestedValue(item, path),
 
   /**
    * For array fields (joins array elements)
    */
-  array: <T>(key: string, separator = ", ") => (item: T) => {
-    const value = getNestedValue(item, key);
-    return Array.isArray(value) ? value.join(separator) : value;
-  },
+  array:
+    <T>(key: string, separator = ", ") =>
+    (item: T) => {
+      const value = getNestedValue(item, key);
+      return Array.isArray(value) ? value.join(separator) : value;
+    },
 
   /**
    * For object fields (creates searchable string)
    */
-  object: <T>(key: string) => (item: T) => {
-    const value = getNestedValue(item, key);
-    if (value && typeof value === "object" && !Array.isArray(value)) {
-      return Object.values(value).filter(v => v != null).join(" ");
-    }
-    return value;
-  }
+  object:
+    <T>(key: string) =>
+    (item: T) => {
+      const value = getNestedValue(item, key);
+      if (value && typeof value === "object" && !Array.isArray(value)) {
+        return Object.values(value)
+          .filter((v) => v != null)
+          .join(" ");
+      }
+      return value;
+    },
 };

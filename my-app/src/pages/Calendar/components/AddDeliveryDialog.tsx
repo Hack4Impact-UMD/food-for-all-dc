@@ -14,7 +14,7 @@ import {
   Box,
   Typography,
 } from "@mui/material";
-import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
+import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
 import { validateDateInput } from "../../../utils/dates";
 import { NewDelivery } from "../../../types/calendar-types";
 import { ClientProfile } from "../../../types/client-types";
@@ -43,9 +43,8 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = ({
   onAddDelivery,
   clients,
   startDate,
-  preSelectedClient
+  preSelectedClient,
 }) => {
-
   const [newDelivery, setNewDelivery] = useState<NewDelivery>(() => {
     // If we have a pre-selected client, initialize with their data
     if (preSelectedClient) {
@@ -53,12 +52,19 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = ({
         clientId: preSelectedClient.clientId,
         clientName: preSelectedClient.clientName,
         deliveryDate: startDate.toString("yyyy-MM-dd"),
-        recurrence: (preSelectedClient.clientProfile.recurrence as "None" | "Weekly" | "2x-Monthly" | "Monthly" | "Custom") || "None",
-        repeatsEndDate: preSelectedClient.clientProfile.endDate || 
+        recurrence:
+          (preSelectedClient.clientProfile.recurrence as
+            | "None"
+            | "Weekly"
+            | "2x-Monthly"
+            | "Monthly"
+            | "Custom") || "None",
+        repeatsEndDate:
+          preSelectedClient.clientProfile.endDate ||
           new Date(new Date().setMonth(new Date().getMonth() + 1)).toISOString().split("T")[0],
       };
     }
-    
+
     return {
       clientId: "",
       clientName: "",
@@ -74,9 +80,16 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = ({
 
   // Validate date range whenever delivery date or end date changes
   useEffect(() => {
-    if (newDelivery.recurrence !== "None" && newDelivery.recurrence !== "Custom" && 
-        newDelivery.deliveryDate && newDelivery.repeatsEndDate) {
-      const validation = validateDeliveryDateRange(newDelivery.deliveryDate, newDelivery.repeatsEndDate);
+    if (
+      newDelivery.recurrence !== "None" &&
+      newDelivery.recurrence !== "Custom" &&
+      newDelivery.deliveryDate &&
+      newDelivery.repeatsEndDate
+    ) {
+      const validation = validateDeliveryDateRange(
+        newDelivery.deliveryDate,
+        newDelivery.repeatsEndDate
+      );
       setStartDateError(validation.startDateError || "");
       setEndDateError(validation.endDateError || "");
     } else {
@@ -88,7 +101,7 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = ({
   //update newDelivery with the correct date when the dialog is first opened
   useEffect(() => {
     if (open) {
-      setNewDelivery(prev => ({
+      setNewDelivery((prev) => ({
         ...prev,
         deliveryDate: startDate.toString("yyyy-MM-dd"),
       }));
@@ -102,8 +115,15 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = ({
         clientId: preSelectedClient.clientId,
         clientName: preSelectedClient.clientName,
         deliveryDate: startDate.toString("yyyy-MM-dd"),
-        recurrence: (preSelectedClient.clientProfile.recurrence as "None" | "Weekly" | "2x-Monthly" | "Monthly" | "Custom") || "None",
-        repeatsEndDate: preSelectedClient.clientProfile.endDate || 
+        recurrence:
+          (preSelectedClient.clientProfile.recurrence as
+            | "None"
+            | "Weekly"
+            | "2x-Monthly"
+            | "Monthly"
+            | "Custom") || "None",
+        repeatsEndDate:
+          preSelectedClient.clientProfile.endDate ||
           new Date(new Date().setMonth(new Date().getMonth() + 1)).toISOString().split("T")[0],
       });
     } else {
@@ -123,11 +143,18 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = ({
   };
   const handleSubmit = () => {
     // Validate dates before submission
-    if (newDelivery.recurrence !== "None" && newDelivery.recurrence !== "Custom" && 
-        newDelivery.deliveryDate && newDelivery.repeatsEndDate) {
-      const validation = validateDeliveryDateRange(newDelivery.deliveryDate, newDelivery.repeatsEndDate);
+    if (
+      newDelivery.recurrence !== "None" &&
+      newDelivery.recurrence !== "Custom" &&
+      newDelivery.deliveryDate &&
+      newDelivery.repeatsEndDate
+    ) {
+      const validation = validateDeliveryDateRange(
+        newDelivery.deliveryDate,
+        newDelivery.repeatsEndDate
+      );
       if (!validation.isValid) {
-        console.log(validation.endDateError)
+        console.log(validation.endDateError);
         setStartDateError(validation.startDateError || "");
         setEndDateError(validation.endDateError || "");
         return;
@@ -136,7 +163,7 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = ({
 
     const deliveryToSubmit: Partial<NewDelivery> = { ...newDelivery };
     if (newDelivery.recurrence === "Custom") {
-      deliveryToSubmit.customDates = customDates.map(date => date.toISOString().split("T")[0]);
+      deliveryToSubmit.customDates = customDates.map((date) => date.toISOString().split("T")[0]);
       deliveryToSubmit.deliveryDate = customDates[0]?.toISOString().split("T")[0] || "";
       deliveryToSubmit.repeatsEndDate = undefined;
     }
@@ -144,18 +171,18 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = ({
     setCustomDates([]);
     resetFormAndClose();
   };
-  
+
   // Update validation logic - if we have a pre-selected client, clientId is always valid
-  const isFormValid = 
+  const isFormValid =
     (preSelectedClient ? true : newDelivery.clientId !== "") &&
     (newDelivery.recurrence !== "Custom" || customDates.length > 0);
 
   // Filter out duplicate clients based on UID - memoized for performance
   const uniqueClients = React.useMemo(() => {
-    const filtered = clients.filter((client, index, self) => 
-      index === self.findIndex(c => c.uid === client.uid)
+    const filtered = clients.filter(
+      (client, index, self) => index === self.findIndex((c) => c.uid === client.uid)
     );
-    
+
     return filtered;
   }, [clients]);
 
@@ -165,24 +192,27 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = ({
   };
 
   // Custom filter function to ensure we never see duplicates
-  const filterOptions = React.useCallback((options: ClientProfile[], { inputValue }: { inputValue: string }) => {
-    // Start with our unique clients, not the passed options
-    const uniqueOptions = uniqueClients.filter((client, index, self) => 
-      index === self.findIndex(c => c.uid === client.uid)
-    );
-    
-    // Apply text filtering
-    const textFiltered = uniqueOptions.filter((option) =>
-      getDisplayLabel(option).toLowerCase().includes(inputValue.toLowerCase())
-    );
-    
-    return textFiltered;
-  }, [uniqueClients]);
+  const filterOptions = React.useCallback(
+    (options: ClientProfile[], { inputValue }: { inputValue: string }) => {
+      // Start with our unique clients, not the passed options
+      const uniqueOptions = uniqueClients.filter(
+        (client, index, self) => index === self.findIndex((c) => c.uid === client.uid)
+      );
+
+      // Apply text filtering
+      const textFiltered = uniqueOptions.filter((option) =>
+        getDisplayLabel(option).toLowerCase().includes(inputValue.toLowerCase())
+      );
+
+      return textFiltered;
+    },
+    [uniqueClients]
+  );
 
   return (
     <Dialog open={open} onClose={resetFormAndClose} maxWidth="sm" fullWidth>
       <DialogTitle>Add Delivery</DialogTitle>
-      <DialogContent sx={{ maxHeight: '70vh', overflowY: 'auto', overflowX: 'hidden' }}>
+      <DialogContent sx={{ maxHeight: "70vh", overflowY: "auto", overflowX: "hidden" }}>
         {/* Unified layout for all fields */}
         <Box display="flex" flexDirection="column" gap={2}>
           {/* Conditionally render client selection only if no pre-selected client */}
@@ -194,67 +224,71 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = ({
               getOptionLabel={getDisplayLabel}
               getOptionKey={(option) => option.uid}
               filterOptions={filterOptions}
-              value={newDelivery.clientId ? uniqueClients.find(c => c.uid === newDelivery.clientId) : undefined}
+              value={
+                newDelivery.clientId
+                  ? uniqueClients.find((c) => c.uid === newDelivery.clientId)
+                  : undefined
+              }
               sx={{
-                width: 'calc(100% + 38px)',
-                maxWidth: 'calc(100% + 38px)',
-                '.MuiInputBase-root': { width: '100%' },
-                '.MuiOutlinedInput-root': {
-                  width: '100%',
-                  height: '56px',
-                  minHeight: '56px',
-                  boxSizing: 'border-box',
+                width: "calc(100% + 38px)",
+                maxWidth: "calc(100% + 38px)",
+                ".MuiInputBase-root": { width: "100%" },
+                ".MuiOutlinedInput-root": {
+                  width: "100%",
+                  height: "56px",
+                  minHeight: "56px",
+                  boxSizing: "border-box",
                 },
-                '.MuiOutlinedInput-input': {
-                  height: '56px',
-                  minHeight: '56px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  boxSizing: 'border-box',
+                ".MuiOutlinedInput-input": {
+                  height: "56px",
+                  minHeight: "56px",
+                  display: "flex",
+                  alignItems: "center",
+                  boxSizing: "border-box",
                 },
               }}
               componentsProps={{
                 popupIndicator: {
                   style: {
-                    position: 'absolute',
+                    position: "absolute",
                     right: 14,
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    pointerEvents: 'none',
-                  }
-                }
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    pointerEvents: "none",
+                  },
+                },
               }}
               disablePortal={false}
               renderOption={(props, option) => {
                 const { key, ...otherProps } = props;
                 return (
-                  <Box 
-                    component="li" 
-                    key={key} 
-                    {...otherProps} 
-                    sx={{ 
-                      display: 'flex', 
-                      alignItems: 'center', 
-                      padding: '8px 16px',
-                      width: '100%'
+                  <Box
+                    component="li"
+                    key={key}
+                    {...otherProps}
+                    sx={{
+                      display: "flex",
+                      alignItems: "center",
+                      padding: "8px 16px",
+                      width: "100%",
                     }}
                   >
                     <Typography variant="body1" sx={{ flexShrink: 0 }}>
                       {getDisplayLabel(option)}
                     </Typography>
-                    <Typography 
-                      variant="body2" 
-                      color="text.secondary" 
-                      sx={{ 
-                        fontStyle: 'italic',
-                        marginLeft: 'auto',
-                        paddingLeft: '16px',
+                    <Typography
+                      variant="body2"
+                      color="text.secondary"
+                      sx={{
+                        fontStyle: "italic",
+                        marginLeft: "auto",
+                        paddingLeft: "16px",
                         minWidth: 0,
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis'
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
                       }}
                     >
-                      {option.address || 'No address'}
+                      {option.address || "No address"}
                     </Typography>
                   </Box>
                 );
@@ -269,12 +303,12 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = ({
                 } else {
                   // Helper function to convert YYYY-MM-DD to MM/DD/YYYY
                   const convertToMMDDYYYY = (dateStr: string): string => {
-                    if (!dateStr) return '';
+                    if (!dateStr) return "";
                     if (dateStr.match(/^\d{2}\/\d{2}\/\d{4}$/)) {
                       return dateStr;
                     }
                     if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
-                      const [year, month, day] = dateStr.split('-');
+                      const [year, month, day] = dateStr.split("-");
                       return `${month}/${day}/${year}`;
                     }
                     return dateStr;
@@ -282,8 +316,8 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = ({
                   const defaultEndDate = (() => {
                     const oneMonthFromNow = new Date();
                     oneMonthFromNow.setMonth(oneMonthFromNow.getMonth() + 1);
-                    const month = (oneMonthFromNow.getMonth() + 1).toString().padStart(2, '0');
-                    const day = oneMonthFromNow.getDate().toString().padStart(2, '0');
+                    const month = (oneMonthFromNow.getMonth() + 1).toString().padStart(2, "0");
+                    const day = oneMonthFromNow.getDate().toString().padStart(2, "0");
                     const year = oneMonthFromNow.getFullYear().toString();
                     return `${month}/${day}/${year}`;
                   })();
@@ -291,21 +325,31 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = ({
                     ...newDelivery,
                     clientId: newValue.uid,
                     clientName: `${newValue.firstName} ${newValue.lastName}`,
-                    recurrence: (newValue.recurrence as "None" | "Weekly" | "2x-Monthly" | "Monthly" | "Custom") || "Weekly",
-                    repeatsEndDate: newValue.endDate ? convertToMMDDYYYY(newValue.endDate) : defaultEndDate,
+                    recurrence:
+                      (newValue.recurrence as
+                        | "None"
+                        | "Weekly"
+                        | "2x-Monthly"
+                        | "Monthly"
+                        | "Custom") || "Weekly",
+                    repeatsEndDate: newValue.endDate
+                      ? convertToMMDDYYYY(newValue.endDate)
+                      : defaultEndDate,
                   });
                 }
               }}
               popupIcon={
-                <ArrowDropDownIcon sx={{
-                  position: 'absolute',
-                  right: '14px',
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  pointerEvents: 'none',
-                  color: 'action.active',
-                  fontSize: 28,
-                }} />
+                <ArrowDropDownIcon
+                  sx={{
+                    position: "absolute",
+                    right: "14px",
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    pointerEvents: "none",
+                    color: "action.active",
+                    fontSize: 28,
+                  }}
+                />
               }
               renderInput={(params) => (
                 <TextField
@@ -317,20 +361,20 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = ({
                   size="medium"
                   InputLabelProps={{ shrink: true }}
                   sx={{
-                    width: '100%',
-                    '.MuiInputBase-root': { width: '100%' },
-                    '.MuiOutlinedInput-root': {
-                      width: '100%',
-                      height: '56px',
-                      minHeight: '56px',
-                      boxSizing: 'border-box',
+                    width: "100%",
+                    ".MuiInputBase-root": { width: "100%" },
+                    ".MuiOutlinedInput-root": {
+                      width: "100%",
+                      height: "56px",
+                      minHeight: "56px",
+                      boxSizing: "border-box",
                     },
-                    '.MuiOutlinedInput-input': {
-                      height: '56px',
-                      minHeight: '56px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      boxSizing: 'border-box',
+                    ".MuiOutlinedInput-input": {
+                      height: "56px",
+                      minHeight: "56px",
+                      display: "flex",
+                      alignItems: "center",
+                      boxSizing: "border-box",
                     },
                   }}
                 />
@@ -340,7 +384,7 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = ({
 
           {/* Show selected client info if pre-selected */}
           {preSelectedClient && (
-            <Box sx={{ mb: 2, p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
+            <Box sx={{ mb: 2, p: 2, bgcolor: "grey.50", borderRadius: 1 }}>
               <Typography variant="body2" color="text.secondary">
                 Adding delivery for:
               </Typography>
@@ -348,7 +392,7 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = ({
                 {preSelectedClient.clientName}
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                {preSelectedClient.clientProfile.address || 'No address'}
+                {preSelectedClient.clientProfile.address || "No address"}
               </Typography>
             </Box>
           )}
@@ -359,45 +403,47 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = ({
                 label="Delivery Date"
                 type="date"
                 value={newDelivery.deliveryDate || ""}
-                onChange={(e) => setNewDelivery({ 
-                  ...newDelivery, 
-                  deliveryDate: e.target.value,
-                  _deliveryDateError: undefined 
-                })}
+                onChange={(e) =>
+                  setNewDelivery({
+                    ...newDelivery,
+                    deliveryDate: e.target.value,
+                    _deliveryDateError: undefined,
+                  })
+                }
                 margin="normal"
                 fullWidth
                 required
                 InputLabelProps={{ shrink: true }}
                 error={Boolean(newDelivery._deliveryDateError)}
                 helperText={newDelivery._deliveryDateError}
-                inputProps={{ 'data-testid': 'date-input' }}
+                inputProps={{ "data-testid": "date-input" }}
                 sx={{
-                  '.MuiOutlinedInput-root': {
+                  ".MuiOutlinedInput-root": {
                     '& input[type="date"]::-webkit-calendar-picker-indicator': {
-                      position: 'absolute',
-                      right: '14px',
-                      cursor: 'pointer',
+                      position: "absolute",
+                      right: "14px",
+                      cursor: "pointer",
                     },
                   },
-                  '.MuiOutlinedInput-input': {
-                    display: 'flex',
-                    alignItems: 'center',
-                    paddingRight: '40px',
+                  ".MuiOutlinedInput-input": {
+                    display: "flex",
+                    alignItems: "center",
+                    paddingRight: "40px",
                   },
                 }}
               />
-              <Typography sx={{color:"red"}}>{startDateError}</Typography>
+              <Typography sx={{ color: "red" }}>{startDateError}</Typography>
             </>
           ) : null}
 
-          <FormControl fullWidth variant="outlined" margin="normal" sx={{ width: '100%' }}>
+          <FormControl fullWidth variant="outlined" margin="normal" sx={{ width: "100%" }}>
             <InputLabel id="recurrence-label">Recurrence</InputLabel>
             <Select
               label="Recurrence"
               labelId="recurrence-label"
               value={newDelivery.recurrence}
               onChange={(e) => {
-                const value = e.target.value as NewDelivery['recurrence'];
+                const value = e.target.value as NewDelivery["recurrence"];
                 setNewDelivery({
                   ...newDelivery,
                   recurrence: value,
@@ -405,7 +451,7 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = ({
                 });
                 if (value !== "Custom") setCustomDates([]);
               }}
-              inputProps={{ 'data-testid': 'recurrence-select-input' }}
+              inputProps={{ "data-testid": "recurrence-select-input" }}
             >
               <MenuItem value="None">None</MenuItem>
               <MenuItem value="Weekly">Weekly</MenuItem>
@@ -419,37 +465,37 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = ({
           <CalendarMultiSelect selectedDates={customDates} setSelectedDates={setCustomDates} />
         ) : null}
 
-        {newDelivery.recurrence !== "None" && newDelivery.recurrence !== "Custom" ? (     
+        {newDelivery.recurrence !== "None" && newDelivery.recurrence !== "Custom" ? (
           <>
             <Box>
               <Typography variant="subtitle1">End Date</Typography>
               <DateField
                 label="End Date"
                 value={newDelivery.repeatsEndDate || ""}
-                onChange={(dateStr) => setNewDelivery({
-                  ...newDelivery,
-                  repeatsEndDate: dateStr,
-                  _repeatsEndDateError: undefined,
-                })}
+                onChange={(dateStr) =>
+                  setNewDelivery({
+                    ...newDelivery,
+                    repeatsEndDate: dateStr,
+                    _repeatsEndDateError: undefined,
+                  })
+                }
                 required={true}
                 error={newDelivery._repeatsEndDateError}
-                setError={(errorMsg) => setNewDelivery(prev => ({
-                  ...prev,
-                  _repeatsEndDateError: errorMsg || undefined
-                }))}
+                setError={(errorMsg) =>
+                  setNewDelivery((prev) => ({
+                    ...prev,
+                    _repeatsEndDateError: errorMsg || undefined,
+                  }))
+                }
               />
             </Box>
-            <Typography sx={{color:"red"}}>{endDateError}</Typography>
-          </>    
+            <Typography sx={{ color: "red" }}>{endDateError}</Typography>
+          </>
         ) : null}
       </DialogContent>
       <DialogActions>
         <Button onClick={resetFormAndClose}>Cancel</Button>
-        <Button
-          onClick={handleSubmit}
-          variant="contained"
-          disabled={!isFormValid}
-        >
+        <Button onClick={handleSubmit} variant="contained" disabled={!isFormValid}>
           Add
         </Button>
       </DialogActions>

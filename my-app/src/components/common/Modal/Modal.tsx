@@ -1,4 +1,4 @@
-import React from 'react';
+import React from "react";
 import {
   Dialog,
   DialogTitle,
@@ -7,23 +7,23 @@ import {
   IconButton,
   Typography,
   Box,
-} from '@mui/material';
-import { Close as CloseIcon } from '@mui/icons-material';
-import styles from './Modal.module.css';
+} from "@mui/material";
+import { Close as CloseIcon } from "@mui/icons-material";
+import styles from "./Modal.module.css";
 
 /**
  * Reusable Modal base component with consistent styling and accessibility
- * 
+ *
  * @example
  * // Basic modal
  * <Modal open={isOpen} onClose={handleClose} title="Confirm Action">
  *   <p>Are you sure you want to proceed?</p>
  * </Modal>
- * 
+ *
  * // Modal with custom actions
- * <Modal 
- *   open={isOpen} 
- *   onClose={handleClose} 
+ * <Modal
+ *   open={isOpen}
+ *   onClose={handleClose}
  *   title="Delete Item"
  *   actions={<Button onClick={handleDelete}>Delete</Button>}
  * >
@@ -42,7 +42,7 @@ interface ModalProps {
   /** Custom actions for the modal footer */
   actions?: React.ReactNode;
   /** Maximum width of the modal */
-  maxWidth?: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
+  maxWidth?: "xs" | "sm" | "md" | "lg" | "xl";
   /** Whether to show the close button */
   showCloseButton?: boolean;
   /** Whether clicking outside closes the modal */
@@ -55,12 +55,12 @@ const Modal: React.FC<ModalProps> = ({
   title,
   children,
   actions,
-  maxWidth = 'sm',
+  maxWidth = "sm",
   showCloseButton = true,
   closeOnBackdropClick = true,
 }) => {
   const handleClose = (_event: object, reason: string) => {
-    if (!closeOnBackdropClick && reason === 'backdropClick') {
+    if (!closeOnBackdropClick && reason === "backdropClick") {
       return;
     }
     onClose();
@@ -74,10 +74,10 @@ const Modal: React.FC<ModalProps> = ({
       fullWidth
       className={styles.modal}
       sx={{
-        '& .MuiDialog-paper': {
-          borderRadius: '12px',
-          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.12)',
-          overflow: 'visible',
+        "& .MuiDialog-paper": {
+          borderRadius: "12px",
+          boxShadow: "0 8px 32px rgba(0, 0, 0, 0.12)",
+          overflow: "visible",
         },
       }}
     >
@@ -98,16 +98,10 @@ const Modal: React.FC<ModalProps> = ({
           )}
         </Box>
       </DialogTitle>
-      
-      <DialogContent className={styles.modalContent}>
-        {children}
-      </DialogContent>
-      
-      {actions && (
-        <DialogActions className={styles.modalActions}>
-          {actions}
-        </DialogActions>
-      )}
+
+      <DialogContent className={styles.modalContent}>{children}</DialogContent>
+
+      {actions && <DialogActions className={styles.modalActions}>{actions}</DialogActions>}
     </Dialog>
   );
 };

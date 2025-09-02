@@ -1,13 +1,27 @@
 /**
- * Utility function for password validation
+ * Utility functions for password validation
  */
 
-/**
- * Validates if a password is strong
- * @param password The password to validate
- * @returns Whether the password is valid (at least 8 characters with 1 uppercase, lowercase, number, and special character)
- */
 export function isStrongPassword(password: string): boolean {
-    const strongPasswordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
-    return strongPasswordRegex.test(password);
+  if (!password || password.length < 8) return false;
+
+  const strongPasswordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
+  return strongPasswordRegex.test(password);
+}
+
+export function getPasswordStrengthErrors(password: string): string[] {
+  const errors: string[] = [];
+
+  if (!password) {
+    errors.push("Password is required");
+    return errors;
+  }
+
+  if (password.length < 8) errors.push("At least 8 characters");
+  if (!/[a-z]/.test(password)) errors.push("One lowercase letter");
+  if (!/[A-Z]/.test(password)) errors.push("One uppercase letter");
+  if (!/\d/.test(password)) errors.push("One number");
+  if (!/[^A-Za-z0-9]/.test(password)) errors.push("One special character");
+
+  return errors;
 }

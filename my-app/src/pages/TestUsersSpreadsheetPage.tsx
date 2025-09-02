@@ -6,7 +6,9 @@ const TestUsersSpreadsheetPage: React.FC = () => {
   const mockOnAuthStateChanged = (auth: any, callback: any) => {
     callback({ uid: "test-uid", email: "test@example.com" });
     // intentionally empty cleanup function
-    return () => { /* noop */ };
+    return () => {
+      /* noop */
+    };
   };
   return <UsersSpreadsheet onAuthStateChangedOverride={mockOnAuthStateChanged} />;
 };

@@ -10,7 +10,9 @@ const TestConsumer = () => {
       <span data-testid="user">{user ? user.email : "none"}</span>
       <span data-testid="loading">{loading ? "loading" : "done"}</span>
       <span data-testid="error">{error ? error.message : "none"}</span>
-      <button data-testid="logout" onClick={logout}>Logout</button>
+      <button data-testid="logout" onClick={logout}>
+        Logout
+      </button>
     </div>
   );
 };

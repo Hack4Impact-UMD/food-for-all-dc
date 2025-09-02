@@ -1,8 +1,8 @@
 // Re-export types from other files
-export * from './client-types';
-export * from './user-types';
-export * from './delivery-types';
-export * from './calendar-types';
+export * from "./client-types";
+export * from "./user-types";
+export * from "./delivery-types";
+export * from "./calendar-types";
 
 export enum UserType {
   Admin = "Admin",

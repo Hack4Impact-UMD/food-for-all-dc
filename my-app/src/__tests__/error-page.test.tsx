@@ -1,11 +1,11 @@
-jest.mock('firebase/firestore');
+jest.mock("firebase/firestore");
 // Mock onAuthStateChanged to always call back with a user
 jest.mock("firebase/auth", () => ({
   onAuthStateChanged: (auth: any, callback: any) => {
     callback({ uid: "test-uid", email: "test@example.com" });
     return () => {};
   },
-  getAuth: () => ({})
+  getAuth: () => ({}),
 }));
 // Mock auth to always return a user for onAuthStateChanged
 jest.mock("../auth/firebaseConfig", () => ({
@@ -14,7 +14,7 @@ jest.mock("../auth/firebaseConfig", () => ({
   },
 }));
 // Mock the services barrel so DeliveryService.getInstance returns a mock
-jest.mock('../services', () => ({
+jest.mock("../services", () => ({
   DeliveryService: class {
     static getInstance() {
       return {
@@ -26,13 +26,13 @@ jest.mock('../services', () => ({
           thursday: 90,
           friday: 90,
           saturday: 60,
-        })
+        }),
       };
     }
-  }
+  },
 }));
 // Mock DeliveryService singleton pattern
-jest.mock('../services/delivery-service', () => {
+jest.mock("../services/delivery-service", () => {
   return {
     __esModule: true,
     default: {}, // for default import compatibility
@@ -47,10 +47,10 @@ jest.mock('../services/delivery-service', () => {
             thursday: 90,
             friday: 90,
             saturday: 60,
-          })
+          }),
         };
       }
-    }
+    },
   };
 });
 // Mock AuthProvider to force loading=false so App transitions out of loading state
@@ -66,7 +66,7 @@ jest.mock("../auth/AuthProvider", () => ({
     setToken: jest.fn(),
     setUserRole: jest.fn(),
     setError: jest.fn(),
-  })
+  }),
 }));
 
 // ...existing code...
@@ -80,7 +80,7 @@ import NotFoundPage from "../components/NotFoundPage";
 describe("Error Page Tests", () => {
   let consoleWarnSpy: jest.SpyInstance;
   beforeEach(() => {
-    consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    consoleWarnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
   });
   afterEach(() => {
     consoleWarnSpy.mockRestore();

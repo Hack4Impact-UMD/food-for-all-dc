@@ -1,11 +1,10 @@
-
-jest.mock('firebase/firestore');
+jest.mock("firebase/firestore");
 import React from "react";
 import { render, screen } from "@testing-library/react";
 import App from "../App";
 
 jest.mock("../auth/AuthProvider", () => ({
-  useAuth: () => ({ loading: true })
+  useAuth: () => ({ loading: true }),
 }));
 
 describe("Loading State Tests", () => {

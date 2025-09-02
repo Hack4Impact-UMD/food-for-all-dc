@@ -27,7 +27,7 @@ export interface CaseWorkerManagementModalProps {
   onClose: () => void;
   caseWorkers: CaseWorker[];
   onCaseWorkersChange: (caseWorkers: CaseWorker[]) => void;
-} 
+}
 
 // --- Authentication Types ---
 export interface AuthUser {

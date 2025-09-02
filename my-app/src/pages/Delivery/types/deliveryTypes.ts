@@ -1,4 +1,4 @@
-import { DeliveryDetails, DietaryRestrictions } from '../../../types';
+import { DeliveryDetails, DietaryRestrictions } from "../../../types";
 
 export interface RowData {
   id: string;
@@ -28,7 +28,7 @@ export interface DeliveryRowData {
   address: string;
   tags?: string[];
   ward?: string;
-  clusterId: string; 
+  clusterId: string;
   coordinates: { lat: number; lng: number }[];
   deliveryDetails: {
     deliveryInstructions: string;

@@ -25,28 +25,34 @@ const DeliveryCard: React.FC<DeliveryCardProps> = ({ event, client, onEventModif
 
   const trueRestrictions = Object.entries(client?.deliveryDetails?.dietaryRestrictions || {})
     .filter(([key, value]) => value === true)
-    .map(([key]) => key.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/^./, (str) => str.toUpperCase()));
+    .map(([key]) =>
+      key.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/^./, (str) => str.toUpperCase())
+    );
 
   const { foodAllergens = [], other = [] } = client?.deliveryDetails?.dietaryRestrictions || {};
 
-  const dietaryRestrictions = [...trueRestrictions, ...(Array.isArray(foodAllergens) ? foodAllergens : []), ...(Array.isArray(other) ? other : [])];
+  const dietaryRestrictions = [
+    ...trueRestrictions,
+    ...(Array.isArray(foodAllergens) ? foodAllergens : []),
+    ...(Array.isArray(other) ? other : []),
+  ];
 
   return (
-    <Box 
+    <Box
       className={styles.card}
       onClick={(e) => {
         e.stopPropagation();
         e.preventDefault();
       }}
       sx={{
-        position: 'relative',
-        cursor: 'default'
+        position: "relative",
+        cursor: "default",
       }}
     >
       <Box className={styles.clientSection}>
         <Box>
           {/* Displays the client name as a link */}
-          <Typography 
+          <Typography
             variant="h6"
             component={Link}
             to={client?.uid ? `/profile/${client.uid}` : "#"}
@@ -96,15 +102,15 @@ const DeliveryCard: React.FC<DeliveryCardProps> = ({ event, client, onEventModif
           </Box>
         ))}
       </Box>
-      
-      <Box 
-        sx={{ 
-          position: 'absolute',
+
+      <Box
+        sx={{
+          position: "absolute",
           right: 8,
-          top: '50%',
-          transform: 'translateY(-50%)',
+          top: "50%",
+          transform: "translateY(-50%)",
           zIndex: 1,
-          height: 'fit-content',
+          height: "fit-content",
         }}
         className="menu-button"
         onClick={(e) => {
