@@ -72,7 +72,7 @@ import { validateClientProfile } from '../utils/firestoreValidation';
    * @param pageSize Number of clients per page
    * @param lastDoc Last document from previous page (for pagination)
    */
-  public async getAllClients(pageSize = 50, lastDoc?: any): Promise<{ clients: ClientProfile[]; lastDoc?: any }> {
+  public async getAllClients(pageSize = 3000, lastDoc?: any): Promise<{ clients: ClientProfile[]; lastDoc?: any }> {
     try {
       return await retry(async () => {
         let q = query(collection(this.db, this.clientsCollection), fbLimit(pageSize));
