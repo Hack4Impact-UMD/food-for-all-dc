@@ -496,12 +496,13 @@ class AddressFixer:
             url = f"https://maps.googleapis.com/maps/api/geocode/json?{urlencode(params)}"
             response = requests.get(url, timeout=10)
             
+            
             if response.status_code != 200:
                 logger.error(f"Geocoding API error: {response.status_code}")
                 return None
                 
             data = response.json()
-            
+            logger.info(f"Geocoding response for '{address}': {data}")
             if data['status'] == 'OK' and data['results']:
                 # prefer DC/MD/VA result
                 for res in data['results']:
@@ -595,8 +596,8 @@ def main():
     SERVICE_ACCOUNT_PATH = "food-for-all-dc-caf23-firebase-adminsdk-fbsvc-f985f354df.json"
     PROJECT_ID = "food-for-all-dc-caf23"
     COLLECTION_NAME = "client-profile2"
-    CLIENT_IDS_FILE = "ID-2890.txt"
-    GOOGLE_MAPS_API_KEY = os.getenv("GOOGLE_MAPS_API_KEY")  # Set this environment variable
+    CLIENT_IDS_FILE = "IDs_deleted.txt"
+    GOOGLE_MAPS_API_KEY = "" # Set this environment variable
     
     if not GOOGLE_MAPS_API_KEY:
         logger.error("Google Maps API key is required. Set GOOGLE_MAPS_API_KEY environment variable.")

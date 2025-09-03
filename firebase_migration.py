@@ -1096,11 +1096,12 @@ class FirestoreMigration:
             return []
 
     def migrate_data(self, 
-                    file_path: str, 
+                    file_path: str = None, 
                     batch_size: int = 500, 
                     max_workers: int = 4,
                     use_threading: bool = True,
-                    limit: Optional[int] = None) -> MigrationStats:
+                    limit: Optional[int] = None,
+                    records_override: list = None) -> MigrationStats:
         """
         Main migration function
         
@@ -1110,6 +1111,7 @@ class FirestoreMigration:
             max_workers: Number of parallel threads
             use_threading: Whether to use threading for parallel processing
             limit: Maximum number of records to process (None for all records)
+            records_override: List of records to process directly (bypasses file loading)
         """
         # Reset processed names and case workers for each migration run
         self.processed_names = set()
@@ -1124,7 +1126,10 @@ class FirestoreMigration:
             logger.info(f"Limiting to first {limit} records")
         
         # Load all records
-        records = self.load_json_file(file_path)
+        if records_override is not None:
+            records = records_override
+        else:
+            records = self.load_json_file(file_path)
         if not records:
             logger.error("No records to migrate")
             return self.stats
@@ -1199,6 +1204,15 @@ class FirestoreMigration:
 
         return self.stats
 
+def load_allowed_ids(ids_file_path: str) -> set:
+    allowed_ids = set()
+    with open(ids_file_path, "r", encoding="utf-8") as f:
+        for line in f:
+            id_val = line.strip()
+            if id_val:
+                allowed_ids.add(id_val)
+    return allowed_ids
+
 def main():
     """
     Example usage
@@ -1208,8 +1222,12 @@ def main():
     PROJECT_ID = "food-for-all-dc-caf23"
     COLLECTION_NAME = "client-profile2"
     JSON_FILE_PATH = "csv-one-line-client-database_w_referral.json"
+    IDS_FILE_PATH = "IDs_deleted.txt"
     GOOGLE_MAPS_API_KEY = os.getenv("GOOGLE_MAPS_API_KEY")  # Set this environment variable
-    
+
+    # Load allowed IDs
+    allowed_ids = load_allowed_ids(IDS_FILE_PATH)
+
     # Initialize migration with Google Maps API key
     migration = FirestoreMigration(
         service_account_path=SERVICE_ACCOUNT_PATH,
@@ -1217,14 +1235,22 @@ def main():
         collection_name=COLLECTION_NAME,
         google_maps_api_key=GOOGLE_MAPS_API_KEY
     )
-    
+
+    # Load all records from JSON file and filter by allowed IDs
+    all_records = migration.load_json_file(JSON_FILE_PATH)
+    filtered_records = [
+        rec for rec in all_records
+        if str(rec.get("ID", "")).strip() in allowed_ids
+    ]
+
     # Run migration with limit (change this number as needed)
     stats = migration.migrate_data(
-        file_path=JSON_FILE_PATH,
+        file_path=None,
         batch_size=5,  # Small batch size for API rate limiting with 4000 records
         max_workers=1,   # Single worker to avoid API rate limits
         use_threading=False,  # Disable threading for async operations
-        limit=None  # Process all 4000 records
+        limit=None,  # Process all 4000 records
+        records_override=filtered_records  # Add this argument to support direct record passing
     )
     
     print(f"Migration completed: {stats.successful_imports}/{stats.total_records} successful")
