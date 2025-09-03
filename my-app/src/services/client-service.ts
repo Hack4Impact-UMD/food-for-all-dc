@@ -29,7 +29,7 @@ import { validateClientProfile } from '../utils/firestoreValidation';
 class ClientService {
   private static instance: ClientService;
   private db = db;
-  private clientsCollection = "clients";
+  private clientsCollection = "client-profile2";
   private tagsCollection = "tags";
   private tagsDocId = "oGuiR2dQQeOBXHCkhDeX";
 
@@ -158,7 +158,7 @@ import { validateClientProfile } from '../utils/firestoreValidation';
 
 
   // For Spreadsheet only: returns RowData[]
-  public async getAllClientsForSpreadsheet(pageSize = 50, lastDoc?: any): Promise<{ clients: RowData[]; lastDoc?: any }> {
+  public async getAllClientsForSpreadsheet(pageSize = 3000, lastDoc?: any): Promise<{ clients: RowData[]; lastDoc?: any }> {
     try {
       return await retry(async () => {
         let q = query(collection(this.db, this.clientsCollection), fbLimit(pageSize));

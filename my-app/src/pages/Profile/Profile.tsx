@@ -310,7 +310,7 @@ const Profile = () => {
   
   // Function to fetch profile data by ID
   const getProfileById = async (id: string) => {
-    const docRef = doc(db, "clients", id);
+    const docRef = doc(db, "client-profile2", id);
     const docSnap = await getDoc(docRef);
     if (docSnap.exists()) {
       return docSnap.data() as ClientProfile;

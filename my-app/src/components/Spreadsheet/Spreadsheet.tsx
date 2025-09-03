@@ -457,6 +457,7 @@ const Spreadsheet: React.FC = () => {
         const { clients } = await clientService.getAllClientsForSpreadsheet();
         // ...existing code...
         // No default sorting - let our sortedRows useMemo handle all sorting
+        console.log(clients.length, "clients fetched");
         setRows(clients);
       } catch (error) {
         console.error("Error fetching data: ", error);
