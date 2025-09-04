@@ -70,6 +70,14 @@ yarn-debug.log*
 yarn-error.log*
 firebase-debug.log*
 firebase-error.log*
+deleted_duplicate_clients.json
+duplicate_people_and_ids.txt
+duplicates-sep-3.txt
+ID-2890.txt
+IDs_deleted.txt
+IDs_deleteda_address.txt
+need-to-be-deleted.txt
+address_fix_results_*.json
 
 # Python
 __pycache__/
@@ -92,6 +100,8 @@ htmlcov/
 *.egg-info/
 .installed.cfg
 *.egg
+firebase_migration.py
+address_fixer.py
 
 # OS generated files
 .DS_Store
