@@ -2666,6 +2666,12 @@ const handleMentalHealthConditionsChange = (e: React.ChangeEvent<HTMLInputElemen
                 clientName: `${clientProfile.firstName} ${clientProfile.lastName}`,
                 clientProfile: clientProfile
               }}
+              // Pass customDates, setCustomDates, and endDate props if needed for modal logic
+              // These should be managed in Profile state, similar to Calendar page
+              // Example:
+              // customDates={customDates}
+              // setCustomDates={setCustomDates}
+              // endDate={repeatsEndDate ? new Date(repeatsEndDate) : new Date()}
             />
            <DeliveryLogForm
               pastDeliveries={pastDeliveries}

@@ -1,4 +1,6 @@
 import React, { Suspense } from "react";
+import { LocalizationProvider } from '@mui/x-date-pickers';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import "./App.css";
 
@@ -54,15 +56,17 @@ function App() {
 
   return (
     <ErrorBoundary>
-      <Router>
-        <AutoLogout></AutoLogout>
-        <Suspense fallback={<LoadingIndicator />}>
-          <Routes>
-            {renderRoutes(routesConfig)}
-            <Route path="*" element={<NotFoundPage />} />
-          </Routes>
-        </Suspense>
-      </Router>
+      <LocalizationProvider dateAdapter={AdapterDateFns}>
+        <Router>
+          <AutoLogout />
+          <Suspense fallback={<LoadingIndicator />}>
+            <Routes>
+              {renderRoutes(routesConfig)}
+              <Route path="*" element={<NotFoundPage />} />
+            </Routes>
+          </Suspense>
+        </Router>
+      </LocalizationProvider>
     </ErrorBoundary>
   );
 }
