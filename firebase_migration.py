@@ -683,49 +683,25 @@ class FirestoreMigration:
         failed = 0
         
         try:
-            # Process case workers in batches
-            case_worker_list = list(self.case_workers.values())
-            batch_size = 500  # Firestore batch limit
-            
-            for i in range(0, len(case_worker_list), batch_size):
-                batch = self.db.batch()
-                batch_items = case_worker_list[i:i + batch_size]
-                
-                for case_worker in batch_items:
-                    try:
-                        # Create a unique document ID based on name or organization
-                        doc_id = case_worker["name"] if case_worker["name"] else case_worker["organization"]
-                        # Clean the doc_id for Firestore (remove invalid characters)
-                        doc_id = "".join(c for c in doc_id if c.isalnum() or c in (' ', '-', '_')).strip()
-                        doc_id = doc_id.replace(' ', '_')
-                        
-                        if not doc_id:
-                            continue
-                        
-                        # Add timestamps
-                        case_worker_doc = {
-                            **case_worker,
-                            "createdAt": datetime.utcnow(),
-                            "updatedAt": datetime.utcnow()
-                        }
-                        
-                        doc_ref = self.db.collection(collection_name).document(doc_id)
-                        batch.set(doc_ref, case_worker_doc)
-                        successful += 1
-                        
-                    except Exception as e:
-                        logger.error(f"Failed to prepare case worker {case_worker}: {str(e)}")
-                        failed += 1
-                
-                # Commit the batch
-                if successful > 0:
-                    batch.commit()
-                    logger.info(f"Committed case worker batch: {len(batch_items)} items")
+            for key, case_worker in self.case_workers.items():
+                try:
+                    # Create document reference with unique ID
+                    doc_ref = self.db.collection(collection_name).document()
+                    
+                    # Add case worker data
+                    doc_ref.set(case_worker)
+                    
+                    successful += 1
+                    logger.debug(f"Saved case worker: {key} -> {doc_ref.id}")
+                    
+                except Exception as e:
+                    logger.error(f"Failed to save case worker {key}: {e}")
+                    failed += 1
             
             logger.info(f"Case workers saved: {successful} successful, {failed} failed")
             
         except Exception as e:
-            logger.error(f"Error saving case workers: {str(e)}")
+            logger.error(f"Error accessing Firestore collection {collection_name}: {e}")
 
     def parse_age_group(self, age_group_str: str, adults_count: int) -> Dict[str, Any]:
         """
@@ -1267,3 +1243,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+``` 
