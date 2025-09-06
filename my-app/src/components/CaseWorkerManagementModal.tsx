@@ -118,7 +118,7 @@ const CaseWorkerManagementModal: React.FC<CaseWorkerManagementModalProps> = ({
       try {
         if (isEditing && "id" in caseWorker) {
           // Update existing case worker
-          const caseWorkerRef = doc(db, "CaseWorkers", caseWorker.id);
+          const caseWorkerRef = doc(db, "referral", caseWorker.id);
           await updateDoc(caseWorkerRef, {
             name: caseWorker.name,
             organization: caseWorker.organization,
@@ -129,7 +129,7 @@ const CaseWorkerManagementModal: React.FC<CaseWorkerManagementModalProps> = ({
           setEditingCaseWorker(null);
         } else {
           // Add new case worker
-          const caseWorkersCollectionRef = collection(db, "CaseWorkers");
+          const caseWorkersCollectionRef = collection(db, "referral");
           const docRef = await addDoc(caseWorkersCollectionRef, caseWorker);
           onCaseWorkersChange([...caseWorkers, { ...caseWorker, id: docRef.id }]);
           setIsAddingCaseWorker(false);
@@ -144,7 +144,7 @@ const CaseWorkerManagementModal: React.FC<CaseWorkerManagementModalProps> = ({
 
   const handleDeleteCaseWorker = async (caseWorkerId: string) => {
     try {
-      await deleteDoc(doc(db, "CaseWorkers", caseWorkerId));
+      await deleteDoc(doc(db, "referral", caseWorkerId));
       onCaseWorkersChange(caseWorkers.filter((cw) => cw.id !== caseWorkerId));
     } catch (error) {
       console.error("Error deleting case worker:", error);

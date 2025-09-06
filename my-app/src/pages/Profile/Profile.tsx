@@ -451,7 +451,7 @@ const Profile = () => {
   useEffect(() => {
     const fetchCaseWorkers = async () => {
       try {
-        const caseWorkersCollectionRef = collection(db, "CaseWorkers");
+        const caseWorkersCollectionRef = collection(db, "referral");
         const querySnapshot = await getDocs(caseWorkersCollectionRef);
         const caseWorkersData: CaseWorker[] = [];
 
