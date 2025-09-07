@@ -1,10 +1,11 @@
 import React, { useState } from "react";
-import { ReportField } from "../../types/reports-types";
 import ReportHeader from "./ReportHeader";
-import ReportTables from "./ReportTables";
-import UsersSpreadsheet from "../../components/UsersSpreadsheet/UsersSpreadsheet";
-import Spreadsheet from "../../components/Spreadsheet/Spreadsheet";
-import { Typography } from "@mui/material";
+import { Accordion, AccordionDetails, AccordionSummary, Box, Typography } from "@mui/material";
+import { ClientProfile } from "../../types";
+import TimeUtils from "../../utils/timeUtils";
+import { collection, DocumentData, getDocs, limit, orderBy, query, QueryDocumentSnapshot, startAfter } from "firebase/firestore";
+import { db } from "../../auth/firebaseConfig";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 
 const ClientReport: React.FC = () => {
   const [startDate, setStartDate] = useState<Date | null>(() => {
@@ -24,29 +25,178 @@ const ClientReport: React.FC = () => {
     }
   });
 
-  //hardcoded data which will later be fetched and calculated
+  const [data, setData] = useState<any>({"Active": [], "Lapsed": []})
+
+  const generateReport = async () => {
+
+    if (!startDate || !endDate) {
+      return {}
+    }
+
+    const BATCH_SIZE = 50;
+
+    const start = TimeUtils.fromJSDate(startDate).startOf("day");
+    const end = TimeUtils.fromJSDate(endDate).endOf("day");
+
+    const allClients: ClientProfile[] = [];
+    const activeClients: ClientProfile[] = [];
+
+    try {
+      let lastDoc: QueryDocumentSnapshot<DocumentData> | null = null;
+      const True = true
+      while (True) {
+        const q: any = lastDoc
+          ? query(
+              collection(db, "clients"),
+              orderBy("__name__"),
+              startAfter(lastDoc),
+              limit(BATCH_SIZE)
+            )
+          : query(
+              collection(db, "clients"),
+              orderBy("__name__"),
+              limit(BATCH_SIZE)
+            );
+
+        const snap = await getDocs(q);
+        if (snap.empty) break;
+
+        for (const doc of snap.docs) {
+          const client = doc.data() as ClientProfile;
+          allClients.push(client);
+
+          const deliveries: string[] = client.deliveries ?? [];
+          if (deliveries.length) {
+            const deliveriesInRange = deliveries.filter((deliveryISO: string) => {
+              const deliveryDate = TimeUtils.fromISO(deliveryISO);
+              return deliveryDate >= start && deliveryDate <= end;
+            });
+
+            if (deliveriesInRange.length > 0) {
+              activeClients.push(client);
+            }
+          }
+        }
+
+        lastDoc = snap.docs[snap.docs.length - 1] as QueryDocumentSnapshot<DocumentData>;
+        if (snap.size < BATCH_SIZE) break;
+      }
+    } catch (err) {
+      console.error("Failed to build Active/Lapsed map:", err);
+      throw err;
+    }
+
+    //lapsed = All - Active (by document id)
+    const activeIds = new Set(activeClients.map((c) => c.uid));
+    const lapsedClients = allClients.filter((c) => !activeIds.has(c.uid));
+
+    setData({
+      "Active": activeClients,
+      "Lapsed": lapsedClients,
+    });
+  };
+
+  const sections: Array<{ key: string; index: number; label: string }> = [
+    { key: "Active", index: 0, label: "Active" },
+    { key: "Lapsed", index: 1, label: "Lapsed" },
+  ];
+
 
   return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        height: "90vh", 
-      }}
-    >
-      <div
-        style={{
-          height: "fit-content",
+    <Box sx={{ display: "flex", flexDirection: "column", height: "90vh", width: "90vw" }}>
+      <ReportHeader
+        startDate={startDate}
+        endDate={endDate}
+        setStartDate={setStartDate}
+        setEndDate={setEndDate}
+        generateReport={generateReport}
+      />
+
+      <Box
+        sx={{
+          flex: 1,
+          overflowY: "auto",
+          p: 2,
+          width: "90vw",
+          bgcolor: "background.paper",
         }}
       >
-        <ReportHeader startDate={startDate} endDate = {endDate} setStartDate = {setStartDate} setEndDate = {setEndDate}></ReportHeader>
-        <Typography sx={{color:"var(--color-primary)", fontSize:"30px", fontWeight:"bold", textDecoration:"underline"}}>Active Clients</Typography>
-        <Spreadsheet editable={false}></Spreadsheet>
+        {sections.map(({ key, index, label }) => {
+          const clients = data?.[key] ?? [];
+          return (
+            <Accordion
+              key={key}
+              sx={{
+                width: "100%",
+                mb: 1,
+                bgcolor: "white",
+                border: "none",
+                boxShadow: "none",
+                borderRadius: 2,
+                overflow: "hidden",
+                p: 0,
+              }}
+            >
+              <AccordionSummary
+                expandIcon={<ExpandMoreIcon sx={{ color: "white" }} />}
+                aria-controls={`panel${index}-content`}
+                id={`panel${index}-header`}
+                sx={{
+                  bgcolor: "var(--color-primary)",
+                  color: "white",
+                  mb: 0.5,
+                  borderTopLeftRadius: 2,
+                  borderTopRightRadius: 2,
+                }}
+              >
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                  <Typography variant="h6" sx={{ mr: 1 }}>
+                    {label}
+                  </Typography>
+                  <Typography sx={{ opacity: 0.9 }}>({clients.length})</Typography>
+                </Box>
+              </AccordionSummary>
 
-        <Typography sx={{color:"var(--color-primary)", fontSize:"30px", fontWeight:"bold", textDecoration:"underline"}}>Lapsed Clients</Typography>
-        <Spreadsheet editable={false}></Spreadsheet>
-      </div>
-    </div>
+              <AccordionDetails sx={{ bgcolor: "white", color: "black", p: 0 }}>
+                {clients.length === 0 ? (
+                  <Box sx={{ p: 2, bgcolor: "#f7f7f7", borderRadius: 1 }}>
+                    <Typography sx={{ color: "text.secondary" }}>No clients.</Typography>
+                  </Box>
+                ) : (
+                  clients.map((client: any, i: any) => (
+                    <Box
+                      key={`${key}-${client.uid ?? i}`}
+                      sx={{
+                        height: 72,
+                        bgcolor: "#f0f0f0ff",
+                        mb: 1.25,
+                        width: "100%",
+                        display: "flex",
+                        alignItems: "center",
+                        p: 2,
+                        justifyContent: "space-between",
+                        flexDirection: "row",
+                      }}
+                    >
+                      <Typography
+                        sx={{
+                          color: "var(--color-primary)",
+                          fontWeight: "bold",
+                          textDecoration: "underline",
+                          fontSize: 17,
+                        }}
+                      >
+                        {client.firstName} {client.lastName}
+                      </Typography>
+                    </Box>
+                  ))
+                )}
+              </AccordionDetails>
+            </Accordion>
+          );
+        })}
+      </Box>
+    </Box>
   );
 };
 

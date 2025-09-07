@@ -36,6 +36,7 @@ export interface ClientProfile {
   quadrant: string;
   dob: string;
   deliveryFreq: string;
+  deliveries?: string[]
   phone: string;
   alternativePhone: string;
   referredDate?: string;

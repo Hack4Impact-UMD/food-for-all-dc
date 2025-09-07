@@ -31,7 +31,7 @@ export default function Guide() {
 
         <Box>
           <Typography variant="h6" sx={{ fontWeight: 600 }}>
-            Getting Started with Reports
+            Getting Started with Reports:
           </Typography>
           <Typography variant="body1">
             Select a start and end date then click <strong>Generate</strong> to see results.

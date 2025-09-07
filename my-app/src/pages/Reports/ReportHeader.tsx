@@ -33,6 +33,7 @@ export default function ReportHeader({startDate, endDate, setStartDate, setEndDa
             variant="contained"
             sx={{ backgroundColor: "var(--color-primary)" }}
             onClick = {generateReport}
+            disabled = {!startDate || !endDate}
           >
             Generate
           </Button>
