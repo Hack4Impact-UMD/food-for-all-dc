@@ -75,6 +75,9 @@ ID-2890.txt
 IDs_deleted.txt
 duplicate_people_and_ids.txt
 deleted_duplicate_clients.json
+duplicates-sep-3.txt
+IDs_deleteda_address.txt
+need-to-be-deleted.txt
 
 # Python
 __pycache__/
