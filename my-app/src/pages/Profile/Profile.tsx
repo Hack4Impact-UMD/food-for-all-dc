@@ -1329,7 +1329,25 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
     }
   };
 
-  // Updated field label styles for a more modern look
+  // Helper to set time to 12:00:00 PM
+function setToNoon(date: any) {
+  let jsDate;
+  if (typeof date === 'string') {
+    jsDate = new Date(date);
+  } else if (date instanceof Date) {
+    jsDate = new Date(date.getTime());
+  } else if (date && typeof date.toDate === 'function') {
+    jsDate = new Date(date.toDate().getTime());
+  } else if (date && typeof date.toJSDate === 'function') {
+    jsDate = new Date(date.toJSDate().getTime());
+  } else {
+    jsDate = new Date(date);
+  }
+  jsDate.setHours(12, 0, 0, 0);
+  return jsDate;
+}
+
+// Updated field label styles for a more modern look
   const fieldLabelStyles = {
     fontWeight: 600,
     marginBottom: !isEditing ? "12px" : "8px",
@@ -1523,7 +1541,6 @@ if (type === "physicalAilments") {
               </Typography>
             )}
           </Box>
-{/* ...existing code... */}
 
           {/* Other title and text box */}
           <Box sx={{ width: '100%' }}>
@@ -2344,24 +2361,21 @@ const handleMentalHealthConditionsChange = (e: React.ChangeEvent<HTMLInputElemen
     const handleAddDelivery = async (newDelivery: NewDelivery) => {
       try {
         let recurrenceDates: Date[] = [];
-  
         //create unique id for each recurrence group. All events for this recurrence will have the same id
         const recurrenceId = crypto.randomUUID();
         if (newDelivery.recurrence === "Custom") {
           // Use customDates directly if recurrence is Custom
           // Ensure customDates exist and map string dates back to Date objects
           recurrenceDates = newDelivery.customDates?.map(dateStr => {
-            const date = new Date(dateStr);
-            // Adjust for timezone offset if needed, similar to how it might be handled elsewhere
-            return new Date(date.getTime() + date.getTimezoneOffset() * 60000);
+            return setToNoon(dateStr);
           }) || [];
           // Clear repeatsEndDate explicitly for custom recurrence in the submitted data
           newDelivery.repeatsEndDate = undefined;
         } else {
           // Calculate recurrence dates for standard recurrence types
-          const deliveryDate = new Date(newDelivery.deliveryDate);
+          const deliveryDate = setToNoon(newDelivery.deliveryDate);
           recurrenceDates =
-            newDelivery.recurrence === "None" ? [deliveryDate] : calculateRecurrenceDates(newDelivery);
+            newDelivery.recurrence === "None" ? [deliveryDate] : calculateRecurrenceDates(newDelivery).map(setToNoon);
         }
   
         // Filter out dates that already have a delivery for the same client

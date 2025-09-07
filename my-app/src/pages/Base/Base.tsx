@@ -19,6 +19,7 @@ import CalendarTodayIcon from "@mui/icons-material/CalendarToday";
 import StorageIcon from "@mui/icons-material/Storage";
 import AddCircleIcon from "@mui/icons-material/AddCircle";
 import LogoutIcon from "@mui/icons-material/Logout";
+import DeleteIcon from "@mui/icons-material/Delete";
 import LocalShippingIcon from "@mui/icons-material/LocalShipping";
 import AssessmentIcon from "@mui/icons-material/Assessment";
 import Tab from "./NavBar/Tab";
@@ -175,6 +176,8 @@ export default function BasePage() {
     const items = [...baseNavItems];
 
     items.push({ text: "Routes", icon: <LocalShippingIcon />, link: "/routes" });
+
+
 
     if (userRole === UserType.Admin || userRole === UserType.Manager) {
       items.push({ text: "Users", icon: <AddCircleIcon />, link: "/users" });

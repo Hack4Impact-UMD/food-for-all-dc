@@ -146,7 +146,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
       }
 
       const data = await response.json();
-      console.log('Fetched ward boundaries:', data);
+      //console.log('Fetched ward boundaries:', data);
       setWardData(data);
       return data;
     } catch (error) {
