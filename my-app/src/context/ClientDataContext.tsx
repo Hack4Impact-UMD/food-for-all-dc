@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { useAuth } from '../auth/AuthProvider';
 import { clientService } from '../services/client-service';
 import { RowData } from '../components/Spreadsheet/RowData';
 
@@ -15,6 +16,7 @@ export const ClientDataProvider: React.FC<{ children: ReactNode }> = ({ children
   const [clients, setClients] = useState<RowData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
+  const { user, loading: authLoading } = useAuth();
 
   const fetchClients = async () => {
     setLoading(true);
@@ -30,8 +32,10 @@ export const ClientDataProvider: React.FC<{ children: ReactNode }> = ({ children
   };
 
   useEffect(() => {
-    fetchClients();
-  }, []);
+    if (!authLoading && user) {
+      fetchClients();
+    }
+  }, [authLoading, user]);
 
   return (
     <ClientDataContext.Provider value={{ clients, loading, error, refresh: fetchClients }}>

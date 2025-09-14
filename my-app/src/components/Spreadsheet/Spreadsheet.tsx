@@ -273,26 +273,28 @@ const Spreadsheet: React.FC = () => {
         {rows.length === 0 ? (
           <TableContainer component={Paper} sx={{ height: '100%', boxShadow: "0 4px 12px rgba(0,0,0,0.05)", borderRadius: "12px", overflow: 'auto', minHeight: 0 }}>
             <Table sx={{ minWidth: 650 }}>
-              <TableRow>
-                {fields.map((field) => (
-                  <TableCell key={field.key}><Skeleton variant="text" width={100} /></TableCell>
-                ))}
-                {customColumns.map((col) => (
-                  <TableCell key={col.id}><Skeleton variant="text" width={100} /></TableCell>
-                ))}
-                <TableCell key="actions"><Skeleton variant="circular" width={32} height={32} /></TableCell>
-              </TableRow>
-              {[...Array(10)].map((_, i) => (
-                <TableRow key={i}>
+              <tbody>
+                <TableRow>
                   {fields.map((field) => (
-                    <TableCell key={field.key}><Skeleton variant="rectangular" width={100} height={24} /></TableCell>
+                    <TableCell key={field.key}><Skeleton variant="text" width={100} /></TableCell>
                   ))}
                   {customColumns.map((col) => (
-                    <TableCell key={col.id}><Skeleton variant="rectangular" width={100} height={24} /></TableCell>
+                    <TableCell key={col.id}><Skeleton variant="text" width={100} /></TableCell>
                   ))}
                   <TableCell key="actions"><Skeleton variant="circular" width={32} height={32} /></TableCell>
                 </TableRow>
-              ))}
+                {[...Array(10)].map((_, i) => (
+                  <TableRow key={i}>
+                    {fields.map((field) => (
+                      <TableCell key={field.key}><Skeleton variant="rectangular" width={100} height={24} /></TableCell>
+                    ))}
+                    {customColumns.map((col) => (
+                      <TableCell key={col.id}><Skeleton variant="rectangular" width={100} height={24} /></TableCell>
+                    ))}
+                    <TableCell key="actions"><Skeleton variant="circular" width={32} height={32} /></TableCell>
+                  </TableRow>
+                ))}
+              </tbody>
             </Table>
           </TableContainer>
         ) : (
