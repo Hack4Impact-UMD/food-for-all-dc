@@ -17,7 +17,7 @@ import { Box, Button, IconButton, Paper, Table, TableContainer, TableRow, TableC
 import { Popover } from "@mui/material";
 import type { RowData } from "./export";
 import { TableVirtuoso } from 'react-virtuoso';
-import React, { forwardRef, useEffect, useState, useMemo } from 'react';
+import React, { forwardRef, useEffect, useState, useMemo, Suspense, lazy } from 'react';
 import type { HTMLAttributes } from 'react';
 import { useCustomColumns, allowedPropertyKeys } from "../../hooks/useCustomColumns";
 import AddIcon from "@mui/icons-material/Add";
@@ -28,11 +28,11 @@ import EditIcon from "@mui/icons-material/Edit";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
 import { styled } from "@mui/material/styles";
 import { useNavigate } from "react-router-dom";
+
+import { exportQueryResults, exportAllClients } from "./export";
+const DeleteClientModal = React.lazy(() => import("./DeleteClientModal"));
 import { clientService } from '../../services/client-service';
 import { useClientData } from '../../context/ClientDataContext';
-import DeleteClientModal from "./DeleteClientModal";
-import { exportQueryResults, exportAllClients } from "./export";
-import "./Spreadsheet.css";
 
 const StyleChip = styled(Chip)(({ theme }) => ({
   fontWeight: 500,
@@ -44,8 +44,8 @@ const StyleChip = styled(Chip)(({ theme }) => ({
   margin: "2px 2px 2px 0",
   cursor: "pointer",
   '&:hover': {
-    backgroundColor: theme.palette.primary.main,
-  },
+    backgroundColor: theme.palette.primary.main
+  }
 }));
 
 function getCustomColumnDisplay(row: RowData, propertyKey: string): React.ReactNode {
@@ -258,18 +258,22 @@ const Spreadsheet: React.FC = () => {
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ xs: 'stretch', sm: 'center' }} sx={{ '& .MuiButton-root': { height: { sm: '36px' } } }}>
             <Button variant="contained" color="secondary" onClick={() => setSearchQuery("")} className="view-all" sx={{ borderRadius: "25px", px: 2, py: 0.5, minWidth: { xs: '100%', sm: '100px' }, maxWidth: { sm: '120px' }, textTransform: "none", fontSize: "0.875rem", lineHeight: 1.5, boxShadow: "0 2px 4px rgba(0,0,0,0.1)", transition: "all 0.2s ease", "&:hover": { transform: "translateY(-2px)", boxShadow: "0 4px 8px rgba(0,0,0,0.1)" }, alignSelf: { xs: 'stretch', sm: 'flex-start' } }}>View All</Button>
             <Button variant="contained" color="primary" onClick={() => setExportDialogOpen(true)} sx={{ borderRadius: "25px", px: 2, py: 0.5, minWidth: { xs: '100%', sm: '100px' }, maxWidth: { sm: '120px' }, textTransform: "none", fontSize: "0.875rem", lineHeight: 1.5, boxShadow: "0 2px 4px rgba(0,0,0,0.1)", transition: "all 0.2s ease", "&:hover": { transform: "translateY(-2px)", boxShadow: "0 4px 8px rgba(0,0,0,0.1)" }, alignSelf: { xs: 'stretch', sm: 'flex-start' } }}>Export</Button>
-            <Dialog open={exportDialogOpen} onClose={() => setExportDialogOpen(false)} maxWidth="xs" fullWidth>
-              <DialogTitle>Export Options</DialogTitle>
-              <DialogContent sx={{ pt: 3, overflow: "visible" }}>
-                <Box sx={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-                  <Button variant="contained" color="primary" onClick={() => { setExportDialogOpen(false); exportQueryResults(filteredRows, customColumns); }}>Export Query Results</Button>
-                  <Button variant="contained" color="secondary" onClick={() => { setExportDialogOpen(false); exportAllClients(rows); }}>Export All Clients</Button>
-                </Box>
-              </DialogContent>
-              <DialogActions>
-                <Button onClick={() => setExportDialogOpen(false)} color="error">Cancel</Button>
-              </DialogActions>
-            </Dialog>
+            <Suspense fallback={null}>
+              {exportDialogOpen && (
+                <Dialog open={exportDialogOpen} onClose={() => setExportDialogOpen(false)} maxWidth="xs" fullWidth>
+                  <DialogTitle>Export Options</DialogTitle>
+                  <DialogContent sx={{ pt: 3, overflow: "visible" }}>
+                    <Box sx={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                      <Button variant="contained" color="primary" onClick={() => { setExportDialogOpen(false); exportQueryResults(filteredRows, customColumns); }}>Export Query Results</Button>
+                      <Button variant="contained" color="secondary" onClick={() => { setExportDialogOpen(false); exportAllClients(rows); }}>Export All Clients</Button>
+                    </Box>
+                  </DialogContent>
+                  <DialogActions>
+                    <Button onClick={() => setExportDialogOpen(false)} color="error">Cancel</Button>
+                  </DialogActions>
+                </Dialog>
+              )}
+            </Suspense>
             <Box sx={{ flexGrow: 1, display: "flex", justifyContent: "flex-end" }}>
               <Button variant="contained" color="primary" onClick={() => navigate("/profile")} className="create-client" sx={{ backgroundColor: "#2E5B4C", borderRadius: "25px", px: 2, py: 0.5, minWidth: { xs: '100%', sm: '140px' }, maxWidth: { sm: '160px' }, textTransform: "none", fontSize: "0.875rem", lineHeight: 1.5, boxShadow: "0 2px 4px rgba(0,0,0,0.1)", transition: "all 0.2s ease", "&:hover": { backgroundColor: "#234839", transform: "translateY(-2px)", boxShadow: "0 4px 8px rgba(0,0,0,0.1)" }, alignSelf: { xs: 'stretch', sm: 'flex-end' } }}>+ Create Client</Button>
             </Box>
@@ -444,7 +448,17 @@ const Spreadsheet: React.FC = () => {
         )}
       </Box>
 
-      <DeleteClientModal handleMenuClose={() => setClientIdToDelete(null)} handleDeleteRow={async () => { /* implement delete logic */ }} open={Boolean(clientIdToDelete)} setOpen={isOpen => { if (!isOpen) setClientIdToDelete(null); }} id={clientIdToDelete ?? ""} />
+      <Suspense fallback={null}>
+        {Boolean(clientIdToDelete) && (
+          <DeleteClientModal
+            handleMenuClose={() => setClientIdToDelete(null)}
+            handleDeleteRow={async () => { /* implement delete logic */ }}
+            open={Boolean(clientIdToDelete)}
+            setOpen={(isOpen: boolean) => { if (!isOpen) setClientIdToDelete(null); }}
+            id={clientIdToDelete ?? ""}
+          />
+        )}
+      </Suspense>
     </Box>
   );
 };
