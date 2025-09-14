@@ -49,6 +49,10 @@ export interface RowData {
     clusterID?: string;
 }
 
+// Allow dynamic property access for RowData
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export interface RowData {[key: string]: any;}
+
 /**
  * Export visible columns as a CSV file.
  * @param rows - The data to export.

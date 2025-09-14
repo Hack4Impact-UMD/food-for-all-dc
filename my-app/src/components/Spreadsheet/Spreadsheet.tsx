@@ -15,8 +15,7 @@ const ChevronUpDown = () => (
 );
 import { Box, Button, IconButton, Paper, Table, TableContainer, TableRow, TableCell, Stack, Chip, Dialog, DialogActions, DialogTitle, DialogContent, Skeleton } from "@mui/material";
 import { Popover } from "@mui/material";
-import { RowData } from './RowData';
-export type { RowData };
+import type { RowData } from "./export";
 import { TableVirtuoso } from 'react-virtuoso';
 import React, { forwardRef, useEffect, useState, useMemo } from 'react';
 import type { HTMLAttributes } from 'react';
@@ -64,15 +63,16 @@ function getCustomColumnDisplay(row: RowData, propertyKey: string): React.ReactN
   }
   if (propertyKey.includes(".")) {
     const keys = propertyKey.split(".");
-    let value = row as Record<string, unknown>;
+    let value: any = row;
     for (const k of keys) {
-      value = value && (value[k] as Record<string, unknown>);
+      value = value && value[k];
       if (value === undefined) return "N/A";
     }
     return value !== undefined && value !== null ? value.toString() : "N/A";
   }
-  const value = row[propertyKey as keyof RowData];
+  const value = row[propertyKey];
   return value !== undefined && value !== null ? value.toString() : "N/A";
+
 }
 
 const Spreadsheet: React.FC = () => {
@@ -145,7 +145,7 @@ const Spreadsheet: React.FC = () => {
   } as const;
 
   // --- Fields for table columns ---
-  const fields = [
+  const fields = useMemo(() => [
     { key: "fullname", label: "Name", type: "text", compute: (data: RowData) => `${data.lastName}, ${data.firstName}` },
     { key: "address", label: "Address", type: "text" },
     { key: "phone", label: "Phone", type: "text" },
@@ -170,7 +170,7 @@ const Spreadsheet: React.FC = () => {
       if (Array.isArray(dr.other) && dr.other.length > 0) other.push(...dr.other);
       if (dr.otherText && dr.otherText.trim() !== "") other.push(dr.otherText.trim());
       // Render chips
-  const chips: React.ReactNode[] = [];
+      const chips: React.ReactNode[] = [];
       dietary.forEach((item, i) => chips.push(
         <Chip key={`dietary-${item}-${i}`} label={item} size="small" sx={{ backgroundColor: '#e6f4ea', color: '#257e68', fontWeight: 500, mr: 0.5, mb: 0.5 }} />
       ));
@@ -183,12 +183,13 @@ const Spreadsheet: React.FC = () => {
       return chips.length > 0 ? chips : <span style={{ color: '#888' }}>None</span>;
     } },
     { key: "deliveryDetails.deliveryInstructions", label: "Delivery Instructions", type: "text", compute: (data: RowData) => data.deliveryDetails?.deliveryInstructions || "None" },
-  ];
+  ], []);
 
   // --- Sorting and filtering logic (with sorting) ---
-  // Ensure filteredRows is always the correct RowData shape for export
+  // Ensure filteredRows is always the correct RowData shape for export, and optimize with useMemo
   const filteredRows: RowData[] = useMemo(() => {
-    let result = rows;
+  let result = rows;
+    // Filter by search query
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       result = result.filter(row =>
@@ -198,17 +199,24 @@ const Spreadsheet: React.FC = () => {
         row.phone?.toLowerCase().includes(q)
       );
     }
+    // Sort if needed
     if (sortConfig.key && sortConfig.direction) {
       const field = fields.find(f => f.key === sortConfig.key);
       if (field) {
+        // Use field.compute if present, else direct property
         result = [...result].sort((a, b) => {
           const aValue = field.compute ? field.compute(a) : a[field.key];
           const bValue = field.compute ? field.compute(b) : b[field.key];
-          if (aValue == null && bValue == null) return 0;
-          if (aValue == null) return 1;
-          if (bValue == null) return -1;
-          if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
-          if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
+          // If compute returns a ReactNode (e.g., chips), fallback to string
+          const aComp = typeof aValue === 'string' || typeof aValue === 'number' ? aValue : (aValue?.props?.label || aValue?.toString?.() || '');
+          const bComp = typeof bValue === 'string' || typeof bValue === 'number' ? bValue : (bValue?.props?.label || bValue?.toString?.() || '');
+          if (aComp === null || aComp === undefined) {
+            if (bComp === null || bComp === undefined) return 0;
+            return 1;
+          }
+          if (bComp === null || bComp === undefined) return -1;
+          if (aComp < bComp) return sortConfig.direction === 'asc' ? -1 : 1;
+          if (aComp > bComp) return sortConfig.direction === 'asc' ? 1 : -1;
           return 0;
         });
       } else {
@@ -216,8 +224,8 @@ const Spreadsheet: React.FC = () => {
         result = [...result].sort((a, b) => {
           const aValue = a[sortConfig.key as keyof RowData];
           const bValue = b[sortConfig.key as keyof RowData];
-          const aStr = aValue == null ? '' : String(aValue).toLowerCase();
-          const bStr = bValue == null ? '' : String(bValue).toLowerCase();
+          const aStr = aValue === null || aValue === undefined ? '' : String(aValue).toLowerCase();
+          const bStr = bValue === null || bValue === undefined ? '' : String(bValue).toLowerCase();
           if (aStr === bStr) return 0;
           if (sortConfig.direction === 'asc') {
             return aStr < bStr ? -1 : 1;
@@ -228,7 +236,7 @@ const Spreadsheet: React.FC = () => {
       }
     }
     return result;
-  }, [rows, searchQuery, sortConfig]);
+  }, [rows, searchQuery, sortConfig, fields]);
 
   // --- TableVirtuoso rendering ---
   return (
@@ -254,8 +262,8 @@ const Spreadsheet: React.FC = () => {
               <DialogTitle>Export Options</DialogTitle>
               <DialogContent sx={{ pt: 3, overflow: "visible" }}>
                 <Box sx={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-                  <Button variant="contained" color="primary" onClick={() => { setExportDialogOpen(false); exportQueryResults(filteredRows as any, customColumns); }}>Export Query Results</Button>
-                  <Button variant="contained" color="secondary" onClick={() => { setExportDialogOpen(false); exportAllClients(rows as any); }}>Export All Clients</Button>
+                  <Button variant="contained" color="primary" onClick={() => { setExportDialogOpen(false); exportQueryResults(filteredRows, customColumns); }}>Export Query Results</Button>
+                  <Button variant="contained" color="secondary" onClick={() => { setExportDialogOpen(false); exportAllClients(rows); }}>Export All Clients</Button>
                 </Box>
               </DialogContent>
               <DialogActions>

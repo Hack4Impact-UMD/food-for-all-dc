@@ -1,6 +1,6 @@
 import { db } from "./firebase";
 import { ClientProfile } from '../types';
-import type { RowData } from '../components/Spreadsheet/Spreadsheet';
+import type { RowData } from '../components/Spreadsheet/export';
 import { LatLngTuple } from "leaflet";
 import { Time, TimeUtils } from "../utils/timeUtils";
 import { retry } from '../utils/retry';

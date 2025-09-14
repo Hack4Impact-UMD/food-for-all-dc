@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { useAuth } from '../auth/AuthProvider';
 import { clientService } from '../services/client-service';
-import { RowData } from '../components/Spreadsheet/RowData';
+import { RowData } from '../components/Spreadsheet/export';
 
 interface ClientDataContextType {
   clients: RowData[];
