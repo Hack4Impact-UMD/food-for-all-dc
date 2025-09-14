@@ -36,7 +36,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { auth, db } from "../../auth/firebaseConfig";
 import CaseWorkerManagementModal from "../../components/CaseWorkerManagementModal";
 import "./Profile.css";
-import ClientService from "../../services/client-service";
+import { clientService } from "../../services/client-service";
 import DeliveryService from "../../services/delivery-service";
 import PopUp from "../../components/PopUp";
 import ErrorPopUp from "../../components/ErrorPopUp";
@@ -58,6 +58,7 @@ import { CalendarConfig, CalendarEvent, CaseWorker, ClientProfile, NewDelivery, 
 import { ClientProfileKey, InputType } from "./types";
 import { DeliveryEvent } from "../../types/calendar-types";
 import { useAuth } from "../../auth/AuthProvider";
+import { useClientData } from "../../context/ClientDataContext";
 import { Add } from "@mui/icons-material";
 import AddDeliveryDialog from "../Calendar/components/AddDeliveryDialog";
 import { calculateRecurrenceDates } from "../Calendar/components/CalendarUtils";
@@ -170,6 +171,8 @@ const SaveNotification = styled(Box)({
 
 // Type definitions have been moved to types directory
 const Profile = () => {
+  // --- Inject useClientData hook for refresh ---
+  const { refresh } = useClientData();
   // #### PARAMS and NAVIGATION ####
   const navigate = useNavigate();
   const params = useParams();
@@ -960,7 +963,7 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
   }
 
   // Query Firestore for all clients with the same address and zip code
-  const clientService = ClientService.getInstance();
+  // use imported singleton clientService directly
   const db = clientService["db"];
   const clientsCollection = clientService["clientsCollection"];
   const addressZipQuery = query(
@@ -1288,6 +1291,8 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
         setErrors({});          // Clear validation errors
         setAllTags(sortedAllTags); // Update the local list of all tags
         console.log("New profile created with ID: ", newUid);
+        // Refresh client data context so spreadsheet updates
+        if (refresh) await refresh();
         // Navigate *after* state updates. The component will remount with isEditing=false.
         navigate(`/profile/${newUid}`);
       } else {
@@ -2419,7 +2424,7 @@ const handleMentalHealthConditionsChange = (e: React.ChangeEvent<HTMLInputElemen
     try {
       console.log("Fetching all clients");
       // Use ClientService instead of direct Firebase calls
-      const clientService = ClientService.getInstance();
+  // use imported singleton clientService directly
       const clientsData = await clientService.getAllClients();
       
       console.log(`Fetched ${clientsData.clients.length} clients`);

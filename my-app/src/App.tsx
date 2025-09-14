@@ -28,6 +28,7 @@ import { ErrorBoundary } from "./components/performance/LoadingComponents";
 import { routesConfig } from "./routesConfig";
 import NotFoundPage from "./components/NotFoundPage";
 import AutoLogout from "./components/AutoLogout";
+import { ClientDataProvider } from "./context/ClientDataContext";
 
 function renderRoutes(config: Array<any>) {
   return config.map((route: any, idx: number) => {
@@ -57,15 +58,17 @@ function App() {
   return (
     <ErrorBoundary>
       <LocalizationProvider dateAdapter={AdapterDateFns}>
-        <Router>
-          <AutoLogout />
-          <Suspense fallback={<LoadingIndicator />}>
-            <Routes>
-              {renderRoutes(routesConfig)}
-              <Route path="*" element={<NotFoundPage />} />
-            </Routes>
-          </Suspense>
-        </Router>
+        <ClientDataProvider>
+          <Router>
+            <AutoLogout />
+            <Suspense fallback={<LoadingIndicator />}>
+              <Routes>
+                {renderRoutes(routesConfig)}
+                <Route path="*" element={<NotFoundPage />} />
+              </Routes>
+            </Suspense>
+          </Router>
+        </ClientDataProvider>
       </LocalizationProvider>
     </ErrorBoundary>
   );

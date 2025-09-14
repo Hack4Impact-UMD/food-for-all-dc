@@ -16,7 +16,7 @@ import { CalendarConfig, CalendarEvent, DateLimit, DeliveryEvent, Driver, NewDel
 import { ClientProfile } from "../../types/client-types";
 import { useLimits } from "./components/useLimits";
 import DeliveryService from "../../services/delivery-service";
-import ClientService from "../../services/client-service";
+import { clientService } from "../../services/client-service";
 import DriverService from "../../services/driver-service";
 import { toJSDate, toDayPilotDateString } from '../../utils/timestamp';
 
@@ -128,7 +128,7 @@ const CalendarPage: React.FC = () => {
     // DEBUG: Clear and print clients after fetch
     try {
       // Use ClientService instead of direct Firebase calls
-      const clientService = ClientService.getInstance();
+  // use imported singleton clientService directly
       const clientsData = await clientService.getAllClients();
       // Use the client objects as returned from client-service.ts to ensure uid matches Firestore doc id
       setClients(clientsData.clients as ClientProfile[]);

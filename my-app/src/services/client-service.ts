@@ -345,4 +345,4 @@ import { validateClientProfile } from '../utils/firestoreValidation';
   }
 }
 
-export default ClientService; 
+export const clientService = ClientService.getInstance();

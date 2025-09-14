@@ -15,7 +15,7 @@ import { retry } from '../utils/retry';
 import { ServiceError, formatServiceError } from '../utils/serviceError';
 import { Cluster } from "../pages/Delivery/types/deliveryTypes";
 import { validateCluster } from '../utils/firestoreValidation';
-import ClientService from "./client-service";
+import { clientService } from "./client-service";
 
 /**
  * Cluster Service - Handles all cluster-related operations with Firebase
@@ -24,7 +24,7 @@ class ClusterService {
   private static instance: ClusterService;
   private db = db;
   private clustersCollection = "clusters";
-  private clientService = ClientService.getInstance();
+  private clientService = clientService;
 
   // Private constructor to prevent direct instantiation
   // This is part of the singleton pattern
