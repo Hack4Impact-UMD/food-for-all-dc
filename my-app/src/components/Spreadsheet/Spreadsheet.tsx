@@ -1,3 +1,5 @@
+import { onAuthStateChanged } from "firebase/auth";
+import { auth } from "../../services/firebase";
 import { TableSortLabel, Icon } from "@mui/material";
 // Custom chevron icons for TableSortLabel with spacing
 const iconStyle = { verticalAlign: 'middle', marginLeft: 6 };
@@ -76,6 +78,16 @@ function getCustomColumnDisplay(row: RowData, propertyKey: string): React.ReactN
 }
 
 const Spreadsheet: React.FC = () => {
+  const navigate = useNavigate();
+  // Route Protection: redirect to login if not authenticated
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (!user) {
+        navigate("/");
+      }
+    });
+    return () => unsubscribe();
+  }, [navigate]);
   // Sorting state
   const [sortConfig, setSortConfig] = useState<{ key: string | null; direction: 'asc' | 'desc' | null }>({ key: 'fullname', direction: 'asc' });
 
@@ -100,7 +112,7 @@ const Spreadsheet: React.FC = () => {
   // Remove selectedRowId if not used elsewhere
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const [clientIdToDelete, setClientIdToDelete] = useState<string | null>(null);
-  const navigate = useNavigate();
+  // ...existing code...
   const customColumnsHook = useCustomColumns({ page: "Spreadsheet" });
   const customColumns = customColumnsHook.customColumns;
   const handleAddCustomColumn = customColumnsHook.handleAddCustomColumn;
