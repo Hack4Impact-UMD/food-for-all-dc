@@ -1,3 +1,4 @@
+import './Spreadsheet.css';
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "../../services/firebase";
 import { TableSortLabel, Icon } from "@mui/material";
@@ -421,12 +422,13 @@ const Spreadsheet: React.FC = () => {
                     <TableCell key={field.key} sx={{ py: 2, width: 160, minWidth: 160, maxWidth: 160, backgroundColor: rowBg }}>
                       {field.key === "fullname"
                         ? (
-                          <span
-                            style={{ color: '#2E5B4C', fontWeight: 'bold', textDecoration: 'none', cursor: 'pointer' }}
-                            onClick={() => navigate(`/profile/${row.uid ?? ''}`, { state: { userData: row } })}
+                          <a
+                            className="name-link"
+                            href="#"
+                            onClick={e => { e.preventDefault(); navigate(`/profile/${row.uid ?? ''}`, { state: { userData: row } }); }}
                           >
                             {field.compute ? field.compute(row) : `${row.lastName}, ${row.firstName}`}
-                          </span>
+                          </a>
                         )
                         : field.compute
                         ? field.compute(row)

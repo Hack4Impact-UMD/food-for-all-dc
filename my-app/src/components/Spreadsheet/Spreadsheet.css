@@ -1,3 +1,14 @@
+
+.name-link {
+  color: #2E5B4C;
+  font-weight: bold;
+  text-decoration: none;
+  cursor: pointer;
+  transition: text-decoration 0.2s;
+}
+.name-link:hover {
+  text-decoration: underline;
+}
 html,
 body {
   height: 100%;
