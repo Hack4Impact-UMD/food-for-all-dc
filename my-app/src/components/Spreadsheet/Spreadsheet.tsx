@@ -96,9 +96,8 @@ const Spreadsheet: React.FC = () => {
   const handleSort = (key: string) => {
     setSortConfig((prev) => {
       if (prev.key === key) {
-        // Toggle direction or reset
+        // Toggle direction only between asc and desc
         if (prev.direction === 'asc') return { key, direction: 'desc' };
-        if (prev.direction === 'desc') return { key: null, direction: null };
         return { key, direction: 'asc' };
       }
       return { key, direction: 'asc' };
@@ -216,22 +215,37 @@ const Spreadsheet: React.FC = () => {
     if (sortConfig.key && sortConfig.direction) {
       const field = fields.find(f => f.key === sortConfig.key);
       if (field) {
-        // Use field.compute if present, else direct property
-        result = [...result].sort((a, b) => {
-          const aValue = field.compute ? field.compute(a) : a[field.key];
-          const bValue = field.compute ? field.compute(b) : b[field.key];
-          // If compute returns a ReactNode (e.g., chips), fallback to string
-          const aComp = typeof aValue === 'string' || typeof aValue === 'number' ? aValue : (aValue?.props?.label || aValue?.toString?.() || '');
-          const bComp = typeof bValue === 'string' || typeof bValue === 'number' ? bValue : (bValue?.props?.label || bValue?.toString?.() || '');
-          if (aComp === null || aComp === undefined) {
-            if (bComp === null || bComp === undefined) return 0;
-            return 1;
-          }
-          if (bComp === null || bComp === undefined) return -1;
-          if (aComp < bComp) return sortConfig.direction === 'asc' ? -1 : 1;
-          if (aComp > bComp) return sortConfig.direction === 'asc' ? 1 : -1;
-          return 0;
-        });
+        // Special case for fullname: sort by lastName, firstName
+        if (field.key === 'fullname') {
+          result = [...result].sort((a, b) => {
+            const aLast = a.lastName?.toLowerCase() || '';
+            const bLast = b.lastName?.toLowerCase() || '';
+            if (aLast < bLast) return sortConfig.direction === 'asc' ? -1 : 1;
+            if (aLast > bLast) return sortConfig.direction === 'asc' ? 1 : -1;
+            const aFirst = a.firstName?.toLowerCase() || '';
+            const bFirst = b.firstName?.toLowerCase() || '';
+            if (aFirst < bFirst) return sortConfig.direction === 'asc' ? -1 : 1;
+            if (aFirst > bFirst) return sortConfig.direction === 'asc' ? 1 : -1;
+            return 0;
+          });
+        } else {
+          // Use field.compute if present, else direct property
+          result = [...result].sort((a, b) => {
+            const aValue = field.compute ? field.compute(a) : a[field.key];
+            const bValue = field.compute ? field.compute(b) : b[field.key];
+            // If compute returns a ReactNode (e.g., chips), fallback to string
+            const aComp = typeof aValue === 'string' || typeof aValue === 'number' ? aValue : (aValue?.props?.label || aValue?.toString?.() || '');
+            const bComp = typeof bValue === 'string' || typeof bValue === 'number' ? bValue : (bValue?.props?.label || bValue?.toString?.() || '');
+            if (aComp === null || aComp === undefined) {
+              if (bComp === null || bComp === undefined) return 0;
+              return 1;
+            }
+            if (bComp === null || bComp === undefined) return -1;
+            if (aComp < bComp) return sortConfig.direction === 'asc' ? -1 : 1;
+            if (aComp > bComp) return sortConfig.direction === 'asc' ? 1 : -1;
+            return 0;
+          });
+        }
       } else {
         // Custom column: sort by string value
         result = [...result].sort((a, b) => {
