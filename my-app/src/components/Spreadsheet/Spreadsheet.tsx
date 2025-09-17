@@ -109,9 +109,11 @@ const Spreadsheet: React.FC = () => {
   const { clients, loading: clientsLoading, error: clientsError, refresh } = useClientData();
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [menuAnchorPosition, setMenuAnchorPosition] = useState<{ top: number; left: number } | null>(null);
+  const [menuRow, setMenuRow] = useState<RowData | null>(null);
   // Remove selectedRowId if not used elsewhere
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const [clientIdToDelete, setClientIdToDelete] = useState<string | null>(null);
+  const [clientNameToDelete, setClientNameToDelete] = useState<string>("");
   // ...existing code...
   const customColumnsHook = useCustomColumns({ page: "Spreadsheet" });
   const customColumns = customColumnsHook.customColumns;
@@ -455,18 +457,25 @@ const Spreadsheet: React.FC = () => {
                     </TableCell>
                   )),
                   <TableCell align="right" sx={{ py: 2, width: 80, minWidth: 80, maxWidth: 80, backgroundColor: rowBg }} key={`actions-${row.id}`}>
-                    <IconButton onClick={e => { e.stopPropagation(); setMenuAnchorPosition({ top: e.clientY, left: e.clientX }); }} sx={{ color: "#757575", "&:hover": { backgroundColor: "rgba(0, 0, 0, 0.04)", color: "#2E5B4C" } }}>
+                    <IconButton onClick={e => { e.stopPropagation(); setMenuAnchorPosition({ top: e.clientY, left: e.clientX }); setMenuRow(row); }} sx={{ color: "#757575", "&:hover": { backgroundColor: "rgba(0, 0, 0, 0.04)", color: "#2E5B4C" } }}>
                       <MoreVertIcon />
                     </IconButton>
                     <Popover
                       open={Boolean(menuAnchorPosition)}
                       anchorReference="anchorPosition"
                       anchorPosition={menuAnchorPosition ? { top: menuAnchorPosition.top, left: menuAnchorPosition.left } : undefined}
-                      onClose={() => { setMenuAnchorPosition(null); }}
+                      onClose={() => { setMenuAnchorPosition(null); setMenuRow(null); }}
                       PaperProps={{ elevation: 3, sx: { borderRadius: "8px", minWidth: "150px" } }}
                     >
-                      <MenuItem onClick={() => { navigate(`/profile/${row.uid ?? ''}`, { state: { userData: row } }); setMenuAnchorPosition(null); }} sx={{ py: 1.5 }}><EditIcon fontSize="small" sx={{ mr: 1 }} /> Edit</MenuItem>
-                      <MenuItem onClick={() => { setClientIdToDelete(row.uid ?? null); setMenuAnchorPosition(null); }} sx={{ py: 1.5 }}><DeleteIcon fontSize="small" sx={{ mr: 1 }} /> Delete</MenuItem>
+                      <MenuItem onClick={() => { if (menuRow) navigate(`/profile/${menuRow.uid ?? ''}`, { state: { userData: menuRow } }); setMenuAnchorPosition(null); setMenuRow(null); }} sx={{ py: 1.5 }}><EditIcon fontSize="small" sx={{ mr: 1 }} /> Edit</MenuItem>
+                      <MenuItem onClick={() => {
+                        if (menuRow) {
+                          setClientIdToDelete(menuRow.uid ?? null);
+                          setClientNameToDelete(`${menuRow.lastName}, ${menuRow.firstName}`);
+                        }
+                        setMenuAnchorPosition(null);
+                        setMenuRow(null);
+                      }} sx={{ py: 1.5 }}><DeleteIcon fontSize="small" sx={{ mr: 1 }} /> Delete</MenuItem>
                     </Popover>
                   </TableCell>
                 ];
@@ -479,11 +488,12 @@ const Spreadsheet: React.FC = () => {
       <Suspense fallback={null}>
         {Boolean(clientIdToDelete) && (
           <DeleteClientModal
-            handleMenuClose={() => setClientIdToDelete(null)}
+            handleMenuClose={() => { setClientIdToDelete(null); setClientNameToDelete(""); }}
             handleDeleteRow={async () => { /* implement delete logic */ }}
             open={Boolean(clientIdToDelete)}
-            setOpen={(isOpen: boolean) => { if (!isOpen) setClientIdToDelete(null); }}
+            setOpen={(isOpen: boolean) => { if (!isOpen) { setClientIdToDelete(null); setClientNameToDelete(""); } }}
             id={clientIdToDelete ?? ""}
+            name={clientNameToDelete}
           />
         )}
       </Suspense>
