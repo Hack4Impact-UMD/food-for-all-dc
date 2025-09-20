@@ -1,4 +1,4 @@
-import { Button } from "@mui/material";
+import { Button, Alert } from "@mui/material";
 import DateRangePicker from "./DateRangePicker";
 import { useState } from "react";
 
@@ -11,6 +11,9 @@ interface ReportHeaderProps {
 }
 
 export default function ReportHeader({startDate, endDate, setStartDate, setEndDate, generateReport}: ReportHeaderProps) {
+    const hasInvalidDateRange = startDate && endDate && startDate > endDate;
+    const isGenerateDisabled = !startDate || !endDate || !!hasInvalidDateRange;
+
     return (
         <div
             style={{
@@ -18,22 +21,28 @@ export default function ReportHeader({startDate, endDate, setStartDate, setEndDa
             padding: "12px 16px",
             backgroundColor: "white",
             display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
+            flexDirection: "column",
+            gap: "8px",
             marginTop: "0%"
             }}
         >
-
+        <div
+            style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            }}
+        >
         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
           <DateRangePicker startDate={startDate} endDate = {endDate} setStartDate = {setStartDate} setEndDate = {setEndDate}></DateRangePicker>
         </div>
-        
+
         <div style={{ display: "flex", gap: "8px" }}>
           <Button
             variant="contained"
             sx={{ backgroundColor: "var(--color-primary)" }}
             onClick = {generateReport}
-            disabled = {!startDate || !endDate}
+            disabled = {isGenerateDisabled}
           >
             Generate
           </Button>
@@ -44,7 +53,14 @@ export default function ReportHeader({startDate, endDate, setStartDate, setEndDa
             Export
           </Button>
         </div>
-        
+        </div>
+
+        {hasInvalidDateRange && (
+          <Alert severity="error" sx={{ mt: 1 }}>
+            Start date must be before end date
+          </Alert>
+        )}
+
       </div>
     )
 }

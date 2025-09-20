@@ -21,10 +21,11 @@ import {
   QueryDocumentSnapshot,
   startAfter,
 } from "firebase/firestore";
-import TimeUtils from "../../utils/timeUtils"; 
+import TimeUtils from "../../utils/timeUtils";
 import { useNavigate } from "react-router-dom";
-import LoadingIndicator from "../../components/LoadingIndicator/LoadingIndicator"; 
-import Guide from "./Guide"; 
+import LoadingIndicator from "../../components/LoadingIndicator/LoadingIndicator";
+import Guide from "./Guide";
+import { useNotifications } from "../../components/NotificationProvider"; 
 
 interface ReferralClient {
   id: string;
@@ -37,9 +38,10 @@ interface ReferralClient {
 
 const ReferralAgenciesReport: React.FC = () => {
   const navigate = useNavigate();
+  const { showError, showSuccess } = useNotifications();
 
   const [expandedPanels, setExpandedPanels] = useState<number[]>([]);
-  const [isLoading, setIsLoading] = useState(false); 
+  const [isLoading, setIsLoading] = useState(false);
   const [hasGenerated, setHasGenerated] = useState(false); 
 
   const [data, setData] = useState<Record<string, ReferralClient[]>>({});
@@ -135,13 +137,17 @@ const ReferralAgenciesReport: React.FC = () => {
   };
 
   const generateReport = async () => {
-    setIsLoading(true); 
+    setIsLoading(true);
     try {
       const report = await buildReport();
       setData(report as Record<string, ReferralClient[]>);
 
       setExpandedPanels([]);
-      setHasGenerated(true); 
+      setHasGenerated(true);
+      showSuccess("Referral agencies report generated successfully");
+    } catch (error) {
+      console.error("Failed to generate referral agencies report:", error);
+      showError("Failed to generate referral agencies report. Please try again.");
     } finally {
       setIsLoading(false);
     }

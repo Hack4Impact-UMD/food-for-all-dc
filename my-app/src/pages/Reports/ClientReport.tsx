@@ -6,8 +6,10 @@ import TimeUtils from "../../utils/timeUtils";
 import { collection, DocumentData, getDocs, limit, orderBy, query, QueryDocumentSnapshot, startAfter } from "firebase/firestore";
 import { db } from "../../auth/firebaseConfig";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import { useNotifications } from "../../components/NotificationProvider";
 
 const ClientReport: React.FC = () => {
+  const { showError, showSuccess } = useNotifications();
   const [startDate, setStartDate] = useState<Date | null>(() => {
     const start = localStorage.getItem("ffaReportDateRangeStart");
     if (start) {
@@ -28,10 +30,11 @@ const ClientReport: React.FC = () => {
   const [data, setData] = useState<any>({"Active": [], "Lapsed": []})
 
   const generateReport = async () => {
-
     if (!startDate || !endDate) {
       return {}
     }
+
+    try {
 
     const BATCH_SIZE = 50;
 
@@ -94,6 +97,11 @@ const ClientReport: React.FC = () => {
       "Active": activeClients,
       "Lapsed": lapsedClients,
     });
+    showSuccess("Client report generated successfully");
+    } catch (error) {
+      console.error("Failed to generate client report:", error);
+      showError("Failed to generate client report. Please try again.");
+    }
   };
 
   const sections: Array<{ key: string; index: number; label: string }> = [

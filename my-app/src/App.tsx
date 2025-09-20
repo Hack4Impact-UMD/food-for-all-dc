@@ -55,7 +55,7 @@ function App() {
   return (
     <ErrorBoundary>
       <Router>
-        {/* <AutoLogout></AutoLogout> */}
+        <AutoLogout></AutoLogout>
         <Suspense fallback={<LoadingIndicator />}>
           <Routes>
             {renderRoutes(routesConfig)}

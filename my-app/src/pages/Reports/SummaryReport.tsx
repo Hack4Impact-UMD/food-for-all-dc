@@ -20,6 +20,7 @@ import { formatCamelToTitle } from "../../utils";
 import Guide from "./Guide";
 import LoadingIndicator from "../../components/LoadingIndicator/LoadingIndicator";
 import { DateTime } from "luxon";
+import { useNotifications } from "../../components/NotificationProvider";
 
 const blankReport: SummaryData = {
     "Basic Output": {
@@ -95,6 +96,7 @@ const blankReport: SummaryData = {
 const makeBlankReport = (): SummaryData =>
   structuredClone(blankReport)
 const SummaryReport: React.FC = () => {
+  const { showError, showSuccess } = useNotifications();
   // Shows spinner while generateReport is running
   const [isLoading, setIsLoading] = useState(false);
   // Tracks whether at least one report has been generated
@@ -333,9 +335,10 @@ const SummaryReport: React.FC = () => {
       next["Basic Output"]["Bags Delivered"].value *= 2
       setData(next);
       setHasGenerated(true); // ensure tables replace the guide after first run
+      showSuccess("Summary report generated successfully");
     } catch (err) {
       console.error("Failed to generate report:", err);
-      return null;
+      showError("Failed to generate summary report. Please try again.");
     } finally {
       setIsLoading(false); // hide spinner
     }
