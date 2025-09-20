@@ -1,7 +1,7 @@
 import CloseIcon from "@mui/icons-material/Close";
 import EditIcon from "@mui/icons-material/Edit";
 import SaveIcon from "@mui/icons-material/Save";
-import { TimeUtils } from '../../utils/timeUtils';
+import { CalendarUtils, TimeUtils } from '../../utils/timeUtils';
 import {
   Autocomplete,
   Box,
@@ -250,6 +250,7 @@ const Profile = () => {
     ward: "",
     tefapCert: "",
     referralEntity: null,
+    referredDate: "",
     coordinates: [],
     physicalAilments: {
     diabetes: false,
@@ -422,6 +423,7 @@ const Profile = () => {
       if (clientId) {
         try {
           const eventsRef = collection(db, "events");
+          const clientRef = doc(db, "clients", clientId);
           const q = query(
             eventsRef,
             where("clientId", "==", clientId),
@@ -434,6 +436,7 @@ const Profile = () => {
             const lastEvent = querySnapshot.docs[0].data();
             const deliveryDate = lastEvent.deliveryDate.toDate();
             setLastDeliveryDate(deliveryDate.toISOString().split("T")[0]);
+            await updateDoc(clientRef, { lastDeliveryDate: deliveryDate.toISOString().split("T")[0] });
           } else {
             setLastDeliveryDate("No deliveries found");
           }
@@ -2338,12 +2341,14 @@ const handleMentalHealthConditionsChange = (e: React.ChangeEvent<HTMLInputElemen
           name: caseWorker.name,
           organization: caseWorker.organization,
         },
+        referredDate: CalendarUtils.toDayPilotString(TimeUtils.today())
       }));
     } else {
       // If no case worker selected, remove the referral entity
       setClientProfile((prev) => {
         const newProfile = { ...prev };
         delete newProfile.referralEntity;
+        delete newProfile.referredDate
         return newProfile;
       });
     }

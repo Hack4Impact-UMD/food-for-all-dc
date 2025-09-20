@@ -45,4 +45,10 @@ export const formatDietaryRestrictions = (restrictions: DietaryRestrictions): st
   return allRestrictions.length > 0 ? allRestrictions.join(", ") : "None";
 };
 
+export function formatCamelToTitle(key: string): string {
+  return key
+    .replace(/([a-z])([A-Z])/g, "$1 $2") // add space before capital letters
+    .replace(/^./, (str) => str.toUpperCase()); // capitalize first letter
+}
+
  
