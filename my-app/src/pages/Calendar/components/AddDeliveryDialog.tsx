@@ -60,23 +60,33 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props: AddDeliveryD
     return jsDate.toISOString();
   }
 
+  // Helper to convert date to MM/DD/YYYY format for DateField
+  const convertToMMDDYYYY = (dateStr: string): string => {
+    if (!dateStr) return '';
+    if (dateStr.match(/^\d{2}\/\d{2}\/\d{4}$/)) {
+      return dateStr; // Already in MM/DD/YYYY format
+    }
+    if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
+      const [year, month, day] = dateStr.split('-');
+      return `${month}/${day}/${year}`;
+    }
+    return dateStr;
+  };
+
   const [newDelivery, setNewDelivery] = useState<NewDelivery>(() => {
-    // If we have a pre-selected client, initialize with their data
     if (preSelectedClient) {
       return {
         clientId: preSelectedClient.clientId,
         clientName: preSelectedClient.clientName,
-        deliveryDate: toNoonISOString(startDate),
+        deliveryDate: "",
         recurrence: (preSelectedClient.clientProfile.recurrence as "None" | "Weekly" | "2x-Monthly" | "Monthly" | "Custom") || "None",
-        repeatsEndDate: preSelectedClient.clientProfile.endDate || 
-          new Date(new Date().setMonth(new Date().getMonth() + 1)).toISOString().split("T")[0],
+        repeatsEndDate: convertToMMDDYYYY(preSelectedClient.clientProfile.endDate || ""),
       };
     }
-    
     return {
       clientId: "",
       clientName: "",
-      deliveryDate: toNoonISOString(startDate),
+      deliveryDate: "",
       recurrence: "None",
       repeatsEndDate: "",
     };
@@ -90,13 +100,14 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props: AddDeliveryD
   useEffect(() => {
     if (open) {
       document.body.classList.add('add-delivery-modal-open');
+      console.log('AddDeliveryDialog newDelivery:', newDelivery);
     } else {
       document.body.classList.remove('add-delivery-modal-open');
     }
     return () => {
       document.body.classList.remove('add-delivery-modal-open');
     };
-  }, [open]);
+  }, [open, newDelivery]);
 
   // Validate date range whenever delivery date or end date changes
   useEffect(() => {
@@ -112,32 +123,21 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props: AddDeliveryD
   }, [newDelivery.deliveryDate, newDelivery.repeatsEndDate, newDelivery.recurrence]);
 
   //update newDelivery with the correct date when the dialog is first opened
-  useEffect(() => {
-    if (open) {
-      setNewDelivery(prev => ({
-        ...prev,
-        deliveryDate: toNoonISOString(startDate),
-      }));
-    }
-  }, [open]); // Removed startDate dependency to prevent overwriting user input
 
   const resetFormAndClose = () => {
     if (preSelectedClient) {
-      // Reset to pre-selected client data
       setNewDelivery({
         clientId: preSelectedClient.clientId,
         clientName: preSelectedClient.clientName,
-        deliveryDate: toNoonISOString(startDate),
+        deliveryDate: "",
         recurrence: (preSelectedClient.clientProfile.recurrence as "None" | "Weekly" | "2x-Monthly" | "Monthly" | "Custom") || "None",
-        repeatsEndDate: preSelectedClient.clientProfile.endDate || 
-          new Date(new Date().setMonth(new Date().getMonth() + 1)).toISOString().split("T")[0],
+        repeatsEndDate: convertToMMDDYYYY(preSelectedClient.clientProfile.endDate || ""),
       });
     } else {
-      // Reset to empty form
       setNewDelivery({
         clientId: "",
         clientName: "",
-        deliveryDate: toNoonISOString(startDate),
+        deliveryDate: "",
         recurrence: "None",
         repeatsEndDate: "",
       });
@@ -145,6 +145,7 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props: AddDeliveryD
     setCustomDates([]);
     setStartDateError("");
     setEndDateError("");
+    setDuplicateError("");
     onClose();
   };
   const handleSubmit = () => {
@@ -509,7 +510,8 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props: AddDeliveryD
             </Typography>
           </Box>
         )}
-        {newDelivery.recurrence !== "None" && newDelivery.recurrence !== "Custom" ? (
+        {(newDelivery.recurrence !== "None" && newDelivery.recurrence !== "Custom") || 
+         (preSelectedClient && preSelectedClient.clientProfile.endDate) ? (
           <>
             <DateField
               label="End Date"
@@ -519,7 +521,7 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props: AddDeliveryD
                 repeatsEndDate: dateStr,
                 _repeatsEndDateError: undefined,
               })}
-              required={true}
+              required={newDelivery.recurrence !== "None"}
               error={newDelivery._repeatsEndDateError}
               setError={(errorMsg) => setNewDelivery(prev => ({
                 ...prev,
@@ -536,11 +538,12 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props: AddDeliveryD
           onClick={handleSubmit}
           variant="contained"
           disabled={
-            !isFormValid || (
-              newDelivery.deliveryDate !== undefined && newDelivery.repeatsEndDate !== undefined &&
-              newDelivery.deliveryDate !== "" && newDelivery.repeatsEndDate !== "" &&
-              new Date(newDelivery.deliveryDate) > new Date(newDelivery.repeatsEndDate)
-            )
+            !newDelivery.deliveryDate ||
+            Boolean(startDateError) ||
+            Boolean(endDateError) ||
+            Boolean(newDelivery._deliveryDateError) ||
+            Boolean(newDelivery._repeatsEndDateError) ||
+            Boolean(duplicateError)
           }
         >
           Add

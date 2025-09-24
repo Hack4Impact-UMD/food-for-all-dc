@@ -104,9 +104,13 @@ class DeliveryService {
    * Create a new delivery event
    */
   public async createEvent(event: Partial<DeliveryEvent>): Promise<string> {
+    // Convert undefined fields to null
+    const cleanEvent = Object.fromEntries(
+      Object.entries(event).map(([k, v]) => [k, v === undefined ? null : v])
+    );
     try {
       return await retry(async () => {
-        const docRef = await addDoc(collection(this.db, this.eventsCollection), event);
+        const docRef = await addDoc(collection(this.db, this.eventsCollection), cleanEvent);
         return docRef.id;
       });
     } catch (error) {
@@ -118,9 +122,13 @@ class DeliveryService {
    * Update an existing delivery event
    */
   public async updateEvent(id: string, data: Partial<DeliveryEvent>): Promise<void> {
+    // Convert undefined fields to null
+    const cleanData = Object.fromEntries(
+      Object.entries(data).map(([k, v]) => [k, v === undefined ? null : v])
+    );
     try {
       await retry(async () => {
-        await updateDoc(doc(this.db, this.eventsCollection, id), data);
+        await updateDoc(doc(this.db, this.eventsCollection, id), cleanData);
       });
     } catch (error) {
       throw formatServiceError(error, 'Failed to update event');
