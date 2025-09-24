@@ -42,7 +42,7 @@ const Main = styled("main", { shouldForwardProp: (prop) => prop !== "open" })<{
   }),
   marginLeft: isMobile ? 0 : (open ? 0 : `-${drawerWidth}`),
   width: "100%",
-  paddingTop: "76px",
+  marginTop: "10vh",
   paddingBottom: isMobile ? "60px" : 0,
 }));
 

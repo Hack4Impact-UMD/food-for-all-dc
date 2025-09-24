@@ -47,6 +47,27 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
   
   const [editDateError, setEditDateError] = useState<string | null>(null);
   const [endDateError, setEndDateError] = useState<string | null>(null);
+  const normalizeToDateInput = (dateVal: any) => {
+    if (!dateVal) return "";
+    // Firestore Timestamp
+    if (dateVal instanceof Date) {
+      return dateVal.toISOString().split("T")[0];
+    }
+    if (typeof dateVal === "string" && /^\d{4}-\d{2}-\d{2}$/.test(dateVal)) {
+      return dateVal;
+    }
+    // Try to handle Firestore Timestamp object
+    if (dateVal.seconds && dateVal.nanoseconds) {
+      const d = new Date(dateVal.seconds * 1000);
+      return d.toISOString().split("T")[0];
+    }
+    // Try parsing as ISO string
+    try {
+      return new Date(dateVal).toISOString().split("T")[0];
+    } catch {
+      return "";
+    }
+  };
   const [editRecurrence, setEditRecurrence] = useState<Partial<NewDelivery>>({
     assignedDriverId: event.assignedDriverId,
     assignedDriverName: event.assignedDriverName,
@@ -54,7 +75,7 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
     clientName: event.clientName,
     deliveryDate: toJSDate(event.deliveryDate).toISOString().split("T")[0],
     recurrence: event.recurrence,
-    repeatsEndDate: event.repeatsEndDate || "",
+    repeatsEndDate: normalizeToDateInput(event.repeatsEndDate),
   });
 
   const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
@@ -166,23 +187,34 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
           deliveryDate: editDeliveryDate,
         } as any);
 
+        const sanitize = (obj: any) => {
+          const out: any = {};
+          for (const key in obj) {
+            out[key] = obj[key] === undefined ? null : obj[key];
+          }
+          return out;
+        };
         const batchAdd = newRecurrenceDates.map((date) => {
           const eventToAdd: Partial<DeliveryEvent> = {
-            assignedDriverId: editRecurrence.assignedDriverId,
-            assignedDriverName: editRecurrence.assignedDriverName,
-            clientId: editRecurrence.clientId,
-            clientName: editRecurrence.clientName,
+            // Driver fields are optional - only include if they have values
+            ...(editRecurrence.assignedDriverId || event.assignedDriverId ? {
+              assignedDriverId: editRecurrence.assignedDriverId ?? event.assignedDriverId
+            } : {}),
+            ...(editRecurrence.assignedDriverName || event.assignedDriverName ? {
+              assignedDriverName: editRecurrence.assignedDriverName ?? event.assignedDriverName
+            } : {}),
+            clientId: editRecurrence.clientId ?? event.clientId,
+            clientName: editRecurrence.clientName ?? event.clientName,
             deliveryDate: date,
             time: event.time || "",
             cluster: event.cluster || 0,
-            recurrence: editRecurrence.recurrence || "None",
+            recurrence: editRecurrence.recurrence || event.recurrence || "None",
             ...(editRecurrence.repeatsEndDate && {
               repeatsEndDate: editRecurrence.repeatsEndDate,
             }),
             recurrenceId: event.recurrenceId,
           };
-
-          return addDoc(eventsRef, eventToAdd);
+          return addDoc(eventsRef, sanitize(eventToAdd));
         });
 
         await Promise.all(batchAdd);

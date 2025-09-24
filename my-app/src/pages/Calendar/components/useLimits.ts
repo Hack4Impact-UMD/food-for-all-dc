@@ -42,7 +42,6 @@ export const useLimits = () => {
     const unsubscribe = onSnapshot(limitsDocRef, (docSnapshot) => {
       if (docSnapshot.exists()) {
         const data = docSnapshot.data();
-        console.log(data)
         const newLimits = DAYS.map(day => data[day] || 60);
         setLimits(newLimits); // React re-render
       }
