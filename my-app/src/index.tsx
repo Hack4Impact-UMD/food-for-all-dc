@@ -9,6 +9,7 @@ import "./styles/radio-override.css"; // Match radio button styles to checkbox g
 import "./components/performance/performance.css"; // Performance CSS
 import App from "./App";
 import { AuthProvider } from "./auth/AuthProvider";
+import { NotificationProvider } from "./components/NotificationProvider";
 import PerformanceMonitor from "./services/performance-monitor";
 
 // Initialize performance monitoring
@@ -19,7 +20,9 @@ const root = ReactDOM.createRoot(document.getElementById("root") as HTMLElement)
 root.render(
   <React.StrictMode>
     <AuthProvider>
-      <App />
+      <NotificationProvider>
+        <App />
+      </NotificationProvider>
     </AuthProvider>
   </React.StrictMode>
 );
