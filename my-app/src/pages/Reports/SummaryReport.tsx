@@ -121,7 +121,7 @@ const SummaryReport: React.FC = () => {
     }
   });
 
-  const processClientInfo = (next: SummaryData, client: any, deliveriesInRange: string[], start: DateTime, end: DateTime) => {
+  const processClientInfo = (next: SummaryData, client: any, deliveriesInRange: string[], start: DateTime, end: DateTime, referralAgencies: Set<string>) => {
     const basic = next["Basic Output"];
     const demo = next["Demographics"];
     const health = next["Health Conditions"];
@@ -181,6 +181,9 @@ const SummaryReport: React.FC = () => {
       const referredDate = TimeUtils.fromISO(client.referredDate);
       if (referredDate >= start && referredDate <= end) {
         refs["New Client Referrals"].value += 1;
+        if (client.referralEntity?.organization?.trim()) {
+          referralAgencies.add(client.referralEntity.organization.trim());
+        }
       }
     }
 
@@ -227,64 +230,21 @@ const SummaryReport: React.FC = () => {
     });
   };
 
-  const calculateNewAgencies = async (next: SummaryData, start: DateTime, end: DateTime) => {
-    const BATCH_SIZE = 50
-    const agencies = new Set()
-    try {
-      let lastDoc: QueryDocumentSnapshot<DocumentData> | null = null;
-      const True = true;
-      while (True) {
-        // Order by document ID so we can paginate even without a timestamp field
-        const q = lastDoc
-          ? query(
-              collection(db, "new_case_workers"),
-              orderBy("__name__"),
-              startAfter(lastDoc),
-              limit(BATCH_SIZE)
-            )
-          : query(collection(db, "new_case_workers"), orderBy("__name__"), limit(BATCH_SIZE));
-
-        const snap: any = await getDocs(q);
-        if (snap.empty) break;
-
-        // Process this batch
-        for (const doc of snap.docs) {
-          const client = doc.data();
-          if (startDate && endDate) {
-            const createdAt = TimeUtils.fromJSDate(client.createdAt.toDate());
-
-            if (start <= createdAt && createdAt <= end){
-              agencies.add(client.organization)
-            }
-          }
-        }
-        lastDoc = snap.docs[snap.docs.length - 1];
-        if (snap.size < BATCH_SIZE) break;
-      }
-      next["Referrals"]["New Referral Agency Names"].value += agencies.size
-    } catch (e) {
-      console.log("Error counting agencies: ", e)
-    }
-  }
 
   const generateReport = async () => {
     const BATCH_SIZE = 50;
 
-    //create new report object
-    const next = makeBlankReport(); 
+    const next = makeBlankReport();
+    const referralAgencies = new Set<string>();
 
-    //count number of clients
     let clientNum = 0
-
-    //count number of active clients
     let active = 0
 
-    setIsLoading(true); // show spinner while generating
+    setIsLoading(true);
 
-    //convert times
     const start = TimeUtils.fromJSDate(startDate!).startOf("day");
     const end = TimeUtils.fromJSDate(endDate!).endOf("day");
-    
+
     try {
       let lastDoc: QueryDocumentSnapshot<DocumentData> | null = null;
       const True = true;
@@ -301,7 +261,6 @@ const SummaryReport: React.FC = () => {
         const snap: any = await getDocs(q);
         if (snap.empty) break;
 
-        // Process this batch
         for (const doc of snap.docs) {
           const client = doc.data();
           const deliveries: string[] = client.deliveries ?? [];
@@ -313,7 +272,7 @@ const SummaryReport: React.FC = () => {
 
             if (deliveriesInRange.length) {
               active += 1;
-              processClientInfo(next, client, deliveriesInRange, start, end);
+              processClientInfo(next, client, deliveriesInRange, start, end, referralAgencies);
             }
           }
         }
@@ -321,26 +280,21 @@ const SummaryReport: React.FC = () => {
         clientNum += snap.size;
         lastDoc = snap.docs[snap.docs.length - 1];
 
-        //if we got fewer than BATCH_SIZE then we’re done
         if (snap.size < BATCH_SIZE) break;
       }
 
-      //Cclculate lapsed clients (all clients that don't have at least one delivery within custom date range)
-      next["Basic Output"]["Lapsed Clients"].value = clientNum - active
-      
-      //calculate new agencies
-      await calculateNewAgencies(next, start, end)
-      
-      //bags delivered = num deliveries * 2
-      next["Basic Output"]["Bags Delivered"].value *= 2
+      next["Basic Output"]["Lapsed Clients"].value = clientNum - active;
+      next["Referrals"]["New Referral Agency Names"].value = referralAgencies.size;
+      next["Basic Output"]["Bags Delivered"].value *= 2;
+
       setData(next);
-      setHasGenerated(true); // ensure tables replace the guide after first run
+      setHasGenerated(true);
       showSuccess("Summary report generated successfully");
     } catch (err) {
       console.error("Failed to generate report:", err);
       showError("Failed to generate summary report. Please try again.");
     } finally {
-      setIsLoading(false); // hide spinner
+      setIsLoading(false);
     }
   };
 
