@@ -56,6 +56,9 @@ interface ClusterMapProps {
   clusters: Cluster[];
   clientOverrides?: ClientOverride[];
   onClusterUpdate: (clientId: string, newClusterId: string, newDriver?: string, newTime?: string) => void;
+  onOpenPopup?: (clientId: string) => void; // Prop to handle table row clicks
+  onMarkerClick?: (clientId: string) => void; // Prop to handle marker clicks
+  onClearHighlight?: () => void; // Prop to clear row highlighting
   refreshDriversTrigger?: number; // Optional prop to trigger driver refresh
 }
 
@@ -109,10 +112,33 @@ const TIME_SLOTS = [
   "4:00 PM", "5:00 PM"
 ];
 
-const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOverrides = [], onClusterUpdate, refreshDriversTrigger }) => {
+const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOverrides = [], onClusterUpdate, onOpenPopup, onMarkerClick, onClearHighlight, refreshDriversTrigger }) => {
   const mapRef = useRef<L.Map | null>(null);
   const markerGroupRef = useRef<L.FeatureGroup | null>(null);
   const wardLayerGroupRef = useRef<L.FeatureGroup | null>(null);
+  const markersMapRef = useRef<Map<string, L.Marker>>(new Map()); // Store markers by client ID
+  const popupOpenedByMarkerRef = useRef<boolean>(false); // Track popup source
+  const popupCloseHandlerSetup = useRef<boolean>(false); // Track if popup close handler is already set up
+  const isPopupOpening = useRef<boolean>(false); // Prevent close handler from firing during opening
+  
+  // Set up global function for direct HTML onclick
+  React.useEffect(() => {
+    (window as any).markerMap = {};
+    (window as any).highlightRow = (clientId: string) => {
+      if (onOpenPopup) {
+        onOpenPopup(clientId);
+      }
+      // Also open the popup manually
+      const marker = (window as any).markerMap[clientId];
+      if (marker && marker.openPopup) {
+        marker.openPopup();
+      }
+    };
+    return () => {
+      delete (window as any).highlightRow;
+      delete (window as any).markerMap;
+    };
+  }, [onOpenPopup]);
   
   // Initialize showWardOverlays from localStorage
   const [showWardOverlays, setShowWardOverlays] = useState<boolean>(() => {
@@ -146,7 +172,6 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
       }
 
       const data = await response.json();
-      //console.log('Fetched ward boundaries:', data);
       setWardData(data);
       return data;
     } catch (error) {
@@ -282,7 +307,104 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
       // Create marker layer group
       markerGroupRef.current = L.featureGroup().addTo(mapRef.current);
     }
-  }, []);
+  }, [onOpenPopup]);
+
+  // Handle external popup open requests
+  React.useEffect(() => {
+    if (onOpenPopup) {
+      (window as any).openMapPopup = (clientId: string) => {
+        
+        // Mark that this popup is being opened by a table row click (not marker click)
+        popupOpenedByMarkerRef.current = false;
+        
+        const marker = markersMapRef.current.get(clientId);
+        if (marker && mapRef.current) {
+          const popup = marker.getPopup();
+          const position = marker.getLatLng();
+          if (popup && position) {
+            // Use the map's openPopup method with the popup content and marker as options
+            const content = popup.getContent();
+            if (content && typeof content !== 'function') {
+              // Create a new popup with the same content but proper positioning
+              const newPopup = L.popup({
+                autoPan: true,
+                keepInView: true,
+                offset: [-5, -10] // Match the popupAnchor from the divIcon
+              })
+              .setContent(content)
+              .setLatLng(position);
+              
+              // Open the popup on the map
+              newPopup.openOn(mapRef.current);
+            }
+          }
+        }
+      };
+      
+      // Also set up the close popup function
+      (window as any).closeMapPopup = () => {
+        if (mapRef.current) {
+          mapRef.current.closePopup();
+        }
+      };
+
+      // Set up function to clear row highlighting
+      (window as any).clearRowHighlight = () => {
+        if (onClearHighlight) {
+          onClearHighlight();
+        }
+      };
+      
+      // Set up a simple popup close handler that mimics clicking the highlighted row
+      if (mapRef.current && !popupCloseHandlerSetup.current) {
+        popupCloseHandlerSetup.current = true;
+        
+        mapRef.current.on('popupclose', (e) => {
+          // Skip if popup is in the process of opening
+          if (isPopupOpening.current) {
+            return;
+          }
+          
+          // Use a longer delay to ensure popup is fully closed
+          setTimeout(() => {
+            // Find all rows with data-client-id and check which one is highlighted
+            const allDataRows = document.querySelectorAll('tr[data-client-id]');
+
+            let highlightedRow = null;
+            allDataRows.forEach((row, index) => {
+              const element = row as HTMLElement;
+              const computedStyle = window.getComputedStyle(element);
+              const inlineStyle = element.style.backgroundColor;
+
+              // Check if this row is highlighted
+              if (inlineStyle.includes('144, 238, 144') ||
+                  inlineStyle.includes('lightgreen') ||
+                  computedStyle.backgroundColor.includes('144, 238, 144')) {
+                highlightedRow = element;
+              }
+            });
+
+            if (highlightedRow) {
+              const clientId = (highlightedRow as HTMLElement).getAttribute('data-client-id');
+
+              if (clientId && onClearHighlight) {
+                onClearHighlight();
+              }
+            }
+          }, 200); // Increased delay
+        });
+      }
+    }
+    return () => {
+      delete (window as any).openMapPopup;
+      delete (window as any).closeMapPopup;
+      delete (window as any).clearRowHighlight;
+    };
+  }, [onOpenPopup]);
+
+
+
+
 
   // Restore ward overlays if they were enabled when the map is ready
   useEffect(() => {
@@ -295,6 +417,9 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
     if (!mapRef.current || !markerGroupRef.current || visibleRows.length < 1) return;
 
     markerGroupRef.current.clearLayers();
+    
+    // Clear markers map when recreating markers
+    markersMapRef.current.clear();
 
     // create a map of client ids for quick lookup
     const clientClusterMap = new Map<string, Cluster>();
@@ -311,7 +436,6 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
       const clientName = `${client.firstName} ${client.lastName}` || "Client: None";
       const address = client.address;
 
-      //find the cluster this client belongs to
       const cluster = clientClusterMap.get(client.id);
       const clusterId = cluster?.id || "";
       let colorIndex = 0;
@@ -350,6 +474,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
               text-shadow: .5px .5px .5px #000, -.5px .5px .5px #000, -.5px -.5px 0px #000, .5px -.5px 0px #000;
               box-sizing: border-box;
               opacity: 0.9;
+              cursor: pointer;
             ">${clusterId}</div>`,
       iconSize: [0, 0],
       iconAnchor: [16, 16],
@@ -357,13 +482,11 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
     });
       
 
-      //create marker
       const marker = L.marker([coord.lat, coord.lng], {
         icon: numberIcon,
-        opacity: 1,
+        opacity: 1
       });
 
-      //build popup content
       const createEditablePopup = (clientId: string, clientName: string, clusterId: string, cluster: Cluster | undefined, ward: string | undefined, address: string) => {
         // Find individual client overrides
         const clientOverride = clientOverrides.find(override => override.clientId === clientId);
@@ -432,6 +555,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
         };
 
         const popupContainer = document.createElement('div');
+        popupContainer.setAttribute('data-client-id', clientId);
         popupContainer.innerHTML = `
           <div style="font-family: Arial, sans-serif; line-height: 1.4; min-width: 250px;">
             <div id="view-mode-${clientId}" style="display: block;">
@@ -614,10 +738,35 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
       //add popup and marker to group
       marker
         .bindPopup(popupContent, { autoPan: true, keepInView: true })
+        .on('click', (e) => {
+          // Set flag to prevent close handler from firing during opening
+          isPopupOpening.current = true;
+
+          // Call the same handleRowClick function - just like table rows do
+          if (onOpenPopup) {
+            onOpenPopup(client.id);
+          }
+          
+          // Clear the flag after popup is opened
+          setTimeout(() => {
+            isPopupOpening.current = false;
+          }, 300);
+        })
+        .on('popupopen', () => {
+          // Additional safety - clear flag when popup actually opens
+          setTimeout(() => {
+            isPopupOpening.current = false;
+          }, 100);
+        })
         .addTo(markerGroupRef.current!);
+
+      // Store client ID in the popup content for later retrieval
+      popupContent.setAttribute('data-client-id', client.id);
+      
+      // Store marker in the map for external access
+      markersMapRef.current.set(client.id, marker);
     });
 
-    //Add FFA Headquarter Marker
     const ffaIcon = L.divIcon({
       className: "custom-ffa-icon",
       html: `<div style="
@@ -640,7 +789,6 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
     const ffaMarker = L.marker(ffaCoordinates, { icon: ffaIcon });
     ffaMarker.addTo(markerGroupRef.current!);
 
-    //fit map to markers if there are any
     if (markerGroupRef.current!.getLayers().length > 0) {
       mapRef.current!.fitBounds(markerGroupRef.current!.getBounds(), {
         padding: [50, 50] 
