@@ -31,9 +31,7 @@ interface ReferralClient {
   id: string;
   firstName: string;
   lastName: string;
-  displayName?: string;
-  deliveries?: string[];
-  lastDelivery?: string;
+  referredDate: string;
 }
 
 const ReferralAgenciesReport: React.FC = () => {
@@ -106,23 +104,19 @@ const ReferralAgenciesReport: React.FC = () => {
           const caseworkerId: string | undefined = client?.referralEntity?.id;
           if (!caseworkerId) continue;
 
-          const deliveries: string[] = Array.isArray(client?.deliveries)
-            ? client.deliveries
-            : [];
-          if (!deliveries.length) continue;
+          if (!client.referredDate) continue;
 
-          const hadDeliveryInRange = deliveries.some((deliveryStr) => {
-            const deliveryDate = TimeUtils.fromISO(deliveryStr);
-            return deliveryDate >= start && deliveryDate <= end;
-          });
-          if (!hadDeliveryInRange) continue;
+          const referredDate = TimeUtils.fromISO(client.referredDate);
+          if (referredDate < start || referredDate > end) continue;
 
           const caseworker = await getCaseworkerInformationById(caseworkerId);
 
           if (!byCaseworker[caseworker]) byCaseworker[caseworker] = [];
           byCaseworker[caseworker].push({
             id: docSnap.id,
-            ...client,
+            firstName: client.firstName,
+            lastName: client.lastName,
+            referredDate: client.referredDate,
           });
         }
 
@@ -269,50 +263,37 @@ const ReferralAgenciesReport: React.FC = () => {
 
                 <AccordionDetails sx={{ bgcolor: "white", color: "black", p: 0 }}>
                   {(clients || []).map(
-                    (client: ReferralClient, clientIndex: number) => {
-                      const deliveries = Array.isArray(client?.deliveries)
-                        ? client.deliveries
-                        : [];
-                      const lastDelivery = deliveries.length
-                        ? deliveries[deliveries.length - 1]
-                        : null;
-
-                      return (
-                        <Box
-                          key={`${index}-${clientIndex}`}
+                    (client: ReferralClient, clientIndex: number) => (
+                      <Box
+                        key={`${index}-${clientIndex}`}
+                        sx={{
+                          height: 100,
+                          bgcolor: "#f0f0f0ff",
+                          mb: 1.25,
+                          width: "100%",
+                          display: "flex",
+                          p: 2.5,
+                          justifyContent: "center",
+                          flexDirection: "column",
+                        }}
+                      >
+                        <Typography
                           sx={{
-                            height: 100,
-                            bgcolor: "#f0f0f0ff",
-                            mb: 1.25,
-                            width: "100%",
-                            display: "flex",
-                            p: 2.5,
-                            justifyContent: "center",
-                            flexDirection: "column",
+                            color: "var(--color-primary)",
+                            fontWeight: "bold",
+                            textDecoration: "underline",
+                            fontSize: 17,
+                            cursor: "pointer",
                           }}
+                          onClick={() => navigate(`/profile/${client.id}`)}
                         >
-                          <>
-                            <Typography
-                              sx={{
-                                color: "var(--color-primary)",
-                                fontWeight: "bold",
-                                textDecoration: "underline",
-                                fontSize: 17,
-                                cursor: "pointer",
-                              }}
-                              onClick={() => {
-                                navigate(`/profile/${client.id}`);
-                              }}
-                            >
-                              {client.firstName} {client.lastName}
-                            </Typography>
-                            <Typography sx={{ m: 0 }}>
-                              Last Delivered: {lastDelivery ?? "—"}
-                            </Typography>
-                          </>
-                        </Box>
-                      );
-                    }
+                          {client.firstName} {client.lastName}
+                        </Typography>
+                        <Typography sx={{ m: 0 }}>
+                          Referral Date: {client.referredDate}
+                        </Typography>
+                      </Box>
+                    )
                   )}
                 </AccordionDetails>
               </Accordion>
