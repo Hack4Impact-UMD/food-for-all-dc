@@ -22,7 +22,6 @@ import { onAuthStateChanged } from "firebase/auth";
 import React, { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { auth } from "../../auth/firebaseConfig";
-import "./CalendarPage.css";
 import AddDeliveryDialog from "./components/AddDeliveryDialog";
 import CalendarHeader from "./components/CalendarHeader";
 import CalendarPopper from "./components/CalendarPopper";
@@ -42,17 +41,42 @@ const DAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", 
 
 const StyledCalendarContainer = styled(Box)(({ theme }) => ({
   display: "flex",
-  padding: theme.spacing(2),
-  height: "calc(100vh - 64px)",
+  padding: theme.spacing(1),
+  flexGrow: 1,
+  minHeight: 0, // Allow flex item to shrink below content size
+  overflow: "hidden",
   "& .calendar_default_main": {
     fontFamily: theme.typography.fontFamily,
   },
+  "&[data-view='Month']": {
+    "& > div > div": {
+      borderBottom: "2px solid #e0e0e0 !important",
+    },
+    "& .calendar_default_main, & [class*='calendar'], & .daypilot_month_main, & [class*='daypilot']": {
+      borderBottom: "2px solid #e0e0e0 !important",
+    },
+    "& .daypilot_month": {
+      borderBottom: "2px solid #e0e0e0 !important",
+    },
+    "& [class*='daypilot']": {
+      borderBottom: "2px solid #e0e0e0 !important",
+    },
+  },
+
 }));
 
-const CalendarContent = styled(Box)({
+const CalendarContent = styled(Box)(({ theme }) => ({
   flexGrow: 1,
   position: "relative",
-});
+  display: "flex",
+  flexDirection: "column",
+  minHeight: 0,
+  overflow: "hidden",
+  // Add border to calendar content when parent has data-view="Month"
+  "[data-view='Month'] &": {
+    borderBottom: "2px solid #e0e0e0",
+  },
+}));
 
 const CalendarPage: React.FC = () => {
   const navigate = useNavigate();
@@ -423,6 +447,18 @@ const CalendarPage: React.FC = () => {
     fetchClients();
   }, []);
 
+  // Calculate if current month has 6+ rows
+  const getMonthRowCount = () => {
+    const startOfMonth = currentDate.firstDayOfMonth();
+    const endOfMonth = currentDate.lastDayOfMonth();
+    const startOfWeek = startOfMonth.firstDayOfWeek();
+    const endOfWeek = endOfMonth.firstDayOfWeek().addDays(6); // Get last day of week containing end of month
+    const totalDays = Math.ceil((endOfMonth.getTime() - startOfWeek.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+    return Math.ceil(totalDays / 7);
+  };
+
+  const monthHasSixOrMoreRows = viewType === "Month" && getMonthRowCount() >= 6;
+
   const renderCalendarView = () => {
     if (viewType === "Day") {
       // Calculate the daily limit for the current day
@@ -464,8 +500,13 @@ const CalendarPage: React.FC = () => {
       sx={{
         display: "flex",
         flexDirection: "column",
-        height: "90vh",
-        minWidth: "95vw",
+        height: "calc(100vh - 30px)",
+        width: "100vw",
+        overflow: "hidden",
+        position: "fixed",
+        top: "64px",
+        left: 0,
+        zIndex: 1000,
       }}
     >
       <AppBar position="static" color="default" elevation={1}></AppBar>
@@ -474,7 +515,8 @@ const CalendarPage: React.FC = () => {
         component="main"
         sx={{
           flexGrow: 1,
-          overflow: "hidden"
+          overflow: "hidden",
+          width: "100%",
         }}
       >
         <CalendarHeader 
@@ -492,13 +534,19 @@ const CalendarPage: React.FC = () => {
           }
         />
 
-        <StyledCalendarContainer>
+        <StyledCalendarContainer 
+          data-view={viewType}
+          sx={{ 
+            paddingBottom: viewType === "Month" ? 8 : 1,
+            transform: monthHasSixOrMoreRows ? "scale(0.95)" : "scale(1)",
+            transformOrigin: "top center"
+          }}>
           <CalendarContent>
             {renderCalendarView()}
           </CalendarContent>
         </StyledCalendarContainer>
 
-        <span ref={containerRef}>
+        <span ref={containerRef} style={{ zIndex: 1100, position: 'relative' }}>
           <CalendarPopper
             anchorEl={anchorEl}
             viewType={viewType}

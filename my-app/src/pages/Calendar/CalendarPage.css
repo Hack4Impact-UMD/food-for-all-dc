@@ -1,15 +1,4 @@
-/* Full-Screen Calendar Styling */
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
-
-html,
-body {
-  height: 100%;
-  font-family: Arial, sans-serif;
-}
+/* Calendar Page Specific Styling */
 
 .calendar-container {
   width: 100vw;
