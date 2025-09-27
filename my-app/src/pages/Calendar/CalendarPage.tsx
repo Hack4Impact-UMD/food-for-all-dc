@@ -103,7 +103,6 @@ const CalendarPage: React.FC = () => {
     const unsubscribe = onAuthStateChanged(auth, (user: any) => {
       if (!user) {
         navigate("/");
-      } else {
       }
     });
 
