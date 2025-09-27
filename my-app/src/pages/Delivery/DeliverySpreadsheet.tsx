@@ -13,6 +13,7 @@ import AssignmentIndIcon from "@mui/icons-material/AssignmentInd";
 import AccessTimeIcon from "@mui/icons-material/AccessTime";
 import FileDownloadIcon from "@mui/icons-material/FileDownload";
 import GroupWorkIcon from "@mui/icons-material/GroupWork";
+import AddIcon from "@mui/icons-material/Add";
 import TodayIcon from "@mui/icons-material/Today";
 import UnfoldMoreIcon from "@mui/icons-material/UnfoldMore";
 
@@ -323,7 +324,6 @@ const DeliverySpreadsheet: React.FC = () => {
   const [clusters, setClustersOriginal] = useState<Cluster[]>([]);
   const [selectedClusters, setSelectedClusters] = useState<Set<any>>(new Set());
   const [exportOption, setExportOption] = useState<"Routes" | "Doordash" | null>(null);
-  const [emailOrDownload, setEmailOrDownload] = useState<"Email" | "Download" | null>(null);
   const [driversRefreshTrigger, setDriversRefreshTrigger] = useState<number>(0);
   const [highlightedRowId, setHighlightedRowId] = useState<string | null>(null);
 
@@ -744,27 +744,17 @@ const DeliverySpreadsheet: React.FC = () => {
     }
   };
 
-  const handleEmailOrDownload = async (option: "Email" | "Download") => {
-    setEmailOrDownload(option);
+  const handleExport = async () => {
     setPopupMode("");
 
     if (exportOption === "Routes") {
-      if (option === "Email") {
-        alert("Unimplemented");
-      } else if (option === "Download") {
-        // Pass rows and clusters to exportDeliveries
-        exportDeliveries(TimeUtils.fromJSDate(selectedDate).toISODate() || "", rows, clusters);
-        console.log("Downloading Routes...");
-        // Add your download logic here
-      }
+      // Pass rows and clusters to exportDeliveries
+      exportDeliveries(TimeUtils.fromJSDate(selectedDate).toISODate() || "", rows, clusters);
+      console.log("Downloading Routes...");
     } else if (exportOption === "Doordash") {
-      if (option === "Email") {
-        alert("Unimplemented");
-      } else if (option === "Download") {
-        // Export DoorDash deliveries grouped by time
-        exportDoordashDeliveries(TimeUtils.fromJSDate(selectedDate).toISODate() || "", rows, clusters);
-        console.log("Downloading Doordash...");
-      }
+      // Export DoorDash deliveries grouped by time
+      exportDoordashDeliveries(TimeUtils.fromJSDate(selectedDate).toISODate() || "", rows, clusters);
+      console.log("Downloading Doordash...");
     }
   };
 
@@ -907,7 +897,6 @@ const DeliverySpreadsheet: React.FC = () => {
   const resetSelections = () => {
     setPopupMode("");
     setExportOption(null);
-    setEmailOrDownload(null);
     // Keep selectedRows and selectedClusters checked so users can make multiple assignments
   };
 
@@ -2556,19 +2545,10 @@ const DeliverySpreadsheet: React.FC = () => {
                 variant="primary"
                 color="primary"
                 onClick={() => {
-                  handleEmailOrDownload("Email");
+                  handleExport();
                   resetSelections();
                 }}
-              >
-                Email
-              </Button>
-              <Button
-                variant="secondary"
-                color="secondary"
-                onClick={() => {
-                  handleEmailOrDownload("Download");
-                  resetSelections();
-                }}
+                startIcon={<FileDownloadIcon />}
               >
                 Download
               </Button>
