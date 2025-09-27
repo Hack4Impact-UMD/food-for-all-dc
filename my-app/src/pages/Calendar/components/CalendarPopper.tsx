@@ -41,22 +41,39 @@ const CalendarPopper = ({
     x: number;
     y: number;
   } | null>(null);
+  const [clickedElement, setClickedElement] = useState<HTMLElement | null>(null);
   const [limitEditDate, setLimitEditDate] = useState<DayPilot.Date | null>(null);
   const [newLimit, setNewLimit] = useState<number>(60);
   const [bulkEdit, setBulkEdit] = useState<boolean>(false);
 
   const limitOptions = Array.from({ length: 13 }, (_, i) => 30 + i * 5);
 
-  const handleDateClick = async (date: DayPilot.Date) => {
+  const handleDateClick = async (date: DayPilot.Date, event?: any) => {
     const dateKey = date.toString("yyyy-MM-dd");
-    const cellElement = document.querySelector(`[data-date="${dateKey}"]`);
+    
+    // Try to find the actual clicked cell element
+    let cellElement = null;
+    if (event && event.e && event.e.target) {
+      // Use the event target or find the closest calendar cell
+      cellElement = event.e.target.closest('.calendar_default_cell') || 
+                   event.e.target.closest('.calendar_default_cell_business') ||
+                   event.e.target.closest('[class*="calendar_default_cell"]') ||
+                   event.e.target;
+    }
+    
+    if (!cellElement) {
+      // Fallback: try to find by data-date or other DayPilot selectors
+      cellElement = document.querySelector(`[data-date="${dateKey}"]`) ||
+                   document.querySelector(`[data-day="${dateKey}"]`) ||
+                   document.querySelector(`[title*="${dateKey}"]`);
+    }
+    
     if (cellElement) {
-      const rect = cellElement.getBoundingClientRect();
-      setClickPosition({
-        x: rect.left + rect.width / 2,
-        y: rect.bottom,
-      });
+      // Use the actual cell element as anchor
+      setClickedElement(cellElement as HTMLElement);
+      setClickPosition(null);
     } else {
+      setClickedElement(null);
       setClickPosition(null);
     }
     setLimitEditDate(date);
@@ -82,19 +99,52 @@ const CalendarPopper = ({
   }, [anchorEl]);
 
   const handleClick = (event: React.MouseEvent) => {
-    setClickPosition({
-      x: event.clientX,
-      y: event.clientY,
-    });
+    // Ignore clicks from inside the nested popper (limit edit popup)
+    const target = event.target as HTMLElement;
+    if (target.closest('[role="tooltip"]') || target.closest('.MuiPaper-root')) {
+      // Check if this click came from inside our nested popper
+      const clickedPopper = target.closest('[role="tooltip"]');
+      if (clickedPopper && clickedPopper.querySelector('select, input, .MuiTypography-root')) {
+        return; // Don't handle clicks from the nested popper
+      }
+    }
+    
+    // Find the actual calendar cell that was clicked
+    const cellElement = target.closest('.calendar_default_cell') || 
+                       target.closest('.calendar_default_cell_business') ||
+                       target.closest('[class*="calendar_default_cell"]') ||
+                       target.closest('[data-date]') || // Try to find by our data-date attribute
+                       target.closest('[class*="daypilot"]') ||
+                       target;
+    
+    if (cellElement && cellElement !== target) {
+      // Use the actual cell element as anchor
+      setClickedElement(cellElement as HTMLElement);
+      setClickPosition(null);
+    } else {
+      // Fallback to mouse position if we can't find a cell
+      setClickedElement(null);
+      setClickPosition({
+        x: event.clientX,
+        y: event.clientY,
+      });
+    }
   };
 
   const virtualAnchor = useMemo(() => {
+    if (clickedElement) {
+      // Create a virtual anchor using the element's bounding rect
+      const rect = clickedElement.getBoundingClientRect();
+      return {
+        getBoundingClientRect: () => new DOMRect(rect.left, rect.bottom, rect.width, 1),
+      };
+    }
     if (!clickPosition) return undefined;
 
     return {
       getBoundingClientRect: () => new DOMRect(clickPosition.x, clickPosition.y, 1, 1),
     };
-  }, [clickPosition]);
+  }, [clickedElement, clickPosition]);
 
   const handleLimitChange = async (e: any) => {
     const selectedValue = Number(e.target.value);
@@ -166,7 +216,10 @@ const CalendarPopper = ({
         `;
       },
       onTimeRangeSelected: (args: any) => {
-        handleDateClick(args.start);
+        handleDateClick(args.start, args);
+      },
+      onCellClick: (args: any) => {
+        handleDateClick(args.cell.start, args);
       },
     };
 
@@ -176,7 +229,6 @@ const CalendarPopper = ({
           <Fade {...TransitionProps} timeout={350}>
             <Paper elevation={3} sx={{ p: 2, width: 500 }}>
               <Box
-                onClick={handleClick}
                 sx={{ position: "relative" }}
                 onMouseDown={(e) => e.stopPropagation()}
               >
@@ -209,11 +261,17 @@ const CalendarPopper = ({
                   <Paper
                     elevation={3}
                     sx={{ p: 2, width: 100 }}
+                    onClick={(e) => e.stopPropagation()}
                     onMouseDown={(e) => e.stopPropagation()}
                   >
                     {limitEditDate && (
                       <>
-                        <Typography variant="subtitle1" gutterBottom>
+                        <Typography 
+                          variant="subtitle1" 
+                          gutterBottom
+                          onClick={(e) => e.stopPropagation()}
+                          onMouseDown={(e) => e.stopPropagation()}
+                        >
                           {limitEditDate.toString("MMM d")}
                         </Typography>
                         <FormControl fullWidth sx={{ mb: 2 }}>
