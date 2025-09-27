@@ -1364,18 +1364,14 @@ const DeliverySpreadsheet: React.FC = () => {
 
 
   const handleRowClick = (clientId: string) => {
-    console.log('Row clicked for clientId:', clientId);
-    
     // Handle special case for clearing highlight only
     if (clientId === 'CLEAR_HIGHLIGHT_ONLY') {
-      console.log('Clearing row highlight only');
       setHighlightedRowId(null);
       return;
     }
     
     // If clicking the same row that's already highlighted, toggle it off
     if (highlightedRowId === clientId) {
-      console.log('Removing highlight and closing popup');
       setHighlightedRowId(null);
       // Close any open popup
       if ((window as any).closeMapPopup) {
@@ -1383,21 +1379,16 @@ const DeliverySpreadsheet: React.FC = () => {
       }
     } else {
       // Highlight the new row and open its popup
-      console.log('Highlighting new row and opening popup');
       setHighlightedRowId(clientId);
       // Open the corresponding map popup
       if ((window as any).openMapPopup) {
-        console.log('Calling openMapPopup for:', clientId);
         (window as any).openMapPopup(clientId);
-      } else {
-        console.log('openMapPopup function not available');
       }
     }
   };
 
   // Separate function just for clearing highlights (used by popup close handler)
   const clearRowHighlight = () => {
-    console.log('Clearing row highlight only');
     setHighlightedRowId(null);
   };
 
@@ -2316,9 +2307,6 @@ const DeliverySpreadsheet: React.FC = () => {
                   sx={{
                     backgroundColor: (() => {
                       const isHighlighted = highlightedRowId === row.id;
-                      if (highlightedRowId && row.id === '160944409583') {
-                        console.log(`Row ${row.id}: highlightedRowId=${highlightedRowId}, match=${isHighlighted}`);
-                      }
                       return isHighlighted ? 'rgba(144, 238, 144, 0.7) !important' : 'inherit';
                     })(),
                     border: highlightedRowId === row.id ? '2px solid #90EE90 !important' : 'none',
