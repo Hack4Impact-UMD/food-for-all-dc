@@ -51,8 +51,6 @@ import { styled } from "@mui/material/styles";
 import { collection, getDocs, doc, setDoc } from "firebase/firestore";
 import { auth } from "../../auth/firebaseConfig";
 import { onAuthStateChanged } from "firebase/auth";
-// ...existing code...
-// Ensure clients are loaded for event query
 const ClusterMap = React.lazy(() => import("./ClusterMap"));
 import AssignDriverPopup from "./components/AssignDriverPopup";
 import GenerateClustersPopup from "./components/GenerateClustersPopup";
@@ -63,8 +61,6 @@ import Button from "../../components/common/Button";
 import { RowData as DeliveryRowData } from "./types/deliveryTypes";
 import { Driver } from '../../types/calendar-types';
 import { ClientProfile } from '../../types/client-types';
-// ...existing code...
-// Remove top-level hooks for clients
 import { CustomRowData, useCustomColumns, allowedPropertyKeys } from "../../hooks/useCustomColumns";
 import ClientService from "../../services/client-service";
 import { LatLngTuple } from "leaflet";
@@ -78,12 +74,6 @@ interface ClientOverride {
 import { useAuth } from "../../auth/AuthProvider";
 import EventCountHeader from "../../components/EventCountHeader";
 import { useLimits } from "../Calendar/components/useLimits";
-// interface Driver {
-//   id: string;
-//   name: string;
-//   phone: string
-//   email: string;
-// }
 
 const StyleChip = styled(Chip)({
   backgroundColor: 'var(--color-primary)',

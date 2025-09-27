@@ -172,7 +172,6 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
       }
 
       const data = await response.json();
-      //console.log('Fetched ward boundaries:', data);
       setWardData(data);
       return data;
     } catch (error) {
@@ -307,8 +306,6 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
       
       // Create marker layer group
       markerGroupRef.current = L.featureGroup().addTo(mapRef.current);
-
-      // No automatic highlighting - keep popup working on single click
     }
   }, [onOpenPopup]);
 
@@ -439,7 +436,6 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
       const clientName = `${client.firstName} ${client.lastName}` || "Client: None";
       const address = client.address;
 
-      //find the cluster this client belongs to
       const cluster = clientClusterMap.get(client.id);
       const clusterId = cluster?.id || "";
       let colorIndex = 0;
@@ -486,13 +482,11 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
     });
       
 
-      //create marker
       const marker = L.marker([coord.lat, coord.lng], {
         icon: numberIcon,
         opacity: 1
       });
 
-      //build popup content
       const createEditablePopup = (clientId: string, clientName: string, clusterId: string, cluster: Cluster | undefined, ward: string | undefined, address: string) => {
         // Find individual client overrides
         const clientOverride = clientOverrides.find(override => override.clientId === clientId);
@@ -773,7 +767,6 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
       markersMapRef.current.set(client.id, marker);
     });
 
-    //Add FFA Headquarter Marker
     const ffaIcon = L.divIcon({
       className: "custom-ffa-icon",
       html: `<div style="
@@ -796,7 +789,6 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
     const ffaMarker = L.marker(ffaCoordinates, { icon: ffaIcon });
     ffaMarker.addTo(markerGroupRef.current!);
 
-    //fit map to markers if there are any
     if (markerGroupRef.current!.getLayers().length > 0) {
       mapRef.current!.fitBounds(markerGroupRef.current!.getBounds(), {
         padding: [50, 50] 
