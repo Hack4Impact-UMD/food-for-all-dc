@@ -821,9 +821,6 @@ const Profile = () => {
     if (clientProfile.state !== "DC" && clientProfile.state !== "MD" && clientProfile.state !== "VA") {
       newErrors.state = "State must be DC, MD, or VA";
     } 
-    if (!clientProfile.dob) {
-      newErrors.dob = "Date of Birth is required";
-    }
     if (clientProfile.email?.trim() &&
         !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clientProfile.email.trim())
     ) {
@@ -837,6 +834,9 @@ const Profile = () => {
     }
     if (!clientProfile.recurrence?.trim()) {
       newErrors.recurrence = "Recurrence is required";
+    }
+    if (!clientProfile.referralEntity || !clientProfile.referralEntity.id) {
+      newErrors.referralEntity = "Referral entity is required";
     }
     if (!clientProfile.phone?.trim()) {
       newErrors.phone = "Phone is required";
@@ -2659,20 +2659,33 @@ const handleMentalHealthConditionsChange = (e: React.ChangeEvent<HTMLInputElemen
           <SectionBox mb={3}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
             <SectionTitle sx={{ textAlign: 'left', width: '100%' }}>Deliveries</SectionTitle>
-            <Button
-              variant="contained"
-              startIcon={<Add />}
-              onClick={() => setIsDeliveryModalOpen(true)}
-              disabled={userRole === UserType.ClientIntake}
-              sx={{
-                marginRight: 4,
-                width: 166,
-                color: "#fff",
-                backgroundColor: "#257E68",
-              }}
+            <Tooltip 
+              title={
+                !isEditing 
+                  ? "Must be in edit mode to add deliveries"
+                  : (isEditing && !clientId)
+                    ? "Can only add deliveries after client is created"
+                    : ""
+              }
+              arrow
             >
-              Add Delivery
-            </Button>
+              <span>
+                <Button
+                  variant="contained"
+                  startIcon={<Add />}
+                  onClick={() => setIsDeliveryModalOpen(true)}
+                  disabled={userRole === UserType.ClientIntake || !isEditing || !clientId}
+                  sx={{
+                    marginRight: 4,
+                    width: 166,
+                    color: "#fff",
+                    backgroundColor: "#257E68",
+                  }}
+                >
+                  Add Delivery
+                </Button>
+              </span>
+            </Tooltip>
             </Box>
             <AddDeliveryDialog
               open={isDeliveryModalOpen}
