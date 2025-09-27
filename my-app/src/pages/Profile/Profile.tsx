@@ -31,7 +31,7 @@ import {
   Timestamp,
   deleteDoc,
 } from "firebase/firestore";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { auth, db } from "../../auth/firebaseConfig";
 import CaseWorkerManagementModal from "../../components/CaseWorkerManagementModal";
@@ -289,6 +289,18 @@ const Profile = () => {
   const [events, setEvents] = useState<DeliveryEvent[]>([]);
   const [latestRecurringDelivery, setLatestRecurringDelivery] = useState<DeliveryEvent | null>(null);
 
+  // Memoized preSelectedClient data for AddDeliveryDialog
+  const preSelectedClientData = useMemo(() => ({
+    clientId: clientId || "",
+    clientName: `${clientProfile.firstName} ${clientProfile.lastName}`,
+    clientProfile: {
+      ...clientProfile,
+      // Override with latest recurring delivery data if available
+      recurrence: latestRecurringDelivery?.recurrence || clientProfile.recurrence,
+      endDate: latestRecurringDelivery?.repeatsEndDate || clientProfile.endDate
+    }
+  }), [clientId, clientProfile, latestRecurringDelivery]);
+
     // Allergies textbox state for editing
     const [foodAllergensText, setFoodAllergensText] = useState<string>("");
   // Sync allergies textbox with foodAllergens array when entering edit mode or when array changes
@@ -497,12 +509,10 @@ const Profile = () => {
         
         // Find the latest recurring delivery from all deliveries (past and future)
         const allDeliveries = [...pastDeliveries, ...futureDeliveries];
-        console.log('All deliveries for client:', allDeliveries);
         
         const recurringDeliveries = allDeliveries.filter(delivery => 
           delivery.recurrence && delivery.recurrence !== "None"
         );
-        console.log('Recurring deliveries found:', recurringDeliveries);
         
         if (recurringDeliveries.length > 0) {
           // Sort by delivery date (most recent first) and take the first one
@@ -511,10 +521,8 @@ const Profile = () => {
             const dateB = toJSDate(b.deliveryDate);
             return dateB.getTime() - dateA.getTime();
           });
-          console.log('Latest recurring delivery:', sortedRecurring[0]);
           setLatestRecurringDelivery(sortedRecurring[0]);
         } else {
-          console.log('No recurring deliveries found');
           setLatestRecurringDelivery(null);
         }
         
@@ -2690,19 +2698,16 @@ const handleMentalHealthConditionsChange = (e: React.ChangeEvent<HTMLInputElemen
                 if (clientId) {
                   const deliveryService = DeliveryService.getInstance();
                   try {
-                    console.log('Fetching fresh delivery data...');
                     const { pastDeliveries, futureDeliveries } = await deliveryService.getClientDeliveryHistory(clientId);
                     setPastDeliveries(pastDeliveries);
                     setFutureDeliveries(futureDeliveries);
                     
                     // Find the latest recurring delivery
                     const allDeliveries = [...pastDeliveries, ...futureDeliveries];
-                    console.log('Fresh all deliveries:', allDeliveries);
                     
                     const recurringDeliveries = allDeliveries.filter(delivery => 
                       delivery.recurrence && delivery.recurrence !== "None"
                     );
-                    console.log('Fresh recurring deliveries found:', recurringDeliveries);
                     
                     if (recurringDeliveries.length > 0) {
                       const sortedRecurring = recurringDeliveries.sort((a, b) => {
@@ -2710,10 +2715,8 @@ const handleMentalHealthConditionsChange = (e: React.ChangeEvent<HTMLInputElemen
                         const dateB = toJSDate(b.deliveryDate);
                         return dateB.getTime() - dateA.getTime();
                       });
-                      console.log('Fresh latest recurring delivery:', sortedRecurring[0]);
                       setLatestRecurringDelivery(sortedRecurring[0]);
                     } else {
-                      console.log('No fresh recurring deliveries found');
                       setLatestRecurringDelivery(null);
                     }
                   } catch (error) {
@@ -2739,21 +2742,7 @@ const handleMentalHealthConditionsChange = (e: React.ChangeEvent<HTMLInputElemen
               onAddDelivery={handleAddDelivery}
               clients={[]} // Empty array since we're using preSelectedClient
               startDate={new DayPilot.Date()}
-              preSelectedClient={(() => {
-                const preSelected = {
-                  clientId: clientId || "",
-                  clientName: `${clientProfile.firstName} ${clientProfile.lastName}`,
-                  clientProfile: {
-                    ...clientProfile,
-                    // Override with latest recurring delivery data if available
-                    recurrence: latestRecurringDelivery?.recurrence || clientProfile.recurrence,
-                    endDate: latestRecurringDelivery?.repeatsEndDate || clientProfile.endDate
-                  }
-                };
-                console.log('PreSelectedClient being passed to AddDeliveryDialog:', preSelected);
-                console.log('latestRecurringDelivery:', latestRecurringDelivery);
-                return preSelected;
-              })()}
+              preSelectedClient={preSelectedClientData}
             />
            <DeliveryLogForm
               pastDeliveries={pastDeliveries}

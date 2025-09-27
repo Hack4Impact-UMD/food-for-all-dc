@@ -97,29 +97,13 @@ const CalendarPage: React.FC = () => {
   const limits = useLimits();
   const containerRef = useRef<HTMLDivElement | null>(null);
 
-  // Log Day view data to console whenever events or date change
-  useEffect(() => {
-    if (viewType === "Day") {
-      const selectedDateStr = currentDate.toString("yyyy-MM-dd");
-      if (events && events.length > 0) {
-        console.log('[Day Calendar] Date:', selectedDateStr, 'Events:', events);
-      } else {
-        console.log('[Day Calendar] No events loaded for', selectedDateStr);
-      }
-    } else {
-      console.log('[Day Calendar] useEffect fired, not Day view:', viewType);
-    }
-  }, [viewType, currentDate, events]);
-
 
   // Route Protection
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user: any) => {
       if (!user) {
-        console.log("No user is signed in, redirecting to /");
         navigate("/");
       } else {
-        console.log("welcome, " + auth.currentUser?.email);
       }
     });
 
@@ -163,7 +147,6 @@ const CalendarPage: React.FC = () => {
       const clientsData = await clientService.getAllClients();
       // Use the client objects as returned from client-service.ts to ensure uid matches Firestore doc id
       setClients(clientsData.clients as ClientProfile[]);
-      const clientUids = clientsData.clients.map((c: any) => c.uid);
     } catch (error) {
       console.error("Error fetching clients:", error);
     }
@@ -240,14 +223,6 @@ const CalendarPage: React.FC = () => {
       );
 
 
-      // Debug: Print all event clientIds and all client uids
-      const eventClientIds = fetchedEvents.map(event => event.clientId);
-      const clientUids = clients.map(client => client.uid);
-      const eventClientIdSet = new Set(eventClientIds);
-      const clientUidSet = new Set(clientUids);
-      const intersection = eventClientIds.filter(id => clientUidSet.has(id));
-      const missingInClients = eventClientIds.filter(id => !clientUidSet.has(id));
-      const missingInEvents = clientUids.filter(uid => !eventClientIdSet.has(uid));
 
         // Update client names in events if client exists, but do not filter out any events
         const updatedEvents = fetchedEvents.map(event => {
