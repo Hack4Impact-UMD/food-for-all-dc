@@ -171,7 +171,7 @@ const CalendarPopper = ({
     };
 
     return (
-      <Popper open={Boolean(anchorEl)} anchorEl={anchorEl} placement="bottom" transition>
+      <Popper open={Boolean(anchorEl)} anchorEl={anchorEl} placement="bottom" transition sx={{ zIndex: 1200 }}>
         {({ TransitionProps }) => (
           <Fade {...TransitionProps} timeout={350}>
             <Paper elevation={3} sx={{ p: 2, width: 500 }}>
@@ -204,7 +204,7 @@ const CalendarPopper = ({
                       options: { altBoundary: true },
                     },
                   ]}
-                  sx={{ zIndex: 1 }}
+                  sx={{ zIndex: 1300 }}
                 >
                   <Paper
                     elevation={3}

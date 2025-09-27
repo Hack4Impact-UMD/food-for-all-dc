@@ -546,7 +546,7 @@ const CalendarPage: React.FC = () => {
           </CalendarContent>
         </StyledCalendarContainer>
 
-        <span ref={containerRef}>
+        <span ref={containerRef} style={{ zIndex: 1100, position: 'relative' }}>
           <CalendarPopper
             anchorEl={anchorEl}
             viewType={viewType}
