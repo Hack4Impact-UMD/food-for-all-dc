@@ -31,7 +31,7 @@ import {
   Timestamp,
   deleteDoc,
 } from "firebase/firestore";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { auth, db } from "../../auth/firebaseConfig";
 import CaseWorkerManagementModal from "../../components/CaseWorkerManagementModal";
@@ -187,6 +187,7 @@ const Profile = () => {
   const [allTags, setAllTags] = useState<string[]>([]);
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [isDeliveryModalOpen, setIsDeliveryModalOpen] = useState<boolean>(false);
+  const [deliveryDataLoaded, setDeliveryDataLoaded] = useState<boolean>(false);
   const [prevTags, setPrevTags] = useState<string[] | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [prevClientProfile, setPrevClientProfile] = useState<ClientProfile | null>(null);
@@ -287,6 +288,19 @@ const Profile = () => {
   const [pastDeliveries, setPastDeliveries] = useState<DeliveryEvent[]>([]);
   const [futureDeliveries, setFutureDeliveries] = useState<DeliveryEvent[]>([]);
   const [events, setEvents] = useState<DeliveryEvent[]>([]);
+  const [latestRecurringDelivery, setLatestRecurringDelivery] = useState<DeliveryEvent | null>(null);
+
+  // Memoized preSelectedClient data for AddDeliveryDialog
+  const preSelectedClientData = useMemo(() => ({
+    clientId: clientId || "",
+    clientName: `${clientProfile.firstName} ${clientProfile.lastName}`,
+    clientProfile: {
+      ...clientProfile,
+      // Override with latest recurring delivery data if available
+      recurrence: latestRecurringDelivery?.recurrence || clientProfile.recurrence,
+      endDate: latestRecurringDelivery?.repeatsEndDate || clientProfile.endDate
+    }
+  }), [clientId, clientProfile, latestRecurringDelivery]);
 
     // Allergies textbox state for editing
     const [foodAllergensText, setFoodAllergensText] = useState<string>("");
@@ -495,6 +509,27 @@ const Profile = () => {
         const { pastDeliveries, futureDeliveries } = await deliveryService.getClientDeliveryHistory(clientId!);
         setPastDeliveries(pastDeliveries);
         setFutureDeliveries(futureDeliveries);
+        
+        // Find the latest recurring delivery from all deliveries (past and future)
+        const allDeliveries = [...pastDeliveries, ...futureDeliveries];
+        
+        const recurringDeliveries = allDeliveries.filter(delivery => 
+          delivery.recurrence && delivery.recurrence !== "None"
+        );
+        
+        if (recurringDeliveries.length > 0) {
+          // Sort by delivery date (most recent first) and take the first one
+          const sortedRecurring = recurringDeliveries.sort((a, b) => {
+            const dateA = toJSDate(a.deliveryDate);
+            const dateB = toJSDate(b.deliveryDate);
+            return dateB.getTime() - dateA.getTime();
+          });
+          setLatestRecurringDelivery(sortedRecurring[0]);
+        } else {
+          setLatestRecurringDelivery(null);
+        }
+        
+        setDeliveryDataLoaded(true);
       } catch (error) {
         console.error("Failed to fetch delivery history", error);
       }
@@ -2659,33 +2694,51 @@ const handleMentalHealthConditionsChange = (e: React.ChangeEvent<HTMLInputElemen
           <SectionBox mb={3}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
             <SectionTitle sx={{ textAlign: 'left', width: '100%' }}>Deliveries</SectionTitle>
-            <Tooltip 
-              title={
-                !isEditing 
-                  ? "Must be in edit mode to add deliveries"
-                  : (isEditing && !clientId)
-                    ? "Can only add deliveries after client is created"
-                    : ""
-              }
-              arrow
+            <Button
+              variant="contained"
+              startIcon={<Add />}
+              onClick={async () => {
+                // Refresh delivery data before opening modal
+                if (clientId) {
+                  const deliveryService = DeliveryService.getInstance();
+                  try {
+                    const { pastDeliveries, futureDeliveries } = await deliveryService.getClientDeliveryHistory(clientId);
+                    setPastDeliveries(pastDeliveries);
+                    setFutureDeliveries(futureDeliveries);
+
+                    // Find the latest recurring delivery
+                    const allDeliveries = [...pastDeliveries, ...futureDeliveries];
+
+                    const recurringDeliveries = allDeliveries.filter(delivery =>
+                      delivery.recurrence && delivery.recurrence !== "None"
+                    );
+
+                    if (recurringDeliveries.length > 0) {
+                      const sortedRecurring = recurringDeliveries.sort((a, b) => {
+                        const dateA = toJSDate(a.deliveryDate);
+                        const dateB = toJSDate(b.deliveryDate);
+                        return dateB.getTime() - dateA.getTime();
+                      });
+                      setLatestRecurringDelivery(sortedRecurring[0]);
+                    } else {
+                      setLatestRecurringDelivery(null);
+                    }
+                  } catch (error) {
+                    console.error("Failed to refresh delivery history", error);
+                  }
+                }
+                setIsDeliveryModalOpen(true);
+              }}
+              disabled={userRole === UserType.ClientIntake}
+              sx={{
+                marginRight: 4,
+                width: 166,
+                color: "#fff",
+                backgroundColor: "#257E68",
+              }}
             >
-              <span>
-                <Button
-                  variant="contained"
-                  startIcon={<Add />}
-                  onClick={() => setIsDeliveryModalOpen(true)}
-                  disabled={userRole === UserType.ClientIntake || !isEditing || !clientId}
-                  sx={{
-                    marginRight: 4,
-                    width: 166,
-                    color: "#fff",
-                    backgroundColor: "#257E68",
-                  }}
-                >
-                  Add Delivery
-                </Button>
-              </span>
-            </Tooltip>
+              Add Delivery
+            </Button>
             </Box>
             <AddDeliveryDialog
               open={isDeliveryModalOpen}
@@ -2693,17 +2746,7 @@ const handleMentalHealthConditionsChange = (e: React.ChangeEvent<HTMLInputElemen
               onAddDelivery={handleAddDelivery}
               clients={[]} // Empty array since we're using preSelectedClient
               startDate={new DayPilot.Date()}
-              preSelectedClient={{
-                clientId: clientId || "",
-                clientName: `${clientProfile.firstName} ${clientProfile.lastName}`,
-                clientProfile: clientProfile
-              }}
-              // Pass customDates, setCustomDates, and endDate props if needed for modal logic
-              // These should be managed in Profile state, similar to Calendar page
-              // Example:
-              // customDates={customDates}
-              // setCustomDates={setCustomDates}
-              // endDate={repeatsEndDate ? new Date(repeatsEndDate) : new Date()}
+              preSelectedClient={preSelectedClientData}
             />
            <DeliveryLogForm
               pastDeliveries={pastDeliveries}

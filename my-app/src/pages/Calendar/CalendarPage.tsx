@@ -1,3 +1,4 @@
+
 // Helper to set time to 12:00:00 PM
 function setToNoon(date: any) {
   let jsDate;
@@ -79,9 +80,9 @@ const CalendarContent = styled(Box)(({ theme }) => ({
 }));
 
 const CalendarPage: React.FC = () => {
+  // ...state declarations...
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  
   // Initialize currentDate from URL params or default to today
   const getInitialDate = () => {
     const dateParam = searchParams.get('date');
@@ -95,9 +96,7 @@ const CalendarPage: React.FC = () => {
     }
     return DayPilot.Date.today();
   };
-  
   const [currentDate, setCurrentDate] = useState<DayPilot.Date>(getInitialDate());
-  
   // Custom function to update both state and URL params
   const updateCurrentDate = (newDate: DayPilot.Date) => {
     setCurrentDate(newDate);
@@ -107,7 +106,6 @@ const CalendarPage: React.FC = () => {
       return newParams;
     });
   };
-  
   const [viewType, setViewType] = useState<ViewType>("Day");
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [events, setEvents] = useState<DeliveryEvent[]>([]);
@@ -123,14 +121,12 @@ const CalendarPage: React.FC = () => {
   const limits = useLimits();
   const containerRef = useRef<HTMLDivElement | null>(null);
 
+
   // Route Protection
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user: any) => {
       if (!user) {
-        console.log("No user is signed in, redirecting to /");
         navigate("/");
-      } else {
-        console.log("welcome, " + auth.currentUser?.email);
       }
     });
 
@@ -174,8 +170,6 @@ const CalendarPage: React.FC = () => {
       const clientsData = await clientService.getAllClients();
       // Use the client objects as returned from client-service.ts to ensure uid matches Firestore doc id
       setClients(clientsData.clients as ClientProfile[]);
-      const clientUids = clientsData.clients.map((c: any) => c.uid);
-      console.log('[CalendarPage][DEBUG] Loaded client uids:', clientUids);
     } catch (error) {
       console.error("Error fetching clients:", error);
     }
@@ -194,7 +188,6 @@ const CalendarPage: React.FC = () => {
 
   const fetchEvents = async () => {
     // DEBUG: Print current date range and viewType
-    console.log('[CalendarPage] Fetching events for', { viewType, currentDate });
     try {
       let start = new DayPilot.Date(currentDate);
       let endDate;
@@ -228,14 +221,6 @@ const CalendarPage: React.FC = () => {
           start = new DayPilot.Date(extendedStart);
           endDate = new DayPilot.Date(extendedEnd);
           
-          console.log('[CalendarPage] Month view - fetching events for extended grid:', {
-            gridStart: gridStart.toISOString().split('T')[0],
-            gridEnd: gridEnd.toISOString().split('T')[0],
-            extendedStart: start.toString("yyyy-MM-dd"),
-            extendedEnd: endDate.toString("yyyy-MM-dd"),
-            monthStart: monthStart.toString("yyyy-MM-dd"),
-            monthEnd: monthEnd.toString("yyyy-MM-dd")
-          });
           break;
         }
         case "Day": {
@@ -252,7 +237,6 @@ const CalendarPage: React.FC = () => {
           endDate = start.addDays(1);
       }
 
-      console.log('[CalendarPage] Fetching events for', { start, endDate });
 
       // Use DeliveryService to fetch events by date range
       const deliveryService = DeliveryService.getInstance();
@@ -260,22 +244,8 @@ const CalendarPage: React.FC = () => {
         start.toDate(),
         endDate.toDate()
       );
-      console.log('[CalendarPage] Raw fetched events:', fetchedEvents);
 
 
-      // Debug: Print all event clientIds and all client uids
-      const eventClientIds = fetchedEvents.map(event => event.clientId);
-      const clientUids = clients.map(client => client.uid);
-      const eventClientIdSet = new Set(eventClientIds);
-      const clientUidSet = new Set(clientUids);
-      const intersection = eventClientIds.filter(id => clientUidSet.has(id));
-      const missingInClients = eventClientIds.filter(id => !clientUidSet.has(id));
-      const missingInEvents = clientUids.filter(uid => !eventClientIdSet.has(uid));
-      console.log('[CalendarPage][DEBUG] All event clientIds:', eventClientIds);
-      console.log('[CalendarPage][DEBUG] All client uids:', clientUids);
-      console.log('[CalendarPage][DEBUG] Intersection (should display):', intersection);
-      console.log('[CalendarPage][DEBUG] Event clientIds missing in clients:', missingInClients);
-      console.log('[CalendarPage][DEBUG] Client uids missing in events:', missingInEvents);
 
         // Update client names in events if client exists, but do not filter out any events
         const updatedEvents = fetchedEvents.map(event => {
@@ -292,7 +262,6 @@ const CalendarPage: React.FC = () => {
 
         // Use all events for display and counting
         setEvents(updatedEvents);
-        console.log('[CalendarPage] Final events set (no deduplication):', updatedEvents);
 
         // Update calendar configuration with new events
         const formattedEvents = updatedEvents.map(event => ({
