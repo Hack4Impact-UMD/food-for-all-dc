@@ -7,8 +7,10 @@ import { collection, DocumentData, getDocs, limit, orderBy, query, QueryDocument
 import { db } from "../../auth/firebaseConfig";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import { useNotifications } from "../../components/NotificationProvider";
+import { useNavigate } from "react-router-dom";
 
 const ClientReport: React.FC = () => {
+  const navigate = useNavigate()
   const { showError, showSuccess } = useNotifications();
   const [startDate, setStartDate] = useState<Date | null>(() => {
     const start = localStorage.getItem("ffaReportDateRangeStart");
@@ -183,8 +185,9 @@ const ClientReport: React.FC = () => {
                         alignItems: "center",
                         p: 2,
                         justifyContent: "space-between",
-                        flexDirection: "row",
+                        flexDirection: "row"
                       }}
+                      onClick={()=>{navigate(`/profile/${client.uid}`)}}
                     >
                       <Typography
                         sx={{
