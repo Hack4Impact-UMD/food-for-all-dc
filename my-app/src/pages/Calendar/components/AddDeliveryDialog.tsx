@@ -23,6 +23,8 @@ import CalendarMultiSelect from "./CalendarMultiSelect";
 import DateField from "./DateField";
 import { DayPilot } from "@daypilot/daypilot-lite-react";
 import { validateDeliveryDateRange } from "../../../utils/dateValidation";
+import { collection, getDocs, query, where, orderBy } from "firebase/firestore";
+import { db } from "../../../auth/firebaseConfig";
 
 interface AddDeliveryDialogProps {
   open: boolean;
@@ -95,6 +97,105 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props: AddDeliveryD
   const [customDates, setCustomDates] = useState<Date[]>([]);
   const [startDateError, setStartDateError] = useState<string>("");
   const [endDateError, setEndDateError] = useState<string>("");
+  const [currentLastDeliveryDate, setCurrentLastDeliveryDate] = useState<string>("");
+
+  // Fetch current last delivery date when client is selected
+  useEffect(() => {
+    const fetchCurrentLastDeliveryDate = async () => {
+      if (newDelivery.clientId) {
+        try {
+          const eventsRef = collection(db, "events");
+          const q = query(
+            eventsRef,
+            where("clientId", "==", newDelivery.clientId),
+            orderBy("deliveryDate", "desc")
+          );
+          const querySnapshot = await getDocs(q);
+
+          if (!querySnapshot.empty) {
+            // Group events by series to find the most recently created delivery series
+            const seriesMap = new Map<string, any[]>();
+            
+            querySnapshot.forEach((doc) => {
+              const eventData = doc.data();
+              const recurrenceId = eventData.recurrenceId || 'single-' + doc.id;
+              
+              if (!seriesMap.has(recurrenceId)) {
+                seriesMap.set(recurrenceId, []);
+              }
+              seriesMap.get(recurrenceId)!.push({...eventData, docId: doc.id});
+            });
+
+            // Find the most recently created delivery series based on seriesStartDate
+            let mostRecentSeriesEndDate: string | null = null;
+            let mostRecentSeriesStartDate: string | null = null;
+
+            for (const [recurrenceId, events] of seriesMap.entries()) {
+              const firstEvent = events[0];
+              
+              // Get the series start date to determine which series is most recent
+              let seriesStartDate: string | null = null;
+              if (firstEvent.seriesStartDate) {
+                seriesStartDate = firstEvent.seriesStartDate;
+              } else if (firstEvent.deliveryDate) {
+                const deliveryDate = firstEvent.deliveryDate.toDate();
+                if (!isNaN(deliveryDate.getTime())) {
+                  seriesStartDate = deliveryDate.toISOString().split("T")[0];
+                }
+              }
+              
+              if (seriesStartDate) {
+                // If this series is more recent than our current most recent, use it
+                if (!mostRecentSeriesStartDate || seriesStartDate > mostRecentSeriesStartDate) {
+                  mostRecentSeriesStartDate = seriesStartDate;
+                  
+                  // For this series, get the end date
+                  if (firstEvent.repeatsEndDate) {
+                    const endDate = new Date(firstEvent.repeatsEndDate);
+                    if (!isNaN(endDate.getTime())) {
+                      mostRecentSeriesEndDate = endDate.toISOString().split("T")[0];
+                    }
+                  } else if (firstEvent.recurrence === "None" && firstEvent.deliveryDate) {
+                    // For single deliveries, the end date is the delivery date itself
+                    const deliveryDate = firstEvent.deliveryDate.toDate();
+                    if (!isNaN(deliveryDate.getTime())) {
+                      mostRecentSeriesEndDate = deliveryDate.toISOString().split("T")[0];
+                    }
+                  }
+                }
+              }
+            }
+
+            const latestEndDate = mostRecentSeriesEndDate;
+
+            if (latestEndDate) {
+              const formattedDate = convertToMMDDYYYY(latestEndDate);
+              setCurrentLastDeliveryDate(formattedDate);
+              
+              // Pre-populate the End Date field with the current end date as a starting point
+              if (!newDelivery.repeatsEndDate) {
+                setNewDelivery(prev => ({
+                  ...prev,
+                  repeatsEndDate: formattedDate
+                }));
+              }
+            } else {
+              setCurrentLastDeliveryDate("");
+            }
+          } else {
+            setCurrentLastDeliveryDate("");
+          }
+        } catch (error) {
+          console.error("Error fetching current last delivery date:", error);
+          setCurrentLastDeliveryDate("");
+        }
+      } else {
+        setCurrentLastDeliveryDate("");
+      }
+    };
+
+    fetchCurrentLastDeliveryDate();
+  }, [newDelivery.clientId]);
 
   // Toggle body class for modal open state to control DatePicker popup scaling
   useEffect(() => {
@@ -489,14 +590,9 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props: AddDeliveryD
         </Box>
         {newDelivery.recurrence === "Custom" ? (
           <>
-            <Box display="flex" alignItems="center" justifyContent="space-between" sx={{ width: '100%', m: 0, p: 0 }}>
-              <Typography variant="body1" sx={{ m: 0, p: 0 }}>
-                Select Custom Dates
-              </Typography>
-              <Typography sx={{ fontSize: '0.87rem', fontWeight: 400, m: 0, p: 0 }}>
-                Current End Date - {newDelivery.repeatsEndDate || "N/A"}
-              </Typography>
-            </Box>
+            <Typography variant="body1" sx={{ mb: 2 }}>
+              Select Custom Dates
+            </Typography>
             <CalendarMultiSelect 
               selectedDates={customDates} 
               setSelectedDates={setCustomDates} 
@@ -504,11 +600,7 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props: AddDeliveryD
             />
           </>
         ) : (
-          <Box display="flex" justifyContent="flex-end" alignItems="center" sx={{ m: 0, p: 0 }}>
-            <Typography sx={{ fontSize: '0.87rem', fontWeight: 400, m: 0, p: 0 }}>
-              Current End Date - {newDelivery.repeatsEndDate || "N/A"}
-            </Typography>
-          </Box>
+          <Box sx={{ mb: 2 }} />
         )}
         {(newDelivery.recurrence !== "None" && newDelivery.recurrence !== "Custom") || 
          (preSelectedClient && preSelectedClient.clientProfile.endDate) ? (
