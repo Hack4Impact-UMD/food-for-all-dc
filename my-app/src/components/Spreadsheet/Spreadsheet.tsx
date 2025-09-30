@@ -64,6 +64,7 @@ import { useNavigate } from "react-router-dom";
 import { auth } from "../../auth/firebaseConfig";
 import { useCustomColumns } from "../../hooks/useCustomColumns";
 import ClientService from "../../services/client-service";
+import DeliveryService from "../../services/delivery-service";
 import { exportQueryResults, exportAllClients } from "./export";
 import "./Spreadsheet.css";
 import DeleteClientModal from "./DeleteClientModal";
@@ -486,13 +487,33 @@ const Spreadsheet: React.FC = () => {
   // Handle deleting a row from Firestore
   const handleDeleteRow = async (id: string) => {
     try {
-      // Use ClientService instead of direct Firebase calls
+      console.log(`Starting deletion process for client: ${id}`);
+      
+      // STEP 1: Delete all deliveries for this client
+      const deliveryService = DeliveryService.getInstance();
+      const clientDeliveries = await deliveryService.getEventsByClientId(id);
+      
+      console.log(`Found ${clientDeliveries.length} deliveries to delete for client ${id}`);
+      
+      if (clientDeliveries.length > 0) {
+        const deletePromises = clientDeliveries.map(delivery => 
+          deliveryService.deleteEvent(delivery.id)
+        );
+        
+        await Promise.all(deletePromises);
+        console.log(`Successfully deleted ${clientDeliveries.length} deliveries for client ${id}`);
+      }
+      
+      // STEP 2: Delete the client
       const clientService = ClientService.getInstance();
-      // ...existing code...
       await clientService.deleteClient(id);
+      console.log(`Successfully deleted client ${id}`);
+      
+      // STEP 3: Update the UI
       setRows(rows.filter((row) => row.uid !== id)); // Filter based on uid
+      
     } catch (error) {
-      console.error("Error deleting document: ", error);
+      console.error("Error deleting client and deliveries: ", error);
     }
   };
 
