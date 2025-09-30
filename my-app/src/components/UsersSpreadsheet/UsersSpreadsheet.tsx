@@ -510,7 +510,7 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
             <TableContainer
               component={Paper}
               sx={{
-                maxHeight: 520,
+                maxHeight: "60vh",
                 overflowY: "auto",
                 boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
                 borderRadius: "12px",
