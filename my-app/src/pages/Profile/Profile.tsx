@@ -2,6 +2,7 @@ import CloseIcon from "@mui/icons-material/Close";
 import EditIcon from "@mui/icons-material/Edit";
 import SaveIcon from "@mui/icons-material/Save";
 import { TimeUtils } from '../../utils/timeUtils';
+import { getLastDeliveryDateForClient } from '../../utils/lastDeliveryDate';
 import {
   Autocomplete,
   Box,
@@ -279,6 +280,7 @@ const Profile = () => {
   const [dynamicFields, setDynamicFields] = useState<Record<string, string>>({});
   const [lastDeliveryDate, setLastDeliveryDate] = useState<string | null>(null);
   const [profileLoaded, setProfileLoaded] = useState(false);
+  const [isProcessingDelivery, setIsProcessingDelivery] = useState<boolean>(false);
   const [prevNotes, setPrevNotes] = useState("");
   const [showSavePopup, setShowSavePopup] = useState(false);
   const [showCaseWorkerModal, setShowCaseWorkerModal] = useState(false);
@@ -423,80 +425,10 @@ const Profile = () => {
     const fetchLastDeliveryDate = async () => {
       if (clientId) {
         try {
-          const eventsRef = collection(db, "events");
-          const q = query(
-            eventsRef,
-            where("clientId", "==", clientId),
-            orderBy("deliveryDate", "desc")
-          );
-          const querySnapshot = await getDocs(q);
-
-          if (!querySnapshot.empty) {
-            let latestEndDateString: string | null = null;
-            
-            // Group events by series to find the most recently created delivery series
-            const seriesMap = new Map<string, any[]>();
-            
-            querySnapshot.forEach((doc) => {
-              const eventData = doc.data();
-              const recurrenceId = eventData.recurrenceId || 'single-' + doc.id;
-              
-              if (!seriesMap.has(recurrenceId)) {
-                seriesMap.set(recurrenceId, []);
-              }
-              seriesMap.get(recurrenceId)!.push({...eventData, docId: doc.id});
-            });
-
-            // Find the most recently created delivery series based on seriesStartDate
-            let mostRecentSeriesEndDate: string | null = null;
-            let mostRecentSeriesStartDate: string | null = null;
-
-            for (const [recurrenceId, events] of seriesMap.entries()) {
-              const firstEvent = events[0];
-              
-              // Get the series start date to determine which series is most recent
-              let seriesStartDate: string | null = null;
-              if (firstEvent.seriesStartDate) {
-                seriesStartDate = firstEvent.seriesStartDate;
-              } else if (firstEvent.deliveryDate) {
-                const deliveryDate = firstEvent.deliveryDate.toDate();
-                if (!isNaN(deliveryDate.getTime())) {
-                  seriesStartDate = deliveryDate.toISOString().split("T")[0];
-                }
-              }
-              
-              if (seriesStartDate) {
-                // If this series is more recent than our current most recent, use it
-                if (!mostRecentSeriesStartDate || seriesStartDate > mostRecentSeriesStartDate) {
-                  mostRecentSeriesStartDate = seriesStartDate;
-                  
-                  // For this series, get the end date
-                  if (firstEvent.repeatsEndDate) {
-                    const endDate = new Date(firstEvent.repeatsEndDate);
-                    if (!isNaN(endDate.getTime())) {
-                      mostRecentSeriesEndDate = endDate.toISOString().split("T")[0];
-                    }
-                  } else if (firstEvent.recurrence === "None" && firstEvent.deliveryDate) {
-                    // For single deliveries, the end date is the delivery date itself
-                    const deliveryDate = firstEvent.deliveryDate.toDate();
-                    if (!isNaN(deliveryDate.getTime())) {
-                      mostRecentSeriesEndDate = deliveryDate.toISOString().split("T")[0];
-                    }
-                  }
-                }
-              }
-            }
-
-            latestEndDateString = mostRecentSeriesEndDate;
-
-            if (latestEndDateString) {
-              setLastDeliveryDate(latestEndDateString);
-            } else {
-              // Fallback to most recent delivery date if no end dates found
-              const lastEvent = querySnapshot.docs[0].data();
-              const deliveryDate = lastEvent.deliveryDate.toDate();
-              setLastDeliveryDate(deliveryDate.toISOString().split("T")[0]);
-            }
+          const latestEndDateString = await getLastDeliveryDateForClient(clientId);
+          
+          if (latestEndDateString) {
+            setLastDeliveryDate(latestEndDateString);
           } else {
             setLastDeliveryDate("No deliveries found");
           }
@@ -508,6 +440,65 @@ const Profile = () => {
     };
 
     fetchLastDeliveryDate();
+  }, [clientId]);
+
+  // Listen for delivery modifications from other components (like calendar)
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'deliveriesModified' && clientId) {
+        // Refresh the last delivery date when deliveries are modified from calendar
+        const fetchUpdatedLastDeliveryDate = async () => {
+          try {
+            const latestEndDateString = await getLastDeliveryDateForClient(clientId);
+            if (latestEndDateString) {
+              setLastDeliveryDate(latestEndDateString);
+            } else {
+              setLastDeliveryDate("No deliveries found");
+            }
+          } catch (error) {
+            console.error("Error fetching updated last delivery date:", error);
+            setLastDeliveryDate("Error fetching data");
+          }
+        };
+        fetchUpdatedLastDeliveryDate();
+      }
+    };
+
+    // Listen for storage changes (from other tabs/components)
+    window.addEventListener('storage', handleStorageChange);
+
+    // Also listen for focus events (when user navigates back to this page)
+    const handleFocus = () => {
+      if (clientId) {
+        const lastModified = localStorage.getItem('deliveriesModified');
+        if (lastModified) {
+          // Check if deliveries were modified since we last checked
+          const fetchUpdatedLastDeliveryDate = async () => {
+            try {
+              const latestEndDateString = await getLastDeliveryDateForClient(clientId);
+              if (latestEndDateString) {
+                setLastDeliveryDate(latestEndDateString);
+              } else {
+                setLastDeliveryDate("No deliveries found");
+              }
+            } catch (error) {
+              console.error("Error fetching updated last delivery date:", error);
+              setLastDeliveryDate("Error fetching data");
+            }
+          };
+          fetchUpdatedLastDeliveryDate();
+          // Clear the flag after handling
+          localStorage.removeItem('deliveriesModified');
+        }
+      }
+    };
+
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('focus', handleFocus);
+    };
   }, [clientId]);
 
   // Fetch case workers from Firestore
@@ -2447,71 +2438,170 @@ const handleMentalHealthConditionsChange = (e: React.ChangeEvent<HTMLInputElemen
 
 
     const handleAddDelivery = async (newDelivery: NewDelivery) => {
+      console.log("=== ADDING DELIVERY ===", {
+        recurrence: newDelivery.recurrence,
+        deliveryDate: newDelivery.deliveryDate,
+        repeatsEndDate: newDelivery.repeatsEndDate,
+        clientId: newDelivery.clientId
+      });
+      
+      // Prevent concurrent calls
+      if (isProcessingDelivery) {
+        console.log("Already processing - ignoring duplicate call");
+        return;
+      }
+      
+      setIsProcessingDelivery(true);
+      
       try {
-        let recurrenceDates: Date[] = [];
-        //create unique id for each recurrence group. All events for this recurrence will have the same id
-        const recurrenceId = crypto.randomUUID();
-        if (newDelivery.recurrence === "Custom") {
-          // Use customDates directly if recurrence is Custom
-          // Ensure customDates exist and map string dates back to Date objects
-          recurrenceDates = newDelivery.customDates?.map(dateStr => {
-            return setToNoon(dateStr);
-          }) || [];
-          // Clear repeatsEndDate explicitly for custom recurrence in the submitted data
-          newDelivery.repeatsEndDate = undefined;
-        } else {
-          // Calculate recurrence dates for standard recurrence types
-          const deliveryDate = setToNoon(newDelivery.deliveryDate);
-          recurrenceDates =
-            newDelivery.recurrence === "None" ? [deliveryDate] : calculateRecurrenceDates(newDelivery).map(setToNoon);
-        }
-  
-        // Filter out dates that already have a delivery for the same client
-        const existingEventDates = new Set(
-
-          events
-            .filter(event => event.clientId === newDelivery.clientId)
-            .map(event => new DayPilot.Date(toJSDate(event.deliveryDate)).toString("yyyy-MM-dd"))
-        );
-  
-        const uniqueRecurrenceDates = recurrenceDates.filter(date => 
-          !existingEventDates.has(new DayPilot.Date(date).toString("yyyy-MM-dd"))
-        );
-  
-        if (uniqueRecurrenceDates.length < recurrenceDates.length) {
-          console.warn("Some duplicate delivery dates were detected and skipped.");
-        }
-  
-        // Use DeliveryService to create events for unique dates only
-        const deliveryService = DeliveryService.getInstance();
-        const createPromises = uniqueRecurrenceDates.map(date => {
-          const eventToAdd: Partial<DeliveryEvent> = {
-            clientId: newDelivery.clientId,
-            clientName: newDelivery.clientName,
-            deliveryDate: date, // Use the calculated/provided recurrence date
-            recurrence: newDelivery.recurrence,
-            time: "",
-            cluster: 0,
-            recurrenceId: recurrenceId,
-          };
-  
-          // Add customDates array if recurrence is Custom
-          if (newDelivery.recurrence === "Custom") {
-            eventToAdd.customDates = newDelivery.customDates;
-          } else if (newDelivery.repeatsEndDate) {
-            // Only add repeatsEndDate for standard recurrence types
-            eventToAdd.repeatsEndDate = newDelivery.repeatsEndDate;
-          }
-  
-          return deliveryService.createEvent(eventToAdd);
+        // 1. GET EXISTING DELIVERIES FROM DATABASE
+        const eventsRef = collection(db, "events");
+        const q = query(eventsRef, where("clientId", "==", newDelivery.clientId));
+        const querySnapshot = await getDocs(q);
+        
+        const existingDeliveries: DeliveryEvent[] = [];
+        querySnapshot.forEach((doc) => {
+          existingDeliveries.push({ id: doc.id, ...doc.data() } as DeliveryEvent);
         });
+        
+        const existingDates = new Set(
+          existingDeliveries.map(event => new DayPilot.Date(toJSDate(event.deliveryDate)).toString("yyyy-MM-dd"))
+        );
+        
+        console.log("Existing delivery dates:", Array.from(existingDates));
+        
+        // 2. CALCULATE ALL DATES FOR THIS DELIVERY SERIES
+        let allDates: Date[] = [];
+        const recurrenceId = crypto.randomUUID();
+        
+        if (newDelivery.recurrence === "Custom") {
+          allDates = newDelivery.customDates?.map(dateStr => setToNoon(dateStr)) || [];
+        } else {
+          const deliveryDate = setToNoon(newDelivery.deliveryDate);
+          allDates = newDelivery.recurrence === "None" ? [deliveryDate] : calculateRecurrenceDates(newDelivery).map(setToNoon);
+        }
+        
+        console.log("All calculated dates:", allDates.map(d => d.toISOString().split('T')[0]));
+        
+        // 3. CHECK IF THIS IS ACTUALLY CHANGING AN END DATE (not just adding deliveries with an end date)
+        // Only delete if the new end date is DIFFERENT from what already exists
+        if (newDelivery.repeatsEndDate && existingDeliveries.length > 0) {
+          // Get existing end dates from the database
+          const existingEndDates = [...new Set(existingDeliveries
+            .filter(d => d.repeatsEndDate)
+            .map(d => d.repeatsEndDate))];
+          
+          console.log("Existing end dates in database:", existingEndDates);
+          console.log("New end date from modal:", newDelivery.repeatsEndDate);
+          
+          // Only delete if we're changing to a DIFFERENT end date
+          const isDifferentEndDate = existingEndDates.length > 0 && 
+                                     !existingEndDates.includes(newDelivery.repeatsEndDate);
+          
+          if (isDifferentEndDate) {
+            console.log("DIFFERENT END DATE DETECTED - Will delete future deliveries past new end date");
+            const deletePromises: Promise<any>[] = [];
+            
+            // CONVERT NEW END DATE TO YYYY-MM-DD FORMAT FOR PROPER COMPARISON
+            const newEndDateFormatted = new Date(newDelivery.repeatsEndDate).toISOString().split('T')[0];
+            const today = new Date().toISOString().split('T')[0];
+            
+            console.log(`Converted end date for comparison: ${newEndDateFormatted}`);
+            
+            for (const event of existingDeliveries) {
+              const eventDateStr = new DayPilot.Date(toJSDate(event.deliveryDate)).toString("yyyy-MM-dd");
+              const isAfterEndDate = eventDateStr > newEndDateFormatted;
+              const isFutureDate = eventDateStr >= today;
+              
+              console.log(`Checking delivery ${eventDateStr}:`);
+              console.log(`  - After end date ${newEndDateFormatted}: ${isAfterEndDate}`);
+              console.log(`  - Is future date: ${isFutureDate}`);
+              console.log(`  - Will delete: ${isAfterEndDate && isFutureDate}`);
+              
+              if (isAfterEndDate && isFutureDate) {
+                console.log(`✓ DELETING delivery ${eventDateStr} (after new end date ${newEndDateFormatted})`);
+                deletePromises.push(deleteDoc(doc(eventsRef, event.id)));
+              } else {
+                console.log(`✗ KEEPING delivery ${eventDateStr}`);
+              }
+            }
+            
+            if (deletePromises.length > 0) {
+              await Promise.all(deletePromises);
+              console.log(`Deleted ${deletePromises.length} future deliveries past new end date`);
+            }
+          } else {
+            console.log("SAME END DATE - No deletions needed, just adding new deliveries");
+          }
+        } else {
+          console.log("No end date or no existing deliveries - No deletions needed");
+        }        // 4. SKIP EXISTING DATES, CREATE NEW DATES
+        const newDates = allDates.filter(date => {
+          const dateStr = new DayPilot.Date(date).toString("yyyy-MM-dd");
+          const exists = existingDates.has(dateStr);
+          if (exists) {
+            console.log(`Skipping existing date: ${dateStr}`);
+          }
+          return !exists;
+        });
+        
+        console.log(`Creating ${newDates.length} new deliveries, skipping ${allDates.length - newDates.length} existing dates`);
+        
+        // CREATE NEW DELIVERIES
+        if (newDates.length > 0) {
+          const deliveryService = DeliveryService.getInstance();
+          const createPromises = newDates.map(date => {
+            const eventToAdd: Partial<DeliveryEvent> = {
+              clientId: newDelivery.clientId,
+              clientName: newDelivery.clientName,
+              deliveryDate: date,
+              recurrence: newDelivery.recurrence,
+              time: "",
+              cluster: 0,
+              recurrenceId: recurrenceId,
+            };
+    
+            if (newDelivery.recurrence === "Custom") {
+              eventToAdd.customDates = newDelivery.customDates;
+            } else if (newDelivery.repeatsEndDate) {
+              eventToAdd.repeatsEndDate = newDelivery.repeatsEndDate;
+            }
+    
+            return deliveryService.createEvent(eventToAdd);
+          });
+    
+          await Promise.all(createPromises);
+          console.log(`Successfully created ${newDates.length} new deliveries`);
+        }
   
-        await Promise.all(createPromises);
-  
-        // // Refresh events after adding
-        // fetchEvents();
+        // 5. REFRESH DATA AND SET LAST DELIVERY DATE TO MATCH MODAL END DATE
+        await new Promise(resolve => setTimeout(resolve, 300));
+        
+        // Refresh delivery history
+        if (clientId) {
+          const deliveryService = DeliveryService.getInstance();
+          const { pastDeliveries, futureDeliveries } = await deliveryService.getClientDeliveryHistory(clientId);
+          setPastDeliveries(pastDeliveries);
+          setFutureDeliveries(futureDeliveries);
+          setEvents([...pastDeliveries, ...futureDeliveries]);
+          
+          // Set last delivery date to match modal's end date
+          if (newDelivery.repeatsEndDate) {
+            // If there's an end date in the modal, use that
+            const formattedEndDate = new Date(newDelivery.repeatsEndDate).toLocaleDateString('en-US');
+            setLastDeliveryDate(formattedEndDate);
+            console.log(`Set last delivery date to modal end date: ${formattedEndDate}`);
+          } else {
+            // Otherwise, get the actual last delivery date
+            const latestEndDateString = await getLastDeliveryDateForClient(clientId);
+            setLastDeliveryDate(latestEndDateString || "No deliveries found");
+            console.log(`Set last delivery date from database: ${latestEndDateString}`);
+          }
+        }
       } catch (error) {
         console.error("Error adding delivery:", error);
+      } finally {
+        setIsProcessingDelivery(false);
       }
     };
 
@@ -2808,7 +2898,10 @@ const handleMentalHealthConditionsChange = (e: React.ChangeEvent<HTMLInputElemen
                     ...clientProfile,
                     // Override with latest recurring delivery data if available
                     recurrence: latestRecurringDelivery?.recurrence || clientProfile.recurrence,
-                    endDate: latestRecurringDelivery?.repeatsEndDate || clientProfile.endDate
+                    // Use the current lastDeliveryDate instead of potentially stale data
+                    endDate: lastDeliveryDate && lastDeliveryDate !== "No deliveries found" && lastDeliveryDate !== "Error fetching data" 
+                      ? lastDeliveryDate 
+                      : (latestRecurringDelivery?.repeatsEndDate || clientProfile.endDate)
                   }
                 };
                 console.log('PreSelectedClient being passed to AddDeliveryDialog:', preSelected);
