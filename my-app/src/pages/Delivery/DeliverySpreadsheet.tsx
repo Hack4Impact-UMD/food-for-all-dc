@@ -78,6 +78,7 @@ interface ClientOverride {
 import { useAuth } from "../../auth/AuthProvider";
 import EventCountHeader from "../../components/EventCountHeader";
 import { useLimits } from "../Calendar/components/useLimits";
+import DietaryRestrictionsLegend from "../../components/DietaryRestrictionsLegend";
 // interface Driver {
 //   id: string;
 //   name: string;
@@ -2192,6 +2193,12 @@ const DeliverySpreadsheet: React.FC = () => {
           maxHeight: "none",
         }}
       >
+        {/* Dietary Restrictions Color Legend - only show when column is added */}
+        {customColumns.some(col => 
+          col.propertyKey === "deliveryDetails.dietaryRestrictions" || 
+          col.propertyKey === "dietaryRestrictions"
+        ) && <DietaryRestrictionsLegend />}
+        
         <TableContainer
           component={Paper}
           sx={{
@@ -2518,25 +2525,57 @@ const DeliverySpreadsheet: React.FC = () => {
                               restrictions.push(dr.otherText.trim());
                             return restrictions.length > 0 ? (
                               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, maxWidth: '250px' }}>
-                                {restrictions.map((restriction, i) => (
-                                  <Chip
-                                    key={i}
-                                    label={restriction}
-                                    size="small"
-                                    sx={{
-                                      backgroundColor: "#e8f5e9",
-                                      color: "#2E5B4C",
-                                      fontSize: "0.75rem",
-                                      height: "20px",
-                                      fontWeight: 500,
-                                      border: "1px solid #c8e6c9",
-                                      mb: 0.5,
-                                      mr: 0.5,
-                                      '& .MuiChip-label': { px: 1 },
-                                      '&:hover': { backgroundColor: '#e8f5e9', cursor: 'default' }
-                                    }}
-                                  />
-                                ))}
+                                {(() => {
+                                  const chips: { label: string; color: string; border: string; textColor: string }[] = [];
+                                  // Boolean restrictions (green)
+                                  [
+                                    { key: 'halal', label: 'Halal' },
+                                    { key: 'kidneyFriendly', label: 'Kidney Friendly' },
+                                    { key: 'lowSodium', label: 'Low Sodium' },
+                                    { key: 'lowSugar', label: 'Low Sugar' },
+                                    { key: 'microwaveOnly', label: 'Microwave Only' },
+                                    { key: 'noCookingEquipment', label: 'No Cooking Equipment' },
+                                    { key: 'softFood', label: 'Soft Food' },
+                                    { key: 'vegan', label: 'Vegan' },
+                                    { key: 'vegetarian', label: 'Vegetarian' },
+                                    { key: 'heartFriendly', label: 'Heart Friendly' },
+                                  ].forEach(opt => {
+                                    if (dr[opt.key as keyof typeof dr]) {
+                                      chips.push({ label: opt.label, color: '#e8f5e9', border: '#c8e6c9', textColor: '#2E5B4C' });
+                                    }
+                                  });
+                                  // Allergies (light red)
+                                  if (Array.isArray(dr.foodAllergens) && dr.foodAllergens.length > 0) {
+                                    dr.foodAllergens.forEach((allergy: string) => {
+                                      if (allergy && allergy.trim()) {
+                                        chips.push({ label: allergy, color: '#FFEBEE', border: '#FFCDD2', textColor: '#C62828' });
+                                      }
+                                    });
+                                  }
+                                  // Other (light purple)
+                                  if (dr.otherText && dr.otherText.trim()) {
+                                    chips.push({ label: dr.otherText, color: '#F3E8FF', border: '#CEB8FF', textColor: '#6C2EB7' });
+                                  }
+                                  return chips.map((chip, i) => (
+                                    <Chip
+                                      key={i}
+                                      label={chip.label}
+                                      size="small"
+                                      sx={{
+                                        backgroundColor: chip.color,
+                                        color: chip.textColor,
+                                        border: `1px solid ${chip.border}`,
+                                        fontSize: "0.75rem",
+                                        height: "20px",
+                                        fontWeight: 500,
+                                        mb: 0.5,
+                                        mr: 0.5,
+                                        '& .MuiChip-label': { px: 1 },
+                                        '&:hover': { backgroundColor: chip.color, cursor: 'default' }
+                                      }}
+                                    />
+                                  ));
+                                })()}
                               </Box>
                             ) : <span style={{ color: '#757575', fontStyle: 'italic' }}>None</span>;
                           })()
