@@ -51,7 +51,7 @@ const MiscellaneousForm: React.FC<MiscellaneousFormProps> = ({
           {isEditing ? (
             <>
               <Box sx={{ minHeight: 120, width: '100%' }}>{renderField("lifeChallenges", "textarea")}</Box>
-              {clientProfile.lifeChallenges && clientProfile.lifeChallenges.trim() !== "" && (
+              {clientProfile.lifeChallenges && clientProfile.lifeChallenges?.trim() !== "" && (
                 <span id="timestamp">
                   Last edited: {clientProfile.lifeChallengesTimestamp && clientProfile.lifeChallengesTimestamp.timestamp && new Date(
                     typeof clientProfile.lifeChallengesTimestamp.timestamp === 'object' &&
@@ -73,7 +73,7 @@ const MiscellaneousForm: React.FC<MiscellaneousFormProps> = ({
           {isEditing ? (
             <>
               <Box sx={{ minHeight: 120, width: '100%' }}>{renderField("lifestyleGoals", "textarea")}</Box>
-              {clientProfile.lifestyleGoals && clientProfile.lifestyleGoals.trim() !== "" && (
+              {clientProfile.lifestyleGoals && clientProfile.lifestyleGoals?.trim() !== "" && (
                 <span id="timestamp">
                   Last edited: {clientProfile.lifestyleGoalsTimestamp && clientProfile.lifestyleGoalsTimestamp.timestamp && new Date(
                     typeof clientProfile.lifestyleGoalsTimestamp.timestamp === 'object' &&
