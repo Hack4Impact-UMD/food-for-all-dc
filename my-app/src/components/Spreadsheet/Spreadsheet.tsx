@@ -611,14 +611,14 @@ const Spreadsheet: React.FC = () => {
   };
 
   const parseSearchQuery = (query: string) => {
-    //match either quoted phrases or unquoted terms
-    const regex = /(?:("|')((?:\\\1|.)+?)\1)|([^\s"']+)/g;
+    //match either quoted phrases or key:value pairs (with optional space after colon) or unquoted terms
+    const regex = /(?:("|')((?:\\\1|.)+?)\1)|(\w+\s*:\s*\S+)|([^\s"']+)/g;
     const matches = [];
     let match;
     
     while ((match = regex.exec(query)) !== null) {
-      //push either the quoted content or the unquoted term 
-      matches.push(match[2] || match[3]);
+      //push either the quoted content, key:value pair, or the unquoted term 
+      matches.push(match[2] || match[3] || match[4]);
     }
     
     return matches;
@@ -649,13 +649,66 @@ const Spreadsheet: React.FC = () => {
       return true; // Show all if search is empty
     }
 
-    //if search is empty or has unclosed quotes then show all rows
-    if (!trimmedSearchQuery || hasUnclosedQuotes(trimmedSearchQuery)) {
+    //if search is empty then show all rows
+    if (!trimmedSearchQuery) {
       return true;
     }
 
-    //parse the search query into individual terms
-    const searchTerms = parseSearchQuery(trimmedSearchQuery);
+    //parse search terms progressively - extract complete quoted terms and partial terms
+    const searchTerms = [];
+    let inQuote = false;
+    let quoteChar = '';
+    let currentTerm = '';
+    
+    for (let i = 0; i < trimmedSearchQuery.length; i++) {
+      const char = trimmedSearchQuery[i];
+      
+      if (!inQuote && (char === '"' || char === "'")) {
+        // Starting a quoted term - save any existing unquoted term first
+        if (currentTerm.trim()) {
+          searchTerms.push(currentTerm.trim());
+          currentTerm = '';
+        }
+        inQuote = true;
+        quoteChar = char;
+        // Don't include the quote character in the term
+      } else if (inQuote && char === quoteChar) {
+        // Ending a quoted term
+        if (currentTerm.trim()) {
+          searchTerms.push(currentTerm.trim());
+        }
+        currentTerm = '';
+        inQuote = false;
+        quoteChar = '';
+        // Don't include the closing quote character
+      } else if (!inQuote && char === ' ') {
+        // Space outside quotes - end current term
+        if (currentTerm.trim()) {
+          searchTerms.push(currentTerm.trim());
+          currentTerm = '';
+        }
+      } else {
+        // Regular character (including characters inside quotes) - add to current term
+        currentTerm += char;
+      }
+    }
+    
+    // Add any remaining term (including partial quoted terms)
+    if (currentTerm.trim()) {
+      searchTerms.push(currentTerm.trim());
+    }
+    
+    //filter out empty terms and lone quote marks
+    const validSearchTerms = searchTerms.filter(term => {
+      return term.length > 0 && term !== '"' && term !== "'";
+    });
+
+
+
+    //if no valid search terms, show all rows
+    if (validSearchTerms.length === 0) {
+      return true;
+    }
 
     //function to check if a value contains the search query string
     const checkStringContains = (value: any, query: string): boolean => {
@@ -677,23 +730,49 @@ const Spreadsheet: React.FC = () => {
       return String(value).toLowerCase().includes(lowerQuery);
     };
 
-    return searchTerms.every(term => {
+    return validSearchTerms.every(term => {
       //check if this is a key:value search
-      const parts = term.split(/:(.*)/s) 
+      const colonIndex = term.indexOf(':');
       let isKeyValueSearch = false;
       let keyword = "";
       let searchValue = "";
 
-      if (parts.length > 1) {
-        keyword = parts[0].trim().toLowerCase();
-        searchValue = parts[1].trim();
-        if (searchValue) {
-          isKeyValueSearch = true;
+      if (colonIndex !== -1) {
+        keyword = term.substring(0, colonIndex).trim().toLowerCase();
+        searchValue = term.substring(colonIndex + 1).trim();
+        isKeyValueSearch = true; // Even if searchValue is empty, it's still a key:value attempt
+      } else {
+        // Check if this term looks like a partial key (common field names + custom columns)
+        const lowerTerm = term.toLowerCase();
+        const commonFieldNames = [
+          'phone', 'name', 'address', 'dietary', 'instructions', 'ethnicity',
+          'adults', 'children', 'gender', 'notes', 'referral', 'tags', 'ward',
+          'language', 'zip', 'client', 'delivery', 'tefap', 'coordinates'
+        ];
+        
+        // Add custom column labels to the list of searchable field names (only for columns with data)
+        const customFieldNames = customColumns
+          .filter(col => col.propertyKey !== "none")
+          .map(col => col.label.toLowerCase());
+        const allFieldNames = [...commonFieldNames, ...customFieldNames];
+        
+        const isPartialKey = allFieldNames.some(fieldName => 
+          fieldName.startsWith(lowerTerm) || lowerTerm.startsWith(fieldName.substring(0, Math.min(3, fieldName.length)))
+        );
+        
+        if (isPartialKey) {
+          // This looks like someone typing a field name, show all rows until they add a colon
+          return true;
         }
       }
 
       if (isKeyValueSearch) {
-        //key value search logic
+        //if no search value yet (just typing the key), show all rows (waiting for value)
+        if (!searchValue) {
+          return true;
+        }
+
+        //key value search logic with actual value
         switch (keyword) {
           case "name":
             return checkStringContains(`${row.firstName} ${row.lastName}`, searchValue) ||
@@ -763,9 +842,15 @@ const Spreadsheet: React.FC = () => {
           case "coordinates":
             return checkStringContains((row as any).coordinates, searchValue);
           default:
-            //check custom columns if keyword matches
+            //check custom columns if keyword matches (by label or propertyKey, only for visible columns with data)
             return customColumns.some((col) => {
-              if (col.propertyKey !== "none" && col.propertyKey.toLowerCase().includes(keyword)) {
+              // Only search in columns that have actual data
+              if (col.propertyKey === "none") return false;
+              
+              const labelMatches = col.label.toLowerCase().includes(keyword) || keyword.includes(col.label.toLowerCase());
+              const propertyMatches = col.propertyKey.toLowerCase().includes(keyword);
+              
+              if (labelMatches || propertyMatches) {
                 const fieldValue = row[col.propertyKey as keyof RowData];
                 return checkStringContains(fieldValue, searchValue);
               }
@@ -806,7 +891,7 @@ const Spreadsheet: React.FC = () => {
           if (checkStringContains(referralEntity.organization, globalSearchValue)) return true;
         }
 
-        //check custom columns
+        //check custom columns (only visible columns with data)
         const matchesCustomColumn = customColumns.some((col) => {
           if (col.propertyKey !== "none") {
             const fieldValue = row[col.propertyKey as keyof RowData];

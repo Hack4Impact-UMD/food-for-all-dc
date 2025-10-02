@@ -269,18 +269,136 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
     setCreateModalOpen(true);
   };
 
-  // Simplified search logic
+  // Advanced search logic with progressive filtering
   const safeSortedRows = Array.isArray(sortedRows) ? sortedRows : [];
   const visibleRows = safeSortedRows.filter((row) => {
-    const query = searchQuery.toLowerCase().trim();
-    if (!query) return true;
+    const trimmedSearchQuery = searchQuery.trim();
+    
+    //if search is empty then show all rows
+    if (!trimmedSearchQuery) {
+      return true;
+    }
 
-    return (
-      row.name.toLowerCase().includes(query) ||
-      getRoleDisplayName(row.role).toLowerCase().includes(query) ||
-      (row.phone?.toLowerCase() || '').includes(query) ||
-      row.email.toLowerCase().includes(query)
-    );
+    //parse search terms progressively - extract complete quoted terms and partial terms
+    const searchTerms = [];
+    let inQuote = false;
+    let quoteChar = '';
+    let currentTerm = '';
+    
+    for (let i = 0; i < trimmedSearchQuery.length; i++) {
+      const char = trimmedSearchQuery[i];
+      
+      if (!inQuote && (char === '"' || char === "'")) {
+        // Starting a quoted term - save any existing unquoted term first
+        if (currentTerm.trim()) {
+          searchTerms.push(currentTerm.trim());
+          currentTerm = '';
+        }
+        inQuote = true;
+        quoteChar = char;
+        // Don't include the quote character in the term
+      } else if (inQuote && char === quoteChar) {
+        // Ending a quoted term
+        if (currentTerm.trim()) {
+          searchTerms.push(currentTerm.trim());
+        }
+        currentTerm = '';
+        inQuote = false;
+        quoteChar = '';
+        // Don't include the closing quote character
+      } else if (!inQuote && char === ' ') {
+        // Space outside quotes - end current term
+        if (currentTerm.trim()) {
+          searchTerms.push(currentTerm.trim());
+          currentTerm = '';
+        }
+      } else {
+        // Regular character (including characters inside quotes) - add to current term
+        currentTerm += char;
+      }
+    }
+    
+    // Add any remaining term (including partial quoted terms)
+    if (currentTerm.trim()) {
+      searchTerms.push(currentTerm.trim());
+    }
+    
+    //filter out empty terms and lone quote marks
+    const validSearchTerms = searchTerms.filter(term => {
+      return term.length > 0 && term !== '"' && term !== "'";
+    });
+
+    //if no valid search terms, show all rows
+    if (validSearchTerms.length === 0) {
+      return true;
+    }
+
+    //function to check if a value contains the search query string
+    const checkStringContains = (value: any, query: string): boolean => {
+      if (value === undefined || value === null) {
+        return false;
+      }
+      return String(value).toLowerCase().includes(query.toLowerCase());
+    };
+
+    return validSearchTerms.every(term => {
+      //check if this is a key:value search
+      const colonIndex = term.indexOf(':');
+      let isKeyValueSearch = false;
+      let keyword = "";
+      let searchValue = "";
+
+      if (colonIndex !== -1) {
+        keyword = term.substring(0, colonIndex).trim().toLowerCase();
+        searchValue = term.substring(colonIndex + 1).trim();
+        isKeyValueSearch = true; // Even if searchValue is empty, it's still a key:value attempt
+      } else {
+        // Check if this term looks like a partial key (common field names for users)
+        const lowerTerm = term.toLowerCase();
+        const isPartialKey = [
+          'name', 'role', 'phone', 'email'
+        ].some(fieldName => fieldName.startsWith(lowerTerm) || lowerTerm.startsWith(fieldName.substring(0, Math.min(3, fieldName.length))));
+        
+        if (isPartialKey) {
+          // This looks like someone typing a field name, show all rows until they add a colon
+          return true;
+        }
+      }
+
+      if (isKeyValueSearch) {
+        //if no search value yet (just typing the key), show all rows (waiting for value)
+        if (!searchValue) {
+          return true;
+        }
+
+        //key value search logic with actual value
+        switch (keyword) {
+          case "name":
+            return checkStringContains(row.name, searchValue);
+          case "role":
+            return checkStringContains(getRoleDisplayName(row.role), searchValue);
+          case "phone":
+            return checkStringContains(row.phone, searchValue);
+          case "email":
+            return checkStringContains(row.email, searchValue);
+          default:
+            //if unknown key, do global search with the searchValue
+            return checkStringContains(row.name, searchValue) ||
+                   checkStringContains(getRoleDisplayName(row.role), searchValue) ||
+                   checkStringContains(row.phone, searchValue) ||
+                   checkStringContains(row.email, searchValue);
+        }
+      } else {
+        //global search for this term
+        const globalSearchValue = term.toLowerCase();
+        
+        //check all relevant fields
+        return checkStringContains(row.name, globalSearchValue) ||
+               checkStringContains(getRoleDisplayName(row.role), globalSearchValue) ||
+               checkStringContains(row.phone, globalSearchValue) ||
+               checkStringContains(row.email, globalSearchValue);
+      }
+    });
   });
 
   const theme = useTheme();

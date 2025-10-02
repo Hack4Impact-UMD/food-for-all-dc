@@ -1373,8 +1373,63 @@ const DeliverySpreadsheet: React.FC = () => {
 
   const visibleRows = rows.filter((row) => {
     const trimmedSearchQuery = searchQuery.trim();
+    //if search is empty then show all rows
     if (!trimmedSearchQuery) {
-      return true; // Show all if search is empty
+      return true;
+    }
+
+    //parse search terms progressively - extract complete quoted terms and partial terms
+    const searchTerms = [];
+    let inQuote = false;
+    let quoteChar = '';
+    let currentTerm = '';
+    
+    for (let i = 0; i < trimmedSearchQuery.length; i++) {
+      const char = trimmedSearchQuery[i];
+      
+      if (!inQuote && (char === '"' || char === "'")) {
+        // Starting a quoted term - save any existing unquoted term first
+        if (currentTerm.trim()) {
+          searchTerms.push(currentTerm.trim());
+          currentTerm = '';
+        }
+        inQuote = true;
+        quoteChar = char;
+        // Don't include the quote character in the term
+      } else if (inQuote && char === quoteChar) {
+        // Ending a quoted term
+        if (currentTerm.trim()) {
+          searchTerms.push(currentTerm.trim());
+        }
+        currentTerm = '';
+        inQuote = false;
+        quoteChar = '';
+        // Don't include the closing quote character
+      } else if (!inQuote && char === ' ') {
+        // Space outside quotes - end current term
+        if (currentTerm.trim()) {
+          searchTerms.push(currentTerm.trim());
+          currentTerm = '';
+        }
+      } else {
+        // Regular character (including characters inside quotes) - add to current term
+        currentTerm += char;
+      }
+    }
+    
+    // Add any remaining term (including partial quoted terms)
+    if (currentTerm.trim()) {
+      searchTerms.push(currentTerm.trim());
+    }
+    
+    //filter out empty terms and lone quote marks
+    const validSearchTerms = searchTerms.filter(term => {
+      return term.length > 0 && term !== '"' && term !== "'";
+    });
+
+    //if no valid search terms, show all rows
+    if (validSearchTerms.length === 0) {
+      return true;
     }
 
     // Helper function to check if a value contains the search query string
@@ -1397,22 +1452,50 @@ const DeliverySpreadsheet: React.FC = () => {
       return String(value).toLowerCase().includes(lowerQuery);
     };
 
-    const parts = trimmedSearchQuery.split(/:/);
-    let isKeyValueSearch = false;
-    let keyword = "";
-    let searchValue = "";
+    return validSearchTerms.every(term => {
+      //check if this is a key:value search
+      const colonIndex = term.indexOf(':');
+      let isKeyValueSearch = false;
+      let keyword = "";
+      let searchValue = "";
 
-    if (parts.length > 1) {
-      keyword = parts[0].trim().toLowerCase();
-      searchValue = parts.slice(1).join(':').trim();
-      if (searchValue) {
-        isKeyValueSearch = true;
+      if (colonIndex !== -1) {
+        keyword = term.substring(0, colonIndex).trim().toLowerCase();
+        searchValue = term.substring(colonIndex + 1).trim();
+        isKeyValueSearch = true; // Even if searchValue is empty, it's still a key:value attempt
+      } else {
+        // Check if this term looks like a partial key (common field names + custom columns for delivery)
+        const lowerTerm = term.toLowerCase();
+        const commonFieldNames = [
+          'name', 'client', 'address', 'ward', 'zip', 'cluster', 'driver', 'time', 
+          'delivery', 'instructions', 'tags', 'phone', 'ethnicity', 'adults', 
+          'children', 'frequency', 'gender', 'language', 'notes', 'tefap', 'dob', 'referral'
+        ];
+        
+        // Add custom column labels to the list of searchable field names (only for columns with data)
+        const customFieldNames = customColumns
+          .filter(col => col.propertyKey !== "none")
+          .map(col => col.label.toLowerCase());
+        const allFieldNames = [...commonFieldNames, ...customFieldNames];
+        
+        const isPartialKey = allFieldNames.some(fieldName => 
+          fieldName.startsWith(lowerTerm) || lowerTerm.startsWith(fieldName.substring(0, Math.min(3, fieldName.length)))
+        );
+        
+        if (isPartialKey) {
+          // This looks like someone typing a field name, show all rows until they add a colon
+          return true;
+        }
       }
-    }
 
-    if (isKeyValueSearch) {
-      // Perform key-value search
-      switch (keyword) {
+      if (isKeyValueSearch) {
+        //if no search value yet (just typing the key), show all rows (waiting for value)
+        if (!searchValue) {
+          return true;
+        }
+
+        // Perform key-value search
+        switch (keyword) {
         case "name":
         case "client":
           return checkStringContains(`${row.firstName} ${row.lastName}`, searchValue) ||
@@ -1478,9 +1561,15 @@ const DeliverySpreadsheet: React.FC = () => {
           return false;
         }
         default: {
-          // Check custom columns
+          // Check custom columns (by label or propertyKey, only for visible columns with data)
           const matchesCustomColumn = customColumns.some((col) => {
-            if (col.propertyKey !== "none" && col.propertyKey.toLowerCase().includes(keyword)) {
+            // Only search in columns that have actual data
+            if (col.propertyKey === "none") return false;
+            
+            const labelMatches = col.label.toLowerCase().includes(keyword) || keyword.includes(col.label.toLowerCase());
+            const propertyMatches = col.propertyKey.toLowerCase().includes(keyword);
+            
+            if (labelMatches || propertyMatches) {
               const fieldValue = row[col.propertyKey as keyof DeliveryRowData];
               return checkStringContains(fieldValue, searchValue);
             }
@@ -1529,7 +1618,7 @@ const DeliverySpreadsheet: React.FC = () => {
         if (checkStringContains(row.referralEntity.organization, globalSearchValue)) return true;
       }
 
-      // Search in custom columns
+      // Search in custom columns (only visible columns with data)
       const matchesCustomColumn = customColumns.some((col) => {
         if (col.propertyKey !== "none") {
           const fieldValue = row[col.propertyKey as keyof DeliveryRowData];
@@ -1541,6 +1630,7 @@ const DeliverySpreadsheet: React.FC = () => {
 
       return false;
     }
+    });
   });
 
   // Create sorted version of visible rows - supports fullname, clusterIdChange, tags, address, ward, assignedDriver, assignedTime, deliveryInstructions, and custom columns sorting
