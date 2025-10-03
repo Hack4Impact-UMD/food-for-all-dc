@@ -140,33 +140,11 @@ function getCustomColumnValue(row: RowData, propertyKey: string): string {
   return val !== undefined && val !== null ? val.toString() : "";
 }
 
-// Component to handle async loading of last delivery date
-const LastDeliveryDateCell: React.FC<{ clientId: string }> = ({ clientId }) => {
-  const [lastDeliveryDate, setLastDeliveryDate] = useState<string>("Loading...");
-
-  useEffect(() => {
-    let isMounted = true;
-    getLastDeliveryDateForClient(clientId).then((date) => {
-      if (isMounted) {
-        setLastDeliveryDate(date || "No deliveries");
-      }
-    }).catch(() => {
-      if (isMounted) {
-        setLastDeliveryDate("Error");
-      }
-    });
-    return () => { isMounted = false; };
-  }, [clientId]);
-
-  return <span>{lastDeliveryDate}</span>;
-};
-
-function getCustomColumnDisplay(row: RowData, propertyKey: string): React.ReactNode {
+function getCustomColumnDisplay(row: RowData, propertyKey: string, lastDeliveryDates: Record<string, string>): React.ReactNode {
   if (!propertyKey || propertyKey === "none") return "N/A";
-  
-  // Handle lastDeliveryDate (async computed field)
+
   if (propertyKey === "lastDeliveryDate") {
-    return <LastDeliveryDateCell clientId={row.uid} />;
+    return lastDeliveryDates[row.uid] || "Loading...";
   }
   
   // Handle referralEntity (object)
@@ -251,6 +229,7 @@ const Spreadsheet: React.FC = () => {
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const [exportOption, setExportOption] = useState<"QueryResults" | "AllClients" | null>(null);
   const [clientIdToDelete, setClientIdToDelete] = useState<string | null>(null);
+  const [lastDeliveryDates, setLastDeliveryDates] = useState<Record<string, string>>({});
 
   // Track which column is currently being sorted
   const [sortedColumn, setSortedColumn] = useState<string>(() => {
@@ -485,15 +464,11 @@ const Spreadsheet: React.FC = () => {
     },
   ];
 
-  // Fetch data from Firebase without authentication checks
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Use ClientService instead of direct Firebase calls
         const clientService = ClientService.getInstance();
         const { clients } = await clientService.getAllClientsForSpreadsheet();
-        // ...existing code...
-        // No default sorting - let our sortedRows useMemo handle all sorting
         setRows(clients);
       } catch (error) {
         console.error("Error fetching data: ", error);
@@ -501,6 +476,26 @@ const Spreadsheet: React.FC = () => {
     };
     fetchData();
   }, []);
+
+  useEffect(() => {
+    const loadLastDeliveryDates = async () => {
+      if (rows.length === 0) return;
+
+      const clientIds = rows.map(row => row.uid);
+      const dates = await Promise.all(
+        clientIds.map(id => getLastDeliveryDateForClient(id).catch(() => null))
+      );
+
+      const dateMap: Record<string, string> = {};
+      clientIds.forEach((id, index) => {
+        dateMap[id] = dates[index] || "No deliveries";
+      });
+
+      setLastDeliveryDates(dateMap);
+    };
+
+    loadLastDeliveryDates();
+  }, [rows]);
 
   // Handle search input change
   const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -1653,7 +1648,7 @@ const Spreadsheet: React.FC = () => {
                           )
                         ) :
                           col.propertyKey !== "none" ? (
-                            getCustomColumnDisplay(row, col.propertyKey)
+                            getCustomColumnDisplay(row, col.propertyKey, lastDeliveryDates)
                           ) : (
                             "N/A"
                           )}
