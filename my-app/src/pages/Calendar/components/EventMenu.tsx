@@ -20,6 +20,7 @@ import {
 } from "@mui/material";
 import { validateDateInput } from "../../../utils/dates";
 import { getLastDeliveryDateForClient } from "../../../utils/lastDeliveryDate";
+import { deleteDeliveriesAfterEndDate, notifyDeliveryModified } from "../../../utils/deliveryCleanup";
 import MoreHorizIcon from "@mui/icons-material/MoreHoriz";
 import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, query, where, orderBy, updateDoc, Timestamp} from "firebase/firestore";
 import { db } from "../../../auth/firebaseConfig";
@@ -33,52 +34,6 @@ interface EventMenuProps {
   event: DeliveryEvent;
   onEventModified: () => void;
 }
-
-// Helper function to delete deliveries that are later than the new end date
-const deleteDeliveriesAfterEndDate = async (clientId: string, newEndDate: string) => {
-  try {
-    const eventsRef = collection(db, "events");
-    const q = query(
-      eventsRef,
-      where("clientId", "==", clientId)
-    );
-    const querySnapshot = await getDocs(q);
-
-    const deletionPromises: Promise<void>[] = [];
-    const newEndDateTime = new Date(newEndDate);
-    
-    console.log(`Found ${querySnapshot.size} total deliveries for client ${clientId}`);
-    console.log(`New end date: ${newEndDate}`);
-
-    querySnapshot.forEach((docSnapshot) => {
-      const eventData = docSnapshot.data();
-      if (eventData.deliveryDate) {
-        const deliveryDate = eventData.deliveryDate.toDate();
-        // Normalize both dates to YYYY-MM-DD format for accurate comparison
-        const deliveryDateStr = deliveryDate.toISOString().split('T')[0];
-        const endDateStr = newEndDateTime.toISOString().split('T')[0];
-        
-        // Only delete deliveries that are strictly after the end date (not on the end date)
-        if (deliveryDateStr > endDateStr) {
-          console.log(`Deleting delivery on ${deliveryDateStr} (after new end date ${endDateStr})`);
-          deletionPromises.push(deleteDoc(doc(db, "events", docSnapshot.id)));
-        } else if (deliveryDateStr === endDateStr) {
-          console.log(`Keeping delivery on ${deliveryDateStr} (matches end date ${endDateStr})`);
-        }
-      }
-    });
-
-    if (deletionPromises.length > 0) {
-      await Promise.all(deletionPromises);
-      console.log(`Successfully deleted ${deletionPromises.length} deliveries that were after the new end date ${newEndDate}`);
-    } else {
-      console.log(`No deliveries found to delete after end date ${newEndDate} for client ${clientId}`);
-    }
-  } catch (error) {
-    console.error("Error deleting deliveries after end date:", error);
-    throw error;
-  }
-};
 
 const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
   const { userRole } = useAuth();
@@ -215,10 +170,8 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
         await Promise.all(batch);
       }
 
-      // Signal that deliveries have been modified for other components
-      localStorage.setItem('deliveriesModified', Date.now().toString());
-      
       onEventModified();
+      notifyDeliveryModified();
       setIsDeleteDialogOpen(false);
     } catch (error) {
       console.error("Error deleting event:", error);
@@ -333,10 +286,8 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
         }
       }
 
-      // Signal that deliveries have been modified for other components
-      localStorage.setItem('deliveriesModified', Date.now().toString());
-      
       onEventModified();
+      notifyDeliveryModified();
       setIsEditDialogOpen(false);
     } catch (error) {
       console.error("Error updating event:", error);
