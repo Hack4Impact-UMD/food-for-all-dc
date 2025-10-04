@@ -7,9 +7,17 @@ import { collection, DocumentData, getDocs, limit, orderBy, query, QueryDocument
 import { db } from "../../auth/firebaseConfig";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import { useNotifications } from "../../components/NotificationProvider";
+import { useNavigate } from "react-router-dom";
+import Guide from "./Guide";
+import LoadingIndicator from "../../components/LoadingIndicator/LoadingIndicator";
 
 const ClientReport: React.FC = () => {
+  const navigate = useNavigate()
   const { showError, showSuccess } = useNotifications();
+
+  const [isLoading, setIsLoading] = useState(false);
+  const [hasGenerated, setHasGenerated] = useState(false);
+
   const [startDate, setStartDate] = useState<Date | null>(() => {
     const start = localStorage.getItem("ffaReportDateRangeStart");
     if (start) {
@@ -34,6 +42,7 @@ const ClientReport: React.FC = () => {
       return {}
     }
 
+    setIsLoading(true);
     try {
 
     const BATCH_SIZE = 50;
@@ -97,10 +106,13 @@ const ClientReport: React.FC = () => {
       "Active": activeClients,
       "Lapsed": lapsedClients,
     });
+    setHasGenerated(true);
     showSuccess("Client report generated successfully");
     } catch (error) {
       console.error("Failed to generate client report:", error);
       showError("Failed to generate client report. Please try again.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -120,90 +132,98 @@ const ClientReport: React.FC = () => {
         generateReport={generateReport}
       />
 
-      <Box
-        sx={{
-          flex: 1,
-          overflowY: "auto",
-          p: 2,
-          width: "90vw",
-          bgcolor: "background.paper",
-        }}
-      >
-        {sections.map(({ key, index, label }) => {
-          const clients = data?.[key] ?? [];
-          return (
-            <Accordion
-              key={key}
-              sx={{
-                width: "100%",
-                mb: 1,
-                bgcolor: "white",
-                border: "none",
-                boxShadow: "none",
-                borderRadius: 2,
-                overflow: "hidden",
-                p: 0,
-              }}
-            >
-              <AccordionSummary
-                expandIcon={<ExpandMoreIcon sx={{ color: "white" }} />}
-                aria-controls={`panel${index}-content`}
-                id={`panel${index}-header`}
+      {isLoading && <LoadingIndicator />}
+
+      {!isLoading && !hasGenerated && <Guide />}
+
+      {!isLoading && hasGenerated && (
+        <Box
+          sx={{
+            flex: 1,
+            overflowY: "auto",
+            p: 2,
+            width: "90vw",
+            bgcolor: "background.paper",
+          }}
+        >
+          {sections.map(({ key, index, label }) => {
+            const clients = data?.[key] ?? [];
+            return (
+              <Accordion
+                key={key}
                 sx={{
-                  bgcolor: "var(--color-primary)",
-                  color: "white",
-                  mb: 0.5,
-                  borderTopLeftRadius: 2,
-                  borderTopRightRadius: 2,
+                  width: "100%",
+                  mb: 1,
+                  bgcolor: "white",
+                  border: "none",
+                  boxShadow: "none",
+                  borderRadius: 2,
+                  overflow: "hidden",
+                  p: 0,
                 }}
               >
-                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                  <Typography variant="h6" sx={{ mr: 1 }}>
-                    {label}
-                  </Typography>
-                  <Typography sx={{ opacity: 0.9 }}>({clients.length})</Typography>
-                </Box>
-              </AccordionSummary>
-
-              <AccordionDetails sx={{ bgcolor: "white", color: "black", p: 0 }}>
-                {clients.length === 0 ? (
-                  <Box sx={{ p: 2, bgcolor: "#f7f7f7", borderRadius: 1 }}>
-                    <Typography sx={{ color: "text.secondary" }}>No clients.</Typography>
+                <AccordionSummary
+                  expandIcon={<ExpandMoreIcon sx={{ color: "white" }} />}
+                  aria-controls={`panel${index}-content`}
+                  id={`panel${index}-header`}
+                  sx={{
+                    bgcolor: "var(--color-primary)",
+                    color: "white",
+                    mb: 0.5,
+                    borderTopLeftRadius: 2,
+                    borderTopRightRadius: 2,
+                  }}
+                >
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                    <Typography variant="h6" sx={{ mr: 1 }}>
+                      {label}
+                    </Typography>
+                    <Typography sx={{ opacity: 0.9 }}>({clients.length})</Typography>
                   </Box>
-                ) : (
-                  clients.map((client: any, i: any) => (
-                    <Box
-                      key={`${key}-${client.uid ?? i}`}
-                      sx={{
-                        height: 72,
-                        bgcolor: "#f0f0f0ff",
-                        mb: 1.25,
-                        width: "100%",
-                        display: "flex",
-                        alignItems: "center",
-                        p: 2,
-                        justifyContent: "space-between",
-                        flexDirection: "row",
-                      }}
-                    >
-                      <Typography
+                </AccordionSummary>
+
+                <AccordionDetails sx={{ bgcolor: "white", color: "black", p: 0 }}>
+                  {clients.length === 0 ? (
+                    <Box sx={{ p: 2, bgcolor: "#f7f7f7", borderRadius: 1 }}>
+                      <Typography sx={{ color: "text.secondary" }}>No clients.</Typography>
+                    </Box>
+                  ) : (
+                    clients.map((client: any, i: any) => (
+                      <Box
+                        key={`${key}-${client.uid ?? i}`}
                         sx={{
-                          color: "var(--color-primary)",
-                          fontWeight: "bold",
-                          textDecoration: "underline",
-                          fontSize: 17,
+                          height: 72,
+                          bgcolor: "#f0f0f0ff",
+                          mb: 1.25,
+                          width: "100%",
+                          display: "flex",
+                          alignItems: "center",
+                          p: 2,
+                          justifyContent: "space-between",
+                          flexDirection: "row",
                         }}
                       >
-                        {client.firstName} {client.lastName}
-                      </Typography>
-                    </Box>
-                  ))
-                )}
-              </AccordionDetails>
-            </Accordion>
-          );
-        })}
-      </Box>
+                        <Typography
+                          sx={{
+                            color: "var(--color-primary)",
+                            fontWeight: "bold",
+                            textDecoration: "underline",
+                            fontSize: 17,
+                            cursor: "pointer"
+                          }}
+                          onClick={()=>{navigate(`/profile/${client.uid}`)}}
+                        >
+                          {client.firstName} {client.lastName}
+                        </Typography>
+                      </Box>
+                    ))
+                  )}
+                </AccordionDetails>
+              </Accordion>
+            );
+          })}
+        </Box>
+      )}
     </Box>
   );
 };
