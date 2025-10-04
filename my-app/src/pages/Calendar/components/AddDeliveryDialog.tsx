@@ -23,7 +23,7 @@ import CalendarMultiSelect from "./CalendarMultiSelect";
 import DateField from "./DateField";
 import { DayPilot } from "@daypilot/daypilot-lite-react";
 import { validateDeliveryDateRange } from "../../../utils/dateValidation";
-import { collection, getDocs, query, where, orderBy } from "firebase/firestore";
+import { collection, getDocs, query, where, orderBy, limit } from "firebase/firestore";
 import { db } from "../../../auth/firebaseConfig";
 
 interface AddDeliveryDialogProps {
@@ -108,7 +108,8 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props: AddDeliveryD
           const q = query(
             eventsRef,
             where("clientId", "==", newDelivery.clientId),
-            orderBy("deliveryDate", "desc")
+            orderBy("deliveryDate", "desc"),
+            limit(100)
           );
           const querySnapshot = await getDocs(q);
 

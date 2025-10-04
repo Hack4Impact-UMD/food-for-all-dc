@@ -20,7 +20,7 @@ import {
 } from "@mui/material";
 import { validateDateInput } from "../../../utils/dates";
 import MoreHorizIcon from "@mui/icons-material/MoreHoriz";
-import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, query, where, orderBy, Timestamp} from "firebase/firestore";
+import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, query, where, orderBy, limit, Timestamp} from "firebase/firestore";
 import { db } from "../../../auth/firebaseConfig";
 import { DeliveryEvent, NewDelivery } from "../../../types/calendar-types";
 import { calculateRecurrenceDates, getNextMonthlyDate } from "./CalendarUtils";
@@ -88,7 +88,8 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
           const q = query(
             eventsRef,
             where("clientId", "==", event.clientId),
-            orderBy("deliveryDate", "desc")
+            orderBy("deliveryDate", "desc"),
+            limit(100)
           );
           const querySnapshot = await getDocs(q);
 
@@ -163,7 +164,7 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
     };
 
     fetchCurrentLastDeliveryDate();
-  }, [event.clientId]);
+  }, [event.clientId, event.id]);
 
   const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
     event.stopPropagation();

@@ -427,7 +427,8 @@ const Profile = () => {
           const q = query(
             eventsRef,
             where("clientId", "==", clientId),
-            orderBy("deliveryDate", "desc")
+            orderBy("deliveryDate", "desc"),
+            limit(100)
           );
           const querySnapshot = await getDocs(q);
 
