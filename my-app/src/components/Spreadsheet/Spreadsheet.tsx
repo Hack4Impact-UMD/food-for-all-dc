@@ -220,7 +220,11 @@ const isRegularField = (field: Field): field is Extract<Field, { key: keyof RowD
   return field.key !== "fullname";
 };
 
-const Spreadsheet: React.FC = () => {
+interface SpreadsheetProps {
+  editable?: boolean
+}
+
+const Spreadsheet: React.FC<SpreadsheetProps> = ({ editable = true }) => {
   const [rows, setRows] = useState<RowData[]>([]);
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [editingRowId, setEditingRowId] = useState<string | null>(null);
@@ -966,7 +970,7 @@ const Spreadsheet: React.FC = () => {
       }}
     >
       {/* Fixed Container for Search Bar and Create Client Button */}
-      <Box
+      {editable ? <Box
         sx={{
           position: "sticky",
           top: 0,
@@ -1120,7 +1124,7 @@ const Spreadsheet: React.FC = () => {
             </Box>
           </Stack>
         </Stack>
-      </Box>
+      </Box>: ""}
 
       {/* Spreadsheet Content */}
       <Box
@@ -1157,15 +1161,16 @@ const Spreadsheet: React.FC = () => {
                   <Typography variant="h6" sx={{ fontWeight: 600, color: "#2E5B4C" }}>
                     {row.lastName}, {row.firstName}
                   </Typography>
-                  <IconButton
+                  {editable ? <IconButton
                     size="small"
                     onClick={(e) => {
                       e.stopPropagation();
                       handleMenuOpen(e, row.uid);
                     }}
                   >
+                    
                     <MoreVertIcon />
-                  </IconButton>
+                  </IconButton>: null}
                 </Stack>
                 <Divider sx={{ my: 1 }} />
                 <Stack spacing={1.5}>
@@ -1675,51 +1680,53 @@ const Spreadsheet: React.FC = () => {
                         >
                           Save
                         </Button>
-                      ) : (
-                        <IconButton
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleMenuOpen(e, row.uid);
-                          }}
-                          sx={{
-                            color: "#757575",
-                            "&:hover": {
-                              backgroundColor: "rgba(0, 0, 0, 0.04)",
-                              color: "#2E5B4C",
-                            }
-                          }}
-                        >
-                          <MoreVertIcon />
-                        </IconButton>
-                      )}
-                      <Menu
-                        anchorEl={menuAnchorEl}
-                        open={Boolean(menuAnchorEl) && selectedRowId === row.uid}
-                        onClose={handleMenuClose}
-                        PaperProps={{
-                          elevation: 3,
-                          sx: { borderRadius: "8px", minWidth: "150px" }
-                        }}
-                      >
-                        <MenuItem
-                          onClick={() => {
-                            handleEditRow(row.uid);
-                            handleMenuClose();
-                          }}
-                          sx={{ py: 1.5 }}
-                        >
-                          <EditIcon fontSize="small" sx={{ mr: 1 }} /> Edit
-                        </MenuItem>
-                        <MenuItem
-                          onClick={() => {
-                            setClientIdToDelete(row.uid);
-                            handleMenuClose();
-                          }}
-                          sx={{ py: 1.5 }}
-                        >
-                          <DeleteIcon fontSize="small" sx={{ mr: 1 }} /> Delete
-                        </MenuItem>
-                      </Menu>
+                      ) : editable ? ( 
+                        <>
+                          <IconButton
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleMenuOpen(e, row.uid);
+                            }}
+                            sx={{
+                              color: "#757575",
+                              "&:hover": {
+                                backgroundColor: "rgba(0, 0, 0, 0.04)",
+                                color: "#2E5B4C",
+                              }
+                            }}
+                          >
+                            <MoreVertIcon />
+                          </IconButton>
+                          <Menu
+                            anchorEl={menuAnchorEl}
+                            open={Boolean(menuAnchorEl) && selectedRowId === row.uid}
+                            onClose={handleMenuClose}
+                            PaperProps={{
+                              elevation: 3,
+                              sx: { borderRadius: "8px", minWidth: "150px" }
+                            }}
+                          >
+                            <MenuItem
+                              onClick={() => {
+                                handleEditRow(row.uid);
+                                handleMenuClose();
+                              }}
+                              sx={{ py: 1.5 }}
+                            >
+                              <EditIcon fontSize="small" sx={{ mr: 1 }} /> Edit
+                            </MenuItem>
+                            <MenuItem
+                              onClick={() => {
+                                setClientIdToDelete(row.uid);
+                                handleMenuClose();
+                              }}
+                              sx={{ py: 1.5 }}
+                            >
+                              <DeleteIcon fontSize="small" sx={{ mr: 1 }} /> Delete
+                            </MenuItem>
+                          </Menu>
+                        </>
+                      ) : null} 
                     </TableCell>
                   </TableRow>
                 ))}

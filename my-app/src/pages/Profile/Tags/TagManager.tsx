@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, SyntheticEvent } from 'react';
 import Tag from './Tag';
 import {
   Box,
@@ -13,6 +13,7 @@ import {
   Fade,
   IconButton,
   styled,
+  FilterOptionsState,
 } from '@mui/material';
 import AddCircleIcon from '@mui/icons-material/AddCircle';
 import WarningAmberRoundedIcon from '@mui/icons-material/WarningAmberRounded';
@@ -105,6 +106,11 @@ const CloseBtn = styled(IconButton)(({ theme }) => ({
   color: 'var(--color-text-secondary)',
   zIndex: 2,
 }));
+
+const filterTagOptions = (options: string[], { inputValue }: FilterOptionsState<string>) =>
+  options
+    .filter(option => option.toLowerCase().includes(inputValue.toLowerCase()))
+    .slice(0, 10);
 
 export default function TagManager({ allTags, values, handleTag, setInnerPopup, deleteMode, setTagToDelete, clientUid }: TagsProps) {
   const [masterTags, setMasterTags] = useState<string[]>(allTags);
@@ -323,6 +329,35 @@ export default function TagManager({ allTags, values, handleTag, setInnerPopup, 
     }
   };
 
+  const handleAutocompleteInputChange = (_event: SyntheticEvent, newInputValue: string) => {
+    setSelectedTag(newInputValue);
+  };
+
+  const renderTagSelector = (options: string[], placeholder: string) => (
+    <Autocomplete
+      freeSolo
+      fullWidth
+      options={options}
+      value={selectedTag}
+      onChange={(_event, newValue) => setSelectedTag(newValue)}
+      onInputChange={handleAutocompleteInputChange}
+      clearOnEscape
+      filterOptions={filterTagOptions}
+      renderInput={(params) => (
+        <TextField
+          {...params}
+          placeholder={placeholder}
+          variant="outlined"
+          fullWidth
+          inputProps={{
+            ...params.inputProps,
+            'aria-label': placeholder,
+          }}
+        />
+      )}
+    />
+  );
+
   return (
     <>
       <Box
@@ -385,63 +420,9 @@ export default function TagManager({ allTags, values, handleTag, setInnerPopup, 
           </Subtitle>
         </DialogTitle>
         <DialogContent>
-          {modalMode === "add" ? (
-            <>
-              <Autocomplete
-                freeSolo
-                options={availableTags}
-                value={selectedTag}
-                onChange={(_event, newValue) => setSelectedTag(newValue)}
-                onInputChange={(_event, newInputValue) => setSelectedTag(newInputValue)}
-                renderInput={(params) => <TextField {...params} label="Select tag or type new tag" variant="standard" />}
-                clearOnEscape
-                sx={{
-                  '& .MuiInputLabel-root': {
-                    fontSize: '16px',
-                    textAlign: 'center',
-                    left: '50% !important',
-                    transform: 'translate(-50%, 35px)',
-                  },
-                  '& .MuiInputLabel-root.Mui-focused': {
-                    transform: 'translate(-50%, 0px) scale(0.75)',
-                  },
-                }}
-                filterOptions={(options, state) => {
-                  // Default filter, then limit to 10
-                  const filtered = options.filter(option =>
-                    option.toLowerCase().includes(state.inputValue.toLowerCase())
-                  );
-                  return filtered.slice(0, 10);
-                }}
-              />
-            </>
-          ) : (
-            <Autocomplete
-              freeSolo
-              options={masterTags}
-              value={selectedTag}
-              onChange={(_event, newValue) => setSelectedTag(newValue)}
-              renderInput={(params) => <TextField {...params} label="Select tag to remove" variant="standard" />}
-              clearOnEscape
-              sx={{
-                '& .MuiInputLabel-root': {
-                  fontSize: '16px',
-                  textAlign: 'center',
-                  left: '50% !important',
-                  transform: 'translate(-50%, 35px)',
-                },
-                '& .MuiInputLabel-root.Mui-focused': {
-                  transform: 'translate(-50%, 0px) scale(0.75)',
-                },
-              }}
-              filterOptions={(options, state) => {
-                const filtered = options.filter(option =>
-                  option.toLowerCase().includes(state.inputValue.toLowerCase())
-                );
-                return filtered.slice(0, 10);
-              }}
-            />
-          )}
+          {modalMode === "add"
+            ? renderTagSelector(availableTags, "Select tag or type new tag")
+            : renderTagSelector(masterTags, "Select tag to remove")}
         </DialogContent>
         <DialogActions sx={{ justifyContent: 'space-between', px: 3, pb: 2 }}>
           <Button onClick={() => {

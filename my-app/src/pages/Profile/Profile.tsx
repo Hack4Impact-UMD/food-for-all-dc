@@ -1,7 +1,7 @@
 import CloseIcon from "@mui/icons-material/Close";
 import EditIcon from "@mui/icons-material/Edit";
 import SaveIcon from "@mui/icons-material/Save";
-import { TimeUtils } from '../../utils/timeUtils';
+import { CalendarUtils, TimeUtils } from '../../utils/timeUtils';
 import { getLastDeliveryDateForClient } from '../../utils/lastDeliveryDate';
 import {
   Autocomplete,
@@ -32,7 +32,7 @@ import {
   Timestamp,
   deleteDoc,
 } from "firebase/firestore";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { auth, db } from "../../auth/firebaseConfig";
 import CaseWorkerManagementModal from "../../components/CaseWorkerManagementModal";
@@ -252,6 +252,7 @@ const Profile = () => {
     ward: "",
     tefapCert: "",
     referralEntity: null,
+    referredDate: "",
     coordinates: [],
     physicalAilments: {
     diabetes: false,
@@ -290,6 +291,18 @@ const Profile = () => {
   const [futureDeliveries, setFutureDeliveries] = useState<DeliveryEvent[]>([]);
   const [events, setEvents] = useState<DeliveryEvent[]>([]);
   const [latestRecurringDelivery, setLatestRecurringDelivery] = useState<DeliveryEvent | null>(null);
+
+  const preSelectedClientData = useMemo(() => ({
+    clientId: clientId || "",
+    clientName: `${clientProfile.firstName} ${clientProfile.lastName}`,
+    clientProfile: {
+      ...clientProfile,
+      recurrence: latestRecurringDelivery?.recurrence || clientProfile.recurrence,
+      endDate: lastDeliveryDate && lastDeliveryDate !== "No deliveries found" && lastDeliveryDate !== "Error fetching data"
+        ? lastDeliveryDate
+        : (latestRecurringDelivery?.repeatsEndDate || clientProfile.endDate)
+    }
+  }), [clientId, clientProfile, latestRecurringDelivery, lastDeliveryDate]);
 
     // Allergies textbox state for editing
     const [foodAllergensText, setFoodAllergensText] = useState<string>("");
@@ -458,7 +471,7 @@ const Profile = () => {
       if (clientId) {
         try {
           const latestEndDateString = await getLastDeliveryDateForClient(clientId);
-          
+
           if (latestEndDateString) {
             setLastDeliveryDate(latestEndDateString);
           } else {
@@ -581,12 +594,10 @@ const Profile = () => {
         
         // Find the latest recurring delivery from all deliveries (past and future)
         const allDeliveries = [...pastDeliveries, ...futureDeliveries];
-        console.log('All deliveries for client:', allDeliveries);
         
         const recurringDeliveries = allDeliveries.filter(delivery => 
           delivery.recurrence && delivery.recurrence !== "None"
         );
-        console.log('Recurring deliveries found:', recurringDeliveries);
         
         if (recurringDeliveries.length > 0) {
           // Sort by delivery date (most recent first) and take the first one
@@ -595,10 +606,8 @@ const Profile = () => {
             const dateB = toJSDate(b.deliveryDate);
             return dateB.getTime() - dateA.getTime();
           });
-          console.log('Latest recurring delivery:', sortedRecurring[0]);
           setLatestRecurringDelivery(sortedRecurring[0]);
         } else {
-          console.log('No recurring deliveries found');
           setLatestRecurringDelivery(null);
         }
         
@@ -929,9 +938,6 @@ const Profile = () => {
     if (clientProfile.state !== "DC" && clientProfile.state !== "MD" && clientProfile.state !== "VA") {
       newErrors.state = "State must be DC, MD, or VA";
     } 
-    if (!clientProfile.dob) {
-      newErrors.dob = "Date of Birth is required";
-    }
     if (clientProfile.email?.trim() &&
         !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clientProfile.email.trim())
     ) {
@@ -945,6 +951,9 @@ const Profile = () => {
     }
     if (!clientProfile.recurrence?.trim()) {
       newErrors.recurrence = "Recurrence is required";
+    }
+    if (!clientProfile.referralEntity || !clientProfile.referralEntity.id) {
+      newErrors.referralEntity = "Referral entity is required";
     }
     if (!clientProfile.phone?.trim()) {
       newErrors.phone = "Phone is required";
@@ -2449,12 +2458,14 @@ const handleMentalHealthConditionsChange = (e: React.ChangeEvent<HTMLInputElemen
           name: caseWorker.name,
           organization: caseWorker.organization,
         },
+        referredDate: CalendarUtils.toDayPilotString(TimeUtils.today())
       }));
     } else {
       // If no case worker selected, remove the referral entity
       setClientProfile((prev) => {
         const newProfile = { ...prev };
         delete newProfile.referralEntity;
+        delete newProfile.referredDate
         return newProfile;
       });
     }
@@ -2868,35 +2879,29 @@ const handleMentalHealthConditionsChange = (e: React.ChangeEvent<HTMLInputElemen
               variant="contained"
               startIcon={<Add />}
               onClick={async () => {
-                console.log('Add Delivery button clicked');
                 // Refresh delivery data before opening modal
                 if (clientId) {
                   const deliveryService = DeliveryService.getInstance();
                   try {
-                    console.log('Fetching fresh delivery data...');
                     const { pastDeliveries, futureDeliveries } = await deliveryService.getClientDeliveryHistory(clientId);
                     setPastDeliveries(pastDeliveries);
                     setFutureDeliveries(futureDeliveries);
-                    
+
                     // Find the latest recurring delivery
                     const allDeliveries = [...pastDeliveries, ...futureDeliveries];
-                    console.log('Fresh all deliveries:', allDeliveries);
-                    
-                    const recurringDeliveries = allDeliveries.filter(delivery => 
+
+                    const recurringDeliveries = allDeliveries.filter(delivery =>
                       delivery.recurrence && delivery.recurrence !== "None"
                     );
-                    console.log('Fresh recurring deliveries found:', recurringDeliveries);
-                    
+
                     if (recurringDeliveries.length > 0) {
                       const sortedRecurring = recurringDeliveries.sort((a, b) => {
                         const dateA = toJSDate(a.deliveryDate);
                         const dateB = toJSDate(b.deliveryDate);
                         return dateB.getTime() - dateA.getTime();
                       });
-                      console.log('Fresh latest recurring delivery:', sortedRecurring[0]);
                       setLatestRecurringDelivery(sortedRecurring[0]);
                     } else {
-                      console.log('No fresh recurring deliveries found');
                       setLatestRecurringDelivery(null);
                     }
                   } catch (error) {
@@ -2920,26 +2925,9 @@ const handleMentalHealthConditionsChange = (e: React.ChangeEvent<HTMLInputElemen
               open={isDeliveryModalOpen}
               onClose={() => setIsDeliveryModalOpen(false)}
               onAddDelivery={handleAddDelivery}
-              clients={[]} // Empty array since we're using preSelectedClient
+              clients={[]}
               startDate={new DayPilot.Date()}
-              preSelectedClient={(() => {
-                const preSelected = {
-                  clientId: clientId || "",
-                  clientName: `${clientProfile.firstName} ${clientProfile.lastName}`,
-                  clientProfile: {
-                    ...clientProfile,
-                    // Override with latest recurring delivery data if available
-                    recurrence: latestRecurringDelivery?.recurrence || clientProfile.recurrence,
-                    // Use the current lastDeliveryDate instead of potentially stale data
-                    endDate: lastDeliveryDate && lastDeliveryDate !== "No deliveries found" && lastDeliveryDate !== "Error fetching data" 
-                      ? lastDeliveryDate 
-                      : (latestRecurringDelivery?.repeatsEndDate || clientProfile.endDate)
-                  }
-                };
-                console.log('PreSelectedClient being passed to AddDeliveryDialog:', preSelected);
-                console.log('latestRecurringDelivery:', latestRecurringDelivery);
-                return preSelected;
-              })()}
+              preSelectedClient={preSelectedClientData}
             />
            <DeliveryLogForm
               pastDeliveries={pastDeliveries}

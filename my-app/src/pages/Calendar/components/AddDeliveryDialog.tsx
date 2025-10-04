@@ -177,7 +177,6 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props: AddDeliveryD
   useEffect(() => {
     if (open) {
       document.body.classList.add('add-delivery-modal-open');
-      console.log('AddDeliveryDialog newDelivery:', newDelivery);
     } else {
       document.body.classList.remove('add-delivery-modal-open');
     }

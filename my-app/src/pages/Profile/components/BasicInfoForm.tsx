@@ -349,7 +349,7 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
       {/* Referral Entity */}
       <Box>
         <Typography className="field-descriptor" sx={fieldLabelStyles}>
-          REFERRAL ENTITY
+          REFERRAL ENTITY *
         </Typography>
         {isEditing ? (
           <>
@@ -443,6 +443,11 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
             {selectedCaseWorker
               ? `${selectedCaseWorker.name}, ${selectedCaseWorker.organization}`
               : "None"}
+          </Typography>
+        )}
+        {errors.referralEntity && (
+          <Typography color="error" variant="body2" sx={{ fontSize: '0.75rem', mt: 0.5 }}>
+            {errors.referralEntity}
           </Typography>
         )}
       </Box>
