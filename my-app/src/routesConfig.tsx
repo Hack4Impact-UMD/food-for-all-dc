@@ -1,4 +1,3 @@
-import RawEventsPage from "./pages/Calendar/RawEventsPage";
 // Centralized route configuration for Food for All DC
 import React from 'react';
 import Login from "./pages/Login/Login";
@@ -84,11 +83,11 @@ export const routesConfig: AppRoute[] = [
         element: <ReferralAgenciesReport />,
         meta: { title: "Referral Agencies Report", icon: "business" },
       },
-      {
-        path: "reports/caseworker",
-        element: <CaseworkerReport />,
-        meta: { title: "Caseworker Report", icon: "person" },
-      },
+      // {
+      //   path: "reports/caseworker",
+      //   element: <CaseworkerReport />,
+      //   meta: { title: "Caseworker Report", icon: "person" },
+      // },
       {
         element: <ProtectedRoute allowedRoles={[UserType.Admin, UserType.Manager]} />,
         children: [

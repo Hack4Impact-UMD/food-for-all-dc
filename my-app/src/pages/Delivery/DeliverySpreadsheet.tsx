@@ -3,12 +3,9 @@ import { getEventsByViewType } from '../Calendar/components/getEventsByViewType'
 import { DayPilot } from "@daypilot/daypilot-lite-react";
 import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import { db } from "../../auth/firebaseConfig";
-import { Search, Filter } from "lucide-react";
 import { query, Timestamp, updateDoc, where } from "firebase/firestore";
 import { TimeUtils } from "../../utils/timeUtils";
 import { format, addDays } from "date-fns";
-import MoreVertIcon from "@mui/icons-material/MoreVert";
-import AddIcon from "@mui/icons-material/Add";
 import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
 import ArrowDropUpIcon from "@mui/icons-material/ArrowDropUp";
 import DeleteIcon from "@mui/icons-material/Delete";
@@ -16,7 +13,7 @@ import AssignmentIndIcon from "@mui/icons-material/AssignmentInd";
 import AccessTimeIcon from "@mui/icons-material/AccessTime";
 import FileDownloadIcon from "@mui/icons-material/FileDownload";
 import GroupWorkIcon from "@mui/icons-material/GroupWork";
-import PersonAddIcon from "@mui/icons-material/PersonAdd";
+import AddIcon from "@mui/icons-material/Add";
 import TodayIcon from "@mui/icons-material/Today";
 import UnfoldMoreIcon from "@mui/icons-material/UnfoldMore";
 
@@ -51,8 +48,6 @@ import { styled } from "@mui/material/styles";
 import { collection, getDocs, doc, setDoc } from "firebase/firestore";
 import { auth } from "../../auth/firebaseConfig";
 import { onAuthStateChanged } from "firebase/auth";
-// ...existing code...
-// Ensure clients are loaded for event query
 const ClusterMap = React.lazy(() => import("./ClusterMap"));
 import AssignDriverPopup from "./components/AssignDriverPopup";
 import GenerateClustersPopup from "./components/GenerateClustersPopup";
@@ -63,8 +58,6 @@ import Button from "../../components/common/Button";
 import { RowData as DeliveryRowData } from "./types/deliveryTypes";
 import { Driver } from '../../types/calendar-types';
 import { ClientProfile } from '../../types/client-types';
-// ...existing code...
-// Remove top-level hooks for clients
 import { CustomRowData, useCustomColumns, allowedPropertyKeys } from "../../hooks/useCustomColumns";
 import ClientService from "../../services/client-service";
 import { LatLngTuple } from "leaflet";
@@ -78,12 +71,6 @@ interface ClientOverride {
 import { useAuth } from "../../auth/AuthProvider";
 import EventCountHeader from "../../components/EventCountHeader";
 import { useLimits } from "../Calendar/components/useLimits";
-// interface Driver {
-//   id: string;
-//   name: string;
-//   phone: string
-//   email: string;
-// }
 
 const StyleChip = styled(Chip)({
   backgroundColor: 'var(--color-primary)',
@@ -337,8 +324,8 @@ const DeliverySpreadsheet: React.FC = () => {
   const [clusters, setClustersOriginal] = useState<Cluster[]>([]);
   const [selectedClusters, setSelectedClusters] = useState<Set<any>>(new Set());
   const [exportOption, setExportOption] = useState<"Routes" | "Doordash" | null>(null);
-  const [emailOrDownload, setEmailOrDownload] = useState<"Email" | "Download" | null>(null);
   const [driversRefreshTrigger, setDriversRefreshTrigger] = useState<number>(0);
+  const [highlightedRowId, setHighlightedRowId] = useState<string | null>(null);
 
   // Helper function to deduplicate clusters by ID
   const deduplicateClusters = (clusters: Cluster[]): Cluster[] => {
@@ -757,27 +744,17 @@ const DeliverySpreadsheet: React.FC = () => {
     }
   };
 
-  const handleEmailOrDownload = async (option: "Email" | "Download") => {
-    setEmailOrDownload(option);
+  const handleExport = async () => {
     setPopupMode("");
 
     if (exportOption === "Routes") {
-      if (option === "Email") {
-        alert("Unimplemented");
-      } else if (option === "Download") {
-        // Pass rows and clusters to exportDeliveries
-        exportDeliveries(TimeUtils.fromJSDate(selectedDate).toISODate() || "", rows, clusters);
-        console.log("Downloading Routes...");
-        // Add your download logic here
-      }
+      // Pass rows and clusters to exportDeliveries
+      exportDeliveries(TimeUtils.fromJSDate(selectedDate).toISODate() || "", rows, clusters);
+      console.log("Downloading Routes...");
     } else if (exportOption === "Doordash") {
-      if (option === "Email") {
-        alert("Unimplemented");
-      } else if (option === "Download") {
-        // Export DoorDash deliveries grouped by time
-        exportDoordashDeliveries(TimeUtils.fromJSDate(selectedDate).toISODate() || "", rows, clusters);
-        console.log("Downloading Doordash...");
-      }
+      // Export DoorDash deliveries grouped by time
+      exportDoordashDeliveries(TimeUtils.fromJSDate(selectedDate).toISODate() || "", rows, clusters);
+      console.log("Downloading Doordash...");
     }
   };
 
@@ -920,7 +897,6 @@ const DeliverySpreadsheet: React.FC = () => {
   const resetSelections = () => {
     setPopupMode("");
     setExportOption(null);
-    setEmailOrDownload(null);
     // Keep selectedRows and selectedClusters checked so users can make multiple assignments
   };
 
@@ -1358,6 +1334,37 @@ const DeliverySpreadsheet: React.FC = () => {
 
     setSelectedClusters(newSelectedClusters);
     setSelectedRows(newSelectedRows);
+  };
+
+
+
+  const handleRowClick = (clientId: string) => {
+    // Handle special case for clearing highlight only
+    if (clientId === 'CLEAR_HIGHLIGHT_ONLY') {
+      setHighlightedRowId(null);
+      return;
+    }
+    
+    // If clicking the same row that's already highlighted, toggle it off
+    if (highlightedRowId === clientId) {
+      setHighlightedRowId(null);
+      // Close any open popup
+      if ((window as any).closeMapPopup) {
+        (window as any).closeMapPopup();
+      }
+    } else {
+      // Highlight the new row and open its popup
+      setHighlightedRowId(clientId);
+      // Open the corresponding map popup
+      if ((window as any).openMapPopup) {
+        (window as any).openMapPopup(clientId);
+      }
+    }
+  };
+
+  // Separate function just for clearing highlights (used by popup close handler)
+  const clearRowHighlight = () => {
+    setHighlightedRowId(null);
   };
 
   const clientsWithDeliveriesOnSelectedDate = rows.filter((row) =>
@@ -1937,7 +1944,7 @@ const DeliverySpreadsheet: React.FC = () => {
           <LoadingIndicator />
         ) : visibleRows.length > 0 ? (
           <Suspense fallback={<LoadingIndicator />}>
-            <ClusterMap clusters={clusters} visibleRows={visibleRows} clientOverrides={clientOverrides} onClusterUpdate={handleIndividualClientUpdate} refreshDriversTrigger={driversRefreshTrigger} />
+            <ClusterMap clusters={clusters} visibleRows={visibleRows} clientOverrides={clientOverrides} onClusterUpdate={handleIndividualClientUpdate} onOpenPopup={handleRowClick} onClearHighlight={clearRowHighlight} refreshDriversTrigger={driversRefreshTrigger} />
           </Suspense>
         ) : (
           <Box
@@ -1957,6 +1964,8 @@ const DeliverySpreadsheet: React.FC = () => {
           </Box>
         )}
       </Box>
+
+
 
       {/* Search Bar */}
       <Box
@@ -2265,7 +2274,23 @@ const DeliverySpreadsheet: React.FC = () => {
             </TableHead>
             <TableBody>
               {sortedRows.map((row, index) => (
-                <TableRow key={`${sortTimestamp}-${index}-${row.id}`} className="table-row delivery-anim-row">
+                <TableRow 
+                  key={`${sortTimestamp}-${index}-${row.id}`} 
+                  className="table-row delivery-anim-row"
+                  data-client-id={row.id}
+                  onClick={() => handleRowClick(row.id)}
+                  sx={{
+                    backgroundColor: (() => {
+                      const isHighlighted = highlightedRowId === row.id;
+                      return isHighlighted ? 'rgba(144, 238, 144, 0.7) !important' : 'inherit';
+                    })(),
+                    border: highlightedRowId === row.id ? '2px solid #90EE90 !important' : 'none',
+                    cursor: 'pointer',
+                    '&:hover': {
+                      backgroundColor: 'rgba(144, 238, 144, 0.3) !important'
+                    }
+                  }}
+                >
                   {fields.map((field) => {
                     // Render the table cell based on field type
                     return (
@@ -2287,6 +2312,7 @@ const DeliverySpreadsheet: React.FC = () => {
                             disabled={userRole === UserType.ClientIntake}
                             checked={selectedRows.has(row.id)}
                             onChange={() => handleCheckboxChange(row)}
+                            onClick={(e) => e.stopPropagation()}
                           />
                         ) : field.type === "select" && field.key === "clusterIdChange" ? (
                           // Render Select for clusterIdChange
@@ -2519,19 +2545,10 @@ const DeliverySpreadsheet: React.FC = () => {
                 variant="primary"
                 color="primary"
                 onClick={() => {
-                  handleEmailOrDownload("Email");
+                  handleExport();
                   resetSelections();
                 }}
-              >
-                Email
-              </Button>
-              <Button
-                variant="secondary"
-                color="secondary"
-                onClick={() => {
-                  handleEmailOrDownload("Download");
-                  resetSelections();
-                }}
+                startIcon={<FileDownloadIcon />}
               >
                 Download
               </Button>

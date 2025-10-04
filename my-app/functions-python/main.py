@@ -1,12 +1,16 @@
+import json
 import firebase_admin
-from firebase_functions import https_fn, options
+from firebase_functions import https_fn, options, scheduler_fn
 from firebase_admin import auth, firestore
 from clustering import (
     cluster_deliveries_k_medoids,
     cluster_deliveries_k_means,
     calculate_optimal_cluster_route,
-    geocode_addresses_endpoint
+    geocode_addresses_endpoint,
 )
+
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 
 # Initialize Firebase Admin SDK only once
 try:
@@ -92,3 +96,197 @@ def deleteUserAccount(req: https_fn.CallableRequest):
         print(f"An unexpected error occurred during deletion of user {uid_to_delete}: {e}")
         raise https_fn.HttpsError(code=https_fn.FunctionsErrorCode.INTERNAL,
                                     message="An internal error occurred while deleting the user.")
+
+
+
+
+def query_today_client_ids(tz_name: str = "America/New_York"):
+    """Return clientIds for events whose deliveryDate is ‘today’ in the given timezone."""
+    tz = ZoneInfo(tz_name)
+    now_ny = datetime.now(tz)
+    db = firestore.client()
+
+    start_of_day_ny = datetime(
+        year=now_ny.year, month=now_ny.month, day=now_ny.day,
+        hour=0, minute=0, second=0, tzinfo=tz
+    )
+    start_of_next_day_ny = start_of_day_ny + timedelta(days=1)
+
+    # Convert to UTC datetimes for Firestore timestamp comparisons
+    start_utc = start_of_day_ny.astimezone(ZoneInfo("UTC"))
+    end_utc = start_of_next_day_ny.astimezone(ZoneInfo("UTC"))
+
+    q = (
+        db.collection("events")
+          .where(filter=firestore.FieldFilter("deliveryDate", ">=", start_utc))
+          .where(filter=firestore.FieldFilter("deliveryDate", "<", end_utc))
+    )
+
+    client_ids = []
+    event_count = 0
+    for doc in q.stream():
+        event_count += 1
+        data = doc.to_dict() or {}
+        cid = data.get("clientId")
+        if cid:
+            client_ids.append(cid)
+
+    return {
+        "success": True,
+        "delivery_date": str(start_of_day_ny.date()),
+        "event_count": event_count,
+        "client_ids": client_ids,
+        "unique_client_count": len(set(client_ids))
+    }
+
+@https_fn.on_request(
+    region="us-central1",
+    memory=512,
+    timeout_sec=300
+)
+# def updateDeliveries(req: https_fn.Request) -> https_fn.Response:
+#     headers = {
+#         "Access-Control-Allow-Origin": "*",
+#         "Access-Control-Allow-Methods": "*",
+#         "Access-Control-Allow-Headers": "*",
+#         # optional:
+#         # "Access-Control-Max-Age": "3600",
+#     }
+#     if req.method == "OPTIONS":
+#         return https_fn.Response("", status=200, headers=headers)
+
+#     if req.method not in ("GET", "POST"):
+#         return https_fn.Response("Method Not Allowed", status=405, headers=headers)
+
+#     try:
+#         # Get Firestore client
+#         db = firestore.client()
+        
+#         # Get today's date in NY timezone
+#         ny_tz = ZoneInfo("America/New_York")
+#         current_date = datetime.now(ny_tz).strftime("%Y-%m-%d")
+        
+#         # Get today's client IDs
+#         result = query_today_client_ids("America/New_York")
+
+#         print(result)
+#         updated_clients = []
+#         if  result.get("client_ids",-1) != -1:
+#             for client_id in result.get("client_ids"):
+#                 try:
+#                     # Reference to the client document
+#                     doc_ref = db.collection('clients').document(client_id)  # Adjust collection name as needed
+#                     doc = doc_ref.get()
+                    
+#                     if doc.exists:
+#                         doc_data = doc.to_dict()
+                        
+#                         # Check if deliveries field exists
+#                         if 'deliveries' in doc_data and doc_data['deliveries'] is not None:
+#                             # Deliveries field exists, append current date if not already present
+#                             deliveries = doc_data['deliveries']
+#                             if current_date not in deliveries:
+#                                 deliveries.append(current_date)
+#                                 doc_ref.update({'deliveries': deliveries})
+#                                 updated_clients.append(client_id)
+#                         else:
+#                             # Deliveries field doesn't exist, create it with current date
+#                             doc_ref.update({'deliveries': [current_date]})
+#                             updated_clients.append(client_id)
+#                     else:
+#                         # Document doesn't exist, create it with deliveries field
+#                         doc_ref.set({'deliveries': [current_date]})
+#                         updated_clients.append(client_id)
+                        
+#                 except Exception as client_error:
+#                     print(f"Error processing client {client_id}: {client_error}")
+#                     continue
+            
+#         # Return success response with updated client info
+#         response_data = {
+#             "success": True,
+#             "date": current_date,
+#             "total_clients": len(result.get("client_ids", [])),
+#             "updated_clients": updated_clients,
+#             "updated_count": len(updated_clients)
+#         }
+        
+#         return https_fn.Response(
+#             json.dumps(response_data),
+#             status=200,
+#             headers=headers
+#         )
+        
+#     except Exception as e:
+#         # Log and return structured error
+#         print(f"updateDeliveries error: {e}")
+#         return https_fn.Response(
+#             json.dumps({"success": False, "error": str(e)}),
+#             status=500,
+#             headers=headers
+#         )
+
+
+def run_update(tz_name: str = "America/New_York") -> dict:
+    """
+    Core logic (no HTTP, no CORS). Returns a summary dict.
+    """
+    db = firestore.client()
+
+    ny_tz = ZoneInfo(tz_name)
+    current_date = datetime.now(ny_tz).strftime("%Y-%m-%d")
+
+    result = query_today_client_ids(tz_name)
+    updated_clients = []
+
+    for client_id in result.get("client_ids", []):
+        try:
+            doc_ref = db.collection("clients").document(client_id)
+            doc = doc_ref.get()
+
+            if doc.exists:
+                doc_data = doc.to_dict() or {}
+                deliveries = doc_data.get("deliveries") or []
+                if current_date not in deliveries:
+                    deliveries.append(current_date)
+                    doc_ref.update({"deliveries": deliveries})
+                    updated_clients.append(client_id)
+            else:
+                doc_ref.set({"deliveries": [current_date]})
+                updated_clients.append(client_id)
+
+        except Exception as client_error:
+            print(f"Error processing client {client_id}: {client_error}")
+            continue
+
+    summary = {
+        "success": True,
+        "date": current_date,
+        "total_clients": len(result.get("client_ids", [])),
+        "updated_clients": updated_clients,
+        "updated_count": len(updated_clients),
+    }
+    print(f"updateDeliveries summary: {json.dumps(summary)}")
+    return summary
+
+
+@scheduler_fn.on_schedule(
+    # Cron: minute hour day-of-month month day-of-week
+    # This runs at 07:00 every day in America/New_York.
+    schedule="every day 10:00",
+    region="us-central1",
+    memory=512,
+    timeout_sec=300,
+)
+def updateDeliveriesDaily(event: scheduler_fn.ScheduledEvent) -> None:
+    """
+    Cron job to run every morning. No HTTP, no return value needed.
+    """
+    try:
+        print("UPDATING USER DELIVERIES")
+        run_update("America/New_York")
+    except Exception as e:
+        # Log the failure so it shows in Cloud Logging / Error Reporting
+        print(f"updateDeliveriesDaily error: {e}")
+        # Let it raise to mark the execution as failed (so retries/alerts can happen if configured)
+        raise

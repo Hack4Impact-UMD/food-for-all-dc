@@ -104,7 +104,7 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
     };
 
     fetchCurrentLastDeliveryDate();
-  }, [event.clientId]);
+  }, [event.clientId, event.id]);
 
   const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
     event.stopPropagation();

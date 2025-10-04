@@ -9,6 +9,7 @@ import "./styles/radio-override.css"; // Match radio button styles to checkbox g
 import "./components/performance/performance.css"; // Performance CSS
 import App from "./App";
 import { AuthProvider } from "./auth/AuthProvider";
+import { NotificationProvider } from "./components/NotificationProvider";
 import PerformanceMonitor from "./services/performance-monitor";
 
 // Initialize performance monitoring
@@ -19,7 +20,9 @@ const root = ReactDOM.createRoot(document.getElementById("root") as HTMLElement)
 root.render(
   <React.StrictMode>
     <AuthProvider>
-      <App />
+      <NotificationProvider>
+        <App />
+      </NotificationProvider>
     </AuthProvider>
   </React.StrictMode>
 );
@@ -27,22 +30,22 @@ root.render(
 // Load web vitals only in production and when needed
 
 // Performance monitoring in development
-// if (process.env.NODE_ENV === 'development') {
-//   // Log performance metrics every 10 seconds
-//   setInterval(() => {
-//     const metrics = performanceMonitor.getMetrics();
-//     const recommendations = performanceMonitor.getRecommendations();
-//     
-//     if (Object.keys(metrics).length > 0) {
-//       console.group('Performance Metrics');
-//       console.table(metrics);
-//       if (recommendations.length > 0) {
-//         console.warn('Recommendations:', recommendations);
-//       }
-//       console.groupEnd();
-//     }
-//   }, 10000);
-// }
+if (process.env.NODE_ENV === 'development') {
+  // Log performance metrics every 10 seconds
+  setInterval(() => {
+    // const metrics = performanceMonitor.getMetrics();
+    // const recommendations = performanceMonitor.getRecommendations();
+
+    // if (Object.keys(metrics).length > 0) {
+    //   console.group('Performance Metrics');
+    //   console.table(metrics);
+    //   if (recommendations.length > 0) {
+    //     console.warn('Recommendations:', recommendations);
+    //   }
+    //   console.groupEnd();
+    // }
+  }, 10000);
+}
 
 // Preload critical routes after initial load
 setTimeout(() => {

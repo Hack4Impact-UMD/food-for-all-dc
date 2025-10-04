@@ -123,7 +123,13 @@ const AutoLogout = () => {
           <Button
             variant="contained"
             color={color}
-            onClick={() => setType(AutoLogoutType.NONE)}
+            onClick={() => {
+              if (isLogout) {
+                setType(AutoLogoutType.NONE);
+              } else {
+                handleActivity();
+              }
+            }}
           >
             {isLogout ? "Okay" : "Stay Logged In"}
           </Button>
