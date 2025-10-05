@@ -109,12 +109,10 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props: AddDeliveryD
           if (latestEndDate) {
             const formattedDate = convertToMMDDYYYY(latestEndDate);
             setCurrentLastDeliveryDate(formattedDate);
-            
-            // Pre-populate the End Date field with the current end date as a starting point
-            // Always update with fresh data to ensure synchronization
+
             setNewDelivery(prev => ({
               ...prev,
-              repeatsEndDate: formattedDate
+              repeatsEndDate: prev.repeatsEndDate || formattedDate
             }));
           } else {
             setCurrentLastDeliveryDate("");
