@@ -70,6 +70,12 @@ import { exportQueryResults, exportAllClients } from "./export";
 import "./Spreadsheet.css";
 import DeleteClientModal from "./DeleteClientModal";
 import { batchGetLastDeliveryDates } from "../../utils/lastDeliveryDate";
+import {
+  parseSearchTermsProgressively,
+  checkStringContains as utilCheckStringContains,
+  isPartialFieldName,
+  extractKeyValue
+} from "../../utils/searchFilter";
 
 // Define TypeScript types for row data
 export interface RowData {
@@ -637,28 +643,18 @@ const Spreadsheet: React.FC<SpreadsheetProps> = ({ editable = true }) => {
       return (singleQuotes % 2 !== 0) || (doubleQuotes % 2 !== 0);
     };
 
-  // Display only the rows that match the search query - combining advanced search with sorted rows
   const filteredRows = sortedRows.filter((row) => {
     const trimmedSearchQuery = searchQuery.trim();
     if (!trimmedSearchQuery) {
-      return true; // Show all if search is empty
-    }
-
-    //if search is empty or has unclosed quotes then show all rows
-    if (!trimmedSearchQuery || hasUnclosedQuotes(trimmedSearchQuery)) {
       return true;
     }
 
-    //parse the search query into individual terms
-    const searchTerms = parseSearchQuery(trimmedSearchQuery);
+    const validSearchTerms = parseSearchTermsProgressively(trimmedSearchQuery);
+    if (validSearchTerms.length === 0) {
+      return true;
+    }
 
-    //function to check if a value contains the search query string
-    const checkStringContains = (value: any, query: string): boolean => {
-      if (value === undefined || value === null) {
-        return false;
-      }
-      return String(value).toLowerCase().includes(query.toLowerCase());
-    };
+    const checkStringContains = utilCheckStringContains;
 
     //function to check for numbers, dates, or items in an array
     const checkValueOrInArray = (value: any, query: string): boolean => {
@@ -672,22 +668,31 @@ const Spreadsheet: React.FC<SpreadsheetProps> = ({ editable = true }) => {
       return String(value).toLowerCase().includes(lowerQuery);
     };
 
-    return searchTerms.every(term => {
-      //check if this is a key:value search
-      const parts = term.split(/:(.*)/s) 
-      let isKeyValueSearch = false;
-      let keyword = "";
-      let searchValue = "";
+    return validSearchTerms.every(term => {
+      const { keyword, searchValue, isKeyValue: isKeyValueSearch } = extractKeyValue(term);
 
-      if (parts.length > 1) {
-        keyword = parts[0].trim().toLowerCase();
-        searchValue = parts[1].trim();
-        if (searchValue) {
-          isKeyValueSearch = true;
+      if (!isKeyValueSearch) {
+        const commonFieldNames = [
+          'phone', 'name', 'address', 'dietary', 'instructions', 'ethnicity',
+          'adults', 'children', 'gender', 'notes', 'referral', 'tags', 'ward',
+          'language', 'zip', 'client', 'delivery', 'tefap', 'coordinates'
+        ];
+
+        const customFieldNames = customColumns
+          .filter(col => col.propertyKey !== "none")
+          .map(col => col.label.toLowerCase());
+        const allFieldNames = [...commonFieldNames, ...customFieldNames];
+
+        if (isPartialFieldName(term, allFieldNames)) {
+          return true;
         }
       }
 
       if (isKeyValueSearch) {
+        if (!searchValue) {
+          return true;
+        }
+
         //key value search logic
         switch (keyword) {
           case "name":

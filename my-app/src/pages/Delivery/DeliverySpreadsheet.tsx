@@ -3,6 +3,13 @@ import { getEventsByViewType } from '../Calendar/components/getEventsByViewType'
 import { DayPilot } from "@daypilot/daypilot-lite-react";
 import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import { db } from "../../auth/firebaseConfig";
+import { Search, Filter } from "lucide-react";
+import {
+  parseSearchTermsProgressively,
+  checkStringContains as utilCheckStringContains,
+  isPartialFieldName,
+  extractKeyValue
+} from "../../utils/searchFilter";
 import { query, Timestamp, updateDoc, where } from "firebase/firestore";
 import { TimeUtils } from "../../utils/timeUtils";
 import { format, addDays } from "date-fns";
@@ -1381,16 +1388,15 @@ const DeliverySpreadsheet: React.FC = () => {
   const visibleRows = rows.filter((row) => {
     const trimmedSearchQuery = searchQuery.trim();
     if (!trimmedSearchQuery) {
-      return true; // Show all if search is empty
+      return true;
     }
 
-    // Helper function to check if a value contains the search query string
-    const checkStringContains = (value: any, query: string): boolean => {
-      if (value === undefined || value === null) {
-        return false;
-      }
-      return String(value).toLowerCase().includes(query.toLowerCase());
-    };
+    const validSearchTerms = parseSearchTermsProgressively(trimmedSearchQuery);
+    if (validSearchTerms.length === 0) {
+      return true;
+    }
+
+    const checkStringContains = utilCheckStringContains;
 
     // Helper for numbers, dates (as strings/numbers), or items in an array
     const checkValueOrInArray = (value: any, query: string): boolean => {
@@ -1404,22 +1410,32 @@ const DeliverySpreadsheet: React.FC = () => {
       return String(value).toLowerCase().includes(lowerQuery);
     };
 
-    const parts = trimmedSearchQuery.split(/:/);
-    let isKeyValueSearch = false;
-    let keyword = "";
-    let searchValue = "";
+    return validSearchTerms.every(term => {
+      const { keyword, searchValue, isKeyValue: isKeyValueSearch } = extractKeyValue(term);
 
-    if (parts.length > 1) {
-      keyword = parts[0].trim().toLowerCase();
-      searchValue = parts.slice(1).join(':').trim();
-      if (searchValue) {
-        isKeyValueSearch = true;
+      if (!isKeyValueSearch) {
+        const commonFieldNames = [
+          'name', 'client', 'address', 'ward', 'zip', 'cluster', 'driver', 'time',
+          'delivery', 'instructions', 'tags', 'phone', 'ethnicity', 'adults',
+          'children', 'frequency', 'gender', 'language', 'notes', 'tefap', 'dob', 'referral'
+        ];
+
+        const customFieldNames = customColumns
+          .filter(col => col.propertyKey !== "none")
+          .map(col => col.label.toLowerCase());
+        const allFieldNames = [...commonFieldNames, ...customFieldNames];
+
+        if (isPartialFieldName(term, allFieldNames)) {
+          return true;
+        }
       }
-    }
 
-    if (isKeyValueSearch) {
-      // Perform key-value search
-      switch (keyword) {
+      if (isKeyValueSearch) {
+        if (!searchValue) {
+          return true;
+        }
+
+        switch (keyword) {
         case "name":
         case "client":
           return checkStringContains(`${row.firstName} ${row.lastName}`, searchValue) ||
@@ -1548,6 +1564,7 @@ const DeliverySpreadsheet: React.FC = () => {
 
       return false;
     }
+    });
   });
 
   // Create sorted version of visible rows - supports fullname, clusterIdChange, tags, address, ward, assignedDriver, assignedTime, deliveryInstructions, and custom columns sorting

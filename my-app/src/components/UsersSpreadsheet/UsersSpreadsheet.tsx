@@ -28,6 +28,12 @@ import {
 } from "@mui/material";
 import { onAuthStateChanged } from "firebase/auth";
 import React, { useEffect, useState, useCallback, useMemo } from "react";
+import {
+  parseSearchTermsProgressively,
+  checkStringContains,
+  isPartialFieldName,
+  extractKeyValue
+} from "../../utils/searchFilter";
 import { useNavigate } from "react-router-dom";
 import { auth } from "../../auth/firebaseConfig";
 import { authUserService } from "../../services/AuthUserService";
@@ -269,18 +275,55 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
     setCreateModalOpen(true);
   };
 
-  // Simplified search logic
   const safeSortedRows = Array.isArray(sortedRows) ? sortedRows : [];
   const visibleRows = safeSortedRows.filter((row) => {
-    const query = searchQuery.toLowerCase().trim();
-    if (!query) return true;
+    const trimmedSearchQuery = searchQuery.trim();
+    if (!trimmedSearchQuery) {
+      return true;
+    }
 
-    return (
-      row.name.toLowerCase().includes(query) ||
-      getRoleDisplayName(row.role).toLowerCase().includes(query) ||
-      (row.phone?.toLowerCase() || '').includes(query) ||
-      row.email.toLowerCase().includes(query)
-    );
+    const validSearchTerms = parseSearchTermsProgressively(trimmedSearchQuery);
+    if (validSearchTerms.length === 0) {
+      return true;
+    }
+
+    return validSearchTerms.every(term => {
+      const { keyword, searchValue, isKeyValue: isKeyValueSearch } = extractKeyValue(term);
+
+      if (!isKeyValueSearch) {
+        const userFieldNames = ['name', 'role', 'phone', 'email'];
+        if (isPartialFieldName(term, userFieldNames)) {
+          return true;
+        }
+      }
+
+      if (isKeyValueSearch) {
+        if (!searchValue) {
+          return true;
+        }
+
+        switch (keyword) {
+          case "name":
+            return checkStringContains(row.name, searchValue);
+          case "role":
+            return checkStringContains(getRoleDisplayName(row.role), searchValue);
+          case "phone":
+            return checkStringContains(row.phone, searchValue);
+          case "email":
+            return checkStringContains(row.email, searchValue);
+          default:
+            return checkStringContains(row.name, searchValue) ||
+                   checkStringContains(getRoleDisplayName(row.role), searchValue) ||
+                   checkStringContains(row.phone, searchValue) ||
+                   checkStringContains(row.email, searchValue);
+        }
+      } else {
+        return checkStringContains(row.name, term) ||
+               checkStringContains(getRoleDisplayName(row.role), term) ||
+               checkStringContains(row.phone, term) ||
+               checkStringContains(row.email, term);
+      }
+    });
   });
 
   const theme = useTheme();
