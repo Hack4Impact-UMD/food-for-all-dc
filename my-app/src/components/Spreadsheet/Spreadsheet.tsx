@@ -382,15 +382,25 @@ const Spreadsheet: React.FC = () => {
                   ))}
                   {/* Custom columns header */}
                   {customColumns.map((col) => (
-                    <TableCell className="table-header" key={col.id} sx={{ backgroundColor: "#f5f9f7", borderBottom: "2px solid #e0e0e0", width: 160, minWidth: 160, maxWidth: 160 }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                    <TableCell className="table-header" key={col.id} sx={{ backgroundColor: "#f5f9f7", borderBottom: "2px solid #e0e0e0", width: 200, minWidth: 200, maxWidth: 200, padding: '8px' }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'nowrap', gap: 0.5 }}>
                         <Select
                           value={col.propertyKey}
                           onChange={e => handleCustomHeaderChange(e, col.id)}
                           variant="outlined"
                           displayEmpty
                           size="small"
-                          sx={{ minWidth: 120, color: "#257e68", fontWeight: 600, fontSize: '0.95rem', background: 'white' }}
+                          sx={{ 
+                            minWidth: 100, 
+                            flexGrow: 1,
+                            color: "#257e68", 
+                            fontWeight: 600, 
+                            fontSize: '0.875rem', 
+                            background: 'white',
+                            '& .MuiOutlinedInput-input': {
+                              padding: '4px 8px'
+                            }
+                          }}
                           onClick={e => e.stopPropagation()}
                         >
                           {allowedPropertyKeys
@@ -409,7 +419,18 @@ const Spreadsheet: React.FC = () => {
                               </MenuItem>
                             ))}
                         </Select>
-                        <IconButton size="small" onClick={e => { e.stopPropagation(); handleRemoveCustomColumn(col.id); }} sx={{ color: "#d32f2f", ml: 1 }}>
+                        <IconButton 
+                          size="small" 
+                          onClick={e => { e.stopPropagation(); handleRemoveCustomColumn(col.id); }} 
+                          sx={{ 
+                            color: "#d32f2f", 
+                            padding: '2px',
+                            minWidth: 'auto',
+                            '&:hover': {
+                              backgroundColor: 'rgba(211, 47, 47, 0.04)'
+                            }
+                          }}
+                        >
                           <DeleteIcon fontSize="small" />
                         </IconButton>
                         {col.propertyKey !== 'none' && (
@@ -419,7 +440,14 @@ const Spreadsheet: React.FC = () => {
                               e.stopPropagation();
                               handleSort(col.propertyKey);
                             }}
-                            sx={{ color: '#257e68', ml: 1 }}
+                            sx={{ 
+                              color: '#257e68', 
+                              padding: '2px',
+                              minWidth: 'auto',
+                              '&:hover': {
+                                backgroundColor: 'rgba(37, 126, 104, 0.04)'
+                              }
+                            }}
                             aria-label={`Sort by ${col.label || col.propertyKey}`}
                           >
                             {sortConfig.key === col.propertyKey
@@ -461,7 +489,7 @@ const Spreadsheet: React.FC = () => {
                     </TableCell>
                   )),
                   ...customColumns.map((col) => (
-                    <TableCell key={col.id} sx={{ py: 2, width: 160, minWidth: 160, maxWidth: 160, backgroundColor: rowBg }}>
+                    <TableCell key={col.id} sx={{ py: 2, width: 200, minWidth: 200, maxWidth: 200, backgroundColor: rowBg }}>
                       {col.propertyKey !== "none" ? getCustomColumnDisplay(row, col.propertyKey) : "N/A"}
                     </TableCell>
                   )),
