@@ -107,44 +107,34 @@ const DayView: React.FC<DayViewProps> = React.memo(function DayView({ events, cl
           }}
         >
           {events.length > VIRTUAL_SCROLL_THRESHOLD ? (
-            (() => {
-              console.log(`🚀 [VIRTUAL_SCROLL] Using virtual scrolling for ${events.length} events (threshold: ${VIRTUAL_SCROLL_THRESHOLD})`);
-              return (
-                <VirtualScroll
-                  items={events}
-                  itemHeight={DELIVERY_CARD_HEIGHT}
-                  containerHeight={containerHeight}
-                  renderItem={renderDeliveryCard}
-                  overscan={10}
-                />
-              );
-            })()
+            <VirtualScroll
+              items={events}
+              itemHeight={DELIVERY_CARD_HEIGHT}
+              containerHeight={containerHeight}
+              renderItem={renderDeliveryCard}
+              overscan={10}
+            />
           ) : (
-            (() => {
-              console.log(`📄 [REGULAR_SCROLL] Using regular scrolling for ${events.length} events (below threshold: ${VIRTUAL_SCROLL_THRESHOLD})`);
-              return (
-                <Box
-                  sx={{
-                    height: "100%",
-                    overflowY: "auto",
-                    width: "100%",
-                  }}
-                >
-                  {events.map((event) => {
-                    const client = clientLookupMap.get(event.clientId);
-                    return (
-                      <DeliveryCard
-                        key={event.id}
-                        event={event}
-                        client={client}
-                        onEventModified={onEventModified}
-                        allEvents={events}
-                      />
-                    );
-                  })}
-                </Box>
-              );
-            })()
+            <Box
+              sx={{
+                height: "100%",
+                overflowY: "auto",
+                width: "100%",
+              }}
+            >
+              {events.map((event) => {
+                const client = clientLookupMap.get(event.clientId);
+                return (
+                  <DeliveryCard
+                    key={event.id}
+                    event={event}
+                    client={client}
+                    onEventModified={onEventModified}
+                    allEvents={events}
+                  />
+                );
+              })}
+            </Box>
           )}
         </Box>
       )}

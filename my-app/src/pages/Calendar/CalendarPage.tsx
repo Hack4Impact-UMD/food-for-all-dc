@@ -88,13 +88,6 @@ const CalendarPage: React.FC = React.memo(() => {
   const renderCount = useRef(0);
   renderCount.current += 1;
   
-  console.log(`🏗️ [CALENDAR] Component render #${renderCount.current} started at:`, new Date().toISOString());
-  
-  // Detect if we're in React.StrictMode (development only)
-  if (renderCount.current === 1) {
-    console.log('🔧 [CALENDAR] First render - checking for React.StrictMode double renders...');
-  }
-  
   // ...state declarations...
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -114,7 +107,6 @@ const CalendarPage: React.FC = React.memo(() => {
   const [currentDate, setCurrentDate] = useState<DayPilot.Date>(getInitialDate());
   // Custom function to update both state and URL params
   const updateCurrentDate = useCallback((newDate: DayPilot.Date) => {
-    console.log('📅 [CALENDAR] Updating current date to:', newDate.toString());
     setCurrentDate(newDate);
     setSearchParams(prev => {
       const newParams = new URLSearchParams(prev);
@@ -139,44 +131,7 @@ const CalendarPage: React.FC = React.memo(() => {
   const limits = useLimits();
   const containerRef = useRef<HTMLDivElement | null>(null);
 
-  // Track what causes re-renders - useRef to store previous values
-  const prevValues = useRef({
-    currentDate: currentDate.toString(),
-    viewType,
-    clientsLength: clients.length,
-    eventsLength: events.length,
-    isLoading,
-    searchParams: searchParams.toString()
-  });
 
-  // Debug re-render causes
-  useEffect(() => {
-    const prev = prevValues.current;
-    const current = {
-      currentDate: currentDate.toString(),
-      viewType,
-      clientsLength: clients.length,
-      eventsLength: events.length,
-      isLoading,
-      searchParams: searchParams.toString()
-    };
-
-    const changes = [];
-    if (prev.currentDate !== current.currentDate) changes.push(`currentDate: ${prev.currentDate} → ${current.currentDate}`);
-    if (prev.viewType !== current.viewType) changes.push(`viewType: ${prev.viewType} → ${current.viewType}`);
-    if (prev.clientsLength !== current.clientsLength) changes.push(`clients: ${prev.clientsLength} → ${current.clientsLength}`);
-    if (prev.eventsLength !== current.eventsLength) changes.push(`events: ${prev.eventsLength} → ${current.eventsLength}`);
-    if (prev.isLoading !== current.isLoading) changes.push(`isLoading: ${prev.isLoading} → ${current.isLoading}`);
-    if (prev.searchParams !== current.searchParams) changes.push(`searchParams: ${prev.searchParams} → ${current.searchParams}`);
-
-    if (changes.length > 0) {
-      console.log(`🔄 [CALENDAR] Render #${renderCount.current} caused by:`, changes);
-    } else if (renderCount.current > 1) {
-      console.log(`🔄 [CALENDAR] Render #${renderCount.current} - no prop changes detected (possible parent re-render or strict mode)`);
-    }
-
-    prevValues.current = current;
-  });
 
   // Memoized client lookup map for O(1) performance instead of O(n) array.find
   const clientLookupMap = useMemo(() => {
@@ -234,15 +189,10 @@ const CalendarPage: React.FC = React.memo(() => {
   }, [setAnchorEl]);
 
   const fetchDrivers = async () => {
-    const startTime = performance.now();
-    console.log('🚗 [DRIVERS] Starting fetch at:', new Date().toISOString());
     try {
       // Use DriverService instead of direct Firebase calls
       const driverService = DriverService.getInstance();
       const driverList = await driverService.getAllDrivers();
-      const endTime = performance.now();
-      console.log('🚗 [DRIVERS] Fetch completed in:', Math.round(endTime - startTime), 'ms');
-      console.log('🚗 [DRIVERS] Data:', JSON.stringify(driverList, null, 2));
       // Cast to appropriate type to avoid type mismatch
       setDrivers(driverList);
     } catch (error) {
@@ -254,26 +204,16 @@ const CalendarPage: React.FC = React.memo(() => {
   const clientCache = useMemo(() => new Map<string, ClientProfile>(), []);
 
   const fetchClientsLazy = useCallback(async (clientIds: string[]) => {
-    const startTime = performance.now();
-    console.log('👥 [CLIENTS] Starting lazy fetch for', clientIds.length, 'clients at:', new Date().toISOString());
-    
     // Filter out clients we already have cached
     const uncachedIds = clientIds.filter(id => !clientCache.has(id));
-    console.log('👥 [CLIENTS] Cache hit rate:', ((clientIds.length - uncachedIds.length) / clientIds.length * 100).toFixed(1) + '%');
     
     if (uncachedIds.length === 0) {
-      console.log('👥 [CLIENTS] All clients found in cache');
       return Array.from(clientCache.values()).filter(client => clientIds.includes(client.uid || ''));
     }
 
     try {
-      console.log('👥 [CLIENTS] Fetching', uncachedIds.length, 'uncached clients');
       // Fetch only the specific clients we need
       const clientsData = await clientService.getClientsByIds(uncachedIds);
-      const endTime = performance.now();
-      
-      console.log('👥 [CLIENTS] Lazy fetch completed in:', Math.round(endTime - startTime), 'ms');
-      console.log('👥 [CLIENTS] Fetched count:', clientsData.length);
       
       // Add to cache
       clientsData.forEach(client => {
@@ -293,13 +233,8 @@ const CalendarPage: React.FC = React.memo(() => {
   }, [clientCache]);
 
   const fetchClients = async () => {
-    const startTime = performance.now();
-    console.log('👥 [CLIENTS] Starting full fetch at:', new Date().toISOString());
     try {
       const clientsData = await clientService.getAllClients();
-      const endTime = performance.now();
-      console.log('👥 [CLIENTS] Full fetch completed in:', Math.round(endTime - startTime), 'ms');
-      console.log('👥 [CLIENTS] Count:', clientsData.clients.length);
       
       // Update cache with all clients
       clientsData.clients.forEach(client => {
@@ -315,15 +250,10 @@ const CalendarPage: React.FC = React.memo(() => {
   };
 
   const fetchLimits = async () => {
-    const startTime = performance.now();
-    console.log('📊 [LIMITS] Starting fetch at:', new Date().toISOString());
     try {
       // Use DeliveryService instead of direct Firebase calls
       const deliveryService = DeliveryService.getInstance();
       const limitsData = await deliveryService.getDailyLimits();
-      const endTime = performance.now();
-      console.log('📊 [LIMITS] Fetch completed in:', Math.round(endTime - startTime), 'ms');
-      console.log('📊 [LIMITS] Data:', JSON.stringify(limitsData, null, 2));
       setDailyLimits(limitsData);
     } catch (error) {
       console.error("❌ [LIMITS] Error fetching limits:", error);
@@ -331,10 +261,6 @@ const CalendarPage: React.FC = React.memo(() => {
   };
 
   const fetchEvents = useCallback(async () => {
-    const startTime = performance.now();
-    console.log('📅 [EVENTS] Starting fetch at:', new Date().toISOString());
-    console.log('📅 [EVENTS] Current date:', currentDate.toString());
-    console.log('📅 [EVENTS] View type:', viewType);
 
     try {
       let start = new DayPilot.Date(currentDate);
@@ -385,31 +311,21 @@ const CalendarPage: React.FC = React.memo(() => {
           endDate = start.addDays(1);
       }
 
-      console.log('📅 [EVENTS] Date range calculated:', {
-        start: start.toString(),
-        end: endDate.toString(),
-        viewType
-      });
+
 
       // Use DeliveryService to fetch events by date range
       const deliveryService = DeliveryService.getInstance();
-      const queryStartTime = performance.now();
       const fetchedEvents = await deliveryService.getEventsByDateRange(
         start.toDate(),
         endDate.toDate()
       );
-      const queryEndTime = performance.now();
-      console.log('📅 [EVENTS] Database query completed in:', Math.round(queryEndTime - queryStartTime), 'ms');
-      console.log('📅 [EVENTS] Raw events count:', fetchedEvents.length);
-      console.log('📅 [EVENTS] Raw events sample (first 3):', JSON.stringify(fetchedEvents.slice(0, 3), null, 2));
 
 
 
-        const processingStartTime = performance.now();
-        
+
         // Get unique client IDs from events
         const uniqueClientIds = [...new Set(fetchedEvents.map(event => event.clientId))];
-        console.log('📅 [EVENTS] Unique client IDs needed:', uniqueClientIds.length);
+
         
         // Lazy load only the clients we need for these events
         const neededClients = await fetchClientsLazy(uniqueClientIds);
@@ -434,10 +350,7 @@ const CalendarPage: React.FC = React.memo(() => {
           }
           return event;
         });
-        const processingEndTime = performance.now();
-        console.log('📅 [EVENTS] Client name processing completed in:', Math.round(processingEndTime - processingStartTime), 'ms');
-        console.log('📅 [EVENTS] Final events count:', updatedEvents.length);
-        console.log('📅 [EVENTS] Final events sample (first 3):', JSON.stringify(updatedEvents.slice(0, 3), null, 2));
+
 
         // Use all events for display and counting
         setEvents(updatedEvents);
@@ -459,9 +372,7 @@ const CalendarPage: React.FC = React.memo(() => {
           durationBarVisible: false,
         }));
 
-        const totalEndTime = performance.now();
-        console.log('📅 [EVENTS] ✅ TOTAL FETCH COMPLETED in:', Math.round(totalEndTime - startTime), 'ms');
-        console.log('📅 [EVENTS] ================================');
+
         return updatedEvents;
     } catch (error) {
       console.error("❌ [EVENTS] Error fetching events:", error);
@@ -564,23 +475,11 @@ const CalendarPage: React.FC = React.memo(() => {
 
   // Clear events immediately when view type changes to prevent flickering
   useEffect(() => {
-    console.log('🔄 [CALENDAR] View type changed to:', viewType, '- clearing events');
     setEvents([]);
   }, [viewType]);
 
-  // Track when events are updated
-  useEffect(() => {
-    console.log('📅 [CALENDAR] Events state updated - count:', events.length);
-    if (events.length > 0) {
-      console.log('📅 [CALENDAR] Events ready for display at:', new Date().toISOString());
-      console.log('📅 [CALENDAR] Sample events:', JSON.stringify(events.slice(0, 2), null, 2));
-    }
-  }, [events]);
-
   // Update calendar when view type or date changes
   useEffect(() => {
-    console.log('🔄 [CALENDAR] Triggering fetchEvents');
-    console.log('🔄 [CALENDAR] Current date:', currentDate.toString(), 'viewType:', viewType);
     fetchEvents();
   }, [fetchEvents, currentDate, viewType]);  // Clients are now fetched lazily within fetchEvents
 
@@ -592,12 +491,12 @@ const CalendarPage: React.FC = React.memo(() => {
         const urlDate = new DayPilot.Date(dateParam);
         // Only update if different from current date to avoid infinite loops
         if (urlDate.toString("yyyy-MM-dd") !== currentDate.toString("yyyy-MM-dd")) {
-          console.log('🔄 [CALENDAR] URL date param changed, updating current date to:', dateParam);
+
           setCurrentDate(urlDate);
         }
       } catch {
         // If date param is invalid, don't update
-        console.log('⚠️ [CALENDAR] Invalid date param in URL:', dateParam);
+
       }
     }
   }, [searchParams, currentDate]);  // Fixed: use stable dependencies
@@ -605,23 +504,14 @@ const CalendarPage: React.FC = React.memo(() => {
   // Initial data fetch - combined for better performance
   useEffect(() => {
     const fetchAllData = async () => {
-      const overallStartTime = performance.now();
-      console.log('🚀 [CALENDAR] =================================');
-      console.log('🚀 [CALENDAR] Starting initial data fetch at:', new Date().toISOString());
       try {
         setIsLoading(true);
-        const parallelStartTime = performance.now();
         // Fetch all data in parallel for better performance
         await Promise.all([
           fetchLimits(),
           fetchDrivers()
           // Removed fetchClients() - we now fetch clients lazily when events are loaded
         ]);
-        const parallelEndTime = performance.now();
-        console.log('🚀 [CALENDAR] All parallel fetches completed in:', Math.round(parallelEndTime - parallelStartTime), 'ms');
-        const overallEndTime = performance.now();
-        console.log('🚀 [CALENDAR] ✅ INITIAL DATA LOAD COMPLETED in:', Math.round(overallEndTime - overallStartTime), 'ms');
-        console.log('🚀 [CALENDAR] =================================');
       } catch (error) {
         console.error("❌ [CALENDAR] Error fetching initial data:", error);
       } finally {
@@ -646,10 +536,7 @@ const CalendarPage: React.FC = React.memo(() => {
   const monthHasSixOrMoreRows = viewType === "Month" && getMonthRowCount() >= 6;
 
   const renderCalendarView = () => {
-    console.log('🎨 [CALENDAR] renderCalendarView called - isLoading:', isLoading, 'events count:', events.length);
-    
     if (isLoading) {
-      console.log('⌛ [CALENDAR] Showing skeleton loading state');
       return <CalendarSkeleton viewType={viewType} />;
     }
 

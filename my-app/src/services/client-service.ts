@@ -164,8 +164,6 @@ import { validateClientProfile } from '../utils/firestoreValidation';
     try {
       if (uids.length === 0) return [];
       
-      console.log('👥 [CLIENT_SERVICE] Batch fetching', uids.length, 'clients by ID');
-      
       // For small batches, use parallel individual fetches
       if (uids.length <= 10) {
         const promises = uids.map(uid => this.getClientById(uid));
@@ -184,8 +182,6 @@ import { validateClientProfile } from '../utils/firestoreValidation';
         const batchResults = await Promise.all(promises);
         clients.push(...(batchResults.filter(client => client !== null) as ClientProfile[]));
       }
-      
-      console.log('👥 [CLIENT_SERVICE] Successfully fetched', clients.length, 'of', uids.length, 'requested clients');
       return clients;
     } catch (error) {
       throw formatServiceError(error, 'Failed to get clients by IDs');
