@@ -23,8 +23,8 @@ import CalendarMultiSelect from "./CalendarMultiSelect";
 import DateField from "./DateField";
 import { DayPilot } from "@daypilot/daypilot-lite-react";
 import { validateDeliveryDateRange } from "../../../utils/dateValidation";
-import { collection, getDocs, query, where, orderBy, limit } from "firebase/firestore";
-import { db } from "../../../auth/firebaseConfig";
+import { getLastDeliveryDateForClient } from "../../../utils/lastDeliveryDate";
+import { notifyDeliveryModified } from "../../../utils/deliveryCleanup";
 
 interface AddDeliveryDialogProps {
   open: boolean;
@@ -32,7 +32,6 @@ interface AddDeliveryDialogProps {
   onAddDelivery: (newDelivery: NewDelivery) => void;
   clients: ClientProfile[];
   startDate: DayPilot.Date;
-  // New optional props for pre-selected client
   preSelectedClient?: {
     clientId: string;
     clientName: string;
@@ -99,90 +98,23 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props: AddDeliveryD
   const [endDateError, setEndDateError] = useState<string>("");
   const [currentLastDeliveryDate, setCurrentLastDeliveryDate] = useState<string>("");
 
-  // Fetch current last delivery date when client is selected
+  // Fetch current last delivery date when client is selected or modal opens
   useEffect(() => {
     const fetchCurrentLastDeliveryDate = async () => {
-      if (newDelivery.clientId) {
+      if (newDelivery.clientId && open) {
         try {
-          const eventsRef = collection(db, "events");
-          const q = query(
-            eventsRef,
-            where("clientId", "==", newDelivery.clientId),
-            orderBy("deliveryDate", "desc"),
-            limit(100)
-          );
-          const querySnapshot = await getDocs(q);
+          const latestEndDate = await getLastDeliveryDateForClient(newDelivery.clientId);
 
-          if (!querySnapshot.empty) {
-            // Group events by series to find the most recently created delivery series
-            const seriesMap = new Map<string, any[]>();
+          if (latestEndDate) {
+            const formattedDate = convertToMMDDYYYY(latestEndDate);
+            setCurrentLastDeliveryDate(formattedDate);
             
-            querySnapshot.forEach((doc) => {
-              const eventData = doc.data();
-              const recurrenceId = eventData.recurrenceId || 'single-' + doc.id;
-              
-              if (!seriesMap.has(recurrenceId)) {
-                seriesMap.set(recurrenceId, []);
-              }
-              seriesMap.get(recurrenceId)!.push({...eventData, docId: doc.id});
-            });
-
-            // Find the most recently created delivery series based on seriesStartDate
-            let mostRecentSeriesEndDate: string | null = null;
-            let mostRecentSeriesStartDate: string | null = null;
-
-            for (const [recurrenceId, events] of seriesMap.entries()) {
-              const firstEvent = events[0];
-              
-              // Get the series start date to determine which series is most recent
-              let seriesStartDate: string | null = null;
-              if (firstEvent.seriesStartDate) {
-                seriesStartDate = firstEvent.seriesStartDate;
-              } else if (firstEvent.deliveryDate) {
-                const deliveryDate = firstEvent.deliveryDate.toDate();
-                if (!isNaN(deliveryDate.getTime())) {
-                  seriesStartDate = deliveryDate.toISOString().split("T")[0];
-                }
-              }
-              
-              if (seriesStartDate) {
-                // If this series is more recent than our current most recent, use it
-                if (!mostRecentSeriesStartDate || seriesStartDate > mostRecentSeriesStartDate) {
-                  mostRecentSeriesStartDate = seriesStartDate;
-                  
-                  // For this series, get the end date
-                  if (firstEvent.repeatsEndDate) {
-                    const endDate = new Date(firstEvent.repeatsEndDate);
-                    if (!isNaN(endDate.getTime())) {
-                      mostRecentSeriesEndDate = endDate.toISOString().split("T")[0];
-                    }
-                  } else if (firstEvent.recurrence === "None" && firstEvent.deliveryDate) {
-                    // For single deliveries, the end date is the delivery date itself
-                    const deliveryDate = firstEvent.deliveryDate.toDate();
-                    if (!isNaN(deliveryDate.getTime())) {
-                      mostRecentSeriesEndDate = deliveryDate.toISOString().split("T")[0];
-                    }
-                  }
-                }
-              }
-            }
-
-            const latestEndDate = mostRecentSeriesEndDate;
-
-            if (latestEndDate) {
-              const formattedDate = convertToMMDDYYYY(latestEndDate);
-              setCurrentLastDeliveryDate(formattedDate);
-              
-              // Pre-populate the End Date field with the current end date as a starting point
-              if (!newDelivery.repeatsEndDate) {
-                setNewDelivery(prev => ({
-                  ...prev,
-                  repeatsEndDate: formattedDate
-                }));
-              }
-            } else {
-              setCurrentLastDeliveryDate("");
-            }
+            // Pre-populate the End Date field with the current end date as a starting point
+            // Always update with fresh data to ensure synchronization
+            setNewDelivery(prev => ({
+              ...prev,
+              repeatsEndDate: formattedDate
+            }));
           } else {
             setCurrentLastDeliveryDate("");
           }
@@ -196,7 +128,7 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props: AddDeliveryD
     };
 
     fetchCurrentLastDeliveryDate();
-  }, [newDelivery.clientId]);
+  }, [newDelivery.clientId, open]);
 
   // Toggle body class for modal open state to control DatePicker popup scaling
   useEffect(() => {
@@ -279,9 +211,36 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props: AddDeliveryD
           // Compare only the date part (ignore time)
           return eventDate.toISOString().split("T")[0] === deliveryDateStr;
         });
+        
+        // Check if this is an end date update scenario:
+        // If the delivery date matches the end date and there are existing deliveries,
+        // this is likely changing the end date to an existing delivery date
+        
+        // Normalize dates to YYYY-MM-DD format for comparison
+        const normalizeDate = (dateStr: string) => {
+          if (!dateStr) return '';
+          // If already in YYYY-MM-DD format, return as-is
+          if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr;
+          // Convert MM/DD/YYYY to YYYY-MM-DD
+          if (/^\d{2}\/\d{2}\/\d{4}$/.test(dateStr)) {
+            const [month, day, year] = dateStr.split('/');
+            return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+          }
+          return dateStr;
+        };
+        
+        const normalizedDeliveryDate = normalizeDate(newDelivery.deliveryDate);
+        const normalizedEndDate = normalizeDate(newDelivery.repeatsEndDate || '');
+        
+        const isEndDateUpdate = normalizedDeliveryDate === normalizedEndDate && 
+                               events.length > 0 &&
+                               newDelivery.recurrence !== "None";
+        
+        // Clear any existing duplicate error - we'll handle duplicates silently
+        setDuplicateError("");
+        
         if (hasDuplicate) {
-          setDuplicateError("This client already has a delivery scheduled for that day.");
-          return;
+          console.log("Duplicate delivery detected - will be handled by Profile logic without error");
         }
         // No duplicate, proceed
         const deliveryToSubmit: Partial<NewDelivery> = { ...newDelivery };
@@ -290,7 +249,9 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props: AddDeliveryD
           deliveryToSubmit.deliveryDate = customDates[0]?.toISOString().split("T")[0] || "";
           deliveryToSubmit.repeatsEndDate = undefined;
         }
+
         onAddDelivery(deliveryToSubmit as NewDelivery);
+        notifyDeliveryModified();
         setCustomDates([]);
         resetFormAndClose();
       });
