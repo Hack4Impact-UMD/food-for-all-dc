@@ -26,6 +26,8 @@ import { validateDeliveryDateRange } from "../../../utils/dateValidation";
 import { collection, getDocs, query, where, orderBy, deleteDoc, doc } from "firebase/firestore";
 import { db } from "../../../auth/firebaseConfig";
 import { getLastDeliveryDateForClient } from "../../../utils/lastDeliveryDate";
+import { deleteDeliveriesAfterEndDate } from "../../../utils/deliveryCleanup";
+import { dispatchDeliveriesModified } from "../../../utils/events";
 
 interface AddDeliveryDialogProps {
   open: boolean;
@@ -33,54 +35,12 @@ interface AddDeliveryDialogProps {
   onAddDelivery: (newDelivery: NewDelivery) => void;
   clients: ClientProfile[];
   startDate: DayPilot.Date;
-  // New optional props for pre-selected client
   preSelectedClient?: {
     clientId: string;
     clientName: string;
     clientProfile: ClientProfile;
   };
 }
-
-// Helper function to delete deliveries that are later than the new end date
-const deleteDeliveriesAfterEndDate = async (clientId: string, newEndDate: string) => {
-  try {
-    const eventsRef = collection(db, "events");
-    const q = query(
-      eventsRef,
-      where("clientId", "==", clientId)
-    );
-    const querySnapshot = await getDocs(q);
-
-    const deletionPromises: Promise<void>[] = [];
-    const newEndDateTime = new Date(newEndDate);
-
-    querySnapshot.forEach((docSnapshot) => {
-      const eventData = docSnapshot.data();
-      if (eventData.deliveryDate) {
-        const deliveryDate = eventData.deliveryDate.toDate();
-        // Normalize both dates to YYYY-MM-DD format for accurate comparison
-        const deliveryDateStr = deliveryDate.toISOString().split('T')[0];
-        const endDateStr = newEndDateTime.toISOString().split('T')[0];
-        
-        // Only delete deliveries that are strictly after the end date (not on the end date)
-        if (deliveryDateStr > endDateStr) {
-          console.log(`Deleting delivery on ${deliveryDateStr} (after new end date ${endDateStr})`);
-          deletionPromises.push(deleteDoc(doc(db, "events", docSnapshot.id)));
-        } else if (deliveryDateStr === endDateStr) {
-          console.log(`Keeping delivery on ${deliveryDateStr} (matches end date ${endDateStr})`);
-        }
-      }
-    });
-
-    if (deletionPromises.length > 0) {
-      await Promise.all(deletionPromises);
-      console.log(`Deleted ${deletionPromises.length} deliveries that were after the new end date`);
-    }
-  } catch (error) {
-    console.error("Error deleting deliveries after end date:", error);
-    throw error;
-  }
-};
 
 const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props: AddDeliveryDialogProps) => {
   const { open, onClose, onAddDelivery, clients, startDate, preSelectedClient } = props;
@@ -294,9 +254,7 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props: AddDeliveryD
           deliveryToSubmit.repeatsEndDate = undefined;
         }
 
-        // Signal that deliveries have been modified for other components
-        localStorage.setItem('deliveriesModified', Date.now().toString());
-        
+        dispatchDeliveriesModified();
         // ALWAYS call onAddDelivery - Profile logic will handle duplicates properly
         onAddDelivery(deliveryToSubmit as NewDelivery);
         setCustomDates([]);

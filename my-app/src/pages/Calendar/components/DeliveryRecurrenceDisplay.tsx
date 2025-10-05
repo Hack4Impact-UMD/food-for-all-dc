@@ -100,10 +100,17 @@ const DeliveryRecurrenceDisplay: React.FC<DeliveryRecurrenceDisplayProps> = ({ e
     }
   };
 
-  // Fetch the date range when component mounts or event changes
   useEffect(() => {
     if (event.recurrence !== 'None') {
-      fetchClientRecurrenceEvents().then(setDateRange);
+      let cancelled = false;
+      fetchClientRecurrenceEvents().then(range => {
+        if (!cancelled) {
+          setDateRange(range);
+        }
+      });
+      return () => {
+        cancelled = true;
+      };
     }
   }, [event.clientId, event.recurrence]);
 
