@@ -200,49 +200,43 @@ const CalendarPage: React.FC = React.memo(() => {
     }
   };
 
-  // Cache for client data to avoid repeated fetches
-  const clientCache = useMemo(() => new Map<string, ClientProfile>(), []);
+  const clientCacheRef = useRef(new Map<string, ClientProfile>());
 
   const fetchClientsLazy = useCallback(async (clientIds: string[]) => {
-    // Filter out clients we already have cached
-    const uncachedIds = clientIds.filter(id => !clientCache.has(id));
+    const uncachedIds = clientIds.filter(id => !clientCacheRef.current.has(id));
     
     if (uncachedIds.length === 0) {
-      return Array.from(clientCache.values()).filter(client => clientIds.includes(client.uid || ''));
+      return Array.from(clientCacheRef.current.values()).filter(client => clientIds.includes(client.uid || ''));
     }
 
     try {
-      // Fetch only the specific clients we need
       const clientsData = await clientService.getClientsByIds(uncachedIds);
-      
-      // Add to cache
+
       clientsData.forEach(client => {
         if (client.uid) {
-          clientCache.set(client.uid, client);
+          clientCacheRef.current.set(client.uid, client);
         }
       });
-      
-      // Return all requested clients (cached + newly fetched)
-      const allRequestedClients = clientIds.map(id => clientCache.get(id)).filter(Boolean) as ClientProfile[];
+
+      const allRequestedClients = clientIds.map(id => clientCacheRef.current.get(id)).filter(Boolean) as ClientProfile[];
       setClients(allRequestedClients);
       return allRequestedClients;
     } catch (error) {
       console.error("❌ [CLIENTS] Error fetching clients:", error);
       return [];
     }
-  }, [clientCache]);
+  }, []);
 
   const fetchClients = async () => {
     try {
       const clientsData = await clientService.getAllClients();
-      
-      // Update cache with all clients
+
       clientsData.clients.forEach(client => {
         if (client.uid) {
-          clientCache.set(client.uid, client);
+          clientCacheRef.current.set(client.uid, client);
         }
       });
-      
+
       setClients(clientsData.clients as ClientProfile[]);
     } catch (error) {
       console.error("❌ [CLIENTS] Error fetching clients:", error);

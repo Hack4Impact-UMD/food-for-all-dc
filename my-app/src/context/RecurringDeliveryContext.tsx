@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, useMemo } from 'react';
+import React, { createContext, useContext, useRef, useCallback, useMemo } from 'react';
 import DeliveryService from '../services/delivery-service';
 
 interface RecurringDeliveryDateRange {
@@ -15,61 +15,50 @@ interface RecurringDeliveryContextType {
 const RecurringDeliveryContext = createContext<RecurringDeliveryContextType | undefined>(undefined);
 
 export const RecurringDeliveryProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [pendingRequests] = useState(new Set<string>());
+  const promiseCacheRef = useRef(new Map<string, Promise<RecurringDeliveryDateRange>>());
   const deliveryService = useMemo(() => DeliveryService.getInstance(), []);
 
   const getDateRange = useCallback(async (
-    clientId: string, 
+    clientId: string,
     recurrenceType: string
   ): Promise<RecurringDeliveryDateRange> => {
     const requestKey = `${clientId}-${recurrenceType}`;
-    
-    // Avoid duplicate requests
-    if (pendingRequests.has(requestKey)) {
-      // Wait a bit and try again (simple debouncing)
-      await new Promise(resolve => setTimeout(resolve, 50));
-      if (pendingRequests.has(requestKey)) {
-        return { earliest: null, latest: null };
-      }
+
+    if (!promiseCacheRef.current.has(requestKey)) {
+      const promise = deliveryService.getRecurringDeliveryDateRange(clientId, recurrenceType);
+      promiseCacheRef.current.set(requestKey, promise);
+      promise.finally(() => promiseCacheRef.current.delete(requestKey));
     }
 
-    pendingRequests.add(requestKey);
-    
-    try {
-      const result = await deliveryService.getRecurringDeliveryDateRange(clientId, recurrenceType);
-      return result;
-    } finally {
-      pendingRequests.delete(requestKey);
-    }
-  }, [deliveryService, pendingRequests]);
+    return promiseCacheRef.current.get(requestKey)!;
+  }, [deliveryService]);
 
   const preloadDateRanges = useCallback(async (
     requests: Array<{ clientId: string; recurrenceType: string }>
   ): Promise<void> => {
-    // Filter out requests that are already pending
     const uniqueRequests = requests.filter(req => {
       const requestKey = `${req.clientId}-${req.recurrenceType}`;
-      return !pendingRequests.has(requestKey);
+      return !promiseCacheRef.current.has(requestKey);
     });
 
     if (uniqueRequests.length === 0) return;
 
-    // Mark requests as pending
+    const promise = deliveryService.getBatchRecurringDeliveryDateRanges(uniqueRequests);
+
     uniqueRequests.forEach(req => {
       const requestKey = `${req.clientId}-${req.recurrenceType}`;
-      pendingRequests.add(requestKey);
+      promiseCacheRef.current.set(requestKey, promise.then(() => ({ earliest: null, latest: null })));
     });
 
     try {
-      await deliveryService.getBatchRecurringDeliveryDateRanges(uniqueRequests);
+      await promise;
     } finally {
-      // Clear pending status
       uniqueRequests.forEach(req => {
         const requestKey = `${req.clientId}-${req.recurrenceType}`;
-        pendingRequests.delete(requestKey);
+        promiseCacheRef.current.delete(requestKey);
       });
     }
-  }, [deliveryService, pendingRequests]);
+  }, [deliveryService]);
 
   const clearCache = useCallback(() => {
     deliveryService.clearDateRangeCache();
