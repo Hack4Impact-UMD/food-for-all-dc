@@ -5,8 +5,7 @@ import { TableSortLabel, Icon } from "@mui/material";
 import {
   parseSearchTermsProgressively,
   checkStringContains,
-  extractKeyValue,
-  globalSearchMatch
+  extractKeyValue
 } from "../../utils/searchFilter";
 // Custom chevron icons for TableSortLabel with spacing
 const iconStyle = { verticalAlign: 'middle', marginLeft: 6 };
@@ -217,9 +216,10 @@ const Spreadsheet: React.FC = () => {
   let result = rows;
     if (debouncedSearch.trim()) {
       const validSearchTerms = parseSearchTermsProgressively(debouncedSearch.trim());
+      
+      // Only apply filters if we have complete key-value pairs (terms with colons)
       const keyValueTerms = validSearchTerms.filter(term => term.includes(':'));
-      const nonKeyValueTerms = validSearchTerms.filter(term => !term.includes(':'));
-
+      
       if (keyValueTerms.length > 0) {
         const visibleFieldKeys = new Set([
           ...fields.map(f => f.key),
@@ -341,21 +341,7 @@ const Spreadsheet: React.FC = () => {
           });
         });
       }
-
-      if (nonKeyValueTerms.length > 0) {
-        const searchableFields = [
-          'firstName',
-          'lastName',
-          'address',
-          'phone',
-          'email',
-          'deliveryDetails.deliveryInstructions',
-          ...customColumns.map(col => col.propertyKey).filter(key => key !== "none")
-        ];
-        result = result.filter(row =>
-          nonKeyValueTerms.every(term => globalSearchMatch(row, term, searchableFields))
-        );
-      }
+      // If no complete key-value pairs, don't filter (show all data)
     }
     // Sort if needed
     if (sortConfig.key && sortConfig.direction) {
