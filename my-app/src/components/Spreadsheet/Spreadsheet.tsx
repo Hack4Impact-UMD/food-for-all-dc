@@ -20,7 +20,7 @@ import { Box, Button, IconButton, Paper, Table, TableContainer, TableRow, TableC
 import { Popover } from "@mui/material";
 import type { RowData } from "./export";
 import { TableVirtuoso } from 'react-virtuoso';
-import React, { forwardRef, useEffect, useState, useMemo, Suspense, lazy } from 'react';
+import React, { forwardRef, useEffect, useState, useMemo, Suspense } from 'react';
 import type { HTMLAttributes } from 'react';
 import { useCustomColumns, allowedPropertyKeys } from "../../hooks/useCustomColumns";
 import AddIcon from "@mui/icons-material/Add";
@@ -106,8 +106,9 @@ const Spreadsheet: React.FC = () => {
   const [rows, setRows] = useState<RowData[]>([]);
   const [forceRerender, setForceRerender] = useState(0);
   const virtuosoRef = React.useRef<any>(null);
-  const { clients, loading: clientsLoading, error: clientsError, refresh } = useClientData();
+  const { clients, refresh } = useClientData();
   const [searchQuery, setSearchQuery] = useState<string>("");
+  const [debouncedSearch, setDebouncedSearch] = useState<string>("");
   const [menuAnchorPosition, setMenuAnchorPosition] = useState<{ top: number; left: number } | null>(null);
   const [menuRow, setMenuRow] = useState<RowData | null>(null);
   // Remove selectedRowId if not used elsewhere
@@ -120,12 +121,9 @@ const Spreadsheet: React.FC = () => {
   const handleAddCustomColumn = customColumnsHook.handleAddCustomColumn;
   const handleCustomHeaderChange = customColumnsHook.handleCustomHeaderChange;
   const handleRemoveCustomColumn = customColumnsHook.handleRemoveCustomColumn;
-  const handleCustomColumnChange = customColumnsHook.handleCustomColumnChange;
 
-  // Use prefetched data from context
   useEffect(() => {
     setRows(clients);
-    // Force Virtuoso repaint after data loads
     setTimeout(() => {
       if (virtuosoRef.current && typeof virtuosoRef.current.scrollToIndex === 'function') {
         virtuosoRef.current.scrollToIndex({ index: 0, align: 'start' });
@@ -133,6 +131,13 @@ const Spreadsheet: React.FC = () => {
       setForceRerender(f => f + 1);
     }, 100);
   }, [clients]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   // TableVirtuoso MUI integration
   const TableComponent = forwardRef<HTMLTableElement, React.ComponentProps<typeof Table>>((props, ref) => (
@@ -203,9 +208,8 @@ const Spreadsheet: React.FC = () => {
   // Ensure filteredRows is always the correct RowData shape for export, and optimize with useMemo
   const filteredRows: RowData[] = useMemo(() => {
   let result = rows;
-    // Filter by search query
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
+    if (debouncedSearch.trim()) {
+      const q = debouncedSearch.toLowerCase();
       result = result.filter(row =>
         row.firstName?.toLowerCase().includes(q) ||
         row.lastName?.toLowerCase().includes(q) ||
@@ -265,7 +269,7 @@ const Spreadsheet: React.FC = () => {
       }
     }
     return result;
-  }, [rows, searchQuery, sortConfig, fields]);
+  }, [rows, debouncedSearch, sortConfig, fields]);
 
   // --- TableVirtuoso rendering ---
   return (
@@ -489,7 +493,10 @@ const Spreadsheet: React.FC = () => {
         {Boolean(clientIdToDelete) && (
           <DeleteClientModal
             handleMenuClose={() => { setClientIdToDelete(null); setClientNameToDelete(""); }}
-            handleDeleteRow={async () => { /* implement delete logic */ }}
+            handleDeleteRow={async (id: string) => {
+              await clientService.deleteClient(id);
+              await refresh();
+            }}
             open={Boolean(clientIdToDelete)}
             setOpen={(isOpen: boolean) => { if (!isOpen) { setClientIdToDelete(null); setClientNameToDelete(""); } }}
             id={clientIdToDelete ?? ""}
