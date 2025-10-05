@@ -26,6 +26,7 @@ import { validateDeliveryDateRange } from "../../../utils/dateValidation";
 import { collection, getDocs, query, where, orderBy, deleteDoc, doc } from "firebase/firestore";
 import { db } from "../../../auth/firebaseConfig";
 import { getLastDeliveryDateForClient } from "../../../utils/lastDeliveryDate";
+import { deliveryEventEmitter } from "../../../utils/deliveryEventEmitter";
 
 interface AddDeliveryDialogProps {
   open: boolean;
@@ -61,20 +62,15 @@ const deleteDeliveriesAfterEndDate = async (clientId: string, newEndDate: string
         // Normalize both dates to YYYY-MM-DD format for accurate comparison
         const deliveryDateStr = deliveryDate.toISOString().split('T')[0];
         const endDateStr = newEndDateTime.toISOString().split('T')[0];
-        
-        // Only delete deliveries that are strictly after the end date (not on the end date)
+
         if (deliveryDateStr > endDateStr) {
-          console.log(`Deleting delivery on ${deliveryDateStr} (after new end date ${endDateStr})`);
           deletionPromises.push(deleteDoc(doc(db, "events", docSnapshot.id)));
-        } else if (deliveryDateStr === endDateStr) {
-          console.log(`Keeping delivery on ${deliveryDateStr} (matches end date ${endDateStr})`);
         }
       }
     });
 
     if (deletionPromises.length > 0) {
       await Promise.all(deletionPromises);
-      console.log(`Deleted ${deletionPromises.length} deliveries that were after the new end date`);
     }
   } catch (error) {
     console.error("Error deleting deliveries after end date:", error);
@@ -173,18 +169,16 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props: AddDeliveryD
     fetchCurrentLastDeliveryDate();
   }, [newDelivery.clientId, open]);
 
-  // Toggle body class for modal open state to control DatePicker popup scaling
   useEffect(() => {
     if (open) {
       document.body.classList.add('add-delivery-modal-open');
-      console.log('AddDeliveryDialog newDelivery:', newDelivery);
     } else {
       document.body.classList.remove('add-delivery-modal-open');
     }
     return () => {
       document.body.classList.remove('add-delivery-modal-open');
     };
-  }, [open, newDelivery]);
+  }, [open]);
 
   // Validate date range whenever delivery date or end date changes
   useEffect(() => {
@@ -279,13 +273,8 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props: AddDeliveryD
         const isEndDateUpdate = normalizedDeliveryDate === normalizedEndDate && 
                                events.length > 0 &&
                                newDelivery.recurrence !== "None";
-        
-        // Clear any existing duplicate error - we'll handle duplicates silently
+
         setDuplicateError("");
-        
-        if (hasDuplicate) {
-          console.log("Duplicate delivery detected - will be handled by Profile logic without error");
-        }
         // No duplicate, proceed
         const deliveryToSubmit: Partial<NewDelivery> = { ...newDelivery };
         if (newDelivery.recurrence === "Custom") {
@@ -294,10 +283,7 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props: AddDeliveryD
           deliveryToSubmit.repeatsEndDate = undefined;
         }
 
-        // Signal that deliveries have been modified for other components
-        localStorage.setItem('deliveriesModified', Date.now().toString());
-        
-        // ALWAYS call onAddDelivery - Profile logic will handle duplicates properly
+        deliveryEventEmitter.emit();
         onAddDelivery(deliveryToSubmit as NewDelivery);
         setCustomDates([]);
         resetFormAndClose();

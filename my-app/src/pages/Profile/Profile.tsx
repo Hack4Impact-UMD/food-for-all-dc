@@ -3,6 +3,7 @@ import EditIcon from "@mui/icons-material/Edit";
 import SaveIcon from "@mui/icons-material/Save";
 import { TimeUtils } from '../../utils/timeUtils';
 import { getLastDeliveryDateForClient } from '../../utils/lastDeliveryDate';
+import { deliveryEventEmitter } from '../../utils/deliveryEventEmitter';
 import {
   Autocomplete,
   Box,
@@ -442,63 +443,25 @@ const Profile = () => {
     fetchLastDeliveryDate();
   }, [clientId]);
 
-  // Listen for delivery modifications from other components (like calendar)
   useEffect(() => {
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'deliveriesModified' && clientId) {
-        // Refresh the last delivery date when deliveries are modified from calendar
-        const fetchUpdatedLastDeliveryDate = async () => {
-          try {
-            const latestEndDateString = await getLastDeliveryDateForClient(clientId);
-            if (latestEndDateString) {
-              setLastDeliveryDate(latestEndDateString);
-            } else {
-              setLastDeliveryDate("No deliveries found");
-            }
-          } catch (error) {
-            console.error("Error fetching updated last delivery date:", error);
-            setLastDeliveryDate("Error fetching data");
-          }
-        };
-        fetchUpdatedLastDeliveryDate();
-      }
-    };
-
-    // Listen for storage changes (from other tabs/components)
-    window.addEventListener('storage', handleStorageChange);
-
-    // Also listen for focus events (when user navigates back to this page)
-    const handleFocus = () => {
+    const handleDeliveryChange = async () => {
       if (clientId) {
-        const lastModified = localStorage.getItem('deliveriesModified');
-        if (lastModified) {
-          // Check if deliveries were modified since we last checked
-          const fetchUpdatedLastDeliveryDate = async () => {
-            try {
-              const latestEndDateString = await getLastDeliveryDateForClient(clientId);
-              if (latestEndDateString) {
-                setLastDeliveryDate(latestEndDateString);
-              } else {
-                setLastDeliveryDate("No deliveries found");
-              }
-            } catch (error) {
-              console.error("Error fetching updated last delivery date:", error);
-              setLastDeliveryDate("Error fetching data");
-            }
-          };
-          fetchUpdatedLastDeliveryDate();
-          // Clear the flag after handling
-          localStorage.removeItem('deliveriesModified');
+        try {
+          const latestEndDateString = await getLastDeliveryDateForClient(clientId);
+          if (latestEndDateString) {
+            setLastDeliveryDate(latestEndDateString);
+          } else {
+            setLastDeliveryDate("No deliveries found");
+          }
+        } catch (error) {
+          console.error("Error fetching updated last delivery date:", error);
+          setLastDeliveryDate("Error fetching data");
         }
       }
     };
 
-    window.addEventListener('focus', handleFocus);
-
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-      window.removeEventListener('focus', handleFocus);
-    };
+    const unsubscribe = deliveryEventEmitter.subscribe(handleDeliveryChange);
+    return unsubscribe;
   }, [clientId]);
 
   // Fetch case workers from Firestore

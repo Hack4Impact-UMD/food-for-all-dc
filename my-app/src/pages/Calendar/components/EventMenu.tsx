@@ -20,6 +20,7 @@ import {
 } from "@mui/material";
 import { validateDateInput } from "../../../utils/dates";
 import { getLastDeliveryDateForClient } from "../../../utils/lastDeliveryDate";
+import { deliveryEventEmitter } from "../../../utils/deliveryEventEmitter";
 import MoreHorizIcon from "@mui/icons-material/MoreHoriz";
 import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, query, where, orderBy, updateDoc, Timestamp} from "firebase/firestore";
 import { db } from "../../../auth/firebaseConfig";
@@ -46,9 +47,6 @@ const deleteDeliveriesAfterEndDate = async (clientId: string, newEndDate: string
 
     const deletionPromises: Promise<void>[] = [];
     const newEndDateTime = new Date(newEndDate);
-    
-    console.log(`Found ${querySnapshot.size} total deliveries for client ${clientId}`);
-    console.log(`New end date: ${newEndDate}`);
 
     querySnapshot.forEach((docSnapshot) => {
       const eventData = docSnapshot.data();
@@ -57,22 +55,15 @@ const deleteDeliveriesAfterEndDate = async (clientId: string, newEndDate: string
         // Normalize both dates to YYYY-MM-DD format for accurate comparison
         const deliveryDateStr = deliveryDate.toISOString().split('T')[0];
         const endDateStr = newEndDateTime.toISOString().split('T')[0];
-        
-        // Only delete deliveries that are strictly after the end date (not on the end date)
+
         if (deliveryDateStr > endDateStr) {
-          console.log(`Deleting delivery on ${deliveryDateStr} (after new end date ${endDateStr})`);
           deletionPromises.push(deleteDoc(doc(db, "events", docSnapshot.id)));
-        } else if (deliveryDateStr === endDateStr) {
-          console.log(`Keeping delivery on ${deliveryDateStr} (matches end date ${endDateStr})`);
         }
       }
     });
 
     if (deletionPromises.length > 0) {
       await Promise.all(deletionPromises);
-      console.log(`Successfully deleted ${deletionPromises.length} deliveries that were after the new end date ${newEndDate}`);
-    } else {
-      console.log(`No deliveries found to delete after end date ${newEndDate} for client ${clientId}`);
     }
   } catch (error) {
     console.error("Error deleting deliveries after end date:", error);
@@ -187,7 +178,6 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
   const handleDeleteConfirm = async () => {
     try {
       const eventsRef = collection(db, "events");
-      console.log("delete option:", deleteOption);
 
       if (deleteOption === "This event") {
         await deleteDoc(doc(eventsRef, event.id));
@@ -215,9 +205,7 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
         await Promise.all(batch);
       }
 
-      // Signal that deliveries have been modified for other components
-      localStorage.setItem('deliveriesModified', Date.now().toString());
-      
+      deliveryEventEmitter.emit();
       onEventModified();
       setIsDeleteDialogOpen(false);
     } catch (error) {
@@ -242,9 +230,7 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
         
         await addDoc(eventsRef, updatedEventData);
 
-        // Delete deliveries that are after the new end date (if end date was changed)
         if (editRecurrence.repeatsEndDate && event.clientId) {
-          console.log(`Cleaning up deliveries after ${editRecurrence.repeatsEndDate} for client ${event.clientId} (single event edit)`);
           await deleteDeliveriesAfterEndDate(event.clientId, editRecurrence.repeatsEndDate);
         }
       } else if (editOption === "This and following events") {
@@ -298,9 +284,6 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
           where("recurrenceId", "==", event.recurrenceId)
         );
         const seriesSnapshot = await getDocs(seriesQuery);
-        
-        console.log(`Updating ${seriesSnapshot.size} deliveries in the series with new end date ${editRecurrence.repeatsEndDate}`);
-
         const updateOperations: Promise<any>[] = [];
         
         seriesSnapshot.forEach((docSnapshot) => {
@@ -308,8 +291,7 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
           const deliveryDate = deliveryData.deliveryDate.toDate();
           const deliveryDateStr = deliveryDate.toISOString().split('T')[0];
           const endDateStr = editRecurrence.repeatsEndDate;
-          
-          // Only update deliveries that are on or before the new end date
+
           if (endDateStr && deliveryDateStr <= endDateStr) {
             const updatedData = {
               ...deliveryData,
@@ -319,23 +301,17 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
               }),
             };
             updateOperations.push(updateDoc(doc(eventsRef, docSnapshot.id), sanitize(updatedData)));
-            console.log(`Updating delivery on ${deliveryDateStr} with new end date`);
           }
         });
 
         await Promise.all(updateOperations);
-        console.log(`Updated ${updateOperations.length} deliveries with new end date information`);
 
-        // Clean up any remaining deliveries that might be after the new end date
         if (editRecurrence.repeatsEndDate && editRecurrence.clientId) {
-          console.log(`Cleaning up deliveries after ${editRecurrence.repeatsEndDate} for client ${editRecurrence.clientId}`);
           await deleteDeliveriesAfterEndDate(editRecurrence.clientId, editRecurrence.repeatsEndDate);
         }
       }
 
-      // Signal that deliveries have been modified for other components
-      localStorage.setItem('deliveriesModified', Date.now().toString());
-      
+      deliveryEventEmitter.emit();
       onEventModified();
       setIsEditDialogOpen(false);
     } catch (error) {
