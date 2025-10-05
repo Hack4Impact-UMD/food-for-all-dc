@@ -1366,31 +1366,29 @@ const DeliverySpreadsheet: React.FC = () => {
     setSelectedRows(newSelectedRows);
   };
 
-  const handleRowClick = (clientId: string) => {
-    // Handle special case for clearing highlight only
+  const handleRowClick = (clientId: string, fromTable = true) => {
     if (clientId === 'CLEAR_HIGHLIGHT_ONLY') {
       setHighlightedRowId(null);
       return;
     }
 
-    // If clicking the same row that's already highlighted, toggle it off
-    if (highlightedRowId === clientId) {
+    if (fromTable && highlightedRowId === clientId) {
       setHighlightedRowId(null);
-      // Close any open popup
       if ((window as any).closeMapPopup) {
         (window as any).closeMapPopup();
       }
     } else {
-      // Highlight the new row and open its popup
       setHighlightedRowId(clientId);
-      // Open the corresponding map popup
       if ((window as any).openMapPopup) {
         (window as any).openMapPopup(clientId);
       }
     }
   };
 
-  // Separate function just for clearing highlights (used by popup close handler)
+  const handleMarkerClick = (clientId: string) => {
+    handleRowClick(clientId, false);
+  };
+
   const clearRowHighlight = () => {
     setHighlightedRowId(null);
   };
@@ -1978,7 +1976,7 @@ const DeliverySpreadsheet: React.FC = () => {
           <LoadingIndicator />
         ) : visibleRows.length > 0 ? (
           <Suspense fallback={<LoadingIndicator />}>
-            <ClusterMap clusters={clusters} visibleRows={visibleRows} clientOverrides={clientOverrides} onClusterUpdate={handleIndividualClientUpdate} onOpenPopup={handleRowClick} onClearHighlight={clearRowHighlight} refreshDriversTrigger={driversRefreshTrigger} />
+            <ClusterMap clusters={clusters} visibleRows={visibleRows} clientOverrides={clientOverrides} onClusterUpdate={handleIndividualClientUpdate} onOpenPopup={handleRowClick} onMarkerClick={handleMarkerClick} onClearHighlight={clearRowHighlight} refreshDriversTrigger={driversRefreshTrigger} />
           </Suspense>
         ) : (
           <Box

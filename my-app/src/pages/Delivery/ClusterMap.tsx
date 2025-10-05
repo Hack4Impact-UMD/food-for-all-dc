@@ -364,6 +364,10 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
             return;
           }
 
+          const closedPopup = e.popup;
+          const closedPopupElement = closedPopup?.getElement();
+          const closedClientId = closedPopupElement?.getAttribute('data-client-id');
+
           setTimeout(() => {
             if (isPopupOpening.current) {
               return;
@@ -387,7 +391,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
             if (highlightedRow) {
               const clientId = (highlightedRow as HTMLElement).getAttribute('data-client-id');
 
-              if (clientId && onClearHighlight) {
+              if (clientId && clientId === closedClientId && onClearHighlight) {
                 onClearHighlight();
               }
             }
@@ -741,14 +745,14 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
         .on('click', (e) => {
           isPopupOpening.current = true;
 
-          if (onOpenPopup) {
-            onOpenPopup(client.id);
+          if (onMarkerClick) {
+            onMarkerClick(client.id);
           }
         })
         .on('popupopen', () => {
           setTimeout(() => {
             isPopupOpening.current = false;
-          }, 250);
+          }, 350);
         })
         .on('popupclose', () => {
           isPopupOpening.current = false;
