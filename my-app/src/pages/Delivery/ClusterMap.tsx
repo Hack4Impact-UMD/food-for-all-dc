@@ -739,24 +739,19 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
       marker
         .bindPopup(popupContent, { autoPan: true, keepInView: true })
         .on('click', (e) => {
-          // Set flag to prevent close handler from firing during opening
           isPopupOpening.current = true;
 
-          // Call the same handleRowClick function - just like table rows do
           if (onOpenPopup) {
             onOpenPopup(client.id);
           }
-          
-          // Clear the flag after popup is opened
-          setTimeout(() => {
-            isPopupOpening.current = false;
-          }, 300);
         })
         .on('popupopen', () => {
-          // Additional safety - clear flag when popup actually opens
           setTimeout(() => {
             isPopupOpening.current = false;
           }, 100);
+        })
+        .on('popupclose', () => {
+          isPopupOpening.current = false;
         })
         .addTo(markerGroupRef.current!);
 
