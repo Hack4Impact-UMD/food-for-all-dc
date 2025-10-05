@@ -366,7 +366,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
 
           const closedPopup = e.popup;
           const closedPopupElement = closedPopup?.getElement();
-          const closedClientId = closedPopupElement?.getAttribute('data-client-id');
+          const closedClientId = closedPopupElement?.querySelector('[data-client-id]')?.getAttribute('data-client-id');
 
           setTimeout(() => {
             if (isPopupOpening.current) {
