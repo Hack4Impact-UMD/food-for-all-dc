@@ -69,6 +69,7 @@ import DeliveryService from "../../services/delivery-service";
 import { exportQueryResults, exportAllClients } from "./export";
 import "./Spreadsheet.css";
 import DeleteClientModal from "./DeleteClientModal";
+import { getLastDeliveryDateForClient } from "../../utils/lastDeliveryDate";
 
 // Define TypeScript types for row data
 export interface RowData {
@@ -115,10 +116,17 @@ export interface RowData {
   dob?: string;
   ward?: string;
   zipCode?: string;
+  lastDeliveryDate?: string;
 }
 // Place helper functions after RowData type and StyleChip definition
 function getCustomColumnValue(row: RowData, propertyKey: string): string {
   if (!propertyKey || propertyKey === "none") return "";
+  
+  // Handle lastDeliveryDate (computed field, return empty for editing)
+  if (propertyKey === "lastDeliveryDate") {
+    return row.lastDeliveryDate || "";
+  }
+  
   if (propertyKey.includes(".")) {
     const keys = propertyKey.split(".");
     let value: any = row;
@@ -132,8 +140,35 @@ function getCustomColumnValue(row: RowData, propertyKey: string): string {
   return val !== undefined && val !== null ? val.toString() : "";
 }
 
+// Component to handle async loading of last delivery date
+const LastDeliveryDateCell: React.FC<{ clientId: string }> = ({ clientId }) => {
+  const [lastDeliveryDate, setLastDeliveryDate] = useState<string>("Loading...");
+
+  useEffect(() => {
+    let isMounted = true;
+    getLastDeliveryDateForClient(clientId).then((date) => {
+      if (isMounted) {
+        setLastDeliveryDate(date || "No deliveries");
+      }
+    }).catch(() => {
+      if (isMounted) {
+        setLastDeliveryDate("Error");
+      }
+    });
+    return () => { isMounted = false; };
+  }, [clientId]);
+
+  return <span>{lastDeliveryDate}</span>;
+};
+
 function getCustomColumnDisplay(row: RowData, propertyKey: string): React.ReactNode {
   if (!propertyKey || propertyKey === "none") return "N/A";
+  
+  // Handle lastDeliveryDate (async computed field)
+  if (propertyKey === "lastDeliveryDate") {
+    return <LastDeliveryDateCell clientId={row.uid} />;
+  }
+  
   // Handle referralEntity (object)
   if (propertyKey === "referralEntity" && row.referralEntity) {
     const entity = row.referralEntity;
@@ -1235,12 +1270,14 @@ const Spreadsheet: React.FC<SpreadsheetProps> = ({ editable = true }) => {
                               if (key === "gender") label = "Gender";
                               if (key === "language") label = "Language";
                               if (key === "notes") label = "Notes";
+                              if (key === "phone") label = "Phone";
                               if (key === "referralEntity") label = "Referral Entity";
                               if (key === "tefapCert") label = "TEFAP Cert";
                               if (key === "tags") label = "Tags";
                               if (key === "dob") label = "DOB";
                               if (key === "ward") label = "Ward";
                               if (key === "zipCode") label = "Zip Code";
+                              if (key === "lastDeliveryDate") label = "Last Delivery Date";
                               return <MenuItem key={key} value={key}>{label}</MenuItem>;
                             })}
                           </Select>

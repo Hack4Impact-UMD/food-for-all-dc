@@ -83,11 +83,13 @@ export const exportQueryResults = (rows: RowData[], customColumns: Array<{id: st
                         case "gender": return "Gender";
                         case "language": return "Language";
                         case "notes": return "Notes";
+                        case "phone": return "Phone";
                         case "referralEntity": return "Referral Entity";
                         case "tefapCert": return "TEFAP Cert";
                         case "tags": return "Tags";
                         case "dob": return "Date of Birth";
                         case "ward": return "Ward";
+                        case "lastDeliveryDate": return "Last Delivery Date";
                         default: return propertyKey.charAt(0).toUpperCase() + propertyKey.slice(1);
                     }
                 };
@@ -98,6 +100,9 @@ export const exportQueryResults = (rows: RowData[], customColumns: Array<{id: st
                 if (col.propertyKey === 'referralEntity' && value) {
                     // Handle referralEntity object specially
                     baseData[columnLabel] = `${value.name || 'N/A'}, ${value.organization || 'N/A'}`;
+                } else if (col.propertyKey === 'lastDeliveryDate') {
+                    // Handle lastDeliveryDate specially - it might be computed asynchronously
+                    baseData[columnLabel] = value || "Loading...";
                 } else if (Array.isArray(value)) {
                     // Handle arrays (like tags)
                     baseData[columnLabel] = value.join(", ");

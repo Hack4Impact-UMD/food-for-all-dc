@@ -10,12 +10,14 @@ export const allowedPropertyKeys = [
   "gender",
   "language",
   "notes",
+  "phone",
   "referralEntity",
   "tefapCert",
   "tags",
   "dob",
   "ward",
-  "zipCode"
+  "zipCode",
+  "lastDeliveryDate"
 ];
 
 // useCustomColumns.ts
