@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Typography } from '@mui/material';
 import { format } from 'date-fns';
 import { DeliveryEvent } from '../../../types/calendar-types';
-import DeliveryService from '../../../services/delivery-service';
+import { useRecurringDelivery } from '../../../context/RecurringDeliveryContext';
 import styles from './DeliveryCard.module.css';
 
 // Helper to parse various date formats as local date
@@ -48,71 +48,30 @@ interface DeliveryRecurrenceDisplayProps {
 const DeliveryRecurrenceDisplay: React.FC<DeliveryRecurrenceDisplayProps> = ({ event, allEvents }) => {
   const { label, className } = getDeliveryTypeInfo(event.recurrence);
   const [dateRange, setDateRange] = useState<{ earliest: Date | null; latest: Date | null } | null>(null);
-
-  // Function to query database for all events for this client and recurrence type
-  const fetchClientRecurrenceEvents = async (): Promise<{ earliest: Date | null; latest: Date | null }> => {
-    try {
-      const deliveryService = DeliveryService.getInstance();
-      
-      // Get all events for this client
-      const clientEvents = await deliveryService.getEventsByClientId(event.clientId);
-      console.log(`[DeliveryRecurrenceDisplay] Found ${clientEvents.length} total events for client ${event.clientName}`);
-      
-      // Filter for the same recurrence type (excluding 'None')
-      const recurringEvents = clientEvents.filter(e => 
-        e.recurrence === event.recurrence && 
-        e.recurrence !== 'None'
-      );
-      
-      console.log(`[DeliveryRecurrenceDisplay] Found ${recurringEvents.length} ${event.recurrence} events for client ${event.clientName}`);
-      
-      if (recurringEvents.length === 0) return { earliest: null, latest: null };
-      
-      // Convert all delivery dates to Date objects
-      const dates = recurringEvents.map(e => {
-        if (e.deliveryDate instanceof Date) {
-          return e.deliveryDate;
-        } else if (e.deliveryDate && typeof e.deliveryDate === 'object' && 'toDate' in e.deliveryDate) {
-          return (e.deliveryDate as any).toDate();
-        } else {
-          return new Date(e.deliveryDate as any);
-        }
-      }).filter(date => !isNaN(date.getTime()));
-      
-      if (dates.length === 0) return { earliest: null, latest: null };
-      
-      // Sort dates to verify we have the full range
-      const sortedDates = dates.sort((a, b) => a.getTime() - b.getTime());
-      const earliest = sortedDates[0];
-      const latest = sortedDates[sortedDates.length - 1];
-      
-      console.log(`[DeliveryRecurrenceDisplay] Date range for ${event.clientName} ${event.recurrence}:`, {
-        earliest: earliest.toDateString(),
-        latest: latest.toDateString(),
-        totalEvents: sortedDates.length,
-        allDates: sortedDates.map(d => d.toDateString())
-      });
-      
-      return { earliest, latest };
-    } catch (error) {
-      console.error('Error fetching client recurrence events:', error);
-      return { earliest: null, latest: null };
-    }
-  };
+  const { getDateRange } = useRecurringDelivery();
 
   useEffect(() => {
     if (event.recurrence !== 'None') {
       let cancelled = false;
-      fetchClientRecurrenceEvents().then(range => {
-        if (!cancelled) {
-          setDateRange(range);
-        }
-      });
+      
+      getDateRange(event.clientId, event.recurrence)
+        .then(range => {
+          if (!cancelled) {
+            setDateRange(range);
+          }
+        })
+        .catch(error => {
+          console.error('Error fetching recurring delivery date range:', error);
+          if (!cancelled) {
+            setDateRange({ earliest: null, latest: null });
+          }
+        });
+      
       return () => {
         cancelled = true;
       };
     }
-  }, [event.clientId, event.recurrence]);
+  }, [event.clientId, event.recurrence, getDateRange]);
 
   let dateRangeElement = null;
   // Only show date range if not a one-off delivery and we have fetched the date range
