@@ -69,6 +69,12 @@ import { exportQueryResults, exportAllClients } from "./export";
 import "./Spreadsheet.css";
 import DeleteClientModal from "./DeleteClientModal";
 import { getLastDeliveryDateForClient } from "../../utils/lastDeliveryDate";
+import {
+  parseSearchTermsProgressively,
+  checkStringContains as utilCheckStringContains,
+  isPartialFieldName,
+  extractKeyValue
+} from "../../utils/searchFilter";
 
 // Define TypeScript types for row data
 export interface RowData {
@@ -519,36 +525,24 @@ const Spreadsheet: React.FC = () => {
     setRows(updatedRows);
   };
 
-  // Handle deleting a row from Firestore
   const handleDeleteRow = async (id: string) => {
+    const deliveryService = DeliveryService.getInstance();
+    const clientService = ClientService.getInstance();
+
     try {
-      console.log(`Starting deletion process for client: ${id}`);
-      
-      // STEP 1: Delete all deliveries for this client
-      const deliveryService = DeliveryService.getInstance();
       const clientDeliveries = await deliveryService.getEventsByClientId(id);
-      
-      console.log(`Found ${clientDeliveries.length} deliveries to delete for client ${id}`);
-      
+
       if (clientDeliveries.length > 0) {
-        const deletePromises = clientDeliveries.map(delivery => 
-          deliveryService.deleteEvent(delivery.id)
+        await Promise.all(
+          clientDeliveries.map(delivery => deliveryService.deleteEvent(delivery.id))
         );
-        
-        await Promise.all(deletePromises);
-        console.log(`Successfully deleted ${clientDeliveries.length} deliveries for client ${id}`);
       }
-      
-      // STEP 2: Delete the client
-      const clientService = ClientService.getInstance();
+
       await clientService.deleteClient(id);
-      console.log(`Successfully deleted client ${id}`);
-      
-      // STEP 3: Update the UI
-      setRows(rows.filter((row) => row.uid !== id)); // Filter based on uid
-      
+      setRows(rows.filter((row) => row.uid !== id));
     } catch (error) {
-      console.error("Error deleting client and deliveries: ", error);
+      console.error("Error deleting client:", error);
+      throw error;
     }
   };
 
@@ -642,81 +636,18 @@ const Spreadsheet: React.FC = () => {
       return (singleQuotes % 2 !== 0) || (doubleQuotes % 2 !== 0);
     };
 
-  // Display only the rows that match the search query - combining advanced search with sorted rows
   const filteredRows = sortedRows.filter((row) => {
     const trimmedSearchQuery = searchQuery.trim();
-    if (!trimmedSearchQuery) {
-      return true; // Show all if search is empty
-    }
-
-    //if search is empty then show all rows
     if (!trimmedSearchQuery) {
       return true;
     }
 
-    //parse search terms progressively - extract complete quoted terms and partial terms
-    const searchTerms = [];
-    let inQuote = false;
-    let quoteChar = '';
-    let currentTerm = '';
-    
-    for (let i = 0; i < trimmedSearchQuery.length; i++) {
-      const char = trimmedSearchQuery[i];
-      
-      if (!inQuote && (char === '"' || char === "'")) {
-        // Starting a quoted term - save any existing unquoted term first
-        if (currentTerm.trim()) {
-          searchTerms.push(currentTerm.trim());
-          currentTerm = '';
-        }
-        inQuote = true;
-        quoteChar = char;
-        // Don't include the quote character in the term
-      } else if (inQuote && char === quoteChar) {
-        // Ending a quoted term
-        if (currentTerm.trim()) {
-          searchTerms.push(currentTerm.trim());
-        }
-        currentTerm = '';
-        inQuote = false;
-        quoteChar = '';
-        // Don't include the closing quote character
-      } else if (!inQuote && char === ' ') {
-        // Space outside quotes - end current term
-        if (currentTerm.trim()) {
-          searchTerms.push(currentTerm.trim());
-          currentTerm = '';
-        }
-      } else {
-        // Regular character (including characters inside quotes) - add to current term
-        currentTerm += char;
-      }
-    }
-    
-    // Add any remaining term (including partial quoted terms)
-    if (currentTerm.trim()) {
-      searchTerms.push(currentTerm.trim());
-    }
-    
-    //filter out empty terms and lone quote marks
-    const validSearchTerms = searchTerms.filter(term => {
-      return term.length > 0 && term !== '"' && term !== "'";
-    });
-
-
-
-    //if no valid search terms, show all rows
+    const validSearchTerms = parseSearchTermsProgressively(trimmedSearchQuery);
     if (validSearchTerms.length === 0) {
       return true;
     }
 
-    //function to check if a value contains the search query string
-    const checkStringContains = (value: any, query: string): boolean => {
-      if (value === undefined || value === null) {
-        return false;
-      }
-      return String(value).toLowerCase().includes(query.toLowerCase());
-    };
+    const checkStringContains = utilCheckStringContains;
 
     //function to check for numbers, dates, or items in an array
     const checkValueOrInArray = (value: any, query: string): boolean => {
@@ -731,37 +662,21 @@ const Spreadsheet: React.FC = () => {
     };
 
     return validSearchTerms.every(term => {
-      //check if this is a key:value search
-      const colonIndex = term.indexOf(':');
-      let isKeyValueSearch = false;
-      let keyword = "";
-      let searchValue = "";
+      const { keyword, searchValue, isKeyValue: isKeyValueSearch } = extractKeyValue(term);
 
-      if (colonIndex !== -1) {
-        keyword = term.substring(0, colonIndex).trim().toLowerCase();
-        searchValue = term.substring(colonIndex + 1).trim();
-        isKeyValueSearch = true; // Even if searchValue is empty, it's still a key:value attempt
-      } else {
-        // Check if this term looks like a partial key (common field names + custom columns)
-        const lowerTerm = term.toLowerCase();
+      if (!isKeyValueSearch) {
         const commonFieldNames = [
           'phone', 'name', 'address', 'dietary', 'instructions', 'ethnicity',
           'adults', 'children', 'gender', 'notes', 'referral', 'tags', 'ward',
           'language', 'zip', 'client', 'delivery', 'tefap', 'coordinates'
         ];
-        
-        // Add custom column labels to the list of searchable field names (only for columns with data)
+
         const customFieldNames = customColumns
           .filter(col => col.propertyKey !== "none")
           .map(col => col.label.toLowerCase());
         const allFieldNames = [...commonFieldNames, ...customFieldNames];
-        
-        const isPartialKey = allFieldNames.some(fieldName => 
-          fieldName.startsWith(lowerTerm) || lowerTerm.startsWith(fieldName.substring(0, Math.min(3, fieldName.length)))
-        );
-        
-        if (isPartialKey) {
-          // This looks like someone typing a field name, show all rows until they add a colon
+
+        if (isPartialFieldName(term, allFieldNames)) {
           return true;
         }
       }

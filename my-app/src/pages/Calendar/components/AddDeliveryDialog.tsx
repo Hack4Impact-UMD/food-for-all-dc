@@ -276,17 +276,15 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props: AddDeliveryD
         const normalizedDeliveryDate = normalizeDate(newDelivery.deliveryDate);
         const normalizedEndDate = normalizeDate(newDelivery.repeatsEndDate || '');
         
-        const isEndDateUpdate = normalizedDeliveryDate === normalizedEndDate && 
+        const isEndDateUpdate = normalizedDeliveryDate === normalizedEndDate &&
                                events.length > 0 &&
                                newDelivery.recurrence !== "None";
-        
-        // Clear any existing duplicate error - we'll handle duplicates silently
+
         setDuplicateError("");
-        
+
         if (hasDuplicate) {
-          console.log("Duplicate delivery detected - will be handled by Profile logic without error");
+          console.log("Duplicate delivery detected - Profile page handles deduplication during creation");
         }
-        // No duplicate, proceed
         const deliveryToSubmit: Partial<NewDelivery> = { ...newDelivery };
         if (newDelivery.recurrence === "Custom") {
           deliveryToSubmit.customDates = customDates.map(date => date.toISOString().split("T")[0]);
@@ -294,10 +292,7 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props: AddDeliveryD
           deliveryToSubmit.repeatsEndDate = undefined;
         }
 
-        // Signal that deliveries have been modified for other components
         localStorage.setItem('deliveriesModified', Date.now().toString());
-        
-        // ALWAYS call onAddDelivery - Profile logic will handle duplicates properly
         onAddDelivery(deliveryToSubmit as NewDelivery);
         setCustomDates([]);
         resetFormAndClose();
