@@ -139,11 +139,15 @@ function getCustomColumnValue(row: RowData, propertyKey: string): string {
   return val !== undefined && val !== null ? val.toString() : "";
 }
 
-// Component to handle async loading of last delivery date
-const LastDeliveryDateCell: React.FC<{ clientId: string }> = ({ clientId }) => {
-  const [lastDeliveryDate, setLastDeliveryDate] = useState<string>("Loading...");
+const LastDeliveryDateCell: React.FC<{ clientId: string; cachedDate?: string }> = ({ clientId, cachedDate }) => {
+  const [lastDeliveryDate, setLastDeliveryDate] = useState<string>(cachedDate || "Loading...");
 
   useEffect(() => {
+    if (cachedDate) {
+      setLastDeliveryDate(cachedDate);
+      return;
+    }
+
     let isMounted = true;
     getLastDeliveryDateForClient(clientId).then((date) => {
       if (isMounted) {
@@ -155,17 +159,16 @@ const LastDeliveryDateCell: React.FC<{ clientId: string }> = ({ clientId }) => {
       }
     });
     return () => { isMounted = false; };
-  }, [clientId]);
+  }, [clientId, cachedDate]);
 
   return <span>{lastDeliveryDate}</span>;
 };
 
-function getCustomColumnDisplay(row: RowData, propertyKey: string): React.ReactNode {
+function getCustomColumnDisplay(row: RowData, propertyKey: string, cachedDate?: string): React.ReactNode {
   if (!propertyKey || propertyKey === "none") return "N/A";
-  
-  // Handle lastDeliveryDate (async computed field)
+
   if (propertyKey === "lastDeliveryDate") {
-    return <LastDeliveryDateCell clientId={row.uid} />;
+    return <LastDeliveryDateCell clientId={row.uid} cachedDate={cachedDate} />;
   }
   
   // Handle referralEntity (object)
@@ -243,6 +246,7 @@ const isRegularField = (field: Field): field is Extract<Field, { key: keyof RowD
 
 const Spreadsheet: React.FC = () => {
   const [rows, setRows] = useState<RowData[]>([]);
+  const [lastDeliveryDatesCache, setLastDeliveryDatesCache] = useState<Record<string, string>>({});
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [editingRowId, setEditingRowId] = useState<string | null>(null);
   const [menuAnchorEl, setMenuAnchorEl] = useState<null | HTMLElement>(null);
@@ -484,16 +488,21 @@ const Spreadsheet: React.FC = () => {
     },
   ];
 
-  // Fetch data from Firebase without authentication checks
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Use ClientService instead of direct Firebase calls
         const clientService = ClientService.getInstance();
         const { clients } = await clientService.getAllClientsForSpreadsheet();
-        // ...existing code...
-        // No default sorting - let our sortedRows useMemo handle all sorting
         setRows(clients);
+
+        const cache: Record<string, string> = {};
+        await Promise.all(
+          clients.map(async (client) => {
+            const date = await getLastDeliveryDateForClient(client.uid);
+            if (date) cache[client.uid] = date;
+          })
+        );
+        setLastDeliveryDatesCache(cache);
       } catch (error) {
         console.error("Error fetching data: ", error);
       }
@@ -519,36 +528,38 @@ const Spreadsheet: React.FC = () => {
     setRows(updatedRows);
   };
 
-  // Handle deleting a row from Firestore
   const handleDeleteRow = async (id: string) => {
+    const deliveryService = DeliveryService.getInstance();
+    const clientService = ClientService.getInstance();
+    let deletedDeliveryIds: string[] = [];
+
     try {
-      console.log(`Starting deletion process for client: ${id}`);
-      
-      // STEP 1: Delete all deliveries for this client
-      const deliveryService = DeliveryService.getInstance();
       const clientDeliveries = await deliveryService.getEventsByClientId(id);
-      
-      console.log(`Found ${clientDeliveries.length} deliveries to delete for client ${id}`);
-      
-      if (clientDeliveries.length > 0) {
-        const deletePromises = clientDeliveries.map(delivery => 
-          deliveryService.deleteEvent(delivery.id)
-        );
-        
-        await Promise.all(deletePromises);
-        console.log(`Successfully deleted ${clientDeliveries.length} deliveries for client ${id}`);
+      deletedDeliveryIds = clientDeliveries.map(d => d.id);
+
+      if (deletedDeliveryIds.length > 0) {
+        await Promise.all(deletedDeliveryIds.map(did => deliveryService.deleteEvent(did)));
       }
-      
-      // STEP 2: Delete the client
-      const clientService = ClientService.getInstance();
+
       await clientService.deleteClient(id);
-      console.log(`Successfully deleted client ${id}`);
-      
-      // STEP 3: Update the UI
-      setRows(rows.filter((row) => row.uid !== id)); // Filter based on uid
-      
+      setRows(rows.filter((row) => row.uid !== id));
     } catch (error) {
       console.error("Error deleting client and deliveries: ", error);
+
+      if (deletedDeliveryIds.length > 0) {
+        try {
+          const clientDeliveries = await deliveryService.getEventsByClientId(id);
+          const currentIds = new Set(clientDeliveries.map(d => d.id));
+          const missingIds = deletedDeliveryIds.filter(id => !currentIds.has(id));
+
+          if (missingIds.length > 0) {
+            console.error(`Warning: ${missingIds.length} deliveries were deleted but client deletion failed. Manual cleanup may be needed.`);
+          }
+        } catch (verifyError) {
+          console.error("Could not verify delivery deletion state:", verifyError);
+        }
+      }
+      throw error;
     }
   };
 
@@ -1564,7 +1575,7 @@ const Spreadsheet: React.FC = () => {
                           )
                         ) :
                           col.propertyKey !== "none" ? (
-                            getCustomColumnDisplay(row, col.propertyKey)
+                            getCustomColumnDisplay(row, col.propertyKey, lastDeliveryDatesCache[row.uid])
                           ) : (
                             "N/A"
                           )}

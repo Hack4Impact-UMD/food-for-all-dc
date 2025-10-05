@@ -33,7 +33,7 @@ interface AddDeliveryDialogProps {
   onAddDelivery: (newDelivery: NewDelivery) => void;
   clients: ClientProfile[];
   startDate: DayPilot.Date;
-  // New optional props for pre-selected client
+  onDeliveryModified?: () => void;
   preSelectedClient?: {
     clientId: string;
     clientName: string;
@@ -45,36 +45,24 @@ interface AddDeliveryDialogProps {
 const deleteDeliveriesAfterEndDate = async (clientId: string, newEndDate: string) => {
   try {
     const eventsRef = collection(db, "events");
-    const q = query(
-      eventsRef,
-      where("clientId", "==", clientId)
-    );
+    const q = query(eventsRef, where("clientId", "==", clientId));
     const querySnapshot = await getDocs(q);
 
     const deletionPromises: Promise<void>[] = [];
-    const newEndDateTime = new Date(newEndDate);
+    const endDateStr = new Date(newEndDate).toISOString().split('T')[0];
 
     querySnapshot.forEach((docSnapshot) => {
       const eventData = docSnapshot.data();
       if (eventData.deliveryDate) {
-        const deliveryDate = eventData.deliveryDate.toDate();
-        // Normalize both dates to YYYY-MM-DD format for accurate comparison
-        const deliveryDateStr = deliveryDate.toISOString().split('T')[0];
-        const endDateStr = newEndDateTime.toISOString().split('T')[0];
-        
-        // Only delete deliveries that are strictly after the end date (not on the end date)
+        const deliveryDateStr = eventData.deliveryDate.toDate().toISOString().split('T')[0];
         if (deliveryDateStr > endDateStr) {
-          console.log(`Deleting delivery on ${deliveryDateStr} (after new end date ${endDateStr})`);
           deletionPromises.push(deleteDoc(doc(db, "events", docSnapshot.id)));
-        } else if (deliveryDateStr === endDateStr) {
-          console.log(`Keeping delivery on ${deliveryDateStr} (matches end date ${endDateStr})`);
         }
       }
     });
 
     if (deletionPromises.length > 0) {
       await Promise.all(deletionPromises);
-      console.log(`Deleted ${deletionPromises.length} deliveries that were after the new end date`);
     }
   } catch (error) {
     console.error("Error deleting deliveries after end date:", error);
@@ -83,7 +71,7 @@ const deleteDeliveriesAfterEndDate = async (clientId: string, newEndDate: string
 };
 
 const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props: AddDeliveryDialogProps) => {
-  const { open, onClose, onAddDelivery, clients, startDate, preSelectedClient } = props;
+  const { open, onClose, onAddDelivery, clients, startDate, preSelectedClient, onDeliveryModified } = props;
   const [duplicateError, setDuplicateError] = useState<string>("");
 
   // Helper to set time to 12:00:00 PM
@@ -173,18 +161,16 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props: AddDeliveryD
     fetchCurrentLastDeliveryDate();
   }, [newDelivery.clientId, open]);
 
-  // Toggle body class for modal open state to control DatePicker popup scaling
   useEffect(() => {
     if (open) {
       document.body.classList.add('add-delivery-modal-open');
-      console.log('AddDeliveryDialog newDelivery:', newDelivery);
     } else {
       document.body.classList.remove('add-delivery-modal-open');
     }
     return () => {
       document.body.classList.remove('add-delivery-modal-open');
     };
-  }, [open, newDelivery]);
+  }, [open]);
 
   // Validate date range whenever delivery date or end date changes
   useEffect(() => {
@@ -276,17 +262,11 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props: AddDeliveryD
         const normalizedDeliveryDate = normalizeDate(newDelivery.deliveryDate);
         const normalizedEndDate = normalizeDate(newDelivery.repeatsEndDate || '');
         
-        const isEndDateUpdate = normalizedDeliveryDate === normalizedEndDate && 
+        const isEndDateUpdate = normalizedDeliveryDate === normalizedEndDate &&
                                events.length > 0 &&
                                newDelivery.recurrence !== "None";
-        
-        // Clear any existing duplicate error - we'll handle duplicates silently
+
         setDuplicateError("");
-        
-        if (hasDuplicate) {
-          console.log("Duplicate delivery detected - will be handled by Profile logic without error");
-        }
-        // No duplicate, proceed
         const deliveryToSubmit: Partial<NewDelivery> = { ...newDelivery };
         if (newDelivery.recurrence === "Custom") {
           deliveryToSubmit.customDates = customDates.map(date => date.toISOString().split("T")[0]);
@@ -294,11 +274,8 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props: AddDeliveryD
           deliveryToSubmit.repeatsEndDate = undefined;
         }
 
-        // Signal that deliveries have been modified for other components
-        localStorage.setItem('deliveriesModified', Date.now().toString());
-        
-        // ALWAYS call onAddDelivery - Profile logic will handle duplicates properly
         onAddDelivery(deliveryToSubmit as NewDelivery);
+        onDeliveryModified?.();
         setCustomDates([]);
         resetFormAndClose();
       });
