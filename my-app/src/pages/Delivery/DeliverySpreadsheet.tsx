@@ -4,15 +4,11 @@ import { DayPilot } from "@daypilot/daypilot-lite-react";
 import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import { db } from "../../auth/firebaseConfig";
 import { Search, Filter } from "lucide-react";
-import {
-  parseSearchTermsProgressively,
-  checkStringContains as utilCheckStringContains,
-  isPartialFieldName,
-  extractKeyValue
-} from "../../utils/searchFilter";
 import { query, Timestamp, updateDoc, where } from "firebase/firestore";
 import { TimeUtils } from "../../utils/timeUtils";
 import { format, addDays } from "date-fns";
+import MoreVertIcon from "@mui/icons-material/MoreVert";
+import AddIcon from "@mui/icons-material/Add";
 import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
 import ArrowDropUpIcon from "@mui/icons-material/ArrowDropUp";
 import DeleteIcon from "@mui/icons-material/Delete";
@@ -20,7 +16,7 @@ import AssignmentIndIcon from "@mui/icons-material/AssignmentInd";
 import AccessTimeIcon from "@mui/icons-material/AccessTime";
 import FileDownloadIcon from "@mui/icons-material/FileDownload";
 import GroupWorkIcon from "@mui/icons-material/GroupWork";
-import AddIcon from "@mui/icons-material/Add";
+import PersonAddIcon from "@mui/icons-material/PersonAdd";
 import TodayIcon from "@mui/icons-material/Today";
 import UnfoldMoreIcon from "@mui/icons-material/UnfoldMore";
 
@@ -55,6 +51,8 @@ import { styled } from "@mui/material/styles";
 import { collection, getDocs, doc, setDoc } from "firebase/firestore";
 import { auth } from "../../auth/firebaseConfig";
 import { onAuthStateChanged } from "firebase/auth";
+// ...existing code...
+// Ensure clients are loaded for event query
 const ClusterMap = React.lazy(() => import("./ClusterMap"));
 import AssignDriverPopup from "./components/AssignDriverPopup";
 import GenerateClustersPopup from "./components/GenerateClustersPopup";
@@ -65,6 +63,8 @@ import Button from "../../components/common/Button";
 import { RowData as DeliveryRowData } from "./types/deliveryTypes";
 import { Driver } from '../../types/calendar-types';
 import { ClientProfile } from '../../types/client-types';
+// ...existing code...
+// Remove top-level hooks for clients
 import { CustomRowData, useCustomColumns, allowedPropertyKeys } from "../../hooks/useCustomColumns";
 import { clientService } from "../../services/client-service";
 import { LatLngTuple } from "leaflet";
@@ -78,6 +78,13 @@ interface ClientOverride {
 import { useAuth } from "../../auth/AuthProvider";
 import EventCountHeader from "../../components/EventCountHeader";
 import { useLimits } from "../Calendar/components/useLimits";
+import DietaryRestrictionsLegend from "../../components/DietaryRestrictionsLegend";
+// interface Driver {
+//   id: string;
+//   name: string;
+//   phone: string
+//   email: string;
+// }
 
 const StyleChip = styled(Chip)({
   backgroundColor: 'var(--color-primary)',
@@ -330,8 +337,8 @@ const DeliverySpreadsheet: React.FC = () => {
   const [clusters, setClustersOriginal] = useState<Cluster[]>([]);
   const [selectedClusters, setSelectedClusters] = useState<Set<any>>(new Set());
   const [exportOption, setExportOption] = useState<"Routes" | "Doordash" | null>(null);
+  const [emailOrDownload, setEmailOrDownload] = useState<"Email" | "Download" | null>(null);
   const [driversRefreshTrigger, setDriversRefreshTrigger] = useState<number>(0);
-  const [highlightedRowId, setHighlightedRowId] = useState<string | null>(null);
 
   // Helper function to deduplicate clusters by ID
   const deduplicateClusters = (clusters: Cluster[]): Cluster[] => {
@@ -750,17 +757,27 @@ const DeliverySpreadsheet: React.FC = () => {
     }
   };
 
-  const handleExport = async () => {
+  const handleEmailOrDownload = async (option: "Email" | "Download") => {
+    setEmailOrDownload(option);
     setPopupMode("");
 
     if (exportOption === "Routes") {
-      // Pass rows and clusters to exportDeliveries
-      exportDeliveries(TimeUtils.fromJSDate(selectedDate).toISODate() || "", rows, clusters);
-      console.log("Downloading Routes...");
+      if (option === "Email") {
+        alert("Unimplemented");
+      } else if (option === "Download") {
+        // Pass rows and clusters to exportDeliveries
+        exportDeliveries(TimeUtils.fromJSDate(selectedDate).toISODate() || "", rows, clusters);
+        console.log("Downloading Routes...");
+        // Add your download logic here
+      }
     } else if (exportOption === "Doordash") {
-      // Export DoorDash deliveries grouped by time
-      exportDoordashDeliveries(TimeUtils.fromJSDate(selectedDate).toISODate() || "", rows, clusters);
-      console.log("Downloading Doordash...");
+      if (option === "Email") {
+        alert("Unimplemented");
+      } else if (option === "Download") {
+        // Export DoorDash deliveries grouped by time
+        exportDoordashDeliveries(TimeUtils.fromJSDate(selectedDate).toISODate() || "", rows, clusters);
+        console.log("Downloading Doordash...");
+      }
     }
   };
 
@@ -903,6 +920,7 @@ const DeliverySpreadsheet: React.FC = () => {
   const resetSelections = () => {
     setPopupMode("");
     setExportOption(null);
+    setEmailOrDownload(null);
     // Keep selectedRows and selectedClusters checked so users can make multiple assignments
   };
 
@@ -1192,7 +1210,7 @@ const DeliverySpreadsheet: React.FC = () => {
             // Schedule Firestore update (don't await here individually to speed up)
             updatePromises.push(
               clientService.updateClientCoordinates(client.id, coords)
-                .catch(err => console.error(`Failed to update coordinates for client ${client.id}:`, err)) // Log errors but don't fail the whole process
+                .catch((err: Error) => console.error(`Failed to update coordinates for client ${client.id}:`, err)) // Log errors but don't fail the whole process
             );
           } else {
             console.warn(`Failed to geocode address for client ${client.id}: ${client.address}. Skipping this client.`);
@@ -1342,37 +1360,6 @@ const DeliverySpreadsheet: React.FC = () => {
     setSelectedRows(newSelectedRows);
   };
 
-
-
-  const handleRowClick = (clientId: string) => {
-    // Handle special case for clearing highlight only
-    if (clientId === 'CLEAR_HIGHLIGHT_ONLY') {
-      setHighlightedRowId(null);
-      return;
-    }
-    
-    // If clicking the same row that's already highlighted, toggle it off
-    if (highlightedRowId === clientId) {
-      setHighlightedRowId(null);
-      // Close any open popup
-      if ((window as any).closeMapPopup) {
-        (window as any).closeMapPopup();
-      }
-    } else {
-      // Highlight the new row and open its popup
-      setHighlightedRowId(clientId);
-      // Open the corresponding map popup
-      if ((window as any).openMapPopup) {
-        (window as any).openMapPopup(clientId);
-      }
-    }
-  };
-
-  // Separate function just for clearing highlights (used by popup close handler)
-  const clearRowHighlight = () => {
-    setHighlightedRowId(null);
-  };
-
   const clientsWithDeliveriesOnSelectedDate = rows.filter((row) =>
     deliveriesForDate.some((delivery) => delivery.clientId === row.id)
   );
@@ -1386,16 +1373,72 @@ const DeliverySpreadsheet: React.FC = () => {
 
   const visibleRows = rows.filter((row) => {
     const trimmedSearchQuery = searchQuery.trim();
+    //if search is empty then show all rows
     if (!trimmedSearchQuery) {
       return true;
     }
 
-    const validSearchTerms = parseSearchTermsProgressively(trimmedSearchQuery);
+    //parse search terms progressively - extract complete quoted terms and partial terms
+    const searchTerms = [];
+    let inQuote = false;
+    let quoteChar = '';
+    let currentTerm = '';
+    
+    for (let i = 0; i < trimmedSearchQuery.length; i++) {
+      const char = trimmedSearchQuery[i];
+      
+      if (!inQuote && (char === '"' || char === "'")) {
+        // Starting a quoted term - save any existing unquoted term first
+        if (currentTerm.trim()) {
+          searchTerms.push(currentTerm.trim());
+          currentTerm = '';
+        }
+        inQuote = true;
+        quoteChar = char;
+        // Don't include the quote character in the term
+      } else if (inQuote && char === quoteChar) {
+        // Ending a quoted term
+        if (currentTerm.trim()) {
+          searchTerms.push(currentTerm.trim());
+        }
+        currentTerm = '';
+        inQuote = false;
+        quoteChar = '';
+        // Don't include the closing quote character
+      } else if (!inQuote && char === ' ') {
+        // Space outside quotes - end current term
+        if (currentTerm.trim()) {
+          searchTerms.push(currentTerm.trim());
+          currentTerm = '';
+        }
+      } else {
+        // Regular character (including characters inside quotes) - add to current term
+        currentTerm += char;
+      }
+    }
+    
+    // Add any remaining term (including partial quoted terms)
+    if (currentTerm.trim()) {
+      searchTerms.push(currentTerm.trim());
+    }
+    
+    //filter out empty terms and lone quote marks
+    const validSearchTerms = searchTerms.filter(term => {
+      return term.length > 0 && term !== '"' && term !== "'";
+    });
+
+    //if no valid search terms, show all rows
     if (validSearchTerms.length === 0) {
       return true;
     }
 
-    const checkStringContains = utilCheckStringContains;
+    // Helper function to check if a value contains the search query string
+    const checkStringContains = (value: any, query: string): boolean => {
+      if (value === undefined || value === null) {
+        return false;
+      }
+      return String(value).toLowerCase().includes(query.toLowerCase());
+    };
 
     // Helper for numbers, dates (as strings/numbers), or items in an array
     const checkValueOrInArray = (value: any, query: string): boolean => {
@@ -1410,30 +1453,48 @@ const DeliverySpreadsheet: React.FC = () => {
     };
 
     return validSearchTerms.every(term => {
-      const { keyword, searchValue, isKeyValue: isKeyValueSearch } = extractKeyValue(term);
+      //check if this is a key:value search
+      const colonIndex = term.indexOf(':');
+      let isKeyValueSearch = false;
+      let keyword = "";
+      let searchValue = "";
 
-      if (!isKeyValueSearch) {
+      if (colonIndex !== -1) {
+        keyword = term.substring(0, colonIndex).trim().toLowerCase();
+        searchValue = term.substring(colonIndex + 1).trim();
+        isKeyValueSearch = true; // Even if searchValue is empty, it's still a key:value attempt
+      } else {
+        // Check if this term looks like a partial key (common field names + custom columns for delivery)
+        const lowerTerm = term.toLowerCase();
         const commonFieldNames = [
-          'name', 'client', 'address', 'ward', 'zip', 'cluster', 'driver', 'time',
-          'delivery', 'instructions', 'tags', 'phone', 'ethnicity', 'adults',
+          'name', 'client', 'address', 'ward', 'zip', 'cluster', 'driver', 'time', 
+          'delivery', 'instructions', 'tags', 'phone', 'ethnicity', 'adults', 
           'children', 'frequency', 'gender', 'language', 'notes', 'tefap', 'dob', 'referral'
         ];
-
+        
+        // Add custom column labels to the list of searchable field names (only for columns with data)
         const customFieldNames = customColumns
           .filter(col => col.propertyKey !== "none")
           .map(col => col.label.toLowerCase());
         const allFieldNames = [...commonFieldNames, ...customFieldNames];
-
-        if (isPartialFieldName(term, allFieldNames)) {
+        
+        const isPartialKey = allFieldNames.some(fieldName => 
+          fieldName.startsWith(lowerTerm) || lowerTerm.startsWith(fieldName.substring(0, Math.min(3, fieldName.length)))
+        );
+        
+        if (isPartialKey) {
+          // This looks like someone typing a field name, show all rows until they add a colon
           return true;
         }
       }
 
       if (isKeyValueSearch) {
+        //if no search value yet (just typing the key), show all rows (waiting for value)
         if (!searchValue) {
           return true;
         }
 
+        // Perform key-value search
         switch (keyword) {
         case "name":
         case "client":
@@ -1500,9 +1561,15 @@ const DeliverySpreadsheet: React.FC = () => {
           return false;
         }
         default: {
-          // Check custom columns
+          // Check custom columns (by label or propertyKey, only for visible columns with data)
           const matchesCustomColumn = customColumns.some((col) => {
-            if (col.propertyKey !== "none" && col.propertyKey.toLowerCase().includes(keyword)) {
+            // Only search in columns that have actual data
+            if (col.propertyKey === "none") return false;
+            
+            const labelMatches = col.label.toLowerCase().includes(keyword) || keyword.includes(col.label.toLowerCase());
+            const propertyMatches = col.propertyKey.toLowerCase().includes(keyword);
+            
+            if (labelMatches || propertyMatches) {
               const fieldValue = row[col.propertyKey as keyof DeliveryRowData];
               return checkStringContains(fieldValue, searchValue);
             }
@@ -1551,7 +1618,7 @@ const DeliverySpreadsheet: React.FC = () => {
         if (checkStringContains(row.referralEntity.organization, globalSearchValue)) return true;
       }
 
-      // Search in custom columns
+      // Search in custom columns (only visible columns with data)
       const matchesCustomColumn = customColumns.some((col) => {
         if (col.propertyKey !== "none") {
           const fieldValue = row[col.propertyKey as keyof DeliveryRowData];
@@ -1960,7 +2027,7 @@ const DeliverySpreadsheet: React.FC = () => {
           <LoadingIndicator />
         ) : visibleRows.length > 0 ? (
           <Suspense fallback={<LoadingIndicator />}>
-            <ClusterMap clusters={clusters} visibleRows={visibleRows} clientOverrides={clientOverrides} onClusterUpdate={handleIndividualClientUpdate} onOpenPopup={handleRowClick} onClearHighlight={clearRowHighlight} refreshDriversTrigger={driversRefreshTrigger} />
+            <ClusterMap clusters={clusters} visibleRows={visibleRows} clientOverrides={clientOverrides} onClusterUpdate={handleIndividualClientUpdate} refreshDriversTrigger={driversRefreshTrigger} />
           </Suspense>
         ) : (
           <Box
@@ -1980,8 +2047,6 @@ const DeliverySpreadsheet: React.FC = () => {
           </Box>
         )}
       </Box>
-
-
 
       {/* Search Bar */}
       <Box
@@ -2127,6 +2192,19 @@ const DeliverySpreadsheet: React.FC = () => {
           maxHeight: "none",
         }}
       >
+        {/* Dietary Restrictions Color Legend - only show when column is added */}
+        {(() => {
+          console.log('Custom columns:', customColumns);
+          console.log('Has dietary restrictions:', customColumns.some(col => 
+            col.propertyKey === "deliveryDetails.dietaryRestrictions" || 
+            col.propertyKey === "dietaryRestrictions"
+          ));
+          return customColumns.some(col => 
+            col.propertyKey === "deliveryDetails.dietaryRestrictions" || 
+            col.propertyKey === "dietaryRestrictions"
+          );
+        })() && <DietaryRestrictionsLegend />}
+        
         <TableContainer
           component={Paper}
           sx={{
@@ -2290,23 +2368,7 @@ const DeliverySpreadsheet: React.FC = () => {
             </TableHead>
             <TableBody>
               {sortedRows.map((row, index) => (
-                <TableRow 
-                  key={`${sortTimestamp}-${index}-${row.id}`} 
-                  className="table-row delivery-anim-row"
-                  data-client-id={row.id}
-                  onClick={() => handleRowClick(row.id)}
-                  sx={{
-                    backgroundColor: (() => {
-                      const isHighlighted = highlightedRowId === row.id;
-                      return isHighlighted ? 'rgba(144, 238, 144, 0.7) !important' : 'inherit';
-                    })(),
-                    border: highlightedRowId === row.id ? '2px solid #90EE90 !important' : 'none',
-                    cursor: 'pointer',
-                    '&:hover': {
-                      backgroundColor: 'rgba(144, 238, 144, 0.3) !important'
-                    }
-                  }}
-                >
+                <TableRow key={`${sortTimestamp}-${index}-${row.id}`} className="table-row delivery-anim-row">
                   {fields.map((field) => {
                     // Render the table cell based on field type
                     return (
@@ -2328,7 +2390,6 @@ const DeliverySpreadsheet: React.FC = () => {
                             disabled={userRole === UserType.ClientIntake}
                             checked={selectedRows.has(row.id)}
                             onChange={() => handleCheckboxChange(row)}
-                            onClick={(e) => e.stopPropagation()}
                           />
                         ) : field.type === "select" && field.key === "clusterIdChange" ? (
                           // Render Select for clusterIdChange
@@ -2470,25 +2531,57 @@ const DeliverySpreadsheet: React.FC = () => {
                               restrictions.push(dr.otherText.trim());
                             return restrictions.length > 0 ? (
                               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, maxWidth: '250px' }}>
-                                {restrictions.map((restriction, i) => (
-                                  <Chip
-                                    key={i}
-                                    label={restriction}
-                                    size="small"
-                                    sx={{
-                                      backgroundColor: "#e8f5e9",
-                                      color: "#2E5B4C",
-                                      fontSize: "0.75rem",
-                                      height: "20px",
-                                      fontWeight: 500,
-                                      border: "1px solid #c8e6c9",
-                                      mb: 0.5,
-                                      mr: 0.5,
-                                      '& .MuiChip-label': { px: 1 },
-                                      '&:hover': { backgroundColor: '#e8f5e9', cursor: 'default' }
-                                    }}
-                                  />
-                                ))}
+                                {(() => {
+                                  const chips: { label: string; color: string; border: string; textColor: string }[] = [];
+                                  // Boolean restrictions (green)
+                                  [
+                                    { key: 'halal', label: 'Halal' },
+                                    { key: 'kidneyFriendly', label: 'Kidney Friendly' },
+                                    { key: 'lowSodium', label: 'Low Sodium' },
+                                    { key: 'lowSugar', label: 'Low Sugar' },
+                                    { key: 'microwaveOnly', label: 'Microwave Only' },
+                                    { key: 'noCookingEquipment', label: 'No Cooking Equipment' },
+                                    { key: 'softFood', label: 'Soft Food' },
+                                    { key: 'vegan', label: 'Vegan' },
+                                    { key: 'vegetarian', label: 'Vegetarian' },
+                                    { key: 'heartFriendly', label: 'Heart Friendly' },
+                                  ].forEach(opt => {
+                                    if (dr[opt.key as keyof typeof dr]) {
+                                      chips.push({ label: opt.label, color: '#e8f5e9', border: '#c8e6c9', textColor: '#2E5B4C' });
+                                    }
+                                  });
+                                  // Allergies (light red)
+                                  if (Array.isArray(dr.foodAllergens) && dr.foodAllergens.length > 0) {
+                                    dr.foodAllergens.forEach((allergy: string) => {
+                                      if (allergy && allergy.trim()) {
+                                        chips.push({ label: allergy, color: '#FFEBEE', border: '#FFCDD2', textColor: '#C62828' });
+                                      }
+                                    });
+                                  }
+                                  // Other (light purple)
+                                  if (dr.otherText && dr.otherText.trim()) {
+                                    chips.push({ label: dr.otherText, color: '#F3E8FF', border: '#CEB8FF', textColor: '#6C2EB7' });
+                                  }
+                                  return chips.map((chip, i) => (
+                                    <Chip
+                                      key={i}
+                                      label={chip.label}
+                                      size="small"
+                                      sx={{
+                                        backgroundColor: chip.color,
+                                        color: chip.textColor,
+                                        border: `1px solid ${chip.border}`,
+                                        fontSize: "0.75rem",
+                                        height: "20px",
+                                        fontWeight: 500,
+                                        mb: 0.5,
+                                        mr: 0.5,
+                                        '& .MuiChip-label': { px: 1 },
+                                        '&:hover': { backgroundColor: chip.color, cursor: 'default' }
+                                      }}
+                                    />
+                                  ));
+                                })()}
                               </Box>
                             ) : <span style={{ color: '#757575', fontStyle: 'italic' }}>None</span>;
                           })()
@@ -2561,10 +2654,19 @@ const DeliverySpreadsheet: React.FC = () => {
                 variant="primary"
                 color="primary"
                 onClick={() => {
-                  handleExport();
+                  handleEmailOrDownload("Email");
                   resetSelections();
                 }}
-                startIcon={<FileDownloadIcon />}
+              >
+                Email
+              </Button>
+              <Button
+                variant="secondary"
+                color="secondary"
+                onClick={() => {
+                  handleEmailOrDownload("Download");
+                  resetSelections();
+                }}
               >
                 Download
               </Button>
