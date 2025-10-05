@@ -58,23 +58,17 @@ const deleteDeliveriesAfterEndDate = async (clientId: string, newEndDate: string
       const eventData = docSnapshot.data();
       if (eventData.deliveryDate) {
         const deliveryDate = eventData.deliveryDate.toDate();
-        // Normalize both dates to YYYY-MM-DD format for accurate comparison
         const deliveryDateStr = deliveryDate.toISOString().split('T')[0];
         const endDateStr = newEndDateTime.toISOString().split('T')[0];
-        
-        // Only delete deliveries that are strictly after the end date (not on the end date)
+
         if (deliveryDateStr > endDateStr) {
-          console.log(`Deleting delivery on ${deliveryDateStr} (after new end date ${endDateStr})`);
           deletionPromises.push(deleteDoc(doc(db, "events", docSnapshot.id)));
-        } else if (deliveryDateStr === endDateStr) {
-          console.log(`Keeping delivery on ${deliveryDateStr} (matches end date ${endDateStr})`);
         }
       }
     });
 
     if (deletionPromises.length > 0) {
       await Promise.all(deletionPromises);
-      console.log(`Deleted ${deletionPromises.length} deliveries that were after the new end date`);
     }
   } catch (error) {
     console.error("Error deleting deliveries after end date:", error);
@@ -151,12 +145,10 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props: AddDeliveryD
           if (latestEndDate) {
             const formattedDate = convertToMMDDYYYY(latestEndDate);
             setCurrentLastDeliveryDate(formattedDate);
-            
-            // Pre-populate the End Date field with the current end date as a starting point
-            // Always update with fresh data to ensure synchronization
+
             setNewDelivery(prev => ({
               ...prev,
-              repeatsEndDate: formattedDate
+              repeatsEndDate: prev.repeatsEndDate || formattedDate
             }));
           } else {
             setCurrentLastDeliveryDate("");
@@ -278,14 +270,7 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props: AddDeliveryD
         const isEndDateUpdate = normalizedDeliveryDate === normalizedEndDate && 
                                events.length > 0 &&
                                newDelivery.recurrence !== "None";
-        
-        // Clear any existing duplicate error - we'll handle duplicates silently
         setDuplicateError("");
-        
-        if (hasDuplicate) {
-          console.log("Duplicate delivery detected - will be handled by Profile logic without error");
-        }
-        // No duplicate, proceed
         const deliveryToSubmit: Partial<NewDelivery> = { ...newDelivery };
         if (newDelivery.recurrence === "Custom") {
           deliveryToSubmit.customDates = customDates.map(date => date.toISOString().split("T")[0]);

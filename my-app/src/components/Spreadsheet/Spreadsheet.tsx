@@ -486,14 +486,19 @@ const Spreadsheet: React.FC<SpreadsheetProps> = ({ editable = true }) => {
       if (rows.length === 0) return;
 
       const clientIds = rows.map(row => row.uid);
-      const dates = await Promise.all(
-        clientIds.map(id => getLastDeliveryDateForClient(id).catch(() => null))
-      );
-
       const dateMap: Record<string, string> = {};
-      clientIds.forEach((id, index) => {
-        dateMap[id] = dates[index] || "No deliveries";
-      });
+      const BATCH_SIZE = 10;
+
+      for (let i = 0; i < clientIds.length; i += BATCH_SIZE) {
+        const batch = clientIds.slice(i, i + BATCH_SIZE);
+        const batchResults = await Promise.all(
+          batch.map(id => getLastDeliveryDateForClient(id).catch(() => null))
+        );
+
+        batch.forEach((id, index) => {
+          dateMap[id] = batchResults[index] || "No deliveries";
+        });
+      }
 
       setLastDeliveryDates(dateMap);
     };
@@ -522,31 +527,20 @@ const Spreadsheet: React.FC<SpreadsheetProps> = ({ editable = true }) => {
   // Handle deleting a row from Firestore
   const handleDeleteRow = async (id: string) => {
     try {
-      console.log(`Starting deletion process for client: ${id}`);
-      
-      // STEP 1: Delete all deliveries for this client
       const deliveryService = DeliveryService.getInstance();
       const clientDeliveries = await deliveryService.getEventsByClientId(id);
-      
-      console.log(`Found ${clientDeliveries.length} deliveries to delete for client ${id}`);
-      
+
       if (clientDeliveries.length > 0) {
-        const deletePromises = clientDeliveries.map(delivery => 
+        const deletePromises = clientDeliveries.map(delivery =>
           deliveryService.deleteEvent(delivery.id)
         );
-        
         await Promise.all(deletePromises);
-        console.log(`Successfully deleted ${clientDeliveries.length} deliveries for client ${id}`);
       }
-      
-      // STEP 2: Delete the client
+
       const clientService = ClientService.getInstance();
       await clientService.deleteClient(id);
-      console.log(`Successfully deleted client ${id}`);
-      
-      // STEP 3: Update the UI
-      setRows(rows.filter((row) => row.uid !== id)); // Filter based on uid
-      
+
+      setRows(rows.filter((row) => row.uid !== id));
     } catch (error) {
       console.error("Error deleting client and deliveries: ", error);
     }
