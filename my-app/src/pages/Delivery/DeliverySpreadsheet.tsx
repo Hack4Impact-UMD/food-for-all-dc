@@ -3,6 +3,13 @@ import { getEventsByViewType } from '../Calendar/components/getEventsByViewType'
 import { DayPilot } from "@daypilot/daypilot-lite-react";
 import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import { db } from "../../auth/firebaseConfig";
+import { Search, Filter } from "lucide-react";
+import {
+  parseSearchTermsProgressively,
+  checkStringContains as utilCheckStringContains,
+  isPartialFieldName,
+  extractKeyValue
+} from "../../utils/searchFilter";
 import { query, Timestamp, updateDoc, where } from "firebase/firestore";
 import { TimeUtils } from "../../utils/timeUtils";
 import { format, addDays } from "date-fns";
@@ -71,7 +78,6 @@ interface ClientOverride {
 import { useAuth } from "../../auth/AuthProvider";
 import EventCountHeader from "../../components/EventCountHeader";
 import { useLimits } from "../Calendar/components/useLimits";
-import DietaryRestrictionsLegend from "../../components/DietaryRestrictionsLegend";
 
 const StyleChip = styled(Chip)({
   backgroundColor: 'var(--color-primary)',
@@ -1381,72 +1387,16 @@ const DeliverySpreadsheet: React.FC = () => {
 
   const visibleRows = rows.filter((row) => {
     const trimmedSearchQuery = searchQuery.trim();
-    //if search is empty then show all rows
     if (!trimmedSearchQuery) {
       return true;
     }
 
-    //parse search terms progressively - extract complete quoted terms and partial terms
-    const searchTerms = [];
-    let inQuote = false;
-    let quoteChar = '';
-    let currentTerm = '';
-    
-    for (let i = 0; i < trimmedSearchQuery.length; i++) {
-      const char = trimmedSearchQuery[i];
-      
-      if (!inQuote && (char === '"' || char === "'")) {
-        // Starting a quoted term - save any existing unquoted term first
-        if (currentTerm.trim()) {
-          searchTerms.push(currentTerm.trim());
-          currentTerm = '';
-        }
-        inQuote = true;
-        quoteChar = char;
-        // Don't include the quote character in the term
-      } else if (inQuote && char === quoteChar) {
-        // Ending a quoted term
-        if (currentTerm.trim()) {
-          searchTerms.push(currentTerm.trim());
-        }
-        currentTerm = '';
-        inQuote = false;
-        quoteChar = '';
-        // Don't include the closing quote character
-      } else if (!inQuote && char === ' ') {
-        // Space outside quotes - end current term
-        if (currentTerm.trim()) {
-          searchTerms.push(currentTerm.trim());
-          currentTerm = '';
-        }
-      } else {
-        // Regular character (including characters inside quotes) - add to current term
-        currentTerm += char;
-      }
-    }
-    
-    // Add any remaining term (including partial quoted terms)
-    if (currentTerm.trim()) {
-      searchTerms.push(currentTerm.trim());
-    }
-    
-    //filter out empty terms and lone quote marks
-    const validSearchTerms = searchTerms.filter(term => {
-      return term.length > 0 && term !== '"' && term !== "'";
-    });
-
-    //if no valid search terms, show all rows
+    const validSearchTerms = parseSearchTermsProgressively(trimmedSearchQuery);
     if (validSearchTerms.length === 0) {
       return true;
     }
 
-    // Helper function to check if a value contains the search query string
-    const checkStringContains = (value: any, query: string): boolean => {
-      if (value === undefined || value === null) {
-        return false;
-      }
-      return String(value).toLowerCase().includes(query.toLowerCase());
-    };
+    const checkStringContains = utilCheckStringContains;
 
     // Helper for numbers, dates (as strings/numbers), or items in an array
     const checkValueOrInArray = (value: any, query: string): boolean => {
@@ -1461,48 +1411,30 @@ const DeliverySpreadsheet: React.FC = () => {
     };
 
     return validSearchTerms.every(term => {
-      //check if this is a key:value search
-      const colonIndex = term.indexOf(':');
-      let isKeyValueSearch = false;
-      let keyword = "";
-      let searchValue = "";
+      const { keyword, searchValue, isKeyValue: isKeyValueSearch } = extractKeyValue(term);
 
-      if (colonIndex !== -1) {
-        keyword = term.substring(0, colonIndex).trim().toLowerCase();
-        searchValue = term.substring(colonIndex + 1).trim();
-        isKeyValueSearch = true; // Even if searchValue is empty, it's still a key:value attempt
-      } else {
-        // Check if this term looks like a partial key (common field names + custom columns for delivery)
-        const lowerTerm = term.toLowerCase();
+      if (!isKeyValueSearch) {
         const commonFieldNames = [
-          'name', 'client', 'address', 'ward', 'zip', 'cluster', 'driver', 'time', 
-          'delivery', 'instructions', 'tags', 'phone', 'ethnicity', 'adults', 
+          'name', 'client', 'address', 'ward', 'zip', 'cluster', 'driver', 'time',
+          'delivery', 'instructions', 'tags', 'phone', 'ethnicity', 'adults',
           'children', 'frequency', 'gender', 'language', 'notes', 'tefap', 'dob', 'referral'
         ];
-        
-        // Add custom column labels to the list of searchable field names (only for columns with data)
+
         const customFieldNames = customColumns
           .filter(col => col.propertyKey !== "none")
           .map(col => col.label.toLowerCase());
         const allFieldNames = [...commonFieldNames, ...customFieldNames];
-        
-        const isPartialKey = allFieldNames.some(fieldName => 
-          fieldName.startsWith(lowerTerm) || lowerTerm.startsWith(fieldName.substring(0, Math.min(3, fieldName.length)))
-        );
-        
-        if (isPartialKey) {
-          // This looks like someone typing a field name, show all rows until they add a colon
+
+        if (isPartialFieldName(term, allFieldNames)) {
           return true;
         }
       }
 
       if (isKeyValueSearch) {
-        //if no search value yet (just typing the key), show all rows (waiting for value)
         if (!searchValue) {
           return true;
         }
 
-        // Perform key-value search
         switch (keyword) {
         case "name":
         case "client":
@@ -1569,15 +1501,9 @@ const DeliverySpreadsheet: React.FC = () => {
           return false;
         }
         default: {
-          // Check custom columns (by label or propertyKey, only for visible columns with data)
+          // Check custom columns
           const matchesCustomColumn = customColumns.some((col) => {
-            // Only search in columns that have actual data
-            if (col.propertyKey === "none") return false;
-            
-            const labelMatches = col.label.toLowerCase().includes(keyword) || keyword.includes(col.label.toLowerCase());
-            const propertyMatches = col.propertyKey.toLowerCase().includes(keyword);
-            
-            if (labelMatches || propertyMatches) {
+            if (col.propertyKey !== "none" && col.propertyKey.toLowerCase().includes(keyword)) {
               const fieldValue = row[col.propertyKey as keyof DeliveryRowData];
               return checkStringContains(fieldValue, searchValue);
             }
@@ -1626,7 +1552,7 @@ const DeliverySpreadsheet: React.FC = () => {
         if (checkStringContains(row.referralEntity.organization, globalSearchValue)) return true;
       }
 
-      // Search in custom columns (only visible columns with data)
+      // Search in custom columns
       const matchesCustomColumn = customColumns.some((col) => {
         if (col.propertyKey !== "none") {
           const fieldValue = row[col.propertyKey as keyof DeliveryRowData];
@@ -2202,12 +2128,6 @@ const DeliverySpreadsheet: React.FC = () => {
           maxHeight: "none",
         }}
       >
-        {/* Dietary Restrictions Color Legend - only show when column is added */}
-        {customColumns.some(col => 
-          col.propertyKey === "deliveryDetails.dietaryRestrictions" || 
-          col.propertyKey === "dietaryRestrictions"
-        ) && <DietaryRestrictionsLegend />}
-        
         <TableContainer
           component={Paper}
           sx={{
@@ -2551,57 +2471,25 @@ const DeliverySpreadsheet: React.FC = () => {
                               restrictions.push(dr.otherText.trim());
                             return restrictions.length > 0 ? (
                               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, maxWidth: '250px' }}>
-                                {(() => {
-                                  const chips: { label: string; color: string; border: string; textColor: string }[] = [];
-                                  // Boolean restrictions (green)
-                                  [
-                                    { key: 'halal', label: 'Halal' },
-                                    { key: 'kidneyFriendly', label: 'Kidney Friendly' },
-                                    { key: 'lowSodium', label: 'Low Sodium' },
-                                    { key: 'lowSugar', label: 'Low Sugar' },
-                                    { key: 'microwaveOnly', label: 'Microwave Only' },
-                                    { key: 'noCookingEquipment', label: 'No Cooking Equipment' },
-                                    { key: 'softFood', label: 'Soft Food' },
-                                    { key: 'vegan', label: 'Vegan' },
-                                    { key: 'vegetarian', label: 'Vegetarian' },
-                                    { key: 'heartFriendly', label: 'Heart Friendly' },
-                                  ].forEach(opt => {
-                                    if (dr[opt.key as keyof typeof dr]) {
-                                      chips.push({ label: opt.label, color: '#e8f5e9', border: '#c8e6c9', textColor: '#2E5B4C' });
-                                    }
-                                  });
-                                  // Allergies (light red)
-                                  if (Array.isArray(dr.foodAllergens) && dr.foodAllergens.length > 0) {
-                                    dr.foodAllergens.forEach((allergy: string) => {
-                                      if (allergy && allergy.trim()) {
-                                        chips.push({ label: allergy, color: '#FFEBEE', border: '#FFCDD2', textColor: '#C62828' });
-                                      }
-                                    });
-                                  }
-                                  // Other (light purple)
-                                  if (dr.otherText && dr.otherText.trim()) {
-                                    chips.push({ label: dr.otherText, color: '#F3E8FF', border: '#CEB8FF', textColor: '#6C2EB7' });
-                                  }
-                                  return chips.map((chip, i) => (
-                                    <Chip
-                                      key={i}
-                                      label={chip.label}
-                                      size="small"
-                                      sx={{
-                                        backgroundColor: chip.color,
-                                        color: chip.textColor,
-                                        border: `1px solid ${chip.border}`,
-                                        fontSize: "0.75rem",
-                                        height: "20px",
-                                        fontWeight: 500,
-                                        mb: 0.5,
-                                        mr: 0.5,
-                                        '& .MuiChip-label': { px: 1 },
-                                        '&:hover': { backgroundColor: chip.color, cursor: 'default' }
-                                      }}
-                                    />
-                                  ));
-                                })()}
+                                {restrictions.map((restriction, i) => (
+                                  <Chip
+                                    key={i}
+                                    label={restriction}
+                                    size="small"
+                                    sx={{
+                                      backgroundColor: "#e8f5e9",
+                                      color: "#2E5B4C",
+                                      fontSize: "0.75rem",
+                                      height: "20px",
+                                      fontWeight: 500,
+                                      border: "1px solid #c8e6c9",
+                                      mb: 0.5,
+                                      mr: 0.5,
+                                      '& .MuiChip-label': { px: 1 },
+                                      '&:hover': { backgroundColor: '#e8f5e9', cursor: 'default' }
+                                    }}
+                                  />
+                                ))}
                               </Box>
                             ) : <span style={{ color: '#757575', fontStyle: 'italic' }}>None</span>;
                           })()

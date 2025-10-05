@@ -20,6 +20,8 @@ import {
 } from "@mui/material";
 import { validateDateInput } from "../../../utils/dates";
 import { getLastDeliveryDateForClient } from "../../../utils/lastDeliveryDate";
+import { deleteDeliveriesAfterEndDate } from "../../../utils/deliveryCleanup";
+import { deliveryEventEmitter } from "../../../utils/deliveryEventEmitter";
 import MoreHorizIcon from "@mui/icons-material/MoreHoriz";
 import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, query, where, orderBy, updateDoc, Timestamp} from "firebase/firestore";
 import { db } from "../../../auth/firebaseConfig";
@@ -33,41 +35,6 @@ interface EventMenuProps {
   event: DeliveryEvent;
   onEventModified: () => void;
 }
-
-// Helper function to delete deliveries that are later than the new end date
-const deleteDeliveriesAfterEndDate = async (clientId: string, newEndDate: string) => {
-  try {
-    const eventsRef = collection(db, "events");
-    const q = query(
-      eventsRef,
-      where("clientId", "==", clientId)
-    );
-    const querySnapshot = await getDocs(q);
-
-    const deletionPromises: Promise<void>[] = [];
-    const newEndDateTime = new Date(newEndDate);
-
-    querySnapshot.forEach((docSnapshot) => {
-      const eventData = docSnapshot.data();
-      if (eventData.deliveryDate) {
-        const deliveryDate = eventData.deliveryDate.toDate();
-        const deliveryDateStr = deliveryDate.toISOString().split('T')[0];
-        const endDateStr = newEndDateTime.toISOString().split('T')[0];
-
-        if (deliveryDateStr > endDateStr) {
-          deletionPromises.push(deleteDoc(doc(db, "events", docSnapshot.id)));
-        }
-      }
-    });
-
-    if (deletionPromises.length > 0) {
-      await Promise.all(deletionPromises);
-    }
-  } catch (error) {
-    console.error("Error deleting deliveries after end date:", error);
-    throw error;
-  }
-};
 
 const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
   const { userRole } = useAuth();
@@ -138,7 +105,7 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
     };
 
     fetchCurrentLastDeliveryDate();
-  }, [event.clientId]);
+  }, [event.clientId, event.id]);
 
   const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
     event.stopPropagation();
@@ -203,9 +170,7 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
         await Promise.all(batch);
       }
 
-      // Signal that deliveries have been modified for other components
-      localStorage.setItem('deliveriesModified', Date.now().toString());
-      
+      deliveryEventEmitter.emit();
       onEventModified();
       setIsDeleteDialogOpen(false);
     } catch (error) {
@@ -237,7 +202,10 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
         const originalEventDoc = await getDoc(doc(eventsRef, event.id));
         const originalEvent = originalEventDoc.data();
 
-        if (!originalEvent) return;
+        if (!originalEvent) {
+          console.error("Original event not found.");
+          return;
+        }
 
         const originalDeliveryDate = toJSDate(originalEvent.deliveryDate);
 
@@ -273,15 +241,12 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
           return dateStr <= endDateStr; // Only include dates on or before end date
         });
 
-        // Update existing deliveries in the same recurrence series with the new end date
-        // We don't create new deliveries - just update the repeatsEndDate for the series
         const seriesQuery = query(
           eventsRef,
           where("clientId", "==", editRecurrence.clientId ?? event.clientId),
           where("recurrenceId", "==", event.recurrenceId)
         );
         const seriesSnapshot = await getDocs(seriesQuery);
-
         const updateOperations: Promise<any>[] = [];
 
         seriesSnapshot.forEach((docSnapshot) => {
@@ -309,9 +274,7 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
         }
       }
 
-      // Signal that deliveries have been modified for other components
-      localStorage.setItem('deliveriesModified', Date.now().toString());
-      
+      deliveryEventEmitter.emit();
       onEventModified();
       setIsEditDialogOpen(false);
     } catch (error) {

@@ -58,17 +58,24 @@ const StyleChip = styled(Chip)(({ theme }) => ({
   },
 }));
 import { onAuthStateChanged } from "firebase/auth";
+import { writeBatch, doc } from "firebase/firestore";
 import { Filter, Search } from "lucide-react";
 import React, { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { auth } from "../../auth/firebaseConfig";
+import { auth, db } from "../../auth/firebaseConfig";
 import { useCustomColumns } from "../../hooks/useCustomColumns";
 import ClientService from "../../services/client-service";
 import DeliveryService from "../../services/delivery-service";
 import { exportQueryResults, exportAllClients } from "./export";
 import "./Spreadsheet.css";
 import DeleteClientModal from "./DeleteClientModal";
-import { getLastDeliveryDateForClient } from "../../utils/lastDeliveryDate";
+import { batchGetLastDeliveryDates } from "../../utils/lastDeliveryDate";
+import {
+  parseSearchTermsProgressively,
+  checkStringContains as utilCheckStringContains,
+  isPartialFieldName,
+  extractKeyValue
+} from "../../utils/searchFilter";
 import DietaryRestrictionsLegend from "../DietaryRestrictionsLegend";
 
 // Define TypeScript types for row data
@@ -140,11 +147,11 @@ function getCustomColumnValue(row: RowData, propertyKey: string): string {
   return val !== undefined && val !== null ? val.toString() : "";
 }
 
-function getCustomColumnDisplay(row: RowData, propertyKey: string, lastDeliveryDates: Record<string, string>): React.ReactNode {
+function getCustomColumnDisplay(row: RowData, propertyKey: string): React.ReactNode {
   if (!propertyKey || propertyKey === "none") return "N/A";
 
   if (propertyKey === "lastDeliveryDate") {
-    return lastDeliveryDates[row.uid] || "Loading...";
+    return row.lastDeliveryDate || "No deliveries";
   }
   
   // Handle referralEntity (object)
@@ -233,7 +240,6 @@ const Spreadsheet: React.FC<SpreadsheetProps> = ({ editable = true }) => {
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const [exportOption, setExportOption] = useState<"QueryResults" | "AllClients" | null>(null);
   const [clientIdToDelete, setClientIdToDelete] = useState<string | null>(null);
-  const [lastDeliveryDates, setLastDeliveryDates] = useState<Record<string, string>>({});
 
   // Track which column is currently being sorted
   const [sortedColumn, setSortedColumn] = useState<string>(() => {
@@ -276,12 +282,10 @@ const Spreadsheet: React.FC<SpreadsheetProps> = ({ editable = true }) => {
   React.useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user: any) => {
       if (!user) {
-        console.log("No user is signed in, redirecting to /");
         navigate("/");
       }
     });
 
-    // Cleanup the listener when the component unmounts
     return () => unsubscribe();
   }, [navigate]);
 
@@ -473,38 +477,29 @@ const Spreadsheet: React.FC<SpreadsheetProps> = ({ editable = true }) => {
       try {
         const clientService = ClientService.getInstance();
         const { clients } = await clientService.getAllClientsForSpreadsheet();
-        setRows(clients);
+
+        const clientIds = clients.map(c => c.uid).filter((id): id is string => !!id);
+        const batchSize = 10;
+        const lastDeliveryMap = new Map<string, string>();
+
+        for (let i = 0; i < clientIds.length; i += batchSize) {
+          const batch = clientIds.slice(i, i + batchSize);
+          const batchResults = await batchGetLastDeliveryDates(batch);
+          batchResults.forEach((date, clientId) => lastDeliveryMap.set(clientId, date));
+        }
+
+        const clientsWithDates = clients.map(client => ({
+          ...client,
+          lastDeliveryDate: lastDeliveryMap.get(client.uid) || undefined
+        }));
+
+        setRows(clientsWithDates);
       } catch (error) {
         console.error("Error fetching data: ", error);
       }
     };
     fetchData();
   }, []);
-
-  useEffect(() => {
-    const loadLastDeliveryDates = async () => {
-      if (rows.length === 0) return;
-
-      const clientIds = rows.map(row => row.uid);
-      const dateMap: Record<string, string> = {};
-      const BATCH_SIZE = 10;
-
-      for (let i = 0; i < clientIds.length; i += BATCH_SIZE) {
-        const batch = clientIds.slice(i, i + BATCH_SIZE);
-        const batchResults = await Promise.all(
-          batch.map(id => getLastDeliveryDateForClient(id).catch(() => null))
-        );
-
-        batch.forEach((id, index) => {
-          dateMap[id] = batchResults[index] || "No deliveries";
-        });
-      }
-
-      setLastDeliveryDates(dateMap);
-    };
-
-    loadLastDeliveryDates();
-  }, [rows]);
 
   // Handle search input change
   const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -524,25 +519,38 @@ const Spreadsheet: React.FC<SpreadsheetProps> = ({ editable = true }) => {
     setRows(updatedRows);
   };
 
-  // Handle deleting a row from Firestore
   const handleDeleteRow = async (id: string) => {
-    try {
-      const deliveryService = DeliveryService.getInstance();
-      const clientDeliveries = await deliveryService.getEventsByClientId(id);
+    const deliveryService = DeliveryService.getInstance();
+    const clientService = ClientService.getInstance();
+    let deletedDeliveryIds: string[] = [];
 
-      if (clientDeliveries.length > 0) {
-        const deletePromises = clientDeliveries.map(delivery =>
-          deliveryService.deleteEvent(delivery.id)
-        );
-        await Promise.all(deletePromises);
+    try {
+      const clientDeliveries = await deliveryService.getEventsByClientId(id);
+      deletedDeliveryIds = clientDeliveries.map(d => d.id);
+
+      if (deletedDeliveryIds.length > 0) {
+        await Promise.all(deletedDeliveryIds.map(did => deliveryService.deleteEvent(did)));
       }
 
-      const clientService = ClientService.getInstance();
       await clientService.deleteClient(id);
-
       setRows(rows.filter((row) => row.uid !== id));
     } catch (error) {
       console.error("Error deleting client and deliveries: ", error);
+
+      if (deletedDeliveryIds.length > 0) {
+        try {
+          const clientDeliveries = await deliveryService.getEventsByClientId(id);
+          const currentIds = new Set(clientDeliveries.map(d => d.id));
+          const missingIds = deletedDeliveryIds.filter(id => !currentIds.has(id));
+
+          if (missingIds.length > 0) {
+            console.error(`Warning: ${missingIds.length} deliveries were deleted but client deletion failed. Manual cleanup may be needed.`);
+          }
+        } catch (verifyError) {
+          console.error("Could not verify delivery deletion state:", verifyError);
+        }
+      }
+      throw error;
     }
   };
 
@@ -605,14 +613,14 @@ const Spreadsheet: React.FC<SpreadsheetProps> = ({ editable = true }) => {
   };
 
   const parseSearchQuery = (query: string) => {
-    //match either quoted phrases or key:value pairs (with optional space after colon) or unquoted terms
-    const regex = /(?:("|')((?:\\\1|.)+?)\1)|(\w+\s*:\s*\S+)|([^\s"']+)/g;
+    //match either quoted phrases or unquoted terms
+    const regex = /(?:("|')((?:\\\1|.)+?)\1)|([^\s"']+)/g;
     const matches = [];
     let match;
     
     while ((match = regex.exec(query)) !== null) {
-      //push either the quoted content, key:value pair, or the unquoted term 
-      matches.push(match[2] || match[3] || match[4]);
+      //push either the quoted content or the unquoted term 
+      matches.push(match[2] || match[3]);
     }
     
     return matches;
@@ -636,81 +644,18 @@ const Spreadsheet: React.FC<SpreadsheetProps> = ({ editable = true }) => {
       return (singleQuotes % 2 !== 0) || (doubleQuotes % 2 !== 0);
     };
 
-  // Display only the rows that match the search query - combining advanced search with sorted rows
   const filteredRows = sortedRows.filter((row) => {
     const trimmedSearchQuery = searchQuery.trim();
-    if (!trimmedSearchQuery) {
-      return true; // Show all if search is empty
-    }
-
-    //if search is empty then show all rows
     if (!trimmedSearchQuery) {
       return true;
     }
 
-    //parse search terms progressively - extract complete quoted terms and partial terms
-    const searchTerms = [];
-    let inQuote = false;
-    let quoteChar = '';
-    let currentTerm = '';
-    
-    for (let i = 0; i < trimmedSearchQuery.length; i++) {
-      const char = trimmedSearchQuery[i];
-      
-      if (!inQuote && (char === '"' || char === "'")) {
-        // Starting a quoted term - save any existing unquoted term first
-        if (currentTerm.trim()) {
-          searchTerms.push(currentTerm.trim());
-          currentTerm = '';
-        }
-        inQuote = true;
-        quoteChar = char;
-        // Don't include the quote character in the term
-      } else if (inQuote && char === quoteChar) {
-        // Ending a quoted term
-        if (currentTerm.trim()) {
-          searchTerms.push(currentTerm.trim());
-        }
-        currentTerm = '';
-        inQuote = false;
-        quoteChar = '';
-        // Don't include the closing quote character
-      } else if (!inQuote && char === ' ') {
-        // Space outside quotes - end current term
-        if (currentTerm.trim()) {
-          searchTerms.push(currentTerm.trim());
-          currentTerm = '';
-        }
-      } else {
-        // Regular character (including characters inside quotes) - add to current term
-        currentTerm += char;
-      }
-    }
-    
-    // Add any remaining term (including partial quoted terms)
-    if (currentTerm.trim()) {
-      searchTerms.push(currentTerm.trim());
-    }
-    
-    //filter out empty terms and lone quote marks
-    const validSearchTerms = searchTerms.filter(term => {
-      return term.length > 0 && term !== '"' && term !== "'";
-    });
-
-
-
-    //if no valid search terms, show all rows
+    const validSearchTerms = parseSearchTermsProgressively(trimmedSearchQuery);
     if (validSearchTerms.length === 0) {
       return true;
     }
 
-    //function to check if a value contains the search query string
-    const checkStringContains = (value: any, query: string): boolean => {
-      if (value === undefined || value === null) {
-        return false;
-      }
-      return String(value).toLowerCase().includes(query.toLowerCase());
-    };
+    const checkStringContains = utilCheckStringContains;
 
     //function to check for numbers, dates, or items in an array
     const checkValueOrInArray = (value: any, query: string): boolean => {
@@ -725,48 +670,31 @@ const Spreadsheet: React.FC<SpreadsheetProps> = ({ editable = true }) => {
     };
 
     return validSearchTerms.every(term => {
-      //check if this is a key:value search
-      const colonIndex = term.indexOf(':');
-      let isKeyValueSearch = false;
-      let keyword = "";
-      let searchValue = "";
+      const { keyword, searchValue, isKeyValue: isKeyValueSearch } = extractKeyValue(term);
 
-      if (colonIndex !== -1) {
-        keyword = term.substring(0, colonIndex).trim().toLowerCase();
-        searchValue = term.substring(colonIndex + 1).trim();
-        isKeyValueSearch = true; // Even if searchValue is empty, it's still a key:value attempt
-      } else {
-        // Check if this term looks like a partial key (common field names + custom columns)
-        const lowerTerm = term.toLowerCase();
+      if (!isKeyValueSearch) {
         const commonFieldNames = [
           'phone', 'name', 'address', 'dietary', 'instructions', 'ethnicity',
           'adults', 'children', 'gender', 'notes', 'referral', 'tags', 'ward',
           'language', 'zip', 'client', 'delivery', 'tefap', 'coordinates'
         ];
-        
-        // Add custom column labels to the list of searchable field names (only for columns with data)
+
         const customFieldNames = customColumns
           .filter(col => col.propertyKey !== "none")
           .map(col => col.label.toLowerCase());
         const allFieldNames = [...commonFieldNames, ...customFieldNames];
-        
-        const isPartialKey = allFieldNames.some(fieldName => 
-          fieldName.startsWith(lowerTerm) || lowerTerm.startsWith(fieldName.substring(0, Math.min(3, fieldName.length)))
-        );
-        
-        if (isPartialKey) {
-          // This looks like someone typing a field name, show all rows until they add a colon
+
+        if (isPartialFieldName(term, allFieldNames)) {
           return true;
         }
       }
 
       if (isKeyValueSearch) {
-        //if no search value yet (just typing the key), show all rows (waiting for value)
         if (!searchValue) {
           return true;
         }
 
-        //key value search logic with actual value
+        //key value search logic
         switch (keyword) {
           case "name":
             return checkStringContains(`${row.firstName} ${row.lastName}`, searchValue) ||
@@ -836,15 +764,9 @@ const Spreadsheet: React.FC<SpreadsheetProps> = ({ editable = true }) => {
           case "coordinates":
             return checkStringContains((row as any).coordinates, searchValue);
           default:
-            //check custom columns if keyword matches (by label or propertyKey, only for visible columns with data)
+            //check custom columns if keyword matches
             return customColumns.some((col) => {
-              // Only search in columns that have actual data
-              if (col.propertyKey === "none") return false;
-              
-              const labelMatches = col.label.toLowerCase().includes(keyword) || keyword.includes(col.label.toLowerCase());
-              const propertyMatches = col.propertyKey.toLowerCase().includes(keyword);
-              
-              if (labelMatches || propertyMatches) {
+              if (col.propertyKey !== "none" && col.propertyKey.toLowerCase().includes(keyword)) {
                 const fieldValue = row[col.propertyKey as keyof RowData];
                 return checkStringContains(fieldValue, searchValue);
               }
@@ -885,7 +807,7 @@ const Spreadsheet: React.FC<SpreadsheetProps> = ({ editable = true }) => {
           if (checkStringContains(referralEntity.organization, globalSearchValue)) return true;
         }
 
-        //check custom columns (only visible columns with data)
+        //check custom columns
         const matchesCustomColumn = customColumns.some((col) => {
           if (col.propertyKey !== "none") {
             const fieldValue = row[col.propertyKey as keyof RowData];
@@ -1130,9 +1052,8 @@ const Spreadsheet: React.FC<SpreadsheetProps> = ({ editable = true }) => {
           overflowY: "visible"
         }}
       >
-        {/* Dietary Restrictions Color Legend */}
         <DietaryRestrictionsLegend />
-        
+
         {/* Mobile Card View for Small Screens */}
         {isMobile ? (
           <Stack spacing={2} sx={{ overflowY: "auto", width: "100%" }}>
@@ -1647,7 +1568,7 @@ const Spreadsheet: React.FC<SpreadsheetProps> = ({ editable = true }) => {
                           )
                         ) :
                           col.propertyKey !== "none" ? (
-                            getCustomColumnDisplay(row, col.propertyKey, lastDeliveryDates)
+                            getCustomColumnDisplay(row, col.propertyKey)
                           ) : (
                             "N/A"
                           )}
