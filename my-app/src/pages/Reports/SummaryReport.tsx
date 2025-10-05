@@ -121,7 +121,7 @@ const SummaryReport: React.FC = () => {
     }
   });
 
-  const processClientInfo = (next: SummaryData, client: any, deliveriesInRange: string[], start: DateTime, end: DateTime, referralAgencies: Set<string>) => {
+  const processClientInfo = (next: SummaryData, client: any, deliveriesInRange: string[], start: DateTime, end: DateTime) => {
     const basic = next["Basic Output"];
     const demo = next["Demographics"];
     const health = next["Health Conditions"];
@@ -129,11 +129,9 @@ const SummaryReport: React.FC = () => {
     const tags = next["Tags"];
     const fam = next["FAM (Food as Medicine)"];
 
-    // Households Served (Duplicated)
     basic["Households Served (Duplicated)"].value += 1;
     basic["Bags Delivered"].value += deliveriesInRange.length;
 
-    // People Served (Duplicated)
     const adults = Number(client.adults) || 0;
     const seniors = Number(client.seniors) || 0;
     const children = Number(client.children) || 0;
@@ -148,25 +146,20 @@ const SummaryReport: React.FC = () => {
         demo["New Adults"].value += adults;
         demo["New Children"].value += children;
 
-        // Single parents
         if (adults == 1 && children > 0) {
           demo["New Single Parents"].value += 1;
         }
       }
 
-      //update households unduplicated
       basic["Households Served (Unduplicated)"].value = basic["Households Served (Duplicated)"].value - basic["New Households"].value;
       basic["People Served (Unduplicated)"].value = basic["People Served (Duplicated)"].value - basic["New People"].value;
-      // Totals
       demo["Total Seniors"].value += seniors;
       demo["Total Adults"].value += adults;
       demo["Total Children"].value += children;
     }
 
-    // Active Clients
     basic["Active Clients"].value += 1;
 
-    // Health Conditions
     if (client.physicalAilments) {
       health["Client Health Conditions (Physical Ailments)"].value += 1;
     }
@@ -176,14 +169,11 @@ const SummaryReport: React.FC = () => {
     if (client.physicalDisability) {
       health["Client Health Conditions (Physical Disability)"].value += 1;
     }
-    // Referrals
+
     if (client.referredDate && startDate && endDate) {
       const referredDate = TimeUtils.fromISO(client.referredDate);
       if (referredDate >= start && referredDate <= end) {
         refs["New Client Referrals"].value += 1;
-        if (client.referralEntity?.organization?.trim()) {
-          referralAgencies.add(client.referralEntity.organization.trim());
-        }
       }
     }
 
@@ -263,6 +253,16 @@ const SummaryReport: React.FC = () => {
 
         for (const doc of snap.docs) {
           const client = doc.data();
+
+          if (client.referredDate) {
+            const referredDate = TimeUtils.fromISO(client.referredDate);
+            if (referredDate >= start && referredDate <= end) {
+              if (client.referralEntity?.organization?.trim()) {
+                referralAgencies.add(client.referralEntity.organization.trim());
+              }
+            }
+          }
+
           const deliveries: string[] = client.deliveries ?? [];
           if (deliveries.length && startDate && endDate) {
             const deliveriesInRange = deliveries.filter((deliveryStr) => {
@@ -272,7 +272,7 @@ const SummaryReport: React.FC = () => {
 
             if (deliveriesInRange.length) {
               active += 1;
-              processClientInfo(next, client, deliveriesInRange, start, end, referralAgencies);
+              processClientInfo(next, client, deliveriesInRange, start, end);
             }
           }
         }
