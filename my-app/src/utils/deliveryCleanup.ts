@@ -2,6 +2,11 @@ import { collection, getDocs, query, where, deleteDoc, doc } from "firebase/fire
 import { db } from "../auth/firebaseConfig";
 
 export const deleteDeliveriesAfterEndDate = async (clientId: string, newEndDate: string): Promise<void> => {
+  if (!clientId || !newEndDate) {
+    console.error("Invalid parameters for deleteDeliveriesAfterEndDate");
+    return;
+  }
+
   const eventsRef = collection(db, "events");
   const q = query(eventsRef, where("clientId", "==", clientId));
   const querySnapshot = await getDocs(q);

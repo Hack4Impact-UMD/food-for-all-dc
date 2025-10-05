@@ -58,12 +58,14 @@ const StyleChip = styled(Chip)(({ theme }) => ({
   },
 }));
 import { onAuthStateChanged } from "firebase/auth";
+import { writeBatch, doc } from "firebase/firestore";
 import { Filter, Search } from "lucide-react";
 import React, { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { auth } from "../../auth/firebaseConfig";
+import { auth, db } from "../../auth/firebaseConfig";
 import { useCustomColumns } from "../../hooks/useCustomColumns";
 import ClientService from "../../services/client-service";
+import DeliveryService from "../../services/delivery-service";
 import { exportQueryResults, exportAllClients } from "./export";
 import "./Spreadsheet.css";
 import DeleteClientModal from "./DeleteClientModal";
@@ -487,16 +489,30 @@ const Spreadsheet: React.FC<SpreadsheetProps> = ({ editable = true }) => {
     setRows(updatedRows);
   };
 
-  // Handle deleting a row from Firestore
   const handleDeleteRow = async (id: string) => {
+    const batch = writeBatch(db);
+
     try {
-      // Use ClientService instead of direct Firebase calls
-      const clientService = ClientService.getInstance();
-      // ...existing code...
-      await clientService.deleteClient(id);
-      setRows(rows.filter((row) => row.uid !== id)); // Filter based on uid
+      console.log(`Starting deletion process for client: ${id}`);
+
+      const deliveryService = DeliveryService.getInstance();
+      const clientDeliveries = await deliveryService.getEventsByClientId(id);
+
+      console.log(`Found ${clientDeliveries.length} deliveries to delete for client ${id}`);
+
+      clientDeliveries.forEach(delivery => {
+        batch.delete(doc(db, 'events', delivery.id));
+      });
+
+      batch.delete(doc(db, 'clients', id));
+
+      await batch.commit();
+
+      console.log(`Successfully deleted client ${id} and ${clientDeliveries.length} deliveries`);
+      setRows(rows.filter((row) => row.uid !== id));
+
     } catch (error) {
-      console.error("Error deleting document: ", error);
+      console.error("Error deleting client and deliveries: ", error);
     }
   };
 
