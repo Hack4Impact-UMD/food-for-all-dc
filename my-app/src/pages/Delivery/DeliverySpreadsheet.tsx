@@ -344,6 +344,7 @@ const DeliverySpreadsheet: React.FC = () => {
   const [exportOption, setExportOption] = useState<"Routes" | "Doordash" | null>(null);
   const [emailOrDownload, setEmailOrDownload] = useState<"Email" | "Download" | null>(null);
   const [driversRefreshTrigger, setDriversRefreshTrigger] = useState<number>(0);
+  const [highlightedRowId, setHighlightedRowId] = useState<string | null>(null);
 
   // Helper function to deduplicate clusters by ID
   const deduplicateClusters = (clusters: Cluster[]): Cluster[] => {
@@ -1365,6 +1366,35 @@ const DeliverySpreadsheet: React.FC = () => {
     setSelectedRows(newSelectedRows);
   };
 
+  const handleRowClick = (clientId: string) => {
+    // Handle special case for clearing highlight only
+    if (clientId === 'CLEAR_HIGHLIGHT_ONLY') {
+      setHighlightedRowId(null);
+      return;
+    }
+
+    // If clicking the same row that's already highlighted, toggle it off
+    if (highlightedRowId === clientId) {
+      setHighlightedRowId(null);
+      // Close any open popup
+      if ((window as any).closeMapPopup) {
+        (window as any).closeMapPopup();
+      }
+    } else {
+      // Highlight the new row and open its popup
+      setHighlightedRowId(clientId);
+      // Open the corresponding map popup
+      if ((window as any).openMapPopup) {
+        (window as any).openMapPopup(clientId);
+      }
+    }
+  };
+
+  // Separate function just for clearing highlights (used by popup close handler)
+  const clearRowHighlight = () => {
+    setHighlightedRowId(null);
+  };
+
   const clientsWithDeliveriesOnSelectedDate = rows.filter((row) =>
     deliveriesForDate.some((delivery) => delivery.clientId === row.id)
   );
@@ -1942,7 +1972,7 @@ const DeliverySpreadsheet: React.FC = () => {
           <LoadingIndicator />
         ) : visibleRows.length > 0 ? (
           <Suspense fallback={<LoadingIndicator />}>
-            <ClusterMap clusters={clusters} visibleRows={visibleRows} clientOverrides={clientOverrides} onClusterUpdate={handleIndividualClientUpdate} refreshDriversTrigger={driversRefreshTrigger} />
+            <ClusterMap clusters={clusters} visibleRows={visibleRows} clientOverrides={clientOverrides} onClusterUpdate={handleIndividualClientUpdate} onOpenPopup={handleRowClick} onClearHighlight={clearRowHighlight} refreshDriversTrigger={driversRefreshTrigger} />
           </Suspense>
         ) : (
           <Box
@@ -2275,7 +2305,23 @@ const DeliverySpreadsheet: React.FC = () => {
             </TableHead>
             <TableBody>
               {sortedRows.map((row, index) => (
-                <TableRow key={`${sortTimestamp}-${index}-${row.id}`} className="table-row delivery-anim-row">
+                <TableRow
+                  key={`${sortTimestamp}-${index}-${row.id}`}
+                  className="table-row delivery-anim-row"
+                  data-client-id={row.id}
+                  onClick={() => handleRowClick(row.id)}
+                  sx={{
+                    backgroundColor: (() => {
+                      const isHighlighted = highlightedRowId === row.id;
+                      return isHighlighted ? 'rgba(144, 238, 144, 0.7) !important' : 'inherit';
+                    })(),
+                    border: highlightedRowId === row.id ? '2px solid #90EE90 !important' : 'none',
+                    cursor: 'pointer',
+                    '&:hover': {
+                      backgroundColor: 'rgba(144, 238, 144, 0.3) !important'
+                    }
+                  }}
+                >
                   {fields.map((field) => {
                     // Render the table cell based on field type
                     return (
@@ -2297,6 +2343,7 @@ const DeliverySpreadsheet: React.FC = () => {
                             disabled={userRole === UserType.ClientIntake}
                             checked={selectedRows.has(row.id)}
                             onChange={() => handleCheckboxChange(row)}
+                            onClick={(e) => e.stopPropagation()}
                           />
                         ) : field.type === "select" && field.key === "clusterIdChange" ? (
                           // Render Select for clusterIdChange
