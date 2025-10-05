@@ -10,6 +10,7 @@ import { useNotifications } from "../../components/NotificationProvider";
 import { useNavigate } from "react-router-dom";
 import Guide from "./Guide";
 import LoadingIndicator from "../../components/LoadingIndicator/LoadingIndicator";
+import { exportToCSV, formatDateRange } from "../../utils/reportExport";
 
 const ClientReport: React.FC = () => {
   const navigate = useNavigate()
@@ -36,6 +37,41 @@ const ClientReport: React.FC = () => {
   });
 
   const [data, setData] = useState<any>({"Active": [], "Lapsed": []})
+
+  const handleExport = () => {
+    const csvData: any[] = [];
+
+    const activeClients = data["Active"] || [];
+    const lapsedClients = data["Lapsed"] || [];
+
+    activeClients.forEach((client: ClientProfile) => {
+      csvData.push({
+        Status: "Active",
+        "First Name": client.firstName,
+        "Last Name": client.lastName,
+        "Client ID": client.uid,
+        Phone: client.phone || "",
+        Address: client.address || "",
+        Zip: client.zipCode || ""
+      });
+    });
+
+    lapsedClients.forEach((client: ClientProfile) => {
+      csvData.push({
+        Status: "Lapsed",
+        "First Name": client.firstName,
+        "Last Name": client.lastName,
+        "Client ID": client.uid,
+        Phone: client.phone || "",
+        Address: client.address || "",
+        Zip: client.zipCode || ""
+      });
+    });
+
+    const dateRange = formatDateRange(startDate, endDate);
+    const filename = `Client_Report_${dateRange}.csv`;
+    exportToCSV(csvData, filename);
+  };
 
   const generateReport = async () => {
     if (!startDate || !endDate) {
@@ -130,6 +166,8 @@ const ClientReport: React.FC = () => {
         setStartDate={setStartDate}
         setEndDate={setEndDate}
         generateReport={generateReport}
+        onExport={handleExport}
+        hasData={hasGenerated}
       />
 
       {isLoading && <LoadingIndicator />}

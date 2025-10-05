@@ -7,10 +7,12 @@ interface ReportHeaderProps {
   endDate: Date | null;
   setStartDate: (date: Date | null) => void;
   setEndDate: (date: Date | null) => void;
-  generateReport?: () => any
+  generateReport?: () => any;
+  onExport?: () => void;
+  hasData?: boolean;
 }
 
-export default function ReportHeader({startDate, endDate, setStartDate, setEndDate, generateReport}: ReportHeaderProps) {
+export default function ReportHeader({startDate, endDate, setStartDate, setEndDate, generateReport, onExport, hasData = false}: ReportHeaderProps) {
     const hasInvalidDateRange = startDate && endDate && startDate > endDate;
     const isGenerateDisabled = !startDate || !endDate || !!hasInvalidDateRange;
 
@@ -49,6 +51,8 @@ export default function ReportHeader({startDate, endDate, setStartDate, setEndDa
           <Button
             variant="contained"
             sx={{ backgroundColor: "var(--color-primary)" }}
+            onClick={onExport}
+            disabled={!hasData}
           >
             Export
           </Button>

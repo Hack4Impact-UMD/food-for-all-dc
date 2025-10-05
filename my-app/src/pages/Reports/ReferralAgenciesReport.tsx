@@ -25,7 +25,8 @@ import TimeUtils from "../../utils/timeUtils";
 import { useNavigate } from "react-router-dom";
 import LoadingIndicator from "../../components/LoadingIndicator/LoadingIndicator";
 import Guide from "./Guide";
-import { useNotifications } from "../../components/NotificationProvider"; 
+import { useNotifications } from "../../components/NotificationProvider";
+import { exportToCSV, formatDateRange } from "../../utils/reportExport"; 
 
 interface ReferralClient {
   id: string;
@@ -130,6 +131,26 @@ const ReferralAgenciesReport: React.FC = () => {
     return byCaseworker;
   };
 
+  const handleExport = () => {
+    const csvData: any[] = [];
+
+    Object.entries(data).forEach(([agency, clients]) => {
+      clients.forEach((client: ReferralClient) => {
+        csvData.push({
+          "Referral Agency": agency,
+          "First Name": client.firstName,
+          "Last Name": client.lastName,
+          "Referral Date": client.referredDate,
+          "Client ID": client.id
+        });
+      });
+    });
+
+    const dateRange = formatDateRange(startDate, endDate);
+    const filename = `Referral_Agencies_Report_${dateRange}.csv`;
+    exportToCSV(csvData, filename);
+  };
+
   const generateReport = async () => {
     setIsLoading(true);
     try {
@@ -171,6 +192,8 @@ const ReferralAgenciesReport: React.FC = () => {
         setStartDate={setStartDate}
         setEndDate={setEndDate}
         generateReport={generateReport}
+        onExport={handleExport}
+        hasData={hasGenerated}
       />
 
       {isLoading && <LoadingIndicator />}

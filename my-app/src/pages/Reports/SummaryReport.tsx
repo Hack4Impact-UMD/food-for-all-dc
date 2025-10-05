@@ -21,6 +21,7 @@ import Guide from "./Guide";
 import LoadingIndicator from "../../components/LoadingIndicator/LoadingIndicator";
 import { DateTime } from "luxon";
 import { useNotifications } from "../../components/NotificationProvider";
+import { exportToCSV, formatDateRange } from "../../utils/reportExport";
 
 const blankReport: SummaryData = {
     "Basic Output": {
@@ -214,6 +215,36 @@ const SummaryReport: React.FC = () => {
   };
 
 
+  const handleExport = () => {
+    const csvData: any[] = [];
+
+    Object.entries(data).forEach(([section, fields]) => {
+      csvData.push({
+        Section: section,
+        Metric: "",
+        Value: ""
+      });
+
+      Object.entries(fields).forEach(([metric, fieldData]) => {
+        csvData.push({
+          Section: "",
+          Metric: metric,
+          Value: fieldData.value
+        });
+      });
+
+      csvData.push({
+        Section: "",
+        Metric: "",
+        Value: ""
+      });
+    });
+
+    const dateRange = formatDateRange(startDate, endDate);
+    const filename = `Summary_Report_${dateRange}.csv`;
+    exportToCSV(csvData, filename);
+  };
+
   const generateReport = async () => {
     const BATCH_SIZE = 50;
 
@@ -308,6 +339,8 @@ const SummaryReport: React.FC = () => {
         setStartDate={setStartDate}
         setEndDate={setEndDate}
         generateReport={generateReport}
+        onExport={handleExport}
+        hasData={hasGenerated}
       />
 
       {isLoading && <LoadingIndicator />}
