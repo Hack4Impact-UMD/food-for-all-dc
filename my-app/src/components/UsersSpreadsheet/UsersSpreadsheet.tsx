@@ -31,8 +31,8 @@ import React, { useEffect, useState, useCallback, useMemo } from "react";
 import {
   parseSearchTermsProgressively,
   checkStringContains,
-  isPartialFieldName,
-  extractKeyValue
+  extractKeyValue,
+  globalSearchMatch
 } from "../../utils/searchFilter";
 import { useNavigate } from "react-router-dom";
 import { auth } from "../../auth/firebaseConfig";
@@ -283,47 +283,70 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
     }
 
     const validSearchTerms = parseSearchTermsProgressively(trimmedSearchQuery);
-    if (validSearchTerms.length === 0) {
-      return true;
+    const keyValueTerms = validSearchTerms.filter(term => term.includes(':'));
+    const nonKeyValueTerms = validSearchTerms.filter(term => !term.includes(':'));
+
+    let matches = true;
+
+    if (keyValueTerms.length > 0) {
+      const visibleFieldKeys = new Set(fields.map(f => f.key));
+
+      const isVisibleField = (keyword: string): boolean => {
+        const lowerKeyword = keyword.toLowerCase();
+
+        const fieldMappings: { [key: string]: string[] } = {
+          "name": ["name"],
+          "role": ["role"],
+          "phone": ["phone"],
+          "email": ["email"]
+        };
+
+        for (const [fieldKey, aliases] of Object.entries(fieldMappings)) {
+          if (visibleFieldKeys.has(fieldKey as keyof AuthUserRow) && aliases.some(alias => alias === lowerKeyword)) {
+            return true;
+          }
+        }
+
+        return false;
+      };
+
+      matches = keyValueTerms.every(term => {
+        const { keyword, searchValue, isKeyValue: isKeyValueSearch } = extractKeyValue(term);
+
+        if (isKeyValueSearch && searchValue) {
+          if (!isVisibleField(keyword)) {
+            return true;
+          }
+
+          switch (keyword) {
+            case "name":
+              return checkStringContains(row.name, searchValue);
+            case "role":
+              return checkStringContains(getRoleDisplayName(row.role), searchValue);
+            case "phone":
+              return checkStringContains(row.phone, searchValue);
+            case "email":
+              return checkStringContains(row.email, searchValue);
+            default:
+              return false;
+          }
+        }
+
+        return true;
+      });
     }
 
-    return validSearchTerms.every(term => {
-      const { keyword, searchValue, isKeyValue: isKeyValueSearch } = extractKeyValue(term);
-
-      if (!isKeyValueSearch) {
-        const userFieldNames = ['name', 'role', 'phone', 'email'];
-        if (isPartialFieldName(term, userFieldNames)) {
-          return true;
+    if (matches && nonKeyValueTerms.length > 0) {
+      const searchableFields = ['name', 'phone', 'email', 'role'];
+      matches = nonKeyValueTerms.every(term => {
+        if (term === 'role') {
+          return globalSearchMatch({ ...row, role: getRoleDisplayName(row.role) }, term, searchableFields);
         }
-      }
+        return globalSearchMatch(row, term, searchableFields);
+      });
+    }
 
-      if (isKeyValueSearch) {
-        if (!searchValue) {
-          return true;
-        }
-
-        switch (keyword) {
-          case "name":
-            return checkStringContains(row.name, searchValue);
-          case "role":
-            return checkStringContains(getRoleDisplayName(row.role), searchValue);
-          case "phone":
-            return checkStringContains(row.phone, searchValue);
-          case "email":
-            return checkStringContains(row.email, searchValue);
-          default:
-            return checkStringContains(row.name, searchValue) ||
-                   checkStringContains(getRoleDisplayName(row.role), searchValue) ||
-                   checkStringContains(row.phone, searchValue) ||
-                   checkStringContains(row.email, searchValue);
-        }
-      } else {
-        return checkStringContains(row.name, term) ||
-               checkStringContains(getRoleDisplayName(row.role), term) ||
-               checkStringContains(row.phone, term) ||
-               checkStringContains(row.email, term);
-      }
-    });
+    return matches;
   });
 
   const theme = useTheme();

@@ -2,6 +2,12 @@ import './Spreadsheet.css';
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "../../services/firebase";
 import { TableSortLabel, Icon } from "@mui/material";
+import {
+  parseSearchTermsProgressively,
+  checkStringContains,
+  extractKeyValue,
+  globalSearchMatch
+} from "../../utils/searchFilter";
 // Custom chevron icons for TableSortLabel with spacing
 const iconStyle = { verticalAlign: 'middle', marginLeft: 6 };
 const ChevronUp = () => (
@@ -210,13 +216,146 @@ const Spreadsheet: React.FC = () => {
   const filteredRows: RowData[] = useMemo(() => {
   let result = rows;
     if (debouncedSearch.trim()) {
-      const q = debouncedSearch.toLowerCase();
-      result = result.filter(row =>
-        row.firstName?.toLowerCase().includes(q) ||
-        row.lastName?.toLowerCase().includes(q) ||
-        row.address?.toLowerCase().includes(q) ||
-        row.phone?.toLowerCase().includes(q)
-      );
+      const validSearchTerms = parseSearchTermsProgressively(debouncedSearch.trim());
+      const keyValueTerms = validSearchTerms.filter(term => term.includes(':'));
+      const nonKeyValueTerms = validSearchTerms.filter(term => !term.includes(':'));
+
+      if (keyValueTerms.length > 0) {
+        const visibleFieldKeys = new Set([
+          ...fields.map(f => f.key),
+          ...customColumns.map(col => col.propertyKey).filter(key => key !== "none")
+        ]);
+
+        const isVisibleField = (keyword: string): boolean => {
+          const lowerKeyword = keyword.toLowerCase();
+
+          const fieldMappings: { [key: string]: string[] } = {
+            "fullname": ["name", "firstname", "lastname"],
+            "address": ["address"],
+            "phone": ["phone"],
+            "deliveryDetails.dietaryRestrictions": ["dietary restrictions", "dietary"],
+            "deliveryDetails.deliveryInstructions": ["delivery instructions", "instructions"]
+          };
+
+          for (const [fieldKey, aliases] of Object.entries(fieldMappings)) {
+            if (visibleFieldKeys.has(fieldKey) && aliases.some(alias => alias === lowerKeyword)) {
+              return true;
+            }
+          }
+
+          const customColumnMappings: { [key: string]: string[] } = {
+            "adults": ["adults"],
+            "children": ["children"],
+            "deliveryFreq": ["delivery freq", "delivery frequency"],
+            "ethnicity": ["ethnicity"],
+            "gender": ["gender"],
+            "language": ["language"],
+            "notes": ["notes"],
+            "referralEntity": ["referral entity", "referral"],
+            "tefapCert": ["tefap", "tefap cert"],
+            "dob": ["dob"],
+            "lastDeliveryDate": ["last delivery date"],
+            "email": ["email"]
+          };
+
+          for (const [propertyKey, aliases] of Object.entries(customColumnMappings)) {
+            if (visibleFieldKeys.has(propertyKey) && aliases.some(alias => alias === lowerKeyword)) {
+              return true;
+            }
+          }
+
+          return false;
+        };
+
+        result = result.filter(row => {
+          return keyValueTerms.every(term => {
+            const { keyword, searchValue, isKeyValue: isKeyValueSearch } = extractKeyValue(term);
+
+            if (isKeyValueSearch && searchValue) {
+              if (!isVisibleField(keyword)) {
+                return true;
+              }
+
+              switch (keyword) {
+                case "name":
+                case "firstname":
+                  return checkStringContains(row.firstName, searchValue);
+                case "lastname":
+                  return checkStringContains(row.lastName, searchValue);
+                case "address":
+                  return checkStringContains(row.address, searchValue);
+                case "phone":
+                  return checkStringContains(row.phone, searchValue);
+                case "email":
+                  return checkStringContains(row.email, searchValue);
+                case "dietary restrictions":
+                case "dietary": {
+                  const dr = row.deliveryDetails?.dietaryRestrictions;
+                  if (!dr) return false;
+                  const dietaryTerms = [
+                    dr.halal ? "halal" : "",
+                    dr.kidneyFriendly ? "kidney friendly" : "",
+                    dr.lowSodium ? "low sodium" : "",
+                    dr.lowSugar ? "low sugar" : "",
+                    dr.microwaveOnly ? "microwave only" : "",
+                    dr.noCookingEquipment ? "no cooking equipment" : "",
+                    dr.softFood ? "soft food" : "",
+                    dr.vegan ? "vegan" : "",
+                    dr.vegetarian ? "vegetarian" : "",
+                    dr.heartFriendly ? "heart friendly" : "",
+                    ...(Array.isArray(dr.foodAllergens) ? dr.foodAllergens : []),
+                    ...(Array.isArray(dr.other) ? dr.other : []),
+                    dr.otherText || ""
+                  ].filter(Boolean);
+                  return dietaryTerms.some(term => checkStringContains(term, searchValue));
+                }
+                case "delivery instructions":
+                case "instructions":
+                  return checkStringContains(row.deliveryDetails?.deliveryInstructions, searchValue);
+                default: {
+                  const matchesCustomColumn = customColumns.some((col) => {
+                    if (col.propertyKey !== "none" && visibleFieldKeys.has(col.propertyKey)) {
+                      if (col.propertyKey.includes(".")) {
+                        const keys = col.propertyKey.split(".");
+                        let value: unknown = row;
+                        for (const k of keys) {
+                          value = value && (value as Record<string, unknown>)[k];
+                          if (value === undefined) return false;
+                        }
+                        return checkStringContains(String(value || ""), searchValue);
+                      } else {
+                        if (col.propertyKey in row) {
+                          const fieldValue = row[col.propertyKey as keyof RowData];
+                          return checkStringContains(fieldValue, searchValue);
+                        }
+                      }
+                    }
+                    return false;
+                  });
+                  return matchesCustomColumn;
+                }
+              }
+            }
+
+            return true;
+          });
+        });
+      }
+
+      if (nonKeyValueTerms.length > 0) {
+        const searchableFields = [
+          'firstName',
+          'lastName',
+          'address',
+          'phone',
+          'email',
+          'deliveryDetails.deliveryInstructions',
+          ...customColumns.map(col => col.propertyKey).filter(key => key !== "none")
+        ];
+        result = result.filter(row =>
+          nonKeyValueTerms.every(term => globalSearchMatch(row, term, searchableFields))
+        );
+      }
     }
     // Sort if needed
     if (sortConfig.key && sortConfig.direction) {
@@ -270,7 +409,7 @@ const Spreadsheet: React.FC = () => {
       }
     }
     return result;
-  }, [rows, debouncedSearch, sortConfig, fields]);
+  }, [rows, debouncedSearch, sortConfig, fields, customColumns]);
 
   // --- TableVirtuoso rendering ---
   return (
@@ -285,7 +424,7 @@ const Spreadsheet: React.FC = () => {
               type="text"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              placeholder="SEARCH"
+              placeholder="Search (e.g., name: smith phone: 123)"
               style={{ width: "100%", height: "50px", backgroundColor: "#EEEEEE", border: "none", borderRadius: "25px", padding: "0 48px", fontSize: "16px", color: "#333333", boxSizing: "border-box", transition: "all 0.2s ease", boxShadow: "inset 0 2px 3px rgba(0,0,0,0.05)" }}
             />
           </Box>

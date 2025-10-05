@@ -75,3 +75,18 @@ export const extractKeyValue = (term: string): { keyword: string; searchValue: s
     isKeyValue: false
   };
 };
+
+export const globalSearchMatch = (row: any, searchValue: string, searchableFields: string[]): boolean => {
+  const lowerSearch = searchValue.toLowerCase();
+
+  return searchableFields.some(field => {
+    const value = field.split('.').reduce((obj, key) => obj?.[key], row);
+    if (value === undefined || value === null) return false;
+
+    if (Array.isArray(value)) {
+      return value.some(item => String(item).toLowerCase().includes(lowerSearch));
+    }
+
+    return String(value).toLowerCase().includes(lowerSearch);
+  });
+};
