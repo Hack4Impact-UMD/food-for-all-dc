@@ -13,6 +13,8 @@ import {
 import { query, Timestamp, updateDoc, where } from "firebase/firestore";
 import { TimeUtils } from "../../utils/timeUtils";
 import { format, addDays } from "date-fns";
+import MoreVertIcon from "@mui/icons-material/MoreVert";
+import AddIcon from "@mui/icons-material/Add";
 import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
 import ArrowDropUpIcon from "@mui/icons-material/ArrowDropUp";
 import DeleteIcon from "@mui/icons-material/Delete";
@@ -20,7 +22,7 @@ import AssignmentIndIcon from "@mui/icons-material/AssignmentInd";
 import AccessTimeIcon from "@mui/icons-material/AccessTime";
 import FileDownloadIcon from "@mui/icons-material/FileDownload";
 import GroupWorkIcon from "@mui/icons-material/GroupWork";
-import AddIcon from "@mui/icons-material/Add";
+import PersonAddIcon from "@mui/icons-material/PersonAdd";
 import TodayIcon from "@mui/icons-material/Today";
 import UnfoldMoreIcon from "@mui/icons-material/UnfoldMore";
 
@@ -55,6 +57,8 @@ import { styled } from "@mui/material/styles";
 import { collection, getDocs, doc, setDoc } from "firebase/firestore";
 import { auth } from "../../auth/firebaseConfig";
 import { onAuthStateChanged } from "firebase/auth";
+// ...existing code...
+// Ensure clients are loaded for event query
 const ClusterMap = React.lazy(() => import("./ClusterMap"));
 import AssignDriverPopup from "./components/AssignDriverPopup";
 import GenerateClustersPopup from "./components/GenerateClustersPopup";
@@ -65,6 +69,8 @@ import Button from "../../components/common/Button";
 import { RowData as DeliveryRowData } from "./types/deliveryTypes";
 import { Driver } from '../../types/calendar-types';
 import { ClientProfile } from '../../types/client-types';
+// ...existing code...
+// Remove top-level hooks for clients
 import { CustomRowData, useCustomColumns, allowedPropertyKeys } from "../../hooks/useCustomColumns";
 import { clientService } from "../../services/client-service";
 import { LatLngTuple } from "leaflet";
@@ -78,6 +84,13 @@ interface ClientOverride {
 import { useAuth } from "../../auth/AuthProvider";
 import EventCountHeader from "../../components/EventCountHeader";
 import { useLimits } from "../Calendar/components/useLimits";
+import DietaryRestrictionsLegend from "../../components/DietaryRestrictionsLegend";
+// interface Driver {
+//   id: string;
+//   name: string;
+//   phone: string
+//   email: string;
+// }
 
 const StyleChip = styled(Chip)({
   backgroundColor: 'var(--color-primary)',
@@ -330,8 +343,8 @@ const DeliverySpreadsheet: React.FC = () => {
   const [clusters, setClustersOriginal] = useState<Cluster[]>([]);
   const [selectedClusters, setSelectedClusters] = useState<Set<any>>(new Set());
   const [exportOption, setExportOption] = useState<"Routes" | "Doordash" | null>(null);
+  const [emailOrDownload, setEmailOrDownload] = useState<"Email" | "Download" | null>(null);
   const [driversRefreshTrigger, setDriversRefreshTrigger] = useState<number>(0);
-  const [highlightedRowId, setHighlightedRowId] = useState<string | null>(null);
 
   // Helper function to deduplicate clusters by ID
   const deduplicateClusters = (clusters: Cluster[]): Cluster[] => {
@@ -750,17 +763,27 @@ const DeliverySpreadsheet: React.FC = () => {
     }
   };
 
-  const handleExport = async () => {
+  const handleEmailOrDownload = async (option: "Email" | "Download") => {
+    setEmailOrDownload(option);
     setPopupMode("");
 
     if (exportOption === "Routes") {
-      // Pass rows and clusters to exportDeliveries
-      exportDeliveries(TimeUtils.fromJSDate(selectedDate).toISODate() || "", rows, clusters);
-      console.log("Downloading Routes...");
+      if (option === "Email") {
+        alert("Unimplemented");
+      } else if (option === "Download") {
+        // Pass rows and clusters to exportDeliveries
+        exportDeliveries(TimeUtils.fromJSDate(selectedDate).toISODate() || "", rows, clusters);
+        console.log("Downloading Routes...");
+        // Add your download logic here
+      }
     } else if (exportOption === "Doordash") {
-      // Export DoorDash deliveries grouped by time
-      exportDoordashDeliveries(TimeUtils.fromJSDate(selectedDate).toISODate() || "", rows, clusters);
-      console.log("Downloading Doordash...");
+      if (option === "Email") {
+        alert("Unimplemented");
+      } else if (option === "Download") {
+        // Export DoorDash deliveries grouped by time
+        exportDoordashDeliveries(TimeUtils.fromJSDate(selectedDate).toISODate() || "", rows, clusters);
+        console.log("Downloading Doordash...");
+      }
     }
   };
 
@@ -903,6 +926,7 @@ const DeliverySpreadsheet: React.FC = () => {
   const resetSelections = () => {
     setPopupMode("");
     setExportOption(null);
+    setEmailOrDownload(null);
     // Keep selectedRows and selectedClusters checked so users can make multiple assignments
   };
 
@@ -1192,7 +1216,7 @@ const DeliverySpreadsheet: React.FC = () => {
             // Schedule Firestore update (don't await here individually to speed up)
             updatePromises.push(
               clientService.updateClientCoordinates(client.id, coords)
-                .catch(err => console.error(`Failed to update coordinates for client ${client.id}:`, err)) // Log errors but don't fail the whole process
+                .catch((err: Error) => console.error(`Failed to update coordinates for client ${client.id}:`, err)) // Log errors but don't fail the whole process
             );
           } else {
             console.warn(`Failed to geocode address for client ${client.id}: ${client.address}. Skipping this client.`);
@@ -1342,37 +1366,6 @@ const DeliverySpreadsheet: React.FC = () => {
     setSelectedRows(newSelectedRows);
   };
 
-
-
-  const handleRowClick = (clientId: string) => {
-    // Handle special case for clearing highlight only
-    if (clientId === 'CLEAR_HIGHLIGHT_ONLY') {
-      setHighlightedRowId(null);
-      return;
-    }
-    
-    // If clicking the same row that's already highlighted, toggle it off
-    if (highlightedRowId === clientId) {
-      setHighlightedRowId(null);
-      // Close any open popup
-      if ((window as any).closeMapPopup) {
-        (window as any).closeMapPopup();
-      }
-    } else {
-      // Highlight the new row and open its popup
-      setHighlightedRowId(clientId);
-      // Open the corresponding map popup
-      if ((window as any).openMapPopup) {
-        (window as any).openMapPopup(clientId);
-      }
-    }
-  };
-
-  // Separate function just for clearing highlights (used by popup close handler)
-  const clearRowHighlight = () => {
-    setHighlightedRowId(null);
-  };
-
   const clientsWithDeliveriesOnSelectedDate = rows.filter((row) =>
     deliveriesForDate.some((delivery) => delivery.clientId === row.id)
   );
@@ -1386,6 +1379,7 @@ const DeliverySpreadsheet: React.FC = () => {
 
   const visibleRows = rows.filter((row) => {
     const trimmedSearchQuery = searchQuery.trim();
+    //if search is empty then show all rows
     if (!trimmedSearchQuery) {
       return true;
     }
@@ -1965,7 +1959,7 @@ const DeliverySpreadsheet: React.FC = () => {
           <LoadingIndicator />
         ) : visibleRows.length > 0 ? (
           <Suspense fallback={<LoadingIndicator />}>
-            <ClusterMap clusters={clusters} visibleRows={visibleRows} clientOverrides={clientOverrides} onClusterUpdate={handleIndividualClientUpdate} onOpenPopup={handleRowClick} onClearHighlight={clearRowHighlight} refreshDriversTrigger={driversRefreshTrigger} />
+            <ClusterMap clusters={clusters} visibleRows={visibleRows} clientOverrides={clientOverrides} onClusterUpdate={handleIndividualClientUpdate} refreshDriversTrigger={driversRefreshTrigger} />
           </Suspense>
         ) : (
           <Box
@@ -1985,8 +1979,6 @@ const DeliverySpreadsheet: React.FC = () => {
           </Box>
         )}
       </Box>
-
-
 
       {/* Search Bar */}
       <Box
@@ -2132,6 +2124,12 @@ const DeliverySpreadsheet: React.FC = () => {
           maxHeight: "none",
         }}
       >
+        {/* Dietary Restrictions Color Legend - only show when column is added */}
+        {customColumns.some(col => 
+          col.propertyKey === "deliveryDetails.dietaryRestrictions" || 
+          col.propertyKey === "dietaryRestrictions"
+        ) && <DietaryRestrictionsLegend />}
+        
         <TableContainer
           component={Paper}
           sx={{
@@ -2294,23 +2292,7 @@ const DeliverySpreadsheet: React.FC = () => {
             </TableHead>
             <TableBody>
               {sortedRows.map((row, index) => (
-                <TableRow 
-                  key={`${sortTimestamp}-${index}-${row.id}`} 
-                  className="table-row delivery-anim-row"
-                  data-client-id={row.id}
-                  onClick={() => handleRowClick(row.id)}
-                  sx={{
-                    backgroundColor: (() => {
-                      const isHighlighted = highlightedRowId === row.id;
-                      return isHighlighted ? 'rgba(144, 238, 144, 0.7) !important' : 'inherit';
-                    })(),
-                    border: highlightedRowId === row.id ? '2px solid #90EE90 !important' : 'none',
-                    cursor: 'pointer',
-                    '&:hover': {
-                      backgroundColor: 'rgba(144, 238, 144, 0.3) !important'
-                    }
-                  }}
-                >
+                <TableRow key={`${sortTimestamp}-${index}-${row.id}`} className="table-row delivery-anim-row">
                   {fields.map((field) => {
                     // Render the table cell based on field type
                     return (
@@ -2332,7 +2314,6 @@ const DeliverySpreadsheet: React.FC = () => {
                             disabled={userRole === UserType.ClientIntake}
                             checked={selectedRows.has(row.id)}
                             onChange={() => handleCheckboxChange(row)}
-                            onClick={(e) => e.stopPropagation()}
                           />
                         ) : field.type === "select" && field.key === "clusterIdChange" ? (
                           // Render Select for clusterIdChange
@@ -2474,25 +2455,57 @@ const DeliverySpreadsheet: React.FC = () => {
                               restrictions.push(dr.otherText.trim());
                             return restrictions.length > 0 ? (
                               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, maxWidth: '250px' }}>
-                                {restrictions.map((restriction, i) => (
-                                  <Chip
-                                    key={i}
-                                    label={restriction}
-                                    size="small"
-                                    sx={{
-                                      backgroundColor: "#e8f5e9",
-                                      color: "#2E5B4C",
-                                      fontSize: "0.75rem",
-                                      height: "20px",
-                                      fontWeight: 500,
-                                      border: "1px solid #c8e6c9",
-                                      mb: 0.5,
-                                      mr: 0.5,
-                                      '& .MuiChip-label': { px: 1 },
-                                      '&:hover': { backgroundColor: '#e8f5e9', cursor: 'default' }
-                                    }}
-                                  />
-                                ))}
+                                {(() => {
+                                  const chips: { label: string; color: string; border: string; textColor: string }[] = [];
+                                  // Boolean restrictions (green)
+                                  [
+                                    { key: 'halal', label: 'Halal' },
+                                    { key: 'kidneyFriendly', label: 'Kidney Friendly' },
+                                    { key: 'lowSodium', label: 'Low Sodium' },
+                                    { key: 'lowSugar', label: 'Low Sugar' },
+                                    { key: 'microwaveOnly', label: 'Microwave Only' },
+                                    { key: 'noCookingEquipment', label: 'No Cooking Equipment' },
+                                    { key: 'softFood', label: 'Soft Food' },
+                                    { key: 'vegan', label: 'Vegan' },
+                                    { key: 'vegetarian', label: 'Vegetarian' },
+                                    { key: 'heartFriendly', label: 'Heart Friendly' },
+                                  ].forEach(opt => {
+                                    if (dr[opt.key as keyof typeof dr]) {
+                                      chips.push({ label: opt.label, color: '#e8f5e9', border: '#c8e6c9', textColor: '#2E5B4C' });
+                                    }
+                                  });
+                                  // Allergies (light red)
+                                  if (Array.isArray(dr.foodAllergens) && dr.foodAllergens.length > 0) {
+                                    dr.foodAllergens.forEach((allergy: string) => {
+                                      if (allergy && allergy.trim()) {
+                                        chips.push({ label: allergy, color: '#FFEBEE', border: '#FFCDD2', textColor: '#C62828' });
+                                      }
+                                    });
+                                  }
+                                  // Other (light purple)
+                                  if (dr.otherText && dr.otherText.trim()) {
+                                    chips.push({ label: dr.otherText, color: '#F3E8FF', border: '#CEB8FF', textColor: '#6C2EB7' });
+                                  }
+                                  return chips.map((chip, i) => (
+                                    <Chip
+                                      key={i}
+                                      label={chip.label}
+                                      size="small"
+                                      sx={{
+                                        backgroundColor: chip.color,
+                                        color: chip.textColor,
+                                        border: `1px solid ${chip.border}`,
+                                        fontSize: "0.75rem",
+                                        height: "20px",
+                                        fontWeight: 500,
+                                        mb: 0.5,
+                                        mr: 0.5,
+                                        '& .MuiChip-label': { px: 1 },
+                                        '&:hover': { backgroundColor: chip.color, cursor: 'default' }
+                                      }}
+                                    />
+                                  ));
+                                })()}
                               </Box>
                             ) : <span style={{ color: '#757575', fontStyle: 'italic' }}>None</span>;
                           })()
@@ -2565,10 +2578,19 @@ const DeliverySpreadsheet: React.FC = () => {
                 variant="primary"
                 color="primary"
                 onClick={() => {
-                  handleExport();
+                  handleEmailOrDownload("Email");
                   resetSelections();
                 }}
-                startIcon={<FileDownloadIcon />}
+              >
+                Email
+              </Button>
+              <Button
+                variant="secondary"
+                color="secondary"
+                onClick={() => {
+                  handleEmailOrDownload("Download");
+                  resetSelections();
+                }}
               >
                 Download
               </Button>

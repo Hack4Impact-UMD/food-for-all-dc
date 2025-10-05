@@ -156,6 +156,37 @@ import { validateClientProfile } from '../utils/firestoreValidation';
     }
   }
 
+  /**
+   * Get multiple clients by their UIDs - optimized for calendar lazy loading
+   * @param uids Array of client UIDs to fetch
+   */
+  public async getClientsByIds(uids: string[]): Promise<ClientProfile[]> {
+    try {
+      if (uids.length === 0) return [];
+      
+      // For small batches, use parallel individual fetches
+      if (uids.length <= 10) {
+        const promises = uids.map(uid => this.getClientById(uid));
+        const results = await Promise.all(promises);
+        return results.filter(client => client !== null) as ClientProfile[];
+      }
+      
+      // For larger batches, we'd need a more sophisticated approach
+      // For now, fall back to individual fetches but could be optimized with Firestore 'in' queries
+      const clients: ClientProfile[] = [];
+      const batchSize = 10; // Firestore 'in' query limit
+      
+      for (let i = 0; i < uids.length; i += batchSize) {
+        const batch = uids.slice(i, i + batchSize);
+        const promises = batch.map(uid => this.getClientById(uid));
+        const batchResults = await Promise.all(promises);
+        clients.push(...(batchResults.filter(client => client !== null) as ClientProfile[]));
+      }
+      return clients;
+    } catch (error) {
+      throw formatServiceError(error, 'Failed to get clients by IDs');
+    }
+  }
 
   // For Spreadsheet only: returns RowData[]
   public async getAllClientsForSpreadsheet(pageSize = 3000, lastDoc?: any): Promise<{ clients: RowData[]; lastDoc?: any }> {

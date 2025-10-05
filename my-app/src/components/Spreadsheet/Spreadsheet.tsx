@@ -29,6 +29,7 @@ import { TableVirtuoso } from 'react-virtuoso';
 import React, { forwardRef, useEffect, useState, useMemo, Suspense } from 'react';
 import type { HTMLAttributes } from 'react';
 import { useCustomColumns, allowedPropertyKeys } from "../../hooks/useCustomColumns";
+import DietaryRestrictionsLegend from "../DietaryRestrictionsLegend";
 import AddIcon from "@mui/icons-material/Add";
 import DeleteIcon from "@mui/icons-material/Delete";
 import { Select, MenuItem } from "@mui/material";
@@ -452,6 +453,10 @@ const Spreadsheet: React.FC = () => {
           </Stack>
         </Stack>
       </Box>
+      
+      {/* Dietary Restrictions Color Legend */}
+      <DietaryRestrictionsLegend />
+      
       {/* TableVirtuoso for desktop/table view only */}
   <Box className="table-container" sx={{ mt: 3, mb: 3, width: "100%", flex: 1, minHeight: 0 }}>
         {rows.length === 0 ? (
