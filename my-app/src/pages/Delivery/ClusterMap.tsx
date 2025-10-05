@@ -360,14 +360,15 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
         popupCloseHandlerSetup.current = true;
         
         mapRef.current.on('popupclose', (e) => {
-          // Skip if popup is in the process of opening
           if (isPopupOpening.current) {
             return;
           }
-          
-          // Use a longer delay to ensure popup is fully closed
+
           setTimeout(() => {
-            // Find all rows with data-client-id and check which one is highlighted
+            if (isPopupOpening.current) {
+              return;
+            }
+
             const allDataRows = document.querySelectorAll('tr[data-client-id]');
 
             let highlightedRow = null;
@@ -376,7 +377,6 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
               const computedStyle = window.getComputedStyle(element);
               const inlineStyle = element.style.backgroundColor;
 
-              // Check if this row is highlighted
               if (inlineStyle.includes('144, 238, 144') ||
                   inlineStyle.includes('lightgreen') ||
                   computedStyle.backgroundColor.includes('144, 238, 144')) {
@@ -391,7 +391,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
                 onClearHighlight();
               }
             }
-          }, 200); // Increased delay
+          }, 200);
         });
       }
     }
@@ -748,7 +748,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
         .on('popupopen', () => {
           setTimeout(() => {
             isPopupOpening.current = false;
-          }, 100);
+          }, 250);
         })
         .on('popupclose', () => {
           isPopupOpening.current = false;
