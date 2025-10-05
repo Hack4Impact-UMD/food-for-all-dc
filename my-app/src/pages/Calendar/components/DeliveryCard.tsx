@@ -11,9 +11,10 @@ interface DeliveryCardProps {
   event: DeliveryEvent;
   client?: ClientProfile;
   onEventModified: () => void;
+  allEvents?: DeliveryEvent[];
 }
 
-const DeliveryCard: React.FC<DeliveryCardProps> = ({ event, client, onEventModified }) => {
+const DeliveryCard: React.FC<DeliveryCardProps> = ({ event, client, onEventModified, allEvents }) => {
   const formatPhoneNumber = (phone: string): string => {
     const cleaned = ("" + phone).replace(/\D/g, ""); // Remove non-numeric characters
     const match = cleaned.match(/^(\d{3})(\d{3})(\d{4})$/); // Match the phone number pattern
@@ -57,7 +58,7 @@ const DeliveryCard: React.FC<DeliveryCardProps> = ({ event, client, onEventModif
             {event.clientName}
           </Typography>
           {/* Displays if the delivery is apart of a recurrence and also shows the date range */}
-          <DeliveryRecurrenceDisplay event={event} />
+          <DeliveryRecurrenceDisplay event={event} allEvents={allEvents} />
         </Box>
       </Box>
 

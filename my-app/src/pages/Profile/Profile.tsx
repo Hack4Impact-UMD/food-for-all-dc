@@ -331,7 +331,39 @@ const Profile = () => {
     const docRef = doc(db, "clients", id);
     const docSnap = await getDoc(docRef);
     if (docSnap.exists()) {
-      return docSnap.data() as ClientProfile;
+      const data = docSnap.data();
+      
+      // Ensure deliveryDetails structure exists and other potentially undefined fields
+      const normalizedData = {
+        ...data,
+        notes: data.notes || "",
+        lifeChallenges: data.lifeChallenges || "",
+        lifestyleGoals: data.lifestyleGoals || "",
+        deliveryDetails: {
+          deliveryInstructions: data.deliveryDetails?.deliveryInstructions || "",
+          dietaryRestrictions: {
+            lowSugar: data.deliveryDetails?.dietaryRestrictions?.lowSugar || false,
+            kidneyFriendly: data.deliveryDetails?.dietaryRestrictions?.kidneyFriendly || false,
+            vegan: data.deliveryDetails?.dietaryRestrictions?.vegan || false,
+            vegetarian: data.deliveryDetails?.dietaryRestrictions?.vegetarian || false,
+            halal: data.deliveryDetails?.dietaryRestrictions?.halal || false,
+            microwaveOnly: data.deliveryDetails?.dietaryRestrictions?.microwaveOnly || false,
+            softFood: data.deliveryDetails?.dietaryRestrictions?.softFood || false,
+            lowSodium: data.deliveryDetails?.dietaryRestrictions?.lowSodium || false,
+            noCookingEquipment: data.deliveryDetails?.dietaryRestrictions?.noCookingEquipment || false,
+            heartFriendly: data.deliveryDetails?.dietaryRestrictions?.heartFriendly || false,
+            allergies: data.deliveryDetails?.dietaryRestrictions?.allergies || false,
+            allergiesText: data.deliveryDetails?.dietaryRestrictions?.allergiesText || "",
+            foodAllergens: data.deliveryDetails?.dietaryRestrictions?.foodAllergens || [],
+            otherText: data.deliveryDetails?.dietaryRestrictions?.otherText || "",
+            other: data.deliveryDetails?.dietaryRestrictions?.other || false,
+            dietaryPreferences: data.deliveryDetails?.dietaryRestrictions?.dietaryPreferences || "",
+            ...data.deliveryDetails?.dietaryRestrictions
+          }
+        }
+      };
+      
+      return normalizedData as ClientProfile;
     } else {
       console.log("No such document!");
       return null;
@@ -1572,7 +1604,7 @@ if (type === "physicalAilments") {
                     deliveryDetails: {
                       ...prev.deliveryDetails,
                       dietaryRestrictions: {
-                        ...prev.deliveryDetails.dietaryRestrictions,
+                        ...prev.deliveryDetails?.dietaryRestrictions,
                         foodAllergens: value.split(",").map(s => s.trim()).filter(Boolean),
                         allergiesText: value,
                       }
@@ -2085,12 +2117,12 @@ if (type === "physicalAilments") {
         deliveryDetails: {
           ...prevState.deliveryDetails,
           dietaryRestrictions: {
-            ...prevState.deliveryDetails.dietaryRestrictions,
+            ...prevState.deliveryDetails?.dietaryRestrictions,
             [name]: checked,
             ...(name === "other" && {
               other: checked,
               // Keep the existing otherText when checking, clear it when unchecking
-              otherText: checked ? prevState.deliveryDetails.dietaryRestrictions.otherText : ""
+              otherText: checked ? prevState.deliveryDetails?.dietaryRestrictions?.otherText || "" : ""
             })
           },
         },
@@ -2102,7 +2134,7 @@ if (type === "physicalAilments") {
         deliveryDetails: {
           ...prevState.deliveryDetails,
           dietaryRestrictions: {
-            ...prevState.deliveryDetails.dietaryRestrictions,
+            ...prevState.deliveryDetails?.dietaryRestrictions,
             [name]: value,
             ...(name === "otherText" && { other: true }), // Ensure the checkbox stays checked when typing in otherText
             ...(name === "allergiesText" && { allergies: value.trim() !== "" }) // Checkbox checked if textbox not empty
@@ -2786,7 +2818,7 @@ const handleMentalHealthConditionsChange = (e: React.ChangeEvent<HTMLInputElemen
             <DietaryPreferencesForm
               isEditing={isEditing}
               fieldLabelStyles={fieldLabelStyles}
-              dietaryRestrictions={clientProfile.deliveryDetails.dietaryRestrictions}
+              dietaryRestrictions={clientProfile.deliveryDetails?.dietaryRestrictions || {}}
               renderField={renderField}
             />
           </SectionBox>
@@ -2797,7 +2829,7 @@ const handleMentalHealthConditionsChange = (e: React.ChangeEvent<HTMLInputElemen
             <HealthConditionsForm
               isEditing={isEditing}
               fieldLabelStyles={fieldLabelStyles}
-              dietaryRestrictions={clientProfile.deliveryDetails.dietaryRestrictions}
+              dietaryRestrictions={clientProfile.deliveryDetails?.dietaryRestrictions || {}}
               renderField={renderField}
             />
           </SectionBox>

@@ -172,7 +172,7 @@ const DeliveryInfoForm: React.FC<DeliveryInfoFormProps> = ({
             DELIVERY INSTRUCTIONS
           </Typography>
           {renderField("deliveryDetails.deliveryInstructions", "textarea")}
-          {clientProfile.deliveryDetails.deliveryInstructions.trim() !== "" && (
+          {clientProfile.deliveryDetails?.deliveryInstructions?.trim() !== "" && (
             <p id="timestamp">
               Last edited:{" "}
               {clientProfile.deliveryInstructionsTimestamp &&
@@ -199,7 +199,7 @@ const DeliveryInfoForm: React.FC<DeliveryInfoFormProps> = ({
             ADMIN NOTES
           </Typography>
           {renderField("notes", "textarea")}
-          {clientProfile.notes.trim() !== "" && (
+          {clientProfile.notes?.trim() !== "" && (
             <p id="timestamp">
               Last edited:{" "}
               {clientProfile.notesTimestamp &&

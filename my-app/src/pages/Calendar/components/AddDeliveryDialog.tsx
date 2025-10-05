@@ -25,6 +25,7 @@ import { DayPilot } from "@daypilot/daypilot-lite-react";
 import { validateDeliveryDateRange } from "../../../utils/dateValidation";
 import { getLastDeliveryDateForClient } from "../../../utils/lastDeliveryDate";
 import { deliveryEventEmitter } from "../../../utils/deliveryEventEmitter";
+import { deleteDeliveriesAfterEndDate } from "../../../utils/deliveryCleanup";
 
 interface AddDeliveryDialogProps {
   open: boolean;

@@ -30,9 +30,3 @@ export const deleteDeliveriesAfterEndDate = async (clientId: string, newEndDate:
     await Promise.all(deletionPromises);
   }
 };
-
-export const notifyDeliveryModified = (): void => {
-  window.dispatchEvent(new CustomEvent('deliveriesModified', {
-    detail: { timestamp: Date.now() }
-  }));
-};

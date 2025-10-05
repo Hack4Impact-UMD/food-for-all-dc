@@ -44,6 +44,7 @@ const DayView: React.FC<DayViewProps> = ({ events, clients, onEventModified, dai
                 event={event}
                 client={client}
                 onEventModified={onEventModified}
+                allEvents={events}
               />
             );
           })}
