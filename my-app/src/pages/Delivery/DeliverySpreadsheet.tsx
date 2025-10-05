@@ -1408,7 +1408,6 @@ const DeliverySpreadsheet: React.FC = () => {
 
   const visibleRows = rows.filter((row) => {
     const trimmedSearchQuery = searchQuery.trim();
-    //if search is empty then show all rows
     if (!trimmedSearchQuery) {
       return true;
     }
@@ -1573,8 +1572,7 @@ const DeliverySpreadsheet: React.FC = () => {
         return true;
       });
     }
-    
-    // If no complete key-value pairs, show all data
+
     return true;
   });
 
@@ -1815,7 +1813,15 @@ const DeliverySpreadsheet: React.FC = () => {
     return sorted;
   }, [visibleRows, sortOrder, sortedColumn, clusters, customColumns]);
 
-  // Synchronize rows state with rawClientData and clusters
+  useEffect(() => {
+    if (highlightedRowId && !visibleRows.some(row => row.id === highlightedRowId)) {
+      setHighlightedRowId(null);
+      if ((window as any).closeMapPopup) {
+        (window as any).closeMapPopup();
+      }
+    }
+  }, [visibleRows, highlightedRowId]);
+
   useEffect(() => {
     if (rawClientData.length === 0) {
       setRows([]);

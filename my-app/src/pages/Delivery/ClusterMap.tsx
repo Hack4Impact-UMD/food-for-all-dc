@@ -400,7 +400,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
       delete (window as any).closeMapPopup;
       delete (window as any).clearRowHighlight;
     };
-  }, [onOpenPopup]);
+  }, [onOpenPopup, onClearHighlight]);
 
 
 
