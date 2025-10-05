@@ -9,14 +9,16 @@ let firestoreLimits: number[] = [60, 60, 60, 60, 90, 90, 60];
 
 const deliveryService = DeliveryService.getInstance();
 
-(async () => {
+
+// Call this after auth is ready
+export const initLimits = async () => {
   try {
     const limits = await deliveryService.getWeeklyLimits();
     firestoreLimits = DAYS.map(day => limits[day] || 60);
   } catch (error) {
     console.error("Error initializing limits:", error);
   }
-})();
+};
 
 export const getDefaultLimit = (date: DayPilot.Date, limits: Record<string, number> | number[]): number => {
   if (Array.isArray(limits)) {

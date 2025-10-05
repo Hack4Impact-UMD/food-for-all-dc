@@ -66,7 +66,7 @@ import { RowData as DeliveryRowData } from "./types/deliveryTypes";
 import { Driver } from '../../types/calendar-types';
 import { ClientProfile } from '../../types/client-types';
 import { CustomRowData, useCustomColumns, allowedPropertyKeys } from "../../hooks/useCustomColumns";
-import ClientService from "../../services/client-service";
+import { clientService } from "../../services/client-service";
 import { LatLngTuple } from "leaflet";
 import { UserType } from "../../types";
 
@@ -1192,7 +1192,7 @@ const DeliverySpreadsheet: React.FC = () => {
             finalCoordinates[client.originalIndex] = coords; // Add newly fetched coords
             // Schedule Firestore update (don't await here individually to speed up)
             updatePromises.push(
-              ClientService.getInstance().updateClientCoordinates(client.id, coords)
+              clientService.updateClientCoordinates(client.id, coords)
                 .catch(err => console.error(`Failed to update coordinates for client ${client.id}:`, err)) // Log errors but don't fail the whole process
             );
           } else {

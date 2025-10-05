@@ -1,3 +1,14 @@
+
+.name-link {
+  color: #2E5B4C;
+  font-weight: bold;
+  text-decoration: none;
+  cursor: pointer;
+  transition: text-decoration 0.2s;
+}
+.name-link:hover {
+  text-decoration: underline;
+}
 html,
 body {
   height: 100%;
@@ -23,12 +34,39 @@ table .table-header {
   color: #257e68;
   border-bottom: 2.5px solid #ffffff;
   padding-top: 1.5%;
+html, body {
+  height: 100vh;
+  width: 100vw;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background-color: white;
+}
+.box {
+  width: 90vw;
+  border-radius: 8px;
+  margin-top: 0;
+  height: calc(100vh - 80px); /* Adjust 80px if your header is taller/shorter */
+  display: flex;
+  flex-direction: column;
+}
   padding-bottom: 1.5%;
 }
 
+
+
 .box .table-row {
   background-color: #f3f3f3;
-  border-bottom: 2.5px solid #ffffff;
+  border-bottom: none;
+  transition: box-shadow 0.2s, outline 0.2s;
+}
+
+.box .table-row:hover {
+  outline: 2.5px solid #257e68;
+  outline-offset: -2.5px;
+  box-shadow: none;
+  z-index: 1;
+  background-color: #e6f4ea;
 }
 
 .box .search-bar {

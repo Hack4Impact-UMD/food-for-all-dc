@@ -1,6 +1,6 @@
 import { db } from "./firebase";
 import { ClientProfile } from '../types';
-import type { RowData } from '../components/Spreadsheet/Spreadsheet';
+import type { RowData } from '../components/Spreadsheet/export';
 import { LatLngTuple } from "leaflet";
 import { Time, TimeUtils } from "../utils/timeUtils";
 import { retry } from '../utils/retry';
@@ -29,7 +29,7 @@ import { validateClientProfile } from '../utils/firestoreValidation';
 class ClientService {
   private static instance: ClientService;
   private db = db;
-  private clientsCollection = "clients";
+  private clientsCollection = "client-profile2";
   private tagsCollection = "tags";
   private tagsDocId = "oGuiR2dQQeOBXHCkhDeX";
 
@@ -72,7 +72,7 @@ import { validateClientProfile } from '../utils/firestoreValidation';
    * @param pageSize Number of clients per page
    * @param lastDoc Last document from previous page (for pagination)
    */
-  public async getAllClients(pageSize = 50, lastDoc?: any): Promise<{ clients: ClientProfile[]; lastDoc?: any }> {
+  public async getAllClients(pageSize = 3000, lastDoc?: any): Promise<{ clients: ClientProfile[]; lastDoc?: any }> {
     try {
       return await retry(async () => {
         let q = query(collection(this.db, this.clientsCollection), fbLimit(pageSize));
@@ -158,7 +158,7 @@ import { validateClientProfile } from '../utils/firestoreValidation';
 
 
   // For Spreadsheet only: returns RowData[]
-  public async getAllClientsForSpreadsheet(pageSize = 50, lastDoc?: any): Promise<{ clients: RowData[]; lastDoc?: any }> {
+  public async getAllClientsForSpreadsheet(pageSize = 3000, lastDoc?: any): Promise<{ clients: RowData[]; lastDoc?: any }> {
     try {
       return await retry(async () => {
         let q = query(collection(this.db, this.clientsCollection), fbLimit(pageSize));
@@ -345,4 +345,4 @@ import { validateClientProfile } from '../utils/firestoreValidation';
   }
 }
 
-export default ClientService; 
+export const clientService = ClientService.getInstance();

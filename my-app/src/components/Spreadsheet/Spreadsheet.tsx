@@ -1,49 +1,42 @@
-// ...existing code...
-
-// Place helper functions after RowData type and StyleChip definition
-
-// Import allowedPropertyKeys from useCustomColumns for single source of truth
-import { allowedPropertyKeys } from "../../hooks/useCustomColumns";
+import './Spreadsheet.css';
+import { onAuthStateChanged } from "firebase/auth";
+import { auth } from "../../services/firebase";
+import { TableSortLabel, Icon } from "@mui/material";
+// Custom chevron icons for TableSortLabel with spacing
+const iconStyle = { verticalAlign: 'middle', marginLeft: 6 };
+const ChevronUp = () => (
+  <Icon fontSize="small" style={iconStyle}>keyboard_arrow_up</Icon>
+);
+const ChevronDown = () => (
+  <Icon fontSize="small" style={iconStyle}>keyboard_arrow_down</Icon>
+);
+const ChevronUpDown = () => (
+  <span style={{ display: 'inline-flex', flexDirection: 'column', lineHeight: 1, marginLeft: 6 }}>
+    <Icon fontSize="small" style={{ marginBottom: -4 }}>keyboard_arrow_up</Icon>
+    <Icon fontSize="small" style={{ marginTop: -4 }}>keyboard_arrow_down</Icon>
+  </span>
+);
+import { Box, Button, IconButton, Paper, Table, TableContainer, TableRow, TableCell, Stack, Chip, Dialog, DialogActions, DialogTitle, DialogContent, Skeleton } from "@mui/material";
+import { Popover } from "@mui/material";
+import type { RowData } from "./export";
+import { TableVirtuoso } from 'react-virtuoso';
+import React, { forwardRef, useEffect, useState, useMemo, Suspense } from 'react';
+import type { HTMLAttributes } from 'react';
+import { useCustomColumns, allowedPropertyKeys } from "../../hooks/useCustomColumns";
 import AddIcon from "@mui/icons-material/Add";
-import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
-import ArrowDropUpIcon from "@mui/icons-material/ArrowDropUp";
 import DeleteIcon from "@mui/icons-material/Delete";
+import { Select, MenuItem } from "@mui/material";
+// Duplicate import removed
 import EditIcon from "@mui/icons-material/Edit";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
-import SaveIcon from "@mui/icons-material/Save";
-import UnfoldMoreIcon from "@mui/icons-material/UnfoldMore";
 import { styled } from "@mui/material/styles";
-import {
-  Box,
-  Button,
-  IconButton,
-  Menu,
-  MenuItem,
-  Paper,
-  Select,
-  SelectChangeEvent,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  TextField,
-  useTheme,
-  useMediaQuery,
-  Card,
-  Typography,
-  Stack,
-  Chip,
-  Divider,
-  Dialog,
-  DialogActions,
-  DialogTitle,
-  DialogContent,
-  DialogContentText,
-} from "@mui/material";
+import { useNavigate } from "react-router-dom";
 
-// StyleChip definition for custom column rendering
+import { exportQueryResults, exportAllClients } from "./export";
+const DeleteClientModal = React.lazy(() => import("./DeleteClientModal"));
+import { clientService } from '../../services/client-service';
+import { useClientData } from '../../context/ClientDataContext';
+
 const StyleChip = styled(Chip)(({ theme }) => ({
   fontWeight: 500,
   fontSize: "0.85rem",
@@ -54,1614 +47,463 @@ const StyleChip = styled(Chip)(({ theme }) => ({
   margin: "2px 2px 2px 0",
   cursor: "pointer",
   '&:hover': {
-    backgroundColor: theme.palette.primary.main,
-  },
+    backgroundColor: theme.palette.primary.main
+  }
 }));
-import { onAuthStateChanged } from "firebase/auth";
-import { writeBatch, doc } from "firebase/firestore";
-import { Filter, Search } from "lucide-react";
-import React, { useEffect, useState, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
-import { auth, db } from "../../auth/firebaseConfig";
-import { useCustomColumns } from "../../hooks/useCustomColumns";
-import ClientService from "../../services/client-service";
-import DeliveryService from "../../services/delivery-service";
-import { exportQueryResults, exportAllClients } from "./export";
-import "./Spreadsheet.css";
-import DeleteClientModal from "./DeleteClientModal";
-import { batchGetLastDeliveryDates } from "../../utils/lastDeliveryDate";
-import {
-  parseSearchTermsProgressively,
-  checkStringContains as utilCheckStringContains,
-  isPartialFieldName,
-  extractKeyValue
-} from "../../utils/searchFilter";
-import DietaryRestrictionsLegend from "../DietaryRestrictionsLegend";
-
-// Define TypeScript types for row data
-export interface RowData {
-  id: string;
-  clientid?: string;
-  uid: string;
-  firstName: string;
-  lastName: string;
-  phone?: string;
-  houseNumber?: number;
-  address: string;
-  deliveryDetails: {
-    deliveryInstructions: string;
-    dietaryRestrictions: {
-      foodAllergens: string[];
-      halal: boolean;
-      kidneyFriendly: boolean;
-      lowSodium: boolean;
-      lowSugar: boolean;
-      microwaveOnly: boolean;
-      noCookingEquipment: boolean;
-      otherText: string;
-      other: boolean;
-      softFood: boolean;
-      vegan: boolean;
-      heartFriendly: boolean;
-      vegetarian: boolean;
-    };
-  };
-  ethnicity: string;
-  tags?: string[];
-  referralEntity?: {
-    id: string;
-    name: string;
-    organization: string;
-  };
-  adults?: number;
-  children?: number;
-  deliveryFreq?: string;
-  gender?: "Male" | "Female" | "Other";
-  language?: string;
-  notes?: string;
-  tefapCert?: string;
-  dob?: string;
-  ward?: string;
-  zipCode?: string;
-  lastDeliveryDate?: string;
-}
-// Place helper functions after RowData type and StyleChip definition
-function getCustomColumnValue(row: RowData, propertyKey: string): string {
-  if (!propertyKey || propertyKey === "none") return "";
-  
-  // Handle lastDeliveryDate (computed field, return empty for editing)
-  if (propertyKey === "lastDeliveryDate") {
-    return row.lastDeliveryDate || "";
-  }
-  
-  if (propertyKey.includes(".")) {
-    const keys = propertyKey.split(".");
-    let value: any = row;
-    for (const k of keys) {
-      value = value && value[k as keyof typeof value];
-      if (value === undefined) return "";
-    }
-    return value !== undefined && value !== null ? value.toString() : "";
-  }
-  const val = row[propertyKey as keyof RowData];
-  return val !== undefined && val !== null ? val.toString() : "";
-}
 
 function getCustomColumnDisplay(row: RowData, propertyKey: string): React.ReactNode {
   if (!propertyKey || propertyKey === "none") return "N/A";
-
-  if (propertyKey === "lastDeliveryDate") {
-    return row.lastDeliveryDate || "No deliveries";
-  }
-  
-  // Handle referralEntity (object)
   if (propertyKey === "referralEntity" && row.referralEntity) {
     const entity = row.referralEntity;
     return `${entity?.name ?? 'N/A'}, ${entity?.organization ?? 'N/A'}`;
   }
-  // Handle tags (array)
   if (propertyKey === "tags" && Array.isArray(row.tags)) {
     return row.tags.length > 0
       ? row.tags.map((tag: string, i: number) => (
-          <StyleChip
-            key={i}
-            label={tag}
-            size="small"
-            onClick={(e: React.MouseEvent) => e.preventDefault()}
-            sx={{ mb: 0.5, mr: 0.5 }}
-          />
+          <StyleChip key={i} label={tag} size="small" onClick={(e) => e.preventDefault()} sx={{ mb: 0.5, mr: 0.5 }} />
         ))
       : "N/A";
   }
-  // Handle nested keys
   if (propertyKey.includes(".")) {
     const keys = propertyKey.split(".");
     let value: any = row;
     for (const k of keys) {
-      value = value && value[k as keyof typeof value];
+      value = value && value[k];
       if (value === undefined) return "N/A";
     }
     return value !== undefined && value !== null ? value.toString() : "N/A";
   }
-  // Default: direct value
-  const value = row[propertyKey as keyof RowData];
+  const value = row[propertyKey];
   return value !== undefined && value !== null ? value.toString() : "N/A";
+
 }
 
-// ADDED
-interface CustomColumn {
-  id: string; // Unique identifier for the column
-  label: string; // Header label (e.g., "Custom 1", or user-defined)
-  propertyKey: keyof RowData | "none"; // Which property from RowData to display
-}
-
-// Define a type for fields that can either be computed or direct keys of RowData
-type Field =
-  | {
-    key: "fullname";
-    label: "Name";
-    type: "text";
-    compute: (data: RowData) => string;
-  }
-  | {
-    key: keyof Omit<RowData, "id" | "firstName" | "lastName" | "deliveryDetails" | "uid" | "clientid">;
-    label: string;
-    type: string;
-    compute?: never;
-  }
-  | {
-    key: "deliveryDetails.dietaryRestrictions";
-    label: string;
-    type: string;
-    compute: (data: RowData) => string;
-  }
-  | {
-    key: "deliveryDetails.deliveryInstructions";
-    label: string;
-    type: string;
-    compute: (data: RowData) => string;
-  };
-
-// Type Guard to check if a field is a regular field
-const isRegularField = (field: Field): field is Extract<Field, { key: keyof RowData }> => {
-  return field.key !== "fullname";
-};
-
-interface SpreadsheetProps {
-  editable?: boolean
-}
-
-const Spreadsheet: React.FC<SpreadsheetProps> = ({ editable = true }) => {
-  const [rows, setRows] = useState<RowData[]>([]);
-  const [searchQuery, setSearchQuery] = useState<string>("");
-  const [editingRowId, setEditingRowId] = useState<string | null>(null);
-  const [menuAnchorEl, setMenuAnchorEl] = useState<null | HTMLElement>(null);
-  const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
-  const [exportDialogOpen, setExportDialogOpen] = useState(false);
-  const [exportOption, setExportOption] = useState<"QueryResults" | "AllClients" | null>(null);
-  const [clientIdToDelete, setClientIdToDelete] = useState<string | null>(null);
-
-  // Track which column is currently being sorted
-  const [sortedColumn, setSortedColumn] = useState<string>(() => {
-    // Always default to fullname (Name) column, ignore persisted value
-    return "fullname";
-  });
-
-  //default to asc if not found in local store
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">(() => {
-    // Always default to ascending order, ignore persisted value
-    return "asc";
-  });
-
-  // Initialize default sorting on first load
-  useEffect(() => {
-    // Always set default sort to fullname ascending on first load
-    setSortedColumn("fullname");
-    setSortOrder("asc");
-  }, []);
-
+const Spreadsheet: React.FC = () => {
   const navigate = useNavigate();
-
-  // ADDED
-
-  const {
-    customColumns,
-    handleAddCustomColumn,
-    handleCustomHeaderChange,
-    handleRemoveCustomColumn,
-    handleCustomColumnChange,
-  } = useCustomColumns({ page: "Spreadsheet" });
-
-// ...existing code...
-
-
-
-
-
-  //Route Protection
-  React.useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user: any) => {
+  // Route Protection: redirect to login if not authenticated
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (!user) {
         navigate("/");
       }
     });
-
     return () => unsubscribe();
   }, [navigate]);
+  // Sorting state
+  const [sortConfig, setSortConfig] = useState<{ key: string | null; direction: 'asc' | 'desc' | null }>({ key: 'fullname', direction: 'asc' });
 
-  //store sort order and column locally
-  useEffect(() => {
-    localStorage.setItem("ffaSortOrderSpreadsheet", sortOrder);
-    localStorage.setItem("ffaSortedColumnSpreadsheet", sortedColumn);
-  }, [sortOrder, sortedColumn]);
-
-  // Compute sorted rows using useMemo to ensure data is always sorted
-  const safeRows = Array.isArray(rows) ? rows : [];
-  const sortedRows = useMemo(() => {
-    if (safeRows.length === 0) return safeRows;
-    if (sortedColumn === "deliveryDetails.dietaryRestrictions") {
-      const getDietString = (row: any) => {
-        const dr = row.deliveryDetails?.dietaryRestrictions;
-        if (!dr || typeof dr !== 'object') return "None";
-        const keys = [
-          "halal", "kidneyFriendly", "lowSodium", "lowSugar", "microwaveOnly", "noCookingEquipment", "softFood", "vegan", "vegetarian", "heartFriendly"
-        ];
-        const items = keys.filter(k => dr[k]).map(k => k);
-        if (Array.isArray(dr.foodAllergens) && dr.foodAllergens.length > 0) items.push("foodAllergens");
-        if (Array.isArray(dr.other) && dr.other.length > 0) items.push("other");
-        if (dr.otherText && dr.otherText.trim() !== "") items.push(dr.otherText.trim());
-        // Treat empty restrictions as 'None'
-        if (items.length === 0) return "None";
-        const joined = items.join(", ");
-        if (!joined || joined.trim() === "") return "None";
-        return joined;
-      };
-      const withChips: any[] = [];
-      const withNone: any[] = [];
-      for (const row of safeRows) {
-  if (getDietString(row) === "None") {
-          withNone.push(row);
-        } else {
-          withChips.push(row);
-        }
+  // Sorting handler
+  const handleSort = (key: string) => {
+    setSortConfig((prev) => {
+      if (prev.key === key) {
+        // Toggle direction only between asc and desc
+        if (prev.direction === 'asc') return { key, direction: 'desc' };
+        return { key, direction: 'asc' };
       }
-      // Sort chips group alphabetically by diet string
-      withChips.sort((a, b) => {
-        const dietA = getDietString(a);
-        const dietB = getDietString(b);
-        return sortOrder === "asc"
-          ? dietA.localeCompare(dietB, undefined, { sensitivity: 'base' })
-          : dietB.localeCompare(dietA, undefined, { sensitivity: 'base' });
-      });
-      // Sort 'None' group by name for stable order
-      const getFullName = (row: any) => {
-        const lastName = (row.lastName || "").trim();
-        const firstName = (row.firstName || "").trim();
-        if (!lastName && !firstName) return "";
-        if (!lastName) return firstName.toLowerCase();
-        if (!firstName) return lastName.toLowerCase();
-        return `${lastName}, ${firstName}`.toLowerCase();
-      };
-      withNone.sort((a, b) => {
-        const nameA = getFullName(a);
-        const nameB = getFullName(b);
-        return sortOrder === "asc"
-          ? nameA.localeCompare(nameB, undefined, { sensitivity: 'base' })
-          : nameB.localeCompare(nameA, undefined, { sensitivity: 'base' });
-      });
-      // Concatenate groups: chips first for asc, chips last for desc
-      return sortOrder === "asc"
-        ? [...withChips, ...withNone]
-        : [...withNone, ...withChips];
-    }
-    return [...safeRows].sort((a, b) => {
-
-      // ...existing code for other columns...
-      let valueA = "";
-      let valueB = "";
-
-      const getFullName = (row: RowData) => {
-        const lastName = (row.lastName || "").trim();
-        const firstName = (row.firstName || "").trim();
-        if (!lastName && !firstName) return "";
-        if (!lastName) return firstName.toLowerCase();
-        if (!firstName) return lastName.toLowerCase();
-        return `${lastName}, ${firstName}`.toLowerCase();
-      };
-
-      // ...existing code for switch/case and default sorting...
-      switch (sortedColumn) {
-        case "fullname":
-          valueA = getFullName(a);
-          valueB = getFullName(b);
-          break;
-        case "address":
-          valueA = (a.address || "").toLowerCase();
-          valueB = (b.address || "").toLowerCase();
-          break;
-        case "phone":
-          valueA = (a.phone || "").toLowerCase();
-          valueB = (b.phone || "").toLowerCase();
-          break;
-        case "deliveryDetails.deliveryInstructions":
-          valueA = (a.deliveryDetails?.deliveryInstructions || "none").toLowerCase();
-          valueB = (b.deliveryDetails?.deliveryInstructions || "none").toLowerCase();
-          break;
-        default: {
-          const rawValueA = a[sortedColumn as keyof RowData];
-          const rawValueB = b[sortedColumn as keyof RowData];
-          const numA = Number(rawValueA);
-          const numB = Number(rawValueB);
-          const isNumericA = !isNaN(numA) && isFinite(numA) && rawValueA !== null && rawValueA !== undefined && String(rawValueA).trim() !== "";
-          const isNumericB = !isNaN(numB) && isFinite(numB) && rawValueB !== null && rawValueB !== undefined && String(rawValueB).trim() !== "";
-          if (isNumericA && isNumericB) {
-            const result = sortOrder === "asc" ? numA - numB : numB - numA;
-            return result;
-          }
-          const getSortableValue = (value: any): string => {
-            if (value === null || value === undefined) return "";
-            if (Array.isArray(value)) return value.join(", ").toLowerCase();
-            if (typeof value === 'object') {
-              if (value.name || value.organization) {
-                return `${value.name || ""} ${value.organization || ""}`.trim().toLowerCase();
-              }
-              return JSON.stringify(value).toLowerCase();
-            }
-            return String(value).toLowerCase();
-          };
-          valueA = getSortableValue(rawValueA);
-          valueB = getSortableValue(rawValueB);
-          break;
-        }
-      }
-      if (!valueA && !valueB) return 0;
-      if (!valueA) return sortOrder === "asc" ? -1 : 1;
-      if (!valueB) return sortOrder === "asc" ? 1 : -1;
-      const result = sortOrder === "asc"
-        ? valueA.localeCompare(valueB, undefined, { sensitivity: 'base' })
-        : valueB.localeCompare(valueA, undefined, { sensitivity: 'base' });
-      return result;
+      return { key, direction: 'asc' };
     });
-  }, [rows, sortOrder, sortedColumn]);
-
-  // Define fields for table columns
-  // Always include 'deliveryDetails.dietaryRestrictions' in allowedPropertyKeys and fields for custom columns
-  const fields: Field[] = [
-    {
-      key: "fullname",
-      label: "Name",
-      type: "text",
-      compute: (data: RowData) => `${data.lastName}, ${data.firstName}`,
-    },
-    { key: "address", label: "Address", type: "text" },
-    { key: "phone", label: "Phone", type: "text" },
-    // Do NOT remove this field, always keep it for custom columns
-    {
-      key: "deliveryDetails.dietaryRestrictions",
-      label: "Dietary Restrictions",
-      type: "text",
-      compute: (data: RowData) => {
-        const restrictions = [];
-        const dietaryRestrictions = data.deliveryDetails?.dietaryRestrictions;
-        if (!dietaryRestrictions) return "None";
-        if (dietaryRestrictions.halal) restrictions.push("Halal");
-        if (dietaryRestrictions.kidneyFriendly) restrictions.push("Kidney Friendly");
-        if (dietaryRestrictions.lowSodium) restrictions.push("Low Sodium");
-        if (dietaryRestrictions.lowSugar) restrictions.push("Low Sugar");
-        if (dietaryRestrictions.microwaveOnly) restrictions.push("Microwave Only");
-        if (dietaryRestrictions.noCookingEquipment) restrictions.push("No Cooking Equipment");
-        if (dietaryRestrictions.softFood) restrictions.push("Soft Food");
-        if (dietaryRestrictions.vegan) restrictions.push("Vegan");
-        if (dietaryRestrictions.vegetarian) restrictions.push("Vegetarian");
-        if (dietaryRestrictions.heartFriendly) restrictions.push("Heart Friendly");
-        if (Array.isArray(dietaryRestrictions.foodAllergens) && dietaryRestrictions.foodAllergens.length > 0)
-          restrictions.push(...dietaryRestrictions.foodAllergens);
-        if (Array.isArray(dietaryRestrictions.other) && dietaryRestrictions.other.length > 0)
-          restrictions.push(...dietaryRestrictions.other);
-        if (dietaryRestrictions.otherText && dietaryRestrictions.otherText.trim() !== "")
-          restrictions.push(dietaryRestrictions.otherText.trim());
-        return restrictions.length > 0 ? restrictions.join(", ") : "None";
-      },
-    },
-    {
-      key: "deliveryDetails.deliveryInstructions",
-      label: "Delivery Instructions",
-      type: "text",
-      compute: (data: RowData) =>
-        data.deliveryDetails?.deliveryInstructions || "None",
-    },
-  ];
-
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const clientService = ClientService.getInstance();
-        const { clients } = await clientService.getAllClientsForSpreadsheet();
-
-        const clientIds = clients.map(c => c.uid).filter((id): id is string => !!id);
-        const batchSize = 10;
-        const lastDeliveryMap = new Map<string, string>();
-
-        for (let i = 0; i < clientIds.length; i += batchSize) {
-          const batch = clientIds.slice(i, i + batchSize);
-          const batchResults = await batchGetLastDeliveryDates(batch);
-          batchResults.forEach((date, clientId) => lastDeliveryMap.set(clientId, date));
-        }
-
-        const clientsWithDates = clients.map(client => ({
-          ...client,
-          lastDeliveryDate: lastDeliveryMap.get(client.uid) || undefined
-        }));
-
-        setRows(clientsWithDates);
-      } catch (error) {
-        console.error("Error fetching data: ", error);
-      }
-    };
-    fetchData();
-  }, []);
-
-  // Handle search input change
-  const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    // ...existing code...
-    setSearchQuery(event.target.value);
   };
-
-  // Handle input change for editing a row
-  const handleEditInputChange = (
-    e: React.ChangeEvent<HTMLTextAreaElement | HTMLInputElement>,
-    id: string,
-    field: keyof RowData
-  ) => {
-    const updatedRows = rows.map((row) =>
-      row.id === id ? { ...row, [field]: e.target.value } : row
-    );
-    setRows(updatedRows);
-  };
-
-  const handleDeleteRow = async (id: string) => {
-    const deliveryService = DeliveryService.getInstance();
-    const clientService = ClientService.getInstance();
-    let deletedDeliveryIds: string[] = [];
-
-    try {
-      const clientDeliveries = await deliveryService.getEventsByClientId(id);
-      deletedDeliveryIds = clientDeliveries.map(d => d.id);
-
-      if (deletedDeliveryIds.length > 0) {
-        await Promise.all(deletedDeliveryIds.map(did => deliveryService.deleteEvent(did)));
-      }
-
-      await clientService.deleteClient(id);
-      setRows(rows.filter((row) => row.uid !== id));
-    } catch (error) {
-      console.error("Error deleting client and deliveries: ", error);
-
-      if (deletedDeliveryIds.length > 0) {
-        try {
-          const clientDeliveries = await deliveryService.getEventsByClientId(id);
-          const currentIds = new Set(clientDeliveries.map(d => d.id));
-          const missingIds = deletedDeliveryIds.filter(id => !currentIds.has(id));
-
-          if (missingIds.length > 0) {
-            console.error(`Warning: ${missingIds.length} deliveries were deleted but client deletion failed. Manual cleanup may be needed.`);
-          }
-        } catch (verifyError) {
-          console.error("Could not verify delivery deletion state:", verifyError);
-        }
-      }
-      throw error;
-    }
-  };
-
-  // Handle editing a row
-  const handleEditRow = (id: string) => {
-    // ...existing code...
-    const rowToEdit = rows.find((row) => row.uid === id);
-    if (rowToEdit) {
-      // Use useNavigate to navigate to the profile page with the user's data
-      navigate(`/profile/${id}`, {
-        state: { userData: rowToEdit }, // Passing the user data to the profile page via state
-      });
-    } else {
-      console.error("Could not find client with ID:", id);
-    }
-  };
-
-  // Handle saving edited row to Firestore
-  const handleSaveRow = async (id: string) => {
-    const rowToUpdate = rows.find((row) => row.id === id);
-    if (rowToUpdate) {
-      try {
-        const { id, uid, ...rowWithoutIds } = rowToUpdate;
-        // Use ClientService instead of direct Firebase calls
-        const clientService = ClientService.getInstance();
-        // ...existing code...
-        await clientService.updateClient(uid, rowWithoutIds as Omit<RowData, "id" | "uid">);
-        setEditingRowId(null);
-      } catch (error) {
-        console.error("Error updating document: ", error);
-      }
-    }
-  };
-
-  // Handle navigating to user details page
-  const handleRowClick = (uid: string) => {
-    // ...existing code...
-    if (!uid) {
-      console.error("Invalid ID for navigation:", uid);
-      return;
-    }
-    navigate(`/profile/${uid}`);
-  };
-
-  // Handle opening the action menu
-  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, uid: string) => {
-    setMenuAnchorEl(event.currentTarget);
-    setSelectedRowId(uid);
-  };
-
-  // Handle closing the action menu
-  const handleMenuClose = () => {
-    setMenuAnchorEl(null);
-    setSelectedRowId(null);
-  };
-
+  const [rows, setRows] = useState<RowData[]>([]);
+  const [forceRerender, setForceRerender] = useState(0);
+  const virtuosoRef = React.useRef<any>(null);
+  const { clients, refresh } = useClientData();
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [debouncedSearch, setDebouncedSearch] = useState<string>("");
+  const [menuAnchorPosition, setMenuAnchorPosition] = useState<{ top: number; left: number } | null>(null);
+  const [menuRow, setMenuRow] = useState<RowData | null>(null);
+  // Remove selectedRowId if not used elsewhere
+  const [exportDialogOpen, setExportDialogOpen] = useState(false);
+  const [clientIdToDelete, setClientIdToDelete] = useState<string | null>(null);
+  const [clientNameToDelete, setClientNameToDelete] = useState<string>("");
   // ...existing code...
-  const handleExportClick = () => {
-    setExportDialogOpen(true);
-  };
-
-  const parseSearchQuery = (query: string) => {
-    //match either quoted phrases or unquoted terms
-    const regex = /(?:("|')((?:\\\1|.)+?)\1)|([^\s"']+)/g;
-    const matches = [];
-    let match;
-    
-    while ((match = regex.exec(query)) !== null) {
-      //push either the quoted content or the unquoted term 
-      matches.push(match[2] || match[3]);
-    }
-    
-    return matches;
-  };
-
-    //function to determine if a search is incomplete or not
-    const hasUnclosedQuotes = (str: string): boolean => {
-      let singleQuotes = 0;
-      let doubleQuotes = 0;
-      let prevChar = '';
-      
-      for (const char of str) {
-        if (char === "'" && prevChar !== '\\') {
-          singleQuotes++;
-        } else if (char === '"' && prevChar !== '\\') {
-          doubleQuotes++;
-        }
-        prevChar = char;
-      }
-      
-      return (singleQuotes % 2 !== 0) || (doubleQuotes % 2 !== 0);
-    };
-
-  const filteredRows = sortedRows.filter((row) => {
-    const trimmedSearchQuery = searchQuery.trim();
-    if (!trimmedSearchQuery) {
-      return true;
-    }
-
-    const validSearchTerms = parseSearchTermsProgressively(trimmedSearchQuery);
-    if (validSearchTerms.length === 0) {
-      return true;
-    }
-
-    const checkStringContains = utilCheckStringContains;
-
-    //function to check for numbers, dates, or items in an array
-    const checkValueOrInArray = (value: any, query: string): boolean => {
-      if (value === undefined || value === null) {
-        return false;
-      }
-      const lowerQuery = query.toLowerCase();
-      if (Array.isArray(value)) {
-        return value.some(item => String(item).toLowerCase().includes(lowerQuery));
-      }
-      return String(value).toLowerCase().includes(lowerQuery);
-    };
-
-    return validSearchTerms.every(term => {
-      const { keyword, searchValue, isKeyValue: isKeyValueSearch } = extractKeyValue(term);
-
-      if (!isKeyValueSearch) {
-        const commonFieldNames = [
-          'phone', 'name', 'address', 'dietary', 'instructions', 'ethnicity',
-          'adults', 'children', 'gender', 'notes', 'referral', 'tags', 'ward',
-          'language', 'zip', 'client', 'delivery', 'tefap', 'coordinates'
-        ];
-
-        const customFieldNames = customColumns
-          .filter(col => col.propertyKey !== "none")
-          .map(col => col.label.toLowerCase());
-        const allFieldNames = [...commonFieldNames, ...customFieldNames];
-
-        if (isPartialFieldName(term, allFieldNames)) {
-          return true;
-        }
-      }
-
-      if (isKeyValueSearch) {
-        if (!searchValue) {
-          return true;
-        }
-
-        //key value search logic
-        switch (keyword) {
-          case "name":
-            return checkStringContains(`${row.firstName} ${row.lastName}`, searchValue) ||
-                  checkStringContains(row.firstName, searchValue) ||
-                  checkStringContains(row.lastName, searchValue);
-          case "address":
-            return checkStringContains(row.address, searchValue);
-          case "phone":
-            return checkStringContains(row.phone, searchValue);
-          case "dietary restrictions":
-          case "dietary": {
-            const dietaryField = fields.find(f => f.key === "deliveryDetails.dietaryRestrictions");
-            return dietaryField?.compute ? checkStringContains(dietaryField.compute(row), searchValue) : false;
-          }
-          case "delivery instructions":
-          case "instructions": {
-            const instructionsField = fields.find(f => f.key === "deliveryDetails.deliveryInstructions");
-            return instructionsField?.compute ? checkStringContains(instructionsField.compute(row), searchValue) : false;
-          }
-          case "ethnicity":
-            return checkStringContains(row.ethnicity, searchValue);
-          case "adults":
-            return checkValueOrInArray((row as any).adults, searchValue);
-          case "children":
-            return checkValueOrInArray((row as any).children, searchValue);
-          case "gender":
-            return checkStringContains((row as any).gender, searchValue);
-          case "notes":
-            return checkStringContains((row as any).notes, searchValue);
-          case "referral entity":
-          case "referral": {
-            const referralEntity = (row as any).referralEntity;
-            if (referralEntity && typeof referralEntity === 'object') {
-              return checkStringContains(referralEntity.name, searchValue) ||
-                    checkStringContains(referralEntity.organization, searchValue);
-            }
-            return false;
-          }
-          case "referral entity name":
-            return checkStringContains((row as any).referralEntity?.name, searchValue);
-          case "referral entity organization":
-            return checkStringContains((row as any).referralEntity?.organization, searchValue);
-          case "tags":
-          case "tag":
-            return checkValueOrInArray((row as any).tags, searchValue);
-          case "dob":
-            return checkValueOrInArray((row as any).dob, searchValue);
-          case "ward":
-            return checkValueOrInArray((row as any).ward, searchValue);
-          case "client id":
-          case "clientid":
-            return checkValueOrInArray(row.clientid, searchValue) || checkValueOrInArray(row.uid, searchValue);
-          case "delivery freq":
-          case "delivery frequency":
-            return checkStringContains((row as any).deliveryFreq, searchValue);
-          case "language":
-            return checkStringContains((row as any).language, searchValue);
-          case "tefap cert":
-          case "tefap":
-            return checkStringContains((row as any).tefapCert, searchValue);
-          case "zip":
-          case "zipcode":
-          case "zip code":
-            return checkStringContains((row as any).zipCode, searchValue);
-          case "house number":
-            return checkValueOrInArray(row.houseNumber, searchValue);
-          case "coordinates":
-            return checkStringContains((row as any).coordinates, searchValue);
-          default:
-            //check custom columns if keyword matches
-            return customColumns.some((col) => {
-              if (col.propertyKey !== "none" && col.propertyKey.toLowerCase().includes(keyword)) {
-                const fieldValue = row[col.propertyKey as keyof RowData];
-                return checkStringContains(fieldValue, searchValue);
-              }
-              return false;
-            });
-        }
-      } else {
-        //global search for this term
-        const globalSearchValue = term.toLowerCase();
-        
-        //check all relevant fields
-        if (checkStringContains(`${row.firstName} ${row.lastName}`, globalSearchValue)) return true;
-        if (checkStringContains(row.address, globalSearchValue)) return true;
-        if (checkStringContains(row.phone, globalSearchValue)) return true;
-
-        const dietaryField = fields.find(f => f.key === "deliveryDetails.dietaryRestrictions");
-        if (dietaryField?.compute && checkStringContains(dietaryField.compute(row), globalSearchValue)) return true;
-
-        const instructionsField = fields.find(f => f.key === "deliveryDetails.deliveryInstructions");
-        if (instructionsField?.compute && checkStringContains(instructionsField.compute(row), globalSearchValue)) return true;
-        
-        if (checkStringContains(row.ethnicity, globalSearchValue)) return true;
-
-        const dynamicKeysAndValues: any[] = [
-          (row as any).adults, (row as any).children, (row as any).deliveryFreq,
-          (row as any).gender, (row as any).language, (row as any).notes,
-          (row as any).tefapCert, (row as any).dob, (row as any).ward,
-          (row as any).zipCode, row.houseNumber, (row as any).coordinates,
-          row.clientid, row.uid
-        ];
-        if (dynamicKeysAndValues.some(val => checkValueOrInArray(val, globalSearchValue))) return true;
-
-        if (checkValueOrInArray((row as any).tags, globalSearchValue)) return true;
-
-        const referralEntity = (row as any).referralEntity;
-        if (referralEntity && typeof referralEntity === 'object') {
-          if (checkStringContains(referralEntity.name, globalSearchValue)) return true;
-          if (checkStringContains(referralEntity.organization, globalSearchValue)) return true;
-        }
-
-        //check custom columns
-        const matchesCustomColumn = customColumns.some((col) => {
-          if (col.propertyKey !== "none") {
-            const fieldValue = row[col.propertyKey as keyof RowData];
-            return checkStringContains(fieldValue, globalSearchValue);
-          }
-          return false;
-        });
-        if (matchesCustomColumn) return true;
-        
-        return false;
-      }
-    });
-  });
-
-  const handleExportOptionSelect = (option: "QueryResults" | "AllClients") => {
-    setExportOption(option);
-    setExportDialogOpen(false);
-    if (option === "QueryResults") {
-      exportQueryResults(filteredRows, customColumns);
-    } else if (option === "AllClients") {
-      exportAllClients(sortedRows);
-    }
-  };
-
-  const handleCancel = () => {
-    setExportDialogOpen(false);
-    setExportOption(null);
-  };
-
-  
-  // Handle toggling sort order for any column
-  const handleColumnSort = (columnKey: string) => {
-    if (sortedColumn === columnKey) {
-      // Same column clicked - toggle sort order
-      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
-    } else {
-      // Different column clicked - switch to new column with ascending order
-      setSortedColumn(columnKey);
-      setSortOrder("asc");
-    }
-  };
-
-  const addClient = () => {
-    navigate("/profile");
-  };
+  const customColumnsHook = useCustomColumns({ page: "Spreadsheet" });
+  const customColumns = customColumnsHook.customColumns;
+  const handleAddCustomColumn = customColumnsHook.handleAddCustomColumn;
+  const handleCustomHeaderChange = customColumnsHook.handleCustomHeaderChange;
+  const handleRemoveCustomColumn = customColumnsHook.handleRemoveCustomColumn;
 
   useEffect(() => {
-    // ...existing code...
+    setRows(clients);
+    setTimeout(() => {
+      if (virtuosoRef.current && typeof virtuosoRef.current.scrollToIndex === 'function') {
+        virtuosoRef.current.scrollToIndex({ index: 0, align: 'start' });
+      }
+      setForceRerender(f => f + 1);
+    }, 100);
+  }, [clients]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+    }, 300);
+    return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  // Add this debugging function
-  useEffect(() => {
-    if (sortedRows.length > 0) {
-      // ...existing code...
+  // TableVirtuoso MUI integration
+  const TableComponent = forwardRef<HTMLTableElement, React.ComponentProps<typeof Table>>((props, ref) => (
+    <Table {...props} ref={ref} stickyHeader />
+  ));
+  TableComponent.displayName = 'VirtuosoTable';
+  const TableHeadComponent = forwardRef<HTMLTableSectionElement, HTMLAttributes<HTMLTableSectionElement>>((props, ref) => (
+    <thead {...props} ref={ref} />
+  ));
+  TableHeadComponent.displayName = 'VirtuosoTableHead';
+  const TableRowComponent = forwardRef<HTMLTableRowElement, React.ComponentProps<typeof TableRow>>((props, ref) => (
+    <TableRow {...props} ref={ref} className={['table-row', props.className].filter(Boolean).join(' ')} />
+  ));
+  TableRowComponent.displayName = 'VirtuosoTableRow';
+  const TableBodyComponent = forwardRef<HTMLTableSectionElement, HTMLAttributes<HTMLTableSectionElement>>((props, ref) => (
+    <tbody {...props} ref={ref} />
+  ));
+  TableBodyComponent.displayName = 'VirtuosoTableBody';
+  const VirtuosoTableComponents = {
+    Table: TableComponent,
+    TableHead: TableHeadComponent,
+    TableRow: TableRowComponent,
+    TableBody: TableBodyComponent,
+  } as const;
+
+  // --- Fields for table columns ---
+  const fields = useMemo(() => [
+    { key: "fullname", label: "Name", type: "text", compute: (data: RowData) => `${data.lastName}, ${data.firstName}` },
+    { key: "address", label: "Address", type: "text" },
+    { key: "phone", label: "Phone", type: "text" },
+    { key: "deliveryDetails.dietaryRestrictions", label: "Dietary Restrictions", type: "text", compute: (data: RowData) => {
+      const dr = data.deliveryDetails?.dietaryRestrictions;
+      if (!dr) return <span style={{ color: '#888' }}>None</span>;
+      // Define categories
+      const dietary: string[] = [];
+      const allergies: string[] = [];
+      const other: string[] = [];
+      if (dr.halal) dietary.push("Halal");
+      if (dr.kidneyFriendly) dietary.push("Kidney Friendly");
+      if (dr.lowSodium) dietary.push("Low Sodium");
+      if (dr.lowSugar) dietary.push("Low Sugar");
+      if (dr.microwaveOnly) dietary.push("Microwave Only");
+      if (dr.noCookingEquipment) dietary.push("No Cooking Equipment");
+      if (dr.softFood) dietary.push("Soft Food");
+      if (dr.vegan) dietary.push("Vegan");
+      if (dr.vegetarian) dietary.push("Vegetarian");
+      if (dr.heartFriendly) dietary.push("Heart Friendly");
+      if (Array.isArray(dr.foodAllergens) && dr.foodAllergens.length > 0) allergies.push(...dr.foodAllergens);
+      if (Array.isArray(dr.other) && dr.other.length > 0) other.push(...dr.other);
+      if (dr.otherText && dr.otherText.trim() !== "") other.push(dr.otherText.trim());
+      // Render chips
+      const chips: React.ReactNode[] = [];
+      dietary.forEach((item, i) => chips.push(
+        <Chip key={`dietary-${item}-${i}`} label={item} size="small" sx={{ backgroundColor: '#e6f4ea', color: '#257e68', fontWeight: 500, mr: 0.5, mb: 0.5 }} />
+      ));
+      allergies.forEach((item, i) => chips.push(
+        <Chip key={`allergy-${item}-${i}`} label={item} size="small" sx={{ backgroundColor: '#fdeaea', color: '#c62828', fontWeight: 500, mr: 0.5, mb: 0.5 }} />
+      ));
+      other.forEach((item, i) => chips.push(
+        <Chip key={`other-${item}-${i}`} label={item} size="small" sx={{ backgroundColor: '#f3eafd', color: '#6c3483', fontWeight: 500, mr: 0.5, mb: 0.5 }} />
+      ));
+      return chips.length > 0 ? chips : <span style={{ color: '#888' }}>None</span>;
+    } },
+    { key: "deliveryDetails.deliveryInstructions", label: "Delivery Instructions", type: "text", compute: (data: RowData) => data.deliveryDetails?.deliveryInstructions || "None" },
+  ], []);
+
+  // --- Sorting and filtering logic (with sorting) ---
+  // Ensure filteredRows is always the correct RowData shape for export, and optimize with useMemo
+  const filteredRows: RowData[] = useMemo(() => {
+  let result = rows;
+    if (debouncedSearch.trim()) {
+      const q = debouncedSearch.toLowerCase();
+      result = result.filter(row =>
+        row.firstName?.toLowerCase().includes(q) ||
+        row.lastName?.toLowerCase().includes(q) ||
+        row.address?.toLowerCase().includes(q) ||
+        row.phone?.toLowerCase().includes(q)
+      );
     }
-  }, [sortedRows]);
+    // Sort if needed
+    if (sortConfig.key && sortConfig.direction) {
+      const field = fields.find(f => f.key === sortConfig.key);
+      if (field) {
+        // Special case for fullname: sort by lastName, firstName
+        if (field.key === 'fullname') {
+          result = [...result].sort((a, b) => {
+            const aLast = a.lastName?.toLowerCase() || '';
+            const bLast = b.lastName?.toLowerCase() || '';
+            if (aLast < bLast) return sortConfig.direction === 'asc' ? -1 : 1;
+            if (aLast > bLast) return sortConfig.direction === 'asc' ? 1 : -1;
+            const aFirst = a.firstName?.toLowerCase() || '';
+            const bFirst = b.firstName?.toLowerCase() || '';
+            if (aFirst < bFirst) return sortConfig.direction === 'asc' ? -1 : 1;
+            if (aFirst > bFirst) return sortConfig.direction === 'asc' ? 1 : -1;
+            return 0;
+          });
+        } else {
+          // Use field.compute if present, else direct property
+          result = [...result].sort((a, b) => {
+            const aValue = field.compute ? field.compute(a) : a[field.key];
+            const bValue = field.compute ? field.compute(b) : b[field.key];
+            // If compute returns a ReactNode (e.g., chips), fallback to string
+            const aComp = typeof aValue === 'string' || typeof aValue === 'number' ? aValue : (aValue?.props?.label || aValue?.toString?.() || '');
+            const bComp = typeof bValue === 'string' || typeof bValue === 'number' ? bValue : (bValue?.props?.label || bValue?.toString?.() || '');
+            if (aComp === null || aComp === undefined) {
+              if (bComp === null || bComp === undefined) return 0;
+              return 1;
+            }
+            if (bComp === null || bComp === undefined) return -1;
+            if (aComp < bComp) return sortConfig.direction === 'asc' ? -1 : 1;
+            if (aComp > bComp) return sortConfig.direction === 'asc' ? 1 : -1;
+            return 0;
+          });
+        }
+      } else {
+        // Custom column: sort by string value
+        result = [...result].sort((a, b) => {
+          const aValue = a[sortConfig.key as keyof RowData];
+          const bValue = b[sortConfig.key as keyof RowData];
+          const aStr = aValue === null || aValue === undefined ? '' : String(aValue).toLowerCase();
+          const bStr = bValue === null || bValue === undefined ? '' : String(bValue).toLowerCase();
+          if (aStr === bStr) return 0;
+          if (sortConfig.direction === 'asc') {
+            return aStr < bStr ? -1 : 1;
+          } else {
+            return aStr > bStr ? -1 : 1;
+          }
+        });
+      }
+    }
+    return result;
+  }, [rows, debouncedSearch, sortConfig, fields]);
 
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-  const isTablet = useMediaQuery(theme.breakpoints.between('sm', 'md'));
-
+  // --- TableVirtuoso rendering ---
   return (
-    <Box
-      className="box"
-      sx={{
-        px: { xs: 2, sm: 3, md: 4 },
-        py: 2,
-        maxWidth: "100%",
-        overflowX: "hidden",
-        backgroundColor: "transparent",
-        position: "relative",
-        display: "flex",
-        flexDirection: "column",
-        // Remove height and overflowY to prevent outside scrollbar
-        mt:0
-      }}
-    >
-      {/* Fixed Container for Search Bar and Create Client Button */}
-      {editable ? <Box
-        sx={{
-          position: "sticky",
-          top: 0,
-          width: "100%",
-          zIndex: 10,
-          backgroundColor: "#fff",
-          pb: 3,
-          pt: 0,
-          borderBottom: "none",
-          boxShadow: "none",
-          margin: 0
-        }}
-      >
+  <Box className="box" sx={{ px: { xs: 2, sm: 3, md: 4 }, py: 2, maxWidth: "100%", overflowX: "hidden", backgroundColor: "transparent", position: "relative", display: "flex", flexDirection: "column", mt: 0, height: 'calc(100vh - 133px)' }}>
+      <div style={{ color: '#257e68', fontWeight: 600, marginBottom: 8 }}>
+      </div>
+      {/* Search bar and actions */}
+      <Box sx={{ position: "sticky", top: 0, width: "100%", zIndex: 10, backgroundColor: "#fff", pb: 3, pt: 0, borderBottom: "none", boxShadow: "none", margin: 0 }}>
         <Stack spacing={3}>
           <Box sx={{ position: "relative", width: "100%" }}>
             <input
               type="text"
               value={searchQuery}
-              onChange={handleSearchChange}
+              onChange={e => setSearchQuery(e.target.value)}
               placeholder="SEARCH"
-              style={{
-                width: "100%",
-                height: "50px",
-                backgroundColor: "#EEEEEE",
-                border: "none",
-                borderRadius: "25px",
-                padding: "0 48px",
-                fontSize: "16px",
-                color: "#333333",
-                boxSizing: "border-box",
-                transition: "all 0.2s ease",
-                boxShadow: "inset 0 2px 3px rgba(0,0,0,0.05)"
-              }}
+              style={{ width: "100%", height: "50px", backgroundColor: "#EEEEEE", border: "none", borderRadius: "25px", padding: "0 48px", fontSize: "16px", color: "#333333", boxSizing: "border-box", transition: "all 0.2s ease", boxShadow: "inset 0 2px 3px rgba(0,0,0,0.05)" }}
             />
           </Box>
-          <Stack
-            direction={{ xs: 'column', sm: 'row' }}
-            spacing={2}
-
-            alignItems={{ xs: 'stretch', sm: 'center' }}
-            sx={{ '& .MuiButton-root': { height: { sm: '36px' } } }}
-          >
-            <Button
-              variant="contained"
-              color="secondary"
-              onClick={() => setSearchQuery("")}
-              className="view-all"
-              sx={{
-                borderRadius: "25px",
-                px: 2,
-                py: 0.5,
-                minWidth: { xs: '100%', sm: '100px' },
-                maxWidth: { sm: '120px' },
-                textTransform: "none",
-                fontSize: "0.875rem",
-                lineHeight: 1.5,
-                boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
-                transition: "all 0.2s ease",
-                "&:hover": {
-                  transform: "translateY(-2px)",
-                  boxShadow: "0 4px 8px rgba(0,0,0,0.1)",
-                },
-                alignSelf: { xs: 'stretch', sm: 'flex-start' }
-              }}
-            >
-              View All
-            </Button>
-            {/* Export Button */}
-            <Button
-              variant="contained"
-              color="primary"
-              onClick={handleExportClick}
-              sx={{
-                borderRadius: "25px",
-                px: 2,
-                py: 0.5,
-                minWidth: { xs: '100%', sm: '100px' },
-                maxWidth: { sm: '120px' },
-                textTransform: "none",
-                fontSize: "0.875rem",
-                lineHeight: 1.5,
-                boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
-                transition: "all 0.2s ease",
-                "&:hover": {
-                  transform: "translateY(-2px)",
-                  boxShadow: "0 4px 8px rgba(0,0,0,0.1)",
-                },
-                alignSelf: { xs: 'stretch', sm: 'flex-start' }
-              }}
-
-            >
-              Export
-            </Button>
-
-            <Dialog open={exportDialogOpen} onClose={handleCancel} maxWidth="xs" fullWidth>
-              <DialogTitle>Export Options</DialogTitle>
-              <DialogContent sx={{ pt: 3, overflow: "visible" }}>
-                <Box sx={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-                  <Button
-                    variant="contained"
-                    color="primary"
-                    onClick={() => handleExportOptionSelect("QueryResults")}
-                  >
-                    Export Query Results
-                  </Button>
-                  <Button
-                    variant="contained"
-                    color="secondary"
-                    onClick={() => handleExportOptionSelect("AllClients")}
-                  >
-                    Export All Clients
-                  </Button>
-                </Box>
-              </DialogContent>
-              <DialogActions>
-                <Button onClick={handleCancel} color="error">
-                  Cancel
-                </Button>
-              </DialogActions>
-            </Dialog>
-
-
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ xs: 'stretch', sm: 'center' }} sx={{ '& .MuiButton-root': { height: { sm: '36px' } } }}>
+            <Button variant="contained" color="secondary" onClick={() => setSearchQuery("")} className="view-all" sx={{ borderRadius: "25px", px: 2, py: 0.5, minWidth: { xs: '100%', sm: '100px' }, maxWidth: { sm: '120px' }, textTransform: "none", fontSize: "0.875rem", lineHeight: 1.5, boxShadow: "0 2px 4px rgba(0,0,0,0.1)", transition: "all 0.2s ease", "&:hover": { transform: "translateY(-2px)", boxShadow: "0 4px 8px rgba(0,0,0,0.1)" }, alignSelf: { xs: 'stretch', sm: 'flex-start' } }}>View All</Button>
+            <Button variant="contained" color="primary" onClick={() => setExportDialogOpen(true)} sx={{ borderRadius: "25px", px: 2, py: 0.5, minWidth: { xs: '100%', sm: '100px' }, maxWidth: { sm: '120px' }, textTransform: "none", fontSize: "0.875rem", lineHeight: 1.5, boxShadow: "0 2px 4px rgba(0,0,0,0.1)", transition: "all 0.2s ease", "&:hover": { transform: "translateY(-2px)", boxShadow: "0 4px 8px rgba(0,0,0,0.1)" }, alignSelf: { xs: 'stretch', sm: 'flex-start' } }}>Export</Button>
+            <Suspense fallback={null}>
+              {exportDialogOpen && (
+                <Dialog open={exportDialogOpen} onClose={() => setExportDialogOpen(false)} maxWidth="xs" fullWidth>
+                  <DialogTitle>Export Options</DialogTitle>
+                  <DialogContent sx={{ pt: 3, overflow: "visible" }}>
+                    <Box sx={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                      <Button variant="contained" color="primary" onClick={() => { setExportDialogOpen(false); exportQueryResults(filteredRows, customColumns); }}>Export Query Results</Button>
+                      <Button variant="contained" color="secondary" onClick={() => { setExportDialogOpen(false); exportAllClients(rows); }}>Export All Clients</Button>
+                    </Box>
+                  </DialogContent>
+                  <DialogActions>
+                    <Button onClick={() => setExportDialogOpen(false)} color="error">Cancel</Button>
+                  </DialogActions>
+                </Dialog>
+              )}
+            </Suspense>
             <Box sx={{ flexGrow: 1, display: "flex", justifyContent: "flex-end" }}>
-              <Button
-                variant="contained"
-                color="primary"
-                onClick={addClient}
-                className="create-client"
-                sx={{
-                  backgroundColor: "#2E5B4C",
-                  borderRadius: "25px",
-                  px: 2,
-                  py: 0.5,
-                  minWidth: { xs: '100%', sm: '140px' },
-                  maxWidth: { sm: '160px' },
-                  textTransform: "none",
-                  fontSize: "0.875rem",
-                  lineHeight: 1.5,
-                  boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
-                  transition: "all 0.2s ease",
-                  "&:hover": {
-                    backgroundColor: "#234839",
-                    transform: "translateY(-2px)",
-                    boxShadow: "0 4px 8px rgba(0,0,0,0.1)",
-                  },
-                  alignSelf: { xs: 'stretch', sm: 'flex-end' }
-                }}
-              >
-                + Create Client
-              </Button>
+              <Button variant="contained" color="primary" onClick={() => navigate("/profile")} className="create-client" sx={{ backgroundColor: "#2E5B4C", borderRadius: "25px", px: 2, py: 0.5, minWidth: { xs: '100%', sm: '140px' }, maxWidth: { sm: '160px' }, textTransform: "none", fontSize: "0.875rem", lineHeight: 1.5, boxShadow: "0 2px 4px rgba(0,0,0,0.1)", transition: "all 0.2s ease", "&:hover": { backgroundColor: "#234839", transform: "translateY(-2px)", boxShadow: "0 4px 8px rgba(0,0,0,0.1)" }, alignSelf: { xs: 'stretch', sm: 'flex-end' } }}>+ Create Client</Button>
             </Box>
           </Stack>
         </Stack>
-      </Box>: ""}
-
-      {/* Spreadsheet Content */}
-      <Box
-        sx={{
-          mt: 3,
-          mb: 3,
-          width: "100%",
-          flex: 1,
-          overflowY: "visible"
-        }}
-      >
-        <DietaryRestrictionsLegend />
-
-        {/* Mobile Card View for Small Screens */}
-        {isMobile ? (
-          <Stack spacing={2} sx={{ overflowY: "auto", width: "100%" }}>
-            {(Array.isArray(filteredRows) ? filteredRows : []).map((row) => (
-              <Card
-                key={row.id}
-                sx={{
-                  p: 2,
-                  boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-                  borderRadius: "12px",
-                  transition: "transform 0.2s ease",
-                  "&:hover": {
-                    transform: "translateY(-2px)",
-                    boxShadow: "0 4px 12px rgba(0,0,0,0.12)",
-                  }
-                }}
-                onClick={() => handleRowClick(row.uid)}
-              >
-                <Stack direction="row" justifyContent="space-between" alignItems="center" mb={1}>
-                  <Typography variant="h6" sx={{ fontWeight: 600, color: "#2E5B4C" }}>
-                    {row.lastName}, {row.firstName}
-                  </Typography>
-                  {editable ? <IconButton
-                    size="small"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleMenuOpen(e, row.uid);
-                    }}
-                  >
-                    
-                    <MoreVertIcon />
-                  </IconButton>: null}
-                </Stack>
-                <Divider sx={{ my: 1 }} />
-                <Stack spacing={1.5}>
-                  <Box>
-                    <Typography variant="body2" color="text.secondary">Address</Typography>
-                    <Typography variant="body1">{row.address}</Typography>
-                  </Box>
-                  {row.phone && (
-                    <Box>
-                      <Typography variant="body2" color="text.secondary">Phone</Typography>
-                      <Typography variant="body1">{row.phone}</Typography>
-                    </Box>
-                  )}
-                  <Box>
-                    <Typography variant="body2" color="text.secondary">Dietary Restrictions</Typography>
-                    {(() => {
-                      const restrictions = fields.find(f => f.key === "deliveryDetails.dietaryRestrictions")?.compute?.(row);
-                      if (restrictions === "None") {
-                        return <Typography variant="body2" color="text.secondary">None</Typography>;
-                      }
-                      return (
-                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.5 }}>
-                          {restrictions?.split(", ").map((restriction, i) => (
-                            <Chip
-                              key={i}
-                              label={restriction}
-                              size="small"
-                              sx={{
-                                backgroundColor: "#e8f5e9",
-                                color: "#2E5B4C",
-                                fontSize: "0.75rem",
-                                height: "24px",
-                                fontWeight: 500,
-                                border: "1px solid #c8e6c9",
-                                "&:hover": {
-                                  backgroundColor: "#e8f5e9",
-                                  cursor: "default"
-                                }
-                              }}
-                            />
-                          ))}
-                        </Box>
-                      );
-                    })()}
-                  </Box>
-                  {/* Custom columns for mobile */}
-                  {customColumns.map((col) => (
-                    col.propertyKey !== "none" && (
-                      <Box key={col.id}>
-                        <Typography variant="body2" color="text.secondary">
-                          {col.label || col.propertyKey}
-                        </Typography>
-                        <Typography variant="body1">
-                          {col.propertyKey === "deliveryDetails.dietaryRestrictions"
-                            ? fields.find(f => f.key === "deliveryDetails.dietaryRestrictions")?.compute?.(row)
-                            : row[col.propertyKey as keyof RowData]?.toString() || "N/A"}
-                        </Typography>
-                      </Box>
-                    )
+      </Box>
+      {/* TableVirtuoso for desktop/table view only */}
+  <Box className="table-container" sx={{ mt: 3, mb: 3, width: "100%", flex: 1, minHeight: 0 }}>
+        {rows.length === 0 ? (
+          <TableContainer component={Paper} sx={{ height: '100%', boxShadow: "0 4px 12px rgba(0,0,0,0.05)", borderRadius: "12px", overflow: 'auto', minHeight: 0 }}>
+            <Table sx={{ minWidth: 650 }}>
+              <tbody>
+                <TableRow>
+                  {fields.map((field) => (
+                    <TableCell key={field.key}><Skeleton variant="text" width={100} /></TableCell>
                   ))}
-                </Stack>
-              </Card>
-            ))}
-            {/* Menu for mobile */}
-            <Menu
-              anchorEl={menuAnchorEl}
-              open={Boolean(menuAnchorEl)}
-              onClose={handleMenuClose}
-              PaperProps={{
-                elevation: 3,
-                sx: { borderRadius: "8px", minWidth: "150px" }
-              }}
-            >
-              <MenuItem
-                onClick={() => {
-                  if (selectedRowId) handleEditRow(selectedRowId);
-                  handleMenuClose();
-                }}
-                sx={{ py: 1.5 }}
-              >
-                <EditIcon fontSize="small" sx={{ mr: 1 }} /> Edit
-              </MenuItem>
-              <MenuItem
-                onClick={() => {
-                  if (selectedRowId) setClientIdToDelete(selectedRowId);
-                  handleMenuClose();
-                }}
-                sx={{ py: 1.5 }}
-              >
-                <DeleteIcon fontSize="small" sx={{ mr: 1 }} /> Delete
-              </MenuItem>
-            </Menu>
-          </Stack>
+                  {customColumns.map((col) => (
+                    <TableCell key={col.id}><Skeleton variant="text" width={100} /></TableCell>
+                  ))}
+                  <TableCell key="actions"><Skeleton variant="circular" width={32} height={32} /></TableCell>
+                </TableRow>
+                {[...Array(10)].map((_, i) => (
+                  <TableRow key={i}>
+                    {fields.map((field) => (
+                      <TableCell key={field.key}><Skeleton variant="rectangular" width={100} height={24} /></TableCell>
+                    ))}
+                    {customColumns.map((col) => (
+                      <TableCell key={col.id}><Skeleton variant="rectangular" width={100} height={24} /></TableCell>
+                    ))}
+                    <TableCell key="actions"><Skeleton variant="circular" width={32} height={32} /></TableCell>
+                  </TableRow>
+                ))}
+              </tbody>
+            </Table>
+          </TableContainer>
         ) : (
-          /* Table View for Larger Screens */
-          <TableContainer
-            component={Paper}
-            sx={{
-              maxHeight: "60vh",
-              overflowY: "auto",
-              boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
-              borderRadius: "12px",
-            }}
-          >
-            <Table stickyHeader>
-              <TableHead>
+          <TableContainer component={Paper} sx={{ height: '100%', boxShadow: "0 4px 12px rgba(0,0,0,0.05)", borderRadius: "12px", overflow: 'auto', minHeight: 0 }}>
+            <TableVirtuoso
+              ref={virtuosoRef}
+              style={{ height: '100%' }}
+              data={filteredRows}
+              components={VirtuosoTableComponents}
+              overscan={200}
+              key={forceRerender}
+              fixedHeaderContent={() => (
                 <TableRow sx={{ position: 'sticky', top: 0, zIndex: 2 }}>
-                  {/* Static columns */}
                   {fields.map((field) => (
                     <TableCell
                       className="table-header"
                       key={field.key}
-                      sx={{
-                        backgroundColor: "#f5f9f7",
-                        borderBottom: "2px solid #e0e0e0",
-                      }}
+                      sx={{ backgroundColor: "#f5f9f7", borderBottom: "2px solid #e0e0e0", width: 160, minWidth: 160, maxWidth: 160, cursor: 'pointer' }}
+                      onClick={() => handleSort(field.key)}
                     >
-                      <Stack
-                        direction="row"
-                        alignItems="center"
-                        spacing={0.5}
-                        sx={{
-                          cursor: "pointer", // All columns are now sortable
-                        }}
-                        onClick={() => handleColumnSort(field.key)}
+                      <TableSortLabel
+                        active={sortConfig.key === field.key}
+                        direction={sortConfig.direction === null ? 'asc' : sortConfig.direction}
+                        hideSortIcon={true}
+                        IconComponent={() => null}
                       >
-                        <Typography variant="subtitle2" sx={{ fontWeight: 600, color: "#2E5B4C" }}>
-                          {field.label}
-                        </Typography>
-                        {sortedColumn === field.key ? (
-                          sortOrder === "asc" ? <ArrowDropUpIcon /> : <ArrowDropDownIcon />
-                        ) : (
-                          <UnfoldMoreIcon sx={{ color: "#9E9E9E", fontSize: "1.2rem" }} />
-                        )}
-                      </Stack>
+                        {field.label}
+                        {sortConfig.key === field.key
+                          ? (sortConfig.direction === 'asc' ? <ChevronUp />
+                            : sortConfig.direction === 'desc' ? <ChevronDown />
+                            : <ChevronUpDown />)
+                          : <ChevronUpDown />}
+                      </TableSortLabel>
                     </TableCell>
                   ))}
-
-                  {/*  Headers for custom columns */}
+                  {/* Custom columns header */}
                   {customColumns.map((col) => (
-                    <TableCell
-                      className="table-header"
-                      key={col.id}
-                      sx={{
-                        backgroundColor: "#f5f9f7",
-                        borderBottom: "2px solid #e0e0e0",
-                      }}
-                    >
-                      <Stack
-                        direction="row"
-                        alignItems="center"
-                        spacing={0.5}
-                        sx={{
-                          cursor: col.propertyKey !== "none" ? "pointer" : "default", // Only sortable if column has data
-                        }}
-                        onClick={() => col.propertyKey !== "none" && handleColumnSort(col.propertyKey)}
-                      >
-                        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                          <Select
-                            value={col.propertyKey}
-                            onChange={(event) => handleCustomHeaderChange(event, col.id)}
-                            variant="outlined"
-                            displayEmpty
-                            size="small"
-                            sx={{
-                              minWidth: 120,
-                              color: "#257e68",
-                              "& .MuiOutlinedInput-notchedOutline": {
-                                borderColor: "#bfdfd4",
-                              },
-                              "&:hover .MuiOutlinedInput-notchedOutline": {
-                                borderColor: "#257e68",
-                              },
-                            }}
-                            onClick={(e) => e.stopPropagation()} // Prevent sort when clicking dropdown
-                          >
-                            {[...allowedPropertyKeys].map((key: string) => {
-                              let label = key;
-                              if (key === "none") label = "None";
-                              if (key === "address") label = "Address";
-                              if (key === "adults") label = "Adults";
-                              if (key === "children") label = "Children";
-                              if (key === "deliveryFreq") label = "Delivery Freq";
-                              if (key === "deliveryDetails.dietaryRestrictions") label = "Dietary Restrictions";
-                              if (key === "ethnicity") label = "Ethnicity";
-                              if (key === "gender") label = "Gender";
-                              if (key === "language") label = "Language";
-                              if (key === "notes") label = "Notes";
-                              if (key === "phone") label = "Phone";
-                              if (key === "referralEntity") label = "Referral Entity";
-                              if (key === "tefapCert") label = "TEFAP Cert";
-                              if (key === "tags") label = "Tags";
-                              if (key === "dob") label = "DOB";
-                              if (key === "ward") label = "Ward";
-                              if (key === "zipCode") label = "Zip Code";
-                              if (key === "lastDeliveryDate") label = "Last Delivery Date";
-                              return <MenuItem key={key} value={key}>{label}</MenuItem>;
-                            })}
-                          </Select>
-                          {/*Add Remove Button*/}
+                    <TableCell className="table-header" key={col.id} sx={{ backgroundColor: "#f5f9f7", borderBottom: "2px solid #e0e0e0", width: 160, minWidth: 160, maxWidth: 160 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                        <Select
+                          value={col.propertyKey}
+                          onChange={e => handleCustomHeaderChange(e, col.id)}
+                          variant="outlined"
+                          displayEmpty
+                          size="small"
+                          sx={{ minWidth: 120, color: "#257e68", fontWeight: 600, fontSize: '0.95rem', background: 'white' }}
+                          onClick={e => e.stopPropagation()}
+                        >
+                          {allowedPropertyKeys
+                            .filter(key => ![
+                              'fullname',
+                              'address',
+                              'phone',
+                              'deliveryDetails.dietaryRestrictions',
+                              'deliveryDetails.deliveryInstructions'
+                            ].includes(key))
+                            .map((key: string) => (
+                              <MenuItem key={key} value={key}>
+                                {key === 'none'
+                                  ? 'None'
+                                  : key.charAt(0).toUpperCase() + key.slice(1)}
+                              </MenuItem>
+                            ))}
+                        </Select>
+                        <IconButton size="small" onClick={e => { e.stopPropagation(); handleRemoveCustomColumn(col.id); }} sx={{ color: "#d32f2f", ml: 1 }}>
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                        {col.propertyKey !== 'none' && (
                           <IconButton
                             size="small"
-                            onClick={(e) => {
-                              e.stopPropagation(); // Prevent sort when clicking remove
-                              handleRemoveCustomColumn(col.id);
+                            onClick={e => {
+                              e.stopPropagation();
+                              handleSort(col.propertyKey);
                             }}
-                            aria-label={`Remove ${col.label || "custom"} column`}
-                            title={`Remove ${col.label || "custom"} column`}
-                            sx={{
-                              color: "#d32f2f",
-                              "&:hover": {
-                                backgroundColor: "rgba(211, 47, 47, 0.04)",
-                              }
-                            }}
+                            sx={{ color: '#257e68', ml: 1 }}
+                            aria-label={`Sort by ${col.label || col.propertyKey}`}
                           >
-                            <DeleteIcon fontSize="small" />
+                            {sortConfig.key === col.propertyKey
+                              ? (sortConfig.direction === 'asc' ? <ChevronUp />
+                                : sortConfig.direction === 'desc' ? <ChevronDown />
+                                : <ChevronUpDown />)
+                              : <ChevronUpDown />}
                           </IconButton>
-                        </Box>
-                        {/* Show sort icon if this custom column is currently sorted */}
-                        {col.propertyKey !== "none" && (
-                          sortedColumn === col.propertyKey ? (
-                            sortOrder === "asc" ? <ArrowDropUpIcon /> : <ArrowDropDownIcon />
-                          ) : (
-                            <UnfoldMoreIcon sx={{ color: "#9E9E9E", fontSize: "1.2rem" }} />
-                          )
                         )}
-                      </Stack>
+                      </Box>
                     </TableCell>
                   ))}
-
-                  {/* Add button cell */}
-                  <TableCell
-                    className="table-header"
-                    align="right"
-                    sx={{
-                      backgroundColor: "#f5f9f7",
-                      borderBottom: "2px solid #e0e0e0",
-                    }}
-                  >
-                    <IconButton
-                      onClick={handleAddCustomColumn}
-                      color="primary"
-                      aria-label="add custom column"
-                      sx={{
-                        backgroundColor: "rgba(37, 126, 104, 0.06)",
-                        "&:hover": {
-                          backgroundColor: "rgba(37, 126, 104, 0.12)",
-                        }
-                      }}
-                    >
+                  {/* Add column button */}
+                  <TableCell className="table-header" align="right" sx={{ backgroundColor: "#f5f9f7", borderBottom: "2px solid #e0e0e0", width: 80, minWidth: 80, maxWidth: 80 }}>
+                    <IconButton onClick={handleAddCustomColumn} color="primary" aria-label="add custom column" sx={{ backgroundColor: "rgba(37, 126, 104, 0.06)", '&:hover': { backgroundColor: "rgba(37, 126, 104, 0.12)" } }}>
                       <AddIcon sx={{ color: "#257e68" }} />
                     </IconButton>
                   </TableCell>
                 </TableRow>
-              </TableHead>
-
-              <TableBody>
-                {(Array.isArray(filteredRows) ? filteredRows : []).map((row) => (
-                  <TableRow
-                    key={row.id}
-                    className={editingRowId === row.id ? "table-row editing-row" : "table-row"}
-                    sx={{
-                      cursor: "pointer",
-                      transition: "background-color 0.2s",
-                      "&:hover": {
-                        backgroundColor: "rgba(46, 91, 76, 0.04)",
-                      },
-                      "&:nth-of-type(odd)": {
-                        backgroundColor: "rgba(246, 248, 250, 0.5)",
-                      },
-                      "&:nth-of-type(odd):hover": {
-                        backgroundColor: "rgba(46, 91, 76, 0.06)",
-                      }
-                    }}
-                    onClick={() => {
-                      if (editingRowId !== row.id) {
-                        handleRowClick(row.uid);
-                      }
-                    }}
-                  >
-                    {fields.map((field) => (
-                      <TableCell 
-                        key={field.key} 
-                        sx={{ 
-                          py: 2,
-                          // Add word-wrap styles for delivery instructions and dietary restrictions
-                          ...(field.key === "deliveryDetails.deliveryInstructions" && {
-                            maxWidth: '200px',
-                            wordWrap: 'break-word',
-                            overflowWrap: 'anywhere',
-                            whiteSpace: 'pre-wrap'
-                          })
-                        }}
-                      >
-                        {editingRowId === row.id ? (
-                          field.key === "fullname" ? (
-                            <>
-                              <TextField
-                                placeholder="First Name"
-                                value={row.firstName}
-                                variant="outlined"
-                                size="small"
-                                sx={{ mr: 1, maxWidth: "45%" }}
-                              />
-                              <TextField
-                                placeholder="Last Name"
-                                value={row.lastName}
-                                variant="outlined"
-                                size="small"
-                                sx={{ maxWidth: "45%" }}
-                              />
-                            </>
-                          ) : isRegularField(field) ? (
-                            <TextField
-                              type={field.type}
-                              value={row[field.key]}
-                              variant="outlined"
-                              size="small"
-                              fullWidth
-                            />
-                          ) : null
-                        ) : field.key === "fullname" ? (
-                          field.compute ? (
-                            <Typography
-                              component="a"
-                              href={`/profile/${row.uid}`}
-                              className="client-link"
-                              sx={{
-                                color: "#2E5B4C",
-                                fontWeight: 500,
-                                textDecoration: "none",
-                                "&:hover": {
-                                  textDecoration: "underline",
-                                }
-                              }}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                navigate(`/profile/${row.uid}`);
-                              }}
-                            >
-                              {field.compute(row)}
-                            </Typography>
-                          ) : (
-                            <Typography
-                              component="a"
-                              href={`/profile/${row.uid}`}
-                              className="client-link"
-                              sx={{
-                                color: "#2E5B4C",
-                                fontWeight: 500,
-                                textDecoration: "none",
-                                "&:hover": {
-                                  textDecoration: "underline",
-                                }
-                              }}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                navigate(`/profile/${row.uid}`);
-                              }}
-                            >
-                              {row.firstName} {row.lastName}
-                            </Typography>
-                          )
-                        ) : (field as any).compute ? (
-                          field.key === "deliveryDetails.dietaryRestrictions" ? (
-                            (() => {
-                              const dr = row.deliveryDetails?.dietaryRestrictions;
-                              if (!dr) {
-                                return (
-                                  <Typography sx={{ fontSize: '0.875rem', color: '#757575', fontStyle: 'italic' }}>None</Typography>
-                                );
-                              }
-                              const chips: { label: string; color: string; border: string; textColor: string }[] = [];
-                              // Boolean restrictions (green)
-                              [
-                                { key: 'halal', label: 'Halal' },
-                                { key: 'kidneyFriendly', label: 'Kidney Friendly' },
-                                { key: 'lowSodium', label: 'Low Sodium' },
-                                { key: 'lowSugar', label: 'Low Sugar' },
-                                { key: 'microwaveOnly', label: 'Microwave Only' },
-                                { key: 'noCookingEquipment', label: 'No Cooking Equipment' },
-                                { key: 'softFood', label: 'Soft Food' },
-                                { key: 'vegan', label: 'Vegan' },
-                                { key: 'vegetarian', label: 'Vegetarian' },
-                                { key: 'heartFriendly', label: 'Heart Friendly' },
-                              ].forEach(opt => {
-                                // Use type assertion to ensure key is keyof typeof dr
-                                if (dr[opt.key as keyof typeof dr]) {
-                                  chips.push({ label: opt.label, color: '#e8f5e9', border: '#c8e6c9', textColor: '#2E5B4C' });
-                                }
-                              });
-                              // Allergies (light red)
-                              if (Array.isArray(dr.foodAllergens) && dr.foodAllergens.length > 0) {
-                                dr.foodAllergens.forEach((allergy: string) => {
-                                  if (allergy && allergy.trim()) {
-                                    chips.push({ label: allergy, color: '#FFEBEE', border: '#FFCDD2', textColor: '#C62828' });
-                                  }
-                                });
-                              }
-                              // Other (light purple)
-                              if (dr.otherText && dr.otherText.trim()) {
-                                chips.push({ label: dr.otherText, color: '#F3E8FF', border: '#CEB8FF', textColor: '#6C2EB7' });
-                              }
-                              if (chips.length === 0) {
-                                return (
-                                  <Typography sx={{ fontSize: '0.875rem', color: '#757575', fontStyle: 'italic' }}>None</Typography>
-                                );
-                              }
-                              return (
-                                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, maxWidth: '250px' }}>
-                                  {chips.map((chip, i) => (
-                                    <Chip
-                                      key={i}
-                                      label={chip.label}
-                                      size="small"
-                                      sx={{
-                                        backgroundColor: chip.color,
-                                        color: chip.textColor,
-                                        fontSize: '0.75rem',
-                                        height: '20px',
-                                        fontWeight: 500,
-                                        border: `1px solid ${chip.border}`,
-                                        '& .MuiChip-label': { px: 1 },
-                                        '&:hover': { backgroundColor: chip.color, cursor: 'default' }
-                                      }}
-                                    />
-                                  ))}
-                                </Box>
-                              );
-                            })()
-                          ) : field.key === "deliveryDetails.deliveryInstructions" ? (
-                            <div style={{
-                              maxWidth: '200px',
-                              wordWrap: 'break-word',
-                              overflowWrap: 'anywhere',
-                              whiteSpace: 'pre-wrap'
-                            }}>
-                              {(field as any).compute(row)}
-                            </div>
-                          ) : (
-                            (field as any).compute(row)
-                          )
-                        ) : (
-                          row[field.key as keyof RowData]
-                        )}
-                      </TableCell>
-                    ))}
-
-                    {customColumns.map((col) => (
-                      <TableCell 
-                        key={col.id} 
-                        sx={{ 
-                          py: 2,
-                          ...((col.propertyKey.includes('notes') || col.propertyKey.includes('deliveryInstructions')) && {
-                            maxWidth: '200px',
-                            wordWrap: 'break-word',
-                            overflowWrap: 'anywhere',
-                            whiteSpace: 'pre-wrap'
-                          })
-                        }}
-                      >
-                        {editingRowId === row.id ? (
-                          col.propertyKey !== "none" ? (
-                            <TextField
-                              value={getCustomColumnValue(row, col.propertyKey) ?? ""}
-                              onChange={(e) =>
-                                handleCustomColumnChange(
-                                  e,
-                                  row.id,
-                                  col.propertyKey,
-                                  setRows
-                                )
-                              }
-                              variant="outlined"
-                              size="small"
-                              fullWidth
-                            />
-                          ) : (
-                            "N/A"
-                          )
-                        ) :
-                          col.propertyKey !== "none" ? (
-                            getCustomColumnDisplay(row, col.propertyKey)
-                          ) : (
-                            "N/A"
-                          )}
-                      </TableCell>
-                    ))}
-
-
-                    <TableCell align="right" sx={{ py: 2 }} onClick={(e) => e.stopPropagation()}>
-                      {editingRowId === row.id ? (
-                        <Button
-                          variant="contained"
-                          color="primary"
-                          size="small"
-                          onClick={() => handleSaveRow(row.id)}
-                          startIcon={<SaveIcon />}
-                          sx={{
-                            backgroundColor: "#2E5B4C",
-                            borderRadius: "20px",
-                            boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
-                            "&:hover": {
-                              backgroundColor: "#234839",
-                            }
-                          }}
-                        >
-                          Save
-                        </Button>
-                      ) : editable ? ( 
-                        <>
-                          <IconButton
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleMenuOpen(e, row.uid);
-                            }}
-                            sx={{
-                              color: "#757575",
-                              "&:hover": {
-                                backgroundColor: "rgba(0, 0, 0, 0.04)",
-                                color: "#2E5B4C",
-                              }
-                            }}
+              )}
+              itemContent={(index, row: RowData) => {
+                const rowBg = index % 2 === 0 ? 'rgb(243, 243, 243)' : 'rgb(249, 249, 249)';
+                return [
+                  ...fields.map((field) => (
+                    <TableCell key={field.key} sx={{ py: 2, width: 160, minWidth: 160, maxWidth: 160, backgroundColor: rowBg }}>
+                      {field.key === "fullname"
+                        ? (
+                          <a
+                            className="name-link"
+                            href="#"
+                            onClick={e => { e.preventDefault(); navigate(`/profile/${row.uid ?? ''}`, { state: { userData: row } }); }}
                           >
-                            <MoreVertIcon />
-                          </IconButton>
-                          <Menu
-                            anchorEl={menuAnchorEl}
-                            open={Boolean(menuAnchorEl) && selectedRowId === row.uid}
-                            onClose={handleMenuClose}
-                            PaperProps={{
-                              elevation: 3,
-                              sx: { borderRadius: "8px", minWidth: "150px" }
-                            }}
-                          >
-                            <MenuItem
-                              onClick={() => {
-                                handleEditRow(row.uid);
-                                handleMenuClose();
-                              }}
-                              sx={{ py: 1.5 }}
-                            >
-                              <EditIcon fontSize="small" sx={{ mr: 1 }} /> Edit
-                            </MenuItem>
-                            <MenuItem
-                              onClick={() => {
-                                setClientIdToDelete(row.uid);
-                                handleMenuClose();
-                              }}
-                              sx={{ py: 1.5 }}
-                            >
-                              <DeleteIcon fontSize="small" sx={{ mr: 1 }} /> Delete
-                            </MenuItem>
-                          </Menu>
-                        </>
-                      ) : null} 
+                            {field.compute ? field.compute(row) : `${row.lastName}, ${row.firstName}`}
+                          </a>
+                        )
+                        : field.compute
+                        ? field.compute(row)
+                        : row[field.key as keyof RowData]}
                     </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                  )),
+                  ...customColumns.map((col) => (
+                    <TableCell key={col.id} sx={{ py: 2, width: 160, minWidth: 160, maxWidth: 160, backgroundColor: rowBg }}>
+                      {col.propertyKey !== "none" ? getCustomColumnDisplay(row, col.propertyKey) : "N/A"}
+                    </TableCell>
+                  )),
+                  <TableCell align="right" sx={{ py: 2, width: 80, minWidth: 80, maxWidth: 80, backgroundColor: rowBg }} key={`actions-${row.id}`}>
+                    <IconButton onClick={e => { e.stopPropagation(); setMenuAnchorPosition({ top: e.clientY, left: e.clientX }); setMenuRow(row); }} sx={{ color: "#757575", "&:hover": { backgroundColor: "rgba(0, 0, 0, 0.04)", color: "#2E5B4C" } }}>
+                      <MoreVertIcon />
+                    </IconButton>
+                    <Popover
+                      open={Boolean(menuAnchorPosition)}
+                      anchorReference="anchorPosition"
+                      anchorPosition={menuAnchorPosition ? { top: menuAnchorPosition.top, left: menuAnchorPosition.left } : undefined}
+                      onClose={() => { setMenuAnchorPosition(null); setMenuRow(null); }}
+                      PaperProps={{ elevation: 3, sx: { borderRadius: "8px", minWidth: "150px" } }}
+                    >
+                      <MenuItem onClick={() => { if (menuRow) navigate(`/profile/${menuRow.uid ?? ''}`, { state: { userData: menuRow } }); setMenuAnchorPosition(null); setMenuRow(null); }} sx={{ py: 1.5 }}><EditIcon fontSize="small" sx={{ mr: 1 }} /> Edit</MenuItem>
+                      <MenuItem onClick={() => {
+                        if (menuRow) {
+                          setClientIdToDelete(menuRow.uid ?? null);
+                          setClientNameToDelete(`${menuRow.lastName}, ${menuRow.firstName}`);
+                        }
+                        setMenuAnchorPosition(null);
+                        setMenuRow(null);
+                      }} sx={{ py: 1.5 }}><DeleteIcon fontSize="small" sx={{ mr: 1 }} /> Delete</MenuItem>
+                    </Popover>
+                  </TableCell>
+                ];
+              }}
+            />
           </TableContainer>
         )}
       </Box>
-      {/* Centralized Delete Confirmation Modal */}
-      <DeleteClientModal
-        handleMenuClose={() => setClientIdToDelete(null)}
-        handleDeleteRow={handleDeleteRow}
-        open={Boolean(clientIdToDelete)}
-        setOpen={(isOpen: boolean) => {
-          if (!isOpen) {
-            setClientIdToDelete(null);
-          }
-        }}
-        id={clientIdToDelete ?? ""}
-      />
+
+      <Suspense fallback={null}>
+        {Boolean(clientIdToDelete) && (
+          <DeleteClientModal
+            handleMenuClose={() => { setClientIdToDelete(null); setClientNameToDelete(""); }}
+            handleDeleteRow={async (id: string) => {
+              await clientService.deleteClient(id);
+              await refresh();
+            }}
+            open={Boolean(clientIdToDelete)}
+            setOpen={(isOpen: boolean) => { if (!isOpen) { setClientIdToDelete(null); setClientNameToDelete(""); } }}
+            id={clientIdToDelete ?? ""}
+            name={clientNameToDelete}
+          />
+        )}
+      </Suspense>
     </Box>
   );
 };
