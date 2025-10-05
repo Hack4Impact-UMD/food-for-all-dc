@@ -1367,11 +1367,6 @@ const DeliverySpreadsheet: React.FC = () => {
   };
 
   const handleRowClick = (clientId: string, fromTable = true) => {
-    if (clientId === 'CLEAR_HIGHLIGHT_ONLY') {
-      setHighlightedRowId(null);
-      return;
-    }
-
     if (fromTable && highlightedRowId === clientId) {
       setHighlightedRowId(null);
       if ((window as any).closeMapPopup) {
@@ -2314,11 +2309,12 @@ const DeliverySpreadsheet: React.FC = () => {
                   className="table-row delivery-anim-row"
                   data-client-id={row.id}
                   onClick={() => handleRowClick(row.id)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleRowClick(row.id)}
+                  tabIndex={0}
+                  role="button"
+                  aria-pressed={highlightedRowId === row.id}
                   sx={{
-                    backgroundColor: (() => {
-                      const isHighlighted = highlightedRowId === row.id;
-                      return isHighlighted ? 'rgba(144, 238, 144, 0.7) !important' : 'inherit';
-                    })(),
+                    backgroundColor: highlightedRowId === row.id ? 'rgba(144, 238, 144, 0.7) !important' : 'inherit',
                     border: highlightedRowId === row.id ? '2px solid #90EE90 !important' : 'none',
                     cursor: 'pointer',
                     '&:hover': {
