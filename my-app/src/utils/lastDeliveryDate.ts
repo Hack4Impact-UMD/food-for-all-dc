@@ -25,36 +25,26 @@ export const getLastDeliveryDateForClient = async (clientId: string): Promise<st
       });
 
       let mostRecentSeriesEndDate: string | null = null;
-      let mostRecentSeriesStartDate: string | null = null;
 
       for (const [recurrenceId, events] of seriesMap.entries()) {
         const firstEvent = events[0];
 
-        let seriesStartDate: string | null = null;
-        if (firstEvent.seriesStartDate) {
-          seriesStartDate = firstEvent.seriesStartDate;
-        } else if (firstEvent.deliveryDate) {
+        let seriesEndDate: string | null = null;
+        if (firstEvent.repeatsEndDate) {
+          const endDate = new Date(firstEvent.repeatsEndDate);
+          if (!isNaN(endDate.getTime())) {
+            seriesEndDate = endDate.toISOString().split("T")[0];
+          }
+        } else if (firstEvent.recurrence === "None" && firstEvent.deliveryDate) {
           const deliveryDate = firstEvent.deliveryDate.toDate();
           if (!isNaN(deliveryDate.getTime())) {
-            seriesStartDate = deliveryDate.toISOString().split("T")[0];
+            seriesEndDate = deliveryDate.toISOString().split("T")[0];
           }
         }
 
-        if (seriesStartDate) {
-          if (!mostRecentSeriesStartDate || seriesStartDate > mostRecentSeriesStartDate) {
-            mostRecentSeriesStartDate = seriesStartDate;
-
-            if (firstEvent.repeatsEndDate) {
-              const endDate = new Date(firstEvent.repeatsEndDate);
-              if (!isNaN(endDate.getTime())) {
-                mostRecentSeriesEndDate = endDate.toISOString().split("T")[0];
-              }
-            } else if (firstEvent.recurrence === "None" && firstEvent.deliveryDate) {
-              const deliveryDate = firstEvent.deliveryDate.toDate();
-              if (!isNaN(deliveryDate.getTime())) {
-                mostRecentSeriesEndDate = deliveryDate.toISOString().split("T")[0];
-              }
-            }
+        if (seriesEndDate) {
+          if (!mostRecentSeriesEndDate || seriesEndDate > mostRecentSeriesEndDate) {
+            mostRecentSeriesEndDate = seriesEndDate;
           }
         }
       }
@@ -104,36 +94,26 @@ export const batchGetLastDeliveryDates = async (clientIds: string[]): Promise<Ma
 
     for (const [clientId, seriesMap] of clientSeriesMap.entries()) {
       let mostRecentSeriesEndDate: string | null = null;
-      let mostRecentSeriesStartDate: string | null = null;
 
       for (const [recurrenceId, events] of seriesMap.entries()) {
         const firstEvent = events[0];
 
-        let seriesStartDate: string | null = null;
-        if (firstEvent.seriesStartDate) {
-          seriesStartDate = firstEvent.seriesStartDate;
-        } else if (firstEvent.deliveryDate) {
+        let seriesEndDate: string | null = null;
+        if (firstEvent.repeatsEndDate) {
+          const endDate = new Date(firstEvent.repeatsEndDate);
+          if (!isNaN(endDate.getTime())) {
+            seriesEndDate = endDate.toISOString().split("T")[0];
+          }
+        } else if (firstEvent.recurrence === "None" && firstEvent.deliveryDate) {
           const deliveryDate = firstEvent.deliveryDate.toDate();
           if (!isNaN(deliveryDate.getTime())) {
-            seriesStartDate = deliveryDate.toISOString().split("T")[0];
+            seriesEndDate = deliveryDate.toISOString().split("T")[0];
           }
         }
 
-        if (seriesStartDate) {
-          if (!mostRecentSeriesStartDate || seriesStartDate > mostRecentSeriesStartDate) {
-            mostRecentSeriesStartDate = seriesStartDate;
-
-            if (firstEvent.repeatsEndDate) {
-              const endDate = new Date(firstEvent.repeatsEndDate);
-              if (!isNaN(endDate.getTime())) {
-                mostRecentSeriesEndDate = endDate.toISOString().split("T")[0];
-              }
-            } else if (firstEvent.recurrence === "None" && firstEvent.deliveryDate) {
-              const deliveryDate = firstEvent.deliveryDate.toDate();
-              if (!isNaN(deliveryDate.getTime())) {
-                mostRecentSeriesEndDate = deliveryDate.toISOString().split("T")[0];
-              }
-            }
+        if (seriesEndDate) {
+          if (!mostRecentSeriesEndDate || seriesEndDate > mostRecentSeriesEndDate) {
+            mostRecentSeriesEndDate = seriesEndDate;
           }
         }
       }
