@@ -171,30 +171,32 @@ const SummaryReport: React.FC = () => {
       health["Client Health Conditions (Physical Disability)"].value += 1;
     }
 
-    // Dietary restrictions
-    const dietaryRestrictions = Object.keys(
-      client.deliveryDetails.dietaryRestrictions
-    );
-    let added = false;
-    dietaryRestrictions.forEach((restriction: string) => {
-      if (restriction !== "foodAllergens") {
-        const formattedRestriction = formatCamelToTitle(restriction);
-        if (
-          next["Dietary Restrictions"][formattedRestriction] &&
-          client.deliveryDetails.dietaryRestrictions[restriction]
-        ) {
-          next["Dietary Restrictions"][formattedRestriction].value += 1;
+    if (client.deliveryDetails?.dietaryRestrictions) {
+      const dietaryRestrictions = Object.keys(
+        client.deliveryDetails.dietaryRestrictions
+      );
+      let added = false;
+      dietaryRestrictions.forEach((restriction: string) => {
+        if (restriction !== "foodAllergens") {
+          const formattedRestriction = formatCamelToTitle(restriction);
+          if (
+            next["Dietary Restrictions"][formattedRestriction] &&
+            client.deliveryDetails.dietaryRestrictions[restriction]
+          ) {
+            next["Dietary Restrictions"][formattedRestriction].value += 1;
+            added = true;
+          }
+        } else {
+          next["Dietary Restrictions"]["Food Allergen"].value +=
+            client.deliveryDetails.dietaryRestrictions["foodAllergens"].length;
           added = true;
         }
-      } else {
-        next["Dietary Restrictions"]["Food Allergen"].value +=
-          client.deliveryDetails.dietaryRestrictions["foodAllergens"].length;
-        added = true;
+      });
+
+      if (!added) {
+        next["Dietary Restrictions"]["No Restrictions"].value += 1;
       }
-    });
-
-
-    if (!added) {
+    } else {
       next["Dietary Restrictions"]["No Restrictions"].value += 1;
     }
 
