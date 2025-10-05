@@ -121,7 +121,7 @@ const SummaryReport: React.FC = () => {
     }
   });
 
-  const processClientInfo = (next: SummaryData, client: any, deliveriesInRange: string[], start: DateTime, end: DateTime) => {
+  const processClientInfo = (next: SummaryData, client: any, deliveriesInRange: string[], start: DateTime, end: DateTime, referralAgencies: Set<string>) => {
     const basic = next["Basic Output"];
     const demo = next["Demographics"];
     const health = next["Health Conditions"];
@@ -168,13 +168,6 @@ const SummaryReport: React.FC = () => {
     }
     if (client.physicalDisability) {
       health["Client Health Conditions (Physical Disability)"].value += 1;
-    }
-
-    if (client.referredDate && startDate && endDate) {
-      const referredDate = TimeUtils.fromISO(client.referredDate);
-      if (referredDate >= start && referredDate <= end) {
-        refs["New Client Referrals"].value += 1;
-      }
     }
 
     // Dietary restrictions
@@ -257,6 +250,7 @@ const SummaryReport: React.FC = () => {
           if (client.referredDate) {
             const referredDate = TimeUtils.fromISO(client.referredDate);
             if (referredDate >= start && referredDate <= end) {
+              refs["New Client Referrals"].value += 1;
               if (client.referralEntity?.organization?.trim()) {
                 referralAgencies.add(client.referralEntity.organization.trim());
               }
@@ -272,7 +266,7 @@ const SummaryReport: React.FC = () => {
 
             if (deliveriesInRange.length) {
               active += 1;
-              processClientInfo(next, client, deliveriesInRange, start, end);
+              processClientInfo(next, client, deliveriesInRange, start, end, referralAgencies);
             }
           }
         }
