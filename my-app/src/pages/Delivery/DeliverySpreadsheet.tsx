@@ -2193,17 +2193,10 @@ const DeliverySpreadsheet: React.FC = () => {
         }}
       >
         {/* Dietary Restrictions Color Legend - only show when column is added */}
-        {(() => {
-          console.log('Custom columns:', customColumns);
-          console.log('Has dietary restrictions:', customColumns.some(col => 
-            col.propertyKey === "deliveryDetails.dietaryRestrictions" || 
-            col.propertyKey === "dietaryRestrictions"
-          ));
-          return customColumns.some(col => 
-            col.propertyKey === "deliveryDetails.dietaryRestrictions" || 
-            col.propertyKey === "dietaryRestrictions"
-          );
-        })() && <DietaryRestrictionsLegend />}
+        {customColumns.some(col => 
+          col.propertyKey === "deliveryDetails.dietaryRestrictions" || 
+          col.propertyKey === "dietaryRestrictions"
+        ) && <DietaryRestrictionsLegend />}
         
         <TableContainer
           component={Paper}
