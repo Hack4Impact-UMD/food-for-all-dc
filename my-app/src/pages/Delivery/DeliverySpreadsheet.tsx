@@ -7,7 +7,8 @@ import { Search, Filter } from "lucide-react";
 import {
   parseSearchTermsProgressively,
   checkStringContains as utilCheckStringContains,
-  extractKeyValue
+  extractKeyValue,
+  globalSearchMatch
 } from "../../utils/searchFilter";
 import { query, Timestamp, updateDoc, where } from "firebase/firestore";
 import { TimeUtils } from "../../utils/timeUtils";
@@ -1390,14 +1391,14 @@ const DeliverySpreadsheet: React.FC = () => {
     }
 
     const validSearchTerms = parseSearchTermsProgressively(trimmedSearchQuery);
-    
-    // Only apply filters if we have complete key-value pairs (terms with colons)
     const keyValueTerms = validSearchTerms.filter(term => term.includes(':'));
-    
+    const nonKeyValueTerms = validSearchTerms.filter(term => !term.includes(':'));
+
+    let matches = true;
+
     if (keyValueTerms.length > 0) {
       const checkStringContains = utilCheckStringContains;
 
-      // Helper for numbers, dates (as strings/numbers), or items in an array
       const checkValueOrInArray = (value: any, query: string): boolean => {
         if (value === undefined || value === null) {
           return false;
@@ -1409,17 +1410,14 @@ const DeliverySpreadsheet: React.FC = () => {
         return String(value).toLowerCase().includes(lowerQuery);
       };
 
-      // Get the visible field keys from default columns and custom columns
       const visibleFieldKeys = new Set([
-        ...fields.map(f => f.key).filter(key => key !== "checkbox"), // Exclude checkbox column
-        ...customColumns.map(col => col.propertyKey).filter(key => key !== "none") // Exclude "none" selections
+        ...fields.map(f => f.key).filter(key => key !== "checkbox"),
+        ...customColumns.map(col => col.propertyKey).filter(key => key !== "none")
       ]);
 
-      // Helper function to check if a keyword matches any visible field
       const isVisibleField = (keyword: string): boolean => {
         const lowerKeyword = keyword.toLowerCase();
-        
-        // Check default field mappings
+
         const fieldMappings: { [key: string]: string[] } = {
           "fullname": ["name", "client"],
           "clusterIdChange": ["cluster", "cluster id"],
@@ -1430,15 +1428,13 @@ const DeliverySpreadsheet: React.FC = () => {
           "assignedTime": ["time", "assigned time"],
           "deliveryDetails.deliveryInstructions": ["delivery instructions", "instructions"]
         };
-        
-        // Check if keyword matches any default field
+
         for (const [fieldKey, aliases] of Object.entries(fieldMappings)) {
           if (visibleFieldKeys.has(fieldKey) && aliases.some(alias => alias === lowerKeyword)) {
             return true;
           }
         }
-        
-        // Check if keyword matches any custom column property key or its alias
+
         const customColumnMappings: { [key: string]: string[] } = {
           "address": ["address"],
           "adults": ["adults"],
@@ -1455,23 +1451,22 @@ const DeliverySpreadsheet: React.FC = () => {
           "dob": ["dob"],
           "lastDeliveryDate": ["last delivery date"]
         };
-        
+
         for (const [propertyKey, aliases] of Object.entries(customColumnMappings)) {
           if (visibleFieldKeys.has(propertyKey) && aliases.some(alias => alias === lowerKeyword)) {
             return true;
           }
         }
-        
+
         return false;
       };
 
-      return keyValueTerms.every(term => {
+      matches = keyValueTerms.every(term => {
         const { keyword, searchValue, isKeyValue: isKeyValueSearch } = extractKeyValue(term);
 
         if (isKeyValueSearch && searchValue) {
-          // Only allow filtering on visible fields
           if (!isVisibleField(keyword)) {
-            return true; // Ignore terms for non-visible fields
+            return true;
           }
           switch (keyword) {
           case "name":
@@ -1539,11 +1534,12 @@ const DeliverySpreadsheet: React.FC = () => {
             return false;
           }
           default: {
-            // Check custom columns
             const matchesCustomColumn = customColumns.some((col) => {
               if (col.propertyKey !== "none" && col.propertyKey.toLowerCase().includes(keyword)) {
-                const fieldValue = row[col.propertyKey as keyof DeliveryRowData];
-                return checkStringContains(fieldValue, searchValue);
+                if (col.propertyKey in row) {
+                  const fieldValue = row[col.propertyKey as keyof DeliveryRowData];
+                  return checkStringContains(fieldValue, searchValue);
+                }
               }
               return false;
             });
@@ -1551,14 +1547,28 @@ const DeliverySpreadsheet: React.FC = () => {
           }
           }
         }
-        
-        // If it's not a proper key-value pair, ignore this term
+
         return true;
       });
     }
-    
-    // If no complete key-value pairs, show all data
-    return true;
+
+    if (matches && nonKeyValueTerms.length > 0) {
+      const searchableFields = [
+        'firstName',
+        'lastName',
+        'address',
+        'phone',
+        'ward',
+        'zipCode',
+        'clusterId',
+        'tags',
+        'deliveryDetails.deliveryInstructions',
+        ...customColumns.map(col => col.propertyKey).filter(key => key !== "none")
+      ];
+      matches = nonKeyValueTerms.every(term => globalSearchMatch(row, term, searchableFields));
+    }
+
+    return matches;
   });
 
   // Create sorted version of visible rows - supports fullname, clusterIdChange, tags, address, ward, assignedDriver, assignedTime, deliveryInstructions, and custom columns sorting

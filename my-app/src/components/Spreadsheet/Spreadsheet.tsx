@@ -5,7 +5,8 @@ import { TableSortLabel, Icon } from "@mui/material";
 import {
   parseSearchTermsProgressively,
   checkStringContains,
-  extractKeyValue
+  extractKeyValue,
+  globalSearchMatch
 } from "../../utils/searchFilter";
 // Custom chevron icons for TableSortLabel with spacing
 const iconStyle = { verticalAlign: 'middle', marginLeft: 6 };
@@ -215,22 +216,18 @@ const Spreadsheet: React.FC = () => {
   let result = rows;
     if (debouncedSearch.trim()) {
       const validSearchTerms = parseSearchTermsProgressively(debouncedSearch.trim());
-      
-      // Only apply filters if we have complete key-value pairs (terms with colons)
       const keyValueTerms = validSearchTerms.filter(term => term.includes(':'));
-      
+      const nonKeyValueTerms = validSearchTerms.filter(term => !term.includes(':'));
+
       if (keyValueTerms.length > 0) {
-        // Get the visible field keys from default columns and custom columns
         const visibleFieldKeys = new Set([
           ...fields.map(f => f.key),
-          ...customColumns.map(col => col.propertyKey).filter(key => key !== "none") // Exclude "none" selections
+          ...customColumns.map(col => col.propertyKey).filter(key => key !== "none")
         ]);
 
-        // Helper function to check if a keyword matches any visible field
         const isVisibleField = (keyword: string): boolean => {
           const lowerKeyword = keyword.toLowerCase();
-          
-          // Check default field mappings
+
           const fieldMappings: { [key: string]: string[] } = {
             "fullname": ["name", "firstname", "lastname"],
             "address": ["address"],
@@ -238,15 +235,13 @@ const Spreadsheet: React.FC = () => {
             "deliveryDetails.dietaryRestrictions": ["dietary restrictions", "dietary"],
             "deliveryDetails.deliveryInstructions": ["delivery instructions", "instructions"]
           };
-          
-          // Check if keyword matches any default field
+
           for (const [fieldKey, aliases] of Object.entries(fieldMappings)) {
             if (visibleFieldKeys.has(fieldKey) && aliases.some(alias => alias === lowerKeyword)) {
               return true;
             }
           }
-          
-          // Check if keyword matches any custom column property key or its alias
+
           const customColumnMappings: { [key: string]: string[] } = {
             "adults": ["adults"],
             "children": ["children"],
@@ -261,13 +256,13 @@ const Spreadsheet: React.FC = () => {
             "lastDeliveryDate": ["last delivery date"],
             "email": ["email"]
           };
-          
+
           for (const [propertyKey, aliases] of Object.entries(customColumnMappings)) {
             if (visibleFieldKeys.has(propertyKey) && aliases.some(alias => alias === lowerKeyword)) {
               return true;
             }
           }
-          
+
           return false;
         };
 
@@ -276,9 +271,8 @@ const Spreadsheet: React.FC = () => {
             const { keyword, searchValue, isKeyValue: isKeyValueSearch } = extractKeyValue(term);
 
             if (isKeyValueSearch && searchValue) {
-              // Only allow filtering on visible fields
               if (!isVisibleField(keyword)) {
-                return true; // Ignore terms for non-visible fields
+                return true;
               }
 
               switch (keyword) {
@@ -295,7 +289,6 @@ const Spreadsheet: React.FC = () => {
                   return checkStringContains(row.email, searchValue);
                 case "dietary restrictions":
                 case "dietary": {
-                  // Handle dietary restrictions search
                   const dr = row.deliveryDetails?.dietaryRestrictions;
                   if (!dr) return false;
                   const dietaryTerms = [
@@ -319,7 +312,6 @@ const Spreadsheet: React.FC = () => {
                 case "instructions":
                   return checkStringContains(row.deliveryDetails?.deliveryInstructions, searchValue);
                 default: {
-                  // Check custom columns if they're visible
                   const matchesCustomColumn = customColumns.some((col) => {
                     if (col.propertyKey !== "none" && visibleFieldKeys.has(col.propertyKey)) {
                       if (col.propertyKey.includes(".")) {
@@ -331,8 +323,10 @@ const Spreadsheet: React.FC = () => {
                         }
                         return checkStringContains(String(value || ""), searchValue);
                       } else {
-                        const fieldValue = row[col.propertyKey as keyof RowData];
-                        return checkStringContains(fieldValue, searchValue);
+                        if (col.propertyKey in row) {
+                          const fieldValue = row[col.propertyKey as keyof RowData];
+                          return checkStringContains(fieldValue, searchValue);
+                        }
                       }
                     }
                     return false;
@@ -341,13 +335,26 @@ const Spreadsheet: React.FC = () => {
                 }
               }
             }
-            
-            // If it's not a proper key-value pair, ignore this term
+
             return true;
           });
         });
       }
-      // If no complete key-value pairs, don't filter (show all data)
+
+      if (nonKeyValueTerms.length > 0) {
+        const searchableFields = [
+          'firstName',
+          'lastName',
+          'address',
+          'phone',
+          'email',
+          'deliveryDetails.deliveryInstructions',
+          ...customColumns.map(col => col.propertyKey).filter(key => key !== "none")
+        ];
+        result = result.filter(row =>
+          nonKeyValueTerms.every(term => globalSearchMatch(row, term, searchableFields))
+        );
+      }
     }
     // Sort if needed
     if (sortConfig.key && sortConfig.direction) {

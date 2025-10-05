@@ -31,7 +31,8 @@ import React, { useEffect, useState, useCallback, useMemo } from "react";
 import {
   parseSearchTermsProgressively,
   checkStringContains,
-  extractKeyValue
+  extractKeyValue,
+  globalSearchMatch
 } from "../../utils/searchFilter";
 import { useNavigate } from "react-router-dom";
 import { auth } from "../../auth/firebaseConfig";
@@ -282,43 +283,39 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
     }
 
     const validSearchTerms = parseSearchTermsProgressively(trimmedSearchQuery);
-    
-    // Only apply filters if we have complete key-value pairs (terms with colons)
     const keyValueTerms = validSearchTerms.filter(term => term.includes(':'));
-    
+    const nonKeyValueTerms = validSearchTerms.filter(term => !term.includes(':'));
+
+    let matches = true;
+
     if (keyValueTerms.length > 0) {
-      // Get the visible field keys from the defined fields
       const visibleFieldKeys = new Set(fields.map(f => f.key));
 
-      // Helper function to check if a keyword matches any visible field
       const isVisibleField = (keyword: string): boolean => {
         const lowerKeyword = keyword.toLowerCase();
-        
-        // Check field mappings for Users page
+
         const fieldMappings: { [key: string]: string[] } = {
           "name": ["name"],
           "role": ["role"],
           "phone": ["phone"],
           "email": ["email"]
         };
-        
-        // Check if keyword matches any visible field
+
         for (const [fieldKey, aliases] of Object.entries(fieldMappings)) {
           if (visibleFieldKeys.has(fieldKey as keyof AuthUserRow) && aliases.some(alias => alias === lowerKeyword)) {
             return true;
           }
         }
-        
+
         return false;
       };
 
-      return keyValueTerms.every(term => {
+      matches = keyValueTerms.every(term => {
         const { keyword, searchValue, isKeyValue: isKeyValueSearch } = extractKeyValue(term);
 
         if (isKeyValueSearch && searchValue) {
-          // Only allow filtering on visible fields
           if (!isVisibleField(keyword)) {
-            return true; // Ignore terms for non-visible fields
+            return true;
           }
 
           switch (keyword) {
@@ -331,17 +328,25 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
             case "email":
               return checkStringContains(row.email, searchValue);
             default:
-              return false; // No other fields should match since we check isVisibleField
+              return false;
           }
         }
-        
-        // If it's not a proper key-value pair, ignore this term
+
         return true;
       });
     }
-    
-    // If no complete key-value pairs, show all data
-    return true;
+
+    if (matches && nonKeyValueTerms.length > 0) {
+      const searchableFields = ['name', 'phone', 'email', 'role'];
+      matches = nonKeyValueTerms.every(term => {
+        if (term === 'role') {
+          return globalSearchMatch({ ...row, role: getRoleDisplayName(row.role) }, term, searchableFields);
+        }
+        return globalSearchMatch(row, term, searchableFields);
+      });
+    }
+
+    return matches;
   });
 
   const theme = useTheme();
