@@ -7,7 +7,6 @@ import { Search, Filter } from "lucide-react";
 import {
   parseSearchTermsProgressively,
   checkStringContains as utilCheckStringContains,
-  isPartialFieldName,
   extractKeyValue
 } from "../../utils/searchFilter";
 import { query, Timestamp, updateDoc, where } from "firebase/firestore";
@@ -1391,179 +1390,175 @@ const DeliverySpreadsheet: React.FC = () => {
     }
 
     const validSearchTerms = parseSearchTermsProgressively(trimmedSearchQuery);
-    if (validSearchTerms.length === 0) {
-      return true;
-    }
+    
+    // Only apply filters if we have complete key-value pairs (terms with colons)
+    const keyValueTerms = validSearchTerms.filter(term => term.includes(':'));
+    
+    if (keyValueTerms.length > 0) {
+      const checkStringContains = utilCheckStringContains;
 
-    const checkStringContains = utilCheckStringContains;
-
-    // Helper for numbers, dates (as strings/numbers), or items in an array
-    const checkValueOrInArray = (value: any, query: string): boolean => {
-      if (value === undefined || value === null) {
-        return false;
-      }
-      const lowerQuery = query.toLowerCase();
-      if (Array.isArray(value)) {
-        return value.some(item => String(item).toLowerCase().includes(lowerQuery));
-      }
-      return String(value).toLowerCase().includes(lowerQuery);
-    };
-
-    return validSearchTerms.every(term => {
-      const { keyword, searchValue, isKeyValue: isKeyValueSearch } = extractKeyValue(term);
-
-      if (!isKeyValueSearch) {
-        const commonFieldNames = [
-          'name', 'client', 'address', 'ward', 'zip', 'cluster', 'driver', 'time',
-          'delivery', 'instructions', 'tags', 'phone', 'ethnicity', 'adults',
-          'children', 'frequency', 'gender', 'language', 'notes', 'tefap', 'dob', 'referral'
-        ];
-
-        const customFieldNames = customColumns
-          .filter(col => col.propertyKey !== "none")
-          .map(col => col.label.toLowerCase());
-        const allFieldNames = [...commonFieldNames, ...customFieldNames];
-
-        if (isPartialFieldName(term, allFieldNames)) {
-          return true;
-        }
-      }
-
-      if (isKeyValueSearch) {
-        if (!searchValue) {
-          return true;
-        }
-
-        switch (keyword) {
-        case "name":
-        case "client":
-          return checkStringContains(`${row.firstName} ${row.lastName}`, searchValue) ||
-                 checkStringContains(row.firstName, searchValue) ||
-                 checkStringContains(row.lastName, searchValue);
-        case "address":
-          return checkStringContains(row.address, searchValue);
-        case "ward":
-          return checkStringContains(row.ward, searchValue);
-        case "zip":
-        case "zipcode":
-        case "zip code":
-          return checkStringContains(row.zipCode, searchValue);
-        case "cluster":
-        case "cluster id":
-          return checkStringContains(row.clusterId, searchValue);
-        case "driver":
-        case "assigned driver": {
-          const driverName = fields.find(f => f.key === "assignedDriver")?.compute?.(row, clusters);
-          return checkStringContains(driverName, searchValue);
-        }
-        case "time":
-        case "assigned time": {
-          const assignedTime = fields.find(f => f.key === "assignedTime")?.compute?.(row, clusters);
-          return checkStringContains(assignedTime, searchValue);
-        }
-        case "delivery instructions":
-        case "instructions": {
-          const instructions = (fields.find(f => f.key === "deliveryDetails.deliveryInstructions") as Extract<Field, { key: "deliveryDetails.deliveryInstructions" }>).compute?.(row);
-          return checkStringContains(instructions, searchValue);
-        }
-        case "tags":
-        case "tag":
-          return checkValueOrInArray(row.tags, searchValue);
-        case "phone":
-          return checkStringContains(row.phone, searchValue);
-        case "ethnicity":
-          return checkStringContains(row.ethnicity, searchValue);
-        case "adults":
-          return checkValueOrInArray(row.adults, searchValue);
-        case "children":
-          return checkValueOrInArray(row.children, searchValue);
-        case "delivery freq":
-        case "delivery frequency":
-          return checkStringContains(row.deliveryFreq, searchValue);
-        case "gender":
-          return checkStringContains(row.gender, searchValue);
-        case "language":
-          return checkStringContains(row.language, searchValue);
-        case "notes":
-          return checkStringContains(row.notes, searchValue);
-        case "tefap":
-        case "tefap cert":
-          return checkStringContains(row.tefapCert, searchValue);
-        case "dob":
-          return checkValueOrInArray(row.dob, searchValue);
-        case "referral entity":
-        case "referral": {
-          if (row.referralEntity && typeof row.referralEntity === 'object') {
-            return checkStringContains(row.referralEntity.name, searchValue) ||
-                   checkStringContains(row.referralEntity.organization, searchValue);
-          }
+      // Helper for numbers, dates (as strings/numbers), or items in an array
+      const checkValueOrInArray = (value: any, query: string): boolean => {
+        if (value === undefined || value === null) {
           return false;
         }
-        default: {
-          // Check custom columns
-          const matchesCustomColumn = customColumns.some((col) => {
-            if (col.propertyKey !== "none" && col.propertyKey.toLowerCase().includes(keyword)) {
-              const fieldValue = row[col.propertyKey as keyof DeliveryRowData];
-              return checkStringContains(fieldValue, searchValue);
+        const lowerQuery = query.toLowerCase();
+        if (Array.isArray(value)) {
+          return value.some(item => String(item).toLowerCase().includes(lowerQuery));
+        }
+        return String(value).toLowerCase().includes(lowerQuery);
+      };
+
+      // Get the visible field keys from default columns and custom columns
+      const visibleFieldKeys = new Set([
+        ...fields.map(f => f.key).filter(key => key !== "checkbox"), // Exclude checkbox column
+        ...customColumns.map(col => col.propertyKey).filter(key => key !== "none") // Exclude "none" selections
+      ]);
+
+      // Helper function to check if a keyword matches any visible field
+      const isVisibleField = (keyword: string): boolean => {
+        const lowerKeyword = keyword.toLowerCase();
+        
+        // Check default field mappings
+        const fieldMappings: { [key: string]: string[] } = {
+          "fullname": ["name", "client"],
+          "clusterIdChange": ["cluster", "cluster id"],
+          "tags": ["tags", "tag"],
+          "zipCode": ["zip", "zipcode", "zip code"],
+          "ward": ["ward"],
+          "assignedDriver": ["driver", "assigned driver"],
+          "assignedTime": ["time", "assigned time"],
+          "deliveryDetails.deliveryInstructions": ["delivery instructions", "instructions"]
+        };
+        
+        // Check if keyword matches any default field
+        for (const [fieldKey, aliases] of Object.entries(fieldMappings)) {
+          if (visibleFieldKeys.has(fieldKey) && aliases.some(alias => alias === lowerKeyword)) {
+            return true;
+          }
+        }
+        
+        // Check if keyword matches any custom column property key or its alias
+        const customColumnMappings: { [key: string]: string[] } = {
+          "address": ["address"],
+          "adults": ["adults"],
+          "children": ["children"],
+          "deliveryFreq": ["delivery freq", "delivery frequency"],
+          "deliveryDetails.dietaryRestrictions": ["dietary restrictions"],
+          "ethnicity": ["ethnicity"],
+          "gender": ["gender"],
+          "language": ["language"],
+          "notes": ["notes"],
+          "phone": ["phone"],
+          "referralEntity": ["referral entity", "referral"],
+          "tefapCert": ["tefap", "tefap cert"],
+          "dob": ["dob"],
+          "lastDeliveryDate": ["last delivery date"]
+        };
+        
+        for (const [propertyKey, aliases] of Object.entries(customColumnMappings)) {
+          if (visibleFieldKeys.has(propertyKey) && aliases.some(alias => alias === lowerKeyword)) {
+            return true;
+          }
+        }
+        
+        return false;
+      };
+
+      return keyValueTerms.every(term => {
+        const { keyword, searchValue, isKeyValue: isKeyValueSearch } = extractKeyValue(term);
+
+        if (isKeyValueSearch && searchValue) {
+          // Only allow filtering on visible fields
+          if (!isVisibleField(keyword)) {
+            return true; // Ignore terms for non-visible fields
+          }
+          switch (keyword) {
+          case "name":
+          case "client":
+            return checkStringContains(`${row.firstName} ${row.lastName}`, searchValue) ||
+                   checkStringContains(row.firstName, searchValue) ||
+                   checkStringContains(row.lastName, searchValue);
+          case "address":
+            return checkStringContains(row.address, searchValue);
+          case "ward":
+            return checkStringContains(row.ward, searchValue);
+          case "zip":
+          case "zipcode":
+          case "zip code":
+            return checkStringContains(row.zipCode, searchValue);
+          case "cluster":
+          case "cluster id":
+            return checkStringContains(row.clusterId, searchValue);
+          case "driver":
+          case "assigned driver": {
+            const driverName = fields.find(f => f.key === "assignedDriver")?.compute?.(row, clusters);
+            return checkStringContains(driverName, searchValue);
+          }
+          case "time":
+          case "assigned time": {
+            const assignedTime = fields.find(f => f.key === "assignedTime")?.compute?.(row, clusters);
+            return checkStringContains(assignedTime, searchValue);
+          }
+          case "delivery instructions":
+          case "instructions": {
+            const instructions = (fields.find(f => f.key === "deliveryDetails.deliveryInstructions") as Extract<Field, { key: "deliveryDetails.deliveryInstructions" }>).compute?.(row);
+            return checkStringContains(instructions, searchValue);
+          }
+          case "tags":
+          case "tag":
+            return checkValueOrInArray(row.tags, searchValue);
+          case "phone":
+            return checkStringContains(row.phone, searchValue);
+          case "ethnicity":
+            return checkStringContains(row.ethnicity, searchValue);
+          case "adults":
+            return checkValueOrInArray(row.adults, searchValue);
+          case "children":
+            return checkValueOrInArray(row.children, searchValue);
+          case "delivery freq":
+          case "delivery frequency":
+            return checkStringContains(row.deliveryFreq, searchValue);
+          case "gender":
+            return checkStringContains(row.gender, searchValue);
+          case "language":
+            return checkStringContains(row.language, searchValue);
+          case "notes":
+            return checkStringContains(row.notes, searchValue);
+          case "tefap":
+          case "tefap cert":
+            return checkStringContains(row.tefapCert, searchValue);
+          case "dob":
+            return checkValueOrInArray(row.dob, searchValue);
+          case "referral entity":
+          case "referral": {
+            if (row.referralEntity && typeof row.referralEntity === 'object') {
+              return checkStringContains(row.referralEntity.name, searchValue) ||
+                     checkStringContains(row.referralEntity.organization, searchValue);
             }
             return false;
-          });
-          return matchesCustomColumn;
+          }
+          default: {
+            // Check custom columns
+            const matchesCustomColumn = customColumns.some((col) => {
+              if (col.propertyKey !== "none" && col.propertyKey.toLowerCase().includes(keyword)) {
+                const fieldValue = row[col.propertyKey as keyof DeliveryRowData];
+                return checkStringContains(fieldValue, searchValue);
+              }
+              return false;
+            });
+            return matchesCustomColumn;
+          }
+          }
         }
-      }
-    } else {
-      // Global search - search across all fields
-      const globalSearchValue = trimmedSearchQuery.toLowerCase();
-
-      // Search in basic client info
-      if (checkStringContains(`${row.firstName} ${row.lastName}`, globalSearchValue)) return true;
-      if (checkStringContains(row.address, globalSearchValue)) return true;
-      if (checkStringContains(row.ward, globalSearchValue)) return true;
-      if (checkStringContains(row.zipCode, globalSearchValue)) return true;
-      if (checkStringContains(row.clusterId, globalSearchValue)) return true;
-      if (checkStringContains(row.phone, globalSearchValue)) return true;
-
-      // Search in computed fields
-      const driverName = fields.find(f => f.key === "assignedDriver")?.compute?.(row, clusters);
-      if (checkStringContains(driverName, globalSearchValue)) return true;
-
-      const assignedTime = fields.find(f => f.key === "assignedTime")?.compute?.(row, clusters);
-      if (checkStringContains(assignedTime, globalSearchValue)) return true;
-
-      const instructions = (fields.find(f => f.key === "deliveryDetails.deliveryInstructions") as Extract<Field, { key: "deliveryDetails.deliveryInstructions" }>)?.compute?.(row);
-      if (checkStringContains(instructions, globalSearchValue)) return true;
-
-      // Search in additional fields
-      if (checkValueOrInArray(row.tags, globalSearchValue)) return true;
-      if (checkStringContains(row.ethnicity, globalSearchValue)) return true;
-      if (checkValueOrInArray(row.adults, globalSearchValue)) return true;
-      if (checkValueOrInArray(row.children, globalSearchValue)) return true;
-      if (checkStringContains(row.deliveryFreq, globalSearchValue)) return true;
-      if (checkStringContains(row.gender, globalSearchValue)) return true;
-      if (checkStringContains(row.language, globalSearchValue)) return true;
-      if (checkStringContains(row.notes, globalSearchValue)) return true;
-      if (checkStringContains(row.tefapCert, globalSearchValue)) return true;
-      if (checkValueOrInArray(row.dob, globalSearchValue)) return true;
-
-      // Search in referral entity
-      if (row.referralEntity && typeof row.referralEntity === 'object') {
-        if (checkStringContains(row.referralEntity.name, globalSearchValue)) return true;
-        if (checkStringContains(row.referralEntity.organization, globalSearchValue)) return true;
-      }
-
-      // Search in custom columns
-      const matchesCustomColumn = customColumns.some((col) => {
-        if (col.propertyKey !== "none") {
-          const fieldValue = row[col.propertyKey as keyof DeliveryRowData];
-          return checkStringContains(fieldValue, globalSearchValue);
-        }
-        return false;
+        
+        // If it's not a proper key-value pair, ignore this term
+        return true;
       });
-      if (matchesCustomColumn) return true;
-
-      return false;
     }
-    });
+    
+    // If no complete key-value pairs, show all data
+    return true;
   });
 
   // Create sorted version of visible rows - supports fullname, clusterIdChange, tags, address, ward, assignedDriver, assignedTime, deliveryInstructions, and custom columns sorting
@@ -2214,12 +2209,11 @@ const DeliverySpreadsheet: React.FC = () => {
                           if (key === "gender") label = "Gender";
                           if (key === "language") label = "Language";
                           if (key === "notes") label = "Notes";
+                          if (key === "phone") label = "Phone";
                           if (key === "referralEntity") label = "Referral Entity";
                           if (key === "tefapCert") label = "TEFAP Cert";
-                          if (key === "tags") label = "Tags";
                           if (key === "dob") label = "DOB";
-                          if (key === "ward") label = "Ward";
-                          if (key === "zipCode") label = "Zip Code";
+                          if (key === "lastDeliveryDate") label = "Last Delivery Date";
                           return <MenuItem key={key} value={key}>{label}</MenuItem>;
                         })}
                         </Select>

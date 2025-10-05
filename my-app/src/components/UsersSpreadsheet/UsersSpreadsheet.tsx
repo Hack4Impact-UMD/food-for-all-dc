@@ -31,7 +31,6 @@ import React, { useEffect, useState, useCallback, useMemo } from "react";
 import {
   parseSearchTermsProgressively,
   checkStringContains,
-  isPartialFieldName,
   extractKeyValue
 } from "../../utils/searchFilter";
 import { useNavigate } from "react-router-dom";
@@ -283,47 +282,66 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
     }
 
     const validSearchTerms = parseSearchTermsProgressively(trimmedSearchQuery);
-    if (validSearchTerms.length === 0) {
-      return true;
+    
+    // Only apply filters if we have complete key-value pairs (terms with colons)
+    const keyValueTerms = validSearchTerms.filter(term => term.includes(':'));
+    
+    if (keyValueTerms.length > 0) {
+      // Get the visible field keys from the defined fields
+      const visibleFieldKeys = new Set(fields.map(f => f.key));
+
+      // Helper function to check if a keyword matches any visible field
+      const isVisibleField = (keyword: string): boolean => {
+        const lowerKeyword = keyword.toLowerCase();
+        
+        // Check field mappings for Users page
+        const fieldMappings: { [key: string]: string[] } = {
+          "name": ["name"],
+          "role": ["role"],
+          "phone": ["phone"],
+          "email": ["email"]
+        };
+        
+        // Check if keyword matches any visible field
+        for (const [fieldKey, aliases] of Object.entries(fieldMappings)) {
+          if (visibleFieldKeys.has(fieldKey as keyof AuthUserRow) && aliases.some(alias => alias === lowerKeyword)) {
+            return true;
+          }
+        }
+        
+        return false;
+      };
+
+      return keyValueTerms.every(term => {
+        const { keyword, searchValue, isKeyValue: isKeyValueSearch } = extractKeyValue(term);
+
+        if (isKeyValueSearch && searchValue) {
+          // Only allow filtering on visible fields
+          if (!isVisibleField(keyword)) {
+            return true; // Ignore terms for non-visible fields
+          }
+
+          switch (keyword) {
+            case "name":
+              return checkStringContains(row.name, searchValue);
+            case "role":
+              return checkStringContains(getRoleDisplayName(row.role), searchValue);
+            case "phone":
+              return checkStringContains(row.phone, searchValue);
+            case "email":
+              return checkStringContains(row.email, searchValue);
+            default:
+              return false; // No other fields should match since we check isVisibleField
+          }
+        }
+        
+        // If it's not a proper key-value pair, ignore this term
+        return true;
+      });
     }
-
-    return validSearchTerms.every(term => {
-      const { keyword, searchValue, isKeyValue: isKeyValueSearch } = extractKeyValue(term);
-
-      if (!isKeyValueSearch) {
-        const userFieldNames = ['name', 'role', 'phone', 'email'];
-        if (isPartialFieldName(term, userFieldNames)) {
-          return true;
-        }
-      }
-
-      if (isKeyValueSearch) {
-        if (!searchValue) {
-          return true;
-        }
-
-        switch (keyword) {
-          case "name":
-            return checkStringContains(row.name, searchValue);
-          case "role":
-            return checkStringContains(getRoleDisplayName(row.role), searchValue);
-          case "phone":
-            return checkStringContains(row.phone, searchValue);
-          case "email":
-            return checkStringContains(row.email, searchValue);
-          default:
-            return checkStringContains(row.name, searchValue) ||
-                   checkStringContains(getRoleDisplayName(row.role), searchValue) ||
-                   checkStringContains(row.phone, searchValue) ||
-                   checkStringContains(row.email, searchValue);
-        }
-      } else {
-        return checkStringContains(row.name, term) ||
-               checkStringContains(getRoleDisplayName(row.role), term) ||
-               checkStringContains(row.phone, term) ||
-               checkStringContains(row.email, term);
-      }
-    });
+    
+    // If no complete key-value pairs, show all data
+    return true;
   });
 
   const theme = useTheme();
