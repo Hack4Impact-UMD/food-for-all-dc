@@ -76,6 +76,7 @@ import {
   isPartialFieldName,
   extractKeyValue
 } from "../../utils/searchFilter";
+import DietaryRestrictionsLegend from "../DietaryRestrictionsLegend";
 
 // Define TypeScript types for row data
 export interface RowData {
@@ -1051,6 +1052,8 @@ const Spreadsheet: React.FC<SpreadsheetProps> = ({ editable = true }) => {
           overflowY: "visible"
         }}
       >
+        <DietaryRestrictionsLegend />
+
         {/* Mobile Card View for Small Screens */}
         {isMobile ? (
           <Stack spacing={2} sx={{ overflowY: "auto", width: "100%" }}>
