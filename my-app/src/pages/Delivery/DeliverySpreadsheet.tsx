@@ -313,7 +313,6 @@ const DeliverySpreadsheet: React.FC = () => {
   const [clients, setClients] = useState<ClientProfile[]>([]);
   useEffect(() => {
     const fetchClients = async () => {
-      const clientService = ClientService.getInstance();
       const clientsData = await clientService.getAllClients();
       setClients(clientsData.clients as ClientProfile[]);
     };
