@@ -1366,41 +1366,25 @@ const DeliverySpreadsheet: React.FC = () => {
     setSelectedRows(newSelectedRows);
   };
 
-  const handleRowClick = (clientId: string) => {
-    console.log('Row clicked for clientId:', clientId);
-    
-    // Handle special case for clearing highlight only
-    if (clientId === 'CLEAR_HIGHLIGHT_ONLY') {
-      console.log('Clearing row highlight only');
+  const handleRowClick = (clientId: string, fromTable = true) => {
+    if (fromTable && highlightedRowId === clientId) {
       setHighlightedRowId(null);
-      return;
-    }
-    
-    // If clicking the same row that's already highlighted, toggle it off
-    if (highlightedRowId === clientId) {
-      console.log('Removing highlight and closing popup');
-      setHighlightedRowId(null);
-      // Close any open popup
       if ((window as any).closeMapPopup) {
         (window as any).closeMapPopup();
       }
     } else {
-      // Highlight the new row and open its popup
-      console.log('Highlighting new row and opening popup');
       setHighlightedRowId(clientId);
-      // Open the corresponding map popup
       if ((window as any).openMapPopup) {
-        console.log('Calling openMapPopup for:', clientId);
         (window as any).openMapPopup(clientId);
-      } else {
-        console.log('openMapPopup function not available');
       }
     }
   };
 
-  // Separate function just for clearing highlights (used by popup close handler)
+  const handleMarkerClick = (clientId: string) => {
+    handleRowClick(clientId, false);
+  };
+
   const clearRowHighlight = () => {
-    console.log('Clearing row highlight only');
     setHighlightedRowId(null);
   };
 
@@ -1417,7 +1401,6 @@ const DeliverySpreadsheet: React.FC = () => {
 
   const visibleRows = rows.filter((row) => {
     const trimmedSearchQuery = searchQuery.trim();
-    //if search is empty then show all rows
     if (!trimmedSearchQuery) {
       return true;
     }
@@ -1582,8 +1565,7 @@ const DeliverySpreadsheet: React.FC = () => {
         return true;
       });
     }
-    
-    // If no complete key-value pairs, show all data
+
     return true;
   });
 
@@ -1824,7 +1806,15 @@ const DeliverySpreadsheet: React.FC = () => {
     return sorted;
   }, [visibleRows, sortOrder, sortedColumn, clusters, customColumns]);
 
-  // Synchronize rows state with rawClientData and clusters
+  useEffect(() => {
+    if (highlightedRowId && !visibleRows.some(row => row.id === highlightedRowId)) {
+      setHighlightedRowId(null);
+      if ((window as any).closeMapPopup) {
+        (window as any).closeMapPopup();
+      }
+    }
+  }, [visibleRows, highlightedRowId]);
+
   useEffect(() => {
     if (rawClientData.length === 0) {
       setRows([]);
@@ -1981,7 +1971,7 @@ const DeliverySpreadsheet: React.FC = () => {
           <LoadingIndicator />
         ) : visibleRows.length > 0 ? (
           <Suspense fallback={<LoadingIndicator />}>
-            <ClusterMap clusters={clusters} visibleRows={visibleRows} clientOverrides={clientOverrides} onClusterUpdate={handleIndividualClientUpdate} onOpenPopup={handleRowClick} onClearHighlight={clearRowHighlight} refreshDriversTrigger={driversRefreshTrigger} />
+            <ClusterMap clusters={clusters} visibleRows={visibleRows} clientOverrides={clientOverrides} onClusterUpdate={handleIndividualClientUpdate} onOpenPopup={handleRowClick} onMarkerClick={handleMarkerClick} onClearHighlight={clearRowHighlight} refreshDriversTrigger={driversRefreshTrigger} />
           </Suspense>
         ) : (
           <Box
@@ -2314,11 +2304,15 @@ const DeliverySpreadsheet: React.FC = () => {
             </TableHead>
             <TableBody>
               {sortedRows.map((row, index) => (
-                <TableRow 
-                  key={`${sortTimestamp}-${index}-${row.id}`} 
+                <TableRow
+                  key={`${sortTimestamp}-${index}-${row.id}`}
                   className="table-row delivery-anim-row"
                   data-client-id={row.id}
                   onClick={() => handleRowClick(row.id)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleRowClick(row.id)}
+                  tabIndex={0}
+                  role="button"
+                  aria-pressed={highlightedRowId === row.id}
                   sx={{
                     backgroundColor: highlightedRowId === row.id ? 'rgba(144, 238, 144, 0.7) !important' : 'inherit',
                     border: highlightedRowId === row.id ? '2px solid #90EE90 !important' : 'none',
@@ -2349,6 +2343,7 @@ const DeliverySpreadsheet: React.FC = () => {
                             disabled={userRole === UserType.ClientIntake}
                             checked={selectedRows.has(row.id)}
                             onChange={() => handleCheckboxChange(row)}
+                            onClick={(e) => e.stopPropagation()}
                           />
                         ) : field.type === "select" && field.key === "clusterIdChange" ? (
                           // Render Select for clusterIdChange

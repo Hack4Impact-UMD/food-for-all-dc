@@ -360,14 +360,19 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
         popupCloseHandlerSetup.current = true;
         
         mapRef.current.on('popupclose', (e) => {
-          // Skip if popup is in the process of opening
           if (isPopupOpening.current) {
             return;
           }
-          
-          // Use a longer delay to ensure popup is fully closed
+
+          const closedPopup = e.popup;
+          const closedPopupElement = closedPopup?.getElement();
+          const closedClientId = closedPopupElement?.getAttribute('data-client-id');
+
           setTimeout(() => {
-            // Find all rows with data-client-id and check which one is highlighted
+            if (isPopupOpening.current) {
+              return;
+            }
+
             const allDataRows = document.querySelectorAll('tr[data-client-id]');
 
             let highlightedRow = null;
@@ -376,7 +381,6 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
               const computedStyle = window.getComputedStyle(element);
               const inlineStyle = element.style.backgroundColor;
 
-              // Check if this row is highlighted
               if (inlineStyle.includes('144, 238, 144') ||
                   inlineStyle.includes('lightgreen') ||
                   computedStyle.backgroundColor.includes('144, 238, 144')) {
@@ -387,11 +391,11 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
             if (highlightedRow) {
               const clientId = (highlightedRow as HTMLElement).getAttribute('data-client-id');
 
-              if (clientId && onClearHighlight) {
+              if (clientId && clientId === closedClientId && onClearHighlight) {
                 onClearHighlight();
               }
             }
-          }, 200); // Increased delay
+          }, 200);
         });
       }
     }
@@ -400,7 +404,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
       delete (window as any).closeMapPopup;
       delete (window as any).clearRowHighlight;
     };
-  }, [onOpenPopup]);
+  }, [onOpenPopup, onClearHighlight]);
 
 
 
@@ -739,24 +743,19 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
       marker
         .bindPopup(popupContent, { autoPan: true, keepInView: true })
         .on('click', (e) => {
-          // Set flag to prevent close handler from firing during opening
           isPopupOpening.current = true;
 
-          // Call the same handleRowClick function - just like table rows do
-          if (onOpenPopup) {
-            onOpenPopup(client.id);
+          if (onMarkerClick) {
+            onMarkerClick(client.id);
           }
-          
-          // Clear the flag after popup is opened
-          setTimeout(() => {
-            isPopupOpening.current = false;
-          }, 300);
         })
         .on('popupopen', () => {
-          // Additional safety - clear flag when popup actually opens
           setTimeout(() => {
             isPopupOpening.current = false;
-          }, 100);
+          }, 350);
+        })
+        .on('popupclose', () => {
+          isPopupOpening.current = false;
         })
         .addTo(markerGroupRef.current!);
 
