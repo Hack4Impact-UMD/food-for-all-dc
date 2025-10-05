@@ -31,8 +31,7 @@ import React, { useEffect, useState, useCallback, useMemo } from "react";
 import {
   parseSearchTermsProgressively,
   checkStringContains,
-  extractKeyValue,
-  globalSearchMatch
+  extractKeyValue
 } from "../../utils/searchFilter";
 import { useNavigate } from "react-router-dom";
 import { auth } from "../../auth/firebaseConfig";
@@ -283,11 +282,10 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
     }
 
     const validSearchTerms = parseSearchTermsProgressively(trimmedSearchQuery);
+    
+    // Only apply filters if we have complete key-value pairs (terms with colons)
     const keyValueTerms = validSearchTerms.filter(term => term.includes(':'));
-    const nonKeyValueTerms = validSearchTerms.filter(term => !term.includes(':'));
-
-    let matches = true;
-
+    
     if (keyValueTerms.length > 0) {
       const visibleFieldKeys = new Set(fields.map(f => f.key));
 
@@ -310,7 +308,7 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
         return false;
       };
 
-      matches = keyValueTerms.every(term => {
+      return keyValueTerms.every(term => {
         const { keyword, searchValue, isKeyValue: isKeyValueSearch } = extractKeyValue(term);
 
         if (isKeyValueSearch && searchValue) {
@@ -335,18 +333,9 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
         return true;
       });
     }
-
-    if (matches && nonKeyValueTerms.length > 0) {
-      const searchableFields = ['name', 'phone', 'email', 'role'];
-      matches = nonKeyValueTerms.every(term => {
-        if (term === 'role') {
-          return globalSearchMatch({ ...row, role: getRoleDisplayName(row.role) }, term, searchableFields);
-        }
-        return globalSearchMatch(row, term, searchableFields);
-      });
-    }
-
-    return matches;
+    
+    // If no complete key-value pairs, show all data
+    return true;
   });
 
   const theme = useTheme();
