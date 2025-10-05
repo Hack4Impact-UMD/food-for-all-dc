@@ -250,7 +250,7 @@ const SummaryReport: React.FC = () => {
           if (client.referredDate) {
             const referredDate = TimeUtils.fromISO(client.referredDate);
             if (referredDate >= start && referredDate <= end) {
-              refs["New Client Referrals"].value += 1;
+              next["Referrals"]["New Client Referrals"].value += 1;
               if (client.referralEntity?.organization?.trim()) {
                 referralAgencies.add(client.referralEntity.organization.trim());
               }
