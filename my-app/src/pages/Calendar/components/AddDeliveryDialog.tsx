@@ -26,6 +26,7 @@ import { validateDeliveryDateRange } from "../../../utils/dateValidation";
 import { collection, getDocs, query, where, orderBy, deleteDoc, doc } from "firebase/firestore";
 import { db } from "../../../auth/firebaseConfig";
 import { getLastDeliveryDateForClient } from "../../../utils/lastDeliveryDate";
+import { DELIVERIES_MODIFIED_KEY } from "../../../constants/events";
 
 interface AddDeliveryDialogProps {
   open: boolean;
@@ -41,8 +42,12 @@ interface AddDeliveryDialogProps {
   };
 }
 
-// Helper function to delete deliveries that are later than the new end date
 const deleteDeliveriesAfterEndDate = async (clientId: string, newEndDate: string) => {
+  if (!clientId || !newEndDate) {
+    console.error("Invalid parameters for deleteDeliveriesAfterEndDate");
+    return;
+  }
+
   try {
     const eventsRef = collection(db, "events");
     const q = query(
@@ -294,10 +299,8 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props: AddDeliveryD
           deliveryToSubmit.repeatsEndDate = undefined;
         }
 
-        // Signal that deliveries have been modified for other components
-        localStorage.setItem('deliveriesModified', Date.now().toString());
-        
-        // ALWAYS call onAddDelivery - Profile logic will handle duplicates properly
+        localStorage.setItem(DELIVERIES_MODIFIED_KEY, Date.now().toString());
+
         onAddDelivery(deliveryToSubmit as NewDelivery);
         setCustomDates([]);
         resetFormAndClose();

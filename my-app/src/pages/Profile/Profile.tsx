@@ -3,6 +3,7 @@ import EditIcon from "@mui/icons-material/Edit";
 import SaveIcon from "@mui/icons-material/Save";
 import { TimeUtils } from '../../utils/timeUtils';
 import { getLastDeliveryDateForClient } from '../../utils/lastDeliveryDate';
+import { DELIVERIES_MODIFIED_KEY } from '../../constants/events';
 import {
   Autocomplete,
   Box,
@@ -442,11 +443,9 @@ const Profile = () => {
     fetchLastDeliveryDate();
   }, [clientId]);
 
-  // Listen for delivery modifications from other components (like calendar)
   useEffect(() => {
     const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'deliveriesModified' && clientId) {
-        // Refresh the last delivery date when deliveries are modified from calendar
+      if (e.key === DELIVERIES_MODIFIED_KEY && clientId) {
         const fetchUpdatedLastDeliveryDate = async () => {
           try {
             const latestEndDateString = await getLastDeliveryDateForClient(clientId);
@@ -464,15 +463,12 @@ const Profile = () => {
       }
     };
 
-    // Listen for storage changes (from other tabs/components)
     window.addEventListener('storage', handleStorageChange);
 
-    // Also listen for focus events (when user navigates back to this page)
     const handleFocus = () => {
       if (clientId) {
-        const lastModified = localStorage.getItem('deliveriesModified');
+        const lastModified = localStorage.getItem(DELIVERIES_MODIFIED_KEY);
         if (lastModified) {
-          // Check if deliveries were modified since we last checked
           const fetchUpdatedLastDeliveryDate = async () => {
             try {
               const latestEndDateString = await getLastDeliveryDateForClient(clientId);
@@ -487,8 +483,7 @@ const Profile = () => {
             }
           };
           fetchUpdatedLastDeliveryDate();
-          // Clear the flag after handling
-          localStorage.removeItem('deliveriesModified');
+          localStorage.removeItem(DELIVERIES_MODIFIED_KEY);
         }
       }
     };

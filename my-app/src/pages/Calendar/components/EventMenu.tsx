@@ -28,14 +28,19 @@ import { calculateRecurrenceDates, getNextMonthlyDate } from "./CalendarUtils";
 import { UserType } from "../../../types";
 import { useAuth } from "../../../auth/AuthProvider";
 import { toJSDate } from '../../../utils/timestamp';
+import { DELIVERIES_MODIFIED_KEY } from "../../../constants/events";
 
 interface EventMenuProps {
   event: DeliveryEvent;
   onEventModified: () => void;
 }
 
-// Helper function to delete deliveries that are later than the new end date
 const deleteDeliveriesAfterEndDate = async (clientId: string, newEndDate: string) => {
+  if (!clientId || !newEndDate) {
+    console.error("Invalid parameters for deleteDeliveriesAfterEndDate");
+    return;
+  }
+
   try {
     const eventsRef = collection(db, "events");
     const q = query(
@@ -46,7 +51,7 @@ const deleteDeliveriesAfterEndDate = async (clientId: string, newEndDate: string
 
     const deletionPromises: Promise<void>[] = [];
     const newEndDateTime = new Date(newEndDate);
-    
+
     console.log(`Found ${querySnapshot.size} total deliveries for client ${clientId}`);
     console.log(`New end date: ${newEndDate}`);
 
@@ -216,7 +221,7 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
       }
 
       // Signal that deliveries have been modified for other components
-      localStorage.setItem('deliveriesModified', Date.now().toString());
+      localStorage.setItem(DELIVERIES_MODIFIED_KEY, Date.now().toString());
       
       onEventModified();
       setIsDeleteDialogOpen(false);
@@ -334,7 +339,7 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
       }
 
       // Signal that deliveries have been modified for other components
-      localStorage.setItem('deliveriesModified', Date.now().toString());
+      localStorage.setItem(DELIVERIES_MODIFIED_KEY, Date.now().toString());
       
       onEventModified();
       setIsEditDialogOpen(false);
