@@ -111,6 +111,10 @@ class DeliveryService {
     try {
       return await retry(async () => {
         const docRef = await addDoc(collection(this.db, this.eventsCollection), cleanEvent);
+        // Invalidate cache for this client's recurring deliveries
+        if (event.clientId && event.recurrence) {
+          this.invalidateCacheForClient(event.clientId, event.recurrence);
+        }
         return docRef.id;
       });
     } catch (error) {
@@ -148,6 +152,210 @@ class DeliveryService {
       });
     } catch (error) {
       throw formatServiceError(error, 'Failed to delete event');
+    }
+  }
+
+  // Cache for recurring delivery date ranges to avoid repeated queries
+  private dateRangeCache = new Map<string, { earliest: Date; latest: Date; timestamp: number }>();
+  private readonly CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
+  /**
+   * Get recurring delivery date range for a client (optimized with caching)
+   */
+  public async getRecurringDeliveryDateRange(
+    clientId: string, 
+    recurrenceType: string
+  ): Promise<{ earliest: Date | null; latest: Date | null }> {
+    if (recurrenceType === 'None') {
+      return { earliest: null, latest: null };
+    }
+
+    const cacheKey = `${clientId}-${recurrenceType}`;
+    const cached = this.dateRangeCache.get(cacheKey);
+    
+    // Return cached result if it's still fresh
+    if (cached && (Date.now() - cached.timestamp) < this.CACHE_DURATION) {
+      return { earliest: cached.earliest, latest: cached.latest };
+    }
+
+    try {
+      return await retry(async () => {
+        // Optimized query: only get deliveryDate field for matching client and recurrence
+        const q = query(
+          collection(this.db, this.eventsCollection),
+          where("clientId", "==", clientId),
+          where("recurrence", "==", recurrenceType)
+        );
+        
+        const querySnapshot = await getDocs(q);
+        
+        if (querySnapshot.empty) {
+          return { earliest: null, latest: null };
+        }
+
+        const dates = querySnapshot.docs
+          .map(doc => {
+            const data = doc.data();
+            if (!data.deliveryDate) return null;
+            
+            const deliveryDate = data.deliveryDate.toDate
+              ? Time.Firebase.fromTimestamp(data.deliveryDate).toJSDate()
+              : TimeUtils.fromAny(data.deliveryDate).toJSDate();
+            
+            return deliveryDate;
+          })
+          .filter((date): date is Date => date !== null && !isNaN(date.getTime()));
+
+        if (dates.length === 0) {
+          return { earliest: null, latest: null };
+        }
+
+        // Find min/max dates efficiently
+        const earliest = new Date(Math.min(...dates.map(d => d.getTime())));
+        const latest = new Date(Math.max(...dates.map(d => d.getTime())));
+        
+        // Cache the result
+        this.dateRangeCache.set(cacheKey, {
+          earliest,
+          latest,
+          timestamp: Date.now()
+        });
+
+        return { earliest, latest };
+      });
+    } catch (error) {
+      throw formatServiceError(error, 'Failed to get recurring delivery date range');
+    }
+  }
+
+  /**
+   * Batch get recurring delivery date ranges for multiple clients (even more optimized)
+   */
+  public async getBatchRecurringDeliveryDateRanges(
+    requests: Array<{ clientId: string; recurrenceType: string }>
+  ): Promise<Map<string, { earliest: Date | null; latest: Date | null }>> {
+    const results = new Map<string, { earliest: Date | null; latest: Date | null }>();
+    const uncachedRequests: Array<{ clientId: string; recurrenceType: string; cacheKey: string }> = [];
+    
+    // Check cache first
+    for (const request of requests) {
+      if (request.recurrenceType === 'None') {
+        results.set(`${request.clientId}-${request.recurrenceType}`, { earliest: null, latest: null });
+        continue;
+      }
+      
+      const cacheKey = `${request.clientId}-${request.recurrenceType}`;
+      const cached = this.dateRangeCache.get(cacheKey);
+      
+      if (cached && (Date.now() - cached.timestamp) < this.CACHE_DURATION) {
+        results.set(cacheKey, { earliest: cached.earliest, latest: cached.latest });
+      } else {
+        uncachedRequests.push({ ...request, cacheKey });
+      }
+    }
+
+    // Batch fetch uncached data
+    if (uncachedRequests.length > 0) {
+      try {
+        // Group by recurrence type for more efficient queries
+        const byRecurrence = new Map<string, string[]>();
+        for (const req of uncachedRequests) {
+          if (!byRecurrence.has(req.recurrenceType)) {
+            byRecurrence.set(req.recurrenceType, []);
+          }
+          const clientIds = byRecurrence.get(req.recurrenceType);
+          if (clientIds) {
+            clientIds.push(req.clientId);
+          }
+        }
+
+        for (const [recurrenceType, clientIds] of byRecurrence) {
+          const q = query(
+            collection(this.db, this.eventsCollection),
+            where("recurrence", "==", recurrenceType),
+            where("clientId", "in", clientIds.slice(0, 10)) // Firestore 'in' limit is 10
+          );
+          
+          const querySnapshot = await getDocs(q);
+          
+          // Group results by clientId
+          const clientDates = new Map<string, Date[]>();
+          
+          querySnapshot.docs.forEach(doc => {
+            const data = doc.data();
+            if (!data.deliveryDate || !data.clientId) return;
+            
+            const deliveryDate = data.deliveryDate.toDate
+              ? Time.Firebase.fromTimestamp(data.deliveryDate).toJSDate()
+              : TimeUtils.fromAny(data.deliveryDate).toJSDate();
+            
+            if (!isNaN(deliveryDate.getTime())) {
+              if (!clientDates.has(data.clientId)) {
+                clientDates.set(data.clientId, []);
+              }
+              const dates = clientDates.get(data.clientId);
+              if (dates) {
+                dates.push(deliveryDate);
+              }
+            }
+          });
+
+          // Calculate date ranges for each client
+          for (const clientId of clientIds) {
+            const dates = clientDates.get(clientId) || [];
+            const cacheKey = `${clientId}-${recurrenceType}`;
+            
+            if (dates.length === 0) {
+              const result = { earliest: null, latest: null };
+              results.set(cacheKey, result);
+            } else {
+              const earliest = new Date(Math.min(...dates.map(d => d.getTime())));
+              const latest = new Date(Math.max(...dates.map(d => d.getTime())));
+              
+              const result = { earliest, latest };
+              results.set(cacheKey, result);
+              
+              // Cache the result
+              this.dateRangeCache.set(cacheKey, {
+                earliest,
+                latest,
+                timestamp: Date.now()
+              });
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error in batch recurring delivery date ranges:', error);
+        // Fallback: return null ranges for failed requests
+        for (const req of uncachedRequests) {
+          if (!results.has(req.cacheKey)) {
+            results.set(req.cacheKey, { earliest: null, latest: null });
+          }
+        }
+      }
+    }
+
+    return results;
+  }
+
+  /**
+   * Clear the date range cache (useful when new deliveries are added)
+   */
+  public clearDateRangeCache(): void {
+    this.dateRangeCache.clear();
+  }
+
+  /**
+   * Invalidate cache for a specific client and recurrence type
+   */
+  private invalidateCacheForClient(clientId: string, recurrence?: string): void {
+    if (recurrence) {
+      this.dateRangeCache.delete(`${clientId}-${recurrence}`);
+    } else {
+      // Clear all cache entries for this client
+      const keysToDelete = Array.from(this.dateRangeCache.keys())
+        .filter(key => key.startsWith(`${clientId}-`));
+      keysToDelete.forEach(key => this.dateRangeCache.delete(key));
     }
   }
 

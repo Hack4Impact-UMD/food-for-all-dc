@@ -5,7 +5,7 @@ interface DeliveryCountHeaderProps {
     events: any[]
     limit?: number
 }
-export default function DeliveryCountHeader({events, limit}: DeliveryCountHeaderProps) {
+const DeliveryCountHeader = React.memo(function DeliveryCountHeader({events, limit}: DeliveryCountHeaderProps) {
     return (
         <Box
             sx={{
@@ -97,4 +97,6 @@ export default function DeliveryCountHeader({events, limit}: DeliveryCountHeader
             )}
         </Box>
     )
-}
+});
+
+export default DeliveryCountHeader;

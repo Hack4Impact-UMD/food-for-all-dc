@@ -14,7 +14,7 @@ interface DeliveryCardProps {
   allEvents?: DeliveryEvent[];
 }
 
-const DeliveryCard: React.FC<DeliveryCardProps> = ({ event, client, onEventModified, allEvents }) => {
+const DeliveryCard: React.FC<DeliveryCardProps> = React.memo(function DeliveryCard({ event, client, onEventModified, allEvents }) {
   const formatPhoneNumber = (phone: string): string => {
     const cleaned = ("" + phone).replace(/\D/g, ""); // Remove non-numeric characters
     const match = cleaned.match(/^(\d{3})(\d{3})(\d{4})$/); // Match the phone number pattern
@@ -117,6 +117,6 @@ const DeliveryCard: React.FC<DeliveryCardProps> = ({ event, client, onEventModif
       </Box>
     </Box>
   );
-};
+});
 
 export default DeliveryCard;

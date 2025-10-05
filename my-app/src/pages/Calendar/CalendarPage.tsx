@@ -1,4 +1,10 @@
 
+import React, { useEffect, useRef, useState, useMemo, useCallback } from "react";
+import { DayPilot } from "@daypilot/daypilot-lite-react";
+import { AppBar, Box, styled, Typography } from "@mui/material";
+import { Time, TimeUtils } from "../../utils/timeUtils";
+import { onAuthStateChanged } from "firebase/auth";
+
 // Helper to set time to 12:00:00 PM
 function setToNoon(date: any) {
   let jsDate;
@@ -16,11 +22,6 @@ function setToNoon(date: any) {
   jsDate.setHours(12, 0, 0, 0);
   return jsDate;
 }
-import { DayPilot } from "@daypilot/daypilot-lite-react";
-import { AppBar, Box, styled } from "@mui/material";
-import { Time, TimeUtils } from "../../utils/timeUtils";
-import { onAuthStateChanged } from "firebase/auth";
-import React, { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { auth } from "../../auth/firebaseConfig";
 import AddDeliveryDialog from "./components/AddDeliveryDialog";
@@ -37,6 +38,9 @@ import { clientService } from "../../services/client-service";
 import DriverService from "../../services/driver-service";
 import { toJSDate, toDayPilotDateString } from '../../utils/timestamp';
 import { DateTime } from 'luxon';
+import { RecurringDeliveryProvider } from "../../context/RecurringDeliveryContext";
+import CalendarSkeleton from '../../components/skeletons/CalendarSkeleton';
+import CalendarHeaderSkeleton from '../../components/skeletons/CalendarHeaderSkeleton';
 
 const DAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
 
@@ -79,7 +83,18 @@ const CalendarContent = styled(Box)(({ theme }) => ({
   },
 }));
 
-const CalendarPage: React.FC = () => {
+const CalendarPage: React.FC = React.memo(() => {
+  // Use a ref to track render count without causing re-renders
+  const renderCount = useRef(0);
+  renderCount.current += 1;
+  
+  console.log(`🏗️ [CALENDAR] Component render #${renderCount.current} started at:`, new Date().toISOString());
+  
+  // Detect if we're in React.StrictMode (development only)
+  if (renderCount.current === 1) {
+    console.log('🔧 [CALENDAR] First render - checking for React.StrictMode double renders...');
+  }
+  
   // ...state declarations...
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -98,14 +113,15 @@ const CalendarPage: React.FC = () => {
   };
   const [currentDate, setCurrentDate] = useState<DayPilot.Date>(getInitialDate());
   // Custom function to update both state and URL params
-  const updateCurrentDate = (newDate: DayPilot.Date) => {
+  const updateCurrentDate = useCallback((newDate: DayPilot.Date) => {
+    console.log('📅 [CALENDAR] Updating current date to:', newDate.toString());
     setCurrentDate(newDate);
     setSearchParams(prev => {
       const newParams = new URLSearchParams(prev);
       newParams.set('date', newDate.toString("yyyy-MM-dd"));
       return newParams;
     });
-  };
+  }, [setSearchParams]);
   const [viewType, setViewType] = useState<ViewType>("Day");
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [events, setEvents] = useState<DeliveryEvent[]>([]);
@@ -118,8 +134,75 @@ const CalendarPage: React.FC = () => {
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [clients, setClients] = useState<ClientProfile[]>([]);
   const [dailyLimits, setDailyLimits] = useState<DateLimit[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true); // Start as loading
+  const [isInitialLoad, setIsInitialLoad] = useState<boolean>(true);
   const limits = useLimits();
   const containerRef = useRef<HTMLDivElement | null>(null);
+
+  // Track what causes re-renders - useRef to store previous values
+  const prevValues = useRef({
+    currentDate: currentDate.toString(),
+    viewType,
+    clientsLength: clients.length,
+    eventsLength: events.length,
+    isLoading,
+    searchParams: searchParams.toString()
+  });
+
+  // Debug re-render causes
+  useEffect(() => {
+    const prev = prevValues.current;
+    const current = {
+      currentDate: currentDate.toString(),
+      viewType,
+      clientsLength: clients.length,
+      eventsLength: events.length,
+      isLoading,
+      searchParams: searchParams.toString()
+    };
+
+    const changes = [];
+    if (prev.currentDate !== current.currentDate) changes.push(`currentDate: ${prev.currentDate} → ${current.currentDate}`);
+    if (prev.viewType !== current.viewType) changes.push(`viewType: ${prev.viewType} → ${current.viewType}`);
+    if (prev.clientsLength !== current.clientsLength) changes.push(`clients: ${prev.clientsLength} → ${current.clientsLength}`);
+    if (prev.eventsLength !== current.eventsLength) changes.push(`events: ${prev.eventsLength} → ${current.eventsLength}`);
+    if (prev.isLoading !== current.isLoading) changes.push(`isLoading: ${prev.isLoading} → ${current.isLoading}`);
+    if (prev.searchParams !== current.searchParams) changes.push(`searchParams: ${prev.searchParams} → ${current.searchParams}`);
+
+    if (changes.length > 0) {
+      console.log(`🔄 [CALENDAR] Render #${renderCount.current} caused by:`, changes);
+    } else if (renderCount.current > 1) {
+      console.log(`🔄 [CALENDAR] Render #${renderCount.current} - no prop changes detected (possible parent re-render or strict mode)`);
+    }
+
+    prevValues.current = current;
+  });
+
+  // Memoized client lookup map for O(1) performance instead of O(n) array.find
+  const clientLookupMap = useMemo(() => {
+    const map = new Map<string, ClientProfile>();
+    clients.forEach(client => {
+      if (client.uid) {
+        map.set(client.uid, client);
+      }
+    });
+    return map;
+  }, [clients]);
+
+  // Memoized events with client names to prevent repeated calculations
+  const eventsWithClientNames = useMemo(() => {
+    return events.map(event => {
+      const client = clientLookupMap.get(event.clientId);
+      if (client && !event.clientName) {
+        const fullName = `${client.firstName} ${client.lastName}`.trim();
+        return {
+          ...event,
+          clientName: fullName
+        };
+      }
+      return event;
+    });
+  }, [events, clientLookupMap]);
 
 
   // Route Protection
@@ -151,43 +234,108 @@ const CalendarPage: React.FC = () => {
   }, [setAnchorEl]);
 
   const fetchDrivers = async () => {
+    const startTime = performance.now();
+    console.log('🚗 [DRIVERS] Starting fetch at:', new Date().toISOString());
     try {
       // Use DriverService instead of direct Firebase calls
       const driverService = DriverService.getInstance();
       const driverList = await driverService.getAllDrivers();
+      const endTime = performance.now();
+      console.log('🚗 [DRIVERS] Fetch completed in:', Math.round(endTime - startTime), 'ms');
+      console.log('🚗 [DRIVERS] Data:', JSON.stringify(driverList, null, 2));
       // Cast to appropriate type to avoid type mismatch
       setDrivers(driverList);
     } catch (error) {
-      console.error("Error fetching drivers:", error);
+      console.error("❌ [DRIVERS] Error fetching drivers:", error);
     }
   };
 
-  const fetchClients = async () => {
-    // DEBUG: Clear and print clients after fetch
+  // Cache for client data to avoid repeated fetches
+  const clientCache = useMemo(() => new Map<string, ClientProfile>(), []);
+
+  const fetchClientsLazy = useCallback(async (clientIds: string[]) => {
+    const startTime = performance.now();
+    console.log('👥 [CLIENTS] Starting lazy fetch for', clientIds.length, 'clients at:', new Date().toISOString());
+    
+    // Filter out clients we already have cached
+    const uncachedIds = clientIds.filter(id => !clientCache.has(id));
+    console.log('👥 [CLIENTS] Cache hit rate:', ((clientIds.length - uncachedIds.length) / clientIds.length * 100).toFixed(1) + '%');
+    
+    if (uncachedIds.length === 0) {
+      console.log('👥 [CLIENTS] All clients found in cache');
+      return Array.from(clientCache.values()).filter(client => clientIds.includes(client.uid || ''));
+    }
+
     try {
-      // Use ClientService instead of direct Firebase calls
-  // use imported singleton clientService directly
+      console.log('👥 [CLIENTS] Fetching', uncachedIds.length, 'uncached clients');
+      // Fetch only the specific clients we need
+      const clientsData = await clientService.getClientsByIds(uncachedIds);
+      const endTime = performance.now();
+      
+      console.log('👥 [CLIENTS] Lazy fetch completed in:', Math.round(endTime - startTime), 'ms');
+      console.log('👥 [CLIENTS] Fetched count:', clientsData.length);
+      
+      // Add to cache
+      clientsData.forEach(client => {
+        if (client.uid) {
+          clientCache.set(client.uid, client);
+        }
+      });
+      
+      // Return all requested clients (cached + newly fetched)
+      const allRequestedClients = clientIds.map(id => clientCache.get(id)).filter(Boolean) as ClientProfile[];
+      setClients(allRequestedClients);
+      return allRequestedClients;
+    } catch (error) {
+      console.error("❌ [CLIENTS] Error fetching clients:", error);
+      return [];
+    }
+  }, [clientCache]);
+
+  const fetchClients = async () => {
+    const startTime = performance.now();
+    console.log('👥 [CLIENTS] Starting full fetch at:', new Date().toISOString());
+    try {
       const clientsData = await clientService.getAllClients();
-      // Use the client objects as returned from client-service.ts to ensure uid matches Firestore doc id
+      const endTime = performance.now();
+      console.log('👥 [CLIENTS] Full fetch completed in:', Math.round(endTime - startTime), 'ms');
+      console.log('👥 [CLIENTS] Count:', clientsData.clients.length);
+      
+      // Update cache with all clients
+      clientsData.clients.forEach(client => {
+        if (client.uid) {
+          clientCache.set(client.uid, client);
+        }
+      });
+      
       setClients(clientsData.clients as ClientProfile[]);
     } catch (error) {
-      console.error("Error fetching clients:", error);
+      console.error("❌ [CLIENTS] Error fetching clients:", error);
     }
   };
 
   const fetchLimits = async () => {
+    const startTime = performance.now();
+    console.log('📊 [LIMITS] Starting fetch at:', new Date().toISOString());
     try {
       // Use DeliveryService instead of direct Firebase calls
       const deliveryService = DeliveryService.getInstance();
       const limitsData = await deliveryService.getDailyLimits();
+      const endTime = performance.now();
+      console.log('📊 [LIMITS] Fetch completed in:', Math.round(endTime - startTime), 'ms');
+      console.log('📊 [LIMITS] Data:', JSON.stringify(limitsData, null, 2));
       setDailyLimits(limitsData);
     } catch (error) {
-      console.error("Error fetching limits:", error);
+      console.error("❌ [LIMITS] Error fetching limits:", error);
     }
   };
 
-  const fetchEvents = async () => {
-    // DEBUG: Print current date range and viewType
+  const fetchEvents = useCallback(async () => {
+    const startTime = performance.now();
+    console.log('📅 [EVENTS] Starting fetch at:', new Date().toISOString());
+    console.log('📅 [EVENTS] Current date:', currentDate.toString());
+    console.log('📅 [EVENTS] View type:', viewType);
+
     try {
       let start = new DayPilot.Date(currentDate);
       let endDate;
@@ -237,19 +385,46 @@ const CalendarPage: React.FC = () => {
           endDate = start.addDays(1);
       }
 
+      console.log('📅 [EVENTS] Date range calculated:', {
+        start: start.toString(),
+        end: endDate.toString(),
+        viewType
+      });
 
       // Use DeliveryService to fetch events by date range
       const deliveryService = DeliveryService.getInstance();
+      const queryStartTime = performance.now();
       const fetchedEvents = await deliveryService.getEventsByDateRange(
         start.toDate(),
         endDate.toDate()
       );
+      const queryEndTime = performance.now();
+      console.log('📅 [EVENTS] Database query completed in:', Math.round(queryEndTime - queryStartTime), 'ms');
+      console.log('📅 [EVENTS] Raw events count:', fetchedEvents.length);
+      console.log('📅 [EVENTS] Raw events sample (first 3):', JSON.stringify(fetchedEvents.slice(0, 3), null, 2));
 
 
 
-        // Update client names in events if client exists, but do not filter out any events
+        const processingStartTime = performance.now();
+        
+        // Get unique client IDs from events
+        const uniqueClientIds = [...new Set(fetchedEvents.map(event => event.clientId))];
+        console.log('📅 [EVENTS] Unique client IDs needed:', uniqueClientIds.length);
+        
+        // Lazy load only the clients we need for these events
+        const neededClients = await fetchClientsLazy(uniqueClientIds);
+        
+        // Create efficient lookup map from the clients we just fetched
+        const eventClientLookupMap = new Map();
+        neededClients.forEach(client => {
+          if (client.uid) {
+            eventClientLookupMap.set(client.uid, client);
+          }
+        });
+        
+        // Update client names in events using efficient Map lookup
         const updatedEvents = fetchedEvents.map(event => {
-          const client = clients.find(client => client.uid === event.clientId);
+          const client = eventClientLookupMap.get(event.clientId);
           if (client) {
             const fullName = `${client.firstName} ${client.lastName}`.trim();
             return {
@@ -259,6 +434,10 @@ const CalendarPage: React.FC = () => {
           }
           return event;
         });
+        const processingEndTime = performance.now();
+        console.log('📅 [EVENTS] Client name processing completed in:', Math.round(processingEndTime - processingStartTime), 'ms');
+        console.log('📅 [EVENTS] Final events count:', updatedEvents.length);
+        console.log('📅 [EVENTS] Final events sample (first 3):', JSON.stringify(updatedEvents.slice(0, 3), null, 2));
 
         // Use all events for display and counting
         setEvents(updatedEvents);
@@ -280,12 +459,15 @@ const CalendarPage: React.FC = () => {
           durationBarVisible: false,
         }));
 
+        const totalEndTime = performance.now();
+        console.log('📅 [EVENTS] ✅ TOTAL FETCH COMPLETED in:', Math.round(totalEndTime - startTime), 'ms');
+        console.log('📅 [EVENTS] ================================');
         return updatedEvents;
     } catch (error) {
-      console.error("Error fetching events:", error);
+      console.error("❌ [EVENTS] Error fetching events:", error);
       return [];
     }
-  };
+  }, [currentDate, viewType, fetchClientsLazy]);  // Removed clientLookupMap and clients.length as they're no longer needed
 
   const handleAddDelivery = async (newDelivery: NewDelivery) => {
     try {
@@ -366,32 +548,41 @@ const CalendarPage: React.FC = () => {
     }
   };
 
-  const handleNavigatePrev = () => {
+  const handleNavigatePrev = useCallback(() => {
     const newDate = viewType === "Month" ? currentDate.addMonths(-1) : currentDate.addDays(-1);
     updateCurrentDate(newDate);
-  };
+  }, [viewType, currentDate, updateCurrentDate]);
 
-  const handleNavigateNext = () => {
+  const handleNavigateNext = useCallback(() => {
     const newDate = viewType === "Month" ? currentDate.addMonths(1) : currentDate.addDays(1);
     updateCurrentDate(newDate);
-  };
+  }, [viewType, currentDate, updateCurrentDate]);
 
-  const handleNavigateToday = () => {
+  const handleNavigateToday = useCallback(() => {
     updateCurrentDate(DayPilot.Date.today());
-  };
+  }, [updateCurrentDate]);
 
   // Clear events immediately when view type changes to prevent flickering
   useEffect(() => {
+    console.log('🔄 [CALENDAR] View type changed to:', viewType, '- clearing events');
     setEvents([]);
   }, [viewType]);
 
-  // Update calendar when view type, date, or clients change
+  // Track when events are updated
   useEffect(() => {
-    // Only fetch events if clients have been loaded
-    if (clients.length > 0) {
-      fetchEvents();
+    console.log('📅 [CALENDAR] Events state updated - count:', events.length);
+    if (events.length > 0) {
+      console.log('📅 [CALENDAR] Events ready for display at:', new Date().toISOString());
+      console.log('📅 [CALENDAR] Sample events:', JSON.stringify(events.slice(0, 2), null, 2));
     }
-  }, [viewType, currentDate, clients]);
+  }, [events]);
+
+  // Update calendar when view type or date changes
+  useEffect(() => {
+    console.log('🔄 [CALENDAR] Triggering fetchEvents');
+    console.log('🔄 [CALENDAR] Current date:', currentDate.toString(), 'viewType:', viewType);
+    fetchEvents();
+  }, [fetchEvents, currentDate, viewType]);  // Clients are now fetched lazily within fetchEvents
 
   // Handle URL parameter changes (e.g., browser back/forward, direct URL access)
   useEffect(() => {
@@ -401,19 +592,45 @@ const CalendarPage: React.FC = () => {
         const urlDate = new DayPilot.Date(dateParam);
         // Only update if different from current date to avoid infinite loops
         if (urlDate.toString("yyyy-MM-dd") !== currentDate.toString("yyyy-MM-dd")) {
+          console.log('🔄 [CALENDAR] URL date param changed, updating current date to:', dateParam);
           setCurrentDate(urlDate);
         }
       } catch {
         // If date param is invalid, don't update
+        console.log('⚠️ [CALENDAR] Invalid date param in URL:', dateParam);
       }
     }
-  }, [searchParams.get('date')]);
+  }, [searchParams, currentDate]);  // Fixed: use stable dependencies
 
-  // Initial data fetch
+  // Initial data fetch - combined for better performance
   useEffect(() => {
-    fetchLimits();
-    fetchDrivers();
-    fetchClients();
+    const fetchAllData = async () => {
+      const overallStartTime = performance.now();
+      console.log('🚀 [CALENDAR] =================================');
+      console.log('🚀 [CALENDAR] Starting initial data fetch at:', new Date().toISOString());
+      try {
+        setIsLoading(true);
+        const parallelStartTime = performance.now();
+        // Fetch all data in parallel for better performance
+        await Promise.all([
+          fetchLimits(),
+          fetchDrivers()
+          // Removed fetchClients() - we now fetch clients lazily when events are loaded
+        ]);
+        const parallelEndTime = performance.now();
+        console.log('🚀 [CALENDAR] All parallel fetches completed in:', Math.round(parallelEndTime - parallelStartTime), 'ms');
+        const overallEndTime = performance.now();
+        console.log('🚀 [CALENDAR] ✅ INITIAL DATA LOAD COMPLETED in:', Math.round(overallEndTime - overallStartTime), 'ms');
+        console.log('🚀 [CALENDAR] =================================');
+      } catch (error) {
+        console.error("❌ [CALENDAR] Error fetching initial data:", error);
+      } finally {
+        setIsLoading(false);
+        setIsInitialLoad(false);
+      }
+    };
+    
+    fetchAllData();
   }, []);
 
   // Calculate if current month has 6+ rows
@@ -429,6 +646,13 @@ const CalendarPage: React.FC = () => {
   const monthHasSixOrMoreRows = viewType === "Month" && getMonthRowCount() >= 6;
 
   const renderCalendarView = () => {
+    console.log('🎨 [CALENDAR] renderCalendarView called - isLoading:', isLoading, 'events count:', events.length);
+    
+    if (isLoading) {
+      console.log('⌛ [CALENDAR] Showing skeleton loading state');
+      return <CalendarSkeleton viewType={viewType} />;
+    }
+
     if (viewType === "Day") {
       // Calculate the daily limit for the current day
       const currentDayOfWeek = currentDate.dayOfWeek(); // 0 = Sunday, 1 = Monday, etc.
@@ -436,7 +660,7 @@ const CalendarPage: React.FC = () => {
       
       return (
         <DayView 
-          events={events} 
+          events={eventsWithClientNames} 
           clients={clients} 
           onEventModified={fetchEvents} 
           dailyLimit={dailyLimit}
@@ -465,20 +689,25 @@ const CalendarPage: React.FC = () => {
   };
 
   return (
-    <Box
-      sx={{
-        display: "flex",
-        flexDirection: "column",
-        height: "calc(100vh - 30px)",
-        width: "100vw",
-        overflow: "hidden",
-        position: "fixed",
-        top: "64px",
-        left: 0,
-        zIndex: 1000,
-      }}
-    >
-      <AppBar position="static" color="default" elevation={1}></AppBar>
+    <RecurringDeliveryProvider>
+      <Box
+        sx={{
+          display: "flex",
+          flexDirection: "column",
+          height: "calc(100vh - 30px)",
+          width: "100vw",
+          overflow: "hidden",
+          position: "fixed",
+          top: "64px",
+          left: 0,
+          zIndex: 1000,
+        }}
+      >
+      {isLoading ? (
+        <CalendarHeaderSkeleton />
+      ) : (
+        <AppBar position="static" color="default" elevation={1}></AppBar>
+      )}
 
       <Box
         component="main"
@@ -488,7 +717,8 @@ const CalendarPage: React.FC = () => {
           width: "100%",
         }}
       >
-        <CalendarHeader 
+        {!isLoading && (
+          <CalendarHeader 
           viewType={viewType}
           currentDate={currentDate}
           setCurrentDate={updateCurrentDate}
@@ -502,6 +732,7 @@ const CalendarPage: React.FC = () => {
             undefined
           }
         />
+        )}
 
         <StyledCalendarContainer 
           data-view={viewType}
@@ -515,27 +746,35 @@ const CalendarPage: React.FC = () => {
           </CalendarContent>
         </StyledCalendarContainer>
 
-        <span ref={containerRef} style={{ zIndex: 1100, position: 'relative' }}>
-          <CalendarPopper
-            anchorEl={anchorEl}
-            viewType={viewType}
-            calendarConfig={calendarConfig}
-            dailyLimits={dailyLimits}
-            setDailyLimits={setDailyLimits}
-            fetchDailyLimits={fetchLimits}
-          />
-        </span>
+        {!isLoading && (
+          <>
+            <span ref={containerRef} style={{ zIndex: 1100, position: 'relative' }}>
+              <CalendarPopper
+                anchorEl={anchorEl}
+                viewType={viewType}
+                calendarConfig={calendarConfig}
+                dailyLimits={dailyLimits}
+                setDailyLimits={setDailyLimits}
+                fetchDailyLimits={fetchLimits}
+              />
+            </span>
 
-        <AddDeliveryDialog
-          open={isModalOpen}
-          onClose={() => setIsModalOpen(false)}
-          onAddDelivery={handleAddDelivery}
-          clients={clients}
-          startDate={currentDate}
-        />
+            <AddDeliveryDialog
+              open={isModalOpen}
+              onClose={() => setIsModalOpen(false)}
+              onAddDelivery={handleAddDelivery}
+              clients={clients}
+              startDate={currentDate}
+            />
+          </>
+        )}
       </Box>
     </Box>
+    </RecurringDeliveryProvider>
   );
-};
+});
+
+// Add display name for debugging
+CalendarPage.displayName = 'CalendarPage';
 
 export default CalendarPage;
