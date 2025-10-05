@@ -11,23 +11,23 @@ export const parseSearchTermsProgressively = (trimmedSearchQuery: string): strin
 
   for (let i = 0; i < trimmedSearchQuery.length; i++) {
     const char = trimmedSearchQuery[i];
+    const nextChar = i + 1 < trimmedSearchQuery.length ? trimmedSearchQuery[i + 1] : '';
 
     if (!inQuote && (char === '"' || char === "'")) {
-      if (currentTerm.trim()) {
-        searchTerms.push(currentTerm.trim());
-        currentTerm = '';
-      }
       inQuote = true;
       quoteChar = char;
+      currentTerm += char;
     } else if (inQuote && char === quoteChar) {
-      if (currentTerm.trim()) {
-        searchTerms.push(currentTerm.trim());
-      }
-      currentTerm = '';
+      currentTerm += char;
       inQuote = false;
       quoteChar = '';
     } else if (!inQuote && char === ' ') {
-      if (currentTerm.trim()) {
+      const hasColon = currentTerm.includes(':');
+      const nextIsQuote = nextChar === '"' || nextChar === "'";
+
+      if (hasColon && nextIsQuote) {
+        currentTerm += char;
+      } else if (currentTerm.trim()) {
         searchTerms.push(currentTerm.trim());
         currentTerm = '';
       }
@@ -62,9 +62,16 @@ export const extractKeyValue = (term: string): { keyword: string; searchValue: s
   const colonIndex = term.indexOf(':');
 
   if (colonIndex !== -1) {
+    let searchValue = term.substring(colonIndex + 1).trim();
+
+    if ((searchValue.startsWith('"') && searchValue.endsWith('"')) ||
+        (searchValue.startsWith("'") && searchValue.endsWith("'"))) {
+      searchValue = searchValue.slice(1, -1);
+    }
+
     return {
       keyword: term.substring(0, colonIndex).trim().toLowerCase(),
-      searchValue: term.substring(colonIndex + 1).trim(),
+      searchValue: searchValue,
       isKeyValue: true
     };
   }

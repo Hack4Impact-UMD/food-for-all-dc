@@ -7,7 +7,8 @@ import { Search, Filter } from "lucide-react";
 import {
   parseSearchTermsProgressively,
   checkStringContains as utilCheckStringContains,
-  extractKeyValue
+  extractKeyValue,
+  globalSearchMatch
 } from "../../utils/searchFilter";
 import { query, Timestamp, updateDoc, where } from "firebase/firestore";
 import { TimeUtils } from "../../utils/timeUtils";
@@ -1406,10 +1407,12 @@ const DeliverySpreadsheet: React.FC = () => {
     }
 
     const validSearchTerms = parseSearchTermsProgressively(trimmedSearchQuery);
-    
-    // Only apply filters if we have complete key-value pairs (terms with colons)
+
     const keyValueTerms = validSearchTerms.filter(term => term.includes(':'));
-    
+    const nonKeyValueTerms = validSearchTerms.filter(term => !term.includes(':'));
+
+    let matches = true;
+
     if (keyValueTerms.length > 0) {
       const checkStringContains = utilCheckStringContains;
 
@@ -1475,7 +1478,7 @@ const DeliverySpreadsheet: React.FC = () => {
         return false;
       };
 
-      return keyValueTerms.every(term => {
+      matches = keyValueTerms.every(term => {
         const { keyword, searchValue, isKeyValue: isKeyValueSearch } = extractKeyValue(term);
 
         if (isKeyValueSearch && searchValue) {
@@ -1566,7 +1569,23 @@ const DeliverySpreadsheet: React.FC = () => {
       });
     }
 
-    return true;
+    if (matches && nonKeyValueTerms.length > 0) {
+      const searchableFields = [
+        'firstName',
+        'lastName',
+        'address',
+        'phone',
+        'ward',
+        'zipCode',
+        'clusterId',
+        'tags',
+        'deliveryDetails.deliveryInstructions',
+        ...customColumns.map(col => col.propertyKey).filter(key => key !== "none")
+      ];
+      matches = nonKeyValueTerms.every(term => globalSearchMatch(row, term, searchableFields));
+    }
+
+    return matches;
   });
 
   // Create sorted version of visible rows - supports fullname, clusterIdChange, tags, address, ward, assignedDriver, assignedTime, deliveryInstructions, and custom columns sorting
