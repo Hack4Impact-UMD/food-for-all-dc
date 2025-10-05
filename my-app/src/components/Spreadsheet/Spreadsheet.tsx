@@ -69,7 +69,7 @@ import DeliveryService from "../../services/delivery-service";
 import { exportQueryResults, exportAllClients } from "./export";
 import "./Spreadsheet.css";
 import DeleteClientModal from "./DeleteClientModal";
-import { getLastDeliveryDateForClient } from "../../utils/lastDeliveryDate";
+import { batchGetLastDeliveryDates } from "../../utils/lastDeliveryDate";
 
 // Define TypeScript types for row data
 export interface RowData {
@@ -140,33 +140,12 @@ function getCustomColumnValue(row: RowData, propertyKey: string): string {
   return val !== undefined && val !== null ? val.toString() : "";
 }
 
-// Component to handle async loading of last delivery date
-const LastDeliveryDateCell: React.FC<{ clientId: string }> = ({ clientId }) => {
-  const [lastDeliveryDate, setLastDeliveryDate] = useState<string>("Loading...");
-
-  useEffect(() => {
-    let isMounted = true;
-    getLastDeliveryDateForClient(clientId).then((date) => {
-      if (isMounted) {
-        setLastDeliveryDate(date || "No deliveries");
-      }
-    }).catch(() => {
-      if (isMounted) {
-        setLastDeliveryDate("Error");
-      }
-    });
-    return () => { isMounted = false; };
-  }, [clientId]);
-
-  return <span>{lastDeliveryDate}</span>;
-};
 
 function getCustomColumnDisplay(row: RowData, propertyKey: string): React.ReactNode {
   if (!propertyKey || propertyKey === "none") return "N/A";
-  
-  // Handle lastDeliveryDate (async computed field)
+
   if (propertyKey === "lastDeliveryDate") {
-    return <LastDeliveryDateCell clientId={row.uid} />;
+    return row.lastDeliveryDate || "No deliveries";
   }
   
   // Handle referralEntity (object)
@@ -297,12 +276,10 @@ const Spreadsheet: React.FC<SpreadsheetProps> = ({ editable = true }) => {
   React.useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user: any) => {
       if (!user) {
-        console.log("No user is signed in, redirecting to /");
         navigate("/");
       }
     });
 
-    // Cleanup the listener when the component unmounts
     return () => unsubscribe();
   }, [navigate]);
 
@@ -489,16 +466,28 @@ const Spreadsheet: React.FC<SpreadsheetProps> = ({ editable = true }) => {
     },
   ];
 
-  // Fetch data from Firebase without authentication checks
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Use ClientService instead of direct Firebase calls
         const clientService = ClientService.getInstance();
         const { clients } = await clientService.getAllClientsForSpreadsheet();
-        // ...existing code...
-        // No default sorting - let our sortedRows useMemo handle all sorting
-        setRows(clients);
+
+        const clientIds = clients.map(c => c.uid).filter((id): id is string => !!id);
+        const batchSize = 10;
+        const lastDeliveryMap = new Map<string, string>();
+
+        for (let i = 0; i < clientIds.length; i += batchSize) {
+          const batch = clientIds.slice(i, i + batchSize);
+          const batchResults = await batchGetLastDeliveryDates(batch);
+          batchResults.forEach((date, clientId) => lastDeliveryMap.set(clientId, date));
+        }
+
+        const clientsWithDates = clients.map(client => ({
+          ...client,
+          lastDeliveryDate: lastDeliveryMap.get(client.uid) || undefined
+        }));
+
+        setRows(clientsWithDates);
       } catch (error) {
         console.error("Error fetching data: ", error);
       }
@@ -525,27 +514,21 @@ const Spreadsheet: React.FC<SpreadsheetProps> = ({ editable = true }) => {
   };
 
   const handleDeleteRow = async (id: string) => {
-    const batch = writeBatch(db);
-
     try {
-      console.log(`Starting deletion process for client: ${id}`);
-
       const deliveryService = DeliveryService.getInstance();
       const clientDeliveries = await deliveryService.getEventsByClientId(id);
 
-      console.log(`Found ${clientDeliveries.length} deliveries to delete for client ${id}`);
+      if (clientDeliveries.length > 0) {
+        const deletePromises = clientDeliveries.map(delivery =>
+          deliveryService.deleteEvent(delivery.id)
+        );
+        await Promise.all(deletePromises);
+      }
 
-      clientDeliveries.forEach(delivery => {
-        batch.delete(doc(db, 'events', delivery.id));
-      });
+      const clientService = ClientService.getInstance();
+      await clientService.deleteClient(id);
 
-      batch.delete(doc(db, 'clients', id));
-
-      await batch.commit();
-
-      console.log(`Successfully deleted client ${id} and ${clientDeliveries.length} deliveries`);
       setRows(rows.filter((row) => row.uid !== id));
-
     } catch (error) {
       console.error("Error deleting client and deliveries: ", error);
     }

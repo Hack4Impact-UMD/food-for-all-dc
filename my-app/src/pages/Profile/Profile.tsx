@@ -3,6 +3,7 @@ import EditIcon from "@mui/icons-material/Edit";
 import SaveIcon from "@mui/icons-material/Save";
 import { CalendarUtils, TimeUtils } from '../../utils/timeUtils';
 import { getLastDeliveryDateForClient } from '../../utils/lastDeliveryDate';
+import { deliveryEventEmitter } from '../../utils/deliveryEventEmitter';
 import {
   Autocomplete,
   Box,
@@ -456,7 +457,7 @@ const Profile = () => {
   }, [clientId]);
 
   useEffect(() => {
-    const handleDeliveryModified = async () => {
+    const handleDeliveryChange = async () => {
       if (clientId) {
         try {
           const latestEndDateString = await getLastDeliveryDateForClient(clientId);
@@ -472,11 +473,8 @@ const Profile = () => {
       }
     };
 
-    window.addEventListener('deliveriesModified', handleDeliveryModified);
-
-    return () => {
-      window.removeEventListener('deliveriesModified', handleDeliveryModified);
-    };
+    const unsubscribe = deliveryEventEmitter.subscribe(handleDeliveryChange);
+    return unsubscribe;
   }, [clientId]);
 
   // Fetch case workers from Firestore

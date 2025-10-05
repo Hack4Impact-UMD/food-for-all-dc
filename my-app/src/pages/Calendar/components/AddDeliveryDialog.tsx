@@ -24,7 +24,7 @@ import DateField from "./DateField";
 import { DayPilot } from "@daypilot/daypilot-lite-react";
 import { validateDeliveryDateRange } from "../../../utils/dateValidation";
 import { getLastDeliveryDateForClient } from "../../../utils/lastDeliveryDate";
-import { notifyDeliveryModified } from "../../../utils/deliveryCleanup";
+import { deliveryEventEmitter } from "../../../utils/deliveryEventEmitter";
 
 interface AddDeliveryDialogProps {
   open: boolean;
@@ -130,7 +130,6 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props: AddDeliveryD
     fetchCurrentLastDeliveryDate();
   }, [newDelivery.clientId, open]);
 
-  // Toggle body class for modal open state to control DatePicker popup scaling
   useEffect(() => {
     if (open) {
       document.body.classList.add('add-delivery-modal-open');
@@ -140,7 +139,7 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props: AddDeliveryD
     return () => {
       document.body.classList.remove('add-delivery-modal-open');
     };
-  }, [open, newDelivery]);
+  }, [open]);
 
   // Validate date range whenever delivery date or end date changes
   useEffect(() => {
@@ -235,13 +234,8 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props: AddDeliveryD
         const isEndDateUpdate = normalizedDeliveryDate === normalizedEndDate && 
                                events.length > 0 &&
                                newDelivery.recurrence !== "None";
-        
-        // Clear any existing duplicate error - we'll handle duplicates silently
+
         setDuplicateError("");
-        
-        if (hasDuplicate) {
-          console.log("Duplicate delivery detected - will be handled by Profile logic without error");
-        }
         // No duplicate, proceed
         const deliveryToSubmit: Partial<NewDelivery> = { ...newDelivery };
         if (newDelivery.recurrence === "Custom") {
@@ -250,8 +244,8 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props: AddDeliveryD
           deliveryToSubmit.repeatsEndDate = undefined;
         }
 
+        deliveryEventEmitter.emit();
         onAddDelivery(deliveryToSubmit as NewDelivery);
-        notifyDeliveryModified();
         setCustomDates([]);
         resetFormAndClose();
       });

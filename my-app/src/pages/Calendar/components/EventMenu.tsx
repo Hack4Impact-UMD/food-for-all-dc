@@ -20,7 +20,8 @@ import {
 } from "@mui/material";
 import { validateDateInput } from "../../../utils/dates";
 import { getLastDeliveryDateForClient } from "../../../utils/lastDeliveryDate";
-import { deleteDeliveriesAfterEndDate, notifyDeliveryModified } from "../../../utils/deliveryCleanup";
+import { deleteDeliveriesAfterEndDate } from "../../../utils/deliveryCleanup";
+import { deliveryEventEmitter } from "../../../utils/deliveryEventEmitter";
 import MoreHorizIcon from "@mui/icons-material/MoreHoriz";
 import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, query, where, orderBy, updateDoc, Timestamp} from "firebase/firestore";
 import { db } from "../../../auth/firebaseConfig";
@@ -142,7 +143,6 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
   const handleDeleteConfirm = async () => {
     try {
       const eventsRef = collection(db, "events");
-      console.log("delete option:", deleteOption);
 
       if (deleteOption === "This event") {
         await deleteDoc(doc(eventsRef, event.id));
@@ -170,8 +170,8 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
         await Promise.all(batch);
       }
 
+      deliveryEventEmitter.emit();
       onEventModified();
-      notifyDeliveryModified();
       setIsDeleteDialogOpen(false);
     } catch (error) {
       console.error("Error deleting event:", error);
@@ -195,9 +195,7 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
         
         await addDoc(eventsRef, updatedEventData);
 
-        // Delete deliveries that are after the new end date (if end date was changed)
         if (editRecurrence.repeatsEndDate && event.clientId) {
-          console.log(`Cleaning up deliveries after ${editRecurrence.repeatsEndDate} for client ${event.clientId} (single event edit)`);
           await deleteDeliveriesAfterEndDate(event.clientId, editRecurrence.repeatsEndDate);
         }
       } else if (editOption === "This and following events") {
@@ -251,9 +249,6 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
           where("recurrenceId", "==", event.recurrenceId)
         );
         const seriesSnapshot = await getDocs(seriesQuery);
-        
-        console.log(`Updating ${seriesSnapshot.size} deliveries in the series with new end date ${editRecurrence.repeatsEndDate}`);
-
         const updateOperations: Promise<any>[] = [];
         
         seriesSnapshot.forEach((docSnapshot) => {
@@ -261,8 +256,7 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
           const deliveryDate = deliveryData.deliveryDate.toDate();
           const deliveryDateStr = deliveryDate.toISOString().split('T')[0];
           const endDateStr = editRecurrence.repeatsEndDate;
-          
-          // Only update deliveries that are on or before the new end date
+
           if (endDateStr && deliveryDateStr <= endDateStr) {
             const updatedData = {
               ...deliveryData,
@@ -272,22 +266,18 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
               }),
             };
             updateOperations.push(updateDoc(doc(eventsRef, docSnapshot.id), sanitize(updatedData)));
-            console.log(`Updating delivery on ${deliveryDateStr} with new end date`);
           }
         });
 
         await Promise.all(updateOperations);
-        console.log(`Updated ${updateOperations.length} deliveries with new end date information`);
 
-        // Clean up any remaining deliveries that might be after the new end date
         if (editRecurrence.repeatsEndDate && editRecurrence.clientId) {
-          console.log(`Cleaning up deliveries after ${editRecurrence.repeatsEndDate} for client ${editRecurrence.clientId}`);
           await deleteDeliveriesAfterEndDate(editRecurrence.clientId, editRecurrence.repeatsEndDate);
         }
       }
 
+      deliveryEventEmitter.emit();
       onEventModified();
-      notifyDeliveryModified();
       setIsEditDialogOpen(false);
     } catch (error) {
       console.error("Error updating event:", error);
