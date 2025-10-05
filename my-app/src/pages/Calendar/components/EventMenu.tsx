@@ -241,8 +241,6 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
           return dateStr <= endDateStr; // Only include dates on or before end date
         });
 
-        // Update existing deliveries in the same recurrence series with the new end date
-        // We don't create new deliveries - just update the repeatsEndDate for the series
         const seriesQuery = query(
           eventsRef,
           where("clientId", "==", editRecurrence.clientId ?? event.clientId),
@@ -250,7 +248,7 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
         );
         const seriesSnapshot = await getDocs(seriesQuery);
         const updateOperations: Promise<any>[] = [];
-        
+
         seriesSnapshot.forEach((docSnapshot) => {
           const deliveryData = docSnapshot.data();
           const deliveryDate = deliveryData.deliveryDate.toDate();

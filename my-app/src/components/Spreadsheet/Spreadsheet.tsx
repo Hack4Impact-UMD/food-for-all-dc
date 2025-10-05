@@ -140,7 +140,6 @@ function getCustomColumnValue(row: RowData, propertyKey: string): string {
   return val !== undefined && val !== null ? val.toString() : "";
 }
 
-
 function getCustomColumnDisplay(row: RowData, propertyKey: string): React.ReactNode {
   if (!propertyKey || propertyKey === "none") return "N/A";
 
@@ -514,23 +513,37 @@ const Spreadsheet: React.FC<SpreadsheetProps> = ({ editable = true }) => {
   };
 
   const handleDeleteRow = async (id: string) => {
-    try {
-      const deliveryService = DeliveryService.getInstance();
-      const clientDeliveries = await deliveryService.getEventsByClientId(id);
+    const deliveryService = DeliveryService.getInstance();
+    const clientService = ClientService.getInstance();
+    let deletedDeliveryIds: string[] = [];
 
-      if (clientDeliveries.length > 0) {
-        const deletePromises = clientDeliveries.map(delivery =>
-          deliveryService.deleteEvent(delivery.id)
-        );
-        await Promise.all(deletePromises);
+    try {
+      const clientDeliveries = await deliveryService.getEventsByClientId(id);
+      deletedDeliveryIds = clientDeliveries.map(d => d.id);
+
+      if (deletedDeliveryIds.length > 0) {
+        await Promise.all(deletedDeliveryIds.map(did => deliveryService.deleteEvent(did)));
       }
 
-      const clientService = ClientService.getInstance();
       await clientService.deleteClient(id);
-
       setRows(rows.filter((row) => row.uid !== id));
     } catch (error) {
       console.error("Error deleting client and deliveries: ", error);
+
+      if (deletedDeliveryIds.length > 0) {
+        try {
+          const clientDeliveries = await deliveryService.getEventsByClientId(id);
+          const currentIds = new Set(clientDeliveries.map(d => d.id));
+          const missingIds = deletedDeliveryIds.filter(id => !currentIds.has(id));
+
+          if (missingIds.length > 0) {
+            console.error(`Warning: ${missingIds.length} deliveries were deleted but client deletion failed. Manual cleanup may be needed.`);
+          }
+        } catch (verifyError) {
+          console.error("Could not verify delivery deletion state:", verifyError);
+        }
+      }
+      throw error;
     }
   };
 

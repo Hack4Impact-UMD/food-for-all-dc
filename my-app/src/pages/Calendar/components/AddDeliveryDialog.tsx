@@ -231,12 +231,11 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props: AddDeliveryD
         const normalizedDeliveryDate = normalizeDate(newDelivery.deliveryDate);
         const normalizedEndDate = normalizeDate(newDelivery.repeatsEndDate || '');
         
-        const isEndDateUpdate = normalizedDeliveryDate === normalizedEndDate && 
+        const isEndDateUpdate = normalizedDeliveryDate === normalizedEndDate &&
                                events.length > 0 &&
                                newDelivery.recurrence !== "None";
 
         setDuplicateError("");
-        // No duplicate, proceed
         const deliveryToSubmit: Partial<NewDelivery> = { ...newDelivery };
         if (newDelivery.recurrence === "Custom") {
           deliveryToSubmit.customDates = customDates.map(date => date.toISOString().split("T")[0]);

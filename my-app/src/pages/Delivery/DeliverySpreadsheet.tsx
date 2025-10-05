@@ -2114,7 +2114,7 @@ const DeliverySpreadsheet: React.FC = () => {
         <TableContainer
           component={Paper}
           sx={{
-            maxHeight: 520,
+            maxHeight: "60vh",
             overflowY: "auto",
             width: "100%",
           }}
