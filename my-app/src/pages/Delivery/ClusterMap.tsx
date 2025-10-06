@@ -359,41 +359,20 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
       if (mapRef.current && !popupCloseHandlerSetup.current) {
         popupCloseHandlerSetup.current = true;
         
-        mapRef.current.on('popupclose', (e) => {
+        mapRef.current.on('popupclose', () => {
           if (isPopupOpening.current) {
             return;
           }
-
-          const closedPopup = e.popup;
-          const closedPopupElement = closedPopup?.getElement();
-          const closedClientId = closedPopupElement?.querySelector('[data-client-id]')?.getAttribute('data-client-id');
 
           setTimeout(() => {
             if (isPopupOpening.current) {
               return;
             }
 
-            const allDataRows = document.querySelectorAll('tr[data-client-id]');
-
-            let highlightedRow = null;
-            allDataRows.forEach((row, index) => {
-              const element = row as HTMLElement;
-              const computedStyle = window.getComputedStyle(element);
-              const inlineStyle = element.style.backgroundColor;
-
-              if (inlineStyle.includes('144, 238, 144') ||
-                  inlineStyle.includes('lightgreen') ||
-                  computedStyle.backgroundColor.includes('144, 238, 144')) {
-                highlightedRow = element;
-              }
-            });
-
-            if (highlightedRow) {
-              const clientId = (highlightedRow as HTMLElement).getAttribute('data-client-id');
-
-              if (clientId && clientId === closedClientId && onClearHighlight) {
-                onClearHighlight();
-              }
+            // Always clear the highlight when any popup closes
+            // Since we can only have one highlighted row at a time, this is safe
+            if (onClearHighlight) {
+              onClearHighlight();
             }
           }, 200);
         });

@@ -1890,9 +1890,28 @@ const DeliverySpreadsheet: React.FC = () => {
   ));
   TableHeadComponent.displayName = 'VirtuosoTableHead';
   
-  const TableRowComponent = React.forwardRef<HTMLTableRowElement, React.ComponentProps<typeof TableRow>>((props, ref) => (
-    <TableRow {...props} ref={ref} className={['table-row', 'delivery-anim-row', props.className].filter(Boolean).join(' ')} />
-  ));
+  const TableRowComponent = React.forwardRef<
+    HTMLTableRowElement, 
+    React.ComponentProps<typeof TableRow> & { 'data-row-id'?: string; 'data-highlighted'?: boolean }
+  >((props, ref) => {
+    const isHighlighted = props['data-highlighted'];
+    return (
+      <TableRow 
+        {...props} 
+        ref={ref} 
+        className={['table-row', 'delivery-anim-row', props.className].filter(Boolean).join(' ')}
+        sx={{
+          backgroundColor: isHighlighted ? 'rgba(144, 238, 144, 0.7) !important' : 'inherit',
+          border: isHighlighted ? '2px solid #90EE90 !important' : 'none',
+          cursor: 'pointer',
+          '&:hover': {
+            backgroundColor: isHighlighted ? 'rgba(144, 238, 144, 0.7) !important' : 'rgba(144, 238, 144, 0.3) !important'
+          }
+        }}
+        onClick={() => props['data-row-id'] && handleRowClick(props['data-row-id'])}
+      />
+    );
+  });
   TableRowComponent.displayName = 'VirtuosoTableRow';
   
   const TableBodyComponent = React.forwardRef<HTMLTableSectionElement, React.HTMLAttributes<HTMLTableSectionElement>>((props, ref) => (
@@ -2345,8 +2364,25 @@ const DeliverySpreadsheet: React.FC = () => {
               data={sortedRows}
               components={VirtuosoTableComponents}
               itemContent={(index, row) => {
-              return (
-                <>
+                const isHighlighted = highlightedRowId === row.id;
+                return (
+                <Box
+                  sx={{
+                    display: 'contents', // This makes the Box behave like it's not there for layout
+                    '& > td': {
+                      backgroundColor: isHighlighted ? 'rgba(144, 238, 144, 0.7) !important' : 'inherit',
+                      borderTop: isHighlighted ? '2px solid #90EE90 !important' : 'none',
+                      borderBottom: isHighlighted ? '2px solid #90EE90 !important' : 'none',
+                      '&:first-of-type': {
+                        borderLeft: isHighlighted ? '2px solid #90EE90 !important' : 'none',
+                      },
+                      '&:last-of-type': {
+                        borderRight: isHighlighted ? '2px solid #90EE90 !important' : 'none',
+                      }
+                    }
+                  }}
+                  onClick={() => handleRowClick(row.id)}
+                >
                   {fields.map((field) => (
                   <TableCell
                     key={field.key}
@@ -2435,7 +2471,14 @@ const DeliverySpreadsheet: React.FC = () => {
                   </TableCell>
                 ))}
                 {customColumns.map((col) => (
-                  <TableCell key={col.id} style={{ width: '150px', textAlign: 'center', padding: '10px' }}>
+                  <TableCell 
+                    key={col.id} 
+                    style={{ 
+                      width: '150px', 
+                      textAlign: 'center', 
+                      padding: '10px',
+                    }}
+                  >
                     {col.propertyKey !== "none" ? (
                       col.propertyKey === "deliveryDetails.dietaryRestrictions" ? (
                         (() => {
@@ -2476,14 +2519,14 @@ const DeliverySpreadsheet: React.FC = () => {
                         row[col.propertyKey as keyof DeliveryRowData]?.toString() ?? "N/A"
                       )
                     ) : (
-                      "N/A"
+                      ""
                     )}
                   </TableCell>
                 ))}
                 <TableCell style={{ width: '50px' }}>
                   {/* Add button space */}
                 </TableCell>
-              </>
+                </Box>
               );
             }}
             fixedHeaderContent={() => (
