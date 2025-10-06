@@ -2054,7 +2054,8 @@ const DeliverySpreadsheet: React.FC = () => {
               display: "flex",
               justifyContent: "center",
               alignItems: "center",
-              height: "100%",
+              height: "400px", // Explicitly set to match container height
+              width: "100%",
               backgroundColor: "#f5f5f5",
               borderRadius: "4px",
               border: "1px solid #ddd",
@@ -2221,11 +2222,11 @@ const DeliverySpreadsheet: React.FC = () => {
         <TableContainer
           component={Paper}
           sx={{
-            height: "60vh",
+            height: isLoading || sortedRows.length > 0 ? "60vh" : "auto",
             width: "100%",
           }}
         >
-          {sortedRows.length === 0 ? (
+          {isLoading ? (
             // Skeleton loader
             <Table stickyHeader>
               <TableHead>
@@ -2338,7 +2339,7 @@ const DeliverySpreadsheet: React.FC = () => {
                 ))}
               </TableBody>
             </Table>
-          ) : (
+          ) : sortedRows.length > 0 ? (
             <TableVirtuoso
               style={{ height: '100%' }}
               data={sortedRows}
@@ -2638,6 +2639,147 @@ const DeliverySpreadsheet: React.FC = () => {
               </TableRow>
             )}
           />
+        ) : (
+            // No data state - just show headers
+            <Table stickyHeader>
+              <TableHead>
+                <TableRow>
+                  {fields.map((field) => (
+                    <TableCell
+                      key={field.key}
+                      className="table-header"
+                      style={{
+                        width: field.type === "checkbox" ? "60px" : field.key === "fullname" ? "250px" : field.key === "clusterIdChange" ? "180px" : field.key === "deliveryDetails.deliveryInstructions" ? "300px" : field.key === "assignedDriver" || field.key === "assignedTime" ? "180px" : "150px",
+                        textAlign: "center",
+                        padding: "10px",
+                        cursor: (field.key === "fullname" || field.key === "clusterIdChange" || field.key === "tags" || field.key === "zipCode" || field.key === "ward" || field.key === "assignedDriver" || field.key === "assignedTime" || field.key === "deliveryDetails.deliveryInstructions") ? "pointer" : "default",
+                        userSelect: "none",
+                        backgroundColor: '#f5f9f7',
+                      }}
+                      onClick={() => (field.key === "fullname" || field.key === "clusterIdChange" || field.key === "tags" || field.key === "zipCode" || field.key === "ward" || field.key === "assignedDriver" || field.key === "assignedTime" || field.key === "deliveryDetails.deliveryInstructions") && handleSort(field)}
+                    >
+                      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 1 }}>
+                        {field.label}
+                        {(field.key === "fullname" || field.key === "clusterIdChange" || field.key === "tags" || field.key === "zipCode" || field.key === "ward" || field.key === "assignedDriver" || field.key === "assignedTime" || field.key === "deliveryDetails.deliveryInstructions") && (
+                          <>
+                            {String(field.key) === sortedColumn ? (
+                              sortOrder === "asc" ? <ArrowDropUpIcon /> : <ArrowDropDownIcon />
+                            ) : (
+                              <UnfoldMoreIcon sx={{ opacity: 0.3 }} />
+                            )}
+                          </>
+                        )}
+                      </Box>
+                    </TableCell>
+                  ))}
+                  {customColumns.map((col) => (
+                    <TableCell 
+                      className="table-header" 
+                      key={col.id}
+                      style={{
+                        width: "150px",
+                        userSelect: "none",
+                        cursor: col.propertyKey !== "none" ? "pointer" : "default",
+                        backgroundColor: '#f5f9f7',
+                      }}
+                      onClick={() => col.propertyKey !== "none" && handleSort({ key: col.propertyKey } as Field)}
+                    >
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                        <Select
+                          value={col.propertyKey}
+                          onChange={(event) => handleCustomHeaderChange(event, col.id)}
+                          variant="outlined"
+                          displayEmpty
+                          size="small"
+                          onClick={(e) => e.stopPropagation()} // Prevent sorting when clicking dropdown
+                          sx={{ 
+                            minWidth: 120, 
+                            color: "#257e68",
+                            "& .MuiOutlinedInput-notchedOutline": {
+                              borderColor: "#bfdfd4",
+                            },
+                            "&:hover .MuiOutlinedInput-notchedOutline": {
+                              borderColor: "#257e68",
+                            },
+                          }}
+                        >
+                        {allowedPropertyKeys.map((key: string) => {
+                          let label = key;
+                          if (key === "none") label = "None";
+                          if (key === "address") label = "Address";
+                          if (key === "adults") label = "Adults";
+                          if (key === "children") label = "Children";
+                          if (key === "deliveryFreq") label = "Delivery Freq";
+                          if (key === "deliveryDetails.dietaryRestrictions") label = "Dietary Restrictions";
+                          if (key === "ethnicity") label = "Ethnicity";
+                          if (key === "gender") label = "Gender";
+                          if (key === "language") label = "Language";
+                          if (key === "notes") label = "Notes";
+                          if (key === "phone") label = "Phone";
+                          if (key === "referralEntity") label = "Referral Entity";
+                          if (key === "tefapCert") label = "TEFAP Cert";
+                          if (key === "dob") label = "DOB";
+                          if (key === "lastDeliveryDate") label = "Last Delivery Date";
+                          return <MenuItem key={key} value={key}>{label}</MenuItem>;
+                        })}
+                        </Select>
+                        {/* Show sort icon if this custom column is currently sorted */}
+                        {col.propertyKey !== "none" && (
+                          sortedColumn === col.propertyKey ? (
+                            sortOrder === "asc" ? <ArrowDropUpIcon /> : <ArrowDropDownIcon />
+                          ) : (
+                            <UnfoldMoreIcon sx={{ opacity: 0.3 }} />
+                          )
+                        )}
+                        {/*Add Remove Button*/}
+                        <IconButton
+                          size="small"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRemoveCustomColumn(col.id);
+                          }}
+                          aria-label={`Remove ${col.label || "custom"} column`}
+                          title={`Remove ${col.label || "custom"} column`}
+                          sx={{
+                            color: "#d32f2f",
+                            "&:hover": {
+                              backgroundColor: "rgba(211, 47, 47, 0.04)",
+                            }
+                          }}
+                        >
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      </Box>
+                    </TableCell>
+                  ))}
+                  {/* Add button cell */}
+                  <TableCell 
+                    className="table-header" 
+                    align="right"
+                    style={{
+                      backgroundColor: '#f5f9f7',
+                    }}
+                  >
+                    <IconButton
+                      onClick={handleAddCustomColumn}
+                      color="primary"
+                      aria-label="add custom column"
+                      sx={{
+                        backgroundColor: "rgba(37, 126, 104, 0.06)",
+                        "&:hover": {
+                          backgroundColor: "rgba(37, 126, 104, 0.12)",
+                        }
+                      }}
+                    >
+                      <AddIcon sx={{ color: "#257e68" }} />
+                    </IconButton>
+                  </TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {/* Empty table body - just headers shown */}
+              </TableBody>
+            </Table>
           )}
         </TableContainer>
       </Box>
