@@ -87,7 +87,7 @@ const DayView: React.FC<DayViewProps> = React.memo(function DayView({ events, cl
   }, [clientLookupMap, onEventModified, events]);
 
   return (
-    <Box sx={{ padding: 1, width: "100%", maxWidth: "100%", display: "flex", flexDirection: "column", height: "97%", minHeight: "300px", overflow: "hidden" }}>
+    <Box sx={{ padding: 1, width: "100%", maxWidth: "100%", display: "flex", flexDirection: "column", height: "calc(100vh - 170px)", minHeight: "300px", overflow: "hidden" }}>
       <EventCountHeader events={events} limit={dailyLimit} />
 
       {events.length === 0 ? (
@@ -118,7 +118,7 @@ const DayView: React.FC<DayViewProps> = React.memo(function DayView({ events, cl
             <Box
               sx={{
                 height: "100%",
-                overflowY: "auto",
+                overflowY: "scroll",
                 width: "100%",
               }}
             >
