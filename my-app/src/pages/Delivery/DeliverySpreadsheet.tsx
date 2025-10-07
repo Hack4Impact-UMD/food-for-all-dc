@@ -3,6 +3,8 @@ import { getEventsByViewType } from '../Calendar/components/getEventsByViewType'
 import { DayPilot } from "@daypilot/daypilot-lite-react";
 import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import { db } from "../../auth/firebaseConfig";
+import { useClientData } from "../../context/ClientDataContext";
+import { ClientProfile } from '../../types/client-types';
 
 import {
   parseSearchTermsProgressively,
@@ -64,7 +66,6 @@ import { exportDeliveries, exportDoordashDeliveries } from "./RouteExport";
 import Button from "../../components/common/Button";
 import { RowData as DeliveryRowData } from "./types/deliveryTypes";
 import { Driver } from '../../types/calendar-types';
-import { ClientProfile } from '../../types/client-types';
 // ...existing code...
 // Remove top-level hooks for clients
 import { useCustomColumns, allowedPropertyKeys } from "../../hooks/useCustomColumns";
@@ -324,20 +325,8 @@ const DeliverySpreadsheet: React.FC = () => {
 
   // === PERFORMANCE MONITORING END ===
 
-  // Centralized clients state and fetch
-  const [clients, setClients] = useState<ClientProfile[]>([]);
-  useEffect(() => {
-    const fetchClients = async () => {
-
-
-      const clientsData = await clientService.getAllClients();
-      setClients(clientsData.clients as ClientProfile[]);
-
-
-
-    };
-    fetchClients();
-  }, []);
+  // Use shared client data from context - eliminates redundant API calls
+  const { clients: clientsFromContext, loading: clientsLoading } = useClientData();
   const testing = false;
   const { userRole } = useAuth();
   const limits = useLimits();
@@ -382,7 +371,15 @@ const DeliverySpreadsheet: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState<Date>(parseDateFromUrl(initialDate));
 
   const [deliveriesForDate, setDeliveriesForDate] = useState<Array<Omit<DeliveryEvent, 'deliveryDate'> & { deliveryDate: Date | import('luxon').DateTime }>>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  
+  // Granular loading states for better UX
+  const [isLoadingDeliveries, setIsLoadingDeliveries] = useState(false);
+  const [isLoadingClientDetails, setIsLoadingClientDetails] = useState(false);
+  const [isLoadingClusters, setIsLoadingClusters] = useState(false);
+  const [isLoading, setIsLoading] = useState(false); // Still needed for clustering operations
+  
+  // Computed loading state - show loading only for critical operations
+  const isMainLoading = clientsLoading || isLoadingDeliveries || isLoadingClientDetails;
   const [clusterDoc, setClusterDoc] = useState<ClusterDoc | null>();
   const [clientOverrides, setClientOverrides] = useState<ClientOverride[]>([]);
   const navigate = useNavigate();
@@ -495,9 +492,7 @@ const DeliverySpreadsheet: React.FC = () => {
   // fetch deliveries for the selected date
   // Centralized event query for deliveries
   const fetchDeliveriesForDate = async (dateForFetch: Date) => {
-
-
-
+    setIsLoadingDeliveries(true);
     
     try {
       // Use the same logic as the calendar: viewType 'Day', currentDate as DayPilot.Date
@@ -505,7 +500,7 @@ const DeliverySpreadsheet: React.FC = () => {
       const { updatedEvents } = await getEventsByViewType({
         viewType: 'Day',
         currentDate: new DayPilot.Date(dateForFetch),
-        clients,
+        clients: clientsFromContext as unknown as ClientProfile[], // ClientDataContext returns RowData[], but getEventsByViewType expects ClientProfile[]
       });
 
 
@@ -555,6 +550,8 @@ const DeliverySpreadsheet: React.FC = () => {
       if (dateForFetch.getTime() === selectedDate.getTime()) {
         setDeliveriesForDate([]);
       }
+    } finally {
+      setIsLoadingDeliveries(false);
     }
   };
 
@@ -608,20 +605,20 @@ const DeliverySpreadsheet: React.FC = () => {
         setRawClientData([]); // Clear data on error
       } finally {
         //Stop loading after processing
-        setIsLoading(false);
+        setIsLoadingClientDetails(false);
       }
     };
 
     if (deliveriesForDate.length > 0) {
       // Set loading to true *before* starting the async fetch/geocode process
-      setIsLoading(true);
+      setIsLoadingClientDetails(true);
       fetchDataAndGeocode();
     } else {
       // If deliveries are empty (either initially or after fetch),
       // ensure client data is clear and loading is stopped.
       setRawClientData([]);
       // Do NOT clear clusters here, as they are fetched independently
-      setIsLoading(false);
+      setIsLoadingClientDetails(false);
     }
     // Only depends on deliveriesForDate. isLoading is managed internally.
   }, [deliveriesForDate]);
@@ -2060,7 +2057,7 @@ const DeliverySpreadsheet: React.FC = () => {
           // Removed position: "relative"
         }}
       >
-        {isLoading ? (
+        {isMainLoading ? (
           // Revert to rendering the indicator directly
           <LoadingIndicator />
         ) : visibleRows.length > 0 ? (
