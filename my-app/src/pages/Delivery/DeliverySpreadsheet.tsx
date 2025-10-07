@@ -83,13 +83,6 @@ import EventCountHeader from "../../components/EventCountHeader";
 import { useLimits } from "../Calendar/components/useLimits";
 import DietaryRestrictionsLegend from "../../components/DietaryRestrictionsLegend";
 
-// interface Driver {
-//   id: string;
-//   name: string;
-//   phone: string
-//   email: string;
-// }
-
 const StyleChip = styled(Chip)({
   backgroundColor: 'var(--color-primary)',
   color: '#fff',
@@ -320,12 +313,6 @@ const isRegularField = (
 };
 
 const DeliverySpreadsheet: React.FC = () => {
-  // === PERFORMANCE MONITORING START ===
-
-
-  // === PERFORMANCE MONITORING END ===
-
-  // Use shared client data from context - eliminates redundant API calls
   const { clients: clientsFromContext, loading: clientsLoading } = useClientData();
   const testing = false;
   const { userRole } = useAuth();
@@ -500,7 +487,7 @@ const DeliverySpreadsheet: React.FC = () => {
       const { updatedEvents } = await getEventsByViewType({
         viewType: 'Day',
         currentDate: new DayPilot.Date(dateForFetch),
-        clients: clientsFromContext as unknown as ClientProfile[], // ClientDataContext returns RowData[], but getEventsByViewType expects ClientProfile[]
+        clients: clientsFromContext as ClientProfile[],
       });
 
 

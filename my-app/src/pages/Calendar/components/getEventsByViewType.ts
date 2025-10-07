@@ -51,15 +51,10 @@ export async function getEventsByViewType({
     endDate.toDate()
   );
 
-  // Create a client lookup map for O(1) performance instead of O(n) for each event
-  const clientLookupStartTime = performance.now();
   const clientMap = new Map(clients.map((client: ClientProfile) => [client.uid, client]));
-  console.log('⚡ getEventsByViewType: Client map creation took', (performance.now() - clientLookupStartTime).toFixed(2), 'ms for', clients.length, 'clients');
 
-  // Update client names in events if client exists, but do not filter out any events
-  const nameResolutionStartTime = performance.now();
   const updatedEvents = fetchedEvents.map(event => {
-    const client = clientMap.get(event.clientId); // O(1) lookup instead of O(n)
+    const client = clientMap.get(event.clientId);
     if (client) {
       const fullName = `${client.firstName} ${client.lastName}`.trim();
       return {
@@ -69,7 +64,6 @@ export async function getEventsByViewType({
     }
     return event;
   });
-  console.log('⚡ getEventsByViewType: Name resolution took', (performance.now() - nameResolutionStartTime).toFixed(2), 'ms for', fetchedEvents.length, 'events');
 
   // Format for calendar config if needed
   const formattedEvents = updatedEvents.map(event => ({
