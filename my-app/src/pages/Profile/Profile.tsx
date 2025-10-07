@@ -2878,7 +2878,7 @@ const handleMentalHealthConditionsChange = (e: React.ChangeEvent<HTMLInputElemen
                 }
                 setIsDeliveryModalOpen(true);
               }}
-              disabled={userRole === UserType.ClientIntake}
+              disabled={userRole === UserType.ClientIntake || !isEditing}
               sx={{
                 marginRight: 4,
                 width: 166,
