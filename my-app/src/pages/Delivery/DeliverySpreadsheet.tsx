@@ -483,12 +483,17 @@ const DeliverySpreadsheet: React.FC = () => {
     setIsLoadingDeliveries(true);
     
     try {
-      // Use the same logic as the calendar: viewType 'Day', currentDate as DayPilot.Date
+ // Map RowData to ClientProfile format for getEventsByViewType
+      const clientsForQuery = clientsFromContext.map((client) => ({
+        uid: client.uid,
+        firstName: client.firstName,
+        lastName: client.lastName,
+      })) as ClientProfile[];
 
       const { updatedEvents } = await getEventsByViewType({
         viewType: 'Day',
         currentDate: new DayPilot.Date(dateForFetch),
-        clients: clientsFromContext as ClientProfile[],
+        clients: clientsForQuery,
       });
 
 
