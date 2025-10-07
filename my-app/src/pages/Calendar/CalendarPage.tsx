@@ -4,6 +4,8 @@ import { DayPilot } from "@daypilot/daypilot-lite-react";
 import { AppBar, Box, styled, Typography } from "@mui/material";
 import { Time, TimeUtils } from "../../utils/timeUtils";
 import { onAuthStateChanged } from "firebase/auth";
+import { collection, doc, getDoc } from "firebase/firestore";
+import { db } from "../../auth/firebaseConfig";
 
 // Helper to set time to 12:00:00 PM
 function setToNoon(date: any) {
@@ -205,43 +207,57 @@ const CalendarPage: React.FC = React.memo(() => {
   const fetchClientsLazy = useCallback(async (clientIds: string[]) => {
     const uncachedIds = clientIds.filter(id => !clientCacheRef.current.has(id));
     
-    if (uncachedIds.length === 0) {
-      return Array.from(clientCacheRef.current.values()).filter(client => clientIds.includes(client.uid || ''));
-    }
-
-    try {
-      const clientsData = await clientService.getClientsByIds(uncachedIds);
-
-      clientsData.forEach(client => {
-        if (client.uid) {
-          clientCacheRef.current.set(client.uid, client);
+    // Fetch any clients that aren't cached yet
+    if (uncachedIds.length > 0) {
+      try {
+        // Try the new client-profile2 collection first
+        let clientsData = await clientService.getClientsByIds(uncachedIds);
+        
+        // If no clients found in client-profile2, try the old clients collection
+        // This handles data migration where events may reference old client IDs
+        if (clientsData.length === 0) {
+          try {
+            const clientsCollectionRef = collection(db, "clients");
+            const oldClientsPromises = uncachedIds.map(async (id) => {
+              const clientDoc = await getDoc(doc(clientsCollectionRef, id));
+              if (clientDoc.exists()) {
+                const data = clientDoc.data();
+                return {
+                  uid: clientDoc.id,
+                  firstName: data.firstName || '',
+                  lastName: data.lastName || '',
+                  phone: data.phone || '',
+                  address: data.address || '',
+                  tags: data.tags || [],
+                  notes: data.notes || '',
+                  deliveryDetails: data.deliveryDetails || { dietaryRestrictions: {} }
+                } as ClientProfile;
+              }
+              return null;
+            });
+            const oldClientsResults = await Promise.all(oldClientsPromises);
+            clientsData = oldClientsResults.filter(Boolean) as ClientProfile[];
+          } catch (oldError) {
+            console.error("❌ [CLIENTS] Error fetching from old clients collection:", oldError);
+          }
         }
-      });
-
-      const allRequestedClients = clientIds.map(id => clientCacheRef.current.get(id)).filter(Boolean) as ClientProfile[];
-      setClients(allRequestedClients);
-      return allRequestedClients;
-    } catch (error) {
-      console.error("❌ [CLIENTS] Error fetching clients:", error);
-      return [];
+        
+        clientsData.forEach(client => {
+          if (client.uid) {
+            clientCacheRef.current.set(client.uid, client);
+          }
+        });
+      } catch (error) {
+        console.error("❌ [CLIENTS] Error fetching clients:", error);
+        return [];
+      }
     }
+
+    // Return only the requested clients (both newly fetched and previously cached)
+    const requestedClients = clientIds.map(id => clientCacheRef.current.get(id)).filter(Boolean) as ClientProfile[];
+    setClients(requestedClients);
+    return requestedClients;
   }, []);
-
-  const fetchClients = async () => {
-    try {
-      const clientsData = await clientService.getAllClients();
-
-      clientsData.clients.forEach(client => {
-        if (client.uid) {
-          clientCacheRef.current.set(client.uid, client);
-        }
-      });
-
-      setClients(clientsData.clients as ClientProfile[]);
-    } catch (error) {
-      console.error("❌ [CLIENTS] Error fetching clients:", error);
-    }
-  };
 
   const fetchLimits = async () => {
     try {
@@ -331,6 +347,8 @@ const CalendarPage: React.FC = React.memo(() => {
             eventClientLookupMap.set(client.uid, client);
           }
         });
+
+
         
         // Update client names in events using efficient Map lookup
         const updatedEvents = fetchedEvents.map(event => {

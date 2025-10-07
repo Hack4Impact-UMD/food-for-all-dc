@@ -44,7 +44,7 @@ const SearchSection: React.FC<SearchSectionProps> = ({
             type="text"
             value={searchQuery}
             onChange={handleSearchChange}
-            placeholder="SEARCH (e.g., Ward 5, driver name, cluster, or ward:5)"
+            placeholder='Search (e.g., "ward: 5" "driver: smith" "cluster: A")'
             style={{
               width: "100%",
               height: "60px",

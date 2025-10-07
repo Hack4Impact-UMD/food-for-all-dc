@@ -81,7 +81,8 @@ class DeliveryService {
         const q = query(
           collection(this.db, this.eventsCollection),
           where("deliveryDate", ">=", startTimestamp),
-          where("deliveryDate", "<", endTimestamp)
+          where("deliveryDate", "<", endTimestamp),
+          orderBy("deliveryDate", "asc")
         );
         const querySnapshot = await getDocs(q);
         const events = querySnapshot.docs

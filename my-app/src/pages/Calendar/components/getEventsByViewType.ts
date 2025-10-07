@@ -51,9 +51,10 @@ export async function getEventsByViewType({
     endDate.toDate()
   );
 
-  // Update client names in events if client exists, but do not filter out any events
+  const clientMap = new Map(clients.map((client: ClientProfile) => [client.uid, client]));
+
   const updatedEvents = fetchedEvents.map(event => {
-  const client = clients.find((client: ClientProfile) => client.uid === event.clientId);
+    const client = clientMap.get(event.clientId);
     if (client) {
       const fullName = `${client.firstName} ${client.lastName}`.trim();
       return {

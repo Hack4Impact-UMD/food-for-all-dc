@@ -425,7 +425,7 @@ const Spreadsheet: React.FC = () => {
               type="text"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              placeholder="Search (e.g., name: smith phone: 123)"
+              placeholder='Search (e.g., "name: smith" "phone: 123")'
               style={{ width: "100%", height: "50px", backgroundColor: "#EEEEEE", border: "none", borderRadius: "25px", padding: "0 48px", fontSize: "16px", color: "#333333", boxSizing: "border-box", transition: "all 0.2s ease", boxShadow: "inset 0 2px 3px rgba(0,0,0,0.05)" }}
             />
           </Box>
