@@ -34,4 +34,5 @@ export interface AuthUserRow {
   role: UserType; // Use the existing enum
   phone?: string;
   email: string;
+  dietaryPreference?: string; // Dietary preference for spreadsheet custom column
 }

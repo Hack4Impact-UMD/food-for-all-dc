@@ -609,6 +609,33 @@ const CalendarPage: React.FC = React.memo(() => {
                 <MenuRoundedIcon />
               </IconButton>
               {/* Add drawer content here if needed */}
+              <Box sx={{ width: '100%', mt: 2, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                <a
+                  href="https://docs.google.com/document/d/1cHri2wCaWSghYgxS-Kknjv5ZB26JuuAfzd85ayXLWbM/edit?tab=t.0"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ textDecoration: 'none', width: '100%' }}
+                >
+                  <Box
+                    sx={{
+                      width: '90%',
+                      bgcolor: '#257E68',
+                      color: 'white',
+                      borderRadius: 2,
+                      p: 1.5,
+                      textAlign: 'center',
+                      fontWeight: 600,
+                      fontSize: '1rem',
+                      boxShadow: 1,
+                      cursor: 'pointer',
+                      mt: 1,
+                      '&:hover': { bgcolor: '#1a5c4a' }
+                    }}
+                  >
+                    Documentation
+                  </Box>
+                </a>
+              </Box>
             </Toolbar>
           </Drawer>
         )}

@@ -14,7 +14,8 @@ export interface DietaryRestrictions {
   foodAllergens: string[];
   otherText: string;
   other: boolean;
-  [key: string]: boolean | string[] | string;
+  dietaryPreferences?: string;
+  [key: string]: any;
 }
 
 export interface DeliveryDetails {
@@ -48,22 +49,7 @@ export interface ClientProfile {
   ethnicity: string;
   deliveryDetails: {
     deliveryInstructions: string;
-    dietaryRestrictions: {
-      lowSugar: boolean;
-      kidneyFriendly: boolean;
-      vegan: boolean;
-      vegetarian: boolean;
-      halal: boolean;
-      microwaveOnly: boolean;
-      softFood: boolean;
-      lowSodium: boolean;
-      noCookingEquipment: boolean;
-      heartFriendly: boolean;
-      foodAllergens: string[];
-      otherText: string;
-      other: boolean;
-      [key: string]: boolean | string[] | string;
-    };
+    dietaryRestrictions: DietaryRestrictions;
   };
   lifeChallenges: string;
   notes: string;

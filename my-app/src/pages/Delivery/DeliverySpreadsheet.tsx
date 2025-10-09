@@ -2524,7 +2524,9 @@ const DeliverySpreadsheet: React.FC = () => {
                           return instructions && instructions.trim() !== '' ? instructions : 'No instructions';
                         })()
                       ) : (
-                        row[col.propertyKey as keyof DeliveryRowData]?.toString() ?? "N/A"
+                        col.propertyKey === "deliveryDetails.dietaryRestrictions.dietaryPreferences"
+                          ? (row.deliveryDetails?.dietaryRestrictions?.dietaryPreferences?.trim() || "")
+                          : row[col.propertyKey as keyof DeliveryRowData]?.toString() ?? ""
                       )
                     ) : (
                       ""
@@ -2612,6 +2614,7 @@ const DeliverySpreadsheet: React.FC = () => {
                           if (key === "children") label = "Children";
                           if (key === "deliveryFreq") label = "Delivery Freq";
                           if (key === "deliveryDetails.dietaryRestrictions") label = "Dietary Restrictions";
+                          if (key === "deliveryDetails.dietaryRestrictions.dietaryPreferences") label = "Dietary Preferences";
                           if (key === "ethnicity") label = "Ethnicity";
                           if (key === "gender") label = "Gender";
                           if (key === "language") label = "Language";

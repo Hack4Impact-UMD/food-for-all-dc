@@ -26,6 +26,7 @@ export interface RowData {
             vegan: boolean;
             heartFriendly: boolean;
             vegetarian: boolean;
+            dietaryPreferences?: string;
         };
     };
     ethnicity: string;

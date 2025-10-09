@@ -6,6 +6,7 @@ export const allowedPropertyKeys = [
   "children",
   "deliveryFreq",
   "deliveryDetails.dietaryRestrictions",
+  "deliveryDetails.dietaryRestrictions.dietaryPreferences",
   "ethnicity",
   "gender",
   "language",
