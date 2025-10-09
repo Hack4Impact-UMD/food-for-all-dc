@@ -669,10 +669,7 @@ const CalendarPage: React.FC = React.memo(() => {
                 onNavigatePrev={handleNavigatePrev}
                 onNavigateToday={handleNavigateToday}
                 onNavigateNext={handleNavigateNext}
-                onAddDelivery={async () => {
-                  await preloadAllClients();
-                  setIsModalOpen(true);
-                }}
+                onAddDelivery={() => setIsModalOpen(true)}
                 onEditLimits={viewType === "Month" ? (event) => setAnchorEl(anchorEl ? null : event.currentTarget) : undefined}
               />
             )}
