@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import Drawer from "@mui/material/Drawer";
 import Toolbar from "@mui/material/Toolbar";
@@ -157,11 +156,16 @@ const CalendarPage: React.FC = React.memo(() => {
   const eventsWithClientNames = useMemo(() => {
     return events.map(event => {
       const client = clientLookupMap.get(event.clientId);
-      if (client && !event.clientName) {
+      if (client) {
         const fullName = `${client.firstName} ${client.lastName}`.trim();
         return {
           ...event,
-          clientName: fullName
+          clientName: fullName,
+          phone: client.phone,
+          address: client.address,
+          deliveryDetails: client.deliveryDetails,
+          tags: client.tags,
+          notes: client.notes,
         };
       }
       return event;
@@ -213,42 +217,10 @@ const CalendarPage: React.FC = React.memo(() => {
 
   const fetchClientsLazy = useCallback(async (clientIds: string[]) => {
     const uncachedIds = clientIds.filter(id => !clientCacheRef.current.has(id));
-    
-    // Fetch any clients that aren't cached yet
+    // Only fetch from client-profile2
     if (uncachedIds.length > 0) {
       try {
-        // Try the new client-profile2 collection first
-        let clientsData = await clientService.getClientsByIds(uncachedIds);
-        
-        // If no clients found in client-profile2, try the old clients collection
-        // This handles data migration where events may reference old client IDs
-        if (clientsData.length === 0) {
-          try {
-            const clientsCollectionRef = collection(db, "clients");
-            const oldClientsPromises = uncachedIds.map(async (id) => {
-              const clientDoc = await getDoc(doc(clientsCollectionRef, id));
-              if (clientDoc.exists()) {
-                const data = clientDoc.data();
-                return {
-                  uid: clientDoc.id,
-                  firstName: data.firstName || '',
-                  lastName: data.lastName || '',
-                  phone: data.phone || '',
-                  address: data.address || '',
-                  tags: data.tags || [],
-                  notes: data.notes || '',
-                  deliveryDetails: data.deliveryDetails || { dietaryRestrictions: {} }
-                } as ClientProfile;
-              }
-              return null;
-            });
-            const oldClientsResults = await Promise.all(oldClientsPromises);
-            clientsData = oldClientsResults.filter(Boolean) as ClientProfile[];
-          } catch (oldError) {
-            console.error("❌ [CLIENTS] Error fetching from old clients collection:", oldError);
-          }
-        }
-        
+        const clientsData = await clientService.getClientsByIds(uncachedIds);
         clientsData.forEach(client => {
           if (client.uid) {
             clientCacheRef.current.set(client.uid, client);
@@ -259,10 +231,15 @@ const CalendarPage: React.FC = React.memo(() => {
         return [];
       }
     }
-
     // Return only the requested clients (both newly fetched and previously cached)
-    const requestedClients = clientIds.map(id => clientCacheRef.current.get(id)).filter(Boolean) as ClientProfile[];
-    setClients(requestedClients);
+    const requestedClients = clientIds.map(id => clientCacheRef.current.get(id)).filter(Boolean);
+    setClients(prev => {
+      // Merge previous clients with new ones, avoiding duplicates
+      const isClient = (c: unknown): c is ClientProfile => !!c && typeof c === 'object' && 'uid' in c;
+      const prevMap = new Map(prev.filter(isClient).map(c => [c.uid, c]));
+      requestedClients.filter(isClient).forEach(c => prevMap.set(c.uid, c));
+      return Array.from(prevMap.values());
+    });
     return requestedClients;
   }, []);
 
@@ -350,7 +327,7 @@ const CalendarPage: React.FC = React.memo(() => {
         // Create efficient lookup map from the clients we just fetched
         const eventClientLookupMap = new Map();
         neededClients.forEach(client => {
-          if (client.uid) {
+          if (client && client.uid) {
             eventClientLookupMap.set(client.uid, client);
           }
         });
