@@ -577,7 +577,7 @@ const DeliverySpreadsheet: React.FC = () => {
           const chunk = clientIds.slice(i, i + chunkSize);
           if (chunk.length === 0) continue;
           const q = query(
-            collection(db, "clients"),
+            collection(db, "client-profile2"),
             where("__name__", "in", chunk)
           );
           const snapshot = await getDocs(q);
