@@ -36,6 +36,7 @@ interface AddDeliveryDialogProps {
   onClose: () => void;
   onAddDelivery: (newDelivery: NewDelivery) => void;
   clients: ClientProfile[];
+  clientsLoaded?: boolean;
   startDate: DayPilot.Date;
   preSelectedClient?: {
     clientId: string;
@@ -47,7 +48,7 @@ interface AddDeliveryDialogProps {
 type ClientSearchResult = Pick<ClientProfile, 'uid' | 'firstName' | 'lastName' | 'address'>;
 
 const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props: AddDeliveryDialogProps) => {
-  const { open, onClose, onAddDelivery, clients, startDate, preSelectedClient } = props;
+  const { open, onClose, onAddDelivery, clients, clientsLoaded, startDate, preSelectedClient } = props;
   const [formError, setFormError] = useState<string>("");
   const [searchResults, setSearchResults] = useState<ClientSearchResult[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
@@ -110,15 +111,39 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props: AddDeliveryD
   const handleClientSearch = useCallback(async (searchTerm: string) => {
     setSearchLoading(true);
     try {
-      const results = await clientService.searchClientsByName(searchTerm);
-      setSearchResults(results);
+      if (clientsLoaded && clients.length > 0) {
+        const searchLower = searchTerm.toLowerCase().trim();
+        const filtered = searchLower
+          ? clients
+              .filter(client => {
+                const fullName = `${client.firstName} ${client.lastName}`.toLowerCase();
+                return fullName.includes(searchLower);
+              })
+              .slice(0, 50)
+              .map(client => ({
+                uid: client.uid,
+                firstName: client.firstName,
+                lastName: client.lastName,
+                address: client.address
+              }))
+          : clients.slice(0, 50).map(client => ({
+              uid: client.uid,
+              firstName: client.firstName,
+              lastName: client.lastName,
+              address: client.address
+            }));
+        setSearchResults(filtered);
+      } else {
+        const results = await clientService.searchClientsByName(searchTerm);
+        setSearchResults(results);
+      }
     } catch (error) {
       console.error("Error searching clients:", error);
       setSearchResults([]);
     } finally {
       setSearchLoading(false);
     }
-  }, []);
+  }, [clientsLoaded, clients]);
 
   useEffect(() => {
     if (open && !preSelectedClient) {
