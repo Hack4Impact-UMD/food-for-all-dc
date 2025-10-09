@@ -133,6 +133,19 @@ const CalendarPage: React.FC = React.memo(() => {
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [clients, setClients] = useState<ClientProfile[]>([]);
+  const [clientsLoaded, setClientsLoaded] = useState<boolean>(false);
+  // Preload all clients from client-profile2 when Add Delivery is triggered
+  const preloadAllClients = useCallback(async () => {
+    if (!clientsLoaded) {
+      try {
+        const { clients: allClients } = await clientService.getAllClients(3000);
+        setClients(allClients);
+        setClientsLoaded(true);
+      } catch (error) {
+        console.error('❌ [CLIENTS] Error preloading all clients:', error);
+      }
+    }
+  }, [clientsLoaded]);
   const [dailyLimits, setDailyLimits] = useState<DateLimit[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true); // Start as loading
   const [isInitialLoad, setIsInitialLoad] = useState<boolean>(true);
@@ -631,7 +644,10 @@ const CalendarPage: React.FC = React.memo(() => {
                 onNavigatePrev={handleNavigatePrev}
                 onNavigateToday={handleNavigateToday}
                 onNavigateNext={handleNavigateNext}
-                onAddDelivery={() => setIsModalOpen(true)}
+                onAddDelivery={async () => {
+                  await preloadAllClients();
+                  setIsModalOpen(true);
+                }}
                 onEditLimits={viewType === "Month" ? (event) => setAnchorEl(anchorEl ? null : event.currentTarget) : undefined}
               />
             )}
