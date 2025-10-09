@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import {
   GlobalStyles,
   Dialog,
@@ -14,6 +14,7 @@ import {
   MenuItem,
   Box,
   Typography,
+  CircularProgress,
 } from "@mui/material";
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 import { validateDateInput } from "../../../utils/dates";
@@ -26,6 +27,7 @@ import { validateDeliveryDateRange } from "../../../utils/dateValidation";
 import { getLastDeliveryDateForClient } from "../../../utils/lastDeliveryDate";
 import { deliveryEventEmitter } from "../../../utils/deliveryEventEmitter";
 import { deleteDeliveriesAfterEndDate } from "../../../utils/deliveryCleanup";
+import { clientService } from "../../../services/client-service";
 
 interface AddDeliveryDialogProps {
   open: boolean;
@@ -40,9 +42,13 @@ interface AddDeliveryDialogProps {
   };
 }
 
+type ClientSearchResult = Pick<ClientProfile, 'uid' | 'firstName' | 'lastName' | 'address'>;
+
 const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props: AddDeliveryDialogProps) => {
   const { open, onClose, onAddDelivery, clients, startDate, preSelectedClient } = props;
   const [duplicateError, setDuplicateError] = useState<string>("");
+  const [searchResults, setSearchResults] = useState<ClientSearchResult[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
 
   // Helper to set time to 12:00:00 PM
   function toNoonISOString(date: any) {
@@ -98,6 +104,25 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props: AddDeliveryD
   const [startDateError, setStartDateError] = useState<string>("");
   const [endDateError, setEndDateError] = useState<string>("");
   const [currentLastDeliveryDate, setCurrentLastDeliveryDate] = useState<string>("");
+
+  const handleClientSearch = useCallback(async (searchTerm: string) => {
+    setSearchLoading(true);
+    try {
+      const results = await clientService.searchClientsByName(searchTerm);
+      setSearchResults(results);
+    } catch (error) {
+      console.error("Error searching clients:", error);
+      setSearchResults([]);
+    } finally {
+      setSearchLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (open && !preSelectedClient) {
+      handleClientSearch("");
+    }
+  }, [open, preSelectedClient, handleClientSearch]);
 
   // Fetch current last delivery date when client is selected or modal opens
   useEffect(() => {
@@ -250,36 +275,9 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props: AddDeliveryD
     });
   };
   
-  // Update validation logic - if we have a pre-selected client, clientId is always valid
-  const isFormValid = 
-    (preSelectedClient ? true : newDelivery.clientId !== "") &&
-    (newDelivery.recurrence !== "Custom" || customDates.length > 0);
-
-  // Filter out duplicate clients based on UID - memoized for performance
-  const uniqueClients = React.useMemo(() => {
-    const filtered = clients.filter((client: ClientProfile, index: number, self: ClientProfile[]) => 
-      index === self.findIndex((c: ClientProfile) => c.uid === client.uid)
-    );
-    return filtered;
-  }, [clients]);
-
-  // Simple display label showing only the name
-  const getDisplayLabel = (option: ClientProfile) => {
+  const getDisplayLabel = (option: ClientSearchResult) => {
     return `${option.firstName} ${option.lastName}`;
   };
-
-  // Custom filter function to ensure we never see duplicates
-  const filterOptions = React.useCallback((options: ClientProfile[], { inputValue }: { inputValue: string }) => {
-    // Start with our unique clients, not the passed options
-    const uniqueOptions = uniqueClients.filter((client: ClientProfile, index: number, self: ClientProfile[]) => 
-      index === self.findIndex((c: ClientProfile) => c.uid === client.uid)
-    );
-    // Apply text filtering
-    const textFiltered = uniqueOptions.filter((option: ClientProfile) =>
-      getDisplayLabel(option).toLowerCase().includes(inputValue.toLowerCase())
-    );
-    return textFiltered;
-  }, [uniqueClients]);
 
   return (
   <Dialog open={open} onClose={resetFormAndClose} maxWidth="sm" fullWidth className="add-delivery-modal-root" sx={{ top: '-35px' }}>
@@ -302,11 +300,17 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props: AddDeliveryD
             <Autocomplete
               fullWidth
               disableClearable
-              options={uniqueClients}
+              options={searchResults}
+              loading={searchLoading}
               getOptionLabel={getDisplayLabel}
               getOptionKey={(option) => option.uid}
-              filterOptions={filterOptions}
-              value={newDelivery.clientId ? uniqueClients.find(c => c.uid === newDelivery.clientId) : undefined}
+              filterOptions={(options) => options}
+              onInputChange={(event, value) => {
+                if (event && event.type === 'change') {
+                  handleClientSearch(value);
+                }
+              }}
+              value={newDelivery.clientId ? searchResults.find(c => c.uid === newDelivery.clientId) : undefined}
               sx={{
                 width: 'calc(100% + 48px)',
                 '.MuiInputBase-root': { 
@@ -385,7 +389,7 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props: AddDeliveryD
                   </Box>
                 );
               }}
-              onChange={(event, newValue) => {
+              onChange={async (event, newValue) => {
                 if (!newValue) {
                   setNewDelivery({
                     ...newDelivery,
@@ -393,18 +397,9 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props: AddDeliveryD
                     clientName: "",
                   });
                 } else {
-                  // Helper function to convert YYYY-MM-DD to MM/DD/YYYY
-                  const convertToMMDDYYYY = (dateStr: string): string => {
-                    if (!dateStr) return '';
-                    if (dateStr.match(/^\d{2}\/\d{2}\/\d{4}$/)) {
-                      return dateStr;
-                    }
-                    if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
-                      const [year, month, day] = dateStr.split('-');
-                      return `${month}/${day}/${year}`;
-                    }
-                    return dateStr;
-                  };
+                  const fullClient = await clientService.getClientById(newValue.uid);
+                  if (!fullClient) return;
+
                   const defaultEndDate = (() => {
                     const oneMonthFromNow = new Date();
                     oneMonthFromNow.setMonth(oneMonthFromNow.getMonth() + 1);
@@ -415,10 +410,10 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props: AddDeliveryD
                   })();
                   setNewDelivery({
                     ...newDelivery,
-                    clientId: newValue.uid,
-                    clientName: `${newValue.firstName} ${newValue.lastName}`,
-                    recurrence: (newValue.recurrence as "None" | "Weekly" | "2x-Monthly" | "Monthly" | "Custom") || "Weekly",
-                    repeatsEndDate: newValue.endDate ? convertToMMDDYYYY(newValue.endDate) : defaultEndDate,
+                    clientId: fullClient.uid,
+                    clientName: `${fullClient.firstName} ${fullClient.lastName}`,
+                    recurrence: (fullClient.recurrence as "None" | "Weekly" | "2x-Monthly" | "Monthly" | "Custom") || "Weekly",
+                    repeatsEndDate: fullClient.endDate ? convertToMMDDYYYY(fullClient.endDate) : defaultEndDate,
                   });
                 }
               }}
