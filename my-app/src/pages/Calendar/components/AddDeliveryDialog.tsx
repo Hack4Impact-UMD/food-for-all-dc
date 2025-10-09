@@ -44,7 +44,7 @@ interface AddDeliveryDialogProps {
 
 const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props: AddDeliveryDialogProps) => {
   const { open, onClose, onAddDelivery, clients, startDate, preSelectedClient } = props;
-  const [duplicateError, setDuplicateError] = useState<string>("");
+  const [formError, setFormError] = useState<string>("");
 
   // Helper to set time to 12:00:00 PM
   function toNoonISOString(date: any) {
@@ -178,15 +178,13 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props: AddDeliveryD
     setCustomDates([]);
     setStartDateError("");
     setEndDateError("");
-    setDuplicateError("");
+    setFormError("");
     onClose();
   };
   const handleSubmit = () => {
-    // Validate dates before submission
-    setDuplicateError("");
-    // 1. Log raw modal deliveryDate
+    setFormError("");
     if (!newDelivery.clientName || newDelivery.clientName.trim() === "") {
-      setDuplicateError("Client name is required.");
+      setFormError("Please select a client");
       return;
     }
     if (newDelivery.recurrence !== "None" && newDelivery.recurrence !== "Custom" && 
@@ -231,7 +229,7 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props: AddDeliveryD
         const normalizedDeliveryDate = TimeUtils.fromAny(newDelivery.deliveryDate).toISODate();
         const normalizedEndDate = TimeUtils.fromAny(newDelivery.repeatsEndDate || '').toISODate();
 
-        setDuplicateError("");
+        setFormError("");
         const deliveryToSubmit: Partial<NewDelivery> = { ...newDelivery };
         if (newDelivery.recurrence === "Custom") {
           deliveryToSubmit.customDates = customDates
@@ -293,8 +291,8 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props: AddDeliveryD
         }
       }} />
       <DialogContent sx={{ maxHeight: '70vh', overflowY: 'auto', overflowX: 'hidden' }}>
-        {duplicateError && (
-          <Typography sx={{ color: 'red', mb: 2 }}>{duplicateError}</Typography>
+        {formError && (
+          <Typography sx={{ color: 'red', mb: 2 }}>{formError}</Typography>
         )}
         {/* Unified layout for all fields */}
         <Box display="flex" flexDirection="column" gap={2}>
@@ -595,7 +593,7 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props: AddDeliveryD
             Boolean(endDateError) ||
             Boolean(newDelivery._deliveryDateError) ||
             Boolean(newDelivery._repeatsEndDateError) ||
-            Boolean(duplicateError)
+            Boolean(formError)
           }
         >
           Add
