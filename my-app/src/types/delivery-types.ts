@@ -14,7 +14,7 @@ export interface Delivery {
   assignedDriverName: string;
   clientId: string;
   clientName: string;
-  deliveryDate: Date | Timestamp; // Can be either Date or Firestore Timestamp
+  deliveryDate: string | Date | Timestamp; // Can be string, Date, or Firestore Timestamp
   time: string; // The time of the delivery;
   cluster: number;
   recurrence: "None" | "Weekly" | "2x-Monthly" | "Monthly" | "Custom"; // Updated recurrence options

@@ -71,6 +71,10 @@ function getCustomColumnDisplay(row: RowData, propertyKey: string): React.ReactN
         ))
       : "N/A";
   }
+  if (propertyKey === "deliveryDetails.dietaryRestrictions.dietaryPreferences") {
+    const value = row.deliveryDetails?.dietaryRestrictions?.dietaryPreferences;
+    return value ? value.toString() : "";
+  }
   if (propertyKey.includes(".")) {
     const keys = propertyKey.split(".");
     let value: any = row;
@@ -551,13 +555,11 @@ const Spreadsheet: React.FC = () => {
                               'deliveryDetails.dietaryRestrictions',
                               'deliveryDetails.deliveryInstructions'
                             ].includes(key))
-                            .map((key: string) => (
-                              <MenuItem key={key} value={key}>
-                                {key === 'none'
-                                  ? 'None'
-                                  : key.charAt(0).toUpperCase() + key.slice(1)}
-                              </MenuItem>
-                            ))}
+                            .map((key: string) => {
+                              let label = key.charAt(0).toUpperCase() + key.slice(1);
+                              if (key === "deliveryDetails.dietaryRestrictions.dietaryPreferences") label = "Dietary Preferences";
+                              return <MenuItem key={key} value={key}>{key === 'none' ? 'None' : label}</MenuItem>;
+                            })}
                         </Select>
                         <IconButton 
                           size="small" 

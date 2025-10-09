@@ -22,6 +22,7 @@ import LogoutIcon from "@mui/icons-material/Logout";
 import DeleteIcon from "@mui/icons-material/Delete";
 import LocalShippingIcon from "@mui/icons-material/LocalShipping";
 import AssessmentIcon from "@mui/icons-material/Assessment";
+import DescriptionIcon from "@mui/icons-material/Description";
 import Tab from "./NavBar/Tab";
 import logo from "../../assets/ffa-banner-logo.webp";
 import { Typography, useMediaQuery, MenuItem, Select } from "@mui/material";
@@ -333,6 +334,27 @@ export default function BasePage() {
         </List>
         <Typography sx={{ padding: "8px" }}>{`Logged in as: ${name} (${userRole ?? "Unknown"})`}</Typography>
         <Divider sx={{ margin: "0 16px", backgroundColor: "rgba(0, 0, 0, 0.06)" }} />
+        <List sx={{ padding: '0 8px', width: '100%' }}>
+          <ListItem key="Documentation" disablePadding sx={{ mb: 1 }}>
+            <Box sx={{ width: '100%' }}>
+              <a
+                href="https://docs.google.com/document/d/1cHri2wCaWSghYgxS-Kknjv5ZB26JuuAfzd85ayXLWbM/edit?tab=t.0"
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ textDecoration: 'none', width: '100%' }}
+              >
+                <Tab
+                  text="Documentation"
+                  icon={<DescriptionIcon />}
+                  link="#"
+                  tab={tab}
+                  setTab={() => undefined}
+                  setOpen={() => undefined}
+                />
+              </a>
+            </Box>
+          </ListItem>
+        </List>
         <List sx={{ padding: "8px" }}>
           <ListItem key="Logout" disablePadding>
             <ListItemButton

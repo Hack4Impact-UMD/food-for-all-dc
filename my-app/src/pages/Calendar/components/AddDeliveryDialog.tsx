@@ -23,6 +23,8 @@ import { ClientProfile } from "../../../types/client-types";
 import CalendarMultiSelect from "./CalendarMultiSelect";
 import DateField from "./DateField";
 import { DayPilot } from "@daypilot/daypilot-lite-react";
+import { DateTime } from 'luxon';
+import { TimeUtils } from '../../../utils/timeUtils';
 import { validateDeliveryDateRange } from "../../../utils/dateValidation";
 import { getLastDeliveryDateForClient } from "../../../utils/lastDeliveryDate";
 import { deliveryEventEmitter } from "../../../utils/deliveryEventEmitter";
@@ -46,7 +48,7 @@ type ClientSearchResult = Pick<ClientProfile, 'uid' | 'firstName' | 'lastName' |
 
 const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props: AddDeliveryDialogProps) => {
   const { open, onClose, onAddDelivery, clients, startDate, preSelectedClient } = props;
-  const [duplicateError, setDuplicateError] = useState<string>("");
+  const [formError, setFormError] = useState<string>("");
   const [searchResults, setSearchResults] = useState<ClientSearchResult[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
 
@@ -201,12 +203,15 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props: AddDeliveryD
     setCustomDates([]);
     setStartDateError("");
     setEndDateError("");
-    setDuplicateError("");
+    setFormError("");
     onClose();
   };
   const handleSubmit = () => {
-    // Validate dates before submission
-    setDuplicateError("");
+    setFormError("");
+    if (!newDelivery.clientName || newDelivery.clientName.trim() === "") {
+      setFormError("Please select a client");
+      return;
+    }
     if (newDelivery.recurrence !== "None" && newDelivery.recurrence !== "Custom" && 
         newDelivery.deliveryDate && newDelivery.repeatsEndDate) {
       const validation = validateDeliveryDateRange(newDelivery.deliveryDate, newDelivery.repeatsEndDate);
@@ -234,37 +239,20 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props: AddDeliveryD
           // Compare only the date part (ignore time)
           return eventDate.toISOString().split("T")[0] === deliveryDateStr;
         });
-        
-        // Check if this is an end date update scenario:
-        // If the delivery date matches the end date and there are existing deliveries,
-        // this is likely changing the end date to an existing delivery date
-        
-        // Normalize dates to YYYY-MM-DD format for comparison
-        const normalizeDate = (dateStr: string) => {
-          if (!dateStr) return '';
-          // If already in YYYY-MM-DD format, return as-is
-          if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr;
-          // Convert MM/DD/YYYY to YYYY-MM-DD
-          if (/^\d{2}\/\d{2}\/\d{4}$/.test(dateStr)) {
-            const [month, day, year] = dateStr.split('/');
-            return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
-          }
-          return dateStr;
-        };
-        
-        const normalizedDeliveryDate = normalizeDate(newDelivery.deliveryDate);
-        const normalizedEndDate = normalizeDate(newDelivery.repeatsEndDate || '');
-        
-        const isEndDateUpdate = normalizedDeliveryDate === normalizedEndDate &&
-                               events.length > 0 &&
-                               newDelivery.recurrence !== "None";
 
-        setDuplicateError("");
+        const normalizedDeliveryDate = TimeUtils.fromAny(newDelivery.deliveryDate).toISODate();
+        const normalizedEndDate = TimeUtils.fromAny(newDelivery.repeatsEndDate || '').toISODate();
+
+        setFormError("");
         const deliveryToSubmit: Partial<NewDelivery> = { ...newDelivery };
         if (newDelivery.recurrence === "Custom") {
-          deliveryToSubmit.customDates = customDates.map(date => date.toISOString().split("T")[0]);
-          deliveryToSubmit.deliveryDate = customDates[0]?.toISOString().split("T")[0] || "";
+          deliveryToSubmit.customDates = customDates
+            .map(date => (date instanceof Date ? DateTime.fromJSDate(date).toISODate() || "" : ""))
+            .filter((d): d is string => !!d);
+          deliveryToSubmit.deliveryDate = (customDates[0] instanceof Date ? DateTime.fromJSDate(customDates[0]).toISODate() || "" : "");
           deliveryToSubmit.repeatsEndDate = undefined;
+        } else {
+          deliveryToSubmit.deliveryDate = normalizedDeliveryDate || "";
         }
 
         deliveryEventEmitter.emit();
@@ -290,8 +278,8 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props: AddDeliveryD
         }
       }} />
       <DialogContent sx={{ maxHeight: '70vh', overflowY: 'auto', overflowX: 'hidden' }}>
-        {duplicateError && (
-          <Typography sx={{ color: 'red', mb: 2 }}>{duplicateError}</Typography>
+        {formError && (
+          <Typography sx={{ color: 'red', mb: 2 }}>{formError}</Typography>
         )}
         {/* Unified layout for all fields */}
         <Box display="flex" flexDirection="column" gap={2}>
@@ -480,11 +468,16 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props: AddDeliveryD
                 label="Delivery Date"
                 type="date"
                 value={newDelivery.deliveryDate || ""}
-                onChange={(e) => setNewDelivery({ 
-                  ...newDelivery, 
-                  deliveryDate: e.target.value,
-                  _deliveryDateError: undefined 
-                })}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  // Only allow valid yyyy-MM-dd date strings
+                  const isValidDate = /^\d{4}-\d{2}-\d{2}$/.test(val);
+                  setNewDelivery({
+                    ...newDelivery,
+                    deliveryDate: isValidDate ? val : "",
+                    _deliveryDateError: isValidDate ? undefined : "Invalid date format. Please select a valid date.",
+                  });
+                }}
                 margin="normal"
                 fullWidth
                 required
@@ -579,11 +572,12 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props: AddDeliveryD
           variant="contained"
           disabled={
             !newDelivery.deliveryDate ||
+            !newDelivery.clientName ||
             Boolean(startDateError) ||
             Boolean(endDateError) ||
             Boolean(newDelivery._deliveryDateError) ||
             Boolean(newDelivery._repeatsEndDateError) ||
-            Boolean(duplicateError)
+            Boolean(formError)
           }
         >
           Add
