@@ -14,7 +14,7 @@ import { db } from "../../auth/firebaseConfig";
 function setToNoon(date: any) {
   let jsDate;
   if (typeof date === 'string') {
-    jsDate = new Date(date);
+    jsDate = toJSDate(date);
   } else if (date instanceof Date) {
     jsDate = new Date(date.getTime());
   } else if (date && typeof date.toDate === 'function') {
@@ -22,7 +22,7 @@ function setToNoon(date: any) {
   } else if (date && typeof date.toJSDate === 'function') {
     jsDate = new Date(date.toJSDate().getTime());
   } else {
-    jsDate = new Date(date);
+    jsDate = toJSDate(date);
   }
   jsDate.setHours(12, 0, 0, 0);
   return jsDate;
@@ -142,7 +142,7 @@ const CalendarPage: React.FC = React.memo(() => {
         setClients(allClients);
         setClientsLoaded(true);
       } catch (error) {
-        console.error('❌ [CLIENTS] Error preloading all clients:', error);
+        // Error intentionally ignored
       }
     }
   }, [clientsLoaded]);
@@ -222,7 +222,7 @@ const CalendarPage: React.FC = React.memo(() => {
       // Cast to appropriate type to avoid type mismatch
       setDrivers(driverList);
     } catch (error) {
-      console.error("❌ [DRIVERS] Error fetching drivers:", error);
+      // Error intentionally ignored
     }
   };
 
@@ -240,7 +240,6 @@ const CalendarPage: React.FC = React.memo(() => {
           }
         });
       } catch (error) {
-        console.error("❌ [CLIENTS] Error fetching clients:", error);
         return [];
       }
     }
@@ -263,7 +262,7 @@ const CalendarPage: React.FC = React.memo(() => {
       const limitsData = await deliveryService.getDailyLimits();
       setDailyLimits(limitsData);
     } catch (error) {
-      console.error("❌ [LIMITS] Error fetching limits:", error);
+      // Error intentionally ignored
     }
   };
 
@@ -369,8 +368,8 @@ const CalendarPage: React.FC = React.memo(() => {
           id: event.id,
           // Removed date from display text
           text: `Client: ${event.clientName} (Driver: ${event.assignedDriverName})`,
-          start: new DayPilot.Date(toDayPilotDateString(event.deliveryDate)),
-          end: new DayPilot.Date(toDayPilotDateString(event.deliveryDate)),
+          start: new DayPilot.Date(toJSDate(event.deliveryDate)),
+          end: new DayPilot.Date(toJSDate(event.deliveryDate)),
           backColor: "#257E68",
         }));
 
@@ -384,32 +383,37 @@ const CalendarPage: React.FC = React.memo(() => {
 
         return updatedEvents;
     } catch (error) {
-      console.error("❌ [EVENTS] Error fetching events:", error);
       return [];
     }
   }, [currentDate, viewType, fetchClientsLazy]);  // Removed clientLookupMap and clients.length as they're no longer needed
 
   const handleAddDelivery = async (newDelivery: NewDelivery) => {
     try {
-      let recurrenceDates: Date[] = [];
-
-
-      //create unique id for each recurrence group. All events for this recurrence will have the same id
+      let recurrenceDates: string[] = [];
       const recurrenceId = crypto.randomUUID();
+      // Find the selected client profile
+      const selectedClient = clients.find(c => c.uid === newDelivery.clientId);
+      const clientName = selectedClient ? `${selectedClient.firstName} ${selectedClient.lastName}`.trim() : newDelivery.clientName || "";
+
       if (newDelivery.recurrence === "Custom") {
-        // Use customDates directly if recurrence is Custom
-        // Ensure customDates exist and map string dates back to Date objects
-        recurrenceDates = newDelivery.customDates?.map(dateStr => {
-          // Use TimeUtils for proper timezone handling
-          return setToNoon(TimeUtils.fromISO(dateStr).toJSDate());
-        }) || [];
-        // Clear repeatsEndDate explicitly for custom recurrence in the submitted data
+        recurrenceDates = (newDelivery.customDates || [])
+          .map(date => {
+            if (typeof date === 'object' && date !== null && 'getTime' in date) {
+              // It's a Date object
+              const iso = DateTime.fromJSDate(date as Date).toISODate();
+              return iso ? iso : "";
+            }
+            return "";
+          })
+          .filter((d): d is string => !!d);
         newDelivery.repeatsEndDate = undefined;
       } else {
-        // Calculate recurrence dates for standard recurrence types
-        const deliveryDate = setToNoon(TimeUtils.fromISO(newDelivery.deliveryDate).toJSDate());
-        recurrenceDates =
-          newDelivery.recurrence === "None" ? [deliveryDate] : calculateRecurrenceDates(newDelivery).map(setToNoon);
+        const normalizedDate = TimeUtils.fromAny(newDelivery.deliveryDate).toISODate() || "";
+        if (newDelivery.recurrence === "None") {
+          recurrenceDates = [normalizedDate];
+        } else {
+          recurrenceDates = calculateRecurrenceDates(newDelivery);
+        }
       }
 
       // Filter out dates that already have a delivery for the same client
@@ -423,39 +427,38 @@ const CalendarPage: React.FC = React.memo(() => {
       );
 
       const uniqueRecurrenceDates = recurrenceDates.filter(date => 
-        !existingEventDates.has(new DayPilot.Date(date).toString("yyyy-MM-dd"))
+        !existingEventDates.has(date)
       );
 
-      if (uniqueRecurrenceDates.length < recurrenceDates.length) {
-        console.warn("Some duplicate delivery dates were detected and skipped.");
-      }
-
-      // Use DeliveryService to create events for unique dates only
       const deliveryService = DeliveryService.getInstance();
-      const seriesStartDate = newDelivery.deliveryDate; // Saves the original start date
+      const seriesStartDate = newDelivery.deliveryDate;
 
-      const createPromises = uniqueRecurrenceDates.map(date => {
+      const createPromises = uniqueRecurrenceDates.map(dateStr => {
+        // Convert dateStr (YYYY-MM-DD) to JS Date at noon local time
+        let deliveryDateObj;
+        if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+          const [year, month, day] = dateStr.split('-');
+          deliveryDateObj = new Date(Number(year), Number(month) - 1, Number(day), 12, 0, 0, 0);
+        } else {
+          deliveryDateObj = new Date(dateStr);
+        }
         const eventToAdd: Partial<DeliveryEvent> = {
           clientId: newDelivery.clientId,
-          clientName: newDelivery.clientName,
-          deliveryDate: date, // Use the calculated/provided recurrence date
+          clientName,
+          deliveryDate: deliveryDateObj,
           recurrence: newDelivery.recurrence,
-          seriesStartDate: seriesStartDate, 
+          seriesStartDate,
           time: "",
           cluster: 0,
-          recurrenceId: recurrenceId,
+          recurrenceId,
         };
-
-        // Add customDates array if recurrence is Custom
         if (newDelivery.recurrence === "Custom") {
           eventToAdd.customDates = newDelivery.customDates;
         } else if (newDelivery.repeatsEndDate) {
           eventToAdd.repeatsEndDate = newDelivery.repeatsEndDate;
         }
-
         return deliveryService.createEvent(eventToAdd);
       });
-
       await Promise.all(createPromises);
 
       // Refresh events after adding
@@ -464,7 +467,7 @@ const CalendarPage: React.FC = React.memo(() => {
       // Close the modal after successful addition
       setIsModalOpen(false);
     } catch (error) {
-      console.error("Error adding delivery:", error);
+      // Error intentionally ignored
     }
   };
 

@@ -236,7 +236,7 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
         const endDate = editRecurrence.repeatsEndDate ? new Date(editRecurrence.repeatsEndDate) : null;
         const filteredRecurrenceDates = newRecurrenceDates.filter(date => {
           if (!endDate) return true;
-          const dateStr = date.toISOString().split('T')[0];
+          const dateStr = date; // date is always a string
           const endDateStr = endDate.toISOString().split('T')[0];
           return dateStr <= endDateStr; // Only include dates on or before end date
         });
