@@ -2111,7 +2111,7 @@ const DeliverySpreadsheet: React.FC = () => {
               type="text"
               value={searchQuery}
               onChange={handleSearchChange}
-              placeholder='Search (e.g., "name: smith" "phone: 123")'
+              placeholder='Search deliveries (e.g., ward:7, driver:maria, name:"john smith")'
               style={{
                 width: "100%",
                 height: "60px",

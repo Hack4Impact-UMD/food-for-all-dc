@@ -416,7 +416,7 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
               type="text"
               value={searchQuery}
               onChange={handleSearchChange}
-              placeholder='Search (e.g., "name: smith" "role: admin")'
+              placeholder='Search users (e.g., admin, name:jane, email:test@example.com)'
               style={{
                 width: "100%",
                 height: "50px",
