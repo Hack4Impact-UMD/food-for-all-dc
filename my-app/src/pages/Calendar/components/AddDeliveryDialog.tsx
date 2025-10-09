@@ -215,17 +215,6 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props: AddDeliveryD
           return eventDate.toISOString().split("T")[0] === deliveryDateStr;
         });
 
-        // Normalize dates to YYYY-MM-DD format for comparison
-        const normalizeDate = (dateStr: string) => {
-          if (!dateStr) return '';
-          if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr;
-          if (/^\d{2}\/\d{2}\/\d{4}$/.test(dateStr)) {
-            const [month, day, year] = dateStr.split('/');
-            return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
-          }
-          return dateStr;
-        };
-
         const normalizedDeliveryDate = TimeUtils.fromAny(newDelivery.deliveryDate).toISODate();
         const normalizedEndDate = TimeUtils.fromAny(newDelivery.repeatsEndDate || '').toISODate();
 
