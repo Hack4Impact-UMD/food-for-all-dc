@@ -68,15 +68,17 @@ export const getNextMonthlyDate = (originalDate: Date, currentDate: Date, target
   return nextDate.toJSDate();
 };
 
-export const calculateRecurrenceDates = (newDelivery: NewDelivery): Date[] => {
+export const calculateRecurrenceDates = (newDelivery: NewDelivery): string[] => {
   const deliveryDateTime = TimeUtils.fromAny(newDelivery.deliveryDate);
   const endDateTime = newDelivery.repeatsEndDate ? TimeUtils.fromAny(newDelivery.repeatsEndDate) : undefined;
-  
+
+  // Get recurrence dates as DateTime[]
   const recurrenceDates = Time.Recurrence.calculateRecurrenceDates(
     deliveryDateTime,
     newDelivery.recurrence,
     endDateTime
   );
-  
-  return recurrenceDates.map(dt => dt.toJSDate());
+
+  // Return as local date strings (YYYY-MM-DD)
+  return recurrenceDates.map(dt => TimeUtils.toDateString(dt));
 };

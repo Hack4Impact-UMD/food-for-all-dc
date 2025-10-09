@@ -2,7 +2,7 @@ import { DayPilot } from "@daypilot/daypilot-lite-react";
 import { DateTime } from "luxon";
 import { TimeUtils } from "../../../utils/timeUtils";
 import DeliveryService from "../../../services/delivery-service";
-import { toDayPilotDateString } from '../../../utils/timestamp';
+import { toJSDate } from '../../../utils/timestamp';
 import { ViewType, DeliveryEvent } from "../../../types/calendar-types";
 import { ClientProfile } from "../../../types/client-types";
 
@@ -69,8 +69,8 @@ export async function getEventsByViewType({
   const formattedEvents = updatedEvents.map(event => ({
     id: event.id,
     text: `Client: ${event.clientName} (Driver: ${event.assignedDriverName})`,
-    start: new DayPilot.Date(toDayPilotDateString(event.deliveryDate)),
-    end: new DayPilot.Date(toDayPilotDateString(event.deliveryDate)),
+  start: new DayPilot.Date(toJSDate(event.deliveryDate)),
+  end: new DayPilot.Date(toJSDate(event.deliveryDate)),
     backColor: "#257E68",
   }));
 

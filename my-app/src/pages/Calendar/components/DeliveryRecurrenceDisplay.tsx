@@ -17,7 +17,7 @@ function parseLocalDateString(dateStr: string): Date {
   // Handle YYYY-MM-DD format
   if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
     const [year, month, day] = dateStr.split('-').map(Number);
-    return new Date(year, month - 1, day);
+    return new Date(year, month - 1, day, 12, 0, 0); // Local noon
   }
   
   // Try parsing as regular date string

@@ -1,5 +1,8 @@
-
 import React, { useEffect, useRef, useState, useMemo, useCallback } from "react";
+import Drawer from "@mui/material/Drawer";
+import Toolbar from "@mui/material/Toolbar";
+import IconButton from "@mui/material/IconButton";
+import MenuRoundedIcon from "@mui/icons-material/MenuRounded";
 import { DayPilot } from "@daypilot/daypilot-lite-react";
 import { AppBar, Box, styled, Typography } from "@mui/material";
 import { Time, TimeUtils } from "../../utils/timeUtils";
@@ -11,7 +14,7 @@ import { db } from "../../auth/firebaseConfig";
 function setToNoon(date: any) {
   let jsDate;
   if (typeof date === 'string') {
-    jsDate = new Date(date);
+    jsDate = toJSDate(date);
   } else if (date instanceof Date) {
     jsDate = new Date(date.getTime());
   } else if (date && typeof date.toDate === 'function') {
@@ -19,7 +22,7 @@ function setToNoon(date: any) {
   } else if (date && typeof date.toJSDate === 'function') {
     jsDate = new Date(date.toJSDate().getTime());
   } else {
-    jsDate = new Date(date);
+    jsDate = toJSDate(date);
   }
   jsDate.setHours(12, 0, 0, 0);
   return jsDate;
@@ -86,6 +89,9 @@ const CalendarContent = styled(Box)(({ theme }) => ({
 }));
 
 const CalendarPage: React.FC = React.memo(() => {
+  // Drawer state and width
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const drawerWidth = 240; // Match Clients page drawer width
   // Use a ref to track render count without causing re-renders
   const renderCount = useRef(0);
   renderCount.current += 1;
@@ -127,6 +133,19 @@ const CalendarPage: React.FC = React.memo(() => {
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [clients, setClients] = useState<ClientProfile[]>([]);
+  const [clientsLoaded, setClientsLoaded] = useState<boolean>(false);
+  // Preload all clients from client-profile2 when Add Delivery is triggered
+  const preloadAllClients = useCallback(async () => {
+    if (!clientsLoaded) {
+      try {
+        const { clients: allClients } = await clientService.getAllClients(3000);
+        setClients(allClients);
+        setClientsLoaded(true);
+      } catch (error) {
+        console.error("Error preloading clients:", error);
+      }
+    }
+  }, [clientsLoaded]);
   const [dailyLimits, setDailyLimits] = useState<DateLimit[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true); // Start as loading
   const [isInitialLoad, setIsInitialLoad] = useState<boolean>(true);
@@ -150,11 +169,16 @@ const CalendarPage: React.FC = React.memo(() => {
   const eventsWithClientNames = useMemo(() => {
     return events.map(event => {
       const client = clientLookupMap.get(event.clientId);
-      if (client && !event.clientName) {
+      if (client) {
         const fullName = `${client.firstName} ${client.lastName}`.trim();
         return {
           ...event,
-          clientName: fullName
+          clientName: fullName,
+          phone: client.phone,
+          address: client.address,
+          deliveryDetails: client.deliveryDetails,
+          tags: client.tags,
+          notes: client.notes,
         };
       }
       return event;
@@ -192,13 +216,11 @@ const CalendarPage: React.FC = React.memo(() => {
 
   const fetchDrivers = async () => {
     try {
-      // Use DriverService instead of direct Firebase calls
       const driverService = DriverService.getInstance();
       const driverList = await driverService.getAllDrivers();
-      // Cast to appropriate type to avoid type mismatch
       setDrivers(driverList);
     } catch (error) {
-      console.error("❌ [DRIVERS] Error fetching drivers:", error);
+      console.error("Error fetching drivers:", error);
     }
   };
 
@@ -206,67 +228,36 @@ const CalendarPage: React.FC = React.memo(() => {
 
   const fetchClientsLazy = useCallback(async (clientIds: string[]) => {
     const uncachedIds = clientIds.filter(id => !clientCacheRef.current.has(id));
-    
-    // Fetch any clients that aren't cached yet
     if (uncachedIds.length > 0) {
       try {
-        // Try the new client-profile2 collection first
-        let clientsData = await clientService.getClientsByIds(uncachedIds);
-        
-        // If no clients found in client-profile2, try the old clients collection
-        // This handles data migration where events may reference old client IDs
-        if (clientsData.length === 0) {
-          try {
-            const clientsCollectionRef = collection(db, "clients");
-            const oldClientsPromises = uncachedIds.map(async (id) => {
-              const clientDoc = await getDoc(doc(clientsCollectionRef, id));
-              if (clientDoc.exists()) {
-                const data = clientDoc.data();
-                return {
-                  uid: clientDoc.id,
-                  firstName: data.firstName || '',
-                  lastName: data.lastName || '',
-                  phone: data.phone || '',
-                  address: data.address || '',
-                  tags: data.tags || [],
-                  notes: data.notes || '',
-                  deliveryDetails: data.deliveryDetails || { dietaryRestrictions: {} }
-                } as ClientProfile;
-              }
-              return null;
-            });
-            const oldClientsResults = await Promise.all(oldClientsPromises);
-            clientsData = oldClientsResults.filter(Boolean) as ClientProfile[];
-          } catch (oldError) {
-            console.error("❌ [CLIENTS] Error fetching from old clients collection:", oldError);
-          }
-        }
-        
+        const clientsData = await clientService.getClientsByIds(uncachedIds);
         clientsData.forEach(client => {
           if (client.uid) {
             clientCacheRef.current.set(client.uid, client);
           }
         });
       } catch (error) {
-        console.error("❌ [CLIENTS] Error fetching clients:", error);
+        console.error("Error fetching clients:", error);
         return [];
       }
     }
-
-    // Return only the requested clients (both newly fetched and previously cached)
-    const requestedClients = clientIds.map(id => clientCacheRef.current.get(id)).filter(Boolean) as ClientProfile[];
-    setClients(requestedClients);
+    const requestedClients = clientIds.map(id => clientCacheRef.current.get(id)).filter(Boolean);
+    setClients(prev => {
+      const isClient = (c: unknown): c is ClientProfile => !!c && typeof c === 'object' && 'uid' in c;
+      const prevMap = new Map(prev.filter(isClient).map(c => [c.uid, c]));
+      requestedClients.filter(isClient).forEach(c => prevMap.set(c.uid, c));
+      return Array.from(prevMap.values());
+    });
     return requestedClients;
   }, []);
 
   const fetchLimits = async () => {
     try {
-      // Use DeliveryService instead of direct Firebase calls
       const deliveryService = DeliveryService.getInstance();
       const limitsData = await deliveryService.getDailyLimits();
       setDailyLimits(limitsData);
     } catch (error) {
-      console.error("❌ [LIMITS] Error fetching limits:", error);
+      console.error("Error fetching daily limits:", error);
     }
   };
 
@@ -343,7 +334,7 @@ const CalendarPage: React.FC = React.memo(() => {
         // Create efficient lookup map from the clients we just fetched
         const eventClientLookupMap = new Map();
         neededClients.forEach(client => {
-          if (client.uid) {
+          if (client && client.uid) {
             eventClientLookupMap.set(client.uid, client);
           }
         });
@@ -372,8 +363,8 @@ const CalendarPage: React.FC = React.memo(() => {
           id: event.id,
           // Removed date from display text
           text: `Client: ${event.clientName} (Driver: ${event.assignedDriverName})`,
-          start: new DayPilot.Date(toDayPilotDateString(event.deliveryDate)),
-          end: new DayPilot.Date(toDayPilotDateString(event.deliveryDate)),
+          start: new DayPilot.Date(toJSDate(event.deliveryDate)),
+          end: new DayPilot.Date(toJSDate(event.deliveryDate)),
           backColor: "#257E68",
         }));
 
@@ -387,32 +378,38 @@ const CalendarPage: React.FC = React.memo(() => {
 
         return updatedEvents;
     } catch (error) {
-      console.error("❌ [EVENTS] Error fetching events:", error);
+      console.error("Error fetching events:", error);
       return [];
     }
   }, [currentDate, viewType, fetchClientsLazy]);  // Removed clientLookupMap and clients.length as they're no longer needed
 
   const handleAddDelivery = async (newDelivery: NewDelivery) => {
     try {
-      let recurrenceDates: Date[] = [];
-
-
-      //create unique id for each recurrence group. All events for this recurrence will have the same id
+      let recurrenceDates: string[] = [];
       const recurrenceId = crypto.randomUUID();
+      // Find the selected client profile
+      const selectedClient = clients.find(c => c.uid === newDelivery.clientId);
+      const clientName = selectedClient ? `${selectedClient.firstName} ${selectedClient.lastName}`.trim() : newDelivery.clientName || "";
+
       if (newDelivery.recurrence === "Custom") {
-        // Use customDates directly if recurrence is Custom
-        // Ensure customDates exist and map string dates back to Date objects
-        recurrenceDates = newDelivery.customDates?.map(dateStr => {
-          // Use TimeUtils for proper timezone handling
-          return setToNoon(TimeUtils.fromISO(dateStr).toJSDate());
-        }) || [];
-        // Clear repeatsEndDate explicitly for custom recurrence in the submitted data
+        recurrenceDates = (newDelivery.customDates || [])
+          .map(date => {
+            if (typeof date === 'object' && date !== null && 'getTime' in date) {
+              // It's a Date object
+              const iso = DateTime.fromJSDate(date as Date).toISODate();
+              return iso ? iso : "";
+            }
+            return "";
+          })
+          .filter((d): d is string => !!d);
         newDelivery.repeatsEndDate = undefined;
       } else {
-        // Calculate recurrence dates for standard recurrence types
-        const deliveryDate = setToNoon(TimeUtils.fromISO(newDelivery.deliveryDate).toJSDate());
-        recurrenceDates =
-          newDelivery.recurrence === "None" ? [deliveryDate] : calculateRecurrenceDates(newDelivery).map(setToNoon);
+        const normalizedDate = TimeUtils.fromAny(newDelivery.deliveryDate).toISODate() || "";
+        if (newDelivery.recurrence === "None") {
+          recurrenceDates = [normalizedDate];
+        } else {
+          recurrenceDates = calculateRecurrenceDates(newDelivery);
+        }
       }
 
       // Filter out dates that already have a delivery for the same client
@@ -426,45 +423,43 @@ const CalendarPage: React.FC = React.memo(() => {
       );
 
       const uniqueRecurrenceDates = recurrenceDates.filter(date => 
-        !existingEventDates.has(new DayPilot.Date(date).toString("yyyy-MM-dd"))
+        !existingEventDates.has(date)
       );
 
-      if (uniqueRecurrenceDates.length < recurrenceDates.length) {
-        console.warn("Some duplicate delivery dates were detected and skipped.");
-      }
-
-      // Use DeliveryService to create events for unique dates only
       const deliveryService = DeliveryService.getInstance();
-      const seriesStartDate = newDelivery.deliveryDate; // Saves the original start date
+      const seriesStartDate = newDelivery.deliveryDate;
 
-      const createPromises = uniqueRecurrenceDates.map(date => {
+      const createPromises = uniqueRecurrenceDates.map(dateStr => {
+        // Convert dateStr (YYYY-MM-DD) to JS Date at noon local time
+        let deliveryDateObj;
+        if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+          const [year, month, day] = dateStr.split('-');
+          deliveryDateObj = new Date(Number(year), Number(month) - 1, Number(day), 12, 0, 0, 0);
+        } else {
+          deliveryDateObj = new Date(dateStr);
+        }
         const eventToAdd: Partial<DeliveryEvent> = {
           clientId: newDelivery.clientId,
-          clientName: newDelivery.clientName,
-          deliveryDate: date, // Use the calculated/provided recurrence date
+          clientName,
+          deliveryDate: deliveryDateObj,
           recurrence: newDelivery.recurrence,
-          seriesStartDate: seriesStartDate, 
+          seriesStartDate,
           time: "",
           cluster: 0,
-          recurrenceId: recurrenceId,
+          recurrenceId,
         };
-
-        // Add customDates array if recurrence is Custom
         if (newDelivery.recurrence === "Custom") {
           eventToAdd.customDates = newDelivery.customDates;
         } else if (newDelivery.repeatsEndDate) {
           eventToAdd.repeatsEndDate = newDelivery.repeatsEndDate;
         }
-
         return deliveryService.createEvent(eventToAdd);
       });
-
       await Promise.all(createPromises);
 
       // Refresh events after adding
       await fetchEvents();
       
-      // Close the modal after successful addition
       setIsModalOpen(false);
     } catch (error) {
       console.error("Error adding delivery:", error);
@@ -589,86 +584,132 @@ const CalendarPage: React.FC = React.memo(() => {
 
   return (
     <RecurringDeliveryProvider>
-      <Box
-        sx={{
-          display: "flex",
-          flexDirection: "column",
-          height: "calc(100vh - 30px)",
-          width: "100vw",
-          overflow: "hidden",
-          position: "fixed",
-          top: "64px",
-          left: 0,
-          zIndex: 1000,
-        }}
-      >
-      {isLoading ? (
-        <CalendarHeaderSkeleton />
-      ) : (
-        <AppBar position="static" color="default" elevation={1}></AppBar>
-      )}
-
-      <Box
-        component="main"
-        sx={{
-          flexGrow: 1,
-          overflow: "hidden",
-          width: "100%",
-        }}
-      >
-        {!isLoading && (
-          <CalendarHeader 
-          viewType={viewType}
-          currentDate={currentDate}
-          setCurrentDate={updateCurrentDate}
-          onViewTypeChange={setViewType}
-          onNavigatePrev={handleNavigatePrev}
-          onNavigateToday={handleNavigateToday}
-          onNavigateNext={handleNavigateNext}
-          onAddDelivery={() => setIsModalOpen(true)}
-          onEditLimits={viewType === "Month" ? 
-            (event) => setAnchorEl(anchorEl ? null : event.currentTarget) : 
-            undefined
-          }
-        />
+      <Box sx={{ display: "flex", height: "100vh", width: "100vw" }}>
+        {drawerOpen && (
+          <Drawer
+            sx={{
+              width: drawerWidth,
+              flexShrink: 0,
+              '& .MuiDrawer-paper': {
+                width: drawerWidth,
+                boxSizing: 'border-box',
+              },
+            }}
+            variant="persistent"
+            anchor="left"
+            open={drawerOpen}
+          >
+            <Toolbar>
+              <IconButton onClick={() => setDrawerOpen(false)}>
+                <MenuRoundedIcon />
+              </IconButton>
+              {/* Add drawer content here if needed */}
+              <Box sx={{ width: '100%', mt: 2, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                <a
+                  href="https://docs.google.com/document/d/1cHri2wCaWSghYgxS-Kknjv5ZB26JuuAfzd85ayXLWbM/edit?tab=t.0"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ textDecoration: 'none', width: '100%' }}
+                >
+                  <Box
+                    sx={{
+                      width: '90%',
+                      bgcolor: '#257E68',
+                      color: 'white',
+                      borderRadius: 2,
+                      p: 1.5,
+                      textAlign: 'center',
+                      fontWeight: 600,
+                      fontSize: '1rem',
+                      boxShadow: 1,
+                      cursor: 'pointer',
+                      mt: 1,
+                      '&:hover': { bgcolor: '#1a5c4a' }
+                    }}
+                  >
+                    Documentation
+                  </Box>
+                </a>
+              </Box>
+            </Toolbar>
+          </Drawer>
         )}
-
-        <StyledCalendarContainer 
-          data-view={viewType}
-          sx={{ 
-            paddingBottom: viewType === "Month" ? 8 : 1,
-            transform: monthHasSixOrMoreRows ? "scale(0.95)" : "scale(1)",
-            transformOrigin: "top center"
+        <Box
+          sx={{
+            flexGrow: 1,
+            transition: 'margin 0.3s',
+            marginLeft: drawerOpen ? `${drawerWidth}px` : 0,
+            display: 'flex',
+            flexDirection: 'column',
+            height: '100vh',
+            overflow: 'hidden',
+            alignItems: 'center',
+          }}
+        >
+          {isLoading ? (
+            <CalendarHeaderSkeleton />
+          ) : (
+            <AppBar position="static" color="default" elevation={1}></AppBar>
+          )}
+          <Box component="main" sx={{
+            flexGrow: 1,
+            overflow: "hidden",
+            width: "95vw",
+            maxWidth: "95vw",
+            marginLeft: drawerOpen ? `${drawerWidth}px` : "2.5vw",
+            marginRight: drawerOpen ? "0" : "2.5vw",
+            boxSizing: "border-box",
           }}>
-          <CalendarContent>
-            {renderCalendarView()}
-          </CalendarContent>
-        </StyledCalendarContainer>
-
-        {!isLoading && (
-          <>
-            <span ref={containerRef} style={{ zIndex: 1100, position: 'relative' }}>
-              <CalendarPopper
-                anchorEl={anchorEl}
+            {!isLoading && (
+              <CalendarHeader
                 viewType={viewType}
-                calendarConfig={calendarConfig}
-                dailyLimits={dailyLimits}
-                setDailyLimits={setDailyLimits}
-                fetchDailyLimits={fetchLimits}
+                currentDate={currentDate}
+                setCurrentDate={updateCurrentDate}
+                onViewTypeChange={setViewType}
+                onNavigatePrev={handleNavigatePrev}
+                onNavigateToday={handleNavigateToday}
+                onNavigateNext={handleNavigateNext}
+                onAddDelivery={async () => {
+                  await preloadAllClients();
+                  setIsModalOpen(true);
+                }}
+                onEditLimits={viewType === "Month" ? (event) => setAnchorEl(anchorEl ? null : event.currentTarget) : undefined}
               />
-            </span>
-
-            <AddDeliveryDialog
-              open={isModalOpen}
-              onClose={() => setIsModalOpen(false)}
-              onAddDelivery={handleAddDelivery}
-              clients={clients}
-              startDate={currentDate}
-            />
-          </>
-        )}
+            )}
+            <StyledCalendarContainer
+              data-view={viewType}
+              sx={{
+                paddingBottom: viewType === "Month" ? 8 : 1,
+                transform: monthHasSixOrMoreRows ? "scale(0.95)" : "scale(1)",
+                transformOrigin: "top center",
+              }}
+            >
+              <CalendarContent>{renderCalendarView()}</CalendarContent>
+            </StyledCalendarContainer>
+            {!isLoading && (
+              <>
+                <span ref={containerRef} style={{ zIndex: 1100, position: "relative" }}>
+                  <CalendarPopper
+                    anchorEl={anchorEl}
+                    viewType={viewType}
+                    calendarConfig={calendarConfig}
+                    dailyLimits={dailyLimits}
+                    setDailyLimits={setDailyLimits}
+                    fetchDailyLimits={fetchLimits}
+                  />
+                </span>
+                <AddDeliveryDialog
+                  open={isModalOpen}
+                  onClose={() => setIsModalOpen(false)}
+                  onAddDelivery={handleAddDelivery}
+                  clients={clients}
+                  startDate={currentDate}
+                />
+              </>
+            )}
+          </Box>
+        </Box>
       </Box>
-    </Box>
     </RecurringDeliveryProvider>
   );
 });

@@ -1421,17 +1421,27 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
 function setToNoon(date: any) {
   let jsDate;
   if (typeof date === 'string') {
-    jsDate = new Date(date);
+    // Parse YYYY-MM-DD as local date, not UTC
+    const parts = date.split('-');
+    if (parts.length === 3) {
+      jsDate = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]), 12, 0, 0, 0);
+    } else {
+      jsDate = new Date(date);
+      jsDate.setHours(12, 0, 0, 0);
+    }
   } else if (date instanceof Date) {
     jsDate = new Date(date.getTime());
+    jsDate.setHours(12, 0, 0, 0);
   } else if (date && typeof date.toDate === 'function') {
     jsDate = new Date(date.toDate().getTime());
+    jsDate.setHours(12, 0, 0, 0);
   } else if (date && typeof date.toJSDate === 'function') {
     jsDate = new Date(date.toJSDate().getTime());
+    jsDate.setHours(12, 0, 0, 0);
   } else {
     jsDate = new Date(date);
+    jsDate.setHours(12, 0, 0, 0);
   }
-  jsDate.setHours(12, 0, 0, 0);
   return jsDate;
 }
 
@@ -2449,20 +2459,13 @@ const handleMentalHealthConditionsChange = (e: React.ChangeEvent<HTMLInputElemen
 
 
     const handleAddDelivery = async (newDelivery: NewDelivery) => {
-      console.log("=== ADDING DELIVERY ===", {
-        recurrence: newDelivery.recurrence,
-        deliveryDate: newDelivery.deliveryDate,
-        repeatsEndDate: newDelivery.repeatsEndDate,
-        clientId: newDelivery.clientId
-      });
       
       // Prevent concurrent calls
       if (isProcessingDelivery) {
-        console.log("Already processing - ignoring duplicate call");
         return;
       }
       
-      setIsProcessingDelivery(true);
+  setIsProcessingDelivery(true);
       
       try {
         // 1. GET EXISTING DELIVERIES FROM DATABASE
@@ -2479,7 +2482,7 @@ const handleMentalHealthConditionsChange = (e: React.ChangeEvent<HTMLInputElemen
           existingDeliveries.map(event => new DayPilot.Date(toJSDate(event.deliveryDate)).toString("yyyy-MM-dd"))
         );
         
-        console.log("Existing delivery dates:", Array.from(existingDates));
+  // ...existing code...
         
         // 2. CALCULATE ALL DATES FOR THIS DELIVERY SERIES
         let allDates: Date[] = [];
@@ -2492,71 +2495,62 @@ const handleMentalHealthConditionsChange = (e: React.ChangeEvent<HTMLInputElemen
           allDates = newDelivery.recurrence === "None" ? [deliveryDate] : calculateRecurrenceDates(newDelivery).map(setToNoon);
         }
         
-        console.log("All calculated dates:", allDates.map(d => d.toISOString().split('T')[0]));
+  // ...existing code...
         
         // 3. CHECK IF THIS IS ACTUALLY CHANGING AN END DATE (not just adding deliveries with an end date)
         // Only delete if the new end date is DIFFERENT from what already exists
         if (newDelivery.repeatsEndDate && existingDeliveries.length > 0) {
+          // ...existing code...
           // Get existing end dates from the database
           const existingEndDates = [...new Set(existingDeliveries
             .filter(d => d.repeatsEndDate)
             .map(d => d.repeatsEndDate))];
           
-          console.log("Existing end dates in database:", existingEndDates);
-          console.log("New end date from modal:", newDelivery.repeatsEndDate);
+          // ...existing code...
           
           // Only delete if we're changing to a DIFFERENT end date
           const isDifferentEndDate = existingEndDates.length > 0 && 
                                      !existingEndDates.includes(newDelivery.repeatsEndDate);
           
           if (isDifferentEndDate) {
-            console.log("DIFFERENT END DATE DETECTED - Will delete future deliveries past new end date");
+            // ...existing code...
             const deletePromises: Promise<any>[] = [];
             
             // CONVERT NEW END DATE TO YYYY-MM-DD FORMAT FOR PROPER COMPARISON
             const newEndDateFormatted = new Date(newDelivery.repeatsEndDate).toISOString().split('T')[0];
             const today = new Date().toISOString().split('T')[0];
             
-            console.log(`Converted end date for comparison: ${newEndDateFormatted}`);
+            // ...existing code...
             
             for (const event of existingDeliveries) {
               const eventDateStr = new DayPilot.Date(toJSDate(event.deliveryDate)).toString("yyyy-MM-dd");
               const isAfterEndDate = eventDateStr > newEndDateFormatted;
               const isFutureDate = eventDateStr >= today;
               
-              console.log(`Checking delivery ${eventDateStr}:`);
-              console.log(`  - After end date ${newEndDateFormatted}: ${isAfterEndDate}`);
-              console.log(`  - Is future date: ${isFutureDate}`);
-              console.log(`  - Will delete: ${isAfterEndDate && isFutureDate}`);
+              // ...existing code...
               
               if (isAfterEndDate && isFutureDate) {
-                console.log(`✓ DELETING delivery ${eventDateStr} (after new end date ${newEndDateFormatted})`);
+                // ...existing code...
                 deletePromises.push(deleteDoc(doc(eventsRef, event.id)));
               } else {
-                console.log(`✗ KEEPING delivery ${eventDateStr}`);
+                // ...existing code...
               }
             }
             
             if (deletePromises.length > 0) {
               await Promise.all(deletePromises);
-              console.log(`Deleted ${deletePromises.length} future deliveries past new end date`);
             }
           } else {
-            console.log("SAME END DATE - No deletions needed, just adding new deliveries");
+            // ...existing code...
           }
         } else {
-          console.log("No end date or no existing deliveries - No deletions needed");
+          // ...existing code...
         }        // 4. SKIP EXISTING DATES, CREATE NEW DATES
         const newDates = allDates.filter(date => {
           const dateStr = new DayPilot.Date(date).toString("yyyy-MM-dd");
           const exists = existingDates.has(dateStr);
-          if (exists) {
-            console.log(`Skipping existing date: ${dateStr}`);
-          }
           return !exists;
         });
-        
-        console.log(`Creating ${newDates.length} new deliveries, skipping ${allDates.length - newDates.length} existing dates`);
         
         // CREATE NEW DELIVERIES
         if (newDates.length > 0) {
@@ -2571,22 +2565,22 @@ const handleMentalHealthConditionsChange = (e: React.ChangeEvent<HTMLInputElemen
               cluster: 0,
               recurrenceId: recurrenceId,
             };
-    
+
             if (newDelivery.recurrence === "Custom") {
               eventToAdd.customDates = newDelivery.customDates;
             } else if (newDelivery.repeatsEndDate) {
               eventToAdd.repeatsEndDate = newDelivery.repeatsEndDate;
             }
-    
+
+            console.log("=== DEBUG: eventToAdd before createEvent ===", JSON.stringify(eventToAdd, null, 2));
             return deliveryService.createEvent(eventToAdd);
           });
     
           await Promise.all(createPromises);
-          console.log(`Successfully created ${newDates.length} new deliveries`);
         }
   
         // 5. REFRESH DATA AND SET LAST DELIVERY DATE TO MATCH MODAL END DATE
-        await new Promise(resolve => setTimeout(resolve, 300));
+  await new Promise(resolve => setTimeout(resolve, 300));
         
         // Refresh delivery history
         if (clientId) {

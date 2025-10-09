@@ -41,17 +41,20 @@ export class TimeUtils {
       return input;
     }
     if (input instanceof Date) {
-      return TimeUtils.fromJSDate(input);
+      const result = TimeUtils.fromJSDate(input);
+      return result;
     }
     if (input instanceof Timestamp) {
-      return TimeUtils.fromFirebaseTimestamp(input);
+      const result = TimeUtils.fromFirebaseTimestamp(input);
+      return result;
     }
     // Try ISO parsing first, fallback to JS Date parsing
     const isoResult = DateTime.fromISO(input);
     if (isoResult.isValid) {
       return isoResult;
     }
-    return TimeUtils.fromJSDate(new Date(input));
+    const fallback = TimeUtils.fromJSDate(new Date(input));
+    return fallback;
   }
 
   static toDateString(dateTime: DateTime): string {
@@ -242,10 +245,10 @@ export class RecurrenceUtils {
     }
 
     let currentDate = deliveryDate;
-  const interval = recurrence === 'Weekly' ? { weeks: 1 } : 
-          recurrence === '2x-Monthly' ? { weeks: 2 } : 
-          recurrence === 'Monthly' ? { days: 28 } : 
-          { months: 1 };
+    const interval = recurrence === 'Weekly' ? { weeks: 1 } : 
+      recurrence === '2x-Monthly' ? { weeks: 2 } : 
+      recurrence === 'Monthly' ? { days: 28 } : 
+      { months: 1 };
 
     while (currentDate < endDate) {
       currentDate = currentDate.plus(interval);

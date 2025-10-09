@@ -48,17 +48,15 @@ class ClientService {
 
   /**
    * Get a client by their UID
-import { validateClientProfile } from '../utils/firestoreValidation';
    */
   public async getClientById(uid: string): Promise<ClientProfile | null> {
     try {
+      const docRef = doc(this.db, this.clientsCollection, uid);
       const docSnap = await retry(async () => {
-        return await getDoc(doc(this.db, this.clientsCollection, uid));
+        return await getDoc(docRef);
       });
-      // ...existing code...
       if (docSnap.exists()) {
         const data = docSnap.data() as ClientProfile;
-        // ...existing code...
         return validateClientProfile(data) ? data : null;
       }
       return null;
