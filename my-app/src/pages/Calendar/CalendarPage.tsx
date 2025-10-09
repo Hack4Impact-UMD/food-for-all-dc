@@ -142,7 +142,7 @@ const CalendarPage: React.FC = React.memo(() => {
         setClients(allClients);
         setClientsLoaded(true);
       } catch (error) {
-        // Error intentionally ignored
+        console.error("Error preloading clients:", error);
       }
     }
   }, [clientsLoaded]);
@@ -216,13 +216,11 @@ const CalendarPage: React.FC = React.memo(() => {
 
   const fetchDrivers = async () => {
     try {
-      // Use DriverService instead of direct Firebase calls
       const driverService = DriverService.getInstance();
       const driverList = await driverService.getAllDrivers();
-      // Cast to appropriate type to avoid type mismatch
       setDrivers(driverList);
     } catch (error) {
-      // Error intentionally ignored
+      console.error("Error fetching drivers:", error);
     }
   };
 
@@ -230,7 +228,6 @@ const CalendarPage: React.FC = React.memo(() => {
 
   const fetchClientsLazy = useCallback(async (clientIds: string[]) => {
     const uncachedIds = clientIds.filter(id => !clientCacheRef.current.has(id));
-    // Only fetch from client-profile2
     if (uncachedIds.length > 0) {
       try {
         const clientsData = await clientService.getClientsByIds(uncachedIds);
@@ -240,13 +237,12 @@ const CalendarPage: React.FC = React.memo(() => {
           }
         });
       } catch (error) {
+        console.error("Error fetching clients:", error);
         return [];
       }
     }
-    // Return only the requested clients (both newly fetched and previously cached)
     const requestedClients = clientIds.map(id => clientCacheRef.current.get(id)).filter(Boolean);
     setClients(prev => {
-      // Merge previous clients with new ones, avoiding duplicates
       const isClient = (c: unknown): c is ClientProfile => !!c && typeof c === 'object' && 'uid' in c;
       const prevMap = new Map(prev.filter(isClient).map(c => [c.uid, c]));
       requestedClients.filter(isClient).forEach(c => prevMap.set(c.uid, c));
@@ -257,12 +253,11 @@ const CalendarPage: React.FC = React.memo(() => {
 
   const fetchLimits = async () => {
     try {
-      // Use DeliveryService instead of direct Firebase calls
       const deliveryService = DeliveryService.getInstance();
       const limitsData = await deliveryService.getDailyLimits();
       setDailyLimits(limitsData);
     } catch (error) {
-      // Error intentionally ignored
+      console.error("Error fetching daily limits:", error);
     }
   };
 
@@ -383,6 +378,7 @@ const CalendarPage: React.FC = React.memo(() => {
 
         return updatedEvents;
     } catch (error) {
+      console.error("Error fetching events:", error);
       return [];
     }
   }, [currentDate, viewType, fetchClientsLazy]);  // Removed clientLookupMap and clients.length as they're no longer needed
@@ -464,10 +460,9 @@ const CalendarPage: React.FC = React.memo(() => {
       // Refresh events after adding
       await fetchEvents();
       
-      // Close the modal after successful addition
       setIsModalOpen(false);
     } catch (error) {
-      // Error intentionally ignored
+      console.error("Error adding delivery:", error);
     }
   };
 
