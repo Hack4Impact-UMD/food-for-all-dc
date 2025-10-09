@@ -1,5 +1,9 @@
 
 import React, { useEffect, useRef, useState, useMemo, useCallback } from "react";
+import Drawer from "@mui/material/Drawer";
+import Toolbar from "@mui/material/Toolbar";
+import IconButton from "@mui/material/IconButton";
+import MenuRoundedIcon from "@mui/icons-material/MenuRounded";
 import { DayPilot } from "@daypilot/daypilot-lite-react";
 import { AppBar, Box, styled, Typography } from "@mui/material";
 import { Time, TimeUtils } from "../../utils/timeUtils";
@@ -86,6 +90,9 @@ const CalendarContent = styled(Box)(({ theme }) => ({
 }));
 
 const CalendarPage: React.FC = React.memo(() => {
+  // Drawer state and width
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const drawerWidth = 240; // Match Clients page drawer width
   // Use a ref to track render count without causing re-renders
   const renderCount = useRef(0);
   renderCount.current += 1;
@@ -589,86 +596,102 @@ const CalendarPage: React.FC = React.memo(() => {
 
   return (
     <RecurringDeliveryProvider>
-      <Box
-        sx={{
-          display: "flex",
-          flexDirection: "column",
-          height: "calc(100vh - 30px)",
-          width: "100vw",
-          overflow: "hidden",
-          position: "fixed",
-          top: "64px",
-          left: 0,
-          zIndex: 1000,
-        }}
-      >
-      {isLoading ? (
-        <CalendarHeaderSkeleton />
-      ) : (
-        <AppBar position="static" color="default" elevation={1}></AppBar>
-      )}
-
-      <Box
-        component="main"
-        sx={{
-          flexGrow: 1,
-          overflow: "hidden",
-          width: "100%",
-        }}
-      >
-        {!isLoading && (
-          <CalendarHeader 
-          viewType={viewType}
-          currentDate={currentDate}
-          setCurrentDate={updateCurrentDate}
-          onViewTypeChange={setViewType}
-          onNavigatePrev={handleNavigatePrev}
-          onNavigateToday={handleNavigateToday}
-          onNavigateNext={handleNavigateNext}
-          onAddDelivery={() => setIsModalOpen(true)}
-          onEditLimits={viewType === "Month" ? 
-            (event) => setAnchorEl(anchorEl ? null : event.currentTarget) : 
-            undefined
-          }
-        />
+      <Box sx={{ display: "flex", height: "100vh", width: "100vw" }}>
+        {drawerOpen && (
+          <Drawer
+            sx={{
+              width: drawerWidth,
+              flexShrink: 0,
+              '& .MuiDrawer-paper': {
+                width: drawerWidth,
+                boxSizing: 'border-box',
+              },
+            }}
+            variant="persistent"
+            anchor="left"
+            open={drawerOpen}
+          >
+            <Toolbar>
+              <IconButton onClick={() => setDrawerOpen(false)}>
+                <MenuRoundedIcon />
+              </IconButton>
+              {/* Add drawer content here if needed */}
+            </Toolbar>
+          </Drawer>
         )}
-
-        <StyledCalendarContainer 
-          data-view={viewType}
-          sx={{ 
-            paddingBottom: viewType === "Month" ? 8 : 1,
-            transform: monthHasSixOrMoreRows ? "scale(0.95)" : "scale(1)",
-            transformOrigin: "top center"
+        <Box
+          sx={{
+            flexGrow: 1,
+            transition: 'margin 0.3s',
+            marginLeft: drawerOpen ? `${drawerWidth}px` : 0,
+            display: 'flex',
+            flexDirection: 'column',
+            height: '100vh',
+            overflow: 'hidden',
+            alignItems: 'center',
+          }}
+        >
+          {isLoading ? (
+            <CalendarHeaderSkeleton />
+          ) : (
+            <AppBar position="static" color="default" elevation={1}></AppBar>
+          )}
+          <Box component="main" sx={{
+            flexGrow: 1,
+            overflow: "hidden",
+            width: "95vw",
+            maxWidth: "95vw",
+            marginLeft: drawerOpen ? `${drawerWidth}px` : "2.5vw",
+            marginRight: drawerOpen ? "0" : "2.5vw",
+            boxSizing: "border-box",
           }}>
-          <CalendarContent>
-            {renderCalendarView()}
-          </CalendarContent>
-        </StyledCalendarContainer>
-
-        {!isLoading && (
-          <>
-            <span ref={containerRef} style={{ zIndex: 1100, position: 'relative' }}>
-              <CalendarPopper
-                anchorEl={anchorEl}
+            {!isLoading && (
+              <CalendarHeader
                 viewType={viewType}
-                calendarConfig={calendarConfig}
-                dailyLimits={dailyLimits}
-                setDailyLimits={setDailyLimits}
-                fetchDailyLimits={fetchLimits}
+                currentDate={currentDate}
+                setCurrentDate={updateCurrentDate}
+                onViewTypeChange={setViewType}
+                onNavigatePrev={handleNavigatePrev}
+                onNavigateToday={handleNavigateToday}
+                onNavigateNext={handleNavigateNext}
+                onAddDelivery={() => setIsModalOpen(true)}
+                onEditLimits={viewType === "Month" ? (event) => setAnchorEl(anchorEl ? null : event.currentTarget) : undefined}
               />
-            </span>
-
-            <AddDeliveryDialog
-              open={isModalOpen}
-              onClose={() => setIsModalOpen(false)}
-              onAddDelivery={handleAddDelivery}
-              clients={clients}
-              startDate={currentDate}
-            />
-          </>
-        )}
+            )}
+            <StyledCalendarContainer
+              data-view={viewType}
+              sx={{
+                paddingBottom: viewType === "Month" ? 8 : 1,
+                transform: monthHasSixOrMoreRows ? "scale(0.95)" : "scale(1)",
+                transformOrigin: "top center",
+              }}
+            >
+              <CalendarContent>{renderCalendarView()}</CalendarContent>
+            </StyledCalendarContainer>
+            {!isLoading && (
+              <>
+                <span ref={containerRef} style={{ zIndex: 1100, position: "relative" }}>
+                  <CalendarPopper
+                    anchorEl={anchorEl}
+                    viewType={viewType}
+                    calendarConfig={calendarConfig}
+                    dailyLimits={dailyLimits}
+                    setDailyLimits={setDailyLimits}
+                    fetchDailyLimits={fetchLimits}
+                  />
+                </span>
+                <AddDeliveryDialog
+                  open={isModalOpen}
+                  onClose={() => setIsModalOpen(false)}
+                  onAddDelivery={handleAddDelivery}
+                  clients={clients}
+                  startDate={currentDate}
+                />
+              </>
+            )}
+          </Box>
+        </Box>
       </Box>
-    </Box>
     </RecurringDeliveryProvider>
   );
 });
