@@ -462,8 +462,8 @@ const Spreadsheet: React.FC = () => {
       {/* Dietary Restrictions Color Legend */}
       <DietaryRestrictionsLegend />
       
-      {/* TableVirtuoso for desktop/table view only */}
-  <Box className="table-container" sx={{ mt: 3, mb: 3, width: "100%", flex: 1, minHeight: 0 }}>
+    {/* TableVirtuoso for desktop/table view only */}
+  <Box className="table-container" sx={{ mt: 1, mb: 0, width: "100%", flex: 1, minHeight: 0, overflow: 'auto' }}>
         {rows.length === 0 ? (
           <TableContainer component={Paper} sx={{ height: '100%', boxShadow: "0 4px 12px rgba(0,0,0,0.05)", borderRadius: "12px", overflow: 'auto', minHeight: 0 }}>
             <Table sx={{ minWidth: 650 }}>

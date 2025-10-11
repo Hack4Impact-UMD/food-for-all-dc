@@ -18,6 +18,7 @@ import { validateDeliveryEvent } from '../utils/firestoreValidation';
 import { Time, TimeUtils } from "../utils/timeUtils";
 import { retry } from '../utils/retry';
 import { ServiceError, formatServiceError } from '../utils/serviceError';
+import dataSources from '../config/dataSources';
 
 /**
  * Delivery Service - Handles all delivery-related operations with Firebase
@@ -25,7 +26,7 @@ import { ServiceError, formatServiceError } from '../utils/serviceError';
 class DeliveryService {
   private static instance: DeliveryService;
   private db = db;
-  private eventsCollection = "events";
+  private eventsCollection = dataSources.firebase.calendarCollection;
   private dailyLimitsCollection = "dailyLimits";
   private limitsCollection = "limits";
   private limitsDocId = "weekly";

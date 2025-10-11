@@ -15,6 +15,7 @@ import { validateAuthUserRow } from '../utils/firestoreValidation';
 import { httpsCallable } from "firebase/functions";
 import { retry } from '../utils/retry';
 import { ServiceError, formatServiceError } from '../utils/serviceError';
+import dataSources from '../config/dataSources';
 
 // Helper to convert Firestore role string to UserType enum
 const mapRoleToUserType = (roleString: string): UserType => {
@@ -33,7 +34,7 @@ const mapRoleToUserType = (roleString: string): UserType => {
 
 export class AuthUserService {
   private static instance: AuthUserService;
-  private collectionRef = collection(db, "users");
+  private collectionRef = collection(db, dataSources.firebase.usersCollection);
   private auth = getAuth(app); // Get Firebase Auth instance
 
   // Private constructor for singleton pattern
@@ -55,7 +56,7 @@ export class AuthUserService {
       return await retry(async () => {
         const querySnapshot = await getDocs(this.collectionRef);
         const users: AuthUserRow[] = [];
-        querySnapshot.forEach((doc) => {
+        querySnapshot.forEach((doc: DocumentData) => {
           const data = { id: doc.id, uid: doc.id, ...doc.data(), role: mapRoleToUserType(doc.data().role) };
           if (validateAuthUserRow(data)) {
             users.push(data);
@@ -63,7 +64,7 @@ export class AuthUserService {
         });
         return users;
       });
-    } catch (error) {
+    } catch (error: unknown) {
       throw formatServiceError(error, 'Failed to fetch users from Firestore');
     }
   }
@@ -79,7 +80,7 @@ export class AuthUserService {
       this.collectionRef,
       (snapshot: QuerySnapshot<DocumentData>) => {
         const users: AuthUserRow[] = [];
-        snapshot.forEach((doc: any) => {
+  snapshot.forEach((doc: DocumentData) => {
           const data = { id: doc.id, uid: doc.id, ...doc.data(), role: mapRoleToUserType(doc.data().role) };
           if (validateAuthUserRow(data)) {
             users.push(data);
@@ -158,7 +159,7 @@ export class AuthUserService {
         console.log(`User created successfully with UID: ${userId}`);
         return userId;
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (currentUser) {
         try {
           await this.auth.updateCurrentUser(currentUser);
@@ -166,12 +167,13 @@ export class AuthUserService {
           console.error("Failed to restore user context after creation error:", restoreError);
         }
       }
-      if (error.code === 'auth/email-already-in-use') {
-        throw formatServiceError(error, "Email already in use. Please use a different email.");
-      } else if (error.code === 'auth/weak-password') {
-        throw formatServiceError(error, "Password is too weak. Please choose a stronger password.");
+      const err = error as Error & { code?: string; message?: string };
+      if (err.code === 'auth/email-already-in-use') {
+        throw formatServiceError(err, "Email already in use. Please use a different email.");
+      } else if (err.code === 'auth/weak-password') {
+        throw formatServiceError(err, "Password is too weak. Please choose a stronger password.");
       }
-      throw formatServiceError(error, "Failed to create user. Please check the details and try again.");
+      throw formatServiceError(err, "Failed to create user. Please check the details and try again.");
     }
   }
 
@@ -187,17 +189,18 @@ export class AuthUserService {
         console.log("Cloud Function deleteUserAccount result:", result.data);
         console.log(`User ${uid} delete initiated successfully via Cloud Function.`);
       });
-    } catch (error: any) {
-      const errorMessage = error.message || "An error occurred while deleting the user account.";
-      const errorCode = error.code || 'unknown';
+    } catch (error: unknown) {
+      const err = error as Error & { code?: string; message?: string };
+      const errorMessage = err.message || "An error occurred while deleting the user account.";
+      const errorCode = err.code || 'unknown';
       if (errorCode === 'functions/permission-denied' || errorCode === 'permission-denied') {
-        throw formatServiceError(error, "You do not have permission to delete this user.");
+        throw formatServiceError(err, "You do not have permission to delete this user.");
       } else if (errorCode === 'functions/not-found' || errorCode === 'not-found') {
-        throw formatServiceError(error, "User not found. They may have already been deleted.");
+        throw formatServiceError(err, "User not found. They may have already been deleted.");
       } else if (errorCode === 'functions/invalid-argument' || errorCode === 'invalid-argument') {
-        throw formatServiceError(error, "Invalid request sent to delete user function.");
+        throw formatServiceError(err, "Invalid request sent to delete user function.");
       }
-      throw formatServiceError(error, `Failed to delete user: ${errorMessage}`);
+      throw formatServiceError(err, `Failed to delete user: ${errorMessage}`);
     }
   }
 }

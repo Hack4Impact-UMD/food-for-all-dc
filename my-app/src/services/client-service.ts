@@ -21,6 +21,7 @@ import {
   startAfter
 } from "firebase/firestore";
 import { validateClientProfile } from '../utils/firestoreValidation';
+import dataSources from '../config/dataSources';
 
 /**
  * Client Service - Handles all client-related operations with Firebase
@@ -29,9 +30,9 @@ import { validateClientProfile } from '../utils/firestoreValidation';
 class ClientService {
   private static instance: ClientService;
   private db = db;
-  private clientsCollection = "client-profile2";
-  private tagsCollection = "tags";
-  private tagsDocId = "oGuiR2dQQeOBXHCkhDeX";
+  private clientsCollection = dataSources.firebase.clientsCollection;
+  private tagsCollection = dataSources.firebase.tagsCollection;
+  private tagsDocId = dataSources.firebase.tagsDocId;
 
   // Private constructor to prevent direct instantiation
   // This is part of the singleton pattern

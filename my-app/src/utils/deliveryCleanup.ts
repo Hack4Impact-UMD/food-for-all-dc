@@ -1,5 +1,6 @@
 import { collection, getDocs, query, where, deleteDoc, doc } from "firebase/firestore";
 import { db } from "../auth/firebaseConfig";
+import dataSources from '../config/dataSources';
 
 export const deleteDeliveriesAfterEndDate = async (clientId: string, newEndDate: string): Promise<void> => {
   if (!clientId || !newEndDate) {
@@ -7,7 +8,7 @@ export const deleteDeliveriesAfterEndDate = async (clientId: string, newEndDate:
     return;
   }
 
-  const eventsRef = collection(db, "events");
+  const eventsRef = collection(db, dataSources.firebase.calendarCollection);
   const q = query(eventsRef, where("clientId", "==", clientId));
   const querySnapshot = await getDocs(q);
 
@@ -21,7 +22,7 @@ export const deleteDeliveriesAfterEndDate = async (clientId: string, newEndDate:
       const deliveryDateStr = deliveryDate.toISOString().split('T')[0];
 
       if (deliveryDateStr > endDateStr) {
-        deletionPromises.push(deleteDoc(doc(db, "events", docSnapshot.id)));
+  deletionPromises.push(deleteDoc(doc(db, dataSources.firebase.calendarCollection, docSnapshot.id)));
       }
     }
   });

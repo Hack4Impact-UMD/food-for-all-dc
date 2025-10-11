@@ -298,8 +298,10 @@ const Profile = () => {
 
   // Memoized preSelectedClient data for AddDeliveryDialog
   const preSelectedClientData = useMemo(() => ({
-    clientId: clientId || "",
-    clientName: `${clientProfile.firstName} ${clientProfile.lastName}`,
+    clientId: clientId || clientProfile.uid || "",
+    clientName: (clientProfile.firstName && clientProfile.lastName)
+      ? `${clientProfile.firstName} ${clientProfile.lastName}`
+      : "",
     clientProfile: {
       ...clientProfile,
       // Override with latest recurring delivery data if available

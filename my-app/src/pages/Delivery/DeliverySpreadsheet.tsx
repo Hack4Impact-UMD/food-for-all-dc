@@ -67,6 +67,7 @@ import { exportDeliveries, exportDoordashDeliveries } from "./RouteExport";
 import Button from "../../components/common/Button";
 import { RowData as DeliveryRowData } from "./types/deliveryTypes";
 import { Driver } from '../../types/calendar-types';
+import dataSources from '../../config/dataSources';
 // ...existing code...
 // Remove top-level hooks for clients
 import { useCustomColumns, allowedPropertyKeys } from "../../hooks/useCustomColumns";
@@ -577,7 +578,7 @@ const DeliverySpreadsheet: React.FC = () => {
           const chunk = clientIds.slice(i, i + chunkSize);
           if (chunk.length === 0) continue;
           const q = query(
-            collection(db, "client-profile2"),
+            collection(db, dataSources.firebase.clientsCollection),
             where("__name__", "in", chunk)
           );
           const snapshot = await getDocs(q);

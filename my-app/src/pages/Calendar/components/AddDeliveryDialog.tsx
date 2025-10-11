@@ -87,7 +87,9 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props: AddDeliveryD
     if (preSelectedClient) {
       return {
         clientId: preSelectedClient.clientId,
-        clientName: preSelectedClient.clientName,
+        clientName: preSelectedClient.clientName || (preSelectedClient.clientProfile.firstName && preSelectedClient.clientProfile.lastName
+          ? `${preSelectedClient.clientProfile.firstName} ${preSelectedClient.clientProfile.lastName}`
+          : ""),
         deliveryDate: "",
         recurrence: (preSelectedClient.clientProfile.recurrence as "None" | "Weekly" | "2x-Monthly" | "Monthly" | "Custom") || "None",
         repeatsEndDate: convertToMMDDYYYY(preSelectedClient.clientProfile.endDate || ""),
