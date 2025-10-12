@@ -184,18 +184,18 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
   const eventsRef = collection(db, dataSources.firebase.calendarCollection);
 
       if (editOption === "This event") {
-        // Only delete and recreate the single event
-        await deleteDoc(doc(eventsRef, event.id));
-        const updatedEventData = {
-          ...event,
-          deliveryDate: new Date(editDeliveryDate),
-          ...(editRecurrence.repeatsEndDate && {
-            repeatsEndDate: editRecurrence.repeatsEndDate,
-          }),
-        };
-        await addDoc(eventsRef, updatedEventData);
+        // Only update the deliveryDate for the single event, set time to noon
+        const newDate = new Date(editDeliveryDate + 'T12:00:00');
+        await updateDoc(doc(eventsRef, event.id), {
+          deliveryDate: newDate
+        });
       } else if (editOption === "This and following events") {
-        // Only update deliveryDate and recurrence fields for all matching events in the series
+        // Changing recurrence type: delete all future events in the series, then create new events for the new recurrence type and dates
+        console.log('[DEBUG] Edit Event: modal values', {
+          editRecurrence,
+          editDeliveryDate,
+          event,
+        });
         const originalEventDoc = await getDoc(doc(eventsRef, event.id));
         const originalEvent = originalEventDoc.data();
         if (!originalEvent) {
@@ -203,23 +203,35 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
           return;
         }
         const originalDeliveryDate = toJSDate(originalEvent.deliveryDate);
+        // Find all future events in the series
         const q = query(
           eventsRef,
-          where("recurrence", "==", event.recurrence),
+          where("recurrenceId", "==", event.recurrenceId),
           where("clientId", "==", event.clientId),
           where("deliveryDate", ">=", originalDeliveryDate)
         );
-        const querySnapshot = await getDocs(q);
-        // Calculate new recurrence dates
+  const querySnapshot = await getDocs(q);
+  // Delete all future events in the series
+  const deleteResults = await Promise.all(querySnapshot.docs.map(docSnap => deleteDoc(docSnap.ref)));
+  console.log('[DEBUG] Deleted future events count:', querySnapshot.docs.length);
+
+        // Calculate new recurrence dates for the new recurrence type
+        console.log('[DEBUG] Calculating recurrence dates with:', {
+          deliveryDate: editDeliveryDate,
+          recurrence: editRecurrence.recurrence,
+          repeatsEndDate: editRecurrence.repeatsEndDate
+        });
         let newRecurrenceDates = calculateRecurrenceDates({
           ...originalEvent,
           ...editRecurrence,
           deliveryDate: editDeliveryDate, // Ensure recurrence starts from new date
         } as any);
+        console.log('[DEBUG] New recurrence dates:', newRecurrenceDates);
         // Ensure the first recurrence date is always the new start date
         if (!newRecurrenceDates.length || newRecurrenceDates[0] !== editDeliveryDate) {
           newRecurrenceDates = [editDeliveryDate, ...newRecurrenceDates];
         }
+        console.log('[DEBUG] New recurrence dates:', newRecurrenceDates);
         const endDate = editRecurrence.repeatsEndDate ? new Date(editRecurrence.repeatsEndDate) : null;
         const filteredRecurrenceDates = newRecurrenceDates.filter(date => {
           if (!endDate) return true;
@@ -227,26 +239,22 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
           const endDateStr = endDate.toISOString().split('T')[0];
           return dateStr <= endDateStr;
         });
-        // Update each event's deliveryDate and recurrence
-        // Sort events by current deliveryDate
-        const sortedDocs = querySnapshot.docs.sort((a, b) => {
-          const aDate = a.data().deliveryDate instanceof Timestamp ? a.data().deliveryDate.toDate() : new Date(a.data().deliveryDate);
-          const bDate = b.data().deliveryDate instanceof Timestamp ? b.data().deliveryDate.toDate() : new Date(b.data().deliveryDate);
-          return aDate.getTime() - bDate.getTime();
-        });
-        // Map each event to the corresponding new recurrence date
-        for (let i = 0; i < sortedDocs.length && i < filteredRecurrenceDates.length; i++) {
-          const eventDoc = sortedDocs[i];
-          // Parse recurrence date string as local date and set time to noon
-          const recurrenceDateStr = newRecurrenceDates[i];
+        // Add new events for each recurrence date
+        for (let i = 0; i < filteredRecurrenceDates.length; i++) {
+          const recurrenceDateStr = filteredRecurrenceDates[i];
+          console.log('[DEBUG] Creating event for recurrence date:', recurrenceDateStr);
           const newDate = new Date(recurrenceDateStr + 'T12:00:00');
-          await updateDoc(eventDoc.ref, {
-            deliveryDate: Timestamp.fromDate(newDate),
+          const docRef = await addDoc(eventsRef, {
+            clientId: event.clientId,
+            clientName: event.clientName,
+            cluster: event.cluster,
+            deliveryDate: newDate,
             recurrence: editRecurrence.recurrence || event.recurrence || "None",
-            ...(editRecurrence.repeatsEndDate && {
-              repeatsEndDate: editRecurrence.repeatsEndDate,
-            }),
+            recurrenceId: event.recurrenceId,
+            repeatsEndDate: editRecurrence.repeatsEndDate || "",
+            time: event.time || ""
           });
+          console.log('[DEBUG] Created event doc ID:', docRef.id);
         }
       }
 
