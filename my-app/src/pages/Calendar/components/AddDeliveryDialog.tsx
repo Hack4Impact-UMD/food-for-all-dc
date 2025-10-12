@@ -164,17 +164,32 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props: AddDeliveryD
       // Accept MM/DD/YYYY or YYYY-MM-DD
       return /^\d{2}\/\d{2}\/\d{4}$/.test(dateStr) || /^\d{4}-\d{2}-\d{2}$/.test(dateStr);
     };
-    if (Boolean(startDateError) || Boolean(endDateError) || Boolean(newDelivery._deliveryDateError) || Boolean(newDelivery._repeatsEndDateError) || Boolean(formError)) {
+    // If any error is present, form is invalid
+    if (
+      Boolean(startDateError) ||
+      Boolean(endDateError) ||
+      Boolean(newDelivery._deliveryDateError) ||
+      Boolean(newDelivery._repeatsEndDateError) ||
+      Boolean(formError)
+    ) {
+      return false;
+    }
+    // If any required field is missing, form is invalid
+    if (!newDelivery.clientName || !newDelivery.deliveryDate) {
       return false;
     }
     if (newDelivery.recurrence === "None") {
       return isValidDateFormat(newDelivery.deliveryDate) && !!newDelivery.clientName;
     }
     if (["Weekly", "2x-Monthly", "Monthly"].includes(newDelivery.recurrence)) {
-      return isValidDateFormat(newDelivery.deliveryDate) && isValidDateFormat(newDelivery.repeatsEndDate || "") && !!newDelivery.clientName;
+      // End date is required for these recurrence types
+      if (!newDelivery.repeatsEndDate) return false;
+      return isValidDateFormat(newDelivery.deliveryDate) && isValidDateFormat(newDelivery.repeatsEndDate) && !!newDelivery.clientName;
     }
     if (newDelivery.recurrence === "Custom") {
-      return customDates.length > 0 && isValidDateFormat(newDelivery.repeatsEndDate || "") && !!newDelivery.clientName;
+      // Custom recurrence requires at least one custom date and an end date
+      if (customDates.length === 0 || !newDelivery.repeatsEndDate) return false;
+      return customDates.length > 0 && isValidDateFormat(newDelivery.repeatsEndDate) && !!newDelivery.clientName;
     }
     return false;
   })();
@@ -624,25 +639,30 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props: AddDeliveryD
         {(newDelivery.recurrence !== "None" && newDelivery.recurrence !== "Custom") || 
          (preSelectedClient && preSelectedClient.clientProfile.endDate) ? (
           <>
-            <DateField
-              label="End Date"
-              value={newDelivery.repeatsEndDate || ""}
-              onChange={(dateStr: string) => {
-                setNewDelivery({
-                  ...newDelivery,
-                  repeatsEndDate: dateStr,
-                });
-              }}
-              required={newDelivery.recurrence !== "None"}
-              error={newDelivery._repeatsEndDateError}
-              setError={(err: string | null) => {
-                setNewDelivery((prev: NewDelivery) => ({
-                  ...prev,
-                  _repeatsEndDateError: err || undefined,
-                }));
-              }}
-            />
-            <Typography sx={{color:"red"}}>{endDateError}</Typography>
+            {/* Only show End Date if recurrence is not None or is Custom with preSelectedClient endDate */}
+            {(newDelivery.recurrence !== "None") ? (
+              <>
+                <DateField
+                  label="End Date"
+                  value={newDelivery.repeatsEndDate || ""}
+                  onChange={(dateStr: string) => {
+                    setNewDelivery({
+                      ...newDelivery,
+                      repeatsEndDate: dateStr,
+                    });
+                  }}
+                  required={String(newDelivery.recurrence) !== "None"}
+                  error={newDelivery._repeatsEndDateError}
+                  setError={(err: string | null) => {
+                    setNewDelivery((prev: NewDelivery) => ({
+                      ...prev,
+                      _repeatsEndDateError: err || undefined,
+                    }));
+                  }}
+                />
+                <Typography sx={{color:"red"}}>{endDateError}</Typography>
+              </>
+            ) : null}
           </>
         ) : null}
       </DialogContent>

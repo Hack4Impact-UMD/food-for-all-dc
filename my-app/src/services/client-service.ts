@@ -356,6 +356,10 @@ class ClientService {
    */
   public async deleteClient(uid: string): Promise<void> {
     try {
+      // Delete all deliveries for this client first
+      const DeliveryService = (await import('./delivery-service')).default.getInstance();
+      await DeliveryService.deleteEventsByClientId(uid);
+      // Now delete the client
       await retry(async () => {
         await deleteDoc(doc(this.db, this.clientsCollection, uid));
       });

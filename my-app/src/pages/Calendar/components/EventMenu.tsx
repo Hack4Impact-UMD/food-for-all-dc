@@ -416,7 +416,17 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
           <Button onClick={() => setIsEditDialogOpen(false)}>
             Cancel
           </Button>
-          <Button onClick={handleEditConfirm} variant="contained" color="primary">
+          <Button
+            onClick={handleEditConfirm}
+            variant="contained"
+            color="primary"
+            disabled={
+              !editDeliveryDate ||
+              (editOption === "This and following events" && editRecurrence.recurrence !== "None" && !editRecurrence.repeatsEndDate) ||
+              Boolean(editDateError) ||
+              (editOption === "This and following events" && editRecurrence.recurrence !== "None" && Boolean(endDateError))
+            }
+          >
             Save
           </Button>
         </DialogActions>
