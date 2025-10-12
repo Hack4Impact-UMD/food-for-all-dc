@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useMemo, Suspense } from "react";
 import { getEventsByViewType } from '../Calendar/components/getEventsByViewType';
+import CircularProgress from "@mui/material/CircularProgress";
 import { DayPilot } from "@daypilot/daypilot-lite-react";
 import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import { db } from "../../auth/firebaseConfig";
+import dataSources from '../../config/dataSources';
 import { useClientData } from "../../context/ClientDataContext";
 import { ClientProfile } from '../../types/client-types';
 
@@ -67,7 +69,7 @@ import { exportDeliveries, exportDoordashDeliveries } from "./RouteExport";
 import Button from "../../components/common/Button";
 import { RowData as DeliveryRowData } from "./types/deliveryTypes";
 import { Driver } from '../../types/calendar-types';
-import dataSources from '../../config/dataSources';
+// ...existing code...
 // ...existing code...
 // Remove top-level hooks for clients
 import { useCustomColumns, allowedPropertyKeys } from "../../hooks/useCustomColumns";
@@ -670,7 +672,7 @@ const DeliverySpreadsheet: React.FC = () => {
         )
       );
 
-      const clustersCollectionRef = collection(db, "clusters");
+  const clustersCollectionRef = collection(db, dataSources.firebase.clustersCollection);
       const q = query(
         clustersCollectionRef,
         where("date", ">=", Timestamp.fromDate(startDate)),
@@ -780,7 +782,7 @@ const DeliverySpreadsheet: React.FC = () => {
     setClusters(updatedClusters);
 
     try {
-      const clusterRef = doc(db, "clusters", clusterDoc.docId);
+  const clusterRef = doc(db, dataSources.firebase.clustersCollection, clusterDoc.docId);
       await updateDoc(clusterRef, { clusters: deduplicateClusters(updatedClusters) });
       console.log(
         `Successfully moved ${row.id} from cluster ${oldClusterId || "none"} to ${newClusterId || "none"}`
@@ -905,7 +907,7 @@ const DeliverySpreadsheet: React.FC = () => {
       setClusters(updatedClusters);
 
       // Update Firebase with cluster changes and client overrides
-      const clusterRef = doc(db, "clusters", clusterDoc.docId);
+  const clusterRef = doc(db, dataSources.firebase.clustersCollection, clusterDoc.docId);
       await updateDoc(clusterRef, { 
         clusters: deduplicateClusters(updatedClusters),
         clientOverrides: updatedOverrides
@@ -1005,7 +1007,7 @@ const DeliverySpreadsheet: React.FC = () => {
 
       setClientOverrides(updatedOverrides);
 
-      const clusterRef = doc(db, "clusters", clusterDoc.docId);
+  const clusterRef = doc(db, dataSources.firebase.clustersCollection, clusterDoc.docId);
       await updateDoc(clusterRef, { 
         clusters: deduplicateClusters(updatedClusters),
         clientOverrides: updatedOverrides
@@ -1089,7 +1091,7 @@ const DeliverySpreadsheet: React.FC = () => {
         setClientOverrides(updatedOverrides);
 
         // Update Firestore using updateDoc
-        const clusterRef = doc(db, "clusters", clusterDoc.docId);
+    const clusterRef = doc(db, dataSources.firebase.clustersCollection, clusterDoc.docId);
         // Only update the 'clusters' field
         await updateDoc(clusterRef, { 
           clusters: deduplicateClusters(updatedClusters),
@@ -1104,7 +1106,7 @@ const DeliverySpreadsheet: React.FC = () => {
   };
 
   const initClustersForDay = async (newClusters: Cluster[]) => {
-    const docRef = doc(collection(db, "clusters"));
+  const docRef = doc(collection(db, dataSources.firebase.clustersCollection));
 
     // Use selectedDate to ensure consistency with fetched data
     const clusterDate = new Date(Date.UTC(
@@ -1342,7 +1344,7 @@ const DeliverySpreadsheet: React.FC = () => {
       const newClusters = await updateClusters(clustersWithClientIds); // Pass the map with client IDs
 
       if (clusterDoc) {
-        const clusterRef = doc(db, "clusters", clusterDoc.docId);
+  const clusterRef = doc(db, dataSources.firebase.clustersCollection, clusterDoc.docId);
         await updateDoc(clusterRef, { 
           clusters: newClusters,
           clientOverrides: clientOverrides
@@ -1880,7 +1882,36 @@ const DeliverySpreadsheet: React.FC = () => {
           assignedClusterId = cluster.id;
         }
       });
-      return { ...client, clusterId: assignedClusterId };
+
+      // Find the latest delivery event for this client
+      let lastDeliveryDate = '';
+      if (Array.isArray(deliveriesForDate) && deliveriesForDate.length > 0) {
+        // Find all events for this client
+        const clientDeliveries = deliveriesForDate.filter(ev => ev.clientId === client.id && ev.deliveryDate);
+        if (clientDeliveries.length > 0) {
+          // Get the latest delivery date
+          const latest = clientDeliveries.reduce((a, b) => {
+            const aDate = a.deliveryDate instanceof Date ? a.deliveryDate : (a.deliveryDate?.toJSDate?.() ?? null);
+            const bDate = b.deliveryDate instanceof Date ? b.deliveryDate : (b.deliveryDate?.toJSDate?.() ?? null);
+            return (aDate && bDate && aDate > bDate) ? a : b;
+          });
+          const latestDate = latest.deliveryDate instanceof Date ? latest.deliveryDate : (latest.deliveryDate?.toJSDate?.() ?? null);
+          if (latestDate) {
+            lastDeliveryDate = latestDate.toISOString().split('T')[0];
+          }
+        }
+      }
+
+      // Patch: If lastDeliveryDate is 'N/A', set to ''
+      const patchedClient = { ...client, clusterId: assignedClusterId, lastDeliveryDate };
+      if (
+        'lastDeliveryDate' in patchedClient &&
+        typeof patchedClient.lastDeliveryDate === 'string' &&
+        patchedClient.lastDeliveryDate.trim().toUpperCase() === 'N/A'
+      ) {
+        patchedClient.lastDeliveryDate = '';
+      }
+      return patchedClient;
     });
 
     setRows(synchronizedRows);
@@ -2043,7 +2074,7 @@ const DeliverySpreadsheet: React.FC = () => {
       <Button
         variant="primary"
         size="medium"
-        disabled={userRole === UserType.ClientIntake}
+        disabled={userRole === UserType.ClientIntake || isLoading}
         style={{
           whiteSpace: "nowrap",
           padding: "0% 2%",
@@ -2052,9 +2083,9 @@ const DeliverySpreadsheet: React.FC = () => {
           marginRight: '16px'
         }}
         onClick={() => setPopupMode("Clusters")}
-        startIcon={<GroupWorkIcon />}
+        startIcon={isLoading ? <CircularProgress size={20} color="inherit" /> : <GroupWorkIcon />}
       >
-        Generate Clusters
+        {isLoading ? "Generating..." : "Generate Clusters"}
       </Button>
       </div>
 
@@ -2475,7 +2506,13 @@ const DeliverySpreadsheet: React.FC = () => {
                         }
                       })()
                     ) : (
-                      row[field.key as keyof DeliveryRowData]?.toString() ?? "N/A"
+                      (() => {
+                        const val = row[field.key as keyof DeliveryRowData];
+                        // Only for LastDeliveryDate, always blank if missing or 'N/A'
+                        // Globally blank out any cell with 'N/A'
+                        if (val === null || val === undefined || val === '' || (typeof val === 'string' && val.trim().toUpperCase() === 'N/A')) return '';
+                        return val.toString();
+                      })()
                     )}
                   </TableCell>
                 ))}
@@ -2526,8 +2563,24 @@ const DeliverySpreadsheet: React.FC = () => {
                         })()
                       ) : (
                         col.propertyKey === "deliveryDetails.dietaryRestrictions.dietaryPreferences"
-                          ? (row.deliveryDetails?.dietaryRestrictions?.dietaryPreferences?.trim() || "")
-                          : row[col.propertyKey as keyof DeliveryRowData]?.toString() ?? ""
+                          ? ((row.deliveryDetails?.dietaryRestrictions?.dietaryPreferences && row.deliveryDetails?.dietaryRestrictions?.dietaryPreferences.trim() !== "")
+                              ? row.deliveryDetails?.dietaryRestrictions?.dietaryPreferences.trim()
+                              : "")
+                          : (() => {
+                              const val = row[col.propertyKey as keyof DeliveryRowData];
+                              if (col.propertyKey === 'LastDeliveryDate' || col.propertyKey === 'lastDeliveryDate') {
+                                if (val === null || val === undefined || val === '' || (typeof val === 'string' && val.trim().toUpperCase() === 'N/A')) return '';
+                              }
+                              if (col.propertyKey === 'ReferralEntity' || col.propertyKey === 'referralEntity') {
+                                if (val && typeof val === 'object') {
+                                  const name = val.name || '';
+                                  const org = val.organization || '';
+                                  const display = [name, org].filter(Boolean).join(', ');
+                                  return display || '';
+                                }
+                              }
+                              return val?.toString() ?? '';
+                            })()
                       )
                     ) : (
                       ""

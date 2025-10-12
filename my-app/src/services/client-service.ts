@@ -242,8 +242,24 @@ class ClientService {
           q = query(q, startAfter(lastDoc));
         }
         const snapshot = await getDocs(q);
+        // Fetch all delivery events
+        const deliverySnapshot = await getDocs(collection(this.db, dataSources.firebase.calendarCollection));
+        const allDeliveries = deliverySnapshot.docs.map(doc => doc.data());
+
         const clients = snapshot.docs.map((doc) => {
           const raw = doc.data() as any;
+          // Find latest delivery date for this client
+          const clientDeliveries = allDeliveries.filter((d: any) => d.clientId === doc.id && d.deliveryDate);
+          let lastDeliveryDate = '';
+          if (clientDeliveries.length > 0) {
+            const latest = clientDeliveries.reduce((max, curr) => {
+              const currDate = curr.deliveryDate?.toDate ? curr.deliveryDate.toDate() : curr.deliveryDate;
+              const maxDate = max.deliveryDate?.toDate ? max.deliveryDate.toDate() : max.deliveryDate;
+              return currDate > maxDate ? curr : max;
+            });
+            const dateObj = latest.deliveryDate?.toDate ? latest.deliveryDate.toDate() : latest.deliveryDate;
+            lastDeliveryDate = dateObj ? dateObj.toISOString().slice(0, 10) : '';
+          }
           const mapped = {
             id: doc.id,
             uid: doc.id,
@@ -269,6 +285,7 @@ class ClientService {
                 foodAllergens: raw.deliveryDetails?.dietaryRestrictions?.foodAllergens || [],
                 otherText: raw.deliveryDetails?.dietaryRestrictions?.otherText || '',
                 other: raw.deliveryDetails?.dietaryRestrictions?.other || false,
+                dietaryPreferences: raw.deliveryDetails?.dietaryRestrictions?.dietaryPreferences || '',
               },
             },
             ethnicity: raw.ethnicity || '',
@@ -284,6 +301,7 @@ class ClientService {
             zipCode: raw.zipCode ?? '',
             tags: raw.tags ?? [],
             referralEntity: raw.referralEntity ?? undefined,
+            lastDeliveryDate,
           };
           return mapped;
         });

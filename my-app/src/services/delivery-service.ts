@@ -28,7 +28,7 @@ class DeliveryService {
   private db = db;
   private eventsCollection = dataSources.firebase.calendarCollection;
   private dailyLimitsCollection = "dailyLimits";
-  private limitsCollection = "limits";
+  private limitsCollection = dataSources.firebase.limitsCollection;
   private limitsDocId = "weekly";
 
   // Private constructor to prevent direct instantiation

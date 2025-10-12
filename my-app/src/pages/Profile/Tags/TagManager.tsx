@@ -20,6 +20,7 @@ import WarningAmberRoundedIcon from '@mui/icons-material/WarningAmberRounded';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CloseIcon from '@mui/icons-material/Close';
 import { doc, setDoc, getDoc, collection, query, where, getDocs, writeBatch } from 'firebase/firestore';
+import dataSources from '../../../config/dataSources';
 import { db } from '../../../auth/firebaseConfig';
 
 // Define interfaces for tag animations
@@ -129,7 +130,7 @@ export default function TagManager({ allTags, values, handleTag, setInnerPopup, 
   // Function to refresh tags directly from Firebase
   const refreshMasterTags = async () => {
     try {
-      const docRef = doc(db, "tags", "oGuiR2dQQeOBXHCkhDeX");
+  const docRef = doc(db, dataSources.firebase.tagsCollection, dataSources.firebase.tagsDocId);
       const docSnap = await getDoc(docRef);
       if (docSnap.exists()) {
         const data = docSnap.data();
@@ -243,7 +244,7 @@ export default function TagManager({ allTags, values, handleTag, setInnerPopup, 
         const newAllTags = [...masterTags, selectedTag].sort((a, b) => a.localeCompare(b));
         try {
           await setDoc(
-            doc(db, "tags", "oGuiR2dQQeOBXHCkhDeX"),
+            doc(db, dataSources.firebase.tagsCollection, dataSources.firebase.tagsDocId),
             { tags: newAllTags },
             { merge: true }
           );
@@ -293,12 +294,12 @@ export default function TagManager({ allTags, values, handleTag, setInnerPopup, 
     const newAllTags = masterTags.filter((tag: string) => tag !== tagToDelete);
     try {
       await setDoc(
-        doc(db, "tags", "oGuiR2dQQeOBXHCkhDeX"),
+  doc(db, dataSources.firebase.tagsCollection, dataSources.firebase.tagsDocId),
         { tags: newAllTags },
         { merge: true }
       );
       setMasterTags(newAllTags);
-      const clientsRef = collection(db, "clients");
+  const clientsRef = collection(db, dataSources.firebase.clientsCollection);
       const q = query(clientsRef, where("tags", "array-contains", tagToDelete));
       const querySnapshot = await getDocs(q);
       const batch = writeBatch(db);
@@ -306,7 +307,7 @@ export default function TagManager({ allTags, values, handleTag, setInnerPopup, 
         const clientData = docSnap.data();
         const currentTags: string[] = clientData.tags || [];
         const updatedTags = currentTags.filter(tag => tag !== tagToDelete);
-        const clientDocRef = doc(db, "clients", docSnap.id);
+  const clientDocRef = doc(db, dataSources.firebase.clientsCollection, docSnap.id);
         batch.update(clientDocRef, { tags: updatedTags });
       });
       await batch.commit();

@@ -26,6 +26,7 @@ import { CaseWorker, CaseWorkerFormProps, CaseWorkerManagementModalProps, Valida
 // Import shared utility functions directly from their specific files
 import { isValidEmail, isValidPhone, validateCaseWorkerFields } from "../utils/validation";
 import { formatPhoneNumber } from "../utils/format";
+import dataSources from '../config/dataSources';
 
 // Reusable form fields component
 const CaseWorkerFormFields: React.FC<CaseWorkerFormProps> = ({
@@ -118,7 +119,7 @@ const CaseWorkerManagementModal: React.FC<CaseWorkerManagementModalProps> = ({
       try {
         if (isEditing && "id" in caseWorker) {
           // Update existing case worker
-          const caseWorkerRef = doc(db, "CaseWorkers", caseWorker.id);
+          const caseWorkerRef = doc(db, dataSources.firebase.caseWorkersCollection, caseWorker.id);
           await updateDoc(caseWorkerRef, {
             name: caseWorker.name,
             organization: caseWorker.organization,
@@ -129,7 +130,7 @@ const CaseWorkerManagementModal: React.FC<CaseWorkerManagementModalProps> = ({
           setEditingCaseWorker(null);
         } else {
           // Add new case worker
-          const caseWorkersCollectionRef = collection(db, "CaseWorkers");
+          const caseWorkersCollectionRef = collection(db, dataSources.firebase.caseWorkersCollection);
           const docRef = await addDoc(caseWorkersCollectionRef, caseWorker);
           onCaseWorkersChange([...caseWorkers, { ...caseWorker, id: docRef.id }]);
           setIsAddingCaseWorker(false);
@@ -144,7 +145,7 @@ const CaseWorkerManagementModal: React.FC<CaseWorkerManagementModalProps> = ({
 
   const handleDeleteCaseWorker = async (caseWorkerId: string) => {
     try {
-      await deleteDoc(doc(db, "CaseWorkers", caseWorkerId));
+  await deleteDoc(doc(db, dataSources.firebase.caseWorkersCollection, caseWorkerId));
       onCaseWorkersChange(caseWorkers.filter((cw) => cw.id !== caseWorkerId));
     } catch (error) {
       console.error("Error deleting case worker:", error);

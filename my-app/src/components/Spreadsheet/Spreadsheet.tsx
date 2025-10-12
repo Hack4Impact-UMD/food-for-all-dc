@@ -59,33 +59,36 @@ const StyleChip = styled(Chip)(({ theme }) => ({
 }));
 
 function getCustomColumnDisplay(row: RowData, propertyKey: string): React.ReactNode {
-  if (!propertyKey || propertyKey === "none") return "N/A";
+  if (!propertyKey || propertyKey === "none") return "";
   if (propertyKey === "referralEntity" && row.referralEntity) {
     const entity = row.referralEntity;
-    return `${entity?.name ?? 'N/A'}, ${entity?.organization ?? 'N/A'}`;
+    const name = entity?.name || "";
+    const org = entity?.organization || "";
+    const display = [name, org].filter(Boolean).join(", ");
+    return display || "";
   }
   if (propertyKey === "tags" && Array.isArray(row.tags)) {
     return row.tags.length > 0
       ? row.tags.map((tag: string, i: number) => (
           <StyleChip key={i} label={tag} size="small" onClick={(e) => e.preventDefault()} sx={{ mb: 0.5, mr: 0.5 }} />
         ))
-      : "N/A";
+      : "";
   }
   if (propertyKey === "deliveryDetails.dietaryRestrictions.dietaryPreferences") {
     const value = row.deliveryDetails?.dietaryRestrictions?.dietaryPreferences;
-    return value ? value.toString() : "";
+    return value && value.trim() !== "" ? value.toString() : "";
   }
   if (propertyKey.includes(".")) {
     const keys = propertyKey.split(".");
     let value: any = row;
     for (const k of keys) {
       value = value && value[k];
-      if (value === undefined) return "N/A";
+      if (value === undefined) return "";
     }
-    return value !== undefined && value !== null ? value.toString() : "N/A";
+    return value !== undefined && value !== null && value !== "N/A" ? value.toString() : "";
   }
   const value = row[propertyKey];
-  return value !== undefined && value !== null ? value.toString() : "N/A";
+  return value !== undefined && value !== null && value !== "N/A" ? value.toString() : "";
 
 }
 
@@ -213,6 +216,7 @@ const Spreadsheet: React.FC = () => {
       return chips.length > 0 ? chips : <span style={{ color: '#888' }}>None</span>;
     } },
     { key: "deliveryDetails.deliveryInstructions", label: "Delivery Instructions", type: "text", compute: (data: RowData) => data.deliveryDetails?.deliveryInstructions || "None" },
+    { key: "lastDeliveryDate", label: "Last Delivery Date", type: "text", compute: (data: RowData) => data.lastDeliveryDate || "" },
   ], []);
 
   // --- Sorting and filtering logic (with sorting) ---

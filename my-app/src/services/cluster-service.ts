@@ -24,7 +24,7 @@ import dataSources from '../config/dataSources';
 class ClusterService {
   private static instance: ClusterService;
   private db = db;
-  private clustersCollection = dataSources.firebase.deliveriesCollection || "clusters";
+  private clustersCollection = dataSources.firebase.clustersCollection;
   private clientService = clientService;
 
   // Private constructor to prevent direct instantiation
@@ -184,7 +184,7 @@ class ClusterService {
   public async assignDriverToClusters(clusterIds: string[], driverId: string): Promise<void> {
     try {
       await retry(async () => {
-        const driverRef = doc(this.db, "Drivers", driverId);
+  const driverRef = doc(this.db, dataSources.firebase.driversCollection, driverId);
         const updatePromises = clusterIds.map(async (clusterId) => {
           const clusterRef = doc(this.db, this.clustersCollection, clusterId);
           await updateDoc(clusterRef, { driver: driverRef });

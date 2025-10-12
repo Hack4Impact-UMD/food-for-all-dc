@@ -25,6 +25,7 @@ import {
   getDoc,
   writeBatch,
 } from "firebase/firestore";
+import dataSources from '../../config/dataSources';
 import { db } from "../../auth/firebaseConfig";
 import Button from '../../components/common/Button';
 
@@ -162,7 +163,7 @@ const CreateUsers: React.FC = () => {
         password: registrationPassword,
         role: getDisplayName(newUserType),
       };
-      await setDoc(doc(db, "users", userId), newUser);
+  await setDoc(doc(db, dataSources.firebase.usersCollection, userId), newUser);
 
       resetForm();
       setRegistrationSuccess(true);

@@ -25,6 +25,7 @@ import { deliveryEventEmitter } from "../../../utils/deliveryEventEmitter";
 import MoreHorizIcon from "@mui/icons-material/MoreHoriz";
 import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, query, where, orderBy, updateDoc, Timestamp} from "firebase/firestore";
 import { db } from "../../../auth/firebaseConfig";
+import dataSources from '../../../config/dataSources';
 import { DeliveryEvent, NewDelivery } from "../../../types/calendar-types";
 import { calculateRecurrenceDates, getNextMonthlyDate } from "./CalendarUtils";
 import { UserType } from "../../../types";
@@ -142,7 +143,7 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
 
   const handleDeleteConfirm = async () => {
     try {
-      const eventsRef = collection(db, "events");
+  const eventsRef = collection(db, dataSources.firebase.calendarCollection);
 
       if (deleteOption === "This event") {
         await deleteDoc(doc(eventsRef, event.id));
@@ -180,11 +181,11 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
 
   const handleEditConfirm = async () => {
     try {
-      const eventsRef = collection(db, "events");
+  const eventsRef = collection(db, dataSources.firebase.calendarCollection);
 
       if (editOption === "This event") {
+        // Only delete and recreate the single event
         await deleteDoc(doc(eventsRef, event.id));
-        
         const updatedEventData = {
           ...event,
           deliveryDate: new Date(editDeliveryDate),
@@ -192,85 +193,60 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
             repeatsEndDate: editRecurrence.repeatsEndDate,
           }),
         };
-        
         await addDoc(eventsRef, updatedEventData);
-
-        if (editRecurrence.repeatsEndDate && event.clientId) {
-          await deleteDeliveriesAfterEndDate(event.clientId, editRecurrence.repeatsEndDate);
-        }
       } else if (editOption === "This and following events") {
+        // Only update deliveryDate and recurrence fields for all matching events in the series
         const originalEventDoc = await getDoc(doc(eventsRef, event.id));
         const originalEvent = originalEventDoc.data();
-
         if (!originalEvent) {
           console.error("Original event not found.");
           return;
         }
-
         const originalDeliveryDate = toJSDate(originalEvent.deliveryDate);
-
         const q = query(
           eventsRef,
           where("recurrence", "==", event.recurrence),
           where("clientId", "==", event.clientId),
           where("deliveryDate", ">=", originalDeliveryDate)
         );
-
         const querySnapshot = await getDocs(q);
-        const batchDelete = querySnapshot.docs.map((doc) => deleteDoc(doc.ref));
-        await Promise.all(batchDelete);
-
-        const newRecurrenceDates = calculateRecurrenceDates({
+        // Calculate new recurrence dates
+        let newRecurrenceDates = calculateRecurrenceDates({
+          ...originalEvent,
           ...editRecurrence,
-          deliveryDate: editDeliveryDate,
+          deliveryDate: editDeliveryDate, // Ensure recurrence starts from new date
         } as any);
-
-        const sanitize = (obj: any) => {
-          const out: any = {};
-          for (const key in obj) {
-            out[key] = obj[key] === undefined ? null : obj[key];
-          }
-          return out;
-        };
-        // Filter out dates that are after the new end date before creating events
+        // Ensure the first recurrence date is always the new start date
+        if (!newRecurrenceDates.length || newRecurrenceDates[0] !== editDeliveryDate) {
+          newRecurrenceDates = [editDeliveryDate, ...newRecurrenceDates];
+        }
         const endDate = editRecurrence.repeatsEndDate ? new Date(editRecurrence.repeatsEndDate) : null;
         const filteredRecurrenceDates = newRecurrenceDates.filter(date => {
           if (!endDate) return true;
-          const dateStr = date; // date is always a string
+          const dateStr = date;
           const endDateStr = endDate.toISOString().split('T')[0];
-          return dateStr <= endDateStr; // Only include dates on or before end date
+          return dateStr <= endDateStr;
         });
-
-        const seriesQuery = query(
-          eventsRef,
-          where("clientId", "==", editRecurrence.clientId ?? event.clientId),
-          where("recurrenceId", "==", event.recurrenceId)
-        );
-        const seriesSnapshot = await getDocs(seriesQuery);
-        const updateOperations: Promise<any>[] = [];
-
-        seriesSnapshot.forEach((docSnapshot) => {
-          const deliveryData = docSnapshot.data();
-          const deliveryDate = deliveryData.deliveryDate.toDate();
-          const deliveryDateStr = deliveryDate.toISOString().split('T')[0];
-          const endDateStr = editRecurrence.repeatsEndDate;
-
-          if (endDateStr && deliveryDateStr <= endDateStr) {
-            const updatedData = {
-              ...deliveryData,
-              recurrence: editRecurrence.recurrence || event.recurrence || "None",
-              ...(editRecurrence.repeatsEndDate && {
-                repeatsEndDate: editRecurrence.repeatsEndDate,
-              }),
-            };
-            updateOperations.push(updateDoc(doc(eventsRef, docSnapshot.id), sanitize(updatedData)));
-          }
+        // Update each event's deliveryDate and recurrence
+        // Sort events by current deliveryDate
+        const sortedDocs = querySnapshot.docs.sort((a, b) => {
+          const aDate = a.data().deliveryDate instanceof Timestamp ? a.data().deliveryDate.toDate() : new Date(a.data().deliveryDate);
+          const bDate = b.data().deliveryDate instanceof Timestamp ? b.data().deliveryDate.toDate() : new Date(b.data().deliveryDate);
+          return aDate.getTime() - bDate.getTime();
         });
-
-        await Promise.all(updateOperations);
-
-        if (editRecurrence.repeatsEndDate && editRecurrence.clientId) {
-          await deleteDeliveriesAfterEndDate(editRecurrence.clientId, editRecurrence.repeatsEndDate);
+        // Map each event to the corresponding new recurrence date
+        for (let i = 0; i < sortedDocs.length && i < filteredRecurrenceDates.length; i++) {
+          const eventDoc = sortedDocs[i];
+          // Parse recurrence date string as local date and set time to noon
+          const recurrenceDateStr = newRecurrenceDates[i];
+          const newDate = new Date(recurrenceDateStr + 'T12:00:00');
+          await updateDoc(eventDoc.ref, {
+            deliveryDate: Timestamp.fromDate(newDate),
+            recurrence: editRecurrence.recurrence || event.recurrence || "None",
+            ...(editRecurrence.repeatsEndDate && {
+              repeatsEndDate: editRecurrence.repeatsEndDate,
+            }),
+          });
         }
       }
 
@@ -341,15 +317,13 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
         <MenuItem 
           onClick={() => {
             setIsEditDialogOpen(true);
-            setAnchorEl(null);
           }}
         >
           Edit
         </MenuItem>
-        <MenuItem 
+        <MenuItem
           onClick={() => {
             setIsDeleteDialogOpen(true);
-            setAnchorEl(null);
           }}
         >
           Delete
@@ -458,26 +432,22 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
       >
         <DialogTitle>Delete Event</DialogTitle>
         <DialogContent sx={{ pt: 2 }}>
-          {event.recurrence !== "None" ? (
-            <RadioGroup 
-              value={deleteOption} 
-              onChange={(e) => setDeleteOption(e.target.value)}
-            >
-              <FormControlLabel value="This event" control={<Radio />} label="This event" />
-              <FormControlLabel
-                value="This and following events"
-                control={<Radio />}
-                label="This and following events"
-              />
-              <FormControlLabel
-                value="All events for this recurrence"
-                control={<Radio />}
-                label="All events for this recurrence"
-              />
-            </RadioGroup>
-          ) : (
-            <Typography>This event will be deleted.</Typography>
-          )}
+          <RadioGroup 
+            value={deleteOption} 
+            onChange={(e) => setDeleteOption(e.target.value)}
+          >
+            <FormControlLabel value="This event" control={<Radio />} label="This event" />
+            <FormControlLabel
+              value="This and following events"
+              control={<Radio />}
+              label="This and following events"
+            />
+            <FormControlLabel
+              value="All events for this recurrence"
+              control={<Radio />}
+              label="All events for this recurrence"
+            />
+          </RadioGroup>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setIsDeleteDialogOpen(false)}>

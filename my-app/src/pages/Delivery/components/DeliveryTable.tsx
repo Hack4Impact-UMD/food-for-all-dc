@@ -339,8 +339,8 @@ const DeliveryTable: React.FC<DeliveryTableProps> = ({
                 {customColumns.map((col) => (
                   <TableCell key={col.id}>
                     {col.propertyKey !== "none"
-                      ? (row[col.propertyKey as keyof RowData]?.toString() ?? "N/A")
-                      : "N/A"}
+                      ? (row[col.propertyKey as keyof RowData]?.toString() || "")
+                      : ""}
                   </TableCell>
                 ))}
 

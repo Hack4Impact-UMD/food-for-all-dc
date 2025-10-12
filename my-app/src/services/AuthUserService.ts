@@ -155,7 +155,7 @@ export class AuthUserService {
           phone: userData.phone || "",
           role: roleString,
         };
-        await setDoc(doc(db, "users", userId), newUserDoc);
+  await setDoc(doc(db, dataSources.firebase.usersCollection, userId), newUserDoc);
         console.log(`User created successfully with UID: ${userId}`);
         return userId;
       });

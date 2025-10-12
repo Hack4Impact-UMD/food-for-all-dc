@@ -671,7 +671,14 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
                             ? field.compute(row)
                             : field.key === 'role'
                                 ? getRoleDisplayName(row[field.key as keyof AuthUserRow] as UserType)
-                                : row[field.key as keyof AuthUserRow]?.toString() ?? "N/A" }
+                                : (
+                                    (() => {
+                                      const val = row[field.key as keyof AuthUserRow];
+                                      if (val === null || val === undefined || val === '' || val === 'N/A') return '';
+                                      return val.toString();
+                                    })()
+                                  )
+                          }
                         </TableCell>
                       ))}
 
