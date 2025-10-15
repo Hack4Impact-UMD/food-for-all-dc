@@ -1,10 +1,11 @@
 import { getDocs, collection } from "firebase/firestore";
 import { db } from "../services/firebase";
 import { Time } from "../utils/timeUtils";
+import dataSources from '../config/dataSources';
 
 // Script to print all event deliveryDates in Firestore
 export async function printAllEventDates() {
-  const snapshot = await getDocs(collection(db, "events"));
+  const snapshot = await getDocs(collection(db, dataSources.firebase.calendarCollection));
   console.log(`[printAllEventDates] Found ${snapshot.docs.length} events`);
   snapshot.docs.forEach((doc) => {
     const data = doc.data();

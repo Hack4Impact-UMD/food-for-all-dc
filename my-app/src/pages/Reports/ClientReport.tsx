@@ -1,3 +1,4 @@
+import dataSources from '../../config/dataSources';
 import React, { useState } from "react";
 import ReportHeader from "./ReportHeader";
 import { Accordion, AccordionDetails, AccordionSummary, Box, Typography } from "@mui/material";
@@ -95,13 +96,13 @@ const ClientReport: React.FC = () => {
       while (True) {
         const q: any = lastDoc
           ? query(
-              collection(db, "clients"),
+              collection(db, dataSources.firebase.clientsCollection),
               orderBy("__name__"),
               startAfter(lastDoc),
               limit(BATCH_SIZE)
             )
           : query(
-              collection(db, "clients"),
+              collection(db, dataSources.firebase.clientsCollection),
               orderBy("__name__"),
               limit(BATCH_SIZE)
             );

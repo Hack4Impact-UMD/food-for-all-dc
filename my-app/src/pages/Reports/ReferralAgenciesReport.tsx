@@ -21,6 +21,7 @@ import {
   QueryDocumentSnapshot,
   startAfter,
 } from "firebase/firestore";
+import dataSources from '../../config/dataSources';
 import TimeUtils from "../../utils/timeUtils";
 import { useNavigate } from "react-router-dom";
 import LoadingIndicator from "../../components/LoadingIndicator/LoadingIndicator";
@@ -60,7 +61,7 @@ const ReferralAgenciesReport: React.FC = () => {
   const getCaseworkerInformationById = async (id: string) => {
     if (caseworkerCacheRef.current[id]) return caseworkerCacheRef.current[id];
 
-    const ref = doc(db, "CaseWorkers", id);
+  const ref = doc(db, dataSources.firebase.caseWorkersCollection, id);
     const snap = await getDoc(ref);
     const cw = snap.data() as any;
     const formatted = `${cw?.name ?? "Unknown"} - ${cw?.organization ?? "—"}  (${cw?.email ?? "—"}, ${cw?.phone ?? "—"})`;
@@ -85,13 +86,13 @@ const ReferralAgenciesReport: React.FC = () => {
       while (True) {
         const q = lastDoc
           ? query(
-              collection(db, "clients"),
+              collection(db, dataSources.firebase.clientsCollection),
               orderBy("__name__"),
               startAfter(lastDoc),
               limit(BATCH_SIZE)
             )
           : query(
-              collection(db, "clients"),
+              collection(db, dataSources.firebase.clientsCollection),
               orderBy("__name__"),
               limit(BATCH_SIZE)
             );

@@ -18,16 +18,33 @@ import { validateDeliveryEvent } from '../utils/firestoreValidation';
 import { Time, TimeUtils } from "../utils/timeUtils";
 import { retry } from '../utils/retry';
 import { ServiceError, formatServiceError } from '../utils/serviceError';
+import dataSources from '../config/dataSources';
 
 /**
  * Delivery Service - Handles all delivery-related operations with Firebase
  */
 class DeliveryService {
+  /**
+   * Delete all delivery events for a client
+   */
+  public async deleteEventsByClientId(clientId: string): Promise<void> {
+    try {
+      const q = query(
+        collection(this.db, this.eventsCollection),
+        where("clientId", "==", clientId)
+      );
+      const querySnapshot = await getDocs(q);
+      const batchDeletes = querySnapshot.docs.map(docSnap => deleteDoc(doc(this.db, this.eventsCollection, docSnap.id)));
+      await Promise.all(batchDeletes);
+    } catch (error) {
+      throw formatServiceError(error, 'Failed to delete deliveries for client');
+    }
+  }
   private static instance: DeliveryService;
   private db = db;
-  private eventsCollection = "events";
+  private eventsCollection = dataSources.firebase.calendarCollection;
   private dailyLimitsCollection = "dailyLimits";
-  private limitsCollection = "limits";
+  private limitsCollection = dataSources.firebase.limitsCollection;
   private limitsDocId = "weekly";
 
   // Private constructor to prevent direct instantiation

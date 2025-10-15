@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { DeliveryService } from "../../../services";
 import { doc, onSnapshot } from "firebase/firestore";
 import { db } from "../../../auth/firebaseConfig";
+import dataSources from '../../../config/dataSources';
 
 const DAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
 
@@ -38,7 +39,7 @@ export const useLimits = () => {
   const [limits, setLimits] = useState<number[]>([60, 60, 60, 60, 90, 90, 60]);
 
   useEffect(() => {
-    const limitsDocRef = doc(db, 'limits', 'weekly');
+  const limitsDocRef = doc(db, dataSources.firebase.limitsCollection || 'limits', 'weekly');
     const unsubscribe = onSnapshot(limitsDocRef, (docSnapshot) => {
       if (docSnapshot.exists()) {
         const data = docSnapshot.data();

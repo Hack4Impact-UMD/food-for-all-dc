@@ -4,10 +4,10 @@ import {
   getDoc,
   getDocs,
   addDoc,
-  setDoc,
+  // setDoc, // Remove unused import
   updateDoc,
   deleteDoc,
-  DocumentReference,
+  // DocumentReference, // Remove unused import
   onSnapshot,
 } from "firebase/firestore";
 import { db } from "./firebase";
@@ -16,6 +16,7 @@ import { ServiceError, formatServiceError } from '../utils/serviceError';
 import { Cluster } from "../pages/Delivery/types/deliveryTypes";
 import { validateCluster } from '../utils/firestoreValidation';
 import { clientService } from "./client-service";
+import dataSources from '../config/dataSources';
 
 /**
  * Cluster Service - Handles all cluster-related operations with Firebase
@@ -23,7 +24,7 @@ import { clientService } from "./client-service";
 class ClusterService {
   private static instance: ClusterService;
   private db = db;
-  private clustersCollection = "clusters";
+  private clustersCollection = dataSources.firebase.clustersCollection;
   private clientService = clientService;
 
   // Private constructor to prevent direct instantiation
@@ -183,7 +184,7 @@ class ClusterService {
   public async assignDriverToClusters(clusterIds: string[], driverId: string): Promise<void> {
     try {
       await retry(async () => {
-        const driverRef = doc(this.db, "Drivers", driverId);
+  const driverRef = doc(this.db, dataSources.firebase.driversCollection, driverId);
         const updatePromises = clusterIds.map(async (clusterId) => {
           const clusterRef = doc(this.db, this.clustersCollection, clusterId);
           await updateDoc(clusterRef, { driver: driverRef });
@@ -209,7 +210,7 @@ class ClusterService {
           const clusterData = clusterDoc.data();
           const deliveries = clusterData.deliveries || [];
           // Add the client to the cluster's deliveries if not already there
-          if (!deliveries.some((delivery: any) => delivery.clientId === clientId)) {
+          if (!deliveries.some((delivery: { clientId: string }) => delivery.clientId === clientId)) {
             deliveries.push({ clientId });
             await updateDoc(doc(this.db, this.clustersCollection, clusterId), { deliveries });
           }
@@ -234,7 +235,7 @@ class ClusterService {
           const clusterData = clusterDoc.data();
           let deliveries = clusterData.deliveries || [];
           // Remove the client from the cluster's deliveries
-          deliveries = deliveries.filter((delivery: any) => delivery.clientId !== clientId);
+          deliveries = deliveries.filter((delivery: { clientId: string }) => delivery.clientId !== clientId);
           await updateDoc(doc(this.db, this.clustersCollection, clusterId), { deliveries });
         }
       });

@@ -3,13 +3,14 @@ import { retry } from '../utils/retry';
 import { ServiceError, formatServiceError } from '../utils/serviceError';
 import { db } from "./firebase";
 import { Driver } from '../types';
+import dataSources from '../config/dataSources';
 import {
   collection,
   doc,
   getDoc,
   getDocs,
   addDoc,
-  setDoc,
+  // setDoc, // Remove unused import
   updateDoc,
   deleteDoc,
   onSnapshot,
@@ -25,7 +26,7 @@ import {
 class DriverService {
   private static instance: DriverService;
   private db = db;
-  private driversCollection = "Drivers";
+  private driversCollection = dataSources.firebase.driversCollection;
 
   // Private constructor to prevent direct instantiation
   // This is part of the singleton pattern
@@ -61,7 +62,7 @@ class DriverService {
    * @param pageSize Number of drivers per page
    * @param lastDoc Last document from previous page (for pagination)
    */
-  public async getAllDriversPaginated(pageSize = 50, lastDoc?: any): Promise<{ drivers: Driver[]; lastDoc?: any }> {
+  public async getAllDriversPaginated(pageSize = 50, lastDoc?: unknown): Promise<{ drivers: Driver[]; lastDoc?: unknown }> {
     try {
       return await retry(async () => {
         let q = query(collection(this.db, this.driversCollection), orderBy("id"), fbLimit(pageSize));

@@ -23,6 +23,7 @@ import { Close, Add, Edit, Check, Delete } from "@mui/icons-material";
 import { doc, updateDoc, addDoc, deleteDoc, collection } from "firebase/firestore";
 import { db } from "../auth/firebaseConfig";
 import { Driver } from "../types/calendar-types";
+import dataSources from '../config/dataSources';
 
 // Types
 interface ValidationErrors {
@@ -166,7 +167,7 @@ const DriverManagementModal: React.FC<DriverManagementModalProps> = ({
       try {
         if (isEditing && "id" in driver) {
           // Update existing driver
-          const driverRef = doc(db, "Drivers", driver.id);
+          const driverRef = doc(db, dataSources.firebase.driversCollection, driver.id);
           await updateDoc(driverRef, {
             name: driver.name,
             phone: driver.phone,
@@ -176,7 +177,7 @@ const DriverManagementModal: React.FC<DriverManagementModalProps> = ({
           setEditingDriver(null);
         } else {
           // Add new driver
-          const driversCollectionRef = collection(db, "Drivers");
+          const driversCollectionRef = collection(db, dataSources.firebase.driversCollection);
           const docRef = await addDoc(driversCollectionRef, driver);
           //add new driver to the top but under DoorDash
           onDriversChange([
@@ -196,7 +197,7 @@ const DriverManagementModal: React.FC<DriverManagementModalProps> = ({
 
   const handleDeleteDriver = async (driverId: string) => {
     try {
-      await deleteDoc(doc(db, "Drivers", driverId));
+  await deleteDoc(doc(db, dataSources.firebase.driversCollection, driverId));
       onDriversChange(drivers.filter((d) => d.id !== driverId));
     } catch (error) {
       console.error("Error deleting driver:", error);

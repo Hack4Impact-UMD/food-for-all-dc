@@ -14,6 +14,7 @@ import {
   QueryDocumentSnapshot,
   startAfter,
 } from "firebase/firestore";
+import dataSources from '../../config/dataSources';
 import { db } from "../../auth/firebaseConfig";
 import { SummaryData } from "../../types/reports-types";
 import { formatCamelToTitle } from "../../utils";
@@ -267,12 +268,12 @@ const SummaryReport: React.FC = () => {
       while (True) {
         const q = lastDoc
           ? query(
-              collection(db, "clients"),
+              collection(db, dataSources.firebase.clientsCollection),
               orderBy("__name__"),
               startAfter(lastDoc),
               limit(BATCH_SIZE)
             )
-          : query(collection(db, "clients"), orderBy("__name__"), limit(BATCH_SIZE));
+          : query(collection(db, dataSources.firebase.clientsCollection), orderBy("__name__"), limit(BATCH_SIZE));
 
         const snap: any = await getDocs(q);
         if (snap.empty) break;

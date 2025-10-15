@@ -8,6 +8,7 @@ import { AuthUser, AuthError } from "../types/user-types";
 import React, { createContext, useContext, useEffect, useState, useCallback, useMemo } from "react";
 import { getFirebaseAuth, getFirebaseDb } from "./firebaseConfig";
 import { doc, getDoc } from "firebase/firestore";
+import dataSources from '../config/dataSources';
 import { UserType } from "../types";
 
 export interface AuthContextType {
@@ -80,8 +81,8 @@ export const AuthProvider = ({ children }: Props): React.ReactElement => {
     }
 
     try {
-      const db = getFirebaseDb();
-      const userDocRef = doc(db, "users", uid);
+  const db = getFirebaseDb();
+  const userDocRef = doc(db, dataSources.firebase.usersCollection, uid);
       const userDoc = await getDoc(userDocRef);
 
       if (userDoc.exists()) {

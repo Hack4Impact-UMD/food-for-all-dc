@@ -36,6 +36,7 @@ import {
 import React, { useEffect, useRef, useState, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { auth, db } from "../../auth/firebaseConfig";
+import dataSources from "../../config/dataSources";
 import CaseWorkerManagementModal from "../../components/CaseWorkerManagementModal";
 import "./Profile.css";
 import { clientService } from "../../services/client-service";
@@ -298,8 +299,10 @@ const Profile = () => {
 
   // Memoized preSelectedClient data for AddDeliveryDialog
   const preSelectedClientData = useMemo(() => ({
-    clientId: clientId || "",
-    clientName: `${clientProfile.firstName} ${clientProfile.lastName}`,
+    clientId: clientId || clientProfile.uid || "",
+    clientName: (clientProfile.firstName && clientProfile.lastName)
+      ? `${clientProfile.firstName} ${clientProfile.lastName}`
+      : "",
     clientProfile: {
       ...clientProfile,
       // Override with latest recurring delivery data if available
@@ -331,7 +334,7 @@ const Profile = () => {
   
   // Function to fetch profile data by ID
   const getProfileById = async (id: string) => {
-    const docRef = doc(db, "client-profile2", id);
+  const docRef = doc(db, dataSources.firebase.clientsCollection, id);
     const docSnap = await getDoc(docRef);
     if (docSnap.exists()) {
       const data = docSnap.data();
@@ -408,7 +411,7 @@ const Profile = () => {
   useEffect(() => {
     const fetchTags = async () => {
       try {
-        const tagsDocRef = doc(db, "tags", "oGuiR2dQQeOBXHCkhDeX");
+  const tagsDocRef = doc(db, dataSources.firebase.tagsCollection, dataSources.firebase.tagsDocId);
         const tagsDocSnap = await getDoc(tagsDocRef);
 
         if (tagsDocSnap.exists()) {
@@ -516,7 +519,7 @@ const Profile = () => {
   useEffect(() => {
     const fetchCaseWorkers = async () => {
       try {
-        const caseWorkersCollectionRef = collection(db, "CaseWorkers");
+  const caseWorkersCollectionRef = collection(db, dataSources.firebase.caseWorkersCollection);
         const querySnapshot = await getDocs(caseWorkersCollectionRef);
         const caseWorkersData: CaseWorker[] = [];
 
@@ -599,7 +602,7 @@ const Profile = () => {
       const uid = Math.floor(Math.random() * 1000000000000)
         .toString()
         .padStart(12, "0");
-      const clientsRef = collection(db, "clients");
+  const clientsRef = collection(db, dataSources.firebase.clientsCollection);
       const q = query(clientsRef, where("uid", "==", uid));
       const querySnapshot = await getDocs(q);
 
@@ -1361,9 +1364,9 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
         };
         // Save to Firestore for new profile
         console.log("Creating new profile:", newProfile);
-        await setDoc(doc(db, "clients", newUid), newProfile);
+        await setDoc(doc(db, dataSources.firebase.clientsCollection, newUid), newProfile);
         // Update the central tags list
-        await setDoc(doc(db, "tags", "oGuiR2dQQeOBXHCkhDeX"), { tags: sortedAllTags }, { merge: true });
+  await setDoc(doc(db, dataSources.firebase.tagsCollection, dataSources.firebase.tagsDocId), { tags: sortedAllTags }, { merge: true });
         // Update state *before* navigating
         setClientProfile(newProfile); // Update with the full new profile data including UID/createdAt
         setPrevClientProfile(null); // Clear previous state backup
@@ -1387,9 +1390,9 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
         }
         // Save to Firestore for existing profile (DO NOT normalize fields for saving)
         console.log("Updating profile:", clientProfile.uid, updatedProfile);
-        await setDoc(doc(db, "clients", clientProfile.uid), updatedProfile, { merge: true }); // Use merge: true for updates
+  await setDoc(doc(db, dataSources.firebase.clientsCollection, clientProfile.uid), updatedProfile, { merge: true }); // Use merge: true for updates
         // Update the central tags list
-        await setDoc(doc(db, "tags", "oGuiR2dQQeOBXHCkhDeX"), { tags: sortedAllTags }, { merge: true });
+  await setDoc(doc(db, dataSources.firebase.tagsCollection, dataSources.firebase.tagsDocId), { tags: sortedAllTags }, { merge: true });
         // Update state *after* successful save for existing profile
         setClientProfile(updatedProfile); // Update with latest data
         setPrevClientProfile(null); // Clear previous state backup
@@ -2099,7 +2102,7 @@ if (type === "physicalAilments") {
     if (clientProfile.uid) {
       try {
         console.log(`Updating Firebase for client ${clientProfile.uid} with tags:`, updatedTags);
-        await setDoc(doc(db, "clients", clientProfile.uid), { tags: updatedTags }, { merge: true });
+  await setDoc(doc(db, dataSources.firebase.clientsCollection, clientProfile.uid), { tags: updatedTags }, { merge: true });
         console.log("Tags successfully updated in Firebase for client:", clientProfile.uid);
         
         // Also update the local clientProfile.tags to keep it in sync
@@ -2469,7 +2472,7 @@ const handleMentalHealthConditionsChange = (e: React.ChangeEvent<HTMLInputElemen
       
       try {
         // 1. GET EXISTING DELIVERIES FROM DATABASE
-        const eventsRef = collection(db, "events");
+  const eventsRef = collection(db, dataSources.firebase.calendarCollection);
         const q = query(eventsRef, where("clientId", "==", newDelivery.clientId));
         const querySnapshot = await getDocs(q);
         

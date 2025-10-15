@@ -1,0 +1,25 @@
+{
+  "firebase": {
+  "clientsCollection": "client-profile2",
+  "caseWorkersCollection": "CaseWorkers",
+  "clustersCollection": "clusters",
+  "limitsCollection": "limits",
+    "usersCollection": "users",
+    "driversCollection": "Drivers",
+    "deliveriesCollection": "deliveries",
+    "calendarCollection": "events",
+    "tagsCollection": "tags",
+    "tagsDocId": "oGuiR2dQQeOBXHCkhDeX"
+  },
+  "restApi": {
+    "baseUrl": "https://api.foodforall.example.com/v1",
+    "clientsEndpoint": "/clients",
+    "usersEndpoint": "/users",
+    "deliveriesEndpoint": "/deliveries",
+    "calendarEndpoint": "/calendar"
+  },
+  "other": {
+    "spreadsheetUrl": "https://docs.google.com/spreadsheets/d/abc123",
+    "externalAuthService": "https://auth.foodforall.example.com"
+  }
+}
