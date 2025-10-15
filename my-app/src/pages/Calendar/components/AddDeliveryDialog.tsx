@@ -45,8 +45,6 @@ interface AddDeliveryDialogProps {
 type ClientSearchResult = Pick<ClientProfile, 'uid' | 'firstName' | 'lastName' | 'address'>;
 
 const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props: AddDeliveryDialogProps) => {
-  // ...existing code...
-  // ...existing code...
   const { open, onClose, onAddDelivery, clients, startDate, preSelectedClient } = props;
   // Ensure clientName is set when modal opens with preSelectedClient
   useEffect(() => {
@@ -98,7 +96,6 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props: AddDeliveryD
   };
 
   const [newDelivery, setNewDelivery] = useState<NewDelivery>(() => {
-  // ...existing code...
     if (preSelectedClient) {
       return {
         clientId: preSelectedClient.clientId,

@@ -191,11 +191,6 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
         });
       } else if (editOption === "This and following events") {
         // Changing recurrence type: delete all future events in the series, then create new events for the new recurrence type and dates
-        console.log('[DEBUG] Edit Event: modal values', {
-          editRecurrence,
-          editDeliveryDate,
-          event,
-        });
         const originalEventDoc = await getDoc(doc(eventsRef, event.id));
         const originalEvent = originalEventDoc.data();
         if (!originalEvent) {
@@ -212,26 +207,18 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
         );
   const querySnapshot = await getDocs(q);
   // Delete all future events in the series
-  const deleteResults = await Promise.all(querySnapshot.docs.map(docSnap => deleteDoc(docSnap.ref)));
-  console.log('[DEBUG] Deleted future events count:', querySnapshot.docs.length);
+  await Promise.all(querySnapshot.docs.map(docSnap => deleteDoc(docSnap.ref)));
 
         // Calculate new recurrence dates for the new recurrence type
-        console.log('[DEBUG] Calculating recurrence dates with:', {
-          deliveryDate: editDeliveryDate,
-          recurrence: editRecurrence.recurrence,
-          repeatsEndDate: editRecurrence.repeatsEndDate
-        });
         let newRecurrenceDates = calculateRecurrenceDates({
           ...originalEvent,
           ...editRecurrence,
           deliveryDate: editDeliveryDate, // Ensure recurrence starts from new date
         } as any);
-        console.log('[DEBUG] New recurrence dates:', newRecurrenceDates);
         // Ensure the first recurrence date is always the new start date
         if (!newRecurrenceDates.length || newRecurrenceDates[0] !== editDeliveryDate) {
           newRecurrenceDates = [editDeliveryDate, ...newRecurrenceDates];
         }
-        console.log('[DEBUG] New recurrence dates:', newRecurrenceDates);
         const endDate = editRecurrence.repeatsEndDate ? new Date(editRecurrence.repeatsEndDate) : null;
         const filteredRecurrenceDates = newRecurrenceDates.filter(date => {
           if (!endDate) return true;
@@ -242,9 +229,8 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
         // Add new events for each recurrence date
         for (let i = 0; i < filteredRecurrenceDates.length; i++) {
           const recurrenceDateStr = filteredRecurrenceDates[i];
-          console.log('[DEBUG] Creating event for recurrence date:', recurrenceDateStr);
           const newDate = new Date(recurrenceDateStr + 'T12:00:00');
-          const docRef = await addDoc(eventsRef, {
+          await addDoc(eventsRef, {
             clientId: event.clientId,
             clientName: event.clientName,
             cluster: event.cluster,
@@ -254,7 +240,6 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
             repeatsEndDate: editRecurrence.repeatsEndDate || "",
             time: event.time || ""
           });
-          console.log('[DEBUG] Created event doc ID:', docRef.id);
         }
       }
 
