@@ -125,34 +125,7 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props: AddDeliveryD
   const [startDateError, setStartDateError] = useState<string>("");
   const [endDateError, setEndDateError] = useState<string>("");
   const [currentLastDeliveryDate, setCurrentLastDeliveryDate] = useState<string>("");
-  // Ensure clientName is set when modal opens with preSelectedClient
-  useEffect(() => {
-    if (open && preSelectedClient) {
-  setNewDelivery((prev: NewDelivery) => ({
-        ...prev,
-        clientId: preSelectedClient.clientId,
-        clientName: preSelectedClient.clientName
-          ? preSelectedClient.clientName
-          : (preSelectedClient.clientProfile.firstName && preSelectedClient.clientProfile.lastName
-            ? `${preSelectedClient.clientProfile.firstName} ${preSelectedClient.clientProfile.lastName}`
-            : ""),
-      }));
-    }
-  }, [open, preSelectedClient]);
-  // Ensure clientName is set when modal opens with preSelectedClient
-  useEffect(() => {
-    if (open && preSelectedClient) {
-  setNewDelivery((prev: NewDelivery) => ({
-        ...prev,
-        clientId: preSelectedClient.clientId,
-        clientName: preSelectedClient.clientName
-          ? preSelectedClient.clientName
-          : (preSelectedClient.clientProfile.firstName && preSelectedClient.clientProfile.lastName
-            ? `${preSelectedClient.clientProfile.firstName} ${preSelectedClient.clientProfile.lastName}`
-            : ""),
-      }));
-    }
-  }, [open, preSelectedClient]);
+
   // Clear formError when any relevant field changes
   useEffect(() => {
     setFormError("");
