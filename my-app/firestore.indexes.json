@@ -10,7 +10,7 @@
         },
         {
           "fieldPath": "deliveryDate",
-          "order": "DESCENDING"
+          "order": "ASCENDING"
         }
       ]
     },
@@ -19,18 +19,12 @@
       "queryScope": "COLLECTION",
       "fields": [
         {
-          "fieldPath": "deliveryDate",
+          "fieldPath": "clientId",
           "order": "ASCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "clusters",
-      "queryScope": "COLLECTION", 
-      "fields": [
+        },
         {
-          "fieldPath": "date",
-          "order": "ASCENDING"
+          "fieldPath": "deliveryDate",
+          "order": "DESCENDING"
         }
       ]
     }
