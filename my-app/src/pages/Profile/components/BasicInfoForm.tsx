@@ -349,7 +349,7 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
       {/* Referral Entity */}
       <Box>
         <Typography className="field-descriptor" sx={fieldLabelStyles}>
-          REFERRAL ENTITY *
+          REFERRAL ENTITY <span className="required-asterisk">*</span>
         </Typography>
         {isEditing ? (
           <>

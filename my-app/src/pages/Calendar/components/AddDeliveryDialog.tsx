@@ -26,7 +26,7 @@ import { TimeUtils } from '../../../utils/timeUtils';
 import { validateDeliveryDateRange } from "../../../utils/dateValidation";
 import { getLastDeliveryDateForClient } from "../../../utils/lastDeliveryDate";
 import { deliveryEventEmitter } from "../../../utils/deliveryEventEmitter";
-import { deleteDeliveriesAfterEndDate } from "../../../utils/deliveryCleanup";
+// ...existing code...
 import { clientService } from "../../../services/client-service";
 
 interface AddDeliveryDialogProps {
@@ -45,29 +45,30 @@ interface AddDeliveryDialogProps {
 
 type ClientSearchResult = Pick<ClientProfile, 'uid' | 'firstName' | 'lastName' | 'address'>;
 
-const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props: AddDeliveryDialogProps) => {
-  const { open, onClose, onAddDelivery, clients, clientsLoaded, startDate, preSelectedClient } = props;
+const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
+  const { open, onClose, onAddDelivery, clients, clientsLoaded, preSelectedClient } = props;
   const [formError, setFormError] = useState<string>("");
   const [searchResults, setSearchResults] = useState<ClientSearchResult[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
 
-  // Helper to set time to 12:00:00 PM
-  function toNoonISOString(date: any) {
-    let jsDate;
-    if (typeof date === 'string') {
-      jsDate = new Date(date);
-    } else if (date instanceof Date) {
-      jsDate = new Date(date.getTime());
-    } else if (date && typeof date.toDate === 'function') {
-      jsDate = new Date(date.toDate().getTime());
-    } else if (date && typeof date.toJSDate === 'function') {
-      jsDate = new Date(date.toJSDate().getTime());
-    } else {
-      jsDate = new Date(date);
+  // Always update newDelivery client info from preSelectedClient when modal opens
+  useEffect(() => {
+    if (open && preSelectedClient) {
+      let name = preSelectedClient.clientName;
+      if (!name || name.trim() === "") {
+        const { firstName, lastName } = preSelectedClient.clientProfile;
+        name = (firstName && lastName) ? `${firstName} ${lastName}` : "";
+      }
+      setNewDelivery((prev) => ({
+        ...prev,
+        clientId: preSelectedClient.clientId,
+        clientName: name,
+      }));
     }
-    jsDate.setHours(12, 0, 0, 0);
-    return jsDate.toISOString();
-  }
+  }, [open, preSelectedClient]);
+
+  // Helper to set time to 12:00:00 PM
+// ...existing code...
 
   // Helper to convert date to MM/DD/YYYY format for DateField
   const convertToMMDDYYYY = (dateStr: string): string => {
@@ -84,13 +85,14 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props: AddDeliveryD
 
   const [newDelivery, setNewDelivery] = useState<NewDelivery>(() => {
     if (preSelectedClient) {
+      let name = preSelectedClient.clientName;
+      if (!name || name.trim() === "") {
+        const { firstName, lastName } = preSelectedClient.clientProfile;
+        name = (firstName && lastName) ? `${firstName} ${lastName}` : "";
+      }
       return {
         clientId: preSelectedClient.clientId,
-        clientName: preSelectedClient.clientName
-          ? preSelectedClient.clientName
-          : (preSelectedClient.clientProfile.firstName && preSelectedClient.clientProfile.lastName
-            ? `${preSelectedClient.clientProfile.firstName} ${preSelectedClient.clientProfile.lastName}`
-            : ""),
+        clientName: name,
         deliveryDate: "",
         recurrence: (preSelectedClient.clientProfile.recurrence as "None" | "Weekly" | "2x-Monthly" | "Monthly" | "Custom") || "None",
         repeatsEndDate: convertToMMDDYYYY(preSelectedClient.clientProfile.endDate || ""),
@@ -108,45 +110,40 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props: AddDeliveryD
   const [customDates, setCustomDates] = useState<Date[]>([]);
   const [startDateError, setStartDateError] = useState<string>("");
   const [endDateError, setEndDateError] = useState<string>("");
-  const [currentLastDeliveryDate, setCurrentLastDeliveryDate] = useState<string>("");
+// ...existing code...
 
   // Clear formError when any relevant field changes
   useEffect(() => {
     setFormError("");
   }, [newDelivery, customDates, startDateError, endDateError]);
   // Track if all required fields are filled and valid
+  // Only require visible fields for the current recurrence type
   const isFormValid = (() => {
     const isValidDateFormat = (dateStr: string) => {
       if (!dateStr) return false;
       // Accept MM/DD/YYYY or YYYY-MM-DD
       return /^\d{2}\/\d{2}\/\d{4}$/.test(dateStr) || /^\d{4}-\d{2}-\d{2}$/.test(dateStr);
     };
-    // If any error is present, form is invalid
-    if (
-      Boolean(startDateError) ||
-      Boolean(endDateError) ||
-      Boolean(newDelivery._deliveryDateError) ||
-      Boolean(newDelivery._repeatsEndDateError) ||
-      Boolean(formError)
-    ) {
-      return false;
-    }
-    // If any required field is missing, form is invalid
-    if (!newDelivery.clientName || !newDelivery.deliveryDate) {
-      return false;
-    }
+    // If any visible error is present, form is invalid
+    if (typeof formError === 'string' && formError.trim() !== '') return false;
+    if (!newDelivery.clientName) return false;
+    const hasStartDateError = typeof startDateError === 'string' && startDateError.trim() !== '';
+    const hasEndDateError = typeof endDateError === 'string' && endDateError.trim() !== '';
+    const hasDeliveryDateError = typeof newDelivery._deliveryDateError === 'string' && newDelivery._deliveryDateError.trim() !== '';
+    const hasRepeatsEndDateError = typeof newDelivery._repeatsEndDateError === 'string' && newDelivery._repeatsEndDateError.trim() !== '';
     if (newDelivery.recurrence === "None") {
-      return isValidDateFormat(newDelivery.deliveryDate) && !!newDelivery.clientName;
+      if (hasStartDateError || hasDeliveryDateError) return false;
+      return isValidDateFormat(newDelivery.deliveryDate);
     }
     if (["Weekly", "2x-Monthly", "Monthly"].includes(newDelivery.recurrence)) {
-      // End date is required for these recurrence types
-      if (!newDelivery.repeatsEndDate) return false;
-      return isValidDateFormat(newDelivery.deliveryDate) && isValidDateFormat(newDelivery.repeatsEndDate) && !!newDelivery.clientName;
+      if (!newDelivery.deliveryDate || !newDelivery.repeatsEndDate) return false;
+      if (hasStartDateError || hasEndDateError || hasDeliveryDateError || hasRepeatsEndDateError) return false;
+      return isValidDateFormat(newDelivery.deliveryDate) && isValidDateFormat(newDelivery.repeatsEndDate);
     }
     if (newDelivery.recurrence === "Custom") {
-      // Custom recurrence requires at least one custom date and an end date
       if (customDates.length === 0 || !newDelivery.repeatsEndDate) return false;
-      return customDates.length > 0 && isValidDateFormat(newDelivery.repeatsEndDate) && !!newDelivery.clientName;
+      if (hasEndDateError || hasRepeatsEndDateError) return false;
+      return customDates.length > 0 && isValidDateFormat(newDelivery.repeatsEndDate);
     }
     return false;
   })();
@@ -195,47 +192,27 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props: AddDeliveryD
   }, [open, preSelectedClient, handleClientSearch]);
 
   // Fetch current last delivery date when client is selected or modal opens
+
   useEffect(() => {
     const fetchCurrentLastDeliveryDate = async () => {
       if (newDelivery.clientId && open) {
         try {
           const latestEndDate = await getLastDeliveryDateForClient(newDelivery.clientId);
-
           if (latestEndDate) {
             const formattedDate = convertToMMDDYYYY(latestEndDate);
-            setCurrentLastDeliveryDate(formattedDate);
-
-        setNewDelivery((prev: NewDelivery) => ({
+            setNewDelivery((prev: NewDelivery) => ({
               ...prev,
               repeatsEndDate: prev.repeatsEndDate || formattedDate
             }));
-          } else {
-            setCurrentLastDeliveryDate("");
           }
         } catch (error) {
           console.error("Error fetching current last delivery date:", error);
-          setCurrentLastDeliveryDate("");
         }
-      } else {
-        setCurrentLastDeliveryDate("");
       }
     };
-
     fetchCurrentLastDeliveryDate();
   }, [newDelivery.clientId, open]);
 
-  useEffect(() => {
-    if (open) {
-      document.body.classList.add('add-delivery-modal-open');
-    } else {
-      document.body.classList.remove('add-delivery-modal-open');
-    }
-    return () => {
-      document.body.classList.remove('add-delivery-modal-open');
-    };
-  }, [open]);
-
-  // Validate date range whenever delivery date or end date changes
   useEffect(() => {
     if (newDelivery.recurrence !== "None" && newDelivery.recurrence !== "Custom" && 
         newDelivery.deliveryDate && newDelivery.repeatsEndDate) {
@@ -299,23 +276,11 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props: AddDeliveryD
     // Check for duplicate delivery for the same client on the same day
     import("../../../services/delivery-service").then(({ default: DeliveryService }) => {
       const service = DeliveryService.getInstance();
-      service.getEventsByClientId(newDelivery.clientId).then(events => {
-        const deliveryDateStr = newDelivery.deliveryDate;
-        const hasDuplicate = events.some((event: any) => {
-          let eventDate: Date;
-          if (event.deliveryDate instanceof Date) {
-            eventDate = event.deliveryDate;
-          } else if (event.deliveryDate && typeof event.deliveryDate === 'object' && typeof event.deliveryDate.toDate === 'function') {
-            eventDate = event.deliveryDate.toDate();
-          } else {
-            eventDate = new Date(String(event.deliveryDate));
-          }
-          // Compare only the date part (ignore time)
-          return eventDate.toISOString().split("T")[0] === deliveryDateStr;
-        });
+      service.getEventsByClientId(newDelivery.clientId).then(() => {
+        // ...existing code...
 
         const normalizedDeliveryDate = TimeUtils.fromAny(newDelivery.deliveryDate).toISODate();
-        const normalizedEndDate = TimeUtils.fromAny(newDelivery.repeatsEndDate || '').toISODate();
+  // ...existing code...
 
         setFormError("");
         const deliveryToSubmit: Partial<NewDelivery> = { ...newDelivery };
@@ -368,7 +333,7 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props: AddDeliveryD
               getOptionKey={(option: ClientSearchResult) => option.uid}
               filterOptions={(options: ClientSearchResult[]) => options}
               onInputChange={(event: React.ChangeEvent<unknown>, value: string) => {
-                if (event && (event as any).type === 'change') {
+                if (event && (event as unknown as { type: string }).type === 'change') {
                   handleClientSearch(value);
                 }
               }}
@@ -418,7 +383,7 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props: AddDeliveryD
               }}
               disablePortal={false}
               renderOption={(props: object, option: ClientSearchResult) => {
-                const { key, ...otherProps } = props as any;
+                const { key, ...otherProps } = props as { key: string };
                 return (
                   <Box 
                     component="li" 
@@ -658,7 +623,18 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props: AddDeliveryD
         </Button>
       </DialogActions>
     </Dialog>
+
   );
 }
+
 export default AddDeliveryDialog;
+
+
+
+
+
+
+
+
+
 

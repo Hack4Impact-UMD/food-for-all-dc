@@ -1,3 +1,18 @@
+import { TableSortLabel, Icon } from "@mui/material";
+
+const iconStyle = { verticalAlign: 'middle', marginLeft: 6 };
+const ChevronUp = () => (
+  <Icon fontSize="small" style={iconStyle}>keyboard_arrow_up</Icon>
+);
+const ChevronDown = () => (
+  <Icon fontSize="small" style={iconStyle}>keyboard_arrow_down</Icon>
+);
+const ChevronUpDown = () => (
+  <span style={{ display: 'inline-flex', flexDirection: 'column', lineHeight: 1, marginLeft: 6 }}>
+    <Icon fontSize="small" style={{ marginBottom: -4 }}>keyboard_arrow_up</Icon>
+    <Icon fontSize="small" style={{ marginTop: -4 }}>keyboard_arrow_down</Icon>
+  </span>
+);
 import React, { useState } from "react";
 import {
   Box,
@@ -95,6 +110,30 @@ const DriverManagementModal: React.FC<DriverManagementModalProps> = ({
   drivers,
   onDriversChange,
 }) => {
+  // Sorting state
+  const [sortConfig, setSortConfig] = useState<{ key: keyof Driver; direction: 'asc' | 'desc' }>({ key: 'name', direction: 'asc' });
+
+  // Sorting handler
+  const handleSort = (key: keyof Driver) => {
+    setSortConfig((prev) => {
+      if (prev.key === key) {
+        return { key, direction: prev.direction === 'asc' ? 'desc' : 'asc' };
+      }
+      return { key, direction: 'asc' };
+    });
+  };
+
+  // Sorted drivers
+  const sortedDrivers = React.useMemo(() => {
+    const sorted = [...drivers].sort((a, b) => {
+      const aValue = (a[sortConfig.key] || '').toString().toLowerCase();
+      const bValue = (b[sortConfig.key] || '').toString().toLowerCase();
+      if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
+      if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
+      return 0;
+    });
+    return sorted;
+  }, [drivers, sortConfig]);
   const [isAddingDriver, setIsAddingDriver] = useState(false);
   const [editingDriver, setEditingDriver] = useState<Driver | null>(null);
   const [newDriver, setNewDriver] = useState<Omit<Driver, "id">>({
@@ -346,16 +385,55 @@ const DriverManagementModal: React.FC<DriverManagementModalProps> = ({
             <Table>
               <TableHead>
                 <TableRow sx={{ backgroundColor: "rgba(0, 0, 0, 0.02)" }}>
-                  <TableCell sx={{ fontWeight: 600, color: "#1a1a1a" }}>Driver</TableCell>
-                  <TableCell sx={{ fontWeight: 600, color: "#1a1a1a" }}>Phone Number</TableCell>
-                  <TableCell sx={{ fontWeight: 600, color: "#1a1a1a" }}>Email</TableCell>
+                  <TableCell sx={{ fontWeight: 600, color: "#1a1a1a", cursor: 'pointer' }} onClick={() => handleSort('name')}>
+                    <TableSortLabel
+                      active={sortConfig.key === 'name'}
+                      direction={sortConfig.direction}
+                      hideSortIcon={true}
+                      IconComponent={() => null}
+                    >
+                      Driver
+                      {sortConfig.key === 'name'
+                        ? (sortConfig.direction === 'asc' ? <ChevronUp />
+                          : <ChevronDown />)
+                        : <ChevronUpDown />}
+                    </TableSortLabel>
+                  </TableCell>
+                  <TableCell sx={{ fontWeight: 600, color: "#1a1a1a", cursor: 'pointer' }} onClick={() => handleSort('phone')}>
+                    <TableSortLabel
+                      active={sortConfig.key === 'phone'}
+                      direction={sortConfig.direction}
+                      hideSortIcon={true}
+                      IconComponent={() => null}
+                    >
+                      Phone Number
+                      {sortConfig.key === 'phone'
+                        ? (sortConfig.direction === 'asc' ? <ChevronUp />
+                          : <ChevronDown />)
+                        : <ChevronUpDown />}
+                    </TableSortLabel>
+                  </TableCell>
+                  <TableCell sx={{ fontWeight: 600, color: "#1a1a1a", cursor: 'pointer' }} onClick={() => handleSort('email')}>
+                    <TableSortLabel
+                      active={sortConfig.key === 'email'}
+                      direction={sortConfig.direction}
+                      hideSortIcon={true}
+                      IconComponent={() => null}
+                    >
+                      Email
+                      {sortConfig.key === 'email'
+                        ? (sortConfig.direction === 'asc' ? <ChevronUp />
+                          : <ChevronDown />)
+                        : <ChevronUpDown />}
+                    </TableSortLabel>
+                  </TableCell>
                   <TableCell sx={{ fontWeight: 600, color: "#1a1a1a", width: "120px" }}>
                     Actions
                   </TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
-                {drivers.map((d) => (
+                {sortedDrivers.map((d) => (
                   <TableRow
                     key={d.id}
                     sx={{
@@ -365,14 +443,14 @@ const DriverManagementModal: React.FC<DriverManagementModalProps> = ({
                     }}
                   >
                     <TableCell>
-                      {editingDriver?.id === d.id ? (
+                      {editingDriver?.id === d.id && editingDriver ? (
                         <TextField
-                          value={editingDriver.name}
+                          value={editingDriver.name || ""}
                           onChange={(e) =>
                             handleDriverFormChange(
                               setEditingDriver,
                               setEditErrors,
-                              editingDriver,
+                              editingDriver ?? { id: d.id, name: d.name, phone: d.phone, email: d.email },
                               "name",
                               e.target.value
                             )
@@ -392,14 +470,14 @@ const DriverManagementModal: React.FC<DriverManagementModalProps> = ({
                       )}
                     </TableCell>
                     <TableCell>
-                      {editingDriver?.id === d.id ? (
+                      {editingDriver?.id === d.id && editingDriver ? (
                         <TextField
-                          value={editingDriver.phone}
+                          value={editingDriver.phone || ""}
                           onChange={(e) =>
                             handleDriverFormChange(
                               setEditingDriver,
                               setEditErrors,
-                              editingDriver,
+                              editingDriver ?? { id: d.id, name: d.name, phone: d.phone, email: d.email },
                               "phone",
                               e.target.value
                             )
@@ -419,14 +497,14 @@ const DriverManagementModal: React.FC<DriverManagementModalProps> = ({
                       )}
                     </TableCell>
                     <TableCell>
-                      {editingDriver?.id === d.id ? (
+                      {editingDriver?.id === d.id && editingDriver ? (
                         <TextField
-                          value={editingDriver.email}
+                          value={editingDriver.email || ""}
                           onChange={(e) =>
                             handleDriverFormChange(
                               setEditingDriver,
                               setEditErrors,
-                              editingDriver,
+                              editingDriver ?? { id: d.id, name: d.name, phone: d.phone, email: d.email },
                               "email",
                               e.target.value
                             )
