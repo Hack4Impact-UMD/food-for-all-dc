@@ -269,6 +269,7 @@ class ClientService {
             phone: raw.phone || '',
             houseNumber: raw.houseNumber || 0,
             address: raw.address || '',
+            address2: raw.address2 || '',
             deliveryDetails: {
               deliveryInstructions: raw.deliveryDetails?.deliveryInstructions || '',
               dietaryRestrictions: {
