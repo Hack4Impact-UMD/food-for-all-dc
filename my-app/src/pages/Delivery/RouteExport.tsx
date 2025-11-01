@@ -104,7 +104,7 @@ export const exportDeliveries = async (
             return {
               firstName: row.firstName || "",
               lastName: row.lastName || "",
-              address: row.address || "",
+              address: row.address ? `${row.address}${row.address2 ? ' ' + row.address2 : ''}` : "",
               zip: row.zipCode || "",
               quadrant: rowData.quadrant || "",
               ward: row.ward || "",
@@ -252,7 +252,7 @@ export const exportDoordashDeliveries = async (
             const city = rowData.city || config.doorDash.defaultCity;
             const state = rowData.state || config.doorDash.defaultState;
             const unit = rowData.address2 || ""; // Use address2 field for unit
-            const streetAddress = row.address || "";
+            const streetAddress = row.address ? `${row.address}${row.address2 ? ' ' + row.address2 : ''}` : "";
 
             return {
               "Pickup Location ID*": config.doorDash.pickupLocationId,

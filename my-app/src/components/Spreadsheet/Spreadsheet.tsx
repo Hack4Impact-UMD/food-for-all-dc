@@ -182,8 +182,9 @@ const Spreadsheet: React.FC = () => {
     { key: "fullname", label: "Name", type: "text", compute: (data: RowData) => `${data.lastName}, ${data.firstName}` },
     { key: "address", label: "Address", type: "text", compute: (data: RowData) => {
       // Append address2 (apartment/unit) if present
-      if (data.address2 && data.address2.trim() !== "") {
-        return `${data.address} ${data.address2}`.trim();
+      const address2 = typeof data.address2 === "string" ? data.address2 : "";
+      if (address2.trim() !== "") {
+        return `${data.address} ${address2}`.trim();
       }
       return data.address;
     } },

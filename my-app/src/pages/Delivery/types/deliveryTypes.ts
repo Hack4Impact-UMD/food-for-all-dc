@@ -65,7 +65,14 @@ export type Field =
       width: string;
     }
   | {
-      key: keyof Omit<RowData, "id" | "firstName" | "lastName" | "deliveryDetails">;
+      key: "address";
+      label: string;
+      type: string;
+      compute: (data: RowData) => string;
+      width: string;
+    }
+  | {
+      key: Exclude<keyof Omit<RowData, "id" | "firstName" | "lastName" | "deliveryDetails" | "address">, "coordinates">;
       label: string;
       type: string;
       compute?: never;
