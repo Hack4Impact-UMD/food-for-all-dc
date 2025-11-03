@@ -1,18 +1,3 @@
-import { TableSortLabel, Icon } from "@mui/material";
-
-const iconStyle = { verticalAlign: 'middle', marginLeft: 6 };
-const ChevronUp = () => (
-  <Icon fontSize="small" style={iconStyle}>keyboard_arrow_up</Icon>
-);
-const ChevronDown = () => (
-  <Icon fontSize="small" style={iconStyle}>keyboard_arrow_down</Icon>
-);
-const ChevronUpDown = () => (
-  <span style={{ display: 'inline-flex', flexDirection: 'column', lineHeight: 1, marginLeft: 6 }}>
-    <Icon fontSize="small" style={{ marginBottom: -4 }}>keyboard_arrow_up</Icon>
-    <Icon fontSize="small" style={{ marginTop: -4 }}>keyboard_arrow_down</Icon>
-  </span>
-);
 import React, { useState } from "react";
 import {
   Box,
@@ -33,12 +18,29 @@ import {
   IconButton,
   Typography,
   DialogContentText,
+  TableSortLabel,
+  Icon,
 } from "@mui/material";
 import { Close, Add, Edit, Check, Delete } from "@mui/icons-material";
 import { doc, updateDoc, addDoc, deleteDoc, collection } from "firebase/firestore";
 import { db } from "../auth/firebaseConfig";
 import { Driver } from "../types/calendar-types";
 import dataSources from '../config/dataSources';
+
+// Icon components for sorting
+const iconStyle = { verticalAlign: 'middle', marginLeft: 6 };
+const ChevronUp = () => (
+  <Icon fontSize="small" style={iconStyle}>keyboard_arrow_up</Icon>
+);
+const ChevronDown = () => (
+  <Icon fontSize="small" style={iconStyle}>keyboard_arrow_down</Icon>
+);
+const ChevronUpDown = () => (
+  <span style={{ display: 'inline-flex', flexDirection: 'column', lineHeight: 1, marginLeft: 6 }}>
+    <Icon fontSize="small" style={{ marginBottom: -4 }}>keyboard_arrow_up</Icon>
+    <Icon fontSize="small" style={{ marginTop: -4 }}>keyboard_arrow_down</Icon>
+  </span>
+);
 
 // Types
 interface ValidationErrors {
