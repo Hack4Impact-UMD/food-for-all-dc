@@ -65,6 +65,7 @@ export const exportQueryResults = (rows: RowData[], customColumns: Array<{id: st
         const baseData: Record<string, any> = {
             Name: `${row.lastName}, ${row.firstName}`,
             Address: row.address,
+            "Address 2": row.address2 || "",
             Phone: (row as any).phone || "N/A",
             "Delivery Instructions": row.deliveryDetails?.deliveryInstructions || "None",
             "Dietary Restrictions": row.deliveryDetails?.dietaryRestrictions
@@ -138,6 +139,7 @@ export const exportAllClients = (rows: RowData[]) => {
             "Name": `${row.lastName}, ${row.firstName}`,
             "Phone": row.phone || "N/A",
             "Address": row.address,
+            "Address 2": row.address2 || "",
             "House Number": row.houseNumber || "N/A",
             "Street Name": row.streetName || "N/A",
             "Zip Code": row.zipCode || "N/A",

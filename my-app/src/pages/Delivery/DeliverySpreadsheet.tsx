@@ -2526,7 +2526,9 @@ const DeliverySpreadsheet: React.FC = () => {
                     }}
                   >
                     {col.propertyKey !== "none" ? (
-                      col.propertyKey === "deliveryDetails.dietaryRestrictions" ? (
+                      col.propertyKey === "address" ? (
+                        `${row.address || ''}${row.address2 ? ' ' + row.address2 : ''}`.trim()
+                      ) : col.propertyKey === "deliveryDetails.dietaryRestrictions" ? (
                         (() => {
                           const dr = row.deliveryDetails?.dietaryRestrictions;
                           if (!dr) return <span style={{ color: '#757575', fontStyle: 'italic' }}>None</span>;

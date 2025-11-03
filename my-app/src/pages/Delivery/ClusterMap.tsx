@@ -46,6 +46,7 @@ interface VisibleRow {
   firstName: string;
   lastName: string;
   address: string;
+  address2?: string;
   coordinates?: [number, number] | { lat: number; lng: number };
   clusterId?: string;
   ward?: string;
@@ -417,7 +418,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
 
       const coord = normalizeCoordinate(client.coordinates);
       const clientName = `${client.firstName} ${client.lastName}` || "Client: None";
-      const address = client.address;
+      const address = `${client.address || ''}${client.address2 ? ' ' + client.address2 : ''}`.trim();
 
       const cluster = clientClusterMap.get(client.id);
       const clusterId = cluster?.id || "";

@@ -180,7 +180,14 @@ const Spreadsheet: React.FC = () => {
   // --- Fields for table columns ---
   const fields = useMemo(() => [
     { key: "fullname", label: "Name", type: "text", compute: (data: RowData) => `${data.lastName}, ${data.firstName}` },
-    { key: "address", label: "Address", type: "text" },
+    { key: "address", label: "Address", type: "text", compute: (data: RowData) => {
+      // Append address2 (apartment/unit) if present
+      const address2 = typeof data.address2 === "string" ? data.address2 : "";
+      if (address2.trim() !== "") {
+        return `${data.address} ${address2}`.trim();
+      }
+      return data.address;
+    } },
     { key: "phone", label: "Phone", type: "text" },
     { key: "deliveryDetails.dietaryRestrictions", label: "Dietary Restrictions", type: "text", compute: (data: RowData) => {
       const dr = data.deliveryDetails?.dietaryRestrictions;

@@ -673,16 +673,24 @@ const Profile = () => {
   };
 
   const getWardAndCoordinates = async (searchAddress: string) => {
-    console.log("getting ward and coordinates");
+    // Compose full address string for geocoding
+    const fullAddress = [
+      clientProfile.address,
+      clientProfile.address2,
+      clientProfile.city,
+      clientProfile.state,
+      clientProfile.zipCode
+    ]
+      .filter(Boolean)
+      .join(", ");
     let wardName;
     let coordinates;
 
     try {
-      // Get coordinates for the address
-      coordinates = await getCoordinates(searchAddress);
+      // Get coordinates for the full address
+      coordinates = await getCoordinates(fullAddress);
       
       if (!coordinates || coordinates.length !== 2 || coordinates[0] === 0 || coordinates[1] === 0) {
-        console.log("Invalid coordinates for ward lookup");
         wardName = "No address";
         return { ward: wardName, coordinates };
       }
@@ -716,11 +724,9 @@ const Profile = () => {
         const wardFeature = data.features[0];
         wardName = wardFeature.attributes.NAME || `Ward ${wardFeature.attributes.WARD}`;
       } else {
-        console.log("No ward found for the given coordinates.");
         wardName = "No ward";
       }
     } catch (error) {
-      console.error("Error fetching ward information:", error);
       wardName = "Error";
     }
     
@@ -743,13 +749,13 @@ const Profile = () => {
 
       //API returns {[coordinates[]]} so destructure and return index 0
       if (response.ok) {
-        const { coordinates } = await response.json();
+        const json = await response.json();
+        const { coordinates } = json;
         return coordinates[0];
       }
     }
     catch (error) {
       //[0,0] is an invalid coordinate handled in DelivertSpreadsheet.tsx
-      console.error(error)
       return [0, 0];
     }
   }
@@ -1220,38 +1226,12 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
         }
       }
       // --- Geocoding Optimization Start ---
-      let addressChanged = false;
-      if (isNewProfile || !prevClientProfile) {
-        // Always geocode for new profiles or if previous state is missing
-        addressChanged = true;
-      } else {
-        // Check if any address component changed
-        if (
-          clientProfile.address !== prevClientProfile.address ||
-          clientProfile.city !== prevClientProfile.city ||
-          clientProfile.state !== prevClientProfile.state ||
-          clientProfile.zipCode !== prevClientProfile.zipCode
-        ) {
-          addressChanged = true;
-        }
-      }
-  
-      // Also force geocode if coordinates are missing or invalid
-      if (!addressChanged && (!clientProfile.coordinates || clientProfile.coordinates.length === 0 || (clientProfile.coordinates[0].lat === 0 && clientProfile.coordinates[0].lng === 0))) {
-          addressChanged = true;
-      }
-  
-      let fetchedWard = clientProfile.ward; // Default to existing ward
-      let coordinatesToSave = clientProfile.coordinates; // Default to existing coordinates
-  
-      if (addressChanged) {
-        const { ward, coordinates: fetchedCoordinates } = await getWardAndCoordinates(clientProfile.address);
-        fetchedWard = ward;
-        coordinatesToSave = fetchedCoordinates; // Use coordinates from the combined call
-        // Update the ward state
-        clientProfile.ward = fetchedWard;
-        setWard(fetchedWard);
-      }
+      // Always force geocoding and coordinate update on every save
+      const { ward: fetchedWard, coordinates: fetchedCoordinates } = await getWardAndCoordinates(clientProfile.address);
+  const coordinatesToSave = fetchedCoordinates;
+      // Update the ward state
+      clientProfile.ward = fetchedWard;
+      setWard(fetchedWard);
       // --- Geocoding Optimization End ---
   
       const currentNotes = clientProfile.notes || ""; // Ensure notes is a string

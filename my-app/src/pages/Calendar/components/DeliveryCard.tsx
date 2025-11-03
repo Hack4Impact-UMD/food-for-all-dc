@@ -72,7 +72,7 @@ const DeliveryCard: React.FC<DeliveryCardProps> = React.memo(function DeliveryCa
           },
           {
             label: "ADDRESS",
-            value: client?.address || "N/A",
+            value: client ? `${client.address}${client.address2 ? ' ' + client.address2 : ''}` : "N/A",
           },
           {
             label: "DIETARY RESTRICTIONS",

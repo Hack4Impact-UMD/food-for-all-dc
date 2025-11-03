@@ -1,11 +1,11 @@
 {
   "firebase": {
   "clientsCollection": "client-profile2",
-  "caseWorkersCollection": "CaseWorkers",
+  "caseWorkersCollection": "referral",
   "clustersCollection": "clusters",
   "limitsCollection": "limits",
     "usersCollection": "users",
-    "driversCollection": "Drivers",
+    "driversCollection": "Drivers2",
     "deliveriesCollection": "deliveries",
     "calendarCollection": "events",
     "tagsCollection": "tags",
