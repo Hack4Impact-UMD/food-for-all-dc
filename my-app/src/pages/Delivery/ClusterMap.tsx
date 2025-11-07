@@ -621,26 +621,47 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
 
         if (editBtn) {
           editBtn.addEventListener('click', () => {
+            // ...existing code...
             // Capture initial values when entering edit mode
             if (clusterSelect) initialClusterId = clusterSelect.value;
             if (driverSelect) initialDriver = driverSelect.value;
             if (timeSelect) initialTime = timeSelect.value;
             viewMode.style.display = 'none';
             editMode.style.display = 'block';
-            // Ensure popup stays in view after switching to edit mode
+            // Measure popup size in edit mode and pan map accordingly
             setTimeout(() => {
-              // Find the marker for this popup
-              if (markerGroupRef.current && mapRef.current) {
-                markerGroupRef.current.eachLayer(function(layer) {
-                  // Only proceed if this is a marker
-                  if ((layer as L.Marker).getPopup && (layer as L.Marker).getPopup() && (layer as L.Marker).getPopup()!.getContent() === popupContainer) {
+              if (editMode && markerGroupRef.current && mapRef.current) {
+                const editRect = editMode.getBoundingClientRect();
+                let markerIdx = 0;
+                markerGroupRef.current.eachLayer(function(layer: L.Layer) {
+                  if ((layer as L.Marker).getPopup) {
                     const marker = layer as L.Marker;
                     const popup = marker.getPopup();
-                    if (popup && mapRef.current && marker.getLatLng) {
-                      popup.update();
-                      mapRef.current.panInside(marker.getLatLng(), { padding: [30, 30] });
+                    const popupContent = popup && popup.getContent();
+                    let popupContentId = null;
+                    let popupContainerId = null;
+                    if (popupContent instanceof HTMLElement) {
+                      popupContentId = popupContent.getAttribute('data-client-id');
+                    }
+                    if (popupContainer instanceof HTMLElement) {
+                      popupContainerId = popupContainer.getAttribute('data-client-id');
+                    }
+                    if (popupContentId && popupContainerId && popupContentId === popupContainerId) {
+                      if (popup && mapRef.current && marker.getLatLng) {
+                        const latlng = marker.getLatLng();
+                        // Calculate offset to pan the map so the full edit popup is visible
+                        const yOffset = editRect.height / 2;
+                        const map = mapRef.current;
+                        const markerPoint = map.latLngToContainerPoint(latlng);
+                        const targetPoint = markerPoint.subtract([0, yOffset]);
+                        const targetLatLng = map.containerPointToLatLng(targetPoint);
+                        setTimeout(() => {
+                          map.panTo(targetLatLng, { animate: true });
+                        }, 100);
+                      }
                     }
                   }
+                  markerIdx++;
                 });
               }
             }, 0);
@@ -661,6 +682,42 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
             if (timeSelect) timeSelect.value = initialTime;
             viewMode.style.display = 'block';
             editMode.style.display = 'none';
+            // Measure popup size in view mode and pan map accordingly
+            setTimeout(() => {
+              if (viewMode && markerGroupRef.current && mapRef.current) {
+                const viewRect = viewMode.getBoundingClientRect();
+                let markerIdx = 0;
+                markerGroupRef.current.eachLayer(function(layer: L.Layer) {
+                  if ((layer as L.Marker).getPopup) {
+                    const marker = layer as L.Marker;
+                    const popup = marker.getPopup();
+                    const popupContent = popup && popup.getContent();
+                    let popupContentId = null;
+                    let popupContainerId = null;
+                    if (popupContent instanceof HTMLElement) {
+                      popupContentId = popupContent.getAttribute('data-client-id');
+                    }
+                    if (popupContainer instanceof HTMLElement) {
+                      popupContainerId = popupContainer.getAttribute('data-client-id');
+                    }
+                    if (popupContentId && popupContainerId && popupContentId === popupContainerId) {
+                      if (popup && mapRef.current && marker.getLatLng) {
+                        const latlng = marker.getLatLng();
+                        const yOffset = viewRect.height / 2;
+                        const map = mapRef.current;
+                        const markerPoint = map.latLngToContainerPoint(latlng);
+                        const targetPoint = markerPoint.subtract([0, yOffset]);
+                        const targetLatLng = map.containerPointToLatLng(targetPoint);
+                        setTimeout(() => {
+                          map.panTo(targetLatLng, { animate: true });
+                        }, 100);
+                      }
+                    }
+                  }
+                  markerIdx++;
+                });
+              }
+            }, 0);
           });
         }
 
@@ -701,6 +758,42 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
                 newEditBtn.addEventListener('click', () => {
                   viewMode.style.display = 'none';
                   editMode.style.display = 'block';
+                  // Also pan map for edit mode (reuse logic from editBtn)
+                  setTimeout(() => {
+                    if (editMode && markerGroupRef.current && mapRef.current) {
+                      const editRect = editMode.getBoundingClientRect();
+                      let markerIdx = 0;
+                      markerGroupRef.current.eachLayer(function(layer: L.Layer) {
+                        if ((layer as L.Marker).getPopup) {
+                          const marker = layer as L.Marker;
+                          const popup = marker.getPopup();
+                          const popupContent = popup && popup.getContent();
+                          let popupContentId = null;
+                          let popupContainerId = null;
+                          if (popupContent instanceof HTMLElement) {
+                            popupContentId = popupContent.getAttribute('data-client-id');
+                          }
+                          if (popupContainer instanceof HTMLElement) {
+                            popupContainerId = popupContainer.getAttribute('data-client-id');
+                          }
+                          if (popupContentId && popupContainerId && popupContentId === popupContainerId) {
+                            if (popup && mapRef.current && marker.getLatLng) {
+                              const latlng = marker.getLatLng();
+                              const yOffset = editRect.height / 2;
+                              const map = mapRef.current;
+                              const markerPoint = map.latLngToContainerPoint(latlng);
+                              const targetPoint = markerPoint.subtract([0, yOffset]);
+                              const targetLatLng = map.containerPointToLatLng(targetPoint);
+                                setTimeout(() => {
+                                  map.panTo(targetLatLng, { animate: true });
+                                }, 100);
+                            }
+                          }
+                        }
+                        markerIdx++;
+                      });
+                    }
+                  }, 0);
                 });
               }
             }

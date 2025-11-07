@@ -1,3 +1,6 @@
+// ...existing code...
+// ...existing code...
+// ...existing code...
 import React, { useState, useEffect, useMemo, Suspense } from "react";
 import { getEventsByViewType } from '../Calendar/components/getEventsByViewType';
 import CircularProgress from "@mui/material/CircularProgress";
@@ -54,6 +57,7 @@ import {
   Menu,
   Chip,
 } from "@mui/material";
+import RestartAltIcon from "@mui/icons-material/RestartAlt";
 import { styled } from "@mui/material/styles";
 import { collection, getDocs, doc, setDoc } from "firebase/firestore";
 import { auth } from "../../auth/firebaseConfig";
@@ -317,6 +321,18 @@ const isRegularField = (
 };
 
 const DeliverySpreadsheet: React.FC = () => {
+  // Reset clusters to empty for the current day
+  const handleResetClusters = async () => {
+    if (!clusterDoc) return;
+    try {
+      const clusterRef = doc(db, dataSources.firebase.clustersCollection, clusterDoc.docId);
+      await updateDoc(clusterRef, { clusters: [], clientOverrides: [] });
+      setClusters([]);
+      setClientOverrides([]);
+    } catch (error) {
+      console.error("Error resetting clusters:", error);
+    }
+  };
   const { clients: clientsFromContext, loading: clientsLoading } = useClientData();
   const testing = false;
   const { userRole } = useAuth();
@@ -2077,15 +2093,35 @@ const DeliverySpreadsheet: React.FC = () => {
         disabled={userRole === UserType.ClientIntake || isLoading}
         style={{
           whiteSpace: "nowrap",
-          padding: "0% 2%",
           borderRadius: 5,
-          width: "auto",
-          marginRight: '16px'
+          marginRight: '8px',
+          minWidth: 'auto',
+          width: 'auto',
+          fontSize: '0.875rem',
+          padding: '8px 16px'
         }}
         onClick={() => setPopupMode("Clusters")}
         startIcon={isLoading ? <CircularProgress size={20} color="inherit" /> : <GroupWorkIcon />}
       >
         {isLoading ? "Generating..." : "Generate Clusters"}
+      </Button>
+
+      <Button
+        variant="secondary"
+        size="medium"
+        style={{
+          whiteSpace: "nowrap",
+          borderRadius: 5,
+          marginLeft: '0px',
+          minWidth: 'auto',
+          width: 'auto',
+          fontSize: '0.875rem',
+          padding: '8px 16px'
+        }}
+        onClick={handleResetClusters}
+        startIcon={<RestartAltIcon />}
+      >
+        Reset Clusters
       </Button>
       </div>
 
