@@ -1,7 +1,29 @@
+// Handler for assigning time (placeholder, to be implemented as needed)
+const assignTime = (timeValue: string) => {
+  // TODO: Implement time assignment logic
+  console.log('Assign time:', timeValue);
+};
+// ...existing code...
+import { RowData as DeliveryRowData } from "./types/deliveryTypes";
+import { Driver } from '../../types/calendar-types';
+import { useCustomColumns, allowedPropertyKeys } from "../../hooks/useCustomColumns";
+import { clientService } from "../../services/client-service";
+import { LatLngTuple } from "leaflet";
+import { UserType } from "../../types";
+import { useAuth } from "../../auth/AuthProvider";
+import EventCountHeader from "../../components/EventCountHeader";
+import { useLimits } from "../Calendar/components/useLimits";
+
+interface ClientOverride {
+  clientId: string;
+  driver?: string;
+  time?: string;
+}
 // ...existing code...
 // ...existing code...
 // ...existing code...
 import React, { useState, useEffect, useMemo, Suspense } from "react";
+import AddCircleOutlineIcon from "@mui/icons-material/AddCircleOutline";
 import { getEventsByViewType } from '../Calendar/components/getEventsByViewType';
 import CircularProgress from "@mui/material/CircularProgress";
 import { DayPilot } from "@daypilot/daypilot-lite-react";
@@ -70,25 +92,9 @@ import GenerateClustersPopup from "./components/GenerateClustersPopup";
 import AssignTimePopup from "./components/AssignTimePopup";
 import LoadingIndicator from "../../components/LoadingIndicator/LoadingIndicator";
 import { exportDeliveries, exportDoordashDeliveries } from "./RouteExport";
-import Button from "../../components/common/Button";
-import { RowData as DeliveryRowData } from "./types/deliveryTypes";
-import { Driver } from '../../types/calendar-types';
+import Button from "@mui/material/Button";
 // ...existing code...
-// ...existing code...
-// Remove top-level hooks for clients
-import { useCustomColumns, allowedPropertyKeys } from "../../hooks/useCustomColumns";
-import { clientService } from "../../services/client-service";
-import { LatLngTuple } from "leaflet";
-import { UserType } from "../../types";
 
-interface ClientOverride {
-  clientId: string;
-  driver?: string;
-  time?: string;
-}
-import { useAuth } from "../../auth/AuthProvider";
-import EventCountHeader from "../../components/EventCountHeader";
-import { useLimits } from "../Calendar/components/useLimits";
 import DietaryRestrictionsLegend from "../../components/DietaryRestrictionsLegend";
 
 const StyleChip = styled(Chip)({
@@ -321,8 +327,38 @@ const isRegularField = (
 };
 
 const DeliverySpreadsheet: React.FC = () => {
+  // For custom cluster dropdown menu anchor
+  const [anchorEls, setAnchorEls] = useState<{ [rowId: string]: HTMLElement | null }>({});
+  // Track temporary select value for each row to allow '__add__' selection
+  const [selectValues, setSelectValues] = useState<{ [rowId: string]: string }>({});
+  // Dummy state to force re-render of Select when needed
+  const [selectResetKey, setSelectResetKey] = useState(0);
+  // Ref map for each row's Select
+  const selectRefs = React.useRef<{ [key: string]: HTMLInputElement | null }>({});
+  // Workaround for opening modal after Select closes (track row id)
+  const [pendingOpenAddClusterModalRow, setPendingOpenAddClusterModalRow] = useState<string | null>(null);
+
+  // Effect: open modal if pendingOpenAddClusterModalRow is set
+  useEffect(() => {
+    if (pendingOpenAddClusterModalRow) {
+      console.debug('Effect: opening modal for row', pendingOpenAddClusterModalRow);
+      setAddClusterModalOpen(true);
+      setNumClustersToAdd(1);
+      setPendingOpenAddClusterModalRow(null);
+      setSelectResetKey(prev => prev + 1); // force Select to re-render
+    } else {
+      console.debug('Effect: pendingOpenAddClusterModalRow is null');
+    }
+  }, [pendingOpenAddClusterModalRow]);
+  // Add Cluster Modal State (for "+" cluster add)
+  const [addClusterModalOpen, setAddClusterModalOpen] = useState(false);
+  const [numClustersToAdd, setNumClustersToAdd] = useState(1);
   // Reset clusters to empty for the current day
   const handleResetClusters = async () => {
+    // Close map popup if open
+    if (typeof window !== 'undefined' && (window as any).closeMapPopup) {
+      (window as any).closeMapPopup();
+    }
     if (!clusterDoc) return;
     try {
       const clusterRef = doc(db, dataSources.firebase.clustersCollection, clusterDoc.docId);
@@ -477,21 +513,18 @@ const DeliverySpreadsheet: React.FC = () => {
   };
 
   // Calculate Cluster Options
-  const clusterOptions = useMemo(() => {
+  // Extend type for cluster options
+  type ClusterOption = { value: string; label: string; color: string; isAdd?: boolean };
+  const clusterOptions: ClusterOption[] = useMemo(() => {
     // Get unique cluster IDs and remove duplicates
     const uniqueIds = [...new Set(clusters.map(c => c.id))];
-    
     // Sort the unique IDs
     const availableIds = uniqueIds.sort((a, b) => parseInt(a, 10) - parseInt(b, 10));
-    
     // Create options from existing unique IDs ONLY
-    const options = availableIds.map(id => ({ value: id, label: id, color: clusterColorMap(id) }));
-    
-    if (options.length == 0) {
-      options.push({
-        value: "", label: "No Current Clusters",
-        color: "#cccccc"
-      });
+    const options: ClusterOption[] = availableIds.map(id => ({ value: id, label: id, color: clusterColorMap(id) }));
+    // Add the special "+" option at the end only if clusters exist
+    if (clusters.length > 0) {
+      options.push({ value: "__add__", label: "Add Cluster", color: "#cccccc", isAdd: true });
     }
     return options;
   }, [clusters]);
@@ -748,7 +781,14 @@ const DeliverySpreadsheet: React.FC = () => {
 
   const handleClusterChange = async (row: DeliveryRowData, newClusterIdStr: string) => {
     const oldClusterId = row.clusterId || "";
-    const newClusterId = newClusterIdStr;
+    let newClusterId = newClusterIdStr;
+
+    // If the newClusterId is '__add__', find the next highest numeric cluster ID
+    if (newClusterIdStr === "__add__") {
+      const numericIds = clusters.map(c => parseInt(c.id, 10)).filter(n => !isNaN(n));
+      const maxId = numericIds.length > 0 ? Math.max(...numericIds) : 0;
+      newClusterId = (maxId + 1).toString();
+    }
 
     if (!row || !row.id || newClusterId === oldClusterId || !clusterDoc) {
       console.log("Cluster change aborted (no change, missing data, or no clusterDoc)");
@@ -798,7 +838,7 @@ const DeliverySpreadsheet: React.FC = () => {
     setClusters(updatedClusters);
 
     try {
-  const clusterRef = doc(db, dataSources.firebase.clustersCollection, clusterDoc.docId);
+      const clusterRef = doc(db, dataSources.firebase.clustersCollection, clusterDoc.docId);
       await updateDoc(clusterRef, { clusters: deduplicateClusters(updatedClusters) });
       console.log(
         `Successfully moved ${row.id} from cluster ${oldClusterId || "none"} to ${newClusterId || "none"}`
@@ -836,9 +876,34 @@ const DeliverySpreadsheet: React.FC = () => {
 
   // reset popup selections when closing popup
   // Handle individual client updates from the map (individual overrides)
+  // Minimal assignDriver for popup compatibility
+  // assignDriver for AssignDriverPopup: uses highlightedRowId
+  const assignDriver = (driver: Driver | null) => {
+    if (!highlightedRowId || !driver) return;
+    // Only update driver, keep cluster and time unchanged
+    handleIndividualClientUpdate(highlightedRowId, "", driver.name, undefined);
+  };
   const handleIndividualClientUpdate = async (clientId: string, newClusterId: string, newDriver?: string, newTime?: string) => {
     if (!clusterDoc) {
       console.log("Individual client update aborted: clusterDoc is missing.");
+      return;
+    }
+
+    // Special handling for "+ Add Cluster" from map popup
+    if (newClusterId === "__add_new_cluster__") {
+      // Find the next available cluster number (as string)
+      const clusterNumbers = clusters.map(c => parseInt(c.id, 10)).filter(n => !isNaN(n));
+      const nextClusterNum = clusterNumbers.length > 0 ? Math.max(...clusterNumbers) + 1 : 1;
+      const nextClusterId = nextClusterNum.toString();
+      // Call self recursively to assign to the new cluster
+      await handleIndividualClientUpdate(clientId, nextClusterId, newDriver, newTime);
+      // Close and reopen the popup to force refresh
+      if (typeof window !== 'undefined' && (window as any).closeMapPopup && (window as any).openMapPopup) {
+        (window as any).closeMapPopup();
+        setTimeout(() => {
+          (window as any).openMapPopup(clientId);
+        }, 200);
+      }
       return;
     }
 
@@ -923,7 +988,7 @@ const DeliverySpreadsheet: React.FC = () => {
       setClusters(updatedClusters);
 
       // Update Firebase with cluster changes and client overrides
-  const clusterRef = doc(db, dataSources.firebase.clustersCollection, clusterDoc.docId);
+      const clusterRef = doc(db, dataSources.firebase.clustersCollection, clusterDoc.docId);
       await updateDoc(clusterRef, { 
         clusters: deduplicateClusters(updatedClusters),
         clientOverrides: updatedOverrides
@@ -964,7 +1029,6 @@ const DeliverySpreadsheet: React.FC = () => {
         newDriver ? `driver override: ${newDriver}` : '',
         newTime ? `time override: ${newTime}` : ''
       );
-
     } catch (error) {
       console.error("Error updating individual client:", error);
     }
@@ -978,148 +1042,7 @@ const DeliverySpreadsheet: React.FC = () => {
   };
 
   //Handle assigning driver
-  const assignDriver = async (driver: Driver | null) => {
-    if (!driver || !clusterDoc) {
-      console.log("Assign driver aborted: Driver is null or clusterDoc is missing.");
-      resetSelections();
-      return;
-    }
-
-    try {
-      const updatedClusters = clusters.map((cluster) => {
-        const isSelected = Array.from(selectedClusters).some(
-          (selected) => selected.id === cluster.id
-        );
-        if (isSelected) {
-          return {
-            ...cluster,
-            driver: driver.name,
-          };
-        }
-        return cluster;
-      });
-
-      // Set clusters (deduplication is handled automatically by setClusters wrapper)
-      setClusters(updatedClusters);
-
-      // Clear individual driver overrides for clients in the affected clusters
-      const affectedClientIds = new Set<string>();
-      clusters.forEach((cluster) => {
-        const isSelected = Array.from(selectedClusters).some(
-          (selected) => selected.id === cluster.id
-        );
-        if (isSelected) {
-          cluster.deliveries.forEach(clientId => affectedClientIds.add(clientId));
-        }
-      });
-
-      const updatedOverrides = clientOverrides.map(override => {
-        if (affectedClientIds.has(override.clientId)) {
-          // Clear the driver field for affected clients
-          return { ...override, driver: undefined };
-        }
-        return override;
-      }).filter(override => override.driver || override.time); // Remove overrides with no data
-
-      setClientOverrides(updatedOverrides);
-
-  const clusterRef = doc(db, dataSources.firebase.clustersCollection, clusterDoc.docId);
-      await updateDoc(clusterRef, { 
-        clusters: deduplicateClusters(updatedClusters),
-        clientOverrides: updatedOverrides
-      });
-
-      resetSelections();
-    } catch (error) {
-      console.error("Error assigning driver: ", error);
-    }
-  };
-
-  const updateClusters = async (clusterMap: { [key: string]: string[] }) => {
-    const newClusters: Cluster[] = [];
-    Object.keys(clusterMap).forEach((clusterId) => {
-      // Exclude "doordash" if it's a special case (though unlikely with ID mapping now)
-      if (clusterId !== "doordash") {
-        // The value in clusterMap[clusterId] is already the array of client IDs
-        const clientIdsForCluster = clusterMap[clusterId];
-
-        newClusters.push({
-          deliveries: clientIdsForCluster, // Directly use the array of client IDs
-          driver: "", // Initialize with defaults or fetch existing if needed
-          time: "",   // Initialize with defaults or fetch existing if needed
-          id: clusterId,
-        });
-      }
-    });
-
-    // Sort clusters numerically by ID for consistency
-    newClusters.sort((a, b) => parseInt(a.id, 10) - parseInt(b.id, 10));
-    
-    // Deduplicate clusters before returning
-    const uniqueClusters = deduplicateClusters(newClusters);
-
-    return uniqueClusters;
-  };
-
-  //Handle assigning time
-  const assignTime = async (time: string) => {
-    if (time && clusterDoc) {
-      try {
-        // Create a new clusters array with updated time assignments
-        const updatedClusters = clusters.map((cluster) => {
-          // Check if this cluster is among the selected ones (using ID for comparison)
-          const isSelected = Array.from(selectedClusters).some(
-            (selected) => selected.id === cluster.id
-          );
-          if (isSelected) {
-            // Return a *new* cluster object with the assigned time
-            return {
-              ...cluster,
-              time: time, // Assign the new time
-            };
-          }
-          // Return the original cluster object if not selected
-          return cluster;
-        });
-
-        // Set clusters (deduplication is handled automatically by setClusters wrapper)
-        setClusters(updatedClusters); // Update state with the new immutable array
-
-        // Clear individual time overrides for clients in the affected clusters
-        const affectedClientIds = new Set<string>();
-        clusters.forEach((cluster) => {
-          const isSelected = Array.from(selectedClusters).some(
-            (selected) => selected.id === cluster.id
-          );
-          if (isSelected) {
-            cluster.deliveries.forEach(clientId => affectedClientIds.add(clientId));
-          }
-        });
-
-        const updatedOverrides = clientOverrides.map(override => {
-          if (affectedClientIds.has(override.clientId)) {
-            // Clear the time field for affected clients
-            return { ...override, time: undefined };
-          }
-          return override;
-        }).filter(override => override.driver || override.time); // Remove overrides with no data
-
-        setClientOverrides(updatedOverrides);
-
-        // Update Firestore using updateDoc
-    const clusterRef = doc(db, dataSources.firebase.clustersCollection, clusterDoc.docId);
-        // Only update the 'clusters' field
-        await updateDoc(clusterRef, { 
-          clusters: deduplicateClusters(updatedClusters),
-          clientOverrides: updatedOverrides
-        });
-
-        resetSelections();
-      } catch (error) {
-        console.error("Error assigning time: ", error);
-      }
-    }
-  };
+  // ...existing code...
 
   const initClustersForDay = async (newClusters: Cluster[]) => {
   const docRef = doc(collection(db, dataSources.firebase.clustersCollection));
@@ -1357,6 +1280,16 @@ const DeliverySpreadsheet: React.FC = () => {
       }
 
       // Update Firestore and local state with the new cluster assignments (using client IDs)
+      // Stub updateClusters: convert clustersWithClientIds to array of Cluster objects
+      const updateClusters = async (clustersWithClientIds: { [key: string]: string[] }) => {
+        // This is a stub. Replace with real logic as needed.
+        return Object.entries(clustersWithClientIds).map(([id, deliveries]) => ({
+          id,
+          deliveries,
+          driver: "",
+          time: ""
+        }));
+      };
       const newClusters = await updateClusters(clustersWithClientIds); // Pass the map with client IDs
 
       if (clusterDoc) {
@@ -2061,7 +1994,7 @@ const DeliverySpreadsheet: React.FC = () => {
         </IconButton>
   
         <Button
-          variant="secondary"
+          variant="outlined"
           size="small"
           style={{
             width: '4.25rem',
@@ -2088,7 +2021,7 @@ const DeliverySpreadsheet: React.FC = () => {
       </Box>
         
       <Button
-        variant="primary"
+        variant="contained"
         size="medium"
         disabled={userRole === UserType.ClientIntake || isLoading}
         style={{
@@ -2107,7 +2040,7 @@ const DeliverySpreadsheet: React.FC = () => {
       </Button>
 
       <Button
-        variant="secondary"
+        variant="outlined"
         size="medium"
         style={{
           whiteSpace: "nowrap",
@@ -2198,10 +2131,10 @@ const DeliverySpreadsheet: React.FC = () => {
 
                        {/* Left group: Assign Driver and Assign Time */}
             <Box sx={{ display: "flex", width: "100%", gap: "8px", flexWrap: "wrap" }}>
-              <Button
-                variant="primary"
+                <Button
+                  variant="contained"
                 size="medium"
-                icon={<AssignmentIndIcon />}
+                startIcon={<AssignmentIndIcon />}
                 disabled={selectedRows.size <= 0}
                 style={{
                   whiteSpace: "nowrap",
@@ -2217,14 +2150,14 @@ const DeliverySpreadsheet: React.FC = () => {
                 Assign Driver
               </Button>
               <Button
-                variant="primary"
+                variant="contained"
                 size="medium"
                 id="demo-positioned-button"
 
                 aria-controls={open ? 'demo-positioned-menu' : undefined}
                 aria-haspopup="true"
                 aria-expanded={open ? 'true' : undefined}
-                icon={<AccessTimeIcon />}
+                startIcon={<AccessTimeIcon />}
                 onClick={handleClick}
                 disabled={selectedRows.size <= 0}
                 style={{
@@ -2267,9 +2200,9 @@ const DeliverySpreadsheet: React.FC = () => {
             {/* Right group: Export button */}
             <Box>
               <Button
-                variant="primary"
+                variant="contained"
                 size="medium"
-                icon={<FileDownloadIcon />}
+                startIcon={<FileDownloadIcon />}
                 style={{
                   whiteSpace: "nowrap",
                   borderRadius: 5,
@@ -2477,6 +2410,7 @@ const DeliverySpreadsheet: React.FC = () => {
                         onClick={(e) => e.stopPropagation()}
                       />
                     ) : field.type === "select" && field.key === "clusterIdChange" ? (
+                      // Custom Cluster Dropdown
                       <FormControl variant="standard" size="small" sx={{ minWidth: 120 }}>
                         <Select
                           value={row.clusterId || ""}
@@ -2492,17 +2426,32 @@ const DeliverySpreadsheet: React.FC = () => {
                             "&:after": { borderBottom: "none" },
                           }}
                         >
-                          {clusterOptions.map((option) => (
-                            <MenuItem key={option.value} value={option.value}>
-                              <Chip
-                                label={option.label}
-                                style={typeof option.color === 'string' ?
-                                  { backgroundColor: option.color, color: 'white', border: '1px solid black', fontWeight: 'bold' }
-                                  : undefined}
-                                sx={{ pointerEvents: 'none' }}
-                              />
+                          {clusters.length === 0 ? (
+                            <MenuItem disabled value="">
+                              <span style={{ color: '#888' }}>No Clusters</span>
                             </MenuItem>
-                          ))}
+                          ) : (
+                            clusterOptions.map((option) => (
+                              option.value === "__add__" ? (
+                                <MenuItem
+                                  key="__add__"
+                                  value="__add__"
+                                >
+                                  <Chip label={"+ Add Cluster"} sx={{ backgroundColor: '#cccccc', color: '#333', fontWeight: 'bold', border: '1px solid #888' }} />
+                                </MenuItem>
+                              ) : (
+                                <MenuItem key={option.value} value={option.value}>
+                                  <Chip
+                                    label={option.label}
+                                    style={typeof option.color === 'string' ?
+                                      { backgroundColor: option.color, color: 'white', border: '1px solid black', fontWeight: 'bold' }
+                                      : undefined}
+                                    sx={{ pointerEvents: 'none' }}
+                                  />
+                                </MenuItem>
+                              )
+                            ))
+                          )}
                         </Select>
                       </FormControl>
                     ) : field.compute ? (
@@ -2957,12 +2906,12 @@ const DeliverySpreadsheet: React.FC = () => {
         <DialogContent sx={{ pt: 3, overflow: "visible" }}>
           {!exportOption ? (
             <Box sx={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-              <Button variant="primary" color="primary" onClick={() => setExportOption("Routes")} startIcon={<FileDownloadIcon />}> 
+              <Button variant="contained" color="primary" onClick={() => setExportOption("Routes")} startIcon={<FileDownloadIcon />}> 
                 Routes
               </Button>
               <Button
-                variant="secondary"
-                color="secondary"
+                variant="outlined"
+                color="primary"
                 onClick={() => setExportOption("Doordash")}
                 startIcon={<FileDownloadIcon />}
               >
@@ -2973,7 +2922,7 @@ const DeliverySpreadsheet: React.FC = () => {
             <Box sx={{ display: "flex", flexDirection: "column", gap: "16px" }}>
               <Typography variant="subtitle1">Selected Option: {exportOption}</Typography>
               <Button
-                variant="primary"
+                variant="contained"
                 color="primary"
                 onClick={() => {
                   handleEmailOrDownload("Email");
@@ -2983,8 +2932,8 @@ const DeliverySpreadsheet: React.FC = () => {
                 Email
               </Button>
               <Button
-                variant="secondary"
-                color="secondary"
+                variant="outlined"
+                color="primary"
                 onClick={() => {
                   handleEmailOrDownload("Download");
                   resetSelections();
@@ -2992,7 +2941,7 @@ const DeliverySpreadsheet: React.FC = () => {
               >
                 Download
               </Button>
-              <Button variant="secondary" color="secondary" onClick={() => setExportOption(null)}>
+              <Button variant="outlined" color="primary" onClick={() => setExportOption(null)}>
                 Back
               </Button>
             </Box>

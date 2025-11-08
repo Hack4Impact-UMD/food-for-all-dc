@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
-import L from "leaflet";
+import * as L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "leaflet.awesome-markers";
 import "leaflet.awesome-markers/dist/leaflet.awesome-markers.css";
@@ -113,7 +113,30 @@ const TIME_SLOTS = [
   "4:00 PM", "5:00 PM"
 ];
 
+// Color palette for clusters (module-level so identity is stable)
+const clusterColors = [
+  "#FF0000", "#00FF00", "#0000FF", "#FFFF00", "#FF00FF",
+  "#00FFFF", "#FFA500", "#800080", "#008000", "#000080",
+  "#FF4500", "#4B0082", "#FF6347", "#32CD32", "#9370DB",
+  "#FF69B4", "#40E0D0", "#FF8C00", "#7CFC00", "#8A2BE2",
+  "#FF1493", "#1E90FF", "#228B22", "#9400D3", "#DC143C",
+  "#20B2AA", "#9932CC", "#FFD700", "#8B0000", "#4169E1"
+];
+
 const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOverrides = [], onClusterUpdate, onOpenPopup, onMarkerClick, onClearHighlight, refreshDriversTrigger }) => {
+  // Fetch drivers from Firebase
+  const fetchDrivers = useCallback(async () => {
+    setLoadingDrivers(true);
+    try {
+      const driverService = DriverService.getInstance();
+      const driversData = await driverService.getAllDrivers();
+      setDrivers(driversData);
+    } catch (error) {
+      console.error('Failed to fetch drivers:', error);
+    } finally {
+      setLoadingDrivers(false);
+    }
+  }, []);
   const mapRef = useRef<L.Map | null>(null);
   const markerGroupRef = useRef<L.FeatureGroup | null>(null);
   const wardLayerGroupRef = useRef<L.FeatureGroup | null>(null);
@@ -151,6 +174,62 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
   const [wardDataLoading, setWardDataLoading] = useState<boolean>(false);
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [loadingDrivers, setLoadingDrivers] = useState<boolean>(false);
+
+  // Helper function to get cluster color - stable via useCallback
+  const getClusterColor = useCallback((clusterIdToCheck: string): string => {
+    if (!clusterIdToCheck) return "#ffffff";
+    const clusterIdStr = String(clusterIdToCheck);
+    const match = clusterIdStr.match(/\d+/);
+    const clusterNumber = match ? parseInt(match[0], 10) : NaN;
+    if (!isNaN(clusterNumber) && clusterNumber > 0) {
+      return clusterColors[(clusterNumber - 1) % clusterColors.length];
+    } else {
+      let hash = 0;
+      for (let i = 0; i < clusterIdStr.length; i++) {
+        hash = clusterIdStr.charCodeAt(i) + ((hash << 5) - hash);
+      }
+      return clusterColors[Math.abs(hash) % clusterColors.length];
+    }
+  }, []);
+
+  // Update cluster dropdown in popup when clusters change
+  React.useEffect(() => {
+    // Find all open popups in edit mode
+    const popups = document.querySelectorAll('[id^="edit-mode-"]');
+    popups.forEach(editMode => {
+      if ((editMode as HTMLElement).style.display !== 'block') return;
+      const clientId = editMode.id.replace('edit-mode-', '');
+      const clusterSelect = editMode.querySelector(`#cluster-select-${clientId}`) as HTMLSelectElement | null;
+      if (!clusterSelect) return;
+      // Save current value
+      const prevValue = clusterSelect.value;
+      // Remove all options except the first (No cluster) and last (+ Add Cluster)
+      while (clusterSelect.options.length > 2) {
+        clusterSelect.remove(1);
+      }
+      // Insert new cluster options
+      clusters.forEach((c: Cluster) => {
+        const opt = document.createElement('option');
+        opt.value = c.id;
+        opt.text = c.id;
+        opt.style.backgroundColor = getClusterColor(c.id);
+        opt.style.color = 'white';
+        clusterSelect.add(opt, clusterSelect.options.length - 1);
+      });
+      // Set value to the new cluster if it was just added, else restore previous value
+      const numericIds = clusters.map((c2: Cluster) => parseInt(c2.id, 10)).filter((n: number) => !isNaN(n));
+      const maxId = numericIds.length > 0 ? Math.max(...numericIds) : 0;
+      if (!clusters.some((c: Cluster) => c.id === prevValue)) {
+        clusterSelect.value = String(maxId);
+        clusterSelect.style.backgroundColor = getClusterColor(String(maxId));
+        clusterSelect.style.color = 'white';
+      } else {
+        clusterSelect.value = prevValue;
+        clusterSelect.style.backgroundColor = getClusterColor(prevValue);
+        clusterSelect.style.color = 'white';
+      }
+    });
+  }, [clusters, getClusterColor]);
   
   // Function to fetch DC ward boundaries from ArcGIS REST service
   const fetchWardBoundaries = async () => {
@@ -183,20 +262,6 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
     }
   };
 
-  // Create a memoized fetch function for drivers that can be called from multiple places
-  const fetchDrivers = useCallback(async () => {
-    setLoadingDrivers(true);
-    try {
-      const driverService = DriverService.getInstance();
-      const driversData = await driverService.getAllDrivers();
-      setDrivers(driversData);
-    } catch (error) {
-      console.error("Error fetching drivers:", error);
-      setDrivers([]);
-    } finally {
-      setLoadingDrivers(false);
-    }
-  }, []);
 
   // Fetch drivers from Firebase
   useEffect(() => {
@@ -478,22 +543,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
         // Get effective driver and time (override takes precedence over cluster default)
         const effectiveDriver = clientOverride?.driver || cluster?.driver;
         const effectiveTime = clientOverride?.time || cluster?.time;
-        // Helper function to get cluster color
-        const getClusterColor = (clusterIdToCheck: string) => {
-          if (!clusterIdToCheck) return "#ffffff";
-          const clusterIdStr = String(clusterIdToCheck); // Ensure it's a string
-          const match = clusterIdStr.match(/\d+/); 
-          const clusterNumber = match ? parseInt(match[0], 10) : NaN;
-          if (!isNaN(clusterNumber) && clusterNumber > 0) {
-            return clusterColors[(clusterNumber - 1) % clusterColors.length];
-          } else {
-            let hash = 0;
-            for (let i = 0; i < clusterIdStr.length; i++) {
-              hash = clusterIdStr.charCodeAt(i) + ((hash << 5) - hash);
-            }
-            return clusterColors[Math.abs(hash) % clusterColors.length];
-          }
-        };
+        // Use the component-scoped getClusterColor
 
         // Helper function to format time in AM/PM format
         const formatTimeForDisplay = (time: string | undefined) => {
@@ -563,6 +613,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
                 <select id="cluster-select-${clientId}" style="flex: 1; padding: 3px; border: 1px solid #ccc; border-radius: 3px; font-size: 11px; background-color: ${clusterId ? getClusterColor(clusterId) : '#ffffff'}; color: ${clusterId ? 'white' : 'black'}; height: 24px !important; min-height: 24px !important; max-height: 24px !important; line-height: 1.1 !important;">
                   <option value="" style="background-color: #ffffff; color: black;">No cluster</option>
                   ${clusters.map(c => `<option value="${c.id}" ${c.id === clusterId ? 'selected' : ''} style="background-color: ${getClusterColor(c.id)}; color: white;">${c.id}</option>`).join('')}
+                  <option value="__add__" style="background-color: #cccccc; color: #333; font-weight: bold;">+ Add Cluster</option>
                 </select>
               </div>
               <div style="margin-bottom: 8px; display: flex; align-items: center; gap: 8px;">
@@ -599,8 +650,28 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
 
         // Add color change listener to cluster select
         if (clusterSelect) {
+          let pendingNewClusterId: string | null = null;
           clusterSelect.addEventListener('change', () => {
             const selectedClusterId = clusterSelect.value;
+            if (selectedClusterId === "__add__") {
+              // Find the next available cluster number
+              const clusterNumbers = clusters.map(c => parseInt(c.id, 10)).filter(n => !isNaN(n));
+              const nextClusterNum = clusterNumbers.length > 0 ? Math.max(...clusterNumbers) + 1 : 1;
+              const nextClusterId = nextClusterNum.toString();
+              // Add the new cluster as an option and select it
+              const opt = document.createElement('option');
+              opt.value = nextClusterId;
+              opt.text = nextClusterId;
+              opt.style.backgroundColor = getClusterColor(nextClusterId);
+              opt.style.color = 'white';
+              clusterSelect.add(opt, clusterSelect.options.length - 1);
+              clusterSelect.value = nextClusterId;
+              clusterSelect.style.backgroundColor = getClusterColor(nextClusterId);
+              clusterSelect.style.color = 'white';
+              pendingNewClusterId = nextClusterId;
+              return;
+            }
+            pendingNewClusterId = null;
             if (selectedClusterId) {
               const selectedColor = getClusterColor(selectedClusterId);
               clusterSelect.style.backgroundColor = selectedColor;
@@ -610,6 +681,28 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
               clusterSelect.style.color = 'black';
             }
           });
+          // Intercept Save button to use pendingNewClusterId if set
+          const saveBtn = popupContainer.querySelector(`#save-btn-${clientId}`);
+          if (saveBtn) {
+            saveBtn.addEventListener('click', () => {
+              const driverSelect = popupContainer.querySelector(`#driver-select-${clientId}`) as HTMLSelectElement;
+              const timeSelect = popupContainer.querySelector(`#time-select-${clientId}`) as HTMLSelectElement;
+              const newClusterId = pendingNewClusterId || clusterSelect.value;
+              const newDriver = driverSelect.value || undefined;
+              const newTime = timeSelect.value || undefined;
+              const newTime24Hour = newTime ? convertTo24Hour(newTime) : undefined;
+              if (onClusterUpdate) {
+                onClusterUpdate(clientId, newClusterId, newDriver, newTime24Hour);
+              }
+              // Switch back to view mode
+              const viewMode = popupContainer.querySelector(`#view-mode-${clientId}`) as HTMLElement;
+              const editMode = popupContainer.querySelector(`#edit-mode-${clientId}`) as HTMLElement;
+              if (viewMode && editMode) {
+                viewMode.style.display = 'block';
+                editMode.style.display = 'none';
+              }
+            });
+          }
         }
 
         // Store initial values for reset on cancel
@@ -727,12 +820,24 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
             const driverSelect = popupContainer.querySelector(`#driver-select-${clientId}`) as HTMLSelectElement;
             const timeSelect = popupContainer.querySelector(`#time-select-${clientId}`) as HTMLSelectElement;
 
-            const newClusterId = clusterSelect.value;
+            let newClusterId = clusterSelect.value;
             const newDriver = driverSelect.value || undefined;
             const newTime = timeSelect.value || undefined;
 
+            // If the user selected '+ Add Cluster', create the new cluster and assign the client to it
+            if (newClusterId === "__add__") {
+              const numericIds = clusters.map(c => parseInt(c.id, 10)).filter(n => !isNaN(n));
+              const maxId = numericIds.length > 0 ? Math.max(...numericIds) : 0;
+              newClusterId = (maxId + 1).toString();
+              clusters.push({ id: newClusterId, deliveries: [], driver: '', time: '' });
+              clusterSelect.value = newClusterId;
+            }
+
             // Convert time to 24-hour format for storage
             const newTime24Hour = newTime ? convertTo24Hour(newTime) : undefined;
+
+            // Call the update function with 24-hour format time
+            onClusterUpdate(clientId, newClusterId, newDriver, newTime24Hour);
 
             // Update the view mode content with new data
             const viewModeContent = popupContainer.querySelector(`#view-mode-${clientId}`);
@@ -751,7 +856,6 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
                 ${ward ? `<div><span style="font-weight: bold;">Ward:</span> ${ward}</div>` : ''}
                 <div><span style="font-weight: bold;">Address:</span> ${address}</div>
               `;
-              
               // Re-attach the edit button event listener
               const newEditBtn = viewModeContent.querySelector(`#edit-btn-${clientId}`);
               if (newEditBtn) {
@@ -798,9 +902,6 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
               }
             }
 
-            // Call the update function with 24-hour format time
-            onClusterUpdate(clientId, newClusterId, newDriver, newTime24Hour);
-            
             // Switch back to view mode
             viewMode.style.display = 'block';
             editMode.style.display = 'none';
@@ -866,7 +967,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
         padding: [50, 50] 
       });
     }
-  }, [visibleRows, clusters, drivers, clientOverrides]);
+  }, [visibleRows, clusters, drivers, clientOverrides, getClusterColor, onClusterUpdate, onMarkerClick]);
 
   const invalidCount = visibleRows.filter(
     (client) => !isValidCoordinate(client.coordinates)
