@@ -648,17 +648,14 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
         const viewMode = popupContainer.querySelector(`#view-mode-${clientId}`) as HTMLElement;
         const editMode = popupContainer.querySelector(`#edit-mode-${clientId}`) as HTMLElement;
 
-        // Add color change listener to cluster select
         if (clusterSelect) {
           let pendingNewClusterId: string | null = null;
           clusterSelect.addEventListener('change', () => {
             const selectedClusterId = clusterSelect.value;
             if (selectedClusterId === "__add__") {
-              // Find the next available cluster number
               const clusterNumbers = clusters.map(c => parseInt(c.id, 10)).filter(n => !isNaN(n));
               const nextClusterNum = clusterNumbers.length > 0 ? Math.max(...clusterNumbers) + 1 : 1;
               const nextClusterId = nextClusterNum.toString();
-              // Add the new cluster as an option and select it
               const opt = document.createElement('option');
               opt.value = nextClusterId;
               opt.text = nextClusterId;
@@ -681,10 +678,10 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
               clusterSelect.style.color = 'black';
             }
           });
-          // Intercept Save button to use pendingNewClusterId if set
-          const saveBtn = popupContainer.querySelector(`#save-btn-${clientId}`);
-          if (saveBtn) {
-            saveBtn.addEventListener('click', () => {
+
+          const saveBtnEarly = popupContainer.querySelector(`#save-btn-${clientId}`);
+          if (saveBtnEarly) {
+            saveBtnEarly.addEventListener('click', () => {
               const driverSelect = popupContainer.querySelector(`#driver-select-${clientId}`) as HTMLSelectElement;
               const timeSelect = popupContainer.querySelector(`#time-select-${clientId}`) as HTMLSelectElement;
               const newClusterId = pendingNewClusterId || clusterSelect.value;
@@ -694,7 +691,6 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
               if (onClusterUpdate) {
                 onClusterUpdate(clientId, newClusterId, newDriver, newTime24Hour);
               }
-              // Switch back to view mode
               const viewMode = popupContainer.querySelector(`#view-mode-${clientId}`) as HTMLElement;
               const editMode = popupContainer.querySelector(`#edit-mode-${clientId}`) as HTMLElement;
               if (viewMode && editMode) {
@@ -820,23 +816,11 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
             const driverSelect = popupContainer.querySelector(`#driver-select-${clientId}`) as HTMLSelectElement;
             const timeSelect = popupContainer.querySelector(`#time-select-${clientId}`) as HTMLSelectElement;
 
-            let newClusterId = clusterSelect.value;
+            const newClusterId = clusterSelect.value;
             const newDriver = driverSelect.value || undefined;
             const newTime = timeSelect.value || undefined;
-
-            // If the user selected '+ Add Cluster', create the new cluster and assign the client to it
-            if (newClusterId === "__add__") {
-              const numericIds = clusters.map(c => parseInt(c.id, 10)).filter(n => !isNaN(n));
-              const maxId = numericIds.length > 0 ? Math.max(...numericIds) : 0;
-              newClusterId = (maxId + 1).toString();
-              clusters.push({ id: newClusterId, deliveries: [], driver: '', time: '' });
-              clusterSelect.value = newClusterId;
-            }
-
-            // Convert time to 24-hour format for storage
             const newTime24Hour = newTime ? convertTo24Hour(newTime) : undefined;
 
-            // Call the update function with 24-hour format time
             onClusterUpdate(clientId, newClusterId, newDriver, newTime24Hour);
 
             // Update the view mode content with new data
