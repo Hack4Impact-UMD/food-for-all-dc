@@ -1,9 +1,3 @@
-// Handler for assigning time (placeholder, to be implemented as needed)
-const assignTime = (timeValue: string) => {
-  // TODO: Implement time assignment logic
-  console.log('Assign time:', timeValue);
-};
-// ...existing code...
 import { RowData as DeliveryRowData } from "./types/deliveryTypes";
 import { Driver } from '../../types/calendar-types';
 import { useCustomColumns, allowedPropertyKeys } from "../../hooks/useCustomColumns";
@@ -476,6 +470,56 @@ const DeliverySpreadsheet: React.FC = () => {
       }
     }
     setOpen(false);
+  };
+
+  const assignTime = async (time: string) => {
+    if (time && clusterDoc) {
+      try {
+        const updatedClusters = clusters.map((cluster) => {
+          const isSelected = Array.from(selectedClusters).some(
+            (selected) => selected.id === cluster.id
+          );
+          if (isSelected) {
+            return {
+              ...cluster,
+              time: time,
+            };
+          }
+          return cluster;
+        });
+
+        setClusters(updatedClusters);
+
+        const affectedClientIds = new Set<string>();
+        clusters.forEach((cluster) => {
+          const isSelected = Array.from(selectedClusters).some(
+            (selected) => selected.id === cluster.id
+          );
+          if (isSelected) {
+            cluster.deliveries.forEach(clientId => affectedClientIds.add(clientId));
+          }
+        });
+
+        const updatedOverrides = clientOverrides.map(override => {
+          if (affectedClientIds.has(override.clientId)) {
+            return { ...override, time: undefined };
+          }
+          return override;
+        }).filter(override => override.driver || override.time);
+
+        setClientOverrides(updatedOverrides);
+
+        const clusterRef = doc(db, dataSources.firebase.clustersCollection, clusterDoc.docId);
+        await updateDoc(clusterRef, {
+          clusters: updatedClusters,
+          clientOverrides: updatedOverrides
+        });
+
+        resetSelections();
+      } catch (error) {
+        console.error("Error assigning time: ", error);
+      }
+    }
   };
 
   const clusterColors = [
