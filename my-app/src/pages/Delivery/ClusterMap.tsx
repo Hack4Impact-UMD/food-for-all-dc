@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
-import * as L from "leaflet";
+import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "leaflet.awesome-markers";
 import "leaflet.awesome-markers/dist/leaflet.awesome-markers.css";
