@@ -77,9 +77,20 @@ const CaseWorkerFormFields: React.FC<CaseWorkerFormProps> = ({
   );
 };
 
-// Types for sorting
 type SortField = 'name' | 'organization' | 'phone' | 'email';
 type SortDirection = 'asc' | 'desc';
+
+const SORT_LABEL_STYLES = {
+  '& .MuiTableSortLabel-icon': {
+    color: '#257E68 !important',
+  },
+  '&:hover': {
+    color: '#257E68',
+  },
+  '&.Mui-active': {
+    color: '#257E68',
+  },
+};
 
 // Main modal component
 const CaseWorkerManagementModal: React.FC<CaseWorkerManagementModalProps> = ({
@@ -351,17 +362,7 @@ const CaseWorkerManagementModal: React.FC<CaseWorkerManagementModalProps> = ({
                       active={sortField === 'name'}
                       direction={sortField === 'name' ? sortDirection : 'asc'}
                       onClick={() => handleSort('name')}
-                      sx={{
-                        '& .MuiTableSortLabel-icon': {
-                          color: '#257E68 !important',
-                        },
-                        '&:hover': {
-                          color: '#257E68',
-                        },
-                        '&.Mui-active': {
-                          color: '#257E68',
-                        },
-                      }}
+                      sx={SORT_LABEL_STYLES}
                     >
                       Case Worker
                     </TableSortLabel>
@@ -371,17 +372,7 @@ const CaseWorkerManagementModal: React.FC<CaseWorkerManagementModalProps> = ({
                       active={sortField === 'organization'}
                       direction={sortField === 'organization' ? sortDirection : 'asc'}
                       onClick={() => handleSort('organization')}
-                      sx={{
-                        '& .MuiTableSortLabel-icon': {
-                          color: '#257E68 !important',
-                        },
-                        '&:hover': {
-                          color: '#257E68',
-                        },
-                        '&.Mui-active': {
-                          color: '#257E68',
-                        },
-                      }}
+                      sx={SORT_LABEL_STYLES}
                     >
                       Organization
                     </TableSortLabel>
@@ -391,17 +382,7 @@ const CaseWorkerManagementModal: React.FC<CaseWorkerManagementModalProps> = ({
                       active={sortField === 'phone'}
                       direction={sortField === 'phone' ? sortDirection : 'asc'}
                       onClick={() => handleSort('phone')}
-                      sx={{
-                        '& .MuiTableSortLabel-icon': {
-                          color: '#257E68 !important',
-                        },
-                        '&:hover': {
-                          color: '#257E68',
-                        },
-                        '&.Mui-active': {
-                          color: '#257E68',
-                        },
-                      }}
+                      sx={SORT_LABEL_STYLES}
                     >
                       Phone Number
                     </TableSortLabel>
@@ -411,17 +392,7 @@ const CaseWorkerManagementModal: React.FC<CaseWorkerManagementModalProps> = ({
                       active={sortField === 'email'}
                       direction={sortField === 'email' ? sortDirection : 'asc'}
                       onClick={() => handleSort('email')}
-                      sx={{
-                        '& .MuiTableSortLabel-icon': {
-                          color: '#257E68 !important',
-                        },
-                        '&:hover': {
-                          color: '#257E68',
-                        },
-                        '&.Mui-active': {
-                          color: '#257E68',
-                        },
-                      }}
+                      sx={SORT_LABEL_STYLES}
                     >
                       Email
                     </TableSortLabel>
