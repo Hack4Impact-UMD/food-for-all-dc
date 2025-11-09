@@ -118,15 +118,14 @@ const CaseWorkerManagementModal: React.FC<CaseWorkerManagementModalProps> = ({
   // Sort case workers based on current sort field and direction
   const sortedCaseWorkers = useMemo(() => {
     const sorted = [...caseWorkers].sort((a, b) => {
-      let aValue = a[sortField].toLowerCase();
-      let bValue = b[sortField].toLowerCase();
-      
-      // For phone numbers, remove formatting for better comparison
+      let aValue = (a[sortField] || '').toLowerCase();
+      let bValue = (b[sortField] || '').toLowerCase();
+
       if (sortField === 'phone') {
-        aValue = a[sortField].replace(/\D/g, '');
-        bValue = b[sortField].replace(/\D/g, '');
+        aValue = (a[sortField] || '').replace(/\D/g, '');
+        bValue = (b[sortField] || '').replace(/\D/g, '');
       }
-      
+
       if (aValue < bValue) {
         return sortDirection === 'asc' ? -1 : 1;
       }
