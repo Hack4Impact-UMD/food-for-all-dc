@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   Box,
   Button,
@@ -18,6 +18,7 @@ import {
   IconButton,
   Typography,
   DialogContentText,
+  TableSortLabel,
 } from "@mui/material";
 import { Close, Add, Edit, Check, Delete } from "@mui/icons-material";
 import { doc, updateDoc, addDoc, deleteDoc, collection } from "firebase/firestore";
@@ -76,6 +77,21 @@ const CaseWorkerFormFields: React.FC<CaseWorkerFormProps> = ({
   );
 };
 
+type SortField = 'name' | 'organization' | 'phone' | 'email';
+type SortDirection = 'asc' | 'desc';
+
+const SORT_LABEL_STYLES = {
+  '& .MuiTableSortLabel-icon': {
+    color: '#257E68 !important',
+  },
+  '&:hover': {
+    color: '#257E68',
+  },
+  '&.Mui-active': {
+    color: '#257E68',
+  },
+};
+
 // Main modal component
 const CaseWorkerManagementModal: React.FC<CaseWorkerManagementModalProps> = ({
   open,
@@ -95,6 +111,42 @@ const CaseWorkerManagementModal: React.FC<CaseWorkerManagementModalProps> = ({
   const [editErrors, setEditErrors] = useState<ValidationErrors>({});
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [caseWorkerToDelete, setCaseWorkerToDelete] = useState<CaseWorker | null>(null);
+  
+  // Sorting state
+  const [sortField, setSortField] = useState<SortField>('name');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+
+  // Handle sort changes
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  // Sort case workers based on current sort field and direction
+  const sortedCaseWorkers = useMemo(() => {
+    const sorted = [...caseWorkers].sort((a, b) => {
+      let aValue = (a[sortField] || '').toLowerCase();
+      let bValue = (b[sortField] || '').toLowerCase();
+
+      if (sortField === 'phone') {
+        aValue = (a[sortField] || '').replace(/\D/g, '');
+        bValue = (b[sortField] || '').replace(/\D/g, '');
+      }
+
+      if (aValue < bValue) {
+        return sortDirection === 'asc' ? -1 : 1;
+      }
+      if (aValue > bValue) {
+        return sortDirection === 'asc' ? 1 : -1;
+      }
+      return 0;
+    });
+    return sorted;
+  }, [caseWorkers, sortField, sortDirection]);
 
   const handleCaseWorkerFormChange = (
     setter: React.Dispatch<React.SetStateAction<any>>,
@@ -305,17 +357,53 @@ const CaseWorkerManagementModal: React.FC<CaseWorkerManagementModalProps> = ({
             <Table>
               <TableHead>
                 <TableRow sx={{ backgroundColor: "rgba(0, 0, 0, 0.02)" }}>
-                  <TableCell sx={{ fontWeight: 600, color: "#1a1a1a" }}>Case Worker</TableCell>
-                  <TableCell sx={{ fontWeight: 600, color: "#1a1a1a" }}>Organization</TableCell>
-                  <TableCell sx={{ fontWeight: 600, color: "#1a1a1a" }}>Phone Number</TableCell>
-                  <TableCell sx={{ fontWeight: 600, color: "#1a1a1a" }}>Email</TableCell>
+                  <TableCell sx={{ fontWeight: 600, color: "#1a1a1a" }}>
+                    <TableSortLabel
+                      active={sortField === 'name'}
+                      direction={sortField === 'name' ? sortDirection : 'asc'}
+                      onClick={() => handleSort('name')}
+                      sx={SORT_LABEL_STYLES}
+                    >
+                      Case Worker
+                    </TableSortLabel>
+                  </TableCell>
+                  <TableCell sx={{ fontWeight: 600, color: "#1a1a1a" }}>
+                    <TableSortLabel
+                      active={sortField === 'organization'}
+                      direction={sortField === 'organization' ? sortDirection : 'asc'}
+                      onClick={() => handleSort('organization')}
+                      sx={SORT_LABEL_STYLES}
+                    >
+                      Organization
+                    </TableSortLabel>
+                  </TableCell>
+                  <TableCell sx={{ fontWeight: 600, color: "#1a1a1a" }}>
+                    <TableSortLabel
+                      active={sortField === 'phone'}
+                      direction={sortField === 'phone' ? sortDirection : 'asc'}
+                      onClick={() => handleSort('phone')}
+                      sx={SORT_LABEL_STYLES}
+                    >
+                      Phone Number
+                    </TableSortLabel>
+                  </TableCell>
+                  <TableCell sx={{ fontWeight: 600, color: "#1a1a1a" }}>
+                    <TableSortLabel
+                      active={sortField === 'email'}
+                      direction={sortField === 'email' ? sortDirection : 'asc'}
+                      onClick={() => handleSort('email')}
+                      sx={SORT_LABEL_STYLES}
+                    >
+                      Email
+                    </TableSortLabel>
+                  </TableCell>
                   <TableCell sx={{ fontWeight: 600, color: "#1a1a1a", width: "120px" }}>
                     Actions
                   </TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
-                {caseWorkers.map((cw) => (
+                {sortedCaseWorkers.map((cw) => (
                   <TableRow
                     key={cw.id}
                     sx={{
