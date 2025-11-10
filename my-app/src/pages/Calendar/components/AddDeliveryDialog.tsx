@@ -255,7 +255,7 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
     setFormError("");
     onClose();
   };
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     setFormError("");
     if (!newDelivery.clientName || newDelivery.clientName.trim() === "") {
       setFormError("Please select a client");
@@ -271,34 +271,54 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
       }
     }
 
-    // Check for duplicate delivery for the same client on the same day
-    import("../../../services/delivery-service").then(({ default: DeliveryService }) => {
+    try {
+      const { default: DeliveryService } = await import("../../../services/delivery-service");
       const service = DeliveryService.getInstance();
-      service.getEventsByClientId(newDelivery.clientId).then(() => {
-        // ...existing code...
+      const existingEvents = await service.getEventsByClientId(newDelivery.clientId);
+      const existingDates = new Set(
+        existingEvents.map(event => deliveryDate.toISODateString(event.deliveryDate))
+      );
 
-        const normalizedDeliveryDate = deliveryDate.tryToISODateString(newDelivery.deliveryDate) || "";
-  // ...existing code...
+      const normalizedDeliveryDate = deliveryDate.tryToISODateString(newDelivery.deliveryDate) || "";
+      const normalizedCustomDates =
+        newDelivery.recurrence === "Custom"
+          ? customDates
+              .map(date => deliveryDate.tryToISODateString(date))
+              .filter((d): d is string => !!d)
+          : [];
 
-        setFormError("");
-        const deliveryToSubmit: Partial<NewDelivery> = { ...newDelivery };
-        if (newDelivery.recurrence === "Custom") {
-          const normalizedCustomDates = customDates
-            .map(date => deliveryDate.tryToISODateString(date))
-            .filter((d): d is string => !!d);
-          deliveryToSubmit.customDates = normalizedCustomDates;
-          deliveryToSubmit.deliveryDate = normalizedCustomDates[0] || normalizedDeliveryDate;
-          deliveryToSubmit.repeatsEndDate = undefined;
-        } else {
-          deliveryToSubmit.deliveryDate = normalizedDeliveryDate;
-        }
+      const datesToCheck =
+        newDelivery.recurrence === "Custom" ? normalizedCustomDates : normalizedDeliveryDate ? [normalizedDeliveryDate] : [];
 
-        deliveryEventEmitter.emit();
-        onAddDelivery(deliveryToSubmit as NewDelivery);
-        setCustomDates([]);
-        resetFormAndClose();
-      });
-    });
+      const conflictingDate = datesToCheck.find(date => existingDates.has(date));
+      if (conflictingDate) {
+        setFormError(`This client already has a delivery on ${convertToMMDDYYYY(conflictingDate)}.`);
+        return;
+      }
+
+      if (!datesToCheck.length) {
+        setFormError("Please select at least one delivery date.");
+        return;
+      }
+
+      setFormError("");
+      const deliveryToSubmit: Partial<NewDelivery> = { ...newDelivery };
+      if (newDelivery.recurrence === "Custom") {
+        deliveryToSubmit.customDates = normalizedCustomDates;
+        deliveryToSubmit.deliveryDate = normalizedCustomDates[0] || normalizedDeliveryDate;
+        deliveryToSubmit.repeatsEndDate = undefined;
+      } else {
+        deliveryToSubmit.deliveryDate = normalizedDeliveryDate;
+      }
+
+      deliveryEventEmitter.emit();
+      onAddDelivery(deliveryToSubmit as NewDelivery);
+      setCustomDates([]);
+      resetFormAndClose();
+    } catch (error) {
+      console.error("Error validating delivery dates:", error);
+      setFormError("Unable to validate deliveries. Please try again.");
+    }
   };
   
   const getDisplayLabel = (option: ClientSearchResult) => {
@@ -631,7 +651,6 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
 }
 
 export default AddDeliveryDialog;
-
 
 
 
