@@ -1,6 +1,7 @@
 import { collection, getDocs, query, where, orderBy, Timestamp } from "firebase/firestore";
 import { db } from "../auth/firebaseConfig";
 import dataSources from '../config/dataSources';
+import { deliveryDate } from "./deliveryDate";
 
 type EventData = {
   clientId: string;
@@ -9,6 +10,13 @@ type EventData = {
   docId?: string;
   repeatsEndDate?: string;
   recurrence?: string;
+};
+
+const toISODate = (value?: Date | Timestamp | string): string | null => {
+  if (!value) {
+    return null;
+  }
+  return deliveryDate.tryToISODateString(value);
 };
 
 export const getLastDeliveryDateForClient = async (clientId: string): Promise<string | null> => {
@@ -42,23 +50,9 @@ export const getLastDeliveryDateForClient = async (clientId: string): Promise<st
 
         let seriesEndDate: string | null = null;
         if (firstEvent.repeatsEndDate) {
-          const endDate = new Date(firstEvent.repeatsEndDate);
-          if (!isNaN(endDate.getTime())) {
-            seriesEndDate = endDate.toISOString().split("T")[0];
-          }
+          seriesEndDate = toISODate(firstEvent.repeatsEndDate);
         } else if (firstEvent.recurrence === "None" && firstEvent.deliveryDate) {
-          let deliveryDate: Date | null = null;
-          if (firstEvent.deliveryDate instanceof Timestamp) {
-            deliveryDate = firstEvent.deliveryDate.toDate();
-          } else if (firstEvent.deliveryDate instanceof Date) {
-            deliveryDate = firstEvent.deliveryDate;
-          } else if (typeof firstEvent.deliveryDate === "string") {
-            const parsed = new Date(firstEvent.deliveryDate);
-            deliveryDate = isNaN(parsed.getTime()) ? null : parsed;
-          }
-          if (deliveryDate && !isNaN(deliveryDate.getTime())) {
-            seriesEndDate = deliveryDate.toISOString().split("T")[0];
-          }
+          seriesEndDate = toISODate(firstEvent.deliveryDate);
         }
 
         if (seriesEndDate) {
@@ -120,23 +114,9 @@ export const batchGetLastDeliveryDates = async (clientIds: string[]): Promise<Ma
 
         let seriesEndDate: string | null = null;
         if (firstEvent.repeatsEndDate) {
-          const endDate = new Date(firstEvent.repeatsEndDate);
-          if (!isNaN(endDate.getTime())) {
-            seriesEndDate = endDate.toISOString().split("T")[0];
-          }
+          seriesEndDate = toISODate(firstEvent.repeatsEndDate);
         } else if (firstEvent.recurrence === "None" && firstEvent.deliveryDate) {
-          let deliveryDate: Date | null = null;
-          if (firstEvent.deliveryDate instanceof Timestamp) {
-            deliveryDate = firstEvent.deliveryDate.toDate();
-          } else if (firstEvent.deliveryDate instanceof Date) {
-            deliveryDate = firstEvent.deliveryDate;
-          } else if (typeof firstEvent.deliveryDate === "string") {
-            const parsed = new Date(firstEvent.deliveryDate);
-            deliveryDate = isNaN(parsed.getTime()) ? null : parsed;
-          }
-          if (deliveryDate && !isNaN(deliveryDate.getTime())) {
-            seriesEndDate = deliveryDate.toISOString().split("T")[0];
-          }
+          seriesEndDate = toISODate(firstEvent.deliveryDate);
         }
 
         if (seriesEndDate) {

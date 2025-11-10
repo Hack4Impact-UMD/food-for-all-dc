@@ -27,6 +27,7 @@ import { validateDeliveryDateRange } from "../../../utils/dateValidation";
 import { getLastDeliveryDateForClient } from "../../../utils/lastDeliveryDate";
 import { deliveryEventEmitter } from "../../../utils/deliveryEventEmitter";
 import { clientService } from "../../../services/client-service";
+import { deliveryDate } from "../../../utils/deliveryDate";
 
 interface AddDeliveryDialogProps {
   open: boolean;
@@ -575,7 +576,11 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
             <CalendarMultiSelect 
               selectedDates={customDates} 
               setSelectedDates={setCustomDates} 
-              endDate={newDelivery.repeatsEndDate ? new Date(newDelivery.repeatsEndDate) : new Date()} 
+              endDate={
+                newDelivery.repeatsEndDate
+                  ? deliveryDate.toJSDate(newDelivery.repeatsEndDate)
+                  : deliveryDate.toJSDate(new Date())
+              } 
             />
           </>
         ) : (
@@ -627,8 +632,6 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
 }
 
 export default AddDeliveryDialog;
-
-
 
 
 

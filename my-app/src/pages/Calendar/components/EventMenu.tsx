@@ -31,6 +31,7 @@ import { calculateRecurrenceDates, getNextMonthlyDate } from "./CalendarUtils";
 import { UserType } from "../../../types";
 import { useAuth } from "../../../auth/AuthProvider";
 import { toJSDate } from '../../../utils/timestamp';
+import { deliveryDate } from "../../../utils/deliveryDate";
 
 interface EventMenuProps {
   event: DeliveryEvent;
@@ -185,7 +186,7 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
 
       if (editOption === "This event") {
         // Only update the deliveryDate for the single event, set time to noon
-        const newDate = new Date(editDeliveryDate + 'T12:00:00');
+        const newDate = deliveryDate.toJSDate(editDeliveryDate);
         await updateDoc(doc(eventsRef, event.id), {
           deliveryDate: newDate
         });
@@ -219,17 +220,17 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
         if (!newRecurrenceDates.length || newRecurrenceDates[0] !== editDeliveryDate) {
           newRecurrenceDates = [editDeliveryDate, ...newRecurrenceDates];
         }
-        const endDate = editRecurrence.repeatsEndDate ? new Date(editRecurrence.repeatsEndDate) : null;
+        const endDateStr = editRecurrence.repeatsEndDate
+          ? deliveryDate.toISODateString(editRecurrence.repeatsEndDate)
+          : null;
         const filteredRecurrenceDates = newRecurrenceDates.filter(date => {
-          if (!endDate) return true;
-          const dateStr = date;
-          const endDateStr = endDate.toISOString().split('T')[0];
-          return dateStr <= endDateStr;
+          if (!endDateStr) return true;
+          return date <= endDateStr;
         });
         // Add new events for each recurrence date
         for (let i = 0; i < filteredRecurrenceDates.length; i++) {
           const recurrenceDateStr = filteredRecurrenceDates[i];
-          const newDate = new Date(recurrenceDateStr + 'T12:00:00');
+          const newDate = deliveryDate.toJSDate(recurrenceDateStr);
           await addDoc(eventsRef, {
             clientId: event.clientId,
             clientName: event.clientName,

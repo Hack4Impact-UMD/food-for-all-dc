@@ -67,6 +67,7 @@ import AddDeliveryDialog from "../Calendar/components/AddDeliveryDialog";
 import { calculateRecurrenceDates } from "../Calendar/components/CalendarUtils";
 import { DayPilot } from "@daypilot/daypilot-lite-react";
 import { toJSDate } from '../../utils/timestamp';
+import { deliveryDate } from "../../utils/deliveryDate";
 import HealthConditionsForm from "./components/HealthConditionsForm";
 import HealthCheckbox from "./components/HealthCheckbox";
 
@@ -1400,34 +1401,6 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
     }
   };
 
-  // Helper to set time to 12:00:00 PM
-function setToNoon(date: any) {
-  let jsDate;
-  if (typeof date === 'string') {
-    // Parse YYYY-MM-DD as local date, not UTC
-    const parts = date.split('-');
-    if (parts.length === 3) {
-      jsDate = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]), 12, 0, 0, 0);
-    } else {
-      jsDate = new Date(date);
-      jsDate.setHours(12, 0, 0, 0);
-    }
-  } else if (date instanceof Date) {
-    jsDate = new Date(date.getTime());
-    jsDate.setHours(12, 0, 0, 0);
-  } else if (date && typeof date.toDate === 'function') {
-    jsDate = new Date(date.toDate().getTime());
-    jsDate.setHours(12, 0, 0, 0);
-  } else if (date && typeof date.toJSDate === 'function') {
-    jsDate = new Date(date.toJSDate().getTime());
-    jsDate.setHours(12, 0, 0, 0);
-  } else {
-    jsDate = new Date(date);
-    jsDate.setHours(12, 0, 0, 0);
-  }
-  return jsDate;
-}
-
 // Updated field label styles for a more modern look
   const fieldLabelStyles = {
     fontWeight: 600,
@@ -2472,10 +2445,12 @@ const handleMentalHealthConditionsChange = (e: React.ChangeEvent<HTMLInputElemen
         const recurrenceId = crypto.randomUUID();
         
         if (newDelivery.recurrence === "Custom") {
-          allDates = newDelivery.customDates?.map(dateStr => setToNoon(dateStr)) || [];
+          allDates = newDelivery.customDates?.map(dateStr => deliveryDate.toJSDate(dateStr)) || [];
         } else {
-          const deliveryDate = setToNoon(newDelivery.deliveryDate);
-          allDates = newDelivery.recurrence === "None" ? [deliveryDate] : calculateRecurrenceDates(newDelivery).map(setToNoon);
+          const normalizedStart = deliveryDate.toJSDate(newDelivery.deliveryDate);
+          allDates = newDelivery.recurrence === "None"
+            ? [normalizedStart]
+            : calculateRecurrenceDates(newDelivery).map(dateStr => deliveryDate.toJSDate(dateStr));
         }
         
   // ...existing code...
@@ -2500,8 +2475,8 @@ const handleMentalHealthConditionsChange = (e: React.ChangeEvent<HTMLInputElemen
             const deletePromises: Promise<any>[] = [];
             
             // CONVERT NEW END DATE TO YYYY-MM-DD FORMAT FOR PROPER COMPARISON
-            const newEndDateFormatted = new Date(newDelivery.repeatsEndDate).toISOString().split('T')[0];
-            const today = new Date().toISOString().split('T')[0];
+            const newEndDateFormatted = deliveryDate.toISODateString(newDelivery.repeatsEndDate);
+            const today = deliveryDate.toISODateString(new Date());
             
             // ...existing code...
             
@@ -2576,7 +2551,7 @@ const handleMentalHealthConditionsChange = (e: React.ChangeEvent<HTMLInputElemen
           // Set last delivery date to match modal's end date
           if (newDelivery.repeatsEndDate) {
             // If there's an end date in the modal, use that
-            const formattedEndDate = new Date(newDelivery.repeatsEndDate).toLocaleDateString('en-US');
+            const formattedEndDate = deliveryDate.toJSDate(newDelivery.repeatsEndDate).toLocaleDateString('en-US');
             setLastDeliveryDate(formattedEndDate);
             console.log(`Set last delivery date to modal end date: ${formattedEndDate}`);
           } else {

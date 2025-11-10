@@ -9,24 +9,6 @@ import { Time, TimeUtils } from "../../utils/timeUtils";
 import { onAuthStateChanged } from "firebase/auth";
 import { collection, doc, getDoc } from "firebase/firestore";
 import { db } from "../../auth/firebaseConfig";
-
-// Helper to set time to 12:00:00 PM
-function setToNoon(date: any) {
-  let jsDate;
-  if (typeof date === 'string') {
-    jsDate = toJSDate(date);
-  } else if (date instanceof Date) {
-    jsDate = new Date(date.getTime());
-  } else if (date && typeof date.toDate === 'function') {
-    jsDate = new Date(date.toDate().getTime());
-  } else if (date && typeof date.toJSDate === 'function') {
-    jsDate = new Date(date.toJSDate().getTime());
-  } else {
-    jsDate = toJSDate(date);
-  }
-  jsDate.setHours(12, 0, 0, 0);
-  return jsDate;
-}
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { auth } from "../../auth/firebaseConfig";
 import AddDeliveryDialog from "./components/AddDeliveryDialog";
@@ -46,6 +28,7 @@ import { DateTime } from 'luxon';
 import { RecurringDeliveryProvider } from "../../context/RecurringDeliveryContext";
 import CalendarSkeleton from '../../components/skeletons/CalendarSkeleton';
 import CalendarHeaderSkeleton from '../../components/skeletons/CalendarHeaderSkeleton';
+import { deliveryDate } from "../../utils/deliveryDate";
 
 const DAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
 
@@ -430,18 +413,11 @@ const CalendarPage: React.FC = React.memo(() => {
       const seriesStartDate = newDelivery.deliveryDate;
 
       const createPromises = uniqueRecurrenceDates.map(dateStr => {
-        // Convert dateStr (YYYY-MM-DD) to JS Date at noon local time
-        let deliveryDateObj;
-        if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
-          const [year, month, day] = dateStr.split('-');
-          deliveryDateObj = new Date(Number(year), Number(month) - 1, Number(day), 12, 0, 0, 0);
-        } else {
-          deliveryDateObj = new Date(dateStr);
-        }
+        const normalizedDeliveryDate = deliveryDate.toJSDate(dateStr);
         const eventToAdd: Partial<DeliveryEvent> = {
           clientId: newDelivery.clientId,
           clientName,
-          deliveryDate: deliveryDateObj,
+          deliveryDate: normalizedDeliveryDate,
           recurrence: newDelivery.recurrence,
           seriesStartDate,
           time: "",
