@@ -19,6 +19,7 @@ import { Time, TimeUtils } from "../utils/timeUtils";
 import { retry } from '../utils/retry';
 import { ServiceError, formatServiceError } from '../utils/serviceError';
 import dataSources from '../config/dataSources';
+import { deliveryDate } from "../utils/deliveryDate";
 
 /**
  * Delivery Service - Handles all delivery-related operations with Firebase
@@ -71,7 +72,8 @@ class DeliveryService {
         const events = snapshot.docs
           .map((doc) => {
             const raw = doc.data();
-            const data = { id: doc.id, ...raw, deliveryDate: Time.Firebase.fromTimestamp(raw.deliveryDate).toJSDate() };
+            const normalizedDate = deliveryDate.toJSDate(Time.Firebase.fromTimestamp(raw.deliveryDate).toJSDate());
+            const data = { id: doc.id, ...raw, deliveryDate: normalizedDate };
             return validateDeliveryEvent(data) ? data : undefined;
           })
           .filter((event) => event !== undefined) as DeliveryEvent[];
@@ -106,7 +108,8 @@ class DeliveryService {
           .map((doc) => {
             const raw = doc.data();
             // ...existing code...
-            const data = { id: doc.id, ...raw, deliveryDate: Time.Firebase.fromTimestamp(raw.deliveryDate).toJSDate() };
+            const normalizedDate = deliveryDate.toJSDate(Time.Firebase.fromTimestamp(raw.deliveryDate).toJSDate());
+            const data = { id: doc.id, ...raw, deliveryDate: normalizedDate };
             return validateDeliveryEvent(data) ? data : undefined;
           })
           .filter((event) => event !== undefined) as DeliveryEvent[];
@@ -126,6 +129,9 @@ class DeliveryService {
     const cleanEvent = Object.fromEntries(
       Object.entries(event).map(([k, v]) => [k, v === undefined ? null : v])
     );
+    if (cleanEvent.deliveryDate) {
+      cleanEvent.deliveryDate = deliveryDate.toJSDate(cleanEvent.deliveryDate as any);
+    }
     try {
       return await retry(async () => {
         const docRef = await addDoc(collection(this.db, this.eventsCollection), cleanEvent);
@@ -148,6 +154,9 @@ class DeliveryService {
     const cleanData = Object.fromEntries(
       Object.entries(data).map(([k, v]) => [k, v === undefined ? null : v])
     );
+    if (cleanData.deliveryDate) {
+      cleanData.deliveryDate = deliveryDate.toJSDate(cleanData.deliveryDate as any);
+    }
     try {
       await retry(async () => {
         await updateDoc(doc(this.db, this.eventsCollection, id), cleanData);
@@ -215,14 +224,10 @@ class DeliveryService {
           .map(doc => {
             const data = doc.data();
             if (!data.deliveryDate) return null;
-            
-            const deliveryDate = data.deliveryDate.toDate
-              ? Time.Firebase.fromTimestamp(data.deliveryDate).toJSDate()
-              : TimeUtils.fromAny(data.deliveryDate).toJSDate();
-            
-            return deliveryDate;
+            const normalized = deliveryDate.toJSDate(data.deliveryDate);
+            return isNaN(normalized.getTime()) ? null : normalized;
           })
-          .filter((date): date is Date => date !== null && !isNaN(date.getTime()));
+          .filter((date): date is Date => date !== null);
 
         if (dates.length === 0) {
           return { earliest: null, latest: null };
@@ -303,17 +308,15 @@ class DeliveryService {
             const data = doc.data();
             if (!data.deliveryDate || !data.clientId) return;
             
-            const deliveryDate = data.deliveryDate.toDate
-              ? Time.Firebase.fromTimestamp(data.deliveryDate).toJSDate()
-              : TimeUtils.fromAny(data.deliveryDate).toJSDate();
+            const normalized = deliveryDate.toJSDate(data.deliveryDate);
             
-            if (!isNaN(deliveryDate.getTime())) {
+            if (!isNaN(normalized.getTime())) {
               if (!clientDates.has(data.clientId)) {
                 clientDates.set(data.clientId, []);
               }
               const dates = clientDates.get(data.clientId);
               if (dates) {
-                dates.push(deliveryDate);
+                dates.push(normalized);
               }
             }
           });
@@ -397,13 +400,11 @@ class DeliveryService {
               console.warn(`Document ${doc.id} is missing deliveryDate property`);
               return null;
             }
-            const deliveryDate = data.deliveryDate.toDate
-              ? Time.Firebase.fromTimestamp(data.deliveryDate).toJSDate()
-              : TimeUtils.fromAny(data.deliveryDate).toJSDate();
+            const deliveryDateValue = deliveryDate.toJSDate(data.deliveryDate);
             return {
               id: doc.id,
               ...data,
-              deliveryDate,
+              deliveryDate: deliveryDateValue,
             } as DeliveryEvent;
           })
           .filter((event): event is DeliveryEvent => event !== null);
@@ -511,7 +512,7 @@ class DeliveryService {
           return {
             id: doc.id,
             ...data,
-            deliveryDate: data.deliveryDate.toDate ? Time.Firebase.fromTimestamp(data.deliveryDate).toJSDate() : TimeUtils.fromAny(data.deliveryDate).toJSDate(),
+            deliveryDate: deliveryDate.toJSDate(data.deliveryDate),
           } as DeliveryEvent;
         });
       });
@@ -546,7 +547,7 @@ class DeliveryService {
           return {
             id: doc.id,
             ...data,
-            deliveryDate: data.deliveryDate.toDate ? Time.Firebase.fromTimestamp(data.deliveryDate).toJSDate() : TimeUtils.fromAny(data.deliveryDate).toJSDate(),
+            deliveryDate: deliveryDate.toJSDate(data.deliveryDate),
           } as DeliveryEvent;
         });
       });
@@ -577,4 +578,3 @@ class DeliveryService {
 }
 
 export default DeliveryService;
-

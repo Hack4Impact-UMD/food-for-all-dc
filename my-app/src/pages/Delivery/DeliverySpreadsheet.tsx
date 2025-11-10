@@ -90,6 +90,7 @@ import Button from "@mui/material/Button";
 // ...existing code...
 
 import DietaryRestrictionsLegend from "../../components/DietaryRestrictionsLegend";
+import { deliveryDate } from "../../utils/deliveryDate";
 
 const StyleChip = styled(Chip)({
   backgroundColor: 'var(--color-primary)',
@@ -394,13 +395,7 @@ const DeliverySpreadsheet: React.FC = () => {
   };
 
   const parseDateFromUrl = (dateString: string | null): Date => {
-    if (!dateString) return new Date();
-    try {
-      const date = new Date(dateString);
-      return isNaN(date.getTime()) ? new Date() : date;
-    } catch {
-      return new Date();
-    }
+    return deliveryDate.parseDateParam(dateString);
   };
 
   const [searchParams, setSearchParams] = useSearchParams();
@@ -1417,9 +1412,10 @@ const DeliverySpreadsheet: React.FC = () => {
   );
 
   const handleDateChange = (date: Date) => {
-    setSelectedDate(date);
+    const normalized = deliveryDate.toJSDate(date);
+    setSelectedDate(normalized);
     const newSearchParams = new URLSearchParams(searchParams);
-    newSearchParams.set('date', date.toISOString());
+    newSearchParams.set('date', deliveryDate.toISODateString(normalized));
     setSearchParams(newSearchParams);
   };
 
@@ -1888,9 +1884,11 @@ const DeliverySpreadsheet: React.FC = () => {
             const bDate = b.deliveryDate instanceof Date ? b.deliveryDate : (b.deliveryDate?.toJSDate?.() ?? null);
             return (aDate && bDate && aDate > bDate) ? a : b;
           });
-          const latestDate = latest.deliveryDate instanceof Date ? latest.deliveryDate : (latest.deliveryDate?.toJSDate?.() ?? null);
+          const latestDate = latest.deliveryDate instanceof Date
+            ? latest.deliveryDate
+            : (latest.deliveryDate?.toJSDate?.() ?? null);
           if (latestDate) {
-            lastDeliveryDate = latestDate.toISOString().split('T')[0];
+            lastDeliveryDate = deliveryDate.toISODateString(latestDate);
           }
         }
       }
@@ -2272,7 +2270,7 @@ const DeliverySpreadsheet: React.FC = () => {
         const adjustedDayOfWeek = dayOfWeek === 7 ? 0 : dayOfWeek; // Convert Sunday from 7 to 0
         const dailyLimit = limits && limits.length > adjustedDayOfWeek ? limits[adjustedDayOfWeek] : undefined;
         
-        return <EventCountHeader events={rows} limit={dailyLimit} />;
+        return <EventCountHeader events={deliveriesForDate} limit={dailyLimit} />;
       })()}
       <Box
         sx={{
