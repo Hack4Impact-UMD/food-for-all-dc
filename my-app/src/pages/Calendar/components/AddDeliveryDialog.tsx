@@ -21,8 +21,6 @@ import CalendarMultiSelect from "./CalendarMultiSelect";
 import type { NewDelivery } from "../../../types/calendar-types";
 import type { ClientProfile } from "../../../types/client-types";
 import { DayPilot } from "@daypilot/daypilot-lite-react";
-import { DateTime } from 'luxon';
-import { TimeUtils } from '../../../utils/timeUtils';
 import { validateDeliveryDateRange } from "../../../utils/dateValidation";
 import { getLastDeliveryDateForClient } from "../../../utils/lastDeliveryDate";
 import { deliveryEventEmitter } from "../../../utils/deliveryEventEmitter";
@@ -279,19 +277,20 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
       service.getEventsByClientId(newDelivery.clientId).then(() => {
         // ...existing code...
 
-        const normalizedDeliveryDate = TimeUtils.fromAny(newDelivery.deliveryDate).toISODate();
+        const normalizedDeliveryDate = deliveryDate.tryToISODateString(newDelivery.deliveryDate) || "";
   // ...existing code...
 
         setFormError("");
         const deliveryToSubmit: Partial<NewDelivery> = { ...newDelivery };
         if (newDelivery.recurrence === "Custom") {
-          deliveryToSubmit.customDates = customDates
-            .map(date => (date instanceof Date ? DateTime.fromJSDate(date).toISODate() || "" : ""))
+          const normalizedCustomDates = customDates
+            .map(date => deliveryDate.tryToISODateString(date))
             .filter((d): d is string => !!d);
-          deliveryToSubmit.deliveryDate = (customDates[0] instanceof Date ? DateTime.fromJSDate(customDates[0]).toISODate() || "" : "");
+          deliveryToSubmit.customDates = normalizedCustomDates;
+          deliveryToSubmit.deliveryDate = normalizedCustomDates[0] || normalizedDeliveryDate;
           deliveryToSubmit.repeatsEndDate = undefined;
         } else {
-          deliveryToSubmit.deliveryDate = normalizedDeliveryDate || "";
+          deliveryToSubmit.deliveryDate = normalizedDeliveryDate;
         }
 
         deliveryEventEmitter.emit();
@@ -632,8 +631,6 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
 }
 
 export default AddDeliveryDialog;
-
-
 
 
 
