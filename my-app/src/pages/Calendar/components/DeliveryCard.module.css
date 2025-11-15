@@ -56,7 +56,7 @@
 .divider {
   background-color: var(--color-divider);
   width: 2px;
-  height: 108px;
+  align-self: stretch;
   margin-right: var(--spacing-lg);
 }
 
