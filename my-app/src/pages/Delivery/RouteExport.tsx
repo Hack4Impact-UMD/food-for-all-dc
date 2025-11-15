@@ -1,21 +1,18 @@
 import { getFirestore, collection, getDocs } from "firebase/firestore";
-// ...existing code...
 import { saveAs } from "file-saver";
 import Papa from "papaparse";
-import { Cluster } from "./DeliverySpreadsheet"; // Import Cluster type
-import { RowData } from "./types/deliveryTypes"; // Import the correct type
-import { getExportConfig } from "../../config/exportConfig"; // Import configuration
+import { Cluster } from "./DeliverySpreadsheet";
+import { RowData } from "./types/deliveryTypes";
+import { getExportConfig } from "../../config/exportConfig";
 
-// Helper function to format time consistently
 const formatTime = (time: string): string => {
   if (!time) return "No time assigned";
 
-  // Convert 24-hour format to 12-hour AM/PM format
   const [hours, minutes] = time.split(":");
   let hours12 = parseInt(hours, 10);
   const ampm = hours12 >= 12 ? "PM" : "AM";
   hours12 = hours12 % 12;
-  hours12 = hours12 ? hours12 : 12; // Convert 0 to 12 for 12 AM
+  hours12 = hours12 ? hours12 : 12;
 
   return `${hours12}:${minutes} ${ampm}`;
 };
@@ -60,11 +57,10 @@ export const exportDeliveries = async (
       groupedByDriver[driverName].push(row);
     });
 
-    // Check if the only group is "Unassigned"
     const driverNames = Object.keys(groupedByDriver);
     if (driverNames.length === 1 && driverNames[0] === "Unassigned" && groupedByDriver["Unassigned"].length > 0) {
       alert("Cannot export: All selected deliveries are currently unassigned. Please assign drivers to clusters before exporting.");
-      return; // Stop the export
+      return;
     }
 
     const JSZipDeliveries = (await import('jszip')).default;
@@ -72,7 +68,6 @@ export const exportDeliveries = async (
     let filesCreated = 0;
 
     for (const driverName in groupedByDriver) {
-      // Skip unassigned drivers
       if (driverName === "Unassigned") {
           continue;
       }
@@ -87,12 +82,10 @@ export const exportDeliveries = async (
                   .join(", ")
               : "";
 
-            // Find the cluster for this row to get the cluster ID and time
             const cluster = clusters.find(c => c.deliveries?.includes(row.id));
             const clusterNumber = cluster?.id || "";
             const assignedTime = formatTime(cluster?.time || "");
 
-            // Handle apt field - it might not exist in RowData, so use dynamic access
             const rowData = row as any;
 
             return {
@@ -110,8 +103,8 @@ export const exportDeliveries = async (
               dietaryPreferences: dietaryPreferences,
               tefapFY25: row.tags?.includes("Tefap") ? "Y" : "N",
               deliveryDate: deliveryDate,
-              cluster: clusterNumber, // Use the cluster ID from the cluster lookup
-              time: assignedTime, // Add the formatted time column
+              cluster: clusterNumber,
+              time: assignedTime,
             };
           } catch (error) {
             console.error(`Error processing row ${row.id}:`, error);
@@ -164,14 +157,12 @@ export const exportDoordashDeliveries = async (
   clusters: Cluster[]
 ) => {
   try {
-    // Get configuration
     const config = getExportConfig();
     
     if (rowsToExport.length === 0) {
       alert("No deliveries selected or available for export on the selected date.");
       return;
     }
-    // Filter for only DoorDash deliveries
     const doordashRows = rowsToExport.filter((row) => {
       const cluster = clusters.find(c => c.deliveries?.includes(row.id));
       return cluster?.driver === "DoorDash";
@@ -182,7 +173,6 @@ export const exportDoordashDeliveries = async (
       return;
     }
 
-    // Check that all DoorDash deliveries have assigned times
     const unscheduledRows = doordashRows.filter((row) => {
       const cluster = clusters.find(c => c.deliveries?.includes(row.id));
       return !cluster?.time || cluster.time === "";
@@ -193,9 +183,6 @@ export const exportDoordashDeliveries = async (
       return;
     }
 
-
-
-    // Helper function to format time window (configurable duration)
     const formatTimeWindow = (time: string): { start: string; end: string } => {
       if (!time) return { start: "", end: "" };
       
@@ -203,7 +190,6 @@ export const exportDoordashDeliveries = async (
       const hour = parseInt(hours, 10);
       const minute = parseInt(minutes, 10);
       
-      // Format as 12-hour with AM/PM
       const formatTime = (h: number, m: number) => {
         const hour12 = h % 12 || 12;
         const ampm = h >= 12 ? "PM" : "AM";
@@ -216,9 +202,6 @@ export const exportDoordashDeliveries = async (
       return { start: startTime, end: endTime };
     };
 
-
-
-    // Group by time instead of driver
     const groupedByTime: Record<string, RowData[]> = {};
     doordashRows.forEach((row) => {
       const cluster = clusters.find(c => c.deliveries?.includes(row.id));
@@ -241,11 +224,10 @@ export const exportDoordashDeliveries = async (
       const csvData = groupedByTime[time]
         .map((row) => {
           try {
-            // Use database fields directly when available, with fallbacks
-            const rowData = row as any; // Allow dynamic access for additional fields
+            const rowData = row as any;
             const city = rowData.city || config.doorDash.defaultCity;
             const state = rowData.state || config.doorDash.defaultState;
-            const unit = rowData.address2 || ""; // Use address2 field for unit
+            const unit = rowData.address2 || "";
             const streetAddress = row.address ? `${row.address}${row.address2 ? ' ' + row.address2 : ''}` : "";
 
             return {

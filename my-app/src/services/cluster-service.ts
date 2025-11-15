@@ -4,10 +4,8 @@ import {
   getDoc,
   getDocs,
   addDoc,
-  // setDoc, // Remove unused import
   updateDoc,
   deleteDoc,
-  // DocumentReference, // Remove unused import
   onSnapshot,
 } from "firebase/firestore";
 import { db } from "../auth/firebaseConfig";
@@ -27,10 +25,7 @@ class ClusterService {
   private clustersCollection = dataSources.firebase.clustersCollection;
   private clientService = clientService;
 
-  // Private constructor to prevent direct instantiation
-  // This is part of the singleton pattern
   private constructor() {
-    // Intentionally empty - initialization happens with class properties
   }
 
   public static getInstance(): ClusterService {
@@ -46,7 +41,6 @@ class ClusterService {
   public async getAllClusters(): Promise<Cluster[]> {
     try {
       return await retry(async () => {
-        // NOTE: Add query constraints (where/orderBy/limit) for large collections and create indexes as needed.
         const clustersCollectionRef = collection(this.db, this.clustersCollection);
         const snapshot = await getDocs(clustersCollectionRef);
         const clusters = snapshot.docs
@@ -200,14 +194,11 @@ class ClusterService {
   public async addClientToCluster(clientId: string, clusterId: string, clusterId_number: number): Promise<void> {
     try {
       await retry(async () => {
-        // Update the client's clusterID
         await this.clientService.updateClient(clientId, { clusterID: clusterId_number.toString() });
-        // Get the cluster
         const clusterDoc = await getDoc(doc(this.db, this.clustersCollection, clusterId));
         if (clusterDoc.exists()) {
           const clusterData = clusterDoc.data();
           const deliveries = clusterData.deliveries || [];
-          // Add the client to the cluster's deliveries if not already there
           if (!deliveries.some((delivery: { clientId: string }) => delivery.clientId === clientId)) {
             deliveries.push({ clientId });
             await updateDoc(doc(this.db, this.clustersCollection, clusterId), { deliveries });
@@ -225,14 +216,11 @@ class ClusterService {
   public async removeClientFromCluster(clientId: string, clusterId: string): Promise<void> {
     try {
       await retry(async () => {
-        // Clear the client's clusterID
         await this.clientService.updateClient(clientId, { clusterID: "" });
-        // Get the cluster
         const clusterDoc = await getDoc(doc(this.db, this.clustersCollection, clusterId));
         if (clusterDoc.exists()) {
           const clusterData = clusterDoc.data();
           let deliveries = clusterData.deliveries || [];
-          // Remove the client from the cluster's deliveries
           deliveries = deliveries.filter((delivery: { clientId: string }) => delivery.clientId !== clientId);
           await updateDoc(doc(this.db, this.clustersCollection, clusterId), { deliveries });
         }

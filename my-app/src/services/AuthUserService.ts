@@ -9,7 +9,7 @@ import {
   FirestoreError,
 } from "firebase/firestore";
 import { getAuth, createUserWithEmailAndPassword } from "firebase/auth";
-import { db, app, functions } from "../auth/firebaseConfig"; // Assuming db and app are exported from firebaseConfig
+import { db, app, functions } from "../auth/firebaseConfig";
 import { AuthUserRow, UserType } from "../types";
 import { validateAuthUserRow } from '../utils/firestoreValidation';
 import { httpsCallable } from "firebase/functions";
@@ -17,7 +17,6 @@ import { retry } from '../utils/retry';
 import { ServiceError, formatServiceError } from '../utils/serviceError';
 import dataSources from '../config/dataSources';
 
-// Helper to convert Firestore role string to UserType enum
 const mapRoleToUserType = (roleString: string): UserType => {
   switch (roleString?.toLowerCase()) {
     case "admin":
@@ -35,13 +34,11 @@ const mapRoleToUserType = (roleString: string): UserType => {
 export class AuthUserService {
   private static instance: AuthUserService;
   private collectionRef = collection(db, dataSources.firebase.usersCollection);
-  private auth = getAuth(app); // Get Firebase Auth instance
+  private auth = getAuth(app);
 
-  // Private constructor for singleton pattern
   // eslint-disable-next-line @typescript-eslint/no-empty-function -- Intentional for singleton
   private constructor() {}
 
-  // Static method to get the singleton instance
   public static getInstance(): AuthUserService {
     if (!AuthUserService.instance) {
       AuthUserService.instance = new AuthUserService();
@@ -49,8 +46,6 @@ export class AuthUserService {
     return AuthUserService.instance;
   }
 
-
-  // Fetch all users from Firestore
   async getAllUsers(): Promise<AuthUserRow[]> {
     try {
       return await retry(async () => {
@@ -131,7 +126,6 @@ export class AuthUserService {
     return unsubscribe;
   }
 
-  // Create a new user in Firebase Auth and Firestore
   async createUser(
     userData: Omit<AuthUserRow, "id" | "uid">,
     password: string
@@ -176,9 +170,6 @@ export class AuthUserService {
     }
   }
 
-  // Delete user document from Firestore
-  // NOTE: This does NOT delete the user from Firebase Authentication.
-  // Deleting from Auth requires admin privileges, typically via a Cloud Function.
   async deleteUser(uid: string): Promise<void> {
     try {
       await retry(async () => {
@@ -201,15 +192,13 @@ export class AuthUserService {
   }
 }
 
-// Function to get display name (can be moved to a utils file if used elsewhere)
 const getRoleDisplayName = (type: UserType): string => {
     switch (type) {
         case UserType.Admin: return "Admin";
         case UserType.Manager: return "Manager";
-        case UserType.ClientIntake: return "Client Intake"; // Use the display name
+        case UserType.ClientIntake: return "Client Intake";
         default: return "Unknown";
     }
 };
 
-// Export a singleton instance
 export const authUserService = AuthUserService.getInstance(); 

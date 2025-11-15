@@ -45,7 +45,6 @@ import DeliveryService from "../../services/delivery-service";
 import PopUp from "../../components/PopUp";
 import ErrorPopUp from "../../components/ErrorPopUp";
 
-// Import new components from HEAD
 import BasicInfoForm from "./components/BasicInfoForm";
 import DeliveryInfoForm from "./components/DeliveryInfoForm";
 import DietaryPreferencesForm from "./components/DietaryPreferencesForm";
@@ -53,11 +52,8 @@ import DeliveryLogForm from "./components/DeliveryLogForm";
 import FormField from "./components/FormField";
 import MiscellaneousForm from "./components/MiscellaneousForm";
 import ProfileHeader from "./components/ProfileHeader";
-// Keep Tags import from tags_update, remove TagPopup from HEAD
 import TagManager from "./Tags/TagManager";
-// import TagPopup from "./Tags/TagPopup"; <--- Removed
 
-// Import types
 import { CalendarConfig, CalendarEvent, CaseWorker, ClientProfile, NewDelivery, UserType } from "../../types";
 import { ClientProfileKey, InputType } from "./types";
 import { DeliveryEvent } from "../../types/calendar-types";
@@ -72,7 +68,6 @@ import { deliveryDate } from "../../utils/deliveryDate";
 import HealthConditionsForm from "./components/HealthConditionsForm";
 import HealthCheckbox from "./components/HealthCheckbox";
 
-// Styling
 const fieldStyles = {
   backgroundColor: "var(--color-white)",
   width: "60%",
@@ -83,7 +78,6 @@ const fieldStyles = {
   marginTop: "0px",
 };
 
-// Enhanced styling for text fields
 const CustomTextField = styled(TextField)({
   "& .MuiOutlinedInput-root": {
     "& fieldset": {
@@ -106,7 +100,6 @@ const CustomTextField = styled(TextField)({
   },
 });
 
-// Styled components for common elements
 const SectionBox = styled(Box)(({ theme }) => ({
   backgroundColor: "var(--color-white)",
   borderRadius: "8px",
@@ -174,18 +167,13 @@ const SaveNotification = styled(Box)({
   },
 });
 
-// Type definitions have been moved to types directory
 const Profile = () => {
-  // --- Inject useClientData hook for refresh ---
   const { refresh } = useClientData();
-  // #### PARAMS and NAVIGATION ####
   const navigate = useNavigate();
   const params = useParams();
   const clientIdParam: string | null = params.clientId ?? null;
   const { user, loading, userRole } = useAuth();
 
-  // #### STATE ####
-  // State for config fields loaded from bucket
   const [configFields, setConfigFields] = useState<Array<{id: string; label: string; type: string}>>([]);
   const [isEditing, setIsEditing] = useState(!clientIdParam);
   const [isNewProfile, setIsNewProfile] = useState(!clientIdParam);
@@ -284,7 +272,6 @@ const Profile = () => {
   const [formData, setFormData] = useState({});
   const [isSaved, setIsSaved] = useState(false);
   const [ward, setWard] = useState(clientProfile.ward);
-  // State for dynamic fields from MiscellaneousForm
   const [dynamicFields, setDynamicFields] = useState<Record<string, string>>({});
   const [lastDeliveryDate, setLastDeliveryDate] = useState<string | null>(null);
   const [profileLoaded, setProfileLoaded] = useState(false);
@@ -299,7 +286,6 @@ const Profile = () => {
   const [events, setEvents] = useState<DeliveryEvent[]>([]);
   const [latestRecurringDelivery, setLatestRecurringDelivery] = useState<DeliveryEvent | null>(null);
 
-  // Memoized preSelectedClient data for AddDeliveryDialog
   const preSelectedClientData = useMemo(() => ({
     clientId: clientId || clientProfile.uid || "",
     clientName: (clientProfile.firstName && clientProfile.lastName)
@@ -307,15 +293,12 @@ const Profile = () => {
       : "",
     clientProfile: {
       ...clientProfile,
-      // Override with latest recurring delivery data if available
       recurrence: latestRecurringDelivery?.recurrence || clientProfile.recurrence,
       endDate: latestRecurringDelivery?.repeatsEndDate || clientProfile.endDate
     }
   }), [clientId, clientProfile, latestRecurringDelivery]);
 
-    // Allergies textbox state for editing
     const [foodAllergensText, setFoodAllergensText] = useState<string>("");
-  // Sync allergies textbox with foodAllergens array when entering edit mode or when array changes
   useEffect(() => {
     if (isEditing) {
       const allergensArr = clientProfile.deliveryDetails?.dietaryRestrictions?.foodAllergens;
@@ -323,7 +306,6 @@ const Profile = () => {
     }
   }, [isEditing, clientProfile.deliveryDetails?.dietaryRestrictions?.foodAllergens]);
 
-  // Add clients state for fetchClients()
   const [clients, setClients] = useState<ClientProfile[]>([]);
   const [addressError, setAddressError] = useState<string>("");
   const [userTypedAddress, setUserTypedAddress] = useState<string>("");
@@ -333,15 +315,12 @@ const Profile = () => {
   const [showSimilarNamesInfo, setShowSimilarNamesInfo] = useState(false);
   const [similarNamesMessage, setSimilarNamesMessage] = useState("");
 
-  
-  // Function to fetch profile data by ID
   const getProfileById = async (id: string) => {
   const docRef = doc(db, dataSources.firebase.clientsCollection, id);
     const docSnap = await getDoc(docRef);
     if (docSnap.exists()) {
       const data = docSnap.data();
       
-      // Ensure deliveryDetails structure exists and other potentially undefined fields
       const normalizedData = {
         ...data,
         notes: data.notes || "",
@@ -377,12 +356,9 @@ const Profile = () => {
     }
   };
 
-  // Robust Route Protection: redirect to login if not authenticated
-  // Fetch config file from Firebase Storage bucket on mount
   useEffect(() => {
     async function fetchConfigFromBucket() {
       try {
-        // Use Firebase Storage SDK helper for authenticated access
         const { getProfileFieldsConfigUrl } = await import("../../services/firebase-storage");
         const configUrl = await getProfileFieldsConfigUrl();
         const response = await fetch(configUrl);
@@ -513,7 +489,6 @@ const Profile = () => {
     return unsubscribe;
   }, [clientId]);
 
-  // Fetch case workers from Firestore
   useEffect(() => {
     const fetchCaseWorkers = async () => {
       try {
@@ -534,7 +509,6 @@ const Profile = () => {
 
         setCaseWorkers(caseWorkersData);
 
-        // If the client profile has a referral entity, find and set the matching case worker
         if (clientProfile.referralEntity?.id) {
           const matchingCaseWorker = caseWorkersData.find(
             (cw) => cw.id === clientProfile.referralEntity?.id
@@ -754,7 +728,6 @@ const Profile = () => {
     }
   }
 
-  // Update the toggleFieldEdit function to be type-safe
   const toggleFieldEdit = (fieldName: ClientProfileKey) => {
     setFieldEditStates((prev) => ({
       ...prev,
@@ -763,22 +736,18 @@ const Profile = () => {
   };
 
   function deepCopy<T>(obj: T): T {
-    // If obj is null or not an object, return it (base case)
     if (obj === null || typeof obj !== "object") {
       return obj;
     }
 
-    // Handle Date objects
     if (obj instanceof Date) {
       return new Date(obj.getTime()) as T;
     }
 
-    // Handle arrays by recursively copying each element
     if (Array.isArray(obj)) {
       return obj.map((item) => deepCopy(item)) as unknown as T;
     }
 
-    // Handle plain objects by recursively copying each property
     const copy = {} as { [key: string]: any };
     for (const key in obj) {
       if (Object.prototype.hasOwnProperty.call(obj, key)) {
@@ -800,13 +769,10 @@ const Profile = () => {
       | SelectChangeEvent
   ) => {
     const { name, value } = e.target;
-    // Always mark as unsaved when a change occurs
     setIsSaved(false);
     handlePrevClientCopying();
   
-    // Special handling for address field to avoid conflicts with Google Places
     if (name === "address") {
-      // Clear address error when user manually changes address
       if (addressError) {
         setAddressError("");
         setIsAddressValidated(true);
@@ -814,7 +780,7 @@ const Profile = () => {
     }
   
     if (name === "dob" || name === "tefapCert") {
-      const date = e.target.value; // this will be in the format YYYY-MM-DD
+      const date = e.target.value;
       setClientProfile((prevState) => ({
         ...prevState,
         [name]: date,
@@ -833,10 +799,8 @@ const Profile = () => {
           [name]: value,
         };
         
-        // Validate phone numbers on change
         const countDigits = (str: string) => (str.match(/\d/g) || []).length;
         const isValidPhoneFormat = (phone: string) => {
-          // Allowed formats: (123) 456-7890, 123-456-7890, 123.456.7890, 123 456 7890, 1234567890, +1 123-456-7890
           return /^(\+\d{1,2}\s?)?((\(\d{3}\))|\d{3})[\s.-]?\d{3}[\s.-]?\d{4}$/.test(phone);
         };
         const newErrors = { ...errors };
@@ -880,11 +844,9 @@ const Profile = () => {
     }
   };
 
-  // validate profile function, returns error message
   const validateProfile = () => {
     const newErrors: { [key: string]: string } = {};
 
-    // Validate required fields
     if (!clientProfile.firstName?.trim()) {
       newErrors.firstName = "First name is required";
     }
@@ -912,11 +874,10 @@ const Profile = () => {
       newErrors.email = "Invalid email format";
     }
     
-    // Validate TEFAP CERT date - cannot be in the future
     if (clientProfile.tefapCert?.trim()) {
       const tefapDate = new Date(clientProfile.tefapCert);
       const today = new Date();
-      today.setHours(0, 0, 0, 0); // Reset time to start of day for comparison
+      today.setHours(0, 0, 0, 0);
       
       if (!isNaN(tefapDate.getTime()) && tefapDate > today) {
         newErrors.tefapCert = "TEFAP CERT date cannot be in the future";

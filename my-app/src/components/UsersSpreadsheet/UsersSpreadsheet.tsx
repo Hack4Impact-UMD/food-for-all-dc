@@ -44,7 +44,6 @@ import CreateUserModal from "./CreateUserModal";
 import { AuthUserRow, UserType } from "../../types";
 import { useAuth } from "../../auth/AuthProvider";
 
-// Define a type for fields that can either be computed or direct keys of AuthUserRow
 type Field = {
   key: keyof AuthUserRow | "fullname";
   label: string;
@@ -52,7 +51,6 @@ type Field = {
   compute?: (data: AuthUserRow) => string;
 };
 
-// Map UserType enum to display string
 const getRoleDisplayName = (role: UserType): string => {
   switch (role) {
     case UserType.Admin: return "Admin";
@@ -77,19 +75,14 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
   const [createModalOpen, setCreateModalOpen] = useState<boolean>(false);
   const [actionFeedback, setActionFeedback] = useState<{ type: 'success' | 'error', message: string } | null>(null);
   
-  // Sort state for Name column - default to ascending
   const [nameSortDirection, setNameSortDirection] = useState<SortDirection>("asc");
-  // Sort state for Role column - no default sort
   const [roleSortDirection, setRoleSortDirection] = useState<SortDirection | null>(null);
-  // Sort state for Phone column - no default sort
   const [phoneSortDirection, setPhoneSortDirection] = useState<SortDirection | null>(null);
-  // Sort state for Email column - no default sort
   const [emailSortDirection, setEmailSortDirection] = useState<SortDirection | null>(null);
   
   const { userRole } = useAuth();
   const navigate = useNavigate();
 
-  //Route Protection
   React.useEffect(() => {
     const handler = onAuthStateChangedOverride || onAuthStateChanged;
     const unsubscribe = handler(auth, (user: any) => {
@@ -100,7 +93,6 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
     return () => unsubscribe();
   }, [navigate, onAuthStateChangedOverride]);
 
-  // Define fields for the user table columns
   const fields: Field[] = [
     {
       key: "name",
@@ -112,7 +104,6 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
     { key: "email", label: "Email", type: "text" },
   ];
 
-  // Fetch data using AuthUserService
   const fetchData = useCallback(async () => {
     setIsLoading(true);
     setError(null);
@@ -131,72 +122,59 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
     fetchData();
   }, [fetchData]);
 
-  // Handle toggling sort for Name column (only asc/desc)
   const toggleNameSort = () => {
     setNameSortDirection(nameSortDirection === "asc" ? "desc" : "asc");
-    // Clear other sorts when name sort is activated
     setRoleSortDirection(null);
     setPhoneSortDirection(null);
     setEmailSortDirection(null);
   };
 
-  // Handle toggling sort for Role column (only asc/desc)
   const toggleRoleSort = () => {
     if (roleSortDirection) {
       setRoleSortDirection(roleSortDirection === "asc" ? "desc" : "asc");
     } else {
       setRoleSortDirection("asc");
     }
-    // Clear other sorts when role sort is activated
-    setNameSortDirection("asc"); // Reset to default but not active
+    setNameSortDirection("asc");
     setPhoneSortDirection(null);
     setEmailSortDirection(null);
   };
 
-  // Handle toggling sort for Phone column (only asc/desc)
   const togglePhoneSort = () => {
     if (phoneSortDirection) {
       setPhoneSortDirection(phoneSortDirection === "asc" ? "desc" : "asc");
     } else {
       setPhoneSortDirection("asc");
     }
-    // Clear other sorts when phone sort is activated
-    setNameSortDirection("asc"); // Reset to default but not active
+    setNameSortDirection("asc");
     setRoleSortDirection(null);
     setEmailSortDirection(null);
   };
 
-  // Handle toggling sort for Email column (only asc/desc)
   const toggleEmailSort = () => {
     if (emailSortDirection) {
       setEmailSortDirection(emailSortDirection === "asc" ? "desc" : "asc");
     } else {
       setEmailSortDirection("asc");
     }
-    // Clear other sorts when email sort is activated
-    setNameSortDirection("asc"); // Reset to default but not active
+    setNameSortDirection("asc");
     setRoleSortDirection(null);
     setPhoneSortDirection(null);
   };
 
-  // Apply sorting to rows when sort direction changes
   const sortedRows = useMemo(() => {
-    // Determine which column to sort by
     if (roleSortDirection) {
-      // Sort by role
       return sortData(rows, {
         key: "role",
         direction: roleSortDirection,
         getValue: (row: AuthUserRow) => getRoleDisplayName(row.role)
       });
     } else if (phoneSortDirection) {
-      // Sort by phone
       return sortData(rows, {
         key: "phone",
         direction: phoneSortDirection,
         getValue: (row: AuthUserRow) => {
           const phone = row.phone || "";
-          // Sort empty values last in ascending order, first in descending order
           if (!phone || phone.trim() === "") {
             return phoneSortDirection === "asc" ? "zzz_empty" : "aaa_empty";
           }
@@ -204,14 +182,12 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
         }
       });
     } else if (emailSortDirection) {
-      // Sort by email
       return sortData(rows, {
         key: "email",
         direction: emailSortDirection,
         getValue: (row: AuthUserRow) => row.email || ""
       });
     } else {
-      // Sort by name (default) - simple alphabetical sorting
       return sortData(rows, {
         key: "name",
         direction: nameSortDirection,
@@ -220,55 +196,44 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
     }
   }, [rows, nameSortDirection, roleSortDirection, phoneSortDirection, emailSortDirection]);
 
-  // Handle search input change
   const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setSearchQuery(event.target.value);
   };
 
-  // Handle deleting a user (only Firestore deletion for now)
   const handleDeleteUser = async (uid: string) => {
-    const originalRows = [...rows]; // Store original rows for potential rollback
+    const originalRows = [...rows];
     const safeRows = Array.isArray(rows) ? rows : [];
-    const userToDelete = safeRows.find(r => r.uid === uid); // Find user for feedback messages
+    const userToDelete = safeRows.find(r => r.uid === uid);
 
-    // --- Optimistic UI Update ---
-    setRows(safeRows.filter((row) => row.uid !== uid)); // Remove user from UI immediately
-    setDeleteModalOpen(false); // Close modal immediately
+    setRows(safeRows.filter((row) => row.uid !== uid));
+    setDeleteModalOpen(false);
     setSelectedRowId(null);
-    setActionFeedback(null); // Clear previous feedback
+    setActionFeedback(null);
 
     try {
-      // --- Call backend service ---
       await authUserService.deleteUser(uid);
-      // Backend succeeded! Show success message.
       setActionFeedback({ type: 'success', message: `${userToDelete?.name || 'User'} deleted successfully.` });
-      setTimeout(() => setActionFeedback(null), 5000); // Clear success message after 5s
+      setTimeout(() => setActionFeedback(null), 5000);
 
     } catch (deleteError: any) {
       console.error("Error deleting user: ", deleteError);
-      // --- Rollback UI on failure ---
-      setRows(originalRows); // Restore original rows
+      setRows(originalRows);
       const errorMessage = deleteError.message || `Failed to delete ${userToDelete?.name || 'user'}. Please try again.`;
       setActionFeedback({ type: 'error', message: errorMessage });
-      // Keep error message visible until dismissed or another action occurs
     }
-    // No 'finally' block needed for modal/ID reset as it's done optimistically
   };
 
-  // Handle opening the action menu
   const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, uid: string) => {
     event.stopPropagation();
     setMenuAnchorEl(event.currentTarget);
     setSelectedRowId(uid);
   };
 
-  // Handle closing the action menu
   const handleMenuClose = () => {
     setMenuAnchorEl(null);
     setSelectedRowId(null);
   };
 
-  // Handle opening the create user modal
   const handleOpenCreateModal = () => {
     setCreateModalOpen(true);
   };
@@ -351,7 +316,6 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
-  // Handle closing the create modal and potentially refreshing data
   const handleCloseCreateModal = (refreshNeeded?: boolean) => {
     setCreateModalOpen(false);
     if (refreshNeeded) {
@@ -361,7 +325,6 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
     }
   };
 
-  // Handle closing the delete modal
   const handleCloseDeleteModal = () => {
     setDeleteModalOpen(false);
     setSelectedRowId(null);

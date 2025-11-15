@@ -4,7 +4,6 @@ import { DeliveryEvent } from "../../../types";
 import DeliveryService from "../../../services/delivery-service";
 import { toJSDate } from '../../../utils/timestamp';
 
-// Ensure DeliveryLogProps is properly defined
 interface DeliveryEventWithHidden extends DeliveryEvent {
     hidden?: boolean;
 }
@@ -20,13 +19,13 @@ const DeliveryLogForm: React.FC<DeliveryLogProps> = ({
     pastDeliveries,
     futureDeliveries,
     fieldLabelStyles,
-    onDeleteDelivery, // Destructure the restored property
+    onDeleteDelivery,
 }) => {
     const [confirmDelete, setConfirmDelete] = useState(false);
     const [selectedDelivery, setSelectedDelivery] = useState<DeliveryEvent | null>(null);
     const [deletingChipId, setDeletingChipId] = useState<string | null>(null);
-    const [futureDeliveriesState, setFutureDeliveries] = useState<DeliveryEventWithHidden[]>(futureDeliveries); // Local state for future deliveries
-    const [zoomingInChipId, setZoomingInChipId] = useState<string | null>(null); // New state for zoom-in transition
+    const [futureDeliveriesState, setFutureDeliveries] = useState<DeliveryEventWithHidden[]>(futureDeliveries);
+    const [zoomingInChipId, setZoomingInChipId] = useState<string | null>(null);
 
     const deliveryService = DeliveryService.getInstance();
 
@@ -49,7 +48,6 @@ const DeliveryLogForm: React.FC<DeliveryLogProps> = ({
         });
     };
 
-    // Sort the delivery dates before rendering the Chips
     const sortedFutureDeliveries = sortDeliveryDates(futureDeliveriesState);
     const sortedPastDeliveries = sortDeliveryDates(pastDeliveries);
 
@@ -70,14 +68,13 @@ const DeliveryLogForm: React.FC<DeliveryLogProps> = ({
 
             const futureDeliveries = sortDeliveryDates(
                 allEvents.filter((event) => toJSDate(event.deliveryDate) >= today)
-            ).slice(0, 5); // Ensure only the next 5 future deliveries are included
+            ).slice(0, 5);
 
             const currentIds = futureDeliveriesState.map((delivery) => delivery.id);
             const newDeliveries = futureDeliveries.filter((delivery) => !currentIds.includes(delivery.id));
 
-            setFutureDeliveries(futureDeliveries.map((delivery) => ({ ...delivery, hidden: true }))); // Add hidden property to all deliveries
+            setFutureDeliveries(futureDeliveries.map((delivery) => ({ ...delivery, hidden: true })));
 
-            // Wait for the chips to load on the DOM and animate only the new chip
             setTimeout(() => {
                 newDeliveries.forEach((delivery) => {
                     setZoomingInChipId(delivery.id);
@@ -87,9 +84,9 @@ const DeliveryLogForm: React.FC<DeliveryLogProps> = ({
 
                     setTimeout(() => {
                         setZoomingInChipId(null);
-                    }, 1200); // Match zoom-in transition duration
+                    }, 1200);
                 });
-            }, 100); // Initial delay to ensure DOM readiness
+            }, 100);
         } catch (error) {
             console.error("Error fetching future deliveries:", error);
         }
@@ -97,50 +94,40 @@ const DeliveryLogForm: React.FC<DeliveryLogProps> = ({
 
     const handleConfirmDelete = async () => {
         if (selectedDelivery) {
-            setDeletingChipId(selectedDelivery.id); // Trigger zoom-out transition
+            setDeletingChipId(selectedDelivery.id);
             setTimeout(async () => {
                 try {
-                    // Added validation for selectedDelivery and its id
                     if (!selectedDelivery || !selectedDelivery.id) {
                         console.error("Invalid selectedDelivery or missing ID:", selectedDelivery);
                         return;
                     }
 
-                    // Capture current IDs BEFORE any state changes or deletions
                     const currentIds = futureDeliveriesState.map((delivery) => delivery.id);
 
-                    // Delete from database first
                     await deliveryService.deleteEvent(selectedDelivery.id);
 
-                    // Notify parent component about the deletion - ensure this is awaited and errors are handled
                     try {
                         await onDeleteDelivery(selectedDelivery);
                     } catch (parentError) {
                         console.error("Error notifying parent of delivery deletion:", parentError);
-                        // Continue with local state update even if parent notification fails
                     }
 
-                    // Requery the database to get the updated state
                     const allEvents = await deliveryService.getEventsByClientId(selectedDelivery.clientId);
                     const now = new Date();
                     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
                     const futureDeliveries = sortDeliveryDates(
                         allEvents.filter((event) => toJSDate(event.deliveryDate) >= today)
-                    ).slice(0, 5); // Ensure only the next 5 future deliveries are included
+                    ).slice(0, 5);
 
-                    // Fix race condition: use currentIds (captured before any changes) to determine new deliveries
-                    // Filter out the deleted delivery ID from currentIds for accurate comparison
                     const currentIdsWithoutDeleted = currentIds.filter(id => id !== selectedDelivery.id);
                     const newDeliveries = futureDeliveries.filter((delivery) => !currentIdsWithoutDeleted.includes(delivery.id));
 
-                    // Update state with all current future deliveries
                     setFutureDeliveries(futureDeliveries.map((delivery) => ({ 
                         ...delivery, 
                         hidden: newDeliveries.some(newDel => newDel.id === delivery.id) 
                     })));
 
-                    // Animate the new chips after the deletion process
                     if (newDeliveries.length > 0) {
                         setTimeout(() => {
                             newDeliveries.forEach((delivery) => {
@@ -151,16 +138,15 @@ const DeliveryLogForm: React.FC<DeliveryLogProps> = ({
 
                                 setTimeout(() => {
                                     setZoomingInChipId(null);
-                                }, 1200); // Match zoom-in transition duration
+                                }, 1200);
                             });
-                        }, 100); // Initial delay to ensure DOM readiness
+                        }, 100);
                     }
                 } catch (error) {
                     console.error("Error deleting delivery:", error);
-                    // Additional error handling: revert any optimistic UI changes if needed
                 }
-                setDeletingChipId(null); // Reset zoom-out state
-            }, 300); // Match zoom-out transition duration
+                setDeletingChipId(null);
+            }, 300);
         }
         setConfirmDelete(false);
         setSelectedDelivery(null);
@@ -171,7 +157,6 @@ const DeliveryLogForm: React.FC<DeliveryLogProps> = ({
         setSelectedDelivery(null);
     };
 
-    // Update the chipStyle function to handle optional hidden property
     const chipStyle = (id: string, hidden?: boolean) => ({
         opacity: hidden ? 0.5 : 1,
         transform: "scale(1)",
@@ -254,8 +239,8 @@ const DeliveryLogForm: React.FC<DeliveryLogProps> = ({
                                     label={formatDate(toJSDate(delivery.deliveryDate))}
                                     variant="outlined"
                                     color="secondary"
-                                    clickable={false} // Ensure past Chips are not clickable
-                                    sx={{ pointerEvents: 'none' }} // Disable pointer events
+                                    clickable={false}
+                                    sx={{ pointerEvents: 'none' }}
                                 />
                             ))
                         ) : (
