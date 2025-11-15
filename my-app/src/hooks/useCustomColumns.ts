@@ -13,6 +13,7 @@ export const allowedPropertyKeys = [
   "notes",
   "phone",
   "referralEntity",
+  "tags",
   "tefapCert",
   "dob",
   "lastDeliveryDate"

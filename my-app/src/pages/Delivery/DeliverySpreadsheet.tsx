@@ -35,7 +35,7 @@ import {
 } from "../../utils/searchFilter";
 import { query, Timestamp, updateDoc, where, orderBy } from "firebase/firestore";
 import { TimeUtils } from "../../utils/timeUtils";
-import { TableVirtuoso } from 'react-virtuoso';
+import { TableVirtuoso, TableVirtuosoHandle } from 'react-virtuoso';
 import { format, addDays } from "date-fns";
 import AddIcon from "@mui/icons-material/Add";
 import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
@@ -329,6 +329,8 @@ const DeliverySpreadsheet: React.FC = () => {
   const [selectResetKey, setSelectResetKey] = useState(0);
   // Ref map for each row's Select
   const selectRefs = React.useRef<{ [key: string]: HTMLInputElement | null }>({});
+  // Ref for TableVirtuoso to enable scrolling to specific rows
+  const virtuosoRef = React.useRef<TableVirtuosoHandle>(null);
   // Workaround for opening modal after Select closes (track row id)
   const [pendingOpenAddClusterModalRow, setPendingOpenAddClusterModalRow] = useState<string | null>(null);
 
@@ -475,43 +477,44 @@ const DeliverySpreadsheet: React.FC = () => {
   const assignTime = async (time: string) => {
     if (time && clusterDoc) {
       try {
-        const updatedClusters = clusters.map((cluster) => {
-          const isSelected = Array.from(selectedClusters).some(
-            (selected) => selected.id === cluster.id
-          );
-          if (isSelected) {
-            return {
-              ...cluster,
-              time: time,
+        // Individual time assignment for selected clients (not cluster-level)
+        const selectedRowsArray = Array.from(selectedRows);
+        
+        if (selectedRowsArray.length === 0) {
+          console.log("No rows selected for time assignment");
+          return;
+        }
+
+        // Create or update individual time overrides for each selected client
+        let updatedOverrides = [...clientOverrides];
+        
+        selectedRowsArray.forEach(clientId => {
+          const existingOverrideIndex = updatedOverrides.findIndex(override => override.clientId === clientId);
+          if (existingOverrideIndex >= 0) {
+            // Update existing override
+            updatedOverrides[existingOverrideIndex] = {
+              ...updatedOverrides[existingOverrideIndex],
+              time: time
             };
-          }
-          return cluster;
-        });
-
-        setClusters(updatedClusters);
-
-        const affectedClientIds = new Set<string>();
-        clusters.forEach((cluster) => {
-          const isSelected = Array.from(selectedClusters).some(
-            (selected) => selected.id === cluster.id
-          );
-          if (isSelected) {
-            cluster.deliveries.forEach(clientId => affectedClientIds.add(clientId));
+          } else {
+            // Add new override
+            updatedOverrides.push({
+              clientId,
+              driver: undefined,
+              time: time
+            });
           }
         });
 
-        const updatedOverrides = clientOverrides.map(override => {
-          if (affectedClientIds.has(override.clientId)) {
-            return { ...override, time: undefined };
-          }
-          return override;
-        }).filter(override => override.driver || override.time);
+        // Clean up overrides - remove any that have neither driver nor time
+        updatedOverrides = updatedOverrides.filter(override => override.driver || override.time);
 
         setClientOverrides(updatedOverrides);
 
+        // Update Firestore - we don't need to modify clusters since time is now individual
         const clusterRef = doc(db, dataSources.firebase.clustersCollection, clusterDoc.docId);
         await updateDoc(clusterRef, {
-          clusters: updatedClusters,
+          clusters: clusters, // Keep clusters unchanged
           clientOverrides: updatedOverrides
         });
 
@@ -920,13 +923,62 @@ const DeliverySpreadsheet: React.FC = () => {
 
   // reset popup selections when closing popup
   // Handle individual client updates from the map (individual overrides)
-  // Minimal assignDriver for popup compatibility
-  // assignDriver for AssignDriverPopup: uses highlightedRowId
-  const assignDriver = (driver: Driver | null) => {
-    if (!highlightedRowId || !driver) return;
-    // Only update driver, keep cluster and time unchanged
-    handleIndividualClientUpdate(highlightedRowId, "", driver.name, undefined);
+  
+  // Driver assignment per cluster (used by AssignDriverPopup)
+  const assignDriver = async (driver: Driver | null) => {
+    if (!driver || !clusterDoc) return;
+    
+    try {
+      // Update selected clusters with the new driver
+      const updatedClusters = clusters.map((cluster) => {
+        const isSelected = Array.from(selectedClusters).some(
+          (selected) => selected.id === cluster.id
+        );
+        if (isSelected) {
+          return {
+            ...cluster,
+            driver: driver.name, // Assign driver name to cluster
+          };
+        }
+        return cluster;
+      });
+
+      setClusters(updatedClusters);
+
+      // Clear any individual driver overrides for clients in selected clusters
+      // (cluster driver takes precedence over individual overrides)
+      const affectedClientIds = new Set<string>();
+      clusters.forEach((cluster) => {
+        const isSelected = Array.from(selectedClusters).some(
+          (selected) => selected.id === cluster.id
+        );
+        if (isSelected) {
+          cluster.deliveries.forEach(clientId => affectedClientIds.add(clientId));
+        }
+      });
+
+      const updatedOverrides = clientOverrides.map(override => {
+        if (affectedClientIds.has(override.clientId)) {
+          return { ...override, driver: undefined };
+        }
+        return override;
+      }).filter(override => override.driver || override.time);
+
+      setClientOverrides(updatedOverrides);
+
+      // Update Firestore
+      const clusterRef = doc(db, dataSources.firebase.clustersCollection, clusterDoc.docId);
+      await updateDoc(clusterRef, {
+        clusters: updatedClusters,
+        clientOverrides: updatedOverrides
+      });
+
+      resetSelections();
+    } catch (error) {
+      console.error("Error assigning driver: ", error);
+    }
   };
+
   const handleIndividualClientUpdate = async (clientId: string, newClusterId: string, newDriver?: string, newTime?: string) => {
     if (!clusterDoc) {
       console.log("Individual client update aborted: clusterDoc is missing.");
@@ -1146,16 +1198,23 @@ const DeliverySpreadsheet: React.FC = () => {
     const totalMaxAllowed = clusterNum * maxDeliveries;
     if (totalMinRequired > visibleRows.length) {
       throw new Error(
-        `Not enough deliveries for ${clusterNum} clusters with minimum ${minDeliveries} each.\n` +
-        `Required: ${totalMinRequired} | Available: ${visibleRows.length}\n` +
-        `Please reduce cluster count or minimum deliveries.`
+        `🚫 Can't create ${clusterNum} routes - not enough deliveries!\n\n` +
+        `You have ${visibleRows.length} deliveries, but need at least ${totalMinRequired} deliveries (${clusterNum} routes × ${minDeliveries} minimum each).\n\n` +
+        `💡 Try one of these:\n` +
+        `• Use fewer routes (try ${Math.floor(visibleRows.length / minDeliveries)} or less)\n` +
+        `• Lower the minimum deliveries per route`
       );
     }
     if (visibleRows.length > totalMaxAllowed) {
+      const suggestedClusters = Math.ceil(visibleRows.length / maxDeliveries);
+      const suggestedMaxDeliveries = Math.ceil(visibleRows.length / clusterNum);
       throw new Error(
-        `Too many deliveries for ${clusterNum} clusters with maximum ${maxDeliveries} each.\n` +
-        `Allowed: ${totalMaxAllowed} | Available: ${visibleRows.length}\n` +
-        `Please increase cluster count or maximum deliveries.`
+        `🚫 Your routes can't handle all ${visibleRows.length} deliveries!\n\n` +
+        `With ${clusterNum} routes and max ${maxDeliveries} deliveries each, you can only handle ${totalMaxAllowed} deliveries.\n` +
+        `That leaves ${visibleRows.length - totalMaxAllowed} deliveries unassigned! 😬\n\n` +
+        `💡 Try one of these:\n` +
+        `• Use more routes (try ${suggestedClusters} routes)\n` +
+        `• Allow more deliveries per route (try ${suggestedMaxDeliveries} max per route)`
       );
     }
     const maxRecommendedClusters = Math.min(
@@ -1164,8 +1223,11 @@ const DeliverySpreadsheet: React.FC = () => {
     );
     if (clusterNum > maxRecommendedClusters) {
       throw new Error(
-        `Too many clusters requested (${clusterNum}).\n` +
-        `Recommended maximum for ${visibleRows.length} deliveries: ${maxRecommendedClusters}`
+        `🤔 That's too many routes for efficient delivery!\n\n` +
+        `You requested ${clusterNum} routes for only ${visibleRows.length} deliveries.\n` +
+        `This would create routes with very few deliveries each (not very efficient for drivers).\n\n` +
+        `💡 For best results, try ${maxRecommendedClusters} routes or fewer.\n` +
+        `This ensures each driver gets at least 2 deliveries per route.`
       );
     }
     // --- End Validation ---
@@ -1271,15 +1333,27 @@ const DeliverySpreadsheet: React.FC = () => {
       const adjustedTotalMaxAllowed = adjustedClusterNum * adjustedMaxDeliveries;
 
       if (adjustedTotalMinRequired > validCoordsForClustering.length) {
+        const invalidAddresses = visibleRows.length - validCoordsForClustering.length;
         throw new Error(
-          `Not enough valid deliveries (${validCoordsForClustering.length}) for ${adjustedClusterNum} clusters with adjusted minimum ${adjustedMinDeliveries} each.\n` +
-          `Required: ${adjustedTotalMinRequired}. Issue might be due to failed geocoding.`
+          `🗺️ Address issues are preventing cluster creation!\n\n` +
+          `Some addresses couldn't be found on the map (${invalidAddresses} failed), leaving only ${validCoordsForClustering.length} valid deliveries.\n` +
+          `This isn't enough for ${adjustedClusterNum} routes with ${adjustedMinDeliveries} minimum deliveries each.\n\n` +
+          `💡 Try:\n` +
+          `• Fix the addresses that couldn't be found\n` +
+          `• Use fewer routes\n` +
+          `• Lower the minimum deliveries per route`
         );
       }
       if (validCoordsForClustering.length > adjustedTotalMaxAllowed) {
+        const invalidAddresses = visibleRows.length - validCoordsForClustering.length;
+        const suggestedClusters = Math.ceil(validCoordsForClustering.length / adjustedMaxDeliveries);
+        const suggestedMaxDeliveries = Math.ceil(validCoordsForClustering.length / adjustedClusterNum);
         throw new Error(
-          `Too many valid deliveries (${validCoordsForClustering.length}) for ${adjustedClusterNum} clusters with adjusted maximum ${adjustedMaxDeliveries} each.\n` +
-          `Allowed: ${adjustedTotalMaxAllowed}. Issue might be due to failed geocoding.`
+          `🗺️ Too many deliveries even after address verification!\n\n` +
+          `Found ${validCoordsForClustering.length} valid addresses (${invalidAddresses} couldn't be located), but your ${adjustedClusterNum} routes can only handle ${adjustedTotalMaxAllowed} deliveries max.\n\n` +
+          `💡 Try:\n` +
+          `• Use more routes (try ${suggestedClusters} routes)\n` +
+          `• Allow more deliveries per route (try ${suggestedMaxDeliveries} max per route)`
         );
       }
       // --- End Re-validation ---
@@ -1406,6 +1480,24 @@ const DeliverySpreadsheet: React.FC = () => {
 
   const handleMarkerClick = (clientId: string) => {
     handleRowClick(clientId, false);
+    
+    // Scroll to the highlighted row with smooth animation
+    if (virtuosoRef.current && sortedRows.length > 0) {
+      const rowIndex = sortedRows.findIndex(row => row.id === clientId);
+      if (rowIndex !== -1) {
+        // Use setTimeout to ensure the highlight state has been updated
+        setTimeout(() => {
+          virtuosoRef.current?.scrollToIndex({
+            index: rowIndex,
+            align: 'center',
+            behavior: 'smooth'
+          });
+        }, 100);
+      } else {
+        // Row not found in current view (might be filtered out)
+        console.log(`Row with ID ${clientId} not found in current spreadsheet view (may be filtered out)`);
+      }
+    }
   };
 
   const clearRowHighlight = () => {
@@ -1487,6 +1579,7 @@ const DeliverySpreadsheet: React.FC = () => {
           "notes": ["notes"],
           "phone": ["phone"],
           "referralEntity": ["referral entity", "referral"],
+          "tags": ["tags", "tag"],
           "tefapCert": ["tefap", "tefap cert"],
           "dob": ["dob"],
           "lastDeliveryDate": ["last delivery date"]
@@ -2413,6 +2506,7 @@ const DeliverySpreadsheet: React.FC = () => {
             </Table>
           ) : sortedRows.length > 0 ? (
             <TableVirtuoso
+              ref={virtuosoRef}
               style={{ height: '100%' }}
               data={sortedRows}
               components={VirtuosoTableComponents}
@@ -2464,7 +2558,14 @@ const DeliverySpreadsheet: React.FC = () => {
                           }
                           sx={{
                             fontSize: "inherit",
-                            "& .MuiSelect-select": { padding: "4px 10px" },
+                            "& .MuiSelect-select": { 
+                              padding: "4px 10px",
+                              backgroundColor: row.clusterId ? clusterColorMap(row.clusterId) : 'transparent',
+                              color: row.clusterId ? 'white' : 'inherit',
+                              fontWeight: row.clusterId ? 'bold' : 'normal',
+                              textShadow: row.clusterId ? '.5px .5px .5px #000, -.5px .5px .5px #000, -.5px -.5px 0px #000, .5px -.5px 0px #000' : undefined,
+                              borderRadius: '4px'
+                            },
                             "&:before": { borderBottom: "none" },
                             "&:hover:not(.Mui-disabled):before": { borderBottom: "none" },
                             "&:after": { borderBottom: "none" },
@@ -2488,9 +2589,20 @@ const DeliverySpreadsheet: React.FC = () => {
                                   <Chip
                                     label={option.label}
                                     style={typeof option.color === 'string' ?
-                                      { backgroundColor: option.color, color: 'white', border: '1px solid black', fontWeight: 'bold' }
+                                      { 
+                                        backgroundColor: option.color, 
+                                        color: 'white', 
+                                        border: '1px solid black', 
+                                        fontWeight: 'bold',
+                                        textShadow: '.5px .5px .5px #000, -.5px .5px .5px #000, -.5px -.5px 0px #000, .5px -.5px 0px #000'
+                                      }
                                       : undefined}
-                                    sx={{ pointerEvents: 'none' }}
+                                    sx={{ 
+                                      pointerEvents: 'none',
+                                      '& .MuiChip-label': {
+                                        textShadow: typeof option.color === 'string' ? '.5px .5px .5px #000, -.5px .5px .5px #000, -.5px -.5px 0px #000, .5px -.5px 0px #000' : undefined
+                                      }
+                                    }}
                                   />
                                 </MenuItem>
                               )
@@ -2706,6 +2818,7 @@ const DeliverySpreadsheet: React.FC = () => {
                           if (key === "notes") label = "Notes";
                           if (key === "phone") label = "Phone";
                           if (key === "referralEntity") label = "Referral Entity";
+                          if (key === "tags") label = "Tags";
                           if (key === "tefapCert") label = "TEFAP Cert";
                           if (key === "dob") label = "DOB";
                           if (key === "lastDeliveryDate") label = "Last Delivery Date";

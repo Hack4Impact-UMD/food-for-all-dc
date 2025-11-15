@@ -1,7 +1,6 @@
 import React, { useState } from "react";
 import { TextField } from "@mui/material";
-import { validateDateInput, normalizeDate } from "../../../utils/dates";
-import { MaskedDateField } from "../../../components/common/Input";
+import { validateDateInput } from "../../../utils/dates";
 
 interface DateFieldProps {
   label: string;
@@ -35,12 +34,19 @@ const DateField: React.FC<DateFieldProps> = ({
 
   // Convert MM/DD/YYYY to YYYY-MM-DD for HTML date input
   const convertToHtmlDateFormat = (mmddyyyy: string): string => {
-    if (!mmddyyyy || mmddyyyy.length !== 10) return '';
+    if (!mmddyyyy) return '';
     
-    const [month, day, year] = mmddyyyy.split('/');
-    if (!month || !day || !year || year.length !== 4) return '';
+    // Handle full MM/DD/YYYY format
+    if (mmddyyyy.length === 10 && mmddyyyy.includes('/')) {
+      const [month, day, year] = mmddyyyy.split('/');
+      if (month && day && year && year.length === 4) {
+        return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+      }
+    }
     
-    return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+    // For any other format or partial input, return empty string
+    // This prevents the HTML date input from showing invalid values
+    return '';
   };
 
   // Convert YYYY-MM-DD to MM/DD/YYYY
@@ -53,9 +59,9 @@ const DateField: React.FC<DateFieldProps> = ({
     return `${month}/${day}/${year}`;
   };
 
-  // Check for placeholder text in input as user types
+  // Handle date input changes
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const htmlDateValue = e.target.value; // This is in YYYY-MM-DD format
+    const htmlDateValue = e.target.value; // This is in YYYY-MM-DD format from HTML input
     
     // Clear error when user starts typing
     if (error) setError(null);
@@ -65,21 +71,12 @@ const DateField: React.FC<DateFieldProps> = ({
       return;
     }
 
-    // Convert HTML date format to MM/DD/YYYY format
+    // HTML date inputs only emit complete dates or empty strings
+    // Convert to MM/DD/YYYY format and update parent
     const mmddyyyyValue = convertFromHtmlDateFormat(htmlDateValue);
-    
-    // Validate the converted date
-    validateDateInput(
-      mmddyyyyValue,
-      (validatedDate) => onChange(validatedDate),
-      (errorMsg) => {
-        // Only show critical errors during typing
-        if (errorMsg.includes("Year must be") || 
-            errorMsg.includes("Invalid date")) {
-          setError(errorMsg);
-        }
-      }
-    );
+    if (mmddyyyyValue) {
+      onChange(mmddyyyyValue);
+    }
   };
 
   return (
@@ -92,29 +89,33 @@ const DateField: React.FC<DateFieldProps> = ({
       onBlur={(e) => {
         const htmlDateValue = e.target.value;
         
+        // Handle required field validation
         if (!htmlDateValue && required) {
           setError("Date is required");
           return;
         }
         
+        // Clear error for empty optional fields
         if (!htmlDateValue && !required) {
           setError(null);
           return;
         }
 
-        // Convert and validate on blur
-        const mmddyyyyValue = convertFromHtmlDateFormat(htmlDateValue);
-        
-        validateDateInput(
-          mmddyyyyValue,
-          (validatedDate) => {
-            // Date is valid, no need to change the value as it's already set
-            setError(null);
-          },
-          (errorMsg) => {
-            setError(errorMsg);
+        // Validate complete dates
+        if (htmlDateValue) {
+          const mmddyyyyValue = convertFromHtmlDateFormat(htmlDateValue);
+          
+          if (mmddyyyyValue) {
+            // Validate the date
+            validateDateInput(
+              mmddyyyyValue,
+              () => setError(null),
+              (errorMsg) => setError(errorMsg)
+            );
+          } else {
+            setError("Please enter a valid date");
           }
-        );
+        }
       }}
       error={Boolean(error)}
       helperText={error || " "}

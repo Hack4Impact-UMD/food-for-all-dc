@@ -45,7 +45,7 @@ interface AddDeliveryDialogProps {
 type ClientSearchResult = Pick<ClientProfile, 'uid' | 'firstName' | 'lastName' | 'address'>;
 
 const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
-  const { open, onClose, onAddDelivery, clients, clientsLoaded, preSelectedClient } = props;
+  const { open, onClose, onAddDelivery, clients, clientsLoaded, preSelectedClient, startDate } = props;
   const [formError, setFormError] = useState<string>("");
   const [searchResults, setSearchResults] = useState<ClientSearchResult[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
@@ -66,6 +66,17 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
     }
   }, [open, preSelectedClient]);
 
+  // Update delivery date when startDate changes (calendar navigation)
+  useEffect(() => {
+    if (open) {
+      const defaultDate = convertToYYYYMMDD(startDate);
+      setNewDelivery((prev) => ({
+        ...prev,
+        deliveryDate: defaultDate,
+      }));
+    }
+  }, [open, startDate]);
+
   // Helper to set time to 12:00:00 PM
 // ...existing code...
 
@@ -82,7 +93,18 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
     return dateStr;
   };
 
+  // Helper to convert DayPilot.Date to YYYY-MM-DD format for date input
+  const convertToYYYYMMDD = (dayPilotDate: DayPilot.Date): string => {
+    try {
+      return dayPilotDate.toString("yyyy-MM-dd");
+    } catch {
+      return '';
+    }
+  };
+
   const [newDelivery, setNewDelivery] = useState<NewDelivery>(() => {
+    const defaultDate = convertToYYYYMMDD(startDate);
+    
     if (preSelectedClient) {
       let name = preSelectedClient.clientName;
       if (!name || name.trim() === "") {
@@ -92,7 +114,7 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
       return {
         clientId: preSelectedClient.clientId,
         clientName: name,
-        deliveryDate: "",
+        deliveryDate: defaultDate,
         recurrence: (preSelectedClient.clientProfile.recurrence as "None" | "Weekly" | "2x-Monthly" | "Monthly" | "Custom") || "None",
         repeatsEndDate: convertToMMDDYYYY(preSelectedClient.clientProfile.endDate || ""),
       };
@@ -100,7 +122,7 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
     return {
       clientId: "",
       clientName: "",
-      deliveryDate: "",
+      deliveryDate: defaultDate,
       recurrence: "None",
       repeatsEndDate: "",
     };
@@ -233,11 +255,13 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
   //update newDelivery with the correct date when the dialog is first opened
 
   const resetFormAndClose = () => {
+    const defaultDate = convertToYYYYMMDD(startDate);
+    
     if (preSelectedClient) {
       setNewDelivery({
         clientId: preSelectedClient.clientId,
         clientName: preSelectedClient.clientName,
-        deliveryDate: "",
+        deliveryDate: defaultDate,
         recurrence: (preSelectedClient.clientProfile.recurrence as "None" | "Weekly" | "2x-Monthly" | "Monthly" | "Custom") || "None",
         repeatsEndDate: convertToMMDDYYYY(preSelectedClient.clientProfile.endDate || ""),
       });
@@ -245,7 +269,7 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
       setNewDelivery({
         clientId: "",
         clientName: "",
-        deliveryDate: "",
+        deliveryDate: defaultDate,
         recurrence: "None",
         repeatsEndDate: "",
       });
