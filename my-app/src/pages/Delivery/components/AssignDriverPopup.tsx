@@ -105,7 +105,7 @@ export default function AssignDriverPopup({ assignDriver, setPopupMode, onDriver
                     <li {...props} key="manage-drivers-option">
                       <span
                         style={{
-                          color: '#257E68',
+                          color: 'var(--color-primary)',
                           fontWeight: 'bold',
                           cursor: 'pointer',
                         }}
@@ -122,7 +122,7 @@ export default function AssignDriverPopup({ assignDriver, setPopupMode, onDriver
                       <span>
                         <p
                           style={{
-                            color: 'black',
+                            color: 'var(--color-black)'color-black)',
                             fontWeight: 'bold',
                             display: 'inline-block',
                             marginRight: '10px',

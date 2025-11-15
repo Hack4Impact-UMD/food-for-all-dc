@@ -28,7 +28,7 @@
   flex: 1;
   max-width: 25rem;
   padding: 2rem;
-  background-color: white;
+  background-color: var(--color-white);
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -46,12 +46,12 @@
   text-align: center;
   font-size: 1.5rem;
   font-weight: bold;
-  color: #257e68;
+  color: var(--color-primary);
 }
 
 .login-subheading {
   font-size: 1rem;
-  color: #888;
+  color: var(--color-text-light);
   margin-bottom: 1.25rem;
 }
 
@@ -75,20 +75,20 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  color: #257e68;
+  color: var(--color-primary);
   width: 50%;
 }
 
 .forgot-password-button {
   cursor: pointer;
   font-size: 0.875rem;
-  color: #257e68;
+  color: var(--color-primary);
   text-decoration: underline;
 }
 
 .MuiButton-root {
-  background-color: #257e68 !important;
-  color: white !important;
+  background-color: var(--color-primary) !important;
+  color: var(--color-white) !important;
   height: 2.8125rem;
   border-radius: 1.5rem;
   font-family: Inter;
@@ -99,5 +99,5 @@
 }
 
 .MuiButton-root:hover {
-  background-color: #45a049 !important;
+  background-color: var(--color-primary-light) !important;
 }

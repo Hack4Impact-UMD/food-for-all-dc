@@ -71,7 +71,7 @@ export async function getEventsByViewType({
     text: `Client: ${event.clientName} (Driver: ${event.assignedDriverName})`,
   start: new DayPilot.Date(toJSDate(event.deliveryDate)),
   end: new DayPilot.Date(toJSDate(event.deliveryDate)),
-    backColor: "#257E68",
+    backColor: "var(--color-primary)",
   }));
 
   return { updatedEvents, formattedEvents };

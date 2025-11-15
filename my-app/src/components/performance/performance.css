@@ -44,8 +44,8 @@
 .loading-spinner {
   width: 40px;
   height: 40px;
-  border: 4px solid #f3f3f3;
-  border-top: 4px solid #3498db;
+  border: 4px solid var(--color-background-accent);
+  border-top: 4px solid var(--color-loading-blue);
   border-radius: 50%;
   animation: spin 1s linear infinite;
   margin-bottom: 1rem;
@@ -54,7 +54,7 @@
 .progress-bar {
   width: 200px;
   height: 4px;
-  background-color: #f0f0f0;
+  background-color: var(--color-border-lighter);
   border-radius: 2px;
   overflow: hidden;
   margin: 1rem 0;
@@ -62,7 +62,7 @@
 
 .progress-fill {
   height: 100%;
-  background-color: #3498db;
+  background-color: var(--color-loading-blue);
   transition: width 0.3s ease;
 }
 
@@ -81,9 +81,9 @@
 .skeleton-line {
   background: linear-gradient(
     90deg,
-    #f0f0f0 25%,
-    #e0e0e0 50%,
-    #f0f0f0 75%
+    var(--color-border-lighter) 25%,
+    var(--color-border-medium) 50%,
+    var(--color-border-lighter) 75%
   );
   background-size: 200% 100%;
   animation: skeleton-pulse 1.5s ease-in-out infinite;
@@ -93,20 +93,20 @@
 .error-fallback {
   padding: 2rem;
   text-align: center;
-  background-color: #fee;
-  border: 1px solid #fcc;
+  background-color: var(--color-error-background-light);
+  border: 1px solid var(--color-error-background-lighter);
   border-radius: 4px;
   margin: 1rem;
 }
 
 .error-fallback h2 {
-  color: #c33;
+  color: var(--color-error-text-light);
   margin-bottom: 1rem;
 }
 
 .error-fallback button {
-  background-color: #3498db;
-  color: white;
+  background-color: var(--color-loading-blue);
+  color: var(--color-white);
   border: none;
   padding: 0.5rem 1rem;
   border-radius: 4px;
@@ -115,7 +115,7 @@
 }
 
 .error-fallback button:hover {
-  background-color: #2980b9;
+  background-color: var(--color-loading-blue-dark);
 }
 
 /* Optimized image styles */
@@ -128,9 +128,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: #f8f9fa;
-  border: 1px dashed #dee2e6;
-  color: #6c757d;
+  background-color: var(--color-background-gray-light);
+  border: 1px dashed var(--color-border-dashed);
+  color: var(--color-text-gray-blue);
   padding: 2rem;
   text-align: center;
 }
@@ -156,20 +156,20 @@
 
 .spreadsheet-controls button {
   padding: 0.5rem 1rem;
-  border: 1px solid #ddd;
-  background: white;
+  border: 1px solid var(--color-border-light);
+  background: var(--color-white);
   border-radius: 4px;
   cursor: pointer;
   transition: background-color 0.2s;
 }
 
 .spreadsheet-controls button:hover {
-  background-color: #f8f9fa;
+  background-color: var(--color-background-gray-light);
 }
 
 .search-input {
   padding: 0.5rem;
-  border: 1px solid #ddd;
+  border: 1px solid var(--color-border-light);
   border-radius: 4px;
   width: 200px;
   transition: border-color 0.2s;
@@ -177,7 +177,7 @@
 
 .search-input:focus {
   outline: none;
-  border-color: #3498db;
+  border-color: var(--color-loading-blue);
 }
 
 /* Performance optimizations */
@@ -236,12 +236,12 @@
 /* High contrast mode support */
 @media (prefers-contrast: high) {
   .skeleton-line {
-    background: #000;
+    background: var(--color-border-black);
   }
   
   .loading-spinner {
-    border-color: #000;
-    border-top-color: #fff;
+    border-color: var(--color-border-black);
+    border-top-color: var(--color-background-main);
   }
 }
 

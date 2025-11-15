@@ -4,7 +4,7 @@
   display: flex;
   flex-direction: column;
   font-family: Inter;
-  background-color: #f3f3f3;
+  background-color: var(--color-background-accent);
   height: 100vh;
 }
 
@@ -12,7 +12,7 @@
   display: flex;
   flex-direction: column;
   font-family: Inter;
-  background-color: white;
+  background-color: var(--color-white);
   padding-left: 2.5%;
   padding-right: 2.5%;
   padding-top: 2.5%;
@@ -27,7 +27,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background-color: white;
+  background-color: var(--color-white);
   padding: 10px;
   margin-bottom: 10px;
 }
@@ -42,7 +42,7 @@
   font-weight: bold 3px;
   margin-bottom: 40px;
   padding: 2px;
-  border-bottom: 1px solid #bdbdbd;
+  border-bottom: 1px solid var(--color-text-tertiary);
 }
 
 .buttons-together {
@@ -51,7 +51,7 @@
 }
 
 .header-button {
-  background-color: #f0f0f0;
+  background-color: var(--color-border-lighter);
   border: none;
   padding: 10px 20px;
   margin-right: 10px;
@@ -63,7 +63,7 @@
 }
 
 .header-button:hover {
-  background-color: #e0e0e0;
+  background-color: var(--color-border-medium);
 }
 
 .dropdown-container {
@@ -79,7 +79,7 @@
 }
 
 .dropdown-icon {
-  color: #666;
+  color: var(--color-text-medium-alt);
   margin-left: 4px;
 }
 
@@ -87,7 +87,7 @@
   position: absolute;
   top: 100%;
   left: 0;
-  background-color: white;
+  background-color: var(--color-white);
   border-radius: 4px;
   box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
   z-index: 1000;
@@ -105,7 +105,7 @@
 }
 
 .dropdown-item:hover {
-  background-color: #f0f0f0;
+  background-color: var(--color-border-lighter);
 }
 
 .settings-icon {
@@ -137,7 +137,7 @@
 }
 
 .profile-main {
-  background: #f3f3f3;
+  background: var(--color-background-accent);
   flex-grow: 1;
   display: flex;
   justify-content: center;
@@ -152,14 +152,14 @@
 .overview-title {
   font-size: 20px;
   font-weight: bold;
-  text-decoration: underline solid #257e68;
+  text-decoration: underline solid var(--color-primary);
   display: inline-block;
-  color: #257e68;
+  color: var(--color-primary);
   text-underline-position: under;
 }
 
 .green {
-  color: #257e68;
+  color: var(--color-primary);
   margin: 0px;
   padding: 0px;
   display: inline-block;
@@ -168,7 +168,7 @@
 .centered-box {
   display: inline-block;
   padding: 20px;
-  background-color: white;
+  background-color: var(--color-white);
   text-align: center;
   width: 70%;
   margin: 20px 0;
@@ -176,7 +176,7 @@
 }
 
 .border-bottom {
-  border-bottom: 1px solid #bdbdbd;
+  border-bottom: 1px solid var(--color-text-tertiary);
 }
 
 .box-header {
@@ -197,11 +197,11 @@
   font-size: 20px;
   font-weight: bold;
   display: inline-block;
-  color: #257e68;
+  color: var(--color-primary);
 }
 
 .action-button {
-  color: #257e68;
+  color: var(--color-primary);
   background-color: #257e6800;
   border-color: #257e6800;
   cursor: pointer;
@@ -229,7 +229,7 @@
   margin-right: 10px;
   display: inline-block;
   font-size: 12px;
-  color: #bdbdbd;
+  color: var(--color-text-tertiary);
   font-family: Inter;
   text-transform: uppercase;
   margin-bottom: 0px;
@@ -292,7 +292,7 @@ dd {
   transform: translateY(-50%);
   width: 3px;
   height: 18px;
-  background-color: var(--color-primary, #257e68);
+  background-color: var(--color-primary, var(--color-primary));
   border-radius: 2px;
 }
 
@@ -306,7 +306,7 @@ dd {
 
 .custom-text-field {
   font-weight: 700;
-  background-color: black;
+  background-color: var(--color-black);
   border: none;
   width: 86%;
   height: 28px;
@@ -332,9 +332,9 @@ dd {
   .overview-title {
     font-size: 20px;
     font-weight: bold;
-    text-decoration: underline solid #257e68;
+    text-decoration: underline solid var(--color-primary);
     display: inline-block;
-    color: #257e68;
+    color: var(--color-primary);
     text-underline-position: under;
     margin-bottom: 20px;
   }
@@ -342,7 +342,7 @@ dd {
   .centered-box {
     width: 80%;
     margin-right: 1px;
-    color: black;
+    color: var(--color-black);
   }
 }
 
@@ -365,9 +365,9 @@ dd {
   .overview-title {
     font-size: 20px;
     font-weight: bold;
-    text-decoration: underline solid #257e68;
+    text-decoration: underline solid var(--color-primary);
     display: inline-block;
-    color: #257e68;
+    color: var(--color-primary);
     text-underline-position: under;
     margin-bottom: 20px;
   }
@@ -399,14 +399,14 @@ dd {
 .profile-container {
   font-family: 'Inter', sans-serif;
   color: var(--color-text-primary);
-  background-color: #f8f9fa;
+  background-color: var(--color-background-gray-light);
   min-height: 100vh;
   transition: all 0.3s ease;
 }
 
 /* Enhanced header container */
 .profile-header-container {
-  background-color: white;
+  background-color: var(--color-white);
   border-radius: 0 0 12px 12px;
   box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
   padding: 24px 32px;
@@ -517,7 +517,7 @@ dd {
 
 /* White container for header - keep for backward compatibility */
 .white-container {
-  background-color: white;
+  background-color: var(--color-white);
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
   border-radius: 0 0 8px 8px;
   padding: 1.5rem 2rem;
@@ -537,14 +537,14 @@ dd {
 }
 
 .centered-box {
-  background-color: transparent;
+  background-color: var(--color-transparent);
   width: 90%;
   max-width: 1200px;
 }
 
 /* Section styling */
 .section-box {
-  background-color: white;
+  background-color: var(--color-white);
   border-radius: 8px;
   padding: 1.5rem;
   margin-bottom: 1.5rem;
@@ -653,7 +653,7 @@ textarea, .MuiInputBase-inputMultiline {
   bottom: 20px;
   right: 20px;
   background-color: var(--color-primary);
-  color: white;
+  color: var(--color-white);
   padding: 16px 24px;
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);

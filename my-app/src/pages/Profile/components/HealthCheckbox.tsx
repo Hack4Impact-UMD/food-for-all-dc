@@ -17,12 +17,12 @@ const checkboxStyles = {
   "&.Mui-focusVisible": {
     outline: "none",
     "& .MuiSvgIcon-root": {
-      color: "#257E68",
+      color: "var(--color-primary)",
       filter: "drop-shadow(0 0 8px rgba(37, 126, 104, 0.4)) drop-shadow(0 0 16px rgba(37, 126, 104, 0.2))",
     },
   },
   "& input:focus + .MuiSvgIcon-root": {
-    color: "#257E68",
+    color: "var(--color-primary)",
     filter: "drop-shadow(0 0 8px rgba(37, 126, 104, 0.4)) drop-shadow(0 0 16px rgba(37, 126, 104, 0.2))",
   },
 };
@@ -32,8 +32,8 @@ const textFieldStyles = {
   marginTop: '5%',
   '& .MuiOutlinedInput-root': {
     '&.Mui-focused fieldset': {
-      borderColor: "#257E68",
-      border: "2px solid #257E68",
+      borderColor: "var(--color-primary)",
+      border: "2px solid var(--color-primary)",
       boxShadow: "0 0 8px rgba(37, 126, 104, 0.4), 0 0 16px rgba(37, 126, 104, 0.2)",
     },
   },
@@ -68,7 +68,7 @@ const HealthCheckbox: React.FC<HealthCheckboxProps> = ({
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
         <FormControlLabel
           control={<Checkbox checked={checked} onChange={onChange} name={name} {...checkboxProps} />}
-          label={<span style={{ color: 'black' }}>{label}</span>}
+          label={<span style={{ color: 'var(--color-black)'color-black)' }}>{label}</span>}
         />
         {checked && isEditing && (
           <TextField
@@ -88,7 +88,7 @@ const HealthCheckbox: React.FC<HealthCheckboxProps> = ({
   return (
     <FormControlLabel
       control={<Checkbox checked={checked} onChange={onChange} name={name} {...checkboxProps} />}
-      label={<span style={{ color: 'black' }}>{label}</span>}
+      label={<span style={{ color: 'var(--color-black)'color-black)' }}>{label}</span>}
     />
   );
 };

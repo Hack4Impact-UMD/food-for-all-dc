@@ -94,7 +94,7 @@ import { deliveryDate } from "../../utils/deliveryDate";
 
 const StyleChip = styled(Chip)({
   backgroundColor: 'var(--color-primary)',
-  color: '#fff',
+  color: 'var(--color-background-main)',
   ":hover": {
     backgroundColor: 'var(--color-primary)',
     cursor: 'text'
@@ -566,7 +566,7 @@ const DeliverySpreadsheet: React.FC = () => {
     const options: ClusterOption[] = availableIds.map(id => ({ value: id, label: id, color: clusterColorMap(id) }));
     // Add the special "+" option at the end only if clusters exist
     if (clusters.length > 0) {
-      options.push({ value: "__add__", label: "Add Cluster", color: "#cccccc", isAdd: true });
+      options.push({ value: "__add__", label: "Add Cluster", color: "var(--color-border-input)", isAdd: true });
     }
     return options;
   }, [clusters]);
@@ -2085,13 +2085,13 @@ const DeliverySpreadsheet: React.FC = () => {
         display: "flex",
         alignItems: "center",
         padding: "16px",
-        backgroundColor: "#fff",
+        backgroundColor: "var(--color-background-main)",
         zIndex: 10,
         position: "sticky",
         top: 0,
         width: "100%"
       }}>
-        <Typography variant="h5" sx={{color: "#787777", width: '350px', textAlign:'center'}}>
+        <Typography variant="h5" sx={{color: "var(--color-text-secondary)", width: '350px', textAlign:'center'}}>
           {format(selectedDate, 'EEEE - MMMM, dd/yyyy',)} 
         </Typography>
         
@@ -2099,14 +2099,14 @@ const DeliverySpreadsheet: React.FC = () => {
         <IconButton
           onClick={() => handleDateChange(addDays(selectedDate, -1))}
           size="large"
-          sx={{ color: "#257E68" }}
+          sx={{ color: "var(--color-primary)" }}
         >
           <Box
             sx={{
               width: 12,
               height: 12,
-              borderLeft: "2px solid #257E68",
-              borderBottom: "2px solid #257E68",
+              borderLeft: "2px solid var(--color-primary)",
+              borderBottom: "2px solid var(--color-primary)",
               transform: "rotate(45deg)",
             }}
           />
@@ -2115,14 +2115,14 @@ const DeliverySpreadsheet: React.FC = () => {
         <IconButton
           onClick={() => handleDateChange(addDays(selectedDate, 1))}
           size="large"
-          sx={{ color: "#257E68", marginRight: 2 }}
+          sx={{ color: "var(--color-primary)", marginRight: 2 }}
         >
           <Box
             sx={{
               width: 12,
               height: 12,
-              borderLeft: "2px solid #257E68",
-              borderBottom: "2px solid #257E68",
+              borderLeft: "2px solid var(--color-primary)",
+              borderBottom: "2px solid var(--color-primary)",
               transform: "rotate(-135deg)",
             }}
           />
@@ -2200,7 +2200,7 @@ const DeliverySpreadsheet: React.FC = () => {
           zIndex: 9,
           height: "400px",
           width: "100%",
-          backgroundColor: "#fff",
+          backgroundColor: "var(--color-background-main)",
           // Removed position: "relative"
         }}
       >
@@ -2219,9 +2219,9 @@ const DeliverySpreadsheet: React.FC = () => {
               alignItems: "center",
               height: "400px", // Explicitly set to match container height
               width: "100%",
-              backgroundColor: "#f5f5f5",
+              backgroundColor: "var(--color-background-body)",
               borderRadius: "4px",
-              border: "1px solid #ddd",
+              border: "1px solid var(--color-border-light)",
             }}
           >
             <Typography variant="h6" color="textSecondary">
@@ -2236,7 +2236,7 @@ const DeliverySpreadsheet: React.FC = () => {
         sx={{
           width: "100%",
           zIndex:  8,
-          backgroundColor: "#fff",
+          backgroundColor: "var(--color-background-main)",
           padding: "16px 0",
           top: "472px",
         }}
@@ -2251,12 +2251,12 @@ const DeliverySpreadsheet: React.FC = () => {
               style={{
                 width: "100%",
                 height: "60px",
-                backgroundColor: "#EEEEEE",
+                backgroundColor: "var(--color-background-gray)",
                 border: "none",
                 borderRadius: "30px",
                 padding: "0 24px",
                 fontSize: "16px",
-                color: "#333333",
+                color: "var(--color-text-dark)",
                 boxSizing: "border-box",
               }}
             />
@@ -2402,7 +2402,7 @@ const DeliverySpreadsheet: React.FC = () => {
                         width: field.type === "checkbox" ? "60px" : field.key === "fullname" ? "250px" : field.key === "clusterIdChange" ? "180px" : field.key === "deliveryDetails.deliveryInstructions" ? "300px" : field.key === "assignedDriver" || field.key === "assignedTime" ? "180px" : "150px",
                         textAlign: "center",
                         padding: "10px",
-                        backgroundColor: '#f5f9f7',
+                        backgroundColor: 'var(--color-background-green-tint)',
                       }}
                     >
                       <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 1 }}>
@@ -2416,7 +2416,7 @@ const DeliverySpreadsheet: React.FC = () => {
                       className="table-header" 
                       style={{
                         width: "150px",
-                        backgroundColor: '#f5f9f7',
+                        backgroundColor: 'var(--color-background-green-tint)',
                       }}
                     >
                       Custom Column
@@ -2426,7 +2426,7 @@ const DeliverySpreadsheet: React.FC = () => {
                     className="table-header"
                     style={{
                       width: "50px",
-                      backgroundColor: '#f5f9f7',
+                      backgroundColor: 'var(--color-background-green-tint)',
                     }}
                   >
                     +
@@ -2451,7 +2451,7 @@ const DeliverySpreadsheet: React.FC = () => {
                               sx={{
                                 width: 20,
                                 height: 20,
-                                backgroundColor: '#e0e0e0',
+                                backgroundColor: 'var(--color-border-medium)',
                                 borderRadius: '4px',
                                 animation: 'pulse 1.5s ease-in-out infinite',
                                 '@keyframes pulse': {
@@ -2465,7 +2465,7 @@ const DeliverySpreadsheet: React.FC = () => {
                           <Box
                             sx={{
                               height: 20,
-                              backgroundColor: '#e0e0e0',
+                              backgroundColor: 'var(--color-border-medium)',
                               borderRadius: '4px',
                               animation: 'pulse 1.5s ease-in-out infinite',
                               animationDelay: `${skeletonIndex * 0.1}s`,
@@ -2483,7 +2483,7 @@ const DeliverySpreadsheet: React.FC = () => {
                         <Box
                           sx={{
                             height: 20,
-                            backgroundColor: '#e0e0e0',
+                            backgroundColor: 'var(--color-border-medium)',
                             borderRadius: '4px',
                             animation: 'pulse 1.5s ease-in-out infinite',
                             animationDelay: `${skeletonIndex * 0.1}s`,
@@ -2561,7 +2561,7 @@ const DeliverySpreadsheet: React.FC = () => {
                               backgroundColor: row.clusterId ? clusterColorMap(row.clusterId) : 'transparent',
                               color: row.clusterId ? 'white' : 'inherit',
                               fontWeight: row.clusterId ? 'bold' : 'normal',
-                              textShadow: row.clusterId ? '.5px .5px .5px #000, -.5px .5px .5px #000, -.5px -.5px 0px #000, .5px -.5px 0px #000' : undefined,
+                              textShadow: row.clusterId ? '.5px .5px .5px #000, -.5px .5px .5px #000, -.5px -.5px 0px var(--color-border-black), .5px -.5px 0px #000' : undefined,
                               borderRadius: '4px'
                             },
                             "&:before": { borderBottom: "none" },
@@ -2571,7 +2571,7 @@ const DeliverySpreadsheet: React.FC = () => {
                         >
                           {clusters.length === 0 ? (
                             <MenuItem disabled value="">
-                              <span style={{ color: '#888' }}>No Clusters</span>
+                              <span style={{ color: 'var(--color-text-light)' }}>No Clusters</span>
                             </MenuItem>
                           ) : (
                             clusterOptions.map((option) => (
@@ -2580,7 +2580,7 @@ const DeliverySpreadsheet: React.FC = () => {
                                   key="__add__"
                                   value="__add__"
                                 >
-                                  <Chip label={"+ Add Cluster"} sx={{ backgroundColor: '#cccccc', color: '#333', fontWeight: 'bold', border: '1px solid #888' }} />
+                                  <Chip label={"+ Add Cluster"} sx={{ backgroundColor: 'var(--color-border-input)', color: 'var(--color-text-dark)', fontWeight: 'bold', border: '1px solid var(--color-text-light)' }} />
                                 </MenuItem>
                               ) : (
                                 <MenuItem key={option.value} value={option.value}>
@@ -2589,10 +2589,10 @@ const DeliverySpreadsheet: React.FC = () => {
                                     style={typeof option.color === 'string' ?
                                       { 
                                         backgroundColor: option.color, 
-                                        color: 'white', 
+                                        color: 'var(--color-white)'color-white)', 
                                         border: '1px solid black', 
                                         fontWeight: 'bold',
-                                        textShadow: '.5px .5px .5px #000, -.5px .5px .5px #000, -.5px -.5px 0px #000, .5px -.5px 0px #000'
+                                        textShadow: '.5px .5px .5px var(--color-border-black), -.5px .5px .5px #000, -.5px -.5px 0px #000, .5px -.5px 0px var(--color-border-black)'
                                       }
                                       : undefined}
                                     sx={{ 
@@ -2618,7 +2618,7 @@ const DeliverySpreadsheet: React.FC = () => {
                           return (
                             <Link
                               to={`/profile/${row.id}`}
-                              style={{ color: "#2E5B4C", textDecoration: "none", fontWeight: "500" }}
+                              style={{ color: "var(--color-primary-darker)", textDecoration: "none", fontWeight: "500" }}
                               onClick={(e) => e.stopPropagation()}
                             >
                               {computedValue}
@@ -2627,7 +2627,7 @@ const DeliverySpreadsheet: React.FC = () => {
                         } else if (field.key === "tags") {
                           const tags = computedValue as string;
                           return tags === "None" ? (
-                            <span style={{ color: '#757575', fontStyle: 'italic' }}>None</span>
+                            <span style={{ color: 'var(--color-text-medium)', fontStyle: 'italic' }}>None</span>
                           ) : (
                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', justifyContent: 'center' }}>
                               {tags.split(', ').map((tag: string, index: number) => (
@@ -2635,7 +2635,7 @@ const DeliverySpreadsheet: React.FC = () => {
                                   key={index}
                                   label={tag}
                                   size="small"
-                                  sx={{ backgroundColor: '#4caf50', color: 'white', fontSize: '0.75rem' }}
+                                  sx={{ backgroundColor: 'var(--color-success-button)', color: 'var(--color-white)'color-white)', fontSize: '0.75rem' }}
                                 />
                               ))}
                             </div>
@@ -2670,7 +2670,7 @@ const DeliverySpreadsheet: React.FC = () => {
                       ) : col.propertyKey === "deliveryDetails.dietaryRestrictions" ? (
                         (() => {
                           const dr = row.deliveryDetails?.dietaryRestrictions;
-                          if (!dr) return <span style={{ color: '#757575', fontStyle: 'italic' }}>None</span>;
+                          if (!dr) return <span style={{ color: 'var(--color-text-medium)', fontStyle: 'italic' }}>None</span>;
                           const restrictions: string[] = [];
                           if (dr.vegetarian) restrictions.push("Vegetarian");
                           if (dr.vegan) restrictions.push("Vegan");
@@ -2691,11 +2691,11 @@ const DeliverySpreadsheet: React.FC = () => {
                                   key={index}
                                   label={restriction}
                                   size="small"
-                                  sx={{ backgroundColor: '#ff9800', color: 'white', fontSize: '0.7rem' }}
+                                  sx={{ backgroundColor: 'var(--color-warning)', color: 'var(--color-white)'color-white)', fontSize: '0.7rem' }}
                                 />
                               ))}
                             </Box>
-                          ) : <span style={{ color: '#757575', fontStyle: 'italic' }}>None</span>;
+                          ) : <span style={{ color: 'var(--color-text-medium)', fontStyle: 'italic' }}>None</span>;
                         })()
                       ) : col.propertyKey.includes('deliveryInstructions') ? (
                         (() => {
@@ -2749,7 +2749,7 @@ const DeliverySpreadsheet: React.FC = () => {
                       padding: "10px",
                       cursor: (field.key === "fullname" || field.key === "clusterIdChange" || field.key === "tags" || field.key === "zipCode" || field.key === "ward" || field.key === "assignedDriver" || field.key === "assignedTime" || field.key === "deliveryDetails.deliveryInstructions") ? "pointer" : "default",
                       userSelect: "none",
-                      backgroundColor: '#f5f9f7',
+                      backgroundColor: 'var(--color-background-green-tint)',
                     }}
                     onClick={() => (field.key === "fullname" || field.key === "clusterIdChange" || field.key === "tags" || field.key === "zipCode" || field.key === "ward" || field.key === "assignedDriver" || field.key === "assignedTime" || field.key === "deliveryDetails.deliveryInstructions") && handleSort(field)}
                   >
@@ -2778,7 +2778,7 @@ const DeliverySpreadsheet: React.FC = () => {
                         width: "150px",
                         userSelect: "none",
                         cursor: col.propertyKey !== "none" ? "pointer" : "default",
-                        backgroundColor: '#f5f9f7',
+                        backgroundColor: 'var(--color-background-green-tint)',
                       }}
                       onClick={() => col.propertyKey !== "none" && handleSort({ key: col.propertyKey } as Field)}
                     >
@@ -2792,12 +2792,12 @@ const DeliverySpreadsheet: React.FC = () => {
                           onClick={(e) => e.stopPropagation()} // Prevent sorting when clicking dropdown
                           sx={{ 
                             minWidth: 120, 
-                            color: "#257e68",
+                            color: "var(--color-primary)",
                             "& .MuiOutlinedInput-notchedOutline": {
                               borderColor: "#bfdfd4",
                             },
                             "&:hover .MuiOutlinedInput-notchedOutline": {
-                              borderColor: "#257e68",
+                              borderColor: "var(--color-primary)",
                             },
                           }}
                         >
@@ -2841,7 +2841,7 @@ const DeliverySpreadsheet: React.FC = () => {
                           aria-label={`Remove ${col.label || "custom"} column`}
                           title={`Remove ${col.label || "custom"} column`}
                           sx={{
-                            color: "#d32f2f",
+                            color: "var(--color-error-text)",
                             "&:hover": {
                               backgroundColor: "rgba(211, 47, 47, 0.04)",
                             }
@@ -2860,7 +2860,7 @@ const DeliverySpreadsheet: React.FC = () => {
                       position: 'sticky',
                       top: 0,
                       zIndex: 3,
-                      backgroundColor: '#f5f9f7',
+                      backgroundColor: 'var(--color-background-green-tint)',
                     }}
                   >
                     <IconButton
@@ -2874,7 +2874,7 @@ const DeliverySpreadsheet: React.FC = () => {
                         }
                       }}
                     >
-                      <AddIcon sx={{ color: "#257e68" }} />
+                      <AddIcon sx={{ color: "var(--color-primary)" }} />
                     </IconButton>
                   </TableCell>
                 {/* Add empty cell for the action menu - keeping this for now */}
@@ -2904,7 +2904,7 @@ const DeliverySpreadsheet: React.FC = () => {
                         padding: "10px",
                         cursor: (field.key === "fullname" || field.key === "clusterIdChange" || field.key === "tags" || field.key === "zipCode" || field.key === "ward" || field.key === "assignedDriver" || field.key === "assignedTime" || field.key === "deliveryDetails.deliveryInstructions") ? "pointer" : "default",
                         userSelect: "none",
-                        backgroundColor: '#f5f9f7',
+                        backgroundColor: 'var(--color-background-green-tint)',
                       }}
                       onClick={() => (field.key === "fullname" || field.key === "clusterIdChange" || field.key === "tags" || field.key === "zipCode" || field.key === "ward" || field.key === "assignedDriver" || field.key === "assignedTime" || field.key === "deliveryDetails.deliveryInstructions") && handleSort(field)}
                     >
@@ -2930,7 +2930,7 @@ const DeliverySpreadsheet: React.FC = () => {
                         width: "150px",
                         userSelect: "none",
                         cursor: col.propertyKey !== "none" ? "pointer" : "default",
-                        backgroundColor: '#f5f9f7',
+                        backgroundColor: 'var(--color-background-green-tint)',
                       }}
                       onClick={() => col.propertyKey !== "none" && handleSort({ key: col.propertyKey } as Field)}
                     >
@@ -2944,12 +2944,12 @@ const DeliverySpreadsheet: React.FC = () => {
                           onClick={(e) => e.stopPropagation()} // Prevent sorting when clicking dropdown
                           sx={{ 
                             minWidth: 120, 
-                            color: "#257e68",
+                            color: "var(--color-primary)",
                             "& .MuiOutlinedInput-notchedOutline": {
                               borderColor: "#bfdfd4",
                             },
                             "&:hover .MuiOutlinedInput-notchedOutline": {
-                              borderColor: "#257e68",
+                              borderColor: "var(--color-primary)",
                             },
                           }}
                         >
@@ -2991,7 +2991,7 @@ const DeliverySpreadsheet: React.FC = () => {
                           aria-label={`Remove ${col.label || "custom"} column`}
                           title={`Remove ${col.label || "custom"} column`}
                           sx={{
-                            color: "#d32f2f",
+                            color: "var(--color-error-text)",
                             "&:hover": {
                               backgroundColor: "rgba(211, 47, 47, 0.04)",
                             }
@@ -3007,7 +3007,7 @@ const DeliverySpreadsheet: React.FC = () => {
                     className="table-header" 
                     align="right"
                     style={{
-                      backgroundColor: '#f5f9f7',
+                      backgroundColor: 'var(--color-background-green-tint)',
                     }}
                   >
                     <IconButton
@@ -3021,7 +3021,7 @@ const DeliverySpreadsheet: React.FC = () => {
                         }
                       }}
                     >
-                      <AddIcon sx={{ color: "#257e68" }} />
+                      <AddIcon sx={{ color: "var(--color-primary)" }} />
                     </IconButton>
                   </TableCell>
                 </TableRow>

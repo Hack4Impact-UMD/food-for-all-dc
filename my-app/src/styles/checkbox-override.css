@@ -1,6 +1,6 @@
 /* Globally override checked color for all MUI checkboxes */
 .MuiCheckbox-root .MuiSvgIcon-root {
-  color: #257E68 !important;
+  color: var(--color-primary) !important;
 }
 /* Override Material-UI checkbox focus ring globally */
 .MuiCheckbox-root:focus-visible,
@@ -27,7 +27,7 @@
 }
 
 .MuiCheckbox-root.Mui-focusVisible .MuiSvgIcon-root {
-  color: #257E68 !important;
+  color: var(--color-primary) !important;
 }
 
 /* Override any ripple effects */

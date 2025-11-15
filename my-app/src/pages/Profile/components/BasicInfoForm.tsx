@@ -106,7 +106,7 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
           <Typography
             variant="body2"
             sx={{
-              color: '#d32f2f',
+              color: 'var(--color-error-text)',
               fontSize: '0.875rem',
               marginTop: '4px'
             }}
@@ -167,7 +167,7 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
           >
             <InfoIcon
               sx={{
-                color: '#257E68',
+                color: 'var(--color-primary)',
                 fontSize: '20px',
                 cursor: 'help',
                 verticalAlign: 'middle',
@@ -206,7 +206,7 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
           >
             <InfoIcon
               sx={{
-                color: '#257E68',
+                color: 'var(--color-primary)',
                 fontSize: '20px',
                 cursor: 'help',
                 verticalAlign: 'middle',
@@ -245,7 +245,7 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
           >
             <InfoIcon
               sx={{
-                color: '#257E68',
+                color: 'var(--color-primary)',
                 fontSize: '20px',
                 cursor: 'help',
                 verticalAlign: 'middle',
@@ -382,7 +382,7 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
                   right: '12px !important',
                   top: '50% !important',
                   transform: 'translateY(-50%) !important',
-                  color: '#666 !important',
+                  color: 'var(--color-text-medium-alt) !important',
                   fontSize: '1.2rem !important',
                   padding: '4px !important',
                   zIndex: 10,
@@ -403,7 +403,7 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
                   {...params}
                   variant="outlined"
                   sx={{
-                    backgroundColor: "white",
+                    backgroundColor: "var(--color-white)"color-white)",
                     '& .MuiOutlinedInput-root': {
                       height: "56px",
                       padding: "0.1rem 0.5rem",
@@ -411,7 +411,7 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
                         border: ".1rem solid black",
                         borderRadius: "5px",
                       }, '&.Mui-focused fieldset': {
-                        border: "2px solid #257E68",
+                        border: "2px solid var(--color-primary)",
                         boxShadow: "0 0 8px rgba(37, 126, 104, 0.4), 0 0 16px rgba(37, 126, 104, 0.2)",
                       },
                     },
@@ -425,7 +425,7 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
               // specifying the render option for the edit case worker option
               renderOption={(props, option) => (
                 <li {...props} style={{
-                  color: option.id === 'edit_list' ? "#257E68" : 'inherit',
+                  color: option.id === 'edit_list' ? "var(--color-primary)" : 'inherit',
                   fontWeight: option.id === 'edit_list' ? "bold" : 'normal'
                 }}>
                   {option.id === 'edit_list'

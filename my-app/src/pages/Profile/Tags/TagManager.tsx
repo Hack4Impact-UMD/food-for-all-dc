@@ -49,7 +49,7 @@ export const StyledDialog = styled(Dialog)(({ theme }) => ({
     padding: theme.spacing(2, 2, 2, 2),
     maxWidth: 480,
     width: '100%',
-    background: '#fff',
+    background: 'var(--color-background-main)',
     position: 'relative',
   },
 }));
@@ -78,7 +78,7 @@ const TagGrid = styled(Box)(({ theme }) => ({
 
 const AddTagButton = styled(Button)(({ theme }) => ({
   background: 'var(--color-primary)',
-  color: '#fff',
+  color: 'var(--color-background-main)',
   borderRadius: 20,
   fontWeight: 600,
   textTransform: 'none',
@@ -91,7 +91,7 @@ const AddTagButton = styled(Button)(({ theme }) => ({
 
 const DeleteButton = styled(Button)(({ theme }) => ({
   background: '#e53935',
-  color: '#fff',
+  color: 'var(--color-background-main)',
   borderRadius: 20,
   fontWeight: 600,
   textTransform: 'none',

@@ -58,7 +58,7 @@ const MonthViewSkeleton: React.FC = () => {
         
         {/* Calendar days skeleton */}
         {[...Array(35)].map((_, index) => (
-          <Card key={index} sx={{ minHeight: 80, border: '1px solid #e0e0e0' }}>
+          <Card key={index} sx={{ minHeight: 80, border: '1px solid var(--color-border-medium)' }}>
             <CardContent sx={{ p: 1, '&:last-child': { pb: 1 } }}>
               <Skeleton variant="text" width={20} height={20} />
               <Skeleton variant="rectangular" width="100%" height={12} sx={{ mt: 1 }} />
@@ -80,7 +80,7 @@ const MonthViewSkeleton: React.FC = () => {
 const DeliveryCardSkeleton: React.FC = () => {
   return (
     <Card sx={{ 
-      borderLeft: '4px solid #e0e0e0',
+      borderLeft: '4px solid var(--color-border-medium)',
       boxShadow: 1,
       '&:hover': { boxShadow: 2 }
     }}>

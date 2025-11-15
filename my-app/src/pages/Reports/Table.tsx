@@ -49,7 +49,7 @@ export default function Table({ data }: TableProps) {
               <p>{d.key}</p>
               <Box
                 sx={{
-                  backgroundColor: "white",
+                  backgroundColor: "var(--color-white)"color-white)",
                   height: "50px",
                   width: "100px",
                   display: "flex",

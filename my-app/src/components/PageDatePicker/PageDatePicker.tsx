@@ -17,7 +17,7 @@ const StyledCalendarButton = styled("button")<StyledButtonProps>(({ marginLeft =
   height: "2.5rem",
   marginLeft,
   backgroundColor: "var(--color-primary)",
-  color: "#fff",
+  color: "var(--color-background-main)",
   borderRadius: "var(--border-radius-md)",
   display: "flex",
   alignItems: "center",

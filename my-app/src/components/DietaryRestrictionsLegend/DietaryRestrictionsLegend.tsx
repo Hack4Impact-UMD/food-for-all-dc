@@ -6,17 +6,17 @@ const DietaryRestrictionsLegend: React.FC = () => {
   const colorTypes = [
     {
       name: 'General Dietary Restrictions',
-      color: '#e6f4ea',
+      color: 'var(--color-background-green-light)',
       border: '#257e68' // matches chip text color
     },
     {
       name: 'Food Allergies',
-      color: '#fdeaea',
+      color: 'var(--color-allergy-background)',
       border: '#c62828' // matches chip text color
     },
     {
       name: 'Other Restrictions',
-      color: '#f3eafd',
+      color: 'var(--color-other-restriction-background)',
       border: '#6c3483' // matches chip text color
     }
   ];
@@ -35,7 +35,7 @@ const DietaryRestrictionsLegend: React.FC = () => {
         variant="body2" 
         sx={{ 
           fontWeight: 600, 
-          color: '#257e68',
+          color: 'var(--color-primary)',
           fontSize: '0.735rem'
         }}
       >
@@ -57,7 +57,7 @@ const DietaryRestrictionsLegend: React.FC = () => {
             variant="body2" 
             sx={{ 
               fontSize: '0.672rem',
-              color: '#555'
+              color: 'var(--color-text-medium-alt2)'
             }}
           >
             {type.name}

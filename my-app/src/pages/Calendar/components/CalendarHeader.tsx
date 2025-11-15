@@ -78,9 +78,9 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
           variant="outlined"
           sx={{
             width: 80,
-            backgroundColor: '#257E68',
-            color: '#fff',
-            border: '1px solid #257E68',
+            backgroundColor: 'var(--color-primary)',
+            color: 'var(--color-background-main)',
+            border: '1px solid var(--color-primary)',
             '&:hover': {
               backgroundColor: '#1e6b57',
               border: '1px solid #1e6b57',
@@ -103,13 +103,13 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
           alignItems: "center",
         }}
       >
-         <IconButton onClick={onNavigatePrev} size="large" sx={{ color: "#257E68" }}>
+         <IconButton onClick={onNavigatePrev} size="large" sx={{ color: "var(--color-primary)" }}>
           <Box
             sx={{
               width: 12,
               height: 12,
-              borderLeft: "2px solid #257E68",
-              borderBottom: "2px solid #257E68",
+              borderLeft: "2px solid var(--color-primary)",
+              borderBottom: "2px solid var(--color-primary)",
               transform: "rotate(45deg)",
             }}
           />
@@ -119,7 +119,7 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
           variant="h4"
           sx={{
             marginRight: 2,
-            color: "#787777",
+            color: "var(--color-text-secondary)",
             width: "425px",
             textAlign: "center"
           }}
@@ -128,13 +128,13 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
           {viewType === "Month" && currentDate.toString("MMMM yyyy")}
         </Typography>
        
-        <IconButton onClick={onNavigateNext} size="large" sx={{ color: "#257E68" }}>
+        <IconButton onClick={onNavigateNext} size="large" sx={{ color: "var(--color-primary)" }}>
           <Box
             sx={{
               width: 12,
               height: 12,
-              borderLeft: "2px solid #257E68",
-              borderBottom: "2px solid #257E68",
+              borderLeft: "2px solid var(--color-primary)",
+              borderBottom: "2px solid var(--color-primary)",
               transform: "rotate(-135deg)",
             }}
           />
@@ -150,8 +150,8 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
           sx={{
             marginRight: 4,
             width: 166,
-            color: "#fff",
-            backgroundColor: "#257E68",
+            color: "var(--color-background-main)",
+            backgroundColor: "var(--color-primary)",
           }}
         >
           Add Delivery
@@ -165,8 +165,8 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
             sx={{
               marginRight: 4,
               width: 166,
-              color: "#fff",
-              backgroundColor: "#257E68",
+              color: "var(--color-background-main)",
+              backgroundColor: "var(--color-primary)",
             }}
           >
             Edit Limits

@@ -211,7 +211,7 @@ const CalendarPopper = ({
             <div style='font-size: 14px; color:${eventCount > limit ? "#ff6e6b" : "#257E68"};'>
               ${eventCount}/${limit}
             </div>
-            <div style='font-size: 10px; color: #666;'>DELIVERIES</div>
+            <div style='font-size: 10px; color: var(--color-text-medium-alt);'>DELIVERIES</div>
           </div>
         `;
       },

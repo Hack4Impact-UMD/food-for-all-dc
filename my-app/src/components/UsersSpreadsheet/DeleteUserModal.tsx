@@ -42,7 +42,7 @@ const DeleteUserModal = ({ open, handleClose, handleDelete, userName, loading }:
           '& .MuiDialog-paper': {
             boxShadow: 'none !important',
             overflow: 'visible',
-            background: 'white',
+            background: 'var(--color-white)',
             borderTop: '1px solid rgba(0, 0, 0, 0.12)',
             borderRadius: '8px'
           }

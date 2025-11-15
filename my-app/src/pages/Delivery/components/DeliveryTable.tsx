@@ -214,7 +214,7 @@ const DeliveryTable: React.FC<DeliveryTableProps> = ({
                       onChange={(event: SelectChangeEvent<string>) => handleCustomHeaderChange(event, col.id)}
                       variant="outlined"
                       displayEmpty
-                      sx={{ minWidth: 120, color: "#257e68" }}
+                      sx={{ minWidth: 120, color: "var(--color-primary)" }}
                     >
                       <MenuItem value="ethnicity">Ethnicity</MenuItem>
                       <MenuItem value="language">Language</MenuItem>
@@ -245,7 +245,7 @@ const DeliveryTable: React.FC<DeliveryTableProps> = ({
                   color="primary"
                   aria-label="add custom column"
                 >
-                  <AddIcon sx={{ color: "#257e68" }} />
+                  <AddIcon sx={{ color: "var(--color-primary)" }} />
                 </IconButton>
               </TableCell>
             </TableRow>
@@ -263,7 +263,7 @@ const DeliveryTable: React.FC<DeliveryTableProps> = ({
                         sx={{
                           color: "gray",
                           "&.Mui-checked": {
-                            color: "#257E68",
+                            color: "var(--color-primary)",
                           },
                           "&:hover": {
                             backgroundColor: "rgba(37, 126, 104, 0.1)",
@@ -325,7 +325,7 @@ const DeliveryTable: React.FC<DeliveryTableProps> = ({
                           alignItems: "left",
                           whiteSpace: "pre-wrap",
                           overflow: "auto",
-                          color: "black",
+                          color: "var(--color-black)"color-black)",
                         }}
                       >
                         {field.compute(row)}

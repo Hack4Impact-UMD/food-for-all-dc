@@ -55,8 +55,8 @@ interface AppBarProps extends MuiAppBarProps {
 const AppBar = styled(MuiAppBar, {
   shouldForwardProp: (prop) => prop !== "open" && prop !== "isMobile",
 })<AppBarProps>(({ theme, open, isMobile }) => ({
-  backgroundColor: "#ffffff",
-  color: "#000000",
+  backgroundColor: "var(--color-background-main)",
+  color: "var(--color-border-black)",
   boxShadow: "0 4px 12px rgba(0, 0, 0, 0.08)",
   borderBottom: "1px solid rgba(0, 0, 0, 0.06)",
   transition: theme.transitions.create(["margin", "width"], {
@@ -235,17 +235,17 @@ export default function BasePage() {
                 sx={{
                   '& .MuiSelect-select': {
                     fontWeight: 600,
-                    color: "#000000",
+                    color: "var(--color-border-black)",
                     letterSpacing: "0.5px",
                     fontSize: isMobile ? "1rem" : "1.25rem",
                     padding: 0,
                     border: 'none',
                     '&:focus': {
-                      backgroundColor: 'transparent',
+                      backgroundColor: 'var(--color-transparent)'transparent)',
                     }
                   },
                   '& .MuiSelect-icon': {
-                    color: "#000000",
+                    color: "var(--color-border-black)",
                     fontSize: isMobile ? "1.2rem" : "1.5rem",
                   },
                   '& fieldset': {
@@ -263,7 +263,7 @@ export default function BasePage() {
                 variant="h6" 
                 sx={{ 
                   fontWeight: 600,
-                  color: "#000000",
+                  color: "var(--color-border-black)",
                   letterSpacing: "0.5px",
                   fontSize: isMobile ? "1rem" : "1.25rem",
                 }}
@@ -285,7 +285,7 @@ export default function BasePage() {
             width: drawerWidth,
             boxSizing: "border-box",
             backgroundColor: "rgba(217, 217, 217, 1)",
-            color: "#000000",
+            color: "var(--color-border-black)",
             display: "flex",
             flexDirection: "column",
             boxShadow: "4px 0 10px rgba(0, 0, 0, 0.05)",
@@ -371,7 +371,7 @@ export default function BasePage() {
               }}
             >
               <ListItemIcon>
-                <LogoutIcon sx={{ color: "#257e68" }} />
+                <LogoutIcon sx={{ color: "var(--color-primary)" }} />
               </ListItemIcon>
               <ListItemText 
                 primary="Logout" 

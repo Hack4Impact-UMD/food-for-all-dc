@@ -54,13 +54,13 @@ const LoadingIndicator: React.FC<LoadingIndicatorProps> = ({
     >
       <CircularProgress 
         size={getSize()} 
-        sx={{ color: '#2E5B4C' }} 
+        sx={{ color: 'var(--color-primary-darker)' }} 
       />
       {text && (
         <Typography 
           variant="body2" 
           sx={{ 
-            color: '#666',
+            color: 'var(--color-text-medium-alt)',
             textAlign: 'center',
             fontSize: size === 'small' ? '0.875rem' : '1rem'
           }}

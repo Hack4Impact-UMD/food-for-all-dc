@@ -15,26 +15,26 @@
 
 .success {
   border: 3px solid var(--color-primary);
-  background-color: #f0f9f0;
-  color: #2e5b4c;
+  background-color: var(--color-success-background);
+  color: var(--color-primary-darker);
 }
 
 .error {
-  border: 3px solid #ff0000;
-  background-color: #fff0f0;
-  color: #d32f2f;
+  border: 3px solid var(--color-error);
+  background-color: var(--color-error-background);
+  color: var(--color-error-text);
 }
 
 .warning {
-  border: 3px solid #ff9800;
-  background-color: #fff8e1;
-  color: #ef6c00;
+  border: 3px solid var(--color-warning);
+  background-color: var(--color-warning-background);
+  color: var(--color-warning-text);
 }
 
 .info {
-  border: 3px solid #2196f3;
-  background-color: #e3f2fd;
-  color: #1565c0;
+  border: 3px solid var(--color-info);
+  background-color: var(--color-info-background);
+  color: var(--color-info-text);
 }
 
 @keyframes slideIn {
@@ -68,7 +68,7 @@
   border-radius: 8px;
   box-shadow: 0 4px 20px rgba(255, 0, 0, 0.3), 0 0 40px rgba(255, 0, 0, 0.15);
   animation: fadeIn 0.3s ease-out, pulse 2s infinite;
-  border: 2px solid #ff0000;
+  border: 2px solid var(--color-error);
 }
 
 @keyframes pulse {

@@ -40,7 +40,7 @@ interface FormFieldProps {
 }
 
 const fieldStyles = {
-  backgroundColor: "white",
+  backgroundColor: "var(--color-white)"color-white)",
   width: "100%",
   height: "56px",
   padding: "0.1rem 0.5rem",
@@ -78,7 +78,7 @@ const CustomTextField = styled(TextField)({
       color: "var(--color-error)",
     }
   }, "& .MuiInputBase-input": {
-    backgroundColor: "white",
+    backgroundColor: "var(--color-white)"color-white)",
     width: "100%",
     height: "56px",
     padding: "0.1rem 0.5rem",
@@ -86,13 +86,13 @@ const CustomTextField = styled(TextField)({
     border: ".1rem solid black",
     marginTop: "0px",
     "&:focus": {
-      border: "2px solid #257E68",
+      border: "2px solid var(--color-primary)",
       outline: "none",
       boxShadow: "0 0 8px rgba(37, 126, 104, 0.4), 0 0 16px rgba(37, 126, 104, 0.2)",
     },
   },
   "& .MuiInputBase-inputMultiline, & textarea": {
-    backgroundColor: "white",
+    backgroundColor: "var(--color-white)"color-white)",
     width: "100%",
     minHeight: "56px",
     height: "auto",
@@ -107,18 +107,18 @@ const CustomTextField = styled(TextField)({
     wordBreak: "break-word",
     resize: "vertical !important",
     "&:focus": {
-      border: "2px solid #257E68",
+      border: "2px solid var(--color-primary)",
       outline: "none",
       boxShadow: "0 0 8px rgba(37, 126, 104, 0.4), 0 0 16px rgba(37, 126, 104, 0.2)",
     },
   },
   "& .MuiInputBase-input.Mui-disabled": {
-    backgroundColor: "#e0e0e0",
-    color: "#757575",
-    WebkitTextFillColor: "#757575",
+    backgroundColor: "var(--color-border-medium)",
+    color: "var(--color-text-medium)",
+    WebkitTextFillColor: "var(--color-text-medium)",
     cursor: "not-allowed",
     borderRadius: fieldStyles.borderRadius,
-    border: "1.5px solid #bdbdbd",
+    border: "1.5px solid var(--color-text-tertiary)",
     fontWeight: 500,
     opacity: 1,
   },
@@ -140,7 +140,7 @@ export const CustomSelect = styled(Select)({
   // Apply our own border and background
   border: `1px solid var(--color-border-light)`,
   borderRadius: '5px',
-  backgroundColor: 'white',
+  backgroundColor: 'var(--color-white)'color-white)',
 
   // Focus state
   '&:focus-within': {
@@ -166,7 +166,7 @@ export const CustomSelect = styled(Select)({
     right: '12px !important',
     top: '50% !important',
     transform: 'translateY(-50%) !important',
-    color: '#666 !important',
+    color: 'var(--color-text-medium-alt) !important',
     fontSize: '1.2rem !important',
     pointerEvents: 'none !important',
     zIndex: 2,
@@ -174,12 +174,12 @@ export const CustomSelect = styled(Select)({
 
   // Disabled state
   '&.Mui-disabled': {
-    backgroundColor: "#e0e0e0",
-    color: "#757575",
+    backgroundColor: "var(--color-border-medium)",
+    color: "var(--color-text-medium)",
     cursor: "not-allowed",
 
     '& .MuiSelect-select': {
-      color: "#757575",
+      color: "var(--color-text-medium)",
     },
 
     '& .MuiSelect-icon': {
@@ -195,7 +195,7 @@ const CustomCheckbox = styled(Checkbox)({
     },
     "&.Mui-focusVisible": {
       "& .MuiSvgIcon-root": {
-        color: "#257E68",
+        color: "var(--color-primary)",
       },
     },
     "& .MuiTouchRipple-root": {
@@ -213,13 +213,13 @@ const CustomCheckbox = styled(Checkbox)({
     },
   },
   "&.MuiCheckbox-root .MuiSvgIcon-root": {
-    color: "#257E68",
+    color: "var(--color-primary)",
   },
   "&.Mui-checked .MuiSvgIcon-root": {
-    color: "#257E68",
+    color: "var(--color-primary)",
   },
   "& .MuiSvgIcon-root": {
-    color: "#257E68",
+    color: "var(--color-primary)",
   },
 });
 
@@ -502,7 +502,7 @@ const FormField: React.FC<FormFieldProps> = ({
                 px: 1.5,
                 py: 0.5,
                 bgcolor: '#e0f2f1',
-                color: '#257E68',
+                color: 'var(--color-primary)',
                 borderRadius: '16px',
                 fontWeight: 600,
                 fontSize: '0.95rem',
@@ -524,8 +524,8 @@ const FormField: React.FC<FormFieldProps> = ({
               minHeight: 32,
               px: 1.5,
               py: 0.5,
-              bgcolor: '#f5f5f5',
-              color: '#888',
+              bgcolor: 'var(--color-background-body)',
+              color: 'var(--color-text-light)',
               borderRadius: '16px',
               fontWeight: 500,
               fontSize: '0.95rem',
@@ -787,8 +787,8 @@ const FormField: React.FC<FormFieldProps> = ({
               sx={{
                 marginRight: 4,
                 width: 166,
-                color: "#fff",
-                backgroundColor: "#257E68",
+                color: "var(--color-background-main)",
+                backgroundColor: "var(--color-primary)",
               }}
             >
               Edit Tags

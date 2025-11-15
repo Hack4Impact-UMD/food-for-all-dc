@@ -22,7 +22,7 @@ const SearchSection: React.FC<SearchSectionProps> = ({
       sx={{
         width: "100%",
         zIndex: 8,
-        backgroundColor: "#fff",
+        backgroundColor: "var(--color-background-main)",
         padding: "16px 0",
         top: "472px",
       }}
@@ -35,7 +35,7 @@ const SearchSection: React.FC<SearchSectionProps> = ({
               left: "16px",
               top: "50%",
               transform: "translateY(-50%)",
-              color: "#666666",
+              color: "var(--color-text-medium-alt)",
               zIndex: 1,
             }}
             size={20}
@@ -48,12 +48,12 @@ const SearchSection: React.FC<SearchSectionProps> = ({
             style={{
               width: "100%",
               height: "60px",
-              backgroundColor: "#EEEEEE",
+              backgroundColor: "var(--color-background-gray)",
               border: "none",
               borderRadius: "30px",
               padding: "0 48px",
               fontSize: "16px",
-              color: "#333333",
+              color: "var(--color-text-dark)",
               boxSizing: "border-box",
             }}
           />
@@ -119,7 +119,7 @@ const SearchSection: React.FC<SearchSectionProps> = ({
                 padding: "0% 2%",
                 borderRadius: "5px",
                 width: "10%",
-                backgroundColor: "#257e68",
+                backgroundColor: "var(--color-primary)",
                 marginLeft: "auto",
               }}
             >

@@ -48,7 +48,7 @@ const ErrorPopUp: React.FC<ErrorPopUpProps> = ({
         sx={{
           // Enhanced styles to make the error more prominent
           boxShadow: '0 4px 20px rgba(255, 0, 0, 0.3), 0 0 40px rgba(255, 0, 0, 0.15)', 
-          border: '2px solid #ff0000',
+          border: '2px solid var(--color-error)',
           '& .MuiAlert-message': {
             fontSize: '1.1rem'
           },

@@ -31,7 +31,7 @@ const MiscellaneousForm: React.FC<MiscellaneousFormProps> = ({
   <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: isEditing ? '2px 1.5px' : '2.5px 2px', minWidth: 900, alignItems: 'start' }}>
         {/* Main fields */}
         <Box>
-          <Typography className="field-descriptor" sx={{ fontWeight: 500, fontSize: '1rem', color: '#666', mb: 0, pb: 0 }}>TEFAP CERT</Typography>
+          <Typography className="field-descriptor" sx={{ fontWeight: 500, fontSize: '1rem', color: 'var(--color-text-medium-alt)', mb: 0, pb: 0 }}>TEFAP CERT</Typography>
           {isEditing ? (
             <Box sx={{ minHeight: 120, width: '100%' }}>{renderField("tefapCert", "date")}</Box>
           ) : (
@@ -39,7 +39,7 @@ const MiscellaneousForm: React.FC<MiscellaneousFormProps> = ({
           )}
         </Box>
         <Box>
-          <Typography className="field-descriptor" sx={{ fontWeight: 500, fontSize: '1rem', color: '#666', mb: 0, pb: 0 }}>FAMILY START DATE</Typography>
+          <Typography className="field-descriptor" sx={{ fontWeight: 500, fontSize: '1rem', color: 'var(--color-text-medium-alt)', mb: 0, pb: 0 }}>FAMILY START DATE</Typography>
           {isEditing ? (
             <Box sx={{ minHeight: 120, width: '100%' }}>{renderField("famStartDate", "date")}</Box>
           ) : (
@@ -47,7 +47,7 @@ const MiscellaneousForm: React.FC<MiscellaneousFormProps> = ({
           )}
         </Box>
         <Box>
-          <Typography className="field-descriptor" sx={{ fontWeight: 500, fontSize: '1rem', color: '#666', mb: 0, pb: 0 }}>LIFE CHALLENGES</Typography>
+          <Typography className="field-descriptor" sx={{ fontWeight: 500, fontSize: '1rem', color: 'var(--color-text-medium-alt)', mb: 0, pb: 0 }}>LIFE CHALLENGES</Typography>
           {isEditing ? (
             <>
               <Box sx={{ minHeight: 120, width: '100%' }}>{renderField("lifeChallenges", "textarea")}</Box>
@@ -69,7 +69,7 @@ const MiscellaneousForm: React.FC<MiscellaneousFormProps> = ({
           )}
         </Box>
         <Box>
-          <Typography className="field-descriptor" sx={{ fontWeight: 500, fontSize: '1rem', color: '#666', mb: 0, pb: 0 }}>LIFESTYLE GOALS</Typography>
+          <Typography className="field-descriptor" sx={{ fontWeight: 500, fontSize: '1rem', color: 'var(--color-text-medium-alt)', mb: 0, pb: 0 }}>LIFESTYLE GOALS</Typography>
           {isEditing ? (
             <>
               <Box sx={{ minHeight: 120, width: '100%' }}>{renderField("lifestyleGoals", "textarea")}</Box>
@@ -93,7 +93,7 @@ const MiscellaneousForm: React.FC<MiscellaneousFormProps> = ({
         {/* Config fields */}
         {configFields.length > 0 && configFields.map((field, idx) => (
           <Box key={field.id || idx} sx={{ mb: 1 }}>
-            <Typography className="field-descriptor" sx={{ fontWeight: 500, fontSize: '1rem', color: '#666', mb: 0, pb: 0 }}>
+            <Typography className="field-descriptor" sx={{ fontWeight: 500, fontSize: '1rem', color: 'var(--color-text-medium-alt)', mb: 0, pb: 0 }}>
               {field.label || field.id || `Field ${idx + 1}`}
             </Typography>
             {isEditing ? (

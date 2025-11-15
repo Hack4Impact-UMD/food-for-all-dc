@@ -377,7 +377,7 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
         py: 2,
         maxWidth: "100%",
         overflowX: "hidden",
-        backgroundColor: "transparent",
+        backgroundColor: "var(--color-transparent)"transparent)",
         position: "relative",
         display: "flex",
         flexDirection: "column",
@@ -401,7 +401,7 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
           top: actionFeedback ? 70 : 0,
           width: "100%",
           zIndex: 10,
-          backgroundColor: "#fff",
+          backgroundColor: "var(--color-background-main)",
           pb: 3,
           pt: 0,
           borderBottom: "none",
@@ -420,12 +420,12 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
               style={{
                 width: "100%",
                 height: "50px",
-                backgroundColor: "#EEEEEE",
+                backgroundColor: "var(--color-background-gray)",
                 border: "none",
                 borderRadius: "25px",
                 padding: "0 20px",
                 fontSize: "16px",
-                color: "#333333",
+                color: "var(--color-text-dark)",
                 boxSizing: "border-box",
                 transition: "all 0.2s ease",
                 boxShadow: "inset 0 2px 3px rgba(0,0,0,0.05)"
@@ -471,7 +471,7 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
                 onClick={handleOpenCreateModal}
                 className="create-user"
                 sx={{
-                  backgroundColor: "#2E5B4C",
+                  backgroundColor: "var(--color-primary-darker)",
                   borderRadius: "25px",
                   px: 2,
                   py: 0.5,
@@ -483,7 +483,7 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
                   boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
                   transition: "all 0.2s ease",
                   "&:hover": {
-                    backgroundColor: "#234839",
+                    backgroundColor: "var(--color-primary-darkest)",
                     transform: "translateY(-2px)",
                     boxShadow: "0 4px 8px rgba(0,0,0,0.1)",
                   },
@@ -539,7 +539,7 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
                   }}
                 >
                   <Stack direction="row" justifyContent="space-between" alignItems="center" mb={1}>
-                    <Typography variant="h6" sx={{ fontWeight: 600, color: "#2E5B4C" }}>
+                    <Typography variant="h6" sx={{ fontWeight: 600, color: "var(--color-primary-darker)" }}>
                       {row.name}
                     </Typography>
                     <IconButton
@@ -556,7 +556,7 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
                       <Chip
                         label={getRoleDisplayName(row.role)}
                         size="small"
-                        sx={{ backgroundColor: "#e8f5e9", color: "#2E5B4C", mt: 0.5 }}
+                        sx={{ backgroundColor: "var(--color-background-green-lighter)", color: "var(--color-primary-darker)", mt: 0.5 }}
                       />
                     </Box>
                     {row.phone && (
@@ -594,7 +594,7 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
                           position: 'sticky',
                           top: 0,
                           zIndex: 3,
-                          backgroundColor: "#f5f9f7",
+                          backgroundColor: "var(--color-background-green-tint)",
                           borderBottom: "2px solid #e0e0e0",
                         }}
                       >
@@ -613,31 +613,31 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
                             undefined
                           }
                         >
-                          <Typography variant="subtitle2" sx={{ fontWeight: 600, color: "#2E5B4C" }}>
+                          <Typography variant="subtitle2" sx={{ fontWeight: 600, color: "var(--color-primary-darker)" }}>
                             {field.label}
                           </Typography>
                           {field.key === "name" && (
                             !roleSortDirection && !phoneSortDirection && !emailSortDirection ? (
-                              nameSortDirection === "asc" ? <ArrowDropUpIcon /> : nameSortDirection === "desc" ? <ArrowDropDownIcon /> : <UnfoldMoreIcon sx={{ color: "#9E9E9E", fontSize: "1.2rem" }} />
+                              nameSortDirection === "asc" ? <ArrowDropUpIcon /> : nameSortDirection === "desc" ? <ArrowDropDownIcon /> : <UnfoldMoreIcon sx={{ color: "var(--color-text-icon)", fontSize: "1.2rem" }} />
                             ) : (
                               roleSortDirection || phoneSortDirection || emailSortDirection ? 
-                              <UnfoldMoreIcon sx={{ color: "#9E9E9E", fontSize: "1.2rem" }} /> : null
+                              <UnfoldMoreIcon sx={{ color: "var(--color-text-icon)", fontSize: "1.2rem" }} /> : null
                             )
                           )}
                           {field.key === "role" && (
                             roleSortDirection ? (
                               roleSortDirection === "asc" ? <ArrowDropUpIcon /> : <ArrowDropDownIcon />
-                            ) : <UnfoldMoreIcon sx={{ color: "#9E9E9E", fontSize: "1.2rem" }} />
+                            ) : <UnfoldMoreIcon sx={{ color: "var(--color-text-icon)", fontSize: "1.2rem" }} />
                           )}
                           {field.key === "phone" && (
                             phoneSortDirection ? (
                               phoneSortDirection === "asc" ? <ArrowDropUpIcon /> : <ArrowDropDownIcon />
-                            ) : <UnfoldMoreIcon sx={{ color: "#9E9E9E", fontSize: "1.2rem" }} />
+                            ) : <UnfoldMoreIcon sx={{ color: "var(--color-text-icon)", fontSize: "1.2rem" }} />
                           )}
                           {field.key === "email" && (
                             emailSortDirection ? (
                               emailSortDirection === "asc" ? <ArrowDropUpIcon /> : <ArrowDropDownIcon />
-                            ) : <UnfoldMoreIcon sx={{ color: "#9E9E9E", fontSize: "1.2rem" }} />
+                            ) : <UnfoldMoreIcon sx={{ color: "var(--color-text-icon)", fontSize: "1.2rem" }} />
                           )}
                         </Stack>
                       </TableCell>
@@ -646,7 +646,7 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
                     <TableCell
                       className="table-header"
                       align="right"
-                      sx={{ backgroundColor: "#f5f9f7", borderBottom: "2px solid #e0e0e0" }}
+                      sx={{ backgroundColor: "var(--color-background-green-tint)", borderBottom: "2px solid var(--color-border-medium)" }}
                     >
                     </TableCell>
                   </TableRow>
@@ -686,8 +686,8 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
                         <IconButton
                           onClick={(e) => handleMenuOpen(e, row.uid)}
                           sx={{
-                            color: "#757575",
-                            "&:hover": { backgroundColor: "rgba(0, 0, 0, 0.04)", color: "#2E5B4C" }
+                            color: "var(--color-text-medium)",
+                            "&:hover": { backgroundColor: "rgba(0, 0, 0, 0.04)", color: "var(--color-primary-darker)" }
                           }}
                         >
                           <MoreVertIcon />

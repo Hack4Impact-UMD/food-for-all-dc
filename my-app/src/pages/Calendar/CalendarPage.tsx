@@ -47,10 +47,10 @@ const StyledCalendarContainer = styled(Box)(({ theme }) => ({
       borderBottom: "2px solid #e0e0e0 !important",
     },
     "& .calendar_default_main, & [class*='calendar'], & .daypilot_month_main, & [class*='daypilot']": {
-      borderBottom: "2px solid #e0e0e0 !important",
+      borderBottom: "2px solid var(--color-border-medium) !important",
     },
     "& .daypilot_month": {
-      borderBottom: "2px solid #e0e0e0 !important",
+      borderBottom: "2px solid var(--color-border-medium) !important",
     },
     "& [class*='daypilot']": {
       borderBottom: "2px solid #e0e0e0 !important",
@@ -68,7 +68,7 @@ const CalendarContent = styled(Box)(({ theme }) => ({
   overflow: "hidden",
   // Add border to calendar content when parent has data-view="Month"
   "[data-view='Month'] &": {
-    borderBottom: "2px solid #e0e0e0",
+    borderBottom: "2px solid var(--color-border-medium)",
   },
 }));
 
@@ -347,7 +347,7 @@ const CalendarPage: React.FC = React.memo(() => {
           text: `Client: ${event.clientName} (Driver: ${event.assignedDriverName})`,
           start: new DayPilot.Date(toJSDate(event.deliveryDate)),
           end: new DayPilot.Date(toJSDate(event.deliveryDate)),
-          backColor: "#257E68",
+          backColor: "var(--color-primary)",
         }));
 
         setCalendarConfig((prev) => ({
@@ -594,8 +594,8 @@ const CalendarPage: React.FC = React.memo(() => {
                   <Box
                     sx={{
                       width: '90%',
-                      bgcolor: '#257E68',
-                      color: 'white',
+                      bgcolor: 'var(--color-primary)',
+                      color: 'var(--color-white)'color-white)',
                       borderRadius: 2,
                       p: 1.5,
                       textAlign: 'center',

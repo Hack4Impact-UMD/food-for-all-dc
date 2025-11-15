@@ -13,8 +13,8 @@
   justify-content: space-between;
   align-items: center;
   padding: 10px 20px;
-  background-color: #f4f4f4;
-  border-bottom: 1px solid #ddd;
+  background-color: var(--color-background-light);
+  border-bottom: 1px solid var(--color-border-light);
   height: 60px;
 }
 
@@ -26,8 +26,8 @@
   margin: 0 5px;
   padding: 3px 8px;
   font-size: 0.9em;
-  background-color: #257e68;
-  color: white;
+  background-color: var(--color-primary);
+  color: var(--color-white);
   border: none;
   border-radius: 3px;
   cursor: pointer;
@@ -49,14 +49,14 @@
 .calendar-day-header {
   padding: 10px;
   font-weight: bold;
-  background-color: #f7f7f7;
-  border-bottom: 1px solid #ddd;
+  background-color: var(--color-background-lighter);
+  border-bottom: 1px solid var(--color-border-light);
 }
 
 .calendar-day {
   padding: 10px 5px;
   min-height: 100px;
-  border: 1px solid #ddd;
+  border: 1px solid var(--color-border-light);
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -64,11 +64,11 @@
 }
 
 .current-month {
-  background-color: #fff;
+  background-color: var(--color-background-main);
 }
 
 .other-month {
-  background-color: #f0f0f0;
+  background-color: var(--color-border-lighter);
   color: #aaa;
 }
 
@@ -90,12 +90,12 @@
 }
 
 .calendar_default_event_inner {
-  color: white;
+  color: var(--color-white);
 }
 
 .event-indicator {
-  background-color: #ff6347;
-  color: white;
+  background-color: var(--color-event-indicator);
+  color: var(--color-white);
   padding: 2px 6px;
   font-size: 0.75em;
   border-radius: 4px;
@@ -119,8 +119,8 @@
 .event-detail {
   height: 1.5rem;
   width: 9.375rem;
-  background-color: #257e68;
-  color: white;
+  background-color: var(--color-primary);
+  color: var(--color-white);
   padding: 5px 10px;
   border-radius: 20px;
   box-shadow: 0 0 2px rgba(0, 0, 0, 0.1);

@@ -116,7 +116,7 @@ const TIME_SLOTS = [
 const clusterColors = [
   "#FF0000", "#00FF00", "#0000FF", "#FFFF00", "#FF00FF",
   "#00FFFF", "#FFA500", "#800080", "#008000", "#000080",
-  "#FF4500", "#4B0082", "#FF6347", "#32CD32", "#9370DB",
+  "#FF4500", "#4B0082", "var(--color-event-indicator)", "#32CD32", "#9370DB",
   "#FF69B4", "#40E0D0", "#FF8C00", "#7CFC00", "#8A2BE2",
   "#FF1493", "#1E90FF", "#228B22", "#9400D3", "#DC143C",
   "#20B2AA", "#9932CC", "#FFD700", "#8B0000", "#4169E1"
@@ -538,7 +538,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
       html: `<div style="
               width: 20px;
               height: 20px;
-              background-color: ${clusterId ? clusterColors[colorIndex] : "#257E68"};
+              background-color: ${clusterId ? clusterColors[colorIndex] : "var(--color-primary)"};
               border: 1px solid black;
               border-radius: 50%;
               display: flex;
@@ -546,8 +546,8 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
               justify-content: center;
               font-weight: bold;
               font-size: 12px;
-              color: white;
-              text-shadow: .5px .5px .5px #000, -.5px .5px .5px #000, -.5px -.5px 0px #000, .5px -.5px 0px #000;
+              color: var(--color-white);
+              text-shadow: .5px .5px .5px var(--color-border-black), -.5px .5px .5px var(--color-border-black), -.5px -.5px 0px var(--color-border-black), .5px -.5px 0px var(--color-border-black);
               box-sizing: border-box;
               opacity: 0.9;
               cursor: pointer;
@@ -637,29 +637,29 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
               <div style="font-weight: bold; margin-bottom: 10px;">${clientName}</div>
               <div style="margin-bottom: 8px; display: flex; align-items: center; gap: 8px;">
                 <label style="font-weight: bold; min-width: 60px; font-size: 12px;">Cluster:</label>
-                <select id="cluster-select-${clientId}" style="flex: 1; padding: 3px; border: 1px solid #ccc; border-radius: 3px; font-size: 11px; background-color: ${clusterId ? getClusterColor(clusterId) : '#ffffff'}; color: ${clusterId ? getTextColorForBackground(getClusterColor(clusterId)) : 'black'}; height: 24px !important; min-height: 24px !important; max-height: 24px !important; line-height: 1.1 !important;">
-                  <option value="" style="background-color: #ffffff; color: black;">No cluster</option>
+                <select id="cluster-select-${clientId}" style="flex: 1; padding: 3px; border: 1px solid var(--color-border-input); border-radius: 3px; font-size: 11px; background-color: ${clusterId ? getClusterColor(clusterId) : 'var(--color-background-main)'}; color: ${clusterId ? getTextColorForBackground(getClusterColor(clusterId)) : 'black'}; height: 24px !important; min-height: 24px !important; max-height: 24px !important; line-height: 1.1 !important;">
+                  <option value="" style="background-color: var(--color-background-main); color: var(--color-black);">No cluster</option>
                   ${clusters.map(c => `<option value="${c.id}" ${c.id === clusterId ? 'selected' : ''} style="background-color: ${getClusterColor(c.id)}; color: ${getTextColorForBackground(getClusterColor(c.id))}; font-weight: bold;">${c.id}</option>`).join('')}
-                  <option value="__add__" style="background-color: #cccccc; color: #333; font-weight: bold;">+ Add Cluster</option>
+                  <option value="__add__" style="background-color: var(--color-border-input); color: var(--color-text-dark); font-weight: bold;">+ Add Cluster</option>
                 </select>
               </div>
               <div style="margin-bottom: 8px; display: flex; align-items: center; gap: 8px;">
                 <label style="font-weight: bold; min-width: 60px; font-size: 12px;">Driver:</label>
-                <select id="driver-select-${clientId}" style="flex: 1; padding: 3px; border: 1px solid #ccc; border-radius: 3px; font-size: 11px; height: 24px !important; min-height: 24px !important; max-height: 24px !important; line-height: 1.1 !important;">
+                <select id="driver-select-${clientId}" style="flex: 1; padding: 3px; border: 1px solid var(--color-border-input); border-radius: 3px; font-size: 11px; height: 24px !important; min-height: 24px !important; max-height: 24px !important; line-height: 1.1 !important;">
                   <option value="">No driver</option>
                   ${drivers.map(d => `<option value="${d.name}" ${d.name === effectiveDriver ? 'selected' : ''}>${d.name}${d.phone ? ` - ${d.phone}` : ''}</option>`).join('')}
                 </select>
               </div>
               <div style="margin-bottom: 10px; display: flex; align-items: center; gap: 8px;">
                 <label style="font-weight: bold; min-width: 60px; font-size: 12px;">Time:</label>
-                <select id="time-select-${clientId}" style="flex: 1; padding: 3px; border: 1px solid #ccc; border-radius: 3px; font-size: 11px; height: 24px !important; min-height: 24px !important; max-height: 24px !important; line-height: 1.1 !important;">
+                <select id="time-select-${clientId}" style="flex: 1; padding: 3px; border: 1px solid var(--color-border-input); border-radius: 3px; font-size: 11px; height: 24px !important; min-height: 24px !important; max-height: 24px !important; line-height: 1.1 !important;">
                   <option value="">No time</option>
                   ${TIME_SLOTS.map(t => `<option value="${t}" ${t === formatTimeForDisplay(effectiveTime) ? 'selected' : ''}>${t}</option>`).join('')}
                 </select>
               </div>
               <div style="display: flex; gap: 8px;">
-                <button id="save-btn-${clientId}" style="flex: 1; padding: 6px 12px; background: #4CAF50; color: white; border: none; border-radius: 3px; cursor: pointer;">Save</button>
-                <button id="cancel-btn-${clientId}" style="flex: 1; padding: 6px 12px; background: #f44336; color: white; border: none; border-radius: 3px; cursor: pointer;">Cancel</button>
+                <button id="save-btn-${clientId}" style="flex: 1; padding: 6px 12px; background: var(--color-success-button); color: var(--color-white); border: none; border-radius: 3px; cursor: pointer;">Save</button>
+                <button id="cancel-btn-${clientId}" style="flex: 1; padding: 6px 12px; background: var(--color-cancel-button); color: var(--color-white); border: none; border-radius: 3px; cursor: pointer;">Cancel</button>
               </div>
               ${ward ? `<div style="margin-top: 8px;"><span style="font-weight: bold;">Ward:</span> ${ward}</div>` : ''}
               <div style="margin-top: 8px;"><span style="font-weight: bold;">Address:</span> ${address}</div>
@@ -702,8 +702,8 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
               clusterSelect.style.backgroundColor = selectedColor;
               clusterSelect.style.color = getTextColorForBackground(selectedColor);
             } else {
-              clusterSelect.style.backgroundColor = '#ffffff';
-              clusterSelect.style.color = 'black';
+              clusterSelect.style.backgroundColor = 'var(--color-background-main)';
+              clusterSelect.style.color = 'var(--color-black)';
             }
           });
 
@@ -955,7 +955,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
     const ffaIcon = L.divIcon({
       className: "custom-ffa-icon",
       html: `<div style="
-        background-color: white;
+        background-color: var(--color-white);
         border: 2px solid purple;
         border-radius: 50%;
         width: 20px;
@@ -995,7 +995,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
         height: "400px", 
         width: "100%", 
         marginBottom: "20px",
-        border: "1px solid #ddd",
+        border: "1px solid var(--color-border-light)",
         borderRadius: "4px"
       }} />
       
@@ -1082,7 +1082,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
       {/* Center Map Button */}
       <Box
         sx={{
-          backgroundColor: "white",
+          backgroundColor: "var(--color-white)"color-white)",
           border: "2px solid purple",
           borderRadius: "50%",
           display: "flex",
@@ -1108,7 +1108,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
           position: 'absolute',
           top: '10px',
           right: '10px',
-          backgroundColor: 'white',
+          backgroundColor: 'var(--color-white)'color-white)',
           padding: '5px 10px',
           borderRadius: '3px',
           boxShadow: '0 0 5px rgba(0,0,0,0.2)',

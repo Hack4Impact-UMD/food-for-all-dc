@@ -303,7 +303,7 @@ const MaskedDateField: React.FC<MaskedDateFieldProps> = ({
           position: 'relative',
           width: '100%',
           height: '38px',
-          backgroundColor: 'white',
+          backgroundColor: 'var(--color-white)'color-white)',
           border: (!!error || !!props.error) ? '1px solid var(--color-error)' : '.1rem solid black',
           borderRadius: '5px',
           padding: '0 8px',
@@ -326,7 +326,7 @@ const MaskedDateField: React.FC<MaskedDateFieldProps> = ({
           style={{
             width: '24px',
             border: 'none',
-            background: 'transparent',
+            background: 'var(--color-transparent)',
             textAlign: 'center',
             outline: 'none',
             fontSize: '16px',
@@ -348,7 +348,7 @@ const MaskedDateField: React.FC<MaskedDateFieldProps> = ({
           style={{
             width: '24px',
             border: 'none',
-            background: 'transparent',
+            background: 'var(--color-transparent)',
             textAlign: 'center',
             outline: 'none',
             fontSize: '16px',
@@ -370,7 +370,7 @@ const MaskedDateField: React.FC<MaskedDateFieldProps> = ({
           style={{
             width: '48px',
             border: 'none',
-            background: 'transparent',
+            background: 'var(--color-transparent)',
             textAlign: 'center',
             outline: 'none',
             fontSize: '16px',
@@ -413,11 +413,11 @@ const MaskedDateField: React.FC<MaskedDateFieldProps> = ({
           sx={{
             marginLeft: 'auto',
             cursor: 'pointer',
-            color: '#666',
+            color: 'var(--color-text-medium-alt)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            ':hover': { color: '#257E68' }
+            ':hover': { color: 'var(--color-primary)' }
           }}
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">

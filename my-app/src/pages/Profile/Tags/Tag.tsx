@@ -38,7 +38,7 @@ const TagContainer = styled(Box)(({ theme }) => ({
   },
   "&.active": {
     backgroundColor: "var(--color-primary)",
-    color: "#fff",
+    color: "var(--color-background-main)",
     boxShadow: "0 2px 6px rgba(37, 126, 104, 0.2)",
   },
 }));
@@ -172,7 +172,7 @@ const Tag: React.FC<TagProps> = ({
             position: "absolute",
             top: -8,
             right: -8,
-            backgroundColor: "white",
+            backgroundColor: "var(--color-white)"color-white)",
             color: "#e53935",
             boxShadow: "0px 2px 4px rgba(0, 0, 0, 0.2)",
             borderRadius: "50%",

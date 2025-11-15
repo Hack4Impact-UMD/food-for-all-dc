@@ -1,6 +1,6 @@
 
 .name-link {
-  color: #2E5B4C;
+  color: var(--color-primary-darker);
   font-weight: bold;
   text-decoration: none;
   cursor: pointer;
@@ -16,7 +16,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: white;
+  background-color: var(--color-white);
 }
 .box {
   width: 90vw;
@@ -25,14 +25,14 @@ body {
 }
 
 .table-container {
-  background-color: #f3f3f3;
+  background-color: var(--color-background-accent);
 }
 
 table .table-header {
   font-weight: bold;
-  background-color: #f3f3f3;
-  color: #257e68;
-  border-bottom: 2.5px solid #ffffff;
+  background-color: var(--color-background-accent);
+  color: var(--color-primary);
+  border-bottom: 2.5px solid var(--color-background-main);
   padding-top: 1.5%;
 html, body {
   height: 100vh;
@@ -40,7 +40,7 @@ html, body {
   margin: 0;
   padding: 0;
   overflow: hidden;
-  background-color: white;
+  background-color: var(--color-white);
 }
 .box {
   width: 90vw;
@@ -56,23 +56,23 @@ html, body {
 
 
 .box .table-row {
-  background-color: #f3f3f3;
+  background-color: var(--color-background-accent);
   border-bottom: none;
   transition: box-shadow 0.2s, outline 0.2s;
 }
 
 .box .table-row:hover {
-  outline: 2.5px solid #257e68;
+  outline: 2.5px solid var(--color-primary);
   outline-offset: -2.5px;
   box-shadow: none;
   z-index: 1;
-  background-color: #e6f4ea;
+  background-color: var(--color-background-green-light);
 }
 
 .box .search-bar {
   width: 100%;
   height: 3em;
-  background-color: #f0f0f0;
+  background-color: var(--color-border-lighter);
 }
 
 .box .create-client {
@@ -81,18 +81,18 @@ html, body {
 }
 
 .box .sort-arrow {
-  color: #257e68;
+  color: var(--color-primary);
 }
 
 .box h2 {
   font-size: 20px;
-  color: #257e68;
+  color: var(--color-primary);
   margin-bottom: 0;
   width: max-content;
 }
 
 .client-link {
-  color: #257e68;
+  color: var(--color-primary);
   font-size: 16px;
   cursor: pointer;
   transition:
@@ -102,5 +102,5 @@ html, body {
 
 .client-link:hover,
 .client-link:focus {
-  color: #1e6655;
+  color: var(--color-primary-hover);
 }

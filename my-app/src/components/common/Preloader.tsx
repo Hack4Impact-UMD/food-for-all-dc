@@ -33,7 +33,7 @@ const Preloader: React.FC<PreloaderProps> = ({
         <Typography 
           variant="body1" 
           sx={{ 
-            color: '#666',
+            color: 'var(--color-text-medium-alt)',
             fontWeight: 500
           }}
         >

@@ -10,7 +10,7 @@ const ExportModal: React.FC<ExportModalProps> = ({
 }) => {
   return (
     <Box sx={{ alignItems: "center", textAlign: "center", padding: "1%" }}>
-      <Typography variant="h5" sx={{ color: "#257e68", fontWeight: "bold" }}>
+      <Typography variant="h5" sx={{ color: "var(--color-primary)", fontWeight: "bold" }}>
         Are you sure you want to export {type === "CSV" ? "drivers" : "Doordash"}?
       </Typography>
     </Box>

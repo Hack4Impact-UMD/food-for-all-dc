@@ -64,7 +64,7 @@ const CaseWorkerFormFields: React.FC<CaseWorkerFormProps> = ({
             helperText={errors[field.name]}
             sx={{
               "& .MuiOutlinedInput-root": {
-                backgroundColor: "#fff",
+                backgroundColor: "var(--color-background-main)",
               },
               "& .MuiInputLabel-outlined:not(.MuiInputLabel-shrink)": {
                 transform: "translate(14px, 5px) scale(1)",
@@ -82,13 +82,13 @@ type SortDirection = 'asc' | 'desc';
 
 const SORT_LABEL_STYLES = {
   '& .MuiTableSortLabel-icon': {
-    color: '#257E68 !important',
+    color: 'var(--color-primary) !important',
   },
   '&:hover': {
-    color: '#257E68',
+    color: 'var(--color-primary)',
   },
   '&.Mui-active': {
-    color: '#257E68',
+    color: 'var(--color-primary)',
   },
 };
 
@@ -245,7 +245,7 @@ const CaseWorkerManagementModal: React.FC<CaseWorkerManagementModalProps> = ({
             pb: 2,
           }}
         >
-          <Typography variant="h5" sx={{ fontWeight: 600, color: "#1a1a1a" }}>
+          <Typography variant="h5" sx={{ fontWeight: 600, color: "var(--color-text-heading)" }}>
             Edit Case Worker List
           </Typography>
           <IconButton
@@ -272,7 +272,7 @@ const CaseWorkerManagementModal: React.FC<CaseWorkerManagementModalProps> = ({
                 border: "1px solid rgba(37, 126, 104, 0.2)",
               }}
             >
-              <Typography variant="h6" sx={{ mb: 3, color: "#257E68", fontWeight: 500 }}>
+              <Typography variant="h6" sx={{ mb: 3, color: "var(--color-primary)", fontWeight: 500 }}>
                 Add New Case Worker
               </Typography>
               <CaseWorkerFormFields
@@ -297,7 +297,7 @@ const CaseWorkerManagementModal: React.FC<CaseWorkerManagementModalProps> = ({
                     setErrors({});
                   }}
                   sx={{
-                    color: "#257E68",
+                    color: "var(--color-primary)",
                     "&:hover": {
                       backgroundColor: "rgba(37, 126, 104, 0.08)",
                     },
@@ -315,8 +315,8 @@ const CaseWorkerManagementModal: React.FC<CaseWorkerManagementModalProps> = ({
                     !newCaseWorker.email
                   }
                   sx={{
-                    backgroundColor: "#257E68",
-                    "&:hover": { backgroundColor: "#1b5a4a" },
+                    backgroundColor: "var(--color-primary)",
+                    "&:hover": { backgroundColor: "var(--color-primary-hover-alt)" },
                     "&:disabled": { backgroundColor: "rgba(0, 0, 0, 0.12)" },
                     px: 3,
                   }}
@@ -333,8 +333,8 @@ const CaseWorkerManagementModal: React.FC<CaseWorkerManagementModalProps> = ({
               sx={{
                 mb: 3,
                 mt: 3,
-                backgroundColor: "#257E68",
-                "&:hover": { backgroundColor: "#1b5a4a" },
+                backgroundColor: "var(--color-primary)",
+                "&:hover": { backgroundColor: "var(--color-primary-hover-alt)" },
                 px: 3,
                 py: 1,
               }}
@@ -357,7 +357,7 @@ const CaseWorkerManagementModal: React.FC<CaseWorkerManagementModalProps> = ({
             <Table>
               <TableHead>
                 <TableRow sx={{ backgroundColor: "rgba(0, 0, 0, 0.02)" }}>
-                  <TableCell sx={{ fontWeight: 600, color: "#1a1a1a" }}>
+                  <TableCell sx={{ fontWeight: 600, color: "var(--color-text-heading)" }}>
                     <TableSortLabel
                       active={sortField === 'name'}
                       direction={sortField === 'name' ? sortDirection : 'asc'}
@@ -367,7 +367,7 @@ const CaseWorkerManagementModal: React.FC<CaseWorkerManagementModalProps> = ({
                       Case Worker
                     </TableSortLabel>
                   </TableCell>
-                  <TableCell sx={{ fontWeight: 600, color: "#1a1a1a" }}>
+                  <TableCell sx={{ fontWeight: 600, color: "var(--color-text-heading)" }}>
                     <TableSortLabel
                       active={sortField === 'organization'}
                       direction={sortField === 'organization' ? sortDirection : 'asc'}
@@ -377,7 +377,7 @@ const CaseWorkerManagementModal: React.FC<CaseWorkerManagementModalProps> = ({
                       Organization
                     </TableSortLabel>
                   </TableCell>
-                  <TableCell sx={{ fontWeight: 600, color: "#1a1a1a" }}>
+                  <TableCell sx={{ fontWeight: 600, color: "var(--color-text-heading)" }}>
                     <TableSortLabel
                       active={sortField === 'phone'}
                       direction={sortField === 'phone' ? sortDirection : 'asc'}
@@ -387,7 +387,7 @@ const CaseWorkerManagementModal: React.FC<CaseWorkerManagementModalProps> = ({
                       Phone Number
                     </TableSortLabel>
                   </TableCell>
-                  <TableCell sx={{ fontWeight: 600, color: "#1a1a1a" }}>
+                  <TableCell sx={{ fontWeight: 600, color: "var(--color-text-heading)" }}>
                     <TableSortLabel
                       active={sortField === 'email'}
                       direction={sortField === 'email' ? sortDirection : 'asc'}
@@ -397,7 +397,7 @@ const CaseWorkerManagementModal: React.FC<CaseWorkerManagementModalProps> = ({
                       Email
                     </TableSortLabel>
                   </TableCell>
-                  <TableCell sx={{ fontWeight: 600, color: "#1a1a1a", width: "120px" }}>
+                  <TableCell sx={{ fontWeight: 600, color: "var(--color-text-heading)", width: "120px" }}>
                     Actions
                   </TableCell>
                 </TableRow>
@@ -431,12 +431,12 @@ const CaseWorkerManagementModal: React.FC<CaseWorkerManagementModalProps> = ({
                           helperText={editErrors.name}
                           sx={{
                             "& .MuiOutlinedInput-root": {
-                              backgroundColor: "#fff",
+                              backgroundColor: "var(--color-background-main)",
                             },
                           }}
                         />
                       ) : (
-                        <Typography sx={{ color: "#333", fontWeight: 500 }}>{cw.name}</Typography>
+                        <Typography sx={{ color: "var(--color-text-dark)", fontWeight: 500 }}>{cw.name}</Typography>
                       )}
                     </TableCell>
                     <TableCell>
@@ -458,12 +458,12 @@ const CaseWorkerManagementModal: React.FC<CaseWorkerManagementModalProps> = ({
                           helperText={editErrors.organization}
                           sx={{
                             "& .MuiOutlinedInput-root": {
-                              backgroundColor: "#fff",
+                              backgroundColor: "var(--color-background-main)",
                             },
                           }}
                         />
                       ) : (
-                        <Typography sx={{ color: "#666" }}>{cw.organization}</Typography>
+                        <Typography sx={{ color: "var(--color-text-medium-alt)" }}>{cw.organization}</Typography>
                       )}
                     </TableCell>
                     <TableCell>
@@ -485,12 +485,12 @@ const CaseWorkerManagementModal: React.FC<CaseWorkerManagementModalProps> = ({
                           helperText={editErrors.phone}
                           sx={{
                             "& .MuiOutlinedInput-root": {
-                              backgroundColor: "#fff",
+                              backgroundColor: "var(--color-background-main)",
                             },
                           }}
                         />
                       ) : (
-                        <Typography sx={{ color: "#666" }}>{formatPhoneNumber(cw.phone)}</Typography>
+                        <Typography sx={{ color: "var(--color-text-medium-alt)" }}>{formatPhoneNumber(cw.phone)}</Typography>
                       )}
                     </TableCell>
                     <TableCell>
@@ -512,12 +512,12 @@ const CaseWorkerManagementModal: React.FC<CaseWorkerManagementModalProps> = ({
                           helperText={editErrors.email}
                           sx={{
                             "& .MuiOutlinedInput-root": {
-                              backgroundColor: "#fff",
+                              backgroundColor: "var(--color-background-main)",
                             },
                           }}
                         />
                       ) : (
-                        <Typography sx={{ color: "#666" }}>{cw.email}</Typography>
+                        <Typography sx={{ color: "var(--color-text-medium-alt)" }}>{cw.email}</Typography>
                       )}
                     </TableCell>
                     <TableCell>
@@ -529,7 +529,7 @@ const CaseWorkerManagementModal: React.FC<CaseWorkerManagementModalProps> = ({
                                 editingCaseWorker && handleCaseWorkerSubmit(editingCaseWorker, true)
                               }
                               sx={{
-                                color: "#257E68",
+                                color: "var(--color-primary)",
                                 "&:hover": {
                                   backgroundColor: "rgba(37, 126, 104, 0.08)",
                                 },
@@ -556,7 +556,7 @@ const CaseWorkerManagementModal: React.FC<CaseWorkerManagementModalProps> = ({
                             <IconButton
                               onClick={() => setEditingCaseWorker(cw)}
                               sx={{
-                                color: "#257E68",
+                                color: "var(--color-primary)",
                                 "&:hover": {
                                   backgroundColor: "rgba(37, 126, 104, 0.08)",
                                 },
@@ -612,7 +612,7 @@ const CaseWorkerManagementModal: React.FC<CaseWorkerManagementModalProps> = ({
           </DialogContentText>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={() => setDeleteDialogOpen(false)} sx={{ color: "#666" }}>
+          <Button onClick={() => setDeleteDialogOpen(false)} sx={{ color: "var(--color-text-medium-alt)" }}>
             Cancel
           </Button>
           <Button onClick={handleDeleteConfirm} color="error" variant="contained" autoFocus>

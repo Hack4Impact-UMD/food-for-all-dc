@@ -101,7 +101,7 @@
 }
 
 .clientNameLink {
-  color: #2E5B4C;
+  color: var(--color-primary-darker);
   text-decoration: underline;
   font-weight: 600;
   font-size: 1.25rem;
@@ -118,7 +118,7 @@
   color: #27ae60;
 }
 .twoXMonthly {
-  color: #2980b9;
+  color: var(--color-loading-blue-dark);
 }
 .monthly {
   color: #8e44ad;

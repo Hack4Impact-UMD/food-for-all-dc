@@ -74,7 +74,7 @@ import HealthCheckbox from "./components/HealthCheckbox";
 
 // Styling
 const fieldStyles = {
-  backgroundColor: "white",
+  backgroundColor: "var(--color-white)"color-white)",
   width: "60%",
   height: "1.813rem",
   padding: "0.1rem 0.5rem",
@@ -92,14 +92,14 @@ const CustomTextField = styled(TextField)({
     "&:hover fieldset": {
       borderColor: "var(--color-primary)",
     },    "&.Mui-focused fieldset": {
-      borderColor: "#257E68",
-      border: "2px solid #257E68",
+      borderColor: "var(--color-primary)",
+      border: "2px solid var(--color-primary)",
     },
   },
   "& .MuiInputBase-input": {
     ...fieldStyles,
     transition: "all 0.3s ease",    "&:focus": {
-      border: "2px solid #257E68",
+      border: "2px solid var(--color-primary)",
       outline: "none",
       boxShadow: "0 0 8px rgba(37, 126, 104, 0.4), 0 0 16px rgba(37, 126, 104, 0.2)",
     },
@@ -108,7 +108,7 @@ const CustomTextField = styled(TextField)({
 
 // Styled components for common elements
 const SectionBox = styled(Box)(({ theme }) => ({
-  backgroundColor: "white",
+  backgroundColor: "var(--color-white)"color-white)",
   borderRadius: "8px",
   padding: "20px",
   boxShadow: "0 2px 8px rgba(0, 0, 0, 0.06)",
@@ -153,7 +153,7 @@ const SaveNotification = styled(Box)({
   bottom: "20px",
   right: "20px",
   backgroundColor: "var(--color-primary)",
-  color: "white",
+  color: "var(--color-white)"color-white)",
   padding: "16px 24px",
   borderRadius: "8px",
   boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)",
@@ -1602,7 +1602,7 @@ if (type === "physicalAilments") {
                 size="small"
                 multiline
                 minRows={2}
-                sx={{ width: '105%', marginLeft: 0, resize: 'vertical', '& textarea': { resize: 'vertical' }, '& .MuiOutlinedInput-root': { '&.Mui-focused fieldset': { borderColor: '#257E68' } } }}
+                sx={{ width: '105%', marginLeft: 0, resize: 'vertical', '& textarea': { resize: 'vertical' }, '& .MuiOutlinedInput-root': { '&.Mui-focused fieldset': { borderColor: 'var(--color-primary)' } } }}
               />
             ) : (
               <Typography sx={{ width: '105%', fontSize: '1rem', padding: '10px', minHeight: '48px', textAlign: 'left' }}>
@@ -1626,7 +1626,7 @@ if (type === "physicalAilments") {
                 size="small"
                 multiline
                 minRows={2}
-                sx={{ width: '105%', marginLeft: 0, resize: 'vertical', '& textarea': { resize: 'vertical' }, '& .MuiOutlinedInput-root': { '&.Mui-focused fieldset': { borderColor: "#257E68" } } }}
+                sx={{ width: '105%', marginLeft: 0, resize: 'vertical', '& textarea': { resize: 'vertical' }, '& .MuiOutlinedInput-root': { '&.Mui-focused fieldset': { borderColor: "var(--color-primary)" } } }}
               />
             ) : (
               <Typography sx={{ width: '105%', fontSize: '1rem', padding: '10px', minHeight: '48px', textAlign: 'left' }}>
@@ -1657,7 +1657,7 @@ if (type === "physicalAilments") {
                   multiline
                   minRows={2}
                   error={!!errors["deliveryDetails.dietaryRestrictions.dietaryPreferences"]}
-                  sx={{ width: '105%', marginLeft: 0, resize: 'vertical', '& textarea': { resize: 'vertical', textAlign: 'left !important' }, '& .MuiOutlinedInput-root': { '&.Mui-focused fieldset': { borderColor: '#257E68' } } }}
+                  sx={{ width: '105%', marginLeft: 0, resize: 'vertical', '& textarea': { resize: 'vertical', textAlign: 'left !important' }, '& .MuiOutlinedInput-root': { '&.Mui-focused fieldset': { borderColor: 'var(--color-primary)' } } }}
                   inputProps={{ style: { textAlign: 'left' } }}
                 />
               ) : (
@@ -1704,7 +1704,7 @@ if (type === "physicalAilments") {
             onChange={handleLanguageSelectChange}
             error={!!errors.language}
             sx={{
-              backgroundColor: "white",
+              backgroundColor: "var(--color-white)"color-white)",
               width: "100%",
               height: "1.813rem",
               padding: "0.1rem 0.5rem",
@@ -1726,7 +1726,7 @@ if (type === "physicalAilments") {
               onChange={handleCustomLanguageChange}
               
               sx={{
-                backgroundColor: "white",
+                backgroundColor: "var(--color-white)"color-white)",
                 width: "100%",
                 height: "1.813rem",
                 padding: "0.1rem 0.5rem",
@@ -1805,7 +1805,7 @@ if (type === "physicalAilments") {
             onChange={handleEthnicitySelectChange}
             error = {!!errors.ethnicity}
             sx={{
-              backgroundColor: "white",
+              backgroundColor: "var(--color-white)"color-white)",
               width: "100%",
               height: "1.813rem",
               padding: "0.1rem 0.5rem",
@@ -1826,7 +1826,7 @@ if (type === "physicalAilments") {
               value={isPredefined ? "" : clientProfile.ethnicity}
               onChange={handleEthnicityCustomChange}
               sx={{
-                backgroundColor: "white",
+                backgroundColor: "var(--color-white)"color-white)",
                 width: "100%",
                 height: "1.813rem",
                 padding: "0.1rem 0.5rem",
@@ -1877,7 +1877,7 @@ if (type === "physicalAilments") {
             value={selectValue}
             onChange={handleGenderSelectChange}
             sx={{
-              backgroundColor: "white",
+              backgroundColor: "var(--color-white)"color-white)",
               width: "100%",
               height: "1.813rem",
               padding: "0.1rem 0.5rem",
@@ -1885,7 +1885,7 @@ if (type === "physicalAilments") {
               border: ".1rem solid black",
               marginTop: "0px",
               '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                border: "2px solid #257E68",
+                border: "2px solid var(--color-primary)",
                 boxShadow: "0 0 8px rgba(37, 126, 104, 0.4), 0 0 16px rgba(37, 126, 104, 0.2)",
               },
             }}
@@ -1927,7 +1927,7 @@ if (type === "physicalAilments") {
             value={selectValue}
             onChange={handleHeadOfHouseholdSelectChange}
             sx={{
-              backgroundColor: "white",
+              backgroundColor: "var(--color-white)"color-white)",
               width: "100%",
               height: "1.813rem",
               padding: "0.1rem 0.5rem",
@@ -1935,7 +1935,7 @@ if (type === "physicalAilments") {
               border: ".1rem solid black",
               marginTop: "0px",
               '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                border: "2px solid #257E68",
+                border: "2px solid var(--color-primary)",
                 boxShadow: "0 0 8px rgba(37, 126, 104, 0.4), 0 0 16px rgba(37, 126, 104, 0.2)",
               },
             }}
@@ -1989,7 +1989,7 @@ if (type === "physicalAilments") {
             value={selectValue}
             onChange={handleRecurrenceSelectChange}
             sx={{
-              backgroundColor: "white",
+              backgroundColor: "var(--color-white)"color-white)",
               width: "100%",
               height: "1.813rem",
               padding: "0.1rem 0.5rem",
@@ -1997,7 +1997,7 @@ if (type === "physicalAilments") {
               border: ".1rem solid black",
               marginTop: "0px",
               '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                border: "2px solid #257E68",
+                border: "2px solid var(--color-primary)",
                 boxShadow: "0 0 8px rgba(37, 126, 104, 0.4), 0 0 16px rgba(37, 126, 104, 0.2)",
               },
             }}
@@ -2655,7 +2655,7 @@ const handleMentalHealthConditionsChange = (e: React.ChangeEvent<HTMLInputElemen
   };
 
   return (
-    <Box className="profile-container" sx={{ backgroundColor: "#f8f9fa", minHeight: "100vh", pb: 4 }}>
+    <Box className="profile-container" sx={{ backgroundColor: "var(--color-background-gray-light)", minHeight: "100vh", pb: 4 }}>
       {showSavePopup && (
         <SaveNotification>
           <SaveIcon fontSize="small" />
@@ -2696,7 +2696,7 @@ const handleMentalHealthConditionsChange = (e: React.ChangeEvent<HTMLInputElemen
           sx={{
             width: { xs: "95%", sm: "90%", md: "85%", lg: "75%" },
             maxWidth: "1200px",
-            bgcolor: "transparent",
+            bgcolor: "var(--color-transparent)"transparent)",
             boxShadow: "none",
             p: 0
           }}
@@ -2822,8 +2822,8 @@ const handleMentalHealthConditionsChange = (e: React.ChangeEvent<HTMLInputElemen
               sx={{
                 marginRight: 4,
                 width: 166,
-                color: "#fff",
-                backgroundColor: "#257E68",
+                color: "var(--color-background-main)",
+                backgroundColor: "var(--color-primary)",
               }}
             >
               Add Delivery

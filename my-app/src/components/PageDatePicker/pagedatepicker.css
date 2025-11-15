@@ -63,7 +63,7 @@
 .react-datepicker__day--selected,
 .react-datepicker__day--keyboard-selected {
   background: var(--color-primary) !important;
-  color: #fff !important;
+  color: var(--color-background-main) !important;
   font-weight: bold;
   border-radius: var(--border-radius-md) !important;
   border: 2px solid var(--color-primary) !important;
@@ -74,7 +74,7 @@
 .react-datepicker__day--selected.react-datepicker__day--today,
 .react-datepicker__day--keyboard-selected.react-datepicker__day--today {
   background: var(--color-primary) !important;
-  color: #fff !important;
+  color: var(--color-background-main) !important;
   border: 2px solid var(--color-primary) !important;
 }
 
@@ -101,6 +101,6 @@
 
 .react-datepicker__day:hover {
   background: var(--color-primary-dark) !important;
-  color: #fff !important;
+  color: var(--color-background-main) !important;
   border-radius: var(--border-radius-md) !important;
 }

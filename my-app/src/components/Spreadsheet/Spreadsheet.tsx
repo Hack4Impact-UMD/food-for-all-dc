@@ -190,7 +190,7 @@ const Spreadsheet: React.FC = () => {
     { key: "phone", label: "Phone", type: "text" },
     { key: "deliveryDetails.dietaryRestrictions", label: "Dietary Restrictions", type: "text", sortable: false, compute: (data: RowData) => {
       const dr = data.deliveryDetails?.dietaryRestrictions;
-      if (!dr) return <span style={{ color: '#888' }}>None</span>;
+      if (!dr) return <span style={{ color: 'var(--color-text-light)' }}>None</span>;
       const dietary: string[] = [];
       const allergies: string[] = [];
       const other: string[] = [];
@@ -209,15 +209,15 @@ const Spreadsheet: React.FC = () => {
       if (dr.otherText && dr.otherText.trim() !== "") other.push(dr.otherText.trim());
       const chips: React.ReactNode[] = [];
       dietary.forEach((item, i) => chips.push(
-        <Chip key={`dietary-${item}-${i}`} label={item} size="small" sx={{ backgroundColor: '#e6f4ea', color: '#257e68', fontWeight: 500, mr: 0.5, mb: 0.5 }} />
+        <Chip key={`dietary-${item}-${i}`} label={item} size="small" sx={{ backgroundColor: 'var(--color-background-green-light)', color: 'var(--color-primary)', fontWeight: 500, mr: 0.5, mb: 0.5 }} />
       ));
       allergies.forEach((item, i) => chips.push(
-        <Chip key={`allergy-${item}-${i}`} label={item} size="small" sx={{ backgroundColor: '#fdeaea', color: '#c62828', fontWeight: 500, mr: 0.5, mb: 0.5 }} />
+        <Chip key={`allergy-${item}-${i}`} label={item} size="small" sx={{ backgroundColor: 'var(--color-allergy-background)', color: 'var(--color-error-text-alt)', fontWeight: 500, mr: 0.5, mb: 0.5 }} />
       ));
       other.forEach((item, i) => chips.push(
-        <Chip key={`other-${item}-${i}`} label={item} size="small" sx={{ backgroundColor: '#f3eafd', color: '#6c3483', fontWeight: 500, mr: 0.5, mb: 0.5 }} />
+        <Chip key={`other-${item}-${i}`} label={item} size="small" sx={{ backgroundColor: 'var(--color-other-restriction-background)', color: 'var(--color-other-restriction-text)', fontWeight: 500, mr: 0.5, mb: 0.5 }} />
       ));
-      return chips.length > 0 ? chips : <span style={{ color: '#888' }}>None</span>;
+      return chips.length > 0 ? chips : <span style={{ color: 'var(--color-text-light)' }}>None</span>;
     } },
     { key: "deliveryDetails.deliveryInstructions", label: "Delivery Instructions", type: "text", compute: (data: RowData) => data.deliveryDetails?.deliveryInstructions || "None" },
     { key: "lastDeliveryDate", label: "Last Delivery Date", type: "text", compute: (data: RowData) => data.lastDeliveryDate || "" },
@@ -430,11 +430,11 @@ const Spreadsheet: React.FC = () => {
 
   // --- TableVirtuoso rendering ---
   return (
-  <Box className="box" sx={{ px: { xs: 2, sm: 3, md: 4 }, py: 2, maxWidth: "100%", overflowX: "hidden", backgroundColor: "transparent", position: "relative", display: "flex", flexDirection: "column", mt: 0, height: 'calc(100vh - 133px)' }}>
-      <div style={{ color: '#257e68', fontWeight: 600, marginBottom: 8 }}>
+  <Box className="box" sx={{ px: { xs: 2, sm: 3, md: 4 }, py: 2, maxWidth: "100%", overflowX: "hidden", backgroundColor: "var(--color-transparent)"transparent)", position: "relative", display: "flex", flexDirection: "column", mt: 0, height: 'calc(100vh - 133px)' }}>
+      <div style={{ color: 'var(--color-primary)', fontWeight: 600, marginBottom: 8 }}>
       </div>
       {/* Search bar and actions */}
-      <Box sx={{ position: "sticky", top: 0, width: "100%", zIndex: 10, backgroundColor: "#fff", pb: 3, pt: 0, borderBottom: "none", boxShadow: "none", margin: 0 }}>
+      <Box sx={{ position: "sticky", top: 0, width: "100%", zIndex: 10, backgroundColor: "var(--color-background-main)", pb: 3, pt: 0, borderBottom: "none", boxShadow: "none", margin: 0 }}>
         <Stack spacing={3}>
           <Box sx={{ position: "relative", width: "100%" }}>
             <input
@@ -442,7 +442,7 @@ const Spreadsheet: React.FC = () => {
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               placeholder='Search clients (e.g., smith, name:john, address:"main st")'
-              style={{ width: "100%", height: "50px", backgroundColor: "#EEEEEE", border: "none", borderRadius: "25px", padding: "0 48px", fontSize: "16px", color: "#333333", boxSizing: "border-box", transition: "all 0.2s ease", boxShadow: "inset 0 2px 3px rgba(0,0,0,0.05)" }}
+              style={{ width: "100%", height: "50px", backgroundColor: "var(--color-background-gray)", border: "none", borderRadius: "25px", padding: "0 48px", fontSize: "16px", color: "var(--color-text-dark)", boxSizing: "border-box", transition: "all 0.2s ease", boxShadow: "inset 0 2px 3px rgba(0,0,0,0.05)" }}
             />
           </Box>
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ xs: 'stretch', sm: 'center' }} sx={{ '& .MuiButton-root': { height: { sm: '36px' } } }}>
@@ -465,7 +465,7 @@ const Spreadsheet: React.FC = () => {
               )}
             </Suspense>
             <Box sx={{ flexGrow: 1, display: "flex", justifyContent: "flex-end" }}>
-              <Button variant="contained" color="primary" onClick={() => navigate("/profile")} className="create-client" sx={{ backgroundColor: "#2E5B4C", borderRadius: "25px", px: 2, py: 0.5, minWidth: { xs: '100%', sm: '140px' }, maxWidth: { sm: '160px' }, textTransform: "none", fontSize: "0.875rem", lineHeight: 1.5, boxShadow: "0 2px 4px rgba(0,0,0,0.1)", transition: "all 0.2s ease", "&:hover": { backgroundColor: "#234839", transform: "translateY(-2px)", boxShadow: "0 4px 8px rgba(0,0,0,0.1)" }, alignSelf: { xs: 'stretch', sm: 'flex-end' } }}>+ Create Client</Button>
+              <Button variant="contained" color="primary" onClick={() => navigate("/profile")} className="create-client" sx={{ backgroundColor: "var(--color-primary-darker)", borderRadius: "25px", px: 2, py: 0.5, minWidth: { xs: '100%', sm: '140px' }, maxWidth: { sm: '160px' }, textTransform: "none", fontSize: "0.875rem", lineHeight: 1.5, boxShadow: "0 2px 4px rgba(0,0,0,0.1)", transition: "all 0.2s ease", "&:hover": { backgroundColor: "var(--color-primary-darkest)", transform: "translateY(-2px)", boxShadow: "0 4px 8px rgba(0,0,0,0.1)" }, alignSelf: { xs: 'stretch', sm: 'flex-end' } }}>+ Create Client</Button>
             </Box>
           </Stack>
         </Stack>
@@ -520,7 +520,7 @@ const Spreadsheet: React.FC = () => {
                       <TableCell
                         className="table-header"
                         key={field.key}
-                        sx={{ backgroundColor: "#f5f9f7", borderBottom: "2px solid #e0e0e0", width: 160, minWidth: 160, maxWidth: 160, cursor: isSortable ? 'pointer' : 'default' }}
+                        sx={{ backgroundColor: "var(--color-background-green-tint)", borderBottom: "2px solid var(--color-border-medium)", width: 160, minWidth: 160, maxWidth: 160, cursor: isSortable ? 'pointer' : 'default' }}
                         onClick={isSortable ? () => handleSort(field.key) : undefined}
                       >
                         {isSortable ? (
@@ -538,14 +538,14 @@ const Spreadsheet: React.FC = () => {
                               : <ChevronUpDown />}
                           </TableSortLabel>
                         ) : (
-                          <span style={{ fontWeight: 600, color: "#257e68" }}>{field.label}</span>
+                          <span style={{ fontWeight: 600, color: "var(--color-primary)" }}>{field.label}</span>
                         )}
                       </TableCell>
                     );
                   })}
                   {/* Custom columns header */}
                   {customColumns.map((col) => (
-                    <TableCell className="table-header" key={col.id} sx={{ backgroundColor: "#f5f9f7", borderBottom: "2px solid #e0e0e0", width: 200, minWidth: 200, maxWidth: 200, padding: '8px' }}>
+                    <TableCell className="table-header" key={col.id} sx={{ backgroundColor: "var(--color-background-green-tint)", borderBottom: "2px solid var(--color-border-medium)", width: 200, minWidth: 200, maxWidth: 200, padding: '8px' }}>
                       <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'nowrap', gap: 0.5 }}>
                         <Select
                           value={col.propertyKey}
@@ -556,10 +556,10 @@ const Spreadsheet: React.FC = () => {
                           sx={{ 
                             minWidth: 100, 
                             flexGrow: 1,
-                            color: "#257e68", 
+                            color: "var(--color-primary)", 
                             fontWeight: 600, 
                             fontSize: '0.875rem', 
-                            background: 'white',
+                            background: 'var(--color-white)',
                             '& .MuiOutlinedInput-input': {
                               padding: '4px 8px'
                             }
@@ -584,7 +584,7 @@ const Spreadsheet: React.FC = () => {
                           size="small" 
                           onClick={e => { e.stopPropagation(); handleRemoveCustomColumn(col.id); }} 
                           sx={{ 
-                            color: "#d32f2f", 
+                            color: "var(--color-error-text)", 
                             padding: '2px',
                             minWidth: 'auto',
                             '&:hover': {
@@ -602,7 +602,7 @@ const Spreadsheet: React.FC = () => {
                               handleSort(col.propertyKey);
                             }}
                             sx={{ 
-                              color: '#257e68', 
+                              color: 'var(--color-primary)', 
                               padding: '2px',
                               minWidth: 'auto',
                               '&:hover': {
@@ -622,9 +622,9 @@ const Spreadsheet: React.FC = () => {
                     </TableCell>
                   ))}
                   {/* Add column button */}
-                  <TableCell className="table-header" align="right" sx={{ backgroundColor: "#f5f9f7", borderBottom: "2px solid #e0e0e0", width: 80, minWidth: 80, maxWidth: 80 }}>
+                  <TableCell className="table-header" align="right" sx={{ backgroundColor: "var(--color-background-green-tint)", borderBottom: "2px solid var(--color-border-medium)", width: 80, minWidth: 80, maxWidth: 80 }}>
                     <IconButton onClick={handleAddCustomColumn} color="primary" aria-label="add custom column" sx={{ backgroundColor: "rgba(37, 126, 104, 0.06)", '&:hover': { backgroundColor: "rgba(37, 126, 104, 0.12)" } }}>
-                      <AddIcon sx={{ color: "#257e68" }} />
+                      <AddIcon sx={{ color: "var(--color-primary)" }} />
                     </IconButton>
                   </TableCell>
                 </TableRow>
@@ -655,7 +655,7 @@ const Spreadsheet: React.FC = () => {
                     </TableCell>
                   )),
                   <TableCell align="right" sx={{ py: 2, width: 80, minWidth: 80, maxWidth: 80, backgroundColor: rowBg }} key={`actions-${row.id}`}>
-                    <IconButton onClick={e => { e.stopPropagation(); setMenuAnchorPosition({ top: e.clientY, left: e.clientX }); setMenuRow(row); }} sx={{ color: "#757575", "&:hover": { backgroundColor: "rgba(0, 0, 0, 0.04)", color: "#2E5B4C" } }}>
+                    <IconButton onClick={e => { e.stopPropagation(); setMenuAnchorPosition({ top: e.clientY, left: e.clientX }); setMenuRow(row); }} sx={{ color: "var(--color-text-medium)", "&:hover": { backgroundColor: "rgba(0, 0, 0, 0.04)", color: "var(--color-primary-darker)" } }}>
                       <MoreVertIcon />
                     </IconButton>
                     <Popover
