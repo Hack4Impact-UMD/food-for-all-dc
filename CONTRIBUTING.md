@@ -15,6 +15,12 @@ npm install -g firebase-tools && firebase login
 cd functions-python && python3 -m venv venv && source venv/bin/activate && pip install -r requirements.txt
 ```
 
+**Environment Variables:**
+```bash
+cp .env.example .env
+# Edit .env with your API keys
+```
+
 ## Code Standards
 
 ### TypeScript
@@ -29,12 +35,18 @@ cd functions-python && python3 -m venv venv && source venv/bin/activate && pip i
 - Extract reusable logic into utilities, hooks, or services
 
 ### Styling
-- **Always use CSS variables** from `src/styles/theme.css` - never hardcode colors/spacing/fonts
+- Use CSS variables from `src/styles/theme.css`
 - Use CSS Modules (`.module.css`) for component styles
 - Use common components (`Button`, `Input`, `Modal`) from `src/components/common/`
 - See [STYLING.md](my-app/STYLING.md) for details
 
 ### Architecture
+
+**API Keys & Configuration:**
+- All API keys centralized in `src/config/apiKeys.ts`
+- Import: `import { googleMapsApiKey, firebaseConfig } from '../config/apiKeys'`
+- Required keys validated at startup
+- See `.env.example` for environment variables
 
 **Services** (singleton pattern):
 ```typescript
@@ -76,13 +88,13 @@ const client = await clientService.getClientById(uid);
    ```
 
 2. **Code review checklist:**
-   - ✅ No console.logs (use `NotificationProvider` for errors)
-   - ✅ No sensitive data (API keys, tokens)
-   - ✅ CSS variables used (no hardcoded values)
-   - ✅ Common components used when appropriate
-   - ✅ Error handling uses `formatServiceError()`
-   - ✅ Services use singleton pattern
-   - ✅ No `any` types
+   - Use `NotificationProvider` for errors (no console.logs)
+   - Use `src/config/apiKeys.ts` for API keys
+   - Use CSS variables from `src/styles/theme.css`
+   - Use common components when appropriate
+   - Error handling uses `formatServiceError()`
+   - Services use singleton pattern
+   - No `any` types
 
 3. **Test:**
    - Test with different user roles if applicable
@@ -117,6 +129,15 @@ const client = await clientService.getClientById(uid);
 4. Update Spreadsheet (`src/components/Spreadsheet/`) if visible/editable
 5. Update export (`src/config/exportConfig.ts`) if exported
 6. Update `ClientService` methods if needed
+
+### Adding a New API Key
+1. Add to `.env.example`: `REACT_APP_NEW_API_KEY=placeholder`
+2. Add to `src/config/apiKeys.ts`:
+   ```typescript
+   export const newApiKey = getRequiredEnv('REACT_APP_NEW_API_KEY');
+   // or getOptionalEnv() for optional keys
+   ```
+3. Import: `import { newApiKey } from '../config/apiKeys'`
 
 ### Firebase Operations
 - Validate with `firestoreValidation` before writes
