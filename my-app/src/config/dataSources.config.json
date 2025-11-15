@@ -1,9 +1,9 @@
 {
   "firebase": {
-  "clientsCollection": "client-profile2",
-  "caseWorkersCollection": "referral",
-  "clustersCollection": "clusters",
-  "limitsCollection": "limits",
+    "clientsCollection": "client-profile2",
+    "caseWorkersCollection": "referral",
+    "clustersCollection": "clusters",
+    "limitsCollection": "limits",
     "usersCollection": "users",
     "driversCollection": "Drivers2",
     "deliveriesCollection": "deliveries",
@@ -23,4 +23,3 @@
     "externalAuthService": "https://auth.foodforall.example.com"
   }
 }
-

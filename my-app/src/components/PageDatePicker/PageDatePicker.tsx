@@ -33,7 +33,12 @@ const StyledCalendarButton = styled("button")<StyledButtonProps>(({ marginLeft =
 
 // Custom button to trigger DatePicker
 const CalendarButton = forwardRef<HTMLButtonElement, any>(({ onClick, marginLeft }, ref) => (
-  <StyledCalendarButton ref={ref} onClick={onClick} marginLeft={marginLeft} aria-label="Pick a date">
+  <StyledCalendarButton
+    ref={ref}
+    onClick={onClick}
+    marginLeft={marginLeft}
+    aria-label="Pick a date"
+  >
     <CalendarTodayIcon fontSize="medium" />
   </StyledCalendarButton>
 ));

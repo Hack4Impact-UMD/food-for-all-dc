@@ -1,10 +1,19 @@
-import dataSources from '../../config/dataSources';
+import dataSources from "../../config/dataSources";
 import React, { useState } from "react";
 import ReportHeader from "./ReportHeader";
 import { Accordion, AccordionDetails, AccordionSummary, Box, Typography } from "@mui/material";
 import { ClientProfile } from "../../types";
 import TimeUtils from "../../utils/timeUtils";
-import { collection, DocumentData, getDocs, limit, orderBy, query, QueryDocumentSnapshot, startAfter } from "firebase/firestore";
+import {
+  collection,
+  DocumentData,
+  getDocs,
+  limit,
+  orderBy,
+  query,
+  QueryDocumentSnapshot,
+  startAfter,
+} from "firebase/firestore";
 import { db } from "../../auth/firebaseConfig";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import { useNotifications } from "../../components/NotificationProvider";
@@ -14,7 +23,7 @@ import LoadingIndicator from "../../components/LoadingIndicator/LoadingIndicator
 import { exportToCSV, formatDateRange } from "../../utils/reportExport";
 
 const ClientReport: React.FC = () => {
-  const navigate = useNavigate()
+  const navigate = useNavigate();
   const { showError, showSuccess } = useNotifications();
 
   const [isLoading, setIsLoading] = useState(false);
@@ -37,7 +46,7 @@ const ClientReport: React.FC = () => {
     }
   });
 
-  const [data, setData] = useState<any>({"Active": [], "Lapsed": []})
+  const [data, setData] = useState<any>({ Active: [], Lapsed: [] });
 
   const handleExport = () => {
     const csvData: any[] = [];
@@ -53,7 +62,7 @@ const ClientReport: React.FC = () => {
         "Client ID": client.uid,
         Phone: client.phone || "",
         Address: client.address || "",
-        Zip: client.zipCode || ""
+        Zip: client.zipCode || "",
       });
     });
 
@@ -65,7 +74,7 @@ const ClientReport: React.FC = () => {
         "Client ID": client.uid,
         Phone: client.phone || "",
         Address: client.address || "",
-        Zip: client.zipCode || ""
+        Zip: client.zipCode || "",
       });
     });
 
@@ -76,75 +85,74 @@ const ClientReport: React.FC = () => {
 
   const generateReport = async () => {
     if (!startDate || !endDate) {
-      return {}
+      return {};
     }
 
     setIsLoading(true);
     try {
+      const BATCH_SIZE = 50;
 
-    const BATCH_SIZE = 50;
+      const start = TimeUtils.fromJSDate(startDate).startOf("day");
+      const end = TimeUtils.fromJSDate(endDate).endOf("day");
 
-    const start = TimeUtils.fromJSDate(startDate).startOf("day");
-    const end = TimeUtils.fromJSDate(endDate).endOf("day");
+      const allClients: ClientProfile[] = [];
+      const activeClients: ClientProfile[] = [];
 
-    const allClients: ClientProfile[] = [];
-    const activeClients: ClientProfile[] = [];
+      try {
+        let lastDoc: QueryDocumentSnapshot<DocumentData> | null = null;
+        const True = true;
+        while (True) {
+          const q: any = lastDoc
+            ? query(
+                collection(db, dataSources.firebase.clientsCollection),
+                orderBy("__name__"),
+                startAfter(lastDoc),
+                limit(BATCH_SIZE)
+              )
+            : query(
+                collection(db, dataSources.firebase.clientsCollection),
+                orderBy("__name__"),
+                limit(BATCH_SIZE)
+              );
 
-    try {
-      let lastDoc: QueryDocumentSnapshot<DocumentData> | null = null;
-      const True = true
-      while (True) {
-        const q: any = lastDoc
-          ? query(
-              collection(db, dataSources.firebase.clientsCollection),
-              orderBy("__name__"),
-              startAfter(lastDoc),
-              limit(BATCH_SIZE)
-            )
-          : query(
-              collection(db, dataSources.firebase.clientsCollection),
-              orderBy("__name__"),
-              limit(BATCH_SIZE)
-            );
+          const snap = await getDocs(q);
+          if (snap.empty) break;
 
-        const snap = await getDocs(q);
-        if (snap.empty) break;
+          for (const doc of snap.docs) {
+            const client = doc.data() as ClientProfile;
+            allClients.push(client);
 
-        for (const doc of snap.docs) {
-          const client = doc.data() as ClientProfile;
-          allClients.push(client);
+            const deliveries: string[] = client.deliveries ?? [];
+            if (deliveries.length) {
+              const deliveriesInRange = deliveries.filter((deliveryISO: string) => {
+                const deliveryDate = TimeUtils.fromISO(deliveryISO);
+                return deliveryDate >= start && deliveryDate <= end;
+              });
 
-          const deliveries: string[] = client.deliveries ?? [];
-          if (deliveries.length) {
-            const deliveriesInRange = deliveries.filter((deliveryISO: string) => {
-              const deliveryDate = TimeUtils.fromISO(deliveryISO);
-              return deliveryDate >= start && deliveryDate <= end;
-            });
-
-            if (deliveriesInRange.length > 0) {
-              activeClients.push(client);
+              if (deliveriesInRange.length > 0) {
+                activeClients.push(client);
+              }
             }
           }
+
+          lastDoc = snap.docs[snap.docs.length - 1] as QueryDocumentSnapshot<DocumentData>;
+          if (snap.size < BATCH_SIZE) break;
         }
-
-        lastDoc = snap.docs[snap.docs.length - 1] as QueryDocumentSnapshot<DocumentData>;
-        if (snap.size < BATCH_SIZE) break;
+      } catch (err) {
+        console.error("Failed to build Active/Lapsed map:", err);
+        throw err;
       }
-    } catch (err) {
-      console.error("Failed to build Active/Lapsed map:", err);
-      throw err;
-    }
 
-    //lapsed = All - Active (by document id)
-    const activeIds = new Set(activeClients.map((c) => c.uid));
-    const lapsedClients = allClients.filter((c) => !activeIds.has(c.uid));
+      //lapsed = All - Active (by document id)
+      const activeIds = new Set(activeClients.map((c) => c.uid));
+      const lapsedClients = allClients.filter((c) => !activeIds.has(c.uid));
 
-    setData({
-      "Active": activeClients,
-      "Lapsed": lapsedClients,
-    });
-    setHasGenerated(true);
-    showSuccess("Client report generated successfully");
+      setData({
+        Active: activeClients,
+        Lapsed: lapsedClients,
+      });
+      setHasGenerated(true);
+      showSuccess("Client report generated successfully");
     } catch (error) {
       console.error("Failed to generate client report:", error);
       showError("Failed to generate client report. Please try again.");
@@ -157,7 +165,6 @@ const ClientReport: React.FC = () => {
     { key: "Active", index: 0, label: "Active" },
     { key: "Lapsed", index: 1, label: "Lapsed" },
   ];
-
 
   return (
     <Box sx={{ display: "flex", flexDirection: "column", height: "90vh", width: "90vw" }}>
@@ -221,7 +228,9 @@ const ClientReport: React.FC = () => {
                   </Box>
                 </AccordionSummary>
 
-                <AccordionDetails sx={{ bgcolor: "var(--color-white)", color: "var(--color-black)", p: 0 }}>
+                <AccordionDetails
+                  sx={{ bgcolor: "var(--color-white)", color: "var(--color-black)", p: 0 }}
+                >
                   {clients.length === 0 ? (
                     <Box sx={{ p: 2, bgcolor: "var(--color-background-lighter)", borderRadius: 1 }}>
                       <Typography sx={{ color: "text.secondary" }}>No clients.</Typography>
@@ -248,9 +257,11 @@ const ClientReport: React.FC = () => {
                             fontWeight: "bold",
                             textDecoration: "underline",
                             fontSize: 17,
-                            cursor: "pointer"
+                            cursor: "pointer",
                           }}
-                          onClick={()=>{navigate(`/profile/${client.uid}`)}}
+                          onClick={() => {
+                            navigate(`/profile/${client.uid}`);
+                          }}
                         >
                           {client.firstName} {client.lastName}
                         </Typography>

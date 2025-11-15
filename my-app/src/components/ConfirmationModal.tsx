@@ -1,10 +1,10 @@
-import React from 'react';
-import { Button } from '@mui/material';
-import { Modal } from './common';
+import React from "react";
+import { Button } from "@mui/material";
+import { Modal } from "./common";
 
 /**
  * Confirmation modal for destructive actions
- * 
+ *
  * @example
  * <ConfirmationModal
  *   open={showDeleteModal}
@@ -32,7 +32,7 @@ interface ConfirmationModalProps {
   /** Text for cancel button */
   cancelText?: string;
   /** Color scheme for confirm button */
-  confirmColor?: 'primary' | 'secondary' | 'error' | 'warning';
+  confirmColor?: "primary" | "secondary" | "error" | "warning";
 }
 
 const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
@@ -41,9 +41,9 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
   onConfirm,
   title,
   message,
-  confirmText = 'Confirm',
-  cancelText = 'Cancel',
-  confirmColor = 'primary',
+  confirmText = "Confirm",
+  cancelText = "Cancel",
+  confirmColor = "primary",
 }) => {
   const handleConfirm = () => {
     onConfirm();
@@ -55,25 +55,14 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
       <Button onClick={onClose} color="inherit">
         {cancelText}
       </Button>
-      <Button 
-        onClick={handleConfirm} 
-        color={confirmColor}
-        variant="contained"
-        autoFocus
-      >
+      <Button onClick={handleConfirm} color={confirmColor} variant="contained" autoFocus>
         {confirmText}
       </Button>
     </>
   );
 
   return (
-    <Modal
-      open={open}
-      onClose={onClose}
-      title={title}
-      actions={actions}
-      maxWidth="sm"
-    >
+    <Modal open={open} onClose={onClose} title={title} actions={actions} maxWidth="sm">
       <p style={{ margin: 0, lineHeight: 1.5 }}>{message}</p>
     </Modal>
   );

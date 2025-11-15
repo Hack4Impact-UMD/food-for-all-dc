@@ -13,7 +13,6 @@ interface DateRangePickerProps {
   setEndDate: (date: Date | null) => void;
 }
 
-
 const StyledDatePickerWrapper = styled(Box)({
   "& .react-datepicker-popper": {
     zIndex: 1000,
@@ -25,15 +24,13 @@ const StyledDatePickerWrapper = styled(Box)({
   },
 });
 
-
 export default function DateRangePicker({
   startDate,
   endDate,
   setStartDate,
   setEndDate,
 }: DateRangePickerProps) {
-  const formatDate = (date: Date | null) =>
-    date ? formatAppDate(date) : "Select date";
+  const formatDate = (date: Date | null) => (date ? formatAppDate(date) : "Select date");
 
   useEffect(() => {
     if (startDate != null) {

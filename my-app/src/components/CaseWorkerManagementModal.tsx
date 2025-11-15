@@ -23,11 +23,16 @@ import {
 import { Close, Add, Edit, Check, Delete } from "@mui/icons-material";
 import { doc, updateDoc, addDoc, deleteDoc, collection } from "firebase/firestore";
 import { db } from "../auth/firebaseConfig";
-import { CaseWorker, CaseWorkerFormProps, CaseWorkerManagementModalProps, ValidationErrors } from "../types";
+import {
+  CaseWorker,
+  CaseWorkerFormProps,
+  CaseWorkerManagementModalProps,
+  ValidationErrors,
+} from "../types";
 // Import shared utility functions directly from their specific files
 import { isValidEmail, isValidPhone, validateCaseWorkerFields } from "../utils/validation";
 import { formatPhoneNumber } from "../utils/format";
-import dataSources from '../config/dataSources';
+import dataSources from "../config/dataSources";
 
 // Reusable form fields component
 const CaseWorkerFormFields: React.FC<CaseWorkerFormProps> = ({
@@ -50,7 +55,7 @@ const CaseWorkerFormFields: React.FC<CaseWorkerFormProps> = ({
   return (
     <Grid container spacing={3}>
       {fields.map((field) => (
-        <Grid size={{ xs: 12, sm: field.gridSize || 4}} key={field.name}>
+        <Grid size={{ xs: 12, sm: field.gridSize || 4 }} key={field.name}>
           <TextField
             fullWidth
             label={field.label}
@@ -77,18 +82,18 @@ const CaseWorkerFormFields: React.FC<CaseWorkerFormProps> = ({
   );
 };
 
-type SortField = 'name' | 'organization' | 'phone' | 'email';
-type SortDirection = 'asc' | 'desc';
+type SortField = "name" | "organization" | "phone" | "email";
+type SortDirection = "asc" | "desc";
 
 const SORT_LABEL_STYLES = {
-  '& .MuiTableSortLabel-icon': {
-    color: 'var(--color-primary) !important',
+  "& .MuiTableSortLabel-icon": {
+    color: "var(--color-primary) !important",
   },
-  '&:hover': {
-    color: 'var(--color-primary)',
+  "&:hover": {
+    color: "var(--color-primary)",
   },
-  '&.Mui-active': {
-    color: 'var(--color-primary)',
+  "&.Mui-active": {
+    color: "var(--color-primary)",
   },
 };
 
@@ -111,37 +116,37 @@ const CaseWorkerManagementModal: React.FC<CaseWorkerManagementModalProps> = ({
   const [editErrors, setEditErrors] = useState<ValidationErrors>({});
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [caseWorkerToDelete, setCaseWorkerToDelete] = useState<CaseWorker | null>(null);
-  
+
   // Sorting state
-  const [sortField, setSortField] = useState<SortField>('name');
-  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+  const [sortField, setSortField] = useState<SortField>("name");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
 
   // Handle sort changes
   const handleSort = (field: SortField) => {
     if (sortField === field) {
-      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
     } else {
       setSortField(field);
-      setSortDirection('asc');
+      setSortDirection("asc");
     }
   };
 
   // Sort case workers based on current sort field and direction
   const sortedCaseWorkers = useMemo(() => {
     const sorted = [...caseWorkers].sort((a, b) => {
-      let aValue = (a[sortField] || '').toLowerCase();
-      let bValue = (b[sortField] || '').toLowerCase();
+      let aValue = (a[sortField] || "").toLowerCase();
+      let bValue = (b[sortField] || "").toLowerCase();
 
-      if (sortField === 'phone') {
-        aValue = (a[sortField] || '').replace(/\D/g, '');
-        bValue = (b[sortField] || '').replace(/\D/g, '');
+      if (sortField === "phone") {
+        aValue = (a[sortField] || "").replace(/\D/g, "");
+        bValue = (b[sortField] || "").replace(/\D/g, "");
       }
 
       if (aValue < bValue) {
-        return sortDirection === 'asc' ? -1 : 1;
+        return sortDirection === "asc" ? -1 : 1;
       }
       if (aValue > bValue) {
-        return sortDirection === 'asc' ? 1 : -1;
+        return sortDirection === "asc" ? 1 : -1;
       }
       return 0;
     });
@@ -182,7 +187,10 @@ const CaseWorkerManagementModal: React.FC<CaseWorkerManagementModalProps> = ({
           setEditingCaseWorker(null);
         } else {
           // Add new case worker
-          const caseWorkersCollectionRef = collection(db, dataSources.firebase.caseWorkersCollection);
+          const caseWorkersCollectionRef = collection(
+            db,
+            dataSources.firebase.caseWorkersCollection
+          );
           const docRef = await addDoc(caseWorkersCollectionRef, caseWorker);
           onCaseWorkersChange([...caseWorkers, { ...caseWorker, id: docRef.id }]);
           setIsAddingCaseWorker(false);
@@ -197,7 +205,7 @@ const CaseWorkerManagementModal: React.FC<CaseWorkerManagementModalProps> = ({
 
   const handleDeleteCaseWorker = async (caseWorkerId: string) => {
     try {
-  await deleteDoc(doc(db, dataSources.firebase.caseWorkersCollection, caseWorkerId));
+      await deleteDoc(doc(db, dataSources.firebase.caseWorkersCollection, caseWorkerId));
       onCaseWorkersChange(caseWorkers.filter((cw) => cw.id !== caseWorkerId));
     } catch (error) {
       console.error("Error deleting case worker:", error);
@@ -272,7 +280,10 @@ const CaseWorkerManagementModal: React.FC<CaseWorkerManagementModalProps> = ({
                 border: "1px solid rgba(37, 126, 104, 0.2)",
               }}
             >
-              <Typography variant="h6" sx={{ mb: 3, color: "var(--color-primary)", fontWeight: 500 }}>
+              <Typography
+                variant="h6"
+                sx={{ mb: 3, color: "var(--color-primary)", fontWeight: 500 }}
+              >
                 Add New Case Worker
               </Typography>
               <CaseWorkerFormFields
@@ -359,9 +370,9 @@ const CaseWorkerManagementModal: React.FC<CaseWorkerManagementModalProps> = ({
                 <TableRow sx={{ backgroundColor: "rgba(0, 0, 0, 0.02)" }}>
                   <TableCell sx={{ fontWeight: 600, color: "var(--color-text-heading)" }}>
                     <TableSortLabel
-                      active={sortField === 'name'}
-                      direction={sortField === 'name' ? sortDirection : 'asc'}
-                      onClick={() => handleSort('name')}
+                      active={sortField === "name"}
+                      direction={sortField === "name" ? sortDirection : "asc"}
+                      onClick={() => handleSort("name")}
                       sx={SORT_LABEL_STYLES}
                     >
                       Case Worker
@@ -369,9 +380,9 @@ const CaseWorkerManagementModal: React.FC<CaseWorkerManagementModalProps> = ({
                   </TableCell>
                   <TableCell sx={{ fontWeight: 600, color: "var(--color-text-heading)" }}>
                     <TableSortLabel
-                      active={sortField === 'organization'}
-                      direction={sortField === 'organization' ? sortDirection : 'asc'}
-                      onClick={() => handleSort('organization')}
+                      active={sortField === "organization"}
+                      direction={sortField === "organization" ? sortDirection : "asc"}
+                      onClick={() => handleSort("organization")}
                       sx={SORT_LABEL_STYLES}
                     >
                       Organization
@@ -379,9 +390,9 @@ const CaseWorkerManagementModal: React.FC<CaseWorkerManagementModalProps> = ({
                   </TableCell>
                   <TableCell sx={{ fontWeight: 600, color: "var(--color-text-heading)" }}>
                     <TableSortLabel
-                      active={sortField === 'phone'}
-                      direction={sortField === 'phone' ? sortDirection : 'asc'}
-                      onClick={() => handleSort('phone')}
+                      active={sortField === "phone"}
+                      direction={sortField === "phone" ? sortDirection : "asc"}
+                      onClick={() => handleSort("phone")}
                       sx={SORT_LABEL_STYLES}
                     >
                       Phone Number
@@ -389,15 +400,17 @@ const CaseWorkerManagementModal: React.FC<CaseWorkerManagementModalProps> = ({
                   </TableCell>
                   <TableCell sx={{ fontWeight: 600, color: "var(--color-text-heading)" }}>
                     <TableSortLabel
-                      active={sortField === 'email'}
-                      direction={sortField === 'email' ? sortDirection : 'asc'}
-                      onClick={() => handleSort('email')}
+                      active={sortField === "email"}
+                      direction={sortField === "email" ? sortDirection : "asc"}
+                      onClick={() => handleSort("email")}
                       sx={SORT_LABEL_STYLES}
                     >
                       Email
                     </TableSortLabel>
                   </TableCell>
-                  <TableCell sx={{ fontWeight: 600, color: "var(--color-text-heading)", width: "120px" }}>
+                  <TableCell
+                    sx={{ fontWeight: 600, color: "var(--color-text-heading)", width: "120px" }}
+                  >
                     Actions
                   </TableCell>
                 </TableRow>
@@ -436,7 +449,9 @@ const CaseWorkerManagementModal: React.FC<CaseWorkerManagementModalProps> = ({
                           }}
                         />
                       ) : (
-                        <Typography sx={{ color: "var(--color-text-dark)", fontWeight: 500 }}>{cw.name}</Typography>
+                        <Typography sx={{ color: "var(--color-text-dark)", fontWeight: 500 }}>
+                          {cw.name}
+                        </Typography>
                       )}
                     </TableCell>
                     <TableCell>
@@ -463,7 +478,9 @@ const CaseWorkerManagementModal: React.FC<CaseWorkerManagementModalProps> = ({
                           }}
                         />
                       ) : (
-                        <Typography sx={{ color: "var(--color-text-medium-alt)" }}>{cw.organization}</Typography>
+                        <Typography sx={{ color: "var(--color-text-medium-alt)" }}>
+                          {cw.organization}
+                        </Typography>
                       )}
                     </TableCell>
                     <TableCell>
@@ -490,7 +507,9 @@ const CaseWorkerManagementModal: React.FC<CaseWorkerManagementModalProps> = ({
                           }}
                         />
                       ) : (
-                        <Typography sx={{ color: "var(--color-text-medium-alt)" }}>{formatPhoneNumber(cw.phone)}</Typography>
+                        <Typography sx={{ color: "var(--color-text-medium-alt)" }}>
+                          {formatPhoneNumber(cw.phone)}
+                        </Typography>
                       )}
                     </TableCell>
                     <TableCell>
@@ -517,7 +536,9 @@ const CaseWorkerManagementModal: React.FC<CaseWorkerManagementModalProps> = ({
                           }}
                         />
                       ) : (
-                        <Typography sx={{ color: "var(--color-text-medium-alt)" }}>{cw.email}</Typography>
+                        <Typography sx={{ color: "var(--color-text-medium-alt)" }}>
+                          {cw.email}
+                        </Typography>
                       )}
                     </TableCell>
                     <TableCell>
@@ -612,7 +633,10 @@ const CaseWorkerManagementModal: React.FC<CaseWorkerManagementModalProps> = ({
           </DialogContentText>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={() => setDeleteDialogOpen(false)} sx={{ color: "var(--color-text-medium-alt)" }}>
+          <Button
+            onClick={() => setDeleteDialogOpen(false)}
+            sx={{ color: "var(--color-text-medium-alt)" }}
+          >
             Cancel
           </Button>
           <Button onClick={handleDeleteConfirm} color="error" variant="contained" autoFocus>

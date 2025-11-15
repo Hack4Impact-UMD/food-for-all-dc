@@ -1,10 +1,7 @@
 import Papa from "papaparse";
 import { saveAs } from "file-saver";
 
-export const exportToCSV = (
-  data: any[],
-  filename: string
-) => {
+export const exportToCSV = (data: any[], filename: string) => {
   if (data.length === 0) {
     alert("No data available to export.");
     return;

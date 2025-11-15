@@ -2,7 +2,7 @@
  * Formatting utility functions
  */
 
-import { DietaryRestrictions } from '../types';
+import { DietaryRestrictions } from "../types";
 
 /**
  * Formats a phone number to (xxx)-xxx-xxxx format
@@ -18,14 +18,13 @@ export const formatPhoneNumber = (phone: string): string => {
   return phone; // Return the original phone if it doesn't match the pattern
 };
 
-
 /**
  * Capitalizes the first letter of a string
  * @param value The string to capitalize
  * @returns The capitalized string
  */
 export const capitalizeFirstLetter = (value: string): string => {
-  if (!value || typeof value !== 'string' || value.length === 0) return '';
+  if (!value || typeof value !== "string" || value.length === 0) return "";
   return value[0].toUpperCase() + value.slice(1);
 };
 
@@ -35,13 +34,17 @@ export const capitalizeFirstLetter = (value: string): string => {
  * @returns Formatted string of restrictions
  */
 export const formatDietaryRestrictions = (restrictions: DietaryRestrictions): string => {
-  if (!restrictions) return 'None';
+  if (!restrictions) return "None";
   const booleanRestrictions = Object.entries(restrictions)
     .filter(([key, val]) => val === true && typeof val === "boolean")
     .map(([key]) => key.replace(/([A-Z])/g, " $1").trim());
   const foodAllergens = restrictions.foodAllergens || [];
   const other = restrictions.other || [];
-  const allRestrictions = [...booleanRestrictions, ...(Array.isArray(foodAllergens) ? foodAllergens : []), ...(Array.isArray(other) ? other : [])];
+  const allRestrictions = [
+    ...booleanRestrictions,
+    ...(Array.isArray(foodAllergens) ? foodAllergens : []),
+    ...(Array.isArray(other) ? other : []),
+  ];
   return allRestrictions.length > 0 ? allRestrictions.join(", ") : "None";
 };
 
@@ -50,5 +53,3 @@ export function formatCamelToTitle(key: string): string {
     .replace(/([a-z])([A-Z])/g, "$1 $2") // add space before capital letters
     .replace(/^./, (str) => str.toUpperCase()); // capitalize first letter
 }
-
- 

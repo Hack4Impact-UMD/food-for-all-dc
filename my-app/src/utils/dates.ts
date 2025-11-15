@@ -1,14 +1,18 @@
 /**
  * Date utility functions using Luxon for consistent time handling
  */
-import { Time, TimeUtils } from './timeUtils';
+import { Time, TimeUtils } from "./timeUtils";
 
 export const getRecurrencePattern = (date: string): string => {
   const dateTime = TimeUtils.fromISO(date);
   return Time.Recurrence.getRecurrencePattern(dateTime);
 };
 
-export const getNextMonthlyDate = (originalDate: Date, currentDate: Date, targetDay?: number): Date => {
+export const getNextMonthlyDate = (
+  originalDate: Date,
+  currentDate: Date,
+  targetDay?: number
+): Date => {
   const originalDateTime = TimeUtils.fromJSDate(originalDate);
   const currentDateTime = TimeUtils.fromJSDate(currentDate);
   const nextDate = Time.Recurrence.getNextMonthlyDate(originalDateTime, currentDateTime, targetDay);
@@ -17,22 +21,20 @@ export const getNextMonthlyDate = (originalDate: Date, currentDate: Date, target
 
 export const formatDateToYYYYMMDD = (date: Date): string => {
   const dateTime = TimeUtils.fromJSDate(date);
-  return dateTime.toISODate() || '';
+  return dateTime.toISODate() || "";
 };
 
 export const formatDate = (date: Date | string): string => {
   try {
     const dateTime = TimeUtils.fromAny(date);
     if (!dateTime.isValid) {
-      return 'Invalid date';
+      return "Invalid date";
     }
     return dateTime.toLocaleString();
   } catch {
-    return 'Invalid date';
+    return "Invalid date";
   }
 };
-
-
 
 /**
  * Format a date to MM/DD/YYYY
@@ -40,13 +42,13 @@ export const formatDate = (date: Date | string): string => {
  * @returns The formatted date string in MM/DD/YYYY format
  */
 export const formatDateToMMDDYYYY = (date: Date): string => {
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
   const year = date.getFullYear();
   return `${month}/${day}/${year}`;
 };
 
-import { validatePartialDateInput, isValidDateFormat } from './validation';
+import { validatePartialDateInput, isValidDateFormat } from "./validation";
 
 /**
  * Validates and processes a date input, ensuring the year is within an acceptable range
@@ -64,39 +66,39 @@ export const validateDateInput = (
   minYear = 1900,
   maxYear = 2100
 ): { isValid: boolean; errorMessage?: string } => {
-  
   if (!dateStr) {
     const errorMessage = "Date is required. Format must be MM/DD/YYYY";
     if (onError) onError(errorMessage);
     return { isValid: false, errorMessage };
   }
-  
+
   // Check for placeholder text and common input errors
   if (/dd|mm|yy/i.test(dateStr)) {
-    const errorMessage = "Please replace placeholder text with actual date values. Format must be MM/DD/YYYY";
+    const errorMessage =
+      "Please replace placeholder text with actual date values. Format must be MM/DD/YYYY";
     if (onError) onError(errorMessage);
     return { isValid: false, errorMessage };
   }
 
   // Handle both MM/DD/YYYY and YYYY-MM-DD formats
   let normalizedDateStr = dateStr;
-  
+
   // If it's YYYY-MM-DD format, convert to MM/DD/YYYY
   if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
-    const [year, month, day] = dateStr.split('-');
+    const [year, month, day] = dateStr.split("-");
     normalizedDateStr = `${month}/${day}/${year}`;
   }
-  
+
   // Enforce MM/DD/YYYY format after normalization
-  if (!normalizedDateStr.includes('/')) {
+  if (!normalizedDateStr.includes("/")) {
     const errorMessage = "Date must be in MM/DD/YYYY format";
     if (onError) onError(errorMessage);
     return { isValid: false, errorMessage };
   }
 
   // Handle MM/DD/YYYY format only
-  const parts = normalizedDateStr.split('/');
-  
+  const parts = normalizedDateStr.split("/");
+
   // Basic format validation
   if (parts.length !== 3) {
     const errorMessage = "Date must be in MM/DD/YYYY format";
@@ -111,29 +113,29 @@ export const validateDateInput = (
     if (onError) onError(errorMessage);
     return { isValid: false, errorMessage };
   }
-  
-  const [month, day, year] = parts.map(p => parseInt(p, 10));
-  
+
+  const [month, day, year] = parts.map((p) => parseInt(p, 10));
+
   // Check year is valid and exactly 4 digits
   if (isNaN(year) || year < minYear || year > maxYear || parts[2].length !== 4) {
     const errorMessage = `Year must be between ${minYear} and ${maxYear}`;
     if (onError) onError(errorMessage);
     return { isValid: false, errorMessage };
   }
-  
+
   // Check month and day
   if (isNaN(month) || month < 1 || month > 12) {
     const errorMessage = "Month must be between 1-12";
     if (onError) onError(errorMessage);
     return { isValid: false, errorMessage };
   }
-  
+
   if (isNaN(day) || day < 1 || day > 31) {
     const errorMessage = "Day must be between 1-31";
     if (onError) onError(errorMessage);
     return { isValid: false, errorMessage };
   }
-  
+
   // Check that it's a real date (e.g., not February 30)
   const date = new Date(year, month - 1, day);
   if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) {
@@ -141,7 +143,7 @@ export const validateDateInput = (
     if (onError) onError(errorMessage);
     return { isValid: false, errorMessage };
   }
-  
+
   // Date is valid, call the provided callback with MM/DD/YYYY format
   onValid(normalizedDateStr);
   return { isValid: true };
@@ -156,67 +158,67 @@ export const validateDateInput = (
 export const normalizeDate = (dateStr: string): string => {
   // Always normalize to MM/DD/YYYY format - it's the only acceptable format
   // Return empty string as-is
-  if (!dateStr) return '';
-  
+  if (!dateStr) return "";
+
   // If it already contains placeholder text, don't try to normalize it
   if (/dd|mm|yy/i.test(dateStr)) {
     return dateStr;
   }
-    // Handle MM/DD/YYYY format
-  if (dateStr.includes('/')) {
-    const parts = dateStr.split('/');
-    
+  // Handle MM/DD/YYYY format
+  if (dateStr.includes("/")) {
+    const parts = dateStr.split("/");
+
     if (parts.length === 3) {
       // Try to fix common issues
       let [month, day, year] = parts;
-      
+
       // Pad month and day with leading zeros
       if (month.length === 1) month = `0${month}`;
       if (day.length === 1) day = `0${day}`;
-      
+
       // Fix year issues (2-digit years)
       if (year.length === 2) {
         const twoDigitYear = parseInt(year, 10);
         // Use current century for years less than 50, previous century for years >= 50
         year = twoDigitYear < 50 ? `20${year}` : `19${year}`;
       }
-      
+
       // Add missing digits for years like "202" -> "2020"
       if (year.length === 3) {
         year = `${year}0`;
       }
-      
+
       // Pad shorter years with zeros to make 4 digits
       if (year.length < 4) {
-        year = year.padStart(4, '0');
+        year = year.padStart(4, "0");
       }
-      
+
       // Always return MM/DD/YYYY format
       return `${month}/${day}/${year}`;
     }
   }
   // Handle YYYY-MM-DD format and convert it to MM/DD/YYYY
-  else if (dateStr.includes('-')) {
-    const parts = dateStr.split('-');
-    
+  else if (dateStr.includes("-")) {
+    const parts = dateStr.split("-");
+
     if (parts.length === 3) {
       let [year, month, day] = parts;
-      
+
       // Pad month and day with leading zeros
       if (month.length === 1) month = `0${month}`;
       if (day.length === 1) day = `0${day}`;
-      
+
       // Fix year issues (2-digit years)
       if (year.length === 2) {
         const twoDigitYear = parseInt(year, 10);
         year = twoDigitYear < 50 ? `20${year}` : `19${year}`;
       }
-      
+
       // Always convert to MM/DD/YYYY format
       return `${month}/${day}/${year}`;
     }
   }
-  
+
   // If we can't normalize, return original
   return dateStr;
-}
+};

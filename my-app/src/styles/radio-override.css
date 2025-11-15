@@ -6,7 +6,7 @@
 
 .MuiRadio-root:focus-visible::after,
 .MuiRadio-root.Mui-focusVisible::after {
-  content: '' !important;
+  content: "" !important;
   position: absolute !important;
   top: -8px !important;
   left: -8px !important;

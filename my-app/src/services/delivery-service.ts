@@ -14,11 +14,11 @@ import {
 } from "firebase/firestore";
 import { db } from "../auth/firebaseConfig";
 import { DeliveryEvent } from "../types/calendar-types";
-import { validateDeliveryEvent } from '../utils/firestoreValidation';
+import { validateDeliveryEvent } from "../utils/firestoreValidation";
 import { Time, TimeUtils } from "../utils/timeUtils";
-import { retry } from '../utils/retry';
-import { ServiceError, formatServiceError } from '../utils/serviceError';
-import dataSources from '../config/dataSources';
+import { retry } from "../utils/retry";
+import { ServiceError, formatServiceError } from "../utils/serviceError";
+import dataSources from "../config/dataSources";
 import { deliveryDate } from "../utils/deliveryDate";
 
 /**
@@ -35,10 +35,12 @@ class DeliveryService {
         where("clientId", "==", clientId)
       );
       const querySnapshot = await getDocs(q);
-      const batchDeletes = querySnapshot.docs.map(docSnap => deleteDoc(doc(this.db, this.eventsCollection, docSnap.id)));
+      const batchDeletes = querySnapshot.docs.map((docSnap) =>
+        deleteDoc(doc(this.db, this.eventsCollection, docSnap.id))
+      );
       await Promise.all(batchDeletes);
     } catch (error) {
-      throw formatServiceError(error, 'Failed to delete deliveries for client');
+      throw formatServiceError(error, "Failed to delete deliveries for client");
     }
   }
   private static instance: DeliveryService;
@@ -71,7 +73,9 @@ class DeliveryService {
         const events = snapshot.docs
           .map((doc) => {
             const raw = doc.data();
-            const normalizedDate = deliveryDate.toJSDate(Time.Firebase.fromTimestamp(raw.deliveryDate).toJSDate());
+            const normalizedDate = deliveryDate.toJSDate(
+              Time.Firebase.fromTimestamp(raw.deliveryDate).toJSDate()
+            );
             const data = { id: doc.id, ...raw, deliveryDate: normalizedDate };
             return validateDeliveryEvent(data) ? data : undefined;
           })
@@ -79,7 +83,7 @@ class DeliveryService {
         return events;
       });
     } catch (error) {
-      throw formatServiceError(error, 'Failed to get all events');
+      throw formatServiceError(error, "Failed to get all events");
     }
   }
 
@@ -89,11 +93,11 @@ class DeliveryService {
   public async getEventsByDateRange(startDate: Date, endDate: Date): Promise<DeliveryEvent[]> {
     try {
       return await retry(async () => {
-  // Use start of day for startDate and start of day for endDate (exclusive)
-  const startDateTime = TimeUtils.fromJSDate(startDate).startOf('day');
-  const endDateTime = TimeUtils.fromJSDate(endDate).startOf('day');
-  const startTimestamp = Time.Firebase.toTimestamp(startDateTime);
-  const endTimestamp = Time.Firebase.toTimestamp(endDateTime);
+        // Use start of day for startDate and start of day for endDate (exclusive)
+        const startDateTime = TimeUtils.fromJSDate(startDate).startOf("day");
+        const endDateTime = TimeUtils.fromJSDate(endDate).startOf("day");
+        const startTimestamp = Time.Firebase.toTimestamp(startDateTime);
+        const endTimestamp = Time.Firebase.toTimestamp(endDateTime);
         // ...existing code...
         const q = query(
           collection(this.db, this.eventsCollection),
@@ -106,7 +110,9 @@ class DeliveryService {
           .map((doc) => {
             const raw = doc.data();
             // ...existing code...
-            const normalizedDate = deliveryDate.toJSDate(Time.Firebase.fromTimestamp(raw.deliveryDate).toJSDate());
+            const normalizedDate = deliveryDate.toJSDate(
+              Time.Firebase.fromTimestamp(raw.deliveryDate).toJSDate()
+            );
             const data = { id: doc.id, ...raw, deliveryDate: normalizedDate };
             return validateDeliveryEvent(data) ? data : undefined;
           })
@@ -115,7 +121,7 @@ class DeliveryService {
         return events;
       });
     } catch (error) {
-      throw formatServiceError(error, 'Failed to get events by date range');
+      throw formatServiceError(error, "Failed to get events by date range");
     }
   }
 
@@ -140,7 +146,7 @@ class DeliveryService {
         return docRef.id;
       });
     } catch (error) {
-      throw formatServiceError(error, 'Failed to create event');
+      throw formatServiceError(error, "Failed to create event");
     }
   }
 
@@ -160,7 +166,7 @@ class DeliveryService {
         await updateDoc(doc(this.db, this.eventsCollection, id), cleanData);
       });
     } catch (error) {
-      throw formatServiceError(error, 'Failed to update event');
+      throw formatServiceError(error, "Failed to update event");
     }
   }
 
@@ -176,7 +182,7 @@ class DeliveryService {
         await deleteDoc(doc(this.db, this.eventsCollection, id));
       });
     } catch (error) {
-      throw formatServiceError(error, 'Failed to delete event');
+      throw formatServiceError(error, "Failed to delete event");
     }
   }
 
@@ -188,18 +194,18 @@ class DeliveryService {
    * Get recurring delivery date range for a client (optimized with caching)
    */
   public async getRecurringDeliveryDateRange(
-    clientId: string, 
+    clientId: string,
     recurrenceType: string
   ): Promise<{ earliest: Date | null; latest: Date | null }> {
-    if (recurrenceType === 'None') {
+    if (recurrenceType === "None") {
       return { earliest: null, latest: null };
     }
 
     const cacheKey = `${clientId}-${recurrenceType}`;
     const cached = this.dateRangeCache.get(cacheKey);
-    
+
     // Return cached result if it's still fresh
-    if (cached && (Date.now() - cached.timestamp) < this.CACHE_DURATION) {
+    if (cached && Date.now() - cached.timestamp < this.CACHE_DURATION) {
       return { earliest: cached.earliest, latest: cached.latest };
     }
 
@@ -211,15 +217,15 @@ class DeliveryService {
           where("clientId", "==", clientId),
           where("recurrence", "==", recurrenceType)
         );
-        
+
         const querySnapshot = await getDocs(q);
-        
+
         if (querySnapshot.empty) {
           return { earliest: null, latest: null };
         }
 
         const dates = querySnapshot.docs
-          .map(doc => {
+          .map((doc) => {
             const data = doc.data();
             if (!data.deliveryDate) return null;
             const normalized = deliveryDate.toJSDate(data.deliveryDate);
@@ -232,20 +238,20 @@ class DeliveryService {
         }
 
         // Find min/max dates efficiently
-        const earliest = new Date(Math.min(...dates.map(d => d.getTime())));
-        const latest = new Date(Math.max(...dates.map(d => d.getTime())));
-        
+        const earliest = new Date(Math.min(...dates.map((d) => d.getTime())));
+        const latest = new Date(Math.max(...dates.map((d) => d.getTime())));
+
         // Cache the result
         this.dateRangeCache.set(cacheKey, {
           earliest,
           latest,
-          timestamp: Date.now()
+          timestamp: Date.now(),
         });
 
         return { earliest, latest };
       });
     } catch (error) {
-      throw formatServiceError(error, 'Failed to get recurring delivery date range');
+      throw formatServiceError(error, "Failed to get recurring delivery date range");
     }
   }
 
@@ -256,19 +262,23 @@ class DeliveryService {
     requests: Array<{ clientId: string; recurrenceType: string }>
   ): Promise<Map<string, { earliest: Date | null; latest: Date | null }>> {
     const results = new Map<string, { earliest: Date | null; latest: Date | null }>();
-    const uncachedRequests: Array<{ clientId: string; recurrenceType: string; cacheKey: string }> = [];
-    
+    const uncachedRequests: Array<{ clientId: string; recurrenceType: string; cacheKey: string }> =
+      [];
+
     // Check cache first
     for (const request of requests) {
-      if (request.recurrenceType === 'None') {
-        results.set(`${request.clientId}-${request.recurrenceType}`, { earliest: null, latest: null });
+      if (request.recurrenceType === "None") {
+        results.set(`${request.clientId}-${request.recurrenceType}`, {
+          earliest: null,
+          latest: null,
+        });
         continue;
       }
-      
+
       const cacheKey = `${request.clientId}-${request.recurrenceType}`;
       const cached = this.dateRangeCache.get(cacheKey);
-      
-      if (cached && (Date.now() - cached.timestamp) < this.CACHE_DURATION) {
+
+      if (cached && Date.now() - cached.timestamp < this.CACHE_DURATION) {
         results.set(cacheKey, { earliest: cached.earliest, latest: cached.latest });
       } else {
         uncachedRequests.push({ ...request, cacheKey });
@@ -296,18 +306,18 @@ class DeliveryService {
             where("recurrence", "==", recurrenceType),
             where("clientId", "in", clientIds.slice(0, 10)) // Firestore 'in' limit is 10
           );
-          
+
           const querySnapshot = await getDocs(q);
-          
+
           // Group results by clientId
           const clientDates = new Map<string, Date[]>();
-          
-          querySnapshot.docs.forEach(doc => {
+
+          querySnapshot.docs.forEach((doc) => {
             const data = doc.data();
             if (!data.deliveryDate || !data.clientId) return;
-            
+
             const normalized = deliveryDate.toJSDate(data.deliveryDate);
-            
+
             if (!isNaN(normalized.getTime())) {
               if (!clientDates.has(data.clientId)) {
                 clientDates.set(data.clientId, []);
@@ -323,28 +333,28 @@ class DeliveryService {
           for (const clientId of clientIds) {
             const dates = clientDates.get(clientId) || [];
             const cacheKey = `${clientId}-${recurrenceType}`;
-            
+
             if (dates.length === 0) {
               const result = { earliest: null, latest: null };
               results.set(cacheKey, result);
             } else {
-              const earliest = new Date(Math.min(...dates.map(d => d.getTime())));
-              const latest = new Date(Math.max(...dates.map(d => d.getTime())));
-              
+              const earliest = new Date(Math.min(...dates.map((d) => d.getTime())));
+              const latest = new Date(Math.max(...dates.map((d) => d.getTime())));
+
               const result = { earliest, latest };
               results.set(cacheKey, result);
-              
+
               // Cache the result
               this.dateRangeCache.set(cacheKey, {
                 earliest,
                 latest,
-                timestamp: Date.now()
+                timestamp: Date.now(),
               });
             }
           }
         }
       } catch (error) {
-        console.error('Error in batch recurring delivery date ranges:', error);
+        console.error("Error in batch recurring delivery date ranges:", error);
         // Fallback: return null ranges for failed requests
         for (const req of uncachedRequests) {
           if (!results.has(req.cacheKey)) {
@@ -372,9 +382,10 @@ class DeliveryService {
       this.dateRangeCache.delete(`${clientId}-${recurrence}`);
     } else {
       // Clear all cache entries for this client
-      const keysToDelete = Array.from(this.dateRangeCache.keys())
-        .filter(key => key.startsWith(`${clientId}-`));
-      keysToDelete.forEach(key => this.dateRangeCache.delete(key));
+      const keysToDelete = Array.from(this.dateRangeCache.keys()).filter((key) =>
+        key.startsWith(`${clientId}-`)
+      );
+      keysToDelete.forEach((key) => this.dateRangeCache.delete(key));
     }
   }
 
@@ -384,10 +395,10 @@ class DeliveryService {
   public async getEventsByClientId(clientId: string): Promise<DeliveryEvent[]> {
     try {
       return await retry(async () => {
-         const q = query(
-           collection(this.db, this.eventsCollection),
-           where("clientId", "==", clientId)
-         );
+        const q = query(
+          collection(this.db, this.eventsCollection),
+          where("clientId", "==", clientId)
+        );
         const querySnapshot = await getDocs(q);
         return querySnapshot.docs
           .map((doc) => {
@@ -406,7 +417,7 @@ class DeliveryService {
           .filter((event): event is DeliveryEvent => event !== null);
       });
     } catch (error) {
-      throw formatServiceError(error, 'Failed to get events by client ID');
+      throw formatServiceError(error, "Failed to get events by client ID");
     }
   }
 
@@ -417,10 +428,12 @@ class DeliveryService {
     try {
       return await retry(async () => {
         const snapshot = await getDocs(collection(this.db, this.dailyLimitsCollection));
-        return snapshot.docs.map((doc) => doc.data() as { id: string; date: string; limit: number });
+        return snapshot.docs.map(
+          (doc) => doc.data() as { id: string; date: string; limit: number }
+        );
       });
     } catch (error) {
-      throw formatServiceError(error, 'Failed to get daily limits');
+      throw formatServiceError(error, "Failed to get daily limits");
     }
   }
 
@@ -434,7 +447,7 @@ class DeliveryService {
         await setDoc(docRef, { date: dateKey, limit });
       });
     } catch (error) {
-      throw formatServiceError(error, 'Failed to set daily limit');
+      throw formatServiceError(error, "Failed to set daily limit");
     }
   }
 
@@ -464,7 +477,7 @@ class DeliveryService {
         return snapshot.data() as Record<string, number>;
       });
     } catch (error) {
-      throw formatServiceError(error, 'Failed to get weekly limits');
+      throw formatServiceError(error, "Failed to get weekly limits");
     }
   }
 
@@ -478,7 +491,7 @@ class DeliveryService {
         await setDoc(docRef, limits);
       });
     } catch (error) {
-      throw formatServiceError(error, 'Failed to update weekly limits');
+      throw formatServiceError(error, "Failed to update weekly limits");
     }
   }
 
@@ -494,12 +507,12 @@ class DeliveryService {
         }
         const today = Time.Firebase.toTimestamp(todayDateTime);
         const pastQuery = query(
-           collection(this.db, this.eventsCollection),
-           where("clientId", "==", clientId),
-           where("deliveryDate", "<", today),
-           orderBy("deliveryDate", "desc"),
-           limit(5)
-         );
+          collection(this.db, this.eventsCollection),
+          where("clientId", "==", clientId),
+          where("deliveryDate", "<", today),
+          orderBy("deliveryDate", "desc"),
+          limit(5)
+        );
         const pastSnapshot = await getDocs(pastQuery);
         return pastSnapshot.docs.map((doc) => {
           const data = doc.data();
@@ -511,7 +524,7 @@ class DeliveryService {
         });
       });
     } catch (error) {
-      throw formatServiceError(error, 'Failed to get previous deliveries');
+      throw formatServiceError(error, "Failed to get previous deliveries");
     }
   }
 
@@ -527,12 +540,12 @@ class DeliveryService {
         }
         const today = Time.Firebase.toTimestamp(todayDateTime);
         const futureQuery = query(
-           collection(this.db, this.eventsCollection),
-           where("clientId", "==", clientId),
-           where("deliveryDate", ">=", today),
-           orderBy("deliveryDate", "asc"),
-           limit(5)
-         );
+          collection(this.db, this.eventsCollection),
+          where("clientId", "==", clientId),
+          where("deliveryDate", ">=", today),
+          orderBy("deliveryDate", "asc"),
+          limit(5)
+        );
         const futureSnapshot = await getDocs(futureQuery);
         return futureSnapshot.docs.map((doc) => {
           const data = doc.data();
@@ -544,7 +557,7 @@ class DeliveryService {
         });
       });
     } catch (error) {
-      throw formatServiceError(error, 'Failed to get next deliveries');
+      throw formatServiceError(error, "Failed to get next deliveries");
     }
   }
 
@@ -564,7 +577,7 @@ class DeliveryService {
         return { pastDeliveries, futureDeliveries };
       });
     } catch (error) {
-      throw formatServiceError(error, 'Failed to get client delivery history');
+      throw formatServiceError(error, "Failed to get client delivery history");
     }
   }
 }

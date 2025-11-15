@@ -23,14 +23,26 @@ import { getLastDeliveryDateForClient } from "../../../utils/lastDeliveryDate";
 import { deleteDeliveriesAfterEndDate } from "../../../utils/deliveryCleanup";
 import { deliveryEventEmitter } from "../../../utils/deliveryEventEmitter";
 import MoreHorizIcon from "@mui/icons-material/MoreHoriz";
-import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, query, where, orderBy, updateDoc, Timestamp} from "firebase/firestore";
+import {
+  addDoc,
+  collection,
+  deleteDoc,
+  doc,
+  getDoc,
+  getDocs,
+  query,
+  where,
+  orderBy,
+  updateDoc,
+  Timestamp,
+} from "firebase/firestore";
 import { db } from "../../../auth/firebaseConfig";
-import dataSources from '../../../config/dataSources';
+import dataSources from "../../../config/dataSources";
 import { DeliveryEvent, NewDelivery } from "../../../types/calendar-types";
 import { calculateRecurrenceDates, getNextMonthlyDate } from "./CalendarUtils";
 import { UserType } from "../../../types";
 import { useAuth } from "../../../auth/AuthProvider";
-import { toJSDate } from '../../../utils/timestamp';
+import { toJSDate } from "../../../utils/timestamp";
 import { deliveryDate } from "../../../utils/deliveryDate";
 
 interface EventMenuProps {
@@ -44,12 +56,14 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [deleteOption, setDeleteOption] = useState("This event");
-  const [editOption, setEditOption] = useState<"This event" | "This and following events">("This event");
-  
+  const [editOption, setEditOption] = useState<"This event" | "This and following events">(
+    "This event"
+  );
+
   const [editDeliveryDate, setEditDeliveryDate] = useState<string>(() => {
     return toJSDate(event.deliveryDate).toISOString().split("T")[0];
   });
-  
+
   const [editDateError, setEditDateError] = useState<string | null>(null);
   const [endDateError, setEndDateError] = useState<string | null>(null);
   const [currentLastDeliveryDate, setCurrentLastDeliveryDate] = useState<string>("");
@@ -93,11 +107,11 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
 
           if (mostRecentSeriesEndDate) {
             setCurrentLastDeliveryDate(mostRecentSeriesEndDate);
-            
+
             // Update the editRecurrence state with the current end date
-            setEditRecurrence(prev => ({
+            setEditRecurrence((prev) => ({
               ...prev,
-              repeatsEndDate: mostRecentSeriesEndDate as string
+              repeatsEndDate: mostRecentSeriesEndDate as string,
             }));
           }
         } catch (error) {
@@ -144,7 +158,7 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
 
   const handleDeleteConfirm = async () => {
     try {
-  const eventsRef = collection(db, dataSources.firebase.calendarCollection);
+      const eventsRef = collection(db, dataSources.firebase.calendarCollection);
 
       if (deleteOption === "This event") {
         await deleteDoc(doc(eventsRef, event.id));
@@ -173,13 +187,13 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
 
   const handleEditConfirm = async () => {
     try {
-  const eventsRef = collection(db, dataSources.firebase.calendarCollection);
+      const eventsRef = collection(db, dataSources.firebase.calendarCollection);
 
       if (editOption === "This event") {
         // Only update the deliveryDate for the single event, set time to noon
         const newDate = deliveryDate.toJSDate(editDeliveryDate);
         await updateDoc(doc(eventsRef, event.id), {
-          deliveryDate: newDate
+          deliveryDate: newDate,
         });
       } else if (editOption === "This and following events") {
         // Changing recurrence type: delete all future events in the series, then create new events for the new recurrence type and dates
@@ -197,9 +211,9 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
           where("clientId", "==", event.clientId),
           where("deliveryDate", ">=", originalDeliveryDate)
         );
-  const querySnapshot = await getDocs(q);
-  // Delete all future events in the series
-  await Promise.all(querySnapshot.docs.map(docSnap => deleteDoc(docSnap.ref)));
+        const querySnapshot = await getDocs(q);
+        // Delete all future events in the series
+        await Promise.all(querySnapshot.docs.map((docSnap) => deleteDoc(docSnap.ref)));
 
         // Calculate new recurrence dates for the new recurrence type
         let newRecurrenceDates = calculateRecurrenceDates({
@@ -214,7 +228,7 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
         const endDateStr = editRecurrence.repeatsEndDate
           ? deliveryDate.toISODateString(editRecurrence.repeatsEndDate)
           : null;
-        const filteredRecurrenceDates = newRecurrenceDates.filter(date => {
+        const filteredRecurrenceDates = newRecurrenceDates.filter((date) => {
           if (!endDateStr) return true;
           return date <= endDateStr;
         });
@@ -230,7 +244,7 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
             recurrence: editRecurrence.recurrence || event.recurrence || "None",
             recurrenceId: event.recurrenceId,
             repeatsEndDate: editRecurrence.repeatsEndDate || "",
-            time: event.time || ""
+            time: event.time || "",
           });
         }
       }
@@ -246,7 +260,7 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
   const handleEditDeliveryDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newDate = e.target.value;
     setEditDeliveryDate(newDate);
-    
+
     // Handle date validation with proper callback functions
     validateDateInput(
       newDate,
@@ -264,22 +278,22 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
 
   return (
     <>
-      <IconButton 
+      <IconButton
         onClick={handleMenuOpen}
         size="small"
-        sx={{ 
-          backgroundColor: 'var(--color-white)',
-          borderRadius: '50%',
-          boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-          color: 'var(--color-primary)',
-          transition: 'all 0.2s ease-in-out',
-          width: '32px',
-          height: '32px',
-          padding: '4px',
-          '&:hover': {
-            backgroundColor: 'var(--color-background-body)',
-            boxShadow: '0 4px 8px rgba(0,0,0,0.2)',
-          }
+        sx={{
+          backgroundColor: "var(--color-white)",
+          borderRadius: "50%",
+          boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+          color: "var(--color-primary)",
+          transition: "all 0.2s ease-in-out",
+          width: "32px",
+          height: "32px",
+          padding: "4px",
+          "&:hover": {
+            backgroundColor: "var(--color-background-body)",
+            boxShadow: "0 4px 8px rgba(0,0,0,0.2)",
+          },
         }}
       >
         <MoreHorizIcon />
@@ -291,15 +305,15 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
         open={Boolean(anchorEl)}
         onClose={handleMenuClose}
         anchorOrigin={{
-          vertical: 'bottom',
-          horizontal: 'right',
+          vertical: "bottom",
+          horizontal: "right",
         }}
         transformOrigin={{
-          vertical: 'top',
-          horizontal: 'right',
+          vertical: "top",
+          horizontal: "right",
         }}
       >
-        <MenuItem 
+        <MenuItem
           onClick={() => {
             setIsEditDialogOpen(true);
           }}
@@ -365,7 +379,7 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
                   onChange={(e) => {
                     setEditRecurrence({
                       ...editRecurrence,
-                      recurrence: e.target.value as "None" | "Weekly" | "2x-Monthly" | "Monthly"
+                      recurrence: e.target.value as "None" | "Weekly" | "2x-Monthly" | "Monthly",
                     });
                   }}
                 >
@@ -384,7 +398,7 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
                   onChange={(e) => {
                     setEditRecurrence({
                       ...editRecurrence,
-                      repeatsEndDate: e.target.value
+                      repeatsEndDate: e.target.value,
                     });
                   }}
                   fullWidth
@@ -398,18 +412,20 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setIsEditDialogOpen(false)}>
-            Cancel
-          </Button>
+          <Button onClick={() => setIsEditDialogOpen(false)}>Cancel</Button>
           <Button
             onClick={handleEditConfirm}
             variant="contained"
             color="primary"
             disabled={
               !editDeliveryDate ||
-              (editOption === "This and following events" && editRecurrence.recurrence !== "None" && !editRecurrence.repeatsEndDate) ||
+              (editOption === "This and following events" &&
+                editRecurrence.recurrence !== "None" &&
+                !editRecurrence.repeatsEndDate) ||
               Boolean(editDateError) ||
-              (editOption === "This and following events" && editRecurrence.recurrence !== "None" && Boolean(endDateError))
+              (editOption === "This and following events" &&
+                editRecurrence.recurrence !== "None" &&
+                Boolean(endDateError))
             }
           >
             Save
@@ -427,10 +443,7 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
       >
         <DialogTitle>Delete Event</DialogTitle>
         <DialogContent sx={{ pt: 2 }}>
-          <RadioGroup 
-            value={deleteOption} 
-            onChange={(e) => setDeleteOption(e.target.value)}
-          >
+          <RadioGroup value={deleteOption} onChange={(e) => setDeleteOption(e.target.value)}>
             <FormControlLabel value="This event" control={<Radio />} label="This event" />
             <FormControlLabel
               value="This and following events"
@@ -440,9 +453,7 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
           </RadioGroup>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setIsDeleteDialogOpen(false)}>
-            Cancel
-          </Button>
+          <Button onClick={() => setIsDeleteDialogOpen(false)}>Cancel</Button>
           <Button onClick={handleDeleteConfirm} color="error">
             Delete
           </Button>

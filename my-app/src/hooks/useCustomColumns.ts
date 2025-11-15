@@ -16,17 +16,17 @@ export const allowedPropertyKeys = [
   "tags",
   "tefapCert",
   "dob",
-  "lastDeliveryDate"
+  "lastDeliveryDate",
 ];
 
 // useCustomColumns.ts
 
 import { SelectChangeEvent } from "@mui/material";
 import { useEffect, useState } from "react";
-import { DeliveryDetails, DietaryRestrictions } from '../types';
+import { DeliveryDetails, DietaryRestrictions } from "../types";
 
 interface useCustomColumnsProps {
-  page: string
+  page: string;
 }
 
 // Define the CustomColumn interface to ensure type-safety
@@ -49,7 +49,7 @@ export interface CustomRowData {
   ethnicity: string;
 }
 
-export const useCustomColumns = ({page}: useCustomColumnsProps) => {
+export const useCustomColumns = ({ page }: useCustomColumnsProps) => {
   // Manage the custom columns state. Default to [] if not found in local storage
   const [customColumns, setCustomColumns] = useState<CustomColumn[]>(() => {
     const saved = localStorage.getItem(`ffaCustomColumns${page}`);
@@ -57,7 +57,7 @@ export const useCustomColumns = ({page}: useCustomColumnsProps) => {
       try {
         return JSON.parse(saved);
       } catch (error) {
-        console.warn('Failed to parse custom columns from localStorage:', error);
+        console.warn("Failed to parse custom columns from localStorage:", error);
         return [];
       }
     }
@@ -65,10 +65,9 @@ export const useCustomColumns = ({page}: useCustomColumnsProps) => {
   });
 
   //detect custom column change and update local store
-  useEffect(()=>{
-    localStorage.setItem(`ffaCustomColumns${page}`, JSON.stringify(customColumns))
-  },[customColumns, page])
-
+  useEffect(() => {
+    localStorage.setItem(`ffaCustomColumns${page}`, JSON.stringify(customColumns));
+  }, [customColumns, page]);
 
   // Function to add a new custom column
   const handleAddCustomColumn = () => {

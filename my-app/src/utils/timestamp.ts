@@ -9,9 +9,9 @@ export const toJSDate = (date: string | Date | Timestamp): Date => {
   if (date instanceof Timestamp) {
     return date.toDate();
   }
-  if (typeof date === 'string') {
+  if (typeof date === "string") {
     // Parse 'YYYY-MM-DD' as local date
-    const [year, month, day] = date.split('-').map(Number);
+    const [year, month, day] = date.split("-").map(Number);
     return new Date(year, month - 1, day, 12, 0, 0); // Local noon
   }
   return date;
@@ -21,12 +21,12 @@ export const toJSDate = (date: string | Date | Timestamp): Date => {
  * Convert a Date or Timestamp to an ISO date string (YYYY-MM-DD)
  */
 export const toISODateString = (date: string | Date | Timestamp): string => {
-  if (typeof date === 'string') {
+  if (typeof date === "string") {
     // Assume 'YYYY-MM-DD' format
     return date;
   }
   const jsDate = toJSDate(date);
-  return jsDate.toISOString().split('T')[0];
+  return jsDate.toISOString().split("T")[0];
 };
 
 /**

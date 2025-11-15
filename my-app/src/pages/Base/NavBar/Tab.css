@@ -32,7 +32,7 @@
 }
 
 /* Apply animation to tab items */
-.tabContainer, 
+.tabContainer,
 .tabContainerSelected,
 .tabContainerLogout {
   animation: fadeIn 0.3s ease-out;

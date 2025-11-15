@@ -1,7 +1,11 @@
 // src/components/Login.tsx
 
 import React, { useState, useEffect } from "react";
-import { signInWithEmailAndPassword, sendPasswordResetEmail, onAuthStateChanged } from "firebase/auth";
+import {
+  signInWithEmailAndPassword,
+  sendPasswordResetEmail,
+  onAuthStateChanged,
+} from "firebase/auth";
 import { AuthError } from "../../types/user-types";
 import { useNavigate } from "react-router-dom";
 import Button from "@mui/material/Button";
@@ -56,7 +60,7 @@ function Login() {
     // Cleanup the listener when the component unmounts
     return () => unsubscribe();
   }, [navigate]);
-  
+
   // Helper to map Firebase login errors to AuthError
   const mapLoginError = (error: any): AuthError => {
     if (!error || !error.code) {
@@ -114,9 +118,7 @@ function Login() {
     try {
       setIsLoading(true);
       await sendPasswordResetEmail(auth, forgotPasswordEmail);
-      setResetPasswordMessage(
-        "If you have an account with us, you should get an email soon!"
-      );
+      setResetPasswordMessage("If you have an account with us, you should get an email soon!");
       setForgotPasswordEmail("");
       setOpenDialog(false);
     } catch (error: any) {
@@ -184,20 +186,24 @@ function Login() {
               autoComplete="current-password"
               margin="normal"
             />
-            
+
             <div className={styles.forgotPasswordWrapper}>
               <p className={styles.forgotPasswordButton} onClick={handleDialogOpen}>
                 Forgot password?
               </p>
             </div>
-            
-            {loginError && <p className={styles.error} role="alert">{loginError.message}</p>}
+
+            {loginError && (
+              <p className={styles.error} role="alert">
+                {loginError.message}
+              </p>
+            )}
             {resetPasswordMessage && <p className={styles.resetMessage}>{resetPasswordMessage}</p>}
-            
-            <Button 
-              variant="contained" 
-              color="primary" 
-              type="submit" 
+
+            <Button
+              variant="contained"
+              color="primary"
+              type="submit"
               fullWidth
               disabled={isLoading}
               aria-label="Sign in"
@@ -219,7 +225,7 @@ function Login() {
             event.preventDefault();
             handleForgotPassword();
           },
-          style: { borderRadius: '8px' }
+          style: { borderRadius: "8px" },
         }}
       >
         <DialogTitle id="reset-password-dialog-title">Reset Password</DialogTitle>
@@ -244,16 +250,13 @@ function Login() {
           />
         </DialogContent>
         <DialogActions>
-          <Button 
-            onClick={handleDialogClose}
-            style={{ borderRadius: 'var(--border-radius-xl)' }}
-          >
+          <Button onClick={handleDialogClose} style={{ borderRadius: "var(--border-radius-xl)" }}>
             Cancel
           </Button>
-          <Button 
+          <Button
             type="submit"
             disabled={isLoading}
-            style={{ borderRadius: 'var(--border-radius-xl)' }}
+            style={{ borderRadius: "var(--border-radius-xl)" }}
             startIcon={isLoading ? <CircularProgress size={20} color="inherit" /> : null}
           >
             {isLoading ? "Sending..." : "Send Email"}

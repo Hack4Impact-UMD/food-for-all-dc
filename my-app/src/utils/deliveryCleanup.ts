@@ -1,9 +1,12 @@
 import { collection, getDocs, query, where, deleteDoc, doc } from "firebase/firestore";
 import { db } from "../auth/firebaseConfig";
-import dataSources from '../config/dataSources';
+import dataSources from "../config/dataSources";
 import { deliveryDate } from "./deliveryDate";
 
-export const deleteDeliveriesAfterEndDate = async (clientId: string, newEndDate: string): Promise<void> => {
+export const deleteDeliveriesAfterEndDate = async (
+  clientId: string,
+  newEndDate: string
+): Promise<void> => {
   if (!clientId || !newEndDate) {
     console.error("Invalid parameters for deleteDeliveriesAfterEndDate");
     return;
@@ -28,7 +31,9 @@ export const deleteDeliveriesAfterEndDate = async (clientId: string, newEndDate:
     const deliveryDateStr = deliveryDate.tryToISODateString(eventData.deliveryDate);
 
     if (deliveryDateStr && deliveryDateStr > endDateStr) {
-      deletionPromises.push(deleteDoc(doc(db, dataSources.firebase.calendarCollection, docSnapshot.id)));
+      deletionPromises.push(
+        deleteDoc(doc(db, dataSources.firebase.calendarCollection, docSnapshot.id))
+      );
     }
   });
 

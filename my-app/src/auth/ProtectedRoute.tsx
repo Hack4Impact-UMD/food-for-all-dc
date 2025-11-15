@@ -1,9 +1,9 @@
-import React, { ReactNode } from 'react';
-import { Navigate, Outlet } from 'react-router-dom';
-import { useAuth } from './AuthProvider';
-import { UserType } from '../types';
-import LoadingIndicator from '../components/LoadingIndicator/LoadingIndicator';
-import { Box } from '@mui/material';
+import React, { ReactNode } from "react";
+import { Navigate, Outlet } from "react-router-dom";
+import { useAuth } from "./AuthProvider";
+import { UserType } from "../types";
+import LoadingIndicator from "../components/LoadingIndicator/LoadingIndicator";
+import { Box } from "@mui/material";
 
 interface ProtectedRouteProps {
   allowedRoles: UserType[];
@@ -11,12 +11,18 @@ interface ProtectedRouteProps {
   children?: ReactNode;
 }
 
-const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ allowedRoles, redirectTo = "/", children }) => {
+const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
+  allowedRoles,
+  redirectTo = "/",
+  children,
+}) => {
   const { userRole, loading } = useAuth();
 
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+      <Box
+        sx={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh" }}
+      >
         <LoadingIndicator size={60} />
       </Box>
     );

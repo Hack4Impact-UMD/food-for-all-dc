@@ -1,7 +1,7 @@
-import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { useAuth } from '../auth/AuthProvider';
-import { clientService } from '../services/client-service';
-import { RowData } from '../components/Spreadsheet/export';
+import React, { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { useAuth } from "../auth/AuthProvider";
+import { clientService } from "../services/client-service";
+import { RowData } from "../components/Spreadsheet/export";
 
 interface ClientDataContextType {
   clients: RowData[];
@@ -46,6 +46,6 @@ export const ClientDataProvider: React.FC<{ children: ReactNode }> = ({ children
 
 export const useClientData = () => {
   const ctx = useContext(ClientDataContext);
-  if (!ctx) throw new Error('useClientData must be used within a ClientDataProvider');
+  if (!ctx) throw new Error("useClientData must be used within a ClientDataProvider");
   return ctx;
 };

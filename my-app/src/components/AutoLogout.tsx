@@ -2,14 +2,14 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { auth } from "../auth/firebaseConfig";
 import { Button, Dialog, DialogContent, DialogTitle, Typography, Box } from "@mui/material";
-import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
-import WarningAmberIcon from '@mui/icons-material/WarningAmber';
+import ErrorOutlineIcon from "@mui/icons-material/ErrorOutline";
+import WarningAmberIcon from "@mui/icons-material/WarningAmber";
 
 //AutoLogout Types
 enum AutoLogoutType {
   NONE,
   WARNING,
-  LOGOUT
+  LOGOUT,
 }
 
 const AutoLogout = () => {
@@ -51,7 +51,7 @@ const AutoLogout = () => {
   const handleActivity = useCallback(() => {
     if (auth.currentUser) {
       setType(AutoLogoutType.NONE);
-      
+
       // Debounce the timer reset to prevent excessive calls
       clearTimeout(debounceRef.current!);
       debounceRef.current = setTimeout(() => {
@@ -68,7 +68,9 @@ const AutoLogout = () => {
       if (!user) {
         clearTimeout(timeoutRef.current!);
         clearTimeout(warningRef.current!);
-        activityEvents.forEach((event) => document.removeEventListener(event, handleActivity, true));
+        activityEvents.forEach((event) =>
+          document.removeEventListener(event, handleActivity, true)
+        );
         return;
       }
 

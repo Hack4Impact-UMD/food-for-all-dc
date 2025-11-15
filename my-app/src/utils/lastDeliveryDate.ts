@@ -1,6 +1,6 @@
 import { collection, getDocs, query, where, orderBy, Timestamp } from "firebase/firestore";
 import { db } from "../auth/firebaseConfig";
-import dataSources from '../config/dataSources';
+import dataSources from "../config/dataSources";
 import { deliveryDate } from "./deliveryDate";
 
 type EventData = {
@@ -21,20 +21,16 @@ const toISODate = (value?: Date | Timestamp | string): string | null => {
 
 export const getLastDeliveryDateForClient = async (clientId: string): Promise<string | null> => {
   try {
-  const eventsRef = collection(db, dataSources.firebase.calendarCollection);
-    const q = query(
-      eventsRef,
-      where("clientId", "==", clientId),
-      orderBy("deliveryDate", "desc")
-    );
+    const eventsRef = collection(db, dataSources.firebase.calendarCollection);
+    const q = query(eventsRef, where("clientId", "==", clientId), orderBy("deliveryDate", "desc"));
     const querySnapshot = await getDocs(q);
 
     if (!querySnapshot.empty) {
-    const seriesMap = new Map<string, EventData[]>();
+      const seriesMap = new Map<string, EventData[]>();
 
       querySnapshot.forEach((doc) => {
         const eventData = doc.data() as EventData;
-        const recurrenceId = eventData.recurrenceId || 'single-' + doc.id;
+        const recurrenceId = eventData.recurrenceId || "single-" + doc.id;
         if (!seriesMap.has(recurrenceId)) {
           seriesMap.set(recurrenceId, []);
         }
@@ -44,9 +40,9 @@ export const getLastDeliveryDateForClient = async (clientId: string): Promise<st
 
       let mostRecentSeriesEndDate: string | null = null;
 
-  for (const [, events] of seriesMap.entries()) {
-  const firstEvent = events.length > 0 ? events[0] : undefined;
-  if (!firstEvent) continue;
+      for (const [, events] of seriesMap.entries()) {
+        const firstEvent = events.length > 0 ? events[0] : undefined;
+        if (!firstEvent) continue;
 
         let seriesEndDate: string | null = null;
         if (firstEvent.repeatsEndDate) {
@@ -72,22 +68,20 @@ export const getLastDeliveryDateForClient = async (clientId: string): Promise<st
   }
 };
 
-export const batchGetLastDeliveryDates = async (clientIds: string[]): Promise<Map<string, string>> => {
+export const batchGetLastDeliveryDates = async (
+  clientIds: string[]
+): Promise<Map<string, string>> => {
   const result = new Map<string, string>();
 
   if (clientIds.length === 0) return result;
 
   try {
-  const eventsRef = collection(db, dataSources.firebase.calendarCollection);
-    const q = query(
-      eventsRef,
-      where("clientId", "in", clientIds),
-      orderBy("deliveryDate", "desc")
-    );
+    const eventsRef = collection(db, dataSources.firebase.calendarCollection);
+    const q = query(eventsRef, where("clientId", "in", clientIds), orderBy("deliveryDate", "desc"));
     const querySnapshot = await getDocs(q);
 
     // (imports and types already declared at top)
-  const clientSeriesMap = new Map<string, Map<string, EventData[]>>();
+    const clientSeriesMap = new Map<string, Map<string, EventData[]>>();
 
     querySnapshot.forEach((doc) => {
       const eventData = doc.data() as EventData;
@@ -97,20 +91,20 @@ export const batchGetLastDeliveryDates = async (clientIds: string[]): Promise<Ma
       }
       const seriesMap = clientSeriesMap.get(clientId);
       if (!seriesMap) return;
-      const recurrenceId = eventData.recurrenceId || 'single-' + doc.id;
+      const recurrenceId = eventData.recurrenceId || "single-" + doc.id;
       if (!seriesMap.has(recurrenceId)) {
         seriesMap.set(recurrenceId, []);
       }
       const arr = seriesMap.get(recurrenceId);
-      if (arr) arr.push({...eventData, docId: doc.id});
+      if (arr) arr.push({ ...eventData, docId: doc.id });
     });
 
     for (const [clientId, seriesMap] of clientSeriesMap.entries()) {
       let mostRecentSeriesEndDate: string | null = null;
 
-  for (const [, events] of seriesMap.entries()) {
-  const firstEvent = events.length > 0 ? events[0] : undefined;
-  if (!firstEvent) continue;
+      for (const [, events] of seriesMap.entries()) {
+        const firstEvent = events.length > 0 ? events[0] : undefined;
+        if (!firstEvent) continue;
 
         let seriesEndDate: string | null = null;
         if (firstEvent.repeatsEndDate) {

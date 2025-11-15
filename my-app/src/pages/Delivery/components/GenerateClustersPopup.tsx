@@ -1,30 +1,37 @@
 import React, { useState, useEffect } from "react";
 import { TextField, Typography, DialogActions, Box, styled } from "@mui/material";
-import Button from '../../../components/common/Button';
+import Button from "../../../components/common/Button";
 
 //added component to center label
 const CenteredTextField = styled(TextField)({
-  '& .MuiInputLabel-root': {
-    top: '15%',
+  "& .MuiInputLabel-root": {
+    top: "15%",
   },
 });
 
 interface GenerateClustersPopupProps {
-  onGenerateClusters: (clusterNum: number, minDeliveries: number, maxDeliveries: number) => Promise<void>;
+  onGenerateClusters: (
+    clusterNum: number,
+    minDeliveries: number,
+    maxDeliveries: number
+  ) => Promise<void>;
   onClose: () => void;
 }
 
-export default function GenerateClustersPopup({ onGenerateClusters, onClose }: GenerateClustersPopupProps) {
+export default function GenerateClustersPopup({
+  onGenerateClusters,
+  onClose,
+}: GenerateClustersPopupProps) {
   const [values, setValues] = useState({
     clusterNum: "",
     minDeliveries: "",
-    maxDeliveries: ""
+    maxDeliveries: "",
   });
   const [errors, setErrors] = useState({
     clusterNum: "",
     minDeliveries: "",
     maxDeliveries: "",
-    form: ""
+    form: "",
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -34,7 +41,7 @@ export default function GenerateClustersPopup({ onGenerateClusters, onClose }: G
       clusterNum: "",
       minDeliveries: "",
       maxDeliveries: "",
-      form: ""
+      form: "",
     };
 
     //validate clusterNum
@@ -80,7 +87,7 @@ export default function GenerateClustersPopup({ onGenerateClusters, onClose }: G
 
   const handleInputChange = (name: keyof typeof values, value: string) => {
     //only allow numbers or empty string
-    if(value !== "" && !/^\d*$/.test(value)) return;
+    if (value !== "" && !/^\d*$/.test(value)) return;
 
     //update values optimistically
     const newValues = { ...values, [name]: value };
@@ -109,7 +116,7 @@ export default function GenerateClustersPopup({ onGenerateClusters, onClose }: G
       );
       onClose();
     } catch (e: any) {
-      setErrors(prev => ({ ...prev, form: e.message || "Failed to generate clusters" }));
+      setErrors((prev) => ({ ...prev, form: e.message || "Failed to generate clusters" }));
     } finally {
       setIsSubmitting(false);
     }
@@ -119,13 +126,13 @@ export default function GenerateClustersPopup({ onGenerateClusters, onClose }: G
     setValues({
       clusterNum: "",
       minDeliveries: "",
-      maxDeliveries: ""
+      maxDeliveries: "",
     });
     setErrors({
       clusterNum: "",
       minDeliveries: "",
       maxDeliveries: "",
-      form: ""
+      form: "",
     });
     onClose();
   };
@@ -143,7 +150,7 @@ export default function GenerateClustersPopup({ onGenerateClusters, onClose }: G
 
   return (
     <>
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, p: 1 }}>
+      <Box sx={{ display: "flex", flexDirection: "column", gap: 3, p: 1 }}>
         {/* Cluster Number Input */}
         <Box>
           <CenteredTextField
@@ -160,11 +167,11 @@ export default function GenerateClustersPopup({ onGenerateClusters, onClose }: G
         </Box>
 
         {/* Deliveries Range Input */}
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
           <Typography variant="body1" fontWeight="medium">
             Deliveries Per Cluster:
           </Typography>
-          <Box sx={{ display: 'flex', gap: 2 }}>
+          <Box sx={{ display: "flex", gap: 2 }}>
             <CenteredTextField
               label="Minimum"
               value={values.minDeliveries}
@@ -199,12 +206,7 @@ export default function GenerateClustersPopup({ onGenerateClusters, onClose }: G
       </Box>
 
       <DialogActions sx={{ pt: 2, pb: 1, pr: 1 }}>
-        <Button
-          variant="secondary"
-          onClick={resetAndClose}
-          disabled={isSubmitting}
-          size="medium"
-        >
+        <Button variant="secondary" onClick={resetAndClose} disabled={isSubmitting} size="medium">
           Cancel
         </Button>
         <Button

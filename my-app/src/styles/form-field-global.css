@@ -37,8 +37,8 @@ input[type="date"] {
 }
 
 /* Basic input styling */
-input:not([type="checkbox"]):not([type="radio"]), 
-select, 
+input:not([type="checkbox"]):not([type="radio"]),
+select,
 textarea,
 .MuiInputBase-input,
 .MuiOutlinedInput-input,
@@ -53,8 +53,8 @@ textarea,
 }
 
 /* Focus state with green glow */
-input:not([type="checkbox"]):not([type="radio"]):focus, 
-select:focus, 
+input:not([type="checkbox"]):not([type="radio"]):focus,
+select:focus,
 textarea:focus,
 .MuiInputBase-root.Mui-focused .MuiInputBase-input,
 .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-input,
@@ -65,8 +65,8 @@ textarea:focus,
 }
 
 /* Error state styling */
-input.error:not([type="checkbox"]):not([type="radio"]), 
-select.error, 
+input.error:not([type="checkbox"]):not([type="radio"]),
+select.error,
 textarea.error,
 .MuiInputBase-root.Mui-error .MuiInputBase-input,
 .MuiOutlinedInput-root.Mui-error .MuiOutlinedInput-input,
@@ -133,14 +133,17 @@ textarea.error,
 .MuiSelect-select,
 .MuiOutlinedInput-root {
   box-shadow: none !important;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease !important;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease !important;
 }
 
 /* Specific fix for the gender select dropdown in light green background */
 .MuiSelect-root {
   background: var(--color-white);
   /* Remove pseudo-elements that might cause double borders */
-  &::before, &::after {
+  &::before,
+  &::after {
     display: none !important;
   }
 }
@@ -304,12 +307,12 @@ input[type="date"].error {
     height: 56px !important;
     box-sizing: border-box !important;
   }
-  
+
   & .MuiInputBase-input {
     padding: 16px 14px !important;
     box-sizing: border-box !important;
   }
-  
+
   & .MuiSelect-select {
     padding: 16px 48px 16px 14px !important;
     min-height: 24px !important;

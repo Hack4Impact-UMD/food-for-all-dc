@@ -1,19 +1,15 @@
-import { Box } from "@mui/material"
-import { ReportField } from "../../types/reports-types"
+import { Box } from "@mui/material";
+import { ReportField } from "../../types/reports-types";
 interface TableProps {
-    data: ReportField[]
+  data: ReportField[];
 }
 export default function Table({ data }: TableProps) {
   //find indexes of all non-full-row items
-  const nonFullRowIndexes = data
-    .map((d, i) => (!d.isFullRow ? i : -1))
-    .filter(i => i !== -1);
+  const nonFullRowIndexes = data.map((d, i) => (!d.isFullRow ? i : -1)).filter((i) => i !== -1);
 
   //determine if last non-full-row item should be full width
   const lastIndexToFullRow =
-    nonFullRowIndexes.length % 2 !== 0
-      ? nonFullRowIndexes[nonFullRowIndexes.length - 1]
-      : -1;
+    nonFullRowIndexes.length % 2 !== 0 ? nonFullRowIndexes[nonFullRowIndexes.length - 1] : -1;
 
   return (
     <>
@@ -28,8 +24,7 @@ export default function Table({ data }: TableProps) {
       >
         {data.map((d, index) => {
           //if this item is the last non-full-row in an odd count, make it full row
-          const isFullRowAdjusted =
-            index === lastIndexToFullRow ? true : d.isFullRow;
+          const isFullRowAdjusted = index === lastIndexToFullRow ? true : d.isFullRow;
 
           return (
             <Box

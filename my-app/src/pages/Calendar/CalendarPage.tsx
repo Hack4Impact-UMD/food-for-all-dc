@@ -17,17 +17,25 @@ import CalendarPopper from "./components/CalendarPopper";
 import { calculateRecurrenceDates } from "./components/CalendarUtils";
 import DayView from "./components/DayView";
 import MonthView from "./components/MonthView";
-import { CalendarConfig, CalendarEvent, DateLimit, DeliveryEvent, Driver, NewDelivery, ViewType } from "../../types/calendar-types";
+import {
+  CalendarConfig,
+  CalendarEvent,
+  DateLimit,
+  DeliveryEvent,
+  Driver,
+  NewDelivery,
+  ViewType,
+} from "../../types/calendar-types";
 import { ClientProfile } from "../../types/client-types";
 import { useLimits } from "./components/useLimits";
 import DeliveryService from "../../services/delivery-service";
 import { clientService } from "../../services/client-service";
 import DriverService from "../../services/driver-service";
-import { toJSDate, toDayPilotDateString } from '../../utils/timestamp';
-import { DateTime } from 'luxon';
+import { toJSDate, toDayPilotDateString } from "../../utils/timestamp";
+import { DateTime } from "luxon";
 import { RecurringDeliveryProvider } from "../../context/RecurringDeliveryContext";
-import CalendarSkeleton from '../../components/skeletons/CalendarSkeleton';
-import CalendarHeaderSkeleton from '../../components/skeletons/CalendarHeaderSkeleton';
+import CalendarSkeleton from "../../components/skeletons/CalendarSkeleton";
+import CalendarHeaderSkeleton from "../../components/skeletons/CalendarHeaderSkeleton";
 import { deliveryDate } from "../../utils/deliveryDate";
 import { useNotifications } from "../../components/NotificationProvider";
 
@@ -46,9 +54,10 @@ const StyledCalendarContainer = styled(Box)(({ theme }) => ({
     "& > div > div": {
       borderBottom: "2px solid #e0e0e0 !important",
     },
-    "& .calendar_default_main, & [class*='calendar'], & .daypilot_month_main, & [class*='daypilot']": {
-      borderBottom: "2px solid var(--color-border-medium) !important",
-    },
+    "& .calendar_default_main, & [class*='calendar'], & .daypilot_month_main, & [class*='daypilot']":
+      {
+        borderBottom: "2px solid var(--color-border-medium) !important",
+      },
     "& .daypilot_month": {
       borderBottom: "2px solid var(--color-border-medium) !important",
     },
@@ -56,7 +65,6 @@ const StyledCalendarContainer = styled(Box)(({ theme }) => ({
       borderBottom: "2px solid #e0e0e0 !important",
     },
   },
-
 }));
 
 const CalendarContent = styled(Box)(({ theme }) => ({
@@ -83,7 +91,7 @@ const CalendarPage: React.FC = React.memo(() => {
   const [searchParams, setSearchParams] = useSearchParams();
   // Initialize currentDate from URL params or default to today
   const getInitialDate = () => {
-    const dateParam = searchParams.get('date');
+    const dateParam = searchParams.get("date");
     if (dateParam) {
       try {
         return new DayPilot.Date(dateParam);
@@ -96,14 +104,17 @@ const CalendarPage: React.FC = React.memo(() => {
   };
   const [currentDate, setCurrentDate] = useState<DayPilot.Date>(getInitialDate());
   // Custom function to update both state and URL params
-  const updateCurrentDate = useCallback((newDate: DayPilot.Date) => {
-    setCurrentDate(newDate);
-    setSearchParams(prev => {
-      const newParams = new URLSearchParams(prev);
-      newParams.set('date', newDate.toString("yyyy-MM-dd"));
-      return newParams;
-    });
-  }, [setSearchParams]);
+  const updateCurrentDate = useCallback(
+    (newDate: DayPilot.Date) => {
+      setCurrentDate(newDate);
+      setSearchParams((prev) => {
+        const newParams = new URLSearchParams(prev);
+        newParams.set("date", newDate.toString("yyyy-MM-dd"));
+        return newParams;
+      });
+    },
+    [setSearchParams]
+  );
   const [viewType, setViewType] = useState<ViewType>("Day");
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [events, setEvents] = useState<DeliveryEvent[]>([]);
@@ -134,12 +145,10 @@ const CalendarPage: React.FC = React.memo(() => {
   const limits = useLimits();
   const containerRef = useRef<HTMLDivElement | null>(null);
 
-
-
   // Memoized client lookup map for O(1) performance instead of O(n) array.find
   const clientLookupMap = useMemo(() => {
     const map = new Map<string, ClientProfile>();
-    clients.forEach(client => {
+    clients.forEach((client) => {
       if (client.uid) {
         map.set(client.uid, client);
       }
@@ -149,7 +158,7 @@ const CalendarPage: React.FC = React.memo(() => {
 
   // Memoized events with client names to prevent repeated calculations
   const eventsWithClientNames = useMemo(() => {
-    return events.map(event => {
+    return events.map((event) => {
       const client = clientLookupMap.get(event.clientId);
       if (client) {
         const fullName = `${client.firstName} ${client.lastName}`.trim();
@@ -166,7 +175,6 @@ const CalendarPage: React.FC = React.memo(() => {
       return event;
     });
   }, [events, clientLookupMap]);
-
 
   // Route Protection
   useEffect(() => {
@@ -209,11 +217,11 @@ const CalendarPage: React.FC = React.memo(() => {
   const clientCacheRef = useRef(new Map<string, ClientProfile>());
 
   const fetchClientsLazy = useCallback(async (clientIds: string[]) => {
-    const uncachedIds = clientIds.filter(id => !clientCacheRef.current.has(id));
+    const uncachedIds = clientIds.filter((id) => !clientCacheRef.current.has(id));
     if (uncachedIds.length > 0) {
       try {
         const clientsData = await clientService.getClientsByIds(uncachedIds);
-        clientsData.forEach(client => {
+        clientsData.forEach((client) => {
           if (client.uid) {
             clientCacheRef.current.set(client.uid, client);
           }
@@ -223,11 +231,12 @@ const CalendarPage: React.FC = React.memo(() => {
         return [];
       }
     }
-    const requestedClients = clientIds.map(id => clientCacheRef.current.get(id)).filter(Boolean);
-    setClients(prev => {
-      const isClient = (c: unknown): c is ClientProfile => !!c && typeof c === 'object' && 'uid' in c;
-      const prevMap = new Map(prev.filter(isClient).map(c => [c.uid, c]));
-      requestedClients.filter(isClient).forEach(c => prevMap.set(c.uid, c));
+    const requestedClients = clientIds.map((id) => clientCacheRef.current.get(id)).filter(Boolean);
+    setClients((prev) => {
+      const isClient = (c: unknown): c is ClientProfile =>
+        !!c && typeof c === "object" && "uid" in c;
+      const prevMap = new Map(prev.filter(isClient).map((c) => [c.uid, c]));
+      requestedClients.filter(isClient).forEach((c) => prevMap.set(c.uid, c));
       return Array.from(prevMap.values());
     });
     return requestedClients;
@@ -244,7 +253,6 @@ const CalendarPage: React.FC = React.memo(() => {
   };
 
   const fetchEvents = useCallback(async () => {
-
     try {
       let start = new DayPilot.Date(currentDate);
       let endDate;
@@ -259,14 +267,14 @@ const CalendarPage: React.FC = React.memo(() => {
           // Convert from DayPilot to JS date obj & calc the grid's start and end dates
           const monthStartLuxon = TimeUtils.fromJSDate(monthStart.toDate());
           const monthEndLuxon = TimeUtils.fromJSDate(monthEnd.toDate());
-          const gridStart = monthStartLuxon.startOf('week').toJSDate();
-          const gridEnd = monthEndLuxon.endOf('week').toJSDate();
+          const gridStart = monthStartLuxon.startOf("week").toJSDate();
+          const gridEnd = monthEndLuxon.endOf("week").toJSDate();
 
           // For consistent event counting across month boundaries, we need to fetch
           // events for a wider range that covers all possible dates that could appear
           // in any month view. This ensures that any date (like June 25th, 26th, 29th)
           // always has the same count whether viewed from June or July.
-          // 
+          //
           // We extend by 2 weeks on each side to handle extreme edge cases:
           // - A month that starts on Sunday and ends on Saturday
           // - A month that starts on Monday and ends on Friday
@@ -277,14 +285,16 @@ const CalendarPage: React.FC = React.memo(() => {
           // Convert back to DayPilot date obj.
           start = new DayPilot.Date(extendedStart);
           endDate = new DayPilot.Date(extendedEnd);
-          
+
           break;
         }
         case "Day": {
           // Always interpret the selected date as midnight in Eastern Time
-          const easternZone = 'America/New_York';
+          const easternZone = "America/New_York";
           const selectedDateStr = currentDate.toString("yyyy-MM-dd");
-          const selectedLuxon = DateTime.fromISO(selectedDateStr, { zone: easternZone }).startOf('day');
+          const selectedLuxon = DateTime.fromISO(selectedDateStr, { zone: easternZone }).startOf(
+            "day"
+          );
           const nextDayLuxon = selectedLuxon.plus({ days: 1 });
           start = new DayPilot.Date(selectedLuxon.toJSDate());
           endDate = new DayPilot.Date(nextDayLuxon.toJSDate());
@@ -294,8 +304,6 @@ const CalendarPage: React.FC = React.memo(() => {
           endDate = start.addDays(1);
       }
 
-
-
       // Use DeliveryService to fetch events by date range
       const deliveryService = DeliveryService.getInstance();
       const fetchedEvents = await deliveryService.getEventsByDateRange(
@@ -303,80 +311,74 @@ const CalendarPage: React.FC = React.memo(() => {
         endDate.toDate()
       );
 
+      // Get unique client IDs from events
+      const uniqueClientIds = [...new Set(fetchedEvents.map((event) => event.clientId))];
 
+      // Lazy load only the clients we need for these events
+      const neededClients = await fetchClientsLazy(uniqueClientIds);
 
+      // Create efficient lookup map from the clients we just fetched
+      const eventClientLookupMap = new Map();
+      neededClients.forEach((client) => {
+        if (client && client.uid) {
+          eventClientLookupMap.set(client.uid, client);
+        }
+      });
 
-        // Get unique client IDs from events
-        const uniqueClientIds = [...new Set(fetchedEvents.map(event => event.clientId))];
+      // Update client names in events using efficient Map lookup
+      const updatedEvents = fetchedEvents.map((event) => {
+        const client = eventClientLookupMap.get(event.clientId);
+        if (client) {
+          const fullName = `${client.firstName} ${client.lastName}`.trim();
+          return {
+            ...event,
+            clientName: fullName,
+          };
+        }
+        return event;
+      });
 
-        
-        // Lazy load only the clients we need for these events
-        const neededClients = await fetchClientsLazy(uniqueClientIds);
-        
-        // Create efficient lookup map from the clients we just fetched
-        const eventClientLookupMap = new Map();
-        neededClients.forEach(client => {
-          if (client && client.uid) {
-            eventClientLookupMap.set(client.uid, client);
-          }
-        });
+      // Use all events for display and counting
+      setEvents(updatedEvents);
 
+      // Update calendar configuration with new events
+      const formattedEvents = updatedEvents.map((event) => ({
+        id: event.id,
+        // Removed date from display text
+        text: `Client: ${event.clientName} (Driver: ${event.assignedDriverName})`,
+        start: new DayPilot.Date(toJSDate(event.deliveryDate)),
+        end: new DayPilot.Date(toJSDate(event.deliveryDate)),
+        backColor: "var(--color-primary)",
+      }));
 
-        
-        // Update client names in events using efficient Map lookup
-        const updatedEvents = fetchedEvents.map(event => {
-          const client = eventClientLookupMap.get(event.clientId);
-          if (client) {
-            const fullName = `${client.firstName} ${client.lastName}`.trim();
-            return {
-              ...event,
-              clientName: fullName
-            };
-          }
-          return event;
-        });
+      setCalendarConfig((prev) => ({
+        ...prev,
+        events: formattedEvents,
+        startDate: currentDate,
+        durationBarVisible: false,
+      }));
 
-
-        // Use all events for display and counting
-        setEvents(updatedEvents);
-
-        // Update calendar configuration with new events
-        const formattedEvents = updatedEvents.map(event => ({
-          id: event.id,
-          // Removed date from display text
-          text: `Client: ${event.clientName} (Driver: ${event.assignedDriverName})`,
-          start: new DayPilot.Date(toJSDate(event.deliveryDate)),
-          end: new DayPilot.Date(toJSDate(event.deliveryDate)),
-          backColor: "var(--color-primary)",
-        }));
-
-        setCalendarConfig((prev) => ({
-          ...prev,
-          events: formattedEvents,
-          startDate: currentDate,
-          durationBarVisible: false,
-        }));
-
-
-        return updatedEvents;
+      return updatedEvents;
     } catch (error) {
       console.error("Error fetching events:", error);
       return [];
     }
-  }, [currentDate, viewType, fetchClientsLazy]);  // Removed clientLookupMap and clients.length as they're no longer needed
+  }, [currentDate, viewType, fetchClientsLazy]); // Removed clientLookupMap and clients.length as they're no longer needed
 
   const handleAddDelivery = async (newDelivery: NewDelivery) => {
     try {
       let recurrenceDates: string[] = [];
       const recurrenceId = crypto.randomUUID();
       // Find the selected client profile
-      const selectedClient = clients.find(c => c.uid === newDelivery.clientId);
-      const clientName = selectedClient ? `${selectedClient.firstName} ${selectedClient.lastName}`.trim() : newDelivery.clientName || "";
+      const selectedClient = clients.find((c) => c.uid === newDelivery.clientId);
+      const clientName = selectedClient
+        ? `${selectedClient.firstName} ${selectedClient.lastName}`.trim()
+        : newDelivery.clientName || "";
 
       if (newDelivery.recurrence === "Custom") {
         recurrenceDates = (newDelivery.customDates || [])
-          .map(date => {
-            if (typeof date === 'object' && date !== null && 'getTime' in date) {
+          .map((date) => {
+            if (typeof date === "object" && date !== null && "getTime" in date) {
               // It's a Date object
               const iso = DateTime.fromJSDate(date as Date).toISODate();
               return iso ? iso : "";
@@ -397,21 +399,19 @@ const CalendarPage: React.FC = React.memo(() => {
       // Filter out dates that already have a delivery for the same client
       const existingEventDates = new Set(
         events
-          .filter(event => event.clientId === newDelivery.clientId)
-          .map(event => {
+          .filter((event) => event.clientId === newDelivery.clientId)
+          .map((event) => {
             const jsDate = toJSDate(event.deliveryDate);
             return new DayPilot.Date(jsDate).toString("yyyy-MM-dd");
           })
       );
 
-      const uniqueRecurrenceDates = recurrenceDates.filter(date => 
-        !existingEventDates.has(date)
-      );
+      const uniqueRecurrenceDates = recurrenceDates.filter((date) => !existingEventDates.has(date));
 
       const deliveryService = DeliveryService.getInstance();
       const seriesStartDate = newDelivery.deliveryDate;
 
-      const createPromises = uniqueRecurrenceDates.map(dateStr => {
+      const createPromises = uniqueRecurrenceDates.map((dateStr) => {
         const normalizedDeliveryDate = deliveryDate.toJSDate(dateStr);
         const eventToAdd: Partial<DeliveryEvent> = {
           clientId: newDelivery.clientId,
@@ -436,9 +436,10 @@ const CalendarPage: React.FC = React.memo(() => {
       setIsModalOpen(false);
 
       const deliveryCount = uniqueRecurrenceDates.length;
-      const deliveryText = deliveryCount === 1
-        ? `Delivery added for ${clientName}`
-        : `${deliveryCount} deliveries added for ${clientName}`;
+      const deliveryText =
+        deliveryCount === 1
+          ? `Delivery added for ${clientName}`
+          : `${deliveryCount} deliveries added for ${clientName}`;
       showSuccess(deliveryText);
     } catch (error) {
       console.error("Error adding delivery:", error);
@@ -468,25 +469,23 @@ const CalendarPage: React.FC = React.memo(() => {
   // Update calendar when view type or date changes
   useEffect(() => {
     fetchEvents();
-  }, [fetchEvents, currentDate, viewType]);  // Clients are now fetched lazily within fetchEvents
+  }, [fetchEvents, currentDate, viewType]); // Clients are now fetched lazily within fetchEvents
 
   // Handle URL parameter changes (e.g., browser back/forward, direct URL access)
   useEffect(() => {
-    const dateParam = searchParams.get('date');
+    const dateParam = searchParams.get("date");
     if (dateParam) {
       try {
         const urlDate = new DayPilot.Date(dateParam);
         // Only update if different from current date to avoid infinite loops
         if (urlDate.toString("yyyy-MM-dd") !== currentDate.toString("yyyy-MM-dd")) {
-
           setCurrentDate(urlDate);
         }
       } catch {
         // If date param is invalid, don't update
-
       }
     }
-  }, [searchParams, currentDate]);  // Fixed: use stable dependencies
+  }, [searchParams, currentDate]); // Fixed: use stable dependencies
 
   // Initial data fetch - combined for better performance
   useEffect(() => {
@@ -496,7 +495,7 @@ const CalendarPage: React.FC = React.memo(() => {
         // Fetch all data in parallel for better performance
         await Promise.all([
           fetchLimits(),
-          fetchDrivers()
+          fetchDrivers(),
           // Removed fetchClients() - we now fetch clients lazily when events are loaded
         ]);
       } catch (error) {
@@ -506,7 +505,7 @@ const CalendarPage: React.FC = React.memo(() => {
         setIsInitialLoad(false);
       }
     };
-    
+
     fetchAllData();
   }, []);
 
@@ -516,7 +515,8 @@ const CalendarPage: React.FC = React.memo(() => {
     const endOfMonth = currentDate.lastDayOfMonth();
     const startOfWeek = startOfMonth.firstDayOfWeek();
     const endOfWeek = endOfMonth.firstDayOfWeek().addDays(6); // Get last day of week containing end of month
-    const totalDays = Math.ceil((endOfMonth.getTime() - startOfWeek.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+    const totalDays =
+      Math.ceil((endOfMonth.getTime() - startOfWeek.getTime()) / (1000 * 60 * 60 * 24)) + 1;
     return Math.ceil(totalDays / 7);
   };
 
@@ -531,26 +531,29 @@ const CalendarPage: React.FC = React.memo(() => {
       // Calculate the daily limit for the current day
       const currentDayOfWeek = currentDate.dayOfWeek(); // 0 = Sunday, 1 = Monday, etc.
       const dailyLimit = limits[currentDayOfWeek];
-      
+
       return (
-        <DayView 
-          events={eventsWithClientNames} 
-          clients={clients} 
-          onEventModified={fetchEvents} 
+        <DayView
+          events={eventsWithClientNames}
+          clients={clients}
+          onEventModified={fetchEvents}
           dailyLimit={dailyLimit}
         />
       );
     }
-    
+
     if (viewType === "Month") {
       return (
-        <MonthView 
+        <MonthView
           calendarConfig={calendarConfig}
           dailyLimits={dailyLimits}
-          limits={DAYS.reduce((acc, day, index) => {
-            acc[day.charAt(0).toUpperCase() + day.slice(1)] = limits[index];
-            return acc;
-          }, {} as Record<string, number>)}
+          limits={DAYS.reduce(
+            (acc, day, index) => {
+              acc[day.charAt(0).toUpperCase() + day.slice(1)] = limits[index];
+              return acc;
+            },
+            {} as Record<string, number>
+          )}
           onTimeRangeSelected={(args: any) => {
             updateCurrentDate(args.start);
             setViewType("Day");
@@ -558,7 +561,7 @@ const CalendarPage: React.FC = React.memo(() => {
         />
       );
     }
-    
+
     return null;
   };
 
@@ -570,9 +573,9 @@ const CalendarPage: React.FC = React.memo(() => {
             sx={{
               width: drawerWidth,
               flexShrink: 0,
-              '& .MuiDrawer-paper': {
+              "& .MuiDrawer-paper": {
                 width: drawerWidth,
-                boxSizing: 'border-box',
+                boxSizing: "border-box",
               },
             }}
             variant="persistent"
@@ -584,27 +587,35 @@ const CalendarPage: React.FC = React.memo(() => {
                 <MenuRoundedIcon />
               </IconButton>
               {/* Add drawer content here if needed */}
-              <Box sx={{ width: '100%', mt: 2, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+              <Box
+                sx={{
+                  width: "100%",
+                  mt: 2,
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                }}
+              >
                 <a
                   href="https://docs.google.com/document/d/1cHri2wCaWSghYgxS-Kknjv5ZB26JuuAfzd85ayXLWbM/edit?tab=t.0"
                   target="_blank"
                   rel="noopener noreferrer"
-                  style={{ textDecoration: 'none', width: '100%' }}
+                  style={{ textDecoration: "none", width: "100%" }}
                 >
                   <Box
                     sx={{
-                      width: '90%',
-                      bgcolor: 'var(--color-primary)',
-                      color: 'var(--color-white)',
+                      width: "90%",
+                      bgcolor: "var(--color-primary)",
+                      color: "var(--color-white)",
                       borderRadius: 2,
                       p: 1.5,
-                      textAlign: 'center',
+                      textAlign: "center",
                       fontWeight: 600,
-                      fontSize: '1rem',
+                      fontSize: "1rem",
                       boxShadow: 1,
-                      cursor: 'pointer',
+                      cursor: "pointer",
                       mt: 1,
-                      '&:hover': { bgcolor: '#1a5c4a' }
+                      "&:hover": { bgcolor: "#1a5c4a" },
                     }}
                   >
                     Documentation
@@ -617,13 +628,13 @@ const CalendarPage: React.FC = React.memo(() => {
         <Box
           sx={{
             flexGrow: 1,
-            transition: 'margin 0.3s',
+            transition: "margin 0.3s",
             marginLeft: drawerOpen ? `${drawerWidth}px` : 0,
-            display: 'flex',
-            flexDirection: 'column',
-            height: '100vh',
-            overflow: 'hidden',
-            alignItems: 'center',
+            display: "flex",
+            flexDirection: "column",
+            height: "100vh",
+            overflow: "hidden",
+            alignItems: "center",
           }}
         >
           {isLoading ? (
@@ -631,15 +642,18 @@ const CalendarPage: React.FC = React.memo(() => {
           ) : (
             <AppBar position="static" color="default" elevation={1}></AppBar>
           )}
-          <Box component="main" sx={{
-            flexGrow: 1,
-            overflow: "hidden",
-            width: "95vw",
-            maxWidth: "95vw",
-            marginLeft: drawerOpen ? `${drawerWidth}px` : "2.5vw",
-            marginRight: drawerOpen ? "0" : "2.5vw",
-            boxSizing: "border-box",
-          }}>
+          <Box
+            component="main"
+            sx={{
+              flexGrow: 1,
+              overflow: "hidden",
+              width: "95vw",
+              maxWidth: "95vw",
+              marginLeft: drawerOpen ? `${drawerWidth}px` : "2.5vw",
+              marginRight: drawerOpen ? "0" : "2.5vw",
+              boxSizing: "border-box",
+            }}
+          >
             {!isLoading && (
               <CalendarHeader
                 viewType={viewType}
@@ -653,7 +667,11 @@ const CalendarPage: React.FC = React.memo(() => {
                   setIsModalOpen(true);
                   preloadAllClients();
                 }}
-                onEditLimits={viewType === "Month" ? (event) => setAnchorEl(anchorEl ? null : event.currentTarget) : undefined}
+                onEditLimits={
+                  viewType === "Month"
+                    ? (event) => setAnchorEl(anchorEl ? null : event.currentTarget)
+                    : undefined
+                }
               />
             )}
             <StyledCalendarContainer
@@ -696,6 +714,6 @@ const CalendarPage: React.FC = React.memo(() => {
 });
 
 // Add display name for debugging
-CalendarPage.displayName = 'CalendarPage';
+CalendarPage.displayName = "CalendarPage";
 
 export default CalendarPage;

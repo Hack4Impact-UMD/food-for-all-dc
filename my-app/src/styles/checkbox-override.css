@@ -10,7 +10,7 @@
 
 .MuiCheckbox-root:focus-visible::after,
 .MuiCheckbox-root.Mui-focusVisible::after {
-  content: '' !important;
+  content: "" !important;
   position: absolute !important;
   top: -8px !important;
   left: -8px !important;

@@ -1,5 +1,5 @@
-import React, { useState, useRef, useMemo } from 'react';
-import { Box } from '@mui/material';
+import React, { useState, useRef, useMemo } from "react";
+import { Box } from "@mui/material";
 
 interface VirtualScrollProps<T = unknown> {
   items: T[];
@@ -14,7 +14,7 @@ const VirtualScroll = <T,>({
   itemHeight,
   containerHeight,
   renderItem,
-  overscan = 5
+  overscan = 5,
 }: VirtualScrollProps<T>) => {
   const [scrollTop, setScrollTop] = useState(0);
   const scrollElementRef = useRef<HTMLDivElement>(null);
@@ -36,7 +36,7 @@ const VirtualScroll = <T,>({
       startIndex,
       endIndex,
       totalHeight,
-      offsetY: startIndex * itemHeight
+      offsetY: startIndex * itemHeight,
     };
   }, [scrollTop, itemHeight, containerHeight, items.length, overscan]);
 
@@ -50,18 +50,18 @@ const VirtualScroll = <T,>({
       onScroll={handleScroll}
       sx={{
         height: containerHeight,
-        overflowY: 'auto',
-        width: '100%'
+        overflowY: "auto",
+        width: "100%",
       }}
     >
       {/* Total height container to maintain scrollbar */}
-      <Box sx={{ height: visibleRange.totalHeight, position: 'relative' }}>
+      <Box sx={{ height: visibleRange.totalHeight, position: "relative" }}>
         {/* Visible items container */}
         <Box
           sx={{
-            position: 'absolute',
+            position: "absolute",
             top: visibleRange.offsetY,
-            width: '100%'
+            width: "100%",
           }}
         >
           {visibleItems.map((item, index) => (

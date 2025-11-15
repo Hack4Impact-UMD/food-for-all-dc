@@ -1,10 +1,10 @@
 import { db } from "../auth/firebaseConfig";
-import { ClientProfile } from '../types';
-import type { RowData } from '../components/Spreadsheet/export';
+import { ClientProfile } from "../types";
+import type { RowData } from "../components/Spreadsheet/export";
 import { LatLngTuple } from "leaflet";
 import { Time, TimeUtils } from "../utils/timeUtils";
-import { retry } from '../utils/retry';
-import { ServiceError, formatServiceError } from '../utils/serviceError';
+import { retry } from "../utils/retry";
+import { ServiceError, formatServiceError } from "../utils/serviceError";
 import {
   collection,
   doc,
@@ -18,10 +18,10 @@ import {
   query,
   orderBy,
   limit as fbLimit,
-  startAfter
+  startAfter,
 } from "firebase/firestore";
-import { validateClientProfile } from '../utils/firestoreValidation';
-import dataSources from '../config/dataSources';
+import { validateClientProfile } from "../utils/firestoreValidation";
+import dataSources from "../config/dataSources";
 
 /**
  * Client Service - Handles all client-related operations with Firebase
@@ -62,7 +62,7 @@ class ClientService {
       }
       return null;
     } catch (error) {
-      throw formatServiceError(error, 'Failed to get client by ID');
+      throw formatServiceError(error, "Failed to get client by ID");
     }
   }
 
@@ -71,7 +71,10 @@ class ClientService {
    * @param pageSize Number of clients per page
    * @param lastDoc Last document from previous page (for pagination)
    */
-  public async getAllClients(pageSize = 3000, lastDoc?: any): Promise<{ clients: ClientProfile[]; lastDoc?: any }> {
+  public async getAllClients(
+    pageSize = 3000,
+    lastDoc?: any
+  ): Promise<{ clients: ClientProfile[]; lastDoc?: any }> {
     try {
       return await retry(async () => {
         let q = query(collection(this.db, this.clientsCollection), fbLimit(pageSize));
@@ -151,7 +154,7 @@ class ClientService {
         return { clients, lastDoc: snapshot.docs[snapshot.docs.length - 1] };
       });
     } catch (error) {
-      throw formatServiceError(error, 'Failed to get all clients');
+      throw formatServiceError(error, "Failed to get all clients");
     }
   }
 
@@ -165,9 +168,9 @@ class ClientService {
 
       // For small batches, use parallel individual fetches
       if (uids.length <= 10) {
-        const promises = uids.map(uid => this.getClientById(uid));
+        const promises = uids.map((uid) => this.getClientById(uid));
         const results = await Promise.all(promises);
-        return results.filter(client => client !== null) as ClientProfile[];
+        return results.filter((client) => client !== null) as ClientProfile[];
       }
 
       // For larger batches, we'd need a more sophisticated approach
@@ -177,13 +180,13 @@ class ClientService {
 
       for (let i = 0; i < uids.length; i += batchSize) {
         const batch = uids.slice(i, i + batchSize);
-        const promises = batch.map(uid => this.getClientById(uid));
+        const promises = batch.map((uid) => this.getClientById(uid));
         const batchResults = await Promise.all(promises);
-        clients.push(...(batchResults.filter(client => client !== null) as ClientProfile[]));
+        clients.push(...(batchResults.filter((client) => client !== null) as ClientProfile[]));
       }
       return clients;
     } catch (error) {
-      throw formatServiceError(error, 'Failed to get clients by IDs');
+      throw formatServiceError(error, "Failed to get clients by IDs");
     }
   }
 
@@ -192,18 +195,21 @@ class ClientService {
    * @param searchTerm Name to search for
    * @param limitCount Maximum results to return
    */
-  public async searchClientsByName(searchTerm: string, limitCount = 50): Promise<Pick<ClientProfile, 'uid' | 'firstName' | 'lastName' | 'address'>[]> {
+  public async searchClientsByName(
+    searchTerm: string,
+    limitCount = 50
+  ): Promise<Pick<ClientProfile, "uid" | "firstName" | "lastName" | "address">[]> {
     try {
       if (!searchTerm.trim()) {
         const emptyQuery = query(collection(this.db, this.clientsCollection), fbLimit(limitCount));
         const snapshot = await getDocs(emptyQuery);
-        return snapshot.docs.map(doc => {
+        return snapshot.docs.map((doc) => {
           const data = doc.data();
           return {
             uid: doc.id,
-            firstName: data.firstName || '',
-            lastName: data.lastName || '',
-            address: data.address || ''
+            firstName: data.firstName || "",
+            lastName: data.lastName || "",
+            address: data.address || "",
           };
         });
       }
@@ -212,16 +218,16 @@ class ClientService {
       const snapshot = await getDocs(collection(this.db, this.clientsCollection));
 
       const results = snapshot.docs
-        .map(doc => {
+        .map((doc) => {
           const data = doc.data();
           return {
             uid: doc.id,
-            firstName: data.firstName || '',
-            lastName: data.lastName || '',
-            address: data.address || ''
+            firstName: data.firstName || "",
+            lastName: data.lastName || "",
+            address: data.address || "",
           };
         })
-        .filter(client => {
+        .filter((client) => {
           const fullName = `${client.firstName} ${client.lastName}`.toLowerCase();
           return fullName.includes(searchLower);
         })
@@ -229,12 +235,15 @@ class ClientService {
 
       return results;
     } catch (error) {
-      throw formatServiceError(error, 'Failed to search clients by name');
+      throw formatServiceError(error, "Failed to search clients by name");
     }
   }
 
   // For Spreadsheet only: returns RowData[]
-  public async getAllClientsForSpreadsheet(pageSize = 3000, lastDoc?: any): Promise<{ clients: RowData[]; lastDoc?: any }> {
+  public async getAllClientsForSpreadsheet(
+    pageSize = 3000,
+    lastDoc?: any
+  ): Promise<{ clients: RowData[]; lastDoc?: any }> {
     try {
       return await retry(async () => {
         let q = query(collection(this.db, this.clientsCollection), fbLimit(pageSize));
@@ -243,35 +252,45 @@ class ClientService {
         }
         const snapshot = await getDocs(q);
         // Fetch all delivery events
-        const deliverySnapshot = await getDocs(collection(this.db, dataSources.firebase.calendarCollection));
-        const allDeliveries = deliverySnapshot.docs.map(doc => doc.data());
+        const deliverySnapshot = await getDocs(
+          collection(this.db, dataSources.firebase.calendarCollection)
+        );
+        const allDeliveries = deliverySnapshot.docs.map((doc) => doc.data());
 
         const clients = snapshot.docs.map((doc) => {
           const raw = doc.data() as any;
           // Find latest delivery date for this client
-          const clientDeliveries = allDeliveries.filter((d: any) => d.clientId === doc.id && d.deliveryDate);
-          let lastDeliveryDate = '';
+          const clientDeliveries = allDeliveries.filter(
+            (d: any) => d.clientId === doc.id && d.deliveryDate
+          );
+          let lastDeliveryDate = "";
           if (clientDeliveries.length > 0) {
             const latest = clientDeliveries.reduce((max, curr) => {
-              const currDate = curr.deliveryDate?.toDate ? curr.deliveryDate.toDate() : curr.deliveryDate;
-              const maxDate = max.deliveryDate?.toDate ? max.deliveryDate.toDate() : max.deliveryDate;
+              const currDate = curr.deliveryDate?.toDate
+                ? curr.deliveryDate.toDate()
+                : curr.deliveryDate;
+              const maxDate = max.deliveryDate?.toDate
+                ? max.deliveryDate.toDate()
+                : max.deliveryDate;
               return currDate > maxDate ? curr : max;
             });
-            const dateObj = latest.deliveryDate?.toDate ? latest.deliveryDate.toDate() : latest.deliveryDate;
-            lastDeliveryDate = dateObj ? dateObj.toISOString().slice(0, 10) : '';
+            const dateObj = latest.deliveryDate?.toDate
+              ? latest.deliveryDate.toDate()
+              : latest.deliveryDate;
+            lastDeliveryDate = dateObj ? dateObj.toISOString().slice(0, 10) : "";
           }
           const mapped = {
             id: doc.id,
             uid: doc.id,
             clientid: raw.clientid || doc.id,
-            firstName: raw.firstName || '',
-            lastName: raw.lastName || '',
-            phone: raw.phone || '',
+            firstName: raw.firstName || "",
+            lastName: raw.lastName || "",
+            phone: raw.phone || "",
             houseNumber: raw.houseNumber || 0,
-            address: raw.address || '',
-            address2: raw.address2 || '',
+            address: raw.address || "",
+            address2: raw.address2 || "",
             deliveryDetails: {
-              deliveryInstructions: raw.deliveryDetails?.deliveryInstructions || '',
+              deliveryInstructions: raw.deliveryDetails?.deliveryInstructions || "",
               dietaryRestrictions: {
                 lowSugar: raw.deliveryDetails?.dietaryRestrictions?.lowSugar || false,
                 kidneyFriendly: raw.deliveryDetails?.dietaryRestrictions?.kidneyFriendly || false,
@@ -281,25 +300,27 @@ class ClientService {
                 microwaveOnly: raw.deliveryDetails?.dietaryRestrictions?.microwaveOnly || false,
                 softFood: raw.deliveryDetails?.dietaryRestrictions?.softFood || false,
                 lowSodium: raw.deliveryDetails?.dietaryRestrictions?.lowSodium || false,
-                noCookingEquipment: raw.deliveryDetails?.dietaryRestrictions?.noCookingEquipment || false,
+                noCookingEquipment:
+                  raw.deliveryDetails?.dietaryRestrictions?.noCookingEquipment || false,
                 heartFriendly: raw.deliveryDetails?.dietaryRestrictions?.heartFriendly || false,
                 foodAllergens: raw.deliveryDetails?.dietaryRestrictions?.foodAllergens || [],
-                otherText: raw.deliveryDetails?.dietaryRestrictions?.otherText || '',
+                otherText: raw.deliveryDetails?.dietaryRestrictions?.otherText || "",
                 other: raw.deliveryDetails?.dietaryRestrictions?.other || false,
-                dietaryPreferences: raw.deliveryDetails?.dietaryRestrictions?.dietaryPreferences || '',
+                dietaryPreferences:
+                  raw.deliveryDetails?.dietaryRestrictions?.dietaryPreferences || "",
               },
             },
-            ethnicity: raw.ethnicity || '',
+            ethnicity: raw.ethnicity || "",
             adults: raw.adults ?? null,
             children: raw.children ?? null,
-            deliveryFreq: raw.deliveryFreq ?? '',
-            gender: raw.gender ?? '',
-            language: raw.language ?? '',
-            notes: raw.notes ?? '',
-            tefapCert: raw.tefapCert ?? '',
-            dob: raw.dob ?? '',
-            ward: raw.ward ?? '',
-            zipCode: raw.zipCode ?? '',
+            deliveryFreq: raw.deliveryFreq ?? "",
+            gender: raw.gender ?? "",
+            language: raw.language ?? "",
+            notes: raw.notes ?? "",
+            tefapCert: raw.tefapCert ?? "",
+            dob: raw.dob ?? "",
+            ward: raw.ward ?? "",
+            zipCode: raw.zipCode ?? "",
             tags: raw.tags ?? [],
             referralEntity: raw.referralEntity ?? undefined,
             lastDeliveryDate,
@@ -309,7 +330,7 @@ class ClientService {
         return { clients, lastDoc: snapshot.docs[snapshot.docs.length - 1] };
       });
     } catch (error) {
-      throw formatServiceError(error, 'Failed to get all clients for spreadsheet');
+      throw formatServiceError(error, "Failed to get all clients for spreadsheet");
     }
   }
   /**
@@ -329,7 +350,7 @@ class ClientService {
         onData(clients);
       },
       (error) => {
-        if (onError) onError(formatServiceError(error, 'Real-time clients listener error'));
+        if (onError) onError(formatServiceError(error, "Real-time clients listener error"));
       }
     );
     return unsubscribe;
@@ -348,7 +369,7 @@ class ClientService {
         });
       });
     } catch (error) {
-      throw formatServiceError(error, 'Failed to update client');
+      throw formatServiceError(error, "Failed to update client");
     }
   }
 
@@ -358,14 +379,14 @@ class ClientService {
   public async deleteClient(uid: string): Promise<void> {
     try {
       // Delete all deliveries for this client first
-      const DeliveryService = (await import('./delivery-service')).default.getInstance();
+      const DeliveryService = (await import("./delivery-service")).default.getInstance();
       await DeliveryService.deleteEventsByClientId(uid);
       // Now delete the client
       await retry(async () => {
         await deleteDoc(doc(this.db, this.clientsCollection, uid));
       });
     } catch (error) {
-      throw formatServiceError(error, 'Failed to delete client');
+      throw formatServiceError(error, "Failed to delete client");
     }
   }
 
@@ -382,7 +403,7 @@ class ClientService {
         return [];
       });
     } catch (error) {
-      throw formatServiceError(error, 'Failed to get tags');
+      throw formatServiceError(error, "Failed to get tags");
     }
   }
 
@@ -401,7 +422,7 @@ class ClientService {
         );
       });
     } catch (error) {
-      throw formatServiceError(error, 'Failed to update tags');
+      throw formatServiceError(error, "Failed to update tags");
     }
   }
 
@@ -412,7 +433,11 @@ class ClientService {
     // ...existing code...
     try {
       await retry(async () => {
-        await setDoc(doc(this.db, this.clientsCollection, uid), { clusterID: clusterId }, { merge: true });
+        await setDoc(
+          doc(this.db, this.clientsCollection, uid),
+          { clusterID: clusterId },
+          { merge: true }
+        );
       });
     } catch (error) {
       throw formatServiceError(error, `Failed to update cluster for client ${uid}`);
@@ -435,7 +460,7 @@ class ClientService {
       await retry(async () => {
         await updateDoc(clientRef, {
           coordinates: coordinates,
-          updatedAt: Time.Firebase.toTimestamp(TimeUtils.now())
+          updatedAt: Time.Firebase.toTimestamp(TimeUtils.now()),
         });
       });
     } catch (error) {

@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import styles from "./PopUp.module.css";
 import { Box, Typography, Alert, AlertTitle, IconButton } from "@mui/material";
-import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
-import CloseIcon from '@mui/icons-material/Close';
+import ErrorOutlineIcon from "@mui/icons-material/ErrorOutline";
+import CloseIcon from "@mui/icons-material/Close";
 
 interface ErrorPopUpProps {
   message: string;
@@ -14,10 +14,10 @@ interface ErrorPopUpProps {
  * A more prominent error popup component for important errors
  * Shows as a modal dialog in the center of the screen
  */
-const ErrorPopUp: React.FC<ErrorPopUpProps> = ({ 
-  message, 
-  duration,  // Optional - if provided, will auto-close after duration
-  title = "Error" 
+const ErrorPopUp: React.FC<ErrorPopUpProps> = ({
+  message,
+  duration, // Optional - if provided, will auto-close after duration
+  title = "Error",
 }) => {
   const [visible, setVisible] = useState(true);
 
@@ -40,37 +40,32 @@ const ErrorPopUp: React.FC<ErrorPopUpProps> = ({
 
   return (
     <Box className={styles.errorPopupOverlay} onClick={handleClose}>
-      <Alert 
+      <Alert
         severity="error"
         variant="filled"
         icon={<ErrorOutlineIcon fontSize="large" />}
         className={styles.errorPopupContainer}
         sx={{
           // Enhanced styles to make the error more prominent
-          boxShadow: '0 4px 20px rgba(255, 0, 0, 0.3), 0 0 40px rgba(255, 0, 0, 0.15)', 
-          border: '2px solid var(--color-error)',
-          '& .MuiAlert-message': {
-            fontSize: '1.1rem'
+          boxShadow: "0 4px 20px rgba(255, 0, 0, 0.3), 0 0 40px rgba(255, 0, 0, 0.15)",
+          border: "2px solid var(--color-error)",
+          "& .MuiAlert-message": {
+            fontSize: "1.1rem",
           },
-          '& .MuiAlert-icon': {
-            fontSize: '2rem'
-          }
+          "& .MuiAlert-icon": {
+            fontSize: "2rem",
+          },
         }}
         // Stop propagation to prevent closing when clicking inside the alert
         onClick={(e) => e.stopPropagation()}
         action={
-          <IconButton
-            aria-label="close"
-            color="inherit"
-            size="small"
-            onClick={handleClose}
-          >
+          <IconButton aria-label="close" color="inherit" size="small" onClick={handleClose}>
             <CloseIcon fontSize="inherit" />
           </IconButton>
         }
       >
-        <AlertTitle sx={{ fontSize: '1.5rem', fontWeight: 'bold' }}>{title}</AlertTitle>
-        <Typography sx={{ whiteSpace: 'pre-line' }}>{message}</Typography>
+        <AlertTitle sx={{ fontSize: "1.5rem", fontWeight: "bold" }}>{title}</AlertTitle>
+        <Typography sx={{ whiteSpace: "pre-line" }}>{message}</Typography>
       </Alert>
     </Box>
   );

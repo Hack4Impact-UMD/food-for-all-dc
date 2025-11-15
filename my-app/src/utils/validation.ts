@@ -29,7 +29,7 @@ export const isValidPhone = (phone: string): boolean => {
  * @returns Whether the string is empty or only whitespace
  */
 export const isEmpty = (value: string): boolean => {
-  return value.trim() === '';
+  return value.trim() === "";
 };
 
 /**
@@ -137,14 +137,10 @@ export const validateDriverFields = (fields: {
  * @param maxYear The maximum allowed year (default: 2100)
  * @returns Whether the date string follows the MM/DD/YYYY format and is a valid date
  */
-export const isValidDateFormat = (
-  dateString: string, 
-  minYear = 1900, 
-  maxYear = 2100
-): boolean => {
+export const isValidDateFormat = (dateString: string, minYear = 1900, maxYear = 2100): boolean => {
   // Check if empty
   if (!dateString) return false;
-  
+
   // Check if the input matches MM/DD/YYYY pattern without any extra characters
   const dateRegex = /^(0[1-9]|1[0-2])\/(0[1-9]|[12]\d|3[01])\/(\d{4})$/;
   if (!dateRegex.test(dateString)) {
@@ -152,7 +148,7 @@ export const isValidDateFormat = (
   }
 
   // Validate that it's an actual valid date
-  const [monthStr, dayStr, yearStr] = dateString.split('/');
+  const [monthStr, dayStr, yearStr] = dateString.split("/");
   const month = parseInt(monthStr, 10);
   const day = parseInt(dayStr, 10);
   const year = parseInt(yearStr, 10);
@@ -164,11 +160,7 @@ export const isValidDateFormat = (
 
   // Create a date object and check if the input matches a valid date
   const date = new Date(year, month - 1, day);
-  return (
-    date.getFullYear() === year &&
-    date.getMonth() === month - 1 &&
-    date.getDate() === day
-  );
+  return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day;
 };
 
 /**
@@ -180,13 +172,13 @@ export const isValidDateFormat = (
  * @returns Whether the date string is valid and within the acceptable year range
  */
 export const isValidHtmlDateFormat = (
-  dateString: string, 
-  minYear = 1900, 
+  dateString: string,
+  minYear = 1900,
   maxYear = 2100
 ): boolean => {
   // Check if empty
   if (!dateString) return false;
-  
+
   // Check if the input matches YYYY-MM-DD pattern
   const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
   if (!dateRegex.test(dateString)) {
@@ -209,45 +201,50 @@ export const isValidHtmlDateFormat = (
  * @param dateString The partial or complete date string to validate
  * @returns An object containing whether the input is valid and any error message
  */
-export const validatePartialDateInput = (dateString: string): { isValid: boolean; errorMessage?: string } => {
+export const validatePartialDateInput = (
+  dateString: string
+): { isValid: boolean; errorMessage?: string } => {
   if (!dateString) {
     return { isValid: false, errorMessage: "Date is required. Format must be MM/DD/YYYY" };
   }
-    // Check for placeholder text like "dd", "mm", "yyyy" that might be left in the input
+  // Check for placeholder text like "dd", "mm", "yyyy" that might be left in the input
   if (/dd|mm|yy/i.test(dateString)) {
-    return { isValid: false, errorMessage: "Please replace placeholder text with actual date values" };
+    return {
+      isValid: false,
+      errorMessage: "Please replace placeholder text with actual date values",
+    };
   }
 
   // First check if the string contains slashes for MM/DD/YYYY format
-  if (!dateString.includes('/')) {
+  if (!dateString.includes("/")) {
     return { isValid: false, errorMessage: "Date must be in MM/DD/YYYY format" };
   }
 
   // For MM/DD/YYYY format
-  const parts = dateString.split('/');
-  
+  const parts = dateString.split("/");
+
   // Check if we have the expected number of parts
   if (parts.length !== 3) {
     return { isValid: false, errorMessage: "Date must be in MM/DD/YYYY format" };
   }
-  
+
   const [month, day, year] = parts;
-  
+
   // Check month is valid
   if (!/^(0?[1-9]|1[0-2])$/.test(month)) {
     return { isValid: false, errorMessage: "Month must be between 01-12" };
   }
-  
+
   // Check day is valid
   if (!/^(0?[1-9]|[12]\d|3[01])$/.test(day)) {
     return { isValid: false, errorMessage: "Day must be between 01-31" };
   }
-  
+
   // Check year is valid (at least 4 digits and in range)
   if (!/^\d{4}$/.test(year)) {
     return { isValid: false, errorMessage: "Year must be 4 digits" };
   }
-  
+
   const yearNumber = parseInt(year, 10);
   if (yearNumber < 1900 || yearNumber > 2100) {
     return { isValid: false, errorMessage: "Year must be between 1900-2100" };
@@ -257,16 +254,20 @@ export const validatePartialDateInput = (dateString: string): { isValid: boolean
   // This checks if the date could possibly be valid
   const monthNum = parseInt(month, 10);
   const dayNum = parseInt(day, 10);
-  
+
   // Simple month/day validation
-  if (monthNum === 2) {  // February
-    const isLeapYear = (yearNumber % 4 === 0 && yearNumber % 100 !== 0) || (yearNumber % 400 === 0);
+  if (monthNum === 2) {
+    // February
+    const isLeapYear = (yearNumber % 4 === 0 && yearNumber % 100 !== 0) || yearNumber % 400 === 0;
     if (dayNum > (isLeapYear ? 29 : 28)) {
-      return { isValid: false, errorMessage: `February ${yearNumber} has ${isLeapYear ? 29 : 28} days` };
+      return {
+        isValid: false,
+        errorMessage: `February ${yearNumber} has ${isLeapYear ? 29 : 28} days`,
+      };
     }
   } else if ([4, 6, 9, 11].includes(monthNum) && dayNum > 30) {
     return { isValid: false, errorMessage: "This month has 30 days" };
   }
-  
+
   return { isValid: true };
 };

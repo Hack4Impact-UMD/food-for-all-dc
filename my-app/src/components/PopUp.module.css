@@ -66,15 +66,31 @@
   min-width: 400px;
   max-width: 600px;
   border-radius: 8px;
-  box-shadow: 0 4px 20px rgba(255, 0, 0, 0.3), 0 0 40px rgba(255, 0, 0, 0.15);
-  animation: fadeIn 0.3s ease-out, pulse 2s infinite;
+  box-shadow:
+    0 4px 20px rgba(255, 0, 0, 0.3),
+    0 0 40px rgba(255, 0, 0, 0.15);
+  animation:
+    fadeIn 0.3s ease-out,
+    pulse 2s infinite;
   border: 2px solid var(--color-error);
 }
 
 @keyframes pulse {
-  0% { box-shadow: 0 4px 20px rgba(255, 0, 0, 0.3), 0 0 40px rgba(255, 0, 0, 0.15); }
-  50% { box-shadow: 0 4px 30px rgba(255, 0, 0, 0.5), 0 0 50px rgba(255, 0, 0, 0.3); }
-  100% { box-shadow: 0 4px 20px rgba(255, 0, 0, 0.3), 0 0 40px rgba(255, 0, 0, 0.15); }
+  0% {
+    box-shadow:
+      0 4px 20px rgba(255, 0, 0, 0.3),
+      0 0 40px rgba(255, 0, 0, 0.15);
+  }
+  50% {
+    box-shadow:
+      0 4px 30px rgba(255, 0, 0, 0.5),
+      0 0 50px rgba(255, 0, 0, 0.3);
+  }
+  100% {
+    box-shadow:
+      0 4px 20px rgba(255, 0, 0, 0.3),
+      0 0 40px rgba(255, 0, 0, 0.15);
+  }
 }
 
 @keyframes fadeIn {

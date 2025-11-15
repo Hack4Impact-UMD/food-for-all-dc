@@ -197,21 +197,21 @@
     min-height: 150px;
     padding: 1rem;
   }
-  
+
   .loading-spinner {
     width: 30px;
     height: 30px;
   }
-  
+
   .progress-bar {
     width: 150px;
   }
-  
+
   .spreadsheet-controls {
     flex-direction: column;
     gap: 0.5rem;
   }
-  
+
   .search-input {
     width: 100%;
   }
@@ -222,11 +222,11 @@
   .loading-spinner {
     animation: none;
   }
-  
+
   .skeleton-line {
     animation: none;
   }
-  
+
   .defer-render {
     animation: none;
     opacity: 1;
@@ -238,7 +238,7 @@
   .skeleton-line {
     background: var(--color-border-black);
   }
-  
+
   .loading-spinner {
     border-color: var(--color-border-black);
     border-top-color: var(--color-background-main);

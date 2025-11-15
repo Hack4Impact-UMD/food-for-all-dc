@@ -1,5 +1,5 @@
 import { Timestamp } from "firebase/firestore";
-import { ClientProfile, DeliveryDetails, DietaryRestrictions, CaseWorker } from '../../types';
+import { ClientProfile, DeliveryDetails, DietaryRestrictions, CaseWorker } from "../../types";
 
 // Type for all possible field paths including nested ones
 export type NestedKeyOf<T> = {

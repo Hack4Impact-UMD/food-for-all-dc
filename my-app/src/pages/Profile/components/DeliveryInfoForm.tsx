@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Box, Typography, MenuItem } from "@mui/material";
-import { CaseWorker, ClientProfile } from '../../../types';
-import { ClientProfileKey, InputType } from '../types';
+import { CaseWorker, ClientProfile } from "../../../types";
+import { ClientProfileKey, InputType } from "../types";
 import { styled, Select } from "@mui/material";
 import TagManager from "../Tags/TagManager";
 import { validateDateRange } from "../../../utils/dateValidation";
@@ -13,7 +13,11 @@ interface DeliveryInfoFormProps {
   fieldLabelStyles: any;
   lastDeliveryDate: string | null;
   isSaved: boolean;
-  onDateValidationChange?: (isValid: boolean, startDateError?: string, endDateError?: string) => void;
+  onDateValidationChange?: (
+    isValid: boolean,
+    startDateError?: string,
+    endDateError?: string
+  ) => void;
   isNewProfile: boolean;
 }
 
@@ -55,7 +59,7 @@ const DeliveryInfoForm: React.FC<DeliveryInfoFormProps> = ({
   lastDeliveryDate,
   isSaved,
   onDateValidationChange,
-  isNewProfile
+  isNewProfile,
 }) => {
   const [startDateError, setStartDateError] = useState<string>("");
   const [endDateError, setEndDateError] = useState<string>("");
@@ -88,13 +92,12 @@ const DeliveryInfoForm: React.FC<DeliveryInfoFormProps> = ({
     }
   }, [clientProfile.startDate, clientProfile.endDate, onDateValidationChange, isNewProfile]);
 
-
   return (
     <>
       <Box
         sx={{
           display: "grid",
-          gridTemplateColumns: '350px 350px 1fr',
+          gridTemplateColumns: "350px 350px 1fr",
         }}
         className="info-grid"
       >
@@ -105,13 +108,13 @@ const DeliveryInfoForm: React.FC<DeliveryInfoFormProps> = ({
           </Typography>
           {renderField("startDate", "date")}
           {startDateError && (
-            <Typography 
-              color="error" 
-              variant="body2" 
-              sx={{ 
-                fontSize: '0.75rem', 
-                marginTop: '4px',
-                fontStyle: 'italic'
+            <Typography
+              color="error"
+              variant="body2"
+              sx={{
+                fontSize: "0.75rem",
+                marginTop: "4px",
+                fontStyle: "italic",
               }}
               role="alert"
               aria-live="polite"
@@ -128,13 +131,13 @@ const DeliveryInfoForm: React.FC<DeliveryInfoFormProps> = ({
           </Typography>
           {renderField("endDate", "date")}
           {endDateError && (
-            <Typography 
-              color="error" 
-              variant="body2" 
-              sx={{ 
-                fontSize: '0.75rem', 
-                marginTop: '4px',
-                fontStyle: 'italic'
+            <Typography
+              color="error"
+              variant="body2"
+              sx={{
+                fontSize: "0.75rem",
+                marginTop: "4px",
+                fontStyle: "italic",
               }}
               role="alert"
               aria-live="polite"
@@ -163,11 +166,13 @@ const DeliveryInfoForm: React.FC<DeliveryInfoFormProps> = ({
         </Box>
 
         {/* Delivery Instructions */}
-        <Box sx={{ 
-          width: '100%',
-          minHeight: '80px',
-          padding: '16px 14px',
-        }}>
+        <Box
+          sx={{
+            width: "100%",
+            minHeight: "80px",
+            padding: "16px 14px",
+          }}
+        >
           <Typography className="field-descriptor" sx={fieldLabelStyles}>
             DELIVERY INSTRUCTIONS
           </Typography>
@@ -178,10 +183,10 @@ const DeliveryInfoForm: React.FC<DeliveryInfoFormProps> = ({
               {clientProfile.deliveryInstructionsTimestamp &&
                 clientProfile.deliveryInstructionsTimestamp.timestamp &&
                 new Date(
-                  typeof clientProfile.deliveryInstructionsTimestamp.timestamp === 'object' &&
-                    clientProfile.deliveryInstructionsTimestamp.timestamp !== null &&
-                    'toDate' in clientProfile.deliveryInstructionsTimestamp.timestamp &&
-                    typeof clientProfile.deliveryInstructionsTimestamp.timestamp.toDate === 'function'
+                  typeof clientProfile.deliveryInstructionsTimestamp.timestamp === "object" &&
+                  clientProfile.deliveryInstructionsTimestamp.timestamp !== null &&
+                  "toDate" in clientProfile.deliveryInstructionsTimestamp.timestamp &&
+                  typeof clientProfile.deliveryInstructionsTimestamp.timestamp.toDate === "function"
                     ? clientProfile.deliveryInstructionsTimestamp.timestamp.toDate()
                     : clientProfile.deliveryInstructionsTimestamp.timestamp
                 ).toLocaleString()}
@@ -190,11 +195,13 @@ const DeliveryInfoForm: React.FC<DeliveryInfoFormProps> = ({
         </Box>
 
         {/* Notes */}
-        <Box sx={{ 
-          width: '100%',
-          minHeight: '80px',
-          padding: '16px 14px',
-        }}>
+        <Box
+          sx={{
+            width: "100%",
+            minHeight: "80px",
+            padding: "16px 14px",
+          }}
+        >
           <Typography className="field-descriptor" sx={fieldLabelStyles}>
             ADMIN NOTES
           </Typography>
@@ -205,10 +212,10 @@ const DeliveryInfoForm: React.FC<DeliveryInfoFormProps> = ({
               {clientProfile.notesTimestamp &&
                 clientProfile.notesTimestamp.timestamp &&
                 new Date(
-                  typeof clientProfile.notesTimestamp.timestamp === 'object' &&
-                    clientProfile.notesTimestamp.timestamp !== null &&
-                    'toDate' in clientProfile.notesTimestamp.timestamp &&
-                    typeof clientProfile.notesTimestamp.timestamp.toDate === 'function'
+                  typeof clientProfile.notesTimestamp.timestamp === "object" &&
+                  clientProfile.notesTimestamp.timestamp !== null &&
+                  "toDate" in clientProfile.notesTimestamp.timestamp &&
+                  typeof clientProfile.notesTimestamp.timestamp.toDate === "function"
                     ? clientProfile.notesTimestamp.timestamp.toDate()
                     : clientProfile.notesTimestamp.timestamp
                 ).toLocaleString()}

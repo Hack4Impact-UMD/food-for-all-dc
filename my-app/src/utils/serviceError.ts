@@ -11,7 +11,10 @@ export class ServiceError extends Error {
   }
 }
 
-export function formatServiceError(error: any, fallbackMessage = "An unexpected error occurred."): ServiceError {
+export function formatServiceError(
+  error: any,
+  fallbackMessage = "An unexpected error occurred."
+): ServiceError {
   if (error instanceof ServiceError) return error;
   if (error && typeof error === "object" && error.message) {
     // Always use fallbackMessage for the error message

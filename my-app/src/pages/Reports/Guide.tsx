@@ -9,7 +9,7 @@ export default function Guide() {
         margin: "20px auto",
         borderRadius: 3,
         boxShadow: 0,
-        background: "#d9f2ec", 
+        background: "#d9f2ec",
         border: "2px solid var(--color-primary)",
         color: "var(--color-primary)",
         p: 2,

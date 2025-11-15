@@ -1,4 +1,4 @@
-import { Time, TimeUtils } from './timeUtils';
+import { Time, TimeUtils } from "./timeUtils";
 
 export interface DateValidationResult {
   isValid: boolean;
@@ -12,11 +12,11 @@ export interface DateRangeValidationResult {
 }
 
 export const validateDateRange = (
-  startDate: string | Date | null, 
+  startDate: string | Date | null,
   endDate: string | Date | null
 ): DateRangeValidationResult => {
   const result: DateRangeValidationResult = { isValid: true };
-  
+
   if (!startDate && !endDate) {
     return result;
   }
@@ -24,7 +24,7 @@ export const validateDateRange = (
   if (startDate) {
     const startDateTime = TimeUtils.fromAny(startDate);
     const validation = Time.Validation.validateNotPast(startDateTime);
-    
+
     if (!validation.isValid) {
       result.startDateError = validation.errorMessage;
       result.isValid = false;
@@ -34,9 +34,9 @@ export const validateDateRange = (
   if (startDate && endDate) {
     const startDateTime = TimeUtils.fromAny(startDate);
     const endDateTime = TimeUtils.fromAny(endDate);
-    
+
     const validation = Time.Validation.validateDateRange(startDateTime, endDateTime);
-    
+
     if (!validation.isValid) {
       if (validation.startDateError) {
         result.startDateError = validation.startDateError;

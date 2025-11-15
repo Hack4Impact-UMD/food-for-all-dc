@@ -25,20 +25,28 @@ import { Close, Add, Edit, Check, Delete } from "@mui/icons-material";
 import { doc, updateDoc, addDoc, deleteDoc, collection } from "firebase/firestore";
 import { db } from "../auth/firebaseConfig";
 import { Driver } from "../types/calendar-types";
-import dataSources from '../config/dataSources';
+import dataSources from "../config/dataSources";
 
 // Icon components for sorting
-const iconStyle = { verticalAlign: 'middle', marginLeft: 6 };
+const iconStyle = { verticalAlign: "middle", marginLeft: 6 };
 const ChevronUp = () => (
-  <Icon fontSize="small" style={iconStyle}>keyboard_arrow_up</Icon>
+  <Icon fontSize="small" style={iconStyle}>
+    keyboard_arrow_up
+  </Icon>
 );
 const ChevronDown = () => (
-  <Icon fontSize="small" style={iconStyle}>keyboard_arrow_down</Icon>
+  <Icon fontSize="small" style={iconStyle}>
+    keyboard_arrow_down
+  </Icon>
 );
 const ChevronUpDown = () => (
-  <span style={{ display: 'inline-flex', flexDirection: 'column', lineHeight: 1, marginLeft: 6 }}>
-    <Icon fontSize="small" style={{ marginBottom: -4 }}>keyboard_arrow_up</Icon>
-    <Icon fontSize="small" style={{ marginTop: -4 }}>keyboard_arrow_down</Icon>
+  <span style={{ display: "inline-flex", flexDirection: "column", lineHeight: 1, marginLeft: 6 }}>
+    <Icon fontSize="small" style={{ marginBottom: -4 }}>
+      keyboard_arrow_up
+    </Icon>
+    <Icon fontSize="small" style={{ marginTop: -4 }}>
+      keyboard_arrow_down
+    </Icon>
   </span>
 );
 
@@ -78,7 +86,7 @@ const DriverFormFields: React.FC<DriverFormProps> = ({ value, onChange, errors, 
   return (
     <Grid container spacing={3}>
       {fields.map((field) => (
-        <Grid size={{ xs: 12, sm: field.gridSize || 4}} key={field.name}>
+        <Grid size={{ xs: 12, sm: field.gridSize || 4 }} key={field.name}>
           <TextField
             fullWidth
             label={field.label}
@@ -113,25 +121,28 @@ const DriverManagementModal: React.FC<DriverManagementModalProps> = ({
   onDriversChange,
 }) => {
   // Sorting state
-  const [sortConfig, setSortConfig] = useState<{ key: keyof Driver; direction: 'asc' | 'desc' }>({ key: 'name', direction: 'asc' });
+  const [sortConfig, setSortConfig] = useState<{ key: keyof Driver; direction: "asc" | "desc" }>({
+    key: "name",
+    direction: "asc",
+  });
 
   // Sorting handler
   const handleSort = (key: keyof Driver) => {
     setSortConfig((prev) => {
       if (prev.key === key) {
-        return { key, direction: prev.direction === 'asc' ? 'desc' : 'asc' };
+        return { key, direction: prev.direction === "asc" ? "desc" : "asc" };
       }
-      return { key, direction: 'asc' };
+      return { key, direction: "asc" };
     });
   };
 
   // Sorted drivers
   const sortedDrivers = React.useMemo(() => {
     const sorted = [...drivers].sort((a, b) => {
-      const aValue = (a[sortConfig.key] || '').toString().toLowerCase();
-      const bValue = (b[sortConfig.key] || '').toString().toLowerCase();
-      if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
-      if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
+      const aValue = (a[sortConfig.key] || "").toString().toLowerCase();
+      const bValue = (b[sortConfig.key] || "").toString().toLowerCase();
+      if (aValue < bValue) return sortConfig.direction === "asc" ? -1 : 1;
+      if (aValue > bValue) return sortConfig.direction === "asc" ? 1 : -1;
       return 0;
     });
     return sorted;
@@ -221,11 +232,7 @@ const DriverManagementModal: React.FC<DriverManagementModalProps> = ({
           const driversCollectionRef = collection(db, dataSources.firebase.driversCollection);
           const docRef = await addDoc(driversCollectionRef, driver);
           //add new driver to the top but under DoorDash
-          onDriversChange([
-            drivers[0],                           
-            { ...driver, id: docRef.id },        
-            ...drivers.slice(1)                  
-          ]);
+          onDriversChange([drivers[0], { ...driver, id: docRef.id }, ...drivers.slice(1)]);
           setIsAddingDriver(false);
           setNewDriver({ name: "", phone: "", email: "" });
         }
@@ -238,7 +245,7 @@ const DriverManagementModal: React.FC<DriverManagementModalProps> = ({
 
   const handleDeleteDriver = async (driverId: string) => {
     try {
-  await deleteDoc(doc(db, dataSources.firebase.driversCollection, driverId));
+      await deleteDoc(doc(db, dataSources.firebase.driversCollection, driverId));
       onDriversChange(drivers.filter((d) => d.id !== driverId));
     } catch (error) {
       console.error("Error deleting driver:", error);
@@ -308,12 +315,15 @@ const DriverManagementModal: React.FC<DriverManagementModalProps> = ({
                 mb: 3,
                 mt: 2,
                 backgroundColor: "rgba(37, 126, 104, 0.04)",
-                p: '20px',
+                p: "20px",
                 borderRadius: "8px",
                 border: "1px solid rgba(37, 126, 104, 0.2)",
               }}
             >
-              <Typography variant="h6" sx={{ mb: 3, color: "var(--color-primary)", fontWeight: 500 }}>
+              <Typography
+                variant="h6"
+                sx={{ mb: 3, color: "var(--color-primary)", fontWeight: 500 }}
+              >
                 Add New Driver
               </Typography>
               <DriverFormFields
@@ -387,49 +397,75 @@ const DriverManagementModal: React.FC<DriverManagementModalProps> = ({
             <Table>
               <TableHead>
                 <TableRow sx={{ backgroundColor: "rgba(0, 0, 0, 0.02)" }}>
-                  <TableCell sx={{ fontWeight: 600, color: "var(--color-text-heading)", cursor: 'pointer' }} onClick={() => handleSort('name')}>
+                  <TableCell
+                    sx={{ fontWeight: 600, color: "var(--color-text-heading)", cursor: "pointer" }}
+                    onClick={() => handleSort("name")}
+                  >
                     <TableSortLabel
-                      active={sortConfig.key === 'name'}
+                      active={sortConfig.key === "name"}
                       direction={sortConfig.direction}
                       hideSortIcon={true}
                       IconComponent={() => null}
                     >
                       Driver
-                      {sortConfig.key === 'name'
-                        ? (sortConfig.direction === 'asc' ? <ChevronUp />
-                          : <ChevronDown />)
-                        : <ChevronUpDown />}
+                      {sortConfig.key === "name" ? (
+                        sortConfig.direction === "asc" ? (
+                          <ChevronUp />
+                        ) : (
+                          <ChevronDown />
+                        )
+                      ) : (
+                        <ChevronUpDown />
+                      )}
                     </TableSortLabel>
                   </TableCell>
-                  <TableCell sx={{ fontWeight: 600, color: "var(--color-text-heading)", cursor: 'pointer' }} onClick={() => handleSort('phone')}>
+                  <TableCell
+                    sx={{ fontWeight: 600, color: "var(--color-text-heading)", cursor: "pointer" }}
+                    onClick={() => handleSort("phone")}
+                  >
                     <TableSortLabel
-                      active={sortConfig.key === 'phone'}
+                      active={sortConfig.key === "phone"}
                       direction={sortConfig.direction}
                       hideSortIcon={true}
                       IconComponent={() => null}
                     >
                       Phone Number
-                      {sortConfig.key === 'phone'
-                        ? (sortConfig.direction === 'asc' ? <ChevronUp />
-                          : <ChevronDown />)
-                        : <ChevronUpDown />}
+                      {sortConfig.key === "phone" ? (
+                        sortConfig.direction === "asc" ? (
+                          <ChevronUp />
+                        ) : (
+                          <ChevronDown />
+                        )
+                      ) : (
+                        <ChevronUpDown />
+                      )}
                     </TableSortLabel>
                   </TableCell>
-                  <TableCell sx={{ fontWeight: 600, color: "var(--color-text-heading)", cursor: 'pointer' }} onClick={() => handleSort('email')}>
+                  <TableCell
+                    sx={{ fontWeight: 600, color: "var(--color-text-heading)", cursor: "pointer" }}
+                    onClick={() => handleSort("email")}
+                  >
                     <TableSortLabel
-                      active={sortConfig.key === 'email'}
+                      active={sortConfig.key === "email"}
                       direction={sortConfig.direction}
                       hideSortIcon={true}
                       IconComponent={() => null}
                     >
                       Email
-                      {sortConfig.key === 'email'
-                        ? (sortConfig.direction === 'asc' ? <ChevronUp />
-                          : <ChevronDown />)
-                        : <ChevronUpDown />}
+                      {sortConfig.key === "email" ? (
+                        sortConfig.direction === "asc" ? (
+                          <ChevronUp />
+                        ) : (
+                          <ChevronDown />
+                        )
+                      ) : (
+                        <ChevronUpDown />
+                      )}
                     </TableSortLabel>
                   </TableCell>
-                  <TableCell sx={{ fontWeight: 600, color: "var(--color-text-heading)", width: "120px" }}>
+                  <TableCell
+                    sx={{ fontWeight: 600, color: "var(--color-text-heading)", width: "120px" }}
+                  >
                     Actions
                   </TableCell>
                 </TableRow>
@@ -452,7 +488,12 @@ const DriverManagementModal: React.FC<DriverManagementModalProps> = ({
                             handleDriverFormChange(
                               setEditingDriver,
                               setEditErrors,
-                              editingDriver ?? { id: d.id, name: d.name, phone: d.phone, email: d.email },
+                              editingDriver ?? {
+                                id: d.id,
+                                name: d.name,
+                                phone: d.phone,
+                                email: d.email,
+                              },
                               "name",
                               e.target.value
                             )
@@ -468,7 +509,9 @@ const DriverManagementModal: React.FC<DriverManagementModalProps> = ({
                           }}
                         />
                       ) : (
-                        <Typography sx={{ color: "var(--color-text-dark)", fontWeight: 500 }}>{d.name}</Typography>
+                        <Typography sx={{ color: "var(--color-text-dark)", fontWeight: 500 }}>
+                          {d.name}
+                        </Typography>
                       )}
                     </TableCell>
                     <TableCell>
@@ -479,7 +522,12 @@ const DriverManagementModal: React.FC<DriverManagementModalProps> = ({
                             handleDriverFormChange(
                               setEditingDriver,
                               setEditErrors,
-                              editingDriver ?? { id: d.id, name: d.name, phone: d.phone, email: d.email },
+                              editingDriver ?? {
+                                id: d.id,
+                                name: d.name,
+                                phone: d.phone,
+                                email: d.email,
+                              },
                               "phone",
                               e.target.value
                             )
@@ -495,7 +543,9 @@ const DriverManagementModal: React.FC<DriverManagementModalProps> = ({
                           }}
                         />
                       ) : (
-                        <Typography sx={{ color: "var(--color-text-medium-alt)" }}>{d.phone}</Typography>
+                        <Typography sx={{ color: "var(--color-text-medium-alt)" }}>
+                          {d.phone}
+                        </Typography>
                       )}
                     </TableCell>
                     <TableCell>
@@ -506,7 +556,12 @@ const DriverManagementModal: React.FC<DriverManagementModalProps> = ({
                             handleDriverFormChange(
                               setEditingDriver,
                               setEditErrors,
-                              editingDriver ?? { id: d.id, name: d.name, phone: d.phone, email: d.email },
+                              editingDriver ?? {
+                                id: d.id,
+                                name: d.name,
+                                phone: d.phone,
+                                email: d.email,
+                              },
                               "email",
                               e.target.value
                             )
@@ -522,7 +577,9 @@ const DriverManagementModal: React.FC<DriverManagementModalProps> = ({
                           }}
                         />
                       ) : (
-                        <Typography sx={{ color: "var(--color-text-medium-alt)" }}>{d.email}</Typography>
+                        <Typography sx={{ color: "var(--color-text-medium-alt)" }}>
+                          {d.email}
+                        </Typography>
                       )}
                     </TableCell>
                     <TableCell>
@@ -617,7 +674,10 @@ const DriverManagementModal: React.FC<DriverManagementModalProps> = ({
           </DialogContentText>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={() => setDeleteDialogOpen(false)} sx={{ color: "var(--color-text-medium-alt)" }}>
+          <Button
+            onClick={() => setDeleteDialogOpen(false)}
+            sx={{ color: "var(--color-text-medium-alt)" }}
+          >
             Cancel
           </Button>
           <Button onClick={handleDeleteConfirm} color="error" variant="contained" autoFocus>

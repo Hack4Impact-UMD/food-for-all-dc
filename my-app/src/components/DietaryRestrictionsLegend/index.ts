@@ -1,1 +1,1 @@
-export { default } from './DietaryRestrictionsLegend';
+export { default } from "./DietaryRestrictionsLegend";

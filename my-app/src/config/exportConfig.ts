@@ -31,7 +31,7 @@ export const DEFAULT_EXPORT_CONFIG: ExportConfig = {
     name: "Food For All DC",
     abbreviation: "FFA",
     phone: "2024898676",
-    pickupInstructions: "Go to back door in alley at the back of church"
+    pickupInstructions: "Go to back door in alley at the back of church",
   },
   doorDash: {
     pickupLocationId: "ANANDAMARGA-01",
@@ -41,9 +41,9 @@ export const DEFAULT_EXPORT_CONFIG: ExportConfig = {
     numberOfItems: "1",
     orderVolume: "",
     deliveryWindowHours: 1,
-    maxInstructionLength: 250
+    maxInstructionLength: 250,
   },
-  fileNamePrefix: "FFA"
+  fileNamePrefix: "FFA",
 };
 
 // Function to get export configuration
@@ -58,14 +58,18 @@ export const getExportConfig = (): ExportConfig => {
       ...DEFAULT_EXPORT_CONFIG.organization,
       name: process.env.REACT_APP_ORG_NAME || DEFAULT_EXPORT_CONFIG.organization.name,
       phone: process.env.REACT_APP_ORG_PHONE || DEFAULT_EXPORT_CONFIG.organization.phone,
-      pickupInstructions: process.env.REACT_APP_PICKUP_INSTRUCTIONS || DEFAULT_EXPORT_CONFIG.organization.pickupInstructions
+      pickupInstructions:
+        process.env.REACT_APP_PICKUP_INSTRUCTIONS ||
+        DEFAULT_EXPORT_CONFIG.organization.pickupInstructions,
     },
     doorDash: {
       ...DEFAULT_EXPORT_CONFIG.doorDash,
-      pickupLocationId: process.env.REACT_APP_DOORDASH_PICKUP_ID || DEFAULT_EXPORT_CONFIG.doorDash.pickupLocationId,
+      pickupLocationId:
+        process.env.REACT_APP_DOORDASH_PICKUP_ID || DEFAULT_EXPORT_CONFIG.doorDash.pickupLocationId,
       timezone: process.env.REACT_APP_TIMEZONE || DEFAULT_EXPORT_CONFIG.doorDash.timezone,
       defaultCity: process.env.REACT_APP_DEFAULT_CITY || DEFAULT_EXPORT_CONFIG.doorDash.defaultCity,
-      defaultState: process.env.REACT_APP_DEFAULT_STATE || DEFAULT_EXPORT_CONFIG.doorDash.defaultState
-    }
+      defaultState:
+        process.env.REACT_APP_DEFAULT_STATE || DEFAULT_EXPORT_CONFIG.doorDash.defaultState,
+    },
   };
-}; 
+};

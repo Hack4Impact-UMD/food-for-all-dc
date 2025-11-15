@@ -1,6 +1,6 @@
 import React, { Suspense } from "react";
-import { LocalizationProvider } from '@mui/x-date-pickers';
-import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import { LocalizationProvider } from "@mui/x-date-pickers";
+import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import "./App.css";
 
@@ -39,17 +39,15 @@ function renderRoutes(config: Array<any>) {
         </Route>
       );
     }
-    return (
-      <Route key={idx} path={route.path} element={route.element} />
-    );
+    return <Route key={idx} path={route.path} element={route.element} />;
   });
 }
 
 function App() {
   const { loading } = useAuth();
-  
+
   // Monitor app performance
-  usePerformanceMonitor('App');
+  usePerformanceMonitor("App");
 
   if (loading) {
     return <Preloader message="Initializing app..." showMessage={true} />;

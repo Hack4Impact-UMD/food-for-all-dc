@@ -5,7 +5,7 @@ import "leaflet.awesome-markers";
 import "leaflet.awesome-markers/dist/leaflet.awesome-markers.css";
 import { Box, Button, FormControlLabel, Switch, Typography } from "@mui/material";
 import DriverService from "../../services/driver-service";
-import FFAIcon from '../../assets/tsp-food-for-all-dc-logo.png'
+import FFAIcon from "../../assets/tsp-food-for-all-dc-logo.png";
 
 interface Driver {
   id: string;
@@ -32,7 +32,7 @@ interface Cluster {
   id: string;
   driver?: string;
   time?: string;
-  deliveries: string[]; 
+  deliveries: string[];
 }
 
 interface ClientOverride {
@@ -56,7 +56,12 @@ interface ClusterMapProps {
   visibleRows: VisibleRow[];
   clusters: Cluster[];
   clientOverrides?: ClientOverride[];
-  onClusterUpdate: (clientId: string, newClusterId: string, newDriver?: string, newTime?: string) => void;
+  onClusterUpdate: (
+    clientId: string,
+    newClusterId: string,
+    newDriver?: string,
+    newTime?: string
+  ) => void;
   onOpenPopup?: (clientId: string) => void; // Prop to handle table row clicks
   onMarkerClick?: (clientId: string) => void; // Prop to handle marker clicks
   onClearHighlight?: () => void; // Prop to clear row highlighting
@@ -65,17 +70,17 @@ interface ClusterMapProps {
 
 // DC Ward colors - each ward gets a unique translucent color
 const wardColors: { [key: string]: string } = {
-  'Ward 1': '#FF0000',  // Red
-  'Ward 2': '#00FF00',  // Green
-  'Ward 3': '#0000FF',  // Blue
-  'Ward 4': '#FFFF00',  // Yellow
-  'Ward 5': '#FF00FF',  // Magenta
-  'Ward 6': '#00FFFF',  // Cyan
-  'Ward 7': '#FFA500',  // Orange
-  'Ward 8': '#800080',  // Purple
+  "Ward 1": "#FF0000", // Red
+  "Ward 2": "#00FF00", // Green
+  "Ward 3": "#0000FF", // Blue
+  "Ward 4": "#FFFF00", // Yellow
+  "Ward 5": "#FF00FF", // Magenta
+  "Ward 6": "#00FFFF", // Cyan
+  "Ward 7": "#FFA500", // Orange
+  "Ward 8": "#800080", // Purple
 };
 
-const ffaCoordinates: L.LatLngExpression = [38.914330, -77.036942];
+const ffaCoordinates: L.LatLngExpression = [38.91433, -77.036942];
 
 const isValidCoordinate = (coord: any): boolean => {
   if (!coord) return false;
@@ -108,21 +113,61 @@ const normalizeCoordinate = (coord: any): Coordinate => {
 
 // Common time slots array - same as used in delivery page
 const TIME_SLOTS = [
-  "8:00 AM", "9:00 AM", "10:00 AM", "11:00 AM",
-  "12:00 PM", "1:00 PM", "2:00 PM", "3:00 PM",
-  "4:00 PM", "5:00 PM"
+  "8:00 AM",
+  "9:00 AM",
+  "10:00 AM",
+  "11:00 AM",
+  "12:00 PM",
+  "1:00 PM",
+  "2:00 PM",
+  "3:00 PM",
+  "4:00 PM",
+  "5:00 PM",
 ];
 
 const clusterColors = [
-  "#FF0000", "#00FF00", "#0000FF", "#FFFF00", "#FF00FF",
-  "#00FFFF", "#FFA500", "#800080", "#008000", "#000080",
-  "#FF4500", "#4B0082", "var(--color-event-indicator)", "#32CD32", "#9370DB",
-  "#FF69B4", "#40E0D0", "#FF8C00", "#7CFC00", "#8A2BE2",
-  "#FF1493", "#1E90FF", "#228B22", "#9400D3", "#DC143C",
-  "#20B2AA", "#9932CC", "#FFD700", "#8B0000", "#4169E1"
+  "#FF0000",
+  "#00FF00",
+  "#0000FF",
+  "#FFFF00",
+  "#FF00FF",
+  "#00FFFF",
+  "#FFA500",
+  "#800080",
+  "#008000",
+  "#000080",
+  "#FF4500",
+  "#4B0082",
+  "var(--color-event-indicator)",
+  "#32CD32",
+  "#9370DB",
+  "#FF69B4",
+  "#40E0D0",
+  "#FF8C00",
+  "#7CFC00",
+  "#8A2BE2",
+  "#FF1493",
+  "#1E90FF",
+  "#228B22",
+  "#9400D3",
+  "#DC143C",
+  "#20B2AA",
+  "#9932CC",
+  "#FFD700",
+  "#8B0000",
+  "#4169E1",
 ];
 
-const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOverrides = [], onClusterUpdate, onOpenPopup, onMarkerClick, onClearHighlight, refreshDriversTrigger }) => {
+const ClusterMap: React.FC<ClusterMapProps> = ({
+  visibleRows,
+  clusters,
+  clientOverrides = [],
+  onClusterUpdate,
+  onOpenPopup,
+  onMarkerClick,
+  onClearHighlight,
+  refreshDriversTrigger,
+}) => {
   // Fetch drivers from Firebase
   const fetchDrivers = useCallback(async () => {
     setLoadingDrivers(true);
@@ -131,7 +176,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
       const driversData = await driverService.getAllDrivers();
       setDrivers(driversData);
     } catch (error) {
-      console.error('Failed to fetch drivers:', error);
+      console.error("Failed to fetch drivers:", error);
     } finally {
       setLoadingDrivers(false);
     }
@@ -143,7 +188,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
   const popupOpenedByMarkerRef = useRef<boolean>(false); // Track popup source
   const popupCloseHandlerSetup = useRef<boolean>(false); // Track if popup close handler is already set up
   const isPopupOpening = useRef<boolean>(false); // Prevent close handler from firing during opening
-  
+
   // Set up global function for direct HTML onclick
   React.useEffect(() => {
     (window as any).markerMap = {};
@@ -162,13 +207,13 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
       delete (window as any).markerMap;
     };
   }, [onOpenPopup]);
-  
+
   // Initialize showWardOverlays from localStorage
   const [showWardOverlays, setShowWardOverlays] = useState<boolean>(() => {
-    const saved = localStorage.getItem('wardOverlaysEnabled');
+    const saved = localStorage.getItem("wardOverlaysEnabled");
     return saved ? JSON.parse(saved) : false;
   });
-  
+
   const [wardData, setWardData] = useState<any>(null);
   const [wardDataLoading, setWardDataLoading] = useState<boolean>(false);
   const [drivers, setDrivers] = useState<Driver[]>([]);
@@ -193,41 +238,43 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
   // Helper function to determine best text color based on background brightness
   const getTextColorForBackground = useCallback((backgroundColor: string): string => {
     // Convert hex to RGB
-    const hex = backgroundColor.replace('#', '');
+    const hex = backgroundColor.replace("#", "");
     const r = parseInt(hex.substr(0, 2), 16);
     const g = parseInt(hex.substr(2, 2), 16);
     const b = parseInt(hex.substr(4, 2), 16);
-    
+
     // Special cases for problematic colors that need black text regardless of luminance
     const problematicColors = [
-      '#00FF00', // Lime green
-      '#FFFF00', // Yellow
-      '#00FFFF', // Cyan
-      '#7CFC00', // Lawn green
-      '#32CD32', // Lime green variant
-      '#FFD700', // Gold
+      "#00FF00", // Lime green
+      "#FFFF00", // Yellow
+      "#00FFFF", // Cyan
+      "#7CFC00", // Lawn green
+      "#32CD32", // Lime green variant
+      "#FFD700", // Gold
     ];
-    
+
     if (problematicColors.includes(backgroundColor.toUpperCase())) {
-      return '#000000';
+      return "#000000";
     }
-    
+
     // Calculate relative luminance using WCAG formula
     const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-    
+
     // Return black for light backgrounds, white for dark backgrounds
     // Using threshold of 0.5 for better readability (lowered from 0.6)
-    return luminance > 0.5 ? '#000000' : '#ffffff';
+    return luminance > 0.5 ? "#000000" : "#ffffff";
   }, []);
 
   // Update cluster dropdown in popup when clusters change
   React.useEffect(() => {
     // Find all open popups in edit mode
     const popups = document.querySelectorAll('[id^="edit-mode-"]');
-    popups.forEach(editMode => {
-      if ((editMode as HTMLElement).style.display !== 'block') return;
-      const clientId = editMode.id.replace('edit-mode-', '');
-      const clusterSelect = editMode.querySelector(`#cluster-select-${clientId}`) as HTMLSelectElement | null;
+    popups.forEach((editMode) => {
+      if ((editMode as HTMLElement).style.display !== "block") return;
+      const clientId = editMode.id.replace("edit-mode-", "");
+      const clusterSelect = editMode.querySelector(
+        `#cluster-select-${clientId}`
+      ) as HTMLSelectElement | null;
       if (!clusterSelect) return;
       // Save current value
       const prevValue = clusterSelect.value;
@@ -237,17 +284,19 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
       }
       // Insert new cluster options
       clusters.forEach((c: Cluster) => {
-        const opt = document.createElement('option');
+        const opt = document.createElement("option");
         opt.value = c.id;
         opt.text = c.id;
         const clusterColor = getClusterColor(c.id);
         opt.style.backgroundColor = clusterColor;
         opt.style.color = getTextColorForBackground(clusterColor);
-        opt.style.fontWeight = 'bold';
+        opt.style.fontWeight = "bold";
         clusterSelect.add(opt, clusterSelect.options.length - 1);
       });
       // Set value to the new cluster if it was just added, else restore previous value
-      const numericIds = clusters.map((c2: Cluster) => parseInt(c2.id, 10)).filter((n: number) => !isNaN(n));
+      const numericIds = clusters
+        .map((c2: Cluster) => parseInt(c2.id, 10))
+        .filter((n: number) => !isNaN(n));
       const maxId = numericIds.length > 0 ? Math.max(...numericIds) : 0;
       if (!clusters.some((c: Cluster) => c.id === prevValue)) {
         const maxIdStr = String(maxId);
@@ -261,23 +310,23 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
       }
     });
   }, [clusters, getClusterColor, getTextColorForBackground]);
-  
+
   // Function to fetch DC ward boundaries from ArcGIS REST service
   const fetchWardBoundaries = async () => {
     if (wardData) return wardData; // Return cached data if available
-    
+
     setWardDataLoading(true);
     try {
       const wardServiceURL = `https://maps2.dcgis.dc.gov/dcgis/rest/services/DCGIS_DATA/Administrative_Other_Boundaries_WebMercator/MapServer/53/query`;
       const params = new URLSearchParams({
-        f: 'geojson',
-        where: '1=1', // Get all wards
-        outFields: 'NAME,WARD',
-        returnGeometry: 'true'
+        f: "geojson",
+        where: "1=1", // Get all wards
+        outFields: "NAME,WARD",
+        returnGeometry: "true",
       });
 
       const response = await fetch(`${wardServiceURL}?${params.toString()}`);
-      
+
       if (!response.ok) {
         throw new Error(`Failed to fetch ward boundaries: ${response.status}`);
       }
@@ -286,13 +335,12 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
       setWardData(data);
       return data;
     } catch (error) {
-      console.error('Error fetching ward boundaries:', error);
+      console.error("Error fetching ward boundaries:", error);
       return null;
     } finally {
       setWardDataLoading(false);
     }
   };
-
 
   // Fetch drivers from Firebase
   useEffect(() => {
@@ -309,8 +357,8 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
   // Function to add ward overlays to the map
   const addWardOverlays = async () => {
     if (!mapRef.current || !wardLayerGroupRef.current) return;
-    
-    const boundaries = wardData || await fetchWardBoundaries();
+
+    const boundaries = wardData || (await fetchWardBoundaries());
     if (!boundaries || !boundaries.features) return;
 
     // Clear existing ward layers
@@ -318,8 +366,8 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
 
     boundaries.features.forEach((feature: any) => {
       const wardName = feature.properties.NAME || `Ward ${feature.properties.WARD}`;
-      const wardColor = wardColors[wardName] || '#999999'; // Default color if ward not found
-      
+      const wardColor = wardColors[wardName] || "#999999"; // Default color if ward not found
+
       // Create polygon layer with translucent fill
       const polygon = L.geoJSON(feature, {
         style: {
@@ -327,7 +375,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
           fillOpacity: 0.2, // Translucent
           color: wardColor,
           weight: 2,
-          opacity: 0.8
+          opacity: 0.8,
         },
         onEachFeature: (feature, layer) => {
           // Add popup with ward information
@@ -336,23 +384,23 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
               ${wardName}
             </div>
           `);
-          
+
           // Add hover effects
           layer.on({
             mouseover: (e) => {
               const layer = e.target;
               layer.setStyle({
-                fillOpacity: 0.4
+                fillOpacity: 0.4,
               });
             },
             mouseout: (e) => {
               const layer = e.target;
               layer.setStyle({
-                fillOpacity: 0.2
+                fillOpacity: 0.2,
               });
-            }
+            },
           });
-        }
+        },
       });
 
       if (wardLayerGroupRef.current) {
@@ -372,10 +420,10 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
   const handleWardOverlayToggle = (event: React.ChangeEvent<HTMLInputElement>) => {
     const checked = event.target.checked;
     setShowWardOverlays(checked);
-    
+
     // Save to localStorage
-    localStorage.setItem('wardOverlaysEnabled', JSON.stringify(checked));
-    
+    localStorage.setItem("wardOverlaysEnabled", JSON.stringify(checked));
+
     if (checked) {
       addWardOverlays();
     } else {
@@ -384,18 +432,18 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
   };
 
   useEffect(() => {
-    if (!mapRef.current && visibleRows.length > 0 && L && typeof L.map === 'function') {
+    if (!mapRef.current && visibleRows.length > 0 && L && typeof L.map === "function") {
       try {
         mapRef.current = L.map("cluster-map").setView(ffaCoordinates, 11);
         L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(mapRef.current);
       } catch (error) {
-        console.error('Error initializing Leaflet map:', error);
+        console.error("Error initializing Leaflet map:", error);
         return;
       }
-      
+
       // Create ward layer group (add before markers so wards appear behind markers)
       wardLayerGroupRef.current = L.featureGroup().addTo(mapRef.current);
-      
+
       // Create marker layer group
       markerGroupRef.current = L.featureGroup().addTo(mapRef.current);
     }
@@ -405,10 +453,9 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
   React.useEffect(() => {
     if (onOpenPopup) {
       (window as any).openMapPopup = (clientId: string) => {
-        
         // Mark that this popup is being opened by a table row click (not marker click)
         popupOpenedByMarkerRef.current = false;
-        
+
         const marker = markersMapRef.current.get(clientId);
         if (marker && mapRef.current) {
           const popup = marker.getPopup();
@@ -416,23 +463,23 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
           if (popup && position) {
             // Use the map's openPopup method with the popup content and marker as options
             const content = popup.getContent();
-            if (content && typeof content !== 'function') {
+            if (content && typeof content !== "function") {
               // Create a new popup with the same content but proper positioning
               const newPopup = L.popup({
                 autoPan: true,
                 keepInView: true,
-                offset: [-5, -10] // Match the popupAnchor from the divIcon
+                offset: [-5, -10], // Match the popupAnchor from the divIcon
               })
-              .setContent(content)
-              .setLatLng(position);
-              
+                .setContent(content)
+                .setLatLng(position);
+
               // Open the popup on the map
               newPopup.openOn(mapRef.current);
             }
           }
         }
       };
-      
+
       // Also set up the close popup function
       (window as any).closeMapPopup = () => {
         if (mapRef.current) {
@@ -446,12 +493,12 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
           onClearHighlight();
         }
       };
-      
+
       // Set up a simple popup close handler that mimics clicking the highlighted row
       if (mapRef.current && !popupCloseHandlerSetup.current) {
         popupCloseHandlerSetup.current = true;
-        
-        mapRef.current.on('popupclose', () => {
+
+        mapRef.current.on("popupclose", () => {
           if (isPopupOpening.current) {
             return;
           }
@@ -477,10 +524,6 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
     };
   }, [onOpenPopup, onClearHighlight]);
 
-
-
-
-
   // Restore ward overlays if they were enabled when the map is ready
   useEffect(() => {
     if (mapRef.current && wardLayerGroupRef.current && showWardOverlays) {
@@ -492,14 +535,14 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
     if (!mapRef.current || !markerGroupRef.current || visibleRows.length < 1) return;
 
     markerGroupRef.current.clearLayers();
-    
+
     // Clear markers map when recreating markers
     markersMapRef.current.clear();
 
     // create a map of client ids for quick lookup
     const clientClusterMap = new Map<string, Cluster>();
-    clusters.forEach(cluster => {
-      cluster.deliveries.forEach(clientId => {
+    clusters.forEach((cluster) => {
+      cluster.deliveries.forEach((clientId) => {
         clientClusterMap.set(clientId, cluster);
       });
     });
@@ -509,7 +552,8 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
 
       const coord = normalizeCoordinate(client.coordinates);
       const clientName = `${client.firstName} ${client.lastName}` || "Client: None";
-      const address = `${client.address || ''}${client.address2 ? ' ' + client.address2 : ''}`.trim();
+      const address =
+        `${client.address || ""}${client.address2 ? " " + client.address2 : ""}`.trim();
 
       const cluster = clientClusterMap.get(client.id);
       const clusterId = cluster?.id || "";
@@ -520,21 +564,21 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
         // Extract the number part for color assignment.
         // If format is different, adjust parsing logic.
         const clusterIdStr = String(clusterId); // Ensure clusterId is a string
-        const match = clusterIdStr.match(/\d+/); 
+        const match = clusterIdStr.match(/\d+/);
         const clusterNumber = match ? parseInt(match[0], 10) : NaN;
         if (!isNaN(clusterNumber) && clusterNumber > 0) {
           colorIndex = (clusterNumber - 1) % clusterColors.length; // Use number-1 for 0-based index
         } else {
-           // Fallback for non-numeric IDs or parsing failures - hash the ID?
-           let hash = 0;
-           for (let i = 0; i < clusterIdStr.length; i++) {
-               hash = clusterIdStr.charCodeAt(i) + ((hash << 5) - hash);
-           }
-           colorIndex = Math.abs(hash) % clusterColors.length;
+          // Fallback for non-numeric IDs or parsing failures - hash the ID?
+          let hash = 0;
+          for (let i = 0; i < clusterIdStr.length; i++) {
+            hash = clusterIdStr.charCodeAt(i) + ((hash << 5) - hash);
+          }
+          colorIndex = Math.abs(hash) % clusterColors.length;
         }
       }
       const numberIcon = L.divIcon({
-      html: `<div style="
+        html: `<div style="
               width: 20px;
               height: 20px;
               background-color: ${clusterId ? clusterColors[colorIndex] : "var(--color-primary)"};
@@ -551,21 +595,27 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
               opacity: 0.9;
               cursor: pointer;
             ">${clusterId}</div>`,
-      iconSize: [0, 0],
-      iconAnchor: [16, 16],
-      popupAnchor: [0, -16]
-    });
-      
+        iconSize: [0, 0],
+        iconAnchor: [16, 16],
+        popupAnchor: [0, -16],
+      });
 
       const marker = L.marker([coord.lat, coord.lng], {
         icon: numberIcon,
-        opacity: 1
+        opacity: 1,
       });
 
-      const createEditablePopup = (clientId: string, clientName: string, clusterId: string, cluster: Cluster | undefined, ward: string | undefined, address: string) => {
+      const createEditablePopup = (
+        clientId: string,
+        clientName: string,
+        clusterId: string,
+        cluster: Cluster | undefined,
+        ward: string | undefined,
+        address: string
+      ) => {
         // Find individual client overrides
-        const clientOverride = clientOverrides.find(override => override.clientId === clientId);
-        
+        const clientOverride = clientOverrides.find((override) => override.clientId === clientId);
+
         // Get effective driver and time (override takes precedence over cluster default)
         const effectiveDriver = clientOverride?.driver || cluster?.driver;
         const effectiveTime = clientOverride?.time || cluster?.time;
@@ -573,72 +623,75 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
 
         // Helper function to format time in AM/PM format
         const formatTimeForDisplay = (time: string | undefined) => {
-          if (!time) return '';
-          
+          if (!time) return "";
+
           // If time is already in AM/PM format, return as is
-          if (time.includes('AM') || time.includes('PM')) {
+          if (time.includes("AM") || time.includes("PM")) {
             return time;
           }
-          
+
           // If time is in military/24-hour format, convert to AM/PM
           const timeRegex = /^(\d{1,2}):(\d{2})$/;
           const match = time.match(timeRegex);
           if (match) {
             const hours = parseInt(match[1], 10);
             const minutes = match[2];
-            const ampm = hours >= 12 ? 'PM' : 'AM';
+            const ampm = hours >= 12 ? "PM" : "AM";
             const displayHours = hours % 12 || 12;
             return `${displayHours}:${minutes} ${ampm}`;
           }
-          
+
           // If we can't parse it, return as is
           return time;
         };
 
         // Helper function to convert AM/PM time to 24-hour format
         const convertTo24Hour = (time: string) => {
-          if (!time || (!time.includes('AM') && !time.includes('PM'))) {
+          if (!time || (!time.includes("AM") && !time.includes("PM"))) {
             return time; // Already in 24-hour format or empty
           }
-          
-          const [timePart, period] = time.split(' ');
-          const [hours, minutes] = timePart.split(':');
+
+          const [timePart, period] = time.split(" ");
+          const [hours, minutes] = timePart.split(":");
           let hours24 = parseInt(hours, 10);
-          
-          if (period === 'AM' && hours24 === 12) {
+
+          if (period === "AM" && hours24 === 12) {
             hours24 = 0;
-          } else if (period === 'PM' && hours24 !== 12) {
+          } else if (period === "PM" && hours24 !== 12) {
             hours24 += 12;
           }
-          
-          return `${hours24.toString().padStart(2, '0')}:${minutes}`;
+
+          return `${hours24.toString().padStart(2, "0")}:${minutes}`;
         };
 
-        const popupContainer = document.createElement('div');
-        popupContainer.setAttribute('data-client-id', clientId);
+        const popupContainer = document.createElement("div");
+        popupContainer.setAttribute("data-client-id", clientId);
         popupContainer.innerHTML = `
           <div style="font-family: Arial, sans-serif; line-height: 1.4; min-width: 250px;">
             <div id="view-mode-${clientId}" style="display: block;">
               <div style="font-weight: bold; margin-bottom: 5px; display: flex; align-items: center; justify-content: space-between;">
                 <span>${clientName}</span>
-                ${clusterId ? `<span style="cursor: pointer; padding: 2px 4px; border-radius: 3px; margin-left: 10px;" id="edit-btn-${clientId}" title="Edit">✏️</span>` : ''}
+                ${clusterId ? `<span style="cursor: pointer; padding: 2px 4px; border-radius: 3px; margin-left: 10px;" id="edit-btn-${clientId}" title="Edit">✏️</span>` : ""}
               </div>
-              ${clusterId ? `
+              ${
+                clusterId
+                  ? `
                 <div><span style="font-weight: bold;">Cluster:</span> ${clusterId}</div>
-                ${effectiveDriver ? `<div><span style="font-weight: bold;">Driver:</span> ${effectiveDriver}</div>` : ''}
-                ${effectiveTime ? `<div><span style="font-weight: bold;">Time:</span> ${formatTimeForDisplay(effectiveTime)}</div>` : ''}
-              ` : 
-              `<div><span style="font-weight: bold;">Cluster:</span> No cluster Assigned</div>`}
-              ${ward ? `<div><span style="font-weight: bold;">Ward:</span> ${ward}</div>` : ''}
+                ${effectiveDriver ? `<div><span style="font-weight: bold;">Driver:</span> ${effectiveDriver}</div>` : ""}
+                ${effectiveTime ? `<div><span style="font-weight: bold;">Time:</span> ${formatTimeForDisplay(effectiveTime)}</div>` : ""}
+              `
+                  : `<div><span style="font-weight: bold;">Cluster:</span> No cluster Assigned</div>`
+              }
+              ${ward ? `<div><span style="font-weight: bold;">Ward:</span> ${ward}</div>` : ""}
               <div><span style="font-weight: bold;">Address:</span> ${address}</div>
             </div>
             <div id="edit-mode-${clientId}" style="display: none;">
               <div style="font-weight: bold; margin-bottom: 10px;">${clientName}</div>
               <div style="margin-bottom: 8px; display: flex; align-items: center; gap: 8px;">
                 <label style="font-weight: bold; min-width: 60px; font-size: 12px;">Cluster:</label>
-                <select id="cluster-select-${clientId}" style="flex: 1; padding: 3px; border: 1px solid var(--color-border-input); border-radius: 3px; font-size: 11px; background-color: ${clusterId ? getClusterColor(clusterId) : 'var(--color-background-main)'}; color: ${clusterId ? getTextColorForBackground(getClusterColor(clusterId)) : 'black'}; height: 24px !important; min-height: 24px !important; max-height: 24px !important; line-height: 1.1 !important;">
+                <select id="cluster-select-${clientId}" style="flex: 1; padding: 3px; border: 1px solid var(--color-border-input); border-radius: 3px; font-size: 11px; background-color: ${clusterId ? getClusterColor(clusterId) : "var(--color-background-main)"}; color: ${clusterId ? getTextColorForBackground(getClusterColor(clusterId)) : "black"}; height: 24px !important; min-height: 24px !important; max-height: 24px !important; line-height: 1.1 !important;">
                   <option value="" style="background-color: var(--color-background-main); color: var(--color-black);">No cluster</option>
-                  ${clusters.map(c => `<option value="${c.id}" ${c.id === clusterId ? 'selected' : ''} style="background-color: ${getClusterColor(c.id)}; color: ${getTextColorForBackground(getClusterColor(c.id))}; font-weight: bold;">${c.id}</option>`).join('')}
+                  ${clusters.map((c) => `<option value="${c.id}" ${c.id === clusterId ? "selected" : ""} style="background-color: ${getClusterColor(c.id)}; color: ${getTextColorForBackground(getClusterColor(c.id))}; font-weight: bold;">${c.id}</option>`).join("")}
                   <option value="__add__" style="background-color: var(--color-border-input); color: var(--color-text-dark); font-weight: bold;">+ Add Cluster</option>
                 </select>
               </div>
@@ -646,21 +699,21 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
                 <label style="font-weight: bold; min-width: 60px; font-size: 12px;">Driver:</label>
                 <select id="driver-select-${clientId}" style="flex: 1; padding: 3px; border: 1px solid var(--color-border-input); border-radius: 3px; font-size: 11px; height: 24px !important; min-height: 24px !important; max-height: 24px !important; line-height: 1.1 !important;">
                   <option value="">No driver</option>
-                  ${drivers.map(d => `<option value="${d.name}" ${d.name === effectiveDriver ? 'selected' : ''}>${d.name}${d.phone ? ` - ${d.phone}` : ''}</option>`).join('')}
+                  ${drivers.map((d) => `<option value="${d.name}" ${d.name === effectiveDriver ? "selected" : ""}>${d.name}${d.phone ? ` - ${d.phone}` : ""}</option>`).join("")}
                 </select>
               </div>
               <div style="margin-bottom: 10px; display: flex; align-items: center; gap: 8px;">
                 <label style="font-weight: bold; min-width: 60px; font-size: 12px;">Time:</label>
                 <select id="time-select-${clientId}" style="flex: 1; padding: 3px; border: 1px solid var(--color-border-input); border-radius: 3px; font-size: 11px; height: 24px !important; min-height: 24px !important; max-height: 24px !important; line-height: 1.1 !important;">
                   <option value="">No time</option>
-                  ${TIME_SLOTS.map(t => `<option value="${t}" ${t === formatTimeForDisplay(effectiveTime) ? 'selected' : ''}>${t}</option>`).join('')}
+                  ${TIME_SLOTS.map((t) => `<option value="${t}" ${t === formatTimeForDisplay(effectiveTime) ? "selected" : ""}>${t}</option>`).join("")}
                 </select>
               </div>
               <div style="display: flex; gap: 8px;">
                 <button id="save-btn-${clientId}" style="flex: 1; padding: 6px 12px; background: var(--color-success-button); color: var(--color-white); border: none; border-radius: 3px; cursor: pointer;">Save</button>
                 <button id="cancel-btn-${clientId}" style="flex: 1; padding: 6px 12px; background: var(--color-cancel-button); color: var(--color-white); border: none; border-radius: 3px; cursor: pointer;">Cancel</button>
               </div>
-              ${ward ? `<div style="margin-top: 8px;"><span style="font-weight: bold;">Ward:</span> ${ward}</div>` : ''}
+              ${ward ? `<div style="margin-top: 8px;"><span style="font-weight: bold;">Ward:</span> ${ward}</div>` : ""}
               <div style="margin-top: 8px;"><span style="font-weight: bold;">Address:</span> ${address}</div>
             </div>
           </div>
@@ -670,19 +723,24 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
         const editBtn = popupContainer.querySelector(`#edit-btn-${clientId}`);
         const saveBtn = popupContainer.querySelector(`#save-btn-${clientId}`);
         const cancelBtn = popupContainer.querySelector(`#cancel-btn-${clientId}`);
-        const clusterSelect = popupContainer.querySelector(`#cluster-select-${clientId}`) as HTMLSelectElement;
+        const clusterSelect = popupContainer.querySelector(
+          `#cluster-select-${clientId}`
+        ) as HTMLSelectElement;
         const viewMode = popupContainer.querySelector(`#view-mode-${clientId}`) as HTMLElement;
         const editMode = popupContainer.querySelector(`#edit-mode-${clientId}`) as HTMLElement;
 
         if (clusterSelect) {
           let pendingNewClusterId: string | null = null;
-          clusterSelect.addEventListener('change', () => {
+          clusterSelect.addEventListener("change", () => {
             const selectedClusterId = clusterSelect.value;
             if (selectedClusterId === "__add__") {
-              const clusterNumbers = clusters.map(c => parseInt(c.id, 10)).filter(n => !isNaN(n));
-              const nextClusterNum = clusterNumbers.length > 0 ? Math.max(...clusterNumbers) + 1 : 1;
+              const clusterNumbers = clusters
+                .map((c) => parseInt(c.id, 10))
+                .filter((n) => !isNaN(n));
+              const nextClusterNum =
+                clusterNumbers.length > 0 ? Math.max(...clusterNumbers) + 1 : 1;
               const nextClusterId = nextClusterNum.toString();
-              const opt = document.createElement('option');
+              const opt = document.createElement("option");
               opt.value = nextClusterId;
               opt.text = nextClusterId;
               opt.style.backgroundColor = getClusterColor(nextClusterId);
@@ -701,16 +759,20 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
               clusterSelect.style.backgroundColor = selectedColor;
               clusterSelect.style.color = getTextColorForBackground(selectedColor);
             } else {
-              clusterSelect.style.backgroundColor = 'var(--color-background-main)';
-              clusterSelect.style.color = 'var(--color-black)';
+              clusterSelect.style.backgroundColor = "var(--color-background-main)";
+              clusterSelect.style.color = "var(--color-black)";
             }
           });
 
           const saveBtnEarly = popupContainer.querySelector(`#save-btn-${clientId}`);
           if (saveBtnEarly) {
-            saveBtnEarly.addEventListener('click', () => {
-              const driverSelect = popupContainer.querySelector(`#driver-select-${clientId}`) as HTMLSelectElement;
-              const timeSelect = popupContainer.querySelector(`#time-select-${clientId}`) as HTMLSelectElement;
+            saveBtnEarly.addEventListener("click", () => {
+              const driverSelect = popupContainer.querySelector(
+                `#driver-select-${clientId}`
+              ) as HTMLSelectElement;
+              const timeSelect = popupContainer.querySelector(
+                `#time-select-${clientId}`
+              ) as HTMLSelectElement;
               const newClusterId = pendingNewClusterId || clusterSelect.value;
               const newDriver = driverSelect.value || undefined;
               const newTime = timeSelect.value || undefined;
@@ -718,38 +780,46 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
               if (onClusterUpdate) {
                 onClusterUpdate(clientId, newClusterId, newDriver, newTime24Hour);
               }
-              const viewMode = popupContainer.querySelector(`#view-mode-${clientId}`) as HTMLElement;
-              const editMode = popupContainer.querySelector(`#edit-mode-${clientId}`) as HTMLElement;
+              const viewMode = popupContainer.querySelector(
+                `#view-mode-${clientId}`
+              ) as HTMLElement;
+              const editMode = popupContainer.querySelector(
+                `#edit-mode-${clientId}`
+              ) as HTMLElement;
               if (viewMode && editMode) {
-                viewMode.style.display = 'block';
-                editMode.style.display = 'none';
+                viewMode.style.display = "block";
+                editMode.style.display = "none";
               }
             });
           }
         }
 
         // Store initial values for reset on cancel
-        let initialClusterId = clusterSelect ? clusterSelect.value : '';
-        const driverSelect = popupContainer.querySelector(`#driver-select-${clientId}`) as HTMLSelectElement;
-        const timeSelect = popupContainer.querySelector(`#time-select-${clientId}`) as HTMLSelectElement;
-        let initialDriver = driverSelect ? driverSelect.value : '';
-        let initialTime = timeSelect ? timeSelect.value : '';
+        let initialClusterId = clusterSelect ? clusterSelect.value : "";
+        const driverSelect = popupContainer.querySelector(
+          `#driver-select-${clientId}`
+        ) as HTMLSelectElement;
+        const timeSelect = popupContainer.querySelector(
+          `#time-select-${clientId}`
+        ) as HTMLSelectElement;
+        let initialDriver = driverSelect ? driverSelect.value : "";
+        let initialTime = timeSelect ? timeSelect.value : "";
 
         if (editBtn) {
-          editBtn.addEventListener('click', () => {
+          editBtn.addEventListener("click", () => {
             // ...existing code...
             // Capture initial values when entering edit mode
             if (clusterSelect) initialClusterId = clusterSelect.value;
             if (driverSelect) initialDriver = driverSelect.value;
             if (timeSelect) initialTime = timeSelect.value;
-            viewMode.style.display = 'none';
-            editMode.style.display = 'block';
+            viewMode.style.display = "none";
+            editMode.style.display = "block";
             // Measure popup size in edit mode and pan map accordingly
             setTimeout(() => {
               if (editMode && markerGroupRef.current && mapRef.current) {
                 const editRect = editMode.getBoundingClientRect();
                 let markerIdx = 0;
-                markerGroupRef.current.eachLayer(function(layer: L.Layer) {
+                markerGroupRef.current.eachLayer(function (layer: L.Layer) {
                   if ((layer as L.Marker).getPopup) {
                     const marker = layer as L.Marker;
                     const popup = marker.getPopup();
@@ -757,10 +827,10 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
                     let popupContentId = null;
                     let popupContainerId = null;
                     if (popupContent instanceof HTMLElement) {
-                      popupContentId = popupContent.getAttribute('data-client-id');
+                      popupContentId = popupContent.getAttribute("data-client-id");
                     }
                     if (popupContainer instanceof HTMLElement) {
-                      popupContainerId = popupContainer.getAttribute('data-client-id');
+                      popupContainerId = popupContainer.getAttribute("data-client-id");
                     }
                     if (popupContentId && popupContainerId && popupContentId === popupContainerId) {
                       if (popup && mapRef.current && marker.getLatLng) {
@@ -785,25 +855,29 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
         }
 
         if (cancelBtn) {
-          cancelBtn.addEventListener('click', () => {
+          cancelBtn.addEventListener("click", () => {
             // Reset dropdowns to their initial values
             if (clusterSelect) {
               clusterSelect.value = initialClusterId;
               // Update color
-              const selectedColor = initialClusterId ? getClusterColor(initialClusterId) : '#ffffff';
+              const selectedColor = initialClusterId
+                ? getClusterColor(initialClusterId)
+                : "#ffffff";
               clusterSelect.style.backgroundColor = selectedColor;
-              clusterSelect.style.color = initialClusterId ? getTextColorForBackground(selectedColor) : 'black';
+              clusterSelect.style.color = initialClusterId
+                ? getTextColorForBackground(selectedColor)
+                : "black";
             }
             if (driverSelect) driverSelect.value = initialDriver;
             if (timeSelect) timeSelect.value = initialTime;
-            viewMode.style.display = 'block';
-            editMode.style.display = 'none';
+            viewMode.style.display = "block";
+            editMode.style.display = "none";
             // Measure popup size in view mode and pan map accordingly
             setTimeout(() => {
               if (viewMode && markerGroupRef.current && mapRef.current) {
                 const viewRect = viewMode.getBoundingClientRect();
                 let markerIdx = 0;
-                markerGroupRef.current.eachLayer(function(layer: L.Layer) {
+                markerGroupRef.current.eachLayer(function (layer: L.Layer) {
                   if ((layer as L.Marker).getPopup) {
                     const marker = layer as L.Marker;
                     const popup = marker.getPopup();
@@ -811,10 +885,10 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
                     let popupContentId = null;
                     let popupContainerId = null;
                     if (popupContent instanceof HTMLElement) {
-                      popupContentId = popupContent.getAttribute('data-client-id');
+                      popupContentId = popupContent.getAttribute("data-client-id");
                     }
                     if (popupContainer instanceof HTMLElement) {
-                      popupContainerId = popupContainer.getAttribute('data-client-id');
+                      popupContainerId = popupContainer.getAttribute("data-client-id");
                     }
                     if (popupContentId && popupContainerId && popupContentId === popupContainerId) {
                       if (popup && mapRef.current && marker.getLatLng) {
@@ -838,10 +912,16 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
         }
 
         if (saveBtn && onClusterUpdate) {
-          saveBtn.addEventListener('click', () => {
-            const clusterSelect = popupContainer.querySelector(`#cluster-select-${clientId}`) as HTMLSelectElement;
-            const driverSelect = popupContainer.querySelector(`#driver-select-${clientId}`) as HTMLSelectElement;
-            const timeSelect = popupContainer.querySelector(`#time-select-${clientId}`) as HTMLSelectElement;
+          saveBtn.addEventListener("click", () => {
+            const clusterSelect = popupContainer.querySelector(
+              `#cluster-select-${clientId}`
+            ) as HTMLSelectElement;
+            const driverSelect = popupContainer.querySelector(
+              `#driver-select-${clientId}`
+            ) as HTMLSelectElement;
+            const timeSelect = popupContainer.querySelector(
+              `#time-select-${clientId}`
+            ) as HTMLSelectElement;
 
             const newClusterId = clusterSelect.value;
             const newDriver = driverSelect.value || undefined;
@@ -856,29 +936,32 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
               viewModeContent.innerHTML = `
                 <div style="font-weight: bold; margin-bottom: 5px; display: flex; align-items: center; justify-content: space-between;">
                   <span>${clientName}</span>
-                  ${newClusterId ? `<span style="cursor: pointer; padding: 2px 4px; border-radius: 3px; margin-left: 10px;" id="edit-btn-${clientId}" title="Edit">✏️</span>` : ''}
+                  ${newClusterId ? `<span style="cursor: pointer; padding: 2px 4px; border-radius: 3px; margin-left: 10px;" id="edit-btn-${clientId}" title="Edit">✏️</span>` : ""}
                 </div>
-                ${newClusterId ? `
+                ${
+                  newClusterId
+                    ? `
                   <div><span style="font-weight: bold;">Cluster:</span> ${newClusterId}</div>
-                  ${newDriver ? `<div><span style="font-weight: bold;">Driver:</span> ${newDriver}</div>` : ''}
-                  ${newTime ? `<div><span style="font-weight: bold;">Time:</span> ${newTime}</div>` : ''}
-                ` : 
-                `<div><span style="font-weight: bold;">Cluster:</span> No cluster Assigned</div>`}
-                ${ward ? `<div><span style="font-weight: bold;">Ward:</span> ${ward}</div>` : ''}
+                  ${newDriver ? `<div><span style="font-weight: bold;">Driver:</span> ${newDriver}</div>` : ""}
+                  ${newTime ? `<div><span style="font-weight: bold;">Time:</span> ${newTime}</div>` : ""}
+                `
+                    : `<div><span style="font-weight: bold;">Cluster:</span> No cluster Assigned</div>`
+                }
+                ${ward ? `<div><span style="font-weight: bold;">Ward:</span> ${ward}</div>` : ""}
                 <div><span style="font-weight: bold;">Address:</span> ${address}</div>
               `;
               // Re-attach the edit button event listener
               const newEditBtn = viewModeContent.querySelector(`#edit-btn-${clientId}`);
               if (newEditBtn) {
-                newEditBtn.addEventListener('click', () => {
-                  viewMode.style.display = 'none';
-                  editMode.style.display = 'block';
+                newEditBtn.addEventListener("click", () => {
+                  viewMode.style.display = "none";
+                  editMode.style.display = "block";
                   // Also pan map for edit mode (reuse logic from editBtn)
                   setTimeout(() => {
                     if (editMode && markerGroupRef.current && mapRef.current) {
                       const editRect = editMode.getBoundingClientRect();
                       let markerIdx = 0;
-                      markerGroupRef.current.eachLayer(function(layer: L.Layer) {
+                      markerGroupRef.current.eachLayer(function (layer: L.Layer) {
                         if ((layer as L.Marker).getPopup) {
                           const marker = layer as L.Marker;
                           const popup = marker.getPopup();
@@ -886,12 +969,16 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
                           let popupContentId = null;
                           let popupContainerId = null;
                           if (popupContent instanceof HTMLElement) {
-                            popupContentId = popupContent.getAttribute('data-client-id');
+                            popupContentId = popupContent.getAttribute("data-client-id");
                           }
                           if (popupContainer instanceof HTMLElement) {
-                            popupContainerId = popupContainer.getAttribute('data-client-id');
+                            popupContainerId = popupContainer.getAttribute("data-client-id");
                           }
-                          if (popupContentId && popupContainerId && popupContentId === popupContainerId) {
+                          if (
+                            popupContentId &&
+                            popupContainerId &&
+                            popupContentId === popupContainerId
+                          ) {
                             if (popup && mapRef.current && marker.getLatLng) {
                               const latlng = marker.getLatLng();
                               const yOffset = editRect.height / 2;
@@ -899,9 +986,9 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
                               const markerPoint = map.latLngToContainerPoint(latlng);
                               const targetPoint = markerPoint.subtract([0, yOffset]);
                               const targetLatLng = map.containerPointToLatLng(targetPoint);
-                                setTimeout(() => {
-                                  map.panTo(targetLatLng, { animate: true });
-                                }, 100);
+                              setTimeout(() => {
+                                map.panTo(targetLatLng, { animate: true });
+                              }, 100);
                             }
                           }
                         }
@@ -914,39 +1001,46 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
             }
 
             // Switch back to view mode
-            viewMode.style.display = 'block';
-            editMode.style.display = 'none';
+            viewMode.style.display = "block";
+            editMode.style.display = "none";
           });
         }
 
         return popupContainer;
       };
 
-      const popupContent = createEditablePopup(client.id, clientName, clusterId, cluster, client.ward, address);
+      const popupContent = createEditablePopup(
+        client.id,
+        clientName,
+        clusterId,
+        cluster,
+        client.ward,
+        address
+      );
 
       //add popup and marker to group
       marker
         .bindPopup(popupContent, { autoPan: true, keepInView: true })
-        .on('click', (e) => {
+        .on("click", (e) => {
           isPopupOpening.current = true;
 
           if (onMarkerClick) {
             onMarkerClick(client.id);
           }
         })
-        .on('popupopen', () => {
+        .on("popupopen", () => {
           setTimeout(() => {
             isPopupOpening.current = false;
           }, 350);
         })
-        .on('popupclose', () => {
+        .on("popupclose", () => {
           isPopupOpening.current = false;
         })
         .addTo(markerGroupRef.current!);
 
       // Store client ID in the popup content for later retrieval
-      popupContent.setAttribute('data-client-id', client.id);
-      
+      popupContent.setAttribute("data-client-id", client.id);
+
       // Store marker in the map for external access
       markersMapRef.current.set(client.id, marker);
     });
@@ -967,7 +1061,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
       </div>`,
       iconSize: [30, 30],
       iconAnchor: [15, 15],
-      popupAnchor: [0, -15]
+      popupAnchor: [0, -15],
     });
 
     const ffaMarker = L.marker(ffaCoordinates, { icon: ffaIcon });
@@ -975,41 +1069,53 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
 
     if (markerGroupRef.current!.getLayers().length > 0) {
       mapRef.current!.fitBounds(markerGroupRef.current!.getBounds(), {
-        padding: [50, 50] 
+        padding: [50, 50],
       });
     }
-  }, [visibleRows, clusters, drivers, clientOverrides, getClusterColor, getTextColorForBackground, onClusterUpdate, onMarkerClick]);
+  }, [
+    visibleRows,
+    clusters,
+    drivers,
+    clientOverrides,
+    getClusterColor,
+    getTextColorForBackground,
+    onClusterUpdate,
+    onMarkerClick,
+  ]);
 
   const invalidCount = visibleRows.filter(
     (client) => !isValidCoordinate(client.coordinates)
   ).length;
 
-  const centerMap = ()=>{
-    mapRef.current?.setView(ffaCoordinates, 11)
-  }
+  const centerMap = () => {
+    mapRef.current?.setView(ffaCoordinates, 11);
+  };
 
   return (
-    <div style={{ position: 'relative' }}>
-      <div id="cluster-map" style={{ 
-        height: "400px", 
-        width: "100%", 
-        marginBottom: "20px",
-        border: "1px solid var(--color-border-light)",
-        borderRadius: "4px"
-      }} />
-      
+    <div style={{ position: "relative" }}>
+      <div
+        id="cluster-map"
+        style={{
+          height: "400px",
+          width: "100%",
+          marginBottom: "20px",
+          border: "1px solid var(--color-border-light)",
+          borderRadius: "4px",
+        }}
+      />
+
       {/* Ward Overlay Toggle */}
       <Box
         sx={{
-          position: 'absolute',
-          bottom: '10px',
-          left: '10px',
-          backgroundColor: 'rgba(255, 255, 255, 0.9)',
-          padding: '8px 12px',
-          borderRadius: '6px',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+          position: "absolute",
+          bottom: "10px",
+          left: "10px",
+          backgroundColor: "rgba(255, 255, 255, 0.9)",
+          padding: "8px 12px",
+          borderRadius: "6px",
+          boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
           zIndex: 1000,
-          minWidth: '180px'
+          minWidth: "180px",
         }}
       >
         <FormControlLabel
@@ -1022,54 +1128,52 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
             />
           }
           label={
-            <Typography variant="body2" sx={{ fontSize: '12px', fontWeight: 500 }}>
-              {wardDataLoading ? 'Loading wards...' : 'Show Ward Overlays'}
+            <Typography variant="body2" sx={{ fontSize: "12px", fontWeight: 500 }}>
+              {wardDataLoading ? "Loading wards..." : "Show Ward Overlays"}
             </Typography>
           }
           sx={{ margin: 0 }}
         />
         {showWardOverlays && (
-          <Box sx={{ mt: 1, fontSize: '10px', color: 'text.secondary' }}>
-            <Typography variant="caption">
-              Translucent colored regions show DC wards
-            </Typography>
+          <Box sx={{ mt: 1, fontSize: "10px", color: "text.secondary" }}>
+            <Typography variant="caption">Translucent colored regions show DC wards</Typography>
           </Box>
         )}
       </Box>
-      
+
       {/* Ward Legend */}
       {showWardOverlays && (
         <Box
           sx={{
-            position: 'absolute',
-            bottom: '80px',
-            left: '10px',
-            backgroundColor: 'rgba(255, 255, 255, 0.95)',
-            padding: '12px',
-            borderRadius: '6px',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+            position: "absolute",
+            bottom: "80px",
+            left: "10px",
+            backgroundColor: "rgba(255, 255, 255, 0.95)",
+            padding: "12px",
+            borderRadius: "6px",
+            boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
             zIndex: 1000,
-            maxWidth: '200px'
+            maxWidth: "200px",
           }}
         >
-          <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 1, fontSize: '12px' }}>
+          <Typography variant="body2" sx={{ fontWeight: "bold", mb: 1, fontSize: "12px" }}>
             DC Wards
           </Typography>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          <Box sx={{ display: "flex", flexDirection: "column", gap: "4px" }}>
             {Object.entries(wardColors).map(([wardName, color]) => (
-              <Box key={wardName} sx={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Box key={wardName} sx={{ display: "flex", alignItems: "center", gap: "8px" }}>
                 <Box
                   sx={{
-                    width: '16px',
-                    height: '16px',
+                    width: "16px",
+                    height: "16px",
                     backgroundColor: color,
                     opacity: 0.7,
                     border: `1px solid ${color}`,
-                    borderRadius: '2px',
-                    flexShrink: 0
+                    borderRadius: "2px",
+                    flexShrink: 0,
                   }}
                 />
-                <Typography variant="caption" sx={{ fontSize: '10px' }}>
+                <Typography variant="caption" sx={{ fontSize: "10px" }}>
                   {wardName}
                 </Typography>
               </Box>
@@ -1077,7 +1181,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
           </Box>
         </Box>
       )}
-      
+
       {/* Center Map Button */}
       <Box
         sx={{
@@ -1087,34 +1191,36 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
           display: "flex",
           justifyContent: "center",
           alignItems: "center",
-          position: 'absolute',
-          top: '10px',
-          left: '60px', // Position next to zoom controls (which are typically 40px wide + 10px margin)
+          position: "absolute",
+          top: "10px",
+          left: "60px", // Position next to zoom controls (which are typically 40px wide + 10px margin)
           width: 50,
           height: 50,
           zIndex: 1000,
-          cursor: 'pointer',
+          cursor: "pointer",
           "&:hover": {
-            opacity: "80%"
-          }
+            opacity: "80%",
+          },
         }}
         onClick={centerMap}
       >
-        <img src={FFAIcon} style={{ width: '100%', height: '100%' }} alt="Center On FFA" />
+        <img src={FFAIcon} style={{ width: "100%", height: "100%" }} alt="Center On FFA" />
       </Box>
       {invalidCount > 0 && (
-        <div style={{
-          position: 'absolute',
-          top: '10px',
-          right: '10px',
-          backgroundColor: 'var(--color-white)',
-          padding: '5px 10px',
-          borderRadius: '3px',
-          boxShadow: '0 0 5px rgba(0,0,0,0.2)',
-          zIndex: 1000,
-          color: 'red',
-          fontWeight: 'bold'
-        }}>
+        <div
+          style={{
+            position: "absolute",
+            top: "10px",
+            right: "10px",
+            backgroundColor: "var(--color-white)",
+            padding: "5px 10px",
+            borderRadius: "3px",
+            boxShadow: "0 0 5px rgba(0,0,0,0.2)",
+            zIndex: 1000,
+            color: "red",
+            fontWeight: "bold",
+          }}
+        >
           {invalidCount} invalid coordinates
         </div>
       )}

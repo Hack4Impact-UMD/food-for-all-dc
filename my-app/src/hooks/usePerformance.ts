@@ -1,4 +1,4 @@
-import React, { memo, useCallback, useMemo } from 'react';
+import React, { memo, useCallback, useMemo } from "react";
 
 // Higher-order component for performance optimization
 export function withPerformanceOptimization<P extends object>(
@@ -19,23 +19,21 @@ export function useStableCallback<T extends (...args: any[]) => any>(
 }
 
 // Custom hook for expensive computations
-export function useExpensiveComputation<T>(
-  compute: () => T,
-  deps: React.DependencyList
-): T {
+export function useExpensiveComputation<T>(compute: () => T, deps: React.DependencyList): T {
   return useMemo(compute, deps);
 }
 
 // Performance monitoring hook
 export function usePerformanceMonitor(componentName: string) {
   const renderStart = useMemo(() => performance.now(), []);
-  
+
   React.useEffect(() => {
     const renderEnd = performance.now();
     const renderTime = renderEnd - renderStart;
-    
-    if (renderTime > 16) { // More than one frame (16ms)
-  // console.warn(`${componentName} render took ${renderTime.toFixed(2)}ms`);
+
+    if (renderTime > 16) {
+      // More than one frame (16ms)
+      // console.warn(`${componentName} render took ${renderTime.toFixed(2)}ms`);
     }
   });
 }
@@ -68,12 +66,9 @@ export function useIntersectionObserver(
     const element = ref.current;
     if (!element) return;
 
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        setIsIntersecting(entry.isIntersecting);
-      },
-      options
-    );
+    const observer = new IntersectionObserver(([entry]) => {
+      setIsIntersecting(entry.isIntersecting);
+    }, options);
 
     observer.observe(element);
     return () => observer.disconnect();

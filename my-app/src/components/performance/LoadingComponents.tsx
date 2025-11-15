@@ -1,16 +1,16 @@
-import React, { useState, useEffect } from 'react';
-import { withPerformanceOptimization } from '../../hooks/usePerformance';
-import { ConditionalRender } from '../performance';
+import React, { useState, useEffect } from "react";
+import { withPerformanceOptimization } from "../../hooks/usePerformance";
+import { ConditionalRender } from "../performance";
 
 // Enhanced loading component with progressive loading states
 const ProgressiveLoader = withPerformanceOptimization(
-  ({ 
+  ({
     isLoading,
     loadingText = "Loading...",
     showProgress = false,
     progress = 0,
     children,
-    timeout = 10000
+    timeout = 10000,
   }: {
     isLoading: boolean;
     loadingText?: string;
@@ -20,33 +20,30 @@ const ProgressiveLoader = withPerformanceOptimization(
     timeout?: number;
   }) => {
     const [showTimeout, setShowTimeout] = useState(false);
-    
+
     useEffect(() => {
       if (isLoading) {
         const timer = setTimeout(() => {
           setShowTimeout(true);
         }, timeout);
-        
+
         return () => clearTimeout(timer);
       } else {
         setShowTimeout(false);
       }
     }, [isLoading, timeout]);
-    
+
     if (!isLoading) {
       return <>{children}</>;
     }
-    
+
     return (
       <div className="progressive-loader">
         <div className="loading-spinner" />
         <p>{loadingText}</p>
         <ConditionalRender condition={showProgress}>
           <div className="progress-bar">
-            <div 
-              className="progress-fill"
-              style={{ width: `${progress}%` }}
-            />
+            <div className="progress-fill" style={{ width: `${progress}%` }} />
           </div>
         </ConditionalRender>
         <ConditionalRender condition={showTimeout}>
@@ -61,10 +58,10 @@ const ProgressiveLoader = withPerformanceOptimization(
 
 // Skeleton loader for better perceived performance
 const SkeletonLoader = withPerformanceOptimization(
-  ({ 
+  ({
     lines = 3,
     height = 20,
-    width = '100%'
+    width = "100%",
   }: {
     lines?: number;
     height?: number;
@@ -78,11 +75,11 @@ const SkeletonLoader = withPerformanceOptimization(
             className="skeleton-line"
             style={{
               height,
-              width: typeof width === 'string' ? width : `${width}px`,
-              marginBottom: '8px',
-              backgroundColor: 'var(--color-border-lighter)',
-              borderRadius: '4px',
-              animation: 'skeleton-pulse 1.5s ease-in-out infinite'
+              width: typeof width === "string" ? width : `${width}px`,
+              marginBottom: "8px",
+              backgroundColor: "var(--color-border-lighter)",
+              borderRadius: "4px",
+              animation: "skeleton-pulse 1.5s ease-in-out infinite",
             }}
           />
         ))}
@@ -93,7 +90,7 @@ const SkeletonLoader = withPerformanceOptimization(
 
 // Error boundary with retry functionality
 class ErrorBoundaryComponent extends React.Component<
-  { 
+  {
     children: React.ReactNode;
     fallback?: React.ComponentType<{ error: Error; resetError: () => void }>;
     onError?: (error: Error, errorInfo: React.ErrorInfo) => void;
@@ -110,7 +107,7 @@ class ErrorBoundaryComponent extends React.Component<
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.error('Error caught by boundary:', error, errorInfo);
+    console.error("Error caught by boundary:", error, errorInfo);
     this.props.onError?.(error, errorInfo);
   }
 
@@ -121,12 +118,7 @@ class ErrorBoundaryComponent extends React.Component<
   render() {
     if (this.state.hasError) {
       const FallbackComponent = this.props.fallback || DefaultErrorFallback;
-      return (
-        <FallbackComponent 
-          error={this.state.error!} 
-          resetError={this.resetError}
-        />
-      );
+      return <FallbackComponent error={this.state.error!} resetError={this.resetError} />;
     }
 
     return this.props.children;
@@ -145,38 +137,38 @@ const ErrorBoundary = withPerformanceOptimization(ErrorBoundaryComponent);
 
 // Performance-optimized image component
 const OptimizedImage = withPerformanceOptimization(
-  ({ 
+  ({
     src,
     alt,
     width,
     height,
     className,
-    loading = 'lazy',
-    placeholder
+    loading = "lazy",
+    placeholder,
   }: {
     src: string;
     alt: string;
     width?: number;
     height?: number;
     className?: string;
-    loading?: 'lazy' | 'eager';
+    loading?: "lazy" | "eager";
     placeholder?: string;
   }) => {
     const [isLoaded, setIsLoaded] = useState(false);
     const [hasError, setHasError] = useState(false);
-    
+
     return (
-      <div className={`optimized-image ${className || ''}`}>
+      <div className={`optimized-image ${className || ""}`}>
         <ConditionalRender condition={!isLoaded && !hasError}>
-          <SkeletonLoader lines={1} height={height || 200} width={width || '100%'} />
+          <SkeletonLoader lines={1} height={height || 200} width={width || "100%"} />
         </ConditionalRender>
-        
+
         <ConditionalRender condition={hasError}>
           <div className="image-error">
             <span>Failed to load image</span>
           </div>
         </ConditionalRender>
-        
+
         <img
           src={src}
           alt={alt}
@@ -185,9 +177,9 @@ const OptimizedImage = withPerformanceOptimization(
           loading={loading}
           onLoad={() => setIsLoaded(true)}
           onError={() => setHasError(true)}
-          style={{ 
-            display: isLoaded ? 'block' : 'none',
-            transition: 'opacity 0.3s ease'
+          style={{
+            display: isLoaded ? "block" : "none",
+            transition: "opacity 0.3s ease",
           }}
         />
       </div>
@@ -195,9 +187,4 @@ const OptimizedImage = withPerformanceOptimization(
   }
 );
 
-export {
-  ProgressiveLoader,
-  SkeletonLoader,
-  ErrorBoundary,
-  OptimizedImage
-};
+export { ProgressiveLoader, SkeletonLoader, ErrorBoundary, OptimizedImage };

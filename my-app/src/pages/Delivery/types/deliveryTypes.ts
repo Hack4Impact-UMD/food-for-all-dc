@@ -1,4 +1,4 @@
-import { DeliveryDetails, DietaryRestrictions } from '../../../types';
+import { DeliveryDetails, DietaryRestrictions } from "../../../types";
 
 export interface RowData {
   id: string;
@@ -28,7 +28,7 @@ export interface DeliveryRowData {
   address: string;
   tags?: string[];
   ward?: string;
-  clusterId: string; 
+  clusterId: string;
   coordinates: { lat: number; lng: number }[];
   deliveryDetails: {
     deliveryInstructions: string;
@@ -72,7 +72,10 @@ export type Field =
       width: string;
     }
   | {
-      key: Exclude<keyof Omit<RowData, "id" | "firstName" | "lastName" | "deliveryDetails" | "address">, "coordinates">;
+      key: Exclude<
+        keyof Omit<RowData, "id" | "firstName" | "lastName" | "deliveryDetails" | "address">,
+        "coordinates"
+      >;
       label: string;
       type: string;
       compute?: never;

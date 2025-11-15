@@ -14,7 +14,7 @@ import {
   QueryDocumentSnapshot,
   startAfter,
 } from "firebase/firestore";
-import dataSources from '../../config/dataSources';
+import dataSources from "../../config/dataSources";
 import { db } from "../../auth/firebaseConfig";
 import { SummaryData } from "../../types/reports-types";
 import { formatCamelToTitle } from "../../utils";
@@ -25,78 +25,76 @@ import { useNotifications } from "../../components/NotificationProvider";
 import { exportToCSV, formatDateRange } from "../../utils/reportExport";
 
 const blankReport: SummaryData = {
-    "Basic Output": {
-      "Households Served (Duplicated)": { value: 0, isFullRow: false },
-      "Households Served (Unduplicated)": { value: 0, isFullRow: false },
-      "People Served (Duplicated)": { value: 0, isFullRow: false },
-      "People Served (Unduplicated)": { value: 0, isFullRow: false },
-      "Bags Delivered": { value: 0, isFullRow: false },
-      "New Households": { value: 0, isFullRow: false },
-      "New People": { value: 0, isFullRow: false },
-      "Active Clients": { value: 0, isFullRow: false },
-      "Lapsed Clients": { value: 0, isFullRow: false },
+  "Basic Output": {
+    "Households Served (Duplicated)": { value: 0, isFullRow: false },
+    "Households Served (Unduplicated)": { value: 0, isFullRow: false },
+    "People Served (Duplicated)": { value: 0, isFullRow: false },
+    "People Served (Unduplicated)": { value: 0, isFullRow: false },
+    "Bags Delivered": { value: 0, isFullRow: false },
+    "New Households": { value: 0, isFullRow: false },
+    "New People": { value: 0, isFullRow: false },
+    "Active Clients": { value: 0, isFullRow: false },
+    "Lapsed Clients": { value: 0, isFullRow: false },
+  },
+
+  Demographics: {
+    "New Seniors": { value: 0, isFullRow: false },
+    "Total Seniors": { value: 0, isFullRow: false },
+    "New Single Parents": { value: 0, isFullRow: false },
+    "New Adults": { value: 0, isFullRow: false },
+    "Total Adults": { value: 0, isFullRow: false },
+    "New Children": { value: 0, isFullRow: false },
+    "Total Children": { value: 0, isFullRow: false },
+  },
+
+  "Health Conditions": {
+    "Client Health Conditions (Physical Ailments)": {
+      value: 0,
+      isFullRow: false,
     },
-
-    "Demographics": {
-      "New Seniors": { value: 0, isFullRow: false },
-      "Total Seniors": { value: 0, isFullRow: false },
-      "New Single Parents": { value: 0, isFullRow: false },
-      "New Adults": { value: 0, isFullRow: false },
-      "Total Adults": { value: 0, isFullRow: false },
-      "New Children": { value: 0, isFullRow: false },
-      "Total Children": { value: 0, isFullRow: false },
+    "Client Health Conditions (Physical Disability)": {
+      value: 0,
+      isFullRow: false,
     },
-
-    "Health Conditions": {
-      "Client Health Conditions (Physical Ailments)": {
-        value: 0,
-        isFullRow: false,
-      },
-      "Client Health Conditions (Physical Disability)": {
-        value: 0,
-        isFullRow: false,
-      },
-      "Client Health Conditions (Mental Health Conditions)": {
-        value: 0,
-        isFullRow: false,
-      },
+    "Client Health Conditions (Mental Health Conditions)": {
+      value: 0,
+      isFullRow: false,
     },
+  },
 
-    "Referrals": {
-      "New Client Referrals": { value: 0, isFullRow: false },
-      "New Referral Agency Names": { value: 0, isFullRow: false },
-    },
+  Referrals: {
+    "New Client Referrals": { value: 0, isFullRow: false },
+    "New Referral Agency Names": { value: 0, isFullRow: false },
+  },
 
-    "Dietary Restrictions": {
-      "Lactose Intolerant": { value: 0, isFullRow: false },
-      "Microwave Only": { value: 0, isFullRow: false },
-      "Diabetes Friendly": { value: 0, isFullRow: false },
-      "No Cans": { value: 0, isFullRow: false },
-      "Food Allergen": { value: 0, isFullRow: false },
-      "No Cooking Equipment": { value: 0, isFullRow: false },
-      "Gluten Free": { value: 0, isFullRow: false },
-      "Soft Food": { value: 0, isFullRow: false },
-      Halal: { value: 0, isFullRow: false },
-      Vegan: { value: 0, isFullRow: false },
-      "Low Sodium": { value: 0, isFullRow: false },
-      "Low Sugar": { value: 0, isFullRow: false },
-      "Heart Friendly": { value: 0, isFullRow: false },
-      Vegetarian: { value: 0, isFullRow: false },
-      "Kidney Friendly": { value: 0, isFullRow: false },
-      Other: { value: 0, isFullRow: false },
-      "No Restrictions": { value: 0, isFullRow: false },
-    },
+  "Dietary Restrictions": {
+    "Lactose Intolerant": { value: 0, isFullRow: false },
+    "Microwave Only": { value: 0, isFullRow: false },
+    "Diabetes Friendly": { value: 0, isFullRow: false },
+    "No Cans": { value: 0, isFullRow: false },
+    "Food Allergen": { value: 0, isFullRow: false },
+    "No Cooking Equipment": { value: 0, isFullRow: false },
+    "Gluten Free": { value: 0, isFullRow: false },
+    "Soft Food": { value: 0, isFullRow: false },
+    Halal: { value: 0, isFullRow: false },
+    Vegan: { value: 0, isFullRow: false },
+    "Low Sodium": { value: 0, isFullRow: false },
+    "Low Sugar": { value: 0, isFullRow: false },
+    "Heart Friendly": { value: 0, isFullRow: false },
+    Vegetarian: { value: 0, isFullRow: false },
+    "Kidney Friendly": { value: 0, isFullRow: false },
+    Other: { value: 0, isFullRow: false },
+    "No Restrictions": { value: 0, isFullRow: false },
+  },
 
-    "FAM (Food as Medicine)": {
-      "Clients Receiving Medically Tailored Food": { value: 0, isFullRow: true },
-    },
+  "FAM (Food as Medicine)": {
+    "Clients Receiving Medically Tailored Food": { value: 0, isFullRow: true },
+  },
 
-    Tags: {},
-  }
+  Tags: {},
+};
 
-
-const makeBlankReport = (): SummaryData =>
-  structuredClone(blankReport)
+const makeBlankReport = (): SummaryData => structuredClone(blankReport);
 const SummaryReport: React.FC = () => {
   const { showError, showSuccess } = useNotifications();
   // Shows spinner while generateReport is running
@@ -123,7 +121,14 @@ const SummaryReport: React.FC = () => {
     }
   });
 
-  const processClientInfo = (next: SummaryData, client: any, deliveriesInRange: string[], start: DateTime, end: DateTime, referralAgencies: Set<string>) => {
+  const processClientInfo = (
+    next: SummaryData,
+    client: any,
+    deliveriesInRange: string[],
+    start: DateTime,
+    end: DateTime,
+    referralAgencies: Set<string>
+  ) => {
     const basic = next["Basic Output"];
     const demo = next["Demographics"];
     const health = next["Health Conditions"];
@@ -153,8 +158,10 @@ const SummaryReport: React.FC = () => {
         }
       }
 
-      basic["Households Served (Unduplicated)"].value = basic["Households Served (Duplicated)"].value - basic["New Households"].value;
-      basic["People Served (Unduplicated)"].value = basic["People Served (Duplicated)"].value - basic["New People"].value;
+      basic["Households Served (Unduplicated)"].value =
+        basic["Households Served (Duplicated)"].value - basic["New Households"].value;
+      basic["People Served (Unduplicated)"].value =
+        basic["People Served (Duplicated)"].value - basic["New People"].value;
       demo["Total Seniors"].value += seniors;
       demo["Total Adults"].value += adults;
       demo["Total Children"].value += children;
@@ -173,9 +180,7 @@ const SummaryReport: React.FC = () => {
     }
 
     if (client.deliveryDetails?.dietaryRestrictions) {
-      const dietaryRestrictions = Object.keys(
-        client.deliveryDetails.dietaryRestrictions
-      );
+      const dietaryRestrictions = Object.keys(client.deliveryDetails.dietaryRestrictions);
       let added = false;
       dietaryRestrictions.forEach((restriction: string) => {
         if (restriction !== "foodAllergens") {
@@ -217,7 +222,6 @@ const SummaryReport: React.FC = () => {
     });
   };
 
-
   const handleExport = () => {
     const csvData: any[] = [];
 
@@ -225,21 +229,21 @@ const SummaryReport: React.FC = () => {
       csvData.push({
         Section: section,
         Metric: "",
-        Value: ""
+        Value: "",
       });
 
       Object.entries(fields).forEach(([metric, fieldData]) => {
         csvData.push({
           Section: "",
           Metric: metric,
-          Value: fieldData.value
+          Value: fieldData.value,
         });
       });
 
       csvData.push({
         Section: "",
         Metric: "",
-        Value: ""
+        Value: "",
       });
     });
 
@@ -254,8 +258,8 @@ const SummaryReport: React.FC = () => {
     const next = makeBlankReport();
     const referralAgencies = new Set<string>();
 
-    let clientNum = 0
-    let active = 0
+    let clientNum = 0;
+    let active = 0;
 
     setIsLoading(true);
 
@@ -273,7 +277,11 @@ const SummaryReport: React.FC = () => {
               startAfter(lastDoc),
               limit(BATCH_SIZE)
             )
-          : query(collection(db, dataSources.firebase.clientsCollection), orderBy("__name__"), limit(BATCH_SIZE));
+          : query(
+              collection(db, dataSources.firebase.clientsCollection),
+              orderBy("__name__"),
+              limit(BATCH_SIZE)
+            );
 
         const snap: any = await getDocs(q);
         if (snap.empty) break;
@@ -333,7 +341,7 @@ const SummaryReport: React.FC = () => {
         flexDirection: "column",
         height: "90vh",
         position: "relative",
-        width: "90vw"
+        width: "90vw",
       }}
     >
       <ReportHeader
@@ -349,9 +357,7 @@ const SummaryReport: React.FC = () => {
       {isLoading && <LoadingIndicator />}
 
       {!isLoading && !hasGenerated && <Guide />}
-      {hasGenerated && (
-        <ReportTables data={data} loading={isLoading}></ReportTables>
-      )}
+      {hasGenerated && <ReportTables data={data} loading={isLoading}></ReportTables>}
     </div>
   );
 };

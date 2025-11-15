@@ -8,18 +8,20 @@ class DeliveryEventEmitter {
     const eventListener = () => wrappedCallback();
 
     this.listeners.push(callback);
-    window.addEventListener('deliveriesModified', eventListener);
+    window.addEventListener("deliveriesModified", eventListener);
 
     return () => {
-      this.listeners = this.listeners.filter(listener => listener !== callback);
-      window.removeEventListener('deliveriesModified', eventListener);
+      this.listeners = this.listeners.filter((listener) => listener !== callback);
+      window.removeEventListener("deliveriesModified", eventListener);
     };
   }
 
   emit(): void {
-    window.dispatchEvent(new CustomEvent('deliveriesModified', {
-      detail: { timestamp: Date.now() }
-    }));
+    window.dispatchEvent(
+      new CustomEvent("deliveriesModified", {
+        detail: { timestamp: Date.now() },
+      })
+    );
   }
 }
 

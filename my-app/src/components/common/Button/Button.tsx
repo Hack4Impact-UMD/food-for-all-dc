@@ -1,24 +1,24 @@
-import React from 'react';
-import { Button as MuiButton, ButtonProps as MuiButtonProps, Tooltip } from '@mui/material';
-import styles from './Button.module.css';
+import React from "react";
+import { Button as MuiButton, ButtonProps as MuiButtonProps, Tooltip } from "@mui/material";
+import styles from "./Button.module.css";
 
 /**
  * Custom Button component with consistent styling and optional icon support
- * 
+ *
  * @example
  * // Basic button
  * <Button variant="primary">Click Me</Button>
- * 
+ *
  * // Button with icon
  * <Button variant="secondary" icon={<SaveIcon />} tooltipText="Save changes">
  *   Save
  * </Button>
  */
-interface ButtonProps extends Omit<MuiButtonProps, 'variant'> {
+interface ButtonProps extends Omit<MuiButtonProps, "variant"> {
   /** Button style variant */
-  variant?: 'primary' | 'secondary';
+  variant?: "primary" | "secondary";
   /** Button size */
-  size?: 'small' | 'medium';
+  size?: "small" | "medium";
   /** Whether button should take full width */
   fullWidth?: boolean;
   /** Optional icon to display before text */
@@ -28,10 +28,10 @@ interface ButtonProps extends Omit<MuiButtonProps, 'variant'> {
 }
 
 const Button: React.FC<ButtonProps> = ({
-  variant = 'primary',
-  size = 'medium',
+  variant = "primary",
+  size = "medium",
   fullWidth = false,
-  className = '',
+  className = "",
   icon,
   tooltipText,
   children,
@@ -41,10 +41,12 @@ const Button: React.FC<ButtonProps> = ({
   const buttonClasses = [
     styles.button,
     styles[variant],
-    size === 'small' ? styles.small : '',
-    fullWidth ? styles.fullWidth : '',
-    className
-  ].filter(Boolean).join(' ');
+    size === "small" ? styles.small : "",
+    fullWidth ? styles.fullWidth : "",
+    className,
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   const buttonContent = (
     <>
@@ -54,11 +56,7 @@ const Button: React.FC<ButtonProps> = ({
   );
 
   const button = (
-    <MuiButton 
-      className={buttonClasses} 
-      style={style}
-      {...props}
-    >
+    <MuiButton className={buttonClasses} style={style} {...props}>
       {buttonContent}
     </MuiButton>
   );

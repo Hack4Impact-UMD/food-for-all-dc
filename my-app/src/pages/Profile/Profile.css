@@ -269,7 +269,7 @@ dd {
 }
 
 .field-descriptor {
-  font-family: 'Inter', sans-serif;
+  font-family: "Inter", sans-serif;
   font-size: 1rem;
   font-weight: 700;
   color: #444;
@@ -285,7 +285,7 @@ dd {
 }
 
 .field-descriptor::before {
-  content: '';
+  content: "";
   position: absolute;
   left: 0;
   top: 50%;
@@ -397,7 +397,7 @@ dd {
 
 /* Base container styles */
 .profile-container {
-  font-family: 'Inter', sans-serif;
+  font-family: "Inter", sans-serif;
   color: var(--color-text-primary);
   background-color: var(--color-background-gray-light);
   min-height: 100vh;
@@ -446,7 +446,7 @@ dd {
 }
 
 .profile-name::after {
-  content: '';
+  content: "";
   position: absolute;
   bottom: -8px;
   left: 0;
@@ -500,7 +500,9 @@ dd {
   margin-top: 16px;
   color: var(--color-primary);
   cursor: default;
-  transition: transform 0.2s ease, background-color 0.2s ease;
+  transition:
+    transform 0.2s ease,
+    background-color 0.2s ease;
   width: fit-content;
 }
 
@@ -573,7 +575,7 @@ dd {
 }
 
 .section-title::after {
-  content: '';
+  content: "";
   position: absolute;
   bottom: 0;
   left: 0;
@@ -602,7 +604,7 @@ dd {
 }
 
 .field-descriptor::before {
-  content: '';
+  content: "";
   position: absolute;
   left: 0;
   top: 50%;
@@ -619,13 +621,20 @@ dd {
 }
 
 /* Form input styling */
-.form-input, textarea, input[type="text"], input[type="date"], input[type="email"], .MuiInputBase-input, .MuiOutlinedInput-input {
+.form-input,
+textarea,
+input[type="text"],
+input[type="date"],
+input[type="email"],
+.MuiInputBase-input,
+.MuiOutlinedInput-input {
   padding-left: 0.75rem !important;
   box-sizing: border-box;
   margin-left: 0 !important;
 }
 
-textarea, .MuiInputBase-inputMultiline {
+textarea,
+.MuiInputBase-inputMultiline {
   padding-left: 0.75rem !important;
   box-sizing: border-box;
   margin-left: 0 !important;
@@ -720,20 +729,20 @@ textarea, .MuiInputBase-inputMultiline {
   .info-grid {
     grid-template-columns: 1fr;
   }
-  
-  .white-container, 
+
+  .white-container,
   .profile-header-container {
     padding: 1rem;
   }
-  
+
   .section-box {
     padding: 1rem;
   }
-  
+
   .profile-name {
     font-size: 1.5rem;
   }
-  
+
   .profile-avatar {
     width: 48px;
     height: 48px;
@@ -750,4 +759,4 @@ textarea, .MuiInputBase-inputMultiline {
   .info-grid {
     grid-template-columns: 1fr;
   }
-} 
+}

@@ -50,24 +50,26 @@ const CalendarPopper = ({
 
   const handleDateClick = async (date: DayPilot.Date, event?: any) => {
     const dateKey = date.toString("yyyy-MM-dd");
-    
+
     // Try to find the actual clicked cell element
     let cellElement = null;
     if (event && event.e && event.e.target) {
       // Use the event target or find the closest calendar cell
-      cellElement = event.e.target.closest('.calendar_default_cell') || 
-                   event.e.target.closest('.calendar_default_cell_business') ||
-                   event.e.target.closest('[class*="calendar_default_cell"]') ||
-                   event.e.target;
+      cellElement =
+        event.e.target.closest(".calendar_default_cell") ||
+        event.e.target.closest(".calendar_default_cell_business") ||
+        event.e.target.closest('[class*="calendar_default_cell"]') ||
+        event.e.target;
     }
-    
+
     if (!cellElement) {
       // Fallback: try to find by data-date or other DayPilot selectors
-      cellElement = document.querySelector(`[data-date="${dateKey}"]`) ||
-                   document.querySelector(`[data-day="${dateKey}"]`) ||
-                   document.querySelector(`[title*="${dateKey}"]`);
+      cellElement =
+        document.querySelector(`[data-date="${dateKey}"]`) ||
+        document.querySelector(`[data-day="${dateKey}"]`) ||
+        document.querySelector(`[title*="${dateKey}"]`);
     }
-    
+
     if (cellElement) {
       // Use the actual cell element as anchor
       setClickedElement(cellElement as HTMLElement);
@@ -88,7 +90,6 @@ const CalendarPopper = ({
   };
 
   useEffect(() => {
-    
     if (anchorEl === null) {
       // Reset the bulkEdit state to false.
       setBulkEdit(false);
@@ -101,22 +102,23 @@ const CalendarPopper = ({
   const handleClick = (event: React.MouseEvent) => {
     // Ignore clicks from inside the nested popper (limit edit popup)
     const target = event.target as HTMLElement;
-    if (target.closest('[role="tooltip"]') || target.closest('.MuiPaper-root')) {
+    if (target.closest('[role="tooltip"]') || target.closest(".MuiPaper-root")) {
       // Check if this click came from inside our nested popper
       const clickedPopper = target.closest('[role="tooltip"]');
-      if (clickedPopper && clickedPopper.querySelector('select, input, .MuiTypography-root')) {
+      if (clickedPopper && clickedPopper.querySelector("select, input, .MuiTypography-root")) {
         return; // Don't handle clicks from the nested popper
       }
     }
-    
+
     // Find the actual calendar cell that was clicked
-    const cellElement = target.closest('.calendar_default_cell') || 
-                       target.closest('.calendar_default_cell_business') ||
-                       target.closest('[class*="calendar_default_cell"]') ||
-                       target.closest('[data-date]') || // Try to find by our data-date attribute
-                       target.closest('[class*="daypilot"]') ||
-                       target;
-    
+    const cellElement =
+      target.closest(".calendar_default_cell") ||
+      target.closest(".calendar_default_cell_business") ||
+      target.closest('[class*="calendar_default_cell"]') ||
+      target.closest("[data-date]") || // Try to find by our data-date attribute
+      target.closest('[class*="daypilot"]') ||
+      target;
+
     if (cellElement && cellElement !== target) {
       // Use the actual cell element as anchor
       setClickedElement(cellElement as HTMLElement);
@@ -150,20 +152,16 @@ const CalendarPopper = ({
     const selectedValue = Number(e.target.value);
     setNewLimit(selectedValue);
     const dateKey = limitEditDate!.toString("yyyy-MM-dd");
-    
+
     if (!bulkEdit) {
       const deliveryService = DeliveryService.getInstance();
       await deliveryService.setDailyLimit(dateKey, selectedValue);
-      
+
       setDailyLimits((prev) => {
-        const existingIndex = prev.findIndex(
-          (item) => item.date === dateKey
-        );
+        const existingIndex = prev.findIndex((item) => item.date === dateKey);
         if (existingIndex !== -1) {
           return prev.map((item, index) =>
-            index === existingIndex
-              ? { ...item, limit: selectedValue }
-              : item
+            index === existingIndex ? { ...item, limit: selectedValue } : item
           );
         }
         return [
@@ -178,7 +176,7 @@ const CalendarPopper = ({
     } else {
       setDefaultLimit(limitEditDate!, selectedValue);
     }
-    
+
     setLimitEditDate(null);
     setClickPosition(null);
   };
@@ -224,14 +222,17 @@ const CalendarPopper = ({
     };
 
     return (
-      <Popper open={Boolean(anchorEl)} anchorEl={anchorEl} placement="bottom" transition sx={{ zIndex: 1200 }}>
+      <Popper
+        open={Boolean(anchorEl)}
+        anchorEl={anchorEl}
+        placement="bottom"
+        transition
+        sx={{ zIndex: 1200 }}
+      >
         {({ TransitionProps }) => (
           <Fade {...TransitionProps} timeout={350}>
             <Paper elevation={3} sx={{ p: 2, width: 500 }}>
-              <Box
-                sx={{ position: "relative" }}
-                onMouseDown={(e) => e.stopPropagation()}
-              >
+              <Box sx={{ position: "relative" }} onMouseDown={(e) => e.stopPropagation()}>
                 <FormGroup>
                   <FormControlLabel
                     control={<Switch />}
@@ -266,8 +267,8 @@ const CalendarPopper = ({
                   >
                     {limitEditDate && (
                       <>
-                        <Typography 
-                          variant="subtitle1" 
+                        <Typography
+                          variant="subtitle1"
                           gutterBottom
                           onClick={(e) => e.stopPropagation()}
                           onMouseDown={(e) => e.stopPropagation()}

@@ -9,10 +9,7 @@ const EASTERN_ZONE = "America/New_York";
 const defaultMidday = () =>
   TimeUtils.now().setZone(EASTERN_ZONE).startOf("day").plus({ hours: 12 });
 
-const toEasternMidday = (
-  input: DeliveryDateInput,
-  fallback: boolean
-): DateTime | null => {
+const toEasternMidday = (input: DeliveryDateInput, fallback: boolean): DateTime | null => {
   if (!input) {
     return fallback ? defaultMidday() : null;
   }
@@ -36,7 +33,7 @@ const toEasternMidday = (
 
 export const deliveryDate = {
   toDateTime(input: DeliveryDateInput): DateTime {
-    return (toEasternMidday(input, true) as DateTime);
+    return toEasternMidday(input, true) as DateTime;
   },
   toJSDate(input: DeliveryDateInput): Date {
     return (toEasternMidday(input, true) as DateTime).toJSDate();

@@ -18,9 +18,9 @@ let functionsInstance: Functions | null = null;
 export const getFirebaseDb = (): Firestore => {
   if (!firestoreInstance) {
     firestoreInstance = getFirestore(app);
-    if (process.env.NODE_ENV === 'production') {
+    if (process.env.NODE_ENV === "production") {
       enableNetwork(firestoreInstance).catch((err: unknown) => {
-        console.warn('Firestore network enable failed:', err);
+        console.warn("Firestore network enable failed:", err);
       });
     }
   }
@@ -46,11 +46,11 @@ export const getFirebaseAuth = (): Auth => {
 export const getFirebaseFunctions = (): Functions => {
   if (!functionsInstance) {
     functionsInstance = getFunctions(app);
-    if (process.env.NODE_ENV === 'development') {
+    if (process.env.NODE_ENV === "development") {
       try {
-        connectFunctionsEmulator(functionsInstance, 'localhost', 5001);
+        connectFunctionsEmulator(functionsInstance, "localhost", 5001);
       } catch (err) {
-        console.warn('Functions emulator connection failed:', err);
+        console.warn("Functions emulator connection failed:", err);
       }
     }
   }

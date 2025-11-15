@@ -1,4 +1,4 @@
-import React from 'react';
+import React from "react";
 import ListItemIcon from "@mui/material/ListItemIcon";
 import ListItemText from "@mui/material/ListItemText";
 import { useNavigate } from "react-router-dom";
@@ -17,7 +17,7 @@ export default function Tab({ text, icon, link, tab, setTab, setOpen }: TabProp)
   const navigate = useNavigate();
   const isActive = tab === text;
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
   return (
     <Box
@@ -43,27 +43,27 @@ export default function Tab({ text, icon, link, tab, setTab, setOpen }: TabProp)
         navigate(link);
       }}
     >
-      <ListItemIcon 
-        sx={{ 
+      <ListItemIcon
+        sx={{
           color: "rgb(37, 126, 104)",
-          minWidth: isMobile ? "32px" : "40px" 
+          minWidth: isMobile ? "32px" : "40px",
         }}
       >
         {icon}
       </ListItemIcon>
-      <ListItemText 
-        primary={text} 
-        sx={{ 
+      <ListItemText
+        primary={text}
+        sx={{
           "& .MuiTypography-root": {
             fontWeight: isActive ? "600" : "500",
             fontSize: isMobile ? "0.85rem" : "0.95rem",
             color: "rgb(85, 85, 85)",
             transition: "color 0.2s ease",
-          }
-        }} 
+          },
+        }}
       />
       {isActive && (
-        <Box 
+        <Box
           sx={{
             width: "4px",
             height: isMobile ? "20px" : "24px",

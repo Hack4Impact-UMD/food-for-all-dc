@@ -14,7 +14,12 @@ interface DeliveryCardProps {
   allEvents?: DeliveryEvent[];
 }
 
-const DeliveryCard: React.FC<DeliveryCardProps> = React.memo(function DeliveryCard({ event, client, onEventModified, allEvents }) {
+const DeliveryCard: React.FC<DeliveryCardProps> = React.memo(function DeliveryCard({
+  event,
+  client,
+  onEventModified,
+  allEvents,
+}) {
   const formatPhoneNumber = (phone: string): string => {
     const cleaned = ("" + phone).replace(/\D/g, ""); // Remove non-numeric characters
     const match = cleaned.match(/^(\d{3})(\d{3})(\d{4})$/); // Match the phone number pattern
@@ -26,28 +31,34 @@ const DeliveryCard: React.FC<DeliveryCardProps> = React.memo(function DeliveryCa
 
   const trueRestrictions = Object.entries(client?.deliveryDetails?.dietaryRestrictions || {})
     .filter(([key, value]) => value === true)
-    .map(([key]) => key.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/^./, (str) => str.toUpperCase()));
+    .map(([key]) =>
+      key.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/^./, (str) => str.toUpperCase())
+    );
 
   const { foodAllergens = [], other = [] } = client?.deliveryDetails?.dietaryRestrictions || {};
 
-  const dietaryRestrictions = [...trueRestrictions, ...(Array.isArray(foodAllergens) ? foodAllergens : []), ...(Array.isArray(other) ? other : [])];
+  const dietaryRestrictions = [
+    ...trueRestrictions,
+    ...(Array.isArray(foodAllergens) ? foodAllergens : []),
+    ...(Array.isArray(other) ? other : []),
+  ];
 
   return (
-    <Box 
+    <Box
       className={styles.card}
       onClick={(e) => {
         e.stopPropagation();
         e.preventDefault();
       }}
       sx={{
-        position: 'relative',
-        cursor: 'default'
+        position: "relative",
+        cursor: "default",
       }}
     >
       <Box className={styles.clientSection}>
         <Box>
           {/* Displays the client name as a link */}
-          <Typography 
+          <Typography
             variant="h6"
             component={Link}
             to={client?.uid ? `/profile/${client.uid}` : "#"}
@@ -72,7 +83,9 @@ const DeliveryCard: React.FC<DeliveryCardProps> = React.memo(function DeliveryCa
           },
           {
             label: "ADDRESS",
-            value: client ? `${client.address}${client.address2 ? ' ' + client.address2 : ''}` : "N/A",
+            value: client
+              ? `${client.address}${client.address2 ? " " + client.address2 : ""}`
+              : "N/A",
           },
           {
             label: "DIETARY RESTRICTIONS",
@@ -94,9 +107,11 @@ const DeliveryCard: React.FC<DeliveryCardProps> = React.memo(function DeliveryCa
             <Typography
               variant="body1"
               className={`${styles.infoValue} ${
-                label === "NOTES" ? styles.truncatedNotes :
-                label === "DIETARY RESTRICTIONS" ? styles.truncatedDiet :
-                ""
+                label === "NOTES"
+                  ? styles.truncatedNotes
+                  : label === "DIETARY RESTRICTIONS"
+                    ? styles.truncatedDiet
+                    : ""
               }`}
             >
               {value}
@@ -104,15 +119,15 @@ const DeliveryCard: React.FC<DeliveryCardProps> = React.memo(function DeliveryCa
           </Box>
         ))}
       </Box>
-      
-      <Box 
-        sx={{ 
-          position: 'absolute',
+
+      <Box
+        sx={{
+          position: "absolute",
           right: 8,
-          top: '50%',
-          transform: 'translateY(-50%)',
+          top: "50%",
+          transform: "translateY(-50%)",
           zIndex: 1,
-          height: 'fit-content',
+          height: "fit-content",
         }}
         className="menu-button"
         onClick={(e) => {

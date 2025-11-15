@@ -1,12 +1,6 @@
 import React, { useState, useRef } from "react";
 import ReportHeader from "./ReportHeader";
-import {
-  Accordion,
-  AccordionDetails,
-  AccordionSummary,
-  Box,
-  Typography,
-} from "@mui/material";
+import { Accordion, AccordionDetails, AccordionSummary, Box, Typography } from "@mui/material";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import { db } from "../../auth/firebaseConfig";
 import {
@@ -21,13 +15,13 @@ import {
   QueryDocumentSnapshot,
   startAfter,
 } from "firebase/firestore";
-import dataSources from '../../config/dataSources';
+import dataSources from "../../config/dataSources";
 import TimeUtils from "../../utils/timeUtils";
 import { useNavigate } from "react-router-dom";
 import LoadingIndicator from "../../components/LoadingIndicator/LoadingIndicator";
 import Guide from "./Guide";
 import { useNotifications } from "../../components/NotificationProvider";
-import { exportToCSV, formatDateRange } from "../../utils/reportExport"; 
+import { exportToCSV, formatDateRange } from "../../utils/reportExport";
 
 interface ReferralClient {
   id: string;
@@ -42,7 +36,7 @@ const ReferralAgenciesReport: React.FC = () => {
 
   const [expandedPanels, setExpandedPanels] = useState<number[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [hasGenerated, setHasGenerated] = useState(false); 
+  const [hasGenerated, setHasGenerated] = useState(false);
 
   const [data, setData] = useState<Record<string, ReferralClient[]>>({});
 
@@ -61,7 +55,7 @@ const ReferralAgenciesReport: React.FC = () => {
   const getCaseworkerInformationById = async (id: string) => {
     if (caseworkerCacheRef.current[id]) return caseworkerCacheRef.current[id];
 
-  const ref = doc(db, dataSources.firebase.caseWorkersCollection, id);
+    const ref = doc(db, dataSources.firebase.caseWorkersCollection, id);
     const snap = await getDoc(ref);
     const cw = snap.data() as any;
     const formatted = `${cw?.name ?? "Unknown"} - ${cw?.organization ?? "—"}  (${cw?.email ?? "—"}, ${cw?.phone ?? "—"})`;
@@ -142,7 +136,7 @@ const ReferralAgenciesReport: React.FC = () => {
           "First Name": client.firstName,
           "Last Name": client.lastName,
           "Referral Date": client.referredDate,
-          "Client ID": client.id
+          "Client ID": client.id,
         });
       });
     });
@@ -176,9 +170,7 @@ const ReferralAgenciesReport: React.FC = () => {
   };
 
   const expandAllPanels = () => {
-    setExpandedPanels(
-      Array.from({ length: Object.keys(data || {}).length }, (_, i) => i)
-    );
+    setExpandedPanels(Array.from({ length: Object.keys(data || {}).length }, (_, i) => i));
   };
 
   const collapseAllPanels = () => {
@@ -186,7 +178,7 @@ const ReferralAgenciesReport: React.FC = () => {
   };
 
   return (
-    <Box sx={{ display: "flex", flexDirection: "column", height: "90vh", width: "90vw"}}>
+    <Box sx={{ display: "flex", flexDirection: "column", height: "90vh", width: "90vw" }}>
       <ReportHeader
         startDate={startDate}
         endDate={endDate}
@@ -285,40 +277,38 @@ const ReferralAgenciesReport: React.FC = () => {
                   </Box>
                 </AccordionSummary>
 
-                <AccordionDetails sx={{ bgcolor: "var(--color-white)", color: "var(--color-black)", p: 0 }}>
-                  {(clients || []).map(
-                    (client: ReferralClient, clientIndex: number) => (
-                      <Box
-                        key={`${index}-${clientIndex}`}
+                <AccordionDetails
+                  sx={{ bgcolor: "var(--color-white)", color: "var(--color-black)", p: 0 }}
+                >
+                  {(clients || []).map((client: ReferralClient, clientIndex: number) => (
+                    <Box
+                      key={`${index}-${clientIndex}`}
+                      sx={{
+                        height: 100,
+                        bgcolor: "#f0f0f0ff",
+                        mb: 1.25,
+                        width: "100%",
+                        display: "flex",
+                        p: 2.5,
+                        justifyContent: "center",
+                        flexDirection: "column",
+                      }}
+                    >
+                      <Typography
                         sx={{
-                          height: 100,
-                          bgcolor: "#f0f0f0ff",
-                          mb: 1.25,
-                          width: "100%",
-                          display: "flex",
-                          p: 2.5,
-                          justifyContent: "center",
-                          flexDirection: "column",
+                          color: "var(--color-primary)",
+                          fontWeight: "bold",
+                          textDecoration: "underline",
+                          fontSize: 17,
+                          cursor: "pointer",
                         }}
+                        onClick={() => navigate(`/profile/${client.id}`)}
                       >
-                        <Typography
-                          sx={{
-                            color: "var(--color-primary)",
-                            fontWeight: "bold",
-                            textDecoration: "underline",
-                            fontSize: 17,
-                            cursor: "pointer",
-                          }}
-                          onClick={() => navigate(`/profile/${client.id}`)}
-                        >
-                          {client.firstName} {client.lastName}
-                        </Typography>
-                        <Typography sx={{ m: 0 }}>
-                          Referral Date: {client.referredDate}
-                        </Typography>
-                      </Box>
-                    )
-                  )}
+                        {client.firstName} {client.lastName}
+                      </Typography>
+                      <Typography sx={{ m: 0 }}>Referral Date: {client.referredDate}</Typography>
+                    </Box>
+                  ))}
                 </AccordionDetails>
               </Accordion>
             )

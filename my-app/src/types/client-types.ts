@@ -28,7 +28,7 @@ export interface ClientProfile {
   uid: string;
   firstName: string;
   lastName: string;
-    miscellaneousDynamicFields?: { [key: string]: string };
+  miscellaneousDynamicFields?: { [key: string]: string };
   zipCode: string;
   address: string;
   address2: string;
@@ -38,7 +38,7 @@ export interface ClientProfile {
   quadrant: string;
   dob: string;
   deliveryFreq: string;
-  deliveries?: string[]
+  deliveries?: string[];
   phone: string;
   alternativePhone: string;
   referredDate?: string;
@@ -89,20 +89,20 @@ export interface ClientProfile {
   tefapCert?: string;
   clusterID?: string;
   physicalAilments: {
-    diabetes: boolean
-    hypertension: boolean
-    heartDisease: boolean
-    kidneyDisease: boolean
-    cancer: boolean
-    otherText: string
-    other: boolean
+    diabetes: boolean;
+    hypertension: boolean;
+    heartDisease: boolean;
+    kidneyDisease: boolean;
+    cancer: boolean;
+    otherText: string;
+    other: boolean;
   };
   physicalDisability: {
-    otherText: string
-    other: boolean
+    otherText: string;
+    other: boolean;
   };
   mentalHealthConditions: {
-    otherText: string
-    other: boolean
-  }
+    otherText: string;
+    other: boolean;
+  };
 }

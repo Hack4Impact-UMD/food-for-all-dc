@@ -41,7 +41,7 @@ const Main = styled("main", { shouldForwardProp: (prop) => prop !== "open" })<{
     easing: theme.transitions.easing.sharp,
     duration: theme.transitions.duration.leavingScreen,
   }),
-  marginLeft: isMobile ? 0 : (open ? 0 : `-${drawerWidth}`),
+  marginLeft: isMobile ? 0 : open ? 0 : `-${drawerWidth}`,
   width: "100%",
   marginTop: "10vh",
   paddingBottom: isMobile ? "60px" : 0,
@@ -63,14 +63,15 @@ const AppBar = styled(MuiAppBar, {
     easing: theme.transitions.easing.sharp,
     duration: theme.transitions.duration.leavingScreen,
   }),
-  ...(!isMobile && open && {
-    width: `calc(100% - ${drawerWidth}px)`,
-    marginLeft: `${drawerWidth}px`,
-    transition: theme.transitions.create(["margin", "width"], {
-      easing: theme.transitions.easing.easeOut,
-      duration: theme.transitions.duration.enteringScreen,
+  ...(!isMobile &&
+    open && {
+      width: `calc(100% - ${drawerWidth}px)`,
+      marginLeft: `${drawerWidth}px`,
+      transition: theme.transitions.create(["margin", "width"], {
+        easing: theme.transitions.easing.easeOut,
+        duration: theme.transitions.duration.enteringScreen,
+      }),
     }),
-  }),
 }));
 
 const DrawerHeader = styled("div")(({ theme }) => ({
@@ -100,11 +101,9 @@ const LogoImage = styled("img")({
   },
 });
 
-
-
 export default function BasePage() {
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState("Delivery Schedule");
   const [pageTitle, setPageTitle] = useState("");
@@ -135,10 +134,10 @@ export default function BasePage() {
         setPageTitle("Client Report");
       } else if (currentPath === "/reports/referral-agencies") {
         setPageTitle("Referral Agencies");
-      } 
+      }
       // else if (currentPath === "/reports/caseworker") {
       //   setPageTitle("Caseworker Report");
-      // } 
+      // }
       else {
         setPageTitle("Reports");
       }
@@ -180,14 +179,12 @@ export default function BasePage() {
 
     items.push({ text: "Routes", icon: <LocalShippingIcon />, link: "/routes" });
 
-
-
     if (userRole === UserType.Admin || userRole === UserType.Manager) {
       items.push({ text: "Users", icon: <AddCircleIcon />, link: "/users" });
     }
 
     items.push({ text: "Reports", icon: <AssessmentIcon />, link: "/reports/summary" });
-    
+
     return items;
   }, [userRole]);
 
@@ -195,37 +192,40 @@ export default function BasePage() {
     <Box sx={{ display: "flex" }}>
       <CssBaseline />
       <AppBar position="fixed" open={open} isMobile={isMobile}>
-        <Toolbar sx={{ 
-          display: "flex", 
-          justifyContent: "space-between",
-          height: "64px",
-          padding: "0 24px"
-        }}>
+        <Toolbar
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            height: "64px",
+            padding: "0 24px",
+          }}
+        >
           <Box sx={{ display: "flex", alignItems: "center" }}>
             <IconButton
               color="inherit"
               aria-label="open drawer"
               onClick={handleDrawerOpen}
               edge="start"
-              sx={{ 
-                ...((open && !isMobile) && { display: "none" }),
+              sx={{
+                ...(open && !isMobile && { display: "none" }),
                 color: "rgb(37, 126, 104)",
                 "&:hover": {
-                  backgroundColor: "rgba(37, 126, 104, 0.08)"
-                }
+                  backgroundColor: "rgba(37, 126, 104, 0.08)",
+                },
               }}
             >
               <MenuRoundedIcon />
             </IconButton>
           </Box>
-          
-          <Box sx={{ 
-            position: "absolute",
-            left: "50%",
-            transform: "translateX(-50%)",
-            display: "flex",
-            alignItems: "center",
-          }}>
+          <Box
+            sx={{
+              position: "absolute",
+              left: "50%",
+              transform: "translateX(-50%)",
+              display: "flex",
+              alignItems: "center",
+            }}
+          >
             {location.pathname.startsWith("/reports") ? (
               <Select
                 value={location.pathname}
@@ -233,24 +233,24 @@ export default function BasePage() {
                 variant="standard"
                 disableUnderline
                 sx={{
-                  '& .MuiSelect-select': {
+                  "& .MuiSelect-select": {
                     fontWeight: 600,
                     color: "var(--color-border-black)",
                     letterSpacing: "0.5px",
                     fontSize: isMobile ? "1rem" : "1.25rem",
                     padding: 0,
-                    border: 'none',
-                    '&:focus': {
-                      backgroundColor: 'var(--color-transparent)',
-                    }
+                    border: "none",
+                    "&:focus": {
+                      backgroundColor: "var(--color-transparent)",
+                    },
                   },
-                  '& .MuiSelect-icon': {
+                  "& .MuiSelect-icon": {
                     color: "var(--color-border-black)",
                     fontSize: isMobile ? "1.2rem" : "1.5rem",
                   },
-                  '& fieldset': {
-                    border: 'none',
-                  }
+                  "& fieldset": {
+                    border: "none",
+                  },
                 }}
               >
                 <MenuItem value="/reports/summary">Summary Report</MenuItem>
@@ -259,9 +259,9 @@ export default function BasePage() {
                 {/* <MenuItem value="/reports/caseworker">Caseworker Report</MenuItem> */}
               </Select>
             ) : (
-              <Typography 
-                variant="h6" 
-                sx={{ 
+              <Typography
+                variant="h6"
+                sx={{
                   fontWeight: 600,
                   color: "var(--color-border-black)",
                   letterSpacing: "0.5px",
@@ -272,7 +272,6 @@ export default function BasePage() {
               </Typography>
             )}
           </Box>
-          
           <Box sx={{ width: 40 }} /> {/* Spacer for balanced layout */}
         </Toolbar>
       </AppBar>
@@ -280,7 +279,7 @@ export default function BasePage() {
         sx={{
           width: drawerWidth,
           flexShrink: 0,
-          display: isMobile && !open ? 'none' : 'block',
+          display: isMobile && !open ? "none" : "block",
           "& .MuiDrawer-paper": {
             width: drawerWidth,
             boxSizing: "border-box",
@@ -297,30 +296,30 @@ export default function BasePage() {
         open={open}
         onClose={handleDrawerClose}
         ModalProps={{
-          keepMounted: true, // Better mobile performance 
+          keepMounted: true, // Better mobile performance
         }}
       >
         <DrawerHeader>
           <LogoContainer>
             <LogoImage src={logo} alt="Logo" />
           </LogoContainer>
-          <IconButton 
+          <IconButton
             onClick={handleDrawerClose}
-            sx={{ 
+            sx={{
               color: "rgba(96, 97, 97, 1)",
-              "&:hover": { 
-                backgroundColor: "rgba(37, 126, 104, 0.08)" 
+              "&:hover": {
+                backgroundColor: "rgba(37, 126, 104, 0.08)",
               },
-              marginRight: "8px"
+              marginRight: "8px",
             }}
           >
             <MenuRoundedIcon />
           </IconButton>
         </DrawerHeader>
         <Divider sx={{ margin: "0 16px", backgroundColor: "rgba(0, 0, 0, 0.06)" }} />
-        <List sx={{ padding: "16px 8px", flexGrow: 1 }}> 
+        <List sx={{ padding: "16px 8px", flexGrow: 1 }}>
           {navItems.map(({ text, icon, link }) => (
-             <ListItem key={text} disablePadding sx={{ mb: 1 }}>
+            <ListItem key={text} disablePadding sx={{ mb: 1 }}>
               <Tab
                 text={text}
                 icon={icon}
@@ -330,18 +329,20 @@ export default function BasePage() {
                 setOpen={setOpen}
               />
             </ListItem>
-            ))}
+          ))}
         </List>
-        <Typography sx={{ padding: "8px" }}>{`Logged in as: ${name} (${userRole ?? "Unknown"})`}</Typography>
+        <Typography
+          sx={{ padding: "8px" }}
+        >{`Logged in as: ${name} (${userRole ?? "Unknown"})`}</Typography>
         <Divider sx={{ margin: "0 16px", backgroundColor: "rgba(0, 0, 0, 0.06)" }} />
-        <List sx={{ padding: '0 8px', width: '100%' }}>
+        <List sx={{ padding: "0 8px", width: "100%" }}>
           <ListItem key="Documentation" disablePadding sx={{ mb: 1 }}>
-            <Box sx={{ width: '100%' }}>
+            <Box sx={{ width: "100%" }}>
               <a
                 href="https://docs.google.com/document/d/1cHri2wCaWSghYgxS-Kknjv5ZB26JuuAfzd85ayXLWbM/edit?tab=t.0"
                 target="_blank"
                 rel="noopener noreferrer"
-                style={{ textDecoration: 'none', width: '100%' }}
+                style={{ textDecoration: "none", width: "100%" }}
               >
                 <Tab
                   text="Documentation"
@@ -359,26 +360,26 @@ export default function BasePage() {
           <ListItem key="Logout" disablePadding>
             <ListItemButton
               onClick={handleLogout}
-              sx={{ 
+              sx={{
                 backgroundColor: "#c0d4c5",
                 borderRadius: "8px",
                 transition: "all 0.2s ease",
                 padding: "10px 16px",
-                "&:hover": { 
+                "&:hover": {
                   backgroundColor: "#aabdad",
-                  transform: "translateY(-2px)"
-                } 
+                  transform: "translateY(-2px)",
+                },
               }}
             >
               <ListItemIcon>
                 <LogoutIcon sx={{ color: "var(--color-primary)" }} />
               </ListItemIcon>
-              <ListItemText 
-                primary="Logout" 
-                primaryTypographyProps={{ 
+              <ListItemText
+                primary="Logout"
+                primaryTypographyProps={{
                   fontWeight: 500,
-                  color: "rgb(85, 85, 85)"
-                }} 
+                  color: "rgb(85, 85, 85)",
+                }}
               />
             </ListItemButton>
           </ListItem>

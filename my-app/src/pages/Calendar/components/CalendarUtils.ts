@@ -9,23 +9,27 @@ let firestoreLimits: number[] = [60, 60, 60, 60, 90, 90, 60];
 
 const deliveryService = DeliveryService.getInstance();
 
-
 // Call this after auth is ready
 export const initLimits = async () => {
   try {
     const limits = await deliveryService.getWeeklyLimits();
-    firestoreLimits = DAYS.map(day => limits[day] || 60);
+    firestoreLimits = DAYS.map((day) => limits[day] || 60);
   } catch (error) {
     console.error("Error initializing limits:", error);
   }
 };
 
-export const getDefaultLimit = (date: DayPilot.Date, limits: Record<string, number> | number[]): number => {
+export const getDefaultLimit = (
+  date: DayPilot.Date,
+  limits: Record<string, number> | number[]
+): number => {
   if (Array.isArray(limits)) {
     return limits[date.getDayOfWeek()];
   } else {
     const dayOfWeek = date.getDayOfWeek();
-    const dayName = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][dayOfWeek];
+    const dayName = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][
+      dayOfWeek
+    ];
     return limits[dayName] || 20;
   }
 };
@@ -61,7 +65,11 @@ export const formatPhoneNumber = (phone: string): string => {
   return phone;
 };
 
-export const getNextMonthlyDate = (originalDate: Date, currentDate: Date, targetDay?: number): Date => {
+export const getNextMonthlyDate = (
+  originalDate: Date,
+  currentDate: Date,
+  targetDay?: number
+): Date => {
   const originalDateTime = TimeUtils.fromJSDate(originalDate);
   const currentDateTime = TimeUtils.fromJSDate(currentDate);
   const nextDate = Time.Recurrence.getNextMonthlyDate(originalDateTime, currentDateTime, targetDay);
@@ -70,7 +78,9 @@ export const getNextMonthlyDate = (originalDate: Date, currentDate: Date, target
 
 export const calculateRecurrenceDates = (newDelivery: NewDelivery): string[] => {
   const deliveryDateTime = TimeUtils.fromAny(newDelivery.deliveryDate);
-  const endDateTime = newDelivery.repeatsEndDate ? TimeUtils.fromAny(newDelivery.repeatsEndDate) : undefined;
+  const endDateTime = newDelivery.repeatsEndDate
+    ? TimeUtils.fromAny(newDelivery.repeatsEndDate)
+    : undefined;
 
   // Get recurrence dates as DateTime[]
   const recurrenceDates = Time.Recurrence.calculateRecurrenceDates(
@@ -80,5 +90,5 @@ export const calculateRecurrenceDates = (newDelivery: NewDelivery): string[] => 
   );
 
   // Return as local date strings (YYYY-MM-DD)
-  return recurrenceDates.map(dt => TimeUtils.toDateString(dt));
+  return recurrenceDates.map((dt) => TimeUtils.toDateString(dt));
 };

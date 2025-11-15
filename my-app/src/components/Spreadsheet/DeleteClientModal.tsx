@@ -1,5 +1,5 @@
-import React from 'react';
-import ConfirmationModal from '../ConfirmationModal';
+import React from "react";
+import ConfirmationModal from "../ConfirmationModal";
 
 /**
  * Modal for confirming client deletion
@@ -13,13 +13,13 @@ interface DeleteClientModalProps {
   name?: string;
 }
 
-const DeleteClientModal: React.FC<DeleteClientModalProps> = ({ 
-  handleMenuClose, 
-  handleDeleteRow, 
-  open, 
-  setOpen, 
-  id, 
-  name 
+const DeleteClientModal: React.FC<DeleteClientModalProps> = ({
+  handleMenuClose,
+  handleDeleteRow,
+  open,
+  setOpen,
+  id,
+  name,
 }) => {
   const handleClose = () => {
     setOpen(false);
@@ -38,7 +38,7 @@ const DeleteClientModal: React.FC<DeleteClientModalProps> = ({
       onClose={handleClose}
       onConfirm={handleConfirm}
       title="Confirm Deletion"
-      message={`Are you sure you want to delete this client${name ? ` (${name})` : ''}? This action cannot be undone.`}
+      message={`Are you sure you want to delete this client${name ? ` (${name})` : ""}? This action cannot be undone.`}
       confirmText="Delete"
       confirmColor="error"
     />

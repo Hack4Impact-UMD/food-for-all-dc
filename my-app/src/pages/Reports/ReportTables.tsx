@@ -4,7 +4,6 @@ import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import Table from "./Table";
 import { SummaryData } from "../../types/reports-types";
 
-
 interface ReportDataProps {
   data: SummaryData;
   loading: boolean;
