@@ -28,7 +28,6 @@ const DeleteClientModal: React.FC<DeleteClientModalProps> = ({
 
   const handleConfirm = async () => {
     if (id) {
-      console.log("DELETED");
       await handleDeleteRow(id);
     }
   };

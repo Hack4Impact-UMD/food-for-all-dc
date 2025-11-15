@@ -390,7 +390,6 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
         L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(mapRef.current);
       } catch (error) {
         console.error('Error initializing Leaflet map:', error);
-        console.log('L object:', L);
         return;
       }
       

@@ -129,7 +129,6 @@ class PerformanceMonitor {
       const observer = new PerformanceObserver((list) => {
         const entries = list.getEntries();
         const lastEntry = entries[entries.length - 1];
-        console.log('LCP:', lastEntry.startTime);
       });
       observer.observe({ entryTypes: ['largest-contentful-paint'] });
     }
@@ -142,7 +141,6 @@ class PerformanceMonitor {
         entries.forEach((entry) => {
           const fidEntry = entry as any;
           const fid = fidEntry.processingStart - fidEntry.startTime;
-          console.log('FID:', fid);
         });
       });
       observer.observe({ entryTypes: ['first-input'] });
@@ -159,7 +157,6 @@ class PerformanceMonitor {
             clsScore += (entry as any).value;
           }
         });
-        console.log('CLS:', clsScore);
       });
       observer.observe({ entryTypes: ['layout-shift'] });
     }
@@ -170,7 +167,6 @@ class PerformanceMonitor {
       const navEntry = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming;
       if (navEntry) {
         const ttfb = navEntry.responseStart - navEntry.requestStart;
-        console.log('TTFB:', ttfb);
       }
     }
   }
@@ -180,7 +176,6 @@ class PerformanceMonitor {
       const observer = new PerformanceObserver((list) => {
         const entries = list.getEntries();
         entries.forEach((entry) => {
-          console.log('FCP:', entry.startTime);
         });
       });
       observer.observe({ entryTypes: ['paint'] });
@@ -194,8 +189,6 @@ class PerformanceMonitor {
         if ('navigator' in window && 'connection' in navigator) {
           const connection = (navigator as any).connection;
           if (connection) {
-            console.log('Connection type:', connection.effectiveType);
-            console.log('Downlink speed:', connection.downlink);
           }
         }
         // Monitor resource sizes
@@ -206,7 +199,6 @@ class PerformanceMonitor {
             totalSize += resource.transferSize;
           }
         });
-        console.log('Total resource size:', totalSize);
       });
     } catch (error) {
       throw formatServiceError(error, 'Failed to measure bundle size');
@@ -218,11 +210,6 @@ class PerformanceMonitor {
     try {
       if ('memory' in performance) {
         const memory = (performance as any).memory;
-        console.log('Memory usage:', {
-          used: memory.usedJSHeapSize,
-          total: memory.totalJSHeapSize,
-          limit: memory.jsHeapSizeLimit
-        });
       }
     } catch (error) {
       throw formatServiceError(error, 'Failed to measure memory usage');

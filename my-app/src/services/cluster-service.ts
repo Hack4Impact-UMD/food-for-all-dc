@@ -49,14 +49,12 @@ class ClusterService {
         // NOTE: Add query constraints (where/orderBy/limit) for large collections and create indexes as needed.
         const clustersCollectionRef = collection(this.db, this.clustersCollection);
         const snapshot = await getDocs(clustersCollectionRef);
-        console.log('[ClusterService] getAllClusters snapshot:', snapshot);
         const clusters = snapshot.docs
           .map((doc) => {
             const data = { docId: doc.id, ...doc.data() };
             return validateCluster(data) ? data : undefined;
           })
           .filter((cluster): cluster is Cluster => cluster !== undefined);
-        console.log('[ClusterService] getAllClusters clusters:', clusters);
         return clusters;
       });
     } catch (error) {

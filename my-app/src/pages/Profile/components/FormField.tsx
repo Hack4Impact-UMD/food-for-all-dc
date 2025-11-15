@@ -241,23 +241,15 @@ const DateFieldComponent = ({
 
   // Convert MM/DD/YYYY to YYYY-MM-DD for HTML date input
   const convertToHtmlDateFormat = (inputValue: any): string => {
-    console.log('=== DATE CONVERSION DEBUG ===');
-    console.log('Field:', fieldPath);
-    console.log('Input value:', inputValue);
-    console.log('Input type:', typeof inputValue);
-    
     if (!inputValue) {
-      console.log('Empty value, returning empty string');
       return '';
     }
     
     const stringValue = String(inputValue);
-    console.log('String value:', stringValue);
     
     // Handle MM/DD/YYYY format (like "5/8/2025")
     if (stringValue.includes('/')) {
       const parts = stringValue.split('/');
-      console.log('Split parts:', parts);
       
       if (parts.length === 3) {
         const [month, day, year] = parts;
@@ -265,7 +257,6 @@ const DateFieldComponent = ({
           const paddedMonth = month.padStart(2, '0');
           const paddedDay = day.padStart(2, '0');
           const result = `${year}-${paddedMonth}-${paddedDay}`;
-          console.log('Final converted result:', result);
           return result;
         }
       }
@@ -273,11 +264,9 @@ const DateFieldComponent = ({
     
     // If already in YYYY-MM-DD format
     if (stringValue.match(/^\d{4}-\d{2}-\d{2}$/)) {
-      console.log('Already in YYYY-MM-DD format');
       return stringValue;
     }
     
-    console.log('Could not convert, returning empty');
     return '';
   };
 

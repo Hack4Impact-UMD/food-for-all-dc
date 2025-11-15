@@ -94,7 +94,6 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
     const handler = onAuthStateChangedOverride || onAuthStateChanged;
     const unsubscribe = handler(auth, (user: any) => {
       if (!user) {
-        console.log("No user is signed in, redirecting to /");
         navigate("/");
       }
     });
@@ -119,7 +118,6 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
     setError(null);
     try {
       const users = await authUserService.getAllUsers();
-      console.log("Fetched users:", users);
       setRows(users);
     } catch (fetchError) {
       console.error("Error fetching users: ", fetchError);

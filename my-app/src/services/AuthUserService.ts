@@ -156,7 +156,6 @@ export class AuthUserService {
           role: roleString,
         };
   await setDoc(doc(db, dataSources.firebase.usersCollection, userId), newUserDoc);
-        console.log(`User created successfully with UID: ${userId}`);
         return userId;
       });
     } catch (error: unknown) {
@@ -181,13 +180,10 @@ export class AuthUserService {
   // NOTE: This does NOT delete the user from Firebase Authentication.
   // Deleting from Auth requires admin privileges, typically via a Cloud Function.
   async deleteUser(uid: string): Promise<void> {
-    console.log(`Initiating delete process for UID: ${uid} via Cloud Function.`);
     try {
       await retry(async () => {
         const deleteUserAccountCallable = httpsCallable(functions, 'deleteUserAccount');
-        const result = await deleteUserAccountCallable({ uid: uid });
-        console.log("Cloud Function deleteUserAccount result:", result.data);
-        console.log(`User ${uid} delete initiated successfully via Cloud Function.`);
+        await deleteUserAccountCallable({ uid: uid });
       });
     } catch (error: unknown) {
       const err = error as Error & { code?: string; message?: string };

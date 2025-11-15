@@ -48,7 +48,6 @@ export const exportDeliveries = async (
       alert("No deliveries selected or available for export on the selected date.");
       return;
     }
-    console.log("Rows to Export:", rowsToExport);
 
     const groupedByDriver: Record<string, RowData[]> = {};
     rowsToExport.forEach((row) => {
@@ -60,8 +59,6 @@ export const exportDeliveries = async (
       }
       groupedByDriver[driverName].push(row);
     });
-
-    console.log("Grouped by Driver Name:", groupedByDriver);
 
     // Check if the only group is "Unassigned"
     const driverNames = Object.keys(groupedByDriver);
@@ -77,11 +74,8 @@ export const exportDeliveries = async (
     for (const driverName in groupedByDriver) {
       // Skip unassigned drivers
       if (driverName === "Unassigned") {
-          console.log("Skipping export for unassigned deliveries group.");
           continue;
       }
-
-      console.log(`Processing export for driver: ${driverName}`, groupedByDriver[driverName]);
 
       const csvData = groupedByDriver[driverName]
         .map((row) => {

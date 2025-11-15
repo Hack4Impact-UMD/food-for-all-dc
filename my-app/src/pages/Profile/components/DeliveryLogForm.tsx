@@ -111,13 +111,10 @@ const DeliveryLogForm: React.FC<DeliveryLogProps> = ({
 
                     // Delete from database first
                     await deliveryService.deleteEvent(selectedDelivery.id);
-                    console.log(`Successfully deleted delivery with ID: ${selectedDelivery.id}`);
-                    console.log(`Client ID associated with the deleted delivery: ${selectedDelivery.clientId}`);
 
                     // Notify parent component about the deletion - ensure this is awaited and errors are handled
                     try {
                         await onDeleteDelivery(selectedDelivery);
-                        console.log("Successfully notified parent of delivery deletion");
                     } catch (parentError) {
                         console.error("Error notifying parent of delivery deletion:", parentError);
                         // Continue with local state update even if parent notification fails
@@ -233,7 +230,7 @@ const DeliveryLogForm: React.FC<DeliveryLogProps> = ({
                                     label={formatDate(toJSDate(delivery.deliveryDate))}
                                     variant="outlined"
                                     color="primary"
-                                    onClick={() => console.log('Chip clicked:', delivery)}
+                                    onClick={() => {}}
                                     onDelete={() => handleDeleteClick(delivery)}
                                     sx={chipStyle(delivery.id, delivery.hidden || false)}
                                 />

@@ -373,7 +373,6 @@ const Profile = () => {
       
       return normalizedData as ClientProfile;
     } else {
-      console.log("No such document!");
       return null;
     }
   };
@@ -420,7 +419,6 @@ const Profile = () => {
           const tagsArray = tagsDocSnap.data().tags;
           setAllTags(tagsArray);
         } else {
-          console.log("No tags document found!");
           setAllTags([]);
         }
       } catch (error) {
@@ -456,8 +454,6 @@ const Profile = () => {
             setPrevNotes(profileData.notes || "");
             setProfileLoaded(true);
           }
-        } else {
-          console.log("No profile found for ID:", clientIdParam);
         }
       });
     } else {
@@ -587,7 +583,6 @@ const Profile = () => {
         console.error("Failed to fetch delivery history", error);
       }
     };
-    console.log('ran')
     fetchDeliveryHistory();
   }, [clientId, isDeliveryModalOpen]);
 
@@ -617,7 +612,6 @@ const Profile = () => {
   };
 
   const getWard = async (searchAddress: string) => {
-    console.log("getting ward");
     let wardName;
 
     try {
@@ -625,7 +619,6 @@ const Profile = () => {
       const coordinates = await getCoordinates(searchAddress);
       
       if (!coordinates || coordinates.length !== 2 || coordinates[0] === 0 || coordinates[1] === 0) {
-        console.log("Invalid coordinates for ward lookup");
         wardName = "No address";
         clientProfile.ward = wardName;
         setWard(wardName);
@@ -661,7 +654,6 @@ const Profile = () => {
         const wardFeature = data.features[0];
         wardName = wardFeature.attributes.NAME || `Ward ${wardFeature.attributes.WARD}`;
       } else {
-        console.log("No ward found for the given coordinates.");
         wardName = "No ward";
       }
     } catch (error) {
@@ -882,7 +874,6 @@ const Profile = () => {
         }
         if (name === "notes") {
           // Special handling for notes field
-          console.log("Notes changed to:", value);
         }
         return updatedProfile;
       });
@@ -990,8 +981,7 @@ const Profile = () => {
         !clientProfile.referralEntity.name ||
         !clientProfile.referralEntity.organization
       ) {
-        console.log("Debug: Incomplete referral entity data", clientProfile.referralEntity);
-        // Don't block saving, but log it for debugging
+        // Don't block saving if referral entity data is incomplete
       }
     }
 
@@ -1020,7 +1010,6 @@ const Profile = () => {
   ) => {
     // Compare trimmed versions of notes to avoid whitespace issues
     if (prevNotes.trim() !== newNotes.trim()) {
-      console.log("Notes changed from:", prevNotes.trim(), "to:", newNotes.trim());
       return { notes: newNotes, timestamp: new Date() };
     }
     return prevNotesTimestamp;
@@ -1357,7 +1346,6 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
           createdAt: new Date(), // Set createdAt for new profile
         };
         // Save to Firestore for new profile
-        console.log("Creating new profile:", newProfile);
         await setDoc(doc(db, dataSources.firebase.clientsCollection, newUid), newProfile);
         // Update the central tags list
   await setDoc(doc(db, dataSources.firebase.tagsCollection, dataSources.firebase.tagsDocId), { tags: sortedAllTags }, { merge: true });
@@ -1370,7 +1358,6 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
         setIsSaved(true);       // Indicate save was successful
         setErrors({});          // Clear validation errors
         setAllTags(sortedAllTags); // Update the local list of all tags
-        console.log("New profile created with ID: ", newUid);
         // Refresh client data context so spreadsheet updates
         if (refresh) await refresh();
         // Navigate *after* state updates. The component will remount with isEditing=false.
@@ -1383,7 +1370,6 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
           throw new Error("Client UID is missing for update.");
         }
         // Save to Firestore for existing profile (DO NOT normalize fields for saving)
-        console.log("Updating profile:", clientProfile.uid, updatedProfile);
   await setDoc(doc(db, dataSources.firebase.clientsCollection, clientProfile.uid), updatedProfile, { merge: true }); // Use merge: true for updates
         // Update the central tags list
   await setDoc(doc(db, dataSources.firebase.tagsCollection, dataSources.firebase.tagsDocId), { tags: sortedAllTags }, { merge: true });
@@ -1394,7 +1380,6 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
         setIsSaved(true); // Indicate save was successful
         setErrors({}); // Clear validation errors
         setAllTags(sortedAllTags); // Update the local list of all tags
-        console.log("Profile updated:", clientProfile.uid);
         // Refresh client data context so spreadsheet updates
         if (refresh) await refresh();
       }
@@ -2055,10 +2040,8 @@ if (type === "physicalAilments") {
     let updatedTags: string[];
     if (tags.includes(text)) {
       updatedTags = tags.filter((t) => t !== text);
-      console.log(`Removing tag "${text}" from client. Updated tags:`, updatedTags);
     } else if (text.trim() !== "") {
       updatedTags = [...tags, text.trim()];
-      console.log(`Adding tag "${text}" to client. Updated tags:`, updatedTags);
     } else {
       return; // No change needed
     }
@@ -2069,9 +2052,7 @@ if (type === "physicalAilments") {
     // Update Firebase immediately if we have a client UID
     if (clientProfile.uid) {
       try {
-        console.log(`Updating Firebase for client ${clientProfile.uid} with tags:`, updatedTags);
   await setDoc(doc(db, dataSources.firebase.clientsCollection, clientProfile.uid), { tags: updatedTags }, { merge: true });
-        console.log("Tags successfully updated in Firebase for client:", clientProfile.uid);
         
         // Also update the local clientProfile.tags to keep it in sync
         setClientProfile(prev => ({
@@ -2540,7 +2521,6 @@ const handleMentalHealthConditionsChange = (e: React.ChangeEvent<HTMLInputElemen
               eventToAdd.repeatsEndDate = newDelivery.repeatsEndDate;
             }
 
-            console.log("=== DEBUG: eventToAdd before createEvent ===", JSON.stringify(eventToAdd, null, 2));
             return deliveryService.createEvent(eventToAdd);
           });
     
@@ -2563,12 +2543,10 @@ const handleMentalHealthConditionsChange = (e: React.ChangeEvent<HTMLInputElemen
             // If there's an end date in the modal, use that
             const formattedEndDate = deliveryDate.toJSDate(newDelivery.repeatsEndDate).toLocaleDateString('en-US');
             setLastDeliveryDate(formattedEndDate);
-            console.log(`Set last delivery date to modal end date: ${formattedEndDate}`);
           } else {
             // Otherwise, get the actual last delivery date
             const latestEndDateString = await getLastDeliveryDateForClient(clientId);
             setLastDeliveryDate(latestEndDateString || "No deliveries found");
-            console.log(`Set last delivery date from database: ${latestEndDateString}`);
           }
         }
       } catch (error) {
@@ -2582,12 +2560,9 @@ const handleMentalHealthConditionsChange = (e: React.ChangeEvent<HTMLInputElemen
 
      const fetchClients = async () => {
     try {
-      console.log("Fetching all clients");
       // Use ClientService instead of direct Firebase calls
   // use imported singleton clientService directly
       const clientsData = await clientService.getAllClients();
-      
-      console.log(`Fetched ${clientsData.clients.length} clients`);
       
       // Map client data to Client type with explicit type casting for compatibility
       const clientList = clientsData.clients.map((data: ClientProfile) => {

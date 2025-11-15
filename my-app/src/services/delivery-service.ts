@@ -68,7 +68,6 @@ class DeliveryService {
     try {
       return await retry(async () => {
         const snapshot = await getDocs(collection(this.db, this.eventsCollection));
-        console.log('[DeliveryService] getAllEvents snapshot:', snapshot);
         const events = snapshot.docs
           .map((doc) => {
             const raw = doc.data();
@@ -77,7 +76,6 @@ class DeliveryService {
             return validateDeliveryEvent(data) ? data : undefined;
           })
           .filter((event) => event !== undefined) as DeliveryEvent[];
-        console.log('[DeliveryService] getAllEvents events:', events);
         return events;
       });
     } catch (error) {
@@ -386,12 +384,10 @@ class DeliveryService {
   public async getEventsByClientId(clientId: string): Promise<DeliveryEvent[]> {
     try {
       return await retry(async () => {
-         console.log('[DeliveryService] getEventsByClientId param:', clientId);
          const q = query(
            collection(this.db, this.eventsCollection),
            where("clientId", "==", clientId)
          );
-         console.log('[DeliveryService] getEventsByClientId Firestore query:', q);
         const querySnapshot = await getDocs(q);
         return querySnapshot.docs
           .map((doc) => {
@@ -492,7 +488,6 @@ class DeliveryService {
   public async getPreviousDeliveries(clientId: string): Promise<DeliveryEvent[]> {
     try {
       return await retry(async () => {
-        console.log('[DeliveryService] getPreviousDeliveries param:', clientId);
         const todayDateTime = TimeUtils.today();
         if (!todayDateTime.isValid) {
           throw new ServiceError("Invalid date object");
@@ -505,7 +500,6 @@ class DeliveryService {
            orderBy("deliveryDate", "desc"),
            limit(5)
          );
-        console.log('[DeliveryService] getPreviousDeliveries Firestore query:', pastQuery);
         const pastSnapshot = await getDocs(pastQuery);
         return pastSnapshot.docs.map((doc) => {
           const data = doc.data();
@@ -527,7 +521,6 @@ class DeliveryService {
   public async getNextDeliveries(clientId: string): Promise<DeliveryEvent[]> {
     try {
       return await retry(async () => {
-        console.log('[DeliveryService] getNextDeliveries param:', clientId);
         const todayDateTime = TimeUtils.today();
         if (!todayDateTime.isValid) {
           throw new ServiceError("Invalid date object");
@@ -540,7 +533,6 @@ class DeliveryService {
            orderBy("deliveryDate", "asc"),
            limit(5)
          );
-        console.log('[DeliveryService] getNextDeliveries Firestore query:', futureQuery);
         const futureSnapshot = await getDocs(futureQuery);
         return futureSnapshot.docs.map((doc) => {
           const data = doc.data();

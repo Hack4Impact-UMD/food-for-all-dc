@@ -338,13 +338,10 @@ const DeliverySpreadsheet: React.FC = () => {
   // Effect: open modal if pendingOpenAddClusterModalRow is set
   useEffect(() => {
     if (pendingOpenAddClusterModalRow) {
-      console.debug('Effect: opening modal for row', pendingOpenAddClusterModalRow);
       setAddClusterModalOpen(true);
       setNumClustersToAdd(1);
       setPendingOpenAddClusterModalRow(null);
       setSelectResetKey(prev => prev + 1); // force Select to re-render
-    } else {
-      console.debug('Effect: pendingOpenAddClusterModalRow is null');
     }
   }, [pendingOpenAddClusterModalRow]);
   // Add Cluster Modal State (for "+" cluster add)
@@ -476,7 +473,6 @@ const DeliverySpreadsheet: React.FC = () => {
         const selectedRowsArray = Array.from(selectedRows);
         
         if (selectedRowsArray.length === 0) {
-          console.log("No rows selected for time assignment");
           return;
         }
 
@@ -833,7 +829,6 @@ const DeliverySpreadsheet: React.FC = () => {
     }
 
     if (!row || !row.id || newClusterId === oldClusterId || !clusterDoc) {
-      console.log("Cluster change aborted (no change, missing data, or no clusterDoc)");
       return;
     }
 
@@ -882,9 +877,6 @@ const DeliverySpreadsheet: React.FC = () => {
     try {
       const clusterRef = doc(db, dataSources.firebase.clustersCollection, clusterDoc.docId);
       await updateDoc(clusterRef, { clusters: deduplicateClusters(updatedClusters) });
-      console.log(
-        `Successfully moved ${row.id} from cluster ${oldClusterId || "none"} to ${newClusterId || "none"}`
-      );
 
       // setRows(prevRows => prevRows.map r => r.id === row.id ? { ...r, clusterId: newClusterId } : r));
     } catch (error) {
@@ -902,8 +894,6 @@ const DeliverySpreadsheet: React.FC = () => {
       } else if (option === "Download") {
         // Pass rows and clusters to exportDeliveries
         exportDeliveries(TimeUtils.fromJSDate(selectedDate).toISODate() || "", rows, clusters);
-        console.log("Downloading Routes...");
-        // Add your download logic here
       }
     } else if (exportOption === "Doordash") {
       if (option === "Email") {
@@ -911,7 +901,6 @@ const DeliverySpreadsheet: React.FC = () => {
       } else if (option === "Download") {
         // Export DoorDash deliveries grouped by time
         exportDoordashDeliveries(TimeUtils.fromJSDate(selectedDate).toISODate() || "", rows, clusters);
-        console.log("Downloading Doordash...");
       }
     }
   };
@@ -976,7 +965,6 @@ const DeliverySpreadsheet: React.FC = () => {
 
   const handleIndividualClientUpdate = async (clientId: string, newClusterId: string, newDriver?: string, newTime?: string) => {
     if (!clusterDoc) {
-      console.log("Individual client update aborted: clusterDoc is missing.");
       return;
     }
 
@@ -1113,13 +1101,6 @@ const DeliverySpreadsheet: React.FC = () => {
         setSelectedRows(newSelectedRows);
         setSelectedClusters(newSelectedClusters);
       }
-
-      console.log(
-        `Successfully updated client ${clientId}:`,
-        `cluster: ${oldClusterId || "none"} -> ${newClusterId || "none"}`,
-        newDriver ? `driver override: ${newDriver}` : '',
-        newTime ? `time override: ${newTime}` : ''
-      );
     } catch (error) {
       console.error("Error updating individual client:", error);
     }
@@ -1252,7 +1233,6 @@ const DeliverySpreadsheet: React.FC = () => {
 
       // 3. Conditional Geocoding
       if (clientsToGeocode.length > 0) {
-        console.log(`Geocoding ${clientsToGeocode.length} addresses...`);
         const addressesToFetch = clientsToGeocode.map(client => client.address);
         const geocodeResponse = await fetch(
           testing ? "" : "https://geocode-addresses-endpoint-lzrplp4tfa-uc.a.run.app",
@@ -1297,9 +1277,6 @@ const DeliverySpreadsheet: React.FC = () => {
 
         // Wait for all Firestore updates to attempt completion
         await Promise.all(updatePromises);
-        console.log("Finished attempting coordinate updates in Firestore.");
-      } else {
-        console.log("No new addresses to geocode.");
       }
 
       // Filter out any clients that couldn't be geocoded (their entry in finalCoordinates will be null)
@@ -1354,7 +1331,6 @@ const DeliverySpreadsheet: React.FC = () => {
       // --- End Re-validation ---
 
 
-      console.log(`Generating ${adjustedClusterNum} clusters for ${validCoordsForClustering.length} valid coordinates...`);
       // 6. Call Clustering
       const clusterResponse = await fetch(
         testing ? "" : "https://cluster-deliveries-k-means-lzrplp4tfa-uc.a.run.app",
@@ -1488,9 +1464,6 @@ const DeliverySpreadsheet: React.FC = () => {
             behavior: 'smooth'
           });
         }, 100);
-      } else {
-        // Row not found in current view (might be filtered out)
-        console.log(`Row with ID ${clientId} not found in current spreadsheet view (may be filtered out)`);
       }
     }
   };
@@ -1937,8 +1910,6 @@ const DeliverySpreadsheet: React.FC = () => {
 
 
 
-    console.log('📊 DeliverySpreadsheet: Sorted rows:', sorted.length);
-    
     return sorted;
   }, [visibleRows, sortOrder, sortedColumn, clusters, customColumns, clientOverrides]);
 
