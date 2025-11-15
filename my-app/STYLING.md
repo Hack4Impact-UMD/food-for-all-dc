@@ -1,127 +1,125 @@
-# Food For All DC Styling System
+# Styling Guide
 
-## Overview
+## Quick Decision Tree
 
-This project uses a mixed styling approach with CSS Modules and Material UI, with a centralized theme system using CSS variables.
+1. **Common component exists?** → Use `Button`, `Input`, `Modal` from `src/components/common/`
+2. **Component-specific styles?** → Create `ComponentName.module.css` with CSS variables
+3. **MUI component?** → Use `sx` prop with CSS variables
+4. **Global override needed?** → Add to `src/styles/form-field-global.css` (MUI only)
 
-## Key Components
+## CSS Variables (from `src/styles/theme.css`)
 
-### 1. CSS Variables for Theming (`src/styles/theme.css`)
-
-All design tokens are defined as CSS variables in a single source of truth:
-
-```css
-:root {
-  --color-primary: #257E68;
-  --spacing-md: 1rem;
-  --font-size-base: 1rem;
-  /* etc. */
-}
-```
-
-Use these variables throughout your CSS and inline styles:
+**Never hardcode colors, spacing, or font sizes.**
 
 ```css
-.myButton {
-  background-color: var(--color-primary);
-  padding: var(--spacing-md);
-}
+/* Colors */
+--color-primary: #257E68
+--color-primary-light: #45a049
+--color-text-primary: #282c34
+--color-text-secondary: #787777
+--color-background-main: #ffffff
+--color-background-light: #f4f4f4
+--color-border-light: #ddd
+--color-error: #ff0000
+
+/* Spacing */
+--spacing-xs: 0.3125rem;  /* 5px */
+--spacing-sm: 0.625rem;   /* 10px */
+--spacing-md: 1rem;       /* 16px */
+--spacing-lg: 1.25rem;    /* 20px */
+--spacing-xl: 2rem;       /* 32px */
+
+/* Typography */
+--font-size-xs: 0.75rem;   /* 12px */
+--font-size-sm: 0.875rem;  /* 14px */
+--font-size-base: 1rem;    /* 16px */
+--font-size-lg: 1.25rem;   /* 20px */
+--font-size-xl: 1.5rem;    /* 24px */
+
+/* Borders & Shadows */
+--border-radius-sm: 0.3125rem;  /* 5px */
+--border-radius-md: 0.5rem;     /* 8px */
+--border-radius-lg: 1rem;       /* 16px */
+--border-radius-xl: 1.5rem;     /* 24px */
+--shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.1);
+--shadow-md: 0 4px 12px rgba(0, 0, 0, 0.15);
 ```
 
-### 2. CSS Modules (`.module.css` files)
-
-Component-specific styles are defined in CSS Module files:
+## Common Components
 
 ```tsx
-// MyComponent.tsx
-import styles from './MyComponent.module.css';
+import { Button, Input, Modal } from '../components/common';
 
-function MyComponent() {
-  return <div className={styles.container}>...</div>;
-}
+// Button
+<Button variant="primary" size="small" fullWidth icon={<Icon />}>
+  Save
+</Button>
+
+// Input
+<Input label="Name" value={name} onChange={setName} error={error} />
+
+// Modal
+<Modal open={isOpen} onClose={handleClose} title="Confirm" actions={...}>
+  Content
+</Modal>
 ```
 
-```css
-/* MyComponent.module.css */
-.container {
-  color: var(--color-primary);
-  padding: var(--spacing-md);
-}
-```
+## CSS Modules Pattern
 
-### 3. Reusable UI Components
-
-Common UI components have been created for consistent styling:
-
-- `Button` (`src/components/common/Button`)
-- `Input` (`src/components/common/Input`)
-
-Use these components instead of building one-off custom components:
+**File:** `ComponentName.module.css` (next to component)
 
 ```tsx
-import { Button, Input } from '../components/common';
+// ComponentName.tsx
+import styles from './ComponentName.module.css';
 
-function MyForm() {
-  return (
-    <form>
-      <Input label="Name" />
-      <Button variant="primary">Submit</Button>
-    </form>
-  );
-}
-```
-
-## Styling Guidelines
-
-1. **Always use theme variables**:
-   - Use CSS variables for all design tokens (colors, spacing, etc.)
-   - Never hardcode values like `#257E68` or `16px`
-
-2. **Use CSS Modules for component styles**:
-   - Name files as `ComponentName.module.css`
-   - Use camelCase for class names
-   - Import as `import styles from './ComponentName.module.css'`
-
-3. **Material UI styling**:
-   - Use Material UI components when appropriate
-   - For custom styling, use the `sx` prop with CSS variables:
-   ```tsx
-   <Box sx={{ 
-     backgroundColor: 'var(--color-primary)',
-     padding: 'var(--spacing-md)'
-   }}>
-   ```
-
-4. **Common components**:
-   - Use the common components for consistent UI
-   - Extend them as needed for specific use cases
-
-## File Organization
-
-
-## Migration Guide
-
-When converting existing components:
-
-1. Create a `.module.css` file next to the component
-2. Replace traditional CSS imports with CSS Module imports
-3. Replace class names with `styles.className` references
-4. Replace hardcoded values with CSS variables
-
-Example:
-```tsx
-// Before
-import './OldComponent.css';
-<div className="container" style={{ color: '#257E68' }}>
-
-// After
-import styles from './OldComponent.module.css';
 <div className={styles.container}>
+  <h2 className={styles.title}>Title</h2>
+</div>
 ```
 
 ```css
-/* OldComponent.module.css */
+/* ComponentName.module.css */
 .container {
-  color: var(--color-primary);
+  padding: var(--spacing-md);
+  background-color: var(--color-background-main);
 }
+
+.title {
+  color: var(--color-text-primary);
+  font-size: var(--font-size-lg);
+}
+```
+
+**Naming:** camelCase classes (`.formField`, `.submitButton`)
+
+## Material UI Styling
+
+```tsx
+<Box sx={{ 
+  backgroundColor: 'var(--color-primary)',
+  padding: 'var(--spacing-md)',
+  borderRadius: 'var(--border-radius-lg)'
+}}>
+```
+
+## Rules
+
+✅ **DO:**
+- Use CSS variables from `theme.css`
+- Use CSS Modules for component styles
+- Use common components when possible
+- Place `.module.css` files next to components
+
+❌ **DON'T:**
+- Hardcode colors (`#257E68`), spacing (`16px`), or font sizes
+- Use inline styles (except dynamic values)
+- Create global CSS for component styles
+- Use `!important` (use CSS Modules specificity)
+
+## File Structure
+
+```
+ComponentName/
+  ├── ComponentName.tsx
+  └── ComponentName.module.css
 ```
