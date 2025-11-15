@@ -15,6 +15,8 @@
 - Key services: `ClientService`, `DeliveryService`, `DriverService`, `ClusterService`, `AuthUserService`
 - Always use `formatServiceError()` for error handling
 - Use `retry()` utility for operations that may fail
+- Always handle errors - never silently fail or use console.log for errors
+- Show user-facing errors via `NotificationProvider`, not console
 
 ### State Management
 - Global: React Context (`AuthProvider`, `ClientDataContext`, `RecurringDeliveryContext`)
@@ -31,6 +33,7 @@
 ### TypeScript
 - Use types from `src/types/`
 - Prefer interfaces over types for object shapes
+- Never use `any` type - use proper types or `unknown` if type is truly unknown
 
 ### Styling
 - CSS Modules (`.module.css`) for component styles
