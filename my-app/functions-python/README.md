@@ -1,31 +1,50 @@
 # Python Firebase Cloud Functions
 
-Quick description of the `functions-python` directory and how to work on it
+Backend functions for Food For All DC: geocoding, clustering, user management, and delivery tracking.
 
+## Quick Start
+
+```bash
 # Setup
-
-If you haven't installed `firebase-tools`, do so with the following command
-
-```bash
-npm install -g firebase-tools
-```
-
-Then sign in to firebase using the following command
-
-```bash
-firebase login
-```
-
-Then, in the `functions-python` directory, create a virtual environment with the following commands
-
-```bash
+cd my-app/functions-python
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
-```
 
-Now, we can run the firebase emulator in order to test our functions locally
-
-```bash
+# Test locally (from project root)
+cd ../..
 firebase emulators:start
+
+# Deploy
+firebase deploy --only functions
 ```
+
+## Functions
+
+| Function | Type | Purpose |
+|----------|------|---------|
+| `geocode_addresses_endpoint` | HTTP | Convert addresses to coordinates |
+| `cluster_deliveries_k_means` | HTTP | Group delivery locations into clusters |
+| `deleteUserAccount` | Callable | Delete user (Auth + Firestore) |
+| `updateDeliveriesDaily` | Scheduled | Daily cron: update client delivery records (runs 10:00 AM ET) |
+
+## File Structure
+
+- `main.py` - User/delivery functions (`deleteUserAccount`, `updateDeliveriesDaily`)
+- `clustering.py` - Geocoding + clustering endpoints
+
+## Configuration
+
+- **Maps API Key**: Stored in Secret Manager (`MAPS_API_KEY`)
+- **CORS**: Configured for localhost:3000 and production domains
+
+## Testing
+
+Test HTTP functions locally:
+```bash
+curl -X POST http://localhost:5001/food-for-all-dc-caf23/us-central1/geocode_addresses_endpoint \
+  -H "Content-Type: application/json" \
+  -d '{"addresses": ["1600 Pennsylvania Ave NW, Washington, DC"]}'
+```
+
+View logs: `firebase functions:log`
