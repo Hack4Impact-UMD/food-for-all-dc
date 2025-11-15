@@ -12,6 +12,7 @@
     <a href="#quick-start"><img src="https://img.shields.io/badge/Setup-Guide-257E68" alt="Setup Guide"></a>
     <a href="#project-structure"><img src="https://img.shields.io/badge/Project-Structure-257E68" alt="Project Structure"></a>
     <a href="#tech-stack"><img src="https://img.shields.io/badge/Tech-Stack-257E68" alt="Tech Stack"></a>
+    <a href="CONTRIBUTING.md"><img src="https://img.shields.io/badge/Contributing-Guide-257E68" alt="Contributing Guide"></a>
     <a href="my-app/STYLING.md"><img src="https://img.shields.io/badge/Style-Guide-257E68" alt="Style Guide"></a>
   </p>
 </div>
@@ -33,6 +34,7 @@ The system handles client intake, delivery scheduling, route optimization, and r
 - [🔧 Tech Stack](#-tech-stack)
 - [✨ Key Features](#-key-features)
 - [📚 Documentation](#-documentation)
+- [🤝 Contributing](#-contributing)
 - [🎨 Style Guide](#-style-guide)
 
 ---
@@ -149,8 +151,22 @@ food-for-all-dc/
 
 ## 📚 Documentation
 
+- **[Contributing Guide](CONTRIBUTING.md)** - How to contribute, code standards, and PR guidelines
 - **[Styling Guide](my-app/STYLING.md)** - CSS Modules, theme variables, and component patterns
 - **[Cursor Rules](.cursorrules)** - Code standards and architecture patterns
+
+---
+
+## 🤝 Contributing
+
+We welcome contributions! Please read our **[Contributing Guidelines](CONTRIBUTING.md)** before submitting a PR.
+
+The guide covers:
+- Code standards and best practices
+- Git workflow and commit conventions
+- Pull request process
+- Common development workflows
+- Style guide reference
 
 ---
 
