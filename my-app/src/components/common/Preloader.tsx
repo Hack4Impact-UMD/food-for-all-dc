@@ -26,7 +26,7 @@ const Preloader: React.FC<PreloaderProps> = ({
       <CircularProgress 
         size={size} 
         sx={{ 
-          color: '#257E68' // Food for All DC primary color
+          color: 'var(--color-primary)'
         }} 
       />
       {showMessage && (

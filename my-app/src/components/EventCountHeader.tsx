@@ -16,7 +16,7 @@ const DeliveryCountHeader = React.memo(function DeliveryCountHeader({events, lim
                 padding: 0.8075,
                 backgroundColor: "var(--color-background-green-cyan)",
                 borderRadius: 2,
-                borderLeft: "4px solid #257E68",
+                borderLeft: "4px solid var(--color-primary)",
                 boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
                 width: "100%",
                 boxSizing: "border-box",
