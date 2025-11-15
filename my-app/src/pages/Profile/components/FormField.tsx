@@ -40,7 +40,7 @@ interface FormFieldProps {
 }
 
 const fieldStyles = {
-  backgroundColor: "var(--color-white)"color-white)",
+  backgroundColor: "var(--color-white)",
   width: "100%",
   height: "56px",
   padding: "0.1rem 0.5rem",
@@ -78,7 +78,7 @@ const CustomTextField = styled(TextField)({
       color: "var(--color-error)",
     }
   }, "& .MuiInputBase-input": {
-    backgroundColor: "var(--color-white)"color-white)",
+    backgroundColor: "var(--color-white)",
     width: "100%",
     height: "56px",
     padding: "0.1rem 0.5rem",
@@ -92,7 +92,7 @@ const CustomTextField = styled(TextField)({
     },
   },
   "& .MuiInputBase-inputMultiline, & textarea": {
-    backgroundColor: "var(--color-white)"color-white)",
+    backgroundColor: "var(--color-white)",
     width: "100%",
     minHeight: "56px",
     height: "auto",
@@ -140,7 +140,7 @@ export const CustomSelect = styled(Select)({
   // Apply our own border and background
   border: `1px solid var(--color-border-light)`,
   borderRadius: '5px',
-  backgroundColor: 'var(--color-white)'color-white)',
+  backgroundColor: 'var(--color-white)',
 
   // Focus state
   '&:focus-within': {

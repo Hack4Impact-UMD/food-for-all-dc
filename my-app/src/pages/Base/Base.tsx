@@ -241,7 +241,7 @@ export default function BasePage() {
                     padding: 0,
                     border: 'none',
                     '&:focus': {
-                      backgroundColor: 'var(--color-transparent)'transparent)',
+                      backgroundColor: 'var(--color-transparent)',
                     }
                   },
                   '& .MuiSelect-icon': {

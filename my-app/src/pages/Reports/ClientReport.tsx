@@ -193,7 +193,7 @@ const ClientReport: React.FC = () => {
                 sx={{
                   width: "100%",
                   mb: 1,
-                  bgcolor: "var(--color-white)"color-white)",
+                  bgcolor: "var(--color-white)",
                   border: "none",
                   boxShadow: "none",
                   borderRadius: 2,
@@ -202,12 +202,12 @@ const ClientReport: React.FC = () => {
                 }}
               >
                 <AccordionSummary
-                  expandIcon={<ExpandMoreIcon sx={{ color: "var(--color-white)"color-white)" }} />}
+                  expandIcon={<ExpandMoreIcon sx={{ color: "var(--color-white)" }} />}
                   aria-controls={`panel${index}-content`}
                   id={`panel${index}-header`}
                   sx={{
                     bgcolor: "var(--color-primary)",
-                    color: "var(--color-white)"color-white)",
+                    color: "var(--color-white)",
                     mb: 0.5,
                     borderTopLeftRadius: 2,
                     borderTopRightRadius: 2,
@@ -221,7 +221,7 @@ const ClientReport: React.FC = () => {
                   </Box>
                 </AccordionSummary>
 
-                <AccordionDetails sx={{ bgcolor: "var(--color-white)"color-white)", color: "var(--color-black)"color-black)", p: 0 }}>
+                <AccordionDetails sx={{ bgcolor: "var(--color-white)", color: "var(--color-black)", p: 0 }}>
                   {clients.length === 0 ? (
                     <Box sx={{ p: 2, bgcolor: "var(--color-background-lighter)", borderRadius: 1 }}>
                       <Typography sx={{ color: "text.secondary" }}>No clients.</Typography>

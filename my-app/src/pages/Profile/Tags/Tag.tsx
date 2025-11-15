@@ -172,7 +172,7 @@ const Tag: React.FC<TagProps> = ({
             position: "absolute",
             top: -8,
             right: -8,
-            backgroundColor: "var(--color-white)"color-white)",
+            backgroundColor: "var(--color-white)",
             color: "#e53935",
             boxShadow: "0px 2px 4px rgba(0, 0, 0, 0.2)",
             borderRadius: "50%",

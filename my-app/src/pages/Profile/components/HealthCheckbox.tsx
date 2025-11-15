@@ -68,7 +68,7 @@ const HealthCheckbox: React.FC<HealthCheckboxProps> = ({
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
         <FormControlLabel
           control={<Checkbox checked={checked} onChange={onChange} name={name} {...checkboxProps} />}
-          label={<span style={{ color: 'var(--color-black)'color-black)' }}>{label}</span>}
+          label={<span style={{ color: 'var(--color-black)' }}>{label}</span>}
         />
         {checked && isEditing && (
           <TextField
@@ -88,7 +88,7 @@ const HealthCheckbox: React.FC<HealthCheckboxProps> = ({
   return (
     <FormControlLabel
       control={<Checkbox checked={checked} onChange={onChange} name={name} {...checkboxProps} />}
-      label={<span style={{ color: 'var(--color-black)'color-black)' }}>{label}</span>}
+      label={<span style={{ color: 'var(--color-black)' }}>{label}</span>}
     />
   );
 };

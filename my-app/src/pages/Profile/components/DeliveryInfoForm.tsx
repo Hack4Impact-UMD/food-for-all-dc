@@ -18,7 +18,7 @@ interface DeliveryInfoFormProps {
 }
 
 const fieldStyles = {
-  backgroundColor: "var(--color-white)"color-white)",
+  backgroundColor: "var(--color-white)",
   width: "60%",
   height: "56px",
   padding: "0.1rem 0.5rem",

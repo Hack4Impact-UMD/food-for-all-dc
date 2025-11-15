@@ -255,7 +255,7 @@ const ReferralAgenciesReport: React.FC = () => {
                 sx={{
                   width: "100%",
                   mb: 1,
-                  bgcolor: "var(--color-white)"color-white)",
+                  bgcolor: "var(--color-white)",
                   border: "none",
                   boxShadow: "none",
                   borderRadius: 2,
@@ -264,12 +264,12 @@ const ReferralAgenciesReport: React.FC = () => {
                 }}
               >
                 <AccordionSummary
-                  expandIcon={<ExpandMoreIcon sx={{ color: "var(--color-white)"color-white)" }} />}
+                  expandIcon={<ExpandMoreIcon sx={{ color: "var(--color-white)" }} />}
                   aria-controls={`panel${index}-content`}
                   id={`panel${index}-header`}
                   sx={{
                     bgcolor: "var(--color-primary)",
-                    color: "var(--color-white)"color-white)",
+                    color: "var(--color-white)",
                     mb: 0.5,
                     borderTopLeftRadius: 2,
                     borderTopRightRadius: 2,
@@ -285,7 +285,7 @@ const ReferralAgenciesReport: React.FC = () => {
                   </Box>
                 </AccordionSummary>
 
-                <AccordionDetails sx={{ bgcolor: "var(--color-white)"color-white)", color: "var(--color-black)"color-black)", p: 0 }}>
+                <AccordionDetails sx={{ bgcolor: "var(--color-white)", color: "var(--color-black)", p: 0 }}>
                   {(clients || []).map(
                     (client: ReferralClient, clientIndex: number) => (
                       <Box

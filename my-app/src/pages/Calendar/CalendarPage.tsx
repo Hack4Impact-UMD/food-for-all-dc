@@ -595,7 +595,7 @@ const CalendarPage: React.FC = React.memo(() => {
                     sx={{
                       width: '90%',
                       bgcolor: 'var(--color-primary)',
-                      color: 'var(--color-white)'color-white)',
+                      color: 'var(--color-white)',
                       borderRadius: 2,
                       p: 1.5,
                       textAlign: 'center',

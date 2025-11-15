@@ -45,7 +45,7 @@ export default function ReportTables({ data, loading }: ReportDataProps) {
         overflowY: "auto",
         padding: "16px",
         width: "90vw",
-        backgroundColor: "var(--color-white)"color-white)",
+        backgroundColor: "var(--color-white)",
       }}
     >
       <Box
@@ -91,7 +91,7 @@ export default function ReportTables({ data, loading }: ReportDataProps) {
           sx={{
             width: "100%",
             marginBottom: "8px",
-            backgroundColor: "var(--color-white)"color-white)",
+            backgroundColor: "var(--color-white)",
             border: "none",
             boxShadow: "none",
             borderRadius: "8px",
@@ -100,12 +100,12 @@ export default function ReportTables({ data, loading }: ReportDataProps) {
           }}
         >
           <AccordionSummary
-            expandIcon={<ExpandMoreIcon sx={{ color: "var(--color-white)"color-white)" }} />}
+            expandIcon={<ExpandMoreIcon sx={{ color: "var(--color-white)" }} />}
             aria-controls={`panel${index}-content`}
             id={`panel${index}-header`}
             sx={{
               backgroundColor: "var(--color-primary)",
-              color: "var(--color-white)"color-white)",
+              color: "var(--color-white)",
               marginBottom: "5px",
               borderTopLeftRadius: "8px",
               borderTopRightRadius: "8px",
@@ -116,8 +116,8 @@ export default function ReportTables({ data, loading }: ReportDataProps) {
 
           <AccordionDetails
             sx={{
-              backgroundColor: "var(--color-white)"color-white)",
-              color: "var(--color-black)"color-black)",
+              backgroundColor: "var(--color-white)",
+              color: "var(--color-black)",
               padding: "0px",
             }}
           >

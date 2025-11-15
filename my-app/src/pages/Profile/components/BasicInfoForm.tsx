@@ -403,7 +403,7 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
                   {...params}
                   variant="outlined"
                   sx={{
-                    backgroundColor: "var(--color-white)"color-white)",
+                    backgroundColor: "var(--color-white)",
                     '& .MuiOutlinedInput-root': {
                       height: "56px",
                       padding: "0.1rem 0.5rem",

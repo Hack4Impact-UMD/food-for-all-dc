@@ -325,7 +325,7 @@ const DeliveryTable: React.FC<DeliveryTableProps> = ({
                           alignItems: "left",
                           whiteSpace: "pre-wrap",
                           overflow: "auto",
-                          color: "var(--color-black)"color-black)",
+                          color: "var(--color-black)",
                         }}
                       >
                         {field.compute(row)}

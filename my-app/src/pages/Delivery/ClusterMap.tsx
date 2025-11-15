@@ -1082,7 +1082,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
       {/* Center Map Button */}
       <Box
         sx={{
-          backgroundColor: "var(--color-white)"color-white)",
+          backgroundColor: "var(--color-white)",
           border: "2px solid purple",
           borderRadius: "50%",
           display: "flex",
@@ -1108,7 +1108,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
           position: 'absolute',
           top: '10px',
           right: '10px',
-          backgroundColor: 'var(--color-white)'color-white)',
+          backgroundColor: 'var(--color-white)',
           padding: '5px 10px',
           borderRadius: '3px',
           boxShadow: '0 0 5px rgba(0,0,0,0.2)',

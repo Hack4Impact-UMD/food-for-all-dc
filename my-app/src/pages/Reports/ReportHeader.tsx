@@ -21,7 +21,7 @@ export default function ReportHeader({startDate, endDate, setStartDate, setEndDa
             style={{
             flexShrink: 0,
             padding: "12px 16px",
-            backgroundColor: "var(--color-white)"color-white)",
+            backgroundColor: "var(--color-white)",
             display: "flex",
             flexDirection: "column",
             gap: "8px",

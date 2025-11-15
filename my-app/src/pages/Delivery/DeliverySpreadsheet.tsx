@@ -2589,7 +2589,7 @@ const DeliverySpreadsheet: React.FC = () => {
                                     style={typeof option.color === 'string' ?
                                       { 
                                         backgroundColor: option.color, 
-                                        color: 'var(--color-white)'color-white)', 
+                                        color: 'var(--color-white)', 
                                         border: '1px solid black', 
                                         fontWeight: 'bold',
                                         textShadow: '.5px .5px .5px var(--color-border-black), -.5px .5px .5px #000, -.5px -.5px 0px #000, .5px -.5px 0px var(--color-border-black)'
@@ -2635,7 +2635,7 @@ const DeliverySpreadsheet: React.FC = () => {
                                   key={index}
                                   label={tag}
                                   size="small"
-                                  sx={{ backgroundColor: 'var(--color-success-button)', color: 'var(--color-white)'color-white)', fontSize: '0.75rem' }}
+                                  sx={{ backgroundColor: 'var(--color-success-button)', color: 'var(--color-white)', fontSize: '0.75rem' }}
                                 />
                               ))}
                             </div>
@@ -2691,7 +2691,7 @@ const DeliverySpreadsheet: React.FC = () => {
                                   key={index}
                                   label={restriction}
                                   size="small"
-                                  sx={{ backgroundColor: 'var(--color-warning)', color: 'var(--color-white)'color-white)', fontSize: '0.7rem' }}
+                                  sx={{ backgroundColor: 'var(--color-warning)', color: 'var(--color-white)', fontSize: '0.7rem' }}
                                 />
                               ))}
                             </Box>

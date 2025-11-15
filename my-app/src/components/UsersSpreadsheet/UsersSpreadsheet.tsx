@@ -377,7 +377,7 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
         py: 2,
         maxWidth: "100%",
         overflowX: "hidden",
-        backgroundColor: "var(--color-transparent)"transparent)",
+        backgroundColor: "var(--color-transparent)",
         position: "relative",
         display: "flex",
         flexDirection: "column",

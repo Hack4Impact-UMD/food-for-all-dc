@@ -303,7 +303,7 @@ const MaskedDateField: React.FC<MaskedDateFieldProps> = ({
           position: 'relative',
           width: '100%',
           height: '38px',
-          backgroundColor: 'var(--color-white)'color-white)',
+          backgroundColor: 'var(--color-white)',
           border: (!!error || !!props.error) ? '1px solid var(--color-error)' : '.1rem solid black',
           borderRadius: '5px',
           padding: '0 8px',

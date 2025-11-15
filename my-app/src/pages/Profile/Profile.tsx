@@ -74,7 +74,7 @@ import HealthCheckbox from "./components/HealthCheckbox";
 
 // Styling
 const fieldStyles = {
-  backgroundColor: "var(--color-white)"color-white)",
+  backgroundColor: "var(--color-white)",
   width: "60%",
   height: "1.813rem",
   padding: "0.1rem 0.5rem",
@@ -108,7 +108,7 @@ const CustomTextField = styled(TextField)({
 
 // Styled components for common elements
 const SectionBox = styled(Box)(({ theme }) => ({
-  backgroundColor: "var(--color-white)"color-white)",
+  backgroundColor: "var(--color-white)",
   borderRadius: "8px",
   padding: "20px",
   boxShadow: "0 2px 8px rgba(0, 0, 0, 0.06)",
@@ -153,7 +153,7 @@ const SaveNotification = styled(Box)({
   bottom: "20px",
   right: "20px",
   backgroundColor: "var(--color-primary)",
-  color: "var(--color-white)"color-white)",
+  color: "var(--color-white)",
   padding: "16px 24px",
   borderRadius: "8px",
   boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)",
@@ -1704,7 +1704,7 @@ if (type === "physicalAilments") {
             onChange={handleLanguageSelectChange}
             error={!!errors.language}
             sx={{
-              backgroundColor: "var(--color-white)"color-white)",
+              backgroundColor: "var(--color-white)",
               width: "100%",
               height: "1.813rem",
               padding: "0.1rem 0.5rem",
@@ -1726,7 +1726,7 @@ if (type === "physicalAilments") {
               onChange={handleCustomLanguageChange}
               
               sx={{
-                backgroundColor: "var(--color-white)"color-white)",
+                backgroundColor: "var(--color-white)",
                 width: "100%",
                 height: "1.813rem",
                 padding: "0.1rem 0.5rem",
@@ -1805,7 +1805,7 @@ if (type === "physicalAilments") {
             onChange={handleEthnicitySelectChange}
             error = {!!errors.ethnicity}
             sx={{
-              backgroundColor: "var(--color-white)"color-white)",
+              backgroundColor: "var(--color-white)",
               width: "100%",
               height: "1.813rem",
               padding: "0.1rem 0.5rem",
@@ -1826,7 +1826,7 @@ if (type === "physicalAilments") {
               value={isPredefined ? "" : clientProfile.ethnicity}
               onChange={handleEthnicityCustomChange}
               sx={{
-                backgroundColor: "var(--color-white)"color-white)",
+                backgroundColor: "var(--color-white)",
                 width: "100%",
                 height: "1.813rem",
                 padding: "0.1rem 0.5rem",
@@ -1877,7 +1877,7 @@ if (type === "physicalAilments") {
             value={selectValue}
             onChange={handleGenderSelectChange}
             sx={{
-              backgroundColor: "var(--color-white)"color-white)",
+              backgroundColor: "var(--color-white)",
               width: "100%",
               height: "1.813rem",
               padding: "0.1rem 0.5rem",
@@ -1927,7 +1927,7 @@ if (type === "physicalAilments") {
             value={selectValue}
             onChange={handleHeadOfHouseholdSelectChange}
             sx={{
-              backgroundColor: "var(--color-white)"color-white)",
+              backgroundColor: "var(--color-white)",
               width: "100%",
               height: "1.813rem",
               padding: "0.1rem 0.5rem",
@@ -1989,7 +1989,7 @@ if (type === "physicalAilments") {
             value={selectValue}
             onChange={handleRecurrenceSelectChange}
             sx={{
-              backgroundColor: "var(--color-white)"color-white)",
+              backgroundColor: "var(--color-white)",
               width: "100%",
               height: "1.813rem",
               padding: "0.1rem 0.5rem",
@@ -2696,7 +2696,7 @@ const handleMentalHealthConditionsChange = (e: React.ChangeEvent<HTMLInputElemen
           sx={{
             width: { xs: "95%", sm: "90%", md: "85%", lg: "75%" },
             maxWidth: "1200px",
-            bgcolor: "var(--color-transparent)"transparent)",
+            bgcolor: "var(--color-transparent)",
             boxShadow: "none",
             p: 0
           }}

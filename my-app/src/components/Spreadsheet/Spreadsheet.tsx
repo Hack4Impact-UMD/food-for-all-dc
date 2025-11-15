@@ -430,7 +430,7 @@ const Spreadsheet: React.FC = () => {
 
   // --- TableVirtuoso rendering ---
   return (
-  <Box className="box" sx={{ px: { xs: 2, sm: 3, md: 4 }, py: 2, maxWidth: "100%", overflowX: "hidden", backgroundColor: "var(--color-transparent)"transparent)", position: "relative", display: "flex", flexDirection: "column", mt: 0, height: 'calc(100vh - 133px)' }}>
+  <Box className="box" sx={{ px: { xs: 2, sm: 3, md: 4 }, py: 2, maxWidth: "100%", overflowX: "hidden", backgroundColor: "var(--color-transparent)", position: "relative", display: "flex", flexDirection: "column", mt: 0, height: 'calc(100vh - 133px)' }}>
       <div style={{ color: 'var(--color-primary)', fontWeight: 600, marginBottom: 8 }}>
       </div>
       {/* Search bar and actions */}

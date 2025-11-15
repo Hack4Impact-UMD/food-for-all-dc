@@ -268,7 +268,7 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
         onClick={handleMenuOpen}
         size="small"
         sx={{ 
-          backgroundColor: 'var(--color-white)'color-white)',
+          backgroundColor: 'var(--color-white)',
           borderRadius: '50%',
           boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
           color: 'var(--color-primary)',
