@@ -12,10 +12,6 @@
     "@mui/material": "^7.2.0",
     "@mui/system": "^7.2.0",
     "@mui/x-date-pickers": "^8.9.0",
-    "@testing-library/jest-dom": "^6.6.3",
-    "@testing-library/react": "^14.3.1",
-    "@testing-library/user-event": "^14.6.1",
-    "@types/jest": "^27.5.2",
     "@types/js-cookie": "^3.0.6",
     "@types/node": "^16.18.112",
     "@types/react": "^18.3.11",
@@ -47,8 +43,6 @@
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
-    "test": "react-scripts test --watchAll=false",
-    "test:ci": "react-scripts test --ci --coverage --watchAll=false",
     "eject": "react-scripts eject",
     "lint": "eslint src --ext .js,.jsx,.ts,.tsx",
     "lint:fix": "eslint src --ext .js,.jsx,.ts,.tsx --fix",
@@ -58,8 +52,7 @@
   },
   "eslintConfig": {
     "extends": [
-      "react-app",
-      "react-app/jest"
+      "react-app"
     ]
   },
   "browserslist": {
