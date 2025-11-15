@@ -1,4 +1,39 @@
-venv
+# Python virtual environment
+venv/
+env/
+ENV/
+.venv/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Environment variables
 *.env
-__pycache__
-food-for-all-dc-caf23-firebase-adminsdk-65kzi-b8cfeb0d9a.json
+.env
+.env.local
+
+# Firebase Admin SDK keys
+food-for-all-dc-caf23-firebase-adminsdk-*.json
+*-firebase-adminsdk-*.json
+
+# Python type checking
+.mypy_cache/
+.pytype/
+.pyre/
+.pyre_cache/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Distribution / packaging
+*.egg-info/
+dist/
+build/
+*.egg
+*.whl
