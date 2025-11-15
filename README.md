@@ -19,6 +19,19 @@
 
 ---
 
+## 🗺️ Roadmap
+
+- **Security Enhancements**
+  - Server-side role validation in Cloud Functions
+  - Firestore security rules (low priority - internal tool)
+- **Infrastructure**
+  - Fix CI/CD pipeline
+- **Low Priority**
+  - Fix tech debt (impossible at this point)
+  - Testing
+
+---
+
 ## 📋 About
 
 This project modernizes and streamlines client management and delivery scheduling for Food For All DC, a nonprofit serving our community. 🚚🥕
@@ -29,6 +42,7 @@ The system handles client intake, delivery scheduling, route optimization, and r
 
 ## 📖 Contents
 
+- [🗺️ Roadmap](#️-roadmap)
 - [⚙️ Quick Start](#-quick-start)
 - [🏗️ Project Structure](#️-project-structure)
 - [🔧 Tech Stack](#-tech-stack)
@@ -160,10 +174,6 @@ food-for-all-dc/
 - Client-side route protection via `ProtectedRoute`
 - Password minimum: 8 characters
 - Environment variables for sensitive config
-
-**TODO**: 
-- Add server-side role validation in Cloud Functions (see `functions-python/main.py`)
-- Add Firestore security rules (not urgent - internal tool)
 
 ---
 
