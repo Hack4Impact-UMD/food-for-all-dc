@@ -41,7 +41,6 @@ def deleteUserAccount(req: https_fn.CallableRequest):
     Deletes a user's Firebase Auth account and their Firestore document.
     Expects {'uid': 'user-uid-to-delete'} in the request data.
     """
-    # 1. Authentication/Authorization Check
     if req.auth is None:
         print("Authentication failed: No auth context found.")
         raise https_fn.HttpsError(code=https_fn.FunctionsErrorCode.UNAUTHENTICATED,
@@ -49,29 +48,27 @@ def deleteUserAccount(req: https_fn.CallableRequest):
 
     caller_uid = req.auth.uid
 
-    # 2. Input Validation
+    # TODO: Add role-based authorization check (Admin/Manager only)
+    # Currently allows any authenticated user to delete users
+
     uid_to_delete = req.data.get('uid')
     if not uid_to_delete or not isinstance(uid_to_delete, str):
         print("Invalid input: 'uid' parameter missing or not a string.")
         raise https_fn.HttpsError(code=https_fn.FunctionsErrorCode.INVALID_ARGUMENT,
                                   message="Required parameter 'uid' is missing or invalid.")
 
-    # Prevent self-deletion
     if caller_uid == uid_to_delete:
             print("Authorization failed: User attempted self-deletion.")
             raise https_fn.HttpsError(code=https_fn.FunctionsErrorCode.PERMISSION_DENIED,
                                     message="You cannot delete your own account.")
 
-
     print(f"Attempting to delete user with UID: {uid_to_delete}")
     db = firestore.client()
 
     try:
-        # 3. Delete Firebase Authentication User
         auth.delete_user(uid_to_delete)
         print(f"Successfully deleted Firebase Auth user: {uid_to_delete}")
 
-        # 4. Delete Firestore User Document (Best effort after Auth deletion)
         try:
             user_doc_ref = db.collection('users').document(uid_to_delete)
             user_doc_ref.delete()
@@ -80,7 +77,6 @@ def deleteUserAccount(req: https_fn.CallableRequest):
             # Log Firestore deletion error but proceed as Auth deletion succeeded
             print(f"Warning: Failed to delete Firestore document for user {uid_to_delete}: {fs_error}")
 
-        # 5. Return Success
         return {"status": "success", "message": f"Successfully deleted user {uid_to_delete}"}
 
     except auth.UserNotFoundError:

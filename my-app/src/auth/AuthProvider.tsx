@@ -102,7 +102,6 @@ export const AuthProvider = ({ children }: Props): React.ReactElement => {
               roleEnum = UserType.ClientIntake;
               break;
             default:
-              console.warn(`Unknown role found in Firestore: ${roleString}`);
               roleEnum = null;
           }
         }
@@ -115,7 +114,6 @@ export const AuthProvider = ({ children }: Props): React.ReactElement => {
         });
         return { role: roleEnum, name: userName };
       } else {
-        console.warn(`User document not found in Firestore for UID: ${uid}`);
         userRoleCache.set(uid, {
           role: null,
           name: null,

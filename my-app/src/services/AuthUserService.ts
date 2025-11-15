@@ -26,8 +26,7 @@ const mapRoleToUserType = (roleString: string): UserType => {
     case "client intake":
       return UserType.ClientIntake;
     default:
-      console.warn(`Unknown role string encountered: ${roleString}`);
-      return UserType.ClientIntake; // Or handle appropriately
+      return UserType.ClientIntake;
   }
 };
 

@@ -23,7 +23,6 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ allowedRoles, redirectT
   }
 
   if (!userRole || !allowedRoles.includes(userRole)) {
-    console.warn(`Access denied for role: ${userRole}. Required roles: ${allowedRoles.join(', ')}`);
     return <Navigate to={redirectTo} replace />;
   }
 

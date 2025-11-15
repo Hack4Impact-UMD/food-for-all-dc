@@ -95,8 +95,8 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({ open, handleClose }) 
         }
 
         // Password strength (basic example - could be more complex)
-        if (password.length < 6) {
-             setError("Password must be at least 6 characters long.");
+        if (password.length < 8) {
+             setError("Password must be at least 8 characters long.");
              return;
         }
 

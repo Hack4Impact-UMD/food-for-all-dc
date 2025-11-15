@@ -155,6 +155,16 @@ food-for-all-dc/
 - **[Styling Guide](my-app/STYLING.md)** - CSS Modules, theme variables, and component patterns
 - **[Cursor Rules](.cursorrules)** - Code standards and architecture patterns
 
+## 🔒 Security
+
+- Client-side route protection via `ProtectedRoute`
+- Password minimum: 8 characters
+- Environment variables for sensitive config
+
+**TODO**: 
+- Add server-side role validation in Cloud Functions (see `functions-python/main.py`)
+- Add Firestore security rules (not urgent - internal tool)
+
 ---
 
 ## 🤝 Contributing
