@@ -27,7 +27,7 @@
 .login-container {
   flex: 1;
   max-width: 25rem;
-  padding: 2rem;
+  padding: var(--spacing-xl);
   background-color: var(--color-white);
   display: flex;
   flex-direction: column;

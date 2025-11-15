@@ -210,8 +210,8 @@
 .info-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  grid-gap: 2.25rem 2rem;
-  margin-bottom: 2rem;
+  grid-gap: var(--spacing-xxl) var(--spacing-xl);
+  margin-bottom: var(--spacing-xl);
 }
 
 .info-grid > div {
@@ -275,7 +275,7 @@ dd {
   color: #444;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  margin-bottom: 0.4rem;
+  margin-bottom: var(--spacing-0-4);
   margin-top: 0;
   padding-left: 0.5rem;
   position: relative;
@@ -310,7 +310,7 @@ dd {
   border: none;
   width: 86%;
   height: 28px;
-  padding: 0.1rem 0.5rem;
+  padding: var(--spacing-0-1) 0.5rem;
   border-radius: 5px;
 }
 
@@ -522,7 +522,7 @@ dd {
   background-color: var(--color-white);
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
   border-radius: 0 0 8px 8px;
-  padding: 1.5rem 2rem;
+  padding: 1.5rem var(--spacing-xl);
   margin-bottom: 1.5rem;
   transition: box-shadow 0.3s ease;
 }
@@ -697,7 +697,7 @@ textarea,
 .error-message {
   color: #e53935;
   font-size: 0.75rem;
-  margin-top: 0.25rem;
+  margin-top: var(--spacing-xs4);
 }
 
 /* Animations */

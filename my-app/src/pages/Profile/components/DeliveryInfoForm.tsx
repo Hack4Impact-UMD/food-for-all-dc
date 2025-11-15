@@ -25,7 +25,7 @@ const fieldStyles = {
   backgroundColor: "var(--color-white)",
   width: "60%",
   height: "56px",
-  padding: "0.1rem 0.5rem",
+  padding: "var(--spacing-0-1) 0.5rem",
   borderRadius: "5px",
   border: ".1rem solid black",
   marginTop: "0px",

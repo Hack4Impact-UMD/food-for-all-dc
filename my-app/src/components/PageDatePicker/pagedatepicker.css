@@ -23,13 +23,13 @@
   border: none !important;
   background: none !important;
   color: var(--color-primary) !important;
-  width: 2rem !important;
-  height: 2rem !important;
+  width: var(--spacing-xl) !important;
+  height: var(--spacing-xl) !important;
   border-radius: 0 !important;
   display: flex !important;
   align-items: center;
   justify-content: center;
-  font-size: 2rem !important;
+  font-size: var(--spacing-xl) !important;
   font-weight: bold !important;
   transition:
     background 0.2s,

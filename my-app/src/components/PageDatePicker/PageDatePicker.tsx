@@ -9,12 +9,12 @@ interface StyledButtonProps {
   marginLeft?: string;
 }
 
-const StyledCalendarButton = styled("button")<StyledButtonProps>(({ marginLeft = "2rem" }) => ({
+const StyledCalendarButton = styled("button")<StyledButtonProps>(({ marginLeft = "var(--spacing-xl)" }) => ({
   all: "unset",
   cursor: "pointer",
   fontSize: "12px",
-  width: "2.5rem",
-  height: "2.5rem",
+  width: "var(--spacing-xl40)",
+  height: "var(--spacing-xl40)",
   marginLeft,
   backgroundColor: "var(--color-primary)",
   color: "var(--color-background-main)",

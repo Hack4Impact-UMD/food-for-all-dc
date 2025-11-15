@@ -53,7 +53,7 @@ const ErrorPopUp: React.FC<ErrorPopUpProps> = ({
             fontSize: "1.1rem",
           },
           "& .MuiAlert-icon": {
-            fontSize: "2rem",
+            fontSize: "var(--spacing-xl)",
           },
         }}
         // Stop propagation to prevent closing when clicking inside the alert

@@ -393,7 +393,7 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
                     backgroundColor: "var(--color-white)",
                     "& .MuiOutlinedInput-root": {
                       height: "56px",
-                      padding: "0.1rem 0.5rem",
+                      padding: "var(--spacing-0-1) 0.5rem",
                       "& fieldset": {
                         border: ".1rem solid black",
                         borderRadius: "5px",

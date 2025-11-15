@@ -61,7 +61,7 @@ body {
 .login-card {
   background: var(--color-white);
   border-radius: 8px;
-  padding: 2rem;
+  padding: var(--spacing-xl);
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
   max-width: 400px;
   width: 100%;

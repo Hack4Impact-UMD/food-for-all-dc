@@ -2260,10 +2260,10 @@ const DeliverySpreadsheet: React.FC = () => {
             size="small"
             style={{
               width: "4.25rem",
-              height: "2.5rem",
+              height: "var(--spacing-xl40)",
               minWidth: "4.25rem",
-              minHeight: "2.5rem",
-              maxHeight: "2.5rem",
+              minHeight: "var(--spacing-xl40)",
+              maxHeight: "var(--spacing-xl40)",
               fontSize: 12,
               marginLeft: 16,
               borderRadius: "var(--border-radius-md)",

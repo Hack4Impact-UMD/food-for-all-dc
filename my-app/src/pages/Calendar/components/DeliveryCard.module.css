@@ -38,7 +38,7 @@
 .detailsText {
   font-weight: 600;
   color: var(--color-primary);
-  margin-top: 0.25rem;
+  margin-top: var(--spacing-xs4);
   white-space: nowrap;
 }
 
