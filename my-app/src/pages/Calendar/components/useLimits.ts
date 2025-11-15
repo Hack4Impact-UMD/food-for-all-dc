@@ -39,7 +39,7 @@ export const useLimits = () => {
   const [limits, setLimits] = useState<number[]>([60, 60, 60, 60, 90, 90, 60]);
 
   useEffect(() => {
-    const limitsDocRef = doc(db, dataSources.firebase.limitsCollection || "limits", "weekly");
+    const limitsDocRef = doc(db, dataSources.firebase.limitsCollection || "limits", dataSources.firebase.limitsDocId);
     const unsubscribe = onSnapshot(limitsDocRef, (docSnapshot) => {
       if (docSnapshot.exists()) {
         const data = docSnapshot.data();

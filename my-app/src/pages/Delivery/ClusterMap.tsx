@@ -6,6 +6,7 @@ import "leaflet.awesome-markers/dist/leaflet.awesome-markers.css";
 import { Box, Button, FormControlLabel, Switch, Typography } from "@mui/material";
 import DriverService from "../../services/driver-service";
 import FFAIcon from "../../assets/tsp-food-for-all-dc-logo.png";
+import dataSources from "../../config/dataSources";
 
 interface Driver {
   id: string;
@@ -317,7 +318,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
 
     setWardDataLoading(true);
     try {
-      const wardServiceURL = `https://maps2.dcgis.dc.gov/dcgis/rest/services/DCGIS_DATA/Administrative_Other_Boundaries_WebMercator/MapServer/53/query`;
+      const wardServiceURL = dataSources.externalApi.dcGisWardServiceUrl;
       const params = new URLSearchParams({
         f: "geojson",
         where: "1=1", // Get all wards

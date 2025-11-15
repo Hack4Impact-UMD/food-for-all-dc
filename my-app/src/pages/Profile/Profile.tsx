@@ -634,7 +634,7 @@ const Profile = () => {
       const lng = coordinates[1];
       const lat = coordinates[0];
 
-      const wardServiceURL = `https://maps2.dcgis.dc.gov/dcgis/rest/services/DCGIS_DATA/Administrative_Other_Boundaries_WebMercator/MapServer/53/query`;
+      const wardServiceURL = dataSources.externalApi.dcGisWardServiceUrl;
       const params = new URLSearchParams({
         f: "json",
         geometry: `${lng},${lat}`,
@@ -703,7 +703,7 @@ const Profile = () => {
       const lng = coordinates[1];
       const lat = coordinates[0];
 
-      const wardServiceURL = `https://maps2.dcgis.dc.gov/dcgis/rest/services/DCGIS_DATA/Administrative_Other_Boundaries_WebMercator/MapServer/53/query`;
+      const wardServiceURL = dataSources.externalApi.dcGisWardServiceUrl;
       const params = new URLSearchParams({
         f: "json",
         geometry: `${lng},${lat}`,

@@ -4,6 +4,8 @@
     "caseWorkersCollection": "referral",
     "clustersCollection": "clusters",
     "limitsCollection": "limits",
+    "limitsDocId": "weekly",
+    "dailyLimitsCollection": "dailyLimits",
     "usersCollection": "users",
     "driversCollection": "Drivers2",
     "deliveriesCollection": "deliveries",
@@ -21,5 +23,8 @@
   "other": {
     "spreadsheetUrl": "https://docs.google.com/spreadsheets/d/abc123",
     "externalAuthService": "https://auth.foodforall.example.com"
+  },
+  "externalApi": {
+    "dcGisWardServiceUrl": "https://maps2.dcgis.dc.gov/dcgis/rest/services/DCGIS_DATA/Administrative_Other_Boundaries_WebMercator/MapServer/53/query"
   }
 }

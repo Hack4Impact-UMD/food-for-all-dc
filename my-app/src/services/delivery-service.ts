@@ -46,9 +46,9 @@ class DeliveryService {
   private static instance: DeliveryService;
   private db = db;
   private eventsCollection = dataSources.firebase.calendarCollection;
-  private dailyLimitsCollection = "dailyLimits";
+  private dailyLimitsCollection = dataSources.firebase.dailyLimitsCollection;
   private limitsCollection = dataSources.firebase.limitsCollection;
-  private limitsDocId = "weekly";
+  private limitsDocId = dataSources.firebase.limitsDocId;
 
   // Private constructor to prevent direct instantiation
   // This is part of the singleton pattern
