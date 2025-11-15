@@ -332,7 +332,7 @@ export default function BasePage() {
           ))}
         </List>
         <Typography
-          sx={{ padding: "8px" }}
+          sx={{ padding: "var(--border-radius-md)" }}
         >{`Logged in as: ${name} (${userRole ?? "Unknown"})`}</Typography>
         <Divider sx={{ margin: "0 16px", backgroundColor: "rgba(0, 0, 0, 0.06)" }} />
         <List sx={{ padding: "0 8px", width: "100%" }}>
@@ -356,13 +356,13 @@ export default function BasePage() {
             </Box>
           </ListItem>
         </List>
-        <List sx={{ padding: "8px" }}>
+        <List sx={{ padding: "var(--border-radius-md)" }}>
           <ListItem key="Logout" disablePadding>
             <ListItemButton
               onClick={handleLogout}
               sx={{
                 backgroundColor: "#c0d4c5",
-                borderRadius: "8px",
+                borderRadius: "var(--border-radius-md)",
                 transition: "all 0.2s ease",
                 padding: "10px 16px",
                 "&:hover": {

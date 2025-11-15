@@ -12,9 +12,9 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 10px 20px;
+  padding: 10px var(--spacing-lg);
   background-color: var(--color-background-light);
-  border-bottom: 1px solid var(--color-border-light);
+  border-bottom: var(--spacing-xxs) solid var(--color-border-light);
   height: 60px;
 }
 
@@ -23,13 +23,13 @@
 }
 
 .view-selection button {
-  margin: 0 5px;
-  padding: 3px 8px;
+  margin: 0 var(--spacing-xs);
+  padding: 3px var(--border-radius-md);
   font-size: 0.9em;
   background-color: var(--color-primary);
   color: var(--color-white);
   border: none;
-  border-radius: 3px;
+  border-radius: var(--spacing-xs3);
   cursor: pointer;
 }
 
@@ -41,20 +41,20 @@
 .calendar-grid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  gap: 2px;
+  gap: var(--spacing-xs2);
   text-align: center;
   flex-grow: 1; /* Allows the grid to take up remaining space */
 }
 
 .calendar-day-header {
-  padding: 10px;
+  padding: var(--spacing-sm);
   font-weight: bold;
   background-color: var(--color-background-lighter);
-  border-bottom: 1px solid var(--color-border-light);
+  border-bottom: var(--spacing-xxs) solid var(--color-border-light);
 }
 
 .calendar-day {
-  padding: 10px 5px;
+  padding: 10px var(--spacing-xs);
   min-height: 100px;
   border: 1px solid var(--color-border-light);
   display: flex;
@@ -77,13 +77,13 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 10px;
+  padding: var(--spacing-sm);
 }
 
 .calendar-day-view {
-  padding: 20px;
-  border-radius: 4px;
-  margin: 20px;
+  padding: var(--spacing-lg);
+  border-radius: var(--spacing-xs4);
+  margin: var(--spacing-lg);
   flex-grow: 1;
   text-align: left;
   overflow-y: auto;
@@ -96,16 +96,16 @@
 .event-indicator {
   background-color: var(--color-event-indicator);
   color: var(--color-white);
-  padding: 2px 6px;
+  padding: 2px var(--spacing-xs6);
   font-size: 0.75em;
-  border-radius: 4px;
-  margin-top: 3px;
+  border-radius: var(--spacing-xs4);
+  margin-top: var(--spacing-xs3);
 }
 
 .calendar-day-view .hour-row {
   display: flex;
   align-items: flex-start;
-  padding: 8px;
+  padding: var(--border-radius-md);
 }
 
 .calendar-default-event-inner {
@@ -117,12 +117,12 @@
 }
 
 .event-detail {
-  height: 1.5rem;
+  height: var(--spacing-lg24);
   width: 9.375rem;
   background-color: var(--color-primary);
   color: var(--color-white);
-  padding: 5px 10px;
-  border-radius: 20px;
+  padding: 5px var(--spacing-sm);
+  border-radius: var(--spacing-lg);
   box-shadow: 0 0 2px rgba(0, 0, 0, 0.1);
 }
 

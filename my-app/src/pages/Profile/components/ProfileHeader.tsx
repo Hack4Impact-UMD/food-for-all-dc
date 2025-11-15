@@ -6,7 +6,7 @@ import TagManager from "../Tags/TagManager";
 // Simplified Header Container
 const ModernHeaderContainer = styled(Box)(({ theme }) => ({
   backgroundColor: "var(--color-white)",
-  borderRadius: "12px", // Slightly softer radius
+  borderRadius: "var(--spacing-sm12)", // Slightly softer radius
   boxShadow: "0 4px 12px rgba(0, 0, 0, 0.08)", // Subtle shadow
   padding: theme.spacing(7, 4, 3, 4), // Reduced top padding (Top, Right, Bottom, Left)
   marginBottom: theme.spacing(3),

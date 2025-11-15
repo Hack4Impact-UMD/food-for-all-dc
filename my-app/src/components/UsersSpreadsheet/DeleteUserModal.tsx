@@ -48,7 +48,7 @@ const DeleteUserModal = ({
             overflow: "visible",
             background: "var(--color-white)",
             borderTop: "1px solid rgba(0, 0, 0, 0.12)",
-            borderRadius: "8px",
+            borderRadius: "var(--border-radius-md)",
           },
         }}
       >

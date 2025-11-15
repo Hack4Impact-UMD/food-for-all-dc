@@ -1,13 +1,13 @@
 /* Form error styles to prevent layout shifts */
 .MuiFormHelperText-root {
-  min-height: 20px !important;
-  margin-top: 2px !important;
+  min-height: var(--spacing-lg) !important;
+  margin-top: var(--spacing-xs2) !important;
 }
 
 /* Error message container for non-MUI components */
 .error-message-container {
-  min-height: 20px;
-  margin-top: 2px;
+  min-height: var(--spacing-lg);
+  margin-top: var(--spacing-xs2);
 }
 
 /* Position error messages for all form fields */
@@ -30,5 +30,5 @@
 /* Make sure date fields have proper spacing */
 input[type="date"] {
   height: 38px;
-  padding: 0 0.5rem;
+  padding: 0 var(--border-radius-md);
 }

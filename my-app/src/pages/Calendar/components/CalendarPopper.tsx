@@ -204,7 +204,7 @@ const CalendarPopper = ({
             right: 0;
             text-align: center;
             cursor: pointer;
-            padding: 4px;
+            padding: var(--spacing-xs4);
           '>
             <div style='font-size: 14px; color:${eventCount > limit ? "#ff6e6b" : "#257E68"};'>
               ${eventCount}/${limit}

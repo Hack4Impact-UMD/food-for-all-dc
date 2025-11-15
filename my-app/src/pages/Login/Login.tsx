@@ -225,7 +225,7 @@ function Login() {
             event.preventDefault();
             handleForgotPassword();
           },
-          style: { borderRadius: "8px" },
+          style: { borderRadius: "var(--border-radius-md)" },
         }}
       >
         <DialogTitle id="reset-password-dialog-title">Reset Password</DialogTitle>

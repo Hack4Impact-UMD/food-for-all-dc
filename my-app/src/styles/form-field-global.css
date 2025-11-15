@@ -3,14 +3,14 @@
 /* Import form error styles that were previously separate */
 /* Form error styles to prevent layout shifts */
 .MuiFormHelperText-root {
-  min-height: 20px !important;
-  margin-top: 2px !important;
+  min-height: var(--spacing-lg) !important;
+  margin-top: var(--spacing-xs2) !important;
 }
 
 /* Error message container for non-MUI components */
 .error-message-container {
-  min-height: 20px;
-  margin-top: 2px;
+  min-height: var(--spacing-lg);
+  margin-top: var(--spacing-xs2);
 }
 
 /* Position error messages for all form fields */
@@ -33,7 +33,7 @@
 /* Make sure date fields have proper spacing */
 input[type="date"] {
   height: 38px;
-  padding: 0 0.5rem;
+  padding: 0 var(--border-radius-md);
 }
 
 /* Basic input styling */
@@ -44,7 +44,7 @@ textarea,
 .MuiOutlinedInput-input,
 .MuiFilledInput-input {
   width: 100%;
-  padding: 0.75rem 1rem;
+  padding: 0.75rem var(--spacing-md);
   border: 1px solid var(--color-border-light);
   border-radius: var(--border-radius-sm);
   font-size: var(--font-size-base);
@@ -96,13 +96,13 @@ textarea.error,
 .form-error {
   color: var(--color-error);
   font-size: var(--font-size-sm);
-  margin: 3px 0;
+  margin: var(--spacing-xs3) 0;
 }
 
 /* Override MUI form fields */
 .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline {
   border-color: var(--color-primary) !important;
-  border-width: 1px !important;
+  border-width: var(--spacing-xxs) !important;
 }
 
 .MuiOutlinedInput-root.Mui-error .MuiOutlinedInput-notchedOutline {
@@ -181,7 +181,7 @@ input[type="date"] {
   box-sizing: border-box !important;
   display: flex !important;
   align-items: center !important;
-  padding: 16px 14px !important;
+  padding: 16px var(--spacing-sm14) !important;
 }
 
 /* Fix for small size TextField components */
@@ -210,7 +210,7 @@ input[type="date"] {
 .MuiInputLabel-outlined.MuiInputLabel-shrink {
   transform: translate(14px, -9px) scale(0.75) !important;
   background-color: var(--color-white) !important;
-  padding: 0 4px !important;
+  padding: 0 var(--spacing-xs4) !important;
   z-index: 1 !important;
 }
 
@@ -218,7 +218,7 @@ input[type="date"] {
 .MuiTextField-root:has(input[type="date"]) .MuiInputLabel-outlined {
   transform: translate(14px, -9px) scale(0.75) !important;
   background-color: var(--color-white) !important;
-  padding: 0 4px !important;
+  padding: 0 var(--spacing-xs4) !important;
   z-index: 1 !important;
 }
 
@@ -226,14 +226,14 @@ input[type="date"] {
 .MuiOutlinedInput-root:has(input[type="date"]) ~ .MuiInputLabel-outlined {
   transform: translate(14px, -9px) scale(0.75) !important;
   background-color: var(--color-white) !important;
-  padding: 0 4px !important;
+  padding: 0 var(--spacing-xs4) !important;
   z-index: 1 !important;
 }
 
 /* Native date input styling */
 input[type="date"] {
   width: 100%;
-  padding: 0.75rem 1rem;
+  padding: 0.75rem var(--spacing-md);
   border: 1px solid var(--color-border-light);
   border-radius: var(--border-radius-sm);
   font-size: var(--font-size-base);
@@ -259,11 +259,11 @@ input[type="date"].error {
 /* Form field validation state indicators */
 .field-validation-indicator {
   position: absolute;
-  right: 10px;
+  right: var(--spacing-sm);
   top: 50%;
   transform: translateY(-50%);
-  width: 16px;
-  height: 16px;
+  width: var(--spacing-md);
+  height: var(--spacing-md);
   pointer-events: none;
 }
 
@@ -309,13 +309,13 @@ input[type="date"].error {
   }
 
   & .MuiInputBase-input {
-    padding: 16px 14px !important;
+    padding: 16px var(--spacing-sm14) !important;
     box-sizing: border-box !important;
   }
 
   & .MuiSelect-select {
-    padding: 16px 48px 16px 14px !important;
-    min-height: 24px !important;
+    padding: 16px var(--spacing-xl48) 16px 14px !important;
+    min-height: var(--spacing-lg24) !important;
     display: flex !important;
     align-items: center !important;
   }
@@ -334,21 +334,21 @@ input[type="date"].error {
 .MuiSelect-icon,
 .MuiSelect-iconOutlined {
   position: absolute !important;
-  right: 12px !important;
+  right: var(--spacing-sm12) !important;
   top: 50% !important;
   transform: translateY(-50%) !important;
   color: var(--color-text-medium-alt) !important;
   font-size: 1.2rem !important;
   pointer-events: none !important;
   z-index: 2 !important;
-  width: 20px !important;
-  height: 20px !important;
+  width: var(--spacing-lg) !important;
+  height: var(--spacing-lg) !important;
 }
 
 /* Ensure all Select components have proper padding for the arrow */
 .MuiSelect-select {
-  padding-right: 48px !important;
-  padding-left: 14px !important;
+  padding-right: var(--spacing-xl48) !important;
+  padding-left: var(--spacing-sm14) !important;
   overflow: hidden !important;
   text-overflow: ellipsis !important;
   white-space: nowrap !important;
@@ -357,21 +357,21 @@ input[type="date"].error {
 /* Position Autocomplete popup indicators (arrows) inside field bounds */
 .MuiAutocomplete-popupIndicator {
   position: absolute !important;
-  right: 12px !important;
+  right: var(--spacing-sm12) !important;
   top: 50% !important;
   transform: translateY(-50%) !important;
   color: var(--color-text-medium-alt) !important;
-  padding: 4px !important;
+  padding: var(--spacing-xs4) !important;
   z-index: 10 !important;
-  width: 24px !important;
-  height: 24px !important;
+  width: var(--spacing-lg24) !important;
+  height: var(--spacing-lg24) !important;
 }
 
 /* Ensure Autocomplete input has proper padding for the arrow */
 .MuiAutocomplete-root .MuiOutlinedInput-root {
-  padding-right: 48px !important;
+  padding-right: var(--spacing-xl48) !important;
 }
 
 .MuiAutocomplete-input {
-  padding-right: 8px !important;
+  padding-right: var(--border-radius-md) !important;
 }

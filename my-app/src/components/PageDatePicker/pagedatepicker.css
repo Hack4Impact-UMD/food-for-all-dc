@@ -14,7 +14,7 @@
   margin: 0 auto;
   font-weight: 600;
   font-size: 1rem;
-  margin-bottom: 1rem !important;
+  margin-bottom: var(--spacing-md) !important;
 }
 
 /* Add spacing to navigation buttons */
@@ -23,8 +23,8 @@
   border: none !important;
   background: none !important;
   color: var(--color-primary) !important;
-  width: 2rem !important;
-  height: 2rem !important;
+  width: var(--spacing-xl) !important;
+  height: var(--spacing-xl) !important;
   border-radius: 0 !important;
   display: flex !important;
   align-items: center;

@@ -62,10 +62,10 @@
 }
 
 .errorPopupContainer {
-  padding: 24px;
+  padding: var(--spacing-lg24);
   min-width: 400px;
   max-width: 600px;
-  border-radius: 8px;
+  border-radius: var(--border-radius-md);
   box-shadow:
     0 4px 20px rgba(255, 0, 0, 0.3),
     0 0 40px rgba(255, 0, 0, 0.15);

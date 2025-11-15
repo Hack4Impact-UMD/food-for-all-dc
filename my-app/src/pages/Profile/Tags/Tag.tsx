@@ -31,10 +31,10 @@ interface TagProps {
 const TagContainer = styled(Box)(({ theme }) => ({
   backgroundColor: "rgba(0, 0, 0, 0.06)",
   textAlign: "center",
-  borderRadius: "20px",
+  borderRadius: "var(--spacing-lg)",
   padding: "5px 12px",
   minWidth: "60px",
-  minHeight: "30px",
+  minHeight: "var(--spacing-xl30)",
   cursor: "pointer",
   transition: "all 0.2s ease",
   display: "flex",
@@ -54,7 +54,7 @@ const TagContainer = styled(Box)(({ theme }) => ({
 
 const CreateTagContainer = styled(Box)(({ theme }) => ({
   backgroundColor: "rgba(37, 126, 104, 0.04)",
-  borderRadius: "20px",
+  borderRadius: "var(--spacing-lg)",
   padding: "5px 12px",
   cursor: "pointer",
   border: "1px dashed rgba(37, 126, 104, 0.3)",
@@ -63,7 +63,7 @@ const CreateTagContainer = styled(Box)(({ theme }) => ({
   alignItems: "center",
   justifyContent: "center",
   minWidth: "60px",
-  minHeight: "30px",
+  minHeight: "var(--spacing-xl30)",
   position: "relative",
   "&:hover": {
     backgroundColor: "rgba(37, 126, 104, 0.06)",
@@ -190,8 +190,8 @@ const Tag: React.FC<TagProps> = ({
             color: "#e53935",
             boxShadow: "0px 2px 4px rgba(0, 0, 0, 0.2)",
             borderRadius: "50%",
-            width: "20px",
-            height: "20px",
+            width: "var(--spacing-lg)",
+            height: "var(--spacing-lg)",
             transition: "all 0.2s ease",
             "&:hover": {
               backgroundColor: "#fff4f2",

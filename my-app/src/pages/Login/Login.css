@@ -9,7 +9,7 @@
 .login-image-container {
   flex: 1;
   max-width: 50%;
-  border-radius: 0 0.5rem 0.5rem 0;
+  border-radius: 0 var(--border-radius-md) 0.5rem 0;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
@@ -27,13 +27,13 @@
 .login-container {
   flex: 1;
   max-width: 25rem;
-  padding: 2rem;
+  padding: var(--spacing-xl);
   background-color: var(--color-white);
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  gap: 1rem;
+  gap: var(--spacing-md);
   overflow-y: auto;
 }
 
@@ -52,22 +52,22 @@
 .login-subheading {
   font-size: 1rem;
   color: var(--color-text-light);
-  margin-bottom: 1.25rem;
+  margin-bottom: var(--spacing-lg);
 }
 
 .login-label {
   font-weight: bold;
-  margin-bottom: 0.3125rem;
+  margin-bottom: var(--spacing-xs);
   display: inline-block;
 }
 
 .login-input-field {
-  margin-bottom: 1rem;
+  margin-bottom: var(--spacing-md);
 }
 
 .login-error {
   color: red;
-  margin-bottom: 1rem;
+  margin-bottom: var(--spacing-md);
   text-align: center;
 }
 
@@ -90,11 +90,11 @@
   background-color: var(--color-primary) !important;
   color: var(--color-white) !important;
   height: 2.8125rem;
-  border-radius: 1.5rem;
+  border-radius: var(--spacing-lg24);
   font-family: Inter;
   font-size: 1rem;
   font-weight: bold;
-  margin-top: 1rem;
+  margin-top: var(--spacing-md);
   width: 100%;
 }
 

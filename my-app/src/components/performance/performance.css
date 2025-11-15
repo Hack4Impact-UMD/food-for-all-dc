@@ -37,27 +37,27 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 2rem;
+  padding: var(--spacing-xl);
   min-height: 200px;
 }
 
 .loading-spinner {
-  width: 40px;
-  height: 40px;
+  width: var(--spacing-xl40);
+  height: var(--spacing-xl40);
   border: 4px solid var(--color-background-accent);
-  border-top: 4px solid var(--color-loading-blue);
+  border-top: var(--spacing-xs4) solid var(--color-loading-blue);
   border-radius: 50%;
   animation: spin 1s linear infinite;
-  margin-bottom: 1rem;
+  margin-bottom: var(--spacing-md);
 }
 
 .progress-bar {
   width: 200px;
-  height: 4px;
+  height: var(--spacing-xs4);
   background-color: var(--color-border-lighter);
-  border-radius: 2px;
+  border-radius: var(--spacing-xs2);
   overflow: hidden;
-  margin: 1rem 0;
+  margin: var(--spacing-md) 0;
 }
 
 .progress-fill {
@@ -69,13 +69,13 @@
 .timeout-message {
   color: #e74c3c;
   font-size: 0.9rem;
-  margin-top: 1rem;
+  margin-top: var(--spacing-md);
   text-align: center;
 }
 
 /* Skeleton loader styles */
 .skeleton-loader {
-  padding: 1rem;
+  padding: var(--spacing-md);
 }
 
 .skeleton-line {
@@ -91,25 +91,25 @@
 
 /* Error boundary styles */
 .error-fallback {
-  padding: 2rem;
+  padding: var(--spacing-xl);
   text-align: center;
   background-color: var(--color-error-background-light);
   border: 1px solid var(--color-error-background-lighter);
-  border-radius: 4px;
-  margin: 1rem;
+  border-radius: var(--spacing-xs4);
+  margin: var(--spacing-md);
 }
 
 .error-fallback h2 {
   color: var(--color-error-text-light);
-  margin-bottom: 1rem;
+  margin-bottom: var(--spacing-md);
 }
 
 .error-fallback button {
   background-color: var(--color-loading-blue);
   color: var(--color-white);
   border: none;
-  padding: 0.5rem 1rem;
-  border-radius: 4px;
+  padding: 0.5rem var(--spacing-md);
+  border-radius: var(--spacing-xs4);
   cursor: pointer;
   transition: background-color 0.2s;
 }
@@ -131,7 +131,7 @@
   background-color: var(--color-background-gray-light);
   border: 1px dashed var(--color-border-dashed);
   color: var(--color-text-gray-blue);
-  padding: 2rem;
+  padding: var(--spacing-xl);
   text-align: center;
 }
 
@@ -149,16 +149,16 @@
 /* Performance-optimized spreadsheet */
 .spreadsheet-controls {
   display: flex;
-  gap: 1rem;
-  margin-bottom: 1rem;
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-md);
   flex-wrap: wrap;
 }
 
 .spreadsheet-controls button {
-  padding: 0.5rem 1rem;
+  padding: 0.5rem var(--spacing-md);
   border: 1px solid var(--color-border-light);
   background: var(--color-white);
-  border-radius: 4px;
+  border-radius: var(--spacing-xs4);
   cursor: pointer;
   transition: background-color 0.2s;
 }
@@ -168,9 +168,9 @@
 }
 
 .search-input {
-  padding: 0.5rem;
+  padding: var(--border-radius-md);
   border: 1px solid var(--color-border-light);
-  border-radius: 4px;
+  border-radius: var(--spacing-xs4);
   width: 200px;
   transition: border-color 0.2s;
 }
@@ -195,12 +195,12 @@
 @media (max-width: 768px) {
   .progressive-loader {
     min-height: 150px;
-    padding: 1rem;
+    padding: var(--spacing-md);
   }
 
   .loading-spinner {
-    width: 30px;
-    height: 30px;
+    width: var(--spacing-xl30);
+    height: var(--spacing-xl30);
   }
 
   .progress-bar {
@@ -209,7 +209,7 @@
 
   .spreadsheet-controls {
     flex-direction: column;
-    gap: 0.5rem;
+    gap: var(--border-radius-md);
   }
 
   .search-input {

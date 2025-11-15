@@ -47,7 +47,7 @@ const fieldStyles = {
   width: "100%",
   height: "56px",
   padding: "0.1rem 0.5rem",
-  borderRadius: "5px",
+  borderRadius: "var(--spacing-xs)",
   border: "1px solid var(--color-border-light)",
   marginTop: "0px",
 };
@@ -73,8 +73,8 @@ const CustomTextField = styled(TextField)({
     },
   },
   "& .MuiFormHelperText-root": {
-    minHeight: "20px",
-    height: "20px",
+    minHeight: "var(--spacing-lg)",
+    height: "var(--spacing-lg)",
     margin: "3px 0",
     lineHeight: "20px",
     "&.Mui-error": {
@@ -86,7 +86,7 @@ const CustomTextField = styled(TextField)({
     width: "100%",
     height: "56px",
     padding: "0.1rem 0.5rem",
-    borderRadius: "5px",
+    borderRadius: "var(--spacing-xs)",
     border: ".1rem solid black",
     marginTop: "0px",
     "&:focus": {
@@ -100,8 +100,8 @@ const CustomTextField = styled(TextField)({
     width: "100%",
     minHeight: "56px",
     height: "auto",
-    padding: "0.5rem",
-    borderRadius: "5px",
+    padding: "var(--border-radius-md)",
+    borderRadius: "var(--spacing-xs)",
     border: ".1rem solid black",
     marginTop: "0px",
     marginBottom: "-20px",
@@ -143,7 +143,7 @@ export const CustomSelect = styled(Select)({
 
   // Apply our own border and background
   border: `1px solid var(--color-border-light)`,
-  borderRadius: "5px",
+  borderRadius: "var(--spacing-xs)",
   backgroundColor: "var(--color-white)",
 
   // Focus state
@@ -506,7 +506,7 @@ const FormField: React.FC<FormFieldProps> = ({
                 py: 0.5,
                 bgcolor: "#e0f2f1",
                 color: "var(--color-primary)",
-                borderRadius: "16px",
+                borderRadius: "var(--spacing-md)",
                 fontWeight: 600,
                 fontSize: "0.95rem",
                 mr: 1,
@@ -529,7 +529,7 @@ const FormField: React.FC<FormFieldProps> = ({
               py: 0.5,
               bgcolor: "var(--color-background-body)",
               color: "var(--color-text-light)",
-              borderRadius: "16px",
+              borderRadius: "var(--spacing-md)",
               fontWeight: 500,
               fontSize: "0.95rem",
               letterSpacing: 0.2,

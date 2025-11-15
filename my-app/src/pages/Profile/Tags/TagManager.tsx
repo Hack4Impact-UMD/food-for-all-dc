@@ -368,7 +368,7 @@ export default function TagManager({
           flexDirection: "row",
           alignItems: "center",
           justifyContent: "center",
-          gap: "10px",
+          gap: "var(--spacing-sm)",
           maxHeight: "300px",
           overflowY: "auto",
           flexWrap: "wrap",

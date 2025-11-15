@@ -25,7 +25,7 @@ export default function Tab({ text, icon, link, tab, setTab, setOpen }: TabProp)
         text === "Logout" ? "tabContainerLogout" : "tabContainer" + (isActive ? "Selected" : "")
       }
       sx={{
-        borderRadius: "8px",
+        borderRadius: "var(--border-radius-md)",
         display: "flex",
         width: "100%",
         alignItems: "center",
@@ -65,9 +65,9 @@ export default function Tab({ text, icon, link, tab, setTab, setOpen }: TabProp)
       {isActive && (
         <Box
           sx={{
-            width: "4px",
+            width: "var(--spacing-xs4)",
             height: isMobile ? "20px" : "24px",
-            borderRadius: "2px",
+            borderRadius: "var(--spacing-xs2)",
             backgroundColor: "rgb(37, 126, 104)",
             marginLeft: "auto",
             transition: "all 0.3s ease",

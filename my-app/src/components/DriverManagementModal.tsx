@@ -278,7 +278,7 @@ const DriverManagementModal: React.FC<DriverManagementModalProps> = ({
         fullWidth
         PaperProps={{
           sx: {
-            borderRadius: "12px",
+            borderRadius: "var(--spacing-sm12)",
             maxWidth: "800px",
           },
         }}
@@ -316,7 +316,7 @@ const DriverManagementModal: React.FC<DriverManagementModalProps> = ({
                 mt: 2,
                 backgroundColor: "rgba(37, 126, 104, 0.04)",
                 p: "20px",
-                borderRadius: "8px",
+                borderRadius: "var(--border-radius-md)",
                 border: "1px solid rgba(37, 126, 104, 0.2)",
               }}
             >
@@ -388,7 +388,7 @@ const DriverManagementModal: React.FC<DriverManagementModalProps> = ({
             sx={{
               boxShadow: "none",
               border: "1px solid rgba(0, 0, 0, 0.12)",
-              borderRadius: "8px",
+              borderRadius: "var(--border-radius-md)",
               "& .MuiTableCell-root": {
                 py: 2,
               },
@@ -660,7 +660,7 @@ const DriverManagementModal: React.FC<DriverManagementModalProps> = ({
         aria-describedby="delete-dialog-description"
         PaperProps={{
           sx: {
-            borderRadius: "8px",
+            borderRadius: "var(--border-radius-md)",
             maxWidth: "450px",
           },
         }}

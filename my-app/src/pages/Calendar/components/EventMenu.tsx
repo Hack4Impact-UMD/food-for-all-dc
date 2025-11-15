@@ -287,9 +287,9 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
           boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
           color: "var(--color-primary)",
           transition: "all 0.2s ease-in-out",
-          width: "32px",
-          height: "32px",
-          padding: "4px",
+          width: "var(--spacing-xl)",
+          height: "var(--spacing-xl)",
+          padding: "var(--spacing-xs4)",
           "&:hover": {
             backgroundColor: "var(--color-background-body)",
             boxShadow: "0 4px 8px rgba(0,0,0,0.2)",

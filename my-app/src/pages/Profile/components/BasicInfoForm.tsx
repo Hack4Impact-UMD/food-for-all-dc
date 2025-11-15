@@ -56,7 +56,7 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
           FIRST NAME <span className="required-asterisk">*</span>
         </Typography>
         {renderField("firstName", "text")}{" "}
-        <Box sx={{ minHeight: "24px" }}> {/* Fixed height error container */}</Box>
+        <Box sx={{ minHeight: "var(--spacing-lg24)" }}> {/* Fixed height error container */}</Box>
       </Box>
       {/* Last Name */}
       <Box>
@@ -71,7 +71,7 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
           DATE OF BIRTH
         </Typography>
         {renderField("dob", "date")}
-        <Box sx={{ minHeight: "24px" }}></Box>
+        <Box sx={{ minHeight: "var(--spacing-lg24)" }}></Box>
       </Box>
       {/* Address 1 */}
       <Box>
@@ -79,7 +79,7 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
           ADDRESS <span className="required-asterisk">*</span>
         </Typography>
         {renderField("address", "text", addressInputRef)}{" "}
-        <Box sx={{ minHeight: "24px" }}> {/* Fixed height error container */}</Box>
+        <Box sx={{ minHeight: "var(--spacing-lg24)" }}> {/* Fixed height error container */}</Box>
       </Box>
       {/* Address 2 */}
       <Box>
@@ -274,7 +274,7 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
           ETHNICITY <span className="required-asterisk">*</span>
         </Typography>
         {renderField("ethnicity", "text")}
-        <Box sx={{ minHeight: "24px" }}></Box>
+        <Box sx={{ minHeight: "var(--spacing-lg24)" }}></Box>
       </Box>
       {/* Language */}
       <Box>
@@ -282,7 +282,7 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
           LANGUAGE <span className="required-asterisk">*</span>
         </Typography>
         {renderField("language", "text")}
-        <Box sx={{ minHeight: "24px" }}></Box>
+        <Box sx={{ minHeight: "var(--spacing-lg24)" }}></Box>
       </Box>
       {/* Adults */}
       <Box>
@@ -372,8 +372,8 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
                   fontSize: "1.2rem !important",
                   padding: "4px !important",
                   zIndex: 10,
-                  width: "24px",
-                  height: "24px",
+                  width: "var(--spacing-lg24)",
+                  height: "var(--spacing-lg24)",
                 },
                 // Ensure the input container has proper bounds and padding
                 "& .MuiOutlinedInput-root": {
@@ -396,7 +396,7 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
                       padding: "0.1rem 0.5rem",
                       "& fieldset": {
                         border: ".1rem solid black",
-                        borderRadius: "5px",
+                        borderRadius: "var(--spacing-xs)",
                       },
                       "&.Mui-focused fieldset": {
                         border: "2px solid var(--color-primary)",

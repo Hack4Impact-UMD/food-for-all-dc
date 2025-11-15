@@ -2208,7 +2208,7 @@ const DeliverySpreadsheet: React.FC = () => {
           sx={{
             display: "flex",
             alignItems: "center",
-            padding: "16px",
+            padding: "var(--spacing-md)",
             backgroundColor: "var(--color-background-main)",
             zIndex: 10,
             position: "sticky",
@@ -2260,10 +2260,10 @@ const DeliverySpreadsheet: React.FC = () => {
             size="small"
             style={{
               width: "4.25rem",
-              height: "2.5rem",
+              height: "var(--spacing-xl40)",
               minWidth: "4.25rem",
-              minHeight: "2.5rem",
-              maxHeight: "2.5rem",
+              minHeight: "var(--spacing-xl40)",
+              maxHeight: "var(--spacing-xl40)",
               fontSize: 12,
               marginLeft: 16,
               borderRadius: "var(--border-radius-md)",
@@ -2356,7 +2356,7 @@ const DeliverySpreadsheet: React.FC = () => {
               height: "400px", // Explicitly set to match container height
               width: "100%",
               backgroundColor: "var(--color-background-body)",
-              borderRadius: "4px",
+              borderRadius: "var(--spacing-xs4)",
               border: "1px solid var(--color-border-light)",
             }}
           >
@@ -2377,7 +2377,7 @@ const DeliverySpreadsheet: React.FC = () => {
           top: "472px",
         }}
       >
-        <Box sx={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+        <Box sx={{ display: "flex", flexDirection: "column", gap: "var(--border-radius-md)" }}>
           <Box sx={{ position: "relative", width: "100%" }}>
             <input
               type="text"
@@ -2389,7 +2389,7 @@ const DeliverySpreadsheet: React.FC = () => {
                 height: "60px",
                 backgroundColor: "var(--color-background-gray)",
                 border: "none",
-                borderRadius: "30px",
+                borderRadius: "var(--spacing-xl30)",
                 padding: "0 24px",
                 fontSize: "16px",
                 color: "var(--color-text-dark)",
@@ -2399,7 +2399,7 @@ const DeliverySpreadsheet: React.FC = () => {
           </Box>
           <Box sx={{ display: "flex", justifyContent: "space-between", marginTop: "16px" }}>
             {/* Left group: Assign Driver and Assign Time */}
-            <Box sx={{ display: "flex", width: "100%", gap: "8px", flexWrap: "wrap" }}>
+            <Box sx={{ display: "flex", width: "100%", gap: "var(--border-radius-md)", flexWrap: "wrap" }}>
               <Button
                 variant="contained"
                 size="medium"
@@ -2549,7 +2549,7 @@ const DeliverySpreadsheet: React.FC = () => {
                                     ? "180px"
                                     : "150px",
                         textAlign: "center",
-                        padding: "10px",
+                        padding: "var(--spacing-sm)",
                         backgroundColor: "var(--color-background-green-tint)",
                       }}
                     >
@@ -2596,7 +2596,7 @@ const DeliverySpreadsheet: React.FC = () => {
                         key={field.key}
                         style={{
                           textAlign: "center",
-                          padding: "10px",
+                          padding: "var(--spacing-sm)",
                           width:
                             field.type === "checkbox"
                               ? "60px"
@@ -2618,7 +2618,7 @@ const DeliverySpreadsheet: React.FC = () => {
                                 width: 20,
                                 height: 20,
                                 backgroundColor: "var(--color-border-medium)",
-                                borderRadius: "4px",
+                                borderRadius: "var(--spacing-xs4)",
                                 animation: "pulse 1.5s ease-in-out infinite",
                                 "@keyframes pulse": {
                                   "0%, 100%": { opacity: 0.4 },
@@ -2632,7 +2632,7 @@ const DeliverySpreadsheet: React.FC = () => {
                             sx={{
                               height: 20,
                               backgroundColor: "var(--color-border-medium)",
-                              borderRadius: "4px",
+                              borderRadius: "var(--spacing-xs4)",
                               animation: "pulse 1.5s ease-in-out infinite",
                               animationDelay: `${skeletonIndex * 0.1}s`,
                               "@keyframes pulse": {
@@ -2647,13 +2647,13 @@ const DeliverySpreadsheet: React.FC = () => {
                     {customColumns.map((col) => (
                       <TableCell
                         key={col.id}
-                        style={{ width: "150px", textAlign: "center", padding: "10px" }}
+                        style={{ width: "150px", textAlign: "center", padding: "var(--spacing-sm)" }}
                       >
                         <Box
                           sx={{
                             height: 20,
                             backgroundColor: "var(--color-border-medium)",
-                            borderRadius: "4px",
+                            borderRadius: "var(--spacing-xs4)",
                             animation: "pulse 1.5s ease-in-out infinite",
                             animationDelay: `${skeletonIndex * 0.1}s`,
                             "@keyframes pulse": {
@@ -2704,7 +2704,7 @@ const DeliverySpreadsheet: React.FC = () => {
                         key={field.key}
                         style={{
                           textAlign: "center",
-                          padding: "10px",
+                          padding: "var(--spacing-sm)",
                           width:
                             field.type === "checkbox"
                               ? "60px"
@@ -2748,7 +2748,7 @@ const DeliverySpreadsheet: React.FC = () => {
                                   textShadow: row.clusterId
                                     ? ".5px .5px .5px #000, -.5px .5px .5px #000, -.5px -.5px 0px var(--color-border-black), .5px -.5px 0px #000"
                                     : undefined,
-                                  borderRadius: "4px",
+                                  borderRadius: "var(--spacing-xs4)",
                                 },
                                 "&:before": { borderBottom: "none" },
                                 "&:hover:not(.Mui-disabled):before": { borderBottom: "none" },
@@ -2841,7 +2841,7 @@ const DeliverySpreadsheet: React.FC = () => {
                                   style={{
                                     display: "flex",
                                     flexWrap: "wrap",
-                                    gap: "4px",
+                                    gap: "var(--spacing-xs4)",
                                     justifyContent: "center",
                                   }}
                                 >
@@ -2886,7 +2886,7 @@ const DeliverySpreadsheet: React.FC = () => {
                         style={{
                           width: "150px",
                           textAlign: "center",
-                          padding: "10px",
+                          padding: "var(--spacing-sm)",
                         }}
                       >
                         {col.propertyKey !== "none"
@@ -3024,7 +3024,7 @@ const DeliverySpreadsheet: React.FC = () => {
                                     ? "180px"
                                     : "150px",
                         textAlign: "center",
-                        padding: "10px",
+                        padding: "var(--spacing-sm)",
                         cursor:
                           field.key === "fullname" ||
                           field.key === "clusterIdChange" ||
@@ -3210,7 +3210,7 @@ const DeliverySpreadsheet: React.FC = () => {
                   style={{
                     width: "50px",
                     textAlign: "center",
-                    padding: "10px",
+                    padding: "var(--spacing-sm)",
                   }}
                 ></TableCell> */}
                 </TableRow>
@@ -3239,7 +3239,7 @@ const DeliverySpreadsheet: React.FC = () => {
                                     ? "180px"
                                     : "150px",
                         textAlign: "center",
-                        padding: "10px",
+                        padding: "var(--spacing-sm)",
                         cursor:
                           field.key === "fullname" ||
                           field.key === "clusterIdChange" ||
@@ -3444,7 +3444,7 @@ const DeliverySpreadsheet: React.FC = () => {
         <DialogTitle>Export Options</DialogTitle>
         <DialogContent sx={{ pt: 3, overflow: "visible" }}>
           {!exportOption ? (
-            <Box sx={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+            <Box sx={{ display: "flex", flexDirection: "column", gap: "var(--spacing-md)" }}>
               <Button
                 variant="contained"
                 color="primary"
@@ -3463,7 +3463,7 @@ const DeliverySpreadsheet: React.FC = () => {
               </Button>
             </Box>
           ) : (
-            <Box sx={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+            <Box sx={{ display: "flex", flexDirection: "column", gap: "var(--spacing-md)" }}>
               <Typography variant="subtitle1">Selected Option: {exportOption}</Typography>
               <Button
                 variant="contained"

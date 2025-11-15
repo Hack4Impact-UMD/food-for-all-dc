@@ -38,7 +38,7 @@
 .detailsText {
   font-weight: 600;
   color: var(--color-primary);
-  margin-top: 0.25rem;
+  margin-top: var(--spacing-xs4);
   white-space: nowrap;
 }
 
@@ -55,7 +55,7 @@
 
 .divider {
   background-color: var(--color-divider);
-  width: 2px;
+  width: var(--spacing-xs2);
   align-self: stretch;
   margin-right: var(--spacing-lg);
 }
@@ -65,7 +65,7 @@
   flex-direction: row;
   justify-content: space-between;
   width: 100%;
-  gap: 30px;
+  gap: var(--spacing-xl30);
 }
 
 .infoItem {
@@ -78,7 +78,7 @@
 .infoLabel {
   font-weight: 600;
   color: var(--color-text-tertiary);
-  margin-bottom: 4px;
+  margin-bottom: var(--spacing-xs4);
 }
 
 .infoValue {
@@ -111,7 +111,7 @@
 .deliveryTypeIndicator {
   font-weight: 700;
   font-size: 1.1rem;
-  margin-top: 0.5rem;
+  margin-top: var(--border-radius-md);
 }
 
 .weekly {
