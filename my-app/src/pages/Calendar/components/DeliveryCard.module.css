@@ -87,12 +87,10 @@
 }
 
 .truncatedNotes {
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  max-height: 5.6em;
+  overflow-y: auto;
   word-break: break-word;
+  line-height: 1.4;
 }
 
 .truncatedDiet {
