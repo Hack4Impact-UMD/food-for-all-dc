@@ -3,6 +3,7 @@ export * from './client-types';
 export * from './user-types';
 export * from './delivery-types';
 export * from './calendar-types';
+export * from './spreadsheet-types';
 
 export enum UserType {
   Admin = "Admin",

@@ -33,7 +33,6 @@ import DietaryRestrictionsLegend from "../DietaryRestrictionsLegend";
 import AddIcon from "@mui/icons-material/Add";
 import DeleteIcon from "@mui/icons-material/Delete";
 import { Select, MenuItem } from "@mui/material";
-// Duplicate import removed
 import EditIcon from "@mui/icons-material/Edit";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
 import { styled } from "@mui/material/styles";
@@ -43,6 +42,7 @@ import { exportQueryResults, exportAllClients } from "./export";
 const DeleteClientModal = React.lazy(() => import("./DeleteClientModal"));
 import { clientService } from '../../services/client-service';
 import { useClientData } from '../../context/ClientDataContext';
+import type { FieldDefinition } from '../../types/spreadsheet-types';
 
 const StyleChip = styled(Chip)(({ theme }) => ({
   fontWeight: 500,
@@ -177,8 +177,7 @@ const Spreadsheet: React.FC = () => {
     TableBody: TableBodyComponent,
   } as const;
 
-  // --- Fields for table columns ---
-  const fields = useMemo(() => [
+  const fields: FieldDefinition[] = useMemo(() => [
     { key: "fullname", label: "Name", type: "text", compute: (data: RowData) => `${data.lastName}, ${data.firstName}` },
     { key: "address", label: "Address", type: "text", compute: (data: RowData) => {
       // Append address2 (apartment/unit) if present
@@ -189,10 +188,9 @@ const Spreadsheet: React.FC = () => {
       return data.address;
     } },
     { key: "phone", label: "Phone", type: "text" },
-    { key: "deliveryDetails.dietaryRestrictions", label: "Dietary Restrictions", type: "text", compute: (data: RowData) => {
+    { key: "deliveryDetails.dietaryRestrictions", label: "Dietary Restrictions", type: "text", sortable: false, compute: (data: RowData) => {
       const dr = data.deliveryDetails?.dietaryRestrictions;
       if (!dr) return <span style={{ color: '#888' }}>None</span>;
-      // Define categories
       const dietary: string[] = [];
       const allergies: string[] = [];
       const other: string[] = [];
@@ -209,7 +207,6 @@ const Spreadsheet: React.FC = () => {
       if (Array.isArray(dr.foodAllergens) && dr.foodAllergens.length > 0) allergies.push(...dr.foodAllergens);
       if (Array.isArray(dr.other) && dr.other.length > 0) other.push(...dr.other);
       if (dr.otherText && dr.otherText.trim() !== "") other.push(dr.otherText.trim());
-      // Render chips
       const chips: React.ReactNode[] = [];
       dietary.forEach((item, i) => chips.push(
         <Chip key={`dietary-${item}-${i}`} label={item} size="small" sx={{ backgroundColor: '#e6f4ea', color: '#257e68', fontWeight: 500, mr: 0.5, mb: 0.5 }} />
@@ -392,11 +389,9 @@ const Spreadsheet: React.FC = () => {
             return 0;
           });
         } else {
-          // Use field.compute if present, else direct property
           result = [...result].sort((a, b) => {
             const aValue = field.compute ? field.compute(a) : a[field.key];
             const bValue = field.compute ? field.compute(b) : b[field.key];
-            // If compute returns a ReactNode (e.g., chips), fallback to string
             const aComp = typeof aValue === 'string' || typeof aValue === 'number' ? aValue : (aValue?.props?.label || aValue?.toString?.() || '');
             const bComp = typeof bValue === 'string' || typeof bValue === 'number' ? bValue : (bValue?.props?.label || bValue?.toString?.() || '');
             if (aComp === null || aComp === undefined) {
@@ -410,10 +405,15 @@ const Spreadsheet: React.FC = () => {
           });
         }
       } else {
-        // Custom column: sort by string value
         result = [...result].sort((a, b) => {
-          const aValue = a[sortConfig.key as keyof RowData];
-          const bValue = b[sortConfig.key as keyof RowData];
+          let aValue = a[sortConfig.key as keyof RowData];
+          let bValue = b[sortConfig.key as keyof RowData];
+
+          if (sortConfig.key === 'tags') {
+            aValue = Array.isArray(aValue) ? aValue.join(", ").toLowerCase() : '';
+            bValue = Array.isArray(bValue) ? bValue.join(", ").toLowerCase() : '';
+          }
+
           const aStr = aValue === null || aValue === undefined ? '' : String(aValue).toLowerCase();
           const bStr = bValue === null || bValue === undefined ? '' : String(bValue).toLowerCase();
           if (aStr === bStr) return 0;
@@ -514,28 +514,35 @@ const Spreadsheet: React.FC = () => {
               key={forceRerender}
               fixedHeaderContent={() => (
                 <TableRow sx={{ position: 'sticky', top: 0, zIndex: 2 }}>
-                  {fields.map((field) => (
-                    <TableCell
-                      className="table-header"
-                      key={field.key}
-                      sx={{ backgroundColor: "#f5f9f7", borderBottom: "2px solid #e0e0e0", width: 160, minWidth: 160, maxWidth: 160, cursor: 'pointer' }}
-                      onClick={() => handleSort(field.key)}
-                    >
-                      <TableSortLabel
-                        active={sortConfig.key === field.key}
-                        direction={sortConfig.direction === null ? 'asc' : sortConfig.direction}
-                        hideSortIcon={true}
-                        IconComponent={() => null}
+                  {fields.map((field) => {
+                    const isSortable = field.sortable !== false;
+                    return (
+                      <TableCell
+                        className="table-header"
+                        key={field.key}
+                        sx={{ backgroundColor: "#f5f9f7", borderBottom: "2px solid #e0e0e0", width: 160, minWidth: 160, maxWidth: 160, cursor: isSortable ? 'pointer' : 'default' }}
+                        onClick={isSortable ? () => handleSort(field.key) : undefined}
                       >
-                        {field.label}
-                        {sortConfig.key === field.key
-                          ? (sortConfig.direction === 'asc' ? <ChevronUp />
-                            : sortConfig.direction === 'desc' ? <ChevronDown />
-                            : <ChevronUpDown />)
-                          : <ChevronUpDown />}
-                      </TableSortLabel>
-                    </TableCell>
-                  ))}
+                        {isSortable ? (
+                          <TableSortLabel
+                            active={sortConfig.key === field.key}
+                            direction={sortConfig.direction === null ? 'asc' : sortConfig.direction}
+                            hideSortIcon={true}
+                            IconComponent={() => null}
+                          >
+                            {field.label}
+                            {sortConfig.key === field.key
+                              ? (sortConfig.direction === 'asc' ? <ChevronUp />
+                                : sortConfig.direction === 'desc' ? <ChevronDown />
+                                : <ChevronUpDown />)
+                              : <ChevronUpDown />}
+                          </TableSortLabel>
+                        ) : (
+                          <span style={{ fontWeight: 600, color: "#257e68" }}>{field.label}</span>
+                        )}
+                      </TableCell>
+                    );
+                  })}
                   {/* Custom columns header */}
                   {customColumns.map((col) => (
                     <TableCell className="table-header" key={col.id} sx={{ backgroundColor: "#f5f9f7", borderBottom: "2px solid #e0e0e0", width: 200, minWidth: 200, maxWidth: 200, padding: '8px' }}>
