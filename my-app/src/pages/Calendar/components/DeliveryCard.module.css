@@ -95,6 +95,13 @@
   word-break: break-word;
 }
 
+.truncatedDiet {
+  max-height: 5.6em;
+  overflow-y: auto;
+  word-break: break-word;
+  line-height: 1.4;
+}
+
 .clientNameLink {
   color: #2E5B4C;
   text-decoration: underline;

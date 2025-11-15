@@ -93,7 +93,11 @@ const DeliveryCard: React.FC<DeliveryCardProps> = React.memo(function DeliveryCa
             </Typography>
             <Typography
               variant="body1"
-              className={`${styles.infoValue} ${label === "NOTES" ? styles.truncatedNotes : ""}`}
+              className={`${styles.infoValue} ${
+                label === "NOTES" ? styles.truncatedNotes :
+                label === "DIETARY RESTRICTIONS" ? styles.truncatedDiet :
+                ""
+              }`}
             >
               {value}
             </Typography>
