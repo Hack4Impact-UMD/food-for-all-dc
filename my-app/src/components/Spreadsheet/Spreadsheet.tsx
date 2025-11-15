@@ -1,6 +1,6 @@
 import './Spreadsheet.css';
 import { onAuthStateChanged } from "firebase/auth";
-import { auth } from "../../services/firebase";
+import { auth } from "../../auth/firebaseConfig";
 import { TableSortLabel, Icon } from "@mui/material";
 import {
   parseSearchTermsProgressively,

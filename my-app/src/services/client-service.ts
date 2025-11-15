@@ -1,4 +1,4 @@
-import { db } from "./firebase";
+import { db } from "../auth/firebaseConfig";
 import { ClientProfile } from '../types';
 import type { RowData } from '../components/Spreadsheet/export';
 import { LatLngTuple } from "leaflet";

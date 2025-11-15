@@ -1,7 +1,7 @@
 import { validateDriver } from '../utils/firestoreValidation';
 import { retry } from '../utils/retry';
 import { ServiceError, formatServiceError } from '../utils/serviceError';
-import { db } from "./firebase";
+import { db } from "../auth/firebaseConfig";
 import { Driver } from '../types';
 import dataSources from '../config/dataSources';
 import {

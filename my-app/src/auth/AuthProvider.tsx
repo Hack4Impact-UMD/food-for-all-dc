@@ -1,5 +1,4 @@
 import {
-  getAuth,
   onAuthStateChanged,
   signOut, 
   type IdTokenResult, 

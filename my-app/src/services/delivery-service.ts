@@ -12,7 +12,7 @@ import {
   orderBy,
   limit,
 } from "firebase/firestore";
-import { db } from "./firebase";
+import { db } from "../auth/firebaseConfig";
 import { DeliveryEvent } from "../types/calendar-types";
 import { validateDeliveryEvent } from '../utils/firestoreValidation';
 import { Time, TimeUtils } from "../utils/timeUtils";

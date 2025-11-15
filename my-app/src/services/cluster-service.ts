@@ -10,7 +10,7 @@ import {
   // DocumentReference, // Remove unused import
   onSnapshot,
 } from "firebase/firestore";
-import { db } from "./firebase";
+import { db } from "../auth/firebaseConfig";
 import { retry } from '../utils/retry';
 import { ServiceError, formatServiceError } from '../utils/serviceError';
 import { Cluster } from "../pages/Delivery/types/deliveryTypes";
