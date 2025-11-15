@@ -268,6 +268,7 @@ const Spreadsheet: React.FC = () => {
             "language": ["language"],
             "notes": ["notes"],
             "referralEntity": ["referral entity", "referral"],
+            "tags": ["tags", "tag"],
             "tefapCert": ["tefap", "tefap cert"],
             "dob": ["dob"],
             "lastDeliveryDate": ["last delivery date"],

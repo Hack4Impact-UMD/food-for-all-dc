@@ -161,15 +161,6 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
         const querySnapshot = await getDocs(q);
         const batch = querySnapshot.docs.map((doc) => deleteDoc(doc.ref));
         await Promise.all(batch);
-      } else if (deleteOption === "All events for this recurrence") {
-        const q = query(
-          eventsRef,
-          where("recurrenceId", "==", event.recurrenceId)
-        );
-
-        const querySnapshot = await getDocs(q);
-        const batch = querySnapshot.docs.map((doc) => deleteDoc(doc.ref));
-        await Promise.all(batch);
       }
 
       deliveryEventEmitter.emit();
@@ -444,12 +435,7 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
             <FormControlLabel
               value="This and following events"
               control={<Radio />}
-              label="This and following events"
-            />
-            <FormControlLabel
-              value="All events for this recurrence"
-              control={<Radio />}
-              label="All events for this recurrence"
+              label="This and future events"
             />
           </RadioGroup>
         </DialogContent>

@@ -140,3 +140,4 @@ tmp/
 # TypeScript
 *.tsbuildinfo
 .vercel
+AGENTS.md

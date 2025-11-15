@@ -919,6 +919,18 @@ const Profile = () => {
     ) {
       newErrors.email = "Invalid email format";
     }
+    
+    // Validate TEFAP CERT date - cannot be in the future
+    if (clientProfile.tefapCert?.trim()) {
+      const tefapDate = new Date(clientProfile.tefapCert);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0); // Reset time to start of day for comparison
+      
+      if (!isNaN(tefapDate.getTime()) && tefapDate > today) {
+        newErrors.tefapCert = "TEFAP CERT date cannot be in the future";
+      }
+    }
+    
     if (!clientProfile.startDate?.trim()) {
       newErrors.startDate = "Start date is required";
     }
@@ -1382,6 +1394,8 @@ const checkDuplicateClient = async (firstName: string, lastName: string, address
         setErrors({}); // Clear validation errors
         setAllTags(sortedAllTags); // Update the local list of all tags
         console.log("Profile updated:", clientProfile.uid);
+        // Refresh client data context so spreadsheet updates
+        if (refresh) await refresh();
       }
   
       // Common post-save actions (Popup notification)
@@ -2769,28 +2783,6 @@ const handleMentalHealthConditionsChange = (e: React.ChangeEvent<HTMLInputElemen
             />
           </SectionBox>
 
-          {/* Dietary Preferences Section */}
-          <SectionBox mb={3}>
-            <SectionTitle sx={{ textAlign: 'left', width: '100%' }}>Dietary Options</SectionTitle>
-            <DietaryPreferencesForm
-              isEditing={isEditing}
-              fieldLabelStyles={fieldLabelStyles}
-              dietaryRestrictions={clientProfile.deliveryDetails?.dietaryRestrictions || {}}
-              renderField={renderField}
-            />
-          </SectionBox>
-
-          {/*Health Section*/}
-          <SectionBox mb={3}>
-            <SectionTitle sx={{ textAlign: 'left', width: '100%' }}>Health Conditions</SectionTitle>
-            <HealthConditionsForm
-              isEditing={isEditing}
-              fieldLabelStyles={fieldLabelStyles}
-              dietaryRestrictions={clientProfile.deliveryDetails?.dietaryRestrictions || {}}
-              renderField={renderField}
-            />
-          </SectionBox>
-
           {/* Delivery Log Section */}
           <SectionBox mb={3}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
@@ -2870,6 +2862,28 @@ const handleMentalHealthConditionsChange = (e: React.ChangeEvent<HTMLInputElemen
                   console.error('Error updating delivery state after deletion:', error);
                 }
               }}
+            />
+          </SectionBox>
+
+          {/* Dietary Preferences Section */}
+          <SectionBox mb={3}>
+            <SectionTitle sx={{ textAlign: 'left', width: '100%' }}>Dietary Options</SectionTitle>
+            <DietaryPreferencesForm
+              isEditing={isEditing}
+              fieldLabelStyles={fieldLabelStyles}
+              dietaryRestrictions={clientProfile.deliveryDetails?.dietaryRestrictions || {}}
+              renderField={renderField}
+            />
+          </SectionBox>
+
+          {/*Health Section*/}
+          <SectionBox mb={3}>
+            <SectionTitle sx={{ textAlign: 'left', width: '100%' }}>Health Conditions</SectionTitle>
+            <HealthConditionsForm
+              isEditing={isEditing}
+              fieldLabelStyles={fieldLabelStyles}
+              dietaryRestrictions={clientProfile.deliveryDetails?.dietaryRestrictions || {}}
+              renderField={renderField}
             />
           </SectionBox>
 

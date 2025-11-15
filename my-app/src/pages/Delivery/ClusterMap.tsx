@@ -108,12 +108,11 @@ const normalizeCoordinate = (coord: any): Coordinate => {
 
 // Common time slots array - same as used in delivery page
 const TIME_SLOTS = [
-  "8:00 AM", "9:00 AM", "10:00 AM", "11:00 AM", 
-  "12:00 PM", "1:00 PM", "2:00 PM", "3:00 PM", 
+  "8:00 AM", "9:00 AM", "10:00 AM", "11:00 AM",
+  "12:00 PM", "1:00 PM", "2:00 PM", "3:00 PM",
   "4:00 PM", "5:00 PM"
 ];
 
-// Color palette for clusters (module-level so identity is stable)
 const clusterColors = [
   "#FF0000", "#00FF00", "#0000FF", "#FFFF00", "#FF00FF",
   "#00FFFF", "#FFA500", "#800080", "#008000", "#000080",
@@ -175,7 +174,6 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [loadingDrivers, setLoadingDrivers] = useState<boolean>(false);
 
-  // Helper function to get cluster color - stable via useCallback
   const getClusterColor = useCallback((clusterIdToCheck: string): string => {
     if (!clusterIdToCheck) return "#ffffff";
     const clusterIdStr = String(clusterIdToCheck);
@@ -190,6 +188,36 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
       }
       return clusterColors[Math.abs(hash) % clusterColors.length];
     }
+  }, []);
+
+  // Helper function to determine best text color based on background brightness
+  const getTextColorForBackground = useCallback((backgroundColor: string): string => {
+    // Convert hex to RGB
+    const hex = backgroundColor.replace('#', '');
+    const r = parseInt(hex.substr(0, 2), 16);
+    const g = parseInt(hex.substr(2, 2), 16);
+    const b = parseInt(hex.substr(4, 2), 16);
+    
+    // Special cases for problematic colors that need black text regardless of luminance
+    const problematicColors = [
+      '#00FF00', // Lime green
+      '#FFFF00', // Yellow
+      '#00FFFF', // Cyan
+      '#7CFC00', // Lawn green
+      '#32CD32', // Lime green variant
+      '#FFD700', // Gold
+    ];
+    
+    if (problematicColors.includes(backgroundColor.toUpperCase())) {
+      return '#000000';
+    }
+    
+    // Calculate relative luminance using WCAG formula
+    const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+    
+    // Return black for light backgrounds, white for dark backgrounds
+    // Using threshold of 0.5 for better readability (lowered from 0.6)
+    return luminance > 0.5 ? '#000000' : '#ffffff';
   }, []);
 
   // Update cluster dropdown in popup when clusters change
@@ -212,24 +240,27 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
         const opt = document.createElement('option');
         opt.value = c.id;
         opt.text = c.id;
-        opt.style.backgroundColor = getClusterColor(c.id);
-        opt.style.color = 'white';
+        const clusterColor = getClusterColor(c.id);
+        opt.style.backgroundColor = clusterColor;
+        opt.style.color = getTextColorForBackground(clusterColor);
+        opt.style.fontWeight = 'bold';
         clusterSelect.add(opt, clusterSelect.options.length - 1);
       });
       // Set value to the new cluster if it was just added, else restore previous value
       const numericIds = clusters.map((c2: Cluster) => parseInt(c2.id, 10)).filter((n: number) => !isNaN(n));
       const maxId = numericIds.length > 0 ? Math.max(...numericIds) : 0;
       if (!clusters.some((c: Cluster) => c.id === prevValue)) {
-        clusterSelect.value = String(maxId);
-        clusterSelect.style.backgroundColor = getClusterColor(String(maxId));
-        clusterSelect.style.color = 'white';
+        const maxIdStr = String(maxId);
+        clusterSelect.value = maxIdStr;
+        clusterSelect.style.backgroundColor = getClusterColor(maxIdStr);
+        clusterSelect.style.color = getTextColorForBackground(getClusterColor(maxIdStr));
       } else {
         clusterSelect.value = prevValue;
         clusterSelect.style.backgroundColor = getClusterColor(prevValue);
-        clusterSelect.style.color = 'white';
+        clusterSelect.style.color = getTextColorForBackground(getClusterColor(prevValue));
       }
     });
-  }, [clusters, getClusterColor]);
+  }, [clusters, getClusterColor, getTextColorForBackground]);
   
   // Function to fetch DC ward boundaries from ArcGIS REST service
   const fetchWardBoundaries = async () => {
@@ -352,20 +383,16 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
     }
   };
 
-  // Color palette for clusters
-  const clusterColors = [
-    "#FF0000", "#00FF00", "#0000FF", "#FFFF00", "#FF00FF",
-    "#00FFFF", "#FFA500", "#800080", "#008000", "#000080",
-    "#FF4500", "#4B0082", "#FF6347", "#32CD32", "#9370DB",
-    "#FF69B4", "#40E0D0", "#FF8C00", "#7CFC00", "#8A2BE2",
-    "#FF1493", "#1E90FF", "#228B22", "#9400D3", "#DC143C",
-    "#20B2AA", "#9932CC", "#FFD700", "#8B0000", "#4169E1"
-  ];
-
   useEffect(() => {
-    if (!mapRef.current && visibleRows.length > 0) {
-      mapRef.current = L.map("cluster-map").setView(ffaCoordinates, 11);
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(mapRef.current);
+    if (!mapRef.current && visibleRows.length > 0 && L && typeof L.map === 'function') {
+      try {
+        mapRef.current = L.map("cluster-map").setView(ffaCoordinates, 11);
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(mapRef.current);
+      } catch (error) {
+        console.error('Error initializing Leaflet map:', error);
+        console.log('L object:', L);
+        return;
+      }
       
       // Create ward layer group (add before markers so wards appear behind markers)
       wardLayerGroupRef.current = L.featureGroup().addTo(mapRef.current);
@@ -610,9 +637,9 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
               <div style="font-weight: bold; margin-bottom: 10px;">${clientName}</div>
               <div style="margin-bottom: 8px; display: flex; align-items: center; gap: 8px;">
                 <label style="font-weight: bold; min-width: 60px; font-size: 12px;">Cluster:</label>
-                <select id="cluster-select-${clientId}" style="flex: 1; padding: 3px; border: 1px solid #ccc; border-radius: 3px; font-size: 11px; background-color: ${clusterId ? getClusterColor(clusterId) : '#ffffff'}; color: ${clusterId ? 'white' : 'black'}; height: 24px !important; min-height: 24px !important; max-height: 24px !important; line-height: 1.1 !important;">
+                <select id="cluster-select-${clientId}" style="flex: 1; padding: 3px; border: 1px solid #ccc; border-radius: 3px; font-size: 11px; background-color: ${clusterId ? getClusterColor(clusterId) : '#ffffff'}; color: ${clusterId ? getTextColorForBackground(getClusterColor(clusterId)) : 'black'}; height: 24px !important; min-height: 24px !important; max-height: 24px !important; line-height: 1.1 !important;">
                   <option value="" style="background-color: #ffffff; color: black;">No cluster</option>
-                  ${clusters.map(c => `<option value="${c.id}" ${c.id === clusterId ? 'selected' : ''} style="background-color: ${getClusterColor(c.id)}; color: white;">${c.id}</option>`).join('')}
+                  ${clusters.map(c => `<option value="${c.id}" ${c.id === clusterId ? 'selected' : ''} style="background-color: ${getClusterColor(c.id)}; color: ${getTextColorForBackground(getClusterColor(c.id))}; font-weight: bold;">${c.id}</option>`).join('')}
                   <option value="__add__" style="background-color: #cccccc; color: #333; font-weight: bold;">+ Add Cluster</option>
                 </select>
               </div>
@@ -660,11 +687,12 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
               opt.value = nextClusterId;
               opt.text = nextClusterId;
               opt.style.backgroundColor = getClusterColor(nextClusterId);
-              opt.style.color = 'white';
+              opt.style.color = getTextColorForBackground(getClusterColor(nextClusterId));
               clusterSelect.add(opt, clusterSelect.options.length - 1);
               clusterSelect.value = nextClusterId;
-              clusterSelect.style.backgroundColor = getClusterColor(nextClusterId);
-              clusterSelect.style.color = 'white';
+              const nextClusterColor = getClusterColor(nextClusterId);
+              clusterSelect.style.backgroundColor = nextClusterColor;
+              clusterSelect.style.color = getTextColorForBackground(nextClusterColor);
               pendingNewClusterId = nextClusterId;
               return;
             }
@@ -672,7 +700,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
             if (selectedClusterId) {
               const selectedColor = getClusterColor(selectedClusterId);
               clusterSelect.style.backgroundColor = selectedColor;
-              clusterSelect.style.color = 'white';
+              clusterSelect.style.color = getTextColorForBackground(selectedColor);
             } else {
               clusterSelect.style.backgroundColor = '#ffffff';
               clusterSelect.style.color = 'black';
@@ -765,7 +793,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
               // Update color
               const selectedColor = initialClusterId ? getClusterColor(initialClusterId) : '#ffffff';
               clusterSelect.style.backgroundColor = selectedColor;
-              clusterSelect.style.color = initialClusterId ? 'white' : 'black';
+              clusterSelect.style.color = initialClusterId ? getTextColorForBackground(selectedColor) : 'black';
             }
             if (driverSelect) driverSelect.value = initialDriver;
             if (timeSelect) timeSelect.value = initialTime;
@@ -951,7 +979,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
         padding: [50, 50] 
       });
     }
-  }, [visibleRows, clusters, drivers, clientOverrides, getClusterColor, onClusterUpdate, onMarkerClick]);
+  }, [visibleRows, clusters, drivers, clientOverrides, getClusterColor, getTextColorForBackground, onClusterUpdate, onMarkerClick]);
 
   const invalidCount = visibleRows.filter(
     (client) => !isValidCoordinate(client.coordinates)

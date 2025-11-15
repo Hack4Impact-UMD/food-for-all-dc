@@ -239,6 +239,58 @@ const DateFieldComponent = ({
   const [dateError, setDateError] = useState<string | null>(null);
   const [fieldTouched, setFieldTouched] = useState<boolean>(false);
 
+  // Convert MM/DD/YYYY to YYYY-MM-DD for HTML date input
+  const convertToHtmlDateFormat = (inputValue: any): string => {
+    console.log('=== DATE CONVERSION DEBUG ===');
+    console.log('Field:', fieldPath);
+    console.log('Input value:', inputValue);
+    console.log('Input type:', typeof inputValue);
+    
+    if (!inputValue) {
+      console.log('Empty value, returning empty string');
+      return '';
+    }
+    
+    const stringValue = String(inputValue);
+    console.log('String value:', stringValue);
+    
+    // Handle MM/DD/YYYY format (like "5/8/2025")
+    if (stringValue.includes('/')) {
+      const parts = stringValue.split('/');
+      console.log('Split parts:', parts);
+      
+      if (parts.length === 3) {
+        const [month, day, year] = parts;
+        if (month && day && year) {
+          const paddedMonth = month.padStart(2, '0');
+          const paddedDay = day.padStart(2, '0');
+          const result = `${year}-${paddedMonth}-${paddedDay}`;
+          console.log('Final converted result:', result);
+          return result;
+        }
+      }
+    }
+    
+    // If already in YYYY-MM-DD format
+    if (stringValue.match(/^\d{4}-\d{2}-\d{2}$/)) {
+      console.log('Already in YYYY-MM-DD format');
+      return stringValue;
+    }
+    
+    console.log('Could not convert, returning empty');
+    return '';
+  };
+
+  // Convert YYYY-MM-DD to MM/DD/YYYY for storage
+  const convertFromHtmlDateFormat = (yyyymmdd: string): string => {
+    if (!yyyymmdd || yyyymmdd.length !== 10) return '';
+    
+    const [year, month, day] = yyyymmdd.split('-');
+    if (!year || !month || !day) return '';
+    
+    return `${month}/${day}/${year}`;
+  };
+
   // Determine what error to show:
   // 1. External error (from Profile validation) takes priority
   // 2. Internal dateError only shows if field was touched
@@ -275,6 +327,18 @@ const DateFieldComponent = ({
         }
       }
     } else {
+      // Additional validation for TEFAP CERT - cannot be a future date
+      if (fieldPath === "tefapCert") {
+        const selectedDate = new Date(value);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0); // Reset time to start of day for comparison
+        
+        if (selectedDate > today) {
+          setDateError("TEFAP CERT date cannot be in the future");
+          return;
+        }
+      }
+      
       setDateError(null);
     }
   };
@@ -292,8 +356,9 @@ const DateFieldComponent = ({
       <CustomTextField
         type="date"
         name={fieldPath}
-        value={value || ""}
+        value={convertToHtmlDateFormat(value) || ""}
         className={(fieldTouched && !!dateError) ? 'error' : ''}
+        placeholder="TESTING - DATE FIELD UPDATED"
         onChange={(e) => {
           // Mark field as touched on change
           if (!fieldTouched) setFieldTouched(true);
@@ -301,8 +366,33 @@ const DateFieldComponent = ({
           // Clear error when user starts typing
           if (dateError) setDateError(null);
 
-          // Pass to the handler
-          handleChange(e);
+          // Additional validation for TEFAP CERT during change
+          if (fieldPath === "tefapCert" && e.target.value) {
+            const selectedDate = new Date(e.target.value);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            
+            if (selectedDate > today) {
+              setDateError("TEFAP CERT date cannot be in the future");
+            }
+          }
+
+          // Convert HTML date format back to MM/DD/YYYY for storage
+          const htmlDateValue = e.target.value;
+          if (htmlDateValue) {
+            const mmddyyyyValue = convertFromHtmlDateFormat(htmlDateValue);
+            // Create a synthetic event with the converted value
+            const syntheticEvent = {
+              ...e,
+              target: {
+                ...e.target,
+                value: mmddyyyyValue
+              }
+            } as React.ChangeEvent<HTMLInputElement>;
+            handleChange(syntheticEvent);
+          } else {
+            handleChange(e);
+          }
         }}
         onBlur={handleBlur}
         onFocus={() => setFieldTouched(true)}
