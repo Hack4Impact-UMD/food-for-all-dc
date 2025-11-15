@@ -75,25 +75,7 @@ This repository contains all the code, documentation, and setup guides you need 
    firebase login
    ```
 
-2. **Install backend dependencies**
-   ```bash
-   cd my-app/functions
-   npm install
-   ```
-
-3. **Run Emulator**
-   ```bash
-   firebase emulators:start
-   ```
-
-   ⚠️ **Use the Firebase Emulator for local testing only.**
-</details>
-
-<details open>
-<summary><b>🐍 Python Cloud Functions (Advanced Backend)</b></summary>
-<br>
-
-1. **Set up Python environment:**
+2. **Set up Python environment:**
    ```bash
    cd my-app/functions-python
    python3 -m venv venv
@@ -101,10 +83,13 @@ This repository contains all the code, documentation, and setup guides you need 
    pip install -r requirements.txt
    ```
 
-2. **Run Firebase Emulator (from project root):**
+3. **Run Emulator (from project root):**
    ```bash
+   cd ../..
    firebase emulators:start
    ```
+
+   ⚠️ **Use the Firebase Emulator for local testing only.**
 </details>
 
 ---
@@ -137,8 +122,6 @@ food-for-all-dc/
 │   │   ├── utils/               # Utility functions
 │   │   ├── App.tsx              # Main app component
 │   │   └── index.tsx            # App entry point
-│   ├── functions/               # Firebase backend (TypeScript)
-│   │   └── src/index.ts         # Firebase functions entry point
 │   ├── functions-python/        # Python backend functions
 │   ├── package.json             # Frontend dependencies and scripts
 │   ├── firebase.json            # Firebase configuration
@@ -191,8 +174,8 @@ Following these guidelines helps everyone build a better Food For All DC experie
     <td width="50%">
       <h3>Backend</h3>
       <ul>
-        <li>Firebase Cloud Functions (TypeScript)</li>
-        <li>Python functions for routing/clustering</li>
+        <li>Firebase Cloud Functions (Python)</li>
+        <li>Python functions for routing/clustering and user management</li>
         <li>Firebase Authentication</li>
         <li>Real-time delivery management</li>
       </ul>
