@@ -1,4 +1,3 @@
-// Performance monitoring service
 import { retry } from '../utils/retry';
 import { ServiceError, formatServiceError } from '../utils/serviceError';
 class PerformanceMonitor {
@@ -18,7 +17,6 @@ class PerformanceMonitor {
   }
 
   private initializeObservers() {
-    // Monitor navigation timing
     if ('PerformanceObserver' in window) {
       const navObserver = new PerformanceObserver((list) => {
         const entries = list.getEntries();
@@ -33,7 +31,6 @@ class PerformanceMonitor {
       navObserver.observe({ entryTypes: ['navigation'] });
       this.observers.push(navObserver);
 
-      // Monitor resource timing
       const resourceObserver = new PerformanceObserver((list) => {
         const entries = list.getEntries();
         entries.forEach((entry) => {
@@ -46,7 +43,6 @@ class PerformanceMonitor {
       resourceObserver.observe({ entryTypes: ['resource'] });
       this.observers.push(resourceObserver);
 
-      // Monitor largest contentful paint
       const lcpObserver = new PerformanceObserver((list) => {
         const entries = list.getEntries();
         const lastEntry = entries[entries.length - 1];
@@ -55,7 +51,6 @@ class PerformanceMonitor {
       lcpObserver.observe({ entryTypes: ['largest-contentful-paint'] });
       this.observers.push(lcpObserver);
 
-      // Monitor first input delay
       const fidObserver = new PerformanceObserver((list) => {
         const entries = list.getEntries();
         entries.forEach((entry) => {
@@ -66,7 +61,6 @@ class PerformanceMonitor {
       fidObserver.observe({ entryTypes: ['first-input'] });
       this.observers.push(fidObserver);
 
-      // Monitor cumulative layout shift
       const clsObserver = new PerformanceObserver((list) => {
         const entries = list.getEntries();
         let clsScore = 0;
@@ -88,7 +82,6 @@ class PerformanceMonitor {
     }
     this.metrics.get(name)!.push(value);
     
-    // Keep only last 100 measurements
     const values = this.metrics.get(name)!;
     if (values.length > 100) {
       values.shift();
@@ -112,14 +105,10 @@ class PerformanceMonitor {
     return result;
   }
 
-  // Web Vitals monitoring
   measureWebVitals() {
-    // Core Web Vitals
     this.measureLCP();
     this.measureFID();
     this.measureCLS();
-    
-    // Additional metrics
     this.measureTTFB();
     this.measureFCP();
   }
@@ -129,6 +118,9 @@ class PerformanceMonitor {
       const observer = new PerformanceObserver((list) => {
         const entries = list.getEntries();
         const lastEntry = entries[entries.length - 1];
+        if (lastEntry) {
+          this.recordMetric('lcp', lastEntry.startTime);
+        }
       });
       observer.observe({ entryTypes: ['largest-contentful-paint'] });
     }
@@ -141,6 +133,7 @@ class PerformanceMonitor {
         entries.forEach((entry) => {
           const fidEntry = entry as any;
           const fid = fidEntry.processingStart - fidEntry.startTime;
+          this.recordMetric('fid', fid);
         });
       });
       observer.observe({ entryTypes: ['first-input'] });
@@ -157,6 +150,7 @@ class PerformanceMonitor {
             clsScore += (entry as any).value;
           }
         });
+        this.recordMetric('cls', clsScore);
       });
       observer.observe({ entryTypes: ['layout-shift'] });
     }
@@ -167,6 +161,7 @@ class PerformanceMonitor {
       const navEntry = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming;
       if (navEntry) {
         const ttfb = navEntry.responseStart - navEntry.requestStart;
+        this.recordMetric('ttfb', ttfb);
       }
     }
   }
@@ -176,22 +171,18 @@ class PerformanceMonitor {
       const observer = new PerformanceObserver((list) => {
         const entries = list.getEntries();
         entries.forEach((entry) => {
+          if (entry.name === 'first-contentful-paint') {
+            this.recordMetric('fcp', entry.startTime);
+          }
         });
       });
       observer.observe({ entryTypes: ['paint'] });
     }
   }
 
-  // Bundle size monitoring
   async measureBundleSize() {
     try {
       await retry(async () => {
-        if ('navigator' in window && 'connection' in navigator) {
-          const connection = (navigator as any).connection;
-          if (connection) {
-          }
-        }
-        // Monitor resource sizes
         const resources = performance.getEntriesByType('resource') as PerformanceResourceTiming[];
         let totalSize = 0;
         resources.forEach((resource) => {
@@ -199,24 +190,26 @@ class PerformanceMonitor {
             totalSize += resource.transferSize;
           }
         });
+        this.recordMetric('bundleSize', totalSize);
       });
     } catch (error) {
       throw formatServiceError(error, 'Failed to measure bundle size');
     }
   }
 
-  // Memory usage monitoring
   measureMemoryUsage() {
     try {
       if ('memory' in performance) {
         const memory = (performance as any).memory;
+        if (memory.usedJSHeapSize) {
+          this.recordMetric('memoryUsage', memory.usedJSHeapSize);
+        }
       }
     } catch (error) {
       throw formatServiceError(error, 'Failed to measure memory usage');
     }
   }
 
-  // Performance recommendations
   getRecommendations(): string[] {
     try {
       const recommendations: string[] = [];
@@ -236,7 +229,6 @@ class PerformanceMonitor {
     }
   }
 
-  // Export metrics for analysis
   exportMetrics(): string {
     try {
       const metrics = this.getMetrics();
@@ -253,7 +245,6 @@ class PerformanceMonitor {
     }
   }
 
-  // Cleanup
   destroy() {
     try {
       this.observers.forEach(observer => observer.disconnect());

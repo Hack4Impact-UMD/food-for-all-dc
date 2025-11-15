@@ -215,7 +215,6 @@ const DeliveryLogForm: React.FC<DeliveryLogProps> = ({
                                     label={formatDate(toJSDate(delivery.deliveryDate))}
                                     variant="outlined"
                                     color="primary"
-                                    onClick={() => {}}
                                     onDelete={() => handleDeleteClick(delivery)}
                                     sx={chipStyle(delivery.id, delivery.hidden || false)}
                                 />

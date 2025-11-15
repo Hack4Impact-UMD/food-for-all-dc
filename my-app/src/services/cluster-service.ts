@@ -25,6 +25,8 @@ class ClusterService {
   private clustersCollection = dataSources.firebase.clustersCollection;
   private clientService = clientService;
 
+  // Empty constructor for singleton pattern
+  // eslint-disable-next-line @typescript-eslint/no-empty-function
   private constructor() {
   }
 
