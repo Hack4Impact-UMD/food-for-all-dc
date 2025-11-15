@@ -37,6 +37,7 @@ import React, { useEffect, useRef, useState, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { auth, db } from "../../auth/firebaseConfig";
 import dataSources from "../../config/dataSources";
+import { googleMapsApiKey } from "../../config/apiKeys";
 import CaseWorkerManagementModal from "../../components/CaseWorkerManagementModal";
 import "./Profile.css";
 import { clientService } from "../../services/client-service";
@@ -2263,12 +2264,7 @@ const handleMentalHealthConditionsChange = (e: React.ChangeEvent<HTMLInputElemen
 
   // Load Google Maps API on mount
   useEffect(() => {
-    const apiKey = process.env.REACT_APP_GOOGLE_MAPS_API_KEY;
-    if (!apiKey) {
-      console.error('Google Maps API key is missing!');
-      return;
-    }
-    loadGoogleMapsScript(apiKey, () => setIsGoogleApiLoaded(true));
+    loadGoogleMapsScript(googleMapsApiKey, () => setIsGoogleApiLoaded(true));
   }, []);
 
   // Initialize Google Places Autocomplete when input and API are ready

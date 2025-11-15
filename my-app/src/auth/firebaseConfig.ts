@@ -1,20 +1,9 @@
-import { initializeApp, FirebaseOptions, FirebaseApp } from "firebase/app";
+import { initializeApp, FirebaseApp } from "firebase/app";
 import { getFirestore, Firestore, enableNetwork, disableNetwork } from "firebase/firestore";
 import { getAuth, Auth } from "firebase/auth";
 import { getFunctions, Functions, connectFunctionsEmulator } from "firebase/functions";
+import { firebaseConfig } from "../config/apiKeys";
 
-const firebaseConfig: FirebaseOptions = {
-  apiKey: "AIzaSyCasSjeF-YMoHYZFfLWz96fGgNjYKOqRak",
-  authDomain: "food-for-all-dc-caf23.firebaseapp.com",
-  projectId: "food-for-all-dc-caf23",
-  storageBucket: "food-for-all-dc-caf23.firebasestorage.app",
-  messagingSenderId: "251910218620",
-  appId: "1:251910218620:web:6be93fdd5aae8b811d3af9",
-  measurementId: "G-GE0VWH1PQX",
-};
-
-
-// Initialize Firebase app once
 const app: FirebaseApp = initializeApp(firebaseConfig);
 
 // Lazy initialization of Firebase services
@@ -68,9 +57,8 @@ export const getFirebaseFunctions = (): Functions => {
   return functionsInstance;
 };
 
-// Backwards compatibility - these will be lazy-loaded
 export const db = getFirebaseDb();
 export const auth = getFirebaseAuth();
 export const functions = getFirebaseFunctions();
 
-export { firebaseConfig, app };
+export { app };
