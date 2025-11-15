@@ -193,6 +193,14 @@ Following these guidelines helps everyone build a better Food For All DC experie
 
 ---
 
+## 📄 License
+
+This project is licensed under the Apache License 2.0. See the [LICENSE](LICENSE) file for details.
+
+Copyright 2025 National School Climate Center
+
+---
+
 ## Scripts
 
 ```bash
