@@ -8,7 +8,7 @@ function getRequiredEnv(key: string): string {
   return value;
 }
 
-function getOptionalEnv(key: string, fallback: string = ''): string {
+function getOptionalEnv(key: string, fallback = ''): string {
   return process.env[key] || fallback;
 }
 
