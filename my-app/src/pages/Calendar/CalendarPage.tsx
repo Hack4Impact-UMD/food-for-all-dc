@@ -29,6 +29,7 @@ import { RecurringDeliveryProvider } from "../../context/RecurringDeliveryContex
 import CalendarSkeleton from '../../components/skeletons/CalendarSkeleton';
 import CalendarHeaderSkeleton from '../../components/skeletons/CalendarHeaderSkeleton';
 import { deliveryDate } from "../../utils/deliveryDate";
+import { useNotifications } from "../../components/NotificationProvider";
 
 const DAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
 
@@ -72,14 +73,12 @@ const CalendarContent = styled(Box)(({ theme }) => ({
 }));
 
 const CalendarPage: React.FC = React.memo(() => {
-  // Drawer state and width
+  const { showSuccess, showError } = useNotifications();
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const drawerWidth = 240; // Match Clients page drawer width
-  // Use a ref to track render count without causing re-renders
+  const drawerWidth = 240;
   const renderCount = useRef(0);
   renderCount.current += 1;
-  
-  // ...state declarations...
+
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   // Initialize currentDate from URL params or default to today
@@ -433,12 +432,17 @@ const CalendarPage: React.FC = React.memo(() => {
       });
       await Promise.all(createPromises);
 
-      // Refresh events after adding
       await fetchEvents();
-      
       setIsModalOpen(false);
+
+      const deliveryCount = uniqueRecurrenceDates.length;
+      const deliveryText = deliveryCount === 1
+        ? `Delivery added for ${clientName}`
+        : `${deliveryCount} deliveries added for ${clientName}`;
+      showSuccess(deliveryText);
     } catch (error) {
       console.error("Error adding delivery:", error);
+      showError("Failed to add delivery. Please try again.");
     }
   };
 
