@@ -33,9 +33,6 @@ This repository contains all the code, documentation, and setup guides you need 
 - [🏗️ Project Structure](#%EF%B8%8F-project-structure)
 - [🎨 Style Guide](#-style-guide)
 - [🗺️ System Overview](#%EF%B8%8F-system-overview)
-- [🚀 Performance Tuning](./performance-tuning.md)
-- [🧑‍💻 Clean Code Overview](./clean-code.md)
-- [🧪 Test Suite & Coverage](./my-app/TESTS.md)
 
 ---
 
@@ -129,6 +126,9 @@ food-for-all-dc/
 │   │   ├── backend/             # Cloud function calls from frontend
 │   │   ├── components/          # UI components
 │   │   │   └── common/          # Reusable UI components
+│   │   ├── config/              # Configuration files
+│   │   ├── constants/           # Application constants
+│   │   ├── context/             # React context providers
 │   │   ├── hooks/               # Custom React hooks
 │   │   ├── pages/               # App pages/views
 │   │   ├── services/            # Business logic and API services
@@ -143,6 +143,8 @@ food-for-all-dc/
 │   ├── package.json             # Frontend dependencies and scripts
 │   ├── firebase.json            # Firebase configuration
 │   └── .firebaserc              # Firebase project aliases
+│
+├── clean-code archive/          # Documentation archive
 │
 └── README.md                    # This file
 ```
