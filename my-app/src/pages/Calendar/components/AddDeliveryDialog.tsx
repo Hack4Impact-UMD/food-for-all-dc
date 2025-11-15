@@ -557,7 +557,7 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
                 <ArrowDropDownIcon
                   sx={{
                     position: "absolute",
-                    right: "var(--spacing-sm14)",
+                    right: "14px",
                     top: "50%",
                     transform: "translateY(-50%)",
                     pointerEvents: "none",
@@ -641,7 +641,7 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
                   ".MuiOutlinedInput-root": {
                     '& input[type="date"]::-webkit-calendar-picker-indicator': {
                       position: "absolute",
-                      right: "var(--spacing-sm14)",
+                      right: "14px",
                       cursor: "pointer",
                     },
                   },

@@ -60,5 +60,5 @@
 
 /* Make radio group spacing consistent */
 .MuiRadioGroup-root {
-  margin: var(--border-radius-md) 0;
+  margin: 8px 0;
 }

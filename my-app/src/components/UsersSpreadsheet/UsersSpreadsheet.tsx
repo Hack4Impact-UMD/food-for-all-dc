@@ -537,7 +537,7 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
                   sx={{
                     p: 2,
                     boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-                    borderRadius: "var(--spacing-sm12)",
+                    borderRadius: "12px",
                     transition: "transform 0.2s ease",
                     "&:hover": {
                       transform: "translateY(-2px)",
@@ -597,7 +597,7 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
                 maxHeight: "60vh",
                 overflowY: "auto",
                 boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
-                borderRadius: "var(--spacing-sm12)",
+                borderRadius: "12px",
               }}
             >
               <Table stickyHeader>
@@ -767,7 +767,7 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
         anchorEl={menuAnchorEl}
         open={Boolean(menuAnchorEl)}
         onClose={handleMenuClose}
-        PaperProps={{ elevation: 3, sx: { borderRadius: "var(--border-radius-md)", minWidth: "150px" } }}
+        PaperProps={{ elevation: 3, sx: { borderRadius: "8px", minWidth: "150px" } }}
       >
         <MenuItem
           disabled={

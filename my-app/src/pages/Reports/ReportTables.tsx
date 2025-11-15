@@ -42,7 +42,7 @@ export default function ReportTables({ data, loading }: ReportDataProps) {
       style={{
         flex: 1,
         overflowY: "auto",
-        padding: "var(--spacing-md)",
+        padding: "16px",
         width: "90vw",
         backgroundColor: "var(--color-white)",
       }}
@@ -50,7 +50,7 @@ export default function ReportTables({ data, loading }: ReportDataProps) {
       <Box
         sx={{
           display: "flex",
-          gap: "var(--spacing-xs)",
+          gap: "5px",
           color: "var(--color-primary)",
           fontWeight: "bold",
           alignItems: "center",
@@ -93,7 +93,7 @@ export default function ReportTables({ data, loading }: ReportDataProps) {
             backgroundColor: "var(--color-white)",
             border: "none",
             boxShadow: "none",
-            borderRadius: "var(--border-radius-md)",
+            borderRadius: "8px",
             overflow: "hidden",
             padding: "0px",
           }}

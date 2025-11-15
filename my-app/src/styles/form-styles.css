@@ -9,17 +9,17 @@
 
 /* Ensure error messages have consistent heights */
 .form-error-container {
-  min-height: var(--spacing-lg);
-  height: var(--spacing-lg);
+  min-height: 20px;
+  height: 20px;
   display: flex;
   align-items: center;
-  margin: var(--spacing-xs3) 0;
+  margin: 3px 0;
 }
 
 /* Override MUI helper text to have consistent height */
 .MuiFormHelperText-root {
-  min-height: var(--spacing-lg) !important;
-  height: var(--spacing-lg) !important;
-  margin: var(--spacing-xs3) 0 !important;
-  line-height: var(--spacing-lg) !important;
+  min-height: 20px !important;
+  height: 20px !important;
+  margin: 3px 0 !important;
+  line-height: 20px !important;
 }

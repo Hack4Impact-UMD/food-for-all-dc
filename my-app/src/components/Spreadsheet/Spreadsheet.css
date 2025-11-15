@@ -19,7 +19,7 @@ body {
 }
 .box {
   width: 90vw;
-  border-radius: var(--border-radius-md);
+  border-radius: 8px;
   margin-top: 7.5vh;
 }
 
@@ -44,7 +44,7 @@ table .table-header {
   }
   .box {
     width: 90vw;
-    border-radius: var(--border-radius-md);
+    border-radius: 8px;
     margin-top: 0;
     height: calc(100vh - 80px); /* Adjust 80px if your header is taller/shorter */
     display: flex;

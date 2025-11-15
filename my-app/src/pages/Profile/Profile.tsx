@@ -80,7 +80,7 @@ const fieldStyles = {
   width: "60%",
   height: "1.813rem",
   padding: "0.1rem 0.5rem",
-  borderRadius: "var(--spacing-xs)",
+  borderRadius: "5px",
   border: ".1rem solid black",
   marginTop: "0px",
 };
@@ -111,8 +111,8 @@ const CustomTextField = styled(TextField)({
 
 const SectionBox = styled(Box)(({ theme }) => ({
   backgroundColor: "var(--color-white)",
-  borderRadius: "var(--border-radius-md)",
-  padding: "var(--spacing-lg)",
+  borderRadius: "8px",
+  padding: "20px",
   boxShadow: "0 2px 8px rgba(0, 0, 0, 0.06)",
   marginBottom: "20px",
   transition: "all 0.3s ease",
@@ -132,10 +132,10 @@ const SectionTitle = styled(Typography)(({ theme }) => ({
     position: "absolute",
     bottom: 0,
     left: 0,
-    width: "var(--spacing-xl40)",
-    height: "var(--spacing-xs3)",
+    width: "40px",
+    height: "3px",
     backgroundColor: "var(--color-primary)",
-    borderRadius: "var(--spacing-xs2)",
+    borderRadius: "2px",
   },
 }));
 
@@ -152,18 +152,18 @@ const StyledIconButton = styled(IconButton)({
 // Toast notification component for save confirmation
 const SaveNotification = styled(Box)({
   position: "fixed",
-  bottom: "var(--spacing-lg)",
-  right: "var(--spacing-lg)",
+  bottom: "20px",
+  right: "20px",
   backgroundColor: "var(--color-primary)",
   color: "var(--color-white)",
   padding: "16px 24px",
-  borderRadius: "var(--border-radius-md)",
+  borderRadius: "8px",
   boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)",
   zIndex: 1000,
   animation: "slideInAndFade 0.3s ease-out",
   display: "flex",
   alignItems: "center",
-  gap: "var(--border-radius-md)",
+  gap: "8px",
   "@keyframes slideInAndFade": {
     "0%": {
       transform: "translateY(20px)",
@@ -1458,10 +1458,10 @@ const Profile = () => {
       left: 0,
       top: "50%",
       transform: "translateY(-50%)",
-      width: "var(--spacing-xs3)",
-      height: "var(--spacing-sm14)",
+      width: "3px",
+      height: "14px",
       backgroundColor: "var(--color-primary)",
-      borderRadius: "var(--spacing-xs2)",
+      borderRadius: "2px",
     },
   };
 
@@ -1660,8 +1660,8 @@ const Profile = () => {
                 sx={{
                   width: "105%",
                   fontSize: "1rem",
-                  padding: "var(--spacing-sm)",
-                  minHeight: "var(--spacing-xl48)",
+                  padding: "10px",
+                  minHeight: "48px",
                   textAlign: "left",
                 }}
               >
@@ -1704,8 +1704,8 @@ const Profile = () => {
                 sx={{
                   width: "105%",
                   fontSize: "1rem",
-                  padding: "var(--spacing-sm)",
-                  minHeight: "var(--spacing-xl48)",
+                  padding: "10px",
+                  minHeight: "48px",
                   textAlign: "left",
                 }}
               >
@@ -1758,8 +1758,8 @@ const Profile = () => {
                 sx={{
                   width: "105%",
                   fontSize: "1rem",
-                  padding: "var(--spacing-sm)",
-                  minHeight: "var(--spacing-xl48)",
+                  padding: "10px",
+                  minHeight: "48px",
                   textAlign: "left",
                 }}
               >
@@ -1810,7 +1810,7 @@ const Profile = () => {
               width: "100%",
               height: "1.813rem",
               padding: "0.1rem 0.5rem",
-              borderRadius: "var(--spacing-xs)",
+              borderRadius: "5px",
               border: errors.language ? "1px solid red" : ".1rem solid black", // ← Add this conditional border
               marginTop: "0px",
             }}
@@ -1833,7 +1833,7 @@ const Profile = () => {
                 width: "100%",
                 height: "1.813rem",
                 padding: "0.1rem 0.5rem",
-                borderRadius: "var(--spacing-xs)",
+                borderRadius: "5px",
                 marginTop: "0px",
                 "& .MuiOutlinedInput-root": {
                   "& fieldset": {
@@ -1912,7 +1912,7 @@ const Profile = () => {
               width: "100%",
               height: "1.813rem",
               padding: "0.1rem 0.5rem",
-              borderRadius: "var(--spacing-xs)",
+              borderRadius: "5px",
               border: errors.ethnicity ? "1px solid red" : "1px solid black", //add conditional border
               marginTop: "0px",
             }}
@@ -1935,7 +1935,7 @@ const Profile = () => {
                 width: "100%",
                 height: "1.813rem",
                 padding: "0.1rem 0.5rem",
-                borderRadius: "var(--spacing-xs)",
+                borderRadius: "5px",
                 marginTop: "0px",
               }}
             />
@@ -1985,7 +1985,7 @@ const Profile = () => {
               width: "100%",
               height: "1.813rem",
               padding: "0.1rem 0.5rem",
-              borderRadius: "var(--spacing-xs)",
+              borderRadius: "5px",
               border: ".1rem solid black",
               marginTop: "0px",
               "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
@@ -2031,7 +2031,7 @@ const Profile = () => {
               width: "100%",
               height: "1.813rem",
               padding: "0.1rem 0.5rem",
-              borderRadius: "var(--spacing-xs)",
+              borderRadius: "5px",
               border: ".1rem solid black",
               marginTop: "0px",
               "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
@@ -2091,7 +2091,7 @@ const Profile = () => {
               width: "100%",
               height: "1.813rem",
               padding: "0.1rem 0.5rem",
-              borderRadius: "var(--spacing-xs)",
+              borderRadius: "5px",
               border: ".1rem solid black",
               marginTop: "0px",
               "&.Mui-focused .MuiOutlinedInput-notchedOutline": {

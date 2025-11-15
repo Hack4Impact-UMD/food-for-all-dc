@@ -15,7 +15,7 @@ body {
 }
 .box {
   width: 90vw;
-  border-radius: var(--border-radius-md);
+  border-radius: 8px;
   margin-top: 7.5vh;
 }
 

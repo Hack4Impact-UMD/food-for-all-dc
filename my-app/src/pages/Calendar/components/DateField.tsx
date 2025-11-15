@@ -123,7 +123,7 @@ const DateField: React.FC<DateFieldProps> = ({
         className: "form-error",
         style: {
           visibility: error ? "visible" : "visible",
-          minHeight: "var(--spacing-lg)",
+          minHeight: "20px",
         },
       }}
       fullWidth

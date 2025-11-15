@@ -318,7 +318,7 @@ const MaskedDateField: React.FC<MaskedDateFieldProps> = ({
           height: "38px",
           backgroundColor: "var(--color-white)",
           border: !!error || !!props.error ? "1px solid var(--color-error)" : ".1rem solid black",
-          borderRadius: "var(--spacing-xs)",
+          borderRadius: "5px",
           padding: "0 8px",
           "&:focus-within": {
             border: "2px solid var(--color-primary)",
@@ -337,7 +337,7 @@ const MaskedDateField: React.FC<MaskedDateFieldProps> = ({
           onBlur={handleBlur}
           onKeyDown={(e) => handleKeyDown(e, "month")}
           style={{
-            width: "var(--spacing-lg24)",
+            width: "24px",
             border: "none",
             background: "var(--color-transparent)",
             textAlign: "center",
@@ -359,7 +359,7 @@ const MaskedDateField: React.FC<MaskedDateFieldProps> = ({
           onBlur={handleBlur}
           onKeyDown={(e) => handleKeyDown(e, "day")}
           style={{
-            width: "var(--spacing-lg24)",
+            width: "24px",
             border: "none",
             background: "var(--color-transparent)",
             textAlign: "center",
@@ -381,7 +381,7 @@ const MaskedDateField: React.FC<MaskedDateFieldProps> = ({
           onBlur={handleBlur}
           onKeyDown={(e) => handleKeyDown(e, "year")}
           style={{
-            width: "var(--spacing-xl48)",
+            width: "48px",
             border: "none",
             background: "var(--color-transparent)",
             textAlign: "center",
@@ -447,7 +447,7 @@ const MaskedDateField: React.FC<MaskedDateFieldProps> = ({
             position: "absolute",
             bottom: "-20px",
             left: 0,
-            minHeight: "var(--spacing-lg)",
+            minHeight: "20px",
             fontSize: "0.75rem",
             color: !!error || !!props.error ? "var(--color-error)" : "rgba(0, 0, 0, 0.6)",
             lineHeight: "1.66",

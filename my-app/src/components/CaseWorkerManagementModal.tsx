@@ -238,7 +238,7 @@ const CaseWorkerManagementModal: React.FC<CaseWorkerManagementModalProps> = ({
         fullWidth
         PaperProps={{
           sx: {
-            borderRadius: "var(--spacing-sm12)",
+            borderRadius: "12px",
             maxWidth: "800px",
           },
         }}
@@ -276,7 +276,7 @@ const CaseWorkerManagementModal: React.FC<CaseWorkerManagementModalProps> = ({
                 mt: 2,
                 backgroundColor: "rgba(37, 126, 104, 0.04)",
                 p: 3,
-                borderRadius: "var(--border-radius-md)",
+                borderRadius: "8px",
                 border: "1px solid rgba(37, 126, 104, 0.2)",
               }}
             >
@@ -359,7 +359,7 @@ const CaseWorkerManagementModal: React.FC<CaseWorkerManagementModalProps> = ({
             sx={{
               boxShadow: "none",
               border: "1px solid rgba(0, 0, 0, 0.12)",
-              borderRadius: "var(--border-radius-md)",
+              borderRadius: "8px",
               "& .MuiTableCell-root": {
                 py: 2,
               },
@@ -618,7 +618,7 @@ const CaseWorkerManagementModal: React.FC<CaseWorkerManagementModalProps> = ({
         aria-describedby="delete-dialog-description"
         PaperProps={{
           sx: {
-            borderRadius: "var(--border-radius-md)",
+            borderRadius: "8px",
             maxWidth: "450px",
           },
         }}

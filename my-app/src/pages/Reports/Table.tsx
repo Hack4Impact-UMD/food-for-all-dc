@@ -36,7 +36,7 @@ export default function Table({ data }: TableProps) {
                 justifyContent: "space-between",
                 alignItems: "center",
                 backgroundColor: "#f0f0f0ff",
-                padding: "var(--spacing-sm)",
+                padding: "10px",
                 marginBottom: "10px",
                 width: isFullRowAdjusted ? "100%" : "49.5%",
               }}

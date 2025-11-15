@@ -263,8 +263,8 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({ open, handleClose }) 
                       edge="end"
                       disabled={isSubmitting}
                       sx={{
-                        height: "var(--spacing-xl40)",
-                        width: "var(--spacing-xl40)",
+                        height: "40px",
+                        width: "40px",
                         padding: 0,
                         display: "flex",
                         alignItems: "center",
@@ -308,8 +308,8 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({ open, handleClose }) 
                   alignItems: "center",
                 },
                 "& .MuiIconButton-root": {
-                  height: "var(--spacing-xl40)",
-                  width: "var(--spacing-xl40)",
+                  height: "40px",
+                  width: "40px",
                   padding: 0,
                   display: "flex",
                   alignItems: "center",
@@ -350,8 +350,8 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({ open, handleClose }) 
                       edge="end"
                       disabled={isSubmitting}
                       sx={{
-                        height: "var(--spacing-xl40)",
-                        width: "var(--spacing-xl40)",
+                        height: "40px",
+                        width: "40px",
                         padding: 0,
                         display: "flex",
                         alignItems: "center",
@@ -398,8 +398,8 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({ open, handleClose }) 
                   alignItems: "center",
                 },
                 "& .MuiIconButton-root": {
-                  height: "var(--spacing-xl40)",
-                  width: "var(--spacing-xl40)",
+                  height: "40px",
+                  width: "40px",
                   padding: 0,
                   display: "flex",
                   alignItems: "center",

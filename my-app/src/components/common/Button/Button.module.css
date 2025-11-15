@@ -14,7 +14,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: var(--spacing-xs6);
+  gap: 6px;
   min-width: fit-content;
   overflow: visible;
 }
@@ -49,13 +49,13 @@
 }
 
 .iconOnly {
-  min-width: var(--spacing-xl40);
+  min-width: 40px;
   width: auto;
   padding: var(--spacing-sm);
 }
 
 .iconOnly.small {
-  min-width: var(--spacing-xl);
+  min-width: 32px;
   padding: var(--spacing-xs);
 }
 
@@ -94,6 +94,6 @@
 }
 
 .small .icon svg {
-  width: var(--spacing-md);
-  height: var(--spacing-md);
+  width: 16px;
+  height: 16px;
 }

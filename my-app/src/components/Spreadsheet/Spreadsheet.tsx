@@ -676,7 +676,7 @@ const Spreadsheet: React.FC = () => {
                 >
                   <DialogTitle>Export Options</DialogTitle>
                   <DialogContent sx={{ pt: 3, overflow: "visible" }}>
-                    <Box sx={{ display: "flex", flexDirection: "column", gap: "var(--spacing-md)" }}>
+                    <Box sx={{ display: "flex", flexDirection: "column", gap: "16px" }}>
                       <Button
                         variant="contained"
                         color="primary"
@@ -754,7 +754,7 @@ const Spreadsheet: React.FC = () => {
             sx={{
               height: "100%",
               boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
-              borderRadius: "var(--spacing-sm12)",
+              borderRadius: "12px",
               overflow: "auto",
               minHeight: 0,
             }}
@@ -802,7 +802,7 @@ const Spreadsheet: React.FC = () => {
             sx={{
               height: "100%",
               boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
-              borderRadius: "var(--spacing-sm12)",
+              borderRadius: "12px",
               overflow: "auto",
               minHeight: 0,
             }}
@@ -871,7 +871,7 @@ const Spreadsheet: React.FC = () => {
                         width: 200,
                         minWidth: 200,
                         maxWidth: 200,
-                        padding: "var(--border-radius-md)",
+                        padding: "8px",
                       }}
                     >
                       <Box
@@ -926,7 +926,7 @@ const Spreadsheet: React.FC = () => {
                           }}
                           sx={{
                             color: "var(--color-error-text)",
-                            padding: "var(--spacing-xs2)",
+                            padding: "2px",
                             minWidth: "auto",
                             "&:hover": {
                               backgroundColor: "rgba(211, 47, 47, 0.04)",
@@ -944,7 +944,7 @@ const Spreadsheet: React.FC = () => {
                             }}
                             sx={{
                               color: "var(--color-primary)",
-                              padding: "var(--spacing-xs2)",
+                              padding: "2px",
                               minWidth: "auto",
                               "&:hover": {
                                 backgroundColor: "rgba(37, 126, 104, 0.04)",
@@ -1075,7 +1075,7 @@ const Spreadsheet: React.FC = () => {
                         setMenuAnchorPosition(null);
                         setMenuRow(null);
                       }}
-                      PaperProps={{ elevation: 3, sx: { borderRadius: "var(--border-radius-md)", minWidth: "150px" } }}
+                      PaperProps={{ elevation: 3, sx: { borderRadius: "8px", minWidth: "150px" } }}
                     >
                       <MenuItem
                         onClick={() => {

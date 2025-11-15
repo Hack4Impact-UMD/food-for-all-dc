@@ -75,7 +75,7 @@ const Modal: React.FC<ModalProps> = ({
       className={styles.modal}
       sx={{
         "& .MuiDialog-paper": {
-          borderRadius: "var(--spacing-sm12)",
+          borderRadius: "12px",
           boxShadow: "0 8px 32px rgba(0, 0, 0, 0.12)",
           overflow: "visible",
         },

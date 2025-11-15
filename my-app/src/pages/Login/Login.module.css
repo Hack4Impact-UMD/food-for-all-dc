@@ -3,7 +3,7 @@
   height: 78vh;
   align-items: stretch;
   justify-content: center;
-  margin: var(--spacing-xl) auto;
+  margin: 2rem auto;
   max-width: 1200px;
   border-radius: var(--border-radius-lg);
   overflow: hidden;
@@ -156,7 +156,7 @@
   color: var(--color-primary);
   text-decoration: none;
   transition: all 0.2s ease;
-  padding: 4px var(--border-radius-md);
+  padding: 4px 8px;
   border-radius: var(--border-radius-sm);
   margin: 0;
 }
@@ -169,9 +169,9 @@
 
 .resetMessage {
   color: var(--color-primary);
-  margin: 0 0 var(--spacing-md);
+  margin: 0 0 16px;
   text-align: center;
-  padding: 10px var(--spacing-sm12);
+  padding: 10px 12px;
   border-radius: var(--border-radius-sm);
   background-color: rgba(37, 126, 104, 0.08);
   font-size: var(--font-size-sm);
@@ -226,7 +226,7 @@
   color: var(--color-text-secondary);
   font-weight: 500;
   transition: all 0.2s ease;
-  padding-left: var(--spacing-md);
+  padding-left: 16px;
 }
 
 :global .MuiInputLabel-root.Mui-focused {
@@ -238,7 +238,7 @@
 }
 
 :global .MuiInput-underline:after {
-  border-bottom: var(--spacing-xs2) solid var(--color-primary);
+  border-bottom: 2px solid var(--color-primary);
 }
 
 :global .MuiInput-underline:hover:not(.Mui-disabled):before {
@@ -247,7 +247,7 @@
 
 :global .MuiIconButton-root {
   transition: all 0.2s ease;
-  padding: var(--spacing-xs4);
+  padding: 4px;
 }
 
 :global .MuiSvgIcon-fontSizeSmall {
@@ -263,7 +263,7 @@
   box-shadow: var(--shadow-lg) !important;
   overflow: visible;
   background: var(--color-white);
-  border-top: var(--spacing-xs3) solid var(--color-primary);
+  border-top: 3px solid var(--color-primary);
   border-radius: var(--border-radius-md);
 }
 
@@ -276,12 +276,12 @@
 }
 
 :global .MuiDialogActions-root {
-  padding-top: var(--border-radius-md);
+  padding-top: 8px;
   background-color: var(--color-white);
   border-bottom-left-radius: var(--border-radius-md);
   border-bottom-right-radius: var(--border-radius-md);
   overflow: hidden;
-  padding-bottom: var(--spacing-md);
+  padding-bottom: 16px;
 }
 
 :global .MuiDialogTitle-root {
@@ -294,7 +294,7 @@
   .outerContainer {
     width: 90%;
     height: auto;
-    margin: var(--spacing-lg24) auto;
+    margin: 1.5rem auto;
   }
 }
 
@@ -304,7 +304,7 @@
     height: auto;
     max-height: none;
     width: 90%;
-    margin: var(--spacing-md) auto;
+    margin: 1rem auto;
     border-radius: var(--border-radius-md);
   }
 

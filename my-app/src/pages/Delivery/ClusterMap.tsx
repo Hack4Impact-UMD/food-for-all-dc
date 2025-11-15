@@ -579,8 +579,8 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
       }
       const numberIcon = L.divIcon({
         html: `<div style="
-              width: var(--spacing-lg);
-              height: var(--spacing-lg);
+              width: 20px;
+              height: 20px;
               background-color: ${clusterId ? clusterColors[colorIndex] : "var(--color-primary)"};
               border: 1px solid black;
               border-radius: 50%;
@@ -669,9 +669,9 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
         popupContainer.innerHTML = `
           <div style="font-family: Arial, sans-serif; line-height: 1.4; min-width: 250px;">
             <div id="view-mode-${clientId}" style="display: block;">
-              <div style="font-weight: bold; margin-bottom: var(--spacing-xs); display: flex; align-items: center; justify-content: space-between;">
+              <div style="font-weight: bold; margin-bottom: 5px; display: flex; align-items: center; justify-content: space-between;">
                 <span>${clientName}</span>
-                ${clusterId ? `<span style="cursor: pointer; padding: 2px 4px; border-radius: var(--spacing-xs3); margin-left: var(--spacing-sm);" id="edit-btn-${clientId}" title="Edit">✏️</span>` : ""}
+                ${clusterId ? `<span style="cursor: pointer; padding: 2px 4px; border-radius: 3px; margin-left: 10px;" id="edit-btn-${clientId}" title="Edit">✏️</span>` : ""}
               </div>
               ${
                 clusterId
@@ -686,35 +686,35 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
               <div><span style="font-weight: bold;">Address:</span> ${address}</div>
             </div>
             <div id="edit-mode-${clientId}" style="display: none;">
-              <div style="font-weight: bold; margin-bottom: var(--spacing-sm);">${clientName}</div>
-              <div style="margin-bottom: var(--border-radius-md); display: flex; align-items: center; gap: var(--border-radius-md);">
+              <div style="font-weight: bold; margin-bottom: 10px;">${clientName}</div>
+              <div style="margin-bottom: 8px; display: flex; align-items: center; gap: 8px;">
                 <label style="font-weight: bold; min-width: 60px; font-size: 12px;">Cluster:</label>
-                <select id="cluster-select-${clientId}" style="flex: 1; padding: var(--spacing-xs3); border: 1px solid var(--color-border-input); border-radius: var(--spacing-xs3); font-size: 11px; background-color: ${clusterId ? getClusterColor(clusterId) : "var(--color-background-main)"}; color: ${clusterId ? getTextColorForBackground(getClusterColor(clusterId)) : "black"}; height: 24px !important; min-height: 24px !important; max-height: 24px !important; line-height: 1.1 !important;">
+                <select id="cluster-select-${clientId}" style="flex: 1; padding: 3px; border: 1px solid var(--color-border-input); border-radius: 3px; font-size: 11px; background-color: ${clusterId ? getClusterColor(clusterId) : "var(--color-background-main)"}; color: ${clusterId ? getTextColorForBackground(getClusterColor(clusterId)) : "black"}; height: 24px !important; min-height: 24px !important; max-height: 24px !important; line-height: 1.1 !important;">
                   <option value="" style="background-color: var(--color-background-main); color: var(--color-black);">No cluster</option>
                   ${clusters.map((c) => `<option value="${c.id}" ${c.id === clusterId ? "selected" : ""} style="background-color: ${getClusterColor(c.id)}; color: ${getTextColorForBackground(getClusterColor(c.id))}; font-weight: bold;">${c.id}</option>`).join("")}
                   <option value="__add__" style="background-color: var(--color-border-input); color: var(--color-text-dark); font-weight: bold;">+ Add Cluster</option>
                 </select>
               </div>
-              <div style="margin-bottom: var(--border-radius-md); display: flex; align-items: center; gap: var(--border-radius-md);">
+              <div style="margin-bottom: 8px; display: flex; align-items: center; gap: 8px;">
                 <label style="font-weight: bold; min-width: 60px; font-size: 12px;">Driver:</label>
-                <select id="driver-select-${clientId}" style="flex: 1; padding: var(--spacing-xs3); border: 1px solid var(--color-border-input); border-radius: var(--spacing-xs3); font-size: 11px; height: 24px !important; min-height: 24px !important; max-height: 24px !important; line-height: 1.1 !important;">
+                <select id="driver-select-${clientId}" style="flex: 1; padding: 3px; border: 1px solid var(--color-border-input); border-radius: 3px; font-size: 11px; height: 24px !important; min-height: 24px !important; max-height: 24px !important; line-height: 1.1 !important;">
                   <option value="">No driver</option>
                   ${drivers.map((d) => `<option value="${d.name}" ${d.name === effectiveDriver ? "selected" : ""}>${d.name}${d.phone ? ` - ${d.phone}` : ""}</option>`).join("")}
                 </select>
               </div>
-              <div style="margin-bottom: var(--spacing-sm); display: flex; align-items: center; gap: var(--border-radius-md);">
+              <div style="margin-bottom: 10px; display: flex; align-items: center; gap: 8px;">
                 <label style="font-weight: bold; min-width: 60px; font-size: 12px;">Time:</label>
-                <select id="time-select-${clientId}" style="flex: 1; padding: var(--spacing-xs3); border: 1px solid var(--color-border-input); border-radius: var(--spacing-xs3); font-size: 11px; height: 24px !important; min-height: 24px !important; max-height: 24px !important; line-height: 1.1 !important;">
+                <select id="time-select-${clientId}" style="flex: 1; padding: 3px; border: 1px solid var(--color-border-input); border-radius: 3px; font-size: 11px; height: 24px !important; min-height: 24px !important; max-height: 24px !important; line-height: 1.1 !important;">
                   <option value="">No time</option>
                   ${TIME_SLOTS.map((t) => `<option value="${t}" ${t === formatTimeForDisplay(effectiveTime) ? "selected" : ""}>${t}</option>`).join("")}
                 </select>
               </div>
-              <div style="display: flex; gap: var(--border-radius-md);">
-                <button id="save-btn-${clientId}" style="flex: 1; padding: 6px 12px; background: var(--color-success-button); color: var(--color-white); border: none; border-radius: var(--spacing-xs3); cursor: pointer;">Save</button>
-                <button id="cancel-btn-${clientId}" style="flex: 1; padding: 6px 12px; background: var(--color-cancel-button); color: var(--color-white); border: none; border-radius: var(--spacing-xs3); cursor: pointer;">Cancel</button>
+              <div style="display: flex; gap: 8px;">
+                <button id="save-btn-${clientId}" style="flex: 1; padding: 6px 12px; background: var(--color-success-button); color: var(--color-white); border: none; border-radius: 3px; cursor: pointer;">Save</button>
+                <button id="cancel-btn-${clientId}" style="flex: 1; padding: 6px 12px; background: var(--color-cancel-button); color: var(--color-white); border: none; border-radius: 3px; cursor: pointer;">Cancel</button>
               </div>
-              ${ward ? `<div style="margin-top: var(--border-radius-md);"><span style="font-weight: bold;">Ward:</span> ${ward}</div>` : ""}
-              <div style="margin-top: var(--border-radius-md);"><span style="font-weight: bold;">Address:</span> ${address}</div>
+              ${ward ? `<div style="margin-top: 8px;"><span style="font-weight: bold;">Ward:</span> ${ward}</div>` : ""}
+              <div style="margin-top: 8px;"><span style="font-weight: bold;">Address:</span> ${address}</div>
             </div>
           </div>
         `;
@@ -934,9 +934,9 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
             const viewModeContent = popupContainer.querySelector(`#view-mode-${clientId}`);
             if (viewModeContent) {
               viewModeContent.innerHTML = `
-                <div style="font-weight: bold; margin-bottom: var(--spacing-xs); display: flex; align-items: center; justify-content: space-between;">
+                <div style="font-weight: bold; margin-bottom: 5px; display: flex; align-items: center; justify-content: space-between;">
                   <span>${clientName}</span>
-                  ${newClusterId ? `<span style="cursor: pointer; padding: 2px 4px; border-radius: var(--spacing-xs3); margin-left: var(--spacing-sm);" id="edit-btn-${clientId}" title="Edit">✏️</span>` : ""}
+                  ${newClusterId ? `<span style="cursor: pointer; padding: 2px 4px; border-radius: 3px; margin-left: 10px;" id="edit-btn-${clientId}" title="Edit">✏️</span>` : ""}
                 </div>
                 ${
                   newClusterId
@@ -1051,8 +1051,8 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
         background-color: var(--color-white);
         border: 2px solid purple;
         border-radius: 50%;
-        width: var(--spacing-lg);
-        height: var(--spacing-lg);
+        width: 20px;
+        height: 20px;
         display: flex;
         justify-content: center;
         align-items: center;
@@ -1100,7 +1100,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
           width: "100%",
           marginBottom: "20px",
           border: "1px solid var(--color-border-light)",
-          borderRadius: "var(--spacing-xs4)",
+          borderRadius: "4px",
         }}
       />
 
@@ -1108,11 +1108,11 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
       <Box
         sx={{
           position: "absolute",
-          bottom: "var(--spacing-sm)",
-          left: "var(--spacing-sm)",
+          bottom: "10px",
+          left: "10px",
           backgroundColor: "rgba(255, 255, 255, 0.9)",
           padding: "8px 12px",
-          borderRadius: "var(--spacing-xs6)",
+          borderRadius: "6px",
           boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
           zIndex: 1000,
           minWidth: "180px",
@@ -1147,10 +1147,10 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
           sx={{
             position: "absolute",
             bottom: "80px",
-            left: "var(--spacing-sm)",
+            left: "10px",
             backgroundColor: "rgba(255, 255, 255, 0.95)",
-            padding: "var(--spacing-sm12)",
-            borderRadius: "var(--spacing-xs6)",
+            padding: "12px",
+            borderRadius: "6px",
             boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
             zIndex: 1000,
             maxWidth: "200px",
@@ -1159,17 +1159,17 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
           <Typography variant="body2" sx={{ fontWeight: "bold", mb: 1, fontSize: "12px" }}>
             DC Wards
           </Typography>
-          <Box sx={{ display: "flex", flexDirection: "column", gap: "var(--spacing-xs4)" }}>
+          <Box sx={{ display: "flex", flexDirection: "column", gap: "4px" }}>
             {Object.entries(wardColors).map(([wardName, color]) => (
-              <Box key={wardName} sx={{ display: "flex", alignItems: "center", gap: "var(--border-radius-md)" }}>
+              <Box key={wardName} sx={{ display: "flex", alignItems: "center", gap: "8px" }}>
                 <Box
                   sx={{
-                    width: "var(--spacing-md)",
-                    height: "var(--spacing-md)",
+                    width: "16px",
+                    height: "16px",
                     backgroundColor: color,
                     opacity: 0.7,
                     border: `1px solid ${color}`,
-                    borderRadius: "var(--spacing-xs2)",
+                    borderRadius: "2px",
                     flexShrink: 0,
                   }}
                 />
@@ -1192,7 +1192,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
           justifyContent: "center",
           alignItems: "center",
           position: "absolute",
-          top: "var(--spacing-sm)",
+          top: "10px",
           left: "60px", // Position next to zoom controls (which are typically 40px wide + 10px margin)
           width: 50,
           height: 50,
@@ -1210,11 +1210,11 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
         <div
           style={{
             position: "absolute",
-            top: "var(--spacing-sm)",
-            right: "var(--spacing-sm)",
+            top: "10px",
+            right: "10px",
             backgroundColor: "var(--color-white)",
             padding: "5px 10px",
-            borderRadius: "var(--spacing-xs3)",
+            borderRadius: "3px",
             boxShadow: "0 0 5px rgba(0,0,0,0.2)",
             zIndex: 1000,
             color: "red",

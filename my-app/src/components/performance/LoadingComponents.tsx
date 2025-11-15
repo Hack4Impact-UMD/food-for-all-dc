@@ -78,7 +78,7 @@ const SkeletonLoader = withPerformanceOptimization(
               width: typeof width === "string" ? width : `${width}px`,
               marginBottom: "8px",
               backgroundColor: "var(--color-border-lighter)",
-              borderRadius: "var(--spacing-xs4)",
+              borderRadius: "4px",
               animation: "skeleton-pulse 1.5s ease-in-out infinite",
             }}
           />

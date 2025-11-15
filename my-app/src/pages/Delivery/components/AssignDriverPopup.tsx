@@ -161,7 +161,7 @@ export default function AssignDriverPopup({
               }
               sx={{
                 ".MuiOutlinedInput-root": {
-                  height: "var(--spacing-xl40)",
+                  height: "40px",
                 },
                 ".MuiOutlinedInput-input": {
                   display: "flex",

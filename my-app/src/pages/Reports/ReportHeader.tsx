@@ -32,7 +32,7 @@ export default function ReportHeader({
         backgroundColor: "var(--color-white)",
         display: "flex",
         flexDirection: "column",
-        gap: "var(--border-radius-md)",
+        gap: "8px",
         marginTop: "0%",
       }}
     >
@@ -43,7 +43,7 @@ export default function ReportHeader({
           justifyContent: "space-between",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: "var(--border-radius-md)" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
           <DateRangePicker
             startDate={startDate}
             endDate={endDate}
@@ -52,7 +52,7 @@ export default function ReportHeader({
           ></DateRangePicker>
         </div>
 
-        <div style={{ display: "flex", gap: "var(--border-radius-md)" }}>
+        <div style={{ display: "flex", gap: "8px" }}>
           <Button
             variant="contained"
             sx={{ backgroundColor: "var(--color-primary)" }}
