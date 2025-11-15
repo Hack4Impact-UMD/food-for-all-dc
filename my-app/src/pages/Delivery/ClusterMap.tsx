@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useCallback, useMemo } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "leaflet.awesome-markers";
@@ -108,9 +108,18 @@ const normalizeCoordinate = (coord: any): Coordinate => {
 
 // Common time slots array - same as used in delivery page
 const TIME_SLOTS = [
-  "8:00 AM", "9:00 AM", "10:00 AM", "11:00 AM", 
-  "12:00 PM", "1:00 PM", "2:00 PM", "3:00 PM", 
+  "8:00 AM", "9:00 AM", "10:00 AM", "11:00 AM",
+  "12:00 PM", "1:00 PM", "2:00 PM", "3:00 PM",
   "4:00 PM", "5:00 PM"
+];
+
+const clusterColors = [
+  "#FF0000", "#00FF00", "#0000FF", "#FFFF00", "#FF00FF",
+  "#00FFFF", "#FFA500", "#800080", "#008000", "#000080",
+  "#FF4500", "#4B0082", "#FF6347", "#32CD32", "#9370DB",
+  "#FF69B4", "#40E0D0", "#FF8C00", "#7CFC00", "#8A2BE2",
+  "#FF1493", "#1E90FF", "#228B22", "#9400D3", "#DC143C",
+  "#20B2AA", "#9932CC", "#FFD700", "#8B0000", "#4169E1"
 ];
 
 const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOverrides = [], onClusterUpdate, onOpenPopup, onMarkerClick, onClearHighlight, refreshDriversTrigger }) => {
@@ -165,17 +174,6 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [loadingDrivers, setLoadingDrivers] = useState<boolean>(false);
 
-  // Color palette for clusters - memoized to prevent re-renders
-  const clusterColors = useMemo(() => [
-    "#FF0000", "#00FF00", "#0000FF", "#FFFF00", "#FF00FF",
-    "#00FFFF", "#FFA500", "#800080", "#008000", "#000080",
-    "#FF4500", "#4B0082", "#FF6347", "#32CD32", "#9370DB",
-    "#FF69B4", "#40E0D0", "#FF8C00", "#7CFC00", "#8A2BE2",
-    "#FF1493", "#1E90FF", "#228B22", "#9400D3", "#DC143C",
-    "#20B2AA", "#9932CC", "#FFD700", "#8B0000", "#4169E1"
-  ], []);
-
-  // Helper function to get cluster color - stable via useCallback
   const getClusterColor = useCallback((clusterIdToCheck: string): string => {
     if (!clusterIdToCheck) return "#ffffff";
     const clusterIdStr = String(clusterIdToCheck);
@@ -190,7 +188,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
       }
       return clusterColors[Math.abs(hash) % clusterColors.length];
     }
-  }, [clusterColors]);
+  }, []);
 
   // Helper function to determine best text color based on background brightness
   const getTextColorForBackground = useCallback((backgroundColor: string): string => {
@@ -981,7 +979,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({ visibleRows, clusters, clientOv
         padding: [50, 50] 
       });
     }
-  }, [visibleRows, clusters, drivers, clientOverrides, getClusterColor, getTextColorForBackground, clusterColors, onClusterUpdate, onMarkerClick]);
+  }, [visibleRows, clusters, drivers, clientOverrides, getClusterColor, getTextColorForBackground, onClusterUpdate, onMarkerClick]);
 
   const invalidCount = visibleRows.filter(
     (client) => !isValidCoordinate(client.coordinates)
