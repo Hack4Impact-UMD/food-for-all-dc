@@ -1,5 +1,7 @@
 import { retry } from "../utils/retry";
 import { ServiceError, formatServiceError } from "../utils/serviceError";
+
+// Not used anywhere in UI but measures performance metrics (LCP, FID, CLS, etc.)
 class PerformanceMonitor {
   private static instance: PerformanceMonitor;
   private metrics: Map<string, number[]> = new Map();
