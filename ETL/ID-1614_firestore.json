@@ -1,0 +1,88 @@
+{
+  "gender": "Other",
+  "language": "English",
+  "city": "Washington",
+  "quadrant": "",
+  "lastName": "Ball",
+  "referralEntity": {
+    "organization": "MBI Health services",
+    "id": "",
+    "name": "Mosunmola Akinwumi"
+  },
+  "lifestyleGoals": "",
+  "state": "DC",
+  "ward": 6,
+  "mentalHealthConditions": {
+    "other": true,
+     "otherText": ""
+  },
+  "address2": "",
+  "deliveryDetails": {
+    "deliveryInstructions": "MUST CALL FIRST. Concierge will open building door.. Concierge will contact Mr. Ball. If he is not there, concierge will tell them where to leave food..",
+    "dietaryRestrictions": {
+      "lowSodium": false,
+      "vegetarian": false,
+      "softFood": false,
+      "otherText": "provide more food for grandkids",
+      "heartFriendly": false,
+      "kidneyFriendly": false,
+      "halal": false,
+      "other": true,
+      "noCookingEquipment": false,
+      "lowSugar": false,
+      "vegan": false,
+      "foodAllergens": [],
+      "microwaveOnly": false
+    }
+  },
+  "lifeChallengesTimestamp": null,
+  "recurrence": "",
+  "address": "1111 New Jersey Avenue SE",
+  "streetName": "1111 New Jersey Avenue SE",
+  "adults": 1,
+  "total": 4,
+  "deliveryFreq": "Monthly",
+  "lifestyleGoalsTimestamp": null,
+  "dob": "",
+  "children": 3,
+  "seniors": 0,
+  "zipCode": "",
+  "physicalAilments": {
+    "cancer": false,
+    "other": true,
+    "diabetes": false,
+    "kidneyDisease": false,
+    "hypertension": false,
+      "otherText": "",
+    "heartDisease": false
+  },
+  "createdAt": "2025-12-03T14:07:47.348076+00:00",
+  "updatedAt": "2025-12-03T14:07:47.348094+00:00",
+  "phone": "(202) 817-4431",
+  "tags": [
+    "TEFAPOnFile",
+    "Active"
+  ],
+  "physicalDisability": {
+    "other": true,
+     "otherText": ""
+  },
+  "endDate": "12/31/2026",
+  "deliveryInstructionsTimestamp": null,
+  "ethnicity": "",
+  "headOfHousehold": "Adult",
+  "lifeChallenges": "disability mental health",
+  "uid": "ID-1614",
+  "email": "",
+  "tefapCert": "Eligible",
+  "alternativePhone": "",
+  "firstName": "Kenneth",
+  "coordinates": [
+    38.8773066,
+    -77.0045753
+  ],
+  "activeStatus": true,
+  "startDate": "11/29/2023",
+  "adminNotes": "Poor mental",
+  "notesTimestamp": null
+}

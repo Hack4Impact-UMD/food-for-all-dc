@@ -491,6 +491,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
       // Set up function to clear row highlighting
       (window as any).clearRowHighlight = () => {
         if (onClearHighlight) {
+          console.log("ClusterMap: window.clearRowHighlight triggers onClearHighlight()");
           onClearHighlight();
         }
       };
@@ -512,6 +513,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
             // Always clear the highlight when any popup closes
             // Since we can only have one highlighted row at a time, this is safe
             if (onClearHighlight) {
+              console.log("ClusterMap: popup close triggers onClearHighlight()");
               onClearHighlight();
             }
           }, 200);

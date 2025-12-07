@@ -1,0 +1,119 @@
+[TOP-DEBUG] Starting main()
+[TOP-DEBUG] About to load sheet: Clients Main Information
+DataFrame columns after loading: [' ', 'FIRST', 'LAST', 'Client Full Name', 'ADDRESS', 'APT #', 'ZIP', 'Frequency', 'Active', 'Quadrant', 'Ward', 'Phone', '# Adults', '# Children', 'HH Size', 'Start Date', 'End Date', 'Delivery Instructions', 'Diet type', 'Dietary Restrictions', 'Description of Status', 'Notes', 'REFERRAL ENTITY', 'TEFAP FY25', 'Language']
+Type of record_id: <class 'str'>, repr: 'ID-0004'
+[TOP-DEBUG] DataFrame columns: [' ', 'FIRST', 'LAST', 'Client Full Name', 'ADDRESS', 'APT #', 'ZIP', 'Frequency', 'Active', 'Quadrant', 'Ward', 'Phone', '# Adults', '# Children', 'HH Size', 'Start Date', 'End Date', 'Delivery Instructions', 'Diet type', 'Dietary Restrictions', 'Description of Status', 'Notes', 'REFERRAL ENTITY', 'TEFAP FY25', 'Language']
+[TOP-DEBUG] First 5 values for column ' ': ['ID-0001', 'ID-0002', 'ID-0003', 'ID-0004', 'ID-0005']
+[TOP-DEBUG] First 5 values for column 'FIRST': ['Paula', 'David', 'Jeff', 'Leticia', 'DEONA']
+[TOP-DEBUG] First 5 values for column 'LAST': ['Lewis', 'Suarec', 'Foster', 'Del Carmen', 'THORNTON']
+[TOP-DEBUG] First 5 values for column 'Client Full Name': ['Paula Lewis', 'David Suarec', 'Jeff Foster', 'Leticia Del Carmen', 'DEONA THORNTON']
+[TOP-DEBUG] First 5 values for column 'ADDRESS': ['1901 Rosedale St NE Apt 3', '752 Rock Creek Church Rd NW', '11 Nicholson St NW Apt 201', '1814 IRVING ST NE Apt 207', '1440 V ST NW Apt 706']
+[TOP-DEBUG] First 5 values for column 'APT #': ['Apt 3', 'nan', 'Apt 201', 'Apt 207', 'Apt 706']
+[TOP-DEBUG] First 5 values for column 'ZIP': ['20002', '20010', '20011', '20018', '20009']
+[TOP-DEBUG] First 5 values for column 'Frequency': ['nan', 'PERIODIC', '1 x MONTH', 'Monthly', '1 x MONTH']
+[TOP-DEBUG] First 5 values for column 'Active': ['0.0', '0.0', '0.0', '1.0', '0.0']
+[TOP-DEBUG] First 5 values for column 'Quadrant': ['NE', 'NW', 'NW', 'NE', 'NW']
+[TOP-DEBUG] First 5 values for column 'Ward': ['7', '1', '4', '5', '1']
+[TOP-DEBUG] First 5 values for column 'Phone': ['2029358840', '(202) 560-8961', '2026428365', '(240) 556-4396', '(202) 890-7910']
+[TOP-DEBUG] First 5 values for column '# Adults': ['1.0', '1.0', '2.0', '2.0', '1.0']
+[TOP-DEBUG] First 5 values for column '# Children': ['1.0', 'nan', 'nan', '0.0', '3.0']
+[TOP-DEBUG] First 5 values for column 'HH Size': ['2.0', '1.0', '2.0', '2.0', '4.0']
+[TOP-DEBUG] First 5 values for column 'Start Date': ['nan', 'nan', '2022-01-19 00:00:00', '2024-06-19 00:00:00', '2024-05-29 00:00:00']
+[TOP-DEBUG] First 5 values for column 'End Date': ['nan', 'nan', 'nan', '2025-06-19 00:00:00', '2025-05-29 00:00:00']
+[TOP-DEBUG] First 5 values for column 'Delivery Instructions': ['nan', 'please call first', 'May need help bringing food upstairs', 'nan', 'nan']
+[TOP-DEBUG] First 5 values for column 'Diet type': ['Other', 'nan', 'nan', 'nan', 'nan']
+[TOP-DEBUG] First 5 values for column 'Dietary Restrictions': ['nan', 'nan', 'nan', 'nan', 'nan']
+[TOP-DEBUG] First 5 values for column 'Description of Status': ['mental health', 'unemployment', 'disability', 'senior', 'single parent']
+[TOP-DEBUG] First 5 values for column 'Notes': ['with disability, bipolar', 'hospital discharge', 'amputee', 'senior citizen, living with disability, poor physical health', 'Patient is a single parent with 3 kids with low income not enough food resources/money to buy groceries for kids ']
+[TOP-DEBUG] First 5 values for column 'REFERRAL ENTITY': ['311 number', 'a clinic-social worker', 'a fellow FFA client', 'Abby Huerta, Community of Hope, abby.huerta@cohdc.org, 202-540-9857', 'Abby Huerta, Community of Hope, abby.huerta@cohdc.org, 202-540-9857']
+[TOP-DEBUG] First 5 values for column 'TEFAP FY25': ['nan', 'nan', 'nan', 'nan', 'nan']
+[TOP-DEBUG] First 5 values for column 'Language': ['English', 'English', 'English', 'Spanish', 'English']
+First UID after cleaning: 'ID-0001' -> [73, 68, 45, 48, 48, 48, 49]
+First 10 cleaned UIDs: ['ID-0001', 'ID-0002', 'ID-0003', 'ID-0004', 'ID-0005', 'ID-0006', 'ID-0007', 'ID-0008', 'ID-0009', 'ID-0010']
+Cleaned UID 0: ID-0001 -> [73, 68, 45, 48, 48, 48, 49]
+Cleaned UID 1: ID-0002 -> [73, 68, 45, 48, 48, 48, 50]
+Cleaned UID 2: ID-0003 -> [73, 68, 45, 48, 48, 48, 51]
+Cleaned UID 3: ID-0004 -> [73, 68, 45, 48, 48, 48, 52]
+Cleaned UID 4: ID-0005 -> [73, 68, 45, 48, 48, 48, 53]
+Cleaned UID 5: ID-0006 -> [73, 68, 45, 48, 48, 48, 54]
+Cleaned UID 6: ID-0007 -> [73, 68, 45, 48, 48, 48, 55]
+Cleaned UID 7: ID-0008 -> [73, 68, 45, 48, 48, 48, 56]
+Cleaned UID 8: ID-0009 -> [73, 68, 45, 48, 48, 48, 57]
+Cleaned UID 9: ID-0010 -> [73, 68, 45, 48, 48, 49, 48]
+DataFrame columns after renaming: ['uid', 'FIRST', 'LAST', 'Client Full Name', 'ADDRESS', 'APT #', 'ZIP', 'Frequency', 'Active', 'Quadrant', 'Ward', 'Phone', '# Adults', '# Children', 'HH Size', 'Start Date', 'End Date', 'Delivery Instructions', 'Diet type', 'Dietary Restrictions', 'Description of Status', 'Notes', 'REFERRAL ENTITY', 'TEFAP FY25', 'Language']
+[DEBUG] UIDs BEFORE final cleaning:
+[DEBUG] BEFORE UID 0: 'ID-0001' (type: <class 'str'>)
+[DEBUG] BEFORE UID 1: 'ID-0002' (type: <class 'str'>)
+[DEBUG] BEFORE UID 2: 'ID-0003' (type: <class 'str'>)
+[DEBUG] BEFORE UID 3: 'ID-0004' (type: <class 'str'>)
+[DEBUG] BEFORE UID 4: 'ID-0005' (type: <class 'str'>)
+[DEBUG] BEFORE UID 5: 'ID-0006' (type: <class 'str'>)
+[DEBUG] BEFORE UID 6: 'ID-0007' (type: <class 'str'>)
+[DEBUG] BEFORE UID 7: 'ID-0008' (type: <class 'str'>)
+[DEBUG] BEFORE UID 8: 'ID-0009' (type: <class 'str'>)
+[DEBUG] BEFORE UID 9: 'ID-0010' (type: <class 'str'>)
+[DEBUG] UIDs AFTER regex cleaning:
+[DEBUG] AFTER UID 0: 'ID-0001' (type: <class 'str'>) -> [73, 68, 45, 48, 48, 48, 49]
+[DEBUG] AFTER UID 1: 'ID-0002' (type: <class 'str'>) -> [73, 68, 45, 48, 48, 48, 50]
+[DEBUG] AFTER UID 2: 'ID-0003' (type: <class 'str'>) -> [73, 68, 45, 48, 48, 48, 51]
+[DEBUG] AFTER UID 3: 'ID-0004' (type: <class 'str'>) -> [73, 68, 45, 48, 48, 48, 52]
+[DEBUG] AFTER UID 4: 'ID-0005' (type: <class 'str'>) -> [73, 68, 45, 48, 48, 48, 53]
+[DEBUG] AFTER UID 5: 'ID-0006' (type: <class 'str'>) -> [73, 68, 45, 48, 48, 48, 54]
+[DEBUG] AFTER UID 6: 'ID-0007' (type: <class 'str'>) -> [73, 68, 45, 48, 48, 48, 55]
+[DEBUG] AFTER UID 7: 'ID-0008' (type: <class 'str'>) -> [73, 68, 45, 48, 48, 48, 56]
+[DEBUG] AFTER UID 8: 'ID-0009' (type: <class 'str'>) -> [73, 68, 45, 48, 48, 48, 57]
+[DEBUG] AFTER UID 9: 'ID-0010' (type: <class 'str'>) -> [73, 68, 45, 48, 48, 49, 48]
+[FINAL CLEAN] First 10 DataFrame UIDs for matching: ["'ID-0001'", "'ID-0002'", "'ID-0003'", "'ID-0004'", "'ID-0005'", "'ID-0006'", "'ID-0007'", "'ID-0008'", "'ID-0009'", "'ID-0010'"]
+[FINAL CLEAN] record_id (raw): 'ID-0004'
+[FINAL CLEAN] record_id (cleaned): 'ID-0004'
+
+[DEBUG] First 10 'Active' column values and types:
+Row 0: Active=np.float64(0.0) (type: <class 'numpy.float64'>)
+Row 1: Active=np.float64(0.0) (type: <class 'numpy.float64'>)
+Row 2: Active=np.float64(0.0) (type: <class 'numpy.float64'>)
+Row 3: Active=np.float64(1.0) (type: <class 'numpy.float64'>)
+Row 4: Active=np.float64(0.0) (type: <class 'numpy.float64'>)
+Row 5: Active=np.float64(1.0) (type: <class 'numpy.float64'>)
+Row 6: Active=np.float64(1.0) (type: <class 'numpy.float64'>)
+Row 7: Active=np.float64(1.0) (type: <class 'numpy.float64'>)
+Row 8: Active=np.float64(1.0) (type: <class 'numpy.float64'>)
+Row 9: Active=np.float64(1.0) (type: <class 'numpy.float64'>)
+[DEBUG] Row with UID 'ID-0004': Active=1.0 (type: <class 'float'>) at row 3
+[TOP-DEBUG] About to call process_collection
+process_collection called: df.shape=(3162, 25)
+       uid    FIRST        LAST  ...                                    REFERRAL ENTITY TEFAP FY25 Language
+0  ID-0001    Paula       Lewis  ...                                         311 number        NaN  English
+1  ID-0002    David      Suarec  ...                             a clinic-social worker        NaN  English
+2  ID-0003     Jeff      Foster  ...                                a fellow FFA client        NaN  English
+3  ID-0004  Leticia  Del Carmen  ...  Abby Huerta, Community of Hope, abby.huerta@co...        NaN  Spanish
+4  ID-0005    DEONA    THORNTON  ...  Abby Huerta, Community of Hope, abby.huerta@co...        NaN  English
+
+Traceback (most recent call last):
+  File "C:\localdev\UMD-Hackathon\food-for-all-dc\ETL\etl_firestore_import.py", line 319, in <module>
+    docs = process_collection(collection_key, df, only_uid=record_id if record_id else None)
+  File "C:\localdev\UMD-Hackathon\food-for-all-dc\ETL\etl_firestore_import.py", line 300, in process_collection
+    id_cols = [c for c in sdf.columns if c.strip().lower() in ['client id', 'uid', ' ']]
+                                         ^^^^^^^
+AttributeError: 'datetime.datetime' object has no attribute 'strip'
+[5 rows x 25 columns]
+[DEBUG] Checking row: UID='ID-0001', Active=0.0
+[PC-DEBUG] Row UID: 'ID-0001', Cleaned UID: 'ID-0001', Cleaned only_uid: 'ID-0004'
+[DEBUG] Row UID: 'ID-0001', Cleaned UID: 'ID-0001', Cleaned only_uid: 'ID-0004', Raw Active Col: 0.0 (type: <class 'float'>), Only UID: 'ID-0004'
+[DEBUG] Row UID: 'ID-0001', Cleaned UID: 'ID-0001', Cleaned only_uid: 'ID-0004', Active: False, Active Col Value: 0.0 (type: <class 'float'>), Only UID: 'ID-0004'
+[PC-DEBUG] Skipping row UID 'ID-0001' (not matching cleaned_only_uid 'ID-0004')
+[DEBUG] Checking row: UID='ID-0002', Active=0.0
+[PC-DEBUG] Row UID: 'ID-0002', Cleaned UID: 'ID-0002', Cleaned only_uid: 'ID-0004'
+[DEBUG] Row UID: 'ID-0002', Cleaned UID: 'ID-0002', Cleaned only_uid: 'ID-0004', Raw Active Col: 0.0 (type: <class 'float'>), Only UID: 'ID-0004'
+[DEBUG] Row UID: 'ID-0002', Cleaned UID: 'ID-0002', Cleaned only_uid: 'ID-0004', Active: False, Active Col Value: 0.0 (type: <class 'float'>), Only UID: 'ID-0004'
+[PC-DEBUG] Skipping row UID 'ID-0002' (not matching cleaned_only_uid 'ID-0004')
+[DEBUG] Checking row: UID='ID-0003', Active=0.0
+[PC-DEBUG] Row UID: 'ID-0003', Cleaned UID: 'ID-0003', Cleaned only_uid: 'ID-0004'
+[DEBUG] Row UID: 'ID-0003', Cleaned UID: 'ID-0003', Cleaned only_uid: 'ID-0004', Raw Active Col: 0.0 (type: <class 'float'>), Only UID: 'ID-0004'
+[DEBUG] Row UID: 'ID-0003', Cleaned UID: 'ID-0003', Cleaned only_uid: 'ID-0004', Active: False, Active Col Value: 0.0 (type: <class 'float'>), Only UID: 'ID-0004'
+[PC-DEBUG] Skipping row UID 'ID-0003' (not matching cleaned_only_uid 'ID-0004')
+[DEBUG] Checking row: UID='ID-0004', Active=1.0
+[PC-DEBUG] Row UID: 'ID-0004', Cleaned UID: 'ID-0004', Cleaned only_uid: 'ID-0004'
+[DEBUG] Row UID: 'ID-0004', Cleaned UID: 'ID-0004', Cleaned only_uid: 'ID-0004', Raw Active Col: 1.0 (type: <class 'float'>), Only UID: 'ID-0004'
+[DEBUG] Row UID: 'ID-0004', Cleaned UID: 'ID-0004', Cleaned only_uid: 'ID-0004', Active: True, Active Col Value: 1.0 (type: <class 'float'>), Only UID: 'ID-0004'
+[DEBUG] Processing row UID 'ID-0004' (active and matches only_uid)
+[FATAL ERROR] Uncaught exception: 'datetime.datetime' object has no attribute 'strip'

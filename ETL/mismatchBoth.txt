@@ -1,0 +1,629 @@
+ID/Client ID	LAST	FIRST	TAB
+ID-2456	Swann	Marvin	Clients Main Information
+ID-2983	Hayes	Sanchono	Current Deliveries
+ID-2485	Lee	Paris	Clients Main Information
+ID-2849	Jackson	Shykayla	Clients Main Information
+ID-0204	Buendia	Jorge	Clients Main Information
+ID-1451	Juaraz	Elena	Current Deliveries
+ID-0607	Dorsey	Tamara	Clients Main Information
+ID-0481	Morales	Nelly	Clients Main Information
+ID-1346	Carr	Allen	Clients Main Information
+ID-2281	Howard	Suzanne	Clients Main Information
+ID-1657	Richardson (under recertification)	Ivy	Current Deliveries
+ID-2839	Walker	George	Clients Main Information
+ID-1329	McLean (under recertification)	Richard	Current Deliveries
+ID-1874	Machado	Carla	Clients Main Information
+ID-0587	Jones	Camillia	Clients Main Information
+ID-0088	Whaley (FAM)	Julia	Current Deliveries
+ID-2942	Benitez	Flor	Current Deliveries
+ID-2915	Johnson	Talynthia	Current Deliveries
+ID-1456	Hardy	Celestine	Clients Main Information
+ID-1345	Bannister	Leroy	Clients Main Information
+ID-1969	Shoulars	Doris	Clients Main Information
+ID-3083	Alston	Tracy	Current Deliveries
+ID-0171	Plater	Carolyn	Clients Main Information
+ID-0003	Speight (under recertification)	Winifred	Current Deliveries
+ID-3064	De Garcia	Maria	Current Deliveries
+ID-1503	Byrd	Alicia	Current Deliveries
+ID-0344	Gbolade (under recertification)	Lolita	Current Deliveries
+ID-2979	Abbott	Tanesha	Current Deliveries
+ID-2917	Jenkins	Brenda	Current Deliveries
+ID-1079	flore	Maribel	Current Deliveries
+ID-1344	Hale	Matthew	Clients Main Information
+ID-1766	Terry	Janice	Clients Main Information
+ID-1285	Hill	ReGinald	Clients Main Information
+ID-0393	AZUBIKE (FAM)	GEORGES	Current Deliveries
+ID-2933	Roberts	John	Current Deliveries
+ID-0285	Clippard	Michael	Clients Main Information
+ID-1317	Peek	Angela	Clients Main Information
+ID-1610	Morris	Sonya	Clients Main Information
+ID-3058	Villasana	Carmen	Current Deliveries
+ID-2963	Ellerbee	Stephanie	Current Deliveries
+ID-0872	Spivey (under recertification)	Maurice	Current Deliveries
+ID-1467	Martin	Stephanie	Clients Main Information
+ID-2967	Tiller	Donna	Current Deliveries
+ID-3127	Smith	Arlene	Current Deliveries
+ID-2454	Beaner-Young	Carole	Clients Main Information
+ID-0765	Washington	Andre	Clients Main Information
+ID-1720	Richardson	Ivy	Clients Main Information
+ID-3091	CAUGHMAN	MARLON	Current Deliveries
+ID-3024	Nwingwe	Khaos	Current Deliveries
+ID-3018	Washington	Maggie	Current Deliveries
+ID-0417	Azubike	Georges	Clients Main Information
+ID-3071	Gray	Kavin	Current Deliveries
+ID-1454	Reaves	Lisa	Current Deliveries
+ID-1441	Powell	Michael	Current Deliveries
+ID-0731	Stanley III	Walter	Clients Main Information
+ID-1651	Phillips	Paulette	Clients Main Information
+ID-2848	HOlmes	John	Clients Main Information
+ID-1465	Garcia	Teresa	Current Deliveries
+ID-2957	St. John	Tonya	Current Deliveries
+ID-3026	Coppin	Lakura	Current Deliveries
+ID-2611	Stroman	Lavanya	Clients Main Information
+ID-2985	Mason	Anna	Current Deliveries
+ID-2973	Terrell	Angela	Current Deliveries
+ID-3008	Mack	Deon	Current Deliveries
+ID-3006	Gutierrez-Torres	Daniela	Current Deliveries
+ID-3063	Anthony	Mary	Current Deliveries
+ID-2954	Parks	Lorraine	Current Deliveries
+ID-1684	Alshami	Abdulwehab	Clients Main Information
+ID-3085	Crowe	Tenisha	Current Deliveries
+ID-3126	Morton	Kiri	Current Deliveries
+ID-0209	Mason	Brittani	Clients Main Information
+ID-3059	King III	Robert	Current Deliveries
+ID-2976	Nelson	Virginia	Current Deliveries
+ID-1436	Ballesteros	Lavern	Clients Main Information
+ID-1805	Johnson	Kathy	Clients Main Information
+ID-2978	Smith	Helen	Current Deliveries
+ID-1647	Benton	Bernadette	Clients Main Information
+ID-2430	Pittman	Charles	Clients Main Information
+ID-0004	SANDOVAL DE AXUME	LETICIA DEL CARMEN	Current Deliveries
+ID-3043	Carpenters	Tracy	Current Deliveries
+ID-2971	Brown	Patrice	Current Deliveries
+ID-1473	Escobar	Luis	Current Deliveries
+ID-1213	Samuel	Dewana	Clients Main Information
+ID-0482	Williams	Dina	Clients Main Information
+ID-2910	DENESE	DAVIS	Current Deliveries
+ID-0484	Prince	Michelle	Clients Main Information
+ID-3034	White (under recertification)	Lesha	Current Deliveries
+ID-3030	Bryant	Delisa	Current Deliveries
+ID-2835	Lee	Paulette	Clients Main Information
+ID-2995	Johnson	Ronald	Current Deliveries
+ID-3094	Rivas	Leonora	Current Deliveries
+ID-3032	Gooche	Derek	Current Deliveries
+ID-0480	Conde	Ana	Clients Main Information
+ID-0002	Suarec	David	Clients Main Information
+ID-1501	Wynter	Mack	Current Deliveries
+ID-2991	McCrea	Melissa	Current Deliveries
+ID-2387	Williams (under recertification)	Jacqueline	Current Deliveries
+ID-1568	Tillman (under recertification)	Gregory	Current Deliveries
+ID-1652	Jackson	Elise	Clients Main Information
+ID-2994	Kellem	Terry	Current Deliveries
+ID-1679	Askhat	Gulnash	Clients Main Information
+ID-0069	Catolico Becerra	Jessica	Clients Main Information
+ID-3031	Martin	Shirley	Current Deliveries
+ID-0476	Elijah	Esther	Clients Main Information
+ID-2147	Brown	Juanita	Clients Main Information
+ID-1499	Kabore	Joseph	Current Deliveries
+ID-2311	Sanchez	Emelio	Clients Main Information
+ID-2925	Davall	John	Current Deliveries
+ID-3002	Bandy	Megan	Current Deliveries
+ID-3104	Johnson	Laphedona	Current Deliveries
+ID-2312	Sanford	Kevin	Clients Main Information
+ID-1433	Anthony	Linda	Clients Main Information
+ID-1388	Fields (under recertification)	Tyrone	Current Deliveries
+ID-2962	Lucas	Earl	Current Deliveries
+ID-1986	Tavlarides	Avena	Clients Main Information
+ID-3050	Gray	Deborah	Current Deliveries
+ID-0090	Whaley	Julia	Clients Main Information
+ID-2585	Edwards	Marcus	Clients Main Information
+ID-2829	Williams	Antonious (Ms)	Current Deliveries
+ID-1521	Ryals	Danielle	Current Deliveries
+ID-1633	Jackson	Trey	Clients Main Information
+ID-2451	Mooney	Kathy	Clients Main Information
+ID-1466	Luckey	Lucy	Clients Main Information
+ID-3066	Better	Tayla	Current Deliveries
+ID-1673	Bradley	Latonya	Clients Main Information
+ID-2841	DesSaso	Nathan	Clients Main Information
+ID-3047	Mason	Lakesha	Current Deliveries
+ID-2774	Johnson (under recertification)	Crystal	Current Deliveries
+ID-3122	Holden	Patrise	Current Deliveries
+ID-2912	Johnson	Angelica	Current Deliveries
+ID-3074	Proctor	Conchita	Current Deliveries
+ID-0879	Malloy (under recertification)	Charles	Current Deliveries
+ID-2932	Aldonate	Johan	Current Deliveries
+ID-3052	Kingsman	Adaeze	Current Deliveries
+ID-1616	Corley (under recertification)	Roben	Current Deliveries
+ID-2450	Long	Carolyn	Clients Main Information
+ID-1394	Riley	Ciara	Clients Main Information
+ID-1519	Stewart	Alicia	Current Deliveries
+ID-2907	Dailey	Anthony	Current Deliveries
+ID-2955	Williams	Keith	Current Deliveries
+ID-2270	Ebans	Carolyn	Clients Main Information
+ID-3076	Reid	Sheila	Current Deliveries
+ID-2438	Gjoka	Gani	Clients Main Information
+ID-3129	Alexander	Adrian	Current Deliveries
+ID-2890	Curtis	Anna	Clients Main Information
+ID-1619	Allen	William	Clients Main Information
+ID-2363	Portilla	Lorena	Clients Main Information
+ID-0368	Gbolade	Lolita	Clients Main Information
+ID-0215	Green	Garland	Clients Main Information
+ID-2510	McKeever.	Corrine	Current Deliveries
+ID-3044	Prentice	Crystal	Current Deliveries
+ID-0477	Smith	Donna	Clients Main Information
+ID-0605	Berecha	Wondwosen	Clients Main Information
+ID-3118	Curry	Kim	Current Deliveries
+ID-0609	Gaskins	Alicia	Clients Main Information
+ID-1621	Speight	Winifred	Clients Main Information
+ID-0932	Williams	Marquita	Clients Main Information
+ID-1235	Williams-Conner (under recertification)	Valerie	Current Deliveries
+ID-1809	Hammonds	Lamonika	Clients Main Information
+ID-1628	Tillman	Gregory	Clients Main Information
+ID-0983	Ramirez (MOVED)	Blanca	Current Deliveries
+ID-3086	Watkins Jr	Steve	Current Deliveries
+ID-1438	Benkins	Kelly	Clients Main Information
+ID-0127	Garcia	KEM	Clients Main Information
+ID-1174	DAVIS (FAM)	Deborah	Current Deliveries
+ID-1347	Milo	Hattie	Clients Main Information
+ID-2437	Wedge	Wanda	Clients Main Information
+ID-1584	Page	Troy	Clients Main Information
+ID-1169	Djasra	Djasra	Clients Main Information
+ID-1507	Chase	Elisha	Clients Main Information
+ID-2969	DeVine	Sabrina	Current Deliveries
+ID-0190	Flores	Idalia	Clients Main Information
+ID-3090	Sherrer	Theresa	Current Deliveries
+ID-0512	Tyson	Tiffany	Clients Main Information
+ID-2265	Alemu (under recertification)	Sylvia	Current Deliveries
+ID-3011	Eccles	Joseph	Current Deliveries
+ID-3099	Reid	Shelia	Current Deliveries
+ID-2322	Wainwright	Darnell	Clients Main Information
+ID-1137	Samuel	Dewana (DECEASED)	Current Deliveries
+ID-2922	Webb	Laverne	Current Deliveries
+ID-1457	Rosales	Jorge	Current Deliveries
+ID-1092	Williams	Liza	Clients Main Information
+ID-3100	Tolliver	Alicia	Current Deliveries
+ID-0278	Jackson	Veronica	Clients Main Information
+ID-2524	Rivera Martinez	Iris	Current Deliveries
+ID-1349	Miles	Eddie	Clients Main Information
+ID-1653	Nickens	Wayne	Clients Main Information
+ID-3078	Bowen	Pamela	Current Deliveries
+ID-0001	Rhodes	Champagne	Current Deliveries
+ID-2321	Valentine	Brenda	Clients Main Information
+ID-1054	Ramirez	Blanca	Clients Main Information
+ID-3057	Thomas	Tilwana	Current Deliveries
+ID-0995	Jimez	Yenneylis	Current Deliveries
+ID-2943	Copeland	Paul	Current Deliveries
+ID-3035	Butler	Dwain	Current Deliveries
+ID-1978	Holland (number DISCONNECTED)	Deleona	Current Deliveries
+ID-2282	Howard	Mildred	Clients Main Information
+ID-3008	Spitzer	Clayton	Clients Main Information
+ID-2299	Brutton	Mell	Current Deliveries
+ID-3000	SHRESDHA	Sreejana	Clients Main Information
+ID-1918	Nuriddenova	Aizada	Clients Main Information
+ID-2001	Black (under recertification)	Anastasia	Current Deliveries
+ID-1073	Cameron	Fred	Clients Main Information
+ID-2929	Williams	Garrett	Current Deliveries
+ID-3013	Fraley	Sabrina	Current Deliveries
+ID-2883	Maldonado	Elizabeth	Current Deliveries
+ID-2863	Hurshow (FAM)	Diane	Current Deliveries
+ID-1413	McLean	Richard	Clients Main Information
+ID-0511	Grafton	Kymberly	Clients Main Information
+ID-3001	Venable	Sarah	Current Deliveries
+ID-1437	Barbour	Valita	Clients Main Information
+ID-2901	Walker	Tameka	Current Deliveries
+ID-3042	Perla	Oscar	Current Deliveries
+ID-2903	Gaskins (under recertification)	Cornelius	Current Deliveries
+ID-3088	Davis	Paul	Current Deliveries
+ID-3062	Felder	Conrad	Current Deliveries
+ID-0153	Burriss	Nina	Clients Main Information
+ID-1449	Andrade	Marion	Current Deliveries
+ID-2884	Washington (under recertification)	Denise	Current Deliveries
+ID-3019	Graves	Veronica	Current Deliveries
+ID-2970	Vessels	Angela	Current Deliveries
+ID-1002	Cameron.	Fred	Current Deliveries
+ID-3082	Battle	Kyvin	Current Deliveries
+ID-1406	Jackson (under recertification)	Trey	Current Deliveries
+ID-1487	Luckey	Latrell	Current Deliveries
+ID-2948	Clark	Jacqueline	Current Deliveries
+ID-3025	Slater	Sabrina	Current Deliveries
+ID-0343	Spears (under recertification)	Mary	Current Deliveries
+ID-1493	Trim	Patricia	Current Deliveries
+ID-2483	Carmon	Derrick	Clients Main Information
+ID-1875	Majano	Wendy	Clients Main Information
+ID-3068	Whitaker	Darel	Current Deliveries
+ID-2646	Sanni	Soumya	Clients Main Information
+ID-2442	Watts	Cavarius	Clients Main Information
+ID-0475	Stewart	Yolonda	Clients Main Information
+ID-1468	McIver	Debora	Clients Main Information
+ID-2320	Turner	Jimmy	Clients Main Information
+ID-0602	Singletaryxxxx	Darrius	Clients Main Information
+ID-0161	Carey	Pamela	Clients Main Information
+ID-2803	Palmer	Ashleigh	Clients Main Information
+ID-3081	Lyons	Diane	Current Deliveries
+ID-2946	Penny	Yolanda	Current Deliveries
+ID-2272	Farmer	Teresa	Clients Main Information
+ID-1645	Bekken	Ajar	Clients Main Information
+ID-3124	RYALS	DANIELLE	Current Deliveries
+ID-3098	Mercado	Maria	Current Deliveries
+ID-1250	Davis	Deborah	Clients Main Information
+ID-1477	Amador	Gladis	Current Deliveries
+ID-3022	EJIDE FAM	Gabriel	Current Deliveries
+ID-3045	Simpson	Yvonne	Current Deliveries
+ID-1076	Birts	Tamica	Clients Main Information
+ID-0979	Musgrove	Sharon	Clients Main Information
+ID-2482	Treadwell	Crystal	Clients Main Information
+ID-3113	James	Reather	Current Deliveries
+ID-1549	Reaves. DO NOT DELIVER. VERY DISRESPECTFUL!!!	Lisa	Clients Main Information
+ID-2988	Jennings	Janice	Current Deliveries
+ID-0604	Whitney	Andre	Clients Main Information
+ID-3012	Hurshow	Diane	Clients Main Information
+ID-2203	Green	Linda	Clients Main Information
+ID-1439	Lewis	Andre	Current Deliveries
+ID-3115	Chaney	Mary	Current Deliveries
+ID-1239	PEEK	ANGELA	Current Deliveries
+ID-1491	Vixon	Kathy	Clients Main Information
+ID-1657	Davis	Tawanda	Clients Main Information
+ID-3039	Cureton	Desi	Current Deliveries
+ID-2435	Lopez	Fany	Clients Main Information
+ID-2678	Smith (DISQUALIFIED)	Stacey	Current Deliveries
+ID-3048	KOHLI (FAM)	KITTY	Current Deliveries
+ID-0615	Ross (under recertification)	Vikki	Current Deliveries
+ID-2314	Slaughter	Carolina	Clients Main Information
+ID-0019	Kijek	Frank	Current Deliveries
+ID-3061	Glasgow	Paulette	Current Deliveries
+ID-2991	Emmanuel	Toyin	Clients Main Information
+ID-3121	Garrett	Corrine	Current Deliveries
+ID-2484	Davis	Alonzo	Clients Main Information
+ID-1483	Bolden	Monica	Current Deliveries
+ID-0189	Castro	Ana	Clients Main Information
+ID-0007	GUEVARA - FAM	CONNIE	Current Deliveries
+ID-2075	Black	Anastasia	Clients Main Information
+ID-2906	Taylor	Jeanella	Current Deliveries
+ID-0944	Malloy	Charles	Clients Main Information
+ID-3038	Clarke	Leah	Current Deliveries
+ID-2926	Clay	Larry	Current Deliveries
+ID-1448	Terry (NO MORE DELIVERIES UNTIL RECERTIFIED)	Janice	Current Deliveries
+ID-2453	Mock	Clifton	Clients Main Information
+ID-0258	Jackson (under recertification)	Veronica	Current Deliveries
+ID-3111	5	Erica	Current Deliveries
+ID-2698	Walker (under recertification)	George	Current Deliveries
+ID-1418	POOLE (FAM)	ROBERT	Current Deliveries
+ID-0868	Williams (under recertification)	Marquita	Current Deliveries
+ID-2102	McCoy	Madeline	Clients Main Information
+ID-2986	Bonilla	Lillimae	Current Deliveries
+ID-3054	Workman	JACKIE	Current Deliveries
+ID-2909	Walden	Larry	Current Deliveries
+ID-2052	Holland	Deleona	Clients Main Information
+ID-0825	Benavides	Gustavo	Clients Main Information
+ID-1532	Robinson. No longer needs help as he got his food stamps back 4/22)	Leroy	Current Deliveries
+ID-0739	Bay Robetson	Angela	Clients Main Information
+ID-3005	Smith	Vernon	Current Deliveries
+ID-2904	Chavez	Maria	Current Deliveries
+ID-0474	Thomas	Debra	Current Deliveries
+ID-3027	Curtis	Willie	Current Deliveries
+ID-0621	Curry	Luella	Clients Main Information
+ID-2511	Sanni	Soumya (Stacy?)	Current Deliveries
+ID-0011	McKinney	Lizette	Current Deliveries
+ID-1211	CARRASCO (FAM)	Jaime	Current Deliveries
+ID-3095	Settles	William	Current Deliveries
+ID-0729	Thomas (under recertification)	Aquanda	Current Deliveries
+ID-1591	Robinson	Leroy	Clients Main Information
+ID-0790	Abibulayeva	Aizhana	Clients Main Information
+ID-3021	Kennedy	LaCreasha	Current Deliveries
+ID-2028	McCoy (under recertification)	Madeline	Current Deliveries
+ID-1348	Carr	Alan	Clients Main Information
+ID-1453	Rodriguez	Josefina	Current Deliveries
+ID-1432	Anding	Renee	Clients Main Information
+ID-1310	Riley	Tiara	Current Deliveries
+ID-1507	Pierce	Tracy	Current Deliveries
+ID-2072	Brown (under recertification)	Juanita	Current Deliveries
+ID-0622	Green	Juanita	Clients Main Information
+ID-1018	Williams (under recertification)	Liza	Current Deliveries
+ID-1027	Atchison	Alfonzo	Clients Main Information
+ID-2996	Turner	Annette	Current Deliveries
+ID-2993	Underwood	Janie	Current Deliveries
+ID-0019	Frank	Kijek	Clients Main Information
+ID-1481	McJordan	Edward	Current Deliveries
+ID-2938	Bullock	Luther	Current Deliveries
+ID-2820	MsManus	Brenda	Clients Main Information
+ID-1467	Conway	John	Current Deliveries
+ID-3102	Ward	Veronika	Current Deliveries
+ID-3049	Johnson	Patrina	Current Deliveries
+ID-3046	Vitaliy	Thomas	Current Deliveries
+ID-1155	Flores	Maribel	Clients Main Information
+ID-0003	Foster	Jeff	Clients Main Information
+ID-2686	Portillo	Lorena	Current Deliveries
+ID-2428	Brown	Harvey	Clients Main Information
+ID-3003	Bell	Lataka	Current Deliveries
+ID-1590	Phillips (under recertification)	Paulette	Current Deliveries
+ID-3033	Kidd	Jerry	Current Deliveries
+ID-0261	Morris (under recertification)	Cassandra	Current Deliveries
+ID-3079	Whitaker	Claudia	Current Deliveries
+ID-1896	Shoulars (under recertification)	Doris	Current Deliveries
+ID-1489	Alde	David	Current Deliveries
+ID-0789	Abdykhalykova	Zhazira	Clients Main Information
+ID-2455	Miller	Richard	Clients Main Information
+ID-2913	Smith	Lolillian	Current Deliveries
+ID-2920	Miller	Robert	Current Deliveries
+ID-0478	West	Dijean	Clients Main Information
+ID-2956	Shade	Arthur	Current Deliveries
+ID-3060	Hackett	Antoinette	Current Deliveries
+ID-2982	Cole	Christine	Current Deliveries
+ID-2313	Shine	Dorothy	Clients Main Information
+ID-0221	Corbett	Enga	Clients Main Information
+ID-1391	Lindsay	Yvette	Clients Main Information
+ID-2949	Crawford	Cynthia	Current Deliveries
+ID-2936	Nelson	ZaNycka	Current Deliveries
+ID-1208	Hill 10/11: DISQUALIFIED	ReGinald	Current Deliveries
+ID-1505	Satterwhite	Dawntay	Current Deliveries
+ID-3029	Stevenson	Charineen	Current Deliveries
+ID-2365	Alemu	Sylvia	Clients Main Information
+ID-2674	Bell (under recertification)	Arethra	Current Deliveries
+ID-3119	Greene	Jacqueline	Current Deliveries
+ID-0483	Williams	Kathy	Clients Main Information
+ID-1455	Blanco	Miguel	Current Deliveries
+ID-2412	Lewis	Paula	Clients Main Information
+ID-1595	Davis (DISQUALIFIED)	Tawanda	Current Deliveries
+ID-2284	Jenkins	Joyce	Clients Main Information
+ID-3097	Manners	Fallon	Current Deliveries
+ID-0862	ALLEN	Fonda	Clients Main Information
+ID-2997	AMBROSE (FAM)	Veronica	Current Deliveries
+ID-3092	Fan	Wenqian	Current Deliveries
+ID-2911	GRAHAM	TYNIESHA	Current Deliveries
+ID-3070	Johnson	Olivia	Current Deliveries
+ID-0839	Taylor	Brian	Clients Main Information
+ID-2935	Tillman	Lucille	Current Deliveries
+ID-3112	White	Roger	Current Deliveries
+ID-1517	Callaham	Vernessia	Current Deliveries
+ID-0601	Schifferdecker	Donna	Clients Main Information
+ID-2432	Trotter	Latasha	Clients Main Information
+ID-2945	Mason	Sharon	Current Deliveries
+ID-1447	Fuentes	Martin	Current Deliveries
+ID-2659	Rivera Martinez	Rivera Martinez	Clients Main Information
+ID-1443	Aviles	Sofia	Current Deliveries
+ID-1936	Wallace	Carroll	Current Deliveries
+ID-0007	GUEVARA	CONNIE	Clients Main Information
+ID-1453	Godwin	Deborah	Clients Main Information
+ID-0598	Peterson	Joanne	Clients Main Information
+ID-3007	Steele	Elaine	Current Deliveries
+ID-1439	Bennett	Linda	Clients Main Information
+ID-0191	Gutierrez	Yaquilin	Clients Main Information
+ID-3010	Brown	Bernard	Current Deliveries
+ID-2934	Johnson	Gloria	Current Deliveries
+ID-1457	Henderson	Benneta	Clients Main Information
+ID-1523	West	Dionna	Current Deliveries
+ID-0103	Holloway (under recertification)	Sherry	Current Deliveries
+ID-1435	Archie	Rosetta	Clients Main Information
+ID-2269	Doles	Carey	Clients Main Information
+ID-0624	Thompson	Robin	Clients Main Information
+ID-0608	Ferguson	Brenda	Clients Main Information
+ID-2999	Chatmon	Stacy	Current Deliveries
+ID-2701	Campbell (under recertification)	Arlene	Current Deliveries
+ID-1621	Alshami (NO MORE DELIVERIES UNTIL RECERTIFIED))	Abdulwehab	Current Deliveries
+ID-2373	Taylor	Dolores	Clients Main Information
+ID-0426	Carlton	McCauley	Clients Main Information
+ID-0597	Williams	Angelina	Clients Main Information
+ID-3120	Butts	Angela	Current Deliveries
+ID-2700	DesSaso (under recertification)	Nathan	Current Deliveries
+ID-3067	Mitchell	Alice	Current Deliveries
+ID-2274	Ganet	Kathleen	Clients Main Information
+ID-3022	Fullard	Maria	Clients Main Information
+ID-3108	Myles	Tresa	Current Deliveries
+ID-1455	Hardison	Cas	Clients Main Information
+ID-2924	Berry	Lawrence	Current Deliveries
+ID-0207	Graham	Ricky	Clients Main Information
+ID-0475	Tyson (under recertification)	Tiffany	Current Deliveries
+ID-3051	Disroe	Peggy	Current Deliveries
+ID-2902	Hancock	Tekesia	Current Deliveries
+ID-3014	Carey	Stephanie	Current Deliveries
+ID-2451	Edwards (under recertification)	Marcus	Current Deliveries
+ID-1795	Freeman	Angela	Clients Main Information
+ID-3056	Franklin	Marie	Current Deliveries
+ID-1288	Carrasco	Jaime	Clients Main Information
+ID-2283	Jackson	Harold	Clients Main Information
+ID-0048	Exton (under recertification)	Shelley	Current Deliveries
+ID-2400	Bruton	Mell	Clients Main Information
+ID-3017	Walker	Eleanor	Current Deliveries
+ID-1872	Machado	Rosa	Clients Main Information
+ID-1459	Cortez	Yesenia	Current Deliveries
+ID-2370	Fay	Colleen	Clients Main Information
+ID-0210	Williams	Lisa	Clients Main Information
+ID-3109	Thomas-Montgomery	Kareema	Current Deliveries
+ID-1861	Smith. IN LONG TERM CARE	Robert	Current Deliveries
+ID-0937	Spivey	Maurice	Clients Main Information
+ID-1780	Jackson	Pamela	Clients Main Information
+ID-0548	Jones	Camellia	Current Deliveries
+ID-2927	Garnett	Branden	Current Deliveries
+ID-1066	Jimenez	Yenneylis	Clients Main Information
+ID-1471	Wright	Deroscoe	Current Deliveries
+ID-2645	McKeever	Dorrine	Clients Main Information
+ID-1485	Rodriguez	Yuridin	Current Deliveries
+ID-1496	Watson	Angela	Clients Main Information
+ID-0599	Ramcharitar	Jennifer	Clients Main Information
+ID-2987	Howards	Marquita	Current Deliveries
+ID-2930	Coleman-Scales	Marquita	Current Deliveries
+ID-2950	Tyler	Donnice	Current Deliveries
+ID-2271	Escobar	Gloria	Clients Main Information
+ID-0004	Del Carmen	Leticia	Clients Main Information
+ID-0788	Thomas	Aquanda	Clients Main Information
+ID-1497	Hatfield	Michelle	Current Deliveries
+ID-0255	Savage	Sharita	Clients Main Information
+ID-2449	Starkes	Lashawn	Clients Main Information
+ID-2919	Harmon-Morgan	Kisha	Current Deliveries
+ID-1463	Avilas	Carmen	Current Deliveries
+ID-1658	Gardner  (in recertification)	Donna	Clients Main Information
+ID-2959	Thomas	Janet	Current Deliveries
+ID-1739	Clemons	John	Clients Main Information
+ID-2951	Mancia De Peralta	Norma	Current Deliveries
+ID-0107	Batten	Arthur	Clients Main Information
+ID-1389	Dixon	Kathy	Current Deliveries
+ID-1522	Poole	Robert	Clients Main Information
+ID-0125	Garcia (MOVED)	KEM	Current Deliveries
+ID-3009	Fogle	Jooleta	Current Deliveries
+ID-1515	Mitchell	Chanel	Current Deliveries
+ID-0706	Washington (no deliveries until recertified)	Andre	Current Deliveries
+ID-0532	AL ILAH	TOYE	Clients Main Information
+ID-1470	Mitchell	Ann	Clients Main Information
+ID-1873	Machado	Nora	Clients Main Information
+ID-2874	Jackson no more deliveries until recertified)	Maurice	Current Deliveries
+ID-2974	Williams	Antonious	Clients Main Information
+ID-2918	Pitt	Joseph	Current Deliveries
+ID-0367	Spears	Mary	Clients Main Information
+ID-2916	Crews	Anita	Current Deliveries
+ID-1616	Fields	Tyrone	Clients Main Information
+ID-1735	VanBuren	Lashawn	Clients Main Information
+ID-0235	Savage (under recertification)	Sharita	Current Deliveries
+ID-0194	Vasquez	Arisol	Clients Main Information
+ID-3116	Marshall	Sonora	Current Deliveries
+ID-0158	Carey (under recertification)	Pamela	Current Deliveries
+ID-0850	Al Soud	Mayalla	Clients Main Information
+ID-1599	Burse	Clifton	Clients Main Information
+ID-3015	Tymesha	James	Current Deliveries
+ID-2960	Adams	Stephanie	Current Deliveries
+ID-3053	Mudd	Alonzo	Current Deliveries
+ID-1495	Russell	Nicole	Current Deliveries
+ID-1917	Nicks	Latonia	Clients Main Information
+ID-1307	Lindsey	Yevette	Current Deliveries
+ID-2989	Baxter	Donna	Current Deliveries
+ID-0250	Tucker	Stanley	Clients Main Information
+ID-0610	Kelly	Kashawn	Clients Main Information
+ID-2272	Taylor	Delores	Current Deliveries
+ID-2285	Johnson	Mari	Clients Main Information
+ID-1089	Harris	Jennifer	Clients Main Information
+ID-3036	West	Maurice	Current Deliveries
+ID-0957	Atchison	Alphonzo	Current Deliveries
+ID-2010	Wallace	Carrol	Clients Main Information
+ID-3055	Rhodes	Angel	Current Deliveries
+ID-0281	Morris	Cassandra	Clients Main Information
+ID-3012	Artis	Latrish	Current Deliveries
+ID-0192	Hernandez	Ms.	Clients Main Information
+ID-2487	Page	Ana	Clients Main Information
+ID-0606	Davis	Chaivon	Clients Main Information
+ID-0208	Jenkins	Nathanial	Clients Main Information
+ID-1499	Budd	nan	Clients Main Information
+ID-0787	AL SOUD	MAYALLA	Current Deliveries
+ID-2939	Brown	Melvin	Current Deliveries
+ID-1461	Reyes	Jocelyn	Current Deliveries
+ID-2828	Cluff (under recertification)	Marquita	Current Deliveries
+ID-3075	Bell	Joy	Current Deliveries
+ID-1732	Freeman (under recertification)	Angela	Current Deliveries
+ID-1560	Palmer (NO MORE DELIVERIES UNTIL RECERTIFIED)	Ashleigh	Current Deliveries
+ID-2973	Cluff	Marquita	Clients Main Information
+ID-0619	Johnson	Walter	Clients Main Information
+ID-2813	Bell	Arethra	Clients Main Information
+ID-0996	Reese	Marsha	Clients Main Information
+ID-2624	Davis	Eolus	Clients Main Information
+ID-2966	Perry	Averilla	Current Deliveries
+ID-3004	Johnson	Lenwood	Current Deliveries
+ID-3101	Hemphill (FAM)	George	Current Deliveries
+ID-2928	Smith	David	Current Deliveries
+ID-3034	Washington	Denise	Clients Main Information
+ID-1454	Green	Margaret	Clients Main Information
+ID-0105	Batten (NO MORE DELIVERIES UNTIL RECERTIFIED)	Arthur	Current Deliveries
+ID-3123	Pollard	Pierre	Current Deliveries
+ID-2817	Smith	Stacey	Clients Main Information
+ID-2492	Johnson (under recertification)	Katherine	Current Deliveries
+ID-3130	Garland	Pierrette	Current Deliveries
+ID-3072	Mobley	Jerrobia	Current Deliveries
+ID-2706	Holmes (under recertification)	John	Current Deliveries
+ID-2441	Barbour	Darah	Clients Main Information
+ID-1479	Griffin	Lawrence	Current Deliveries
+ID-3000	Randolph	Shaquanna	Current Deliveries
+ID-2953	Baker	Charlotte	Current Deliveries
+ID-2622	Underwood	Charles	Clients Main Information
+ID-0203	Bekele	Yeshi	Clients Main Information
+ID-1717	Jackson (under recertification)	Pamela	Current Deliveries
+ID-0011	MCKINNEY	LIZETTE	Clients Main Information
+ID-2563	Coe	Monica	Clients Main Information
+ID-3040	Chamoun	Edy	Current Deliveries
+ID-2175	Bennett (under recertification)	Michael	Current Deliveries
+ID-1469	McKoy	Beulah	Clients Main Information
+ID-1876	Makove	Anastasiia	Clients Main Information
+ID-2489	Turcios	Sebastiana	Clients Main Information
+ID-2128	Green (under recertification)	Linda	Current Deliveries
+ID-0447	Ross	Vikki	Clients Main Information
+ID-2872	Fulard	Maria	Current Deliveries
+ID-2958	Osborne	Tiandre	Current Deliveries
+ID-3080	Holloman	Sharon	Current Deliveries
+ID-0600	Rasheed	Rahmaan	Clients Main Information
+ID-3073	Winston	Christopher	Current Deliveries
+ID-3065	Wall	Mary	Current Deliveries
+ID-2420	Watson	Donnarie	Clients Main Information
+ID-0474	Jackson	April	Clients Main Information
+ID-1676	nan	John	Current Deliveries
+ID-2452	Morales	Medieta	Clients Main Information
+ID-3093	Lopez	Florinda	Current Deliveries
+ID-0205	Chase	Carol	Clients Main Information
+ID-3096	Washington	Sherry	Current Deliveries
+ID-1934	Smith	Robert	Clients Main Information
+ID-1703	Allen (under recertification)	William	Current Deliveries
+ID-2937	Strickland	Tyrone	Current Deliveries
+ID-2389	Jackson (under recertification)	Denise	Current Deliveries
+ID-2981	Curtis	Diane	Current Deliveries
+ID-2968	Warren	LaWanda	Clients Main Information
+ID-1632	Brown	Carla	Clients Main Information
+ID-1434	Anthony	Willie	Clients Main Information
+ID-2714	Watkins	Andrea	Clients Main Information
+ID-2489	Davis(under recertification)	Eolus	Current Deliveries
+ID-1093	Ratebaye	Djasra	Current Deliveries
+ID-1469	Anderson Somerville	Glasshebar	Current Deliveries
+ID-1511	Todd	Marlene	Current Deliveries
+ID-0620	Clement	Marjorie	Clients Main Information
+ID-2429	Moreno	Felix Alfredo	Clients Main Information
+ID-1678	Corley	Roben	Clients Main Information
+ID-2992	Collins	Robin	Current Deliveries
+ID-2964	Robertson	Sidney (mr)	Current Deliveries
+ID-2914	Curtis	Flaurette	Current Deliveries
+ID-3023	Fox	T'Loni	Current Deliveries
+ID-0672	Stanley III (under recertification)	Walter	Current Deliveries
+ID-1395	Budd (under recertification)	Lorraine	Current Deliveries
+ID-2425	Fuentes	Maria	Clients Main Information
+ID-2487	Underwood	Charles (Mr)	Current Deliveries
+ID-2842	Campbell	Arlene	Clients Main Information
+ID-1312	HARDY (FAM)	PATRICK	Current Deliveries
+ID-1799	Kohai	Kitty	Clients Main Information
+ID-0912	Musgrove (no deliveries until recertified)	Sharon	Current Deliveries
+ID-2923	Browne	Starling	Current Deliveries
+ID-1609	Hardy	Patrick	Clients Main Information
+ID-2980	Montes	Ricardo	Current Deliveries
+ID-2316	Spencer	Glendora	Clients Main Information
+ID-1475	Drew	Fredreicia	Current Deliveries
+ID-3110	McAllister (no deliveries until referral)	Crystal	Current Deliveries
+ID-1524	PAGE (FAM)	Troy	Current Deliveries
+ID-2519	Williams	Jacqueline	Clients Main Information
+ID-1437	Wilson	Myisha	Current Deliveries
+ID-0680	Robertson Bay	Angela	Current Deliveries
+ID-1540	Burse (under recertification)	Clifton	Current Deliveries
+ID-2319	Tilghman	Sheri	Clients Main Information
+ID-2315	Smith	Antonia	Clients Main Information
+ID-1360	Morris (NO MORE DELIVERIES UNTIL RECERTIFIED)	Sonya	Current Deliveries
+ID-0230	nan	Stanley	Current Deliveries
+ID-0193	Rodriguez	Jose	Clients Main Information
+ID-0105	Holloway	Sherry	Clients Main Information
+ID-3105	Tinsley	Diane	Current Deliveries
+ID-0623	Solano	Laima	Clients Main Information
+ID-2275	Hall	Dorita	Clients Main Information
+ID-1525	Rivas	Josseline	Current Deliveries
+ID-2984	Jones	Coby	Current Deliveries
+ID-2952	Cambero	Luis	Current Deliveries
+ID-3020	Simms	Lydia	Current Deliveries
+ID-3033	Moldanado	Elizabeth	Clients Main Information
+ID-2436	Simon	Earlene	Clients Main Information
+ID-2940	Simms	Deborah	Current Deliveries
+ID-2998	Mclamore	Barbara	Current Deliveries
+ID-2273	Frost	Marlene	Clients Main Information
+ID-1403	Chase	Alicia	Current Deliveries
+ID-3117	Browne	James	Current Deliveries
+ID-1313	Conner	Valerie	Clients Main Information
+ID-2488	Price	Kimberly	Clients Main Information
+ID-3084	Harrison	Tawanda	Current Deliveries
+ID-2457	Bagley	Charnita	Clients Main Information
+ID-3106	Hawkins	Edward	Current Deliveries
+ID-2252	Bennett	Michael	Clients Main Information
+ID-1672	VanBuren	Lashawn (HOLD)	Current Deliveries
+ID-0049	Exton	Shelley	Clients Main Information
+ID-1445	Gomez	Hugo	Current Deliveries
+ID-2968	Mansaray	Hawa	Current Deliveries
+ID-2905	Broadway	Michelle	Current Deliveries
+ID-2716	Ambrose	Veronica	Clients Main Information
+ID-2975	Hemphill	William	Current Deliveries

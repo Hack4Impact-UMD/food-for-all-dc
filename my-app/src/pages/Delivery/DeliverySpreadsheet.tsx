@@ -402,6 +402,8 @@ const DeliverySpreadsheet: React.FC = () => {
 
   const [driversRefreshTrigger, setDriversRefreshTrigger] = useState<number>(0);
   const [highlightedRowId, setHighlightedRowId] = useState<string | null>(null);
+  // Suppress highlight clearing when switching rows/popups
+  const suppressClearHighlightRef = React.useRef(false);
 
   // Helper function to deduplicate clusters by ID
   const deduplicateClusters = (clusters: Cluster[]): Cluster[] => {
@@ -1525,6 +1527,8 @@ const DeliverySpreadsheet: React.FC = () => {
   };
 
   const handleRowClick = (clientId: string, fromTable = true) => {
+    // Suppress highlight clearing for this row switch
+    suppressClearHighlightRef.current = true;
     if (fromTable && highlightedRowId === clientId) {
       setHighlightedRowId(null);
       if ((window as any).closeMapPopup) {
@@ -1558,6 +1562,10 @@ const DeliverySpreadsheet: React.FC = () => {
   };
 
   const clearRowHighlight = () => {
+    if (suppressClearHighlightRef.current) {
+      suppressClearHighlightRef.current = false;
+      return;
+    }
     setHighlightedRowId(null);
   };
 

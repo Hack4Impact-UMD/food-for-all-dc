@@ -247,209 +247,85 @@ const DateFieldComponent = ({
   const [dateError, setDateError] = useState<string | null>(null);
   const [fieldTouched, setFieldTouched] = useState<boolean>(false);
 
-  // Convert MM/DD/YYYY to YYYY-MM-DD for HTML date input
-  const convertToHtmlDateFormat = (inputValue: any): string => {
-    if (!inputValue) {
-      return "";
-    }
 
-    const stringValue = String(inputValue);
-
-    // Handle MM/DD/YYYY format (like "5/8/2025")
-    if (stringValue.includes("/")) {
-      const parts = stringValue.split("/");
-
-      if (parts.length === 3) {
-        const [month, day, year] = parts;
-        if (month && day && year) {
-          const paddedMonth = month.padStart(2, "0");
-          const paddedDay = day.padStart(2, "0");
-          const result = `${year}-${paddedMonth}-${paddedDay}`;
-          return result;
-        }
-      }
-    }
-
-    // If already in YYYY-MM-DD format
-    if (stringValue.match(/^\d{4}-\d{2}-\d{2}$/)) {
-      return stringValue;
-    }
-
-    return "";
+  // No conversion needed during editing; keep mm/dd/yyyy format
+  // Only validate format, do not convert
+  const displayError = dateError || error;
+  const handleBlur = () => {
+    // Optionally add blur validation logic here
   };
-
-  // Convert YYYY-MM-DD to MM/DD/YYYY for storage
-  const convertFromHtmlDateFormat = (yyyymmdd: string): string => {
-    if (!yyyymmdd || yyyymmdd.length !== 10) return "";
-
-    const [year, month, day] = yyyymmdd.split("-");
-    if (!year || !month || !day) return "";
-
-    return `${month}/${day}/${year}`;
-  };
-
-  // Determine what error to show:
-  // 1. External error (from Profile validation) takes priority
-  // 2. Internal dateError only shows if field was touched
-  const displayError = error || (fieldTouched && dateError);
-
-  const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
-    // Mark field as touched on blur
-    setFieldTouched(true);
-
-    const value = e.target.value;
-
-    // If the field is empty, it's valid (DOB is optional)
-    if (!value) {
-      setDateError(null);
-      return;
-    }
-
-    // Use the isValidHtmlDateFormat function for HTML date input validation
-    if (!isValidHtmlDateFormat(value, 1900, 2100)) {
-      // Provide more specific error messages
-      if (!value.match(/^\d{4}-\d{2}-\d{2}$/)) {
-        setDateError("Please select a valid date");
-      } else {
-        const date = new Date(value);
-        if (isNaN(date.getTime())) {
-          setDateError("Please select a valid date");
-        } else {
-          const year = date.getFullYear();
-          if (year < 1900 || year > 2100) {
-            setDateError("Year must be between 1900-2100");
-          } else {
-            setDateError("Please select a valid date");
-          }
-        }
+  // Convert mm/dd/yyyy or yyyy-mm-dd to yyyy-mm-dd for input value
+  let inputValue = "";
+  if (value) {
+    if (typeof value === "string" && value.includes("/")) {
+      // mm/dd/yyyy to yyyy-mm-dd
+      const [month, day, year] = value.split("/");
+      if (month && day && year) {
+        inputValue = `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
       }
-    } else {
-      // Additional validation for TEFAP CERT - cannot be a future date
-      if (fieldPath === "tefapCert") {
-        const selectedDate = new Date(value);
-        const today = new Date();
-        today.setHours(0, 0, 0, 0); // Reset time to start of day for comparison
-
-        if (selectedDate > today) {
-          setDateError("TEFAP CERT date cannot be in the future");
-          return;
-        }
-      }
-
-      setDateError(null);
+    } else if (typeof value === "string" && value.match(/^\d{4}-\d{2}-\d{2}$/)) {
+      inputValue = value;
     }
-  };
-
+  }
   return (
-    <Box
-      sx={{
-        position: "relative",
-        display: "flex",
-        flexDirection: "column",
-        width: "100%",
-        marginBottom: "24px", // Space for any error message
+    <CustomTextField
+      type="date"
+      name={fieldPath}
+      value={inputValue}
+      className={fieldTouched && !!dateError ? "error" : ""}
+      onChange={(e) => {
+        if (!fieldTouched) setFieldTouched(true);
+        if (dateError) setDateError(null);
+        handleChange(e);
       }}
-    >
-      <CustomTextField
-        type="date"
-        name={fieldPath}
-        value={convertToHtmlDateFormat(value) || ""}
-        className={fieldTouched && !!dateError ? "error" : ""}
-        placeholder="TESTING - DATE FIELD UPDATED"
-        onChange={(e) => {
-          // Mark field as touched on change
-          if (!fieldTouched) setFieldTouched(true);
-
-          // Clear error when user starts typing
-          if (dateError) setDateError(null);
-
-          // Additional validation for TEFAP CERT during change
-          if (fieldPath === "tefapCert" && e.target.value) {
-            const selectedDate = new Date(e.target.value);
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-
-            if (selectedDate > today) {
-              setDateError("TEFAP CERT date cannot be in the future");
-            }
-          }
-
-          // Convert HTML date format back to MM/DD/YYYY for storage
-          const htmlDateValue = e.target.value;
-          if (htmlDateValue) {
-            const mmddyyyyValue = convertFromHtmlDateFormat(htmlDateValue);
-            // Create a synthetic event with the converted value
-            const syntheticEvent = {
-              ...e,
-              target: {
-                ...e.target,
-                value: mmddyyyyValue,
-              },
-            } as React.ChangeEvent<HTMLInputElement>;
-            handleChange(syntheticEvent);
-          } else {
-            handleChange(e);
-          }
-        }}
-        onBlur={handleBlur}
-        onFocus={() => setFieldTouched(true)}
-        error={!!displayError}
-        helperText={displayError || " "}
-        InputLabelProps={{ shrink: true }}
-        FormHelperTextProps={{
-          sx: {
-            visibility: displayError ? "visible" : "hidden",
-            position: "absolute",
-            bottom: "-2.65rem",
-            left: 0,
-            margin: "1rem 0 0 0",
-            color: "#d32f2f !important", // unsure why we need to specifically enforce this color here
-          },
-        }}
-        InputProps={{
-          sx: {
-            "& input::-webkit-calendar-picker-indicator": {
-              cursor: "pointer",
-            },
-          },
-        }}
-        fullWidth
-        margin="none"
-        sx={{
-          "& .MuiInputBase-root": { height: "38px" },
-          mb: 0,
-        }}
-        inputProps={{
-          min: "1900-01-01",
-          max: "2100-12-31",
-          ...dateInputProps,
-        }}
-      />
-    </Box>
+      onBlur={handleBlur}
+      onFocus={() => setFieldTouched(true)}
+      error={!!displayError}
+      helperText={displayError || " "}
+      InputLabelProps={{ shrink: true }}
+      FormHelperTextProps={{
+        sx: {
+          visibility: displayError ? "visible" : "hidden",
+          position: "absolute",
+          bottom: "-2.65rem",
+          left: 0,
+          margin: "1rem 0 0 0",
+          color: "#d32f2f !important",
+        },
+      }}
+      fullWidth
+      margin="none"
+      sx={{
+        "& .MuiInputBase-root": { height: "38px" },
+        mb: 0,
+      }}
+    />
   );
+}
+
+const capitalizeFirstLetter = (value: string) => {
+  return value[0].toUpperCase() + value.slice(1);
 };
 
-const FormField: React.FC<FormFieldProps> = ({
-  fieldPath,
-  value,
-  type = "text",
-  isEditing,
-  handleChange,
-  getNestedValue,
-  handleDietaryRestrictionChange,
-  addressInputRef,
-  isDisabledField = false,
-  ward,
-  tags,
-  allTags,
-  isModalOpen,
-  setIsModalOpen,
-  handleTag,
-  error,
-}) => {
-  const capitalizeFirstLetter = (value: string) => {
-    return value[0].toUpperCase() + value.slice(1);
-  };
+const FormField = (props: FormFieldProps) => {
+  const {
+    fieldPath,
+    value,
+    type,
+    isEditing,
+    handleChange,
+    getNestedValue,
+    handleDietaryRestrictionChange,
+    addressInputRef,
+    isDisabledField,
+    ward,
+    tags,
+    allTags,
+    isModalOpen,
+    setIsModalOpen,
+    handleTag,
+    error,
+  } = props;
 
   const renderDietaryRestrictions = () => {
     const restrictions = value as DietaryRestrictions;

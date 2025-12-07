@@ -1333,8 +1333,24 @@ const Profile = () => {
           delete (cleanedProfile as Record<string, unknown>)[key];
         }
       }
+      // Convert all date fields from mm/dd/yyyy to backend format (e.g., yyyy-mm-dd) here
+      const convertDateForSave = (dateStr: string | null | undefined) => {
+        if (!dateStr || typeof dateStr !== "string" || !dateStr.includes("/")) return dateStr ?? "";
+        const [month, day, year] = dateStr.split("/");
+        if (month && day && year) {
+          const paddedMonth = month.padStart(2, "0");
+          const paddedDay = day.padStart(2, "0");
+          return `${year}-${paddedMonth}-${paddedDay}`;
+        }
+        return dateStr;
+      };
+
       const updatedProfile: ClientProfile = {
         ...cleanedProfile,
+        // Example: convert specific date fields
+        dob: convertDateForSave(cleanedProfile.dob),
+        tefapCert: convertDateForSave(cleanedProfile.tefapCert),
+        famStartDate: convertDateForSave(cleanedProfile.famStartDate),
         tags: tags, // Sync the tags state with clientProfile
         notesTimestamp: updatedNotesTimestamp, // Update the notesTimestamp
         deliveryInstructionsTimestamp: updatedDeliveryInstructionsTimestamp,
@@ -2068,7 +2084,7 @@ const Profile = () => {
         return <Box>{clientProfile.recurrence}</Box>;
       }
 
-      const preDefinedOptions = ["None", "Weekly", "2x-Monthly", "Monthly"];
+      const preDefinedOptions = ["None", "Weekly", "2x-Monthly", "Monthly", "Periodic"];
 
       const isPredefined = preDefinedOptions.includes(clientProfile.recurrence);
       const selectValue = isPredefined ? clientProfile.recurrence : "None";

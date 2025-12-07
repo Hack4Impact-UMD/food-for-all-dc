@@ -1,0 +1,87 @@
+{
+  "city": "Washington",
+  "language": "English",
+  "gender": "Other",
+  "quadrant": "NE",
+  "lastName": "Richardson",
+  "lifestyleGoals": "",
+  "address": "2912 8th Street Northeast",
+  "state": "DC",
+  "ward": "Ward 5",
+  "mentalHealthConditions": {
+    "other": false,
+    "otherText": ""
+  },
+  "address2": "Apt 1",
+  "deliveryDetails": {
+    "deliveryInstructions": "CALL FIRST",
+    "dietaryRestrictions": {
+      "lowSodium": false,
+      "softFood": false,
+      "halal": false,
+      "otherText": "",
+      "heartFriendly": false,
+      "kidneyFriendly": false,
+      "vegetarian": false,
+      "other": false,
+      "noCookingEquipment": false,
+      "lowSugar": false,
+      "foodAllergens": [],
+      "vegan": false,
+      "microwaveOnly": false
+    }
+  },
+  "lifeChallengesTimestamp": null,
+  "recurrence": "",
+  "referralEntity": {
+    "organization": "Community of Hope",
+    "id": "0H0xSbXQiZMyPLMteqtx",
+    "name": "Abby Huerta"
+  },
+  "adults": 0,
+  "streetName": "2912 8th Street Northeast",
+  "total": 2,
+  "lifestyleGoalsTimestamp": null,
+  "deliveryFreq": "Periodic",
+  "dob": "",
+  "updatedAt": "2025-07-28T17:54:12.183143+00:00",
+  "seniors": 1,
+  "children": 1,
+  "physicalAilments": {
+    "cancer": false,
+    "other": false,
+    "diabetes": false,
+    "kidneyDisease": false,
+    "hypertension": false,
+    "otherText": "",
+    "heartDisease": false
+  },
+  "createdAt": "2025-07-28T17:54:12.183127+00:00",
+  "zipCode": "20017",
+  "phone": "(202) 935-2370",
+  "tags": [
+    "Active"
+  ],
+  "physicalDisability": {
+    "other": false,
+    "otherText": ""
+  },
+  "endDate": "",
+  "deliveryInstructionsTimestamp": null,
+  "ethnicity": "",
+  "headOfHousehold": "Senior",
+  "lifeChallenges": "senior senior Patient is 85yrs living with her granddaughter",
+  "uid": "ID-0006",
+  "tefapCert": "",
+  "email": "",
+  "alternativePhone": "",
+  "firstName": "Frances",
+  "activeStatus": true,
+  "coordinates": [
+    38.9266954,
+    -76.9952387
+  ],
+  "startDate": "09/16/2024",
+  "notes": "senior citizen, living with disability, poor physical health, Primary hypertension - I10, Underweight - R63.6, Knee pain - M25.569,  Patient is 85yrs living with her granddaughter",
+  "notesTimestamp": null
+}
