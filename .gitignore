@@ -58,6 +58,9 @@ pubsub-debug.log*
 food-for-all-dc-caf23-firebase-adminsdk-*.json
 *-firebase-adminsdk-*.json
 
+# Exclude ETL scripts and data
+ETL/
+
 # Logs
 logs/
 *.log
