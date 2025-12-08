@@ -2960,7 +2960,7 @@ const Profile = () => {
                   }
                   setIsDeliveryModalOpen(true);
                 }}
-                disabled={userRole === UserType.ClientIntake || !isEditing}
+                disabled={userRole === UserType.ClientIntake}
                 sx={{
                   marginRight: 4,
                   width: 166,

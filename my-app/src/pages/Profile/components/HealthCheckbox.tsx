@@ -74,16 +74,22 @@ const HealthCheckbox: React.FC<HealthCheckboxProps> = ({
           }
           label={<span style={{ color: "var(--color-black)" }}>{label}</span>}
         />
-        {checked && isEditing && (
-          <TextField
-            name="otherText"
-            value={otherTextValue}
-            onChange={onChange}
-            placeholder={placeholder}
-            variant="outlined"
-            size="small"
-            sx={textFieldStyles}
-          />
+        {checked && (
+          isEditing ? (
+            <TextField
+              name="otherText"
+              value={otherTextValue}
+              onChange={onChange}
+              placeholder={placeholder}
+              variant="outlined"
+              size="small"
+              sx={textFieldStyles}
+            />
+          ) : (
+            <Box sx={{ ml: 1, color: "var(--color-black)" }}>
+              {otherTextValue || "(No value provided)"}
+            </Box>
+          )
         )}
       </Box>
     );
