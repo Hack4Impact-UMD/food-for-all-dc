@@ -247,59 +247,166 @@ const DateFieldComponent = ({
   const [dateError, setDateError] = useState<string | null>(null);
   const [fieldTouched, setFieldTouched] = useState<boolean>(false);
 
-
-  // No conversion needed during editing; keep mm/dd/yyyy format
-  // Only validate format, do not convert
-  const displayError = dateError || error;
-  const handleBlur = () => {
-    // Optionally add blur validation logic here
-  };
-  // Convert mm/dd/yyyy or yyyy-mm-dd to yyyy-mm-dd for input value
-  let inputValue = "";
-  if (value) {
-    if (typeof value === "string" && value.includes("/")) {
-      // mm/dd/yyyy to yyyy-mm-dd
-      const [month, day, year] = value.split("/");
-      if (month && day && year) {
-        inputValue = `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
-      }
-    } else if (typeof value === "string" && value.match(/^\d{4}-\d{2}-\d{2}$/)) {
-      inputValue = value;
+  const convertToHtmlDateFormat = (inputValue: any): string => {
+    if (!inputValue) {
+      return "";
     }
-  }
+
+    const stringValue = String(inputValue);
+
+    if (stringValue.includes("/")) {
+      const parts = stringValue.split("/");
+
+      if (parts.length === 3) {
+        const [month, day, year] = parts;
+        if (month && day && year) {
+          const paddedMonth = month.padStart(2, "0");
+          const paddedDay = day.padStart(2, "0");
+          return `${year}-${paddedMonth}-${paddedDay}`;
+        }
+      }
+    }
+
+    if (stringValue.match(/^\d{4}-\d{2}-\d{2}$/)) {
+      return stringValue;
+    }
+
+    return "";
+  };
+
+  const convertFromHtmlDateFormat = (yyyymmdd: string): string => {
+    if (!yyyymmdd || yyyymmdd.length !== 10) return "";
+
+    const [year, month, day] = yyyymmdd.split("-");
+    if (!year || !month || !day) return "";
+
+    return `${month}/${day}/${year}`;
+  };
+
+  const displayError = error || (fieldTouched && dateError);
+
+  const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    setFieldTouched(true);
+
+    const blurValue = e.target.value;
+
+    if (!blurValue) {
+      setDateError(null);
+      return;
+    }
+
+    if (!isValidHtmlDateFormat(blurValue, 1900, 2100)) {
+      if (!blurValue.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        setDateError("Please select a valid date");
+      } else {
+        const date = new Date(blurValue);
+        if (isNaN(date.getTime())) {
+          setDateError("Please select a valid date");
+        } else {
+          const year = date.getFullYear();
+          if (year < 1900 || year > 2100) {
+            setDateError("Year must be between 1900-2100");
+          } else {
+            setDateError("Please select a valid date");
+          }
+        }
+      }
+    } else {
+      if (fieldPath === "tefapCert") {
+        const selectedDate = new Date(blurValue);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        if (selectedDate > today) {
+          setDateError("TEFAP CERT date cannot be in the future");
+          return;
+        }
+      }
+
+      setDateError(null);
+    }
+  };
+
   return (
-    <CustomTextField
-      type="date"
-      name={fieldPath}
-      value={inputValue}
-      className={fieldTouched && !!dateError ? "error" : ""}
-      onChange={(e) => {
-        if (!fieldTouched) setFieldTouched(true);
-        if (dateError) setDateError(null);
-        handleChange(e);
-      }}
-      onBlur={handleBlur}
-      onFocus={() => setFieldTouched(true)}
-      error={!!displayError}
-      helperText={displayError || " "}
-      InputLabelProps={{ shrink: true }}
-      FormHelperTextProps={{
-        sx: {
-          visibility: displayError ? "visible" : "hidden",
-          position: "absolute",
-          bottom: "-2.65rem",
-          left: 0,
-          margin: "1rem 0 0 0",
-          color: "#d32f2f !important",
-        },
-      }}
-      fullWidth
-      margin="none"
+    <Box
       sx={{
-        "& .MuiInputBase-root": { height: "38px" },
-        mb: 0,
+        position: "relative",
+        display: "flex",
+        flexDirection: "column",
+        width: "100%",
+        marginBottom: "24px",
       }}
-    />
+    >
+      <CustomTextField
+        type="date"
+        name={fieldPath}
+        value={convertToHtmlDateFormat(value) || ""}
+        className={fieldTouched && !!dateError ? "error" : ""}
+        onChange={(e) => {
+          if (!fieldTouched) setFieldTouched(true);
+
+          if (dateError) setDateError(null);
+
+          if (fieldPath === "tefapCert" && e.target.value) {
+            const selectedDate = new Date(e.target.value);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            if (selectedDate > today) {
+              setDateError("TEFAP CERT date cannot be in the future");
+            }
+          }
+
+          const htmlDateValue = e.target.value;
+          if (htmlDateValue) {
+            const mmddyyyyValue = convertFromHtmlDateFormat(htmlDateValue);
+            const syntheticEvent = {
+              ...e,
+              target: {
+                ...e.target,
+                value: mmddyyyyValue,
+              },
+            } as React.ChangeEvent<HTMLInputElement>;
+            handleChange(syntheticEvent);
+          } else {
+            handleChange(e);
+          }
+        }}
+        onBlur={handleBlur}
+        onFocus={() => setFieldTouched(true)}
+        error={!!displayError}
+        helperText={displayError || " "}
+        InputLabelProps={{ shrink: true }}
+        FormHelperTextProps={{
+          sx: {
+            visibility: displayError ? "visible" : "hidden",
+            position: "absolute",
+            bottom: "-2.65rem",
+            left: 0,
+            margin: "1rem 0 0 0",
+            color: "#d32f2f !important",
+          },
+        }}
+        InputProps={{
+          sx: {
+            "& input::-webkit-calendar-picker-indicator": {
+              cursor: "pointer",
+            },
+          },
+        }}
+        fullWidth
+        margin="none"
+        sx={{
+          "& .MuiInputBase-root": { height: "38px" },
+          mb: 0,
+        }}
+        inputProps={{
+          min: "1900-01-01",
+          max: "2100-12-31",
+          ...dateInputProps,
+        }}
+      />
+    </Box>
   );
 }
 
