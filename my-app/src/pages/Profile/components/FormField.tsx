@@ -384,7 +384,7 @@ const DateFieldComponent = ({
             bottom: "-2.65rem",
             left: 0,
             margin: "1rem 0 0 0",
-            color: "#d32f2f !important",
+            color: "var(--color-error-text) !important",
           },
         }}
         InputProps={{
