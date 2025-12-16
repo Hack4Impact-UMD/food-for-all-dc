@@ -367,447 +367,334 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
         flexDirection: "column",
       }}
     >
-      {/* Feedback Alert */}
-      {actionFeedback && (
-        <Alert
-          severity={actionFeedback.type}
-          onClose={() => setActionFeedback(null)}
-          sx={{ position: "sticky", top: 0, zIndex: 12, mb: 2 }}
-        >
-          {actionFeedback.message}
-        </Alert>
-      )}
-
-      {/* Fixed Container for Search Bar and Create User Button */}
-      <Box
-        sx={{
-          position: "sticky",
-          top: actionFeedback ? 70 : 0,
-          width: "100%",
-          zIndex: 10,
-          backgroundColor: "var(--color-background-main)",
-          pb: 3,
-          pt: 0,
-          borderBottom: "none",
-          boxShadow: "none",
-          margin: 0,
-          transition: "top 0.3s ease-in-out",
-        }}
-      >
-        <Stack spacing={3}>
-          <Box sx={{ position: "relative", width: "100%" }}>
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={handleSearchChange}
-              placeholder="Search users (e.g., admin, name:jane, email:test@example.com)"
-              style={{
-                width: "100%",
-                height: "50px",
-                backgroundColor: "var(--color-background-gray)",
-                border: "none",
-                borderRadius: "25px",
-                padding: "0 20px",
-                fontSize: "16px",
-                color: "var(--color-text-dark)",
-                boxSizing: "border-box",
-                transition: "all 0.2s ease",
-                boxShadow: "inset 0 2px 3px rgba(0,0,0,0.05)",
-              }}
-            />
-          </Box>
-          <Stack
-            direction={{ xs: "column", sm: "row" }}
-            spacing={2}
-            alignItems={{ xs: "stretch", sm: "center" }}
-            sx={{ "& .MuiButton-root": { height: { sm: "36px" } } }}
+      <>
+        {/* Feedback Alert */}
+        {actionFeedback && (
+          <Alert
+            severity={actionFeedback.type}
+            onClose={() => setActionFeedback(null)}
+            sx={{ position: "sticky", top: 0, zIndex: 12, mb: 2 }}
           >
-            <Button
-              variant="contained"
-              color="secondary"
-              onClick={() => setSearchQuery("")}
-              className="view-all"
-              sx={{
-                borderRadius: "25px",
-                px: 2,
-                py: 0.5,
-                minWidth: { xs: "100%", sm: "100px" },
-                maxWidth: { sm: "120px" },
-                textTransform: "none",
-                fontSize: "0.875rem",
-                lineHeight: 1.5,
-                boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
-                transition: "all 0.2s ease",
-                "&:hover": {
-                  transform: "translateY(-2px)",
-                  boxShadow: "0 4px 8px rgba(0,0,0,0.1)",
-                },
-                alignSelf: { xs: "stretch", sm: "flex-start" },
-              }}
-            >
-              View All
-            </Button>
+            {actionFeedback.message}
+          </Alert>
+        )}
 
-            <Box
-              sx={{
-                flexGrow: 1,
-                display: "flex",
-                justifyContent: { xs: "stretch", sm: "flex-end" },
-              }}
+        {/* Fixed Container for Search Bar and Create User Button */}
+        <Box
+          sx={{
+            position: "sticky",
+            top: actionFeedback ? 70 : 0,
+            width: "100%",
+            zIndex: 10,
+            backgroundColor: "var(--color-background-main)",
+            pb: 3,
+            pt: 0,
+            borderBottom: "none",
+            boxShadow: "none",
+            margin: 0,
+            transition: "top 0.3s ease-in-out",
+          }}
+        >
+          <Stack spacing={3}>
+            <Box sx={{ position: "relative", width: "100%" }}>
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={handleSearchChange}
+                placeholder="Search users (e.g., admin, name:jane, email:test@example.com)"
+                style={{
+                  width: "100%",
+                  height: "50px",
+                  backgroundColor: "var(--color-background-gray)",
+                  border: "none",
+                  borderRadius: "25px",
+                  padding: "0 20px",
+                  fontSize: "16px",
+                  color: "var(--color-text-dark)",
+                  boxSizing: "border-box",
+                  transition: "all 0.2s ease",
+                  boxShadow: "inset 0 2px 3px rgba(0,0,0,0.05)",
+                }}
+              />
+            </Box>
+            <Stack
+              direction={{ xs: "column", sm: "row" }}
+              spacing={2}
+              alignItems={{ xs: "stretch", sm: "center" }}
+              sx={{ "& .MuiButton-root": { height: { sm: "36px" } } }}
             >
               <Button
                 variant="contained"
-                color="primary"
-                onClick={handleOpenCreateModal}
-                className="create-user"
+                color="secondary"
+                onClick={() => setSearchQuery("")}
+                className="view-all"
                 sx={{
-                  backgroundColor: "var(--color-primary-darker)",
                   borderRadius: "25px",
                   px: 2,
                   py: 0.5,
-                  minWidth: { xs: "100%", sm: "140px" },
-                  maxWidth: { sm: "160px" },
+                  minWidth: { xs: "100%", sm: "100px" },
+                  maxWidth: { sm: "120px" },
                   textTransform: "none",
                   fontSize: "0.875rem",
                   lineHeight: 1.5,
                   boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
                   transition: "all 0.2s ease",
                   "&:hover": {
-                    backgroundColor: "var(--color-primary-darkest)",
                     transform: "translateY(-2px)",
                     boxShadow: "0 4px 8px rgba(0,0,0,0.1)",
                   },
-                  alignSelf: { xs: "stretch", sm: "flex-end" },
+                  alignSelf: { xs: "stretch", sm: "flex-start" },
                 }}
               >
-                + Create User
+                View All
               </Button>
-            </Box>
-          </Stack>
-        </Stack>
-      </Box>
-
-      {/* Spreadsheet Content Area */}
-      <Box
-        sx={{
-          mt: 3,
-          mb: 3,
-          width: "100%",
-          position: "relative",
-          overflow: "visible",
-        }}
-      >
-        {/* Loading Indicator */}
-        {isLoading && (
-          <Box
-            sx={{
-              display: "flex",
-              justifyContent: "center",
-              alignItems: "center",
-              height: "100%",
-              position: "absolute",
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              backgroundColor: "rgba(255, 255, 255, 0.7)",
-              zIndex: 11,
-            }}
-          >
-            <CircularProgress />
-          </Box>
-        )}
-
-        {/* Error Message */}
-        {!isLoading && error && (
-          <Box
-            sx={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100%" }}
-          >
-            <Typography color="error">{error}</Typography>
-          </Box>
-        )}
-
-        {!isLoading &&
-          !error &&
-          (isMobile ? (
-            <Stack spacing={2} sx={{ overflowY: "auto", width: "100%" }}>
-              {visibleRows.map((row) => (
-                <Card
-                  key={row.id}
+              <Box
+                sx={{
+                  flexGrow: 1,
+                  display: "flex",
+                  justifyContent: { xs: "stretch", sm: "flex-end" },
+                }}
+              >
+                <Button
+                  variant="contained"
+                  color="primary"
+                  onClick={handleOpenCreateModal}
+                  className="create-user"
                   sx={{
-                    p: 2,
-                    boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-                    borderRadius: "12px",
-                    transition: "transform 0.2s ease",
+                    backgroundColor: "var(--color-primary-darker)",
+                    borderRadius: "25px",
+                    px: 2,
+                    py: 0.5,
+                    minWidth: { xs: "100%", sm: "140px" },
+                    maxWidth: { sm: "160px" },
+                    textTransform: "none",
+                    fontSize: "0.875rem",
+                    lineHeight: 1.5,
+                    boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+                    transition: "all 0.2s ease",
                     "&:hover": {
+                      backgroundColor: "var(--color-primary-darkest)",
                       transform: "translateY(-2px)",
-                      boxShadow: "0 4px 12px rgba(0,0,0,0.12)",
+                      boxShadow: "0 4px 8px rgba(0,0,0,0.1)",
                     },
+                    alignSelf: { xs: "stretch", sm: "flex-end" },
                   }}
                 >
-                  <Stack direction="row" justifyContent="space-between" alignItems="center" mb={1}>
-                    <Typography
-                      variant="h6"
-                      sx={{ fontWeight: 600, color: "var(--color-primary-darker)" }}
-                    >
-                      {row.name}
-                    </Typography>
-                    <IconButton size="small" onClick={(e) => handleMenuOpen(e, row.uid)}>
-                      <MoreVertIcon />
-                    </IconButton>
-                  </Stack>
-                  <Divider sx={{ my: 1 }} />
-                  <Stack spacing={1.5}>
-                    <Box>
-                      <Typography variant="body2" color="text.secondary">
-                        Role
-                      </Typography>
-                      <Chip
-                        label={getRoleDisplayName(row.role)}
-                        size="small"
-                        sx={{
-                          backgroundColor: "var(--color-background-green-lighter)",
-                          color: "var(--color-primary-darker)",
-                          mt: 0.5,
-                        }}
-                      />
-                    </Box>
-                    {row.phone && (
-                      <Box>
-                        <Typography variant="body2" color="text.secondary">
-                          Phone
-                        </Typography>
-                        <Typography variant="body1">{row.phone}</Typography>
-                      </Box>
-                    )}
-                    <Box>
-                      <Typography variant="body2" color="text.secondary">
-                        Email
-                      </Typography>
-                      <Typography variant="body1">{row.email}</Typography>
-                    </Box>
-                  </Stack>
-                </Card>
-              ))}
+                  + Create User
+                </Button>
+              </Box>
             </Stack>
-          ) : (
-            <TableContainer
-              component={Paper}
+          </Stack>
+        </Box>
+
+        {/* Spreadsheet Content Area */}
+        <Box
+          sx={{
+            mt: 3,
+            mb: 3,
+            width: "100%",
+            position: "relative",
+            overflow: "visible",
+          }}
+        >
+          {/* Loading Indicator */}
+          {isLoading && (
+            <Box
               sx={{
-                maxHeight: "60vh",
-                overflowY: "auto",
-                boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
-                borderRadius: "12px",
+                display: "flex",
+                justifyContent: "center",
+                alignItems: "center",
+                height: "100%",
+                position: "absolute",
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                backgroundColor: "rgba(255, 255, 255, 0.7)",
+                zIndex: 11,
               }}
             >
-              <Table stickyHeader>
-                <TableHead>
-                  <TableRow>
-                    {fields.map((field) => (
+              <CircularProgress />
+            </Box>
+          )}
+
+          {/* Error Message */}
+          {!isLoading && error && (
+            <Box
+              sx={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100%" }}
+            >
+              <Typography color="error">{error}</Typography>
+            </Box>
+          )}
+
+          {!isLoading &&
+            !error &&
+            (isMobile ? (
+              <Stack spacing={2} sx={{ overflowY: "auto", width: "100%" }}>
+                {visibleRows.map((row) => (
+                  <Card
+                    key={row.id}
+                    sx={{
+                      p: 2,
+                      boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+                      borderRadius: "12px",
+                      transition: "transform 0.2s ease",
+                      "&:hover": {
+                        transform: "translateY(-2px)",
+                        boxShadow: "0 4px 12px rgba(0,0,0,0.12)",
+                      },
+                    }}
+                  >
+                    <Stack direction="row" justifyContent="space-between" alignItems="center" mb={1}>
+                      <Typography
+                        variant="h6"
+                        sx={{ fontWeight: 600, color: "var(--color-text-dark)" }}
+                      >
+                        {row.name}
+                      </Typography>
+                      <Chip label={getRoleDisplayName(row.role)} color="primary" size="small" />
+                    </Stack>
+                    <Divider sx={{ my: 1 }} />
+                    <Stack spacing={1}>
+                      <Typography variant="body2" sx={{ color: "var(--color-text-medium)" }}>
+                        <strong>Email:</strong> {row.email}
+                      </Typography>
+                      <Typography variant="body2" sx={{ color: "var(--color-text-medium)" }}>
+                        <strong>Phone:</strong> {row.phone}
+                      </Typography>
+                    </Stack>
+                  </Card>
+                ))}
+              </Stack>
+            ) : (
+              <TableContainer component={Paper} sx={{ boxShadow: "none", borderRadius: "12px" }}>
+                <Table sx={{ minWidth: 650 }} aria-label="users table">
+                  <TableHead>
+                    <TableRow>
+                      {fields.map((field) => (
+                        <TableCell
+                          key={field.key}
+                          className="table-header"
+                          sx={{
+                            backgroundColor: "var(--color-background-green-tint)",
+                            borderBottom: "2px solid var(--color-border-medium)"
+                          }}
+                        ></TableCell>
+                      ))}
                       <TableCell
-                        className="table-header"
-                        key={field.key}
+                        align="right"
+                        sx={{ py: 1 }}
+                      ></TableCell>
+                    </TableRow>
+                  </TableHead>
+
+                  <TableBody>
+                    {visibleRows.map((row) => (
+                      <TableRow
+                        key={row.id}
+                        className={"table-row"}
                         sx={{
-                          position: "sticky",
-                          top: 0,
-                          zIndex: 3,
-                          backgroundColor: "var(--color-background-green-tint)",
-                          borderBottom: "2px solid #e0e0e0",
+                          cursor: "default",
+                          transition: "background-color 0.2s",
+                          "&:hover": { backgroundColor: "rgba(46, 91, 76, 0.04)" },
+                          "&:nth-of-type(odd)": { backgroundColor: "rgba(246, 248, 250, 0.5)" },
+                          "&:nth-of-type(odd):hover": { backgroundColor: "rgba(46, 91, 76, 0.06)" }
                         }}
                       >
-                        <Stack
-                          direction="row"
-                          alignItems="center"
-                          spacing={0.5}
-                          sx={{
-                            cursor: "pointer",
-                          }}
-                          onClick={
-                            field.key === "name"
-                              ? toggleNameSort
+                        {fields.map((field) => (
+                          <TableCell key={field.key} sx={{ py: 1.5 }}>
+                            {field.compute
+                              ? field.compute(row)
                               : field.key === "role"
-                                ? toggleRoleSort
-                                : field.key === "phone"
-                                  ? togglePhoneSort
-                                  : field.key === "email"
-                                    ? toggleEmailSort
-                                    : undefined
-                          }
-                        >
-                          <Typography
-                            variant="subtitle2"
-                            sx={{ fontWeight: 600, color: "var(--color-primary-darker)" }}
+                                ? getRoleDisplayName(row[field.key as keyof AuthUserRow] as UserType)
+                                : (() => {
+                                    const val = row[field.key as keyof AuthUserRow];
+                                    if (
+                                      val === null ||
+                                      val === undefined ||
+                                      val === "" ||
+                                      val === "N/A"
+                                    )
+                                      return "";
+                                    return val.toString();
+                                  })()}
+                          </TableCell>
+                        ))}
+
+                        <TableCell align="right" sx={{ py: 1 }} onClick={(e) => e.stopPropagation()}>
+                          <IconButton
+                            onClick={(e) => handleMenuOpen(e, row.uid)}
+                            sx={{
+                              color: "var(--color-text-medium)",
+                              "&:hover": {
+                                backgroundColor: "rgba(0, 0, 0, 0.04)",
+                                color: "var(--color-primary-darker)"
+                              }
+                            }}
                           >
-                            {field.label}
-                          </Typography>
-                          {field.key === "name" &&
-                            (!roleSortDirection && !phoneSortDirection && !emailSortDirection ? (
-                              nameSortDirection === "asc" ? (
-                                <ArrowDropUpIcon />
-                              ) : nameSortDirection === "desc" ? (
-                                <ArrowDropDownIcon />
-                              ) : (
-                                <UnfoldMoreIcon
-                                  sx={{ color: "var(--color-text-icon)", fontSize: "1.2rem" }}
-                                />
-                              )
-                            ) : roleSortDirection || phoneSortDirection || emailSortDirection ? (
-                              <UnfoldMoreIcon
-                                sx={{ color: "var(--color-text-icon)", fontSize: "1.2rem" }}
-                              />
-                            ) : null)}
-                          {field.key === "role" &&
-                            (roleSortDirection ? (
-                              roleSortDirection === "asc" ? (
-                                <ArrowDropUpIcon />
-                              ) : (
-                                <ArrowDropDownIcon />
-                              )
-                            ) : (
-                              <UnfoldMoreIcon
-                                sx={{ color: "var(--color-text-icon)", fontSize: "1.2rem" }}
-                              />
-                            ))}
-                          {field.key === "phone" &&
-                            (phoneSortDirection ? (
-                              phoneSortDirection === "asc" ? (
-                                <ArrowDropUpIcon />
-                              ) : (
-                                <ArrowDropDownIcon />
-                              )
-                            ) : (
-                              <UnfoldMoreIcon
-                                sx={{ color: "var(--color-text-icon)", fontSize: "1.2rem" }}
-                              />
-                            ))}
-                          {field.key === "email" &&
-                            (emailSortDirection ? (
-                              emailSortDirection === "asc" ? (
-                                <ArrowDropUpIcon />
-                              ) : (
-                                <ArrowDropDownIcon />
-                              )
-                            ) : (
-                              <UnfoldMoreIcon
-                                sx={{ color: "var(--color-text-icon)", fontSize: "1.2rem" }}
-                              />
-                            ))}
-                        </Stack>
-                      </TableCell>
-                    ))}
-
-                    <TableCell
-                      className="table-header"
-                      align="right"
-                      sx={{
-                        backgroundColor: "var(--color-background-green-tint)",
-                        borderBottom: "2px solid var(--color-border-medium)",
-                      }}
-                    ></TableCell>
-                  </TableRow>
-                </TableHead>
-
-                <TableBody>
-                  {visibleRows.map((row) => (
-                    <TableRow
-                      key={row.id}
-                      className={"table-row"}
-                      sx={{
-                        cursor: "default",
-                        transition: "background-color 0.2s",
-                        "&:hover": { backgroundColor: "rgba(46, 91, 76, 0.04)" },
-                        "&:nth-of-type(odd)": { backgroundColor: "rgba(246, 248, 250, 0.5)" },
-                        "&:nth-of-type(odd):hover": { backgroundColor: "rgba(46, 91, 76, 0.06)" },
-                      }}
-                    >
-                      {fields.map((field) => (
-                        <TableCell key={field.key} sx={{ py: 1.5 }}>
-                          {field.compute
-                            ? field.compute(row)
-                            : field.key === "role"
-                              ? getRoleDisplayName(row[field.key as keyof AuthUserRow] as UserType)
-                              : (() => {
-                                  const val = row[field.key as keyof AuthUserRow];
-                                  if (
-                                    val === null ||
-                                    val === undefined ||
-                                    val === "" ||
-                                    val === "N/A"
-                                  )
-                                    return "";
-                                  return val.toString();
-                                })()}
+                            <MoreVertIcon />
+                          </IconButton>
                         </TableCell>
-                      ))}
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            ))}
+        </Box>
 
-                      <TableCell align="right" sx={{ py: 1 }} onClick={(e) => e.stopPropagation()}>
-                        <IconButton
-                          onClick={(e) => handleMenuOpen(e, row.uid)}
-                          sx={{
-                            color: "var(--color-text-medium)",
-                            "&:hover": {
-                              backgroundColor: "rgba(0, 0, 0, 0.04)",
-                              color: "var(--color-primary-darker)",
-                            },
-                          }}
-                        >
-                          <MoreVertIcon />
-                        </IconButton>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          ))}
-      </Box>
+        {/* Action Menu (simplified) */}
+        <Menu
+          anchorEl={menuAnchorEl}
+          open={Boolean(menuAnchorEl)}
+          onClose={handleMenuClose}
+          PaperProps={{ elevation: 3, sx: { borderRadius: "8px", minWidth: "150px" } }}
+        >
+          <MenuItem
+            disabled={
+              userRole === UserType.Manager &&
+              (Array.isArray(rows) ? rows : []).find((r) => r.uid === selectedRowId)?.role ===
+                UserType.Admin
+            } //Client Intake does not have access to this page
+            onClick={() => {
+              if (selectedRowId) {
+                setDeleteModalOpen(true);
+                setMenuAnchorEl(null);
+              }
+            }}
+            sx={{ py: 1.5, color: "error.main" }}
+          >
+            <DeleteIcon fontSize="small" sx={{ mr: 1 }} /> Delete
+          </MenuItem>
+        </Menu>
 
-      {/* Action Menu (simplified) */}
-      <Menu
-        anchorEl={menuAnchorEl}
-        open={Boolean(menuAnchorEl)}
-        onClose={handleMenuClose}
-        PaperProps={{ elevation: 3, sx: { borderRadius: "8px", minWidth: "150px" } }}
-      >
-        <MenuItem
-          disabled={
-            userRole === UserType.Manager &&
-            (Array.isArray(rows) ? rows : []).find((r) => r.uid === selectedRowId)?.role ===
-              UserType.Admin
-          } //Client Intake does not have access to this page
-          onClick={() => {
+        {/* Modals */}
+        {/* Debug: Log full user record when modal opens */}
+        {deleteModalOpen && (() => {
+          const userRecord = (Array.isArray(rows) ? rows : []).find((r) => r.uid === selectedRowId);
+          console.log('Full user record for modal:', userRecord);
+        })()}
+        <DeleteUserModal
+          open={deleteModalOpen}
+          handleClose={handleCloseDeleteModal}
+          handleDelete={() => {
             if (selectedRowId) {
-              setDeleteModalOpen(true);
-              setMenuAnchorEl(null);
+              handleDeleteUser(selectedRowId);
+            } else {
+              console.error("No user selected for deletion.");
+              setActionFeedback({ type: "error", message: "Error: No user selected." });
+              handleCloseDeleteModal();
             }
           }}
-          sx={{ py: 1.5, color: "error.main" }}
-        >
-          <DeleteIcon fontSize="small" sx={{ mr: 1 }} /> Delete
-        </MenuItem>
-      </Menu>
-
-      {/* Modals */}
-      <DeleteUserModal
-        open={deleteModalOpen}
-        handleClose={handleCloseDeleteModal}
-        handleDelete={() => {
-          if (selectedRowId) {
-            handleDeleteUser(selectedRowId);
-          } else {
-            console.error("No user selected for deletion.");
-            setActionFeedback({ type: "error", message: "Error: No user selected." });
-            handleCloseDeleteModal();
+          userName={
+            (Array.isArray(rows) ? rows : []).find((r) => r.uid === selectedRowId)?.name ||
+            "this user"
           }
-        }}
-        userName={
-          (Array.isArray(rows) ? rows : []).find((r) => r.uid === selectedRowId)?.name ||
-          "this user"
-        }
-      />
-      <CreateUserModal open={createModalOpen} handleClose={handleCloseCreateModal} />
+        />
+        <CreateUserModal open={createModalOpen} handleClose={handleCloseCreateModal} />
+      </>
     </Box>
   );
-};
+}
 
 export default UsersSpreadsheet;
