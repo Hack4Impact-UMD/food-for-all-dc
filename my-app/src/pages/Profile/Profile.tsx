@@ -803,6 +803,7 @@ const Profile = () => {
       | SelectChangeEvent
   ) => {
     const { name, value } = e.target;
+    console.log('[DEBUG handleChange]', name, value);
     setIsSaved(false);
     handlePrevClientCopying();
 
@@ -813,12 +814,19 @@ const Profile = () => {
       }
     }
 
-    if (name === "dob" || name === "tefapCert") {
-      const date = e.target.value;
+    // Always format these fields as MM/DD/YYYY
+    if (["dob", "tefapCert", "startDate", "endDate"].includes(name)) {
+      let formatted = value;
+      if (typeof value === "string" && value.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        // Convert YYYY-MM-DD to MM/DD/YYYY
+        const [year, month, day] = value.split("-");
+        formatted = `${month}/${day}/${year}`;
+      }
       setClientProfile((prevState) => ({
         ...prevState,
-        [name]: date,
+        [name]: formatted,
       }));
+      return;
     } else if (name === "adults" || name === "children" || name === "seniors") {
       if (Number(value) < 0) {
         return; //do nothing if the input is negative
@@ -1134,6 +1142,16 @@ const Profile = () => {
   };
 
   const handleSave = async () => {
+          // Helper to ensure MM/DD/YYYY format
+          function toMMDDYYYY(dateStr: string) {
+            if (!dateStr) return "";
+            if (dateStr.match(/^\d{2}\/\d{2}\/\d{4}$/)) return dateStr; // already correct
+            if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
+              const [year, month, day] = dateStr.split("-");
+              return `${month}/${day}/${year}`;
+            }
+            return dateStr;
+          }
     // Important: First validate basic requirements
     setIsSaving(true);
     const validation = validateProfile();
@@ -1345,12 +1363,26 @@ const Profile = () => {
         return dateStr;
       };
 
+      // Set activeStatus based on today's date and start/end date
+      let activeStatus = false;
+      try {
+        const today = TimeUtils.now().startOf('day');
+        const start = cleanedProfile.startDate ? TimeUtils.fromAny(cleanedProfile.startDate).startOf('day') : null;
+        const end = cleanedProfile.endDate ? TimeUtils.fromAny(cleanedProfile.endDate).startOf('day') : null;
+        if (start && end && today >= start && today <= end) {
+          activeStatus = true;
+        }
+      } catch (e) {
+        // fallback: leave as false
+      }
       const updatedProfile: ClientProfile = {
         ...cleanedProfile,
         // Example: convert specific date fields
         dob: convertDateForSave(cleanedProfile.dob),
         tefapCert: convertDateForSave(cleanedProfile.tefapCert),
         famStartDate: convertDateForSave(cleanedProfile.famStartDate),
+        startDate: toMMDDYYYY(cleanedProfile.startDate),
+        endDate: toMMDDYYYY(cleanedProfile.endDate),
         tags: tags, // Sync the tags state with clientProfile
         notesTimestamp: updatedNotesTimestamp, // Update the notesTimestamp
         deliveryInstructionsTimestamp: updatedDeliveryInstructionsTimestamp,
@@ -1370,6 +1402,7 @@ const Profile = () => {
               organization: selectedCaseWorker.organization,
             }
           : null, // Use null if no case worker is selected
+        activeStatus,
       };
 
       // Sort allTags before potentially saving them (ensures consistent order)
@@ -2821,6 +2854,7 @@ const Profile = () => {
         allTags={allTags || []}
         handleTag={handleTag}
         clientId={clientProfile.uid || null}
+        activeStatus={clientProfile.activeStatus}
       />
       <Box className="profile-main" sx={{ p: 2 }}>
         <Box

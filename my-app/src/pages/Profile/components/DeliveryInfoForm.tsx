@@ -5,6 +5,7 @@ import { ClientProfileKey, InputType } from "../types";
 import { styled, Select } from "@mui/material";
 import TagManager from "../Tags/TagManager";
 import { validateDateRange } from "../../../utils/dateValidation";
+import { TimeUtils } from "../../../utils/timeUtils";
 
 interface DeliveryInfoFormProps {
   clientProfile: ClientProfile;
@@ -67,6 +68,12 @@ const DeliveryInfoForm: React.FC<DeliveryInfoFormProps> = ({
   // Validate date range whenever start or end date changes
   useEffect(() => {
     if (clientProfile.startDate || clientProfile.endDate) {
+      // Debug: log raw and parsed values
+      const parsedStart = clientProfile.startDate ? TimeUtils.fromAny(clientProfile.startDate) : null;
+      const parsedEnd = clientProfile.endDate ? TimeUtils.fromAny(clientProfile.endDate) : null;
+      console.log("[DEBUG] startDate:", clientProfile.startDate, "parsed:", parsedStart?.toISO?.(), "isValid:", parsedStart?.isValid);
+      console.log("[DEBUG] endDate:", clientProfile.endDate, "parsed:", parsedEnd?.toISO?.(), "isValid:", parsedEnd?.isValid);
+
       const validation = validateDateRange(clientProfile.startDate, clientProfile.endDate);
       let startError = validation.startDateError || "";
       const endError = validation.endDateError || "";

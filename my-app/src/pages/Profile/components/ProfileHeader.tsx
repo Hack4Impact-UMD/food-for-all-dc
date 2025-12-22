@@ -1,5 +1,7 @@
-import { Box, Typography, Avatar, Divider, Chip, styled, Stack } from "@mui/material";
+import { Box, Typography, Avatar, Divider, Chip, styled, Stack, Tooltip } from "@mui/material";
 import PersonIcon from "@mui/icons-material/Person";
+import CheckCircleIcon from "@mui/icons-material/CheckCircle";
+import CancelIcon from "@mui/icons-material/Cancel";
 import React from "react";
 import TagManager from "../Tags/TagManager";
 
@@ -56,6 +58,7 @@ interface ProfileHeaderProps {
   allTags: string[];
   handleTag: (tag: string) => void;
   clientId: string | null;
+  activeStatus?: boolean;
 }
 
 const ProfileHeader: React.FC<ProfileHeaderProps> = ({
@@ -66,7 +69,8 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
   allTags,
   handleTag,
   clientId,
-}) => {
+    activeStatus,
+  }) => {
   // Get initials for avatar
   const getInitials = () => {
     const first = firstName ? firstName.charAt(0).toUpperCase() : "";
@@ -91,7 +95,15 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
     <ModernHeaderContainer sx={{ position: "relative", pb: 0 }}>
       <Box sx={{ flexGrow: 1, display: "flex", flexDirection: "column", height: "100%" }}>
         <Box sx={{ display: "flex", alignItems: "center", mb: 0.5 }}>
-          <ProfileName variant="h1" sx={{ mb: 0, mr: 2 }}>
+          {/* Icon before name */}
+          <Tooltip title={activeStatus ? "Active profile" : "Inactive profile"} placement="right">
+            {activeStatus ? (
+              <CheckCircleIcon sx={{ color: '#4caf50', mr: 1, fontSize: '1.5rem', verticalAlign: 'middle' }} />
+            ) : (
+              <CancelIcon sx={{ color: '#bdbdbd', mr: 1, fontSize: '1.5rem', verticalAlign: 'middle' }} />
+            )}
+          </Tooltip>
+          <ProfileName variant="h1" sx={{ mb: 0, mr: 2, display: 'flex', alignItems: 'center' }}>
             {displayName()}
           </ProfileName>
           <TagsContainer sx={{ marginTop: 0 }}>

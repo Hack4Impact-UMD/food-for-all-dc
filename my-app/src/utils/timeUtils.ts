@@ -48,20 +48,24 @@ export class TimeUtils {
       return input;
     }
     if (input instanceof Date) {
-      const result = TimeUtils.fromJSDate(input);
-      return result;
+      return TimeUtils.fromJSDate(input);
     }
     if (input instanceof Timestamp) {
-      const result = TimeUtils.fromFirebaseTimestamp(input);
-      return result;
+      return TimeUtils.fromFirebaseTimestamp(input);
     }
-    // Try ISO parsing first, fallback to JS Date parsing
-    const isoResult = DateTime.fromISO(input);
-    if (isoResult.isValid) {
-      return isoResult;
+    if (typeof input === "string") {
+      // Try ISO first
+      let dt = DateTime.fromISO(input);
+      if (dt.isValid) return dt;
+      // Try MM/DD/YYYY
+      dt = DateTime.fromFormat(input, "MM/dd/yyyy");
+      if (dt.isValid) return dt;
+      // Try JS Date fallback
+      dt = DateTime.fromJSDate(new Date(input));
+      return dt;
     }
-    const fallback = TimeUtils.fromJSDate(new Date(input));
-    return fallback;
+    // Fallback: invalid
+    return DateTime.invalid("Invalid input for fromAny");
   }
 
   static toDateString(dateTime: DateTime): string {
