@@ -257,6 +257,8 @@ class ClientService {
         );
         const allDeliveries = deliverySnapshot.docs.map((doc) => doc.data());
 
+        const today = new Date();
+        const todayStr = today.toISOString().slice(0, 10);
         const clients = snapshot.docs.map((doc) => {
           const raw = doc.data() as any;
           // Find latest delivery date for this client
@@ -278,6 +280,22 @@ class ClientService {
               ? latest.deliveryDate.toDate()
               : latest.deliveryDate;
             lastDeliveryDate = dateObj ? dateObj.toISOString().slice(0, 10) : "";
+          }
+          // Calculate activeStatus based on startDate and endDate
+          let activeStatus = false;
+          const startDate = raw.startDate ? new Date(raw.startDate) : null;
+          const endDate = raw.endDate ? new Date(raw.endDate) : null;
+          if (
+            startDate &&
+            endDate &&
+            !isNaN(startDate.getTime()) &&
+            !isNaN(endDate.getTime())
+          ) {
+            // Compare using only the date part (ignore time)
+            const todayDate = new Date(todayStr);
+            if (todayDate >= startDate && todayDate <= endDate) {
+              activeStatus = true;
+            }
           }
           const mapped = {
             id: doc.id,
@@ -324,6 +342,7 @@ class ClientService {
             tags: raw.tags ?? [],
             referralEntity: raw.referralEntity ?? undefined,
             lastDeliveryDate,
+            activeStatus,
           };
           return mapped;
         });

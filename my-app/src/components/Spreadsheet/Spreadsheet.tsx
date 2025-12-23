@@ -1,7 +1,7 @@
 import "./Spreadsheet.css";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "../../auth/firebaseConfig";
-import { TableSortLabel, Icon } from "@mui/material";
+import { TableSortLabel, Icon, Tooltip } from "@mui/material";
 import {
   parseSearchTermsProgressively,
   checkStringContains,
@@ -56,6 +56,8 @@ import { useCustomColumns, allowedPropertyKeys } from "../../hooks/useCustomColu
 import DietaryRestrictionsLegend from "../DietaryRestrictionsLegend";
 import AddIcon from "@mui/icons-material/Add";
 import DeleteIcon from "@mui/icons-material/Delete";
+import CheckCircleIcon from "@mui/icons-material/CheckCircle";
+import CancelIcon from "@mui/icons-material/Cancel";
 import { Select, MenuItem } from "@mui/material";
 import EditIcon from "@mui/icons-material/Edit";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
@@ -1009,16 +1011,25 @@ const Spreadsheet: React.FC = () => {
                       }}
                     >
                       {field.key === "fullname" ? (
-                        <a
-                          className="name-link"
-                          href="#"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            navigate(`/profile/${row.uid ?? ""}`, { state: { userData: row } });
-                          }}
-                        >
-                          {field.compute ? field.compute(row) : `${row.lastName}, ${row.firstName}`}
-                        </a>
+                        <span style={{ display: 'flex', alignItems: 'center' }}>
+                          <Tooltip title={row.activeStatus ? "Active profile" : "Inactive profile"} placement="right">
+                            {row.activeStatus ? (
+                              <CheckCircleIcon sx={{ color: '#4caf50', fontSize: '1.1rem', mr: 0.5, verticalAlign: 'middle' }} />
+                            ) : (
+                              <CancelIcon sx={{ color: '#bdbdbd', fontSize: '1.1rem', mr: 0.5, verticalAlign: 'middle' }} />
+                            )}
+                          </Tooltip>
+                          <a
+                            className="name-link"
+                            href="#"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              navigate(`/profile/${row.uid ?? ""}`, { state: { userData: row } });
+                            }}
+                          >
+                            {field.compute ? field.compute(row) : `${row.lastName}, ${row.firstName}`}
+                          </a>
+                        </span>
                       ) : field.compute ? (
                         field.compute(row)
                       ) : (
