@@ -1220,6 +1220,31 @@ const Profile = () => {
       }
       const coordinatesToSave = fetchedCoordinates;
 
+      // Calculate activeStatus (compare only date part)
+      function stripTime(date: Date) {
+        return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+      }
+      const today = stripTime(new Date());
+      const startDate = cleanedProfile.startDate ? stripTime(new Date(cleanedProfile.startDate)) : null;
+      const endDate = cleanedProfile.endDate ? stripTime(new Date(cleanedProfile.endDate)) : null;
+      let activeStatus = false;
+      if (startDate && endDate) {
+        if (today >= startDate && today <= endDate) {
+          activeStatus = true;
+        }
+      }
+      clientProfile.activeStatus = activeStatus;
+
+      // Debug logging
+      console.log('DEBUG activeStatus calculation:', {
+        today,
+        startDate,
+        endDate,
+        activeStatus,
+        cleanedProfileStartDate: cleanedProfile.startDate,
+        cleanedProfileEndDate: cleanedProfile.endDate
+      });
+
       const updatedProfile = {
         ...cleanedProfile,
         dob: convertDateForSave(cleanedProfile.dob),
@@ -1246,19 +1271,9 @@ const Profile = () => {
               organization: selectedCaseWorker.organization,
             }
           : null,
+        activeStatus: activeStatus,
       };
-
-      // Calculate activeStatus
-      const today = new Date();
-      const startDate = cleanedProfile.startDate ? new Date(cleanedProfile.startDate) : null;
-      const endDate = cleanedProfile.endDate ? new Date(cleanedProfile.endDate) : null;
-      let activeStatus = false;
-      if (startDate && endDate) {
-        if (today >= startDate && today <= endDate) {
-          activeStatus = true;
-        }
-      }
-      clientProfile.activeStatus = activeStatus;
+      console.log('DEBUG updatedProfile to Firestore:', updatedProfile);
 
       // Duplicate and similar name logic
       const duplicateFound = false;
