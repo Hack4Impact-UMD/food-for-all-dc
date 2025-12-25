@@ -1363,18 +1363,6 @@ const Profile = () => {
         return dateStr;
       };
 
-      // Set activeStatus based on today's date and start/end date
-      let activeStatus = false;
-      try {
-        const today = TimeUtils.now().startOf('day');
-        const start = cleanedProfile.startDate ? TimeUtils.fromAny(cleanedProfile.startDate).startOf('day') : null;
-        const end = cleanedProfile.endDate ? TimeUtils.fromAny(cleanedProfile.endDate).startOf('day') : null;
-        if (start && end && today >= start && today <= end) {
-          activeStatus = true;
-        }
-      } catch (e) {
-        // fallback: leave as false
-      }
       const updatedProfile: ClientProfile = {
         ...cleanedProfile,
         // Example: convert specific date fields
@@ -1402,7 +1390,7 @@ const Profile = () => {
               organization: selectedCaseWorker.organization,
             }
           : null, // Use null if no case worker is selected
-        activeStatus,
+        // activeStatus is now always sourced from backend (cleanedProfile.activeStatus)
       };
 
       // Sort allTags before potentially saving them (ensures consistent order)
