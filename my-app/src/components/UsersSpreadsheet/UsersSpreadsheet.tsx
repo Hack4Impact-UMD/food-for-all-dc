@@ -552,7 +552,12 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
                       >
                         {row.name}
                       </Typography>
-                      <Chip label={getRoleDisplayName(row.role)} color="primary" size="small" />
+                      <Stack direction="row" spacing={1} alignItems="center">
+                        <Chip label={getRoleDisplayName(row.role)} color="primary" size="small" />
+                        <IconButton size="small" onClick={(e) => handleMenuOpen(e, row.uid)}>
+                          <MoreVertIcon />
+                        </IconButton>
+                      </Stack>
                     </Stack>
                     <Divider sx={{ my: 1 }} />
                     <Stack spacing={1}>
@@ -577,9 +582,88 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
                           className="table-header"
                           sx={{
                             backgroundColor: "var(--color-background-green-tint)",
-                            borderBottom: "2px solid var(--color-border-medium)"
+                            borderBottom: "2px solid var(--color-border-medium)",
                           }}
-                        ></TableCell>
+                        >
+                          <Stack
+                            direction="row"
+                            alignItems="center"
+                            spacing={0.5}
+                            sx={{ cursor: "pointer" }}
+                            onClick={
+                              field.key === "name"
+                                ? toggleNameSort
+                                : field.key === "role"
+                                  ? toggleRoleSort
+                                  : field.key === "phone"
+                                    ? togglePhoneSort
+                                    : field.key === "email"
+                                      ? toggleEmailSort
+                                      : undefined
+                            }
+                          >
+                            <Typography
+                              variant="subtitle2"
+                              sx={{ fontWeight: 600, color: "var(--color-primary-darker)" }}
+                            >
+                              {field.label}
+                            </Typography>
+                            {field.key === "name" &&
+                              (!roleSortDirection &&
+                              !phoneSortDirection &&
+                              !emailSortDirection ? (
+                                nameSortDirection === "asc" ? (
+                                  <ArrowDropUpIcon />
+                                ) : nameSortDirection === "desc" ? (
+                                  <ArrowDropDownIcon />
+                                ) : (
+                                  <UnfoldMoreIcon
+                                    sx={{ color: "var(--color-text-icon)", fontSize: "1.2rem" }}
+                                  />
+                                )
+                              ) : roleSortDirection || phoneSortDirection || emailSortDirection ? (
+                                <UnfoldMoreIcon
+                                  sx={{ color: "var(--color-text-icon)", fontSize: "1.2rem" }}
+                                />
+                              ) : null)}
+                            {field.key === "role" &&
+                              (roleSortDirection ? (
+                                roleSortDirection === "asc" ? (
+                                  <ArrowDropUpIcon />
+                                ) : (
+                                  <ArrowDropDownIcon />
+                                )
+                              ) : (
+                                <UnfoldMoreIcon
+                                  sx={{ color: "var(--color-text-icon)", fontSize: "1.2rem" }}
+                                />
+                              ))}
+                            {field.key === "phone" &&
+                              (phoneSortDirection ? (
+                                phoneSortDirection === "asc" ? (
+                                  <ArrowDropUpIcon />
+                                ) : (
+                                  <ArrowDropDownIcon />
+                                )
+                              ) : (
+                                <UnfoldMoreIcon
+                                  sx={{ color: "var(--color-text-icon)", fontSize: "1.2rem" }}
+                                />
+                              ))}
+                            {field.key === "email" &&
+                              (emailSortDirection ? (
+                                emailSortDirection === "asc" ? (
+                                  <ArrowDropUpIcon />
+                                ) : (
+                                  <ArrowDropDownIcon />
+                                )
+                              ) : (
+                                <UnfoldMoreIcon
+                                  sx={{ color: "var(--color-text-icon)", fontSize: "1.2rem" }}
+                                />
+                              ))}
+                          </Stack>
+                        </TableCell>
                       ))}
                       <TableCell
                         align="right"
@@ -669,11 +753,6 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
         </Menu>
 
         {/* Modals */}
-        {/* Debug: Log full user record when modal opens */}
-        {deleteModalOpen && (() => {
-          const userRecord = (Array.isArray(rows) ? rows : []).find((r) => r.uid === selectedRowId);
-          console.log('Full user record for modal:', userRecord);
-        })()}
         <DeleteUserModal
           open={deleteModalOpen}
           handleClose={handleCloseDeleteModal}

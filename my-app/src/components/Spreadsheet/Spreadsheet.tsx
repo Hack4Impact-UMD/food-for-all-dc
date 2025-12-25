@@ -1075,7 +1075,7 @@ const Spreadsheet: React.FC = () => {
                         setMenuAnchorPosition(null);
                         setMenuRow(null);
                       }}
-                      PaperProps={{ elevation: 3, sx: { borderRadius: "8px", minWidth: "150px" } }}
+                      PaperProps={{ elevation: 2, sx: { borderRadius: "8px", minWidth: "150px" } }}
                     >
                       <MenuItem
                         onClick={() => {
