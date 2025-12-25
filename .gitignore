@@ -35,6 +35,9 @@ my-app/build/
 my-app/functions/lib/
 my-app/functions-python/lib/
 
+# Cloud Run ETL
+cloudrun-etl/
+
 # Firebase
 .firebase/
 firebase-debug.log*
