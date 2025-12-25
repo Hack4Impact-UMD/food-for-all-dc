@@ -244,19 +244,14 @@ const DateFieldComponent = ({
   dateInputProps: Record<string, any>;
   error?: string;
 }) => {
-  const [dateError, setDateError] = useState<string | null>(null);
-  const [fieldTouched, setFieldTouched] = useState<boolean>(false);
-
+  // Move helpers above hooks to avoid ReferenceError
   const convertToHtmlDateFormat = (inputValue: any): string => {
     if (!inputValue) {
       return "";
     }
-
     const stringValue = String(inputValue);
-
     if (stringValue.includes("/")) {
       const parts = stringValue.split("/");
-
       if (parts.length === 3) {
         const [month, day, year] = parts;
         if (month && day && year) {
@@ -266,65 +261,60 @@ const DateFieldComponent = ({
         }
       }
     }
-
     if (stringValue.match(/^\d{4}-\d{2}-\d{2}$/)) {
       return stringValue;
     }
-
     return "";
   };
 
   const convertFromHtmlDateFormat = (yyyymmdd: string): string => {
     if (!yyyymmdd || yyyymmdd.length !== 10) return "";
-
     const [year, month, day] = yyyymmdd.split("-");
     if (!year || !month || !day) return "";
-
     return `${month}/${day}/${year}`;
   };
+
+  const [dateError, setDateError] = useState<string | null>(null);
+  const [fieldTouched, setFieldTouched] = useState<boolean>(false);
+  // Local state for raw input value to allow free typing
+  const [inputValue, setInputValue] = useState<string>(() => convertToHtmlDateFormat(value) || "");
+
+  // Keep local inputValue in sync if parent value changes externally
+  React.useEffect(() => {
+    const htmlValue = convertToHtmlDateFormat(value) || "";
+    setInputValue(htmlValue);
+  }, [value]);
+
+
 
   const displayError = error || (fieldTouched && dateError);
 
   const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
     setFieldTouched(true);
-
     const blurValue = e.target.value;
-
     if (!blurValue) {
       setDateError(null);
+      setInputValue("");
+      handleChange({ ...e, target: { ...e.target, value: "" } } as React.ChangeEvent<HTMLInputElement>);
       return;
     }
-
     if (!isValidHtmlDateFormat(blurValue, 1900, 2100)) {
-      if (!blurValue.match(/^\d{4}-\d{2}-\d{2}$/)) {
-        setDateError("Please select a valid date");
-      } else {
-        const date = new Date(blurValue);
-        if (isNaN(date.getTime())) {
-          setDateError("Please select a valid date");
-        } else {
-          const year = date.getFullYear();
-          if (year < 1900 || year > 2100) {
-            setDateError("Year must be between 1900-2100");
-          } else {
-            setDateError("Please select a valid date");
-          }
-        }
-      }
-    } else {
-      if (fieldPath === "tefapCert") {
-        const selectedDate = new Date(blurValue);
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-
-        if (selectedDate > today) {
-          setDateError("TEFAP CERT date cannot be in the future");
-          return;
-        }
-      }
-
-      setDateError(null);
+      setDateError("Please select a valid date");
+      return;
     }
+    if (fieldPath === "tefapCert") {
+      const selectedDate = new Date(blurValue);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      if (selectedDate > today) {
+        setDateError("TEFAP CERT date cannot be in the future");
+        return;
+      }
+    }
+    setDateError(null);
+    // Only propagate valid date to parent in MM/DD/YYYY format
+    const mmddyyyyValue = convertFromHtmlDateFormat(blurValue);
+    handleChange({ ...e, target: { ...e.target, value: mmddyyyyValue } } as React.ChangeEvent<HTMLInputElement>);
   };
 
   return (
@@ -340,37 +330,12 @@ const DateFieldComponent = ({
       <CustomTextField
         type="date"
         name={fieldPath}
-        value={convertToHtmlDateFormat(value) || ""}
+        value={inputValue}
         className={fieldTouched && !!dateError ? "error" : ""}
         onChange={(e) => {
+          setInputValue(e.target.value);
           if (!fieldTouched) setFieldTouched(true);
-
           if (dateError) setDateError(null);
-
-          if (fieldPath === "tefapCert" && e.target.value) {
-            const selectedDate = new Date(e.target.value);
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-
-            if (selectedDate > today) {
-              setDateError("TEFAP CERT date cannot be in the future");
-            }
-          }
-
-          const htmlDateValue = e.target.value;
-          if (htmlDateValue) {
-            const mmddyyyyValue = convertFromHtmlDateFormat(htmlDateValue);
-            const syntheticEvent = {
-              ...e,
-              target: {
-                ...e.target,
-                value: mmddyyyyValue,
-              },
-            } as React.ChangeEvent<HTMLInputElement>;
-            handleChange(syntheticEvent);
-          } else {
-            handleChange(e);
-          }
         }}
         onBlur={handleBlur}
         onFocus={() => setFieldTouched(true)}
