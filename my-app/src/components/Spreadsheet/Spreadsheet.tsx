@@ -173,6 +173,18 @@ const Spreadsheet: React.FC = () => {
   const handleCustomHeaderChange = customColumnsHook.handleCustomHeaderChange;
   const handleRemoveCustomColumn = customColumnsHook.handleRemoveCustomColumn;
 
+  // On mount, check for force refresh flag and trigger refresh if needed
+  const [didForceRefresh, setDidForceRefresh] = useState(false);
+  useEffect(() => {
+    if (localStorage.getItem('forceClientsRefresh') === 'true' && !didForceRefresh) {
+      refresh().then(() => {
+        localStorage.removeItem('forceClientsRefresh');
+        setDidForceRefresh(true);
+      });
+    }
+  }, [refresh, didForceRefresh]);
+
+  // Always update rows when clients change
   useEffect(() => {
     setRows(clients);
     setTimeout(() => {

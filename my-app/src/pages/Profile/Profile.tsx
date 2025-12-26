@@ -1327,6 +1327,8 @@ const Profile = () => {
         setAllTags(sortedAllTags); // Update the local list of all tags
         // Refresh client data context so spreadsheet updates
         if (refresh) await refresh();
+        // Set flag to force spreadsheet refresh on next mount
+        localStorage.setItem('forceClientsRefresh', 'true');
         // Navigate *after* state updates. The component will remount with isEditing=false.
         navigate(`/profile/${newUid}`);
       } else {
@@ -1357,6 +1359,8 @@ const Profile = () => {
         setAllTags(sortedAllTags); // Update the local list of all tags
         // Refresh client data context so spreadsheet updates
         if (refresh) await refresh();
+        // Set flag to force spreadsheet refresh on next mount
+        localStorage.setItem('forceClientsRefresh', 'true');
       }
 
       // Common post-save actions (Popup notification)

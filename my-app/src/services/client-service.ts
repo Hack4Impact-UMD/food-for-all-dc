@@ -283,16 +283,19 @@ class ClientService {
           }
           // Calculate activeStatus based on startDate and endDate
           let activeStatus = false;
-          const startDate = raw.startDate ? new Date(raw.startDate) : null;
-          const endDate = raw.endDate ? new Date(raw.endDate) : null;
+          // Helper to strip time from a Date
+          function stripTime(date: Date): Date {
+            return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+          }
+          const startDate = raw.startDate ? stripTime(new Date(raw.startDate)) : null;
+          const endDate = raw.endDate ? stripTime(new Date(raw.endDate)) : null;
+          const todayDate = stripTime(new Date(todayStr));
           if (
             startDate &&
             endDate &&
             !isNaN(startDate.getTime()) &&
             !isNaN(endDate.getTime())
           ) {
-            // Compare using only the date part (ignore time)
-            const todayDate = new Date(todayStr);
             if (todayDate >= startDate && todayDate <= endDate) {
               activeStatus = true;
             }
