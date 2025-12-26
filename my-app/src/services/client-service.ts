@@ -279,6 +279,16 @@ class ClientService {
               : latest.deliveryDate;
             lastDeliveryDate = dateObj ? dateObj.toISOString().slice(0, 10) : "";
           }
+          // Calculate activeStatus based on startDate and endDate
+          let activeStatus = false;
+          const todayDate = TimeUtils.now().startOf("day");
+          const startDateTime = raw.startDate ? TimeUtils.fromAny(raw.startDate).startOf("day") : null;
+          const endDateTime = raw.endDate ? TimeUtils.fromAny(raw.endDate).startOf("day") : null;
+          if (startDateTime?.isValid && endDateTime?.isValid) {
+            const todayMillis = todayDate.toMillis();
+            activeStatus =
+              todayMillis >= startDateTime.toMillis() && todayMillis <= endDateTime.toMillis();
+          }
           const mapped = {
             id: doc.id,
             uid: doc.id,
@@ -324,6 +334,7 @@ class ClientService {
             tags: raw.tags ?? [],
             referralEntity: raw.referralEntity ?? undefined,
             lastDeliveryDate,
+            activeStatus,
           };
           return mapped;
         });

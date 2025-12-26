@@ -813,12 +813,19 @@ const Profile = () => {
       }
     }
 
-    if (name === "dob" || name === "tefapCert") {
-      const date = e.target.value;
+    // Always format these fields as MM/DD/YYYY
+    if (["dob", "tefapCert", "startDate", "endDate"].includes(name)) {
+      let formatted = value;
+      if (typeof value === "string" && value.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        // Convert YYYY-MM-DD to MM/DD/YYYY
+        const [year, month, day] = value.split("-");
+        formatted = `${month}/${day}/${year}`;
+      }
       setClientProfile((prevState) => ({
         ...prevState,
-        [name]: date,
+        [name]: formatted,
       }));
+      return;
     } else if (name === "adults" || name === "children" || name === "seniors") {
       if (Number(value) < 0) {
         return; //do nothing if the input is negative
@@ -1345,6 +1352,20 @@ const Profile = () => {
         return dateStr;
       };
 
+      const today = TimeUtils.now().startOf("day");
+      const startDateTime = cleanedProfile.startDate
+        ? TimeUtils.fromAny(cleanedProfile.startDate).startOf("day")
+        : null;
+      const endDateTime = cleanedProfile.endDate
+        ? TimeUtils.fromAny(cleanedProfile.endDate).startOf("day")
+        : null;
+      let activeStatus = false;
+      if (startDateTime?.isValid && endDateTime?.isValid) {
+        const todayMillis = today.toMillis();
+        activeStatus =
+          todayMillis >= startDateTime.toMillis() && todayMillis <= endDateTime.toMillis();
+      }
+
       const updatedProfile: ClientProfile = {
         ...cleanedProfile,
         // Example: convert specific date fields
@@ -1370,6 +1391,7 @@ const Profile = () => {
               organization: selectedCaseWorker.organization,
             }
           : null, // Use null if no case worker is selected
+        activeStatus,
       };
 
       // Sort allTags before potentially saving them (ensures consistent order)
@@ -1405,6 +1427,8 @@ const Profile = () => {
         setAllTags(sortedAllTags); // Update the local list of all tags
         // Refresh client data context so spreadsheet updates
         if (refresh) await refresh();
+        // Set flag to force spreadsheet refresh on next mount
+        localStorage.setItem("forceClientsRefresh", "true");
         // Navigate *after* state updates. The component will remount with isEditing=false.
         navigate(`/profile/${newUid}`);
       } else {
@@ -1435,6 +1459,8 @@ const Profile = () => {
         setAllTags(sortedAllTags); // Update the local list of all tags
         // Refresh client data context so spreadsheet updates
         if (refresh) await refresh();
+        // Set flag to force spreadsheet refresh on next mount
+        localStorage.setItem("forceClientsRefresh", "true");
       }
 
       // Common post-save actions (Popup notification)
@@ -2584,6 +2610,7 @@ const Profile = () => {
       );
 
       // ...existing code...
+      // Example usage: <Button onClick={handleSave}>Save</Button>
 
       // 2. CALCULATE ALL DATES FOR THIS DELIVERY SERIES
       let allDates: Date[] = [];
@@ -2821,6 +2848,7 @@ const Profile = () => {
         allTags={allTags || []}
         handleTag={handleTag}
         clientId={clientProfile.uid || null}
+        activeStatus={clientProfile.activeStatus}
       />
       <Box className="profile-main" sx={{ p: 2 }}>
         <Box

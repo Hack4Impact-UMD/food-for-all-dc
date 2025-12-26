@@ -1,7 +1,7 @@
 import "./Spreadsheet.css";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "../../auth/firebaseConfig";
-import { TableSortLabel, Icon } from "@mui/material";
+import { TableSortLabel, Icon, Tooltip } from "@mui/material";
 import {
   parseSearchTermsProgressively,
   checkStringContains,
@@ -56,6 +56,8 @@ import { useCustomColumns, allowedPropertyKeys } from "../../hooks/useCustomColu
 import DietaryRestrictionsLegend from "../DietaryRestrictionsLegend";
 import AddIcon from "@mui/icons-material/Add";
 import DeleteIcon from "@mui/icons-material/Delete";
+import CheckCircleIcon from "@mui/icons-material/CheckCircle";
+import CancelIcon from "@mui/icons-material/Cancel";
 import { Select, MenuItem } from "@mui/material";
 import EditIcon from "@mui/icons-material/Edit";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
@@ -171,6 +173,37 @@ const Spreadsheet: React.FC = () => {
   const handleCustomHeaderChange = customColumnsHook.handleCustomHeaderChange;
   const handleRemoveCustomColumn = customColumnsHook.handleRemoveCustomColumn;
 
+  // On mount, check for force refresh flag and daily cache reset (EST)
+  const [didForceRefresh, setDidForceRefresh] = useState(false);
+  useEffect(() => {
+    // Helper to get today's date in America/New_York (EST/EDT)
+    function getTodayEST() {
+      const now = new Date();
+      // Convert to EST/EDT offset
+      const estOffset = -5 * 60; // EST is UTC-5
+      const jan = new Date(now.getFullYear(), 0, 1);
+      const jul = new Date(now.getFullYear(), 6, 1);
+      const stdTimezoneOffset = Math.max(jan.getTimezoneOffset(), jul.getTimezoneOffset());
+      const isDST = now.getTimezoneOffset() < stdTimezoneOffset;
+      const offset = estOffset + (isDST ? 60 : 0); // Add 1 hour for DST
+      const estDate = new Date(now.getTime() + (now.getTimezoneOffset() - offset) * 60000);
+      return estDate.toISOString().slice(0, 10);
+    }
+
+    const todayEST = getTodayEST();
+    const lastRefreshDate = localStorage.getItem('clientsLastRefreshDate');
+    const needsDailyRefresh = lastRefreshDate !== todayEST;
+    const forceFlag = localStorage.getItem('forceClientsRefresh') === 'true';
+    if ((forceFlag || needsDailyRefresh) && !didForceRefresh) {
+      refresh().then(() => {
+        if (forceFlag) localStorage.removeItem('forceClientsRefresh');
+        localStorage.setItem('clientsLastRefreshDate', todayEST);
+        setDidForceRefresh(true);
+      });
+    }
+  }, [refresh, didForceRefresh]);
+
+  // Always update rows when clients change
   useEffect(() => {
     setRows(clients);
     setTimeout(() => {
@@ -1009,16 +1042,25 @@ const Spreadsheet: React.FC = () => {
                       }}
                     >
                       {field.key === "fullname" ? (
-                        <a
-                          className="name-link"
-                          href="#"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            navigate(`/profile/${row.uid ?? ""}`, { state: { userData: row } });
-                          }}
-                        >
-                          {field.compute ? field.compute(row) : `${row.lastName}, ${row.firstName}`}
-                        </a>
+                        <span style={{ display: 'flex', alignItems: 'center' }}>
+                          <Tooltip title={row.activeStatus ? "Active profile" : "Inactive profile"} placement="right">
+                            {row.activeStatus ? (
+                              <CheckCircleIcon sx={{ color: '#4caf50', fontSize: '1.1rem', mr: 0.5, verticalAlign: 'middle' }} />
+                            ) : (
+                              <CancelIcon sx={{ color: '#bdbdbd', fontSize: '1.1rem', mr: 0.5, verticalAlign: 'middle' }} />
+                            )}
+                          </Tooltip>
+                          <a
+                            className="name-link"
+                            href="#"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              navigate(`/profile/${row.uid ?? ""}`, { state: { userData: row } });
+                            }}
+                          >
+                            {field.compute ? field.compute(row) : `${row.lastName}, ${row.firstName}`}
+                          </a>
+                        </span>
                       ) : field.compute ? (
                         field.compute(row)
                       ) : (

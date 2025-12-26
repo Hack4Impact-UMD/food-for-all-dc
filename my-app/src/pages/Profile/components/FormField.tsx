@@ -317,6 +317,21 @@ const DateFieldComponent = ({
     handleChange({ ...e, target: { ...e.target, value: mmddyyyyValue } } as React.ChangeEvent<HTMLInputElement>);
   };
 
+  // Update parent state on every change
+  const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setInputValue(e.target.value);
+    if (!fieldTouched) setFieldTouched(true);
+    if (dateError) setDateError(null);
+    // Force the name property for MUI date fields
+    if (!e.target.name) {
+      Object.defineProperty(e.target, "name", { value: fieldPath, configurable: true });
+    }
+    // Convert to MM/DD/YYYY before sending to parent
+    const mmddyyyyValue = convertFromHtmlDateFormat(e.target.value);
+    const eventWithFormattedValue = { ...e, target: { ...e.target, value: mmddyyyyValue, name: fieldPath } };
+    handleChange(eventWithFormattedValue as React.ChangeEvent<HTMLInputElement>);
+  };
+
   return (
     <Box
       sx={{
@@ -332,11 +347,7 @@ const DateFieldComponent = ({
         name={fieldPath}
         value={inputValue}
         className={fieldTouched && !!dateError ? "error" : ""}
-        onChange={(e) => {
-          setInputValue(e.target.value);
-          if (!fieldTouched) setFieldTouched(true);
-          if (dateError) setDateError(null);
-        }}
+        onChange={handleDateChange}
         onBlur={handleBlur}
         onFocus={() => setFieldTouched(true)}
         error={!!displayError}

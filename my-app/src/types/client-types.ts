@@ -16,6 +16,7 @@ export interface DietaryRestrictions {
   other: boolean;
   dietaryPreferences?: string;
   [key: string]: any;
+  activeStatus?: boolean;
 }
 
 export interface DeliveryDetails {
@@ -105,4 +106,5 @@ export interface ClientProfile {
     otherText: string;
     other: boolean;
   };
+  activeStatus?: boolean;
 }
