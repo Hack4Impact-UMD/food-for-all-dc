@@ -257,8 +257,6 @@ class ClientService {
         );
         const allDeliveries = deliverySnapshot.docs.map((doc) => doc.data());
 
-        const today = new Date();
-        const todayStr = today.toISOString().slice(0, 10);
         const clients = snapshot.docs.map((doc) => {
           const raw = doc.data() as any;
           // Find latest delivery date for this client
@@ -283,22 +281,13 @@ class ClientService {
           }
           // Calculate activeStatus based on startDate and endDate
           let activeStatus = false;
-          // Helper to strip time from a Date
-          function stripTime(date: Date): Date {
-            return new Date(date.getFullYear(), date.getMonth(), date.getDate());
-          }
-          const startDate = raw.startDate ? stripTime(new Date(raw.startDate)) : null;
-          const endDate = raw.endDate ? stripTime(new Date(raw.endDate)) : null;
-          const todayDate = stripTime(new Date(todayStr));
-          if (
-            startDate &&
-            endDate &&
-            !isNaN(startDate.getTime()) &&
-            !isNaN(endDate.getTime())
-          ) {
-            if (todayDate >= startDate && todayDate <= endDate) {
-              activeStatus = true;
-            }
+          const todayDate = TimeUtils.now().startOf("day");
+          const startDateTime = raw.startDate ? TimeUtils.fromAny(raw.startDate).startOf("day") : null;
+          const endDateTime = raw.endDate ? TimeUtils.fromAny(raw.endDate).startOf("day") : null;
+          if (startDateTime?.isValid && endDateTime?.isValid) {
+            const todayMillis = todayDate.toMillis();
+            activeStatus =
+              todayMillis >= startDateTime.toMillis() && todayMillis <= endDateTime.toMillis();
           }
           const mapped = {
             id: doc.id,

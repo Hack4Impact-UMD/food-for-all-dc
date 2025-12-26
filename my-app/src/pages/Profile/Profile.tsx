@@ -177,18 +177,6 @@ const SaveNotification = styled(Box)({
 });
 
 const Profile = () => {
-    // Helper to ensure MM/DD/YYYY format
-    function toMMDDYYYY(dateStr: string) {
-      if (!dateStr) return "";
-      if (dateStr.match(/^\d{2}\/\d{2}\/\d{4}$/)) return dateStr; // already correct
-      if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
-        const [year, month, day] = dateStr.split("-");
-        return `${month}/${day}/${year}`;
-      }
-      return dateStr;
-    }
-
-    // ...existing code...
   const { refresh } = useClientData();
   const navigate = useNavigate();
   const params = useParams();
@@ -815,7 +803,6 @@ const Profile = () => {
       | SelectChangeEvent
   ) => {
     const { name, value } = e.target;
-    console.log('[DEBUG handleChange]', name, value);
     setIsSaved(false);
     handlePrevClientCopying();
 
@@ -1154,19 +1141,181 @@ const Profile = () => {
   };
 
   const handleSave = async () => {
-      // Helper to ensure MM/DD/YYYY format
-      function toMMDDYYYY(dateStr: string) {
-        if (!dateStr) return "";
-        if (dateStr.match(/^\d{2}\/\d{2}\/\d{4}$/)) return dateStr; // already correct
-        if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
-          const [year, month, day] = dateStr.split("-");
-          return `${month}/${day}/${year}`;
-        }
-        return dateStr;
-      }
+    // Important: First validate basic requirements
+    setIsSaving(true);
+    const validation = validateProfile();
 
-      // Prepare cleanedProfile and updatedProfile
+    // Check for address validation error
+    if (addressError) {
+      alert(
+        "Please fix the address error before saving. Make sure to select a valid address from the Google Places suggestions."
+      );
+      setIsSaving(false);
+      return;
+    }
+
+    if (Object.keys(validation).length > 0) {
+      const errorFields = Object.entries(validation)
+        .map(([field, message]) => `- ${message}`)
+        .join("\n");
+      alert(`Please fix the following before saving:\n${errorFields}`);
+      setIsSaving(false);
+      return;
+    }
+
+    // Clear any previous duplicate popup states
+    setShowDuplicatePopup(false);
+
+    // Show saving indicator? (Optional)
+    // setIsLoading(true);
+
+    try {
+      if (isNewProfile) {
+        // Force duplicate check to always happen with direct values, not through variables
+        const duplicateResult = await checkDuplicateClient(
+          String(clientProfile.firstName).trim(),
+          String(clientProfile.lastName).trim(),
+          String(clientProfile.address).trim(),
+          String(clientProfile.address2).trim(),
+          String(clientProfile.zipCode).trim()
+        );
+
+        let isDuplicate = false;
+        let sameNameCount = 0;
+        let sameNameDiffAddressCount = 0;
+
+        // Handle different result formats
+        if (typeof duplicateResult === "boolean") {
+          isDuplicate = duplicateResult;
+        } else {
+          isDuplicate = duplicateResult.isDuplicate;
+          sameNameCount = duplicateResult.sameNameCount || 0;
+          sameNameDiffAddressCount = duplicateResult.sameNameDiffAddressCount || 0;
+        }
+
+        if (isDuplicate) {
+          // Create a detailed error message including exact fields that caused the duplicate
+          const errorMsg = `DUPLICATE CLIENT DETECTED\n\nA client with the following details already exists in the system:\n\nName: ${clientProfile.firstName} ${clientProfile.lastName}\nAddress: ${clientProfile.address}\nZIP Code: ${clientProfile.zipCode}\n\nYou cannot save this client because it would create a duplicate record.\nPlease check if this is truly a new client with a unique name or address.`;
+          // Update error message and show the popup
+          setDuplicateErrorMessage(errorMsg);
+          setShowDuplicatePopup(true);
+          // No automatic timeout - let the user dismiss the error
+          return;
+        }
+
+        // Warn if there are other clients with the same name in the same zip code
+        if (sameNameDiffAddressCount > 0) {
+          const warningMsg = `Note: There ${sameNameDiffAddressCount === 1 ? "is" : "are"} ${sameNameDiffAddressCount} other client${sameNameDiffAddressCount === 1 ? "" : "s"} with the name "${clientProfile.firstName} ${clientProfile.lastName}" in ZIP code "${clientProfile.zipCode}", but at different addresses.`;
+          setSimilarNamesMessage(warningMsg);
+          setShowSimilarNamesInfo(true);
+        }
+      } else {
+        // Force duplicate check to always happen with direct values, not through variables
+        const duplicateResult = await checkDuplicateClient(
+          String(clientProfile.firstName).trim(),
+          String(clientProfile.lastName).trim(),
+          String(clientProfile.address).trim(),
+          String(clientProfile.address2).trim(),
+          String(clientProfile.zipCode).trim(),
+          String(clientProfile.uid)
+        );
+
+        let isDuplicate = false;
+        let sameNameCount = 0;
+        let sameNameDiffAddressCount = 0;
+
+        // Handle different result formats
+        if (typeof duplicateResult === "boolean") {
+          isDuplicate = duplicateResult;
+        } else {
+          isDuplicate = duplicateResult.isDuplicate;
+          sameNameCount = duplicateResult.sameNameCount || 0;
+          sameNameDiffAddressCount = duplicateResult.sameNameDiffAddressCount || 0;
+        }
+
+        if (isDuplicate) {
+          // Create a detailed error message including exact fields that caused the duplicate
+          const errorMsg = `DUPLICATE CLIENT DETECTED\n\nA client with the following details already exists in the system:\n\nName: ${clientProfile.firstName} ${clientProfile.lastName}\nAddress: ${clientProfile.address}\nZIP Code: ${clientProfile.zipCode}\n\nYou cannot save this client because it would create a duplicate record.\nPlease check if this is truly a different client with a unique name or address.`;
+          // Update error message and show the popup
+          setDuplicateErrorMessage(errorMsg);
+          setShowDuplicatePopup(true);
+          // No automatic timeout - let the user dismiss the error
+          return;
+        }
+
+        // Warn if there are other clients with the same name in the same zip code
+        if (sameNameDiffAddressCount > 0) {
+          const warningMsg = `Note: There ${sameNameDiffAddressCount === 1 ? "is" : "are"} ${sameNameDiffAddressCount} other client${sameNameDiffAddressCount === 1 ? "" : "s"} with the name "${clientProfile.firstName} ${clientProfile.lastName}" in ZIP code "${clientProfile.zipCode}", but at different addresses.`;
+          setSimilarNamesMessage(warningMsg);
+          setShowSimilarNamesInfo(true);
+        }
+      }
+      // --- Geocoding Optimization Start ---
+      // Always force geocoding and coordinate update on every save
+      const { ward: fetchedWard, coordinates: fetchedCoordinates } = await getWardAndCoordinates(
+        clientProfile.address
+      );
+      const coordinatesToSave = fetchedCoordinates;
+      // Update the ward state
+      clientProfile.ward = fetchedWard;
+      setWard(fetchedWard);
+      // --- Geocoding Optimization End ---
+
+      const currentNotes = clientProfile.notes || ""; // Ensure notes is a string
+      let updatedNotesTimestamp = checkIfNotesExists(
+        currentNotes,
+        clientProfile.notesTimestamp || null
+      );
+      updatedNotesTimestamp = checkIfNotesChanged(
+        prevNotes, // Compare against the notes content *before* this edit session
+        currentNotes,
+        updatedNotesTimestamp
+      );
+
+      // Delivery Instructions Timestamp
+      const prevDeliveryInstructions =
+        prevClientProfile?.deliveryDetails.deliveryInstructions || "";
+      const currentDeliveryInstructions = clientProfile.deliveryDetails.deliveryInstructions || "";
+      let updatedDeliveryInstructionsTimestamp = checkIfNotesExists(
+        currentDeliveryInstructions,
+        clientProfile.deliveryInstructionsTimestamp || null
+      );
+      updatedDeliveryInstructionsTimestamp = checkIfNotesChanged(
+        prevDeliveryInstructions,
+        currentDeliveryInstructions,
+        updatedDeliveryInstructionsTimestamp
+      );
+
+      // Life Challenges Timestamp
+      const prevLifeChallenges = prevClientProfile?.lifeChallenges || "";
+      const currentLifeChallenges = clientProfile.lifeChallenges || "";
+      let updatedLifeChallengesTimestamp = checkIfNotesExists(
+        currentLifeChallenges,
+        clientProfile.lifeChallengesTimestamp || null
+      );
+      updatedLifeChallengesTimestamp = checkIfNotesChanged(
+        prevLifeChallenges,
+        currentLifeChallenges,
+        updatedLifeChallengesTimestamp
+      );
+
+      // Lifestyle Goals Timestamp
+      const prevLifestyleGoals = prevClientProfile?.lifestyleGoals || "";
+      const currentLifestyleGoals = clientProfile.lifestyleGoals || "";
+      let updatedLifestyleGoalsTimestamp = checkIfNotesExists(
+        currentLifestyleGoals,
+        clientProfile.lifestyleGoalsTimestamp || null
+      );
+      updatedLifestyleGoalsTimestamp = checkIfNotesChanged(
+        prevLifestyleGoals,
+        currentLifestyleGoals,
+        updatedLifestyleGoalsTimestamp
+      );
+
+      // Update the clientProfile object with the latest tags state and other calculated fields
+      // Only save config-defined dynamic fields
       let configFieldIds: string[] = [];
+      // Get config-driven dynamic field IDs
       if (window && window.localStorage) {
         try {
           const config = JSON.parse(window.localStorage.getItem("profileFieldsConfig") || "{}");
@@ -1174,21 +1323,24 @@ const Profile = () => {
             configFieldIds = config.miscellaneousFields.map((f: any) => f.id);
           }
         } catch (err) {
-          // No-op: ignore config parse errors
+          // Intentionally ignore config load errors; fallback will be used
         }
       }
       if (configFieldIds.length === 0) {
         configFieldIds = Object.keys(dynamicFields);
       }
+      // Filter dynamic fields to only config-driven ones
       const filteredDynamicFields = Object.fromEntries(
         Object.entries(dynamicFields).filter(([key]) => configFieldIds.includes(key))
       );
+      // Remove ALL config-driven dynamic field keys from top-level profile before saving
       const cleanedProfile = { ...clientProfile };
       for (const key of configFieldIds) {
         if (key in cleanedProfile) {
-          delete (cleanedProfile as any)[key];
+          delete (cleanedProfile as Record<string, unknown>)[key];
         }
       }
+      // Convert all date fields from mm/dd/yyyy to backend format (e.g., yyyy-mm-dd) here
       const convertDateForSave = (dateStr: string | null | undefined) => {
         if (!dateStr || typeof dateStr !== "string" || !dateStr.includes("/")) return dateStr ?? "";
         const [month, day, year] = dateStr.split("/");
@@ -1200,60 +1352,28 @@ const Profile = () => {
         return dateStr;
       };
 
-      // Timestamps
-      const updatedNotesTimestamp = { notes: cleanedProfile.notes ?? "", timestamp: new Date() };
-      const updatedDeliveryInstructionsTimestamp = { notes: cleanedProfile.notes ?? "", timestamp: new Date() };
-      const updatedLifeChallengesTimestamp = { notes: cleanedProfile.notes ?? "", timestamp: new Date() };
-      const updatedLifestyleGoalsTimestamp = { notes: cleanedProfile.notes ?? "", timestamp: new Date() };
-
-      // Geocoding
-      let fetchedWard = clientProfile.ward;
-      let fetchedCoordinates = clientProfile.coordinates;
-      try {
-        const geoResult = await getWardAndCoordinates(clientProfile.address);
-        fetchedWard = geoResult.ward;
-        fetchedCoordinates = geoResult.coordinates;
-        clientProfile.ward = fetchedWard;
-        setWard(fetchedWard);
-      } catch (err) {
-        // fallback or error handling
-      }
-      const coordinatesToSave = fetchedCoordinates;
-
-      // Calculate activeStatus (compare only date part)
-      function stripTime(date: Date) {
-        return new Date(date.getFullYear(), date.getMonth(), date.getDate());
-      }
-      const today = stripTime(new Date());
-      const startDate = cleanedProfile.startDate ? stripTime(new Date(cleanedProfile.startDate)) : null;
-      const endDate = cleanedProfile.endDate ? stripTime(new Date(cleanedProfile.endDate)) : null;
+      const today = TimeUtils.now().startOf("day");
+      const startDateTime = cleanedProfile.startDate
+        ? TimeUtils.fromAny(cleanedProfile.startDate).startOf("day")
+        : null;
+      const endDateTime = cleanedProfile.endDate
+        ? TimeUtils.fromAny(cleanedProfile.endDate).startOf("day")
+        : null;
       let activeStatus = false;
-      if (startDate && endDate) {
-        if (today >= startDate && today <= endDate) {
-          activeStatus = true;
-        }
+      if (startDateTime?.isValid && endDateTime?.isValid) {
+        const todayMillis = today.toMillis();
+        activeStatus =
+          todayMillis >= startDateTime.toMillis() && todayMillis <= endDateTime.toMillis();
       }
-      clientProfile.activeStatus = activeStatus;
 
-      // Debug logging
-      console.log('DEBUG activeStatus calculation:', {
-        today,
-        startDate,
-        endDate,
-        activeStatus,
-        cleanedProfileStartDate: cleanedProfile.startDate,
-        cleanedProfileEndDate: cleanedProfile.endDate
-      });
-
-      const updatedProfile = {
+      const updatedProfile: ClientProfile = {
         ...cleanedProfile,
+        // Example: convert specific date fields
         dob: convertDateForSave(cleanedProfile.dob),
         tefapCert: convertDateForSave(cleanedProfile.tefapCert),
         famStartDate: convertDateForSave(cleanedProfile.famStartDate),
-        startDate: toMMDDYYYY(cleanedProfile.startDate ?? ""),
-        endDate: toMMDDYYYY(cleanedProfile.endDate ?? ""),
-        tags: tags,
-        notesTimestamp: updatedNotesTimestamp,
+        tags: tags, // Sync the tags state with clientProfile
+        notesTimestamp: updatedNotesTimestamp, // Update the notesTimestamp
         deliveryInstructionsTimestamp: updatedDeliveryInstructionsTimestamp,
         lifeChallengesTimestamp: updatedLifeChallengesTimestamp,
         lifestyleGoalsTimestamp: updatedLifestyleGoalsTimestamp,
@@ -1262,37 +1382,17 @@ const Profile = () => {
           Number(clientProfile.adults || 0) +
           Number(clientProfile.children || 0) +
           Number(clientProfile.seniors || 0),
-        ward: fetchedWard,
-        coordinates: coordinatesToSave,
+        ward: fetchedWard, // Use potentially updated ward
+        coordinates: coordinatesToSave, // Use potentially updated coordinates
         referralEntity: selectedCaseWorker
           ? {
               id: selectedCaseWorker.id,
               name: selectedCaseWorker.name,
               organization: selectedCaseWorker.organization,
             }
-          : null,
-        activeStatus: activeStatus,
+          : null, // Use null if no case worker is selected
+        activeStatus,
       };
-      console.log('DEBUG updatedProfile to Firestore:', updatedProfile);
-
-      // Duplicate and similar name logic
-      const duplicateFound = false;
-      // eslint-disable-next-line prefer-const
-      let sameNameDiffAddressCount = 0;
-      // ...existing duplicate check logic here...
-
-      if (duplicateFound) {
-        const errorMsg = `DUPLICATE CLIENT DETECTED\n\nA client with the following details already exists in the system:\n\nName: ${clientProfile.firstName} ${clientProfile.lastName}\nAddress: ${clientProfile.address}\nZIP Code: ${clientProfile.zipCode}\n\nYou cannot save this client because it would create a duplicate record.\nPlease check if this is truly a different client with a unique name or address.`;
-        setDuplicateErrorMessage(errorMsg);
-        setShowDuplicatePopup(true);
-        setIsSaving(false);
-        return;
-      }
-      if (sameNameDiffAddressCount > 0) {
-        const warningMsg = `Note: There ${sameNameDiffAddressCount === 1 ? "is" : "are"} ${sameNameDiffAddressCount} other client${sameNameDiffAddressCount === 1 ? "" : "s"} with the name "${clientProfile.firstName} ${clientProfile.lastName}" in ZIP code "${clientProfile.zipCode}", but at different addresses.`;
-        setSimilarNamesMessage(warningMsg);
-        setShowSimilarNamesInfo(true);
-      }
 
       // Sort allTags before potentially saving them (ensures consistent order)
       // Combine current tags and all known tags, remove duplicates, then sort
@@ -1328,7 +1428,7 @@ const Profile = () => {
         // Refresh client data context so spreadsheet updates
         if (refresh) await refresh();
         // Set flag to force spreadsheet refresh on next mount
-        localStorage.setItem('forceClientsRefresh', 'true');
+        localStorage.setItem("forceClientsRefresh", "true");
         // Navigate *after* state updates. The component will remount with isEditing=false.
         navigate(`/profile/${newUid}`);
       } else {
@@ -1360,14 +1460,23 @@ const Profile = () => {
         // Refresh client data context so spreadsheet updates
         if (refresh) await refresh();
         // Set flag to force spreadsheet refresh on next mount
-        localStorage.setItem('forceClientsRefresh', 'true');
+        localStorage.setItem("forceClientsRefresh", "true");
       }
 
       // Common post-save actions (Popup notification)
+      // setEditMode(false); <-- Removed redundant call
       setShowSavePopup(true);
       setIsEditing(false);
       setTimeout(() => setShowSavePopup(false), 2000);
+    } catch (e) {
+      console.error("Error saving document: ", e);
+      alert(`Failed to save profile: ${e instanceof Error ? e.message : String(e)}`);
+      // Consider keeping isEditing true or providing more feedback
+    } finally {
+      // Hide saving indicator? (Optional)
+      // setIsLoading(false);
       setIsSaving(false);
+    }
   };
 
   // Updated field label styles for a more modern look
