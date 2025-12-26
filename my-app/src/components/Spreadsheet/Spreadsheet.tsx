@@ -173,12 +173,31 @@ const Spreadsheet: React.FC = () => {
   const handleCustomHeaderChange = customColumnsHook.handleCustomHeaderChange;
   const handleRemoveCustomColumn = customColumnsHook.handleRemoveCustomColumn;
 
-  // On mount, check for force refresh flag and trigger refresh if needed
+  // On mount, check for force refresh flag and daily cache reset (EST)
   const [didForceRefresh, setDidForceRefresh] = useState(false);
   useEffect(() => {
-    if (localStorage.getItem('forceClientsRefresh') === 'true' && !didForceRefresh) {
+    // Helper to get today's date in America/New_York (EST/EDT)
+    function getTodayEST() {
+      const now = new Date();
+      // Convert to EST/EDT offset
+      const estOffset = -5 * 60; // EST is UTC-5
+      const jan = new Date(now.getFullYear(), 0, 1);
+      const jul = new Date(now.getFullYear(), 6, 1);
+      const stdTimezoneOffset = Math.max(jan.getTimezoneOffset(), jul.getTimezoneOffset());
+      const isDST = now.getTimezoneOffset() < stdTimezoneOffset;
+      const offset = estOffset + (isDST ? 60 : 0); // Add 1 hour for DST
+      const estDate = new Date(now.getTime() + (now.getTimezoneOffset() - offset) * 60000);
+      return estDate.toISOString().slice(0, 10);
+    }
+
+    const todayEST = getTodayEST();
+    const lastRefreshDate = localStorage.getItem('clientsLastRefreshDate');
+    const needsDailyRefresh = lastRefreshDate !== todayEST;
+    const forceFlag = localStorage.getItem('forceClientsRefresh') === 'true';
+    if ((forceFlag || needsDailyRefresh) && !didForceRefresh) {
       refresh().then(() => {
-        localStorage.removeItem('forceClientsRefresh');
+        if (forceFlag) localStorage.removeItem('forceClientsRefresh');
+        localStorage.setItem('clientsLastRefreshDate', todayEST);
         setDidForceRefresh(true);
       });
     }
