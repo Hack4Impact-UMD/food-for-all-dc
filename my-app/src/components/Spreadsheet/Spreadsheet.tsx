@@ -63,6 +63,7 @@ import EditIcon from "@mui/icons-material/Edit";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
 import { styled } from "@mui/material/styles";
 import { useNavigate } from "react-router-dom";
+import { DateTime } from "luxon";
 
 import { exportQueryResults, exportAllClients } from "./export";
 const DeleteClientModal = React.lazy(() => import("./DeleteClientModal"));
@@ -83,6 +84,8 @@ const StyleChip = styled(Chip)(({ theme }) => ({
     backgroundColor: theme.palette.primary.main,
   },
 }));
+
+const getTodayET = (): string => DateTime.now().setZone("America/New_York").toISODate() ?? "";
 
 function getCustomColumnDisplay(row: RowData, propertyKey: string): React.ReactNode {
   if (!propertyKey || propertyKey === "none") return "";
@@ -173,35 +176,37 @@ const Spreadsheet: React.FC = () => {
   const handleCustomHeaderChange = customColumnsHook.handleCustomHeaderChange;
   const handleRemoveCustomColumn = customColumnsHook.handleRemoveCustomColumn;
 
-  // On mount, check for force refresh flag and daily cache reset (EST)
-  const [didForceRefresh, setDidForceRefresh] = useState(false);
+  // Use Luxon for EST date calculation
+  // Always check for a new day and refresh on mount (after login)
   useEffect(() => {
-    // Helper to get today's date in America/New_York (EST/EDT)
-    function getTodayEST() {
-      const now = new Date();
-      // Convert to EST/EDT offset
-      const estOffset = -5 * 60; // EST is UTC-5
-      const jan = new Date(now.getFullYear(), 0, 1);
-      const jul = new Date(now.getFullYear(), 6, 1);
-      const stdTimezoneOffset = Math.max(jan.getTimezoneOffset(), jul.getTimezoneOffset());
-      const isDST = now.getTimezoneOffset() < stdTimezoneOffset;
-      const offset = estOffset + (isDST ? 60 : 0); // Add 1 hour for DST
-      const estDate = new Date(now.getTime() + (now.getTimezoneOffset() - offset) * 60000);
-      return estDate.toISOString().slice(0, 10);
-    }
-
-    const todayEST = getTodayEST();
-    const lastRefreshDate = localStorage.getItem('clientsLastRefreshDate');
+    const todayEST = getTodayET();
+    const lastRefreshDate = localStorage.getItem("clientsLastRefreshDate");
     const needsDailyRefresh = lastRefreshDate !== todayEST;
-    const forceFlag = localStorage.getItem('forceClientsRefresh') === 'true';
-    if ((forceFlag || needsDailyRefresh) && !didForceRefresh) {
+    const forceFlag = localStorage.getItem("forceClientsRefresh") === "true";
+    if (forceFlag || needsDailyRefresh) {
       refresh().then(() => {
-        if (forceFlag) localStorage.removeItem('forceClientsRefresh');
-        localStorage.setItem('clientsLastRefreshDate', todayEST);
-        setDidForceRefresh(true);
+        if (forceFlag) localStorage.removeItem("forceClientsRefresh");
+        localStorage.setItem("clientsLastRefreshDate", todayEST);
       });
     }
-  }, [refresh, didForceRefresh]);
+  }, [refresh]);
+
+  // Add focus event to trigger refresh if date has changed while tab was inactive
+  useEffect(() => {
+    function onFocus() {
+      const todayEST = getTodayET();
+      const lastRefreshDate = localStorage.getItem("clientsLastRefreshDate");
+      if (lastRefreshDate !== todayEST) {
+        refresh().then(() => {
+          localStorage.setItem("clientsLastRefreshDate", todayEST);
+        });
+      }
+    }
+    window.addEventListener("focus", onFocus);
+    return () => {
+      window.removeEventListener("focus", onFocus);
+    };
+  }, [refresh]);
 
   // Always update rows when clients change
   useEffect(() => {

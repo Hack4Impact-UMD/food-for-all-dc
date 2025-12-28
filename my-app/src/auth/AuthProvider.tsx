@@ -62,6 +62,11 @@ export const AuthProvider = ({ children }: Props): React.ReactElement => {
       setUserRole(null);
       setError(null);
       userRoleCache.clear();
+      // Clear spreadsheet cache keys on logout for extra safety
+      if (typeof window !== "undefined" && window.localStorage) {
+        window.localStorage.removeItem("clientsLastRefreshDate");
+        window.localStorage.removeItem("forceClientsRefresh");
+      }
     } catch (err: any) {
       setError({ code: err.code || "auth/logout-error", message: err.message || "Logout failed." });
       console.error("Logout error:", err);
