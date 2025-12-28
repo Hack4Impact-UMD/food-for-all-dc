@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useState, ReactNode } from "react";
 import { useAuth } from "../auth/AuthProvider";
 import { clientService } from "../services/client-service";
 import { RowData } from "../components/Spreadsheet/export";
@@ -18,7 +18,7 @@ export const ClientDataProvider: React.FC<{ children: ReactNode }> = ({ children
   const [error, setError] = useState<Error | null>(null);
   const { user, loading: authLoading } = useAuth();
 
-  const fetchClients = async () => {
+  const fetchClients = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -29,13 +29,13 @@ export const ClientDataProvider: React.FC<{ children: ReactNode }> = ({ children
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     if (!authLoading && user) {
       fetchClients();
     }
-  }, [authLoading, user]);
+  }, [authLoading, user, fetchClients]);
 
   return (
     <ClientDataContext.Provider value={{ clients, loading, error, refresh: fetchClients }}>

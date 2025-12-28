@@ -85,6 +85,8 @@ const StyleChip = styled(Chip)(({ theme }) => ({
   },
 }));
 
+const getTodayET = (): string => DateTime.now().setZone("America/New_York").toISODate() ?? "";
+
 function getCustomColumnDisplay(row: RowData, propertyKey: string): React.ReactNode {
   if (!propertyKey || propertyKey === "none") return "";
   if (propertyKey === "referralEntity" && row.referralEntity) {
@@ -175,22 +177,16 @@ const Spreadsheet: React.FC = () => {
   const handleRemoveCustomColumn = customColumnsHook.handleRemoveCustomColumn;
 
   // Use Luxon for EST date calculation
-  const [didForceRefresh, setDidForceRefresh] = useState(false);
-  function getTodayESTLuxon() {
-    return DateTime.now().setZone("America/New_York").toISODate();
-  }
   // Always check for a new day and refresh on mount (after login)
   useEffect(() => {
-    const todayEST = getTodayESTLuxon() ?? "";
-    const lastRefreshDate = localStorage.getItem('clientsLastRefreshDate');
+    const todayEST = getTodayET();
+    const lastRefreshDate = localStorage.getItem("clientsLastRefreshDate");
     const needsDailyRefresh = lastRefreshDate !== todayEST;
-    const forceFlag = localStorage.getItem('forceClientsRefresh') === 'true';
-    // Always check on mount, not just if didForceRefresh is false
+    const forceFlag = localStorage.getItem("forceClientsRefresh") === "true";
     if (forceFlag || needsDailyRefresh) {
       refresh().then(() => {
-        if (forceFlag) localStorage.removeItem('forceClientsRefresh');
-        localStorage.setItem('clientsLastRefreshDate', todayEST);
-        setDidForceRefresh(true);
+        if (forceFlag) localStorage.removeItem("forceClientsRefresh");
+        localStorage.setItem("clientsLastRefreshDate", todayEST);
       });
     }
   }, [refresh]);
@@ -198,17 +194,17 @@ const Spreadsheet: React.FC = () => {
   // Add focus event to trigger refresh if date has changed while tab was inactive
   useEffect(() => {
     function onFocus() {
-      const todayEST = getTodayESTLuxon() ?? "";
-      const lastRefreshDate = localStorage.getItem('clientsLastRefreshDate');
+      const todayEST = getTodayET();
+      const lastRefreshDate = localStorage.getItem("clientsLastRefreshDate");
       if (lastRefreshDate !== todayEST) {
         refresh().then(() => {
-          localStorage.setItem('clientsLastRefreshDate', todayEST);
+          localStorage.setItem("clientsLastRefreshDate", todayEST);
         });
       }
     }
-    window.addEventListener('focus', onFocus);
+    window.addEventListener("focus", onFocus);
     return () => {
-      window.removeEventListener('focus', onFocus);
+      window.removeEventListener("focus", onFocus);
     };
   }, [refresh]);
 
