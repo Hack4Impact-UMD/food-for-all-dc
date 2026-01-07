@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - claude/fix-cicd-firebase-deploy-2CQS2
 
 jobs:
   deploy:
