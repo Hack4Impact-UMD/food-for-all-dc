@@ -71,14 +71,42 @@ def latlon_to_cartesian(lat, lon, radius=6371):
     z = radius * sin(lat)
     return x, y, z
 
+# Allowed CORS origins for geocoding and clustering endpoints
+ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+    "https://food-for-all-dc-caf23.web.app",
+    "https://food-for-all-dc-caf23.firebaseapp.com"
+]
+
+def get_cors_headers(req: https_fn.Request) -> dict:
+    """Return CORS headers, allowing only whitelisted origins."""
+    origin = req.headers.get('origin', '')
+
+    if origin in ALLOWED_ORIGINS:
+        return {
+            "Access-Control-Allow-Origin": origin,
+            "Access-Control-Allow-Methods": "POST, OPTIONS",
+            "Access-Control-Allow-Headers": "Content-Type, Authorization",
+        }
+    else:
+        # Return empty origin for non-whitelisted requests
+        return {
+            "Access-Control-Allow-Methods": "POST, OPTIONS",
+            "Access-Control-Allow-Headers": "Content-Type, Authorization",
+        }
+
 @https_fn.on_request(region="us-central1", memory=512, timeout_sec=300)
 def geocode_addresses_endpoint(req: https_fn.Request) -> https_fn.Response:
-    # Set CORS headers
-    headers = {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "POST, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type, Authorization",
-    }
+    # Get CORS headers based on request origin
+    headers = get_cors_headers(req)
+
+    # Block requests from non-whitelisted origins
+    if "Access-Control-Allow-Origin" not in headers and req.method != "OPTIONS":
+        return https_fn.Response(
+            response=json.dumps({"error": "Origin not allowed"}),
+            status=403,
+            content_type="application/json"
+        )
     
     # Handle preflight OPTIONS request
     if req.method == "OPTIONS":
@@ -118,12 +146,16 @@ def geocode_addresses_endpoint(req: https_fn.Request) -> https_fn.Response:
     
 @https_fn.on_request(region="us-central1", memory=512, timeout_sec=300)
 def cluster_deliveries_k_means(req: https_fn.Request) -> https_fn.Response:
-    # Set CORS headers
-    headers = {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "POST, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type, Authorization",
-    }
+    # Get CORS headers based on request origin
+    headers = get_cors_headers(req)
+
+    # Block requests from non-whitelisted origins
+    if "Access-Control-Allow-Origin" not in headers and req.method != "OPTIONS":
+        return https_fn.Response(
+            response=json.dumps({"error": "Origin not allowed"}),
+            status=403,
+            content_type="application/json"
+        )
 
     # Handle preflight OPTIONS request
     if req.method == "OPTIONS":

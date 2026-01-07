@@ -47,9 +47,27 @@ def deleteUserAccount(req: https_fn.CallableRequest):
                                   message="Authentication required.")
 
     caller_uid = req.auth.uid
+    db = firestore.client()
 
-    # TODO: Add role-based authorization check (Admin/Manager only)
-    # Currently allows any authenticated user to delete users
+    # Server-side role-based authorization check (Admin/Manager only)
+    try:
+        caller_doc = db.collection('users').document(caller_uid).get()
+        if not caller_doc.exists:
+            print(f"Authorization failed: Caller user document not found for UID: {caller_uid}")
+            raise https_fn.HttpsError(code=https_fn.FunctionsErrorCode.PERMISSION_DENIED,
+                                      message="User not authorized to perform this action.")
+
+        caller_role = caller_doc.to_dict().get('role')
+        if caller_role not in ['Admin', 'Manager']:
+            print(f"Authorization failed: User {caller_uid} with role '{caller_role}' attempted to delete user.")
+            raise https_fn.HttpsError(code=https_fn.FunctionsErrorCode.PERMISSION_DENIED,
+                                      message="Only Admin and Manager roles can delete users.")
+    except https_fn.HttpsError:
+        raise  # Re-raise HttpsErrors
+    except Exception as e:
+        print(f"Error checking user authorization: {e}")
+        raise https_fn.HttpsError(code=https_fn.FunctionsErrorCode.INTERNAL,
+                                  message="Failed to verify user authorization.")
 
     uid_to_delete = req.data.get('uid')
     if not uid_to_delete or not isinstance(uid_to_delete, str):
@@ -63,7 +81,6 @@ def deleteUserAccount(req: https_fn.CallableRequest):
                                     message="You cannot delete your own account.")
 
     print(f"Attempting to delete user with UID: {uid_to_delete}")
-    db = firestore.client()
 
     try:
         auth.delete_user(uid_to_delete)
