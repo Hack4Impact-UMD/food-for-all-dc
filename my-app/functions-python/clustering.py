@@ -8,9 +8,38 @@ from typing import Dict, List, Tuple
 import json
 import logging
 import numpy as np
+import os
 from google.cloud import secretmanager
 
-   
+# ===========================
+# Configuration Constants
+# ===========================
+
+# Google Cloud Project ID - will be auto-detected from environment
+GCP_PROJECT_ID = os.environ.get('GCP_PROJECT', os.environ.get('GCLOUD_PROJECT', '251910218620'))
+
+# Secret Manager configuration
+SECRET_ID = "MAPS_API_KEY"
+SECRET_VERSION = "latest"
+
+# Allowed CORS origins - can be overridden with ALLOWED_ORIGINS env var (comma-separated)
+DEFAULT_ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+    "https://food-for-all-dc-caf23.web.app",
+    "https://food-for-all-dc-caf23.firebaseapp.com"
+]
+
+# Parse allowed origins from environment or use defaults
+ALLOWED_ORIGINS = (
+    os.environ.get('ALLOWED_ORIGINS', '').split(',')
+    if os.environ.get('ALLOWED_ORIGINS')
+    else DEFAULT_ALLOWED_ORIGINS
+)
+
+# ===========================
+# Data Models
+# ===========================
+
 class KMeansClusterDeliveriesRequest(BaseModel):
     coords: List[Tuple[float, float]]
     drivers_count: int
@@ -24,19 +53,29 @@ class FieldError(BaseModel):
     field: str
     message: str
 
-#Convert a list of addresses to (lat, lon) using Google Maps Geocoding API.
+# ===========================
+# Helper Functions
+# ===========================
+
 def geocode_addresses(addresses: List[str]) -> List[Tuple[float, float]]:
+    """
+    Convert a list of addresses to (lat, lon) tuples using Google Maps Geocoding API.
+
+    Args:
+        addresses: List of address strings to geocode
+
+    Returns:
+        List of (latitude, longitude) tuples. Returns (0.0, 0.0) for failed geocoding.
+    """
     client = secretmanager.SecretManagerServiceClient()
-    project_id = "251910218620"       # From your resource name
-    secret_id = "MAPS_API_KEY"        # Your Secret ID
-    version = "latest"                # Or a specific version number like "1"
+
     try:
-        secret_name = f"projects/{project_id}/secrets/{secret_id}/versions/{version}"
+        secret_name = f"projects/{GCP_PROJECT_ID}/secrets/{SECRET_ID}/versions/{SECRET_VERSION}"
         response = client.access_secret_version(request={"name": secret_name})
         api_key = response.payload.data.decode("UTF-8")
         gmaps = googlemaps.Client(key=api_key)
     except Exception as e:
-        print(e)
+        print(f"Failed to initialize Google Maps client: {e}")
         return [str(e)]
 
     logging.info("got gmaps") 
@@ -66,20 +105,22 @@ def parse_error_fields(e: ValidationError):
     ]
 
 def latlon_to_cartesian(lat, lon, radius=6371):
+    """Convert latitude/longitude to Cartesian coordinates for distance calculations."""
     x = radius * cos(lat) * cos(lon)
     y = radius * cos(lat) * sin(lon)
     z = radius * sin(lat)
     return x, y, z
 
-# Allowed CORS origins for geocoding and clustering endpoints
-ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-    "https://food-for-all-dc-caf23.web.app",
-    "https://food-for-all-dc-caf23.firebaseapp.com"
-]
-
 def get_cors_headers(req: https_fn.Request) -> dict:
-    """Return CORS headers, allowing only whitelisted origins."""
+    """
+    Return CORS headers, allowing only whitelisted origins.
+
+    Args:
+        req: The HTTP request object
+
+    Returns:
+        Dictionary of CORS headers. Includes Access-Control-Allow-Origin only for whitelisted origins.
+    """
     origin = req.headers.get('origin', '')
 
     if origin in ALLOWED_ORIGINS:
@@ -89,14 +130,23 @@ def get_cors_headers(req: https_fn.Request) -> dict:
             "Access-Control-Allow-Headers": "Content-Type, Authorization",
         }
     else:
-        # Return empty origin for non-whitelisted requests
+        # Return headers without origin for non-whitelisted requests
         return {
             "Access-Control-Allow-Methods": "POST, OPTIONS",
             "Access-Control-Allow-Headers": "Content-Type, Authorization",
         }
 
+# ===========================
+# Cloud Functions Endpoints
+# ===========================
+
 @https_fn.on_request(region="us-central1", memory=512, timeout_sec=300)
 def geocode_addresses_endpoint(req: https_fn.Request) -> https_fn.Response:
+    """
+    HTTP endpoint to geocode multiple addresses using Google Maps API.
+
+    Security: CORS restricted to allowed origins only.
+    """
     # Get CORS headers based on request origin
     headers = get_cors_headers(req)
 
@@ -146,6 +196,11 @@ def geocode_addresses_endpoint(req: https_fn.Request) -> https_fn.Response:
     
 @https_fn.on_request(region="us-central1", memory=512, timeout_sec=300)
 def cluster_deliveries_k_means(req: https_fn.Request) -> https_fn.Response:
+    """
+    HTTP endpoint to cluster delivery locations using constrained K-means algorithm.
+
+    Security: CORS restricted to allowed origins only.
+    """
     # Get CORS headers based on request origin
     headers = get_cors_headers(req)
 

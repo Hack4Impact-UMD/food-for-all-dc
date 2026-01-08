@@ -10,6 +10,27 @@ from clustering import (
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
+# ===========================
+# Configuration Constants
+# ===========================
+
+# Firestore collection names
+USERS_COLLECTION = "users"
+EVENTS_COLLECTION = "events"
+CLIENTS_COLLECTION = "clients"
+
+# User role constants
+ROLE_ADMIN = "Admin"
+ROLE_MANAGER = "Manager"
+ROLE_CLIENT_INTAKE = "Client Intake"
+ROLE_DRIVER = "Driver"
+
+# Roles allowed to delete users
+ADMIN_ROLES = [ROLE_ADMIN, ROLE_MANAGER]
+
+# Timezone for scheduled functions
+DEFAULT_TIMEZONE = "America/New_York"
+
 # Initialize Firebase Admin SDK only once
 try:
     firebase_admin.initialize_app()
@@ -51,17 +72,17 @@ def deleteUserAccount(req: https_fn.CallableRequest):
 
     # Server-side role-based authorization check (Admin/Manager only)
     try:
-        caller_doc = db.collection('users').document(caller_uid).get()
+        caller_doc = db.collection(USERS_COLLECTION).document(caller_uid).get()
         if not caller_doc.exists:
             print(f"Authorization failed: Caller user document not found for UID: {caller_uid}")
             raise https_fn.HttpsError(code=https_fn.FunctionsErrorCode.PERMISSION_DENIED,
                                       message="User not authorized to perform this action.")
 
         caller_role = caller_doc.to_dict().get('role')
-        if caller_role not in ['Admin', 'Manager']:
+        if caller_role not in ADMIN_ROLES:
             print(f"Authorization failed: User {caller_uid} with role '{caller_role}' attempted to delete user.")
             raise https_fn.HttpsError(code=https_fn.FunctionsErrorCode.PERMISSION_DENIED,
-                                      message="Only Admin and Manager roles can delete users.")
+                                      message=f"Only {' and '.join(ADMIN_ROLES)} roles can delete users.")
     except https_fn.HttpsError:
         raise  # Re-raise HttpsErrors
     except Exception as e:
@@ -87,7 +108,7 @@ def deleteUserAccount(req: https_fn.CallableRequest):
         print(f"Successfully deleted Firebase Auth user: {uid_to_delete}")
 
         try:
-            user_doc_ref = db.collection('users').document(uid_to_delete)
+            user_doc_ref = db.collection(USERS_COLLECTION).document(uid_to_delete)
             user_doc_ref.delete()
             print(f"Successfully deleted Firestore document for user: {uid_to_delete}")
         except Exception as fs_error:
@@ -106,8 +127,16 @@ def deleteUserAccount(req: https_fn.CallableRequest):
         raise https_fn.HttpsError(code=https_fn.FunctionsErrorCode.INTERNAL,
                                     message="An internal error occurred while deleting the user.")
 
-def query_today_client_ids(tz_name: str = "America/New_York"):
-    """Return clientIds for events whose deliveryDate is ‘today’ in the given timezone."""
+def query_today_client_ids(tz_name: str = DEFAULT_TIMEZONE):
+    """
+    Return clientIds for events whose deliveryDate is 'today' in the given timezone.
+
+    Args:
+        tz_name: Timezone string (e.g., 'America/New_York')
+
+    Returns:
+        Dictionary containing client IDs and event counts for today's deliveries
+    """
     tz = ZoneInfo(tz_name)
     now_ny = datetime.now(tz)
     db = firestore.client()
@@ -123,7 +152,7 @@ def query_today_client_ids(tz_name: str = "America/New_York"):
     end_utc = start_of_next_day_ny.astimezone(ZoneInfo("UTC"))
 
     q = (
-        db.collection("events")
+        db.collection(EVENTS_COLLECTION)
           .where(filter=firestore.FieldFilter("deliveryDate", ">=", start_utc))
           .where(filter=firestore.FieldFilter("deliveryDate", "<", end_utc))
     )
@@ -145,9 +174,15 @@ def query_today_client_ids(tz_name: str = "America/New_York"):
         "unique_client_count": len(set(client_ids))
     }
 
-def run_update(tz_name: str = "America/New_York") -> dict:
+def run_update(tz_name: str = DEFAULT_TIMEZONE) -> dict:
     """
-    Core logic (no HTTP, no CORS). Returns a summary dict.
+    Update client delivery records for today's scheduled deliveries.
+
+    Args:
+        tz_name: Timezone string (e.g., 'America/New_York')
+
+    Returns:
+        Dictionary containing update summary with counts and affected client IDs
     """
     db = firestore.client()
 
@@ -159,7 +194,7 @@ def run_update(tz_name: str = "America/New_York") -> dict:
 
     for client_id in result.get("client_ids", []):
         try:
-            doc_ref = db.collection("clients").document(client_id)
+            doc_ref = db.collection(CLIENTS_COLLECTION).document(client_id)
             doc = doc_ref.get()
 
             if doc.exists:
@@ -198,11 +233,13 @@ def run_update(tz_name: str = "America/New_York") -> dict:
 )
 def updateDeliveriesDaily(event: scheduler_fn.ScheduledEvent) -> None:
     """
-    Cron job to run every morning. No HTTP, no return value needed.
+    Scheduled Cloud Function that runs daily at 10:00 AM ET to update delivery records.
+
+    Updates client documents with today's delivery date based on scheduled events.
     """
     try:
         print("UPDATING USER DELIVERIES")
-        run_update("America/New_York")
+        run_update(DEFAULT_TIMEZONE)
     except Exception as e:
         # Log the failure so it shows in Cloud Logging / Error Reporting
         print(f"updateDeliveriesDaily error: {e}")
