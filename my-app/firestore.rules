@@ -1,0 +1,114 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===========================
+    // Helper Functions
+    // ===========================
+
+    // Get the user's role from the users collection
+    function getUserRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+
+    // Check if user is Admin
+    function isAdmin() {
+      return request.auth != null && getUserRole() == 'Admin';
+    }
+
+    // Check if user is Admin or Manager
+    function isAdminOrManager() {
+      return request.auth != null && getUserRole() in ['Admin', 'Manager'];
+    }
+
+    // Check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // ===========================
+    // Collection Rules
+    // ===========================
+
+    // Users collection - only admins can modify, all authenticated can read
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow create: if isAdminOrManager();
+      allow update: if isAdminOrManager();
+      allow delete: if isAdmin(); // Only Admin can delete users
+    }
+
+    // Client profiles (client-profile2)
+    match /client-profile2/{clientId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated(); // Any authenticated user can create clients
+      allow update: if isAuthenticated(); // Any authenticated user can update clients
+      allow delete: if isAdminOrManager(); // Only Admin/Manager can delete
+    }
+
+    // Older clients collection (if still in use)
+    match /clients/{clientId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+      allow delete: if isAdminOrManager();
+    }
+
+    // Events (delivery dates)
+    match /events/{eventId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated(); // All can manage delivery events
+    }
+
+    // Deliveries
+    match /deliveries/{deliveryId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // Drivers
+    match /Drivers2/{driverId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdminOrManager(); // Only Admin/Manager can manage drivers
+    }
+
+    // Clusters (delivery routes)
+    match /clusters/{clusterId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated(); // All can manage clusters
+    }
+
+    // Referral agencies (case workers)
+    match /referral/{referralId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated(); // All can manage referrals
+    }
+
+    // Delivery limits
+    match /limits/{limitId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdminOrManager(); // Only Admin/Manager can set limits
+    }
+
+    // Daily limits
+    match /dailyLimits/{limitId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdminOrManager(); // Only Admin/Manager can set daily limits
+    }
+
+    // Tags
+    match /tags/{tagId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated(); // All can manage tags
+    }
+
+    // ===========================
+    // Default Deny All
+    // ===========================
+
+    // Deny access to any other collections
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
