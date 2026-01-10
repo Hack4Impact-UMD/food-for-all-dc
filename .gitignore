@@ -36,7 +36,8 @@ my-app/functions/lib/
 my-app/functions-python/lib/
 
 # Cloud Run ETL
-cloudrun-etl/
+# Only ignore the service account key, not the whole folder
+ETL/food-for-all-dc-caf23-firebase-adminsdk-fbsvc-4e77c7873e.json
 
 # Firebase
 .firebase/
