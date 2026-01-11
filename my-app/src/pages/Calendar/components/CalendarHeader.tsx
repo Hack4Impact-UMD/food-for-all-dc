@@ -1,10 +1,11 @@
 import { DayPilot } from "@daypilot/daypilot-lite-react";
 import { Add, EditCalendar } from "@mui/icons-material";
 import { Box, Button, IconButton, Typography } from "@mui/material";
-import React, { useCallback } from "react";
+import React, { useCallback, useMemo } from "react";
 import PageDatePicker from "../../../components/PageDatePicker/PageDatePicker";
 import { useAuth } from "../../../auth/AuthProvider";
 import { UserType } from "../../../types";
+import { deliveryDate } from "../../../utils/deliveryDate";
 
 interface CalendarHeaderProps {
   viewType: "Day" | "Month";
@@ -35,6 +36,14 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
 }) => {
   const { userRole } = useAuth();
   const daysOfWeek = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+  // Normalize currentDate to a JS Date that is guaranteed to represent
+  // the same calendar day (avoids any timezone-based off-by-one issues
+  // between DayPilot.Date and the React DatePicker popper)
+  const selectedJsDate = useMemo(() => {
+    const iso = currentDate.toString("yyyy-MM-dd");
+    return deliveryDate.toJSDate(iso);
+  }, [currentDate]);
 
   const handleDateSelect = useCallback(
     (incoming: Date | DayPilot.Date) => {
@@ -98,7 +107,7 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
         <Box sx={{ display: "flex", alignItems: "center" }}>
           <PageDatePicker
             setSelectedDate={handleDateSelect}
-            selectedDate={currentDate.toDate()}
+            selectedDate={selectedJsDate}
             marginLeft="0rem"
           />
         </Box>
