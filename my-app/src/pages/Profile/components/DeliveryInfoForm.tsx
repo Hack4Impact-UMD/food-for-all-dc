@@ -152,7 +152,13 @@ const DeliveryInfoForm: React.FC<DeliveryInfoFormProps> = ({
           <Typography className="field-descriptor" sx={fieldLabelStyles}>
             RECURRENCE <span className="required-asterisk">*</span>
           </Typography>
-          {renderField("recurrence", "select")}
+          {isEditing ? (
+            renderField("recurrence", "select")
+          ) : (
+            <Typography sx={{ fontWeight: 600, fontSize: "1.15rem" }}>
+              {clientProfile.recurrence || "N/A"}
+            </Typography>
+          )}
         </Box>
 
         {/* Last Delivery Date */}

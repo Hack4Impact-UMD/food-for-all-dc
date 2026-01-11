@@ -96,7 +96,11 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
           Today
         </Button>
         <Box sx={{ display: "flex", alignItems: "center" }}>
-          <PageDatePicker setSelectedDate={handleDateSelect} marginLeft="0rem" />
+          <PageDatePicker
+            setSelectedDate={handleDateSelect}
+            selectedDate={currentDate.toDate()}
+            marginLeft="0rem"
+          />
         </Box>
       </Box>
 

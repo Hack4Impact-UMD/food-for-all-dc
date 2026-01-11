@@ -86,7 +86,7 @@ const HealthCheckbox: React.FC<HealthCheckboxProps> = ({
               sx={textFieldStyles}
             />
           ) : (
-            <Box sx={{ ml: 1, color: "var(--color-black)" }}>
+            <Box sx={{ ml: 1, color: "var(--color-black)", fontWeight: 600 }}>
               {otherTextValue || "(No value provided)"}
             </Box>
           )

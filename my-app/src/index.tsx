@@ -7,6 +7,7 @@ import "./styles/form-styles.css";
 import "./styles/form-field-global.css"; // Global form field styling with green glow and error states
 import "./styles/radio-override.css"; // Match radio button styles to checkbox green color
 import "./components/performance/performance.css"; // Performance CSS
+import "./styles/google-places-dropdown.css"; // Custom width for Google Places dropdown
 import App from "./App";
 import { AuthProvider } from "./auth/AuthProvider";
 import { NotificationProvider } from "./components/NotificationProvider";

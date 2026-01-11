@@ -64,6 +64,37 @@ const CalendarMultiSelect: React.FC<CalendarMultiSelectProps> = ({
             transform: "scale(0.5)",
             transformOrigin: "top right",
           },
+
+          // Match popup day styling from PageDatePicker (green today, red selected)
+          ".MuiPickersDay-root.Mui-selected:not(.MuiPickersDay-today)": {
+            backgroundColor: "transparent",
+            color: "#ff4d4d",
+            borderRadius: "50%",
+            border: "2px solid #ff4d4d",
+            boxShadow: "none",
+          },
+          ".MuiPickersDay-root.Mui-selected:not(.MuiPickersDay-today):hover": {
+            backgroundColor: "transparent",
+            color: "#ff4d4d",
+          },
+
+          ".MuiPickersDay-root.MuiPickersDay-today:not(.Mui-selected)": {
+            backgroundColor: "#2e7d32",
+            color: "#ffffff",
+            borderRadius: "50%",
+            border: "none",
+          },
+          ".MuiPickersDay-root.MuiPickersDay-today:not(.Mui-selected):hover": {
+            backgroundColor: "#2e7d32",
+            color: "#ffffff",
+          },
+
+          ".MuiPickersDay-root.Mui-selected.MuiPickersDay-today": {
+            backgroundColor: "#2e7d32",
+            color: "#ffffff",
+            borderRadius: "50%",
+            border: "2px solid #ff4d4d",
+          },
         }}
       />
       <Box sx={{ display: "grid", gridTemplateRows: "56px 1fr", width: "100%", mt: 2 }}>

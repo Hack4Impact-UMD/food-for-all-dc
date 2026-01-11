@@ -1,7 +1,8 @@
 .card {
   display: flex;
   flex-direction: row;
-  padding: var(--spacing-lg);
+  /* Extra right padding so content (especially NOTES) stays clear of the ellipsis menu button */
+  padding: var(--spacing-lg) 3.5rem var(--spacing-lg) var(--spacing-lg);
   margin-bottom: var(--spacing-xs);
   border: none;
   border-radius: var(--border-radius-md);
