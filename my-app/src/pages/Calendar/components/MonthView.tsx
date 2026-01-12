@@ -46,13 +46,14 @@ const MonthView: React.FC<MonthViewProps> = ({
               width: 28px;
               height: 28px;
               border-radius: 50%;
-              border: 2px solid #ff4d4d;
+              background: #2e7d32;
               display: flex;
               align-items: center;
               justify-content: center;
               box-sizing: border-box;
               margin-left: auto;
               margin-right: 0;
+              color: #ffffff;
             '
           >
             ${dayNumber}
