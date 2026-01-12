@@ -62,36 +62,51 @@
 }
 
 /* --- Selected Day --- */
+
 .react-datepicker__day--selected,
 .react-datepicker__day--keyboard-selected {
-  background: var(--color-primary) !important;
-  color: var(--color-background-main) !important;
-  font-weight: bold;
-  border-radius: var(--border-radius-md) !important;
-  border: 2px solid var(--color-primary) !important;
+  /* Selected date (not today): red outline circle (no fill) */
+  background: none !important;
+  color: #ff4d4d !important;
+  font-weight: bold !important;
+  border-radius: 50% !important;
+  border: 2px solid #ff4d4d !important;
   box-shadow: none !important;
+  z-index: 2 !important;
 }
 
 /* Ensure selected+today uses only the selected style */
+
 .react-datepicker__day--selected.react-datepicker__day--today,
 .react-datepicker__day--keyboard-selected.react-datepicker__day--today {
-  background: var(--color-primary) !important;
-  color: var(--color-background-main) !important;
-  border: 2px solid var(--color-primary) !important;
+  /* Today AND selected: solid green fill with a red outline */
+  background: #2e7d32 !important;
+  color: #fff !important;
+  border: 2px solid #ff4d4d !important;
+  box-shadow: none !important;
+  font-weight: bold !important;
+  border-radius: 50% !important;
+  z-index: 3 !important;
 }
 
 /* --- Today --- */
+
 .react-datepicker__day--today {
-  border: 2px solid var(--color-primary) !important;
+  /* Base today style (non-custom): green text, no circle */
+  border: none !important;
   background: none !important;
-  color: var(--color-primary) !important;
+  color: #2e7d32 !important;
+  font-weight: bold !important;
+  border-radius: 50% !important;
+  z-index: 1 !important;
 }
 
 /* Remove default blue highlight */
 .react-datepicker__day--selected:focus,
 .react-datepicker__day--keyboard-selected:focus {
   outline: none !important;
-  border: 2px solid var(--color-primary) !important;
+  /* Keep the same red outline when focused */
+  border: 2px solid #ff4d4d !important;
   box-shadow: none !important;
 }
 
@@ -108,4 +123,49 @@
   background: var(--color-primary-dark) !important;
   color: var(--color-background-main) !important;
   border-radius: var(--border-radius-md) !important;
+}
+
+/* Custom styles for today's date */
+
+
+.react-datepicker__day--custom-today {
+  /* Today (when not selected): filled green circle */
+  background: #2e7d32 !important;
+  border: none !important;
+  color: #fff !important;
+  font-weight: bold !important;
+  border-radius: 50% !important;
+  box-shadow: none !important;
+  z-index: 4 !important;
+}
+
+.react-datepicker__day--custom-today:hover {
+  background: #2e7d32 !important;
+  color: #fff !important;
+  border-radius: 50% !important;
+}
+
+/* Ensure selected and today remain circular even with base hover styles */
+
+.react-datepicker__day--selected,
+.react-datepicker__day--keyboard-selected,
+.react-datepicker__day--today,
+.react-datepicker__day--custom-today {
+  border-radius: 50% !important;
+}
+
+.react-datepicker__day--selected:hover,
+.react-datepicker__day--keyboard-selected:hover {
+  /* Keep selected days as red outline-only on hover */
+  background: none !important;
+  color: #ff4d4d !important;
+  border-radius: 50% !important;
+  border: 2px solid #ff4d4d !important;
+}
+
+.react-datepicker__day--today:hover,
+.react-datepicker__day--custom-today:hover {
+  background: #2e7d32 !important;
+  color: #fff !important;
+  border-radius: 50% !important;
 }

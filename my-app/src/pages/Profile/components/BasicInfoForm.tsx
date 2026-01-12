@@ -261,7 +261,13 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
         <Typography className="field-descriptor" sx={fieldLabelStyles}>
           GENDER <span className="required-asterisk">*</span>
         </Typography>
-        {renderField("gender", "text")}
+        {isEditing ? (
+          renderField("gender", "text")
+        ) : (
+          <Typography sx={{ fontWeight: 600, fontSize: "1.15rem" }}>
+            {clientProfile.gender || "N/A"}
+          </Typography>
+        )}
         {errors.gender && (
           <Typography color="error" variant="body2">
             {errors.gender}
@@ -273,7 +279,13 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
         <Typography className="field-descriptor" sx={fieldLabelStyles}>
           ETHNICITY <span className="required-asterisk">*</span>
         </Typography>
-        {renderField("ethnicity", "text")}
+        {isEditing ? (
+          renderField("ethnicity", "text")
+        ) : (
+          <Typography sx={{ fontWeight: 600, fontSize: "1.15rem" }}>
+            {clientProfile.ethnicity || "N/A"}
+          </Typography>
+        )}
         <Box sx={{ minHeight: "24px" }}></Box>
       </Box>
       {/* Language */}
@@ -281,7 +293,13 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
         <Typography className="field-descriptor" sx={fieldLabelStyles}>
           LANGUAGE <span className="required-asterisk">*</span>
         </Typography>
-        {renderField("language", "text")}
+        {isEditing ? (
+          renderField("language", "text")
+        ) : (
+          <Typography sx={{ fontWeight: 600, fontSize: "1.15rem" }}>
+            {clientProfile.language || "N/A"}
+          </Typography>
+        )}
         <Box sx={{ minHeight: "24px" }}></Box>
       </Box>
       {/* Adults */}
@@ -327,7 +345,13 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
         <Typography className="field-descriptor" sx={fieldLabelStyles}>
           HEAD OF HOUSEHOLD
         </Typography>
-        {renderField("headOfHousehold", "select")}
+        {isEditing ? (
+          renderField("headOfHousehold", "select")
+        ) : (
+          <Typography sx={{ fontWeight: 600, fontSize: "1.15rem" }}>
+            {clientProfile.headOfHousehold || "N/A"}
+          </Typography>
+        )}
       </Box>
       {/* Referral Entity */}
       <Box>

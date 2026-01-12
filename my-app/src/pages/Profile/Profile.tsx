@@ -1705,6 +1705,7 @@ const Profile = () => {
                   padding: "10px",
                   minHeight: "48px",
                   textAlign: "left",
+                  fontWeight: 600,
                 }}
               >
                 {clientProfile.deliveryDetails?.dietaryRestrictions?.foodAllergens?.join(", ") ||
@@ -1749,6 +1750,7 @@ const Profile = () => {
                   padding: "10px",
                   minHeight: "48px",
                   textAlign: "left",
+                  fontWeight: 600,
                 }}
               >
                 {clientProfile.deliveryDetails?.dietaryRestrictions?.otherText || ""}
@@ -1803,6 +1805,7 @@ const Profile = () => {
                   padding: "10px",
                   minHeight: "48px",
                   textAlign: "left",
+                  fontWeight: 600,
                 }}
               >
                 {typeof clientProfile.deliveryDetails?.dietaryRestrictions?.dietaryPreferences ===
@@ -2951,7 +2954,50 @@ const Profile = () => {
                 width: "100%",
               }}
             >
-              <SectionTitle sx={{ textAlign: "left", width: "100%" }}>Deliveries</SectionTitle>
+              <Box display="flex" alignItems="center" sx={{height: '100%'}}>
+                <SectionTitle sx={{ textAlign: "left", display: 'flex', alignItems: 'center', height: '100%', mb: 0 }}>Deliveries</SectionTitle>
+                {/* Warning if first delivery is not on start date */}
+                <Box sx={{ display: 'flex', alignItems: 'center', height: '100%', ml: 3 }}>
+                  {(() => {
+                  // Helper to get YYYY-MM-DD string from string, Date, or Timestamp
+                  function toDateString(val: any): string | null {
+                    if (!val) return null;
+                    if (typeof val === "string") {
+                      // If already in YYYY-MM-DD or ISO format
+                      return val.slice(0, 10);
+                    }
+                    if (val instanceof Date) {
+                      return val.toISOString().slice(0, 10);
+                    }
+                    // Firestore Timestamp: has toDate()
+                    if (typeof val === "object" && typeof val.toDate === "function") {
+                      return val.toDate().toISOString().slice(0, 10);
+                    }
+                    return null;
+                  }
+                  const allDeliveries = [...pastDeliveries, ...futureDeliveries];
+                  if (allDeliveries.length > 0 && clientProfile.startDate) {
+                    // Find earliest delivery date from all deliveries
+                    const sorted = allDeliveries.filter(d => d.deliveryDate).sort((a, b) => {
+                      const aDate = toDateString(a.deliveryDate);
+                      const bDate = toDateString(b.deliveryDate);
+                      if (!aDate || !bDate) return 0;
+                      return aDate.localeCompare(bDate);
+                    });
+                    const firstDeliveryDate = toDateString(sorted[0]?.deliveryDate);
+                    const startDate = toDateString(clientProfile.startDate);
+                    if (firstDeliveryDate && startDate && firstDeliveryDate !== startDate) {
+                      return (
+                        <Typography color="warning.main" sx={{ fontWeight: 600, fontSize: "0.95rem", whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', mb: 0 }}>
+                          ⚠️ First delivery is not on start date
+                        </Typography>
+                      );
+                    }
+                  }
+                  return null;
+                })()}
+                </Box>
+              </Box>
               <Button
                 variant="contained"
                 startIcon={<Add />}
@@ -2988,7 +3034,7 @@ const Profile = () => {
                   }
                   setIsDeliveryModalOpen(true);
                 }}
-                disabled={userRole === UserType.ClientIntake}
+                disabled={userRole === UserType.ClientIntake || clientProfile.activeStatus === false}
                 sx={{
                   marginRight: 4,
                   width: 166,

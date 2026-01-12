@@ -192,6 +192,25 @@ interface ClusterDoc {
   clientOverrides?: ClientOverride[];
 }
 
+// Helper to remove undefined fields from clientOverrides before writing to Firestore
+const sanitizeClientOverridesForFirestore = (overrides: ClientOverride[]): ClientOverride[] => {
+  return overrides.map((override) => {
+    const cleaned: ClientOverride = {
+      clientId: override.clientId,
+    };
+
+    if (override.driver !== undefined) {
+      cleaned.driver = override.driver;
+    }
+
+    if (override.time !== undefined) {
+      cleaned.time = override.time;
+    }
+
+    return cleaned;
+  });
+};
+
 interface DeliveryEvent {
   id: string;
   assignedDriverId: string;
@@ -316,18 +335,23 @@ const fields: Field[] = [
   },
 ];
 
-const times = [
-  { value: "08:00", label: "8:00 AM" },
-  { value: "09:00", label: "9:00 AM" },
-  { value: "10:00", label: "10:00 AM" },
-  { value: "11:00", label: "11:00 AM" },
-  { value: "12:00", label: "12:00 PM" },
-  { value: "13:00", label: "1:00 PM" },
-  { value: "14:00", label: "2:00 PM" },
-  { value: "15:00", label: "3:00 PM" },
-  { value: "16:00", label: "4:00 PM" },
-  { value: "17:00", label: "5:00 PM" },
-];
+const times = (() => {
+  const intervals = [];
+  const startHour = 8;
+  const endHour = 17;
+  for (let hour = startHour; hour <= endHour; hour++) {
+    for (let min = 0; min < 60; min += 30) {
+      if (hour === endHour && min > 0) continue; // Don't add 5:30 PM
+      const value = `${hour.toString().padStart(2, "0")}:${min === 0 ? "00" : "30"}`;
+      // Format label as 12-hour time
+      const displayHour = hour % 12 === 0 ? 12 : hour % 12;
+      const ampm = hour < 12 ? "AM" : "PM";
+      const label = `${displayHour}:${min === 0 ? "00" : "30"} ${ampm}`;
+      intervals.push({ value, label });
+    }
+  }
+  return intervals;
+})();
 
 // Type Guard to check if a field is a regular field
 const isRegularField = (
@@ -531,7 +555,7 @@ const DeliverySpreadsheet: React.FC = () => {
         const clusterRef = doc(db, dataSources.firebase.clustersCollection, clusterDoc.docId);
         await updateDoc(clusterRef, {
           clusters: clusters, // Keep clusters unchanged
-          clientOverrides: updatedOverrides,
+          clientOverrides: sanitizeClientOverridesForFirestore(updatedOverrides),
         });
 
         resetSelections();
@@ -1001,7 +1025,7 @@ const DeliverySpreadsheet: React.FC = () => {
       const clusterRef = doc(db, dataSources.firebase.clustersCollection, clusterDoc.docId);
       await updateDoc(clusterRef, {
         clusters: updatedClusters,
-        clientOverrides: updatedOverrides,
+        clientOverrides: sanitizeClientOverridesForFirestore(updatedOverrides),
       });
 
       resetSelections();
@@ -1128,7 +1152,7 @@ const DeliverySpreadsheet: React.FC = () => {
       const clusterRef = doc(db, dataSources.firebase.clustersCollection, clusterDoc.docId);
       await updateDoc(clusterRef, {
         clusters: deduplicateClusters(updatedClusters),
-        clientOverrides: updatedOverrides,
+        clientOverrides: sanitizeClientOverridesForFirestore(updatedOverrides),
       });
 
       // Remove the client from selected rows since their cluster assignment changed
@@ -1477,7 +1501,7 @@ const DeliverySpreadsheet: React.FC = () => {
         const clusterRef = doc(db, dataSources.firebase.clustersCollection, clusterDoc.docId);
         await updateDoc(clusterRef, {
           clusters: newClusters,
-          clientOverrides: clientOverrides,
+          clientOverrides: sanitizeClientOverridesForFirestore(clientOverrides),
         });
         setClusters(newClusters);
         setClusterDoc((prevDoc) => (prevDoc ? { ...prevDoc, clusters: newClusters } : null));
@@ -2286,7 +2310,7 @@ const DeliverySpreadsheet: React.FC = () => {
             Today
           </Button>
           <Box sx={{ display: "flex", alignItems: "center" }}>
-            <PageDatePicker setSelectedDate={handleDateChange} marginLeft="1rem" />
+            <PageDatePicker setSelectedDate={handleDateChange} selectedDate={selectedDate} marginLeft="1rem" />
           </Box>
         </Box>
 
@@ -2465,7 +2489,11 @@ const DeliverySpreadsheet: React.FC = () => {
                 }}
                 MenuListProps={{
                   "aria-labelledby": "demo-positioned-button",
-                  sx: { width: anchorEl ? anchorEl.offsetWidth : "200px" },
+                  sx: {
+                    width: anchorEl ? anchorEl.offsetWidth : "200px",
+                    maxHeight: 320, // ~8 items visible
+                    overflowY: "auto",
+                  },
                 }}
               >
                 {Object.values(times).map(({ value, label }) => (

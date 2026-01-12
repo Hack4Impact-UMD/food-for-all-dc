@@ -60,7 +60,7 @@ const MiscellaneousForm: React.FC<MiscellaneousFormProps> = ({
           ) : (
             <Typography
               sx={{
-                fontWeight: 400,
+                fontWeight: 600,
                 fontSize: "1.15rem",
                 lineHeight: 1,
                 mt: 0,
@@ -85,14 +85,14 @@ const MiscellaneousForm: React.FC<MiscellaneousFormProps> = ({
               pb: 0,
             }}
           >
-            FAMILY START DATE
+            FAM Start Date
           </Typography>
           {isEditing ? (
             <Box sx={{ minHeight: 120, width: "100%" }}>{renderField("famStartDate", "date")}</Box>
           ) : (
             <Typography
               sx={{
-                fontWeight: 400,
+                fontWeight: 600,
                 fontSize: "1.15rem",
                 lineHeight: 1,
                 mt: 0,
@@ -143,7 +143,7 @@ const MiscellaneousForm: React.FC<MiscellaneousFormProps> = ({
           ) : (
             <Typography
               sx={{
-                fontWeight: 400,
+                fontWeight: 600,
                 fontSize: "1.15rem",
                 lineHeight: 1,
                 mt: 0,
@@ -194,7 +194,7 @@ const MiscellaneousForm: React.FC<MiscellaneousFormProps> = ({
           ) : (
             <Typography
               sx={{
-                fontWeight: 400,
+                fontWeight: 600,
                 fontSize: "1.15rem",
                 lineHeight: 1,
                 mt: 0,
@@ -237,7 +237,7 @@ const MiscellaneousForm: React.FC<MiscellaneousFormProps> = ({
               ) : (
                 <Typography
                   sx={{
-                    fontWeight: 400,
+                    fontWeight: 600,
                     fontSize: "1.15rem",
                     lineHeight: 1,
                     mt: 0,
