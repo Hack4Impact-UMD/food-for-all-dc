@@ -86,6 +86,22 @@ class ClientService {
           const raw = doc.data() as any;
           const deliveryDetails = raw.deliveryDetails || {};
           const dietaryRestrictions = deliveryDetails.dietaryRestrictions || {};
+
+          // Calculate activeStatus based on startDate and endDate
+          const todayDate = TimeUtils.now().startOf("day");
+          const startDateTime = raw.startDate
+            ? TimeUtils.fromAny(raw.startDate).startOf("day")
+            : null;
+          const endDateTime = raw.endDate
+            ? TimeUtils.fromAny(raw.endDate).startOf("day")
+            : null;
+          let activeStatus = false;
+          if (startDateTime?.isValid && endDateTime?.isValid) {
+            const todayMillis = todayDate.toMillis();
+            activeStatus =
+              todayMillis >= startDateTime.toMillis() && todayMillis <= endDateTime.toMillis();
+          }
+
           const mapped: ClientProfile = {
             uid: doc.id,
             firstName: raw.firstName || "",
@@ -148,6 +164,7 @@ class ClientService {
             physicalAilments: raw.physicalAilments || "",
             physicalDisability: raw.physicalDisability || "",
             mentalHealthConditions: raw.mentalHealthConditions || "",
+            activeStatus,
           };
           return mapped;
         });
@@ -198,38 +215,89 @@ class ClientService {
   public async searchClientsByName(
     searchTerm: string,
     limitCount = 50
-  ): Promise<Pick<ClientProfile, "uid" | "firstName" | "lastName" | "address">[]> {
+  ): Promise<
+    Pick<ClientProfile, "uid" | "firstName" | "lastName" | "address" | "activeStatus">[]
+  > {
     try {
       if (!searchTerm.trim()) {
         const emptyQuery = query(collection(this.db, this.clientsCollection), fbLimit(limitCount));
         const snapshot = await getDocs(emptyQuery);
-        return snapshot.docs.map((doc) => {
-          const data = doc.data();
+        const mapped = snapshot.docs.map((doc) => {
+          const data = doc.data() as any;
+          const todayDate = TimeUtils.now().startOf("day");
+          const startDateTime = data.startDate
+            ? TimeUtils.fromAny(data.startDate).startOf("day")
+            : null;
+          const endDateTime = data.endDate
+            ? TimeUtils.fromAny(data.endDate).startOf("day")
+            : null;
+          let activeStatus = false;
+          if (startDateTime?.isValid && endDateTime?.isValid) {
+            const todayMillis = todayDate.toMillis();
+            activeStatus =
+              todayMillis >= startDateTime.toMillis() && todayMillis <= endDateTime.toMillis();
+          }
           return {
             uid: doc.id,
             firstName: data.firstName || "",
             lastName: data.lastName || "",
             address: data.address || "",
+            activeStatus,
           };
+        });
+
+        return mapped.sort((a, b) => {
+          const lastCompare = (a.lastName || "").localeCompare(b.lastName || "", undefined, {
+            sensitivity: "base",
+          });
+          if (lastCompare !== 0) return lastCompare;
+          return (a.firstName || "").localeCompare(b.firstName || "", undefined, {
+            sensitivity: "base",
+          });
         });
       }
 
       const searchLower = searchTerm.toLowerCase();
       const snapshot = await getDocs(collection(this.db, this.clientsCollection));
 
-      const results = snapshot.docs
+      const mapped = snapshot.docs
         .map((doc) => {
-          const data = doc.data();
+          const data = doc.data() as any;
+          const todayDate = TimeUtils.now().startOf("day");
+          const startDateTime = data.startDate
+            ? TimeUtils.fromAny(data.startDate).startOf("day")
+            : null;
+          const endDateTime = data.endDate
+            ? TimeUtils.fromAny(data.endDate).startOf("day")
+            : null;
+          let activeStatus = false;
+          if (startDateTime?.isValid && endDateTime?.isValid) {
+            const todayMillis = todayDate.toMillis();
+            activeStatus =
+              todayMillis >= startDateTime.toMillis() && todayMillis <= endDateTime.toMillis();
+          }
           return {
             uid: doc.id,
             firstName: data.firstName || "",
             lastName: data.lastName || "",
             address: data.address || "",
+            activeStatus,
           };
-        })
+        });
+
+      const results = mapped
         .filter((client) => {
           const fullName = `${client.firstName} ${client.lastName}`.toLowerCase();
           return fullName.includes(searchLower);
+        })
+        .sort((a, b) => {
+          const lastCompare = (a.lastName || "").localeCompare(b.lastName || "", undefined, {
+            sensitivity: "base",
+          });
+          if (lastCompare !== 0) return lastCompare;
+          return (a.firstName || "").localeCompare(b.firstName || "", undefined, {
+            sensitivity: "base",
+          });
         })
         .slice(0, limitCount);
 
