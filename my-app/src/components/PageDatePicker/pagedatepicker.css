@@ -65,12 +65,12 @@
 
 .react-datepicker__day--selected,
 .react-datepicker__day--keyboard-selected {
-  /* Selected date (not today): red outline circle (no fill) */
-  background: none !important;
-  color: #ff4d4d !important;
+  /* Selected date (not today): green filled circle */
+  background: var(--color-primary) !important;
+  color: var(--color-background-main) !important;
   font-weight: bold !important;
   border-radius: 50% !important;
-  border: 2px solid #ff4d4d !important;
+  border: 2px solid var(--color-primary) !important;
   box-shadow: none !important;
   z-index: 2 !important;
 }
@@ -79,10 +79,10 @@
 
 .react-datepicker__day--selected.react-datepicker__day--today,
 .react-datepicker__day--keyboard-selected.react-datepicker__day--today {
-  /* Today AND selected: solid green fill with a red outline */
-  background: #2e7d32 !important;
-  color: #fff !important;
-  border: 2px solid #ff4d4d !important;
+  /* Today AND selected: green fill with a red outline */
+  background: var(--color-primary) !important;
+  color: var(--color-background-main) !important;
+  border: 2px solid var(--color-error-text) !important;
   box-shadow: none !important;
   font-weight: bold !important;
   border-radius: 50% !important;
@@ -92,10 +92,10 @@
 /* --- Today --- */
 
 .react-datepicker__day--today {
-  /* Base today style (non-custom): green text, no circle */
-  border: none !important;
+  /* Base today style (non-custom): red outline, no fill */
+  border: 2px solid var(--color-error-text) !important;
   background: none !important;
-  color: #2e7d32 !important;
+  color: var(--color-error-text) !important;
   font-weight: bold !important;
   border-radius: 50% !important;
   z-index: 1 !important;
@@ -105,8 +105,8 @@
 .react-datepicker__day--selected:focus,
 .react-datepicker__day--keyboard-selected:focus {
   outline: none !important;
-  /* Keep the same red outline when focused */
-  border: 2px solid #ff4d4d !important;
+  /* Keep the same green outline when focused */
+  border: 2px solid var(--color-primary) !important;
   box-shadow: none !important;
 }
 
@@ -129,10 +129,10 @@
 
 
 .react-datepicker__day--custom-today {
-  /* Today (when not selected): filled green circle */
-  background: #2e7d32 !important;
-  border: none !important;
-  color: #fff !important;
+  /* Today (when not selected): red outline circle */
+  background: none !important;
+  border: 2px solid var(--color-error-text) !important;
+  color: var(--color-error-text) !important;
   font-weight: bold !important;
   border-radius: 50% !important;
   box-shadow: none !important;
@@ -140,9 +140,10 @@
 }
 
 .react-datepicker__day--custom-today:hover {
-  background: #2e7d32 !important;
-  color: #fff !important;
+  background: none !important;
+  color: var(--color-error-text) !important;
   border-radius: 50% !important;
+  border: 2px solid var(--color-error-text) !important;
 }
 
 /* Ensure selected and today remain circular even with base hover styles */
@@ -156,16 +157,17 @@
 
 .react-datepicker__day--selected:hover,
 .react-datepicker__day--keyboard-selected:hover {
-  /* Keep selected days as red outline-only on hover */
-  background: none !important;
-  color: #ff4d4d !important;
+  /* Keep selected days as green filled on hover */
+  background: var(--color-primary) !important;
+  color: var(--color-background-main) !important;
   border-radius: 50% !important;
-  border: 2px solid #ff4d4d !important;
+  border: 2px solid var(--color-primary) !important;
 }
 
 .react-datepicker__day--today:hover,
 .react-datepicker__day--custom-today:hover {
-  background: #2e7d32 !important;
-  color: #fff !important;
+  background: none !important;
+  color: var(--color-error-text) !important;
   border-radius: 50% !important;
+  border: 2px solid var(--color-error-text) !important;
 }

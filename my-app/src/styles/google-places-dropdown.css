@@ -1,7 +1,7 @@
 /* Make Google Places Autocomplete dropdown wider */
 .pac-container {
-  min-width: 400px !important;
-  max-width: 600px !important;
+  min-width: min(400px, 90vw) !important;
+  max-width: min(600px, 90vw) !important;
   width: auto !important;
 }
 
@@ -22,5 +22,5 @@
 .pac-item span:not(.pac-item-query) {
   font-size: 1rem !important;
   font-weight: 400 !important;
-  color: #444 !important;
+  color: var(--color-text-dark) !important;
 }

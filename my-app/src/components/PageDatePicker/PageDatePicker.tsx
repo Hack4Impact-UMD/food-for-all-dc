@@ -77,11 +77,11 @@ const PageDatePicker = ({ setSelectedDate, selectedDate, marginLeft }: PageDateP
           return "react-datepicker__day--selected";
         }
         if (isSelected) {
-          // Selected: green outline
+          // Selected date
           return "react-datepicker__day--selected";
         }
         if (isToday) {
-          // Today: solid green fill
+          // Today
           return "react-datepicker__day--custom-today";
         }
         return "";

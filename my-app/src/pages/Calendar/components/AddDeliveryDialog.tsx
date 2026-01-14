@@ -522,7 +522,7 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
                       {isInactive ? (
                         <CancelIcon
                           sx={{
-                            color: "#bdbdbd",
+                            color: "var(--color-text-tertiary)",
                             mr: 1,
                             fontSize: "1.25rem",
                             verticalAlign: "middle",
@@ -531,7 +531,7 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
                       ) : (
                         <CheckCircleIcon
                           sx={{
-                            color: "#4caf50",
+                            color: "var(--color-success-button)",
                             mr: 1,
                             fontSize: "1.25rem",
                             verticalAlign: "middle",

@@ -1360,10 +1360,11 @@ const Profile = () => {
         ? TimeUtils.fromAny(cleanedProfile.endDate).startOf("day")
         : null;
       let activeStatus = false;
-      if (startDateTime?.isValid && endDateTime?.isValid) {
+      if (startDateTime?.isValid) {
         const todayMillis = today.toMillis();
         activeStatus =
-          todayMillis >= startDateTime.toMillis() && todayMillis <= endDateTime.toMillis();
+          todayMillis >= startDateTime.toMillis() &&
+          (!endDateTime?.isValid || todayMillis <= endDateTime.toMillis());
       }
 
       const updatedProfile: ClientProfile = {
@@ -2962,16 +2963,12 @@ const Profile = () => {
                   // Helper to get YYYY-MM-DD string from string, Date, or Timestamp
                   function toDateString(val: any): string | null {
                     if (!val) return null;
-                    if (typeof val === "string") {
-                      // If already in YYYY-MM-DD or ISO format
-                      return val.slice(0, 10);
-                    }
-                    if (val instanceof Date) {
-                      return val.toISOString().slice(0, 10);
+                    if (typeof val === "string" || val instanceof Date) {
+                      return deliveryDate.tryToISODateString(val);
                     }
                     // Firestore Timestamp: has toDate()
                     if (typeof val === "object" && typeof val.toDate === "function") {
-                      return val.toDate().toISOString().slice(0, 10);
+                      return deliveryDate.tryToISODateString(val.toDate());
                     }
                     return null;
                   }

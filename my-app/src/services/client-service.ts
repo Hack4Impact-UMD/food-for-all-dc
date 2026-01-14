@@ -1,4 +1,5 @@
 import { db } from "../auth/firebaseConfig";
+import type { DateTime } from "luxon";
 import { ClientProfile } from "../types";
 import type { RowData } from "../components/Spreadsheet/export";
 import { LatLngTuple } from "leaflet";
@@ -20,8 +21,27 @@ import {
   limit as fbLimit,
   startAfter,
 } from "firebase/firestore";
+import type { Timestamp } from "firebase/firestore";
 import { validateClientProfile } from "../utils/firestoreValidation";
 import dataSources from "../config/dataSources";
+
+const computeActiveStatus = (
+  startDate: string | Date | DateTime | Timestamp | null | undefined,
+  endDate: string | Date | DateTime | Timestamp | null | undefined
+): boolean => {
+  const today = TimeUtils.now().startOf("day");
+  const startDateTime = startDate ? TimeUtils.fromAny(startDate).startOf("day") : null;
+  if (!startDateTime?.isValid) return false;
+
+  const endDateTime = endDate ? TimeUtils.fromAny(endDate).startOf("day") : null;
+  const todayMillis = today.toMillis();
+
+  if (endDateTime?.isValid) {
+    return todayMillis >= startDateTime.toMillis() && todayMillis <= endDateTime.toMillis();
+  }
+
+  return todayMillis >= startDateTime.toMillis();
+};
 
 /**
  * Client Service - Handles all client-related operations with Firebase
@@ -87,20 +107,7 @@ class ClientService {
           const deliveryDetails = raw.deliveryDetails || {};
           const dietaryRestrictions = deliveryDetails.dietaryRestrictions || {};
 
-          // Calculate activeStatus based on startDate and endDate
-          const todayDate = TimeUtils.now().startOf("day");
-          const startDateTime = raw.startDate
-            ? TimeUtils.fromAny(raw.startDate).startOf("day")
-            : null;
-          const endDateTime = raw.endDate
-            ? TimeUtils.fromAny(raw.endDate).startOf("day")
-            : null;
-          let activeStatus = false;
-          if (startDateTime?.isValid && endDateTime?.isValid) {
-            const todayMillis = todayDate.toMillis();
-            activeStatus =
-              todayMillis >= startDateTime.toMillis() && todayMillis <= endDateTime.toMillis();
-          }
+          const activeStatus = computeActiveStatus(raw.startDate, raw.endDate);
 
           const mapped: ClientProfile = {
             uid: doc.id,
@@ -224,19 +231,7 @@ class ClientService {
         const snapshot = await getDocs(emptyQuery);
         const mapped = snapshot.docs.map((doc) => {
           const data = doc.data() as any;
-          const todayDate = TimeUtils.now().startOf("day");
-          const startDateTime = data.startDate
-            ? TimeUtils.fromAny(data.startDate).startOf("day")
-            : null;
-          const endDateTime = data.endDate
-            ? TimeUtils.fromAny(data.endDate).startOf("day")
-            : null;
-          let activeStatus = false;
-          if (startDateTime?.isValid && endDateTime?.isValid) {
-            const todayMillis = todayDate.toMillis();
-            activeStatus =
-              todayMillis >= startDateTime.toMillis() && todayMillis <= endDateTime.toMillis();
-          }
+          const activeStatus = computeActiveStatus(data.startDate, data.endDate);
           return {
             uid: doc.id,
             firstName: data.firstName || "",
@@ -263,19 +258,7 @@ class ClientService {
       const mapped = snapshot.docs
         .map((doc) => {
           const data = doc.data() as any;
-          const todayDate = TimeUtils.now().startOf("day");
-          const startDateTime = data.startDate
-            ? TimeUtils.fromAny(data.startDate).startOf("day")
-            : null;
-          const endDateTime = data.endDate
-            ? TimeUtils.fromAny(data.endDate).startOf("day")
-            : null;
-          let activeStatus = false;
-          if (startDateTime?.isValid && endDateTime?.isValid) {
-            const todayMillis = todayDate.toMillis();
-            activeStatus =
-              todayMillis >= startDateTime.toMillis() && todayMillis <= endDateTime.toMillis();
-          }
+          const activeStatus = computeActiveStatus(data.startDate, data.endDate);
           return {
             uid: doc.id,
             firstName: data.firstName || "",

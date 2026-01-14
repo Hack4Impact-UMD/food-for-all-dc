@@ -65,35 +65,36 @@ const CalendarMultiSelect: React.FC<CalendarMultiSelectProps> = ({
             transformOrigin: "top right",
           },
 
-          // Match popup day styling from PageDatePicker (green today, red selected)
+          // Match popup day styling from PageDatePicker (red today, green selected)
           ".MuiPickersDay-root.Mui-selected:not(.MuiPickersDay-today)": {
-            backgroundColor: "transparent",
-            color: "#ff4d4d",
+            backgroundColor: "var(--color-primary)",
+            color: "var(--color-background-main)",
             borderRadius: "50%",
-            border: "2px solid #ff4d4d",
+            border: "2px solid var(--color-primary)",
             boxShadow: "none",
           },
           ".MuiPickersDay-root.Mui-selected:not(.MuiPickersDay-today):hover": {
-            backgroundColor: "transparent",
-            color: "#ff4d4d",
+            backgroundColor: "var(--color-primary)",
+            color: "var(--color-background-main)",
           },
 
           ".MuiPickersDay-root.MuiPickersDay-today:not(.Mui-selected)": {
-            backgroundColor: "#2e7d32",
-            color: "#ffffff",
+            backgroundColor: "transparent",
+            color: "var(--color-error-text)",
             borderRadius: "50%",
-            border: "none",
+            border: "2px solid var(--color-error-text)",
           },
           ".MuiPickersDay-root.MuiPickersDay-today:not(.Mui-selected):hover": {
-            backgroundColor: "#2e7d32",
-            color: "#ffffff",
+            backgroundColor: "transparent",
+            color: "var(--color-error-text)",
+            border: "2px solid var(--color-error-text)",
           },
 
           ".MuiPickersDay-root.Mui-selected.MuiPickersDay-today": {
-            backgroundColor: "#2e7d32",
-            color: "#ffffff",
+            backgroundColor: "var(--color-primary)",
+            color: "var(--color-background-main)",
             borderRadius: "50%",
-            border: "2px solid #ff4d4d",
+            border: "2px solid var(--color-error-text)",
           },
         }}
       />

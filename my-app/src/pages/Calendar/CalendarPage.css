@@ -132,26 +132,26 @@
 }
 
 .calendar-day--selected {
-  background: none !important;
-  color: #2e7d32 !important;
+  background: var(--color-primary) !important;
+  color: var(--color-background-main) !important;
   font-weight: bold;
   border-radius: 50% !important;
-  border: 2px solid #2e7d32 !important;
+  border: 2px solid var(--color-primary) !important;
   box-shadow: none !important;
 }
 
 .calendar-day--today {
-  /* Match the selected date circle but without fill */
+  /* Red outline for today's date */
   background: none !important;
-  color: #2e7d32 !important;
+  color: var(--color-error-text) !important;
   font-weight: bold;
   border-radius: 50% !important;
-  border: 2px solid #2e7d32 !important;
+  border: 2px solid var(--color-error-text) !important;
   box-shadow: none !important;
 }
 
 .calendar-day--today:hover {
   background: none !important;
-  color: #2e7d32 !important;
+  color: var(--color-error-text) !important;
   border-radius: 50% !important;
 }
