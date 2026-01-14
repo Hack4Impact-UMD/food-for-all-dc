@@ -130,3 +130,28 @@
   text-align: center;
   font-weight: bold;
 }
+
+.calendar-day--selected {
+  background: var(--color-primary) !important;
+  color: var(--color-background-main) !important;
+  font-weight: bold;
+  border-radius: 50% !important;
+  border: 2px solid var(--color-primary) !important;
+  box-shadow: none !important;
+}
+
+.calendar-day--today {
+  /* Red outline for today's date */
+  background: none !important;
+  color: var(--color-error-text) !important;
+  font-weight: bold;
+  border-radius: 50% !important;
+  border: 2px solid var(--color-error-text) !important;
+  box-shadow: none !important;
+}
+
+.calendar-day--today:hover {
+  background: none !important;
+  color: var(--color-error-text) !important;
+  border-radius: 50% !important;
+}

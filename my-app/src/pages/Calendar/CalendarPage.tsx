@@ -555,6 +555,7 @@ const CalendarPage: React.FC = React.memo(() => {
             {} as Record<string, number>
           )}
           onTimeRangeSelected={(args: any) => {
+            // DayPilotMonth passes a DayPilot.Date as args.start
             updateCurrentDate(args.start);
             setViewType("Day");
           }}

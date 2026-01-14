@@ -1,0 +1,26 @@
+/* Make Google Places Autocomplete dropdown wider */
+.pac-container {
+  min-width: min(400px, 90vw) !important;
+  max-width: min(600px, 90vw) !important;
+  width: auto !important;
+}
+
+/* Optionally, make the text wrap for long addresses */
+.pac-item {
+  white-space: normal !important;
+  line-height: 1.3 !important;
+  font-size: 1.15rem !important;
+}
+
+/* Make the main address (first line, usually street) larger and bold */
+.pac-item .pac-item-query {
+  font-size: 1.25rem !important;
+  font-weight: 600 !important;
+}
+
+/* Make the secondary text (city, state, country) smaller and lighter */
+.pac-item span:not(.pac-item-query) {
+  font-size: 1rem !important;
+  font-weight: 400 !important;
+  color: var(--color-text-dark) !important;
+}

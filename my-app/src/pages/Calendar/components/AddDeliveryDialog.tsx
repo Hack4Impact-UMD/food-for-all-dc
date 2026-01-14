@@ -6,6 +6,7 @@ import DialogContent from "@mui/material/DialogContent";
 import DialogActions from "@mui/material/DialogActions";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
+import Tooltip from "@mui/material/Tooltip";
 import TextField from "@mui/material/TextField";
 import DateField from "./DateField";
 import Button from "@mui/material/Button";
@@ -15,6 +16,8 @@ import Select from "@mui/material/Select";
 import MenuItem from "@mui/material/MenuItem";
 import Autocomplete from "@mui/material/Autocomplete";
 import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
+import CheckCircleIcon from "@mui/icons-material/CheckCircle";
+import CancelIcon from "@mui/icons-material/Cancel";
 import CalendarMultiSelect from "./CalendarMultiSelect";
 import type { NewDelivery } from "../../../types/calendar-types";
 import type { ClientProfile } from "../../../types/client-types";
@@ -39,7 +42,10 @@ interface AddDeliveryDialogProps {
   };
 }
 
-type ClientSearchResult = Pick<ClientProfile, "uid" | "firstName" | "lastName" | "address">;
+type ClientSearchResult = Pick<
+  ClientProfile,
+  "uid" | "firstName" | "lastName" | "address" | "activeStatus"
+>;
 
 const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
   const { open, onClose, onAddDelivery, clients, clientsLoaded, preSelectedClient, startDate } =
@@ -186,8 +192,18 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
       try {
         if (clientsLoaded && clients.length > 0) {
           const searchLower = searchTerm.toLowerCase().trim();
+          const sortedClients = [...clients].sort((a, b) => {
+            const lastCompare = (a.lastName || "").localeCompare(b.lastName || "", undefined, {
+              sensitivity: "base",
+            });
+            if (lastCompare !== 0) return lastCompare;
+            return (a.firstName || "").localeCompare(b.firstName || "", undefined, {
+              sensitivity: "base",
+            });
+          });
+
           const filtered = searchLower
-            ? clients
+            ? sortedClients
                 .filter((client) => {
                   const fullName = `${client.firstName} ${client.lastName}`.toLowerCase();
                   return fullName.includes(searchLower);
@@ -198,12 +214,14 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
                   firstName: client.firstName,
                   lastName: client.lastName,
                   address: client.address,
+                  activeStatus: client.activeStatus,
                 }))
-            : clients.slice(0, 50).map((client) => ({
+            : sortedClients.slice(0, 50).map((client) => ({
                 uid: client.uid,
                 firstName: client.firstName,
                 lastName: client.lastName,
                 address: client.address,
+                activeStatus: client.activeStatus,
               }));
           setSearchResults(filtered);
         } else {
@@ -425,6 +443,7 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
               loading={searchLoading}
               getOptionLabel={getDisplayLabel}
               getOptionKey={(option: ClientSearchResult) => option.uid}
+              getOptionDisabled={(option: ClientSearchResult) => option.activeStatus === false}
               filterOptions={(options: ClientSearchResult[]) => options}
               onInputChange={(event: React.ChangeEvent<unknown>, value: string) => {
                 if (event && (event as unknown as { type: string }).type === "change") {
@@ -482,6 +501,7 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
               disablePortal={false}
               renderOption={(props: object, option: ClientSearchResult) => {
                 const { key, ...otherProps } = props as { key: string };
+                const isInactive = option.activeStatus === false;
                 return (
                   <Box
                     component="li"
@@ -492,8 +512,33 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
                       alignItems: "center",
                       padding: "8px 16px",
                       width: "100%",
+                      opacity: isInactive ? 0.6 : 1,
                     }}
                   >
+                    <Tooltip
+                      title={isInactive ? "Inactive profile" : "Active profile"}
+                      placement="right"
+                    >
+                      {isInactive ? (
+                        <CancelIcon
+                          sx={{
+                            color: "var(--color-text-tertiary)",
+                            mr: 1,
+                            fontSize: "1.25rem",
+                            verticalAlign: "middle",
+                          }}
+                        />
+                      ) : (
+                        <CheckCircleIcon
+                          sx={{
+                            color: "var(--color-success-button)",
+                            mr: 1,
+                            fontSize: "1.25rem",
+                            verticalAlign: "middle",
+                          }}
+                        />
+                      )}
+                    </Tooltip>
                     <Typography variant="body1" sx={{ flexShrink: 0 }}>
                       {getDisplayLabel(option)}
                     </Typography>
@@ -527,6 +572,12 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
                 } else {
                   const fullClient = await clientService.getClientById(newValue.uid);
                   if (!fullClient) return;
+
+                  // Prevent assigning deliveries to inactive profiles
+                  if (fullClient.activeStatus === false) {
+                    setFormError("Cannot add deliveries for an inactive profile.");
+                    return;
+                  }
 
                   const defaultEndDate = (() => {
                     const oneMonthFromNow = new Date();

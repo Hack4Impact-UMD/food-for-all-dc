@@ -46,21 +46,46 @@ CalendarButton.displayName = "CalendarButton";
 
 interface PageDatePickerProps {
   setSelectedDate: (date: Date) => void;
+  selectedDate?: Date;
   marginLeft?: string;
 }
 
-const PageDatePicker = ({ setSelectedDate, marginLeft }: PageDatePickerProps) => {
+const PageDatePicker = ({ setSelectedDate, selectedDate, marginLeft }: PageDatePickerProps) => {
   const handleDateChange = (newDate: Date | null) => {
     if (!newDate) return;
-
     setSelectedDate(newDate);
   };
 
+  // Get today's date (ignore time)
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  // Use dayClassName to highlight selected and today
   return (
     <DatePicker
       onChange={(date) => handleDateChange(date)}
+      selected={selectedDate}
       customInput={<CalendarButton marginLeft={marginLeft} />}
       popperPlacement="bottom-start"
+      dayClassName={date => {
+        const d = new Date(date);
+        d.setHours(0, 0, 0, 0);
+        const isToday = d.getTime() === today.getTime();
+        const isSelected = selectedDate && d.getTime() === new Date(selectedDate).setHours(0, 0, 0, 0);
+        if (isSelected && isToday) {
+          // Selected and today: use selected style only
+          return "react-datepicker__day--selected";
+        }
+        if (isSelected) {
+          // Selected date
+          return "react-datepicker__day--selected";
+        }
+        if (isToday) {
+          // Today
+          return "react-datepicker__day--custom-today";
+        }
+        return "";
+      }}
     />
   );
 };
