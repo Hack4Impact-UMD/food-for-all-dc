@@ -62,6 +62,10 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
         const { firstName, lastName } = preSelectedClient.clientProfile;
         name = firstName && lastName ? `${firstName} ${lastName}` : "";
       }
+      if (preSelectedClient.clientProfile.startDate) {
+        const iso = deliveryDate.tryToISODateString(preSelectedClient.clientProfile.startDate);
+        setClientStartDateISO(iso);
+      }
       setNewDelivery((prev) => ({
         ...prev,
         clientId: preSelectedClient.clientId,
@@ -69,17 +73,6 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
       }));
     }
   }, [open, preSelectedClient]);
-
-  // Update delivery date when startDate changes (calendar navigation)
-  useEffect(() => {
-    if (open) {
-      const defaultDate = convertToYYYYMMDD(startDate);
-      setNewDelivery((prev) => ({
-        ...prev,
-        deliveryDate: defaultDate,
-      }));
-    }
-  }, [open, startDate]);
 
   // Helper to set time to 12:00:00 PM
   // ...existing code...
@@ -106,6 +99,13 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
     }
   };
 
+  const [clientStartDateISO, setClientStartDateISO] = useState<string | null>(() => {
+    if (preSelectedClient?.clientProfile?.startDate) {
+      return deliveryDate.tryToISODateString(preSelectedClient.clientProfile.startDate);
+    }
+    return null;
+  });
+
   const [newDelivery, setNewDelivery] = useState<NewDelivery>(() => {
     const defaultDate = convertToYYYYMMDD(startDate);
 
@@ -115,10 +115,19 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
         const { firstName, lastName } = preSelectedClient.clientProfile;
         name = firstName && lastName ? `${firstName} ${lastName}` : "";
       }
+
+      let effectiveDeliveryDate = defaultDate;
+      const startISO = preSelectedClient.clientProfile.startDate
+        ? deliveryDate.tryToISODateString(preSelectedClient.clientProfile.startDate)
+        : null;
+      if (startISO && effectiveDeliveryDate < startISO) {
+        effectiveDeliveryDate = startISO;
+      }
+
       return {
         clientId: preSelectedClient.clientId,
         clientName: name,
-        deliveryDate: defaultDate,
+        deliveryDate: effectiveDeliveryDate,
         recurrence:
           (preSelectedClient.clientProfile.recurrence as
             | "None"
@@ -137,6 +146,21 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
       repeatsEndDate: "",
     };
   });
+
+  // Update delivery date when startDate changes (calendar navigation)
+  useEffect(() => {
+    if (open) {
+      const defaultDate = convertToYYYYMMDD(startDate);
+      let effectiveDate = defaultDate;
+      if (clientStartDateISO && effectiveDate < clientStartDateISO) {
+        effectiveDate = clientStartDateISO;
+      }
+      setNewDelivery((prev) => ({
+        ...prev,
+        deliveryDate: effectiveDate,
+      }));
+    }
+  }, [open, startDate, clientStartDateISO]);
 
   const [customDates, setCustomDates] = useState<Date[]>([]);
   const [startDateError, setStartDateError] = useState<string>("");
@@ -387,6 +411,18 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
         return;
       }
 
+      if (clientStartDateISO) {
+        const beforeStart = datesToCheck.find((date) => date < clientStartDateISO);
+        if (beforeStart) {
+          setFormError(
+            `Cannot schedule a delivery before the client's start date (${convertToMMDDYYYY(
+              clientStartDateISO
+            )}).`
+          );
+          return;
+        }
+      }
+
       setFormError("");
       const deliveryToSubmit: Partial<NewDelivery> = { ...newDelivery };
       if (newDelivery.recurrence === "Custom") {
@@ -579,6 +615,11 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
                     return;
                   }
 
+                  const startISO = fullClient.startDate
+                    ? deliveryDate.tryToISODateString(fullClient.startDate)
+                    : null;
+                  setClientStartDateISO(startISO);
+
                   const defaultEndDate = (() => {
                     const oneMonthFromNow = new Date();
                     oneMonthFromNow.setMonth(oneMonthFromNow.getMonth() + 1);
@@ -673,12 +714,27 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
                   const val = e.target.value;
                   // Only allow valid yyyy-MM-dd date strings
                   const isValidDate = /^\d{4}-\d{2}-\d{2}$/.test(val);
+                  if (!isValidDate) {
+                    setNewDelivery({
+                      ...newDelivery,
+                      deliveryDate: "",
+                      _deliveryDateError:
+                        "Invalid date format. Please select a valid date.",
+                    });
+                    return;
+                  }
+
+                  let errorMessage: string | undefined;
+                  if (clientStartDateISO && val < clientStartDateISO) {
+                    errorMessage = `Delivery date cannot be before client start date (${convertToMMDDYYYY(
+                      clientStartDateISO
+                    )}).`;
+                  }
+
                   setNewDelivery({
                     ...newDelivery,
-                    deliveryDate: isValidDate ? val : "",
-                    _deliveryDateError: isValidDate
-                      ? undefined
-                      : "Invalid date format. Please select a valid date.",
+                    deliveryDate: val,
+                    _deliveryDateError: errorMessage,
                   });
                 }}
                 margin="normal"
@@ -687,7 +743,10 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
                 InputLabelProps={{ shrink: true }}
                 error={Boolean(newDelivery._deliveryDateError)}
                 helperText={newDelivery._deliveryDateError}
-                inputProps={{ "data-testid": "date-input" }}
+                inputProps={{
+                  "data-testid": "date-input",
+                  ...(clientStartDateISO ? { min: clientStartDateISO } : {}),
+                }}
                 sx={{
                   ".MuiOutlinedInput-root": {
                     '& input[type="date"]::-webkit-calendar-picker-indicator': {
@@ -745,6 +804,7 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
                   ? deliveryDate.toJSDate(newDelivery.repeatsEndDate)
                   : deliveryDate.toJSDate(new Date())
               }
+              minDate={clientStartDateISO ? deliveryDate.toJSDate(clientStartDateISO) : undefined}
             />
           </>
         ) : (

@@ -10,12 +10,14 @@ interface CalendarMultiSelectProps {
   selectedDates: Date[];
   setSelectedDates: (dates: Date[]) => void;
   endDate: Date;
+  minDate?: Date;
 }
 
 const CalendarMultiSelect: React.FC<CalendarMultiSelectProps> = ({
   selectedDates,
   setSelectedDates,
   endDate,
+  minDate,
 }) => {
   const [dateInput, setDateInput] = useState<Date | null>(null);
 
@@ -108,6 +110,10 @@ const CalendarMultiSelect: React.FC<CalendarMultiSelectProps> = ({
               setDateInput(newValue);
               setDateError(null);
               if (!newValue) return;
+              if (minDate && newValue < minDate) {
+                setDateError("Date cannot be earlier than the client's start date.");
+                return;
+              }
               if (newValue > endDate) {
                 setDateError("Date cannot be later than the current end date.");
                 return;
@@ -116,6 +122,7 @@ const CalendarMultiSelect: React.FC<CalendarMultiSelectProps> = ({
                 setSelectedDates([...selectedDates, newValue]);
               }
             }}
+            minDate={minDate}
             slotProps={{
               textField: { fullWidth: true, size: "small", sx: { mb: 2, width: "100%" } },
               popper: {
