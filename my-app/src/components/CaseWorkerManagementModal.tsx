@@ -153,7 +153,6 @@ const CaseWorkerManagementModal: React.FC<CaseWorkerManagementModalProps> = ({
     return sorted;
   }, [caseWorkers, sortField, sortDirection]);
 
-  // Memoized handler for new case worker form
   const handleNewCaseWorkerChange = useCallback(
     (field: keyof Omit<CaseWorker, "id">, value: string) => {
       setNewCaseWorker((prev) => ({ ...prev, [field]: value }));
@@ -162,7 +161,6 @@ const CaseWorkerManagementModal: React.FC<CaseWorkerManagementModalProps> = ({
     []
   );
 
-  // Memoized handler for editing case worker form
   const handleEditCaseWorkerChange = useCallback(
     (field: keyof Omit<CaseWorker, "id">, value: string) => {
       setEditingCaseWorker((prev) => (prev ? { ...prev, [field]: value } : prev));
