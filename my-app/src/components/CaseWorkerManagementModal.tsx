@@ -153,20 +153,6 @@ const CaseWorkerManagementModal: React.FC<CaseWorkerManagementModalProps> = ({
     return sorted;
   }, [caseWorkers, sortField, sortDirection]);
 
-  const handleCaseWorkerFormChange = useCallback(
-    (
-      setter: React.Dispatch<React.SetStateAction<any>>,
-      errorSetter: React.Dispatch<React.SetStateAction<ValidationErrors>>,
-      currentValue: Omit<CaseWorker, "id"> | CaseWorker,
-      field: keyof Omit<CaseWorker, "id">,
-      value: string
-    ) => {
-      setter((prev: any) => ({ ...prev, [field]: value }));
-      errorSetter((prev) => ({ ...prev, [field]: undefined }));
-    },
-    []
-  );
-
   // Memoized handler for new case worker form
   const handleNewCaseWorkerChange = useCallback(
     (field: keyof Omit<CaseWorker, "id">, value: string) => {
