@@ -53,7 +53,7 @@ const MiscellaneousForm: React.FC<MiscellaneousFormProps> = ({
               pb: 0,
             }}
           >
-            TEFAP CERT
+            TEFAP CERT <span className="required-asterisk">*</span>
           </Typography>
           {isEditing ? (
             <Box sx={{ minHeight: 120, width: "100%" }}>{renderField("tefapCert", "date")}</Box>

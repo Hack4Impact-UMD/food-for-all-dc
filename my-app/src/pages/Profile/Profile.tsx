@@ -922,7 +922,9 @@ const Profile = () => {
       newErrors.email = "Invalid email format";
     }
 
-    if (clientProfile.tefapCert?.trim()) {
+    if (!clientProfile.tefapCert?.trim()) {
+      newErrors.tefapCert = "TEFAP CERT is required";
+    } else {
       const tefapDate = new Date(clientProfile.tefapCert);
       const today = new Date();
       today.setHours(0, 0, 0, 0);
