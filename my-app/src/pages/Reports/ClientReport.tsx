@@ -122,16 +122,19 @@ const ClientReport: React.FC = () => {
             const client = doc.data() as ClientProfile;
             allClients.push(client);
 
-            const deliveries: string[] = client.deliveries ?? [];
-            if (deliveries.length) {
-              const deliveriesInRange = deliveries.filter((deliveryISO: string) => {
-                const deliveryDate = TimeUtils.fromISO(deliveryISO);
-                return deliveryDate >= start && deliveryDate <= end;
-              });
+            // Check if client is active during the report period based on startDate/endDate
+            const clientStartDate = client.startDate ? TimeUtils.fromAny(client.startDate).startOf("day") : null;
+            const clientEndDate = client.endDate ? TimeUtils.fromAny(client.endDate).startOf("day") : null;
 
-              if (deliveriesInRange.length > 0) {
-                activeClients.push(client);
-              }
+            // A client is active during the report period if:
+            // - They have a valid startDate that's before or during the report period (startDate <= reportEnd)
+            // - AND they haven't ended, or they ended during or after the report period (endDate is null OR endDate >= reportStart)
+            const isActiveInPeriod = clientStartDate?.isValid &&
+                                     clientStartDate <= end &&
+                                     (!clientEndDate?.isValid || clientEndDate >= start);
+
+            if (isActiveInPeriod) {
+              activeClients.push(client);
             }
           }
 
