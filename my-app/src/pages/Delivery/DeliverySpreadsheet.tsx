@@ -627,8 +627,10 @@ const DeliverySpreadsheet: React.FC = () => {
   // Extend type for cluster options
   type ClusterOption = { value: string; label: string; color: string; isAdd?: boolean };
   const clusterOptions: ClusterOption[] = useMemo(() => {
+    // Filter out empty clusters (clusters with no deliveries)
+    const nonEmptyClusters = clusters.filter((c) => c.deliveries.length > 0);
     // Get unique cluster IDs and remove duplicates
-    const uniqueIds = [...new Set(clusters.map((c) => c.id))];
+    const uniqueIds = [...new Set(nonEmptyClusters.map((c) => c.id))];
     // Sort the unique IDs
     const availableIds = uniqueIds.sort((a, b) => parseInt(a, 10) - parseInt(b, 10));
     // Create options from existing unique IDs ONLY

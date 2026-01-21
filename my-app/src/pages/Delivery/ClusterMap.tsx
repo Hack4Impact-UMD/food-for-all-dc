@@ -283,8 +283,9 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
       while (clusterSelect.options.length > 2) {
         clusterSelect.remove(1);
       }
-      // Insert new cluster options
-      clusters.forEach((c: Cluster) => {
+      // Insert new cluster options (filter out empty clusters)
+      const nonEmptyClusters = clusters.filter((c: Cluster) => c.deliveries.length > 0);
+      nonEmptyClusters.forEach((c: Cluster) => {
         const opt = document.createElement("option");
         opt.value = c.id;
         opt.text = c.id;
