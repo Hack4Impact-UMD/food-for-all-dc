@@ -940,9 +940,46 @@ const DeliverySpreadsheet: React.FC = () => {
     // Set clusters (deduplication is handled automatically by setClusters wrapper)
     setClusters(updatedClusters);
 
+    // Inherit time assignment from existing cluster clients
+    let updatedOverrides = [...clientOverrides];
+    if (clusterExists) {
+      const targetCluster = updatedClusters.find((c) => c.id === newClusterId);
+      if (targetCluster?.deliveries?.length > 1) {
+        const otherClientIds = targetCluster.deliveries.filter((id) => id !== row.id);
+        const existingTimeOverride = clientOverrides.find(
+          (override) => otherClientIds.includes(override.clientId) && override.time
+        );
+
+        if (existingTimeOverride) {
+          const existingOverrideIndex = updatedOverrides.findIndex(
+            (override) => override.clientId === row.id
+          );
+
+          if (existingOverrideIndex >= 0) {
+            updatedOverrides[existingOverrideIndex] = {
+              ...updatedOverrides[existingOverrideIndex],
+              time: existingTimeOverride.time,
+            };
+          } else {
+            updatedOverrides.push({
+              clientId: row.id,
+              driver: undefined,
+              time: existingTimeOverride.time,
+            });
+          }
+
+          updatedOverrides = updatedOverrides.filter((override) => override.driver || override.time);
+          setClientOverrides(updatedOverrides);
+        }
+      }
+    }
+
     try {
       const clusterRef = doc(db, dataSources.firebase.clustersCollection, clusterDoc.docId);
-      await updateDoc(clusterRef, { clusters: deduplicateClusters(updatedClusters) });
+      await updateDoc(clusterRef, {
+        clusters: deduplicateClusters(updatedClusters),
+        clientOverrides: sanitizeClientOverridesForFirestore(updatedOverrides),
+      });
 
       // setRows(prevRows => prevRows.map r => r.id === row.id ? { ...r, clusterId: newClusterId } : r));
     } catch (error) {
