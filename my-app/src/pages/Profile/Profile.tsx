@@ -923,14 +923,14 @@ const Profile = () => {
     }
 
     if (!clientProfile.tefapCert?.trim()) {
-      newErrors.tefapCert = "TEFAP CERT is required";
+      newErrors.tefapCert = "TEFAP cert is required";
     } else {
       const tefapDate = new Date(clientProfile.tefapCert);
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
       if (!isNaN(tefapDate.getTime()) && tefapDate > today) {
-        newErrors.tefapCert = "TEFAP CERT date cannot be in the future";
+        newErrors.tefapCert = "TEFAP cert date cannot be in the future";
       }
     }
 
