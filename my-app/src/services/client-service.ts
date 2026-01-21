@@ -166,7 +166,7 @@ class ClientService {
             startDate: raw.startDate || "",
             endDate: raw.endDate || "",
             recurrence: raw.recurrence || "None",
-            tefapCert: raw.tefapCert || undefined,
+            tefapCert: raw.tefapCert || "",
             clusterID: raw.clusterID || undefined,
             physicalAilments: raw.physicalAilments || "",
             physicalDisability: raw.physicalDisability || "",
