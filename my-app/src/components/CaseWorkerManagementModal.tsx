@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useCallback } from "react";
 import {
   Box,
   Button,
@@ -72,7 +72,7 @@ const CaseWorkerFormFields: React.FC<CaseWorkerFormProps> = ({
                 backgroundColor: "var(--color-background-main)",
               },
               "& .MuiInputLabel-outlined:not(.MuiInputLabel-shrink)": {
-                transform: "translate(14px, 5px) scale(1)",
+                transform: "translate(14px, 16px) scale(1)",
               },
             }}
           />
@@ -153,16 +153,37 @@ const CaseWorkerManagementModal: React.FC<CaseWorkerManagementModalProps> = ({
     return sorted;
   }, [caseWorkers, sortField, sortDirection]);
 
-  const handleCaseWorkerFormChange = (
-    setter: React.Dispatch<React.SetStateAction<any>>,
-    errorSetter: React.Dispatch<React.SetStateAction<ValidationErrors>>,
-    currentValue: Omit<CaseWorker, "id"> | CaseWorker,
-    field: keyof Omit<CaseWorker, "id">,
-    value: string
-  ) => {
-    setter((prev: any) => ({ ...prev, [field]: value }));
-    errorSetter((prev) => ({ ...prev, [field]: undefined }));
-  };
+  const handleCaseWorkerFormChange = useCallback(
+    (
+      setter: React.Dispatch<React.SetStateAction<any>>,
+      errorSetter: React.Dispatch<React.SetStateAction<ValidationErrors>>,
+      currentValue: Omit<CaseWorker, "id"> | CaseWorker,
+      field: keyof Omit<CaseWorker, "id">,
+      value: string
+    ) => {
+      setter((prev: any) => ({ ...prev, [field]: value }));
+      errorSetter((prev) => ({ ...prev, [field]: undefined }));
+    },
+    []
+  );
+
+  // Memoized handler for new case worker form
+  const handleNewCaseWorkerChange = useCallback(
+    (field: keyof Omit<CaseWorker, "id">, value: string) => {
+      setNewCaseWorker((prev) => ({ ...prev, [field]: value }));
+      setErrors((prev) => ({ ...prev, [field]: undefined }));
+    },
+    []
+  );
+
+  // Memoized handler for editing case worker form
+  const handleEditCaseWorkerChange = useCallback(
+    (field: keyof Omit<CaseWorker, "id">, value: string) => {
+      setEditingCaseWorker((prev) => (prev ? { ...prev, [field]: value } : prev));
+      setEditErrors((prev) => ({ ...prev, [field]: undefined }));
+    },
+    []
+  );
 
   const handleCaseWorkerSubmit = async (
     caseWorker: Omit<CaseWorker, "id"> | CaseWorker,
@@ -288,15 +309,7 @@ const CaseWorkerManagementModal: React.FC<CaseWorkerManagementModalProps> = ({
               </Typography>
               <CaseWorkerFormFields
                 value={newCaseWorker}
-                onChange={(field, value) =>
-                  handleCaseWorkerFormChange(
-                    setNewCaseWorker,
-                    setErrors,
-                    newCaseWorker,
-                    field,
-                    value
-                  )
-                }
+                onChange={handleNewCaseWorkerChange}
                 errors={errors}
                 onClearError={(field) => setErrors((prev) => ({ ...prev, [field]: undefined }))}
               />
@@ -429,15 +442,7 @@ const CaseWorkerManagementModal: React.FC<CaseWorkerManagementModalProps> = ({
                       {editingCaseWorker?.id === cw.id ? (
                         <TextField
                           value={editingCaseWorker.name}
-                          onChange={(e) =>
-                            handleCaseWorkerFormChange(
-                              setEditingCaseWorker,
-                              setEditErrors,
-                              editingCaseWorker,
-                              "name",
-                              e.target.value
-                            )
-                          }
+                          onChange={(e) => handleEditCaseWorkerChange("name", e.target.value)}
                           size="small"
                           fullWidth
                           error={!!editErrors.name}
@@ -458,15 +463,7 @@ const CaseWorkerManagementModal: React.FC<CaseWorkerManagementModalProps> = ({
                       {editingCaseWorker?.id === cw.id ? (
                         <TextField
                           value={editingCaseWorker.organization}
-                          onChange={(e) =>
-                            handleCaseWorkerFormChange(
-                              setEditingCaseWorker,
-                              setEditErrors,
-                              editingCaseWorker,
-                              "organization",
-                              e.target.value
-                            )
-                          }
+                          onChange={(e) => handleEditCaseWorkerChange("organization", e.target.value)}
                           size="small"
                           fullWidth
                           error={!!editErrors.organization}
@@ -487,15 +484,7 @@ const CaseWorkerManagementModal: React.FC<CaseWorkerManagementModalProps> = ({
                       {editingCaseWorker?.id === cw.id ? (
                         <TextField
                           value={editingCaseWorker.phone}
-                          onChange={(e) =>
-                            handleCaseWorkerFormChange(
-                              setEditingCaseWorker,
-                              setEditErrors,
-                              editingCaseWorker,
-                              "phone",
-                              e.target.value
-                            )
-                          }
+                          onChange={(e) => handleEditCaseWorkerChange("phone", e.target.value)}
                           size="small"
                           fullWidth
                           error={!!editErrors.phone}
@@ -516,15 +505,7 @@ const CaseWorkerManagementModal: React.FC<CaseWorkerManagementModalProps> = ({
                       {editingCaseWorker?.id === cw.id ? (
                         <TextField
                           value={editingCaseWorker.email}
-                          onChange={(e) =>
-                            handleCaseWorkerFormChange(
-                              setEditingCaseWorker,
-                              setEditErrors,
-                              editingCaseWorker,
-                              "email",
-                              e.target.value
-                            )
-                          }
+                          onChange={(e) => handleEditCaseWorkerChange("email", e.target.value)}
                           size="small"
                           fullWidth
                           error={!!editErrors.email}
