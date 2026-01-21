@@ -494,7 +494,8 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
             mb: 3,
             width: "100%",
             position: "relative",
-            overflow: "visible",
+            overflow: "auto",
+            flex: 1,
           }}
         >
           {/* Loading Indicator */}
