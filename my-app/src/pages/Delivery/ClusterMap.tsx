@@ -277,13 +277,11 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
         `#cluster-select-${clientId}`
       ) as HTMLSelectElement | null;
       if (!clusterSelect) return;
-      // Save current value
       const prevValue = clusterSelect.value;
       // Remove all options except the first (No cluster) and last (+ Add Cluster)
       while (clusterSelect.options.length > 2) {
         clusterSelect.remove(1);
       }
-      // Insert new cluster options (filter out empty clusters)
       const nonEmptyClusters = clusters.filter((c: Cluster) => c.deliveries.length > 0);
       nonEmptyClusters.forEach((c: Cluster) => {
         const opt = document.createElement("option");
