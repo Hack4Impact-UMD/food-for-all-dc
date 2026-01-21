@@ -65,6 +65,8 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
       if (preSelectedClient.clientProfile.startDate) {
         const iso = deliveryDate.tryToISODateString(preSelectedClient.clientProfile.startDate);
         setClientStartDateISO(iso);
+      } else {
+        setClientStartDateISO(null);
       }
       setNewDelivery((prev) => ({
         ...prev,
