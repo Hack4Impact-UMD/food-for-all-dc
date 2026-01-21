@@ -91,6 +91,7 @@ import Button from "@mui/material/Button";
 
 import DietaryRestrictionsLegend from "../../components/DietaryRestrictionsLegend";
 import { deliveryDate } from "../../utils/deliveryDate";
+import { deliveryEventEmitter } from "../../utils/deliveryEventEmitter";
 
 const StyleChip = styled(Chip)({
   backgroundColor: "var(--color-primary)",
@@ -724,6 +725,14 @@ const DeliverySpreadsheet: React.FC = () => {
     const currentFetchDate = selectedDate; // Capture date at effect run time
     fetchDeliveriesForDate(currentFetchDate);
     // No explicit cleanup needed with the check inside the async function
+  }, [selectedDate]);
+
+  // Refresh deliveries when they are modified elsewhere in the app
+  useEffect(() => {
+    const unsubscribe = deliveryEventEmitter.subscribe(() => {
+      fetchDeliveriesForDate(selectedDate);
+    });
+    return unsubscribe;
   }, [selectedDate]);
 
   useEffect(() => {
