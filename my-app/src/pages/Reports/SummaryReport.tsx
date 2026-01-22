@@ -145,15 +145,12 @@ const SummaryReport: React.FC = () => {
     basic["People Served (Duplicated)"].value += adults + seniors + children;
 
     if (startDate && endDate) {
-      // Determine if this is a "new" household in the report period
-      // Use first delivery date if available, otherwise use client startDate
       let isNewInPeriod = false;
 
       if (client.deliveries && client.deliveries.length > 0) {
         const firstDelivery = TimeUtils.fromISO(client.deliveries[0]);
         isNewInPeriod = firstDelivery >= start && firstDelivery <= end;
       } else if (client.startDate) {
-        // For ETL clients without deliveries, use their startDate
         const clientStart = TimeUtils.fromAny(client.startDate).startOf("day");
         isNewInPeriod = clientStart.isValid && clientStart >= start && clientStart <= end;
       }
@@ -311,13 +308,9 @@ const SummaryReport: React.FC = () => {
             }
           }
 
-          // Check if client is active during the report period based on startDate/endDate
           const clientStartDate = client.startDate ? TimeUtils.fromAny(client.startDate).startOf("day") : null;
           const clientEndDate = client.endDate ? TimeUtils.fromAny(client.endDate).startOf("day") : null;
 
-          // A client is active during the report period if:
-          // - They have a valid startDate that's before or during the report period (startDate <= reportEnd)
-          // - AND they haven't ended, or they ended during or after the report period (endDate is null OR endDate >= reportStart)
           const isActiveInPeriod = clientStartDate?.isValid &&
                                    clientStartDate <= end &&
                                    (!clientEndDate?.isValid || clientEndDate >= start);
@@ -325,7 +318,6 @@ const SummaryReport: React.FC = () => {
           if (isActiveInPeriod && startDate && endDate) {
             active += 1;
 
-            // Process deliveries if they exist for additional statistics
             const deliveries: string[] = client.deliveries ?? [];
             const deliveriesInRange = deliveries.filter((deliveryStr) => {
               const deliveryDate = TimeUtils.fromISO(deliveryStr);
