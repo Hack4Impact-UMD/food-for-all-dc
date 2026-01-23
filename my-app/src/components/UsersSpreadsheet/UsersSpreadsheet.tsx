@@ -365,6 +365,9 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
         position: "relative",
         display: "flex",
         flexDirection: "column",
+        height: "calc(100vh - var(--layout-page-offset))",
+        minHeight: 0,
+        mt: 0,
       }}
     >
       <>
@@ -496,6 +499,7 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
             position: "relative",
             overflow: "auto",
             flex: 1,
+            minHeight: 0,
           }}
         >
           {/* Loading Indicator */}
@@ -668,7 +672,11 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
                       ))}
                       <TableCell
                         align="right"
-                        sx={{ py: 1 }}
+                        className="table-header"
+                        sx={{
+                          backgroundColor: "var(--color-background-green-tint)",
+                          borderBottom: "2px solid var(--color-border-medium)",
+                        }}
                       ></TableCell>
                     </TableRow>
                   </TableHead>
