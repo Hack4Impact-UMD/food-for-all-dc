@@ -608,7 +608,7 @@ const Spreadsheet: React.FC = () => {
         display: "flex",
         flexDirection: "column",
         mt: 0,
-        height: "calc(100vh - 133px)",
+        height: "calc(100vh - var(--layout-page-offset))",
       }}
     >
       <div style={{ color: "var(--color-primary)", fontWeight: 600, marginBottom: 8 }}></div>
