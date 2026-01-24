@@ -277,13 +277,11 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
         `#cluster-select-${clientId}`
       ) as HTMLSelectElement | null;
       if (!clusterSelect) return;
-      // Save current value
       const prevValue = clusterSelect.value;
       // Remove all options except the first (No cluster) and last (+ Add Cluster)
       while (clusterSelect.options.length > 2) {
         clusterSelect.remove(1);
       }
-      // Insert new cluster options
       clusters.forEach((c: Cluster) => {
         const opt = document.createElement("option");
         opt.value = c.id;
@@ -298,16 +296,20 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
       const numericIds = clusters
         .map((c2: Cluster) => parseInt(c2.id, 10))
         .filter((n: number) => !isNaN(n));
-      const maxId = numericIds.length > 0 ? Math.max(...numericIds) : 0;
-      if (!clusters.some((c: Cluster) => c.id === prevValue)) {
-        const maxIdStr = String(maxId);
+      const hasPrevValue = clusters.some((c: Cluster) => c.id === prevValue);
+      if (hasPrevValue) {
+        clusterSelect.value = prevValue;
+        clusterSelect.style.backgroundColor = getClusterColor(prevValue);
+        clusterSelect.style.color = getTextColorForBackground(getClusterColor(prevValue));
+      } else if (numericIds.length > 0) {
+        const maxIdStr = String(Math.max(...numericIds));
         clusterSelect.value = maxIdStr;
         clusterSelect.style.backgroundColor = getClusterColor(maxIdStr);
         clusterSelect.style.color = getTextColorForBackground(getClusterColor(maxIdStr));
       } else {
-        clusterSelect.value = prevValue;
-        clusterSelect.style.backgroundColor = getClusterColor(prevValue);
-        clusterSelect.style.color = getTextColorForBackground(getClusterColor(prevValue));
+        clusterSelect.value = "";
+        clusterSelect.style.backgroundColor = "var(--color-background-main)";
+        clusterSelect.style.color = "black";
       }
     });
   }, [clusters, getClusterColor, getTextColorForBackground]);

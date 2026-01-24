@@ -20,6 +20,7 @@ import { retry } from "../utils/retry";
 import { ServiceError, formatServiceError } from "../utils/serviceError";
 import dataSources from "../config/dataSources";
 import { deliveryDate } from "../utils/deliveryDate";
+import { deliveryEventEmitter } from "../utils/deliveryEventEmitter";
 
 /**
  * Delivery Service - Handles all delivery-related operations with Firebase
@@ -39,6 +40,7 @@ class DeliveryService {
         deleteDoc(doc(this.db, this.eventsCollection, docSnap.id))
       );
       await Promise.all(batchDeletes);
+      deliveryEventEmitter.emit();
     } catch (error) {
       throw formatServiceError(error, "Failed to delete deliveries for client");
     }
@@ -181,6 +183,7 @@ class DeliveryService {
       await retry(async () => {
         await deleteDoc(doc(this.db, this.eventsCollection, id));
       });
+      deliveryEventEmitter.emit();
     } catch (error) {
       throw formatServiceError(error, "Failed to delete event");
     }
