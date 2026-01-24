@@ -429,18 +429,21 @@ const DeliverySpreadsheet: React.FC = () => {
   // Suppress highlight clearing when switching rows/popups
   const suppressClearHighlightRef = React.useRef(false);
 
-  // Helper function to deduplicate clusters by ID
-  const deduplicateClusters = (clusters: Cluster[]): Cluster[] => {
-    return clusters.filter(
+  const normalizeClusters = (clusters: Cluster[]): Cluster[] => {
+    const nonEmptyClusters = clusters.filter(
+      (cluster: Cluster) => (cluster.deliveries?.length ?? 0) > 0
+    );
+    const deduplicated = nonEmptyClusters.filter(
       (cluster: Cluster, index: number, self: Cluster[]) =>
         index === self.findIndex((c: Cluster) => c.id === cluster.id)
     );
+    return deduplicated.sort((a, b) => parseInt(a.id, 10) - parseInt(b.id, 10));
   };
 
-  // Safe wrapper for setClusters that always deduplicates
-  const setClusters = (clusters: Cluster[]) => {
-    const deduplicated = deduplicateClusters(clusters);
-    setClustersOriginal(deduplicated);
+  const setClusters = (clusters: Cluster[]): Cluster[] => {
+    const normalizedClusters = normalizeClusters(clusters);
+    setClustersOriginal(normalizedClusters);
+    return normalizedClusters;
   };
 
   const parseDateFromUrl = (dateString: string | null): Date => {
@@ -627,8 +630,7 @@ const DeliverySpreadsheet: React.FC = () => {
   // Extend type for cluster options
   type ClusterOption = { value: string; label: string; color: string; isAdd?: boolean };
   const clusterOptions: ClusterOption[] = useMemo(() => {
-    const nonEmptyClusters = clusters.filter((c) => c.deliveries.length > 0);
-    const uniqueIds = [...new Set(nonEmptyClusters.map((c) => c.id))];
+    const uniqueIds = [...new Set(clusters.map((c) => c.id))];
     const availableIds = uniqueIds.sort((a, b) => parseInt(a, 10) - parseInt(b, 10));
     const options: ClusterOption[] = availableIds.map((id) => ({
       value: id,
@@ -856,7 +858,6 @@ const DeliverySpreadsheet: React.FC = () => {
           clientOverrides: doc.data().clientOverrides || [],
         };
         setClusterDoc(clustersData);
-        // Set clusters (deduplication is handled automatically by setClusters wrapper)
         setClusters(clustersData.clusters);
         setClientOverrides(clustersData.clientOverrides || []);
       } else {
@@ -935,12 +936,11 @@ const DeliverySpreadsheet: React.FC = () => {
 
     updatedClusters.sort((a, b) => parseInt(a.id, 10) - parseInt(b.id, 10));
 
-    // Set clusters (deduplication is handled automatically by setClusters wrapper)
-    setClusters(updatedClusters);
+    const normalizedClusters = setClusters(updatedClusters);
 
     try {
       const clusterRef = doc(db, dataSources.firebase.clustersCollection, clusterDoc.docId);
-      await updateDoc(clusterRef, { clusters: deduplicateClusters(updatedClusters) });
+      await updateDoc(clusterRef, { clusters: normalizedClusters });
 
       // setRows(prevRows => prevRows.map r => r.id === row.id ? { ...r, clusterId: newClusterId } : r));
     } catch (error) {
@@ -994,7 +994,7 @@ const DeliverySpreadsheet: React.FC = () => {
         return cluster;
       });
 
-      setClusters(updatedClusters);
+      const normalizedClusters = setClusters(updatedClusters);
 
       // Clear any individual driver overrides for clients in selected clusters
       // (cluster driver takes precedence over individual overrides)
@@ -1022,7 +1022,7 @@ const DeliverySpreadsheet: React.FC = () => {
       // Update Firestore
       const clusterRef = doc(db, dataSources.firebase.clustersCollection, clusterDoc.docId);
       await updateDoc(clusterRef, {
-        clusters: updatedClusters,
+        clusters: normalizedClusters,
         clientOverrides: sanitizeClientOverridesForFirestore(updatedOverrides),
       });
 
@@ -1143,13 +1143,12 @@ const DeliverySpreadsheet: React.FC = () => {
       // Sort clusters numerically
       updatedClusters.sort((a, b) => parseInt(a.id, 10) - parseInt(b.id, 10));
 
-      // Set clusters (deduplication is handled automatically by setClusters wrapper)
-      setClusters(updatedClusters);
+      const normalizedClusters = setClusters(updatedClusters);
 
       // Update Firebase with cluster changes and client overrides
       const clusterRef = doc(db, dataSources.firebase.clustersCollection, clusterDoc.docId);
       await updateDoc(clusterRef, {
-        clusters: deduplicateClusters(updatedClusters),
+        clusters: normalizedClusters,
         clientOverrides: sanitizeClientOverridesForFirestore(updatedOverrides),
       });
 
@@ -1200,6 +1199,7 @@ const DeliverySpreadsheet: React.FC = () => {
 
   const initClustersForDay = async (newClusters: Cluster[]) => {
     const docRef = doc(collection(db, dataSources.firebase.clustersCollection));
+    const normalizedClusters = normalizeClusters(newClusters);
 
     // Use selectedDate to ensure consistency with fetched data
     const clusterDate = new Date(
@@ -1215,7 +1215,7 @@ const DeliverySpreadsheet: React.FC = () => {
     );
 
     const newClusterDoc = {
-      clusters: newClusters,
+      clusters: normalizedClusters,
       docId: docRef.id,
       date: Timestamp.fromDate(clusterDate), // Use consistent date
       clientOverrides: [],
@@ -1223,7 +1223,7 @@ const DeliverySpreadsheet: React.FC = () => {
 
     // Firestore expects the data object directly for setDoc - Corrected
     await setDoc(docRef, newClusterDoc);
-    setClusters(newClusters); // Update state after successful Firestore creation
+    setClustersOriginal(normalizedClusters); // Update state after successful Firestore creation
     setClusterDoc(newClusterDoc);
     setClientOverrides([]);
   };
@@ -1497,12 +1497,15 @@ const DeliverySpreadsheet: React.FC = () => {
 
       if (clusterDoc) {
         const clusterRef = doc(db, dataSources.firebase.clustersCollection, clusterDoc.docId);
+        const normalizedClusters = normalizeClusters(newClusters);
         await updateDoc(clusterRef, {
-          clusters: newClusters,
+          clusters: normalizedClusters,
           clientOverrides: sanitizeClientOverridesForFirestore(clientOverrides),
         });
-        setClusters(newClusters);
-        setClusterDoc((prevDoc) => (prevDoc ? { ...prevDoc, clusters: newClusters } : null));
+        setClustersOriginal(normalizedClusters);
+        setClusterDoc((prevDoc) =>
+          prevDoc ? { ...prevDoc, clusters: normalizedClusters } : null
+        );
       } else {
         await initClustersForDay(newClusters); // Make sure this also sets state correctly
       }
