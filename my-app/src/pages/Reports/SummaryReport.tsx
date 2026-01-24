@@ -145,8 +145,17 @@ const SummaryReport: React.FC = () => {
     basic["People Served (Duplicated)"].value += adults + seniors + children;
 
     if (startDate && endDate) {
-      const firstDelivery = TimeUtils.fromISO(client.deliveries[0]);
-      if (firstDelivery >= start && firstDelivery <= end) {
+      let isNewInPeriod = false;
+
+      if (client.deliveries && client.deliveries.length > 0) {
+        const firstDelivery = TimeUtils.fromISO(client.deliveries[0]);
+        isNewInPeriod = firstDelivery >= start && firstDelivery <= end;
+      } else if (client.startDate) {
+        const clientStart = TimeUtils.fromAny(client.startDate).startOf("day");
+        isNewInPeriod = clientStart.isValid && clientStart >= start && clientStart <= end;
+      }
+
+      if (isNewInPeriod) {
         basic["New Households"].value += 1;
         basic["New People"].value += adults + seniors + children;
         demo["New Seniors"].value += seniors;
@@ -299,17 +308,23 @@ const SummaryReport: React.FC = () => {
             }
           }
 
-          const deliveries: string[] = client.deliveries ?? [];
-          if (deliveries.length && startDate && endDate) {
+          const clientStartDate = client.startDate ? TimeUtils.fromAny(client.startDate).startOf("day") : null;
+          const clientEndDate = client.endDate ? TimeUtils.fromAny(client.endDate).startOf("day") : null;
+
+          const isActiveInPeriod = clientStartDate?.isValid &&
+                                   clientStartDate <= end &&
+                                   (!clientEndDate?.isValid || clientEndDate >= start);
+
+          if (isActiveInPeriod && startDate && endDate) {
+            active += 1;
+
+            const deliveries: string[] = client.deliveries ?? [];
             const deliveriesInRange = deliveries.filter((deliveryStr) => {
               const deliveryDate = TimeUtils.fromISO(deliveryStr);
               return deliveryDate >= start && deliveryDate <= end;
             });
 
-            if (deliveriesInRange.length) {
-              active += 1;
-              processClientInfo(next, client, deliveriesInRange, start, end, referralAgencies);
-            }
+            processClientInfo(next, client, deliveriesInRange, start, end, referralAgencies);
           }
         }
 

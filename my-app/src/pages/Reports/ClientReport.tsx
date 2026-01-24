@@ -122,16 +122,15 @@ const ClientReport: React.FC = () => {
             const client = doc.data() as ClientProfile;
             allClients.push(client);
 
-            const deliveries: string[] = client.deliveries ?? [];
-            if (deliveries.length) {
-              const deliveriesInRange = deliveries.filter((deliveryISO: string) => {
-                const deliveryDate = TimeUtils.fromISO(deliveryISO);
-                return deliveryDate >= start && deliveryDate <= end;
-              });
+            const clientStartDate = client.startDate ? TimeUtils.fromAny(client.startDate).startOf("day") : null;
+            const clientEndDate = client.endDate ? TimeUtils.fromAny(client.endDate).startOf("day") : null;
 
-              if (deliveriesInRange.length > 0) {
-                activeClients.push(client);
-              }
+            const isActiveInPeriod = clientStartDate?.isValid &&
+                                     clientStartDate <= end &&
+                                     (!clientEndDate?.isValid || clientEndDate >= start);
+
+            if (isActiveInPeriod) {
+              activeClients.push(client);
             }
           }
 
