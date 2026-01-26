@@ -432,7 +432,16 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
         ) : (
           <Typography variant="body1" sx={{ fontWeight: 600 }}>
             {selectedCaseWorker
-              ? [selectedCaseWorker.name, selectedCaseWorker.organization].filter(Boolean).join(selectedCaseWorker.name && selectedCaseWorker.organization ? ', ' : '')
+              ? selectedCaseWorker.name === "None" && selectedCaseWorker.organization === "None"
+                ? "None"
+                : [
+                    selectedCaseWorker.name,
+                    selectedCaseWorker.organization,
+                  ]
+                    .filter(Boolean)
+                    .join(
+                      selectedCaseWorker.name && selectedCaseWorker.organization ? ", " : ""
+                    )
               : "None"}
           </Typography>
         )}

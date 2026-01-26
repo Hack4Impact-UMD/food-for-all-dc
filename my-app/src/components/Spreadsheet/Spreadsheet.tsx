@@ -93,6 +93,13 @@ function getCustomColumnDisplay(row: RowData, propertyKey: string): React.ReactN
     const entity = row.referralEntity;
     const name = entity?.name || "";
     const org = entity?.organization || "";
+
+    // Special-case the canonical "None" referral entity so that
+    // it renders as a single "None" instead of "None, None".
+    if (name === "None" && org === "None") {
+      return "None";
+    }
+
     const display = [name, org].filter(Boolean).join(", ");
     return display || "";
   }

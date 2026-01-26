@@ -1,5 +1,5 @@
-CLIENT_COLLECTION_NAME = "client-profile-test"
-REFERRAL_COLLECTION_NAME = "referrals-test"
+CLIENT_COLLECTION_NAME = "client-profile2"
+REFERRAL_COLLECTION_NAME = "referral"
 
 import json
 import os
@@ -70,6 +70,8 @@ class MigrationStats:
 	successful_imports: int = 0
 	failed_imports: int = 0
 	skipped_records: int = 0
+	skipped_inactive: int = 0
+	skipped_duplicates: int = 0
 	start_time: datetime = None
 	end_time: datetime = None
 	unmapped_frequencies: Dict[str, int] = None  # Track frequency values that don't map
@@ -245,6 +247,14 @@ class FirestoreMigration:
 
 	def parse_referral_entity(self, row: Dict[str, Any], referral_form_records=None) -> Dict[str, Any]:
 		import re
+		# Helper to normalize missing/NaN-like strings to empty
+		def _clean(value: Any) -> str:
+			if value is None:
+				return ""
+			text = str(value).strip()
+			if not text or text.lower() == "nan":
+				return ""
+			return text
 		ORG_KEYWORDS = [
 			'inc', 'llc', 'community', 'center', 'clinic', 'hospital', 'foundation', 'services', 'university', 'school', 'church', 'ministry', 'group', 'association', 'org', 'organization', 'society', 'network', 'coalition', 'committee', 'trust', 'partners', 'partnership', 'agency', 'plan', 'health', 'medical', 'development', 'corporation', 'corp', 'company', 'council', 'board', 'office', 'program', 'initiative', 'project', 'team', 'club', 'district', 'authority', 'commission', 'federation', 'institute', 'alliance', 'enterprise', 'cooperative', 'co-op', 'gov', 'government', 'dc', 'department', 'division', 'unit', 'branch', 'chapter', 'league', 'union', 'coordinator', 'caseworker', 'case manager', 'social worker', 'advocate', 'counselor', 'therapist', 'volunteer', 'director', 'manager', 'lead', 'assistant', 'liaison', 'consultant', 'specialist', 'worker', 'coach', 'advisor', 'supervisor', 'psh', 'rapid re-housing', 'rrh', 'housing', 'food', 'bank', 'clinic', 'center', 'program', 'services', 'office', 'department', 'division', 'unit', 'team', 'project', 'initiative', 'agency', 'foundation', 'society', 'network', 'coalition', 'committee', 'trust', 'partners', 'partnership', 'association', 'enterprise', 'cooperative', 'co-op', 'gov', 'government', 'dc', 'school', 'church', 'ministry', 'club', 'district', 'authority', 'commission', 'federation', 'institute', 'alliance', 'company', 'corporation', 'corp', 'council', 'board', 'office', 'program', 'initiative', 'project', 'team', 'club', 'district', 'authority', 'commission', 'federation', 'institute', 'alliance', 'enterprise', 'cooperative', 'co-op', 'gov', 'government', 'dc', 'department', 'division', 'unit', 'branch', 'chapter', 'league', 'union'
 		]
@@ -268,31 +278,53 @@ class FirestoreMigration:
 					if len(parts) == 2:
 						return parts[0], parts[1]
 			return text, ''
-		# Try to match referral form first
-		first_name = str(row.get('FIRST_database', '')).strip()
-		last_name = str(row.get('LAST_database', '')).strip()
-		address = str(row.get('ADDRESS', '')).strip()
+		# Try to match referral form first (support both JSON and Excel headers)
+		first_name = _clean(row.get('FIRST_database') or row.get('FIRST', ''))
+		last_name = _clean(row.get('LAST_database') or row.get('LAST', ''))
+		address = _clean(row.get('ADDRESS', ''))
 		matched = None
 		if referral_form_records:
 			matched = self.match_referral_form(first_name, last_name, address, referral_form_records)
 		if matched:
+			# Prefer the canonical referral-form headers from ETL/README.md,
+			# but fall back to older names if present so we work with either export.
+			name_val = (
+				matched.get('Name (case manager)')
+				or matched.get('Name')
+				or ""
+			)
+			org_val = (
+				matched.get('Agency name')
+				or matched.get('Organization')
+				or ""
+			)
+			phone_val = (
+				matched.get('Phone contact')
+				or matched.get('Phone')
+				or ""
+			)
+			email_val = (
+				matched.get('Email Address')
+				or matched.get('Email')
+				or ""
+			)
 			return {
 				"id": "",  # Will be set after referral insert
-				"name": str(matched.get('Name (case manager)', '')).strip(),
-				"organization": str(matched.get('Agency name', '')).strip(),
-				"phone": str(matched.get('Phone contact', '')).strip(),
-				"email": str(matched.get('Email Address', '')).strip()
+				"name": str(name_val).strip(),
+				"organization": str(org_val).strip(),
+				"phone": str(phone_val).strip(),
+				"email": str(email_val).strip(),
 			}
 		# ...existing code...
 		# Normalize internet-based sources
 		INTERNET_KEYWORDS = [
 			'internet search', 'online search', 'facebook', 'website', 'web', 'google', 'internet', 'online', 'www', 'search'
 		]
-		# Check explicit fields first
-		case_manager_name = str(row.get("Name_case_manager", "")).strip()
-		agency_name = str(row.get("Agency_name", "")).strip()
-		case_manager_phone = str(row.get("Phone_contact_case_manager", "")).strip()
-		case_manager_email = str(row.get("EmailAddress", "")).strip()
+		# Check explicit fields first (clean NaN/missing values)
+		case_manager_name = _clean(row.get("Name_case_manager", ""))
+		agency_name = _clean(row.get("Agency_name", ""))
+		case_manager_phone = _clean(row.get("Phone_contact_case_manager", ""))
+		case_manager_email = _clean(row.get("EmailAddress", ""))
 		# Heuristic correction for swapped/misplaced fields
 		if case_manager_name and not agency_name:
 			if looks_like_org(case_manager_name):
@@ -339,8 +371,8 @@ class FirestoreMigration:
 				"phone": case_manager_phone,
 				"email": case_manager_email
 			}
-		# Otherwise, try to parse from REFERRAL_ENTITY field
-		referral_entity = str(row.get("REFERRAL_ENTITY", "")).strip()
+		# Otherwise, try to parse from REFERRAL_ENTITY field (or Excel 'REFERRAL ENTITY')
+		referral_entity = _clean(row.get("REFERRAL_ENTITY") or row.get("REFERRAL ENTITY", ""))
 		if referral_entity:
 			# Normalize if matches internet keywords
 			if any(k in referral_entity.lower() for k in INTERNET_KEYWORDS):
@@ -349,11 +381,11 @@ class FirestoreMigration:
 		"""
 		Parse referral entity information from various fields
 		"""
-		# Check for explicit fields first
-		case_manager_name = str(row.get("Name_case_manager", "")).strip()
-		agency_name = str(row.get("Agency_name", "")).strip()
-		case_manager_phone = str(row.get("Phone_contact_case_manager", "")).strip()
-		case_manager_email = str(row.get("EmailAddress", "")).strip()
+		# Check for explicit fields first (clean NaN/missing values)
+		case_manager_name = _clean(row.get("Name_case_manager", ""))
+		agency_name = _clean(row.get("Agency_name", ""))
+		case_manager_phone = _clean(row.get("Phone_contact_case_manager", ""))
+		case_manager_email = _clean(row.get("EmailAddress", ""))
         
 		# If we have explicit case manager info, use it
 		if case_manager_name or agency_name:
@@ -365,8 +397,8 @@ class FirestoreMigration:
 				"email": case_manager_email
 			}
         
-		# Otherwise, try to parse from REFERRAL_ENTITY field
-		referral_entity = str(row.get("REFERRAL_ENTITY", "")).strip()
+		# Otherwise, try to parse from REFERRAL_ENTITY field (supports both JSON and Excel headers)
+		referral_entity = _clean(row.get("REFERRAL_ENTITY") or row.get("REFERRAL ENTITY", ""))
 		if referral_entity:
 			import re
             
@@ -487,8 +519,8 @@ class FirestoreMigration:
 		failed_inserts = []
 		failed_client_inserts = []
 		failed_referral_inserts = []
-		# For deduplication of referrals in this batch
-		referral_seen = set()
+		# For deduplication of referrals in this batch: map dedup_key -> referral_doc_id
+		referral_cache = {}
 		# Debug: show how many records are in this batch
 		print(f"[DEBUG] import_batch: received {total_records} records")
 		# Load existing failed inserts if file exists
@@ -507,8 +539,8 @@ class FirestoreMigration:
 				# Only load active profiles
 				active_status = row.get("Active", "")
 				if str(active_status).lower() not in ['yes', 'true', '1', 'active']:
-					first_name = row.get("FIRST_database", "")
-					last_name = row.get("LAST_database", "")
+					first_name = row.get("FIRST_database") or row.get("FIRST", "")
+					last_name = row.get("LAST_database") or row.get("LAST", "")
 					skipped_inactive += 1
 					print(f"[DEBUG] Skipped inactive: {first_name} {last_name}")
 					skipped += 1
@@ -519,8 +551,8 @@ class FirestoreMigration:
 				# Pass referral_form_records to transform_record
 				transformed = self.transform_record(row, referral_form_records=referral_form_records)
 				if transformed is None:
-					first_name = row.get("FIRST_database", "")
-					last_name = row.get("LAST_database", "")
+					first_name = row.get("FIRST_database") or row.get("FIRST", "")
+					last_name = row.get("LAST_database") or row.get("LAST", "")
 					if self.is_duplicate(first_name, last_name):
 						skipped_duplicate += 1
 						print(f"[DEBUG] Skipped duplicate: {first_name} {last_name}")
@@ -551,9 +583,18 @@ class FirestoreMigration:
 					continue
 				# --- Insert referral/case worker into referral collection ---
 				referral = None
-				# Use the same logic as in transform_record for referralEntity
+				# Build a local referral dict from the client's referralEntity plus
+				# the helper contact fields. This avoids storing phone/email on
+				# client-profile2.referralEntity while still letting us populate
+				# the referral collection with contact info.
 				if "referralEntity" in transformed and transformed["referralEntity"]:
-					referral = transformed["referralEntity"]
+					base_ref = transformed["referralEntity"] or {}
+					referral = {
+						"name": str(base_ref.get("name", "")),
+						"organization": str(base_ref.get("organization", "")),
+						"email": str(transformed.get("_referralContactEmail", "")),
+						"phone": str(transformed.get("_referralContactPhone", "")),
+					}
 				# Only insert if we have at least a name or organization
 				if referral and (referral.get("name") or referral.get("organization")):
 					# Normalize internet-based referrals for deduplication
@@ -594,7 +635,12 @@ class FirestoreMigration:
 							name = str(referral.get("name", "")).strip().lower()
 							org = str(referral.get("organization", "")).strip().lower()
 							dedup_key = (name, org)
-						if dedup_key and dedup_key not in referral_seen:
+						# If we've already resolved this referral in this batch, just reuse the cached id
+						if dedup_key and dedup_key in referral_cache:
+							referral_doc_id = referral_cache[dedup_key]
+							if "referralEntity" in transformed and transformed["referralEntity"] is not None:
+								transformed["referralEntity"]["id"] = referral_doc_id
+						else:
 							# Check Firestore for existing referral with same or swapped fields
 							found_existing = False
 							if referral.get("email"):
@@ -605,6 +651,7 @@ class FirestoreMigration:
 									logger.info(f"Reusing existing referral by email with id {referral_doc_id}")
 									if "referralEntity" in transformed and transformed["referralEntity"] is not None:
 										transformed["referralEntity"]["id"] = referral_doc_id
+									referral_cache[dedup_key] = referral_doc_id
 									found_existing = True
 							if not found_existing:
 								# Try name/org match, and swapped
@@ -623,23 +670,26 @@ class FirestoreMigration:
 									logger.info(f"Reusing existing referral by name/org with id {referral_doc_id}")
 									if "referralEntity" in transformed and transformed["referralEntity"] is not None:
 										transformed["referralEntity"]["id"] = referral_doc_id
+									referral_cache[dedup_key] = referral_doc_id
 									found_existing = True
 							if not found_existing:
-								referral_seen.add(dedup_key)
 								# Build referral doc
+								phone_from_referral = str(referral.get("phone", "") or "").strip()
 								referral_doc = {
 									"name": str(referral.get("name", "")),
 									"organization": str(referral.get("organization", "")),
 									"email": str(referral.get("email", "")),
-									"phone": ""
+									# Prefer phone from the matched referralEntity (client referral form),
+									# but fall back to phone fields on the main client row if missing.
+									"phone": phone_from_referral,
 								}
-								# Try to get phone from row if available
+								# If we still don't have a phone, try to get it from row if available
 								phone_fields = [
 									row.get("Phone_contact_case_manager", ""),
 									row.get("Phone contact (case manager) - Please enter phone in (xxx) xxx-xxxx format", "")
 								]
 								for pf in phone_fields:
-									if pf and str(pf).strip():
+									if not referral_doc["phone"] and pf and str(pf).strip():
 										referral_doc["phone"] = str(pf).strip()
 										break
 								# Insert into referral collection and get the doc ID
@@ -651,10 +701,15 @@ class FirestoreMigration:
 									# Set the referralEntity.id in the client profile
 									if "referralEntity" in transformed and transformed["referralEntity"] is not None:
 										transformed["referralEntity"]["id"] = referral_doc_id
+									referral_cache[dedup_key] = referral_doc_id
 								except Exception as e:
 									logger.error(f"Failed to insert referral into {REFERRAL_COLLECTION_NAME}: {e}")
 									failed_referral_inserts.append({"referral": referral_doc, "error": str(e)})
-				# Now insert the client profile, after referralEntity.id is set
+				# Now insert the client profile, after referralEntity.id is set.
+				# Drop helper contact fields so they are not stored on
+				# client-profile2 documents.
+				transformed.pop("_referralContactPhone", None)
+				transformed.pop("_referralContactEmail", None)
 				doc_ref = self.db.collection(self.collection_name).document(doc_id)
 				batch.set(doc_ref, transformed)
 				successful += 1
@@ -678,6 +733,8 @@ class FirestoreMigration:
 				batch.commit()
 				logger.info(f"Successfully committed batch with {successful} records")
 			self.stats.skipped_records += skipped
+			self.stats.skipped_inactive += skipped_inactive
+			self.stats.skipped_duplicates += skipped_duplicate
 		except Exception as e:
 			logger.error(f"Batch commit failed: {str(e)}")
 			failed += successful
@@ -797,10 +854,18 @@ class FirestoreMigration:
 		logger.info("Migration completed!")
 		logger.info(f"Total time: {duration}")
 		logger.info(f"Total records: {self.stats.total_records}")
-		logger.info(f"Successful: {self.stats.successful_imports}")
-		logger.info(f"Failed: {self.stats.failed_imports}")
-		logger.info(f"Skipped (duplicates): {self.stats.skipped_records}")
-		logger.info(f"Success rate: {(self.stats.successful_imports/self.stats.total_records)*100:.2f}%")
+		logger.info(f"Successful (inserted): {self.stats.successful_imports}")
+		logger.info(f"Skipped inactive: {self.stats.skipped_inactive}")
+		logger.info(f"Skipped duplicates: {self.stats.skipped_duplicates}")
+		logger.info(f"Failed (errors): {self.stats.failed_imports}")
+		# Compute success rate only over records we actually intended to insert
+		effective_total = self.stats.total_records - self.stats.skipped_inactive - self.stats.skipped_duplicates
+		if effective_total > 0:
+			logger.info(f"Effective records (excluding inactive/duplicates): {effective_total}")
+			logger.info(f"Success rate (of intended inserts): {(self.stats.successful_imports/effective_total)*100:.2f}%")
+		else:
+			logger.info("Effective records (excluding inactive/duplicates): 0")
+			logger.info("Success rate (of intended inserts): N/A (no records to insert)")
 		# logger.info(f"Saving {len(self.case_workers)} unique case workers...")
 		# self.save_case_workers_to_firestore()
 		if self.failed_geocoding_clients:
@@ -916,6 +981,7 @@ class FirestoreMigration:
 	def is_duplicate(self, first_name: str, last_name: str) -> bool:
 		"""
 		Check if a client with the same name (case-insensitive) has already been processed
+		within this migration run. This is independent of what is already in Firestore.
 		"""
 		if not first_name or not last_name:
 			return False
@@ -1025,13 +1091,25 @@ class FirestoreMigration:
 		"""
 		Transform a record, using OpenMap geocoding and stripping apartment/unit info from address.
 		Also tracks geocoding failures for retry.
+		Supports both legacy JSON field names and direct Excel column names.
 		"""
-		first_name = row.get("FIRST_database", "")
-		last_name = row.get("LAST_database", "")
+		# Name fields: prefer canonical *_database fields, fall back to raw Excel headers
+		# Ensure missing/NaN values become empty strings instead of causing .strip() errors.
+		def _clean_name(value: Any) -> str:
+			if value is None:
+				return ""
+			text = str(value).strip()
+			if not text or text.lower() == "nan":
+				return ""
+			return text
+		first_name_raw = row.get("FIRST_database") or row.get("FIRST", "")
+		last_name_raw = row.get("LAST_database") or row.get("LAST", "")
+		first_name = _clean_name(first_name_raw)
+		last_name = _clean_name(last_name_raw)
 		if first_name:
-			first_name = first_name.strip().capitalize()
+			first_name = first_name.capitalize()
 		if last_name:
-			last_name = last_name.strip().capitalize()
+			last_name = last_name.capitalize()
 
 		# No longer skip inactive records; load all
 		active_status = row.get("Active", "")
@@ -1050,9 +1128,13 @@ class FirestoreMigration:
 			else:
 				phone = phone_str
 
-		restrictions = self.parse_dietary_restrictions(row.get("Diettype"), row.get("DietaryRestrictions"))
-		main_vulnerability = row.get("MainVulnerability", "")
-		eligibility_database = row.get("Eligibility_database", "")
+		# Dietary restrictions and vulnerability fields: handle both JSON and Excel headers
+		restrictions = self.parse_dietary_restrictions(
+			row.get("Diettype") or row.get("Diet type"),
+			row.get("DietaryRestrictions") or row.get("Dietary Restrictions")
+		)
+		main_vulnerability = row.get("MainVulnerability") or row.get("Client's Main Vulnerability\n(Classification)", "")
+		eligibility_database = row.get("Eligibility_database") or row.get("Eligibility", "")
 		unnamed_29 = row.get("Unnamed: 29", "")
 		further_information = row.get("further_information", "")
 		physical_ailments = self.parse_physical_ailments(main_vulnerability, eligibility_database, unnamed_29, further_information)
@@ -1060,6 +1142,8 @@ class FirestoreMigration:
 		mental_health_conditions = self.parse_mental_health_conditions(main_vulnerability, eligibility_database, unnamed_29, further_information)
 		life_challenges = self.parse_life_challenges(main_vulnerability, eligibility_database, unnamed_29, further_information)
 		referral_entity = self.parse_referral_entity(row, referral_form_records=referral_form_records)
+		referral_phone = referral_entity.get("phone", "") if referral_entity else ""
+		referral_email = referral_entity.get("email", "") if referral_entity else ""
 		notes = row.get("Notes", "")
 		if not phone and referral_entity and referral_entity.get("phone"):
 			phone = referral_entity["phone"]
@@ -1076,13 +1160,23 @@ class FirestoreMigration:
 			else:
 				notes = "Status changed to Active due to recent deliveries."
 		tags = []
-		if row.get("TEFAP_FY25") and str(row["TEFAP_FY25"]).lower() != 'false':
+		tefap_flag = row.get("TEFAP_FY25") or row.get("TEFAP FY25")
+		if tefap_flag and str(tefap_flag).lower() != 'false':
 			tags.append("TEFAPOnFile")
-		if str(active_status).lower() in ['yes', 'true', '1', 'active']:
+		if str(active_status).lower() in ['yes', 'true', '1', 'active', 'y']:
 			tags.append("Active")
 		delivery_freq = self.parse_frequency(row.get("Frequency", ""))
-		adults_count = int(row.get("Adults_database", 0)) if row.get("Adults_database") else 0
-		children_count = int(row.get("kids", 0)) if row.get("kids") else 0
+		# Household composition: support Adults_database/kids or Excel '# Adults'/'# kids'
+		adults_raw = row.get("Adults_database") if row.get("Adults_database") is not None else row.get("# Adults")
+		children_raw = row.get("kids") if row.get("kids") is not None else row.get("# kids")
+		try:
+			adults_count = int(adults_raw) if adults_raw not in (None, "") else 0
+		except Exception:
+			adults_count = 0
+		try:
+			children_count = int(children_raw) if children_raw not in (None, "") else 0
+		except Exception:
+			children_count = 0
 		vuln_fields = [
 			row.get("MainVulnerability", ""),
 			row.get("Eligibility_database", ""),
@@ -1176,16 +1270,39 @@ class FirestoreMigration:
 		recurrence = map_recurrence(row.get("Frequency", ""))
 
 		# Parse dates for activeStatus logic
-		from datetime import datetime
+		from datetime import datetime, date
+		DEFAULT_START_DATE_STR = "11/15/2025"
+		DEFAULT_START_DATE = datetime.strptime(DEFAULT_START_DATE_STR, "%m/%d/%Y").date()
 		today = datetime.utcnow().date()
-		# Get start and end dates as strings
-		start_date_str = row.get("StartDate_database") if row.get("StartDate_database") and str(row.get("StartDate_database")).strip() else row.get("StartDate_referral", "")
+		# Get start and end dates as strings.
+		# Support legacy JSON fields and direct Excel headers ("Start Date").
+		raw_start = None
+		if row.get("StartDate_database") and str(row.get("StartDate_database")).strip():
+			raw_start = row.get("StartDate_database")
+		elif row.get("StartDate_referral") and str(row.get("StartDate_referral")).strip():
+			raw_start = row.get("StartDate_referral")
+		elif row.get("Start Date") and str(row.get("Start Date")).strip():
+			raw_start = row.get("Start Date")
+		# Parse startDate from raw value (datetime, date, or string)
+		start_date = None
+		if raw_start is not None and str(raw_start).strip():
+			if isinstance(raw_start, datetime):
+				start_date = raw_start.date()
+			elif isinstance(raw_start, date):
+				start_date = raw_start
+			else:
+				text = str(raw_start).strip()
+				for fmt in ("%m/%d/%Y", "%Y-%m-%d", "%Y-%m-%d %H:%M:%S"):
+					try:
+						start_date = datetime.strptime(text, fmt).date()
+						break
+					except Exception:
+						continue
+		# If still no start_date, default it
+		if not start_date:
+			start_date = DEFAULT_START_DATE
+		start_date_str = start_date.strftime("%m/%d/%Y")
 		end_date_str = end_date
-		# Parse startDate
-		try:
-			start_date = datetime.strptime(str(start_date_str).strip(), "%m/%d/%Y").date() if start_date_str and str(start_date_str).strip() else None
-		except Exception:
-			start_date = None
 		# Parse endDate
 		try:
 			end_date_dt = datetime.strptime(str(end_date_str).strip(), "%m/%d/%Y").date() if end_date_str and str(end_date_str).strip() else None
@@ -1238,7 +1355,7 @@ class FirestoreMigration:
 			"coordinates": coordinates,
 			"seniors": age_group_data["seniors"],
 			"headOfHousehold": age_group_data["headOfHousehold"],
-			"startDate": row.get("StartDate_database") if row.get("StartDate_database") and str(row.get("StartDate_database")).strip() else row.get("StartDate_referral", ""),
+			"startDate": start_date_str,
 			"endDate": end_date,
 			"recurrence": recurrence,
 			"tefapCert": row.get("TEFAP_FY25", ""),
@@ -1249,14 +1366,26 @@ class FirestoreMigration:
 			"lifestyleGoals": "",
 			"activeStatus": active_status_bool
 		}
+		# Always attach a referralEntity. If we parsed a real one with a
+		# name or organization, use it; otherwise, default to the canonical
+		# "None" referral so every client has a consistent value.
 		if referral_entity and (referral_entity.get("name") or referral_entity.get("organization")):
 			client_profile["referralEntity"] = {
 				"id": referral_entity.get("id", ""),
 				"name": referral_entity.get("name", ""),
-				"organization": referral_entity.get("organization", "")
+				"organization": referral_entity.get("organization", ""),
 			}
 		else:
-			client_profile["referralEntity"] = None
+			client_profile["referralEntity"] = {
+				"id": "",
+				"name": "None",
+				"organization": "None"
+			}
+		# Stash referral contact info in helper fields so import_batch can
+		# build referral docs with phone/email without persisting those
+		# fields on the client-profile2 referralEntity itself.
+		client_profile["_referralContactPhone"] = referral_phone
+		client_profile["_referralContactEmail"] = referral_email
 		return client_profile
 
 # --- End FirestoreMigration ---
@@ -1266,6 +1395,8 @@ def main():
 	PROJECT_ID = "food-for-all-dc-caf23"
 	COLLECTION_NAME = CLIENT_COLLECTION_NAME
 	INPUT_FILE_PATH = "ETL/csv-one-line-client-database_w_referral.json"
+	EXCEL_FILE_PATH = os.path.join("ETL", "FFA_CLIENT_DATABASE.xlsx")
+	EXCEL_SHEET_NAME = "Current Deliveries"
 
 	# Ensure Firebase Admin SDK is initialized before any Firestore operations
 	if not firebase_admin._apps:
@@ -1283,13 +1414,40 @@ def main():
 	# Load the original input file for migration
 	input_records = migration.load_json_file(INPUT_FILE_PATH)
 	if not input_records:
-		print(f"No records found in {INPUT_FILE_PATH}. Exiting.")
-		return
-	print(f"Loaded {len(input_records)} records for migration from {INPUT_FILE_PATH}")
+		print(f"No records found in {INPUT_FILE_PATH}. Attempting to load from Excel instead...")
+		try:
+			import pandas as pd
+			if not os.path.exists(EXCEL_FILE_PATH):
+				print(f"Excel file not found at {EXCEL_FILE_PATH}. Exiting.")
+				return
+			df = pd.read_excel(EXCEL_FILE_PATH, sheet_name=EXCEL_SHEET_NAME, dtype=object)
+			# Ensure we only keep rows with a non-empty stable ID column,
+			# since the migration code requires an ID to use as the Firestore document id.
+			if "ID" not in df.columns:
+				# Try to derive ID from a known identifier column such as 'Client ID'
+				if "Client ID" in df.columns:
+					print("Excel sheet is missing 'ID' column but has 'Client ID'; using 'Client ID' as ID.")
+					df["ID"] = df["Client ID"]
+				else:
+					print(f"Excel sheet '{EXCEL_SHEET_NAME}' does not contain an 'ID' or 'Client ID' column. Exiting to avoid creating clients without stable IDs.")
+					return
+			# Drop rows where ID is NaN or blank after stripping
+			df["ID"] = df["ID"].astype(str)
+			df = df[df["ID"].str.strip() != ""]
+			input_records = df.to_dict(orient='records')
+			if not input_records:
+				print(f"No records with a valid ID loaded from Excel file {EXCEL_FILE_PATH} (sheet '{EXCEL_SHEET_NAME}'). Exiting.")
+				return
+			print(f"Loaded {len(input_records)} records for migration from Excel file {EXCEL_FILE_PATH} (sheet '{EXCEL_SHEET_NAME}') with non-empty IDs")
+		except Exception as e:
+			print(f"Failed to load records from Excel file {EXCEL_FILE_PATH}: {e}")
+			return
+	else:
+		print(f"Loaded {len(input_records)} records for migration from {INPUT_FILE_PATH}")
 
 	# Forced insert for debugging removed: only transformed records will be inserted
 
-	# Process all records from the original input file as before
+	# Run full migration over all loaded records
 	stats = migration.migrate_data(
 		file_path=None,
 		batch_size=250,
@@ -1304,24 +1462,51 @@ def main():
 
 	# Write failed_active_records
 	if hasattr(stats, 'failed_active_records') and stats.failed_active_records:
-		fname = f'failed_active_records_{timestamp}.json'
+		# Ensure all keys are strings and values are JSON-serializable
+		def _make_json_safe_list(records: list) -> list:
+			"""Convert any non-JSON-serializable keys/values to strings for logging."""
+			safe_list = []
+			for rec in records:
+				if isinstance(rec, dict):
+					clean = {}
+					for k, v in rec.items():
+						key_str = str(k)
+						if isinstance(v, (str, int, float, bool)) or v is None:
+							clean[key_str] = v
+						else:
+							clean[key_str] = str(v)
+					safe_list.append(clean)
+				else:
+					safe_list.append(str(rec))
+			return safe_list
+
+		failed_active_safe = _make_json_safe_list(stats.failed_active_records)
+		# Store failed active records inside the ETL/failed_active_records folder
+		base_dir = os.path.join('ETL', 'failed_active_records')
+		os.makedirs(base_dir, exist_ok=True)
+		fname = os.path.join(base_dir, f'failed_active_records_{timestamp}.json')
 		with open(fname, 'w', encoding='utf-8') as f:
-			json.dump(stats.failed_active_records, f, ensure_ascii=False, indent=2)
+			json.dump(failed_active_safe, f, ensure_ascii=False, indent=2)
 		# Also update the latest file for next retry
-		with open('failed_active_records.json', 'w', encoding='utf-8') as f:
-			json.dump(stats.failed_active_records, f, ensure_ascii=False, indent=2)
-		print(f"Wrote {len(stats.failed_active_records)} active records that failed to insert to {fname} and failed_active_records.json")
+		latest_path = os.path.join(base_dir, 'failed_active_records.json')
+		with open(latest_path, 'w', encoding='utf-8') as f:
+			json.dump(failed_active_safe, f, ensure_ascii=False, indent=2)
+		print(
+			f"Wrote {len(stats.failed_active_records)} active records that failed to insert to "
+			f"{fname} and {latest_path}"
+		)
 	else:
 		print("No active records failed to insert.")
 
 	# Write failed_geocoding_records
 	if hasattr(stats, 'failed_geocoding_records') and stats.failed_geocoding_records:
+		failed_geocoding_safe = _make_json_safe_list(stats.failed_geocoding_records)
 		fname = f'failed_geocoding_records_{timestamp}.json'
 		with open(fname, 'w', encoding='utf-8') as f:
-			json.dump(stats.failed_geocoding_records, f, ensure_ascii=False, indent=2)
+			json.dump(failed_geocoding_safe, f, ensure_ascii=False, indent=2)
 		# Also update the latest file for next retry
 		with open('failed_geocoding_records.json', 'w', encoding='utf-8') as f:
-			json.dump(stats.failed_geocoding_records, f, ensure_ascii=False, indent=2)
+			json.dump(failed_geocoding_safe, f, ensure_ascii=False, indent=2)
 		print(f"Wrote {len(stats.failed_geocoding_records)} active records that failed geocoding to {fname} and failed_geocoding_records.json")
 	else:
 		print("No active records failed geocoding.")
