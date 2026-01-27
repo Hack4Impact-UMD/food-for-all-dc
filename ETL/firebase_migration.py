@@ -779,10 +779,12 @@ class FirestoreMigration:
             else:
                 phone = phone_str
 
-        # Parse dietary restrictions
+        # Parse dietary restrictions / preferences
         restrictions = self.parse_dietary_restrictions(
-            row.get("Diettype"), 
+            row.get("Diettype"),
             row.get("DietaryRestrictions")
+            or row.get("Dietary Restrictions")
+            or row.get("Dietary Preferences")
         )
 
         # Parse health-related fields including further_information
@@ -921,9 +923,14 @@ class FirestoreMigration:
             "children": children_count,
             "total": total_household,
             "gender": "Other",
-            "ethnicity": "",
+            "ethnicity": str(
+                row.get("Ethnicity")
+                or row.get("Race/Ethnicity")
+                or row.get("Race")
+                or ""
+            ),
             "deliveryDetails": {
-                "deliveryInstructions": row.get("DeliveryInstructions", ""),
+                "deliveryInstructions": row.get("Delivery Instructions", ""),
                 "dietaryRestrictions": restrictions
             },
             "lifeChallenges": life_challenges,

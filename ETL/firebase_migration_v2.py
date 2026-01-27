@@ -1,5 +1,5 @@
-CLIENT_COLLECTION_NAME = "client-profile2"
-REFERRAL_COLLECTION_NAME = "referral"
+CLIENT_COLLECTION_NAME = "temp-profile2"
+REFERRAL_COLLECTION_NAME = "temp-referral"
 
 import json
 import os
@@ -1131,7 +1131,9 @@ class FirestoreMigration:
 		# Dietary restrictions and vulnerability fields: handle both JSON and Excel headers
 		restrictions = self.parse_dietary_restrictions(
 			row.get("Diettype") or row.get("Diet type"),
-			row.get("DietaryRestrictions") or row.get("Dietary Restrictions")
+			row.get("DietaryRestrictions")
+			or row.get("Dietary Restrictions")
+			or row.get("Dietary Preferences")
 		)
 		main_vulnerability = row.get("MainVulnerability") or row.get("Client's Main Vulnerability\n(Classification)", "")
 		eligibility_database = row.get("Eligibility_database") or row.get("Eligibility", "")
@@ -1337,9 +1339,14 @@ class FirestoreMigration:
 			"children": children_count,
 			"total": total_household,
 			"gender": "Other",
-			"ethnicity": "",
+			"ethnicity": str(
+				row.get("Ethnicity")
+				or row.get("Race/Ethnicity")
+				or row.get("Race")
+				or ""
+			),
 			"deliveryDetails": {
-				"deliveryInstructions": row.get("DeliveryInstructions", ""),
+				"deliveryInstructions": row.get("Delivery Instructions", ""),
 				"dietaryRestrictions": restrictions
 			},
 			"lifeChallenges": life_challenges,
