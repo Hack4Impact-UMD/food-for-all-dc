@@ -36,7 +36,8 @@
     "lint:fix": "eslint src --ext .js,.jsx,.ts,.tsx --fix",
     "format": "prettier --write \"src/**/*.{js,jsx,ts,tsx,json,css,scss}\"",
     "analyze": "npm run build && npx source-map-explorer build/static/js/*.js",
-    "build:profile": "npm run build -- --profile"
+    "build:profile": "npm run build -- --profile",
+    "etl": "cd .. && venv\\Scripts\\python.exe ETL\\run_full_etl_with_promotion.py"
   },
   "eslintConfig": {
     "extends": [
