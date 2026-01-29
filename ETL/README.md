@@ -90,7 +90,7 @@ Below is a mapping of the key fields from the Excel files to Firestore document 
 | First Name                  | client-profile2       | firstName                 |
 | Last Name                   | client-profile2       | lastName                  |
 | Address                     | client-profile2       | address                   |
-| Address 2                   | client-profile2       | address2                  |
+| Address 2                   | client-profile2       | address2 (from APT column; if APT is empty, ETL will try to pull an "Apt/Unit" suffix from ADDRESS) |
 | Zip Code                    | client-profile2       | zipCode                   |
 | City                        | client-profile2       | city                      |
 | State                       | client-profile2       | state                     |

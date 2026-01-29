@@ -1198,14 +1198,30 @@ class FirestoreMigration:
 		total_household = age_group_data["adults"] + age_group_data["seniors"] + children_count
 
 
-		# --- Address handling: use main address up to quadrant for geocoding ---
-		raw_address = row.get("ADDRESS", "")
+		# --- Address handling: use main address up to quadrant for geocoding,
+		# and capture apartment/unit suffix into address2 when possible. ---
+		raw_address = row.get("ADDRESS", "") or ""
+		apt_from_col = str(row.get("APT", "") or "").strip()
+		apt_from_address = ""
 		quadrant_match = re.search(r"\b(NE|NW|SE|SW)\b", raw_address)
 		if quadrant_match:
 			end_idx = quadrant_match.end()
 			address_for_coords = raw_address[:end_idx].strip()
+			# Anything after the quadrant may contain apartment/unit info
+			remainder = raw_address[end_idx:].strip()
 		else:
-			address_for_coords = re.split(r",|\b(?:Apt|Apartment|Unit|#)\b", raw_address, flags=re.IGNORECASE)[0].strip()
+			# Split on first comma or apartment keyword to get the street part
+			parts = re.split(r",|\b(?:Apt|Apartment|Unit|#)\b", raw_address, maxsplit=1, flags=re.IGNORECASE)
+			address_for_coords = parts[0].strip()
+			remainder = raw_address[len(parts[0]):].strip() if len(parts) > 1 else ""
+		# If there is no explicit APT column value, try to extract an
+		# apartment/unit suffix from the remainder of the ADDRESS field.
+		if not apt_from_col and remainder:
+			m = re.search(r"\b(Apt|Apartment|Unit|#)\b\s*(.*)", remainder, flags=re.IGNORECASE)
+			if m:
+				label = m.group(1)
+				rest = m.group(2).strip()
+				apt_from_address = f"{label} {rest}".strip() if rest else label
 		address = address_for_coords
 		city = row.get("City", "")
 		state = row.get("State", "")
@@ -1325,7 +1341,7 @@ class FirestoreMigration:
 			"lastName": last_name,
 			"streetName": address,
 			"address": address,
-			"address2": row.get("APT", ""),
+			"address2": apt_from_col or apt_from_address,
 			"zipCode": zip_code,
 			"city": city,
 			"state": state,

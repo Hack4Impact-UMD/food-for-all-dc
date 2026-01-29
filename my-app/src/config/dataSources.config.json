@@ -1,7 +1,7 @@
 {
   "firebase": {
-	"clientsCollection": "client-profile2",
-  "caseWorkersCollection": "referral",
+	"clientsCollection": "temp-profile2",
+  "caseWorkersCollection": "temp-referral",
     "clustersCollection": "clusters",
     "limitsCollection": "limits",
     "limitsDocId": "weekly",
