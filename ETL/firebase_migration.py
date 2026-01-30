@@ -2,7 +2,6 @@ import json
 import os
 import sys
 from datetime import datetime
-import time
 from typing import Dict, List, Any, Optional
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -1156,9 +1155,6 @@ class FirestoreMigration:
                     
                     logger.info(f"Batch {i + 1}/{len(batches)} completed: "
                               f"{successful} successful, {failed} failed")
-                    
-                    # Add a small delay to avoid rate limiting
-                    time.sleep(0.1)
                     
                 except Exception as e:
                     logger.error(f"Batch {i} failed: {str(e)}")

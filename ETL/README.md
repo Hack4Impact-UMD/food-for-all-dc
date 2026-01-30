@@ -17,7 +17,8 @@ This folder contains scripts and resources for running the full ETL (Extract, Tr
   .\venv\Scripts\activate
   ```
 
-3. Install ETL dependencies into the venv:
+3. Install ETL dependencies into the venv (including `rich` for
+   colorful terminal output during the ETL pipeline):
 
   ```sh
   pip install -r ETL/requirements.txt
@@ -135,7 +136,7 @@ Before each migration run, confirm that the spreadsheet layouts still match the 
   - New case workers appear in `referral` with the expected `name`, `organization`, `email`, and `phone`.
   - Clients show a `referralEntity` that either points at a real `referral` doc or uses the neutral "None" organization when no valid referral exists.
 
-## Business Logic & Data Cleaning
+## Business Logic, Data Cleaning, and Logs
 - **Referral Deduplication:**
   - Referrals are deduplicated by email, or by name + organization.
   - The script also checks for swapped or ambiguous name/organization fields and uses heuristics to match existing referrals.
@@ -143,8 +144,15 @@ Before each migration run, confirm that the spreadsheet layouts still match the 
 - **Data Normalization:**
   - All string fields are stripped and type-checked to avoid errors.
   - Organization/person keywords are used to help assign ambiguous referral fields.
-- **Error Logging:**
-  - Failed inserts are logged to text files with a date-stamped filename for auditability.
+- **Error Logging & Diagnostics:**
+  - High-level ETL activity (batches, counts, timing) is written to `ETL/migration.log`.
+  - Warnings and errors (for example, geocoding issues or records that could not be prepared/inserted) are written to `ETL/error_logs/migration-errors.log`.
+  - In the console, you will see a compact progress bar with:
+    - Overall percent and record counts,
+    - A running `Errors: N` counter, and
+    - The current batch/record being processed.
+  - Detailed warning/error messages **do not** print to the console during the run to keep the output readable; instead, review `ETL/error_logs/migration-errors.log` after the run if the error counter is non‑zero.
+  - At the end of the ETL, the script prints a short summary line telling you whether any warnings/errors were logged and, if so, that you can inspect `ETL/error_logs/migration-errors.log` for full details.
 - **Geocoding:**
   - Addresses are geocoded where possible; failures are logged but do not halt the ETL.
 

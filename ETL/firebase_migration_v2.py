@@ -23,15 +23,63 @@ import firebase_admin
 from firebase_admin import credentials, firestore
 from google.cloud.firestore_v1.base_query import FieldFilter
 
-# Configure logging
+# Global counter for warnings/errors during a migration run
+ERROR_COUNT = 0
+
+
+class _InfoOnlyFilter(logging.Filter):
+	"""Filter that lets only INFO-and-below records through.
+
+	Warnings and errors will still be written to file handlers but
+	will be hidden from the console, so the progress bar stays clean.
+	"""
+
+	def filter(self, record: logging.LogRecord) -> bool:  # type: ignore[name-defined]
+		return record.levelno < logging.WARNING
+
+
+class _ErrorCountingHandler(logging.Handler):
+	"""Handler that increments a global counter on each WARNING or ERROR.
+
+	Used to keep a running error count in the console status line without
+	printing individual messages.
+	"""
+
+	def emit(self, record: logging.LogRecord) -> None:  # type: ignore[name-defined]
+		global ERROR_COUNT
+		if record.levelno >= logging.WARNING:
+			ERROR_COUNT += 1
+
+
+# Configure logging: one main log, one error-only log, and a quiet console
+etl_root = os.path.join("ETL")
+error_log_dir = os.path.join(etl_root, "error_logs")
+os.makedirs(error_log_dir, exist_ok=True)
+
+log_file_handler = logging.FileHandler(os.path.join(etl_root, 'migration.log'))
+log_file_handler.setLevel(logging.INFO)
+
+error_file_handler = logging.FileHandler(os.path.join(error_log_dir, 'migration-errors.log'), mode='w')
+error_file_handler.setLevel(logging.WARNING)
+
+console_handler = logging.StreamHandler(sys.stdout)
+console_handler.setLevel(logging.INFO)
+console_handler.addFilter(_InfoOnlyFilter())
+
+error_counter_handler = _ErrorCountingHandler()
+error_counter_handler.setLevel(logging.WARNING)
+
 logging.basicConfig(
-	level=logging.INFO,
+	level=logging.DEBUG,
 	format='%(asctime)s - %(levelname)s - %(message)s',
 	handlers=[
-		logging.FileHandler('migration.log'),
-		logging.StreamHandler(sys.stdout)
+		log_file_handler,
+		error_file_handler,
+		console_handler,
+		error_counter_handler,
 	]
 )
+
 logger = logging.getLogger(__name__)
 
 def geocode_address_openmap(address, city, state, zip_code):
@@ -506,6 +554,34 @@ class FirestoreMigration:
 			return result
         
 		return None
+	def _advance_progress(self, label: str) -> None:
+		"""Advance the global rich progress bar with a one-line label, if enabled.
+
+		The label shows the current record, and we also surface the current
+		global ERROR_COUNT so the user sees a running error total.
+		"""
+		if getattr(self, "_progress", None) is not None and hasattr(self, "_progress_task"):
+			from rich.console import Group
+			from rich.text import Text
+			# Advance the underlying progress bar
+			self._current_label = label
+			try:
+				self._progress.update(self._progress_task, advance=1)
+			except Exception:
+				pass
+			# If a Live console is active, refresh the 4-line status layout
+			live = getattr(self, "_live", None)
+			if live is not None:
+				try:
+					layout = Group(
+						Text("🚚 Migrating", style="bold"),
+						self._progress,
+						Text(f"⚠️ Errors: {ERROR_COUNT} (see ETL/error_logs/migration-errors.log)"),
+						Text(f"📄 {self._current_label}"),
+					)
+					live.update(layout)
+				except Exception:
+					pass
 	def import_batch(self, records: List[Dict[str, Any]], batch_num: int = None, total_batches: int = None) -> tuple:
 		batch = self.db.batch()
 		successful = 0
@@ -521,8 +597,8 @@ class FirestoreMigration:
 		failed_referral_inserts = []
 		# For deduplication of referrals in this batch: map dedup_key -> referral_doc_id
 		referral_cache = {}
-		# Debug: show how many records are in this batch
-		print(f"[DEBUG] import_batch: received {total_records} records")
+		# Debug: show how many records are in this batch (debug level only)
+		logger.debug(f"[DEBUG] import_batch: received {total_records} records")
 		# Load existing failed inserts if file exists
 		if os.path.exists(failed_inserts_path):
 			try:
@@ -534,35 +610,51 @@ class FirestoreMigration:
 		skipped_duplicate = 0
 		# Load referral form records once
 		referral_form_records = self.load_referral_form('ETL/Client Referral Form v.3_20_24 (Responses).xlsx')
+		# Prefix used in the on-screen status to show the current batch
+		batch_prefix = ""
+		if batch_num is not None and total_batches is not None:
+			batch_prefix = f"Batch {batch_num} of {total_batches} – "
 		for idx, row in enumerate(records, 1):
+			# Friendly name used for the on-screen "current record" line
+			first_name_ui = row.get("FIRST_database") or row.get("FIRST", "")
+			last_name_ui = row.get("LAST_database") or row.get("LAST", "")
+			display_name = f"{first_name_ui} {last_name_ui}".strip() or "<no name>"
 			try:
 				# Only load active profiles
 				active_status = row.get("Active", "")
 				if str(active_status).lower() not in ['yes', 'true', '1', 'active']:
-					first_name = row.get("FIRST_database") or row.get("FIRST", "")
-					last_name = row.get("LAST_database") or row.get("LAST", "")
 					skipped_inactive += 1
-					print(f"[DEBUG] Skipped inactive: {first_name} {last_name}")
+					# Debug-only: invisible at INFO level
+					logger.debug(f"[DEBUG] Skipped inactive: {display_name}")
 					skipped += 1
+					self._advance_progress(f"{batch_prefix}⏭️ Skipped inactive: {display_name} ({idx}/{total_records})")
 					continue
 				# Debug: print record ID, type, and status
 				doc_id_raw = row.get("ID", "")
-				print(f"[DEBUG] Processing record {idx}/{total_records} ID={doc_id_raw} (type={type(doc_id_raw).__name__}) Active={row.get('Active', '')}")
+				logger.debug(
+					f"[DEBUG] Processing record {idx}/{total_records} "
+					f"ID={doc_id_raw} (type={type(doc_id_raw).__name__}) Active={row.get('Active', '')}"
+				)
 				# Pass referral_form_records to transform_record
 				transformed = self.transform_record(row, referral_form_records=referral_form_records)
 				if transformed is None:
-					first_name = row.get("FIRST_database") or row.get("FIRST", "")
-					last_name = row.get("LAST_database") or row.get("LAST", "")
 					if self.is_duplicate(first_name, last_name):
 						skipped_duplicate += 1
-						print(f"[DEBUG] Skipped duplicate: {first_name} {last_name}")
+						logger.debug(f"[DEBUG] Skipped duplicate: {display_name}")
+						label = f"{batch_prefix}🔁 Skipped duplicate: {display_name} ({idx}/{total_records})"
 					else:
-						print(f"[DEBUG] Skipped for other reason: {first_name} {last_name}")
+						logger.debug(f"[DEBUG] Skipped for other reason: {display_name}")
+						label = f"{batch_prefix}❔ Skipped: {display_name} ({idx}/{total_records})"
 					skipped += 1
+					self._advance_progress(label)
 					continue
-				# Print the transformed record for the first 3 successful records
+				# For the first few successful records, just log the client's name via logger
+				# instead of the full JSON payload (kept out of the console).
 				if successful < 3:
-					print(f"[DEBUG] Transformed record for ID={doc_id_raw}: {json.dumps(transformed, default=str)[:1000]}")
+					name_preview = f"{transformed.get('firstName', '')} {transformed.get('lastName', '')}".strip()
+					logger.debug(
+						f"[DEBUG] Transformed record {idx}/{total_records} ID={doc_id_raw} → {name_preview}"
+					)
 				# Allow ID to be string or integer, convert to string for Firestore
 				if isinstance(doc_id_raw, int):
 					doc_id = str(doc_id_raw)
@@ -580,6 +672,7 @@ class FirestoreMigration:
 					failed += 1
 					failed_inserts.append(row)
 					failed_client_inserts.append(row)
+					self._advance_progress(f"{batch_prefix}⚠️ Missing ID: {display_name} ({idx}/{total_records})")
 					continue
 				# --- Insert referral/case worker into referral collection ---
 				referral = None
@@ -601,11 +694,13 @@ class FirestoreMigration:
 					is_internet = str(referral.get("organization", "")).strip().lower() == "internet search"
 					if is_internet:
 						# Try to find existing 'Internet Search' referral
-						existing = list(self.db.collection(REFERRAL_COLLECTION_NAME)
-							.where("organization", "==", "Internet Search").limit(1).stream())
+						ref_coll = self.db.collection(REFERRAL_COLLECTION_NAME)
+						internet_filter = FieldFilter("organization", "==", "Internet Search")
+						query = ref_coll.where(filter=internet_filter)
+						existing = list(query.limit(1).stream())
 						if existing:
 							referral_doc_id = existing[0].id
-							logger.info(f"Reusing existing 'Internet Search' referral with id {referral_doc_id}")
+							logger.debug(f"Reusing existing 'Internet Search' referral with id {referral_doc_id}")
 							if "referralEntity" in transformed and transformed["referralEntity"] is not None:
 								transformed["referralEntity"]["id"] = referral_doc_id
 						else:
@@ -620,11 +715,11 @@ class FirestoreMigration:
 								ref_ref = self.db.collection(REFERRAL_COLLECTION_NAME).document()
 								ref_ref.set(referral_doc)
 								referral_doc_id = ref_ref.id
-								logger.info(f"Inserted new 'Internet Search' referral with id {referral_doc_id}")
+								logger.debug(f"Inserted new 'Internet Search' referral with id {referral_doc_id}")
 								if "referralEntity" in transformed and transformed["referralEntity"] is not None:
 									transformed["referralEntity"]["id"] = referral_doc_id
 							except Exception as e:
-								logger.error(f"Failed to insert 'Internet Search' referral: {e}")
+								logger.error(f"[ERROR] Failed to insert 'Internet Search' referral: {e}")
 								failed_referral_inserts.append({"referral": referral_doc, "error": str(e)})
 					else:
 						# Deduplicate by email if present, else by name+organization, and also check for swapped/combined fields
@@ -643,31 +738,38 @@ class FirestoreMigration:
 						else:
 							# Check Firestore for existing referral with same or swapped fields
 							found_existing = False
+							ref_coll = self.db.collection(REFERRAL_COLLECTION_NAME)
 							if referral.get("email"):
-								query = self.db.collection(REFERRAL_COLLECTION_NAME).where("email", "==", referral["email"])
+								email_filter = FieldFilter("email", "==", referral["email"])
+								query = ref_coll.where(filter=email_filter)
 								existing = list(query.limit(1).stream())
 								if existing:
 									referral_doc_id = existing[0].id
-									logger.info(f"Reusing existing referral by email with id {referral_doc_id}")
+									logger.debug(f"Reusing existing referral by email with id {referral_doc_id}")
 									if "referralEntity" in transformed and transformed["referralEntity"] is not None:
 										transformed["referralEntity"]["id"] = referral_doc_id
 									referral_cache[dedup_key] = referral_doc_id
 									found_existing = True
 							if not found_existing:
 								# Try name/org match, and swapped
-								query = self.db.collection(REFERRAL_COLLECTION_NAME).where("name", "==", referral.get("name", "")).where("organization", "==", referral.get("organization", ""))
+								name_filter = FieldFilter("name", "==", referral.get("name", ""))
+								org_filter = FieldFilter("organization", "==", referral.get("organization", ""))
+								query = ref_coll.where(filter=name_filter).where(filter=org_filter)
 								existing = list(query.limit(1).stream())
 								if not existing and referral.get("name") and referral.get("organization"):
 									# Try swapped
-									query_swapped = self.db.collection(REFERRAL_COLLECTION_NAME).where("name", "==", referral.get("organization", "")).where("organization", "==", referral.get("name", ""))
+									name_swapped = FieldFilter("name", "==", referral.get("organization", ""))
+									org_swapped = FieldFilter("organization", "==", referral.get("name", ""))
+									query_swapped = ref_coll.where(filter=name_swapped).where(filter=org_swapped)
 									existing = list(query_swapped.limit(1).stream())
 								if not existing and referral.get("name") and not referral.get("organization"):
 									# Try org in name field
-									query_org = self.db.collection(REFERRAL_COLLECTION_NAME).where("organization", "==", referral.get("name", ""))
+									org_from_name = FieldFilter("organization", "==", referral.get("name", ""))
+									query_org = ref_coll.where(filter=org_from_name)
 									existing = list(query_org.limit(1).stream())
 								if existing:
 									referral_doc_id = existing[0].id
-									logger.info(f"Reusing existing referral by name/org with id {referral_doc_id}")
+									logger.debug(f"Reusing existing referral by name/org with id {referral_doc_id}")
 									if "referralEntity" in transformed and transformed["referralEntity"] is not None:
 										transformed["referralEntity"]["id"] = referral_doc_id
 									referral_cache[dedup_key] = referral_doc_id
@@ -697,13 +799,19 @@ class FirestoreMigration:
 									ref_ref = self.db.collection(REFERRAL_COLLECTION_NAME).document()
 									ref_ref.set(referral_doc)
 									referral_doc_id = ref_ref.id
-									logger.info(f"Inserted referral into {REFERRAL_COLLECTION_NAME}: {referral_doc} with id {referral_doc_id}")
+									ref_name = str(referral_doc.get("name", "")).strip() or "<no name>"
+									ref_org = str(referral_doc.get("organization", "")).strip() or "<no org>"
+									# Quiet per-record console output: keep details only in debug logs
+									logger.debug(
+										f"[REF] Inserted referral into {REFERRAL_COLLECTION_NAME}: "
+										f"{ref_name} - {ref_org} (id {referral_doc_id})"
+									)
 									# Set the referralEntity.id in the client profile
 									if "referralEntity" in transformed and transformed["referralEntity"] is not None:
 										transformed["referralEntity"]["id"] = referral_doc_id
 									referral_cache[dedup_key] = referral_doc_id
 								except Exception as e:
-									logger.error(f"Failed to insert referral into {REFERRAL_COLLECTION_NAME}: {e}")
+									logger.error(f"[ERROR] Failed to insert referral into {REFERRAL_COLLECTION_NAME}: {e}")
 									failed_referral_inserts.append({"referral": referral_doc, "error": str(e)})
 				# Now insert the client profile, after referralEntity.id is set.
 				# Drop helper contact fields so they are not stored on
@@ -713,13 +821,16 @@ class FirestoreMigration:
 				doc_ref = self.db.collection(self.collection_name).document(doc_id)
 				batch.set(doc_ref, transformed)
 				successful += 1
-				# Progress log for each record
+				# Update the on-screen current-record line for a successful insert
+				name_preview = f"{transformed.get('firstName', '')} {transformed.get('lastName', '')}".strip() or display_name
+				self._advance_progress(f"{batch_prefix}✅ Inserted: {name_preview} (ID {doc_id}) [{idx}/{total_records}]")
+				# Progress log for each record (debug only to avoid console spam)
 				if batch_num is not None and total_batches is not None:
-					logger.info(f"[Batch {batch_num}/{total_batches}] Record {idx}/{total_records} processed (ID: {doc_id})")
+					logger.debug(f"[Batch {batch_num}/{total_batches}] Record {idx}/{total_records} processed (ID: {doc_id})")
 				else:
-					logger.info(f"[Batch] Record {idx}/{total_records} processed (ID: {doc_id})")
+					logger.debug(f"[Batch] Record {idx}/{total_records} processed (ID: {doc_id})")
 			except Exception as e:
-				logger.error(f"Failed to prepare record {row.get('ID', 'Unknown')}: {str(e)}")
+				logger.error(f"[ERROR] Failed to prepare record {row.get('ID', 'Unknown')}: {str(e)}")
 				failed += 1
 				failed_inserts.append(row)
 				failed_client_inserts.append({"client": row, "error": str(e)})
@@ -727,7 +838,11 @@ class FirestoreMigration:
 				active_status = row.get("Active", "")
 				if str(active_status).lower() in ['yes', 'true', '1', 'active']:
 					self.stats.failed_active_records.append(row)
-		print(f"[DEBUG] Batch summary: {skipped_inactive} skipped as inactive, {skipped_duplicate} skipped as duplicate, {skipped} total skipped, {successful} to insert")
+				# Reflect the failure in the progress bar as well
+				self._advance_progress(
+					f"{batch_prefix}❌ Error: {display_name} (ID {row.get('ID', 'Unknown')}) [{idx}/{total_records}]"
+				)
+		logger.debug(f"[DEBUG] Batch summary: {skipped_inactive} inactive, {skipped_duplicate} duplicates, {skipped} total skipped, {successful} to insert")
 		try:
 			if successful > 0:
 				batch.commit()
@@ -736,7 +851,7 @@ class FirestoreMigration:
 			self.stats.skipped_inactive += skipped_inactive
 			self.stats.skipped_duplicates += skipped_duplicate
 		except Exception as e:
-			logger.error(f"Batch commit failed: {str(e)}")
+			logger.error(f"[ERROR] Batch commit failed: {str(e)}")
 			failed += successful
 			# Add all records in this batch to failed_inserts
 			for row in records:
@@ -747,21 +862,21 @@ class FirestoreMigration:
 			with open(failed_inserts_path, "w", encoding="utf-8") as f:
 				json.dump(failed_inserts, f, ensure_ascii=False, indent=2)
 		except Exception as e:
-			logger.error(f"Failed to write failed_inserts.json: {e}")
+			logger.error(f"[ERROR] Failed to write failed_inserts.json: {e}")
 		# Write failed client inserts to text file
 		try:
 			with open(failed_client_inserts_path, "w", encoding="utf-8") as f:
 				for entry in failed_client_inserts:
 					f.write(json.dumps(entry, ensure_ascii=False) + "\n")
 		except Exception as e:
-			logger.error(f"Failed to write client-profile-failed-insert.txt: {e}")
+			logger.error(f"[ERROR] Failed to write client-profile-failed-insert.txt: {e}")
 		# Write failed referral inserts to text file
 		try:
 			with open(failed_referral_inserts_path, "w", encoding="utf-8") as f:
 				for entry in failed_referral_inserts:
 					f.write(json.dumps(entry, ensure_ascii=False) + "\n")
 		except Exception as e:
-			logger.error(f"Failed to write referral-fail-insert.txt: {e}")
+			logger.error(f"[ERROR] Failed to write referral-fail-insert.txt: {e}")
 		return successful, failed
 
 	def save_case_workers_to_firestore(self) -> None:
@@ -779,11 +894,11 @@ class FirestoreMigration:
 					successful += 1
 					logger.debug(f"Saved case worker: {key} -> {doc_ref.id}")
 				except Exception as e:
-					logger.error(f"Failed to save case worker {key}: {e}")
+					logger.error(f"[ERROR] Failed to save case worker {key}: {e}")
 					failed += 1
 			logger.info(f"Case workers saved: {successful} successful, {failed} failed")
 		except Exception as e:
-			logger.error(f"Error accessing Firestore collection {collection_name}: {e}")
+			logger.error(f"[ERROR] Error accessing Firestore collection {collection_name}: {e}")
 	def migrate_data(self, 
 					file_path: str = None, 
 					batch_size: int = 500, 
@@ -801,6 +916,8 @@ class FirestoreMigration:
 			limit: Maximum number of records to process (None for all records)
 			records_override: List of records to process directly (bypasses file loading)
 		"""
+		global ERROR_COUNT
+		ERROR_COUNT = 0  # reset error counter for this run
 		self.processed_names = set()
 		self.case_workers = {}
 		self.stats = MigrationStats()
@@ -814,7 +931,7 @@ class FirestoreMigration:
 		else:
 			records = self.load_json_file(file_path)
 		if not records:
-			logger.error("No records to migrate")
+			logger.error("[ERROR] No records to migrate")
 			return self.stats
 		if limit and limit > 0:
 			records = records[:limit]
@@ -835,20 +952,84 @@ class FirestoreMigration:
 						logger.info(f"Batch {batch_num + 1}/{len(batches)} completed: "
 								  f"{successful} successful, {failed} failed")
 					except Exception as e:
-						logger.error(f"Batch {batch_num} failed: {str(e)}")
+						logger.error(f"[ERROR] Batch {batch_num} failed: {str(e)}")
 						self.stats.failed_imports += len(batches[batch_num])
 		else:
-			for i, batch in enumerate(batches):
+			# Sequential path: show a multi-line rich layout for all records
+			try:
+				from rich.progress import (
+					Progress,
+					BarColumn,
+					TextColumn,
+					TimeElapsedColumn,
+					TimeRemainingColumn,
+				)
+				from rich.console import Console, Group
+				from rich.live import Live
+				from rich.text import Text
+				use_progress = True
+			except ImportError:
+				use_progress = False
+			if use_progress:
+				console = Console()
+				progress = Progress(
+					BarColumn(),
+					TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
+					TextColumn("• {task.completed}/{task.total}"),
+					TimeElapsedColumn(),
+					TimeRemainingColumn(),
+				)
+				self._progress = progress
+				self._progress_task = progress.add_task(
+					"migrating",
+					total=self.stats.total_records,
+				)
+				self._current_label = "Starting..."
+				layout = Group(
+					Text("🚚 Migrating", style="bold"),
+					progress,
+					Text(f"⚠️ Errors: {ERROR_COUNT} (see ETL/error_logs/migration-errors.log)"),
+					Text(f"📄 {self._current_label}"),
+				)
+				# Temporarily silence console logging while Live is active to avoid
+				# Rich frames being duplicated in terminals that don't fully support
+				# interleaving Live output with other stdout writes.
+				console_original_level = console_handler.level
+				console_handler.setLevel(logging.CRITICAL + 1)
 				try:
-					successful, failed = self.import_batch(batch, i + 1, len(batches))
-					self.stats.successful_imports += successful
-					self.stats.failed_imports += failed
-					logger.info(f"Batch {i + 1}/{len(batches)} completed: "
-							  f"{successful} successful, {failed} failed")
-					time.sleep(0.1)
-				except Exception as e:
-					logger.error(f"Batch {i} failed: {str(e)}")
-					self.stats.failed_imports += len(batch)
+					with Live(layout, console=console, refresh_per_second=10) as live:
+						self._live = live
+						for i, batch in enumerate(batches):
+							try:
+								successful, failed = self.import_batch(batch, i + 1, len(batches))
+								self.stats.successful_imports += successful
+								self.stats.failed_imports += failed
+								logger.info(
+									f"Batch {i + 1}/{len(batches)} completed: "
+									f"{successful} successful, {failed} failed"
+								)
+							except Exception as e:
+								logger.error(f"[ERROR] Batch {i} failed: {str(e)}")
+								self.stats.failed_imports += len(batch)
+						self._live = None
+				finally:
+					console_handler.setLevel(console_original_level)
+				# Clear progress references after completion
+				self._progress = None
+				self._progress_task = None
+			else:
+				for i, batch in enumerate(batches):
+					try:
+						successful, failed = self.import_batch(batch, i + 1, len(batches))
+						self.stats.successful_imports += successful
+						self.stats.failed_imports += failed
+						logger.info(
+							f"Batch {i + 1}/{len(batches)} completed: "
+							f"{successful} successful, {failed} failed"
+						)
+					except Exception as e:
+						logger.error(f"[ERROR] Batch {i} failed: {str(e)}")
+						self.stats.failed_imports += len(batch)
 		self.stats.end_time = datetime.utcnow()
 		duration = self.stats.end_time - self.stats.start_time
 		logger.info("Migration completed!")
@@ -887,14 +1068,14 @@ class FirestoreMigration:
 							record = json.loads(line)
 							records.append(record)
 						except json.JSONDecodeError as e:
-							logger.error(f"JSON decode error on line {line_num}: {str(e)}")
+							logger.error(f"[ERROR] JSON decode error on line {line_num}: {str(e)}")
 			logger.info(f"Loaded {len(records)} records from {file_path}")
 			return records
 		except FileNotFoundError:
-			logger.error(f"File not found: {file_path}")
+			logger.error(f"[ERROR] File not found: {file_path}")
 			return []
 		except Exception as e:
-			logger.error(f"Error loading file {file_path}: {str(e)}")
+			logger.error(f"[ERROR] Error loading file {file_path}: {str(e)}")
 			return []
 	def __init__(self, service_account_path: str, project_id: str, collection_name: str = "clients"):
 		self.project_id = project_id
@@ -903,6 +1084,11 @@ class FirestoreMigration:
 		self.processed_names = set()
 		self.case_workers = {}
 		self.failed_geocoding_clients: List[str] = []
+		# Global progress state (used when running sequentially with a rich progress bar)
+		self._progress = None
+		self._progress_task = None
+		self._current_label = "Starting..."
+		self._live = None
 		# Initialize Firebase Admin SDK
 		if not firebase_admin._apps:
 			cred = credentials.Certificate(service_account_path)
@@ -1417,7 +1603,6 @@ def main():
 	SERVICE_ACCOUNT_PATH = os.path.join("ETL", "food-for-all-dc-caf23-firebase-adminsdk-fbsvc-4e77c7873e.json")
 	PROJECT_ID = "food-for-all-dc-caf23"
 	COLLECTION_NAME = CLIENT_COLLECTION_NAME
-	INPUT_FILE_PATH = "ETL/csv-one-line-client-database_w_referral.json"
 	EXCEL_FILE_PATH = os.path.join("ETL", "FFA_CLIENT_DATABASE.xlsx")
 	EXCEL_SHEET_NAME = "Current Deliveries"
 
@@ -1434,49 +1619,56 @@ def main():
 		collection_name=COLLECTION_NAME
 	)
 
-	# Load the original input file for migration
-	input_records = migration.load_json_file(INPUT_FILE_PATH)
-	if not input_records:
-		print(f"No records found in {INPUT_FILE_PATH}. Attempting to load from Excel instead...")
-		try:
-			import pandas as pd
-			if not os.path.exists(EXCEL_FILE_PATH):
-				print(f"Excel file not found at {EXCEL_FILE_PATH}. Exiting.")
-				return
-			df = pd.read_excel(EXCEL_FILE_PATH, sheet_name=EXCEL_SHEET_NAME, dtype=object)
-			# Ensure we only keep rows with a non-empty stable ID column,
-			# since the migration code requires an ID to use as the Firestore document id.
-			if "ID" not in df.columns:
-				# Try to derive ID from a known identifier column such as 'Client ID'
-				if "Client ID" in df.columns:
-					print("Excel sheet is missing 'ID' column but has 'Client ID'; using 'Client ID' as ID.")
-					df["ID"] = df["Client ID"]
-				else:
-					print(f"Excel sheet '{EXCEL_SHEET_NAME}' does not contain an 'ID' or 'Client ID' column. Exiting to avoid creating clients without stable IDs.")
-					return
-			# Drop rows where ID is NaN or blank after stripping
-			df["ID"] = df["ID"].astype(str)
-			df = df[df["ID"].str.strip() != ""]
-			input_records = df.to_dict(orient='records')
-			if not input_records:
-				print(f"No records with a valid ID loaded from Excel file {EXCEL_FILE_PATH} (sheet '{EXCEL_SHEET_NAME}'). Exiting.")
-				return
-			print(f"Loaded {len(input_records)} records for migration from Excel file {EXCEL_FILE_PATH} (sheet '{EXCEL_SHEET_NAME}') with non-empty IDs")
-		except Exception as e:
-			print(f"Failed to load records from Excel file {EXCEL_FILE_PATH}: {e}")
+	# Load records for migration directly from Excel (JSON path deprecated)
+	try:
+		import pandas as pd
+		if not os.path.exists(EXCEL_FILE_PATH):
+			print(f"❌ Excel file not found at {EXCEL_FILE_PATH}. Exiting.")
 			return
-	else:
-		print(f"Loaded {len(input_records)} records for migration from {INPUT_FILE_PATH}")
+		df = pd.read_excel(EXCEL_FILE_PATH, sheet_name=EXCEL_SHEET_NAME, dtype=object)
+		# Ensure we only keep rows with a non-empty stable ID column,
+		# since the migration code requires an ID to use as the Firestore document id.
+		if "ID" not in df.columns:
+			# Try to derive ID from a known identifier column such as 'Client ID'
+			if "Client ID" in df.columns:
+				print("Excel sheet is missing 'ID' column but has 'Client ID'; using 'Client ID' as ID.")
+				df["ID"] = df["Client ID"]
+			else:
+				print(f"❌ Excel sheet '{EXCEL_SHEET_NAME}' does not contain an 'ID' or 'Client ID' column. Exiting to avoid creating clients without stable IDs.")
+				return
+		# Drop rows where ID is NaN or blank after stripping
+		df["ID"] = df["ID"].astype(str)
+		df = df[df["ID"].str.strip() != ""]
+		input_records = df.to_dict(orient='records')
+		if not input_records:
+			print(f"❌ No records with a valid ID loaded from Excel file {EXCEL_FILE_PATH} (sheet '{EXCEL_SHEET_NAME}'). Exiting.")
+			return
+		print(f"Loaded {len(input_records)} records for migration from Excel file {EXCEL_FILE_PATH} (sheet '{EXCEL_SHEET_NAME}') with non-empty IDs")
+	except Exception as e:
+		print(f"❌ Failed to load records from Excel file {EXCEL_FILE_PATH}: {e}")
+		return
 
 	# Forced insert for debugging removed: only transformed records will be inserted
 
 	# Run full migration over all loaded records
+	# Allow an optional environment variable to limit how many records
+	# are processed (useful for dry runs or test batches).
+	limit: Optional[int] = None
+	limit_env = os.getenv("MIGRATION_LIMIT_RECORDS")
+	if limit_env:
+		try:
+			limit = int(limit_env)
+			print(f"⚙️ MIGRATION_LIMIT_RECORDS set; limiting migration to first {limit} records.")
+		except ValueError:
+			print("⚠️ MIGRATION_LIMIT_RECORDS is not a valid integer; ignoring.")
+			limit = None
+
 	stats = migration.migrate_data(
 		file_path=None,
 		batch_size=250,
 		max_workers=1,
 		use_threading=False,
-		limit=None,
+		limit=limit,
 		records_override=input_records
 	)
 
@@ -1543,6 +1735,17 @@ def main():
 		print("\nPlease review these values and update the frequency parser if needed.")
 	else:
 		print("✅ All frequency values were successfully mapped.")
+
+	# Let the user know where detailed warnings/errors (if any) were logged
+	error_log_path = os.path.join("ETL", "error_logs", "migration-errors.log")
+	try:
+		if os.path.exists(error_log_path) and os.path.getsize(error_log_path) > 0:
+			print(f"⚠️ Detailed warnings and errors were written to {error_log_path}.")
+		else:
+			print("✅ No warnings or errors were logged during migration.")
+	except Exception:
+		# If anything goes wrong checking the log file, just skip the summary
+		pass
 
 if __name__ == "__main__":
 	main()
