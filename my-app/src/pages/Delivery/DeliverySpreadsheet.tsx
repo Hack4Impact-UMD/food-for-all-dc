@@ -951,8 +951,10 @@ const DeliverySpreadsheet: React.FC = () => {
     let updatedOverrides = [...clientOverrides];
     if (clusterExists) {
       const targetCluster = updatedClusters.find((c) => c.id === newClusterId);
-      if (targetCluster?.deliveries?.length > 1) {
-        const otherClientIds = targetCluster.deliveries.filter((id) => id !== row.id);
+      const targetDeliveries = targetCluster?.deliveries;
+
+      if (targetCluster && targetDeliveries && targetDeliveries.length > 1) {
+        const otherClientIds = targetDeliveries.filter((id) => id !== row.id);
         const existingTimeOverride = clientOverrides.find(
           (override) => otherClientIds.includes(override.clientId) && override.time
         );
