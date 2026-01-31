@@ -1068,9 +1068,17 @@ const Spreadsheet: React.FC = () => {
                         </span>
                       ) : field.compute ? (
                         field.compute(row)
-                      ) : (
-                        row[field.key as keyof RowData]
-                      )}
+                      ) : (() => {
+                        const value = row[field.key as keyof RowData];
+                        if (value === null || value === undefined || value === "N/A") return "";
+                        if (React.isValidElement(value)) return value;
+                        if (Array.isArray(value)) return value.join(", ");
+                        try {
+                          return value.toString();
+                        } catch {
+                          return "";
+                        }
+                      })()}
                     </TableCell>
                   )),
                   ...customColumns.map((col) => (
