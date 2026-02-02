@@ -13,14 +13,12 @@ import {
   Radio,
   Typography,
   TextField,
-  Box,
   FormControl,
   InputLabel,
   Select,
 } from "@mui/material";
 import { validateDateInput } from "../../../utils/dates";
 import { getLastDeliveryDateForClient } from "../../../utils/lastDeliveryDate";
-import { deleteDeliveriesAfterEndDate } from "../../../utils/deliveryCleanup";
 import { deliveryEventEmitter } from "../../../utils/deliveryEventEmitter";
 import MoreHorizIcon from "@mui/icons-material/MoreHoriz";
 import {
@@ -32,18 +30,15 @@ import {
   getDocs,
   query,
   where,
-  orderBy,
   updateDoc,
-  Timestamp,
 } from "firebase/firestore";
 import { db } from "../../../auth/firebaseConfig";
 import dataSources from "../../../config/dataSources";
 import { DeliveryEvent, NewDelivery } from "../../../types/calendar-types";
-import { calculateRecurrenceDates, getNextMonthlyDate } from "./CalendarUtils";
-import { UserType } from "../../../types";
-import { useAuth } from "../../../auth/AuthProvider";
+import { calculateRecurrenceDates } from "./CalendarUtils";
 import { toJSDate } from "../../../utils/timestamp";
 import { deliveryDate } from "../../../utils/deliveryDate";
+import { clientService } from "../../../services/client-service";
 
 interface EventMenuProps {
   event: DeliveryEvent;
@@ -51,7 +46,6 @@ interface EventMenuProps {
 }
 
 const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
-  const { userRole } = useAuth();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -67,6 +61,7 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
   const [editDateError, setEditDateError] = useState<string | null>(null);
   const [endDateError, setEndDateError] = useState<string | null>(null);
   const [currentLastDeliveryDate, setCurrentLastDeliveryDate] = useState<string>("");
+  const [clientStartDateISO, setClientStartDateISO] = useState<string | null>(null);
   const normalizeToDateInput = (dateVal: any) => {
     if (!dateVal) return "";
     // Firestore Timestamp
@@ -122,6 +117,34 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
 
     fetchCurrentLastDeliveryDate();
   }, [event.clientId, event.id]);
+
+  useEffect(() => {
+    let isActive = true;
+    const fetchClientStartDate = async () => {
+      if (!event.clientId) return;
+      try {
+        const client = await clientService.getInstance().getClientById(event.clientId);
+        if (!isActive) return;
+        const startISO = client?.startDate
+          ? deliveryDate.tryToISODateString(client.startDate)
+          : null;
+        setClientStartDateISO(startISO);
+      } catch (error) {
+        console.error("Error fetching client start date:", error);
+      }
+    };
+
+    fetchClientStartDate();
+    return () => {
+      isActive = false;
+    };
+  }, [event.clientId]);
+
+  const formatToMMDDYYYY = (dateStr: string) => {
+    const [year, month, day] = dateStr.split("-");
+    if (!year || !month || !day) return dateStr;
+    return `${month}/${day}/${year}`;
+  };
 
   const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
     event.stopPropagation();
@@ -187,6 +210,15 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
 
   const handleEditConfirm = async () => {
     try {
+      const normalizedEditDate = deliveryDate.tryToISODateString(editDeliveryDate);
+      if (clientStartDateISO && normalizedEditDate && normalizedEditDate < clientStartDateISO) {
+        setEditDateError(
+          `Delivery date cannot be before client start date (${formatToMMDDYYYY(
+            clientStartDateISO
+          )}).`
+        );
+        return;
+      }
       const eventsRef = collection(db, dataSources.firebase.calendarCollection);
 
       if (editOption === "This event") {
@@ -229,9 +261,20 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
           ? deliveryDate.toISODateString(editRecurrence.repeatsEndDate)
           : null;
         const filteredRecurrenceDates = newRecurrenceDates.filter((date) => {
+          if (clientStartDateISO && date < clientStartDateISO) return false;
           if (!endDateStr) return true;
           return date <= endDateStr;
         });
+        if (!filteredRecurrenceDates.length) {
+          if (clientStartDateISO) {
+            setEditDateError(
+              `Delivery date cannot be before client start date (${formatToMMDDYYYY(
+                clientStartDateISO
+              )}).`
+            );
+          }
+          return;
+        }
         // Add new events for each recurrence date
         for (let i = 0; i < filteredRecurrenceDates.length; i++) {
           const recurrenceDateStr = filteredRecurrenceDates[i];
@@ -262,11 +305,21 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
     setEditDeliveryDate(newDate);
 
     // Handle date validation with proper callback functions
-    validateDateInput(
+    const validation = validateDateInput(
       newDate,
       (validDate) => setEditDateError(null),
       (errorMessage) => setEditDateError(errorMessage)
     );
+    if (validation.isValid && clientStartDateISO) {
+      const normalizedDate = deliveryDate.tryToISODateString(newDate);
+      if (normalizedDate && normalizedDate < clientStartDateISO) {
+        setEditDateError(
+          `Delivery date cannot be before client start date (${formatToMMDDYYYY(
+            clientStartDateISO
+          )}).`
+        );
+      }
+    }
   };
 
   // Only disable for events that are from previous days (not today)
