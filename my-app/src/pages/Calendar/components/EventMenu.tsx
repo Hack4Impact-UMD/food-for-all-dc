@@ -236,17 +236,6 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
           return;
         }
         const originalDeliveryDate = toJSDate(originalEvent.deliveryDate);
-        // Find all future events in the series
-        const q = query(
-          eventsRef,
-          where("recurrenceId", "==", event.recurrenceId),
-          where("clientId", "==", event.clientId),
-          where("deliveryDate", ">=", originalDeliveryDate)
-        );
-        const querySnapshot = await getDocs(q);
-        // Delete all future events in the series
-        await Promise.all(querySnapshot.docs.map((docSnap) => deleteDoc(docSnap.ref)));
-
         // Calculate new recurrence dates for the new recurrence type
         let newRecurrenceDates = calculateRecurrenceDates({
           ...originalEvent,
@@ -275,6 +264,16 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
           }
           return;
         }
+        // Find all future events in the series
+        const q = query(
+          eventsRef,
+          where("recurrenceId", "==", event.recurrenceId),
+          where("clientId", "==", event.clientId),
+          where("deliveryDate", ">=", originalDeliveryDate)
+        );
+        const querySnapshot = await getDocs(q);
+        // Delete all future events in the series
+        await Promise.all(querySnapshot.docs.map((docSnap) => deleteDoc(docSnap.ref)));
         // Add new events for each recurrence date
         for (let i = 0; i < filteredRecurrenceDates.length; i++) {
           const recurrenceDateStr = filteredRecurrenceDates[i];
