@@ -1591,11 +1591,12 @@ const DeliverySpreadsheet: React.FC = () => {
         const normalizedClusters = normalizeClusters(newClusters);
         await updateDoc(clusterRef, {
           clusters: normalizedClusters,
-          clientOverrides: sanitizeClientOverridesForFirestore(clientOverrides),
+          clientOverrides: [],
         });
         setClustersOriginal(normalizedClusters);
+        setClientOverrides([]);
         setClusterDoc((prevDoc) =>
-          prevDoc ? { ...prevDoc, clusters: normalizedClusters } : null
+          prevDoc ? { ...prevDoc, clusters: normalizedClusters, clientOverrides: [] } : null
         );
       } else {
         await initClustersForDay(newClusters); // Make sure this also sets state correctly
