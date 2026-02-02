@@ -1138,9 +1138,6 @@ const DeliverySpreadsheet: React.FC = () => {
         updatedOverrides = updatedOverrides.filter((override) => override.clientId !== clientId);
       }
 
-      // Update local state
-      setClientOverrides(updatedOverrides);
-
       // Handle cluster assignment separately
       const currentClient = rows.find((row) => row.id === clientId);
       const oldClusterId = currentClient?.clusterId || "";
@@ -1186,10 +1183,41 @@ const DeliverySpreadsheet: React.FC = () => {
         }
       }
 
+      // If the cluster hasn't changed, treat driver/time updates as cluster-level changes
+      const isSameCluster = oldClusterId && oldClusterId === newClusterId;
+      if (isSameCluster) {
+        updatedClusters = updatedClusters.map((cluster) => {
+          if (cluster.id === oldClusterId) {
+            return {
+              ...cluster,
+              driver: newDriver ?? "",
+              time: newTime ?? "",
+            };
+          }
+          return cluster;
+        });
+
+        const affectedClientIds = new Set<string>();
+        const updatedCluster = updatedClusters.find((cluster) => cluster.id === oldClusterId);
+        updatedCluster?.deliveries?.forEach((id) => affectedClientIds.add(id));
+
+        updatedOverrides = updatedOverrides
+          .map((override) => {
+            if (affectedClientIds.has(override.clientId)) {
+              return { ...override, driver: undefined, time: undefined };
+            }
+            return override;
+          })
+          .filter((override) => override.driver || override.time);
+      }
+
       // Sort clusters numerically
       updatedClusters.sort((a, b) => parseInt(a.id, 10) - parseInt(b.id, 10));
 
       const normalizedClusters = setClusters(updatedClusters);
+
+      // Update local state
+      setClientOverrides(updatedOverrides);
 
       // Update Firebase with cluster changes and client overrides
       const clusterRef = doc(db, dataSources.firebase.clustersCollection, clusterDoc.docId);
