@@ -1,13 +1,13 @@
-import React, { useState, useMemo, useCallback } from "react";
+import React, { useState, useMemo, useCallback, forwardRef } from "react";
 import {
   Box,
   Button,
-  Table,
-  TableBody,
   TableCell,
   TableContainer,
   TableHead,
   TableRow,
+  Table,
+  TableBody,
   Paper,
   TextField,
   Dialog,
@@ -22,6 +22,7 @@ import {
 } from "@mui/material";
 import { Close, Add, Edit, Check, Delete } from "@mui/icons-material";
 import { doc, updateDoc, addDoc, deleteDoc, collection } from "firebase/firestore";
+import { TableComponents, TableVirtuoso } from "react-virtuoso";
 import { db } from "../auth/firebaseConfig";
 import {
   CaseWorker,
@@ -97,6 +98,55 @@ const SORT_LABEL_STYLES = {
   },
 };
 
+const VirtuosoTableScroller = forwardRef<HTMLDivElement>((props, ref) => (
+  <TableContainer
+    component={Paper}
+    {...props}
+    ref={ref}
+    sx={{
+      boxShadow: "none",
+      border: "1px solid rgba(0, 0, 0, 0.12)",
+      borderRadius: "8px",
+      height: 520,
+      maxHeight: "60vh",
+      "& .MuiTableCell-root": {
+        py: 2,
+      },
+    }}
+  />
+));
+
+VirtuosoTableScroller.displayName = "VirtuosoTableScroller";
+
+const VirtuosoTableHead = forwardRef<HTMLTableSectionElement>((props, ref) => (
+  <TableHead {...props} ref={ref} />
+));
+
+VirtuosoTableHead.displayName = "VirtuosoTableHead";
+
+const VirtuosoTableBody = forwardRef<HTMLTableSectionElement>((props, ref) => (
+  <TableBody {...props} ref={ref} />
+));
+
+VirtuosoTableBody.displayName = "VirtuosoTableBody";
+
+const VirtuosoTableComponents: TableComponents<CaseWorker> = {
+  Scroller: VirtuosoTableScroller,
+  Table: (props) => <Table {...props} sx={{ tableLayout: "fixed" }} />,
+  TableHead: VirtuosoTableHead,
+  TableRow: (props) => (
+    <TableRow
+      {...props}
+      sx={{
+        "&:hover": {
+          backgroundColor: "rgba(0, 0, 0, 0.01)",
+        },
+      }}
+    />
+  ),
+  TableBody: VirtuosoTableBody,
+};
+
 // Main modal component
 const CaseWorkerManagementModal: React.FC<CaseWorkerManagementModalProps> = ({
   open,
@@ -169,44 +219,44 @@ const CaseWorkerManagementModal: React.FC<CaseWorkerManagementModalProps> = ({
     []
   );
 
-  const handleCaseWorkerSubmit = async (
-    caseWorker: Omit<CaseWorker, "id"> | CaseWorker,
-    isEditing: boolean
-  ) => {
-    const validationErrors = validateCaseWorkerFields(caseWorker);
-    const errorSetter = isEditing ? setEditErrors : setErrors;
-    errorSetter(validationErrors);
+  const handleCaseWorkerSubmit = useCallback(
+    async (caseWorker: Omit<CaseWorker, "id"> | CaseWorker, isEditing: boolean) => {
+      const validationErrors = validateCaseWorkerFields(caseWorker);
+      const errorSetter = isEditing ? setEditErrors : setErrors;
+      errorSetter(validationErrors);
 
-    if (Object.keys(validationErrors).length === 0) {
-      try {
-        if (isEditing && "id" in caseWorker) {
-          // Update existing case worker
-          const caseWorkerRef = doc(db, dataSources.firebase.caseWorkersCollection, caseWorker.id);
-          await updateDoc(caseWorkerRef, {
-            name: caseWorker.name,
-            organization: caseWorker.organization,
-            phone: caseWorker.phone,
-            email: caseWorker.email,
-          });
-          onCaseWorkersChange(caseWorkers.map((cw) => (cw.id === caseWorker.id ? caseWorker : cw)));
-          setEditingCaseWorker(null);
-        } else {
-          // Add new case worker
-          const caseWorkersCollectionRef = collection(
-            db,
-            dataSources.firebase.caseWorkersCollection
-          );
-          const docRef = await addDoc(caseWorkersCollectionRef, caseWorker);
-          onCaseWorkersChange([...caseWorkers, { ...caseWorker, id: docRef.id }]);
-          setIsAddingCaseWorker(false);
-          setNewCaseWorker({ name: "", organization: "", phone: "", email: "" });
+      if (Object.keys(validationErrors).length === 0) {
+        try {
+          if (isEditing && "id" in caseWorker) {
+            const caseWorkerRef = doc(db, dataSources.firebase.caseWorkersCollection, caseWorker.id);
+            await updateDoc(caseWorkerRef, {
+              name: caseWorker.name,
+              organization: caseWorker.organization,
+              phone: caseWorker.phone,
+              email: caseWorker.email,
+            });
+            onCaseWorkersChange(
+              caseWorkers.map((cw) => (cw.id === caseWorker.id ? caseWorker : cw))
+            );
+            setEditingCaseWorker(null);
+          } else {
+            const caseWorkersCollectionRef = collection(
+              db,
+              dataSources.firebase.caseWorkersCollection
+            );
+            const docRef = await addDoc(caseWorkersCollectionRef, caseWorker);
+            onCaseWorkersChange([...caseWorkers, { ...caseWorker, id: docRef.id }]);
+            setIsAddingCaseWorker(false);
+            setNewCaseWorker({ name: "", organization: "", phone: "", email: "" });
+          }
+          errorSetter({});
+        } catch (error) {
+          console.error(`Error ${isEditing ? "updating" : "adding"} case worker:`, error);
         }
-        errorSetter({});
-      } catch (error) {
-        console.error(`Error ${isEditing ? "updating" : "adding"} case worker:`, error);
       }
-    }
-  };
+    },
+    [caseWorkers, onCaseWorkersChange]
+  );
 
   const handleDeleteCaseWorker = async (caseWorkerId: string) => {
     try {
@@ -217,10 +267,10 @@ const CaseWorkerManagementModal: React.FC<CaseWorkerManagementModalProps> = ({
     }
   };
 
-  const handleDeleteClick = (caseWorker: CaseWorker) => {
+  const handleDeleteClick = useCallback((caseWorker: CaseWorker) => {
     setCaseWorkerToDelete(caseWorker);
     setDeleteDialogOpen(true);
-  };
+  }, []);
 
   const handleDeleteConfirm = async () => {
     if (caseWorkerToDelete) {
@@ -229,6 +279,163 @@ const CaseWorkerManagementModal: React.FC<CaseWorkerManagementModalProps> = ({
       setCaseWorkerToDelete(null);
     }
   };
+
+  const renderRow = useCallback(
+    (_: number, cw: CaseWorker) => (
+      <>
+        <TableCell>
+          {editingCaseWorker?.id === cw.id ? (
+            <TextField
+              value={editingCaseWorker.name}
+              onChange={(e) => handleEditCaseWorkerChange("name", e.target.value)}
+              size="small"
+              fullWidth
+              error={!!editErrors.name}
+              helperText={editErrors.name}
+              sx={{
+                "& .MuiOutlinedInput-root": {
+                  backgroundColor: "var(--color-background-main)",
+                },
+              }}
+            />
+          ) : (
+            <Typography sx={{ color: "var(--color-text-dark)", fontWeight: 500 }}>
+              {cw.name}
+            </Typography>
+          )}
+        </TableCell>
+        <TableCell>
+          {editingCaseWorker?.id === cw.id ? (
+            <TextField
+              value={editingCaseWorker.organization}
+              onChange={(e) => handleEditCaseWorkerChange("organization", e.target.value)}
+              size="small"
+              fullWidth
+              error={!!editErrors.organization}
+              helperText={editErrors.organization}
+              sx={{
+                "& .MuiOutlinedInput-root": {
+                  backgroundColor: "var(--color-background-main)",
+                },
+              }}
+            />
+          ) : (
+            <Typography sx={{ color: "var(--color-text-medium-alt)" }}>
+              {cw.organization}
+            </Typography>
+          )}
+        </TableCell>
+        <TableCell>
+          {editingCaseWorker?.id === cw.id ? (
+            <TextField
+              value={editingCaseWorker.phone}
+              onChange={(e) => handleEditCaseWorkerChange("phone", e.target.value)}
+              size="small"
+              fullWidth
+              error={!!editErrors.phone}
+              helperText={editErrors.phone}
+              sx={{
+                "& .MuiOutlinedInput-root": {
+                  backgroundColor: "var(--color-background-main)",
+                },
+              }}
+            />
+          ) : (
+            <Typography sx={{ color: "var(--color-text-medium-alt)" }}>
+              {formatPhoneNumber(cw.phone)}
+            </Typography>
+          )}
+        </TableCell>
+        <TableCell>
+          {editingCaseWorker?.id === cw.id ? (
+            <TextField
+              value={editingCaseWorker.email}
+              onChange={(e) => handleEditCaseWorkerChange("email", e.target.value)}
+              size="small"
+              fullWidth
+              error={!!editErrors.email}
+              helperText={editErrors.email}
+              sx={{
+                "& .MuiOutlinedInput-root": {
+                  backgroundColor: "var(--color-background-main)",
+                },
+              }}
+            />
+          ) : (
+            <Typography sx={{ color: "var(--color-text-medium-alt)" }}>{cw.email}</Typography>
+          )}
+        </TableCell>
+        <TableCell>
+          <Box sx={{ display: "flex", gap: 1 }}>
+            {editingCaseWorker?.id === cw.id ? (
+              <>
+                <IconButton
+                  onClick={() =>
+                    editingCaseWorker && handleCaseWorkerSubmit(editingCaseWorker, true)
+                  }
+                  sx={{
+                    color: "var(--color-primary)",
+                    "&:hover": {
+                      backgroundColor: "rgba(37, 126, 104, 0.08)",
+                    },
+                  }}
+                  size="small"
+                >
+                  <Check />
+                </IconButton>
+                <IconButton
+                  onClick={() => setEditingCaseWorker(null)}
+                  sx={{
+                    color: "error.main",
+                    "&:hover": {
+                      backgroundColor: "rgba(211, 47, 47, 0.08)",
+                    },
+                  }}
+                  size="small"
+                >
+                  <Close />
+                </IconButton>
+              </>
+            ) : (
+              <>
+                <IconButton
+                  onClick={() => setEditingCaseWorker(cw)}
+                  sx={{
+                    color: "var(--color-primary)",
+                    "&:hover": {
+                      backgroundColor: "rgba(37, 126, 104, 0.08)",
+                    },
+                  }}
+                  size="small"
+                >
+                  <Edit />
+                </IconButton>
+                <IconButton
+                  onClick={() => handleDeleteClick(cw)}
+                  sx={{
+                    color: "error.main",
+                    "&:hover": {
+                      backgroundColor: "rgba(211, 47, 47, 0.08)",
+                    },
+                  }}
+                  size="small"
+                >
+                  <Delete />
+                </IconButton>
+              </>
+            )}
+          </Box>
+        </TableCell>
+      </>
+    ),
+    [
+      editErrors,
+      editingCaseWorker,
+      handleCaseWorkerSubmit,
+      handleDeleteClick,
+      handleEditCaseWorkerChange,
+    ]
+  );
 
   return (
     <>
@@ -351,227 +558,60 @@ const CaseWorkerManagementModal: React.FC<CaseWorkerManagementModalProps> = ({
             </Button>
           )}
 
-          <TableContainer
-            component={Paper}
-            sx={{
-              boxShadow: "none",
-              border: "1px solid rgba(0, 0, 0, 0.12)",
-              borderRadius: "8px",
-              "& .MuiTableCell-root": {
-                py: 2,
-              },
-            }}
-          >
-            <Table>
-              <TableHead>
-                <TableRow sx={{ backgroundColor: "rgba(0, 0, 0, 0.02)" }}>
-                  <TableCell sx={{ fontWeight: 600, color: "var(--color-text-heading)" }}>
-                    <TableSortLabel
-                      active={sortField === "name"}
-                      direction={sortField === "name" ? sortDirection : "asc"}
-                      onClick={() => handleSort("name")}
-                      sx={SORT_LABEL_STYLES}
-                    >
-                      Case Worker
-                    </TableSortLabel>
-                  </TableCell>
-                  <TableCell sx={{ fontWeight: 600, color: "var(--color-text-heading)" }}>
-                    <TableSortLabel
-                      active={sortField === "organization"}
-                      direction={sortField === "organization" ? sortDirection : "asc"}
-                      onClick={() => handleSort("organization")}
-                      sx={SORT_LABEL_STYLES}
-                    >
-                      Organization
-                    </TableSortLabel>
-                  </TableCell>
-                  <TableCell sx={{ fontWeight: 600, color: "var(--color-text-heading)" }}>
-                    <TableSortLabel
-                      active={sortField === "phone"}
-                      direction={sortField === "phone" ? sortDirection : "asc"}
-                      onClick={() => handleSort("phone")}
-                      sx={SORT_LABEL_STYLES}
-                    >
-                      Phone Number
-                    </TableSortLabel>
-                  </TableCell>
-                  <TableCell sx={{ fontWeight: 600, color: "var(--color-text-heading)" }}>
-                    <TableSortLabel
-                      active={sortField === "email"}
-                      direction={sortField === "email" ? sortDirection : "asc"}
-                      onClick={() => handleSort("email")}
-                      sx={SORT_LABEL_STYLES}
-                    >
-                      Email
-                    </TableSortLabel>
-                  </TableCell>
-                  <TableCell
-                    sx={{ fontWeight: 600, color: "var(--color-text-heading)", width: "120px" }}
+          <TableVirtuoso
+            data={sortedCaseWorkers}
+            components={VirtuosoTableComponents}
+            fixedHeaderContent={() => (
+              <TableRow sx={{ backgroundColor: "rgba(0, 0, 0, 0.02)" }}>
+                <TableCell sx={{ fontWeight: 600, color: "var(--color-text-heading)" }}>
+                  <TableSortLabel
+                    active={sortField === "name"}
+                    direction={sortField === "name" ? sortDirection : "asc"}
+                    onClick={() => handleSort("name")}
+                    sx={SORT_LABEL_STYLES}
                   >
-                    Actions
-                  </TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {sortedCaseWorkers.map((cw) => (
-                  <TableRow
-                    key={cw.id}
-                    sx={{
-                      "&:hover": {
-                        backgroundColor: "rgba(0, 0, 0, 0.01)",
-                      },
-                    }}
+                    Case Worker
+                  </TableSortLabel>
+                </TableCell>
+                <TableCell sx={{ fontWeight: 600, color: "var(--color-text-heading)" }}>
+                  <TableSortLabel
+                    active={sortField === "organization"}
+                    direction={sortField === "organization" ? sortDirection : "asc"}
+                    onClick={() => handleSort("organization")}
+                    sx={SORT_LABEL_STYLES}
                   >
-                    <TableCell>
-                      {editingCaseWorker?.id === cw.id ? (
-                        <TextField
-                          value={editingCaseWorker.name}
-                          onChange={(e) => handleEditCaseWorkerChange("name", e.target.value)}
-                          size="small"
-                          fullWidth
-                          error={!!editErrors.name}
-                          helperText={editErrors.name}
-                          sx={{
-                            "& .MuiOutlinedInput-root": {
-                              backgroundColor: "var(--color-background-main)",
-                            },
-                          }}
-                        />
-                      ) : (
-                        <Typography sx={{ color: "var(--color-text-dark)", fontWeight: 500 }}>
-                          {cw.name}
-                        </Typography>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {editingCaseWorker?.id === cw.id ? (
-                        <TextField
-                          value={editingCaseWorker.organization}
-                          onChange={(e) => handleEditCaseWorkerChange("organization", e.target.value)}
-                          size="small"
-                          fullWidth
-                          error={!!editErrors.organization}
-                          helperText={editErrors.organization}
-                          sx={{
-                            "& .MuiOutlinedInput-root": {
-                              backgroundColor: "var(--color-background-main)",
-                            },
-                          }}
-                        />
-                      ) : (
-                        <Typography sx={{ color: "var(--color-text-medium-alt)" }}>
-                          {cw.organization}
-                        </Typography>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {editingCaseWorker?.id === cw.id ? (
-                        <TextField
-                          value={editingCaseWorker.phone}
-                          onChange={(e) => handleEditCaseWorkerChange("phone", e.target.value)}
-                          size="small"
-                          fullWidth
-                          error={!!editErrors.phone}
-                          helperText={editErrors.phone}
-                          sx={{
-                            "& .MuiOutlinedInput-root": {
-                              backgroundColor: "var(--color-background-main)",
-                            },
-                          }}
-                        />
-                      ) : (
-                        <Typography sx={{ color: "var(--color-text-medium-alt)" }}>
-                          {formatPhoneNumber(cw.phone)}
-                        </Typography>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {editingCaseWorker?.id === cw.id ? (
-                        <TextField
-                          value={editingCaseWorker.email}
-                          onChange={(e) => handleEditCaseWorkerChange("email", e.target.value)}
-                          size="small"
-                          fullWidth
-                          error={!!editErrors.email}
-                          helperText={editErrors.email}
-                          sx={{
-                            "& .MuiOutlinedInput-root": {
-                              backgroundColor: "var(--color-background-main)",
-                            },
-                          }}
-                        />
-                      ) : (
-                        <Typography sx={{ color: "var(--color-text-medium-alt)" }}>
-                          {cw.email}
-                        </Typography>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Box sx={{ display: "flex", gap: 1 }}>
-                        {editingCaseWorker?.id === cw.id ? (
-                          <>
-                            <IconButton
-                              onClick={() =>
-                                editingCaseWorker && handleCaseWorkerSubmit(editingCaseWorker, true)
-                              }
-                              sx={{
-                                color: "var(--color-primary)",
-                                "&:hover": {
-                                  backgroundColor: "rgba(37, 126, 104, 0.08)",
-                                },
-                              }}
-                              size="small"
-                            >
-                              <Check />
-                            </IconButton>
-                            <IconButton
-                              onClick={() => setEditingCaseWorker(null)}
-                              sx={{
-                                color: "error.main",
-                                "&:hover": {
-                                  backgroundColor: "rgba(211, 47, 47, 0.08)",
-                                },
-                              }}
-                              size="small"
-                            >
-                              <Close />
-                            </IconButton>
-                          </>
-                        ) : (
-                          <>
-                            <IconButton
-                              onClick={() => setEditingCaseWorker(cw)}
-                              sx={{
-                                color: "var(--color-primary)",
-                                "&:hover": {
-                                  backgroundColor: "rgba(37, 126, 104, 0.08)",
-                                },
-                              }}
-                              size="small"
-                            >
-                              <Edit />
-                            </IconButton>
-                            <IconButton
-                              onClick={() => handleDeleteClick(cw)}
-                              sx={{
-                                color: "error.main",
-                                "&:hover": {
-                                  backgroundColor: "rgba(211, 47, 47, 0.08)",
-                                },
-                              }}
-                              size="small"
-                            >
-                              <Delete />
-                            </IconButton>
-                          </>
-                        )}
-                      </Box>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
+                    Organization
+                  </TableSortLabel>
+                </TableCell>
+                <TableCell sx={{ fontWeight: 600, color: "var(--color-text-heading)" }}>
+                  <TableSortLabel
+                    active={sortField === "phone"}
+                    direction={sortField === "phone" ? sortDirection : "asc"}
+                    onClick={() => handleSort("phone")}
+                    sx={SORT_LABEL_STYLES}
+                  >
+                    Phone Number
+                  </TableSortLabel>
+                </TableCell>
+                <TableCell sx={{ fontWeight: 600, color: "var(--color-text-heading)" }}>
+                  <TableSortLabel
+                    active={sortField === "email"}
+                    direction={sortField === "email" ? sortDirection : "asc"}
+                    onClick={() => handleSort("email")}
+                    sx={SORT_LABEL_STYLES}
+                  >
+                    Email
+                  </TableSortLabel>
+                </TableCell>
+                <TableCell
+                  sx={{ fontWeight: 600, color: "var(--color-text-heading)", width: "120px" }}
+                >
+                  Actions
+                </TableCell>
+              </TableRow>
+            )}
+            itemContent={renderRow}
+          />
         </DialogContent>
       </Dialog>
 
