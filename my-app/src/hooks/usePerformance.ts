@@ -15,12 +15,12 @@ export function useStableCallback<T extends (...args: any[]) => any>(
   callback: T,
   deps: React.DependencyList
 ): T {
-  return useCallback(callback, deps);
+  return useCallback(callback, [callback, ...deps]);
 }
 
 // Custom hook for expensive computations
 export function useExpensiveComputation<T>(compute: () => T, deps: React.DependencyList): T {
-  return useMemo(compute, deps);
+  return useMemo(compute, [compute, ...deps]);
 }
 
 // Performance monitoring hook

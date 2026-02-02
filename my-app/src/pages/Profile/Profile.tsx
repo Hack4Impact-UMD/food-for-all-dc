@@ -33,7 +33,7 @@ import {
   Timestamp,
   deleteDoc,
 } from "firebase/firestore";
-import React, { useEffect, useRef, useState, useMemo } from "react";
+import React, { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { auth, db } from "../../auth/firebaseConfig";
 import dataSources from "../../config/dataSources";
@@ -457,18 +457,18 @@ const Profile = () => {
       });
     } else {
       setIsNewProfile(true);
-      setClientProfile({
-        ...clientProfile,
+      setClientProfile((prev) => ({
+        ...prev,
         createdAt: new Date(),
         updatedAt: new Date(),
         referralEntity: null,
-      });
+      }));
       setTags([]);
       setSelectedCaseWorker(null);
       setProfileLoaded(false);
       setPrevNotes("");
     }
-  }, [clientIdParam, allTags, profileLoaded]);
+  }, [clientIdParam, allTags, configFields, profileLoaded]);
 
   useEffect(() => {
     const fetchLastDeliveryDate = async () => {
@@ -610,65 +610,94 @@ const Profile = () => {
     return ""; // This line should never be reached
   };
 
-  const getWard = async (searchAddress: string) => {
-    let wardName;
-
+  const getCoordinates = useCallback(async (address: string) => {
     try {
-      // First get coordinates for the address
-      const coordinates = await getCoordinates(searchAddress);
-
-      if (
-        !coordinates ||
-        coordinates.length !== 2 ||
-        coordinates[0] === 0 ||
-        coordinates[1] === 0
-      ) {
-        wardName = "No address";
-        clientProfile.ward = wardName;
-        setWard(wardName);
-        return wardName;
-      }
-
-      // Use DC Government ArcGIS REST service to find ward by coordinates
-      // coordinates are in [lat, lng] format, but ArcGIS expects x,y (lng,lat)
-      const lng = coordinates[1];
-      const lat = coordinates[0];
-
-      const wardServiceURL = dataSources.externalApi.dcGisWardServiceUrl;
-      const params = new URLSearchParams({
-        f: "json",
-        geometry: `${lng},${lat}`,
-        geometryType: "esriGeometryPoint",
-        inSR: "4326",
-        spatialRel: "esriSpatialRelIntersects",
-        outFields: "NAME,WARD",
-        returnGeometry: "false",
+      const token = await auth.currentUser?.getIdToken();
+      const response = await fetch("https://geocode-addresses-endpoint-lzrplp4tfa-uc.a.run.app", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          addresses: [address],
+        }),
       });
 
-      const response = await fetch(`${wardServiceURL}?${params.toString()}`);
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! Status: ${response.status}`);
-      }
-
-      const data = await response.json();
-
-      // Check if we found a ward
-      if (data.features && data.features.length > 0) {
-        const wardFeature = data.features[0];
-        wardName = wardFeature.attributes.NAME || `Ward ${wardFeature.attributes.WARD}`;
-      } else {
-        wardName = "No ward";
+      //API returns {[coordinates[]]} so destructure and return index 0
+      if (response.ok) {
+        const json = await response.json();
+        const { coordinates } = json;
+        return coordinates[0];
       }
     } catch (error) {
-      console.error("Error fetching ward information:", error);
-      wardName = "Error";
+      //[0,0] is an invalid coordinate handled in DelivertSpreadsheet.tsx
     }
+    return [0, 0];
+  }, []);
 
-    clientProfile.ward = wardName;
-    setWard(wardName);
-    return wardName;
-  };
+  const getWard = useCallback(
+    async (searchAddress: string) => {
+      let wardName = "";
+
+      try {
+        // First get coordinates for the address
+        const coordinates = await getCoordinates(searchAddress);
+
+        if (
+          !coordinates ||
+          coordinates.length !== 2 ||
+          coordinates[0] === 0 ||
+          coordinates[1] === 0
+        ) {
+          wardName = "No address";
+          setWard(wardName);
+          setClientProfile((prev) => ({ ...prev, ward: wardName }));
+          return wardName;
+        }
+
+        // Use DC Government ArcGIS REST service to find ward by coordinates
+        // coordinates are in [lat, lng] format, but ArcGIS expects x,y (lng,lat)
+        const lng = coordinates[1];
+        const lat = coordinates[0];
+
+        const wardServiceURL = dataSources.externalApi.dcGisWardServiceUrl;
+        const params = new URLSearchParams({
+          f: "json",
+          geometry: `${lng},${lat}`,
+          geometryType: "esriGeometryPoint",
+          inSR: "4326",
+          spatialRel: "esriSpatialRelIntersects",
+          outFields: "NAME,WARD",
+          returnGeometry: "false",
+        });
+
+        const response = await fetch(`${wardServiceURL}?${params.toString()}`);
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! Status: ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        // Check if we found a ward
+        if (data.features && data.features.length > 0) {
+          const wardFeature = data.features[0];
+          wardName = wardFeature.attributes.NAME || `Ward ${wardFeature.attributes.WARD}`;
+        } else {
+          wardName = "No ward";
+        }
+      } catch (error) {
+        console.error("Error fetching ward information:", error);
+        wardName = "Error";
+      }
+
+      setWard(wardName);
+      setClientProfile((prev) => ({ ...prev, ward: wardName }));
+      return wardName;
+    },
+    [getCoordinates]
+  );
 
   const getWardAndCoordinates = async (searchAddress: string) => {
     // Compose full address string for geocoding
@@ -681,8 +710,8 @@ const Profile = () => {
     ]
       .filter(Boolean)
       .join(", ");
-    let wardName;
-    let coordinates;
+    let wardName = "";
+    let coordinates: number[] = [0, 0];
 
     try {
       // Get coordinates for the full address
@@ -734,32 +763,6 @@ const Profile = () => {
     }
 
     return { ward: wardName, coordinates };
-  };
-
-  const getCoordinates = async (address: string) => {
-    try {
-      const token = await auth.currentUser?.getIdToken();
-      const response = await fetch("https://geocode-addresses-endpoint-lzrplp4tfa-uc.a.run.app", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          addresses: [address],
-        }),
-      });
-
-      //API returns {[coordinates[]]} so destructure and return index 0
-      if (response.ok) {
-        const json = await response.json();
-        const { coordinates } = json;
-        return coordinates[0];
-      }
-    } catch (error) {
-      //[0,0] is an invalid coordinate handled in DelivertSpreadsheet.tsx
-      return [0, 0];
-    }
   };
 
   const toggleFieldEdit = (fieldName: ClientProfileKey) => {
@@ -1255,7 +1258,13 @@ const Profile = () => {
       const { ward: fetchedWard, coordinates: fetchedCoordinates } = await getWardAndCoordinates(
         clientProfile.address
       );
-      const coordinatesToSave = fetchedCoordinates;
+      const hasValidCoordinates =
+        Array.isArray(fetchedCoordinates) &&
+        fetchedCoordinates.length === 2 &&
+        (fetchedCoordinates[0] !== 0 || fetchedCoordinates[1] !== 0);
+      const coordinatesToSave = hasValidCoordinates
+        ? [{ lat: fetchedCoordinates[0], lng: fetchedCoordinates[1] }]
+        : [];
       // Update the ward state
       clientProfile.ward = fetchedWard;
       setWard(fetchedWard);
@@ -2497,7 +2506,7 @@ const Profile = () => {
         setIsAddressValidated(true);
       });
     }
-  }, [isGoogleApiLoaded, isEditing]);
+  }, [isGoogleApiLoaded, isEditing, getWard]);
 
   // Debounced ward lookup for manually typed addresses
   useEffect(() => {
@@ -2520,7 +2529,7 @@ const Profile = () => {
     }, 1500); // Wait 1.5 seconds after user stops typing
 
     return () => clearTimeout(timeoutId);
-  }, [clientProfile.address, isEditing, prevClientProfile?.address]);
+  }, [clientProfile.address, isEditing, prevClientProfile?.address, getWard]);
 
   // Remove any stray {fieldPath === 'address' ...} JSX outside renderField
 

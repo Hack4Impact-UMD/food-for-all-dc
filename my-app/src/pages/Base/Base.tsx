@@ -32,6 +32,11 @@ import { UserType } from "../../types";
 
 const drawerWidth = "20%";
 
+const BASE_NAV_ITEMS = [
+  { text: "Clients", icon: <StorageIcon />, link: "/clients" },
+  { text: "Calendar", icon: <CalendarTodayIcon />, link: "/calendar" },
+];
+
 const Main = styled("main", { shouldForwardProp: (prop) => prop !== "open" })<{
   open?: boolean;
   isMobile?: boolean;
@@ -166,16 +171,9 @@ export default function BasePage() {
     }
   };
 
-  // Define base navigation items
-  const baseNavItems = [
-    { text: "Clients", icon: <StorageIcon />, link: "/clients" },
-    { text: "Calendar", icon: <CalendarTodayIcon />, link: "/calendar" },
-    // Delivery item added conditionally below
-  ];
-
   // Conditionally add items based on role
   const navItems = useMemo(() => {
-    const items = [...baseNavItems];
+    const items = [...BASE_NAV_ITEMS];
 
     items.push({ text: "Routes", icon: <LocalShippingIcon />, link: "/routes" });
 

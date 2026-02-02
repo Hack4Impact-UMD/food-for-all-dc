@@ -12,14 +12,14 @@ enum AutoLogoutType {
   LOGOUT,
 }
 
+const ONE_HOUR = 60 * 60 * 1000;
+const FIFTY_NINE_AND_A_HALF_MINUTES = 59.5 * 60 * 1000;
+
 const AutoLogout = () => {
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const warningRef = useRef<NodeJS.Timeout | null>(null);
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
   const [type, setType] = useState<AutoLogoutType>(AutoLogoutType.NONE);
-
-  const ONE_HOUR = 60 * 60 * 1000;
-  const FIFTY_NINE_AND_A_HALF_MINUTES = 59.5 * 60 * 1000;
 
   //dynamic dialog settings
   const isLogout = type === AutoLogoutType.LOGOUT;

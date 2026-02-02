@@ -116,6 +116,41 @@ const StyleChip = styled(Chip)({
   WebkitUserSelect: "text",
 });
 
+const CLUSTER_COLORS = [
+  "#FF0000",
+  "#00FF00",
+  "#0000FF",
+  "#FFFF00",
+  "#FF00FF",
+  "#00FFFF",
+  "#FFA500",
+  "#800080",
+  "#008000",
+  "#000080",
+  "#FF4500",
+  "#8B4513",
+  "#2E8B57",
+  "#1E90FF",
+  "#8A2BE2",
+  "#FF1493",
+  "#32CD32",
+  "#FFD700",
+  "#FF6347",
+  "#4682B4",
+  "#DA70D6",
+  "#A52A2A",
+  "#5F9EA0",
+  "#D2691E",
+  "#9ACD32",
+  "#6495ED",
+  "#DC143C",
+  "#00CED1",
+  "#B22222",
+  "#228B22",
+  "#4B0082",
+  "#BDB76B",
+];
+
 // Define a type for fields that can either be computed or direct keys of DeliveryRowData
 type Field =
   | {
@@ -430,7 +465,7 @@ const DeliverySpreadsheet: React.FC = () => {
   // Suppress highlight clearing when switching rows/popups
   const suppressClearHighlightRef = React.useRef(false);
 
-  const normalizeClusters = (clusters: Cluster[]): Cluster[] => {
+  const normalizeClusters = React.useCallback((clusters: Cluster[]): Cluster[] => {
     const nonEmptyClusters = clusters.filter(
       (cluster: Cluster) => (cluster.deliveries?.length ?? 0) > 0
     );
@@ -439,13 +474,13 @@ const DeliverySpreadsheet: React.FC = () => {
         index === self.findIndex((c: Cluster) => c.id === cluster.id)
     );
     return deduplicated.sort((a, b) => parseInt(a.id, 10) - parseInt(b.id, 10));
-  };
+  }, []);
 
-  const setClusters = (clusters: Cluster[]): Cluster[] => {
+  const setClusters = React.useCallback((clusters: Cluster[]): Cluster[] => {
     const normalizedClusters = normalizeClusters(clusters);
     setClustersOriginal(normalizedClusters);
     return normalizedClusters;
-  };
+  }, [normalizeClusters]);
 
   const parseDateFromUrl = (dateString: string | null): Date => {
     return deliveryDate.parseDateParam(dateString);
@@ -569,39 +604,7 @@ const DeliverySpreadsheet: React.FC = () => {
     }
   };
 
-  const clusterColors = [
-    "#FF0000",
-    "#00FF00",
-    "#0000FF",
-    "#FFFF00",
-    "#FF00FF",
-    "#00FFFF",
-    "#FFA500",
-    "#800080",
-    "#008000",
-    "#000080",
-    "#FF4500",
-    "#4B0082",
-    "#FF6347",
-    "#32CD32",
-    "#9370DB",
-    "#FF69B4",
-    "#40E0D0",
-    "#FF8C00",
-    "#7CFC00",
-    "#8A2BE2",
-    "#FF1493",
-    "#1E90FF",
-    "#228B22",
-    "#9400D3",
-    "#DC143C",
-    "#20B2AA",
-    "#9932CC",
-    "#FFD700",
-    "#8B0000",
-    "#4169E1",
-  ];
-  const clusterColorMap = (id: string): string => {
+  const clusterColorMap = React.useCallback((id: string): string => {
     const clusterId = id || "";
     let colorIndex = 0;
 
@@ -613,19 +616,19 @@ const DeliverySpreadsheet: React.FC = () => {
       const match = clusterIdStr.match(/\d+/);
       const clusterNumber = match ? parseInt(match[0], 10) : NaN;
       if (!isNaN(clusterNumber) && clusterNumber > 0) {
-        colorIndex = (clusterNumber - 1) % clusterColors.length; // Use number-1 for 0-based index
+        colorIndex = (clusterNumber - 1) % CLUSTER_COLORS.length; // Use number-1 for 0-based index
       } else {
         // Fallback for non-numeric IDs or parsing failures - hash the ID
         let hash = 0;
         for (let i = 0; i < clusterIdStr.length; i++) {
           hash = clusterIdStr.charCodeAt(i) + ((hash << 5) - hash);
         }
-        colorIndex = Math.abs(hash) % clusterColors.length;
+        colorIndex = Math.abs(hash) % CLUSTER_COLORS.length;
       }
     }
 
-    return clusterColors[colorIndex];
-  };
+    return CLUSTER_COLORS[colorIndex];
+  }, []);
 
   // Calculate Cluster Options
   // Extend type for cluster options
@@ -648,11 +651,11 @@ const DeliverySpreadsheet: React.FC = () => {
       });
     }
     return options;
-  }, [clusters]);
+  }, [clusters, clusterColorMap]);
 
   // fetch deliveries for the selected date
   // Centralized event query for deliveries
-  const fetchDeliveriesForDate = async (dateForFetch: Date) => {
+  const fetchDeliveriesForDate = React.useCallback(async (dateForFetch: Date) => {
     setIsLoadingDeliveries(true);
 
     try {
@@ -718,14 +721,14 @@ const DeliverySpreadsheet: React.FC = () => {
     } finally {
       setIsLoadingDeliveries(false);
     }
-  };
+  }, [clientsFromContext, selectedDate]);
 
   //when the user changes the date, fetch the deliveries for that date
   useEffect(() => {
     const currentFetchDate = selectedDate; // Capture date at effect run time
     fetchDeliveriesForDate(currentFetchDate);
     // No explicit cleanup needed with the check inside the async function
-  }, [selectedDate]);
+  }, [selectedDate, fetchDeliveriesForDate]);
 
   // Refresh deliveries when they are modified elsewhere in the app
   useEffect(() => {
@@ -733,7 +736,7 @@ const DeliverySpreadsheet: React.FC = () => {
       fetchDeliveriesForDate(selectedDate);
     });
     return unsubscribe;
-  }, [selectedDate]);
+  }, [selectedDate, fetchDeliveriesForDate]);
 
   useEffect(() => {
     const fetchDataAndGeocode = async () => {
@@ -796,11 +799,6 @@ const DeliverySpreadsheet: React.FC = () => {
     // Only depends on deliveriesForDate. isLoading is managed internally.
   }, [deliveriesForDate]);
 
-  //get clusters
-  useEffect(() => {
-    fetchClustersFromToday(selectedDate);
-  }, [selectedDate]);
-
   // Route Protection
   React.useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user: any) => {
@@ -817,7 +815,7 @@ const DeliverySpreadsheet: React.FC = () => {
 
   // Helper function to determine if a field is a regular (non-computed) field
 
-  const fetchClustersFromToday = async (dateForFetch: Date) => {
+  const fetchClustersFromToday = React.useCallback(async (dateForFetch: Date) => {
     try {
       // account for timezone issues
       const startDate = new Date(
@@ -884,7 +882,12 @@ const DeliverySpreadsheet: React.FC = () => {
         setClientOverrides([]);
       }
     }
-  };
+  }, [selectedDate, setClusters]);
+
+  //get clusters
+  useEffect(() => {
+    fetchClustersFromToday(selectedDate);
+  }, [selectedDate, fetchClustersFromToday]);
 
   // handle search input change
   const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -2237,7 +2240,7 @@ const DeliverySpreadsheet: React.FC = () => {
     });
 
     setRows(synchronizedRows);
-  }, [rawClientData, clusters]);
+  }, [rawClientData, clusters, deliveriesForDate]);
 
   // TableVirtuoso MUI integration components
   const TableComponent = React.forwardRef<HTMLTableElement, React.ComponentProps<typeof Table>>(

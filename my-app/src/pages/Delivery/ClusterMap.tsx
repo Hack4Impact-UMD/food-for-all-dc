@@ -315,7 +315,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
   }, [clusters, getClusterColor, getTextColorForBackground]);
 
   // Function to fetch DC ward boundaries from ArcGIS REST service
-  const fetchWardBoundaries = async () => {
+  const fetchWardBoundaries = useCallback(async () => {
     if (wardData) return wardData; // Return cached data if available
 
     setWardDataLoading(true);
@@ -343,7 +343,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
     } finally {
       setWardDataLoading(false);
     }
-  };
+  }, [wardData]);
 
   // Fetch drivers from Firebase
   useEffect(() => {
@@ -358,7 +358,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
   }, [refreshDriversTrigger, fetchDrivers]);
 
   // Function to add ward overlays to the map
-  const addWardOverlays = async () => {
+  const addWardOverlays = useCallback(async () => {
     if (!mapRef.current || !wardLayerGroupRef.current) return;
 
     const boundaries = wardData || (await fetchWardBoundaries());
@@ -410,7 +410,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
         polygon.addTo(wardLayerGroupRef.current);
       }
     });
-  };
+  }, [fetchWardBoundaries, wardData]);
 
   // Function to remove ward overlays
   const removeWardOverlays = () => {
@@ -450,7 +450,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
       // Create marker layer group
       markerGroupRef.current = L.featureGroup().addTo(mapRef.current);
     }
-  }, [onOpenPopup]);
+  }, [visibleRows.length]);
 
   // Handle external popup open requests
   React.useEffect(() => {
@@ -534,7 +534,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
     if (mapRef.current && wardLayerGroupRef.current && showWardOverlays) {
       addWardOverlays();
     }
-  }, [showWardOverlays, mapRef.current, wardLayerGroupRef.current]);
+  }, [showWardOverlays, addWardOverlays]);
 
   useEffect(() => {
     if (!mapRef.current || !markerGroupRef.current || visibleRows.length < 1) return;

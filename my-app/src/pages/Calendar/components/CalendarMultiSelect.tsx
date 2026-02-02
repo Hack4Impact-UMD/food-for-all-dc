@@ -20,11 +20,12 @@ const CalendarMultiSelect: React.FC<CalendarMultiSelectProps> = ({
   minDate,
 }) => {
   const [dateInput, setDateInput] = useState<Date | null>(null);
+  const shouldResetDateInput = selectedDates.length === 0;
 
   // Reset date input when dialog opens (when selectedDates is reset)
   useEffect(() => {
     setDateInput(null);
-  }, [selectedDates.length === 0]);
+  }, [shouldResetDateInput]);
   const [dateError, setDateError] = useState<string | null>(null);
 
   const handleAddDate = (date: Date | null) => {
