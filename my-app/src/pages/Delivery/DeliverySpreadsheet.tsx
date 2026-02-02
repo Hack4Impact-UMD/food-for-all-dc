@@ -1188,10 +1188,17 @@ const DeliverySpreadsheet: React.FC = () => {
       if (isSameCluster) {
         updatedClusters = updatedClusters.map((cluster) => {
           if (cluster.id === oldClusterId) {
+            const updates: Partial<typeof cluster> = {};
+            // Only update fields that are explicitly provided
+            if (newDriver !== undefined) {
+              updates.driver = newDriver;
+            }
+            if (newTime !== undefined) {
+              updates.time = newTime;
+            }
             return {
               ...cluster,
-              driver: newDriver ?? "",
-              time: newTime ?? "",
+              ...updates,
             };
           }
           return cluster;
@@ -1204,7 +1211,15 @@ const DeliverySpreadsheet: React.FC = () => {
         updatedOverrides = updatedOverrides
           .map((override) => {
             if (affectedClientIds.has(override.clientId)) {
-              return { ...override, driver: undefined, time: undefined };
+              const updates: Partial<typeof override> = {};
+              // Only clear overrides for fields that are being updated at cluster level
+              if (newDriver !== undefined) {
+                updates.driver = undefined;
+              }
+              if (newTime !== undefined) {
+                updates.time = undefined;
+              }
+              return { ...override, ...updates };
             }
             return override;
           })
