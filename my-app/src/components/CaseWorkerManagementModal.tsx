@@ -98,6 +98,19 @@ const SORT_LABEL_STYLES = {
   },
 };
 
+const COLUMN_SX = {
+  name: { width: "22%", minWidth: 160 },
+  organization: { width: "22%", minWidth: 160 },
+  phone: { width: "18%", minWidth: 140 },
+  email: { width: "28%", minWidth: 200, overflowWrap: "anywhere", wordBreak: "break-word" },
+  actions: { width: 120, minWidth: 120, textAlign: "right" as const },
+};
+
+const WRAP_TEXT_SX = {
+  overflowWrap: "anywhere",
+  wordBreak: "break-word",
+};
+
 const VirtuosoTableScroller = forwardRef<HTMLDivElement>((props, ref) => (
   <TableContainer
     component={Paper}
@@ -293,7 +306,7 @@ const CaseWorkerManagementModal: React.FC<CaseWorkerManagementModalProps> = ({
   const renderRow = useCallback(
     (_: number, cw: CaseWorker) => (
       <>
-        <TableCell>
+        <TableCell sx={COLUMN_SX.name}>
           {editingCaseWorker?.id === cw.id ? (
             <TextField
               value={editingCaseWorker.name}
@@ -314,7 +327,7 @@ const CaseWorkerManagementModal: React.FC<CaseWorkerManagementModalProps> = ({
             </Typography>
           )}
         </TableCell>
-        <TableCell>
+        <TableCell sx={COLUMN_SX.organization}>
           {editingCaseWorker?.id === cw.id ? (
             <TextField
               value={editingCaseWorker.organization}
@@ -330,12 +343,12 @@ const CaseWorkerManagementModal: React.FC<CaseWorkerManagementModalProps> = ({
               }}
             />
           ) : (
-            <Typography sx={{ color: "var(--color-text-medium-alt)" }}>
+            <Typography sx={{ color: "var(--color-text-medium-alt)", ...WRAP_TEXT_SX }}>
               {cw.organization}
             </Typography>
           )}
         </TableCell>
-        <TableCell>
+        <TableCell sx={COLUMN_SX.phone}>
           {editingCaseWorker?.id === cw.id ? (
             <TextField
               value={editingCaseWorker.phone}
@@ -356,7 +369,7 @@ const CaseWorkerManagementModal: React.FC<CaseWorkerManagementModalProps> = ({
             </Typography>
           )}
         </TableCell>
-        <TableCell>
+        <TableCell sx={COLUMN_SX.email}>
           {editingCaseWorker?.id === cw.id ? (
             <TextField
               value={editingCaseWorker.email}
@@ -372,11 +385,13 @@ const CaseWorkerManagementModal: React.FC<CaseWorkerManagementModalProps> = ({
               }}
             />
           ) : (
-            <Typography sx={{ color: "var(--color-text-medium-alt)" }}>{cw.email}</Typography>
+            <Typography sx={{ color: "var(--color-text-medium-alt)", ...WRAP_TEXT_SX }}>
+              {cw.email}
+            </Typography>
           )}
         </TableCell>
-        <TableCell>
-          <Box sx={{ display: "flex", gap: 1 }}>
+        <TableCell sx={COLUMN_SX.actions}>
+          <Box sx={{ display: "flex", gap: 1, justifyContent: "flex-end" }}>
             {editingCaseWorker?.id === cw.id ? (
               <>
                 <IconButton
@@ -575,7 +590,9 @@ const CaseWorkerManagementModal: React.FC<CaseWorkerManagementModalProps> = ({
             components={VirtuosoTableComponents}
             fixedHeaderContent={() => (
               <TableRow sx={{ backgroundColor: "rgba(0, 0, 0, 0.02)" }}>
-                <TableCell sx={{ fontWeight: 600, color: "var(--color-text-heading)" }}>
+                <TableCell
+                  sx={{ ...COLUMN_SX.name, fontWeight: 600, color: "var(--color-text-heading)" }}
+                >
                   <TableSortLabel
                     active={sortField === "name"}
                     direction={sortField === "name" ? sortDirection : "asc"}
@@ -585,7 +602,13 @@ const CaseWorkerManagementModal: React.FC<CaseWorkerManagementModalProps> = ({
                     Case Worker
                   </TableSortLabel>
                 </TableCell>
-                <TableCell sx={{ fontWeight: 600, color: "var(--color-text-heading)" }}>
+                <TableCell
+                  sx={{
+                    ...COLUMN_SX.organization,
+                    fontWeight: 600,
+                    color: "var(--color-text-heading)",
+                  }}
+                >
                   <TableSortLabel
                     active={sortField === "organization"}
                     direction={sortField === "organization" ? sortDirection : "asc"}
@@ -595,7 +618,9 @@ const CaseWorkerManagementModal: React.FC<CaseWorkerManagementModalProps> = ({
                     Organization
                   </TableSortLabel>
                 </TableCell>
-                <TableCell sx={{ fontWeight: 600, color: "var(--color-text-heading)" }}>
+                <TableCell
+                  sx={{ ...COLUMN_SX.phone, fontWeight: 600, color: "var(--color-text-heading)" }}
+                >
                   <TableSortLabel
                     active={sortField === "phone"}
                     direction={sortField === "phone" ? sortDirection : "asc"}
@@ -605,7 +630,9 @@ const CaseWorkerManagementModal: React.FC<CaseWorkerManagementModalProps> = ({
                     Phone Number
                   </TableSortLabel>
                 </TableCell>
-                <TableCell sx={{ fontWeight: 600, color: "var(--color-text-heading)" }}>
+                <TableCell
+                  sx={{ ...COLUMN_SX.email, fontWeight: 600, color: "var(--color-text-heading)" }}
+                >
                   <TableSortLabel
                     active={sortField === "email"}
                     direction={sortField === "email" ? sortDirection : "asc"}
@@ -616,7 +643,11 @@ const CaseWorkerManagementModal: React.FC<CaseWorkerManagementModalProps> = ({
                   </TableSortLabel>
                 </TableCell>
                 <TableCell
-                  sx={{ fontWeight: 600, color: "var(--color-text-heading)", width: "120px" }}
+                  sx={{
+                    ...COLUMN_SX.actions,
+                    fontWeight: 600,
+                    color: "var(--color-text-heading)",
+                  }}
                 >
                   Actions
                 </TableCell>
