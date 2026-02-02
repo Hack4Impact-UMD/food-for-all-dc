@@ -107,7 +107,7 @@ const VirtuosoTableScroller = forwardRef<HTMLDivElement>((props, ref) => (
       boxShadow: "none",
       border: "1px solid rgba(0, 0, 0, 0.12)",
       borderRadius: "8px",
-      height: 520,
+      minHeight: 520,
       maxHeight: "60vh",
       "& .MuiTableCell-root": {
         py: 2,
@@ -384,7 +384,7 @@ const CaseWorkerManagementModal: React.FC<CaseWorkerManagementModalProps> = ({
                   <Check />
                 </IconButton>
                 <IconButton
-                  onClick={() => setEditingCaseWorker(null)}
+                  onClick={handleCancelEdit}
                   sx={{
                     color: "error.main",
                     "&:hover": {
@@ -399,7 +399,7 @@ const CaseWorkerManagementModal: React.FC<CaseWorkerManagementModalProps> = ({
             ) : (
               <>
                 <IconButton
-                  onClick={() => setEditingCaseWorker(cw)}
+                  onClick={() => handleStartEdit(cw)}
                   sx={{
                     color: "var(--color-primary)",
                     "&:hover": {
