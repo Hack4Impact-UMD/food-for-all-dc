@@ -272,6 +272,16 @@ const CaseWorkerManagementModal: React.FC<CaseWorkerManagementModalProps> = ({
     setDeleteDialogOpen(true);
   }, []);
 
+  const handleStartEdit = useCallback((caseWorker: CaseWorker) => {
+    setEditingCaseWorker(caseWorker);
+    setEditErrors({});
+  }, []);
+
+  const handleCancelEdit = useCallback(() => {
+    setEditingCaseWorker(null);
+    setEditErrors({});
+  }, []);
+
   const handleDeleteConfirm = async () => {
     if (caseWorkerToDelete) {
       await handleDeleteCaseWorker(caseWorkerToDelete.id);
@@ -432,8 +442,10 @@ const CaseWorkerManagementModal: React.FC<CaseWorkerManagementModalProps> = ({
       editErrors,
       editingCaseWorker,
       handleCaseWorkerSubmit,
+      handleCancelEdit,
       handleDeleteClick,
       handleEditCaseWorkerChange,
+      handleStartEdit,
     ]
   );
 
