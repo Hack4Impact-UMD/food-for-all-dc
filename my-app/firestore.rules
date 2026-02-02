@@ -30,9 +30,10 @@ service cloud.firestore {
     // Collection Rules
     // ===========================
 
-    // Users collection - only admins can modify, all authenticated can read
+    // Users collection - admins/managers can list, users can read their own doc
     match /users/{userId} {
-      allow read: if isAuthenticated();
+      allow get: if isAdminOrManager() || request.auth.uid == userId;
+      allow list: if isAdminOrManager();
       allow create: if isAdminOrManager();
       allow update: if isAdminOrManager();
       allow delete: if isAdmin(); // Only Admin can delete users
