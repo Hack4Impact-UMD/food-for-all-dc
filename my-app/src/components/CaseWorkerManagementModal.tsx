@@ -589,9 +589,19 @@ const CaseWorkerManagementModal: React.FC<CaseWorkerManagementModalProps> = ({
             data={sortedCaseWorkers}
             components={VirtuosoTableComponents}
             fixedHeaderContent={() => (
-              <TableRow sx={{ backgroundColor: "rgba(0, 0, 0, 0.02)" }}>
+              <TableRow
+                sx={{
+                  backgroundColor: "var(--color-background-main)",
+                  boxShadow: "0 1px 0 rgba(0, 0, 0, 0.08)",
+                }}
+              >
                 <TableCell
-                  sx={{ ...COLUMN_SX.name, fontWeight: 600, color: "var(--color-text-heading)" }}
+                  sx={{
+                    ...COLUMN_SX.name,
+                    fontWeight: 600,
+                    color: "var(--color-text-heading)",
+                    backgroundColor: "var(--color-background-main)",
+                  }}
                 >
                   <TableSortLabel
                     active={sortField === "name"}
@@ -607,6 +617,7 @@ const CaseWorkerManagementModal: React.FC<CaseWorkerManagementModalProps> = ({
                     ...COLUMN_SX.organization,
                     fontWeight: 600,
                     color: "var(--color-text-heading)",
+                    backgroundColor: "var(--color-background-main)",
                   }}
                 >
                   <TableSortLabel
@@ -619,7 +630,12 @@ const CaseWorkerManagementModal: React.FC<CaseWorkerManagementModalProps> = ({
                   </TableSortLabel>
                 </TableCell>
                 <TableCell
-                  sx={{ ...COLUMN_SX.phone, fontWeight: 600, color: "var(--color-text-heading)" }}
+                  sx={{
+                    ...COLUMN_SX.phone,
+                    fontWeight: 600,
+                    color: "var(--color-text-heading)",
+                    backgroundColor: "var(--color-background-main)",
+                  }}
                 >
                   <TableSortLabel
                     active={sortField === "phone"}
@@ -631,7 +647,12 @@ const CaseWorkerManagementModal: React.FC<CaseWorkerManagementModalProps> = ({
                   </TableSortLabel>
                 </TableCell>
                 <TableCell
-                  sx={{ ...COLUMN_SX.email, fontWeight: 600, color: "var(--color-text-heading)" }}
+                  sx={{
+                    ...COLUMN_SX.email,
+                    fontWeight: 600,
+                    color: "var(--color-text-heading)",
+                    backgroundColor: "var(--color-background-main)",
+                  }}
                 >
                   <TableSortLabel
                     active={sortField === "email"}
@@ -647,6 +668,7 @@ const CaseWorkerManagementModal: React.FC<CaseWorkerManagementModalProps> = ({
                     ...COLUMN_SX.actions,
                     fontWeight: 600,
                     color: "var(--color-text-heading)",
+                    backgroundColor: "var(--color-background-main)",
                   }}
                 >
                   Actions
