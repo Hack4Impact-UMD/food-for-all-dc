@@ -53,6 +53,9 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
   const [formError, setFormError] = useState<string>("");
   const [searchResults, setSearchResults] = useState<ClientSearchResult[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
+  const [selectedClientProfile, setSelectedClientProfile] = useState<ClientProfile | null>(
+    preSelectedClient?.clientProfile ?? null
+  );
 
   // Always update newDelivery client info from preSelectedClient when modal opens
   useEffect(() => {
@@ -68,6 +71,7 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
       } else {
         setClientStartDateISO(null);
       }
+      setSelectedClientProfile(preSelectedClient.clientProfile);
       setNewDelivery((prev) => ({
         ...prev,
         clientId: preSelectedClient.clientId,
@@ -338,6 +342,7 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
             | "Custom") || "None",
         repeatsEndDate: convertToMMDDYYYY(preSelectedClient.clientProfile.endDate || ""),
       });
+      setSelectedClientProfile(preSelectedClient.clientProfile);
     } else {
       setNewDelivery({
         clientId: "",
@@ -346,6 +351,7 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
         recurrence: "None",
         repeatsEndDate: "",
       });
+      setSelectedClientProfile(null);
     }
     setCustomDates([]);
     setStartDateError("");
@@ -357,6 +363,10 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
     setFormError("");
     if (!newDelivery.clientName || newDelivery.clientName.trim() === "") {
       setFormError("Please select a client");
+      return;
+    }
+    if (!selectedClientProfile?.tefapCert?.trim()) {
+      setFormError("Cannot schedule a delivery until the TEFAP cert is set for this profile.");
       return;
     }
     if (
@@ -607,6 +617,7 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
                     clientId: "",
                     clientName: "",
                   });
+                  setSelectedClientProfile(null);
                 } else {
                   const fullClient = await clientService.getClientById(newValue.uid);
                   if (!fullClient) return;
@@ -621,6 +632,7 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
                     ? deliveryDate.tryToISODateString(fullClient.startDate)
                     : null;
                   setClientStartDateISO(startISO);
+                  setSelectedClientProfile(fullClient);
 
                   const defaultEndDate = (() => {
                     const oneMonthFromNow = new Date();
