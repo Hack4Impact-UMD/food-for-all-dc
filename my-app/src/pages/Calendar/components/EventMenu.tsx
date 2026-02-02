@@ -123,7 +123,7 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
     const fetchClientStartDate = async () => {
       if (!event.clientId) return;
       try {
-        const client = await clientService.getInstance().getClientById(event.clientId);
+        const client = await clientService.getClientById(event.clientId);
         if (!isActive) return;
         const startISO = client?.startDate
           ? deliveryDate.tryToISODateString(client.startDate)
