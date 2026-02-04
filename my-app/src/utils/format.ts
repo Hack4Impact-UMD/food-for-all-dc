@@ -10,12 +10,12 @@ import { DietaryRestrictions } from "../types";
  * @returns The formatted phone number
  */
 export const formatPhoneNumber = (phone: string): string => {
-  const cleaned = ("" + phone).replace(/\D/g, ""); // Remove non-numeric characters
-  const match = cleaned.match(/^(\d{3})(\d{3})(\d{4})$/); // Match the phone number pattern
+  const cleaned = ("" + phone).replace(/\D/g, "");
+  const match = cleaned.match(/^(\d{3})(\d{3})(\d{4})$/);
   if (match) {
-    return `(${match[1]})-${match[2]}-${match[3]}`; // Format as (xxx)-xxx-xxxx
+    return `(${match[1]})-${match[2]}-${match[3]}`;
   }
-  return phone; // Return the original phone if it doesn't match the pattern
+  return phone;
 };
 
 /**
@@ -50,6 +50,6 @@ export const formatDietaryRestrictions = (restrictions: DietaryRestrictions): st
 
 export function formatCamelToTitle(key: string): string {
   return key
-    .replace(/([a-z])([A-Z])/g, "$1 $2") // add space before capital letters
-    .replace(/^./, (str) => str.toUpperCase()); // capitalize first letter
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/^./, (str) => str.toUpperCase());
 }

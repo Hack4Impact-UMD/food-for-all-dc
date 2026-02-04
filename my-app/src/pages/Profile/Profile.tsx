@@ -2622,9 +2622,6 @@ const Profile = () => {
         )
       );
 
-      // ...existing code...
-      // Example usage: <Button onClick={handleSave}>Save</Button>
-
       // 2. CALCULATE ALL DATES FOR THIS DELIVERY SERIES
       let allDates: Date[] = [];
       const recurrenceId = crypto.randomUUID();
@@ -2641,12 +2638,10 @@ const Profile = () => {
               );
       }
 
-      // ...existing code...
 
       // 3. CHECK IF THIS IS ACTUALLY CHANGING AN END DATE (not just adding deliveries with an end date)
       // Only delete if the new end date is DIFFERENT from what already exists
       if (newDelivery.repeatsEndDate && existingDeliveries.length > 0) {
-        // ...existing code...
         // Get existing end dates from the database
         const existingEndDates = [
           ...new Set(
@@ -2654,21 +2649,18 @@ const Profile = () => {
           ),
         ];
 
-        // ...existing code...
 
         // Only delete if we're changing to a DIFFERENT end date
         const isDifferentEndDate =
           existingEndDates.length > 0 && !existingEndDates.includes(newDelivery.repeatsEndDate);
 
         if (isDifferentEndDate) {
-          // ...existing code...
           const deletePromises: Promise<any>[] = [];
 
           // CONVERT NEW END DATE TO YYYY-MM-DD FORMAT FOR PROPER COMPARISON
           const newEndDateFormatted = deliveryDate.toISODateString(newDelivery.repeatsEndDate);
           const today = deliveryDate.toISODateString(new Date());
 
-          // ...existing code...
 
           for (const event of existingDeliveries) {
             const eventDateStr = new DayPilot.Date(toJSDate(event.deliveryDate)).toString(
@@ -2677,13 +2669,10 @@ const Profile = () => {
             const isAfterEndDate = eventDateStr > newEndDateFormatted;
             const isFutureDate = eventDateStr >= today;
 
-            // ...existing code...
 
             if (isAfterEndDate && isFutureDate) {
-              // ...existing code...
               deletePromises.push(deleteDoc(doc(eventsRef, event.id)));
             } else {
-              // ...existing code...
             }
           }
 
@@ -2691,10 +2680,8 @@ const Profile = () => {
             await Promise.all(deletePromises);
           }
         } else {
-          // ...existing code...
         }
       } else {
-        // ...existing code...
       } // 4. SKIP EXISTING DATES, CREATE NEW DATES
       const newDates = allDates.filter((date) => {
         const dateStr = new DayPilot.Date(date).toString("yyyy-MM-dd");
