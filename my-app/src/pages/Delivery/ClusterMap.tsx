@@ -812,7 +812,6 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
 
         if (editBtn) {
           editBtn.addEventListener("click", () => {
-            // ...existing code...
             // Capture initial values when entering edit mode
             if (clusterSelect) initialClusterId = clusterSelect.value;
             if (driverSelect) initialDriver = driverSelect.value;

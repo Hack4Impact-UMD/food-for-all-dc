@@ -57,7 +57,6 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
     preSelectedClient?.clientProfile ?? null
   );
 
-  // Always update newDelivery client info from preSelectedClient when modal opens
   useEffect(() => {
     if (open && preSelectedClient) {
       let name = preSelectedClient.clientName;
@@ -80,14 +79,10 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
     }
   }, [open, preSelectedClient]);
 
-  // Helper to set time to 12:00:00 PM
-  // ...existing code...
-
-  // Helper to convert date to MM/DD/YYYY format for DateField
   const convertToMMDDYYYY = (dateStr: string): string => {
     if (!dateStr) return "";
     if (dateStr.match(/^\d{2}\/\d{2}\/\d{4}$/)) {
-      return dateStr; // Already in MM/DD/YYYY format
+      return dateStr;
     }
     if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
       const [year, month, day] = dateStr.split("-");
@@ -96,7 +91,6 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
     return dateStr;
   };
 
-  // Helper to convert DayPilot.Date to YYYY-MM-DD format for date input
   const convertToYYYYMMDD = (dayPilotDate: DayPilot.Date): string => {
     try {
       return dayPilotDate.toString("yyyy-MM-dd");
@@ -153,7 +147,6 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
     };
   });
 
-  // Update delivery date when startDate changes (calendar navigation)
   useEffect(() => {
     if (open) {
       const defaultDate = convertToYYYYMMDD(startDate);
@@ -171,21 +164,15 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
   const [customDates, setCustomDates] = useState<Date[]>([]);
   const [startDateError, setStartDateError] = useState<string>("");
   const [endDateError, setEndDateError] = useState<string>("");
-  // ...existing code...
 
-  // Clear formError when any relevant field changes
   useEffect(() => {
     setFormError("");
   }, [newDelivery, customDates, startDateError, endDateError]);
-  // Track if all required fields are filled and valid
-  // Only require visible fields for the current recurrence type
   const isFormValid = (() => {
     const isValidDateFormat = (dateStr: string) => {
       if (!dateStr) return false;
-      // Accept MM/DD/YYYY or YYYY-MM-DD
       return /^\d{2}\/\d{2}\/\d{4}$/.test(dateStr) || /^\d{4}-\d{2}-\d{2}$/.test(dateStr);
     };
-    // If any visible error is present, form is invalid
     if (typeof formError === "string" && formError.trim() !== "") return false;
     if (!newDelivery.clientName) return false;
     const hasStartDateError = typeof startDateError === "string" && startDateError.trim() !== "";
@@ -274,8 +261,6 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
     }
   }, [open, preSelectedClient, handleClientSearch]);
 
-  // Fetch current last delivery date when client is selected or modal opens
-
   useEffect(() => {
     const fetchCurrentLastDeliveryDate = async () => {
       if (newDelivery.clientId && open) {
@@ -308,7 +293,6 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
         newDelivery.repeatsEndDate
       );
       setStartDateError(validation.startDateError || "");
-      // Validate end date format
       const endDateFormatValid =
         /^\d{2}\/\d{2}\/\d{4}$/.test(newDelivery.repeatsEndDate) ||
         /^\d{4}-\d{2}-\d{2}$/.test(newDelivery.repeatsEndDate);
@@ -322,8 +306,6 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
       setEndDateError("");
     }
   }, [newDelivery.deliveryDate, newDelivery.repeatsEndDate, newDelivery.recurrence]);
-
-  //update newDelivery with the correct date when the dialog is first opened
 
   const resetFormAndClose = () => {
     const defaultDate = convertToYYYYMMDD(startDate);
@@ -529,7 +511,7 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
                   minWidth: "100%",
                 },
                 ".MuiAutocomplete-popupIndicator": {
-                  right: "30px !important", // moves the arrow left
+                  right: "30px !important",
                   top: "50%",
                   transform: "translateY(-50%)",
                   position: "absolute",
@@ -622,7 +604,6 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
                   const fullClient = await clientService.getClientById(newValue.uid);
                   if (!fullClient) return;
 
-                  // Prevent assigning deliveries to inactive profiles
                   if (fullClient.activeStatus === false) {
                     setFormError("Cannot add deliveries for an inactive profile.");
                     return;
@@ -726,7 +707,6 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
                 value={newDelivery.deliveryDate || ""}
                 onChange={(e) => {
                   const val = e.target.value;
-                  // Only allow valid yyyy-MM-dd date strings
                   const isValidDate = /^\d{4}-\d{2}-\d{2}$/.test(val);
                   if (!isValidDate) {
                     setNewDelivery({

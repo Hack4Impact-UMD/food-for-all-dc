@@ -100,7 +100,6 @@ class DeliveryService {
         const endDateTime = TimeUtils.fromJSDate(endDate).startOf("day");
         const startTimestamp = Time.Firebase.toTimestamp(startDateTime);
         const endTimestamp = Time.Firebase.toTimestamp(endDateTime);
-        // ...existing code...
         const q = query(
           collection(this.db, this.eventsCollection),
           where("deliveryDate", ">=", startTimestamp),
@@ -111,7 +110,6 @@ class DeliveryService {
         const events = querySnapshot.docs
           .map((doc) => {
             const raw = doc.data();
-            // ...existing code...
             const normalizedDate = deliveryDate.toJSDate(
               Time.Firebase.fromTimestamp(raw.deliveryDate).toJSDate()
             );
@@ -119,7 +117,6 @@ class DeliveryService {
             return validateDeliveryEvent(data) ? data : undefined;
           })
           .filter((event) => event !== undefined) as DeliveryEvent[];
-        // ...existing code...
         return events;
       });
     } catch (error) {

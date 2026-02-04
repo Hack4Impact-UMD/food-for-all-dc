@@ -46,7 +46,6 @@ const computeActiveStatus = (
 /**
  * Client Service - Handles all client-related operations with Firebase
  */
-// ...existing code...
 class ClientService {
   private static instance: ClientService;
   private db = db;
@@ -422,7 +421,6 @@ class ClientService {
    * Update an existing client
    */
   public async updateClient(uid: string, data: Partial<ClientProfile>): Promise<void> {
-    // ...existing code...
     try {
       await retry(async () => {
         await updateDoc(doc(this.db, this.clientsCollection, uid), {
@@ -473,7 +471,6 @@ class ClientService {
    * Update tags
    */
   public async updateTags(tags: string[]): Promise<void> {
-    // ...existing code...
     try {
       await retry(async () => {
         const sortedTags = [...tags].sort((a, b) => a.localeCompare(b));
@@ -492,7 +489,6 @@ class ClientService {
    * Update client's cluster ID
    */
   public async updateClientCluster(uid: string, clusterId: string): Promise<void> {
-    // ...existing code...
     try {
       await retry(async () => {
         await setDoc(
@@ -510,7 +506,6 @@ class ClientService {
    * Update the coordinates for a specific client
    */
   public async updateClientCoordinates(clientId: string, coordinates: LatLngTuple): Promise<void> {
-    // ...existing code...
     if (!clientId) {
       throw new ServiceError("Client ID is required to update coordinates.", "invalid-argument");
     }

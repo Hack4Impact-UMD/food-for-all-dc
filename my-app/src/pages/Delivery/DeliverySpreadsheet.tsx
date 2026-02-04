@@ -13,9 +13,6 @@ interface ClientOverride {
   driver?: string;
   time?: string;
 }
-// ...existing code...
-// ...existing code...
-// ...existing code...
 import React, { useState, useEffect, useMemo, Suspense } from "react";
 import AddCircleOutlineIcon from "@mui/icons-material/AddCircleOutline";
 import { getEventsByViewType } from "../Calendar/components/getEventsByViewType";
@@ -78,8 +75,6 @@ import { styled } from "@mui/material/styles";
 import { collection, getDocs, doc, setDoc } from "firebase/firestore";
 import { auth } from "../../auth/firebaseConfig";
 import { onAuthStateChanged } from "firebase/auth";
-// ...existing code...
-// Ensure clients are loaded for event query
 const ClusterMap = React.lazy(() => import("./ClusterMap"));
 import AssignDriverPopup from "./components/AssignDriverPopup";
 import GenerateClustersPopup from "./components/GenerateClustersPopup";
@@ -87,7 +82,6 @@ import AssignTimePopup from "./components/AssignTimePopup";
 import LoadingIndicator from "../../components/LoadingIndicator/LoadingIndicator";
 import { exportDeliveries, exportDoordashDeliveries } from "./RouteExport";
 import Button from "@mui/material/Button";
-// ...existing code...
 
 import DietaryRestrictionsLegend from "../../components/DietaryRestrictionsLegend";
 import { deliveryDate } from "../../utils/deliveryDate";
@@ -1288,7 +1282,6 @@ const DeliverySpreadsheet: React.FC = () => {
   };
 
   //Handle assigning driver
-  // ...existing code...
 
   const initClustersForDay = async (newClusters: Cluster[]) => {
     const docRef = doc(collection(db, dataSources.firebase.clustersCollection));

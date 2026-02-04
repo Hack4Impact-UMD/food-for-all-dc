@@ -165,11 +165,9 @@ const Spreadsheet: React.FC = () => {
     left: number;
   } | null>(null);
   const [menuRow, setMenuRow] = useState<RowData | null>(null);
-  // Remove selectedRowId if not used elsewhere
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const [clientIdToDelete, setClientIdToDelete] = useState<string | null>(null);
   const [clientNameToDelete, setClientNameToDelete] = useState<string>("");
-  // ...existing code...
   const customColumnsHook = useCustomColumns({ page: "Spreadsheet" });
   const customColumns = customColumnsHook.customColumns;
   const handleAddCustomColumn = customColumnsHook.handleAddCustomColumn;

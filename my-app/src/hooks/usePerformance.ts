@@ -1,6 +1,5 @@
 import React, { memo, useCallback, useMemo } from "react";
 
-// Higher-order component for performance optimization
 export function withPerformanceOptimization<P extends object>(
   Component: React.ComponentType<P>,
   propsAreEqual?: (prevProps: P, nextProps: P) => boolean
@@ -10,7 +9,6 @@ export function withPerformanceOptimization<P extends object>(
   return MemoizedComponent;
 }
 
-// Custom hook for stable callback references
 export function useStableCallback<T extends (...args: any[]) => any>(
   callback: T,
   deps: React.DependencyList
@@ -18,12 +16,10 @@ export function useStableCallback<T extends (...args: any[]) => any>(
   return useCallback(callback, [callback, ...deps]);
 }
 
-// Custom hook for expensive computations
 export function useExpensiveComputation<T>(compute: () => T, deps: React.DependencyList): T {
   return useMemo(compute, [compute, ...deps]);
 }
 
-// Performance monitoring hook
 export function usePerformanceMonitor(componentName: string) {
   const renderStart = useMemo(() => performance.now(), []);
 
@@ -31,14 +27,11 @@ export function usePerformanceMonitor(componentName: string) {
     const renderEnd = performance.now();
     const renderTime = renderEnd - renderStart;
 
-    if (renderTime > 16) {
-      // More than one frame (16ms)
-      // console.warn(`${componentName} render took ${renderTime.toFixed(2)}ms`);
-    }
+    void componentName;
+    void renderTime;
   });
 }
 
-// Debounce hook for performance
 export function useDebounce<T>(value: T, delay: number): T {
   const [debouncedValue, setDebouncedValue] = React.useState<T>(value);
 
@@ -55,7 +48,6 @@ export function useDebounce<T>(value: T, delay: number): T {
   return debouncedValue;
 }
 
-// Intersection Observer hook for lazy loading
 export function useIntersectionObserver(
   ref: React.RefObject<Element>,
   options: IntersectionObserverInit = {}

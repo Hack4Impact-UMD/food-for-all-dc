@@ -1,6 +1,3 @@
-// Centralized data transformation and validation for Firestore models
-// Add more as needed for each model type
-
 import { isValidEmail, isValidPhone } from "./validation";
 import { ClientProfile, Driver, DeliveryEvent, AuthUserRow } from "../types";
 import { Cluster } from "../pages/Delivery/types/deliveryTypes";
@@ -12,7 +9,7 @@ export function validateClientProfile(data: unknown): data is ClientProfile {
     (typeof d.uid === "string" || typeof d.id === "string") &&
     typeof d.firstName === "string" &&
     typeof d.lastName === "string"
-  ); // email is optional
+  );
 }
 
 export function validateDriver(data: unknown): data is Driver {
