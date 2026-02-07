@@ -14,73 +14,7 @@ class PerformanceMonitor {
   }
 
   constructor() {
-    this.initializeObservers();
-  }
-
-  private initializeObservers() {
-    if ("PerformanceObserver" in window) {
-      const navObserver = new PerformanceObserver((list) => {
-        const entries = list.getEntries();
-        entries.forEach((entry) => {
-          if (entry.entryType === "navigation") {
-            const navEntry = entry as PerformanceNavigationTiming;
-            this.recordMetric(
-              "navigation.domContentLoaded",
-              navEntry.domContentLoadedEventEnd - navEntry.domContentLoadedEventStart
-            );
-            this.recordMetric(
-              "navigation.loadComplete",
-              navEntry.loadEventEnd - navEntry.loadEventStart
-            );
-          }
-        });
-      });
-      navObserver.observe({ entryTypes: ["navigation"] });
-      this.observers.push(navObserver);
-
-      const resourceObserver = new PerformanceObserver((list) => {
-        const entries = list.getEntries();
-        entries.forEach((entry) => {
-          if (entry.entryType === "resource") {
-            const resourceEntry = entry as PerformanceResourceTiming;
-            this.recordMetric(`resource.${resourceEntry.name}`, resourceEntry.duration);
-          }
-        });
-      });
-      resourceObserver.observe({ entryTypes: ["resource"] });
-      this.observers.push(resourceObserver);
-
-      const lcpObserver = new PerformanceObserver((list) => {
-        const entries = list.getEntries();
-        const lastEntry = entries[entries.length - 1];
-        this.recordMetric("lcp", lastEntry.startTime);
-      });
-      lcpObserver.observe({ entryTypes: ["largest-contentful-paint"] });
-      this.observers.push(lcpObserver);
-
-      const fidObserver = new PerformanceObserver((list) => {
-        const entries = list.getEntries();
-        entries.forEach((entry) => {
-          const fidEntry = entry as any;
-          this.recordMetric("fid", fidEntry.processingStart - fidEntry.startTime);
-        });
-      });
-      fidObserver.observe({ entryTypes: ["first-input"] });
-      this.observers.push(fidObserver);
-
-      const clsObserver = new PerformanceObserver((list) => {
-        const entries = list.getEntries();
-        let clsScore = 0;
-        entries.forEach((entry) => {
-          if (!(entry as any).hadRecentInput) {
-            clsScore += (entry as any).value;
-          }
-        });
-        this.recordMetric("cls", clsScore);
-      });
-      clsObserver.observe({ entryTypes: ["layout-shift"] });
-      this.observers.push(clsObserver);
-    }
+    // Observers are initialized lazily via measureWebVitals() at app boot.
   }
 
   recordMetric(name: string, value: number) {
