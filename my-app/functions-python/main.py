@@ -2,6 +2,7 @@ import json
 import firebase_admin
 from firebase_functions import https_fn, options, scheduler_fn
 from firebase_admin import auth, firestore
+from typing import Optional
 from clustering import (
     cluster_deliveries_k_means,
     geocode_addresses_endpoint,
@@ -32,6 +33,43 @@ geocode_fn = https_fn.on_request(region="us-central1", memory=512, timeout_sec=3
 k_means_fn = https_fn.on_request(region="us-central1", memory=512, timeout_sec=300)(cluster_deliveries_k_means)
 
 # --- New Callable Function for User Deletion ---
+def _normalize_role(raw_role: Optional[str]) -> Optional[str]:
+    if not isinstance(raw_role, str):
+        return None
+    return raw_role.strip().lower().replace("_", " ")
+
+
+def _role_from_claims(claims: Optional[dict]) -> Optional[str]:
+    if not isinstance(claims, dict):
+        return None
+
+    for key in ("role", "userRole", "user_type", "type"):
+        normalized = _normalize_role(claims.get(key))
+        if normalized:
+            return normalized
+    return None
+
+
+def _role_from_users_doc(db, uid: str) -> Optional[str]:
+    doc_snapshot = db.collection("users").document(uid).get()
+    if not doc_snapshot.exists:
+        return None
+
+    user_data = doc_snapshot.to_dict() or {}
+    for key in ("role", "type", "userType"):
+        normalized = _normalize_role(user_data.get(key))
+        if normalized:
+            return normalized
+    return None
+
+
+def _effective_role(db, uid: str, claims: Optional[dict] = None) -> Optional[str]:
+    claim_role = _role_from_claims(claims)
+    if claim_role:
+        return claim_role
+    return _role_from_users_doc(db, uid)
+
+
 @https_fn.on_call(
     region="us-central1",
     cors=_delete_user_cors  # Apply specific CORS settings here
@@ -47,9 +85,7 @@ def deleteUserAccount(req: https_fn.CallableRequest):
                                   message="Authentication required.")
 
     caller_uid = req.auth.uid
-
-    # TODO: Add role-based authorization check (Admin/Manager only)
-    # Currently allows any authenticated user to delete users
+    db = firestore.client()
 
     uid_to_delete = req.data.get('uid')
     if not uid_to_delete or not isinstance(uid_to_delete, str):
@@ -58,13 +94,39 @@ def deleteUserAccount(req: https_fn.CallableRequest):
                                   message="Required parameter 'uid' is missing or invalid.")
 
     if caller_uid == uid_to_delete:
-            print("Authorization failed: User attempted self-deletion.")
-            raise https_fn.HttpsError(code=https_fn.FunctionsErrorCode.PERMISSION_DENIED,
-                                    message="You cannot delete your own account.")
+        print("Authorization failed: User attempted self-deletion.")
+        raise https_fn.HttpsError(code=https_fn.FunctionsErrorCode.PERMISSION_DENIED,
+                                  message="You cannot delete your own account.")
+
+    caller_role = _effective_role(db, caller_uid, getattr(req.auth, "token", None))
+    if caller_role not in ("admin", "manager"):
+        print(f"Authorization failed: caller {caller_uid} has insufficient role ({caller_role}).")
+        raise https_fn.HttpsError(
+            code=https_fn.FunctionsErrorCode.PERMISSION_DENIED,
+            message="Only Admins or Managers can delete user accounts.",
+        )
+
+    target_role = None
+    try:
+        target_auth_user = auth.get_user(uid_to_delete)
+        target_role = _role_from_claims(target_auth_user.custom_claims)
+    except auth.UserNotFoundError:
+        # Handled later by delete operation to preserve existing error flow
+        pass
+    except Exception as user_lookup_error:
+        print(f"Warning: unable to read custom claims for target user {uid_to_delete}: {user_lookup_error}")
+
+    if not target_role:
+        target_role = _role_from_users_doc(db, uid_to_delete)
+
+    if caller_role == "manager" and target_role == "admin":
+        print(f"Authorization failed: manager {caller_uid} attempted to delete admin {uid_to_delete}.")
+        raise https_fn.HttpsError(
+            code=https_fn.FunctionsErrorCode.PERMISSION_DENIED,
+            message="Managers cannot delete Admin accounts.",
+        )
 
     print(f"Attempting to delete user with UID: {uid_to_delete}")
-    db = firestore.client()
-
     try:
         auth.delete_user(uid_to_delete)
         print(f"Successfully deleted Firebase Auth user: {uid_to_delete}")

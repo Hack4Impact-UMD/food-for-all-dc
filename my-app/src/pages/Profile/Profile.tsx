@@ -35,7 +35,7 @@ import {
 } from "firebase/firestore";
 import React, { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { auth, db } from "../../auth/firebaseConfig";
+import { auth, db, getAppCheckToken } from "../../auth/firebaseConfig";
 import dataSources from "../../config/dataSources";
 import { googleMapsApiKey } from "../../config/apiKeys";
 import CaseWorkerManagementModal from "../../components/CaseWorkerManagementModal";
@@ -613,10 +613,19 @@ const Profile = () => {
   const getCoordinates = useCallback(async (address: string) => {
     try {
       const token = await auth.currentUser?.getIdToken();
+      const appCheckToken = await getAppCheckToken();
+      if (!token) {
+        throw new Error("Authentication token is missing. User may not be logged in.");
+      }
+      if (!appCheckToken) {
+        throw new Error("App Check token is missing. Please ensure REACT_APP_FIREBASE_APPCHECK_SITE_KEY is configured.");
+      }
+
       const response = await fetch("https://geocode-addresses-endpoint-lzrplp4tfa-uc.a.run.app", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
+          "X-Firebase-AppCheck": appCheckToken,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
@@ -632,6 +641,7 @@ const Profile = () => {
       }
     } catch (error) {
       //[0,0] is an invalid coordinate handled in DelivertSpreadsheet.tsx
+      console.error("Error fetching coordinates:", error);
     }
     return [0, 0];
   }, []);
