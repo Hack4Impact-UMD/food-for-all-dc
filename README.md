@@ -20,14 +20,9 @@
 ---
 
 ## 🗺️ Roadmap
-
-- **Security Enhancements**
-  - Server-side role validation in Cloud Functions
-  - Firestore security rules (low priority - internal tool)
 - **Infrastructure**
   - Fix CI/CD pipeline
 - **Low Priority**
-  - Fix tech debt (impossible at this point)
   - Testing
 
 ---
