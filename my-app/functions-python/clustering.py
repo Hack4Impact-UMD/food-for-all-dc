@@ -1,4 +1,4 @@
-from math import cos, sin
+from math import cos, sin, radians
 from collections import defaultdict
 import googlemaps
 from firebase_functions import https_fn
@@ -15,8 +15,9 @@ from firebase_admin import auth as admin_auth, app_check as admin_app_check
 
 try:
     firebase_admin.initialize_app()
-except ValueError:
-    pass
+except ValueError as e:
+    # firebase_admin may already be initialized in some environments (e.g., local dev or tests).
+    logging.warning("firebase_admin.initialize_app() failed: %s", e)
 
 ALLOWED_ORIGINS = {
     "http://localhost:3000",
@@ -30,6 +31,10 @@ class KMeansClusterDeliveriesRequest(BaseModel):
     drivers_count: int
     min_deliveries: int
     max_deliveries: int
+
+
+class GeocodeAddressesRequest(BaseModel):
+    addresses: List[str]
 
 
 class ClusterDeliveriesResponse(BaseModel):
@@ -53,8 +58,8 @@ def geocode_addresses(addresses: List[str]) -> List[Tuple[float, float]]:
         api_key = response.payload.data.decode("UTF-8")
         gmaps = googlemaps.Client(key=api_key)
     except Exception as e:
-        print(e)
-        return [str(e)]
+        logging.error("Failed to initialize Google Maps client or access secret: %s", e, exc_info=True)
+        raise
 
     logging.info("got gmaps")
     coords = []
@@ -84,9 +89,11 @@ def parse_error_fields(e: ValidationError):
 
 
 def latlon_to_cartesian(lat, lon, radius=6371):
-    x = radius * cos(lat) * cos(lon)
-    y = radius * cos(lat) * sin(lon)
-    z = radius * sin(lat)
+    lat_rad = radians(lat)
+    lon_rad = radians(lon)
+    x = radius * cos(lat_rad) * cos(lon_rad)
+    y = radius * cos(lat_rad) * sin(lon_rad)
+    z = radius * sin(lat_rad)
     return x, y, z
 
 
@@ -96,7 +103,7 @@ def _cors_headers(req: https_fn.Request) -> dict:
 
     headers = {
         "Access-Control-Allow-Methods": "POST, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Firebase-AppCheck",
         "Vary": "Origin",
     }
     if allow_origin:
@@ -179,8 +186,8 @@ def geocode_addresses_endpoint(req: https_fn.Request) -> https_fn.Response:
 
     try:
         data = req.get_json()
-        addresses = data["addresses"]
-        coordinates = geocode_addresses(addresses)
+        request_body = GeocodeAddressesRequest(**data)
+        coordinates = geocode_addresses(request_body.addresses)
 
         return https_fn.Response(
             response=json.dumps({"coordinates": coordinates}),
