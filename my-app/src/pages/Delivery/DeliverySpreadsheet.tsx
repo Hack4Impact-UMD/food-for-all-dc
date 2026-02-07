@@ -22,7 +22,7 @@ import { getEventsByViewType } from "../Calendar/components/getEventsByViewType"
 import CircularProgress from "@mui/material/CircularProgress";
 import { DayPilot } from "@daypilot/daypilot-lite-react";
 import { useNavigate, Link, useSearchParams } from "react-router-dom";
-import { db } from "../../auth/firebaseConfig";
+import { db, getAppCheckToken } from "../../auth/firebaseConfig";
 import dataSources from "../../config/dataSources";
 import { useClientData } from "../../context/ClientDataContext";
 import { ClientProfile } from "../../types/client-types";
@@ -1349,8 +1349,9 @@ const DeliverySpreadsheet: React.FC = () => {
     maxDeliveries: number
   ) => {
     const token = await auth.currentUser?.getIdToken();
-    if (!token) {
-      throw new Error("Authentication token not found.");
+    const appCheckToken = await getAppCheckToken();
+    if (!token || !appCheckToken) {
+      throw new Error("Authentication or App Check token not found.");
     }
 
     // --- Validation (keep existing validation) ---
@@ -1433,6 +1434,7 @@ const DeliverySpreadsheet: React.FC = () => {
             method: "POST",
             headers: {
               Authorization: `Bearer ${token}`,
+              "X-Firebase-AppCheck": appCheckToken,
               "Content-Type": "application/json",
             },
             body: JSON.stringify({ addresses: addressesToFetch }),
@@ -1543,6 +1545,7 @@ const DeliverySpreadsheet: React.FC = () => {
           method: "POST",
           headers: {
             Authorization: `Bearer ${token}`,
+            "X-Firebase-AppCheck": appCheckToken,
             "Content-Type": "application/json",
           },
           body: JSON.stringify({

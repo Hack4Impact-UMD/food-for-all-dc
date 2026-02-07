@@ -1,7 +1,13 @@
 import { initializeApp, FirebaseApp } from "firebase/app";
-import { getFirestore, Firestore, enableNetwork, disableNetwork } from "firebase/firestore";
+import { getFirestore, Firestore, enableNetwork } from "firebase/firestore";
 import { getAuth, Auth } from "firebase/auth";
 import { getFunctions, Functions, connectFunctionsEmulator } from "firebase/functions";
+import {
+  initializeAppCheck,
+  ReCaptchaV3Provider,
+  getToken,
+  AppCheck,
+} from "firebase/app-check";
 import { firebaseConfig } from "../config/apiKeys";
 
 const app: FirebaseApp = initializeApp(firebaseConfig);
@@ -10,6 +16,7 @@ const app: FirebaseApp = initializeApp(firebaseConfig);
 let firestoreInstance: Firestore | null = null;
 let authInstance: Auth | null = null;
 let functionsInstance: Functions | null = null;
+let appCheckInstance: AppCheck | null = null;
 
 /**
  * Returns the Firestore instance, initializing if necessary.
@@ -55,6 +62,39 @@ export const getFirebaseFunctions = (): Functions => {
     }
   }
   return functionsInstance;
+};
+
+export const getFirebaseAppCheck = (): AppCheck | null => {
+  if (appCheckInstance) {
+    return appCheckInstance;
+  }
+
+  const siteKey = process.env.REACT_APP_FIREBASE_APPCHECK_SITE_KEY;
+  if (!siteKey) {
+    console.warn("REACT_APP_FIREBASE_APPCHECK_SITE_KEY is not set; App Check is disabled.");
+    return null;
+  }
+
+  appCheckInstance = initializeAppCheck(app, {
+    provider: new ReCaptchaV3Provider(siteKey),
+    isTokenAutoRefreshEnabled: true,
+  });
+  return appCheckInstance;
+};
+
+export const getAppCheckToken = async (): Promise<string | null> => {
+  const appCheck = getFirebaseAppCheck();
+  if (!appCheck) {
+    return null;
+  }
+
+  try {
+    const tokenResult = await getToken(appCheck, false);
+    return tokenResult.token || null;
+  } catch (error) {
+    console.warn("Failed to acquire App Check token:", error);
+    return null;
+  }
 };
 
 export const db = getFirebaseDb();
