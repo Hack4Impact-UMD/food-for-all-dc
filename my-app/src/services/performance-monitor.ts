@@ -48,7 +48,8 @@ class PerformanceMonitor {
   }
 
   measureWebVitals() {
-    // Guard against duplicate observer registration
+    // Guard against duplicate observer registration.
+    // Note: JavaScript is single-threaded; this flag is sufficient for browser context.
     if (this.initialized) {
       return;
     }
