@@ -39,6 +39,10 @@ my-app/functions-python/lib/
 # Only ignore the service account key, not the whole folder
 ETL/food-for-all-dc-caf23-firebase-adminsdk-fbsvc-4e77c7873e.json
 
+# Sensitive spreadsheets (client data)
+ETL/Client Referral Form v.3_20_24 (Responses).xlsx
+ETL/FFA_CLIENT_DATABASE.xlsx
+
 # Firebase
 .firebase/
 firebase-debug.log*
