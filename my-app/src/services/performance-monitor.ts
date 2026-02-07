@@ -5,6 +5,7 @@ class PerformanceMonitor {
   private static instance: PerformanceMonitor;
   private metrics: Map<string, number[]> = new Map();
   private observers: PerformanceObserver[] = [];
+  private initialized = false;
 
   static getInstance(): PerformanceMonitor {
     if (!PerformanceMonitor.instance) {
@@ -47,6 +48,13 @@ class PerformanceMonitor {
   }
 
   measureWebVitals() {
+    // Guard against duplicate observer registration.
+    // Note: JavaScript is single-threaded; this flag is sufficient for browser context.
+    if (this.initialized) {
+      return;
+    }
+    this.initialized = true;
+
     this.measureLCP();
     this.measureFID();
     this.measureCLS();
@@ -64,6 +72,7 @@ class PerformanceMonitor {
         }
       });
       observer.observe({ entryTypes: ["largest-contentful-paint"] });
+      this.observers.push(observer);
     }
   }
 
@@ -78,6 +87,7 @@ class PerformanceMonitor {
         });
       });
       observer.observe({ entryTypes: ["first-input"] });
+      this.observers.push(observer);
     }
   }
 
@@ -94,6 +104,7 @@ class PerformanceMonitor {
         this.recordMetric("cls", clsScore);
       });
       observer.observe({ entryTypes: ["layout-shift"] });
+      this.observers.push(observer);
     }
   }
 
@@ -118,6 +129,7 @@ class PerformanceMonitor {
         });
       });
       observer.observe({ entryTypes: ["paint"] });
+      this.observers.push(observer);
     }
   }
 
@@ -195,6 +207,7 @@ class PerformanceMonitor {
       this.observers.forEach((observer) => observer.disconnect());
       this.observers = [];
       this.metrics.clear();
+      this.initialized = false;
     } catch (error) {
       throw formatServiceError(error, "Failed to destroy performance monitor");
     }
