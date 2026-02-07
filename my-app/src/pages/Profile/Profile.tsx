@@ -2672,16 +2672,13 @@ const Profile = () => {
 
             if (isAfterEndDate && isFutureDate) {
               deletePromises.push(deleteDoc(doc(eventsRef, event.id)));
-            } else {
             }
           }
 
           if (deletePromises.length > 0) {
             await Promise.all(deletePromises);
           }
-        } else {
         }
-      } else {
       } // 4. SKIP EXISTING DATES, CREATE NEW DATES
       const newDates = allDates.filter((date) => {
         const dateStr = new DayPilot.Date(date).toString("yyyy-MM-dd");

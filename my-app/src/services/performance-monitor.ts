@@ -5,6 +5,7 @@ class PerformanceMonitor {
   private static instance: PerformanceMonitor;
   private metrics: Map<string, number[]> = new Map();
   private observers: PerformanceObserver[] = [];
+  private initialized = false;
 
   static getInstance(): PerformanceMonitor {
     if (!PerformanceMonitor.instance) {
@@ -14,73 +15,7 @@ class PerformanceMonitor {
   }
 
   constructor() {
-    this.initializeObservers();
-  }
-
-  private initializeObservers() {
-    if ("PerformanceObserver" in window) {
-      const navObserver = new PerformanceObserver((list) => {
-        const entries = list.getEntries();
-        entries.forEach((entry) => {
-          if (entry.entryType === "navigation") {
-            const navEntry = entry as PerformanceNavigationTiming;
-            this.recordMetric(
-              "navigation.domContentLoaded",
-              navEntry.domContentLoadedEventEnd - navEntry.domContentLoadedEventStart
-            );
-            this.recordMetric(
-              "navigation.loadComplete",
-              navEntry.loadEventEnd - navEntry.loadEventStart
-            );
-          }
-        });
-      });
-      navObserver.observe({ entryTypes: ["navigation"] });
-      this.observers.push(navObserver);
-
-      const resourceObserver = new PerformanceObserver((list) => {
-        const entries = list.getEntries();
-        entries.forEach((entry) => {
-          if (entry.entryType === "resource") {
-            const resourceEntry = entry as PerformanceResourceTiming;
-            this.recordMetric(`resource.${resourceEntry.name}`, resourceEntry.duration);
-          }
-        });
-      });
-      resourceObserver.observe({ entryTypes: ["resource"] });
-      this.observers.push(resourceObserver);
-
-      const lcpObserver = new PerformanceObserver((list) => {
-        const entries = list.getEntries();
-        const lastEntry = entries[entries.length - 1];
-        this.recordMetric("lcp", lastEntry.startTime);
-      });
-      lcpObserver.observe({ entryTypes: ["largest-contentful-paint"] });
-      this.observers.push(lcpObserver);
-
-      const fidObserver = new PerformanceObserver((list) => {
-        const entries = list.getEntries();
-        entries.forEach((entry) => {
-          const fidEntry = entry as any;
-          this.recordMetric("fid", fidEntry.processingStart - fidEntry.startTime);
-        });
-      });
-      fidObserver.observe({ entryTypes: ["first-input"] });
-      this.observers.push(fidObserver);
-
-      const clsObserver = new PerformanceObserver((list) => {
-        const entries = list.getEntries();
-        let clsScore = 0;
-        entries.forEach((entry) => {
-          if (!(entry as any).hadRecentInput) {
-            clsScore += (entry as any).value;
-          }
-        });
-        this.recordMetric("cls", clsScore);
-      });
-      clsObserver.observe({ entryTypes: ["layout-shift"] });
-      this.observers.push(clsObserver);
-    }
+    // Observers are initialized lazily via measureWebVitals() at app boot.
   }
 
   recordMetric(name: string, value: number) {
@@ -113,6 +48,13 @@ class PerformanceMonitor {
   }
 
   measureWebVitals() {
+    // Guard against duplicate observer registration.
+    // Note: JavaScript is single-threaded; this flag is sufficient for browser context.
+    if (this.initialized) {
+      return;
+    }
+    this.initialized = true;
+
     this.measureLCP();
     this.measureFID();
     this.measureCLS();
@@ -130,6 +72,7 @@ class PerformanceMonitor {
         }
       });
       observer.observe({ entryTypes: ["largest-contentful-paint"] });
+      this.observers.push(observer);
     }
   }
 
@@ -144,6 +87,7 @@ class PerformanceMonitor {
         });
       });
       observer.observe({ entryTypes: ["first-input"] });
+      this.observers.push(observer);
     }
   }
 
@@ -160,6 +104,7 @@ class PerformanceMonitor {
         this.recordMetric("cls", clsScore);
       });
       observer.observe({ entryTypes: ["layout-shift"] });
+      this.observers.push(observer);
     }
   }
 
@@ -184,6 +129,7 @@ class PerformanceMonitor {
         });
       });
       observer.observe({ entryTypes: ["paint"] });
+      this.observers.push(observer);
     }
   }
 
@@ -261,6 +207,7 @@ class PerformanceMonitor {
       this.observers.forEach((observer) => observer.disconnect());
       this.observers = [];
       this.metrics.clear();
+      this.initialized = false;
     } catch (error) {
       throw formatServiceError(error, "Failed to destroy performance monitor");
     }
