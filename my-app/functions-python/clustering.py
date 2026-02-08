@@ -120,7 +120,7 @@ def _cors_headers(req: https_fn.Request) -> dict:
 
     headers = {
         "Access-Control-Allow-Methods": "POST, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Firebase-AppCheck",
         "Vary": "Origin",
     }
     if allow_origin:
@@ -178,7 +178,14 @@ def geocode_addresses_endpoint(req: https_fn.Request) -> https_fn.Response:
         return auth_error
 
     try:
-        data = req.get_json()
+        data = req.get_json(silent=True)
+        if data is None:
+            return https_fn.Response(
+                response=json.dumps({"error": "Invalid JSON payload or incorrect Content-Type."}),
+                status=400,
+                headers=headers,
+                content_type="application/json",
+            )
         request_body = GeocodeAddressesRequest(**data)
         if len(request_body.addresses) > MAX_GEOCODE_ADDRESSES:
             return https_fn.Response(
@@ -205,7 +212,12 @@ def geocode_addresses_endpoint(req: https_fn.Request) -> https_fn.Response:
         )
     except ValidationError as e:
         return https_fn.Response(
-            response=json.dumps({"error": "Validation error", "details": parse_error_fields(e)}),
+            response=json.dumps(
+                {
+                    "error": "Validation error",
+                    "details": [field_error.model_dump() for field_error in parse_error_fields(e)],
+                }
+            ),
             status=400,
             headers=headers,
             content_type="application/json",
@@ -244,7 +256,12 @@ def cluster_deliveries_k_means(req: https_fn.Request) -> https_fn.Response:
         request_body = KMeansClusterDeliveriesRequest(**data)
     except ValidationError as e:
         return https_fn.Response(
-            response=json.dumps({"error": "Validation error", "details": parse_error_fields(e)}),
+            response=json.dumps(
+                {
+                    "error": "Validation error",
+                    "details": [field_error.model_dump() for field_error in parse_error_fields(e)],
+                }
+            ),
             status=400,
             headers=headers,
             content_type="application/json",
