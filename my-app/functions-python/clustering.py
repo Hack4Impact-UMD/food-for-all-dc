@@ -8,9 +8,10 @@ from typing import Dict, List, Tuple, Optional
 import json
 import logging
 import numpy as np
+import os
 from google.cloud import secretmanager
 import firebase_admin
-from firebase_admin import auth as admin_auth, app_check as admin_app_check
+from firebase_admin import auth as admin_auth
 
 
 try:
@@ -24,6 +25,22 @@ ALLOWED_ORIGINS = {
     "https://food-for-all-dc-caf23.web.app",
     "https://food-for-all-dc-caf23.firebaseapp.com",
 }
+
+def _env_int(name: str, default: int) -> int:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    try:
+        value = int(raw)
+    except ValueError:
+        return default
+    return value if value > 0 else default
+
+
+MAX_GEOCODE_ADDRESSES = _env_int("MAX_GEOCODE_ADDRESSES", 1000)
+MAX_ADDRESS_LENGTH = _env_int("MAX_ADDRESS_LENGTH", 500)
+MAX_CLUSTER_COORDS = _env_int("MAX_CLUSTER_COORDS", 5000)
+MAX_CLUSTER_DRIVERS = _env_int("MAX_CLUSTER_DRIVERS", 500)
 
 
 class KMeansClusterDeliveriesRequest(BaseModel):
@@ -118,11 +135,6 @@ def _extract_bearer_token(req: https_fn.Request) -> Optional[str]:
     return auth_header.split(" ", 1)[1].strip() or None
 
 
-def _extract_app_check_token(req: https_fn.Request) -> Optional[str]:
-    token = req.headers.get("X-Firebase-AppCheck", "")
-    return token.strip() or None
-
-
 def _require_authenticated_request(req: https_fn.Request, headers: dict) -> Optional[https_fn.Response]:
     token = _extract_bearer_token(req)
     if not token:
@@ -146,29 +158,6 @@ def _require_authenticated_request(req: https_fn.Request, headers: dict) -> Opti
     return None
 
 
-def _require_app_check_request(req: https_fn.Request, headers: dict) -> Optional[https_fn.Response]:
-    app_check_token = _extract_app_check_token(req)
-    if not app_check_token:
-        return https_fn.Response(
-            response=json.dumps({"error": "App Check token required."}),
-            status=401,
-            headers=headers,
-            content_type="application/json",
-        )
-
-    try:
-        admin_app_check.verify_token(app_check_token)
-    except Exception:
-        return https_fn.Response(
-            response=json.dumps({"error": "Invalid App Check token."}),
-            status=401,
-            headers=headers,
-            content_type="application/json",
-        )
-
-    return None
-
-
 @https_fn.on_request(region="us-central1", memory=512, timeout_sec=300)
 def geocode_addresses_endpoint(req: https_fn.Request) -> https_fn.Response:
     headers = _cors_headers(req)
@@ -176,17 +165,43 @@ def geocode_addresses_endpoint(req: https_fn.Request) -> https_fn.Response:
     if req.method == "OPTIONS":
         return https_fn.Response("", headers=headers, status=204, content_type="application/json")
 
+    if req.method != "POST":
+        return https_fn.Response(
+            response=json.dumps({"error": "Method not allowed."}),
+            status=405,
+            headers=headers,
+            content_type="application/json",
+        )
+
     auth_error = _require_authenticated_request(req, headers)
     if auth_error:
         return auth_error
 
-    app_check_error = _require_app_check_request(req, headers)
-    if app_check_error:
-        return app_check_error
-
     try:
-        data = req.get_json()
+        data = req.get_json(silent=True)
+        if data is None:
+            return https_fn.Response(
+                response=json.dumps({"error": "Invalid JSON payload or incorrect Content-Type."}),
+                status=400,
+                headers=headers,
+                content_type="application/json",
+            )
         request_body = GeocodeAddressesRequest(**data)
+        if len(request_body.addresses) > MAX_GEOCODE_ADDRESSES:
+            return https_fn.Response(
+                response=json.dumps({"error": "Too many addresses in request."}),
+                status=400,
+                headers=headers,
+                content_type="application/json",
+            )
+        for address in request_body.addresses:
+            if not isinstance(address, str) or len(address) > MAX_ADDRESS_LENGTH:
+                return https_fn.Response(
+                    response=json.dumps({"error": "Invalid address entry."}),
+                    status=400,
+                    headers=headers,
+                    content_type="application/json",
+                )
         coordinates = geocode_addresses(request_body.addresses)
 
         return https_fn.Response(
@@ -197,14 +212,20 @@ def geocode_addresses_endpoint(req: https_fn.Request) -> https_fn.Response:
         )
     except ValidationError as e:
         return https_fn.Response(
-            response=json.dumps({"error": "Validation error", "details": parse_error_fields(e)}),
+            response=json.dumps(
+                {
+                    "error": "Validation error",
+                    "details": [field_error.model_dump() for field_error in parse_error_fields(e)],
+                }
+            ),
             status=400,
             headers=headers,
             content_type="application/json",
         )
     except Exception as e:
+        logging.error("geocode_addresses_endpoint failed: %s", e, exc_info=True)
         return https_fn.Response(
-            response=json.dumps({"error": str(e)}),
+            response=json.dumps({"error": "Internal server error."}),
             status=500,
             headers=headers,
             content_type="application/json",
@@ -218,20 +239,76 @@ def cluster_deliveries_k_means(req: https_fn.Request) -> https_fn.Response:
     if req.method == "OPTIONS":
         return https_fn.Response("", headers=headers, status=204, content_type="application/json")
 
+    if req.method != "POST":
+        return https_fn.Response(
+            response=json.dumps({"error": "Method not allowed."}),
+            status=405,
+            headers=headers,
+            content_type="application/json",
+        )
+
     auth_error = _require_authenticated_request(req, headers)
     if auth_error:
         return auth_error
 
-    app_check_error = _require_app_check_request(req, headers)
-    if app_check_error:
-        return app_check_error
+    try:
+        data = req.get_json()
+        request_body = KMeansClusterDeliveriesRequest(**data)
+    except ValidationError as e:
+        return https_fn.Response(
+            response=json.dumps(
+                {
+                    "error": "Validation error",
+                    "details": [field_error.model_dump() for field_error in parse_error_fields(e)],
+                }
+            ),
+            status=400,
+            headers=headers,
+            content_type="application/json",
+        )
+    except Exception as e:
+        logging.error("cluster_deliveries_k_means invalid json: %s", e, exc_info=True)
+        return https_fn.Response(
+            response=json.dumps({"error": "Invalid request payload."}),
+            status=400,
+            headers=headers,
+            content_type="application/json",
+        )
 
-    data = req.get_json()
-    coords = np.array(data["coords"], dtype=object)
+    if len(request_body.coords) > MAX_CLUSTER_COORDS:
+        return https_fn.Response(
+            response=json.dumps({"error": "Too many coordinates in request."}),
+            status=400,
+            headers=headers,
+            content_type="application/json",
+        )
+    if request_body.drivers_count > MAX_CLUSTER_DRIVERS:
+        return https_fn.Response(
+            response=json.dumps({"error": "Too many drivers requested."}),
+            status=400,
+            headers=headers,
+            content_type="application/json",
+        )
+    if request_body.drivers_count <= 0 or request_body.min_deliveries <= 0 or request_body.max_deliveries <= 0:
+        return https_fn.Response(
+            response=json.dumps({"error": "Invalid clustering parameters."}),
+            status=400,
+            headers=headers,
+            content_type="application/json",
+        )
+    if request_body.min_deliveries > request_body.max_deliveries:
+        return https_fn.Response(
+            response=json.dumps({"error": "min_deliveries cannot exceed max_deliveries."}),
+            status=400,
+            headers=headers,
+            content_type="application/json",
+        )
+
+    coords = np.array(request_body.coords, dtype=object)
     coords = np.array([latlon_to_cartesian(lat, lon) for lat, lon in coords])
-    drivers_count = data["drivers_count"]
-    min_deliveries = data["min_deliveries"]
-    max_deliveries = data["max_deliveries"]
+    drivers_count = request_body.drivers_count
+    min_deliveries = request_body.min_deliveries
+    max_deliveries = request_body.max_deliveries
 
     if drivers_count > len(coords):
         print("Warning: Number of drivers exceeds the number of deliveries. Adjusting drivers count to match deliveries.")
