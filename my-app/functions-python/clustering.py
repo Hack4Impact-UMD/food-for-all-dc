@@ -120,7 +120,7 @@ def _cors_headers(req: https_fn.Request) -> dict:
 
     headers = {
         "Access-Control-Allow-Methods": "POST, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Firebase-AppCheck",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
         "Vary": "Origin",
     }
     if allow_origin:
