@@ -598,7 +598,7 @@ const CalendarPage: React.FC = React.memo(() => {
                 }}
               >
                 <a
-                  href="https://docs.google.com/document/d/1cHri2wCaWSghYgxS-Kknjv5ZB26JuuAfzd85ayXLWbM/edit?tab=t.0"
+                  href="https://docs.google.com/document/d/1TxjMO2LFxPGz0FR0v0cUirRjtcTkcrH1T-RbGGwCDxw/edit?usp=drivesdk"
                   target="_blank"
                   rel="noopener noreferrer"
                   style={{ textDecoration: "none", width: "100%" }}
