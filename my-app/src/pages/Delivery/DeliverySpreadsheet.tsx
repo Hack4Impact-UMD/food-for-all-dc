@@ -85,6 +85,7 @@ import Button from "@mui/material/Button";
 
 import DietaryRestrictionsLegend from "../../components/DietaryRestrictionsLegend";
 import { deliveryDate } from "../../utils/deliveryDate";
+import { normalizeCoordinate } from "../../utils/coordinates";
 import { deliveryEventEmitter } from "../../utils/deliveryEventEmitter";
 
 const StyleChip = styled(Chip)({
@@ -1314,27 +1315,7 @@ const DeliverySpreadsheet: React.FC = () => {
     setClientOverrides([]);
   };
 
-  // Helper function to check if coordinates are valid
-  const isValidCoordinate = (
-    coord: LatLngTuple | { lat: number; lng: number } | undefined | null
-  ): coord is LatLngTuple | { lat: number; lng: number } => {
-    if (!coord) return false;
-    if (Array.isArray(coord)) {
-      // Check for LatLngTuple [number, number]
-      return (
-        coord.length === 2 &&
-        typeof coord[0] === "number" &&
-        typeof coord[1] === "number" &&
-        (coord[0] !== 0 || coord[1] !== 0)
-      );
-    }
-    // Check for { lat: number, lng: number }
-    return (
-      typeof coord.lat === "number" &&
-      typeof coord.lng === "number" &&
-      (coord.lat !== 0 || coord.lng !== 0)
-    );
-  };
+
 
   const generateClusters = async (
     clusterNum: number,
@@ -1400,21 +1381,18 @@ const DeliverySpreadsheet: React.FC = () => {
       // Wrap the core logic in try/finally to ensure loading state is reset
 
       const clientsToGeocode: { id: string; address: string; originalIndex: number }[] = [];
-      const existingCoordsMap = new Map<string, LatLngTuple | { lat: number; lng: number }>();
       const finalCoordinates: (LatLngTuple | null)[] = new Array(visibleRows.length).fill(null); // Initialize with nulls
 
       // 1 & 2: Separate clients and collect existing coords
       visibleRows.forEach((row: DeliveryRowData, index: number) => {
-        if (isValidCoordinate(row.coordinates)) {
-          // Normalize coordinate format if necessary (e.g., always use [lat, lng])
-          const coords = Array.isArray(row.coordinates)
-            ? row.coordinates
-            : [row.coordinates.lat, row.coordinates.lng];
-          existingCoordsMap.set(row.id, coords as LatLngTuple);
-          finalCoordinates[index] = coords as LatLngTuple; // Pre-fill with existing
-        } else {
-          clientsToGeocode.push({ id: row.id, address: row.address, originalIndex: index });
+        const normalized = normalizeCoordinate(row.coordinates);
+        if (normalized) {
+          const coords: LatLngTuple = [normalized.lat, normalized.lng];
+          finalCoordinates[index] = coords; // Pre-fill with existing
+          return;
         }
+
+        clientsToGeocode.push({ id: row.id, address: row.address, originalIndex: index });
       });
 
       // 3. Conditional Geocoding
@@ -1448,12 +1426,14 @@ const DeliverySpreadsheet: React.FC = () => {
         const updatePromises: Promise<void>[] = [];
         fetchedCoords.forEach((coords: LatLngTuple | null, i: number) => {
           const client = clientsToGeocode[i];
-          if (isValidCoordinate(coords)) {
-            finalCoordinates[client.originalIndex] = coords; // Add newly fetched coords
+          const normalized = normalizeCoordinate(coords);
+          if (normalized) {
+            const normalizedTuple: LatLngTuple = [normalized.lat, normalized.lng];
+            finalCoordinates[client.originalIndex] = normalizedTuple; // Add newly fetched coords
             // Schedule Firestore update (don't await here individually to speed up)
             updatePromises.push(
               clientService
-                .updateClientCoordinates(client.id, coords)
+                .updateClientCoordinates(client.id, normalizedTuple)
                 .catch((err: Error) =>
                   console.error(`Failed to update coordinates for client ${client.id}:`, err)
                 ) // Log errors but don't fail the whole process

@@ -7,26 +7,13 @@ import { Box, Button, FormControlLabel, Switch, Typography } from "@mui/material
 import DriverService from "../../services/driver-service";
 import FFAIcon from "../../assets/tsp-food-for-all-dc-logo.png";
 import dataSources from "../../config/dataSources";
+import { CoordinateValue, isValidCoordinate, normalizeCoordinate } from "../../utils/coordinates";
 
 interface Driver {
   id: string;
   name: string;
   phone?: string;
   email?: string;
-}
-
-interface Coordinate {
-  lat: number;
-  lng: number;
-}
-
-interface Client {
-  id: string;
-  coordinates: Coordinate | Coordinate[];
-  address: string;
-  firstName: string;
-  lastName: string;
-  ward?: string;
 }
 
 interface Cluster {
@@ -48,7 +35,7 @@ interface VisibleRow {
   lastName: string;
   address: string;
   address2?: string;
-  coordinates?: [number, number] | { lat: number; lng: number };
+  coordinates?: CoordinateValue;
   clusterId?: string;
   ward?: string;
 }
@@ -82,35 +69,6 @@ const wardColors: { [key: string]: string } = {
 };
 
 const ffaCoordinates: L.LatLngExpression = [38.91433, -77.036942];
-
-const isValidCoordinate = (coord: any): boolean => {
-  if (!coord) return false;
-
-  if (Array.isArray(coord)) {
-    return (
-      coord.length === 2 &&
-      !isNaN(coord[0]) &&
-      !isNaN(coord[1]) &&
-      Math.abs(coord[0]) <= 90 &&
-      Math.abs(coord[1]) <= 180
-    );
-  }
-
-  return (
-    typeof coord === "object" &&
-    !isNaN(coord.lat) &&
-    !isNaN(coord.lng) &&
-    Math.abs(coord.lat) <= 90 &&
-    Math.abs(coord.lng) <= 180
-  );
-};
-
-const normalizeCoordinate = (coord: any): Coordinate => {
-  if (Array.isArray(coord)) {
-    return { lat: coord[0], lng: coord[1] };
-  }
-  return coord;
-};
 
 // Common time slots array - same as used in delivery page
 const TIME_SLOTS = [
@@ -551,9 +509,8 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
     });
 
     visibleRows.forEach((client) => {
-      if (!client.coordinates || !isValidCoordinate(client.coordinates)) return;
-
       const coord = normalizeCoordinate(client.coordinates);
+      if (!coord) return;
       const clientName = `${client.firstName} ${client.lastName}` || "Client: None";
       const address =
         `${client.address || ""}${client.address2 ? " " + client.address2 : ""}`.trim();
