@@ -14,7 +14,7 @@ import { auth } from "../../auth/firebaseConfig";
 import AddDeliveryDialog from "./components/AddDeliveryDialog";
 import CalendarHeader from "./components/CalendarHeader";
 import CalendarPopper from "./components/CalendarPopper";
-import { calculateRecurrenceDates } from "./components/CalendarUtils";
+import { calculateRecurrenceDates, getDefaultLimit } from "./components/CalendarUtils";
 import DayView from "./components/DayView";
 import MonthView from "./components/MonthView";
 import {
@@ -81,7 +81,7 @@ const CalendarContent = styled(Box)(({ theme }) => ({
 }));
 
 const CalendarPage: React.FC = React.memo(() => {
-  const { showSuccess, showError } = useNotifications();
+  const { showSuccess, showError, showWarning } = useNotifications();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const drawerWidth = 240;
   const renderCount = useRef(0);
@@ -406,7 +406,44 @@ const CalendarPage: React.FC = React.memo(() => {
           })
       );
 
-      const uniqueRecurrenceDates = recurrenceDates.filter((date) => !existingEventDates.has(date));
+      const uniqueRecurrenceDates = Array.from(new Set(recurrenceDates)).filter(
+        (date) => !existingEventDates.has(date)
+      );
+
+      if (uniqueRecurrenceDates.length === 0) {
+        showError("No new deliveries were added because matching deliveries already exist.");
+        return;
+      }
+
+      const existingCountByDate = events.reduce<Record<string, number>>((acc, event) => {
+        const jsDate = toJSDate(event.deliveryDate);
+        const dateKey = new DayPilot.Date(jsDate).toString("yyyy-MM-dd");
+        acc[dateKey] = (acc[dateKey] || 0) + 1;
+        return acc;
+      }, {});
+
+      const additionsByDate = uniqueRecurrenceDates.reduce<Record<string, number>>((acc, dateKey) => {
+        acc[dateKey] = (acc[dateKey] || 0) + 1;
+        return acc;
+      }, {});
+
+      const dailyLimitByDate = new Map(dailyLimits.map(({ date, limit }) => [date, limit]));
+
+      const overLimitDates = Object.entries(additionsByDate)
+        .map(([dateKey, addedCount]) => {
+          const effectiveLimit =
+            dailyLimitByDate.get(dateKey) ?? getDefaultLimit(new DayPilot.Date(dateKey), limits);
+          const currentCount = existingCountByDate[dateKey] || 0;
+          const projectedTotal = currentCount + addedCount;
+
+          return {
+            dateKey,
+            projectedTotal,
+            effectiveLimit,
+          };
+        })
+        .filter(({ projectedTotal, effectiveLimit }) => projectedTotal > effectiveLimit)
+        .sort((a, b) => a.dateKey.localeCompare(b.dateKey));
 
       const deliveryService = DeliveryService.getInstance();
       const seriesStartDate = newDelivery.deliveryDate;
@@ -441,6 +478,21 @@ const CalendarPage: React.FC = React.memo(() => {
           ? `Delivery added for ${clientName}`
           : `${deliveryCount} deliveries added for ${clientName}`;
       showSuccess(deliveryText);
+
+      if (overLimitDates.length > 0) {
+        const formattedDates = overLimitDates
+          .slice(0, 3)
+          .map(({ dateKey, projectedTotal, effectiveLimit }) =>
+            `${new DayPilot.Date(dateKey).toString("MMM d")} (${projectedTotal}/${effectiveLimit})`
+          )
+          .join(", ");
+        const additionalDateCount = overLimitDates.length - 3;
+        const overflowSuffix = additionalDateCount > 0 ? ` and ${additionalDateCount} more` : "";
+        showWarning(
+          `Daily limit exceeded on ${formattedDates}${overflowSuffix}.`,
+          7000
+        );
+      }
     } catch (error) {
       console.error("Error adding delivery:", error);
       showError("Failed to add delivery. Please try again.");
@@ -528,9 +580,10 @@ const CalendarPage: React.FC = React.memo(() => {
     }
 
     if (viewType === "Day") {
-      // Calculate the daily limit for the current day
-      const currentDayOfWeek = currentDate.dayOfWeek(); // 0 = Sunday, 1 = Monday, etc.
-      const dailyLimit = limits[currentDayOfWeek];
+      // Calculate the effective daily limit for the selected date (date override first, weekday default fallback)
+      const dateKey = currentDate.toString("yyyy-MM-dd");
+      const dailyLimitOverride = dailyLimits.find((dailyLimit) => dailyLimit.date === dateKey);
+      const dailyLimit = dailyLimitOverride?.limit ?? getDefaultLimit(currentDate, limits);
 
       return (
         <DayView

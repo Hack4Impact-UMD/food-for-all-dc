@@ -1,14 +1,34 @@
 import React from "react";
 import { Box, Typography } from "@mui/material";
 import LocalShippingIcon from "@mui/icons-material/LocalShipping";
+
 interface DeliveryCountHeaderProps {
-  events: any[];
+  events: readonly unknown[];
   limit?: number;
 }
+
 const DeliveryCountHeader = React.memo(function DeliveryCountHeader({
   events,
   limit,
 }: DeliveryCountHeaderProps) {
+  const eventCount = events.length;
+  const numericLimit = typeof limit === "number" ? limit : null;
+  const isOverLimit = numericLimit !== null && eventCount > numericLimit;
+  const overBy = isOverLimit ? eventCount - numericLimit : 0;
+  const progressWidth =
+    numericLimit === null
+      ? 0
+      : numericLimit <= 0
+        ? eventCount > 0
+          ? 100
+          : 0
+        : Math.min((eventCount / numericLimit) * 100, 100);
+
+  const accentColor = isOverLimit ? "var(--color-error-text)" : "var(--color-primary)";
+  const backgroundColor = isOverLimit
+    ? "var(--color-error-background)"
+    : "var(--color-background-green-cyan)";
+
   return (
     <Box
       sx={{
@@ -17,9 +37,9 @@ const DeliveryCountHeader = React.memo(function DeliveryCountHeader({
         justifyContent: "flex-start",
         marginBottom: 2.4,
         padding: 0.8075,
-        backgroundColor: "var(--color-background-green-cyan)",
+        backgroundColor,
         borderRadius: 2,
-        borderLeft: "4px solid var(--color-primary)",
+        borderLeft: `4px solid ${accentColor}`,
         boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
         width: "100%",
         boxSizing: "border-box",
@@ -41,7 +61,7 @@ const DeliveryCountHeader = React.memo(function DeliveryCountHeader({
             justifyContent: "center",
             width: 30,
             height: 30,
-            backgroundColor: "var(--color-primary)",
+            backgroundColor: accentColor,
             borderRadius: "50%",
             marginRight: 1.6,
           }}
@@ -53,30 +73,43 @@ const DeliveryCountHeader = React.memo(function DeliveryCountHeader({
             variant="h5"
             sx={{
               fontWeight: 700,
-              color: "var(--color-primary)",
+              color: accentColor,
               lineHeight: 1,
               marginBottom: 0.4,
-              minWidth: "2ch", // Ensures consistent width for numbers
+              minWidth: "2ch",
             }}
           >
-            {limit !== undefined ? `${events.length} / ${limit}` : events.length}
+            {numericLimit !== null ? `${eventCount} / ${numericLimit}` : eventCount}
           </Typography>
           <Typography
             variant="body2"
             sx={{
-              color: "var(--color-text-medium-alt)",
+              color: isOverLimit ? "var(--color-error-text)" : "var(--color-text-medium-alt)",
               fontWeight: 500,
               textTransform: "uppercase",
               fontSize: "0.75rem",
               letterSpacing: "0.4px",
-              whiteSpace: "nowrap", // Prevents text wrapping
+              whiteSpace: "nowrap",
             }}
           >
-            {events.length === 1 ? "Delivery" : "Deliveries"} Today
+            {eventCount === 1 ? "Delivery" : "Deliveries"} Today
           </Typography>
+          {isOverLimit && (
+            <Typography
+              variant="caption"
+              sx={{
+                display: "block",
+                color: "var(--color-error-text)",
+                fontWeight: 700,
+                mt: 0.25,
+              }}
+            >
+              Over daily limit by {overBy}
+            </Typography>
+          )}
         </Box>
       </Box>
-      {limit !== undefined && (
+      {numericLimit !== null && (
         <Box
           sx={{
             width: "100%",
@@ -89,9 +122,9 @@ const DeliveryCountHeader = React.memo(function DeliveryCountHeader({
         >
           <Box
             sx={{
-              width: `${Math.min((events.length / limit) * 100, 100)}%`,
+              width: `${progressWidth}%`,
               height: "100%",
-              backgroundColor: "var(--color-primary)",
+              backgroundColor: accentColor,
               borderRadius: 2,
               transition: "width 0.3s ease",
             }}
