@@ -1284,8 +1284,8 @@ const Profile = () => {
         Array.isArray(fetchedCoordinates) &&
         fetchedCoordinates.length === 2 &&
         (fetchedCoordinates[0] !== 0 || fetchedCoordinates[1] !== 0);
-      const coordinatesToSave = hasValidCoordinates
-        ? [{ lat: fetchedCoordinates[0], lng: fetchedCoordinates[1] }]
+      const coordinatesToSave: [number, number] | [] = hasValidCoordinates
+        ? [fetchedCoordinates[0], fetchedCoordinates[1]]
         : [];
       // Update the ward state
       clientProfile.ward = fetchedWard;
