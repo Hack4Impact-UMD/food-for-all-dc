@@ -66,7 +66,7 @@ import { useNavigate } from "react-router-dom";
 import { DateTime } from "luxon";
 
 import { exportQueryResults, exportAllClients } from "./export";
-const DeleteClientModal = React.lazy(() => import("./DeleteClientModal"));
+import DeleteClientModal from "./DeleteClientModal";
 import { clientService } from "../../services/client-service";
 import { useClientData } from "../../context/ClientDataContext";
 import type { FieldDefinition } from "../../types/spreadsheet-types";
