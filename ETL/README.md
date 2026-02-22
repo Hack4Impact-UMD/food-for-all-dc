@@ -32,48 +32,138 @@ This folder contains scripts and resources for running the full ETL (Extract, Tr
 **Note:** Download/export the Google Sheets as `.xlsx` files and place
 them in the `ETL` folder before running the ETL.
 
-### 3. Run the ETL (npm, recommended)
+## ETL Workflow Options
 
-From the repo root:
+The ETL system uses a **staging workflow** with temporary collections (`temp-profile2` and `temp-referral`) that you can review before promoting to production (`client-profile2` and `referral`). Choose the option that fits your needs:
 
+### Quick Reference
+
+| Option | Command | Loads to Temp? | Promotes to Production? | Deletes Temp? | Cost |
+|--------|---------|----------------|------------------------|---------------|------|
+| **1. Single Batch** | `firebase_migration_v2.py` (with limit) | ✅ 250 records | ❌ | ❌ | ~$1.25 |
+| **2. Full to Temp** | `firebase_migration_v2.py` (no limit) | ✅ All records | ❌ | ❌ | ~$15.75 |
+| **3. Promote Only** | `promote_temp_clients_and_referrals.py` | ➖ (uses existing) | ✅ | ✅ | $0 |
+| **4. Full Pipeline** | `run_full_etl_with_promotion.py` | ✅ All records | ✅ | ✅ | ~$15.75 |
+| **5. NPM Command** | `npm run etl` | ✅ All records | ✅ | ✅ | ~$15.75 |
+
+---
+
+### Option 1: Test with Single Batch (Recommended for Development)
+
+**Use when:** Testing changes, validating transformations, or minimizing API costs
+
+**What it does:** Loads only 250 records into temp collections
+
+**Command:**
+```powershell
+$env:MIGRATION_LIMIT_RECORDS = "250"
+& "C:\localdev\UMD-Hackathon\food-for-all-dc\venv\Scripts\python.exe" ETL\firebase_migration_v2.py
+```
+
+**Result:**
+- ✅ Creates documents in `temp-profile2` and `temp-referral` (250 records)
+- ❌ Does NOT touch `client-profile2` or `referral` (production)
+- ❌ Does NOT delete temp collections
+- **Cost:** ~$1.25 for geocoding
+
+---
+
+### Option 2: Full ETL to Temp Collections (Recommended for Review)
+
+**Use when:** Loading all data for review before promoting to production
+
+**What it does:** Loads ~3,150 records into temp collections
+
+**Command:**
+```powershell
+# Make sure MIGRATION_LIMIT_RECORDS is NOT set
+Remove-Item Env:\MIGRATION_LIMIT_RECORDS -ErrorAction SilentlyContinue
+& "C:\localdev\UMD-Hackathon\food-for-all-dc\venv\Scripts\python.exe" ETL\firebase_migration_v2.py
+```
+
+**Result:**
+- ✅ Creates documents in `temp-profile2` and `temp-referral` (all records)
+- ❌ Does NOT touch `client-profile2` or `referral` (production)
+- ❌ Does NOT delete temp collections
+- **Cost:** ~$15.75 for geocoding
+
+**Next step:** Review temp collections in Firestore, then use **Option 3** to promote
+
+---
+
+### Option 3: Promote Temp to Production (After Review)
+
+**Use when:** You've already run Option 1 or 2 and reviewed the temp data
+
+**What it does:** Copies validated temp data to production and cleans up
+
+**Command:**
+```powershell
+& "C:\localdev\UMD-Hackathon\food-for-all-dc\venv\Scripts\python.exe" ETL\promote_temp_clients_and_referrals.py
+```
+
+**Result:**
+- ⚠️  **DESTRUCTIVE:** Deletes ALL existing docs in `client-profile2` and `referral`
+- ✅ Copies `temp-profile2` → `client-profile2` (preserves document IDs)
+- ✅ Copies `temp-referral` → `referral` (preserves document IDs)
+- ✅ Deletes `temp-profile2` and `temp-referral` collections
+- **Cost:** $0 (no geocoding)
+
+---
+
+### Option 4: Full Pipeline (ETL → Clean → Promote)
+
+**Use when:** You want to run everything in one command without reviewing temp data
+
+**What it does:** Runs all 4 steps automatically:
+1. ETL into temp collections
+2. Prune referrals with no contact info
+3. Clean up referral name/organization fields
+4. Promote to production and delete temp
+
+**Command:**
+```powershell
+& "C:\localdev\UMD-Hackathon\food-for-all-dc\venv\Scripts\python.exe" ETL\run_full_etl_with_promotion.py
+```
+
+**Result:**
+- ⚠️  **DESTRUCTIVE:** Deletes ALL existing docs in `client-profile2` and `referral`
+- ✅ Fresh data in production collections
+- ✅ Temp collections deleted
+- **Cost:** ~$15.75 for geocoding
+
+---
+
+### Option 5: NPM Command (Simplest)
+
+**Use when:** You want the easiest command to run the full pipeline
+
+**Command:**
 ```sh
 cd my-app
 npm run etl
 ```
 
-This command:
+**Result:** Same as Option 4 (runs `run_full_etl_with_promotion.py`)
 
-- Changes to the repo root,
-- Uses `venv\Scripts\python.exe`, and
-- Runs `ETL/run_full_etl_with_promotion.py`, which:
-  - Loads data into `temp-profile2` / `temp-referral`,
-  - Runs the sandbox referral cleanup steps, then
-  - Promotes the cleaned data into `client-profile2` / `referral` and
-   deletes the temp collections.
+---
 
-### 4. Run the ETL directly with Python (alternative)
+### Which Option Should I Use?
 
-With the venv activated at the repo root:
+| Scenario | Recommended Option |
+|----------|-------------------|
+| Testing code changes | Option 1 (single batch) |
+| First-time ETL or major changes | Option 2 → review → Option 3 |
+| Regular production refresh | Option 4 or 5 |
+| Already have validated temp data | Option 3 only |
 
-1. To run just the core ETL into the currently configured collections
-  (for example, the sandbox collections `temp-profile2` and
-  `temp-referral`), run:
+**Important Notes:**
+- Options 3, 4, and 5 are **DESTRUCTIVE** - they delete production data
+- Always backup production collections before promoting
+- Review `temp-profile2` and `temp-referral` in Firestore console after Option 1/2
+- Environment variable `MIGRATION_LIMIT_RECORDS` persists for entire terminal session
 
-  ```sh
-  python ETL/firebase_migration_v2.py
-  ```
-
-2. To run the **full pipeline** (ETL into sandbox → sandbox referral
-  cleanup → promotion into `client-profile2` / `referral` and deletion
-  of temps) in one shot, run:
-
-  ```sh
-  python ETL/run_full_etl_with_promotion.py
-  ```
-
-After the ETL completes (either via the standalone script or the full
-pipeline), see **Post‑ETL Referral Cleanup & Promotion** below for how
-to review and finalize referral/case worker data.
+**For advanced, manual cleanup workflows, see the "Advanced: Manual Referral Cleanup & Promotion" section below.**
 
 ## Required Excel Files
 - `FFA_CLIENT_DATABASE.xlsx`: The main client database exported from Google Sheets as an Excel file.
@@ -121,6 +211,57 @@ Below is a mapping of the key fields from the Excel files to Firestore document 
 | Email                       | referral              | email                     |
 | Phone                       | referral              | phone                     |
 
+## Geocoding and Google Maps API Key
+
+The ETL uses the Google Maps Geocoding API to convert addresses to latitude/longitude coordinates. The API key is automatically loaded from `my-app/.env` (as `REACT_APP_GOOGLE_MAPS_API_KEY`).
+
+**Important:** The API key must be set in `my-app/.env` before running the ETL. If the key is missing, the ETL will abort and clean up any temporary collections.
+
+**Note:** The ETL no longer uses OpenStreetMap/Nominatim for geocoding. All address lookups are now performed via Google Maps.
+
+### Cost Estimates
+- **Single batch (250 records):** ~$1.25
+- **Full ETL (~3,150 records, ~191 active):** ~$15.75
+
+## Controlling Batch Size with MIGRATION_LIMIT_RECORDS
+
+The `MIGRATION_LIMIT_RECORDS` environment variable controls how many records are processed during an ETL run.
+
+### Processing All Records (Default)
+
+By default, the ETL processes **all records** in the Excel file. Simply ensure the variable is not set:
+
+```powershell
+# Clear the variable if it was previously set
+Remove-Item Env:\MIGRATION_LIMIT_RECORDS -ErrorAction SilentlyContinue
+
+# Run ETL (processes all records)
+& "C:\localdev\UMD-Hackathon\food-for-all-dc\venv\Scripts\python.exe" ETL\firebase_migration_v2.py
+```
+
+### Processing Limited Records (Testing)
+
+To process only a specific number of records (useful for testing):
+
+```powershell
+# Set limit to 250 records
+$env:MIGRATION_LIMIT_RECORDS = "250"
+
+# Run ETL (processes only first 250 records)
+& "C:\localdev\UMD-Hackathon\food-for-all-dc\venv\Scripts\python.exe" ETL\firebase_migration_v2.py
+```
+
+**Important:** Environment variables persist for the entire terminal session. If you set `MIGRATION_LIMIT_RECORDS` for testing, you **must** clear it before running the full ETL:
+
+```powershell
+# Option 1: Clear then run (two commands)
+Remove-Item Env:\MIGRATION_LIMIT_RECORDS
+& "C:\localdev\UMD-Hackathon\food-for-all-dc\venv\Scripts\python.exe" ETL\firebase_migration_v2.py
+
+# Option 2: Clear and run in one command
+Remove-Item Env:\MIGRATION_LIMIT_RECORDS; & "C:\localdev\UMD-Hackathon\food-for-all-dc\venv\Scripts\python.exe" ETL\firebase_migration_v2.py
+```
+
 ### Verifying Spreadsheet Mappings Before Running ETL
 
 Before each migration run, confirm that the spreadsheet layouts still match the expectations in this table:
@@ -156,11 +297,19 @@ Before each migration run, confirm that the spreadsheet layouts still match the 
 - **Geocoding:**
   - Addresses are geocoded where possible; failures are logged but do not halt the ETL.
 
-## Post‑ETL Referral Cleanup & Promotion
+## Advanced: Manual Referral Cleanup & Promotion
 
-After a full migration (running `firebase_migration_v2.py`), there is an optional but recommended referral cleanup flow to normalize case worker data and prune unusable entries.
+**Note:** Most users should use the workflow options described in the **ETL Workflow Options** section above. This section covers advanced, manual cleanup steps for special cases.
 
-### Recommended Run Order (sandbox first)
+After running the basic ETL (`firebase_migration_v2.py`), you can optionally perform additional cleanup and validation on referral data before promoting to production. This is useful when:
+
+- You need granular control over each cleanup step
+- You want to inspect and manually fix referral data
+- The automated cleanup in `run_full_etl_with_promotion.py` isn't sufficient
+
+**For most cases, use Option 4 or 5 from the ETL Workflow Options above, which automates these steps.**
+
+### Manual Cleanup Workflow (When Using Temp Collections)
 
 When `firebase_migration_v2.py` is configured to write into the sandbox
 collections (`temp-profile2` for clients and `temp-referral` for case
@@ -266,31 +415,13 @@ What this script does:
 
 Because client `referralEntity.id` values reference document IDs, preserving IDs during promotion ensures that live clients now point at the cleaned referral entries.
 
-### 4b. Promote temp-profile2 and temp-referral into production (alternative)
+### Promoting Both Clients and Referrals from Temp to Production
 
-If you have validated both sandbox collections `temp-profile2` (clients)
-and `temp-referral` (case workers) and want to replace the live
-collections in one step, you can use:
+See **Option 3** in the **ETL Workflow Options** section above for details on running `promote_temp_clients_and_referrals.py`.
 
-```sh
-python ETL/promote_temp_clients_and_referrals.py
-```
+This script is the final step if you've validated both `temp-profile2` (clients) and `temp-referral` (case workers) and want to replace the production collections.
 
-This script will:
-
-- Delete all existing documents from `client-profile2` and `referral`.
-- Copy all documents from `temp-profile2` into `client-profile2` using
-  the same document IDs.
-- Copy all documents from `temp-referral` into `referral` using the
-  same document IDs.
-- Delete the documents from `temp-profile2` and `temp-referral` once
-  the promotion is complete.
-
-Because document IDs are preserved, any `referralEntity.id` references
-on clients will continue to point at the matching referral documents
-after the promotion.
-
-### 5. Frontend Configuration (caseWorkersCollection)
+### Frontend Configuration (caseWorkersCollection)
 
 The React app determines which collection to use for case workers via `caseWorkersCollection` in:
 

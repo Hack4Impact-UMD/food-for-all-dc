@@ -29,7 +29,7 @@ export interface DeliveryRowData {
   tags?: string[];
   ward?: string;
   clusterId: string;
-  coordinates: { lat: number; lng: number }[];
+  coordinates: [number, number]; // LatLngTuple format: [latitude, longitude]
   deliveryDetails: {
     deliveryInstructions: string;
     dietaryRestrictions: {

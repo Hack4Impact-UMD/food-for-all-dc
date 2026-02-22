@@ -4,7 +4,7 @@ REFERRAL_COLLECTION_NAME = "temp-referral"
 import json
 import os
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 import time
 from typing import Dict, List, Any, Optional
 import logging
@@ -14,16 +14,26 @@ import requests
 import re
 # For spreadsheet ZIP fallback
 import pandas as pd
+from dotenv import load_dotenv
+
+# Load environment variables from my-app/.env
+env_path = os.path.join(os.path.dirname(__file__), "..", "my-app", ".env")
+if os.path.exists(env_path):
+    load_dotenv(env_path)
+    print(f"✅ Loaded environment from {env_path}")
+else:
+    print(f"⚠️  Warning: .env file not found at {env_path}")
 
 # Install these dependencies:
-# pip install firebase-admin python-dateutil requests
+# pip install firebase-admin python-dateutil requests python-dotenv
 
 
 import firebase_admin
 from firebase_admin import credentials, firestore
 from google.cloud.firestore_v1.base_query import FieldFilter
 
-# Global counter for warnings/errors during a migration run
+# Global counters for warnings/errors during a migration run
+WARNING_COUNT = 0
 ERROR_COUNT = 0
 
 
@@ -39,15 +49,17 @@ class _InfoOnlyFilter(logging.Filter):
 
 
 class _ErrorCountingHandler(logging.Handler):
-	"""Handler that increments a global counter on each WARNING or ERROR.
+	"""Handler that increments global counters for warnings and errors separately.
 
-	Used to keep a running error count in the console status line without
+	Used to keep running warning/error counts in the console status line without
 	printing individual messages.
 	"""
 
 	def emit(self, record: logging.LogRecord) -> None:  # type: ignore[name-defined]
-		global ERROR_COUNT
-		if record.levelno >= logging.WARNING:
+		global WARNING_COUNT, ERROR_COUNT
+		if record.levelno == logging.WARNING:
+			WARNING_COUNT += 1
+		elif record.levelno >= logging.ERROR:
 			ERROR_COUNT += 1
 
 
@@ -82,32 +94,65 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
-def geocode_address_openmap(address, city, state, zip_code):
-	parts = [address, city, state, str(zip_code)]
-	full_addr = ', '.join([str(p) for p in parts if p and str(p).strip() and str(p).lower() != 'nan'])
-	url = f"https://nominatim.openstreetmap.org/search?format=json&q={requests.utils.quote(full_addr)}"
-	max_retries = 3
-	for attempt in range(1, max_retries + 1):
-		try:
-			resp = requests.get(url, headers={"User-Agent": "food-for-all-dc-etl-script"}, timeout=10)
-			if resp.status_code == 200:
-				data = resp.json()
-				if data:
-					loc = data[0]
-					return [float(loc['lat']), float(loc['lon'])]
-				else:
-					logger.warning(f"[WARN] No coordinates found for address: {full_addr}")
-					return None
+def geocode_address_google(address, city, state, zip_code):
+	"""Geocode an address using Google Maps Geocoding API.
+	
+	Returns:
+		dict with 'latitude', 'longitude', and optionally 'zip_code' if found
+		None if geocoding fails
+	"""
+	# Try REACT_APP_GOOGLE_MAPS_API_KEY first (from .env), then GOOGLE_MAPS_API_KEY
+	api_key = os.getenv("REACT_APP_GOOGLE_MAPS_API_KEY") or os.getenv("GOOGLE_MAPS_API_KEY", "")
+	if not api_key:
+		logger.warning("Google Maps API key not found in environment; skipping geocoding")
+		return None
+	
+	# Build full address
+	address_parts = [address]
+	if city:
+		address_parts.append(city)
+	if state:
+		address_parts.append(state)
+	if zip_code:
+		address_parts.append(str(zip_code))
+	
+	full_address = ", ".join(filter(None, address_parts))
+	
+	params = {
+		'address': full_address,
+		'key': api_key
+	}
+	url = f"https://maps.googleapis.com/maps/api/geocode/json?{urlencode(params)}"
+	
+	try:
+		resp = requests.get(url, timeout=10)
+		if resp.status_code == 200:
+			data = resp.json()
+			if data.get('status') == 'OK' and data.get('results'):
+				result = data['results'][0]
+				location = result['geometry']['location']
+				
+				# Extract ZIP code from address components
+				extracted_zip = None
+				for comp in result.get('address_components', []):
+					if 'postal_code' in comp.get('types', []):
+						extracted_zip = comp['long_name']
+						break
+				
+				return {
+					'latitude': location['lat'],
+					'longitude': location['lng'],
+					'zip_code': extracted_zip
+				}
 			else:
-				logger.warning(f"[WARN] Nominatim API error: {resp.status_code}")
-		except Exception as e:
-			logger.warning(f"[WARN] Nominatim geocoding failed for {full_addr} (attempt {attempt}): {e}")
-			if attempt < max_retries:
-				time.sleep(2 ** attempt)  # Exponential backoff
-			else:
-				logger.warning(f"[WARN] Max retries reached for geocoding address: {full_addr}")
-	# After 3 failed attempts, just return None (ignore failure, do not block insert)
-	return None
+				logger.warning(f"Google Maps API returned status: {data.get('status')} for address: {full_address}")
+				return None
+		else:
+			logger.warning(f"Google Maps API request failed with status code: {resp.status_code}")
+			return None
+	except Exception as e:
+		logger.warning(f"Error geocoding address '{full_address}': {e}")
+		return None
 
 # --- Begin full code from firebase_migration.py ---
 from urllib.parse import urlencode
@@ -134,7 +179,7 @@ class MigrationStats:
 			self.failed_geocoding_records = []
 
 
-# --- Begin FirestoreMigration and helpers (adapted for OpenMap geocoding) ---
+# --- Begin FirestoreMigration and helpers (uses Google Maps geocoding) ---
 from urllib.parse import urlencode
 
 class FirestoreMigration:
@@ -558,7 +603,7 @@ class FirestoreMigration:
 		"""Advance the global rich progress bar with a one-line label, if enabled.
 
 		The label shows the current record, and we also surface the current
-		global ERROR_COUNT so the user sees a running error total.
+		global WARNING_COUNT and ERROR_COUNT so the user sees running totals.
 		"""
 		if getattr(self, "_progress", None) is not None and hasattr(self, "_progress_task"):
 			from rich.console import Group
@@ -576,7 +621,7 @@ class FirestoreMigration:
 					layout = Group(
 						Text("🚚 Migrating", style="bold"),
 						self._progress,
-						Text(f"⚠️ Errors: {ERROR_COUNT} (see ETL/error_logs/migration-errors.log)"),
+						Text(f"⚠️  Warnings: {WARNING_COUNT} | ❌ Errors: {ERROR_COUNT} (see ETL/error_logs/migration-errors.log)"),
 						Text(f"📄 {self._current_label}"),
 					)
 					live.update(layout)
@@ -624,8 +669,12 @@ class FirestoreMigration:
 				active_status = row.get("Active", "")
 				if str(active_status).lower() not in ['yes', 'true', '1', 'active']:
 					skipped_inactive += 1
-					# Debug-only: invisible at INFO level
-					logger.debug(f"[DEBUG] Skipped inactive: {display_name}")
+					# Log with ID for tracking
+					logger.info(
+						f"Skipped inactive client: {display_name} | "
+						f"ID: {row.get('ID', 'Unknown')} | "
+						f"Active status: {active_status}"
+					)
 					skipped += 1
 					self._advance_progress(f"{batch_prefix}⏭️ Skipped inactive: {display_name} ({idx}/{total_records})")
 					continue
@@ -638,14 +687,18 @@ class FirestoreMigration:
 				# Pass referral_form_records to transform_record
 				transformed = self.transform_record(row, referral_form_records=referral_form_records)
 				if transformed is None:
-					if self.is_duplicate(first_name, last_name):
+					# Record was skipped in transform_record (duplicate or other reason)
+					# The detailed logging already happened in transform_record
+					skipped += 1
+					# Check if it was logged as duplicate (name already in processed_names)
+					first_name_check = (row.get("FIRST_database") or row.get("FIRST", "") or "").strip()
+					last_name_check = (row.get("LAST_database") or row.get("LAST", "") or "").strip()
+					full_name_normalized = f"{first_name_check.strip().lower()} {last_name_check.strip().lower()}"
+					if hasattr(self, 'processed_names') and full_name_normalized in self.processed_names:
 						skipped_duplicate += 1
-						logger.debug(f"[DEBUG] Skipped duplicate: {display_name}")
 						label = f"{batch_prefix}🔁 Skipped duplicate: {display_name} ({idx}/{total_records})"
 					else:
-						logger.debug(f"[DEBUG] Skipped for other reason: {display_name}")
 						label = f"{batch_prefix}❔ Skipped: {display_name} ({idx}/{total_records})"
-					skipped += 1
 					self._advance_progress(label)
 					continue
 				# For the first few successful records, just log the client's name via logger
@@ -811,7 +864,14 @@ class FirestoreMigration:
 										transformed["referralEntity"]["id"] = referral_doc_id
 									referral_cache[dedup_key] = referral_doc_id
 								except Exception as e:
-									logger.error(f"[ERROR] Failed to insert referral into {REFERRAL_COLLECTION_NAME}: {e}")
+									ref_name = str(referral_doc.get("name", "")).strip() or "<no name>"
+									ref_org = str(referral_doc.get("organization", "")).strip() or "<no org>"
+									logger.error(
+										f"[ERROR] Failed to insert referral into {REFERRAL_COLLECTION_NAME} | "
+										f"Name: {ref_name} | "
+										f"Organization: {ref_org} | "
+										f"Error: {str(e)}"
+									)
 									failed_referral_inserts.append({"referral": referral_doc, "error": str(e)})
 				# Now insert the client profile, after referralEntity.id is set.
 				# Drop helper contact fields so they are not stored on
@@ -830,7 +890,15 @@ class FirestoreMigration:
 				else:
 					logger.debug(f"[Batch] Record {idx}/{total_records} processed (ID: {doc_id})")
 			except Exception as e:
-				logger.error(f"[ERROR] Failed to prepare record {row.get('ID', 'Unknown')}: {str(e)}")
+				name_info = f"{row.get('FIRST', '')} {row.get('LAST', '')}".strip() or "<no name>"
+				address_info = str(row.get('ADDRESS', ''))[:50]
+				logger.error(
+					f"[ERROR] Failed to prepare record | "
+					f"ID: {row.get('ID', 'Unknown')} | "
+					f"Name: {name_info} | "
+					f"Address: {address_info} | "
+					f"Error: {str(e)}"
+				)
 				failed += 1
 				failed_inserts.append(row)
 				failed_client_inserts.append({"client": row, "error": str(e)})
@@ -916,12 +984,13 @@ class FirestoreMigration:
 			limit: Maximum number of records to process (None for all records)
 			records_override: List of records to process directly (bypasses file loading)
 		"""
-		global ERROR_COUNT
+		global WARNING_COUNT, ERROR_COUNT
+		WARNING_COUNT = 0  # reset warning counter for this run
 		ERROR_COUNT = 0  # reset error counter for this run
 		self.processed_names = set()
 		self.case_workers = {}
 		self.stats = MigrationStats()
-		self.stats.start_time = datetime.utcnow()
+		self.stats.start_time = datetime.now(timezone.utc)
 		logger.info(f"Starting migration from {file_path}")
 		logger.info(f"Batch size: {batch_size}, Max workers: {max_workers}")
 		if limit:
@@ -988,7 +1057,7 @@ class FirestoreMigration:
 				layout = Group(
 					Text("🚚 Migrating", style="bold"),
 					progress,
-					Text(f"⚠️ Errors: {ERROR_COUNT} (see ETL/error_logs/migration-errors.log)"),
+					Text(f"⚠️  Warnings: {WARNING_COUNT} | ❌ Errors: {ERROR_COUNT} (see ETL/error_logs/migration-errors.log)"),
 					Text(f"📄 {self._current_label}"),
 				)
 				# Temporarily silence console logging while Live is active to avoid
@@ -1030,7 +1099,7 @@ class FirestoreMigration:
 					except Exception as e:
 						logger.error(f"[ERROR] Batch {i} failed: {str(e)}")
 						self.stats.failed_imports += len(batch)
-		self.stats.end_time = datetime.utcnow()
+		self.stats.end_time = datetime.now(timezone.utc)
 		duration = self.stats.end_time - self.stats.start_time
 		logger.info("Migration completed!")
 		logger.info(f"Total time: {duration}")
@@ -1275,7 +1344,7 @@ class FirestoreMigration:
 		return combined_text[:200]
 	def transform_record(self, row: Dict[str, Any], referral_form_records=None) -> Dict[str, Any]:
 		"""
-		Transform a record, using OpenMap geocoding and stripping apartment/unit info from address.
+		Transform a record, using Google Maps geocoding and stripping apartment/unit info from address.
 		Also tracks geocoding failures for retry.
 		Supports both legacy JSON field names and direct Excel column names.
 		"""
@@ -1302,7 +1371,11 @@ class FirestoreMigration:
 		doc_id = str(row.get("ID", "")).strip()
 
 		if self.is_duplicate(first_name, last_name):
-			logger.warning(f"Skipping duplicate: {first_name} {last_name}")
+			address_preview = str(row.get("ADDRESS", ""))[:50]
+			logger.warning(
+				f"Skipping duplicate: {first_name} {last_name} | "
+				f"ID: {doc_id} | Address: {address_preview}"
+			)
 			return None
 
 		phone = ""
@@ -1416,29 +1489,26 @@ class FirestoreMigration:
 			city = "Washington"
 			state = "DC"
 
-		# --- Use API for ZIP first, fallback to Zipcode from JSON ---
+		# --- Use Google Maps API for geocoding and ZIP extraction ---
 		zip_in_data = row.get("ZIPcode", "") or row.get("ZIP", "")
 		zip_code = ""
-		# Step 1: Try geocoding with ZIP if present, else without ZIP
-		coordinates = geocode_address_openmap(address_for_coords, city, state, zip_in_data)
-		# Step 2: If API/geocoding fails to provide ZIP, fallback to Zipcode from JSON
-		if coordinates:
-			# Try to extract ZIP from geocoding result
-			import requests
-			base_addr = ', '.join([str(x) for x in [address_for_coords, city, state] if x and str(x).strip() and str(x).lower() != 'nan'])
-			url = f"https://nominatim.openstreetmap.org/search?format=json&q={requests.utils.quote(base_addr)}"
-			try:
-				resp = requests.get(url, headers={"User-Agent": "food-for-all-dc-etl-script"}, timeout=10)
-				if resp.status_code == 200:
-					data = resp.json()
-					if data:
-						loc = data[0]
-						zip_code = loc.get('postcode', '')
-			except Exception as e:
-				logger.warning(f"Could not extract ZIP from OpenMap geocoding API: {e}")
-		# Fallback: If zip_code is still empty, use Zipcode from JSON
+		coordinates = None
+		
+		# Try geocoding with Google Maps API
+		geocode_result = geocode_address_google(address_for_coords, city, state, zip_in_data)
+		if geocode_result:
+			latitude = geocode_result.get('latitude')
+			longitude = geocode_result.get('longitude')
+			if latitude is not None and longitude is not None:
+				# Store coordinates as [latitude, longitude] array (Leaflet LatLngTuple format)
+				coordinates = [latitude, longitude]
+			# Use ZIP from geocoding if available
+			if geocode_result.get('zip_code'):
+				zip_code = geocode_result['zip_code']
+		
+		# Fallback: If zip_code is still empty, use ZIP from data
 		if not zip_code:
-			zip_code = str(row.get("Zipcode", ""))
+			zip_code = str(zip_in_data) if zip_in_data else ""
 
 		end_date = row.get("EndDate", "")
 		if not end_date or not str(end_date).strip():
@@ -1477,7 +1547,7 @@ class FirestoreMigration:
 		from datetime import datetime, date
 		DEFAULT_START_DATE_STR = "11/15/2025"
 		DEFAULT_START_DATE = datetime.strptime(DEFAULT_START_DATE_STR, "%m/%d/%Y").date()
-		today = datetime.utcnow().date()
+		today = datetime.now(timezone.utc).date()
 		# Get start and end dates as strings.
 		# Support legacy JSON fields and direct Excel headers ("Start Date").
 		raw_start = None
@@ -1557,8 +1627,8 @@ class FirestoreMigration:
 			"mentalHealthConditions": mental_health_conditions,
 			"notes": notes,
 			"language": row.get("Language", ""),
-			"createdAt": datetime.utcnow(),
-			"updatedAt": datetime.utcnow(),
+			"createdAt": datetime.now(timezone.utc),
+			"updatedAt": datetime.now(timezone.utc),
 			"tags": tags,
 			"ward": row.get("Ward", ""),
 			"coordinates": coordinates,
@@ -1595,9 +1665,55 @@ class FirestoreMigration:
 		# fields on the client-profile2 referralEntity itself.
 		client_profile["_referralContactPhone"] = referral_phone
 		client_profile["_referralContactEmail"] = referral_email
+		
+		# Track records that failed geocoding (missing coordinates)
+		if coordinates is None:
+			logger.warning(
+				f"Failed geocoding - No coordinates found | "
+				f"ID: {doc_id} | "
+				f"Name: {first_name} {last_name} | "
+				f"Address attempted: {address_for_coords}, {city}, {state} {zip_code}"
+			)
+			self.stats.failed_geocoding_records.append({
+				"ID": doc_id,
+				"firstName": first_name,
+				"lastName": last_name,
+				"address": address_for_coords,
+				"city": city,
+				"state": state,
+				"zipCode": zip_code,
+				"fullRecord": row
+			})
+		
 		return client_profile
 
 # --- End FirestoreMigration ---
+
+def delete_temp_collections():
+	"""Delete all documents from temp-profile2 and temp-referral collections."""
+	try:
+		db = firestore.client()
+		
+		# Delete temp-profile2
+		print(f"🗑️ Deleting all documents from {CLIENT_COLLECTION_NAME}...")
+		temp_profile_docs = db.collection(CLIENT_COLLECTION_NAME).stream()
+		deleted_profiles = 0
+		for doc in temp_profile_docs:
+			doc.reference.delete()
+			deleted_profiles += 1
+		print(f"✅ Deleted {deleted_profiles} documents from {CLIENT_COLLECTION_NAME}")
+		
+		# Delete temp-referral
+		print(f"🗑️ Deleting all documents from {REFERRAL_COLLECTION_NAME}...")
+		temp_referral_docs = db.collection(REFERRAL_COLLECTION_NAME).stream()
+		deleted_referrals = 0
+		for doc in temp_referral_docs:
+			doc.reference.delete()
+			deleted_referrals += 1
+		print(f"✅ Deleted {deleted_referrals} documents from {REFERRAL_COLLECTION_NAME}")
+		
+	except Exception as e:
+		print(f"❌ Error deleting temp collections: {e}")
 
 def main():
 	SERVICE_ACCOUNT_PATH = os.path.join("ETL", "food-for-all-dc-caf23-firebase-adminsdk-fbsvc-4e77c7873e.json")
@@ -1605,6 +1721,33 @@ def main():
 	COLLECTION_NAME = CLIENT_COLLECTION_NAME
 	EXCEL_FILE_PATH = os.path.join("ETL", "FFA_CLIENT_DATABASE.xlsx")
 	EXCEL_SHEET_NAME = "Current Deliveries"
+
+	# ====================================================================
+	# CRITICAL: Check for Google Maps API Key BEFORE doing anything else
+	# ====================================================================
+	# Try REACT_APP_GOOGLE_MAPS_API_KEY first (from .env), then GOOGLE_MAPS_API_KEY
+	api_key = os.getenv("REACT_APP_GOOGLE_MAPS_API_KEY") or os.getenv("GOOGLE_MAPS_API_KEY", "")
+	if not api_key:
+		print("\n" + "="*80)
+		print("❌ ERROR: Google Maps API key not found!")
+		print("="*80)
+		print("\nThe ETL requires a valid Google Maps API key for geocoding.")
+		print("\nPlease add REACT_APP_GOOGLE_MAPS_API_KEY to my-app/.env file.")
+		print("\nAlternatively, set the environment variable:")
+		print("  PowerShell:")
+		print('    $env:GOOGLE_MAPS_API_KEY = "your-api-key-here"')
+		print("\n" + "="*80)
+		
+		# Initialize Firebase to delete temp collections
+		if not firebase_admin._apps:
+			cred = credentials.Certificate(SERVICE_ACCOUNT_PATH)
+			firebase_admin.initialize_app(cred)
+		
+		# Clean up temp collections before exiting
+		print("\n🧹 Cleaning up temporary collections before exit...")
+		delete_temp_collections()
+		print("\n❌ ETL aborted. Please set GOOGLE_MAPS_API_KEY and try again.\n")
+		sys.exit(1)
 
 	# Ensure Firebase Admin SDK is initialized before any Firestore operations
 	if not firebase_admin._apps:
@@ -1673,7 +1816,7 @@ def main():
 	)
 
 	# --- Write failure files with timestamp and update latest ---
-	timestamp = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
+	timestamp = datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')
 
 	# Write failed_active_records
 	if hasattr(stats, 'failed_active_records') and stats.failed_active_records:

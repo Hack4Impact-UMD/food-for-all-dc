@@ -76,7 +76,7 @@ export interface ClientProfile {
   updatedAt: Date;
   tags: string[];
   ward: string;
-  coordinates: { lat: number; lng: number }[];
+  coordinates: [number, number]; // LatLngTuple format: [latitude, longitude]
   seniors: number;
   headOfHousehold: "Senior" | "Adult";
   referralEntity?: {
