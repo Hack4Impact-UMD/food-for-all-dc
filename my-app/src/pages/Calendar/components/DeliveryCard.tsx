@@ -3,7 +3,7 @@ import { Box, Typography } from "@mui/material";
 import { Link } from "react-router-dom";
 import EventMenu from "./EventMenu";
 import { ClientProfile } from "../../../types/client-types";
-import { DeliveryEvent } from "../../../types/calendar-types";
+import { DateLimit, DeliveryEvent } from "../../../types/calendar-types";
 import styles from "./DeliveryCard.module.css";
 import DeliveryRecurrenceDisplay from "./DeliveryRecurrenceDisplay";
 
@@ -12,6 +12,8 @@ interface DeliveryCardProps {
   client?: ClientProfile;
   onEventModified: () => void;
   allEvents?: DeliveryEvent[];
+  weeklyLimits: number[];
+  dailyLimits: DateLimit[];
 }
 
 const DeliveryCard: React.FC<DeliveryCardProps> = React.memo(function DeliveryCard({
@@ -19,14 +21,16 @@ const DeliveryCard: React.FC<DeliveryCardProps> = React.memo(function DeliveryCa
   client,
   onEventModified,
   allEvents,
+  weeklyLimits,
+  dailyLimits,
 }) {
   const formatPhoneNumber = (phone: string): string => {
-    const cleaned = ("" + phone).replace(/\D/g, ""); // Remove non-numeric characters
-    const match = cleaned.match(/^(\d{3})(\d{3})(\d{4})$/); // Match the phone number pattern
+    const cleaned = ("" + phone).replace(/\D/g, "");
+    const match = cleaned.match(/^(\d{3})(\d{3})(\d{4})$/);
     if (match) {
-      return `(${match[1]})-${match[2]}-${match[3]}`; // Format as (xxx)-xxx-xxxx
+      return `(${match[1]})-${match[2]}-${match[3]}`;
     }
-    return phone; // Return the original phone if it doesn't match the pattern
+    return phone;
   };
 
   const trueRestrictions = Object.entries(client?.deliveryDetails?.dietaryRestrictions || {})
@@ -57,7 +61,6 @@ const DeliveryCard: React.FC<DeliveryCardProps> = React.memo(function DeliveryCa
     >
       <Box className={styles.clientSection}>
         <Box>
-          {/* Displays the client name as a link */}
           <Typography
             variant="h6"
             component={Link}
@@ -68,7 +71,6 @@ const DeliveryCard: React.FC<DeliveryCardProps> = React.memo(function DeliveryCa
           >
             {event.clientName}
           </Typography>
-          {/* Displays if the delivery is apart of a recurrence and also shows the date range */}
           <DeliveryRecurrenceDisplay event={event} allEvents={allEvents} />
         </Box>
       </Box>
@@ -135,7 +137,12 @@ const DeliveryCard: React.FC<DeliveryCardProps> = React.memo(function DeliveryCa
           e.preventDefault();
         }}
       >
-        <EventMenu event={event} onEventModified={onEventModified} />
+        <EventMenu
+          event={event}
+          onEventModified={onEventModified}
+          weeklyLimits={weeklyLimits}
+          dailyLimits={dailyLimits}
+        />
       </Box>
     </Box>
   );

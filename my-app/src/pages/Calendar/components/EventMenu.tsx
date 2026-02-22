@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import {
   IconButton,
   Menu,
@@ -24,31 +24,45 @@ import MoreHorizIcon from "@mui/icons-material/MoreHoriz";
 import {
   addDoc,
   collection,
+  DocumentData,
   deleteDoc,
   doc,
   getDoc,
   getDocs,
+  QueryDocumentSnapshot,
   query,
   where,
   updateDoc,
 } from "firebase/firestore";
 import { db } from "../../../auth/firebaseConfig";
 import dataSources from "../../../config/dataSources";
-import { DeliveryEvent, NewDelivery } from "../../../types/calendar-types";
+import { DateLimit, DeliveryEvent, NewDelivery } from "../../../types/calendar-types";
 import { calculateRecurrenceDates } from "./CalendarUtils";
 import { toJSDate } from "../../../utils/timestamp";
 import { deliveryDate } from "../../../utils/deliveryDate";
 import { clientService } from "../../../services/client-service";
+import { DeliveryService } from "../../../services";
+import {
+  buildDailyLimitsMap,
+  buildProjectedCapacityWarnings,
+  CapacityWarningEntry,
+} from "./capacityStatus";
+import CapacityWarningPanel from "./CapacityWarningPanel";
 
 interface EventMenuProps {
   event: DeliveryEvent;
   onEventModified: () => void;
+  weeklyLimits: number[];
+  dailyLimits: DateLimit[];
 }
 
-const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
+const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified, weeklyLimits, dailyLimits }) => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [capacityWarnings, setCapacityWarnings] = useState<CapacityWarningEntry[]>([]);
+  const [capacityWarningError, setCapacityWarningError] = useState<string>("");
+  const [capacityWarningAcknowledged, setCapacityWarningAcknowledged] = useState<boolean>(false);
   const [deleteOption, setDeleteOption] = useState("This event");
   const [editOption, setEditOption] = useState<"This event" | "This and following events">(
     "This event"
@@ -59,29 +73,30 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
   });
 
   const [editDateError, setEditDateError] = useState<string | null>(null);
-  const [endDateError, setEndDateError] = useState<string | null>(null);
-  const [currentLastDeliveryDate, setCurrentLastDeliveryDate] = useState<string>("");
   const [clientStartDateISO, setClientStartDateISO] = useState<string | null>(null);
-  const normalizeToDateInput = (dateVal: any) => {
+  const normalizeToDateInput = (dateVal: unknown) => {
     if (!dateVal) return "";
-    // Firestore Timestamp
     if (dateVal instanceof Date) {
       return dateVal.toISOString().split("T")[0];
     }
     if (typeof dateVal === "string" && /^\d{4}-\d{2}-\d{2}$/.test(dateVal)) {
       return dateVal;
     }
-    // Try to handle Firestore Timestamp object
-    if (dateVal.seconds && dateVal.nanoseconds) {
-      const d = new Date(dateVal.seconds * 1000);
+    if (
+      typeof dateVal === "object" &&
+      dateVal !== null &&
+      "seconds" in dateVal &&
+      "nanoseconds" in dateVal &&
+      typeof (dateVal as { seconds?: unknown }).seconds === "number"
+    ) {
+      const d = new Date((dateVal as { seconds: number }).seconds * 1000);
       return d.toISOString().split("T")[0];
     }
-    // Try parsing as ISO string
-    try {
-      return new Date(dateVal).toISOString().split("T")[0];
-    } catch {
+    const parsed = new Date(String(dateVal));
+    if (Number.isNaN(parsed.getTime())) {
       return "";
     }
+    return parsed.toISOString().split("T")[0];
   };
   const [editRecurrence, setEditRecurrence] = useState<Partial<NewDelivery>>({
     assignedDriverId: event.assignedDriverId,
@@ -92,8 +107,8 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
     recurrence: event.recurrence,
     repeatsEndDate: normalizeToDateInput(event.repeatsEndDate),
   });
+  const dailyLimitsMap = useMemo(() => buildDailyLimitsMap(dailyLimits), [dailyLimits]);
 
-  // Fetch current last delivery date when component mounts
   useEffect(() => {
     const fetchCurrentLastDeliveryDate = async () => {
       if (event.clientId) {
@@ -101,9 +116,6 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
           const mostRecentSeriesEndDate = await getLastDeliveryDateForClient(event.clientId);
 
           if (mostRecentSeriesEndDate) {
-            setCurrentLastDeliveryDate(mostRecentSeriesEndDate);
-
-            // Update the editRecurrence state with the current end date
             setEditRecurrence((prev) => ({
               ...prev,
               repeatsEndDate: mostRecentSeriesEndDate as string,
@@ -140,6 +152,12 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
     };
   }, [event.clientId]);
 
+  useEffect(() => {
+    setCapacityWarnings([]);
+    setCapacityWarningError("");
+    setCapacityWarningAcknowledged(false);
+  }, [editOption, editDeliveryDate, editRecurrence.recurrence, editRecurrence.repeatsEndDate, event.id]);
+
   const formatToMMDDYYYY = (dateStr: string) => {
     const [year, month, day] = dateStr.split("-");
     if (!year || !month || !day) return dateStr;
@@ -156,27 +174,28 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
     setAnchorEl(null);
   };
 
-  const checkPastEvent = () => {
-    const eventDate = toJSDate(event.deliveryDate);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    return eventDate < today;
+  const resetCapacityWarningState = () => {
+    setCapacityWarnings([]);
+    setCapacityWarningError("");
+    setCapacityWarningAcknowledged(false);
   };
+  const shouldPauseForCapacityWarning = useCallback(
+    (hasWarning: boolean) => {
+      if (hasWarning && !capacityWarningAcknowledged) {
+        setCapacityWarningAcknowledged(true);
+        return true;
+      }
+      if (!hasWarning) {
+        setCapacityWarningAcknowledged(false);
+      }
+      return false;
+    },
+    [capacityWarningAcknowledged]
+  );
 
-  const handleEdit = () => {
-    if (checkPastEvent()) {
-      console.warn("Cannot edit past events.");
-      return;
-    }
-    setIsEditDialogOpen(true);
-  };
-
-  const handleDelete = () => {
-    if (checkPastEvent()) {
-      console.warn("Cannot delete past events.");
-      return;
-    }
-    setIsDeleteDialogOpen(true);
+  const closeEditDialog = () => {
+    resetCapacityWarningState();
+    setIsEditDialogOpen(false);
   };
 
   const handleDeleteConfirm = async () => {
@@ -210,6 +229,7 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
 
   const handleEditConfirm = async () => {
     try {
+      setCapacityWarningError("");
       const normalizedEditDate = deliveryDate.tryToISODateString(editDeliveryDate);
       if (clientStartDateISO && normalizedEditDate && normalizedEditDate < clientStartDateISO) {
         setEditDateError(
@@ -220,41 +240,48 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
         return;
       }
       const eventsRef = collection(db, dataSources.firebase.calendarCollection);
+      const deliveryService = DeliveryService.getInstance();
+      const deltaByDate: Record<string, number> = {};
+      let recurrenceDatesForSave: string[] = [];
+      let futureSeriesDocs: QueryDocumentSnapshot<DocumentData>[] = [];
 
       if (editOption === "This event") {
-        // Only update the deliveryDate for the single event, set time to noon
-        const newDate = deliveryDate.toJSDate(editDeliveryDate);
-        await updateDoc(doc(eventsRef, event.id), {
-          deliveryDate: newDate,
-        });
-      } else if (editOption === "This and following events") {
-        // Changing recurrence type: delete all future events in the series, then create new events for the new recurrence type and dates
+        const originalDateKey = deliveryDate.toISODateString(event.deliveryDate);
+        const updatedDateKey = deliveryDate.toISODateString(editDeliveryDate);
+        if (originalDateKey !== updatedDateKey) {
+          deltaByDate[originalDateKey] = -1;
+          deltaByDate[updatedDateKey] = 1;
+        }
+      } else {
         const originalEventDoc = await getDoc(doc(eventsRef, event.id));
         const originalEvent = originalEventDoc.data();
         if (!originalEvent) {
           console.error("Original event not found.");
           return;
         }
-        const originalDeliveryDate = toJSDate(originalEvent.deliveryDate);
-        // Calculate new recurrence dates for the new recurrence type
-        let newRecurrenceDates = calculateRecurrenceDates({
-          ...originalEvent,
-          ...editRecurrence,
-          deliveryDate: editDeliveryDate, // Ensure recurrence starts from new date
-        } as any);
-        // Ensure the first recurrence date is always the new start date
-        if (!newRecurrenceDates.length || newRecurrenceDates[0] !== editDeliveryDate) {
-          newRecurrenceDates = [editDeliveryDate, ...newRecurrenceDates];
+
+        const recurrenceDraft: NewDelivery = {
+          clientId: event.clientId,
+          clientName: event.clientName,
+          deliveryDate: editDeliveryDate,
+          recurrence: (editRecurrence.recurrence as NewDelivery["recurrence"]) || event.recurrence,
+          repeatsEndDate: editRecurrence.repeatsEndDate || "",
+        };
+        let nextRecurrenceDates = calculateRecurrenceDates(recurrenceDraft);
+        if (!nextRecurrenceDates.length || nextRecurrenceDates[0] !== editDeliveryDate) {
+          nextRecurrenceDates = [editDeliveryDate, ...nextRecurrenceDates];
         }
+
         const endDateStr = editRecurrence.repeatsEndDate
           ? deliveryDate.toISODateString(editRecurrence.repeatsEndDate)
           : null;
-        const filteredRecurrenceDates = newRecurrenceDates.filter((date) => {
+        recurrenceDatesForSave = nextRecurrenceDates.filter((date) => {
           if (clientStartDateISO && date < clientStartDateISO) return false;
           if (!endDateStr) return true;
           return date <= endDateStr;
         });
-        if (!filteredRecurrenceDates.length) {
+
+        if (!recurrenceDatesForSave.length) {
           if (clientStartDateISO) {
             setEditDateError(
               `Delivery date cannot be before client start date (${formatToMMDDYYYY(
@@ -264,19 +291,78 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
           }
           return;
         }
-        // Find all future events in the series
-        const q = query(
+
+        const originalDeliveryDate = toJSDate(originalEvent.deliveryDate);
+        const futureSeriesQuery = query(
           eventsRef,
           where("recurrenceId", "==", event.recurrenceId),
           where("clientId", "==", event.clientId),
           where("deliveryDate", ">=", originalDeliveryDate)
         );
-        const querySnapshot = await getDocs(q);
-        // Delete all future events in the series
-        await Promise.all(querySnapshot.docs.map((docSnap) => deleteDoc(docSnap.ref)));
-        // Add new events for each recurrence date
-        for (let i = 0; i < filteredRecurrenceDates.length; i++) {
-          const recurrenceDateStr = filteredRecurrenceDates[i];
+        const futureSeriesSnapshot = await getDocs(futureSeriesQuery);
+        futureSeriesDocs = futureSeriesSnapshot.docs;
+
+        const oldDateCounts = futureSeriesSnapshot.docs.reduce(
+          (acc, docSnap) => {
+            const dateKey = deliveryDate.toISODateString(docSnap.data().deliveryDate);
+            acc[dateKey] = (acc[dateKey] || 0) + 1;
+            return acc;
+          },
+          {} as Record<string, number>
+        );
+        const newDateCounts = recurrenceDatesForSave.reduce(
+          (acc, dateKey) => {
+            acc[dateKey] = (acc[dateKey] || 0) + 1;
+            return acc;
+          },
+          {} as Record<string, number>
+        );
+
+        const impactedDateSet = new Set([...Object.keys(oldDateCounts), ...Object.keys(newDateCounts)]);
+        impactedDateSet.forEach((dateKey) => {
+          const delta = (newDateCounts[dateKey] || 0) - (oldDateCounts[dateKey] || 0);
+          if (delta !== 0) {
+            deltaByDate[dateKey] = delta;
+          }
+        });
+      }
+
+      let warningEntries: CapacityWarningEntry[] = [];
+      const impactedDateKeys = Object.keys(deltaByDate);
+      if (impactedDateKeys.length) {
+        try {
+          const existingCounts = await deliveryService.getEventCountsForDates(impactedDateKeys);
+          warningEntries = buildProjectedCapacityWarnings({
+            dateAdjustments: deltaByDate,
+            existingCounts,
+            weeklyLimits,
+            dailyLimitsMap,
+            clampProjectedCountToZero: true,
+          });
+        } catch (capacityError) {
+          console.error("Error checking projected capacity for edit:", capacityError);
+          setCapacityWarnings([]);
+          setCapacityWarningError("Could not verify capacity; you can still continue.");
+          if (shouldPauseForCapacityWarning(true)) {
+            return;
+          }
+        }
+      }
+
+      setCapacityWarnings(warningEntries);
+      if (shouldPauseForCapacityWarning(warningEntries.length > 0)) {
+        return;
+      }
+      setCapacityWarningError("");
+
+      if (editOption === "This event") {
+        const newDate = deliveryDate.toJSDate(editDeliveryDate);
+        await updateDoc(doc(eventsRef, event.id), {
+          deliveryDate: newDate,
+        });
+      } else {
+        await Promise.all(futureSeriesDocs.map((docSnap) => deleteDoc(docSnap.ref)));
+        for (const recurrenceDateStr of recurrenceDatesForSave) {
           const newDate = deliveryDate.toJSDate(recurrenceDateStr);
           await addDoc(eventsRef, {
             clientId: event.clientId,
@@ -293,7 +379,7 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
 
       deliveryEventEmitter.emit();
       onEventModified();
-      setIsEditDialogOpen(false);
+      closeEditDialog();
     } catch (error) {
       console.error("Error updating event:", error);
     }
@@ -302,8 +388,6 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
   const handleEditDeliveryDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newDate = e.target.value;
     setEditDeliveryDate(newDate);
-
-    // Handle date validation with proper callback functions
     const validation = validateDateInput(
       newDate,
       (validDate) => setEditDateError(null),
@@ -320,13 +404,6 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
       }
     }
   };
-
-  // Only disable for events that are from previous days (not today)
-  const today = new Date();
-  today.setHours(0, 0, 0, 0); // Set to start of today
-  const eventDate = toJSDate(event.deliveryDate);
-  eventDate.setHours(0, 0, 0, 0); // Set to start of event day
-  const isPastEvent = eventDate < today;
 
   return (
     <>
@@ -367,6 +444,7 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
       >
         <MenuItem
           onClick={() => {
+            resetCapacityWarningState();
             setIsEditDialogOpen(true);
           }}
         >
@@ -381,10 +459,9 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
         </MenuItem>
       </Menu>
 
-      {/* Edit Dialog */}
       <Dialog
         open={isEditDialogOpen}
-        onClose={() => setIsEditDialogOpen(false)}
+        onClose={closeEditDialog}
         onClick={(e) => e.stopPropagation()}
         maxWidth="sm"
         fullWidth
@@ -408,7 +485,6 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
             )}
           </RadioGroup>
 
-          {/* New Delivery Date */}
           <TextField
             label="New Delivery Date"
             type="date"
@@ -456,15 +532,20 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
                   fullWidth
                   margin="normal"
                   InputLabelProps={{ shrink: true }}
-                  error={Boolean(endDateError)}
-                  helperText={endDateError}
                 />
               )}
             </>
           )}
+
+          <CapacityWarningPanel
+            warnings={capacityWarnings}
+            warningError={capacityWarningError}
+            formatDate={formatToMMDDYYYY}
+            marginTop={1.5}
+          />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setIsEditDialogOpen(false)}>Cancel</Button>
+          <Button onClick={closeEditDialog}>Cancel</Button>
           <Button
             onClick={handleEditConfirm}
             variant="contained"
@@ -474,18 +555,16 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified }) => {
               (editOption === "This and following events" &&
                 editRecurrence.recurrence !== "None" &&
                 !editRecurrence.repeatsEndDate) ||
-              Boolean(editDateError) ||
-              (editOption === "This and following events" &&
-                editRecurrence.recurrence !== "None" &&
-                Boolean(endDateError))
+              Boolean(editDateError)
             }
           >
-            Save
+            {capacityWarningAcknowledged && (capacityWarnings.length > 0 || capacityWarningError)
+              ? "Continue anyway"
+              : "Save"}
           </Button>
         </DialogActions>
       </Dialog>
 
-      {/* Delete Dialog */}
       <Dialog
         open={isDeleteDialogOpen}
         onClose={() => setIsDeleteDialogOpen(false)}

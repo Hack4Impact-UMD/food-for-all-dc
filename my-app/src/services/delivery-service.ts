@@ -125,6 +125,65 @@ class DeliveryService {
   }
 
   /**
+   * Get delivery event counts keyed by date (yyyy-MM-dd)
+   */
+  public async getEventCountsForDates(dateKeys: string[]): Promise<Record<string, number>> {
+    try {
+      return await retry(async () => {
+        const normalizedDateKeys = Array.from(
+          new Set(
+            dateKeys
+              .map((dateKey) => deliveryDate.tryToISODateString(dateKey))
+              .filter((dateKey): dateKey is string => !!dateKey)
+          )
+        );
+
+        const counts = normalizedDateKeys.reduce(
+          (acc, dateKey) => {
+            acc[dateKey] = 0;
+            return acc;
+          },
+          {} as Record<string, number>
+        );
+
+        if (!normalizedDateKeys.length) {
+          return counts;
+        }
+
+        const sortedDateKeys = [...normalizedDateKeys].sort();
+        const startDateTime = TimeUtils.fromISO(sortedDateKeys[0]).startOf("day");
+        const endDateTime = TimeUtils.fromISO(sortedDateKeys[sortedDateKeys.length - 1])
+          .plus({ days: 1 })
+          .startOf("day");
+
+        const startTimestamp = Time.Firebase.toTimestamp(startDateTime);
+        const endTimestamp = Time.Firebase.toTimestamp(endDateTime);
+
+        const q = query(
+          collection(this.db, this.eventsCollection),
+          where("deliveryDate", ">=", startTimestamp),
+          where("deliveryDate", "<", endTimestamp),
+          orderBy("deliveryDate", "asc")
+        );
+
+        const querySnapshot = await getDocs(q);
+        querySnapshot.docs.forEach((docSnapshot) => {
+          const data = docSnapshot.data();
+          if (!data.deliveryDate) return;
+          const dateKey = deliveryDate.toISODateString(data.deliveryDate);
+          if (counts[dateKey] !== undefined) {
+            counts[dateKey] += 1;
+          }
+        });
+
+        return counts;
+      });
+    } catch (error) {
+      throw formatServiceError(error, "Failed to get event counts by date");
+    }
+  }
+
+  /**
    * Create a new delivery event
    */
   public async createEvent(event: Partial<DeliveryEvent>): Promise<string> {

@@ -538,6 +538,8 @@ const CalendarPage: React.FC = React.memo(() => {
           clients={clients}
           onEventModified={fetchEvents}
           dailyLimit={dailyLimit}
+          weeklyLimits={limits}
+          dailyLimits={dailyLimits}
         />
       );
     }
@@ -694,7 +696,6 @@ const CalendarPage: React.FC = React.memo(() => {
                     calendarConfig={calendarConfig}
                     dailyLimits={dailyLimits}
                     setDailyLimits={setDailyLimits}
-                    fetchDailyLimits={fetchLimits}
                   />
                 </span>
                 <AddDeliveryDialog
@@ -702,6 +703,8 @@ const CalendarPage: React.FC = React.memo(() => {
                   onClose={() => setIsModalOpen(false)}
                   onAddDelivery={handleAddDelivery}
                   clients={clients}
+                  limits={limits}
+                  dailyLimits={dailyLimits}
                   clientsLoaded={clientsLoaded}
                   startDate={currentDate}
                 />

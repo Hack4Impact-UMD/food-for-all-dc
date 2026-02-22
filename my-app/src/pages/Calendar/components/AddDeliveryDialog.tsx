@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { GlobalStyles } from "@mui/material";
 import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
@@ -19,7 +19,7 @@ import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import CancelIcon from "@mui/icons-material/Cancel";
 import CalendarMultiSelect from "./CalendarMultiSelect";
-import type { NewDelivery } from "../../../types/calendar-types";
+import type { DateLimit, NewDelivery } from "../../../types/calendar-types";
 import type { ClientProfile } from "../../../types/client-types";
 import { DayPilot } from "@daypilot/daypilot-lite-react";
 import { validateDeliveryDateRange } from "../../../utils/dateValidation";
@@ -27,12 +27,22 @@ import { getLastDeliveryDateForClient } from "../../../utils/lastDeliveryDate";
 import { deliveryEventEmitter } from "../../../utils/deliveryEventEmitter";
 import { clientService } from "../../../services/client-service";
 import { deliveryDate } from "../../../utils/deliveryDate";
+import { DeliveryService } from "../../../services";
+import { calculateRecurrenceDates } from "./CalendarUtils";
+import {
+  buildDailyLimitsMap,
+  buildProjectedCapacityWarnings,
+  CapacityWarningEntry,
+} from "./capacityStatus";
+import CapacityWarningPanel from "./CapacityWarningPanel";
 
 interface AddDeliveryDialogProps {
   open: boolean;
   onClose: () => void;
   onAddDelivery: (newDelivery: NewDelivery) => void;
   clients: ClientProfile[];
+  limits: number[];
+  dailyLimits: DateLimit[];
   clientsLoaded?: boolean;
   startDate: DayPilot.Date;
   preSelectedClient?: {
@@ -48,13 +58,45 @@ type ClientSearchResult = Pick<
 >;
 
 const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
-  const { open, onClose, onAddDelivery, clients, clientsLoaded, preSelectedClient, startDate } =
-    props;
+  const {
+    open,
+    onClose,
+    onAddDelivery,
+    clients,
+    limits,
+    dailyLimits,
+    clientsLoaded,
+    preSelectedClient,
+    startDate,
+  } = props;
   const [formError, setFormError] = useState<string>("");
+  const [capacityWarnings, setCapacityWarnings] = useState<CapacityWarningEntry[]>([]);
+  const [capacityWarningError, setCapacityWarningError] = useState<string>("");
+  const [capacityWarningAcknowledged, setCapacityWarningAcknowledged] = useState<boolean>(false);
   const [searchResults, setSearchResults] = useState<ClientSearchResult[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [selectedClientProfile, setSelectedClientProfile] = useState<ClientProfile | null>(
     preSelectedClient?.clientProfile ?? null
+  );
+  const dailyLimitsMap = useMemo(() => buildDailyLimitsMap(dailyLimits), [dailyLimits]);
+
+  const resetCapacityWarningState = useCallback(() => {
+    setCapacityWarnings([]);
+    setCapacityWarningError("");
+    setCapacityWarningAcknowledged(false);
+  }, []);
+  const shouldPauseForCapacityWarning = useCallback(
+    (hasWarning: boolean) => {
+      if (hasWarning && !capacityWarningAcknowledged) {
+        setCapacityWarningAcknowledged(true);
+        return true;
+      }
+      if (!hasWarning) {
+        setCapacityWarningAcknowledged(false);
+      }
+      return false;
+    },
+    [capacityWarningAcknowledged]
   );
 
   useEffect(() => {
@@ -167,7 +209,8 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
 
   useEffect(() => {
     setFormError("");
-  }, [newDelivery, customDates, startDateError, endDateError]);
+    resetCapacityWarningState();
+  }, [newDelivery, customDates, startDateError, endDateError, resetCapacityWarningState]);
   const isFormValid = (() => {
     const isValidDateFormat = (dateStr: string) => {
       if (!dateStr) return false;
@@ -339,10 +382,12 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
     setStartDateError("");
     setEndDateError("");
     setFormError("");
+    resetCapacityWarningState();
     onClose();
   };
   const handleSubmit = async () => {
     setFormError("");
+    setCapacityWarningError("");
     if (!newDelivery.clientName || newDelivery.clientName.trim() === "") {
       setFormError("Please select a client");
       return;
@@ -369,7 +414,6 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
     }
 
     try {
-      const { default: DeliveryService } = await import("../../../services/delivery-service");
       const service = DeliveryService.getInstance();
       const existingEvents = await service.getEventsByClientId(newDelivery.clientId);
       const existingDates = new Set(
@@ -385,14 +429,25 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
               .filter((d): d is string => !!d)
           : [];
 
-      const datesToCheck =
-        newDelivery.recurrence === "Custom"
-          ? normalizedCustomDates
-          : normalizedDeliveryDate
-            ? [normalizedDeliveryDate]
-            : [];
+      let candidateDates: string[] = [];
+      if (newDelivery.recurrence === "Custom") {
+        candidateDates = normalizedCustomDates;
+      } else if (normalizedDeliveryDate) {
+        if (newDelivery.recurrence === "None") {
+          candidateDates = [normalizedDeliveryDate];
+        } else {
+          candidateDates = calculateRecurrenceDates({
+            ...newDelivery,
+            deliveryDate: normalizedDeliveryDate,
+          })
+            .map((date) => deliveryDate.tryToISODateString(date))
+            .filter((date): date is string => !!date);
+        }
+      }
 
-      const conflictingDate = datesToCheck.find((date) => existingDates.has(date));
+      const uniqueCandidateDates = Array.from(new Set(candidateDates));
+
+      const conflictingDate = uniqueCandidateDates.find((date) => existingDates.has(date));
       if (conflictingDate) {
         setFormError(
           `This client already has a delivery on ${convertToMMDDYYYY(conflictingDate)}.`
@@ -400,13 +455,13 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
         return;
       }
 
-      if (!datesToCheck.length) {
+      if (!uniqueCandidateDates.length) {
         setFormError("Please select at least one delivery date.");
         return;
       }
 
       if (clientStartDateISO) {
-        const beforeStart = datesToCheck.find((date) => date < clientStartDateISO);
+        const beforeStart = uniqueCandidateDates.find((date) => date < clientStartDateISO);
         if (beforeStart) {
           setFormError(
             `Cannot schedule a delivery before the client's start date (${convertToMMDDYYYY(
@@ -417,11 +472,44 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
         }
       }
 
+      const additionsByDate = candidateDates.reduce(
+        (acc, dateKey) => {
+          acc[dateKey] = (acc[dateKey] || 0) + 1;
+          return acc;
+        },
+        {} as Record<string, number>
+      );
+      const datesToCount = Object.keys(additionsByDate);
+
+      try {
+        const existingCounts = await service.getEventCountsForDates(datesToCount);
+        const warningEntries = buildProjectedCapacityWarnings({
+          dateAdjustments: additionsByDate,
+          existingCounts,
+          weeklyLimits: limits,
+          dailyLimitsMap,
+        });
+
+        setCapacityWarnings(warningEntries);
+        setCapacityWarningError("");
+        if (shouldPauseForCapacityWarning(warningEntries.length > 0)) {
+          return;
+        }
+      } catch (capacityError) {
+        console.error("Error checking projected capacity:", capacityError);
+        setCapacityWarnings([]);
+        setCapacityWarningError("Could not verify capacity; you can still continue.");
+        if (shouldPauseForCapacityWarning(true)) {
+          return;
+        }
+      }
+
       setFormError("");
       const deliveryToSubmit: Partial<NewDelivery> = { ...newDelivery };
       if (newDelivery.recurrence === "Custom") {
-        deliveryToSubmit.customDates = normalizedCustomDates;
-        deliveryToSubmit.deliveryDate = normalizedCustomDates[0] || normalizedDeliveryDate;
+        const uniqueCustomDates = Array.from(new Set(normalizedCustomDates)).sort();
+        deliveryToSubmit.customDates = uniqueCustomDates;
+        deliveryToSubmit.deliveryDate = uniqueCustomDates[0] || normalizedDeliveryDate;
         deliveryToSubmit.repeatsEndDate = undefined;
       } else {
         deliveryToSubmit.deliveryDate = normalizedDeliveryDate;
@@ -451,7 +539,6 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
       sx={{ top: "-35px" }}
     >
       <DialogTitle>Add Delivery</DialogTitle>
-      {/* Shrink only DatePicker popups from this modal */}
       <GlobalStyles
         styles={{
           'body.add-delivery-modal-open [class*="MuiPaper-root"][class*="MuiPickerPopper-paper"]': {
@@ -462,9 +549,13 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
       />
       <DialogContent sx={{ maxHeight: "70vh", overflowY: "auto", overflowX: "hidden" }}>
         {formError && <Typography sx={{ color: "red", mb: 2 }}>{formError}</Typography>}
-        {/* Unified layout for all fields */}
+        <CapacityWarningPanel
+          warnings={capacityWarnings}
+          warningError={capacityWarningError}
+          formatDate={convertToMMDDYYYY}
+          marginBottom={2}
+        />
         <Box display="flex" flexDirection="column" gap={2}>
-          {/* Conditionally render client selection only if no pre-selected client */}
           {!preSelectedClient && (
             <Autocomplete
               fullWidth
@@ -684,7 +775,6 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
             />
           )}
 
-          {/* Show selected client info if pre-selected */}
           {preSelectedClient && (
             <Box sx={{ mb: 2, p: 2, bgcolor: "grey.50", borderRadius: 1 }}>
               <Typography variant="body2" color="text.secondary">
@@ -807,7 +897,6 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
         {(newDelivery.recurrence !== "None" && newDelivery.recurrence !== "Custom") ||
         (preSelectedClient && preSelectedClient.clientProfile.endDate) ? (
           <>
-            {/* Only show End Date if recurrence is not None or is Custom with preSelectedClient endDate */}
             {newDelivery.recurrence !== "None" ? (
               <>
                 <DateField
@@ -837,7 +926,9 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
       <DialogActions>
         <Button onClick={resetFormAndClose}>Cancel</Button>
         <Button onClick={handleSubmit} variant="contained" disabled={!isFormValid}>
-          Add
+          {capacityWarningAcknowledged && (capacityWarnings.length > 0 || capacityWarningError)
+            ? "Continue anyway"
+            : "Add"}
         </Button>
       </DialogActions>
     </Dialog>
