@@ -2,13 +2,24 @@ import React from "react";
 import { Box, Typography } from "@mui/material";
 import LocalShippingIcon from "@mui/icons-material/LocalShipping";
 interface DeliveryCountHeaderProps {
-  events: any[];
+  events: ReadonlyArray<unknown>;
   limit?: number;
 }
 const DeliveryCountHeader = React.memo(function DeliveryCountHeader({
   events,
   limit,
 }: DeliveryCountHeaderProps) {
+  const progressColor =
+    limit === undefined
+      ? "var(--color-primary)"
+      : events.length > limit
+        ? "var(--color-error-text)"
+        : events.length >= Math.ceil(limit * 0.8)
+          ? "var(--color-warning-text)"
+          : "var(--color-primary)";
+  const progressWidth =
+    limit !== undefined && limit > 0 ? Math.min((events.length / limit) * 100, 100) : 100;
+
   return (
     <Box
       sx={{
@@ -53,10 +64,10 @@ const DeliveryCountHeader = React.memo(function DeliveryCountHeader({
             variant="h5"
             sx={{
               fontWeight: 700,
-              color: "var(--color-primary)",
+              color: progressColor,
               lineHeight: 1,
               marginBottom: 0.4,
-              minWidth: "2ch", // Ensures consistent width for numbers
+              minWidth: "2ch",
             }}
           >
             {limit !== undefined ? `${events.length} / ${limit}` : events.length}
@@ -69,7 +80,7 @@ const DeliveryCountHeader = React.memo(function DeliveryCountHeader({
               textTransform: "uppercase",
               fontSize: "0.75rem",
               letterSpacing: "0.4px",
-              whiteSpace: "nowrap", // Prevents text wrapping
+              whiteSpace: "nowrap",
             }}
           >
             {events.length === 1 ? "Delivery" : "Deliveries"} Today
@@ -89,9 +100,9 @@ const DeliveryCountHeader = React.memo(function DeliveryCountHeader({
         >
           <Box
             sx={{
-              width: `${Math.min((events.length / limit) * 100, 100)}%`,
+              width: `${progressWidth}%`,
               height: "100%",
-              backgroundColor: "var(--color-primary)",
+              backgroundColor: progressColor,
               borderRadius: 2,
               transition: "width 0.3s ease",
             }}

@@ -13,19 +13,50 @@ import {
   Switch,
   Typography,
 } from "@mui/material";
+import type { SelectChangeEvent } from "@mui/material/Select";
 import React, { useEffect, useMemo, useState } from "react";
 import { getDefaultLimit, setDefaultLimit } from "./CalendarUtils";
 import { useLimits } from "./useLimits";
 import { DeliveryService } from "../../../services";
-import { DateLimit } from "../../../types/calendar-types";
+import { CalendarConfig, DateLimit } from "../../../types/calendar-types";
+import {
+  buildDailyLimitsMap,
+  getCapacityStatus,
+  getCapacityUi,
+  resolveLimitForDate,
+} from "./capacityStatus";
+
+interface MonthCellClickArgs {
+  cell: {
+    start: DayPilot.Date;
+  };
+  e?: {
+    target?: EventTarget | null;
+  };
+}
+
+interface MonthTimeRangeSelectedArgsLike {
+  start: DayPilot.Date;
+  e?: {
+    target?: EventTarget | null;
+  };
+}
+
+interface MonthBeforeCellRenderArgsLike {
+  cell: {
+    start: DayPilot.Date;
+    properties: {
+      html: string;
+    };
+  };
+}
 
 interface CalendarPopperProps {
   anchorEl: HTMLElement | null;
   viewType: string;
-  calendarConfig: any;
+  calendarConfig: CalendarConfig;
   dailyLimits: DateLimit[];
   setDailyLimits: (update: (prev: DateLimit[]) => DateLimit[]) => void;
-  fetchDailyLimits: () => Promise<void>;
 }
 
 const CalendarPopper = ({
@@ -34,7 +65,6 @@ const CalendarPopper = ({
   calendarConfig,
   dailyLimits,
   setDailyLimits,
-  fetchDailyLimits,
 }: CalendarPopperProps) => {
   const limits = useLimits();
   const [clickPosition, setClickPosition] = useState<{
@@ -48,22 +78,23 @@ const CalendarPopper = ({
 
   const limitOptions = Array.from({ length: 13 }, (_, i) => 30 + i * 5);
 
-  const handleDateClick = async (date: DayPilot.Date, event?: any) => {
+  const handleDateClick = async (
+    date: DayPilot.Date,
+    event?: MonthTimeRangeSelectedArgsLike | MonthCellClickArgs
+  ) => {
     const dateKey = date.toString("yyyy-MM-dd");
 
-    // Try to find the actual clicked cell element
     let cellElement = null;
-    if (event && event.e && event.e.target) {
-      // Use the event target or find the closest calendar cell
+    const target = event?.e?.target instanceof HTMLElement ? event.e.target : null;
+    if (target) {
       cellElement =
-        event.e.target.closest(".calendar_default_cell") ||
-        event.e.target.closest(".calendar_default_cell_business") ||
-        event.e.target.closest('[class*="calendar_default_cell"]') ||
-        event.e.target;
+        target.closest(".calendar_default_cell") ||
+        target.closest(".calendar_default_cell_business") ||
+        target.closest('[class*="calendar_default_cell"]') ||
+        target;
     }
 
     if (!cellElement) {
-      // Fallback: try to find by data-date or other DayPilot selectors
       cellElement =
         document.querySelector(`[data-date="${dateKey}"]`) ||
         document.querySelector(`[data-day="${dateKey}"]`) ||
@@ -71,7 +102,6 @@ const CalendarPopper = ({
     }
 
     if (cellElement) {
-      // Use the actual cell element as anchor
       setClickedElement(cellElement as HTMLElement);
       setClickPosition(null);
     } else {
@@ -91,40 +121,33 @@ const CalendarPopper = ({
 
   useEffect(() => {
     if (anchorEl === null) {
-      // Reset the bulkEdit state to false.
       setBulkEdit(false);
       setLimitEditDate(null);
       setClickPosition(null);
     }
-    // The effect depends on the anchorEl prop.
   }, [anchorEl]);
 
   const handleClick = (event: React.MouseEvent) => {
-    // Ignore clicks from inside the nested popper (limit edit popup)
     const target = event.target as HTMLElement;
     if (target.closest('[role="tooltip"]') || target.closest(".MuiPaper-root")) {
-      // Check if this click came from inside our nested popper
       const clickedPopper = target.closest('[role="tooltip"]');
       if (clickedPopper && clickedPopper.querySelector("select, input, .MuiTypography-root")) {
-        return; // Don't handle clicks from the nested popper
+        return;
       }
     }
 
-    // Find the actual calendar cell that was clicked
     const cellElement =
       target.closest(".calendar_default_cell") ||
       target.closest(".calendar_default_cell_business") ||
       target.closest('[class*="calendar_default_cell"]') ||
-      target.closest("[data-date]") || // Try to find by our data-date attribute
+      target.closest("[data-date]") ||
       target.closest('[class*="daypilot"]') ||
       target;
 
     if (cellElement && cellElement !== target) {
-      // Use the actual cell element as anchor
       setClickedElement(cellElement as HTMLElement);
       setClickPosition(null);
     } else {
-      // Fallback to mouse position if we can't find a cell
       setClickedElement(null);
       setClickPosition({
         x: event.clientX,
@@ -135,7 +158,6 @@ const CalendarPopper = ({
 
   const virtualAnchor = useMemo(() => {
     if (clickedElement) {
-      // Create a virtual anchor using the element's bounding rect
       const rect = clickedElement.getBoundingClientRect();
       return {
         getBoundingClientRect: () => new DOMRect(rect.left, rect.bottom, rect.width, 1),
@@ -148,7 +170,9 @@ const CalendarPopper = ({
     };
   }, [clickedElement, clickPosition]);
 
-  const handleLimitChange = async (e: any) => {
+  const dailyLimitsMap = useMemo(() => buildDailyLimitsMap(dailyLimits), [dailyLimits]);
+
+  const handleLimitChange = async (e: SelectChangeEvent<number>) => {
     const selectedValue = Number(e.target.value);
     setNewLimit(selectedValue);
     const dateKey = limitEditDate!.toString("yyyy-MM-dd");
@@ -184,17 +208,17 @@ const CalendarPopper = ({
   if (viewType === "Month") {
     const customCalendarConfig = {
       ...calendarConfig,
-      onBeforeCellRender: (args: any) => {
+      onBeforeCellRender: (args: MonthBeforeCellRenderArgsLike) => {
         const cellDate = args.cell.start;
         const dateKey = cellDate.toString("yyyy-MM-dd");
-        const limitEntry = dailyLimits.find((dl) => dl.date === dateKey);
-        const defaultLimit = getDefaultLimit(cellDate, limits);
-        const limit = limitEntry ? limitEntry.limit : defaultLimit;
+        const limit = resolveLimitForDate(dateKey, limits, dailyLimitsMap);
 
-        const eventCount = calendarConfig.events.filter((event: any) => {
+        const eventCount = calendarConfig.events.filter((event) => {
           const eventDateString = event.start.toString("yyyy-MM-dd");
           return eventDateString === dateKey;
         }).length;
+        const status = getCapacityStatus(eventCount, limit);
+        const capacityUi = getCapacityUi(status);
 
         args.cell.properties.html = `
           <div data-date="${dateKey}" style='
@@ -206,17 +230,24 @@ const CalendarPopper = ({
             cursor: pointer;
             padding: 4px;
           '>
-            <div style='font-size: 14px; color:${eventCount > limit ? "#ff6e6b" : "#257E68"};'>
+            <div style='font-size: 14px; color:${capacityUi.color}; ${
+              capacityUi.emphasis ? "font-weight: 700;" : ""
+            }'>
               ${eventCount}/${limit}
             </div>
             <div style='font-size: 10px; color: var(--color-text-medium-alt);'>DELIVERIES</div>
+            ${
+              capacityUi.statusLabel
+                ? `<div style='font-size: 10px; color: var(--color-text-medium-alt); letter-spacing: 0.3px;'>${capacityUi.statusLabel}</div>`
+                : ""
+            }
           </div>
         `;
       },
-      onTimeRangeSelected: (args: any) => {
+      onTimeRangeSelected: (args: MonthTimeRangeSelectedArgsLike) => {
         handleDateClick(args.start, args);
       },
-      onCellClick: (args: any) => {
+      onCellClick: (args: MonthCellClickArgs) => {
         handleDateClick(args.cell.start, args);
       },
     };

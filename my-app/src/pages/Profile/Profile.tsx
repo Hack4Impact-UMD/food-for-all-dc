@@ -63,12 +63,13 @@ import {
   UserType,
 } from "../../types";
 import { ClientProfileKey, InputType } from "./types";
-import { DeliveryEvent } from "../../types/calendar-types";
+import { DateLimit, DeliveryEvent } from "../../types/calendar-types";
 import { useAuth } from "../../auth/AuthProvider";
 import { useClientData } from "../../context/ClientDataContext";
 import { Add } from "@mui/icons-material";
 import AddDeliveryDialog from "../Calendar/components/AddDeliveryDialog";
 import { calculateRecurrenceDates } from "../Calendar/components/CalendarUtils";
+import { useLimits } from "../Calendar/components/useLimits";
 import { DayPilot } from "@daypilot/daypilot-lite-react";
 import { toJSDate } from "../../utils/timestamp";
 import { deliveryDate } from "../../utils/deliveryDate";
@@ -294,6 +295,8 @@ const Profile = () => {
   const [pastDeliveries, setPastDeliveries] = useState<DeliveryEvent[]>([]);
   const [futureDeliveries, setFutureDeliveries] = useState<DeliveryEvent[]>([]);
   const [events, setEvents] = useState<DeliveryEvent[]>([]);
+  const limits = useLimits();
+  const [dailyLimits, setDailyLimits] = useState<DateLimit[]>([]);
   const [latestRecurringDelivery, setLatestRecurringDelivery] = useState<DeliveryEvent | null>(
     null
   );
@@ -511,6 +514,20 @@ const Profile = () => {
     const unsubscribe = deliveryEventEmitter.subscribe(handleDeliveryChange);
     return unsubscribe;
   }, [clientId]);
+
+  useEffect(() => {
+    const fetchDailyLimits = async () => {
+      try {
+        const deliveryService = DeliveryService.getInstance();
+        const fetchedDailyLimits = await deliveryService.getDailyLimits();
+        setDailyLimits(fetchedDailyLimits);
+      } catch (error) {
+        console.error("Error fetching daily limits for profile scheduling:", error);
+      }
+    };
+
+    fetchDailyLimits();
+  }, []);
 
   useEffect(() => {
     const fetchCaseWorkers = async () => {
@@ -3012,6 +3029,8 @@ const Profile = () => {
               onClose={() => setIsDeliveryModalOpen(false)}
               onAddDelivery={handleAddDelivery}
               clients={[]}
+              limits={limits}
+              dailyLimits={dailyLimits}
               startDate={new DayPilot.Date()}
               preSelectedClient={preSelectedClientData}
             />

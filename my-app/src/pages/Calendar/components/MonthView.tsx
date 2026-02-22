@@ -1,14 +1,32 @@
-
 import React from "react";
-import { DayPilotMonth } from "@daypilot/daypilot-lite-react";
+import { DayPilot, DayPilotMonth } from "@daypilot/daypilot-lite-react";
 import { CalendarConfig, DateLimit } from "../../../types/calendar-types";
-import { getDefaultLimit } from "./CalendarUtils";
+import {
+  buildDailyLimitsMap,
+  getCapacityStatus,
+  getCapacityUi,
+  resolveLimitForDate,
+} from "./capacityStatus";
 
 interface MonthViewProps {
   calendarConfig: CalendarConfig;
   dailyLimits: DateLimit[];
   limits: Record<string, number>;
-  onTimeRangeSelected: (args: any) => void;
+  onTimeRangeSelected: (args: MonthTimeRangeSelectedArgsLike) => void;
+}
+
+interface MonthBeforeCellRenderArgsLike {
+  cell: {
+    start: DayPilot.Date;
+    properties: {
+      headerHtml: string;
+      html: string;
+    };
+  };
+}
+
+interface MonthTimeRangeSelectedArgsLike {
+  start: DayPilot.Date;
 }
 
 const MonthView: React.FC<MonthViewProps> = ({
@@ -17,7 +35,8 @@ const MonthView: React.FC<MonthViewProps> = ({
   limits,
   onTimeRangeSelected,
 }) => {
-  // Precompute today's date key in yyyy-MM-dd to match DayPilot.Date formatting
+  const dailyLimitsMap = buildDailyLimitsMap(dailyLimits);
+
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(
@@ -26,16 +45,16 @@ const MonthView: React.FC<MonthViewProps> = ({
 
   const customCalendarConfig = {
     ...calendarConfig,
-    onBeforeCellRender: (args: any) => {
+    onBeforeCellRender: (args: MonthBeforeCellRenderArgsLike) => {
       const dateKey = args.cell.start.toString("yyyy-MM-dd");
-      const dailyLimit = dailyLimits.find((dl) => dl.date === dateKey);
-      const defaultLimit = getDefaultLimit(args.cell.start, limits);
-      const limit = dailyLimit ? dailyLimit.limit : defaultLimit;
+      const limit = resolveLimitForDate(dateKey, limits, dailyLimitsMap);
 
       const eventCount = calendarConfig.events.filter((event) => {
         const eventDateString = event.start.toString("yyyy-MM-dd");
         return eventDateString === dateKey;
       }).length;
+      const status = getCapacityStatus(eventCount, limit);
+      const capacityUi = getCapacityUi(status);
 
       const isToday = dateKey === todayKey;
       if (isToday) {
@@ -73,15 +92,21 @@ const MonthView: React.FC<MonthViewProps> = ({
                       flex-direction: column;
                       align-items: center;
                       justify-content: center;
-                      color: ${eventCount > limit && "#ff6e6b"};'>
+                      color: ${capacityUi.color};
+                      ${capacityUi.emphasis ? "font-weight: 700;" : ""}'>
               ${eventCount}/${limit}
               <div>DELIVERIES</div>
+              ${
+                capacityUi.statusLabel
+                  ? `<div style='font-size: 10px; letter-spacing: 0.3px;'>${capacityUi.statusLabel}</div>`
+                  : ""
+              }
           </div>
         </div>
       `;
     },
     onTimeRangeSelected: onTimeRangeSelected,
-    events: [], // Remove events from month view
+    events: [],
   };
 
   return <DayPilotMonth {...customCalendarConfig} />;

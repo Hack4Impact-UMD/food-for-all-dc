@@ -1,6 +1,6 @@
 import React, { useMemo, useEffect, useRef, useState, useCallback } from "react";
 import { Box, Typography } from "@mui/material";
-import { DeliveryEvent } from "../../../types/calendar-types";
+import { DateLimit, DeliveryEvent } from "../../../types/calendar-types";
 import { ClientProfile } from "../../../types/client-types";
 import DeliveryCard from "./DeliveryCard";
 import EventCountHeader from "../../../components/EventCountHeader";
@@ -12,6 +12,8 @@ interface DayViewProps {
   clients: ClientProfile[];
   onEventModified: () => void;
   dailyLimit?: number;
+  weeklyLimits: number[];
+  dailyLimits: DateLimit[];
 }
 
 const DayView: React.FC<DayViewProps> = React.memo(function DayView({
@@ -19,6 +21,8 @@ const DayView: React.FC<DayViewProps> = React.memo(function DayView({
   clients,
   onEventModified,
   dailyLimit,
+  weeklyLimits,
+  dailyLimits,
 }) {
   const { preloadDateRanges } = useRecurringDelivery();
   const [containerHeight, setContainerHeight] = useState(0);
@@ -90,10 +94,12 @@ const DayView: React.FC<DayViewProps> = React.memo(function DayView({
           client={client}
           onEventModified={onEventModified}
           allEvents={events}
+          weeklyLimits={weeklyLimits}
+          dailyLimits={dailyLimits}
         />
       );
     },
-    [clientLookupMap, onEventModified, events]
+    [clientLookupMap, onEventModified, events, weeklyLimits, dailyLimits]
   );
 
   return (
@@ -160,6 +166,8 @@ const DayView: React.FC<DayViewProps> = React.memo(function DayView({
                     client={client}
                     onEventModified={onEventModified}
                     allEvents={events}
+                    weeklyLimits={weeklyLimits}
+                    dailyLimits={dailyLimits}
                   />
                 );
               })}
