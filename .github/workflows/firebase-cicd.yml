@@ -120,6 +120,13 @@ jobs:
       - name: Build frontend
         run: npm run build
 
+      - name: Prepare Python virtualenv for Firebase deploy
+        run: |
+          python -m venv functions-python/venv
+          source functions-python/venv/bin/activate
+          python -m pip install --upgrade pip
+          python -m pip install -r functions-python/requirements.txt
+
       - name: Install Firebase CLI
         run: npm install -g firebase-tools
 
