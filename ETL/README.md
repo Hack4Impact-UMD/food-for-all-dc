@@ -219,6 +219,18 @@ The ETL uses the Google Maps Geocoding API to convert addresses to latitude/long
 
 **Note:** The ETL no longer uses OpenStreetMap/Nominatim for geocoding. All address lookups are now performed via Google Maps.
 
+### Troubleshooting: Invalid Coordinates
+
+If the Routes page shows a small number of "invalid coordinates" after a full ETL, older records may still be using the legacy `{latitude, longitude}` object format.
+
+Run this one-time fix **only if you see invalid coordinates**:
+
+```powershell
+& "C:\localdev\UMD-Hackathon\food-for-all-dc\venv\Scripts\python.exe" ETL\fix_coordinate_format.py
+```
+
+This converts existing records to the `[latitude, longitude]` array format and does **not** call the geocoding API.
+
 ### Cost Estimates
 - **Single batch (250 records):** ~$1.25
 - **Full ETL (~3,150 records, ~191 active):** ~$15.75
