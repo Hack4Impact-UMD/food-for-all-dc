@@ -260,12 +260,19 @@ export default function BasePage() {
               </Select>
             ) : (
               <Typography
-                variant="h6"
+                variant="h5"
                 sx={{
-                  fontWeight: 600,
-                  color: "var(--color-border-black)",
-                  letterSpacing: "0.5px",
-                  fontSize: isMobile ? "1rem" : "1.25rem",
+                  fontWeight: 400,
+                  color: "var(--color-primary)",
+                  letterSpacing: "0px",
+                  fontSize: "1.5rem",
+                  fontFamily: "'Segoe UI', 'Roboto', -apple-system, BlinkMacSystemFont, sans-serif",
+                  textTransform: "none",
+                  background: "linear-gradient(135deg, var(--color-primary) 0%, rgba(37, 126, 104, 0.8) 100%)",
+                  WebkitBackgroundClip: "text",
+                  WebkitTextFillColor: "transparent",
+                  backgroundClip: "text",
+                  textShadow: "none",
                 }}
               >
                 {pageTitle}
