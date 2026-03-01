@@ -86,6 +86,7 @@ import Button from "@mui/material/Button";
 import DietaryRestrictionsLegend from "../../components/DietaryRestrictionsLegend";
 import { deliveryDate } from "../../utils/deliveryDate";
 import { deliveryEventEmitter } from "../../utils/deliveryEventEmitter";
+import { TIME_SLOTS } from "./utils/timeSlots";
 
 const StyleChip = styled(Chip)({
   backgroundColor: "var(--color-primary)",
@@ -299,8 +300,9 @@ const fields: Field[] = [
     ) => {
       // Check for individual override first
       const override = clientOverrides.find((override) => override.clientId === data.id);
-      if (override && override.driver) {
-        return override.driver;
+      if (override) {
+        // Override exists - use its value even if undefined (explicit clearing)
+        return override.driver || "No driver assigned";
       }
 
       // Fall back to cluster assignment
@@ -324,7 +326,11 @@ const fields: Field[] = [
     ) => {
       // Check for individual override first
       const override = clientOverrides.find((override) => override.clientId === data.id);
-      if (override && override.time) {
+      if (override) {
+        // Override exists - use its value even if undefined (explicit clearing)
+        if (!override.time) {
+          return "No time assigned";
+        }
         // Convert 24-hour format to 12-hour AM/PM format
         const [hours, minutes] = override.time.split(":");
         let hours12 = parseInt(hours, 10);
@@ -364,24 +370,6 @@ const fields: Field[] = [
     },
   },
 ];
-
-const times = (() => {
-  const intervals = [];
-  const startHour = 8;
-  const endHour = 17;
-  for (let hour = startHour; hour <= endHour; hour++) {
-    for (let min = 0; min < 60; min += 30) {
-      if (hour === endHour && min > 0) continue; // Don't add 5:30 PM
-      const value = `${hour.toString().padStart(2, "0")}:${min === 0 ? "00" : "30"}`;
-      // Format label as 12-hour time
-      const displayHour = hour % 12 === 0 ? 12 : hour % 12;
-      const ampm = hour < 12 ? "AM" : "PM";
-      const label = `${displayHour}:${min === 0 ? "00" : "30"} ${ampm}`;
-      intervals.push({ value, label });
-    }
-  }
-  return intervals;
-})();
 
 // Type Guard to check if a field is a regular field
 const isRegularField = (
@@ -768,6 +756,14 @@ const DeliverySpreadsheet: React.FC = () => {
             clientsWithDeliveriesOnSelectedDate.concat(chunkData);
         }
         setRawClientData(clientsWithDeliveriesOnSelectedDate);
+        
+        // Identify missing client profiles
+        const foundClientIds = new Set(clientsWithDeliveriesOnSelectedDate.map(c => c.id));
+        const missingClientIds = clientIds.filter(id => !foundClientIds.has(id));
+        if (missingClientIds.length > 0) {
+          console.warn('Missing client profiles for delivery events:', missingClientIds);
+        }
+        
         const processEndTime = performance.now();
       } catch (error) {
         const processEndTime = performance.now();
@@ -1080,7 +1076,8 @@ const DeliverySpreadsheet: React.FC = () => {
     clientId: string,
     newClusterId: string,
     newDriver?: string,
-    newTime?: string
+    newTime?: string,
+    isClusterWideUpdate = false
   ) => {
     if (!clusterDoc) {
       return;
@@ -1093,7 +1090,7 @@ const DeliverySpreadsheet: React.FC = () => {
       const nextClusterNum = clusterNumbers.length > 0 ? Math.max(...clusterNumbers) + 1 : 1;
       const nextClusterId = nextClusterNum.toString();
       // Call self recursively to assign to the new cluster
-      await handleIndividualClientUpdate(clientId, nextClusterId, newDriver, newTime);
+      await handleIndividualClientUpdate(clientId, nextClusterId, newDriver, newTime, isClusterWideUpdate);
       // Close and reopen the popup to force refresh
       if (
         typeof window !== "undefined" &&
@@ -1123,17 +1120,12 @@ const DeliverySpreadsheet: React.FC = () => {
           time: newTime,
         };
       } else {
-        // Add new override
+        // Add new override (even if both are undefined, to explicitly clear cluster values)
         updatedOverrides.push({
           clientId,
           driver: newDriver,
           time: newTime,
         });
-      }
-
-      // Remove override if both driver and time are empty/undefined
-      if (!newDriver && !newTime) {
-        updatedOverrides = updatedOverrides.filter((override) => override.clientId !== clientId);
       }
 
       // Handle cluster assignment separately
@@ -1181,9 +1173,9 @@ const DeliverySpreadsheet: React.FC = () => {
         }
       }
 
-      // If the cluster hasn't changed, treat driver/time updates as cluster-level changes
+      // If the cluster hasn't changed and this is a cluster-wide update, update the cluster's driver/time
       const isSameCluster = oldClusterId && oldClusterId === newClusterId;
-      if (isSameCluster) {
+      if (isSameCluster && isClusterWideUpdate) {
         updatedClusters = updatedClusters.map((cluster) => {
           if (cluster.id === oldClusterId) {
             const updates: Partial<typeof cluster> = {};
@@ -2459,6 +2451,7 @@ const DeliverySpreadsheet: React.FC = () => {
             <ClusterMap
               clusters={clusters}
               visibleRows={visibleRows}
+              totalDeliveries={deliveriesForDate.length}
               clientOverrides={clientOverrides}
               onClusterUpdate={handleIndividualClientUpdate}
               onOpenPopup={handleRowClick}
@@ -2584,9 +2577,9 @@ const DeliverySpreadsheet: React.FC = () => {
                   },
                 }}
               >
-                {Object.values(times).map(({ value, label }) => (
-                  <MenuItem key={value} data-key={value} onClick={handleClose}>
-                    {label}
+                {TIME_SLOTS.map((slot) => (
+                  <MenuItem key={slot.value} data-key={slot.value} onClick={handleClose}>
+                    {slot.label}
                   </MenuItem>
                 ))}
               </Menu>
@@ -2803,28 +2796,28 @@ const DeliverySpreadsheet: React.FC = () => {
               components={VirtuosoTableComponents}
               itemContent={(index, row) => {
                 const isHighlighted = highlightedRowId === row.id;
+                const cellIndex = { current: 0 };
+                const getCellSx = () => {
+                  const isFirst = cellIndex.current === 0;
+                  const totalCells = fields.length + customColumns.length + 1;
+                  const isLast = cellIndex.current === totalCells - 1;
+                  cellIndex.current++;
+                  return isHighlighted
+                    ? {
+                        backgroundColor: "rgba(144, 238, 144, 0.7) !important",
+                        borderTop: "2px solid #90EE90 !important",
+                        borderBottom: "2px solid #90EE90 !important",
+                        borderLeft: isFirst ? "2px solid #90EE90 !important" : "none",
+                        borderRight: isLast ? "2px solid #90EE90 !important" : "none",
+                      }
+                    : {};
+                };
                 return (
-                  <Box
-                    sx={{
-                      display: "contents", // This makes the Box behave like it's not there for layout
-                      "& > td": {
-                        backgroundColor: isHighlighted
-                          ? "rgba(144, 238, 144, 0.7) !important"
-                          : "inherit",
-                        borderTop: isHighlighted ? "2px solid #90EE90 !important" : "none",
-                        borderBottom: isHighlighted ? "2px solid #90EE90 !important" : "none",
-                        "&:first-of-type": {
-                          borderLeft: isHighlighted ? "2px solid #90EE90 !important" : "none",
-                        },
-                        "&:last-of-type": {
-                          borderRight: isHighlighted ? "2px solid #90EE90 !important" : "none",
-                        },
-                      },
-                    }}
-                    onClick={() => handleRowClick(row.id)}
-                  >
+                  <>
                     {fields.map((field) => (
                       <TableCell
+                        sx={getCellSx()}
+                        onClick={() => handleRowClick(row.id)}
                         key={field.key}
                         style={{
                           textAlign: "center",
@@ -3006,6 +2999,8 @@ const DeliverySpreadsheet: React.FC = () => {
                     ))}
                     {customColumns.map((col) => (
                       <TableCell
+                        sx={getCellSx()}
+                        onClick={() => handleRowClick(row.id)}
                         key={col.id}
                         style={{
                           width: "150px",
@@ -3121,8 +3116,8 @@ const DeliverySpreadsheet: React.FC = () => {
                           : ""}
                       </TableCell>
                     ))}
-                    <TableCell style={{ width: "50px" }}>{/* Add button space */}</TableCell>
-                  </Box>
+                    <TableCell sx={getCellSx()} onClick={() => handleRowClick(row.id)} style={{ width: "50px" }}>{/* Add button space */}</TableCell>
+                  </>
                 );
               }}
               fixedHeaderContent={() => (

@@ -37,7 +37,9 @@ const BASE_NAV_ITEMS = [
   { text: "Calendar", icon: <CalendarTodayIcon />, link: "/calendar" },
 ];
 
-const Main = styled("main", { shouldForwardProp: (prop) => prop !== "open" })<{
+const Main = styled("main", {
+  shouldForwardProp: (prop) => prop !== "open" && prop !== "isMobile",
+})<{
   open?: boolean;
   isMobile?: boolean;
 }>(({ theme, open, isMobile }) => ({
