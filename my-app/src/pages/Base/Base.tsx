@@ -37,7 +37,9 @@ const BASE_NAV_ITEMS = [
   { text: "Calendar", icon: <CalendarTodayIcon />, link: "/calendar" },
 ];
 
-const Main = styled("main", { shouldForwardProp: (prop) => prop !== "open" })<{
+const Main = styled("main", {
+  shouldForwardProp: (prop) => prop !== "open" && prop !== "isMobile",
+})<{
   open?: boolean;
   isMobile?: boolean;
 }>(({ theme, open, isMobile }) => ({
@@ -258,12 +260,14 @@ export default function BasePage() {
               </Select>
             ) : (
               <Typography
-                variant="h6"
+                variant="h5"
                 sx={{
                   fontWeight: 600,
-                  color: "var(--color-border-black)",
-                  letterSpacing: "0.5px",
-                  fontSize: isMobile ? "1rem" : "1.25rem",
+                  color: "var(--color-primary)",
+                  letterSpacing: "0px",
+                  fontSize: "1.5rem",
+                  fontFamily: "'Segoe UI', 'Roboto', -apple-system, BlinkMacSystemFont, sans-serif",
+                  textTransform: "none",
                 }}
               >
                 {pageTitle}
