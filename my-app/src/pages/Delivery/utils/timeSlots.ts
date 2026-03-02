@@ -21,12 +21,12 @@ export const generateTimeSlots = (): TimeSlot[] => {
   for (let hour = startHour; hour <= endHour; hour++) {
     for (let min = 0; min < 60; min += 30) {
       if (hour === endHour && min > 0) continue; // Don't add 5:30 PM
-      
+
       const value = `${hour.toString().padStart(2, "0")}:${min === 0 ? "00" : "30"}`;
       const displayHour = hour % 12 === 0 ? 12 : hour % 12;
       const ampm = hour < 12 ? "AM" : "PM";
       const label = `${displayHour}:${min === 0 ? "00" : "30"} ${ampm}`;
-      
+
       intervals.push({ value, label });
     }
   }

@@ -86,6 +86,11 @@ import Button from "@mui/material/Button";
 import DietaryRestrictionsLegend from "../../components/DietaryRestrictionsLegend";
 import { deliveryDate } from "../../utils/deliveryDate";
 import { deliveryEventEmitter } from "../../utils/deliveryEventEmitter";
+import {
+  hasAssignmentValue,
+  normalizeAssignmentValue,
+  resolveAssignmentValue,
+} from "./utils/assignmentOverrides";
 import { TIME_SLOTS } from "./utils/timeSlots";
 
 const StyleChip = styled(Chip)({
@@ -225,21 +230,55 @@ interface ClusterDoc {
 
 // Helper to remove undefined fields from clientOverrides before writing to Firestore
 const sanitizeClientOverridesForFirestore = (overrides: ClientOverride[]): ClientOverride[] => {
-  return overrides.map((override) => {
+  return overrides.reduce<ClientOverride[]>((cleanedOverrides, override) => {
+    const driver = normalizeAssignmentValue(override.driver);
+    const time = normalizeAssignmentValue(override.time);
+
+    if (!driver && !time) {
+      return cleanedOverrides;
+    }
+
     const cleaned: ClientOverride = {
       clientId: override.clientId,
     };
 
-    if (override.driver !== undefined) {
-      cleaned.driver = override.driver;
+    if (driver) {
+      cleaned.driver = driver;
     }
 
-    if (override.time !== undefined) {
-      cleaned.time = override.time;
+    if (time) {
+      cleaned.time = time;
     }
 
-    return cleaned;
-  });
+    cleanedOverrides.push(cleaned);
+    return cleanedOverrides;
+  }, []);
+};
+
+const getClusterAssignmentValue = (
+  clusters: Cluster[],
+  clientId: string,
+  key: "driver" | "time"
+): string | undefined => {
+  const cluster = clusters.find((candidate) => candidate.deliveries?.includes(clientId));
+  const rawValue = key === "driver" ? cluster?.driver : cluster?.time;
+
+  return typeof rawValue === "string" ? normalizeAssignmentValue(rawValue) : undefined;
+};
+
+const formatAssignedTime = (time?: string): string => {
+  const normalizedTime = normalizeAssignmentValue(time);
+  if (!normalizedTime) {
+    return "No time assigned";
+  }
+
+  const [hours, minutes] = normalizedTime.split(":");
+  let hours12 = parseInt(hours, 10);
+  const ampm = hours12 >= 12 ? "PM" : "AM";
+  hours12 = hours12 % 12;
+  hours12 = hours12 ? hours12 : 12;
+
+  return `${hours12}:${minutes} ${ampm}`;
 };
 
 interface DeliveryEvent {
@@ -298,21 +337,11 @@ const fields: Field[] = [
       clusters: Cluster[],
       clientOverrides: ClientOverride[] = []
     ) => {
-      // Check for individual override first
       const override = clientOverrides.find((override) => override.clientId === data.id);
-      if (override) {
-        // Override exists - use its value even if undefined (explicit clearing)
-        return override.driver || "No driver assigned";
-      }
+      const clusterDriver = getClusterAssignmentValue(clusters, data.id, "driver");
+      const driver = resolveAssignmentValue(override?.driver, clusterDriver);
 
-      // Fall back to cluster assignment
-      let driver = "";
-      clusters.forEach((cluster) => {
-        if (cluster.deliveries?.some((id) => id == data.id)) {
-          driver = cluster.driver;
-        }
-      });
-      return driver ? driver : "No driver assigned";
+      return driver || "No driver assigned";
     },
   },
   {
@@ -324,40 +353,11 @@ const fields: Field[] = [
       clusters: Cluster[],
       clientOverrides: ClientOverride[] = []
     ) => {
-      // Check for individual override first
       const override = clientOverrides.find((override) => override.clientId === data.id);
-      if (override) {
-        // Override exists - use its value even if undefined (explicit clearing)
-        if (!override.time) {
-          return "No time assigned";
-        }
-        // Convert 24-hour format to 12-hour AM/PM format
-        const [hours, minutes] = override.time.split(":");
-        let hours12 = parseInt(hours, 10);
-        const ampm = hours12 >= 12 ? "PM" : "AM";
-        hours12 = hours12 % 12;
-        hours12 = hours12 ? hours12 : 12; // Convert 0 to 12 for 12 AM
-        return `${hours12}:${minutes} ${ampm}`;
-      }
+      const clusterTime = getClusterAssignmentValue(clusters, data.id, "time");
+      const time = resolveAssignmentValue(override?.time, clusterTime);
 
-      // Fall back to cluster assignment
-      let time = "";
-      clusters.forEach((cluster) => {
-        if (cluster.deliveries?.some((id) => id === data.id)) {
-          time = cluster.time;
-        }
-      });
-
-      if (!time) return "No time assigned";
-
-      // Convert 24-hour format to 12-hour AM/PM format
-      const [hours, minutes] = time.split(":");
-      let hours12 = parseInt(hours, 10);
-      const ampm = hours12 >= 12 ? "PM" : "AM";
-      hours12 = hours12 % 12;
-      hours12 = hours12 ? hours12 : 12; // Convert 0 to 12 for 12 AM
-
-      return `${hours12}:${minutes} ${ampm}`;
+      return formatAssignedTime(time);
     },
   },
   {
@@ -568,15 +568,18 @@ const DeliverySpreadsheet: React.FC = () => {
         });
 
         // Clean up overrides - remove any that have neither driver nor time
-        updatedOverrides = updatedOverrides.filter((override) => override.driver || override.time);
+        updatedOverrides = updatedOverrides.filter(
+          (override) => hasAssignmentValue(override.driver) || hasAssignmentValue(override.time)
+        );
+        const sanitizedOverrides = sanitizeClientOverridesForFirestore(updatedOverrides);
 
-        setClientOverrides(updatedOverrides);
+        setClientOverrides(sanitizedOverrides);
 
         // Update Firestore - we don't need to modify clusters since time is now individual
         const clusterRef = doc(db, dataSources.firebase.clustersCollection, clusterDoc.docId);
         await updateDoc(clusterRef, {
           clusters: clusters, // Keep clusters unchanged
-          clientOverrides: sanitizeClientOverridesForFirestore(updatedOverrides),
+          clientOverrides: sanitizedOverrides,
         });
 
         resetSelections();
@@ -856,7 +859,7 @@ const DeliverySpreadsheet: React.FC = () => {
         };
         setClusterDoc(clustersData);
         setClusters(clustersData.clusters);
-        setClientOverrides(clustersData.clientOverrides || []);
+        setClientOverrides(sanitizeClientOverridesForFirestore(clustersData.clientOverrides || []));
       } else {
         // No clusters found for this date
 
@@ -948,7 +951,8 @@ const DeliverySpreadsheet: React.FC = () => {
       if (targetDeliveries.length > 1) {
         const otherClientIds = targetDeliveries.filter((id) => id !== row.id);
         const existingTimeOverride = clientOverrides.find(
-          (override) => otherClientIds.includes(override.clientId) && override.time
+          (override) =>
+            otherClientIds.includes(override.clientId) && hasAssignmentValue(override.time)
         );
 
         if (existingTimeOverride) {
@@ -969,8 +973,10 @@ const DeliverySpreadsheet: React.FC = () => {
             });
           }
 
-          updatedOverrides = updatedOverrides.filter((override) => override.driver || override.time);
-          setClientOverrides(updatedOverrides);
+          updatedOverrides = updatedOverrides.filter(
+            (override) => hasAssignmentValue(override.driver) || hasAssignmentValue(override.time)
+          );
+          setClientOverrides(sanitizeClientOverridesForFirestore(updatedOverrides));
         }
       }
     }
@@ -1055,15 +1061,18 @@ const DeliverySpreadsheet: React.FC = () => {
           }
           return override;
         })
-        .filter((override) => override.driver || override.time);
+        .filter(
+          (override) => hasAssignmentValue(override.driver) || hasAssignmentValue(override.time)
+        );
+      const sanitizedOverrides = sanitizeClientOverridesForFirestore(updatedOverrides);
 
-      setClientOverrides(updatedOverrides);
+      setClientOverrides(sanitizedOverrides);
 
       // Update Firestore
       const clusterRef = doc(db, dataSources.firebase.clustersCollection, clusterDoc.docId);
       await updateDoc(clusterRef, {
         clusters: normalizedClusters,
-        clientOverrides: sanitizeClientOverridesForFirestore(updatedOverrides),
+        clientOverrides: sanitizedOverrides,
       });
 
       resetSelections();
@@ -1076,8 +1085,7 @@ const DeliverySpreadsheet: React.FC = () => {
     clientId: string,
     newClusterId: string,
     newDriver?: string,
-    newTime?: string,
-    isClusterWideUpdate = false
+    newTime?: string
   ) => {
     if (!clusterDoc) {
       return;
@@ -1090,7 +1098,7 @@ const DeliverySpreadsheet: React.FC = () => {
       const nextClusterNum = clusterNumbers.length > 0 ? Math.max(...clusterNumbers) + 1 : 1;
       const nextClusterId = nextClusterNum.toString();
       // Call self recursively to assign to the new cluster
-      await handleIndividualClientUpdate(clientId, nextClusterId, newDriver, newTime, isClusterWideUpdate);
+      await handleIndividualClientUpdate(clientId, nextClusterId, newDriver, newTime);
       // Close and reopen the popup to force refresh
       if (
         typeof window !== "undefined" &&
@@ -1106,25 +1114,15 @@ const DeliverySpreadsheet: React.FC = () => {
     }
 
     try {
-      // Update or add individual client override
-      const existingOverrideIndex = clientOverrides.findIndex(
-        (override) => override.clientId === clientId
-      );
-      let updatedOverrides = [...clientOverrides];
+      const normalizedDriver = normalizeAssignmentValue(newDriver);
+      const normalizedTime = normalizeAssignmentValue(newTime);
+      const updatedOverrides = clientOverrides.filter((override) => override.clientId !== clientId);
 
-      if (existingOverrideIndex >= 0) {
-        // Update existing override
-        updatedOverrides[existingOverrideIndex] = {
-          clientId,
-          driver: newDriver,
-          time: newTime,
-        };
-      } else {
-        // Add new override (even if both are undefined, to explicitly clear cluster values)
+      if (normalizedDriver || normalizedTime) {
         updatedOverrides.push({
           clientId,
-          driver: newDriver,
-          time: newTime,
+          driver: normalizedDriver,
+          time: normalizedTime,
         });
       }
 
@@ -1173,62 +1171,20 @@ const DeliverySpreadsheet: React.FC = () => {
         }
       }
 
-      // If the cluster hasn't changed and this is a cluster-wide update, update the cluster's driver/time
-      const isSameCluster = oldClusterId && oldClusterId === newClusterId;
-      if (isSameCluster && isClusterWideUpdate) {
-        updatedClusters = updatedClusters.map((cluster) => {
-          if (cluster.id === oldClusterId) {
-            const updates: Partial<typeof cluster> = {};
-            // Only update fields that are explicitly provided
-            if (newDriver !== undefined) {
-              updates.driver = newDriver;
-            }
-            if (newTime !== undefined) {
-              updates.time = newTime;
-            }
-            return {
-              ...cluster,
-              ...updates,
-            };
-          }
-          return cluster;
-        });
-
-        const affectedClientIds = new Set<string>();
-        const updatedCluster = updatedClusters.find((cluster) => cluster.id === oldClusterId);
-        updatedCluster?.deliveries?.forEach((id) => affectedClientIds.add(id));
-
-        updatedOverrides = updatedOverrides
-          .map((override) => {
-            if (affectedClientIds.has(override.clientId)) {
-              const updates: Partial<typeof override> = {};
-              // Only clear overrides for fields that are being updated at cluster level
-              if (newDriver !== undefined) {
-                updates.driver = undefined;
-              }
-              if (newTime !== undefined) {
-                updates.time = undefined;
-              }
-              return { ...override, ...updates };
-            }
-            return override;
-          })
-          .filter((override) => override.driver || override.time);
-      }
-
       // Sort clusters numerically
       updatedClusters.sort((a, b) => parseInt(a.id, 10) - parseInt(b.id, 10));
 
       const normalizedClusters = setClusters(updatedClusters);
+      const sanitizedOverrides = sanitizeClientOverridesForFirestore(updatedOverrides);
 
       // Update local state
-      setClientOverrides(updatedOverrides);
+      setClientOverrides(sanitizedOverrides);
 
       // Update Firebase with cluster changes and client overrides
       const clusterRef = doc(db, dataSources.firebase.clustersCollection, clusterDoc.docId);
       await updateDoc(clusterRef, {
         clusters: normalizedClusters,
-        clientOverrides: sanitizeClientOverridesForFirestore(updatedOverrides),
+        clientOverrides: sanitizedOverrides,
       });
 
       // Remove the client from selected rows since their cluster assignment changed
