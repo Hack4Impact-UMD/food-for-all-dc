@@ -411,7 +411,7 @@ const CalendarPage: React.FC = React.memo(() => {
       const deliveryService = DeliveryService.getInstance();
       const seriesStartDate = newDelivery.deliveryDate;
 
-      const createPromises = uniqueRecurrenceDates.map((dateStr) => {
+      const eventsToAdd = uniqueRecurrenceDates.map((dateStr) => {
         const normalizedDeliveryDate = deliveryDate.toJSDate(dateStr);
         const eventToAdd: Partial<DeliveryEvent> = {
           clientId: newDelivery.clientId,
@@ -428,9 +428,14 @@ const CalendarPage: React.FC = React.memo(() => {
         } else if (newDelivery.repeatsEndDate) {
           eventToAdd.repeatsEndDate = newDelivery.repeatsEndDate;
         }
-        return deliveryService.createEvent(eventToAdd);
+        return eventToAdd;
       });
-      await Promise.all(createPromises);
+
+      if (eventsToAdd.length === 1) {
+        await deliveryService.createEvent(eventsToAdd[0]);
+      } else if (eventsToAdd.length > 1) {
+        await deliveryService.createEventsBatch(eventsToAdd);
+      }
 
       await fetchEvents();
       setIsModalOpen(false);

@@ -3,14 +3,15 @@ import {
   doc,
   getDoc,
   getDocs,
-  addDoc,
   setDoc,
   updateDoc,
   deleteDoc,
+  writeBatch,
   query,
   where,
   orderBy,
   limit,
+  Timestamp,
 } from "firebase/firestore";
 import { db } from "../auth/firebaseConfig";
 import { DeliveryEvent } from "../types/calendar-types";
@@ -20,12 +21,113 @@ import { retry } from "../utils/retry";
 import { ServiceError, formatServiceError } from "../utils/serviceError";
 import dataSources from "../config/dataSources";
 import { deliveryDate } from "../utils/deliveryDate";
-import { deliveryEventEmitter } from "../utils/deliveryEventEmitter";
+import {
+  DeliveryChangeReason,
+  deliveryEventEmitter,
+} from "../utils/deliveryEventEmitter";
+
+export interface ClusterInvalidationResult {
+  impactedDateKeys: string[];
+  clearedDateKeys: string[];
+  failedDateKeys: string[];
+  clearedDocCount: number;
+}
+
+const MAX_BATCH_WRITE_COUNT = 500;
 
 /**
  * Delivery Service - Handles all delivery-related operations with Firebase
  */
 class DeliveryService {
+  private normalizeDateKeys(dateKeys: Array<string | null | undefined>): string[] {
+    return Array.from(
+      new Set(
+        dateKeys
+          .map((dateKey) => deliveryDate.tryToISODateString(dateKey))
+          .filter((dateKey): dateKey is string => !!dateKey)
+      )
+    );
+  }
+
+  private emitDeliveryChange(
+    reason: DeliveryChangeReason,
+    impactedDateKeys: string[],
+    invalidationResult: ClusterInvalidationResult
+  ) {
+    deliveryEventEmitter.emit({
+      reason,
+      impactedDateKeys,
+      clearedClusterDateKeys: invalidationResult.clearedDateKeys,
+      failedClusterDateKeys: invalidationResult.failedDateKeys,
+    });
+  }
+
+  private normalizeEventForWrite(event: Partial<DeliveryEvent>): Partial<DeliveryEvent> {
+    const cleanEvent = Object.fromEntries(
+      Object.entries(event).map(([k, v]) => [k, v === undefined ? null : v])
+    );
+
+    if (cleanEvent.deliveryDate) {
+      cleanEvent.deliveryDate = deliveryDate.toJSDate(cleanEvent.deliveryDate as any);
+    }
+
+    return cleanEvent;
+  }
+
+  private invalidateRecurringCache(events: Partial<DeliveryEvent>[]) {
+    const cacheKeys = new Set<string>();
+
+    events.forEach((event) => {
+      if (!event.clientId || !event.recurrence) {
+        return;
+      }
+
+      const cacheKey = `${event.clientId}:${event.recurrence}`;
+      if (!cacheKeys.has(cacheKey)) {
+        cacheKeys.add(cacheKey);
+        this.invalidateCacheForClient(event.clientId, event.recurrence);
+      }
+    });
+  }
+
+  private async createEventsInternal(
+    events: Partial<DeliveryEvent>[],
+    reason: DeliveryChangeReason
+  ): Promise<string[]> {
+    const normalizedEvents = events.map((event) => this.normalizeEventForWrite(event));
+    if (!normalizedEvents.length) {
+      return [];
+    }
+
+    const docRefs = normalizedEvents.map(() => doc(collection(this.db, this.eventsCollection)));
+    const docIds = docRefs.map((docRef) => docRef.id);
+
+    for (let i = 0; i < normalizedEvents.length; i += MAX_BATCH_WRITE_COUNT) {
+      const chunkEvents = normalizedEvents.slice(i, i + MAX_BATCH_WRITE_COUNT);
+      const chunkRefs = docRefs.slice(i, i + MAX_BATCH_WRITE_COUNT);
+
+      await retry(async () => {
+        const batch = writeBatch(this.db);
+        chunkEvents.forEach((event, index) => {
+          batch.set(chunkRefs[index], event);
+        });
+        await batch.commit();
+      });
+    }
+
+    this.invalidateRecurringCache(normalizedEvents as Partial<DeliveryEvent>[]);
+
+    const impactedDateKeys = this.normalizeDateKeys(
+      normalizedEvents.map((event) =>
+        event.deliveryDate ? deliveryDate.toISODateString(event.deliveryDate as any) : null
+      )
+    );
+    const invalidationResult = await this.clearClusterAssignmentsForDateKeys(impactedDateKeys);
+    this.emitDeliveryChange(reason, impactedDateKeys, invalidationResult);
+
+    return docIds;
+  }
+
   /**
    * Delete all delivery events for a client
    */
@@ -36,11 +138,19 @@ class DeliveryService {
         where("clientId", "==", clientId)
       );
       const querySnapshot = await getDocs(q);
+      const impactedDateKeys = this.normalizeDateKeys(
+        querySnapshot.docs.map((docSnap) => {
+          const data = docSnap.data();
+          return data.deliveryDate ? deliveryDate.toISODateString(data.deliveryDate) : null;
+        })
+      );
       const batchDeletes = querySnapshot.docs.map((docSnap) =>
         deleteDoc(doc(this.db, this.eventsCollection, docSnap.id))
       );
       await Promise.all(batchDeletes);
-      deliveryEventEmitter.emit();
+      this.invalidateCacheForClient(clientId);
+      const invalidationResult = await this.clearClusterAssignmentsForDateKeys(impactedDateKeys);
+      this.emitDeliveryChange("schedule-batch-deleted", impactedDateKeys, invalidationResult);
     } catch (error) {
       throw formatServiceError(error, "Failed to delete deliveries for client");
     }
@@ -48,6 +158,7 @@ class DeliveryService {
   private static instance: DeliveryService;
   private db = db;
   private eventsCollection = dataSources.firebase.calendarCollection;
+  private clustersCollection = dataSources.firebase.clustersCollection;
   private dailyLimitsCollection = dataSources.firebase.dailyLimitsCollection;
   private limitsCollection = dataSources.firebase.limitsCollection;
   private limitsDocId = dataSources.firebase.limitsDocId;
@@ -63,6 +174,26 @@ class DeliveryService {
       DeliveryService.instance = new DeliveryService();
     }
     return DeliveryService.instance;
+  }
+
+  private getClusterDateRange(dateKey: string): { start: Timestamp; end: Timestamp } | null {
+    const normalizedDateKey = deliveryDate.tryToISODateString(dateKey);
+    if (!normalizedDateKey) {
+      return null;
+    }
+
+    const jsDate = deliveryDate.toJSDate(normalizedDateKey);
+    const startDate = new Date(
+      Date.UTC(jsDate.getFullYear(), jsDate.getMonth(), jsDate.getDate(), 0, 0, 0, 0)
+    );
+    const endDate = new Date(
+      Date.UTC(jsDate.getFullYear(), jsDate.getMonth(), jsDate.getDate(), 23, 59, 59, 999)
+    );
+
+    return {
+      start: Timestamp.fromDate(startDate),
+      end: Timestamp.fromDate(endDate),
+    };
   }
 
   /**
@@ -183,28 +314,86 @@ class DeliveryService {
     }
   }
 
+  public async clearClusterAssignmentsForDateKeys(
+    dateKeys: string[]
+  ): Promise<ClusterInvalidationResult> {
+    const impactedDateKeys = this.normalizeDateKeys(dateKeys);
+    const result: ClusterInvalidationResult = {
+      impactedDateKeys,
+      clearedDateKeys: [],
+      failedDateKeys: [],
+      clearedDocCount: 0,
+    };
+
+    if (!impactedDateKeys.length) {
+      return result;
+    }
+
+    await Promise.all(
+      impactedDateKeys.map(async (dateKey) => {
+        const range = this.getClusterDateRange(dateKey);
+        if (!range) {
+          return;
+        }
+
+        try {
+          const snapshot = await retry(async () => {
+            const clusterQuery = query(
+              collection(this.db, this.clustersCollection),
+              where("date", ">=", range.start),
+              where("date", "<=", range.end),
+              orderBy("date", "asc")
+            );
+
+            return getDocs(clusterQuery);
+          });
+
+          if (snapshot.empty) {
+            return;
+          }
+
+          await retry(async () => {
+            await Promise.all(
+              snapshot.docs.map((clusterDoc) =>
+                updateDoc(clusterDoc.ref, {
+                  clusters: [],
+                  clientOverrides: [],
+                })
+              )
+            );
+          });
+
+          result.clearedDateKeys.push(dateKey);
+          result.clearedDocCount += snapshot.size;
+        } catch (error) {
+          console.error(`Failed to clear cluster assignments for ${dateKey}:`, error);
+          result.failedDateKeys.push(dateKey);
+        }
+      })
+    );
+
+    result.clearedDateKeys.sort();
+    result.failedDateKeys.sort();
+    return result;
+  }
+
   /**
    * Create a new delivery event
    */
   public async createEvent(event: Partial<DeliveryEvent>): Promise<string> {
-    // Convert undefined fields to null
-    const cleanEvent = Object.fromEntries(
-      Object.entries(event).map(([k, v]) => [k, v === undefined ? null : v])
-    );
-    if (cleanEvent.deliveryDate) {
-      cleanEvent.deliveryDate = deliveryDate.toJSDate(cleanEvent.deliveryDate as any);
-    }
     try {
-      return await retry(async () => {
-        const docRef = await addDoc(collection(this.db, this.eventsCollection), cleanEvent);
-        // Invalidate cache for this client's recurring deliveries
-        if (event.clientId && event.recurrence) {
-          this.invalidateCacheForClient(event.clientId, event.recurrence);
-        }
-        return docRef.id;
-      });
+      const [docId] = await this.createEventsInternal([event], "schedule-created");
+      return docId;
     } catch (error) {
       throw formatServiceError(error, "Failed to create event");
+    }
+  }
+
+  public async createEventsBatch(events: Partial<DeliveryEvent>[]): Promise<string[]> {
+    try {
+      return await this.createEventsInternal(events, "schedule-created-batch");
+    } catch (error) {
+      throw formatServiceError(error, "Failed to create deliveries");
     }
   }
 
@@ -212,17 +401,33 @@ class DeliveryService {
    * Update an existing delivery event
    */
   public async updateEvent(id: string, data: Partial<DeliveryEvent>): Promise<void> {
-    // Convert undefined fields to null
-    const cleanData = Object.fromEntries(
-      Object.entries(data).map(([k, v]) => [k, v === undefined ? null : v])
-    );
-    if (cleanData.deliveryDate) {
-      cleanData.deliveryDate = deliveryDate.toJSDate(cleanData.deliveryDate as any);
-    }
+    const cleanData = this.normalizeEventForWrite(data);
     try {
+      const eventRef = doc(this.db, this.eventsCollection, id);
+      const existingSnapshot = await getDoc(eventRef);
+      const existingData = existingSnapshot.exists()
+        ? (existingSnapshot.data() as Partial<DeliveryEvent>)
+        : null;
+
       await retry(async () => {
-        await updateDoc(doc(this.db, this.eventsCollection, id), cleanData);
+        await updateDoc(eventRef, cleanData);
       });
+
+      this.invalidateRecurringCache([
+        {
+          clientId: cleanData.clientId || existingData?.clientId,
+          recurrence: cleanData.recurrence || existingData?.recurrence,
+        } as Partial<DeliveryEvent>,
+      ]);
+
+      const impactedDateKeys = this.normalizeDateKeys([
+        existingData?.deliveryDate
+          ? deliveryDate.toISODateString(existingData.deliveryDate as any)
+          : null,
+        cleanData.deliveryDate ? deliveryDate.toISODateString(cleanData.deliveryDate as any) : null,
+      ]);
+      const invalidationResult = await this.clearClusterAssignmentsForDateKeys(impactedDateKeys);
+      this.emitDeliveryChange("schedule-updated", impactedDateKeys, invalidationResult);
     } catch (error) {
       throw formatServiceError(error, "Failed to update event");
     }
@@ -236,10 +441,28 @@ class DeliveryService {
       if (!id) {
         throw new ServiceError("Invalid event ID provided for deletion");
       }
+      const eventRef = doc(this.db, this.eventsCollection, id);
+      const existingSnapshot = await getDoc(eventRef);
+      const existingData = existingSnapshot.exists()
+        ? (existingSnapshot.data() as Partial<DeliveryEvent>)
+        : null;
+
       await retry(async () => {
-        await deleteDoc(doc(this.db, this.eventsCollection, id));
+        await deleteDoc(eventRef);
       });
-      deliveryEventEmitter.emit();
+      this.invalidateRecurringCache([
+        {
+          clientId: existingData?.clientId,
+          recurrence: existingData?.recurrence,
+        } as Partial<DeliveryEvent>,
+      ]);
+      const impactedDateKeys = this.normalizeDateKeys([
+        existingData?.deliveryDate
+          ? deliveryDate.toISODateString(existingData.deliveryDate as any)
+          : null,
+      ]);
+      const invalidationResult = await this.clearClusterAssignmentsForDateKeys(impactedDateKeys);
+      this.emitDeliveryChange("schedule-deleted", impactedDateKeys, invalidationResult);
     } catch (error) {
       throw formatServiceError(error, "Failed to delete event");
     }

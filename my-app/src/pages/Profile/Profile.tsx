@@ -2628,6 +2628,7 @@ const Profile = () => {
     setIsProcessingDelivery(true);
 
     try {
+      const deliveryService = DeliveryService.getInstance();
       // 1. GET EXISTING DELIVERIES FROM DATABASE
       const eventsRef = collection(db, dataSources.firebase.calendarCollection);
       const q = query(eventsRef, where("clientId", "==", newDelivery.clientId));
@@ -2660,7 +2661,6 @@ const Profile = () => {
               );
       }
 
-
       // 3. CHECK IF THIS IS ACTUALLY CHANGING AN END DATE (not just adding deliveries with an end date)
       // Only delete if the new end date is DIFFERENT from what already exists
       if (newDelivery.repeatsEndDate && existingDeliveries.length > 0) {
@@ -2671,18 +2671,17 @@ const Profile = () => {
           ),
         ];
 
-
         // Only delete if we're changing to a DIFFERENT end date
         const isDifferentEndDate =
           existingEndDates.length > 0 && !existingEndDates.includes(newDelivery.repeatsEndDate);
 
         if (isDifferentEndDate) {
           const deletePromises: Promise<any>[] = [];
+          const deletedDateKeys: string[] = [];
 
           // CONVERT NEW END DATE TO YYYY-MM-DD FORMAT FOR PROPER COMPARISON
           const newEndDateFormatted = deliveryDate.toISODateString(newDelivery.repeatsEndDate);
           const today = deliveryDate.toISODateString(new Date());
-
 
           for (const event of existingDeliveries) {
             const eventDateStr = new DayPilot.Date(toJSDate(event.deliveryDate)).toString(
@@ -2691,14 +2690,23 @@ const Profile = () => {
             const isAfterEndDate = eventDateStr > newEndDateFormatted;
             const isFutureDate = eventDateStr >= today;
 
-
             if (isAfterEndDate && isFutureDate) {
+              deletedDateKeys.push(eventDateStr);
               deletePromises.push(deleteDoc(doc(eventsRef, event.id)));
             }
           }
 
           if (deletePromises.length > 0) {
             await Promise.all(deletePromises);
+            deliveryService.clearDateRangeCache();
+            const invalidationResult =
+              await deliveryService.clearClusterAssignmentsForDateKeys(deletedDateKeys);
+            deliveryEventEmitter.emit({
+              reason: "schedule-batch-deleted",
+              impactedDateKeys: deletedDateKeys,
+              clearedClusterDateKeys: invalidationResult.clearedDateKeys,
+              failedClusterDateKeys: invalidationResult.failedDateKeys,
+            });
           }
         }
       } // 4. SKIP EXISTING DATES, CREATE NEW DATES
@@ -2710,8 +2718,7 @@ const Profile = () => {
 
       // CREATE NEW DELIVERIES
       if (newDates.length > 0) {
-        const deliveryService = DeliveryService.getInstance();
-        const createPromises = newDates.map((date) => {
+        const eventsToAdd = newDates.map((date) => {
           const eventToAdd: Partial<DeliveryEvent> = {
             clientId: newDelivery.clientId,
             clientName: newDelivery.clientName,
@@ -2728,10 +2735,14 @@ const Profile = () => {
             eventToAdd.repeatsEndDate = newDelivery.repeatsEndDate;
           }
 
-          return deliveryService.createEvent(eventToAdd);
+          return eventToAdd;
         });
 
-        await Promise.all(createPromises);
+        if (eventsToAdd.length === 1) {
+          await deliveryService.createEvent(eventsToAdd[0]);
+        } else if (eventsToAdd.length > 1) {
+          await deliveryService.createEventsBatch(eventsToAdd);
+        }
       }
 
       // 5. REFRESH DATA AND SET LAST DELIVERY DATE TO MATCH MODAL END DATE
@@ -2739,7 +2750,6 @@ const Profile = () => {
 
       // Refresh delivery history
       if (clientId) {
-        const deliveryService = DeliveryService.getInstance();
         const { pastDeliveries, futureDeliveries } =
           await deliveryService.getClientDeliveryHistory(clientId);
         setPastDeliveries(pastDeliveries);
@@ -2972,7 +2982,13 @@ const Profile = () => {
             >
               <Box display="flex" alignItems="center" sx={{ height: "100%" }}>
                 <SectionTitle
-                  sx={{ textAlign: "left", display: "flex", alignItems: "center", height: "100%", mb: 0 }}
+                  sx={{
+                    textAlign: "left",
+                    display: "flex",
+                    alignItems: "center",
+                    height: "100%",
+                    mb: 0,
+                  }}
                 >
                   Deliveries
                 </SectionTitle>
@@ -3013,7 +3029,9 @@ const Profile = () => {
                   }
                   setIsDeliveryModalOpen(true);
                 }}
-                disabled={userRole === UserType.ClientIntake || clientProfile.activeStatus === false}
+                disabled={
+                  userRole === UserType.ClientIntake || clientProfile.activeStatus === false
+                }
                 sx={{
                   marginRight: 4,
                   width: 166,

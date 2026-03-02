@@ -24,7 +24,6 @@ import type { ClientProfile } from "../../../types/client-types";
 import { DayPilot } from "@daypilot/daypilot-lite-react";
 import { validateDeliveryDateRange } from "../../../utils/dateValidation";
 import { getLastDeliveryDateForClient } from "../../../utils/lastDeliveryDate";
-import { deliveryEventEmitter } from "../../../utils/deliveryEventEmitter";
 import { clientService } from "../../../services/client-service";
 import { deliveryDate } from "../../../utils/deliveryDate";
 import { DeliveryService } from "../../../services";
@@ -515,7 +514,6 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
         deliveryToSubmit.deliveryDate = normalizedDeliveryDate;
       }
 
-      deliveryEventEmitter.emit();
       onAddDelivery(deliveryToSubmit as NewDelivery);
       setCustomDates([]);
       resetFormAndClose();
@@ -802,8 +800,7 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
                     setNewDelivery({
                       ...newDelivery,
                       deliveryDate: "",
-                      _deliveryDateError:
-                        "Invalid date format. Please select a valid date.",
+                      _deliveryDateError: "Invalid date format. Please select a valid date.",
                     });
                     return;
                   }

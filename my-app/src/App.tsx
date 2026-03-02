@@ -29,6 +29,7 @@ import { routesConfig } from "./routesConfig";
 import NotFoundPage from "./components/NotFoundPage";
 import AutoLogout from "./components/AutoLogout";
 import { ClientDataProvider } from "./context/ClientDataContext";
+import DeliveryChangeNotifier from "./components/DeliveryChangeNotifier";
 
 function renderRoutes(config: Array<any>) {
   return config.map((route: any, idx: number) => {
@@ -57,6 +58,7 @@ function App() {
     <ErrorBoundary>
       <LocalizationProvider dateAdapter={AdapterDateFns}>
         <ClientDataProvider>
+          <DeliveryChangeNotifier />
           <Router>
             <AutoLogout />
             <Suspense fallback={<LoadingIndicator />}>

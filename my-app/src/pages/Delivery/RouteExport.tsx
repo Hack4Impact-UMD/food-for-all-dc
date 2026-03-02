@@ -1,4 +1,3 @@
-import { getFirestore, collection, getDocs } from "firebase/firestore";
 import { saveAs } from "file-saver";
 import Papa from "papaparse";
 import { Cluster } from "./DeliverySpreadsheet";
@@ -17,38 +16,30 @@ const formatTime = (time: string): string => {
   return `${hours12}:${minutes} ${ampm}`;
 };
 
-interface SpreadsheetClientProfile {
-  uid: string;
-  firstName: string;
-  lastName: string;
-  address: string;
-  apt?: string;
-  zip: string;
-  quadrant?: string;
-  ward?: string;
-  phone: string;
-  adults: number;
-  children: number;
-  total: number;
-  deliveryInstructions?: string;
-  dietaryPreferences?: string;
-  tefapFY25?: string;
+export interface ExportFeedback {
+  status: "success" | "error" | "warning" | "info";
+  message: string;
 }
+
+const getClusterForRow = (clusters: Cluster[], rowId: string) =>
+  clusters.find((cluster) => cluster.deliveries?.includes(rowId));
 
 export const exportDeliveries = async (
   deliveryDate: string,
   rowsToExport: RowData[],
   clusters: Cluster[]
-) => {
+): Promise<ExportFeedback> => {
   try {
     if (rowsToExport.length === 0) {
-      alert("No deliveries selected or available for export on the selected date.");
-      return;
+      return {
+        status: "info",
+        message: "No deliveries selected or available for export on the selected date.",
+      };
     }
 
     const groupedByDriver: Record<string, RowData[]> = {};
     rowsToExport.forEach((row) => {
-      const cluster = clusters.find((c) => c.deliveries?.includes(row.id));
+      const cluster = getClusterForRow(clusters, row.id);
       const driverName = cluster?.driver || "Unassigned";
 
       if (!groupedByDriver[driverName]) {
@@ -63,10 +54,11 @@ export const exportDeliveries = async (
       driverNames[0] === "Unassigned" &&
       groupedByDriver["Unassigned"].length > 0
     ) {
-      alert(
-        "Cannot export: All selected deliveries are currently unassigned. Please assign drivers to clusters before exporting."
-      );
-      return;
+      return {
+        status: "warning",
+        message:
+          "Cannot export: All selected deliveries are currently unassigned. Please assign drivers to clusters before exporting.",
+      };
     }
 
     const JSZipDeliveries = (await import("jszip")).default;
@@ -88,7 +80,7 @@ export const exportDeliveries = async (
                   .join(", ")
               : "";
 
-            const cluster = clusters.find((c) => c.deliveries?.includes(row.id));
+            const cluster = getClusterForRow(clusters, row.id);
             const clusterNumber = cluster?.id || "";
             const assignedTime = formatTime(cluster?.time || "");
 
@@ -136,25 +128,35 @@ export const exportDeliveries = async (
     }
 
     if (filesCreated === 0) {
-      alert(
-        "No files could be created for export. Please check that drivers are assigned and data is valid."
-      );
-      return;
+      return {
+        status: "warning",
+        message:
+          "No files could be created for export. Please check that drivers are assigned and data is valid.",
+      };
     }
 
     try {
       const config = getExportConfig();
       const content = await zip.generateAsync({ type: "blob" });
       saveAs(content, `${config.fileNamePrefix} ${deliveryDate}.zip`);
-      alert(`ZIP file generated successfully with ${filesCreated} driver route(s)!`);
+      return {
+        status: "success",
+        message: `ZIP file generated successfully with ${filesCreated} driver route(s)!`,
+      };
     } catch (error) {
       console.error("Error generating ZIP file:", error);
-      alert("Error generating ZIP file. Please try again.");
+      return {
+        status: "error",
+        message: "Error generating ZIP file. Please try again.",
+      };
     }
   } catch (error) {
     console.error("Error generating ZIPs:", error);
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
-    alert(`An error occurred while generating ZIPs: ${errorMessage}`);
+    return {
+      status: "error",
+      message: `An error occurred while generating ZIPs: ${errorMessage}`,
+    };
   }
 };
 
@@ -162,34 +164,38 @@ export const exportDoordashDeliveries = async (
   deliveryDate: string,
   rowsToExport: RowData[],
   clusters: Cluster[]
-) => {
+): Promise<ExportFeedback> => {
   try {
     const config = getExportConfig();
 
     if (rowsToExport.length === 0) {
-      alert("No deliveries selected or available for export on the selected date.");
-      return;
+      return {
+        status: "info",
+        message: "No deliveries selected or available for export on the selected date.",
+      };
     }
     const doordashRows = rowsToExport.filter((row) => {
-      const cluster = clusters.find((c) => c.deliveries?.includes(row.id));
+      const cluster = getClusterForRow(clusters, row.id);
       return cluster?.driver === "DoorDash";
     });
 
     if (doordashRows.length === 0) {
-      alert("No DoorDash deliveries found for the selected date.");
-      return;
+      return {
+        status: "info",
+        message: "No DoorDash deliveries found for the selected date.",
+      };
     }
 
     const unscheduledRows = doordashRows.filter((row) => {
-      const cluster = clusters.find((c) => c.deliveries?.includes(row.id));
+      const cluster = getClusterForRow(clusters, row.id);
       return !cluster?.time || cluster.time === "";
     });
 
     if (unscheduledRows.length > 0) {
-      alert(
-        `Cannot export: ${unscheduledRows.length} DoorDash deliveries do not have assigned times. Please assign times to all DoorDash deliveries before exporting.`
-      );
-      return;
+      return {
+        status: "warning",
+        message: `Cannot export: ${unscheduledRows.length} DoorDash deliveries do not have assigned times. Please assign times to all DoorDash deliveries before exporting.`,
+      };
     }
 
     const formatTimeWindow = (time: string): { start: string; end: string } => {
@@ -213,7 +219,7 @@ export const exportDoordashDeliveries = async (
 
     const groupedByTime: Record<string, RowData[]> = {};
     doordashRows.forEach((row) => {
-      const cluster = clusters.find((c) => c.deliveries?.includes(row.id));
+      const cluster = getClusterForRow(clusters, row.id);
       const time = cluster?.time || "";
 
       if (!groupedByTime[time]) {
@@ -290,23 +296,33 @@ export const exportDoordashDeliveries = async (
     }
 
     if (filesCreated === 0) {
-      alert(
-        "No files could be created for export. Please check that times are assigned and data is valid."
-      );
-      return;
+      return {
+        status: "warning",
+        message:
+          "No files could be created for export. Please check that times are assigned and data is valid.",
+      };
     }
 
     try {
       const content = await zip.generateAsync({ type: "blob" });
       saveAs(content, `${config.fileNamePrefix} ${deliveryDate} - DoorDash.zip`);
-      alert(`DoorDash ZIP file generated successfully with ${filesCreated} time slot(s)!`);
+      return {
+        status: "success",
+        message: `DoorDash ZIP file generated successfully with ${filesCreated} time slot(s)!`,
+      };
     } catch (error) {
       console.error("Error generating ZIP file:", error);
-      alert("Error generating ZIP file. Please try again.");
+      return {
+        status: "error",
+        message: "Error generating ZIP file. Please try again.",
+      };
     }
   } catch (error) {
     console.error("Error generating DoorDash ZIPs:", error);
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
-    alert(`An error occurred while generating DoorDash ZIPs: ${errorMessage}`);
+    return {
+      status: "error",
+      message: `An error occurred while generating DoorDash ZIPs: ${errorMessage}`,
+    };
   }
 };

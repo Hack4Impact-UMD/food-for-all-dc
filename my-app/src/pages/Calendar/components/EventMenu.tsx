@@ -56,7 +56,12 @@ interface EventMenuProps {
   dailyLimits: DateLimit[];
 }
 
-const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified, weeklyLimits, dailyLimits }) => {
+const EventMenu: React.FC<EventMenuProps> = ({
+  event,
+  onEventModified,
+  weeklyLimits,
+  dailyLimits,
+}) => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -156,7 +161,13 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified, weeklyLim
     setCapacityWarnings([]);
     setCapacityWarningError("");
     setCapacityWarningAcknowledged(false);
-  }, [editOption, editDeliveryDate, editRecurrence.recurrence, editRecurrence.repeatsEndDate, event.id]);
+  }, [
+    editOption,
+    editDeliveryDate,
+    editRecurrence.recurrence,
+    editRecurrence.repeatsEndDate,
+    event.id,
+  ]);
 
   const formatToMMDDYYYY = (dateStr: string) => {
     const [year, month, day] = dateStr.split("-");
@@ -201,6 +212,8 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified, weeklyLim
   const handleDeleteConfirm = async () => {
     try {
       const eventsRef = collection(db, dataSources.firebase.calendarCollection);
+      const deliveryService = DeliveryService.getInstance();
+      const impactedDateKeys = [deliveryDate.toISODateString(event.deliveryDate)];
 
       if (deleteOption === "This event") {
         await deleteDoc(doc(eventsRef, event.id));
@@ -215,11 +228,22 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified, weeklyLim
         );
 
         const querySnapshot = await getDocs(q);
+        querySnapshot.docs.forEach((docSnap) => {
+          impactedDateKeys.push(deliveryDate.toISODateString(docSnap.data().deliveryDate));
+        });
         const batch = querySnapshot.docs.map((doc) => deleteDoc(doc.ref));
         await Promise.all(batch);
       }
 
-      deliveryEventEmitter.emit();
+      deliveryService.clearDateRangeCache();
+      const invalidationResult =
+        await deliveryService.clearClusterAssignmentsForDateKeys(impactedDateKeys);
+      deliveryEventEmitter.emit({
+        reason: deleteOption === "This event" ? "schedule-deleted" : "schedule-batch-deleted",
+        impactedDateKeys,
+        clearedClusterDateKeys: invalidationResult.clearedDateKeys,
+        failedClusterDateKeys: invalidationResult.failedDateKeys,
+      });
       onEventModified();
       setIsDeleteDialogOpen(false);
     } catch (error) {
@@ -318,7 +342,10 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified, weeklyLim
           {} as Record<string, number>
         );
 
-        const impactedDateSet = new Set([...Object.keys(oldDateCounts), ...Object.keys(newDateCounts)]);
+        const impactedDateSet = new Set([
+          ...Object.keys(oldDateCounts),
+          ...Object.keys(newDateCounts),
+        ]);
         impactedDateSet.forEach((dateKey) => {
           const delta = (newDateCounts[dateKey] || 0) - (oldDateCounts[dateKey] || 0);
           if (delta !== 0) {
@@ -377,7 +404,18 @@ const EventMenu: React.FC<EventMenuProps> = ({ event, onEventModified, weeklyLim
         }
       }
 
-      deliveryEventEmitter.emit();
+      deliveryService.clearDateRangeCache();
+      if (impactedDateKeys.length > 0) {
+        const invalidationResult =
+          await deliveryService.clearClusterAssignmentsForDateKeys(impactedDateKeys);
+        deliveryEventEmitter.emit({
+          reason:
+            editOption === "This event" ? "schedule-updated" : "schedule-batch-updated",
+          impactedDateKeys,
+          clearedClusterDateKeys: invalidationResult.clearedDateKeys,
+          failedClusterDateKeys: invalidationResult.failedDateKeys,
+        });
+      }
       onEventModified();
       closeEditDialog();
     } catch (error) {

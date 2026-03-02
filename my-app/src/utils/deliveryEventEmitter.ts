@@ -1,28 +1,49 @@
-type EventCallback = () => void;
+type DeliveryChangeReason =
+  | "schedule-created"
+  | "schedule-created-batch"
+  | "schedule-updated"
+  | "schedule-deleted"
+  | "schedule-batch-updated"
+  | "schedule-batch-deleted";
+
+export interface DeliveryChangeEvent {
+  reason: DeliveryChangeReason;
+  impactedDateKeys: string[];
+  clearedClusterDateKeys: string[];
+  failedClusterDateKeys: string[];
+}
+
+type EventCallback = (event: DeliveryChangeEvent) => void;
+
+const EVENT_NAME = "deliveriesModified";
 
 class DeliveryEventEmitter {
-  private listeners: EventCallback[] = [];
-
   subscribe(callback: EventCallback): () => void {
-    const wrappedCallback = () => callback();
-    const eventListener = () => wrappedCallback();
+    const eventListener = (event: Event) => {
+      const detail = (event as CustomEvent<DeliveryChangeEvent>).detail;
+      callback(detail);
+    };
 
-    this.listeners.push(callback);
-    window.addEventListener("deliveriesModified", eventListener);
+    window.addEventListener(EVENT_NAME, eventListener);
 
     return () => {
-      this.listeners = this.listeners.filter((listener) => listener !== callback);
-      window.removeEventListener("deliveriesModified", eventListener);
+      window.removeEventListener(EVENT_NAME, eventListener);
     };
   }
 
-  emit(): void {
+  emit(event: DeliveryChangeEvent): void {
     window.dispatchEvent(
-      new CustomEvent("deliveriesModified", {
-        detail: { timestamp: Date.now() },
+      new CustomEvent<DeliveryChangeEvent>(EVENT_NAME, {
+        detail: {
+          ...event,
+          impactedDateKeys: Array.from(new Set(event.impactedDateKeys)),
+          clearedClusterDateKeys: Array.from(new Set(event.clearedClusterDateKeys)),
+          failedClusterDateKeys: Array.from(new Set(event.failedClusterDateKeys)),
+        },
       })
     );
   }
 }
 
 export const deliveryEventEmitter = new DeliveryEventEmitter();
+export type { DeliveryChangeReason };

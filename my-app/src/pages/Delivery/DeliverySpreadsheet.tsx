@@ -49,6 +49,7 @@ import "./DeliverySpreadsheet.css";
 import "leaflet/dist/leaflet.css";
 import PageDatePicker from "../../components/PageDatePicker/PageDatePicker";
 import {
+  Alert,
   Box,
   Table,
   TableBody,
@@ -86,6 +87,13 @@ import Button from "@mui/material/Button";
 import DietaryRestrictionsLegend from "../../components/DietaryRestrictionsLegend";
 import { deliveryDate } from "../../utils/deliveryDate";
 import { deliveryEventEmitter } from "../../utils/deliveryEventEmitter";
+import { useNotifications } from "../../components/NotificationProvider";
+import {
+  clearClearedRouteNotice,
+  dismissClearedRouteNotice,
+  formatDeliveryDateLabel,
+  hasClearedRouteNotice,
+} from "../../utils/deliveryRouteClearNotice";
 
 const StyleChip = styled(Chip)({
   backgroundColor: "var(--color-primary)",
@@ -239,6 +247,18 @@ const sanitizeClientOverridesForFirestore = (overrides: ClientOverride[]): Clien
 
     return cleaned;
   });
+};
+
+const dedupeClientsById = (clients: DeliveryRowData[]): DeliveryRowData[] => {
+  const uniqueClients = new Map<string, DeliveryRowData>();
+
+  clients.forEach((client) => {
+    if (!uniqueClients.has(client.id)) {
+      uniqueClients.set(client.id, client);
+    }
+  });
+
+  return Array.from(uniqueClients.values());
 };
 
 interface DeliveryEvent {
@@ -436,6 +456,7 @@ const DeliverySpreadsheet: React.FC = () => {
       await updateDoc(clusterRef, { clusters: [], clientOverrides: [] });
       setClusters([]);
       setClientOverrides([]);
+      clearCurrentRouteClearBanner();
     } catch (error) {
       console.error("Error resetting clusters:", error);
     }
@@ -470,11 +491,14 @@ const DeliverySpreadsheet: React.FC = () => {
     return deduplicated.sort((a, b) => parseInt(a.id, 10) - parseInt(b.id, 10));
   }, []);
 
-  const setClusters = React.useCallback((clusters: Cluster[]): Cluster[] => {
-    const normalizedClusters = normalizeClusters(clusters);
-    setClustersOriginal(normalizedClusters);
-    return normalizedClusters;
-  }, [normalizeClusters]);
+  const setClusters = React.useCallback(
+    (clusters: Cluster[]): Cluster[] => {
+      const normalizedClusters = normalizeClusters(clusters);
+      setClustersOriginal(normalizedClusters);
+      return normalizedClusters;
+    },
+    [normalizeClusters]
+  );
 
   const parseDateFromUrl = (dateString: string | null): Date => {
     return deliveryDate.parseDateParam(dateString);
@@ -483,6 +507,12 @@ const DeliverySpreadsheet: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const initialDate = searchParams.get("date");
   const [selectedDate, setSelectedDate] = useState<Date>(parseDateFromUrl(initialDate));
+  const selectedDateKey = useMemo(
+    () => deliveryDate.toISODateString(selectedDate),
+    [selectedDate]
+  );
+  const { showError, showInfo, showSuccess, showWarning } = useNotifications();
+  const [showRouteClearBanner, setShowRouteClearBanner] = useState(false);
 
   const [deliveriesForDate, setDeliveriesForDate] = useState<
     Array<Omit<DeliveryEvent, "deliveryDate"> & { deliveryDate: Date | import("luxon").DateTime }>
@@ -491,7 +521,6 @@ const DeliverySpreadsheet: React.FC = () => {
   // Granular loading states for better UX
   const [isLoadingDeliveries, setIsLoadingDeliveries] = useState(false);
   const [isLoadingClientDetails, setIsLoadingClientDetails] = useState(false);
-  const [isLoadingClusters, setIsLoadingClusters] = useState(false);
   const [isLoading, setIsLoading] = useState(false); // Still needed for clustering operations
 
   // Computed loading state - show loading only for critical operations
@@ -546,6 +575,31 @@ const DeliverySpreadsheet: React.FC = () => {
     setOpen(false);
   };
 
+  const clearCurrentRouteClearBanner = React.useCallback(() => {
+    clearClearedRouteNotice(selectedDateKey);
+    setShowRouteClearBanner(false);
+  }, [selectedDateKey]);
+
+  const notifyExportFeedback = React.useCallback(
+    (feedback: { status: "success" | "error" | "warning" | "info"; message: string }) => {
+      switch (feedback.status) {
+        case "success":
+          showSuccess(feedback.message);
+          break;
+        case "warning":
+          showWarning(feedback.message);
+          break;
+        case "info":
+          showInfo(feedback.message);
+          break;
+        default:
+          showError(feedback.message);
+          break;
+      }
+    },
+    [showError, showInfo, showSuccess, showWarning]
+  );
+
   const assignTime = async (time: string) => {
     if (time && clusterDoc) {
       try {
@@ -591,6 +645,7 @@ const DeliverySpreadsheet: React.FC = () => {
           clientOverrides: sanitizeClientOverridesForFirestore(updatedOverrides),
         });
 
+        clearCurrentRouteClearBanner();
         resetSelections();
       } catch (error) {
         console.error("Error assigning time: ", error);
@@ -649,87 +704,82 @@ const DeliverySpreadsheet: React.FC = () => {
 
   // fetch deliveries for the selected date
   // Centralized event query for deliveries
-  const fetchDeliveriesForDate = React.useCallback(async (dateForFetch: Date) => {
-    setIsLoadingDeliveries(true);
+  const fetchDeliveriesForDate = React.useCallback(
+    async (dateForFetch: Date) => {
+      setIsLoadingDeliveries(true);
 
-    try {
-      // Map RowData to ClientProfile format for getEventsByViewType
-      const clientsForQuery = clientsFromContext.map((client) => ({
-        uid: client.uid,
-        firstName: client.firstName,
-        lastName: client.lastName,
-      })) as ClientProfile[];
+      try {
+        // Map RowData to ClientProfile format for getEventsByViewType
+        const clientsForQuery = clientsFromContext.map((client) => ({
+          uid: client.uid,
+          firstName: client.firstName,
+          lastName: client.lastName,
+        })) as ClientProfile[];
 
-      const { updatedEvents } = await getEventsByViewType({
-        viewType: "Day",
-        currentDate: new DayPilot.Date(dateForFetch),
-        clients: clientsForQuery,
-      });
+        const { updatedEvents } = await getEventsByViewType({
+          viewType: "Day",
+          currentDate: new DayPilot.Date(dateForFetch),
+          clients: clientsForQuery,
+        });
 
-      // Check if the date is still the selected one before updating state
-      if (dateForFetch.getTime() !== selectedDate.getTime()) {
-        return;
-      }
-      // Convert event type for spreadsheet compatibility
-      const convertedEvents = updatedEvents
-        .map((event) => {
-          let deliveryDate = event.deliveryDate;
-          // If it's a Firestore Timestamp, convert to JS Date
-          if (
-            deliveryDate &&
-            typeof deliveryDate === "object" &&
-            "seconds" in deliveryDate &&
-            typeof deliveryDate.seconds === "number" &&
-            typeof deliveryDate.toDate === "function"
-          ) {
-            deliveryDate = deliveryDate.toDate();
-          }
-          // Only allow JS Date or Luxon DateTime
-          if (
-            deliveryDate instanceof Date ||
-            (deliveryDate &&
+        // Check if the date is still the selected one before updating state
+        if (dateForFetch.getTime() !== selectedDate.getTime()) {
+          return;
+        }
+        // Convert event type for spreadsheet compatibility
+        const convertedEvents = updatedEvents
+          .map((event) => {
+            let deliveryDate = event.deliveryDate;
+            // If it's a Firestore Timestamp, convert to JS Date
+            if (
+              deliveryDate &&
               typeof deliveryDate === "object" &&
-              "isValid" in deliveryDate &&
-              typeof deliveryDate.isValid === "boolean")
-          ) {
-            return {
-              ...event,
-              deliveryDate,
-              recurrence: event.recurrence === "Custom" ? "None" : event.recurrence,
-            };
-          }
-          // Otherwise, skip this event
-          return null;
-        })
-        .filter(Boolean) as Array<
-        Omit<DeliveryEvent, "deliveryDate"> & { deliveryDate: Date | import("luxon").DateTime }
-      >;
-      setDeliveriesForDate(convertedEvents);
-      const fetchEndTime = performance.now();
-    } catch (error) {
-      const fetchEndTime = performance.now();
+              "seconds" in deliveryDate &&
+              typeof deliveryDate.seconds === "number" &&
+              typeof deliveryDate.toDate === "function"
+            ) {
+              deliveryDate = deliveryDate.toDate();
+            }
+            // Only allow JS Date or Luxon DateTime
+            if (
+              deliveryDate instanceof Date ||
+              (deliveryDate &&
+                typeof deliveryDate === "object" &&
+                "isValid" in deliveryDate &&
+                typeof deliveryDate.isValid === "boolean")
+            ) {
+              return {
+                ...event,
+                deliveryDate,
+                recurrence: event.recurrence === "Custom" ? "None" : event.recurrence,
+              };
+            }
+            // Otherwise, skip this event
+            return null;
+          })
+          .filter(Boolean) as Array<
+          Omit<DeliveryEvent, "deliveryDate"> & { deliveryDate: Date | import("luxon").DateTime }
+        >;
+        setDeliveriesForDate(convertedEvents);
+        const fetchEndTime = performance.now();
+      } catch (error) {
+        const fetchEndTime = performance.now();
 
-      if (dateForFetch.getTime() === selectedDate.getTime()) {
-        setDeliveriesForDate([]);
+        if (dateForFetch.getTime() === selectedDate.getTime()) {
+          setDeliveriesForDate([]);
+        }
+      } finally {
+        setIsLoadingDeliveries(false);
       }
-    } finally {
-      setIsLoadingDeliveries(false);
-    }
-  }, [clientsFromContext, selectedDate]);
+    },
+    [clientsFromContext, selectedDate]
+  );
 
   //when the user changes the date, fetch the deliveries for that date
   useEffect(() => {
     const currentFetchDate = selectedDate; // Capture date at effect run time
     fetchDeliveriesForDate(currentFetchDate);
     // No explicit cleanup needed with the check inside the async function
-  }, [selectedDate, fetchDeliveriesForDate]);
-
-  // Refresh deliveries when they are modified elsewhere in the app
-  useEffect(() => {
-    const unsubscribe = deliveryEventEmitter.subscribe(() => {
-      fetchDeliveriesForDate(selectedDate);
-    });
-    return unsubscribe;
   }, [selectedDate, fetchDeliveriesForDate]);
 
   useEffect(() => {
@@ -767,7 +817,7 @@ const DeliverySpreadsheet: React.FC = () => {
           clientsWithDeliveriesOnSelectedDate =
             clientsWithDeliveriesOnSelectedDate.concat(chunkData);
         }
-        setRawClientData(clientsWithDeliveriesOnSelectedDate);
+        setRawClientData(dedupeClientsById(clientsWithDeliveriesOnSelectedDate));
         const processEndTime = performance.now();
       } catch (error) {
         const processEndTime = performance.now();
@@ -809,79 +859,109 @@ const DeliverySpreadsheet: React.FC = () => {
 
   // Helper function to determine if a field is a regular (non-computed) field
 
-  const fetchClustersFromToday = React.useCallback(async (dateForFetch: Date) => {
-    try {
-      // account for timezone issues
-      const startDate = new Date(
-        Date.UTC(
-          dateForFetch.getFullYear(),
-          dateForFetch.getMonth(),
-          dateForFetch.getDate(),
-          0,
-          0,
-          0
-        )
-      );
+  const fetchClustersFromToday = React.useCallback(
+    async (dateForFetch: Date) => {
+      try {
+        // account for timezone issues
+        const startDate = new Date(
+          Date.UTC(
+            dateForFetch.getFullYear(),
+            dateForFetch.getMonth(),
+            dateForFetch.getDate(),
+            0,
+            0,
+            0
+          )
+        );
 
-      const endDate = new Date(
-        Date.UTC(
-          dateForFetch.getFullYear(),
-          dateForFetch.getMonth(),
-          dateForFetch.getDate(),
-          23,
-          59,
-          59
-        )
-      );
+        const endDate = new Date(
+          Date.UTC(
+            dateForFetch.getFullYear(),
+            dateForFetch.getMonth(),
+            dateForFetch.getDate(),
+            23,
+            59,
+            59
+          )
+        );
 
-      const clustersCollectionRef = collection(db, dataSources.firebase.clustersCollection);
-      const q = query(
-        clustersCollectionRef,
-        where("date", ">=", Timestamp.fromDate(startDate)),
-        where("date", "<=", Timestamp.fromDate(endDate)),
-        orderBy("date", "asc")
-      );
+        const clustersCollectionRef = collection(db, dataSources.firebase.clustersCollection);
+        const q = query(
+          clustersCollectionRef,
+          where("date", ">=", Timestamp.fromDate(startDate)),
+          where("date", "<=", Timestamp.fromDate(endDate)),
+          orderBy("date", "asc")
+        );
 
-      const clustersSnapshot = await getDocs(q);
+        const clustersSnapshot = await getDocs(q);
 
-      // Check if the date is still the selected one before updating state
-      if (dateForFetch.getTime() !== selectedDate.getTime()) {
-        return; // Don't update state with stale data
+        // Check if the date is still the selected one before updating state
+        if (dateForFetch.getTime() !== selectedDate.getTime()) {
+          return; // Don't update state with stale data
+        }
+
+        if (!clustersSnapshot.empty) {
+          // There should only be one document per date
+          const doc = clustersSnapshot.docs[0];
+          const clustersData = {
+            docId: doc.id,
+            date: doc.data().date.toDate(),
+            clusters: doc.data().clusters || [],
+            clientOverrides: doc.data().clientOverrides || [],
+          };
+          setClusterDoc(clustersData);
+          setClusters(clustersData.clusters);
+          setClientOverrides(clustersData.clientOverrides || []);
+        } else {
+          // No clusters found for this date
+
+          setClusterDoc(null); // Clear clusterDoc when no clusters found
+          setClusters([]);
+          setClientOverrides([]);
+        }
+      } catch (error) {
+        // Clear state only if the error corresponds to the *currently* selected date
+        if (dateForFetch.getTime() === selectedDate.getTime()) {
+          setClusterDoc(null);
+          setClusters([]);
+          setClientOverrides([]);
+        }
       }
-
-      if (!clustersSnapshot.empty) {
-        // There should only be one document per date
-        const doc = clustersSnapshot.docs[0];
-        const clustersData = {
-          docId: doc.id,
-          date: doc.data().date.toDate(),
-          clusters: doc.data().clusters || [],
-          clientOverrides: doc.data().clientOverrides || [],
-        };
-        setClusterDoc(clustersData);
-        setClusters(clustersData.clusters);
-        setClientOverrides(clustersData.clientOverrides || []);
-      } else {
-        // No clusters found for this date
-
-        setClusterDoc(null); // Clear clusterDoc when no clusters found
-        setClusters([]);
-        setClientOverrides([]);
-      }
-    } catch (error) {
-      // Clear state only if the error corresponds to the *currently* selected date
-      if (dateForFetch.getTime() === selectedDate.getTime()) {
-        setClusterDoc(null);
-        setClusters([]);
-        setClientOverrides([]);
-      }
-    }
-  }, [selectedDate, setClusters]);
+    },
+    [selectedDate, setClusters]
+  );
 
   //get clusters
   useEffect(() => {
     fetchClustersFromToday(selectedDate);
   }, [selectedDate, fetchClustersFromToday]);
+
+  useEffect(() => {
+    setShowRouteClearBanner(hasClearedRouteNotice(selectedDateKey));
+  }, [selectedDateKey]);
+
+  // Refresh deliveries and clusters when they are modified elsewhere in the app
+  useEffect(() => {
+    const unsubscribe = deliveryEventEmitter.subscribe((event) => {
+      if (event.clearedClusterDateKeys.includes(selectedDateKey)) {
+        setShowRouteClearBanner(true);
+      }
+
+      const affectedDateKeys = new Set([
+        ...event.impactedDateKeys,
+        ...event.clearedClusterDateKeys,
+        ...event.failedClusterDateKeys,
+      ]);
+
+      if (!affectedDateKeys.has(selectedDateKey)) {
+        return;
+      }
+
+      fetchDeliveriesForDate(selectedDate);
+      fetchClustersFromToday(selectedDate);
+    });
+    return unsubscribe;
+  }, [selectedDate, selectedDateKey, fetchDeliveriesForDate, fetchClustersFromToday]);
 
   // handle search input change
   const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -973,7 +1053,9 @@ const DeliverySpreadsheet: React.FC = () => {
             });
           }
 
-          updatedOverrides = updatedOverrides.filter((override) => override.driver || override.time);
+          updatedOverrides = updatedOverrides.filter(
+            (override) => override.driver || override.time
+          );
           setClientOverrides(updatedOverrides);
         }
       }
@@ -986,6 +1068,7 @@ const DeliverySpreadsheet: React.FC = () => {
         clientOverrides: sanitizeClientOverridesForFirestore(updatedOverrides),
       });
 
+      clearCurrentRouteClearBanner();
       // setRows(prevRows => prevRows.map r => r.id === row.id ? { ...r, clusterId: newClusterId } : r));
     } catch (error) {
       console.error("Error updating clusters in Firestore:", error);
@@ -997,20 +1080,22 @@ const DeliverySpreadsheet: React.FC = () => {
 
     if (exportOption === "Routes") {
       if (option === "Email") {
-        alert("Unimplemented");
+        showInfo("Email export is not implemented yet.");
       } else if (option === "Download") {
-        // Pass rows and clusters to exportDeliveries
-        exportDeliveries(TimeUtils.fromJSDate(selectedDate).toISODate() || "", rows, clusters);
+        notifyExportFeedback(
+          await exportDeliveries(TimeUtils.fromJSDate(selectedDate).toISODate() || "", rows, clusters)
+        );
       }
     } else if (exportOption === "Doordash") {
       if (option === "Email") {
-        alert("Unimplemented");
+        showInfo("Email export is not implemented yet.");
       } else if (option === "Download") {
-        // Export DoorDash deliveries grouped by time
-        exportDoordashDeliveries(
-          TimeUtils.fromJSDate(selectedDate).toISODate() || "",
-          rows,
-          clusters
+        notifyExportFeedback(
+          await exportDoordashDeliveries(
+            TimeUtils.fromJSDate(selectedDate).toISODate() || "",
+            rows,
+            clusters
+          )
         );
       }
     }
@@ -1070,6 +1155,7 @@ const DeliverySpreadsheet: React.FC = () => {
         clientOverrides: sanitizeClientOverridesForFirestore(updatedOverrides),
       });
 
+      clearCurrentRouteClearBanner();
       resetSelections();
     } catch (error) {
       console.error("Error assigning driver: ", error);
@@ -1239,6 +1325,7 @@ const DeliverySpreadsheet: React.FC = () => {
         clientOverrides: sanitizeClientOverridesForFirestore(updatedOverrides),
       });
 
+      clearCurrentRouteClearBanner();
       // Remove the client from selected rows since their cluster assignment changed
       if (oldClusterId !== newClusterId) {
         const newSelectedRows = new Set(selectedRows);
@@ -1312,6 +1399,7 @@ const DeliverySpreadsheet: React.FC = () => {
     setClustersOriginal(normalizedClusters); // Update state after successful Firestore creation
     setClusterDoc(newClusterDoc);
     setClientOverrides([]);
+    clearCurrentRouteClearBanner();
   };
 
   // Helper function to check if coordinates are valid
@@ -1593,6 +1681,7 @@ const DeliverySpreadsheet: React.FC = () => {
         setClusterDoc((prevDoc) =>
           prevDoc ? { ...prevDoc, clusters: normalizedClusters, clientOverrides: [] } : null
         );
+        clearCurrentRouteClearBanner();
       } else {
         await initClustersForDay(newClusters); // Make sure this also sets state correctly
       }
@@ -2398,7 +2487,11 @@ const DeliverySpreadsheet: React.FC = () => {
             Today
           </Button>
           <Box sx={{ display: "flex", alignItems: "center" }}>
-            <PageDatePicker setSelectedDate={handleDateChange} selectedDate={selectedDate} marginLeft="1rem" />
+            <PageDatePicker
+              setSelectedDate={handleDateChange}
+              selectedDate={selectedDate}
+              marginLeft="1rem"
+            />
           </Box>
         </Box>
 
@@ -2439,6 +2532,21 @@ const DeliverySpreadsheet: React.FC = () => {
           Reset Clusters
         </Button>
       </div>
+
+      {showRouteClearBanner ? (
+        <Alert
+          severity="warning"
+          onClose={() => {
+            dismissClearedRouteNotice(selectedDateKey);
+            setShowRouteClearBanner(false);
+          }}
+          sx={{ mb: 2 }}
+        >
+          {`Saved route assignments for ${formatDeliveryDateLabel(
+            selectedDateKey
+          )} were cleared because deliveries changed. Reassign routes before exporting.`}
+        </Alert>
+      ) : null}
 
       {/* Map Container */}
       <Box
