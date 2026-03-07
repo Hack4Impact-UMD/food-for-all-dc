@@ -259,7 +259,7 @@ const Profile = () => {
     tefapCert: "",
     referralEntity: null,
     referredDate: "",
-    coordinates: [],
+    coordinates: [0, 0],
     physicalAilments: {
       diabetes: false,
       hypertension: false,
