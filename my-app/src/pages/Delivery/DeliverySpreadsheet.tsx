@@ -1268,9 +1268,31 @@ const DeliverySpreadsheet: React.FC = () => {
       }
 
       const targetClusterId = newClusterId || oldClusterId;
+      
+      // When cluster transfer occurs, detect if driver/time values were actually changed by the user
+      // vs. just being the old cluster's values captured by the popup.
+      // If the values match the old cluster's and we're transferring, skip updating the target cluster.
+      let shouldApplyClusterAssignment = !!(clearDriverRequested || clearTimeRequested || normalizedDriver || normalizedTime);
+      
+      if (shouldApplyClusterAssignment && oldClusterId && oldClusterId !== newClusterId && newClusterId) {
+        // This is a cluster transfer - check if driver/time were actually modified
+        const oldCluster = clusters.find((c) => c.id === oldClusterId);
+        const oldClusterDriver = normalizeAssignmentValue(oldCluster?.driver ?? "");
+        const oldClusterTime = normalizeAssignmentValue(oldCluster?.time ?? "");
+        
+        // If values match the old cluster, the user didn't explicitly change them, so skip applying to new cluster
+        const driverMatchesOldCluster = normalizedDriver === oldClusterDriver || (!normalizedDriver && !oldClusterDriver);
+        const timeMatchesOldCluster = normalizedTime === oldClusterTime || (!normalizedTime && !oldClusterTime);
+        
+        if (driverMatchesOldCluster && timeMatchesOldCluster && !clearDriverRequested && !clearTimeRequested) {
+          // User didn't change driver/time in the popup, just moved the marker
+          // Let the client inherit the new cluster's values
+          shouldApplyClusterAssignment = false;
+        }
+      }
 
       // Map popup driver/time changes are cluster-scoped: update the whole cluster assignment.
-      if (targetClusterId && (clearDriverRequested || clearTimeRequested || normalizedDriver || normalizedTime)) {
+      if (targetClusterId && shouldApplyClusterAssignment) {
         updatedClusters = updatedClusters.map((cluster) => {
           if (cluster.id !== targetClusterId) {
             return cluster;

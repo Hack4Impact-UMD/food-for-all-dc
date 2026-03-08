@@ -204,6 +204,8 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
   const popupOpenedByMarkerRef = useRef<boolean>(false); // Track popup source
   const popupCloseHandlerSetup = useRef<boolean>(false); // Track if popup close handler is already set up
   const isPopupOpening = useRef<boolean>(false); // Prevent close handler from firing during opening
+    const clustersRef = useRef<Cluster[]>(clusters); // Ref to always get current clusters
+    const clientOverridesRef = useRef<ClientOverride[]>(clientOverrides); // Ref to always get current overrides
 
   // Set up global function for direct HTML onclick
   React.useEffect(() => {
@@ -671,6 +673,12 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
     };
   }, [onOpenPopup, onClearHighlight]);
 
+  // Keep refs updated with latest clusters and clientOverrides
+  useEffect(() => {
+    clustersRef.current = clusters;
+    clientOverridesRef.current = clientOverrides;
+  }, [clusters, clientOverrides]);
+
   // Restore ward overlays if they were enabled when the map is ready
   useEffect(() => {
     if (mapRef.current && wardLayerGroupRef.current && showWardOverlays) {
@@ -919,34 +927,6 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
             }
           });
 
-          const saveBtnEarly = popupContainer.querySelector(`#save-btn-${clientId}`);
-          if (saveBtnEarly) {
-            saveBtnEarly.addEventListener("click", () => {
-              const driverSelect = popupContainer.querySelector(
-                `#driver-select-${clientId}`
-              ) as HTMLSelectElement;
-              const timeSelect = popupContainer.querySelector(
-                `#time-select-${clientId}`
-              ) as HTMLSelectElement;
-              const newClusterId = pendingNewClusterId || clusterSelect.value;
-              const newDriver = driverSelect.value;
-              const newTime = timeSelect.value;
-              const newTime24Hour = newTime === "" ? "" : convertTo24Hour(newTime);
-              if (onClusterUpdate) {
-                onClusterUpdate(clientId, newClusterId, newDriver, newTime24Hour);
-              }
-              const viewMode = popupContainer.querySelector(
-                `#view-mode-${clientId}`
-              ) as HTMLElement;
-              const editMode = popupContainer.querySelector(
-                `#edit-mode-${clientId}`
-              ) as HTMLElement;
-              if (viewMode && editMode) {
-                viewMode.style.display = "block";
-                editMode.style.display = "none";
-              }
-            });
-          }
         }
 
         // Store initial values for reset on cancel
@@ -1081,9 +1061,21 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
             const newDriver = driverSelect.value;
             const newTime = timeSelect.value;
             const newTime24Hour = newTime === "" ? "" : convertTo24Hour(newTime);
-            const nextCluster = clusters.find((candidate) => candidate.id === newClusterId);
-            const resolvedDriver = resolveAssignmentValue(newDriver, nextCluster?.driver);
-            const resolvedTime = resolveAssignmentValue(newTime24Hour, nextCluster?.time);
+            const clusterChanged = newClusterId !== initialClusterId;
+            const driverTouched = newDriver !== initialDriver;
+            const timeTouched = newTime !== initialTime;
+
+            const nextCluster = clustersRef.current.find((candidate) => candidate.id === newClusterId);
+            const clusterDriver = normalizeAssignmentValue(nextCluster?.driver);
+            const clusterTime = normalizeAssignmentValue(nextCluster?.time);
+
+            // If only the cluster changed and driver/time were not touched, preview target cluster values.
+            const resolvedDriver = clusterChanged && !driverTouched
+              ? clusterDriver
+              : resolveAssignmentValue(newDriver, clusterDriver);
+            const resolvedTime = clusterChanged && !timeTouched
+              ? clusterTime
+              : resolveAssignmentValue(newTime24Hour, clusterTime);
 
             onClusterUpdate(clientId, newClusterId, newDriver, newTime24Hour);
 
@@ -1160,6 +1152,11 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
             // Switch back to view mode
             viewMode.style.display = "block";
             editMode.style.display = "none";
+
+            // Keep new values as baseline for future edit/cancel cycles.
+            initialClusterId = newClusterId;
+            initialDriver = newDriver;
+            initialTime = newTime;
           });
         }
 
