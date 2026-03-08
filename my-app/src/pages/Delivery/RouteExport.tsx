@@ -3,6 +3,7 @@ import Papa from "papaparse";
 import { Cluster } from "./DeliverySpreadsheet";
 import { RowData } from "./types/deliveryTypes";
 import { getExportConfig } from "../../config/exportConfig";
+import { resolveAssignmentValue } from "./utils/assignmentOverrides";
 
 const formatTime = (time: string): string => {
   if (!time) return "No time assigned";
@@ -21,13 +22,23 @@ export interface ExportFeedback {
   message: string;
 }
 
+interface ClientOverride {
+  clientId: string;
+  driver?: string;
+  time?: string;
+}
+
 const getClusterForRow = (clusters: Cluster[], rowId: string) =>
   clusters.find((cluster) => cluster.deliveries?.includes(rowId));
+
+const getClientOverrideForRow = (clientOverrides: ClientOverride[], rowId: string) =>
+  clientOverrides.find((override) => override.clientId === rowId);
 
 export const exportDeliveries = async (
   deliveryDate: string,
   rowsToExport: RowData[],
-  clusters: Cluster[]
+  clusters: Cluster[],
+  clientOverrides: ClientOverride[] = []
 ): Promise<ExportFeedback> => {
   try {
     if (rowsToExport.length === 0) {
@@ -37,10 +48,35 @@ export const exportDeliveries = async (
       };
     }
 
+    const unassignedRows = rowsToExport.filter((row) => !getClusterForRow(clusters, row.id));
+    if (unassignedRows.length > 0) {
+      return {
+        status: "warning",
+        message: `Cannot export: ${unassignedRows.length} ${
+          unassignedRows.length === 1 ? "delivery is" : "deliveries are"
+        } still unassigned.`,
+      };
+    }
+
+    const rowsWithoutDriver = rowsToExport.filter((row) => {
+      const cluster = getClusterForRow(clusters, row.id);
+      const override = getClientOverrideForRow(clientOverrides, row.id);
+      return !resolveAssignmentValue(override?.driver, cluster?.driver);
+    });
+    if (rowsWithoutDriver.length > 0) {
+      return {
+        status: "warning",
+        message: `Cannot export: ${rowsWithoutDriver.length} ${
+          rowsWithoutDriver.length === 1 ? "delivery does" : "deliveries do"
+        } not have an assigned driver.`,
+      };
+    }
+
     const groupedByDriver: Record<string, RowData[]> = {};
     rowsToExport.forEach((row) => {
       const cluster = getClusterForRow(clusters, row.id);
-      const driverName = cluster?.driver || "Unassigned";
+      const override = getClientOverrideForRow(clientOverrides, row.id);
+      const driverName = resolveAssignmentValue(override?.driver, cluster?.driver) || "Unassigned";
 
       if (!groupedByDriver[driverName]) {
         groupedByDriver[driverName] = [];
@@ -81,8 +117,11 @@ export const exportDeliveries = async (
               : "";
 
             const cluster = getClusterForRow(clusters, row.id);
+            const override = getClientOverrideForRow(clientOverrides, row.id);
             const clusterNumber = cluster?.id || "";
-            const assignedTime = formatTime(cluster?.time || "");
+            const assignedTime = formatTime(
+              resolveAssignmentValue(override?.time, cluster?.time) || ""
+            );
 
             const rowData = row as any;
 
@@ -163,7 +202,8 @@ export const exportDeliveries = async (
 export const exportDoordashDeliveries = async (
   deliveryDate: string,
   rowsToExport: RowData[],
-  clusters: Cluster[]
+  clusters: Cluster[],
+  clientOverrides: ClientOverride[] = []
 ): Promise<ExportFeedback> => {
   try {
     const config = getExportConfig();
@@ -174,9 +214,21 @@ export const exportDoordashDeliveries = async (
         message: "No deliveries selected or available for export on the selected date.",
       };
     }
+
+    const unassignedRows = rowsToExport.filter((row) => !getClusterForRow(clusters, row.id));
+    if (unassignedRows.length > 0) {
+      return {
+        status: "warning",
+        message: `Cannot export: ${unassignedRows.length} ${
+          unassignedRows.length === 1 ? "delivery is" : "deliveries are"
+        } still unassigned.`,
+      };
+    }
+
     const doordashRows = rowsToExport.filter((row) => {
       const cluster = getClusterForRow(clusters, row.id);
-      return cluster?.driver === "DoorDash";
+      const override = getClientOverrideForRow(clientOverrides, row.id);
+      return resolveAssignmentValue(override?.driver, cluster?.driver) === "DoorDash";
     });
 
     if (doordashRows.length === 0) {
@@ -188,7 +240,8 @@ export const exportDoordashDeliveries = async (
 
     const unscheduledRows = doordashRows.filter((row) => {
       const cluster = getClusterForRow(clusters, row.id);
-      return !cluster?.time || cluster.time === "";
+      const override = getClientOverrideForRow(clientOverrides, row.id);
+      return !resolveAssignmentValue(override?.time, cluster?.time);
     });
 
     if (unscheduledRows.length > 0) {
@@ -220,7 +273,8 @@ export const exportDoordashDeliveries = async (
     const groupedByTime: Record<string, RowData[]> = {};
     doordashRows.forEach((row) => {
       const cluster = getClusterForRow(clusters, row.id);
-      const time = cluster?.time || "";
+      const override = getClientOverrideForRow(clientOverrides, row.id);
+      const time = resolveAssignmentValue(override?.time, cluster?.time) || "";
 
       if (!groupedByTime[time]) {
         groupedByTime[time] = [];

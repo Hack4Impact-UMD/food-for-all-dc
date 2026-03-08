@@ -1,29 +1,27 @@
 import { useEffect } from "react";
 import { useNotifications } from "./NotificationProvider";
 import { deliveryEventEmitter } from "../utils/deliveryEventEmitter";
-import {
-  formatDeliveryDateLabel,
-  recordClearedRouteDates,
-} from "../utils/deliveryRouteClearNotice";
+import { format } from "date-fns";
+import { deliveryDate } from "../utils/deliveryDate";
 
 const DeliveryChangeNotifier = () => {
   const { showWarning, showError } = useNotifications();
 
   useEffect(() => {
     const unsubscribe = deliveryEventEmitter.subscribe((event) => {
-      if (event.clearedClusterDateKeys.length > 0) {
-        recordClearedRouteDates(event.clearedClusterDateKeys);
-
-        if (event.clearedClusterDateKeys.length === 1) {
+      if (event.reviewRequiredDateKeys.length > 0) {
+        if (event.reviewRequiredDateKeys.length === 1) {
+          const dateLabel = format(
+            deliveryDate.toJSDate(event.reviewRequiredDateKeys[0]),
+            "MMMM d, yyyy"
+          );
           showWarning(
-            `Saved route assignments were cleared for ${formatDeliveryDateLabel(
-              event.clearedClusterDateKeys[0]
-            )} because deliveries changed.`,
+            `Schedule changed for ${dateLabel}. Existing routes were preserved; review unassigned deliveries.`,
             5000
           );
         } else {
           showWarning(
-            `Saved route assignments were cleared for ${event.clearedClusterDateKeys.length} delivery dates because deliveries changed.`,
+            `Schedule changed for ${event.reviewRequiredDateKeys.length} delivery dates. Existing routes were preserved; review unassigned deliveries.`,
             5000
           );
         }
@@ -31,7 +29,7 @@ const DeliveryChangeNotifier = () => {
 
       if (event.failedClusterDateKeys.length > 0) {
         showError(
-          `Delivery changes were saved, but saved route assignments could not be cleared for ${event.failedClusterDateKeys.length} delivery date${
+          `Delivery changes were saved, but route assignments could not be reconciled for ${event.failedClusterDateKeys.length} delivery date${
             event.failedClusterDateKeys.length === 1 ? "" : "s"
           }.`,
           6000
