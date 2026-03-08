@@ -2038,18 +2038,16 @@ const DeliverySpreadsheet: React.FC = () => {
           : driverBLower.localeCompare(driverALower, undefined, { sensitivity: "base" });
       } else if (sortedColumn === "assignedTime") {
         // For assignedTime field, sort by time in chronological order (AM before PM)
-        // Use the compute function to get the time string
-        let timeA = "";
-        let timeB = "";
-
-        clusters.forEach((cluster) => {
-          if (cluster.deliveries?.some((id) => id === a.id)) {
-            timeA = cluster.time || "";
-          }
-          if (cluster.deliveries?.some((id) => id === b.id)) {
-            timeB = cluster.time || "";
-          }
-        });
+        const timeA =
+          resolveAssignmentValue(
+            clientOverrides.find((override) => override.clientId === a.id)?.time,
+            getClusterAssignmentValue(clusters, a.id, "time")
+          ) || "";
+        const timeB =
+          resolveAssignmentValue(
+            clientOverrides.find((override) => override.clientId === b.id)?.time,
+            getClusterAssignmentValue(clusters, b.id, "time")
+          ) || "";
 
         // Handle empty values - empty strings (no time assigned) sort first in ascending, last in descending
         if (!timeA && !timeB) return 0;
