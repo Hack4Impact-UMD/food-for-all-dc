@@ -120,6 +120,25 @@ const normalizeCoordinate = (coord: any): Coordinate => {
   return coord;
 };
 
+const formatTimeForSummary = (time: string): string => {
+  if (!time) return "No time";
+
+  // Keep already formatted labels (e.g. "8:00 AM") unchanged.
+  if (/AM|PM/i.test(time)) {
+    return time;
+  }
+
+  const [hours, minutes] = time.split(":");
+  const parsedHour = Number(hours);
+  if (Number.isNaN(parsedHour) || !minutes) {
+    return time;
+  }
+
+  const hour12 = parsedHour % 12 || 12;
+  const ampm = parsedHour >= 12 ? "PM" : "AM";
+  return `${hour12}:${minutes} ${ampm}`;
+};
+
 const clusterColors = [
   "#FF0000",
   "#00FF00",
@@ -181,9 +200,11 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
   const markerGroupRef = useRef<L.FeatureGroup | null>(null);
   const wardLayerGroupRef = useRef<L.FeatureGroup | null>(null);
   const markersMapRef = useRef<Map<string, L.Marker>>(new Map()); // Store markers by client ID
+  const previousVisibleRowsKeyRef = useRef<string>("");
   const popupOpenedByMarkerRef = useRef<boolean>(false); // Track popup source
   const popupCloseHandlerSetup = useRef<boolean>(false); // Track if popup close handler is already set up
   const isPopupOpening = useRef<boolean>(false); // Prevent close handler from firing during opening
+  const clustersRef = useRef<Cluster[]>(clusters);
 
   // Set up global function for direct HTML onclick
   React.useEffect(() => {
@@ -272,26 +293,71 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
     };
   }, [visibleRows, clusterByClientId, clientOverrideByClientId]);
 
-  // Calculate deliveries per cluster dynamically
-  const clusterDeliveryCounts = React.useMemo(() => {
-    const counts: { [clusterId: string]: number } = {};
+  // Calculate deliveries + assignment details per cluster for the map summary overlay.
+  const clusterSummaries = React.useMemo(() => {
+    const summaryMap = new Map<
+      string,
+      { count: number; drivers: Set<string>; times: Set<string> }
+    >();
 
-    // Count deliveries from visibleRows
     visibleRows.forEach((row) => {
-      if (row.clusterId) {
-        counts[row.clusterId] = (counts[row.clusterId] || 0) + 1;
+      const cluster = clusterByClientId.get(row.id);
+      const clusterId = cluster?.id;
+
+      if (!clusterId) {
+        return;
       }
+
+      const override = clientOverrideByClientId.get(row.id);
+      const effectiveDriver = resolveAssignmentValue(override?.driver, cluster?.driver);
+      const effectiveTime = resolveAssignmentValue(override?.time, cluster?.time);
+
+      const current = summaryMap.get(clusterId) || {
+        count: 0,
+        drivers: new Set<string>(),
+        times: new Set<string>(),
+      };
+
+      current.count += 1;
+      if (hasAssignmentValue(effectiveDriver)) {
+        current.drivers.add(effectiveDriver!);
+      }
+      if (hasAssignmentValue(effectiveTime)) {
+        current.times.add(effectiveTime!);
+      }
+
+      summaryMap.set(clusterId, current);
     });
 
-    // Sort by cluster ID for consistent display
-    return Object.entries(counts)
+    return Array.from(summaryMap.entries())
       .sort(([a], [b]) => {
-        // Try to sort numerically if possible
         const numA = parseInt(a.match(/\d+/)?.[0] || "0", 10);
         const numB = parseInt(b.match(/\d+/)?.[0] || "0", 10);
         return numA - numB || a.localeCompare(b);
+      })
+      .map(([clusterId, values]) => {
+        const driverLabel =
+          values.drivers.size === 0
+            ? "No driver"
+            : values.drivers.size === 1
+              ? Array.from(values.drivers)[0]
+              : "Mixed drivers";
+
+        const timeLabel =
+          values.times.size === 0
+            ? "No time"
+            : values.times.size === 1
+              ? formatTimeForSummary(Array.from(values.times)[0])
+              : "Mixed times";
+
+        return {
+          clusterId,
+          count: values.count,
+          driverLabel,
+          timeLabel,
+        };
       });
-  }, [visibleRows]);
+  }, [visibleRows, clusterByClientId, clientOverrideByClientId]);
 
   // Toggle cluster summary visibility
   const handleClusterSummaryToggle = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -607,6 +673,10 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
     };
   }, [onOpenPopup, onClearHighlight]);
 
+  useEffect(() => {
+    clustersRef.current = clusters;
+  }, [clusters]);
+
   // Restore ward overlays if they were enabled when the map is ready
   useEffect(() => {
     if (mapRef.current && wardLayerGroupRef.current && showWardOverlays) {
@@ -750,10 +820,17 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
         const clusterTime = normalizeAssignmentValue(cluster?.time);
         const effectiveDriver = resolveAssignmentValue(overrideDriver, clusterDriver);
         const effectiveTime = resolveAssignmentValue(overrideTime, clusterTime);
-        const selectedDriverValue = overrideDriver ?? "";
-        const selectedTimeValue = overrideTime ? formatTimeForDisplay(overrideTime) : "";
-        const emptyDriverLabel = clusterDriver ? "Use cluster driver" : "No driver";
-        const emptyTimeLabel = clusterTime ? "Use cluster time" : "No time";
+        const selectedDriverValue = effectiveDriver ?? "";
+        const selectedTimeValue = effectiveTime ? formatTimeForDisplay(effectiveTime) : "";
+        const emptyDriverLabel = "No driver";
+        const emptyTimeLabel = "No time";
+        const getSubmittedValue = (currentValue: string, initialValue: string) =>
+          currentValue === initialValue ? undefined : currentValue;
+        const resolveSavedValue = (
+          submittedValue: string | undefined,
+          fallbackValue: string | undefined
+        ) =>
+          submittedValue === undefined ? fallbackValue : normalizeAssignmentValue(submittedValue);
 
         const popupContainer = document.createElement("div");
         popupContainer.setAttribute("data-client-id", clientId);
@@ -821,7 +898,6 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
         const editMode = popupContainer.querySelector(`#edit-mode-${clientId}`) as HTMLElement;
 
         if (clusterSelect) {
-          let pendingNewClusterId: string | null = null;
           clusterSelect.addEventListener("change", () => {
             const selectedClusterId = clusterSelect.value;
             if (selectedClusterId === "__add__") {
@@ -841,10 +917,8 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
               const nextClusterColor = getClusterColor(nextClusterId);
               clusterSelect.style.backgroundColor = nextClusterColor;
               clusterSelect.style.color = getTextColorForBackground(nextClusterColor);
-              pendingNewClusterId = nextClusterId;
               return;
             }
-            pendingNewClusterId = null;
             if (selectedClusterId) {
               const selectedColor = getClusterColor(selectedClusterId);
               clusterSelect.style.backgroundColor = selectedColor;
@@ -855,34 +929,6 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
             }
           });
 
-          const saveBtnEarly = popupContainer.querySelector(`#save-btn-${clientId}`);
-          if (saveBtnEarly) {
-            saveBtnEarly.addEventListener("click", () => {
-              const driverSelect = popupContainer.querySelector(
-                `#driver-select-${clientId}`
-              ) as HTMLSelectElement;
-              const timeSelect = popupContainer.querySelector(
-                `#time-select-${clientId}`
-              ) as HTMLSelectElement;
-              const newClusterId = pendingNewClusterId || clusterSelect.value;
-              const newDriver = driverSelect.value || undefined;
-              const newTime = timeSelect.value || undefined;
-              const newTime24Hour = newTime ? convertTo24Hour(newTime) : undefined;
-              if (onClusterUpdate) {
-                onClusterUpdate(clientId, newClusterId, newDriver, newTime24Hour);
-              }
-              const viewMode = popupContainer.querySelector(
-                `#view-mode-${clientId}`
-              ) as HTMLElement;
-              const editMode = popupContainer.querySelector(
-                `#edit-mode-${clientId}`
-              ) as HTMLElement;
-              if (viewMode && editMode) {
-                viewMode.style.display = "block";
-                editMode.style.display = "none";
-              }
-            });
-          }
         }
 
         // Store initial values for reset on cancel
@@ -1014,14 +1060,38 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
             ) as HTMLSelectElement;
 
             const newClusterId = clusterSelect.value;
-            const newDriver = driverSelect.value || undefined;
-            const newTime = timeSelect.value || undefined;
-            const newTime24Hour = newTime ? convertTo24Hour(newTime) : undefined;
-            const nextCluster = clusters.find((candidate) => candidate.id === newClusterId);
-            const resolvedDriver = resolveAssignmentValue(newDriver, nextCluster?.driver);
-            const resolvedTime = resolveAssignmentValue(newTime24Hour, nextCluster?.time);
+            const newDriver = driverSelect.value;
+            const newTime = timeSelect.value;
+            const clusterChanged = newClusterId !== initialClusterId;
+            const submittedDriver = getSubmittedValue(newDriver, initialDriver);
+            const submittedTimeLabel = getSubmittedValue(newTime, initialTime);
+            const submittedTime =
+              submittedTimeLabel === undefined
+                ? undefined
+                : submittedTimeLabel === ""
+                  ? ""
+                  : convertTo24Hour(submittedTimeLabel);
+            const submittedDriverForSave = newClusterId ? submittedDriver : undefined;
+            const submittedTimeForSave = newClusterId ? submittedTime : undefined;
 
-            onClusterUpdate(clientId, newClusterId, newDriver, newTime24Hour);
+            const nextCluster = clustersRef.current.find((candidate) => candidate.id === newClusterId);
+            const clusterDriver = normalizeAssignmentValue(nextCluster?.driver);
+            const clusterTime = normalizeAssignmentValue(nextCluster?.time);
+            const unchangedDriverFallback = clusterChanged ? clusterDriver : effectiveDriver;
+            const unchangedTimeFallback = clusterChanged ? clusterTime : effectiveTime;
+            const resolvedDriver = resolveSavedValue(
+              submittedDriverForSave,
+              unchangedDriverFallback
+            );
+            const resolvedTime = resolveSavedValue(submittedTimeForSave, unchangedTimeFallback);
+
+            if (!clusterChanged && submittedDriver === undefined && submittedTime === undefined) {
+              viewMode.style.display = "block";
+              editMode.style.display = "none";
+              return;
+            }
+
+            onClusterUpdate(clientId, newClusterId, submittedDriverForSave, submittedTimeForSave);
 
             // Update the view mode content with new data
             const viewModeContent = popupContainer.querySelector(`#view-mode-${clientId}`);
@@ -1093,7 +1163,15 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
               }
             }
 
-            // Switch back to view mode
+            const nextDriverValue = resolvedDriver ?? "";
+            const nextTimeValue = resolvedTime ? formatTimeForDisplay(resolvedTime) : "";
+
+            driverSelect.value = nextDriverValue;
+            timeSelect.value = nextTimeValue;
+            initialClusterId = newClusterId;
+            initialDriver = nextDriverValue;
+            initialTime = nextTimeValue;
+
             viewMode.style.display = "block";
             editMode.style.display = "none";
           });
@@ -1161,10 +1239,17 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
     const ffaMarker = L.marker(ffaCoordinates, { icon: ffaIcon });
     ffaMarker.addTo(markerGroupRef.current!);
 
-    if (markerGroupRef.current!.getLayers().length > 0) {
+    const visibleRowsKey = visibleRows
+      .map((row) => row.id)
+      .sort()
+      .join("|");
+    const shouldAutoFit = visibleRowsKey !== previousVisibleRowsKeyRef.current;
+
+    if (markerGroupRef.current!.getLayers().length > 0 && shouldAutoFit) {
       mapRef.current!.fitBounds(markerGroupRef.current!.getBounds(), {
         padding: [50, 50],
       });
+      previousVisibleRowsKeyRef.current = visibleRowsKey;
     }
   }, [
     visibleRows,
@@ -1291,7 +1376,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
       )}
 
       {/* Cluster Summary */}
-      {showClusterSummary && clusterDeliveryCounts.length > 0 && (
+      {showClusterSummary && clusterSummaries.length > 0 && (
         <Box
           sx={{
             position: "absolute",
@@ -1302,21 +1387,52 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
             borderRadius: "6px",
             boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
             zIndex: 1000,
-            maxWidth: "250px",
-            maxHeight: "80vh",
+            width: "clamp(141px, 12vw, 174px)",
+            minWidth: "141px",
+            maxWidth: "calc(100% - 20px)",
+            maxHeight: "calc(100% - 20px)",
             overflowY: "auto",
           }}
         >
-          <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1 }}>
-            <Typography variant="body2" sx={{ fontWeight: "bold", fontSize: "12px" }}>
+          <Box
+            sx={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "stretch",
+              gap: 0.5,
+              mb: 1,
+            }}
+          >
+            <Typography
+              variant="body2"
+              sx={{
+                fontWeight: "bold",
+                fontSize: "12px",
+                lineHeight: 1.25,
+              }}
+            >
               Cluster Deliveries
             </Typography>
-            <Box sx={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
-              <Typography variant="caption" sx={{ fontSize: "10px", color: "text.secondary" }}>
+            <Box
+              sx={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: 1,
+                flexWrap: "wrap",
+              }}
+            >
+              <Typography
+                variant="caption"
+                sx={{ fontSize: "10px", color: "text.secondary", lineHeight: 1.2 }}
+              >
                 Day total: {dayTotalDeliveries}
               </Typography>
               {isFilteredView && (
-                <Typography variant="caption" sx={{ fontSize: "10px", color: "text.secondary" }}>
+                <Typography
+                  variant="caption"
+                  sx={{ fontSize: "10px", color: "text.secondary", lineHeight: 1.2 }}
+                >
                   Showing {visibleRows.length} filtered
                 </Typography>
               )}
@@ -1349,54 +1465,94 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
             </Typography>
           </Box>
           <Box sx={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-            {clusterDeliveryCounts.map(([clusterId, count]) => {
+            {clusterSummaries.map(({ clusterId, count, driverLabel, timeLabel }) => {
               const color = getClusterColor(clusterId);
               const textColor = getTextColorForBackground(color);
+              const dividerColor =
+                textColor.toLowerCase() === "#ffffff"
+                  ? "rgba(255, 255, 255, 0.38)"
+                  : "rgba(0, 0, 0, 0.28)";
               return (
                 <Box
                   key={clusterId}
                   sx={{
                     display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    gap: "8px",
+                    flexDirection: "column",
+                    alignItems: "stretch",
+                    gap: "4px",
                     padding: "4px 8px",
                     backgroundColor: color,
                     borderRadius: "4px",
                     border: `1px solid ${color}`,
                   }}
                 >
-                  <Typography
-                    variant="caption"
+                  <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 1 }}>
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        fontSize: "11px",
+                        fontWeight: "600",
+                        color: textColor,
+                        textShadow:
+                          textColor === "#FFFFFF" ? "0.5px 0.5px 1px rgba(0,0,0,0.5)" : "none",
+                      }}
+                    >
+                      {clusterId}
+                    </Typography>
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        fontSize: "11px",
+                        fontWeight: "bold",
+                        color: textColor,
+                        backgroundColor: "rgba(0, 0, 0, 0.1)",
+                        padding: "2px 6px",
+                        borderRadius: "10px",
+                        minWidth: "24px",
+                        textAlign: "center",
+                      }}
+                    >
+                      {count}
+                    </Typography>
+                  </Box>
+
+                  <Box
                     sx={{
-                      fontSize: "11px",
-                      fontWeight: "600",
-                      color: textColor,
-                      textShadow: textColor === "#FFFFFF" ? "0.5px 0.5px 1px rgba(0,0,0,0.5)" : "none",
+                      borderTop: "1px solid",
+                      borderColor: dividerColor,
                     }}
-                  >
-                    {clusterId}
-                  </Typography>
-                  <Typography
-                    variant="caption"
-                    sx={{
-                      fontSize: "11px",
-                      fontWeight: "bold",
-                      color: textColor,
-                      backgroundColor: "rgba(0, 0, 0, 0.1)",
-                      padding: "2px 6px",
-                      borderRadius: "10px",
-                      minWidth: "24px",
-                      textAlign: "center",
-                    }}
-                  >
-                    {count}
-                  </Typography>
+                  />
+
+                  <Box sx={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        fontSize: "10px",
+                        color: textColor,
+                        opacity: 0.95,
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                      }}
+                    >
+                      {driverLabel}
+                    </Typography>
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        fontSize: "10px",
+                        color: textColor,
+                        opacity: 0.95,
+                      }}
+                    >
+                      {timeLabel}
+                    </Typography>
+                  </Box>
                 </Box>
               );
             })}
           </Box>
-          {clusterDeliveryCounts.length === 0 && (
+          {clusterSummaries.length === 0 && (
             <Typography variant="caption" sx={{ fontSize: "10px", color: "text.secondary", fontStyle: "italic" }}>
               No cluster assignments
             </Typography>

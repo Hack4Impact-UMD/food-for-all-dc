@@ -34,6 +34,26 @@ const getClusterForRow = (clusters: Cluster[], rowId: string) =>
 const getClientOverrideForRow = (clientOverrides: ClientOverride[], rowId: string) =>
   clientOverrides.find((override) => override.clientId === rowId);
 
+const getEffectiveDriver = (
+  row: RowData,
+  clusters: Cluster[],
+  clientOverrides: ClientOverride[]
+): string => {
+  const cluster = getClusterForRow(clusters, row.id);
+  const override = getClientOverrideForRow(clientOverrides, row.id);
+  return resolveAssignmentValue(override?.driver, cluster?.driver) || "";
+};
+
+const getEffectiveTime = (
+  row: RowData,
+  clusters: Cluster[],
+  clientOverrides: ClientOverride[]
+): string => {
+  const cluster = getClusterForRow(clusters, row.id);
+  const override = getClientOverrideForRow(clientOverrides, row.id);
+  return resolveAssignmentValue(override?.time, cluster?.time) || "";
+};
+
 export const exportDeliveries = async (
   deliveryDate: string,
   rowsToExport: RowData[],
@@ -59,9 +79,7 @@ export const exportDeliveries = async (
     }
 
     const rowsWithoutDriver = rowsToExport.filter((row) => {
-      const cluster = getClusterForRow(clusters, row.id);
-      const override = getClientOverrideForRow(clientOverrides, row.id);
-      return !resolveAssignmentValue(override?.driver, cluster?.driver);
+      return !getEffectiveDriver(row, clusters, clientOverrides);
     });
     if (rowsWithoutDriver.length > 0) {
       return {
@@ -74,9 +92,7 @@ export const exportDeliveries = async (
 
     const groupedByDriver: Record<string, RowData[]> = {};
     rowsToExport.forEach((row) => {
-      const cluster = getClusterForRow(clusters, row.id);
-      const override = getClientOverrideForRow(clientOverrides, row.id);
-      const driverName = resolveAssignmentValue(override?.driver, cluster?.driver) || "Unassigned";
+      const driverName = getEffectiveDriver(row, clusters, clientOverrides) || "Unassigned";
 
       if (!groupedByDriver[driverName]) {
         groupedByDriver[driverName] = [];
@@ -117,11 +133,8 @@ export const exportDeliveries = async (
               : "";
 
             const cluster = getClusterForRow(clusters, row.id);
-            const override = getClientOverrideForRow(clientOverrides, row.id);
             const clusterNumber = cluster?.id || "";
-            const assignedTime = formatTime(
-              resolveAssignmentValue(override?.time, cluster?.time) || ""
-            );
+            const assignedTime = formatTime(getEffectiveTime(row, clusters, clientOverrides));
 
             const rowData = row as any;
 
@@ -225,11 +238,9 @@ export const exportDoordashDeliveries = async (
       };
     }
 
-    const doordashRows = rowsToExport.filter((row) => {
-      const cluster = getClusterForRow(clusters, row.id);
-      const override = getClientOverrideForRow(clientOverrides, row.id);
-      return resolveAssignmentValue(override?.driver, cluster?.driver) === "DoorDash";
-    });
+    const doordashRows = rowsToExport.filter(
+      (row) => getEffectiveDriver(row, clusters, clientOverrides) === "DoorDash"
+    );
 
     if (doordashRows.length === 0) {
       return {
@@ -238,11 +249,9 @@ export const exportDoordashDeliveries = async (
       };
     }
 
-    const unscheduledRows = doordashRows.filter((row) => {
-      const cluster = getClusterForRow(clusters, row.id);
-      const override = getClientOverrideForRow(clientOverrides, row.id);
-      return !resolveAssignmentValue(override?.time, cluster?.time);
-    });
+    const unscheduledRows = doordashRows.filter(
+      (row) => getEffectiveTime(row, clusters, clientOverrides).trim() === ""
+    );
 
     if (unscheduledRows.length > 0) {
       return {
@@ -272,9 +281,7 @@ export const exportDoordashDeliveries = async (
 
     const groupedByTime: Record<string, RowData[]> = {};
     doordashRows.forEach((row) => {
-      const cluster = getClusterForRow(clusters, row.id);
-      const override = getClientOverrideForRow(clientOverrides, row.id);
-      const time = resolveAssignmentValue(override?.time, cluster?.time) || "";
+      const time = getEffectiveTime(row, clusters, clientOverrides);
 
       if (!groupedByTime[time]) {
         groupedByTime[time] = [];

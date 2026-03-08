@@ -1182,26 +1182,28 @@ const DeliverySpreadsheet: React.FC = () => {
     }
 
     try {
+      const driverUpdateRequested = newDriver !== undefined;
+      const timeUpdateRequested = newTime !== undefined;
+      const clearDriverRequested = newDriver === "";
+      const clearTimeRequested = newTime === "";
       const normalizedDriver = normalizeAssignmentValue(newDriver);
       const normalizedTime = normalizeAssignmentValue(newTime);
-      const updatedOverrides = clientOverrides.filter((override) => override.clientId !== clientId);
 
-      if (normalizedDriver || normalizedTime) {
-        updatedOverrides.push({
-          clientId,
-          driver: normalizedDriver,
-          time: normalizedTime,
-        });
-      }
-
-      // Handle cluster assignment separately
       const currentClient = rows.find((row) => row.id === clientId);
       const oldClusterId = currentClient?.clusterId || "";
+      const clusterChanged = oldClusterId !== newClusterId;
+
+      if (!clusterChanged && !driverUpdateRequested && !timeUpdateRequested) {
+        return;
+      }
+
+      let updatedOverrides = clusterChanged
+        ? clientOverrides.filter((override) => override.clientId !== clientId)
+        : [...clientOverrides];
 
       let updatedClusters = [...clusters];
 
-      // Remove client from old cluster if it exists
-      if (oldClusterId && oldClusterId !== newClusterId) {
+      if (clusterChanged && oldClusterId) {
         updatedClusters = updatedClusters.map((cluster) => {
           if (cluster.id === oldClusterId) {
             return {
@@ -1213,8 +1215,7 @@ const DeliverySpreadsheet: React.FC = () => {
         });
       }
 
-      // Add client to new cluster if specified and different from current
-      if (newClusterId && newClusterId !== oldClusterId) {
+      if (clusterChanged && newClusterId) {
         const clusterExists = clusters.some((cluster) => cluster.id === newClusterId);
 
         if (clusterExists) {
@@ -1239,16 +1240,56 @@ const DeliverySpreadsheet: React.FC = () => {
         }
       }
 
-      // Sort clusters numerically
       updatedClusters.sort((a, b) => parseInt(a.id, 10) - parseInt(b.id, 10));
+
+      const targetClusterId = newClusterId || undefined;
+
+      if (targetClusterId && (driverUpdateRequested || timeUpdateRequested)) {
+        updatedClusters = updatedClusters.map((cluster) => {
+          if (cluster.id !== targetClusterId) {
+            return cluster;
+          }
+
+          return {
+            ...cluster,
+            driver: clearDriverRequested
+              ? ""
+              : driverUpdateRequested
+                ? normalizedDriver ?? ""
+                : cluster.driver,
+            time: clearTimeRequested
+              ? ""
+              : timeUpdateRequested
+                ? normalizedTime ?? ""
+                : cluster.time,
+          };
+        });
+
+        const targetCluster = updatedClusters.find((cluster) => cluster.id === targetClusterId);
+        const targetClientIds = new Set(targetCluster?.deliveries ?? []);
+
+        updatedOverrides = updatedOverrides
+          .map((override) => {
+            if (!targetClientIds.has(override.clientId)) {
+              return override;
+            }
+
+            return {
+              ...override,
+              driver: driverUpdateRequested ? undefined : override.driver,
+              time: timeUpdateRequested ? undefined : override.time,
+            };
+          })
+          .filter(
+            (override) => hasAssignmentValue(override.driver) || hasAssignmentValue(override.time)
+          );
+      }
 
       const normalizedClusters = setClusters(updatedClusters);
       const sanitizedOverrides = sanitizeClientOverridesForFirestore(updatedOverrides);
 
-      // Update local state
       setClientOverrides(sanitizedOverrides);
 
-      // Update Firebase with cluster changes and client overrides
       const clusterRef = doc(db, dataSources.firebase.clustersCollection, clusterDoc.docId);
       await updateDoc(clusterRef, {
         clusters: normalizedClusters,
@@ -2001,8 +2042,8 @@ const DeliverySpreadsheet: React.FC = () => {
           : zipCodeB.localeCompare(zipCodeA, undefined, { sensitivity: "base" });
       } else if (sortedColumn === "ward") {
         // For ward field, sort alphabetically (A-Z/Z-A)
-        const wardA = (a.ward || "").toLowerCase();
-        const wardB = (b.ward || "").toLowerCase();
+        const wardA = String(a.ward || "").toLowerCase();
+        const wardB = String(b.ward || "").toLowerCase();
 
         // Handle empty values - empty strings sort first in ascending, last in descending
         if (!wardA && !wardB) return 0;
@@ -2037,27 +2078,33 @@ const DeliverySpreadsheet: React.FC = () => {
           ? driverALower.localeCompare(driverBLower, undefined, { sensitivity: "base" })
           : driverBLower.localeCompare(driverALower, undefined, { sensitivity: "base" });
       } else if (sortedColumn === "assignedTime") {
-        // For assignedTime field, sort by time in chronological order (AM before PM)
-        const timeA =
-          resolveAssignmentValue(
-            clientOverrides.find((override) => override.clientId === a.id)?.time,
-            getClusterAssignmentValue(clusters, a.id, "time")
-          ) || "";
-        const timeB =
-          resolveAssignmentValue(
-            clientOverrides.find((override) => override.clientId === b.id)?.time,
-            getClusterAssignmentValue(clusters, b.id, "time")
-          ) || "";
+        // Sort by effective assignment time (override first, then cluster time).
+        const overrideA = clientOverrides.find((override) => override.clientId === a.id);
+        const overrideB = clientOverrides.find((override) => override.clientId === b.id);
+        const clusterTimeA = getClusterAssignmentValue(clusters, a.id, "time");
+        const clusterTimeB = getClusterAssignmentValue(clusters, b.id, "time");
+        const timeA = resolveAssignmentValue(overrideA?.time, clusterTimeA) || "";
+        const timeB = resolveAssignmentValue(overrideB?.time, clusterTimeB) || "";
 
-        // Handle empty values - empty strings (no time assigned) sort first in ascending, last in descending
+        // Handle empty values - no assigned time sorts first in ascending, last in descending.
         if (!timeA && !timeB) return 0;
         if (!timeA) return sortOrder === "asc" ? -1 : 1;
         if (!timeB) return sortOrder === "asc" ? 1 : -1;
 
-        // Convert time strings to comparable format (24-hour for proper chronological sorting)
+        // Supports both 24-hour ("08:30") and 12-hour ("8:30 AM") formats.
         const parseTime = (timeStr: string): number => {
-          if (!timeStr) return 0;
-          const [hours, minutes] = timeStr.split(":");
+          const normalized = timeStr.trim();
+          const amPmMatch = normalized.match(/^(\d{1,2}):(\d{2})\s*([AP]M)$/i);
+          if (amPmMatch) {
+            let hours = parseInt(amPmMatch[1], 10);
+            const minutes = parseInt(amPmMatch[2], 10);
+            const meridiem = amPmMatch[3].toUpperCase();
+            if (meridiem === "PM" && hours !== 12) hours += 12;
+            if (meridiem === "AM" && hours === 12) hours = 0;
+            return hours * 60 + minutes;
+          }
+
+          const [hours, minutes] = normalized.split(":");
           return parseInt(hours, 10) * 60 + parseInt(minutes, 10);
         };
 
@@ -3051,7 +3098,7 @@ const DeliverySpreadsheet: React.FC = () => {
                       >
                         {col.propertyKey !== "none"
                           ? col.propertyKey === "address"
-                            ? `${row.address || ""}${row.address2 ? " " + row.address2 : ""}`.trim()
+                            ? `${row.address || ""}${row.address2 ? " " + row.address2 : ""}${row.zipCode ? " " + row.zipCode : ""}`.trim()
                             : col.propertyKey === "deliveryDetails.dietaryRestrictions"
                               ? (() => {
                                   const dr = row.deliveryDetails?.dietaryRestrictions;

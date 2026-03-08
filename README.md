@@ -19,14 +19,6 @@
 
 ---
 
-## 🗺️ Roadmap
-- **Infrastructure**
-  - Fix CI/CD pipeline
-- **Low Priority**
-  - Testing
-
----
-
 ## 📋 About
 
 This project modernizes and streamlines client management and delivery scheduling for Food For All DC, a nonprofit serving our community. 🚚🥕
