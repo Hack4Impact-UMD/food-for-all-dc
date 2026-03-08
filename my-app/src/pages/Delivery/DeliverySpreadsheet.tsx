@@ -2083,8 +2083,8 @@ const DeliverySpreadsheet: React.FC = () => {
           : zipCodeB.localeCompare(zipCodeA, undefined, { sensitivity: "base" });
       } else if (sortedColumn === "ward") {
         // For ward field, sort alphabetically (A-Z/Z-A)
-        const wardA = (a.ward || "").toLowerCase();
-        const wardB = (b.ward || "").toLowerCase();
+        const wardA = String(a.ward || "").toLowerCase();
+        const wardB = String(b.ward || "").toLowerCase();
 
         // Handle empty values - empty strings sort first in ascending, last in descending
         if (!wardA && !wardB) return 0;
@@ -3144,7 +3144,7 @@ const DeliverySpreadsheet: React.FC = () => {
                       >
                         {col.propertyKey !== "none"
                           ? col.propertyKey === "address"
-                            ? `${row.address || ""}${row.address2 ? " " + row.address2 : ""}`.trim()
+                            ? `${row.address || ""}${row.address2 ? " " + row.address2 : ""}${row.zipCode ? " " + row.zipCode : ""}`.trim()
                             : col.propertyKey === "deliveryDetails.dietaryRestrictions"
                               ? (() => {
                                   const dr = row.deliveryDetails?.dietaryRestrictions;
