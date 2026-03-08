@@ -1096,7 +1096,8 @@ const DeliverySpreadsheet: React.FC = () => {
           await exportDoordashDeliveries(
             TimeUtils.fromJSDate(selectedDate).toISODate() || "",
             rows,
-            clusters
+            clusters,
+            clientOverrides
           )
         );
       }
@@ -1200,17 +1201,11 @@ const DeliverySpreadsheet: React.FC = () => {
     }
 
     try {
+      const clearDriverRequested = newDriver === "";
+      const clearTimeRequested = newTime === "";
       const normalizedDriver = normalizeAssignmentValue(newDriver);
       const normalizedTime = normalizeAssignmentValue(newTime);
-      const updatedOverrides = clientOverrides.filter((override) => override.clientId !== clientId);
-
-      if (normalizedDriver || normalizedTime) {
-        updatedOverrides.push({
-          clientId,
-          driver: normalizedDriver,
-          time: normalizedTime,
-        });
-      }
+      let updatedOverrides = clientOverrides.filter((override) => override.clientId !== clientId);
 
       // Handle cluster assignment separately
       const currentClient = rows.find((row) => row.id === clientId);
@@ -1259,6 +1254,77 @@ const DeliverySpreadsheet: React.FC = () => {
 
       // Sort clusters numerically
       updatedClusters.sort((a, b) => parseInt(a.id, 10) - parseInt(b.id, 10));
+
+      // When transferring a client between clusters, clear their driver/time overrides
+      // so they inherit the new cluster's assignments instead of carrying old overrides.
+      if (oldClusterId && oldClusterId !== newClusterId && newClusterId) {
+        updatedOverrides = updatedOverrides.filter((override) => {
+          if (override.clientId === clientId) {
+            // Remove driver/time overrides for this client to adopt new cluster's assignments
+            return false;
+          }
+          return true;
+        });
+      }
+
+      const targetClusterId = newClusterId || oldClusterId;
+      
+      // When cluster transfer occurs, detect if driver/time values were actually changed by the user
+      // vs. just being the old cluster's values captured by the popup.
+      // If the values match the old cluster's and we're transferring, skip updating the target cluster.
+      let shouldApplyClusterAssignment = !!(clearDriverRequested || clearTimeRequested || normalizedDriver || normalizedTime);
+      
+      if (shouldApplyClusterAssignment && oldClusterId && oldClusterId !== newClusterId && newClusterId) {
+        // This is a cluster transfer - check if driver/time were actually modified
+        const oldCluster = clusters.find((c) => c.id === oldClusterId);
+        const oldClusterDriver = normalizeAssignmentValue(oldCluster?.driver ?? "");
+        const oldClusterTime = normalizeAssignmentValue(oldCluster?.time ?? "");
+        
+        // If values match the old cluster, the user didn't explicitly change them, so skip applying to new cluster
+        const driverMatchesOldCluster = normalizedDriver === oldClusterDriver || (!normalizedDriver && !oldClusterDriver);
+        const timeMatchesOldCluster = normalizedTime === oldClusterTime || (!normalizedTime && !oldClusterTime);
+        
+        if (driverMatchesOldCluster && timeMatchesOldCluster && !clearDriverRequested && !clearTimeRequested) {
+          // User didn't change driver/time in the popup, just moved the marker
+          // Let the client inherit the new cluster's values
+          shouldApplyClusterAssignment = false;
+        }
+      }
+
+      // Map popup driver/time changes are cluster-scoped: update the whole cluster assignment.
+      if (targetClusterId && shouldApplyClusterAssignment) {
+        updatedClusters = updatedClusters.map((cluster) => {
+          if (cluster.id !== targetClusterId) {
+            return cluster;
+          }
+
+          return {
+            ...cluster,
+            driver: clearDriverRequested ? "" : (normalizedDriver ?? cluster.driver),
+            time: clearTimeRequested ? "" : (normalizedTime ?? cluster.time),
+          };
+        });
+
+        // Remove field-level overrides for all clients in that cluster so assignments stay consistent.
+        const targetCluster = updatedClusters.find((cluster) => cluster.id === targetClusterId);
+        const targetClientIds = new Set(targetCluster?.deliveries ?? []);
+
+        updatedOverrides = updatedOverrides
+          .map((override) => {
+            if (!targetClientIds.has(override.clientId)) {
+              return override;
+            }
+
+            return {
+              ...override,
+              driver: clearDriverRequested || normalizedDriver ? undefined : override.driver,
+              time: clearTimeRequested || normalizedTime ? undefined : override.time,
+            };
+          })
+          .filter(
+            (override) => hasAssignmentValue(override.driver) || hasAssignmentValue(override.time)
+          );
+      }
 
       const normalizedClusters = setClusters(updatedClusters);
       const sanitizedOverrides = sanitizeClientOverridesForFirestore(updatedOverrides);
@@ -2017,8 +2083,8 @@ const DeliverySpreadsheet: React.FC = () => {
           : zipCodeB.localeCompare(zipCodeA, undefined, { sensitivity: "base" });
       } else if (sortedColumn === "ward") {
         // For ward field, sort alphabetically (A-Z/Z-A)
-        const wardA = (a.ward || "").toLowerCase();
-        const wardB = (b.ward || "").toLowerCase();
+        const wardA = String(a.ward || "").toLowerCase();
+        const wardB = String(b.ward || "").toLowerCase();
 
         // Handle empty values - empty strings sort first in ascending, last in descending
         if (!wardA && !wardB) return 0;
@@ -2053,29 +2119,33 @@ const DeliverySpreadsheet: React.FC = () => {
           ? driverALower.localeCompare(driverBLower, undefined, { sensitivity: "base" })
           : driverBLower.localeCompare(driverALower, undefined, { sensitivity: "base" });
       } else if (sortedColumn === "assignedTime") {
-        // For assignedTime field, sort by time in chronological order (AM before PM)
-        // Use the compute function to get the time string
-        let timeA = "";
-        let timeB = "";
+        // Sort by effective assignment time (override first, then cluster time).
+        const overrideA = clientOverrides.find((override) => override.clientId === a.id);
+        const overrideB = clientOverrides.find((override) => override.clientId === b.id);
+        const clusterTimeA = getClusterAssignmentValue(clusters, a.id, "time");
+        const clusterTimeB = getClusterAssignmentValue(clusters, b.id, "time");
+        const timeA = resolveAssignmentValue(overrideA?.time, clusterTimeA) || "";
+        const timeB = resolveAssignmentValue(overrideB?.time, clusterTimeB) || "";
 
-        clusters.forEach((cluster) => {
-          if (cluster.deliveries?.some((id) => id === a.id)) {
-            timeA = cluster.time || "";
-          }
-          if (cluster.deliveries?.some((id) => id === b.id)) {
-            timeB = cluster.time || "";
-          }
-        });
-
-        // Handle empty values - empty strings (no time assigned) sort first in ascending, last in descending
+        // Handle empty values - no assigned time sorts first in ascending, last in descending.
         if (!timeA && !timeB) return 0;
         if (!timeA) return sortOrder === "asc" ? -1 : 1;
         if (!timeB) return sortOrder === "asc" ? 1 : -1;
 
-        // Convert time strings to comparable format (24-hour for proper chronological sorting)
+        // Supports both 24-hour ("08:30") and 12-hour ("8:30 AM") formats.
         const parseTime = (timeStr: string): number => {
-          if (!timeStr) return 0;
-          const [hours, minutes] = timeStr.split(":");
+          const normalized = timeStr.trim();
+          const amPmMatch = normalized.match(/^(\d{1,2}):(\d{2})\s*([AP]M)$/i);
+          if (amPmMatch) {
+            let hours = parseInt(amPmMatch[1], 10);
+            const minutes = parseInt(amPmMatch[2], 10);
+            const meridiem = amPmMatch[3].toUpperCase();
+            if (meridiem === "PM" && hours !== 12) hours += 12;
+            if (meridiem === "AM" && hours === 12) hours = 0;
+            return hours * 60 + minutes;
+          }
+
+          const [hours, minutes] = normalized.split(":");
           return parseInt(hours, 10) * 60 + parseInt(minutes, 10);
         };
 
@@ -3074,7 +3144,7 @@ const DeliverySpreadsheet: React.FC = () => {
                       >
                         {col.propertyKey !== "none"
                           ? col.propertyKey === "address"
-                            ? `${row.address || ""}${row.address2 ? " " + row.address2 : ""}`.trim()
+                            ? `${row.address || ""}${row.address2 ? " " + row.address2 : ""}${row.zipCode ? " " + row.zipCode : ""}`.trim()
                             : col.propertyKey === "deliveryDetails.dietaryRestrictions"
                               ? (() => {
                                   const dr = row.deliveryDetails?.dietaryRestrictions;
