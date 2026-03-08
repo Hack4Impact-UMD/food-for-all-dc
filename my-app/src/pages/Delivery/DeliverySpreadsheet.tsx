@@ -1201,20 +1201,28 @@ const DeliverySpreadsheet: React.FC = () => {
     }
 
     try {
+      const driverUpdateRequested = newDriver !== undefined;
+      const timeUpdateRequested = newTime !== undefined;
       const clearDriverRequested = newDriver === "";
       const clearTimeRequested = newTime === "";
       const normalizedDriver = normalizeAssignmentValue(newDriver);
       const normalizedTime = normalizeAssignmentValue(newTime);
-      let updatedOverrides = clientOverrides.filter((override) => override.clientId !== clientId);
 
-      // Handle cluster assignment separately
       const currentClient = rows.find((row) => row.id === clientId);
       const oldClusterId = currentClient?.clusterId || "";
+      const clusterChanged = oldClusterId !== newClusterId;
+
+      if (!clusterChanged && !driverUpdateRequested && !timeUpdateRequested) {
+        return;
+      }
+
+      let updatedOverrides = clusterChanged
+        ? clientOverrides.filter((override) => override.clientId !== clientId)
+        : [...clientOverrides];
 
       let updatedClusters = [...clusters];
 
-      // Remove client from old cluster if it exists
-      if (oldClusterId && oldClusterId !== newClusterId) {
+      if (clusterChanged && oldClusterId) {
         updatedClusters = updatedClusters.map((cluster) => {
           if (cluster.id === oldClusterId) {
             return {
@@ -1226,8 +1234,7 @@ const DeliverySpreadsheet: React.FC = () => {
         });
       }
 
-      // Add client to new cluster if specified and different from current
-      if (newClusterId && newClusterId !== oldClusterId) {
+      if (clusterChanged && newClusterId) {
         const clusterExists = clusters.some((cluster) => cluster.id === newClusterId);
 
         if (clusterExists) {
@@ -1252,47 +1259,11 @@ const DeliverySpreadsheet: React.FC = () => {
         }
       }
 
-      // Sort clusters numerically
       updatedClusters.sort((a, b) => parseInt(a.id, 10) - parseInt(b.id, 10));
 
-      // When transferring a client between clusters, clear their driver/time overrides
-      // so they inherit the new cluster's assignments instead of carrying old overrides.
-      if (oldClusterId && oldClusterId !== newClusterId && newClusterId) {
-        updatedOverrides = updatedOverrides.filter((override) => {
-          if (override.clientId === clientId) {
-            // Remove driver/time overrides for this client to adopt new cluster's assignments
-            return false;
-          }
-          return true;
-        });
-      }
+      const targetClusterId = newClusterId || undefined;
 
-      const targetClusterId = newClusterId || oldClusterId;
-      
-      // When cluster transfer occurs, detect if driver/time values were actually changed by the user
-      // vs. just being the old cluster's values captured by the popup.
-      // If the values match the old cluster's and we're transferring, skip updating the target cluster.
-      let shouldApplyClusterAssignment = !!(clearDriverRequested || clearTimeRequested || normalizedDriver || normalizedTime);
-      
-      if (shouldApplyClusterAssignment && oldClusterId && oldClusterId !== newClusterId && newClusterId) {
-        // This is a cluster transfer - check if driver/time were actually modified
-        const oldCluster = clusters.find((c) => c.id === oldClusterId);
-        const oldClusterDriver = normalizeAssignmentValue(oldCluster?.driver ?? "");
-        const oldClusterTime = normalizeAssignmentValue(oldCluster?.time ?? "");
-        
-        // If values match the old cluster, the user didn't explicitly change them, so skip applying to new cluster
-        const driverMatchesOldCluster = normalizedDriver === oldClusterDriver || (!normalizedDriver && !oldClusterDriver);
-        const timeMatchesOldCluster = normalizedTime === oldClusterTime || (!normalizedTime && !oldClusterTime);
-        
-        if (driverMatchesOldCluster && timeMatchesOldCluster && !clearDriverRequested && !clearTimeRequested) {
-          // User didn't change driver/time in the popup, just moved the marker
-          // Let the client inherit the new cluster's values
-          shouldApplyClusterAssignment = false;
-        }
-      }
-
-      // Map popup driver/time changes are cluster-scoped: update the whole cluster assignment.
-      if (targetClusterId && shouldApplyClusterAssignment) {
+      if (targetClusterId && (driverUpdateRequested || timeUpdateRequested)) {
         updatedClusters = updatedClusters.map((cluster) => {
           if (cluster.id !== targetClusterId) {
             return cluster;
@@ -1300,12 +1271,19 @@ const DeliverySpreadsheet: React.FC = () => {
 
           return {
             ...cluster,
-            driver: clearDriverRequested ? "" : (normalizedDriver ?? cluster.driver),
-            time: clearTimeRequested ? "" : (normalizedTime ?? cluster.time),
+            driver: clearDriverRequested
+              ? ""
+              : driverUpdateRequested
+                ? normalizedDriver ?? ""
+                : cluster.driver,
+            time: clearTimeRequested
+              ? ""
+              : timeUpdateRequested
+                ? normalizedTime ?? ""
+                : cluster.time,
           };
         });
 
-        // Remove field-level overrides for all clients in that cluster so assignments stay consistent.
         const targetCluster = updatedClusters.find((cluster) => cluster.id === targetClusterId);
         const targetClientIds = new Set(targetCluster?.deliveries ?? []);
 
@@ -1317,8 +1295,8 @@ const DeliverySpreadsheet: React.FC = () => {
 
             return {
               ...override,
-              driver: clearDriverRequested || normalizedDriver ? undefined : override.driver,
-              time: clearTimeRequested || normalizedTime ? undefined : override.time,
+              driver: driverUpdateRequested ? undefined : override.driver,
+              time: timeUpdateRequested ? undefined : override.time,
             };
           })
           .filter(
@@ -1329,10 +1307,8 @@ const DeliverySpreadsheet: React.FC = () => {
       const normalizedClusters = setClusters(updatedClusters);
       const sanitizedOverrides = sanitizeClientOverridesForFirestore(updatedOverrides);
 
-      // Update local state
       setClientOverrides(sanitizedOverrides);
 
-      // Update Firebase with cluster changes and client overrides
       const clusterRef = doc(db, dataSources.firebase.clustersCollection, clusterDoc.docId);
       await updateDoc(clusterRef, {
         clusters: normalizedClusters,

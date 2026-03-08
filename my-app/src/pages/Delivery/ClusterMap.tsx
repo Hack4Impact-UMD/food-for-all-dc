@@ -204,8 +204,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
   const popupOpenedByMarkerRef = useRef<boolean>(false); // Track popup source
   const popupCloseHandlerSetup = useRef<boolean>(false); // Track if popup close handler is already set up
   const isPopupOpening = useRef<boolean>(false); // Prevent close handler from firing during opening
-    const clustersRef = useRef<Cluster[]>(clusters); // Ref to always get current clusters
-    const clientOverridesRef = useRef<ClientOverride[]>(clientOverrides); // Ref to always get current overrides
+  const clustersRef = useRef<Cluster[]>(clusters);
 
   // Set up global function for direct HTML onclick
   React.useEffect(() => {
@@ -302,12 +301,13 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
     >();
 
     visibleRows.forEach((row) => {
-      if (!row.clusterId) {
+      const cluster = clusterByClientId.get(row.id);
+      const clusterId = cluster?.id;
+
+      if (!clusterId) {
         return;
       }
 
-      const clusterId = row.clusterId;
-      const cluster = clusterByClientId.get(row.id);
       const override = clientOverrideByClientId.get(row.id);
       const effectiveDriver = resolveAssignmentValue(override?.driver, cluster?.driver);
       const effectiveTime = resolveAssignmentValue(override?.time, cluster?.time);
@@ -673,11 +673,9 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
     };
   }, [onOpenPopup, onClearHighlight]);
 
-  // Keep refs updated with latest clusters and clientOverrides
   useEffect(() => {
     clustersRef.current = clusters;
-    clientOverridesRef.current = clientOverrides;
-  }, [clusters, clientOverrides]);
+  }, [clusters]);
 
   // Restore ward overlays if they were enabled when the map is ready
   useEffect(() => {
@@ -826,6 +824,13 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
         const selectedTimeValue = effectiveTime ? formatTimeForDisplay(effectiveTime) : "";
         const emptyDriverLabel = "No driver";
         const emptyTimeLabel = "No time";
+        const getSubmittedValue = (currentValue: string, initialValue: string) =>
+          currentValue === initialValue ? undefined : currentValue;
+        const resolveSavedValue = (
+          submittedValue: string | undefined,
+          fallbackValue: string | undefined
+        ) =>
+          submittedValue === undefined ? fallbackValue : normalizeAssignmentValue(submittedValue);
 
         const popupContainer = document.createElement("div");
         popupContainer.setAttribute("data-client-id", clientId);
@@ -893,7 +898,6 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
         const editMode = popupContainer.querySelector(`#edit-mode-${clientId}`) as HTMLElement;
 
         if (clusterSelect) {
-          let pendingNewClusterId: string | null = null;
           clusterSelect.addEventListener("change", () => {
             const selectedClusterId = clusterSelect.value;
             if (selectedClusterId === "__add__") {
@@ -913,10 +917,8 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
               const nextClusterColor = getClusterColor(nextClusterId);
               clusterSelect.style.backgroundColor = nextClusterColor;
               clusterSelect.style.color = getTextColorForBackground(nextClusterColor);
-              pendingNewClusterId = nextClusterId;
               return;
             }
-            pendingNewClusterId = null;
             if (selectedClusterId) {
               const selectedColor = getClusterColor(selectedClusterId);
               clusterSelect.style.backgroundColor = selectedColor;
@@ -1060,24 +1062,36 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
             const newClusterId = clusterSelect.value;
             const newDriver = driverSelect.value;
             const newTime = timeSelect.value;
-            const newTime24Hour = newTime === "" ? "" : convertTo24Hour(newTime);
             const clusterChanged = newClusterId !== initialClusterId;
-            const driverTouched = newDriver !== initialDriver;
-            const timeTouched = newTime !== initialTime;
+            const submittedDriver = getSubmittedValue(newDriver, initialDriver);
+            const submittedTimeLabel = getSubmittedValue(newTime, initialTime);
+            const submittedTime =
+              submittedTimeLabel === undefined
+                ? undefined
+                : submittedTimeLabel === ""
+                  ? ""
+                  : convertTo24Hour(submittedTimeLabel);
+            const submittedDriverForSave = newClusterId ? submittedDriver : undefined;
+            const submittedTimeForSave = newClusterId ? submittedTime : undefined;
 
             const nextCluster = clustersRef.current.find((candidate) => candidate.id === newClusterId);
             const clusterDriver = normalizeAssignmentValue(nextCluster?.driver);
             const clusterTime = normalizeAssignmentValue(nextCluster?.time);
+            const unchangedDriverFallback = clusterChanged ? clusterDriver : effectiveDriver;
+            const unchangedTimeFallback = clusterChanged ? clusterTime : effectiveTime;
+            const resolvedDriver = resolveSavedValue(
+              submittedDriverForSave,
+              unchangedDriverFallback
+            );
+            const resolvedTime = resolveSavedValue(submittedTimeForSave, unchangedTimeFallback);
 
-            // If only the cluster changed and driver/time were not touched, preview target cluster values.
-            const resolvedDriver = clusterChanged && !driverTouched
-              ? clusterDriver
-              : resolveAssignmentValue(newDriver, clusterDriver);
-            const resolvedTime = clusterChanged && !timeTouched
-              ? clusterTime
-              : resolveAssignmentValue(newTime24Hour, clusterTime);
+            if (!clusterChanged && submittedDriver === undefined && submittedTime === undefined) {
+              viewMode.style.display = "block";
+              editMode.style.display = "none";
+              return;
+            }
 
-            onClusterUpdate(clientId, newClusterId, newDriver, newTime24Hour);
+            onClusterUpdate(clientId, newClusterId, submittedDriverForSave, submittedTimeForSave);
 
             // Update the view mode content with new data
             const viewModeContent = popupContainer.querySelector(`#view-mode-${clientId}`);
@@ -1149,14 +1163,17 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
               }
             }
 
-            // Switch back to view mode
+            const nextDriverValue = resolvedDriver ?? "";
+            const nextTimeValue = resolvedTime ? formatTimeForDisplay(resolvedTime) : "";
+
+            driverSelect.value = nextDriverValue;
+            timeSelect.value = nextTimeValue;
+            initialClusterId = newClusterId;
+            initialDriver = nextDriverValue;
+            initialTime = nextTimeValue;
+
             viewMode.style.display = "block";
             editMode.style.display = "none";
-
-            // Keep new values as baseline for future edit/cancel cycles.
-            initialClusterId = newClusterId;
-            initialDriver = newDriver;
-            initialTime = newTime;
           });
         }
 
@@ -1452,7 +1469,9 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
               const color = getClusterColor(clusterId);
               const textColor = getTextColorForBackground(color);
               const dividerColor =
-                textColor === "#FFFFFF" ? "rgba(255, 255, 255, 0.38)" : "rgba(0, 0, 0, 0.28)";
+                textColor.toLowerCase() === "#ffffff"
+                  ? "rgba(255, 255, 255, 0.38)"
+                  : "rgba(0, 0, 0, 0.28)";
               return (
                 <Box
                   key={clusterId}
