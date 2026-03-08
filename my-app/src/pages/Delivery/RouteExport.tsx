@@ -24,6 +24,40 @@ export interface ExportFeedback {
 const getClusterForRow = (clusters: Cluster[], rowId: string) =>
   clusters.find((cluster) => cluster.deliveries?.includes(rowId));
 
+interface ClientOverride {
+  clientId: string;
+  driver?: string;
+  time?: string;
+}
+
+const getEffectiveDriver = (
+  row: RowData,
+  clusters: Cluster[],
+  clientOverrides: ClientOverride[]
+): string => {
+  const override = clientOverrides.find((item) => item.clientId === row.id);
+  if (override?.driver) {
+    return override.driver;
+  }
+
+  const cluster = getClusterForRow(clusters, row.id);
+  return cluster?.driver || "";
+};
+
+const getEffectiveTime = (
+  row: RowData,
+  clusters: Cluster[],
+  clientOverrides: ClientOverride[]
+): string => {
+  const override = clientOverrides.find((item) => item.clientId === row.id);
+  if (override?.time) {
+    return override.time;
+  }
+
+  const cluster = getClusterForRow(clusters, row.id);
+  return cluster?.time || "";
+};
+
 export const exportDeliveries = async (
   deliveryDate: string,
   rowsToExport: RowData[],
@@ -163,7 +197,8 @@ export const exportDeliveries = async (
 export const exportDoordashDeliveries = async (
   deliveryDate: string,
   rowsToExport: RowData[],
-  clusters: Cluster[]
+  clusters: Cluster[],
+  clientOverrides: ClientOverride[] = []
 ): Promise<ExportFeedback> => {
   try {
     const config = getExportConfig();
@@ -174,10 +209,9 @@ export const exportDoordashDeliveries = async (
         message: "No deliveries selected or available for export on the selected date.",
       };
     }
-    const doordashRows = rowsToExport.filter((row) => {
-      const cluster = getClusterForRow(clusters, row.id);
-      return cluster?.driver === "DoorDash";
-    });
+    const doordashRows = rowsToExport.filter(
+      (row) => getEffectiveDriver(row, clusters, clientOverrides) === "DoorDash"
+    );
 
     if (doordashRows.length === 0) {
       return {
@@ -186,10 +220,9 @@ export const exportDoordashDeliveries = async (
       };
     }
 
-    const unscheduledRows = doordashRows.filter((row) => {
-      const cluster = getClusterForRow(clusters, row.id);
-      return !cluster?.time || cluster.time === "";
-    });
+    const unscheduledRows = doordashRows.filter(
+      (row) => getEffectiveTime(row, clusters, clientOverrides).trim() === ""
+    );
 
     if (unscheduledRows.length > 0) {
       return {
@@ -219,8 +252,7 @@ export const exportDoordashDeliveries = async (
 
     const groupedByTime: Record<string, RowData[]> = {};
     doordashRows.forEach((row) => {
-      const cluster = getClusterForRow(clusters, row.id);
-      const time = cluster?.time || "";
+      const time = getEffectiveTime(row, clusters, clientOverrides);
 
       if (!groupedByTime[time]) {
         groupedByTime[time] = [];
