@@ -1255,6 +1255,18 @@ const DeliverySpreadsheet: React.FC = () => {
       // Sort clusters numerically
       updatedClusters.sort((a, b) => parseInt(a.id, 10) - parseInt(b.id, 10));
 
+      // When transferring a client between clusters, clear their driver/time overrides
+      // so they inherit the new cluster's assignments instead of carrying old overrides.
+      if (oldClusterId && oldClusterId !== newClusterId && newClusterId) {
+        updatedOverrides = updatedOverrides.filter((override) => {
+          if (override.clientId === clientId) {
+            // Remove driver/time overrides for this client to adopt new cluster's assignments
+            return false;
+          }
+          return true;
+        });
+      }
+
       const targetClusterId = newClusterId || oldClusterId;
 
       // Map popup driver/time changes are cluster-scoped: update the whole cluster assignment.
