@@ -3,6 +3,7 @@ import Papa from "papaparse";
 import { Cluster } from "./DeliverySpreadsheet";
 import { RowData } from "./types/deliveryTypes";
 import { getExportConfig } from "../../config/exportConfig";
+import { resolveAssignmentValue } from "./utils/assignmentOverrides";
 
 const formatTime = (time: string): string => {
   if (!time) return "No time assigned";
@@ -21,27 +22,26 @@ export interface ExportFeedback {
   message: string;
 }
 
-const getClusterForRow = (clusters: Cluster[], rowId: string) =>
-  clusters.find((cluster) => cluster.deliveries?.includes(rowId));
-
 interface ClientOverride {
   clientId: string;
   driver?: string;
   time?: string;
 }
 
+const getClusterForRow = (clusters: Cluster[], rowId: string) =>
+  clusters.find((cluster) => cluster.deliveries?.includes(rowId));
+
+const getClientOverrideForRow = (clientOverrides: ClientOverride[], rowId: string) =>
+  clientOverrides.find((override) => override.clientId === rowId);
+
 const getEffectiveDriver = (
   row: RowData,
   clusters: Cluster[],
   clientOverrides: ClientOverride[]
 ): string => {
-  const override = clientOverrides.find((item) => item.clientId === row.id);
-  if (override?.driver) {
-    return override.driver;
-  }
-
   const cluster = getClusterForRow(clusters, row.id);
-  return cluster?.driver || "";
+  const override = getClientOverrideForRow(clientOverrides, row.id);
+  return resolveAssignmentValue(override?.driver, cluster?.driver) || "";
 };
 
 const getEffectiveTime = (
@@ -49,19 +49,16 @@ const getEffectiveTime = (
   clusters: Cluster[],
   clientOverrides: ClientOverride[]
 ): string => {
-  const override = clientOverrides.find((item) => item.clientId === row.id);
-  if (override?.time) {
-    return override.time;
-  }
-
   const cluster = getClusterForRow(clusters, row.id);
-  return cluster?.time || "";
+  const override = getClientOverrideForRow(clientOverrides, row.id);
+  return resolveAssignmentValue(override?.time, cluster?.time) || "";
 };
 
 export const exportDeliveries = async (
   deliveryDate: string,
   rowsToExport: RowData[],
-  clusters: Cluster[]
+  clusters: Cluster[],
+  clientOverrides: ClientOverride[] = []
 ): Promise<ExportFeedback> => {
   try {
     if (rowsToExport.length === 0) {
@@ -71,10 +68,31 @@ export const exportDeliveries = async (
       };
     }
 
+    const unassignedRows = rowsToExport.filter((row) => !getClusterForRow(clusters, row.id));
+    if (unassignedRows.length > 0) {
+      return {
+        status: "warning",
+        message: `Cannot export: ${unassignedRows.length} ${
+          unassignedRows.length === 1 ? "delivery is" : "deliveries are"
+        } still unassigned.`,
+      };
+    }
+
+    const rowsWithoutDriver = rowsToExport.filter((row) => {
+      return !getEffectiveDriver(row, clusters, clientOverrides);
+    });
+    if (rowsWithoutDriver.length > 0) {
+      return {
+        status: "warning",
+        message: `Cannot export: ${rowsWithoutDriver.length} ${
+          rowsWithoutDriver.length === 1 ? "delivery does" : "deliveries do"
+        } not have an assigned driver.`,
+      };
+    }
+
     const groupedByDriver: Record<string, RowData[]> = {};
     rowsToExport.forEach((row) => {
-      const cluster = getClusterForRow(clusters, row.id);
-      const driverName = cluster?.driver || "Unassigned";
+      const driverName = getEffectiveDriver(row, clusters, clientOverrides) || "Unassigned";
 
       if (!groupedByDriver[driverName]) {
         groupedByDriver[driverName] = [];
@@ -116,7 +134,7 @@ export const exportDeliveries = async (
 
             const cluster = getClusterForRow(clusters, row.id);
             const clusterNumber = cluster?.id || "";
-            const assignedTime = formatTime(cluster?.time || "");
+            const assignedTime = formatTime(getEffectiveTime(row, clusters, clientOverrides));
 
             const rowData = row as any;
 
@@ -209,6 +227,17 @@ export const exportDoordashDeliveries = async (
         message: "No deliveries selected or available for export on the selected date.",
       };
     }
+
+    const unassignedRows = rowsToExport.filter((row) => !getClusterForRow(clusters, row.id));
+    if (unassignedRows.length > 0) {
+      return {
+        status: "warning",
+        message: `Cannot export: ${unassignedRows.length} ${
+          unassignedRows.length === 1 ? "delivery is" : "deliveries are"
+        } still unassigned.`,
+      };
+    }
+
     const doordashRows = rowsToExport.filter(
       (row) => getEffectiveDriver(row, clusters, clientOverrides) === "DoorDash"
     );

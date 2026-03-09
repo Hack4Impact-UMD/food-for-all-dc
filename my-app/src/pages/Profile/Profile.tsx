@@ -2700,11 +2700,11 @@ const Profile = () => {
             await Promise.all(deletePromises);
             deliveryService.clearDateRangeCache();
             const invalidationResult =
-              await deliveryService.clearClusterAssignmentsForDateKeys(deletedDateKeys);
+              await deliveryService.reconcileClusterAssignmentsForDateKeys(deletedDateKeys);
             deliveryEventEmitter.emit({
               reason: "schedule-batch-deleted",
               impactedDateKeys: deletedDateKeys,
-              clearedClusterDateKeys: invalidationResult.clearedDateKeys,
+              reviewRequiredDateKeys: invalidationResult.reviewRequiredDateKeys,
               failedClusterDateKeys: invalidationResult.failedDateKeys,
             });
           }

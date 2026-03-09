@@ -26,11 +26,10 @@ import {
   deliveryEventEmitter,
 } from "../utils/deliveryEventEmitter";
 
-export interface ClusterInvalidationResult {
+export interface ClusterReconciliationResult {
   impactedDateKeys: string[];
-  clearedDateKeys: string[];
+  reviewRequiredDateKeys: string[];
   failedDateKeys: string[];
-  clearedDocCount: number;
 }
 
 const MAX_BATCH_WRITE_COUNT = 500;
@@ -52,14 +51,161 @@ class DeliveryService {
   private emitDeliveryChange(
     reason: DeliveryChangeReason,
     impactedDateKeys: string[],
-    invalidationResult: ClusterInvalidationResult
+    invalidationResult: ClusterReconciliationResult
   ) {
     deliveryEventEmitter.emit({
       reason,
       impactedDateKeys,
-      clearedClusterDateKeys: invalidationResult.clearedDateKeys,
+      reviewRequiredDateKeys: invalidationResult.reviewRequiredDateKeys,
       failedClusterDateKeys: invalidationResult.failedDateKeys,
     });
+  }
+
+  private normalizeOptionalString(value: unknown): string | undefined {
+    if (typeof value !== "string") {
+      return undefined;
+    }
+
+    const normalizedValue = value.trim();
+    return normalizedValue ? normalizedValue : undefined;
+  }
+
+  private async getActiveClientIdsForDateKey(dateKey: string): Promise<string[]> {
+    const range = this.getClusterDateRange(dateKey);
+    if (!range) {
+      return [];
+    }
+
+    const eventQuery = query(
+      collection(this.db, this.eventsCollection),
+      where("deliveryDate", ">=", range.start),
+      where("deliveryDate", "<=", range.end),
+      orderBy("deliveryDate", "asc")
+    );
+    const snapshot = await getDocs(eventQuery);
+
+    return Array.from(
+      new Set(
+        snapshot.docs
+          .map((docSnapshot) => {
+            const clientId = docSnapshot.data().clientId;
+            return typeof clientId === "string" ? clientId.trim() : "";
+          })
+          .filter(Boolean)
+      )
+    );
+  }
+
+  private reconcileClusterState(
+    docData: Record<string, any>,
+    activeClientIds: string[]
+  ): {
+    clusters: Record<string, any>[];
+    clientOverrides: Record<string, any>[];
+    reviewRequired: boolean;
+    changed: boolean;
+  } {
+    const activeClientIdSet = new Set(activeClientIds);
+    const originalClusters = Array.isArray(docData.clusters) ? docData.clusters : [];
+    const originalOverrides = Array.isArray(docData.clientOverrides) ? docData.clientOverrides : [];
+    const assignedClientIds = new Set<string>();
+
+    const reconciledClusters = originalClusters.reduce(
+      (clusters: Record<string, any>[], cluster: any) => {
+        if (!cluster || typeof cluster !== "object") {
+          return clusters;
+        }
+
+        const seenClusterClientIds = new Set<string>();
+        const deliveries = Array.isArray(cluster.deliveries)
+          ? cluster.deliveries.reduce((clientIds: string[], clientId: unknown) => {
+              if (typeof clientId !== "string") {
+                return clientIds;
+              }
+
+              const normalizedClientId = clientId.trim();
+              if (
+                !normalizedClientId ||
+                !activeClientIdSet.has(normalizedClientId) ||
+                seenClusterClientIds.has(normalizedClientId) ||
+                assignedClientIds.has(normalizedClientId)
+              ) {
+                return clientIds;
+              }
+
+              seenClusterClientIds.add(normalizedClientId);
+              assignedClientIds.add(normalizedClientId);
+              clientIds.push(normalizedClientId);
+              return clientIds;
+            }, [] as string[])
+          : [];
+
+        if (deliveries.length === 0) {
+          return clusters;
+        }
+
+        clusters.push({
+          ...cluster,
+          deliveries,
+        });
+        return clusters;
+      },
+      [] as Record<string, any>[]
+    );
+
+    const reconciledOverrides = originalOverrides.reduce(
+      (overrides: Record<string, any>[], override: any) => {
+        if (!override || typeof override !== "object" || typeof override.clientId !== "string") {
+          return overrides;
+        }
+
+        const clientId = override.clientId.trim();
+        if (!clientId || !activeClientIdSet.has(clientId)) {
+          return overrides;
+        }
+
+        const driver = this.normalizeOptionalString(override.driver);
+        const time = this.normalizeOptionalString(override.time);
+        if (!driver && !time) {
+          return overrides;
+        }
+
+        const nextOverride: Record<string, any> = { clientId };
+        if (driver) {
+          nextOverride.driver = driver;
+        }
+        if (time) {
+          nextOverride.time = time;
+        }
+
+        overrides.push(nextOverride);
+        return overrides;
+      },
+      [] as Record<string, any>[]
+    );
+
+    const hadAssignments =
+      originalClusters.some(
+        (cluster) => Array.isArray(cluster?.deliveries) && cluster.deliveries.length > 0
+      ) || originalOverrides.length > 0;
+    const reviewRequired =
+      hadAssignments && activeClientIds.some((clientId) => !assignedClientIds.has(clientId));
+    const changed =
+      JSON.stringify({
+        clusters: originalClusters,
+        clientOverrides: originalOverrides,
+      }) !==
+      JSON.stringify({
+        clusters: reconciledClusters,
+        clientOverrides: reconciledOverrides,
+      });
+
+    return {
+      clusters: reconciledClusters,
+      clientOverrides: reconciledOverrides,
+      reviewRequired,
+      changed,
+    };
   }
 
   private normalizeEventForWrite(event: Partial<DeliveryEvent>): Partial<DeliveryEvent> {
@@ -122,7 +268,7 @@ class DeliveryService {
         event.deliveryDate ? deliveryDate.toISODateString(event.deliveryDate as any) : null
       )
     );
-    const invalidationResult = await this.clearClusterAssignmentsForDateKeys(impactedDateKeys);
+    const invalidationResult = await this.reconcileClusterAssignmentsForDateKeys(impactedDateKeys);
     this.emitDeliveryChange(reason, impactedDateKeys, invalidationResult);
 
     return docIds;
@@ -149,7 +295,8 @@ class DeliveryService {
       );
       await Promise.all(batchDeletes);
       this.invalidateCacheForClient(clientId);
-      const invalidationResult = await this.clearClusterAssignmentsForDateKeys(impactedDateKeys);
+      const invalidationResult =
+        await this.reconcileClusterAssignmentsForDateKeys(impactedDateKeys);
       this.emitDeliveryChange("schedule-batch-deleted", impactedDateKeys, invalidationResult);
     } catch (error) {
       throw formatServiceError(error, "Failed to delete deliveries for client");
@@ -314,15 +461,14 @@ class DeliveryService {
     }
   }
 
-  public async clearClusterAssignmentsForDateKeys(
+  public async reconcileClusterAssignmentsForDateKeys(
     dateKeys: string[]
-  ): Promise<ClusterInvalidationResult> {
+  ): Promise<ClusterReconciliationResult> {
     const impactedDateKeys = this.normalizeDateKeys(dateKeys);
-    const result: ClusterInvalidationResult = {
+    const result: ClusterReconciliationResult = {
       impactedDateKeys,
-      clearedDateKeys: [],
+      reviewRequiredDateKeys: [],
       failedDateKeys: [],
-      clearedDocCount: 0,
     };
 
     if (!impactedDateKeys.length) {
@@ -337,42 +483,53 @@ class DeliveryService {
         }
 
         try {
-          const snapshot = await retry(async () => {
-            const clusterQuery = query(
-              collection(this.db, this.clustersCollection),
-              where("date", ">=", range.start),
-              where("date", "<=", range.end),
-              orderBy("date", "asc")
-            );
+          const [activeClientIds, snapshot] = await Promise.all([
+            retry(async () => this.getActiveClientIdsForDateKey(dateKey)),
+            retry(async () => {
+              const clusterQuery = query(
+                collection(this.db, this.clustersCollection),
+                where("date", ">=", range.start),
+                where("date", "<=", range.end),
+                orderBy("date", "asc")
+              );
 
-            return getDocs(clusterQuery);
-          });
+              return getDocs(clusterQuery);
+            }),
+          ]);
 
           if (snapshot.empty) {
             return;
           }
 
-          await retry(async () => {
-            await Promise.all(
-              snapshot.docs.map((clusterDoc) =>
-                updateDoc(clusterDoc.ref, {
-                  clusters: [],
-                  clientOverrides: [],
-                })
-              )
-            );
-          });
+          const reconciledState = this.reconcileClusterState(
+            snapshot.docs[0].data() as Record<string, any>,
+            activeClientIds
+          );
 
-          result.clearedDateKeys.push(dateKey);
-          result.clearedDocCount += snapshot.size;
+          if (reconciledState.changed || snapshot.size > 1) {
+            await retry(async () => {
+              await Promise.all(
+                snapshot.docs.map((clusterDoc) =>
+                  updateDoc(clusterDoc.ref, {
+                    clusters: reconciledState.clusters,
+                    clientOverrides: reconciledState.clientOverrides,
+                  })
+                )
+              );
+            });
+          }
+
+          if (reconciledState.reviewRequired) {
+            result.reviewRequiredDateKeys.push(dateKey);
+          }
         } catch (error) {
-          console.error(`Failed to clear cluster assignments for ${dateKey}:`, error);
+          console.error(`Failed to reconcile cluster assignments for ${dateKey}:`, error);
           result.failedDateKeys.push(dateKey);
         }
       })
     );
 
-    result.clearedDateKeys.sort();
+    result.reviewRequiredDateKeys.sort();
     result.failedDateKeys.sort();
     return result;
   }
@@ -426,7 +583,8 @@ class DeliveryService {
           : null,
         cleanData.deliveryDate ? deliveryDate.toISODateString(cleanData.deliveryDate as any) : null,
       ]);
-      const invalidationResult = await this.clearClusterAssignmentsForDateKeys(impactedDateKeys);
+      const invalidationResult =
+        await this.reconcileClusterAssignmentsForDateKeys(impactedDateKeys);
       this.emitDeliveryChange("schedule-updated", impactedDateKeys, invalidationResult);
     } catch (error) {
       throw formatServiceError(error, "Failed to update event");
@@ -461,7 +619,8 @@ class DeliveryService {
           ? deliveryDate.toISODateString(existingData.deliveryDate as any)
           : null,
       ]);
-      const invalidationResult = await this.clearClusterAssignmentsForDateKeys(impactedDateKeys);
+      const invalidationResult =
+        await this.reconcileClusterAssignmentsForDateKeys(impactedDateKeys);
       this.emitDeliveryChange("schedule-deleted", impactedDateKeys, invalidationResult);
     } catch (error) {
       throw formatServiceError(error, "Failed to delete event");

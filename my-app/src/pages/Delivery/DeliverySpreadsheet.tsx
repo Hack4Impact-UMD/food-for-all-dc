@@ -89,12 +89,6 @@ import { deliveryDate } from "../../utils/deliveryDate";
 import { deliveryEventEmitter } from "../../utils/deliveryEventEmitter";
 import { useNotifications } from "../../components/NotificationProvider";
 import {
-  clearClearedRouteNotice,
-  dismissClearedRouteNotice,
-  formatDeliveryDateLabel,
-  hasClearedRouteNotice,
-} from "../../utils/deliveryRouteClearNotice";
-import {
   hasAssignmentValue,
   normalizeAssignmentValue,
   resolveAssignmentValue,
@@ -444,7 +438,6 @@ const DeliverySpreadsheet: React.FC = () => {
       await updateDoc(clusterRef, { clusters: [], clientOverrides: [] });
       setClusters([]);
       setClientOverrides([]);
-      clearCurrentRouteClearBanner();
     } catch (error) {
       console.error("Error resetting clusters:", error);
     }
@@ -500,7 +493,6 @@ const DeliverySpreadsheet: React.FC = () => {
     [selectedDate]
   );
   const { showError, showInfo, showSuccess, showWarning } = useNotifications();
-  const [showRouteClearBanner, setShowRouteClearBanner] = useState(false);
 
   const [deliveriesForDate, setDeliveriesForDate] = useState<
     Array<Omit<DeliveryEvent, "deliveryDate"> & { deliveryDate: Date | import("luxon").DateTime }>
@@ -562,11 +554,6 @@ const DeliverySpreadsheet: React.FC = () => {
     }
     setOpen(false);
   };
-
-  const clearCurrentRouteClearBanner = React.useCallback(() => {
-    clearClearedRouteNotice(selectedDateKey);
-    setShowRouteClearBanner(false);
-  }, [selectedDateKey]);
 
   const notifyExportFeedback = React.useCallback(
     (feedback: { status: "success" | "error" | "warning" | "info"; message: string }) => {
@@ -636,7 +623,6 @@ const DeliverySpreadsheet: React.FC = () => {
           clientOverrides: sanitizedOverrides,
         });
 
-        clearCurrentRouteClearBanner();
         resetSelections();
       } catch (error) {
         console.error("Error assigning time: ", error);
@@ -937,20 +923,12 @@ const DeliverySpreadsheet: React.FC = () => {
     fetchClustersFromToday(selectedDate);
   }, [selectedDate, fetchClustersFromToday]);
 
-  useEffect(() => {
-    setShowRouteClearBanner(hasClearedRouteNotice(selectedDateKey));
-  }, [selectedDateKey]);
-
   // Refresh deliveries and clusters when they are modified elsewhere in the app
   useEffect(() => {
     const unsubscribe = deliveryEventEmitter.subscribe((event) => {
-      if (event.clearedClusterDateKeys.includes(selectedDateKey)) {
-        setShowRouteClearBanner(true);
-      }
-
       const affectedDateKeys = new Set([
         ...event.impactedDateKeys,
-        ...event.clearedClusterDateKeys,
+        ...event.reviewRequiredDateKeys,
         ...event.failedClusterDateKeys,
       ]);
 
@@ -1070,7 +1048,6 @@ const DeliverySpreadsheet: React.FC = () => {
         clientOverrides: sanitizeClientOverridesForFirestore(updatedOverrides),
       });
 
-      clearCurrentRouteClearBanner();
       // setRows(prevRows => prevRows.map r => r.id === row.id ? { ...r, clusterId: newClusterId } : r));
     } catch (error) {
       console.error("Error updating clusters in Firestore:", error);
@@ -1085,7 +1062,12 @@ const DeliverySpreadsheet: React.FC = () => {
         showInfo("Email export is not implemented yet.");
       } else if (option === "Download") {
         notifyExportFeedback(
-          await exportDeliveries(TimeUtils.fromJSDate(selectedDate).toISODate() || "", rows, clusters)
+          await exportDeliveries(
+            TimeUtils.fromJSDate(selectedDate).toISODate() || "",
+            rows,
+            clusters,
+            clientOverrides
+          )
         );
       }
     } else if (exportOption === "Doordash") {
@@ -1161,7 +1143,6 @@ const DeliverySpreadsheet: React.FC = () => {
         clientOverrides: sanitizedOverrides,
       });
 
-      clearCurrentRouteClearBanner();
       resetSelections();
     } catch (error) {
       console.error("Error assigning driver: ", error);
@@ -1315,7 +1296,6 @@ const DeliverySpreadsheet: React.FC = () => {
         clientOverrides: sanitizedOverrides,
       });
 
-      clearCurrentRouteClearBanner();
       // Remove the client from selected rows since their cluster assignment changed
       if (oldClusterId !== newClusterId) {
         const newSelectedRows = new Set(selectedRows);
@@ -1389,7 +1369,6 @@ const DeliverySpreadsheet: React.FC = () => {
     setClustersOriginal(normalizedClusters); // Update state after successful Firestore creation
     setClusterDoc(newClusterDoc);
     setClientOverrides([]);
-    clearCurrentRouteClearBanner();
   };
 
   // Helper function to check if coordinates are valid
@@ -1671,7 +1650,6 @@ const DeliverySpreadsheet: React.FC = () => {
         setClusterDoc((prevDoc) =>
           prevDoc ? { ...prevDoc, clusters: normalizedClusters, clientOverrides: [] } : null
         );
-        clearCurrentRouteClearBanner();
       } else {
         await initClustersForDay(newClusters); // Make sure this also sets state correctly
       }
@@ -1976,6 +1954,11 @@ const DeliverySpreadsheet: React.FC = () => {
 
     return matches;
   });
+
+  const unassignedRouteCount = useMemo(
+    () => rows.filter((row) => !row.clusterId).length,
+    [rows]
+  );
 
   // Create sorted version of visible rows - supports fullname, clusterIdChange, tags, address, ward, assignedDriver, assignedTime, deliveryInstructions, and custom columns sorting
   const sortedRows = useMemo(() => {
@@ -2527,18 +2510,13 @@ const DeliverySpreadsheet: React.FC = () => {
         </Button>
       </div>
 
-      {showRouteClearBanner ? (
-        <Alert
-          severity="warning"
-          onClose={() => {
-            dismissClearedRouteNotice(selectedDateKey);
-            setShowRouteClearBanner(false);
-          }}
-          sx={{ mb: 2 }}
-        >
-          {`Saved route assignments for ${formatDeliveryDateLabel(
-            selectedDateKey
-          )} were cleared because deliveries changed. Reassign routes before exporting.`}
+      {clusterDoc !== undefined && !isMainLoading && rows.length > 0 && unassignedRouteCount > 0 ? (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          {`There ${
+            unassignedRouteCount === 1 ? "is" : "are"
+          } ${unassignedRouteCount} ${
+            unassignedRouteCount === 1 ? "delivery" : "deliveries"
+          } on this date without a route assignment.`}
         </Alert>
       ) : null}
 
@@ -2561,7 +2539,7 @@ const DeliverySpreadsheet: React.FC = () => {
             <ClusterMap
               clusters={clusters}
               visibleRows={visibleRows}
-              totalDeliveries={deliveriesForDate.length}
+              totalDeliveries={rows.length}
               clientOverrides={clientOverrides}
               onClusterUpdate={handleIndividualClientUpdate}
               onOpenPopup={handleRowClick}
@@ -2726,7 +2704,7 @@ const DeliverySpreadsheet: React.FC = () => {
         const dailyLimit =
           limits && limits.length > adjustedDayOfWeek ? limits[adjustedDayOfWeek] : undefined;
 
-        return <EventCountHeader events={deliveriesForDate} limit={dailyLimit} />;
+        return <EventCountHeader events={isMainLoading ? deliveriesForDate : rows} limit={dailyLimit} />;
       })()}
       <Box
         sx={{

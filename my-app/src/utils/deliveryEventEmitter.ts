@@ -9,7 +9,7 @@ type DeliveryChangeReason =
 export interface DeliveryChangeEvent {
   reason: DeliveryChangeReason;
   impactedDateKeys: string[];
-  clearedClusterDateKeys: string[];
+  reviewRequiredDateKeys: string[];
   failedClusterDateKeys: string[];
 }
 
@@ -37,7 +37,7 @@ class DeliveryEventEmitter {
         detail: {
           ...event,
           impactedDateKeys: Array.from(new Set(event.impactedDateKeys)),
-          clearedClusterDateKeys: Array.from(new Set(event.clearedClusterDateKeys)),
+          reviewRequiredDateKeys: Array.from(new Set(event.reviewRequiredDateKeys)),
           failedClusterDateKeys: Array.from(new Set(event.failedClusterDateKeys)),
         },
       })

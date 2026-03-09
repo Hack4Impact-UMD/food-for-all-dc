@@ -237,11 +237,11 @@ const EventMenu: React.FC<EventMenuProps> = ({
 
       deliveryService.clearDateRangeCache();
       const invalidationResult =
-        await deliveryService.clearClusterAssignmentsForDateKeys(impactedDateKeys);
+        await deliveryService.reconcileClusterAssignmentsForDateKeys(impactedDateKeys);
       deliveryEventEmitter.emit({
         reason: deleteOption === "This event" ? "schedule-deleted" : "schedule-batch-deleted",
         impactedDateKeys,
-        clearedClusterDateKeys: invalidationResult.clearedDateKeys,
+        reviewRequiredDateKeys: invalidationResult.reviewRequiredDateKeys,
         failedClusterDateKeys: invalidationResult.failedDateKeys,
       });
       onEventModified();
@@ -407,12 +407,12 @@ const EventMenu: React.FC<EventMenuProps> = ({
       deliveryService.clearDateRangeCache();
       if (impactedDateKeys.length > 0) {
         const invalidationResult =
-          await deliveryService.clearClusterAssignmentsForDateKeys(impactedDateKeys);
+          await deliveryService.reconcileClusterAssignmentsForDateKeys(impactedDateKeys);
         deliveryEventEmitter.emit({
           reason:
             editOption === "This event" ? "schedule-updated" : "schedule-batch-updated",
           impactedDateKeys,
-          clearedClusterDateKeys: invalidationResult.clearedDateKeys,
+          reviewRequiredDateKeys: invalidationResult.reviewRequiredDateKeys,
           failedClusterDateKeys: invalidationResult.failedDateKeys,
         });
       }
