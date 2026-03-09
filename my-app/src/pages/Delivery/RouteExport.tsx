@@ -17,10 +17,34 @@ export interface ExportFeedback {
   message: string;
 }
 
-type ExportAssignmentKey = "driver" | "time";
-
 const getClusterForRow = (clusters: Cluster[], rowId: string) =>
   clusters.find((cluster) => cluster.deliveries?.includes(rowId));
+
+const getClientOverrideForRow = (clientOverrides: ClientOverride[], rowId: string) =>
+  clientOverrides.find((override) => override.clientId === rowId);
+
+const getEffectiveDriver = (
+  row: RowData,
+  clusters: Cluster[],
+  clientOverrides: ClientOverride[]
+): string => {
+  const cluster = getClusterForRow(clusters, row.id);
+  const override = getClientOverrideForRow(clientOverrides, row.id);
+
+  return (
+    resolveAssignmentValue(override?.driver, normalizeDriverAssignmentValue(cluster?.driver)) || ""
+  );
+};
+
+const getEffectiveTime = (
+  row: RowData,
+  clusters: Cluster[],
+  clientOverrides: ClientOverride[]
+): string => {
+  const cluster = getClusterForRow(clusters, row.id);
+  const override = getClientOverrideForRow(clientOverrides, row.id);
+  return resolveAssignmentValue(override?.time, normalizeAssignmentValue(cluster?.time)) || "";
+};
 
 const compareText = (left: string, right: string) =>
   left.localeCompare(right, undefined, { sensitivity: "base", numeric: true });
@@ -40,6 +64,7 @@ const compareTimes = (left: string, right: string) => {
 
   const [leftHours, leftMinutes] = left.split(":").map((value) => parseInt(value, 10));
   const [rightHours, rightMinutes] = right.split(":").map((value) => parseInt(value, 10));
+
   return leftHours * 60 + leftMinutes - (rightHours * 60 + rightMinutes);
 };
 
@@ -103,22 +128,6 @@ const buildFeedbackMessage = (baseMessage: string, skippedReasonCounts: Map<stri
   return `${baseMessage} Skipped ${skippedCount} deliveries: ${skippedReasons}.`;
 };
 
-const resolveExportAssignmentValue = (
-  clusters: Cluster[],
-  clientOverrides: ClientOverride[],
-  rowId: string,
-  key: ExportAssignmentKey
-): string | undefined => {
-  const override = clientOverrides.find((candidate) => candidate.clientId === rowId);
-  const cluster = getClusterForRow(clusters, rowId);
-  const clusterValue =
-    key === "driver"
-      ? normalizeDriverAssignmentValue(cluster?.driver)
-      : normalizeAssignmentValue(cluster?.time);
-
-  return resolveAssignmentValue(key === "driver" ? override?.driver : override?.time, clusterValue);
-};
-
 const buildRouteCsvRow = (
   row: RowData,
   deliveryDate: string,
@@ -126,8 +135,6 @@ const buildRouteCsvRow = (
   clientOverrides: ClientOverride[]
 ) => {
   const cluster = getClusterForRow(clusters, row.id);
-  const clusterNumber = cluster?.id || row.clusterId || "";
-  const assignedTime = resolveExportAssignmentValue(clusters, clientOverrides, row.id, "time");
   const rowData = row as RowData & {
     quadrant?: string;
     adults?: number;
@@ -152,8 +159,8 @@ const buildRouteCsvRow = (
     ),
     tefapFY25: row.tags?.includes("Tefap") ? "Y" : "N",
     deliveryDate,
-    cluster: clusterNumber,
-    time: formatAssignedTime(assignedTime),
+    cluster: cluster?.id || row.clusterId || "",
+    time: formatAssignedTime(getEffectiveTime(row, clusters, clientOverrides)),
   };
 };
 
@@ -198,7 +205,7 @@ const validateDoorDashRows = (
 
   rowsToExport.forEach((row) => {
     const rowData = row as RowData & { city?: string; state?: string };
-    const assignedTime = resolveExportAssignmentValue(clusters, clientOverrides, row.id, "time");
+    const assignedTime = getEffectiveTime(row, clusters, clientOverrides);
 
     if (!normalizeAssignmentValue(assignedTime)) incrementMissing("assigned time");
     if (!row.firstName?.trim()) incrementMissing("first name");
@@ -271,43 +278,56 @@ export const exportDeliveries = async (
       };
     }
 
-    const groupedByDriver: Record<string, RowData[]> = {};
-    rowsToExport.forEach((row) => {
-      const driverName = resolveExportAssignmentValue(clusters, clientOverrides, row.id, "driver");
-      const key = driverName || "Unassigned";
-
-      if (!groupedByDriver[key]) {
-        groupedByDriver[key] = [];
-      }
-
-      groupedByDriver[key].push(row);
-    });
-
-    const unassignedCount = groupedByDriver.Unassigned?.length ?? 0;
-    const driverNames = Object.keys(groupedByDriver);
-    if (driverNames.length === 1 && unassignedCount > 0) {
+    const unassignedRows = rowsToExport.filter((row) => !getClusterForRow(clusters, row.id));
+    if (unassignedRows.length > 0) {
       return {
         status: "warning",
-        message:
-          "Cannot export: all selected deliveries are currently unassigned. Please assign drivers before exporting.",
+        message: `Cannot export: ${unassignedRows.length} ${
+          unassignedRows.length === 1 ? "delivery is" : "deliveries are"
+        } still unassigned.`,
+      };
+    }
+
+    const rowsWithoutDriver = rowsToExport.filter(
+      (row) => !getEffectiveDriver(row, clusters, clientOverrides)
+    );
+    if (rowsWithoutDriver.length > 0) {
+      return {
+        status: "warning",
+        message: `Cannot export: ${rowsWithoutDriver.length} ${
+          rowsWithoutDriver.length === 1 ? "delivery does" : "deliveries do"
+        } not have an assigned driver.`,
+      };
+    }
+
+    const groupedByDriver: Record<string, RowData[]> = {};
+    rowsToExport.forEach((row) => {
+      const driverName = getEffectiveDriver(row, clusters, clientOverrides) || "Unassigned";
+
+      if (!groupedByDriver[driverName]) {
+        groupedByDriver[driverName] = [];
+      }
+
+      groupedByDriver[driverName].push(row);
+    });
+
+    const driverNames = Object.keys(groupedByDriver).filter(
+      (driverName) => driverName !== "Unassigned"
+    );
+    if (driverNames.length === 0) {
+      return {
+        status: "warning",
+        message: "Cannot export: all selected deliveries are currently unassigned.",
       };
     }
 
     const JSZip = (await import("jszip")).default;
     const zip = new JSZip();
     const config = getExportConfig();
-    let filesCreated = 0;
     const skippedReasonCounts = new Map<string, number>();
+    let filesCreated = 0;
 
-    if (unassignedCount > 0) {
-      recordSkippedReason(skippedReasonCounts, "without assigned drivers", unassignedCount);
-    }
-
-    const sortedDriverNames = driverNames
-      .filter((driverName) => driverName !== "Unassigned")
-      .sort(compareText);
-
-    for (const driverName of sortedDriverNames) {
+    driverNames.sort(compareText).forEach((driverName) => {
       const csvData: Array<Record<string, unknown>> = [];
 
       sortRowsForExport(groupedByDriver[driverName]).forEach((row) => {
@@ -319,7 +339,7 @@ export const exportDeliveries = async (
       });
 
       if (csvData.length === 0) {
-        continue;
+        return;
       }
 
       const csv = Papa.unparse(normalizeCsvRows(csvData));
@@ -328,7 +348,7 @@ export const exportDeliveries = async (
       );
       zip.file(fileName, csv);
       filesCreated += 1;
-    }
+    });
 
     if (filesCreated === 0) {
       return {
@@ -373,9 +393,18 @@ export const exportDoordashDeliveries = async (
       };
     }
 
+    const unassignedRows = rowsToExport.filter((row) => !getClusterForRow(clusters, row.id));
+    if (unassignedRows.length > 0) {
+      return {
+        status: "warning",
+        message: `Cannot export: ${unassignedRows.length} ${
+          unassignedRows.length === 1 ? "delivery is" : "deliveries are"
+        } still unassigned.`,
+      };
+    }
+
     const doordashRows = rowsToExport.filter(
-      (row) =>
-        resolveExportAssignmentValue(clusters, clientOverrides, row.id, "driver") === "DoorDash"
+      (row) => getEffectiveDriver(row, clusters, clientOverrides) === "DoorDash"
     );
 
     if (doordashRows.length === 0) {
@@ -402,14 +431,13 @@ export const exportDoordashDeliveries = async (
 
     const groupedByTime: Record<string, RowData[]> = {};
     doordashRows.forEach((row) => {
-      const assignedTime =
-        resolveExportAssignmentValue(clusters, clientOverrides, row.id, "time") || "";
+      const time = getEffectiveTime(row, clusters, clientOverrides);
 
-      if (!groupedByTime[assignedTime]) {
-        groupedByTime[assignedTime] = [];
+      if (!groupedByTime[time]) {
+        groupedByTime[time] = [];
       }
 
-      groupedByTime[assignedTime].push(row);
+      groupedByTime[time].push(row);
     });
 
     const JSZip = (await import("jszip")).default;
