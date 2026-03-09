@@ -21,7 +21,13 @@ import { useNavigate } from "react-router-dom";
 import LoadingIndicator from "../../components/LoadingIndicator/LoadingIndicator";
 import Guide from "./Guide";
 import { useNotifications } from "../../components/NotificationProvider";
-import { exportToCSV, formatDateRange } from "../../utils/reportExport";
+import {
+  exportToCSV,
+  formatDateRange,
+  getReportRangeKey,
+  isReportExportDisabled,
+} from "../../utils/reportExport";
+import { CsvExportError } from "../../utils/csvExport";
 
 interface ReferralClient {
   id: string;
@@ -32,11 +38,12 @@ interface ReferralClient {
 
 const ReferralAgenciesReport: React.FC = () => {
   const navigate = useNavigate();
-  const { showError, showSuccess } = useNotifications();
+  const { showError, showSuccess, showWarning } = useNotifications();
 
   const [expandedPanels, setExpandedPanels] = useState<number[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [hasGenerated, setHasGenerated] = useState(false);
+  const [generatedRangeKey, setGeneratedRangeKey] = useState("");
 
   const [data, setData] = useState<Record<string, ReferralClient[]>>({});
 
@@ -50,17 +57,24 @@ const ReferralAgenciesReport: React.FC = () => {
     return end ? new Date(end) : null;
   });
 
-  const caseworkerCacheRef = useRef<Record<string, string>>({});
+  const agencyCacheRef = useRef<Record<string, string>>({});
+  const currentRangeKey = getReportRangeKey(startDate, endDate);
+  const isExportDisabled = isReportExportDisabled({
+    isLoading,
+    hasGenerated,
+    generatedRangeKey,
+    currentRangeKey,
+  });
 
-  const getCaseworkerInformationById = async (id: string) => {
-    if (caseworkerCacheRef.current[id]) return caseworkerCacheRef.current[id];
+  const getReferralAgencyInformationById = async (id: string) => {
+    if (agencyCacheRef.current[id]) return agencyCacheRef.current[id];
 
     const ref = doc(db, dataSources.firebase.caseWorkersCollection, id);
     const snap = await getDoc(ref);
-    const cw = snap.data() as any;
-    const formatted = `${cw?.name ?? "Unknown"} - ${cw?.organization ?? "—"}  (${cw?.email ?? "—"}, ${cw?.phone ?? "—"})`;
+    const agency = snap.data() as any;
+    const formatted = `${agency?.name ?? "Unknown"} - ${agency?.organization ?? "—"}  (${agency?.email ?? "—"}, ${agency?.phone ?? "—"})`;
 
-    caseworkerCacheRef.current[id] = formatted;
+    agencyCacheRef.current[id] = formatted;
     return formatted;
   };
 
@@ -72,7 +86,7 @@ const ReferralAgenciesReport: React.FC = () => {
     const start = TimeUtils.fromJSDate(startDate).startOf("day");
     const end = TimeUtils.fromJSDate(endDate).endOf("day");
 
-    const byCaseworker: Record<string, ReferralClient[]> = {};
+    const byAgency: Record<string, ReferralClient[]> = {};
     let lastDoc: QueryDocumentSnapshot<DocumentData> | null = null;
 
     try {
@@ -97,18 +111,18 @@ const ReferralAgenciesReport: React.FC = () => {
         for (const docSnap of snap.docs) {
           const client = docSnap.data();
 
-          const caseworkerId: string | undefined = client?.referralEntity?.id;
-          if (!caseworkerId) continue;
+          const agencyId: string | undefined = client?.referralEntity?.id;
+          if (!agencyId) continue;
 
           if (!client.referredDate) continue;
 
           const referredDate = TimeUtils.fromISO(client.referredDate);
           if (referredDate < start || referredDate > end) continue;
 
-          const caseworker = await getCaseworkerInformationById(caseworkerId);
+          const agency = await getReferralAgencyInformationById(agencyId);
 
-          if (!byCaseworker[caseworker]) byCaseworker[caseworker] = [];
-          byCaseworker[caseworker].push({
+          if (!byAgency[agency]) byAgency[agency] = [];
+          byAgency[agency].push({
             id: docSnap.id,
             firstName: client.firstName,
             lastName: client.lastName,
@@ -120,10 +134,11 @@ const ReferralAgenciesReport: React.FC = () => {
         if (snap.size < BATCH_SIZE) break;
       }
     } catch (err) {
-      console.error("Failed to build caseworker report:", err);
+      console.error("Failed to build referral agencies report:", err);
+      throw err;
     }
 
-    return byCaseworker;
+    return byAgency;
   };
 
   const handleExport = () => {
@@ -143,10 +158,26 @@ const ReferralAgenciesReport: React.FC = () => {
 
     const dateRange = formatDateRange(startDate, endDate);
     const filename = `Referral_Agencies_Report_${dateRange}.csv`;
-    exportToCSV(csvData, filename);
+    try {
+      const exportedFilename = exportToCSV(csvData, filename);
+      showSuccess(`Exported ${exportedFilename}.`);
+    } catch (error) {
+      if (error instanceof CsvExportError && error.code === "EMPTY_DATA") {
+        showWarning(error.message);
+        return;
+      }
+
+      const message =
+        error instanceof Error ? error.message : "Failed to export referral agencies report.";
+      showError(message);
+    }
   };
 
   const generateReport = async () => {
+    if (!startDate || !endDate) {
+      return;
+    }
+
     setIsLoading(true);
     try {
       const report = await buildReport();
@@ -154,6 +185,7 @@ const ReferralAgenciesReport: React.FC = () => {
 
       setExpandedPanels([]);
       setHasGenerated(true);
+      setGeneratedRangeKey(currentRangeKey);
       showSuccess("Referral agencies report generated successfully");
     } catch (error) {
       console.error("Failed to generate referral agencies report:", error);
@@ -186,7 +218,8 @@ const ReferralAgenciesReport: React.FC = () => {
         setEndDate={setEndDate}
         generateReport={generateReport}
         onExport={handleExport}
-        hasData={hasGenerated}
+        exportDisabled={isExportDisabled}
+        isGenerating={isLoading}
       />
 
       {isLoading && <LoadingIndicator />}
@@ -239,9 +272,9 @@ const ReferralAgenciesReport: React.FC = () => {
           </Box>
 
           {Object.entries(data || {}).map(
-            ([caseworkerKey, clients]: [string, ReferralClient[]], index) => (
+            ([agencyKey, clients]: [string, ReferralClient[]], index) => (
               <Accordion
-                key={caseworkerKey}
+                key={agencyKey}
                 expanded={expandedPanels.includes(index)}
                 onChange={() => handleToggle(index)}
                 sx={{
@@ -269,7 +302,7 @@ const ReferralAgenciesReport: React.FC = () => {
                 >
                   <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                     <Typography variant="h6" sx={{ mr: 1 }}>
-                      {caseworkerKey}
+                      {agencyKey}
                     </Typography>
                     <Typography sx={{ opacity: 0.9 }}>
                       ({Array.isArray(clients) ? clients.length : 0})

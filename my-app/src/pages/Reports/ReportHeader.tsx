@@ -1,6 +1,5 @@
 import { Button, Alert } from "@mui/material";
 import DateRangePicker from "./DateRangePicker";
-import { useState } from "react";
 
 interface ReportHeaderProps {
   startDate: Date | null;
@@ -9,7 +8,8 @@ interface ReportHeaderProps {
   setEndDate: (date: Date | null) => void;
   generateReport?: () => any;
   onExport?: () => void;
-  hasData?: boolean;
+  exportDisabled?: boolean;
+  isGenerating?: boolean;
 }
 
 export default function ReportHeader({
@@ -19,10 +19,11 @@ export default function ReportHeader({
   setEndDate,
   generateReport,
   onExport,
-  hasData = false,
+  exportDisabled = true,
+  isGenerating = false,
 }: ReportHeaderProps) {
   const hasInvalidDateRange = startDate && endDate && startDate > endDate;
-  const isGenerateDisabled = !startDate || !endDate || !!hasInvalidDateRange;
+  const isGenerateDisabled = !startDate || !endDate || !!hasInvalidDateRange || isGenerating;
 
   return (
     <div
@@ -65,7 +66,7 @@ export default function ReportHeader({
             variant="contained"
             sx={{ backgroundColor: "var(--color-primary)" }}
             onClick={onExport}
-            disabled={!hasData}
+            disabled={exportDisabled}
           >
             Export
           </Button>

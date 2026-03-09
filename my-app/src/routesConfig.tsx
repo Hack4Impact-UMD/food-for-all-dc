@@ -11,7 +11,6 @@ import DeliverySpreadsheet from "./pages/Delivery/DeliverySpreadsheet";
 import SummaryReport from "./pages/Reports/SummaryReport";
 import ClientReport from "./pages/Reports/ClientReport";
 import ReferralAgenciesReport from "./pages/Reports/ReferralAgenciesReport";
-import CaseworkerReport from "./pages/Reports/CaseworkerReport";
 import ProtectedRoute from "./auth/ProtectedRoute";
 import { UserType } from "./types";
 
@@ -87,11 +86,6 @@ export const routesConfig: AppRoute[] = [
         element: <ReferralAgenciesReport />,
         meta: { title: "Referral Agencies Report", icon: "business" },
       },
-      // {
-      //   path: "reports/caseworker",
-      //   element: <CaseworkerReport />,
-      //   meta: { title: "Caseworker Report", icon: "person" },
-      // },
       {
         element: <ProtectedRoute allowedRoles={[UserType.Admin, UserType.Manager]} />,
         children: [
