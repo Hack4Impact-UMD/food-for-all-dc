@@ -7,12 +7,6 @@ import { UserType } from "../../types";
 import { useAuth } from "../../auth/AuthProvider";
 import EventCountHeader from "../../components/EventCountHeader";
 import { useLimits } from "../Calendar/components/useLimits";
-
-interface ClientOverride {
-  clientId: string;
-  driver?: string;
-  time?: string;
-}
 import React, { useState, useEffect, useMemo, Suspense } from "react";
 import AddCircleOutlineIcon from "@mui/icons-material/AddCircleOutline";
 import { getEventsByViewType } from "../Calendar/components/getEventsByViewType";
@@ -80,6 +74,10 @@ const ClusterMap = React.lazy(() => import("./ClusterMap"));
 import AssignDriverPopup from "./components/AssignDriverPopup";
 import GenerateClustersPopup from "./components/GenerateClustersPopup";
 import AssignTimePopup from "./components/AssignTimePopup";
+import RouteExportOptions, {
+  RouteExportOption,
+  RouteExportScope,
+} from "./components/RouteExportOptions";
 import LoadingIndicator from "../../components/LoadingIndicator/LoadingIndicator";
 import { exportDeliveries, exportDoordashDeliveries } from "./RouteExport";
 import Button from "@mui/material/Button";
@@ -95,8 +93,10 @@ import {
   hasClearedRouteNotice,
 } from "../../utils/deliveryRouteClearNotice";
 import {
+  ClientOverride,
   hasAssignmentValue,
   normalizeAssignmentValue,
+  normalizeDriverAssignmentValue,
   resolveAssignmentValue,
 } from "./utils/assignmentOverrides";
 import { TIME_SLOTS } from "./utils/timeSlots";
@@ -271,7 +271,9 @@ const getClusterAssignmentValue = (
   const cluster = clusters.find((candidate) => candidate.deliveries?.includes(clientId));
   const rawValue = key === "driver" ? cluster?.driver : cluster?.time;
 
-  return typeof rawValue === "string" ? normalizeAssignmentValue(rawValue) : undefined;
+  return key === "driver"
+    ? normalizeDriverAssignmentValue(rawValue)
+    : normalizeAssignmentValue(rawValue);
 };
 
 const formatAssignedTime = (time?: string): string => {
@@ -461,7 +463,8 @@ const DeliverySpreadsheet: React.FC = () => {
   const [popupMode, setPopupMode] = useState("");
   const [clusters, setClustersOriginal] = useState<Cluster[]>([]);
   const [selectedClusters, setSelectedClusters] = useState<Set<any>>(new Set());
-  const [exportOption, setExportOption] = useState<"Routes" | "Doordash" | null>(null);
+  const [exportOption, setExportOption] = useState<RouteExportOption | null>(null);
+  const [exportScope, setExportScope] = useState<RouteExportScope>("all");
 
   const [driversRefreshTrigger, setDriversRefreshTrigger] = useState<number>(0);
   const [highlightedRowId, setHighlightedRowId] = useState<string | null>(null);
@@ -495,10 +498,7 @@ const DeliverySpreadsheet: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const initialDate = searchParams.get("date");
   const [selectedDate, setSelectedDate] = useState<Date>(parseDateFromUrl(initialDate));
-  const selectedDateKey = useMemo(
-    () => deliveryDate.toISODateString(selectedDate),
-    [selectedDate]
-  );
+  const selectedDateKey = useMemo(() => deliveryDate.toISODateString(selectedDate), [selectedDate]);
   const { showError, showInfo, showSuccess, showWarning } = useNotifications();
   const [showRouteClearBanner, setShowRouteClearBanner] = useState(false);
 
@@ -1077,30 +1077,30 @@ const DeliverySpreadsheet: React.FC = () => {
     }
   };
 
-  const handleEmailOrDownload = async (option: "Email" | "Download") => {
-    setPopupMode("");
+  const handleSelectExportOption = (option: RouteExportOption) => {
+    setExportOption(option);
+    setExportScope(defaultExportScope);
+  };
+
+  const handleDownloadExport = async () => {
+    if (!exportOption) {
+      return;
+    }
+
+    const rowsToExport = getExportRowsForScope(exportScope);
+    const deliveryDateIso = TimeUtils.fromJSDate(selectedDate).toISODate() || "";
 
     if (exportOption === "Routes") {
-      if (option === "Email") {
-        showInfo("Email export is not implemented yet.");
-      } else if (option === "Download") {
-        notifyExportFeedback(
-          await exportDeliveries(TimeUtils.fromJSDate(selectedDate).toISODate() || "", rows, clusters)
-        );
-      }
-    } else if (exportOption === "Doordash") {
-      if (option === "Email") {
-        showInfo("Email export is not implemented yet.");
-      } else if (option === "Download") {
-        notifyExportFeedback(
-          await exportDoordashDeliveries(
-            TimeUtils.fromJSDate(selectedDate).toISODate() || "",
-            rows,
-            clusters
-          )
-        );
-      }
+      notifyExportFeedback(
+        await exportDeliveries(deliveryDateIso, rowsToExport, clusters, clientOverrides)
+      );
+    } else {
+      notifyExportFeedback(
+        await exportDoordashDeliveries(deliveryDateIso, rowsToExport, clusters, clientOverrides)
+      );
     }
+
+    resetSelections();
   };
 
   // reset popup selections when closing popup
@@ -1312,6 +1312,7 @@ const DeliverySpreadsheet: React.FC = () => {
   const resetSelections = () => {
     setPopupMode("");
     setExportOption(null);
+    setExportScope(defaultExportScope);
 
     // Keep selectedRows and selectedClusters checked so users can make multiple assignments
   };
@@ -2204,6 +2205,33 @@ const DeliverySpreadsheet: React.FC = () => {
     return sorted;
   }, [visibleRows, sortOrder, sortedColumn, clusters, customColumns, clientOverrides]);
 
+  const selectedExportRows = useMemo(
+    () => rows.filter((row) => selectedRows.has(row.id)),
+    [rows, selectedRows]
+  );
+  const hasActiveRouteFilter = searchQuery.trim() !== "";
+  const defaultExportScope: RouteExportScope =
+    selectedExportRows.length > 0 ? "selected" : hasActiveRouteFilter ? "visible" : "all";
+  const exportScopeCounts = {
+    selected: selectedExportRows.length,
+    visible: sortedRows.length,
+    all: rows.length,
+  };
+
+  const getExportRowsForScope = React.useCallback(
+    (scope: RouteExportScope): DeliveryRowData[] => {
+      switch (scope) {
+        case "selected":
+          return selectedExportRows;
+        case "visible":
+          return sortedRows;
+        default:
+          return rows;
+      }
+    },
+    [rows, selectedExportRows, sortedRows]
+  );
+
   useEffect(() => {
     if (highlightedRowId && !visibleRows.some((row) => row.id === highlightedRowId)) {
       setHighlightedRowId(null);
@@ -2663,7 +2691,11 @@ const DeliverySpreadsheet: React.FC = () => {
                   fontSize: "0.875rem",
                   padding: "8px 16px",
                 }}
-                onClick={() => setPopupMode("Export")}
+                onClick={() => {
+                  setExportOption(null);
+                  setExportScope(defaultExportScope);
+                  setPopupMode("Export");
+                }}
               >
                 Export
               </Button>
@@ -3180,7 +3212,13 @@ const DeliverySpreadsheet: React.FC = () => {
                           : ""}
                       </TableCell>
                     ))}
-                    <TableCell sx={getCellSx()} onClick={() => handleRowClick(row.id)} style={{ width: "50px" }}>{/* Add button space */}</TableCell>
+                    <TableCell
+                      sx={getCellSx()}
+                      onClick={() => handleRowClick(row.id)}
+                      style={{ width: "50px" }}
+                    >
+                      {/* Add button space */}
+                    </TableCell>
                   </>
                 );
               }}
@@ -3626,53 +3664,23 @@ const DeliverySpreadsheet: React.FC = () => {
       <Dialog open={popupMode === "Export"} onClose={resetSelections} maxWidth="xs" fullWidth>
         <DialogTitle>Export Options</DialogTitle>
         <DialogContent sx={{ pt: 3, overflow: "visible" }}>
-          {!exportOption ? (
-            <Box sx={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-              <Button
-                variant="contained"
-                color="primary"
-                onClick={() => setExportOption("Routes")}
-                startIcon={<FileDownloadIcon />}
-              >
-                Routes
-              </Button>
-              <Button
-                variant="outlined"
-                color="primary"
-                onClick={() => setExportOption("Doordash")}
-                startIcon={<FileDownloadIcon />}
-              >
-                Doordash
-              </Button>
-            </Box>
-          ) : (
-            <Box sx={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-              <Typography variant="subtitle1">Selected Option: {exportOption}</Typography>
-              <Button
-                variant="contained"
-                color="primary"
-                onClick={() => {
-                  handleEmailOrDownload("Email");
-                  resetSelections();
-                }}
-              >
-                Email
-              </Button>
-              <Button
-                variant="outlined"
-                color="primary"
-                onClick={() => {
-                  handleEmailOrDownload("Download");
-                  resetSelections();
-                }}
-              >
-                Download
-              </Button>
-              <Button variant="outlined" color="primary" onClick={() => setExportOption(null)}>
-                Back
-              </Button>
-            </Box>
-          )}
+          <RouteExportOptions
+            exportOption={exportOption}
+            exportScope={exportScope}
+            scopeCounts={exportScopeCounts}
+            onSelectOption={handleSelectExportOption}
+            onSelectScope={setExportScope}
+            onDownload={handleDownloadExport}
+            onBack={() => {
+              if (exportOption) {
+                setExportOption(null);
+                setExportScope(defaultExportScope);
+                return;
+              }
+
+              resetSelections();
+            }}
+          />
         </DialogContent>
       </Dialog>
 

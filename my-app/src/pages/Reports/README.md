@@ -1,12 +1,11 @@
 # Reports Page
 
-Various reporting views for analyzing client data, caseworker activity, and referral agencies.
+Various reporting views for analyzing client data and referral activity.
 
 ## Report Types
 
 - **SummaryReport** - Overview statistics
 - **ClientReport** - Client-specific reports
-- **CaseworkerReport** - Caseworker activity reports
 - **ReferralAgenciesReport** - Referral source analysis
 
 ## Components
@@ -14,4 +13,3 @@ Various reporting views for analyzing client data, caseworker activity, and refe
 - Shared `ReportHeader` and `ReportTables` components
 - Date range picker for filtering reports
 - Export functionality for report data
-

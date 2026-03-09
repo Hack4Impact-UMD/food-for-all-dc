@@ -20,14 +20,22 @@ import { useNotifications } from "../../components/NotificationProvider";
 import { useNavigate } from "react-router-dom";
 import Guide from "./Guide";
 import LoadingIndicator from "../../components/LoadingIndicator/LoadingIndicator";
-import { exportToCSV, formatDateRange } from "../../utils/reportExport";
+import {
+  exportToCSV,
+  formatDateRange,
+  getReportRangeKey,
+  isReportExportDisabled,
+} from "../../utils/reportExport";
+import { CsvExportError } from "../../utils/csvExport";
+import { getClientStatusForPeriod } from "./reportUtils";
 
 const ClientReport: React.FC = () => {
   const navigate = useNavigate();
-  const { showError, showSuccess } = useNotifications();
+  const { showError, showSuccess, showWarning } = useNotifications();
 
   const [isLoading, setIsLoading] = useState(false);
   const [hasGenerated, setHasGenerated] = useState(false);
+  const [generatedRangeKey, setGeneratedRangeKey] = useState<string>("");
 
   const [startDate, setStartDate] = useState<Date | null>(() => {
     const start = localStorage.getItem("ffaReportDateRangeStart");
@@ -47,6 +55,13 @@ const ClientReport: React.FC = () => {
   });
 
   const [data, setData] = useState<any>({ Active: [], Lapsed: [] });
+  const currentRangeKey = getReportRangeKey(startDate, endDate);
+  const isExportDisabled = isReportExportDisabled({
+    isLoading,
+    hasGenerated,
+    generatedRangeKey,
+    currentRangeKey,
+  });
 
   const handleExport = () => {
     const csvData: any[] = [];
@@ -80,7 +95,18 @@ const ClientReport: React.FC = () => {
 
     const dateRange = formatDateRange(startDate, endDate);
     const filename = `Client_Report_${dateRange}.csv`;
-    exportToCSV(csvData, filename);
+    try {
+      const exportedFilename = exportToCSV(csvData, filename);
+      showSuccess(`Exported ${exportedFilename}.`);
+    } catch (error) {
+      if (error instanceof CsvExportError && error.code === "EMPTY_DATA") {
+        showWarning(error.message);
+        return;
+      }
+
+      const message = error instanceof Error ? error.message : "Failed to export client report.";
+      showError(message);
+    }
   };
 
   const generateReport = async () => {
@@ -95,62 +121,49 @@ const ClientReport: React.FC = () => {
       const start = TimeUtils.fromJSDate(startDate).startOf("day");
       const end = TimeUtils.fromJSDate(endDate).endOf("day");
 
-      const allClients: ClientProfile[] = [];
       const activeClients: ClientProfile[] = [];
+      const lapsedClients: ClientProfile[] = [];
 
-      try {
-        let lastDoc: QueryDocumentSnapshot<DocumentData> | null = null;
-        const True = true;
-        while (True) {
-          const q: any = lastDoc
-            ? query(
-                collection(db, dataSources.firebase.clientsCollection),
-                orderBy("__name__"),
-                startAfter(lastDoc),
-                limit(BATCH_SIZE)
-              )
-            : query(
-                collection(db, dataSources.firebase.clientsCollection),
-                orderBy("__name__"),
-                limit(BATCH_SIZE)
-              );
+      let lastDoc: QueryDocumentSnapshot<DocumentData> | null = null;
+      const True = true;
+      while (True) {
+        const q: any = lastDoc
+          ? query(
+              collection(db, dataSources.firebase.clientsCollection),
+              orderBy("__name__"),
+              startAfter(lastDoc),
+              limit(BATCH_SIZE)
+            )
+          : query(
+              collection(db, dataSources.firebase.clientsCollection),
+              orderBy("__name__"),
+              limit(BATCH_SIZE)
+            );
 
-          const snap = await getDocs(q);
-          if (snap.empty) break;
+        const snap = await getDocs(q);
+        if (snap.empty) break;
 
-          for (const doc of snap.docs) {
-            const client = doc.data() as ClientProfile;
-            allClients.push(client);
+        for (const doc of snap.docs) {
+          const client = doc.data() as ClientProfile;
+          const status = getClientStatusForPeriod(client, start, end);
 
-            const clientStartDate = client.startDate ? TimeUtils.fromAny(client.startDate).startOf("day") : null;
-            const clientEndDate = client.endDate ? TimeUtils.fromAny(client.endDate).startOf("day") : null;
-
-            const isActiveInPeriod = clientStartDate?.isValid &&
-                                     clientStartDate <= end &&
-                                     (!clientEndDate?.isValid || clientEndDate >= start);
-
-            if (isActiveInPeriod) {
-              activeClients.push(client);
-            }
+          if (status === "active") {
+            activeClients.push(client);
+          } else if (status === "lapsed") {
+            lapsedClients.push(client);
           }
-
-          lastDoc = snap.docs[snap.docs.length - 1] as QueryDocumentSnapshot<DocumentData>;
-          if (snap.size < BATCH_SIZE) break;
         }
-      } catch (err) {
-        console.error("Failed to build Active/Lapsed map:", err);
-        throw err;
-      }
 
-      //lapsed = All - Active (by document id)
-      const activeIds = new Set(activeClients.map((c) => c.uid));
-      const lapsedClients = allClients.filter((c) => !activeIds.has(c.uid));
+        lastDoc = snap.docs[snap.docs.length - 1] as QueryDocumentSnapshot<DocumentData>;
+        if (snap.size < BATCH_SIZE) break;
+      }
 
       setData({
         Active: activeClients,
         Lapsed: lapsedClients,
       });
       setHasGenerated(true);
+      setGeneratedRangeKey(currentRangeKey);
       showSuccess("Client report generated successfully");
     } catch (error) {
       console.error("Failed to generate client report:", error);
@@ -174,7 +187,8 @@ const ClientReport: React.FC = () => {
         setEndDate={setEndDate}
         generateReport={generateReport}
         onExport={handleExport}
-        hasData={hasGenerated}
+        exportDisabled={isExportDisabled}
+        isGenerating={isLoading}
       />
 
       {isLoading && <LoadingIndicator />}

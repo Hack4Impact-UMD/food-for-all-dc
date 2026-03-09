@@ -70,6 +70,8 @@ const DeleteClientModal = React.lazy(() => import("./DeleteClientModal"));
 import { clientService } from "../../services/client-service";
 import { useClientData } from "../../context/ClientDataContext";
 import type { FieldDefinition } from "../../types/spreadsheet-types";
+import { useNotifications } from "../NotificationProvider";
+import { CsvExportError } from "../../utils/csvExport";
 
 const StyleChip = styled(Chip)(({ theme }) => ({
   fontWeight: 500,
@@ -158,6 +160,7 @@ const Spreadsheet: React.FC = () => {
   const [forceRerender, setForceRerender] = useState(0);
   const virtuosoRef = React.useRef<any>(null);
   const { clients, refresh } = useClientData();
+  const { showError, showSuccess, showWarning } = useNotifications();
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [debouncedSearch, setDebouncedSearch] = useState<string>("");
   const [menuAnchorPosition, setMenuAnchorPosition] = useState<{
@@ -223,6 +226,24 @@ const Spreadsheet: React.FC = () => {
     }, 300);
     return () => clearTimeout(timer);
   }, [searchQuery]);
+
+  const handleExportAction = (
+    exportFn: () => string,
+    successMessage: (filename: string) => string
+  ) => {
+    try {
+      const filename = exportFn();
+      showSuccess(successMessage(filename));
+    } catch (error) {
+      if (error instanceof CsvExportError && error.code === "EMPTY_DATA") {
+        showWarning(error.message);
+        return;
+      }
+
+      const message = error instanceof Error ? error.message : "Failed to export CSV.";
+      showError(message);
+    }
+  };
 
   // TableVirtuoso MUI integration
   const TableComponent = forwardRef<HTMLTableElement, React.ComponentProps<typeof Table>>(
@@ -718,7 +739,10 @@ const Spreadsheet: React.FC = () => {
                         color="primary"
                         onClick={() => {
                           setExportDialogOpen(false);
-                          exportQueryResults(filteredRows, customColumns);
+                          handleExportAction(
+                            () => exportQueryResults(filteredRows, customColumns),
+                            (filename) => `Exported ${filename}.`
+                          );
                         }}
                       >
                         Export Query Results
@@ -728,7 +752,10 @@ const Spreadsheet: React.FC = () => {
                         color="secondary"
                         onClick={() => {
                           setExportDialogOpen(false);
-                          exportAllClients(rows);
+                          handleExportAction(
+                            () => exportAllClients(rows),
+                            (filename) => `Exported ${filename}.`
+                          );
                         }}
                       >
                         Export All Clients
@@ -1045,12 +1072,29 @@ const Spreadsheet: React.FC = () => {
                       }}
                     >
                       {field.key === "fullname" ? (
-                        <span style={{ display: 'flex', alignItems: 'center' }}>
-                          <Tooltip title={row.activeStatus ? "Active profile" : "Inactive profile"} placement="right">
+                        <span style={{ display: "flex", alignItems: "center" }}>
+                          <Tooltip
+                            title={row.activeStatus ? "Active profile" : "Inactive profile"}
+                            placement="right"
+                          >
                             {row.activeStatus ? (
-                              <CheckCircleIcon sx={{ color: '#4caf50', fontSize: '1.1rem', mr: 0.5, verticalAlign: 'middle' }} />
+                              <CheckCircleIcon
+                                sx={{
+                                  color: "#4caf50",
+                                  fontSize: "1.1rem",
+                                  mr: 0.5,
+                                  verticalAlign: "middle",
+                                }}
+                              />
                             ) : (
-                              <CancelIcon sx={{ color: '#bdbdbd', fontSize: '1.1rem', mr: 0.5, verticalAlign: 'middle' }} />
+                              <CancelIcon
+                                sx={{
+                                  color: "#bdbdbd",
+                                  fontSize: "1.1rem",
+                                  mr: 0.5,
+                                  verticalAlign: "middle",
+                                }}
+                              />
                             )}
                           </Tooltip>
                           <a
@@ -1061,22 +1105,26 @@ const Spreadsheet: React.FC = () => {
                               navigate(`/profile/${row.uid ?? ""}`, { state: { userData: row } });
                             }}
                           >
-                            {field.compute ? field.compute(row) : `${row.lastName}, ${row.firstName}`}
+                            {field.compute
+                              ? field.compute(row)
+                              : `${row.lastName}, ${row.firstName}`}
                           </a>
                         </span>
                       ) : field.compute ? (
                         field.compute(row)
-                      ) : (() => {
-                        const value = row[field.key as keyof RowData];
-                        if (value === null || value === undefined || value === "N/A") return "";
-                        if (React.isValidElement(value)) return value;
-                        if (Array.isArray(value)) return value.join(", ");
-                        try {
-                          return value.toString();
-                        } catch {
-                          return "";
-                        }
-                      })()}
+                      ) : (
+                        (() => {
+                          const value = row[field.key as keyof RowData];
+                          if (value === null || value === undefined || value === "N/A") return "";
+                          if (React.isValidElement(value)) return value;
+                          if (Array.isArray(value)) return value.join(", ");
+                          try {
+                            return value.toString();
+                          } catch {
+                            return "";
+                          }
+                        })()
+                      )}
                     </TableCell>
                   )),
                   ...customColumns.map((col) => (

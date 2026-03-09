@@ -1,21 +1,6 @@
-import Papa from "papaparse";
-import { saveAs } from "file-saver";
+import { CsvRow, downloadCsv } from "./csvExport";
 
-export const exportToCSV = (data: any[], filename: string) => {
-  if (data.length === 0) {
-    alert("No data available to export.");
-    return;
-  }
-
-  try {
-    const csv = Papa.unparse(data);
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    saveAs(blob, filename);
-  } catch (error) {
-    console.error("Error exporting to CSV:", error);
-    alert("Failed to export CSV. Please try again.");
-  }
-};
+export const exportToCSV = (data: CsvRow[], filename: string) => downloadCsv(data, filename);
 
 export const formatDateRange = (startDate: Date | null, endDate: Date | null): string => {
   if (!startDate || !endDate) return "";
@@ -29,3 +14,19 @@ export const formatDateRange = (startDate: Date | null, endDate: Date | null): s
 
   return `${formatDate(startDate)}_to_${formatDate(endDate)}`;
 };
+
+export const getReportRangeKey = (startDate: Date | null, endDate: Date | null): string =>
+  formatDateRange(startDate, endDate);
+
+export const isReportExportDisabled = ({
+  isLoading,
+  hasGenerated,
+  generatedRangeKey,
+  currentRangeKey,
+}: {
+  isLoading: boolean;
+  hasGenerated: boolean;
+  generatedRangeKey: string;
+  currentRangeKey: string;
+}): boolean =>
+  isLoading || !hasGenerated || !currentRangeKey || generatedRangeKey !== currentRangeKey;
