@@ -10,6 +10,7 @@ export interface OrganizationConfig {
 
 export interface DoorDashConfig {
   pickupLocationId: string;
+  pickupLocationName: string;
   timezone: string;
   defaultCity: string;
   defaultState: string;
@@ -34,11 +35,12 @@ export const DEFAULT_EXPORT_CONFIG: ExportConfig = {
     pickupInstructions: "Go to back door in alley at the back of church",
   },
   doorDash: {
-    pickupLocationId: "ANANDAMARGA-01",
+    pickupLocationId: "FFA-01",
+    pickupLocationName: "GRANDES BOXES - Food for All DC",
     timezone: "US/Eastern",
     defaultCity: "Washington",
     defaultState: "DC",
-    numberOfItems: "1",
+    numberOfItems: "2",
     orderVolume: "",
     deliveryWindowHours: 1,
     maxInstructionLength: 250,
@@ -66,6 +68,9 @@ export const getExportConfig = (): ExportConfig => {
       ...DEFAULT_EXPORT_CONFIG.doorDash,
       pickupLocationId:
         process.env.REACT_APP_DOORDASH_PICKUP_ID || DEFAULT_EXPORT_CONFIG.doorDash.pickupLocationId,
+      pickupLocationName:
+        process.env.REACT_APP_DOORDASH_PICKUP_LOCATION_NAME ||
+        DEFAULT_EXPORT_CONFIG.doorDash.pickupLocationName,
       timezone: process.env.REACT_APP_TIMEZONE || DEFAULT_EXPORT_CONFIG.doorDash.timezone,
       defaultCity: process.env.REACT_APP_DEFAULT_CITY || DEFAULT_EXPORT_CONFIG.doorDash.defaultCity,
       defaultState:
