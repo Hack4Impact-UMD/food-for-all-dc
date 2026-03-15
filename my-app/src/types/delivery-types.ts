@@ -2,6 +2,13 @@ import { Timestamp } from "firebase/firestore";
 
 // Type definitions for deliveries, routes, and related entities
 
+export interface HouseholdSnapshot {
+  adults: number;
+  children: number;
+  seniors: number;
+  total: number;
+}
+
 export interface Volunteer {
   id: string;
   name: string;
@@ -19,6 +26,7 @@ export interface Delivery {
   cluster: number;
   recurrence: "None" | "Weekly" | "2x-Monthly" | "Monthly" | "Custom"; // Updated recurrence options
   repeatsEndDate?: string; // Optional, end date for recurrence
+  householdSnapshot?: HouseholdSnapshot | null;
 }
 
 export interface Route {

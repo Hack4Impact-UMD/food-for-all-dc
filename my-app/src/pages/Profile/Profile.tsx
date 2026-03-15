@@ -75,6 +75,7 @@ import { toJSDate } from "../../utils/timestamp";
 import { deliveryDate } from "../../utils/deliveryDate";
 import HealthConditionsForm from "./components/HealthConditionsForm";
 import HealthCheckbox from "./components/HealthCheckbox";
+import { buildHouseholdSnapshot } from "../../utils/householdSnapshot";
 
 const fieldStyles = {
   backgroundColor: "var(--color-white)",
@@ -2718,11 +2719,13 @@ const Profile = () => {
 
       // CREATE NEW DELIVERIES
       if (newDates.length > 0) {
+        const householdSnapshot = buildHouseholdSnapshot(clientProfile);
         const eventsToAdd = newDates.map((date) => {
           const eventToAdd: Partial<DeliveryEvent> = {
             clientId: newDelivery.clientId,
             clientName: newDelivery.clientName,
             deliveryDate: date,
+            householdSnapshot,
             recurrence: newDelivery.recurrence,
             time: "",
             cluster: 0,

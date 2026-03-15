@@ -15,16 +15,15 @@ import {
 } from "firebase/firestore";
 import { db } from "../auth/firebaseConfig";
 import { DeliveryEvent } from "../types/calendar-types";
+import { HouseholdSnapshot } from "../types/delivery-types";
 import { validateDeliveryEvent } from "../utils/firestoreValidation";
 import { Time, TimeUtils } from "../utils/timeUtils";
 import { retry } from "../utils/retry";
 import { ServiceError, formatServiceError } from "../utils/serviceError";
 import dataSources from "../config/dataSources";
 import { deliveryDate } from "../utils/deliveryDate";
-import {
-  DeliveryChangeReason,
-  deliveryEventEmitter,
-} from "../utils/deliveryEventEmitter";
+import { normalizeHouseholdSnapshot } from "../utils/householdSnapshot";
+import { DeliveryChangeReason, deliveryEventEmitter } from "../utils/deliveryEventEmitter";
 
 export interface ClusterReconciliationResult {
   impactedDateKeys: string[];
@@ -215,6 +214,12 @@ class DeliveryService {
 
     if (cleanEvent.deliveryDate) {
       cleanEvent.deliveryDate = deliveryDate.toJSDate(cleanEvent.deliveryDate as any);
+    }
+
+    if ("householdSnapshot" in cleanEvent) {
+      cleanEvent.householdSnapshot = normalizeHouseholdSnapshot(
+        cleanEvent.householdSnapshot as Partial<HouseholdSnapshot> | null | undefined
+      );
     }
 
     return cleanEvent;
