@@ -1266,6 +1266,134 @@ class DeliveryService {
     }
   }
 
+  public async enforceClientEndDate(
+    clientId: string,
+    newEndDate: string,
+    previousEndDate?: string | null
+  ): Promise<void> {
+    const normalizedClientId = this.normalizeOptionalString(clientId);
+    const normalizedNewEndDate = deliveryDate.tryToISODateString(newEndDate);
+    const normalizedPreviousEndDate = previousEndDate
+      ? deliveryDate.tryToISODateString(previousEndDate)
+      : null;
+
+    if (!normalizedClientId || !normalizedNewEndDate) {
+      return;
+    }
+
+    if (normalizedPreviousEndDate && normalizedNewEndDate >= normalizedPreviousEndDate) {
+      return;
+    }
+
+    try {
+      const eventsQuery = query(
+        collection(this.db, this.eventsCollection),
+        where("clientId", "==", normalizedClientId)
+      );
+      const querySnapshot = await getDocs(eventsQuery);
+      if (querySnapshot.empty) {
+        return;
+      }
+
+      const todayKey = TimeUtils.today().toISODate() || deliveryDate.toISODateString(new Date());
+      const mutations: Array<
+        | { kind: "delete"; ref: typeof querySnapshot.docs[number]["ref"] }
+        | {
+            kind: "update";
+            ref: typeof querySnapshot.docs[number]["ref"];
+            data: { repeatsEndDate: string };
+          }
+      > = [];
+      const deletedDateKeys: string[] = [];
+      const updatedDateKeys: string[] = [];
+      const cacheInvalidationEvents: Partial<DeliveryEvent>[] = [];
+
+      querySnapshot.docs.forEach((docSnapshot) => {
+        const eventData = docSnapshot.data() as Partial<DeliveryEvent>;
+        const cacheEvent = { id: docSnapshot.id, ...eventData };
+        const eventDateKey = eventData.deliveryDate
+          ? deliveryDate.tryToISODateString(eventData.deliveryDate as any)
+          : null;
+
+        if (eventDateKey && eventDateKey > normalizedNewEndDate && eventDateKey >= todayKey) {
+          mutations.push({ kind: "delete", ref: docSnapshot.ref });
+          deletedDateKeys.push(eventDateKey);
+          cacheInvalidationEvents.push(cacheEvent);
+          return;
+        }
+
+        if (eventData.recurrence === "None" || eventData.recurrence === "Custom") {
+          return;
+        }
+
+        const currentRepeatsEndDate = eventData.repeatsEndDate
+          ? deliveryDate.tryToISODateString(eventData.repeatsEndDate as any)
+          : null;
+        const nextRepeatsEndDate =
+          currentRepeatsEndDate && currentRepeatsEndDate < normalizedNewEndDate
+            ? currentRepeatsEndDate
+            : normalizedNewEndDate;
+
+        if (nextRepeatsEndDate && nextRepeatsEndDate !== currentRepeatsEndDate) {
+          mutations.push({
+            kind: "update",
+            ref: docSnapshot.ref,
+            data: { repeatsEndDate: nextRepeatsEndDate },
+          });
+          if (eventDateKey) {
+            updatedDateKeys.push(eventDateKey);
+          }
+          cacheInvalidationEvents.push(cacheEvent);
+        }
+      });
+
+      if (!mutations.length) {
+        return;
+      }
+
+      for (let i = 0; i < mutations.length; i += MAX_BATCH_WRITE_COUNT) {
+        const chunk = mutations.slice(i, i + MAX_BATCH_WRITE_COUNT);
+        await retry(async () => {
+          const batch = writeBatch(this.db);
+          chunk.forEach((mutation) => {
+            if (mutation.kind === "delete") {
+              batch.delete(mutation.ref);
+              return;
+            }
+
+            batch.update(mutation.ref, mutation.data);
+          });
+          await batch.commit();
+        });
+      }
+
+      this.invalidateRecurringCache(cacheInvalidationEvents);
+
+      const normalizedDeletedDateKeys = this.normalizeDateKeys(deletedDateKeys);
+      if (normalizedDeletedDateKeys.length) {
+        const invalidationResult =
+          await this.reconcileClusterAssignmentsForDateKeys(normalizedDeletedDateKeys);
+        this.emitDeliveryChange(
+          "schedule-batch-deleted",
+          normalizedDeletedDateKeys,
+          invalidationResult
+        );
+        return;
+      }
+
+      const normalizedUpdatedDateKeys = this.normalizeDateKeys(updatedDateKeys);
+      if (normalizedUpdatedDateKeys.length) {
+        this.emitDeliveryChange("schedule-batch-updated", normalizedUpdatedDateKeys, {
+          impactedDateKeys: normalizedUpdatedDateKeys,
+          reviewRequiredDateKeys: [],
+          failedDateKeys: [],
+        });
+      }
+    } catch (error) {
+      throw formatServiceError(error, "Failed to enforce client end date");
+    }
+  }
+
   /**
    * Clear the date range cache (useful when new deliveries are added)
    */

@@ -9,6 +9,8 @@ interface DateFieldProps {
   required?: boolean;
   error?: string;
   setError?: (error: string | null) => void;
+  min?: string;
+  max?: string;
 }
 
 const DateField: React.FC<DateFieldProps> = ({
@@ -18,6 +20,8 @@ const DateField: React.FC<DateFieldProps> = ({
   required = false,
   error: propError,
   setError: setExternalError,
+  min,
+  max,
 }) => {
   const [internalError, setInternalError] = useState<string | null>(null);
 
@@ -35,6 +39,10 @@ const DateField: React.FC<DateFieldProps> = ({
   // Convert MM/DD/YYYY to YYYY-MM-DD for HTML date input
   const convertToHtmlDateFormat = (mmddyyyy: string): string => {
     if (!mmddyyyy) return "";
+
+    if (/^\d{4}-\d{2}-\d{2}$/.test(mmddyyyy)) {
+      return mmddyyyy;
+    }
 
     // Handle full MM/DD/YYYY format
     if (mmddyyyy.length === 10 && mmddyyyy.includes("/")) {
@@ -130,8 +138,8 @@ const DateField: React.FC<DateFieldProps> = ({
       margin="normal"
       InputLabelProps={{ shrink: true }}
       inputProps={{
-        min: "1900-01-01",
-        max: "2100-12-31",
+        min: convertToHtmlDateFormat(min || "") || "1900-01-01",
+        max: convertToHtmlDateFormat(max || "") || "2100-12-31",
         required: required,
       }}
     />

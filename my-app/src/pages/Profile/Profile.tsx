@@ -1451,6 +1451,8 @@ const Profile = () => {
           alert("Error: Cannot update profile, client ID is missing.");
           throw new Error("Client UID is missing for update.");
         }
+        const previousEndDate = prevClientProfile?.endDate || null;
+        let cleanupErrorMessage: string | null = null;
         // Save to Firestore for existing profile (DO NOT normalize fields for saving)
         await setDoc(
           doc(db, dataSources.firebase.clientsCollection, clientProfile.uid),
@@ -1463,6 +1465,23 @@ const Profile = () => {
           { tags: sortedAllTags },
           { merge: true }
         );
+        try {
+          await DeliveryService.getInstance().enforceClientEndDate(
+            clientProfile.uid,
+            updatedProfile.endDate,
+            previousEndDate
+          );
+        } catch (error) {
+          console.error("Profile saved but delivery cleanup failed:", error);
+          cleanupErrorMessage =
+            error instanceof Error ? error.message : "Unknown delivery cleanup error";
+        }
+
+        try {
+          await refreshDeliveryData();
+        } catch (error) {
+          console.error("Profile saved but delivery refresh failed:", error);
+        }
         // Update state *after* successful save for existing profile
         setClientProfile(updatedProfile); // Update with latest data
         setPrevClientProfile(null); // Clear previous state backup
@@ -1474,6 +1493,10 @@ const Profile = () => {
         if (refresh) await refresh();
         // Set flag to force spreadsheet refresh on next mount
         localStorage.setItem("forceClientsRefresh", "true");
+
+        if (cleanupErrorMessage) {
+          alert(`Profile saved, but delivery cleanup failed: ${cleanupErrorMessage}`);
+        }
       }
 
       // Common post-save actions (Popup notification)

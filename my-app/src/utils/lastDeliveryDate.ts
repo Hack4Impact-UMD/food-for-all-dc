@@ -39,26 +39,30 @@ export const batchGetLastDeliveryDates = async (
   clientIds: string[]
 ): Promise<Map<string, string>> => {
   const result = new Map<string, string>();
+  const uniqueClientIds = Array.from(new Set(clientIds.filter(Boolean)));
 
-  if (clientIds.length === 0) return result;
+  if (uniqueClientIds.length === 0) return result;
 
   try {
     const eventsRef = collection(db, dataSources.firebase.calendarCollection);
-    const q = query(eventsRef, where("clientId", "in", clientIds), orderBy("deliveryDate", "desc"));
-    const querySnapshot = await getDocs(q);
-
     const clientEventsMap = new Map<string, EventWithDeliveryDate[]>();
 
-    querySnapshot.forEach((doc) => {
-      const eventData = doc.data() as EventData;
-      if (!clientEventsMap.has(eventData.clientId)) {
-        clientEventsMap.set(eventData.clientId, []);
-      }
-      const clientEvents = clientEventsMap.get(eventData.clientId);
-      if (clientEvents && eventData.deliveryDate) {
-        clientEvents.push({ deliveryDate: eventData.deliveryDate });
-      }
-    });
+    for (let i = 0; i < uniqueClientIds.length; i += 10) {
+      const chunk = uniqueClientIds.slice(i, i + 10);
+      const q = query(eventsRef, where("clientId", "in", chunk), orderBy("deliveryDate", "desc"));
+      const querySnapshot = await getDocs(q);
+
+      querySnapshot.forEach((doc) => {
+        const eventData = doc.data() as EventData;
+        if (!clientEventsMap.has(eventData.clientId)) {
+          clientEventsMap.set(eventData.clientId, []);
+        }
+        const clientEvents = clientEventsMap.get(eventData.clientId);
+        if (clientEvents && eventData.deliveryDate) {
+          clientEvents.push({ deliveryDate: eventData.deliveryDate });
+        }
+      });
+    }
 
     for (const [clientId, events] of clientEventsMap.entries()) {
       const latestDate = getLatestScheduledDate(events);

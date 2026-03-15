@@ -87,10 +87,14 @@ const CalendarMultiSelect: React.FC<CalendarMultiSelectProps> = ({
                 return;
               }
               if (!selectedDates.some((d) => d.toDateString() === newValue.toDateString())) {
-                setSelectedDates([...selectedDates, newValue]);
+                const nextDates = [...selectedDates, newValue].sort(
+                  (a, b) => a.getTime() - b.getTime()
+                );
+                setSelectedDates(nextDates);
               }
             }}
             minDate={minDate}
+            maxDate={endDate}
             slotProps={{
               textField: { fullWidth: true, size: "small", sx: { mb: 2, width: "100%" } },
               popper: {
