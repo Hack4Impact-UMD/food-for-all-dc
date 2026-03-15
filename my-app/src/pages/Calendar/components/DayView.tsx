@@ -60,23 +60,13 @@ const DayView: React.FC<DayViewProps> = React.memo(function DayView({
 
   // Batch preload recurring delivery date ranges for all events
   useEffect(() => {
-    const recurringRequests = events
+    const recurringSeriesIds = events
       .filter((event) => event.recurrence && event.recurrence !== "None")
-      .map((event) => ({
-        clientId: event.clientId,
-        recurrenceType: event.recurrence,
-      }));
+      .map((event) => event.recurrenceId)
+      .filter((recurrenceId): recurrenceId is string => Boolean(recurrenceId));
 
-    if (recurringRequests.length > 0) {
-      // Remove duplicates
-      const uniqueRequests = recurringRequests.filter(
-        (request, index, array) =>
-          array.findIndex(
-            (r) => r.clientId === request.clientId && r.recurrenceType === request.recurrenceType
-          ) === index
-      );
-
-      preloadDateRanges(uniqueRequests).catch((error) => {
+    if (recurringSeriesIds.length > 0) {
+      preloadDateRanges(recurringSeriesIds).catch((error) => {
         console.error("Failed to preload recurring delivery date ranges:", error);
       });
     }
