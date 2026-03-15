@@ -2,7 +2,6 @@ import CloseIcon from "@mui/icons-material/Close";
 import EditIcon from "@mui/icons-material/Edit";
 import SaveIcon from "@mui/icons-material/Save";
 import { CalendarUtils, TimeUtils } from "../../utils/timeUtils";
-import { getLastDeliveryDateForClient } from "../../utils/lastDeliveryDate";
 import { deliveryEventEmitter } from "../../utils/deliveryEventEmitter";
 import {
   Autocomplete,
@@ -31,7 +30,6 @@ import {
   updateDoc,
   where,
   Timestamp,
-  deleteDoc,
 } from "firebase/firestore";
 import React, { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
@@ -68,11 +66,9 @@ import { useAuth } from "../../auth/AuthProvider";
 import { useClientData } from "../../context/ClientDataContext";
 import { Add } from "@mui/icons-material";
 import AddDeliveryDialog from "../Calendar/components/AddDeliveryDialog";
-import { calculateRecurrenceDates } from "../Calendar/components/CalendarUtils";
 import { useLimits } from "../Calendar/components/useLimits";
 import { DayPilot } from "@daypilot/daypilot-lite-react";
-import { toJSDate } from "../../utils/timestamp";
-import { deliveryDate } from "../../utils/deliveryDate";
+import type { DeliverySeriesSummary } from "../../utils/recurringSeries";
 import HealthConditionsForm from "./components/HealthConditionsForm";
 import HealthCheckbox from "./components/HealthCheckbox";
 import { buildHouseholdSnapshot } from "../../utils/householdSnapshot";
@@ -298,9 +294,8 @@ const Profile = () => {
   const [events, setEvents] = useState<DeliveryEvent[]>([]);
   const limits = useLimits();
   const [dailyLimits, setDailyLimits] = useState<DateLimit[]>([]);
-  const [latestRecurringDelivery, setLatestRecurringDelivery] = useState<DeliveryEvent | null>(
-    null
-  );
+  const [editableRecurringSeries, setEditableRecurringSeries] =
+    useState<DeliverySeriesSummary | null>(null);
 
   const preSelectedClientData = useMemo(
     () => ({
@@ -311,12 +306,28 @@ const Profile = () => {
           : "",
       clientProfile: {
         ...clientProfile,
-        recurrence: latestRecurringDelivery?.recurrence || clientProfile.recurrence,
-        endDate: latestRecurringDelivery?.repeatsEndDate || clientProfile.endDate,
+        recurrence: editableRecurringSeries?.recurrence || clientProfile.recurrence,
+        endDate: editableRecurringSeries?.effectiveEndDate || clientProfile.endDate,
       },
+      targetRecurrenceId: editableRecurringSeries?.recurrenceId,
     }),
-    [clientId, clientProfile, latestRecurringDelivery]
+    [clientId, clientProfile, editableRecurringSeries]
   );
+  const deliveryModalStartDate = useMemo(() => {
+    if (!editableRecurringSeries?.recurrenceId) {
+      return new DayPilot.Date();
+    }
+
+    const nextSeriesDelivery = futureDeliveries.find(
+      (delivery) => delivery.recurrenceId === editableRecurringSeries.recurrenceId
+    );
+
+    if (!nextSeriesDelivery) {
+      return new DayPilot.Date();
+    }
+
+    return new DayPilot.Date(TimeUtils.fromAny(nextSeriesDelivery.deliveryDate).toJSDate());
+  }, [editableRecurringSeries, futureDeliveries]);
 
   const [foodAllergensText, setFoodAllergensText] = useState<string>("");
   useEffect(() => {
@@ -327,6 +338,39 @@ const Profile = () => {
       );
     }
   }, [isEditing, clientProfile.deliveryDetails?.dietaryRestrictions?.foodAllergens]);
+
+  const refreshDeliveryData = useCallback(async () => {
+    if (!clientId) {
+      return;
+    }
+
+    const deliveryService = DeliveryService.getInstance();
+    try {
+      const [{ pastDeliveries, futureDeliveries }, latestScheduledDate, recurringSeriesSummaries] =
+        await Promise.all([
+          deliveryService.getClientDeliveryHistory(clientId),
+          deliveryService.getLatestScheduledDateForClient(clientId),
+          deliveryService.getRecurringSeriesSummariesForClient(clientId),
+        ]);
+      const todayKey = TimeUtils.now().toFormat("yyyy-MM-dd");
+      const activeRecurringSeries = recurringSeriesSummaries.filter(
+        (summary) => summary.supportsFutureOperations && summary.latestDate >= todayKey
+      );
+      const nextEditableSeries =
+        activeRecurringSeries.length === 1 ? activeRecurringSeries[0] : null;
+
+      setPastDeliveries(pastDeliveries);
+      setFutureDeliveries(futureDeliveries);
+      setEvents([...pastDeliveries, ...futureDeliveries]);
+      setLastDeliveryDate(latestScheduledDate || "No deliveries found");
+      setEditableRecurringSeries(nextEditableSeries);
+      setDeliveryDataLoaded(true);
+    } catch (error) {
+      console.error("Failed to refresh delivery history", error);
+      setLastDeliveryDate("Error fetching data");
+      setEditableRecurringSeries(null);
+    }
+  }, [clientId]);
 
   const [clients, setClients] = useState<ClientProfile[]>([]);
   const [addressError, setAddressError] = useState<string>("");
@@ -475,46 +519,15 @@ const Profile = () => {
   }, [clientIdParam, allTags, configFields, profileLoaded]);
 
   useEffect(() => {
-    const fetchLastDeliveryDate = async () => {
-      if (clientId) {
-        try {
-          const latestEndDateString = await getLastDeliveryDateForClient(clientId);
-
-          if (latestEndDateString) {
-            setLastDeliveryDate(latestEndDateString);
-          } else {
-            setLastDeliveryDate("No deliveries found");
-          }
-        } catch (error) {
-          console.error("Error fetching last delivery date:", error);
-          setLastDeliveryDate("Error fetching data");
-        }
-      }
-    };
-
-    fetchLastDeliveryDate();
-  }, [clientId]);
+    void refreshDeliveryData();
+  }, [refreshDeliveryData]);
 
   useEffect(() => {
-    const handleDeliveryChange = async () => {
-      if (clientId) {
-        try {
-          const latestEndDateString = await getLastDeliveryDateForClient(clientId);
-          if (latestEndDateString) {
-            setLastDeliveryDate(latestEndDateString);
-          } else {
-            setLastDeliveryDate("No deliveries found");
-          }
-        } catch (error) {
-          console.error("Error fetching updated last delivery date:", error);
-          setLastDeliveryDate("Error fetching data");
-        }
-      }
-    };
-
-    const unsubscribe = deliveryEventEmitter.subscribe(handleDeliveryChange);
+    const unsubscribe = deliveryEventEmitter.subscribe(() => {
+      void refreshDeliveryData();
+    });
     return unsubscribe;
-  }, [clientId]);
+  }, [refreshDeliveryData]);
 
   useEffect(() => {
     const fetchDailyLimits = async () => {
@@ -567,41 +580,8 @@ const Profile = () => {
   }, [clientProfile.referralEntity?.id, profileLoaded]);
 
   useEffect(() => {
-    const fetchDeliveryHistory = async () => {
-      const deliveryService = DeliveryService.getInstance();
-      try {
-        const { pastDeliveries, futureDeliveries } = await deliveryService.getClientDeliveryHistory(
-          clientId!
-        );
-        setPastDeliveries(pastDeliveries);
-        setFutureDeliveries(futureDeliveries);
-
-        // Find the latest recurring delivery from all deliveries (past and future)
-        const allDeliveries = [...pastDeliveries, ...futureDeliveries];
-
-        const recurringDeliveries = allDeliveries.filter(
-          (delivery) => delivery.recurrence && delivery.recurrence !== "None"
-        );
-
-        if (recurringDeliveries.length > 0) {
-          // Sort by delivery date (most recent first) and take the first one
-          const sortedRecurring = recurringDeliveries.sort((a, b) => {
-            const dateA = toJSDate(a.deliveryDate);
-            const dateB = toJSDate(b.deliveryDate);
-            return dateB.getTime() - dateA.getTime();
-          });
-          setLatestRecurringDelivery(sortedRecurring[0]);
-        } else {
-          setLatestRecurringDelivery(null);
-        }
-
-        setDeliveryDataLoaded(true);
-      } catch (error) {
-        console.error("Failed to fetch delivery history", error);
-      }
-    };
-    fetchDeliveryHistory();
-  }, [clientId, isDeliveryModalOpen]);
+    void refreshDeliveryData();
+  }, [isDeliveryModalOpen, refreshDeliveryData]);
 
   const calculateAge = (dob: Date) => {
     const diff = Date.now() - dob.getTime();
@@ -2630,150 +2610,15 @@ const Profile = () => {
 
     try {
       const deliveryService = DeliveryService.getInstance();
-      // 1. GET EXISTING DELIVERIES FROM DATABASE
-      const eventsRef = collection(db, dataSources.firebase.calendarCollection);
-      const q = query(eventsRef, where("clientId", "==", newDelivery.clientId));
-      const querySnapshot = await getDocs(q);
-
-      const existingDeliveries: DeliveryEvent[] = [];
-      querySnapshot.forEach((doc) => {
-        existingDeliveries.push({ id: doc.id, ...doc.data() } as DeliveryEvent);
+      const householdSnapshot = buildHouseholdSnapshot(clientProfile);
+      await deliveryService.scheduleClientDeliveries({
+        ...newDelivery,
+        householdSnapshot,
       });
-
-      const existingDates = new Set(
-        existingDeliveries.map((event) =>
-          new DayPilot.Date(toJSDate(event.deliveryDate)).toString("yyyy-MM-dd")
-        )
-      );
-
-      // 2. CALCULATE ALL DATES FOR THIS DELIVERY SERIES
-      let allDates: Date[] = [];
-      const recurrenceId = crypto.randomUUID();
-
-      if (newDelivery.recurrence === "Custom") {
-        allDates = newDelivery.customDates?.map((dateStr) => deliveryDate.toJSDate(dateStr)) || [];
-      } else {
-        const normalizedStart = deliveryDate.toJSDate(newDelivery.deliveryDate);
-        allDates =
-          newDelivery.recurrence === "None"
-            ? [normalizedStart]
-            : calculateRecurrenceDates(newDelivery).map((dateStr) =>
-                deliveryDate.toJSDate(dateStr)
-              );
-      }
-
-      // 3. CHECK IF THIS IS ACTUALLY CHANGING AN END DATE (not just adding deliveries with an end date)
-      // Only delete if the new end date is DIFFERENT from what already exists
-      if (newDelivery.repeatsEndDate && existingDeliveries.length > 0) {
-        // Get existing end dates from the database
-        const existingEndDates = [
-          ...new Set(
-            existingDeliveries.filter((d) => d.repeatsEndDate).map((d) => d.repeatsEndDate)
-          ),
-        ];
-
-        // Only delete if we're changing to a DIFFERENT end date
-        const isDifferentEndDate =
-          existingEndDates.length > 0 && !existingEndDates.includes(newDelivery.repeatsEndDate);
-
-        if (isDifferentEndDate) {
-          const deletePromises: Promise<any>[] = [];
-          const deletedDateKeys: string[] = [];
-
-          // CONVERT NEW END DATE TO YYYY-MM-DD FORMAT FOR PROPER COMPARISON
-          const newEndDateFormatted = deliveryDate.toISODateString(newDelivery.repeatsEndDate);
-          const today = deliveryDate.toISODateString(new Date());
-
-          for (const event of existingDeliveries) {
-            const eventDateStr = new DayPilot.Date(toJSDate(event.deliveryDate)).toString(
-              "yyyy-MM-dd"
-            );
-            const isAfterEndDate = eventDateStr > newEndDateFormatted;
-            const isFutureDate = eventDateStr >= today;
-
-            if (isAfterEndDate && isFutureDate) {
-              deletedDateKeys.push(eventDateStr);
-              deletePromises.push(deleteDoc(doc(eventsRef, event.id)));
-            }
-          }
-
-          if (deletePromises.length > 0) {
-            await Promise.all(deletePromises);
-            deliveryService.clearDateRangeCache();
-            const invalidationResult =
-              await deliveryService.reconcileClusterAssignmentsForDateKeys(deletedDateKeys);
-            deliveryEventEmitter.emit({
-              reason: "schedule-batch-deleted",
-              impactedDateKeys: deletedDateKeys,
-              reviewRequiredDateKeys: invalidationResult.reviewRequiredDateKeys,
-              failedClusterDateKeys: invalidationResult.failedDateKeys,
-            });
-          }
-        }
-      } // 4. SKIP EXISTING DATES, CREATE NEW DATES
-      const newDates = allDates.filter((date) => {
-        const dateStr = new DayPilot.Date(date).toString("yyyy-MM-dd");
-        const exists = existingDates.has(dateStr);
-        return !exists;
-      });
-
-      // CREATE NEW DELIVERIES
-      if (newDates.length > 0) {
-        const householdSnapshot = buildHouseholdSnapshot(clientProfile);
-        const eventsToAdd = newDates.map((date) => {
-          const eventToAdd: Partial<DeliveryEvent> = {
-            clientId: newDelivery.clientId,
-            clientName: newDelivery.clientName,
-            deliveryDate: date,
-            householdSnapshot,
-            recurrence: newDelivery.recurrence,
-            time: "",
-            cluster: 0,
-            recurrenceId: recurrenceId,
-          };
-
-          if (newDelivery.recurrence === "Custom") {
-            eventToAdd.customDates = newDelivery.customDates;
-          } else if (newDelivery.repeatsEndDate) {
-            eventToAdd.repeatsEndDate = newDelivery.repeatsEndDate;
-          }
-
-          return eventToAdd;
-        });
-
-        if (eventsToAdd.length === 1) {
-          await deliveryService.createEvent(eventsToAdd[0]);
-        } else if (eventsToAdd.length > 1) {
-          await deliveryService.createEventsBatch(eventsToAdd);
-        }
-      }
-
-      // 5. REFRESH DATA AND SET LAST DELIVERY DATE TO MATCH MODAL END DATE
-      await new Promise((resolve) => setTimeout(resolve, 300));
-
-      // Refresh delivery history
-      if (clientId) {
-        const { pastDeliveries, futureDeliveries } =
-          await deliveryService.getClientDeliveryHistory(clientId);
-        setPastDeliveries(pastDeliveries);
-        setFutureDeliveries(futureDeliveries);
-        setEvents([...pastDeliveries, ...futureDeliveries]);
-
-        // Set last delivery date to match modal's end date
-        if (newDelivery.repeatsEndDate) {
-          // If there's an end date in the modal, use that
-          const formattedEndDate = deliveryDate
-            .toJSDate(newDelivery.repeatsEndDate)
-            .toLocaleDateString("en-US");
-          setLastDeliveryDate(formattedEndDate);
-        } else {
-          // Otherwise, get the actual last delivery date
-          const latestEndDateString = await getLastDeliveryDateForClient(clientId);
-          setLastDeliveryDate(latestEndDateString || "No deliveries found");
-        }
-      }
+      await refreshDeliveryData();
     } catch (error) {
       console.error("Error adding delivery:", error);
+      throw error;
     } finally {
       setIsProcessingDelivery(false);
     }
@@ -3000,36 +2845,7 @@ const Profile = () => {
                 variant="contained"
                 startIcon={<Add />}
                 onClick={async () => {
-                  // Refresh delivery data before opening modal
-                  if (clientId) {
-                    const deliveryService = DeliveryService.getInstance();
-                    try {
-                      const { pastDeliveries, futureDeliveries } =
-                        await deliveryService.getClientDeliveryHistory(clientId);
-                      setPastDeliveries(pastDeliveries);
-                      setFutureDeliveries(futureDeliveries);
-
-                      // Find the latest recurring delivery
-                      const allDeliveries = [...pastDeliveries, ...futureDeliveries];
-
-                      const recurringDeliveries = allDeliveries.filter(
-                        (delivery) => delivery.recurrence && delivery.recurrence !== "None"
-                      );
-
-                      if (recurringDeliveries.length > 0) {
-                        const sortedRecurring = recurringDeliveries.sort((a, b) => {
-                          const dateA = toJSDate(a.deliveryDate);
-                          const dateB = toJSDate(b.deliveryDate);
-                          return dateB.getTime() - dateA.getTime();
-                        });
-                        setLatestRecurringDelivery(sortedRecurring[0]);
-                      } else {
-                        setLatestRecurringDelivery(null);
-                      }
-                    } catch (error) {
-                      console.error("Failed to refresh delivery history", error);
-                    }
-                  }
+                  await refreshDeliveryData();
                   setIsDeliveryModalOpen(true);
                 }}
                 disabled={
@@ -3052,7 +2868,7 @@ const Profile = () => {
               clients={[]}
               limits={limits}
               dailyLimits={dailyLimits}
-              startDate={new DayPilot.Date()}
+              startDate={deliveryModalStartDate}
               preSelectedClient={preSelectedClientData}
             />
             <DeliveryLogForm
@@ -3061,20 +2877,7 @@ const Profile = () => {
               fieldLabelStyles={fieldLabelStyles}
               onDeleteDelivery={async (delivery: DeliveryEvent) => {
                 try {
-                  // Update the parent component's state to reflect the deletion
-                  // Note: Firestore deletion is already handled by DeliveryLogForm
-                  const updatedFutureDeliveries = futureDeliveries.filter(
-                    (d) => d.id !== delivery.id
-                  );
-                  setFutureDeliveries(updatedFutureDeliveries);
-
-                  // Also refresh the delivery history to ensure consistency
-                  if (clientId) {
-                    const deliveryService = DeliveryService.getInstance();
-                    const { futureDeliveries: refreshedFutureDeliveries } =
-                      await deliveryService.getClientDeliveryHistory(clientId);
-                    setFutureDeliveries(refreshedFutureDeliveries);
-                  }
+                  await refreshDeliveryData();
                 } catch (error) {
                   console.error("Error updating delivery state after deletion:", error);
                 }

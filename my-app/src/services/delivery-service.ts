@@ -3,6 +3,7 @@ import {
   doc,
   getDoc,
   getDocs,
+  DocumentSnapshot,
   setDoc,
   updateDoc,
   deleteDoc,
@@ -14,7 +15,7 @@ import {
   Timestamp,
 } from "firebase/firestore";
 import { db } from "../auth/firebaseConfig";
-import { DeliveryEvent } from "../types/calendar-types";
+import { DeliveryEvent, NewDelivery } from "../types/calendar-types";
 import { HouseholdSnapshot } from "../types/delivery-types";
 import { validateDeliveryEvent } from "../utils/firestoreValidation";
 import { Time, TimeUtils } from "../utils/timeUtils";
@@ -23,12 +24,46 @@ import { ServiceError, formatServiceError } from "../utils/serviceError";
 import dataSources from "../config/dataSources";
 import { deliveryDate } from "../utils/deliveryDate";
 import { normalizeHouseholdSnapshot } from "../utils/householdSnapshot";
-import { DeliveryChangeReason, deliveryEventEmitter } from "../utils/deliveryEventEmitter";
+import {
+  buildRecurringSeriesAuditReport,
+  buildSeriesSummary,
+  canMutateFutureSeries,
+  DeliverySeriesSummary,
+  getLatestScheduledDate,
+  RecurringSeriesAuditReport,
+  summarizeDeliverySeries,
+} from "../utils/recurringSeries";
+import {
+  DeliveryChangeReason,
+  deliveryEventEmitter,
+} from "../utils/deliveryEventEmitter";
 
 export interface ClusterReconciliationResult {
   impactedDateKeys: string[];
   reviewRequiredDateKeys: string[];
   failedDateKeys: string[];
+}
+
+export type DeliveryMutationScope = "single" | "following";
+
+export interface DeliverySeriesDateRange {
+  earliest: Date | null;
+  latest: Date | null;
+}
+
+interface SeriesResolutionResult {
+  anchorEvent: DeliveryEvent;
+  scopedEvents: DeliveryEvent[];
+  seriesEvents: DeliveryEvent[];
+  summary: DeliverySeriesSummary;
+}
+
+interface UpdateEventScopeInput {
+  eventId: string;
+  scope: DeliveryMutationScope;
+  deliveryDate: string | Date;
+  recurrence?: DeliveryEvent["recurrence"];
+  repeatsEndDate?: string;
 }
 
 const MAX_BATCH_WRITE_COUNT = 500;
@@ -225,20 +260,200 @@ class DeliveryService {
     return cleanEvent;
   }
 
-  private invalidateRecurringCache(events: Partial<DeliveryEvent>[]) {
-    const cacheKeys = new Set<string>();
+  private snapshotToDeliveryEvent(snapshot: DocumentSnapshot): DeliveryEvent | null {
+    if (!snapshot.exists()) {
+      return null;
+    }
 
-    events.forEach((event) => {
-      if (!event.clientId || !event.recurrence) {
-        return;
-      }
+    const raw = snapshot.data() as Record<string, unknown>;
+    if (!raw.deliveryDate) {
+      return null;
+    }
 
-      const cacheKey = `${event.clientId}:${event.recurrence}`;
-      if (!cacheKeys.has(cacheKey)) {
-        cacheKeys.add(cacheKey);
-        this.invalidateCacheForClient(event.clientId, event.recurrence);
-      }
+    const event = {
+      id: snapshot.id,
+      ...raw,
+      deliveryDate: deliveryDate.toJSDate(
+        raw.deliveryDate as string | Date | Timestamp | null | undefined
+      ),
+    } as DeliveryEvent;
+
+    return validateDeliveryEvent(event) ? event : null;
+  }
+
+  private sortEventsByDeliveryDate(events: DeliveryEvent[]): DeliveryEvent[] {
+    return [...events].sort((left, right) => {
+      const leftDate = deliveryDate.toISODateString(left.deliveryDate);
+      const rightDate = deliveryDate.toISODateString(right.deliveryDate);
+      return leftDate.localeCompare(rightDate);
     });
+  }
+
+  private getSeriesCacheKey(event: Partial<DeliveryEvent>): string | null {
+    if (event.recurrence === "None") {
+      return event.id || null;
+    }
+
+    return event.recurrenceId?.trim() || null;
+  }
+
+  private invalidateSeriesCacheKeys(cacheKeys: Array<string | null | undefined>) {
+    cacheKeys
+      .filter((cacheKey): cacheKey is string => Boolean(cacheKey))
+      .forEach((cacheKey) => this.dateRangeCache.delete(cacheKey));
+  }
+
+  private invalidateRecurringCache(events: Partial<DeliveryEvent>[]) {
+    const cacheKeys = events.map((event) => this.getSeriesCacheKey(event));
+    this.invalidateSeriesCacheKeys(cacheKeys);
+  }
+
+  private async getEventOrThrow(id: string): Promise<DeliveryEvent> {
+    if (!id) {
+      throw new ServiceError("Invalid event ID provided", "invalid-event-id");
+    }
+
+    const snapshot = await getDoc(doc(this.db, this.eventsCollection, id));
+    const event = this.snapshotToDeliveryEvent(snapshot);
+
+    if (!event) {
+      throw new ServiceError("Delivery event not found", "event-not-found");
+    }
+
+    return event;
+  }
+
+  private async getEventsForRecurrenceId(
+    recurrenceId: string,
+    clientId?: string
+  ): Promise<DeliveryEvent[]> {
+    const constraints = [where("recurrenceId", "==", recurrenceId)];
+    if (clientId) {
+      constraints.push(where("clientId", "==", clientId));
+    }
+
+    const snapshot = await getDocs(query(collection(this.db, this.eventsCollection), ...constraints));
+
+    return this.sortEventsByDeliveryDate(
+      snapshot.docs
+        .map((docSnapshot) => this.snapshotToDeliveryEvent(docSnapshot))
+        .filter((event): event is DeliveryEvent => event !== null)
+    );
+  }
+
+  private getSeriesMutationError(event: DeliveryEvent): ServiceError {
+    if (!canMutateFutureSeries(event)) {
+      return new ServiceError(
+        "This recurring delivery needs repair before future changes can be applied.",
+        "legacy-series-unsupported"
+      );
+    }
+
+    return new ServiceError(
+      "This delivery series could not be resolved safely.",
+      "ambiguous-series-repair-required"
+    );
+  }
+
+  private async resolveSeriesForEvent(
+    eventId: string,
+    scope: DeliveryMutationScope
+  ): Promise<SeriesResolutionResult> {
+    const anchorEvent = await this.getEventOrThrow(eventId);
+    const anchorSummary = buildSeriesSummary([anchorEvent]);
+
+    if (scope === "single" || anchorEvent.recurrence === "None") {
+      if (!anchorSummary) {
+        throw new ServiceError("Unable to resolve delivery event.", "event-resolution-failed");
+      }
+
+      return {
+        anchorEvent,
+        scopedEvents: [anchorEvent],
+        seriesEvents: [anchorEvent],
+        summary: anchorSummary,
+      };
+    }
+
+    if (!canMutateFutureSeries(anchorEvent)) {
+      throw this.getSeriesMutationError(anchorEvent);
+    }
+
+    const seriesEvents = await this.getEventsForRecurrenceId(
+      anchorEvent.recurrenceId!,
+      anchorEvent.clientId
+    );
+    const summary = buildSeriesSummary(seriesEvents);
+
+    if (!summary || !summary.supportsFutureOperations) {
+      throw this.getSeriesMutationError(anchorEvent);
+    }
+
+    const anchorDateKey = deliveryDate.toISODateString(anchorEvent.deliveryDate);
+    const scopedEvents = seriesEvents.filter(
+      (event) => deliveryDate.toISODateString(event.deliveryDate) >= anchorDateKey
+    );
+
+    if (!scopedEvents.some((event) => event.id === anchorEvent.id)) {
+      throw new ServiceError(
+        "This delivery series is inconsistent and needs repair before future changes can be applied.",
+        "ambiguous-series-repair-required"
+      );
+    }
+
+    return {
+      anchorEvent,
+      scopedEvents,
+      seriesEvents,
+      summary,
+    };
+  }
+
+  private async writeBatchDeleteAndCreate(
+    eventsToDelete: DeliveryEvent[],
+    eventsToCreate: Partial<DeliveryEvent>[]
+  ): Promise<void> {
+    const deleteChunks: DeliveryEvent[][] = [];
+    for (let i = 0; i < eventsToDelete.length; i += MAX_BATCH_WRITE_COUNT) {
+      deleteChunks.push(eventsToDelete.slice(i, i + MAX_BATCH_WRITE_COUNT));
+    }
+
+    const normalizedEventsToCreate = eventsToCreate.map((event) => this.normalizeEventForWrite(event));
+    const createChunks: Partial<DeliveryEvent>[][] = [];
+    for (let i = 0; i < normalizedEventsToCreate.length; i += MAX_BATCH_WRITE_COUNT) {
+      createChunks.push(normalizedEventsToCreate.slice(i, i + MAX_BATCH_WRITE_COUNT));
+    }
+
+    for (const chunk of deleteChunks) {
+      await retry(async () => {
+        const batch = writeBatch(this.db);
+        chunk.forEach((event) => {
+          batch.delete(doc(this.db, this.eventsCollection, event.id));
+        });
+        await batch.commit();
+      });
+    }
+
+    for (const chunk of createChunks) {
+      await retry(async () => {
+        const batch = writeBatch(this.db);
+        chunk.forEach((event) => {
+          const eventRef = doc(collection(this.db, this.eventsCollection));
+          batch.set(eventRef, event);
+        });
+        await batch.commit();
+      });
+    }
+  }
+
+  private async finalizeMutation(
+    reason: DeliveryChangeReason,
+    impactedDateKeys: string[],
+    affectedEvents: Partial<DeliveryEvent>[]
+  ): Promise<void> {
+    this.invalidateRecurringCache(affectedEvents);
+    const invalidationResult = await this.reconcileClusterAssignmentsForDateKeys(impactedDateKeys);
+    this.emitDeliveryChange(reason, impactedDateKeys, invalidationResult);
   }
 
   private async createEventsInternal(
@@ -299,7 +514,7 @@ class DeliveryService {
         deleteDoc(doc(this.db, this.eventsCollection, docSnap.id))
       );
       await Promise.all(batchDeletes);
-      this.invalidateCacheForClient(clientId);
+      this.clearDateRangeCache();
       const invalidationResult =
         await this.reconcileClusterAssignmentsForDateKeys(impactedDateKeys);
       this.emitDeliveryChange("schedule-batch-deleted", impactedDateKeys, invalidationResult);
@@ -559,6 +774,302 @@ class DeliveryService {
     }
   }
 
+  private calculateDeliveryDateKeys(
+    newDelivery: Pick<NewDelivery, "deliveryDate" | "recurrence" | "repeatsEndDate" | "customDates">
+  ): string[] {
+    if (newDelivery.recurrence === "Custom") {
+      return Array.from(
+        new Set(
+          (newDelivery.customDates || [])
+            .map((date) => deliveryDate.tryToISODateString(date))
+            .filter((dateKey): dateKey is string => Boolean(dateKey))
+        )
+      ).sort();
+    }
+
+    const normalizedStartDate = deliveryDate.tryToISODateString(newDelivery.deliveryDate);
+    if (!normalizedStartDate) {
+      return [];
+    }
+
+    if (newDelivery.recurrence === "None") {
+      return [normalizedStartDate];
+    }
+
+    const recurrenceDates = Time.Recurrence.calculateRecurrenceDates(
+      TimeUtils.fromAny(normalizedStartDate),
+      newDelivery.recurrence,
+      newDelivery.repeatsEndDate ? TimeUtils.fromAny(newDelivery.repeatsEndDate) : undefined
+    );
+
+    return Array.from(new Set(recurrenceDates.map((date) => TimeUtils.toDateString(date)))).sort();
+  }
+
+  private buildReplacementEvent(
+    template: Partial<DeliveryEvent>,
+    overrides: Partial<DeliveryEvent>
+  ): Partial<DeliveryEvent> {
+    return {
+      clientId: template.clientId || "",
+      clientName: template.clientName || "",
+      assignedDriverId: template.assignedDriverId || "",
+      assignedDriverName: template.assignedDriverName || "",
+      cluster: template.cluster ?? 0,
+      time: template.time || "",
+      seriesStartDate: template.seriesStartDate,
+      ...template,
+      ...overrides,
+    };
+  }
+
+  public async getSeriesSummaryForEvent(eventId: string): Promise<DeliverySeriesSummary | null> {
+    try {
+      const resolution = await this.resolveSeriesForEvent(eventId, "single");
+      if (resolution.anchorEvent.recurrence === "None" || !resolution.anchorEvent.recurrenceId) {
+        return resolution.summary;
+      }
+
+      const seriesEvents = await this.getEventsForRecurrenceId(
+        resolution.anchorEvent.recurrenceId,
+        resolution.anchorEvent.clientId
+      );
+      return buildSeriesSummary(seriesEvents);
+    } catch (error) {
+      if (error instanceof ServiceError && error.code === "event-not-found") {
+        return null;
+      }
+
+      throw formatServiceError(error, "Failed to get delivery series summary");
+    }
+  }
+
+  public async getRecurringSeriesSummariesForClient(
+    clientId: string
+  ): Promise<DeliverySeriesSummary[]> {
+    try {
+      const events = await this.getEventsByClientId(clientId);
+      return summarizeDeliverySeries(events).filter((summary) => summary.recurrence !== "None");
+    } catch (error) {
+      throw formatServiceError(error, "Failed to get recurring delivery series summaries");
+    }
+  }
+
+  public async getLatestScheduledDateForClient(clientId: string): Promise<string | null> {
+    try {
+      const events = await this.getEventsByClientId(clientId);
+      return getLatestScheduledDate(events);
+    } catch (error) {
+      throw formatServiceError(error, "Failed to get the latest scheduled delivery date");
+    }
+  }
+
+  public async getScopedSeriesEvents(
+    eventId: string,
+    scope: DeliveryMutationScope
+  ): Promise<DeliveryEvent[]> {
+    try {
+      const resolution = await this.resolveSeriesForEvent(eventId, scope);
+      return resolution.scopedEvents;
+    } catch (error) {
+      throw formatServiceError(error, "Failed to resolve the delivery series");
+    }
+  }
+
+  public async deleteEventByScope(
+    eventId: string,
+    scope: DeliveryMutationScope
+  ): Promise<void> {
+    try {
+      const resolution = await this.resolveSeriesForEvent(eventId, scope);
+      const impactedDateKeys = this.normalizeDateKeys(
+        resolution.scopedEvents.map((event) => deliveryDate.toISODateString(event.deliveryDate))
+      );
+
+      await this.writeBatchDeleteAndCreate(resolution.scopedEvents, []);
+      await this.finalizeMutation(
+        scope === "single" ? "schedule-deleted" : "schedule-batch-deleted",
+        impactedDateKeys,
+        resolution.scopedEvents
+      );
+    } catch (error) {
+      throw formatServiceError(error, "Failed to delete event");
+    }
+  }
+
+  public async updateEventByScope(input: UpdateEventScopeInput): Promise<void> {
+    try {
+      const resolution = await this.resolveSeriesForEvent(input.eventId, input.scope);
+
+      if (input.scope === "single") {
+        const cleanData = this.normalizeEventForWrite({
+          deliveryDate: input.deliveryDate,
+        });
+        const eventRef = doc(this.db, this.eventsCollection, input.eventId);
+
+        await retry(async () => {
+          await updateDoc(eventRef, cleanData);
+        });
+
+        const updatedEvent = {
+          ...resolution.anchorEvent,
+          deliveryDate: deliveryDate.toJSDate(input.deliveryDate),
+        };
+        const impactedDateKeys = this.normalizeDateKeys([
+          deliveryDate.toISODateString(resolution.anchorEvent.deliveryDate),
+          deliveryDate.toISODateString(updatedEvent.deliveryDate),
+        ]);
+
+        await this.finalizeMutation("schedule-updated", impactedDateKeys, [
+          resolution.anchorEvent,
+          updatedEvent,
+        ]);
+        return;
+      }
+
+      const nextRecurrence = input.recurrence || resolution.anchorEvent.recurrence;
+      const replacementDateKeys = this.calculateDeliveryDateKeys({
+        deliveryDate: deliveryDate.toISODateString(input.deliveryDate),
+        recurrence: nextRecurrence,
+        repeatsEndDate: input.repeatsEndDate,
+      });
+      const replacementEvents = replacementDateKeys.map((dateKey) =>
+        this.buildReplacementEvent(resolution.anchorEvent, {
+          deliveryDate: dateKey,
+          recurrence: nextRecurrence,
+          recurrenceId:
+            nextRecurrence === "None" ? undefined : resolution.summary.recurrenceId,
+          repeatsEndDate:
+            nextRecurrence === "None" || nextRecurrence === "Custom"
+              ? undefined
+              : input.repeatsEndDate || "",
+          seriesStartDate: nextRecurrence === "None" ? undefined : resolution.anchorEvent.seriesStartDate,
+        })
+      );
+      const impactedDateKeys = this.normalizeDateKeys([
+        ...resolution.scopedEvents.map((event) => deliveryDate.toISODateString(event.deliveryDate)),
+        ...replacementDateKeys,
+      ]);
+
+      await this.writeBatchDeleteAndCreate(resolution.scopedEvents, replacementEvents);
+      await this.finalizeMutation("schedule-batch-updated", impactedDateKeys, [
+        ...resolution.scopedEvents,
+        ...replacementEvents,
+      ]);
+    } catch (error) {
+      throw formatServiceError(error, "Failed to update event");
+    }
+  }
+
+  public async scheduleClientDeliveries(newDelivery: NewDelivery): Promise<void> {
+    try {
+      if (!newDelivery.clientId) {
+        throw new ServiceError("Client is required to schedule deliveries.", "invalid-client");
+      }
+
+      const desiredDateKeys = this.calculateDeliveryDateKeys(newDelivery);
+      if (!desiredDateKeys.length) {
+        throw new ServiceError("At least one delivery date is required.", "invalid-delivery-dates");
+      }
+
+      const existingEvents = await this.getEventsByClientId(newDelivery.clientId);
+      const existingDateKeys = new Set(
+        existingEvents.map((event) => deliveryDate.toISODateString(event.deliveryDate))
+      );
+
+      if (newDelivery.targetRecurrenceId) {
+        const seriesEvents = await this.getEventsForRecurrenceId(
+          newDelivery.targetRecurrenceId,
+          newDelivery.clientId
+        );
+        const seriesSummary = buildSeriesSummary(seriesEvents);
+        if (!seriesSummary || !seriesSummary.supportsFutureOperations) {
+          throw new ServiceError(
+            "This recurring delivery needs repair before it can be updated.",
+            "legacy-series-unsupported"
+          );
+        }
+
+        const todayKey = deliveryDate.toISODateString(new Date());
+        const mutableSeriesEvents = seriesEvents.filter(
+          (event) => deliveryDate.toISODateString(event.deliveryDate) >= todayKey
+        );
+        const desiredFutureDateKeys = desiredDateKeys.filter((dateKey) => dateKey >= todayKey);
+        const templateEvent = mutableSeriesEvents[0] || seriesEvents[seriesEvents.length - 1];
+        const replacementEvents = desiredFutureDateKeys.map((dateKey) =>
+          this.buildReplacementEvent(templateEvent, {
+            clientId: newDelivery.clientId,
+            clientName: newDelivery.clientName,
+            deliveryDate: dateKey,
+            householdSnapshot: newDelivery.householdSnapshot ?? templateEvent.householdSnapshot,
+            recurrence: newDelivery.recurrence,
+            recurrenceId:
+              newDelivery.recurrence === "None" ? undefined : seriesSummary.recurrenceId,
+            repeatsEndDate:
+              newDelivery.recurrence === "None" || newDelivery.recurrence === "Custom"
+                ? undefined
+                : newDelivery.repeatsEndDate || "",
+            customDates:
+              newDelivery.recurrence === "Custom" ? newDelivery.customDates : undefined,
+            seriesStartDate:
+              newDelivery.recurrence === "None" ? undefined : templateEvent.seriesStartDate,
+          })
+        );
+        const impactedDateKeys = this.normalizeDateKeys([
+          ...mutableSeriesEvents.map((event) => deliveryDate.toISODateString(event.deliveryDate)),
+          ...desiredFutureDateKeys,
+        ]);
+
+        await this.writeBatchDeleteAndCreate(mutableSeriesEvents, replacementEvents);
+        await this.finalizeMutation("schedule-batch-updated", impactedDateKeys, [
+          ...mutableSeriesEvents,
+          ...replacementEvents,
+        ]);
+        return;
+      }
+
+      const newDates = desiredDateKeys.filter((dateKey) => !existingDateKeys.has(dateKey));
+      if (!newDates.length) {
+        return;
+      }
+
+      const recurrenceId =
+        newDelivery.recurrence === "None" ? undefined : crypto.randomUUID();
+      const seriesStartDate =
+        newDelivery.recurrence === "None"
+          ? undefined
+          : deliveryDate.tryToISODateString(newDelivery.deliveryDate) || undefined;
+      const eventsToCreate = newDates.map((dateKey) =>
+        this.buildReplacementEvent(
+          {
+            clientId: newDelivery.clientId,
+            clientName: newDelivery.clientName,
+            householdSnapshot: newDelivery.householdSnapshot,
+            cluster: 0,
+            time: "",
+            assignedDriverId: "",
+            assignedDriverName: "",
+            seriesStartDate,
+          },
+          {
+            deliveryDate: dateKey,
+            recurrence: newDelivery.recurrence,
+            recurrenceId,
+            repeatsEndDate:
+              newDelivery.recurrence === "Custom" ? undefined : newDelivery.repeatsEndDate || "",
+            customDates:
+              newDelivery.recurrence === "Custom" ? newDelivery.customDates : undefined,
+          }
+        )
+      );
+
+      const reason =
+        eventsToCreate.length === 1 ? "schedule-created" : "schedule-created-batch";
+      await this.createEventsInternal(eventsToCreate, reason);
+    } catch (error) {
+      throw formatServiceError(error, "Failed to schedule deliveries");
+    }
+  }
+
   /**
    * Update an existing delivery event
    */
@@ -577,8 +1088,10 @@ class DeliveryService {
 
       this.invalidateRecurringCache([
         {
+          id,
           clientId: cleanData.clientId || existingData?.clientId,
           recurrence: cleanData.recurrence || existingData?.recurrence,
+          recurrenceId: cleanData.recurrenceId || existingData?.recurrenceId,
         } as Partial<DeliveryEvent>,
       ]);
 
@@ -600,36 +1113,7 @@ class DeliveryService {
    * Delete a delivery event
    */
   public async deleteEvent(id: string): Promise<void> {
-    try {
-      if (!id) {
-        throw new ServiceError("Invalid event ID provided for deletion");
-      }
-      const eventRef = doc(this.db, this.eventsCollection, id);
-      const existingSnapshot = await getDoc(eventRef);
-      const existingData = existingSnapshot.exists()
-        ? (existingSnapshot.data() as Partial<DeliveryEvent>)
-        : null;
-
-      await retry(async () => {
-        await deleteDoc(eventRef);
-      });
-      this.invalidateRecurringCache([
-        {
-          clientId: existingData?.clientId,
-          recurrence: existingData?.recurrence,
-        } as Partial<DeliveryEvent>,
-      ]);
-      const impactedDateKeys = this.normalizeDateKeys([
-        existingData?.deliveryDate
-          ? deliveryDate.toISODateString(existingData.deliveryDate as any)
-          : null,
-      ]);
-      const invalidationResult =
-        await this.reconcileClusterAssignmentsForDateKeys(impactedDateKeys);
-      this.emitDeliveryChange("schedule-deleted", impactedDateKeys, invalidationResult);
-    } catch (error) {
-      throw formatServiceError(error, "Failed to delete event");
-    }
+    await this.deleteEventByScope(id, "single");
   }
 
   // Cache for recurring delivery date ranges to avoid repeated queries
@@ -637,33 +1121,25 @@ class DeliveryService {
   private readonly CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
   /**
-   * Get recurring delivery date range for a client (optimized with caching)
+   * Get recurring delivery date range for a specific series (optimized with caching)
    */
-  public async getRecurringDeliveryDateRange(
-    clientId: string,
-    recurrenceType: string
-  ): Promise<{ earliest: Date | null; latest: Date | null }> {
-    if (recurrenceType === "None") {
+  public async getDeliverySeriesDateRange(seriesKey: string): Promise<DeliverySeriesDateRange> {
+    if (!seriesKey) {
       return { earliest: null, latest: null };
     }
 
-    const cacheKey = `${clientId}-${recurrenceType}`;
-    const cached = this.dateRangeCache.get(cacheKey);
+    const cached = this.dateRangeCache.get(seriesKey);
 
-    // Return cached result if it's still fresh
     if (cached && Date.now() - cached.timestamp < this.CACHE_DURATION) {
       return { earliest: cached.earliest, latest: cached.latest };
     }
 
     try {
       return await retry(async () => {
-        // Optimized query: only get deliveryDate field for matching client and recurrence
         const q = query(
           collection(this.db, this.eventsCollection),
-          where("clientId", "==", clientId),
-          where("recurrence", "==", recurrenceType)
+          where("recurrenceId", "==", seriesKey)
         );
-
         const querySnapshot = await getDocs(q);
 
         if (querySnapshot.empty) {
@@ -687,8 +1163,7 @@ class DeliveryService {
         const earliest = new Date(Math.min(...dates.map((d) => d.getTime())));
         const latest = new Date(Math.max(...dates.map((d) => d.getTime())));
 
-        // Cache the result
-        this.dateRangeCache.set(cacheKey, {
+        this.dateRangeCache.set(seriesKey, {
           earliest,
           latest,
           timestamp: Date.now(),
@@ -697,120 +1172,98 @@ class DeliveryService {
         return { earliest, latest };
       });
     } catch (error) {
-      throw formatServiceError(error, "Failed to get recurring delivery date range");
+      throw formatServiceError(error, "Failed to get delivery series date range");
     }
   }
 
   /**
-   * Batch get recurring delivery date ranges for multiple clients (even more optimized)
+   * Batch get recurring delivery date ranges for multiple series
    */
-  public async getBatchRecurringDeliveryDateRanges(
-    requests: Array<{ clientId: string; recurrenceType: string }>
-  ): Promise<Map<string, { earliest: Date | null; latest: Date | null }>> {
-    const results = new Map<string, { earliest: Date | null; latest: Date | null }>();
-    const uncachedRequests: Array<{ clientId: string; recurrenceType: string; cacheKey: string }> =
-      [];
+  public async getBatchDeliverySeriesDateRanges(
+    seriesKeys: string[]
+  ): Promise<Map<string, DeliverySeriesDateRange>> {
+    const uniqueSeriesKeys = Array.from(new Set(seriesKeys.filter(Boolean)));
+    const results = new Map<string, DeliverySeriesDateRange>();
+    const uncachedKeys: string[] = [];
 
-    // Check cache first
-    for (const request of requests) {
-      if (request.recurrenceType === "None") {
-        results.set(`${request.clientId}-${request.recurrenceType}`, {
-          earliest: null,
-          latest: null,
-        });
-        continue;
-      }
-
-      const cacheKey = `${request.clientId}-${request.recurrenceType}`;
-      const cached = this.dateRangeCache.get(cacheKey);
-
+    uniqueSeriesKeys.forEach((seriesKey) => {
+      const cached = this.dateRangeCache.get(seriesKey);
       if (cached && Date.now() - cached.timestamp < this.CACHE_DURATION) {
-        results.set(cacheKey, { earliest: cached.earliest, latest: cached.latest });
+        results.set(seriesKey, { earliest: cached.earliest, latest: cached.latest });
       } else {
-        uncachedRequests.push({ ...request, cacheKey });
+        uncachedKeys.push(seriesKey);
       }
-    }
+    });
 
-    // Batch fetch uncached data
-    if (uncachedRequests.length > 0) {
+    for (let i = 0; i < uncachedKeys.length; i += 10) {
+      const chunk = uncachedKeys.slice(i, i + 10);
       try {
-        // Group by recurrence type for more efficient queries
-        const byRecurrence = new Map<string, string[]>();
-        for (const req of uncachedRequests) {
-          if (!byRecurrence.has(req.recurrenceType)) {
-            byRecurrence.set(req.recurrenceType, []);
+        const q = query(
+          collection(this.db, this.eventsCollection),
+          where("recurrenceId", "in", chunk)
+        );
+        const querySnapshot = await getDocs(q);
+        const groupedDates = new Map<string, Date[]>();
+
+        querySnapshot.docs.forEach((docSnapshot) => {
+          const data = docSnapshot.data();
+          if (!data.recurrenceId || !data.deliveryDate) {
+            return;
           }
-          const clientIds = byRecurrence.get(req.recurrenceType);
-          if (clientIds) {
-            clientIds.push(req.clientId);
+
+          const normalized = deliveryDate.toJSDate(data.deliveryDate);
+          if (Number.isNaN(normalized.getTime())) {
+            return;
           }
-        }
 
-        for (const [recurrenceType, clientIds] of byRecurrence) {
-          const q = query(
-            collection(this.db, this.eventsCollection),
-            where("recurrence", "==", recurrenceType),
-            where("clientId", "in", clientIds.slice(0, 10)) // Firestore 'in' limit is 10
-          );
-
-          const querySnapshot = await getDocs(q);
-
-          // Group results by clientId
-          const clientDates = new Map<string, Date[]>();
-
-          querySnapshot.docs.forEach((doc) => {
-            const data = doc.data();
-            if (!data.deliveryDate || !data.clientId) return;
-
-            const normalized = deliveryDate.toJSDate(data.deliveryDate);
-
-            if (!isNaN(normalized.getTime())) {
-              if (!clientDates.has(data.clientId)) {
-                clientDates.set(data.clientId, []);
-              }
-              const dates = clientDates.get(data.clientId);
-              if (dates) {
-                dates.push(normalized);
-              }
-            }
-          });
-
-          // Calculate date ranges for each client
-          for (const clientId of clientIds) {
-            const dates = clientDates.get(clientId) || [];
-            const cacheKey = `${clientId}-${recurrenceType}`;
-
-            if (dates.length === 0) {
-              const result = { earliest: null, latest: null };
-              results.set(cacheKey, result);
-            } else {
-              const earliest = new Date(Math.min(...dates.map((d) => d.getTime())));
-              const latest = new Date(Math.max(...dates.map((d) => d.getTime())));
-
-              const result = { earliest, latest };
-              results.set(cacheKey, result);
-
-              // Cache the result
-              this.dateRangeCache.set(cacheKey, {
-                earliest,
-                latest,
-                timestamp: Date.now(),
-              });
-            }
+          if (!groupedDates.has(data.recurrenceId)) {
+            groupedDates.set(data.recurrenceId, []);
           }
-        }
+
+          const dates = groupedDates.get(data.recurrenceId);
+          if (dates) {
+            dates.push(normalized);
+          }
+        });
+
+        chunk.forEach((seriesKey) => {
+          const dates = groupedDates.get(seriesKey) || [];
+          const range =
+            dates.length === 0
+              ? { earliest: null, latest: null }
+              : {
+                  earliest: new Date(Math.min(...dates.map((date) => date.getTime()))),
+                  latest: new Date(Math.max(...dates.map((date) => date.getTime()))),
+                };
+          results.set(seriesKey, range);
+          if (range.earliest && range.latest) {
+            this.dateRangeCache.set(seriesKey, {
+              earliest: range.earliest,
+              latest: range.latest,
+              timestamp: Date.now(),
+            });
+          }
+        });
       } catch (error) {
-        console.error("Error in batch recurring delivery date ranges:", error);
-        // Fallback: return null ranges for failed requests
-        for (const req of uncachedRequests) {
-          if (!results.has(req.cacheKey)) {
-            results.set(req.cacheKey, { earliest: null, latest: null });
+        console.error("Error fetching delivery series date ranges:", error);
+        chunk.forEach((seriesKey) => {
+          if (!results.has(seriesKey)) {
+            results.set(seriesKey, { earliest: null, latest: null });
           }
-        }
+        });
       }
     }
 
     return results;
+  }
+
+  public async auditRecurringSeriesIntegrity(): Promise<RecurringSeriesAuditReport> {
+    try {
+      const events = await this.getAllEvents();
+      return buildRecurringSeriesAuditReport(events);
+    } catch (error) {
+      throw formatServiceError(error, "Failed to audit recurring delivery series integrity");
+    }
   }
 
   /**
@@ -818,21 +1271,6 @@ class DeliveryService {
    */
   public clearDateRangeCache(): void {
     this.dateRangeCache.clear();
-  }
-
-  /**
-   * Invalidate cache for a specific client and recurrence type
-   */
-  private invalidateCacheForClient(clientId: string, recurrence?: string): void {
-    if (recurrence) {
-      this.dateRangeCache.delete(`${clientId}-${recurrence}`);
-    } else {
-      // Clear all cache entries for this client
-      const keysToDelete = Array.from(this.dateRangeCache.keys()).filter((key) =>
-        key.startsWith(`${clientId}-`)
-      );
-      keysToDelete.forEach((key) => this.dateRangeCache.delete(key));
-    }
   }
 
   /**

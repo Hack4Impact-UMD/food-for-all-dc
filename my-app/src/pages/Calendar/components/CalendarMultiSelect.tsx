@@ -1,15 +1,13 @@
 import { GlobalStyles } from "@mui/material";
 import { useEffect } from "react";
 import React, { useState } from "react";
-import { Box, Chip, Stack, Typography, TextField } from "@mui/material";
+import { Box, Chip, Stack, Typography } from "@mui/material";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
-// Removed react-datepicker import, only using MUI DatePicker
-import { validateDateInput } from "../../../utils/dates";
 
 interface CalendarMultiSelectProps {
   selectedDates: Date[];
   setSelectedDates: (dates: Date[]) => void;
-  endDate: Date;
+  endDate?: Date;
   minDate?: Date;
 }
 
@@ -27,37 +25,6 @@ const CalendarMultiSelect: React.FC<CalendarMultiSelectProps> = ({
     setDateInput(null);
   }, [shouldResetDateInput]);
   const [dateError, setDateError] = useState<string | null>(null);
-
-  const handleAddDate = (date: Date | null) => {
-    if (date && !selectedDates.some((d) => d.toDateString() === date.toDateString())) {
-      setSelectedDates([...selectedDates, date]);
-    }
-    setDateInput(null);
-  };
-
-  // Function to handle adding a new date
-  const handleDateChange = (date: Date | null) => {
-    if (!date) return;
-
-    // Check if date already exists in the array
-    if (!selectedDates.some((d) => d.toDateString() === date.toDateString())) {
-      // Add the new date and sort all dates chronologically
-      const updatedDates = [...selectedDates, date];
-      const sortedDates = updatedDates.sort((a, b) => a.getTime() - b.getTime());
-      setSelectedDates(sortedDates);
-    } else {
-      setSelectedDates(selectedDates.filter((d) => d.toDateString() !== date.toDateString()));
-    }
-  };
-
-  // Function to delete a date from the selectedDates array
-  const handleDeleteDate = (dateToDelete: Date) => {
-    if (dateToDelete < new Date()) {
-      console.warn("Cannot delete chips for past dates.");
-      return;
-    }
-    setSelectedDates(selectedDates.filter((d) => d.toDateString() !== dateToDelete.toDateString()));
-  };
 
   return (
     <>
@@ -115,7 +82,7 @@ const CalendarMultiSelect: React.FC<CalendarMultiSelectProps> = ({
                 setDateError("Date cannot be earlier than the client's start date.");
                 return;
               }
-              if (newValue > endDate) {
+              if (endDate && newValue > endDate) {
                 setDateError("Date cannot be later than the current end date.");
                 return;
               }

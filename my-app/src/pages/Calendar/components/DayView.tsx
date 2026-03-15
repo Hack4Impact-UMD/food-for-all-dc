@@ -6,6 +6,7 @@ import DeliveryCard from "./DeliveryCard";
 import EventCountHeader from "../../../components/EventCountHeader";
 import { useRecurringDelivery } from "../../../context/RecurringDeliveryContext";
 import VirtualScroll from "../../../components/VirtualScroll";
+import { getDeliverySeriesKey } from "../../../utils/recurringSeries";
 
 interface DayViewProps {
   events: DeliveryEvent[];
@@ -60,23 +61,13 @@ const DayView: React.FC<DayViewProps> = React.memo(function DayView({
 
   // Batch preload recurring delivery date ranges for all events
   useEffect(() => {
-    const recurringRequests = events
+    const recurringSeriesKeys = events
       .filter((event) => event.recurrence && event.recurrence !== "None")
-      .map((event) => ({
-        clientId: event.clientId,
-        recurrenceType: event.recurrence,
-      }));
+      .map((event) => getDeliverySeriesKey(event))
+      .filter((seriesKey): seriesKey is string => Boolean(seriesKey));
 
-    if (recurringRequests.length > 0) {
-      // Remove duplicates
-      const uniqueRequests = recurringRequests.filter(
-        (request, index, array) =>
-          array.findIndex(
-            (r) => r.clientId === request.clientId && r.recurrenceType === request.recurrenceType
-          ) === index
-      );
-
-      preloadDateRanges(uniqueRequests).catch((error) => {
+    if (recurringSeriesKeys.length > 0) {
+      preloadDateRanges(recurringSeriesKeys).catch((error) => {
         console.error("Failed to preload recurring delivery date ranges:", error);
       });
     }

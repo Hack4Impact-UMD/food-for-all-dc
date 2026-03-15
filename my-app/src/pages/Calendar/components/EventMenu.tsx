@@ -18,24 +18,7 @@ import {
   Select,
 } from "@mui/material";
 import { validateDateInput } from "../../../utils/dates";
-import { getLastDeliveryDateForClient } from "../../../utils/lastDeliveryDate";
-import { deliveryEventEmitter } from "../../../utils/deliveryEventEmitter";
 import MoreHorizIcon from "@mui/icons-material/MoreHoriz";
-import {
-  addDoc,
-  collection,
-  DocumentData,
-  deleteDoc,
-  doc,
-  getDoc,
-  getDocs,
-  QueryDocumentSnapshot,
-  query,
-  where,
-  updateDoc,
-} from "firebase/firestore";
-import { db } from "../../../auth/firebaseConfig";
-import dataSources from "../../../config/dataSources";
 import { DateLimit, DeliveryEvent, NewDelivery } from "../../../types/calendar-types";
 import { calculateRecurrenceDates } from "./CalendarUtils";
 import { toJSDate } from "../../../utils/timestamp";
@@ -62,9 +45,16 @@ const EventMenu: React.FC<EventMenuProps> = ({
   weeklyLimits,
   dailyLimits,
 }) => {
+  const deliveryService = useMemo(() => DeliveryService.getInstance(), []);
+  const supportsFutureDelete = event.recurrence !== "None" && Boolean(event.recurrenceId);
+  const supportsFutureEdit = supportsFutureDelete && event.recurrence !== "Custom";
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isDeleteSubmitting, setIsDeleteSubmitting] = useState(false);
+  const [isEditSubmitting, setIsEditSubmitting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string>("");
+  const [editError, setEditError] = useState<string>("");
   const [capacityWarnings, setCapacityWarnings] = useState<CapacityWarningEntry[]>([]);
   const [capacityWarningError, setCapacityWarningError] = useState<string>("");
   const [capacityWarningAcknowledged, setCapacityWarningAcknowledged] = useState<boolean>(false);
@@ -115,25 +105,30 @@ const EventMenu: React.FC<EventMenuProps> = ({
   const dailyLimitsMap = useMemo(() => buildDailyLimitsMap(dailyLimits), [dailyLimits]);
 
   useEffect(() => {
-    const fetchCurrentLastDeliveryDate = async () => {
-      if (event.clientId) {
-        try {
-          const mostRecentSeriesEndDate = await getLastDeliveryDateForClient(event.clientId);
-
-          if (mostRecentSeriesEndDate) {
-            setEditRecurrence((prev) => ({
-              ...prev,
-              repeatsEndDate: mostRecentSeriesEndDate as string,
-            }));
-          }
-        } catch (error) {
-          console.error("Error fetching current last delivery date:", error);
+    let isActive = true;
+    const fetchSeriesSummary = async () => {
+      try {
+        const summary = await deliveryService.getSeriesSummaryForEvent(event.id);
+        if (!isActive) {
+          return;
         }
+
+        if (summary?.effectiveEndDate) {
+          setEditRecurrence((prev) => ({
+            ...prev,
+            repeatsEndDate: summary.effectiveEndDate,
+          }));
+        }
+      } catch (error) {
+        console.error("Error fetching delivery series summary:", error);
       }
     };
 
-    fetchCurrentLastDeliveryDate();
-  }, [event.clientId, event.id]);
+    fetchSeriesSummary();
+    return () => {
+      isActive = false;
+    };
+  }, [deliveryService, event.id]);
 
   useEffect(() => {
     let isActive = true;
@@ -161,6 +156,8 @@ const EventMenu: React.FC<EventMenuProps> = ({
     setCapacityWarnings([]);
     setCapacityWarningError("");
     setCapacityWarningAcknowledged(false);
+    setDeleteError("");
+    setEditError("");
   }, [
     editOption,
     editDeliveryDate,
@@ -169,10 +166,30 @@ const EventMenu: React.FC<EventMenuProps> = ({
     event.id,
   ]);
 
+  useEffect(() => {
+    if (!supportsFutureDelete && deleteOption !== "This event") {
+      setDeleteOption("This event");
+    }
+    if (!supportsFutureEdit && editOption !== "This event") {
+      setEditOption("This event");
+    }
+  }, [deleteOption, editOption, supportsFutureDelete, supportsFutureEdit]);
+
   const formatToMMDDYYYY = (dateStr: string) => {
     const [year, month, day] = dateStr.split("-");
     if (!year || !month || !day) return dateStr;
     return `${month}/${day}/${year}`;
+  };
+
+  const getErrorMessage = (error: unknown, fallbackMessage: string) => {
+    if (error && typeof error === "object" && "message" in error) {
+      const message = String((error as { message?: unknown }).message || "").trim();
+      if (message) {
+        return message;
+      }
+    }
+
+    return fallbackMessage;
   };
 
   const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
@@ -206,52 +223,32 @@ const EventMenu: React.FC<EventMenuProps> = ({
 
   const closeEditDialog = () => {
     resetCapacityWarningState();
+    setEditError("");
     setIsEditDialogOpen(false);
   };
 
   const handleDeleteConfirm = async () => {
+    setDeleteError("");
+    setIsDeleteSubmitting(true);
     try {
-      const eventsRef = collection(db, dataSources.firebase.calendarCollection);
-      const deliveryService = DeliveryService.getInstance();
-      const impactedDateKeys = [deliveryDate.toISODateString(event.deliveryDate)];
-
-      if (deleteOption === "This event") {
-        await deleteDoc(doc(eventsRef, event.id));
-      } else if (deleteOption === "This and following events") {
-        await deleteDoc(doc(eventsRef, event.id));
-
-        const currentDate = toJSDate(event.deliveryDate);
-        const q = query(
-          eventsRef,
-          where("recurrenceId", "==", event.recurrenceId),
-          where("deliveryDate", ">", currentDate)
-        );
-
-        const querySnapshot = await getDocs(q);
-        querySnapshot.docs.forEach((docSnap) => {
-          impactedDateKeys.push(deliveryDate.toISODateString(docSnap.data().deliveryDate));
-        });
-        const batch = querySnapshot.docs.map((doc) => deleteDoc(doc.ref));
-        await Promise.all(batch);
-      }
-
-      deliveryService.clearDateRangeCache();
-      const invalidationResult =
-        await deliveryService.reconcileClusterAssignmentsForDateKeys(impactedDateKeys);
-      deliveryEventEmitter.emit({
-        reason: deleteOption === "This event" ? "schedule-deleted" : "schedule-batch-deleted",
-        impactedDateKeys,
-        reviewRequiredDateKeys: invalidationResult.reviewRequiredDateKeys,
-        failedClusterDateKeys: invalidationResult.failedDateKeys,
-      });
+      await deliveryService.deleteEventByScope(
+        event.id,
+        deleteOption === "This and following events" ? "following" : "single"
+      );
       onEventModified();
       setIsDeleteDialogOpen(false);
+      handleMenuClose();
     } catch (error) {
       console.error("Error deleting event:", error);
+      setDeleteError(getErrorMessage(error, "Failed to delete delivery."));
+    } finally {
+      setIsDeleteSubmitting(false);
     }
   };
 
   const handleEditConfirm = async () => {
+    setEditError("");
+    setIsEditSubmitting(true);
     try {
       setCapacityWarningError("");
       const normalizedEditDate = deliveryDate.tryToISODateString(editDeliveryDate);
@@ -263,11 +260,9 @@ const EventMenu: React.FC<EventMenuProps> = ({
         );
         return;
       }
-      const eventsRef = collection(db, dataSources.firebase.calendarCollection);
-      const deliveryService = DeliveryService.getInstance();
       const deltaByDate: Record<string, number> = {};
       let recurrenceDatesForSave: string[] = [];
-      let futureSeriesDocs: QueryDocumentSnapshot<DocumentData>[] = [];
+      let scopedSeriesEvents: DeliveryEvent[] = [];
 
       if (editOption === "This event") {
         const originalDateKey = deliveryDate.toISODateString(event.deliveryDate);
@@ -277,13 +272,6 @@ const EventMenu: React.FC<EventMenuProps> = ({
           deltaByDate[updatedDateKey] = 1;
         }
       } else {
-        const originalEventDoc = await getDoc(doc(eventsRef, event.id));
-        const originalEvent = originalEventDoc.data();
-        if (!originalEvent) {
-          console.error("Original event not found.");
-          return;
-        }
-
         const recurrenceDraft: NewDelivery = {
           clientId: event.clientId,
           clientName: event.clientName,
@@ -316,19 +304,11 @@ const EventMenu: React.FC<EventMenuProps> = ({
           return;
         }
 
-        const originalDeliveryDate = toJSDate(originalEvent.deliveryDate);
-        const futureSeriesQuery = query(
-          eventsRef,
-          where("recurrenceId", "==", event.recurrenceId),
-          where("clientId", "==", event.clientId),
-          where("deliveryDate", ">=", originalDeliveryDate)
-        );
-        const futureSeriesSnapshot = await getDocs(futureSeriesQuery);
-        futureSeriesDocs = futureSeriesSnapshot.docs;
+        scopedSeriesEvents = await deliveryService.getScopedSeriesEvents(event.id, "following");
 
-        const oldDateCounts = futureSeriesSnapshot.docs.reduce(
-          (acc, docSnap) => {
-            const dateKey = deliveryDate.toISODateString(docSnap.data().deliveryDate);
+        const oldDateCounts = scopedSeriesEvents.reduce(
+          (acc, seriesEvent) => {
+            const dateKey = deliveryDate.toISODateString(seriesEvent.deliveryDate);
             acc[dateKey] = (acc[dateKey] || 0) + 1;
             return acc;
           },
@@ -382,44 +362,25 @@ const EventMenu: React.FC<EventMenuProps> = ({
       }
       setCapacityWarningError("");
 
-      if (editOption === "This event") {
-        const newDate = deliveryDate.toJSDate(editDeliveryDate);
-        await updateDoc(doc(eventsRef, event.id), {
-          deliveryDate: newDate,
-        });
-      } else {
-        await Promise.all(futureSeriesDocs.map((docSnap) => deleteDoc(docSnap.ref)));
-        for (const recurrenceDateStr of recurrenceDatesForSave) {
-          const newDate = deliveryDate.toJSDate(recurrenceDateStr);
-          await addDoc(eventsRef, {
-            clientId: event.clientId,
-            clientName: event.clientName,
-            cluster: event.cluster,
-            deliveryDate: newDate,
-            recurrence: editRecurrence.recurrence || event.recurrence || "None",
-            recurrenceId: event.recurrenceId,
-            repeatsEndDate: editRecurrence.repeatsEndDate || "",
-            time: event.time || "",
-          });
-        }
-      }
-
-      deliveryService.clearDateRangeCache();
-      if (impactedDateKeys.length > 0) {
-        const invalidationResult =
-          await deliveryService.reconcileClusterAssignmentsForDateKeys(impactedDateKeys);
-        deliveryEventEmitter.emit({
-          reason:
-            editOption === "This event" ? "schedule-updated" : "schedule-batch-updated",
-          impactedDateKeys,
-          reviewRequiredDateKeys: invalidationResult.reviewRequiredDateKeys,
-          failedClusterDateKeys: invalidationResult.failedDateKeys,
-        });
-      }
+      await deliveryService.updateEventByScope({
+        eventId: event.id,
+        scope: editOption === "This and following events" ? "following" : "single",
+        deliveryDate: editDeliveryDate,
+        recurrence: (editRecurrence.recurrence as NewDelivery["recurrence"]) || event.recurrence,
+        repeatsEndDate:
+          editOption === "This and following events" &&
+          editRecurrence.recurrence !== "None"
+            ? editRecurrence.repeatsEndDate || undefined
+            : undefined,
+      });
       onEventModified();
       closeEditDialog();
+      handleMenuClose();
     } catch (error) {
       console.error("Error updating event:", error);
+      setEditError(getErrorMessage(error, "Failed to update delivery."));
+    } finally {
+      setIsEditSubmitting(false);
     }
   };
 
@@ -483,6 +444,7 @@ const EventMenu: React.FC<EventMenuProps> = ({
         <MenuItem
           onClick={() => {
             resetCapacityWarningState();
+            setEditError("");
             setIsEditDialogOpen(true);
           }}
         >
@@ -490,6 +452,7 @@ const EventMenu: React.FC<EventMenuProps> = ({
         </MenuItem>
         <MenuItem
           onClick={() => {
+            setDeleteError("");
             setIsDeleteDialogOpen(true);
           }}
         >
@@ -514,7 +477,7 @@ const EventMenu: React.FC<EventMenuProps> = ({
             }}
           >
             <FormControlLabel value="This event" control={<Radio />} label="This event" />
-            {event.recurrence !== "None" && (
+            {supportsFutureEdit && (
               <FormControlLabel
                 value="This and following events"
                 control={<Radio />}
@@ -581,14 +544,23 @@ const EventMenu: React.FC<EventMenuProps> = ({
             formatDate={formatToMMDDYYYY}
             marginTop={1.5}
           />
+          {editError && (
+            <Typography color="error" sx={{ mt: 1 }}>
+              {editError}
+            </Typography>
+          )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={closeEditDialog}>Cancel</Button>
+          <Button onClick={closeEditDialog} disabled={isEditSubmitting}>
+            Cancel
+          </Button>
           <Button
             onClick={handleEditConfirm}
             variant="contained"
             color="primary"
+            sx={{ minWidth: 112 }}
             disabled={
+              isEditSubmitting ||
               !editDeliveryDate ||
               (editOption === "This and following events" &&
                 editRecurrence.recurrence !== "None" &&
@@ -596,7 +568,9 @@ const EventMenu: React.FC<EventMenuProps> = ({
               Boolean(editDateError)
             }
           >
-            {capacityWarningAcknowledged && (capacityWarnings.length > 0 || capacityWarningError)
+            {isEditSubmitting
+              ? "Saving..."
+              : capacityWarningAcknowledged && (capacityWarnings.length > 0 || capacityWarningError)
               ? "Continue anyway"
               : "Save"}
           </Button>
@@ -614,17 +588,26 @@ const EventMenu: React.FC<EventMenuProps> = ({
         <DialogContent sx={{ pt: 2 }}>
           <RadioGroup value={deleteOption} onChange={(e) => setDeleteOption(e.target.value)}>
             <FormControlLabel value="This event" control={<Radio />} label="This event" />
-            <FormControlLabel
-              value="This and following events"
-              control={<Radio />}
-              label="This and future events"
-            />
+            {supportsFutureDelete && (
+              <FormControlLabel
+                value="This and following events"
+                control={<Radio />}
+                label="This and future events"
+              />
+            )}
           </RadioGroup>
+          {deleteError && (
+            <Typography color="error" sx={{ mt: 1 }}>
+              {deleteError}
+            </Typography>
+          )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setIsDeleteDialogOpen(false)}>Cancel</Button>
-          <Button onClick={handleDeleteConfirm} color="error">
-            Delete
+          <Button onClick={() => setIsDeleteDialogOpen(false)} disabled={isDeleteSubmitting}>
+            Cancel
+          </Button>
+          <Button onClick={handleDeleteConfirm} color="error" disabled={isDeleteSubmitting}>
+            {isDeleteSubmitting ? "Deleting..." : "Delete"}
           </Button>
         </DialogActions>
       </Dialog>

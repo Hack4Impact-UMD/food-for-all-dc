@@ -4,25 +4,7 @@ import { format } from "date-fns";
 import { DeliveryEvent } from "../../../types/calendar-types";
 import { useRecurringDelivery } from "../../../context/RecurringDeliveryContext";
 import styles from "./DeliveryCard.module.css";
-
-// Helper to parse various date formats as local date
-function parseLocalDateString(dateStr: string): Date {
-  if (!dateStr) return new Date("");
-
-  // Handle MM/DD/YYYY format
-  if (dateStr.match(/^\d{1,2}\/\d{1,2}\/\d{4}$/)) {
-    return new Date(dateStr);
-  }
-
-  // Handle YYYY-MM-DD format
-  if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
-    const [year, month, day] = dateStr.split("-").map(Number);
-    return new Date(year, month - 1, day, 12, 0, 0); // Local noon
-  }
-
-  // Try parsing as regular date string
-  return new Date(dateStr);
-}
+import { getDeliverySeriesKey } from "../../../utils/recurringSeries";
 
 // Helper function to get delivery recurrence label and CSS class
 const getDeliveryTypeInfo = (recurrence: string) => {
@@ -45,21 +27,19 @@ interface DeliveryRecurrenceDisplayProps {
   allEvents?: DeliveryEvent[];
 }
 
-const DeliveryRecurrenceDisplay: React.FC<DeliveryRecurrenceDisplayProps> = ({
-  event,
-  allEvents,
-}) => {
+const DeliveryRecurrenceDisplay: React.FC<DeliveryRecurrenceDisplayProps> = ({ event }) => {
   const { label, className } = getDeliveryTypeInfo(event.recurrence);
   const [dateRange, setDateRange] = useState<{ earliest: Date | null; latest: Date | null } | null>(
     null
   );
   const { getDateRange } = useRecurringDelivery();
+  const seriesKey = getDeliverySeriesKey(event);
 
   useEffect(() => {
-    if (event.recurrence !== "None") {
+    if (event.recurrence !== "None" && seriesKey) {
       let cancelled = false;
 
-      getDateRange(event.clientId, event.recurrence)
+      getDateRange(seriesKey)
         .then((range) => {
           if (!cancelled) {
             setDateRange(range);
@@ -76,7 +56,9 @@ const DeliveryRecurrenceDisplay: React.FC<DeliveryRecurrenceDisplayProps> = ({
         cancelled = true;
       };
     }
-  }, [event.clientId, event.recurrence, getDateRange]);
+    setDateRange(null);
+    return undefined;
+  }, [event.recurrence, getDateRange, seriesKey]);
 
   let dateRangeElement = null;
   // Only show date range if not a one-off delivery and we have fetched the date range

@@ -14,7 +14,6 @@ import { auth } from "../../auth/firebaseConfig";
 import AddDeliveryDialog from "./components/AddDeliveryDialog";
 import CalendarHeader from "./components/CalendarHeader";
 import CalendarPopper from "./components/CalendarPopper";
-import { calculateRecurrenceDates } from "./components/CalendarUtils";
 import DayView from "./components/DayView";
 import MonthView from "./components/MonthView";
 import {
@@ -31,14 +30,14 @@ import { useLimits } from "./components/useLimits";
 import DeliveryService from "../../services/delivery-service";
 import { clientService } from "../../services/client-service";
 import DriverService from "../../services/driver-service";
-import { toJSDate, toDayPilotDateString } from "../../utils/timestamp";
+import { toJSDate } from "../../utils/timestamp";
 import { DateTime } from "luxon";
 import { RecurringDeliveryProvider } from "../../context/RecurringDeliveryContext";
 import CalendarSkeleton from "../../components/skeletons/CalendarSkeleton";
 import CalendarHeaderSkeleton from "../../components/skeletons/CalendarHeaderSkeleton";
-import { deliveryDate } from "../../utils/deliveryDate";
 import { useNotifications } from "../../components/NotificationProvider";
 import { buildHouseholdSnapshot } from "../../utils/householdSnapshot";
+import { deliveryEventEmitter } from "../../utils/deliveryEventEmitter";
 
 const DAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
 
@@ -368,93 +367,33 @@ const CalendarPage: React.FC = React.memo(() => {
 
   const handleAddDelivery = async (newDelivery: NewDelivery) => {
     try {
-      let recurrenceDates: string[] = [];
-      const recurrenceId = crypto.randomUUID();
       const selectedClient =
         clientLookupMap.get(newDelivery.clientId) ??
         clients.find((client) => client.uid === newDelivery.clientId);
       const clientName = selectedClient
         ? `${selectedClient.firstName} ${selectedClient.lastName}`.trim()
         : newDelivery.clientName || "";
-
-      if (newDelivery.recurrence === "Custom") {
-        recurrenceDates = (newDelivery.customDates || [])
-          .map((date) => {
-            if (typeof date === "object" && date !== null && "getTime" in date) {
-              // It's a Date object
-              const iso = DateTime.fromJSDate(date as Date).toISODate();
-              return iso ? iso : "";
-            }
-            return "";
-          })
-          .filter((d): d is string => !!d);
-        newDelivery.repeatsEndDate = undefined;
-      } else {
-        const normalizedDate = TimeUtils.fromAny(newDelivery.deliveryDate).toISODate() || "";
-        if (newDelivery.recurrence === "None") {
-          recurrenceDates = [normalizedDate];
-        } else {
-          recurrenceDates = calculateRecurrenceDates(newDelivery);
-        }
-      }
-
-      // Filter out dates that already have a delivery for the same client
-      const existingEventDates = new Set(
-        events
-          .filter((event) => event.clientId === newDelivery.clientId)
-          .map((event) => {
-            const jsDate = toJSDate(event.deliveryDate);
-            return new DayPilot.Date(jsDate).toString("yyyy-MM-dd");
-          })
-      );
-
-      const uniqueRecurrenceDates = recurrenceDates.filter((date) => !existingEventDates.has(date));
-
       const deliveryService = DeliveryService.getInstance();
-      const seriesStartDate = newDelivery.deliveryDate;
       const snapshotClient =
         selectedClient ?? (await clientService.getClientById(newDelivery.clientId));
       const householdSnapshot = snapshotClient ? buildHouseholdSnapshot(snapshotClient) : undefined;
-
-      const eventsToAdd = uniqueRecurrenceDates.map((dateStr) => {
-        const normalizedDeliveryDate = deliveryDate.toJSDate(dateStr);
-        const eventToAdd: Partial<DeliveryEvent> = {
-          clientId: newDelivery.clientId,
-          clientName,
-          deliveryDate: normalizedDeliveryDate,
-          householdSnapshot,
-          recurrence: newDelivery.recurrence,
-          seriesStartDate,
-          time: "",
-          cluster: 0,
-          recurrenceId,
-        };
-        if (newDelivery.recurrence === "Custom") {
-          eventToAdd.customDates = newDelivery.customDates;
-        } else if (newDelivery.repeatsEndDate) {
-          eventToAdd.repeatsEndDate = newDelivery.repeatsEndDate;
-        }
-        return eventToAdd;
+      await deliveryService.scheduleClientDeliveries({
+        ...newDelivery,
+        clientName,
+        householdSnapshot,
       });
-
-      if (eventsToAdd.length === 1) {
-        await deliveryService.createEvent(eventsToAdd[0]);
-      } else if (eventsToAdd.length > 1) {
-        await deliveryService.createEventsBatch(eventsToAdd);
-      }
 
       await fetchEvents();
       setIsModalOpen(false);
-
-      const deliveryCount = uniqueRecurrenceDates.length;
-      const deliveryText =
-        deliveryCount === 1
-          ? `Delivery added for ${clientName}`
-          : `${deliveryCount} deliveries added for ${clientName}`;
-      showSuccess(deliveryText);
+      showSuccess(`Delivery schedule saved for ${clientName}`);
     } catch (error) {
       console.error("Error adding delivery:", error);
-      showError("Failed to add delivery. Please try again.");
+      const message =
+        error && typeof error === "object" && "message" in error
+          ? String((error as { message?: unknown }).message || "")
+          : "";
+      showError(message || "Failed to add delivery. Please try again.");
+      throw error;
     }
   };
 
@@ -481,6 +420,14 @@ const CalendarPage: React.FC = React.memo(() => {
   useEffect(() => {
     fetchEvents();
   }, [fetchEvents, currentDate, viewType]); // Clients are now fetched lazily within fetchEvents
+
+  useEffect(() => {
+    const unsubscribe = deliveryEventEmitter.subscribe(() => {
+      void fetchEvents();
+    });
+
+    return unsubscribe;
+  }, [fetchEvents]);
 
   // Handle URL parameter changes (e.g., browser back/forward, direct URL access)
   useEffect(() => {

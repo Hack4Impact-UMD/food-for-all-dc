@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo } from "react";
+import React, { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { GlobalStyles } from "@mui/material";
 import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
@@ -23,7 +23,6 @@ import type { DateLimit, NewDelivery } from "../../../types/calendar-types";
 import type { ClientProfile } from "../../../types/client-types";
 import { DayPilot } from "@daypilot/daypilot-lite-react";
 import { validateDeliveryDateRange } from "../../../utils/dateValidation";
-import { getLastDeliveryDateForClient } from "../../../utils/lastDeliveryDate";
 import { clientService } from "../../../services/client-service";
 import { deliveryDate } from "../../../utils/deliveryDate";
 import { DeliveryService } from "../../../services";
@@ -38,7 +37,7 @@ import CapacityWarningPanel from "./CapacityWarningPanel";
 interface AddDeliveryDialogProps {
   open: boolean;
   onClose: () => void;
-  onAddDelivery: (newDelivery: NewDelivery) => void;
+  onAddDelivery: (newDelivery: NewDelivery) => void | Promise<void>;
   clients: ClientProfile[];
   limits: number[];
   dailyLimits: DateLimit[];
@@ -48,6 +47,7 @@ interface AddDeliveryDialogProps {
     clientId: string;
     clientName: string;
     clientProfile: ClientProfile;
+    targetRecurrenceId?: string;
   };
 }
 
@@ -55,6 +55,26 @@ type ClientSearchResult = Pick<
   ClientProfile,
   "uid" | "firstName" | "lastName" | "address" | "activeStatus"
 >;
+
+function convertToMMDDYYYY(dateStr: string): string {
+  if (!dateStr) return "";
+  if (dateStr.match(/^\d{2}\/\d{2}\/\d{4}$/)) {
+    return dateStr;
+  }
+  if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
+    const [year, month, day] = dateStr.split("-");
+    return `${month}/${day}/${year}`;
+  }
+  return dateStr;
+}
+
+function convertToYYYYMMDD(dayPilotDate: DayPilot.Date): string {
+  try {
+    return dayPilotDate.toString("yyyy-MM-dd");
+  } catch {
+    return "";
+  }
+}
 
 const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
   const {
@@ -77,7 +97,54 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
   const [selectedClientProfile, setSelectedClientProfile] = useState<ClientProfile | null>(
     preSelectedClient?.clientProfile ?? null
   );
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const dailyLimitsMap = useMemo(() => buildDailyLimitsMap(dailyLimits), [dailyLimits]);
+  const startDateKey = useMemo(() => convertToYYYYMMDD(startDate), [startDate]);
+  const wasOpenRef = useRef(false);
+
+  const buildInitialDeliveryState = useCallback((): NewDelivery => {
+    const defaultDate = startDateKey;
+
+    if (!preSelectedClient) {
+      return {
+        clientId: "",
+        clientName: "",
+        deliveryDate: defaultDate,
+        recurrence: "None",
+        repeatsEndDate: "",
+        targetRecurrenceId: undefined,
+      };
+    }
+
+    let name = preSelectedClient.clientName;
+    if (!name || name.trim() === "") {
+      const { firstName, lastName } = preSelectedClient.clientProfile;
+      name = firstName && lastName ? `${firstName} ${lastName}` : "";
+    }
+
+    let effectiveDeliveryDate = defaultDate;
+    const startISO = preSelectedClient.clientProfile.startDate
+      ? deliveryDate.tryToISODateString(preSelectedClient.clientProfile.startDate)
+      : null;
+    if (startISO && effectiveDeliveryDate < startISO) {
+      effectiveDeliveryDate = startISO;
+    }
+
+    return {
+      clientId: preSelectedClient.clientId,
+      clientName: name,
+      deliveryDate: effectiveDeliveryDate,
+      recurrence:
+        (preSelectedClient.clientProfile.recurrence as
+          | "None"
+          | "Weekly"
+          | "2x-Monthly"
+          | "Monthly"
+          | "Custom") || "None",
+      repeatsEndDate: convertToMMDDYYYY(preSelectedClient.clientProfile.endDate || ""),
+      targetRecurrenceId: preSelectedClient.targetRecurrenceId,
+    };
+  }, [preSelectedClient, startDateKey]);
 
   const resetCapacityWarningState = useCallback(() => {
     setCapacityWarnings([]);
@@ -99,46 +166,30 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
   );
 
   useEffect(() => {
-    if (open && preSelectedClient) {
-      let name = preSelectedClient.clientName;
-      if (!name || name.trim() === "") {
-        const { firstName, lastName } = preSelectedClient.clientProfile;
-        name = firstName && lastName ? `${firstName} ${lastName}` : "";
-      }
-      if (preSelectedClient.clientProfile.startDate) {
-        const iso = deliveryDate.tryToISODateString(preSelectedClient.clientProfile.startDate);
-        setClientStartDateISO(iso);
-      } else {
-        setClientStartDateISO(null);
-      }
+    const didOpen = open && !wasOpenRef.current;
+    wasOpenRef.current = open;
+
+    if (!didOpen) {
+      return;
+    }
+
+    if (preSelectedClient) {
+      const startISO = preSelectedClient.clientProfile.startDate
+        ? deliveryDate.tryToISODateString(preSelectedClient.clientProfile.startDate)
+        : null;
+      setClientStartDateISO(startISO);
       setSelectedClientProfile(preSelectedClient.clientProfile);
-      setNewDelivery((prev) => ({
-        ...prev,
-        clientId: preSelectedClient.clientId,
-        clientName: name,
-      }));
+      setNewDelivery(buildInitialDeliveryState());
+      return;
     }
-  }, [open, preSelectedClient]);
 
-  const convertToMMDDYYYY = (dateStr: string): string => {
-    if (!dateStr) return "";
-    if (dateStr.match(/^\d{2}\/\d{2}\/\d{4}$/)) {
-      return dateStr;
-    }
-    if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
-      const [year, month, day] = dateStr.split("-");
-      return `${month}/${day}/${year}`;
-    }
-    return dateStr;
-  };
-
-  const convertToYYYYMMDD = (dayPilotDate: DayPilot.Date): string => {
-    try {
-      return dayPilotDate.toString("yyyy-MM-dd");
-    } catch {
-      return "";
-    }
-  };
+    setClientStartDateISO(null);
+    setSelectedClientProfile(null);
+    setNewDelivery((prev) => ({
+      ...prev,
+      deliveryDate: startDateKey,
+    }));
+  }, [buildInitialDeliveryState, open, preSelectedClient, startDateKey]);
 
   const [clientStartDateISO, setClientStartDateISO] = useState<string | null>(() => {
     if (preSelectedClient?.clientProfile?.startDate) {
@@ -147,60 +198,7 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
     return null;
   });
 
-  const [newDelivery, setNewDelivery] = useState<NewDelivery>(() => {
-    const defaultDate = convertToYYYYMMDD(startDate);
-
-    if (preSelectedClient) {
-      let name = preSelectedClient.clientName;
-      if (!name || name.trim() === "") {
-        const { firstName, lastName } = preSelectedClient.clientProfile;
-        name = firstName && lastName ? `${firstName} ${lastName}` : "";
-      }
-
-      let effectiveDeliveryDate = defaultDate;
-      const startISO = preSelectedClient.clientProfile.startDate
-        ? deliveryDate.tryToISODateString(preSelectedClient.clientProfile.startDate)
-        : null;
-      if (startISO && effectiveDeliveryDate < startISO) {
-        effectiveDeliveryDate = startISO;
-      }
-
-      return {
-        clientId: preSelectedClient.clientId,
-        clientName: name,
-        deliveryDate: effectiveDeliveryDate,
-        recurrence:
-          (preSelectedClient.clientProfile.recurrence as
-            | "None"
-            | "Weekly"
-            | "2x-Monthly"
-            | "Monthly"
-            | "Custom") || "None",
-        repeatsEndDate: convertToMMDDYYYY(preSelectedClient.clientProfile.endDate || ""),
-      };
-    }
-    return {
-      clientId: "",
-      clientName: "",
-      deliveryDate: defaultDate,
-      recurrence: "None",
-      repeatsEndDate: "",
-    };
-  });
-
-  useEffect(() => {
-    if (open) {
-      const defaultDate = convertToYYYYMMDD(startDate);
-      let effectiveDate = defaultDate;
-      if (clientStartDateISO && effectiveDate < clientStartDateISO) {
-        effectiveDate = clientStartDateISO;
-      }
-      setNewDelivery((prev) => ({
-        ...prev,
-        deliveryDate: effectiveDate,
-      }));
-    }
-  }, [open, startDate, clientStartDateISO]);
+  const [newDelivery, setNewDelivery] = useState<NewDelivery>(() => buildInitialDeliveryState());
 
   const [customDates, setCustomDates] = useState<Date[]>([]);
   const [startDateError, setStartDateError] = useState<string>("");
@@ -238,9 +236,8 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
       );
     }
     if (newDelivery.recurrence === "Custom") {
-      if (customDates.length === 0 || !newDelivery.repeatsEndDate) return false;
       if (hasEndDateError || hasRepeatsEndDateError) return false;
-      return customDates.length > 0 && isValidDateFormat(newDelivery.repeatsEndDate);
+      return customDates.length > 0;
     }
     return false;
   })();
@@ -304,26 +301,6 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
   }, [open, preSelectedClient, handleClientSearch]);
 
   useEffect(() => {
-    const fetchCurrentLastDeliveryDate = async () => {
-      if (newDelivery.clientId && open) {
-        try {
-          const latestEndDate = await getLastDeliveryDateForClient(newDelivery.clientId);
-          if (latestEndDate) {
-            const formattedDate = convertToMMDDYYYY(latestEndDate);
-            setNewDelivery((prev: NewDelivery) => ({
-              ...prev,
-              repeatsEndDate: prev.repeatsEndDate || formattedDate,
-            }));
-          }
-        } catch (error) {
-          console.error("Error fetching current last delivery date:", error);
-        }
-      }
-    };
-    fetchCurrentLastDeliveryDate();
-  }, [newDelivery.clientId, open]);
-
-  useEffect(() => {
     if (
       newDelivery.recurrence !== "None" &&
       newDelivery.recurrence !== "Custom" &&
@@ -350,33 +327,12 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
   }, [newDelivery.deliveryDate, newDelivery.repeatsEndDate, newDelivery.recurrence]);
 
   const resetFormAndClose = () => {
-    const defaultDate = convertToYYYYMMDD(startDate);
-
-    if (preSelectedClient) {
-      setNewDelivery({
-        clientId: preSelectedClient.clientId,
-        clientName: preSelectedClient.clientName,
-        deliveryDate: defaultDate,
-        recurrence:
-          (preSelectedClient.clientProfile.recurrence as
-            | "None"
-            | "Weekly"
-            | "2x-Monthly"
-            | "Monthly"
-            | "Custom") || "None",
-        repeatsEndDate: convertToMMDDYYYY(preSelectedClient.clientProfile.endDate || ""),
-      });
-      setSelectedClientProfile(preSelectedClient.clientProfile);
-    } else {
-      setNewDelivery({
-        clientId: "",
-        clientName: "",
-        deliveryDate: defaultDate,
-        recurrence: "None",
-        repeatsEndDate: "",
-      });
-      setSelectedClientProfile(null);
-    }
+    const resetStartDateISO = preSelectedClient?.clientProfile.startDate
+      ? deliveryDate.tryToISODateString(preSelectedClient.clientProfile.startDate)
+      : null;
+    setClientStartDateISO(resetStartDateISO);
+    setNewDelivery(buildInitialDeliveryState());
+    setSelectedClientProfile(preSelectedClient?.clientProfile || null);
     setCustomDates([]);
     setStartDateError("");
     setEndDateError("");
@@ -412,11 +368,17 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
       }
     }
 
+    setIsSubmitting(true);
     try {
       const service = DeliveryService.getInstance();
       const existingEvents = await service.getEventsByClientId(newDelivery.clientId);
-      const existingDates = new Set(
-        existingEvents.map((event) => deliveryDate.toISODateString(event.deliveryDate))
+      const conflictingExistingDates = new Set(
+        existingEvents
+          .filter(
+            (event) =>
+              !newDelivery.targetRecurrenceId || event.recurrenceId !== newDelivery.targetRecurrenceId
+          )
+          .map((event) => deliveryDate.toISODateString(event.deliveryDate))
       );
 
       const normalizedDeliveryDate =
@@ -446,7 +408,7 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
 
       const uniqueCandidateDates = Array.from(new Set(candidateDates));
 
-      const conflictingDate = uniqueCandidateDates.find((date) => existingDates.has(date));
+      const conflictingDate = uniqueCandidateDates.find((date) => conflictingExistingDates.has(date));
       if (conflictingDate) {
         setFormError(
           `This client already has a delivery on ${convertToMMDDYYYY(conflictingDate)}.`
@@ -471,7 +433,7 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
         }
       }
 
-      const additionsByDate = candidateDates.reduce(
+      const additionsByDate = uniqueCandidateDates.reduce(
         (acc, dateKey) => {
           acc[dateKey] = (acc[dateKey] || 0) + 1;
           return acc;
@@ -514,12 +476,18 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
         deliveryToSubmit.deliveryDate = normalizedDeliveryDate;
       }
 
-      onAddDelivery(deliveryToSubmit as NewDelivery);
+      await onAddDelivery(deliveryToSubmit as NewDelivery);
       setCustomDates([]);
       resetFormAndClose();
     } catch (error) {
       console.error("Error validating delivery dates:", error);
-      setFormError("Unable to validate deliveries. Please try again.");
+      const errorMessage =
+        error && typeof error === "object" && "message" in error
+          ? String((error as { message?: unknown }).message || "")
+          : "";
+      setFormError(errorMessage || "Unable to validate deliveries. Please try again.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -530,7 +498,11 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
   return (
     <Dialog
       open={open}
-      onClose={resetFormAndClose}
+      onClose={() => {
+        if (!isSubmitting) {
+          resetFormAndClose();
+        }
+      }}
       maxWidth="sm"
       fullWidth
       className="add-delivery-modal-root"
@@ -683,11 +655,13 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
                 newValue: ClientSearchResult | null
               ) => {
                 if (!newValue) {
-                  setNewDelivery({
-                    ...newDelivery,
+                  setClientStartDateISO(null);
+                  setNewDelivery((prev) => ({
+                    ...prev,
                     clientId: "",
                     clientName: "",
-                  });
+                    targetRecurrenceId: undefined,
+                  }));
                   setSelectedClientProfile(null);
                 } else {
                   const fullClient = await clientService.getClientById(newValue.uid);
@@ -712,10 +686,12 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
                     const year = oneMonthFromNow.getFullYear().toString();
                     return `${month}/${day}/${year}`;
                   })();
-                  setNewDelivery({
-                    ...newDelivery,
+                  setNewDelivery((prev) => ({
+                    ...prev,
                     clientId: fullClient.uid,
                     clientName: `${fullClient.firstName} ${fullClient.lastName}`,
+                    deliveryDate:
+                      startISO && prev.deliveryDate < startISO ? startISO : prev.deliveryDate,
                     recurrence:
                       (fullClient.recurrence as
                         | "None"
@@ -726,7 +702,8 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
                     repeatsEndDate: fullClient.endDate
                       ? convertToMMDDYYYY(fullClient.endDate)
                       : defaultEndDate,
-                  });
+                    targetRecurrenceId: undefined,
+                  }));
                 }
               }}
               popupIcon={
@@ -855,11 +832,13 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
               value={newDelivery.recurrence}
               onChange={(e) => {
                 const value = e.target.value as NewDelivery["recurrence"];
-                setNewDelivery({
-                  ...newDelivery,
+                setNewDelivery((prev) => ({
+                  ...prev,
                   recurrence: value,
-                  ...(value !== "Custom" ? { customDates: undefined } : {}),
-                });
+                  ...(value === "Custom"
+                    ? { repeatsEndDate: undefined, customDates: undefined }
+                    : { customDates: undefined }),
+                }));
                 if (value !== "Custom") setCustomDates([]);
               }}
               inputProps={{ "data-testid": "recurrence-select-input" }}
@@ -881,9 +860,9 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
               selectedDates={customDates}
               setSelectedDates={setCustomDates}
               endDate={
-                newDelivery.repeatsEndDate
-                  ? deliveryDate.toJSDate(newDelivery.repeatsEndDate)
-                  : deliveryDate.toJSDate(new Date())
+                selectedClientProfile?.endDate
+                  ? deliveryDate.toJSDate(selectedClientProfile.endDate)
+                  : undefined
               }
               minDate={clientStartDateISO ? deliveryDate.toJSDate(clientStartDateISO) : undefined}
             />
@@ -891,40 +870,39 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
         ) : (
           <Box sx={{ mb: 2 }} />
         )}
-        {(newDelivery.recurrence !== "None" && newDelivery.recurrence !== "Custom") ||
-        (preSelectedClient && preSelectedClient.clientProfile.endDate) ? (
+        {newDelivery.recurrence !== "None" && newDelivery.recurrence !== "Custom" ? (
           <>
-            {newDelivery.recurrence !== "None" ? (
-              <>
-                <DateField
-                  label="End Date"
-                  value={newDelivery.repeatsEndDate || ""}
-                  onChange={(dateStr: string) => {
-                    setNewDelivery({
-                      ...newDelivery,
-                      repeatsEndDate: dateStr,
-                    });
-                  }}
-                  required={String(newDelivery.recurrence) !== "None"}
-                  error={newDelivery._repeatsEndDateError}
-                  setError={(err: string | null) => {
-                    setNewDelivery((prev: NewDelivery) => ({
-                      ...prev,
-                      _repeatsEndDateError: err || undefined,
-                    }));
-                  }}
-                />
-                <Typography sx={{ color: "red" }}>{endDateError}</Typography>
-              </>
-            ) : null}
+            <DateField
+              label="End Date"
+              value={newDelivery.repeatsEndDate || ""}
+              onChange={(dateStr: string) => {
+                setNewDelivery({
+                  ...newDelivery,
+                  repeatsEndDate: dateStr,
+                });
+              }}
+              required={String(newDelivery.recurrence) !== "None"}
+              error={newDelivery._repeatsEndDateError}
+              setError={(err: string | null) => {
+                setNewDelivery((prev: NewDelivery) => ({
+                  ...prev,
+                  _repeatsEndDateError: err || undefined,
+                }));
+              }}
+            />
+            <Typography sx={{ color: "red" }}>{endDateError}</Typography>
           </>
         ) : null}
       </DialogContent>
       <DialogActions>
-        <Button onClick={resetFormAndClose}>Cancel</Button>
-        <Button onClick={handleSubmit} variant="contained" disabled={!isFormValid}>
+        <Button onClick={resetFormAndClose} disabled={isSubmitting}>
+          Cancel
+        </Button>
+        <Button onClick={handleSubmit} variant="contained" disabled={!isFormValid || isSubmitting}>
           {capacityWarningAcknowledged && (capacityWarnings.length > 0 || capacityWarningError)
             ? "Continue anyway"
+            : isSubmitting
+            ? "Saving..."
             : "Add"}
         </Button>
       </DialogActions>

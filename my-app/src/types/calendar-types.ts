@@ -1,6 +1,6 @@
 import { DayPilot } from "@daypilot/daypilot-lite-react";
 import { ClientProfile } from "./client-types";
-import { Delivery } from "./delivery-types";
+import { Delivery, HouseholdSnapshot } from "./delivery-types";
 
 export interface Driver {
   id: string;
@@ -19,7 +19,7 @@ export interface DateLimit {
 export interface DeliveryEvent extends Delivery {
   recurrence: "None" | "Weekly" | "2x-Monthly" | "Monthly" | "Custom";
   customDates?: string[];
-  recurrenceId: string;
+  recurrenceId?: string;
   seriesStartDate?: string; // The original start date of a recurring series
   isZoomingOut?: boolean;
   isZoomingIn?: boolean;
@@ -39,6 +39,8 @@ export interface NewDelivery {
   _deliveryDateError?: string;
   _repeatsEndDateError?: string;
   seriesStartDate?: string; // The original start date of a recurring series
+  targetRecurrenceId?: string;
+  householdSnapshot?: HouseholdSnapshot | null;
 }
 
 export type ViewType = "Day" | "Month";
