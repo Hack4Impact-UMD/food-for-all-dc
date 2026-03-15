@@ -4,7 +4,6 @@ import { Cluster } from "./DeliverySpreadsheet";
 import { RowData } from "./types/deliveryTypes";
 import { getExportConfig } from "../../config/exportConfig";
 import { normalizeCsvRows, sanitizeFilename } from "../../utils/csvExport";
-import { formatDietaryRestrictionsForExport } from "../../utils/exportFormatters";
 import {
   ClientOverride,
   normalizeAssignmentValue,
@@ -15,13 +14,52 @@ import {
 export interface ExportFeedback {
   status: "success" | "error" | "warning" | "info";
   message: string;
+  generatedFileCount: number;
 }
+
+interface ExportGroup {
+  driverLabel: string;
+  timeValue: string;
+  timeLabel: string;
+  routeId: string;
+  fileName: string;
+  rows: RowData[];
+}
+
+interface RouteDietaryColumns {
+  dietaryRestrictions: string;
+  dietaryPreferences: string;
+}
+
+const ROUTE_DIETARY_LABELS: Array<[string, string]> = [
+  ["halal", "halal"],
+  ["kidneyFriendly", "kidney friendly"],
+  ["lowSodium", "low sodium"],
+  ["lowSugar", "low sugar"],
+  ["microwaveOnly", "microwave only"],
+  ["noCookingEquipment", "no cooking equipment"],
+  ["softFood", "soft food"],
+  ["vegan", "vegan"],
+  ["vegetarian", "vegetarian"],
+  ["heartFriendly", "heart friendly"],
+];
 
 const getClusterForRow = (clusters: Cluster[], rowId: string) =>
   clusters.find((cluster) => cluster.deliveries?.includes(rowId));
 
 const getClientOverrideForRow = (clientOverrides: ClientOverride[], rowId: string) =>
   clientOverrides.find((override) => override.clientId === rowId);
+
+const getRouteId = (row: RowData, clusters: Cluster[]) => {
+  const cluster = getClusterForRow(clusters, row.id);
+  const routeId = cluster?.id ?? row.clusterId;
+
+  if (routeId === undefined || routeId === null) {
+    return "";
+  }
+
+  return String(routeId).trim();
+};
 
 const getEffectiveDriver = (
   row: RowData,
@@ -43,6 +81,7 @@ const getEffectiveTime = (
 ): string => {
   const cluster = getClusterForRow(clusters, row.id);
   const override = getClientOverrideForRow(clientOverrides, row.id);
+
   return resolveAssignmentValue(override?.time, normalizeAssignmentValue(cluster?.time)) || "";
 };
 
@@ -68,6 +107,17 @@ const compareTimes = (left: string, right: string) => {
   return leftHours * 60 + leftMinutes - (rightHours * 60 + rightMinutes);
 };
 
+const compareRouteIds = (left: string, right: string) => {
+  const leftNumber = parseInt(left, 10);
+  const rightNumber = parseInt(right, 10);
+
+  if (!Number.isNaN(leftNumber) && !Number.isNaN(rightNumber)) {
+    return leftNumber - rightNumber;
+  }
+
+  return compareText(left, right);
+};
+
 const sortRowsForExport = (rows: RowData[]) =>
   [...rows].sort((left, right) => {
     const lastNameComparison = compareText(left.lastName || "", right.lastName || "");
@@ -83,10 +133,10 @@ const sortRowsForExport = (rows: RowData[]) =>
     return compareText(left.address || "", right.address || "");
   });
 
-const formatAssignedTime = (time?: string): string => {
+const formatAssignedTime = (time?: string, fallback = "No time assigned"): string => {
   const normalizedTime = normalizeAssignmentValue(time);
   if (!normalizedTime) {
-    return "No time assigned";
+    return fallback;
   }
 
   const [hours, minutes] = normalizedTime.split(":");
@@ -111,13 +161,12 @@ const recordSkippedReason = (
   skippedReasonCounts.set(reason, (skippedReasonCounts.get(reason) || 0) + count);
 };
 
-const buildFeedbackMessage = (baseMessage: string, skippedReasonCounts: Map<string, number>) => {
-  const skippedCount = Array.from(skippedReasonCounts.values()).reduce(
-    (total, count) => total + count,
-    0
-  );
-
-  if (skippedCount === 0 || skippedReasonCounts.size === 0) {
+const buildFeedbackMessage = (
+  baseMessage: string,
+  skippedRowCount: number,
+  skippedReasonCounts: Map<string, number>
+) => {
+  if (skippedRowCount === 0 || skippedReasonCounts.size === 0) {
     return baseMessage;
   }
 
@@ -125,22 +174,67 @@ const buildFeedbackMessage = (baseMessage: string, skippedReasonCounts: Map<stri
     .map(([reason, count]) => `${reason} (${count})`)
     .join("; ");
 
-  return `${baseMessage} Skipped ${skippedCount} deliveries: ${skippedReasons}.`;
+  return `${baseMessage} Skipped ${skippedRowCount} ${
+    skippedRowCount === 1 ? "delivery" : "deliveries"
+  }: ${skippedReasons}.`;
+};
+
+const formatRouteDietaryColumns = (
+  dietaryRestrictions:
+    | {
+        foodAllergens?: string[];
+        other?: boolean;
+        otherText?: string;
+        dietaryPreferences?: string;
+        [key: string]: unknown;
+      }
+    | undefined
+): RouteDietaryColumns => {
+  if (!dietaryRestrictions) {
+    return {
+      dietaryRestrictions: "",
+      dietaryPreferences: "",
+    };
+  }
+
+  const restrictionTokens = ROUTE_DIETARY_LABELS.filter(
+    ([key]) => dietaryRestrictions[key] === true
+  ).map(([, label]) => `[${label}]`);
+
+  const segments = [
+    restrictionTokens.join(","),
+    (dietaryRestrictions.foodAllergens ?? []).length > 0
+      ? `ALLERGIES:${(dietaryRestrictions.foodAllergens ?? []).join(",")}`
+      : "",
+    typeof dietaryRestrictions.otherText === "string" && dietaryRestrictions.otherText.trim() !== ""
+      ? `OTHER:${dietaryRestrictions.otherText.trim()}`
+      : "",
+  ].filter(Boolean);
+
+  const dietaryPreferences =
+    typeof dietaryRestrictions.dietaryPreferences === "string"
+      ? dietaryRestrictions.dietaryPreferences.trim()
+      : "";
+
+  return {
+    dietaryRestrictions: segments.join(" "),
+    dietaryPreferences,
+  };
 };
 
 const buildRouteCsvRow = (
   row: RowData,
   deliveryDate: string,
-  clusters: Cluster[],
-  clientOverrides: ClientOverride[]
+  routeId: string,
+  timeLabel: string
 ) => {
-  const cluster = getClusterForRow(clusters, row.id);
   const rowData = row as RowData & {
     quadrant?: string;
     adults?: number;
     children?: number;
     total?: number;
   };
+  const dietaryColumns = formatRouteDietaryColumns(row.deliveryDetails?.dietaryRestrictions);
 
   return {
     firstName: row.firstName || "",
@@ -154,13 +248,12 @@ const buildRouteCsvRow = (
     children: rowData.children ?? 0,
     total: rowData.total ?? (rowData.adults ?? 0) + (rowData.children ?? 0),
     deliveryInstructions: row.deliveryDetails?.deliveryInstructions || "",
-    dietaryPreferences: formatDietaryRestrictionsForExport(
-      row.deliveryDetails?.dietaryRestrictions
-    ),
+    dietaryRestrictions: dietaryColumns.dietaryRestrictions,
+    dietaryPreferences: dietaryColumns.dietaryPreferences,
     tefapFY25: row.tags?.includes("Tefap") ? "Y" : "N",
     deliveryDate,
-    cluster: cluster?.id || row.clusterId || "",
-    time: formatAssignedTime(getEffectiveTime(row, clusters, clientOverrides)),
+    cluster: routeId,
+    time: timeLabel === "Unscheduled" ? "No time assigned" : timeLabel,
   };
 };
 
@@ -186,50 +279,34 @@ const buildTimeWindow = (
   return {
     start: toDisplayTime(hour, minute),
     end: toDisplayTime(hour + deliveryWindowHours, minute),
-    label: `${hour % 12 || 12}:${minutes} ${hour >= 12 ? "PM" : "AM"}`,
+    label: formatAssignedTime(normalizedTime),
   };
 };
 
-const validateDoorDashRows = (
-  rowsToExport: RowData[],
+const getDoorDashRowValidationErrors = (
+  row: RowData,
   clusters: Cluster[],
   clientOverrides: ClientOverride[],
   defaultCity: string,
   defaultState: string
-): string | null => {
-  const missingCounts = new Map<string, number>();
+) => {
+  const missingFields: string[] = [];
+  const rowData = row as RowData & { city?: string; state?: string };
+  const assignedTime = getEffectiveTime(row, clusters, clientOverrides);
 
-  const incrementMissing = (field: string) => {
-    missingCounts.set(field, (missingCounts.get(field) || 0) + 1);
-  };
+  if (!normalizeAssignmentValue(assignedTime)) missingFields.push("assigned time");
+  if (!row.firstName?.trim()) missingFields.push("first name");
+  if (!row.lastName?.trim()) missingFields.push("last name");
+  if (!buildDoorDashStreetAddress(row)) missingFields.push("street address");
+  if (!(rowData.city || defaultCity)?.trim()) missingFields.push("city");
+  if (!(rowData.state || defaultState)?.trim()) missingFields.push("state");
+  if (!row.zipCode?.trim()) missingFields.push("ZIP code");
+  if (!row.phone?.trim()) missingFields.push("phone");
 
-  rowsToExport.forEach((row) => {
-    const rowData = row as RowData & { city?: string; state?: string };
-    const assignedTime = getEffectiveTime(row, clusters, clientOverrides);
-
-    if (!normalizeAssignmentValue(assignedTime)) incrementMissing("assigned time");
-    if (!row.firstName?.trim()) incrementMissing("first name");
-    if (!row.lastName?.trim()) incrementMissing("last name");
-    if (!buildDoorDashStreetAddress(row)) incrementMissing("street address");
-    if (!(rowData.city || defaultCity)?.trim()) incrementMissing("city");
-    if (!(rowData.state || defaultState)?.trim()) incrementMissing("state");
-    if (!row.zipCode?.trim()) incrementMissing("ZIP code");
-    if (!row.phone?.trim()) incrementMissing("phone");
-  });
-
-  if (missingCounts.size === 0) {
-    return null;
-  }
-
-  const summary = Array.from(missingCounts.entries())
-    .sort(([left], [right]) => compareText(left, right))
-    .map(([field, count]) => `${field} (${count})`)
-    .join(", ");
-
-  return `Cannot export DoorDash deliveries. Missing required fields: ${summary}.`;
+  return missingFields;
 };
 
-const buildDoorDashCsvRow = (row: RowData, deliveryDate: string, time: string) => {
+const buildDoorDashCsvRow = (row: RowData, deliveryDate: string, time: string, orderId: string) => {
   const config = getExportConfig();
   const rowData = row as RowData & { city?: string; state?: string };
   const city = rowData.city || config.doorDash.defaultCity;
@@ -238,7 +315,7 @@ const buildDoorDashCsvRow = (row: RowData, deliveryDate: string, time: string) =
 
   return {
     "Pickup Location ID*": config.doorDash.pickupLocationId,
-    "Order ID*": "",
+    "Order ID*": orderId,
     "Date of Delivery*": deliveryDate,
     "Pickup Window Start*": timeWindow.start,
     "Pickup Window End*": timeWindow.end,
@@ -256,13 +333,67 @@ const buildDoorDashCsvRow = (row: RowData, deliveryDate: string, time: string) =
       row.deliveryDetails?.deliveryInstructions,
       config.doorDash.maxInstructionLength
     ),
-    "Pickup Location Name": config.organization.name,
+    "Pickup Location Name": config.doorDash.pickupLocationName,
     "Pickup Phone Number": config.organization.phone,
     "Pickup Instructions": config.organization.pickupInstructions,
     "Order Volume": config.doorDash.orderVolume,
-    _timeLabel: timeWindow.label,
   };
 };
+
+const buildRouteFileName = (
+  deliveryDate: string,
+  driverLabel: string,
+  timeLabel: string,
+  routeId: string
+) => {
+  const config = getExportConfig();
+
+  return sanitizeFilename(
+    `${config.fileNamePrefix} ${deliveryDate} - ${driverLabel} - ${timeLabel} - Route ${routeId}.csv`
+  );
+};
+
+const addRowToGroup = (
+  groups: Map<string, ExportGroup>,
+  deliveryDate: string,
+  driverLabel: string,
+  timeValue: string,
+  timeLabel: string,
+  routeId: string,
+  row: RowData
+) => {
+  const key = [driverLabel, normalizeAssignmentValue(timeValue) || "", routeId].join("::");
+  const existingGroup = groups.get(key);
+
+  if (existingGroup) {
+    existingGroup.rows.push(row);
+    return;
+  }
+
+  groups.set(key, {
+    driverLabel,
+    timeValue: normalizeAssignmentValue(timeValue) || "",
+    timeLabel,
+    routeId,
+    fileName: buildRouteFileName(deliveryDate, driverLabel, timeLabel, routeId),
+    rows: [row],
+  });
+};
+
+const sortExportGroups = (groups: ExportGroup[]) =>
+  [...groups].sort((left, right) => {
+    const driverComparison = compareText(left.driverLabel, right.driverLabel);
+    if (driverComparison !== 0) {
+      return driverComparison;
+    }
+
+    const timeComparison = compareTimes(left.timeValue, right.timeValue);
+    if (timeComparison !== 0) {
+      return timeComparison;
+    }
+
+    return compareRouteIds(left.routeId, right.routeId);
+  });
 
 export const exportDeliveries = async (
   deliveryDate: string,
@@ -275,66 +406,60 @@ export const exportDeliveries = async (
       return {
         status: "info",
         message: "No deliveries selected or available for export on the selected date.",
+        generatedFileCount: 0,
       };
     }
 
-    const unassignedRows = rowsToExport.filter((row) => !getClusterForRow(clusters, row.id));
-    if (unassignedRows.length > 0) {
-      return {
-        status: "warning",
-        message: `Cannot export: ${unassignedRows.length} ${
-          unassignedRows.length === 1 ? "delivery is" : "deliveries are"
-        } still unassigned.`,
-      };
-    }
+    const groups = new Map<string, ExportGroup>();
+    const skippedReasonCounts = new Map<string, number>();
+    let skippedRowCount = 0;
 
-    const rowsWithoutDriver = rowsToExport.filter(
-      (row) => !getEffectiveDriver(row, clusters, clientOverrides)
-    );
-    if (rowsWithoutDriver.length > 0) {
-      return {
-        status: "warning",
-        message: `Cannot export: ${rowsWithoutDriver.length} ${
-          rowsWithoutDriver.length === 1 ? "delivery does" : "deliveries do"
-        } not have an assigned driver.`,
-      };
-    }
-
-    const groupedByDriver: Record<string, RowData[]> = {};
     rowsToExport.forEach((row) => {
-      const driverName = getEffectiveDriver(row, clusters, clientOverrides) || "Unassigned";
-
-      if (!groupedByDriver[driverName]) {
-        groupedByDriver[driverName] = [];
+      const routeId = getRouteId(row, clusters);
+      if (!routeId) {
+        skippedRowCount += 1;
+        recordSkippedReason(skippedReasonCounts, "not assigned to a route");
+        return;
       }
 
-      groupedByDriver[driverName].push(row);
+      const driverLabel = getEffectiveDriver(row, clusters, clientOverrides);
+      if (!driverLabel) {
+        skippedRowCount += 1;
+        recordSkippedReason(skippedReasonCounts, "missing assigned driver");
+        return;
+      }
+
+      const timeValue = getEffectiveTime(row, clusters, clientOverrides);
+      const timeLabel = formatAssignedTime(timeValue, "Unscheduled");
+
+      addRowToGroup(groups, deliveryDate, driverLabel, timeValue, timeLabel, routeId, row);
     });
 
-    const driverNames = Object.keys(groupedByDriver).filter(
-      (driverName) => driverName !== "Unassigned"
-    );
-    if (driverNames.length === 0) {
+    if (groups.size === 0) {
       return {
         status: "warning",
-        message: "Cannot export: all selected deliveries are currently unassigned.",
+        message: buildFeedbackMessage(
+          "No route files could be created for export.",
+          skippedRowCount,
+          skippedReasonCounts
+        ),
+        generatedFileCount: 0,
       };
     }
 
     const JSZip = (await import("jszip")).default;
     const zip = new JSZip();
-    const config = getExportConfig();
-    const skippedReasonCounts = new Map<string, number>();
     let filesCreated = 0;
 
-    driverNames.sort(compareText).forEach((driverName) => {
+    sortExportGroups(Array.from(groups.values())).forEach((group) => {
       const csvData: Array<Record<string, unknown>> = [];
 
-      sortRowsForExport(groupedByDriver[driverName]).forEach((row) => {
+      sortRowsForExport(group.rows).forEach((row) => {
         try {
-          csvData.push(buildRouteCsvRow(row, deliveryDate, clusters, clientOverrides));
+          csvData.push(buildRouteCsvRow(row, deliveryDate, group.routeId, group.timeLabel));
         } catch (error) {
-          recordSkippedReason(skippedReasonCounts, `invalid row data for ${driverName}`);
+          skippedRowCount += 1;
+          recordSkippedReason(skippedReasonCounts, `invalid row data for route ${group.routeId}`);
         }
       });
 
@@ -343,36 +468,42 @@ export const exportDeliveries = async (
       }
 
       const csv = Papa.unparse(normalizeCsvRows(csvData));
-      const fileName = sanitizeFilename(
-        `${config.fileNamePrefix} ${deliveryDate} - ${driverName}.csv`
-      );
-      zip.file(fileName, csv);
+      zip.file(group.fileName, csv);
       filesCreated += 1;
     });
 
     if (filesCreated === 0) {
       return {
         status: "warning",
-        message: buildFeedbackMessage("No files could be created for export.", skippedReasonCounts),
+        message: buildFeedbackMessage(
+          "No route files could be created for export.",
+          skippedRowCount,
+          skippedReasonCounts
+        ),
+        generatedFileCount: 0,
       };
     }
 
     const content = await zip.generateAsync({ type: "blob" });
-    saveAs(content, sanitizeFilename(`${config.fileNamePrefix} ${deliveryDate}.zip`));
+    saveAs(content, sanitizeFilename(`${getExportConfig().fileNamePrefix} ${deliveryDate}.zip`));
 
     return {
       status: skippedReasonCounts.size > 0 ? "warning" : "success",
       message: buildFeedbackMessage(
-        `ZIP file generated successfully with ${filesCreated} driver route(s)!`,
+        `ZIP file generated successfully with ${filesCreated} route file(s)!`,
+        skippedRowCount,
         skippedReasonCounts
       ),
+      generatedFileCount: filesCreated,
     };
   } catch (error) {
     console.error("Error generating route ZIPs:", error);
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
+
     return {
       status: "error",
       message: `An error occurred while generating route ZIPs: ${errorMessage}`,
+      generatedFileCount: 0,
     };
   }
 };
@@ -390,88 +521,97 @@ export const exportDoordashDeliveries = async (
       return {
         status: "info",
         message: "No deliveries selected or available for export on the selected date.",
+        generatedFileCount: 0,
       };
     }
 
-    const unassignedRows = rowsToExport.filter((row) => !getClusterForRow(clusters, row.id));
-    if (unassignedRows.length > 0) {
-      return {
-        status: "warning",
-        message: `Cannot export: ${unassignedRows.length} ${
-          unassignedRows.length === 1 ? "delivery is" : "deliveries are"
-        } still unassigned.`,
-      };
-    }
+    const groups = new Map<string, ExportGroup>();
+    const skippedReasonCounts = new Map<string, number>();
+    let skippedRowCount = 0;
 
-    const doordashRows = rowsToExport.filter(
-      (row) => getEffectiveDriver(row, clusters, clientOverrides) === "DoorDash"
-    );
-
-    if (doordashRows.length === 0) {
-      return {
-        status: "info",
-        message: "No DoorDash deliveries found for the selected date.",
-      };
-    }
-
-    const validationMessage = validateDoorDashRows(
-      doordashRows,
-      clusters,
-      clientOverrides,
-      config.doorDash.defaultCity,
-      config.doorDash.defaultState
-    );
-
-    if (validationMessage) {
-      return {
-        status: "warning",
-        message: validationMessage,
-      };
-    }
-
-    const groupedByTime: Record<string, RowData[]> = {};
-    doordashRows.forEach((row) => {
-      const time = getEffectiveTime(row, clusters, clientOverrides);
-
-      if (!groupedByTime[time]) {
-        groupedByTime[time] = [];
+    rowsToExport.forEach((row) => {
+      const driverLabel = getEffectiveDriver(row, clusters, clientOverrides);
+      if (driverLabel !== "DoorDash") {
+        skippedRowCount += 1;
+        recordSkippedReason(skippedReasonCounts, "not assigned to DoorDash");
+        return;
       }
 
-      groupedByTime[time].push(row);
+      const routeId = getRouteId(row, clusters);
+      if (!routeId) {
+        skippedRowCount += 1;
+        recordSkippedReason(skippedReasonCounts, "not assigned to a route");
+        return;
+      }
+
+      const timeValue = getEffectiveTime(row, clusters, clientOverrides);
+      const missingFields = getDoorDashRowValidationErrors(
+        row,
+        clusters,
+        clientOverrides,
+        config.doorDash.defaultCity,
+        config.doorDash.defaultState
+      );
+
+      if (missingFields.length > 0) {
+        skippedRowCount += 1;
+        missingFields.forEach((field) => {
+          recordSkippedReason(skippedReasonCounts, `missing ${field}`);
+        });
+        return;
+      }
+
+      addRowToGroup(
+        groups,
+        deliveryDate,
+        "DoorDash",
+        timeValue,
+        buildTimeWindow(timeValue, config.doorDash.deliveryWindowHours).label,
+        routeId,
+        row
+      );
     });
+
+    if (groups.size === 0) {
+      return {
+        status: "warning",
+        message: buildFeedbackMessage(
+          "No DoorDash route files could be created for export.",
+          skippedRowCount,
+          skippedReasonCounts
+        ),
+        generatedFileCount: 0,
+      };
+    }
 
     const JSZip = (await import("jszip")).default;
     const zip = new JSZip();
     let filesCreated = 0;
     let orderIdCounter = 1;
 
-    Object.keys(groupedByTime)
-      .sort(compareTimes)
-      .forEach((time) => {
-        const csvData = sortRowsForExport(groupedByTime[time]).map((row) => ({
-          ...buildDoorDashCsvRow(row, deliveryDate, time),
-          "Order ID*": (orderIdCounter++).toString(),
-        }));
+    sortExportGroups(Array.from(groups.values())).forEach((group) => {
+      const csvData = sortRowsForExport(group.rows).map((row) =>
+        buildDoorDashCsvRow(row, deliveryDate, group.timeValue, String(orderIdCounter++))
+      );
 
-        if (csvData.length === 0) {
-          return;
-        }
+      if (csvData.length === 0) {
+        return;
+      }
 
-        const csvRows = csvData.map(({ _timeLabel, ...row }) => row);
-        const csv = Papa.unparse(normalizeCsvRows(csvRows));
-        const timeLabel =
-          buildTimeWindow(time, config.doorDash.deliveryWindowHours).label || "Unscheduled";
-        const fileName = sanitizeFilename(
-          `${config.fileNamePrefix} ${deliveryDate} - DoorDash - ${timeLabel}.csv`
-        );
-        zip.file(fileName, csv);
-        filesCreated += 1;
-      });
+      const csv = Papa.unparse(normalizeCsvRows(csvData));
+      zip.file(group.fileName, csv);
+      filesCreated += 1;
+    });
 
     if (filesCreated === 0) {
       return {
         status: "warning",
-        message: "No files could be created for DoorDash export.",
+        message: buildFeedbackMessage(
+          "No DoorDash route files could be created for export.",
+          skippedRowCount,
+          skippedReasonCounts
+        ),
+        generatedFileCount: 0,
       };
     }
 
@@ -479,15 +619,22 @@ export const exportDoordashDeliveries = async (
     saveAs(content, sanitizeFilename(`${config.fileNamePrefix} ${deliveryDate} - DoorDash.zip`));
 
     return {
-      status: "success",
-      message: `DoorDash ZIP file generated successfully with ${filesCreated} time slot(s)!`,
+      status: skippedReasonCounts.size > 0 ? "warning" : "success",
+      message: buildFeedbackMessage(
+        `DoorDash ZIP file generated successfully with ${filesCreated} route file(s)!`,
+        skippedRowCount,
+        skippedReasonCounts
+      ),
+      generatedFileCount: filesCreated,
     };
   } catch (error) {
     console.error("Error generating DoorDash ZIPs:", error);
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
+
     return {
       status: "error",
       message: `An error occurred while generating DoorDash ZIPs: ${errorMessage}`,
+      generatedFileCount: 0,
     };
   }
 };
