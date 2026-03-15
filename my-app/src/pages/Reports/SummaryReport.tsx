@@ -3,18 +3,6 @@ import "./Reports.css";
 import ReportTables from "./ReportTables";
 import ReportHeader from "./ReportHeader";
 import TimeUtils from "../../utils/timeUtils";
-import {
-  collection,
-  DocumentData,
-  getDocs,
-  limit,
-  orderBy,
-  query,
-  QueryDocumentSnapshot,
-  startAfter,
-} from "firebase/firestore";
-import dataSources from "../../config/dataSources";
-import { db } from "../../auth/firebaseConfig";
 import { SummaryData } from "../../types/reports-types";
 import Guide from "./Guide";
 import LoadingIndicator from "../../components/LoadingIndicator/LoadingIndicator";
@@ -25,12 +13,13 @@ import {
   getReportRangeKey,
   isReportExportDisabled,
 } from "../../utils/reportExport";
-import { CsvExportError } from "../../utils/csvExport";
+import { CsvExportError, CsvRow } from "../../utils/csvExport";
+import { buildSummaryReportData, createEmptySummaryReport } from "./reportUtils";
 import {
-  buildSummaryReportData,
-  createEmptySummaryReport,
-  SummaryClientRecord,
-} from "./reportUtils";
+  loadAllReportClients,
+  loadFirstDeliveriesByClientIds,
+  loadInclusiveReportEvents,
+} from "./reportDataLoader";
 
 const SummaryReport: React.FC = () => {
   const { showError, showSuccess, showWarning } = useNotifications();
@@ -66,7 +55,7 @@ const SummaryReport: React.FC = () => {
   });
 
   const handleExport = () => {
-    const csvData: any[] = [];
+    const csvData: CsvRow[] = [];
 
     Object.entries(data).forEach(([section, fields]) => {
       csvData.push({
@@ -111,45 +100,36 @@ const SummaryReport: React.FC = () => {
       return;
     }
 
-    const BATCH_SIZE = 50;
     setIsLoading(true);
 
     const start = TimeUtils.fromJSDate(startDate).startOf("day");
     const end = TimeUtils.fromJSDate(endDate).endOf("day");
 
     try {
-      const clients: SummaryClientRecord[] = [];
-      let lastDoc: QueryDocumentSnapshot<DocumentData> | null = null;
-      const True = true;
-      while (True) {
-        const q = lastDoc
-          ? query(
-              collection(db, dataSources.firebase.clientsCollection),
-              orderBy("__name__"),
-              startAfter(lastDoc),
-              limit(BATCH_SIZE)
-            )
-          : query(
-              collection(db, dataSources.firebase.clientsCollection),
-              orderBy("__name__"),
-              limit(BATCH_SIZE)
-            );
+      const [clients, servedEvents] = await Promise.all([
+        loadAllReportClients(),
+        loadInclusiveReportEvents(start, end),
+      ]);
+      const servedClientIds = Array.from(new Set(servedEvents.map((event) => event.clientId)));
+      const firstDeliveriesByClientId = await loadFirstDeliveriesByClientIds(servedClientIds);
+      const reportResult = buildSummaryReportData({
+        clients,
+        servedEvents,
+        firstDeliveriesByClientId,
+        start,
+        end,
+      });
 
-        const snap: any = await getDocs(q);
-        if (snap.empty) break;
-
-        for (const doc of snap.docs) {
-          clients.push(doc.data() as SummaryClientRecord);
-        }
-
-        lastDoc = snap.docs[snap.docs.length - 1];
-
-        if (snap.size < BATCH_SIZE) break;
-      }
-
-      setData(buildSummaryReportData(clients, start, end));
+      setData(reportResult.data);
       setHasGenerated(true);
       setGeneratedRangeKey(currentRangeKey);
+
+      if (reportResult.usedLegacySnapshotFallback) {
+        showWarning(
+          "Some deliveries in this range predate household snapshots. Historical people counts use current household size for those legacy deliveries."
+        );
+      }
+
       showSuccess("Summary report generated successfully");
     } catch (err) {
       console.error("Failed to generate report:", err);

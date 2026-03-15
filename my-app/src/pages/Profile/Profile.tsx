@@ -75,6 +75,7 @@ import { toJSDate } from "../../utils/timestamp";
 import { deliveryDate } from "../../utils/deliveryDate";
 import HealthConditionsForm from "./components/HealthConditionsForm";
 import HealthCheckbox from "./components/HealthCheckbox";
+import { buildHouseholdSnapshot } from "../../utils/householdSnapshot";
 
 const fieldStyles = {
   backgroundColor: "var(--color-white)",
@@ -2683,14 +2684,18 @@ const Profile = () => {
       const existingDates = new Set(
         existingDeliveries.map((event) => deliveryDate.toISODateString(event.deliveryDate))
       );
-      const newDates = Array.from(new Set(recurrenceDates)).filter((date) => !existingDates.has(date));
+      const newDates = Array.from(new Set(recurrenceDates)).filter(
+        (date) => !existingDates.has(date)
+      );
 
       if (newDates.length > 0) {
+        const householdSnapshot = buildHouseholdSnapshot(clientProfile);
         const eventsToAdd = newDates.map((dateStr) => {
           const eventToAdd: Partial<DeliveryEvent> = {
             clientId: newDelivery.clientId,
             clientName,
             deliveryDate: deliveryDate.toJSDate(dateStr),
+            householdSnapshot,
             recurrence: newDelivery.recurrence,
             seriesStartDate,
             time: "",

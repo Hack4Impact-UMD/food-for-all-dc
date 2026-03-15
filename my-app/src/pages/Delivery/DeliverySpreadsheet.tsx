@@ -79,7 +79,7 @@ import RouteExportOptions, {
   RouteExportScope,
 } from "./components/RouteExportOptions";
 import LoadingIndicator from "../../components/LoadingIndicator/LoadingIndicator";
-import { exportDeliveries, exportDoordashDeliveries } from "./RouteExport";
+import { exportDeliveries, exportDoordashDeliveries, ExportFeedback } from "./RouteExport";
 import Button from "@mui/material/Button";
 
 import DietaryRestrictionsLegend from "../../components/DietaryRestrictionsLegend";
@@ -556,7 +556,7 @@ const DeliverySpreadsheet: React.FC = () => {
   };
 
   const notifyExportFeedback = React.useCallback(
-    (feedback: { status: "success" | "error" | "warning" | "info"; message: string }) => {
+    (feedback: ExportFeedback) => {
       switch (feedback.status) {
         case "success":
           showSuccess(feedback.message);
@@ -1066,18 +1066,16 @@ const DeliverySpreadsheet: React.FC = () => {
 
     const rowsToExport = getExportRowsForScope(exportScope);
     const deliveryDateIso = TimeUtils.fromJSDate(selectedDate).toISODate() || "";
+    const feedback =
+      exportOption === "Routes"
+        ? await exportDeliveries(deliveryDateIso, rowsToExport, clusters, clientOverrides)
+        : await exportDoordashDeliveries(deliveryDateIso, rowsToExport, clusters, clientOverrides);
 
-    if (exportOption === "Routes") {
-      notifyExportFeedback(
-        await exportDeliveries(deliveryDateIso, rowsToExport, clusters, clientOverrides)
-      );
-    } else {
-      notifyExportFeedback(
-        await exportDoordashDeliveries(deliveryDateIso, rowsToExport, clusters, clientOverrides)
-      );
+    notifyExportFeedback(feedback);
+
+    if (feedback.generatedFileCount > 0) {
+      resetSelections();
     }
-
-    resetSelections();
   };
 
   // reset popup selections when closing popup
@@ -3676,9 +3674,9 @@ const DeliverySpreadsheet: React.FC = () => {
 
       {/* Export Options Popup */}
 
-      <Dialog open={popupMode === "Export"} onClose={resetSelections} maxWidth="xs" fullWidth>
+      <Dialog open={popupMode === "Export"} onClose={resetSelections} maxWidth="sm" fullWidth>
         <DialogTitle>Export Options</DialogTitle>
-        <DialogContent sx={{ pt: 3, overflow: "visible" }}>
+        <DialogContent sx={{ pt: 3, overflowY: "auto", overflowX: "hidden" }}>
           <RouteExportOptions
             exportOption={exportOption}
             exportScope={exportScope}

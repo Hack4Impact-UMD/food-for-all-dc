@@ -38,6 +38,7 @@ import CalendarSkeleton from "../../components/skeletons/CalendarSkeleton";
 import CalendarHeaderSkeleton from "../../components/skeletons/CalendarHeaderSkeleton";
 import { deliveryDate } from "../../utils/deliveryDate";
 import { useNotifications } from "../../components/NotificationProvider";
+import { buildHouseholdSnapshot } from "../../utils/householdSnapshot";
 
 const DAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
 
@@ -369,8 +370,9 @@ const CalendarPage: React.FC = React.memo(() => {
     try {
       let recurrenceDates: string[] = [];
       const recurrenceId = crypto.randomUUID();
-      // Find the selected client profile
-      const selectedClient = clients.find((c) => c.uid === newDelivery.clientId);
+      const selectedClient =
+        clientLookupMap.get(newDelivery.clientId) ??
+        clients.find((client) => client.uid === newDelivery.clientId);
       const clientName = selectedClient
         ? `${selectedClient.firstName} ${selectedClient.lastName}`.trim()
         : newDelivery.clientName || "";
@@ -410,6 +412,9 @@ const CalendarPage: React.FC = React.memo(() => {
 
       const deliveryService = DeliveryService.getInstance();
       const seriesStartDate = newDelivery.deliveryDate;
+      const snapshotClient =
+        selectedClient ?? (await clientService.getClientById(newDelivery.clientId));
+      const householdSnapshot = snapshotClient ? buildHouseholdSnapshot(snapshotClient) : undefined;
 
       const eventsToAdd = uniqueRecurrenceDates.map((dateStr) => {
         const normalizedDeliveryDate = deliveryDate.toJSDate(dateStr);
@@ -417,6 +422,7 @@ const CalendarPage: React.FC = React.memo(() => {
           clientId: newDelivery.clientId,
           clientName,
           deliveryDate: normalizedDeliveryDate,
+          householdSnapshot,
           recurrence: newDelivery.recurrence,
           seriesStartDate,
           time: "",
