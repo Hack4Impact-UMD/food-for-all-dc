@@ -5,25 +5,6 @@ import { DeliveryEvent } from "../../../types/calendar-types";
 import { useRecurringDelivery } from "../../../context/RecurringDeliveryContext";
 import styles from "./DeliveryCard.module.css";
 
-// Helper to parse various date formats as local date
-function parseLocalDateString(dateStr: string): Date {
-  if (!dateStr) return new Date("");
-
-  // Handle MM/DD/YYYY format
-  if (dateStr.match(/^\d{1,2}\/\d{1,2}\/\d{4}$/)) {
-    return new Date(dateStr);
-  }
-
-  // Handle YYYY-MM-DD format
-  if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
-    const [year, month, day] = dateStr.split("-").map(Number);
-    return new Date(year, month - 1, day, 12, 0, 0); // Local noon
-  }
-
-  // Try parsing as regular date string
-  return new Date(dateStr);
-}
-
 // Helper function to get delivery recurrence label and CSS class
 const getDeliveryTypeInfo = (recurrence: string) => {
   switch (recurrence) {
@@ -56,10 +37,10 @@ const DeliveryRecurrenceDisplay: React.FC<DeliveryRecurrenceDisplayProps> = ({
   const { getDateRange } = useRecurringDelivery();
 
   useEffect(() => {
-    if (event.recurrence !== "None") {
+    if (event.recurrence !== "None" && event.recurrenceId) {
       let cancelled = false;
 
-      getDateRange(event.clientId, event.recurrence)
+      getDateRange(event.recurrenceId)
         .then((range) => {
           if (!cancelled) {
             setDateRange(range);
@@ -76,7 +57,10 @@ const DeliveryRecurrenceDisplay: React.FC<DeliveryRecurrenceDisplayProps> = ({
         cancelled = true;
       };
     }
-  }, [event.clientId, event.recurrence, getDateRange]);
+
+    setDateRange(null);
+    return undefined;
+  }, [event.recurrence, event.recurrenceId, getDateRange]);
 
   let dateRangeElement = null;
   // Only show date range if not a one-off delivery and we have fetched the date range

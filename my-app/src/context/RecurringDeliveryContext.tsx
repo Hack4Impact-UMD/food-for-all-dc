@@ -7,10 +7,8 @@ interface RecurringDeliveryDateRange {
 }
 
 interface RecurringDeliveryContextType {
-  getDateRange: (clientId: string, recurrenceType: string) => Promise<RecurringDeliveryDateRange>;
-  preloadDateRanges: (
-    requests: Array<{ clientId: string; recurrenceType: string }>
-  ) => Promise<void>;
+  getDateRange: (recurrenceId: string) => Promise<RecurringDeliveryDateRange>;
+  preloadDateRanges: (recurrenceIds: string[]) => Promise<void>;
   clearCache: () => void;
 }
 
@@ -23,11 +21,14 @@ export const RecurringDeliveryProvider: React.FC<{ children: React.ReactNode }> 
   const deliveryService = useMemo(() => DeliveryService.getInstance(), []);
 
   const getDateRange = useCallback(
-    async (clientId: string, recurrenceType: string): Promise<RecurringDeliveryDateRange> => {
-      const requestKey = `${clientId}-${recurrenceType}`;
+    async (recurrenceId: string): Promise<RecurringDeliveryDateRange> => {
+      const requestKey = recurrenceId.trim();
+      if (!requestKey) {
+        return { earliest: null, latest: null };
+      }
 
       if (!promiseCacheRef.current.has(requestKey)) {
-        const promise = deliveryService.getRecurringDeliveryDateRange(clientId, recurrenceType);
+        const promise = deliveryService.getSeriesDateRange(requestKey);
         promiseCacheRef.current.set(requestKey, promise);
         promise.finally(() => promiseCacheRef.current.delete(requestKey));
       }
@@ -38,29 +39,26 @@ export const RecurringDeliveryProvider: React.FC<{ children: React.ReactNode }> 
   );
 
   const preloadDateRanges = useCallback(
-    async (requests: Array<{ clientId: string; recurrenceType: string }>): Promise<void> => {
-      const uniqueRequests = requests.filter((req) => {
-        const requestKey = `${req.clientId}-${req.recurrenceType}`;
-        return !promiseCacheRef.current.has(requestKey);
-      });
+    async (recurrenceIds: string[]): Promise<void> => {
+      const uniqueRecurrenceIds = Array.from(
+        new Set(recurrenceIds.map((recurrenceId) => recurrenceId.trim()).filter(Boolean))
+      ).filter((recurrenceId) => !promiseCacheRef.current.has(recurrenceId));
 
-      if (uniqueRequests.length === 0) return;
+      if (uniqueRecurrenceIds.length === 0) return;
 
-      const promise = deliveryService.getBatchRecurringDeliveryDateRanges(uniqueRequests);
+      const promise = deliveryService.getBatchSeriesDateRanges(uniqueRecurrenceIds);
 
-      uniqueRequests.forEach((req) => {
-        const requestKey = `${req.clientId}-${req.recurrenceType}`;
+      uniqueRecurrenceIds.forEach((requestKey) => {
         promiseCacheRef.current.set(
           requestKey,
-          promise.then(() => ({ earliest: null, latest: null }))
+          promise.then((results) => results.get(requestKey) || { earliest: null, latest: null })
         );
       });
 
       try {
         await promise;
       } finally {
-        uniqueRequests.forEach((req) => {
-          const requestKey = `${req.clientId}-${req.recurrenceType}`;
+        uniqueRecurrenceIds.forEach((requestKey) => {
           promiseCacheRef.current.delete(requestKey);
         });
       }
@@ -69,6 +67,7 @@ export const RecurringDeliveryProvider: React.FC<{ children: React.ReactNode }> 
   );
 
   const clearCache = useCallback(() => {
+    promiseCacheRef.current.clear();
     deliveryService.clearDateRangeCache();
   }, [deliveryService]);
 

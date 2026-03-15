@@ -23,7 +23,6 @@ import type { DateLimit, NewDelivery } from "../../../types/calendar-types";
 import type { ClientProfile } from "../../../types/client-types";
 import { DayPilot } from "@daypilot/daypilot-lite-react";
 import { validateDeliveryDateRange } from "../../../utils/dateValidation";
-import { getLastDeliveryDateForClient } from "../../../utils/lastDeliveryDate";
 import { clientService } from "../../../services/client-service";
 import { deliveryDate } from "../../../utils/deliveryDate";
 import { DeliveryService } from "../../../services";
@@ -98,28 +97,6 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
     [capacityWarningAcknowledged]
   );
 
-  useEffect(() => {
-    if (open && preSelectedClient) {
-      let name = preSelectedClient.clientName;
-      if (!name || name.trim() === "") {
-        const { firstName, lastName } = preSelectedClient.clientProfile;
-        name = firstName && lastName ? `${firstName} ${lastName}` : "";
-      }
-      if (preSelectedClient.clientProfile.startDate) {
-        const iso = deliveryDate.tryToISODateString(preSelectedClient.clientProfile.startDate);
-        setClientStartDateISO(iso);
-      } else {
-        setClientStartDateISO(null);
-      }
-      setSelectedClientProfile(preSelectedClient.clientProfile);
-      setNewDelivery((prev) => ({
-        ...prev,
-        clientId: preSelectedClient.clientId,
-        clientName: name,
-      }));
-    }
-  }, [open, preSelectedClient]);
-
   const convertToMMDDYYYY = (dateStr: string): string => {
     if (!dateStr) return "";
     if (dateStr.match(/^\d{2}\/\d{2}\/\d{4}$/)) {
@@ -146,6 +123,45 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
     }
     return null;
   });
+  const [clientEndDateISO, setClientEndDateISO] = useState<string | null>(() => {
+    if (preSelectedClient?.clientProfile?.endDate) {
+      return deliveryDate.tryToISODateString(preSelectedClient.clientProfile.endDate);
+    }
+    return null;
+  });
+
+  const clampDateToClientWindow = useCallback(
+    (dateISO: string, startISO?: string | null, endISO?: string | null): string => {
+      let nextDate = dateISO;
+      if (startISO && nextDate < startISO) {
+        nextDate = startISO;
+      }
+      if (endISO && nextDate > endISO) {
+        nextDate = endISO;
+      }
+      return nextDate;
+    },
+    []
+  );
+
+  const getDateWindowError = useCallback(
+    (dateISO: string): string | undefined => {
+      if (clientStartDateISO && dateISO < clientStartDateISO) {
+        return `Delivery date cannot be before client start date (${convertToMMDDYYYY(
+          clientStartDateISO
+        )}).`;
+      }
+
+      if (clientEndDateISO && dateISO > clientEndDateISO) {
+        return `Delivery date cannot be after client end date (${convertToMMDDYYYY(
+          clientEndDateISO
+        )}).`;
+      }
+
+      return undefined;
+    },
+    [clientStartDateISO, clientEndDateISO]
+  );
 
   const [newDelivery, setNewDelivery] = useState<NewDelivery>(() => {
     const defaultDate = convertToYYYYMMDD(startDate);
@@ -157,13 +173,13 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
         name = firstName && lastName ? `${firstName} ${lastName}` : "";
       }
 
-      let effectiveDeliveryDate = defaultDate;
       const startISO = preSelectedClient.clientProfile.startDate
         ? deliveryDate.tryToISODateString(preSelectedClient.clientProfile.startDate)
         : null;
-      if (startISO && effectiveDeliveryDate < startISO) {
-        effectiveDeliveryDate = startISO;
-      }
+      const endISO = preSelectedClient.clientProfile.endDate
+        ? deliveryDate.tryToISODateString(preSelectedClient.clientProfile.endDate)
+        : null;
+      const effectiveDeliveryDate = clampDateToClientWindow(defaultDate, startISO, endISO);
 
       return {
         clientId: preSelectedClient.clientId,
@@ -189,18 +205,54 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
   });
 
   useEffect(() => {
+    if (open && preSelectedClient) {
+      let name = preSelectedClient.clientName;
+      if (!name || name.trim() === "") {
+        const { firstName, lastName } = preSelectedClient.clientProfile;
+        name = firstName && lastName ? `${firstName} ${lastName}` : "";
+      }
+
+      const startISO = preSelectedClient.clientProfile.startDate
+        ? deliveryDate.tryToISODateString(preSelectedClient.clientProfile.startDate)
+        : null;
+      const endISO = preSelectedClient.clientProfile.endDate
+        ? deliveryDate.tryToISODateString(preSelectedClient.clientProfile.endDate)
+        : null;
+
+      setClientStartDateISO(startISO);
+      setClientEndDateISO(endISO);
+      setSelectedClientProfile(preSelectedClient.clientProfile);
+      setNewDelivery((prev) => ({
+        ...prev,
+        clientId: preSelectedClient.clientId,
+        clientName: name,
+        deliveryDate: clampDateToClientWindow(
+          prev.deliveryDate || convertToYYYYMMDD(startDate),
+          startISO,
+          endISO
+        ),
+        recurrence:
+          (preSelectedClient.clientProfile.recurrence as
+            | "None"
+            | "Weekly"
+            | "2x-Monthly"
+            | "Monthly"
+            | "Custom") || "None",
+        repeatsEndDate: convertToMMDDYYYY(preSelectedClient.clientProfile.endDate || ""),
+      }));
+    }
+  }, [open, preSelectedClient, clampDateToClientWindow, startDate]);
+
+  useEffect(() => {
     if (open) {
       const defaultDate = convertToYYYYMMDD(startDate);
-      let effectiveDate = defaultDate;
-      if (clientStartDateISO && effectiveDate < clientStartDateISO) {
-        effectiveDate = clientStartDateISO;
-      }
+      const effectiveDate = clampDateToClientWindow(defaultDate, clientStartDateISO, clientEndDateISO);
       setNewDelivery((prev) => ({
         ...prev,
         deliveryDate: effectiveDate,
       }));
     }
-  }, [open, startDate, clientStartDateISO]);
+  }, [open, startDate, clientStartDateISO, clientEndDateISO, clampDateToClientWindow]);
 
   const [customDates, setCustomDates] = useState<Date[]>([]);
   const [startDateError, setStartDateError] = useState<string>("");
@@ -304,26 +356,17 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
   }, [open, preSelectedClient, handleClientSearch]);
 
   useEffect(() => {
-    const fetchCurrentLastDeliveryDate = async () => {
-      if (newDelivery.clientId && open) {
-        try {
-          const latestEndDate = await getLastDeliveryDateForClient(newDelivery.clientId);
-          if (latestEndDate) {
-            const formattedDate = convertToMMDDYYYY(latestEndDate);
-            setNewDelivery((prev: NewDelivery) => ({
-              ...prev,
-              repeatsEndDate: prev.repeatsEndDate || formattedDate,
-            }));
-          }
-        } catch (error) {
-          console.error("Error fetching current last delivery date:", error);
-        }
+    if (newDelivery.recurrence !== "None" && newDelivery.repeatsEndDate) {
+      const normalizedRepeatsEndDate = deliveryDate.tryToISODateString(newDelivery.repeatsEndDate);
+      if (clientEndDateISO && normalizedRepeatsEndDate && normalizedRepeatsEndDate > clientEndDateISO) {
+        setStartDateError("");
+        setEndDateError(
+          `End date cannot be after client end date (${convertToMMDDYYYY(clientEndDateISO)}).`
+        );
+        return;
       }
-    };
-    fetchCurrentLastDeliveryDate();
-  }, [newDelivery.clientId, open]);
+    }
 
-  useEffect(() => {
     if (
       newDelivery.recurrence !== "None" &&
       newDelivery.recurrence !== "Custom" &&
@@ -347,16 +390,22 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
       setStartDateError("");
       setEndDateError("");
     }
-  }, [newDelivery.deliveryDate, newDelivery.repeatsEndDate, newDelivery.recurrence]);
+  }, [newDelivery.deliveryDate, newDelivery.repeatsEndDate, newDelivery.recurrence, clientEndDateISO]);
 
   const resetFormAndClose = () => {
     const defaultDate = convertToYYYYMMDD(startDate);
 
     if (preSelectedClient) {
+      const startISO = preSelectedClient.clientProfile.startDate
+        ? deliveryDate.tryToISODateString(preSelectedClient.clientProfile.startDate)
+        : null;
+      const endISO = preSelectedClient.clientProfile.endDate
+        ? deliveryDate.tryToISODateString(preSelectedClient.clientProfile.endDate)
+        : null;
       setNewDelivery({
         clientId: preSelectedClient.clientId,
         clientName: preSelectedClient.clientName,
-        deliveryDate: defaultDate,
+        deliveryDate: clampDateToClientWindow(defaultDate, startISO, endISO),
         recurrence:
           (preSelectedClient.clientProfile.recurrence as
             | "None"
@@ -367,6 +416,8 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
         repeatsEndDate: convertToMMDDYYYY(preSelectedClient.clientProfile.endDate || ""),
       });
       setSelectedClientProfile(preSelectedClient.clientProfile);
+      setClientStartDateISO(startISO);
+      setClientEndDateISO(endISO);
     } else {
       setNewDelivery({
         clientId: "",
@@ -376,6 +427,8 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
         repeatsEndDate: "",
       });
       setSelectedClientProfile(null);
+      setClientStartDateISO(null);
+      setClientEndDateISO(null);
     }
     setCustomDates([]);
     setStartDateError("");
@@ -409,6 +462,27 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
         setStartDateError(validation.startDateError || "");
         setEndDateError(validation.endDateError || "");
         return;
+      }
+    }
+    if (clientEndDateISO) {
+      const normalizedDeliveryDate = deliveryDate.tryToISODateString(newDelivery.deliveryDate);
+      if (normalizedDeliveryDate && normalizedDeliveryDate > clientEndDateISO) {
+        setFormError(
+          `Cannot schedule a delivery after the client's end date (${convertToMMDDYYYY(
+            clientEndDateISO
+          )}).`
+        );
+        return;
+      }
+
+      if (newDelivery.repeatsEndDate) {
+        const normalizedRepeatsEndDate = deliveryDate.tryToISODateString(newDelivery.repeatsEndDate);
+        if (normalizedRepeatsEndDate && normalizedRepeatsEndDate > clientEndDateISO) {
+          setEndDateError(
+            `End date cannot be after client end date (${convertToMMDDYYYY(clientEndDateISO)}).`
+          );
+          return;
+        }
       }
     }
 
@@ -465,6 +539,18 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
           setFormError(
             `Cannot schedule a delivery before the client's start date (${convertToMMDDYYYY(
               clientStartDateISO
+            )}).`
+          );
+          return;
+        }
+      }
+
+      if (clientEndDateISO) {
+        const afterEnd = uniqueCandidateDates.find((date) => date > clientEndDateISO);
+        if (afterEnd) {
+          setFormError(
+            `Cannot schedule a delivery after the client's end date (${convertToMMDDYYYY(
+              clientEndDateISO
             )}).`
           );
           return;
@@ -689,6 +775,8 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
                     clientName: "",
                   });
                   setSelectedClientProfile(null);
+                  setClientStartDateISO(null);
+                  setClientEndDateISO(null);
                 } else {
                   const fullClient = await clientService.getClientById(newValue.uid);
                   if (!fullClient) return;
@@ -701,7 +789,11 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
                   const startISO = fullClient.startDate
                     ? deliveryDate.tryToISODateString(fullClient.startDate)
                     : null;
+                  const endISO = fullClient.endDate
+                    ? deliveryDate.tryToISODateString(fullClient.endDate)
+                    : null;
                   setClientStartDateISO(startISO);
+                  setClientEndDateISO(endISO);
                   setSelectedClientProfile(fullClient);
 
                   const defaultEndDate = (() => {
@@ -716,6 +808,11 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
                     ...newDelivery,
                     clientId: fullClient.uid,
                     clientName: `${fullClient.firstName} ${fullClient.lastName}`,
+                    deliveryDate: clampDateToClientWindow(
+                      convertToYYYYMMDD(startDate),
+                      startISO,
+                      endISO
+                    ),
                     recurrence:
                       (fullClient.recurrence as
                         | "None"
@@ -805,12 +902,7 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
                     return;
                   }
 
-                  let errorMessage: string | undefined;
-                  if (clientStartDateISO && val < clientStartDateISO) {
-                    errorMessage = `Delivery date cannot be before client start date (${convertToMMDDYYYY(
-                      clientStartDateISO
-                    )}).`;
-                  }
+                  const errorMessage = getDateWindowError(val);
 
                   setNewDelivery({
                     ...newDelivery,
@@ -827,6 +919,7 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
                 inputProps={{
                   "data-testid": "date-input",
                   ...(clientStartDateISO ? { min: clientStartDateISO } : {}),
+                  ...(clientEndDateISO ? { max: clientEndDateISO } : {}),
                 }}
                 sx={{
                   ".MuiOutlinedInput-root": {
@@ -883,7 +976,9 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
               endDate={
                 newDelivery.repeatsEndDate
                   ? deliveryDate.toJSDate(newDelivery.repeatsEndDate)
-                  : deliveryDate.toJSDate(new Date())
+                  : clientEndDateISO
+                    ? deliveryDate.toJSDate(clientEndDateISO)
+                    : deliveryDate.toJSDate(new Date())
               }
               minDate={clientStartDateISO ? deliveryDate.toJSDate(clientStartDateISO) : undefined}
             />
@@ -907,6 +1002,8 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
                   }}
                   required={String(newDelivery.recurrence) !== "None"}
                   error={newDelivery._repeatsEndDateError}
+                  min={newDelivery.deliveryDate || clientStartDateISO || undefined}
+                  max={clientEndDateISO || undefined}
                   setError={(err: string | null) => {
                     setNewDelivery((prev: NewDelivery) => ({
                       ...prev,

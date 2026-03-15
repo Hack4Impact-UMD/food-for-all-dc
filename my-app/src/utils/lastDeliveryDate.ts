@@ -6,17 +6,24 @@ import { deliveryDate } from "./deliveryDate";
 type EventData = {
   clientId: string;
   deliveryDate?: Date | Timestamp | string;
-  recurrenceId?: string;
-  docId?: string;
-  repeatsEndDate?: string;
-  recurrence?: string;
 };
 
-const toISODate = (value?: Date | Timestamp | string): string | null => {
-  if (!value) {
-    return null;
-  }
-  return deliveryDate.tryToISODateString(value);
+const getLatestDateKey = (events: EventData[]): string | null => {
+  return events.reduce<string | null>((latestDateKey, event) => {
+    const currentDateKey = event.deliveryDate
+      ? deliveryDate.tryToISODateString(event.deliveryDate)
+      : null;
+
+    if (!currentDateKey) {
+      return latestDateKey;
+    }
+
+    if (!latestDateKey || currentDateKey > latestDateKey) {
+      return currentDateKey;
+    }
+
+    return latestDateKey;
+  }, null);
 };
 
 export const getLastDeliveryDateForClient = async (clientId: string): Promise<string | null> => {
@@ -25,43 +32,7 @@ export const getLastDeliveryDateForClient = async (clientId: string): Promise<st
     const q = query(eventsRef, where("clientId", "==", clientId), orderBy("deliveryDate", "desc"));
     const querySnapshot = await getDocs(q);
 
-    if (!querySnapshot.empty) {
-      const seriesMap = new Map<string, EventData[]>();
-
-      querySnapshot.forEach((doc) => {
-        const eventData = doc.data() as EventData;
-        const recurrenceId = eventData.recurrenceId || "single-" + doc.id;
-        if (!seriesMap.has(recurrenceId)) {
-          seriesMap.set(recurrenceId, []);
-        }
-        const arr = seriesMap.get(recurrenceId);
-        if (arr) arr.push({ ...eventData, docId: doc.id });
-      });
-
-      let mostRecentSeriesEndDate: string | null = null;
-
-      for (const [, events] of seriesMap.entries()) {
-        const firstEvent = events.length > 0 ? events[0] : undefined;
-        if (!firstEvent) continue;
-
-        let seriesEndDate: string | null = null;
-        if (firstEvent.repeatsEndDate) {
-          seriesEndDate = toISODate(firstEvent.repeatsEndDate);
-        } else if (firstEvent.recurrence === "None" && firstEvent.deliveryDate) {
-          seriesEndDate = toISODate(firstEvent.deliveryDate);
-        }
-
-        if (seriesEndDate) {
-          if (!mostRecentSeriesEndDate || seriesEndDate > mostRecentSeriesEndDate) {
-            mostRecentSeriesEndDate = seriesEndDate;
-          }
-        }
-      }
-
-      return mostRecentSeriesEndDate;
-    }
-
-    return null;
+    return getLatestDateKey(querySnapshot.docs.map((doc) => doc.data() as EventData));
   } catch (error) {
     console.error("Error fetching last delivery date:", error);
     return null;
@@ -72,57 +43,39 @@ export const batchGetLastDeliveryDates = async (
   clientIds: string[]
 ): Promise<Map<string, string>> => {
   const result = new Map<string, string>();
+  const uniqueClientIds = Array.from(new Set(clientIds.filter(Boolean)));
 
-  if (clientIds.length === 0) return result;
+  if (!uniqueClientIds.length) {
+    return result;
+  }
 
   try {
     const eventsRef = collection(db, dataSources.firebase.calendarCollection);
-    const q = query(eventsRef, where("clientId", "in", clientIds), orderBy("deliveryDate", "desc"));
-    const querySnapshot = await getDocs(q);
 
-    // (imports and types already declared at top)
-    const clientSeriesMap = new Map<string, Map<string, EventData[]>>();
+    for (let i = 0; i < uniqueClientIds.length; i += 10) {
+      const chunk = uniqueClientIds.slice(i, i + 10);
+      const q = query(eventsRef, where("clientId", "in", chunk), orderBy("deliveryDate", "desc"));
+      const querySnapshot = await getDocs(q);
+      const eventsByClientId = new Map<string, EventData[]>();
 
-    querySnapshot.forEach((doc) => {
-      const eventData = doc.data() as EventData;
-      const clientId = eventData.clientId;
-      if (!clientSeriesMap.has(clientId)) {
-        clientSeriesMap.set(clientId, new Map<string, EventData[]>());
-      }
-      const seriesMap = clientSeriesMap.get(clientId);
-      if (!seriesMap) return;
-      const recurrenceId = eventData.recurrenceId || "single-" + doc.id;
-      if (!seriesMap.has(recurrenceId)) {
-        seriesMap.set(recurrenceId, []);
-      }
-      const arr = seriesMap.get(recurrenceId);
-      if (arr) arr.push({ ...eventData, docId: doc.id });
-    });
-
-    for (const [clientId, seriesMap] of clientSeriesMap.entries()) {
-      let mostRecentSeriesEndDate: string | null = null;
-
-      for (const [, events] of seriesMap.entries()) {
-        const firstEvent = events.length > 0 ? events[0] : undefined;
-        if (!firstEvent) continue;
-
-        let seriesEndDate: string | null = null;
-        if (firstEvent.repeatsEndDate) {
-          seriesEndDate = toISODate(firstEvent.repeatsEndDate);
-        } else if (firstEvent.recurrence === "None" && firstEvent.deliveryDate) {
-          seriesEndDate = toISODate(firstEvent.deliveryDate);
+      querySnapshot.forEach((doc) => {
+        const eventData = doc.data() as EventData;
+        if (!eventData.clientId) {
+          return;
         }
 
-        if (seriesEndDate) {
-          if (!mostRecentSeriesEndDate || seriesEndDate > mostRecentSeriesEndDate) {
-            mostRecentSeriesEndDate = seriesEndDate;
-          }
+        if (!eventsByClientId.has(eventData.clientId)) {
+          eventsByClientId.set(eventData.clientId, []);
         }
-      }
+        eventsByClientId.get(eventData.clientId)?.push(eventData);
+      });
 
-      if (mostRecentSeriesEndDate) {
-        result.set(clientId, mostRecentSeriesEndDate);
-      }
+      chunk.forEach((clientId) => {
+        const latestDateKey = getLatestDateKey(eventsByClientId.get(clientId) || []);
+        if (latestDateKey) {
+          result.set(clientId, latestDateKey);
+        }
+      });
     }
 
     return result;

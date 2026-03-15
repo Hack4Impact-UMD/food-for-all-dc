@@ -18,7 +18,6 @@ import {
   Select,
 } from "@mui/material";
 import { validateDateInput } from "../../../utils/dates";
-import { getLastDeliveryDateForClient } from "../../../utils/lastDeliveryDate";
 import { deliveryEventEmitter } from "../../../utils/deliveryEventEmitter";
 import MoreHorizIcon from "@mui/icons-material/MoreHoriz";
 import {
@@ -79,6 +78,8 @@ const EventMenu: React.FC<EventMenuProps> = ({
 
   const [editDateError, setEditDateError] = useState<string | null>(null);
   const [clientStartDateISO, setClientStartDateISO] = useState<string | null>(null);
+  const [clientEndDateISO, setClientEndDateISO] = useState<string | null>(null);
+  const [editSeriesEndDateError, setEditSeriesEndDateError] = useState<string | null>(null);
   const normalizeToDateInput = (dateVal: unknown) => {
     if (!dateVal) return "";
     if (dateVal instanceof Date) {
@@ -115,29 +116,30 @@ const EventMenu: React.FC<EventMenuProps> = ({
   const dailyLimitsMap = useMemo(() => buildDailyLimitsMap(dailyLimits), [dailyLimits]);
 
   useEffect(() => {
-    const fetchCurrentLastDeliveryDate = async () => {
-      if (event.clientId) {
+    const fetchSeriesEndDate = async () => {
+      if (event.recurrence !== "None" && event.recurrenceId) {
         try {
-          const mostRecentSeriesEndDate = await getLastDeliveryDateForClient(event.clientId);
+          const deliveryService = DeliveryService.getInstance();
+          const seriesEndDate = await deliveryService.getSeriesEndDate(event.recurrenceId);
 
-          if (mostRecentSeriesEndDate) {
+          if (seriesEndDate) {
             setEditRecurrence((prev) => ({
               ...prev,
-              repeatsEndDate: mostRecentSeriesEndDate as string,
+              repeatsEndDate: seriesEndDate,
             }));
           }
         } catch (error) {
-          console.error("Error fetching current last delivery date:", error);
+          console.error("Error fetching current series end date:", error);
         }
       }
     };
 
-    fetchCurrentLastDeliveryDate();
-  }, [event.clientId, event.id]);
+    fetchSeriesEndDate();
+  }, [event.id, event.recurrence, event.recurrenceId]);
 
   useEffect(() => {
     let isActive = true;
-    const fetchClientStartDate = async () => {
+    const fetchClientDateWindow = async () => {
       if (!event.clientId) return;
       try {
         const client = await clientService.getClientById(event.clientId);
@@ -145,13 +147,15 @@ const EventMenu: React.FC<EventMenuProps> = ({
         const startISO = client?.startDate
           ? deliveryDate.tryToISODateString(client.startDate)
           : null;
+        const endISO = client?.endDate ? deliveryDate.tryToISODateString(client.endDate) : null;
         setClientStartDateISO(startISO);
+        setClientEndDateISO(endISO);
       } catch (error) {
-        console.error("Error fetching client start date:", error);
+        console.error("Error fetching client date window:", error);
       }
     };
 
-    fetchClientStartDate();
+    fetchClientDateWindow();
     return () => {
       isActive = false;
     };
@@ -167,6 +171,44 @@ const EventMenu: React.FC<EventMenuProps> = ({
     editRecurrence.recurrence,
     editRecurrence.repeatsEndDate,
     event.id,
+  ]);
+
+  useEffect(() => {
+    if (editOption !== "This and following events" || editRecurrence.recurrence === "None") {
+      setEditSeriesEndDateError(null);
+      return;
+    }
+
+    if (!editRecurrence.repeatsEndDate) {
+      setEditSeriesEndDateError("End date is required.");
+      return;
+    }
+
+    const normalizedRepeatsEndDate = deliveryDate.tryToISODateString(editRecurrence.repeatsEndDate);
+    if (!normalizedRepeatsEndDate) {
+      setEditSeriesEndDateError("Invalid end date.");
+      return;
+    }
+
+    if (clientEndDateISO && normalizedRepeatsEndDate > clientEndDateISO) {
+      setEditSeriesEndDateError(
+        `End date cannot be after client end date (${formatToMMDDYYYY(clientEndDateISO)}).`
+      );
+      return;
+    }
+
+    if (normalizedRepeatsEndDate < editDeliveryDate) {
+      setEditSeriesEndDateError("End date cannot be before delivery date.");
+      return;
+    }
+
+    setEditSeriesEndDateError(null);
+  }, [
+    editOption,
+    editRecurrence.recurrence,
+    editRecurrence.repeatsEndDate,
+    editDeliveryDate,
+    clientEndDateISO,
   ]);
 
   const formatToMMDDYYYY = (dateStr: string) => {
@@ -263,6 +305,15 @@ const EventMenu: React.FC<EventMenuProps> = ({
         );
         return;
       }
+      if (clientEndDateISO && normalizedEditDate && normalizedEditDate > clientEndDateISO) {
+        setEditDateError(
+          `Delivery date cannot be after client end date (${formatToMMDDYYYY(clientEndDateISO)}).`
+        );
+        return;
+      }
+      if (editSeriesEndDateError) {
+        return;
+      }
       const eventsRef = collection(db, dataSources.firebase.calendarCollection);
       const deliveryService = DeliveryService.getInstance();
       const deltaByDate: Record<string, number> = {};
@@ -301,6 +352,7 @@ const EventMenu: React.FC<EventMenuProps> = ({
           : null;
         recurrenceDatesForSave = nextRecurrenceDates.filter((date) => {
           if (clientStartDateISO && date < clientStartDateISO) return false;
+          if (clientEndDateISO && date > clientEndDateISO) return false;
           if (!endDateStr) return true;
           return date <= endDateStr;
         });
@@ -310,6 +362,12 @@ const EventMenu: React.FC<EventMenuProps> = ({
             setEditDateError(
               `Delivery date cannot be before client start date (${formatToMMDDYYYY(
                 clientStartDateISO
+              )}).`
+            );
+          } else if (clientEndDateISO && normalizedEditDate && normalizedEditDate > clientEndDateISO) {
+            setEditDateError(
+              `Delivery date cannot be after client end date (${formatToMMDDYYYY(
+                clientEndDateISO
               )}).`
             );
           }
@@ -439,6 +497,17 @@ const EventMenu: React.FC<EventMenuProps> = ({
             clientStartDateISO
           )}).`
         );
+      } else if (normalizedDate && clientEndDateISO && normalizedDate > clientEndDateISO) {
+        setEditDateError(
+          `Delivery date cannot be after client end date (${formatToMMDDYYYY(clientEndDateISO)}).`
+        );
+      }
+    } else if (validation.isValid && clientEndDateISO) {
+      const normalizedDate = deliveryDate.tryToISODateString(newDate);
+      if (normalizedDate && normalizedDate > clientEndDateISO) {
+        setEditDateError(
+          `Delivery date cannot be after client end date (${formatToMMDDYYYY(clientEndDateISO)}).`
+        );
       }
     }
   };
@@ -533,6 +602,10 @@ const EventMenu: React.FC<EventMenuProps> = ({
             InputLabelProps={{ shrink: true }}
             error={Boolean(editDateError)}
             helperText={editDateError}
+            inputProps={{
+              ...(clientStartDateISO ? { min: clientStartDateISO } : {}),
+              ...(clientEndDateISO ? { max: clientEndDateISO } : {}),
+            }}
           />
 
           {editOption === "This and following events" && (
@@ -570,6 +643,12 @@ const EventMenu: React.FC<EventMenuProps> = ({
                   fullWidth
                   margin="normal"
                   InputLabelProps={{ shrink: true }}
+                  error={Boolean(editSeriesEndDateError)}
+                  helperText={editSeriesEndDateError}
+                  inputProps={{
+                    min: editDeliveryDate,
+                    ...(clientEndDateISO ? { max: clientEndDateISO } : {}),
+                  }}
                 />
               )}
             </>
@@ -593,7 +672,8 @@ const EventMenu: React.FC<EventMenuProps> = ({
               (editOption === "This and following events" &&
                 editRecurrence.recurrence !== "None" &&
                 !editRecurrence.repeatsEndDate) ||
-              Boolean(editDateError)
+              Boolean(editDateError) ||
+              Boolean(editSeriesEndDateError)
             }
           >
             {capacityWarningAcknowledged && (capacityWarnings.length > 0 || capacityWarningError)
