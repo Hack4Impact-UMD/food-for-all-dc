@@ -3674,9 +3674,9 @@ const DeliverySpreadsheet: React.FC = () => {
 
       {/* Export Options Popup */}
 
-      <Dialog open={popupMode === "Export"} onClose={resetSelections} maxWidth="xs" fullWidth>
+      <Dialog open={popupMode === "Export"} onClose={resetSelections} maxWidth="sm" fullWidth>
         <DialogTitle>Export Options</DialogTitle>
-        <DialogContent sx={{ pt: 3, overflow: "visible" }}>
+        <DialogContent sx={{ pt: 3, overflowY: "auto", overflowX: "hidden" }}>
           <RouteExportOptions
             exportOption={exportOption}
             exportScope={exportScope}
