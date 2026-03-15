@@ -1,21 +1,7 @@
-import React, { useState, useRef } from "react";
+import React, { useState } from "react";
 import ReportHeader from "./ReportHeader";
 import { Accordion, AccordionDetails, AccordionSummary, Box, Typography } from "@mui/material";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
-import { db } from "../../auth/firebaseConfig";
-import {
-  collection,
-  doc,
-  DocumentData,
-  getDoc,
-  getDocs,
-  limit,
-  orderBy,
-  query,
-  QueryDocumentSnapshot,
-  startAfter,
-} from "firebase/firestore";
-import dataSources from "../../config/dataSources";
 import TimeUtils from "../../utils/timeUtils";
 import { useNavigate } from "react-router-dom";
 import LoadingIndicator from "../../components/LoadingIndicator/LoadingIndicator";
@@ -27,14 +13,17 @@ import {
   getReportRangeKey,
   isReportExportDisabled,
 } from "../../utils/reportExport";
-import { CsvExportError } from "../../utils/csvExport";
-
-interface ReferralClient {
-  id: string;
-  firstName: string;
-  lastName: string;
-  referredDate: string;
-}
+import { CsvExportError, CsvRow } from "../../utils/csvExport";
+import {
+  loadFirstDeliveriesByClientIds,
+  loadInclusiveReportEvents,
+  loadReportClientsByIds,
+} from "./reportDataLoader";
+import {
+  buildReferralAgenciesReportData,
+  ReferralAgenciesReportData,
+  ReferralReportClient,
+} from "./reportUtils";
 
 const ReferralAgenciesReport: React.FC = () => {
   const navigate = useNavigate();
@@ -44,8 +33,7 @@ const ReferralAgenciesReport: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [hasGenerated, setHasGenerated] = useState(false);
   const [generatedRangeKey, setGeneratedRangeKey] = useState("");
-
-  const [data, setData] = useState<Record<string, ReferralClient[]>>({});
+  const [data, setData] = useState<ReferralAgenciesReportData>({});
 
   const [startDate, setStartDate] = useState<Date | null>(() => {
     const start = localStorage.getItem("ffaReportDateRangeStart");
@@ -57,7 +45,6 @@ const ReferralAgenciesReport: React.FC = () => {
     return end ? new Date(end) : null;
   });
 
-  const agencyCacheRef = useRef<Record<string, string>>({});
   const currentRangeKey = getReportRangeKey(startDate, endDate);
   const isExportDisabled = isReportExportDisabled({
     isLoading,
@@ -66,91 +53,17 @@ const ReferralAgenciesReport: React.FC = () => {
     currentRangeKey,
   });
 
-  const getReferralAgencyInformationById = async (id: string) => {
-    if (agencyCacheRef.current[id]) return agencyCacheRef.current[id];
-
-    const ref = doc(db, dataSources.firebase.caseWorkersCollection, id);
-    const snap = await getDoc(ref);
-    const agency = snap.data() as any;
-    const formatted = `${agency?.name ?? "Unknown"} - ${agency?.organization ?? "—"}  (${agency?.email ?? "—"}, ${agency?.phone ?? "—"})`;
-
-    agencyCacheRef.current[id] = formatted;
-    return formatted;
-  };
-
-  const buildReport = async () => {
-    const BATCH_SIZE = 50;
-
-    if (!startDate || !endDate) return {};
-
-    const start = TimeUtils.fromJSDate(startDate).startOf("day");
-    const end = TimeUtils.fromJSDate(endDate).endOf("day");
-
-    const byAgency: Record<string, ReferralClient[]> = {};
-    let lastDoc: QueryDocumentSnapshot<DocumentData> | null = null;
-
-    try {
-      const True = true;
-      while (True) {
-        const q = lastDoc
-          ? query(
-              collection(db, dataSources.firebase.clientsCollection),
-              orderBy("__name__"),
-              startAfter(lastDoc),
-              limit(BATCH_SIZE)
-            )
-          : query(
-              collection(db, dataSources.firebase.clientsCollection),
-              orderBy("__name__"),
-              limit(BATCH_SIZE)
-            );
-
-        const snap: any = await getDocs(q);
-        if (snap.empty) break;
-
-        for (const docSnap of snap.docs) {
-          const client = docSnap.data();
-
-          const agencyId: string | undefined = client?.referralEntity?.id;
-          if (!agencyId) continue;
-
-          if (!client.referredDate) continue;
-
-          const referredDate = TimeUtils.fromISO(client.referredDate);
-          if (referredDate < start || referredDate > end) continue;
-
-          const agency = await getReferralAgencyInformationById(agencyId);
-
-          if (!byAgency[agency]) byAgency[agency] = [];
-          byAgency[agency].push({
-            id: docSnap.id,
-            firstName: client.firstName,
-            lastName: client.lastName,
-            referredDate: client.referredDate,
-          });
-        }
-
-        lastDoc = snap.docs[snap.docs.length - 1];
-        if (snap.size < BATCH_SIZE) break;
-      }
-    } catch (err) {
-      console.error("Failed to build referral agencies report:", err);
-      throw err;
-    }
-
-    return byAgency;
-  };
-
   const handleExport = () => {
-    const csvData: any[] = [];
+    const csvData: CsvRow[] = [];
 
     Object.entries(data).forEach(([agency, clients]) => {
-      clients.forEach((client: ReferralClient) => {
+      clients.forEach((client) => {
         csvData.push({
           "Referral Agency": agency,
           "First Name": client.firstName,
           "Last Name": client.lastName,
           "Referral Date": client.referredDate,
+          "First Delivery Date": client.firstDeliveryDate,
           "Client ID": client.id,
         });
       });
@@ -180,8 +93,23 @@ const ReferralAgenciesReport: React.FC = () => {
 
     setIsLoading(true);
     try {
-      const report = await buildReport();
-      setData(report as Record<string, ReferralClient[]>);
+      const start = TimeUtils.fromJSDate(startDate).startOf("day");
+      const end = TimeUtils.fromJSDate(endDate).endOf("day");
+      const servedEvents = await loadInclusiveReportEvents(start, end);
+      const servedClientIds = Array.from(new Set(servedEvents.map((event) => event.clientId)));
+      const [clients, firstDeliveriesByClientId] = await Promise.all([
+        loadReportClientsByIds(servedClientIds),
+        loadFirstDeliveriesByClientIds(servedClientIds),
+      ]);
+
+      setData(
+        buildReferralAgenciesReportData({
+          clients,
+          firstDeliveriesByClientId,
+          start,
+          end,
+        })
+      );
 
       setExpandedPanels([]);
       setHasGenerated(true);
@@ -197,12 +125,12 @@ const ReferralAgenciesReport: React.FC = () => {
 
   const handleToggle = (index: number) => {
     setExpandedPanels((prev) =>
-      prev.includes(index) ? prev.filter((i) => i !== index) : [...prev, index]
+      prev.includes(index) ? prev.filter((panelIndex) => panelIndex !== index) : [...prev, index]
     );
   };
 
   const expandAllPanels = () => {
-    setExpandedPanels(Array.from({ length: Object.keys(data || {}).length }, (_, i) => i));
+    setExpandedPanels(Array.from({ length: Object.keys(data).length }, (_, index) => index));
   };
 
   const collapseAllPanels = () => {
@@ -271,81 +199,82 @@ const ReferralAgenciesReport: React.FC = () => {
             </Typography>
           </Box>
 
-          {Object.entries(data || {}).map(
-            ([agencyKey, clients]: [string, ReferralClient[]], index) => (
-              <Accordion
-                key={agencyKey}
-                expanded={expandedPanels.includes(index)}
-                onChange={() => handleToggle(index)}
+          {Object.entries(data).map(([agencyKey, clients], index) => (
+            <Accordion
+              key={agencyKey}
+              expanded={expandedPanels.includes(index)}
+              onChange={() => handleToggle(index)}
+              sx={{
+                width: "100%",
+                mb: 1,
+                bgcolor: "var(--color-white)",
+                border: "none",
+                boxShadow: "none",
+                borderRadius: 2,
+                overflow: "hidden",
+                p: 0,
+              }}
+            >
+              <AccordionSummary
+                expandIcon={<ExpandMoreIcon sx={{ color: "var(--color-white)" }} />}
+                aria-controls={`panel${index}-content`}
+                id={`panel${index}-header`}
                 sx={{
-                  width: "100%",
-                  mb: 1,
-                  bgcolor: "var(--color-white)",
-                  border: "none",
-                  boxShadow: "none",
-                  borderRadius: 2,
-                  overflow: "hidden",
-                  p: 0,
+                  bgcolor: "var(--color-primary)",
+                  color: "var(--color-white)",
+                  mb: 0.5,
+                  borderTopLeftRadius: 2,
+                  borderTopRightRadius: 2,
                 }}
               >
-                <AccordionSummary
-                  expandIcon={<ExpandMoreIcon sx={{ color: "var(--color-white)" }} />}
-                  aria-controls={`panel${index}-content`}
-                  id={`panel${index}-header`}
-                  sx={{
-                    bgcolor: "var(--color-primary)",
-                    color: "var(--color-white)",
-                    mb: 0.5,
-                    borderTopLeftRadius: 2,
-                    borderTopRightRadius: 2,
-                  }}
-                >
-                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                    <Typography variant="h6" sx={{ mr: 1 }}>
-                      {agencyKey}
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                  <Typography variant="h6" sx={{ mr: 1 }}>
+                    {agencyKey}
+                  </Typography>
+                  <Typography sx={{ opacity: 0.9 }}>({clients.length})</Typography>
+                </Box>
+              </AccordionSummary>
+
+              <AccordionDetails
+                sx={{ bgcolor: "var(--color-white)", color: "var(--color-black)", p: 0 }}
+              >
+                {clients.map((client: ReferralReportClient, clientIndex: number) => (
+                  <Box
+                    key={`${index}-${clientIndex}`}
+                    sx={{
+                      minHeight: 120,
+                      bgcolor: "#f0f0f0ff",
+                      mb: 1.25,
+                      width: "100%",
+                      display: "flex",
+                      p: 2.5,
+                      justifyContent: "center",
+                      flexDirection: "column",
+                    }}
+                  >
+                    <Typography
+                      sx={{
+                        color: "var(--color-primary)",
+                        fontWeight: "bold",
+                        textDecoration: "underline",
+                        fontSize: 17,
+                        cursor: "pointer",
+                      }}
+                      onClick={() => navigate(`/profile/${client.id}`)}
+                    >
+                      {client.firstName} {client.lastName}
                     </Typography>
-                    <Typography sx={{ opacity: 0.9 }}>
-                      ({Array.isArray(clients) ? clients.length : 0})
+                    <Typography sx={{ m: 0 }}>
+                      Referral Date: {client.referredDate || "—"}
+                    </Typography>
+                    <Typography sx={{ m: 0 }}>
+                      First Delivery Date: {client.firstDeliveryDate || "—"}
                     </Typography>
                   </Box>
-                </AccordionSummary>
-
-                <AccordionDetails
-                  sx={{ bgcolor: "var(--color-white)", color: "var(--color-black)", p: 0 }}
-                >
-                  {(clients || []).map((client: ReferralClient, clientIndex: number) => (
-                    <Box
-                      key={`${index}-${clientIndex}`}
-                      sx={{
-                        height: 100,
-                        bgcolor: "#f0f0f0ff",
-                        mb: 1.25,
-                        width: "100%",
-                        display: "flex",
-                        p: 2.5,
-                        justifyContent: "center",
-                        flexDirection: "column",
-                      }}
-                    >
-                      <Typography
-                        sx={{
-                          color: "var(--color-primary)",
-                          fontWeight: "bold",
-                          textDecoration: "underline",
-                          fontSize: 17,
-                          cursor: "pointer",
-                        }}
-                        onClick={() => navigate(`/profile/${client.id}`)}
-                      >
-                        {client.firstName} {client.lastName}
-                      </Typography>
-                      <Typography sx={{ m: 0 }}>Referral Date: {client.referredDate}</Typography>
-                    </Box>
-                  ))}
-                </AccordionDetails>
-              </Accordion>
-            )
-          )}
+                ))}
+              </AccordionDetails>
+            </Accordion>
+          ))}
         </Box>
       )}
     </Box>

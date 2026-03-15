@@ -1,20 +1,7 @@
-import dataSources from "../../config/dataSources";
 import React, { useState } from "react";
 import ReportHeader from "./ReportHeader";
 import { Accordion, AccordionDetails, AccordionSummary, Box, Typography } from "@mui/material";
-import { ClientProfile } from "../../types";
 import TimeUtils from "../../utils/timeUtils";
-import {
-  collection,
-  DocumentData,
-  getDocs,
-  limit,
-  orderBy,
-  query,
-  QueryDocumentSnapshot,
-  startAfter,
-} from "firebase/firestore";
-import { db } from "../../auth/firebaseConfig";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import { useNotifications } from "../../components/NotificationProvider";
 import { useNavigate } from "react-router-dom";
@@ -26,8 +13,9 @@ import {
   getReportRangeKey,
   isReportExportDisabled,
 } from "../../utils/reportExport";
-import { CsvExportError } from "../../utils/csvExport";
-import { getClientStatusForPeriod } from "./reportUtils";
+import { CsvExportError, CsvRow } from "../../utils/csvExport";
+import { loadAllReportClients } from "./reportDataLoader";
+import { buildClientReportData, ClientReportData, ReportClientRecord } from "./reportUtils";
 
 const ClientReport: React.FC = () => {
   const navigate = useNavigate();
@@ -54,7 +42,7 @@ const ClientReport: React.FC = () => {
     }
   });
 
-  const [data, setData] = useState<any>({ Active: [], Lapsed: [] });
+  const [data, setData] = useState<ClientReportData>({ Active: [], Lapsed: [] });
   const currentRangeKey = getReportRangeKey(startDate, endDate);
   const isExportDisabled = isReportExportDisabled({
     isLoading,
@@ -64,12 +52,12 @@ const ClientReport: React.FC = () => {
   });
 
   const handleExport = () => {
-    const csvData: any[] = [];
+    const csvData: CsvRow[] = [];
 
     const activeClients = data["Active"] || [];
     const lapsedClients = data["Lapsed"] || [];
 
-    activeClients.forEach((client: ClientProfile) => {
+    activeClients.forEach((client) => {
       csvData.push({
         Status: "Active",
         "First Name": client.firstName,
@@ -81,7 +69,7 @@ const ClientReport: React.FC = () => {
       });
     });
 
-    lapsedClients.forEach((client: ClientProfile) => {
+    lapsedClients.forEach((client) => {
       csvData.push({
         Status: "Lapsed",
         "First Name": client.firstName,
@@ -111,57 +99,16 @@ const ClientReport: React.FC = () => {
 
   const generateReport = async () => {
     if (!startDate || !endDate) {
-      return {};
+      return;
     }
 
     setIsLoading(true);
     try {
-      const BATCH_SIZE = 50;
-
       const start = TimeUtils.fromJSDate(startDate).startOf("day");
       const end = TimeUtils.fromJSDate(endDate).endOf("day");
+      const clients = await loadAllReportClients();
 
-      const activeClients: ClientProfile[] = [];
-      const lapsedClients: ClientProfile[] = [];
-
-      let lastDoc: QueryDocumentSnapshot<DocumentData> | null = null;
-      const True = true;
-      while (True) {
-        const q: any = lastDoc
-          ? query(
-              collection(db, dataSources.firebase.clientsCollection),
-              orderBy("__name__"),
-              startAfter(lastDoc),
-              limit(BATCH_SIZE)
-            )
-          : query(
-              collection(db, dataSources.firebase.clientsCollection),
-              orderBy("__name__"),
-              limit(BATCH_SIZE)
-            );
-
-        const snap = await getDocs(q);
-        if (snap.empty) break;
-
-        for (const doc of snap.docs) {
-          const client = doc.data() as ClientProfile;
-          const status = getClientStatusForPeriod(client, start, end);
-
-          if (status === "active") {
-            activeClients.push(client);
-          } else if (status === "lapsed") {
-            lapsedClients.push(client);
-          }
-        }
-
-        lastDoc = snap.docs[snap.docs.length - 1] as QueryDocumentSnapshot<DocumentData>;
-        if (snap.size < BATCH_SIZE) break;
-      }
-
-      setData({
-        Active: activeClients,
-        Lapsed: lapsedClients,
-      });
+      setData(buildClientReportData(clients, start, end));
       setHasGenerated(true);
       setGeneratedRangeKey(currentRangeKey);
       showSuccess("Client report generated successfully");
@@ -173,7 +120,7 @@ const ClientReport: React.FC = () => {
     }
   };
 
-  const sections: Array<{ key: string; index: number; label: string }> = [
+  const sections: Array<{ key: keyof ClientReportData; index: number; label: string }> = [
     { key: "Active", index: 0, label: "Active" },
     { key: "Lapsed", index: 1, label: "Lapsed" },
   ];
@@ -206,7 +153,7 @@ const ClientReport: React.FC = () => {
           }}
         >
           {sections.map(({ key, index, label }) => {
-            const clients = data?.[key] ?? [];
+            const clients = data[key] ?? [];
             return (
               <Accordion
                 key={key}
@@ -249,7 +196,7 @@ const ClientReport: React.FC = () => {
                       <Typography sx={{ color: "text.secondary" }}>No clients.</Typography>
                     </Box>
                   ) : (
-                    clients.map((client: any, i: any) => (
+                    clients.map((client: ReportClientRecord, i: number) => (
                       <Box
                         key={`${key}-${client.uid ?? i}`}
                         sx={{
