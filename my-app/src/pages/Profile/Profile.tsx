@@ -40,8 +40,8 @@ import CaseWorkerManagementModal from "../../components/CaseWorkerManagementModa
 import "./Profile.css";
 import { clientService } from "../../services/client-service";
 import DeliveryService from "../../services/delivery-service";
-import PopUp from "../../components/PopUp";
 import ErrorPopUp from "../../components/ErrorPopUp";
+import { useNotifications } from "../../components/NotificationProvider";
 
 import BasicInfoForm from "./components/BasicInfoForm";
 import DeliveryInfoForm from "./components/DeliveryInfoForm";
@@ -180,6 +180,7 @@ const Profile = () => {
   const params = useParams();
   const clientIdParam: string | null = params.clientId ?? null;
   const { user, loading, userRole } = useAuth();
+  const { showInfo } = useNotifications();
 
   const [configFields, setConfigFields] = useState<
     Array<{ id: string; label: string; type: string }>
@@ -380,8 +381,6 @@ const Profile = () => {
   const [duplicateErrorMessage, setDuplicateErrorMessage] = useState(
     "A client with this name and address already exists in the system."
   );
-  const [showSimilarNamesInfo, setShowSimilarNamesInfo] = useState(false);
-  const [similarNamesMessage, setSimilarNamesMessage] = useState("");
 
   const getProfileById = async (id: string) => {
     const docRef = doc(db, dataSources.firebase.clientsCollection, id);
@@ -1212,8 +1211,7 @@ const Profile = () => {
         // Warn if there are other clients with the same name in the same zip code
         if (sameNameDiffAddressCount > 0) {
           const warningMsg = `Note: There ${sameNameDiffAddressCount === 1 ? "is" : "are"} ${sameNameDiffAddressCount} other client${sameNameDiffAddressCount === 1 ? "" : "s"} with the name "${clientProfile.firstName} ${clientProfile.lastName}" in ZIP code "${clientProfile.zipCode}", but at different addresses.`;
-          setSimilarNamesMessage(warningMsg);
-          setShowSimilarNamesInfo(true);
+          showInfo(warningMsg, 8000);
         }
       } else {
         // Force duplicate check to always happen with direct values, not through variables
@@ -1252,8 +1250,7 @@ const Profile = () => {
         // Warn if there are other clients with the same name in the same zip code
         if (sameNameDiffAddressCount > 0) {
           const warningMsg = `Note: There ${sameNameDiffAddressCount === 1 ? "is" : "are"} ${sameNameDiffAddressCount} other client${sameNameDiffAddressCount === 1 ? "" : "s"} with the name "${clientProfile.firstName} ${clientProfile.lastName}" in ZIP code "${clientProfile.zipCode}", but at different addresses.`;
-          setSimilarNamesMessage(warningMsg);
-          setShowSimilarNamesInfo(true);
+          showInfo(warningMsg, 8000);
         }
       }
       // --- Geocoding Optimization Start ---
@@ -2736,7 +2733,6 @@ const Profile = () => {
           // No auto-close duration - user must dismiss manually
         />
       )}
-      {showSimilarNamesInfo && <PopUp message={similarNamesMessage} duration={8000} />}
       {/* Spacer for navbar height */}
       <Box sx={{ height: "64px" }} />
       {/* Enhanced Profile Header */}
