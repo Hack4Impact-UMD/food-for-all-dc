@@ -1,7 +1,8 @@
 import { collection, getDocs, query, where, orderBy, Timestamp } from "firebase/firestore";
 import { db } from "../auth/firebaseConfig";
 import dataSources from "../config/dataSources";
-import { getLatestScheduledDate } from "./recurringSeries";
+import TimeUtils from "./timeUtils";
+import { deliveryDate } from "./deliveryDate";
 
 type EventData = {
   clientId: string;
@@ -14,17 +15,47 @@ const hasDeliveryDate = (
   event: Pick<EventData, "deliveryDate">
 ): event is EventWithDeliveryDate => Boolean(event.deliveryDate);
 
-export const getLastDeliveryDateForClient = async (clientId: string): Promise<string | null> => {
+export const getLatestPastDeliveryDate = (
+  events: Array<Pick<EventData, "deliveryDate">>,
+  today = TimeUtils.now().startOf("day")
+): string | null => {
+  const cutoffDate = today.toISODate();
+
+  if (!cutoffDate) {
+    return null;
+  }
+
+  let latestDate: string | null = null;
+
+  events.forEach((event) => {
+    const normalizedDate = deliveryDate.tryToISODateString(event.deliveryDate);
+    if (!normalizedDate || normalizedDate > cutoffDate) {
+      return;
+    }
+
+    if (!latestDate || normalizedDate > latestDate) {
+      latestDate = normalizedDate;
+    }
+  });
+
+  return latestDate;
+};
+
+export const getLatestPastDeliveryDateForClient = async (
+  clientId: string,
+  today = TimeUtils.now().startOf("day")
+): Promise<string | null> => {
   try {
     const eventsRef = collection(db, dataSources.firebase.calendarCollection);
     const q = query(eventsRef, where("clientId", "==", clientId), orderBy("deliveryDate", "desc"));
     const querySnapshot = await getDocs(q);
 
     if (!querySnapshot.empty) {
-      return getLatestScheduledDate(
+      return getLatestPastDeliveryDate(
         querySnapshot.docs
           .map((doc) => doc.data() as Pick<EventData, "deliveryDate">)
-          .filter(hasDeliveryDate)
+          .filter(hasDeliveryDate),
+        today
       );
     }
 
@@ -35,8 +66,9 @@ export const getLastDeliveryDateForClient = async (clientId: string): Promise<st
   }
 };
 
-export const batchGetLastDeliveryDates = async (
-  clientIds: string[]
+export const batchGetLatestPastDeliveryDates = async (
+  clientIds: string[],
+  today = TimeUtils.now().startOf("day")
 ): Promise<Map<string, string>> => {
   const result = new Map<string, string>();
   const uniqueClientIds = Array.from(new Set(clientIds.filter(Boolean)));
@@ -65,7 +97,7 @@ export const batchGetLastDeliveryDates = async (
     }
 
     for (const [clientId, events] of clientEventsMap.entries()) {
-      const latestDate = getLatestScheduledDate(events);
+      const latestDate = getLatestPastDeliveryDate(events, today);
       if (latestDate) {
         result.set(clientId, latestDate);
       }

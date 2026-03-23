@@ -72,6 +72,8 @@ import type { DeliverySeriesSummary } from "../../utils/recurringSeries";
 import HealthConditionsForm from "./components/HealthConditionsForm";
 import HealthCheckbox from "./components/HealthCheckbox";
 import { buildHouseholdSnapshot } from "../../utils/householdSnapshot";
+import { getLatestPastDeliveryDate } from "../../utils/lastDeliveryDate";
+import { getClientServiceState } from "../../utils/clientStatus";
 
 const fieldStyles = {
   backgroundColor: "var(--color-white)",
@@ -346,12 +348,10 @@ const Profile = () => {
 
     const deliveryService = DeliveryService.getInstance();
     try {
-      const [{ pastDeliveries, futureDeliveries }, latestScheduledDate, recurringSeriesSummaries] =
-        await Promise.all([
-          deliveryService.getClientDeliveryHistory(clientId),
-          deliveryService.getLatestScheduledDateForClient(clientId),
-          deliveryService.getRecurringSeriesSummariesForClient(clientId),
-        ]);
+      const [{ pastDeliveries, futureDeliveries }, recurringSeriesSummaries] = await Promise.all([
+        deliveryService.getClientDeliveryHistory(clientId),
+        deliveryService.getRecurringSeriesSummariesForClient(clientId),
+      ]);
       const todayKey = TimeUtils.now().toFormat("yyyy-MM-dd");
       const activeRecurringSeries = recurringSeriesSummaries.filter(
         (summary) => summary.supportsFutureOperations && summary.latestDate >= todayKey
@@ -362,15 +362,56 @@ const Profile = () => {
       setPastDeliveries(pastDeliveries);
       setFutureDeliveries(futureDeliveries);
       setEvents([...pastDeliveries, ...futureDeliveries]);
-      setLastDeliveryDate(latestScheduledDate || "No deliveries found");
+      setLastDeliveryDate(getLatestPastDeliveryDate(pastDeliveries));
       setEditableRecurringSeries(nextEditableSeries);
       setDeliveryDataLoaded(true);
     } catch (error) {
       console.error("Failed to refresh delivery history", error);
-      setLastDeliveryDate("Error fetching data");
+      setLastDeliveryDate(null);
       setEditableRecurringSeries(null);
     }
   }, [clientId]);
+
+  const profileSchedulingState = useMemo(() => {
+    if (!clientId) {
+      return null;
+    }
+
+    return getClientServiceState({
+      startDate: clientProfile.startDate,
+      endDate: clientProfile.endDate,
+      lastPastDeliveryDate: deliveryDataLoaded ? lastDeliveryDate : undefined,
+    });
+  }, [
+    clientId,
+    clientProfile.endDate,
+    clientProfile.startDate,
+    deliveryDataLoaded,
+    lastDeliveryDate,
+  ]);
+
+  const profileStatusState = useMemo(() => {
+    if (!clientId) {
+      return null;
+    }
+
+    if (!deliveryDataLoaded) {
+      return profileSchedulingState?.status === "inactive" ? profileSchedulingState : null;
+    }
+
+    return getClientServiceState({
+      startDate: clientProfile.startDate,
+      endDate: clientProfile.endDate,
+      lastPastDeliveryDate: lastDeliveryDate,
+    });
+  }, [
+    clientId,
+    clientProfile.endDate,
+    clientProfile.startDate,
+    deliveryDataLoaded,
+    lastDeliveryDate,
+    profileSchedulingState,
+  ]);
 
   const [clients, setClients] = useState<ClientProfile[]>([]);
   const [addressError, setAddressError] = useState<string>("");
@@ -1364,20 +1405,11 @@ const Profile = () => {
         return dateStr;
       };
 
-      const today = TimeUtils.now().startOf("day");
-      const startDateTime = cleanedProfile.startDate
-        ? TimeUtils.fromAny(cleanedProfile.startDate).startOf("day")
-        : null;
-      const endDateTime = cleanedProfile.endDate
-        ? TimeUtils.fromAny(cleanedProfile.endDate).startOf("day")
-        : null;
-      let activeStatus = false;
-      if (startDateTime?.isValid) {
-        const todayMillis = today.toMillis();
-        activeStatus =
-          todayMillis >= startDateTime.toMillis() &&
-          (!endDateTime?.isValid || todayMillis <= endDateTime.toMillis());
-      }
+      const { canSchedule: activeStatus } = getClientServiceState({
+        startDate: cleanedProfile.startDate,
+        endDate: cleanedProfile.endDate,
+        lastPastDeliveryDate: lastDeliveryDate,
+      });
 
       const updatedProfile: ClientProfile = {
         ...cleanedProfile,
@@ -2748,7 +2780,8 @@ const Profile = () => {
         allTags={allTags || []}
         handleTag={handleTag}
         clientId={clientProfile.uid || null}
-        activeStatus={clientProfile.activeStatus}
+        clientStatus={profileStatusState?.status}
+        activeStatus={profileStatusState ? profileStatusState.canSchedule : undefined}
       />
       <Box className="profile-main" sx={{ p: 2 }}>
         <Box
@@ -2836,6 +2869,7 @@ const Profile = () => {
               fieldLabelStyles={fieldLabelStyles}
               renderField={renderField}
               lastDeliveryDate={lastDeliveryDate}
+              deliveryDataLoaded={deliveryDataLoaded || isNewProfile}
               isSaved={isSaved}
               isNewProfile={isNewProfile}
             />
@@ -2872,7 +2906,8 @@ const Profile = () => {
                   setIsDeliveryModalOpen(true);
                 }}
                 disabled={
-                  userRole === UserType.ClientIntake || clientProfile.activeStatus === false
+                  userRole === UserType.ClientIntake ||
+                  profileSchedulingState?.status === "inactive"
                 }
                 sx={{
                   marginRight: 4,

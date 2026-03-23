@@ -12,6 +12,7 @@ interface DeliveryInfoFormProps {
   renderField: (fieldPath: ClientProfileKey, type?: InputType) => React.ReactNode;
   fieldLabelStyles: any;
   lastDeliveryDate: string | null;
+  deliveryDataLoaded?: boolean;
   isSaved: boolean;
   onDateValidationChange?: (
     isValid: boolean,
@@ -57,6 +58,7 @@ const DeliveryInfoForm: React.FC<DeliveryInfoFormProps> = ({
   renderField,
   fieldLabelStyles,
   lastDeliveryDate,
+  deliveryDataLoaded = false,
   isSaved,
   onDateValidationChange,
   isNewProfile,
@@ -167,7 +169,7 @@ const DeliveryInfoForm: React.FC<DeliveryInfoFormProps> = ({
             LAST DELIVERY DATE
           </Typography>
           <Typography variant="body1" sx={{ fontWeight: 600 }}>
-            {lastDeliveryDate || "Loading..."}
+            {deliveryDataLoaded ? lastDeliveryDate || "No past deliveries" : "Loading..."}
           </Typography>
         </Box>
 

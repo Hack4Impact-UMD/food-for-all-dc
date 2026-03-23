@@ -58,6 +58,7 @@ import AddIcon from "@mui/icons-material/Add";
 import DeleteIcon from "@mui/icons-material/Delete";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import CancelIcon from "@mui/icons-material/Cancel";
+import WarningAmberIcon from "@mui/icons-material/WarningAmber";
 import { Select, MenuItem } from "@mui/material";
 import EditIcon from "@mui/icons-material/Edit";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
@@ -72,6 +73,7 @@ import { useClientData } from "../../context/ClientDataContext";
 import type { FieldDefinition } from "../../types/spreadsheet-types";
 import { useNotifications } from "../NotificationProvider";
 import { CsvExportError } from "../../utils/csvExport";
+import type { ClientServiceStatus } from "../../types/client-types";
 
 const StyleChip = styled(Chip)(({ theme }) => ({
   fontWeight: 500,
@@ -88,6 +90,53 @@ const StyleChip = styled(Chip)(({ theme }) => ({
 }));
 
 const getTodayET = (): string => DateTime.now().setZone("America/New_York").toISODate() ?? "";
+
+const getRowClientStatus = (row: RowData): ClientServiceStatus => {
+  if (row.clientStatus) {
+    return row.clientStatus;
+  }
+
+  return row.activeStatus === false ? "inactive" : "active";
+};
+
+const renderStatusIcon = (status: ClientServiceStatus) => {
+  if (status === "active") {
+    return (
+      <CheckCircleIcon
+        sx={{
+          color: "#4caf50",
+          fontSize: "1.1rem",
+          mr: 0.5,
+          verticalAlign: "middle",
+        }}
+      />
+    );
+  }
+
+  if (status === "lapsed") {
+    return (
+      <WarningAmberIcon
+        sx={{
+          color: "#ed6c02",
+          fontSize: "1.1rem",
+          mr: 0.5,
+          verticalAlign: "middle",
+        }}
+      />
+    );
+  }
+
+  return (
+    <CancelIcon
+      sx={{
+        color: "#bdbdbd",
+        fontSize: "1.1rem",
+        mr: 0.5,
+        verticalAlign: "middle",
+      }}
+    />
+  );
+};
 
 function getCustomColumnDisplay(row: RowData, propertyKey: string): React.ReactNode {
   if (!propertyKey || propertyKey === "none") return "";
@@ -1074,28 +1123,10 @@ const Spreadsheet: React.FC = () => {
                       {field.key === "fullname" ? (
                         <span style={{ display: "flex", alignItems: "center" }}>
                           <Tooltip
-                            title={row.activeStatus ? "Active profile" : "Inactive profile"}
+                            title={`${getRowClientStatus(row).charAt(0).toUpperCase()}${getRowClientStatus(row).slice(1)} profile`}
                             placement="right"
                           >
-                            {row.activeStatus ? (
-                              <CheckCircleIcon
-                                sx={{
-                                  color: "#4caf50",
-                                  fontSize: "1.1rem",
-                                  mr: 0.5,
-                                  verticalAlign: "middle",
-                                }}
-                              />
-                            ) : (
-                              <CancelIcon
-                                sx={{
-                                  color: "#bdbdbd",
-                                  fontSize: "1.1rem",
-                                  mr: 0.5,
-                                  verticalAlign: "middle",
-                                }}
-                              />
-                            )}
+                            {renderStatusIcon(getRowClientStatus(row))}
                           </Tooltip>
                           <a
                             className="name-link"
