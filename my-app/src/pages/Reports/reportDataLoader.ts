@@ -16,6 +16,7 @@ import dataSources from "../../config/dataSources";
 import { HouseholdSnapshot } from "../../types/delivery-types";
 import { deliveryDate } from "../../utils/deliveryDate";
 import { normalizeHouseholdSnapshot } from "../../utils/householdSnapshot";
+import { batchGetLatestPastDeliveryDates } from "../../utils/lastDeliveryDate";
 import { ReportClientRecord, ReportDeliveryRecord } from "./reportUtils";
 
 const CLIENT_PAGE_SIZE = 200;
@@ -68,8 +69,8 @@ const mapReportClient = (docSnapshot: QueryDocumentSnapshot): ReportClientRecord
     seniors: asNumber(raw.seniors),
     total: asNumber(raw.total),
     referredDate: asString(raw.referredDate) || undefined,
-    startDate: raw.startDate,
-    endDate: raw.endDate,
+    startDate: (raw.startDate as string | Date | Timestamp | DateTime | null | undefined) ?? null,
+    endDate: (raw.endDate as string | Date | Timestamp | DateTime | null | undefined) ?? null,
     referralEntity: referralEntity
       ? {
           id:
@@ -245,3 +246,7 @@ export const loadFirstDeliveriesByClientIds = async (
 
   return firstDeliveriesByClientId;
 };
+
+export const loadLatestPastDeliveryDatesByClientIds = async (
+  clientIds: string[]
+): Promise<Map<string, string>> => batchGetLatestPastDeliveryDates(clientIds);

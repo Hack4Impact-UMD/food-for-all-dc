@@ -1,6 +1,7 @@
 import { CsvRow, downloadCsv } from "../../utils/csvExport";
 import { getNestedValue } from "../../utils/misc";
 import { formatDietaryRestrictionsForExport } from "../../utils/exportFormatters";
+import type { ClientServiceStatus } from "../../types/client-types";
 
 export interface RowData {
   id: string;
@@ -49,6 +50,12 @@ export interface RowData {
   streetName?: string;
   zipCode?: string;
   clusterID?: string;
+  address2?: string;
+  lastDeliveryDate?: string;
+  clientStatus?: ClientServiceStatus;
+  activeStatus?: boolean;
+  startDate?: string;
+  endDate?: string;
 }
 
 // Allow dynamic property access for RowData

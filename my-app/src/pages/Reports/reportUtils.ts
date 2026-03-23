@@ -1,16 +1,10 @@
 import { DateTime } from "luxon";
-import { Timestamp } from "firebase/firestore";
+import type { Timestamp } from "firebase/firestore";
 import { SummaryData } from "../../types/reports-types";
 import { HouseholdSnapshot } from "../../types/delivery-types";
-import TimeUtils from "../../utils/timeUtils";
+import type { ClientServiceStatus } from "../../types/client-types";
+import { getClientServiceState } from "../../utils/clientStatus";
 import { buildHouseholdSnapshot, normalizeHouseholdSnapshot } from "../../utils/householdSnapshot";
-
-export type ClientPeriodStatus = "active" | "lapsed" | "future" | "invalid";
-
-export interface PeriodClientRecord {
-  startDate?: unknown;
-  endDate?: unknown;
-}
 
 export interface ReportDietaryRestrictions {
   foodAllergens?: string[];
@@ -31,13 +25,15 @@ export interface ReportDietaryRestrictions {
   allergiesText?: string;
 }
 
-export interface ReportClientRecord extends PeriodClientRecord {
+export interface ReportClientRecord {
   uid: string;
   firstName: string;
   lastName: string;
   phone?: string;
   address?: string;
   zipCode?: string;
+  startDate?: string | Date | DateTime | Timestamp | null;
+  endDate?: string | Date | DateTime | Timestamp | null;
   adults?: number;
   seniors?: number;
   children?: number;
@@ -71,8 +67,14 @@ export interface SummaryReportResult {
 }
 
 export interface ClientReportData {
-  Active: ReportClientRecord[];
-  Lapsed: ReportClientRecord[];
+  Active: SnapshotClientRecord[];
+  Lapsed: SnapshotClientRecord[];
+  Inactive: SnapshotClientRecord[];
+}
+
+export interface SnapshotClientRecord extends ReportClientRecord {
+  clientStatus: ClientServiceStatus;
+  lastDeliveryDate: string;
 }
 
 export interface ReferralReportClient {
@@ -85,13 +87,8 @@ export interface ReferralReportClient {
 
 export type ReferralAgenciesReportData = Record<string, ReferralReportClient[]>;
 
-const isSupportedDateInput = (value: unknown): value is string | Date | DateTime | Timestamp =>
-  typeof value === "string" ||
-  value instanceof Date ||
-  value instanceof DateTime ||
-  value instanceof Timestamp;
-
 export const SUMMARY_BAGS_PER_DELIVERY = 2;
+export const UNKNOWN_REFERRAL_SOURCE = "Unknown Referral Source";
 
 const EMPTY_HOUSEHOLD_SNAPSHOT: HouseholdSnapshot = {
   adults: 0,
@@ -130,8 +127,6 @@ export const BASE_SUMMARY_REPORT: SummaryData = {
     "Bags Delivered": { value: 0, isFullRow: false },
     "New Households": { value: 0, isFullRow: false },
     "New People": { value: 0, isFullRow: false },
-    "Active Clients": { value: 0, isFullRow: false },
-    "Lapsed Clients": { value: 0, isFullRow: false },
   },
   Demographics: {
     "New Seniors": { value: 0, isFullRow: false },
@@ -154,7 +149,7 @@ export const BASE_SUMMARY_REPORT: SummaryData = {
   },
   Referrals: {
     "New Client Referrals": { value: 0, isFullRow: false },
-    "New Referral Agency Names": { value: 0, isFullRow: false },
+    "New Referral Sources": { value: 0, isFullRow: false },
   },
   "Dietary Restrictions": {
     "Clients with Dietary Restrictions": { value: 0, isFullRow: false },
@@ -179,46 +174,6 @@ export const BASE_SUMMARY_REPORT: SummaryData = {
 
 export const createEmptySummaryReport = (): SummaryData =>
   JSON.parse(JSON.stringify(BASE_SUMMARY_REPORT)) as SummaryData;
-
-// TODO(reports-q4-q5): PM still needs to finalize the real Active/Lapsed rules.
-// Keep the current date-overlap behavior centralized here until those definitions are approved.
-export const getClientStatusForPeriod = (
-  client: PeriodClientRecord,
-  start: DateTime,
-  end: DateTime
-): ClientPeriodStatus => {
-  if (!client.startDate) {
-    return "invalid";
-  }
-
-  if (!isSupportedDateInput(client.startDate)) {
-    return "invalid";
-  }
-
-  const clientStartDate = TimeUtils.fromAny(client.startDate).startOf("day");
-  if (!clientStartDate.isValid) {
-    return "invalid";
-  }
-
-  const clientEndDate =
-    client.endDate && isSupportedDateInput(client.endDate)
-      ? TimeUtils.fromAny(client.endDate).startOf("day")
-      : DateTime.invalid("No end date");
-
-  if (clientStartDate > end) {
-    return "future";
-  }
-
-  if (clientEndDate.isValid && clientEndDate < start) {
-    return "lapsed";
-  }
-
-  if (clientStartDate <= end && (!clientEndDate.isValid || clientEndDate >= start)) {
-    return "active";
-  }
-
-  return "invalid";
-};
 
 const isDateWithinRange = (date: DateTime, start: DateTime, end: DateTime): boolean =>
   date.isValid && date >= start && date <= end;
@@ -269,6 +224,15 @@ const hasReferralSource = (client: ReportClientRecord): boolean =>
       client.referralEntity?.id?.trim() ||
       client.referredDate
   );
+
+const getReferralSourceLabel = (client: ReportClientRecord): string | null => {
+  if (!hasReferralSource(client)) {
+    return null;
+  }
+
+  const organization = client.referralEntity?.organization?.trim();
+  return organization || UNKNOWN_REFERRAL_SOURCE;
+};
 
 const getHealthConditionValue = (
   conditions: Record<string, unknown> | null | undefined,
@@ -410,16 +374,6 @@ export const buildSummaryReportData = ({
 
   let usedLegacySnapshotFallback = false;
 
-  clients.forEach((client) => {
-    const status = getClientStatusForPeriod(client, start, end);
-
-    if (status === "active") {
-      basic["Active Clients"].value += 1;
-    } else if (status === "lapsed") {
-      basic["Lapsed Clients"].value += 1;
-    }
-  });
-
   servedEvents.forEach((event) => {
     const client = clientsById.get(event.clientId);
     const { snapshot, usedLegacySnapshotFallback: usedFallback } = resolveHouseholdSnapshot(
@@ -473,9 +427,9 @@ export const buildSummaryReportData = ({
         referrals["New Client Referrals"].value += 1;
       }
 
-      const organization = client.referralEntity?.organization?.trim();
-      if (organization) {
-        referralAgencies.add(organization);
+      const referralSource = getReferralSourceLabel(client);
+      if (referralSource) {
+        referralAgencies.add(referralSource);
       }
 
       usedLegacySnapshotFallback ||= usedFirstEverFallback;
@@ -505,7 +459,7 @@ export const buildSummaryReportData = ({
     incrementTagCounts(report, client);
   });
 
-  referrals["New Referral Agency Names"].value = referralAgencies.size;
+  referrals["New Referral Sources"].value = referralAgencies.size;
 
   return {
     data: report,
@@ -515,28 +469,44 @@ export const buildSummaryReportData = ({
 
 export const buildClientReportData = (
   clients: ReportClientRecord[],
-  start: DateTime,
-  end: DateTime
+  latestPastDeliveryDatesByClientId: Map<string, string>,
+  today: DateTime
 ): ClientReportData => {
-  const activeClients: ReportClientRecord[] = [];
-  const lapsedClients: ReportClientRecord[] = [];
+  const activeClients: SnapshotClientRecord[] = [];
+  const lapsedClients: SnapshotClientRecord[] = [];
+  const inactiveClients: SnapshotClientRecord[] = [];
 
   clients.forEach((client) => {
-    const status = getClientStatusForPeriod(client, start, end);
+    const lastDeliveryDate = latestPastDeliveryDatesByClientId.get(client.uid) || "";
+    const { status } = getClientServiceState({
+      startDate: client.startDate,
+      endDate: client.endDate,
+      lastPastDeliveryDate: lastDeliveryDate || null,
+      today,
+    });
+    const snapshotClient: SnapshotClientRecord = {
+      ...client,
+      clientStatus: status,
+      lastDeliveryDate,
+    };
 
     if (status === "active") {
-      activeClients.push(client);
+      activeClients.push(snapshotClient);
       return;
     }
 
     if (status === "lapsed") {
-      lapsedClients.push(client);
+      lapsedClients.push(snapshotClient);
+      return;
     }
+
+    inactiveClients.push(snapshotClient);
   });
 
   return {
     Active: [...activeClients].sort(compareClients),
     Lapsed: [...lapsedClients].sort(compareClients),
+    Inactive: [...inactiveClients].sort(compareClients),
   };
 };
 
@@ -554,18 +524,14 @@ export const buildReferralAgenciesReportData = ({
   const groupedByAgency = new Map<string, ReferralReportClient[]>();
 
   [...clients].sort(compareClients).forEach((client) => {
-    const organization = client.referralEntity?.organization?.trim();
+    const referralSource = getReferralSourceLabel(client);
     const firstDelivery = firstDeliveriesByClientId.get(client.uid);
 
-    if (
-      !organization ||
-      !firstDelivery ||
-      !isDateWithinRange(firstDelivery.deliveryDate, start, end)
-    ) {
+    if (!referralSource || !firstDelivery || !isDateWithinRange(firstDelivery.deliveryDate, start, end)) {
       return;
     }
 
-    const agencyClients = groupedByAgency.get(organization) ?? [];
+    const agencyClients = groupedByAgency.get(referralSource) ?? [];
     agencyClients.push({
       id: client.uid,
       firstName: client.firstName,
@@ -573,7 +539,7 @@ export const buildReferralAgenciesReportData = ({
       referredDate: client.referredDate ?? "",
       firstDeliveryDate: firstDelivery.deliveryDate.toISODate() ?? "",
     });
-    groupedByAgency.set(organization, agencyClients);
+    groupedByAgency.set(referralSource, agencyClients);
   });
 
   return Array.from(groupedByAgency.entries())

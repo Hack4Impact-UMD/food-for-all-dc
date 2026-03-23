@@ -1,9 +1,11 @@
-import { Box, Typography, Avatar, Divider, Chip, styled, Stack, Tooltip } from "@mui/material";
+import { Box, Typography, Divider, styled, Tooltip } from "@mui/material";
 import PersonIcon from "@mui/icons-material/Person";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import CancelIcon from "@mui/icons-material/Cancel";
+import WarningAmberIcon from "@mui/icons-material/WarningAmber";
 import React from "react";
 import TagManager from "../Tags/TagManager";
+import type { ClientServiceStatus } from "../../../types/client-types";
 
 // Simplified Header Container
 const ModernHeaderContainer = styled(Box)(({ theme }) => ({
@@ -26,22 +28,6 @@ const ProfileName = styled(Typography)(({ theme }) => ({
   color: "var(--color-text-primary)", // Ensure text color consistency
 }));
 
-const ClientIdText = styled(Typography)(({ theme }) => ({
-  fontSize: "0.875rem",
-  color: "var(--color-text-secondary)",
-  display: "flex",
-  alignItems: "center",
-  gap: theme.spacing(0.5),
-}));
-
-const StyledAvatar = styled(Avatar)(({ theme }) => ({
-  backgroundColor: "var(--color-primary)",
-  width: "60px", // Slightly smaller
-  height: "60px",
-  fontSize: "1.5rem", // Adjusted font size
-  boxShadow: "0 2px 6px rgba(37, 126, 104, 0.25)", // Refined shadow
-}));
-
 const TagsContainer = styled(Box)(({ theme }) => ({
   marginTop: theme.spacing(1.5), // Reduced margin
   display: "flex",
@@ -58,26 +44,21 @@ interface ProfileHeaderProps {
   allTags: string[];
   handleTag: (tag: string) => void;
   clientId: string | null;
+  clientStatus?: ClientServiceStatus;
   activeStatus?: boolean;
 }
 
 const ProfileHeader: React.FC<ProfileHeaderProps> = ({
   firstName,
   lastName,
-  isEditing, // Pass down if needed by Tags or other elements
+  isEditing: _isEditing,
   tags,
   allTags,
   handleTag,
   clientId,
-    activeStatus,
-  }) => {
-  // Get initials for avatar
-  const getInitials = () => {
-    const first = firstName ? firstName.charAt(0).toUpperCase() : "";
-    const last = lastName ? lastName.charAt(0).toUpperCase() : "";
-    return first + last || "?";
-  };
-
+  clientStatus,
+  activeStatus,
+}) => {
   // Format name for display
   const displayName = () => {
     return firstName?.trim() || lastName?.trim()
@@ -85,8 +66,30 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
       : "New Client";
   };
 
+  const resolvedClientStatus: ClientServiceStatus | undefined =
+    clientStatus ?? (activeStatus === false ? "inactive" : activeStatus === true ? "active" : undefined);
+
+  const statusLabel = resolvedClientStatus
+    ? `${resolvedClientStatus.charAt(0).toUpperCase()}${resolvedClientStatus.slice(1)} profile`
+    : "Profile status unavailable";
+
+  const statusIcon =
+    resolvedClientStatus === "active" ? (
+      <CheckCircleIcon
+        sx={{ color: "#4caf50", mr: 1, fontSize: "1.5rem", verticalAlign: "middle" }}
+      />
+    ) : resolvedClientStatus === "lapsed" ? (
+      <WarningAmberIcon
+        sx={{ color: "#ed6c02", mr: 1, fontSize: "1.5rem", verticalAlign: "middle" }}
+      />
+    ) : (
+      <CancelIcon
+        sx={{ color: "#bdbdbd", mr: 1, fontSize: "1.5rem", verticalAlign: "middle" }}
+      />
+    );
+
   // No-op function that satisfies eslint
-  const noOp = (param: any) => {
+  const noOp = (_param: unknown) => {
     // Intentionally empty, used as a placeholder for required props
     return;
   };
@@ -96,14 +99,10 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
       <Box sx={{ flexGrow: 1, display: "flex", flexDirection: "column", height: "100%" }}>
         <Box sx={{ display: "flex", alignItems: "center", mb: 0.5 }}>
           {/* Icon before name */}
-          <Tooltip title={activeStatus ? "Active profile" : "Inactive profile"} placement="right">
-            {activeStatus ? (
-              <CheckCircleIcon sx={{ color: '#4caf50', mr: 1, fontSize: '1.5rem', verticalAlign: 'middle' }} />
-            ) : (
-              <CancelIcon sx={{ color: '#bdbdbd', mr: 1, fontSize: '1.5rem', verticalAlign: 'middle' }} />
-            )}
+          <Tooltip title={statusLabel} placement="right">
+            {statusIcon}
           </Tooltip>
-          <ProfileName variant="h1" sx={{ mb: 0, mr: 2, display: 'flex', alignItems: 'center' }}>
+          <ProfileName variant="h1" sx={{ mb: 0, mr: 2, display: "flex", alignItems: "center" }}>
             {displayName()}
           </ProfileName>
           <TagsContainer sx={{ marginTop: 0 }}>

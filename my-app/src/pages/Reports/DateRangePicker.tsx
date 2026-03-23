@@ -11,6 +11,7 @@ interface DateRangePickerProps {
   endDate: Date | null;
   setStartDate: (date: Date | null) => void;
   setEndDate: (date: Date | null) => void;
+  maxDate?: Date | null;
 }
 
 const StyledDatePickerWrapper = styled(Box)({
@@ -29,6 +30,7 @@ export default function DateRangePicker({
   endDate,
   setStartDate,
   setEndDate,
+  maxDate = null,
 }: DateRangePickerProps) {
   const formatDate = (date: Date | null) => (date ? formatAppDate(date) : "Select date");
 
@@ -50,7 +52,7 @@ export default function DateRangePicker({
           onChange={(date) => setStartDate(date)}
           selectsStart
           startDate={startDate}
-          maxDate={endDate ?? undefined}
+          maxDate={endDate && maxDate ? (endDate < maxDate ? endDate : maxDate) : endDate ?? maxDate ?? undefined}
           customInput={
             <Box sx={{ display: "flex", alignItems: "center" }}>
               <Typography>{formatDate(startDate)}</Typography>
@@ -68,6 +70,7 @@ export default function DateRangePicker({
           selectsEnd
           endDate={endDate}
           minDate={startDate ?? undefined}
+          maxDate={maxDate ?? undefined}
           customInput={
             <Box sx={{ display: "flex", alignItems: "center" }}>
               <Typography>{formatDate(endDate)}</Typography>

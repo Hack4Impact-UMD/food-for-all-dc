@@ -1,5 +1,7 @@
 // Type definitions for client profiles and related entities
 
+export type ClientServiceStatus = "active" | "lapsed" | "inactive";
+
 export interface DietaryRestrictions {
   lowSugar: boolean;
   kidneyFriendly: boolean;
@@ -106,5 +108,6 @@ export interface ClientProfile {
     otherText: string;
     other: boolean;
   };
+  clientStatus?: ClientServiceStatus;
   activeStatus?: boolean;
 }
