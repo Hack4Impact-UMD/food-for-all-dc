@@ -6,7 +6,6 @@ interface ReportHeaderProps {
   endDate: Date | null;
   setStartDate: (date: Date | null) => void;
   setEndDate: (date: Date | null) => void;
-  maxDate?: Date | null;
   generateReport?: () => any;
   onExport?: () => void;
   exportDisabled?: boolean;
@@ -18,18 +17,13 @@ export default function ReportHeader({
   endDate,
   setStartDate,
   setEndDate,
-  maxDate = null,
   generateReport,
   onExport,
   exportDisabled = true,
   isGenerating = false,
 }: ReportHeaderProps) {
   const hasInvalidDateRange = startDate && endDate && startDate > endDate;
-  const hasFutureDateSelection =
-    !!maxDate &&
-    ((!!startDate && startDate > maxDate) || (!!endDate && endDate > maxDate));
-  const isGenerateDisabled =
-    !startDate || !endDate || !!hasInvalidDateRange || hasFutureDateSelection || isGenerating;
+  const isGenerateDisabled = !startDate || !endDate || !!hasInvalidDateRange || isGenerating;
 
   return (
     <div
@@ -56,7 +50,6 @@ export default function ReportHeader({
             endDate={endDate}
             setStartDate={setStartDate}
             setEndDate={setEndDate}
-            maxDate={maxDate}
           ></DateRangePicker>
         </div>
 
@@ -83,12 +76,6 @@ export default function ReportHeader({
       {hasInvalidDateRange && (
         <Alert severity="error" sx={{ mt: 1 }}>
           Start date must be before end date
-        </Alert>
-      )}
-
-      {hasFutureDateSelection && (
-        <Alert severity="error" sx={{ mt: 1 }}>
-          Reports can only be generated through today.
         </Alert>
       )}
     </div>

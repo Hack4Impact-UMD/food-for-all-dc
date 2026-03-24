@@ -1,15 +1,7 @@
 import { Card, CardContent, Typography, Box } from "@mui/material";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 
-interface GuideProps {
-  title?: string;
-  description?: string;
-}
-
-export default function Guide({
-  title = "Getting Started with Reports:",
-  description = "Select a start and end date then click Generate to see results.",
-}: GuideProps) {
+export default function Guide() {
   return (
     <Card
       sx={{
@@ -39,9 +31,11 @@ export default function Guide({
 
         <Box>
           <Typography variant="h6" sx={{ fontWeight: 600 }}>
-            {title}
+            Getting Started with Reports:
           </Typography>
-          <Typography variant="body1">{description}</Typography>
+          <Typography variant="body1">
+            Select a start and end date then click <strong>Generate</strong> to see results.
+          </Typography>
         </Box>
       </CardContent>
     </Card>

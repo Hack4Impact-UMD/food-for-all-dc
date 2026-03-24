@@ -79,7 +79,7 @@ export const routesConfig: AppRoute[] = [
       {
         path: "reports/clients",
         element: <ClientReport />,
-        meta: { title: "Snapshot Client Report", icon: "group" },
+        meta: { title: "Client Report", icon: "group" },
       },
       {
         path: "reports/referral-agencies",

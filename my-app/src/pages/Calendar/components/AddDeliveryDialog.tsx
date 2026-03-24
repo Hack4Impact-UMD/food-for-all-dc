@@ -18,19 +18,14 @@ import Autocomplete from "@mui/material/Autocomplete";
 import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import CancelIcon from "@mui/icons-material/Cancel";
-import WarningAmberIcon from "@mui/icons-material/WarningAmber";
 import CalendarMultiSelect from "./CalendarMultiSelect";
 import type { DateLimit, NewDelivery } from "../../../types/calendar-types";
 import type { ClientProfile } from "../../../types/client-types";
-import type { ClientServiceStatus } from "../../../types/client-types";
 import { DayPilot } from "@daypilot/daypilot-lite-react";
 import { validateDeliveryDateRange } from "../../../utils/dateValidation";
 import { clientService } from "../../../services/client-service";
 import { deliveryDate } from "../../../utils/deliveryDate";
 import { DeliveryService } from "../../../services";
-import { TimeUtils } from "../../../utils/timeUtils";
-import { getClientServiceState } from "../../../utils/clientStatus";
-import { batchGetLatestPastDeliveryDates } from "../../../utils/lastDeliveryDate";
 import { calculateRecurrenceDates } from "./CalendarUtils";
 import {
   buildDailyLimitsMap,
@@ -58,53 +53,8 @@ interface AddDeliveryDialogProps {
 
 type ClientSearchResult = Pick<
   ClientProfile,
-  "uid" | "firstName" | "lastName" | "address" | "clientStatus" | "activeStatus"
+  "uid" | "firstName" | "lastName" | "address" | "activeStatus"
 >;
-
-const getSearchResultStatus = (client: ClientSearchResult): ClientServiceStatus =>
-  client.clientStatus ?? (client.activeStatus === false ? "inactive" : "active");
-
-const getStatusLabel = (status: ClientServiceStatus): string =>
-  `${status.charAt(0).toUpperCase()}${status.slice(1)} profile`;
-
-const renderStatusIcon = (status: ClientServiceStatus) => {
-  if (status === "active") {
-    return (
-      <CheckCircleIcon
-        sx={{
-          color: "var(--color-success-button)",
-          mr: 1,
-          fontSize: "1.25rem",
-          verticalAlign: "middle",
-        }}
-      />
-    );
-  }
-
-  if (status === "lapsed") {
-    return (
-      <WarningAmberIcon
-        sx={{
-          color: "#ed6c02",
-          mr: 1,
-          fontSize: "1.25rem",
-          verticalAlign: "middle",
-        }}
-      />
-    );
-  }
-
-  return (
-    <CancelIcon
-      sx={{
-        color: "var(--color-text-tertiary)",
-        mr: 1,
-        fontSize: "1.25rem",
-        verticalAlign: "middle",
-      }}
-    />
-  );
-};
 
 function convertToMMDDYYYY(dateStr: string): string {
   if (!dateStr) return "";
@@ -350,37 +300,27 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
             });
           });
 
-          const filteredClients = searchLower
+          const filtered = searchLower
             ? sortedClients
                 .filter((client) => {
                   const fullName = `${client.firstName} ${client.lastName}`.toLowerCase();
                   return fullName.includes(searchLower);
                 })
                 .slice(0, 50)
-            : sortedClients.slice(0, 50);
-
-          const latestPastDeliveryDatesByClientId = await batchGetLatestPastDeliveryDates(
-            filteredClients.map((client) => client.uid)
-          );
-          const today = TimeUtils.now().startOf("day");
-          const filtered = filteredClients.map((client) => {
-            const { status, canSchedule } = getClientServiceState({
-              startDate: client.startDate,
-              endDate: client.endDate,
-              lastPastDeliveryDate: latestPastDeliveryDatesByClientId.get(client.uid),
-              today,
-            });
-
-            return {
-              uid: client.uid,
-              firstName: client.firstName,
-              lastName: client.lastName,
-              address: client.address,
-              clientStatus: status,
-              activeStatus: canSchedule,
-            };
-          });
-
+                .map((client) => ({
+                  uid: client.uid,
+                  firstName: client.firstName,
+                  lastName: client.lastName,
+                  address: client.address,
+                  activeStatus: client.activeStatus,
+                }))
+            : sortedClients.slice(0, 50).map((client) => ({
+                uid: client.uid,
+                firstName: client.firstName,
+                lastName: client.lastName,
+                address: client.address,
+                activeStatus: client.activeStatus,
+              }));
           setSearchResults(filtered);
         } else {
           const results = await clientService.searchClientsByName(searchTerm);
@@ -683,7 +623,7 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
               loading={searchLoading}
               getOptionLabel={getDisplayLabel}
               getOptionKey={(option: ClientSearchResult) => option.uid}
-              getOptionDisabled={(option: ClientSearchResult) => getSearchResultStatus(option) === "inactive"}
+              getOptionDisabled={(option: ClientSearchResult) => option.activeStatus === false}
               filterOptions={(options: ClientSearchResult[]) => options}
               onInputChange={(event: React.ChangeEvent<unknown>, value: string) => {
                 if (event && (event as unknown as { type: string }).type === "change") {
@@ -741,8 +681,7 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
               disablePortal={false}
               renderOption={(props: object, option: ClientSearchResult) => {
                 const { key, ...otherProps } = props as { key: string };
-                const clientStatus = getSearchResultStatus(option);
-                const isInactive = clientStatus === "inactive";
+                const isInactive = option.activeStatus === false;
                 return (
                   <Box
                     component="li"
@@ -757,10 +696,28 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
                     }}
                   >
                     <Tooltip
-                      title={getStatusLabel(clientStatus)}
+                      title={isInactive ? "Inactive profile" : "Active profile"}
                       placement="right"
                     >
-                      {renderStatusIcon(clientStatus)}
+                      {isInactive ? (
+                        <CancelIcon
+                          sx={{
+                            color: "var(--color-text-tertiary)",
+                            mr: 1,
+                            fontSize: "1.25rem",
+                            verticalAlign: "middle",
+                          }}
+                        />
+                      ) : (
+                        <CheckCircleIcon
+                          sx={{
+                            color: "var(--color-success-button)",
+                            mr: 1,
+                            fontSize: "1.25rem",
+                            verticalAlign: "middle",
+                          }}
+                        />
+                      )}
                     </Tooltip>
                     <Typography variant="body1" sx={{ flexShrink: 0 }}>
                       {getDisplayLabel(option)}
@@ -800,7 +757,7 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
                   const fullClient = await clientService.getClientById(newValue.uid);
                   if (!fullClient) return;
 
-                  if (fullClient.clientStatus === "inactive") {
+                  if (fullClient.activeStatus === false) {
                     setFormError("Cannot add deliveries for an inactive profile.");
                     return;
                   }

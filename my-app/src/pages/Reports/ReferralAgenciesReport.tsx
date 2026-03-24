@@ -95,14 +95,6 @@ const ReferralAgenciesReport: React.FC = () => {
     try {
       const start = TimeUtils.fromJSDate(startDate).startOf("day");
       const end = TimeUtils.fromJSDate(endDate).endOf("day");
-      const today = TimeUtils.now().endOf("day");
-
-      if (start > today || end > today) {
-        showError("Referral reports can only be generated through today.");
-        setIsLoading(false);
-        return;
-      }
-
       const servedEvents = await loadInclusiveReportEvents(start, end);
       const servedClientIds = Array.from(new Set(servedEvents.map((event) => event.clientId)));
       const [clients, firstDeliveriesByClientId] = await Promise.all([
@@ -152,7 +144,6 @@ const ReferralAgenciesReport: React.FC = () => {
         endDate={endDate}
         setStartDate={setStartDate}
         setEndDate={setEndDate}
-        maxDate={new Date()}
         generateReport={generateReport}
         onExport={handleExport}
         exportDisabled={isExportDisabled}

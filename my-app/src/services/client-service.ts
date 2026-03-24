@@ -1,7 +1,7 @@
 import { db } from "../auth/firebaseConfig";
+import type { DateTime } from "luxon";
 import { ClientProfile } from "../types";
 import type { RowData } from "../components/Spreadsheet/export";
-import type { ClientServiceStatus } from "../types/client-types";
 import { LatLngTuple } from "leaflet";
 import { Time, TimeUtils } from "../utils/timeUtils";
 import { retry } from "../utils/retry";
@@ -24,54 +24,23 @@ import {
 import type { Timestamp } from "firebase/firestore";
 import { validateClientProfile } from "../utils/firestoreValidation";
 import dataSources from "../config/dataSources";
-import { getClientServiceState } from "../utils/clientStatus";
-import {
-  batchGetLatestPastDeliveryDates,
-  getLatestPastDeliveryDateForClient,
-} from "../utils/lastDeliveryDate";
 
-type ClientStatusSource = {
-  startDate?: string | Date | Timestamp | null;
-  endDate?: string | Date | Timestamp | null;
-};
+const computeActiveStatus = (
+  startDate: string | Date | DateTime | Timestamp | null | undefined,
+  endDate: string | Date | DateTime | Timestamp | null | undefined
+): boolean => {
+  const today = TimeUtils.now().startOf("day");
+  const startDateTime = startDate ? TimeUtils.fromAny(startDate).startOf("day") : null;
+  if (!startDateTime?.isValid) return false;
 
-type ClientSearchResult = Pick<
-  ClientProfile,
-  "uid" | "firstName" | "lastName" | "address" | "clientStatus" | "activeStatus"
->;
+  const endDateTime = endDate ? TimeUtils.fromAny(endDate).startOf("day") : null;
+  const todayMillis = today.toMillis();
 
-type ClientSearchCandidate = ClientSearchResult & ClientStatusSource;
+  if (endDateTime?.isValid) {
+    return todayMillis >= startDateTime.toMillis() && todayMillis <= endDateTime.toMillis();
+  }
 
-const deriveClientStatus = (
-  client: ClientStatusSource,
-  lastPastDeliveryDate?: string | null
-): { clientStatus: ClientServiceStatus; activeStatus: boolean } => {
-  const { status, canSchedule } = getClientServiceState({
-    startDate: client.startDate,
-    endDate: client.endDate,
-    lastPastDeliveryDate,
-  });
-
-  return {
-    clientStatus: status,
-    activeStatus: canSchedule,
-  };
-};
-
-const mapSearchResultsWithStatus = async (
-  clients: ClientSearchCandidate[]
-): Promise<ClientSearchResult[]> => {
-  const latestPastDeliveryDatesByClientId = await batchGetLatestPastDeliveryDates(
-    clients.map((client) => client.uid)
-  );
-
-  return clients.map(({ startDate, endDate, ...client }) => ({
-    ...client,
-    ...deriveClientStatus(
-      { startDate, endDate },
-      latestPastDeliveryDatesByClientId.get(client.uid)
-    ),
-  }));
+  return todayMillis >= startDateTime.toMillis();
 };
 
 /**
@@ -108,16 +77,7 @@ class ClientService {
       });
       if (docSnap.exists()) {
         const data = docSnap.data() as ClientProfile;
-        if (!validateClientProfile(data)) {
-          return null;
-        }
-
-        const lastPastDeliveryDate = await getLatestPastDeliveryDateForClient(uid);
-        return {
-          ...data,
-          uid: data.uid || uid,
-          ...deriveClientStatus(data, lastPastDeliveryDate),
-        };
+        return validateClientProfile(data) ? data : null;
       }
       return null;
     } catch (error) {
@@ -145,6 +105,8 @@ class ClientService {
           const raw = doc.data() as any;
           const deliveryDetails = raw.deliveryDetails || {};
           const dietaryRestrictions = deliveryDetails.dietaryRestrictions || {};
+
+          const activeStatus = computeActiveStatus(raw.startDate, raw.endDate);
 
           const mapped: ClientProfile = {
             uid: doc.id,
@@ -208,7 +170,7 @@ class ClientService {
             physicalAilments: raw.physicalAilments || "",
             physicalDisability: raw.physicalDisability || "",
             mentalHealthConditions: raw.mentalHealthConditions || "",
-            activeStatus: raw.activeStatus ?? false,
+            activeStatus,
           };
           return mapped;
         });
@@ -259,26 +221,26 @@ class ClientService {
   public async searchClientsByName(
     searchTerm: string,
     limitCount = 50
-  ): Promise<ClientSearchResult[]> {
+  ): Promise<
+    Pick<ClientProfile, "uid" | "firstName" | "lastName" | "address" | "activeStatus">[]
+  > {
     try {
       if (!searchTerm.trim()) {
         const emptyQuery = query(collection(this.db, this.clientsCollection), fbLimit(limitCount));
         const snapshot = await getDocs(emptyQuery);
-        const mapped: ClientSearchCandidate[] = snapshot.docs.map((doc) => {
+        const mapped = snapshot.docs.map((doc) => {
           const data = doc.data() as any;
+          const activeStatus = computeActiveStatus(data.startDate, data.endDate);
           return {
             uid: doc.id,
             firstName: data.firstName || "",
             lastName: data.lastName || "",
             address: data.address || "",
-            startDate: data.startDate,
-            endDate: data.endDate,
-            clientStatus: undefined,
-            activeStatus: true,
+            activeStatus,
           };
         });
 
-        const sortedClients = mapped.sort((a, b) => {
+        return mapped.sort((a, b) => {
           const lastCompare = (a.lastName || "").localeCompare(b.lastName || "", undefined, {
             sensitivity: "base",
           });
@@ -287,25 +249,21 @@ class ClientService {
             sensitivity: "base",
           });
         });
-
-        return mapSearchResultsWithStatus(sortedClients);
       }
 
       const searchLower = searchTerm.toLowerCase();
       const snapshot = await getDocs(collection(this.db, this.clientsCollection));
 
-      const mapped: ClientSearchCandidate[] = snapshot.docs
+      const mapped = snapshot.docs
         .map((doc) => {
           const data = doc.data() as any;
+          const activeStatus = computeActiveStatus(data.startDate, data.endDate);
           return {
             uid: doc.id,
             firstName: data.firstName || "",
             lastName: data.lastName || "",
             address: data.address || "",
-            startDate: data.startDate,
-            endDate: data.endDate,
-            clientStatus: undefined,
-            activeStatus: true,
+            activeStatus,
           };
         });
 
@@ -325,7 +283,7 @@ class ClientService {
         })
         .slice(0, limitCount);
 
-      return mapSearchResultsWithStatus(results);
+      return results;
     } catch (error) {
       throw formatServiceError(error, "Failed to search clients by name");
     }
@@ -343,14 +301,44 @@ class ClientService {
           q = query(q, startAfter(lastDoc));
         }
         const snapshot = await getDocs(q);
-        const latestPastDeliveryDatesByClientId = await batchGetLatestPastDeliveryDates(
-          snapshot.docs.map((doc) => doc.id)
+        // Fetch all delivery events
+        const deliverySnapshot = await getDocs(
+          collection(this.db, dataSources.firebase.calendarCollection)
         );
+        const allDeliveries = deliverySnapshot.docs.map((doc) => doc.data());
 
         const clients = snapshot.docs.map((doc) => {
           const raw = doc.data() as any;
-          const lastDeliveryDate = latestPastDeliveryDatesByClientId.get(doc.id) || "";
-          const { clientStatus, activeStatus } = deriveClientStatus(raw, lastDeliveryDate || null);
+          // Find latest delivery date for this client
+          const clientDeliveries = allDeliveries.filter(
+            (d: any) => d.clientId === doc.id && d.deliveryDate
+          );
+          let lastDeliveryDate = "";
+          if (clientDeliveries.length > 0) {
+            const latest = clientDeliveries.reduce((max, curr) => {
+              const currDate = curr.deliveryDate?.toDate
+                ? curr.deliveryDate.toDate()
+                : curr.deliveryDate;
+              const maxDate = max.deliveryDate?.toDate
+                ? max.deliveryDate.toDate()
+                : max.deliveryDate;
+              return currDate > maxDate ? curr : max;
+            });
+            const dateObj = latest.deliveryDate?.toDate
+              ? latest.deliveryDate.toDate()
+              : latest.deliveryDate;
+            lastDeliveryDate = dateObj ? dateObj.toISOString().slice(0, 10) : "";
+          }
+          // Calculate activeStatus based on startDate and endDate
+          let activeStatus = false;
+          const todayDate = TimeUtils.now().startOf("day");
+          const startDateTime = raw.startDate ? TimeUtils.fromAny(raw.startDate).startOf("day") : null;
+          const endDateTime = raw.endDate ? TimeUtils.fromAny(raw.endDate).startOf("day") : null;
+          if (startDateTime?.isValid && endDateTime?.isValid) {
+            const todayMillis = todayDate.toMillis();
+            activeStatus =
+              todayMillis >= startDateTime.toMillis() && todayMillis <= endDateTime.toMillis();
+          }
           const mapped = {
             id: doc.id,
             uid: doc.id,
@@ -396,7 +384,6 @@ class ClientService {
             tags: raw.tags ?? [],
             referralEntity: raw.referralEntity ?? undefined,
             lastDeliveryDate,
-            clientStatus,
             activeStatus,
           };
           return mapped;

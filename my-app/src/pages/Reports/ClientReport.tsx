@@ -1,33 +1,21 @@
 import React, { useState } from "react";
+import ReportHeader from "./ReportHeader";
 import { Accordion, AccordionDetails, AccordionSummary, Box, Typography } from "@mui/material";
+import TimeUtils from "../../utils/timeUtils";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
-import { useNavigate } from "react-router-dom";
-import { DateTime } from "luxon";
 import { useNotifications } from "../../components/NotificationProvider";
+import { useNavigate } from "react-router-dom";
 import Guide from "./Guide";
 import LoadingIndicator from "../../components/LoadingIndicator/LoadingIndicator";
-import SnapshotReportHeader from "./SnapshotReportHeader";
-import { exportToCSV } from "../../utils/reportExport";
-import { CsvExportError, CsvRow } from "../../utils/csvExport";
-import TimeUtils from "../../utils/timeUtils";
 import {
-  loadAllReportClients,
-  loadLatestPastDeliveryDatesByClientIds,
-} from "./reportDataLoader";
-import { buildClientReportData, ClientReportData, SnapshotClientRecord } from "./reportUtils";
-
-const formatReportDateValue = (value: unknown): string => {
-  if (!value) {
-    return "";
-  }
-
-  if (typeof value === "string") {
-    return value;
-  }
-
-  const normalizedDate = TimeUtils.fromAny(value as string | Date | DateTime);
-  return normalizedDate.isValid ? normalizedDate.toISODate() || "" : "";
-};
+  exportToCSV,
+  formatDateRange,
+  getReportRangeKey,
+  isReportExportDisabled,
+} from "../../utils/reportExport";
+import { CsvExportError, CsvRow } from "../../utils/csvExport";
+import { loadAllReportClients } from "./reportDataLoader";
+import { buildClientReportData, ClientReportData, ReportClientRecord } from "./reportUtils";
 
 const ClientReport: React.FC = () => {
   const navigate = useNavigate();
@@ -35,37 +23,67 @@ const ClientReport: React.FC = () => {
 
   const [isLoading, setIsLoading] = useState(false);
   const [hasGenerated, setHasGenerated] = useState(false);
-  const [snapshotDate, setSnapshotDate] = useState<DateTime | null>(null);
-  const [data, setData] = useState<ClientReportData>({ Active: [], Lapsed: [], Inactive: [] });
+  const [generatedRangeKey, setGeneratedRangeKey] = useState<string>("");
 
-  const snapshotTimestamp = snapshotDate ?? TimeUtils.now().startOf("day");
-  const snapshotLabel = `Current Report as of ${snapshotTimestamp.toFormat("M/d/yyyy")}`;
-  const isExportDisabled = isLoading || !hasGenerated;
+  const [startDate, setStartDate] = useState<Date | null>(() => {
+    const start = localStorage.getItem("ffaReportDateRangeStart");
+    if (start) {
+      return new Date(start);
+    } else {
+      return null;
+    }
+  });
+  const [endDate, setEndDate] = useState<Date | null>(() => {
+    const end = localStorage.getItem("ffaReportDateRangeEnd");
+    if (end) {
+      return new Date(end);
+    } else {
+      return null;
+    }
+  });
+
+  const [data, setData] = useState<ClientReportData>({ Active: [], Lapsed: [] });
+  const currentRangeKey = getReportRangeKey(startDate, endDate);
+  const isExportDisabled = isReportExportDisabled({
+    isLoading,
+    hasGenerated,
+    generatedRangeKey,
+    currentRangeKey,
+  });
 
   const handleExport = () => {
     const csvData: CsvRow[] = [];
-    const sections: Array<keyof ClientReportData> = ["Active", "Lapsed", "Inactive"];
 
-    sections.forEach((section) => {
-      data[section].forEach((client) => {
-        csvData.push({
-          Status: section,
-          "Client ID": client.uid,
-          "First Name": client.firstName,
-          "Last Name": client.lastName,
-          Phone: client.phone || "",
-          Address: client.address || "",
-          Zip: client.zipCode || "",
-          "Start Date": formatReportDateValue(client.startDate),
-          "End Date": formatReportDateValue(client.endDate),
-          "Last Delivery Date": client.lastDeliveryDate || "",
-          "Snapshot Date": snapshotTimestamp.toISODate() || "",
-        });
+    const activeClients = data["Active"] || [];
+    const lapsedClients = data["Lapsed"] || [];
+
+    activeClients.forEach((client) => {
+      csvData.push({
+        Status: "Active",
+        "First Name": client.firstName,
+        "Last Name": client.lastName,
+        "Client ID": client.uid,
+        Phone: client.phone || "",
+        Address: client.address || "",
+        Zip: client.zipCode || "",
       });
     });
 
+    lapsedClients.forEach((client) => {
+      csvData.push({
+        Status: "Lapsed",
+        "First Name": client.firstName,
+        "Last Name": client.lastName,
+        "Client ID": client.uid,
+        Phone: client.phone || "",
+        Address: client.address || "",
+        Zip: client.zipCode || "",
+      });
+    });
+
+    const dateRange = formatDateRange(startDate, endDate);
+    const filename = `Client_Report_${dateRange}.csv`;
     try {
-      const filename = `Snapshot_Client_Report_${snapshotTimestamp.toISODate() || "current"}.csv`;
       const exportedFilename = exportToCSV(csvData, filename);
       showSuccess(`Exported ${exportedFilename}.`);
     } catch (error) {
@@ -74,28 +92,29 @@ const ClientReport: React.FC = () => {
         return;
       }
 
-      const message =
-        error instanceof Error ? error.message : "Failed to export snapshot client report.";
+      const message = error instanceof Error ? error.message : "Failed to export client report.";
       showError(message);
     }
   };
 
   const generateReport = async () => {
+    if (!startDate || !endDate) {
+      return;
+    }
+
     setIsLoading(true);
     try {
-      const today = TimeUtils.now().startOf("day");
+      const start = TimeUtils.fromJSDate(startDate).startOf("day");
+      const end = TimeUtils.fromJSDate(endDate).endOf("day");
       const clients = await loadAllReportClients();
-      const latestPastDeliveryDatesByClientId = await loadLatestPastDeliveryDatesByClientIds(
-        clients.map((client) => client.uid)
-      );
 
-      setData(buildClientReportData(clients, latestPastDeliveryDatesByClientId, today));
-      setSnapshotDate(today);
+      setData(buildClientReportData(clients, start, end));
       setHasGenerated(true);
-      showSuccess("Snapshot client report generated successfully");
+      setGeneratedRangeKey(currentRangeKey);
+      showSuccess("Client report generated successfully");
     } catch (error) {
-      console.error("Failed to generate snapshot client report:", error);
-      showError("Failed to generate snapshot client report. Please try again.");
+      console.error("Failed to generate client report:", error);
+      showError("Failed to generate client report. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -104,14 +123,16 @@ const ClientReport: React.FC = () => {
   const sections: Array<{ key: keyof ClientReportData; index: number; label: string }> = [
     { key: "Active", index: 0, label: "Active" },
     { key: "Lapsed", index: 1, label: "Lapsed" },
-    { key: "Inactive", index: 2, label: "Inactive" },
   ];
 
   return (
     <Box sx={{ display: "flex", flexDirection: "column", height: "90vh", width: "90vw" }}>
-      <SnapshotReportHeader
-        snapshotLabel={snapshotLabel}
-        onGenerate={generateReport}
+      <ReportHeader
+        startDate={startDate}
+        endDate={endDate}
+        setStartDate={setStartDate}
+        setEndDate={setEndDate}
+        generateReport={generateReport}
         onExport={handleExport}
         exportDisabled={isExportDisabled}
         isGenerating={isLoading}
@@ -119,12 +140,7 @@ const ClientReport: React.FC = () => {
 
       {isLoading && <LoadingIndicator />}
 
-      {!isLoading && !hasGenerated && (
-        <Guide
-          title="Getting Started with Snapshot Client Report:"
-          description="Click Generate to see today’s active, lapsed, and inactive client snapshot."
-        />
-      )}
+      {!isLoading && !hasGenerated && <Guide />}
 
       {!isLoading && hasGenerated && (
         <Box
@@ -180,42 +196,35 @@ const ClientReport: React.FC = () => {
                       <Typography sx={{ color: "text.secondary" }}>No clients.</Typography>
                     </Box>
                   ) : (
-                    clients.map((client: SnapshotClientRecord, itemIndex: number) => (
+                    clients.map((client: ReportClientRecord, i: number) => (
                       <Box
-                        key={`${key}-${client.uid ?? itemIndex}`}
+                        key={`${key}-${client.uid ?? i}`}
                         sx={{
-                          minHeight: 88,
+                          height: 72,
                           bgcolor: "#f0f0f0ff",
                           mb: 1.25,
                           width: "100%",
                           display: "flex",
-                          justifyContent: "space-between",
                           alignItems: "center",
-                          gap: 2,
                           p: 2,
+                          justifyContent: "space-between",
+                          flexDirection: "row",
                         }}
                       >
-                        <Box>
-                          <Typography
-                            sx={{
-                              color: "var(--color-primary)",
-                              fontWeight: "bold",
-                              textDecoration: "underline",
-                              fontSize: 17,
-                              cursor: "pointer",
-                              mb: 0.5,
-                            }}
-                            onClick={() => {
-                              navigate(`/profile/${client.uid}`);
-                            }}
-                          >
-                            {client.firstName} {client.lastName}
-                          </Typography>
-                          <Typography variant="body2" sx={{ color: "text.secondary" }}>
-                            Last delivery: {client.lastDeliveryDate || "None"} | End date:{" "}
-                            {formatReportDateValue(client.endDate) || "N/A"}
-                          </Typography>
-                        </Box>
+                        <Typography
+                          sx={{
+                            color: "var(--color-primary)",
+                            fontWeight: "bold",
+                            textDecoration: "underline",
+                            fontSize: 17,
+                            cursor: "pointer",
+                          }}
+                          onClick={() => {
+                            navigate(`/profile/${client.uid}`);
+                          }}
+                        >
+                          {client.firstName} {client.lastName}
+                        </Typography>
                       </Box>
                     ))
                   )}

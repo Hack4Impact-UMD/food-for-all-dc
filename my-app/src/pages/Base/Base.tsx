@@ -138,7 +138,7 @@ export default function BasePage() {
       if (currentPath === "/reports/summary") {
         setPageTitle("Summary Report");
       } else if (currentPath === "/reports/clients") {
-        setPageTitle("Snapshot Client Report");
+        setPageTitle("Client Report");
       } else if (currentPath === "/reports/referral-agencies") {
         setPageTitle("Referral Agencies");
       } else {
@@ -250,7 +250,7 @@ export default function BasePage() {
                 }}
               >
                 <MenuItem value="/reports/summary">Summary Report</MenuItem>
-                <MenuItem value="/reports/clients">Snapshot Client Report</MenuItem>
+                <MenuItem value="/reports/clients">Client Report</MenuItem>
                 <MenuItem value="/reports/referral-agencies">Referral Agencies</MenuItem>
               </Select>
             ) : (

@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import "./Reports.css";
 import ReportTables from "./ReportTables";
 import ReportHeader from "./ReportHeader";
-import { Alert, Box } from "@mui/material";
 import TimeUtils from "../../utils/timeUtils";
 import { SummaryData } from "../../types/reports-types";
 import Guide from "./Guide";
@@ -17,13 +16,10 @@ import {
 import { CsvExportError, CsvRow } from "../../utils/csvExport";
 import { buildSummaryReportData, createEmptySummaryReport } from "./reportUtils";
 import {
-  loadReportClientsByIds,
+  loadAllReportClients,
   loadFirstDeliveriesByClientIds,
   loadInclusiveReportEvents,
 } from "./reportDataLoader";
-
-const LEGACY_SNAPSHOT_NOTICE =
-  "Some deliveries in this range predate household snapshots. Historical people counts use current household size for those legacy deliveries.";
 
 const SummaryReport: React.FC = () => {
   const { showError, showSuccess, showWarning } = useNotifications();
@@ -33,7 +29,6 @@ const SummaryReport: React.FC = () => {
   const [hasGenerated, setHasGenerated] = useState(false);
   const [generatedRangeKey, setGeneratedRangeKey] = useState("");
   const [data, setData] = useState<SummaryData>(() => createEmptySummaryReport());
-  const [legacySnapshotNotice, setLegacySnapshotNotice] = useState<string | null>(null);
 
   const [startDate, setStartDate] = useState<Date | null>(() => {
     const start = localStorage.getItem("ffaReportDateRangeStart");
@@ -60,20 +55,7 @@ const SummaryReport: React.FC = () => {
   });
 
   const handleExport = () => {
-    const csvData: CsvRow[] = legacySnapshotNotice
-      ? [
-          {
-            Section: "Notice",
-            Metric: legacySnapshotNotice,
-            Value: "",
-          },
-          {
-            Section: "",
-            Metric: "",
-            Value: "",
-          },
-        ]
-      : [];
+    const csvData: CsvRow[] = [];
 
     Object.entries(data).forEach(([section, fields]) => {
       csvData.push({
@@ -122,21 +104,14 @@ const SummaryReport: React.FC = () => {
 
     const start = TimeUtils.fromJSDate(startDate).startOf("day");
     const end = TimeUtils.fromJSDate(endDate).endOf("day");
-    const today = TimeUtils.now().endOf("day");
-
-    if (start > today || end > today) {
-      showError("Summary reports can only be generated through today.");
-      setIsLoading(false);
-      return;
-    }
 
     try {
-      const servedEvents = await loadInclusiveReportEvents(start, end);
-      const servedClientIds = Array.from(new Set(servedEvents.map((event) => event.clientId)));
-      const [clients, firstDeliveriesByClientId] = await Promise.all([
-        loadReportClientsByIds(servedClientIds),
-        loadFirstDeliveriesByClientIds(servedClientIds),
+      const [clients, servedEvents] = await Promise.all([
+        loadAllReportClients(),
+        loadInclusiveReportEvents(start, end),
       ]);
+      const servedClientIds = Array.from(new Set(servedEvents.map((event) => event.clientId)));
+      const firstDeliveriesByClientId = await loadFirstDeliveriesByClientIds(servedClientIds);
       const reportResult = buildSummaryReportData({
         clients,
         servedEvents,
@@ -146,14 +121,13 @@ const SummaryReport: React.FC = () => {
       });
 
       setData(reportResult.data);
-      setLegacySnapshotNotice(
-        reportResult.usedLegacySnapshotFallback ? LEGACY_SNAPSHOT_NOTICE : null
-      );
       setHasGenerated(true);
       setGeneratedRangeKey(currentRangeKey);
 
       if (reportResult.usedLegacySnapshotFallback) {
-        showWarning(LEGACY_SNAPSHOT_NOTICE);
+        showWarning(
+          "Some deliveries in this range predate household snapshots. Historical people counts use current household size for those legacy deliveries."
+        );
       }
 
       showSuccess("Summary report generated successfully");
@@ -180,7 +154,6 @@ const SummaryReport: React.FC = () => {
         endDate={endDate}
         setStartDate={setStartDate}
         setEndDate={setEndDate}
-        maxDate={new Date()}
         generateReport={generateReport}
         onExport={handleExport}
         exportDisabled={isExportDisabled}
@@ -190,16 +163,7 @@ const SummaryReport: React.FC = () => {
       {isLoading && <LoadingIndicator />}
 
       {!isLoading && !hasGenerated && <Guide />}
-      {hasGenerated && (
-        <Box sx={{ width: "90vw" }}>
-          {legacySnapshotNotice && (
-            <Alert severity="warning" sx={{ mb: 2 }}>
-              {legacySnapshotNotice}
-            </Alert>
-          )}
-          <ReportTables data={data} loading={isLoading}></ReportTables>
-        </Box>
-      )}
+      {hasGenerated && <ReportTables data={data} loading={isLoading}></ReportTables>}
     </div>
   );
 };
