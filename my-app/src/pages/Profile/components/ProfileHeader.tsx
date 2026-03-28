@@ -59,6 +59,7 @@ interface ProfileHeaderProps {
   handleTag: (tag: string) => void;
   clientId: string | null;
   activeStatus?: boolean;
+  missedStrikeCount?: number;
 }
 
 const ProfileHeader: React.FC<ProfileHeaderProps> = ({
@@ -69,8 +70,9 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
   allTags,
   handleTag,
   clientId,
-    activeStatus,
-  }) => {
+  activeStatus,
+  missedStrikeCount,
+}) => {
   // Get initials for avatar
   const getInitials = () => {
     const first = firstName ? firstName.charAt(0).toUpperCase() : "";
@@ -85,6 +87,21 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
       : "New Client";
   };
 
+  const statusTooltip = activeStatus
+    ? missedStrikeCount === 1
+      ? "1 missed delivery"
+      : missedStrikeCount !== undefined && missedStrikeCount >= 2
+        ? "2 missed deliveries"
+        : "Active profile, no missed deliveries"
+    : "Inactive profile";
+
+  const activeCheckColor =
+    missedStrikeCount === 1
+      ? "#fbc02d"
+      : missedStrikeCount !== undefined && missedStrikeCount >= 2
+        ? "#d32f2f"
+        : "#4caf50";
+
   // No-op function that satisfies eslint
   const noOp = (param: any) => {
     // Intentionally empty, used as a placeholder for required props
@@ -96,14 +113,16 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
       <Box sx={{ flexGrow: 1, display: "flex", flexDirection: "column", height: "100%" }}>
         <Box sx={{ display: "flex", alignItems: "center", mb: 0.5 }}>
           {/* Icon before name */}
-          <Tooltip title={activeStatus ? "Active profile" : "Inactive profile"} placement="right">
+          <Tooltip title={statusTooltip} placement="right">
             {activeStatus ? (
-              <CheckCircleIcon sx={{ color: '#4caf50', mr: 1, fontSize: '1.5rem', verticalAlign: 'middle' }} />
+              <CheckCircleIcon
+                sx={{ color: activeCheckColor, mr: 1, fontSize: "1.5rem", verticalAlign: "middle" }}
+              />
             ) : (
-              <CancelIcon sx={{ color: '#bdbdbd', mr: 1, fontSize: '1.5rem', verticalAlign: 'middle' }} />
+              <CancelIcon sx={{ color: "#bdbdbd", mr: 1, fontSize: "1.5rem", verticalAlign: "middle" }} />
             )}
           </Tooltip>
-          <ProfileName variant="h1" sx={{ mb: 0, mr: 2, display: 'flex', alignItems: 'center' }}>
+          <ProfileName variant="h1" sx={{ mb: 0, mr: 2, display: "flex", alignItems: "center" }}>
             {displayName()}
           </ProfileName>
           <TagsContainer sx={{ marginTop: 0 }}>

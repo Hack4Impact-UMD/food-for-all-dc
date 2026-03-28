@@ -12,12 +12,10 @@ import {
   TextField,
   Dialog,
   DialogContent,
-  DialogActions,
   DialogTitle,
   Grid,
   IconButton,
   Typography,
-  DialogContentText,
   TableSortLabel,
 } from "@mui/material";
 import { Close, Add, Edit, Check, Delete } from "@mui/icons-material";
@@ -34,6 +32,7 @@ import {
 import { isValidEmail, isValidPhone, validateCaseWorkerFields } from "../utils/validation";
 import { formatPhoneNumber } from "../utils/format";
 import dataSources from "../config/dataSources";
+import ConfirmationModal from "./ConfirmationModal";
 
 // Reusable form fields component
 const CaseWorkerFormFields: React.FC<CaseWorkerFormProps> = ({
@@ -680,40 +679,15 @@ const CaseWorkerManagementModal: React.FC<CaseWorkerManagementModalProps> = ({
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation Dialog */}
-      <Dialog
+      <ConfirmationModal
         open={deleteDialogOpen}
         onClose={() => setDeleteDialogOpen(false)}
-        aria-labelledby="delete-dialog-title"
-        aria-describedby="delete-dialog-description"
-        PaperProps={{
-          sx: {
-            borderRadius: "8px",
-            maxWidth: "450px",
-          },
-        }}
-      >
-        <DialogTitle id="delete-dialog-title" sx={{ pb: 1 }}>
-          Delete Case Worker
-        </DialogTitle>
-        <DialogContent>
-          <DialogContentText id="delete-dialog-description">
-            Are you sure you want to delete {caseWorkerToDelete?.name}? This action cannot be
-            undone.
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button
-            onClick={() => setDeleteDialogOpen(false)}
-            sx={{ color: "var(--color-text-medium-alt)" }}
-          >
-            Cancel
-          </Button>
-          <Button onClick={handleDeleteConfirm} color="error" variant="contained" autoFocus>
-            Delete
-          </Button>
-        </DialogActions>
-      </Dialog>
+        onConfirm={handleDeleteConfirm}
+        title="Delete Case Worker"
+        message={`Are you sure you want to delete ${caseWorkerToDelete?.name || "this case worker"}? This action cannot be undone.`}
+        confirmText="Delete"
+        confirmColor="error"
+      />
     </>
   );
 };

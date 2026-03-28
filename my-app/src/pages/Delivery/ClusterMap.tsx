@@ -52,6 +52,8 @@ interface VisibleRow {
   id: string;
   firstName: string;
   lastName: string;
+  activeStatus?: boolean;
+  missedStrikeCount?: number;
   address: string;
   address2?: string;
   zipCode?: string;
@@ -604,6 +606,8 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
       (window as any).openMapPopup = (clientId: string) => {
         // Mark that this popup is being opened by a table row click (not marker click)
         popupOpenedByMarkerRef.current = false;
+        // Suppress popupclose clearing while we open the new popup (same as marker clicks)
+        isPopupOpening.current = true;
 
         const marker = markersMapRef.current.get(clientId);
         if (marker && mapRef.current) {
@@ -627,6 +631,11 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
             }
           }
         }
+
+        // Reset after the open sequence completes so future closes clear the row
+        setTimeout(() => {
+          isPopupOpening.current = false;
+        }, 350);
       };
 
       // Also set up the close popup function
@@ -705,6 +714,33 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
 
       const coord = normalizeCoordinate(client.coordinates);
       const clientName = `${client.firstName} ${client.lastName}` || "Client: None";
+      const isActiveProfile = client.activeStatus === true;
+      const missedStrikeCount =
+        typeof client.missedStrikeCount === "number" ? client.missedStrikeCount : 0;
+      const statusTooltip = isActiveProfile
+        ? missedStrikeCount === 1
+          ? "1 missed delivery"
+          : missedStrikeCount >= 2
+            ? "2 missed deliveries"
+            : "Active profile, no missed deliveries"
+        : "Inactive profile";
+      const statusColor = isActiveProfile
+        ? missedStrikeCount === 1
+          ? "#fbc02d"
+          : missedStrikeCount >= 2
+            ? "#d32f2f"
+            : "#4caf50"
+        : "#bdbdbd";
+      const statusIconSvgPath = isActiveProfile
+        ? "M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"
+        : "M12 2C6.47 2 2 6.47 2 12s4.47 10 10 10 10-4.47 10-10S17.53 2 12 2zm5 13.59L15.59 17 12 13.41 8.41 17 7 15.59 10.59 12 7 8.41 8.41 7 12 10.59 15.59 7 17 8.41 13.41 12 17 15.59z";
+      const statusIconSvg = `<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false" style="display:block;fill:${statusColor};"><path d="${statusIconSvgPath}"></path></svg>`;
+      const clientNameWithStatus = `
+        <span style="display: inline-flex; align-items: center;">
+          <span title="${statusTooltip}" style="display: inline-flex; align-items: center; justify-content: center; width: 18px; min-width: 18px; margin-right: 4px; line-height: 1;">${statusIconSvg}</span>
+          <span>${clientName}</span>
+        </span>
+      `;
       const address =
         `${client.address || ""}${client.address2 ? " " + client.address2 : ""}`.trim();
       const zipCode = (client.zipCode || "").trim();
@@ -838,7 +874,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
           <div style="font-family: Arial, sans-serif; line-height: 1.4; min-width: 250px;">
             <div id="view-mode-${clientId}" style="display: block;">
               <div style="font-weight: bold; margin-bottom: 5px; display: flex; align-items: center; justify-content: space-between;">
-                <span>${clientName}</span>
+                <span>${clientNameWithStatus}</span>
                 ${clusterId ? `<span style="cursor: pointer; padding: 2px 4px; border-radius: 3px; margin-left: 10px;" id="edit-btn-${clientId}" title="Edit">✏️</span>` : ""}
               </div>
               ${
@@ -854,7 +890,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
               <div><span style="font-weight: bold;">Address:</span> ${addressWithZip}</div>
             </div>
             <div id="edit-mode-${clientId}" style="display: none;">
-              <div style="font-weight: bold; margin-bottom: 10px;">${clientName}</div>
+              <div style="font-weight: bold; margin-bottom: 10px;">${clientNameWithStatus}</div>
               <div style="margin-bottom: 8px; display: flex; align-items: center; gap: 8px;">
                 <label style="font-weight: bold; min-width: 60px; font-size: 12px;">Cluster:</label>
                 <select id="cluster-select-${clientId}" style="flex: 1; padding: 3px; border: 1px solid var(--color-border-input); border-radius: 3px; font-size: 11px; background-color: ${clusterId ? getClusterColor(clusterId) : "var(--color-background-main)"}; color: ${clusterId ? getTextColorForBackground(getClusterColor(clusterId)) : "black"}; height: 24px !important; min-height: 24px !important; max-height: 24px !important; line-height: 1.1 !important;">
@@ -1098,7 +1134,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
             if (viewModeContent) {
               viewModeContent.innerHTML = `
                 <div style="font-weight: bold; margin-bottom: 5px; display: flex; align-items: center; justify-content: space-between;">
-                  <span>${clientName}</span>
+                  <span>${clientNameWithStatus}</span>
                   ${newClusterId ? `<span style="cursor: pointer; padding: 2px 4px; border-radius: 3px; margin-left: 10px;" id="edit-btn-${clientId}" title="Edit">✏️</span>` : ""}
                 </div>
                 ${

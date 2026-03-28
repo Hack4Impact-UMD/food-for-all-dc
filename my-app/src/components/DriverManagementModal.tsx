@@ -12,12 +12,10 @@ import {
   TextField,
   Dialog,
   DialogContent,
-  DialogActions,
   DialogTitle,
   Grid,
   IconButton,
   Typography,
-  DialogContentText,
   TableSortLabel,
   Icon,
 } from "@mui/material";
@@ -26,6 +24,7 @@ import { doc, updateDoc, addDoc, deleteDoc, collection } from "firebase/firestor
 import { db } from "../auth/firebaseConfig";
 import { Driver } from "../types/calendar-types";
 import dataSources from "../config/dataSources";
+import ConfirmationModal from "./ConfirmationModal";
 
 // Icon components for sorting
 const iconStyle = { verticalAlign: "middle", marginLeft: 6 };
@@ -652,39 +651,15 @@ const DriverManagementModal: React.FC<DriverManagementModalProps> = ({
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation Dialog */}
-      <Dialog
+      <ConfirmationModal
         open={deleteDialogOpen}
         onClose={() => setDeleteDialogOpen(false)}
-        aria-labelledby="delete-dialog-title"
-        aria-describedby="delete-dialog-description"
-        PaperProps={{
-          sx: {
-            borderRadius: "8px",
-            maxWidth: "450px",
-          },
-        }}
-      >
-        <DialogTitle id="delete-dialog-title" sx={{ pb: 1 }}>
-          Delete Driver
-        </DialogTitle>
-        <DialogContent>
-          <DialogContentText id="delete-dialog-description">
-            Are you sure you want to delete {driverToDelete?.name}? This action cannot be undone.
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button
-            onClick={() => setDeleteDialogOpen(false)}
-            sx={{ color: "var(--color-text-medium-alt)" }}
-          >
-            Cancel
-          </Button>
-          <Button onClick={handleDeleteConfirm} color="error" variant="contained" autoFocus>
-            Delete
-          </Button>
-        </DialogActions>
-      </Dialog>
+        onConfirm={handleDeleteConfirm}
+        title="Delete Driver"
+        message={`Are you sure you want to delete ${driverToDelete?.name || "this driver"}? This action cannot be undone.`}
+        confirmText="Delete"
+        confirmColor="error"
+      />
     </>
   );
 };

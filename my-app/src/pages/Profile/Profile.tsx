@@ -72,6 +72,8 @@ import type { DeliverySeriesSummary } from "../../utils/recurringSeries";
 import HealthConditionsForm from "./components/HealthConditionsForm";
 import HealthCheckbox from "./components/HealthCheckbox";
 import { buildHouseholdSnapshot } from "../../utils/householdSnapshot";
+import { deliveryDate } from "../../utils/deliveryDate";
+import { toJSDate } from "../../utils/timestamp";
 
 const fieldStyles = {
   backgroundColor: "var(--color-white)",
@@ -292,6 +294,7 @@ const Profile = () => {
   const [pastDeliveries, setPastDeliveries] = useState<DeliveryEvent[]>([]);
   const [futureDeliveries, setFutureDeliveries] = useState<DeliveryEvent[]>([]);
   const [events, setEvents] = useState<DeliveryEvent[]>([]);
+  const [missedStrikeCount, setMissedStrikeCount] = useState(0);
   const limits = useLimits();
   const [dailyLimits, setDailyLimits] = useState<DateLimit[]>([]);
   const [editableRecurringSeries, setEditableRecurringSeries] =
@@ -346,12 +349,17 @@ const Profile = () => {
 
     const deliveryService = DeliveryService.getInstance();
     try {
-      const [{ pastDeliveries, futureDeliveries }, latestScheduledDate, recurringSeriesSummaries] =
-        await Promise.all([
-          deliveryService.getClientDeliveryHistory(clientId),
-          deliveryService.getLatestScheduledDateForClient(clientId),
-          deliveryService.getRecurringSeriesSummariesForClient(clientId),
-        ]);
+      const [
+        { pastDeliveries, futureDeliveries },
+        latestScheduledDate,
+        recurringSeriesSummaries,
+        allClientEvents,
+      ] = await Promise.all([
+        deliveryService.getClientDeliveryHistory(clientId),
+        deliveryService.getLatestScheduledDateForClient(clientId),
+        deliveryService.getRecurringSeriesSummariesForClient(clientId),
+        deliveryService.getEventsByClientId(clientId),
+      ]);
       const todayKey = TimeUtils.now().toFormat("yyyy-MM-dd");
       const activeRecurringSeries = recurringSeriesSummaries.filter(
         (summary) => summary.supportsFutureOperations && summary.latestDate >= todayKey
@@ -362,11 +370,15 @@ const Profile = () => {
       setPastDeliveries(pastDeliveries);
       setFutureDeliveries(futureDeliveries);
       setEvents([...pastDeliveries, ...futureDeliveries]);
+      setMissedStrikeCount(
+        allClientEvents.filter((event) => event.deliveryStatus === "Missed").length
+      );
       setLastDeliveryDate(latestScheduledDate || "No deliveries found");
       setEditableRecurringSeries(nextEditableSeries);
       setDeliveryDataLoaded(true);
     } catch (error) {
       console.error("Failed to refresh delivery history", error);
+      setMissedStrikeCount(0);
       setLastDeliveryDate("Error fetching data");
       setEditableRecurringSeries(null);
     }
@@ -1364,12 +1376,17 @@ const Profile = () => {
         return dateStr;
       };
 
+      const normalizedStartDate = convertDateForSave(cleanedProfile.startDate);
+      const normalizedEndDate = convertDateForSave(cleanedProfile.endDate);
+      const normalizedStartDateISO = deliveryDate.tryToISODateString(normalizedStartDate);
+      const normalizedEndDateISO = deliveryDate.tryToISODateString(normalizedEndDate);
+
       const today = TimeUtils.now().startOf("day");
-      const startDateTime = cleanedProfile.startDate
-        ? TimeUtils.fromAny(cleanedProfile.startDate).startOf("day")
+      const startDateTime = normalizedStartDateISO
+        ? TimeUtils.fromAny(normalizedStartDateISO).startOf("day")
         : null;
-      const endDateTime = cleanedProfile.endDate
-        ? TimeUtils.fromAny(cleanedProfile.endDate).startOf("day")
+      const endDateTime = normalizedEndDateISO
+        ? TimeUtils.fromAny(normalizedEndDateISO).startOf("day")
         : null;
       let activeStatus = false;
       if (startDateTime?.isValid) {
@@ -1385,6 +1402,8 @@ const Profile = () => {
         dob: convertDateForSave(cleanedProfile.dob),
         tefapCert: convertDateForSave(cleanedProfile.tefapCert),
         famStartDate: convertDateForSave(cleanedProfile.famStartDate),
+        startDate: normalizedStartDate,
+        endDate: normalizedEndDate,
         tags: tags, // Sync the tags state with clientProfile
         notesTimestamp: updatedNotesTimestamp, // Update the notesTimestamp
         deliveryInstructionsTimestamp: updatedDeliveryInstructionsTimestamp,
@@ -1406,6 +1425,27 @@ const Profile = () => {
           : null, // Use null if no case worker is selected
         activeStatus,
       };
+
+      const normalizedPreviousEndDate = prevClientProfile?.endDate
+        ? deliveryDate.tryToISODateString(prevClientProfile.endDate)
+        : null;
+      const normalizedUpdatedEndDate = updatedProfile.endDate
+        ? deliveryDate.tryToISODateString(updatedProfile.endDate)
+        : null;
+      // Trigger cleanup whenever the profile still carries a three-strikes flag and the end date changed
+      const isThreeStrikesProfile =
+        clientProfile.autoInactiveReason === "three-strikes" ||
+        prevClientProfile?.autoInactiveReason === "three-strikes";
+      const isReactivationWithNewEndDate =
+        isThreeStrikesProfile &&
+        !!normalizedUpdatedEndDate &&
+        normalizedUpdatedEndDate !== normalizedPreviousEndDate;
+
+      if (isReactivationWithNewEndDate) {
+        updatedProfile.autoInactiveReason = null;
+        updatedProfile.autoInactivePreviousEndDate = null;
+        updatedProfile.autoInactiveStrikeDate = null;
+      }
 
       // Sort allTags before potentially saving them (ensures consistent order)
       // Combine current tags and all known tags, remove duplicates, then sort
@@ -1471,6 +1511,10 @@ const Profile = () => {
             updatedProfile.endDate,
             previousEndDate
           );
+
+          if (isReactivationWithNewEndDate) {
+            await DeliveryService.getInstance().deleteMissedEventsByClientId(clientProfile.uid);
+          }
         } catch (error) {
           console.error("Profile saved but delivery cleanup failed:", error);
           cleanupErrorMessage =
@@ -2647,6 +2691,152 @@ const Profile = () => {
     }
   };
 
+  const handleMarkDeliveryMissed = useCallback(
+    async (delivery: DeliveryEvent) => {
+      if (!clientId || !delivery.id) {
+        return;
+      }
+
+      const deliveryService = DeliveryService.getInstance();
+      await deliveryService.updateEvent(delivery.id, { deliveryStatus: "Missed" } as Partial<DeliveryEvent>);
+
+      const allEvents = await deliveryService.getEventsByClientId(clientId);
+      const missedEvents = allEvents
+        .filter((event) => event.deliveryStatus === "Missed")
+        .sort(
+          (left, right) =>
+            toJSDate(left.deliveryDate).getTime() - toJSDate(right.deliveryDate).getTime()
+        );
+
+      if (missedEvents.length >= 3) {
+        const strikeDate = deliveryDate.toISODateString(missedEvents[2].deliveryDate);
+        const previousEndDate =
+          clientProfile.autoInactiveReason === "three-strikes"
+            ? clientProfile.autoInactivePreviousEndDate || clientProfile.endDate || null
+            : clientProfile.endDate || null;
+
+        await setDoc(
+          doc(db, dataSources.firebase.clientsCollection, clientId),
+          {
+            endDate: strikeDate,
+            activeStatus: false,
+            autoInactiveReason: "three-strikes",
+            autoInactivePreviousEndDate: previousEndDate,
+            autoInactiveStrikeDate: strikeDate,
+            updatedAt: new Date(),
+          },
+          { merge: true }
+        );
+
+        await deliveryService.enforceClientEndDate(clientId, strikeDate, previousEndDate);
+
+        setClientProfile((prev) => ({
+          ...prev,
+          endDate: strikeDate,
+          activeStatus: false,
+          autoInactiveReason: "three-strikes",
+          autoInactivePreviousEndDate: previousEndDate,
+          autoInactiveStrikeDate: strikeDate,
+        }));
+
+      }
+
+      if (refresh) {
+        await refresh();
+      }
+      localStorage.setItem("forceClientsRefresh", "true");
+
+      await refreshDeliveryData();
+    },
+    [
+      clientId,
+      clientProfile.autoInactivePreviousEndDate,
+      clientProfile.autoInactiveReason,
+      clientProfile.endDate,
+      refresh,
+      refreshDeliveryData,
+    ]
+  );
+
+  const handleRestoreMissedDelivery = useCallback(
+    async (delivery: DeliveryEvent) => {
+      if (!clientId || !delivery.id) {
+        return;
+      }
+
+      const deliveryService = DeliveryService.getInstance();
+      await deliveryService.updateEvent(delivery.id, {
+        deliveryStatus: "Scheduled",
+      } as Partial<DeliveryEvent>);
+
+      const allEvents = await deliveryService.getEventsByClientId(clientId);
+      const missedEvents = allEvents
+        .filter((event) => event.deliveryStatus === "Missed")
+        .sort(
+          (left, right) =>
+            toJSDate(left.deliveryDate).getTime() - toJSDate(right.deliveryDate).getTime()
+        );
+
+      if (missedEvents.length < 3 && clientProfile.autoInactiveReason === "three-strikes") {
+        const restoredEndDate = clientProfile.autoInactivePreviousEndDate || clientProfile.endDate;
+        const today = TimeUtils.now().startOf("day");
+        const startDateTime = clientProfile.startDate
+          ? TimeUtils.fromAny(clientProfile.startDate).startOf("day")
+          : null;
+        const endDateTime = restoredEndDate
+          ? TimeUtils.fromAny(restoredEndDate).startOf("day")
+          : null;
+
+        let activeStatus = false;
+        if (startDateTime?.isValid) {
+          const todayMillis = today.toMillis();
+          activeStatus =
+            todayMillis >= startDateTime.toMillis() &&
+            (!endDateTime?.isValid || todayMillis <= endDateTime.toMillis());
+        }
+
+        await setDoc(
+          doc(db, dataSources.firebase.clientsCollection, clientId),
+          {
+            endDate: restoredEndDate,
+            activeStatus,
+            autoInactiveReason: null,
+            autoInactivePreviousEndDate: null,
+            autoInactiveStrikeDate: null,
+            updatedAt: new Date(),
+          },
+          { merge: true }
+        );
+
+        setClientProfile((prev) => ({
+          ...prev,
+          endDate: restoredEndDate,
+          activeStatus,
+          autoInactiveReason: null,
+          autoInactivePreviousEndDate: null,
+          autoInactiveStrikeDate: null,
+        }));
+
+      }
+
+      if (refresh) {
+        await refresh();
+      }
+      localStorage.setItem("forceClientsRefresh", "true");
+
+      await refreshDeliveryData();
+    },
+    [
+      clientId,
+      clientProfile.autoInactivePreviousEndDate,
+      clientProfile.autoInactiveReason,
+      clientProfile.endDate,
+      clientProfile.startDate,
+      refresh,
+      refreshDeliveryData,
+    ]
+  );
+
   const fetchClients = async () => {
     try {
       // Use ClientService instead of direct Firebase calls
@@ -2749,6 +2939,7 @@ const Profile = () => {
         handleTag={handleTag}
         clientId={clientProfile.uid || null}
         activeStatus={clientProfile.activeStatus}
+        missedStrikeCount={missedStrikeCount}
       />
       <Box className="profile-main" sx={{ p: 2 }}>
         <Box
@@ -2895,6 +3086,7 @@ const Profile = () => {
               preSelectedClient={preSelectedClientData}
             />
             <DeliveryLogForm
+              clientId={clientId || clientProfile.uid || ""}
               pastDeliveries={pastDeliveries}
               futureDeliveries={futureDeliveries}
               fieldLabelStyles={fieldLabelStyles}
@@ -2905,6 +3097,8 @@ const Profile = () => {
                   console.error("Error updating delivery state after deletion:", error);
                 }
               }}
+              onMarkDeliveryMissed={handleMarkDeliveryMissed}
+              onRestoreMissedDelivery={handleRestoreMissedDelivery}
             />
           </SectionBox>
 

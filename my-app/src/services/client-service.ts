@@ -313,6 +313,9 @@ class ClientService {
           const clientDeliveries = allDeliveries.filter(
             (d: any) => d.clientId === doc.id && d.deliveryDate
           );
+          const missedStrikeCount = clientDeliveries.filter(
+            (delivery: any) => delivery.deliveryStatus === "Missed"
+          ).length;
           let lastDeliveryDate = "";
           if (clientDeliveries.length > 0) {
             const latest = clientDeliveries.reduce((max, curr) => {
@@ -384,6 +387,7 @@ class ClientService {
             tags: raw.tags ?? [],
             referralEntity: raw.referralEntity ?? undefined,
             lastDeliveryDate,
+            missedStrikeCount,
             activeStatus,
           };
           return mapped;

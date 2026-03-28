@@ -448,13 +448,18 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
 
     setIsSubmitting(true);
     try {
+      const shouldUpdateTargetSeries =
+        Boolean(newDelivery.targetRecurrenceId) &&
+        newDelivery.recurrence !== "None" &&
+        newDelivery.recurrence !== "Custom";
+
       const service = DeliveryService.getInstance();
       const existingEvents = await service.getEventsByClientId(newDelivery.clientId);
       const conflictingExistingDates = new Set(
         existingEvents
           .filter(
             (event) =>
-              !newDelivery.targetRecurrenceId || event.recurrenceId !== newDelivery.targetRecurrenceId
+              !shouldUpdateTargetSeries || event.recurrenceId !== newDelivery.targetRecurrenceId
           )
           .map((event) => deliveryDate.toISODateString(event.deliveryDate))
       );
@@ -555,7 +560,10 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
       }
 
       setFormError("");
-      const deliveryToSubmit: Partial<NewDelivery> = { ...newDelivery };
+      const deliveryToSubmit: Partial<NewDelivery> = {
+        ...newDelivery,
+        targetRecurrenceId: shouldUpdateTargetSeries ? newDelivery.targetRecurrenceId : undefined,
+      };
       if (newDelivery.recurrence === "Custom") {
         const uniqueCustomDates = Array.from(new Set(normalizedCustomDates)).sort();
         deliveryToSubmit.customDates = uniqueCustomDates;
@@ -926,6 +934,10 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
                 setNewDelivery((prev) => ({
                   ...prev,
                   recurrence: value,
+                  targetRecurrenceId:
+                    value === "None" || value === "Custom"
+                      ? undefined
+                      : prev.targetRecurrenceId,
                   ...(value === "Custom"
                     ? { repeatsEndDate: undefined, customDates: undefined }
                     : { customDates: undefined }),

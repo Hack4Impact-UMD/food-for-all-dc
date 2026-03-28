@@ -31,6 +31,8 @@ import { format, addDays } from "date-fns";
 import AddIcon from "@mui/icons-material/Add";
 import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
 import ArrowDropUpIcon from "@mui/icons-material/ArrowDropUp";
+import CheckCircleIcon from "@mui/icons-material/CheckCircle";
+import CancelIcon from "@mui/icons-material/Cancel";
 import DeleteIcon from "@mui/icons-material/Delete";
 import AssignmentIndIcon from "@mui/icons-material/AssignmentInd";
 import AccessTimeIcon from "@mui/icons-material/AccessTime";
@@ -64,6 +66,7 @@ import {
   SelectChangeEvent,
   Menu,
   Chip,
+  Tooltip,
 } from "@mui/material";
 import RestartAltIcon from "@mui/icons-material/RestartAlt";
 import { styled } from "@mui/material/styles";
@@ -1689,8 +1692,13 @@ const DeliverySpreadsheet: React.FC = () => {
   };
 
   const handleRowClick = (clientId: string, fromTable = true) => {
-    // Suppress highlight clearing for this row switch
-    suppressClearHighlightRef.current = true;
+    // Only suppress clearing when switching FROM one row TO another,
+    // so the old popup's popupclose doesn't clear the new selection.
+    // When opening the first popup (no current highlight), don't suppress,
+    // so closing that popup correctly deselects the row.
+    if (highlightedRowId !== null && highlightedRowId !== clientId) {
+      suppressClearHighlightRef.current = true;
+    }
     if (fromTable && highlightedRowId === clientId) {
       setHighlightedRowId(null);
       if ((window as any).closeMapPopup) {
@@ -2265,6 +2273,10 @@ const DeliverySpreadsheet: React.FC = () => {
       return;
     }
 
+    const contextClientById = new Map(
+      clientsFromContext.map((client) => [client.uid || client.id, client])
+    );
+
     const synchronizedRows = rawClientData.map((client) => {
       let assignedClusterId = "";
       clusters.forEach((cluster) => {
@@ -2304,7 +2316,29 @@ const DeliverySpreadsheet: React.FC = () => {
       }
 
       // Patch: If lastDeliveryDate is 'N/A', set to ''
-      const patchedClient = { ...client, clusterId: assignedClusterId, lastDeliveryDate };
+      const enrichedContextClient = contextClientById.get(client.id) as
+        | { activeStatus?: unknown; missedStrikeCount?: unknown }
+        | undefined;
+
+      const activeStatus =
+        typeof enrichedContextClient?.activeStatus === "boolean"
+          ? enrichedContextClient.activeStatus
+          : Boolean((client as Record<string, unknown>).activeStatus);
+
+      const missedStrikeCount =
+        typeof enrichedContextClient?.missedStrikeCount === "number"
+          ? enrichedContextClient.missedStrikeCount
+          : typeof (client as Record<string, unknown>).missedStrikeCount === "number"
+            ? ((client as Record<string, unknown>).missedStrikeCount as number)
+            : 0;
+
+      const patchedClient = {
+        ...client,
+        clusterId: assignedClusterId,
+        lastDeliveryDate,
+        activeStatus,
+        missedStrikeCount,
+      };
       if (
         "lastDeliveryDate" in patchedClient &&
         typeof patchedClient.lastDeliveryDate === "string" &&
@@ -2316,7 +2350,7 @@ const DeliverySpreadsheet: React.FC = () => {
     });
 
     setRows(synchronizedRows);
-  }, [rawClientData, clusters, deliveriesForDate]);
+  }, [rawClientData, clusters, deliveriesForDate, clientsFromContext]);
 
   // TableVirtuoso MUI integration components
   const TableComponent = React.forwardRef<HTMLTableElement, React.ComponentProps<typeof Table>>(
@@ -3041,18 +3075,78 @@ const DeliverySpreadsheet: React.FC = () => {
                                 : field.compute?.(row);
 
                             if (field.key === "fullname") {
-                              return (
-                                <Link
-                                  to={`/profile/${row.id}`}
-                                  style={{
-                                    color: "var(--color-primary-darker)",
-                                    textDecoration: "none",
-                                    fontWeight: "500",
+                              const rowRecord = row as Record<string, unknown>;
+                              const isActiveProfile = Boolean(rowRecord.activeStatus);
+                              const missedStrikeCount =
+                                typeof rowRecord.missedStrikeCount === "number"
+                                  ? rowRecord.missedStrikeCount
+                                  : undefined;
+
+                              const statusTooltip = isActiveProfile
+                                ? missedStrikeCount === 1
+                                  ? "1 missed delivery"
+                                  : missedStrikeCount !== undefined && missedStrikeCount >= 2
+                                    ? "2 missed deliveries"
+                                    : "Active profile, no missed deliveries"
+                                : "Inactive profile";
+
+                              const statusIcon = isActiveProfile ? (
+                                <CheckCircleIcon
+                                  sx={{
+                                    color:
+                                      missedStrikeCount === 1
+                                        ? "#fbc02d"
+                                        : missedStrikeCount !== undefined && missedStrikeCount >= 2
+                                          ? "#d32f2f"
+                                          : "#4caf50",
+                                    fontSize: "1.1rem",
                                   }}
-                                  onClick={(e) => e.stopPropagation()}
+                                />
+                              ) : (
+                                <CancelIcon
+                                  sx={{
+                                    color: "#bdbdbd",
+                                    fontSize: "1.1rem",
+                                  }}
+                                />
+                              );
+
+                              return (
+                                <span
+                                  style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "flex-start",
+                                    width: "100%",
+                                    gap: "4px",
+                                  }}
                                 >
-                                  {computedValue}
-                                </Link>
+                                  <Tooltip title={statusTooltip} placement="right">
+                                    <span
+                                      style={{
+                                        display: "inline-flex",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                        width: "18px",
+                                        minWidth: "18px",
+                                      }}
+                                    >
+                                      {statusIcon}
+                                    </span>
+                                  </Tooltip>
+                                  <Link
+                                    to={`/profile/${row.id}`}
+                                    style={{
+                                      color: "var(--color-primary-darker)",
+                                      textDecoration: "none",
+                                      fontWeight: "500",
+                                      lineHeight: 1.2,
+                                    }}
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    {computedValue}
+                                  </Link>
+                                </span>
                               );
                             } else if (field.key === "tags") {
                               const tags = computedValue as string;

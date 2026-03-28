@@ -1,13 +1,5 @@
 import React from "react";
-import DialogContentText from "@mui/material/DialogContentText";
-import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Button,
-  CircularProgress,
-} from "@mui/material";
+import ConfirmationModal from "../ConfirmationModal";
 
 type DeleteUserModalProps = {
   open: boolean;
@@ -24,56 +16,17 @@ const DeleteUserModal = ({
   userName,
   loading,
 }: DeleteUserModalProps) => {
-  const handleCloseDeleteConfirm = () => {
-    handleClose();
-  };
-
-  const handleConfirmDelete = () => {
-    handleDelete();
-  };
-
   return (
-    <>
-      <Dialog
-        open={open}
-        onClose={handleCloseDeleteConfirm}
-        // slotProps={{
-        //   backdrop: {
-        //     style: { backgroundColor: "rgba(0, 0, 0, 0.02)" }
-        //   }
-        // }}
-        sx={{
-          "& .MuiDialog-paper": {
-            boxShadow: "none !important",
-            overflow: "visible",
-            background: "var(--color-white)",
-            borderTop: "1px solid rgba(0, 0, 0, 0.12)",
-            borderRadius: "8px",
-          },
-        }}
-      >
-        <DialogTitle id="delete-confirm-dialog-title">Confirm User Deletion</DialogTitle>
-        <DialogContent>
-          <DialogContentText id="delete-confirm-dialog-description">
-            {`Are you sure you want to delete ${userName || "this user"}? This action cannot be undone.`}
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseDeleteConfirm} color="primary" disabled={loading}>
-            Cancel
-          </Button>
-          <Button
-            onClick={handleConfirmDelete}
-            color="error"
-            autoFocus
-            disabled={loading}
-            startIcon={loading ? <CircularProgress size={20} color="inherit" /> : null}
-          >
-            Delete User
-          </Button>
-        </DialogActions>
-      </Dialog>
-    </>
+    <ConfirmationModal
+      open={open}
+      onClose={handleClose}
+      onConfirm={handleDelete}
+      title="Confirm User Deletion"
+      message={`Are you sure you want to delete ${userName || "this user"}? This action cannot be undone.`}
+      confirmText="Delete User"
+      confirmColor="error"
+      loading={loading}
+    />
   );
 };
 

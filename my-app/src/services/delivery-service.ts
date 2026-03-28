@@ -522,6 +522,53 @@ class DeliveryService {
       throw formatServiceError(error, "Failed to delete deliveries for client");
     }
   }
+
+  /**
+   * Delete only missed delivery events for a client
+   */
+  public async deleteMissedEventsByClientId(clientId: string): Promise<void> {
+    try {
+      const q = query(
+        collection(this.db, this.eventsCollection),
+        where("clientId", "==", clientId)
+      );
+      const querySnapshot = await getDocs(q);
+      if (querySnapshot.empty) {
+        return;
+      }
+
+      const missedDocs = querySnapshot.docs.filter(
+        (docSnap) => docSnap.data()?.deliveryStatus === "Missed"
+      );
+
+      if (!missedDocs.length) {
+        return;
+      }
+
+      const impactedDateKeys = this.normalizeDateKeys(
+        missedDocs.map((docSnap) => {
+          const data = docSnap.data();
+          return data.deliveryDate ? deliveryDate.toISODateString(data.deliveryDate) : null;
+        })
+      );
+
+      for (let i = 0; i < missedDocs.length; i += MAX_BATCH_WRITE_COUNT) {
+        const chunk = missedDocs.slice(i, i + MAX_BATCH_WRITE_COUNT);
+        await retry(async () => {
+          const batch = writeBatch(this.db);
+          chunk.forEach((docSnap) => batch.delete(docSnap.ref));
+          await batch.commit();
+        });
+      }
+
+      this.clearDateRangeCache();
+      const invalidationResult =
+        await this.reconcileClusterAssignmentsForDateKeys(impactedDateKeys);
+      this.emitDeliveryChange("schedule-batch-deleted", impactedDateKeys, invalidationResult);
+    } catch (error) {
+      throw formatServiceError(error, "Failed to delete missed deliveries for client");
+    }
+  }
   private static instance: DeliveryService;
   private db = db;
   private eventsCollection = dataSources.firebase.calendarCollection;
@@ -976,9 +1023,14 @@ class DeliveryService {
         existingEvents.map((event) => deliveryDate.toISODateString(event.deliveryDate))
       );
 
-      if (newDelivery.targetRecurrenceId) {
+      const shouldUpdateTargetSeries =
+        Boolean(newDelivery.targetRecurrenceId) &&
+        newDelivery.recurrence !== "None" &&
+        newDelivery.recurrence !== "Custom";
+
+      if (shouldUpdateTargetSeries) {
         const seriesEvents = await this.getEventsForRecurrenceId(
-          newDelivery.targetRecurrenceId,
+          newDelivery.targetRecurrenceId!,
           newDelivery.clientId
         );
         const seriesSummary = buildSeriesSummary(seriesEvents);
@@ -1523,7 +1575,7 @@ class DeliveryService {
           where("clientId", "==", clientId),
           where("deliveryDate", "<", today),
           orderBy("deliveryDate", "desc"),
-          limit(5)
+          limit(20)
         );
         const pastSnapshot = await getDocs(pastQuery);
         return pastSnapshot.docs.map((doc) => {
@@ -1556,7 +1608,7 @@ class DeliveryService {
           where("clientId", "==", clientId),
           where("deliveryDate", ">=", today),
           orderBy("deliveryDate", "asc"),
-          limit(5)
+          limit(20)
         );
         const futureSnapshot = await getDocs(futureQuery);
         return futureSnapshot.docs.map((doc) => {

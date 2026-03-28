@@ -26,6 +26,7 @@ export interface Delivery {
   cluster: number;
   recurrence: "None" | "Weekly" | "2x-Monthly" | "Monthly" | "Custom"; // Updated recurrence options
   repeatsEndDate?: string; // Optional, end date for recurrence
+  deliveryStatus?: "Scheduled" | "Missed";
   householdSnapshot?: HouseholdSnapshot | null;
 }
 
