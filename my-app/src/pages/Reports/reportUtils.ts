@@ -7,7 +7,7 @@ import { buildHouseholdSnapshot, normalizeHouseholdSnapshot } from "../../utils/
 
 export type SnapshotClientStatus = "active" | "lapsed" | "inactive";
 
-type SupportedDateInput = string | Date | DateTime | Timestamp | null | undefined;
+export type SupportedDateInput = string | Date | DateTime | Timestamp | null | undefined;
 
 export interface ReportDietaryRestrictions {
   foodAllergens?: string[];
@@ -194,6 +194,24 @@ const normalizeReportDate = (value: SupportedDateInput): DateTime | null => {
   return normalizedDate.isValid ? normalizedDate : null;
 };
 
+export const hasCurrentSnapshotDateWindow = ({
+  startDate,
+  endDate,
+  today = TimeUtils.now().startOf("day"),
+}: {
+  startDate?: SupportedDateInput;
+  endDate?: SupportedDateInput;
+  today?: DateTime;
+}): boolean => {
+  const normalizedStartDate = normalizeReportDate(startDate);
+  if (!normalizedStartDate || normalizedStartDate > today) {
+    return false;
+  }
+
+  const normalizedEndDate = normalizeReportDate(endDate);
+  return !normalizedEndDate || normalizedEndDate >= today;
+};
+
 export const getSnapshotClientStatus = ({
   startDate,
   endDate,
@@ -205,14 +223,7 @@ export const getSnapshotClientStatus = ({
   lastPastDeliveryDate?: SupportedDateInput;
   today?: DateTime;
 }): SnapshotClientStatus => {
-  const normalizedStartDate = normalizeReportDate(startDate);
-  const normalizedEndDate = normalizeReportDate(endDate);
-
-  if (!normalizedStartDate || !normalizedEndDate) {
-    return "inactive";
-  }
-
-  if (normalizedStartDate > today || normalizedEndDate < today) {
+  if (!hasCurrentSnapshotDateWindow({ startDate, endDate, today })) {
     return "inactive";
   }
 

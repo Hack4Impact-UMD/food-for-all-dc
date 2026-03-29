@@ -3,6 +3,7 @@ import { Accordion, AccordionDetails, AccordionSummary, Box, Typography } from "
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import { useNavigate } from "react-router-dom";
 import { DateTime } from "luxon";
+import { Timestamp } from "firebase/firestore";
 import { useNotifications } from "../../components/NotificationProvider";
 import Guide from "./Guide";
 import LoadingIndicator from "../../components/LoadingIndicator/LoadingIndicator";
@@ -18,9 +19,11 @@ import {
   buildClientReportData,
   ClientReportData,
   SnapshotClientRecord,
+  SupportedDateInput,
+  hasCurrentSnapshotDateWindow,
 } from "./reportUtils";
 
-const formatReportDateValue = (value: unknown): string => {
+const formatReportDateValue = (value: SupportedDateInput): string => {
   if (!value) {
     return "";
   }
@@ -29,7 +32,7 @@ const formatReportDateValue = (value: unknown): string => {
     return value;
   }
 
-  const normalizedDate = TimeUtils.fromAny(value as string | Date | DateTime);
+  const normalizedDate = TimeUtils.fromAny(value as string | Date | DateTime | Timestamp);
   return normalizedDate.isValid ? normalizedDate.toISODate() || "" : "";
 };
 
@@ -89,8 +92,17 @@ const ClientReport: React.FC = () => {
     try {
       const today = TimeUtils.now().startOf("day");
       const clients = await loadAllReportClients();
+      const clientIdsForDeliveryLookup = clients
+        .filter((client) =>
+          hasCurrentSnapshotDateWindow({
+            startDate: client.startDate,
+            endDate: client.endDate,
+            today,
+          })
+        )
+        .map((client) => client.uid);
       const latestPastDeliveryDatesByClientId = await loadLatestPastDeliveryDatesByClientIds(
-        clients.map((client) => client.uid),
+        clientIdsForDeliveryLookup,
         today.endOf("day")
       );
 
@@ -202,6 +214,8 @@ const ClientReport: React.FC = () => {
                       >
                         <Box>
                           <Typography
+                            component="button"
+                            type="button"
                             sx={{
                               color: "var(--color-primary)",
                               fontWeight: "bold",
@@ -209,6 +223,11 @@ const ClientReport: React.FC = () => {
                               fontSize: 17,
                               cursor: "pointer",
                               mb: 0.5,
+                              background: "none",
+                              border: 0,
+                              p: 0,
+                              fontFamily: "inherit",
+                              textAlign: "left",
                             }}
                             onClick={() => {
                               navigate(`/profile/${client.uid}`);
