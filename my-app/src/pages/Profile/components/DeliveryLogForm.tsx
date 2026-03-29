@@ -506,7 +506,7 @@ const DeliveryLogForm: React.FC<DeliveryLogProps> = ({
               transition: "border-color 0.2s ease, background-color 0.2s ease, padding 0.2s ease",
             }}
           >
-            <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", maxHeight: 32, overflow: "hidden" }}>
+            <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
               {sortedFutureDeliveries.length > 0 ? (
                 sortedFutureDeliveries.map((delivery, index) => (
                   <Stack key={delivery.id} direction="row" spacing={0.5} alignItems="center">
@@ -576,7 +576,7 @@ const DeliveryLogForm: React.FC<DeliveryLogProps> = ({
               transition: "border-color 0.2s ease, background-color 0.2s ease, padding 0.2s ease",
             }}
           >
-            <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", maxHeight: 32, overflow: "hidden" }}>
+            <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
               {sortedPastDeliveries.length > 0 ? (
                 sortedPastDeliveries.map((delivery, index) => (
                   <Stack key={delivery.id} direction="row" spacing={0.5} alignItems="center">
