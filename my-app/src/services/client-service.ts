@@ -27,8 +27,14 @@ import dataSources from "../config/dataSources";
 
 const computeActiveStatus = (
   startDate: string | Date | DateTime | Timestamp | null | undefined,
-  endDate: string | Date | DateTime | Timestamp | null | undefined
+  endDate: string | Date | DateTime | Timestamp | null | undefined,
+  rawActiveStatus?: boolean | null,
+  autoInactiveReason?: string | null
 ): boolean => {
+  if (rawActiveStatus === false || autoInactiveReason === "three-strikes") {
+    return false;
+  }
+
   const today = TimeUtils.now().startOf("day");
   const startDateTime = startDate ? TimeUtils.fromAny(startDate).startOf("day") : null;
   const endDateTime = endDate ? TimeUtils.fromAny(endDate).startOf("day") : null;
@@ -112,7 +118,12 @@ class ClientService {
           const deliveryDetails = raw.deliveryDetails || {};
           const dietaryRestrictions = deliveryDetails.dietaryRestrictions || {};
 
-          const activeStatus = computeActiveStatus(raw.startDate, raw.endDate);
+          const activeStatus = computeActiveStatus(
+            raw.startDate,
+            raw.endDate,
+            raw.activeStatus,
+            raw.autoInactiveReason
+          );
 
           const mapped: ClientProfile = {
             uid: doc.id,
@@ -236,7 +247,12 @@ class ClientService {
         const snapshot = await getDocs(emptyQuery);
         const mapped = snapshot.docs.map((doc) => {
           const data = doc.data() as any;
-          const activeStatus = computeActiveStatus(data.startDate, data.endDate);
+          const activeStatus = computeActiveStatus(
+            data.startDate,
+            data.endDate,
+            data.activeStatus,
+            data.autoInactiveReason
+          );
           return {
             uid: doc.id,
             firstName: data.firstName || "",
@@ -263,7 +279,12 @@ class ClientService {
       const mapped = snapshot.docs
         .map((doc) => {
           const data = doc.data() as any;
-          const activeStatus = computeActiveStatus(data.startDate, data.endDate);
+          const activeStatus = computeActiveStatus(
+            data.startDate,
+            data.endDate,
+            data.activeStatus,
+            data.autoInactiveReason
+          );
           return {
             uid: doc.id,
             firstName: data.firstName || "",
@@ -338,7 +359,12 @@ class ClientService {
               : latest.deliveryDate;
             lastDeliveryDate = dateObj ? dateObj.toISOString().slice(0, 10) : "";
           }
-          const activeStatus = computeActiveStatus(raw.startDate, raw.endDate);
+          const activeStatus = computeActiveStatus(
+            raw.startDate,
+            raw.endDate,
+            raw.activeStatus,
+            raw.autoInactiveReason
+          );
           const mapped = {
             id: doc.id,
             uid: doc.id,

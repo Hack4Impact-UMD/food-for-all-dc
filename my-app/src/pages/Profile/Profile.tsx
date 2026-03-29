@@ -1399,6 +1399,7 @@ const Profile = () => {
         return dateStr;
       };
 
+      const originalProfile = prevClientProfile ?? clientProfile;
       const normalizedStartDate = convertDateForSave(cleanedProfile.startDate);
       const normalizedEndDate = convertDateForSave(cleanedProfile.endDate);
       const normalizedStartDateISO = deliveryDate.tryToISODateString(normalizedStartDate);
@@ -1439,16 +1440,14 @@ const Profile = () => {
         activeStatus,
       };
 
-      const normalizedPreviousEndDate = prevClientProfile?.endDate
-        ? deliveryDate.tryToISODateString(prevClientProfile.endDate)
+      const normalizedPreviousEndDate = originalProfile.endDate
+        ? deliveryDate.tryToISODateString(originalProfile.endDate)
         : null;
       const normalizedUpdatedEndDate = updatedProfile.endDate
         ? deliveryDate.tryToISODateString(updatedProfile.endDate)
         : null;
       // Trigger cleanup whenever the profile still carries a three-strikes flag and the end date changed
-      const isThreeStrikesProfile =
-        clientProfile.autoInactiveReason === "three-strikes" ||
-        prevClientProfile?.autoInactiveReason === "three-strikes";
+      const isThreeStrikesProfile = originalProfile.autoInactiveReason === "three-strikes";
       const isReactivationWithNewEndDate =
         isThreeStrikesProfile &&
         !!normalizedUpdatedEndDate &&
@@ -1458,6 +1457,8 @@ const Profile = () => {
         updatedProfile.autoInactiveReason = null;
         updatedProfile.autoInactivePreviousEndDate = null;
         updatedProfile.autoInactiveStrikeDate = null;
+      } else if (isThreeStrikesProfile) {
+        updatedProfile.activeStatus = false;
       }
 
       // Sort allTags before potentially saving them (ensures consistent order)
@@ -1504,7 +1505,7 @@ const Profile = () => {
           alert("Error: Cannot update profile, client ID is missing.");
           throw new Error("Client UID is missing for update.");
         }
-        const previousEndDate = prevClientProfile?.endDate || null;
+        const previousEndDate = originalProfile.endDate || null;
         const deliveryService = DeliveryService.getInstance();
         await deliveryService.enforceClientEndDate(
           clientProfile.uid,
