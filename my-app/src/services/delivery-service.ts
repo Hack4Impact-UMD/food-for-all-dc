@@ -1023,10 +1023,7 @@ class DeliveryService {
         existingEvents.map((event) => deliveryDate.toISODateString(event.deliveryDate))
       );
 
-      const shouldUpdateTargetSeries =
-        Boolean(newDelivery.targetRecurrenceId) &&
-        newDelivery.recurrence !== "None" &&
-        newDelivery.recurrence !== "Custom";
+      const shouldUpdateTargetSeries = Boolean(newDelivery.targetRecurrenceId);
 
       if (shouldUpdateTargetSeries) {
         const seriesEvents = await this.getEventsForRecurrenceId(

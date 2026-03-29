@@ -176,6 +176,29 @@ const SaveNotification = styled(Box)({
   },
 });
 
+const computeProfileActiveStatus = (
+  startDate: string | null | undefined,
+  endDate: string | null | undefined
+): boolean => {
+  const todayMillis = TimeUtils.now().startOf("day").toMillis();
+  const startDateTime = startDate ? TimeUtils.fromAny(startDate).startOf("day") : null;
+  const endDateTime = endDate ? TimeUtils.fromAny(endDate).startOf("day") : null;
+
+  if (startDateTime?.isValid && endDateTime?.isValid) {
+    return todayMillis >= startDateTime.toMillis() && todayMillis <= endDateTime.toMillis();
+  }
+
+  if (startDateTime?.isValid) {
+    return todayMillis >= startDateTime.toMillis();
+  }
+
+  if (endDateTime?.isValid) {
+    return todayMillis <= endDateTime.toMillis();
+  }
+
+  return false;
+};
+
 const Profile = () => {
   const { refresh } = useClientData();
   const navigate = useNavigate();
@@ -1381,20 +1404,10 @@ const Profile = () => {
       const normalizedStartDateISO = deliveryDate.tryToISODateString(normalizedStartDate);
       const normalizedEndDateISO = deliveryDate.tryToISODateString(normalizedEndDate);
 
-      const today = TimeUtils.now().startOf("day");
-      const startDateTime = normalizedStartDateISO
-        ? TimeUtils.fromAny(normalizedStartDateISO).startOf("day")
-        : null;
-      const endDateTime = normalizedEndDateISO
-        ? TimeUtils.fromAny(normalizedEndDateISO).startOf("day")
-        : null;
-      let activeStatus = false;
-      if (startDateTime?.isValid) {
-        const todayMillis = today.toMillis();
-        activeStatus =
-          todayMillis >= startDateTime.toMillis() &&
-          (!endDateTime?.isValid || todayMillis <= endDateTime.toMillis());
-      }
+      const activeStatus = computeProfileActiveStatus(
+        normalizedStartDateISO,
+        normalizedEndDateISO
+      );
 
       const updatedProfile: ClientProfile = {
         ...cleanedProfile,
@@ -1492,34 +1505,29 @@ const Profile = () => {
           throw new Error("Client UID is missing for update.");
         }
         const previousEndDate = prevClientProfile?.endDate || null;
-        let cleanupErrorMessage: string | null = null;
-        // Save to Firestore for existing profile (DO NOT normalize fields for saving)
+        const deliveryService = DeliveryService.getInstance();
+        await deliveryService.enforceClientEndDate(
+          clientProfile.uid,
+          updatedProfile.endDate,
+          previousEndDate
+        );
+
+        if (isReactivationWithNewEndDate) {
+          await deliveryService.deleteMissedEventsByClientId(clientProfile.uid);
+        }
+
+        // Save to Firestore for existing profile after delivery cleanup succeeds.
         await setDoc(
           doc(db, dataSources.firebase.clientsCollection, clientProfile.uid),
           updatedProfile,
           { merge: true }
-        ); // Use merge: true for updates
+        );
         // Update the central tags list
         await setDoc(
           doc(db, dataSources.firebase.tagsCollection, dataSources.firebase.tagsDocId),
           { tags: sortedAllTags },
           { merge: true }
         );
-        try {
-          await DeliveryService.getInstance().enforceClientEndDate(
-            clientProfile.uid,
-            updatedProfile.endDate,
-            previousEndDate
-          );
-
-          if (isReactivationWithNewEndDate) {
-            await DeliveryService.getInstance().deleteMissedEventsByClientId(clientProfile.uid);
-          }
-        } catch (error) {
-          console.error("Profile saved but delivery cleanup failed:", error);
-          cleanupErrorMessage =
-            error instanceof Error ? error.message : "Unknown delivery cleanup error";
-        }
 
         try {
           await refreshDeliveryData();
@@ -1537,10 +1545,6 @@ const Profile = () => {
         if (refresh) await refresh();
         // Set flag to force spreadsheet refresh on next mount
         localStorage.setItem("forceClientsRefresh", "true");
-
-        if (cleanupErrorMessage) {
-          alert(`Profile saved, but delivery cleanup failed: ${cleanupErrorMessage}`);
-        }
       }
 
       // Common post-save actions (Popup notification)
@@ -2714,31 +2718,24 @@ const Profile = () => {
           clientProfile.autoInactiveReason === "three-strikes"
             ? clientProfile.autoInactivePreviousEndDate || clientProfile.endDate || null
             : clientProfile.endDate || null;
-
-        await setDoc(
-          doc(db, dataSources.firebase.clientsCollection, clientId),
-          {
-            endDate: strikeDate,
-            activeStatus: false,
-            autoInactiveReason: "three-strikes",
-            autoInactivePreviousEndDate: previousEndDate,
-            autoInactiveStrikeDate: strikeDate,
-            updatedAt: new Date(),
-          },
-          { merge: true }
-        );
+        const threeStrikePatch = {
+          endDate: strikeDate,
+          activeStatus: false,
+          autoInactiveReason: "three-strikes" as const,
+          autoInactivePreviousEndDate: previousEndDate,
+          autoInactiveStrikeDate: strikeDate,
+          updatedAt: new Date(),
+        };
 
         await deliveryService.enforceClientEndDate(clientId, strikeDate, previousEndDate);
 
-        setClientProfile((prev) => ({
-          ...prev,
-          endDate: strikeDate,
-          activeStatus: false,
-          autoInactiveReason: "three-strikes",
-          autoInactivePreviousEndDate: previousEndDate,
-          autoInactiveStrikeDate: strikeDate,
-        }));
+        await setDoc(
+          doc(db, dataSources.firebase.clientsCollection, clientId),
+          threeStrikePatch,
+          { merge: true }
+        );
 
+        setClientProfile((prev) => ({ ...prev, ...threeStrikePatch }));
       }
 
       if (refresh) {
@@ -2779,21 +2776,7 @@ const Profile = () => {
 
       if (missedEvents.length < 3 && clientProfile.autoInactiveReason === "three-strikes") {
         const restoredEndDate = clientProfile.autoInactivePreviousEndDate || clientProfile.endDate;
-        const today = TimeUtils.now().startOf("day");
-        const startDateTime = clientProfile.startDate
-          ? TimeUtils.fromAny(clientProfile.startDate).startOf("day")
-          : null;
-        const endDateTime = restoredEndDate
-          ? TimeUtils.fromAny(restoredEndDate).startOf("day")
-          : null;
-
-        let activeStatus = false;
-        if (startDateTime?.isValid) {
-          const todayMillis = today.toMillis();
-          activeStatus =
-            todayMillis >= startDateTime.toMillis() &&
-            (!endDateTime?.isValid || todayMillis <= endDateTime.toMillis());
-        }
+        const activeStatus = computeProfileActiveStatus(clientProfile.startDate, restoredEndDate);
 
         await setDoc(
           doc(db, dataSources.firebase.clientsCollection, clientId),

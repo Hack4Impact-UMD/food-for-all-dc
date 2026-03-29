@@ -31,16 +31,22 @@ const computeActiveStatus = (
 ): boolean => {
   const today = TimeUtils.now().startOf("day");
   const startDateTime = startDate ? TimeUtils.fromAny(startDate).startOf("day") : null;
-  if (!startDateTime?.isValid) return false;
-
   const endDateTime = endDate ? TimeUtils.fromAny(endDate).startOf("day") : null;
   const todayMillis = today.toMillis();
 
-  if (endDateTime?.isValid) {
+  if (startDateTime?.isValid && endDateTime?.isValid) {
     return todayMillis >= startDateTime.toMillis() && todayMillis <= endDateTime.toMillis();
   }
 
-  return todayMillis >= startDateTime.toMillis();
+  if (startDateTime?.isValid) {
+    return todayMillis >= startDateTime.toMillis();
+  }
+
+  if (endDateTime?.isValid) {
+    return todayMillis <= endDateTime.toMillis();
+  }
+
+  return false;
 };
 
 /**
@@ -332,16 +338,7 @@ class ClientService {
               : latest.deliveryDate;
             lastDeliveryDate = dateObj ? dateObj.toISOString().slice(0, 10) : "";
           }
-          // Calculate activeStatus based on startDate and endDate
-          let activeStatus = false;
-          const todayDate = TimeUtils.now().startOf("day");
-          const startDateTime = raw.startDate ? TimeUtils.fromAny(raw.startDate).startOf("day") : null;
-          const endDateTime = raw.endDate ? TimeUtils.fromAny(raw.endDate).startOf("day") : null;
-          if (startDateTime?.isValid && endDateTime?.isValid) {
-            const todayMillis = todayDate.toMillis();
-            activeStatus =
-              todayMillis >= startDateTime.toMillis() && todayMillis <= endDateTime.toMillis();
-          }
+          const activeStatus = computeActiveStatus(raw.startDate, raw.endDate);
           const mapped = {
             id: doc.id,
             uid: doc.id,

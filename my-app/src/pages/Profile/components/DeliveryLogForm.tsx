@@ -82,9 +82,17 @@ const DeliveryLogForm: React.FC<DeliveryLogProps> = ({
   };
 
   const isDragging = draggedDelivery !== null;
-  const canDropToUpcoming = isDragging && draggedSource === "missed" && draggedDelivery !== null && isToday(draggedDelivery.deliveryDate);
+  const canDropToUpcoming =
+    isDragging &&
+    draggedSource === "missed" &&
+    draggedDelivery !== null &&
+    isToday(draggedDelivery.deliveryDate);
   const canDropToMissed = isDragging && (draggedSource === "past" || draggedSource === "future");
-  const canDropToPrevious = isDragging && draggedSource === "missed" && draggedDelivery !== null && !isToday(draggedDelivery.deliveryDate);
+  const canDropToPrevious =
+    isDragging &&
+    draggedSource === "missed" &&
+    draggedDelivery !== null &&
+    !isToday(draggedDelivery.deliveryDate);
 
   const canDragFromUpcoming = (delivery: DeliveryEvent) => isToday(delivery.deliveryDate);
 
@@ -103,7 +111,11 @@ const DeliveryLogForm: React.FC<DeliveryLogProps> = ({
     }
   }, [clientId, deliveryService]);
 
-  const handleDragStart = (delivery: DeliveryEvent, source: "past" | "future" | "missed", event: React.DragEvent) => {
+  const handleDragStart = (
+    delivery: DeliveryEvent,
+    source: "past" | "future" | "missed",
+    event: React.DragEvent
+  ) => {
     event.dataTransfer.effectAllowed = "move";
     event.dataTransfer.setData("application/json", JSON.stringify({ id: delivery.id, source }));
 
@@ -145,33 +157,32 @@ const DeliveryLogForm: React.FC<DeliveryLogProps> = ({
 
   const applyDropToMissed = useCallback(
     async (deliveryToMove: DeliveryEvent, source: "past" | "future") => {
-      // Optimistically update UI so the chip moves immediately on drop.
       if (source === "future") {
         setFutureDeliveries((prev) => prev.filter((delivery) => delivery.id !== deliveryToMove.id));
+        setMissedDeliveries((prev) => {
+          if (prev.some((delivery) => delivery.id === deliveryToMove.id)) {
+            return prev;
+          }
+          return sortDeliveryDates([
+            ...prev,
+            {
+              ...deliveryToMove,
+              deliveryStatus: "Missed",
+            } as DeliveryEvent,
+          ]);
+        });
       }
-      setMissedDeliveries((prev) => {
-        if (prev.some((delivery) => delivery.id === deliveryToMove.id)) {
-          return prev;
-        }
-        return sortDeliveryDates([
-          ...prev,
-          {
-            ...deliveryToMove,
-            deliveryStatus: "Missed",
-          } as DeliveryEvent,
-        ]);
-      });
 
       try {
         await onMarkDeliveryMissed(deliveryToMove);
         await loadMissedDeliveries();
+        setDropError("");
       } catch (error) {
         console.error("Error marking delivery as missed:", error);
         setDropError("Unable to mark delivery as missed. Please try again.");
 
-        // Roll back optimistic state on failure.
-        setMissedDeliveries((prev) => prev.filter((delivery) => delivery.id !== deliveryToMove.id));
         if (source === "future") {
+          setMissedDeliveries((prev) => prev.filter((delivery) => delivery.id !== deliveryToMove.id));
           setFutureDeliveries((prev) =>
             sortDeliveryDates([
               ...prev,
@@ -181,6 +192,8 @@ const DeliveryLogForm: React.FC<DeliveryLogProps> = ({
               } as DeliveryEventWithHidden,
             ]) as DeliveryEventWithHidden[]
           );
+        } else {
+          await loadMissedDeliveries();
         }
       }
     },
@@ -236,7 +249,11 @@ const DeliveryLogForm: React.FC<DeliveryLogProps> = ({
 
     const deliveryToMove = draggedDelivery;
 
-    // Optimistically update UI so the chip moves immediately on drop.
+    if (!isToday(deliveryToMove.deliveryDate)) {
+      setDropError("Only today's missed delivery can be moved back to upcoming.");
+      return;
+    }
+
     setDraggedDelivery(null);
     setDraggedSource(null);
     setMissedDeliveries((prev) => prev.filter((delivery) => delivery.id !== deliveryToMove.id));
@@ -245,9 +262,10 @@ const DeliveryLogForm: React.FC<DeliveryLogProps> = ({
         return prev;
       }
 
-      const { deliveryStatus: _deliveryStatus, ...restoredDelivery } = deliveryToMove as DeliveryEvent & {
-        deliveryStatus?: string;
-      };
+      const { deliveryStatus: _deliveryStatus, ...restoredDelivery } = deliveryToMove as
+        DeliveryEvent & {
+          deliveryStatus?: string;
+        };
 
       return sortDeliveryDates([
         ...prev,
@@ -257,23 +275,6 @@ const DeliveryLogForm: React.FC<DeliveryLogProps> = ({
         } as DeliveryEventWithHidden,
       ]) as DeliveryEventWithHidden[];
     });
-
-    if (!isToday(deliveryToMove.deliveryDate)) {
-      setDropError("Only today's missed delivery can be moved back to upcoming.");
-
-      // Roll back optimistic update when move isn't allowed.
-      setFutureDeliveries((prev) => prev.filter((delivery) => delivery.id !== deliveryToMove.id));
-      setMissedDeliveries((prev) =>
-        sortDeliveryDates([
-          ...prev,
-          {
-            ...deliveryToMove,
-            deliveryStatus: "Missed",
-          } as DeliveryEvent,
-        ])
-      );
-      return;
-    }
 
     try {
       await onRestoreMissedDelivery(deliveryToMove);
@@ -546,20 +547,23 @@ const DeliveryLogForm: React.FC<DeliveryLogProps> = ({
               transition: "border-color 0.2s ease, background-color 0.2s ease, padding 0.2s ease",
             }}
           >
-            <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", maxHeight: 32, overflow: "hidden" }}>
+            <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
               {sortedFutureDeliveries.length > 0 ? (
                 sortedFutureDeliveries.map((delivery, index) => (
                   <div
                     key={delivery.id}
                     draggable={canDragFromUpcoming(delivery)}
-                    onDragStart={(e) => canDragFromUpcoming(delivery) && handleDragStart(delivery, "future", e)}
+                    onDragStart={(e) =>
+                      canDragFromUpcoming(delivery) && handleDragStart(delivery, "future", e)
+                    }
                     onDragEnd={handleDragEnd}
                     style={{
                       cursor: canDragFromUpcoming(delivery) ? "grab" : "default",
                       userSelect: "none",
                       display: "inline-flex",
                       alignItems: "center",
-                      opacity: draggedDelivery?.id === delivery.id ? 0.5 : (delivery.hidden ? 0.5 : 1),
+                      opacity:
+                        draggedDelivery?.id === delivery.id ? 0.5 : delivery.hidden ? 0.5 : 1,
                       transition: "opacity 0.15s ease",
                     }}
                   >
@@ -603,7 +607,7 @@ const DeliveryLogForm: React.FC<DeliveryLogProps> = ({
               transition: "border-color 0.2s ease, background-color 0.2s ease, padding 0.2s ease",
             }}
           >
-            <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", maxHeight: 32, overflow: "hidden" }}>
+            <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
               {sortedPastDeliveries.length > 0 ? (
                 sortedPastDeliveries.map((delivery, index) => (
                   <div
