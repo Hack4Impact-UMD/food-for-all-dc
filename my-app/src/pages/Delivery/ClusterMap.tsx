@@ -7,10 +7,7 @@ import { Box, Button, FormControlLabel, Switch, Typography } from "@mui/material
 import DriverService from "../../services/driver-service";
 import FFAIcon from "../../assets/tsp-food-for-all-dc-logo.png";
 import dataSources from "../../config/dataSources";
-import {
-  normalizeAssignmentValue,
-  resolveAssignmentValue,
-} from "./utils/assignmentOverrides";
+import { normalizeAssignmentValue, resolveAssignmentValue } from "./utils/assignmentOverrides";
 import { buildAssignmentSummary, buildClusterSummaries } from "./utils/clusterSummary";
 import { TIME_SLOT_LABELS } from "./utils/timeSlots";
 import { getClientStatusPresentation } from "../../utils/clientStatus";
@@ -37,7 +34,7 @@ interface Client {
 }
 
 interface Cluster {
-  id: string | number;
+  id: string;
   driver?: string;
   time?: string;
   deliveries: string[];
