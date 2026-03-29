@@ -72,6 +72,7 @@ import { useClientData } from "../../context/ClientDataContext";
 import type { FieldDefinition } from "../../types/spreadsheet-types";
 import { useNotifications } from "../NotificationProvider";
 import { CsvExportError } from "../../utils/csvExport";
+import { getClientStatusPresentation } from "../../utils/clientStatus";
 
 const StyleChip = styled(Chip)(({ theme }) => ({
   fontWeight: 500,
@@ -88,6 +89,7 @@ const StyleChip = styled(Chip)(({ theme }) => ({
 }));
 
 const getTodayET = (): string => DateTime.now().setZone("America/New_York").toISODate() ?? "";
+const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 const formatTimestampLikeDate = (value: unknown): string => {
   if (value === null || value === undefined || value === "N/A") return "";
@@ -105,6 +107,11 @@ const formatTimestampLikeDate = (value: unknown): string => {
     return DateTime.fromSeconds((value as { seconds: number }).seconds)
       .setZone("America/New_York")
       .toFormat("MM/dd/yyyy");
+  }
+
+  if (typeof value === "string" && ISO_DATE_PATTERN.test(value.trim())) {
+    const parsed = DateTime.fromISO(value, { zone: "America/New_York" });
+    return parsed.isValid ? parsed.toFormat("MM/dd/yyyy") : value;
   }
 
   if (Array.isArray(value)) {
@@ -436,7 +443,7 @@ const Spreadsheet: React.FC = () => {
         key: "lastDeliveryDate",
         label: "Last Delivery Date",
         type: "text",
-        compute: (data: RowData) => formatTimestampLikeDate(data.lastDeliveryDate),
+        compute: (data: RowData) => data.lastDeliveryDate || "",
       },
     ],
     []
@@ -1119,57 +1126,52 @@ const Spreadsheet: React.FC = () => {
                       }}
                     >
                       {field.key === "fullname" ? (
-                        <span style={{ display: "flex", alignItems: "center" }}>
-                          <Tooltip
-                            title={
-                              row.activeStatus
-                                ? row.missedStrikeCount === 1
-                                  ? "1 missed delivery"
-                                  : row.missedStrikeCount !== undefined && row.missedStrikeCount >= 2
-                                    ? "2 missed deliveries"
-                                    : "Active profile, no missed deliveries"
-                                : "Inactive profile"
-                            }
-                            placement="right"
-                          >
-                            {row.activeStatus ? (
-                              <CheckCircleIcon
-                                sx={{
-                                  color:
-                                    row.missedStrikeCount === 1
-                                      ? "#fbc02d"
-                                      : row.missedStrikeCount !== undefined && row.missedStrikeCount >= 2
-                                        ? "#d32f2f"
-                                        : "#4caf50",
-                                  fontSize: "1.1rem",
-                                  mr: 0.5,
-                                  verticalAlign: "middle",
+                        (() => {
+                          const statusPresentation = getClientStatusPresentation(
+                            row.activeStatus,
+                            row.missedStrikeCount
+                          );
+
+                          return (
+                            <span style={{ display: "flex", alignItems: "center" }}>
+                              <Tooltip title={statusPresentation.tooltip} placement="right">
+                                {statusPresentation.isActive ? (
+                                  <CheckCircleIcon
+                                    sx={{
+                                      color: statusPresentation.color,
+                                      fontSize: "1.1rem",
+                                      mr: 0.5,
+                                      verticalAlign: "middle",
+                                    }}
+                                  />
+                                ) : (
+                                  <CancelIcon
+                                    sx={{
+                                      color: statusPresentation.color,
+                                      fontSize: "1.1rem",
+                                      mr: 0.5,
+                                      verticalAlign: "middle",
+                                    }}
+                                  />
+                                )}
+                              </Tooltip>
+                              <a
+                                className="name-link"
+                                href="#"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  navigate(`/profile/${row.uid ?? ""}`, {
+                                    state: { userData: row },
+                                  });
                                 }}
-                              />
-                            ) : (
-                              <CancelIcon
-                                sx={{
-                                  color: "#bdbdbd",
-                                  fontSize: "1.1rem",
-                                  mr: 0.5,
-                                  verticalAlign: "middle",
-                                }}
-                              />
-                            )}
-                          </Tooltip>
-                          <a
-                            className="name-link"
-                            href="#"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              navigate(`/profile/${row.uid ?? ""}`, { state: { userData: row } });
-                            }}
-                          >
-                            {field.compute
-                              ? field.compute(row)
-                              : `${row.lastName}, ${row.firstName}`}
-                          </a>
-                        </span>
+                              >
+                                {field.compute
+                                  ? field.compute(row)
+                                  : `${row.lastName}, ${row.firstName}`}
+                              </a>
+                            </span>
+                          );
+                        })()
                       ) : field.compute ? (
                         renderSafeSpreadsheetCellValue(field.compute(row))
                       ) : (

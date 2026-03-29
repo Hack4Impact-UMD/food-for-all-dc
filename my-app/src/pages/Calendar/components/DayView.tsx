@@ -45,20 +45,23 @@ const DayView: React.FC<DayViewProps> = React.memo(function DayView({
     return map;
   }, [clients]);
 
+  const updateHeight = useCallback(() => {
+    if (containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      const availableHeight = window.innerHeight - rect.top - 50; // 50px buffer
+      setContainerHeight(Math.max(300, availableHeight)); // Minimum 300px
+    }
+  }, []);
+
   // Calculate container height for virtual scrolling
   useEffect(() => {
-    const updateHeight = () => {
-      if (containerRef.current) {
-        const rect = containerRef.current.getBoundingClientRect();
-        const availableHeight = window.innerHeight - rect.top - 50; // 50px buffer
-        setContainerHeight(Math.max(300, availableHeight)); // Minimum 300px
-      }
-    };
-
     updateHeight();
+  }, [events.length, updateHeight]);
+
+  useEffect(() => {
     window.addEventListener("resize", updateHeight);
     return () => window.removeEventListener("resize", updateHeight);
-  }, [events.length]);
+  }, [updateHeight]);
 
   // Batch preload recurring delivery date ranges for all events
   useEffect(() => {

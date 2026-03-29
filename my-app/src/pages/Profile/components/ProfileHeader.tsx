@@ -4,6 +4,7 @@ import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import CancelIcon from "@mui/icons-material/Cancel";
 import React from "react";
 import TagManager from "../Tags/TagManager";
+import { getClientStatusPresentation } from "../../../utils/clientStatus";
 
 // Simplified Header Container
 const ModernHeaderContainer = styled(Box)(({ theme }) => ({
@@ -87,20 +88,7 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
       : "New Client";
   };
 
-  const statusTooltip = activeStatus
-    ? missedStrikeCount === 1
-      ? "1 missed delivery"
-      : missedStrikeCount !== undefined && missedStrikeCount >= 2
-        ? "2 missed deliveries"
-        : "Active profile, no missed deliveries"
-    : "Inactive profile";
-
-  const activeCheckColor =
-    missedStrikeCount === 1
-      ? "#fbc02d"
-      : missedStrikeCount !== undefined && missedStrikeCount >= 2
-        ? "#d32f2f"
-        : "#4caf50";
+  const statusPresentation = getClientStatusPresentation(activeStatus, missedStrikeCount);
 
   // No-op function that satisfies eslint
   const noOp = (param: any) => {
@@ -113,13 +101,25 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
       <Box sx={{ flexGrow: 1, display: "flex", flexDirection: "column", height: "100%" }}>
         <Box sx={{ display: "flex", alignItems: "center", mb: 0.5 }}>
           {/* Icon before name */}
-          <Tooltip title={statusTooltip} placement="right">
-            {activeStatus ? (
+          <Tooltip title={statusPresentation.tooltip} placement="right">
+            {statusPresentation.isActive ? (
               <CheckCircleIcon
-                sx={{ color: activeCheckColor, mr: 1, fontSize: "1.5rem", verticalAlign: "middle" }}
+                sx={{
+                  color: statusPresentation.color,
+                  mr: 1,
+                  fontSize: "1.5rem",
+                  verticalAlign: "middle",
+                }}
               />
             ) : (
-              <CancelIcon sx={{ color: "#bdbdbd", mr: 1, fontSize: "1.5rem", verticalAlign: "middle" }} />
+              <CancelIcon
+                sx={{
+                  color: statusPresentation.color,
+                  mr: 1,
+                  fontSize: "1.5rem",
+                  verticalAlign: "middle",
+                }}
+              />
             )}
           </Tooltip>
           <ProfileName variant="h1" sx={{ mb: 0, mr: 2, display: "flex", alignItems: "center" }}>

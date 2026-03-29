@@ -81,6 +81,7 @@ import RouteExportOptions, {
   RouteExportOption,
   RouteExportScope,
 } from "./components/RouteExportOptions";
+import { getClientStatusPresentation } from "../../utils/clientStatus";
 import LoadingIndicator from "../../components/LoadingIndicator/LoadingIndicator";
 import { exportDeliveries, exportDoordashDeliveries, ExportFeedback } from "./RouteExport";
 import Button from "@mui/material/Button";
@@ -2362,7 +2363,9 @@ const DeliverySpreadsheet: React.FC = () => {
       const activeStatus =
         typeof enrichedContextClient?.activeStatus === "boolean"
           ? enrichedContextClient.activeStatus
-          : Boolean((client as Record<string, unknown>).activeStatus);
+          : typeof (client as Record<string, unknown>).activeStatus === "boolean"
+            ? ((client as Record<string, unknown>).activeStatus as boolean)
+            : true;
 
       const missedStrikeCount =
         typeof enrichedContextClient?.missedStrikeCount === "number"
@@ -3115,36 +3118,26 @@ const DeliverySpreadsheet: React.FC = () => {
 
                             if (field.key === "fullname") {
                               const rowRecord = row as Record<string, unknown>;
-                              const isActiveProfile = Boolean(rowRecord.activeStatus);
                               const missedStrikeCount =
                                 typeof rowRecord.missedStrikeCount === "number"
                                   ? rowRecord.missedStrikeCount
                                   : undefined;
+                              const statusPresentation = getClientStatusPresentation(
+                                Boolean(rowRecord.activeStatus),
+                                missedStrikeCount
+                              );
 
-                              const statusTooltip = isActiveProfile
-                                ? missedStrikeCount === 1
-                                  ? "1 missed delivery"
-                                  : missedStrikeCount !== undefined && missedStrikeCount >= 2
-                                    ? "2 missed deliveries"
-                                    : "Active profile, no missed deliveries"
-                                : "Inactive profile";
-
-                              const statusIcon = isActiveProfile ? (
+                              const statusIcon = statusPresentation.isActive ? (
                                 <CheckCircleIcon
                                   sx={{
-                                    color:
-                                      missedStrikeCount === 1
-                                        ? "#fbc02d"
-                                        : missedStrikeCount !== undefined && missedStrikeCount >= 2
-                                          ? "#d32f2f"
-                                          : "#4caf50",
+                                    color: statusPresentation.color,
                                     fontSize: "1.1rem",
                                   }}
                                 />
                               ) : (
                                 <CancelIcon
                                   sx={{
-                                    color: "#bdbdbd",
+                                    color: statusPresentation.color,
                                     fontSize: "1.1rem",
                                   }}
                                 />
@@ -3160,7 +3153,7 @@ const DeliverySpreadsheet: React.FC = () => {
                                     gap: "4px",
                                   }}
                                 >
-                                  <Tooltip title={statusTooltip} placement="right">
+                                  <Tooltip title={statusPresentation.tooltip} placement="right">
                                     <span
                                       style={{
                                         display: "inline-flex",

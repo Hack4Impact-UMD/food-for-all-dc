@@ -73,6 +73,7 @@ import HealthConditionsForm from "./components/HealthConditionsForm";
 import HealthCheckbox from "./components/HealthCheckbox";
 import { buildHouseholdSnapshot } from "../../utils/householdSnapshot";
 import { deliveryDate } from "../../utils/deliveryDate";
+import { computeClientActiveStatus } from "../../utils/clientStatus";
 import { toJSDate } from "../../utils/timestamp";
 
 const fieldStyles = {
@@ -1380,21 +1381,10 @@ const Profile = () => {
       const normalizedEndDate = convertDateForSave(cleanedProfile.endDate);
       const normalizedStartDateISO = deliveryDate.tryToISODateString(normalizedStartDate);
       const normalizedEndDateISO = deliveryDate.tryToISODateString(normalizedEndDate);
-
-      const today = TimeUtils.now().startOf("day");
-      const startDateTime = normalizedStartDateISO
-        ? TimeUtils.fromAny(normalizedStartDateISO).startOf("day")
-        : null;
-      const endDateTime = normalizedEndDateISO
-        ? TimeUtils.fromAny(normalizedEndDateISO).startOf("day")
-        : null;
-      let activeStatus = false;
-      if (startDateTime?.isValid) {
-        const todayMillis = today.toMillis();
-        activeStatus =
-          todayMillis >= startDateTime.toMillis() &&
-          (!endDateTime?.isValid || todayMillis <= endDateTime.toMillis());
-      }
+      const activeStatus = computeClientActiveStatus(
+        normalizedStartDateISO,
+        normalizedEndDateISO
+      );
 
       const updatedProfile: ClientProfile = {
         ...cleanedProfile,
@@ -1426,22 +1416,24 @@ const Profile = () => {
         activeStatus,
       };
 
-      const normalizedPreviousEndDate = prevClientProfile?.endDate
-        ? deliveryDate.tryToISODateString(prevClientProfile.endDate)
+      const previousProfile = prevClientProfile ?? clientProfile;
+      const normalizedPreviousStartDateISO = previousProfile.startDate
+        ? deliveryDate.tryToISODateString(previousProfile.startDate)
         : null;
-      const normalizedUpdatedEndDate = updatedProfile.endDate
-        ? deliveryDate.tryToISODateString(updatedProfile.endDate)
+      const normalizedPreviousEndDateISO = previousProfile.endDate
+        ? deliveryDate.tryToISODateString(previousProfile.endDate)
         : null;
-      // Trigger cleanup whenever the profile still carries a three-strikes flag and the end date changed
-      const isThreeStrikesProfile =
-        clientProfile.autoInactiveReason === "three-strikes" ||
-        prevClientProfile?.autoInactiveReason === "three-strikes";
-      const isReactivationWithNewEndDate =
-        isThreeStrikesProfile &&
-        !!normalizedUpdatedEndDate &&
-        normalizedUpdatedEndDate !== normalizedPreviousEndDate;
+      const wasThreeStrikesInactive =
+        previousProfile.autoInactiveReason === "three-strikes" ||
+        clientProfile.autoInactiveReason === "three-strikes";
+      const previousActiveStatus = computeClientActiveStatus(
+        normalizedPreviousStartDateISO,
+        normalizedPreviousEndDateISO
+      );
+      const isThreeStrikesReactivation =
+        wasThreeStrikesInactive && !previousActiveStatus && activeStatus;
 
-      if (isReactivationWithNewEndDate) {
+      if (isThreeStrikesReactivation) {
         updatedProfile.autoInactiveReason = null;
         updatedProfile.autoInactivePreviousEndDate = null;
         updatedProfile.autoInactiveStrikeDate = null;
@@ -1491,7 +1483,7 @@ const Profile = () => {
           alert("Error: Cannot update profile, client ID is missing.");
           throw new Error("Client UID is missing for update.");
         }
-        const previousEndDate = prevClientProfile?.endDate || null;
+        const previousEndDate = previousProfile.endDate || null;
         let cleanupErrorMessage: string | null = null;
         // Save to Firestore for existing profile (DO NOT normalize fields for saving)
         await setDoc(
@@ -1512,7 +1504,7 @@ const Profile = () => {
             previousEndDate
           );
 
-          if (isReactivationWithNewEndDate) {
+          if (isThreeStrikesReactivation) {
             await DeliveryService.getInstance().deleteMissedEventsByClientId(clientProfile.uid);
           }
         } catch (error) {
@@ -2691,6 +2683,22 @@ const Profile = () => {
     }
   };
 
+  const reconcileMissedDeliveryState = useCallback(async () => {
+    try {
+      if (refresh) {
+        await refresh();
+      }
+    } catch (error) {
+      console.error("Error refreshing client data after delivery update failure:", error);
+    }
+
+    try {
+      await refreshDeliveryData();
+    } catch (error) {
+      console.error("Error refreshing delivery data after delivery update failure:", error);
+    }
+  }, [refresh, refreshDeliveryData]);
+
   const handleMarkDeliveryMissed = useCallback(
     async (delivery: DeliveryEvent) => {
       if (!clientId || !delivery.id) {
@@ -2698,61 +2706,69 @@ const Profile = () => {
       }
 
       const deliveryService = DeliveryService.getInstance();
-      await deliveryService.updateEvent(delivery.id, { deliveryStatus: "Missed" } as Partial<DeliveryEvent>);
+      try {
+        await deliveryService.updateEvent(delivery.id, {
+          deliveryStatus: "Missed",
+        } as Partial<DeliveryEvent>);
 
-      const allEvents = await deliveryService.getEventsByClientId(clientId);
-      const missedEvents = allEvents
-        .filter((event) => event.deliveryStatus === "Missed")
-        .sort(
-          (left, right) =>
-            toJSDate(left.deliveryDate).getTime() - toJSDate(right.deliveryDate).getTime()
-        );
+        const allEvents = await deliveryService.getEventsByClientId(clientId);
+        const missedEvents = allEvents
+          .filter((event) => event.deliveryStatus === "Missed")
+          .sort(
+            (left, right) =>
+              toJSDate(left.deliveryDate).getTime() - toJSDate(right.deliveryDate).getTime()
+          );
 
-      if (missedEvents.length >= 3) {
-        const strikeDate = deliveryDate.toISODateString(missedEvents[2].deliveryDate);
-        const previousEndDate =
-          clientProfile.autoInactiveReason === "three-strikes"
-            ? clientProfile.autoInactivePreviousEndDate || clientProfile.endDate || null
-            : clientProfile.endDate || null;
+        if (missedEvents.length >= 3) {
+          const strikeDate = deliveryDate.toISODateString(missedEvents[2].deliveryDate);
+          const previousEndDate =
+            clientProfile.autoInactiveReason === "three-strikes"
+              ? clientProfile.autoInactivePreviousEndDate || clientProfile.endDate || null
+              : clientProfile.endDate || null;
 
-        await setDoc(
-          doc(db, dataSources.firebase.clientsCollection, clientId),
-          {
+          await setDoc(
+            doc(db, dataSources.firebase.clientsCollection, clientId),
+            {
+              endDate: strikeDate,
+              activeStatus: false,
+              autoInactiveReason: "three-strikes",
+              autoInactivePreviousEndDate: previousEndDate,
+              autoInactiveStrikeDate: strikeDate,
+              updatedAt: new Date(),
+            },
+            { merge: true }
+          );
+
+          await deliveryService.enforceClientEndDate(clientId, strikeDate, previousEndDate);
+
+          setClientProfile((prev) => ({
+            ...prev,
             endDate: strikeDate,
             activeStatus: false,
             autoInactiveReason: "three-strikes",
             autoInactivePreviousEndDate: previousEndDate,
             autoInactiveStrikeDate: strikeDate,
-            updatedAt: new Date(),
-          },
-          { merge: true }
-        );
+          }));
+        }
 
-        await deliveryService.enforceClientEndDate(clientId, strikeDate, previousEndDate);
+        if (refresh) {
+          await refresh();
+        }
+        localStorage.setItem("forceClientsRefresh", "true");
 
-        setClientProfile((prev) => ({
-          ...prev,
-          endDate: strikeDate,
-          activeStatus: false,
-          autoInactiveReason: "three-strikes",
-          autoInactivePreviousEndDate: previousEndDate,
-          autoInactiveStrikeDate: strikeDate,
-        }));
-
+        await refreshDeliveryData();
+      } catch (error) {
+        console.error("Error marking delivery missed:", error);
+        await reconcileMissedDeliveryState();
+        throw error;
       }
-
-      if (refresh) {
-        await refresh();
-      }
-      localStorage.setItem("forceClientsRefresh", "true");
-
-      await refreshDeliveryData();
     },
     [
       clientId,
       clientProfile.autoInactivePreviousEndDate,
       clientProfile.autoInactiveReason,
       clientProfile.endDate,
+      reconcileMissedDeliveryState,
       refresh,
       refreshDeliveryData,
     ]
@@ -2765,73 +2781,67 @@ const Profile = () => {
       }
 
       const deliveryService = DeliveryService.getInstance();
-      await deliveryService.updateEvent(delivery.id, {
-        deliveryStatus: "Scheduled",
-      } as Partial<DeliveryEvent>);
+      try {
+        await deliveryService.updateEvent(delivery.id, {
+          deliveryStatus: "Scheduled",
+        } as Partial<DeliveryEvent>);
 
-      const allEvents = await deliveryService.getEventsByClientId(clientId);
-      const missedEvents = allEvents
-        .filter((event) => event.deliveryStatus === "Missed")
-        .sort(
-          (left, right) =>
-            toJSDate(left.deliveryDate).getTime() - toJSDate(right.deliveryDate).getTime()
-        );
+        const allEvents = await deliveryService.getEventsByClientId(clientId);
+        const missedEvents = allEvents
+          .filter((event) => event.deliveryStatus === "Missed")
+          .sort(
+            (left, right) =>
+              toJSDate(left.deliveryDate).getTime() - toJSDate(right.deliveryDate).getTime()
+          );
 
-      if (missedEvents.length < 3 && clientProfile.autoInactiveReason === "three-strikes") {
-        const restoredEndDate = clientProfile.autoInactivePreviousEndDate || clientProfile.endDate;
-        const today = TimeUtils.now().startOf("day");
-        const startDateTime = clientProfile.startDate
-          ? TimeUtils.fromAny(clientProfile.startDate).startOf("day")
-          : null;
-        const endDateTime = restoredEndDate
-          ? TimeUtils.fromAny(restoredEndDate).startOf("day")
-          : null;
+        if (missedEvents.length < 3 && clientProfile.autoInactiveReason === "three-strikes") {
+          const restoredEndDate = clientProfile.autoInactivePreviousEndDate ?? null;
+          const activeStatus = computeClientActiveStatus(
+            clientProfile.startDate,
+            restoredEndDate
+          );
 
-        let activeStatus = false;
-        if (startDateTime?.isValid) {
-          const todayMillis = today.toMillis();
-          activeStatus =
-            todayMillis >= startDateTime.toMillis() &&
-            (!endDateTime?.isValid || todayMillis <= endDateTime.toMillis());
-        }
+          await setDoc(
+            doc(db, dataSources.firebase.clientsCollection, clientId),
+            {
+              endDate: restoredEndDate,
+              activeStatus,
+              autoInactiveReason: null,
+              autoInactivePreviousEndDate: null,
+              autoInactiveStrikeDate: null,
+              updatedAt: new Date(),
+            },
+            { merge: true }
+          );
 
-        await setDoc(
-          doc(db, dataSources.firebase.clientsCollection, clientId),
-          {
-            endDate: restoredEndDate,
+          setClientProfile((prev) => ({
+            ...prev,
+            endDate: restoredEndDate ?? "",
             activeStatus,
             autoInactiveReason: null,
             autoInactivePreviousEndDate: null,
             autoInactiveStrikeDate: null,
-            updatedAt: new Date(),
-          },
-          { merge: true }
-        );
+          }));
+        }
 
-        setClientProfile((prev) => ({
-          ...prev,
-          endDate: restoredEndDate,
-          activeStatus,
-          autoInactiveReason: null,
-          autoInactivePreviousEndDate: null,
-          autoInactiveStrikeDate: null,
-        }));
+        if (refresh) {
+          await refresh();
+        }
+        localStorage.setItem("forceClientsRefresh", "true");
 
+        await refreshDeliveryData();
+      } catch (error) {
+        console.error("Error restoring missed delivery:", error);
+        await reconcileMissedDeliveryState();
+        throw error;
       }
-
-      if (refresh) {
-        await refresh();
-      }
-      localStorage.setItem("forceClientsRefresh", "true");
-
-      await refreshDeliveryData();
     },
     [
       clientId,
       clientProfile.autoInactivePreviousEndDate,
       clientProfile.autoInactiveReason,
-      clientProfile.endDate,
       clientProfile.startDate,
+      reconcileMissedDeliveryState,
       refresh,
       refreshDeliveryData,
     ]

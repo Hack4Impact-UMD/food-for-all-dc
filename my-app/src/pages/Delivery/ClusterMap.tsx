@@ -13,6 +13,7 @@ import {
   resolveAssignmentValue,
 } from "./utils/assignmentOverrides";
 import { TIME_SLOT_LABELS } from "./utils/timeSlots";
+import { getClientStatusPresentation } from "../../utils/clientStatus";
 
 interface Driver {
   id: string;
@@ -714,30 +715,14 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
 
       const coord = normalizeCoordinate(client.coordinates);
       const clientName = `${client.firstName} ${client.lastName}` || "Client: None";
-      const isActiveProfile = client.activeStatus === true;
-      const missedStrikeCount =
-        typeof client.missedStrikeCount === "number" ? client.missedStrikeCount : 0;
-      const statusTooltip = isActiveProfile
-        ? missedStrikeCount === 1
-          ? "1 missed delivery"
-          : missedStrikeCount >= 2
-            ? "2 missed deliveries"
-            : "Active profile, no missed deliveries"
-        : "Inactive profile";
-      const statusColor = isActiveProfile
-        ? missedStrikeCount === 1
-          ? "#fbc02d"
-          : missedStrikeCount >= 2
-            ? "#d32f2f"
-            : "#4caf50"
-        : "#bdbdbd";
-      const statusIconSvgPath = isActiveProfile
-        ? "M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"
-        : "M12 2C6.47 2 2 6.47 2 12s4.47 10 10 10 10-4.47 10-10S17.53 2 12 2zm5 13.59L15.59 17 12 13.41 8.41 17 7 15.59 10.59 12 7 8.41 8.41 7 12 10.59 15.59 7 17 8.41 13.41 12 17 15.59z";
-      const statusIconSvg = `<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false" style="display:block;fill:${statusColor};"><path d="${statusIconSvgPath}"></path></svg>`;
+      const statusPresentation = getClientStatusPresentation(
+        client.activeStatus === false ? false : true,
+        client.missedStrikeCount
+      );
+      const statusIconSvg = `<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false" style="display:block;fill:${statusPresentation.color};"><path d="${statusPresentation.iconPath}"></path></svg>`;
       const clientNameWithStatus = `
         <span style="display: inline-flex; align-items: center;">
-          <span title="${statusTooltip}" style="display: inline-flex; align-items: center; justify-content: center; width: 18px; min-width: 18px; margin-right: 4px; line-height: 1;">${statusIconSvg}</span>
+          <span title="${statusPresentation.tooltip}" style="display: inline-flex; align-items: center; justify-content: center; width: 18px; min-width: 18px; margin-right: 4px; line-height: 1;">${statusIconSvg}</span>
           <span>${clientName}</span>
         </span>
       `;

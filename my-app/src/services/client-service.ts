@@ -1,11 +1,11 @@
 import { db } from "../auth/firebaseConfig";
-import type { DateTime } from "luxon";
 import { ClientProfile } from "../types";
 import type { RowData } from "../components/Spreadsheet/export";
 import { LatLngTuple } from "leaflet";
 import { Time, TimeUtils } from "../utils/timeUtils";
 import { retry } from "../utils/retry";
 import { ServiceError, formatServiceError } from "../utils/serviceError";
+import { computeClientActiveStatus } from "../utils/clientStatus";
 import {
   collection,
   doc,
@@ -21,27 +21,8 @@ import {
   limit as fbLimit,
   startAfter,
 } from "firebase/firestore";
-import type { Timestamp } from "firebase/firestore";
 import { validateClientProfile } from "../utils/firestoreValidation";
 import dataSources from "../config/dataSources";
-
-const computeActiveStatus = (
-  startDate: string | Date | DateTime | Timestamp | null | undefined,
-  endDate: string | Date | DateTime | Timestamp | null | undefined
-): boolean => {
-  const today = TimeUtils.now().startOf("day");
-  const startDateTime = startDate ? TimeUtils.fromAny(startDate).startOf("day") : null;
-  if (!startDateTime?.isValid) return false;
-
-  const endDateTime = endDate ? TimeUtils.fromAny(endDate).startOf("day") : null;
-  const todayMillis = today.toMillis();
-
-  if (endDateTime?.isValid) {
-    return todayMillis >= startDateTime.toMillis() && todayMillis <= endDateTime.toMillis();
-  }
-
-  return todayMillis >= startDateTime.toMillis();
-};
 
 /**
  * Client Service - Handles all client-related operations with Firebase
@@ -106,7 +87,7 @@ class ClientService {
           const deliveryDetails = raw.deliveryDetails || {};
           const dietaryRestrictions = deliveryDetails.dietaryRestrictions || {};
 
-          const activeStatus = computeActiveStatus(raw.startDate, raw.endDate);
+          const activeStatus = computeClientActiveStatus(raw.startDate, raw.endDate);
 
           const mapped: ClientProfile = {
             uid: doc.id,
@@ -167,6 +148,9 @@ class ClientService {
             recurrence: raw.recurrence || "None",
             tefapCert: raw.tefapCert || "",
             clusterID: raw.clusterID || undefined,
+            autoInactiveReason: raw.autoInactiveReason ?? null,
+            autoInactivePreviousEndDate: raw.autoInactivePreviousEndDate ?? null,
+            autoInactiveStrikeDate: raw.autoInactiveStrikeDate ?? null,
             physicalAilments: raw.physicalAilments || "",
             physicalDisability: raw.physicalDisability || "",
             mentalHealthConditions: raw.mentalHealthConditions || "",
@@ -230,7 +214,7 @@ class ClientService {
         const snapshot = await getDocs(emptyQuery);
         const mapped = snapshot.docs.map((doc) => {
           const data = doc.data() as any;
-          const activeStatus = computeActiveStatus(data.startDate, data.endDate);
+          const activeStatus = computeClientActiveStatus(data.startDate, data.endDate);
           return {
             uid: doc.id,
             firstName: data.firstName || "",
@@ -257,7 +241,7 @@ class ClientService {
       const mapped = snapshot.docs
         .map((doc) => {
           const data = doc.data() as any;
-          const activeStatus = computeActiveStatus(data.startDate, data.endDate);
+          const activeStatus = computeClientActiveStatus(data.startDate, data.endDate);
           return {
             uid: doc.id,
             firstName: data.firstName || "",
@@ -310,19 +294,20 @@ class ClientService {
         const clients = snapshot.docs.map((doc) => {
           const raw = doc.data() as any;
           const rawFamStartDate = raw.famStartDate;
-          let famStartDate = "";
-          if (typeof rawFamStartDate === "string") {
-            famStartDate = rawFamStartDate;
-          } else if (rawFamStartDate && typeof rawFamStartDate?.toDate === "function") {
-            famStartDate = rawFamStartDate.toDate().toISOString().slice(0, 10);
-          } else if (
-            rawFamStartDate &&
-            typeof rawFamStartDate === "object" &&
-            "seconds" in rawFamStartDate &&
-            typeof rawFamStartDate.seconds === "number"
-          ) {
-            famStartDate = new Date(rawFamStartDate.seconds * 1000).toISOString().slice(0, 10);
-          }
+          const normalizedFamStartDate = rawFamStartDate
+            ? typeof rawFamStartDate?.toDate === "function"
+              ? rawFamStartDate.toDate()
+              : typeof rawFamStartDate === "object" &&
+                  rawFamStartDate !== null &&
+                  "seconds" in rawFamStartDate &&
+                  typeof (rawFamStartDate as { seconds?: unknown }).seconds === "number"
+                ? new Date((rawFamStartDate as { seconds: number }).seconds * 1000)
+                : rawFamStartDate
+            : null;
+          const famStartDateTime = rawFamStartDate
+            ? TimeUtils.fromAny(normalizedFamStartDate)
+            : null;
+          const famStartDate = famStartDateTime?.isValid ? famStartDateTime.toISODate() ?? "" : "";
           // Find latest delivery date for this client
           const clientDeliveries = allDeliveries.filter(
             (d: any) => d.clientId === doc.id && d.deliveryDate
@@ -346,16 +331,7 @@ class ClientService {
               : latest.deliveryDate;
             lastDeliveryDate = dateObj ? dateObj.toISOString().slice(0, 10) : "";
           }
-          // Calculate activeStatus based on startDate and endDate
-          let activeStatus = false;
-          const todayDate = TimeUtils.now().startOf("day");
-          const startDateTime = raw.startDate ? TimeUtils.fromAny(raw.startDate).startOf("day") : null;
-          const endDateTime = raw.endDate ? TimeUtils.fromAny(raw.endDate).startOf("day") : null;
-          if (startDateTime?.isValid && endDateTime?.isValid) {
-            const todayMillis = todayDate.toMillis();
-            activeStatus =
-              todayMillis >= startDateTime.toMillis() && todayMillis <= endDateTime.toMillis();
-          }
+          const activeStatus = computeClientActiveStatus(raw.startDate, raw.endDate);
           const mapped = {
             id: doc.id,
             uid: doc.id,
