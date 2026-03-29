@@ -2273,9 +2273,13 @@ const DeliverySpreadsheet: React.FC = () => {
       return;
     }
 
-    const contextClientById = new Map(
-      clientsFromContext.map((client) => [client.uid || client.id, client])
-    );
+    const contextClientById = new Map<string, (typeof clientsFromContext)[number]>();
+    clientsFromContext.forEach((client) => {
+      contextClientById.set(client.id, client);
+      if (client.uid && client.uid !== client.id) {
+        contextClientById.set(client.uid, client);
+      }
+    });
 
     const synchronizedRows = rawClientData.map((client) => {
       let assignedClusterId = "";
