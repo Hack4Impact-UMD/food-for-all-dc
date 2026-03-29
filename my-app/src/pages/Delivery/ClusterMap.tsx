@@ -37,7 +37,7 @@ interface Client {
 }
 
 interface Cluster {
-  id: string;
+  id: string | number;
   driver?: string;
   time?: string;
   deliveries: string[];
