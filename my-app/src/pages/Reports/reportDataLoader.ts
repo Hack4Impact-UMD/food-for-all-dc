@@ -68,8 +68,8 @@ const mapReportClient = (docSnapshot: QueryDocumentSnapshot): ReportClientRecord
     seniors: asNumber(raw.seniors),
     total: asNumber(raw.total),
     referredDate: asString(raw.referredDate) || undefined,
-    startDate: raw.startDate,
-    endDate: raw.endDate,
+    startDate: (raw.startDate as string | Date | Timestamp | DateTime | null | undefined) ?? null,
+    endDate: (raw.endDate as string | Date | Timestamp | DateTime | null | undefined) ?? null,
     referralEntity: referralEntity
       ? {
           id:
@@ -244,4 +244,53 @@ export const loadFirstDeliveriesByClientIds = async (
   });
 
   return firstDeliveriesByClientId;
+};
+
+export const loadLatestPastDeliveryDatesByClientIds = async (
+  clientIds: string[],
+  today = DateTime.now().endOf("day")
+): Promise<Map<string, string>> => {
+  const latestPastDeliveryDatesByClientId = new Map<string, string>();
+  const uniqueClientIds = Array.from(new Set(clientIds.filter(Boolean)));
+
+  if (uniqueClientIds.length === 0) {
+    return latestPastDeliveryDatesByClientId;
+  }
+
+  const clientChunks = chunkArray(uniqueClientIds, FIRESTORE_IN_QUERY_LIMIT);
+  const snapshots = await Promise.all(
+    clientChunks.map((chunk) =>
+      getDocs(
+        query(
+          collection(db, dataSources.firebase.calendarCollection),
+          where("clientId", "in", chunk),
+          where("deliveryDate", "<=", Timestamp.fromDate(today.toJSDate())),
+          orderBy("deliveryDate", "desc")
+        )
+      )
+    )
+  );
+
+  snapshots.forEach((snapshot) => {
+    snapshot.docs.forEach((docSnapshot) => {
+      const event = mapReportDelivery(docSnapshot);
+
+      if (
+        !event ||
+        !event.clientId ||
+        latestPastDeliveryDatesByClientId.has(event.clientId)
+      ) {
+        return;
+      }
+
+      const deliveryDateKey = event.deliveryDate.toISODate();
+      if (!deliveryDateKey) {
+        return;
+      }
+
+      latestPastDeliveryDatesByClientId.set(event.clientId, deliveryDateKey);
+    });
+  });
+
+  return latestPastDeliveryDatesByClientId;
 };
