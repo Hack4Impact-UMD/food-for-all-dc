@@ -527,6 +527,21 @@ class DeliveryService {
    * Delete only missed delivery events for a client
    */
   public async deleteMissedEventsByClientId(clientId: string): Promise<void> {
+    const successfulImpactedDateKeys = new Set<string>();
+    const reconcileSuccessfulDeletes = async () => {
+      if (!successfulImpactedDateKeys.size) {
+        return;
+      }
+
+      const impactedDateKeys = Array.from(successfulImpactedDateKeys);
+      this.clearDateRangeCache();
+      const invalidationResult =
+        await this.reconcileClusterAssignmentsForDateKeys(impactedDateKeys);
+      this.emitDeliveryChange("schedule-batch-deleted", impactedDateKeys, invalidationResult);
+    };
+
+    let deleteError: unknown = null;
+
     try {
       const q = query(
         collection(this.db, this.eventsCollection),
@@ -545,13 +560,6 @@ class DeliveryService {
         return;
       }
 
-      const impactedDateKeys = this.normalizeDateKeys(
-        missedDocs.map((docSnap) => {
-          const data = docSnap.data();
-          return data.deliveryDate ? deliveryDate.toISODateString(data.deliveryDate) : null;
-        })
-      );
-
       for (let i = 0; i < missedDocs.length; i += MAX_BATCH_WRITE_COUNT) {
         const chunk = missedDocs.slice(i, i + MAX_BATCH_WRITE_COUNT);
         await retry(async () => {
@@ -559,14 +567,37 @@ class DeliveryService {
           chunk.forEach((docSnap) => batch.delete(docSnap.ref));
           await batch.commit();
         });
-      }
 
-      this.clearDateRangeCache();
-      const invalidationResult =
-        await this.reconcileClusterAssignmentsForDateKeys(impactedDateKeys);
-      this.emitDeliveryChange("schedule-batch-deleted", impactedDateKeys, invalidationResult);
+        this.normalizeDateKeys(
+          chunk.map((docSnap) => {
+            const data = docSnap.data();
+            return data.deliveryDate ? deliveryDate.toISODateString(data.deliveryDate) : null;
+          })
+        ).forEach((dateKey) => successfulImpactedDateKeys.add(dateKey));
+      }
     } catch (error) {
-      throw formatServiceError(error, "Failed to delete missed deliveries for client");
+      deleteError = error;
+    }
+
+    let reconcileError: unknown = null;
+    try {
+      await reconcileSuccessfulDeletes();
+    } catch (error) {
+      reconcileError = error;
+    }
+
+    if (deleteError) {
+      if (reconcileError) {
+        console.error(
+          "Error reconciling partially deleted missed deliveries:",
+          reconcileError
+        );
+      }
+      throw formatServiceError(deleteError, "Failed to delete missed deliveries for client");
+    }
+
+    if (reconcileError) {
+      throw formatServiceError(reconcileError, "Failed to delete missed deliveries for client");
     }
   }
   private static instance: DeliveryService;

@@ -327,8 +327,8 @@ const DeliveryLogForm: React.FC<DeliveryLogProps> = ({
       // Simply call onRestoreMissedDelivery (which removes "Missed" status) to move to past.
       await onRestoreMissedDelivery(deliveryToMove);
       await loadMissedDeliveries();
-      // Reload futureDeliveries to reflect any changes from removal of Missed status.
-      await fetchFutureDeliveries();
+      // Refresh future deliveries in case the parent refresh has not propagated yet.
+      await refreshFutureDeliveries(clientId);
       setDropError("");
     } catch (error) {
       console.error("Error restoring missed delivery to previous:", error);
@@ -349,43 +349,53 @@ const DeliveryLogForm: React.FC<DeliveryLogProps> = ({
     setConfirmDelete(true);
   };
 
-  const fetchFutureDeliveries = async () => {
-    try {
-      if (!selectedDelivery?.clientId) {
-        return;
+  const refreshFutureDeliveries = useCallback(
+    async (
+      targetClientId: string,
+      previousIds: string[] = futureDeliveriesState.map((delivery) => delivery.id)
+    ) => {
+      try {
+        if (!targetClientId) {
+          return;
+        }
+
+        const allEvents = await deliveryService.getEventsByClientId(targetClientId);
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+        const futureDeliveries = sortDeliveryDates(
+          allEvents.filter((event) => toJSDate(event.deliveryDate) >= today)
+        );
+
+        const newDeliveries = futureDeliveries.filter(
+          (delivery) => !previousIds.includes(delivery.id)
+        );
+
+        setFutureDeliveries(
+          futureDeliveries.map((delivery) => ({
+            ...delivery,
+            hidden: newDeliveries.some((newDelivery) => newDelivery.id === delivery.id),
+          }))
+        );
+
+        setTimeout(() => {
+          newDeliveries.forEach((delivery) => {
+            setZoomingInChipId(delivery.id);
+            setFutureDeliveries((prev) =>
+              prev.map((d) => (d.id === delivery.id ? { ...d, hidden: false } : d))
+            );
+
+            setTimeout(() => {
+              setZoomingInChipId(null);
+            }, 1200);
+          });
+        }, 100);
+      } catch (error) {
+        console.error("Error fetching future deliveries:", error);
       }
-
-      const allEvents = await deliveryService.getEventsByClientId(selectedDelivery.clientId);
-      const now = new Date();
-      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-
-      const futureDeliveries = sortDeliveryDates(
-        allEvents.filter((event) => toJSDate(event.deliveryDate) >= today)
-      );
-
-      const currentIds = futureDeliveriesState.map((delivery) => delivery.id);
-      const newDeliveries = futureDeliveries.filter(
-        (delivery) => !currentIds.includes(delivery.id)
-      );
-
-      setFutureDeliveries(futureDeliveries.map((delivery) => ({ ...delivery, hidden: true })));
-
-      setTimeout(() => {
-        newDeliveries.forEach((delivery) => {
-          setZoomingInChipId(delivery.id);
-          setFutureDeliveries((prev) =>
-            prev.map((d) => (d.id === delivery.id ? { ...d, hidden: false } : d))
-          );
-
-          setTimeout(() => {
-            setZoomingInChipId(null);
-          }, 1200);
-        });
-      }, 100);
-    } catch (error) {
-      console.error("Error fetching future deliveries:", error);
-    }
-  };
+    },
+    [deliveryService, futureDeliveriesState]
+  );
 
   const handleConfirmDelete = async () => {
     if (selectedDelivery) {
@@ -407,40 +417,8 @@ const DeliveryLogForm: React.FC<DeliveryLogProps> = ({
             console.error("Error notifying parent of delivery deletion:", parentError);
           }
 
-          const allEvents = await deliveryService.getEventsByClientId(selectedDelivery.clientId);
-          const now = new Date();
-          const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-
-          const futureDeliveries = sortDeliveryDates(
-            allEvents.filter((event) => toJSDate(event.deliveryDate) >= today)
-          );
-
           const currentIdsWithoutDeleted = currentIds.filter((id) => id !== selectedDelivery.id);
-          const newDeliveries = futureDeliveries.filter(
-            (delivery) => !currentIdsWithoutDeleted.includes(delivery.id)
-          );
-
-          setFutureDeliveries(
-            futureDeliveries.map((delivery) => ({
-              ...delivery,
-              hidden: newDeliveries.some((newDel) => newDel.id === delivery.id),
-            }))
-          );
-
-          if (newDeliveries.length > 0) {
-            setTimeout(() => {
-              newDeliveries.forEach((delivery) => {
-                setZoomingInChipId(delivery.id);
-                setFutureDeliveries((prev) =>
-                  prev.map((d) => (d.id === delivery.id ? { ...d, hidden: false } : d))
-                );
-
-                setTimeout(() => {
-                  setZoomingInChipId(null);
-                }, 1200);
-              });
-            }, 100);
-          }
+          await refreshFutureDeliveries(selectedDelivery.clientId, currentIdsWithoutDeleted);
         } catch (error) {
           console.error("Error deleting delivery:", error);
         }
