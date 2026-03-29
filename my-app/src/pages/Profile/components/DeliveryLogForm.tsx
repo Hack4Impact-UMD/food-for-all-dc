@@ -5,11 +5,8 @@ import {
   Chip,
   Stack,
   Alert,
-  IconButton,
-  Tooltip,
+  Button,
 } from "@mui/material";
-import ReportProblemOutlinedIcon from "@mui/icons-material/ReportProblemOutlined";
-import UndoOutlinedIcon from "@mui/icons-material/UndoOutlined";
 import ConfirmationModal from "../../../components/ConfirmationModal";
 import { DeliveryEvent } from "../../../types";
 import DeliveryService from "../../../services/delivery-service";
@@ -41,10 +38,8 @@ const DeliveryLogForm: React.FC<DeliveryLogProps> = ({
 }) => {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [selectedDelivery, setSelectedDelivery] = useState<DeliveryEvent | null>(null);
-  const [deletingChipId, setDeletingChipId] = useState<string | null>(null);
   const [futureDeliveriesState, setFutureDeliveries] =
     useState<DeliveryEventWithHidden[]>(futureDeliveries);
-  const [zoomingInChipId, setZoomingInChipId] = useState<string | null>(null);
   const [missedDeliveries, setMissedDeliveries] = useState<DeliveryEvent[]>([]);
   const [draggedDelivery, setDraggedDelivery] = useState<DeliveryEvent | null>(null);
   const [draggedSource, setDraggedSource] = useState<"past" | "future" | "missed" | null>(
@@ -86,19 +81,20 @@ const DeliveryLogForm: React.FC<DeliveryLogProps> = ({
   };
 
   const isDragging = draggedDelivery !== null;
-  const canDropToUpcoming =
-    isDragging &&
-    draggedSource === "missed" &&
-    draggedDelivery !== null &&
-    isToday(draggedDelivery.deliveryDate);
+  const canDropToUpcoming = isDragging && draggedSource === "missed" && draggedDelivery !== null && isToday(draggedDelivery.deliveryDate);
   const canDropToMissed = isDragging && (draggedSource === "past" || draggedSource === "future");
-  const canDropToPrevious =
-    isDragging &&
-    draggedSource === "missed" &&
-    draggedDelivery !== null &&
-    !isToday(draggedDelivery.deliveryDate);
+  const canDropToPrevious = isDragging && draggedSource === "missed" && draggedDelivery !== null && !isToday(draggedDelivery.deliveryDate);
 
   const canDragFromUpcoming = (delivery: DeliveryEvent) => isToday(delivery.deliveryDate);
+  const moveActionSx = {
+    minWidth: "auto",
+    px: 1,
+    py: 0.25,
+    borderRadius: "999px",
+    fontSize: "0.75rem",
+    lineHeight: 1.2,
+    textTransform: "none",
+  } as const;
 
   const loadMissedDeliveries = useCallback(async () => {
     if (!clientId) {
@@ -115,11 +111,7 @@ const DeliveryLogForm: React.FC<DeliveryLogProps> = ({
     }
   }, [clientId, deliveryService]);
 
-  const handleDragStart = (
-    delivery: DeliveryEvent,
-    source: "past" | "future" | "missed",
-    event: React.DragEvent
-  ) => {
+  const handleDragStart = (delivery: DeliveryEvent, source: "past" | "future" | "missed", event: React.DragEvent) => {
     event.dataTransfer.effectAllowed = "move";
     event.dataTransfer.setData("application/json", JSON.stringify({ id: delivery.id, source }));
 
@@ -161,32 +153,33 @@ const DeliveryLogForm: React.FC<DeliveryLogProps> = ({
 
   const applyDropToMissed = useCallback(
     async (deliveryToMove: DeliveryEvent, source: "past" | "future") => {
+      // Optimistically update UI so the chip moves immediately on drop.
       if (source === "future") {
         setFutureDeliveries((prev) => prev.filter((delivery) => delivery.id !== deliveryToMove.id));
-        setMissedDeliveries((prev) => {
-          if (prev.some((delivery) => delivery.id === deliveryToMove.id)) {
-            return prev;
-          }
-          return sortDeliveryDates([
-            ...prev,
-            {
-              ...deliveryToMove,
-              deliveryStatus: "Missed",
-            } as DeliveryEvent,
-          ]);
-        });
       }
+      setMissedDeliveries((prev) => {
+        if (prev.some((delivery) => delivery.id === deliveryToMove.id)) {
+          return prev;
+        }
+        return sortDeliveryDates([
+          ...prev,
+          {
+            ...deliveryToMove,
+            deliveryStatus: "Missed",
+          } as DeliveryEvent,
+        ]);
+      });
 
       try {
         await onMarkDeliveryMissed(deliveryToMove);
         await loadMissedDeliveries();
-        setDropError("");
       } catch (error) {
         console.error("Error marking delivery as missed:", error);
         setDropError("Unable to mark delivery as missed. Please try again.");
 
+        // Roll back optimistic state on failure.
+        setMissedDeliveries((prev) => prev.filter((delivery) => delivery.id !== deliveryToMove.id));
         if (source === "future") {
-          setMissedDeliveries((prev) => prev.filter((delivery) => delivery.id !== deliveryToMove.id));
           setFutureDeliveries((prev) =>
             sortDeliveryDates([
               ...prev,
@@ -196,15 +189,13 @@ const DeliveryLogForm: React.FC<DeliveryLogProps> = ({
               } as DeliveryEventWithHidden,
             ]) as DeliveryEventWithHidden[]
           );
-        } else {
-          await loadMissedDeliveries();
         }
       }
     },
     [loadMissedDeliveries, onMarkDeliveryMissed]
   );
 
-  const moveDeliveryToMissed = useCallback(
+  const queueDropToMissed = useCallback(
     async (deliveryToMove: DeliveryEvent, source: "past" | "future") => {
       const willBeThirdStrike = missedDeliveries.length === 2;
       if (willBeThirdStrike) {
@@ -217,6 +208,89 @@ const DeliveryLogForm: React.FC<DeliveryLogProps> = ({
       await applyDropToMissed(deliveryToMove, source);
     },
     [applyDropToMissed, missedDeliveries.length]
+  );
+
+  const restoreMissedToUpcoming = useCallback(
+    async (deliveryToMove: DeliveryEvent) => {
+      // Optimistically update UI so the chip moves immediately on drop.
+      setMissedDeliveries((prev) => prev.filter((delivery) => delivery.id !== deliveryToMove.id));
+      setFutureDeliveries((prev) => {
+        if (prev.some((delivery) => delivery.id === deliveryToMove.id)) {
+          return prev;
+        }
+
+        const { deliveryStatus: _deliveryStatus, ...restoredDelivery } = deliveryToMove as DeliveryEvent & {
+          deliveryStatus?: string;
+        };
+
+        return sortDeliveryDates([
+          ...prev,
+          {
+            ...restoredDelivery,
+            hidden: false,
+          } as DeliveryEventWithHidden,
+        ]) as DeliveryEventWithHidden[];
+      });
+
+      if (!isToday(deliveryToMove.deliveryDate)) {
+        setDropError("Only today's missed delivery can be moved back to upcoming.");
+
+        setFutureDeliveries((prev) => prev.filter((delivery) => delivery.id !== deliveryToMove.id));
+        setMissedDeliveries((prev) =>
+          sortDeliveryDates([
+            ...prev,
+            {
+              ...deliveryToMove,
+              deliveryStatus: "Missed",
+            } as DeliveryEvent,
+          ])
+        );
+        return;
+      }
+
+      try {
+        await onRestoreMissedDelivery(deliveryToMove);
+        await loadMissedDeliveries();
+        setDropError("");
+      } catch (error) {
+        console.error("Error restoring missed delivery:", error);
+        setDropError("Unable to move delivery back to upcoming. Please try again.");
+
+        setFutureDeliveries((prev) => prev.filter((delivery) => delivery.id !== deliveryToMove.id));
+        setMissedDeliveries((prev) =>
+          sortDeliveryDates([
+            ...prev,
+            {
+              ...deliveryToMove,
+              deliveryStatus: "Missed",
+            } as DeliveryEvent,
+          ])
+        );
+      }
+    },
+    [loadMissedDeliveries, onRestoreMissedDelivery]
+  );
+
+  const restoreMissedToPrevious = useCallback(
+    async (deliveryToMove: DeliveryEvent) => {
+      if (isToday(deliveryToMove.deliveryDate)) {
+        setDropError("Today's missed delivery can only be moved back to upcoming.");
+        return;
+      }
+
+      setMissedDeliveries((prev) => prev.filter((delivery) => delivery.id !== deliveryToMove.id));
+
+      try {
+        await onRestoreMissedDelivery(deliveryToMove);
+        await loadMissedDeliveries();
+        setDropError("");
+      } catch (error) {
+        console.error("Error restoring missed delivery to previous:", error);
+        setDropError("Unable to move delivery back to previous. Please try again.");
+        await loadMissedDeliveries();
+      }
+    },
+    [loadMissedDeliveries, onRestoreMissedDelivery]
   );
 
   const handleDropToMissed = async () => {
@@ -233,7 +307,7 @@ const DeliveryLogForm: React.FC<DeliveryLogProps> = ({
       return;
     }
 
-    await moveDeliveryToMissed(deliveryToMove, source);
+    await queueDropToMissed(deliveryToMove, source);
   };
 
   const handleConfirmThirdStrike = async () => {
@@ -253,68 +327,41 @@ const DeliveryLogForm: React.FC<DeliveryLogProps> = ({
     setPendingMissedDrop(null);
   };
 
-  const restoreDeliveryToUpcoming = useCallback(
-    async (deliveryToMove: DeliveryEvent) => {
-      if (!isToday(deliveryToMove.deliveryDate)) {
-        setDropError("Only today's missed delivery can be moved back to upcoming.");
-        return;
-      }
-
-      setDraggedDelivery(null);
-      setDraggedSource(null);
-      setMissedDeliveries((prev) => prev.filter((delivery) => delivery.id !== deliveryToMove.id));
-      setFutureDeliveries((prev) => {
-        if (prev.some((delivery) => delivery.id === deliveryToMove.id)) {
-          return prev;
-        }
-
-        const { deliveryStatus: _deliveryStatus, ...restoredDelivery } = deliveryToMove as
-          DeliveryEvent & {
-            deliveryStatus?: string;
-          };
-
-        return sortDeliveryDates([
-          ...prev,
-          {
-            ...restoredDelivery,
-            hidden: false,
-          } as DeliveryEventWithHidden,
-        ]) as DeliveryEventWithHidden[];
-      });
-
-      try {
-        await onRestoreMissedDelivery(deliveryToMove);
-        await loadMissedDeliveries();
-        setDropError("");
-      } catch (error) {
-        console.error("Error restoring missed delivery:", error);
-        setDropError("Unable to move delivery back to upcoming. Please try again.");
-
-        // Roll back optimistic state on failure.
-        setFutureDeliveries((prev) =>
-          prev.filter((delivery) => delivery.id !== deliveryToMove.id)
-        );
-        setMissedDeliveries((prev) =>
-          sortDeliveryDates([
-            ...prev,
-            {
-              ...deliveryToMove,
-              deliveryStatus: "Missed",
-            } as DeliveryEvent,
-          ])
-        );
-      }
-    },
-    [loadMissedDeliveries, onRestoreMissedDelivery]
-  );
-
   const handleDropToUpcoming = async () => {
     if (!draggedDelivery || draggedSource !== "missed") {
       return;
     }
 
     const deliveryToMove = draggedDelivery;
-    await restoreDeliveryToUpcoming(deliveryToMove);
+
+    setDraggedDelivery(null);
+    setDraggedSource(null);
+    await restoreMissedToUpcoming(deliveryToMove);
+  };
+
+  const handleDropToPrevious = async (event: React.DragEvent) => {
+    event.preventDefault();
+    setDraggedDelivery(null);
+    setDraggedSource(null);
+    
+    try {
+      const data = JSON.parse(event.dataTransfer.getData("application/json"));
+      
+      if (data.source !== "missed") {
+        return;
+      }
+      
+      const deliveryToMove = missedDeliveries.find((d) => d.id === data.id);
+      if (!deliveryToMove) {
+        return;
+      }
+
+      await restoreMissedToPrevious(deliveryToMove);
+    } catch (error) {
+      console.error("Error restoring missed delivery to previous:", error);
+      setDropError("Unable to move delivery back to previous. Please try again.");
+      await loadMissedDeliveries();
+    }
   };
 
   const sortedFutureDeliveries = sortDeliveryDates(
@@ -329,109 +376,8 @@ const DeliveryLogForm: React.FC<DeliveryLogProps> = ({
     setConfirmDelete(true);
   };
 
-  const refreshFutureDeliveries = useCallback(
-    async (
-      targetClientId: string,
-      previousIds: string[] = futureDeliveriesState.map((delivery) => delivery.id)
-    ) => {
-      try {
-        if (!targetClientId) {
-          return;
-        }
-
-        const allEvents = await deliveryService.getEventsByClientId(targetClientId);
-        const now = new Date();
-        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-
-        const futureDeliveries = sortDeliveryDates(
-          allEvents.filter((event) => toJSDate(event.deliveryDate) >= today)
-        );
-
-        const newDeliveries = futureDeliveries.filter(
-          (delivery) => !previousIds.includes(delivery.id)
-        );
-
-        setFutureDeliveries(
-          futureDeliveries.map((delivery) => ({
-            ...delivery,
-            hidden: newDeliveries.some((newDelivery) => newDelivery.id === delivery.id),
-          }))
-        );
-
-        setTimeout(() => {
-          newDeliveries.forEach((delivery) => {
-            setZoomingInChipId(delivery.id);
-            setFutureDeliveries((prev) =>
-              prev.map((d) => (d.id === delivery.id ? { ...d, hidden: false } : d))
-            );
-
-            setTimeout(() => {
-              setZoomingInChipId(null);
-            }, 1200);
-          });
-        }, 100);
-      } catch (error) {
-        console.error("Error fetching future deliveries:", error);
-      }
-    },
-    [deliveryService, futureDeliveriesState]
-  );
-
-  const restoreDeliveryToPrevious = useCallback(
-    async (deliveryToMove: DeliveryEvent) => {
-      setDraggedDelivery(null);
-      setDraggedSource(null);
-
-      try {
-        // Only past-dated missed deliveries can go to PREVIOUS
-        if (isToday(deliveryToMove.deliveryDate)) {
-          setDropError("Today's missed delivery can only be moved back to upcoming.");
-          return;
-        }
-
-        // Optimistically update UI so the chip moves immediately on drop.
-        setMissedDeliveries((prev) => prev.filter((delivery) => delivery.id !== deliveryToMove.id));
-
-        // Simply call onRestoreMissedDelivery (which removes "Missed" status) to move to past.
-        await onRestoreMissedDelivery(deliveryToMove);
-        await loadMissedDeliveries();
-        // Refresh future deliveries in case the parent refresh has not propagated yet.
-        await refreshFutureDeliveries(clientId);
-        setDropError("");
-      } catch (error) {
-        console.error("Error restoring missed delivery to previous:", error);
-        setDropError("Unable to move delivery back to previous. Please try again.");
-        await loadMissedDeliveries();
-      }
-    },
-    [clientId, loadMissedDeliveries, onRestoreMissedDelivery, refreshFutureDeliveries]
-  );
-
-  const handleDropToPrevious = async (event: React.DragEvent) => {
-    event.preventDefault();
-
-    try {
-      const data = JSON.parse(event.dataTransfer.getData("application/json"));
-
-      if (data.source !== "missed") {
-        return;
-      }
-
-      const deliveryToMove = missedDeliveries.find((d) => d.id === data.id);
-      if (!deliveryToMove) {
-        return;
-      }
-
-      await restoreDeliveryToPrevious(deliveryToMove);
-    } catch (error) {
-      console.error("Error parsing dragged delivery:", error);
-      setDropError("Unable to move delivery back to previous. Please try again.");
-    }
-  };
-
   const handleConfirmDelete = async () => {
     if (selectedDelivery) {
-      setDeletingChipId(selectedDelivery.id);
       setTimeout(async () => {
         try {
           if (!selectedDelivery || !selectedDelivery.id) {
@@ -449,12 +395,38 @@ const DeliveryLogForm: React.FC<DeliveryLogProps> = ({
             console.error("Error notifying parent of delivery deletion:", parentError);
           }
 
+          const allEvents = await deliveryService.getEventsByClientId(selectedDelivery.clientId);
+          const now = new Date();
+          const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+          const futureDeliveries = sortDeliveryDates(
+            allEvents.filter((event) => toJSDate(event.deliveryDate) >= today)
+          );
+
           const currentIdsWithoutDeleted = currentIds.filter((id) => id !== selectedDelivery.id);
-          await refreshFutureDeliveries(selectedDelivery.clientId, currentIdsWithoutDeleted);
+          const newDeliveries = futureDeliveries.filter(
+            (delivery) => !currentIdsWithoutDeleted.includes(delivery.id)
+          );
+
+          setFutureDeliveries(
+            futureDeliveries.map((delivery) => ({
+              ...delivery,
+              hidden: newDeliveries.some((newDel) => newDel.id === delivery.id),
+            }))
+          );
+
+          if (newDeliveries.length > 0) {
+            setTimeout(() => {
+              newDeliveries.forEach((delivery) => {
+                setFutureDeliveries((prev) =>
+                  prev.map((d) => (d.id === delivery.id ? { ...d, hidden: false } : d))
+                );
+              });
+            }, 100);
+          }
         } catch (error) {
           console.error("Error deleting delivery:", error);
         }
-        setDeletingChipId(null);
       }, 300);
     }
     setConfirmDelete(false);
@@ -465,18 +437,6 @@ const DeliveryLogForm: React.FC<DeliveryLogProps> = ({
     setConfirmDelete(false);
     setSelectedDelivery(null);
   };
-
-  const actionButtonSx = {
-    p: 0.5,
-    ml: 0.25,
-  };
-
-  const chipStyle = (id: string, hidden?: boolean, draggable?: boolean) => ({
-    opacity: hidden ? 0.5 : 1,
-    transform: "scale(1)",
-    transition: "opacity 0.15s ease, transform 0.15s ease",
-    cursor: draggable ? "grab" : "default",
-  });
 
   useEffect(() => {
     setFutureDeliveries(futureDeliveries);
@@ -562,48 +522,43 @@ const DeliveryLogForm: React.FC<DeliveryLogProps> = ({
               transition: "border-color 0.2s ease, background-color 0.2s ease, padding 0.2s ease",
             }}
           >
-            <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
+            <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", maxHeight: 32, overflow: "hidden" }}>
               {sortedFutureDeliveries.length > 0 ? (
                 sortedFutureDeliveries.map((delivery, index) => (
-                  <div
-                    key={delivery.id}
-                    draggable={canDragFromUpcoming(delivery)}
-                    onDragStart={(e) =>
-                      canDragFromUpcoming(delivery) && handleDragStart(delivery, "future", e)
-                    }
-                    onDragEnd={handleDragEnd}
-                    style={{
-                      cursor: canDragFromUpcoming(delivery) ? "grab" : "default",
-                      userSelect: "none",
-                      display: "inline-flex",
-                      alignItems: "center",
-                      opacity:
-                        draggedDelivery?.id === delivery.id ? 0.5 : delivery.hidden ? 0.5 : 1,
-                      transition: "opacity 0.15s ease",
-                    }}
-                  >
-                    <Chip
-                      label={formatDate(toJSDate(delivery.deliveryDate))}
-                      variant="outlined"
-                      color="primary"
-                      onDelete={() => handleDeleteClick(delivery)}
-                    />
+                  <Stack key={delivery.id} direction="row" spacing={0.5} alignItems="center">
+                    <div
+                      draggable={canDragFromUpcoming(delivery)}
+                      onDragStart={(e) => canDragFromUpcoming(delivery) && handleDragStart(delivery, "future", e)}
+                      onDragEnd={handleDragEnd}
+                      style={{
+                        cursor: canDragFromUpcoming(delivery) ? "grab" : "default",
+                        userSelect: "none",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        opacity: draggedDelivery?.id === delivery.id ? 0.5 : (delivery.hidden ? 0.5 : 1),
+                        transition: "opacity 0.15s ease",
+                      }}
+                    >
+                      <Chip
+                        label={formatDate(toJSDate(delivery.deliveryDate))}
+                        variant="outlined"
+                        color="primary"
+                        onDelete={() => handleDeleteClick(delivery)}
+                      />
+                    </div>
                     {canDragFromUpcoming(delivery) && (
-                      <Tooltip title="Mark as missed">
-                        <IconButton
-                          aria-label={`Mark ${formatDate(toJSDate(delivery.deliveryDate))} as missed`}
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            void moveDeliveryToMissed(delivery, "future");
-                          }}
-                          size="small"
-                          sx={actionButtonSx}
-                        >
-                          <ReportProblemOutlinedIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
+                      <Button
+                        size="small"
+                        onClick={() => {
+                          void queueDropToMissed(delivery, "future");
+                        }}
+                        aria-label={`Mark ${formatDate(toJSDate(delivery.deliveryDate))} delivery as missed`}
+                        sx={moveActionSx}
+                      >
+                        Missed
+                      </Button>
                     )}
-                  </div>
+                  </Stack>
                 ))
               ) : (
                 <Typography variant="body2" sx={{ color: "text.secondary" }}>
@@ -637,40 +592,38 @@ const DeliveryLogForm: React.FC<DeliveryLogProps> = ({
               transition: "border-color 0.2s ease, background-color 0.2s ease, padding 0.2s ease",
             }}
           >
-            <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
+            <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", maxHeight: 32, overflow: "hidden" }}>
               {sortedPastDeliveries.length > 0 ? (
                 sortedPastDeliveries.map((delivery, index) => (
-                  <div
-                    key={delivery.id}
-                    draggable
-                    onDragStart={(e) => handleDragStart(delivery, "past", e)}
-                    onDragEnd={handleDragEnd}
-                    style={{
-                      cursor: "grab",
-                      userSelect: "none",
-                      display: "inline-flex",
-                      alignItems: "center",
-                    }}
-                  >
-                    <Chip
-                      label={formatDate(toJSDate(delivery.deliveryDate))}
-                      variant="outlined"
-                      color="secondary"
-                    />
-                    <Tooltip title="Mark as missed">
-                      <IconButton
-                        aria-label={`Mark ${formatDate(toJSDate(delivery.deliveryDate))} as missed`}
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          void moveDeliveryToMissed(delivery, "past");
-                        }}
-                        size="small"
-                        sx={actionButtonSx}
-                      >
-                        <ReportProblemOutlinedIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                  </div>
+                  <Stack key={delivery.id} direction="row" spacing={0.5} alignItems="center">
+                    <div
+                      draggable
+                      onDragStart={(e) => handleDragStart(delivery, "past", e)}
+                      onDragEnd={handleDragEnd}
+                      style={{
+                        cursor: "grab",
+                        userSelect: "none",
+                        display: "inline-flex",
+                        alignItems: "center",
+                      }}
+                    >
+                      <Chip
+                        label={formatDate(toJSDate(delivery.deliveryDate))}
+                        variant="outlined"
+                        color="secondary"
+                      />
+                    </div>
+                    <Button
+                      size="small"
+                      onClick={() => {
+                        void queueDropToMissed(delivery, "past");
+                      }}
+                      aria-label={`Mark ${formatDate(toJSDate(delivery.deliveryDate))} delivery as missed`}
+                      sx={moveActionSx}
+                    >
+                      Missed
+                    </Button>
+                  </Stack>
                 ))
               ) : (
                 <Typography variant="body2" sx={{ color: "text.secondary" }}>
@@ -708,51 +661,47 @@ const DeliveryLogForm: React.FC<DeliveryLogProps> = ({
             <Stack direction="row" spacing={1} flexWrap="wrap">
               {missedDeliveries.length > 0 ? (
                 missedDeliveries.map((delivery) => (
-                  <div
-                    key={delivery.id}
-                    draggable
-                    onDragStart={(e) => handleDragStart(delivery, "missed", e)}
-                    onDragEnd={handleDragEnd}
-                    style={{
-                      cursor: "grab",
-                      userSelect: "none",
-                      display: "inline-flex",
-                      alignItems: "center",
-                    }}
-                  >
-                    <Chip
-                      label={formatDate(toJSDate(delivery.deliveryDate))}
-                      variant="outlined"
-                      color="error"
-                      sx={{
-                        opacity: draggedDelivery?.id === delivery.id ? 0.5 : 1,
-                        transition: "opacity 0.15s ease",
+                  <Stack key={delivery.id} direction="row" spacing={0.5} alignItems="center">
+                    <div
+                      draggable
+                      onDragStart={(e) => handleDragStart(delivery, "missed", e)}
+                      onDragEnd={handleDragEnd}
+                      style={{
+                        cursor: "grab",
+                        userSelect: "none",
+                        display: "inline-flex",
+                        alignItems: "center",
                       }}
-                    />
-                    <Tooltip
-                      title={
-                        isToday(delivery.deliveryDate)
-                          ? "Restore to upcoming"
-                          : "Restore to previous"
-                      }
                     >
-                      <IconButton
-                        aria-label={`Restore ${formatDate(toJSDate(delivery.deliveryDate))} ${
-                          isToday(delivery.deliveryDate) ? "to upcoming" : "to previous"
-                        }`}
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          void (isToday(delivery.deliveryDate)
-                            ? restoreDeliveryToUpcoming(delivery)
-                            : restoreDeliveryToPrevious(delivery));
+                      <Chip
+                        label={formatDate(toJSDate(delivery.deliveryDate))}
+                        variant="outlined"
+                        color="error"
+                        sx={{
+                          opacity: draggedDelivery?.id === delivery.id ? 0.5 : 1,
+                          transition: "opacity 0.15s ease",
                         }}
-                        size="small"
-                        sx={actionButtonSx}
-                      >
-                        <UndoOutlinedIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                  </div>
+                      />
+                    </div>
+                    <Button
+                      size="small"
+                      onClick={() => {
+                        if (isToday(delivery.deliveryDate)) {
+                          void restoreMissedToUpcoming(delivery);
+                          return;
+                        }
+                        void restoreMissedToPrevious(delivery);
+                      }}
+                      aria-label={
+                        isToday(delivery.deliveryDate)
+                          ? `Move ${formatDate(toJSDate(delivery.deliveryDate))} delivery back to upcoming`
+                          : `Move ${formatDate(toJSDate(delivery.deliveryDate))} delivery back to previous`
+                      }
+                      sx={moveActionSx}
+                    >
+                      {isToday(delivery.deliveryDate) ? "Upcoming" : "Previous"}
+                    </Button>
+                  </Stack>
                 ))
               ) : (
                 <Typography variant="body2" sx={{ color: "text.secondary" }}>

@@ -81,6 +81,7 @@ import RouteExportOptions, {
   RouteExportOption,
   RouteExportScope,
 } from "./components/RouteExportOptions";
+import { getClientStatusPresentation } from "../../utils/clientStatus";
 import LoadingIndicator from "../../components/LoadingIndicator/LoadingIndicator";
 import { exportDeliveries, exportDoordashDeliveries, ExportFeedback } from "./RouteExport";
 import Button from "@mui/material/Button";
@@ -120,6 +121,52 @@ const StyleChip = styled(Chip)({
   userSelect: "text",
   WebkitUserSelect: "text",
 });
+
+const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+const formatTimestampLikeDate = (value: unknown): string => {
+  if (value === null || value === undefined || value === "") return "";
+
+  if (value instanceof Date) {
+    return format(value, "MM/dd/yyyy");
+  }
+
+  if (
+    typeof value === "object" &&
+    value !== null &&
+    "seconds" in value &&
+    typeof (value as { seconds?: unknown }).seconds === "number"
+  ) {
+    return format(new Date((value as { seconds: number }).seconds * 1000), "MM/dd/yyyy");
+  }
+
+  if (typeof value === "string" && ISO_DATE_PATTERN.test(value.trim())) {
+    const parsed = new Date(`${value}T00:00:00`);
+    return Number.isNaN(parsed.getTime()) ? value : format(parsed, "MM/dd/yyyy");
+  }
+
+  if (Array.isArray(value)) {
+    return value.join(", ");
+  }
+
+  if (typeof value === "object") {
+    return "";
+  }
+
+  return String(value);
+};
+
+const renderSafeCellValue = (value: unknown): React.ReactNode => {
+  if (React.isValidElement(value)) {
+    return value;
+  }
+
+  if (Array.isArray(value)) {
+    return value.join(", ");
+  }
+
+  return formatTimestampLikeDate(value);
+};
 
 const CLUSTER_COLORS = [
   "#FF0000",
@@ -2275,8 +2322,10 @@ const DeliverySpreadsheet: React.FC = () => {
 
     const contextClientById = new Map<string, (typeof clientsFromContext)[number]>();
     clientsFromContext.forEach((client) => {
-      contextClientById.set(client.id, client);
-      if (client.uid && client.uid !== client.id) {
+      if (client.id) {
+        contextClientById.set(client.id, client);
+      }
+      if (client.uid) {
         contextClientById.set(client.uid, client);
       }
     });
@@ -2327,7 +2376,9 @@ const DeliverySpreadsheet: React.FC = () => {
       const activeStatus =
         typeof enrichedContextClient?.activeStatus === "boolean"
           ? enrichedContextClient.activeStatus
-          : Boolean((client as Record<string, unknown>).activeStatus);
+          : typeof (client as Record<string, unknown>).activeStatus === "boolean"
+            ? ((client as Record<string, unknown>).activeStatus as boolean)
+            : true;
 
       const missedStrikeCount =
         typeof enrichedContextClient?.missedStrikeCount === "number"
@@ -3080,36 +3131,26 @@ const DeliverySpreadsheet: React.FC = () => {
 
                             if (field.key === "fullname") {
                               const rowRecord = row as Record<string, unknown>;
-                              const isActiveProfile = Boolean(rowRecord.activeStatus);
                               const missedStrikeCount =
                                 typeof rowRecord.missedStrikeCount === "number"
                                   ? rowRecord.missedStrikeCount
                                   : undefined;
+                              const statusPresentation = getClientStatusPresentation(
+                                rowRecord.activeStatus === false ? false : true,
+                                missedStrikeCount
+                              );
 
-                              const statusTooltip = isActiveProfile
-                                ? missedStrikeCount === 1
-                                  ? "1 missed delivery"
-                                  : missedStrikeCount !== undefined && missedStrikeCount >= 2
-                                    ? "2 missed deliveries"
-                                    : "Active profile, no missed deliveries"
-                                : "Inactive profile";
-
-                              const statusIcon = isActiveProfile ? (
+                              const statusIcon = statusPresentation.isActive ? (
                                 <CheckCircleIcon
                                   sx={{
-                                    color:
-                                      missedStrikeCount === 1
-                                        ? "#fbc02d"
-                                        : missedStrikeCount !== undefined && missedStrikeCount >= 2
-                                          ? "#d32f2f"
-                                          : "#4caf50",
+                                    color: statusPresentation.color,
                                     fontSize: "1.1rem",
                                   }}
                                 />
                               ) : (
                                 <CancelIcon
                                   sx={{
-                                    color: "#bdbdbd",
+                                    color: statusPresentation.color,
                                     fontSize: "1.1rem",
                                   }}
                                 />
@@ -3125,7 +3166,7 @@ const DeliverySpreadsheet: React.FC = () => {
                                     gap: "4px",
                                   }}
                                 >
-                                  <Tooltip title={statusTooltip} placement="right">
+                                  <Tooltip title={statusPresentation.tooltip} placement="right">
                                     <span
                                       style={{
                                         display: "inline-flex",
@@ -3184,7 +3225,7 @@ const DeliverySpreadsheet: React.FC = () => {
                                 </div>
                               );
                             } else {
-                              return computedValue;
+                              return renderSafeCellValue(computedValue);
                             }
                           })()
                         ) : (
@@ -3199,7 +3240,7 @@ const DeliverySpreadsheet: React.FC = () => {
                               (typeof val === "string" && val.trim().toUpperCase() === "N/A")
                             )
                               return "";
-                            return val.toString();
+                            return formatTimestampLikeDate(val);
                           })()
                         )}
                       </TableCell>
@@ -3290,7 +3331,9 @@ const DeliverySpreadsheet: React.FC = () => {
                                   ? row.deliveryDetails?.dietaryRestrictions?.dietaryPreferences &&
                                     row.deliveryDetails?.dietaryRestrictions?.dietaryPreferences.trim() !==
                                       ""
-                                    ? row.deliveryDetails?.dietaryRestrictions?.dietaryPreferences.trim()
+                                    ? formatTimestampLikeDate(
+                                        row.deliveryDetails?.dietaryRestrictions?.dietaryPreferences.trim()
+                                      )
                                     : ""
                                   : (() => {
                                       const val = row[col.propertyKey as keyof DeliveryRowData];
@@ -3318,7 +3361,7 @@ const DeliverySpreadsheet: React.FC = () => {
                                           return display || "";
                                         }
                                       }
-                                      return val?.toString() ?? "";
+                                      return formatTimestampLikeDate(val);
                                     })()
                           : ""}
                       </TableCell>
@@ -3457,6 +3500,7 @@ const DeliverySpreadsheet: React.FC = () => {
                             if (key === "address") label = "Address";
                             if (key === "adults") label = "Adults";
                             if (key === "children") label = "Children";
+                            if (key === "famStartDate") label = "FAM Start Date";
                             if (key === "deliveryFreq") label = "Delivery Freq";
                             if (key === "deliveryDetails.dietaryRestrictions")
                               label = "Dietary Restrictions";
@@ -3669,6 +3713,7 @@ const DeliverySpreadsheet: React.FC = () => {
                             if (key === "address") label = "Address";
                             if (key === "adults") label = "Adults";
                             if (key === "children") label = "Children";
+                            if (key === "famStartDate") label = "FAM Start Date";
                             if (key === "deliveryFreq") label = "Delivery Freq";
                             if (key === "deliveryDetails.dietaryRestrictions")
                               label = "Dietary Restrictions";

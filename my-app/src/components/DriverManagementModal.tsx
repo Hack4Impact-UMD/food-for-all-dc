@@ -157,7 +157,6 @@ const DriverManagementModal: React.FC<DriverManagementModalProps> = ({
   const [editErrors, setEditErrors] = useState<ValidationErrors>({});
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [driverToDelete, setDriverToDelete] = useState<Driver | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
 
   const validateEmail = (email: string) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -244,8 +243,12 @@ const DriverManagementModal: React.FC<DriverManagementModalProps> = ({
   };
 
   const handleDeleteDriver = async (driverId: string) => {
-    await deleteDoc(doc(db, dataSources.firebase.driversCollection, driverId));
-    onDriversChange(drivers.filter((d) => d.id !== driverId));
+    try {
+      await deleteDoc(doc(db, dataSources.firebase.driversCollection, driverId));
+      onDriversChange(drivers.filter((d) => d.id !== driverId));
+    } catch (error) {
+      console.error("Error deleting driver:", error);
+    }
   };
 
   const handleDeleteClick = (driver: Driver) => {
@@ -255,16 +258,9 @@ const DriverManagementModal: React.FC<DriverManagementModalProps> = ({
 
   const handleDeleteConfirm = async () => {
     if (driverToDelete) {
-      setIsDeleting(true);
-      try {
-        await handleDeleteDriver(driverToDelete.id);
-        setDriverToDelete(null);
-      } catch (error) {
-        console.error("Error deleting driver:", error);
-        throw error;
-      } finally {
-        setIsDeleting(false);
-      }
+      await handleDeleteDriver(driverToDelete.id);
+      setDeleteDialogOpen(false);
+      setDriverToDelete(null);
     }
   };
 
@@ -663,7 +659,6 @@ const DriverManagementModal: React.FC<DriverManagementModalProps> = ({
         message={`Are you sure you want to delete ${driverToDelete?.name || "this driver"}? This action cannot be undone.`}
         confirmText="Delete"
         confirmColor="error"
-        loading={isDeleting}
       />
     </>
   );

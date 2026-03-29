@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
   Box,
   Button,
@@ -33,7 +33,7 @@ interface ConfirmationModalProps {
   /** Function to call when modal should close */
   onClose: () => void;
   /** Function to call when user confirms */
-  onConfirm: () => void;
+  onConfirm: () => void | Promise<void>;
   /** Modal title */
   title: string;
   /** Confirmation message */
@@ -59,9 +59,27 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
   confirmColor = "primary",
   loading = false,
 }) => {
+  const [isInternalSubmitting, setIsInternalSubmitting] = useState(false);
+  const isBusy = loading || isInternalSubmitting;
+
+  useEffect(() => {
+    if (!open) {
+      setIsInternalSubmitting(false);
+    }
+  }, [open]);
+
   const handleConfirm = async () => {
-    await Promise.resolve(onConfirm());
-    onClose();
+    if (isBusy) {
+      return;
+    }
+
+    setIsInternalSubmitting(true);
+    try {
+      await Promise.resolve(onConfirm());
+      onClose();
+    } finally {
+      setIsInternalSubmitting(false);
+    }
   };
 
   const isDestructive = confirmColor === "error";
@@ -79,12 +97,16 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
   const confirmBgHover = isDestructive
     ? "var(--color-error-text-alt)"
     : "var(--color-primary-hover-alt)";
+  const messageStyles = {
+    color: "var(--color-text-medium-alt)",
+    lineHeight: 1.55,
+  };
 
   const actions = (
     <>
       <Button
         onClick={onClose}
-        disabled={loading}
+        disabled={isBusy}
         sx={{
           borderRadius: "10px",
           px: 2.5,
@@ -105,8 +127,8 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
         onClick={handleConfirm}
         variant="contained"
         autoFocus
-        disabled={loading}
-        startIcon={loading ? <CircularProgress size={16} color="inherit" /> : null}
+        disabled={isBusy}
+        startIcon={isBusy ? <CircularProgress size={16} color="inherit" /> : null}
         sx={{
           borderRadius: "10px",
           px: 2.5,
@@ -129,7 +151,7 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
   return (
     <Dialog
       open={open}
-      onClose={loading ? undefined : onClose}
+      onClose={isBusy ? undefined : onClose}
       maxWidth="xs"
       fullWidth
       PaperProps={{
@@ -174,7 +196,7 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
         <IconButton
           onClick={onClose}
           size="small"
-          disabled={loading}
+          disabled={isBusy}
           sx={{ color: "var(--color-text-icon)", mt: -0.5, mr: -0.5 }}
           aria-label="Close confirmation dialog"
         >
@@ -183,9 +205,11 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
       </DialogTitle>
 
       <DialogContent sx={{ px: 3, pb: 1.5 }}>
-        <Typography sx={{ color: "var(--color-text-medium-alt)", lineHeight: 1.55 }}>
-          {message}
-        </Typography>
+        {typeof message === "string" || typeof message === "number" ? (
+          <Typography sx={messageStyles}>{message}</Typography>
+        ) : (
+          <Box sx={messageStyles}>{message}</Box>
+        )}
       </DialogContent>
 
       <DialogActions

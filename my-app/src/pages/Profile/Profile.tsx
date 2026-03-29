@@ -40,8 +40,8 @@ import CaseWorkerManagementModal from "../../components/CaseWorkerManagementModa
 import "./Profile.css";
 import { clientService } from "../../services/client-service";
 import DeliveryService from "../../services/delivery-service";
+import PopUp from "../../components/PopUp";
 import ErrorPopUp from "../../components/ErrorPopUp";
-import { useNotifications } from "../../components/NotificationProvider";
 
 import BasicInfoForm from "./components/BasicInfoForm";
 import DeliveryInfoForm from "./components/DeliveryInfoForm";
@@ -73,6 +73,7 @@ import HealthConditionsForm from "./components/HealthConditionsForm";
 import HealthCheckbox from "./components/HealthCheckbox";
 import { buildHouseholdSnapshot } from "../../utils/householdSnapshot";
 import { deliveryDate } from "../../utils/deliveryDate";
+import { computeClientActiveStatus } from "../../utils/clientStatus";
 import { toJSDate } from "../../utils/timestamp";
 
 const fieldStyles = {
@@ -176,36 +177,12 @@ const SaveNotification = styled(Box)({
   },
 });
 
-const computeProfileActiveStatus = (
-  startDate: string | null | undefined,
-  endDate: string | null | undefined
-): boolean => {
-  const todayMillis = TimeUtils.now().startOf("day").toMillis();
-  const startDateTime = startDate ? TimeUtils.fromAny(startDate).startOf("day") : null;
-  const endDateTime = endDate ? TimeUtils.fromAny(endDate).startOf("day") : null;
-
-  if (startDateTime?.isValid && endDateTime?.isValid) {
-    return todayMillis >= startDateTime.toMillis() && todayMillis <= endDateTime.toMillis();
-  }
-
-  if (startDateTime?.isValid) {
-    return todayMillis >= startDateTime.toMillis();
-  }
-
-  if (endDateTime?.isValid) {
-    return todayMillis <= endDateTime.toMillis();
-  }
-
-  return false;
-};
-
 const Profile = () => {
   const { refresh } = useClientData();
   const navigate = useNavigate();
   const params = useParams();
   const clientIdParam: string | null = params.clientId ?? null;
   const { user, loading, userRole } = useAuth();
-  const { showInfo } = useNotifications();
 
   const [configFields, setConfigFields] = useState<
     Array<{ id: string; label: string; type: string }>
@@ -416,6 +393,8 @@ const Profile = () => {
   const [duplicateErrorMessage, setDuplicateErrorMessage] = useState(
     "A client with this name and address already exists in the system."
   );
+  const [showSimilarNamesInfo, setShowSimilarNamesInfo] = useState(false);
+  const [similarNamesMessage, setSimilarNamesMessage] = useState("");
 
   const getProfileById = async (id: string) => {
     const docRef = doc(db, dataSources.firebase.clientsCollection, id);
@@ -1246,7 +1225,8 @@ const Profile = () => {
         // Warn if there are other clients with the same name in the same zip code
         if (sameNameDiffAddressCount > 0) {
           const warningMsg = `Note: There ${sameNameDiffAddressCount === 1 ? "is" : "are"} ${sameNameDiffAddressCount} other client${sameNameDiffAddressCount === 1 ? "" : "s"} with the name "${clientProfile.firstName} ${clientProfile.lastName}" in ZIP code "${clientProfile.zipCode}", but at different addresses.`;
-          showInfo(warningMsg, 8000);
+          setSimilarNamesMessage(warningMsg);
+          setShowSimilarNamesInfo(true);
         }
       } else {
         // Force duplicate check to always happen with direct values, not through variables
@@ -1285,7 +1265,8 @@ const Profile = () => {
         // Warn if there are other clients with the same name in the same zip code
         if (sameNameDiffAddressCount > 0) {
           const warningMsg = `Note: There ${sameNameDiffAddressCount === 1 ? "is" : "are"} ${sameNameDiffAddressCount} other client${sameNameDiffAddressCount === 1 ? "" : "s"} with the name "${clientProfile.firstName} ${clientProfile.lastName}" in ZIP code "${clientProfile.zipCode}", but at different addresses.`;
-          showInfo(warningMsg, 8000);
+          setSimilarNamesMessage(warningMsg);
+          setShowSimilarNamesInfo(true);
         }
       }
       // --- Geocoding Optimization Start ---
@@ -1396,13 +1377,11 @@ const Profile = () => {
         return dateStr;
       };
 
-      const originalProfile = prevClientProfile ?? clientProfile;
       const normalizedStartDate = convertDateForSave(cleanedProfile.startDate);
       const normalizedEndDate = convertDateForSave(cleanedProfile.endDate);
       const normalizedStartDateISO = deliveryDate.tryToISODateString(normalizedStartDate);
       const normalizedEndDateISO = deliveryDate.tryToISODateString(normalizedEndDate);
-
-      const activeStatus = computeProfileActiveStatus(
+      const activeStatus = computeClientActiveStatus(
         normalizedStartDateISO,
         normalizedEndDateISO
       );
@@ -1437,25 +1416,27 @@ const Profile = () => {
         activeStatus,
       };
 
-      const normalizedPreviousEndDate = originalProfile.endDate
-        ? deliveryDate.tryToISODateString(originalProfile.endDate)
+      const previousProfile = prevClientProfile ?? clientProfile;
+      const normalizedPreviousStartDateISO = previousProfile.startDate
+        ? deliveryDate.tryToISODateString(previousProfile.startDate)
         : null;
-      const normalizedUpdatedEndDate = updatedProfile.endDate
-        ? deliveryDate.tryToISODateString(updatedProfile.endDate)
+      const normalizedPreviousEndDateISO = previousProfile.endDate
+        ? deliveryDate.tryToISODateString(previousProfile.endDate)
         : null;
-      // Trigger cleanup whenever the profile still carries a three-strikes flag and the end date changed
-      const isThreeStrikesProfile = originalProfile.autoInactiveReason === "three-strikes";
-      const isReactivationWithNewEndDate =
-        isThreeStrikesProfile &&
-        !!normalizedUpdatedEndDate &&
-        normalizedUpdatedEndDate !== normalizedPreviousEndDate;
+      const wasThreeStrikesInactive =
+        previousProfile.autoInactiveReason === "three-strikes" ||
+        clientProfile.autoInactiveReason === "three-strikes";
+      const previousActiveStatus = computeClientActiveStatus(
+        normalizedPreviousStartDateISO,
+        normalizedPreviousEndDateISO
+      );
+      const isThreeStrikesReactivation =
+        wasThreeStrikesInactive && !previousActiveStatus && activeStatus;
 
-      if (isReactivationWithNewEndDate) {
+      if (isThreeStrikesReactivation) {
         updatedProfile.autoInactiveReason = null;
         updatedProfile.autoInactivePreviousEndDate = null;
         updatedProfile.autoInactiveStrikeDate = null;
-      } else if (isThreeStrikesProfile) {
-        updatedProfile.activeStatus = false;
       }
 
       // Sort allTags before potentially saving them (ensures consistent order)
@@ -1502,30 +1483,35 @@ const Profile = () => {
           alert("Error: Cannot update profile, client ID is missing.");
           throw new Error("Client UID is missing for update.");
         }
-        const previousEndDate = originalProfile.endDate || null;
-        const deliveryService = DeliveryService.getInstance();
-        await deliveryService.enforceClientEndDate(
-          clientProfile.uid,
-          updatedProfile.endDate,
-          previousEndDate
-        );
-
-        if (isReactivationWithNewEndDate) {
-          await deliveryService.deleteMissedEventsByClientId(clientProfile.uid);
-        }
-
-        // Save to Firestore for existing profile after delivery cleanup succeeds.
+        const previousEndDate = previousProfile.endDate || null;
+        let cleanupErrorMessage: string | null = null;
+        // Save to Firestore for existing profile (DO NOT normalize fields for saving)
         await setDoc(
           doc(db, dataSources.firebase.clientsCollection, clientProfile.uid),
           updatedProfile,
           { merge: true }
-        );
+        ); // Use merge: true for updates
         // Update the central tags list
         await setDoc(
           doc(db, dataSources.firebase.tagsCollection, dataSources.firebase.tagsDocId),
           { tags: sortedAllTags },
           { merge: true }
         );
+        try {
+          await DeliveryService.getInstance().enforceClientEndDate(
+            clientProfile.uid,
+            updatedProfile.endDate,
+            previousEndDate
+          );
+
+          if (isThreeStrikesReactivation) {
+            await DeliveryService.getInstance().deleteMissedEventsByClientId(clientProfile.uid);
+          }
+        } catch (error) {
+          console.error("Profile saved but delivery cleanup failed:", error);
+          cleanupErrorMessage =
+            error instanceof Error ? error.message : "Unknown delivery cleanup error";
+        }
 
         try {
           await refreshDeliveryData();
@@ -1543,6 +1529,10 @@ const Profile = () => {
         if (refresh) await refresh();
         // Set flag to force spreadsheet refresh on next mount
         localStorage.setItem("forceClientsRefresh", "true");
+
+        if (cleanupErrorMessage) {
+          alert(`Profile saved, but delivery cleanup failed: ${cleanupErrorMessage}`);
+        }
       }
 
       // Common post-save actions (Popup notification)
@@ -2693,6 +2683,22 @@ const Profile = () => {
     }
   };
 
+  const reconcileMissedDeliveryState = useCallback(async () => {
+    try {
+      if (refresh) {
+        await refresh();
+      }
+    } catch (error) {
+      console.error("Error refreshing client data after delivery update failure:", error);
+    }
+
+    try {
+      await refreshDeliveryData();
+    } catch (error) {
+      console.error("Error refreshing delivery data after delivery update failure:", error);
+    }
+  }, [refresh, refreshDeliveryData]);
+
   const handleMarkDeliveryMissed = useCallback(
     async (delivery: DeliveryEvent) => {
       if (!clientId || !delivery.id) {
@@ -2700,54 +2706,69 @@ const Profile = () => {
       }
 
       const deliveryService = DeliveryService.getInstance();
-      await deliveryService.updateEvent(delivery.id, { deliveryStatus: "Missed" } as Partial<DeliveryEvent>);
+      try {
+        await deliveryService.updateEvent(delivery.id, {
+          deliveryStatus: "Missed",
+        } as Partial<DeliveryEvent>);
 
-      const allEvents = await deliveryService.getEventsByClientId(clientId);
-      const missedEvents = allEvents
-        .filter((event) => event.deliveryStatus === "Missed")
-        .sort(
-          (left, right) =>
-            toJSDate(left.deliveryDate).getTime() - toJSDate(right.deliveryDate).getTime()
-        );
+        const allEvents = await deliveryService.getEventsByClientId(clientId);
+        const missedEvents = allEvents
+          .filter((event) => event.deliveryStatus === "Missed")
+          .sort(
+            (left, right) =>
+              toJSDate(left.deliveryDate).getTime() - toJSDate(right.deliveryDate).getTime()
+          );
 
-      if (missedEvents.length >= 3) {
-        const strikeDate = deliveryDate.toISODateString(missedEvents[2].deliveryDate);
-        const previousEndDate =
-          clientProfile.autoInactiveReason === "three-strikes"
-            ? clientProfile.autoInactivePreviousEndDate || clientProfile.endDate || null
-            : clientProfile.endDate || null;
-        const threeStrikePatch = {
-          endDate: strikeDate,
-          activeStatus: false,
-          autoInactiveReason: "three-strikes" as const,
-          autoInactivePreviousEndDate: previousEndDate,
-          autoInactiveStrikeDate: strikeDate,
-          updatedAt: new Date(),
-        };
+        if (missedEvents.length >= 3) {
+          const strikeDate = deliveryDate.toISODateString(missedEvents[2].deliveryDate);
+          const previousEndDate =
+            clientProfile.autoInactiveReason === "three-strikes"
+              ? clientProfile.autoInactivePreviousEndDate || clientProfile.endDate || null
+              : clientProfile.endDate || null;
 
-        await deliveryService.enforceClientEndDate(clientId, strikeDate, previousEndDate);
+          await setDoc(
+            doc(db, dataSources.firebase.clientsCollection, clientId),
+            {
+              endDate: strikeDate,
+              activeStatus: false,
+              autoInactiveReason: "three-strikes",
+              autoInactivePreviousEndDate: previousEndDate,
+              autoInactiveStrikeDate: strikeDate,
+              updatedAt: new Date(),
+            },
+            { merge: true }
+          );
 
-        await setDoc(
-          doc(db, dataSources.firebase.clientsCollection, clientId),
-          threeStrikePatch,
-          { merge: true }
-        );
+          await deliveryService.enforceClientEndDate(clientId, strikeDate, previousEndDate);
 
-        setClientProfile((prev) => ({ ...prev, ...threeStrikePatch }));
+          setClientProfile((prev) => ({
+            ...prev,
+            endDate: strikeDate,
+            activeStatus: false,
+            autoInactiveReason: "three-strikes",
+            autoInactivePreviousEndDate: previousEndDate,
+            autoInactiveStrikeDate: strikeDate,
+          }));
+        }
+
+        if (refresh) {
+          await refresh();
+        }
+        localStorage.setItem("forceClientsRefresh", "true");
+
+        await refreshDeliveryData();
+      } catch (error) {
+        console.error("Error marking delivery missed:", error);
+        await reconcileMissedDeliveryState();
+        throw error;
       }
-
-      if (refresh) {
-        await refresh();
-      }
-      localStorage.setItem("forceClientsRefresh", "true");
-
-      await refreshDeliveryData();
     },
     [
       clientId,
       clientProfile.autoInactivePreviousEndDate,
       clientProfile.autoInactiveReason,
       clientProfile.endDate,
+      reconcileMissedDeliveryState,
       refresh,
       refreshDeliveryData,
     ]
@@ -2760,59 +2781,67 @@ const Profile = () => {
       }
 
       const deliveryService = DeliveryService.getInstance();
-      await deliveryService.updateEvent(delivery.id, {
-        deliveryStatus: "Scheduled",
-      } as Partial<DeliveryEvent>);
+      try {
+        await deliveryService.updateEvent(delivery.id, {
+          deliveryStatus: "Scheduled",
+        } as Partial<DeliveryEvent>);
 
-      const allEvents = await deliveryService.getEventsByClientId(clientId);
-      const missedEvents = allEvents
-        .filter((event) => event.deliveryStatus === "Missed")
-        .sort(
-          (left, right) =>
-            toJSDate(left.deliveryDate).getTime() - toJSDate(right.deliveryDate).getTime()
-        );
+        const allEvents = await deliveryService.getEventsByClientId(clientId);
+        const missedEvents = allEvents
+          .filter((event) => event.deliveryStatus === "Missed")
+          .sort(
+            (left, right) =>
+              toJSDate(left.deliveryDate).getTime() - toJSDate(right.deliveryDate).getTime()
+          );
 
-      if (missedEvents.length < 3 && clientProfile.autoInactiveReason === "three-strikes") {
-        const restoredEndDate = clientProfile.autoInactivePreviousEndDate || clientProfile.endDate;
-        const activeStatus = computeProfileActiveStatus(clientProfile.startDate, restoredEndDate);
+        if (missedEvents.length < 3 && clientProfile.autoInactiveReason === "three-strikes") {
+          const restoredEndDate = clientProfile.autoInactivePreviousEndDate ?? null;
+          const activeStatus = computeClientActiveStatus(
+            clientProfile.startDate,
+            restoredEndDate
+          );
 
-        await setDoc(
-          doc(db, dataSources.firebase.clientsCollection, clientId),
-          {
-            endDate: restoredEndDate,
+          await setDoc(
+            doc(db, dataSources.firebase.clientsCollection, clientId),
+            {
+              endDate: restoredEndDate,
+              activeStatus,
+              autoInactiveReason: null,
+              autoInactivePreviousEndDate: null,
+              autoInactiveStrikeDate: null,
+              updatedAt: new Date(),
+            },
+            { merge: true }
+          );
+
+          setClientProfile((prev) => ({
+            ...prev,
+            endDate: restoredEndDate ?? "",
             activeStatus,
             autoInactiveReason: null,
             autoInactivePreviousEndDate: null,
             autoInactiveStrikeDate: null,
-            updatedAt: new Date(),
-          },
-          { merge: true }
-        );
+          }));
+        }
 
-        setClientProfile((prev) => ({
-          ...prev,
-          endDate: restoredEndDate,
-          activeStatus,
-          autoInactiveReason: null,
-          autoInactivePreviousEndDate: null,
-          autoInactiveStrikeDate: null,
-        }));
+        if (refresh) {
+          await refresh();
+        }
+        localStorage.setItem("forceClientsRefresh", "true");
 
+        await refreshDeliveryData();
+      } catch (error) {
+        console.error("Error restoring missed delivery:", error);
+        await reconcileMissedDeliveryState();
+        throw error;
       }
-
-      if (refresh) {
-        await refresh();
-      }
-      localStorage.setItem("forceClientsRefresh", "true");
-
-      await refreshDeliveryData();
     },
     [
       clientId,
       clientProfile.autoInactivePreviousEndDate,
       clientProfile.autoInactiveReason,
-      clientProfile.endDate,
       clientProfile.startDate,
+      reconcileMissedDeliveryState,
       refresh,
       refreshDeliveryData,
     ]
@@ -2905,6 +2934,13 @@ const Profile = () => {
           message={duplicateErrorMessage}
           title="Duplicate Client Detected"
           // No auto-close duration - user must dismiss manually
+        />
+      )}
+      {showSimilarNamesInfo && (
+        <PopUp
+          message={similarNamesMessage}
+          duration={8000}
+          onDismiss={() => setShowSimilarNamesInfo(false)}
         />
       )}
       {/* Spacer for navbar height */}

@@ -26,7 +26,8 @@ const DayView: React.FC<DayViewProps> = React.memo(function DayView({
   dailyLimits,
 }) {
   const { preloadDateRanges } = useRecurringDelivery();
-  const [containerHeight, setContainerHeight] = useState(0);
+  // Start with a sane fallback so virtualized content can render immediately.
+  const [containerHeight, setContainerHeight] = useState(300);
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Constants for virtual scrolling
@@ -44,20 +45,23 @@ const DayView: React.FC<DayViewProps> = React.memo(function DayView({
     return map;
   }, [clients]);
 
+  const updateHeight = useCallback(() => {
+    if (containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      const availableHeight = window.innerHeight - rect.top - 50; // 50px buffer
+      setContainerHeight(Math.max(300, availableHeight)); // Minimum 300px
+    }
+  }, []);
+
   // Calculate container height for virtual scrolling
   useEffect(() => {
-    const updateHeight = () => {
-      if (containerRef.current) {
-        const rect = containerRef.current.getBoundingClientRect();
-        const availableHeight = window.innerHeight - rect.top - 50; // 50px buffer
-        setContainerHeight(Math.max(300, availableHeight)); // Minimum 300px
-      }
-    };
-
     updateHeight();
+  }, [events.length, updateHeight]);
+
+  useEffect(() => {
     window.addEventListener("resize", updateHeight);
     return () => window.removeEventListener("resize", updateHeight);
-  }, []);
+  }, [updateHeight]);
 
   // Batch preload recurring delivery date ranges for all events
   useEffect(() => {
@@ -84,13 +88,12 @@ const DayView: React.FC<DayViewProps> = React.memo(function DayView({
           event={event}
           client={client}
           onEventModified={onEventModified}
-          allEvents={events}
           weeklyLimits={weeklyLimits}
           dailyLimits={dailyLimits}
         />
       );
     },
-    [clientLookupMap, onEventModified, events, weeklyLimits, dailyLimits]
+    [clientLookupMap, onEventModified, weeklyLimits, dailyLimits]
   );
 
   return (
@@ -156,7 +159,6 @@ const DayView: React.FC<DayViewProps> = React.memo(function DayView({
                     event={event}
                     client={client}
                     onEventModified={onEventModified}
-                    allEvents={events}
                     weeklyLimits={weeklyLimits}
                     dailyLimits={dailyLimits}
                   />

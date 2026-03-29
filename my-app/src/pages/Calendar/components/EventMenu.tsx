@@ -53,6 +53,8 @@ const EventMenu: React.FC<EventMenuProps> = ({
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isEditHydrating, setIsEditHydrating] = useState(false);
+  const [hasHydratedEditData, setHasHydratedEditData] = useState(false);
   const [isDeleteSubmitting, setIsDeleteSubmitting] = useState(false);
   const [isEditSubmitting, setIsEditSubmitting] = useState(false);
   const [deleteError, setDeleteError] = useState<string>("");
@@ -108,55 +110,43 @@ const EventMenu: React.FC<EventMenuProps> = ({
   });
   const dailyLimitsMap = useMemo(() => buildDailyLimitsMap(dailyLimits), [dailyLimits]);
 
-  useEffect(() => {
-    let isActive = true;
-    const fetchSeriesSummary = async () => {
-      try {
-        const summary = await deliveryService.getSeriesSummaryForEvent(event.id);
-        if (!isActive) {
-          return;
-        }
+  const hydrateEditDialogData = useCallback(async () => {
+    setIsEditHydrating(true);
+    setHasHydratedEditData(false);
+    setClientStartDateISO(null);
+    setClientEndDateISO(null);
 
-        if (summary?.effectiveEndDate) {
-          setEditRecurrence((prev) => ({
-            ...prev,
-            repeatsEndDate: summary.effectiveEndDate,
-          }));
-        }
-      } catch (error) {
-        console.error("Error fetching delivery series summary:", error);
-      }
-    };
+    const [seriesResult, clientResult] = await Promise.allSettled([
+      deliveryService.getSeriesSummaryForEvent(event.id),
+      event.clientId ? clientService.getClientById(event.clientId) : Promise.resolve(null),
+    ]);
 
-    fetchSeriesSummary();
-    return () => {
-      isActive = false;
-    };
-  }, [deliveryService, event.id]);
+    const seriesSummary = seriesResult.status === "fulfilled" ? seriesResult.value : null;
+    if (seriesSummary?.effectiveEndDate) {
+      setEditRecurrence((prev) => ({
+        ...prev,
+        repeatsEndDate: seriesSummary.effectiveEndDate,
+      }));
+    } else if (seriesResult.status === "rejected") {
+      console.error("Error hydrating edit dialog data from getSeriesSummaryForEvent:", seriesResult.reason);
+    }
 
-  useEffect(() => {
-    let isActive = true;
-    const fetchClientDateWindow = async () => {
-      if (!event.clientId) return;
-      try {
-        const client = await clientService.getClientById(event.clientId);
-        if (!isActive) return;
-        const startISO = client?.startDate
-          ? deliveryDate.tryToISODateString(client.startDate)
-          : null;
-        const endISO = client?.endDate ? deliveryDate.tryToISODateString(client.endDate) : null;
-        setClientStartDateISO(startISO);
-        setClientEndDateISO(endISO);
-      } catch (error) {
-        console.error("Error fetching client date window:", error);
-      }
-    };
+    if (clientResult.status === "fulfilled") {
+      const client = clientResult.value;
+      const startISO = client?.startDate ? deliveryDate.tryToISODateString(client.startDate) : null;
+      const endISO = client?.endDate ? deliveryDate.tryToISODateString(client.endDate) : null;
+      setClientStartDateISO(startISO);
+      setClientEndDateISO(endISO);
+      setHasHydratedEditData(true);
+      setEditError("");
+    } else {
+      console.error("Error hydrating edit dialog data from getClientById:", clientResult.reason);
+      setEditError("Could not load delivery details. Please close the dialog and try again.");
+      setHasHydratedEditData(false);
+    }
 
-    fetchClientDateWindow();
-    return () => {
-      isActive = false;
-    };
-  }, [event.clientId]);
+    setIsEditHydrating(false);
+  }, [deliveryService, event.clientId, event.id]);
 
   useEffect(() => {
     setCapacityWarnings([]);
@@ -268,6 +258,10 @@ const EventMenu: React.FC<EventMenuProps> = ({
   const closeEditDialog = () => {
     resetCapacityWarningState();
     setEditError("");
+    setClientStartDateISO(null);
+    setClientEndDateISO(null);
+    setIsEditHydrating(false);
+    setHasHydratedEditData(false);
     setIsEditDialogOpen(false);
   };
 
@@ -291,6 +285,10 @@ const EventMenu: React.FC<EventMenuProps> = ({
   };
 
   const handleEditConfirm = async () => {
+    if (isEditHydrating || !hasHydratedEditData) {
+      return;
+    }
+
     setEditError("");
     setIsEditSubmitting(true);
     try {
@@ -516,7 +514,9 @@ const EventMenu: React.FC<EventMenuProps> = ({
           onClick={() => {
             resetCapacityWarningState();
             setEditError("");
+            setHasHydratedEditData(false);
             setIsEditDialogOpen(true);
+            void hydrateEditDialogData();
           }}
         >
           Edit
@@ -540,6 +540,11 @@ const EventMenu: React.FC<EventMenuProps> = ({
       >
         <DialogTitle>Edit Event</DialogTitle>
         <DialogContent sx={{ pt: 2 }}>
+          {isEditHydrating && (
+            <Typography sx={{ mb: 1.5, color: "var(--color-text-medium-alt)" }}>
+              Loading delivery details...
+            </Typography>
+          )}
           <RadioGroup
             value={editOption}
             onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
@@ -641,7 +646,9 @@ const EventMenu: React.FC<EventMenuProps> = ({
             color="primary"
             sx={{ minWidth: 112 }}
             disabled={
+              isEditHydrating ||
               isEditSubmitting ||
+              !hasHydratedEditData ||
               !editDeliveryDate ||
               (editOption === "This and following events" &&
                 editRecurrence.recurrence !== "None" &&
@@ -652,6 +659,8 @@ const EventMenu: React.FC<EventMenuProps> = ({
           >
             {isEditSubmitting
               ? "Saving..."
+              : isEditHydrating
+              ? "Loading..."
               : capacityWarningAcknowledged && (capacityWarnings.length > 0 || capacityWarningError)
               ? "Continue anyway"
               : "Save"}

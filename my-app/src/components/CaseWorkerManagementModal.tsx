@@ -178,7 +178,6 @@ const CaseWorkerManagementModal: React.FC<CaseWorkerManagementModalProps> = ({
   const [editErrors, setEditErrors] = useState<ValidationErrors>({});
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [caseWorkerToDelete, setCaseWorkerToDelete] = useState<CaseWorker | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
 
   // Sorting state
   const [sortField, setSortField] = useState<SortField>("name");
@@ -272,8 +271,12 @@ const CaseWorkerManagementModal: React.FC<CaseWorkerManagementModalProps> = ({
   );
 
   const handleDeleteCaseWorker = async (caseWorkerId: string) => {
-    await deleteDoc(doc(db, dataSources.firebase.caseWorkersCollection, caseWorkerId));
-    onCaseWorkersChange(caseWorkers.filter((cw) => cw.id !== caseWorkerId));
+    try {
+      await deleteDoc(doc(db, dataSources.firebase.caseWorkersCollection, caseWorkerId));
+      onCaseWorkersChange(caseWorkers.filter((cw) => cw.id !== caseWorkerId));
+    } catch (error) {
+      console.error("Error deleting case worker:", error);
+    }
   };
 
   const handleDeleteClick = useCallback((caseWorker: CaseWorker) => {
@@ -293,16 +296,9 @@ const CaseWorkerManagementModal: React.FC<CaseWorkerManagementModalProps> = ({
 
   const handleDeleteConfirm = async () => {
     if (caseWorkerToDelete) {
-      setIsDeleting(true);
-      try {
-        await handleDeleteCaseWorker(caseWorkerToDelete.id);
-        setCaseWorkerToDelete(null);
-      } catch (error) {
-        console.error("Error deleting case worker:", error);
-        throw error;
-      } finally {
-        setIsDeleting(false);
-      }
+      await handleDeleteCaseWorker(caseWorkerToDelete.id);
+      setDeleteDialogOpen(false);
+      setCaseWorkerToDelete(null);
     }
   };
 
@@ -691,7 +687,6 @@ const CaseWorkerManagementModal: React.FC<CaseWorkerManagementModalProps> = ({
         message={`Are you sure you want to delete ${caseWorkerToDelete?.name || "this case worker"}? This action cannot be undone.`}
         confirmText="Delete"
         confirmColor="error"
-        loading={isDeleting}
       />
     </>
   );
