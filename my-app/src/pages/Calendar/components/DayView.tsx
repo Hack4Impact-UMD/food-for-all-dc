@@ -26,7 +26,8 @@ const DayView: React.FC<DayViewProps> = React.memo(function DayView({
   dailyLimits,
 }) {
   const { preloadDateRanges } = useRecurringDelivery();
-  const [containerHeight, setContainerHeight] = useState(0);
+  // Start with a sane fallback so virtualized content can render immediately.
+  const [containerHeight, setContainerHeight] = useState(300);
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Constants for virtual scrolling
@@ -57,7 +58,7 @@ const DayView: React.FC<DayViewProps> = React.memo(function DayView({
     updateHeight();
     window.addEventListener("resize", updateHeight);
     return () => window.removeEventListener("resize", updateHeight);
-  }, []);
+  }, [events.length]);
 
   // Batch preload recurring delivery date ranges for all events
   useEffect(() => {
