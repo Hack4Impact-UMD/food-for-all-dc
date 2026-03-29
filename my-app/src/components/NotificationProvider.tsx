@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useCallback } from "react";
 import PopUp from "./PopUp";
+import styles from "./PopUp.module.css";
 
 /**
  * Notification types for different message categories
@@ -139,17 +140,39 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
 const NotificationContainer: React.FC = () => {
   const { notifications, removeNotification } = useNotifications();
 
+  if (notifications.length === 0) {
+    return null;
+  }
+
   return (
-    <>
+    <div className={styles.popupViewport}>
       {notifications.map((notification) => (
-        <PopUp
+        <NotificationItem
           key={notification.id}
-          message={notification.message}
-          type={notification.type}
-          duration={notification.duration}
-          onDismiss={() => removeNotification(notification.id)}
+          notification={notification}
+          removeNotification={removeNotification}
         />
       ))}
-    </>
+    </div>
+  );
+};
+
+interface NotificationItemProps {
+  notification: Notification;
+  removeNotification: (id: string) => void;
+}
+
+const NotificationItem: React.FC<NotificationItemProps> = ({ notification, removeNotification }) => {
+  const handleDismiss = useCallback(() => {
+    removeNotification(notification.id);
+  }, [notification.id, removeNotification]);
+
+  return (
+    <PopUp
+      message={notification.message}
+      type={notification.type}
+      duration={notification.duration}
+      onDismiss={handleDismiss}
+    />
   );
 };
