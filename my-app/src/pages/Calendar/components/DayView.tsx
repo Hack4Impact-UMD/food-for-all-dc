@@ -84,7 +84,6 @@ const DayView: React.FC<DayViewProps> = React.memo(function DayView({
           event={event}
           client={client}
           onEventModified={onEventModified}
-          allEvents={events}
           weeklyLimits={weeklyLimits}
           dailyLimits={dailyLimits}
         />
@@ -156,7 +155,6 @@ const DayView: React.FC<DayViewProps> = React.memo(function DayView({
                     event={event}
                     client={client}
                     onEventModified={onEventModified}
-                    allEvents={events}
                     weeklyLimits={weeklyLimits}
                     dailyLimits={dailyLimits}
                   />

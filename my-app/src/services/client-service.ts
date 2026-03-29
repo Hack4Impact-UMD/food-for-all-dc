@@ -309,6 +309,20 @@ class ClientService {
 
         const clients = snapshot.docs.map((doc) => {
           const raw = doc.data() as any;
+          const rawFamStartDate = raw.famStartDate;
+          let famStartDate = "";
+          if (typeof rawFamStartDate === "string") {
+            famStartDate = rawFamStartDate;
+          } else if (rawFamStartDate && typeof rawFamStartDate?.toDate === "function") {
+            famStartDate = rawFamStartDate.toDate().toISOString().slice(0, 10);
+          } else if (
+            rawFamStartDate &&
+            typeof rawFamStartDate === "object" &&
+            "seconds" in rawFamStartDate &&
+            typeof rawFamStartDate.seconds === "number"
+          ) {
+            famStartDate = new Date(rawFamStartDate.seconds * 1000).toISOString().slice(0, 10);
+          }
           // Find latest delivery date for this client
           const clientDeliveries = allDeliveries.filter(
             (d: any) => d.clientId === doc.id && d.deliveryDate
@@ -380,6 +394,7 @@ class ClientService {
             gender: raw.gender ?? "",
             language: raw.language ?? "",
             notes: raw.notes ?? "",
+            famStartDate,
             tefapCert: raw.tefapCert ?? "",
             dob: raw.dob ?? "",
             ward: raw.ward ?? "",

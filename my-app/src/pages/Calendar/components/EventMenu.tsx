@@ -108,55 +108,28 @@ const EventMenu: React.FC<EventMenuProps> = ({
   });
   const dailyLimitsMap = useMemo(() => buildDailyLimitsMap(dailyLimits), [dailyLimits]);
 
-  useEffect(() => {
-    let isActive = true;
-    const fetchSeriesSummary = async () => {
-      try {
-        const summary = await deliveryService.getSeriesSummaryForEvent(event.id);
-        if (!isActive) {
-          return;
-        }
+  const hydrateEditDialogData = useCallback(async () => {
+    try {
+      const [seriesSummary, client] = await Promise.all([
+        deliveryService.getSeriesSummaryForEvent(event.id),
+        event.clientId ? clientService.getClientById(event.clientId) : Promise.resolve(null),
+      ]);
 
-        if (summary?.effectiveEndDate) {
-          setEditRecurrence((prev) => ({
-            ...prev,
-            repeatsEndDate: summary.effectiveEndDate,
-          }));
-        }
-      } catch (error) {
-        console.error("Error fetching delivery series summary:", error);
+      if (seriesSummary?.effectiveEndDate) {
+        setEditRecurrence((prev) => ({
+          ...prev,
+          repeatsEndDate: seriesSummary.effectiveEndDate,
+        }));
       }
-    };
 
-    fetchSeriesSummary();
-    return () => {
-      isActive = false;
-    };
-  }, [deliveryService, event.id]);
-
-  useEffect(() => {
-    let isActive = true;
-    const fetchClientDateWindow = async () => {
-      if (!event.clientId) return;
-      try {
-        const client = await clientService.getClientById(event.clientId);
-        if (!isActive) return;
-        const startISO = client?.startDate
-          ? deliveryDate.tryToISODateString(client.startDate)
-          : null;
-        const endISO = client?.endDate ? deliveryDate.tryToISODateString(client.endDate) : null;
-        setClientStartDateISO(startISO);
-        setClientEndDateISO(endISO);
-      } catch (error) {
-        console.error("Error fetching client date window:", error);
-      }
-    };
-
-    fetchClientDateWindow();
-    return () => {
-      isActive = false;
-    };
-  }, [event.clientId]);
+      const startISO = client?.startDate ? deliveryDate.tryToISODateString(client.startDate) : null;
+      const endISO = client?.endDate ? deliveryDate.tryToISODateString(client.endDate) : null;
+      setClientStartDateISO(startISO);
+      setClientEndDateISO(endISO);
+    } catch (error) {
+      console.error("Error hydrating edit dialog data:", error);
+    }
+  }, [deliveryService, event.clientId, event.id]);
 
   useEffect(() => {
     setCapacityWarnings([]);
@@ -517,6 +490,7 @@ const EventMenu: React.FC<EventMenuProps> = ({
             resetCapacityWarningState();
             setEditError("");
             setIsEditDialogOpen(true);
+            void hydrateEditDialogData();
           }}
         >
           Edit

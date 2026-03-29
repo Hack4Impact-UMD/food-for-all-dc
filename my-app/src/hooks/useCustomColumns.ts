@@ -3,6 +3,7 @@ export const allowedPropertyKeys = [
   "address",
   "adults",
   "children",
+  "famStartDate",
   "deliveryFreq",
   "deliveryDetails.dietaryRestrictions",
   "deliveryDetails.dietaryRestrictions.dietaryPreferences",

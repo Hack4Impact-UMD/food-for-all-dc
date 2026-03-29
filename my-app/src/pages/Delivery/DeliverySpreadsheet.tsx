@@ -121,6 +121,45 @@ const StyleChip = styled(Chip)({
   WebkitUserSelect: "text",
 });
 
+const formatTimestampLikeDate = (value: unknown): string => {
+  if (value === null || value === undefined || value === "") return "";
+
+  if (value instanceof Date) {
+    return format(value, "MM/dd/yyyy");
+  }
+
+  if (
+    typeof value === "object" &&
+    value !== null &&
+    "seconds" in value &&
+    typeof (value as { seconds?: unknown }).seconds === "number"
+  ) {
+    return format(new Date((value as { seconds: number }).seconds * 1000), "MM/dd/yyyy");
+  }
+
+  if (Array.isArray(value)) {
+    return value.join(", ");
+  }
+
+  if (typeof value === "object") {
+    return "";
+  }
+
+  return String(value);
+};
+
+const renderSafeCellValue = (value: unknown): React.ReactNode => {
+  if (React.isValidElement(value)) {
+    return value;
+  }
+
+  if (Array.isArray(value)) {
+    return value.join(", ");
+  }
+
+  return formatTimestampLikeDate(value);
+};
+
 const CLUSTER_COLORS = [
   "#FF0000",
   "#00FF00",
@@ -3180,7 +3219,7 @@ const DeliverySpreadsheet: React.FC = () => {
                                 </div>
                               );
                             } else {
-                              return computedValue;
+                              return renderSafeCellValue(computedValue);
                             }
                           })()
                         ) : (
@@ -3195,7 +3234,7 @@ const DeliverySpreadsheet: React.FC = () => {
                               (typeof val === "string" && val.trim().toUpperCase() === "N/A")
                             )
                               return "";
-                            return val.toString();
+                            return formatTimestampLikeDate(val);
                           })()
                         )}
                       </TableCell>
@@ -3286,7 +3325,9 @@ const DeliverySpreadsheet: React.FC = () => {
                                   ? row.deliveryDetails?.dietaryRestrictions?.dietaryPreferences &&
                                     row.deliveryDetails?.dietaryRestrictions?.dietaryPreferences.trim() !==
                                       ""
-                                    ? row.deliveryDetails?.dietaryRestrictions?.dietaryPreferences.trim()
+                                    ? formatTimestampLikeDate(
+                                        row.deliveryDetails?.dietaryRestrictions?.dietaryPreferences.trim()
+                                      )
                                     : ""
                                   : (() => {
                                       const val = row[col.propertyKey as keyof DeliveryRowData];
@@ -3314,7 +3355,7 @@ const DeliverySpreadsheet: React.FC = () => {
                                           return display || "";
                                         }
                                       }
-                                      return val?.toString() ?? "";
+                                      return formatTimestampLikeDate(val);
                                     })()
                           : ""}
                       </TableCell>
@@ -3453,6 +3494,7 @@ const DeliverySpreadsheet: React.FC = () => {
                             if (key === "address") label = "Address";
                             if (key === "adults") label = "Adults";
                             if (key === "children") label = "Children";
+                            if (key === "famStartDate") label = "FAM Start Date";
                             if (key === "deliveryFreq") label = "Delivery Freq";
                             if (key === "deliveryDetails.dietaryRestrictions")
                               label = "Dietary Restrictions";
@@ -3665,6 +3707,7 @@ const DeliverySpreadsheet: React.FC = () => {
                             if (key === "address") label = "Address";
                             if (key === "adults") label = "Adults";
                             if (key === "children") label = "Children";
+                            if (key === "famStartDate") label = "FAM Start Date";
                             if (key === "deliveryFreq") label = "Delivery Freq";
                             if (key === "deliveryDetails.dietaryRestrictions")
                               label = "Dietary Restrictions";

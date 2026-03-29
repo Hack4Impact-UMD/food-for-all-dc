@@ -89,6 +89,52 @@ const StyleChip = styled(Chip)(({ theme }) => ({
 
 const getTodayET = (): string => DateTime.now().setZone("America/New_York").toISODate() ?? "";
 
+const formatTimestampLikeDate = (value: unknown): string => {
+  if (value === null || value === undefined || value === "N/A") return "";
+
+  if (value instanceof Date) {
+    return DateTime.fromJSDate(value).setZone("America/New_York").toFormat("MM/dd/yyyy");
+  }
+
+  if (
+    typeof value === "object" &&
+    value !== null &&
+    "seconds" in value &&
+    typeof (value as { seconds?: unknown }).seconds === "number"
+  ) {
+    return DateTime.fromSeconds((value as { seconds: number }).seconds)
+      .setZone("America/New_York")
+      .toFormat("MM/dd/yyyy");
+  }
+
+  if (Array.isArray(value)) {
+    return value.join(", ");
+  }
+
+  if (typeof value === "object") {
+    return "";
+  }
+
+  return String(value);
+};
+
+const renderSafeSpreadsheetCellValue = (value: unknown): React.ReactNode => {
+  if (value === null || value === undefined || value === "N/A") return "";
+
+  if (React.isValidElement(value)) {
+    return value;
+  }
+
+  if (Array.isArray(value)) {
+    if (value.every((item) => React.isValidElement(item))) {
+      return value as React.ReactNode[];
+    }
+    return value.map((item) => formatTimestampLikeDate(item)).join(", ");
+  }
+
+  return formatTimestampLikeDate(value);
+};
+
 function getCustomColumnDisplay(row: RowData, propertyKey: string): React.ReactNode {
   if (!propertyKey || propertyKey === "none") return "";
   if (propertyKey === "referralEntity" && row.referralEntity) {
@@ -122,10 +168,10 @@ function getCustomColumnDisplay(row: RowData, propertyKey: string): React.ReactN
       value = value && value[k];
       if (value === undefined) return "";
     }
-    return value !== undefined && value !== null && value !== "N/A" ? value.toString() : "";
+    return formatTimestampLikeDate(value);
   }
   const value = row[propertyKey];
-  return value !== undefined && value !== null && value !== "N/A" ? value.toString() : "";
+  return formatTimestampLikeDate(value);
 }
 
 const Spreadsheet: React.FC = () => {
@@ -390,7 +436,7 @@ const Spreadsheet: React.FC = () => {
         key: "lastDeliveryDate",
         label: "Last Delivery Date",
         type: "text",
-        compute: (data: RowData) => data.lastDeliveryDate || "",
+        compute: (data: RowData) => formatTimestampLikeDate(data.lastDeliveryDate),
       },
     ],
     []
@@ -974,6 +1020,7 @@ const Spreadsheet: React.FC = () => {
                               let label = key.charAt(0).toUpperCase() + key.slice(1);
                               if (key === "deliveryDetails.dietaryRestrictions.dietaryPreferences")
                                 label = "Dietary Preferences";
+                              if (key === "famStartDate") label = "FAM Start Date";
                               return (
                                 <MenuItem key={key} value={key}>
                                   {key === "none" ? "None" : label}
@@ -1124,18 +1171,11 @@ const Spreadsheet: React.FC = () => {
                           </a>
                         </span>
                       ) : field.compute ? (
-                        field.compute(row)
+                        renderSafeSpreadsheetCellValue(field.compute(row))
                       ) : (
                         (() => {
                           const value = row[field.key as keyof RowData];
-                          if (value === null || value === undefined || value === "N/A") return "";
-                          if (React.isValidElement(value)) return value;
-                          if (Array.isArray(value)) return value.join(", ");
-                          try {
-                            return value.toString();
-                          } catch {
-                            return "";
-                          }
+                          return renderSafeSpreadsheetCellValue(value);
                         })()
                       )}
                     </TableCell>

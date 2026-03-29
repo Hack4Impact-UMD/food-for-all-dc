@@ -11,7 +11,6 @@ interface DeliveryCardProps {
   event: DeliveryEvent;
   client?: ClientProfile;
   onEventModified: () => void;
-  allEvents?: DeliveryEvent[];
   weeklyLimits: number[];
   dailyLimits: DateLimit[];
 }
@@ -20,7 +19,6 @@ const DeliveryCard: React.FC<DeliveryCardProps> = React.memo(function DeliveryCa
   event,
   client,
   onEventModified,
-  allEvents,
   weeklyLimits,
   dailyLimits,
 }) {
@@ -71,7 +69,7 @@ const DeliveryCard: React.FC<DeliveryCardProps> = React.memo(function DeliveryCa
           >
             {event.clientName}
           </Typography>
-          <DeliveryRecurrenceDisplay event={event} allEvents={allEvents} />
+          <DeliveryRecurrenceDisplay event={event} />
         </Box>
       </Box>
 

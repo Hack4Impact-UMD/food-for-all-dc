@@ -43,6 +43,7 @@ export interface RowData {
     organization: string;
   };
   tefapCert?: string;
+  famStartDate?: string;
   missedStrikeCount?: number;
   tags?: string[];
   dob?: string;
@@ -89,6 +90,8 @@ const getSpreadsheetExportColumnHeader = (propertyKey: string): string => {
       return "Referral Entity";
     case "tefapCert":
       return "TEFAP Cert";
+    case "famStartDate":
+      return "FAM Start Date";
     case "tags":
       return "Tags";
     case "dob":
@@ -118,6 +121,19 @@ const resolveSpreadsheetExportValue = (row: RowData, propertyKey: string): strin
     return typeof row.lastDeliveryDate === "string" ? row.lastDeliveryDate : "";
   }
 
+  if (propertyKey === "famStartDate") {
+    const raw = row.famStartDate as unknown;
+    if (
+      raw &&
+      typeof raw === "object" &&
+      "seconds" in raw &&
+      typeof (raw as { seconds?: unknown }).seconds === "number"
+    ) {
+      return new Date((raw as { seconds: number }).seconds * 1000).toISOString().split("T")[0];
+    }
+    return typeof raw === "string" ? raw : "";
+  }
+
   const value = propertyKey.includes(".") ? getNestedValue(row, propertyKey, "") : row[propertyKey];
   if (value === null || value === undefined) {
     return "";
@@ -128,6 +144,15 @@ const resolveSpreadsheetExportValue = (row: RowData, propertyKey: string): strin
   }
 
   if (typeof value === "object") {
+    if (
+      "seconds" in (value as Record<string, unknown>) &&
+      typeof (value as { seconds?: unknown }).seconds === "number"
+    ) {
+      return new Date((value as { seconds: number }).seconds * 1000)
+        .toISOString()
+        .split("T")[0];
+    }
+
     if ("name" in value || "organization" in value) {
       return [value.name, value.organization].filter(Boolean).join(", ");
     }
