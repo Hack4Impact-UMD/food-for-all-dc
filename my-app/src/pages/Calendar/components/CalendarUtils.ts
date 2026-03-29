@@ -2,6 +2,7 @@ import { DayPilot } from "@daypilot/daypilot-lite-react";
 import { DeliveryService } from "../../../services";
 import { NewDelivery } from "../../../types/calendar-types";
 import { Time, TimeUtils } from "../../../utils/timeUtils";
+import { deliveryDate } from "../../../utils/deliveryDate";
 
 const DAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
 
@@ -77,9 +78,9 @@ export const getNextMonthlyDate = (
 };
 
 export const calculateRecurrenceDates = (newDelivery: NewDelivery): string[] => {
-  const deliveryDateTime = TimeUtils.fromAny(newDelivery.deliveryDate);
+  const deliveryDateTime = deliveryDate.toDateTime(newDelivery.deliveryDate);
   const endDateTime = newDelivery.repeatsEndDate
-    ? TimeUtils.fromAny(newDelivery.repeatsEndDate)
+    ? deliveryDate.toDateTime(newDelivery.repeatsEndDate)
     : undefined;
 
   // Get recurrence dates as DateTime[]

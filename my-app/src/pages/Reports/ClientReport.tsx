@@ -3,7 +3,6 @@ import { Accordion, AccordionDetails, AccordionSummary, Box, Typography } from "
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import { useNavigate } from "react-router-dom";
 import { DateTime } from "luxon";
-import { Timestamp } from "firebase/firestore";
 import { useNotifications } from "../../components/NotificationProvider";
 import Guide from "./Guide";
 import LoadingIndicator from "../../components/LoadingIndicator/LoadingIndicator";
@@ -11,6 +10,7 @@ import SnapshotReportHeader from "./SnapshotReportHeader";
 import { exportToCSV } from "../../utils/reportExport";
 import { CsvExportError, CsvRow } from "../../utils/csvExport";
 import TimeUtils from "../../utils/timeUtils";
+import { deliveryDate } from "../../utils/deliveryDate";
 import {
   loadAllReportClients,
   loadLatestPastDeliveryDatesByClientIds,
@@ -28,12 +28,7 @@ const formatReportDateValue = (value: SupportedDateInput): string => {
     return "";
   }
 
-  if (typeof value === "string") {
-    return value;
-  }
-
-  const normalizedDate = TimeUtils.fromAny(value as string | Date | DateTime | Timestamp);
-  return normalizedDate.isValid ? normalizedDate.toISODate() || "" : "";
+  return deliveryDate.tryToISODateString(value) ?? "";
 };
 
 const ClientReport: React.FC = () => {

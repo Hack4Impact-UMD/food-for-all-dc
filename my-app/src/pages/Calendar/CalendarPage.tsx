@@ -5,7 +5,6 @@ import IconButton from "@mui/material/IconButton";
 import MenuRoundedIcon from "@mui/icons-material/MenuRounded";
 import { DayPilot } from "@daypilot/daypilot-lite-react";
 import { AppBar, Box, styled, Typography } from "@mui/material";
-import { Time, TimeUtils } from "../../utils/timeUtils";
 import { onAuthStateChanged } from "firebase/auth";
 import { collection, doc, getDoc } from "firebase/firestore";
 import { db } from "../../auth/firebaseConfig";
@@ -30,14 +29,14 @@ import { useLimits } from "./components/useLimits";
 import DeliveryService from "../../services/delivery-service";
 import { clientService } from "../../services/client-service";
 import DriverService from "../../services/driver-service";
-import { toJSDate } from "../../utils/timestamp";
-import { DateTime } from "luxon";
+import { deliveryDate } from "../../utils/deliveryDate";
 import { RecurringDeliveryProvider } from "../../context/RecurringDeliveryContext";
 import CalendarSkeleton from "../../components/skeletons/CalendarSkeleton";
 import CalendarHeaderSkeleton from "../../components/skeletons/CalendarHeaderSkeleton";
 import { useNotifications } from "../../components/NotificationProvider";
 import { buildHouseholdSnapshot } from "../../utils/householdSnapshot";
 import { deliveryEventEmitter } from "../../utils/deliveryEventEmitter";
+import { getCalendarViewRange, getTodayDayPilotDate } from "./components/calendarDateRange";
 
 const DAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
 
@@ -97,10 +96,10 @@ const CalendarPage: React.FC = React.memo(() => {
         return new DayPilot.Date(dateParam);
       } catch {
         // If date param is invalid, fall back to today
-        return DayPilot.Date.today();
+        return getTodayDayPilotDate();
       }
     }
-    return DayPilot.Date.today();
+    return getTodayDayPilotDate();
   };
   const [currentDate, setCurrentDate] = useState<DayPilot.Date>(getInitialDate());
   // Custom function to update both state and URL params
@@ -120,7 +119,7 @@ const CalendarPage: React.FC = React.memo(() => {
   const [events, setEvents] = useState<DeliveryEvent[]>([]);
   const [calendarConfig, setCalendarConfig] = useState<CalendarConfig>({
     viewType: "Day",
-    startDate: DayPilot.Date.today(),
+    startDate: getTodayDayPilotDate(),
     events: [],
   });
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
@@ -254,62 +253,11 @@ const CalendarPage: React.FC = React.memo(() => {
 
   const fetchEvents = useCallback(async () => {
     try {
-      let start = new DayPilot.Date(currentDate);
-      let endDate;
-
-      // Determine the date range based on the view type
-      switch (viewType) {
-        case "Month": {
-          // Start and end dates of the current month
-          const monthStart = currentDate.firstDayOfMonth();
-          const monthEnd = currentDate.lastDayOfMonth();
-
-          // Convert from DayPilot to JS date obj & calc the grid's start and end dates
-          const monthStartLuxon = TimeUtils.fromJSDate(monthStart.toDate());
-          const monthEndLuxon = TimeUtils.fromJSDate(monthEnd.toDate());
-          const gridStart = monthStartLuxon.startOf("week").toJSDate();
-          const gridEnd = monthEndLuxon.endOf("week").toJSDate();
-
-          // For consistent event counting across month boundaries, we need to fetch
-          // events for a wider range that covers all possible dates that could appear
-          // in any month view. This ensures that any date (like June 25th, 26th, 29th)
-          // always has the same count whether viewed from June or July.
-          //
-          // We extend by 2 weeks on each side to handle extreme edge cases:
-          // - A month that starts on Sunday and ends on Saturday
-          // - A month that starts on Monday and ends on Friday
-          // - Any combination in between
-          const extendedStart = TimeUtils.fromJSDate(gridStart).minus({ weeks: 2 }).toJSDate();
-          const extendedEnd = TimeUtils.fromJSDate(gridEnd).plus({ weeks: 2 }).toJSDate();
-
-          // Convert back to DayPilot date obj.
-          start = new DayPilot.Date(extendedStart);
-          endDate = new DayPilot.Date(extendedEnd);
-
-          break;
-        }
-        case "Day": {
-          // Always interpret the selected date as midnight in Eastern Time
-          const easternZone = "America/New_York";
-          const selectedDateStr = currentDate.toString("yyyy-MM-dd");
-          const selectedLuxon = DateTime.fromISO(selectedDateStr, { zone: easternZone }).startOf(
-            "day"
-          );
-          const nextDayLuxon = selectedLuxon.plus({ days: 1 });
-          start = new DayPilot.Date(selectedLuxon.toJSDate());
-          endDate = new DayPilot.Date(nextDayLuxon.toJSDate());
-          break;
-        }
-        default:
-          endDate = start.addDays(1);
-      }
+      const { queryStart, queryEndExclusive } = getCalendarViewRange(currentDate, viewType);
 
       // Use DeliveryService to fetch events by date range
       const deliveryService = DeliveryService.getInstance();
-      const fetchedEvents = await deliveryService.getEventsByDateRange(
-        start.toDate(),
-        endDate.toDate()
-      );
+      const fetchedEvents = await deliveryService.getEventsByDateRange(queryStart, queryEndExclusive);
 
       // Get unique client IDs from events
       const uniqueClientIds = [...new Set(fetchedEvents.map((event) => event.clientId))];
@@ -346,8 +294,8 @@ const CalendarPage: React.FC = React.memo(() => {
         id: event.id,
         // Removed date from display text
         text: `Client: ${event.clientName} (Driver: ${event.assignedDriverName})`,
-        start: new DayPilot.Date(toJSDate(event.deliveryDate)),
-        end: new DayPilot.Date(toJSDate(event.deliveryDate)),
+        start: new DayPilot.Date(deliveryDate.toJSDate(event.deliveryDate)),
+        end: new DayPilot.Date(deliveryDate.toJSDate(event.deliveryDate)),
         backColor: "var(--color-primary)",
       }));
 
@@ -408,7 +356,7 @@ const CalendarPage: React.FC = React.memo(() => {
   }, [viewType, currentDate, updateCurrentDate]);
 
   const handleNavigateToday = useCallback(() => {
-    updateCurrentDate(DayPilot.Date.today());
+    updateCurrentDate(getTodayDayPilotDate());
   }, [updateCurrentDate]);
 
   // Clear events immediately when view type changes to prevent flickering

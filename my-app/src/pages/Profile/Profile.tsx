@@ -330,7 +330,7 @@ const Profile = () => {
       return new DayPilot.Date();
     }
 
-    return new DayPilot.Date(TimeUtils.fromAny(nextSeriesDelivery.deliveryDate).toJSDate());
+    return new DayPilot.Date(deliveryDate.toJSDate(nextSeriesDelivery.deliveryDate));
   }, [editableRecurringSeries, futureDeliveries]);
 
   const [foodAllergensText, setFoodAllergensText] = useState<string>("");

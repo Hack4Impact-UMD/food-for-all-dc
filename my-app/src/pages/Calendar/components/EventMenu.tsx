@@ -23,7 +23,6 @@ import MoreHorizIcon from "@mui/icons-material/MoreHoriz";
 import WarningAmberRoundedIcon from "@mui/icons-material/WarningAmberRounded";
 import { DateLimit, DeliveryEvent, NewDelivery } from "../../../types/calendar-types";
 import { calculateRecurrenceDates } from "./CalendarUtils";
-import { toJSDate } from "../../../utils/timestamp";
 import { deliveryDate } from "../../../utils/deliveryDate";
 import { clientService } from "../../../services/client-service";
 import { DeliveryService } from "../../../services";
@@ -67,44 +66,52 @@ const EventMenu: React.FC<EventMenuProps> = ({
     "This event"
   );
 
-  const [editDeliveryDate, setEditDeliveryDate] = useState<string>(() => {
-    return toJSDate(event.deliveryDate).toISOString().split("T")[0];
-  });
+  const [editDeliveryDate, setEditDeliveryDate] = useState<string>(() =>
+    deliveryDate.toInputValue(event.deliveryDate)
+  );
 
   const [editDateError, setEditDateError] = useState<string | null>(null);
   const [clientStartDateISO, setClientStartDateISO] = useState<string | null>(null);
   const [clientEndDateISO, setClientEndDateISO] = useState<string | null>(null);
   const [editSeriesEndDateError, setEditSeriesEndDateError] = useState<string | null>(null);
   const normalizeToDateInput = (dateVal: unknown) => {
-    if (!dateVal) return "";
-    if (dateVal instanceof Date) {
-      return dateVal.toISOString().split("T")[0];
+    if (!dateVal) {
+      return "";
     }
-    if (typeof dateVal === "string" && /^\d{4}-\d{2}-\d{2}$/.test(dateVal)) {
-      return dateVal;
+
+    if (dateVal instanceof Date || typeof dateVal === "string") {
+      return deliveryDate.tryToISODateString(dateVal) || "";
     }
+
+    if (
+      typeof dateVal === "object" &&
+      dateVal !== null &&
+      "toDate" in dateVal &&
+      typeof (dateVal as { toDate?: unknown }).toDate === "function"
+    ) {
+      return deliveryDate.tryToISODateString((dateVal as { toDate: () => Date }).toDate()) || "";
+    }
+
     if (
       typeof dateVal === "object" &&
       dateVal !== null &&
       "seconds" in dateVal &&
-      "nanoseconds" in dateVal &&
       typeof (dateVal as { seconds?: unknown }).seconds === "number"
     ) {
-      const d = new Date((dateVal as { seconds: number }).seconds * 1000);
-      return d.toISOString().split("T")[0];
+      return (
+        deliveryDate.tryToISODateString(new Date((dateVal as { seconds: number }).seconds * 1000)) ||
+        ""
+      );
     }
-    const parsed = new Date(String(dateVal));
-    if (Number.isNaN(parsed.getTime())) {
-      return "";
-    }
-    return parsed.toISOString().split("T")[0];
+
+    return "";
   };
   const [editRecurrence, setEditRecurrence] = useState<Partial<NewDelivery>>({
     assignedDriverId: event.assignedDriverId,
     assignedDriverName: event.assignedDriverName,
     clientId: event.clientId,
     clientName: event.clientName,
-    deliveryDate: toJSDate(event.deliveryDate).toISOString().split("T")[0],
+    deliveryDate: deliveryDate.toInputValue(event.deliveryDate),
     recurrence: event.recurrence,
     repeatsEndDate: normalizeToDateInput(event.repeatsEndDate),
   });

@@ -4,6 +4,7 @@ import { SummaryData } from "../../types/reports-types";
 import { HouseholdSnapshot } from "../../types/delivery-types";
 import TimeUtils from "../../utils/timeUtils";
 import { buildHouseholdSnapshot, normalizeHouseholdSnapshot } from "../../utils/householdSnapshot";
+import { deliveryDate } from "../../utils/deliveryDate";
 
 export type SnapshotClientStatus = "active" | "lapsed" | "inactive";
 
@@ -190,8 +191,7 @@ const normalizeReportDate = (value: SupportedDateInput): DateTime | null => {
     return null;
   }
 
-  const normalizedDate = TimeUtils.fromAny(value).startOf("day");
-  return normalizedDate.isValid ? normalizedDate : null;
+  return deliveryDate.tryToDateTime(value)?.startOf("day") ?? null;
 };
 
 export const hasCurrentSnapshotDateWindow = ({

@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect } from "react";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { formatDate as formatAppDate } from "../../utils/dates";
 import { Box, Typography } from "@mui/material";
 import CalendarTodayIcon from "@mui/icons-material/CalendarToday";
 import { styled } from "@mui/material/styles";
+import { deliveryDate } from "../../utils/deliveryDate";
 
 interface DateRangePickerProps {
   startDate: Date | null;
@@ -38,11 +39,11 @@ export default function DateRangePicker({
 
   useEffect(() => {
     if (startDate != null) {
-      localStorage.setItem("ffaReportDateRangeStart", startDate.toString());
+      localStorage.setItem("ffaReportDateRangeStart", deliveryDate.toISODateString(startDate));
     }
 
     if (endDate != null) {
-      localStorage.setItem("ffaReportDateRangeEnd", endDate.toString());
+      localStorage.setItem("ffaReportDateRangeEnd", deliveryDate.toISODateString(endDate));
     }
   }, [startDate, endDate]);
 

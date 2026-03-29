@@ -875,9 +875,9 @@ class DeliveryService {
     }
 
     const recurrenceDates = Time.Recurrence.calculateRecurrenceDates(
-      TimeUtils.fromAny(normalizedStartDate),
+      deliveryDate.toDateTime(normalizedStartDate),
       newDelivery.recurrence,
-      newDelivery.repeatsEndDate ? TimeUtils.fromAny(newDelivery.repeatsEndDate) : undefined
+      newDelivery.repeatsEndDate ? deliveryDate.toDateTime(newDelivery.repeatsEndDate) : undefined
     );
 
     return Array.from(new Set(recurrenceDates.map((date) => TimeUtils.toDateString(date)))).sort();

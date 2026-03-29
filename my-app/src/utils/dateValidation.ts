@@ -1,4 +1,5 @@
-import { Time, TimeUtils } from "./timeUtils";
+import { deliveryDate as businessDate } from "./deliveryDate";
+import { Time } from "./timeUtils";
 
 export interface DateValidationResult {
   isValid: boolean;
@@ -22,7 +23,7 @@ export const validateDateRange = (
   }
 
   if (startDate) {
-    const startDateTime = TimeUtils.fromAny(startDate);
+    const startDateTime = businessDate.toDateTime(startDate);
     const validation = Time.Validation.validateNotPast(startDateTime);
 
     if (!validation.isValid) {
@@ -32,8 +33,8 @@ export const validateDateRange = (
   }
 
   if (startDate && endDate) {
-    const startDateTime = TimeUtils.fromAny(startDate);
-    const endDateTime = TimeUtils.fromAny(endDate);
+    const startDateTime = businessDate.toDateTime(startDate);
+    const endDateTime = businessDate.toDateTime(endDate);
 
     const validation = Time.Validation.validateDateRange(startDateTime, endDateTime);
 
@@ -58,8 +59,8 @@ export const validateDeliveryDateRange = (
   const result: DateRangeValidationResult = { isValid: true };
 
   if (deliveryDate && repeatsEndDate) {
-    const deliveryDateTime = TimeUtils.fromAny(deliveryDate);
-    const endDateTime = TimeUtils.fromAny(repeatsEndDate);
+    const deliveryDateTime = businessDate.toDateTime(deliveryDate);
+    const endDateTime = businessDate.toDateTime(repeatsEndDate);
 
     const validation = Time.Validation.validateDeliveryDateRange(deliveryDateTime, endDateTime);
 
