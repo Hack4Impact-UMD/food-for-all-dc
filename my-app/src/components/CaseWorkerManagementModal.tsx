@@ -272,12 +272,8 @@ const CaseWorkerManagementModal: React.FC<CaseWorkerManagementModalProps> = ({
   );
 
   const handleDeleteCaseWorker = async (caseWorkerId: string) => {
-    try {
-      await deleteDoc(doc(db, dataSources.firebase.caseWorkersCollection, caseWorkerId));
-      onCaseWorkersChange(caseWorkers.filter((cw) => cw.id !== caseWorkerId));
-    } catch (error) {
-      console.error("Error deleting case worker:", error);
-    }
+    await deleteDoc(doc(db, dataSources.firebase.caseWorkersCollection, caseWorkerId));
+    onCaseWorkersChange(caseWorkers.filter((cw) => cw.id !== caseWorkerId));
   };
 
   const handleDeleteClick = useCallback((caseWorker: CaseWorker) => {
@@ -301,6 +297,9 @@ const CaseWorkerManagementModal: React.FC<CaseWorkerManagementModalProps> = ({
       try {
         await handleDeleteCaseWorker(caseWorkerToDelete.id);
         setCaseWorkerToDelete(null);
+      } catch (error) {
+        console.error("Error deleting case worker:", error);
+        throw error;
       } finally {
         setIsDeleting(false);
       }
