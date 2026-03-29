@@ -524,6 +524,22 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
     }
   }, [allRows.length]);
 
+  useEffect(() => {
+    const markersMap = markersMapRef.current;
+
+    return () => {
+      markersMap.clear();
+      markerGroupRef.current = null;
+      wardLayerGroupRef.current = null;
+      previousVisibleRowsKeyRef.current = "";
+
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+      }
+    };
+  }, []);
+
   // Handle external popup open requests
   React.useEffect(() => {
     if (onOpenPopup) {
