@@ -89,6 +89,9 @@ export interface ClientProfile {
   recurrence: string;
   tefapCert: string;
   clusterID?: string;
+  autoInactiveReason?: "three-strikes" | null;
+  autoInactivePreviousEndDate?: string | null;
+  autoInactiveStrikeDate?: string | null;
   physicalAilments: {
     diabetes: boolean;
     hypertension: boolean;

@@ -1074,13 +1074,26 @@ const Spreadsheet: React.FC = () => {
                       {field.key === "fullname" ? (
                         <span style={{ display: "flex", alignItems: "center" }}>
                           <Tooltip
-                            title={row.activeStatus ? "Active profile" : "Inactive profile"}
+                            title={
+                              row.activeStatus
+                                ? row.missedStrikeCount === 1
+                                  ? "1 missed delivery"
+                                  : row.missedStrikeCount !== undefined && row.missedStrikeCount >= 2
+                                    ? "2 missed deliveries"
+                                    : "Active profile, no missed deliveries"
+                                : "Inactive profile"
+                            }
                             placement="right"
                           >
                             {row.activeStatus ? (
                               <CheckCircleIcon
                                 sx={{
-                                  color: "#4caf50",
+                                  color:
+                                    row.missedStrikeCount === 1
+                                      ? "#fbc02d"
+                                      : row.missedStrikeCount !== undefined && row.missedStrikeCount >= 2
+                                        ? "#d32f2f"
+                                        : "#4caf50",
                                   fontSize: "1.1rem",
                                   mr: 0.5,
                                   verticalAlign: "middle",

@@ -43,6 +43,7 @@ export interface RowData {
     organization: string;
   };
   tefapCert?: string;
+  missedStrikeCount?: number;
   tags?: string[];
   dob?: string;
   ward?: string;

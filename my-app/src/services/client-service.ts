@@ -27,20 +27,32 @@ import dataSources from "../config/dataSources";
 
 const computeActiveStatus = (
   startDate: string | Date | DateTime | Timestamp | null | undefined,
-  endDate: string | Date | DateTime | Timestamp | null | undefined
+  endDate: string | Date | DateTime | Timestamp | null | undefined,
+  rawActiveStatus?: boolean | null,
+  autoInactiveReason?: string | null
 ): boolean => {
+  if (rawActiveStatus === false || autoInactiveReason === "three-strikes") {
+    return false;
+  }
+
   const today = TimeUtils.now().startOf("day");
   const startDateTime = startDate ? TimeUtils.fromAny(startDate).startOf("day") : null;
-  if (!startDateTime?.isValid) return false;
-
   const endDateTime = endDate ? TimeUtils.fromAny(endDate).startOf("day") : null;
   const todayMillis = today.toMillis();
 
-  if (endDateTime?.isValid) {
+  if (startDateTime?.isValid && endDateTime?.isValid) {
     return todayMillis >= startDateTime.toMillis() && todayMillis <= endDateTime.toMillis();
   }
 
-  return todayMillis >= startDateTime.toMillis();
+  if (startDateTime?.isValid) {
+    return todayMillis >= startDateTime.toMillis();
+  }
+
+  if (endDateTime?.isValid) {
+    return todayMillis <= endDateTime.toMillis();
+  }
+
+  return false;
 };
 
 /**
@@ -106,7 +118,12 @@ class ClientService {
           const deliveryDetails = raw.deliveryDetails || {};
           const dietaryRestrictions = deliveryDetails.dietaryRestrictions || {};
 
-          const activeStatus = computeActiveStatus(raw.startDate, raw.endDate);
+          const activeStatus = computeActiveStatus(
+            raw.startDate,
+            raw.endDate,
+            raw.activeStatus,
+            raw.autoInactiveReason
+          );
 
           const mapped: ClientProfile = {
             uid: doc.id,
@@ -230,7 +247,12 @@ class ClientService {
         const snapshot = await getDocs(emptyQuery);
         const mapped = snapshot.docs.map((doc) => {
           const data = doc.data() as any;
-          const activeStatus = computeActiveStatus(data.startDate, data.endDate);
+          const activeStatus = computeActiveStatus(
+            data.startDate,
+            data.endDate,
+            data.activeStatus,
+            data.autoInactiveReason
+          );
           return {
             uid: doc.id,
             firstName: data.firstName || "",
@@ -257,7 +279,12 @@ class ClientService {
       const mapped = snapshot.docs
         .map((doc) => {
           const data = doc.data() as any;
-          const activeStatus = computeActiveStatus(data.startDate, data.endDate);
+          const activeStatus = computeActiveStatus(
+            data.startDate,
+            data.endDate,
+            data.activeStatus,
+            data.autoInactiveReason
+          );
           return {
             uid: doc.id,
             firstName: data.firstName || "",
@@ -313,6 +340,9 @@ class ClientService {
           const clientDeliveries = allDeliveries.filter(
             (d: any) => d.clientId === doc.id && d.deliveryDate
           );
+          const missedStrikeCount = clientDeliveries.filter(
+            (delivery: any) => delivery.deliveryStatus === "Missed"
+          ).length;
           let lastDeliveryDate = "";
           if (clientDeliveries.length > 0) {
             const latest = clientDeliveries.reduce((max, curr) => {
@@ -329,16 +359,12 @@ class ClientService {
               : latest.deliveryDate;
             lastDeliveryDate = dateObj ? dateObj.toISOString().slice(0, 10) : "";
           }
-          // Calculate activeStatus based on startDate and endDate
-          let activeStatus = false;
-          const todayDate = TimeUtils.now().startOf("day");
-          const startDateTime = raw.startDate ? TimeUtils.fromAny(raw.startDate).startOf("day") : null;
-          const endDateTime = raw.endDate ? TimeUtils.fromAny(raw.endDate).startOf("day") : null;
-          if (startDateTime?.isValid && endDateTime?.isValid) {
-            const todayMillis = todayDate.toMillis();
-            activeStatus =
-              todayMillis >= startDateTime.toMillis() && todayMillis <= endDateTime.toMillis();
-          }
+          const activeStatus = computeActiveStatus(
+            raw.startDate,
+            raw.endDate,
+            raw.activeStatus,
+            raw.autoInactiveReason
+          );
           const mapped = {
             id: doc.id,
             uid: doc.id,
@@ -384,6 +410,7 @@ class ClientService {
             tags: raw.tags ?? [],
             referralEntity: raw.referralEntity ?? undefined,
             lastDeliveryDate,
+            missedStrikeCount,
             activeStatus,
           };
           return mapped;

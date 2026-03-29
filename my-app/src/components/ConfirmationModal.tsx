@@ -1,6 +1,17 @@
 import React from "react";
-import { Button } from "@mui/material";
-import { Modal } from "./common";
+import {
+  Box,
+  Button,
+  CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  IconButton,
+  Typography,
+} from "@mui/material";
+import CloseIcon from "@mui/icons-material/Close";
+import WarningAmberRoundedIcon from "@mui/icons-material/WarningAmberRounded";
 
 /**
  * Confirmation modal for destructive actions
@@ -26,13 +37,15 @@ interface ConfirmationModalProps {
   /** Modal title */
   title: string;
   /** Confirmation message */
-  message: string;
+  message: React.ReactNode;
   /** Text for confirm button */
   confirmText?: string;
   /** Text for cancel button */
   cancelText?: string;
   /** Color scheme for confirm button */
   confirmColor?: "primary" | "secondary" | "error" | "warning";
+  /** Whether action is in progress */
+  loading?: boolean;
 }
 
 const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
@@ -44,27 +57,150 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
   confirmText = "Confirm",
   cancelText = "Cancel",
   confirmColor = "primary",
+  loading = false,
 }) => {
-  const handleConfirm = () => {
-    onConfirm();
+  const handleConfirm = async () => {
+    await Promise.resolve(onConfirm());
     onClose();
   };
 
+  const isDestructive = confirmColor === "error";
+  const iconColor = isDestructive
+    ? "var(--color-error-text)"
+    : confirmColor === "warning"
+      ? "var(--color-warning-text)"
+      : "var(--color-primary)";
+  const iconBackground = isDestructive
+    ? "var(--color-error-background)"
+    : confirmColor === "warning"
+      ? "var(--color-warning-background)"
+      : "var(--color-background-green-light)";
+  const confirmBg = isDestructive ? "var(--color-error-text)" : "var(--color-primary)";
+  const confirmBgHover = isDestructive
+    ? "var(--color-error-text-alt)"
+    : "var(--color-primary-hover-alt)";
+
   const actions = (
     <>
-      <Button onClick={onClose} color="inherit">
+      <Button
+        onClick={onClose}
+        disabled={loading}
+        sx={{
+          borderRadius: "10px",
+          px: 2.5,
+          color: "var(--color-text-medium-alt)",
+          border: "1px solid var(--color-border-medium)",
+          backgroundColor: "var(--color-white)",
+          textTransform: "none",
+          fontWeight: 600,
+          "&:hover": {
+            backgroundColor: "var(--color-background-lighter)",
+            borderColor: "var(--color-divider)",
+          },
+        }}
+      >
         {cancelText}
       </Button>
-      <Button onClick={handleConfirm} color={confirmColor} variant="contained" autoFocus>
+      <Button
+        onClick={handleConfirm}
+        variant="contained"
+        autoFocus
+        disabled={loading}
+        startIcon={loading ? <CircularProgress size={16} color="inherit" /> : null}
+        sx={{
+          borderRadius: "10px",
+          px: 2.5,
+          textTransform: "none",
+          fontWeight: 700,
+          color: "var(--color-white) !important",
+          backgroundColor: `${confirmBg} !important`,
+          boxShadow: "none",
+          "&:hover": {
+            boxShadow: "none",
+            backgroundColor: `${confirmBgHover} !important`,
+          },
+        }}
+      >
         {confirmText}
       </Button>
     </>
   );
 
   return (
-    <Modal open={open} onClose={onClose} title={title} actions={actions} maxWidth="sm">
-      <p style={{ margin: 0, lineHeight: 1.5 }}>{message}</p>
-    </Modal>
+    <Dialog
+      open={open}
+      onClose={loading ? undefined : onClose}
+      maxWidth="xs"
+      fullWidth
+      PaperProps={{
+        sx: {
+          borderRadius: "16px",
+          border: "1px solid var(--color-border-lighter)",
+          boxShadow: "0 18px 40px rgba(0, 0, 0, 0.12)",
+          overflow: "hidden",
+        },
+      }}
+    >
+      <DialogTitle
+        sx={{
+          px: 3,
+          pt: 3,
+          pb: 1,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+        }}
+      >
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1.25, pr: 1 }}>
+          <Box
+            sx={{
+              width: 42,
+              height: 42,
+              borderRadius: "12px",
+              display: "grid",
+              placeItems: "center",
+              backgroundColor: iconBackground,
+            }}
+          >
+            <WarningAmberRoundedIcon sx={{ color: iconColor, fontSize: 24 }} />
+          </Box>
+          <Typography
+            variant="h6"
+            sx={{ color: "var(--color-text-heading)", fontWeight: 700, lineHeight: 1.2 }}
+          >
+            {title}
+          </Typography>
+        </Box>
+        <IconButton
+          onClick={onClose}
+          size="small"
+          disabled={loading}
+          sx={{ color: "var(--color-text-icon)", mt: -0.5, mr: -0.5 }}
+          aria-label="Close confirmation dialog"
+        >
+          <CloseIcon fontSize="small" />
+        </IconButton>
+      </DialogTitle>
+
+      <DialogContent sx={{ px: 3, pb: 1.5 }}>
+        <Typography sx={{ color: "var(--color-text-medium-alt)", lineHeight: 1.55 }}>
+          {message}
+        </Typography>
+      </DialogContent>
+
+      <DialogActions
+        sx={{
+          px: 3,
+          pb: 3,
+          pt: 1,
+          gap: 1,
+          borderTop: "1px solid var(--color-border-lighter)",
+          backgroundColor: "var(--color-background-main)",
+        }}
+      >
+        {actions}
+      </DialogActions>
+    </Dialog>
   );
 };
 

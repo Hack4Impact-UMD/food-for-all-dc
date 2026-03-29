@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import {
+  Box,
   IconButton,
   Menu,
   MenuItem,
@@ -19,6 +20,7 @@ import {
 } from "@mui/material";
 import { validateDateInput } from "../../../utils/dates";
 import MoreHorizIcon from "@mui/icons-material/MoreHoriz";
+import WarningAmberRoundedIcon from "@mui/icons-material/WarningAmberRounded";
 import { DateLimit, DeliveryEvent, NewDelivery } from "../../../types/calendar-types";
 import { calculateRecurrenceDates } from "./CalendarUtils";
 import { toJSDate } from "../../../utils/timestamp";
@@ -663,9 +665,38 @@ const EventMenu: React.FC<EventMenuProps> = ({
         onClick={(e) => e.stopPropagation()}
         maxWidth="sm"
         fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: "16px",
+            border: "1px solid var(--color-border-lighter)",
+            boxShadow: "0 18px 40px rgba(0, 0, 0, 0.12)",
+          },
+        }}
       >
-        <DialogTitle>Delete Event</DialogTitle>
+        <DialogTitle sx={{ px: 3, pt: 3, pb: 1.5 }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1.25 }}>
+            <Box
+              sx={{
+                width: 40,
+                height: 40,
+                borderRadius: "12px",
+                display: "grid",
+                placeItems: "center",
+                backgroundColor: "var(--color-error-background)",
+              }}
+            >
+              <WarningAmberRoundedIcon sx={{ color: "var(--color-error-text)", fontSize: 22 }} />
+            </Box>
+            <Typography variant="h6" sx={{ fontWeight: 700, color: "var(--color-text-heading)" }}>
+              Delete Event
+            </Typography>
+          </Box>
+        </DialogTitle>
         <DialogContent sx={{ pt: 2 }}>
+          <Typography sx={{ mb: 1.25, color: "var(--color-text-medium-alt)", lineHeight: 1.55 }}>
+            Choose whether to remove only this delivery or this delivery and future ones in the
+            series.
+          </Typography>
           <RadioGroup value={deleteOption} onChange={(e) => setDeleteOption(e.target.value)}>
             <FormControlLabel value="This event" control={<Radio />} label="This event" />
             {supportsFutureDelete && (
@@ -682,11 +713,50 @@ const EventMenu: React.FC<EventMenuProps> = ({
             </Typography>
           )}
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setIsDeleteDialogOpen(false)} disabled={isDeleteSubmitting}>
+        <DialogActions
+          sx={{
+            px: 3,
+            pb: 3,
+            pt: 1,
+            gap: 1,
+            borderTop: "1px solid var(--color-border-lighter)",
+          }}
+        >
+          <Button
+            onClick={() => setIsDeleteDialogOpen(false)}
+            disabled={isDeleteSubmitting}
+            sx={{
+              borderRadius: "10px",
+              px: 2.5,
+              textTransform: "none",
+              fontWeight: 600,
+              color: "var(--color-text-medium-alt)",
+              border: "1px solid var(--color-border-medium)",
+              backgroundColor: "var(--color-white)",
+              "&:hover": {
+                backgroundColor: "var(--color-background-lighter)",
+              },
+            }}
+          >
             Cancel
           </Button>
-          <Button onClick={handleDeleteConfirm} color="error" disabled={isDeleteSubmitting}>
+          <Button
+            onClick={handleDeleteConfirm}
+            disabled={isDeleteSubmitting}
+            variant="contained"
+            sx={{
+              borderRadius: "10px",
+              px: 2.5,
+              textTransform: "none",
+              fontWeight: 700,
+              backgroundColor: "var(--color-error-text)",
+              boxShadow: "none",
+              "&:hover": {
+                boxShadow: "none",
+                backgroundColor: "var(--color-error-text-alt)",
+              },
+            }}
+          >
             {isDeleteSubmitting ? "Deleting..." : "Delete"}
           </Button>
         </DialogActions>
