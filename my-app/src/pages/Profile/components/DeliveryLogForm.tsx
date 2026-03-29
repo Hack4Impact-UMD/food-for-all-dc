@@ -82,34 +82,6 @@ const DeliveryLogForm: React.FC<DeliveryLogProps> = ({
     lineHeight: 1.2,
     textTransform: "none",
   } as const;
-  const deliveryBucketSx = {
-    width: "100%",
-    minWidth: 0,
-    borderRadius: "var(--border-radius-md)",
-    px: "var(--spacing-xs4)",
-    py: "var(--spacing-xs4)",
-    transition: "border-color 0.2s ease, background-color 0.2s ease, padding 0.2s ease",
-  } as const;
-  const deliveryItemsSx = {
-    width: "100%",
-    flexWrap: "wrap",
-    alignItems: "flex-start",
-    alignContent: "flex-start",
-    columnGap: "var(--spacing-sm)",
-    rowGap: "var(--spacing-xs4)",
-  } as const;
-  const deliveryItemSx = {
-    alignItems: "flex-start",
-    flexWrap: "wrap",
-    columnGap: "var(--spacing-xs4)",
-    rowGap: "var(--spacing-xs4)",
-    maxWidth: "100%",
-  } as const;
-  const emptyStateSx = {
-    color: "text.secondary",
-    lineHeight: 1.6,
-    py: "var(--spacing-xs4)",
-  } as const;
 
   const loadMissedDeliveries = useCallback(async () => {
     if (!clientId) {
@@ -496,11 +468,12 @@ const DeliveryLogForm: React.FC<DeliveryLogProps> = ({
             md: "repeat(3, 1fr)",
           },
           alignItems: "center",
+          overflow: "hidden",
           minWidth: 0,
         }}
         className="info-grid"
       >
-        <Box sx={{ gridColumn: "1 / -1", minWidth: 0 }}>
+        <Box sx={{ gridColumn: "-1/1", minWidth: 0 }}>
           {dropError && (
             <Alert severity="warning" sx={{ mb: 2 }}>
               {dropError}
@@ -518,21 +491,25 @@ const DeliveryLogForm: React.FC<DeliveryLogProps> = ({
               await handleDropToUpcoming();
             }}
             sx={{
-              ...deliveryBucketSx,
               mb: 2,
+              overflow: "hidden",
               border: canDropToUpcoming
                 ? "1px dashed var(--color-text-secondary)"
                 : "1px solid transparent",
+              borderRadius: 1,
+              p: canDropToUpcoming ? 1 : 0,
               minHeight: canDropToUpcoming ? 52 : "auto",
+              width: "100%",
               backgroundColor: canDropToUpcoming
                 ? "var(--color-background-main)"
                 : "transparent",
+              transition: "border-color 0.2s ease, background-color 0.2s ease, padding 0.2s ease",
             }}
           >
-            <Stack direction="row" useFlexGap sx={deliveryItemsSx}>
+            <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", maxHeight: 32, overflow: "hidden" }}>
               {sortedFutureDeliveries.length > 0 ? (
-                sortedFutureDeliveries.map((delivery) => (
-                  <Stack key={delivery.id} direction="row" useFlexGap sx={deliveryItemSx}>
+                sortedFutureDeliveries.map((delivery, index) => (
+                  <Stack key={delivery.id} direction="row" spacing={0.5} alignItems="center">
                     <div
                       draggable={canDragFromUpcoming(delivery)}
                       onDragStart={(e) => canDragFromUpcoming(delivery) && handleDragStart(delivery, "future", e)}
@@ -568,7 +545,7 @@ const DeliveryLogForm: React.FC<DeliveryLogProps> = ({
                   </Stack>
                 ))
               ) : (
-                <Typography variant="body2" sx={emptyStateSx}>
+                <Typography variant="body2" sx={{ color: "text.secondary" }}>
                   No upcoming deliveries
                 </Typography>
               )}
@@ -585,21 +562,24 @@ const DeliveryLogForm: React.FC<DeliveryLogProps> = ({
               await handleDropToPrevious(event);
             }}
             sx={{
-              ...deliveryBucketSx,
               border: canDropToPrevious
                 ? "1px dashed var(--color-text-secondary)"
                 : "1px solid transparent",
+              borderRadius: 1,
+              p: canDropToPrevious ? 1 : 0,
               minHeight: canDropToPrevious ? 52 : "auto",
+              width: "100%",
               mb: 2,
               backgroundColor: canDropToPrevious
                 ? "var(--color-background-main)"
                 : "transparent",
+              transition: "border-color 0.2s ease, background-color 0.2s ease, padding 0.2s ease",
             }}
           >
-            <Stack direction="row" useFlexGap sx={deliveryItemsSx}>
+            <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", maxHeight: 32, overflow: "hidden" }}>
               {sortedPastDeliveries.length > 0 ? (
-                sortedPastDeliveries.map((delivery) => (
-                  <Stack key={delivery.id} direction="row" useFlexGap sx={deliveryItemSx}>
+                sortedPastDeliveries.map((delivery, index) => (
+                  <Stack key={delivery.id} direction="row" spacing={0.5} alignItems="center">
                     <div
                       draggable
                       onDragStart={(e) => handleDragStart(delivery, "past", e)}
@@ -630,7 +610,7 @@ const DeliveryLogForm: React.FC<DeliveryLogProps> = ({
                   </Stack>
                 ))
               ) : (
-                <Typography variant="body2" sx={emptyStateSx}>
+                <Typography variant="body2" sx={{ color: "text.secondary" }}>
                   No previous deliveries
                 </Typography>
               )}
@@ -648,21 +628,24 @@ const DeliveryLogForm: React.FC<DeliveryLogProps> = ({
               await handleDropToMissed();
             }}
             sx={{
-              ...deliveryBucketSx,
               border: canDropToMissed
                 ? "1px dashed var(--color-text-secondary)"
                 : "1px solid transparent",
+              borderRadius: 1,
+              p: canDropToMissed ? 1 : 0,
               minHeight: canDropToMissed ? 52 : "auto",
+              width: "100%",
               mb: 1,
               backgroundColor: canDropToMissed
                 ? "var(--color-background-main)"
                 : "transparent",
+              transition: "border-color 0.2s ease, background-color 0.2s ease, padding 0.2s ease",
             }}
           >
-            <Stack direction="row" useFlexGap sx={deliveryItemsSx}>
+            <Stack direction="row" spacing={1} flexWrap="wrap">
               {missedDeliveries.length > 0 ? (
                 missedDeliveries.map((delivery) => (
-                  <Stack key={delivery.id} direction="row" useFlexGap sx={deliveryItemSx}>
+                  <Stack key={delivery.id} direction="row" spacing={0.5} alignItems="center">
                     <div
                       draggable
                       onDragStart={(e) => handleDragStart(delivery, "missed", e)}
@@ -705,7 +688,7 @@ const DeliveryLogForm: React.FC<DeliveryLogProps> = ({
                   </Stack>
                 ))
               ) : (
-                <Typography variant="body2" sx={emptyStateSx}>
+                <Typography variant="body2" sx={{ color: "text.secondary" }}>
                   Drag previous deliveries or today&apos;s upcoming delivery here
                 </Typography>
               )}
