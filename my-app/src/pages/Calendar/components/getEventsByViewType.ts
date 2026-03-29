@@ -14,13 +14,10 @@ export async function getEventsByViewType({
   currentDate: DayPilot.Date;
   clients: ClientProfile[];
 }) {
-  const { start, endExclusive } = getCalendarViewRange(currentDate, viewType);
+  const { queryStart, queryEndExclusive } = getCalendarViewRange(currentDate, viewType);
 
   const deliveryService = DeliveryService.getInstance();
-  const fetchedEvents = await deliveryService.getEventsByDateRange(
-    start.toDate(),
-    endExclusive.toDate()
-  );
+  const fetchedEvents = await deliveryService.getEventsByDateRange(queryStart, queryEndExclusive);
 
   const clientMap = new Map(clients.map((client: ClientProfile) => [client.uid, client]));
 

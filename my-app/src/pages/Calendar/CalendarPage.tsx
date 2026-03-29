@@ -253,14 +253,11 @@ const CalendarPage: React.FC = React.memo(() => {
 
   const fetchEvents = useCallback(async () => {
     try {
-      const { start, endExclusive } = getCalendarViewRange(currentDate, viewType);
+      const { queryStart, queryEndExclusive } = getCalendarViewRange(currentDate, viewType);
 
       // Use DeliveryService to fetch events by date range
       const deliveryService = DeliveryService.getInstance();
-      const fetchedEvents = await deliveryService.getEventsByDateRange(
-        start.toDate(),
-        endExclusive.toDate()
-      );
+      const fetchedEvents = await deliveryService.getEventsByDateRange(queryStart, queryEndExclusive);
 
       // Get unique client IDs from events
       const uniqueClientIds = [...new Set(fetchedEvents.map((event) => event.clientId))];

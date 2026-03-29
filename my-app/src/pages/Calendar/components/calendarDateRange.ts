@@ -11,16 +11,30 @@ const getSundayWeekStart = (dateTime: DateTime): DateTime => {
 const getSaturdayWeekEnd = (dateTime: DateTime): DateTime =>
   getSundayWeekStart(dateTime).plus({ days: 6 }).endOf("day");
 
-const toDayPilotDate = (dateTime: DateTime): DayPilot.Date =>
-  new DayPilot.Date(dateTime.toISODate() ?? deliveryDate.todayISODateString());
+const toDayPilotDate = (dateTime: DateTime): DayPilot.Date => {
+  const isoKey = dateTime.toISODate() ?? deliveryDate.todayISODateString();
+  return new DayPilot.Date(deliveryDate.toJSDate(isoKey));
+};
 
-export const getTodayDayPilotDate = (): DayPilot.Date =>
-  new DayPilot.Date(deliveryDate.todayISODateString());
+const toQueryDate = (dateTime: DateTime): Date => {
+  const isoKey = dateTime.toISODate() ?? deliveryDate.todayISODateString();
+  return deliveryDate.toJSDate(isoKey);
+};
+
+export const getTodayDayPilotDate = (): DayPilot.Date => {
+  const todayKey = deliveryDate.todayISODateString();
+  return new DayPilot.Date(deliveryDate.toJSDate(todayKey));
+};
 
 export const getCalendarViewRange = (
   currentDate: DayPilot.Date,
   viewType: ViewType
-): { start: DayPilot.Date; endExclusive: DayPilot.Date } => {
+): {
+  start: DayPilot.Date;
+  endExclusive: DayPilot.Date;
+  queryStart: Date;
+  queryEndExclusive: Date;
+} => {
   const currentDateKey = currentDate.toString("yyyy-MM-dd");
   const currentDateTime = deliveryDate.toDateTime(currentDateKey);
 
@@ -33,6 +47,8 @@ export const getCalendarViewRange = (
     return {
       start: toDayPilotDate(gridStart),
       endExclusive: toDayPilotDate(gridEndExclusive),
+      queryStart: toQueryDate(gridStart),
+      queryEndExclusive: toQueryDate(gridEndExclusive),
     };
   }
 
@@ -40,5 +56,7 @@ export const getCalendarViewRange = (
   return {
     start: toDayPilotDate(start),
     endExclusive: toDayPilotDate(start.plus({ days: 1 })),
+    queryStart: toQueryDate(start),
+    queryEndExclusive: toQueryDate(start.plus({ days: 1 })),
   };
 };
