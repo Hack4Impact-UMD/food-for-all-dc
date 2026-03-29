@@ -8,10 +8,10 @@ import DriverService from "../../services/driver-service";
 import FFAIcon from "../../assets/tsp-food-for-all-dc-logo.png";
 import dataSources from "../../config/dataSources";
 import {
-  hasAssignmentValue,
   normalizeAssignmentValue,
   resolveAssignmentValue,
 } from "./utils/assignmentOverrides";
+import { buildAssignmentSummary, buildClusterSummaries } from "./utils/clusterSummary";
 import { TIME_SLOT_LABELS } from "./utils/timeSlots";
 import { getClientStatusPresentation } from "../../utils/clientStatus";
 
@@ -49,7 +49,7 @@ interface ClientOverride {
   time?: string;
 }
 
-interface VisibleRow {
+interface RouteMapRow {
   id: string;
   firstName: string;
   lastName: string;
@@ -58,15 +58,15 @@ interface VisibleRow {
   address: string;
   address2?: string;
   zipCode?: string;
-  coordinates?: [number, number] | { lat: number; lng: number };
+  coordinates?: [number, number] | [] | { lat: number; lng: number };
   clusterId?: string;
   ward?: string;
 }
 
 interface ClusterMapProps {
-  visibleRows: VisibleRow[];
+  allRows: RouteMapRow[];
+  visibleRows: RouteMapRow[];
   clusters: Cluster[];
-  totalDeliveries?: number;
   clientOverrides?: ClientOverride[];
   onClusterUpdate: (
     clientId: string,
@@ -176,9 +176,9 @@ const clusterColors = [
 ];
 
 const ClusterMap: React.FC<ClusterMapProps> = ({
+  allRows,
   visibleRows,
   clusters,
-  totalDeliveries,
   clientOverrides = [],
   onClusterUpdate,
   onOpenPopup,
@@ -272,95 +272,18 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
   }, [clientOverrides]);
 
   const assignmentSummary = React.useMemo(() => {
-    const total = visibleRows.length;
-    let assigned = 0;
-
-    visibleRows.forEach((row) => {
-      const override = clientOverrideByClientId.get(row.id);
-      const cluster = clusterByClientId.get(row.id);
-      const effectiveDriver = resolveAssignmentValue(override?.driver, cluster?.driver);
-      const effectiveTime = resolveAssignmentValue(override?.time, cluster?.time);
-
-      if (hasAssignmentValue(effectiveDriver) && hasAssignmentValue(effectiveTime)) {
-        assigned += 1;
-      }
-    });
-
-    const remaining = Math.max(total - assigned, 0);
-
-    return {
-      total,
-      assigned,
-      remaining,
-      done: total > 0 && remaining === 0,
-    };
-  }, [visibleRows, clusterByClientId, clientOverrideByClientId]);
+    return buildAssignmentSummary(allRows, clusterByClientId, clientOverrideByClientId);
+  }, [allRows, clusterByClientId, clientOverrideByClientId]);
 
   // Calculate deliveries + assignment details per cluster for the map summary overlay.
   const clusterSummaries = React.useMemo(() => {
-    const summaryMap = new Map<
-      string,
-      { count: number; drivers: Set<string>; times: Set<string> }
-    >();
-
-    visibleRows.forEach((row) => {
-      const cluster = clusterByClientId.get(row.id);
-      const clusterId = cluster?.id;
-
-      if (!clusterId) {
-        return;
-      }
-
-      const override = clientOverrideByClientId.get(row.id);
-      const effectiveDriver = resolveAssignmentValue(override?.driver, cluster?.driver);
-      const effectiveTime = resolveAssignmentValue(override?.time, cluster?.time);
-
-      const current = summaryMap.get(clusterId) || {
-        count: 0,
-        drivers: new Set<string>(),
-        times: new Set<string>(),
-      };
-
-      current.count += 1;
-      if (hasAssignmentValue(effectiveDriver)) {
-        current.drivers.add(effectiveDriver!);
-      }
-      if (hasAssignmentValue(effectiveTime)) {
-        current.times.add(effectiveTime!);
-      }
-
-      summaryMap.set(clusterId, current);
-    });
-
-    return Array.from(summaryMap.entries())
-      .sort(([a], [b]) => {
-        const numA = parseInt(a.match(/\d+/)?.[0] || "0", 10);
-        const numB = parseInt(b.match(/\d+/)?.[0] || "0", 10);
-        return numA - numB || a.localeCompare(b);
-      })
-      .map(([clusterId, values]) => {
-        const driverLabel =
-          values.drivers.size === 0
-            ? "No driver"
-            : values.drivers.size === 1
-              ? Array.from(values.drivers)[0]
-              : "Mixed drivers";
-
-        const timeLabel =
-          values.times.size === 0
-            ? "No time"
-            : values.times.size === 1
-              ? formatTimeForSummary(Array.from(values.times)[0])
-              : "Mixed times";
-
-        return {
-          clusterId,
-          count: values.count,
-          driverLabel,
-          timeLabel,
-        };
-      });
-  }, [visibleRows, clusterByClientId, clientOverrideByClientId]);
+    return buildClusterSummaries(
+      allRows,
+      clusterByClientId,
+      clientOverrideByClientId,
+      formatTimeForSummary
+    );
+  }, [allRows, clusterByClientId, clientOverrideByClientId]);
 
   // Toggle cluster summary visibility
   const handleClusterSummaryToggle = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -584,7 +507,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
   };
 
   useEffect(() => {
-    if (!mapRef.current && visibleRows.length > 0 && L && typeof L.map === "function") {
+    if (!mapRef.current && allRows.length > 0 && L && typeof L.map === "function") {
       try {
         mapRef.current = L.map("cluster-map").setView(ffaCoordinates, 11);
         L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(mapRef.current);
@@ -599,7 +522,23 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
       // Create marker layer group
       markerGroupRef.current = L.featureGroup().addTo(mapRef.current);
     }
-  }, [visibleRows.length]);
+  }, [allRows.length]);
+
+  useEffect(() => {
+    const markersMap = markersMapRef.current;
+
+    return () => {
+      markersMap.clear();
+      markerGroupRef.current = null;
+      wardLayerGroupRef.current = null;
+      previousVisibleRowsKeyRef.current = "";
+
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+      }
+    };
+  }, []);
 
   // Handle external popup open requests
   React.useEffect(() => {
@@ -695,12 +634,18 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
   }, [showWardOverlays, addWardOverlays]);
 
   useEffect(() => {
-    if (!mapRef.current || !markerGroupRef.current || visibleRows.length < 1) return;
+    if (!mapRef.current || !markerGroupRef.current) return;
 
     markerGroupRef.current.clearLayers();
 
     // Clear markers map when recreating markers
     markersMapRef.current.clear();
+
+    if (visibleRows.length < 1) {
+      mapRef.current.closePopup();
+      previousVisibleRowsKeyRef.current = "";
+      return;
+    }
 
     // create a map of client ids for quick lookup
     const clientClusterMap = new Map<string, Cluster>();
@@ -1286,8 +1231,10 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
   const invalidCount = visibleRows.filter(
     (client) => !isValidCoordinate(client.coordinates)
   ).length;
-  const dayTotalDeliveries = totalDeliveries ?? visibleRows.length;
+  const dayTotalDeliveries = allRows.length;
   const isFilteredView = visibleRows.length !== dayTotalDeliveries;
+  const showFilteredEmptyState =
+    isFilteredView && visibleRows.length === 0 && dayTotalDeliveries > 0;
 
   const centerMap = () => {
     mapRef.current?.setView(ffaCoordinates, 11);
@@ -1305,6 +1252,35 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
           borderRadius: "4px",
         }}
       />
+
+      {showFilteredEmptyState && (
+        <Box
+          sx={{
+            position: "absolute",
+            inset: 0,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            pointerEvents: "none",
+            zIndex: 900,
+          }}
+        >
+          <Box
+            sx={{
+              backgroundColor: "rgba(255, 255, 255, 0.95)",
+              border: "1px solid var(--color-border-light)",
+              borderRadius: "6px",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.12)",
+              px: 3,
+              py: 1.5,
+            }}
+          >
+            <Typography variant="body2" sx={{ color: "text.secondary", fontWeight: 500 }}>
+              No deliveries match current filter
+            </Typography>
+          </Box>
+        </Box>
+      )}
 
       {/* Ward Overlay Toggle */}
       <Box
@@ -1573,11 +1549,6 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
               );
             })}
           </Box>
-          {clusterSummaries.length === 0 && (
-            <Typography variant="caption" sx={{ fontSize: "10px", color: "text.secondary", fontStyle: "italic" }}>
-              No cluster assignments
-            </Typography>
-          )}
         </Box>
       )}
 

@@ -2638,12 +2638,12 @@ const DeliverySpreadsheet: React.FC = () => {
         {isMainLoading ? (
           // Revert to rendering the indicator directly
           <LoadingIndicator />
-        ) : visibleRows.length > 0 ? (
+        ) : rows.length > 0 ? (
           <Suspense fallback={<LoadingIndicator />}>
             <ClusterMap
+              allRows={rows}
               clusters={clusters}
               visibleRows={visibleRows}
-              totalDeliveries={rows.length}
               clientOverrides={clientOverrides}
               onClusterUpdate={handleIndividualClientUpdate}
               onOpenPopup={handleRowClick}
