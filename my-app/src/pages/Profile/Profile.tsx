@@ -3053,18 +3053,26 @@ const Profile = () => {
             <Box
               sx={{
                 display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
+                alignItems: {
+                  xs: "flex-start",
+                  sm: "center",
+                },
+                flexWrap: "wrap",
+                rowGap: "var(--spacing-sm)",
+                columnGap: "var(--spacing-md)",
                 width: "100%",
               }}
             >
-              <Box display="flex" alignItems="center" sx={{ height: "100%" }}>
+              <Box
+                display="flex"
+                alignItems="center"
+                sx={{ flex: "1 1 auto", minWidth: 0 }}
+              >
                 <SectionTitle
                   sx={{
                     textAlign: "left",
                     display: "flex",
                     alignItems: "center",
-                    height: "100%",
                     mb: 0,
                   }}
                 >
@@ -3082,8 +3090,18 @@ const Profile = () => {
                   userRole === UserType.ClientIntake || clientProfile.activeStatus === false
                 }
                 sx={{
-                  marginRight: 4,
-                  width: 166,
+                  alignSelf: {
+                    xs: "flex-start",
+                    sm: "center",
+                  },
+                  flexShrink: 0,
+                  ml: {
+                    xs: 0,
+                    sm: "auto",
+                  },
+                  minWidth: "fit-content",
+                  px: "var(--spacing-lg)",
+                  whiteSpace: "nowrap",
                   color: "var(--color-background-main)",
                   backgroundColor: "var(--color-primary)",
                 }}
