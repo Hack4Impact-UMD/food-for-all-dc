@@ -10,7 +10,6 @@ import {
 import ConfirmationModal from "../../../components/ConfirmationModal";
 import { DeliveryEvent } from "../../../types";
 import DeliveryService from "../../../services/delivery-service";
-import { toJSDate } from "../../../utils/timestamp";
 import { deliveryDate } from "../../../utils/deliveryDate";
 
 interface DeliveryEventWithHidden extends DeliveryEvent {
@@ -54,31 +53,19 @@ const DeliveryLogForm: React.FC<DeliveryLogProps> = ({
 
   const deliveryService = DeliveryService.getInstance();
 
-  const formatDate = (date: Date | string): string => {
-    const dateObj = typeof date === "string" ? new Date(date) : date;
-    if (!(dateObj instanceof Date) || isNaN(dateObj.getTime())) {
-      return "Invalid date";
-    }
-    const month = String(dateObj.getMonth() + 1).padStart(2, "0");
-    const day = String(dateObj.getDate()).padStart(2, "0");
-    const year = dateObj.getFullYear();
-    return `${month}/${day}/${year}`;
+  const formatDate = (date: DeliveryEvent["deliveryDate"] | Date | string): string => {
+    const normalized = deliveryDate.tryToDateTime(date);
+    return normalized ? normalized.toFormat("MM/dd/yyyy") : "Invalid date";
   };
 
   const sortDeliveryDates = (deliveries: DeliveryEvent[]) => {
-    return [...deliveries].sort((a, b) => {
-      const dateA = toJSDate(a.deliveryDate).getTime();
-      const dateB = toJSDate(b.deliveryDate).getTime();
-      return dateA - dateB;
-    });
+    return [...deliveries].sort((a, b) => deliveryDate.compare(a.deliveryDate, b.deliveryDate));
   };
 
   const isMissed = (delivery: DeliveryEvent) => delivery.deliveryStatus === "Missed";
 
-  const isToday = (date: DeliveryEvent["deliveryDate"]) => {
-    const value = toJSDate(date);
-    return deliveryDate.toISODateString(value) === deliveryDate.toISODateString(new Date());
-  };
+  const isToday = (date: DeliveryEvent["deliveryDate"]) =>
+    deliveryDate.isSameDay(date, deliveryDate.today());
 
   const isDragging = draggedDelivery !== null;
   const canDropToUpcoming = isDragging && draggedSource === "missed" && draggedDelivery !== null && isToday(draggedDelivery.deliveryDate);
@@ -117,7 +104,7 @@ const DeliveryLogForm: React.FC<DeliveryLogProps> = ({
 
     // Create a chip-like drag ghost so it looks like you're holding the chip
     const ghost = document.createElement("div");
-    ghost.textContent = formatDate(toJSDate(delivery.deliveryDate));
+    ghost.textContent = formatDate(delivery.deliveryDate);
     ghost.style.cssText = `
       position: fixed; top: -9999px; left: -9999px;
       padding: 4px 12px;
@@ -396,11 +383,8 @@ const DeliveryLogForm: React.FC<DeliveryLogProps> = ({
           }
 
           const allEvents = await deliveryService.getEventsByClientId(selectedDelivery.clientId);
-          const now = new Date();
-          const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-
           const futureDeliveries = sortDeliveryDates(
-            allEvents.filter((event) => toJSDate(event.deliveryDate) >= today)
+            allEvents.filter((event) => deliveryDate.compare(event.deliveryDate, deliveryDate.today()) >= 0)
           );
 
           const currentIdsWithoutDeleted = currentIds.filter((id) => id !== selectedDelivery.id);
@@ -540,7 +524,7 @@ const DeliveryLogForm: React.FC<DeliveryLogProps> = ({
                       }}
                     >
                       <Chip
-                        label={formatDate(toJSDate(delivery.deliveryDate))}
+                        label={formatDate(delivery.deliveryDate)}
                         variant="outlined"
                         color="primary"
                         onDelete={() => handleDeleteClick(delivery)}
@@ -552,7 +536,7 @@ const DeliveryLogForm: React.FC<DeliveryLogProps> = ({
                         onClick={() => {
                           void queueDropToMissed(delivery, "future");
                         }}
-                        aria-label={`Mark ${formatDate(toJSDate(delivery.deliveryDate))} delivery as missed`}
+                        aria-label={`Mark ${formatDate(delivery.deliveryDate)} delivery as missed`}
                         sx={moveActionSx}
                       >
                         Missed
@@ -608,7 +592,7 @@ const DeliveryLogForm: React.FC<DeliveryLogProps> = ({
                       }}
                     >
                       <Chip
-                        label={formatDate(toJSDate(delivery.deliveryDate))}
+                        label={formatDate(delivery.deliveryDate)}
                         variant="outlined"
                         color="secondary"
                       />
@@ -618,7 +602,7 @@ const DeliveryLogForm: React.FC<DeliveryLogProps> = ({
                       onClick={() => {
                         void queueDropToMissed(delivery, "past");
                       }}
-                      aria-label={`Mark ${formatDate(toJSDate(delivery.deliveryDate))} delivery as missed`}
+                      aria-label={`Mark ${formatDate(delivery.deliveryDate)} delivery as missed`}
                       sx={moveActionSx}
                     >
                       Missed
@@ -674,7 +658,7 @@ const DeliveryLogForm: React.FC<DeliveryLogProps> = ({
                       }}
                     >
                       <Chip
-                        label={formatDate(toJSDate(delivery.deliveryDate))}
+                        label={formatDate(delivery.deliveryDate)}
                         variant="outlined"
                         color="error"
                         sx={{
@@ -694,8 +678,8 @@ const DeliveryLogForm: React.FC<DeliveryLogProps> = ({
                       }}
                       aria-label={
                         isToday(delivery.deliveryDate)
-                          ? `Move ${formatDate(toJSDate(delivery.deliveryDate))} delivery back to upcoming`
-                          : `Move ${formatDate(toJSDate(delivery.deliveryDate))} delivery back to previous`
+                          ? `Move ${formatDate(delivery.deliveryDate)} delivery back to upcoming`
+                          : `Move ${formatDate(delivery.deliveryDate)} delivery back to previous`
                       }
                       sx={moveActionSx}
                     >

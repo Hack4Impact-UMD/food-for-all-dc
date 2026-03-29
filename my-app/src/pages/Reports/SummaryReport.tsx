@@ -21,9 +21,15 @@ import {
   loadFirstDeliveriesByClientIds,
   loadInclusiveReportEvents,
 } from "./reportDataLoader";
+import { deliveryDate } from "../../utils/deliveryDate";
 
 const LEGACY_SNAPSHOT_NOTICE =
   "Some deliveries in this range predate household snapshots. Historical people counts use current household size for those legacy deliveries.";
+
+const readStoredReportDate = (storageKey: string): Date | null => {
+  const rawValue = localStorage.getItem(storageKey);
+  return rawValue ? deliveryDate.tryToJSDate(rawValue) : null;
+};
 
 const SummaryReport: React.FC = () => {
   const { showError, showSuccess, showWarning } = useNotifications();
@@ -35,22 +41,12 @@ const SummaryReport: React.FC = () => {
   const [data, setData] = useState<SummaryData>(() => createEmptySummaryReport());
   const [legacySnapshotNotice, setLegacySnapshotNotice] = useState<string | null>(null);
 
-  const [startDate, setStartDate] = useState<Date | null>(() => {
-    const start = localStorage.getItem("ffaReportDateRangeStart");
-    if (start) {
-      return new Date(start);
-    } else {
-      return null;
-    }
-  });
-  const [endDate, setEndDate] = useState<Date | null>(() => {
-    const end = localStorage.getItem("ffaReportDateRangeEnd");
-    if (end) {
-      return new Date(end);
-    } else {
-      return null;
-    }
-  });
+  const [startDate, setStartDate] = useState<Date | null>(() =>
+    readStoredReportDate("ffaReportDateRangeStart")
+  );
+  const [endDate, setEndDate] = useState<Date | null>(() =>
+    readStoredReportDate("ffaReportDateRangeEnd")
+  );
   const currentRangeKey = getReportRangeKey(startDate, endDate);
   const isExportDisabled = isReportExportDisabled({
     isLoading,

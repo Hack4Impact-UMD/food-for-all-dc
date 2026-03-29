@@ -6,6 +6,7 @@ import { Time, TimeUtils } from "../utils/timeUtils";
 import { retry } from "../utils/retry";
 import { ServiceError, formatServiceError } from "../utils/serviceError";
 import { computeClientActiveStatus } from "../utils/clientStatus";
+import { deliveryDate } from "../utils/deliveryDate";
 import {
   collection,
   doc,
@@ -285,6 +286,25 @@ class ClientService {
           q = query(q, startAfter(lastDoc));
         }
         const snapshot = await getDocs(q);
+        const normalizeDateValue = (value: unknown): unknown => {
+          if (value && typeof value === "object" && "toDate" in value) {
+            const maybeToDate = (value as { toDate?: unknown }).toDate;
+            if (typeof maybeToDate === "function") {
+              return (maybeToDate as () => Date)();
+            }
+          }
+
+          if (
+            value &&
+            typeof value === "object" &&
+            "seconds" in value &&
+            typeof (value as { seconds?: unknown }).seconds === "number"
+          ) {
+            return new Date((value as { seconds: number }).seconds * 1000);
+          }
+
+          return value;
+        };
         // Fetch all delivery events
         const deliverySnapshot = await getDocs(
           collection(this.db, dataSources.firebase.calendarCollection)
@@ -293,21 +313,10 @@ class ClientService {
 
         const clients = snapshot.docs.map((doc) => {
           const raw = doc.data() as any;
-          const rawFamStartDate = raw.famStartDate;
-          const normalizedFamStartDate = rawFamStartDate
-            ? typeof rawFamStartDate?.toDate === "function"
-              ? rawFamStartDate.toDate()
-              : typeof rawFamStartDate === "object" &&
-                  rawFamStartDate !== null &&
-                  "seconds" in rawFamStartDate &&
-                  typeof (rawFamStartDate as { seconds?: unknown }).seconds === "number"
-                ? new Date((rawFamStartDate as { seconds: number }).seconds * 1000)
-                : rawFamStartDate
-            : null;
-          const famStartDateTime = rawFamStartDate
-            ? TimeUtils.fromAny(normalizedFamStartDate)
-            : null;
-          const famStartDate = famStartDateTime?.isValid ? famStartDateTime.toISODate() ?? "" : "";
+          const normalizedFamStartDate = normalizeDateValue(raw.famStartDate);
+          const famStartDate = deliveryDate.tryToISODateString(
+            normalizedFamStartDate as string | Date | null | undefined
+          ) ?? "";
           // Find latest delivery date for this client
           const clientDeliveries = allDeliveries.filter(
             (d: any) => d.clientId === doc.id && d.deliveryDate
@@ -318,18 +327,19 @@ class ClientService {
           let lastDeliveryDate = "";
           if (clientDeliveries.length > 0) {
             const latest = clientDeliveries.reduce((max, curr) => {
-              const currDate = curr.deliveryDate?.toDate
-                ? curr.deliveryDate.toDate()
-                : curr.deliveryDate;
-              const maxDate = max.deliveryDate?.toDate
-                ? max.deliveryDate.toDate()
-                : max.deliveryDate;
-              return currDate > maxDate ? curr : max;
+              const currDate = normalizeDateValue(curr.deliveryDate);
+              const maxDate = normalizeDateValue(max.deliveryDate);
+              return deliveryDate.compare(
+                currDate as string | Date | null | undefined,
+                maxDate as string | Date | null | undefined
+              ) > 0
+                ? curr
+                : max;
             });
-            const dateObj = latest.deliveryDate?.toDate
-              ? latest.deliveryDate.toDate()
-              : latest.deliveryDate;
-            lastDeliveryDate = dateObj ? dateObj.toISOString().slice(0, 10) : "";
+            lastDeliveryDate =
+              deliveryDate.tryToISODateString(
+                normalizeDateValue(latest.deliveryDate) as string | Date | null | undefined
+              ) ?? "";
           }
           const activeStatus = computeClientActiveStatus(raw.startDate, raw.endDate);
           const mapped = {

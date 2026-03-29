@@ -18,6 +18,7 @@ import { ClientProfileKey } from "../types";
 import { DietaryRestrictions } from "../../../types";
 import TagManager from "../Tags/TagManager";
 import "../../../styles/checkbox-override.css";
+import { deliveryDate } from "../../../utils/deliveryDate";
 
 interface FormFieldProps {
   fieldPath: ClientProfileKey;
@@ -246,32 +247,14 @@ const DateFieldComponent = ({
 }) => {
   // Move helpers above hooks to avoid ReferenceError
   const convertToHtmlDateFormat = (inputValue: any): string => {
-    if (!inputValue) {
-      return "";
-    }
-    const stringValue = String(inputValue);
-    if (stringValue.includes("/")) {
-      const parts = stringValue.split("/");
-      if (parts.length === 3) {
-        const [month, day, year] = parts;
-        if (month && day && year) {
-          const paddedMonth = month.padStart(2, "0");
-          const paddedDay = day.padStart(2, "0");
-          return `${year}-${paddedMonth}-${paddedDay}`;
-        }
-      }
-    }
-    if (stringValue.match(/^\d{4}-\d{2}-\d{2}$/)) {
-      return stringValue;
-    }
-    return "";
+    return deliveryDate.tryToISODateString(inputValue) ?? "";
   };
 
   const convertFromHtmlDateFormat = (yyyymmdd: string): string => {
     if (!yyyymmdd || yyyymmdd.length !== 10) return "";
-    const [year, month, day] = yyyymmdd.split("-");
-    if (!year || !month || !day) return "";
-    return `${month}/${day}/${year}`;
+    return deliveryDate.tryToISODateString(yyyymmdd)
+      ? deliveryDate.toDisplayString(yyyymmdd)
+      : "";
   };
 
   const [dateError, setDateError] = useState<string | null>(null);
@@ -303,10 +286,7 @@ const DateFieldComponent = ({
       return;
     }
     if (fieldPath === "tefapCert") {
-      const selectedDate = new Date(blurValue);
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      if (selectedDate > today) {
+      if (deliveryDate.compare(blurValue, deliveryDate.today()) > 0) {
         setDateError("TEFAP CERT date cannot be in the future");
         return;
       }
@@ -504,24 +484,8 @@ const FormField = (props: FormFieldProps) => {
 
   const renderFieldValue = (fieldPath: string, value: any) => {
     if (fieldPath === "dob") {
-      let dobDate;
-
-      // Check if the value is a Date object, Timestamp, or string
-      if (value instanceof Date) {
-        dobDate = value;
-      } else if (typeof value === "object" && value?.toDate) {
-        // If it's a Firestore Timestamp, convert it to a Date object
-        dobDate = value.toDate();
-      } else if (typeof value === "string") {
-        // If it's a string, try to create a Date object from it
-        dobDate = new Date(value);
-      } else {
-        // Handle other cases
-        dobDate = new Date();
-      }
-
-      // Ensure dobDate is valid
-      if (isNaN(dobDate.getTime())) {
+      const dobDate = deliveryDate.tryToJSDate(value);
+      if (!dobDate) {
         return "";
       }
 

@@ -24,6 +24,12 @@ import {
   ReferralAgenciesReportData,
   ReferralReportClient,
 } from "./reportUtils";
+import { deliveryDate } from "../../utils/deliveryDate";
+
+const readStoredReportDate = (storageKey: string): Date | null => {
+  const rawValue = localStorage.getItem(storageKey);
+  return rawValue ? deliveryDate.tryToJSDate(rawValue) : null;
+};
 
 const ReferralAgenciesReport: React.FC = () => {
   const navigate = useNavigate();
@@ -35,15 +41,13 @@ const ReferralAgenciesReport: React.FC = () => {
   const [generatedRangeKey, setGeneratedRangeKey] = useState("");
   const [data, setData] = useState<ReferralAgenciesReportData>({});
 
-  const [startDate, setStartDate] = useState<Date | null>(() => {
-    const start = localStorage.getItem("ffaReportDateRangeStart");
-    return start ? new Date(start) : null;
-  });
+  const [startDate, setStartDate] = useState<Date | null>(() =>
+    readStoredReportDate("ffaReportDateRangeStart")
+  );
 
-  const [endDate, setEndDate] = useState<Date | null>(() => {
-    const end = localStorage.getItem("ffaReportDateRangeEnd");
-    return end ? new Date(end) : null;
-  });
+  const [endDate, setEndDate] = useState<Date | null>(() =>
+    readStoredReportDate("ffaReportDateRangeEnd")
+  );
 
   const currentRangeKey = getReportRangeKey(startDate, endDate);
   const isExportDisabled = isReportExportDisabled({

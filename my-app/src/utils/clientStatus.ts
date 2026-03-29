@@ -1,6 +1,6 @@
 import type { Timestamp } from "firebase/firestore";
 import type { DateTime } from "luxon";
-import { TimeUtils } from "./timeUtils";
+import { deliveryDate } from "./deliveryDate";
 
 const ACTIVE_ICON_PATH =
   "M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z";
@@ -19,13 +19,13 @@ export const computeClientActiveStatus = (
   startDate: string | Date | DateTime | Timestamp | null | undefined,
   endDate: string | Date | DateTime | Timestamp | null | undefined
 ): boolean => {
-  const today = TimeUtils.now().startOf("day");
-  const startDateTime = startDate ? TimeUtils.fromAny(startDate).startOf("day") : null;
+  const today = deliveryDate.today().startOf("day");
+  const startDateTime = startDate ? deliveryDate.tryToDateTime(startDate)?.startOf("day") : null;
   if (!startDateTime?.isValid) {
     return false;
   }
 
-  const endDateTime = endDate ? TimeUtils.fromAny(endDate).startOf("day") : null;
+  const endDateTime = endDate ? deliveryDate.tryToDateTime(endDate)?.startOf("day") : null;
   const todayMillis = today.toMillis();
 
   if (endDateTime?.isValid) {

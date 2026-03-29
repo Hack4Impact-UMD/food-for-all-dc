@@ -1,6 +1,7 @@
 /**
  * Validation utility functions
  */
+import { deliveryDate } from "./deliveryDate";
 
 /**
  * Validates an email address
@@ -185,15 +186,13 @@ export const isValidHtmlDateFormat = (
     return false;
   }
 
-  // Create a date object and check if it's a valid date
-  const date = new Date(dateString);
-  if (isNaN(date.getTime())) {
+  const normalizedIsoDate = deliveryDate.tryToISODateString(dateString);
+  if (!normalizedIsoDate) {
     return false;
   }
 
-  // Check year is within valid range
-  const year = date.getFullYear();
-  return year >= minYear && year <= maxYear;
+  const [year] = normalizedIsoDate.split("-").map(Number);
+  return normalizedIsoDate === dateString && year >= minYear && year <= maxYear;
 };
 
 /**

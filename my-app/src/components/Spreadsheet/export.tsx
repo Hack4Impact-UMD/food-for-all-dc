@@ -1,6 +1,7 @@
 import { CsvRow, downloadCsv } from "../../utils/csvExport";
 import { getNestedValue } from "../../utils/misc";
 import { formatDietaryRestrictionsForExport } from "../../utils/exportFormatters";
+import { deliveryDate } from "../../utils/deliveryDate";
 
 export interface RowData {
   id: string;
@@ -106,6 +107,21 @@ const getSpreadsheetExportColumnHeader = (propertyKey: string): string => {
 };
 
 const resolveSpreadsheetExportValue = (row: RowData, propertyKey: string): string => {
+  const normalizeDateValue = (value: unknown): string => {
+    if (
+      value &&
+      typeof value === "object" &&
+      "seconds" in value &&
+      typeof (value as { seconds?: unknown }).seconds === "number"
+    ) {
+      return deliveryDate.tryToISODateString(
+        new Date((value as { seconds: number }).seconds * 1000)
+      ) ?? "";
+    }
+
+    return deliveryDate.tryToISODateString(value as string | Date | null | undefined) ?? "";
+  };
+
   if (propertyKey === "deliveryDetails.dietaryRestrictions") {
     return formatDietaryRestrictionsForExport(row.deliveryDetails?.dietaryRestrictions);
   }
@@ -122,16 +138,7 @@ const resolveSpreadsheetExportValue = (row: RowData, propertyKey: string): strin
   }
 
   if (propertyKey === "famStartDate") {
-    const raw = row.famStartDate as unknown;
-    if (
-      raw &&
-      typeof raw === "object" &&
-      "seconds" in raw &&
-      typeof (raw as { seconds?: unknown }).seconds === "number"
-    ) {
-      return new Date((raw as { seconds: number }).seconds * 1000).toISOString().split("T")[0];
-    }
-    return typeof raw === "string" ? raw : "";
+    return normalizeDateValue(row.famStartDate);
   }
 
   const value = propertyKey.includes(".") ? getNestedValue(row, propertyKey, "") : row[propertyKey];
@@ -148,9 +155,7 @@ const resolveSpreadsheetExportValue = (row: RowData, propertyKey: string): strin
       "seconds" in (value as Record<string, unknown>) &&
       typeof (value as { seconds?: unknown }).seconds === "number"
     ) {
-      return new Date((value as { seconds: number }).seconds * 1000)
-        .toISOString()
-        .split("T")[0];
+      return normalizeDateValue(value);
     }
 
     if ("name" in value || "organization" in value) {

@@ -7,6 +7,7 @@ import {
   getCapacityUi,
   resolveLimitForDate,
 } from "./capacityStatus";
+import { deliveryDate } from "../../../utils/deliveryDate";
 
 interface MonthViewProps {
   calendarConfig: CalendarConfig;
@@ -36,12 +37,7 @@ const MonthView: React.FC<MonthViewProps> = ({
   onTimeRangeSelected,
 }) => {
   const dailyLimitsMap = buildDailyLimitsMap(dailyLimits);
-
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(
-    today.getDate()
-  ).padStart(2, "0")}`;
+  const todayKey = deliveryDate.todayISODateString();
 
   const customCalendarConfig = {
     ...calendarConfig,
