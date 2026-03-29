@@ -122,6 +122,8 @@ const StyleChip = styled(Chip)({
   WebkitUserSelect: "text",
 });
 
+const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
 const formatTimestampLikeDate = (value: unknown): string => {
   if (value === null || value === undefined || value === "") return "";
 
@@ -136,6 +138,11 @@ const formatTimestampLikeDate = (value: unknown): string => {
     typeof (value as { seconds?: unknown }).seconds === "number"
   ) {
     return format(new Date((value as { seconds: number }).seconds * 1000), "MM/dd/yyyy");
+  }
+
+  if (typeof value === "string" && ISO_DATE_PATTERN.test(value.trim())) {
+    const parsed = new Date(`${value}T00:00:00`);
+    return Number.isNaN(parsed.getTime()) ? value : format(parsed, "MM/dd/yyyy");
   }
 
   if (Array.isArray(value)) {
@@ -2313,9 +2320,15 @@ const DeliverySpreadsheet: React.FC = () => {
       return;
     }
 
-    const contextClientById = new Map(
-      clientsFromContext.map((client) => [client.uid || client.id, client])
-    );
+    const contextClientById = new Map<string, (typeof clientsFromContext)[number]>();
+    clientsFromContext.forEach((client) => {
+      if (client.id) {
+        contextClientById.set(client.id, client);
+      }
+      if (client.uid) {
+        contextClientById.set(client.uid, client);
+      }
+    });
 
     const synchronizedRows = rawClientData.map((client) => {
       let assignedClusterId = "";
@@ -3123,7 +3136,7 @@ const DeliverySpreadsheet: React.FC = () => {
                                   ? rowRecord.missedStrikeCount
                                   : undefined;
                               const statusPresentation = getClientStatusPresentation(
-                                Boolean(rowRecord.activeStatus),
+                                rowRecord.activeStatus === false ? false : true,
                                 missedStrikeCount
                               );
 

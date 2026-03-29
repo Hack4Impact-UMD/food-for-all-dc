@@ -2936,7 +2936,13 @@ const Profile = () => {
           // No auto-close duration - user must dismiss manually
         />
       )}
-      {showSimilarNamesInfo && <PopUp message={similarNamesMessage} duration={8000} />}
+      {showSimilarNamesInfo && (
+        <PopUp
+          message={similarNamesMessage}
+          duration={8000}
+          onDismiss={() => setShowSimilarNamesInfo(false)}
+        />
+      )}
       {/* Spacer for navbar height */}
       <Box sx={{ height: "64px" }} />
       {/* Enhanced Profile Header */}

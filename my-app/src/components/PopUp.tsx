@@ -1,28 +1,16 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect } from "react";
 import styles from "./PopUp.module.css";
 
 /**
  * PopUp notification component with auto-dismiss functionality
  *
  * @example
- * // Basic success notification
- * <PopUp message="Data saved successfully!" type="success" />
- *
- * // Error notification with custom duration
+ * // NotificationProvider renders timed toast cards with dismissal callbacks
  * <PopUp
- *   message="Failed to save data"
- *   type="error"
- *   duration={5000}
+ *   message="Delivery changes saved"
+ *   type="info"
+ *   onDismiss={() => removeToast(id)}
  * />
- *
- * // Usage with state management:
- * const [showPopUp, setShowPopUp] = useState(false);
- *
- * const handleSave = () => {
- *   // ... save logic
- *   setShowPopUp(true);
- *   setTimeout(() => setShowPopUp(false), 3000);
- * };
  */
 interface PopUpProps {
   /** Message to display in the popup */
@@ -32,27 +20,32 @@ interface PopUpProps {
   /** Type of notification (affects styling) */
   type?: "success" | "error" | "warning" | "info";
   /** Callback when popup is dismissed */
-  onDismiss?: () => void;
+  onDismiss: () => void;
 }
 
 const PopUp: React.FC<PopUpProps> = ({ message, duration = 3000, type = "success", onDismiss }) => {
-  const [visible, setVisible] = useState(true);
-
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setVisible(false);
-      onDismiss?.();
+    const timer = window.setTimeout(() => {
+      onDismiss();
     }, duration);
 
     // Clean up the timer
-    return () => clearTimeout(timer);
+    return () => window.clearTimeout(timer);
   }, [duration, onDismiss]);
 
-  if (!visible) return null;
-
   const popupClasses = [styles.popupContainer, styles[type] || styles.success].join(" ");
+  const role = type === "error" || type === "warning" ? "alert" : "status";
 
-  return <div className={popupClasses}>{message}</div>;
+  return (
+    <div
+      className={popupClasses}
+      role={role}
+      aria-live={role === "alert" ? "assertive" : "polite"}
+      aria-atomic="true"
+    >
+      {message}
+    </div>
+  );
 };
 
 export default PopUp;
