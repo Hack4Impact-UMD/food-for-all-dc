@@ -89,7 +89,7 @@ const DayView: React.FC<DayViewProps> = React.memo(function DayView({
         />
       );
     },
-    [clientLookupMap, onEventModified, events, weeklyLimits, dailyLimits]
+    [clientLookupMap, onEventModified, weeklyLimits, dailyLimits]
   );
 
   return (
