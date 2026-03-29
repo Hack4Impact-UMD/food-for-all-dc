@@ -24,7 +24,7 @@ import {
   extractKeyValue,
   globalSearchMatch,
 } from "../../utils/searchFilter";
-import { query, Timestamp, updateDoc, where, orderBy } from "firebase/firestore";
+import { query, Timestamp, updateDoc, where, orderBy, runTransaction } from "firebase/firestore";
 import { TimeUtils } from "../../utils/timeUtils";
 import { TableVirtuoso, TableVirtuosoHandle } from "react-virtuoso";
 import { format, addDays } from "date-fns";
@@ -92,11 +92,21 @@ import { deliveryEventEmitter } from "../../utils/deliveryEventEmitter";
 import { useNotifications } from "../../components/NotificationProvider";
 import {
   ClientOverride,
-  hasAssignmentValue,
   normalizeAssignmentValue,
   normalizeDriverAssignmentValue,
   resolveAssignmentValue,
 } from "./utils/assignmentOverrides";
+import {
+  assignDriverToRoutes,
+  assignTimeToRoutes,
+  findRouteSlotConflict,
+  moveClientToCluster,
+  RouteAssignmentMutationResult,
+  RouteAssignmentState,
+  RouteSlotConflict,
+  sanitizeClientOverrides,
+  updateClientRouteAssignment,
+} from "./utils/routeAssignmentState";
 import { TIME_SLOTS } from "./utils/timeSlots";
 
 const StyleChip = styled(Chip)({
@@ -280,33 +290,6 @@ interface ClusterDoc {
   clientOverrides?: ClientOverride[];
 }
 
-// Helper to remove undefined fields from clientOverrides before writing to Firestore
-const sanitizeClientOverridesForFirestore = (overrides: ClientOverride[]): ClientOverride[] => {
-  return overrides.reduce<ClientOverride[]>((cleanedOverrides, override) => {
-    const driver = normalizeAssignmentValue(override.driver);
-    const time = normalizeAssignmentValue(override.time);
-
-    if (!driver && !time) {
-      return cleanedOverrides;
-    }
-
-    const cleaned: ClientOverride = {
-      clientId: override.clientId,
-    };
-
-    if (driver) {
-      cleaned.driver = driver;
-    }
-
-    if (time) {
-      cleaned.time = time;
-    }
-
-    cleanedOverrides.push(cleaned);
-    return cleanedOverrides;
-  }, []);
-};
-
 const getClusterAssignmentValue = (
   clusters: Cluster[],
   clientId: string,
@@ -334,6 +317,49 @@ const formatAssignedTime = (time?: string): string => {
 
   return `${hours12}:${minutes} ${ampm}`;
 };
+
+const normalizeClusterIdValue = (clusterId?: unknown): string => {
+  if (typeof clusterId === "number" && Number.isFinite(clusterId)) {
+    return String(clusterId);
+  }
+
+  return normalizeAssignmentValue(clusterId) || "";
+};
+
+const compareClusterIds = (left: string, right: string) => {
+  const leftNumber = parseInt(left, 10);
+  const rightNumber = parseInt(right, 10);
+
+  if (!Number.isNaN(leftNumber) && !Number.isNaN(rightNumber)) {
+    return leftNumber - rightNumber;
+  }
+
+  return left.localeCompare(right, undefined, { numeric: true, sensitivity: "base" });
+};
+
+const getNextClusterId = (clusterList: Array<Pick<Cluster, "id">>): string => {
+  const numericIds = clusterList
+    .map((cluster) => parseInt(normalizeClusterIdValue(cluster.id), 10))
+    .filter((clusterId) => !Number.isNaN(clusterId));
+
+  const maxId = numericIds.length > 0 ? Math.max(...numericIds) : 0;
+  return String(maxId + 1);
+};
+
+class RouteSlotConflictError extends Error {
+  public readonly conflict: RouteSlotConflict;
+
+  constructor(conflict: RouteSlotConflict) {
+    super("Duplicate driver/time route assignment");
+    this.name = "RouteSlotConflictError";
+    this.conflict = conflict;
+  }
+}
+
+const buildRouteSlotConflictMessage = (conflict: RouteSlotConflict): string =>
+  `${conflict.driver} already has Route ${conflict.existingRouteId} at ${formatAssignedTime(
+    conflict.time
+  )}.`;
 
 const dedupeClientsById = (clients: DeliveryRowData[]): DeliveryRowData[] => {
   const uniqueClients = new Map<string, DeliveryRowData>();
@@ -515,14 +541,51 @@ const DeliverySpreadsheet: React.FC = () => {
   const suppressClearHighlightRef = React.useRef(false);
 
   const normalizeClusters = React.useCallback((clusters: Cluster[]): Cluster[] => {
-    const nonEmptyClusters = clusters.filter(
-      (cluster: Cluster) => (cluster.deliveries?.length ?? 0) > 0
+    const clustersById = new Map<string, Cluster>();
+
+    clusters.forEach((cluster) => {
+      const normalizedClusterId = normalizeClusterIdValue(cluster?.id);
+      const normalizedDeliveries = Array.from(
+        new Set(
+          (cluster.deliveries ?? [])
+            .map((deliveryId) => normalizeAssignmentValue(deliveryId))
+            .filter((deliveryId): deliveryId is string => Boolean(deliveryId))
+        )
+      );
+
+      if (!normalizedClusterId || normalizedDeliveries.length === 0) {
+        return;
+      }
+
+      const existingCluster = clustersById.get(normalizedClusterId);
+      if (!existingCluster) {
+        clustersById.set(normalizedClusterId, {
+          ...cluster,
+          id: normalizedClusterId,
+          driver: normalizeDriverAssignmentValue(cluster.driver) ?? "",
+          time: normalizeAssignmentValue(cluster.time) ?? "",
+          deliveries: normalizedDeliveries,
+        });
+        return;
+      }
+
+      clustersById.set(normalizedClusterId, {
+        ...existingCluster,
+        driver:
+          normalizeDriverAssignmentValue(existingCluster.driver) ??
+          normalizeDriverAssignmentValue(cluster.driver) ??
+          "",
+        time:
+          normalizeAssignmentValue(existingCluster.time) ??
+          normalizeAssignmentValue(cluster.time) ??
+          "",
+        deliveries: Array.from(new Set([...existingCluster.deliveries, ...normalizedDeliveries])),
+      });
+    });
+
+    return Array.from(clustersById.values()).sort((left, right) =>
+      compareClusterIds(left.id, right.id)
     );
-    const deduplicated = nonEmptyClusters.filter(
-      (cluster: Cluster, index: number, self: Cluster[]) =>
-        index === self.findIndex((c: Cluster) => c.id === cluster.id)
-    );
-    return deduplicated.sort((a, b) => parseInt(a.id, 10) - parseInt(b.id, 10));
   }, []);
 
   const setClusters = React.useCallback(
@@ -558,6 +621,97 @@ const DeliverySpreadsheet: React.FC = () => {
   const [clusterDoc, setClusterDoc] = useState<ClusterDoc | null>();
   const [clientOverrides, setClientOverrides] = useState<ClientOverride[]>([]);
   const navigate = useNavigate();
+  type ClusterAssignmentState = RouteAssignmentState<Cluster>;
+
+  const handleAssignmentSaveError = React.useCallback(
+    (error: unknown, fallbackMessage = "Unable to save route assignment. Please try again.") => {
+      if (error instanceof RouteSlotConflictError) {
+        showError(buildRouteSlotConflictMessage(error.conflict));
+        return;
+      }
+
+      console.error("Error saving route assignment:", error);
+      showError(fallbackMessage);
+    },
+    [showError]
+  );
+
+  const commitRouteAssignmentMutation = React.useCallback(
+    async (
+      projectNextState: (
+        currentState: ClusterAssignmentState
+      ) => RouteAssignmentMutationResult<Cluster>
+    ): Promise<boolean> => {
+      if (!clusterDoc?.docId) {
+        return false;
+      }
+
+      const clusterRef = doc(db, dataSources.firebase.clustersCollection, clusterDoc.docId);
+
+      const nextState = await runTransaction(db, async (transaction) => {
+        const snapshot = await transaction.get(clusterRef);
+        if (!snapshot.exists()) {
+          throw new Error("Delivery routes are no longer available for this date.");
+        }
+
+        const docData = snapshot.data() as Partial<ClusterDoc>;
+        const currentState: ClusterAssignmentState = {
+          clusters: normalizeClusters(Array.isArray(docData.clusters) ? docData.clusters : []),
+          clientOverrides: sanitizeClientOverrides(
+            Array.isArray(docData.clientOverrides) ? docData.clientOverrides : []
+          ),
+        };
+
+        const proposedState = projectNextState(currentState);
+        const normalizedClusters = normalizeClusters(proposedState.clusters);
+        const sanitizedOverrides = sanitizeClientOverrides(proposedState.clientOverrides);
+        const conflict = findRouteSlotConflict(
+          {
+            clusters: normalizedClusters,
+            clientOverrides: sanitizedOverrides,
+          },
+          proposedState.touchedRouteIds
+        );
+
+        if (conflict) {
+          throw new RouteSlotConflictError(conflict);
+        }
+
+        transaction.update(clusterRef, {
+          clusters: normalizedClusters,
+          clientOverrides: sanitizedOverrides,
+        });
+
+        return {
+          clusters: normalizedClusters,
+          clientOverrides: sanitizedOverrides,
+        };
+      });
+
+      setClustersOriginal(nextState.clusters);
+      setClientOverrides(nextState.clientOverrides);
+      setClusterDoc((previousDoc) =>
+        previousDoc
+          ? {
+              ...previousDoc,
+              clusters: nextState.clusters,
+              clientOverrides: nextState.clientOverrides,
+            }
+          : previousDoc
+      );
+
+      return true;
+    },
+    [clusterDoc, normalizeClusters]
+  );
+
+  const getSelectedRouteIds = React.useCallback(
+    () =>
+      Array.from(selectedClusters)
+        .map((cluster) => normalizeClusterIdValue(cluster?.id))
+        .filter((routeId): routeId is string => Boolean(routeId)),
+    [selectedClusters]
+  );
 
   // Sorting state - default to sorting by fullname (Client) in ascending order
   // Always default to sorting by name (fullname) ascending on first load or reload
@@ -582,27 +736,22 @@ const DeliverySpreadsheet: React.FC = () => {
     setDriversRefreshTrigger((prev) => prev + 1);
   };
 
+  const [menuOpen, setOpen] = useState(false);
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
-  const open = Boolean(anchorEl);
+  const open = menuOpen && Boolean(anchorEl);
   const handleClick = (event: React.MouseEvent<HTMLElement>) => {
-    setOpen(true);
     setAnchorEl(event.currentTarget);
+    setOpen(true);
+  };
+  const handleTimeMenuClose = () => {
+    setOpen(false);
+    setAnchorEl(null);
   };
 
-  const [menuOpen, setOpen] = useState(false);
-  const anchorRef = React.useRef<HTMLButtonElement>(null);
-  const handleClose = (event: Event | React.SyntheticEvent) => {
-    if (anchorRef.current && anchorRef.current.contains(event.target as HTMLElement)) {
-      return;
-    }
-    if (event && "nativeEvent" in event) {
-      const target = event.nativeEvent.target as HTMLElement;
-      const timeValue = target.getAttribute("data-key");
-      if (timeValue) {
-        assignTime(timeValue);
-      }
-    }
+  const handleTimeMenuSelect = async (time: string) => {
+    await assignTime(time);
     setOpen(false);
+    setAnchorEl(null);
   };
 
   const notifyExportFeedback = React.useCallback(
@@ -625,58 +774,25 @@ const DeliverySpreadsheet: React.FC = () => {
     [showError, showInfo, showSuccess, showWarning]
   );
 
-  const assignTime = async (time: string) => {
-    if (time && clusterDoc) {
-      try {
-        // Individual time assignment for selected clients (not cluster-level)
-        const selectedRowsArray = Array.from(selectedRows);
+  const assignTime = async (time: string): Promise<boolean> => {
+    const selectedRouteIds = getSelectedRouteIds();
+    if (!time || !selectedRouteIds.length) {
+      return false;
+    }
 
-        if (selectedRowsArray.length === 0) {
-          return;
-        }
+    try {
+      const didSave = await commitRouteAssignmentMutation((currentState) =>
+        assignTimeToRoutes(currentState, selectedRouteIds, time)
+      );
 
-        // Create or update individual time overrides for each selected client
-        let updatedOverrides = [...clientOverrides];
-
-        selectedRowsArray.forEach((clientId) => {
-          const existingOverrideIndex = updatedOverrides.findIndex(
-            (override) => override.clientId === clientId
-          );
-          if (existingOverrideIndex >= 0) {
-            // Update existing override
-            updatedOverrides[existingOverrideIndex] = {
-              ...updatedOverrides[existingOverrideIndex],
-              time: time,
-            };
-          } else {
-            // Add new override
-            updatedOverrides.push({
-              clientId,
-              driver: undefined,
-              time: time,
-            });
-          }
-        });
-
-        // Clean up overrides - remove any that have neither driver nor time
-        updatedOverrides = updatedOverrides.filter(
-          (override) => hasAssignmentValue(override.driver) || hasAssignmentValue(override.time)
-        );
-        const sanitizedOverrides = sanitizeClientOverridesForFirestore(updatedOverrides);
-
-        setClientOverrides(sanitizedOverrides);
-
-        // Update Firestore - we don't need to modify clusters since time is now individual
-        const clusterRef = doc(db, dataSources.firebase.clustersCollection, clusterDoc.docId);
-        await updateDoc(clusterRef, {
-          clusters: clusters, // Keep clusters unchanged
-          clientOverrides: sanitizedOverrides,
-        });
-
+      if (didSave) {
         resetSelections();
-      } catch (error) {
-        console.error("Error assigning time: ", error);
       }
+
+      return didSave;
+    } catch (error) {
+      handleAssignmentSaveError(error, "Unable to assign time. Please try again.");
+      return false;
     }
   };
 
@@ -946,9 +1062,7 @@ const DeliverySpreadsheet: React.FC = () => {
           };
           setClusterDoc(clustersData);
           setClusters(clustersData.clusters);
-          setClientOverrides(
-            sanitizeClientOverridesForFirestore(clustersData.clientOverrides || [])
-          );
+          setClientOverrides(sanitizeClientOverrides(clustersData.clientOverrides || []));
         } else {
           // No clusters found for this date
 
@@ -997,110 +1111,27 @@ const DeliverySpreadsheet: React.FC = () => {
     setSearchQuery(event.target.value);
   };
 
-  const handleClusterChange = async (row: DeliveryRowData, newClusterIdStr: string) => {
-    const oldClusterId = row.clusterId || "";
-    let newClusterId = newClusterIdStr;
+  const handleClusterChange = async (
+    row: DeliveryRowData,
+    newClusterIdStr: string
+  ): Promise<boolean> => {
+    const oldClusterId = normalizeClusterIdValue(row.clusterId);
+    const newClusterId =
+      newClusterIdStr === "__add__"
+        ? getNextClusterId(clusters)
+        : normalizeClusterIdValue(newClusterIdStr);
 
-    // If the newClusterId is '__add__', find the next highest numeric cluster ID
-    if (newClusterIdStr === "__add__") {
-      const numericIds = clusters.map((c) => parseInt(c.id, 10)).filter((n) => !isNaN(n));
-      const maxId = numericIds.length > 0 ? Math.max(...numericIds) : 0;
-      newClusterId = (maxId + 1).toString();
-    }
-
-    if (!row || !row.id || newClusterId === oldClusterId || !clusterDoc) {
-      return;
-    }
-
-    let updatedClusters = [...clusters];
-    const clusterExists = clusters.some((cluster) => cluster.id === newClusterId);
-
-    if (oldClusterId) {
-      updatedClusters = updatedClusters.map((cluster) => {
-        if (cluster.id === oldClusterId) {
-          return {
-            ...cluster,
-            deliveries: cluster.deliveries?.filter((id) => id !== row.id) ?? [],
-          };
-        }
-        return cluster;
-      });
-    }
-
-    if (newClusterId) {
-      if (clusterExists) {
-        updatedClusters = updatedClusters.map((cluster) => {
-          if (cluster.id === newClusterId) {
-            return {
-              ...cluster,
-              deliveries: [...(cluster.deliveries ?? []), row.id],
-            };
-          }
-          return cluster;
-        });
-      } else {
-        const newCluster: Cluster = {
-          id: newClusterId,
-          deliveries: [row.id],
-          driver: "",
-          time: "",
-        };
-        updatedClusters.push(newCluster);
-      }
-    }
-
-    updatedClusters.sort((a, b) => parseInt(a.id, 10) - parseInt(b.id, 10));
-
-    const normalizedClusters = setClusters(updatedClusters);
-
-    // Inherit time assignment from existing cluster clients
-    let updatedOverrides = [...clientOverrides];
-    if (clusterExists) {
-      const targetCluster = updatedClusters.find((c) => c.id === newClusterId);
-      const targetDeliveries = targetCluster?.deliveries ?? [];
-      if (targetDeliveries.length > 1) {
-        const otherClientIds = targetDeliveries.filter((id) => id !== row.id);
-        const existingTimeOverride = clientOverrides.find(
-          (override) =>
-            otherClientIds.includes(override.clientId) && hasAssignmentValue(override.time)
-        );
-
-        if (existingTimeOverride) {
-          const existingOverrideIndex = updatedOverrides.findIndex(
-            (override) => override.clientId === row.id
-          );
-
-          if (existingOverrideIndex >= 0) {
-            updatedOverrides[existingOverrideIndex] = {
-              ...updatedOverrides[existingOverrideIndex],
-              time: existingTimeOverride.time,
-            };
-          } else {
-            updatedOverrides.push({
-              clientId: row.id,
-              driver: undefined,
-              time: existingTimeOverride.time,
-            });
-          }
-
-          updatedOverrides = updatedOverrides.filter(
-            (override) => hasAssignmentValue(override.driver) || hasAssignmentValue(override.time)
-          );
-          setClientOverrides(sanitizeClientOverridesForFirestore(updatedOverrides));
-        }
-      }
+    if (!row || !row.id || newClusterId === oldClusterId) {
+      return false;
     }
 
     try {
-      const clusterRef = doc(db, dataSources.firebase.clustersCollection, clusterDoc.docId);
-      await updateDoc(clusterRef, {
-        clusters: normalizedClusters,
-        clientOverrides: sanitizeClientOverridesForFirestore(updatedOverrides),
-      });
-
-      // setRows(prevRows => prevRows.map r => r.id === row.id ? { ...r, clusterId: newClusterId } : r));
+      return await commitRouteAssignmentMutation((currentState) =>
+        moveClientToCluster(currentState, row.id, oldClusterId, newClusterId)
+      );
     } catch (error) {
-      console.error("Error updating clusters in Firestore:", error);
+      handleAssignmentSaveError(error, "Unable to update the route assignment. Please try again.");
+      return false;
     }
   };
 
@@ -1132,62 +1163,25 @@ const DeliverySpreadsheet: React.FC = () => {
   // Handle individual client updates from the map (individual overrides)
 
   // Driver assignment per cluster (used by AssignDriverPopup)
-  const assignDriver = async (driver: Driver | null) => {
-    if (!driver || !clusterDoc) return;
+  const assignDriver = async (driver: Driver | null): Promise<boolean> => {
+    const selectedRouteIds = getSelectedRouteIds();
+    if (!driver || !selectedRouteIds.length) {
+      return false;
+    }
 
     try {
-      // Update selected clusters with the new driver
-      const updatedClusters = clusters.map((cluster) => {
-        const isSelected = Array.from(selectedClusters).some(
-          (selected) => selected.id === cluster.id
-        );
-        if (isSelected) {
-          return {
-            ...cluster,
-            driver: driver.name, // Assign driver name to cluster
-          };
-        }
-        return cluster;
-      });
+      const didSave = await commitRouteAssignmentMutation((currentState) =>
+        assignDriverToRoutes(currentState, selectedRouteIds, driver.name)
+      );
 
-      const normalizedClusters = setClusters(updatedClusters);
+      if (didSave) {
+        resetSelections();
+      }
 
-      // Clear any individual driver overrides for clients in selected clusters
-      // (cluster driver takes precedence over individual overrides)
-      const affectedClientIds = new Set<string>();
-      clusters.forEach((cluster) => {
-        const isSelected = Array.from(selectedClusters).some(
-          (selected) => selected.id === cluster.id
-        );
-        if (isSelected) {
-          cluster.deliveries.forEach((clientId) => affectedClientIds.add(clientId));
-        }
-      });
-
-      const updatedOverrides = clientOverrides
-        .map((override) => {
-          if (affectedClientIds.has(override.clientId)) {
-            return { ...override, driver: undefined };
-          }
-          return override;
-        })
-        .filter(
-          (override) => hasAssignmentValue(override.driver) || hasAssignmentValue(override.time)
-        );
-      const sanitizedOverrides = sanitizeClientOverridesForFirestore(updatedOverrides);
-
-      setClientOverrides(sanitizedOverrides);
-
-      // Update Firestore
-      const clusterRef = doc(db, dataSources.firebase.clustersCollection, clusterDoc.docId);
-      await updateDoc(clusterRef, {
-        clusters: normalizedClusters,
-        clientOverrides: sanitizedOverrides,
-      });
-
-      resetSelections();
+      return didSave;
     } catch (error) {
-      console.error("Error assigning driver: ", error);
+      handleAssignmentSaveError(error, "Unable to assign driver. Please try again.");
+      return false;
     }
   };
 
@@ -1196,150 +1190,45 @@ const DeliverySpreadsheet: React.FC = () => {
     newClusterId: string,
     newDriver?: string,
     newTime?: string
-  ) => {
+  ): Promise<boolean> => {
     if (!clusterDoc) {
-      return;
-    }
-
-    // Special handling for "+ Add Cluster" from map popup
-    if (newClusterId === "__add_new_cluster__") {
-      // Find the next available cluster number (as string)
-      const clusterNumbers = clusters.map((c) => parseInt(c.id, 10)).filter((n) => !isNaN(n));
-      const nextClusterNum = clusterNumbers.length > 0 ? Math.max(...clusterNumbers) + 1 : 1;
-      const nextClusterId = nextClusterNum.toString();
-      // Call self recursively to assign to the new cluster
-      await handleIndividualClientUpdate(clientId, nextClusterId, newDriver, newTime);
-      // Close and reopen the popup to force refresh
-      if (
-        typeof window !== "undefined" &&
-        (window as any).closeMapPopup &&
-        (window as any).openMapPopup
-      ) {
-        (window as any).closeMapPopup();
-        setTimeout(() => {
-          (window as any).openMapPopup(clientId);
-        }, 200);
-      }
-      return;
+      return false;
     }
 
     try {
+      const resolvedClusterId =
+        newClusterId === "__add__" || newClusterId === "__add_new_cluster__"
+          ? getNextClusterId(clusters)
+          : normalizeClusterIdValue(newClusterId);
       const driverUpdateRequested = newDriver !== undefined;
       const timeUpdateRequested = newTime !== undefined;
-      const clearDriverRequested = newDriver === "";
-      const clearTimeRequested = newTime === "";
-      const normalizedDriver = normalizeAssignmentValue(newDriver);
-      const normalizedTime = normalizeAssignmentValue(newTime);
 
       const currentClient = rows.find((row) => row.id === clientId);
-      const oldClusterId = currentClient?.clusterId || "";
-      const clusterChanged = oldClusterId !== newClusterId;
+      const oldClusterId = normalizeClusterIdValue(currentClient?.clusterId);
+      const clusterChanged = oldClusterId !== resolvedClusterId;
 
       if (!clusterChanged && !driverUpdateRequested && !timeUpdateRequested) {
-        return;
+        return false;
       }
 
-      let updatedOverrides = clusterChanged
-        ? clientOverrides.filter((override) => override.clientId !== clientId)
-        : [...clientOverrides];
+      const didSave = await commitRouteAssignmentMutation((currentState) =>
+        updateClientRouteAssignment(currentState, {
+          clientId,
+          oldClusterId,
+          newClusterId: resolvedClusterId,
+          driverUpdateRequested,
+          timeUpdateRequested,
+          driverValue: newDriver,
+          timeValue: newTime,
+        })
+      );
 
-      let updatedClusters = [...clusters];
-
-      if (clusterChanged && oldClusterId) {
-        updatedClusters = updatedClusters.map((cluster) => {
-          if (cluster.id === oldClusterId) {
-            return {
-              ...cluster,
-              deliveries: cluster.deliveries?.filter((id) => id !== clientId) ?? [],
-            };
-          }
-          return cluster;
-        });
+      if (!didSave) {
+        return false;
       }
-
-      if (clusterChanged && newClusterId) {
-        const clusterExists = clusters.some((cluster) => cluster.id === newClusterId);
-
-        if (clusterExists) {
-          updatedClusters = updatedClusters.map((cluster) => {
-            if (cluster.id === newClusterId) {
-              return {
-                ...cluster,
-                deliveries: [...(cluster.deliveries ?? []), clientId],
-              };
-            }
-            return cluster;
-          });
-        } else {
-          // Create new cluster without driver/time (those should be set at cluster level)
-          const newCluster: Cluster = {
-            id: newClusterId,
-            deliveries: [clientId],
-            driver: "",
-            time: "",
-          };
-          updatedClusters.push(newCluster);
-        }
-      }
-
-      updatedClusters.sort((a, b) => parseInt(a.id, 10) - parseInt(b.id, 10));
-
-      const targetClusterId = newClusterId || undefined;
-
-      if (targetClusterId && (driverUpdateRequested || timeUpdateRequested)) {
-        updatedClusters = updatedClusters.map((cluster) => {
-          if (cluster.id !== targetClusterId) {
-            return cluster;
-          }
-
-          return {
-            ...cluster,
-            driver: clearDriverRequested
-              ? ""
-              : driverUpdateRequested
-                ? (normalizedDriver ?? "")
-                : cluster.driver,
-            time: clearTimeRequested
-              ? ""
-              : timeUpdateRequested
-                ? (normalizedTime ?? "")
-                : cluster.time,
-          };
-        });
-
-        const targetCluster = updatedClusters.find((cluster) => cluster.id === targetClusterId);
-        const targetClientIds = new Set(targetCluster?.deliveries ?? []);
-
-        updatedOverrides = updatedOverrides
-          .map((override) => {
-            if (!targetClientIds.has(override.clientId)) {
-              return override;
-            }
-
-            return {
-              ...override,
-              driver: driverUpdateRequested ? undefined : override.driver,
-              time: timeUpdateRequested ? undefined : override.time,
-            };
-          })
-          .filter(
-            (override) => hasAssignmentValue(override.driver) || hasAssignmentValue(override.time)
-          );
-      }
-
-      const normalizedClusters = setClusters(updatedClusters);
-      const sanitizedOverrides = sanitizeClientOverridesForFirestore(updatedOverrides);
-
-      setClientOverrides(sanitizedOverrides);
-
-      const clusterRef = doc(db, dataSources.firebase.clustersCollection, clusterDoc.docId);
-      await updateDoc(clusterRef, {
-        clusters: normalizedClusters,
-        clientOverrides: sanitizedOverrides,
-      });
 
       // Remove the client from selected rows since their cluster assignment changed
-      if (oldClusterId !== newClusterId) {
+      if (clusterChanged) {
         const newSelectedRows = new Set(selectedRows);
         const newSelectedClusters = new Set(selectedClusters);
 
@@ -1348,7 +1237,7 @@ const DeliverySpreadsheet: React.FC = () => {
 
         // If the old cluster no longer has any selected clients, remove it from selected clusters
         if (oldClusterId) {
-          const oldCluster = clusters.find((c) => c.id === oldClusterId);
+          const oldCluster = clusters.find((c) => normalizeClusterIdValue(c.id) === oldClusterId);
           if (oldCluster) {
             const hasSelectedClientsInOldCluster = oldCluster.deliveries.some(
               (id) => id !== clientId && newSelectedRows.has(id)
@@ -1356,7 +1245,7 @@ const DeliverySpreadsheet: React.FC = () => {
             if (!hasSelectedClientsInOldCluster) {
               // Remove the old cluster from selected clusters
               const clusterToRemove = Array.from(newSelectedClusters).find(
-                (c) => c.id === oldClusterId
+                (c) => normalizeClusterIdValue(c.id) === oldClusterId
               );
               if (clusterToRemove) {
                 newSelectedClusters.delete(clusterToRemove);
@@ -1368,8 +1257,11 @@ const DeliverySpreadsheet: React.FC = () => {
         setSelectedRows(newSelectedRows);
         setSelectedClusters(newSelectedClusters);
       }
+
+      return true;
     } catch (error) {
-      console.error("Error updating individual client:", error);
+      handleAssignmentSaveError(error, "Unable to update the route assignment. Please try again.");
+      return false;
     }
   };
 
@@ -1719,7 +1611,7 @@ const DeliverySpreadsheet: React.FC = () => {
       if (clickedCluster) {
         // Check if this cluster is already selected
         const isCurrentlySelected = Array.from(selectedClusters).some(
-          (selected) => selected.id === clickedClusterId
+          (selected) => normalizeClusterIdValue(selected.id) === clickedClusterId
         );
 
         if (!isCurrentlySelected) {
@@ -2750,8 +2642,8 @@ const DeliverySpreadsheet: React.FC = () => {
                 id="demo-positioned-menu"
                 aria-labelledby="demo-positioned-button"
                 anchorEl={anchorEl}
-                open={menuOpen}
-                onClose={handleClose}
+                open={open}
+                onClose={handleTimeMenuClose}
                 anchorOrigin={{
                   vertical: "bottom",
                   horizontal: "left",
@@ -2770,7 +2662,13 @@ const DeliverySpreadsheet: React.FC = () => {
                 }}
               >
                 {TIME_SLOTS.map((slot) => (
-                  <MenuItem key={slot.value} data-key={slot.value} onClick={handleClose}>
+                  <MenuItem
+                    key={slot.value}
+                    data-key={slot.value}
+                    onClick={() => {
+                      void handleTimeMenuSelect(slot.value);
+                    }}
+                  >
                     {slot.label}
                   </MenuItem>
                 ))}

@@ -6,7 +6,7 @@ import { Driver } from "../../../types/calendar-types";
 import DriverService from "../../../services/driver-service";
 
 interface AssignDriverPopupProps {
-  assignDriver: (driver: Driver | null) => void;
+  assignDriver: (driver: Driver | null) => Promise<boolean>;
   setPopupMode: (mode: string) => void;
   onDriversUpdated?: () => void; // Optional callback when drivers are updated
 }
@@ -20,6 +20,7 @@ export default function AssignDriverPopup({
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [driverSearchQuery, setDriverSearchQuery] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(true);
+  const [isSaving, setIsSaving] = useState<boolean>(false);
   const [error, setError] = useState<string>("");
   const [isDriverModalOpen, setIsDriverModalOpen] = useState<boolean>(false);
 
@@ -30,14 +31,23 @@ export default function AssignDriverPopup({
     setPopupMode("");
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!driver) {
       setError("Please select a driver.");
       return;
     }
+
     setError("");
-    assignDriver(driver);
-    resetAndClose();
+    setIsSaving(true);
+
+    try {
+      const didSave = await assignDriver(driver);
+      if (didSave) {
+        resetAndClose();
+      }
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   // Create a memoized fetch function that can be called from multiple places
@@ -201,10 +211,15 @@ export default function AssignDriverPopup({
       </Box>
 
       <DialogActions sx={{ pt: 2, pb: 1, pr: 1 }}>
-        <Button variant="secondary" onClick={resetAndClose} size="medium">
+        <Button variant="secondary" onClick={resetAndClose} size="medium" disabled={isSaving}>
           Cancel
         </Button>
-        <Button variant="primary" onClick={handleSave} disabled={!driver || loading} size="medium">
+        <Button
+          variant="primary"
+          onClick={handleSave}
+          disabled={!driver || loading || isSaving}
+          size="medium"
+        >
           Save
         </Button>
       </DialogActions>

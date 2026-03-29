@@ -7,10 +7,7 @@ import { Box, Button, FormControlLabel, Switch, Typography } from "@mui/material
 import DriverService from "../../services/driver-service";
 import FFAIcon from "../../assets/tsp-food-for-all-dc-logo.png";
 import dataSources from "../../config/dataSources";
-import {
-  normalizeAssignmentValue,
-  resolveAssignmentValue,
-} from "./utils/assignmentOverrides";
+import { normalizeAssignmentValue, resolveAssignmentValue } from "./utils/assignmentOverrides";
 import { buildAssignmentSummary, buildClusterSummaries } from "./utils/clusterSummary";
 import { TIME_SLOT_LABELS } from "./utils/timeSlots";
 import { getClientStatusPresentation } from "../../utils/clientStatus";
@@ -73,7 +70,7 @@ interface ClusterMapProps {
     newClusterId: string,
     newDriver?: string,
     newTime?: string
-  ) => void;
+  ) => Promise<boolean>;
   onOpenPopup?: (clientId: string) => void; // Prop to handle table row clicks
   onMarkerClick?: (clientId: string) => void; // Prop to handle marker clicks
   onClearHighlight?: () => void; // Prop to clear row highlighting
@@ -121,6 +118,23 @@ const normalizeCoordinate = (coord: any): Coordinate => {
     return { lat: coord[0], lng: coord[1] };
   }
   return coord;
+};
+
+const normalizeClusterId = (clusterId?: unknown): string => {
+  if (typeof clusterId === "number" && Number.isFinite(clusterId)) {
+    return String(clusterId);
+  }
+
+  return normalizeAssignmentValue(clusterId) || "";
+};
+
+const getNextClusterId = (clusterList: Array<Pick<Cluster, "id">>): string => {
+  const numericIds = clusterList
+    .map((cluster) => parseInt(normalizeClusterId(cluster.id), 10))
+    .filter((clusterId) => !Number.isNaN(clusterId));
+
+  const maxId = numericIds.length > 0 ? Math.max(...numericIds) : 0;
+  return String(maxId + 1);
 };
 
 const formatTimeForSummary = (time: string): string => {
@@ -355,10 +369,11 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
         clusterSelect.remove(1);
       }
       clusters.forEach((c: Cluster) => {
+        const optionClusterId = normalizeClusterId(c.id);
         const opt = document.createElement("option");
-        opt.value = c.id;
-        opt.text = c.id;
-        const clusterColor = getClusterColor(c.id);
+        opt.value = optionClusterId;
+        opt.text = optionClusterId;
+        const clusterColor = getClusterColor(optionClusterId);
         opt.style.backgroundColor = clusterColor;
         opt.style.color = getTextColorForBackground(clusterColor);
         opt.style.fontWeight = "bold";
@@ -366,9 +381,11 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
       });
       // Set value to the new cluster if it was just added, else restore previous value
       const numericIds = clusters
-        .map((c2: Cluster) => parseInt(c2.id, 10))
-        .filter((n: number) => !isNaN(n));
-      const hasPrevValue = clusters.some((c: Cluster) => c.id === prevValue);
+        .map((c2: Cluster) => parseInt(normalizeClusterId(c2.id), 10))
+        .filter((clusterId) => !Number.isNaN(clusterId));
+      const hasPrevValue = clusters.some(
+        (c: Cluster) => normalizeClusterId(c.id) === normalizeClusterId(prevValue)
+      );
       if (hasPrevValue) {
         clusterSelect.value = prevValue;
         clusterSelect.style.backgroundColor = getClusterColor(prevValue);
@@ -676,7 +693,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
       const zipCode = (client.zipCode || "").trim();
 
       const cluster = clientClusterMap.get(client.id);
-      const clusterId = cluster?.id || "";
+      const clusterId = normalizeClusterId(cluster?.id);
       let colorIndex = 0;
 
       if (clusterId) {
@@ -825,7 +842,12 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
                 <label style="font-weight: bold; min-width: 60px; font-size: 12px;">Cluster:</label>
                 <select id="cluster-select-${clientId}" style="flex: 1; padding: 3px; border: 1px solid var(--color-border-input); border-radius: 3px; font-size: 11px; background-color: ${clusterId ? getClusterColor(clusterId) : "var(--color-background-main)"}; color: ${clusterId ? getTextColorForBackground(getClusterColor(clusterId)) : "black"}; height: 24px !important; min-height: 24px !important; max-height: 24px !important; line-height: 1.1 !important;">
                   <option value="" style="background-color: var(--color-background-main); color: var(--color-black);">No cluster</option>
-                  ${clusters.map((c) => `<option value="${c.id}" ${c.id === clusterId ? "selected" : ""} style="background-color: ${getClusterColor(c.id)}; color: ${getTextColorForBackground(getClusterColor(c.id))}; font-weight: bold;">${c.id}</option>`).join("")}
+                  ${clusters
+                    .map((c) => {
+                      const optionClusterId = normalizeClusterId(c.id);
+                      return `<option value="${optionClusterId}" ${optionClusterId === clusterId ? "selected" : ""} style="background-color: ${getClusterColor(optionClusterId)}; color: ${getTextColorForBackground(getClusterColor(optionClusterId))}; font-weight: bold;">${optionClusterId}</option>`;
+                    })
+                    .join("")}
                   <option value="__add__" style="background-color: var(--color-border-input); color: var(--color-text-dark); font-weight: bold;">+ Add Cluster</option>
                 </select>
               </div>
@@ -867,12 +889,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
           clusterSelect.addEventListener("change", () => {
             const selectedClusterId = clusterSelect.value;
             if (selectedClusterId === "__add__") {
-              const clusterNumbers = clusters
-                .map((c) => parseInt(c.id, 10))
-                .filter((n) => !isNaN(n));
-              const nextClusterNum =
-                clusterNumbers.length > 0 ? Math.max(...clusterNumbers) + 1 : 1;
-              const nextClusterId = nextClusterNum.toString();
+              const nextClusterId = getNextClusterId(clustersRef.current);
               const opt = document.createElement("option");
               opt.value = nextClusterId;
               opt.text = nextClusterId;
@@ -894,11 +911,10 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
               clusterSelect.style.color = "var(--color-black)";
             }
           });
-
         }
 
         // Store initial values for reset on cancel
-        let initialClusterId = clusterSelect ? clusterSelect.value : "";
+        let initialClusterId = clusterSelect ? normalizeClusterId(clusterSelect.value) : "";
         const driverSelect = popupContainer.querySelector(
           `#driver-select-${clientId}`
         ) as HTMLSelectElement;
@@ -911,7 +927,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
         if (editBtn) {
           editBtn.addEventListener("click", () => {
             // Capture initial values when entering edit mode
-            if (clusterSelect) initialClusterId = clusterSelect.value;
+            if (clusterSelect) initialClusterId = normalizeClusterId(clusterSelect.value);
             if (driverSelect) initialDriver = driverSelect.value;
             if (timeSelect) initialTime = timeSelect.value;
             viewMode.style.display = "none";
@@ -1014,7 +1030,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
         }
 
         if (saveBtn && onClusterUpdate) {
-          saveBtn.addEventListener("click", () => {
+          saveBtn.addEventListener("click", async () => {
             const clusterSelect = popupContainer.querySelector(
               `#cluster-select-${clientId}`
             ) as HTMLSelectElement;
@@ -1025,7 +1041,11 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
               `#time-select-${clientId}`
             ) as HTMLSelectElement;
 
-            const newClusterId = clusterSelect.value;
+            const submittedClusterId = clusterSelect.value;
+            const newClusterId =
+              submittedClusterId === "__add__" || submittedClusterId === "__add_new_cluster__"
+                ? getNextClusterId(clustersRef.current)
+                : normalizeClusterId(submittedClusterId);
             const newDriver = driverSelect.value;
             const newTime = timeSelect.value;
             const clusterChanged = newClusterId !== initialClusterId;
@@ -1040,7 +1060,9 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
             const submittedDriverForSave = newClusterId ? submittedDriver : undefined;
             const submittedTimeForSave = newClusterId ? submittedTime : undefined;
 
-            const nextCluster = clustersRef.current.find((candidate) => candidate.id === newClusterId);
+            const nextCluster = clustersRef.current.find(
+              (candidate) => normalizeClusterId(candidate.id) === newClusterId
+            );
             const clusterDriver = normalizeAssignmentValue(nextCluster?.driver);
             const clusterTime = normalizeAssignmentValue(nextCluster?.time);
             const unchangedDriverFallback = clusterChanged ? clusterDriver : effectiveDriver;
@@ -1057,7 +1079,16 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
               return;
             }
 
-            onClusterUpdate(clientId, newClusterId, submittedDriverForSave, submittedTimeForSave);
+            const didSave = await onClusterUpdate(
+              clientId,
+              newClusterId,
+              submittedDriverForSave,
+              submittedTimeForSave
+            );
+
+            if (!didSave) {
+              return;
+            }
 
             // Update the view mode content with new data
             const viewModeContent = popupContainer.querySelector(`#view-mode-${clientId}`);
@@ -1483,7 +1514,14 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
                     border: `1px solid ${color}`,
                   }}
                 >
-                  <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 1 }}>
+                  <Box
+                    sx={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      gap: 1,
+                    }}
+                  >
                     <Typography
                       variant="caption"
                       sx={{
