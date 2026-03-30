@@ -5,7 +5,6 @@ import {
   Chip,
   Stack,
   Alert,
-  Button,
 } from "@mui/material";
 import ConfirmationModal from "../../../components/ConfirmationModal";
 import { DeliveryEvent } from "../../../types";
@@ -19,7 +18,7 @@ interface DeliveryEventWithHidden extends DeliveryEvent {
 export interface DeliveryLogProps {
   clientId: string;
   pastDeliveries: DeliveryEvent[];
-  futureDeliveries: DeliveryEventWithHidden[]; // Update type to include hidden property
+  futureDeliveries: DeliveryEventWithHidden[];
   fieldLabelStyles: any;
   onDeleteDelivery: (delivery: DeliveryEvent) => Promise<void>;
   onMarkDeliveryMissed: (delivery: DeliveryEvent) => Promise<void>;
@@ -73,15 +72,6 @@ const DeliveryLogForm: React.FC<DeliveryLogProps> = ({
   const canDropToPrevious = isDragging && draggedSource === "missed" && draggedDelivery !== null && !isToday(draggedDelivery.deliveryDate);
 
   const canDragFromUpcoming = (delivery: DeliveryEvent) => isToday(delivery.deliveryDate);
-  const moveActionSx = {
-    minWidth: "auto",
-    px: 1,
-    py: 0.25,
-    borderRadius: "999px",
-    fontSize: "0.75rem",
-    lineHeight: 1.2,
-    textTransform: "none",
-  } as const;
 
   const loadMissedDeliveries = useCallback(async () => {
     if (!clientId) {
@@ -500,49 +490,41 @@ const DeliveryLogForm: React.FC<DeliveryLogProps> = ({
               p: canDropToUpcoming ? 1 : 0,
               minHeight: canDropToUpcoming ? 52 : "auto",
               width: "100%",
-              backgroundColor: canDropToUpcoming
-                ? "var(--color-background-main)"
-                : "transparent",
+              backgroundColor: canDropToUpcoming ? "var(--color-background-main)" : "transparent",
               transition: "border-color 0.2s ease, background-color 0.2s ease, padding 0.2s ease",
             }}
           >
-            <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
+            <Stack
+              direction="row"
+              spacing={1}
+              sx={{ flexWrap: "wrap", maxHeight: 32, overflow: "hidden" }}
+            >
               {sortedFutureDeliveries.length > 0 ? (
-                sortedFutureDeliveries.map((delivery, index) => (
-                  <Stack key={delivery.id} direction="row" spacing={0.5} alignItems="center">
-                    <div
-                      draggable={canDragFromUpcoming(delivery)}
-                      onDragStart={(e) => canDragFromUpcoming(delivery) && handleDragStart(delivery, "future", e)}
-                      onDragEnd={handleDragEnd}
-                      style={{
-                        cursor: canDragFromUpcoming(delivery) ? "grab" : "default",
-                        userSelect: "none",
-                        display: "inline-flex",
-                        alignItems: "center",
-                        opacity: draggedDelivery?.id === delivery.id ? 0.5 : (delivery.hidden ? 0.5 : 1),
-                        transition: "opacity 0.15s ease",
-                      }}
-                    >
-                      <Chip
-                        label={formatDate(delivery.deliveryDate)}
-                        variant="outlined"
-                        color="primary"
-                        onDelete={() => handleDeleteClick(delivery)}
-                      />
-                    </div>
-                    {canDragFromUpcoming(delivery) && (
-                      <Button
-                        size="small"
-                        onClick={() => {
-                          void queueDropToMissed(delivery, "future");
-                        }}
-                        aria-label={`Mark ${formatDate(delivery.deliveryDate)} delivery as missed`}
-                        sx={moveActionSx}
-                      >
-                        Missed
-                      </Button>
-                    )}
-                  </Stack>
+                sortedFutureDeliveries.map((delivery) => (
+                  <div
+                    key={delivery.id}
+                    draggable={canDragFromUpcoming(delivery)}
+                    onDragStart={(e) =>
+                      canDragFromUpcoming(delivery) && handleDragStart(delivery, "future", e)
+                    }
+                    onDragEnd={handleDragEnd}
+                    style={{
+                      cursor: canDragFromUpcoming(delivery) ? "grab" : "default",
+                      userSelect: "none",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      opacity:
+                        draggedDelivery?.id === delivery.id ? 0.5 : delivery.hidden ? 0.5 : 1,
+                      transition: "opacity 0.15s ease",
+                    }}
+                  >
+                    <Chip
+                      label={formatDate(delivery.deliveryDate)}
+                      variant="outlined"
+                      color="primary"
+                      onDelete={() => handleDeleteClick(delivery)}
+                    />
+                  </div>
                 ))
               ) : (
                 <Typography variant="body2" sx={{ color: "text.secondary" }}>
@@ -570,44 +552,35 @@ const DeliveryLogForm: React.FC<DeliveryLogProps> = ({
               minHeight: canDropToPrevious ? 52 : "auto",
               width: "100%",
               mb: 2,
-              backgroundColor: canDropToPrevious
-                ? "var(--color-background-main)"
-                : "transparent",
+              backgroundColor: canDropToPrevious ? "var(--color-background-main)" : "transparent",
               transition: "border-color 0.2s ease, background-color 0.2s ease, padding 0.2s ease",
             }}
           >
-            <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
+            <Stack
+              direction="row"
+              spacing={1}
+              sx={{ flexWrap: "wrap", maxHeight: 32, overflow: "hidden" }}
+            >
               {sortedPastDeliveries.length > 0 ? (
-                sortedPastDeliveries.map((delivery, index) => (
-                  <Stack key={delivery.id} direction="row" spacing={0.5} alignItems="center">
-                    <div
-                      draggable
-                      onDragStart={(e) => handleDragStart(delivery, "past", e)}
-                      onDragEnd={handleDragEnd}
-                      style={{
-                        cursor: "grab",
-                        userSelect: "none",
-                        display: "inline-flex",
-                        alignItems: "center",
-                      }}
-                    >
-                      <Chip
-                        label={formatDate(delivery.deliveryDate)}
-                        variant="outlined"
-                        color="secondary"
-                      />
-                    </div>
-                    <Button
-                      size="small"
-                      onClick={() => {
-                        void queueDropToMissed(delivery, "past");
-                      }}
-                      aria-label={`Mark ${formatDate(delivery.deliveryDate)} delivery as missed`}
-                      sx={moveActionSx}
-                    >
-                      Missed
-                    </Button>
-                  </Stack>
+                sortedPastDeliveries.map((delivery) => (
+                  <div
+                    key={delivery.id}
+                    draggable
+                    onDragStart={(e) => handleDragStart(delivery, "past", e)}
+                    onDragEnd={handleDragEnd}
+                    style={{
+                      cursor: "grab",
+                      userSelect: "none",
+                      display: "inline-flex",
+                      alignItems: "center",
+                    }}
+                  >
+                    <Chip
+                      label={formatDate(delivery.deliveryDate)}
+                      variant="outlined"
+                      color="secondary"
+                    />
+                  </div>
                 ))
               ) : (
                 <Typography variant="body2" sx={{ color: "text.secondary" }}>
@@ -636,56 +609,35 @@ const DeliveryLogForm: React.FC<DeliveryLogProps> = ({
               minHeight: canDropToMissed ? 52 : "auto",
               width: "100%",
               mb: 1,
-              backgroundColor: canDropToMissed
-                ? "var(--color-background-main)"
-                : "transparent",
+              backgroundColor: canDropToMissed ? "var(--color-background-main)" : "transparent",
               transition: "border-color 0.2s ease, background-color 0.2s ease, padding 0.2s ease",
             }}
           >
             <Stack direction="row" spacing={1} flexWrap="wrap">
               {missedDeliveries.length > 0 ? (
                 missedDeliveries.map((delivery) => (
-                  <Stack key={delivery.id} direction="row" spacing={0.5} alignItems="center">
-                    <div
-                      draggable
-                      onDragStart={(e) => handleDragStart(delivery, "missed", e)}
-                      onDragEnd={handleDragEnd}
-                      style={{
-                        cursor: "grab",
-                        userSelect: "none",
-                        display: "inline-flex",
-                        alignItems: "center",
+                  <div
+                    key={delivery.id}
+                    draggable
+                    onDragStart={(e) => handleDragStart(delivery, "missed", e)}
+                    onDragEnd={handleDragEnd}
+                    style={{
+                      cursor: "grab",
+                      userSelect: "none",
+                      display: "inline-flex",
+                      alignItems: "center",
+                    }}
+                  >
+                    <Chip
+                      label={formatDate(delivery.deliveryDate)}
+                      variant="outlined"
+                      color="error"
+                      sx={{
+                        opacity: draggedDelivery?.id === delivery.id ? 0.5 : 1,
+                        transition: "opacity 0.15s ease",
                       }}
-                    >
-                      <Chip
-                        label={formatDate(delivery.deliveryDate)}
-                        variant="outlined"
-                        color="error"
-                        sx={{
-                          opacity: draggedDelivery?.id === delivery.id ? 0.5 : 1,
-                          transition: "opacity 0.15s ease",
-                        }}
-                      />
-                    </div>
-                    <Button
-                      size="small"
-                      onClick={() => {
-                        if (isToday(delivery.deliveryDate)) {
-                          void restoreMissedToUpcoming(delivery);
-                          return;
-                        }
-                        void restoreMissedToPrevious(delivery);
-                      }}
-                      aria-label={
-                        isToday(delivery.deliveryDate)
-                          ? `Move ${formatDate(delivery.deliveryDate)} delivery back to upcoming`
-                          : `Move ${formatDate(delivery.deliveryDate)} delivery back to previous`
-                      }
-                      sx={moveActionSx}
-                    >
-                      {isToday(delivery.deliveryDate) ? "Upcoming" : "Previous"}
-                    </Button>
-                  </Stack>
+                    />
+                  </div>
                 ))
               ) : (
                 <Typography variant="body2" sx={{ color: "text.secondary" }}>
