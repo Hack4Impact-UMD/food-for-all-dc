@@ -2526,10 +2526,11 @@ const DeliverySpreadsheet: React.FC = () => {
           height: "400px",
           width: "100%",
           backgroundColor: "var(--color-background-main)",
-          position: "relative",
         }}
       >
-        {rows.length > 0 && (
+        {isMainLoading ? (
+          <LoadingIndicator />
+        ) : visibleRows.length > 0 ? (
           <Suspense fallback={<LoadingIndicator />}>
             <ClusterMap
               clusters={clusters}
@@ -2543,35 +2544,15 @@ const DeliverySpreadsheet: React.FC = () => {
               refreshDriversTrigger={driversRefreshTrigger}
             />
           </Suspense>
-        )}
-
-        {isMainLoading && (
+        ) : (
           <Box
             sx={{
-              position: "absolute",
-              inset: 0,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              zIndex: 1100,
-              backgroundColor: "rgba(255, 255, 255, 0.85)",
-              borderRadius: "4px",
-            }}
-          >
-            <LoadingIndicator minHeight="100%" text="Loading deliveries..." />
-          </Box>
-        )}
-
-        {!isMainLoading && rows.length === 0 && (
-          <Box
-            sx={{
-              position: "absolute",
-              inset: 0,
               display: "flex",
               justifyContent: "center",
               alignItems: "center",
-              zIndex: 1100,
-              backgroundColor: "rgba(255, 255, 255, 0.92)",
+              height: "400px",
+              width: "100%",
+              backgroundColor: "var(--color-background-body)",
               borderRadius: "4px",
               border: "1px solid var(--color-border-light)",
             }}
