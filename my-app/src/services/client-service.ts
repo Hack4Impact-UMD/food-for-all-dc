@@ -49,13 +49,24 @@ const normalizeFirestoreDateValue = (value: unknown): unknown => {
   return value;
 };
 
+const deriveClientActiveStatus = (raw: {
+  startDate?: unknown;
+  endDate?: unknown;
+  autoInactiveReason?: unknown;
+}): boolean =>
+  computeClientActiveStatus(
+    raw.startDate as Parameters<typeof computeClientActiveStatus>[0],
+    raw.endDate as Parameters<typeof computeClientActiveStatus>[1],
+    typeof raw.autoInactiveReason === "string" ? raw.autoInactiveReason : null
+  );
+
 const mapClientDocToSpreadsheetBaseRow = (docId: string, raw: any): RowData => {
   const normalizedFamStartDate = normalizeFirestoreDateValue(raw.famStartDate);
   const famStartDate =
     deliveryDate.tryToISODateString(
       normalizedFamStartDate as string | Date | null | undefined
     ) ?? "";
-  const activeStatus = computeClientActiveStatus(raw.startDate, raw.endDate);
+  const activeStatus = deriveClientActiveStatus(raw);
 
   return {
     id: docId,
@@ -157,7 +168,14 @@ class ClientService {
       });
       if (docSnap.exists()) {
         const data = docSnap.data() as ClientProfile;
-        return validateClientProfile(data) ? data : null;
+        if (!validateClientProfile(data)) {
+          return null;
+        }
+
+        return {
+          ...data,
+          activeStatus: deriveClientActiveStatus(data),
+        };
       }
       return null;
     } catch (error) {
@@ -186,7 +204,7 @@ class ClientService {
           const deliveryDetails = raw.deliveryDetails || {};
           const dietaryRestrictions = deliveryDetails.dietaryRestrictions || {};
 
-          const activeStatus = computeClientActiveStatus(raw.startDate, raw.endDate);
+          const activeStatus = deriveClientActiveStatus(raw);
 
           const mapped: ClientProfile = {
             uid: doc.id,
@@ -313,7 +331,7 @@ class ClientService {
         const snapshot = await getDocs(emptyQuery);
         const mapped = snapshot.docs.map((doc) => {
           const data = doc.data() as any;
-          const activeStatus = computeClientActiveStatus(data.startDate, data.endDate);
+          const activeStatus = deriveClientActiveStatus(data);
           return {
             uid: doc.id,
             firstName: data.firstName || "",
@@ -340,7 +358,7 @@ class ClientService {
       const mapped = snapshot.docs
         .map((doc) => {
           const data = doc.data() as any;
-          const activeStatus = computeClientActiveStatus(data.startDate, data.endDate);
+          const activeStatus = deriveClientActiveStatus(data);
           return {
             uid: doc.id,
             firstName: data.firstName || "",

@@ -404,6 +404,11 @@ const Profile = () => {
 
       const normalizedData = {
         ...data,
+        activeStatus: computeClientActiveStatus(
+          data.startDate,
+          data.endDate,
+          data.autoInactiveReason ?? null
+        ),
         notes: data.notes || "",
         lifeChallenges: data.lifeChallenges || "",
         lifestyleGoals: data.lifestyleGoals || "",
@@ -1381,9 +1386,14 @@ const Profile = () => {
       const normalizedEndDate = convertDateForSave(cleanedProfile.endDate);
       const normalizedStartDateISO = deliveryDate.tryToISODateString(normalizedStartDate);
       const normalizedEndDateISO = deliveryDate.tryToISODateString(normalizedEndDate);
-      const activeStatus = computeClientActiveStatus(
+      const nextActiveStatus = computeClientActiveStatus(
         normalizedStartDateISO,
         normalizedEndDateISO
+      );
+      const persistedActiveStatus = computeClientActiveStatus(
+        normalizedStartDateISO,
+        normalizedEndDateISO,
+        clientProfile.autoInactiveReason
       );
 
       const updatedProfile: ClientProfile = {
@@ -1413,7 +1423,7 @@ const Profile = () => {
               organization: selectedCaseWorker.organization,
             }
           : null, // Use null if no case worker is selected
-        activeStatus,
+        activeStatus: persistedActiveStatus,
       };
 
       const previousProfile = prevClientProfile ?? clientProfile;
@@ -1428,12 +1438,14 @@ const Profile = () => {
         clientProfile.autoInactiveReason === "three-strikes";
       const previousActiveStatus = computeClientActiveStatus(
         normalizedPreviousStartDateISO,
-        normalizedPreviousEndDateISO
+        normalizedPreviousEndDateISO,
+        previousProfile.autoInactiveReason
       );
       const isThreeStrikesReactivation =
-        wasThreeStrikesInactive && !previousActiveStatus && activeStatus;
+        wasThreeStrikesInactive && !previousActiveStatus && nextActiveStatus;
 
       if (isThreeStrikesReactivation) {
+        updatedProfile.activeStatus = nextActiveStatus;
         updatedProfile.autoInactiveReason = null;
         updatedProfile.autoInactivePreviousEndDate = null;
         updatedProfile.autoInactiveStrikeDate = null;
@@ -2739,7 +2751,7 @@ const Profile = () => {
             { merge: true }
           );
 
-          await deliveryService.enforceClientEndDate(clientId, strikeDate, previousEndDate);
+          await deliveryService.deleteEventsByClientId(clientId);
 
           setClientProfile((prev) => ({
             ...prev,

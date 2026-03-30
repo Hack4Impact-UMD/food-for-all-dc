@@ -17,8 +17,13 @@ export interface ClientStatusPresentation {
 
 export const computeClientActiveStatus = (
   startDate: string | Date | DateTime | Timestamp | null | undefined,
-  endDate: string | Date | DateTime | Timestamp | null | undefined
+  endDate: string | Date | DateTime | Timestamp | null | undefined,
+  autoInactiveReason?: string | null
 ): boolean => {
+  if (autoInactiveReason === "three-strikes") {
+    return false;
+  }
+
   const today = deliveryDate.today().startOf("day");
   const startDateTime = startDate ? deliveryDate.tryToDateTime(startDate)?.startOf("day") : null;
   if (!startDateTime?.isValid) {

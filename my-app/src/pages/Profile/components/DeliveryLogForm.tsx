@@ -440,8 +440,9 @@ const DeliveryLogForm: React.FC<DeliveryLogProps> = ({
         message={
           <>
             This will be the client&apos;s 3rd missed delivery. They will be declared inactive and
-            all future deliveries will be deleted and their end date set to today. If you wish to
-            reactivate them you will need to set a new end date and assign new deliveries. <strong>Are you sure you want to continue?</strong>
+            all deliveries will be deleted and their end date set to today. If you wish to
+            reactivate them you will need to set a new end date and assign new deliveries.{" "}
+            <strong>Are you sure you want to continue?</strong>
           </>
         }
         confirmText="Yes, Continue"
