@@ -37,6 +37,11 @@ interface EffectiveRouteSlot {
   driverKey?: string;
   time?: string;
   consistent: boolean;
+  slotPairs: Array<{
+    driver: string;
+    driverKey: string;
+    time: string;
+  }>;
 }
 
 interface ClientRouteUpdateParams {
@@ -156,6 +161,14 @@ export const deriveEffectiveRouteSlots = (
     let routeTime: string | undefined;
     let missingDriver = false;
     let missingTime = false;
+    const slotPairsByKey = new Map<
+      string,
+      {
+        driver: string;
+        driverKey: string;
+        time: string;
+      }
+    >();
 
     cluster.deliveries.forEach((clientId) => {
       const override = overrideMap.get(clientId);
@@ -179,6 +192,15 @@ export const deriveEffectiveRouteSlots = (
         timeKeys.add(effectiveTime);
         routeTime ||= effectiveTime;
       }
+
+      if (effectiveDriver && effectiveTime) {
+        const driverKey = effectiveDriver.toLowerCase();
+        slotPairsByKey.set(`${driverKey}::${effectiveTime}`, {
+          driver: effectiveDriver,
+          driverKey,
+          time: effectiveTime,
+        });
+      }
     });
 
     const consistent =
@@ -195,6 +217,7 @@ export const deriveEffectiveRouteSlots = (
       driverKey: routeDriver ? routeDriver.toLowerCase() : undefined,
       time: routeTime,
       consistent,
+      slotPairs: Array.from(slotPairsByKey.values()),
     };
   });
 
@@ -220,30 +243,28 @@ export const findRouteSlotConflict = (
   for (const touchedRouteId of normalizedTouchedRouteIds) {
     const incomingRoute = effectiveRouteSlotsById.get(touchedRouteId);
 
-    if (
-      !incomingRoute?.consistent ||
-      !incomingRoute.driver ||
-      !incomingRoute.driverKey ||
-      !incomingRoute.time
-    ) {
+    if (!incomingRoute?.slotPairs.length) {
       continue;
     }
 
-    const conflictingRoute = effectiveRouteSlots.find(
-      (routeSlot) =>
-        routeSlot.routeId !== incomingRoute.routeId &&
-        routeSlot.consistent &&
-        routeSlot.driverKey === incomingRoute.driverKey &&
-        routeSlot.time === incomingRoute.time
-    );
+    for (const incomingPair of incomingRoute.slotPairs) {
+      const conflictingRoute = effectiveRouteSlots.find(
+        (routeSlot) =>
+          routeSlot.routeId !== incomingRoute.routeId &&
+          routeSlot.slotPairs.some(
+            (slotPair) =>
+              slotPair.driverKey === incomingPair.driverKey && slotPair.time === incomingPair.time
+          )
+      );
 
-    if (conflictingRoute?.driver && conflictingRoute.time) {
-      return {
-        driver: incomingRoute.driver,
-        time: incomingRoute.time,
-        existingRouteId: conflictingRoute.routeId,
-        incomingRouteId: incomingRoute.routeId,
-      };
+      if (conflictingRoute) {
+        return {
+          driver: incomingPair.driver,
+          time: incomingPair.time,
+          existingRouteId: conflictingRoute.routeId,
+          incomingRouteId: incomingRoute.routeId,
+        };
+      }
     }
   }
 
