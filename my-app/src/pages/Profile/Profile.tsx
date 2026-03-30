@@ -1441,8 +1441,12 @@ const Profile = () => {
         normalizedPreviousEndDateISO,
         previousProfile.autoInactiveReason
       );
+      const didChangeEndDate = normalizedPreviousEndDateISO !== normalizedEndDateISO;
       const isThreeStrikesReactivation =
-        wasThreeStrikesInactive && !previousActiveStatus && nextActiveStatus;
+        wasThreeStrikesInactive &&
+        didChangeEndDate &&
+        !previousActiveStatus &&
+        nextActiveStatus;
 
       if (isThreeStrikesReactivation) {
         updatedProfile.activeStatus = nextActiveStatus;
