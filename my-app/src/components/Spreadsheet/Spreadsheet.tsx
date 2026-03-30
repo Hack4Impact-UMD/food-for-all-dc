@@ -31,6 +31,7 @@ const ChevronUpDown = () => (
   </span>
 );
 import {
+  Alert,
   Box,
   Button,
   IconButton,
@@ -46,11 +47,12 @@ import {
   DialogTitle,
   DialogContent,
   Skeleton,
+  Typography,
 } from "@mui/material";
 import { Popover } from "@mui/material";
 import type { RowData } from "./export";
 import { TableVirtuoso } from "react-virtuoso";
-import React, { forwardRef, useEffect, useState, useMemo, Suspense } from "react";
+import React, { memo, forwardRef, useCallback, useEffect, useState, useMemo, Suspense } from "react";
 import type { HTMLAttributes } from "react";
 import { useCustomColumns, allowedPropertyKeys } from "../../hooks/useCustomColumns";
 import DietaryRestrictionsLegend from "../DietaryRestrictionsLegend";
@@ -73,6 +75,7 @@ import type { FieldDefinition } from "../../types/spreadsheet-types";
 import { useNotifications } from "../NotificationProvider";
 import { CsvExportError } from "../../utils/csvExport";
 import { getClientStatusPresentation } from "../../utils/clientStatus";
+import type { ClientDeliverySummary } from "../../utils/lastDeliveryDate";
 
 const StyleChip = styled(Chip)(({ theme }) => ({
   fontWeight: 500,
@@ -88,8 +91,8 @@ const StyleChip = styled(Chip)(({ theme }) => ({
   },
 }));
 
-const getTodayET = (): string => DateTime.now().setZone("America/New_York").toISODate() ?? "";
 const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+const DELIVERY_SUMMARY_EXPORT_BATCH_SIZE = 100;
 
 const formatTimestampLikeDate = (value: unknown): string => {
   if (value === null || value === undefined || value === "N/A") return "";
@@ -181,6 +184,148 @@ function getCustomColumnDisplay(row: RowData, propertyKey: string): React.ReactN
   return formatTimestampLikeDate(value);
 }
 
+const mergeDeliverySummaries = (
+  rows: RowData[],
+  readyIds: Set<string>,
+  summaries: Map<string, ClientDeliverySummary>
+): RowData[] =>
+  rows.map((row) => {
+    if (!readyIds.has(row.uid)) {
+      return row;
+    }
+
+    const summary = summaries.get(row.uid);
+    return {
+      ...row,
+      lastDeliveryDate: summary?.lastDeliveryDate ?? "",
+      missedStrikeCount: summary?.missedStrikeCount ?? 0,
+      deliverySummaryReady: true,
+    };
+  });
+
+type SpreadsheetRowContentProps = {
+  index: number;
+  row: RowData;
+  fields: FieldDefinition[];
+  customColumns: Array<{ id: string; label: string; propertyKey: string }>;
+  navigate: ReturnType<typeof useNavigate>;
+  onOpenMenu: (event: React.MouseEvent<HTMLElement>, row: RowData) => void;
+};
+
+const SpreadsheetRowContent = memo(
+  ({ index, row, fields, customColumns, navigate, onOpenMenu }: SpreadsheetRowContentProps) => {
+    const rowBg = index % 2 === 0 ? "rgb(243, 243, 243)" : "rgb(249, 249, 249)";
+
+    return (
+      <>
+        {fields.map((field) => (
+          <TableCell
+            key={field.key}
+            sx={{
+              py: 2,
+              width: 160,
+              minWidth: 160,
+              maxWidth: 160,
+              backgroundColor: rowBg,
+            }}
+          >
+            {field.key === "fullname" ? (
+              (() => {
+                const statusPresentation = getClientStatusPresentation(
+                  row.activeStatus,
+                  row.deliverySummaryReady ? row.missedStrikeCount : 0
+                );
+
+                return (
+                  <span style={{ display: "flex", alignItems: "center" }}>
+                    <Tooltip title={statusPresentation.tooltip} placement="right">
+                      {statusPresentation.isActive ? (
+                        <CheckCircleIcon
+                          sx={{
+                            color: statusPresentation.color,
+                            fontSize: "1.1rem",
+                            mr: 0.5,
+                            verticalAlign: "middle",
+                          }}
+                        />
+                      ) : (
+                        <CancelIcon
+                          sx={{
+                            color: statusPresentation.color,
+                            fontSize: "1.1rem",
+                            mr: 0.5,
+                            verticalAlign: "middle",
+                          }}
+                        />
+                      )}
+                    </Tooltip>
+                    <a
+                      className="name-link"
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        navigate(`/profile/${row.uid ?? ""}`, {
+                          state: { userData: row },
+                        });
+                      }}
+                    >
+                      {field.compute ? field.compute(row) : `${row.lastName}, ${row.firstName}`}
+                    </a>
+                  </span>
+                );
+              })()
+            ) : field.compute ? (
+              renderSafeSpreadsheetCellValue(field.compute(row))
+            ) : (
+              renderSafeSpreadsheetCellValue(row[field.key as keyof RowData])
+            )}
+          </TableCell>
+        ))}
+        {customColumns.map((col) => (
+          <TableCell
+            key={col.id}
+            sx={{
+              py: 2,
+              width: 200,
+              minWidth: 200,
+              maxWidth: 200,
+              backgroundColor: rowBg,
+            }}
+          >
+            {col.propertyKey !== "none" ? getCustomColumnDisplay(row, col.propertyKey) : "N/A"}
+          </TableCell>
+        ))}
+        <TableCell
+          align="right"
+          sx={{ py: 2, width: 80, minWidth: 80, maxWidth: 80, backgroundColor: rowBg }}
+          key={`actions-${row.id}`}
+        >
+          <IconButton
+            onClick={(e) => {
+              onOpenMenu(e, row);
+            }}
+            sx={{
+              color: "var(--color-text-medium)",
+              "&:hover": {
+                backgroundColor: "rgba(0, 0, 0, 0.04)",
+                color: "var(--color-primary-darker)",
+              },
+            }}
+          >
+            <MoreVertIcon />
+          </IconButton>
+        </TableCell>
+      </>
+    );
+  },
+  (previousProps, nextProps) =>
+    previousProps.row === nextProps.row &&
+    previousProps.index === nextProps.index &&
+    previousProps.fields === nextProps.fields &&
+    previousProps.customColumns === nextProps.customColumns
+);
+SpreadsheetRowContent.displayName = "SpreadsheetRowContent";
+
 const Spreadsheet: React.FC = () => {
   const navigate = useNavigate();
   // Route Protection: redirect to login if not authenticated
@@ -209,10 +354,9 @@ const Spreadsheet: React.FC = () => {
       return { key, direction: "asc" };
     });
   };
-  const [rows, setRows] = useState<RowData[]>([]);
   const [forceRerender, setForceRerender] = useState(0);
   const virtuosoRef = React.useRef<any>(null);
-  const { clients, refresh } = useClientData();
+  const { clients, loading, error, refresh } = useClientData();
   const { showError, showSuccess, showWarning } = useNotifications();
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [debouncedSearch, setDebouncedSearch] = useState<string>("");
@@ -222,55 +366,33 @@ const Spreadsheet: React.FC = () => {
   } | null>(null);
   const [menuRow, setMenuRow] = useState<RowData | null>(null);
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const [clientIdToDelete, setClientIdToDelete] = useState<string | null>(null);
   const [clientNameToDelete, setClientNameToDelete] = useState<string>("");
+  const previousClientIdsRef = React.useRef<string>("");
   const customColumnsHook = useCustomColumns({ page: "Spreadsheet" });
   const customColumns = customColumnsHook.customColumns;
   const handleAddCustomColumn = customColumnsHook.handleAddCustomColumn;
   const handleCustomHeaderChange = customColumnsHook.handleCustomHeaderChange;
   const handleRemoveCustomColumn = customColumnsHook.handleRemoveCustomColumn;
 
-  // Use Luxon for EST date calculation
-  // Always check for a new day and refresh on mount (after login)
   useEffect(() => {
-    const todayEST = getTodayET();
-    const lastRefreshDate = localStorage.getItem("clientsLastRefreshDate");
-    const needsDailyRefresh = lastRefreshDate !== todayEST;
-    const forceFlag = localStorage.getItem("forceClientsRefresh") === "true";
-    if (forceFlag || needsDailyRefresh) {
-      refresh().then(() => {
-        if (forceFlag) localStorage.removeItem("forceClientsRefresh");
-        localStorage.setItem("clientsLastRefreshDate", todayEST);
-      });
-    }
-  }, [refresh]);
+    const nextClientIds = clients.map((client) => client.uid).join("|");
+    const shouldResetTable = previousClientIdsRef.current !== nextClientIds;
+    previousClientIdsRef.current = nextClientIds;
 
-  // Add focus event to trigger refresh if date has changed while tab was inactive
-  useEffect(() => {
-    function onFocus() {
-      const todayEST = getTodayET();
-      const lastRefreshDate = localStorage.getItem("clientsLastRefreshDate");
-      if (lastRefreshDate !== todayEST) {
-        refresh().then(() => {
-          localStorage.setItem("clientsLastRefreshDate", todayEST);
-        });
-      }
+    if (!shouldResetTable) {
+      return;
     }
-    window.addEventListener("focus", onFocus);
-    return () => {
-      window.removeEventListener("focus", onFocus);
-    };
-  }, [refresh]);
 
-  // Always update rows when clients change
-  useEffect(() => {
-    setRows(clients);
-    setTimeout(() => {
+    const timer = window.setTimeout(() => {
       if (virtuosoRef.current && typeof virtuosoRef.current.scrollToIndex === "function") {
         virtuosoRef.current.scrollToIndex({ index: 0, align: "start" });
       }
       setForceRerender((f) => f + 1);
     }, 100);
+
+    return () => window.clearTimeout(timer);
   }, [clients]);
 
   useEffect(() => {
@@ -280,12 +402,57 @@ const Spreadsheet: React.FC = () => {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  const handleExportAction = (
-    exportFn: () => string,
+  const hydrateRowsForExport = useCallback(async (sourceRows: RowData[]) => {
+    const pendingClientIds = Array.from(
+      new Set(
+        sourceRows
+          .filter((row) => !row.deliverySummaryReady)
+          .map((row) => row.uid)
+          .filter(Boolean)
+      )
+    );
+
+    if (pendingClientIds.length === 0) {
+      return sourceRows;
+    }
+
+    const readyIds = new Set(pendingClientIds);
+    const summaries = new Map<string, ClientDeliverySummary>();
+
+    for (
+      let index = 0;
+      index < pendingClientIds.length;
+      index += DELIVERY_SUMMARY_EXPORT_BATCH_SIZE
+    ) {
+      const batchIds = pendingClientIds.slice(index, index + DELIVERY_SUMMARY_EXPORT_BATCH_SIZE);
+      const batchSummaries = await clientService.getClientDeliverySummaries(batchIds);
+      batchSummaries.forEach((summary, clientId) => {
+        summaries.set(clientId, summary);
+      });
+    }
+
+    return mergeDeliverySummaries(sourceRows, readyIds, summaries);
+  }, []);
+
+  const handleOpenMenu = useCallback((event: React.MouseEvent<HTMLElement>, row: RowData) => {
+    event.stopPropagation();
+    setMenuAnchorPosition({ top: event.clientY, left: event.clientX });
+    setMenuRow(row);
+  }, []);
+
+  const handleExportAction = async (
+    sourceRows: RowData[],
+    exportFn: (rowsToExport: RowData[]) => string,
     successMessage: (filename: string) => string
   ) => {
+    if (isExporting) {
+      return;
+    }
+
+    setIsExporting(true);
     try {
-      const filename = exportFn();
+      const exportRows = await hydrateRowsForExport(sourceRows);
+      const filename = exportFn(exportRows);
       showSuccess(successMessage(filename));
     } catch (error) {
       if (error instanceof CsvExportError && error.code === "EMPTY_DATA") {
@@ -295,6 +462,8 @@ const Spreadsheet: React.FC = () => {
 
       const message = error instanceof Error ? error.message : "Failed to export CSV.";
       showError(message);
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -443,7 +612,7 @@ const Spreadsheet: React.FC = () => {
         key: "lastDeliveryDate",
         label: "Last Delivery Date",
         type: "text",
-        compute: (data: RowData) => data.lastDeliveryDate || "",
+        compute: (data: RowData) => (data.deliverySummaryReady ? data.lastDeliveryDate || "" : ""),
       },
     ],
     []
@@ -452,7 +621,7 @@ const Spreadsheet: React.FC = () => {
   // --- Sorting and filtering logic (with sorting) ---
   // Ensure filteredRows is always the correct RowData shape for export, and optimize with useMemo
   const filteredRows: RowData[] = useMemo(() => {
-    let result = rows;
+    let result = clients;
     if (debouncedSearch.trim()) {
       const validSearchTerms = parseSearchTermsProgressively(debouncedSearch.trim());
 
@@ -664,7 +833,11 @@ const Spreadsheet: React.FC = () => {
       }
     }
     return result;
-  }, [rows, debouncedSearch, sortConfig, fields, customColumns]);
+  }, [clients, debouncedSearch, sortConfig, fields, customColumns]);
+
+  const isInitialLoading = loading && clients.length === 0;
+  const hasBlockingError = Boolean(error) && clients.length === 0;
+  const isEmptyState = !loading && !error && clients.length === 0;
 
   // --- TableVirtuoso rendering ---
   return (
@@ -790,28 +963,32 @@ const Spreadsheet: React.FC = () => {
                       <Button
                         variant="contained"
                         color="primary"
+                        disabled={isExporting}
                         onClick={() => {
                           setExportDialogOpen(false);
-                          handleExportAction(
-                            () => exportQueryResults(filteredRows, customColumns),
+                          void handleExportAction(
+                            filteredRows,
+                            (rowsToExport) => exportQueryResults(rowsToExport, customColumns),
                             (filename) => `Exported ${filename}.`
                           );
                         }}
                       >
-                        Export Query Results
+                        {isExporting ? "Preparing Export..." : "Export Query Results"}
                       </Button>
                       <Button
                         variant="contained"
                         color="secondary"
+                        disabled={isExporting}
                         onClick={() => {
                           setExportDialogOpen(false);
-                          handleExportAction(
-                            () => exportAllClients(rows),
+                          void handleExportAction(
+                            clients,
+                            (rowsToExport) => exportAllClients(rowsToExport),
                             (filename) => `Exported ${filename}.`
                           );
                         }}
                       >
-                        Export All Clients
+                        {isExporting ? "Preparing Export..." : "Export All Clients"}
                       </Button>
                     </Box>
                   </DialogContent>
@@ -859,12 +1036,26 @@ const Spreadsheet: React.FC = () => {
       {/* Dietary Restrictions Color Legend */}
       <DietaryRestrictionsLegend />
 
+      {error && clients.length > 0 && (
+        <Alert
+          severity="error"
+          sx={{ mt: 1 }}
+          action={
+            <Button color="inherit" size="small" onClick={() => void refresh()}>
+              Retry
+            </Button>
+          }
+        >
+          {error.message || "Failed to refresh client data. Showing the last loaded results."}
+        </Alert>
+      )}
+
       {/* TableVirtuoso for desktop/table view only */}
       <Box
         className="table-container"
         sx={{ mt: 1, mb: 0, width: "100%", flex: 1, minHeight: 0, overflow: "auto" }}
       >
-        {rows.length === 0 ? (
+        {isInitialLoading ? (
           <TableContainer
             component={Paper}
             sx={{
@@ -911,6 +1102,64 @@ const Spreadsheet: React.FC = () => {
                 ))}
               </tbody>
             </Table>
+          </TableContainer>
+        ) : hasBlockingError ? (
+          <TableContainer
+            component={Paper}
+            sx={{
+              height: "100%",
+              boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
+              borderRadius: "12px",
+              overflow: "auto",
+              minHeight: 0,
+            }}
+          >
+            <Box
+              sx={{
+                height: "100%",
+                minHeight: 240,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                p: 3,
+              }}
+            >
+              <Alert
+                severity="error"
+                sx={{ width: "100%", maxWidth: 560 }}
+                action={
+                  <Button color="inherit" size="small" onClick={() => void refresh()}>
+                    Retry
+                  </Button>
+                }
+              >
+                {error?.message || "Failed to load client data."}
+              </Alert>
+            </Box>
+          </TableContainer>
+        ) : isEmptyState ? (
+          <TableContainer
+            component={Paper}
+            sx={{
+              height: "100%",
+              boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
+              borderRadius: "12px",
+              overflow: "auto",
+              minHeight: 0,
+            }}
+          >
+            <Box
+              sx={{
+                height: "100%",
+                minHeight: 240,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                p: 3,
+              }}
+            >
+              <Typography sx={{ color: "text.secondary" }}>No clients found.</Typography>
+            </Box>
           </TableContainer>
         ) : (
           <TableContainer
@@ -1111,159 +1360,58 @@ const Spreadsheet: React.FC = () => {
                   </TableCell>
                 </TableRow>
               )}
-              itemContent={(index, row: RowData) => {
-                const rowBg = index % 2 === 0 ? "rgb(243, 243, 243)" : "rgb(249, 249, 249)";
-                return [
-                  ...fields.map((field) => (
-                    <TableCell
-                      key={field.key}
-                      sx={{
-                        py: 2,
-                        width: 160,
-                        minWidth: 160,
-                        maxWidth: 160,
-                        backgroundColor: rowBg,
-                      }}
-                    >
-                      {field.key === "fullname" ? (
-                        (() => {
-                          const statusPresentation = getClientStatusPresentation(
-                            row.activeStatus,
-                            row.missedStrikeCount
-                          );
-
-                          return (
-                            <span style={{ display: "flex", alignItems: "center" }}>
-                              <Tooltip title={statusPresentation.tooltip} placement="right">
-                                {statusPresentation.isActive ? (
-                                  <CheckCircleIcon
-                                    sx={{
-                                      color: statusPresentation.color,
-                                      fontSize: "1.1rem",
-                                      mr: 0.5,
-                                      verticalAlign: "middle",
-                                    }}
-                                  />
-                                ) : (
-                                  <CancelIcon
-                                    sx={{
-                                      color: statusPresentation.color,
-                                      fontSize: "1.1rem",
-                                      mr: 0.5,
-                                      verticalAlign: "middle",
-                                    }}
-                                  />
-                                )}
-                              </Tooltip>
-                              <a
-                                className="name-link"
-                                href="#"
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  navigate(`/profile/${row.uid ?? ""}`, {
-                                    state: { userData: row },
-                                  });
-                                }}
-                              >
-                                {field.compute
-                                  ? field.compute(row)
-                                  : `${row.lastName}, ${row.firstName}`}
-                              </a>
-                            </span>
-                          );
-                        })()
-                      ) : field.compute ? (
-                        renderSafeSpreadsheetCellValue(field.compute(row))
-                      ) : (
-                        (() => {
-                          const value = row[field.key as keyof RowData];
-                          return renderSafeSpreadsheetCellValue(value);
-                        })()
-                      )}
-                    </TableCell>
-                  )),
-                  ...customColumns.map((col) => (
-                    <TableCell
-                      key={col.id}
-                      sx={{
-                        py: 2,
-                        width: 200,
-                        minWidth: 200,
-                        maxWidth: 200,
-                        backgroundColor: rowBg,
-                      }}
-                    >
-                      {col.propertyKey !== "none"
-                        ? getCustomColumnDisplay(row, col.propertyKey)
-                        : "N/A"}
-                    </TableCell>
-                  )),
-                  <TableCell
-                    align="right"
-                    sx={{ py: 2, width: 80, minWidth: 80, maxWidth: 80, backgroundColor: rowBg }}
-                    key={`actions-${row.id}`}
-                  >
-                    <IconButton
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setMenuAnchorPosition({ top: e.clientY, left: e.clientX });
-                        setMenuRow(row);
-                      }}
-                      sx={{
-                        color: "var(--color-text-medium)",
-                        "&:hover": {
-                          backgroundColor: "rgba(0, 0, 0, 0.04)",
-                          color: "var(--color-primary-darker)",
-                        },
-                      }}
-                    >
-                      <MoreVertIcon />
-                    </IconButton>
-                    <Popover
-                      open={Boolean(menuAnchorPosition)}
-                      anchorReference="anchorPosition"
-                      anchorPosition={
-                        menuAnchorPosition
-                          ? { top: menuAnchorPosition.top, left: menuAnchorPosition.left }
-                          : undefined
-                      }
-                      onClose={() => {
-                        setMenuAnchorPosition(null);
-                        setMenuRow(null);
-                      }}
-                      PaperProps={{ elevation: 2, sx: { borderRadius: "8px", minWidth: "150px" } }}
-                    >
-                      <MenuItem
-                        onClick={() => {
-                          if (menuRow)
-                            navigate(`/profile/${menuRow.uid ?? ""}`, {
-                              state: { userData: menuRow },
-                            });
-                          setMenuAnchorPosition(null);
-                          setMenuRow(null);
-                        }}
-                        sx={{ py: 1.5 }}
-                      >
-                        <EditIcon fontSize="small" sx={{ mr: 1 }} /> Edit
-                      </MenuItem>
-                      <MenuItem
-                        onClick={() => {
-                          if (menuRow) {
-                            setClientIdToDelete(menuRow.uid ?? null);
-                            setClientNameToDelete(`${menuRow.lastName}, ${menuRow.firstName}`);
-                          }
-                          setMenuAnchorPosition(null);
-                          setMenuRow(null);
-                        }}
-                        sx={{ py: 1.5 }}
-                      >
-                        <DeleteIcon fontSize="small" sx={{ mr: 1 }} /> Delete
-                      </MenuItem>
-                    </Popover>
-                  </TableCell>,
-                ];
-              }}
+              itemContent={(index, row: RowData) => (
+                <SpreadsheetRowContent
+                  index={index}
+                  row={row}
+                  fields={fields}
+                  customColumns={customColumns}
+                  navigate={navigate}
+                  onOpenMenu={handleOpenMenu}
+                />
+              )}
             />
+            <Popover
+              open={Boolean(menuAnchorPosition)}
+              anchorReference="anchorPosition"
+              anchorPosition={
+                menuAnchorPosition
+                  ? { top: menuAnchorPosition.top, left: menuAnchorPosition.left }
+                  : undefined
+              }
+              onClose={() => {
+                setMenuAnchorPosition(null);
+                setMenuRow(null);
+              }}
+              PaperProps={{ elevation: 2, sx: { borderRadius: "8px", minWidth: "150px" } }}
+            >
+              <MenuItem
+                onClick={() => {
+                  if (menuRow)
+                    navigate(`/profile/${menuRow.uid ?? ""}`, {
+                      state: { userData: menuRow },
+                    });
+                  setMenuAnchorPosition(null);
+                  setMenuRow(null);
+                }}
+                sx={{ py: 1.5 }}
+              >
+                <EditIcon fontSize="small" sx={{ mr: 1 }} /> Edit
+              </MenuItem>
+              <MenuItem
+                onClick={() => {
+                  if (menuRow) {
+                    setClientIdToDelete(menuRow.uid ?? null);
+                    setClientNameToDelete(`${menuRow.lastName}, ${menuRow.firstName}`);
+                  }
+                  setMenuAnchorPosition(null);
+                  setMenuRow(null);
+                }}
+                sx={{ py: 1.5 }}
+              >
+                <DeleteIcon fontSize="small" sx={{ mr: 1 }} /> Delete
+              </MenuItem>
+            </Popover>
           </TableContainer>
         )}
       </Box>

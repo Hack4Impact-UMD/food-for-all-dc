@@ -8,6 +8,10 @@ import { ServiceError, formatServiceError } from "../utils/serviceError";
 import { computeClientActiveStatus } from "../utils/clientStatus";
 import { deliveryDate } from "../utils/deliveryDate";
 import {
+  batchGetClientDeliverySummaries,
+  type ClientDeliverySummary,
+} from "../utils/lastDeliveryDate";
+import {
   collection,
   doc,
   getDoc,
@@ -24,6 +28,100 @@ import {
 } from "firebase/firestore";
 import { validateClientProfile } from "../utils/firestoreValidation";
 import dataSources from "../config/dataSources";
+
+const normalizeFirestoreDateValue = (value: unknown): unknown => {
+  if (value && typeof value === "object" && "toDate" in value) {
+    const maybeToDate = (value as { toDate?: unknown }).toDate;
+    if (typeof maybeToDate === "function") {
+      return (maybeToDate as () => Date)();
+    }
+  }
+
+  if (
+    value &&
+    typeof value === "object" &&
+    "seconds" in value &&
+    typeof (value as { seconds?: unknown }).seconds === "number"
+  ) {
+    return new Date((value as { seconds: number }).seconds * 1000);
+  }
+
+  return value;
+};
+
+const mapClientDocToSpreadsheetBaseRow = (docId: string, raw: any): RowData => {
+  const normalizedFamStartDate = normalizeFirestoreDateValue(raw.famStartDate);
+  const famStartDate =
+    deliveryDate.tryToISODateString(
+      normalizedFamStartDate as string | Date | null | undefined
+    ) ?? "";
+  const activeStatus = computeClientActiveStatus(raw.startDate, raw.endDate);
+
+  return {
+    id: docId,
+    uid: docId,
+    clientid: raw.clientid || docId,
+    firstName: raw.firstName || "",
+    lastName: raw.lastName || "",
+    email: raw.email || "",
+    phone: raw.phone || "",
+    houseNumber: raw.houseNumber || 0,
+    address: raw.address || "",
+    address2: raw.address2 || "",
+    deliveryDetails: {
+      deliveryInstructions: raw.deliveryDetails?.deliveryInstructions || "",
+      dietaryRestrictions: {
+        lowSugar: raw.deliveryDetails?.dietaryRestrictions?.lowSugar || false,
+        kidneyFriendly: raw.deliveryDetails?.dietaryRestrictions?.kidneyFriendly || false,
+        vegan: raw.deliveryDetails?.dietaryRestrictions?.vegan || false,
+        vegetarian: raw.deliveryDetails?.dietaryRestrictions?.vegetarian || false,
+        halal: raw.deliveryDetails?.dietaryRestrictions?.halal || false,
+        microwaveOnly: raw.deliveryDetails?.dietaryRestrictions?.microwaveOnly || false,
+        softFood: raw.deliveryDetails?.dietaryRestrictions?.softFood || false,
+        lowSodium: raw.deliveryDetails?.dietaryRestrictions?.lowSodium || false,
+        noCookingEquipment: raw.deliveryDetails?.dietaryRestrictions?.noCookingEquipment || false,
+        heartFriendly: raw.deliveryDetails?.dietaryRestrictions?.heartFriendly || false,
+        foodAllergens: raw.deliveryDetails?.dietaryRestrictions?.foodAllergens || [],
+        otherText: raw.deliveryDetails?.dietaryRestrictions?.otherText || "",
+        other: raw.deliveryDetails?.dietaryRestrictions?.other || false,
+        dietaryPreferences: raw.deliveryDetails?.dietaryRestrictions?.dietaryPreferences || "",
+      },
+    },
+    ethnicity: raw.ethnicity || "",
+    adults: raw.adults ?? null,
+    children: raw.children ?? null,
+    deliveryFreq: raw.deliveryFreq ?? "",
+    gender: raw.gender ?? "",
+    language: raw.language ?? "",
+    notes: raw.notes ?? "",
+    famStartDate,
+    tefapCert: raw.tefapCert ?? "",
+    dob: raw.dob ?? "",
+    ward: raw.ward ?? "",
+    zipCode: raw.zipCode ?? "",
+    tags: raw.tags ?? [],
+    referralEntity: raw.referralEntity ?? undefined,
+    lastDeliveryDate: "",
+    missedStrikeCount: 0,
+    activeStatus,
+    deliverySummaryReady: false,
+  };
+};
+
+const mergeDeliverySummariesIntoRows = (
+  clients: RowData[],
+  deliverySummaries: Map<string, ClientDeliverySummary>
+): RowData[] =>
+  clients.map((client) => {
+    const deliverySummary = deliverySummaries.get(client.uid);
+
+    return {
+      ...client,
+      lastDeliveryDate: deliverySummary?.lastDeliveryDate ?? "",
+      missedStrikeCount: deliverySummary?.missedStrikeCount ?? 0,
+      deliverySummaryReady: true,
+    };
+  });
 
 /**
  * Client Service - Handles all client-related operations with Firebase
@@ -274,8 +372,7 @@ class ClientService {
     }
   }
 
-  // For Spreadsheet only: returns RowData[]
-  public async getAllClientsForSpreadsheet(
+  public async getBaseClientsForSpreadsheet(
     pageSize = 3000,
     lastDoc?: any
   ): Promise<{ clients: RowData[]; lastDoc?: any }> {
@@ -285,116 +382,44 @@ class ClientService {
         if (lastDoc) {
           q = query(q, startAfter(lastDoc));
         }
+
         const snapshot = await getDocs(q);
-        const normalizeDateValue = (value: unknown): unknown => {
-          if (value && typeof value === "object" && "toDate" in value) {
-            const maybeToDate = (value as { toDate?: unknown }).toDate;
-            if (typeof maybeToDate === "function") {
-              return (maybeToDate as () => Date)();
-            }
-          }
-
-          if (
-            value &&
-            typeof value === "object" &&
-            "seconds" in value &&
-            typeof (value as { seconds?: unknown }).seconds === "number"
-          ) {
-            return new Date((value as { seconds: number }).seconds * 1000);
-          }
-
-          return value;
-        };
-        // Fetch all delivery events
-        const deliverySnapshot = await getDocs(
-          collection(this.db, dataSources.firebase.calendarCollection)
+        const clients = snapshot.docs.map((doc) =>
+          mapClientDocToSpreadsheetBaseRow(doc.id, doc.data() as any)
         );
-        const allDeliveries = deliverySnapshot.docs.map((doc) => doc.data());
 
-        const clients = snapshot.docs.map((doc) => {
-          const raw = doc.data() as any;
-          const normalizedFamStartDate = normalizeDateValue(raw.famStartDate);
-          const famStartDate = deliveryDate.tryToISODateString(
-            normalizedFamStartDate as string | Date | null | undefined
-          ) ?? "";
-          // Find latest delivery date for this client
-          const clientDeliveries = allDeliveries.filter(
-            (d: any) => d.clientId === doc.id && d.deliveryDate
-          );
-          const missedStrikeCount = clientDeliveries.filter(
-            (delivery: any) => delivery.deliveryStatus === "Missed"
-          ).length;
-          let lastDeliveryDate = "";
-          if (clientDeliveries.length > 0) {
-            const latest = clientDeliveries.reduce((max, curr) => {
-              const currDate = normalizeDateValue(curr.deliveryDate);
-              const maxDate = normalizeDateValue(max.deliveryDate);
-              return deliveryDate.compare(
-                currDate as string | Date | null | undefined,
-                maxDate as string | Date | null | undefined
-              ) > 0
-                ? curr
-                : max;
-            });
-            lastDeliveryDate =
-              deliveryDate.tryToISODateString(
-                normalizeDateValue(latest.deliveryDate) as string | Date | null | undefined
-              ) ?? "";
-          }
-          const activeStatus = computeClientActiveStatus(raw.startDate, raw.endDate);
-          const mapped = {
-            id: doc.id,
-            uid: doc.id,
-            clientid: raw.clientid || doc.id,
-            firstName: raw.firstName || "",
-            lastName: raw.lastName || "",
-            phone: raw.phone || "",
-            houseNumber: raw.houseNumber || 0,
-            address: raw.address || "",
-            address2: raw.address2 || "",
-            deliveryDetails: {
-              deliveryInstructions: raw.deliveryDetails?.deliveryInstructions || "",
-              dietaryRestrictions: {
-                lowSugar: raw.deliveryDetails?.dietaryRestrictions?.lowSugar || false,
-                kidneyFriendly: raw.deliveryDetails?.dietaryRestrictions?.kidneyFriendly || false,
-                vegan: raw.deliveryDetails?.dietaryRestrictions?.vegan || false,
-                vegetarian: raw.deliveryDetails?.dietaryRestrictions?.vegetarian || false,
-                halal: raw.deliveryDetails?.dietaryRestrictions?.halal || false,
-                microwaveOnly: raw.deliveryDetails?.dietaryRestrictions?.microwaveOnly || false,
-                softFood: raw.deliveryDetails?.dietaryRestrictions?.softFood || false,
-                lowSodium: raw.deliveryDetails?.dietaryRestrictions?.lowSodium || false,
-                noCookingEquipment:
-                  raw.deliveryDetails?.dietaryRestrictions?.noCookingEquipment || false,
-                heartFriendly: raw.deliveryDetails?.dietaryRestrictions?.heartFriendly || false,
-                foodAllergens: raw.deliveryDetails?.dietaryRestrictions?.foodAllergens || [],
-                otherText: raw.deliveryDetails?.dietaryRestrictions?.otherText || "",
-                other: raw.deliveryDetails?.dietaryRestrictions?.other || false,
-                dietaryPreferences:
-                  raw.deliveryDetails?.dietaryRestrictions?.dietaryPreferences || "",
-              },
-            },
-            ethnicity: raw.ethnicity || "",
-            adults: raw.adults ?? null,
-            children: raw.children ?? null,
-            deliveryFreq: raw.deliveryFreq ?? "",
-            gender: raw.gender ?? "",
-            language: raw.language ?? "",
-            notes: raw.notes ?? "",
-            famStartDate,
-            tefapCert: raw.tefapCert ?? "",
-            dob: raw.dob ?? "",
-            ward: raw.ward ?? "",
-            zipCode: raw.zipCode ?? "",
-            tags: raw.tags ?? [],
-            referralEntity: raw.referralEntity ?? undefined,
-            lastDeliveryDate,
-            missedStrikeCount,
-            activeStatus,
-          };
-          return mapped;
-        });
         return { clients, lastDoc: snapshot.docs[snapshot.docs.length - 1] };
       });
+    } catch (error) {
+      throw formatServiceError(error, "Failed to get base clients for spreadsheet");
+    }
+  }
+
+  public async getClientDeliverySummaries(
+    clientIds: string[]
+  ): Promise<Map<string, ClientDeliverySummary>> {
+    try {
+      return await retry(async () => batchGetClientDeliverySummaries(clientIds));
+    } catch (error) {
+      throw formatServiceError(error, "Failed to get client delivery summaries");
+    }
+  }
+
+  // For Spreadsheet only: returns RowData[]
+  public async getAllClientsForSpreadsheet(
+    pageSize = 3000,
+    lastDoc?: any
+  ): Promise<{ clients: RowData[]; lastDoc?: any }> {
+    try {
+      const result = await this.getBaseClientsForSpreadsheet(pageSize, lastDoc);
+      const deliverySummaries = await this.getClientDeliverySummaries(
+        result.clients.map((client) => client.uid)
+      );
+
+      return {
+        clients: mergeDeliverySummariesIntoRows(result.clients, deliverySummaries),
+        lastDoc: result.lastDoc,
+      };
     } catch (error) {
       throw formatServiceError(error, "Failed to get all clients for spreadsheet");
     }

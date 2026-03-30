@@ -9,9 +9,11 @@ export interface RowData {
   uid: string;
   firstName: string;
   lastName: string;
+  email?: string;
   phone?: string;
   houseNumber?: number;
   address: string;
+  address2?: string;
   deliveryDetails: {
     deliveryInstructions: string;
     dietaryRestrictions: {
@@ -45,7 +47,10 @@ export interface RowData {
   };
   tefapCert?: string;
   famStartDate?: string;
+  lastDeliveryDate?: string;
   missedStrikeCount?: number;
+  activeStatus?: boolean;
+  deliverySummaryReady?: boolean;
   tags?: string[];
   dob?: string;
   ward?: string;
