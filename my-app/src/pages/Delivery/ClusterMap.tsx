@@ -712,12 +712,14 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
   }, [showWardOverlays, addWardOverlays]);
 
   useEffect(() => {
-    if (!mapRef.current || !markerGroupRef.current || visibleRows.length < 1) return;
+    if (!mapRef.current || !markerGroupRef.current) return;
 
     markerGroupRef.current.clearLayers();
 
     // Clear markers map when recreating markers
     markersMapRef.current.clear();
+
+    if (visibleRows.length < 1) return;
 
     // create a map of client ids for quick lookup
     const clientClusterMap = new Map<string, Cluster>();
