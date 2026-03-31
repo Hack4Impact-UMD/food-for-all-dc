@@ -59,7 +59,7 @@ function App() {
       <LocalizationProvider dateAdapter={AdapterDateFns}>
         <ClientDataProvider>
           <DeliveryChangeNotifier />
-          <Router>
+          <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
             <AutoLogout />
             <Suspense fallback={<LoadingIndicator />}>
               <Routes>

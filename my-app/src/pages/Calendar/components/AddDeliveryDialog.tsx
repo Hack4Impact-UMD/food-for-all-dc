@@ -189,7 +189,8 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
           | "Monthly"
           | "Custom") || "None",
       repeatsEndDate: convertToMMDDYYYY(preSelectedClient.clientProfile.endDate || ""),
-      targetRecurrenceId: preSelectedClient.targetRecurrenceId,
+      // Add dialog must be additive; never hydrate series-replacement targets here.
+      targetRecurrenceId: undefined,
     };
   }, [clampDateToClientWindow, preSelectedClient, startDateKey]);
 
@@ -448,21 +449,30 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
 
     setIsSubmitting(true);
     try {
-      const shouldUpdateTargetSeries = Boolean(newDelivery.targetRecurrenceId);
-
       const service = DeliveryService.getInstance();
       const existingEvents = await service.getEventsByClientId(newDelivery.clientId);
       const conflictingExistingDates = new Set(
         existingEvents
-          .filter(
-            (event) =>
-              !shouldUpdateTargetSeries || event.recurrenceId !== newDelivery.targetRecurrenceId
-          )
+          .filter((event) => event.clientId === newDelivery.clientId)
           .map((event) => deliveryDate.toISODateString(event.deliveryDate))
       );
 
       const normalizedDeliveryDate =
         deliveryDate.tryToISODateString(newDelivery.deliveryDate) || "";
+      const normalizedRepeatsEndDate =
+        newDelivery.recurrence !== "None" && newDelivery.recurrence !== "Custom"
+          ? deliveryDate.tryToISODateString(newDelivery.repeatsEndDate || "") || ""
+          : "";
+
+      if (
+        newDelivery.recurrence !== "None" &&
+        newDelivery.recurrence !== "Custom" &&
+        (!normalizedRepeatsEndDate || normalizedRepeatsEndDate <= normalizedDeliveryDate)
+      ) {
+        setEndDateError("End date must be after delivery date for recurring deliveries.");
+        return;
+      }
+
       const normalizedCustomDates =
         newDelivery.recurrence === "Custom"
           ? customDates
@@ -488,21 +498,24 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
 
       const uniqueCandidateDates = Array.from(new Set(candidateDates));
 
-      const conflictingDate = uniqueCandidateDates.find((date) => conflictingExistingDates.has(date));
-      if (conflictingDate) {
-        setFormError(
-          `This client already has a delivery on ${convertToMMDDYYYY(conflictingDate)}.`
-        );
-        return;
-      }
-
       if (!uniqueCandidateDates.length) {
         setFormError("Please select at least one delivery date.");
         return;
       }
 
+      const nonConflictingCandidateDates = uniqueCandidateDates.filter(
+        (date) => !conflictingExistingDates.has(date)
+      );
+
+      if (!nonConflictingCandidateDates.length) {
+        setFormError(
+          "All selected dates already have a delivery for this client. No new deliveries were added."
+        );
+        return;
+      }
+
       if (clientStartDateISO) {
-        const beforeStart = uniqueCandidateDates.find((date) => date < clientStartDateISO);
+        const beforeStart = nonConflictingCandidateDates.find((date) => date < clientStartDateISO);
         if (beforeStart) {
           setFormError(
             `Cannot schedule a delivery before the client's start date (${convertToMMDDYYYY(
@@ -513,7 +526,7 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
         }
       }
       if (clientEndDateISO) {
-        const afterEnd = uniqueCandidateDates.find((date) => date > clientEndDateISO);
+        const afterEnd = nonConflictingCandidateDates.find((date) => date > clientEndDateISO);
         if (afterEnd) {
           setFormError(
             `Cannot schedule a delivery after the client's end date (${convertToMMDDYYYY(
@@ -524,7 +537,7 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
         }
       }
 
-      const additionsByDate = uniqueCandidateDates.reduce(
+      const additionsByDate = nonConflictingCandidateDates.reduce(
         (acc, dateKey) => {
           acc[dateKey] = (acc[dateKey] || 0) + 1;
           return acc;
@@ -557,14 +570,21 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
       }
 
       setFormError("");
-      const deliveryToSubmit: Partial<NewDelivery> = { ...newDelivery };
+      const deliveryToSubmit: Partial<NewDelivery> = {
+        ...newDelivery,
+        // Defensive: prevent any caller-provided recurrence target from triggering replacement behavior.
+        targetRecurrenceId: undefined,
+      };
       if (newDelivery.recurrence === "Custom") {
-        const uniqueCustomDates = Array.from(new Set(normalizedCustomDates)).sort();
+        const uniqueCustomDates = Array.from(new Set(nonConflictingCandidateDates)).sort();
         deliveryToSubmit.customDates = uniqueCustomDates;
         deliveryToSubmit.deliveryDate = uniqueCustomDates[0] || normalizedDeliveryDate;
         deliveryToSubmit.repeatsEndDate = undefined;
       } else {
         deliveryToSubmit.deliveryDate = normalizedDeliveryDate;
+        if (newDelivery.recurrence !== "None") {
+          deliveryToSubmit.repeatsEndDate = normalizedRepeatsEndDate;
+        }
       }
 
       await onAddDelivery(deliveryToSubmit as NewDelivery);

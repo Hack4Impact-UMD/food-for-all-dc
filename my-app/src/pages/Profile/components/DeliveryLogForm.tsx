@@ -354,57 +354,60 @@ const DeliveryLogForm: React.FC<DeliveryLogProps> = ({
   };
 
   const handleConfirmDelete = async () => {
-    if (selectedDelivery) {
-      setTimeout(async () => {
-        try {
-          if (!selectedDelivery || !selectedDelivery.id) {
-            console.error("Invalid selectedDelivery or missing ID:", selectedDelivery);
-            return;
-          }
-
-          const currentIds = futureDeliveriesState.map((delivery) => delivery.id);
-
-          await deliveryService.deleteEvent(selectedDelivery.id);
-
-          try {
-            await onDeleteDelivery(selectedDelivery);
-          } catch (parentError) {
-            console.error("Error notifying parent of delivery deletion:", parentError);
-          }
-
-          const allEvents = await deliveryService.getEventsByClientId(selectedDelivery.clientId);
-          const futureDeliveries = sortDeliveryDates(
-            allEvents.filter((event) => deliveryDate.compare(event.deliveryDate, deliveryDate.today()) >= 0)
-          );
-
-          const currentIdsWithoutDeleted = currentIds.filter((id) => id !== selectedDelivery.id);
-          const newDeliveries = futureDeliveries.filter(
-            (delivery) => !currentIdsWithoutDeleted.includes(delivery.id)
-          );
-
-          setFutureDeliveries(
-            futureDeliveries.map((delivery) => ({
-              ...delivery,
-              hidden: newDeliveries.some((newDel) => newDel.id === delivery.id),
-            }))
-          );
-
-          if (newDeliveries.length > 0) {
-            setTimeout(() => {
-              newDeliveries.forEach((delivery) => {
-                setFutureDeliveries((prev) =>
-                  prev.map((d) => (d.id === delivery.id ? { ...d, hidden: false } : d))
-                );
-              });
-            }, 100);
-          }
-        } catch (error) {
-          console.error("Error deleting delivery:", error);
-        }
-      }, 300);
-    }
+    const deliveryToDelete = selectedDelivery;
     setConfirmDelete(false);
     setSelectedDelivery(null);
+
+    if (!deliveryToDelete || !deliveryToDelete.id) {
+      console.error("Invalid selectedDelivery or missing ID:", deliveryToDelete);
+      return;
+    }
+
+    try {
+      const currentIds = futureDeliveriesState.map((delivery) => delivery.id);
+
+      await deliveryService.deleteEvent(deliveryToDelete.id);
+
+      try {
+        await onDeleteDelivery(deliveryToDelete);
+      } catch (parentError) {
+        console.error("Error notifying parent of delivery deletion:", parentError);
+      }
+
+      const refreshClientId = clientId || deliveryToDelete.clientId;
+      const allEvents = await deliveryService.getEventsByClientId(refreshClientId);
+      const futureDeliveries = sortDeliveryDates(
+        allEvents.filter(
+          (event) => deliveryDate.compare(event.deliveryDate, deliveryDate.today()) >= 0
+        )
+      );
+
+      const currentIdsWithoutDeleted = currentIds.filter((id) => id !== deliveryToDelete.id);
+      const newDeliveries = futureDeliveries.filter(
+        (delivery) => !currentIdsWithoutDeleted.includes(delivery.id)
+      );
+
+      setFutureDeliveries(
+        futureDeliveries.map((delivery) => ({
+          ...delivery,
+          hidden: newDeliveries.some((newDel) => newDel.id === delivery.id),
+        }))
+      );
+
+      if (newDeliveries.length > 0) {
+        setTimeout(() => {
+          newDeliveries.forEach((delivery) => {
+            setFutureDeliveries((prev) =>
+              prev.map((d) => (d.id === delivery.id ? { ...d, hidden: false } : d))
+            );
+          });
+        }, 100);
+      }
+    } catch (error) {
+      console.error("Error deleting delivery:", error);
+      setDropError("Unable to delete delivery date. Please try again.");
+      await loadMissedDeliveries();
+    }
   };
 
   const handleCancelDelete = () => {

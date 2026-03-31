@@ -521,6 +521,11 @@ const DeliverySpreadsheet: React.FC = () => {
     }
   };
   const { clients: clientsFromContext, loading: clientsLoading } = useClientData();
+  // Use a ref so fetchDeliveriesForDate doesn't re-trigger on every hydration batch update
+  const clientsFromContextRef = React.useRef(clientsFromContext);
+  React.useEffect(() => {
+    clientsFromContextRef.current = clientsFromContext;
+  }, [clientsFromContext]);
   const testing = false;
   const { userRole } = useAuth();
   const limits = useLimits();
@@ -853,7 +858,8 @@ const DeliverySpreadsheet: React.FC = () => {
 
       try {
         // Map RowData to ClientProfile format for getEventsByViewType
-        const clientsForQuery = clientsFromContext.map((client) => ({
+        // Use ref to avoid re-creating this callback on every hydration flush
+        const clientsForQuery = clientsFromContextRef.current.map((client) => ({
           uid: client.uid,
           firstName: client.firstName,
           lastName: client.lastName,
@@ -915,7 +921,7 @@ const DeliverySpreadsheet: React.FC = () => {
         setIsLoadingDeliveries(false);
       }
     },
-    [clientsFromContext, selectedDate]
+    [selectedDate]
   );
 
   //when the user changes the date, fetch the deliveries for that date
@@ -1645,7 +1651,7 @@ const DeliverySpreadsheet: React.FC = () => {
       }
     } else {
       setHighlightedRowId(clientId);
-      if ((window as any).openMapPopup) {
+      if (fromTable && (window as any).openMapPopup) {
         (window as any).openMapPopup(clientId);
       }
     }
@@ -1690,11 +1696,12 @@ const DeliverySpreadsheet: React.FC = () => {
     setSearchParams(newSearchParams);
   };
 
-  const visibleRows = rows.filter((row) => {
-    const trimmedSearchQuery = searchQuery.trim();
-    if (!trimmedSearchQuery) {
-      return true;
-    }
+  const visibleRows = useMemo(() => {
+    return rows.filter((row) => {
+      const trimmedSearchQuery = searchQuery.trim();
+      if (!trimmedSearchQuery) {
+        return true;
+      }
 
     const validSearchTerms = parseSearchTermsProgressively(trimmedSearchQuery);
 
@@ -1892,8 +1899,9 @@ const DeliverySpreadsheet: React.FC = () => {
       matches = nonKeyValueTerms.every((term) => globalSearchMatch(row, term, searchableFields));
     }
 
-    return matches;
-  });
+      return matches;
+    });
+  }, [rows, searchQuery, fields, customColumns, clusters]);
 
   const unassignedRouteCount = useMemo(() => rows.filter((row) => !row.clusterId).length, [rows]);
 
@@ -2519,7 +2527,6 @@ const DeliverySpreadsheet: React.FC = () => {
       {/* Map Container */}
       <Box
         sx={{
-          top: "72px",
           zIndex: 9,
           height: "400px",
           width: "100%",
@@ -2586,7 +2593,6 @@ const DeliverySpreadsheet: React.FC = () => {
           zIndex: 8,
           backgroundColor: "var(--color-background-main)",
           padding: "16px 0",
-          top: "472px",
         }}
       >
         <Box sx={{ display: "flex", flexDirection: "column", gap: "8px" }}>

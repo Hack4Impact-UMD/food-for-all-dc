@@ -6,6 +6,7 @@ import { ClientProfile } from "../../../types/client-types";
 import { DateLimit, DeliveryEvent } from "../../../types/calendar-types";
 import styles from "./DeliveryCard.module.css";
 import DeliveryRecurrenceDisplay from "./DeliveryRecurrenceDisplay";
+import { getClientStatusPresentation } from "../../../utils/clientStatus";
 
 interface DeliveryCardProps {
   event: DeliveryEvent;
@@ -45,6 +46,12 @@ const DeliveryCard: React.FC<DeliveryCardProps> = React.memo(function DeliveryCa
     ...(Array.isArray(other) ? other : []),
   ];
 
+  const missedStrikeCount =
+    typeof (client as { missedStrikeCount?: unknown } | undefined)?.missedStrikeCount === "number"
+      ? ((client as { missedStrikeCount?: number }).missedStrikeCount ?? 0)
+      : undefined;
+  const statusPresentation = getClientStatusPresentation(client?.activeStatus, missedStrikeCount);
+
   return (
     <Box
       className={styles.card}
@@ -59,16 +66,34 @@ const DeliveryCard: React.FC<DeliveryCardProps> = React.memo(function DeliveryCa
     >
       <Box className={styles.clientSection}>
         <Box>
-          <Typography
-            variant="h6"
-            component={Link}
-            to={client?.uid ? `/profile/${client.uid}` : "#"}
-            className={styles.clientNameLink}
-            aria-label={`View profile for ${event.clientName}`}
-            onClick={(e) => e.stopPropagation()}
-          >
-            {event.clientName}
-          </Typography>
+          <Box className={styles.clientNameRow}>
+            <span
+              title={statusPresentation.tooltip}
+              className={styles.clientStatusIcon}
+              aria-label={statusPresentation.tooltip}
+            >
+              <svg
+                viewBox="0 0 24 24"
+                width="18"
+                height="18"
+                aria-hidden="true"
+                focusable="false"
+                style={{ display: "block", fill: statusPresentation.color }}
+              >
+                <path d={statusPresentation.iconPath}></path>
+              </svg>
+            </span>
+            <Typography
+              variant="h6"
+              component={Link}
+              to={client?.uid ? `/profile/${client.uid}` : "#"}
+              className={styles.clientNameLink}
+              aria-label={`View profile for ${event.clientName}`}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {event.clientName}
+            </Typography>
+          </Box>
           <DeliveryRecurrenceDisplay event={event} />
         </Box>
       </Box>

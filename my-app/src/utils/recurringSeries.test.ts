@@ -29,6 +29,10 @@ const createEvent = ({
 });
 
 describe("recurringSeries", () => {
+  // App coverage:
+  // - service series listing logic in `src/services/delivery-service.ts` (`getClientRecurringSeries`)
+  // - shared series summarization in `src/utils/recurringSeries.ts` (`summarizeDeliverySeries`)
+  // Behavior contract: recurrenceId is the partition key for recurring schedules.
   it("keeps separate recurring series split by recurrenceId", () => {
     const summaries = summarizeDeliverySeries([
       createEvent({
@@ -57,6 +61,10 @@ describe("recurringSeries", () => {
     expect(summaries[1].eventIds).toEqual(["event-1", "event-2"]);
   });
 
+  // App coverage:
+  // - future-scope edit/delete guards in `src/services/delivery-service.ts` (`resolveSeriesForEvent`)
+  // - key derivation and mutation eligibility in `src/utils/recurringSeries.ts`
+  // Behavior contract: legacy recurring events without recurrenceId are unsafe for future mutations.
   it("uses recurrenceId as the series key and blocks legacy future mutations", () => {
     const legacyRecurringEvent = createEvent({
       id: "event-1",
@@ -79,6 +87,10 @@ describe("recurringSeries", () => {
     expect(summary?.supportsFutureOperations).toBe(false);
   });
 
+  // App coverage:
+  // - profile latest-date retrieval via `src/services/delivery-service.ts` (`getLatestScheduledDateForClient`)
+  // - delivery summary helpers in `src/utils/lastDeliveryDate.ts`
+  // Behavior contract: latest scheduled date must consider one-off, custom, and recurring events.
   it("returns the latest scheduled date for custom and one-off deliveries", () => {
     const latestDate = getLatestScheduledDate([
       createEvent({
@@ -103,6 +115,10 @@ describe("recurringSeries", () => {
     expect(latestDate).toBe("2026-04-15");
   });
 
+  // App coverage:
+  // - recurrence diagnostics endpoint in `src/services/delivery-service.ts` (`buildRecurringSeriesAudit`)
+  // - audit generation in `src/utils/recurringSeries.ts` (`buildRecurringSeriesAuditReport`)
+  // Behavior contract: audit must flag missing recurrenceIds and overlapping recurring series.
   it("flags missing recurrenceIds and overlapping recurring series", () => {
     const auditReport = buildRecurringSeriesAuditReport([
       createEvent({

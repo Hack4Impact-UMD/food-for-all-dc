@@ -72,6 +72,11 @@ const MAX_BATCH_WRITE_COUNT = 500;
  * Delivery Service - Handles all delivery-related operations with Firebase
  */
 class DeliveryService {
+  private logDeliveryDebug(operation: string, payload: Record<string, unknown>): void {
+    void operation;
+    void payload;
+  }
+
   private normalizeDateKeys(dateKeys: Array<string | null | undefined>): string[] {
     return Array.from(
       new Set(
@@ -499,11 +504,16 @@ class DeliveryService {
    */
   public async deleteEventsByClientId(clientId: string): Promise<void> {
     try {
+      this.logDeliveryDebug("deleteEventsByClientId:start", { clientId });
       const q = query(
         collection(this.db, this.eventsCollection),
         where("clientId", "==", clientId)
       );
       const querySnapshot = await getDocs(q);
+      this.logDeliveryDebug("deleteEventsByClientId:queried", {
+        clientId,
+        matchedCount: querySnapshot.size,
+      });
       const impactedDateKeys = this.normalizeDateKeys(
         querySnapshot.docs.map((docSnap) => {
           const data = docSnap.data();
@@ -518,6 +528,11 @@ class DeliveryService {
       const invalidationResult =
         await this.reconcileClusterAssignmentsForDateKeys(impactedDateKeys);
       this.emitDeliveryChange("schedule-batch-deleted", impactedDateKeys, invalidationResult);
+      this.logDeliveryDebug("deleteEventsByClientId:completed", {
+        clientId,
+        deletedCount: querySnapshot.size,
+        impactedDateKeys,
+      });
     } catch (error) {
       throw formatServiceError(error, "Failed to delete deliveries for client");
     }
@@ -958,6 +973,7 @@ class DeliveryService {
     scope: DeliveryMutationScope
   ): Promise<void> {
     try {
+      this.logDeliveryDebug("deleteEventByScope:start", { eventId, scope });
       const resolution = await this.resolveSeriesForEvent(eventId, scope);
       const impactedDateKeys = this.normalizeDateKeys(
         resolution.scopedEvents.map((event) => deliveryDate.toISODateString(event.deliveryDate))
@@ -969,6 +985,12 @@ class DeliveryService {
         impactedDateKeys,
         resolution.scopedEvents
       );
+      this.logDeliveryDebug("deleteEventByScope:completed", {
+        eventId,
+        scope,
+        deletedCount: resolution.scopedEvents.length,
+        impactedDateKeys,
+      });
     } catch (error) {
       throw formatServiceError(error, "Failed to delete event");
     }
@@ -976,6 +998,13 @@ class DeliveryService {
 
   public async updateEventByScope(input: UpdateEventScopeInput): Promise<void> {
     try {
+      this.logDeliveryDebug("updateEventByScope:start", {
+        eventId: input.eventId,
+        scope: input.scope,
+        recurrence: input.recurrence,
+        deliveryDate: deliveryDate.tryToISODateString(input.deliveryDate),
+        repeatsEndDate: input.repeatsEndDate,
+      });
       const resolution = await this.resolveSeriesForEvent(input.eventId, input.scope);
 
       if (input.scope === "single") {
@@ -1001,6 +1030,10 @@ class DeliveryService {
           resolution.anchorEvent,
           updatedEvent,
         ]);
+        this.logDeliveryDebug("updateEventByScope:completed-single", {
+          eventId: input.eventId,
+          impactedDateKeys,
+        });
         return;
       }
 
@@ -1033,6 +1066,12 @@ class DeliveryService {
         ...resolution.scopedEvents,
         ...replacementEvents,
       ]);
+      this.logDeliveryDebug("updateEventByScope:completed-following", {
+        eventId: input.eventId,
+        deletedCount: resolution.scopedEvents.length,
+        createdCount: replacementEvents.length,
+        impactedDateKeys,
+      });
     } catch (error) {
       throw formatServiceError(error, "Failed to update event");
     }
@@ -1044,6 +1083,16 @@ class DeliveryService {
         throw new ServiceError("Client is required to schedule deliveries.", "invalid-client");
       }
 
+      this.logDeliveryDebug("scheduleClientDeliveries:start", {
+        clientId: newDelivery.clientId,
+        recurrence: newDelivery.recurrence,
+        deliveryDate: deliveryDate.tryToISODateString(newDelivery.deliveryDate),
+        repeatsEndDate: newDelivery.repeatsEndDate,
+        customDates: (newDelivery.customDates || [])
+          .map((date) => deliveryDate.tryToISODateString(date))
+          .filter((dateKey): dateKey is string => Boolean(dateKey)),
+      });
+
       const desiredDateKeys = this.calculateDeliveryDateKeys(newDelivery);
       if (!desiredDateKeys.length) {
         throw new ServiceError("At least one delivery date is required.", "invalid-delivery-dates");
@@ -1054,61 +1103,18 @@ class DeliveryService {
         existingEvents.map((event) => deliveryDate.toISODateString(event.deliveryDate))
       );
 
-      const shouldUpdateTargetSeries = Boolean(newDelivery.targetRecurrenceId);
-
-      if (shouldUpdateTargetSeries) {
-        const seriesEvents = await this.getEventsForRecurrenceId(
-          newDelivery.targetRecurrenceId!,
-          newDelivery.clientId
-        );
-        const seriesSummary = buildSeriesSummary(seriesEvents);
-        if (!seriesSummary || !seriesSummary.supportsFutureOperations) {
-          throw new ServiceError(
-            "This recurring delivery needs repair before it can be updated.",
-            "legacy-series-unsupported"
-          );
-        }
-
-        const todayKey = deliveryDate.toISODateString(new Date());
-        const mutableSeriesEvents = seriesEvents.filter(
-          (event) => deliveryDate.toISODateString(event.deliveryDate) >= todayKey
-        );
-        const desiredFutureDateKeys = desiredDateKeys.filter((dateKey) => dateKey >= todayKey);
-        const templateEvent = mutableSeriesEvents[0] || seriesEvents[seriesEvents.length - 1];
-        const replacementEvents = desiredFutureDateKeys.map((dateKey) =>
-          this.buildReplacementEvent(templateEvent, {
-            clientId: newDelivery.clientId,
-            clientName: newDelivery.clientName,
-            deliveryDate: dateKey,
-            householdSnapshot: newDelivery.householdSnapshot ?? templateEvent.householdSnapshot,
-            recurrence: newDelivery.recurrence,
-            recurrenceId:
-              newDelivery.recurrence === "None" ? undefined : seriesSummary.recurrenceId,
-            repeatsEndDate:
-              newDelivery.recurrence === "None" || newDelivery.recurrence === "Custom"
-                ? undefined
-                : newDelivery.repeatsEndDate || "",
-            customDates:
-              newDelivery.recurrence === "Custom" ? newDelivery.customDates : undefined,
-            seriesStartDate:
-              newDelivery.recurrence === "None" ? undefined : templateEvent.seriesStartDate,
-          })
-        );
-        const impactedDateKeys = this.normalizeDateKeys([
-          ...mutableSeriesEvents.map((event) => deliveryDate.toISODateString(event.deliveryDate)),
-          ...desiredFutureDateKeys,
-        ]);
-
-        await this.writeBatchDeleteAndCreate(mutableSeriesEvents, replacementEvents);
-        await this.finalizeMutation("schedule-batch-updated", impactedDateKeys, [
-          ...mutableSeriesEvents,
-          ...replacementEvents,
-        ]);
-        return;
-      }
-
       const newDates = desiredDateKeys.filter((dateKey) => !existingDateKeys.has(dateKey));
+      this.logDeliveryDebug("scheduleClientDeliveries:computed", {
+        clientId: newDelivery.clientId,
+        desiredDateKeys,
+        existingDateKeys: Array.from(existingDateKeys).sort(),
+        newDates,
+      });
       if (!newDates.length) {
+        this.logDeliveryDebug("scheduleClientDeliveries:no-op", {
+          clientId: newDelivery.clientId,
+          reason: "all-requested-dates-already-exist",
+        });
         return;
       }
 
@@ -1145,6 +1151,16 @@ class DeliveryService {
       const reason =
         eventsToCreate.length === 1 ? "schedule-created" : "schedule-created-batch";
       await this.createEventsInternal(eventsToCreate, reason);
+      this.logDeliveryDebug("scheduleClientDeliveries:completed", {
+        clientId: newDelivery.clientId,
+        createdCount: eventsToCreate.length,
+        createdDateKeys: eventsToCreate
+          .map((event) =>
+            event.deliveryDate ? deliveryDate.tryToISODateString(event.deliveryDate as any) : null
+          )
+          .filter((dateKey): dateKey is string => Boolean(dateKey))
+          .sort(),
+      });
     } catch (error) {
       throw formatServiceError(error, "Failed to schedule deliveries");
     }
@@ -1510,6 +1526,68 @@ class DeliveryService {
       });
     } catch (error) {
       throw formatServiceError(error, "Failed to get events by client ID");
+    }
+  }
+
+  /**
+   * Reassign delivery events from a legacy client ID to a canonical client ID.
+   * This is a data migration helper to keep a single source of truth for profile scheduling.
+   */
+  public async reassignClientEvents(sourceClientId: string, targetClientId: string): Promise<void> {
+    const normalizedSource = this.normalizeOptionalString(sourceClientId);
+    const normalizedTarget = this.normalizeOptionalString(targetClientId);
+
+    if (!normalizedSource || !normalizedTarget || normalizedSource === normalizedTarget) {
+      return;
+    }
+
+    try {
+      this.logDeliveryDebug("reassignClientEvents:start", {
+        sourceClientId: normalizedSource,
+        targetClientId: normalizedTarget,
+      });
+      const snapshot = await retry(async () => {
+        const q = query(
+          collection(this.db, this.eventsCollection),
+          where("clientId", "==", normalizedSource)
+        );
+        return getDocs(q);
+      });
+
+      if (snapshot.empty) {
+        return;
+      }
+
+      const impactedDateKeys = this.normalizeDateKeys(
+        snapshot.docs.map((docSnap) => {
+          const data = docSnap.data();
+          return data.deliveryDate ? deliveryDate.toISODateString(data.deliveryDate) : null;
+        })
+      );
+
+      for (let i = 0; i < snapshot.docs.length; i += MAX_BATCH_WRITE_COUNT) {
+        const chunk = snapshot.docs.slice(i, i + MAX_BATCH_WRITE_COUNT);
+        await retry(async () => {
+          const batch = writeBatch(this.db);
+          chunk.forEach((docSnap) => {
+            batch.update(docSnap.ref, {
+              clientId: normalizedTarget,
+            });
+          });
+          await batch.commit();
+        });
+      }
+
+      const invalidationResult = await this.reconcileClusterAssignmentsForDateKeys(impactedDateKeys);
+      this.emitDeliveryChange("schedule-batch-updated", impactedDateKeys, invalidationResult);
+      this.logDeliveryDebug("reassignClientEvents:completed", {
+        sourceClientId: normalizedSource,
+        targetClientId: normalizedTarget,
+        migratedCount: snapshot.size,
+        impactedDateKeys,
+      });
+    } catch (error) {
+      throw formatServiceError(error, "Failed to reassign client delivery events");
     }
   }
 

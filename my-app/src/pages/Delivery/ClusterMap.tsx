@@ -221,6 +221,8 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
   const scheduledTimeoutsRef = useRef<number[]>([]);
   const popupCloseHandlerRef = useRef<L.LeafletEventHandlerFn | null>(null);
   const onClearHighlightRef = useRef(onClearHighlight);
+  const onMarkerClickRef = useRef(onMarkerClick);
+  const onClusterUpdateRef = useRef(onClusterUpdate);
   const markersMapRef = useRef<Map<string, L.Marker>>(new Map()); // Store markers by client ID
   const previousVisibleRowsKeyRef = useRef<string>("");
   const isPopupOpening = useRef<boolean>(false); // Prevent close handler from firing during opening
@@ -300,6 +302,14 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
   useEffect(() => {
     onClearHighlightRef.current = onClearHighlight;
   }, [onClearHighlight]);
+
+  useEffect(() => {
+    onMarkerClickRef.current = onMarkerClick;
+  }, [onMarkerClick]);
+
+  useEffect(() => {
+    onClusterUpdateRef.current = onClusterUpdate;
+  }, [onClusterUpdate]);
 
   // Initialize showWardOverlays from localStorage
   const [showWardOverlays, setShowWardOverlays] = useState<boolean>(() => {
@@ -567,6 +577,12 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
     });
   }, [fetchWardBoundaries, wardData]);
 
+  // Refs so the map init effect can restore ward overlays without adding unstable deps
+  const showWardOverlaysRef = useRef(showWardOverlays);
+  const addWardOverlaysRef = useRef(addWardOverlays);
+  useEffect(() => { showWardOverlaysRef.current = showWardOverlays; }, [showWardOverlays]);
+  useEffect(() => { addWardOverlaysRef.current = addWardOverlays; }, [addWardOverlays]);
+
   // Function to remove ward overlays
   const removeWardOverlays = () => {
     if (wardLayerGroupRef.current) {
@@ -598,7 +614,9 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
       typeof L.map === "function"
     ) {
       try {
-        mapRef.current = L.map(mapContainerRef.current).setView(ffaCoordinates, 11, {
+        mapRef.current = L.map(mapContainerRef.current, {
+          closePopupOnClick: false,
+        }).setView(ffaCoordinates, 11, {
           animate: false,
         });
         isMapAliveRef.current = true;
@@ -632,6 +650,11 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
       }
 
       mapRef.current.on("popupclose", popupCloseHandlerRef.current);
+
+      // Restore ward overlays if they were enabled before the map existed
+      if (showWardOverlaysRef.current) {
+        scheduleClusterMapTimeout(() => addWardOverlaysRef.current(), 0);
+      }
     }
   }, [allRows.length, destroyMap, scheduleClusterMapTimeout]);
 
@@ -650,27 +673,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
 
         const marker = markersMapRef.current.get(clientId);
         if (marker) {
-          const popup = marker.getPopup();
-          const position = marker.getLatLng();
-          if (popup && position) {
-            // Use the map's openPopup method with the popup content and marker as options
-            const content = popup.getContent();
-            if (content && typeof content !== "function") {
-              // Create a new popup with the same content but proper positioning
-              const newPopup = L.popup({
-                autoPan: true,
-                keepInView: true,
-                offset: [-5, -10], // Match the popupAnchor from the divIcon
-              })
-                .setContent(content)
-                .setLatLng(position);
-
-              // Open the popup on the map
-              withLiveMap((map) => {
-                newPopup.openOn(map);
-              });
-            }
-          }
+          marker.openPopup();
         }
 
         // Reset after the open sequence completes so future closes clear the row
@@ -1046,7 +1049,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
           });
         }
 
-        if (saveBtn && onClusterUpdate) {
+        if (saveBtn && onClusterUpdateRef.current) {
           saveBtn.addEventListener("click", async () => {
             const clusterSelect = popupContainer.querySelector(
               `#cluster-select-${clientId}`
@@ -1096,7 +1099,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
               return;
             }
 
-            const didSave = await onClusterUpdate(
+            const didSave = await onClusterUpdateRef.current(
               clientId,
               newClusterId,
               submittedDriverForSave,
@@ -1165,12 +1168,18 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
 
       //add popup and marker to group
       marker
-        .bindPopup(popupContent, { autoPan: true, keepInView: true })
+        .bindPopup(popupContent, {
+          autoPan: true,
+          keepInView: true,
+          closeOnClick: false,
+          autoClose: false,
+        })
         .on("click", () => {
           isPopupOpening.current = true;
+          marker.openPopup();
 
-          if (onMarkerClick) {
-            onMarkerClick(client.id);
+          if (onMarkerClickRef.current) {
+            onMarkerClickRef.current(client.id);
           }
         })
         .on("popupopen", () => {
@@ -1234,19 +1243,16 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
     clientOverrideByClientId,
     getClusterColor,
     getTextColorForBackground,
-    onClusterUpdate,
-    onMarkerClick,
     scheduleClusterMapTimeout,
     withLiveMap,
   ]);
 
-  const invalidCount = visibleRows.filter(
+  const invalidCount = allRows.filter(
     (client) => !isValidCoordinate(client.coordinates)
   ).length;
   const dayTotalDeliveries = allRows.length;
-  const isFilteredView = visibleRows.length !== dayTotalDeliveries;
   const showFilteredEmptyState =
-    isFilteredView && visibleRows.length === 0 && dayTotalDeliveries > 0;
+    visibleRows.length === 0 && dayTotalDeliveries > 0;
 
   const centerMap = () => {
     withLiveMap((map) => {
@@ -1440,14 +1446,6 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
               >
                 Day total: {dayTotalDeliveries}
               </Typography>
-              {isFilteredView && (
-                <Typography
-                  variant="caption"
-                  sx={{ fontSize: "10px", color: "text.secondary", lineHeight: 1.2 }}
-                >
-                  Showing {visibleRows.length} filtered
-                </Typography>
-              )}
             </Box>
           </Box>
           <Box
