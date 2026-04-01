@@ -1,10 +1,31 @@
 import { afterEach, beforeEach, describe, expect, it, jest } from "@jest/globals";
 
-const mockGetDocs = jest.fn();
-const mockCollection = jest.fn(() => ({ mocked: "collection" }));
-const mockWhere = jest.fn((...args: unknown[]) => ({ mocked: "where", args }));
-const mockQuery = jest.fn((...args: unknown[]) => ({ mocked: "query", args }));
-const mockWriteBatch = jest.fn();
+type MockDocData = Record<string, unknown>;
+type MockDocSnapshot = {
+  id: string;
+  ref: Record<string, unknown>;
+  data: () => MockDocData;
+};
+type MockGetDocsResult = {
+  empty: boolean;
+  docs: MockDocSnapshot[];
+};
+
+const createMockBatch = () => ({
+  delete: jest.fn(),
+  update: jest.fn(),
+  commit: jest.fn(() => Promise.resolve(undefined)),
+});
+
+type MockBatch = ReturnType<typeof createMockBatch>;
+
+const mockGetDocs: any = jest.fn();
+const mockCollection: any = jest.fn(() => ({
+  mocked: "collection",
+}));
+const mockWhere: any = jest.fn((...args: unknown[]) => ({ mocked: "where", args }));
+const mockQuery: any = jest.fn((...args: unknown[]) => ({ mocked: "query", args }));
+const mockWriteBatch: any = jest.fn();
 
 jest.mock("../auth/firebaseConfig", () => ({
   db: {},
@@ -44,12 +65,8 @@ import DeliveryService from "./delivery-service";
 
 const makeDocSnapshot = (
   id: string,
-  data: Record<string, unknown>
-): {
-  id: string;
-  ref: Record<string, unknown>;
-  data: () => Record<string, unknown>;
-} => ({
+  data: MockDocData
+): MockDocSnapshot => ({
   id,
   ref: { id },
   data: () => data,
@@ -63,11 +80,7 @@ describe("DeliveryService.enforceClientEndDate", () => {
     mockQuery.mockClear();
     mockWriteBatch.mockReset();
 
-    mockWriteBatch.mockImplementation(() => ({
-      delete: jest.fn(),
-      update: jest.fn(),
-      commit: jest.fn().mockResolvedValue(undefined),
-    }));
+    mockWriteBatch.mockImplementation(() => createMockBatch());
   });
 
   afterEach(() => {
@@ -112,11 +125,7 @@ describe("DeliveryService.enforceClientEndDate", () => {
 
     await service.enforceClientEndDate("client-1", "2099-01-10");
 
-    const batch = mockWriteBatch.mock.results[0].value as {
-      delete: jest.Mock;
-      update: jest.Mock;
-      commit: jest.Mock;
-    };
+    const batch = mockWriteBatch.mock.results[0].value as MockBatch;
 
     expect(batch.delete).toHaveBeenCalledTimes(1);
     expect(batch.update).not.toHaveBeenCalled();
@@ -160,11 +169,7 @@ describe("DeliveryService.enforceClientEndDate", () => {
 
     await service.enforceClientEndDate("client-1", "2099-01-10");
 
-    const batch = mockWriteBatch.mock.results[0].value as {
-      delete: jest.Mock;
-      update: jest.Mock;
-      commit: jest.Mock;
-    };
+    const batch = mockWriteBatch.mock.results[0].value as MockBatch;
 
     expect(batch.delete).not.toHaveBeenCalled();
     expect(batch.update).toHaveBeenCalledTimes(1);

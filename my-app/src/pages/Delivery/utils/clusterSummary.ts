@@ -6,6 +6,10 @@ interface AssignmentCluster {
   time?: string;
 }
 
+interface AssignmentClusterWithDeliveries extends AssignmentCluster {
+  deliveries?: string[];
+}
+
 interface AssignmentOverride {
   clientId: string;
   driver?: string;
@@ -127,4 +131,65 @@ export const buildClusterSummaries = <
             ? formatTimeLabel(Array.from(values.times)[0])
             : "Mixed times",
     }));
+};
+
+export const buildClusterSummariesFromClusters = <
+  TCluster extends AssignmentClusterWithDeliveries,
+  TOverride extends AssignmentOverride,
+>(
+  clusters: TCluster[],
+  clientOverrideByClientId: Map<string, TOverride>,
+  formatTimeLabel: (time: string) => string
+): ClusterSummary[] => {
+  return clusters
+    .map((cluster) => {
+      const clusterId = String(cluster.id ?? "").trim();
+      const clientIds = Array.from(
+        new Set(
+          (cluster.deliveries ?? [])
+            .map((clientId) => String(clientId ?? "").trim())
+            .filter(Boolean)
+        )
+      );
+
+      if (!clusterId || clientIds.length === 0) {
+        return null;
+      }
+
+      const drivers = new Set<string>();
+      const times = new Set<string>();
+
+      clientIds.forEach((clientId) => {
+        const override = clientOverrideByClientId.get(clientId);
+        const effectiveDriver = resolveAssignmentValue(override?.driver, cluster.driver);
+        const effectiveTime = resolveAssignmentValue(override?.time, cluster.time);
+
+        if (hasAssignmentValue(effectiveDriver)) {
+          drivers.add(effectiveDriver!);
+        }
+
+        if (hasAssignmentValue(effectiveTime)) {
+          times.add(effectiveTime!);
+        }
+      });
+
+      return {
+        clusterId,
+        count: clientIds.length,
+        driverLabel:
+          drivers.size === 0
+            ? "No driver"
+            : drivers.size === 1
+              ? Array.from(drivers)[0]
+              : "Mixed drivers",
+        timeLabel:
+          times.size === 0
+            ? "No time"
+            : times.size === 1
+              ? formatTimeLabel(Array.from(times)[0])
+              : "Mixed times",
+      };
+    })
+    .filter((summary): summary is ClusterSummary => summary !== null)
+    .sort((left, right) => sortClusterIds(left.clusterId, right.clusterId));
 };

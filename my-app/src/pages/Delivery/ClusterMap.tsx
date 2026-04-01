@@ -8,7 +8,10 @@ import DriverService from "../../services/driver-service";
 import FFAIcon from "../../assets/tsp-food-for-all-dc-logo.png";
 import dataSources from "../../config/dataSources";
 import { normalizeAssignmentValue, resolveAssignmentValue } from "./utils/assignmentOverrides";
-import { buildAssignmentSummary, buildClusterSummaries } from "./utils/clusterSummary";
+import {
+  buildAssignmentSummary,
+  buildClusterSummariesFromClusters,
+} from "./utils/clusterSummary";
 import { TIME_SLOT_LABELS } from "./utils/timeSlots";
 import { getClientStatusPresentation } from "../../utils/clientStatus";
 
@@ -360,13 +363,12 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
 
   // Calculate deliveries + assignment details per cluster for the map summary overlay.
   const clusterSummaries = React.useMemo(() => {
-    return buildClusterSummaries(
-      allRows,
-      clusterByClientId,
+    return buildClusterSummariesFromClusters(
+      clusters,
       clientOverrideByClientId,
       formatTimeForSummary
     );
-  }, [allRows, clusterByClientId, clientOverrideByClientId]);
+  }, [clusters, clientOverrideByClientId]);
 
   // Toggle cluster summary visibility
   const handleClusterSummaryToggle = (event: React.ChangeEvent<HTMLInputElement>) => {

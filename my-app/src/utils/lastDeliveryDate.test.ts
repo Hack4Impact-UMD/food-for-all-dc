@@ -1,10 +1,22 @@
 import { beforeEach, describe, expect, it, jest } from "@jest/globals";
 
-const mockGetDocs = jest.fn();
-const mockCollection = jest.fn(() => ({ mocked: "collection" }));
-const mockWhere = jest.fn((...args: unknown[]) => ({ mocked: "where", args }));
-const mockOrderBy = jest.fn((...args: unknown[]) => ({ mocked: "orderBy", args }));
-const mockQuery = jest.fn((...args: unknown[]) => ({ mocked: "query", args }));
+type EventRow = {
+  clientId: string;
+  deliveryDate?: string;
+  deliveryStatus?: string;
+};
+
+type MockSnapshot = {
+  forEach: (callback: (doc: { id: string; data: () => EventRow }) => void) => void;
+};
+
+const mockGetDocs: any = jest.fn();
+const mockCollection: any = jest.fn(() => ({
+  mocked: "collection",
+}));
+const mockWhere: any = jest.fn((...args: unknown[]) => ({ mocked: "where", args }));
+const mockOrderBy: any = jest.fn((...args: unknown[]) => ({ mocked: "orderBy", args }));
+const mockQuery: any = jest.fn((...args: unknown[]) => ({ mocked: "query", args }));
 
 jest.mock("../auth/firebaseConfig", () => ({
   db: {},
@@ -35,13 +47,7 @@ jest.mock("firebase/firestore", () => ({
 
 import { batchGetClientDeliverySummaries } from "./lastDeliveryDate";
 
-type EventRow = {
-  clientId: string;
-  deliveryDate?: string;
-  deliveryStatus?: string;
-};
-
-const makeSnapshot = (rows: EventRow[]) => ({
+const makeSnapshot = (rows: EventRow[]): MockSnapshot => ({
   forEach: (callback: (doc: { id: string; data: () => EventRow }) => void) => {
     rows.forEach((row, index) => {
       callback({
@@ -75,8 +81,8 @@ describe("batchGetClientDeliverySummaries", () => {
     await batchGetClientDeliverySummaries([...uniqueClientIds, "client-1", ""]);
 
     const inClauses = mockWhere.mock.calls
-      .filter(([field, operator]) => field === "clientId" && operator === "in")
-      .map(([, , values]) => values);
+      .filter((call: any[]) => call[0] === "clientId" && call[1] === "in")
+      .map((call: any[]) => call[2]);
 
     expect(mockGetDocs).toHaveBeenCalledTimes(2);
     expect(inClauses).toHaveLength(2);
