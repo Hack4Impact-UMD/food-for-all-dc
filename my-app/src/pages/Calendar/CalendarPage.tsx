@@ -231,14 +231,34 @@ const CalendarPage: React.FC = React.memo(() => {
       }
     }
     const requestedClients = clientIds.map((id) => clientCacheRef.current.get(id)).filter(Boolean);
+
+    let deliverySummaries = new Map<string, { missedStrikeCount: number; lastDeliveryDate: string }>();
+    try {
+      deliverySummaries = await clientService.getClientDeliverySummaries(clientIds);
+    } catch (error) {
+      console.error("Error fetching client delivery summaries:", error);
+    }
+
+    const clientsWithSummaries = requestedClients.map((client) => {
+      if (!client?.uid) {
+        return client;
+      }
+
+      const summary = deliverySummaries.get(client.uid);
+      return {
+        ...client,
+        missedStrikeCount: summary?.missedStrikeCount ?? 0,
+      };
+    });
+
     setClients((prev) => {
       const isClient = (c: unknown): c is ClientProfile =>
         !!c && typeof c === "object" && "uid" in c;
       const prevMap = new Map(prev.filter(isClient).map((c) => [c.uid, c]));
-      requestedClients.filter(isClient).forEach((c) => prevMap.set(c.uid, c));
+      clientsWithSummaries.filter(isClient).forEach((c) => prevMap.set(c.uid, c));
       return Array.from(prevMap.values());
     });
-    return requestedClients;
+    return clientsWithSummaries;
   }, []);
 
   const fetchLimits = async () => {

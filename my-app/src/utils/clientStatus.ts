@@ -42,12 +42,18 @@ export const computeClientActiveStatus = (
 
 export const getClientStatusPresentation = (
   activeStatus?: boolean,
-  missedStrikeCount?: number
+  missedStrikeCount?: number | string | null
 ): ClientStatusPresentation => {
-  const normalizedCount =
-    typeof missedStrikeCount === "number" && missedStrikeCount > 0
-      ? Math.floor(missedStrikeCount)
-      : 0;
+  const numericMissedCount =
+    typeof missedStrikeCount === "number"
+      ? missedStrikeCount
+      : typeof missedStrikeCount === "string"
+        ? Number.parseFloat(missedStrikeCount)
+        : NaN;
+
+  const normalizedCount = Number.isFinite(numericMissedCount) && numericMissedCount > 0
+    ? Math.floor(numericMissedCount)
+    : 0;
 
   if (!activeStatus) {
     return {

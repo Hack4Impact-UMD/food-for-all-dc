@@ -75,4 +75,26 @@ describe("clientStatus utilities", () => {
       })
     );
   });
+
+  // App coverage:
+  // - UI/client payloads may carry strike counts as strings when serialized through external sources
+  // - string counts should still map to the same warning severity colors in day/profile indicators
+  // Behavior contract: numeric-string strike counts are parsed and bucketed like numeric input.
+  it("parses numeric string strike counts for status presentation", () => {
+    expect(getClientStatusPresentation(true, "1")).toEqual(
+      expect.objectContaining({
+        color: "#fbc02d",
+        missedStrikeCount: 1,
+        tooltip: "1 missed delivery",
+      })
+    );
+
+    expect(getClientStatusPresentation(true, "2")).toEqual(
+      expect.objectContaining({
+        color: "#d32f2f",
+        missedStrikeCount: 2,
+        tooltip: "2 missed deliveries",
+      })
+    );
+  });
 });
