@@ -33,6 +33,18 @@ describe("searchFilter parsing", () => {
   });
 
   // App coverage:
+  // - Routes page filter input for cluster IDs with or without a space after `:`
+  // - ensures `cluster:12` and `cluster: 12` are both parsed as key:value filters
+  // Behavior contract: spaces immediately after the colon remain part of the same term.
+  it("preserves key:value terms when a filter includes a space after the colon", () => {
+    const compactTerms = parseSearchTermsProgressively("cluster:12 driver:maria");
+    const spacedTerms = parseSearchTermsProgressively("cluster: 12 driver:maria");
+
+    expect(compactTerms).toEqual(["cluster:12", "driver:maria"]);
+    expect(spacedTerms).toEqual(["cluster: 12", "driver:maria"]);
+  });
+
+  // App coverage:
   // - key-value extraction in DeliverySpreadsheet filtering switch/case
   // - drives matching logic for fields like `name`, `ward`, `driver`, etc.
   // Behavior contract: extractKeyValue lowercases keyword and strips surrounding quotes.

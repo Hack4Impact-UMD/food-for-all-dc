@@ -23,6 +23,7 @@ import {
   checkStringContains as utilCheckStringContains,
   extractKeyValue,
   globalSearchMatch,
+  normalizeSearchKeyword,
 } from "../../utils/searchFilter";
 import { query, Timestamp, updateDoc, where, orderBy, runTransaction } from "firebase/firestore";
 import { TimeUtils } from "../../utils/timeUtils";
@@ -1734,7 +1735,7 @@ const DeliverySpreadsheet: React.FC = () => {
 
         const fieldMappings: { [key: string]: string[] } = {
           fullname: ["name", "client"],
-          clusterIdChange: ["cluster", "cluster id"],
+          clusterIdChange: ["cluster", "cluster id", "clusterid", "route", "route id", "routeid"],
           tags: ["tags", "tag"],
           zipCode: ["zip", "zipcode", "zip code"],
           ward: ["ward"],
@@ -1743,8 +1744,13 @@ const DeliverySpreadsheet: React.FC = () => {
           "deliveryDetails.deliveryInstructions": ["delivery instructions", "instructions"],
         };
 
+        const normalizedKeyword = normalizeSearchKeyword(lowerKeyword);
+
         for (const [fieldKey, aliases] of Object.entries(fieldMappings)) {
-          if (visibleFieldKeys.has(fieldKey) && aliases.some((alias) => alias === lowerKeyword)) {
+          if (
+            visibleFieldKeys.has(fieldKey) &&
+            aliases.some((alias) => normalizeSearchKeyword(alias) === normalizedKeyword)
+          ) {
             return true;
           }
         }
@@ -1804,6 +1810,10 @@ const DeliverySpreadsheet: React.FC = () => {
               return checkStringContains(row.zipCode, searchValue);
             case "cluster":
             case "cluster id":
+            case "clusterid":
+            case "route":
+            case "route id":
+            case "routeid":
               return checkStringContains(row.clusterId, searchValue);
             case "driver":
             case "assigned driver": {
@@ -2601,7 +2611,7 @@ const DeliverySpreadsheet: React.FC = () => {
               type="text"
               value={searchQuery}
               onChange={handleSearchChange}
-              placeholder='Search deliveries (e.g., ward:7, driver:maria, name:"john smith")'
+              placeholder='Search deliveries (e.g., cluster:12, ward:7, driver:maria, name:"john smith")'
               style={{
                 width: "100%",
                 height: "60px",
