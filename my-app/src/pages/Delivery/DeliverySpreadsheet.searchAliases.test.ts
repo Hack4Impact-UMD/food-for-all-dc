@@ -9,6 +9,15 @@ describe("DeliverySpreadsheet search alias regression guards", () => {
   it("normalizes extracted key-value keywords before switch handling", () => {
     expect(source).toContain("const normalizedKeyword = normalizeSearchKeyword(keyword);");
     expect(source).toContain("switch (normalizedKeyword)");
+    expect(source).toContain('case "clusterid":');
+    expect(source).toContain('case "routeid":');
+    expect(source).toContain('case "assigneddriver":');
+    expect(source).toContain('case "assignedtime":');
+    expect(source).toContain('case "deliveryinstructions":');
+    expect(source).toContain('case "deliveryfreq":');
+    expect(source).toContain('case "deliveryfrequency":');
+    expect(source).toContain('case "tefapcert":');
+    expect(source).toContain('case "referralentity":');
   });
 
   it("normalizes custom column aliases for visible-field matching", () => {

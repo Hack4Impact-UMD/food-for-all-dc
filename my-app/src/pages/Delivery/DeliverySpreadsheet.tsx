@@ -1809,30 +1809,27 @@ const DeliverySpreadsheet: React.FC = () => {
               return checkStringContains(row.ward, searchValue);
             case "zip":
             case "zipcode":
-            case "zip code":
               return checkStringContains(row.zipCode, searchValue);
             case "cluster":
-            case "cluster id":
             case "clusterid":
             case "route":
-            case "route id":
             case "routeid":
               return checkStringContains(row.clusterId, searchValue);
             case "driver":
-            case "assigned driver": {
+            case "assigneddriver": {
               const driverName = fields
                 .find((f) => f.key === "assignedDriver")
                 ?.compute?.(row, clusters);
               return checkStringContains(driverName, searchValue);
             }
             case "time":
-            case "assigned time": {
+            case "assignedtime": {
               const assignedTime = fields
                 .find((f) => f.key === "assignedTime")
                 ?.compute?.(row, clusters);
               return checkStringContains(assignedTime, searchValue);
             }
-            case "delivery instructions":
+            case "deliveryinstructions":
             case "instructions": {
               const instructions = (
                 fields.find((f) => f.key === "deliveryDetails.deliveryInstructions") as Extract<
@@ -1853,8 +1850,8 @@ const DeliverySpreadsheet: React.FC = () => {
               return checkValueOrInArray(row.adults, searchValue);
             case "children":
               return checkValueOrInArray(row.children, searchValue);
-            case "delivery freq":
-            case "delivery frequency":
+            case "deliveryfreq":
+            case "deliveryfrequency":
               return checkStringContains(row.deliveryFreq, searchValue);
             case "gender":
               return checkStringContains(row.gender, searchValue);
@@ -1863,11 +1860,11 @@ const DeliverySpreadsheet: React.FC = () => {
             case "notes":
               return checkStringContains(row.notes, searchValue);
             case "tefap":
-            case "tefap cert":
+            case "tefapcert":
               return checkStringContains(row.tefapCert, searchValue);
             case "dob":
               return checkValueOrInArray(row.dob, searchValue);
-            case "referral entity":
+            case "referralentity":
             case "referral": {
               if (row.referralEntity && typeof row.referralEntity === "object") {
                 return (
