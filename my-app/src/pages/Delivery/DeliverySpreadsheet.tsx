@@ -755,9 +755,11 @@ const DeliverySpreadsheet: React.FC = () => {
   };
 
   const handleTimeMenuSelect = async (time: string) => {
-    await assignTime(time);
-    setOpen(false);
-    setAnchorEl(null);
+    const didAssign = await assignTime(time);
+    if (didAssign) {
+      setOpen(false);
+      setAnchorEl(null);
+    }
   };
 
   const notifyExportFeedback = React.useCallback(
@@ -2567,10 +2569,10 @@ const DeliverySpreadsheet: React.FC = () => {
             sx={{
               position: "absolute",
               inset: 0,
-              zIndex: 1100,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
+              zIndex: 1100,
               backgroundColor: "rgba(255, 255, 255, 0.85)",
               borderRadius: "4px",
             }}
