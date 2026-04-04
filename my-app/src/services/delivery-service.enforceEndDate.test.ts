@@ -120,8 +120,8 @@ describe("DeliveryService.enforceClientEndDate", () => {
       });
     const invalidateRecurringCacheSpy = jest
       .spyOn(service, "invalidateRecurringCache")
-      .mockImplementation(() => {});
-    const emitSpy = jest.spyOn(service, "emitDeliveryChange").mockImplementation(() => {});
+      .mockReturnValue(undefined);
+    const emitSpy = jest.spyOn(service, "emitDeliveryChange").mockReturnValue(undefined);
 
     await service.enforceClientEndDate("client-1", "2099-01-10");
 
@@ -165,7 +165,7 @@ describe("DeliveryService.enforceClientEndDate", () => {
     });
 
     const reconcileSpy = jest.spyOn(service, "reconcileClusterAssignmentsForDateKeys");
-    const emitSpy = jest.spyOn(service, "emitDeliveryChange").mockImplementation(() => {});
+    const emitSpy = jest.spyOn(service, "emitDeliveryChange").mockReturnValue(undefined);
 
     await service.enforceClientEndDate("client-1", "2099-01-10");
 

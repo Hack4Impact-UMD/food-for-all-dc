@@ -1776,7 +1776,7 @@ const DeliverySpreadsheet: React.FC = () => {
         for (const [propertyKey, aliases] of Object.entries(customColumnMappings)) {
           if (
             visibleFieldKeys.has(propertyKey) &&
-            aliases.some((alias) => alias === lowerKeyword)
+            aliases.some((alias) => normalizeSearchKeyword(alias) === normalizedKeyword)
           ) {
             return true;
           }
@@ -1787,12 +1787,13 @@ const DeliverySpreadsheet: React.FC = () => {
 
       matches = keyValueTerms.every((term) => {
         const { keyword, searchValue, isKeyValue: isKeyValueSearch } = extractKeyValue(term);
+        const normalizedKeyword = normalizeSearchKeyword(keyword);
 
         if (isKeyValueSearch && searchValue) {
           if (!isVisibleField(keyword)) {
             return true;
           }
-          switch (keyword) {
+          switch (normalizedKeyword) {
             case "name":
             case "client":
               return (
@@ -1876,7 +1877,10 @@ const DeliverySpreadsheet: React.FC = () => {
             }
             default: {
               const matchesCustomColumn = customColumns.some((col) => {
-                if (col.propertyKey !== "none" && col.propertyKey.toLowerCase().includes(keyword)) {
+                if (
+                  col.propertyKey !== "none" &&
+                  normalizeSearchKeyword(col.propertyKey).includes(normalizedKeyword)
+                ) {
                   if (col.propertyKey in row) {
                     const fieldValue = row[col.propertyKey as keyof DeliveryRowData];
                     return checkStringContains(fieldValue, searchValue);
@@ -1911,7 +1915,7 @@ const DeliverySpreadsheet: React.FC = () => {
 
       return matches;
     });
-  }, [rows, searchQuery, fields, customColumns, clusters]);
+  }, [rows, searchQuery, customColumns, clusters]);
 
   const unassignedRouteCount = useMemo(() => rows.filter((row) => !row.clusterId).length, [rows]);
 
