@@ -58,6 +58,9 @@ jobs:
       - name: Typecheck
         run: npx tsc --noEmit
 
+      - name: Run unit tests
+        run: CI=true npm run test:ci
+
       - name: Compile Python functions
         run: python -m py_compile functions-python/main.py functions-python/clustering.py
 

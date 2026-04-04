@@ -33,15 +33,6 @@
     opacity 0.5s ease-in-out,
     transform 0.5s ease-in-out;
 }
-html,
-body {
-  height: 100%;
-  margin: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background-color: var(--color-white);
-}
 .box {
   width: 90vw;
   border-radius: 8px;

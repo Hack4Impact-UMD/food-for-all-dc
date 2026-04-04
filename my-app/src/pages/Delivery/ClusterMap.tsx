@@ -7,11 +7,11 @@ import { Box, Button, FormControlLabel, Switch, Typography } from "@mui/material
 import DriverService from "../../services/driver-service";
 import FFAIcon from "../../assets/tsp-food-for-all-dc-logo.png";
 import dataSources from "../../config/dataSources";
+import { normalizeAssignmentValue, resolveAssignmentValue } from "./utils/assignmentOverrides";
 import {
-  hasAssignmentValue,
-  normalizeAssignmentValue,
-  resolveAssignmentValue,
-} from "./utils/assignmentOverrides";
+  buildAssignmentSummary,
+  buildClusterSummariesFromClusters,
+} from "./utils/clusterSummary";
 import { TIME_SLOT_LABELS } from "./utils/timeSlots";
 import { getClientStatusPresentation } from "../../utils/clientStatus";
 
@@ -64,9 +64,9 @@ interface RouteMapRow {
 }
 
 interface ClusterMapProps {
+  allRows: RouteMapRow[];
   visibleRows: RouteMapRow[];
   clusters: Cluster[];
-  totalDeliveries?: number;
   clientOverrides?: ClientOverride[];
   onClusterUpdate: (
     clientId: string,
@@ -193,9 +193,9 @@ const clusterColors = [
 ];
 
 const ClusterMap: React.FC<ClusterMapProps> = ({
+  allRows,
   visibleRows,
   clusters,
-  totalDeliveries,
   clientOverrides = [],
   onClusterUpdate,
   onOpenPopup,
@@ -216,34 +216,103 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
       setLoadingDrivers(false);
     }
   }, []);
+  const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<L.Map | null>(null);
   const markerGroupRef = useRef<L.FeatureGroup | null>(null);
   const wardLayerGroupRef = useRef<L.FeatureGroup | null>(null);
+  const isMapAliveRef = useRef(false);
+  const scheduledTimeoutsRef = useRef<number[]>([]);
+  const popupCloseHandlerRef = useRef<L.LeafletEventHandlerFn | null>(null);
+  const onClearHighlightRef = useRef(onClearHighlight);
+  const onMarkerClickRef = useRef(onMarkerClick);
+  const onClusterUpdateRef = useRef(onClusterUpdate);
   const markersMapRef = useRef<Map<string, L.Marker>>(new Map()); // Store markers by client ID
   const previousVisibleRowsKeyRef = useRef<string>("");
-  const popupOpenedByMarkerRef = useRef<boolean>(false); // Track popup source
-  const popupCloseHandlerSetup = useRef<boolean>(false); // Track if popup close handler is already set up
   const isPopupOpening = useRef<boolean>(false); // Prevent close handler from firing during opening
   const clustersRef = useRef<Cluster[]>(clusters);
 
-  // Set up global function for direct HTML onclick
-  React.useEffect(() => {
-    (window as any).markerMap = {};
-    (window as any).highlightRow = (clientId: string) => {
-      if (onOpenPopup) {
-        onOpenPopup(clientId);
+  const scheduleClusterMapTimeout = useCallback((callback: () => void, delay = 0) => {
+    const timeoutId = window.setTimeout(() => {
+      scheduledTimeoutsRef.current = scheduledTimeoutsRef.current.filter((id) => id !== timeoutId);
+      callback();
+    }, delay);
+
+    scheduledTimeoutsRef.current.push(timeoutId);
+    return timeoutId;
+  }, []);
+
+  const clearScheduledMapWork = useCallback(() => {
+    scheduledTimeoutsRef.current.forEach((timeoutId) => {
+      window.clearTimeout(timeoutId);
+    });
+    scheduledTimeoutsRef.current = [];
+  }, []);
+
+  const withLiveMap = useCallback((callback: (map: L.Map) => void) => {
+    const map = mapRef.current;
+    if (!isMapAliveRef.current || !map) {
+      return;
+    }
+
+    callback(map);
+  }, []);
+
+  const destroyMap = useCallback(() => {
+    if (!mapRef.current && !markerGroupRef.current && !wardLayerGroupRef.current) {
+      isMapAliveRef.current = false;
+      clearScheduledMapWork();
+      markersMapRef.current.clear();
+      previousVisibleRowsKeyRef.current = "";
+      return;
+    }
+
+    isMapAliveRef.current = false;
+    clearScheduledMapWork();
+    isPopupOpening.current = false;
+
+    const map = mapRef.current;
+
+    if (map) {
+      if (popupCloseHandlerRef.current) {
+        map.off("popupclose", popupCloseHandlerRef.current);
       }
-      // Also open the popup manually
-      const marker = (window as any).markerMap[clientId];
-      if (marker && marker.openPopup) {
-        marker.openPopup();
-      }
-    };
-    return () => {
-      delete (window as any).highlightRow;
-      delete (window as any).markerMap;
-    };
-  }, [onOpenPopup]);
+
+      map.stop();
+      map.closePopup();
+    }
+
+    if (wardLayerGroupRef.current) {
+      wardLayerGroupRef.current.clearLayers();
+      wardLayerGroupRef.current.remove();
+      wardLayerGroupRef.current = null;
+    }
+
+    if (markerGroupRef.current) {
+      markerGroupRef.current.clearLayers();
+      markerGroupRef.current.remove();
+      markerGroupRef.current = null;
+    }
+
+    markersMapRef.current.clear();
+    previousVisibleRowsKeyRef.current = "";
+
+    if (map) {
+      map.remove();
+      mapRef.current = null;
+    }
+  }, [clearScheduledMapWork]);
+
+  useEffect(() => {
+    onClearHighlightRef.current = onClearHighlight;
+  }, [onClearHighlight]);
+
+  useEffect(() => {
+    onMarkerClickRef.current = onMarkerClick;
+  }, [onMarkerClick]);
+
+  useEffect(() => {
+    onClusterUpdateRef.current = onClusterUpdate;
+  }, [onClusterUpdate]);
 
   // Initialize showWardOverlays from localStorage
   const [showWardOverlays, setShowWardOverlays] = useState<boolean>(() => {
@@ -289,92 +358,17 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
   }, [clientOverrides]);
 
   const assignmentSummary = React.useMemo(() => {
-    const total = visibleRows.length;
-    let assigned = 0;
-
-    visibleRows.forEach((row) => {
-      const override = clientOverrideByClientId.get(row.id);
-      const cluster = clusterByClientId.get(row.id);
-      const effectiveDriver = resolveAssignmentValue(override?.driver, cluster?.driver);
-      const effectiveTime = resolveAssignmentValue(override?.time, cluster?.time);
-
-      if (hasAssignmentValue(effectiveDriver) && hasAssignmentValue(effectiveTime)) {
-        assigned += 1;
-      }
-    });
-
-    const remaining = Math.max(total - assigned, 0);
-
-    return {
-      total,
-      assigned,
-      remaining,
-      done: total > 0 && remaining === 0,
-    };
-  }, [visibleRows, clusterByClientId, clientOverrideByClientId]);
+    return buildAssignmentSummary(allRows, clusterByClientId, clientOverrideByClientId);
+  }, [allRows, clusterByClientId, clientOverrideByClientId]);
 
   // Calculate deliveries + assignment details per cluster for the map summary overlay.
   const clusterSummaries = React.useMemo(() => {
-    const summaryMap = new Map<string, { count: number; drivers: Set<string>; times: Set<string> }>();
-
-    visibleRows.forEach((row) => {
-      const cluster = clusterByClientId.get(row.id);
-      const clusterId = cluster?.id;
-
-      if (!clusterId) {
-        return;
-      }
-
-      const override = clientOverrideByClientId.get(row.id);
-      const effectiveDriver = resolveAssignmentValue(override?.driver, cluster?.driver);
-      const effectiveTime = resolveAssignmentValue(override?.time, cluster?.time);
-
-      const current = summaryMap.get(clusterId) || {
-        count: 0,
-        drivers: new Set<string>(),
-        times: new Set<string>(),
-      };
-
-      current.count += 1;
-      if (hasAssignmentValue(effectiveDriver)) {
-        current.drivers.add(effectiveDriver!);
-      }
-      if (hasAssignmentValue(effectiveTime)) {
-        current.times.add(effectiveTime!);
-      }
-
-      summaryMap.set(clusterId, current);
-    });
-
-    return Array.from(summaryMap.entries())
-      .sort(([a], [b]) => {
-        const numA = parseInt(a.match(/\d+/)?.[0] || "0", 10);
-        const numB = parseInt(b.match(/\d+/)?.[0] || "0", 10);
-        return numA - numB || a.localeCompare(b);
-      })
-      .map(([clusterId, values]) => {
-        const driverLabel =
-          values.drivers.size === 0
-            ? "No driver"
-            : values.drivers.size === 1
-              ? Array.from(values.drivers)[0]
-              : "Mixed drivers";
-
-        const timeLabel =
-          values.times.size === 0
-            ? "No time"
-            : values.times.size === 1
-              ? formatTimeForSummary(Array.from(values.times)[0])
-              : "Mixed times";
-
-        return {
-          clusterId,
-          count: values.count,
-          driverLabel,
-          timeLabel,
-        };
-      });
-  }, [visibleRows, clusterByClientId, clientOverrideByClientId]);
+    return buildClusterSummariesFromClusters(
+      clusters,
+      clientOverrideByClientId,
+      formatTimeForSummary
+    );
+  }, [clusters, clientOverrideByClientId]);
 
   // Toggle cluster summary visibility
   const handleClusterSummaryToggle = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -525,10 +519,17 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
 
   // Function to add ward overlays to the map
   const addWardOverlays = useCallback(async () => {
-    if (!mapRef.current || !wardLayerGroupRef.current) return;
+    if (!isMapAliveRef.current || !mapRef.current || !wardLayerGroupRef.current) return;
 
     const boundaries = wardData || (await fetchWardBoundaries());
-    if (!boundaries || !boundaries.features) return;
+    if (
+      !isMapAliveRef.current ||
+      !wardLayerGroupRef.current ||
+      !boundaries ||
+      !boundaries.features
+    ) {
+      return;
+    }
 
     // Clear existing ward layers
     wardLayerGroupRef.current.clearLayers();
@@ -578,6 +579,12 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
     });
   }, [fetchWardBoundaries, wardData]);
 
+  // Refs so the map init effect can restore ward overlays without adding unstable deps
+  const showWardOverlaysRef = useRef(showWardOverlays);
+  const addWardOverlaysRef = useRef(addWardOverlays);
+  useEffect(() => { showWardOverlaysRef.current = showWardOverlays; }, [showWardOverlays]);
+  useEffect(() => { addWardOverlaysRef.current = addWardOverlays; }, [addWardOverlays]);
+
   // Function to remove ward overlays
   const removeWardOverlays = () => {
     if (wardLayerGroupRef.current) {
@@ -601,12 +608,24 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
   };
 
   useEffect(() => {
-    if (!mapRef.current && visibleRows.length > 0 && L && typeof L.map === "function") {
+    if (
+      !mapRef.current &&
+      mapContainerRef.current &&
+      allRows.length > 0 &&
+      L &&
+      typeof L.map === "function"
+    ) {
       try {
-        mapRef.current = L.map("cluster-map").setView(ffaCoordinates, 11);
+        mapRef.current = L.map(mapContainerRef.current, {
+          closePopupOnClick: false,
+        }).setView(ffaCoordinates, 11, {
+          animate: false,
+        });
+        isMapAliveRef.current = true;
         L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(mapRef.current);
       } catch (error) {
         console.error("Error initializing Leaflet map:", error);
+        destroyMap();
         return;
       }
 
@@ -615,90 +634,74 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
 
       // Create marker layer group
       markerGroupRef.current = L.featureGroup().addTo(mapRef.current);
+
+      if (!popupCloseHandlerRef.current) {
+        popupCloseHandlerRef.current = () => {
+          if (!isMapAliveRef.current || isPopupOpening.current) {
+            return;
+          }
+
+          scheduleClusterMapTimeout(() => {
+            if (!isMapAliveRef.current || isPopupOpening.current) {
+              return;
+            }
+
+            onClearHighlightRef.current?.();
+          }, 200);
+        };
+      }
+
+      mapRef.current.on("popupclose", popupCloseHandlerRef.current);
+
+      // Restore ward overlays if they were enabled before the map existed
+      if (showWardOverlaysRef.current) {
+        scheduleClusterMapTimeout(() => addWardOverlaysRef.current(), 0);
+      }
     }
-  }, [visibleRows.length]);
+  }, [allRows.length, destroyMap, scheduleClusterMapTimeout]);
+
+  useEffect(() => {
+    return () => {
+      destroyMap();
+    };
+  }, [destroyMap]);
 
   // Handle external popup open requests
   React.useEffect(() => {
     if (onOpenPopup) {
       (window as any).openMapPopup = (clientId: string) => {
-        // Mark that this popup is being opened by a table row click (not marker click)
-        popupOpenedByMarkerRef.current = false;
         // Suppress popupclose clearing while we open the new popup (same as marker clicks)
         isPopupOpening.current = true;
 
         const marker = markersMapRef.current.get(clientId);
-        if (marker && mapRef.current) {
-          const popup = marker.getPopup();
-          const position = marker.getLatLng();
-          if (popup && position) {
-            // Use the map's openPopup method with the popup content and marker as options
-            const content = popup.getContent();
-            if (content && typeof content !== "function") {
-              // Create a new popup with the same content but proper positioning
-              const newPopup = L.popup({
-                autoPan: true,
-                keepInView: true,
-                offset: [-5, -10], // Match the popupAnchor from the divIcon
-              })
-                .setContent(content)
-                .setLatLng(position);
-
-              // Open the popup on the map
-              newPopup.openOn(mapRef.current);
-            }
-          }
+        if (marker) {
+          marker.openPopup();
         }
 
         // Reset after the open sequence completes so future closes clear the row
-        setTimeout(() => {
+        scheduleClusterMapTimeout(() => {
           isPopupOpening.current = false;
         }, 350);
       };
 
       // Also set up the close popup function
       (window as any).closeMapPopup = () => {
-        if (mapRef.current) {
-          mapRef.current.closePopup();
-        }
+        withLiveMap((map) => {
+          map.closePopup();
+        });
       };
 
       // Set up function to clear row highlighting
       (window as any).clearRowHighlight = () => {
-        if (onClearHighlight) {
-          onClearHighlight();
-        }
+        onClearHighlightRef.current?.();
       };
-
-      // Set up a simple popup close handler that mimics clicking the highlighted row
-      if (mapRef.current && !popupCloseHandlerSetup.current) {
-        popupCloseHandlerSetup.current = true;
-
-        mapRef.current.on("popupclose", () => {
-          if (isPopupOpening.current) {
-            return;
-          }
-
-          setTimeout(() => {
-            if (isPopupOpening.current) {
-              return;
-            }
-
-            // Always clear the highlight when any popup closes
-            // Since we can only have one highlighted row at a time, this is safe
-            if (onClearHighlight) {
-              onClearHighlight();
-            }
-          }, 200);
-        });
-      }
     }
     return () => {
       delete (window as any).openMapPopup;
       delete (window as any).closeMapPopup;
       delete (window as any).clearRowHighlight;
     };
-  }, [onOpenPopup, onClearHighlight]);
+  }, [onOpenPopup, scheduleClusterMapTimeout, withLiveMap]);
 
   useEffect(() => {
     clustersRef.current = clusters;
@@ -712,14 +715,22 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
   }, [showWardOverlays, addWardOverlays]);
 
   useEffect(() => {
-    if (!mapRef.current || !markerGroupRef.current) return;
+    if (!mapRef.current || !markerGroupRef.current || !isMapAliveRef.current) return;
+
+    withLiveMap((map) => {
+      map.stop();
+      map.closePopup();
+    });
 
     markerGroupRef.current.clearLayers();
 
     // Clear markers map when recreating markers
     markersMapRef.current.clear();
 
-    if (visibleRows.length < 1) return;
+    if (visibleRows.length < 1) {
+      previousVisibleRowsKeyRef.current = "";
+      return;
+    }
 
     // create a map of client ids for quick lookup
     const clientClusterMap = new Map<string, Cluster>();
@@ -932,6 +943,33 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
           </div>
         `;
 
+        const schedulePopupReposition = (modeElement: HTMLElement) => {
+          scheduleClusterMapTimeout(() => {
+            if (!modeElement.isConnected || !popupContainer.isConnected) {
+              return;
+            }
+
+            if (!markerGroupRef.current?.hasLayer(marker)) {
+              return;
+            }
+
+            withLiveMap((map) => {
+              const latlng = marker.getLatLng();
+              const popupRect = modeElement.getBoundingClientRect();
+              const markerPoint = map.latLngToContainerPoint(latlng);
+              const targetPoint = markerPoint.subtract([0, popupRect.height / 2]);
+              const targetLatLng = map.containerPointToLatLng(targetPoint);
+              map.panTo(targetLatLng, { animate: true });
+            });
+          }, 100);
+        };
+
+        const enterEditMode = () => {
+          viewMode.style.display = "none";
+          editMode.style.display = "block";
+          schedulePopupReposition(editMode);
+        };
+
         // Add event listeners
         const editBtn = popupContainer.querySelector(`#edit-btn-${clientId}`);
         const saveBtn = popupContainer.querySelector(`#save-btn-${clientId}`);
@@ -987,45 +1025,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
             if (clusterSelect) initialClusterId = normalizeClusterId(clusterSelect.value);
             if (driverSelect) initialDriver = driverSelect.value;
             if (timeSelect) initialTime = timeSelect.value;
-            viewMode.style.display = "none";
-            editMode.style.display = "block";
-            // Measure popup size in edit mode and pan map accordingly
-            setTimeout(() => {
-              if (editMode && markerGroupRef.current && mapRef.current) {
-                const editRect = editMode.getBoundingClientRect();
-                let markerIdx = 0;
-                markerGroupRef.current.eachLayer(function (layer: L.Layer) {
-                  if ((layer as L.Marker).getPopup) {
-                    const marker = layer as L.Marker;
-                    const popup = marker.getPopup();
-                    const popupContent = popup && popup.getContent();
-                    let popupContentId = null;
-                    let popupContainerId = null;
-                    if (popupContent instanceof HTMLElement) {
-                      popupContentId = popupContent.getAttribute("data-client-id");
-                    }
-                    if (popupContainer instanceof HTMLElement) {
-                      popupContainerId = popupContainer.getAttribute("data-client-id");
-                    }
-                    if (popupContentId && popupContainerId && popupContentId === popupContainerId) {
-                      if (popup && mapRef.current && marker.getLatLng) {
-                        const latlng = marker.getLatLng();
-                        // Calculate offset to pan the map so the full edit popup is visible
-                        const yOffset = editRect.height / 2;
-                        const map = mapRef.current;
-                        const markerPoint = map.latLngToContainerPoint(latlng);
-                        const targetPoint = markerPoint.subtract([0, yOffset]);
-                        const targetLatLng = map.containerPointToLatLng(targetPoint);
-                        setTimeout(() => {
-                          map.panTo(targetLatLng, { animate: true });
-                        }, 100);
-                      }
-                    }
-                  }
-                  markerIdx++;
-                });
-              }
-            }, 0);
+            enterEditMode();
           });
         }
 
@@ -1047,46 +1047,11 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
             if (timeSelect) timeSelect.value = initialTime;
             viewMode.style.display = "block";
             editMode.style.display = "none";
-            // Measure popup size in view mode and pan map accordingly
-            setTimeout(() => {
-              if (viewMode && markerGroupRef.current && mapRef.current) {
-                const viewRect = viewMode.getBoundingClientRect();
-                let markerIdx = 0;
-                markerGroupRef.current.eachLayer(function (layer: L.Layer) {
-                  if ((layer as L.Marker).getPopup) {
-                    const marker = layer as L.Marker;
-                    const popup = marker.getPopup();
-                    const popupContent = popup && popup.getContent();
-                    let popupContentId = null;
-                    let popupContainerId = null;
-                    if (popupContent instanceof HTMLElement) {
-                      popupContentId = popupContent.getAttribute("data-client-id");
-                    }
-                    if (popupContainer instanceof HTMLElement) {
-                      popupContainerId = popupContainer.getAttribute("data-client-id");
-                    }
-                    if (popupContentId && popupContainerId && popupContentId === popupContainerId) {
-                      if (popup && mapRef.current && marker.getLatLng) {
-                        const latlng = marker.getLatLng();
-                        const yOffset = viewRect.height / 2;
-                        const map = mapRef.current;
-                        const markerPoint = map.latLngToContainerPoint(latlng);
-                        const targetPoint = markerPoint.subtract([0, yOffset]);
-                        const targetLatLng = map.containerPointToLatLng(targetPoint);
-                        setTimeout(() => {
-                          map.panTo(targetLatLng, { animate: true });
-                        }, 100);
-                      }
-                    }
-                  }
-                  markerIdx++;
-                });
-              }
-            }, 0);
+            schedulePopupReposition(viewMode);
           });
         }
 
-        if (saveBtn && onClusterUpdate) {
+        if (saveBtn && onClusterUpdateRef.current) {
           saveBtn.addEventListener("click", async () => {
             const clusterSelect = popupContainer.querySelector(
               `#cluster-select-${clientId}`
@@ -1136,7 +1101,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
               return;
             }
 
-            const didSave = await onClusterUpdate(
+            const didSave = await onClusterUpdateRef.current(
               clientId,
               newClusterId,
               submittedDriverForSave,
@@ -1171,48 +1136,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
               const newEditBtn = viewModeContent.querySelector(`#edit-btn-${clientId}`);
               if (newEditBtn) {
                 newEditBtn.addEventListener("click", () => {
-                  viewMode.style.display = "none";
-                  editMode.style.display = "block";
-                  // Also pan map for edit mode (reuse logic from editBtn)
-                  setTimeout(() => {
-                    if (editMode && markerGroupRef.current && mapRef.current) {
-                      const editRect = editMode.getBoundingClientRect();
-                      let markerIdx = 0;
-                      markerGroupRef.current.eachLayer(function (layer: L.Layer) {
-                        if ((layer as L.Marker).getPopup) {
-                          const marker = layer as L.Marker;
-                          const popup = marker.getPopup();
-                          const popupContent = popup && popup.getContent();
-                          let popupContentId = null;
-                          let popupContainerId = null;
-                          if (popupContent instanceof HTMLElement) {
-                            popupContentId = popupContent.getAttribute("data-client-id");
-                          }
-                          if (popupContainer instanceof HTMLElement) {
-                            popupContainerId = popupContainer.getAttribute("data-client-id");
-                          }
-                          if (
-                            popupContentId &&
-                            popupContainerId &&
-                            popupContentId === popupContainerId
-                          ) {
-                            if (popup && mapRef.current && marker.getLatLng) {
-                              const latlng = marker.getLatLng();
-                              const yOffset = editRect.height / 2;
-                              const map = mapRef.current;
-                              const markerPoint = map.latLngToContainerPoint(latlng);
-                              const targetPoint = markerPoint.subtract([0, yOffset]);
-                              const targetLatLng = map.containerPointToLatLng(targetPoint);
-                              setTimeout(() => {
-                                map.panTo(targetLatLng, { animate: true });
-                              }, 100);
-                            }
-                          }
-                        }
-                        markerIdx++;
-                      });
-                    }
-                  }, 0);
+                  enterEditMode();
                 });
               }
             }
@@ -1246,16 +1170,22 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
 
       //add popup and marker to group
       marker
-        .bindPopup(popupContent, { autoPan: true, keepInView: true })
-        .on("click", (e) => {
+        .bindPopup(popupContent, {
+          autoPan: true,
+          keepInView: true,
+          closeOnClick: false,
+          autoClose: false,
+        })
+        .on("click", () => {
           isPopupOpening.current = true;
+          marker.openPopup();
 
-          if (onMarkerClick) {
-            onMarkerClick(client.id);
+          if (onMarkerClickRef.current) {
+            onMarkerClickRef.current(client.id);
           }
         })
         .on("popupopen", () => {
-          setTimeout(() => {
+          scheduleClusterMapTimeout(() => {
             isPopupOpening.current = false;
           }, 350);
         })
@@ -1300,8 +1230,11 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
     const shouldAutoFit = visibleRowsKey !== previousVisibleRowsKeyRef.current;
 
     if (markerGroupRef.current!.getLayers().length > 0 && shouldAutoFit) {
-      mapRef.current!.fitBounds(markerGroupRef.current!.getBounds(), {
-        padding: [50, 50],
+      withLiveMap((map) => {
+        map.fitBounds(markerGroupRef.current!.getBounds(), {
+          padding: [50, 50],
+          animate: false,
+        });
       });
       previousVisibleRowsKeyRef.current = visibleRowsKey;
     }
@@ -1312,24 +1245,28 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
     clientOverrideByClientId,
     getClusterColor,
     getTextColorForBackground,
-    onClusterUpdate,
-    onMarkerClick,
+    scheduleClusterMapTimeout,
+    withLiveMap,
   ]);
 
-  const invalidCount = visibleRows.filter(
+  const invalidCount = allRows.filter(
     (client) => !isValidCoordinate(client.coordinates)
   ).length;
-  const dayTotalDeliveries = totalDeliveries ?? visibleRows.length;
-  const isFilteredView = visibleRows.length !== dayTotalDeliveries;
+  const dayTotalDeliveries = allRows.length;
+  const showFilteredEmptyState =
+    visibleRows.length === 0 && dayTotalDeliveries > 0;
 
   const centerMap = () => {
-    mapRef.current?.setView(ffaCoordinates, 11);
+    withLiveMap((map) => {
+      map.stop();
+      map.setView(ffaCoordinates, 11, { animate: false });
+    });
   };
 
   return (
     <div style={{ position: "relative" }}>
       <div
-        id="cluster-map"
+        ref={mapContainerRef}
         style={{
           height: "400px",
           width: "100%",
@@ -1338,6 +1275,35 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
           borderRadius: "4px",
         }}
       />
+
+      {showFilteredEmptyState && (
+        <Box
+          sx={{
+            position: "absolute",
+            inset: 0,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            pointerEvents: "none",
+            zIndex: 900,
+          }}
+        >
+          <Box
+            sx={{
+              backgroundColor: "rgba(255, 255, 255, 0.95)",
+              border: "1px solid var(--color-border-light)",
+              borderRadius: "6px",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.12)",
+              px: 3,
+              py: 1.5,
+            }}
+          >
+            <Typography variant="body2" sx={{ color: "text.secondary", fontWeight: 500 }}>
+              No deliveries match current filter
+            </Typography>
+          </Box>
+        </Box>
+      )}
 
       {/* Ward Overlay Toggle */}
       <Box
@@ -1482,14 +1448,6 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
               >
                 Day total: {dayTotalDeliveries}
               </Typography>
-              {isFilteredView && (
-                <Typography
-                  variant="caption"
-                  sx={{ fontSize: "10px", color: "text.secondary", lineHeight: 1.2 }}
-                >
-                  Showing {visibleRows.length} filtered
-                </Typography>
-              )}
             </Box>
           </Box>
           <Box
@@ -1613,14 +1571,6 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
               );
             })}
           </Box>
-          {clusterSummaries.length === 0 && (
-            <Typography
-              variant="caption"
-              sx={{ fontSize: "10px", color: "text.secondary", fontStyle: "italic" }}
-            >
-              No cluster assignments
-            </Typography>
-          )}
         </Box>
       )}
 

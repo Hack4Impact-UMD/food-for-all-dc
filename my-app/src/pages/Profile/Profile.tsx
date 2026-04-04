@@ -1,7 +1,7 @@
 import CloseIcon from "@mui/icons-material/Close";
 import EditIcon from "@mui/icons-material/Edit";
 import SaveIcon from "@mui/icons-material/Save";
-import { CalendarUtils, TimeUtils } from "../../utils/timeUtils";
+import { CalendarUtils, Time, TimeUtils } from "../../utils/timeUtils";
 import { deliveryEventEmitter } from "../../utils/deliveryEventEmitter";
 import {
   Autocomplete,
@@ -313,7 +313,7 @@ const Profile = () => {
         recurrence: editableRecurringSeries?.recurrence || clientProfile.recurrence,
         endDate: editableRecurringSeries?.effectiveEndDate || clientProfile.endDate,
       },
-      targetRecurrenceId: editableRecurringSeries?.recurrenceId,
+      targetRecurrenceId: undefined,
     }),
     [clientId, clientProfile, editableRecurringSeries]
   );
@@ -333,6 +333,12 @@ const Profile = () => {
     return new DayPilot.Date(deliveryDate.toJSDate(nextSeriesDelivery.deliveryDate));
   }, [editableRecurringSeries, futureDeliveries]);
 
+  // Use one deterministic ID for profile delivery reads/writes to avoid split-ID drift.
+  const deliveryClientId = useMemo(
+    () => clientId || clientProfile.uid || "",
+    [clientId, clientProfile.uid]
+  );
+
   const [foodAllergensText, setFoodAllergensText] = useState<string>("");
   useEffect(() => {
     if (isEditing) {
@@ -344,7 +350,7 @@ const Profile = () => {
   }, [isEditing, clientProfile.deliveryDetails?.dietaryRestrictions?.foodAllergens]);
 
   const refreshDeliveryData = useCallback(async () => {
-    if (!clientId) {
+    if (!deliveryClientId) {
       return;
     }
 
@@ -356,10 +362,10 @@ const Profile = () => {
         recurringSeriesSummaries,
         allClientEvents,
       ] = await Promise.all([
-        deliveryService.getClientDeliveryHistory(clientId),
-        deliveryService.getLatestScheduledDateForClient(clientId),
-        deliveryService.getRecurringSeriesSummariesForClient(clientId),
-        deliveryService.getEventsByClientId(clientId),
+        deliveryService.getClientDeliveryHistory(deliveryClientId),
+        deliveryService.getLatestScheduledDateForClient(deliveryClientId),
+        deliveryService.getRecurringSeriesSummariesForClient(deliveryClientId),
+        deliveryService.getEventsByClientId(deliveryClientId),
       ]);
       const todayKey = TimeUtils.now().toFormat("yyyy-MM-dd");
       const activeRecurringSeries = recurringSeriesSummaries.filter(
@@ -383,7 +389,7 @@ const Profile = () => {
       setLastDeliveryDate("Error fetching data");
       setEditableRecurringSeries(null);
     }
-  }, [clientId]);
+  }, [deliveryClientId]);
 
   const [clients, setClients] = useState<ClientProfile[]>([]);
   const [addressError, setAddressError] = useState<string>("");
@@ -2494,7 +2500,7 @@ const Profile = () => {
     }
     const script = document.createElement("script");
     script.id = "google-maps-script";
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&loading=async`;
     script.async = true;
     script.defer = true;
     script.onload = callback;
@@ -2685,11 +2691,104 @@ const Profile = () => {
 
     try {
       const deliveryService = DeliveryService.getInstance();
+      if (!deliveryClientId) {
+        return;
+      }
+
+      const existingEventsBeforeAdd = await deliveryService.getEventsByClientId(deliveryClientId);
+      const existingDateKeysBeforeAdd = new Set(
+        existingEventsBeforeAdd.map((event) => deliveryDate.toISODateString(event.deliveryDate))
+      );
+
+      const normalizedStartDate = deliveryDate.tryToISODateString(newDelivery.deliveryDate);
+      const normalizedRequestedDateKeys = (() => {
+        if (newDelivery.recurrence === "Custom") {
+          return Array.from(
+            new Set(
+              (newDelivery.customDates || [])
+                .map((date) => deliveryDate.tryToISODateString(date))
+                .filter((dateKey): dateKey is string => Boolean(dateKey))
+            )
+          ).sort();
+        }
+
+        if (!normalizedStartDate) {
+          return [] as string[];
+        }
+
+        if (newDelivery.recurrence === "None") {
+          return [normalizedStartDate];
+        }
+
+        const recurrenceDates = Time.Recurrence.calculateRecurrenceDates(
+          deliveryDate.toDateTime(normalizedStartDate),
+          newDelivery.recurrence,
+          newDelivery.repeatsEndDate
+            ? deliveryDate.toDateTime(newDelivery.repeatsEndDate)
+            : undefined
+        );
+
+        return Array.from(
+          new Set(recurrenceDates.map((date) => TimeUtils.toDateString(date)))
+        ).sort();
+      })();
+
+      const newRequestedDateKeys = normalizedRequestedDateKeys.filter(
+        (dateKey) => !existingDateKeysBeforeAdd.has(dateKey)
+      );
+
+      // If all requested dates already exist in Upcoming Deliveries, do not add anything.
+      if (normalizedRequestedDateKeys.length > 0 && newRequestedDateKeys.length === 0) {
+        await refreshDeliveryData();
+        return;
+      }
+
+      // Defensive no-op for custom adds: if all selected dates already exist for either profile ID,
+      // do not write anything.
+      if (newDelivery.recurrence === "Custom") {
+        newDelivery = {
+          ...newDelivery,
+          customDates: newRequestedDateKeys,
+          deliveryDate: newRequestedDateKeys[0] || newDelivery.deliveryDate,
+        };
+      }
+
       const householdSnapshot = buildHouseholdSnapshot(clientProfile);
       await deliveryService.scheduleClientDeliveries({
         ...newDelivery,
+        clientId: deliveryClientId,
         householdSnapshot,
       });
+
+      // Safety net: if any existing date disappeared after add, restore it immediately.
+      const existingEventsAfterAdd = await deliveryService.getEventsByClientId(deliveryClientId);
+      const existingDateKeysAfterAdd = new Set(
+        existingEventsAfterAdd.map((event) => deliveryDate.toISODateString(event.deliveryDate))
+      );
+      const missingDateKeys = Array.from(existingDateKeysBeforeAdd).filter(
+        (dateKey) => !existingDateKeysAfterAdd.has(dateKey)
+      );
+
+      if (missingDateKeys.length > 0) {
+        const missingDateKeySet = new Set(missingDateKeys);
+        const eventsToRestore = existingEventsBeforeAdd.filter((event) =>
+          missingDateKeySet.has(deliveryDate.toISODateString(event.deliveryDate))
+        );
+
+        if (eventsToRestore.length > 0) {
+          console.error("Detected unexpected delivery date loss during add; restoring missing dates", {
+            clientId: deliveryClientId,
+            missingDateKeys,
+          });
+          await deliveryService.createEventsBatch(
+            eventsToRestore.map((event) => {
+              const { id: _id, ...eventWithoutId } = event;
+              return eventWithoutId;
+            })
+          );
+        }
+      }
+
       await refreshDeliveryData();
     } catch (error) {
       console.error("Error adding delivery:", error);
@@ -2717,7 +2816,7 @@ const Profile = () => {
 
   const handleMarkDeliveryMissed = useCallback(
     async (delivery: DeliveryEvent) => {
-      if (!clientId || !delivery.id) {
+      if (!clientId || !deliveryClientId || !delivery.id) {
         return;
       }
 
@@ -2727,7 +2826,7 @@ const Profile = () => {
           deliveryStatus: "Missed",
         } as Partial<DeliveryEvent>);
 
-        const allEvents = await deliveryService.getEventsByClientId(clientId);
+        const allEvents = await deliveryService.getEventsByClientId(deliveryClientId);
         const missedEvents = allEvents
           .filter((event) => event.deliveryStatus === "Missed")
           .sort(
@@ -2755,7 +2854,7 @@ const Profile = () => {
             { merge: true }
           );
 
-          await deliveryService.deleteEventsByClientId(clientId);
+          await deliveryService.deleteEventsByClientId(deliveryClientId);
 
           setClientProfile((prev) => ({
             ...prev,
@@ -2781,6 +2880,7 @@ const Profile = () => {
     },
     [
       clientId,
+      deliveryClientId,
       clientProfile.autoInactivePreviousEndDate,
       clientProfile.autoInactiveReason,
       clientProfile.endDate,
@@ -2792,7 +2892,7 @@ const Profile = () => {
 
   const handleRestoreMissedDelivery = useCallback(
     async (delivery: DeliveryEvent) => {
-      if (!clientId || !delivery.id) {
+      if (!clientId || !deliveryClientId || !delivery.id) {
         return;
       }
 
@@ -2802,7 +2902,7 @@ const Profile = () => {
           deliveryStatus: "Scheduled",
         } as Partial<DeliveryEvent>);
 
-        const allEvents = await deliveryService.getEventsByClientId(clientId);
+        const allEvents = await deliveryService.getEventsByClientId(deliveryClientId);
         const missedEvents = allEvents
           .filter((event) => event.deliveryStatus === "Missed")
           .sort(
@@ -2854,6 +2954,7 @@ const Profile = () => {
     },
     [
       clientId,
+      deliveryClientId,
       clientProfile.autoInactivePreviousEndDate,
       clientProfile.autoInactiveReason,
       clientProfile.startDate,
@@ -3118,7 +3219,7 @@ const Profile = () => {
               preSelectedClient={preSelectedClientData}
             />
             <DeliveryLogForm
-              clientId={clientId || clientProfile.uid || ""}
+              clientId={deliveryClientId}
               pastDeliveries={pastDeliveries}
               futureDeliveries={futureDeliveries}
               fieldLabelStyles={fieldLabelStyles}

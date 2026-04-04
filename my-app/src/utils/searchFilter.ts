@@ -11,7 +11,6 @@ export const parseSearchTermsProgressively = (trimmedSearchQuery: string): strin
 
   for (let i = 0; i < trimmedSearchQuery.length; i++) {
     const char = trimmedSearchQuery[i];
-    const nextChar = i + 1 < trimmedSearchQuery.length ? trimmedSearchQuery[i + 1] : "";
 
     if (!inQuote && (char === '"' || char === "'")) {
       inQuote = true;
@@ -22,13 +21,15 @@ export const parseSearchTermsProgressively = (trimmedSearchQuery: string): strin
       inQuote = false;
       quoteChar = "";
     } else if (!inQuote && char === " ") {
-      const hasColon = currentTerm.includes(":");
-      const nextIsQuote = nextChar === '"' || nextChar === "'";
+      const trimmedCurrentTerm = currentTerm.trim();
+      const colonIndex = trimmedCurrentTerm.indexOf(":");
+      const valueAfterColon =
+        colonIndex === -1 ? "" : trimmedCurrentTerm.substring(colonIndex + 1).trim();
 
-      if (hasColon && nextIsQuote) {
+      if (colonIndex !== -1 && valueAfterColon === "") {
         currentTerm += char;
-      } else if (currentTerm.trim()) {
-        searchTerms.push(currentTerm.trim());
+      } else if (trimmedCurrentTerm) {
+        searchTerms.push(trimmedCurrentTerm);
         currentTerm = "";
       }
     } else {
@@ -49,6 +50,9 @@ export const checkStringContains = (value: any, query: string): boolean => {
   }
   return String(value).toLowerCase().includes(query.toLowerCase());
 };
+
+export const normalizeSearchKeyword = (value: string): string =>
+  value.toLowerCase().replace(/[\s_]+/g, "");
 
 export const isPartialFieldName = (term: string, fieldNames: string[]): boolean => {
   const lowerTerm = term.toLowerCase();

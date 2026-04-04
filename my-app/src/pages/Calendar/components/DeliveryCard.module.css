@@ -109,6 +109,21 @@
   cursor: pointer;
 }
 
+.clientNameRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.clientStatusIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  min-width: 18px;
+  line-height: 1;
+}
+
 .deliveryTypeIndicator {
   font-weight: 700;
   font-size: 1.1rem;

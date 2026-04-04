@@ -23,6 +23,7 @@ import {
   checkStringContains as utilCheckStringContains,
   extractKeyValue,
   globalSearchMatch,
+  normalizeSearchKeyword,
 } from "../../utils/searchFilter";
 import { query, Timestamp, updateDoc, where, orderBy, runTransaction } from "firebase/firestore";
 import { TimeUtils } from "../../utils/timeUtils";
@@ -521,6 +522,11 @@ const DeliverySpreadsheet: React.FC = () => {
     }
   };
   const { clients: clientsFromContext, loading: clientsLoading } = useClientData();
+  // Use a ref so fetchDeliveriesForDate doesn't re-trigger on every hydration batch update
+  const clientsFromContextRef = React.useRef(clientsFromContext);
+  React.useEffect(() => {
+    clientsFromContextRef.current = clientsFromContext;
+  }, [clientsFromContext]);
   const testing = false;
   const { userRole } = useAuth();
   const limits = useLimits();
@@ -855,7 +861,8 @@ const DeliverySpreadsheet: React.FC = () => {
 
       try {
         // Map RowData to ClientProfile format for getEventsByViewType
-        const clientsForQuery = clientsFromContext.map((client) => ({
+        // Use ref to avoid re-creating this callback on every hydration flush
+        const clientsForQuery = clientsFromContextRef.current.map((client) => ({
           uid: client.uid,
           firstName: client.firstName,
           lastName: client.lastName,
@@ -917,7 +924,7 @@ const DeliverySpreadsheet: React.FC = () => {
         setIsLoadingDeliveries(false);
       }
     },
-    [clientsFromContext, selectedDate]
+    [selectedDate]
   );
 
   //when the user changes the date, fetch the deliveries for that date
@@ -1647,7 +1654,7 @@ const DeliverySpreadsheet: React.FC = () => {
       }
     } else {
       setHighlightedRowId(clientId);
-      if ((window as any).openMapPopup) {
+      if (fromTable && (window as any).openMapPopup) {
         (window as any).openMapPopup(clientId);
       }
     }
@@ -1692,11 +1699,12 @@ const DeliverySpreadsheet: React.FC = () => {
     setSearchParams(newSearchParams);
   };
 
-  const visibleRows = rows.filter((row) => {
-    const trimmedSearchQuery = searchQuery.trim();
-    if (!trimmedSearchQuery) {
-      return true;
-    }
+  const visibleRows = useMemo(() => {
+    return rows.filter((row) => {
+      const trimmedSearchQuery = searchQuery.trim();
+      if (!trimmedSearchQuery) {
+        return true;
+      }
 
     const validSearchTerms = parseSearchTermsProgressively(trimmedSearchQuery);
 
@@ -1729,7 +1737,7 @@ const DeliverySpreadsheet: React.FC = () => {
 
         const fieldMappings: { [key: string]: string[] } = {
           fullname: ["name", "client"],
-          clusterIdChange: ["cluster", "cluster id"],
+          clusterIdChange: ["cluster", "cluster id", "clusterid", "route", "route id", "routeid"],
           tags: ["tags", "tag"],
           zipCode: ["zip", "zipcode", "zip code"],
           ward: ["ward"],
@@ -1738,8 +1746,13 @@ const DeliverySpreadsheet: React.FC = () => {
           "deliveryDetails.deliveryInstructions": ["delivery instructions", "instructions"],
         };
 
+        const normalizedKeyword = normalizeSearchKeyword(lowerKeyword);
+
         for (const [fieldKey, aliases] of Object.entries(fieldMappings)) {
-          if (visibleFieldKeys.has(fieldKey) && aliases.some((alias) => alias === lowerKeyword)) {
+          if (
+            visibleFieldKeys.has(fieldKey) &&
+            aliases.some((alias) => normalizeSearchKeyword(alias) === normalizedKeyword)
+          ) {
             return true;
           }
         }
@@ -1765,7 +1778,7 @@ const DeliverySpreadsheet: React.FC = () => {
         for (const [propertyKey, aliases] of Object.entries(customColumnMappings)) {
           if (
             visibleFieldKeys.has(propertyKey) &&
-            aliases.some((alias) => alias === lowerKeyword)
+            aliases.some((alias) => normalizeSearchKeyword(alias) === normalizedKeyword)
           ) {
             return true;
           }
@@ -1776,12 +1789,13 @@ const DeliverySpreadsheet: React.FC = () => {
 
       matches = keyValueTerms.every((term) => {
         const { keyword, searchValue, isKeyValue: isKeyValueSearch } = extractKeyValue(term);
+        const normalizedKeyword = normalizeSearchKeyword(keyword);
 
         if (isKeyValueSearch && searchValue) {
           if (!isVisibleField(keyword)) {
             return true;
           }
-          switch (keyword) {
+          switch (normalizedKeyword) {
             case "name":
             case "client":
               return (
@@ -1795,26 +1809,27 @@ const DeliverySpreadsheet: React.FC = () => {
               return checkStringContains(row.ward, searchValue);
             case "zip":
             case "zipcode":
-            case "zip code":
               return checkStringContains(row.zipCode, searchValue);
             case "cluster":
-            case "cluster id":
+            case "clusterid":
+            case "route":
+            case "routeid":
               return checkStringContains(row.clusterId, searchValue);
             case "driver":
-            case "assigned driver": {
+            case "assigneddriver": {
               const driverName = fields
                 .find((f) => f.key === "assignedDriver")
                 ?.compute?.(row, clusters);
               return checkStringContains(driverName, searchValue);
             }
             case "time":
-            case "assigned time": {
+            case "assignedtime": {
               const assignedTime = fields
                 .find((f) => f.key === "assignedTime")
                 ?.compute?.(row, clusters);
               return checkStringContains(assignedTime, searchValue);
             }
-            case "delivery instructions":
+            case "deliveryinstructions":
             case "instructions": {
               const instructions = (
                 fields.find((f) => f.key === "deliveryDetails.deliveryInstructions") as Extract<
@@ -1835,8 +1850,8 @@ const DeliverySpreadsheet: React.FC = () => {
               return checkValueOrInArray(row.adults, searchValue);
             case "children":
               return checkValueOrInArray(row.children, searchValue);
-            case "delivery freq":
-            case "delivery frequency":
+            case "deliveryfreq":
+            case "deliveryfrequency":
               return checkStringContains(row.deliveryFreq, searchValue);
             case "gender":
               return checkStringContains(row.gender, searchValue);
@@ -1845,11 +1860,11 @@ const DeliverySpreadsheet: React.FC = () => {
             case "notes":
               return checkStringContains(row.notes, searchValue);
             case "tefap":
-            case "tefap cert":
+            case "tefapcert":
               return checkStringContains(row.tefapCert, searchValue);
             case "dob":
               return checkValueOrInArray(row.dob, searchValue);
-            case "referral entity":
+            case "referralentity":
             case "referral": {
               if (row.referralEntity && typeof row.referralEntity === "object") {
                 return (
@@ -1861,7 +1876,10 @@ const DeliverySpreadsheet: React.FC = () => {
             }
             default: {
               const matchesCustomColumn = customColumns.some((col) => {
-                if (col.propertyKey !== "none" && col.propertyKey.toLowerCase().includes(keyword)) {
+                if (
+                  col.propertyKey !== "none" &&
+                  normalizeSearchKeyword(col.propertyKey).includes(normalizedKeyword)
+                ) {
                   if (col.propertyKey in row) {
                     const fieldValue = row[col.propertyKey as keyof DeliveryRowData];
                     return checkStringContains(fieldValue, searchValue);
@@ -1894,8 +1912,9 @@ const DeliverySpreadsheet: React.FC = () => {
       matches = nonKeyValueTerms.every((term) => globalSearchMatch(row, term, searchableFields));
     }
 
-    return matches;
-  });
+      return matches;
+    });
+  }, [rows, searchQuery, customColumns, clusters]);
 
   const unassignedRouteCount = useMemo(() => rows.filter((row) => !row.clusterId).length, [rows]);
 
@@ -2521,38 +2540,54 @@ const DeliverySpreadsheet: React.FC = () => {
       {/* Map Container */}
       <Box
         sx={{
-          top: "72px",
           zIndex: 9,
           height: "400px",
           width: "100%",
           backgroundColor: "var(--color-background-main)",
+          position: "relative",
         }}
       >
-        {isMainLoading ? (
-          <LoadingIndicator />
-        ) : visibleRows.length > 0 ? (
-          <Suspense fallback={<LoadingIndicator />}>
-            <ClusterMap
-              clusters={clusters}
-              visibleRows={visibleRows}
-              totalDeliveries={rows.length}
-              clientOverrides={clientOverrides}
-              onClusterUpdate={handleIndividualClientUpdate}
-              onOpenPopup={handleRowClick}
-              onMarkerClick={handleMarkerClick}
-              onClearHighlight={clearRowHighlight}
-              refreshDriversTrigger={driversRefreshTrigger}
-            />
-          </Suspense>
-        ) : (
+        <Suspense fallback={<LoadingIndicator minHeight="400px" />}>
+          <ClusterMap
+            allRows={rows}
+            clusters={clusters}
+            visibleRows={visibleRows}
+            clientOverrides={clientOverrides}
+            onClusterUpdate={handleIndividualClientUpdate}
+            onOpenPopup={handleRowClick}
+            onMarkerClick={handleMarkerClick}
+            onClearHighlight={clearRowHighlight}
+            refreshDriversTrigger={driversRefreshTrigger}
+          />
+        </Suspense>
+
+        {isMainLoading && (
           <Box
             sx={{
+              position: "absolute",
+              inset: 0,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              zIndex: 1100,
+              backgroundColor: "rgba(255, 255, 255, 0.85)",
+              borderRadius: "4px",
+            }}
+          >
+            <LoadingIndicator minHeight="100%" text="Loading deliveries..." />
+          </Box>
+        )}
+
+        {!isMainLoading && rows.length === 0 && (
+          <Box
+            sx={{
+              position: "absolute",
+              inset: 0,
               display: "flex",
               justifyContent: "center",
               alignItems: "center",
-              height: "400px",
-              width: "100%",
-              backgroundColor: "var(--color-background-body)",
+              zIndex: 1100,
+              backgroundColor: "rgba(255, 255, 255, 0.92)",
               borderRadius: "4px",
               border: "1px solid var(--color-border-light)",
             }}
@@ -2571,7 +2606,6 @@ const DeliverySpreadsheet: React.FC = () => {
           zIndex: 8,
           backgroundColor: "var(--color-background-main)",
           padding: "16px 0",
-          top: "472px",
         }}
       >
         <Box sx={{ display: "flex", flexDirection: "column", gap: "8px" }}>
@@ -2580,7 +2614,7 @@ const DeliverySpreadsheet: React.FC = () => {
               type="text"
               value={searchQuery}
               onChange={handleSearchChange}
-              placeholder='Search deliveries (e.g., ward:7, driver:maria, name:"john smith")'
+              placeholder='Search deliveries (e.g., cluster:12, ward:7, driver:maria, name:"john smith")'
               style={{
                 width: "100%",
                 height: "60px",
