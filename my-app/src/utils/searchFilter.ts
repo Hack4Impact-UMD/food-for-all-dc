@@ -9,8 +9,37 @@ export const parseSearchTermsProgressively = (trimmedSearchQuery: string): strin
   let quoteChar = "";
   let currentTerm = "";
 
+  const multiWordFilterPrefixes = new Set([
+    "assigned",
+    "cluster",
+    "delivery",
+    "last",
+    "referral",
+    "route",
+    "tefap",
+    "zip",
+  ]);
+
+  const upcomingTokenContainsColon = (startIndex: number): boolean => {
+    let index = startIndex;
+
+    while (index < trimmedSearchQuery.length && trimmedSearchQuery[index] === " ") {
+      index += 1;
+    }
+
+    while (index < trimmedSearchQuery.length && trimmedSearchQuery[index] !== " ") {
+      if (trimmedSearchQuery[index] === ":") {
+        return true;
+      }
+      index += 1;
+    }
+
+    return false;
+  };
+
   for (let i = 0; i < trimmedSearchQuery.length; i++) {
     const char = trimmedSearchQuery[i];
+    const nextChar = i + 1 < trimmedSearchQuery.length ? trimmedSearchQuery[i + 1] : "";
 
     if (!inQuote && (char === '"' || char === "'")) {
       inQuote = true;
@@ -25,8 +54,19 @@ export const parseSearchTermsProgressively = (trimmedSearchQuery: string): strin
       const colonIndex = trimmedCurrentTerm.indexOf(":");
       const valueAfterColon =
         colonIndex === -1 ? "" : trimmedCurrentTerm.substring(colonIndex + 1).trim();
+      const nextTokenHasColon = upcomingTokenContainsColon(i + 1);
+      const endsWithComma = trimmedCurrentTerm.endsWith(",");
+      const endsWithQuote = trimmedCurrentTerm.endsWith('"') || trimmedCurrentTerm.endsWith("'");
+      const normalizedTerm = normalizeSearchKeyword(trimmedCurrentTerm);
 
-      if (colonIndex !== -1 && valueAfterColon === "") {
+      if (
+        colonIndex === -1 &&
+        !endsWithQuote &&
+        nextTokenHasColon &&
+        multiWordFilterPrefixes.has(normalizedTerm)
+      ) {
+        currentTerm += char;
+      } else if (colonIndex !== -1 && (valueAfterColon === "" || endsWithComma || nextChar === '"' || nextChar === "'")) {
         currentTerm += char;
       } else if (trimmedCurrentTerm) {
         searchTerms.push(trimmedCurrentTerm);
@@ -44,11 +84,69 @@ export const parseSearchTermsProgressively = (trimmedSearchQuery: string): strin
   return searchTerms.filter((term) => term.length > 0 && term !== '"' && term !== "'");
 };
 
+const normalizeSearchValue = (value: any): string => String(value).trim().toLowerCase();
+
 export const checkStringContains = (value: any, query: string): boolean => {
   if (value === undefined || value === null) {
     return false;
   }
-  return String(value).toLowerCase().includes(query.toLowerCase());
+  return normalizeSearchValue(value).includes(normalizeSearchValue(query));
+};
+
+export const checkStringEquals = (value: any, query: string): boolean => {
+  if (value === undefined || value === null) {
+    return false;
+  }
+  return normalizeSearchValue(value) === normalizeSearchValue(query);
+};
+
+const stripWrappingQuotes = (value: string): string => {
+  const trimmedValue = value.trim();
+
+  if (
+    (trimmedValue.startsWith('"') && trimmedValue.endsWith('"')) ||
+    (trimmedValue.startsWith("'") && trimmedValue.endsWith("'"))
+  ) {
+    return trimmedValue.slice(1, -1).trim();
+  }
+
+  return trimmedValue;
+};
+
+export const splitFilterValues = (searchValue: string): string[] => {
+  const values: string[] = [];
+  let currentValue = "";
+  let inQuote = false;
+  let quoteChar = "";
+
+  for (let i = 0; i < searchValue.length; i++) {
+    const char = searchValue[i];
+
+    if (!inQuote && (char === '"' || char === "'")) {
+      inQuote = true;
+      quoteChar = char;
+      currentValue += char;
+    } else if (inQuote && char === quoteChar) {
+      currentValue += char;
+      inQuote = false;
+      quoteChar = "";
+    } else if (!inQuote && char === ",") {
+      const normalizedValue = stripWrappingQuotes(currentValue);
+      if (normalizedValue) {
+        values.push(normalizedValue);
+      }
+      currentValue = "";
+    } else {
+      currentValue += char;
+    }
+  }
+
+  const normalizedValue = stripWrappingQuotes(currentValue);
+  if (normalizedValue) {
+    values.push(normalizedValue);
+  }
+
+  return values;
 };
 
 export const normalizeSearchKeyword = (value: string): string =>
@@ -71,11 +169,8 @@ export const extractKeyValue = (
   if (colonIndex !== -1) {
     let searchValue = term.substring(colonIndex + 1).trim();
 
-    if (
-      (searchValue.startsWith('"') && searchValue.endsWith('"')) ||
-      (searchValue.startsWith("'") && searchValue.endsWith("'"))
-    ) {
-      searchValue = searchValue.slice(1, -1);
+    if (!searchValue.includes(",")) {
+      searchValue = stripWrappingQuotes(searchValue);
     }
 
     return {

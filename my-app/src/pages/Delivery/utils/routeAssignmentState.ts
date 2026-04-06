@@ -54,6 +54,11 @@ interface ClientRouteUpdateParams {
   timeValue?: string;
 }
 
+interface BulkClientClusterMoveParams {
+  clientId: string;
+  oldClusterId?: string;
+}
+
 const normalizeRouteId = (routeId?: unknown): string | undefined => {
   if (typeof routeId === "number" && Number.isFinite(routeId)) {
     return String(routeId);
@@ -401,6 +406,51 @@ export const moveClientToCluster = <TCluster extends RouteAssignmentCluster>(
       normalizedOldClusterId || "",
       normalizedNewClusterId || "",
     ]),
+  };
+};
+
+export const moveClientsToCluster = <TCluster extends RouteAssignmentCluster>(
+  state: RouteAssignmentState<TCluster>,
+  clientMoves: BulkClientClusterMoveParams[],
+  newClusterId?: string
+): RouteAssignmentMutationResult<TCluster> => {
+  const normalizedNewClusterId = normalizeRouteId(newClusterId);
+  const movedClientIds = new Set<string>();
+  const touchedRouteIds = new Set<string>();
+
+  let nextState: RouteAssignmentState<TCluster> = {
+    clusters: [...state.clusters],
+    clientOverrides: sanitizeClientOverrides(state.clientOverrides),
+  };
+
+  clientMoves.forEach(({ clientId, oldClusterId }) => {
+    const normalizedClientId = normalizeAssignmentValue(clientId);
+
+    if (!normalizedClientId || movedClientIds.has(normalizedClientId)) {
+      return;
+    }
+
+    movedClientIds.add(normalizedClientId);
+
+    const result = moveClientToCluster(
+      nextState,
+      normalizedClientId,
+      oldClusterId,
+      normalizedNewClusterId
+    );
+
+    nextState = {
+      clusters: result.clusters,
+      clientOverrides: result.clientOverrides,
+    };
+
+    result.touchedRouteIds.forEach((routeId) => touchedRouteIds.add(routeId));
+  });
+
+  return {
+    clusters: nextState.clusters,
+    clientOverrides: nextState.clientOverrides,
+    touchedRouteIds: Array.from(touchedRouteIds).sort(compareRouteIds),
   };
 };
 

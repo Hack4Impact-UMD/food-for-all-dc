@@ -33,6 +33,8 @@ import {
   checkStringContains,
   extractKeyValue,
   globalSearchMatch,
+  normalizeSearchKeyword,
+  splitFilterValues,
 } from "../../utils/searchFilter";
 import { useNavigate } from "react-router-dom";
 import { auth } from "../../auth/firebaseConfig";
@@ -272,7 +274,7 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
       const visibleFieldKeys = new Set(fields.map((f) => f.key));
 
       const isVisibleField = (keyword: string): boolean => {
-        const lowerKeyword = keyword.toLowerCase();
+        const normalizedKeyword = normalizeSearchKeyword(keyword);
 
         const fieldMappings: { [key: string]: string[] } = {
           name: ["name"],
@@ -284,7 +286,7 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
         for (const [fieldKey, aliases] of Object.entries(fieldMappings)) {
           if (
             visibleFieldKeys.has(fieldKey as keyof AuthUserRow) &&
-            aliases.some((alias) => alias === lowerKeyword)
+            aliases.some((alias) => normalizeSearchKeyword(alias) === normalizedKeyword)
           ) {
             return true;
           }
@@ -295,21 +297,28 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
 
       matches = keyValueTerms.every((term) => {
         const { keyword, searchValue, isKeyValue: isKeyValueSearch } = extractKeyValue(term);
+        const normalizedKeyword = normalizeSearchKeyword(keyword);
 
         if (isKeyValueSearch && searchValue) {
           if (!isVisibleField(keyword)) {
             return true;
           }
 
-          switch (keyword) {
+          const searchValues = splitFilterValues(searchValue);
+          const matchesAnySearchValue = (matcher: (candidate: string) => boolean): boolean =>
+            searchValues.some((candidate: string) => matcher(candidate));
+
+          switch (normalizedKeyword) {
             case "name":
-              return checkStringContains(row.name, searchValue);
+              return matchesAnySearchValue((candidate) => checkStringContains(row.name, candidate));
             case "role":
-              return checkStringContains(getRoleDisplayName(row.role), searchValue);
+              return matchesAnySearchValue((candidate) =>
+                checkStringContains(getRoleDisplayName(row.role), candidate)
+              );
             case "phone":
-              return checkStringContains(row.phone, searchValue);
+              return matchesAnySearchValue((candidate) => checkStringContains(row.phone, candidate));
             case "email":
-              return checkStringContains(row.email, searchValue);
+              return matchesAnySearchValue((candidate) => checkStringContains(row.email, candidate));
             default:
               return false;
           }
@@ -404,7 +413,7 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
                 type="text"
                 value={searchQuery}
                 onChange={handleSearchChange}
-                placeholder="Search users (e.g., admin, name:jane, email:test@example.com)"
+                placeholder="Search users (e.g., role:admin,manager, name:jane,john, email:test@example.com)"
                 style={{
                   width: "100%",
                   height: "50px",

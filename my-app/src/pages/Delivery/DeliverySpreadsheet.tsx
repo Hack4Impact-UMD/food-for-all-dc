@@ -21,9 +21,11 @@ import { ClientProfile } from "../../types/client-types";
 import {
   parseSearchTermsProgressively,
   checkStringContains as utilCheckStringContains,
+  checkStringEquals as utilCheckStringEquals,
   extractKeyValue,
   globalSearchMatch,
   normalizeSearchKeyword,
+  splitFilterValues,
 } from "../../utils/searchFilter";
 import { query, Timestamp, updateDoc, where, orderBy, runTransaction } from "firebase/firestore";
 import { TimeUtils } from "../../utils/timeUtils";
@@ -102,6 +104,7 @@ import {
   assignTimeToRoutes,
   findRouteSlotConflict,
   moveClientToCluster,
+  moveClientsToCluster,
   RouteAssignmentMutationResult,
   RouteAssignmentState,
   RouteSlotConflict,
@@ -559,7 +562,7 @@ const DeliverySpreadsheet: React.FC = () => {
         )
       );
 
-      if (!normalizedClusterId || normalizedDeliveries.length === 0) {
+      if (!normalizedClusterId) {
         return;
       }
 
@@ -1130,14 +1133,56 @@ const DeliverySpreadsheet: React.FC = () => {
         ? getNextClusterId(clusters)
         : normalizeClusterIdValue(newClusterIdStr);
 
-    if (!row || !row.id || newClusterId === oldClusterId) {
+    if (!row || !row.id) {
+      return false;
+    }
+
+    const selectedClientRows = selectedRows.has(row.id)
+      ? rows.filter((candidateRow) => selectedRows.has(candidateRow.id))
+      : [row];
+
+    const rowsToMove = selectedClientRows.filter(
+      (candidateRow) => normalizeClusterIdValue(candidateRow.clusterId) !== newClusterId
+    );
+
+    if (!rowsToMove.length) {
       return false;
     }
 
     try {
-      return await commitRouteAssignmentMutation((currentState) =>
-        moveClientToCluster(currentState, row.id, oldClusterId, newClusterId)
+      const didSave = await commitRouteAssignmentMutation((currentState) =>
+        rowsToMove.length > 1
+          ? moveClientsToCluster(
+              currentState,
+              rowsToMove.map((candidateRow) => ({
+                clientId: candidateRow.id,
+                oldClusterId: normalizeClusterIdValue(candidateRow.clusterId),
+              })),
+              newClusterId
+            )
+          : moveClientToCluster(currentState, row.id, oldClusterId, newClusterId)
       );
+
+      if (didSave && selectedRows.has(row.id)) {
+        if (newClusterId) {
+          setSelectedRows(new Set(selectedClientRows.map((candidateRow) => candidateRow.id)));
+          setSelectedClusters(
+            new Set([
+              {
+                id: newClusterId,
+                deliveries: selectedClientRows.map((candidateRow) => candidateRow.id),
+                driver: "",
+                time: "",
+              } as Cluster,
+            ])
+          );
+        } else {
+          setSelectedRows(new Set());
+          setSelectedClusters(new Set());
+        }
+      }
+
+      return didSave;
     } catch (error) {
       handleAssignmentSaveError(error, "Unable to update the route assignment. Please try again.");
       return false;
@@ -1715,16 +1760,24 @@ const DeliverySpreadsheet: React.FC = () => {
 
     if (keyValueTerms.length > 0) {
       const checkStringContains = utilCheckStringContains;
+      const checkStringEquals = utilCheckStringEquals;
 
-      const checkValueOrInArray = (value: unknown, query: string): boolean => {
+      const checkValueOrInArray = (
+        value: unknown,
+        query: string,
+        exactMatch = false
+      ): boolean => {
         if (value === undefined || value === null) {
           return false;
         }
-        const lowerQuery = query.toLowerCase();
+
         if (Array.isArray(value)) {
-          return value.some((item) => String(item).toLowerCase().includes(lowerQuery));
+          return value.some((item) =>
+            exactMatch ? checkStringEquals(item, query) : checkStringContains(item, query)
+          );
         }
-        return String(value).toLowerCase().includes(lowerQuery);
+
+        return exactMatch ? checkStringEquals(value, query) : checkStringContains(value, query);
       };
 
       const visibleFieldKeys = new Set([
@@ -1795,39 +1848,45 @@ const DeliverySpreadsheet: React.FC = () => {
           if (!isVisibleField(keyword)) {
             return true;
           }
+
+          const searchValues = splitFilterValues(searchValue);
+          const matchesAnySearchValue = (matcher: (candidate: string) => boolean): boolean =>
+            searchValues.some((candidate: string) => matcher(candidate));
+
           switch (normalizedKeyword) {
             case "name":
             case "client":
-              return (
-                checkStringContains(`${row.firstName} ${row.lastName}`, searchValue) ||
-                checkStringContains(row.firstName, searchValue) ||
-                checkStringContains(row.lastName, searchValue)
+              return matchesAnySearchValue(
+                (candidate) =>
+                  checkStringContains(`${row.firstName} ${row.lastName}`, candidate) ||
+                  checkStringContains(row.firstName, candidate) ||
+                  checkStringContains(row.lastName, candidate)
               );
             case "address":
-              return checkStringContains(row.address, searchValue);
+              return matchesAnySearchValue((candidate) => checkStringContains(row.address, candidate));
             case "ward":
-              return checkStringContains(row.ward, searchValue);
+              return matchesAnySearchValue((candidate) => checkStringEquals(row.ward, candidate));
             case "zip":
             case "zipcode":
-              return checkStringContains(row.zipCode, searchValue);
+              return matchesAnySearchValue((candidate) => checkStringEquals(row.zipCode, candidate));
             case "cluster":
             case "clusterid":
             case "route":
             case "routeid":
-              return checkStringContains(row.clusterId, searchValue);
+              return matchesAnySearchValue((candidate) => checkStringEquals(row.clusterId, candidate));
             case "driver":
             case "assigneddriver": {
               const driverName = fields
                 .find((f) => f.key === "assignedDriver")
                 ?.compute?.(row, clusters);
-              return checkStringContains(driverName, searchValue);
+              return matchesAnySearchValue((candidate) => checkStringContains(driverName, candidate));
             }
             case "time":
             case "assignedtime": {
               const assignedTime = fields
                 .find((f) => f.key === "assignedTime")
                 ?.compute?.(row, clusters);
-              return checkStringContains(assignedTime, searchValue);
+              return matchesAnySearchValue((candidate) => checkStringContains(assignedTime, candidate));
             }
             case "deliveryinstructions":
             case "instructions": {
@@ -1837,39 +1896,44 @@ const DeliverySpreadsheet: React.FC = () => {
                   { key: "deliveryDetails.deliveryInstructions" }
                 >
               ).compute?.(row);
-              return checkStringContains(instructions, searchValue);
+              return matchesAnySearchValue((candidate) => checkStringContains(instructions, candidate));
             }
             case "tags":
             case "tag":
-              return checkValueOrInArray(row.tags, searchValue);
+              return matchesAnySearchValue((candidate) => checkValueOrInArray(row.tags, candidate));
             case "phone":
-              return checkStringContains(row.phone, searchValue);
+              return matchesAnySearchValue((candidate) => checkStringContains(row.phone, candidate));
             case "ethnicity":
-              return checkStringContains(row.ethnicity, searchValue);
+              return matchesAnySearchValue((candidate) => checkStringContains(row.ethnicity, candidate));
             case "adults":
-              return checkValueOrInArray(row.adults, searchValue);
+              return matchesAnySearchValue((candidate) =>
+                checkValueOrInArray(row.adults, candidate, true)
+              );
             case "children":
-              return checkValueOrInArray(row.children, searchValue);
+              return matchesAnySearchValue((candidate) =>
+                checkValueOrInArray(row.children, candidate, true)
+              );
             case "deliveryfreq":
             case "deliveryfrequency":
-              return checkStringContains(row.deliveryFreq, searchValue);
+              return matchesAnySearchValue((candidate) => checkStringContains(row.deliveryFreq, candidate));
             case "gender":
-              return checkStringContains(row.gender, searchValue);
+              return matchesAnySearchValue((candidate) => checkStringContains(row.gender, candidate));
             case "language":
-              return checkStringContains(row.language, searchValue);
+              return matchesAnySearchValue((candidate) => checkStringContains(row.language, candidate));
             case "notes":
-              return checkStringContains(row.notes, searchValue);
+              return matchesAnySearchValue((candidate) => checkStringContains(row.notes, candidate));
             case "tefap":
             case "tefapcert":
-              return checkStringContains(row.tefapCert, searchValue);
+              return matchesAnySearchValue((candidate) => checkStringContains(row.tefapCert, candidate));
             case "dob":
-              return checkValueOrInArray(row.dob, searchValue);
+              return matchesAnySearchValue((candidate) => checkValueOrInArray(row.dob, candidate, true));
             case "referralentity":
             case "referral": {
               if (row.referralEntity && typeof row.referralEntity === "object") {
-                return (
-                  checkStringContains(row.referralEntity.name, searchValue) ||
-                  checkStringContains(row.referralEntity.organization, searchValue)
+                return matchesAnySearchValue(
+                  (candidate) =>
+                    checkStringContains(row.referralEntity.name, candidate) ||
+                    checkStringContains(row.referralEntity.organization, candidate)
                 );
               }
               return false;
@@ -1882,7 +1946,9 @@ const DeliverySpreadsheet: React.FC = () => {
                 ) {
                   if (col.propertyKey in row) {
                     const fieldValue = row[col.propertyKey as keyof DeliveryRowData];
-                    return checkStringContains(fieldValue, searchValue);
+                    return matchesAnySearchValue((candidate) =>
+                      checkStringContains(fieldValue, candidate)
+                    );
                   }
                 }
                 return false;
@@ -2614,7 +2680,7 @@ const DeliverySpreadsheet: React.FC = () => {
               type="text"
               value={searchQuery}
               onChange={handleSearchChange}
-              placeholder='Search deliveries (e.g., cluster:12, ward:7, driver:maria, name:"john smith")'
+              placeholder='Search deliveries (e.g., cluster:1,2, ward:7, driver:maria, name:"john smith")'
               style={{
                 width: "100%",
                 height: "60px",

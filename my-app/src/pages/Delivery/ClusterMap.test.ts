@@ -23,4 +23,19 @@ describe("ClusterMap popup regression guards", () => {
     expect(source).toMatch(/\.on\("click",\s*\(\)\s*=>\s*\{[\s\S]*?marker\.openPopup\(\)/m);
     expect(source).toMatch(/openMapPopup\s*=\s*\(clientId:\s*string\)\s*=>\s*\{[\s\S]*?marker\.openPopup\(\)/m);
   });
+
+  it("lets the cluster summary overlay toggle sorting by number of deliveries", () => {
+    const sourcePath = path.resolve(__dirname, "ClusterMap.tsx");
+    const source = fs.readFileSync(sourcePath, "utf8");
+
+    expect(source).toContain("clusterSummarySortMode");
+    expect(source).toContain("sortClusterSummaries(");
+    expect(source).toContain("ArrowDownwardIcon");
+    expect(source).toContain("ArrowUpwardIcon");
+    expect(source).toContain("FormatListNumberedIcon");
+    expect(source).toContain("handleClusterSummarySortToggle");
+    expect(source).toContain("Sorting by delivery count (highest first)");
+    expect(source).toContain("Sorting by delivery count (lowest first)");
+    expect(source).toMatch(/<Typography[^>]*>[\s\S]*Sort[\s\S]*<\/Typography>/);
+  });
 });

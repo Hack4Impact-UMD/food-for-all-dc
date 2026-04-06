@@ -25,4 +25,15 @@ describe("DeliverySpreadsheet search alias regression guards", () => {
       /customColumnMappings[\s\S]*aliases\.some\(\(alias\) => normalizeSearchKeyword\(alias\) === normalizedKeyword\)/
     );
   });
+
+  it("bulk reassigns all checked rows when changing the route dropdown for a selected cluster", () => {
+    expect(source).toContain("selectedRows.has(row.id)");
+    expect(source).toContain("moveClientsToCluster(");
+  });
+
+  it("preserves empty source clusters after moving all deliveries to a new route", () => {
+    expect(source).not.toContain("if (!normalizedClusterId || normalizedDeliveries.length === 0)");
+    expect(source).toContain("if (!normalizedClusterId) {");
+    expect(source).toContain("deliveries: normalizedDeliveries");
+  });
 });

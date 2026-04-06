@@ -3,7 +3,10 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "leaflet.awesome-markers";
 import "leaflet.awesome-markers/dist/leaflet.awesome-markers.css";
-import { Box, Button, FormControlLabel, Switch, Typography } from "@mui/material";
+import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
+import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
+import FormatListNumberedIcon from "@mui/icons-material/FormatListNumbered";
+import { Box, FormControlLabel, IconButton, Switch, Tooltip, Typography } from "@mui/material";
 import DriverService from "../../services/driver-service";
 import FFAIcon from "../../assets/tsp-food-for-all-dc-logo.png";
 import dataSources from "../../config/dataSources";
@@ -11,6 +14,8 @@ import { normalizeAssignmentValue, resolveAssignmentValue } from "./utils/assign
 import {
   buildAssignmentSummary,
   buildClusterSummariesFromClusters,
+  sortClusterSummaries,
+  type ClusterSummarySortMode,
 } from "./utils/clusterSummary";
 import { TIME_SLOT_LABELS } from "./utils/timeSlots";
 import { getClientStatusPresentation } from "../../utils/clientStatus";
@@ -325,6 +330,18 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
     const saved = localStorage.getItem("clusterSummaryEnabled");
     return saved ? JSON.parse(saved) : true; // Default to true
   });
+  const [clusterSummarySortMode, setClusterSummarySortMode] = useState<ClusterSummarySortMode>(
+    () => {
+      const saved = localStorage.getItem("clusterSummarySortMode");
+      if (saved === "count-asc") {
+        return "count-asc";
+      }
+      if (saved === "count-desc" || saved === "count") {
+        return "count-desc";
+      }
+      return "cluster";
+    }
+  );
 
   const [wardData, setWardData] = useState<any>(null);
   const [wardDataLoading, setWardDataLoading] = useState<boolean>(false);
@@ -363,18 +380,33 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
 
   // Calculate deliveries + assignment details per cluster for the map summary overlay.
   const clusterSummaries = React.useMemo(() => {
-    return buildClusterSummariesFromClusters(
+    const summaries = buildClusterSummariesFromClusters(
       clusters,
       clientOverrideByClientId,
       formatTimeForSummary
     );
-  }, [clusters, clientOverrideByClientId]);
+
+    return sortClusterSummaries(summaries, clusterSummarySortMode);
+  }, [clusters, clientOverrideByClientId, clusterSummarySortMode]);
 
   // Toggle cluster summary visibility
   const handleClusterSummaryToggle = (event: React.ChangeEvent<HTMLInputElement>) => {
     const { checked } = event.target;
     setShowClusterSummary(checked);
     localStorage.setItem("clusterSummaryEnabled", JSON.stringify(checked));
+  };
+
+  const handleClusterSummarySortToggle = () => {
+    setClusterSummarySortMode((previousMode) => {
+      const nextMode =
+        previousMode === "cluster"
+          ? "count-desc"
+          : previousMode === "count-desc"
+            ? "count-asc"
+            : "cluster";
+      localStorage.setItem("clusterSummarySortMode", nextMode);
+      return nextMode;
+    });
   };
 
   const getClusterColor = useCallback((clusterIdToCheck: string): string => {
@@ -1454,16 +1486,60 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
             sx={{
               display: "flex",
               flexDirection: "column",
-              alignItems: "flex-start",
+              alignItems: "stretch",
               mb: 1,
               pb: 1,
               borderBottom: "1px solid",
               borderColor: "divider",
+              gap: 0.25,
             }}
           >
-            <Typography variant="caption" sx={{ fontSize: "11px", color: "text.secondary" }}>
-              Assigned: {assignmentSummary.assigned}/{assignmentSummary.total}
-            </Typography>
+            <Box
+              sx={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: 0.5,
+              }}
+            >
+              <Typography variant="caption" sx={{ fontSize: "11px", color: "text.secondary" }}>
+                Assigned: {assignmentSummary.assigned}/{assignmentSummary.total}
+              </Typography>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                <Typography variant="caption" sx={{ fontSize: "10px", color: "text.secondary" }}>
+                  Sort
+                </Typography>
+                <Tooltip
+                  title={
+                    clusterSummarySortMode === "count-desc"
+                      ? "Sorting by delivery count (highest first)"
+                      : clusterSummarySortMode === "count-asc"
+                        ? "Sorting by delivery count (lowest first)"
+                        : "Sorting by route order"
+                  }
+                >
+                  <IconButton
+                    size="small"
+                    onClick={handleClusterSummarySortToggle}
+                    sx={{
+                      p: 0.25,
+                      color: "text.secondary",
+                      border: "1px solid",
+                      borderColor: "divider",
+                      borderRadius: "6px",
+                    }}
+                  >
+                    {clusterSummarySortMode === "count-desc" ? (
+                      <ArrowDownwardIcon sx={{ fontSize: "14px" }} />
+                    ) : clusterSummarySortMode === "count-asc" ? (
+                      <ArrowUpwardIcon sx={{ fontSize: "14px" }} />
+                    ) : (
+                      <FormatListNumberedIcon sx={{ fontSize: "14px" }} />
+                    )}
+                  </IconButton>
+                </Tooltip>
+              </Box>
+            </Box>
             <Typography
               variant="caption"
               sx={{

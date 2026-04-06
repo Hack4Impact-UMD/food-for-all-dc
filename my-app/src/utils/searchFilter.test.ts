@@ -1,5 +1,10 @@
 import { describe, expect, it } from "@jest/globals";
-import { extractKeyValue, parseSearchTermsProgressively } from "./searchFilter";
+import {
+  checkStringEquals,
+  extractKeyValue,
+  parseSearchTermsProgressively,
+  splitFilterValues,
+} from "./searchFilter";
 
 describe("searchFilter parsing", () => {
   // App coverage:
@@ -42,6 +47,37 @@ describe("searchFilter parsing", () => {
 
     expect(compactTerms).toEqual(["cluster:12", "driver:maria"]);
     expect(spacedTerms).toEqual(["cluster: 12", "driver:maria"]);
+  });
+
+  // App coverage:
+  // - Routes page key:value parsing for comma-separated values in a single column filter
+  // - supports input like `cluster: 1, 2 ward:7` without splitting `2` into a stray term
+  // Behavior contract: comma-separated values remain attached to the same key:value filter term.
+  it("preserves multi-value key:value filters as a single search term", () => {
+    const terms = parseSearchTermsProgressively("cluster: 1, 2 ward:7");
+
+    expect(terms).toEqual(["cluster: 1, 2", "ward:7"]);
+  });
+
+  // App coverage:
+  // - multi-value Routes page filtering across columns like cluster, ward, driver, and tags
+  // - each comma-separated entry should be treated as an OR value for the same key
+  // Behavior contract: splitFilterValues trims entries and preserves quoted comma text as one value.
+  it("splits comma-separated filter values while preserving quoted entries", () => {
+    const values = splitFilterValues('1, 2, "north east"');
+
+    expect(values).toEqual(["1", "2", "north east"]);
+  });
+
+  // App coverage:
+  // - exact-match route filters like cluster, ward, and zip should not over-match partial numeric strings
+  // - prevents `cluster:1,2` from including route ids like `10`, `11`, or `12`
+  // Behavior contract: exact comparison is case-insensitive but does not allow substring matches.
+  it("matches exact discrete filter values without partial numeric matches", () => {
+    expect(checkStringEquals("1", "1")).toBe(true);
+    expect(checkStringEquals(" 2 ", "2")).toBe(true);
+    expect(checkStringEquals("10", "1")).toBe(false);
+    expect(checkStringEquals("12", "2")).toBe(false);
   });
 
   // App coverage:
