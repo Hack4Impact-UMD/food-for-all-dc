@@ -1515,7 +1515,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
                       ? "Sorting by delivery count (highest first)"
                       : clusterSummarySortMode === "count-asc"
                         ? "Sorting by delivery count (lowest first)"
-                        : "Sorting by route order"
+                        : "Sorting by cluster number"
                   }
                 >
                   <IconButton

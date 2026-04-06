@@ -36,6 +36,7 @@ describe("ClusterMap popup regression guards", () => {
     expect(source).toContain("handleClusterSummarySortToggle");
     expect(source).toContain("Sorting by delivery count (highest first)");
     expect(source).toContain("Sorting by delivery count (lowest first)");
+    expect(source).toContain("Sorting by cluster number");
     expect(source).toMatch(/<Typography[^>]*>[\s\S]*Sort[\s\S]*<\/Typography>/);
   });
 });

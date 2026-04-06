@@ -46,7 +46,9 @@ export const sortClusterSummaries = (
   sortDirection?: ClusterSummarySortDirection
 ): ClusterSummary[] => {
   const isCountSort = sortMode === "count-desc" || sortMode === "count-asc";
-  const resolvedSortDirection = sortDirection ?? (sortMode === "count-asc" ? "asc" : "desc");
+  const resolvedSortDirection =
+    sortDirection ??
+    (sortMode === "count-asc" ? "asc" : sortMode === "count-desc" ? "desc" : "asc");
   const directionMultiplier = resolvedSortDirection === "asc" ? 1 : -1;
 
   return [...summaries].sort((left, right) => {
