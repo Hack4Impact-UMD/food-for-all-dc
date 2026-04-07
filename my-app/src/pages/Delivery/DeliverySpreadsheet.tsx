@@ -2694,6 +2694,11 @@ const DeliverySpreadsheet: React.FC = () => {
               }}
             />
           </Box>
+          {hasActiveRouteFilter && (
+            <Typography variant="body2" sx={{ color: "text.secondary", px: 1 }}>
+              Showing {sortedRows.length} filtered {sortedRows.length === 1 ? "delivery" : "deliveries"} of {rows.length}
+            </Typography>
+          )}
           <Box sx={{ display: "flex", justifyContent: "space-between", marginTop: "16px" }}>
             {/* Left group: Assign Driver and Assign Time */}
             <Box sx={{ display: "flex", width: "100%", gap: "8px", flexWrap: "wrap" }}>

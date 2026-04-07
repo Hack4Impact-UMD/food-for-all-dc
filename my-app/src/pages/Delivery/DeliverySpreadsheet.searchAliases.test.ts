@@ -36,4 +36,10 @@ describe("DeliverySpreadsheet search alias regression guards", () => {
     expect(source).toContain("if (!normalizedClusterId) {");
     expect(source).toContain("deliveries: normalizedDeliveries");
   });
+
+  it("shows a filtered total count when a route search is active", () => {
+    expect(source).toContain("hasActiveRouteFilter && (");
+    expect(source).toContain('Showing {sortedRows.length} filtered ');
+    expect(source).toContain('of {rows.length}');
+  });
 });

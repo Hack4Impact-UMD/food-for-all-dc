@@ -20,6 +20,20 @@ export const parseSearchTermsProgressively = (trimmedSearchQuery: string): strin
     "zip",
   ]);
 
+  const pushCurrentTerm = (stripTrailingComma = false): void => {
+    let normalizedTerm = currentTerm.trim();
+
+    if (stripTrailingComma) {
+      normalizedTerm = normalizedTerm.replace(/,\s*$/, "");
+    }
+
+    if (normalizedTerm) {
+      searchTerms.push(normalizedTerm);
+    }
+
+    currentTerm = "";
+  };
+
   const upcomingTokenContainsColon = (startIndex: number): boolean => {
     let index = startIndex;
 
@@ -27,7 +41,11 @@ export const parseSearchTermsProgressively = (trimmedSearchQuery: string): strin
       index += 1;
     }
 
-    while (index < trimmedSearchQuery.length && trimmedSearchQuery[index] !== " ") {
+    while (
+      index < trimmedSearchQuery.length &&
+      trimmedSearchQuery[index] !== " " &&
+      trimmedSearchQuery[index] !== ","
+    ) {
       if (trimmedSearchQuery[index] === ":") {
         return true;
       }
@@ -49,6 +67,18 @@ export const parseSearchTermsProgressively = (trimmedSearchQuery: string): strin
       currentTerm += char;
       inQuote = false;
       quoteChar = "";
+    } else if (!inQuote && char === ",") {
+      const trimmedCurrentTerm = currentTerm.trim();
+      const colonIndex = trimmedCurrentTerm.indexOf(":");
+      const valueAfterColon =
+        colonIndex === -1 ? "" : trimmedCurrentTerm.substring(colonIndex + 1).trim();
+      const nextTokenHasColon = upcomingTokenContainsColon(i + 1);
+
+      if (colonIndex !== -1 && valueAfterColon !== "" && nextTokenHasColon) {
+        pushCurrentTerm(false);
+      } else {
+        currentTerm += char;
+      }
     } else if (!inQuote && char === " ") {
       const trimmedCurrentTerm = currentTerm.trim();
       const colonIndex = trimmedCurrentTerm.indexOf(":");
@@ -66,11 +96,13 @@ export const parseSearchTermsProgressively = (trimmedSearchQuery: string): strin
         multiWordFilterPrefixes.has(normalizedTerm)
       ) {
         currentTerm += char;
-      } else if (colonIndex !== -1 && (valueAfterColon === "" || endsWithComma || nextChar === '"' || nextChar === "'")) {
+      } else if (
+        colonIndex !== -1 &&
+        (valueAfterColon === "" || (endsWithComma && !nextTokenHasColon) || nextChar === '"' || nextChar === "'")
+      ) {
         currentTerm += char;
       } else if (trimmedCurrentTerm) {
-        searchTerms.push(trimmedCurrentTerm);
-        currentTerm = "";
+        pushCurrentTerm(endsWithComma && nextTokenHasColon);
       }
     } else {
       currentTerm += char;
@@ -97,7 +129,22 @@ export const checkStringEquals = (value: any, query: string): boolean => {
   if (value === undefined || value === null) {
     return false;
   }
-  return normalizeSearchValue(value) === normalizeSearchValue(query);
+
+  const normalizedValue = normalizeSearchValue(value);
+  const normalizedQuery = normalizeSearchValue(query);
+
+  if (normalizedValue === normalizedQuery) {
+    return true;
+  }
+
+  const valueNumberTokens: string[] = normalizedValue.match(/\d+/g) ?? [];
+  const queryNumberTokens: string[] = normalizedQuery.match(/\d+/g) ?? [];
+
+  if (queryNumberTokens.length === 1 && valueNumberTokens.length > 0) {
+    return valueNumberTokens.includes(queryNumberTokens[0]);
+  }
+
+  return false;
 };
 
 const stripWrappingQuotes = (value: string): string => {

@@ -60,6 +60,18 @@ describe("searchFilter parsing", () => {
   });
 
   // App coverage:
+  // - Routes page filtering should allow AND across columns while still allowing OR within one column
+  // - supports user input like `cluster: 1, 2, ward: 2` in a single search box
+  // Behavior contract: the parser must split the cluster filter from the ward filter even when a comma is used between them.
+  it("preserves multiple column filters when a multi-value filter is followed by another key:value term", () => {
+    const spacedTerms = parseSearchTermsProgressively("cluster: 1, 2, ward: 2");
+    const compactTerms = parseSearchTermsProgressively("cluster:1,2,ward:2");
+
+    expect(spacedTerms).toEqual(["cluster: 1, 2", "ward: 2"]);
+    expect(compactTerms).toEqual(["cluster:1,2", "ward:2"]);
+  });
+
+  // App coverage:
   // - multi-value Routes page filtering across columns like cluster, ward, driver, and tags
   // - each comma-separated entry should be treated as an OR value for the same key
   // Behavior contract: splitFilterValues trims entries and preserves quoted comma text as one value.
@@ -76,8 +88,10 @@ describe("searchFilter parsing", () => {
   it("matches exact discrete filter values without partial numeric matches", () => {
     expect(checkStringEquals("1", "1")).toBe(true);
     expect(checkStringEquals(" 2 ", "2")).toBe(true);
+    expect(checkStringEquals("Ward 2", "2")).toBe(true);
     expect(checkStringEquals("10", "1")).toBe(false);
     expect(checkStringEquals("12", "2")).toBe(false);
+    expect(checkStringEquals("Ward 12", "2")).toBe(false);
   });
 
   // App coverage:
