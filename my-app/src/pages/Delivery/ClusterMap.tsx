@@ -397,8 +397,51 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
     () => clusterSummaries.filter((summary) => summary.count > 0).length,
     [clusterSummaries]
   );
-  const canRenumberClusters =
-    Boolean(onRenumberClusters) && !isReorderingClusters && (usedClusterCount > 1 || usedClusterCount < clusterSummaries.length);
+  const hasUnassignedClusterSlots = React.useMemo(() => {
+    const normalizedClusters = clusters
+      .map((cluster) => {
+        const clusterId = String(cluster.id ?? "").trim();
+        const deliveryCount = Array.from(
+          new Set(
+            (cluster.deliveries ?? [])
+              .map((deliveryId) => normalizeAssignmentValue(deliveryId))
+              .filter((deliveryId): deliveryId is string => Boolean(deliveryId))
+          )
+        ).length;
+
+        return { clusterId, deliveryCount };
+      })
+      .filter((cluster) => Boolean(cluster.clusterId));
+
+    if (!normalizedClusters.length) {
+      return false;
+    }
+
+    if (normalizedClusters.some((cluster) => cluster.deliveryCount === 0)) {
+      return true;
+    }
+
+    const usedClusterNumbers = normalizedClusters
+      .filter((cluster) => cluster.deliveryCount > 0)
+      .map((cluster) => {
+        const match = cluster.clusterId.match(/\d+/);
+        return match ? Number(match[0]) : Number.NaN;
+      });
+
+    if (
+      !usedClusterNumbers.length ||
+      usedClusterNumbers.some((clusterNumber) => !Number.isFinite(clusterNumber))
+    ) {
+      return false;
+    }
+
+    const sortedUsedClusterNumbers = [...usedClusterNumbers].sort((left, right) => left - right);
+
+    return sortedUsedClusterNumbers.some(
+      (clusterNumber, index) => clusterNumber !== index + 1
+    );
+  }, [clusters]);
+  const canRenumberClusters = Boolean(onRenumberClusters) && !isReorderingClusters;
 
   // Toggle cluster summary visibility
   const handleClusterSummaryToggle = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -1583,7 +1626,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
               >
                 {assignmentSummary.done ? "Done" : `${assignmentSummary.remaining} remaining`}
               </Typography>
-              {assignmentSummary.done && canRenumberClusters && (
+              {assignmentSummary.done && hasUnassignedClusterSlots && canRenumberClusters && (
                 <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
                   <Typography variant="caption" sx={{ fontSize: "10px", color: "text.secondary" }}>
                     Renumber

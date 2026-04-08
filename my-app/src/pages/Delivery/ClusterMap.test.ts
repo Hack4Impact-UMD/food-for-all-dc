@@ -36,7 +36,10 @@ describe("ClusterMap popup regression guards", () => {
     expect(source).toContain("handleClusterSummarySortToggle");
     expect(source).toContain("handleClusterReorder");
     expect(source).toContain("usedClusterCount");
-    expect(source).toContain("assignmentSummary.done && canRenumberClusters");
+    expect(source).toContain("hasUnassignedClusterSlots");
+    expect(source).toContain(
+      "assignmentSummary.done && hasUnassignedClusterSlots && canRenumberClusters"
+    );
     expect(source).toContain("Renumber");
     expect(source).toContain("Sorting by delivery count (highest first)");
     expect(source).toContain("Sorting by delivery count (lowest first)");
