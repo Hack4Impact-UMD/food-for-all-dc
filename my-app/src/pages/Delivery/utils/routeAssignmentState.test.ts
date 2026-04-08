@@ -5,6 +5,7 @@ import {
   findRouteSlotConflict,
   moveClientToCluster,
   moveClientsToCluster,
+  renumberRoutesSequentially,
   updateClientRouteAssignment,
   type RouteAssignmentState,
 } from "./routeAssignmentState";
@@ -139,6 +140,27 @@ describe("routeAssignmentState helpers", () => {
     ]);
     expect(result.clientOverrides).toEqual([{ clientId: "c3", driver: "Bob", time: "10:00" }]);
     expect(result.touchedRouteIds).toEqual(["1", "3"]);
+  });
+
+  // App coverage:
+  // - cluster deliveries overlay action for reordering route ids after assignment is complete
+  // - keeps route contents and overrides intact while renumbering route ids back to a clean 1..X sequence
+  // Behavior contract: out-of-order route ids are compacted to ascending sequential ids and unused empty routes are removed.
+  it("renumbers out-of-order clusters back to a sequential 1..X order and removes unused clusters", () => {
+    const state: RouteAssignmentState = {
+      clusters: [
+        { id: "2", driver: "Alice", time: "09:00", deliveries: ["c1"] },
+        { id: "4", driver: "Bob", time: "10:00", deliveries: ["c2"] },
+        { id: "7", driver: "Dana", time: "11:00", deliveries: [] },
+      ],
+      clientOverrides: [{ clientId: "c1", driver: "Alice", time: "09:00" }],
+    };
+
+    const result = renumberRoutesSequentially(state);
+
+    expect(result.clusters.map((cluster) => cluster.id)).toEqual(["1", "2"]);
+    expect(result.clusters.map((cluster) => cluster.deliveries)).toEqual([["c1"], ["c2"]]);
+    expect(result.clientOverrides).toEqual([{ clientId: "c1", driver: "Alice", time: "09:00" }]);
   });
 
   // App coverage:

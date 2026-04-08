@@ -31,6 +31,14 @@ describe("DeliverySpreadsheet search alias regression guards", () => {
     expect(source).toContain("moveClientsToCluster(");
   });
 
+  it("lets the map popup use the same selected-row bulk reassignment behavior", () => {
+    expect(source).toContain("const selectedClientRows = selectedRows.has(clientId)");
+    expect(source).toContain("rows.filter((candidateRow) => selectedRows.has(candidateRow.id))");
+    expect(source).toContain(
+      "rows.filter((candidateRow) => normalizeClusterIdValue(candidateRow.clusterId) === oldClusterId)"
+    );
+  });
+
   it("preserves empty source clusters after moving all deliveries to a new route", () => {
     expect(source).not.toContain("if (!normalizedClusterId || normalizedDeliveries.length === 0)");
     expect(source).toContain("if (!normalizedClusterId) {");

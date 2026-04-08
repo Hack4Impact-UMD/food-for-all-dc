@@ -454,6 +454,35 @@ export const moveClientsToCluster = <TCluster extends RouteAssignmentCluster>(
   };
 };
 
+export const renumberRoutesSequentially = <TCluster extends RouteAssignmentCluster>(
+  state: RouteAssignmentState<TCluster>
+): RouteAssignmentMutationResult<TCluster> => {
+  const usedClusters = state.clusters.filter((cluster) => {
+    const normalizedDeliveries = (cluster.deliveries ?? [])
+      .map((deliveryId) => normalizeAssignmentValue(deliveryId))
+      .filter((deliveryId): deliveryId is string => Boolean(deliveryId));
+
+    return normalizedDeliveries.length > 0;
+  });
+
+  const sortedUsedClusters = [...usedClusters].sort((left, right) =>
+    compareRouteIds(normalizeRouteId(left.id) || "", normalizeRouteId(right.id) || "")
+  );
+
+  return {
+    clusters: sortedUsedClusters.map((cluster, index) => {
+      const nextRouteId = String(index + 1);
+
+      return {
+        ...cluster,
+        id: typeof cluster.id === "number" ? Number(nextRouteId) : nextRouteId,
+      } as TCluster;
+    }),
+    clientOverrides: sanitizeClientOverrides(state.clientOverrides),
+    touchedRouteIds: Array.from({ length: sortedUsedClusters.length }, (_, index) => String(index + 1)),
+  };
+};
+
 export const updateClientRouteAssignment = <TCluster extends RouteAssignmentCluster>(
   state: RouteAssignmentState<TCluster>,
   params: ClientRouteUpdateParams

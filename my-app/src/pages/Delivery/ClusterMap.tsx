@@ -6,6 +6,7 @@ import "leaflet.awesome-markers/dist/leaflet.awesome-markers.css";
 import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
 import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
 import FormatListNumberedIcon from "@mui/icons-material/FormatListNumbered";
+import RestartAltIcon from "@mui/icons-material/RestartAlt";
 import { Box, FormControlLabel, IconButton, Switch, Tooltip, Typography } from "@mui/material";
 import DriverService from "../../services/driver-service";
 import FFAIcon from "../../assets/tsp-food-for-all-dc-logo.png";
@@ -79,6 +80,7 @@ interface ClusterMapProps {
     newDriver?: string,
     newTime?: string
   ) => Promise<boolean>;
+  onRenumberClusters?: () => Promise<boolean>;
   onOpenPopup?: (clientId: string) => void; // Prop to handle table row clicks
   onMarkerClick?: (clientId: string) => void; // Prop to handle marker clicks
   onClearHighlight?: () => void; // Prop to clear row highlighting
@@ -203,6 +205,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
   clusters,
   clientOverrides = [],
   onClusterUpdate,
+  onRenumberClusters,
   onOpenPopup,
   onMarkerClick,
   onClearHighlight,
@@ -342,6 +345,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
       return "cluster";
     }
   );
+  const [isReorderingClusters, setIsReorderingClusters] = useState<boolean>(false);
 
   const [wardData, setWardData] = useState<any>(null);
   const [wardDataLoading, setWardDataLoading] = useState<boolean>(false);
@@ -389,6 +393,13 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
     return sortClusterSummaries(summaries, clusterSummarySortMode);
   }, [clusters, clientOverrideByClientId, clusterSummarySortMode]);
 
+  const usedClusterCount = React.useMemo(
+    () => clusterSummaries.filter((summary) => summary.count > 0).length,
+    [clusterSummaries]
+  );
+  const canRenumberClusters =
+    Boolean(onRenumberClusters) && !isReorderingClusters && (usedClusterCount > 1 || usedClusterCount < clusterSummaries.length);
+
   // Toggle cluster summary visibility
   const handleClusterSummaryToggle = (event: React.ChangeEvent<HTMLInputElement>) => {
     const { checked } = event.target;
@@ -407,6 +418,19 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
       localStorage.setItem("clusterSummarySortMode", nextMode);
       return nextMode;
     });
+  };
+
+  const handleClusterReorder = async () => {
+    if (!canRenumberClusters || !onRenumberClusters) {
+      return;
+    }
+
+    try {
+      setIsReorderingClusters(true);
+      await onRenumberClusters();
+    } finally {
+      setIsReorderingClusters(false);
+    }
   };
 
   const getClusterColor = useCallback((clusterIdToCheck: string): string => {
@@ -1540,17 +1564,51 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
                 </Tooltip>
               </Box>
             </Box>
-            <Typography
-              variant="caption"
+            <Box
               sx={{
-                fontSize: "11px",
-                fontWeight: "bold",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: 0.5,
                 mt: 0.25,
-                color: assignmentSummary.done ? "success.main" : "warning.main",
               }}
             >
-              {assignmentSummary.done ? "Done" : `${assignmentSummary.remaining} remaining`}
-            </Typography>
+              <Typography
+                variant="caption"
+                sx={{
+                  fontSize: "11px",
+                  fontWeight: "bold",
+                  color: assignmentSummary.done ? "success.main" : "warning.main",
+                }}
+              >
+                {assignmentSummary.done ? "Done" : `${assignmentSummary.remaining} remaining`}
+              </Typography>
+              {assignmentSummary.done && canRenumberClusters && (
+                <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                  <Typography variant="caption" sx={{ fontSize: "10px", color: "text.secondary" }}>
+                    Renumber
+                  </Typography>
+                  <Tooltip title={`Renumber clusters to 1-${Math.max(usedClusterCount, 1)}`}>
+                    <span>
+                      <IconButton
+                        size="small"
+                        onClick={handleClusterReorder}
+                        disabled={!canRenumberClusters}
+                        sx={{
+                          p: 0.25,
+                          color: "text.secondary",
+                          border: "1px solid",
+                          borderColor: "divider",
+                          borderRadius: "6px",
+                        }}
+                      >
+                        <RestartAltIcon sx={{ fontSize: "14px" }} />
+                      </IconButton>
+                    </span>
+                  </Tooltip>
+                </Box>
+              )}
+            </Box>
           </Box>
           <Box sx={{ display: "flex", flexDirection: "column", gap: "6px" }}>
             {clusterSummaries.map(({ clusterId, count, driverLabel, timeLabel }) => {

@@ -105,6 +105,7 @@ import {
   findRouteSlotConflict,
   moveClientToCluster,
   moveClientsToCluster,
+  renumberRoutesSequentially,
   RouteAssignmentMutationResult,
   RouteAssignmentState,
   RouteSlotConflict,
@@ -722,6 +723,17 @@ const DeliverySpreadsheet: React.FC = () => {
     [selectedClusters]
   );
 
+  const handleRenumberClusters = React.useCallback(async (): Promise<boolean> => {
+    try {
+      return await commitRouteAssignmentMutation((currentState) =>
+        renumberRoutesSequentially(currentState)
+      );
+    } catch (error) {
+      handleAssignmentSaveError(error, "Unable to renumber clusters. Please try again.");
+      return false;
+    }
+  }, [commitRouteAssignmentMutation, handleAssignmentSaveError]);
+
   // Sorting state - default to sorting by fullname (Client) in ascending order
   // Always default to sorting by name (fullname) ascending on first load or reload
   const [sortedColumn, setSortedColumn] = useState<string>(() => {
@@ -1258,15 +1270,57 @@ const DeliverySpreadsheet: React.FC = () => {
       const timeUpdateRequested = newTime !== undefined;
 
       const currentClient = rows.find((row) => row.id === clientId);
-      const oldClusterId = normalizeClusterIdValue(currentClient?.clusterId);
+      if (!currentClient) {
+        return false;
+      }
+
+      const oldClusterId = normalizeClusterIdValue(currentClient.clusterId);
       const clusterChanged = oldClusterId !== resolvedClusterId;
+      const currentClusterRows = oldClusterId
+        ? rows.filter((candidateRow) => normalizeClusterIdValue(candidateRow.clusterId) === oldClusterId)
+        : [currentClient];
+      const selectedClientRows = selectedRows.has(clientId)
+        ? rows.filter((candidateRow) => selectedRows.has(candidateRow.id))
+        : clusterChanged && currentClusterRows.length > 0
+          ? currentClusterRows
+          : [currentClient];
+      const rowsToMove = clusterChanged
+        ? selectedClientRows.filter(
+            (candidateRow) => normalizeClusterIdValue(candidateRow.clusterId) !== resolvedClusterId
+          )
+        : [];
 
       if (!clusterChanged && !driverUpdateRequested && !timeUpdateRequested) {
         return false;
       }
 
-      const didSave = await commitRouteAssignmentMutation((currentState) =>
-        updateClientRouteAssignment(currentState, {
+      const didSave = await commitRouteAssignmentMutation((currentState) => {
+        if (clusterChanged && rowsToMove.length > 1) {
+          const movedState = moveClientsToCluster(
+            currentState,
+            rowsToMove.map((candidateRow) => ({
+              clientId: candidateRow.id,
+              oldClusterId: normalizeClusterIdValue(candidateRow.clusterId),
+            })),
+            resolvedClusterId
+          );
+
+          if (!resolvedClusterId || (!driverUpdateRequested && !timeUpdateRequested)) {
+            return movedState;
+          }
+
+          return updateClientRouteAssignment(movedState, {
+            clientId,
+            oldClusterId: resolvedClusterId,
+            newClusterId: resolvedClusterId,
+            driverUpdateRequested,
+            timeUpdateRequested,
+            driverValue: newDriver,
+            timeValue: newTime,
+          });
+        }
+
+        return updateClientRouteAssignment(currentState, {
           clientId,
           oldClusterId,
           newClusterId: resolvedClusterId,
@@ -1274,42 +1328,58 @@ const DeliverySpreadsheet: React.FC = () => {
           timeUpdateRequested,
           driverValue: newDriver,
           timeValue: newTime,
-        })
-      );
+        });
+      });
 
       if (!didSave) {
         return false;
       }
 
-      // Remove the client from selected rows since their cluster assignment changed
+      // Keep the same bulk-selection behavior in the map popup as the spreadsheet route dropdown.
       if (clusterChanged) {
-        const newSelectedRows = new Set(selectedRows);
-        const newSelectedClusters = new Set(selectedClusters);
-
-        // Remove the client from selected rows
-        newSelectedRows.delete(clientId);
-
-        // If the old cluster no longer has any selected clients, remove it from selected clusters
-        if (oldClusterId) {
-          const oldCluster = clusters.find((c) => normalizeClusterIdValue(c.id) === oldClusterId);
-          if (oldCluster) {
-            const hasSelectedClientsInOldCluster = oldCluster.deliveries.some(
-              (id) => id !== clientId && newSelectedRows.has(id)
+        if (selectedRows.has(clientId)) {
+          if (resolvedClusterId) {
+            setSelectedRows(new Set(selectedClientRows.map((candidateRow) => candidateRow.id)));
+            setSelectedClusters(
+              new Set([
+                {
+                  id: resolvedClusterId,
+                  deliveries: selectedClientRows.map((candidateRow) => candidateRow.id),
+                  driver: "",
+                  time: "",
+                } as Cluster,
+              ])
             );
-            if (!hasSelectedClientsInOldCluster) {
-              // Remove the old cluster from selected clusters
-              const clusterToRemove = Array.from(newSelectedClusters).find(
-                (c) => normalizeClusterIdValue(c.id) === oldClusterId
+          } else {
+            setSelectedRows(new Set());
+            setSelectedClusters(new Set());
+          }
+        } else {
+          const newSelectedRows = new Set(selectedRows);
+          const newSelectedClusters = new Set(selectedClusters);
+
+          newSelectedRows.delete(clientId);
+
+          if (oldClusterId) {
+            const oldCluster = clusters.find((c) => normalizeClusterIdValue(c.id) === oldClusterId);
+            if (oldCluster) {
+              const hasSelectedClientsInOldCluster = oldCluster.deliveries.some(
+                (id) => id !== clientId && newSelectedRows.has(id)
               );
-              if (clusterToRemove) {
-                newSelectedClusters.delete(clusterToRemove);
+              if (!hasSelectedClientsInOldCluster) {
+                const clusterToRemove = Array.from(newSelectedClusters).find(
+                  (c) => normalizeClusterIdValue(c.id) === oldClusterId
+                );
+                if (clusterToRemove) {
+                  newSelectedClusters.delete(clusterToRemove);
+                }
               }
             }
           }
-        }
 
-        setSelectedRows(newSelectedRows);
-        setSelectedClusters(newSelectedClusters);
+          setSelectedRows(newSelectedRows);
+          setSelectedClusters(newSelectedClusters);
+        }
       }
 
       return true;
@@ -2620,6 +2690,7 @@ const DeliverySpreadsheet: React.FC = () => {
             visibleRows={visibleRows}
             clientOverrides={clientOverrides}
             onClusterUpdate={handleIndividualClientUpdate}
+            onRenumberClusters={handleRenumberClusters}
             onOpenPopup={handleRowClick}
             onMarkerClick={handleMarkerClick}
             onClearHighlight={clearRowHighlight}

@@ -34,9 +34,14 @@ describe("ClusterMap popup regression guards", () => {
     expect(source).toContain("ArrowUpwardIcon");
     expect(source).toContain("FormatListNumberedIcon");
     expect(source).toContain("handleClusterSummarySortToggle");
+    expect(source).toContain("handleClusterReorder");
+    expect(source).toContain("usedClusterCount");
+    expect(source).toContain("assignmentSummary.done && canRenumberClusters");
+    expect(source).toContain("Renumber");
     expect(source).toContain("Sorting by delivery count (highest first)");
     expect(source).toContain("Sorting by delivery count (lowest first)");
     expect(source).toContain("Sorting by cluster number");
+    expect(source).toContain("Renumber clusters to 1-");
     expect(source).toMatch(/<Typography[^>]*>[\s\S]*Sort[\s\S]*<\/Typography>/);
   });
 });
