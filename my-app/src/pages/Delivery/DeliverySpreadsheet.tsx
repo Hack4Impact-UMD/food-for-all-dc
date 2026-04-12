@@ -103,9 +103,7 @@ import {
 import {
   assignDriverToRoutes,
   assignTimeToRoutes,
-  ClearedDriverOverrideWarning,
   findRouteSlotConflict,
-  getClearedDriverOverrideWarning,
   moveClientToCluster,
   moveClientsToCluster,
   renumberRoutesSequentially,
@@ -401,46 +399,6 @@ const buildRouteSlotConflictMessage = (conflict: RouteSlotConflict): string =>
   `${conflict.driver} already has Route ${conflict.existingRouteId} at ${formatAssignedTime(
     conflict.time
   )}.`;
-
-const formatClearedDriverOverrideWarning = (
-  routeIds: string[],
-  driverName: string,
-  warning: ClearedDriverOverrideWarning
-): string => {
-  const normalizedDriver = normalizeAssignmentValue(driverName) ?? "";
-  const normalizedRouteId = normalizeClusterIdValue(routeIds[0]);
-  const routeLabel = normalizedRouteId ? `Route ${normalizedRouteId}` : "the route";
-  const assignmentLabel =
-    warning.clearedOverrideCount === 1 ? "assignment" : "assignments";
-
-  if (!normalizedDriver) {
-    if (warning.routeCount === 1) {
-      return `Cleared the driver for ${routeLabel}. Cleared ${warning.clearedOverrideCount} prior driver ${assignmentLabel}.`;
-    }
-
-    return `Cleared the driver for ${warning.routeCount} routes. Cleared ${warning.clearedOverrideCount} prior driver ${assignmentLabel}.`;
-  }
-
-  if (
-    warning.routeCount === 1 &&
-    warning.clearedOverrideCount <= 2 &&
-    warning.clearedDriverNames.length === warning.clearedOverrideCount
-  ) {
-    const driverNames =
-      warning.clearedDriverNames.length === 2
-        ? `${warning.clearedDriverNames[0]} and ${warning.clearedDriverNames[1]}`
-        : warning.clearedDriverNames[0];
-    const verb = warning.clearedOverrideCount === 1 ? "was" : "were";
-
-    return `${routeLabel} now uses ${normalizedDriver}. ${driverNames} ${verb} unassigned.`;
-  }
-
-  if (warning.routeCount === 1) {
-    return `${routeLabel} now uses ${normalizedDriver}. Cleared ${warning.clearedOverrideCount} prior driver ${assignmentLabel}.`;
-  }
-
-  return `Assigned ${normalizedDriver} to ${warning.routeCount} routes. Cleared ${warning.clearedOverrideCount} prior driver ${assignmentLabel}.`;
-};
 
 const dedupeClientsById = (clients: DeliveryRowData[]): DeliveryRowData[] => {
   const uniqueClients = new Map<string, DeliveryRowData>();
@@ -1327,12 +1285,6 @@ const DeliverySpreadsheet: React.FC = () => {
       return false;
     }
 
-    const driverOverrideWarning = getClearedDriverOverrideWarning(
-      { clusters, clientOverrides },
-      selectedRouteIds,
-      driver.name
-    );
-
     try {
       const didSave = await commitRouteAssignmentMutation((currentState) =>
         assignDriverToRoutes(currentState, selectedRouteIds, driver.name)
@@ -1340,11 +1292,6 @@ const DeliverySpreadsheet: React.FC = () => {
 
       if (didSave) {
         resetSelections();
-        if (driverOverrideWarning) {
-          showWarning(
-            formatClearedDriverOverrideWarning(selectedRouteIds, driver.name, driverOverrideWarning)
-          );
-        }
       }
 
       return didSave;
@@ -1381,18 +1328,6 @@ const DeliverySpreadsheet: React.FC = () => {
         ? rows.filter((candidateRow) => selectedRows.has(candidateRow.id))
         : [currentClient];
       const selectedClientIds = selectedClientRows.map((candidateRow) => candidateRow.id);
-      const warningRouteId =
-        newClusterId === "__add__" || newClusterId === "__add_new_cluster__"
-          ? getNextClusterId(clusters)
-          : resolvedClusterId;
-      const driverOverrideWarning =
-        driverUpdateRequested && warningRouteId
-          ? getClearedDriverOverrideWarning(
-              { clusters, clientOverrides },
-              [warningRouteId],
-              newDriver ?? ""
-            )
-          : null;
       let actualResolvedClusterId = resolvedClusterId;
       let didChangeClusters = false;
 
@@ -1518,16 +1453,6 @@ const DeliverySpreadsheet: React.FC = () => {
           setSelectedRows(newSelectedRows);
           setSelectedClusters(newSelectedClusters);
         }
-      }
-
-      if (driverOverrideWarning) {
-        showWarning(
-          formatClearedDriverOverrideWarning(
-            [actualResolvedClusterId || warningRouteId],
-            newDriver ?? "",
-            driverOverrideWarning
-          )
-        );
       }
 
       return true;
