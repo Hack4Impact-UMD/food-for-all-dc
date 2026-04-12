@@ -131,7 +131,7 @@ describe("ClusterMap popup regression guards", () => {
     expect(screen.getByText("3")).toBeTruthy();
   });
 
-  it("shows filtered route counts in the overlay and surfaces stale assignment notice when needed", async () => {
+  it("keeps static route totals in the overlay even when the table is filtered down", async () => {
     localStorage.setItem("clusterSummaryEnabled", "true");
 
     render(
@@ -163,13 +163,39 @@ describe("ClusterMap popup regression guards", () => {
 
     expect(await screen.findByText("Cluster Deliveries")).toBeTruthy();
     expect(screen.getByText("Day total: 1")).toBeTruthy();
-    expect(screen.getByText("of 2 assigned")).toBeTruthy();
+    expect(screen.getByText("2")).toBeTruthy();
+    expect(screen.queryByText("of 2 assigned")).toBeNull();
     expect(
-      screen.getByText(
-        "Some saved route assignments are out of date. Counts below reflect today's filtered deliveries."
-      )
+      screen.getByText("Some saved route assignments are out of date.")
     ).toBeTruthy();
-    expect(screen.getByText("1")).toBeTruthy();
+  });
+
+  it("keeps routes visible in the overlay even when the current filter hides all of their rows", async () => {
+    localStorage.setItem("clusterSummaryEnabled", "true");
+
+    render(
+      React.createElement(ClusterMap, {
+        allRows: [
+          {
+            id: "c1",
+            firstName: "A",
+            lastName: "One",
+            address: "1 Main St",
+            coordinates: [38.9, -77.03],
+          },
+        ],
+        visibleRows: [],
+        clusters: [{ id: "3", deliveries: ["c1"], driver: "Dana", time: "09:00" }],
+        clientOverrides: [],
+        onClusterUpdate: async () => true,
+        onRenumberClusters: async () => true,
+      })
+    );
+
+    expect(await screen.findByText("Cluster Deliveries")).toBeTruthy();
+    expect(screen.getByText("No deliveries match current filter")).toBeTruthy();
+    expect(screen.getByText("3")).toBeTruthy();
+    expect(screen.getByText("Dana")).toBeTruthy();
   });
 
   it("does not show the stale assignment notice when saved routes match the loaded day rows", async () => {

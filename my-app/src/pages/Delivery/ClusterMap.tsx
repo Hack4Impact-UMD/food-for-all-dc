@@ -405,10 +405,6 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
       }),
     [allRows, visibleRows, clusters]
   );
-  const clusterDisplaySnapshotById = React.useMemo(
-    () => new Map(clusterDisplaySnapshots.map((snapshot) => [snapshot.clusterId, snapshot])),
-    [clusterDisplaySnapshots]
-  );
   const hasStaleRouteAssignments = React.useMemo(
     () => clusterDisplaySnapshots.some((snapshot) => snapshot.staleAssignedCount > 0),
     [clusterDisplaySnapshots]
@@ -439,27 +435,15 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
 
   // Calculate deliveries + assignment details per cluster for the map summary overlay.
   const clusterSummaries = React.useMemo(() => {
-    const summaries = buildClusterSummariesFromClusters(
-      clusters,
-      clientOverrideByClientId,
-      formatTimeForSummary
-    );
-
-    const summariesWithDisplayCounts = summaries.map((summary) => ({
-      ...summary,
-      count: clusterDisplaySnapshotById.get(summary.clusterId)?.filteredCount ?? summary.count,
-    }));
-
     return sortClusterSummaries(
-      summariesWithDisplayCounts.filter((summary) => summary.count > 0),
+      buildClusterSummariesFromClusters(
+        clusters,
+        clientOverrideByClientId,
+        formatTimeForSummary
+      ),
       clusterSummarySortMode
     );
-  }, [
-    clusters,
-    clientOverrideByClientId,
-    clusterDisplaySnapshotById,
-    clusterSummarySortMode,
-  ]);
+  }, [clusters, clientOverrideByClientId, clusterSummarySortMode]);
 
   const usedClusterCount = React.useMemo(
     () => clusterSummaries.filter((summary) => summary.count > 0).length,
@@ -1636,8 +1620,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
                   lineHeight: 1.25,
                 }}
               >
-                Some saved route assignments are out of date. Counts below reflect today&apos;s
-                filtered deliveries.
+                Some saved route assignments are out of date.
               </Typography>
             )}
           </Box>
@@ -1747,17 +1730,12 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
           </Box>
           <Box sx={{ display: "flex", flexDirection: "column", gap: "6px" }}>
             {clusterSummaries.map(({ clusterId, count, driverLabel, timeLabel }) => {
-              const displaySnapshot = clusterDisplaySnapshotById.get(clusterId);
               const color = getClusterColor(clusterId);
               const textColor = getTextColorForBackground(color);
               const dividerColor =
                 textColor.toLowerCase() === "#ffffff"
                   ? "rgba(255, 255, 255, 0.38)"
                   : "rgba(0, 0, 0, 0.28)";
-              const cardDetails: string[] = [];
-              if (displaySnapshot && displaySnapshot.assignedCount > count) {
-                cardDetails.push(`of ${displaySnapshot.assignedCount} assigned`);
-              }
               return (
                 <Box
                   key={clusterId}
@@ -1840,19 +1818,6 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
                     >
                       {timeLabel}
                     </Typography>
-                    {cardDetails.length > 0 && (
-                      <Typography
-                        variant="caption"
-                        sx={{
-                          fontSize: "9px",
-                          color: textColor,
-                          opacity: 0.9,
-                          lineHeight: 1.2,
-                        }}
-                      >
-                        {cardDetails.join(" · ")}
-                      </Typography>
-                    )}
                   </Box>
                 </Box>
               );
