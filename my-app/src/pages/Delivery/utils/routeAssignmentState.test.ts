@@ -3,6 +3,7 @@ import {
   assignDriverToRoutes,
   assignTimeToRoutes,
   findRouteSlotConflict,
+  getClearedDriverOverrideWarning,
   moveClientToCluster,
   moveClientsToCluster,
   renumberRoutesSequentially,
@@ -62,6 +63,87 @@ describe("routeAssignmentState helpers", () => {
       { clientId: "c3", driver: "Bob", time: "10:00" },
     ]);
     expect(result.touchedRouteIds).toEqual(["1"]);
+  });
+
+  // App coverage:
+  // - post-save warning toast when a route-level driver change clears explicit per-client drivers
+  // - keeps the toast payload minimal while still identifying the affected prior drivers
+  // Behavior contract: returns route count, cleared override count, and up to two distinct driver names.
+  it("builds warning metadata for cleared explicit driver overrides", () => {
+    const state: RouteAssignmentState = {
+      clusters: [{ id: "10", driver: "Dana", time: "09:00", deliveries: ["c1", "c2", "c3"] }],
+      clientOverrides: [
+        { clientId: "c1", driver: "Betsy" },
+        { clientId: "c2", driver: "Phil" },
+        { clientId: "c3", time: "09:00" },
+      ],
+    };
+
+    const warning = getClearedDriverOverrideWarning(state, ["10"], "Matty");
+
+    expect(warning).toEqual({
+      routeCount: 1,
+      clearedOverrideCount: 2,
+      clearedDriverNames: ["Betsy", "Phil"],
+    });
+  });
+
+  // App coverage:
+  // - route-level driver changes that should not warn because there is nothing to clear
+  // Behavior contract: returns null when touched routes have no explicit driver overrides.
+  it("returns null when no explicit driver overrides would be cleared", () => {
+    const state: RouteAssignmentState = {
+      clusters: [{ id: "10", driver: "Dana", time: "09:00", deliveries: ["c1", "c2"] }],
+      clientOverrides: [{ clientId: "c1", time: "09:00" }],
+    };
+
+    expect(getClearedDriverOverrideWarning(state, ["10"], "Matty")).toBeNull();
+  });
+
+  // App coverage:
+  // - warning toast suppression when an override already matches the incoming route driver
+  // Behavior contract: matching override drivers are ignored so the toast only reflects actual removals.
+  it("ignores overrides that already match the incoming route driver", () => {
+    const state: RouteAssignmentState = {
+      clusters: [{ id: "10", driver: "Dana", time: "09:00", deliveries: ["c1", "c2"] }],
+      clientOverrides: [
+        { clientId: "c1", driver: "Matty" },
+        { clientId: "c2", driver: "Phil" },
+      ],
+    };
+
+    const warning = getClearedDriverOverrideWarning(state, ["10"], "matty");
+
+    expect(warning).toEqual({
+      routeCount: 1,
+      clearedOverrideCount: 1,
+      clearedDriverNames: ["Phil"],
+    });
+  });
+
+  // App coverage:
+  // - bulk driver assignment to multiple routes with repeated prior driver names across clients
+  // Behavior contract: driver names are deduped case-insensitively while the cleared override count still reflects all removals.
+  it("dedupes repeated driver names across touched routes", () => {
+    const state: RouteAssignmentState = {
+      clusters: [
+        { id: "1", driver: "Dana", time: "09:00", deliveries: ["c1", "c2"] },
+        { id: "2", driver: "Dana", time: "10:00", deliveries: ["c3"] },
+      ],
+      clientOverrides: [
+        { clientId: "c1", driver: "Betsy" },
+        { clientId: "c2", driver: "betsy" },
+        { clientId: "c3", driver: "Phil" },
+      ],
+    };
+
+    const warning = getClearedDriverOverrideWarning(state, ["1", "2"], "Matty");
+
+    expect(warning).toEqual({
+      routeCount: 2,
+      clearedOverrideCount: 3,
+      clearedDriverNames: ["Betsy", "Phil"],
+    });
   });
 
   // App coverage:

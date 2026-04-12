@@ -31,6 +31,12 @@ export interface RouteAssignmentMutationResult<
   touchedRouteIds: string[];
 }
 
+export interface ClearedDriverOverrideWarning {
+  routeCount: number;
+  clearedOverrideCount: number;
+  clearedDriverNames: string[];
+}
+
 interface EffectiveRouteSlot {
   routeId: string;
   driver?: string;
@@ -274,6 +280,60 @@ export const findRouteSlotConflict = (
   }
 
   return null;
+};
+
+export const getClearedDriverOverrideWarning = <
+  TCluster extends RouteAssignmentCluster,
+>(
+  state: RouteAssignmentState<TCluster>,
+  routeIds: Iterable<string | number | null | undefined>,
+  driverName: string
+): ClearedDriverOverrideWarning | null => {
+  const normalizedRouteIds = normalizeRouteIds(routeIds);
+  if (!normalizedRouteIds.length) {
+    return null;
+  }
+
+  const normalizedIncomingDriver = normalizeAssignmentValue(driverName) ?? "";
+  const affectedClientIds = collectAffectedClientIds(state.clusters, normalizedRouteIds);
+  if (!affectedClientIds.size) {
+    return null;
+  }
+
+  const clearedDriverNames = new Map<string, string>();
+  let clearedOverrideCount = 0;
+
+  state.clientOverrides.forEach((override) => {
+    const clientId = normalizeAssignmentValue(override.clientId);
+    const overrideDriver = normalizeAssignmentValue(override.driver);
+
+    if (!clientId || !affectedClientIds.has(clientId) || !overrideDriver) {
+      return;
+    }
+
+    if (overrideDriver.toLowerCase() === normalizedIncomingDriver.toLowerCase()) {
+      return;
+    }
+
+    clearedOverrideCount += 1;
+
+    if (clearedDriverNames.size < 2) {
+      const driverKey = overrideDriver.toLowerCase();
+      if (!clearedDriverNames.has(driverKey)) {
+        clearedDriverNames.set(driverKey, overrideDriver);
+      }
+    }
+  });
+
+  if (!clearedOverrideCount) {
+    return null;
+  }
+
+  return {
+    routeCount: normalizedRouteIds.length,
+    clearedOverrideCount,
+    clearedDriverNames: Array.from(clearedDriverNames.values()),
+  };
 };
 
 export const assignDriverToRoutes = <TCluster extends RouteAssignmentCluster>(
