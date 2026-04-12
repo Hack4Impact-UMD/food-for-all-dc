@@ -103,7 +103,9 @@ import {
 import {
   assignDriverToRoutes,
   assignTimeToRoutes,
+  ClusterDriverReplacementWarning,
   findRouteSlotConflict,
+  getClusterDriverReplacementWarning,
   moveClientToCluster,
   moveClientsToCluster,
   renumberRoutesSequentially,
@@ -399,6 +401,46 @@ const buildRouteSlotConflictMessage = (conflict: RouteSlotConflict): string =>
   `${conflict.driver} already has Route ${conflict.existingRouteId} at ${formatAssignedTime(
     conflict.time
   )}.`;
+
+const formatDriverNameList = (driverNames: string[]): string => {
+  if (driverNames.length === 0) {
+    return "";
+  }
+
+  if (driverNames.length === 1) {
+    return driverNames[0];
+  }
+
+  if (driverNames.length === 2) {
+    return `${driverNames[0]} and ${driverNames[1]}`;
+  }
+
+  const [firstName, secondName, ...remainingNames] = driverNames;
+  return `${firstName}, ${secondName}, and ${remainingNames.length} others`;
+};
+
+const formatClusterDriverReplacementWarning = (
+  routeIds: string[],
+  incomingDriverName: string,
+  warning: ClusterDriverReplacementWarning
+): string => {
+  const normalizedIncomingDriver = normalizeAssignmentValue(incomingDriverName) ?? "";
+  const replacedDriverLabel = formatDriverNameList(warning.replacedDriverNames);
+  const noRemainingDriverLabel = formatDriverNameList(warning.noRemainingRouteDriverNames);
+  const replacedVerb = warning.replacedDriverNames.length === 1 ? "was" : "were";
+  const noRemainingVerb = warning.noRemainingRouteDriverNames.length === 1 ? "has" : "have";
+
+  let message =
+    warning.routeCount === 1
+      ? `Route ${normalizeClusterIdValue(routeIds[0])} now uses ${normalizedIncomingDriver}. ${replacedDriverLabel} ${replacedVerb} removed from this route.`
+      : `Assigned ${normalizedIncomingDriver} to ${warning.routeCount} routes. Removed ${replacedDriverLabel} from those routes.`;
+
+  if (warning.noRemainingRouteDriverNames.length > 0) {
+    message += ` ${noRemainingDriverLabel} now ${noRemainingVerb} no remaining routes.`;
+  }
+
+  return message;
+};
 
 const dedupeClientsById = (clients: DeliveryRowData[]): DeliveryRowData[] => {
   const uniqueClients = new Map<string, DeliveryRowData>();
@@ -1285,6 +1327,12 @@ const DeliverySpreadsheet: React.FC = () => {
       return false;
     }
 
+    const driverReplacementWarning = getClusterDriverReplacementWarning(
+      { clusters, clientOverrides },
+      selectedRouteIds,
+      driver.name
+    );
+
     try {
       const didSave = await commitRouteAssignmentMutation((currentState) =>
         assignDriverToRoutes(currentState, selectedRouteIds, driver.name)
@@ -1292,6 +1340,15 @@ const DeliverySpreadsheet: React.FC = () => {
 
       if (didSave) {
         resetSelections();
+        if (driverReplacementWarning) {
+          showWarning(
+            formatClusterDriverReplacementWarning(
+              selectedRouteIds,
+              driver.name,
+              driverReplacementWarning
+            )
+          );
+        }
       }
 
       return didSave;
@@ -1328,6 +1385,18 @@ const DeliverySpreadsheet: React.FC = () => {
         ? rows.filter((candidateRow) => selectedRows.has(candidateRow.id))
         : [currentClient];
       const selectedClientIds = selectedClientRows.map((candidateRow) => candidateRow.id);
+      const warningRouteId =
+        newClusterId === "__add__" || newClusterId === "__add_new_cluster__"
+          ? getNextClusterId(clusters)
+          : resolvedClusterId;
+      const driverReplacementWarning =
+        driverUpdateRequested && warningRouteId
+          ? getClusterDriverReplacementWarning(
+              { clusters, clientOverrides },
+              [warningRouteId],
+              newDriver ?? ""
+            )
+          : null;
       let actualResolvedClusterId = resolvedClusterId;
       let didChangeClusters = false;
 
@@ -1453,6 +1522,16 @@ const DeliverySpreadsheet: React.FC = () => {
           setSelectedRows(newSelectedRows);
           setSelectedClusters(newSelectedClusters);
         }
+      }
+
+      if (driverReplacementWarning) {
+        showWarning(
+          formatClusterDriverReplacementWarning(
+            [actualResolvedClusterId || warningRouteId],
+            newDriver ?? "",
+            driverReplacementWarning
+          )
+        );
       }
 
       return true;
