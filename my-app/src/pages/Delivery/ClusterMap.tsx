@@ -11,6 +11,8 @@ import { Box, FormControlLabel, IconButton, Switch, Tooltip, Typography } from "
 import DriverService from "../../services/driver-service";
 import FFAIcon from "../../assets/tsp-food-for-all-dc-logo.png";
 import dataSources from "../../config/dataSources";
+import { isRenderableCoordinate } from "./utils/deliveryMapCounts";
+import { buildMarkerPlacementMap } from "./utils/markerPlacement";
 import { normalizeAssignmentValue, resolveAssignmentValue } from "./utils/assignmentOverrides";
 import {
   buildAssignmentSummary,
@@ -101,27 +103,7 @@ const wardColors: { [key: string]: string } = {
 
 const ffaCoordinates: L.LatLngExpression = [38.91433, -77.036942];
 
-const isValidCoordinate = (coord: any): boolean => {
-  if (!coord) return false;
-
-  if (Array.isArray(coord)) {
-    return (
-      coord.length === 2 &&
-      !isNaN(coord[0]) &&
-      !isNaN(coord[1]) &&
-      Math.abs(coord[0]) <= 90 &&
-      Math.abs(coord[1]) <= 180
-    );
-  }
-
-  return (
-    typeof coord === "object" &&
-    !isNaN(coord.lat) &&
-    !isNaN(coord.lng) &&
-    Math.abs(coord.lat) <= 90 &&
-    Math.abs(coord.lng) <= 180
-  );
-};
+const isValidCoordinate = isRenderableCoordinate;
 
 const normalizeCoordinate = (coord: any): Coordinate => {
   if (Array.isArray(coord)) {
@@ -839,10 +821,12 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
       });
     });
 
+    const markerPlacements = buildMarkerPlacementMap(visibleRows);
+
     visibleRows.forEach((client) => {
       if (!client.coordinates || !isValidCoordinate(client.coordinates)) return;
 
-      const coord = normalizeCoordinate(client.coordinates);
+      const coord = markerPlacements.get(client.id) ?? normalizeCoordinate(client.coordinates);
       const clientName = `${client.firstName} ${client.lastName}` || "Client: None";
       const statusPresentation = getClientStatusPresentation(
         client.activeStatus === false ? false : true,

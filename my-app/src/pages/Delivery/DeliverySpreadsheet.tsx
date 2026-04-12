@@ -17,6 +17,7 @@ import { db } from "../../auth/firebaseConfig";
 import dataSources from "../../config/dataSources";
 import { useClientData } from "../../context/ClientDataContext";
 import { ClientProfile } from "../../types/client-types";
+import { isRenderableCoordinate } from "./utils/deliveryMapCounts";
 
 import {
   parseSearchTermsProgressively,
@@ -1434,22 +1435,7 @@ const DeliverySpreadsheet: React.FC = () => {
   const isValidCoordinate = (
     coord: LatLngTuple | { lat: number; lng: number } | undefined | null
   ): coord is LatLngTuple | { lat: number; lng: number } => {
-    if (!coord) return false;
-    if (Array.isArray(coord)) {
-      // Check for LatLngTuple [number, number]
-      return (
-        coord.length === 2 &&
-        typeof coord[0] === "number" &&
-        typeof coord[1] === "number" &&
-        (coord[0] !== 0 || coord[1] !== 0)
-      );
-    }
-    // Check for { lat: number, lng: number }
-    return (
-      typeof coord.lat === "number" &&
-      typeof coord.lng === "number" &&
-      (coord.lat !== 0 || coord.lng !== 0)
-    );
+    return isRenderableCoordinate(coord);
   };
 
   const generateClusters = async (
