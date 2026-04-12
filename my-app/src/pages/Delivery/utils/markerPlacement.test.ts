@@ -41,6 +41,10 @@ describe("markerPlacement helpers", () => {
       lat: 38.9,
       lng: -77.03,
     });
+    expect(normalizeMarkerPoint([38.9, -77.03, 15] as [number, number, number])).toEqual({
+      lat: 38.9,
+      lng: -77.03,
+    });
     expect(normalizeMarkerPoint({ lat: 38.9, lng: -77.03 })).toEqual({
       lat: 38.9,
       lng: -77.03,

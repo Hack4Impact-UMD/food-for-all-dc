@@ -6,6 +6,7 @@ describe("deliveryMapCounts helpers", () => {
     expect(isRenderableCoordinate([0, 0])).toBe(false);
     expect(isRenderableCoordinate({ lat: 0, lng: 0 })).toBe(false);
     expect(isRenderableCoordinate([38.9, -77.03])).toBe(true);
+    expect(isRenderableCoordinate([38.9, -77.03, 15])).toBe(true);
   });
 
   it("matches overlay, spreadsheet, and markers when no rows are filtered and all coordinates render", () => {

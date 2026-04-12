@@ -46,7 +46,7 @@ export const isRenderableCoordinate = (coord: CoordinateLike): boolean => {
 
   if (Array.isArray(coord)) {
     return (
-      coord.length === 2 &&
+      (coord.length === 2 || coord.length === 3) &&
       typeof coord[0] === "number" &&
       typeof coord[1] === "number" &&
       Number.isFinite(coord[0]) &&

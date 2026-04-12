@@ -13,6 +13,8 @@ export const parseSearchTermsProgressively = (trimmedSearchQuery: string): strin
     "assigned",
     "cluster",
     "delivery",
+    "dietary",
+    "first",
     "last",
     "referral",
     "route",
@@ -98,7 +100,10 @@ export const parseSearchTermsProgressively = (trimmedSearchQuery: string): strin
         currentTerm += char;
       } else if (
         colonIndex !== -1 &&
-        (valueAfterColon === "" || (endsWithComma && !nextTokenHasColon) || nextChar === '"' || nextChar === "'")
+        (valueAfterColon === "" ||
+          (endsWithComma && !nextTokenHasColon) ||
+          nextChar === '"' ||
+          nextChar === "'")
       ) {
         currentTerm += char;
       } else if (trimmedCurrentTerm) {

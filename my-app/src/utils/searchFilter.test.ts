@@ -71,6 +71,13 @@ describe("searchFilter parsing", () => {
     expect(compactTerms).toEqual(["cluster:1,2", "ward:2"]);
   });
 
+  it("preserves supported multi-word aliases as a single key:value term", () => {
+    expect(parseSearchTermsProgressively("dietary restrictions:vegan")).toEqual([
+      "dietary restrictions:vegan",
+    ]);
+    expect(parseSearchTermsProgressively("first name:john")).toEqual(["first name:john"]);
+  });
+
   // App coverage:
   // - multi-value Routes page filtering across columns like cluster, ward, driver, and tags
   // - each comma-separated entry should be treated as an OR value for the same key

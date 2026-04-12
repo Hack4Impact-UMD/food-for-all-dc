@@ -332,6 +332,48 @@ const normalizeClusterIdValue = (clusterId?: unknown): string => {
   return normalizeAssignmentValue(clusterId) || "";
 };
 
+const getNextClusterId = (clusterList: Array<Pick<Cluster, "id">>): string => {
+  const numericIds = clusterList
+    .map((cluster) => parseInt(normalizeClusterIdValue(cluster.id), 10))
+    .filter((clusterId) => !Number.isNaN(clusterId));
+
+  const maxId = numericIds.length > 0 ? Math.max(...numericIds) : 0;
+  return String(maxId + 1);
+};
+
+const getClusterIdForClient = (
+  clusterList: Array<Pick<Cluster, "id" | "deliveries">>,
+  clientId: string
+): string => {
+  const normalizedClientId = normalizeAssignmentValue(clientId);
+  if (!normalizedClientId) {
+    return "";
+  }
+
+  let matchedClusterId = "";
+
+  clusterList.forEach((cluster) => {
+    const hasClient = (cluster.deliveries ?? []).some(
+      (deliveryId) => normalizeAssignmentValue(deliveryId) === normalizedClientId
+    );
+
+    if (hasClient) {
+      matchedClusterId = normalizeClusterIdValue(cluster.id);
+    }
+  });
+
+  return matchedClusterId;
+};
+
+const getNestedPropertyValue = (source: unknown, path: string): unknown =>
+  path.split(".").reduce<unknown>((currentValue, key) => {
+    if (currentValue && typeof currentValue === "object" && key in currentValue) {
+      return (currentValue as Record<string, unknown>)[key];
+    }
+
+    return undefined;
+  }, source);
+
 const compareClusterIds = (left: string, right: string) => {
   const leftNumber = parseInt(left, 10);
   const rightNumber = parseInt(right, 10);
@@ -341,15 +383,6 @@ const compareClusterIds = (left: string, right: string) => {
   }
 
   return left.localeCompare(right, undefined, { numeric: true, sensitivity: "base" });
-};
-
-const getNextClusterId = (clusterList: Array<Pick<Cluster, "id">>): string => {
-  const numericIds = clusterList
-    .map((cluster) => parseInt(normalizeClusterIdValue(cluster.id), 10))
-    .filter((clusterId) => !Number.isNaN(clusterId));
-
-  const maxId = numericIds.length > 0 ? Math.max(...numericIds) : 0;
-  return String(maxId + 1);
 };
 
 class RouteSlotConflictError extends Error {
@@ -726,9 +759,16 @@ const DeliverySpreadsheet: React.FC = () => {
 
   const handleRenumberClusters = React.useCallback(async (): Promise<boolean> => {
     try {
-      return await commitRouteAssignmentMutation((currentState) =>
+      const didSave = await commitRouteAssignmentMutation((currentState) =>
         renumberRoutesSequentially(currentState)
       );
+
+      if (didSave) {
+        setSelectedRows(new Set());
+        setSelectedClusters(new Set());
+      }
+
+      return didSave;
     } catch (error) {
       handleAssignmentSaveError(error, "Unable to renumber clusters. Please try again.");
       return false;
@@ -1140,50 +1180,59 @@ const DeliverySpreadsheet: React.FC = () => {
     row: DeliveryRowData,
     newClusterIdStr: string
   ): Promise<boolean> => {
-    const oldClusterId = normalizeClusterIdValue(row.clusterId);
-    const newClusterId =
-      newClusterIdStr === "__add__"
-        ? getNextClusterId(clusters)
-        : normalizeClusterIdValue(newClusterIdStr);
-
     if (!row || !row.id) {
       return false;
     }
 
-    const selectedClientRows = selectedRows.has(row.id)
-      ? rows.filter((candidateRow) => selectedRows.has(candidateRow.id))
-      : [row];
-
-    const rowsToMove = selectedClientRows.filter(
-      (candidateRow) => normalizeClusterIdValue(candidateRow.clusterId) !== newClusterId
-    );
-
-    if (!rowsToMove.length) {
-      return false;
-    }
+    const selectedClientIds = selectedRows.has(row.id)
+      ? rows
+          .filter((candidateRow) => selectedRows.has(candidateRow.id))
+          .map((candidateRow) => candidateRow.id)
+      : [row.id];
+    let resolvedNewClusterId = "";
+    let didMoveClients = false;
 
     try {
-      const didSave = await commitRouteAssignmentMutation((currentState) =>
-        rowsToMove.length > 1
-          ? moveClientsToCluster(
-              currentState,
-              rowsToMove.map((candidateRow) => ({
-                clientId: candidateRow.id,
-                oldClusterId: normalizeClusterIdValue(candidateRow.clusterId),
-              })),
-              newClusterId
-            )
-          : moveClientToCluster(currentState, row.id, oldClusterId, newClusterId)
-      );
+      const didSave = await commitRouteAssignmentMutation((currentState) => {
+        resolvedNewClusterId =
+          newClusterIdStr === "__add__"
+            ? getNextClusterId(currentState.clusters)
+            : normalizeClusterIdValue(newClusterIdStr);
+        const clientMoves = selectedClientIds
+          .map((clientId) => ({
+            clientId,
+            oldClusterId: getClusterIdForClient(currentState.clusters, clientId),
+          }))
+          .filter((clientMove) => clientMove.oldClusterId !== resolvedNewClusterId);
 
-      if (didSave && selectedRows.has(row.id)) {
-        if (newClusterId) {
-          setSelectedRows(new Set(selectedClientRows.map((candidateRow) => candidateRow.id)));
+        didMoveClients = clientMoves.length > 0;
+
+        if (!didMoveClients) {
+          return {
+            clusters: currentState.clusters,
+            clientOverrides: currentState.clientOverrides,
+            touchedRouteIds: [],
+          };
+        }
+
+        return clientMoves.length > 1
+          ? moveClientsToCluster(currentState, clientMoves, resolvedNewClusterId)
+          : moveClientToCluster(
+              currentState,
+              clientMoves[0].clientId,
+              clientMoves[0].oldClusterId,
+              resolvedNewClusterId
+            );
+      });
+
+      if (didSave && didMoveClients && selectedRows.has(row.id)) {
+        if (resolvedNewClusterId) {
+          setSelectedRows(new Set(selectedClientIds));
           setSelectedClusters(
             new Set([
               {
-                id: newClusterId,
-                deliveries: selectedClientRows.map((candidateRow) => candidateRow.id),
+                id: resolvedNewClusterId,
+                deliveries: selectedClientIds,
                 driver: "",
                 time: "",
               } as Cluster,
@@ -1265,7 +1314,7 @@ const DeliverySpreadsheet: React.FC = () => {
     try {
       const resolvedClusterId =
         newClusterId === "__add__" || newClusterId === "__add_new_cluster__"
-          ? getNextClusterId(clusters)
+          ? ""
           : normalizeClusterIdValue(newClusterId);
       const driverUpdateRequested = newDriver !== undefined;
       const timeUpdateRequested = newTime !== undefined;
@@ -1275,45 +1324,65 @@ const DeliverySpreadsheet: React.FC = () => {
         return false;
       }
 
-      const oldClusterId = normalizeClusterIdValue(currentClient.clusterId);
-      const clusterChanged = oldClusterId !== resolvedClusterId;
-      const currentClusterRows = oldClusterId
-        ? rows.filter((candidateRow) => normalizeClusterIdValue(candidateRow.clusterId) === oldClusterId)
-        : [currentClient];
       const selectedClientRows = selectedRows.has(clientId)
         ? rows.filter((candidateRow) => selectedRows.has(candidateRow.id))
-        : clusterChanged && currentClusterRows.length > 0
-          ? currentClusterRows
-          : [currentClient];
-      const rowsToMove = clusterChanged
-        ? selectedClientRows.filter(
-            (candidateRow) => normalizeClusterIdValue(candidateRow.clusterId) !== resolvedClusterId
-          )
-        : [];
-
-      if (!clusterChanged && !driverUpdateRequested && !timeUpdateRequested) {
-        return false;
-      }
+        : [currentClient];
+      const selectedClientIds = selectedClientRows.map((candidateRow) => candidateRow.id);
+      let actualResolvedClusterId = resolvedClusterId;
+      let didChangeClusters = false;
 
       const didSave = await commitRouteAssignmentMutation((currentState) => {
-        if (clusterChanged && rowsToMove.length > 1) {
+        const currentOldClusterId = getClusterIdForClient(currentState.clusters, clientId);
+        actualResolvedClusterId =
+          newClusterId === "__add__" || newClusterId === "__add_new_cluster__"
+            ? getNextClusterId(currentState.clusters)
+            : normalizeClusterIdValue(newClusterId);
+        const clusterChanged = currentOldClusterId !== actualResolvedClusterId;
+
+        if (!clusterChanged && !driverUpdateRequested && !timeUpdateRequested) {
+          return {
+            clusters: currentState.clusters,
+            clientOverrides: currentState.clientOverrides,
+            touchedRouteIds: [],
+          };
+        }
+
+        if (clusterChanged && selectedClientIds.length > 1) {
+          const clientMoves = selectedClientIds
+            .map((selectedClientId) => ({
+              clientId: selectedClientId,
+              oldClusterId: getClusterIdForClient(currentState.clusters, selectedClientId),
+            }))
+            .filter((clientMove) => clientMove.oldClusterId !== actualResolvedClusterId);
+
+          didChangeClusters = clientMoves.length > 0;
+
+          if (!didChangeClusters) {
+            return updateClientRouteAssignment(currentState, {
+              clientId,
+              oldClusterId: currentOldClusterId,
+              newClusterId: actualResolvedClusterId,
+              driverUpdateRequested,
+              timeUpdateRequested,
+              driverValue: newDriver,
+              timeValue: newTime,
+            });
+          }
+
           const movedState = moveClientsToCluster(
             currentState,
-            rowsToMove.map((candidateRow) => ({
-              clientId: candidateRow.id,
-              oldClusterId: normalizeClusterIdValue(candidateRow.clusterId),
-            })),
-            resolvedClusterId
+            clientMoves,
+            actualResolvedClusterId
           );
 
-          if (!resolvedClusterId || (!driverUpdateRequested && !timeUpdateRequested)) {
+          if (!actualResolvedClusterId || (!driverUpdateRequested && !timeUpdateRequested)) {
             return movedState;
           }
 
           return updateClientRouteAssignment(movedState, {
             clientId,
-            oldClusterId: resolvedClusterId,
-            newClusterId: resolvedClusterId,
+            oldClusterId: actualResolvedClusterId,
+            newClusterId: actualResolvedClusterId,
             driverUpdateRequested,
             timeUpdateRequested,
             driverValue: newDriver,
@@ -1321,10 +1390,12 @@ const DeliverySpreadsheet: React.FC = () => {
           });
         }
 
+        didChangeClusters = clusterChanged;
+
         return updateClientRouteAssignment(currentState, {
           clientId,
-          oldClusterId,
-          newClusterId: resolvedClusterId,
+          oldClusterId: currentOldClusterId,
+          newClusterId: actualResolvedClusterId,
           driverUpdateRequested,
           timeUpdateRequested,
           driverValue: newDriver,
@@ -1337,15 +1408,15 @@ const DeliverySpreadsheet: React.FC = () => {
       }
 
       // Keep the same bulk-selection behavior in the map popup as the spreadsheet route dropdown.
-      if (clusterChanged) {
+      if (didChangeClusters) {
         if (selectedRows.has(clientId)) {
-          if (resolvedClusterId) {
-            setSelectedRows(new Set(selectedClientRows.map((candidateRow) => candidateRow.id)));
+          if (actualResolvedClusterId) {
+            setSelectedRows(new Set(selectedClientIds));
             setSelectedClusters(
               new Set([
                 {
-                  id: resolvedClusterId,
-                  deliveries: selectedClientRows.map((candidateRow) => candidateRow.id),
+                  id: actualResolvedClusterId,
+                  deliveries: selectedClientIds,
                   driver: "",
                   time: "",
                 } as Cluster,
@@ -1358,6 +1429,7 @@ const DeliverySpreadsheet: React.FC = () => {
         } else {
           const newSelectedRows = new Set(selectedRows);
           const newSelectedClusters = new Set(selectedClusters);
+          const oldClusterId = normalizeClusterIdValue(currentClient.clusterId);
 
           newSelectedRows.delete(clientId);
 
@@ -1807,236 +1879,266 @@ const DeliverySpreadsheet: React.FC = () => {
         return true;
       }
 
-    const validSearchTerms = parseSearchTermsProgressively(trimmedSearchQuery);
+      const validSearchTerms = parseSearchTermsProgressively(trimmedSearchQuery);
 
-    const keyValueTerms = validSearchTerms.filter((term) => term.includes(":"));
-    const nonKeyValueTerms = validSearchTerms.filter((term) => !term.includes(":"));
+      const keyValueTerms = validSearchTerms.filter((term) => term.includes(":"));
+      const nonKeyValueTerms = validSearchTerms.filter((term) => !term.includes(":"));
 
-    let matches = true;
+      let matches = true;
 
-    if (keyValueTerms.length > 0) {
-      const checkStringContains = utilCheckStringContains;
-      const checkStringEquals = utilCheckStringEquals;
+      if (keyValueTerms.length > 0) {
+        const checkStringContains = utilCheckStringContains;
+        const checkStringEquals = utilCheckStringEquals;
 
-      const checkValueOrInArray = (
-        value: unknown,
-        query: string,
-        exactMatch = false
-      ): boolean => {
-        if (value === undefined || value === null) {
+        const checkValueOrInArray = (
+          value: unknown,
+          query: string,
+          exactMatch = false
+        ): boolean => {
+          if (value === undefined || value === null) {
+            return false;
+          }
+
+          if (Array.isArray(value)) {
+            return value.some((item) =>
+              exactMatch ? checkStringEquals(item, query) : checkStringContains(item, query)
+            );
+          }
+
+          return exactMatch ? checkStringEquals(value, query) : checkStringContains(value, query);
+        };
+
+        const visibleFieldKeys = new Set([
+          ...fields.map((f) => f.key).filter((key) => key !== "checkbox"),
+          ...customColumns.map((col) => col.propertyKey).filter((key) => key !== "none"),
+        ]);
+
+        const isVisibleField = (keyword: string): boolean => {
+          const lowerKeyword = keyword.toLowerCase();
+
+          const fieldMappings: { [key: string]: string[] } = {
+            fullname: ["name", "client"],
+            clusterIdChange: ["cluster", "cluster id", "clusterid", "route", "route id", "routeid"],
+            tags: ["tags", "tag"],
+            zipCode: ["zip", "zipcode", "zip code"],
+            ward: ["ward"],
+            assignedDriver: ["driver", "assigned driver"],
+            assignedTime: ["time", "assigned time"],
+            "deliveryDetails.deliveryInstructions": ["delivery instructions", "instructions"],
+          };
+
+          const normalizedKeyword = normalizeSearchKeyword(lowerKeyword);
+
+          for (const [fieldKey, aliases] of Object.entries(fieldMappings)) {
+            if (
+              visibleFieldKeys.has(fieldKey) &&
+              aliases.some((alias) => normalizeSearchKeyword(alias) === normalizedKeyword)
+            ) {
+              return true;
+            }
+          }
+
+          const customColumnMappings: { [key: string]: string[] } = {
+            address: ["address"],
+            adults: ["adults"],
+            children: ["children"],
+            deliveryFreq: ["delivery freq", "delivery frequency"],
+            "deliveryDetails.dietaryRestrictions": ["dietary restrictions"],
+            ethnicity: ["ethnicity"],
+            gender: ["gender"],
+            language: ["language"],
+            notes: ["notes"],
+            phone: ["phone"],
+            referralEntity: ["referral entity", "referral"],
+            tags: ["tags", "tag"],
+            tefapCert: ["tefap", "tefap cert"],
+            dob: ["dob"],
+            lastDeliveryDate: ["last delivery date"],
+          };
+
+          for (const [propertyKey, aliases] of Object.entries(customColumnMappings)) {
+            if (
+              visibleFieldKeys.has(propertyKey) &&
+              aliases.some((alias) => normalizeSearchKeyword(alias) === normalizedKeyword)
+            ) {
+              return true;
+            }
+          }
+
           return false;
-        }
-
-        if (Array.isArray(value)) {
-          return value.some((item) =>
-            exactMatch ? checkStringEquals(item, query) : checkStringContains(item, query)
-          );
-        }
-
-        return exactMatch ? checkStringEquals(value, query) : checkStringContains(value, query);
-      };
-
-      const visibleFieldKeys = new Set([
-        ...fields.map((f) => f.key).filter((key) => key !== "checkbox"),
-        ...customColumns.map((col) => col.propertyKey).filter((key) => key !== "none"),
-      ]);
-
-      const isVisibleField = (keyword: string): boolean => {
-        const lowerKeyword = keyword.toLowerCase();
-
-        const fieldMappings: { [key: string]: string[] } = {
-          fullname: ["name", "client"],
-          clusterIdChange: ["cluster", "cluster id", "clusterid", "route", "route id", "routeid"],
-          tags: ["tags", "tag"],
-          zipCode: ["zip", "zipcode", "zip code"],
-          ward: ["ward"],
-          assignedDriver: ["driver", "assigned driver"],
-          assignedTime: ["time", "assigned time"],
-          "deliveryDetails.deliveryInstructions": ["delivery instructions", "instructions"],
         };
 
-        const normalizedKeyword = normalizeSearchKeyword(lowerKeyword);
+        matches = keyValueTerms.every((term) => {
+          const { keyword, searchValue, isKeyValue: isKeyValueSearch } = extractKeyValue(term);
+          const normalizedKeyword = normalizeSearchKeyword(keyword);
 
-        for (const [fieldKey, aliases] of Object.entries(fieldMappings)) {
-          if (
-            visibleFieldKeys.has(fieldKey) &&
-            aliases.some((alias) => normalizeSearchKeyword(alias) === normalizedKeyword)
-          ) {
-            return true;
-          }
-        }
-
-        const customColumnMappings: { [key: string]: string[] } = {
-          address: ["address"],
-          adults: ["adults"],
-          children: ["children"],
-          deliveryFreq: ["delivery freq", "delivery frequency"],
-          "deliveryDetails.dietaryRestrictions": ["dietary restrictions"],
-          ethnicity: ["ethnicity"],
-          gender: ["gender"],
-          language: ["language"],
-          notes: ["notes"],
-          phone: ["phone"],
-          referralEntity: ["referral entity", "referral"],
-          tags: ["tags", "tag"],
-          tefapCert: ["tefap", "tefap cert"],
-          dob: ["dob"],
-          lastDeliveryDate: ["last delivery date"],
-        };
-
-        for (const [propertyKey, aliases] of Object.entries(customColumnMappings)) {
-          if (
-            visibleFieldKeys.has(propertyKey) &&
-            aliases.some((alias) => normalizeSearchKeyword(alias) === normalizedKeyword)
-          ) {
-            return true;
-          }
-        }
-
-        return false;
-      };
-
-      matches = keyValueTerms.every((term) => {
-        const { keyword, searchValue, isKeyValue: isKeyValueSearch } = extractKeyValue(term);
-        const normalizedKeyword = normalizeSearchKeyword(keyword);
-
-        if (isKeyValueSearch && searchValue) {
-          if (!isVisibleField(keyword)) {
-            return true;
-          }
-
-          const searchValues = splitFilterValues(searchValue);
-          const matchesAnySearchValue = (matcher: (candidate: string) => boolean): boolean =>
-            searchValues.some((candidate: string) => matcher(candidate));
-
-          switch (normalizedKeyword) {
-            case "name":
-            case "client":
-              return matchesAnySearchValue(
-                (candidate) =>
-                  checkStringContains(`${row.firstName} ${row.lastName}`, candidate) ||
-                  checkStringContains(row.firstName, candidate) ||
-                  checkStringContains(row.lastName, candidate)
-              );
-            case "address":
-              return matchesAnySearchValue((candidate) => checkStringContains(row.address, candidate));
-            case "ward":
-              return matchesAnySearchValue((candidate) => checkStringEquals(row.ward, candidate));
-            case "zip":
-            case "zipcode":
-              return matchesAnySearchValue((candidate) => checkStringEquals(row.zipCode, candidate));
-            case "cluster":
-            case "clusterid":
-            case "route":
-            case "routeid":
-              return matchesAnySearchValue((candidate) => checkStringEquals(row.clusterId, candidate));
-            case "driver":
-            case "assigneddriver": {
-              const driverName = fields
-                .find((f) => f.key === "assignedDriver")
-                ?.compute?.(row, clusters);
-              return matchesAnySearchValue((candidate) => checkStringContains(driverName, candidate));
+          if (isKeyValueSearch && searchValue) {
+            if (!isVisibleField(keyword)) {
+              return true;
             }
-            case "time":
-            case "assignedtime": {
-              const assignedTime = fields
-                .find((f) => f.key === "assignedTime")
-                ?.compute?.(row, clusters);
-              return matchesAnySearchValue((candidate) => checkStringContains(assignedTime, candidate));
-            }
-            case "deliveryinstructions":
-            case "instructions": {
-              const instructions = (
-                fields.find((f) => f.key === "deliveryDetails.deliveryInstructions") as Extract<
-                  Field,
-                  { key: "deliveryDetails.deliveryInstructions" }
-                >
-              ).compute?.(row);
-              return matchesAnySearchValue((candidate) => checkStringContains(instructions, candidate));
-            }
-            case "tags":
-            case "tag":
-              return matchesAnySearchValue((candidate) => checkValueOrInArray(row.tags, candidate));
-            case "phone":
-              return matchesAnySearchValue((candidate) => checkStringContains(row.phone, candidate));
-            case "ethnicity":
-              return matchesAnySearchValue((candidate) => checkStringContains(row.ethnicity, candidate));
-            case "adults":
-              return matchesAnySearchValue((candidate) =>
-                checkValueOrInArray(row.adults, candidate, true)
-              );
-            case "children":
-              return matchesAnySearchValue((candidate) =>
-                checkValueOrInArray(row.children, candidate, true)
-              );
-            case "deliveryfreq":
-            case "deliveryfrequency":
-              return matchesAnySearchValue((candidate) => checkStringContains(row.deliveryFreq, candidate));
-            case "gender":
-              return matchesAnySearchValue((candidate) => checkStringContains(row.gender, candidate));
-            case "language":
-              return matchesAnySearchValue((candidate) => checkStringContains(row.language, candidate));
-            case "notes":
-              return matchesAnySearchValue((candidate) => checkStringContains(row.notes, candidate));
-            case "tefap":
-            case "tefapcert":
-              return matchesAnySearchValue((candidate) => checkStringContains(row.tefapCert, candidate));
-            case "dob":
-              return matchesAnySearchValue((candidate) => checkValueOrInArray(row.dob, candidate, true));
-            case "referralentity":
-            case "referral": {
-              if (row.referralEntity && typeof row.referralEntity === "object") {
+
+            const searchValues = splitFilterValues(searchValue);
+            const matchesAnySearchValue = (matcher: (candidate: string) => boolean): boolean =>
+              searchValues.some((candidate: string) => matcher(candidate));
+
+            switch (normalizedKeyword) {
+              case "name":
+              case "client":
                 return matchesAnySearchValue(
                   (candidate) =>
-                    checkStringContains(row.referralEntity.name, candidate) ||
-                    checkStringContains(row.referralEntity.organization, candidate)
+                    checkStringContains(`${row.firstName} ${row.lastName}`, candidate) ||
+                    checkStringContains(row.firstName, candidate) ||
+                    checkStringContains(row.lastName, candidate)
+                );
+              case "address":
+                return matchesAnySearchValue((candidate) =>
+                  checkStringContains(row.address, candidate)
+                );
+              case "ward":
+                return matchesAnySearchValue((candidate) => checkStringEquals(row.ward, candidate));
+              case "zip":
+              case "zipcode":
+                return matchesAnySearchValue((candidate) =>
+                  checkStringEquals(row.zipCode, candidate)
+                );
+              case "cluster":
+              case "clusterid":
+              case "route":
+              case "routeid":
+                return matchesAnySearchValue((candidate) =>
+                  checkStringEquals(row.clusterId, candidate)
+                );
+              case "driver":
+              case "assigneddriver": {
+                const driverName = fields
+                  .find((f) => f.key === "assignedDriver")
+                  ?.compute?.(row, clusters, clientOverrides);
+                return matchesAnySearchValue((candidate) =>
+                  checkStringContains(driverName, candidate)
                 );
               }
-              return false;
-            }
-            default: {
-              const matchesCustomColumn = customColumns.some((col) => {
-                if (
-                  col.propertyKey !== "none" &&
-                  normalizeSearchKeyword(col.propertyKey).includes(normalizedKeyword)
-                ) {
-                  if (col.propertyKey in row) {
-                    const fieldValue = row[col.propertyKey as keyof DeliveryRowData];
-                    return matchesAnySearchValue((candidate) =>
-                      checkStringContains(fieldValue, candidate)
-                    );
-                  }
+              case "time":
+              case "assignedtime": {
+                const assignedTime = fields
+                  .find((f) => f.key === "assignedTime")
+                  ?.compute?.(row, clusters, clientOverrides);
+                return matchesAnySearchValue((candidate) =>
+                  checkStringContains(assignedTime, candidate)
+                );
+              }
+              case "deliveryinstructions":
+              case "instructions": {
+                const instructions = (
+                  fields.find((f) => f.key === "deliveryDetails.deliveryInstructions") as Extract<
+                    Field,
+                    { key: "deliveryDetails.deliveryInstructions" }
+                  >
+                ).compute?.(row);
+                return matchesAnySearchValue((candidate) =>
+                  checkStringContains(instructions, candidate)
+                );
+              }
+              case "tags":
+              case "tag":
+                return matchesAnySearchValue((candidate) =>
+                  checkValueOrInArray(row.tags, candidate)
+                );
+              case "phone":
+                return matchesAnySearchValue((candidate) =>
+                  checkStringContains(row.phone, candidate)
+                );
+              case "ethnicity":
+                return matchesAnySearchValue((candidate) =>
+                  checkStringContains(row.ethnicity, candidate)
+                );
+              case "adults":
+                return matchesAnySearchValue((candidate) =>
+                  checkValueOrInArray(row.adults, candidate, true)
+                );
+              case "children":
+                return matchesAnySearchValue((candidate) =>
+                  checkValueOrInArray(row.children, candidate, true)
+                );
+              case "deliveryfreq":
+              case "deliveryfrequency":
+                return matchesAnySearchValue((candidate) =>
+                  checkStringContains(row.deliveryFreq, candidate)
+                );
+              case "gender":
+                return matchesAnySearchValue((candidate) =>
+                  checkStringContains(row.gender, candidate)
+                );
+              case "language":
+                return matchesAnySearchValue((candidate) =>
+                  checkStringContains(row.language, candidate)
+                );
+              case "notes":
+                return matchesAnySearchValue((candidate) =>
+                  checkStringContains(row.notes, candidate)
+                );
+              case "tefap":
+              case "tefapcert":
+                return matchesAnySearchValue((candidate) =>
+                  checkStringContains(row.tefapCert, candidate)
+                );
+              case "dob":
+                return matchesAnySearchValue((candidate) =>
+                  checkValueOrInArray(row.dob, candidate, true)
+                );
+              case "referralentity":
+              case "referral": {
+                if (row.referralEntity && typeof row.referralEntity === "object") {
+                  return matchesAnySearchValue(
+                    (candidate) =>
+                      checkStringContains(row.referralEntity.name, candidate) ||
+                      checkStringContains(row.referralEntity.organization, candidate)
+                  );
                 }
                 return false;
-              });
-              return matchesCustomColumn;
+              }
+              default: {
+                const matchesCustomColumn = customColumns.some((col) => {
+                  if (
+                    col.propertyKey !== "none" &&
+                    normalizeSearchKeyword(col.propertyKey).includes(normalizedKeyword)
+                  ) {
+                    const fieldValue = getNestedPropertyValue(row, col.propertyKey);
+                    if (fieldValue !== undefined) {
+                      return matchesAnySearchValue((candidate) =>
+                        checkStringContains(fieldValue, candidate)
+                      );
+                    }
+                  }
+                  return false;
+                });
+                return matchesCustomColumn;
+              }
             }
           }
-        }
 
-        return true;
-      });
-    }
+          return true;
+        });
+      }
 
-    if (matches && nonKeyValueTerms.length > 0) {
-      const searchableFields = [
-        "firstName",
-        "lastName",
-        "address",
-        "phone",
-        "ward",
-        "zipCode",
-        "clusterId",
-        "tags",
-        "deliveryDetails.deliveryInstructions",
-        ...customColumns.map((col) => col.propertyKey).filter((key) => key !== "none"),
-      ];
-      matches = nonKeyValueTerms.every((term) => globalSearchMatch(row, term, searchableFields));
-    }
+      if (matches && nonKeyValueTerms.length > 0) {
+        const searchableFields = [
+          "firstName",
+          "lastName",
+          "address",
+          "phone",
+          "ward",
+          "zipCode",
+          "clusterId",
+          "tags",
+          "deliveryDetails.deliveryInstructions",
+          ...customColumns.map((col) => col.propertyKey).filter((key) => key !== "none"),
+        ];
+        matches = nonKeyValueTerms.every((term) => globalSearchMatch(row, term, searchableFields));
+      }
 
       return matches;
     });
-  }, [rows, searchQuery, customColumns, clusters]);
+  }, [rows, searchQuery, customColumns, clusters, clientOverrides]);
 
   const unassignedRouteCount = useMemo(() => rows.filter((row) => !row.clusterId).length, [rows]);
 
