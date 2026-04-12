@@ -7,11 +7,11 @@ import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
 import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
 import FormatListNumberedIcon from "@mui/icons-material/FormatListNumbered";
 import RestartAltIcon from "@mui/icons-material/RestartAlt";
-import { Box, FormControlLabel, IconButton, Switch, Tooltip, Typography } from "@mui/material";
+import { Box, FormControlLabel, IconButton, Popover, Switch, Tooltip, Typography } from "@mui/material";
 import DriverService from "../../services/driver-service";
 import FFAIcon from "../../assets/tsp-food-for-all-dc-logo.png";
 import dataSources from "../../config/dataSources";
-import { isRenderableCoordinate } from "./utils/deliveryMapCounts";
+import { buildClusterDisplaySnapshots, isRenderableCoordinate } from "./utils/deliveryMapCounts";
 import { buildMarkerPlacementMap } from "./utils/markerPlacement";
 import { normalizeAssignmentValue, resolveAssignmentValue } from "./utils/assignmentOverrides";
 import {
@@ -118,6 +118,37 @@ const normalizeClusterId = (clusterId?: unknown): string => {
   }
 
   return normalizeAssignmentValue(clusterId) || "";
+};
+
+const formatRouteLabel = (clusterId?: unknown): string => {
+  const normalizedClusterId = normalizeClusterId(clusterId);
+  return normalizedClusterId ? `Route ${normalizedClusterId}` : "Unassigned";
+};
+
+const formatClientDisplayName = (row: Pick<RouteMapRow, "firstName" | "lastName">): string => {
+  const fullName = `${row.firstName || ""} ${row.lastName || ""}`.trim();
+  return fullName || "Unknown client";
+};
+
+const compareRouteIds = (leftClusterId: string, rightClusterId: string): number => {
+  if (!leftClusterId && !rightClusterId) {
+    return 0;
+  }
+  if (!leftClusterId) {
+    return 1;
+  }
+  if (!rightClusterId) {
+    return -1;
+  }
+
+  const leftNumber = parseInt(leftClusterId.match(/\d+/)?.[0] || "", 10);
+  const rightNumber = parseInt(rightClusterId.match(/\d+/)?.[0] || "", 10);
+
+  if (!Number.isNaN(leftNumber) && !Number.isNaN(rightNumber) && leftNumber !== rightNumber) {
+    return leftNumber - rightNumber;
+  }
+
+  return leftClusterId.localeCompare(rightClusterId);
 };
 
 const getNextClusterId = (clusterList: Array<Pick<Cluster, "id">>): string => {
@@ -333,6 +364,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
   const [wardDataLoading, setWardDataLoading] = useState<boolean>(false);
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [loadingDrivers, setLoadingDrivers] = useState<boolean>(false);
+  const [invalidBadgeAnchorEl, setInvalidBadgeAnchorEl] = useState<HTMLElement | null>(null);
 
   const clusterByClientId = React.useMemo(() => {
     const map = new Map<string, Cluster>();
@@ -364,6 +396,47 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
     return buildAssignmentSummary(allRows, clusterByClientId, clientOverrideByClientId);
   }, [allRows, clusterByClientId, clientOverrideByClientId]);
 
+  const clusterDisplaySnapshots = React.useMemo(
+    () =>
+      buildClusterDisplaySnapshots({
+        allRows,
+        visibleRows,
+        clusters,
+      }),
+    [allRows, visibleRows, clusters]
+  );
+  const clusterDisplaySnapshotById = React.useMemo(
+    () => new Map(clusterDisplaySnapshots.map((snapshot) => [snapshot.clusterId, snapshot])),
+    [clusterDisplaySnapshots]
+  );
+  const hasStaleRouteAssignments = React.useMemo(
+    () => clusterDisplaySnapshots.some((snapshot) => snapshot.staleAssignedCount > 0),
+    [clusterDisplaySnapshots]
+  );
+  const invalidDeliveries = React.useMemo(
+    () =>
+      allRows
+        .filter((client) => !isValidCoordinate(client.coordinates))
+        .map((client) => {
+          const clusterId = normalizeClusterId(
+            clusterByClientId.get(client.id)?.id ?? client.clusterId
+          );
+
+          return {
+            clientId: client.id,
+            displayName: formatClientDisplayName(client),
+            routeLabel: formatRouteLabel(clusterId),
+            clusterId,
+          };
+        })
+        .sort(
+          (left, right) =>
+            compareRouteIds(left.clusterId, right.clusterId) ||
+            left.displayName.localeCompare(right.displayName)
+        ),
+    [allRows, clusterByClientId]
+  );
+
   // Calculate deliveries + assignment details per cluster for the map summary overlay.
   const clusterSummaries = React.useMemo(() => {
     const summaries = buildClusterSummariesFromClusters(
@@ -372,8 +445,21 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
       formatTimeForSummary
     );
 
-    return sortClusterSummaries(summaries, clusterSummarySortMode);
-  }, [clusters, clientOverrideByClientId, clusterSummarySortMode]);
+    const summariesWithDisplayCounts = summaries.map((summary) => ({
+      ...summary,
+      count: clusterDisplaySnapshotById.get(summary.clusterId)?.filteredCount ?? summary.count,
+    }));
+
+    return sortClusterSummaries(
+      summariesWithDisplayCounts.filter((summary) => summary.count > 0),
+      clusterSummarySortMode
+    );
+  }, [
+    clusters,
+    clientOverrideByClientId,
+    clusterDisplaySnapshotById,
+    clusterSummarySortMode,
+  ]);
 
   const usedClusterCount = React.useMemo(
     () => clusterSummaries.filter((summary) => summary.count > 0).length,
@@ -1332,9 +1418,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
     withLiveMap,
   ]);
 
-  const invalidCount = allRows.filter(
-    (client) => !isValidCoordinate(client.coordinates)
-  ).length;
+  const invalidCount = invalidDeliveries.length;
   const dayTotalDeliveries = allRows.length;
   const showFilteredEmptyState =
     visibleRows.length === 0 && dayTotalDeliveries > 0;
@@ -1344,6 +1428,17 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
       map.stop();
       map.setView(ffaCoordinates, 11, { animate: false });
     });
+  };
+
+  const handleInvalidBadgeClick = (event: React.MouseEvent<HTMLElement>) => {
+    const anchorElement = event.currentTarget;
+    setInvalidBadgeAnchorEl((currentAnchorEl) =>
+      currentAnchorEl ? null : anchorElement
+    );
+  };
+
+  const handleInvalidBadgeClose = () => {
+    setInvalidBadgeAnchorEl(null);
   };
 
   return (
@@ -1532,6 +1627,19 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
                 Day total: {dayTotalDeliveries}
               </Typography>
             </Box>
+            {hasStaleRouteAssignments && (
+              <Typography
+                variant="caption"
+                sx={{
+                  fontSize: "10px",
+                  color: "warning.main",
+                  lineHeight: 1.25,
+                }}
+              >
+                Some saved route assignments are out of date. Counts below reflect today&apos;s
+                filtered deliveries.
+              </Typography>
+            )}
           </Box>
           <Box
             sx={{
@@ -1639,12 +1747,17 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
           </Box>
           <Box sx={{ display: "flex", flexDirection: "column", gap: "6px" }}>
             {clusterSummaries.map(({ clusterId, count, driverLabel, timeLabel }) => {
+              const displaySnapshot = clusterDisplaySnapshotById.get(clusterId);
               const color = getClusterColor(clusterId);
               const textColor = getTextColorForBackground(color);
               const dividerColor =
                 textColor.toLowerCase() === "#ffffff"
                   ? "rgba(255, 255, 255, 0.38)"
                   : "rgba(0, 0, 0, 0.28)";
+              const cardDetails: string[] = [];
+              if (displaySnapshot && displaySnapshot.assignedCount > count) {
+                cardDetails.push(`of ${displaySnapshot.assignedCount} assigned`);
+              }
               return (
                 <Box
                   key={clusterId}
@@ -1727,6 +1840,19 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
                     >
                       {timeLabel}
                     </Typography>
+                    {cardDetails.length > 0 && (
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          fontSize: "9px",
+                          color: textColor,
+                          opacity: 0.9,
+                          lineHeight: 1.2,
+                        }}
+                      >
+                        {cardDetails.join(" · ")}
+                      </Typography>
+                    )}
                   </Box>
                 </Box>
               );
@@ -1760,8 +1886,12 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
         <img src={FFAIcon} style={{ width: "100%", height: "100%" }} alt="Center On FFA" />
       </Box>
       {invalidCount > 0 && (
-        <div
-          style={{
+        <Box
+          component="button"
+          type="button"
+          aria-label="Show deliveries with invalid coordinates"
+          onClick={handleInvalidBadgeClick}
+          sx={{
             position: "absolute",
             top: showClusterSummary ? "auto" : "10px",
             bottom: showClusterSummary ? "10px" : "auto",
@@ -1773,11 +1903,71 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
             zIndex: 1000,
             color: "red",
             fontWeight: "bold",
+            border: "none",
+            cursor: "pointer",
+            font: "inherit",
+            "&:hover": {
+              opacity: 0.9,
+            },
           }}
         >
           {invalidCount} invalid coordinates
-        </div>
+        </Box>
       )}
+      <Popover
+        open={Boolean(invalidBadgeAnchorEl)}
+        anchorEl={invalidBadgeAnchorEl}
+        onClose={handleInvalidBadgeClose}
+        anchorOrigin={{
+          vertical: showClusterSummary ? "top" : "bottom",
+          horizontal: "right",
+        }}
+        transformOrigin={{
+          vertical: showClusterSummary ? "bottom" : "top",
+          horizontal: "right",
+        }}
+        PaperProps={{
+          sx: {
+            p: 1.5,
+            width: "min(280px, calc(100vw - 24px))",
+            maxWidth: "calc(100vw - 24px)",
+          },
+        }}
+      >
+        <Typography variant="body2" sx={{ fontWeight: 600, fontSize: "12px" }}>
+          Missing map locations
+        </Typography>
+        <Typography variant="caption" sx={{ color: "text.secondary", fontSize: "10px" }}>
+          These deliveries can&apos;t be shown on the map today.
+        </Typography>
+        <Box
+          component="ul"
+          sx={{
+            listStyle: "none",
+            p: 0,
+            m: 0,
+            mt: 1,
+            display: "flex",
+            flexDirection: "column",
+            gap: 0.75,
+            maxHeight: "220px",
+            overflowY: "auto",
+          }}
+        >
+          {invalidDeliveries.map(({ clientId, displayName, routeLabel }) => (
+            <Box
+              component="li"
+              key={clientId}
+              sx={{
+                fontSize: "11px",
+                lineHeight: 1.35,
+              }}
+            >
+              {displayName} • {routeLabel}
+            </Box>
+          ))}
+        </Box>
+      </Popover>
     </div>
   );
 };

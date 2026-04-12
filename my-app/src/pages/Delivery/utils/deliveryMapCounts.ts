@@ -37,6 +37,14 @@ export interface ClusterCountSnapshot {
   reason: ClusterCountReason;
 }
 
+export interface ClusterDisplaySnapshot extends ClusterCountSnapshot {
+  assignedCount: number;
+  filteredCount: number;
+  renderableCount: number;
+  staleAssignedCount: number;
+  staleAssignedClientIds: string[];
+}
+
 const normalizeClientId = (clientId: unknown): string => String(clientId ?? "").trim();
 
 export const isRenderableCoordinate = (coord: CoordinateLike): boolean => {
@@ -69,7 +77,7 @@ export const isRenderableCoordinate = (coord: CoordinateLike): boolean => {
   );
 };
 
-export const buildClusterCountSnapshot = <
+const buildClusterDisplaySnapshot = <
   TRow extends DeliveryMapCountRow,
   TCluster extends DeliveryMapCountCluster,
 >({
@@ -82,7 +90,7 @@ export const buildClusterCountSnapshot = <
   allRows: TRow[];
   visibleRows: TRow[];
   clusters: TCluster[];
-}): ClusterCountSnapshot => {
+}): ClusterDisplaySnapshot => {
   const normalizedClusterId = String(clusterId ?? "").trim();
   const cluster = clusters.find(
     (candidate) => String(candidate.id ?? "").trim() === normalizedClusterId
@@ -92,6 +100,7 @@ export const buildClusterCountSnapshot = <
     new Set((cluster?.deliveries ?? []).map((clientId) => normalizeClientId(clientId)).filter(Boolean))
   );
   const clusterClientIdSet = new Set(clusterClientIds);
+  const allClientIdSet = new Set(allRows.map((row) => normalizeClientId(row.id)).filter(Boolean));
   const visibleClientIdSet = new Set(
     visibleRows.map((row) => normalizeClientId(row.id)).filter(Boolean)
   );
@@ -110,6 +119,7 @@ export const buildClusterCountSnapshot = <
         .filter((clientId) => !visibleClientIdSet.has(clientId))
     )
   );
+  const staleAssignedClientIds = clusterClientIds.filter((clientId) => !allClientIdSet.has(clientId));
 
   const counts: Record<DominantCountSource, number> = {
     overlay: clusterClientIds.length,
@@ -135,12 +145,60 @@ export const buildClusterCountSnapshot = <
     overlayCount: clusterClientIds.length,
     spreadsheetCount: visibleClusterRows.length,
     markerCount: markerRows.length,
+    assignedCount: clusterClientIds.length,
+    filteredCount: visibleClusterRows.length,
+    renderableCount: markerRows.length,
     missingCoordinateCount: missingCoordinateRows.length,
     filteredOutCount: filteredOutClientIds.length,
     missingCoordinateClientIds: missingCoordinateRows.map((row) => normalizeClientId(row.id)),
     filteredOutClientIds,
+    staleAssignedCount: staleAssignedClientIds.length,
+    staleAssignedClientIds,
     highestCount,
     highestCountSources,
     reason,
   };
 };
+
+export const buildClusterDisplaySnapshots = <
+  TRow extends DeliveryMapCountRow,
+  TCluster extends DeliveryMapCountCluster,
+>({
+  allRows,
+  visibleRows,
+  clusters,
+}: {
+  allRows: TRow[];
+  visibleRows: TRow[];
+  clusters: TCluster[];
+}): ClusterDisplaySnapshot[] =>
+  clusters.reduce((snapshots: ClusterDisplaySnapshot[], cluster) => {
+    const clusterId = String(cluster.id ?? "").trim();
+    const deliveries = Array.isArray(cluster.deliveries) ? cluster.deliveries : [];
+
+    if (!clusterId || deliveries.length === 0) {
+      return snapshots;
+    }
+
+    snapshots.push(
+      buildClusterDisplaySnapshot({
+        clusterId,
+        allRows,
+        visibleRows,
+        clusters,
+      })
+    );
+    return snapshots;
+  }, []);
+
+export const buildClusterCountSnapshot = <
+  TRow extends DeliveryMapCountRow,
+  TCluster extends DeliveryMapCountCluster,
+>(
+  args: {
+    clusterId: string;
+    allRows: TRow[];
+    visibleRows: TRow[];
+    clusters: TCluster[];
+  }
+): ClusterDisplaySnapshot => buildClusterDisplaySnapshot(args);
