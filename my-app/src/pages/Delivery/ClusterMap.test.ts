@@ -1,9 +1,16 @@
+/** @jest-environment jsdom */
 import fs from "fs";
 import path from "path";
 import React from "react";
 import { describe, expect, it, jest } from "@jest/globals";
 import { render, screen } from "@testing-library/react";
 import ClusterMap from "./ClusterMap";
+
+jest.mock("leaflet/dist/leaflet.css", () => ({}), { virtual: true });
+jest.mock("leaflet.awesome-markers/dist/leaflet.awesome-markers.css", () => ({}), {
+  virtual: true,
+});
+jest.mock("../../assets/tsp-food-for-all-dc-logo.png", () => "mock-ffa-icon", { virtual: true });
 
 jest.mock("leaflet", () => ({
   __esModule: true,
@@ -20,6 +27,28 @@ jest.mock("../../services/driver-service", () => ({
     }),
   },
 }));
+
+const localStorageMock = (() => {
+  let store: Record<string, string> = {};
+
+  return {
+    getItem: (key: string) => store[key] ?? null,
+    setItem: (key: string, value: string) => {
+      store[key] = value;
+    },
+    removeItem: (key: string) => {
+      delete store[key];
+    },
+    clear: () => {
+      store = {};
+    },
+  };
+})();
+
+Object.defineProperty(global, "localStorage", {
+  value: localStorageMock,
+  writable: true,
+});
 
 describe("ClusterMap popup regression guards", () => {
   // Protects against popups opening and immediately closing due to map click propagation
@@ -72,8 +101,24 @@ describe("ClusterMap popup regression guards", () => {
 
     render(
       React.createElement(ClusterMap, {
-        allRows: [],
-        visibleRows: [],
+        allRows: [
+          {
+            id: "c1",
+            firstName: "A",
+            lastName: "One",
+            address: "1 Main St",
+            coordinates: [38.9, -77.03],
+          },
+        ],
+        visibleRows: [
+          {
+            id: "c1",
+            firstName: "A",
+            lastName: "One",
+            address: "1 Main St",
+            coordinates: [38.9, -77.03],
+          },
+        ],
         clusters: [{ id: "3", deliveries: ["c1", "c2"], driver: "Dana", time: "09:00" }],
         clientOverrides: [],
         onClusterUpdate: async () => true,
@@ -82,7 +127,115 @@ describe("ClusterMap popup regression guards", () => {
     );
 
     expect(await screen.findByText("Cluster Deliveries")).toBeTruthy();
-    expect(screen.getByText("Day total: 0")).toBeTruthy();
+    expect(screen.getByText("Day total: 1")).toBeTruthy();
     expect(screen.getByText("3")).toBeTruthy();
+  });
+
+  it("shows filtered route counts in the overlay and surfaces stale assignment notice when needed", async () => {
+    localStorage.setItem("clusterSummaryEnabled", "true");
+
+    render(
+      React.createElement(ClusterMap, {
+        allRows: [
+          {
+            id: "c1",
+            firstName: "A",
+            lastName: "One",
+            address: "1 Main St",
+            coordinates: [38.9, -77.03],
+          },
+        ],
+        visibleRows: [
+          {
+            id: "c1",
+            firstName: "A",
+            lastName: "One",
+            address: "1 Main St",
+            coordinates: [38.9, -77.03],
+          },
+        ],
+        clusters: [{ id: "3", deliveries: ["c1", "c2"], driver: "Dana", time: "09:00" }],
+        clientOverrides: [],
+        onClusterUpdate: async () => true,
+        onRenumberClusters: async () => true,
+      })
+    );
+
+    expect(await screen.findByText("Cluster Deliveries")).toBeTruthy();
+    expect(screen.getByText("Day total: 1")).toBeTruthy();
+    expect(screen.getByText("of 2 assigned")).toBeTruthy();
+    expect(
+      screen.getByText(
+        "Some saved route assignments are out of date. Counts below reflect today's filtered deliveries."
+      )
+    ).toBeTruthy();
+    expect(screen.getByText("1")).toBeTruthy();
+  });
+
+  it("does not show the stale assignment notice when saved routes match the loaded day rows", async () => {
+    localStorage.setItem("clusterSummaryEnabled", "true");
+
+    render(
+      React.createElement(ClusterMap, {
+        allRows: [
+          {
+            id: "c1",
+            firstName: "A",
+            lastName: "One",
+            address: "1 Main St",
+            coordinates: [38.9, -77.03],
+          },
+        ],
+        visibleRows: [
+          {
+            id: "c1",
+            firstName: "A",
+            lastName: "One",
+            address: "1 Main St",
+            coordinates: [38.9, -77.03],
+          },
+        ],
+        clusters: [{ id: "3", deliveries: ["c1"], driver: "Dana", time: "09:00" }],
+        clientOverrides: [],
+        onClusterUpdate: async () => true,
+        onRenumberClusters: async () => true,
+      })
+    );
+
+    expect(await screen.findByText("Cluster Deliveries")).toBeTruthy();
+    expect(screen.queryByText(/Some saved route assignments are out of date\./i)).toBeNull();
+  });
+
+  it("keeps the existing invalid coordinate badge visible", async () => {
+    localStorage.setItem("clusterSummaryEnabled", "true");
+
+    render(
+      React.createElement(ClusterMap, {
+        allRows: [
+          {
+            id: "c1",
+            firstName: "A",
+            lastName: "One",
+            address: "1 Main St",
+            coordinates: [0, 0],
+          },
+        ],
+        visibleRows: [
+          {
+            id: "c1",
+            firstName: "A",
+            lastName: "One",
+            address: "1 Main St",
+            coordinates: [0, 0],
+          },
+        ],
+        clusters: [{ id: "3", deliveries: ["c1"], driver: "Dana", time: "09:00" }],
+        clientOverrides: [],
+        onClusterUpdate: async () => true,
+        onRenumberClusters: async () => true,
+      })
+    );
+
+    expect(await screen.findByText("1 invalid coordinates")).toBeTruthy();
   });
 });

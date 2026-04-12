@@ -11,7 +11,7 @@ import { Box, FormControlLabel, IconButton, Switch, Tooltip, Typography } from "
 import DriverService from "../../services/driver-service";
 import FFAIcon from "../../assets/tsp-food-for-all-dc-logo.png";
 import dataSources from "../../config/dataSources";
-import { isRenderableCoordinate } from "./utils/deliveryMapCounts";
+import { buildClusterDisplaySnapshots, isRenderableCoordinate } from "./utils/deliveryMapCounts";
 import { buildMarkerPlacementMap } from "./utils/markerPlacement";
 import { normalizeAssignmentValue, resolveAssignmentValue } from "./utils/assignmentOverrides";
 import {
@@ -364,6 +364,24 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
     return buildAssignmentSummary(allRows, clusterByClientId, clientOverrideByClientId);
   }, [allRows, clusterByClientId, clientOverrideByClientId]);
 
+  const clusterDisplaySnapshots = React.useMemo(
+    () =>
+      buildClusterDisplaySnapshots({
+        allRows,
+        visibleRows,
+        clusters,
+      }),
+    [allRows, visibleRows, clusters]
+  );
+  const clusterDisplaySnapshotById = React.useMemo(
+    () => new Map(clusterDisplaySnapshots.map((snapshot) => [snapshot.clusterId, snapshot])),
+    [clusterDisplaySnapshots]
+  );
+  const hasStaleRouteAssignments = React.useMemo(
+    () => clusterDisplaySnapshots.some((snapshot) => snapshot.staleAssignedCount > 0),
+    [clusterDisplaySnapshots]
+  );
+
   // Calculate deliveries + assignment details per cluster for the map summary overlay.
   const clusterSummaries = React.useMemo(() => {
     const summaries = buildClusterSummariesFromClusters(
@@ -372,8 +390,21 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
       formatTimeForSummary
     );
 
-    return sortClusterSummaries(summaries, clusterSummarySortMode);
-  }, [clusters, clientOverrideByClientId, clusterSummarySortMode]);
+    const summariesWithDisplayCounts = summaries.map((summary) => ({
+      ...summary,
+      count: clusterDisplaySnapshotById.get(summary.clusterId)?.filteredCount ?? summary.count,
+    }));
+
+    return sortClusterSummaries(
+      summariesWithDisplayCounts.filter((summary) => summary.count > 0),
+      clusterSummarySortMode
+    );
+  }, [
+    clusters,
+    clientOverrideByClientId,
+    clusterDisplaySnapshotById,
+    clusterSummarySortMode,
+  ]);
 
   const usedClusterCount = React.useMemo(
     () => clusterSummaries.filter((summary) => summary.count > 0).length,
@@ -1532,6 +1563,19 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
                 Day total: {dayTotalDeliveries}
               </Typography>
             </Box>
+            {hasStaleRouteAssignments && (
+              <Typography
+                variant="caption"
+                sx={{
+                  fontSize: "10px",
+                  color: "warning.main",
+                  lineHeight: 1.25,
+                }}
+              >
+                Some saved route assignments are out of date. Counts below reflect today&apos;s
+                filtered deliveries.
+              </Typography>
+            )}
           </Box>
           <Box
             sx={{
@@ -1639,12 +1683,17 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
           </Box>
           <Box sx={{ display: "flex", flexDirection: "column", gap: "6px" }}>
             {clusterSummaries.map(({ clusterId, count, driverLabel, timeLabel }) => {
+              const displaySnapshot = clusterDisplaySnapshotById.get(clusterId);
               const color = getClusterColor(clusterId);
               const textColor = getTextColorForBackground(color);
               const dividerColor =
                 textColor.toLowerCase() === "#ffffff"
                   ? "rgba(255, 255, 255, 0.38)"
                   : "rgba(0, 0, 0, 0.28)";
+              const cardDetails: string[] = [];
+              if (displaySnapshot && displaySnapshot.assignedCount > count) {
+                cardDetails.push(`of ${displaySnapshot.assignedCount} assigned`);
+              }
               return (
                 <Box
                   key={clusterId}
@@ -1727,6 +1776,19 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
                     >
                       {timeLabel}
                     </Typography>
+                    {cardDetails.length > 0 && (
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          fontSize: "9px",
+                          color: textColor,
+                          opacity: 0.9,
+                          lineHeight: 1.2,
+                        }}
+                      >
+                        {cardDetails.join(" · ")}
+                      </Typography>
+                    )}
                   </Box>
                 </Box>
               );

@@ -1,5 +1,9 @@
 import { describe, expect, it } from "@jest/globals";
-import { buildClusterCountSnapshot, isRenderableCoordinate } from "./deliveryMapCounts";
+import {
+  buildClusterCountSnapshot,
+  buildClusterDisplaySnapshots,
+  isRenderableCoordinate,
+} from "./deliveryMapCounts";
 
 describe("deliveryMapCounts helpers", () => {
   it("rejects zero coordinates so unrenderable clients are counted as missing", () => {
@@ -104,5 +108,56 @@ describe("deliveryMapCounts helpers", () => {
     expect(snapshot.reason).toBe("filtered-out");
     expect(snapshot.filteredOutCount).toBe(1);
     expect(snapshot.filteredOutClientIds).toEqual(["c14"]);
+  });
+
+  it("builds display snapshots with filtered and renderable counts for each route", () => {
+    const allRows = [
+      { id: "c1", coordinates: [38.9, -77.03] as [number, number] },
+      { id: "c2", coordinates: [0, 0] as [number, number] },
+      { id: "c3", coordinates: [38.92, -77.01] as [number, number] },
+    ];
+    const visibleRows = allRows.filter((row) => row.id !== "c3");
+
+    const snapshots = buildClusterDisplaySnapshots({
+      allRows,
+      visibleRows,
+      clusters: [
+        { id: "3", deliveries: ["c1", "c2", "c2"] },
+        { id: "4", deliveries: ["c3"] },
+      ],
+    });
+
+    expect(snapshots).toEqual([
+      expect.objectContaining({
+        clusterId: "3",
+        assignedCount: 2,
+        filteredCount: 2,
+        renderableCount: 1,
+        missingCoordinateCount: 1,
+        staleAssignedCount: 0,
+      }),
+      expect.objectContaining({
+        clusterId: "4",
+        assignedCount: 1,
+        filteredCount: 0,
+        renderableCount: 0,
+        filteredOutCount: 1,
+        staleAssignedCount: 0,
+      }),
+    ]);
+  });
+
+  it("tracks stale assigned client ids that are not present in the selected day rows", () => {
+    const snapshot = buildClusterCountSnapshot({
+      clusterId: "3",
+      allRows: [{ id: "c1", coordinates: [38.9, -77.03] as [number, number] }],
+      visibleRows: [{ id: "c1", coordinates: [38.9, -77.03] as [number, number] }],
+      clusters: [{ id: "3", deliveries: ["c1", "c2"] }],
+    });
+
+    expect(snapshot.assignedCount).toBe(2);
+    expect(snapshot.filteredCount).toBe(1);
+    expect(snapshot.staleAssignedCount).toBe(1);
+    expect(snapshot.staleAssignedClientIds).toEqual(["c2"]);
   });
 });
