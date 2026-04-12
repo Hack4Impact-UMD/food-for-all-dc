@@ -3,7 +3,7 @@ import fs from "fs";
 import path from "path";
 import React from "react";
 import { describe, expect, it, jest } from "@jest/globals";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import ClusterMap from "./ClusterMap";
 
 jest.mock("leaflet/dist/leaflet.css", () => ({}), { virtual: true });
@@ -206,7 +206,7 @@ describe("ClusterMap popup regression guards", () => {
     expect(screen.queryByText(/Some saved route assignments are out of date\./i)).toBeNull();
   });
 
-  it("keeps the existing invalid coordinate badge visible", async () => {
+  it("shows all invalid deliveries for the day in a read-only popover", async () => {
     localStorage.setItem("clusterSummaryEnabled", "true");
 
     render(
@@ -218,6 +218,30 @@ describe("ClusterMap popup regression guards", () => {
             lastName: "One",
             address: "1 Main St",
             coordinates: [0, 0],
+            clusterId: "3",
+          },
+          {
+            id: "c2",
+            firstName: "B",
+            lastName: "Two",
+            address: "2 Main St",
+            coordinates: [],
+            clusterId: "4",
+          },
+          {
+            id: "c3",
+            firstName: "C",
+            lastName: "Three",
+            address: "3 Main St",
+            coordinates: [0, 0],
+          },
+          {
+            id: "c4",
+            firstName: "D",
+            lastName: "Four",
+            address: "4 Main St",
+            coordinates: [38.9, -77.03],
+            clusterId: "5",
           },
         ],
         visibleRows: [
@@ -227,15 +251,54 @@ describe("ClusterMap popup regression guards", () => {
             lastName: "One",
             address: "1 Main St",
             coordinates: [0, 0],
+            clusterId: "3",
+          },
+          {
+            id: "c4",
+            firstName: "D",
+            lastName: "Four",
+            address: "4 Main St",
+            coordinates: [38.9, -77.03],
+            clusterId: "5",
           },
         ],
-        clusters: [{ id: "3", deliveries: ["c1"], driver: "Dana", time: "09:00" }],
+        clusters: [
+          { id: "3", deliveries: ["c1"], driver: "Dana", time: "09:00" },
+          { id: "4", deliveries: ["c2"], driver: "Eli", time: "10:00" },
+          { id: "5", deliveries: ["c4"], driver: "Fran", time: "11:00" },
+        ],
         clientOverrides: [],
         onClusterUpdate: async () => true,
         onRenumberClusters: async () => true,
       })
     );
 
-    expect(await screen.findByText("1 invalid coordinates")).toBeTruthy();
+    const invalidBadge = await screen.findByRole("button", {
+      name: "Show deliveries with invalid coordinates",
+    });
+
+    expect(invalidBadge.textContent).toContain("3 invalid coordinates");
+
+    fireEvent.click(invalidBadge);
+
+    expect(await screen.findByText("Missing map locations")).toBeTruthy();
+    expect(screen.getByText("These deliveries can't be shown on the map today.")).toBeTruthy();
+    expect(screen.getByText("A One • Route 3")).toBeTruthy();
+    expect(screen.getByText("B Two • Route 4")).toBeTruthy();
+    expect(screen.getByText("C Three • Unassigned")).toBeTruthy();
+
+    const invalidItems = screen.getAllByRole("listitem");
+    expect(invalidItems.map((item) => item.textContent)).toEqual([
+      "A One • Route 3",
+      "B Two • Route 4",
+      "C Three • Unassigned",
+    ]);
+
+    fireEvent.click(invalidBadge);
+
+    await waitFor(() => {
+      expect(screen.queryByText("Missing map locations")).toBeNull();
+    });
+    expect(screen.getByText("Cluster Deliveries")).toBeTruthy();
   });
 });
