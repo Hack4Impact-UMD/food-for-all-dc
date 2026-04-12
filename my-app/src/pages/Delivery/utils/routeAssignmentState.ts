@@ -31,6 +31,12 @@ export interface RouteAssignmentMutationResult<
   touchedRouteIds: string[];
 }
 
+export interface ClusterDriverReplacementWarning {
+  routeCount: number;
+  replacedDriverNames: string[];
+  noRemainingRouteDriverNames: string[];
+}
+
 interface EffectiveRouteSlot {
   routeId: string;
   driver?: string;
@@ -274,6 +280,65 @@ export const findRouteSlotConflict = (
   }
 
   return null;
+};
+
+export const getClusterDriverReplacementWarning = <
+  TCluster extends RouteAssignmentCluster,
+>(
+  state: RouteAssignmentState<TCluster>,
+  routeIds: Iterable<string | number | null | undefined>,
+  incomingDriverName: string
+): ClusterDriverReplacementWarning | null => {
+  const normalizedRouteIds = normalizeRouteIds(routeIds);
+  const normalizedIncomingDriver = normalizeAssignmentValue(incomingDriverName);
+
+  if (!normalizedRouteIds.length || !normalizedIncomingDriver) {
+    return null;
+  }
+
+  const incomingDriverKey = normalizedIncomingDriver.toLowerCase();
+  const targetRouteIds = new Set(normalizedRouteIds);
+  const replacedDriverNames = new Map<string, string>();
+  const remainingRouteDriverCounts = new Map<string, number>();
+
+  state.clusters.forEach((cluster) => {
+    const routeId = normalizeRouteId(cluster.id);
+    const currentDriver = normalizeDriverAssignmentValue(cluster.driver);
+
+    if (!routeId || !currentDriver) {
+      return;
+    }
+
+    const currentDriverKey = currentDriver.toLowerCase();
+    const driverIsChanging =
+      targetRouteIds.has(routeId) && currentDriverKey !== incomingDriverKey;
+
+    if (driverIsChanging) {
+      if (!replacedDriverNames.has(currentDriverKey)) {
+        replacedDriverNames.set(currentDriverKey, currentDriver);
+      }
+      return;
+    }
+
+    remainingRouteDriverCounts.set(
+      currentDriverKey,
+      (remainingRouteDriverCounts.get(currentDriverKey) ?? 0) + 1
+    );
+  });
+
+  if (!replacedDriverNames.size) {
+    return null;
+  }
+
+  const noRemainingRouteDriverNames = Array.from(replacedDriverNames.entries())
+    .filter(([driverKey]) => !remainingRouteDriverCounts.has(driverKey))
+    .map(([, driverName]) => driverName);
+
+  return {
+    routeCount: normalizedRouteIds.length,
+    replacedDriverNames: Array.from(replacedDriverNames.values()),
+    noRemainingRouteDriverNames,
+  };
 };
 
 export const assignDriverToRoutes = <TCluster extends RouteAssignmentCluster>(

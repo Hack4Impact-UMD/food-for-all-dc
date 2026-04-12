@@ -3,6 +3,7 @@ import {
   assignDriverToRoutes,
   assignTimeToRoutes,
   findRouteSlotConflict,
+  getClusterDriverReplacementWarning,
   moveClientToCluster,
   moveClientsToCluster,
   renumberRoutesSequentially,
@@ -62,6 +63,116 @@ describe("routeAssignmentState helpers", () => {
       { clientId: "c3", driver: "Bob", time: "10:00" },
     ]);
     expect(result.touchedRouteIds).toEqual(["1"]);
+  });
+
+  // App coverage:
+  // - post-save warning toast when a route driver is replaced with a different driver
+  // Behavior contract: route-level warnings list the replaced drivers and report when they have no remaining routes.
+  it("builds replacement warning metadata for a normal cluster driver replacement", () => {
+    const state: RouteAssignmentState = {
+      clusters: [
+        { id: "10", driver: "Betsy", time: "09:00", deliveries: ["c1"] },
+        { id: "11", driver: "Phil", time: "10:00", deliveries: ["c2"] },
+      ],
+      clientOverrides: [],
+    };
+
+    const warning = getClusterDriverReplacementWarning(state, ["10"], "Matty");
+
+    expect(warning).toEqual({
+      routeCount: 1,
+      replacedDriverNames: ["Betsy"],
+      noRemainingRouteDriverNames: ["Betsy"],
+    });
+  });
+
+  // App coverage:
+  // - route-driver replacement warnings should ignore old drivers that still have other routes after the change
+  // Behavior contract: globally unassigned names are only reported when the removed driver has no remaining routes anywhere.
+  it("keeps removed drivers out of the no-remaining list when they still have another route", () => {
+    const state: RouteAssignmentState = {
+      clusters: [
+        { id: "10", driver: "Betsy", time: "09:00", deliveries: ["c1"] },
+        { id: "11", driver: "Betsy", time: "10:00", deliveries: ["c2"] },
+      ],
+      clientOverrides: [],
+    };
+
+    const warning = getClusterDriverReplacementWarning(state, ["10"], "Matty");
+
+    expect(warning).toEqual({
+      routeCount: 1,
+      replacedDriverNames: ["Betsy"],
+      noRemainingRouteDriverNames: [],
+    });
+  });
+
+  // App coverage:
+  // - suppressing replacement toasts when a route already has the selected driver
+  // Behavior contract: unchanged assignments do not produce warning metadata.
+  it("ignores routes whose driver is unchanged", () => {
+    const state: RouteAssignmentState = {
+      clusters: [{ id: "10", driver: "Matty", time: "09:00", deliveries: ["c1"] }],
+      clientOverrides: [],
+    };
+
+    expect(getClusterDriverReplacementWarning(state, ["10"], "matty")).toBeNull();
+  });
+
+  // App coverage:
+  // - assigning a driver to an unassigned route should not look like a replacement
+  // Behavior contract: blank old drivers are ignored.
+  it("ignores routes without an existing driver", () => {
+    const state: RouteAssignmentState = {
+      clusters: [{ id: "10", driver: "", time: "09:00", deliveries: ["c1"] }],
+      clientOverrides: [],
+    };
+
+    expect(getClusterDriverReplacementWarning(state, ["10"], "Matty")).toBeNull();
+  });
+
+  // App coverage:
+  // - bulk route driver updates where repeated old driver names appear across touched routes
+  // Behavior contract: replaced drivers are deduped case-insensitively.
+  it("dedupes repeated replaced driver names across touched routes", () => {
+    const state: RouteAssignmentState = {
+      clusters: [
+        { id: "10", driver: "Betsy", time: "09:00", deliveries: ["c1"] },
+        { id: "11", driver: "betsy", time: "10:00", deliveries: ["c2"] },
+        { id: "12", driver: "Phil", time: "11:00", deliveries: ["c3"] },
+      ],
+      clientOverrides: [],
+    };
+
+    const warning = getClusterDriverReplacementWarning(state, ["10", "11", "12"], "Matty");
+
+    expect(warning).toEqual({
+      routeCount: 3,
+      replacedDriverNames: ["Betsy", "Phil"],
+      noRemainingRouteDriverNames: ["Betsy", "Phil"],
+    });
+  });
+
+  // App coverage:
+  // - replacement warning when one removed driver is still present on an untouched route
+  // Behavior contract: only the drivers with zero remaining route assignments are flagged as having no remaining routes.
+  it("handles removed drivers who still remain on an untouched route", () => {
+    const state: RouteAssignmentState = {
+      clusters: [
+        { id: "10", driver: "Betsy", time: "09:00", deliveries: ["c1"] },
+        { id: "11", driver: "Phil", time: "10:00", deliveries: ["c2"] },
+        { id: "12", driver: "Phil", time: "11:00", deliveries: ["c3"] },
+      ],
+      clientOverrides: [],
+    };
+
+    const warning = getClusterDriverReplacementWarning(state, ["10", "11"], "Matty");
+
+    expect(warning).toEqual({
+      routeCount: 2,
+      replacedDriverNames: ["Betsy", "Phil"],
+      noRemainingRouteDriverNames: ["Betsy"],
+    });
   });
 
   // App coverage:
