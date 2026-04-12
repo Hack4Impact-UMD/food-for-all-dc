@@ -5,8 +5,11 @@ import { TableSortLabel, Icon, Tooltip } from "@mui/material";
 import {
   parseSearchTermsProgressively,
   checkStringContains,
+  checkStringEquals,
   extractKeyValue,
   globalSearchMatch,
+  normalizeSearchKeyword,
+  splitFilterValues,
 } from "../../utils/searchFilter";
 // Custom chevron icons for TableSortLabel with spacing
 const iconStyle = { verticalAlign: "middle", marginLeft: 6 };
@@ -634,19 +637,41 @@ const Spreadsheet: React.FC = () => {
           ...customColumns.map((col) => col.propertyKey).filter((key) => key !== "none"),
         ]);
 
+        const checkValueOrInArray = (
+          value: unknown,
+          query: string,
+          exactMatch = false
+        ): boolean => {
+          if (value === undefined || value === null) {
+            return false;
+          }
+
+          if (Array.isArray(value)) {
+            return value.some((item) =>
+              exactMatch ? checkStringEquals(item, query) : checkStringContains(item, query)
+            );
+          }
+
+          return exactMatch ? checkStringEquals(value, query) : checkStringContains(value, query);
+        };
+
         const isVisibleField = (keyword: string): boolean => {
-          const lowerKeyword = keyword.toLowerCase();
+          const normalizedKeyword = normalizeSearchKeyword(keyword);
 
           const fieldMappings: { [key: string]: string[] } = {
-            fullname: ["name", "firstname", "lastname"],
+            fullname: ["name", "first name", "firstname", "last name", "lastname"],
             address: ["address"],
             phone: ["phone"],
+            email: ["email"],
             "deliveryDetails.dietaryRestrictions": ["dietary restrictions", "dietary"],
             "deliveryDetails.deliveryInstructions": ["delivery instructions", "instructions"],
           };
 
           for (const [fieldKey, aliases] of Object.entries(fieldMappings)) {
-            if (visibleFieldKeys.has(fieldKey) && aliases.some((alias) => alias === lowerKeyword)) {
+            if (
+              visibleFieldKeys.has(fieldKey) &&
+              aliases.some((alias) => normalizeSearchKeyword(alias) === normalizedKeyword)
+            ) {
               return true;
             }
           }
@@ -664,13 +689,12 @@ const Spreadsheet: React.FC = () => {
             tefapCert: ["tefap", "tefap cert"],
             dob: ["dob"],
             lastDeliveryDate: ["last delivery date"],
-            email: ["email"],
           };
 
           for (const [propertyKey, aliases] of Object.entries(customColumnMappings)) {
             if (
               visibleFieldKeys.has(propertyKey) &&
-              aliases.some((alias) => alias === lowerKeyword)
+              aliases.some((alias) => normalizeSearchKeyword(alias) === normalizedKeyword)
             ) {
               return true;
             }
@@ -682,25 +706,46 @@ const Spreadsheet: React.FC = () => {
         result = result.filter((row) => {
           return keyValueTerms.every((term) => {
             const { keyword, searchValue, isKeyValue: isKeyValueSearch } = extractKeyValue(term);
+            const normalizedKeyword = normalizeSearchKeyword(keyword);
 
             if (isKeyValueSearch && searchValue) {
               if (!isVisibleField(keyword)) {
                 return true;
               }
 
-              switch (keyword) {
+              const searchValues = splitFilterValues(searchValue);
+              const matchesAnySearchValue = (matcher: (candidate: string) => boolean): boolean =>
+                searchValues.some((candidate: string) => matcher(candidate));
+
+              switch (normalizedKeyword) {
                 case "name":
+                  return matchesAnySearchValue(
+                    (candidate) =>
+                      checkStringContains(`${row.firstName ?? ""} ${row.lastName ?? ""}`, candidate) ||
+                      checkStringContains(row.firstName, candidate) ||
+                      checkStringContains(row.lastName, candidate)
+                  );
                 case "firstname":
-                  return checkStringContains(row.firstName, searchValue);
+                  return matchesAnySearchValue((candidate) =>
+                    checkStringContains(row.firstName, candidate)
+                  );
                 case "lastname":
-                  return checkStringContains(row.lastName, searchValue);
+                  return matchesAnySearchValue((candidate) =>
+                    checkStringContains(row.lastName, candidate)
+                  );
                 case "address":
-                  return checkStringContains(row.address, searchValue);
+                  return matchesAnySearchValue((candidate) =>
+                    checkStringContains(row.address, candidate)
+                  );
                 case "phone":
-                  return checkStringContains(row.phone, searchValue);
+                  return matchesAnySearchValue((candidate) =>
+                    checkStringContains(row.phone, candidate)
+                  );
                 case "email":
-                  return checkStringContains(row.email, searchValue);
-                case "dietary restrictions":
+                  return matchesAnySearchValue((candidate) =>
+                    checkStringContains(row.email, candidate)
+                  );
+                case "dietaryrestrictions":
                 case "dietary": {
                   const dr = row.deliveryDetails?.dietaryRestrictions;
                   if (!dr) return false;
@@ -719,17 +764,80 @@ const Spreadsheet: React.FC = () => {
                     ...(Array.isArray(dr.other) ? dr.other : []),
                     dr.otherText || "",
                   ].filter(Boolean);
-                  return dietaryTerms.some((term) => checkStringContains(term, searchValue));
+                  return matchesAnySearchValue((candidate) =>
+                    dietaryTerms.some((dietaryTerm) => checkStringContains(dietaryTerm, candidate))
+                  );
                 }
-                case "delivery instructions":
+                case "deliveryinstructions":
                 case "instructions":
-                  return checkStringContains(
-                    row.deliveryDetails?.deliveryInstructions,
-                    searchValue
+                  return matchesAnySearchValue((candidate) =>
+                    checkStringContains(row.deliveryDetails?.deliveryInstructions, candidate)
+                  );
+                case "adults":
+                  return matchesAnySearchValue((candidate) =>
+                    checkValueOrInArray(row.adults, candidate, true)
+                  );
+                case "children":
+                  return matchesAnySearchValue((candidate) =>
+                    checkValueOrInArray(row.children, candidate, true)
+                  );
+                case "deliveryfreq":
+                case "deliveryfrequency":
+                  return matchesAnySearchValue((candidate) =>
+                    checkStringContains(row.deliveryFreq, candidate)
+                  );
+                case "ethnicity":
+                  return matchesAnySearchValue((candidate) =>
+                    checkStringContains(row.ethnicity, candidate)
+                  );
+                case "gender":
+                  return matchesAnySearchValue((candidate) =>
+                    checkStringContains(row.gender, candidate)
+                  );
+                case "language":
+                  return matchesAnySearchValue((candidate) =>
+                    checkStringContains(row.language, candidate)
+                  );
+                case "notes":
+                  return matchesAnySearchValue((candidate) =>
+                    checkStringContains(row.notes, candidate)
+                  );
+                case "referralentity":
+                case "referral": {
+                  const referralEntity = row.referralEntity;
+
+                  if (referralEntity && typeof referralEntity === "object") {
+                    return matchesAnySearchValue(
+                      (candidate) =>
+                        checkStringContains(referralEntity.name, candidate) ||
+                        checkStringContains(referralEntity.organization, candidate)
+                    );
+                  }
+                  return false;
+                }
+                case "tags":
+                case "tag":
+                  return matchesAnySearchValue((candidate) => checkValueOrInArray(row.tags, candidate));
+                case "tefap":
+                case "tefapcert":
+                  return matchesAnySearchValue((candidate) =>
+                    checkStringContains(row.tefapCert, candidate)
+                  );
+                case "dob":
+                  return matchesAnySearchValue((candidate) =>
+                    checkValueOrInArray(row.dob, candidate, true)
+                  );
+                case "lastdeliverydate":
+                  return matchesAnySearchValue((candidate) =>
+                    checkStringContains(row.lastDeliveryDate, candidate)
                   );
                 default: {
                   const matchesCustomColumn = customColumns.some((col) => {
-                    if (col.propertyKey !== "none" && visibleFieldKeys.has(col.propertyKey)) {
+                    if (
+                      col.propertyKey !== "none" &&
+                      visibleFieldKeys.has(col.propertyKey) &&
+                      normalizeSearchKeyword(col.propertyKey).includes(normalizedKeyword)
+                    ) {
                       if (col.propertyKey.includes(".")) {
                         const keys = col.propertyKey.split(".");
                         let value: unknown = row;
@@ -737,12 +845,16 @@ const Spreadsheet: React.FC = () => {
                           value = value && (value as Record<string, unknown>)[k];
                           if (value === undefined) return false;
                         }
-                        return checkStringContains(String(value || ""), searchValue);
-                      } else {
-                        if (col.propertyKey in row) {
-                          const fieldValue = row[col.propertyKey as keyof RowData];
-                          return checkStringContains(fieldValue, searchValue);
-                        }
+                        return matchesAnySearchValue((candidate) =>
+                          checkValueOrInArray(value, candidate)
+                        );
+                      }
+
+                      if (col.propertyKey in row) {
+                        const fieldValue = row[col.propertyKey as keyof RowData];
+                        return matchesAnySearchValue((candidate) =>
+                          checkValueOrInArray(fieldValue, candidate)
+                        );
                       }
                     }
                     return false;
@@ -878,7 +990,7 @@ const Spreadsheet: React.FC = () => {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder='Search clients (e.g., smith, name:john, address:"main st")'
+              placeholder='Search clients (e.g., smith, name:john,jane, address:"main st", gender:female,male)'
               style={{
                 width: "100%",
                 height: "50px",

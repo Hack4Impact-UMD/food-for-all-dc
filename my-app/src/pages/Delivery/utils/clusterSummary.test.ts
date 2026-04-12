@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@jest/globals";
-import { buildClusterSummariesFromClusters } from "./clusterSummary";
+import { buildClusterSummariesFromClusters, sortClusterSummaries } from "./clusterSummary";
 
 describe("clusterSummary helpers", () => {
   // App coverage:
@@ -30,6 +30,26 @@ describe("clusterSummary helpers", () => {
         timeLabel: "10:00",
       },
     ]);
+  });
+
+  // App coverage:
+  // - cluster deliveries overlay defaults to showing routes in cluster-number order
+  // - dispatchers can cycle between cluster order, highest-first, and lowest-first delivery counts
+  // Behavior contract: default cluster sorting is ascending by cluster id; count sorting orders by count in the requested direction, then cluster id ascending.
+  it("sorts cluster summaries by cluster number by default and by delivery count in both directions", () => {
+    const summaries = [
+      { clusterId: "10", count: 2, driverLabel: "Alice", timeLabel: "09:00" },
+      { clusterId: "2", count: 4, driverLabel: "Bob", timeLabel: "10:00" },
+      { clusterId: "1", count: 4, driverLabel: "Dana", timeLabel: "11:00" },
+    ];
+
+    const defaultClusterOrder = sortClusterSummaries(summaries, "cluster");
+    const descending = sortClusterSummaries(summaries, "count-desc");
+    const ascending = sortClusterSummaries(summaries, "count-asc");
+
+    expect(defaultClusterOrder.map((summary) => summary.clusterId)).toEqual(["1", "2", "10"]);
+    expect(descending.map((summary) => summary.clusterId)).toEqual(["1", "2", "10"]);
+    expect(ascending.map((summary) => summary.clusterId)).toEqual(["10", "1", "2"]);
   });
 
   // App coverage:

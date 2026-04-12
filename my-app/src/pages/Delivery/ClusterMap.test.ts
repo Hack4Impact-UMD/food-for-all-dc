@@ -1,6 +1,25 @@
 import fs from "fs";
 import path from "path";
-import { describe, expect, it } from "@jest/globals";
+import React from "react";
+import { describe, expect, it, jest } from "@jest/globals";
+import { render, screen } from "@testing-library/react";
+import ClusterMap from "./ClusterMap";
+
+jest.mock("leaflet", () => ({
+  __esModule: true,
+  default: {},
+}));
+
+jest.mock("leaflet.awesome-markers", () => ({}));
+
+jest.mock("../../services/driver-service", () => ({
+  __esModule: true,
+  default: {
+    getInstance: () => ({
+      getAllDrivers: async () => [],
+    }),
+  },
+}));
 
 describe("ClusterMap popup regression guards", () => {
   // Protects against popups opening and immediately closing due to map click propagation
@@ -22,5 +41,48 @@ describe("ClusterMap popup regression guards", () => {
 
     expect(source).toMatch(/\.on\("click",\s*\(\)\s*=>\s*\{[\s\S]*?marker\.openPopup\(\)/m);
     expect(source).toMatch(/openMapPopup\s*=\s*\(clientId:\s*string\)\s*=>\s*\{[\s\S]*?marker\.openPopup\(\)/m);
+  });
+
+  it("lets the cluster summary overlay toggle sorting by number of deliveries", () => {
+    const sourcePath = path.resolve(__dirname, "ClusterMap.tsx");
+    const source = fs.readFileSync(sourcePath, "utf8");
+
+    expect(source).toContain("clusterSummarySortMode");
+    expect(source).toContain("sortClusterSummaries(");
+    expect(source).toContain("ArrowDownwardIcon");
+    expect(source).toContain("ArrowUpwardIcon");
+    expect(source).toContain("FormatListNumberedIcon");
+    expect(source).toContain("handleClusterSummarySortToggle");
+    expect(source).toContain("handleClusterReorder");
+    expect(source).toContain("usedClusterCount");
+    expect(source).toContain("hasUnassignedClusterSlots");
+    expect(source).toContain(
+      "assignmentSummary.done && hasUnassignedClusterSlots && canRenumberClusters"
+    );
+    expect(source).toContain("Renumber");
+    expect(source).toContain("Sorting by delivery count (highest first)");
+    expect(source).toContain("Sorting by delivery count (lowest first)");
+    expect(source).toContain("Sorting by cluster number");
+    expect(source).toContain("Renumber clusters to 1-");
+    expect(source).toMatch(/<Typography[^>]*>[\s\S]*Sort[\s\S]*<\/Typography>/);
+  });
+
+  it("renders the cluster summary overlay without invalid element errors", async () => {
+    localStorage.setItem("clusterSummaryEnabled", "true");
+
+    render(
+      React.createElement(ClusterMap, {
+        allRows: [],
+        visibleRows: [],
+        clusters: [{ id: "3", deliveries: ["c1", "c2"], driver: "Dana", time: "09:00" }],
+        clientOverrides: [],
+        onClusterUpdate: async () => true,
+        onRenumberClusters: async () => true,
+      })
+    );
+
+    expect(await screen.findByText("Cluster Deliveries")).toBeTruthy();
+    expect(screen.getByText("Day total: 0")).toBeTruthy();
+    expect(screen.getByText("3")).toBeTruthy();
   });
 });

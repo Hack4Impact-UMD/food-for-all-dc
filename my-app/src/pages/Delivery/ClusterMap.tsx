@@ -3,14 +3,22 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "leaflet.awesome-markers";
 import "leaflet.awesome-markers/dist/leaflet.awesome-markers.css";
-import { Box, Button, FormControlLabel, Switch, Typography } from "@mui/material";
+import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
+import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
+import FormatListNumberedIcon from "@mui/icons-material/FormatListNumbered";
+import RestartAltIcon from "@mui/icons-material/RestartAlt";
+import { Box, FormControlLabel, IconButton, Switch, Tooltip, Typography } from "@mui/material";
 import DriverService from "../../services/driver-service";
 import FFAIcon from "../../assets/tsp-food-for-all-dc-logo.png";
 import dataSources from "../../config/dataSources";
+import { isRenderableCoordinate } from "./utils/deliveryMapCounts";
+import { buildMarkerPlacementMap } from "./utils/markerPlacement";
 import { normalizeAssignmentValue, resolveAssignmentValue } from "./utils/assignmentOverrides";
 import {
   buildAssignmentSummary,
   buildClusterSummariesFromClusters,
+  sortClusterSummaries,
+  type ClusterSummarySortMode,
 } from "./utils/clusterSummary";
 import { TIME_SLOT_LABELS } from "./utils/timeSlots";
 import { getClientStatusPresentation } from "../../utils/clientStatus";
@@ -74,6 +82,7 @@ interface ClusterMapProps {
     newDriver?: string,
     newTime?: string
   ) => Promise<boolean>;
+  onRenumberClusters?: () => Promise<boolean>;
   onOpenPopup?: (clientId: string) => void; // Prop to handle table row clicks
   onMarkerClick?: (clientId: string) => void; // Prop to handle marker clicks
   onClearHighlight?: () => void; // Prop to clear row highlighting
@@ -94,27 +103,7 @@ const wardColors: { [key: string]: string } = {
 
 const ffaCoordinates: L.LatLngExpression = [38.91433, -77.036942];
 
-const isValidCoordinate = (coord: any): boolean => {
-  if (!coord) return false;
-
-  if (Array.isArray(coord)) {
-    return (
-      coord.length === 2 &&
-      !isNaN(coord[0]) &&
-      !isNaN(coord[1]) &&
-      Math.abs(coord[0]) <= 90 &&
-      Math.abs(coord[1]) <= 180
-    );
-  }
-
-  return (
-    typeof coord === "object" &&
-    !isNaN(coord.lat) &&
-    !isNaN(coord.lng) &&
-    Math.abs(coord.lat) <= 90 &&
-    Math.abs(coord.lng) <= 180
-  );
-};
+const isValidCoordinate = isRenderableCoordinate;
 
 const normalizeCoordinate = (coord: any): Coordinate => {
   if (Array.isArray(coord)) {
@@ -198,6 +187,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
   clusters,
   clientOverrides = [],
   onClusterUpdate,
+  onRenumberClusters,
   onOpenPopup,
   onMarkerClick,
   onClearHighlight,
@@ -325,6 +315,19 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
     const saved = localStorage.getItem("clusterSummaryEnabled");
     return saved ? JSON.parse(saved) : true; // Default to true
   });
+  const [clusterSummarySortMode, setClusterSummarySortMode] = useState<ClusterSummarySortMode>(
+    () => {
+      const saved = localStorage.getItem("clusterSummarySortMode");
+      if (saved === "count-asc") {
+        return "count-asc";
+      }
+      if (saved === "count-desc" || saved === "count") {
+        return "count-desc";
+      }
+      return "cluster";
+    }
+  );
+  const [isReorderingClusters, setIsReorderingClusters] = useState<boolean>(false);
 
   const [wardData, setWardData] = useState<any>(null);
   const [wardDataLoading, setWardDataLoading] = useState<boolean>(false);
@@ -363,18 +366,96 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
 
   // Calculate deliveries + assignment details per cluster for the map summary overlay.
   const clusterSummaries = React.useMemo(() => {
-    return buildClusterSummariesFromClusters(
+    const summaries = buildClusterSummariesFromClusters(
       clusters,
       clientOverrideByClientId,
       formatTimeForSummary
     );
-  }, [clusters, clientOverrideByClientId]);
+
+    return sortClusterSummaries(summaries, clusterSummarySortMode);
+  }, [clusters, clientOverrideByClientId, clusterSummarySortMode]);
+
+  const usedClusterCount = React.useMemo(
+    () => clusterSummaries.filter((summary) => summary.count > 0).length,
+    [clusterSummaries]
+  );
+  const hasUnassignedClusterSlots = React.useMemo(() => {
+    const normalizedClusters = clusters
+      .map((cluster) => {
+        const clusterId = String(cluster.id ?? "").trim();
+        const deliveryCount = Array.from(
+          new Set(
+            (cluster.deliveries ?? [])
+              .map((deliveryId) => normalizeAssignmentValue(deliveryId))
+              .filter((deliveryId): deliveryId is string => Boolean(deliveryId))
+          )
+        ).length;
+
+        return { clusterId, deliveryCount };
+      })
+      .filter((cluster) => Boolean(cluster.clusterId));
+
+    if (!normalizedClusters.length) {
+      return false;
+    }
+
+    if (normalizedClusters.some((cluster) => cluster.deliveryCount === 0)) {
+      return true;
+    }
+
+    const usedClusterNumbers = normalizedClusters
+      .filter((cluster) => cluster.deliveryCount > 0)
+      .map((cluster) => {
+        const match = cluster.clusterId.match(/\d+/);
+        return match ? Number(match[0]) : Number.NaN;
+      });
+
+    if (
+      !usedClusterNumbers.length ||
+      usedClusterNumbers.some((clusterNumber) => !Number.isFinite(clusterNumber))
+    ) {
+      return false;
+    }
+
+    const sortedUsedClusterNumbers = [...usedClusterNumbers].sort((left, right) => left - right);
+
+    return sortedUsedClusterNumbers.some(
+      (clusterNumber, index) => clusterNumber !== index + 1
+    );
+  }, [clusters]);
+  const canRenumberClusters = Boolean(onRenumberClusters) && !isReorderingClusters;
 
   // Toggle cluster summary visibility
   const handleClusterSummaryToggle = (event: React.ChangeEvent<HTMLInputElement>) => {
     const { checked } = event.target;
     setShowClusterSummary(checked);
     localStorage.setItem("clusterSummaryEnabled", JSON.stringify(checked));
+  };
+
+  const handleClusterSummarySortToggle = () => {
+    setClusterSummarySortMode((previousMode) => {
+      const nextMode =
+        previousMode === "cluster"
+          ? "count-desc"
+          : previousMode === "count-desc"
+            ? "count-asc"
+            : "cluster";
+      localStorage.setItem("clusterSummarySortMode", nextMode);
+      return nextMode;
+    });
+  };
+
+  const handleClusterReorder = async () => {
+    if (!canRenumberClusters || !onRenumberClusters) {
+      return;
+    }
+
+    try {
+      setIsReorderingClusters(true);
+      await onRenumberClusters();
+    } finally {
+      setIsReorderingClusters(false);
+    }
   };
 
   const getClusterColor = useCallback((clusterIdToCheck: string): string => {
@@ -740,10 +821,12 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
       });
     });
 
+    const markerPlacements = buildMarkerPlacementMap(visibleRows);
+
     visibleRows.forEach((client) => {
       if (!client.coordinates || !isValidCoordinate(client.coordinates)) return;
 
-      const coord = normalizeCoordinate(client.coordinates);
+      const coord = markerPlacements.get(client.id) ?? normalizeCoordinate(client.coordinates);
       const clientName = `${client.firstName} ${client.lastName}` || "Client: None";
       const statusPresentation = getClientStatusPresentation(
         client.activeStatus === false ? false : true,
@@ -1454,27 +1537,105 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
             sx={{
               display: "flex",
               flexDirection: "column",
-              alignItems: "flex-start",
+              alignItems: "stretch",
               mb: 1,
               pb: 1,
               borderBottom: "1px solid",
               borderColor: "divider",
+              gap: 0.25,
             }}
           >
-            <Typography variant="caption" sx={{ fontSize: "11px", color: "text.secondary" }}>
-              Assigned: {assignmentSummary.assigned}/{assignmentSummary.total}
-            </Typography>
-            <Typography
-              variant="caption"
+            <Box
               sx={{
-                fontSize: "11px",
-                fontWeight: "bold",
-                mt: 0.25,
-                color: assignmentSummary.done ? "success.main" : "warning.main",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: 0.5,
               }}
             >
-              {assignmentSummary.done ? "Done" : `${assignmentSummary.remaining} remaining`}
-            </Typography>
+              <Typography variant="caption" sx={{ fontSize: "11px", color: "text.secondary" }}>
+                Assigned: {assignmentSummary.assigned}/{assignmentSummary.total}
+              </Typography>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                <Typography variant="caption" sx={{ fontSize: "10px", color: "text.secondary" }}>
+                  Sort
+                </Typography>
+                <Tooltip
+                  title={
+                    clusterSummarySortMode === "count-desc"
+                      ? "Sorting by delivery count (highest first)"
+                      : clusterSummarySortMode === "count-asc"
+                        ? "Sorting by delivery count (lowest first)"
+                        : "Sorting by cluster number"
+                  }
+                >
+                  <IconButton
+                    size="small"
+                    onClick={handleClusterSummarySortToggle}
+                    sx={{
+                      p: 0.25,
+                      color: "text.secondary",
+                      border: "1px solid",
+                      borderColor: "divider",
+                      borderRadius: "6px",
+                    }}
+                  >
+                    {clusterSummarySortMode === "count-desc" ? (
+                      <ArrowDownwardIcon sx={{ fontSize: "14px" }} />
+                    ) : clusterSummarySortMode === "count-asc" ? (
+                      <ArrowUpwardIcon sx={{ fontSize: "14px" }} />
+                    ) : (
+                      <FormatListNumberedIcon sx={{ fontSize: "14px" }} />
+                    )}
+                  </IconButton>
+                </Tooltip>
+              </Box>
+            </Box>
+            <Box
+              sx={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: 0.5,
+                mt: 0.25,
+              }}
+            >
+              <Typography
+                variant="caption"
+                sx={{
+                  fontSize: "11px",
+                  fontWeight: "bold",
+                  color: assignmentSummary.done ? "success.main" : "warning.main",
+                }}
+              >
+                {assignmentSummary.done ? "Done" : `${assignmentSummary.remaining} remaining`}
+              </Typography>
+              {assignmentSummary.done && hasUnassignedClusterSlots && canRenumberClusters && (
+                <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                  <Typography variant="caption" sx={{ fontSize: "10px", color: "text.secondary" }}>
+                    Renumber
+                  </Typography>
+                  <Tooltip title={`Renumber clusters to 1-${Math.max(usedClusterCount, 1)}`}>
+                    <span>
+                      <IconButton
+                        size="small"
+                        onClick={handleClusterReorder}
+                        disabled={!canRenumberClusters}
+                        sx={{
+                          p: 0.25,
+                          color: "text.secondary",
+                          border: "1px solid",
+                          borderColor: "divider",
+                          borderRadius: "6px",
+                        }}
+                      >
+                        <RestartAltIcon sx={{ fontSize: "14px" }} />
+                      </IconButton>
+                    </span>
+                  </Tooltip>
+                </Box>
+              )}
+            </Box>
           </Box>
           <Box sx={{ display: "flex", flexDirection: "column", gap: "6px" }}>
             {clusterSummaries.map(({ clusterId, count, driverLabel, timeLabel }) => {

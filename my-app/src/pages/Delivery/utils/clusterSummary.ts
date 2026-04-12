@@ -30,11 +30,42 @@ export interface ClusterSummary {
   timeLabel: string;
 }
 
+export type ClusterSummarySortMode = "cluster" | "count-desc" | "count-asc";
+export type ClusterSummarySortDirection = "asc" | "desc";
+
 const sortClusterIds = (left: string, right: string): number => {
   const leftNumber = parseInt(left.match(/\d+/)?.[0] || "0", 10);
   const rightNumber = parseInt(right.match(/\d+/)?.[0] || "0", 10);
 
   return leftNumber - rightNumber || left.localeCompare(right);
+};
+
+export const sortClusterSummaries = (
+  summaries: ClusterSummary[],
+  sortMode: ClusterSummarySortMode = "cluster",
+  sortDirection?: ClusterSummarySortDirection
+): ClusterSummary[] => {
+  const isCountSort = sortMode === "count-desc" || sortMode === "count-asc";
+  const resolvedSortDirection =
+    sortDirection ??
+    (sortMode === "count-asc" ? "asc" : sortMode === "count-desc" ? "desc" : "asc");
+  const directionMultiplier = resolvedSortDirection === "asc" ? 1 : -1;
+
+  return [...summaries].sort((left, right) => {
+    if (isCountSort) {
+      const countDiff = (left.count - right.count) * directionMultiplier;
+      if (countDiff !== 0) {
+        return countDiff;
+      }
+    } else {
+      const clusterDiff = sortClusterIds(left.clusterId, right.clusterId) * directionMultiplier;
+      if (clusterDiff !== 0) {
+        return clusterDiff;
+      }
+    }
+
+    return sortClusterIds(left.clusterId, right.clusterId);
+  });
 };
 
 export const buildAssignmentSummary = <
@@ -113,9 +144,8 @@ export const buildClusterSummaries = <
     summaryMap.set(clusterId, current);
   });
 
-  return Array.from(summaryMap.entries())
-    .sort(([left], [right]) => sortClusterIds(left, right))
-    .map(([clusterId, values]) => ({
+  return sortClusterSummaries(
+    Array.from(summaryMap.entries()).map(([clusterId, values]) => ({
       clusterId,
       count: values.count,
       driverLabel:
@@ -130,7 +160,10 @@ export const buildClusterSummaries = <
           : values.times.size === 1
             ? formatTimeLabel(Array.from(values.times)[0])
             : "Mixed times",
-    }));
+    })),
+    "cluster",
+    "asc"
+  );
 };
 
 export const buildClusterSummariesFromClusters = <
@@ -141,55 +174,58 @@ export const buildClusterSummariesFromClusters = <
   clientOverrideByClientId: Map<string, TOverride>,
   formatTimeLabel: (time: string) => string
 ): ClusterSummary[] => {
-  return clusters
-    .map((cluster) => {
-      const clusterId = String(cluster.id ?? "").trim();
-      const clientIds = Array.from(
-        new Set(
-          (cluster.deliveries ?? [])
-            .map((clientId) => String(clientId ?? "").trim())
-            .filter(Boolean)
-        )
-      );
+  return sortClusterSummaries(
+    clusters
+      .map((cluster) => {
+        const clusterId = String(cluster.id ?? "").trim();
+        const clientIds = Array.from(
+          new Set(
+            (cluster.deliveries ?? [])
+              .map((clientId) => String(clientId ?? "").trim())
+              .filter(Boolean)
+          )
+        );
 
-      if (!clusterId || clientIds.length === 0) {
-        return null;
-      }
-
-      const drivers = new Set<string>();
-      const times = new Set<string>();
-
-      clientIds.forEach((clientId) => {
-        const override = clientOverrideByClientId.get(clientId);
-        const effectiveDriver = resolveAssignmentValue(override?.driver, cluster.driver);
-        const effectiveTime = resolveAssignmentValue(override?.time, cluster.time);
-
-        if (hasAssignmentValue(effectiveDriver)) {
-          drivers.add(effectiveDriver!);
+        if (!clusterId || clientIds.length === 0) {
+          return null;
         }
 
-        if (hasAssignmentValue(effectiveTime)) {
-          times.add(effectiveTime!);
-        }
-      });
+        const drivers = new Set<string>();
+        const times = new Set<string>();
 
-      return {
-        clusterId,
-        count: clientIds.length,
-        driverLabel:
-          drivers.size === 0
-            ? "No driver"
-            : drivers.size === 1
-              ? Array.from(drivers)[0]
-              : "Mixed drivers",
-        timeLabel:
-          times.size === 0
-            ? "No time"
-            : times.size === 1
-              ? formatTimeLabel(Array.from(times)[0])
-              : "Mixed times",
-      };
-    })
-    .filter((summary): summary is ClusterSummary => summary !== null)
-    .sort((left, right) => sortClusterIds(left.clusterId, right.clusterId));
+        clientIds.forEach((clientId) => {
+          const override = clientOverrideByClientId.get(clientId);
+          const effectiveDriver = resolveAssignmentValue(override?.driver, cluster.driver);
+          const effectiveTime = resolveAssignmentValue(override?.time, cluster.time);
+
+          if (hasAssignmentValue(effectiveDriver)) {
+            drivers.add(effectiveDriver!);
+          }
+
+          if (hasAssignmentValue(effectiveTime)) {
+            times.add(effectiveTime!);
+          }
+        });
+
+        return {
+          clusterId,
+          count: clientIds.length,
+          driverLabel:
+            drivers.size === 0
+              ? "No driver"
+              : drivers.size === 1
+                ? Array.from(drivers)[0]
+                : "Mixed drivers",
+          timeLabel:
+            times.size === 0
+              ? "No time"
+              : times.size === 1
+                ? formatTimeLabel(Array.from(times)[0])
+                : "Mixed times",
+        };
+      })
+      .filter((summary): summary is ClusterSummary => summary !== null),
+    "cluster",
+    "asc"
+  );
 };
