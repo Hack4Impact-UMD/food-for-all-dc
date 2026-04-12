@@ -166,9 +166,7 @@ describe("ClusterMap popup regression guards", () => {
     expect(screen.getByText("2")).toBeTruthy();
     expect(screen.queryByText("of 2 assigned")).toBeNull();
     expect(
-      screen.getByText(
-        "Some saved route assignments are out of date. Counts below reflect today's filtered deliveries."
-      )
+      screen.getByText("Some saved route assignments are out of date.")
     ).toBeTruthy();
   });
 

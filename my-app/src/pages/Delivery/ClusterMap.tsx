@@ -1620,8 +1620,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
                   lineHeight: 1.25,
                 }}
               >
-                Some saved route assignments are out of date. Counts below reflect today&apos;s
-                filtered deliveries.
+                Some saved route assignments are out of date.
               </Typography>
             )}
           </Box>
