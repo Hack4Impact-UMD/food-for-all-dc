@@ -18,7 +18,7 @@ const mockWhere: any = jest.fn((...args: unknown[]) => ({ mocked: "where", args 
 const mockOrderBy: any = jest.fn((...args: unknown[]) => ({ mocked: "orderBy", args }));
 const mockQuery: any = jest.fn((...args: unknown[]) => ({ mocked: "query", args }));
 
-jest.mock("../auth/firebaseConfig", () => ({
+jest.mock("../../auth/firebaseConfig", () => ({
   db: {},
 }));
 
@@ -45,7 +45,7 @@ jest.mock("firebase/firestore", () => ({
   },
 }));
 
-import { batchGetClientDeliverySummaries } from "./lastDeliveryDate";
+import { batchGetClientDeliverySummaries } from "../../utils/lastDeliveryDate";
 
 const makeSnapshot = (rows: EventRow[]): MockSnapshot => ({
   forEach: (callback: (doc: { id: string; data: () => EventRow }) => void) => {

@@ -3,7 +3,7 @@ import path from "path";
 import { describe, expect, it } from "@jest/globals";
 
 describe("Spreadsheet search filter regression guards", () => {
-  const sourcePath = path.resolve(__dirname, "Spreadsheet.tsx");
+  const sourcePath = path.resolve(__dirname, "../../../components/Spreadsheet/Spreadsheet.tsx");
   const source = fs.readFileSync(sourcePath, "utf8");
 
   it("supports multi-value key:value filters for the Clients page search", () => {

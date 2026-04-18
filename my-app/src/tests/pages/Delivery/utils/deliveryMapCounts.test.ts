@@ -3,7 +3,7 @@ import {
   buildClusterCountSnapshot,
   buildClusterDisplaySnapshots,
   isRenderableCoordinate,
-} from "./deliveryMapCounts";
+} from "../../../../pages/Delivery/utils/deliveryMapCounts";
 
 describe("deliveryMapCounts helpers", () => {
   it("rejects zero coordinates so unrenderable clients are counted as missing", () => {

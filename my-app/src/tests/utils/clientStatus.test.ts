@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, jest } from "@jest/globals";
 import { DateTime } from "luxon";
-import { deliveryDate } from "./deliveryDate";
-import { computeClientActiveStatus, getClientStatusPresentation } from "./clientStatus";
+import { deliveryDate } from "../../utils/deliveryDate";
+import { computeClientActiveStatus, getClientStatusPresentation } from "../../utils/clientStatus";
 
 describe("clientStatus utilities", () => {
   afterEach(() => {

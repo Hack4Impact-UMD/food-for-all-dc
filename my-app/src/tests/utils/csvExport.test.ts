@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@jest/globals";
-import { escapeCsvFormulaValue, normalizeCsvRows, sanitizeFilename } from "./csvExport";
+import { escapeCsvFormulaValue, normalizeCsvRows, sanitizeFilename } from "../../utils/csvExport";
 
 describe("csvExport safety utilities", () => {
   // App coverage:
