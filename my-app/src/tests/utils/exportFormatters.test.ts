@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@jest/globals";
-import { formatDietaryRestrictionsForExport } from "./exportFormatters";
+import { formatDietaryRestrictionsForExport } from "../../utils/exportFormatters";
 
 describe("formatDietaryRestrictionsForExport", () => {
   // App coverage:

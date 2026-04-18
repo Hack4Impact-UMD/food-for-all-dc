@@ -6,7 +6,7 @@ import {
   getDeliverySeriesKey,
   getLatestScheduledDate,
   summarizeDeliverySeries,
-} from "./recurringSeries";
+} from "../../utils/recurringSeries";
 
 const createEvent = ({
   id,

@@ -27,7 +27,7 @@ const mockWhere: any = jest.fn((...args: unknown[]) => ({ mocked: "where", args 
 const mockQuery: any = jest.fn((...args: unknown[]) => ({ mocked: "query", args }));
 const mockWriteBatch: any = jest.fn();
 
-jest.mock("../auth/firebaseConfig", () => ({
+jest.mock("../../auth/firebaseConfig", () => ({
   db: {},
 }));
 
@@ -61,7 +61,7 @@ jest.mock("firebase/firestore", () => ({
   },
 }));
 
-import DeliveryService from "./delivery-service";
+import DeliveryService from "../../services/delivery-service";
 
 const makeDocSnapshot = (
   id: string,

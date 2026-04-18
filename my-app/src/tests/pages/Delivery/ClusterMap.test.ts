@@ -4,13 +4,13 @@ import path from "path";
 import React from "react";
 import { describe, expect, it, jest } from "@jest/globals";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import ClusterMap from "./ClusterMap";
+import ClusterMap from "../../../pages/Delivery/ClusterMap";
 
 jest.mock("leaflet/dist/leaflet.css", () => ({}), { virtual: true });
 jest.mock("leaflet.awesome-markers/dist/leaflet.awesome-markers.css", () => ({}), {
   virtual: true,
 });
-jest.mock("../../assets/tsp-food-for-all-dc-logo.png", () => "mock-ffa-icon", { virtual: true });
+jest.mock("../../../assets/tsp-food-for-all-dc-logo.png", () => "mock-ffa-icon", { virtual: true });
 
 jest.mock("leaflet", () => ({
   __esModule: true,
@@ -19,7 +19,7 @@ jest.mock("leaflet", () => ({
 
 jest.mock("leaflet.awesome-markers", () => ({}));
 
-jest.mock("../../services/driver-service", () => ({
+jest.mock("../../../services/driver-service", () => ({
   __esModule: true,
   default: {
     getInstance: () => ({
@@ -54,7 +54,7 @@ describe("ClusterMap popup regression guards", () => {
   // Protects against popups opening and immediately closing due to map click propagation
   // or default Leaflet auto-close behavior.
   it("keeps explicit popup options to prevent immediate close", () => {
-    const sourcePath = path.resolve(__dirname, "ClusterMap.tsx");
+    const sourcePath = path.resolve(__dirname, "../../../pages/Delivery/ClusterMap.tsx");
     const source = fs.readFileSync(sourcePath, "utf8");
 
     expect(source).toContain("closeOnClick: false");
@@ -65,7 +65,7 @@ describe("ClusterMap popup regression guards", () => {
   // Ensures both interaction entry points (direct marker click and table-driven openMapPopup)
   // explicitly open the marker popup.
   it("opens marker popup directly on marker click", () => {
-    const sourcePath = path.resolve(__dirname, "ClusterMap.tsx");
+    const sourcePath = path.resolve(__dirname, "../../../pages/Delivery/ClusterMap.tsx");
     const source = fs.readFileSync(sourcePath, "utf8");
 
     expect(source).toMatch(/\.on\("click",\s*\(\)\s*=>\s*\{[\s\S]*?marker\.openPopup\(\)/m);
@@ -73,7 +73,7 @@ describe("ClusterMap popup regression guards", () => {
   });
 
   it("lets the cluster summary overlay toggle sorting by number of deliveries", () => {
-    const sourcePath = path.resolve(__dirname, "ClusterMap.tsx");
+    const sourcePath = path.resolve(__dirname, "../../../pages/Delivery/ClusterMap.tsx");
     const source = fs.readFileSync(sourcePath, "utf8");
 
     expect(source).toContain("clusterSummarySortMode");

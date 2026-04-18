@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, jest } from "@jest/globals";
-import DeliveryService from "./delivery-service";
-import { NewDelivery } from "../types/calendar-types";
+import DeliveryService from "../../services/delivery-service";
+import { NewDelivery } from "../../types/calendar-types";
 
-jest.mock("../auth/firebaseConfig", () => ({
+jest.mock("../../auth/firebaseConfig", () => ({
   db: {},
 }));
 

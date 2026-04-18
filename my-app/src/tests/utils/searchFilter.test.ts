@@ -4,7 +4,7 @@ import {
   extractKeyValue,
   parseSearchTermsProgressively,
   splitFilterValues,
-} from "./searchFilter";
+} from "../../utils/searchFilter";
 
 describe("searchFilter parsing", () => {
   // App coverage:
