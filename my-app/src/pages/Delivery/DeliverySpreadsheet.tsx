@@ -568,6 +568,8 @@ const DeliverySpreadsheet: React.FC = () => {
   const selectRefs = React.useRef<{ [key: string]: HTMLInputElement | null }>({});
   // Ref for TableVirtuoso to enable scrolling to specific rows
   const virtuosoRef = React.useRef<TableVirtuosoHandle>(null);
+  // Kept current so window.scrollToSpreadsheetRow never captures a stale closure
+  const sortedRowsRef = React.useRef<typeof sortedRows>([]);
   // Workaround for opening modal after Select closes (track row id)
   const [pendingOpenAddClusterModalRow, setPendingOpenAddClusterModalRow] = useState<string | null>(
     null
@@ -2494,6 +2496,29 @@ const DeliverySpreadsheet: React.FC = () => {
 
     return sorted;
   }, [visibleRows, sortOrder, sortedColumn, clusters, customColumns, clientOverrides]);
+
+  // Keep ref current so window.scrollToSpreadsheetRow never captures a stale closure
+  sortedRowsRef.current = sortedRows;
+
+  // Expose a scroll-only function for use by the map (e.g. bring-to-front clicks)
+  useEffect(() => {
+    (window as any).scrollToSpreadsheetRow = (clientId: string) => {
+      if (!virtuosoRef.current) return;
+      const rowIndex = sortedRowsRef.current.findIndex((row) => row.id === clientId);
+      if (rowIndex !== -1) {
+        setTimeout(() => {
+          virtuosoRef.current?.scrollToIndex({
+            index: rowIndex,
+            align: "center",
+            behavior: "smooth",
+          });
+        }, 100);
+      }
+    };
+    return () => {
+      delete (window as any).scrollToSpreadsheetRow;
+    };
+  }, []);
 
   const selectedExportRows = useMemo(
     () => rows.filter((row) => selectedRows.has(row.id)),

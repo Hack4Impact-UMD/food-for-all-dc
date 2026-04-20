@@ -1367,6 +1367,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
             const bringToFront = () => {
               topPopupZIndexRef.current += 1;
               popupWrapper.style.zIndex = String(topPopupZIndexRef.current);
+              (window as any).scrollToSpreadsheetRow?.(client.id);
             };
             popupWrapper.addEventListener("mousedown", bringToFront);
             // Clean up listener when popup closes
