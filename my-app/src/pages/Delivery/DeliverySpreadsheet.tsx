@@ -622,9 +622,7 @@ const DeliverySpreadsheet: React.FC = () => {
   const [exportScope, setExportScope] = useState<RouteExportScope>("all");
 
   const [driversRefreshTrigger, setDriversRefreshTrigger] = useState<number>(0);
-  const [highlightedRowId, setHighlightedRowId] = useState<string | null>(null);
-  // Suppress highlight clearing when switching rows/popups
-  const suppressClearHighlightRef = React.useRef(false);
+  const [highlightedRowIds, setHighlightedRowIds] = useState<Set<string>>(new Set());
 
   const normalizeClusters = React.useCallback((clusters: Cluster[]): Cluster[] => {
     const clustersById = new Map<string, Cluster>();
@@ -1892,20 +1890,18 @@ const DeliverySpreadsheet: React.FC = () => {
   };
 
   const handleRowClick = (clientId: string, fromTable = true) => {
-    // Only suppress clearing when switching FROM one row TO another,
-    // so the old popup's popupclose doesn't clear the new selection.
-    // When opening the first popup (no current highlight), don't suppress,
-    // so closing that popup correctly deselects the row.
-    if (highlightedRowId !== null && highlightedRowId !== clientId) {
-      suppressClearHighlightRef.current = true;
-    }
-    if (fromTable && highlightedRowId === clientId) {
-      setHighlightedRowId(null);
-      if ((window as any).closeMapPopup) {
-        (window as any).closeMapPopup();
+    const isCurrentlyHighlighted = highlightedRowIds.has(clientId);
+    if (isCurrentlyHighlighted) {
+      setHighlightedRowIds((prev) => {
+        const next = new Set(prev);
+        next.delete(clientId);
+        return next;
+      });
+      if (fromTable && (window as any).closeMapPopup) {
+        (window as any).closeMapPopup(clientId);
       }
     } else {
-      setHighlightedRowId(clientId);
+      setHighlightedRowIds((prev) => new Set([...prev, clientId]));
       if (fromTable && (window as any).openMapPopup) {
         (window as any).openMapPopup(clientId);
       }
@@ -1913,10 +1909,11 @@ const DeliverySpreadsheet: React.FC = () => {
   };
 
   const handleMarkerClick = (clientId: string) => {
+    const isCurrentlyHighlighted = highlightedRowIds.has(clientId);
     handleRowClick(clientId, false);
 
-    // Scroll to the highlighted row with smooth animation
-    if (virtuosoRef.current && sortedRows.length > 0) {
+    // Scroll to the highlighted row when adding a highlight
+    if (!isCurrentlyHighlighted && virtuosoRef.current && sortedRows.length > 0) {
       const rowIndex = sortedRows.findIndex((row) => row.id === clientId);
       if (rowIndex !== -1) {
         // Use setTimeout to ensure the highlight state has been updated
@@ -1931,12 +1928,16 @@ const DeliverySpreadsheet: React.FC = () => {
     }
   };
 
-  const clearRowHighlight = () => {
-    if (suppressClearHighlightRef.current) {
-      suppressClearHighlightRef.current = false;
-      return;
+  const clearRowHighlight = (clientId?: string) => {
+    if (clientId) {
+      setHighlightedRowIds((prev) => {
+        const next = new Set(prev);
+        next.delete(clientId);
+        return next;
+      });
+    } else {
+      setHighlightedRowIds(new Set());
     }
-    setHighlightedRowId(null);
   };
 
   const clientsWithDeliveriesOnSelectedDate = rows.filter((row) =>
@@ -2522,13 +2523,24 @@ const DeliverySpreadsheet: React.FC = () => {
   );
 
   useEffect(() => {
-    if (highlightedRowId && !visibleRows.some((row) => row.id === highlightedRowId)) {
-      setHighlightedRowId(null);
-      if ((window as any).closeMapPopup) {
-        (window as any).closeMapPopup();
-      }
-    }
-  }, [visibleRows, highlightedRowId]);
+    setHighlightedRowIds((prev) => {
+      const toRemove: string[] = [];
+      prev.forEach((id) => {
+        if (!visibleRows.some((row) => row.id === id)) {
+          toRemove.push(id);
+        }
+      });
+      if (toRemove.length === 0) return prev;
+      const next = new Set(prev);
+      toRemove.forEach((id) => {
+        next.delete(id);
+        if ((window as any).closeMapPopup) {
+          (window as any).closeMapPopup(id);
+        }
+      });
+      return next;
+    });
+  }, [visibleRows]);
 
   useEffect(() => {
     if (rawClientData.length === 0) {
@@ -3234,7 +3246,7 @@ const DeliverySpreadsheet: React.FC = () => {
               data={sortedRows}
               components={VirtuosoTableComponents}
               itemContent={(index, row) => {
-                const isHighlighted = highlightedRowId === row.id;
+                const isHighlighted = highlightedRowIds.has(row.id);
                 const cellIndex = { current: 0 };
                 const getCellSx = () => {
                   const isFirst = cellIndex.current === 0;

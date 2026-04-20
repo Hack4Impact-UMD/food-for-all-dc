@@ -85,7 +85,7 @@ interface ClusterMapProps {
   onRenumberClusters?: () => Promise<boolean>;
   onOpenPopup?: (clientId: string) => void; // Prop to handle table row clicks
   onMarkerClick?: (clientId: string) => void; // Prop to handle marker clicks
-  onClearHighlight?: () => void; // Prop to clear row highlighting
+  onClearHighlight?: (clientId?: string) => void; // Prop to clear row highlighting
   refreshDriversTrigger?: number; // Optional prop to trigger driver refresh
 }
 
@@ -250,6 +250,8 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
   const markersMapRef = useRef<Map<string, L.Marker>>(new Map()); // Store markers by client ID
   const previousVisibleRowsKeyRef = useRef<string>("");
   const isPopupOpening = useRef<boolean>(false); // Prevent close handler from firing during opening
+  const isOpeningFromTableRef = useRef<boolean>(false); // True when popup is opened via table row click
+  const topPopupZIndexRef = useRef<number>(700); // Base Leaflet popup z-index is ~700
   const clustersRef = useRef<Cluster[]>(clusters);
 
   const scheduleClusterMapTimeout = useCallback((callback: () => void, delay = 0) => {
@@ -787,17 +789,24 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
       markerGroupRef.current = L.featureGroup().addTo(mapRef.current);
 
       if (!popupCloseHandlerRef.current) {
-        popupCloseHandlerRef.current = () => {
+        popupCloseHandlerRef.current = (e: L.LeafletEvent) => {
           if (!isMapAliveRef.current || isPopupOpening.current) {
             return;
           }
+
+          const popup = (e as L.PopupEvent).popup;
+          const contentEl = popup.getElement();
+          const clientId =
+            contentEl
+              ?.querySelector("[data-client-id]")
+              ?.getAttribute("data-client-id") ?? undefined;
 
           scheduleClusterMapTimeout(() => {
             if (!isMapAliveRef.current || isPopupOpening.current) {
               return;
             }
 
-            onClearHighlightRef.current?.();
+            onClearHighlightRef.current?.(clientId);
           }, 200);
         };
       }
@@ -823,6 +832,8 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
       (window as any).openMapPopup = (clientId: string) => {
         // Suppress popupclose clearing while we open the new popup (same as marker clicks)
         isPopupOpening.current = true;
+        // Flag so popupopen knows not to highlight the row (table click already did it)
+        isOpeningFromTableRef.current = true;
 
         const marker = markersMapRef.current.get(clientId);
         if (marker) {
@@ -832,14 +843,22 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
         // Reset after the open sequence completes so future closes clear the row
         scheduleClusterMapTimeout(() => {
           isPopupOpening.current = false;
+          isOpeningFromTableRef.current = false;
         }, 350);
       };
 
       // Also set up the close popup function
-      (window as any).closeMapPopup = () => {
-        withLiveMap((map) => {
-          map.closePopup();
-        });
+      (window as any).closeMapPopup = (clientId?: string) => {
+        if (clientId) {
+          const marker = markersMapRef.current.get(clientId);
+          if (marker) {
+            marker.closePopup();
+          }
+        } else {
+          withLiveMap((map) => {
+            map.closePopup();
+          });
+        }
       };
 
       // Set up function to clear row highlighting
@@ -1332,15 +1351,35 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
         .on("click", () => {
           isPopupOpening.current = true;
           marker.openPopup();
-
-          if (onMarkerClickRef.current) {
-            onMarkerClickRef.current(client.id);
-          }
+          // Row highlight is triggered from popupopen to guarantee popup ↔ row sync
         })
-        .on("popupopen", () => {
+        .on("popupopen", (e: L.LeafletEvent) => {
           scheduleClusterMapTimeout(() => {
             isPopupOpening.current = false;
           }, 350);
+
+          // Bring this popup to the front when clicked
+          const popupWrapper = (e as L.PopupEvent).popup.getElement();
+          if (popupWrapper) {
+            topPopupZIndexRef.current += 1;
+            popupWrapper.style.zIndex = String(topPopupZIndexRef.current);
+
+            const bringToFront = () => {
+              topPopupZIndexRef.current += 1;
+              popupWrapper.style.zIndex = String(topPopupZIndexRef.current);
+            };
+            popupWrapper.addEventListener("mousedown", bringToFront);
+            // Clean up listener when popup closes
+            marker.once("popupclose", () => {
+              popupWrapper.removeEventListener("mousedown", bringToFront);
+            });
+          }
+
+          // Sync row highlight from popup open (not from marker click) so they always match.
+          // Skip when opened by a table row click — the table already highlighted the row.
+          if (!isOpeningFromTableRef.current && onMarkerClickRef.current) {
+            onMarkerClickRef.current(client.id);
+          }
         })
         .on("popupclose", () => {
           isPopupOpening.current = false;
