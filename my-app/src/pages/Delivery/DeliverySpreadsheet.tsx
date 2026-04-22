@@ -615,6 +615,30 @@ const DeliverySpreadsheet: React.FC = () => {
   const [rows, setRows] = useState<DeliveryRowData[]>([]);
   const [rawClientData, setRawClientData] = useState<DeliveryRowData[]>([]);
   const [searchQuery, setSearchQuery] = useState<string>("");
+  const routeSearchKeySuggestions = useMemo(
+    () =>
+      [
+        "name",
+        "client",
+        "route",
+        "route id",
+        "cluster",
+        "cluster id",
+        "driver",
+        "assigned driver",
+        "time",
+        "assigned time",
+        "ward",
+        "zip",
+        "zip code",
+        "address",
+        "delivery instructions",
+        "tags",
+        "phone",
+        "dietary restrictions",
+      ].map((key) => `${key}:`),
+    []
+  );
   const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
 
   const [popupMode, setPopupMode] = useState("");
@@ -2955,6 +2979,7 @@ const DeliverySpreadsheet: React.FC = () => {
               type="text"
               value={searchQuery}
               onChange={handleSearchChange}
+              list="route-search-key-suggestions"
               placeholder='Search deliveries (e.g., cluster:1,2, ward:7, driver:maria, name:"john smith")'
               style={{
                 width: "100%",
@@ -2968,6 +2993,11 @@ const DeliverySpreadsheet: React.FC = () => {
                 boxSizing: "border-box",
               }}
             />
+            <datalist id="route-search-key-suggestions">
+              {routeSearchKeySuggestions.map((suggestion) => (
+                <option key={suggestion} value={suggestion} />
+              ))}
+            </datalist>
           </Box>
           {hasActiveRouteFilter && (
             <Typography variant="body2" sx={{ color: "text.secondary", px: 1 }}>

@@ -89,6 +89,11 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
   const [phoneSortDirection, setPhoneSortDirection] = useState<SortDirection | null>(null);
   const [emailSortDirection, setEmailSortDirection] = useState<SortDirection | null>(null);
 
+  const userSearchKeySuggestions = useMemo(
+    () => ["name", "role", "phone", "email"].map((key) => `${key}:`),
+    []
+  );
+
   const { userRole } = useAuth();
   const navigate = useNavigate();
 
@@ -413,6 +418,7 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
                 type="text"
                 value={searchQuery}
                 onChange={handleSearchChange}
+                list="users-search-key-suggestions"
                 placeholder="Search users (e.g., role:admin,manager, name:jane,john, email:test@example.com)"
                 style={{
                   width: "100%",
@@ -428,6 +434,11 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
                   boxShadow: "inset 0 2px 3px rgba(0,0,0,0.05)",
                 }}
               />
+              <datalist id="users-search-key-suggestions">
+                {userSearchKeySuggestions.map((suggestion) => (
+                  <option key={suggestion} value={suggestion} />
+                ))}
+              </datalist>
             </Box>
             <Stack
               direction={{ xs: "column", sm: "row" }}

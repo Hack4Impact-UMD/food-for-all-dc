@@ -37,6 +37,12 @@ describe("searchFilter parsing", () => {
     expect(terms).toEqual(['name: "john smith"', "driver:maria"]);
   });
 
+  it("preserves key:value terms when value is unquoted and contains spaces", () => {
+    const terms = parseSearchTermsProgressively("assigned driver:sarah jones ward:7");
+
+    expect(terms).toEqual(["assigned driver:sarah jones", "ward:7"]);
+  });
+
   // App coverage:
   // - Routes page filter input for cluster IDs with or without a space after `:`
   // - ensures `cluster:12` and `cluster: 12` are both parsed as key:value filters
@@ -111,6 +117,23 @@ describe("searchFilter parsing", () => {
     expect(parsed).toEqual({
       keyword: "name",
       searchValue: "John Smith",
+      isKeyValue: true,
+    });
+  });
+
+  it("extracts key:value gracefully when keyword/value have one-sided quotes", () => {
+    const quotedKeyword = extractKeyValue('"assigned driver:Sarah');
+    const quotedValue = extractKeyValue('assigned driver:"Sarah Jones');
+
+    expect(quotedKeyword).toEqual({
+      keyword: "assigned driver",
+      searchValue: "Sarah",
+      isKeyValue: true,
+    });
+
+    expect(quotedValue).toEqual({
+      keyword: "assigned driver",
+      searchValue: "Sarah Jones",
       isKeyValue: true,
     });
   });

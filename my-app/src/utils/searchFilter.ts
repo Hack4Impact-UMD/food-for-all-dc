@@ -98,13 +98,12 @@ export const parseSearchTermsProgressively = (trimmedSearchQuery: string): strin
         multiWordFilterPrefixes.has(normalizedTerm)
       ) {
         currentTerm += char;
-      } else if (
-        colonIndex !== -1 &&
-        (valueAfterColon === "" ||
-          (endsWithComma && !nextTokenHasColon) ||
-          nextChar === '"' ||
-          nextChar === "'")
-      ) {
+      } else if (colonIndex !== -1 && valueAfterColon === "") {
+        currentTerm += char;
+      } else if (colonIndex !== -1 && nextTokenHasColon) {
+        pushCurrentTerm(endsWithComma && nextTokenHasColon);
+      } else if (colonIndex !== -1) {
+        // Keep unquoted multi-word values together until a new key:value starts.
         currentTerm += char;
       } else if (trimmedCurrentTerm) {
         pushCurrentTerm(endsWithComma && nextTokenHasColon);
@@ -165,6 +164,33 @@ const stripWrappingQuotes = (value: string): string => {
   return trimmedValue;
 };
 
+const stripLooseWrappingQuotes = (value: string): string => {
+  const trimmedValue = value.trim();
+
+  if (!trimmedValue) {
+    return trimmedValue;
+  }
+
+  const startsWithDouble = trimmedValue.startsWith('"');
+  const endsWithDouble = trimmedValue.endsWith('"');
+  const startsWithSingle = trimmedValue.startsWith("'");
+  const endsWithSingle = trimmedValue.endsWith("'");
+
+  if ((startsWithDouble && endsWithDouble) || (startsWithSingle && endsWithSingle)) {
+    return stripWrappingQuotes(trimmedValue);
+  }
+
+  if (startsWithDouble || startsWithSingle) {
+    return trimmedValue.slice(1).trim();
+  }
+
+  if (endsWithDouble || endsWithSingle) {
+    return trimmedValue.slice(0, -1).trim();
+  }
+
+  return trimmedValue;
+};
+
 export const splitFilterValues = (searchValue: string): string[] => {
   const values: string[] = [];
   let currentValue = "";
@@ -183,7 +209,7 @@ export const splitFilterValues = (searchValue: string): string[] => {
       inQuote = false;
       quoteChar = "";
     } else if (!inQuote && char === ",") {
-      const normalizedValue = stripWrappingQuotes(currentValue);
+      const normalizedValue = stripLooseWrappingQuotes(currentValue);
       if (normalizedValue) {
         values.push(normalizedValue);
       }
@@ -193,7 +219,7 @@ export const splitFilterValues = (searchValue: string): string[] => {
     }
   }
 
-  const normalizedValue = stripWrappingQuotes(currentValue);
+  const normalizedValue = stripLooseWrappingQuotes(currentValue);
   if (normalizedValue) {
     values.push(normalizedValue);
   }
@@ -202,7 +228,7 @@ export const splitFilterValues = (searchValue: string): string[] => {
 };
 
 export const normalizeSearchKeyword = (value: string): string =>
-  value.toLowerCase().replace(/[\s_]+/g, "");
+  stripLooseWrappingQuotes(value).toLowerCase().replace(/["']/g, "").replace(/[\s_]+/g, "");
 
 export const isPartialFieldName = (term: string, fieldNames: string[]): boolean => {
   const lowerTerm = term.toLowerCase();
@@ -222,11 +248,11 @@ export const extractKeyValue = (
     let searchValue = term.substring(colonIndex + 1).trim();
 
     if (!searchValue.includes(",")) {
-      searchValue = stripWrappingQuotes(searchValue);
+      searchValue = stripLooseWrappingQuotes(searchValue);
     }
 
     return {
-      keyword: term.substring(0, colonIndex).trim().toLowerCase(),
+      keyword: stripLooseWrappingQuotes(term.substring(0, colonIndex)).toLowerCase(),
       searchValue: searchValue,
       isKeyValue: true,
     };

@@ -363,6 +363,32 @@ const Spreadsheet: React.FC = () => {
   const { showError, showSuccess, showWarning } = useNotifications();
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [debouncedSearch, setDebouncedSearch] = useState<string>("");
+  const clientSearchKeySuggestions = useMemo(
+    () =>
+      [
+        "name",
+        "first name",
+        "last name",
+        "address",
+        "phone",
+        "email",
+        "dietary restrictions",
+        "delivery instructions",
+        "adults",
+        "children",
+        "delivery frequency",
+        "ethnicity",
+        "gender",
+        "language",
+        "notes",
+        "referral entity",
+        "tags",
+        "tefap cert",
+        "dob",
+        "last delivery date",
+      ].map((key) => `${key}:`),
+    []
+  );
   const [menuAnchorPosition, setMenuAnchorPosition] = useState<{
     top: number;
     left: number;
@@ -990,6 +1016,7 @@ const Spreadsheet: React.FC = () => {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
+              list="client-search-key-suggestions"
               placeholder='Search clients (e.g., smith, name:john,jane, address:"main st", gender:female,male)'
               style={{
                 width: "100%",
@@ -1005,6 +1032,11 @@ const Spreadsheet: React.FC = () => {
                 boxShadow: "inset 0 2px 3px rgba(0,0,0,0.05)",
               }}
             />
+            <datalist id="client-search-key-suggestions">
+              {clientSearchKeySuggestions.map((suggestion) => (
+                <option key={suggestion} value={suggestion} />
+              ))}
+            </datalist>
           </Box>
           <Stack
             direction={{ xs: "column", sm: "row" }}
