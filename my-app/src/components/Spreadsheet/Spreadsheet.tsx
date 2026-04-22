@@ -8,6 +8,7 @@ import {
   checkStringEquals,
   extractKeyValue,
   globalSearchMatch,
+  isNoneSearchToken,
   normalizeSearchKeyword,
   splitFilterValues,
 } from "../../utils/searchFilter";
@@ -69,6 +70,7 @@ import MoreVertIcon from "@mui/icons-material/MoreVert";
 import { styled } from "@mui/material/styles";
 import { useNavigate } from "react-router-dom";
 import { DateTime } from "luxon";
+import { useSearchKeyAutocomplete } from "../../hooks/useSearchKeyAutocomplete";
 
 import { exportQueryResults, exportAllClients } from "./export";
 const DeleteClientModal = React.lazy(() => import("./DeleteClientModal"));
@@ -79,6 +81,26 @@ import { useNotifications } from "../NotificationProvider";
 import { CsvExportError } from "../../utils/csvExport";
 import { getClientStatusPresentation } from "../../utils/clientStatus";
 import type { ClientDeliverySummary } from "../../utils/lastDeliveryDate";
+
+const addablePropertyKeyLabelMap: Record<string, string> = {
+  address: "Address",
+  adults: "Adults",
+  children: "Children",
+  famStartDate: "Family Start Date",
+  deliveryFreq: "Delivery Frequency",
+  "deliveryDetails.dietaryRestrictions": "Dietary Restrictions",
+  "deliveryDetails.dietaryRestrictions.dietaryPreferences": "Dietary Preferences",
+  ethnicity: "Ethnicity",
+  gender: "Gender",
+  language: "Language",
+  notes: "Notes",
+  phone: "Phone",
+  referralEntity: "Referral Entity",
+  tags: "Tags",
+  tefapCert: "TEFAP Cert",
+  dob: "DOB",
+  lastDeliveryDate: "Last Delivery Date",
+};
 
 const StyleChip = styled(Chip)(({ theme }) => ({
   fontWeight: 500,
@@ -363,32 +385,6 @@ const Spreadsheet: React.FC = () => {
   const { showError, showSuccess, showWarning } = useNotifications();
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [debouncedSearch, setDebouncedSearch] = useState<string>("");
-  const clientSearchKeySuggestions = useMemo(
-    () =>
-      [
-        "name",
-        "first name",
-        "last name",
-        "address",
-        "phone",
-        "email",
-        "dietary restrictions",
-        "delivery instructions",
-        "adults",
-        "children",
-        "delivery frequency",
-        "ethnicity",
-        "gender",
-        "language",
-        "notes",
-        "referral entity",
-        "tags",
-        "tefap cert",
-        "dob",
-        "last delivery date",
-      ].map((key) => `${key}:`),
-    []
-  );
   const [menuAnchorPosition, setMenuAnchorPosition] = useState<{
     top: number;
     left: number;
@@ -647,6 +643,26 @@ const Spreadsheet: React.FC = () => {
     []
   );
 
+  const clientSearchKeySuggestions = useMemo(() => {
+    const tableFieldLabels = fields
+      .map((field) => field.label)
+      .filter((label) => Boolean(label))
+      .map((label) => label.toLowerCase());
+
+    const addableFieldLabels = allowedPropertyKeys
+      .filter((propertyKey) => propertyKey !== "none")
+      .map((propertyKey) => addablePropertyKeyLabelMap[propertyKey] ?? propertyKey)
+      .map((label) => label.toLowerCase());
+
+    return Array.from(new Set([...tableFieldLabels, ...addableFieldLabels]));
+  }, [fields]);
+
+  const searchAutocomplete = useSearchKeyAutocomplete({
+    value: searchQuery,
+    onValueChange: setSearchQuery,
+    suggestions: clientSearchKeySuggestions,
+  });
+
   // --- Sorting and filtering logic (with sorting) ---
   // Ensure filteredRows is always the correct RowData shape for export, and optimize with useMemo
   const filteredRows: RowData[] = useMemo(() => {
@@ -668,11 +684,11 @@ const Spreadsheet: React.FC = () => {
           query: string,
           exactMatch = false
         ): boolean => {
-          if (value === undefined || value === null) {
-            return false;
-          }
-
           if (Array.isArray(value)) {
+            if (value.length === 0 && isNoneSearchToken(query)) {
+              return true;
+            }
+
             return value.some((item) =>
               exactMatch ? checkStringEquals(item, query) : checkStringContains(item, query)
             );
@@ -774,7 +790,9 @@ const Spreadsheet: React.FC = () => {
                 case "dietaryrestrictions":
                 case "dietary": {
                   const dr = row.deliveryDetails?.dietaryRestrictions;
-                  if (!dr) return false;
+                  if (!dr) {
+                    return matchesAnySearchValue((candidate) => isNoneSearchToken(candidate));
+                  }
                   const dietaryTerms = [
                     dr.halal ? "halal" : "",
                     dr.kidneyFriendly ? "kidney friendly" : "",
@@ -839,7 +857,7 @@ const Spreadsheet: React.FC = () => {
                         checkStringContains(referralEntity.organization, candidate)
                     );
                   }
-                  return false;
+                  return matchesAnySearchValue((candidate) => isNoneSearchToken(candidate));
                 }
                 case "tags":
                 case "tag":
@@ -869,7 +887,9 @@ const Spreadsheet: React.FC = () => {
                         let value: unknown = row;
                         for (const k of keys) {
                           value = value && (value as Record<string, unknown>)[k];
-                          if (value === undefined) return false;
+                          if (value === undefined) {
+                            return matchesAnySearchValue((candidate) => isNoneSearchToken(candidate));
+                          }
                         }
                         return matchesAnySearchValue((candidate) =>
                           checkValueOrInArray(value, candidate)
@@ -1013,11 +1033,16 @@ const Spreadsheet: React.FC = () => {
         <Stack spacing={3}>
           <Box sx={{ position: "relative", width: "100%" }}>
             <input
+              ref={searchAutocomplete.inputRef}
               type="text"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              list="client-search-key-suggestions"
-              placeholder='Search clients (e.g., smith, name:john,jane, address:"main st", gender:female,male)'
+              onChange={searchAutocomplete.handleInputChange}
+              onFocus={searchAutocomplete.handleInputFocus}
+              onClick={searchAutocomplete.handleInputClick}
+              onBlur={searchAutocomplete.handleInputBlur}
+              onKeyDown={searchAutocomplete.handleInputKeyDown}
+              onKeyUp={searchAutocomplete.handleInputKeyUp}
+              placeholder='Search clients (e.g., smith; name:john,jane; address:"main st"; gender:female,male)'
               style={{
                 width: "100%",
                 height: "50px",
@@ -1032,11 +1057,6 @@ const Spreadsheet: React.FC = () => {
                 boxShadow: "inset 0 2px 3px rgba(0,0,0,0.05)",
               }}
             />
-            <datalist id="client-search-key-suggestions">
-              {clientSearchKeySuggestions.map((suggestion) => (
-                <option key={suggestion} value={suggestion} />
-              ))}
-            </datalist>
           </Box>
           <Stack
             direction={{ xs: "column", sm: "row" }}

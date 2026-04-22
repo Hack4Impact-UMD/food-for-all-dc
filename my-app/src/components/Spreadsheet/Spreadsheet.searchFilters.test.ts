@@ -14,7 +14,7 @@ describe("Spreadsheet search filter regression guards", () => {
 
   it("shows multi-value examples in the Clients page search placeholder", () => {
     expect(source).toContain(
-      'placeholder=\'Search clients (e.g., smith, name:john,jane, address:"main st", gender:female,male)\''
+      'placeholder=\'Search clients (e.g., smith; name:john,jane; address:"main st"; gender:female,male)\''
     );
   });
 });

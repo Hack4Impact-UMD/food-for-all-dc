@@ -22,11 +22,61 @@ export const parseSearchTermsProgressively = (trimmedSearchQuery: string): strin
     "zip",
   ]);
 
-  const pushCurrentTerm = (stripTrailingComma = false): void => {
+  const knownFilterKeywords = new Set(
+    [
+      "name",
+      "client",
+      "first name",
+      "firstname",
+      "last name",
+      "lastname",
+      "address",
+      "phone",
+      "email",
+      "role",
+      "cluster",
+      "cluster id",
+      "clusterid",
+      "route",
+      "route id",
+      "routeid",
+      "tags",
+      "tag",
+      "zip",
+      "zip code",
+      "zipcode",
+      "ward",
+      "driver",
+      "assigned driver",
+      "time",
+      "assigned time",
+      "delivery instructions",
+      "instructions",
+      "dietary restrictions",
+      "dietary",
+      "adults",
+      "children",
+      "delivery freq",
+      "delivery frequency",
+      "ethnicity",
+      "gender",
+      "language",
+      "notes",
+      "referral entity",
+      "referral",
+      "tefap",
+      "tefap cert",
+      "tefapcert",
+      "dob",
+      "last delivery date",
+    ].map((keyword) => normalizeSearchKeyword(keyword))
+  );
+
+  const pushCurrentTerm = (stripTrailingDelimiter = false): void => {
     let normalizedTerm = currentTerm.trim();
 
-    if (stripTrailingComma) {
-      normalizedTerm = normalizedTerm.replace(/,\s*$/, "");
+    if (stripTrailingDelimiter) {
+      normalizedTerm = normalizedTerm.replace(/[;,]\s*$/, "");
     }
 
     if (normalizedTerm) {
@@ -39,7 +89,10 @@ export const parseSearchTermsProgressively = (trimmedSearchQuery: string): strin
   const upcomingTokenContainsColon = (startIndex: number): boolean => {
     let index = startIndex;
 
-    while (index < trimmedSearchQuery.length && trimmedSearchQuery[index] === " ") {
+    while (
+      index < trimmedSearchQuery.length &&
+      (trimmedSearchQuery[index] === " " || trimmedSearchQuery[index] === ",")
+    ) {
       index += 1;
     }
 
@@ -51,6 +104,39 @@ export const parseSearchTermsProgressively = (trimmedSearchQuery: string): strin
       if (trimmedSearchQuery[index] === ":") {
         return true;
       }
+      index += 1;
+    }
+
+    return false;
+  };
+
+  const upcomingTokenStartsKnownFilter = (startIndex: number): boolean => {
+    let index = startIndex;
+
+    while (
+      index < trimmedSearchQuery.length &&
+      (trimmedSearchQuery[index] === " " || trimmedSearchQuery[index] === ",")
+    ) {
+      index += 1;
+    }
+
+    const keyStart = index;
+
+    while (index < trimmedSearchQuery.length) {
+      const char = trimmedSearchQuery[index];
+      if (char === ":") {
+        const candidateKeyword = trimmedSearchQuery.slice(keyStart, index).trim();
+        if (!candidateKeyword) {
+          return false;
+        }
+
+        return knownFilterKeywords.has(normalizeSearchKeyword(candidateKeyword));
+      }
+
+      if (char === ",") {
+        return false;
+      }
+
       index += 1;
     }
 
@@ -69,12 +155,15 @@ export const parseSearchTermsProgressively = (trimmedSearchQuery: string): strin
       currentTerm += char;
       inQuote = false;
       quoteChar = "";
+    } else if (!inQuote && char === ";") {
+      pushCurrentTerm(true);
     } else if (!inQuote && char === ",") {
       const trimmedCurrentTerm = currentTerm.trim();
       const colonIndex = trimmedCurrentTerm.indexOf(":");
       const valueAfterColon =
         colonIndex === -1 ? "" : trimmedCurrentTerm.substring(colonIndex + 1).trim();
-      const nextTokenHasColon = upcomingTokenContainsColon(i + 1);
+      const nextTokenHasColon = upcomingTokenStartsKnownFilter(i + 1);
+      const nextTokenContainsColon = upcomingTokenContainsColon(i + 1);
 
       if (colonIndex !== -1 && valueAfterColon !== "" && nextTokenHasColon) {
         pushCurrentTerm(false);
@@ -86,7 +175,8 @@ export const parseSearchTermsProgressively = (trimmedSearchQuery: string): strin
       const colonIndex = trimmedCurrentTerm.indexOf(":");
       const valueAfterColon =
         colonIndex === -1 ? "" : trimmedCurrentTerm.substring(colonIndex + 1).trim();
-      const nextTokenHasColon = upcomingTokenContainsColon(i + 1);
+      const nextTokenHasColon = upcomingTokenStartsKnownFilter(i + 1);
+      const nextTokenContainsColon = upcomingTokenContainsColon(i + 1);
       const endsWithComma = trimmedCurrentTerm.endsWith(",");
       const endsWithQuote = trimmedCurrentTerm.endsWith('"') || trimmedCurrentTerm.endsWith("'");
       const normalizedTerm = normalizeSearchKeyword(trimmedCurrentTerm);
@@ -94,7 +184,7 @@ export const parseSearchTermsProgressively = (trimmedSearchQuery: string): strin
       if (
         colonIndex === -1 &&
         !endsWithQuote &&
-        nextTokenHasColon &&
+        nextTokenContainsColon &&
         multiWordFilterPrefixes.has(normalizedTerm)
       ) {
         currentTerm += char;
@@ -122,7 +212,34 @@ export const parseSearchTermsProgressively = (trimmedSearchQuery: string): strin
 
 const normalizeSearchValue = (value: any): string => String(value).trim().toLowerCase();
 
+export const isNoneSearchToken = (query: string): boolean =>
+  String(query)
+    .trim()
+    .toLowerCase()
+    .replace(/["']/g, "")
+    .replace(/[\s_]+/g, "") === "none";
+
+const isNoneLikeValue = (value: any): boolean => {
+  if (value === undefined || value === null) {
+    return true;
+  }
+
+  if (Array.isArray(value)) {
+    return value.length === 0;
+  }
+
+  if (typeof value === "string") {
+    return value.trim() === "";
+  }
+
+  return false;
+};
+
 export const checkStringContains = (value: any, query: string): boolean => {
+  if (isNoneSearchToken(query)) {
+    return isNoneLikeValue(value);
+  }
+
   if (value === undefined || value === null) {
     return false;
   }
@@ -130,6 +247,10 @@ export const checkStringContains = (value: any, query: string): boolean => {
 };
 
 export const checkStringEquals = (value: any, query: string): boolean => {
+  if (isNoneSearchToken(query)) {
+    return isNoneLikeValue(value);
+  }
+
   if (value === undefined || value === null) {
     return false;
   }
@@ -192,13 +313,14 @@ const stripLooseWrappingQuotes = (value: string): string => {
 };
 
 export const splitFilterValues = (searchValue: string): string[] => {
+  const normalizedSearchValue = searchValue.replace(/;\s*$/, "");
   const values: string[] = [];
   let currentValue = "";
   let inQuote = false;
   let quoteChar = "";
 
-  for (let i = 0; i < searchValue.length; i++) {
-    const char = searchValue[i];
+  for (let i = 0; i < normalizedSearchValue.length; i++) {
+    const char = normalizedSearchValue[i];
 
     if (!inQuote && (char === '"' || char === "'")) {
       inQuote = true;

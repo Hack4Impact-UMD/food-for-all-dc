@@ -68,4 +68,10 @@ describe("DeliverySpreadsheet search alias regression guards", () => {
     expect(source).toContain("Showing {sortedRows.length} filtered ");
     expect(source).toContain("of {rows.length}");
   });
+
+  it("shows semicolon-delimited filter guidance in the search placeholder", () => {
+    expect(source).toContain(
+      'placeholder=\'Search deliveries (use ; between filters, e.g., cluster:1,2; ward:7; driver:maria; name:"john smith")\''
+    );
+  });
 });

@@ -8,6 +8,7 @@ import { useAuth } from "../../auth/AuthProvider";
 import EventCountHeader from "../../components/EventCountHeader";
 import { useLimits } from "../Calendar/components/useLimits";
 import React, { useState, useEffect, useMemo, Suspense } from "react";
+import { useSearchKeyAutocomplete } from "../../hooks/useSearchKeyAutocomplete";
 import AddCircleOutlineIcon from "@mui/icons-material/AddCircleOutline";
 import { getEventsByViewType } from "../Calendar/components/getEventsByViewType";
 import CircularProgress from "@mui/material/CircularProgress";
@@ -25,6 +26,7 @@ import {
   checkStringEquals as utilCheckStringEquals,
   extractKeyValue,
   globalSearchMatch,
+  isNoneSearchToken,
   normalizeSearchKeyword,
   splitFilterValues,
 } from "../../utils/searchFilter";
@@ -419,6 +421,26 @@ const formatDriverNameList = (driverNames: string[]): string => {
   return `${firstName}, ${secondName}, and ${remainingNames.length} others`;
 };
 
+const addablePropertyKeyLabelMap: Record<string, string> = {
+  address: "Address",
+  adults: "Adults",
+  children: "Children",
+  famStartDate: "Family Start Date",
+  deliveryFreq: "Delivery Frequency",
+  "deliveryDetails.dietaryRestrictions": "Dietary Restrictions",
+  "deliveryDetails.dietaryRestrictions.dietaryPreferences": "Dietary Preferences",
+  ethnicity: "Ethnicity",
+  gender: "Gender",
+  language: "Language",
+  notes: "Notes",
+  phone: "Phone",
+  referralEntity: "Referral Entity",
+  tags: "Tags",
+  tefapCert: "TEFAP Cert",
+  dob: "DOB",
+  lastDeliveryDate: "Last Delivery Date",
+};
+
 const formatClusterDriverReplacementWarning = (
   routeIds: string[],
   incomingDriverName: string,
@@ -615,30 +637,24 @@ const DeliverySpreadsheet: React.FC = () => {
   const [rows, setRows] = useState<DeliveryRowData[]>([]);
   const [rawClientData, setRawClientData] = useState<DeliveryRowData[]>([]);
   const [searchQuery, setSearchQuery] = useState<string>("");
-  const routeSearchKeySuggestions = useMemo(
-    () =>
-      [
-        "name",
-        "client",
-        "route",
-        "route id",
-        "cluster",
-        "cluster id",
-        "driver",
-        "assigned driver",
-        "time",
-        "assigned time",
-        "ward",
-        "zip",
-        "zip code",
-        "address",
-        "delivery instructions",
-        "tags",
-        "phone",
-        "dietary restrictions",
-      ].map((key) => `${key}:`),
-    []
-  );
+  const routeSearchKeySuggestions = useMemo(() => {
+    const tableFieldLabels = fields
+      .map((field) => field.label)
+      .filter((label) => Boolean(label))
+      .map((label) => label.toLowerCase());
+
+    const addableFieldLabels = allowedPropertyKeys
+      .filter((propertyKey) => propertyKey !== "none")
+      .map((propertyKey) => addablePropertyKeyLabelMap[propertyKey] ?? propertyKey)
+      .map((label) => label.toLowerCase());
+
+    return Array.from(new Set([...tableFieldLabels, ...addableFieldLabels]));
+  }, []);
+  const searchAutocomplete = useSearchKeyAutocomplete({
+    value: searchQuery,
+    onValueChange: setSearchQuery,
+    suggestions: routeSearchKeySuggestions,
+  });
   const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
 
   const [popupMode, setPopupMode] = useState("");
@@ -2001,11 +2017,11 @@ const DeliverySpreadsheet: React.FC = () => {
           query: string,
           exactMatch = false
         ): boolean => {
-          if (value === undefined || value === null) {
-            return false;
-          }
-
           if (Array.isArray(value)) {
+            if (value.length === 0 && isNoneSearchToken(query)) {
+              return true;
+            }
+
             return value.some((item) =>
               exactMatch ? checkStringEquals(item, query) : checkStringContains(item, query)
             );
@@ -2200,7 +2216,7 @@ const DeliverySpreadsheet: React.FC = () => {
                       checkStringContains(row.referralEntity.organization, candidate)
                   );
                 }
-                return false;
+                return matchesAnySearchValue((candidate) => isNoneSearchToken(candidate));
               }
               default: {
                 const matchesCustomColumn = customColumns.some((col) => {
@@ -2209,11 +2225,13 @@ const DeliverySpreadsheet: React.FC = () => {
                     normalizeSearchKeyword(col.propertyKey).includes(normalizedKeyword)
                   ) {
                     const fieldValue = getNestedPropertyValue(row, col.propertyKey);
-                    if (fieldValue !== undefined) {
-                      return matchesAnySearchValue((candidate) =>
-                        checkStringContains(fieldValue, candidate)
-                      );
+                    if (fieldValue === undefined) {
+                      return matchesAnySearchValue((candidate) => isNoneSearchToken(candidate));
                     }
+
+                    return matchesAnySearchValue((candidate) =>
+                      checkStringContains(fieldValue, candidate)
+                    );
                   }
                   return false;
                 });
@@ -2976,11 +2994,16 @@ const DeliverySpreadsheet: React.FC = () => {
         <Box sx={{ display: "flex", flexDirection: "column", gap: "8px" }}>
           <Box sx={{ position: "relative", width: "100%" }}>
             <input
+              ref={searchAutocomplete.inputRef}
               type="text"
               value={searchQuery}
-              onChange={handleSearchChange}
-              list="route-search-key-suggestions"
-              placeholder='Search deliveries (e.g., cluster:1,2, ward:7, driver:maria, name:"john smith")'
+              onChange={searchAutocomplete.handleInputChange}
+              onFocus={searchAutocomplete.handleInputFocus}
+              onClick={searchAutocomplete.handleInputClick}
+              onBlur={searchAutocomplete.handleInputBlur}
+              onKeyDown={searchAutocomplete.handleInputKeyDown}
+              onKeyUp={searchAutocomplete.handleInputKeyUp}
+              placeholder='Search deliveries (use ; between filters, e.g., cluster:1,2; ward:7; driver:maria; name:"john smith")'
               style={{
                 width: "100%",
                 height: "60px",
@@ -2993,11 +3016,6 @@ const DeliverySpreadsheet: React.FC = () => {
                 boxSizing: "border-box",
               }}
             />
-            <datalist id="route-search-key-suggestions">
-              {routeSearchKeySuggestions.map((suggestion) => (
-                <option key={suggestion} value={suggestion} />
-              ))}
-            </datalist>
           </Box>
           {hasActiveRouteFilter && (
             <Typography variant="body2" sx={{ color: "text.secondary", px: 1 }}>

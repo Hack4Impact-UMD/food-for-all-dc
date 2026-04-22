@@ -1,6 +1,7 @@
 import { describe, expect, it } from "@jest/globals";
 import {
   checkStringEquals,
+  checkStringContains,
   extractKeyValue,
   parseSearchTermsProgressively,
   splitFilterValues,
@@ -43,6 +44,18 @@ describe("searchFilter parsing", () => {
     expect(terms).toEqual(["assigned driver:sarah jones", "ward:7"]);
   });
 
+  it("splits when the next token is a recognized key like ward", () => {
+    const terms = parseSearchTermsProgressively("driver:sarah jones ward:7");
+
+    expect(terms).toEqual(["driver:sarah jones", "ward:7"]);
+  });
+
+  it("does not split on colon text inside a value when token is not a known key", () => {
+    const terms = parseSearchTermsProgressively("address:123 main st apt: 2 ward:7");
+
+    expect(terms).toEqual(["address:123 main st apt: 2", "ward:7"]);
+  });
+
   // App coverage:
   // - Routes page filter input for cluster IDs with or without a space after `:`
   // - ensures `cluster:12` and `cluster: 12` are both parsed as key:value filters
@@ -63,6 +76,14 @@ describe("searchFilter parsing", () => {
     const terms = parseSearchTermsProgressively("cluster: 1, 2 ward:7");
 
     expect(terms).toEqual(["cluster: 1, 2", "ward:7"]);
+  });
+
+  it("treats semicolon as an explicit separator between key:value filters", () => {
+    const terms = parseSearchTermsProgressively(
+      "language:english; delivery instructions:call before arriving"
+    );
+
+    expect(terms).toEqual(["language:english", "delivery instructions:call before arriving"]);
   });
 
   // App coverage:
@@ -105,6 +126,14 @@ describe("searchFilter parsing", () => {
     expect(checkStringEquals("10", "1")).toBe(false);
     expect(checkStringEquals("12", "2")).toBe(false);
     expect(checkStringEquals("Ward 12", "2")).toBe(false);
+  });
+
+  it("treats none as a match for missing or empty values", () => {
+    expect(checkStringContains(undefined, "none")).toBe(true);
+    expect(checkStringContains(null, "None")).toBe(true);
+    expect(checkStringContains("", "none")).toBe(true);
+    expect(checkStringEquals(undefined, "none")).toBe(true);
+    expect(checkStringEquals("", "none")).toBe(true);
   });
 
   // App coverage:

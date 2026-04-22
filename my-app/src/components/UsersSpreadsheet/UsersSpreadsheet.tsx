@@ -37,6 +37,7 @@ import {
   splitFilterValues,
 } from "../../utils/searchFilter";
 import { useNavigate } from "react-router-dom";
+import { useSearchKeyAutocomplete } from "../../hooks/useSearchKeyAutocomplete";
 import { auth } from "../../auth/firebaseConfig";
 import { authUserService } from "../../services/AuthUserService";
 import { sortData, SortDirection } from "../../utils/sorting";
@@ -89,10 +90,7 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
   const [phoneSortDirection, setPhoneSortDirection] = useState<SortDirection | null>(null);
   const [emailSortDirection, setEmailSortDirection] = useState<SortDirection | null>(null);
 
-  const userSearchKeySuggestions = useMemo(
-    () => ["name", "role", "phone", "email"].map((key) => `${key}:`),
-    []
-  );
+  const userSearchKeySuggestions = useMemo(() => ["name", "role", "phone", "email"], []);
 
   const { userRole } = useAuth();
   const navigate = useNavigate();
@@ -215,9 +213,11 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
     }
   }, [rows, nameSortDirection, roleSortDirection, phoneSortDirection, emailSortDirection]);
 
-  const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchQuery(event.target.value);
-  };
+  const searchAutocomplete = useSearchKeyAutocomplete({
+    value: searchQuery,
+    onValueChange: setSearchQuery,
+    suggestions: userSearchKeySuggestions,
+  });
 
   const handleDeleteUser = async (uid: string) => {
     const originalRows = [...rows];
@@ -415,11 +415,16 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
           <Stack spacing={3}>
             <Box sx={{ position: "relative", width: "100%" }}>
               <input
+                ref={searchAutocomplete.inputRef}
                 type="text"
                 value={searchQuery}
-                onChange={handleSearchChange}
-                list="users-search-key-suggestions"
-                placeholder="Search users (e.g., role:admin,manager, name:jane,john, email:test@example.com)"
+                onChange={searchAutocomplete.handleInputChange}
+                onFocus={searchAutocomplete.handleInputFocus}
+                onClick={searchAutocomplete.handleInputClick}
+                onBlur={searchAutocomplete.handleInputBlur}
+                onKeyDown={searchAutocomplete.handleInputKeyDown}
+                onKeyUp={searchAutocomplete.handleInputKeyUp}
+                placeholder="Search users (use ; between filters, e.g., role:admin,manager; name:jane,john; email:test@example.com)"
                 style={{
                   width: "100%",
                   height: "50px",
@@ -434,11 +439,6 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
                   boxShadow: "inset 0 2px 3px rgba(0,0,0,0.05)",
                 }}
               />
-              <datalist id="users-search-key-suggestions">
-                {userSearchKeySuggestions.map((suggestion) => (
-                  <option key={suggestion} value={suggestion} />
-                ))}
-              </datalist>
             </Box>
             <Stack
               direction={{ xs: "column", sm: "row" }}
