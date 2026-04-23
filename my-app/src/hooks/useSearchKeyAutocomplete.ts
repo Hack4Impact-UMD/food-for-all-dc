@@ -25,6 +25,22 @@ const getSegmentInfo = (
   }
 
   const findMatchingKeyStart = (text: string): number | null => {
+    // Prefer the straightforward segment-start key candidate first so both
+    // ";nextKey" and "; nextKey" behave the same.
+    const segmentLeadingWhitespace = (text.match(/^\s*/) ?? [""])[0].length;
+    const segmentStartCandidateRaw = text.slice(segmentLeadingWhitespace);
+    const normalizedSegmentStartCandidate = normalizeSearchKeyword(segmentStartCandidateRaw);
+
+    if (normalizedSegmentStartCandidate) {
+      const hasSegmentStartPrefixMatch = normalizedSuggestions.some((suggestion) =>
+        suggestion.normalized.startsWith(normalizedSegmentStartCandidate)
+      );
+
+      if (hasSegmentStartPrefixMatch) {
+        return segmentLeadingWhitespace;
+      }
+    }
+
     let bestMatchStart: number | null = null;
     let bestMatchLength = -1;
 
@@ -124,6 +140,25 @@ export const useSearchKeyAutocomplete = ({
       const startsWithMatches = normalizedSuggestions.filter((suggestion) =>
         suggestion.normalized.startsWith(normalizedKey)
       );
+
+      if (startsWithMatches.length === 0) {
+        return null;
+      }
+
+      const exactMatch = startsWithMatches.find(
+        (suggestion) => suggestion.normalized === normalizedKey
+      );
+
+      if (exactMatch) {
+        return exactMatch.raw;
+      }
+
+      // Do not auto-fill on ambiguous prefixes (for example, "delivery" can match
+      // both "delivery instructions" and "delivery frequency"). Wait until the
+      // user types enough characters to uniquely identify one key.
+      if (startsWithMatches.length > 1) {
+        return null;
+      }
 
       const bestSuggestion = startsWithMatches[0]?.raw ?? null;
 
@@ -315,22 +350,54 @@ export const useSearchKeyAutocomplete = ({
       const isEnterCommit = event.key === "Enter";
 
       if (isTabCommit || isEnterCommit) {
-        const cursor = event.currentTarget.selectionStart ?? event.currentTarget.value.length;
-        const { nextValue, nextCursor, selectionEnd } = applyInlineAutocomplete(
-          event.currentTarget.value,
-          cursor,
-          true
-        );
+        const rawValue = event.currentTarget.value;
+        const selectionStart = event.currentTarget.selectionStart ?? rawValue.length;
+        const selectionEnd = event.currentTarget.selectionEnd ?? selectionStart;
+        const hasSelection = selectionEnd > selectionStart;
 
-        if (nextValue !== event.currentTarget.value) {
+        // If inline autocomplete text is selected, commit from selectionEnd first so
+        // Tab/Enter finalizes the full key rather than using a partial prefix.
+        const commitCursors = hasSelection ? [selectionEnd, selectionStart] : [selectionStart];
+        const startSegmentInfo = getSegmentInfo(rawValue, selectionStart, normalizedSuggestions);
+        const endSegmentInfo = getSegmentInfo(rawValue, selectionEnd, normalizedSuggestions);
+        const shouldTrapTab = isTabCommit && Boolean(startSegmentInfo || endSegmentInfo);
+
+        if (shouldTrapTab) {
           event.preventDefault();
+        }
+
+        let commitResult = {
+          nextValue: rawValue,
+          nextCursor: selectionStart,
+          selectionEnd,
+        };
+
+        for (const commitCursor of commitCursors) {
+          const candidate = applyInlineAutocomplete(rawValue, commitCursor, true);
+          commitResult = candidate;
+          if (candidate.nextValue !== rawValue) {
+            break;
+          }
+        }
+
+        const { nextValue, nextCursor, selectionEnd: nextSelectionEnd } = commitResult;
+
+        if (nextValue !== rawValue) {
           onValueChange(nextValue);
           setCursorPosition(nextCursor);
           requestAnimationFrame(() => {
             const input = inputRef.current;
             if (!input) return;
             input.focus();
-            input.setSelectionRange(nextCursor, selectionEnd);
+            input.setSelectionRange(nextCursor, nextSelectionEnd);
+          });
+        } else if (shouldTrapTab) {
+          setCursorPosition(selectionStart);
+          requestAnimationFrame(() => {
+            const input = inputRef.current;
+            if (!input) return;
+            input.focus();
+            input.setSelectionRange(selectionStart, selectionEnd);
           });
         }
 
@@ -358,7 +425,7 @@ export const useSearchKeyAutocomplete = ({
         }
       }
     },
-    [applyInlineAutocomplete, onValueChange]
+    [applyInlineAutocomplete, normalizedSuggestions, onValueChange]
   );
 
   return {
