@@ -1057,6 +1057,44 @@ const Spreadsheet: React.FC = () => {
                 boxShadow: "inset 0 2px 3px rgba(0,0,0,0.05)",
               }}
             />
+            {searchQuery.trim() !== "" && (
+              <button
+                type="button"
+                aria-label="Clear client search"
+                onMouseDown={(event) => {
+                  event.preventDefault();
+                }}
+                onClick={() => {
+                  setSearchQuery("");
+                  requestAnimationFrame(() => {
+                    const input = searchAutocomplete.inputRef.current;
+                    if (!input) return;
+                    input.focus();
+                    input.setSelectionRange(0, 0);
+                  });
+                }}
+                style={{
+                  position: "absolute",
+                  right: "12px",
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  width: "28px",
+                  height: "28px",
+                  borderRadius: "50%",
+                  border: "none",
+                  backgroundColor: "var(--color-border-light)",
+                  color: "var(--color-text-dark)",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: "16px",
+                  lineHeight: 1,
+                }}
+              >
+                x
+              </button>
+            )}
           </Box>
           <Stack
             direction={{ xs: "column", sm: "row" }}

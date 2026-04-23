@@ -3010,12 +3010,50 @@ const DeliverySpreadsheet: React.FC = () => {
                 backgroundColor: "var(--color-background-gray)",
                 border: "none",
                 borderRadius: "30px",
-                padding: "0 24px",
+                padding: "0 56px 0 24px",
                 fontSize: "16px",
                 color: "var(--color-text-dark)",
                 boxSizing: "border-box",
               }}
             />
+            {searchQuery.trim() !== "" && (
+              <button
+                type="button"
+                aria-label="Clear delivery search"
+                onMouseDown={(event) => {
+                  event.preventDefault();
+                }}
+                onClick={() => {
+                  setSearchQuery("");
+                  requestAnimationFrame(() => {
+                    const input = searchAutocomplete.inputRef.current;
+                    if (!input) return;
+                    input.focus();
+                    input.setSelectionRange(0, 0);
+                  });
+                }}
+                style={{
+                  position: "absolute",
+                  right: "16px",
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  width: "28px",
+                  height: "28px",
+                  borderRadius: "50%",
+                  border: "none",
+                  backgroundColor: "var(--color-border-light)",
+                  color: "var(--color-text-dark)",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: "16px",
+                  lineHeight: 1,
+                }}
+              >
+                x
+              </button>
+            )}
           </Box>
           {hasActiveRouteFilter && (
             <Typography variant="body2" sx={{ color: "text.secondary", px: 1 }}>
