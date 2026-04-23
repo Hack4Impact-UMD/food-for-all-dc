@@ -430,7 +430,7 @@ export const useSearchKeyAutocomplete = ({
         }
       }
     },
-    [applyInlineAutocomplete, normalizedSuggestions, onValueChange]
+    [applyInlineAutocomplete, onValueChange]
   );
 
   return {
