@@ -351,6 +351,13 @@ export const useSearchKeyAutocomplete = ({
 
       if (isTabCommit || isEnterCommit) {
         const rawValue = event.currentTarget.value;
+
+        // Global rule for filter bars: only allow Tab to move focus when the
+        // current query explicitly ends with a semicolon.
+        if (isTabCommit && rawValue.endsWith(";")) {
+          return;
+        }
+
         const selectionStart = event.currentTarget.selectionStart ?? rawValue.length;
         const selectionEnd = event.currentTarget.selectionEnd ?? selectionStart;
         const hasSelection = selectionEnd > selectionStart;
@@ -358,9 +365,7 @@ export const useSearchKeyAutocomplete = ({
         // If inline autocomplete text is selected, commit from selectionEnd first so
         // Tab/Enter finalizes the full key rather than using a partial prefix.
         const commitCursors = hasSelection ? [selectionEnd, selectionStart] : [selectionStart];
-        const startSegmentInfo = getSegmentInfo(rawValue, selectionStart, normalizedSuggestions);
-        const endSegmentInfo = getSegmentInfo(rawValue, selectionEnd, normalizedSuggestions);
-        const shouldTrapTab = isTabCommit && Boolean(startSegmentInfo || endSegmentInfo);
+        const shouldTrapTab = isTabCommit;
 
         if (shouldTrapTab) {
           event.preventDefault();

@@ -409,4 +409,37 @@ describe("useSearchKeyAutocomplete", () => {
     expect(document.activeElement).toBe(input);
     expect(input.value).toBe("delivery");
   });
+
+  it("prevents Tab from leaving input when query does not end with semicolon", () => {
+    render(<Harness />);
+    const input = screen.getByRole("textbox", { name: "search" }) as HTMLInputElement;
+
+    input.focus();
+    fireEvent.focus(input);
+    fireEvent.change(input, {
+      target: { value: "name:jamie", selectionStart: 10, selectionEnd: 10 },
+    });
+
+    const tabEvent = createEvent.keyDown(input, { key: "Tab" });
+    fireEvent(input, tabEvent);
+
+    expect(tabEvent.defaultPrevented).toBe(true);
+    expect(document.activeElement).toBe(input);
+  });
+
+  it("allows Tab to move focus when query ends with semicolon", () => {
+    render(<Harness />);
+    const input = screen.getByRole("textbox", { name: "search" }) as HTMLInputElement;
+
+    input.focus();
+    fireEvent.focus(input);
+    fireEvent.change(input, {
+      target: { value: "name:jamie;", selectionStart: 11, selectionEnd: 11 },
+    });
+
+    const tabEvent = createEvent.keyDown(input, { key: "Tab" });
+    fireEvent(input, tabEvent);
+
+    expect(tabEvent.defaultPrevented).toBe(false);
+  });
 });
