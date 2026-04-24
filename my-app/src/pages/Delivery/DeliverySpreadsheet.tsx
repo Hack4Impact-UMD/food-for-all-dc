@@ -648,7 +648,34 @@ const DeliverySpreadsheet: React.FC = () => {
       .map((propertyKey) => addablePropertyKeyLabelMap[propertyKey] ?? propertyKey)
       .map((label) => label.toLowerCase());
 
-    return Array.from(new Set([...tableFieldLabels, ...addableFieldLabels]));
+    const routeFilterAliases = [
+      "name",
+      "first name",
+      "last name",
+      "cluster id",
+      "route id",
+      "ward",
+      "driver",
+      "assigned driver",
+      "time",
+      "assigned time",
+      "delivery instructions",
+      "instructions",
+      "delivery freq",
+      "delivery frequency",
+      "tags",
+      "tag",
+      "zip",
+      "zip code",
+      "zipcode",
+      "referral",
+      "referral entity",
+      "tefap",
+      "tefap cert",
+      "tefapcert",
+    ];
+
+    return Array.from(new Set([...tableFieldLabels, ...addableFieldLabels, ...routeFilterAliases]));
   }, []);
   const searchAutocomplete = useSearchKeyAutocomplete({
     value: searchQuery,
