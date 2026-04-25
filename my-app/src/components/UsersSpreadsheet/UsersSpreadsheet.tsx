@@ -110,21 +110,24 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
     return () => unsubscribe();
   }, [navigate, onAuthStateChangedOverride]);
 
-  const fields: Field[] = [
-    {
-      key: "name",
-      label: "Name",
-      type: "text",
-    },
-    {
-      key: "role",
-      label: "Role",
-      type: "text",
-      compute: (data: AuthUserRow) => getRoleDisplayName(data.role),
-    },
-    { key: "phone", label: "Phone", type: "text" },
-    { key: "email", label: "Email", type: "text" },
-  ];
+  const fields: Field[] = useMemo(
+    () => [
+      {
+        key: "name" as const,
+        label: "Name",
+        type: "text",
+      },
+      {
+        key: "role" as const,
+        label: "Role",
+        type: "text",
+        compute: (data: AuthUserRow) => getRoleDisplayName(data.role),
+      },
+      { key: "phone" as const, label: "Phone", type: "text" },
+      { key: "email" as const, label: "Email", type: "text" },
+    ],
+    []
+  );
 
   const userSearchKeySuggestions = useMemo(
     () =>
