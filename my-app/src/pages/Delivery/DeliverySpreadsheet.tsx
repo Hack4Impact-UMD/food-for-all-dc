@@ -668,25 +668,6 @@ const DeliverySpreadsheet: React.FC = () => {
   const [rows, setRows] = useState<DeliveryRowData[]>([]);
   const [rawClientData, setRawClientData] = useState<DeliveryRowData[]>([]);
   const [searchQuery, setSearchQuery] = useState<string>("");
-  const routeSearchKeySuggestions = useMemo(() => {
-    const tableFieldLabels = fields
-      .map((field) => field.label)
-      .filter((label) => Boolean(label))
-      .map((label) => label.toLowerCase());
-
-    const visibleCustomFieldLabels = customColumns
-      .map((column) => column.propertyKey)
-      .filter((propertyKey) => propertyKey !== "none")
-      .map((propertyKey) => addablePropertyKeyLabelMap[propertyKey] ?? propertyKey)
-      .map((label) => label.toLowerCase());
-
-    return Array.from(new Set([...tableFieldLabels, ...visibleCustomFieldLabels]));
-  }, [customColumns]);
-  const searchAutocomplete = useSearchKeyAutocomplete({
-    value: searchQuery,
-    onValueChange: setSearchQuery,
-    suggestions: routeSearchKeySuggestions,
-  });
   const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
 
   const [popupMode, setPopupMode] = useState("");
@@ -906,6 +887,26 @@ const DeliverySpreadsheet: React.FC = () => {
     handleCustomHeaderChange,
     handleRemoveCustomColumn,
   } = useCustomColumns({ page: "DeliverySpreadsheet" });
+
+  const routeSearchKeySuggestions = useMemo(() => {
+    const tableFieldLabels = fields
+      .map((field) => field.label)
+      .filter((label) => Boolean(label))
+      .map((label) => label.toLowerCase());
+
+    const visibleCustomFieldLabels = customColumns
+      .map((column) => column.propertyKey)
+      .filter((propertyKey) => propertyKey !== "none")
+      .map((propertyKey) => addablePropertyKeyLabelMap[propertyKey] ?? propertyKey)
+      .map((label) => label.toLowerCase());
+
+    return Array.from(new Set([...tableFieldLabels, ...visibleCustomFieldLabels]));
+  }, [customColumns]);
+  const searchAutocomplete = useSearchKeyAutocomplete({
+    value: searchQuery,
+    onValueChange: setSearchQuery,
+    suggestions: routeSearchKeySuggestions,
+  });
 
   // Function to trigger driver refresh across components
   const triggerDriverRefresh = () => {
