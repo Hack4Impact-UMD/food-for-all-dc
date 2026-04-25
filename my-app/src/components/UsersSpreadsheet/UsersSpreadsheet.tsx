@@ -54,6 +54,13 @@ type Field = {
   compute?: (data: AuthUserRow) => string;
 };
 
+const userFieldMappings: Record<string, string[]> = {
+  name: ["name"],
+  role: ["role"],
+  phone: ["phone"],
+  email: ["email"],
+};
+
 const getRoleDisplayName = (role: UserType): string => {
   switch (role) {
     case UserType.Admin:
@@ -90,8 +97,6 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
   const [phoneSortDirection, setPhoneSortDirection] = useState<SortDirection | null>(null);
   const [emailSortDirection, setEmailSortDirection] = useState<SortDirection | null>(null);
 
-  const userSearchKeySuggestions = useMemo(() => ["name", "role", "phone", "email"], []);
-
   const { userRole } = useAuth();
   const navigate = useNavigate();
 
@@ -120,6 +125,20 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
     { key: "phone", label: "Phone", type: "text" },
     { key: "email", label: "Email", type: "text" },
   ];
+
+  const userSearchKeySuggestions = useMemo(
+    () =>
+      Array.from(
+        new Set([
+          ...fields
+            .map((field) => field.label)
+            .filter((label) => Boolean(label))
+            .map((label) => label.toLowerCase()),
+          ...Object.values(userFieldMappings).flat(),
+        ])
+      ),
+    [fields]
+  );
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);
@@ -281,14 +300,7 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
       const isVisibleField = (keyword: string): boolean => {
         const normalizedKeyword = normalizeSearchKeyword(keyword);
 
-        const fieldMappings: { [key: string]: string[] } = {
-          name: ["name"],
-          role: ["role"],
-          phone: ["phone"],
-          email: ["email"],
-        };
-
-        for (const [fieldKey, aliases] of Object.entries(fieldMappings)) {
+        for (const [fieldKey, aliases] of Object.entries(userFieldMappings)) {
           if (
             visibleFieldKeys.has(fieldKey as keyof AuthUserRow) &&
             aliases.some((alias) => normalizeSearchKeyword(alias) === normalizedKeyword)

@@ -102,6 +102,32 @@ const addablePropertyKeyLabelMap: Record<string, string> = {
   lastDeliveryDate: "Last Delivery Date",
 };
 
+const clientFieldMappings: Record<string, string[]> = {
+  fullname: ["name", "first name", "firstname", "last name", "lastname"],
+  address: ["address"],
+  phone: ["phone"],
+  email: ["email"],
+  "deliveryDetails.dietaryRestrictions": ["dietary restrictions", "dietary"],
+  "deliveryDetails.deliveryInstructions": ["delivery instructions", "instructions"],
+};
+
+const clientCustomColumnMappings: Record<string, string[]> = {
+  adults: ["adults"],
+  children: ["children"],
+  famStartDate: ["family start date"],
+  deliveryFreq: ["delivery freq", "delivery frequency"],
+  "deliveryDetails.dietaryRestrictions.dietaryPreferences": ["dietary preferences"],
+  ethnicity: ["ethnicity"],
+  gender: ["gender"],
+  language: ["language"],
+  notes: ["notes"],
+  referralEntity: ["referral entity", "referral"],
+  tags: ["tags", "tag"],
+  tefapCert: ["tefap", "tefap cert"],
+  dob: ["dob"],
+  lastDeliveryDate: ["last delivery date"],
+};
+
 const StyleChip = styled(Chip)(({ theme }) => ({
   fontWeight: 500,
   fontSize: "0.85rem",
@@ -649,13 +675,14 @@ const Spreadsheet: React.FC = () => {
       .filter((label) => Boolean(label))
       .map((label) => label.toLowerCase());
 
-    const addableFieldLabels = allowedPropertyKeys
+    const visibleCustomFieldLabels = customColumns
+      .map((column) => column.propertyKey)
       .filter((propertyKey) => propertyKey !== "none")
       .map((propertyKey) => addablePropertyKeyLabelMap[propertyKey] ?? propertyKey)
       .map((label) => label.toLowerCase());
 
-    return Array.from(new Set([...tableFieldLabels, ...addableFieldLabels]));
-  }, [fields]);
+    return Array.from(new Set([...tableFieldLabels, ...visibleCustomFieldLabels]));
+  }, [fields, customColumns]);
 
   const searchAutocomplete = useSearchKeyAutocomplete({
     value: searchQuery,
@@ -700,16 +727,7 @@ const Spreadsheet: React.FC = () => {
         const isVisibleField = (keyword: string): boolean => {
           const normalizedKeyword = normalizeSearchKeyword(keyword);
 
-          const fieldMappings: { [key: string]: string[] } = {
-            fullname: ["name", "first name", "firstname", "last name", "lastname"],
-            address: ["address"],
-            phone: ["phone"],
-            email: ["email"],
-            "deliveryDetails.dietaryRestrictions": ["dietary restrictions", "dietary"],
-            "deliveryDetails.deliveryInstructions": ["delivery instructions", "instructions"],
-          };
-
-          for (const [fieldKey, aliases] of Object.entries(fieldMappings)) {
+          for (const [fieldKey, aliases] of Object.entries(clientFieldMappings)) {
             if (
               visibleFieldKeys.has(fieldKey) &&
               aliases.some((alias) => normalizeSearchKeyword(alias) === normalizedKeyword)
@@ -718,22 +736,7 @@ const Spreadsheet: React.FC = () => {
             }
           }
 
-          const customColumnMappings: { [key: string]: string[] } = {
-            adults: ["adults"],
-            children: ["children"],
-            deliveryFreq: ["delivery freq", "delivery frequency"],
-            ethnicity: ["ethnicity"],
-            gender: ["gender"],
-            language: ["language"],
-            notes: ["notes"],
-            referralEntity: ["referral entity", "referral"],
-            tags: ["tags", "tag"],
-            tefapCert: ["tefap", "tefap cert"],
-            dob: ["dob"],
-            lastDeliveryDate: ["last delivery date"],
-          };
-
-          for (const [propertyKey, aliases] of Object.entries(customColumnMappings)) {
+          for (const [propertyKey, aliases] of Object.entries(clientCustomColumnMappings)) {
             if (
               visibleFieldKeys.has(propertyKey) &&
               aliases.some((alias) => normalizeSearchKeyword(alias) === normalizedKeyword)

@@ -441,6 +441,37 @@ const addablePropertyKeyLabelMap: Record<string, string> = {
   lastDeliveryDate: "Last Delivery Date",
 };
 
+const routeFieldMappings: Record<string, string[]> = {
+  fullname: ["name", "client"],
+  clusterIdChange: ["cluster", "cluster id", "clusterid", "route", "route id", "routeid"],
+  tags: ["tags", "tag"],
+  zipCode: ["zip", "zipcode", "zip code"],
+  ward: ["ward"],
+  assignedDriver: ["driver", "assigned driver"],
+  assignedTime: ["time", "assigned time"],
+  "deliveryDetails.deliveryInstructions": ["delivery instructions", "instructions"],
+};
+
+const routeCustomColumnMappings: Record<string, string[]> = {
+  address: ["address"],
+  adults: ["adults"],
+  children: ["children"],
+  famStartDate: ["family start date"],
+  deliveryFreq: ["delivery freq", "delivery frequency"],
+  "deliveryDetails.dietaryRestrictions": ["dietary restrictions", "dietary"],
+  "deliveryDetails.dietaryRestrictions.dietaryPreferences": ["dietary preferences"],
+  ethnicity: ["ethnicity"],
+  gender: ["gender"],
+  language: ["language"],
+  notes: ["notes"],
+  phone: ["phone"],
+  referralEntity: ["referral entity", "referral"],
+  tags: ["tags", "tag"],
+  tefapCert: ["tefap", "tefap cert"],
+  dob: ["dob"],
+  lastDeliveryDate: ["last delivery date"],
+};
+
 const formatClusterDriverReplacementWarning = (
   routeIds: string[],
   incomingDriverName: string,
@@ -643,40 +674,14 @@ const DeliverySpreadsheet: React.FC = () => {
       .filter((label) => Boolean(label))
       .map((label) => label.toLowerCase());
 
-    const addableFieldLabels = allowedPropertyKeys
+    const visibleCustomFieldLabels = customColumns
+      .map((column) => column.propertyKey)
       .filter((propertyKey) => propertyKey !== "none")
       .map((propertyKey) => addablePropertyKeyLabelMap[propertyKey] ?? propertyKey)
       .map((label) => label.toLowerCase());
 
-    const routeFilterAliases = [
-      "name",
-      "first name",
-      "last name",
-      "cluster id",
-      "route id",
-      "ward",
-      "driver",
-      "assigned driver",
-      "time",
-      "assigned time",
-      "delivery instructions",
-      "instructions",
-      "delivery freq",
-      "delivery frequency",
-      "tags",
-      "tag",
-      "zip",
-      "zip code",
-      "zipcode",
-      "referral",
-      "referral entity",
-      "tefap",
-      "tefap cert",
-      "tefapcert",
-    ];
-
-    return Array.from(new Set([...tableFieldLabels, ...addableFieldLabels, ...routeFilterAliases]));
-  }, []);
+    return Array.from(new Set([...tableFieldLabels, ...visibleCustomFieldLabels]));
+  }, [customColumns]);
   const searchAutocomplete = useSearchKeyAutocomplete({
     value: searchQuery,
     onValueChange: setSearchQuery,
@@ -2065,20 +2070,9 @@ const DeliverySpreadsheet: React.FC = () => {
         const isVisibleField = (keyword: string): boolean => {
           const lowerKeyword = keyword.toLowerCase();
 
-          const fieldMappings: { [key: string]: string[] } = {
-            fullname: ["name", "client"],
-            clusterIdChange: ["cluster", "cluster id", "clusterid", "route", "route id", "routeid"],
-            tags: ["tags", "tag"],
-            zipCode: ["zip", "zipcode", "zip code"],
-            ward: ["ward"],
-            assignedDriver: ["driver", "assigned driver"],
-            assignedTime: ["time", "assigned time"],
-            "deliveryDetails.deliveryInstructions": ["delivery instructions", "instructions"],
-          };
-
           const normalizedKeyword = normalizeSearchKeyword(lowerKeyword);
 
-          for (const [fieldKey, aliases] of Object.entries(fieldMappings)) {
+          for (const [fieldKey, aliases] of Object.entries(routeFieldMappings)) {
             if (
               visibleFieldKeys.has(fieldKey) &&
               aliases.some((alias) => normalizeSearchKeyword(alias) === normalizedKeyword)
@@ -2087,25 +2081,7 @@ const DeliverySpreadsheet: React.FC = () => {
             }
           }
 
-          const customColumnMappings: { [key: string]: string[] } = {
-            address: ["address"],
-            adults: ["adults"],
-            children: ["children"],
-            deliveryFreq: ["delivery freq", "delivery frequency"],
-            "deliveryDetails.dietaryRestrictions": ["dietary restrictions"],
-            ethnicity: ["ethnicity"],
-            gender: ["gender"],
-            language: ["language"],
-            notes: ["notes"],
-            phone: ["phone"],
-            referralEntity: ["referral entity", "referral"],
-            tags: ["tags", "tag"],
-            tefapCert: ["tefap", "tefap cert"],
-            dob: ["dob"],
-            lastDeliveryDate: ["last delivery date"],
-          };
-
-          for (const [propertyKey, aliases] of Object.entries(customColumnMappings)) {
+          for (const [propertyKey, aliases] of Object.entries(routeCustomColumnMappings)) {
             if (
               visibleFieldKeys.has(propertyKey) &&
               aliases.some((alias) => normalizeSearchKeyword(alias) === normalizedKeyword)

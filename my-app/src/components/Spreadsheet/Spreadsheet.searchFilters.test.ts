@@ -12,6 +12,13 @@ describe("Spreadsheet search filter regression guards", () => {
     expect(source).toContain("normalizeSearchKeyword(keyword)");
   });
 
+  it("keeps client autocomplete suggestions aligned with visible header labels", () => {
+    expect(source).toContain("const tableFieldLabels = fields");
+    expect(source).toContain("const visibleCustomFieldLabels = customColumns");
+    expect(source).toContain("return Array.from(new Set([...tableFieldLabels, ...visibleCustomFieldLabels]));");
+    expect(source).toContain('"deliveryDetails.dietaryRestrictions": ["dietary restrictions", "dietary"]');
+  });
+
   it("shows multi-value examples in the Clients page search placeholder", () => {
     expect(source).toContain(
       'placeholder=\'Search clients (e.g., smith; name:john,jane; address:"main st"; gender:female,male)\''
