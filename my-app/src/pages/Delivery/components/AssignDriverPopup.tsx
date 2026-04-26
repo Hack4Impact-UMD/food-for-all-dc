@@ -1,32 +1,60 @@
-import { Autocomplete, DialogActions, Paper, TextField, Box, Typography } from "@mui/material";
+import {
+  Autocomplete,
+  DialogActions,
+  TextField,
+  Box,
+} from "@mui/material";
 import { useEffect, useState, useCallback } from "react";
+import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
 import Button from "../../../components/common/Button";
 import DriverManagementModal from "../../../components/DriverManagementModal";
 import { Driver } from "../../../types/calendar-types";
 import DriverService from "../../../services/driver-service";
+import { TIME_SLOTS } from "../utils/timeSlots";
 
 interface AssignDriverPopupProps {
-  assignDriver: (driver: Driver | null) => Promise<boolean>;
+  assignDriverAndTime: (driver: Driver | null, time: string) => Promise<boolean>;
   setPopupMode: (mode: string) => void;
   onDriversUpdated?: () => void; // Optional callback when drivers are updated
 }
 
 export default function AssignDriverPopup({
-  assignDriver,
+  assignDriverAndTime,
   setPopupMode,
   onDriversUpdated,
 }: AssignDriverPopupProps) {
+  const MANAGE_DRIVERS_OPTION = { id: "__modal__", name: "Edit Driver List", phone: "" };
   const [driver, setDriver] = useState<Driver | null>(null);
-  const [drivers, setDrivers] = useState<Driver[]>([]);
+  const [time, setTime] = useState<string>("");
   const [driverSearchQuery, setDriverSearchQuery] = useState<string>("");
+  const [timeSearchQuery, setTimeSearchQuery] = useState<string>("");
+  const [drivers, setDrivers] = useState<Driver[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [error, setError] = useState<string>("");
   const [isDriverModalOpen, setIsDriverModalOpen] = useState<boolean>(false);
+  const isDriverError = error === "Please select a driver.";
+  const isTimeError = error === "Please select a time.";
+  const autocompleteSx = {
+    width: "100%",
+    minWidth: 0,
+    "& .MuiFormControl-root": {
+      width: "100%",
+    },
+    "& .MuiInputBase-root": {
+      width: "100%",
+    },
+    "& .MuiOutlinedInput-root": {
+      width: "100%",
+      paddingRight: "8px !important",
+    },
+  };
 
   const resetAndClose = () => {
     setDriver(null);
+    setTime("");
     setDriverSearchQuery("");
+    setTimeSearchQuery("");
     setError("");
     setPopupMode("");
   };
@@ -37,11 +65,16 @@ export default function AssignDriverPopup({
       return;
     }
 
+    if (!time) {
+      setError("Please select a time.");
+      return;
+    }
+
     setError("");
     setIsSaving(true);
 
     try {
-      const didSave = await assignDriver(driver);
+      const didSave = await assignDriverAndTime(driver, time);
       if (didSave) {
         resetAndClose();
       }
@@ -88,68 +121,42 @@ export default function AssignDriverPopup({
     <>
       <Box sx={{ display: "flex", flexDirection: "column", gap: 2, p: 1 }}>
         <Autocomplete
-          options={[{ id: "__modal__", name: "Manage Drivers" }, ...drivers]}
-          getOptionLabel={(option) => option.name}
-          filterOptions={(options, state) => {
-            const specialOption = { id: "__modal__", name: "Manage Drivers" };
-
-            // Filter out the special option from the rest
-            const filteredDrivers = drivers.filter((driver) =>
-              driver.name.toLowerCase().includes(state.inputValue.toLowerCase())
-            );
-
-            return [specialOption, ...filteredDrivers];
-          }}
+          options={[MANAGE_DRIVERS_OPTION, ...drivers]}
           value={driver}
-          onChange={(event, newValue) => {
+          inputValue={driverSearchQuery}
+          onInputChange={(_, newInputValue) => {
+            setDriverSearchQuery(newInputValue);
+          }}
+          onChange={(_, newValue) => {
             if (!newValue) {
               setDriver(null);
-            } else if (newValue.id === "__modal__") {
+            } else if (newValue.id === MANAGE_DRIVERS_OPTION.id) {
               setIsDriverModalOpen(true);
+              return;
             } else {
               setDriver(newValue as Driver);
             }
             if (error) setError("");
           }}
-          inputValue={driverSearchQuery}
-          onInputChange={(event, newInputValue) => {
-            setDriverSearchQuery(newInputValue);
-          }}
+          getOptionLabel={(option) => option.name}
           isOptionEqualToValue={(option, value) => option.id === value.id}
+          filterOptions={(options, state) => {
+            const filteredDrivers = drivers.filter((candidateDriver) =>
+              candidateDriver.name.toLowerCase().includes(state.inputValue.toLowerCase())
+            );
+            return [MANAGE_DRIVERS_OPTION, ...filteredDrivers];
+          }}
           renderOption={(props, option) =>
-            option.id === "__modal__" ? (
+            option.id === MANAGE_DRIVERS_OPTION.id ? (
               <li {...props} key="manage-drivers-option">
-                <span
-                  style={{
-                    color: "var(--color-primary)",
-                    fontWeight: "bold",
-                    cursor: "pointer",
-                  }}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setIsDriverModalOpen(true);
-                  }}
-                >
-                  Edit Driver List
+                <span style={{ color: "var(--color-primary)", fontWeight: 700 }}>
+                  {MANAGE_DRIVERS_OPTION.name}
                 </span>
               </li>
             ) : (
               <li {...props} key={option.id}>
-                <span>
-                  <p
-                    style={{
-                      color: "var(--color-black)",
-                      fontWeight: "bold",
-                      display: "inline-block",
-                      marginRight: "10px",
-                    }}
-                  >
-                    {option.name}
-                  </p>
-                  <p style={{ color: "grey", display: "inline-block" }}>
-                    {"phone" in option && option.phone ? `(${option.phone})` : ""}
-                  </p>
-                </span>
+                {option.name}
+                {option.phone ? ` (${option.phone})` : ""}
               </li>
             )
           }
@@ -160,46 +167,73 @@ export default function AssignDriverPopup({
               variant="outlined"
               fullWidth
               size="small"
-              error={!!error}
+              error={isDriverError}
               helperText={
-                error ||
+                (isDriverError ? error : "") ||
                 (loading
                   ? "Loading drivers..."
                   : drivers.length === 0
                     ? "No drivers available"
                     : "")
               }
-              sx={{
-                ".MuiOutlinedInput-root": {
-                  height: "40px",
-                },
-                ".MuiOutlinedInput-input": {
-                  display: "flex",
-                  alignItems: "center",
-                },
-              }}
               InputProps={{
                 ...params.InputProps,
                 endAdornment: (
-                  <>
-                    {loading ? <Typography variant="caption">Loading...</Typography> : null}
-                    {params.InputProps.endAdornment}
-                  </>
+                  <ArrowDropDownIcon
+                    sx={{ color: "var(--color-text-medium-alt)", pointerEvents: "none" }}
+                  />
                 ),
               }}
             />
           )}
-          loading={loading}
-          noOptionsText="No matching drivers found"
           disabled={loading}
-          PaperComponent={({ children }) => <Paper elevation={3}>{children}</Paper>}
+          noOptionsText="No matching drivers found"
           forcePopupIcon={false}
-          sx={{
-            minWidth: "250px",
-            "& .MuiAutocomplete-clearIndicator": {
-              display: "none",
-            },
+          sx={autocompleteSx}
+        />
+
+        <Autocomplete
+          options={TIME_SLOTS}
+          value={TIME_SLOTS.find((slot) => slot.value === time) ?? null}
+          inputValue={timeSearchQuery}
+          onInputChange={(_, newInputValue) => {
+            setTimeSearchQuery(newInputValue);
           }}
+          onChange={(_, newValue) => {
+            setTime(newValue?.value ?? "");
+            if (newValue) {
+              setTimeSearchQuery(newValue.label);
+            }
+            if (error) setError("");
+          }}
+          getOptionLabel={(option) => option.label}
+          isOptionEqualToValue={(option, value) => option.value === value.value}
+          renderInput={(params) => (
+            <TextField
+              {...params}
+              label="Select Time"
+              variant="outlined"
+              fullWidth
+              size="small"
+              error={isTimeError && !time}
+              helperText={
+                isTimeError && !time
+                  ? error
+                  : "Choose the route start time for selected deliveries."
+              }
+              InputProps={{
+                ...params.InputProps,
+                endAdornment: (
+                  <ArrowDropDownIcon
+                    sx={{ color: "var(--color-text-medium-alt)", pointerEvents: "none" }}
+                  />
+                ),
+              }}
+            />
+          )}
+          noOptionsText="No matching times found"
+          forcePopupIcon={false}
+          sx={autocompleteSx}
         />
 
         <DriverManagementModal
@@ -217,7 +251,7 @@ export default function AssignDriverPopup({
         <Button
           variant="primary"
           onClick={handleSave}
-          disabled={!driver || loading || isSaving}
+          disabled={!driver || !time || loading || isSaving}
           size="medium"
         >
           Save

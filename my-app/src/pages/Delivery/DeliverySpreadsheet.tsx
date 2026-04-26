@@ -42,7 +42,6 @@ import CancelIcon from "@mui/icons-material/Cancel";
 import ClearIcon from "@mui/icons-material/Clear";
 import DeleteIcon from "@mui/icons-material/Delete";
 import AssignmentIndIcon from "@mui/icons-material/AssignmentInd";
-import AccessTimeIcon from "@mui/icons-material/AccessTime";
 import FileDownloadIcon from "@mui/icons-material/FileDownload";
 import GroupWorkIcon from "@mui/icons-material/GroupWork";
 import TodayIcon from "@mui/icons-material/Today";
@@ -83,7 +82,6 @@ import { onAuthStateChanged } from "firebase/auth";
 const ClusterMap = React.lazy(() => import("./ClusterMap"));
 import AssignDriverPopup from "./components/AssignDriverPopup";
 import GenerateClustersPopup from "./components/GenerateClustersPopup";
-import AssignTimePopup from "./components/AssignTimePopup";
 import RouteExportOptions, {
   RouteExportOption,
   RouteExportScope,
@@ -914,26 +912,6 @@ const DeliverySpreadsheet: React.FC = () => {
     setDriversRefreshTrigger((prev) => prev + 1);
   };
 
-  const [menuOpen, setOpen] = useState(false);
-  const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
-  const open = menuOpen && Boolean(anchorEl);
-  const handleClick = (event: React.MouseEvent<HTMLElement>) => {
-    setAnchorEl(event.currentTarget);
-    setOpen(true);
-  };
-  const handleTimeMenuClose = () => {
-    setOpen(false);
-    setAnchorEl(null);
-  };
-
-  const handleTimeMenuSelect = async (time: string) => {
-    const didAssign = await assignTime(time);
-    if (didAssign) {
-      setOpen(false);
-      setAnchorEl(null);
-    }
-  };
-
   const notifyExportFeedback = React.useCallback(
     (feedback: ExportFeedback) => {
       switch (feedback.status) {
@@ -972,6 +950,44 @@ const DeliverySpreadsheet: React.FC = () => {
       return didSave;
     } catch (error) {
       handleAssignmentSaveError(error, "Unable to assign time. Please try again.");
+      return false;
+    }
+  };
+
+  const assignDriverAndTime = async (driver: Driver | null, time: string): Promise<boolean> => {
+    const selectedRouteIds = getSelectedRouteIds();
+    if (!driver || !time || !selectedRouteIds.length) {
+      return false;
+    }
+
+    const driverReplacementWarning = getClusterDriverReplacementWarning(
+      { clusters, clientOverrides },
+      selectedRouteIds,
+      driver.name
+    );
+
+    try {
+      const didSave = await commitRouteAssignmentMutation((currentState) => {
+        const withDriver = assignDriverToRoutes(currentState, selectedRouteIds, driver.name);
+        return assignTimeToRoutes(withDriver, selectedRouteIds, time);
+      });
+
+      if (didSave) {
+        resetSelections();
+        if (driverReplacementWarning) {
+          showWarning(
+            formatClusterDriverReplacementWarning(
+              selectedRouteIds,
+              driver.name,
+              driverReplacementWarning
+            )
+          );
+        }
+      }
+
+      return didSave;
+    } catch (error) {
+      handleAssignmentSaveError(error, "Unable to assign driver and time. Please try again.");
       return false;
     }
   };
@@ -3066,7 +3082,7 @@ const DeliverySpreadsheet: React.FC = () => {
             </Typography>
           )}
           <Box sx={{ display: "flex", justifyContent: "space-between", marginTop: "16px" }}>
-            {/* Left group: Assign Driver and Assign Time */}
+            {/* Left group: Assign Driver & Time */}
             <Box sx={{ display: "flex", width: "100%", gap: "8px", flexWrap: "wrap" }}>
               <Button
                 variant="contained"
@@ -3084,66 +3100,8 @@ const DeliverySpreadsheet: React.FC = () => {
                 }}
                 onClick={() => setPopupMode("Driver")}
               >
-                Assign Driver
+                Assign Driver & Time
               </Button>
-              <Button
-                variant="contained"
-                size="medium"
-                id="demo-positioned-button"
-                aria-controls={open ? "demo-positioned-menu" : undefined}
-                aria-haspopup="true"
-                aria-expanded={open ? "true" : undefined}
-                startIcon={<AccessTimeIcon />}
-                onClick={handleClick}
-                disabled={selectedRows.size <= 0}
-                style={{
-                  whiteSpace: "nowrap",
-                  borderRadius: 5,
-                  marginRight: "0px",
-                  minWidth: "auto",
-                  width: "auto",
-                  fontSize: "0.875rem",
-                  padding: "8px 16px",
-                }}
-              >
-                Assign Time
-              </Button>
-
-              <Menu
-                id="demo-positioned-menu"
-                aria-labelledby="demo-positioned-button"
-                anchorEl={anchorEl}
-                open={open}
-                onClose={handleTimeMenuClose}
-                anchorOrigin={{
-                  vertical: "bottom",
-                  horizontal: "left",
-                }}
-                transformOrigin={{
-                  vertical: "top",
-                  horizontal: "left",
-                }}
-                MenuListProps={{
-                  "aria-labelledby": "demo-positioned-button",
-                  sx: {
-                    width: anchorEl ? anchorEl.offsetWidth : "200px",
-                    maxHeight: 320, // ~8 items visible
-                    overflowY: "auto",
-                  },
-                }}
-              >
-                {TIME_SLOTS.map((slot) => (
-                  <MenuItem
-                    key={slot.value}
-                    data-key={slot.value}
-                    onClick={() => {
-                      void handleTimeMenuSelect(slot.value);
-                    }}
-                  >
-                    {slot.label}
-                  </MenuItem>
-                ))}
-              </Menu>
             </Box>
             {/* Right group: Export button */}
             <Box>
@@ -4166,21 +4124,13 @@ const DeliverySpreadsheet: React.FC = () => {
 
       {/* Assign Driver Popup */}
       <Dialog open={popupMode === "Driver"} onClose={resetSelections} maxWidth="xs" fullWidth>
-        <DialogTitle>Assign Driver</DialogTitle>
+        <DialogTitle>Assign Driver & Time</DialogTitle>
         <DialogContent>
           <AssignDriverPopup
-            assignDriver={assignDriver}
+            assignDriverAndTime={assignDriverAndTime}
             setPopupMode={setPopupMode}
             onDriversUpdated={triggerDriverRefresh}
           />
-        </DialogContent>
-      </Dialog>
-
-      {/* Assign Time Popup */}
-      <Dialog open={popupMode === "Time"} onClose={resetSelections} maxWidth="xs" fullWidth>
-        <DialogTitle>Assign Time</DialogTitle>
-        <DialogContent>
-          <AssignTimePopup assignTime={assignTime} setPopupMode={setPopupMode} />
         </DialogContent>
       </Dialog>
 
