@@ -6,6 +6,7 @@ import { MemoryRouter } from "react-router-dom";
 import CalendarPage from "./CalendarPage";
 import { DeliveryEvent } from "../../types/calendar-types";
 
+const mockDayPilot = DayPilot;
 const mockGetEventsByDateRange = jest.fn();
 const mockGetDailyLimits = jest.fn();
 const mockScheduleClientDeliveries = jest.fn();
@@ -125,12 +126,10 @@ jest.mock("./components/MonthView", () => ({
   }: {
     onTimeRangeSelected: (args: { start: unknown }) => void;
   }) => {
-    const { DayPilot: MockDayPilot } = require("@daypilot/daypilot-lite-react");
-
     return (
       <button
         type="button"
-        onClick={() => onTimeRangeSelected({ start: new MockDayPilot.Date("2026-03-16") })}
+        onClick={() => onTimeRangeSelected({ start: new mockDayPilot.Date("2026-03-16") })}
       >
         select-month-day
       </button>
