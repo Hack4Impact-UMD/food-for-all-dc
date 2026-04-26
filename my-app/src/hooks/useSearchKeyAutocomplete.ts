@@ -348,8 +348,14 @@ export const useSearchKeyAutocomplete = ({
 
       const isTabCommit = event.key === "Tab" && !event.shiftKey;
       const isEnterCommit = event.key === "Enter";
+      const isRightArrowCommit =
+        event.key === "ArrowRight" &&
+        !event.shiftKey &&
+        !event.altKey &&
+        !event.ctrlKey &&
+        !event.metaKey;
 
-      if (isTabCommit || isEnterCommit) {
+      if (isTabCommit || isEnterCommit || isRightArrowCommit) {
         const rawValue = event.currentTarget.value;
 
         // Global rule for filter bars: only allow Tab to move focus when the
@@ -363,7 +369,7 @@ export const useSearchKeyAutocomplete = ({
         const hasSelection = selectionEnd > selectionStart;
 
         // If inline autocomplete text is selected, commit from selectionEnd first so
-        // Tab/Enter finalizes the full key rather than using a partial prefix.
+        // Tab/Enter/Right Arrow finalizes the full key rather than using a partial prefix.
         const commitCursors = hasSelection ? [selectionEnd, selectionStart] : [selectionStart];
         const shouldTrapTab = isTabCommit;
 
@@ -388,6 +394,9 @@ export const useSearchKeyAutocomplete = ({
         const { nextValue, nextCursor, selectionEnd: nextSelectionEnd } = commitResult;
 
         if (nextValue !== rawValue) {
+          if (isRightArrowCommit) {
+            event.preventDefault();
+          }
           onValueChange(nextValue);
           setCursorPosition(nextCursor);
           requestAnimationFrame(() => {
