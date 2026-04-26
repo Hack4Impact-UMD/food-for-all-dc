@@ -64,6 +64,7 @@ import AddIcon from "@mui/icons-material/Add";
 import DeleteIcon from "@mui/icons-material/Delete";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import CancelIcon from "@mui/icons-material/Cancel";
+import ClearIcon from "@mui/icons-material/Clear";
 import { Select, MenuItem } from "@mui/material";
 import EditIcon from "@mui/icons-material/Edit";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
@@ -1095,7 +1096,7 @@ const Spreadsheet: React.FC = () => {
                   lineHeight: 1,
                 }}
               >
-                x
+                <ClearIcon fontSize="small" />
               </button>
             )}
           </Box>

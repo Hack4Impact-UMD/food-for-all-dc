@@ -65,7 +65,7 @@ const DeliveryCard: React.FC<DeliveryCardProps> = React.memo(function DeliveryCa
       }}
     >
       <Box className={styles.clientSection}>
-        <Box>
+        <Box className={styles.clientSectionContent}>
           <Box className={styles.clientNameRow}>
             <span
               title={statusPresentation.tooltip}
@@ -90,11 +90,14 @@ const DeliveryCard: React.FC<DeliveryCardProps> = React.memo(function DeliveryCa
               className={styles.clientNameLink}
               aria-label={`View profile for ${event.clientName}`}
               onClick={(e) => e.stopPropagation()}
+               title={event.clientName}
             >
               {event.clientName}
             </Typography>
           </Box>
-          <DeliveryRecurrenceDisplay event={event} />
+          <Box sx={{ pl: "24px" }}>
+            <DeliveryRecurrenceDisplay event={event} />
+          </Box>
         </Box>
       </Box>
 

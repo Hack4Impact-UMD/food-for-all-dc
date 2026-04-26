@@ -39,6 +39,7 @@ import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
 import ArrowDropUpIcon from "@mui/icons-material/ArrowDropUp";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import CancelIcon from "@mui/icons-material/Cancel";
+import ClearIcon from "@mui/icons-material/Clear";
 import DeleteIcon from "@mui/icons-material/Delete";
 import AssignmentIndIcon from "@mui/icons-material/AssignmentInd";
 import AccessTimeIcon from "@mui/icons-material/AccessTime";
@@ -3055,7 +3056,7 @@ const DeliverySpreadsheet: React.FC = () => {
                   lineHeight: 1,
                 }}
               >
-                x
+                <ClearIcon fontSize="small" />
               </button>
             )}
           </Box>
