@@ -4,7 +4,7 @@ import {
   TextField,
   Box,
 } from "@mui/material";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
 import Button from "../../../components/common/Button";
 import DriverManagementModal from "../../../components/DriverManagementModal";
@@ -15,12 +15,16 @@ import { TIME_SLOTS } from "../utils/timeSlots";
 interface AssignDriverPopupProps {
   assignDriverAndTime: (driver: Driver | null, time: string) => Promise<boolean>;
   setPopupMode: (mode: string) => void;
+  initialDriverName?: string;
+  initialTime?: string;
   onDriversUpdated?: () => void; // Optional callback when drivers are updated
 }
 
 export default function AssignDriverPopup({
   assignDriverAndTime,
   setPopupMode,
+  initialDriverName = "",
+  initialTime = "",
   onDriversUpdated,
 }: AssignDriverPopupProps) {
   const MANAGE_DRIVERS_OPTION = { id: "__modal__", name: "Edit Driver List", phone: "" };
@@ -33,6 +37,7 @@ export default function AssignDriverPopup({
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [error, setError] = useState<string>("");
   const [isDriverModalOpen, setIsDriverModalOpen] = useState<boolean>(false);
+  const didInitializeSelectionRef = useRef(false);
   const isDriverError = error === "Please select a driver.";
   const isTimeError = error === "Please select a time.";
   const autocompleteSx = {
@@ -104,6 +109,34 @@ export default function AssignDriverPopup({
   useEffect(() => {
     fetchDrivers();
   }, [fetchDrivers]);
+
+  useEffect(() => {
+    if (didInitializeSelectionRef.current || loading) {
+      return;
+    }
+
+    const normalizedInitialDriver = initialDriverName.trim();
+    const normalizedInitialTime = initialTime.trim();
+
+    if (normalizedInitialDriver) {
+      const matchedDriver =
+        drivers.find(
+          (candidateDriver) =>
+            candidateDriver.name.trim().toLowerCase() === normalizedInitialDriver.toLowerCase()
+        ) ?? null;
+
+      setDriver(matchedDriver);
+      setDriverSearchQuery(matchedDriver?.name ?? normalizedInitialDriver);
+    }
+
+    if (normalizedInitialTime) {
+      const matchedTimeSlot = TIME_SLOTS.find((slot) => slot.value === normalizedInitialTime);
+      setTime(normalizedInitialTime);
+      setTimeSearchQuery(matchedTimeSlot?.label ?? normalizedInitialTime);
+    }
+
+    didInitializeSelectionRef.current = true;
+  }, [drivers, initialDriverName, initialTime, loading]);
 
   // Handle drivers change from DriverManagementModal
   const handleDriversChange = useCallback(

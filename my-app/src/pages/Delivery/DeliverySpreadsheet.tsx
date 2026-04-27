@@ -2587,6 +2587,25 @@ const DeliverySpreadsheet: React.FC = () => {
     () => rows.filter((row) => selectedRows.has(row.id)),
     [rows, selectedRows]
   );
+  const selectedRouteAssignment = useMemo(() => {
+    const selectedRouteIds = Array.from(selectedClusters)
+      .map((cluster) => normalizeClusterIdValue(cluster?.id))
+      .filter((routeId): routeId is string => Boolean(routeId));
+
+    if (selectedRouteIds.length !== 1) {
+      return { driverName: "", time: "" };
+    }
+
+    const selectedRouteId = selectedRouteIds[0];
+    const selectedCluster = clusters.find(
+      (candidateCluster) => normalizeClusterIdValue(candidateCluster.id) === selectedRouteId
+    );
+
+    return {
+      driverName: normalizeDriverAssignmentValue(selectedCluster?.driver) ?? "",
+      time: normalizeAssignmentValue(selectedCluster?.time) ?? "",
+    };
+  }, [clusters, selectedClusters]);
   const hasActiveRouteFilter = searchQuery.trim() !== "";
   const defaultExportScope: RouteExportScope =
     selectedExportRows.length > 0 ? "selected" : hasActiveRouteFilter ? "visible" : "all";
@@ -4129,6 +4148,8 @@ const DeliverySpreadsheet: React.FC = () => {
           <AssignDriverPopup
             assignDriverAndTime={assignDriverAndTime}
             setPopupMode={setPopupMode}
+            initialDriverName={selectedRouteAssignment.driverName}
+            initialTime={selectedRouteAssignment.time}
             onDriversUpdated={triggerDriverRefresh}
           />
         </DialogContent>
