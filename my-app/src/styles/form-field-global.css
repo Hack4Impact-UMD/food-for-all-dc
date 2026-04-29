@@ -115,17 +115,6 @@ textarea.error,
   border: none !important;
 }
 
-/* Autocomplete: use the fieldset border (not the inner input border) so the
-   arrow adornment sits inside the visible border, not outside it. */
-.MuiAutocomplete-root .MuiOutlinedInput-notchedOutline {
-  border: 1px solid var(--color-border-light) !important;
-}
-
-.MuiAutocomplete-root .MuiInputBase-input {
-  border: none !important;
-  box-shadow: none !important;
-}
-
 .MuiSelect-root,
 .MuiSelect-select,
 .MuiInputBase-root,

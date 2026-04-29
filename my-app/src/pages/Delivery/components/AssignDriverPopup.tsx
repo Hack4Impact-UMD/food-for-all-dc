@@ -53,6 +53,13 @@ export default function AssignDriverPopup({
       width: "100%",
       paddingRight: "8px !important",
     },
+    "& .MuiOutlinedInput-notchedOutline": {
+      border: "1px solid var(--color-border-light) !important",
+    },
+    "& .MuiInputBase-input": {
+      border: "none !important",
+      boxShadow: "none !important",
+    },
   };
 
   const resetAndClose = () => {
