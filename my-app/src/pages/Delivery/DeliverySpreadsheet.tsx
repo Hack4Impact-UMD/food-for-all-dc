@@ -1952,9 +1952,16 @@ const DeliverySpreadsheet: React.FC = () => {
 
   // Handle checkbox selection (radio button behavior - only one cluster can be selected)
   const handleCheckboxChange = (row: DeliveryRowData) => {
+    if (selectedRows.has(row.id)) {
+      setSelectedClusters(new Set());
+      setSelectedRows(new Set());
+      return;
+    }
+
     const newSelectedRows = new Set<string>();
     const newSelectedClusters = new Set<Cluster>();
-    const clickedClusterId = row.clusterId;
+    const clickedClusterId = normalizeClusterIdValue(row.clusterId);
+    const shownRows = sortedRows;
 
     if (clickedClusterId) {
       const clickedCluster = clusters?.find((c) => c.id.toString() === clickedClusterId);
@@ -1967,13 +1974,30 @@ const DeliverySpreadsheet: React.FC = () => {
 
         if (!isCurrentlySelected) {
           // Select all rows with the clicked cluster ID
-          const rowsWithSameClusterID = rows.filter((row) => row.clusterId === clickedClusterId);
+          const rowsWithSameClusterID = shownRows.filter(
+            (candidateRow) => normalizeClusterIdValue(candidateRow.clusterId) === clickedClusterId
+          );
           rowsWithSameClusterID.forEach((row) => {
             newSelectedRows.add(row.id);
           });
           newSelectedClusters.add(clickedCluster);
         }
         // If it's already selected, clicking it will deselect (newSelectedRows and newSelectedClusters remain empty)
+      }
+    } else {
+      const unassignedRows = shownRows.filter(
+        (candidateRow) => !normalizeClusterIdValue(candidateRow.clusterId)
+      );
+      const hasUnassignedRows = unassignedRows.length > 0;
+      const allUnassignedAlreadySelected =
+        hasUnassignedRows &&
+        unassignedRows.every((candidateRow) => selectedRows.has(candidateRow.id)) &&
+        selectedClusters.size === 0;
+
+      if (!allUnassignedAlreadySelected) {
+        unassignedRows.forEach((candidateRow) => {
+          newSelectedRows.add(candidateRow.id);
+        });
       }
     }
 
@@ -2587,10 +2611,15 @@ const DeliverySpreadsheet: React.FC = () => {
     () => rows.filter((row) => selectedRows.has(row.id)),
     [rows, selectedRows]
   );
+  const selectedRouteIdsForAction = useMemo(
+    () =>
+      Array.from(selectedClusters)
+        .map((cluster) => normalizeClusterIdValue(cluster?.id))
+        .filter((routeId): routeId is string => Boolean(routeId)),
+    [selectedClusters]
+  );
   const selectedRouteAssignment = useMemo(() => {
-    const selectedRouteIds = Array.from(selectedClusters)
-      .map((cluster) => normalizeClusterIdValue(cluster?.id))
-      .filter((routeId): routeId is string => Boolean(routeId));
+    const selectedRouteIds = selectedRouteIdsForAction;
 
     if (selectedRouteIds.length !== 1) {
       return { driverName: "", time: "" };
@@ -2605,7 +2634,7 @@ const DeliverySpreadsheet: React.FC = () => {
       driverName: normalizeDriverAssignmentValue(selectedCluster?.driver) ?? "",
       time: normalizeAssignmentValue(selectedCluster?.time) ?? "",
     };
-  }, [clusters, selectedClusters]);
+  }, [clusters, selectedRouteIdsForAction]);
   const hasActiveRouteFilter = searchQuery.trim() !== "";
   const defaultExportScope: RouteExportScope =
     selectedExportRows.length > 0 ? "selected" : hasActiveRouteFilter ? "visible" : "all";
@@ -3107,7 +3136,7 @@ const DeliverySpreadsheet: React.FC = () => {
                 variant="contained"
                 size="medium"
                 startIcon={<AssignmentIndIcon />}
-                disabled={selectedRows.size <= 0}
+                disabled={selectedRouteIdsForAction.length <= 0}
                 style={{
                   whiteSpace: "nowrap",
                   borderRadius: 5,
