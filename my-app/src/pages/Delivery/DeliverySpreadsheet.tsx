@@ -8,6 +8,7 @@ import { useAuth } from "../../auth/AuthProvider";
 import EventCountHeader from "../../components/EventCountHeader";
 import { useLimits } from "../Calendar/components/useLimits";
 import React, { useState, useEffect, useMemo, Suspense } from "react";
+import { useSearchKeyAutocomplete } from "../../hooks/useSearchKeyAutocomplete";
 import AddCircleOutlineIcon from "@mui/icons-material/AddCircleOutline";
 import { getEventsByViewType } from "../Calendar/components/getEventsByViewType";
 import CircularProgress from "@mui/material/CircularProgress";
@@ -25,6 +26,7 @@ import {
   checkStringEquals as utilCheckStringEquals,
   extractKeyValue,
   globalSearchMatch,
+  isNoneSearchToken,
   normalizeSearchKeyword,
   splitFilterValues,
 } from "../../utils/searchFilter";
@@ -37,9 +39,9 @@ import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
 import ArrowDropUpIcon from "@mui/icons-material/ArrowDropUp";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import CancelIcon from "@mui/icons-material/Cancel";
+import ClearIcon from "@mui/icons-material/Clear";
 import DeleteIcon from "@mui/icons-material/Delete";
 import AssignmentIndIcon from "@mui/icons-material/AssignmentInd";
-import AccessTimeIcon from "@mui/icons-material/AccessTime";
 import FileDownloadIcon from "@mui/icons-material/FileDownload";
 import GroupWorkIcon from "@mui/icons-material/GroupWork";
 import TodayIcon from "@mui/icons-material/Today";
@@ -80,7 +82,6 @@ import { onAuthStateChanged } from "firebase/auth";
 const ClusterMap = React.lazy(() => import("./ClusterMap"));
 import AssignDriverPopup from "./components/AssignDriverPopup";
 import GenerateClustersPopup from "./components/GenerateClustersPopup";
-import AssignTimePopup from "./components/AssignTimePopup";
 import RouteExportOptions, {
   RouteExportOption,
   RouteExportScope,
@@ -419,6 +420,57 @@ const formatDriverNameList = (driverNames: string[]): string => {
   return `${firstName}, ${secondName}, and ${remainingNames.length} others`;
 };
 
+const addablePropertyKeyLabelMap: Record<string, string> = {
+  address: "Address",
+  adults: "Adults",
+  children: "Children",
+  famStartDate: "Family Start Date",
+  deliveryFreq: "Delivery Frequency",
+  "deliveryDetails.dietaryRestrictions": "Dietary Restrictions",
+  "deliveryDetails.dietaryRestrictions.dietaryPreferences": "Dietary Preferences",
+  ethnicity: "Ethnicity",
+  gender: "Gender",
+  language: "Language",
+  notes: "Notes",
+  phone: "Phone",
+  referralEntity: "Referral Entity",
+  tags: "Tags",
+  tefapCert: "TEFAP Cert",
+  dob: "DOB",
+  lastDeliveryDate: "Last Delivery Date",
+};
+
+const routeFieldMappings: Record<string, string[]> = {
+  fullname: ["name", "client"],
+  clusterIdChange: ["cluster", "cluster id", "clusterid", "route", "route id", "routeid"],
+  tags: ["tags", "tag"],
+  zipCode: ["zip", "zipcode", "zip code"],
+  ward: ["ward"],
+  assignedDriver: ["driver", "assigned driver"],
+  assignedTime: ["time", "assigned time"],
+  "deliveryDetails.deliveryInstructions": ["delivery instructions", "instructions"],
+};
+
+const routeCustomColumnMappings: Record<string, string[]> = {
+  address: ["address"],
+  adults: ["adults"],
+  children: ["children"],
+  famStartDate: ["family start date"],
+  deliveryFreq: ["delivery freq", "delivery frequency"],
+  "deliveryDetails.dietaryRestrictions": ["dietary restrictions", "dietary"],
+  "deliveryDetails.dietaryRestrictions.dietaryPreferences": ["dietary preferences"],
+  ethnicity: ["ethnicity"],
+  gender: ["gender"],
+  language: ["language"],
+  notes: ["notes"],
+  phone: ["phone"],
+  referralEntity: ["referral entity", "referral"],
+  tags: ["tags", "tag"],
+  tefapCert: ["tefap", "tefap cert"],
+  dob: ["dob"],
+  lastDeliveryDate: ["last delivery date"],
+};
+
 const formatClusterDriverReplacementWarning = (
   routeIds: string[],
   incomingDriverName: string,
@@ -568,6 +620,8 @@ const DeliverySpreadsheet: React.FC = () => {
   const selectRefs = React.useRef<{ [key: string]: HTMLInputElement | null }>({});
   // Ref for TableVirtuoso to enable scrolling to specific rows
   const virtuosoRef = React.useRef<TableVirtuosoHandle>(null);
+  // Kept current so window.scrollToSpreadsheetRow never captures a stale closure
+  const sortedRowsRef = React.useRef<typeof sortedRows>([]);
   // Workaround for opening modal after Select closes (track row id)
   const [pendingOpenAddClusterModalRow, setPendingOpenAddClusterModalRow] = useState<string | null>(
     null
@@ -622,9 +676,7 @@ const DeliverySpreadsheet: React.FC = () => {
   const [exportScope, setExportScope] = useState<RouteExportScope>("all");
 
   const [driversRefreshTrigger, setDriversRefreshTrigger] = useState<number>(0);
-  const [highlightedRowId, setHighlightedRowId] = useState<string | null>(null);
-  // Suppress highlight clearing when switching rows/popups
-  const suppressClearHighlightRef = React.useRef(false);
+  const [highlightedRowIds, setHighlightedRowIds] = useState<Set<string>>(new Set());
 
   const normalizeClusters = React.useCallback((clusters: Cluster[]): Cluster[] => {
     const clustersById = new Map<string, Cluster>();
@@ -835,29 +887,29 @@ const DeliverySpreadsheet: React.FC = () => {
     handleRemoveCustomColumn,
   } = useCustomColumns({ page: "DeliverySpreadsheet" });
 
+  const routeSearchKeySuggestions = useMemo(() => {
+    const tableFieldLabels = fields
+      .map((field) => field.label)
+      .filter((label) => Boolean(label))
+      .map((label) => label.toLowerCase());
+
+    const visibleCustomFieldLabels = customColumns
+      .map((column) => column.propertyKey)
+      .filter((propertyKey) => propertyKey !== "none")
+      .map((propertyKey) => addablePropertyKeyLabelMap[propertyKey] ?? propertyKey)
+      .map((label) => label.toLowerCase());
+
+    return Array.from(new Set([...tableFieldLabels, ...visibleCustomFieldLabels]));
+  }, [customColumns]);
+  const searchAutocomplete = useSearchKeyAutocomplete({
+    value: searchQuery,
+    onValueChange: setSearchQuery,
+    suggestions: routeSearchKeySuggestions,
+  });
+
   // Function to trigger driver refresh across components
   const triggerDriverRefresh = () => {
     setDriversRefreshTrigger((prev) => prev + 1);
-  };
-
-  const [menuOpen, setOpen] = useState(false);
-  const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
-  const open = menuOpen && Boolean(anchorEl);
-  const handleClick = (event: React.MouseEvent<HTMLElement>) => {
-    setAnchorEl(event.currentTarget);
-    setOpen(true);
-  };
-  const handleTimeMenuClose = () => {
-    setOpen(false);
-    setAnchorEl(null);
-  };
-
-  const handleTimeMenuSelect = async (time: string) => {
-    const didAssign = await assignTime(time);
-    if (didAssign) {
-      setOpen(false);
-      setAnchorEl(null);
-    }
   };
 
   const notifyExportFeedback = React.useCallback(
@@ -898,6 +950,44 @@ const DeliverySpreadsheet: React.FC = () => {
       return didSave;
     } catch (error) {
       handleAssignmentSaveError(error, "Unable to assign time. Please try again.");
+      return false;
+    }
+  };
+
+  const assignDriverAndTime = async (driver: Driver | null, time: string): Promise<boolean> => {
+    const selectedRouteIds = getSelectedRouteIds();
+    if (!driver || !time || !selectedRouteIds.length) {
+      return false;
+    }
+
+    const driverReplacementWarning = getClusterDriverReplacementWarning(
+      { clusters, clientOverrides },
+      selectedRouteIds,
+      driver.name
+    );
+
+    try {
+      const didSave = await commitRouteAssignmentMutation((currentState) => {
+        const withDriver = assignDriverToRoutes(currentState, selectedRouteIds, driver.name);
+        return assignTimeToRoutes(withDriver, selectedRouteIds, time);
+      });
+
+      if (didSave) {
+        resetSelections();
+        if (driverReplacementWarning) {
+          showWarning(
+            formatClusterDriverReplacementWarning(
+              selectedRouteIds,
+              driver.name,
+              driverReplacementWarning
+            )
+          );
+        }
+      }
+
+      return didSave;
+    } catch (error) {
+      handleAssignmentSaveError(error, "Unable to assign driver and time. Please try again.");
       return false;
     }
   };
@@ -1862,9 +1952,16 @@ const DeliverySpreadsheet: React.FC = () => {
 
   // Handle checkbox selection (radio button behavior - only one cluster can be selected)
   const handleCheckboxChange = (row: DeliveryRowData) => {
+    if (selectedRows.has(row.id)) {
+      setSelectedClusters(new Set());
+      setSelectedRows(new Set());
+      return;
+    }
+
     const newSelectedRows = new Set<string>();
     const newSelectedClusters = new Set<Cluster>();
-    const clickedClusterId = row.clusterId;
+    const clickedClusterId = normalizeClusterIdValue(row.clusterId);
+    const shownRows = sortedRows;
 
     if (clickedClusterId) {
       const clickedCluster = clusters?.find((c) => c.id.toString() === clickedClusterId);
@@ -1877,13 +1974,30 @@ const DeliverySpreadsheet: React.FC = () => {
 
         if (!isCurrentlySelected) {
           // Select all rows with the clicked cluster ID
-          const rowsWithSameClusterID = rows.filter((row) => row.clusterId === clickedClusterId);
+          const rowsWithSameClusterID = shownRows.filter(
+            (candidateRow) => normalizeClusterIdValue(candidateRow.clusterId) === clickedClusterId
+          );
           rowsWithSameClusterID.forEach((row) => {
             newSelectedRows.add(row.id);
           });
           newSelectedClusters.add(clickedCluster);
         }
         // If it's already selected, clicking it will deselect (newSelectedRows and newSelectedClusters remain empty)
+      }
+    } else {
+      const unassignedRows = shownRows.filter(
+        (candidateRow) => !normalizeClusterIdValue(candidateRow.clusterId)
+      );
+      const hasUnassignedRows = unassignedRows.length > 0;
+      const allUnassignedAlreadySelected =
+        hasUnassignedRows &&
+        unassignedRows.every((candidateRow) => selectedRows.has(candidateRow.id)) &&
+        selectedClusters.size === 0;
+
+      if (!allUnassignedAlreadySelected) {
+        unassignedRows.forEach((candidateRow) => {
+          newSelectedRows.add(candidateRow.id);
+        });
       }
     }
 
@@ -1892,20 +2006,18 @@ const DeliverySpreadsheet: React.FC = () => {
   };
 
   const handleRowClick = (clientId: string, fromTable = true) => {
-    // Only suppress clearing when switching FROM one row TO another,
-    // so the old popup's popupclose doesn't clear the new selection.
-    // When opening the first popup (no current highlight), don't suppress,
-    // so closing that popup correctly deselects the row.
-    if (highlightedRowId !== null && highlightedRowId !== clientId) {
-      suppressClearHighlightRef.current = true;
-    }
-    if (fromTable && highlightedRowId === clientId) {
-      setHighlightedRowId(null);
-      if ((window as any).closeMapPopup) {
-        (window as any).closeMapPopup();
+    const isCurrentlyHighlighted = highlightedRowIds.has(clientId);
+    if (isCurrentlyHighlighted) {
+      setHighlightedRowIds((prev) => {
+        const next = new Set(prev);
+        next.delete(clientId);
+        return next;
+      });
+      if (fromTable && (window as any).closeMapPopup) {
+        (window as any).closeMapPopup(clientId);
       }
     } else {
-      setHighlightedRowId(clientId);
+      setHighlightedRowIds((prev) => new Set([...prev, clientId]));
       if (fromTable && (window as any).openMapPopup) {
         (window as any).openMapPopup(clientId);
       }
@@ -1913,10 +2025,11 @@ const DeliverySpreadsheet: React.FC = () => {
   };
 
   const handleMarkerClick = (clientId: string) => {
+    const isCurrentlyHighlighted = highlightedRowIds.has(clientId);
     handleRowClick(clientId, false);
 
-    // Scroll to the highlighted row with smooth animation
-    if (virtuosoRef.current && sortedRows.length > 0) {
+    // Scroll to the highlighted row when adding a highlight
+    if (!isCurrentlyHighlighted && virtuosoRef.current && sortedRows.length > 0) {
       const rowIndex = sortedRows.findIndex((row) => row.id === clientId);
       if (rowIndex !== -1) {
         // Use setTimeout to ensure the highlight state has been updated
@@ -1931,12 +2044,16 @@ const DeliverySpreadsheet: React.FC = () => {
     }
   };
 
-  const clearRowHighlight = () => {
-    if (suppressClearHighlightRef.current) {
-      suppressClearHighlightRef.current = false;
-      return;
+  const clearRowHighlight = (clientId?: string) => {
+    if (clientId) {
+      setHighlightedRowIds((prev) => {
+        const next = new Set(prev);
+        next.delete(clientId);
+        return next;
+      });
+    } else {
+      setHighlightedRowIds(new Set());
     }
-    setHighlightedRowId(null);
   };
 
   const clientsWithDeliveriesOnSelectedDate = rows.filter((row) =>
@@ -1974,11 +2091,11 @@ const DeliverySpreadsheet: React.FC = () => {
           query: string,
           exactMatch = false
         ): boolean => {
-          if (value === undefined || value === null) {
-            return false;
-          }
-
           if (Array.isArray(value)) {
+            if (value.length === 0 && isNoneSearchToken(query)) {
+              return true;
+            }
+
             return value.some((item) =>
               exactMatch ? checkStringEquals(item, query) : checkStringContains(item, query)
             );
@@ -1995,20 +2112,9 @@ const DeliverySpreadsheet: React.FC = () => {
         const isVisibleField = (keyword: string): boolean => {
           const lowerKeyword = keyword.toLowerCase();
 
-          const fieldMappings: { [key: string]: string[] } = {
-            fullname: ["name", "client"],
-            clusterIdChange: ["cluster", "cluster id", "clusterid", "route", "route id", "routeid"],
-            tags: ["tags", "tag"],
-            zipCode: ["zip", "zipcode", "zip code"],
-            ward: ["ward"],
-            assignedDriver: ["driver", "assigned driver"],
-            assignedTime: ["time", "assigned time"],
-            "deliveryDetails.deliveryInstructions": ["delivery instructions", "instructions"],
-          };
-
           const normalizedKeyword = normalizeSearchKeyword(lowerKeyword);
 
-          for (const [fieldKey, aliases] of Object.entries(fieldMappings)) {
+          for (const [fieldKey, aliases] of Object.entries(routeFieldMappings)) {
             if (
               visibleFieldKeys.has(fieldKey) &&
               aliases.some((alias) => normalizeSearchKeyword(alias) === normalizedKeyword)
@@ -2017,25 +2123,7 @@ const DeliverySpreadsheet: React.FC = () => {
             }
           }
 
-          const customColumnMappings: { [key: string]: string[] } = {
-            address: ["address"],
-            adults: ["adults"],
-            children: ["children"],
-            deliveryFreq: ["delivery freq", "delivery frequency"],
-            "deliveryDetails.dietaryRestrictions": ["dietary restrictions"],
-            ethnicity: ["ethnicity"],
-            gender: ["gender"],
-            language: ["language"],
-            notes: ["notes"],
-            phone: ["phone"],
-            referralEntity: ["referral entity", "referral"],
-            tags: ["tags", "tag"],
-            tefapCert: ["tefap", "tefap cert"],
-            dob: ["dob"],
-            lastDeliveryDate: ["last delivery date"],
-          };
-
-          for (const [propertyKey, aliases] of Object.entries(customColumnMappings)) {
+          for (const [propertyKey, aliases] of Object.entries(routeCustomColumnMappings)) {
             if (
               visibleFieldKeys.has(propertyKey) &&
               aliases.some((alias) => normalizeSearchKeyword(alias) === normalizedKeyword)
@@ -2173,7 +2261,7 @@ const DeliverySpreadsheet: React.FC = () => {
                       checkStringContains(row.referralEntity.organization, candidate)
                   );
                 }
-                return false;
+                return matchesAnySearchValue((candidate) => isNoneSearchToken(candidate));
               }
               default: {
                 const matchesCustomColumn = customColumns.some((col) => {
@@ -2182,11 +2270,13 @@ const DeliverySpreadsheet: React.FC = () => {
                     normalizeSearchKeyword(col.propertyKey).includes(normalizedKeyword)
                   ) {
                     const fieldValue = getNestedPropertyValue(row, col.propertyKey);
-                    if (fieldValue !== undefined) {
-                      return matchesAnySearchValue((candidate) =>
-                        checkStringContains(fieldValue, candidate)
-                      );
+                    if (fieldValue === undefined) {
+                      return matchesAnySearchValue((candidate) => isNoneSearchToken(candidate));
                     }
+
+                    return matchesAnySearchValue((candidate) =>
+                      checkStringContains(fieldValue, candidate)
+                    );
                   }
                   return false;
                 });
@@ -2494,10 +2584,57 @@ const DeliverySpreadsheet: React.FC = () => {
     return sorted;
   }, [visibleRows, sortOrder, sortedColumn, clusters, customColumns, clientOverrides]);
 
+  // Keep ref current so window.scrollToSpreadsheetRow never captures a stale closure
+  sortedRowsRef.current = sortedRows;
+
+  // Expose a scroll-only function for use by the map (e.g. bring-to-front clicks)
+  useEffect(() => {
+    (window as any).scrollToSpreadsheetRow = (clientId: string) => {
+      if (!virtuosoRef.current) return;
+      const rowIndex = sortedRowsRef.current.findIndex((row) => row.id === clientId);
+      if (rowIndex !== -1) {
+        setTimeout(() => {
+          virtuosoRef.current?.scrollToIndex({
+            index: rowIndex,
+            align: "center",
+            behavior: "smooth",
+          });
+        }, 100);
+      }
+    };
+    return () => {
+      delete (window as any).scrollToSpreadsheetRow;
+    };
+  }, []);
+
   const selectedExportRows = useMemo(
     () => rows.filter((row) => selectedRows.has(row.id)),
     [rows, selectedRows]
   );
+  const selectedRouteIdsForAction = useMemo(
+    () =>
+      Array.from(selectedClusters)
+        .map((cluster) => normalizeClusterIdValue(cluster?.id))
+        .filter((routeId): routeId is string => Boolean(routeId)),
+    [selectedClusters]
+  );
+  const selectedRouteAssignment = useMemo(() => {
+    const selectedRouteIds = selectedRouteIdsForAction;
+
+    if (selectedRouteIds.length !== 1) {
+      return { driverName: "", time: "" };
+    }
+
+    const selectedRouteId = selectedRouteIds[0];
+    const selectedCluster = clusters.find(
+      (candidateCluster) => normalizeClusterIdValue(candidateCluster.id) === selectedRouteId
+    );
+
+    return {
+      driverName: normalizeDriverAssignmentValue(selectedCluster?.driver) ?? "",
+      time: normalizeAssignmentValue(selectedCluster?.time) ?? "",
+    };
+  }, [clusters, selectedRouteIdsForAction]);
   const hasActiveRouteFilter = searchQuery.trim() !== "";
   const defaultExportScope: RouteExportScope =
     selectedExportRows.length > 0 ? "selected" : hasActiveRouteFilter ? "visible" : "all";
@@ -2522,13 +2659,24 @@ const DeliverySpreadsheet: React.FC = () => {
   );
 
   useEffect(() => {
-    if (highlightedRowId && !visibleRows.some((row) => row.id === highlightedRowId)) {
-      setHighlightedRowId(null);
-      if ((window as any).closeMapPopup) {
-        (window as any).closeMapPopup();
-      }
-    }
-  }, [visibleRows, highlightedRowId]);
+    setHighlightedRowIds((prev) => {
+      const toRemove: string[] = [];
+      prev.forEach((id) => {
+        if (!visibleRows.some((row) => row.id === id)) {
+          toRemove.push(id);
+        }
+      });
+      if (toRemove.length === 0) return prev;
+      const next = new Set(prev);
+      toRemove.forEach((id) => {
+        next.delete(id);
+        if ((window as any).closeMapPopup) {
+          (window as any).closeMapPopup(id);
+        }
+      });
+      return next;
+    });
+  }, [visibleRows]);
 
   useEffect(() => {
     if (rawClientData.length === 0) {
@@ -2915,22 +3063,66 @@ const DeliverySpreadsheet: React.FC = () => {
         <Box sx={{ display: "flex", flexDirection: "column", gap: "8px" }}>
           <Box sx={{ position: "relative", width: "100%" }}>
             <input
+              ref={searchAutocomplete.inputRef}
               type="text"
               value={searchQuery}
-              onChange={handleSearchChange}
-              placeholder='Search deliveries (e.g., cluster:1,2, ward:7, driver:maria, name:"john smith")'
+              onChange={searchAutocomplete.handleInputChange}
+              onFocus={searchAutocomplete.handleInputFocus}
+              onClick={searchAutocomplete.handleInputClick}
+              onBlur={searchAutocomplete.handleInputBlur}
+              onKeyDown={searchAutocomplete.handleInputKeyDown}
+              onKeyUp={searchAutocomplete.handleInputKeyUp}
+              placeholder='Search deliveries (use ; between filters, e.g., cluster:1,2; ward:7; driver:maria; name:"john smith")'
               style={{
                 width: "100%",
                 height: "60px",
                 backgroundColor: "var(--color-background-gray)",
                 border: "none",
                 borderRadius: "30px",
-                padding: "0 24px",
+                padding: "0 56px 0 24px",
                 fontSize: "16px",
                 color: "var(--color-text-dark)",
                 boxSizing: "border-box",
               }}
             />
+            {searchQuery.trim() !== "" && (
+              <button
+                type="button"
+                aria-label="Clear delivery search"
+                onMouseDown={(event) => {
+                  event.preventDefault();
+                }}
+                onClick={() => {
+                  setSearchQuery("");
+                  requestAnimationFrame(() => {
+                    const input = searchAutocomplete.inputRef.current;
+                    if (!input) return;
+                    input.focus();
+                    input.setSelectionRange(0, 0);
+                  });
+                }}
+                style={{
+                  position: "absolute",
+                  right: "16px",
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  width: "28px",
+                  height: "28px",
+                  borderRadius: "50%",
+                  border: "none",
+                  backgroundColor: "var(--color-border-light)",
+                  color: "var(--color-text-dark)",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: "16px",
+                  lineHeight: 1,
+                }}
+              >
+                <ClearIcon fontSize="small" />
+              </button>
+            )}
           </Box>
           {hasActiveRouteFilter && (
             <Typography variant="body2" sx={{ color: "text.secondary", px: 1 }}>
@@ -2938,13 +3130,13 @@ const DeliverySpreadsheet: React.FC = () => {
             </Typography>
           )}
           <Box sx={{ display: "flex", justifyContent: "space-between", marginTop: "16px" }}>
-            {/* Left group: Assign Driver and Assign Time */}
+            {/* Left group: Assign Driver & Time */}
             <Box sx={{ display: "flex", width: "100%", gap: "8px", flexWrap: "wrap" }}>
               <Button
                 variant="contained"
                 size="medium"
                 startIcon={<AssignmentIndIcon />}
-                disabled={selectedRows.size <= 0}
+                disabled={selectedRouteIdsForAction.length <= 0}
                 style={{
                   whiteSpace: "nowrap",
                   borderRadius: 5,
@@ -2956,66 +3148,8 @@ const DeliverySpreadsheet: React.FC = () => {
                 }}
                 onClick={() => setPopupMode("Driver")}
               >
-                Assign Driver
+                Assign Driver & Time
               </Button>
-              <Button
-                variant="contained"
-                size="medium"
-                id="demo-positioned-button"
-                aria-controls={open ? "demo-positioned-menu" : undefined}
-                aria-haspopup="true"
-                aria-expanded={open ? "true" : undefined}
-                startIcon={<AccessTimeIcon />}
-                onClick={handleClick}
-                disabled={selectedRows.size <= 0}
-                style={{
-                  whiteSpace: "nowrap",
-                  borderRadius: 5,
-                  marginRight: "0px",
-                  minWidth: "auto",
-                  width: "auto",
-                  fontSize: "0.875rem",
-                  padding: "8px 16px",
-                }}
-              >
-                Assign Time
-              </Button>
-
-              <Menu
-                id="demo-positioned-menu"
-                aria-labelledby="demo-positioned-button"
-                anchorEl={anchorEl}
-                open={open}
-                onClose={handleTimeMenuClose}
-                anchorOrigin={{
-                  vertical: "bottom",
-                  horizontal: "left",
-                }}
-                transformOrigin={{
-                  vertical: "top",
-                  horizontal: "left",
-                }}
-                MenuListProps={{
-                  "aria-labelledby": "demo-positioned-button",
-                  sx: {
-                    width: anchorEl ? anchorEl.offsetWidth : "200px",
-                    maxHeight: 320, // ~8 items visible
-                    overflowY: "auto",
-                  },
-                }}
-              >
-                {TIME_SLOTS.map((slot) => (
-                  <MenuItem
-                    key={slot.value}
-                    data-key={slot.value}
-                    onClick={() => {
-                      void handleTimeMenuSelect(slot.value);
-                    }}
-                  >
-                    {slot.label}
-                  </MenuItem>
-                ))}
-              </Menu>
             </Box>
             {/* Right group: Export button */}
             <Box>
@@ -3234,7 +3368,7 @@ const DeliverySpreadsheet: React.FC = () => {
               data={sortedRows}
               components={VirtuosoTableComponents}
               itemContent={(index, row) => {
-                const isHighlighted = highlightedRowId === row.id;
+                const isHighlighted = highlightedRowIds.has(row.id);
                 const cellIndex = { current: 0 };
                 const getCellSx = () => {
                   const isFirst = cellIndex.current === 0;
@@ -4038,21 +4172,15 @@ const DeliverySpreadsheet: React.FC = () => {
 
       {/* Assign Driver Popup */}
       <Dialog open={popupMode === "Driver"} onClose={resetSelections} maxWidth="xs" fullWidth>
-        <DialogTitle>Assign Driver</DialogTitle>
+        <DialogTitle>Assign Driver & Time</DialogTitle>
         <DialogContent>
           <AssignDriverPopup
-            assignDriver={assignDriver}
+            assignDriverAndTime={assignDriverAndTime}
             setPopupMode={setPopupMode}
+            initialDriverName={selectedRouteAssignment.driverName}
+            initialTime={selectedRouteAssignment.time}
             onDriversUpdated={triggerDriverRefresh}
           />
-        </DialogContent>
-      </Dialog>
-
-      {/* Assign Time Popup */}
-      <Dialog open={popupMode === "Time"} onClose={resetSelections} maxWidth="xs" fullWidth>
-        <DialogTitle>Assign Time</DialogTitle>
-        <DialogContent>
-          <AssignTimePopup assignTime={assignTime} setPopupMode={setPopupMode} />
         </DialogContent>
       </Dialog>
 

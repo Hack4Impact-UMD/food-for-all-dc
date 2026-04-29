@@ -1,4 +1,5 @@
 import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
+import ClearIcon from "@mui/icons-material/Clear";
 import ArrowDropUpIcon from "@mui/icons-material/ArrowDropUp";
 import DeleteIcon from "@mui/icons-material/Delete";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
@@ -37,6 +38,7 @@ import {
   splitFilterValues,
 } from "../../utils/searchFilter";
 import { useNavigate } from "react-router-dom";
+import { useSearchKeyAutocomplete } from "../../hooks/useSearchKeyAutocomplete";
 import { auth } from "../../auth/firebaseConfig";
 import { authUserService } from "../../services/AuthUserService";
 import { sortData, SortDirection } from "../../utils/sorting";
@@ -51,6 +53,13 @@ type Field = {
   label: string;
   type: string;
   compute?: (data: AuthUserRow) => string;
+};
+
+const userFieldMappings: Record<string, string[]> = {
+  name: ["name"],
+  role: ["role"],
+  phone: ["phone"],
+  email: ["email"],
 };
 
 const getRoleDisplayName = (role: UserType): string => {
@@ -102,21 +111,38 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
     return () => unsubscribe();
   }, [navigate, onAuthStateChangedOverride]);
 
-  const fields: Field[] = [
-    {
-      key: "name",
-      label: "Name",
-      type: "text",
-    },
-    {
-      key: "role",
-      label: "Role",
-      type: "text",
-      compute: (data: AuthUserRow) => getRoleDisplayName(data.role),
-    },
-    { key: "phone", label: "Phone", type: "text" },
-    { key: "email", label: "Email", type: "text" },
-  ];
+  const fields: Field[] = useMemo(
+    () => [
+      {
+        key: "name" as const,
+        label: "Name",
+        type: "text",
+      },
+      {
+        key: "role" as const,
+        label: "Role",
+        type: "text",
+        compute: (data: AuthUserRow) => getRoleDisplayName(data.role),
+      },
+      { key: "phone" as const, label: "Phone", type: "text" },
+      { key: "email" as const, label: "Email", type: "text" },
+    ],
+    []
+  );
+
+  const userSearchKeySuggestions = useMemo(
+    () =>
+      Array.from(
+        new Set([
+          ...fields
+            .map((field) => field.label)
+            .filter((label) => Boolean(label))
+            .map((label) => label.toLowerCase()),
+          ...Object.values(userFieldMappings).flat(),
+        ])
+      ),
+    [fields]
+  );
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);
@@ -210,9 +236,11 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
     }
   }, [rows, nameSortDirection, roleSortDirection, phoneSortDirection, emailSortDirection]);
 
-  const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchQuery(event.target.value);
-  };
+  const searchAutocomplete = useSearchKeyAutocomplete({
+    value: searchQuery,
+    onValueChange: setSearchQuery,
+    suggestions: userSearchKeySuggestions,
+  });
 
   const handleDeleteUser = async (uid: string) => {
     const originalRows = [...rows];
@@ -276,14 +304,7 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
       const isVisibleField = (keyword: string): boolean => {
         const normalizedKeyword = normalizeSearchKeyword(keyword);
 
-        const fieldMappings: { [key: string]: string[] } = {
-          name: ["name"],
-          role: ["role"],
-          phone: ["phone"],
-          email: ["email"],
-        };
-
-        for (const [fieldKey, aliases] of Object.entries(fieldMappings)) {
+        for (const [fieldKey, aliases] of Object.entries(userFieldMappings)) {
           if (
             visibleFieldKeys.has(fieldKey as keyof AuthUserRow) &&
             aliases.some((alias) => normalizeSearchKeyword(alias) === normalizedKeyword)
@@ -410,17 +431,23 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
           <Stack spacing={3}>
             <Box sx={{ position: "relative", width: "100%" }}>
               <input
+                ref={searchAutocomplete.inputRef}
                 type="text"
                 value={searchQuery}
-                onChange={handleSearchChange}
-                placeholder="Search users (e.g., role:admin,manager, name:jane,john, email:test@example.com)"
+                onChange={searchAutocomplete.handleInputChange}
+                onFocus={searchAutocomplete.handleInputFocus}
+                onClick={searchAutocomplete.handleInputClick}
+                onBlur={searchAutocomplete.handleInputBlur}
+                onKeyDown={searchAutocomplete.handleInputKeyDown}
+                onKeyUp={searchAutocomplete.handleInputKeyUp}
+                placeholder="Search users (use ; between filters, e.g., role:admin,manager; name:jane,john; email:test@example.com)"
                 style={{
                   width: "100%",
                   height: "50px",
                   backgroundColor: "var(--color-background-gray)",
                   border: "none",
                   borderRadius: "25px",
-                  padding: "0 20px",
+                  padding: "0 56px 0 20px",
                   fontSize: "16px",
                   color: "var(--color-text-dark)",
                   boxSizing: "border-box",
@@ -428,6 +455,44 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
                   boxShadow: "inset 0 2px 3px rgba(0,0,0,0.05)",
                 }}
               />
+              {searchQuery.trim() !== "" && (
+                <button
+                  type="button"
+                  aria-label="Clear user search"
+                  onMouseDown={(event) => {
+                    event.preventDefault();
+                  }}
+                  onClick={() => {
+                    setSearchQuery("");
+                    requestAnimationFrame(() => {
+                      const input = searchAutocomplete.inputRef.current;
+                      if (!input) return;
+                      input.focus();
+                      input.setSelectionRange(0, 0);
+                    });
+                  }}
+                  style={{
+                    position: "absolute",
+                    right: "12px",
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    width: "28px",
+                    height: "28px",
+                    borderRadius: "50%",
+                    border: "none",
+                    backgroundColor: "var(--color-border-light)",
+                    color: "var(--color-text-dark)",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: "16px",
+                    lineHeight: 1,
+                  }}
+                >
+                  <ClearIcon fontSize="small" />
+                </button>
+              )}
             </Box>
             <Stack
               direction={{ xs: "column", sm: "row" }}

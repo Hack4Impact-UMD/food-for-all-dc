@@ -85,7 +85,7 @@ const SpreadsheetRow = withPerformanceOptimization(
 const SpreadsheetSearch = withPerformanceOptimization(
   ({
     onSearch,
-    placeholder = 'Search (e.g., "name: smith" "email: test")',
+    placeholder = 'Search (use ; between filters, e.g., "name: smith"; "email: test")',
     debounceMs = 300,
   }: {
     onSearch: (query: string) => void;

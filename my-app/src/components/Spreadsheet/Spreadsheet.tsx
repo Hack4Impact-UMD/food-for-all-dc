@@ -8,6 +8,7 @@ import {
   checkStringEquals,
   extractKeyValue,
   globalSearchMatch,
+  isNoneSearchToken,
   normalizeSearchKeyword,
   splitFilterValues,
 } from "../../utils/searchFilter";
@@ -63,12 +64,14 @@ import AddIcon from "@mui/icons-material/Add";
 import DeleteIcon from "@mui/icons-material/Delete";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import CancelIcon from "@mui/icons-material/Cancel";
+import ClearIcon from "@mui/icons-material/Clear";
 import { Select, MenuItem } from "@mui/material";
 import EditIcon from "@mui/icons-material/Edit";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
 import { styled } from "@mui/material/styles";
 import { useNavigate } from "react-router-dom";
 import { DateTime } from "luxon";
+import { useSearchKeyAutocomplete } from "../../hooks/useSearchKeyAutocomplete";
 
 import { exportQueryResults, exportAllClients } from "./export";
 const DeleteClientModal = React.lazy(() => import("./DeleteClientModal"));
@@ -79,6 +82,52 @@ import { useNotifications } from "../NotificationProvider";
 import { CsvExportError } from "../../utils/csvExport";
 import { getClientStatusPresentation } from "../../utils/clientStatus";
 import type { ClientDeliverySummary } from "../../utils/lastDeliveryDate";
+
+const addablePropertyKeyLabelMap: Record<string, string> = {
+  address: "Address",
+  adults: "Adults",
+  children: "Children",
+  famStartDate: "Family Start Date",
+  deliveryFreq: "Delivery Frequency",
+  "deliveryDetails.dietaryRestrictions": "Dietary Restrictions",
+  "deliveryDetails.dietaryRestrictions.dietaryPreferences": "Dietary Preferences",
+  ethnicity: "Ethnicity",
+  gender: "Gender",
+  language: "Language",
+  notes: "Notes",
+  phone: "Phone",
+  referralEntity: "Referral Entity",
+  tags: "Tags",
+  tefapCert: "TEFAP Cert",
+  dob: "DOB",
+  lastDeliveryDate: "Last Delivery Date",
+};
+
+const clientFieldMappings: Record<string, string[]> = {
+  fullname: ["name", "first name", "firstname", "last name", "lastname"],
+  address: ["address"],
+  phone: ["phone"],
+  email: ["email"],
+  "deliveryDetails.dietaryRestrictions": ["dietary restrictions", "dietary"],
+  "deliveryDetails.deliveryInstructions": ["delivery instructions", "instructions"],
+};
+
+const clientCustomColumnMappings: Record<string, string[]> = {
+  adults: ["adults"],
+  children: ["children"],
+  famStartDate: ["family start date"],
+  deliveryFreq: ["delivery freq", "delivery frequency"],
+  "deliveryDetails.dietaryRestrictions.dietaryPreferences": ["dietary preferences"],
+  ethnicity: ["ethnicity"],
+  gender: ["gender"],
+  language: ["language"],
+  notes: ["notes"],
+  referralEntity: ["referral entity", "referral"],
+  tags: ["tags", "tag"],
+  tefapCert: ["tefap", "tefap cert"],
+  dob: ["dob"],
+  lastDeliveryDate: ["last delivery date"],
+};
 
 const StyleChip = styled(Chip)(({ theme }) => ({
   fontWeight: 500,
@@ -621,6 +670,27 @@ const Spreadsheet: React.FC = () => {
     []
   );
 
+  const clientSearchKeySuggestions = useMemo(() => {
+    const tableFieldLabels = fields
+      .map((field) => field.label)
+      .filter((label) => Boolean(label))
+      .map((label) => label.toLowerCase());
+
+    const visibleCustomFieldLabels = customColumns
+      .map((column) => column.propertyKey)
+      .filter((propertyKey) => propertyKey !== "none")
+      .map((propertyKey) => addablePropertyKeyLabelMap[propertyKey] ?? propertyKey)
+      .map((label) => label.toLowerCase());
+
+    return Array.from(new Set([...tableFieldLabels, ...visibleCustomFieldLabels]));
+  }, [fields, customColumns]);
+
+  const searchAutocomplete = useSearchKeyAutocomplete({
+    value: searchQuery,
+    onValueChange: setSearchQuery,
+    suggestions: clientSearchKeySuggestions,
+  });
+
   // --- Sorting and filtering logic (with sorting) ---
   // Ensure filteredRows is always the correct RowData shape for export, and optimize with useMemo
   const filteredRows: RowData[] = useMemo(() => {
@@ -642,11 +712,11 @@ const Spreadsheet: React.FC = () => {
           query: string,
           exactMatch = false
         ): boolean => {
-          if (value === undefined || value === null) {
-            return false;
-          }
-
           if (Array.isArray(value)) {
+            if (value.length === 0 && isNoneSearchToken(query)) {
+              return true;
+            }
+
             return value.some((item) =>
               exactMatch ? checkStringEquals(item, query) : checkStringContains(item, query)
             );
@@ -658,16 +728,7 @@ const Spreadsheet: React.FC = () => {
         const isVisibleField = (keyword: string): boolean => {
           const normalizedKeyword = normalizeSearchKeyword(keyword);
 
-          const fieldMappings: { [key: string]: string[] } = {
-            fullname: ["name", "first name", "firstname", "last name", "lastname"],
-            address: ["address"],
-            phone: ["phone"],
-            email: ["email"],
-            "deliveryDetails.dietaryRestrictions": ["dietary restrictions", "dietary"],
-            "deliveryDetails.deliveryInstructions": ["delivery instructions", "instructions"],
-          };
-
-          for (const [fieldKey, aliases] of Object.entries(fieldMappings)) {
+          for (const [fieldKey, aliases] of Object.entries(clientFieldMappings)) {
             if (
               visibleFieldKeys.has(fieldKey) &&
               aliases.some((alias) => normalizeSearchKeyword(alias) === normalizedKeyword)
@@ -676,22 +737,7 @@ const Spreadsheet: React.FC = () => {
             }
           }
 
-          const customColumnMappings: { [key: string]: string[] } = {
-            adults: ["adults"],
-            children: ["children"],
-            deliveryFreq: ["delivery freq", "delivery frequency"],
-            ethnicity: ["ethnicity"],
-            gender: ["gender"],
-            language: ["language"],
-            notes: ["notes"],
-            referralEntity: ["referral entity", "referral"],
-            tags: ["tags", "tag"],
-            tefapCert: ["tefap", "tefap cert"],
-            dob: ["dob"],
-            lastDeliveryDate: ["last delivery date"],
-          };
-
-          for (const [propertyKey, aliases] of Object.entries(customColumnMappings)) {
+          for (const [propertyKey, aliases] of Object.entries(clientCustomColumnMappings)) {
             if (
               visibleFieldKeys.has(propertyKey) &&
               aliases.some((alias) => normalizeSearchKeyword(alias) === normalizedKeyword)
@@ -748,7 +794,9 @@ const Spreadsheet: React.FC = () => {
                 case "dietaryrestrictions":
                 case "dietary": {
                   const dr = row.deliveryDetails?.dietaryRestrictions;
-                  if (!dr) return false;
+                  if (!dr) {
+                    return matchesAnySearchValue((candidate) => isNoneSearchToken(candidate));
+                  }
                   const dietaryTerms = [
                     dr.halal ? "halal" : "",
                     dr.kidneyFriendly ? "kidney friendly" : "",
@@ -813,7 +861,7 @@ const Spreadsheet: React.FC = () => {
                         checkStringContains(referralEntity.organization, candidate)
                     );
                   }
-                  return false;
+                  return matchesAnySearchValue((candidate) => isNoneSearchToken(candidate));
                 }
                 case "tags":
                 case "tag":
@@ -843,7 +891,9 @@ const Spreadsheet: React.FC = () => {
                         let value: unknown = row;
                         for (const k of keys) {
                           value = value && (value as Record<string, unknown>)[k];
-                          if (value === undefined) return false;
+                          if (value === undefined) {
+                            return matchesAnySearchValue((candidate) => isNoneSearchToken(candidate));
+                          }
                         }
                         return matchesAnySearchValue((candidate) =>
                           checkValueOrInArray(value, candidate)
@@ -987,10 +1037,16 @@ const Spreadsheet: React.FC = () => {
         <Stack spacing={3}>
           <Box sx={{ position: "relative", width: "100%" }}>
             <input
+              ref={searchAutocomplete.inputRef}
               type="text"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder='Search clients (e.g., smith, name:john,jane, address:"main st", gender:female,male)'
+              onChange={searchAutocomplete.handleInputChange}
+              onFocus={searchAutocomplete.handleInputFocus}
+              onClick={searchAutocomplete.handleInputClick}
+              onBlur={searchAutocomplete.handleInputBlur}
+              onKeyDown={searchAutocomplete.handleInputKeyDown}
+              onKeyUp={searchAutocomplete.handleInputKeyUp}
+              placeholder='Search clients (e.g., smith; name:john,jane; address:"main st"; gender:female,male)'
               style={{
                 width: "100%",
                 height: "50px",
@@ -1005,6 +1061,44 @@ const Spreadsheet: React.FC = () => {
                 boxShadow: "inset 0 2px 3px rgba(0,0,0,0.05)",
               }}
             />
+            {searchQuery.trim() !== "" && (
+              <button
+                type="button"
+                aria-label="Clear client search"
+                onMouseDown={(event) => {
+                  event.preventDefault();
+                }}
+                onClick={() => {
+                  setSearchQuery("");
+                  requestAnimationFrame(() => {
+                    const input = searchAutocomplete.inputRef.current;
+                    if (!input) return;
+                    input.focus();
+                    input.setSelectionRange(0, 0);
+                  });
+                }}
+                style={{
+                  position: "absolute",
+                  right: "12px",
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  width: "28px",
+                  height: "28px",
+                  borderRadius: "50%",
+                  border: "none",
+                  backgroundColor: "var(--color-border-light)",
+                  color: "var(--color-text-dark)",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: "16px",
+                  lineHeight: 1,
+                }}
+              >
+                <ClearIcon fontSize="small" />
+              </button>
+            )}
           </Box>
           <Stack
             direction={{ xs: "column", sm: "row" }}

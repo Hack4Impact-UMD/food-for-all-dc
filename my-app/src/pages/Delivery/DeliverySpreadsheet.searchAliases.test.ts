@@ -21,9 +21,17 @@ describe("DeliverySpreadsheet search alias regression guards", () => {
   });
 
   it("normalizes custom column aliases for visible-field matching", () => {
-    expect(source).toMatch(
-      /customColumnMappings[\s\S]*aliases\.some\(\(alias\) => normalizeSearchKeyword\(alias\) === normalizedKeyword\)/
-    );
+    expect(source).toContain("routeCustomColumnMappings");
+    expect(source).toContain("aliases.some((alias) => normalizeSearchKeyword(alias) === normalizedKeyword)");
+    expect(source).toContain('"deliveryDetails.dietaryRestrictions.dietaryPreferences": ["dietary preferences"]');
+    expect(source).toContain('famStartDate: ["family start date"]');
+  });
+
+  it("keeps delivery autocomplete suggestions aligned with visible header labels", () => {
+    expect(source).toContain("const tableFieldLabels = fields");
+    expect(source).toContain("const visibleCustomFieldLabels = customColumns");
+    expect(source).toContain("return Array.from(new Set([...tableFieldLabels, ...visibleCustomFieldLabels]));");
+    expect(source).toContain('"deliveryDetails.dietaryRestrictions": ["dietary restrictions", "dietary"]');
   });
 
   it("bulk reassigns all checked rows when changing the route dropdown for a selected cluster", () => {
@@ -67,5 +75,11 @@ describe("DeliverySpreadsheet search alias regression guards", () => {
     expect(source).toContain("hasActiveRouteFilter && (");
     expect(source).toContain("Showing {sortedRows.length} filtered ");
     expect(source).toContain("of {rows.length}");
+  });
+
+  it("shows semicolon-delimited filter guidance in the search placeholder", () => {
+    expect(source).toContain(
+      'placeholder=\'Search deliveries (use ; between filters, e.g., cluster:1,2; ward:7; driver:maria; name:"john smith")\''
+    );
   });
 });

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "@jest/globals";
 import {
   checkStringEquals,
+  checkStringContains,
   extractKeyValue,
   parseSearchTermsProgressively,
   splitFilterValues,
@@ -37,6 +38,24 @@ describe("searchFilter parsing", () => {
     expect(terms).toEqual(['name: "john smith"', "driver:maria"]);
   });
 
+  it("preserves key:value terms when value is unquoted and contains spaces", () => {
+    const terms = parseSearchTermsProgressively("assigned driver:sarah jones ward:7");
+
+    expect(terms).toEqual(["assigned driver:sarah jones", "ward:7"]);
+  });
+
+  it("splits when the next token is a recognized key like ward", () => {
+    const terms = parseSearchTermsProgressively("driver:sarah jones ward:7");
+
+    expect(terms).toEqual(["driver:sarah jones", "ward:7"]);
+  });
+
+  it("does not split on colon text inside a value when token is not a known key", () => {
+    const terms = parseSearchTermsProgressively("address:123 main st apt: 2 ward:7");
+
+    expect(terms).toEqual(["address:123 main st apt: 2", "ward:7"]);
+  });
+
   // App coverage:
   // - Routes page filter input for cluster IDs with or without a space after `:`
   // - ensures `cluster:12` and `cluster: 12` are both parsed as key:value filters
@@ -57,6 +76,14 @@ describe("searchFilter parsing", () => {
     const terms = parseSearchTermsProgressively("cluster: 1, 2 ward:7");
 
     expect(terms).toEqual(["cluster: 1, 2", "ward:7"]);
+  });
+
+  it("treats semicolon as an explicit separator between key:value filters", () => {
+    const terms = parseSearchTermsProgressively(
+      "language:english; delivery instructions:call before arriving"
+    );
+
+    expect(terms).toEqual(["language:english", "delivery instructions:call before arriving"]);
   });
 
   // App coverage:
@@ -101,6 +128,14 @@ describe("searchFilter parsing", () => {
     expect(checkStringEquals("Ward 12", "2")).toBe(false);
   });
 
+  it("treats none as a match for missing or empty values", () => {
+    expect(checkStringContains(undefined, "none")).toBe(true);
+    expect(checkStringContains(null, "None")).toBe(true);
+    expect(checkStringContains("", "none")).toBe(true);
+    expect(checkStringEquals(undefined, "none")).toBe(true);
+    expect(checkStringEquals("", "none")).toBe(true);
+  });
+
   // App coverage:
   // - key-value extraction in DeliverySpreadsheet filtering switch/case
   // - drives matching logic for fields like `name`, `ward`, `driver`, etc.
@@ -111,6 +146,23 @@ describe("searchFilter parsing", () => {
     expect(parsed).toEqual({
       keyword: "name",
       searchValue: "John Smith",
+      isKeyValue: true,
+    });
+  });
+
+  it("extracts key:value gracefully when keyword/value have one-sided quotes", () => {
+    const quotedKeyword = extractKeyValue('"assigned driver:Sarah');
+    const quotedValue = extractKeyValue('assigned driver:"Sarah Jones');
+
+    expect(quotedKeyword).toEqual({
+      keyword: "assigned driver",
+      searchValue: "Sarah",
+      isKeyValue: true,
+    });
+
+    expect(quotedValue).toEqual({
+      keyword: "assigned driver",
+      searchValue: "Sarah Jones",
       isKeyValue: true,
     });
   });
