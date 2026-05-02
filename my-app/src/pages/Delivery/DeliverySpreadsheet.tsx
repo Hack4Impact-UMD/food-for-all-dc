@@ -3094,6 +3094,8 @@ const DeliverySpreadsheet: React.FC = () => {
                 }}
                 onClick={() => {
                   setSearchQuery("");
+                  setSelectedRows(new Set());
+                  setSelectedClusters(new Set());
                   requestAnimationFrame(() => {
                     const input = searchAutocomplete.inputRef.current;
                     if (!input) return;

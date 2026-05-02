@@ -65,6 +65,12 @@ describe("DeliverySpreadsheet search alias regression guards", () => {
     );
   });
 
+  it("clears checked rows when the delivery search X button is clicked", () => {
+    expect(source).toMatch(
+      /aria-label="Clear delivery search"[\s\S]*setSearchQuery\(""\);[\s\S]*setSelectedRows\(new Set\(\)\);[\s\S]*setSelectedClusters\(new Set\(\)\);/
+    );
+  });
+
   it("preserves empty source clusters after moving all deliveries to a new route", () => {
     expect(source).not.toContain("if (!normalizedClusterId || normalizedDeliveries.length === 0)");
     expect(source).toContain("if (!normalizedClusterId) {");
