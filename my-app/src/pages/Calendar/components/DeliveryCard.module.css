@@ -9,19 +9,25 @@
   background-color: var(--color-background-accent);
   width: 100%;
   box-sizing: border-box;
+  min-height: 152px;
 }
 
 .clientSection {
   display: flex;
   flex-direction: row;
-  justify-content: space-between;
-  align-items: center;
+  justify-content: flex-start;
+  align-items: flex-start;
   margin-right: var(--spacing-lg);
+  flex: 0 0 220px;
   width: 220px;
-  min-width: 180px;
-  max-width: 280px;
   box-sizing: border-box;
-  flex-shrink: 1;
+  min-height: 0;
+}
+
+.clientSectionContent {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .clientName {
@@ -83,7 +89,7 @@
 }
 
 .infoValue {
-  font-weight: bold;
+  font-weight: 400;
   color: var(--color-text-secondary);
 }
 
@@ -105,14 +111,26 @@
   color: var(--color-primary-darker);
   text-decoration: underline;
   font-weight: 600;
-  font-size: 1.25rem;
+  font-size: 1.15rem;
+  line-height: 1.2;
   cursor: pointer;
+  display: block;
+  flex: 1;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .clientNameRow {
-  display: flex;
-  align-items: center;
-  gap: 6px;
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  align-items: start;
+  column-gap: 6px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .clientStatusIcon {
@@ -126,8 +144,8 @@
 
 .deliveryTypeIndicator {
   font-weight: 700;
-  font-size: 1.1rem;
-  margin-top: 0.5rem;
+  font-size: 1rem;
+  margin-top: 0.25rem;
 }
 
 .weekly {

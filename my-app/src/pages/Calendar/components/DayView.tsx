@@ -31,7 +31,7 @@ const DayView: React.FC<DayViewProps> = React.memo(function DayView({
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Constants for virtual scrolling
-  const DELIVERY_CARD_HEIGHT = 120; // 108px from CSS + margin
+  const DELIVERY_CARD_HEIGHT = 160; // Increased to preserve recurrence date visibility when names wrap
   const VIRTUAL_SCROLL_THRESHOLD = 50; // Use virtual scrolling when more than 50 items
 
   // Memoized client lookup for better performance
@@ -44,6 +44,39 @@ const DayView: React.FC<DayViewProps> = React.memo(function DayView({
     });
     return map;
   }, [clients]);
+
+  const getSortableClientName = useCallback(
+    (event: DeliveryEvent) => {
+      const eventName = (event.clientName || "").trim();
+      if (eventName) {
+        return eventName;
+      }
+
+      const client = clientLookupMap.get(event.clientId);
+      const fullName = `${client?.firstName || ""} ${client?.lastName || ""}`.trim();
+      if (fullName) {
+        return fullName;
+      }
+
+      return event.clientId || "";
+    },
+    [clientLookupMap]
+  );
+
+  const sortedEvents = useMemo(() => {
+    return [...events].sort((a, b) => {
+      const nameCompare = getSortableClientName(a).localeCompare(getSortableClientName(b), undefined, {
+        sensitivity: "base",
+        numeric: true,
+      });
+
+      if (nameCompare !== 0) {
+        return nameCompare;
+      }
+
+      return (a.id || "").localeCompare(b.id || "");
+    });
+  }, [events, getSortableClientName]);
 
   const updateHeight = useCallback(() => {
     if (containerRef.current) {
@@ -111,7 +144,7 @@ const DayView: React.FC<DayViewProps> = React.memo(function DayView({
     >
       <EventCountHeader events={events} limit={dailyLimit} />
 
-      {events.length === 0 ? (
+      {sortedEvents.length === 0 ? (
         <Box
           sx={{
             flex: 1,
@@ -135,9 +168,9 @@ const DayView: React.FC<DayViewProps> = React.memo(function DayView({
             overflow: "hidden",
           }}
         >
-          {events.length > VIRTUAL_SCROLL_THRESHOLD ? (
+          {sortedEvents.length > VIRTUAL_SCROLL_THRESHOLD ? (
             <VirtualScroll
-              items={events}
+              items={sortedEvents}
               itemHeight={DELIVERY_CARD_HEIGHT}
               containerHeight={containerHeight}
               renderItem={renderDeliveryCard}
@@ -151,7 +184,7 @@ const DayView: React.FC<DayViewProps> = React.memo(function DayView({
                 width: "100%",
               }}
             >
-              {events.map((event) => {
+              {sortedEvents.map((event) => {
                 const client = clientLookupMap.get(event.clientId);
                 return (
                   <DeliveryCard
