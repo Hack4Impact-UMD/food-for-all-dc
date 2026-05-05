@@ -16,7 +16,6 @@ import {
 } from "@mui/material";
 import BookmarkBorderIcon from "@mui/icons-material/BookmarkBorder";
 import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
-import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import CloseIcon from "@mui/icons-material/Close";
 import type { SavedSearchItem } from "../utils/savedSearches";
 
@@ -27,6 +26,7 @@ interface RouteSearchSavedFiltersProps {
   onApplySavedSearch: (query: string) => void;
   onOverwriteSavedSearch: (name: string, newQuery: string) => void;
   onDeleteSavedSearch: (query: string) => void;
+  hasDeliveries?: boolean;
 }
 
 const RouteSearchSavedFilters: React.FC<RouteSearchSavedFiltersProps> = ({
@@ -36,6 +36,7 @@ const RouteSearchSavedFilters: React.FC<RouteSearchSavedFiltersProps> = ({
   onApplySavedSearch,
   onOverwriteSavedSearch,
   onDeleteSavedSearch,
+  hasDeliveries = true,
 }) => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false);
@@ -43,7 +44,7 @@ const RouteSearchSavedFilters: React.FC<RouteSearchSavedFiltersProps> = ({
   const [conflictMode, setConflictMode] = useState<"duplicate" | "mismatch" | null>(null);
   const [conflictItem, setConflictItem] = useState<SavedSearchItem | null>(null);
   const isOpen = Boolean(anchorEl);
-  const canSaveCurrent = currentQuery.trim().length > 0;
+  const canSaveCurrent = currentQuery.trim().length > 0 && hasDeliveries;
 
   const nameTakenByItem = searchNameDraft.trim()
     ? savedSearches.find(
@@ -52,6 +53,9 @@ const RouteSearchSavedFilters: React.FC<RouteSearchSavedFiltersProps> = ({
     : null;
 
   const handleOpenMenu = (event: React.MouseEvent<HTMLElement>) => {
+    if (!hasDeliveries) {
+      return;
+    }
     setAnchorEl(event.currentTarget);
   };
 
@@ -114,6 +118,9 @@ const RouteSearchSavedFilters: React.FC<RouteSearchSavedFiltersProps> = ({
   };
 
   const handleApplySaved = (query: string) => {
+    if (!hasDeliveries) {
+      return;
+    }
     onApplySavedSearch(query);
     handleCloseMenu();
   };
@@ -152,6 +159,7 @@ const RouteSearchSavedFilters: React.FC<RouteSearchSavedFiltersProps> = ({
         aria-expanded={isOpen ? "true" : undefined}
         aria-controls={isOpen ? "saved-searches-menu" : undefined}
         onClick={handleOpenMenu}
+        disabled={!hasDeliveries}
         endIcon={<ArrowDropDownIcon />}
         sx={{
           height: 42,
@@ -166,6 +174,10 @@ const RouteSearchSavedFilters: React.FC<RouteSearchSavedFiltersProps> = ({
           backgroundColor: "var(--color-primary)",
           "&:hover": {
             backgroundColor: "var(--color-primary-darker)",
+          },
+          "&.Mui-disabled": {
+            color: "rgba(255,255,255,0.65)",
+            backgroundColor: "var(--color-text-medium)",
           },
         }}
       >
@@ -193,7 +205,7 @@ const RouteSearchSavedFilters: React.FC<RouteSearchSavedFiltersProps> = ({
       >
         <Box sx={{ px: 2, pt: 1.25, pb: 1 }}>
           <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-            Recent searches (Max: 5)
+            Recent Filters (Max: 5)
           </Typography>
         </Box>
 
@@ -210,6 +222,7 @@ const RouteSearchSavedFilters: React.FC<RouteSearchSavedFiltersProps> = ({
             <MenuItem
               key={item.name}
               onClick={() => handleApplySaved(item.query)}
+              disabled={!hasDeliveries}
               sx={{
                 alignItems: "center",
                 py: 0.75,

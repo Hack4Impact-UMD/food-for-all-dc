@@ -3182,6 +3182,7 @@ const DeliverySpreadsheet: React.FC = () => {
               onApplySavedSearch={handleApplySavedRouteSearch}
               onOverwriteSavedSearch={handleOverwriteRouteSearch}
               onDeleteSavedSearch={handleDeleteRouteSearch}
+              hasDeliveries={rows.length > 0}
             />
           </Box>
           {hasActiveRouteFilter && (
