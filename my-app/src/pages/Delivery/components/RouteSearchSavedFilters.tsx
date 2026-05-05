@@ -214,7 +214,7 @@ const RouteSearchSavedFilters: React.FC<RouteSearchSavedFiltersProps> = ({
         {savedSearches.length === 0 ? (
           <MenuItem disabled sx={{ whiteSpace: "normal", opacity: 1 }}>
             <Typography variant="body2" sx={{ color: "text.secondary" }}>
-              No saved searches yet
+              No saved filters yet
             </Typography>
           </MenuItem>
         ) : (
