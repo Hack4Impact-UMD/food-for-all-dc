@@ -68,18 +68,15 @@
 }
 
 .infoContainer {
-  display: flex;
-  flex-direction: row;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  align-items: start;
   width: 100%;
-  gap: 30px;
+  gap: 24px;
 }
 
 .infoItem {
-  display: flex;
-  flex-direction: column;
-  margin-left: var(--spacing-sm);
-  width: 150px;
+  min-width: 0;
 }
 
 .infoLabel {

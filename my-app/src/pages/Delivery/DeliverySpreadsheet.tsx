@@ -9,6 +9,7 @@ import EventCountHeader from "../../components/EventCountHeader";
 import { useLimits } from "../Calendar/components/useLimits";
 import React, { useState, useEffect, useMemo, Suspense } from "react";
 import { useSearchKeyAutocomplete } from "../../hooks/useSearchKeyAutocomplete";
+import { useSavedSearches } from "../../hooks/useSavedSearches";
 import AddCircleOutlineIcon from "@mui/icons-material/AddCircleOutline";
 import { getEventsByViewType } from "../Calendar/components/getEventsByViewType";
 import CircularProgress from "@mui/material/CircularProgress";
@@ -82,6 +83,7 @@ import { onAuthStateChanged } from "firebase/auth";
 const ClusterMap = React.lazy(() => import("./ClusterMap"));
 import AssignDriverPopup from "./components/AssignDriverPopup";
 import GenerateClustersPopup from "./components/GenerateClustersPopup";
+import RouteSearchSavedFilters from "./components/RouteSearchSavedFilters";
 import RouteExportOptions, {
   RouteExportOption,
   RouteExportScope,
@@ -667,6 +669,7 @@ const DeliverySpreadsheet: React.FC = () => {
   const [rows, setRows] = useState<DeliveryRowData[]>([]);
   const [rawClientData, setRawClientData] = useState<DeliveryRowData[]>([]);
   const [searchQuery, setSearchQuery] = useState<string>("");
+  const [currentUserId, setCurrentUserId] = useState<string>(auth.currentUser?.uid ?? "guest");
   const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
 
   const [popupMode, setPopupMode] = useState("");
@@ -906,6 +909,49 @@ const DeliverySpreadsheet: React.FC = () => {
     onValueChange: setSearchQuery,
     suggestions: routeSearchKeySuggestions,
   });
+  const { savedSearches, saveCurrentSearch, applySavedSearch, overwriteSavedSearch, deleteSavedSearch } = useSavedSearches(currentUserId);
+
+  const handleSaveCurrentRouteSearch = React.useCallback(
+    (searchName?: string) => {
+      saveCurrentSearch(searchQuery, searchName);
+    },
+    [saveCurrentSearch, searchQuery]
+  );
+
+  const handleApplySavedRouteSearch = React.useCallback(
+    (query: string) => {
+      const savedItem = savedSearches.find((item) => item.query === query);
+      applySavedSearch(
+        query,
+        (nextQuery) => {
+        setSearchQuery(nextQuery);
+        requestAnimationFrame(() => {
+          const input = searchAutocomplete.inputRef.current;
+          if (!input) return;
+          input.focus();
+          const end = nextQuery.length;
+          input.setSelectionRange(end, end);
+        });
+        },
+        savedItem?.name
+      );
+    },
+    [applySavedSearch, savedSearches, searchAutocomplete.inputRef]
+  );
+
+  const handleOverwriteRouteSearch = React.useCallback(
+    (name: string, newQuery: string) => {
+      overwriteSavedSearch(name, newQuery);
+    },
+    [overwriteSavedSearch]
+  );
+
+  const handleDeleteRouteSearch = React.useCallback(
+    (query: string) => {
+      deleteSavedSearch(query);
+    },
+    [deleteSavedSearch]
+  );
 
   // Function to trigger driver refresh across components
   const triggerDriverRefresh = () => {
@@ -1194,6 +1240,7 @@ const DeliverySpreadsheet: React.FC = () => {
   // Route Protection
   React.useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user: any) => {
+      setCurrentUserId(user?.uid ?? "guest");
       if (!user) {
         navigate("/");
       }
@@ -3061,70 +3108,81 @@ const DeliverySpreadsheet: React.FC = () => {
         }}
       >
         <Box sx={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-          <Box sx={{ position: "relative", width: "100%" }}>
-            <input
-              ref={searchAutocomplete.inputRef}
-              type="text"
-              value={searchQuery}
-              onChange={searchAutocomplete.handleInputChange}
-              onFocus={searchAutocomplete.handleInputFocus}
-              onClick={searchAutocomplete.handleInputClick}
-              onBlur={searchAutocomplete.handleInputBlur}
-              onKeyDown={searchAutocomplete.handleInputKeyDown}
-              onKeyUp={searchAutocomplete.handleInputKeyUp}
-              placeholder='Search deliveries (use ; between filters, e.g., cluster:1,2; ward:7; driver:maria; name:"john smith")'
-              style={{
-                width: "100%",
-                height: "60px",
-                backgroundColor: "var(--color-background-gray)",
-                border: "none",
-                borderRadius: "30px",
-                padding: "0 56px 0 24px",
-                fontSize: "16px",
-                color: "var(--color-text-dark)",
-                boxSizing: "border-box",
-              }}
-            />
-            {searchQuery.trim() !== "" && (
-              <button
-                type="button"
-                aria-label="Clear delivery search"
-                onMouseDown={(event) => {
-                  event.preventDefault();
-                }}
-                onClick={() => {
-                  setSearchQuery("");
-                  setSelectedRows(new Set());
-                  setSelectedClusters(new Set());
-                  requestAnimationFrame(() => {
-                    const input = searchAutocomplete.inputRef.current;
-                    if (!input) return;
-                    input.focus();
-                    input.setSelectionRange(0, 0);
-                  });
-                }}
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1, width: "100%" }}>
+            <Box sx={{ position: "relative", flex: 1, minWidth: 0 }}>
+              <input
+                ref={searchAutocomplete.inputRef}
+                type="text"
+                value={searchQuery}
+                onChange={searchAutocomplete.handleInputChange}
+                onFocus={searchAutocomplete.handleInputFocus}
+                onClick={searchAutocomplete.handleInputClick}
+                onBlur={searchAutocomplete.handleInputBlur}
+                onKeyDown={searchAutocomplete.handleInputKeyDown}
+                onKeyUp={searchAutocomplete.handleInputKeyUp}
+                placeholder='Search deliveries (use ; between filters, e.g., cluster:1,2; ward:7; driver:maria; name:"john smith")'
                 style={{
-                  position: "absolute",
-                  right: "16px",
-                  top: "50%",
-                  transform: "translateY(-50%)",
-                  width: "28px",
-                  height: "28px",
-                  borderRadius: "50%",
+                  width: "100%",
+                  height: "60px",
+                  backgroundColor: "var(--color-background-gray)",
                   border: "none",
-                  backgroundColor: "var(--color-border-light)",
-                  color: "var(--color-text-dark)",
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
+                  borderRadius: "30px",
+                  padding: "0 56px 0 24px",
                   fontSize: "16px",
-                  lineHeight: 1,
+                  color: "var(--color-text-dark)",
+                  boxSizing: "border-box",
                 }}
-              >
-                <ClearIcon fontSize="small" />
-              </button>
-            )}
+              />
+              {searchQuery.trim() !== "" && (
+                <button
+                  type="button"
+                  aria-label="Clear delivery search"
+                  onMouseDown={(event) => {
+                    event.preventDefault();
+                  }}
+                  onClick={() => {
+                    setSearchQuery("");
+                    setSelectedRows(new Set());
+                    setSelectedClusters(new Set());
+                    requestAnimationFrame(() => {
+                      const input = searchAutocomplete.inputRef.current;
+                      if (!input) return;
+                      input.focus();
+                      input.setSelectionRange(0, 0);
+                    });
+                  }}
+                  style={{
+                    position: "absolute",
+                    right: "16px",
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    width: "28px",
+                    height: "28px",
+                    borderRadius: "50%",
+                    border: "none",
+                    backgroundColor: "var(--color-border-light)",
+                    color: "var(--color-text-dark)",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: "16px",
+                    lineHeight: 1,
+                  }}
+                >
+                  <ClearIcon fontSize="small" />
+                </button>
+              )}
+            </Box>
+
+            <RouteSearchSavedFilters
+              currentQuery={searchQuery}
+              savedSearches={savedSearches}
+              onSaveCurrentSearch={handleSaveCurrentRouteSearch}
+              onApplySavedSearch={handleApplySavedRouteSearch}
+              onOverwriteSavedSearch={handleOverwriteRouteSearch}
+              onDeleteSavedSearch={handleDeleteRouteSearch}
+            />
           </Box>
           {hasActiveRouteFilter && (
             <Typography variant="body2" sx={{ color: "text.secondary", px: 1 }}>

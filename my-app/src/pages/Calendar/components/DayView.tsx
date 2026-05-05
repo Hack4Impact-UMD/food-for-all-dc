@@ -33,6 +33,7 @@ const DayView: React.FC<DayViewProps> = React.memo(function DayView({
   // Constants for virtual scrolling
   const DELIVERY_CARD_HEIGHT = 160; // Increased to preserve recurrence date visibility when names wrap
   const VIRTUAL_SCROLL_THRESHOLD = 50; // Use virtual scrolling when more than 50 items
+  const INFO_HEADERS = ["PHONE", "ADDRESS", "DIETARY RESTRICTIONS", "TAGS", "NOTES"];
 
   // Memoized client lookup for better performance
   const clientLookupMap = useMemo(() => {
@@ -160,45 +161,97 @@ const DayView: React.FC<DayViewProps> = React.memo(function DayView({
         </Box>
       ) : (
         <Box
-          ref={containerRef}
           sx={{
             flex: 1,
             width: "100%",
             minHeight: 0,
             overflow: "hidden",
+            display: "flex",
+            flexDirection: "column",
           }}
         >
-          {sortedEvents.length > VIRTUAL_SCROLL_THRESHOLD ? (
-            <VirtualScroll
-              items={sortedEvents}
-              itemHeight={DELIVERY_CARD_HEIGHT}
-              containerHeight={containerHeight}
-              renderItem={renderDeliveryCard}
-              overscan={10}
-            />
-          ) : (
+          <Box
+            sx={{
+              px: "var(--spacing-lg)",
+              pr: "3.5rem",
+              pb: 0.75,
+              display: "flex",
+              alignItems: "center",
+              borderBottom: "1px solid var(--color-divider)",
+              flexShrink: 0,
+              backgroundColor: "var(--color-background-main)",
+            }}
+          >
+            <Box sx={{ flex: "0 0 calc(220px + var(--spacing-lg))" }} />
+            <Box sx={{ width: "2px", alignSelf: "stretch", mr: "var(--spacing-lg)" }} />
             <Box
               sx={{
-                height: "100%",
-                overflowY: "scroll",
+                display: "grid",
+                gridTemplateColumns: "repeat(5, minmax(0, 1fr))",
+                alignItems: "start",
+                gap: "24px",
                 width: "100%",
+                minWidth: 0,
               }}
             >
-              {sortedEvents.map((event) => {
-                const client = clientLookupMap.get(event.clientId);
-                return (
-                  <DeliveryCard
-                    key={event.id}
-                    event={event}
-                    client={client}
-                    onEventModified={onEventModified}
-                    weeklyLimits={weeklyLimits}
-                    dailyLimits={dailyLimits}
-                  />
-                );
-              })}
+              {INFO_HEADERS.map((header) => (
+                <Typography
+                  key={header}
+                  variant="subtitle2"
+                  sx={{
+                    fontWeight: 700,
+                    fontSize: "0.75rem",
+                    letterSpacing: "0.04em",
+                    color: "var(--color-text-tertiary)",
+                  }}
+                >
+                  {header}
+                </Typography>
+              ))}
             </Box>
-          )}
+          </Box>
+
+          <Box
+            ref={containerRef}
+            sx={{
+              flex: 1,
+              minHeight: 0,
+              width: "100%",
+              overflow: "hidden",
+            }}
+          >
+            {sortedEvents.length > VIRTUAL_SCROLL_THRESHOLD ? (
+              <VirtualScroll
+                items={sortedEvents}
+                itemHeight={DELIVERY_CARD_HEIGHT}
+                containerHeight={containerHeight}
+                renderItem={renderDeliveryCard}
+                overscan={10}
+              />
+            ) : (
+              <Box
+                sx={{
+                  height: "100%",
+                  overflowY: "scroll",
+                  width: "100%",
+                }}
+              >
+                {sortedEvents.map((event) => {
+                  const client = clientLookupMap.get(event.clientId);
+                  return (
+                    <DeliveryCard
+                      key={event.id}
+                      event={event}
+                      client={client}
+                      onEventModified={onEventModified}
+                      weeklyLimits={weeklyLimits}
+                      dailyLimits={dailyLimits}
+                    />
+                  );
+                })}
+              </Box>
+            )}
+          </Box>
         </Box>
       )}
     </Box>

@@ -884,6 +884,16 @@ class DeliveryService {
       ).sort();
     }
 
+    if (newDelivery.recurrence === "Monthly-Pattern") {
+      return Array.from(
+        new Set(
+          (newDelivery.customDates || [])
+            .map((date) => deliveryDate.tryToISODateString(date))
+            .filter((dateKey): dateKey is string => Boolean(dateKey))
+        )
+      ).sort();
+    }
+
     const normalizedStartDate = deliveryDate.tryToISODateString(newDelivery.deliveryDate);
     if (!normalizedStartDate) {
       return [];

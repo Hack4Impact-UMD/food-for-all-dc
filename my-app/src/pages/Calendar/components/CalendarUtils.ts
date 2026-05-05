@@ -78,6 +78,9 @@ export const getNextMonthlyDate = (
 };
 
 export const calculateRecurrenceDates = (newDelivery: NewDelivery): string[] => {
+  // Monthly-Pattern has its own generator; this function does not handle it.
+  if (newDelivery.recurrence === "Monthly-Pattern") return [];
+
   const deliveryDateTime = deliveryDate.toDateTime(newDelivery.deliveryDate);
   const endDateTime = newDelivery.repeatsEndDate
     ? deliveryDate.toDateTime(newDelivery.repeatsEndDate)
@@ -93,3 +96,105 @@ export const calculateRecurrenceDates = (newDelivery: NewDelivery): string[] => 
   // Return as local date strings (YYYY-MM-DD)
   return recurrenceDates.map((dt) => TimeUtils.toDateString(dt));
 };
+
+// ── Monthly Recurrence Pattern ────────────────────────────────────────────────
+
+export type WeekPosition = "first" | "second" | "third" | "fourth" | "last";
+export type PatternDayOfWeek =
+  | "monday"
+  | "tuesday"
+  | "wednesday"
+  | "thursday"
+  | "friday"
+  | "saturday"
+  | "sunday";
+
+const DAY_OF_WEEK_INDEX: Record<PatternDayOfWeek, number> = {
+  sunday: 0,
+  monday: 1,
+  tuesday: 2,
+  wednesday: 3,
+  thursday: 4,
+  friday: 5,
+  saturday: 6,
+};
+
+/**
+ * Returns the Date for a given weekday occurrence inside a calendar month.
+ * @param year       Full year, e.g. 2026
+ * @param month      0-based month index (0 = January)
+ * @param position   "first" | "second" | "third" | "fourth" | "last"
+ * @param dayIndex   0 = Sunday … 6 = Saturday
+ */
+function getPatternDateInMonth(
+  year: number,
+  month: number,
+  position: WeekPosition,
+  dayIndex: number
+): Date | null {
+  if (position === "last") {
+    // Start from the last day of the month and walk backwards
+    const lastDay = new Date(year, month + 1, 0); // day 0 of next month = last day
+    let d = lastDay.getDate();
+    while (new Date(year, month, d).getDay() !== dayIndex) {
+      d--;
+    }
+    return new Date(year, month, d);
+  }
+
+  // Count up occurrences from the 1st
+  const ordinal = { first: 1, second: 2, third: 3, fourth: 4 }[position];
+  let count = 0;
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  for (let d = 1; d <= daysInMonth; d++) {
+    if (new Date(year, month, d).getDay() === dayIndex) {
+      count++;
+      if (count === ordinal) {
+        return new Date(year, month, d);
+      }
+    }
+  }
+  return null; // shouldn't happen for first–fourth
+}
+
+/**
+ * Generates all dates matching the monthly weekday-position pattern that fall
+ * on or after `startDate` and on or before `endDate` (both inclusive).
+ */
+export function generateMonthlyRecurrencePatternDates({
+  startDate,
+  endDate,
+  weekPosition,
+  dayOfWeek,
+}: {
+  startDate: Date;
+  endDate: Date;
+  weekPosition: WeekPosition;
+  dayOfWeek: PatternDayOfWeek;
+}): Date[] {
+  const dayIndex = DAY_OF_WEEK_INDEX[dayOfWeek];
+  const results: Date[] = [];
+
+  // Normalise to midnight local time so comparisons are date-only
+  const start = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
+  const end = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
+
+  let year = start.getFullYear();
+  let month = start.getMonth();
+  const endYear = end.getFullYear();
+  const endMonth = end.getMonth();
+
+  while (year < endYear || (year === endYear && month <= endMonth)) {
+    const candidate = getPatternDateInMonth(year, month, weekPosition, dayIndex);
+    if (candidate && candidate >= start && candidate <= end) {
+      results.push(candidate);
+    }
+    month++;
+    if (month > 11) {
+      month = 0;
+      year++;
+    }
+  }
+
+  return results;
+}

@@ -24,7 +24,7 @@ export interface Delivery {
   deliveryDate: string | Date | Timestamp; // Can be string, Date, or Firestore Timestamp
   time: string; // The time of the delivery;
   cluster: number;
-  recurrence: "None" | "Weekly" | "2x-Monthly" | "Monthly" | "Custom"; // Updated recurrence options
+  recurrence: "None" | "Weekly" | "2x-Monthly" | "Monthly" | "Custom" | "Monthly-Pattern"; // Updated recurrence options
   repeatsEndDate?: string; // Optional, end date for recurrence
   deliveryStatus?: "Scheduled" | "Missed";
   householdSnapshot?: HouseholdSnapshot | null;

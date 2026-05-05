@@ -2748,6 +2748,16 @@ const Profile = () => {
           return [normalizedStartDate];
         }
 
+        if (newDelivery.recurrence === "Monthly-Pattern") {
+          return Array.from(
+            new Set(
+              (newDelivery.customDates || [])
+                .map((date) => deliveryDate.tryToISODateString(date))
+                .filter((dateKey): dateKey is string => Boolean(dateKey))
+            )
+          ).sort();
+        }
+
         const recurrenceDates = Time.Recurrence.calculateRecurrenceDates(
           deliveryDate.toDateTime(normalizedStartDate),
           newDelivery.recurrence,
