@@ -103,6 +103,12 @@ describe("searchFilter parsing", () => {
       "dietary restrictions:vegan",
     ]);
     expect(parseSearchTermsProgressively("first name:john")).toEqual(["first name:john"]);
+    expect(parseSearchTermsProgressively("fam start date:01/01/2026")).toEqual([
+      "fam start date:01/01/2026",
+    ]);
+    expect(parseSearchTermsProgressively("fam start date: 01/01/2026")).toEqual([
+      "fam start date: 01/01/2026",
+    ]);
   });
 
   // App coverage:

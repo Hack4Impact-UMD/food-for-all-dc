@@ -11,6 +11,9 @@ export const parseSearchTermsProgressively = (trimmedSearchQuery: string): strin
 
   const multiWordFilterPrefixes = new Set([
     "assigned",
+    "fam",
+    "fam start",
+    "famstart",
     "cluster",
     "delivery",
     "dietary",
@@ -68,6 +71,7 @@ export const parseSearchTermsProgressively = (trimmedSearchQuery: string): strin
       "tefap cert",
       "tefapcert",
       "dob",
+      "fam start date",
       "last delivery date",
     ].map((keyword) => normalizeSearchKeyword(keyword))
   );
@@ -104,6 +108,46 @@ export const parseSearchTermsProgressively = (trimmedSearchQuery: string): strin
       if (trimmedSearchQuery[index] === ":") {
         return true;
       }
+      index += 1;
+    }
+
+    return false;
+  };
+
+  const upcomingPhraseCompletesKnownFilter = (
+    startIndex: number,
+    currentKeywordPrefix: string
+  ): boolean => {
+    const normalizedPrefix = normalizeSearchKeyword(currentKeywordPrefix);
+    if (!normalizedPrefix || !multiWordFilterPrefixes.has(normalizedPrefix)) {
+      return false;
+    }
+
+    let index = startIndex;
+
+    while (index < trimmedSearchQuery.length && trimmedSearchQuery[index] === " ") {
+      index += 1;
+    }
+
+    const phraseStart = index;
+
+    while (index < trimmedSearchQuery.length) {
+      const char = trimmedSearchQuery[index];
+
+      if (char === ":") {
+        const trailingKeywordPart = trimmedSearchQuery.slice(phraseStart, index).trim();
+        if (!trailingKeywordPart) {
+          return false;
+        }
+
+        const fullCandidateKeyword = `${currentKeywordPrefix.trim()} ${trailingKeywordPart}`.trim();
+        return knownFilterKeywords.has(normalizeSearchKeyword(fullCandidateKeyword));
+      }
+
+      if (char === ";" || char === ",") {
+        return false;
+      }
+
       index += 1;
     }
 
@@ -184,8 +228,9 @@ export const parseSearchTermsProgressively = (trimmedSearchQuery: string): strin
       if (
         colonIndex === -1 &&
         !endsWithQuote &&
-        nextTokenContainsColon &&
-        multiWordFilterPrefixes.has(normalizedTerm)
+        multiWordFilterPrefixes.has(normalizedTerm) &&
+        (nextTokenContainsColon ||
+          upcomingPhraseCompletesKnownFilter(i + 1, trimmedCurrentTerm))
       ) {
         currentTerm += char;
       } else if (colonIndex !== -1 && valueAfterColon === "") {

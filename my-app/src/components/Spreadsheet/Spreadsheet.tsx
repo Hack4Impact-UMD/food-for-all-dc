@@ -12,6 +12,7 @@ import {
   normalizeSearchKeyword,
   splitFilterValues,
 } from "../../utils/searchFilter";
+import { deliveryDate } from "../../utils/deliveryDate";
 // Custom chevron icons for TableSortLabel with spacing
 const iconStyle = { verticalAlign: "middle", marginLeft: 6 };
 const ChevronUp = () => (
@@ -87,7 +88,7 @@ const addablePropertyKeyLabelMap: Record<string, string> = {
   address: "Address",
   adults: "Adults",
   children: "Children",
-  famStartDate: "Family Start Date",
+  famStartDate: "Fam Start Date",
   deliveryFreq: "Delivery Frequency",
   "deliveryDetails.dietaryRestrictions": "Dietary Restrictions",
   "deliveryDetails.dietaryRestrictions.dietaryPreferences": "Dietary Preferences",
@@ -115,7 +116,7 @@ const clientFieldMappings: Record<string, string[]> = {
 const clientCustomColumnMappings: Record<string, string[]> = {
   adults: ["adults"],
   children: ["children"],
-  famStartDate: ["family start date"],
+  famStartDate: ["fam start date", "family start date"],
   deliveryFreq: ["delivery freq", "delivery frequency"],
   "deliveryDetails.dietaryRestrictions.dietaryPreferences": ["dietary preferences"],
   ethnicity: ["ethnicity"],
@@ -871,6 +872,22 @@ const Spreadsheet: React.FC = () => {
                   return matchesAnySearchValue((candidate) =>
                     checkStringContains(row.tefapCert, candidate)
                   );
+                case "date":
+                case "famstartdate":
+                  return matchesAnySearchValue((candidate) => {
+                    const normalizedCandidateDate = deliveryDate.tryToDateTime(candidate);
+                    const normalizedRowDate = deliveryDate.tryToDateTime(row.famStartDate);
+
+                    if (!normalizedCandidateDate || !normalizedRowDate) {
+                      return false;
+                    }
+
+                    const candidateDisplay = deliveryDate.toDisplayString(normalizedCandidateDate);
+                    const rowDisplay = deliveryDate.toDisplayString(normalizedRowDate);
+                    const matches = checkStringEquals(rowDisplay, candidateDisplay);
+
+                    return matches;
+                  });
                 case "dob":
                   return matchesAnySearchValue((candidate) =>
                     checkValueOrInArray(row.dob, candidate, true)
@@ -1482,7 +1499,7 @@ const Spreadsheet: React.FC = () => {
                               let label = key.charAt(0).toUpperCase() + key.slice(1);
                               if (key === "deliveryDetails.dietaryRestrictions.dietaryPreferences")
                                 label = "Dietary Preferences";
-                              if (key === "famStartDate") label = "FAM Start Date";
+                              if (key === "famStartDate") label = "Fam Start Date";
                               return (
                                 <MenuItem key={key} value={key}>
                                   {key === "none" ? "None" : label}

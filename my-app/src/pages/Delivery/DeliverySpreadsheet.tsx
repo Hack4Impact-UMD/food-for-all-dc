@@ -63,6 +63,7 @@ import {
   Paper,
   Checkbox,
   Dialog,
+  DialogActions,
   DialogContent,
   DialogTitle,
   Typography,
@@ -426,7 +427,7 @@ const addablePropertyKeyLabelMap: Record<string, string> = {
   address: "Address",
   adults: "Adults",
   children: "Children",
-  famStartDate: "Family Start Date",
+  famStartDate: "Fam Start Date",
   deliveryFreq: "Delivery Frequency",
   "deliveryDetails.dietaryRestrictions": "Dietary Restrictions",
   "deliveryDetails.dietaryRestrictions.dietaryPreferences": "Dietary Preferences",
@@ -457,7 +458,7 @@ const routeCustomColumnMappings: Record<string, string[]> = {
   address: ["address"],
   adults: ["adults"],
   children: ["children"],
-  famStartDate: ["family start date"],
+  famStartDate: ["fam start date", "family start date"],
   deliveryFreq: ["delivery freq", "delivery frequency"],
   "deliveryDetails.dietaryRestrictions": ["dietary restrictions", "dietary"],
   "deliveryDetails.dietaryRestrictions.dietaryPreferences": ["dietary preferences"],
@@ -642,6 +643,8 @@ const DeliverySpreadsheet: React.FC = () => {
   const [addClusterModalOpen, setAddClusterModalOpen] = useState(false);
   const [numClustersToAdd, setNumClustersToAdd] = useState(1);
   // Reset clusters to empty for the current day
+  const [isResetClustersConfirmOpen, setIsResetClustersConfirmOpen] = React.useState(false);
+
   const handleResetClusters = async () => {
     // Close map popup if open
     if (typeof window !== "undefined" && (window as any).closeMapPopup) {
@@ -680,6 +683,21 @@ const DeliverySpreadsheet: React.FC = () => {
 
   const [driversRefreshTrigger, setDriversRefreshTrigger] = useState<number>(0);
   const [highlightedRowIds, setHighlightedRowIds] = useState<Set<string>>(new Set());
+  const highlightedRowIdsRef = React.useRef<Set<string>>(new Set());
+  const highlightRestoreLockRef = React.useRef(false);
+
+  React.useEffect(() => {
+    highlightedRowIdsRef.current = highlightedRowIds;
+  }, [highlightedRowIds]);
+
+  const preserveHighlightedRowsForAssignment = React.useCallback(() => {
+    highlightRestoreLockRef.current = true;
+    return new Set(highlightedRowIdsRef.current);
+  }, []);
+
+  const releaseHighlightedRowsForAssignment = React.useCallback(() => {
+    highlightRestoreLockRef.current = false;
+  }, []);
 
   const normalizeClusters = React.useCallback((clusters: Cluster[]): Cluster[] => {
     const clustersById = new Map<string, Cluster>();
@@ -1370,6 +1388,7 @@ const DeliverySpreadsheet: React.FC = () => {
       : [row.id];
     let resolvedNewClusterId = "";
     let didMoveClients = false;
+    const highlightedRowsToPreserve = preserveHighlightedRowsForAssignment();
 
     try {
       const didSave = await commitRouteAssignmentMutation((currentState) => {
@@ -1423,8 +1442,26 @@ const DeliverySpreadsheet: React.FC = () => {
         }
       }
 
+      if (didSave && didMoveClients) {
+        setHighlightedRowIds(highlightedRowsToPreserve);
+        window.setTimeout(() => {
+          highlightedRowsToPreserve.forEach((id) => {
+            if ((window as any).openMapPopup) {
+              (window as any).openMapPopup(id);
+            }
+          });
+          window.setTimeout(() => {
+            setHighlightedRowIds(highlightedRowsToPreserve);
+            releaseHighlightedRowsForAssignment();
+          }, 1200);
+        }, 0);
+      } else {
+        releaseHighlightedRowsForAssignment();
+      }
+
       return didSave;
     } catch (error) {
+      releaseHighlightedRowsForAssignment();
       handleAssignmentSaveError(error, "Unable to update the route assignment. Please try again.");
       return false;
     }
@@ -1506,6 +1543,7 @@ const DeliverySpreadsheet: React.FC = () => {
     }
 
     try {
+      const highlightedRowsToPreserve = preserveHighlightedRowsForAssignment();
       const resolvedClusterId =
         newClusterId === "__add__" || newClusterId === "__add_new_cluster__"
           ? ""
@@ -1610,6 +1648,7 @@ const DeliverySpreadsheet: React.FC = () => {
       });
 
       if (!didSave) {
+        releaseHighlightedRowsForAssignment();
         return false;
       }
 
@@ -1671,8 +1710,26 @@ const DeliverySpreadsheet: React.FC = () => {
         );
       }
 
+      if (didChangeClusters) {
+        setHighlightedRowIds(highlightedRowsToPreserve);
+        window.setTimeout(() => {
+          highlightedRowsToPreserve.forEach((id) => {
+            if ((window as any).openMapPopup) {
+              (window as any).openMapPopup(id);
+            }
+          });
+          window.setTimeout(() => {
+            setHighlightedRowIds(highlightedRowsToPreserve);
+            releaseHighlightedRowsForAssignment();
+          }, 1200);
+        }, 0);
+      } else {
+        releaseHighlightedRowsForAssignment();
+      }
+
       return true;
     } catch (error) {
+      releaseHighlightedRowsForAssignment();
       handleAssignmentSaveError(error, "Unable to update the route assignment. Please try again.");
       return false;
     }
@@ -2092,6 +2149,9 @@ const DeliverySpreadsheet: React.FC = () => {
   };
 
   const clearRowHighlight = (clientId?: string) => {
+    if (highlightRestoreLockRef.current) {
+      return;
+    }
     if (clientId) {
       setHighlightedRowIds((prev) => {
         const next = new Set(prev);
@@ -2194,7 +2254,6 @@ const DeliverySpreadsheet: React.FC = () => {
             const searchValues = splitFilterValues(searchValue);
             const matchesAnySearchValue = (matcher: (candidate: string) => boolean): boolean =>
               searchValues.some((candidate: string) => matcher(candidate));
-
             switch (normalizedKeyword) {
               case "name":
               case "client":
@@ -2295,6 +2354,23 @@ const DeliverySpreadsheet: React.FC = () => {
                 return matchesAnySearchValue((candidate) =>
                   checkStringContains(row.tefapCert, candidate)
                 );
+              case "date":
+              case "famstartdate": {
+                return matchesAnySearchValue((candidate) => {
+                  const normalizedCandidateDate = deliveryDate.tryToDateTime(candidate);
+                  const normalizedRowDate = deliveryDate.tryToDateTime(row.famStartDate);
+
+                  if (!normalizedCandidateDate || !normalizedRowDate) {
+                    return false;
+                  }
+
+                  const candidateDisplay = deliveryDate.toDisplayString(normalizedCandidateDate);
+                  const rowDisplay = deliveryDate.toDisplayString(normalizedRowDate);
+                  const matches = checkStringEquals(rowDisplay, candidateDisplay);
+
+                  return matches;
+                });
+              }
               case "dob":
                 return matchesAnySearchValue((candidate) =>
                   checkValueOrInArray(row.dob, candidate, true)
@@ -3020,12 +3096,44 @@ const DeliverySpreadsheet: React.FC = () => {
             fontSize: "0.875rem",
             padding: "8px 16px",
           }}
-          onClick={handleResetClusters}
+          onClick={() => setIsResetClustersConfirmOpen(true)}
           startIcon={<RestartAltIcon />}
         >
           Reset Clusters
         </Button>
       </div>
+
+      {/* Reset Clusters confirmation dialog */}
+      <Dialog
+        open={isResetClustersConfirmOpen}
+        onClose={() => setIsResetClustersConfirmOpen(false)}
+        aria-labelledby="reset-clusters-confirm-title"
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle id="reset-clusters-confirm-title">Reset Clusters?</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2">
+            This will remove all route assignments and cluster groupings for this day. This action
+            cannot be undone.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setIsResetClustersConfirmOpen(false)} color="inherit">
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            color="error"
+            onClick={() => {
+              setIsResetClustersConfirmOpen(false);
+              handleResetClusters();
+            }}
+          >
+            Yes, Reset
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {clusterDoc !== undefined && !isMainLoading && rows.length > 0 && unassignedRouteCount > 0 ? (
         <Alert severity="warning" sx={{ mb: 2 }}>
@@ -3936,7 +4044,7 @@ const DeliverySpreadsheet: React.FC = () => {
                             if (key === "address") label = "Address";
                             if (key === "adults") label = "Adults";
                             if (key === "children") label = "Children";
-                            if (key === "famStartDate") label = "FAM Start Date";
+                            if (key === "famStartDate") label = "Fam Start Date";
                             if (key === "deliveryFreq") label = "Delivery Freq";
                             if (key === "deliveryDetails.dietaryRestrictions")
                               label = "Dietary Restrictions";
@@ -4149,7 +4257,7 @@ const DeliverySpreadsheet: React.FC = () => {
                             if (key === "address") label = "Address";
                             if (key === "adults") label = "Adults";
                             if (key === "children") label = "Children";
-                            if (key === "famStartDate") label = "FAM Start Date";
+                            if (key === "famStartDate") label = "Fam Start Date";
                             if (key === "deliveryFreq") label = "Delivery Freq";
                             if (key === "deliveryDetails.dietaryRestrictions")
                               label = "Dietary Restrictions";

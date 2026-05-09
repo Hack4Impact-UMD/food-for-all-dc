@@ -251,6 +251,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
   const previousVisibleRowsKeyRef = useRef<string>("");
   const isPopupOpening = useRef<boolean>(false); // Prevent close handler from firing during opening
   const isOpeningFromTableRef = useRef<boolean>(false); // True when popup is opened via table row click
+  const suppressedPopupClientIdsRef = useRef<Set<string>>(new Set());
   const topPopupZIndexRef = useRef<number>(700); // Base Leaflet popup z-index is ~700
   const clustersRef = useRef<Cluster[]>(clusters);
 
@@ -801,6 +802,10 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
               ?.querySelector("[data-client-id]")
               ?.getAttribute("data-client-id") ?? undefined;
 
+          if (clientId && suppressedPopupClientIdsRef.current.has(clientId)) {
+            return;
+          }
+
           scheduleClusterMapTimeout(() => {
             if (!isMapAliveRef.current || isPopupOpening.current) {
               return;
@@ -887,6 +892,21 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
   useEffect(() => {
     if (!mapRef.current || !markerGroupRef.current || !isMapAliveRef.current) return;
 
+    // Find which client's popup is currently open before we destroy the markers.
+    // We'll re-open it after rebuilding so the highlight is preserved.
+    // Find all clients whose popups are open before we destroy markers.
+    // Multiple rows can be highlighted simultaneously, each with an open popup.
+    const clientIdsToReopen: string[] = [];
+    markersMapRef.current.forEach((marker, clientId) => {
+      if (marker.isPopupOpen()) {
+        clientIdsToReopen.push(clientId);
+      }
+    });
+
+    // Suppress the map-level popupclose handler while we programmatically
+    // close popups and clear layers — this prevents clearRowHighlight from firing.
+    isPopupOpening.current = true;
+
     withLiveMap((map) => {
       map.stop();
       map.closePopup();
@@ -899,6 +919,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
 
     if (visibleRows.length < 1) {
       previousVisibleRowsKeyRef.current = "";
+      isPopupOpening.current = false;
       return;
     }
 
@@ -1378,11 +1399,18 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
 
           // Sync row highlight from popup open (not from marker click) so they always match.
           // Skip when opened by a table row click — the table already highlighted the row.
-          if (!isOpeningFromTableRef.current && onMarkerClickRef.current) {
+          if (
+            !isOpeningFromTableRef.current &&
+            !suppressedPopupClientIdsRef.current.has(client.id) &&
+            onMarkerClickRef.current
+          ) {
             onMarkerClickRef.current(client.id);
           }
         })
         .on("popupclose", () => {
+          if (suppressedPopupClientIdsRef.current.has(client.id)) {
+            return;
+          }
           isPopupOpening.current = false;
         })
         .addTo(markerGroupRef.current!);
@@ -1430,6 +1458,28 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
         });
       });
       previousVisibleRowsKeyRef.current = visibleRowsKey;
+    }
+
+    // Re-open the popup that was open before the rebuild (if any).
+    // Set isOpeningFromTableRef so popupopen doesn't double-add the highlight.
+    // Re-open all popups that were open before the rebuild.
+    // Suppress popupclose/popupopen side effects for these client IDs during restoration.
+    if (clientIdsToReopen.length > 0) {
+      suppressedPopupClientIdsRef.current = new Set(clientIdsToReopen);
+      isOpeningFromTableRef.current = true;
+      clientIdsToReopen.forEach((id) => {
+        const markerToReopen = markersMapRef.current.get(id);
+        if (markerToReopen) {
+          markerToReopen.openPopup();
+        }
+      });
+      scheduleClusterMapTimeout(() => {
+        isPopupOpening.current = false;
+        isOpeningFromTableRef.current = false;
+        suppressedPopupClientIdsRef.current.clear();
+      }, 350);
+    } else {
+      isPopupOpening.current = false;
     }
   }, [
     visibleRows,

@@ -24,7 +24,10 @@ describe("DeliverySpreadsheet search alias regression guards", () => {
     expect(source).toContain("routeCustomColumnMappings");
     expect(source).toContain("aliases.some((alias) => normalizeSearchKeyword(alias) === normalizedKeyword)");
     expect(source).toContain('"deliveryDetails.dietaryRestrictions.dietaryPreferences": ["dietary preferences"]');
-    expect(source).toContain('famStartDate: ["family start date"]');
+    expect(source).toContain('famStartDate: ["fam start date", "family start date"]');
+    expect(source).toContain('famStartDate: "Fam Start Date"');
+    expect(source).toContain('case "famstartdate":');
+    expect(source).toContain('deliveryDate.tryToISODateString(candidate)');
   });
 
   it("keeps delivery autocomplete suggestions aligned with visible header labels", () => {
