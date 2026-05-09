@@ -27,7 +27,8 @@ describe("DeliverySpreadsheet search alias regression guards", () => {
     expect(source).toContain('famStartDate: ["fam start date", "family start date"]');
     expect(source).toContain('famStartDate: "Fam Start Date"');
     expect(source).toContain('case "famstartdate":');
-    expect(source).toContain('deliveryDate.tryToISODateString(candidate)');
+    expect(source).toContain("deliveryDate.tryToDateTime(candidate)");
+    expect(source).toContain("deliveryDate.toDisplayString(normalizedRowDate)");
   });
 
   it("keeps delivery autocomplete suggestions aligned with visible header labels", () => {
