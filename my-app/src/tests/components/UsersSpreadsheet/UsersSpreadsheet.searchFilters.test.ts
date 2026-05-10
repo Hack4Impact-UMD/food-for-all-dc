@@ -11,7 +11,13 @@ describe("UsersSpreadsheet search filter regression guards", () => {
     expect(source).toContain("matchesAnySearchValue");
   });
 
+  it("derives user autocomplete suggestions from the visible headers", () => {
+    expect(source).toContain("userFieldMappings");
+    expect(source).toContain("field.label");
+    expect(source).toContain("...Object.values(userFieldMappings).flat()");
+  });
+
   it("shows multi-value examples in the Clients page search placeholder", () => {
-    expect(source).toContain('placeholder="Search users (e.g., role:admin,manager, name:jane,john, email:test@example.com)"');
+    expect(source).toContain('placeholder="Search users (use ; between filters, e.g., role:admin,manager; name:jane,john; email:test@example.com)"');
   });
 });

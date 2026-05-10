@@ -1282,16 +1282,44 @@ const Profile = () => {
       }
       // --- Geocoding Optimization Start ---
       // Always force geocoding and coordinate update on every save
-      const { ward: fetchedWard, coordinates: fetchedCoordinates } = await getWardAndCoordinates(
-        clientProfile.address
-      );
-      const hasValidCoordinates =
-        Array.isArray(fetchedCoordinates) &&
-        fetchedCoordinates.length === 2 &&
-        (fetchedCoordinates[0] !== 0 || fetchedCoordinates[1] !== 0);
-      const coordinatesToSave: [number, number] | [] = hasValidCoordinates
-        ? [fetchedCoordinates[0], fetchedCoordinates[1]]
-        : [];
+      // Only geocode when address changed or existing coords/ward are missing/invalid
+      const addressChanged =
+        clientProfile.address !== prevClientProfile?.address ||
+        clientProfile.address2 !== prevClientProfile?.address2 ||
+        clientProfile.city !== prevClientProfile?.city ||
+        clientProfile.state !== prevClientProfile?.state ||
+        clientProfile.zipCode !== prevClientProfile?.zipCode;
+      const existingCoords = clientProfile.coordinates;
+      const hasExistingValidCoords =
+        Array.isArray(existingCoords) &&
+        existingCoords.length === 2 &&
+        (existingCoords[0] !== 0 || existingCoords[1] !== 0);
+      const hasValidWard =
+        !!clientProfile.ward &&
+        clientProfile.ward !== "No address" &&
+        clientProfile.ward !== "Error";
+      const needsGeocode = addressChanged || !hasExistingValidCoords || !hasValidWard;
+
+      let fetchedWard: string;
+      let coordinatesToSave: [number, number] | [];
+
+      if (needsGeocode) {
+        const { ward: geoWard, coordinates: fetchedCoordinates } = await getWardAndCoordinates(
+          clientProfile.address
+        );
+        const hasValidCoordinates =
+          Array.isArray(fetchedCoordinates) &&
+          fetchedCoordinates.length === 2 &&
+          (fetchedCoordinates[0] !== 0 || fetchedCoordinates[1] !== 0);
+        fetchedWard = geoWard;
+        coordinatesToSave = hasValidCoordinates
+          ? [fetchedCoordinates[0], fetchedCoordinates[1]]
+          : [];
+      } else {
+        // Address unchanged and existing coords/ward are valid — skip geocoding
+        fetchedWard = clientProfile.ward;
+        coordinatesToSave = existingCoords as [number, number];
+      }
       // Update the ward state
       clientProfile.ward = fetchedWard;
       setWard(fetchedWard);
@@ -2718,6 +2746,16 @@ const Profile = () => {
 
         if (newDelivery.recurrence === "None") {
           return [normalizedStartDate];
+        }
+
+        if (newDelivery.recurrence === "Monthly-Pattern") {
+          return Array.from(
+            new Set(
+              (newDelivery.customDates || [])
+                .map((date) => deliveryDate.tryToISODateString(date))
+                .filter((dateKey): dateKey is string => Boolean(dateKey))
+            )
+          ).sort();
         }
 
         const recurrenceDates = Time.Recurrence.calculateRecurrenceDates(

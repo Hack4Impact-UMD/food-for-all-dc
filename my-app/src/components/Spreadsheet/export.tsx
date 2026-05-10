@@ -97,7 +97,7 @@ const getSpreadsheetExportColumnHeader = (propertyKey: string): string => {
     case "tefapCert":
       return "TEFAP Cert";
     case "famStartDate":
-      return "FAM Start Date";
+      return "Fam Start Date";
     case "tags":
       return "Tags";
     case "dob":

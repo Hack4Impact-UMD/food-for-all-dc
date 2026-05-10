@@ -232,6 +232,7 @@ const buildRouteCsvRow = (
     quadrant?: string;
     adults?: number;
     children?: number;
+    seniors?: number;
     total?: number;
   };
   const dietaryColumns = formatRouteDietaryColumns(row.deliveryDetails?.dietaryRestrictions);
@@ -246,7 +247,9 @@ const buildRouteCsvRow = (
     phone: row.phone || "",
     adults: rowData.adults ?? 0,
     children: rowData.children ?? 0,
-    total: rowData.total ?? (rowData.adults ?? 0) + (rowData.children ?? 0),
+    seniors: rowData.seniors ?? 0,
+    total:
+      rowData.total ?? (rowData.adults ?? 0) + (rowData.children ?? 0) + (rowData.seniors ?? 0),
     deliveryInstructions: row.deliveryDetails?.deliveryInstructions || "",
     dietaryRestrictions: dietaryColumns.dietaryRestrictions,
     dietaryPreferences: dietaryColumns.dietaryPreferences,

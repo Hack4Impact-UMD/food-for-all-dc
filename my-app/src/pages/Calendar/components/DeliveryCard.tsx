@@ -65,7 +65,7 @@ const DeliveryCard: React.FC<DeliveryCardProps> = React.memo(function DeliveryCa
       }}
     >
       <Box className={styles.clientSection}>
-        <Box>
+        <Box className={styles.clientSectionContent}>
           <Box className={styles.clientNameRow}>
             <span
               title={statusPresentation.tooltip}
@@ -90,11 +90,14 @@ const DeliveryCard: React.FC<DeliveryCardProps> = React.memo(function DeliveryCa
               className={styles.clientNameLink}
               aria-label={`View profile for ${event.clientName}`}
               onClick={(e) => e.stopPropagation()}
+               title={event.clientName}
             >
               {event.clientName}
             </Typography>
           </Box>
-          <DeliveryRecurrenceDisplay event={event} />
+          <Box sx={{ pl: "24px" }}>
+            <DeliveryRecurrenceDisplay event={event} />
+          </Box>
         </Box>
       </Box>
 
@@ -103,38 +106,35 @@ const DeliveryCard: React.FC<DeliveryCardProps> = React.memo(function DeliveryCa
       <Box className={styles.infoContainer}>
         {[
           {
-            label: "PHONE",
+            key: "phone",
             value: client?.phone ? formatPhoneNumber(client.phone) : "N/A",
           },
           {
-            label: "ADDRESS",
+            key: "address",
             value: client
               ? `${client.address}${client.address2 ? " " + client.address2 : ""}`
               : "N/A",
           },
           {
-            label: "DIETARY RESTRICTIONS",
+            key: "dietary",
             value: dietaryRestrictions.length ? dietaryRestrictions.join(", ") : "N/A",
           },
           {
-            label: "TAGS",
+            key: "tags",
             value: client?.tags?.length ? client.tags.join(", ") : "N/A",
           },
           {
-            label: "NOTES",
+            key: "notes",
             value: client?.notes || "N/A",
           },
-        ].map(({ label, value }) => (
-          <Box key={label} className={styles.infoItem}>
-            <Typography variant="subtitle2" className={styles.infoLabel}>
-              {label}
-            </Typography>
+        ].map(({ key, value }) => (
+          <Box key={key} className={styles.infoItem}>
             <Typography
               variant="body1"
               className={`${styles.infoValue} ${
-                label === "NOTES"
+                key === "notes"
                   ? styles.truncatedNotes
-                  : label === "DIETARY RESTRICTIONS"
+                  : key === "dietary"
                     ? styles.truncatedDiet
                     : ""
               }`}

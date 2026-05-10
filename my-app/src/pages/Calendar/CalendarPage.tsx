@@ -143,6 +143,7 @@ const CalendarPage: React.FC = React.memo(() => {
   const [isInitialLoad, setIsInitialLoad] = useState<boolean>(true);
   const limits = useLimits();
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const fetchEventsRequestIdRef = useRef(0);
 
   // Memoized client lookup map for O(1) performance instead of O(n) array.find
   const clientLookupMap = useMemo(() => {
@@ -272,6 +273,8 @@ const CalendarPage: React.FC = React.memo(() => {
   };
 
   const fetchEvents = useCallback(async () => {
+    const requestId = ++fetchEventsRequestIdRef.current;
+
     try {
       const { queryStart, queryEndExclusive } = getCalendarViewRange(currentDate, viewType);
 
@@ -284,6 +287,10 @@ const CalendarPage: React.FC = React.memo(() => {
 
       // Lazy load only the clients we need for these events
       const neededClients = await fetchClientsLazy(uniqueClientIds);
+
+      if (requestId !== fetchEventsRequestIdRef.current) {
+        return [];
+      }
 
       // Create efficient lookup map from the clients we just fetched
       const eventClientLookupMap = new Map();
@@ -328,6 +335,9 @@ const CalendarPage: React.FC = React.memo(() => {
 
       return updatedEvents;
     } catch (error) {
+      if (requestId !== fetchEventsRequestIdRef.current) {
+        return [];
+      }
       console.error("Error fetching events:", error);
       return [];
     }

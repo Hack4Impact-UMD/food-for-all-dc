@@ -15,6 +15,8 @@ const getDeliveryTypeInfo = (recurrence: string) => {
       return { label: "2x-MONTHLY DELIVERY", className: styles.twoXMonthly };
     case "Monthly":
       return { label: "MONTHLY DELIVERY", className: styles.monthly };
+    case "Monthly-Pattern":
+      return { label: "MONTHLY PATTERN DELIVERY", className: styles.monthly };
     case "Custom":
       return { label: "CUSTOM DELIVERY", className: styles.custom };
     default:

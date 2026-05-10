@@ -26,7 +26,12 @@ import { validateDeliveryDateRange } from "../../../utils/dateValidation";
 import { clientService } from "../../../services/client-service";
 import { deliveryDate } from "../../../utils/deliveryDate";
 import { DeliveryService } from "../../../services";
-import { calculateRecurrenceDates } from "./CalendarUtils";
+import {
+  calculateRecurrenceDates,
+  generateMonthlyRecurrencePatternDates,
+  WeekPosition,
+  PatternDayOfWeek,
+} from "./CalendarUtils";
 import {
   buildDailyLimitsMap,
   buildProjectedCapacityWarnings,
@@ -244,6 +249,8 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
   const [newDelivery, setNewDelivery] = useState<NewDelivery>(() => buildInitialDeliveryState());
 
   const [customDates, setCustomDates] = useState<Date[]>([]);
+  const [weekPosition, setWeekPosition] = useState<WeekPosition>("first");
+  const [patternDayOfWeek, setPatternDayOfWeek] = useState<PatternDayOfWeek>("monday");
   const [startDateError, setStartDateError] = useState<string>("");
   const [endDateError, setEndDateError] = useState<string>("");
 
@@ -271,6 +278,14 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
       return isValidDateFormat(newDelivery.deliveryDate);
     }
     if (["Weekly", "2x-Monthly", "Monthly"].includes(newDelivery.recurrence)) {
+      if (!newDelivery.deliveryDate || !newDelivery.repeatsEndDate) return false;
+      if (hasStartDateError || hasEndDateError || hasDeliveryDateError || hasRepeatsEndDateError)
+        return false;
+      return (
+        isValidDateFormat(newDelivery.deliveryDate) && isValidDateFormat(newDelivery.repeatsEndDate)
+      );
+    }
+    if (newDelivery.recurrence === "Monthly-Pattern") {
       if (!newDelivery.deliveryDate || !newDelivery.repeatsEndDate) return false;
       if (hasStartDateError || hasEndDateError || hasDeliveryDateError || hasRepeatsEndDateError)
         return false;
@@ -392,6 +407,8 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
     setNewDelivery(buildInitialDeliveryState());
     setSelectedClientProfile(preSelectedClient?.clientProfile || null);
     setCustomDates([]);
+    setWeekPosition("first");
+    setPatternDayOfWeek("monday");
     setStartDateError("");
     setEndDateError("");
     setFormError("");
@@ -483,6 +500,22 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
       let candidateDates: string[] = [];
       if (newDelivery.recurrence === "Custom") {
         candidateDates = normalizedCustomDates;
+      } else if (newDelivery.recurrence === "Monthly-Pattern") {
+        if (normalizedDeliveryDate && normalizedRepeatsEndDate) {
+          const patternDates = generateMonthlyRecurrencePatternDates({
+            startDate: new Date(normalizedDeliveryDate + "T00:00:00"),
+            endDate: new Date(normalizedRepeatsEndDate + "T00:00:00"),
+            weekPosition,
+            dayOfWeek: patternDayOfWeek,
+          });
+          candidateDates = patternDates
+            .map((d) => {
+              const mm = String(d.getMonth() + 1).padStart(2, "0");
+              const dd = String(d.getDate()).padStart(2, "0");
+              return `${d.getFullYear()}-${mm}-${dd}`;
+            })
+            .filter(Boolean);
+        }
       } else if (normalizedDeliveryDate) {
         if (newDelivery.recurrence === "None") {
           candidateDates = [normalizedDeliveryDate];
@@ -499,7 +532,17 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
       const uniqueCandidateDates = Array.from(new Set(candidateDates));
 
       if (!uniqueCandidateDates.length) {
-        setFormError("Please select at least one delivery date.");
+        if (newDelivery.recurrence === "Monthly-Pattern") {
+          const positionLabel =
+            weekPosition.charAt(0).toUpperCase() + weekPosition.slice(1);
+          const dayLabel =
+            patternDayOfWeek.charAt(0).toUpperCase() + patternDayOfWeek.slice(1);
+          setFormError(
+            `No ${positionLabel} ${dayLabel} dates fall between the delivery date and end date. Try extending the end date.`
+          );
+        } else {
+          setFormError("Please select at least one delivery date.");
+        }
         return;
       }
 
@@ -580,6 +623,14 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
         deliveryToSubmit.customDates = uniqueCustomDates;
         deliveryToSubmit.deliveryDate = uniqueCustomDates[0] || normalizedDeliveryDate;
         deliveryToSubmit.repeatsEndDate = undefined;
+      } else if (newDelivery.recurrence === "Monthly-Pattern") {
+        const sortedDates = Array.from(new Set(nonConflictingCandidateDates)).sort();
+        deliveryToSubmit.deliveryDate = sortedDates[0] || normalizedDeliveryDate;
+        deliveryToSubmit.repeatsEndDate = normalizedRepeatsEndDate;
+        deliveryToSubmit.monthlyPatternWeekPosition = weekPosition;
+        deliveryToSubmit.monthlyPatternDayOfWeek = patternDayOfWeek;
+        // Store all generated dates the same way Custom does so the service can create each one
+        deliveryToSubmit.customDates = sortedDates;
       } else {
         deliveryToSubmit.deliveryDate = normalizedDeliveryDate;
         if (newDelivery.recurrence !== "None") {
@@ -960,12 +1011,50 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
               <MenuItem value="Weekly">Weekly</MenuItem>
               <MenuItem value="2x-Monthly">2x-Monthly</MenuItem>
               <MenuItem value="Monthly">Monthly (Every 4 Weeks)</MenuItem>
+              <MenuItem value="Monthly-Pattern">Monthly Recurrence Pattern</MenuItem>
               <MenuItem value="Custom">Custom (Select Dates)</MenuItem>
             </Select>
           </FormControl>
         </Box>
         {newDelivery.recurrence === "Custom" ? (
           <>
+            <Box
+              sx={{
+                mb: 2,
+                p: 2,
+                bgcolor: "info.50",
+                border: "1px solid",
+                borderColor: "info.200",
+                borderRadius: 1,
+                display: "flex",
+                alignItems: "flex-start",
+                gap: 1,
+              }}
+            >
+              <Typography variant="body2" sx={{ color: "text.secondary" }}>
+                For repeating monthly patterns like the third Friday, use{" "}
+                <Box
+                  component="span"
+                  onClick={() => {
+                    setNewDelivery((prev) => ({
+                      ...prev,
+                      recurrence: "Monthly-Pattern",
+                      customDates: undefined,
+                    }));
+                    setCustomDates([]);
+                  }}
+                  sx={{
+                    color: "primary.main",
+                    textDecoration: "underline",
+                    cursor: "pointer",
+                    fontWeight: 500,
+                  }}
+                >
+                  Monthly Recurrence Pattern
+                </Box>
+                .
+              </Typography>
+            </Box>
             <Typography variant="body1" sx={{ mb: 2 }}>
               Select Custom Dates
             </Typography>
@@ -979,7 +1068,89 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
         ) : (
           <Box sx={{ mb: 2 }} />
         )}
-        {newDelivery.recurrence !== "None" && newDelivery.recurrence !== "Custom" ? (
+        {newDelivery.recurrence === "Monthly-Pattern" ? (
+          <>
+            <Box
+              sx={{
+                mt: 1,
+                mb: 2,
+                p: 2,
+                border: "1px solid",
+                borderColor: "divider",
+                borderRadius: 1,
+              }}
+            >
+              <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 600 }}>
+                Monthly Recurrence Pattern
+              </Typography>
+              <Typography variant="body2" sx={{ mb: 2, color: "text.secondary" }}>
+                Create deliveries on the{" "}
+                <strong>
+                  {{ first: "First", second: "Second", third: "Third", fourth: "Fourth", last: "Last" }[weekPosition]}
+                </strong>{" "}
+                <strong>
+                  {{ monday: "Monday", tuesday: "Tuesday", wednesday: "Wednesday", thursday: "Thursday", friday: "Friday", saturday: "Saturday", sunday: "Sunday" }[patternDayOfWeek]}
+                </strong>{" "}
+                of each month.
+              </Typography>
+              <Box sx={{ display: "flex", gap: 2 }}>
+                <FormControl fullWidth variant="outlined" size="small">
+                  <InputLabel id="week-position-label">Week position</InputLabel>
+                  <Select
+                    label="Week position"
+                    labelId="week-position-label"
+                    value={weekPosition}
+                    onChange={(e) => setWeekPosition(e.target.value as WeekPosition)}
+                  >
+                    <MenuItem value="first">First</MenuItem>
+                    <MenuItem value="second">Second</MenuItem>
+                    <MenuItem value="third">Third</MenuItem>
+                    <MenuItem value="fourth">Fourth</MenuItem>
+                    <MenuItem value="last">Last</MenuItem>
+                  </Select>
+                </FormControl>
+                <FormControl fullWidth variant="outlined" size="small">
+                  <InputLabel id="day-of-week-label">Day of week</InputLabel>
+                  <Select
+                    label="Day of week"
+                    labelId="day-of-week-label"
+                    value={patternDayOfWeek}
+                    onChange={(e) => setPatternDayOfWeek(e.target.value as PatternDayOfWeek)}
+                  >
+                    <MenuItem value="monday">Monday</MenuItem>
+                    <MenuItem value="tuesday">Tuesday</MenuItem>
+                    <MenuItem value="wednesday">Wednesday</MenuItem>
+                    <MenuItem value="thursday">Thursday</MenuItem>
+                    <MenuItem value="friday">Friday</MenuItem>
+                    <MenuItem value="saturday">Saturday</MenuItem>
+                    <MenuItem value="sunday">Sunday</MenuItem>
+                  </Select>
+                </FormControl>
+              </Box>
+            </Box>
+            <DateField
+              label="End Date"
+              value={newDelivery.repeatsEndDate || ""}
+              onChange={(dateStr: string) => {
+                setNewDelivery({ ...newDelivery, repeatsEndDate: dateStr });
+              }}
+              required
+              error={newDelivery._repeatsEndDateError}
+              min={newDelivery.deliveryDate || clientStartDateISO || undefined}
+              max={clientEndDateISO || undefined}
+              setError={(err: string | null) => {
+                setNewDelivery((prev: NewDelivery) => ({
+                  ...prev,
+                  _repeatsEndDateError: err || undefined,
+                }));
+              }}
+            />
+            <Typography sx={{ color: "red" }}>{endDateError}</Typography>
+          </>
+        ) : null}
+        {newDelivery.recurrence !== "None" &&
+        newDelivery.recurrence !== "Custom" &&
+        newDelivery.recurrence !== "Monthly-Pattern" ? (
           <>
             <DateField
               label="End Date"

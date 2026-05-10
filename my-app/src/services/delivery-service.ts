@@ -252,6 +252,10 @@ class DeliveryService {
       Object.entries(event).map(([k, v]) => [k, v === undefined ? null : v])
     );
 
+    // Keep Firestore document id as the single source of truth.
+    // Persisting an `id` field in payloads can later shadow the document id on reads.
+    delete (cleanEvent as Partial<DeliveryEvent>).id;
+
     if (cleanEvent.deliveryDate) {
       cleanEvent.deliveryDate = deliveryDate.toJSDate(cleanEvent.deliveryDate as any);
     }
@@ -276,8 +280,8 @@ class DeliveryService {
     }
 
     const event = {
-      id: snapshot.id,
       ...raw,
+      id: snapshot.id,
       deliveryDate: deliveryDate.toJSDate(
         raw.deliveryDate as string | Date | Timestamp | null | undefined
       ),
@@ -669,7 +673,7 @@ class DeliveryService {
             const normalizedDate = deliveryDate.toJSDate(
               Time.Firebase.fromTimestamp(raw.deliveryDate).toJSDate()
             );
-            const data = { id: doc.id, ...raw, deliveryDate: normalizedDate };
+            const data = { ...raw, id: doc.id, deliveryDate: normalizedDate };
             return validateDeliveryEvent(data) ? data : undefined;
           })
           .filter((event) => event !== undefined) as DeliveryEvent[];
@@ -704,7 +708,7 @@ class DeliveryService {
             const normalizedDate = deliveryDate.toJSDate(
               Time.Firebase.fromTimestamp(raw.deliveryDate).toJSDate()
             );
-            const data = { id: doc.id, ...raw, deliveryDate: normalizedDate };
+            const data = { ...raw, id: doc.id, deliveryDate: normalizedDate };
             return validateDeliveryEvent(data) ? data : undefined;
           })
           .filter((event) => event !== undefined) as DeliveryEvent[];
@@ -871,6 +875,16 @@ class DeliveryService {
     newDelivery: Pick<NewDelivery, "deliveryDate" | "recurrence" | "repeatsEndDate" | "customDates">
   ): string[] {
     if (newDelivery.recurrence === "Custom") {
+      return Array.from(
+        new Set(
+          (newDelivery.customDates || [])
+            .map((date) => deliveryDate.tryToISODateString(date))
+            .filter((dateKey): dateKey is string => Boolean(dateKey))
+        )
+      ).sort();
+    }
+
+    if (newDelivery.recurrence === "Monthly-Pattern") {
       return Array.from(
         new Set(
           (newDelivery.customDates || [])
@@ -1406,7 +1420,7 @@ class DeliveryService {
 
       querySnapshot.docs.forEach((docSnapshot) => {
         const eventData = docSnapshot.data() as Partial<DeliveryEvent>;
-        const cacheEvent = { id: docSnapshot.id, ...eventData };
+        const cacheEvent = { ...eventData, id: docSnapshot.id };
         const eventDateKey = eventData.deliveryDate
           ? deliveryDate.tryToISODateString(eventData.deliveryDate as any)
           : null;
@@ -1517,8 +1531,8 @@ class DeliveryService {
             }
             const deliveryDateValue = deliveryDate.toJSDate(data.deliveryDate);
             return {
-              id: doc.id,
               ...data,
+              id: doc.id,
               deliveryDate: deliveryDateValue,
             } as DeliveryEvent;
           })

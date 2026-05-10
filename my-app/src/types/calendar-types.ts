@@ -17,7 +17,7 @@ export interface DateLimit {
 
 // Extending Delivery for calendar-specific fields
 export interface DeliveryEvent extends Delivery {
-  recurrence: "None" | "Weekly" | "2x-Monthly" | "Monthly" | "Custom";
+  recurrence: "None" | "Weekly" | "2x-Monthly" | "Monthly" | "Custom" | "Monthly-Pattern";
   customDates?: string[];
   recurrenceId?: string;
   seriesStartDate?: string; // The original start date of a recurring series
@@ -32,9 +32,11 @@ export interface NewDelivery {
   clientId: string;
   clientName: string;
   deliveryDate: string; // ISO string for the delivery date
-  recurrence: "None" | "Weekly" | "2x-Monthly" | "Monthly" | "Custom";
+  recurrence: "None" | "Weekly" | "2x-Monthly" | "Monthly" | "Custom" | "Monthly-Pattern";
   repeatsEndDate?: string;
   customDates?: string[];
+  monthlyPatternWeekPosition?: "first" | "second" | "third" | "fourth" | "last";
+  monthlyPatternDayOfWeek?: "monday" | "tuesday" | "wednesday" | "thursday" | "friday" | "saturday" | "sunday";
   // For validation error messages
   _deliveryDateError?: string;
   _repeatsEndDateError?: string;

@@ -47,7 +47,10 @@ const EventMenu: React.FC<EventMenuProps> = ({
   dailyLimits,
 }) => {
   const deliveryService = useMemo(() => DeliveryService.getInstance(), []);
-  const supportsFutureDelete = event.recurrence !== "None" && Boolean(event.recurrenceId);
+  const supportsFutureDelete =
+    event.recurrence !== "None" &&
+    event.recurrence !== "Monthly-Pattern" &&
+    Boolean(event.recurrenceId);
   const supportsFutureEdit = supportsFutureDelete && event.recurrence !== "Custom";
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);

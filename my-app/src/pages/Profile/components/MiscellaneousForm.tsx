@@ -85,7 +85,7 @@ const MiscellaneousForm: React.FC<MiscellaneousFormProps> = ({
               pb: 0,
             }}
           >
-            FAM Start Date
+            Fam Start Date
           </Typography>
           {isEditing ? (
             <Box sx={{ minHeight: 120, width: "100%" }}>{renderField("famStartDate", "date")}</Box>
