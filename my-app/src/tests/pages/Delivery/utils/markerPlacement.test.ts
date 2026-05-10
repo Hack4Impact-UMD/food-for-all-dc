@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@jest/globals";
-import { buildMarkerPlacementMap, normalizeMarkerPoint } from "./markerPlacement";
+import { buildMarkerPlacementMap, normalizeMarkerPoint } from "../../../../pages/Delivery/utils/markerPlacement";
 
 describe("markerPlacement helpers", () => {
   it("keeps single markers at their original coordinates", () => {

@@ -1,5 +1,5 @@
 import { describe, expect, it, jest } from "@jest/globals";
-import { validateDateInput } from "./dates";
+import { validateDateInput } from "../../utils/dates";
 
 describe("validateDateInput", () => {
   // App coverage:

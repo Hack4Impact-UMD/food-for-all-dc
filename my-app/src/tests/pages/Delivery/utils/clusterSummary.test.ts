@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@jest/globals";
-import { buildClusterSummariesFromClusters, sortClusterSummaries } from "./clusterSummary";
+import { buildClusterSummariesFromClusters, sortClusterSummaries } from "../../../../pages/Delivery/utils/clusterSummary";
 
 describe("clusterSummary helpers", () => {
   // App coverage:
