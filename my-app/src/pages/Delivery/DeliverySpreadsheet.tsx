@@ -2130,14 +2130,10 @@ const DeliverySpreadsheet: React.FC = () => {
 
   const handleMarkerClick = (clientId: string) => {
     const isCurrentlyHighlighted = highlightedRowIds.has(clientId);
-    if (isCurrentlyHighlighted) {
-      return;
-    }
-
     handleRowClick(clientId, false);
 
     // Scroll to the highlighted row when adding a highlight
-    if (virtuosoRef.current && sortedRows.length > 0) {
+    if (!isCurrentlyHighlighted && virtuosoRef.current && sortedRows.length > 0) {
       const rowIndex = sortedRows.findIndex((row) => row.id === clientId);
       if (rowIndex !== -1) {
         // Use setTimeout to ensure the highlight state has been updated
