@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@jest/globals";
-import { sortData, sortDataMultiple } from "./sorting";
+import { sortData, sortDataMultiple } from "../../utils/sorting";
 
 type Row = {
   id: string;

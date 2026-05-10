@@ -3,7 +3,7 @@ import path from "path";
 import { describe, expect, it } from "@jest/globals";
 
 describe("DeliverySpreadsheet search alias regression guards", () => {
-  const sourcePath = path.resolve(__dirname, "DeliverySpreadsheet.tsx");
+  const sourcePath = path.resolve(__dirname, "../../../pages/Delivery/DeliverySpreadsheet.tsx");
   const source = fs.readFileSync(sourcePath, "utf8");
 
   it("normalizes extracted key-value keywords before switch handling", () => {

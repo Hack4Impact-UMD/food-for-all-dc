@@ -3,7 +3,7 @@ import {
   buildProjectedCapacityWarnings,
   getCapacityStatus,
   resolveLimitForDate,
-} from "./capacityStatus";
+} from "../../../../pages/Calendar/components/capacityStatus";
 
 describe("capacityStatus helpers", () => {
   // App coverage:

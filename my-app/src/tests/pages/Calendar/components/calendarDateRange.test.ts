@@ -1,8 +1,8 @@
 import { describe, expect, it } from "@jest/globals";
 import { DayPilot } from "@daypilot/daypilot-lite-react";
 import { DateTime } from "luxon";
-import { deliveryDate } from "../../../utils/deliveryDate";
-import { getCalendarViewRange } from "./calendarDateRange";
+import { deliveryDate } from "../../../../utils/deliveryDate";
+import { getCalendarViewRange } from "../../../../pages/Calendar/components/calendarDateRange";
 
 describe("getCalendarViewRange", () => {
   // App coverage:
