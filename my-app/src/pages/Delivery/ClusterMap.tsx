@@ -87,6 +87,7 @@ interface ClusterMapProps {
   onMarkerClick?: (clientId: string) => void; // Prop to handle marker clicks
   onClearHighlight?: (clientId?: string) => void; // Prop to clear row highlighting
   refreshDriversTrigger?: number; // Optional prop to trigger driver refresh
+  highlightedRowIds?: Set<string>; // Row IDs currently highlighted in the spreadsheet
 }
 
 // DC Ward colors - each ward gets a unique translucent color
@@ -223,6 +224,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
   onMarkerClick,
   onClearHighlight,
   refreshDriversTrigger,
+  highlightedRowIds = new Set(),
 }) => {
   // Fetch drivers from Firebase
   const fetchDrivers = useCallback(async () => {
@@ -1469,13 +1471,14 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
     }
 
     // Re-open the popup that was open before the rebuild (if any).
-    // Set isOpeningFromTableRef so popupopen doesn't double-add the highlight.
-    // Re-open all popups that were open before the rebuild.
-    // Suppress popupclose/popupopen side effects for these client IDs during restoration.
-    if (clientIdsToReopen.length > 0) {
-      suppressedPopupClientIdsRef.current = new Set(clientIdsToReopen);
+    // Also restore popups for any highlighted rows from the parent component.
+    const allIdsToReopen = new Set(clientIdsToReopen);
+    highlightedRowIds.forEach((id) => allIdsToReopen.add(id));
+
+    if (allIdsToReopen.size > 0) {
+      suppressedPopupClientIdsRef.current = new Set(allIdsToReopen);
       isOpeningFromTableRef.current = true;
-      clientIdsToReopen.forEach((id) => {
+      allIdsToReopen.forEach((id) => {
         const markerToReopen = markersMapRef.current.get(id);
         if (markerToReopen) {
           markerToReopen.openPopup();
@@ -1498,6 +1501,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
     getTextColorForBackground,
     scheduleClusterMapTimeout,
     withLiveMap,
+    highlightedRowIds,
   ]);
 
   const invalidCount = invalidDeliveries.length;

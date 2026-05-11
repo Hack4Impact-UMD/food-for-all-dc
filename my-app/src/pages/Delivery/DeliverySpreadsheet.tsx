@@ -3223,6 +3223,7 @@ const DeliverySpreadsheet: React.FC = () => {
               onMarkerClick={handleMarkerClick}
               onClearHighlight={clearRowHighlight}
               refreshDriversTrigger={driversRefreshTrigger}
+              highlightedRowIds={highlightedRowIds}
             />
           </Suspense>
 
