@@ -47,6 +47,8 @@ import FileDownloadIcon from "@mui/icons-material/FileDownload";
 import GroupWorkIcon from "@mui/icons-material/GroupWork";
 import TodayIcon from "@mui/icons-material/Today";
 import UnfoldMoreIcon from "@mui/icons-material/UnfoldMore";
+import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
+import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
 
 import "./DeliverySpreadsheet.css";
 import "leaflet/dist/leaflet.css";
@@ -763,6 +765,7 @@ const DeliverySpreadsheet: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const initialDate = searchParams.get("date");
   const [selectedDate, setSelectedDate] = useState<Date>(parseDateFromUrl(initialDate));
+  const [isMapCollapsed, setIsMapCollapsed] = useState<boolean>(false);
   const selectedDateKey = useMemo(() => deliveryDate.toISODateString(selectedDate), [selectedDate]);
   const { showError, showInfo, showSuccess, showWarning } = useNotifications();
 
@@ -2995,6 +2998,28 @@ const DeliverySpreadsheet: React.FC = () => {
             width: "100%",
           }}
         >
+          <Tooltip title={isMapCollapsed ? "Show map" : "Hide map"}>
+            <IconButton
+              size="small"
+              onClick={() => setIsMapCollapsed((prev) => !prev)}
+              sx={{
+                mr: 1,
+                backgroundColor: "var(--color-primary)",
+                color: "#fff",
+                width: 32,
+                height: 32,
+                "&:hover": {
+                  backgroundColor: "var(--color-primary-dark, #1a6b56)",
+                },
+              }}
+            >
+              {isMapCollapsed ? (
+                <KeyboardArrowDownIcon fontSize="small" />
+              ) : (
+                <KeyboardArrowUpIcon fontSize="small" />
+              )}
+            </IconButton>
+          </Tooltip>
           <Typography
             variant="h5"
             sx={{ color: "var(--color-text-secondary)", width: "350px", textAlign: "center" }}
@@ -3144,67 +3169,69 @@ const DeliverySpreadsheet: React.FC = () => {
       ) : null}
 
       {/* Map Container */}
-      <Box
-        sx={{
-          zIndex: 9,
-          height: "400px",
-          width: "100%",
-          backgroundColor: "var(--color-background-main)",
-          position: "relative",
-        }}
-      >
-        <Suspense fallback={<LoadingIndicator minHeight="400px" />}>
-          <ClusterMap
-            allRows={rows}
-            clusters={clusters}
-            visibleRows={visibleRows}
-            clientOverrides={clientOverrides}
-            onClusterUpdate={handleIndividualClientUpdate}
-            onRenumberClusters={handleRenumberClusters}
-            onOpenPopup={handleRowClick}
-            onMarkerClick={handleMarkerClick}
-            onClearHighlight={clearRowHighlight}
-            refreshDriversTrigger={driversRefreshTrigger}
-          />
-        </Suspense>
+      {!isMapCollapsed && (
+        <Box
+          sx={{
+            zIndex: 9,
+            height: "400px",
+            width: "100%",
+            backgroundColor: "var(--color-background-main)",
+            position: "relative",
+          }}
+        >
+          <Suspense fallback={<LoadingIndicator minHeight="400px" />}>
+            <ClusterMap
+              allRows={rows}
+              clusters={clusters}
+              visibleRows={visibleRows}
+              clientOverrides={clientOverrides}
+              onClusterUpdate={handleIndividualClientUpdate}
+              onRenumberClusters={handleRenumberClusters}
+              onOpenPopup={handleRowClick}
+              onMarkerClick={handleMarkerClick}
+              onClearHighlight={clearRowHighlight}
+              refreshDriversTrigger={driversRefreshTrigger}
+            />
+          </Suspense>
 
-        {isMainLoading && (
-          <Box
-            sx={{
-              position: "absolute",
-              inset: 0,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              zIndex: 1100,
-              backgroundColor: "rgba(255, 255, 255, 0.85)",
-              borderRadius: "4px",
-            }}
-          >
-            <LoadingIndicator minHeight="100%" text="Loading deliveries..." />
-          </Box>
-        )}
+          {isMainLoading && (
+            <Box
+              sx={{
+                position: "absolute",
+                inset: 0,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                zIndex: 1100,
+                backgroundColor: "rgba(255, 255, 255, 0.85)",
+                borderRadius: "4px",
+              }}
+            >
+              <LoadingIndicator minHeight="100%" text="Loading deliveries..." />
+            </Box>
+          )}
 
-        {!isMainLoading && rows.length === 0 && (
-          <Box
-            sx={{
-              position: "absolute",
-              inset: 0,
-              display: "flex",
-              justifyContent: "center",
-              alignItems: "center",
-              zIndex: 1100,
-              backgroundColor: "rgba(255, 255, 255, 0.92)",
-              borderRadius: "4px",
-              border: "1px solid var(--color-border-light)",
-            }}
-          >
-            <Typography variant="h6" color="textSecondary">
-              No deliveries for selected date
-            </Typography>
-          </Box>
-        )}
-      </Box>
+          {!isMainLoading && rows.length === 0 && (
+            <Box
+              sx={{
+                position: "absolute",
+                inset: 0,
+                display: "flex",
+                justifyContent: "center",
+                alignItems: "center",
+                zIndex: 1100,
+                backgroundColor: "rgba(255, 255, 255, 0.92)",
+                borderRadius: "4px",
+                border: "1px solid var(--color-border-light)",
+              }}
+            >
+              <Typography variant="h6" color="textSecondary">
+                No deliveries for selected date
+              </Typography>
+            </Box>
+          )}
+        </Box>
+      )}
 
       {/* Search Bar */}
       <Box
@@ -3381,7 +3408,7 @@ const DeliverySpreadsheet: React.FC = () => {
         <TableContainer
           component={Paper}
           sx={{
-            height: isLoading || sortedRows.length > 0 ? "60vh" : "auto",
+            height: isLoading || sortedRows.length > 0 ? (isMapCollapsed ? "80vh" : "60vh") : "auto",
             width: "100%",
           }}
         >

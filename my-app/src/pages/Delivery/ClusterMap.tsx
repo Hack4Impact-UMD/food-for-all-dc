@@ -7,7 +7,7 @@ import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
 import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
 import FormatListNumberedIcon from "@mui/icons-material/FormatListNumbered";
 import RestartAltIcon from "@mui/icons-material/RestartAlt";
-import { Box, FormControlLabel, IconButton, Popover, Switch, Tooltip, Typography } from "@mui/material";
+import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, FormControlLabel, IconButton, Popover, Switch, Tooltip, Typography } from "@mui/material";
 import DriverService from "../../services/driver-service";
 import FFAIcon from "../../assets/tsp-food-for-all-dc-logo.png";
 import dataSources from "../../config/dataSources";
@@ -368,6 +368,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [loadingDrivers, setLoadingDrivers] = useState<boolean>(false);
   const [invalidBadgeAnchorEl, setInvalidBadgeAnchorEl] = useState<HTMLElement | null>(null);
+  const [driverTimeDialogOpen, setDriverTimeDialogOpen] = useState<boolean>(false);
 
   const clusterByClientId = React.useMemo(() => {
     const map = new Map<string, Cluster>();
@@ -1287,6 +1288,13 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
               unchangedDriverFallback
             );
             const resolvedTime = resolveSavedValue(submittedTimeForSave, unchangedTimeFallback);
+            const hasResolvedDriver = Boolean(normalizeAssignmentValue(resolvedDriver));
+            const hasResolvedTime = Boolean(normalizeAssignmentValue(resolvedTime));
+
+            if (newClusterId && hasResolvedDriver !== hasResolvedTime) {
+              setDriverTimeDialogOpen(true);
+              return;
+            }
 
             if (!clusterChanged && submittedDriver === undefined && submittedTime === undefined) {
               viewMode.style.display = "block";
@@ -2023,6 +2031,26 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
           ))}
         </Box>
       </Popover>
+
+      <Dialog
+        open={driverTimeDialogOpen}
+        onClose={() => setDriverTimeDialogOpen(false)}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>Driver & Time Required</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2">
+            Driver and time must be saved together. Please select both a driver and a time before
+            saving.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button variant="contained" onClick={() => setDriverTimeDialogOpen(false)}>
+            OK
+          </Button>
+        </DialogActions>
+      </Dialog>
     </div>
   );
 };
