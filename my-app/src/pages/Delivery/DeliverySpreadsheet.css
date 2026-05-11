@@ -33,6 +33,49 @@
     opacity 0.5s ease-in-out,
     transform 0.5s ease-in-out;
 }
+.routes-map-wrapper {
+  transform-origin: top center;
+  will-change: opacity, transform, filter;
+}
+
+.routes-map-wrapper.expanding {
+  animation: routes-map-open 240ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.routes-map-wrapper.collapsing {
+  animation: routes-map-close 240ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes routes-map-open {
+  0% {
+    opacity: 0;
+    transform: translateY(-12px) scaleY(0.94);
+    filter: blur(1px);
+  }
+  70% {
+    opacity: 1;
+    transform: translateY(2px) scaleY(1.01);
+    filter: blur(0);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scaleY(1);
+    filter: blur(0);
+  }
+}
+
+@keyframes routes-map-close {
+  0% {
+    opacity: 1;
+    transform: translateY(0) scaleY(1);
+    filter: blur(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-16px) scaleY(0.9);
+    filter: blur(1px);
+  }
+}
 .box {
   width: 90vw;
   border-radius: 8px;

@@ -7,7 +7,7 @@ import { UserType } from "../../types";
 import { useAuth } from "../../auth/AuthProvider";
 import EventCountHeader from "../../components/EventCountHeader";
 import { useLimits } from "../Calendar/components/useLimits";
-import React, { useState, useEffect, useMemo, Suspense } from "react";
+import React, { useState, useEffect, useMemo, useRef, Suspense } from "react";
 import { useSearchKeyAutocomplete } from "../../hooks/useSearchKeyAutocomplete";
 import { useSavedSearches } from "../../hooks/useSavedSearches";
 import AddCircleOutlineIcon from "@mui/icons-material/AddCircleOutline";
@@ -766,6 +766,8 @@ const DeliverySpreadsheet: React.FC = () => {
   const initialDate = searchParams.get("date");
   const [selectedDate, setSelectedDate] = useState<Date>(parseDateFromUrl(initialDate));
   const [isMapCollapsed, setIsMapCollapsed] = useState<boolean>(false);
+  const [isMapVisible, setIsMapVisible] = useState<boolean>(true);
+  const mapCollapseTimeoutRef = useRef<number | null>(null);
   const selectedDateKey = useMemo(() => deliveryDate.toISODateString(selectedDate), [selectedDate]);
   const { showError, showInfo, showSuccess, showWarning } = useNotifications();
 
@@ -2983,6 +2985,35 @@ const DeliverySpreadsheet: React.FC = () => {
     // Force table re-render with new timestamp
   };
 
+  const handleMapToggle = () => {
+    if (isMapCollapsed) {
+      if (mapCollapseTimeoutRef.current !== null) {
+        window.clearTimeout(mapCollapseTimeoutRef.current);
+        mapCollapseTimeoutRef.current = null;
+      }
+      setIsMapVisible(true);
+      setIsMapCollapsed(false);
+      return;
+    }
+
+    setIsMapCollapsed(true);
+    if (mapCollapseTimeoutRef.current !== null) {
+      window.clearTimeout(mapCollapseTimeoutRef.current);
+    }
+    mapCollapseTimeoutRef.current = window.setTimeout(() => {
+      setIsMapVisible(false);
+      mapCollapseTimeoutRef.current = null;
+    }, 240);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (mapCollapseTimeoutRef.current !== null) {
+        window.clearTimeout(mapCollapseTimeoutRef.current);
+      }
+    };
+  }, []);
+
   return (
     <Box className="box" sx={{ display: "flex", flexDirection: "column", height: "100vh" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -3001,7 +3032,7 @@ const DeliverySpreadsheet: React.FC = () => {
           <Tooltip title={isMapCollapsed ? "Show map" : "Hide map"}>
             <IconButton
               size="small"
-              onClick={() => setIsMapCollapsed((prev) => !prev)}
+              onClick={handleMapToggle}
               sx={{
                 mr: 1,
                 backgroundColor: "var(--color-primary)",
@@ -3169,8 +3200,9 @@ const DeliverySpreadsheet: React.FC = () => {
       ) : null}
 
       {/* Map Container */}
-      {!isMapCollapsed && (
+      {isMapVisible && (
         <Box
+          className={isMapCollapsed ? "routes-map-wrapper collapsing" : "routes-map-wrapper expanding"}
           sx={{
             zIndex: 9,
             height: "400px",
