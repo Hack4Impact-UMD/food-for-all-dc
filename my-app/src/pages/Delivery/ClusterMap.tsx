@@ -7,7 +7,19 @@ import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
 import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
 import FormatListNumberedIcon from "@mui/icons-material/FormatListNumbered";
 import RestartAltIcon from "@mui/icons-material/RestartAlt";
-import { Box, FormControlLabel, IconButton, Popover, Switch, Tooltip, Typography } from "@mui/material";
+import {
+  Box,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  FormControlLabel,
+  IconButton,
+  Popover,
+  Switch,
+  Tooltip,
+  Typography,
+} from "@mui/material";
 import DriverService from "../../services/driver-service";
 import FFAIcon from "../../assets/tsp-food-for-all-dc-logo.png";
 import dataSources from "../../config/dataSources";
@@ -368,6 +380,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [loadingDrivers, setLoadingDrivers] = useState<boolean>(false);
   const [invalidBadgeAnchorEl, setInvalidBadgeAnchorEl] = useState<HTMLElement | null>(null);
+  const [driverTimeRequirementOpen, setDriverTimeRequirementOpen] = useState<boolean>(false);
 
   const clusterByClientId = React.useMemo(() => {
     const map = new Map<string, Cluster>();
@@ -1288,6 +1301,16 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
             );
             const resolvedTime = resolveSavedValue(submittedTimeForSave, unchangedTimeFallback);
 
+            const driverChanged = submittedDriver !== undefined;
+            const timeChanged = submittedTime !== undefined;
+            const driverPresent = Boolean(resolvedDriver);
+            const timePresent = Boolean(resolvedTime);
+
+            if ((driverChanged || timeChanged) && driverPresent !== timePresent) {
+              setDriverTimeRequirementOpen(true);
+              return;
+            }
+
             if (!clusterChanged && submittedDriver === undefined && submittedTime === undefined) {
               viewMode.style.display = "block";
               editMode.style.display = "none";
@@ -1522,7 +1545,6 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
         style={{
           height: "400px",
           width: "100%",
-          marginBottom: "20px",
           border: "1px solid var(--color-border-light)",
           borderRadius: "4px",
         }}
@@ -2023,6 +2045,39 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
           ))}
         </Box>
       </Popover>
+
+      <Dialog
+        open={driverTimeRequirementOpen}
+        onClose={() => setDriverTimeRequirementOpen(false)}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>Driver and Time Required</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2">
+            Driver and time must be saved together from the map. Please choose both before saving.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Box
+            component="button"
+            type="button"
+            onClick={() => setDriverTimeRequirementOpen(false)}
+            sx={{
+              px: 2,
+              py: 1,
+              border: "none",
+              borderRadius: "4px",
+              backgroundColor: "var(--color-primary)",
+              color: "var(--color-white)",
+              cursor: "pointer",
+              fontWeight: 600,
+            }}
+          >
+            OK
+          </Box>
+        </DialogActions>
+      </Dialog>
     </div>
   );
 };
