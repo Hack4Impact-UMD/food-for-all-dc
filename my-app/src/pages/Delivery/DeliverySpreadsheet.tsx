@@ -3004,25 +3004,27 @@ const DeliverySpreadsheet: React.FC = () => {
             width: "100%",
           }}
         >
-          <IconButton
-            onClick={() => setIsMapCollapsed((currentValue) => !currentValue)}
-            size="small"
-            aria-label={isMapCollapsed ? "Expand map" : "Collapse map"}
-            sx={{
-              backgroundColor: "var(--color-primary)",
-              color: "var(--color-white)",
-              border: "1px solid var(--color-primary)",
-              width: 36,
-              height: 36,
-              mr: 1,
-              "&:hover": {
+          <Tooltip title={isMapCollapsed ? "Open map" : "Close map"} placement="bottom">
+            <IconButton
+              onClick={() => setIsMapCollapsed((currentValue) => !currentValue)}
+              size="small"
+              aria-label={isMapCollapsed ? "Expand map" : "Collapse map"}
+              sx={{
                 backgroundColor: "var(--color-primary)",
-                opacity: 0.9,
-              },
-            }}
-          >
-            {isMapCollapsed ? <ArrowDropDownIcon /> : <ArrowDropUpIcon />}
-          </IconButton>
+                color: "var(--color-white)",
+                border: "1px solid var(--color-primary)",
+                width: 36,
+                height: 36,
+                mr: 1,
+                "&:hover": {
+                  backgroundColor: "var(--color-primary)",
+                  opacity: 0.9,
+                },
+              }}
+            >
+              {isMapCollapsed ? <ArrowDropDownIcon /> : <ArrowDropUpIcon />}
+            </IconButton>
+          </Tooltip>
 
           <Typography
             variant="h5"
