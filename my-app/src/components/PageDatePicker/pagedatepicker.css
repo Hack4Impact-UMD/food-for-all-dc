@@ -1,5 +1,9 @@
 /* Cleaned up: removed unused .delivery-btn and any unrelated styles */
 
+.react-datepicker-popper {
+  z-index: 9999 !important;
+}
+
 .react-datepicker-wrapper,
 .react-datepicker__input-container {
   display: inline-block !important;

@@ -1,5 +1,5 @@
 import { styled } from "@mui/material/styles";
-import { forwardRef } from "react";
+import { forwardRef, useState } from "react";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import "./pagedatepicker.css";
@@ -51,9 +51,12 @@ interface PageDatePickerProps {
 }
 
 const PageDatePicker = ({ setSelectedDate, selectedDate, marginLeft }: PageDatePickerProps) => {
+  const [isOpen, setIsOpen] = useState(false);
+
   const handleDateChange = (newDate: Date | null) => {
     if (!newDate) return;
     setSelectedDate(newDate);
+    setIsOpen(false);
   };
 
   // Get today's date (ignore time)
@@ -63,10 +66,15 @@ const PageDatePicker = ({ setSelectedDate, selectedDate, marginLeft }: PageDateP
   // Use dayClassName to highlight selected and today
   return (
     <DatePicker
+      open={isOpen}
+      onInputClick={() => setIsOpen((prev) => !prev)}
+      onClickOutside={() => setIsOpen(false)}
       onChange={(date) => handleDateChange(date)}
       selected={selectedDate}
       customInput={<CalendarButton marginLeft={marginLeft} />}
       popperPlacement="bottom-start"
+      popperProps={{ strategy: "fixed" }}
+      portalId="datepicker-portal"
       dayClassName={date => {
         const d = new Date(date);
         d.setHours(0, 0, 0, 0);
