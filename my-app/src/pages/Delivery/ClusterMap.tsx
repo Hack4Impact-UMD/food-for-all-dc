@@ -967,10 +967,12 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
         client.missedStrikeCount
       );
       const statusIconSvg = `<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false" style="display:block;fill:${statusPresentation.color};"><path d="${statusPresentation.iconPath}"></path></svg>`;
+      const safeClientName = escapeHtml(clientName);
+      const safeStatusTooltip = escapeHtml(statusPresentation.tooltip);
       const clientNameWithStatus = `
         <span style="display: inline-flex; align-items: center;">
-          <span title="${statusPresentation.tooltip}" style="display: inline-flex; align-items: center; justify-content: center; width: 18px; min-width: 18px; margin-right: 4px; line-height: 1;">${statusIconSvg}</span>
-          <span>${clientName}</span>
+          <span title="${safeStatusTooltip}" style="display: inline-flex; align-items: center; justify-content: center; width: 18px; min-width: 18px; margin-right: 4px; line-height: 1;">${statusIconSvg}</span>
+          <span>${safeClientName}</span>
         </span>
       `;
       const address =
@@ -1171,8 +1173,8 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
                 <button id="save-btn-${clientId}" style="flex: 1; padding: 6px 12px; background: var(--color-success-button); color: var(--color-white); border: none; border-radius: 3px; cursor: pointer;">Save</button>
                 <button id="cancel-btn-${clientId}" style="flex: 1; padding: 6px 12px; background: var(--color-cancel-button); color: var(--color-white); border: none; border-radius: 3px; cursor: pointer;">Cancel</button>
               </div>
-              ${ward ? `<div style="margin-top: 8px;"><span style="font-weight: bold;">Ward:</span> ${ward}</div>` : ""}
-              <div style="margin-top: 8px;"><span style="font-weight: bold;">Address:</span> ${addressWithZip}</div>
+              ${ward ? `<div style="margin-top: 8px;"><span style="font-weight: bold;">Ward:</span> ${safeWard}</div>` : ""}
+              <div style="margin-top: 8px;"><span style="font-weight: bold;">Address:</span> ${safeAddressWithZip}</div>
             </div>
           </div>
         `;
