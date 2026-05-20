@@ -1041,6 +1041,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
         const addressWithZip = zipCode ? `${address} ${zipCode}` : address;
         const clientOverride = clientOverrideByClientId.get(clientId);
         const safeClientNameWithStatus = clientNameWithStatus;
+        const safeClientId = escapeHtml(clientId);
         const safeClusterId = escapeHtml(clusterId);
         const safeWard = escapeHtml(ward || "");
         const safeAddressWithZip = escapeHtml(addressWithZip);
@@ -1112,10 +1113,10 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
         popupContainer.setAttribute("data-client-id", clientId);
         popupContainer.innerHTML = `
           <div style="font-family: Arial, sans-serif; line-height: 1.4; min-width: 250px;">
-            <div id="view-mode-${clientId}" style="display: block;">
+            <div id="view-mode-${safeClientId}" style="display: block;">
               <div style="font-weight: bold; margin-bottom: 5px; display: flex; align-items: center; justify-content: space-between;">
                 <span>${safeClientNameWithStatus}</span>
-                ${clusterId ? `<span style="cursor: pointer; padding: 2px 4px; border-radius: 3px; margin-left: 10px;" id="edit-btn-${clientId}" title="Edit">✏️</span>` : ""}
+                ${clusterId ? `<span style="cursor: pointer; padding: 2px 4px; border-radius: 3px; margin-left: 10px;" id="edit-btn-${safeClientId}" title="Edit">✏️</span>` : ""}
               </div>
               ${
                 clusterId
@@ -1129,11 +1130,11 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
               ${ward ? `<div><span style="font-weight: bold;">Ward:</span> ${safeWard}</div>` : ""}
               <div><span style="font-weight: bold;">Address:</span> ${safeAddressWithZip}</div>
             </div>
-            <div id="edit-mode-${clientId}" style="display: none;">
+            <div id="edit-mode-${safeClientId}" style="display: none;">
               <div style="font-weight: bold; margin-bottom: 10px;">${safeClientNameWithStatus}</div>
               <div style="margin-bottom: 8px; display: flex; align-items: center; gap: 8px;">
                 <label style="font-weight: bold; min-width: 60px; font-size: 12px;">Cluster:</label>
-                <select id="cluster-select-${clientId}" style="flex: 1; padding: 3px; border: 1px solid var(--color-border-input); border-radius: 3px; font-size: 11px; background-color: ${clusterId ? getClusterColor(clusterId) : "var(--color-background-main)"}; color: ${clusterId ? getTextColorForBackground(getClusterColor(clusterId)) : "black"}; height: 24px !important; min-height: 24px !important; max-height: 24px !important; line-height: 1.1 !important;">
+                <select id="cluster-select-${safeClientId}" style="flex: 1; padding: 3px; border: 1px solid var(--color-border-input); border-radius: 3px; font-size: 11px; background-color: ${clusterId ? getClusterColor(clusterId) : "var(--color-background-main)"}; color: ${clusterId ? getTextColorForBackground(getClusterColor(clusterId)) : "black"}; height: 24px !important; min-height: 24px !important; max-height: 24px !important; line-height: 1.1 !important;">
                   <option value="" style="background-color: var(--color-background-main); color: var(--color-black);">No cluster</option>
                   ${clusters
                     .map((c) => {
@@ -1147,7 +1148,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
               </div>
               <div style="margin-bottom: 8px; display: flex; align-items: center; gap: 8px;">
                 <label style="font-weight: bold; min-width: 60px; font-size: 12px;">Driver:</label>
-                <select id="driver-select-${clientId}" style="flex: 1; padding: 3px; border: 1px solid var(--color-border-input); border-radius: 3px; font-size: 11px; height: 24px !important; min-height: 24px !important; max-height: 24px !important; line-height: 1.1 !important;">
+                <select id="driver-select-${safeClientId}" style="flex: 1; padding: 3px; border: 1px solid var(--color-border-input); border-radius: 3px; font-size: 11px; height: 24px !important; min-height: 24px !important; max-height: 24px !important; line-height: 1.1 !important;">
                   <option value="" ${!selectedDriverValue ? "selected" : ""}>${emptyDriverLabel}</option>
                   ${drivers.map((d) => {
                     const safeDriverName = escapeHtml(d.name);
@@ -1161,7 +1162,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
               </div>
               <div style="margin-bottom: 10px; display: flex; align-items: center; gap: 8px;">
                 <label style="font-weight: bold; min-width: 60px; font-size: 12px;">Time:</label>
-                <select id="time-select-${clientId}" style="flex: 1; padding: 3px; border: 1px solid var(--color-border-input); border-radius: 3px; font-size: 11px; height: 24px !important; min-height: 24px !important; max-height: 24px !important; line-height: 1.1 !important;">
+                <select id="time-select-${safeClientId}" style="flex: 1; padding: 3px; border: 1px solid var(--color-border-input); border-radius: 3px; font-size: 11px; height: 24px !important; min-height: 24px !important; max-height: 24px !important; line-height: 1.1 !important;">
                   <option value="" ${!selectedTimeValue ? "selected" : ""}>${emptyTimeLabel}</option>
                   ${TIME_SLOT_LABELS.map((t) => {
                     const safeTime = escapeHtml(t);
@@ -1170,8 +1171,8 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
                 </select>
               </div>
               <div style="display: flex; gap: 8px;">
-                <button id="save-btn-${clientId}" style="flex: 1; padding: 6px 12px; background: var(--color-success-button); color: var(--color-white); border: none; border-radius: 3px; cursor: pointer;">Save</button>
-                <button id="cancel-btn-${clientId}" style="flex: 1; padding: 6px 12px; background: var(--color-cancel-button); color: var(--color-white); border: none; border-radius: 3px; cursor: pointer;">Cancel</button>
+                <button id="save-btn-${safeClientId}" style="flex: 1; padding: 6px 12px; background: var(--color-success-button); color: var(--color-white); border: none; border-radius: 3px; cursor: pointer;">Save</button>
+                <button id="cancel-btn-${safeClientId}" style="flex: 1; padding: 6px 12px; background: var(--color-cancel-button); color: var(--color-white); border: none; border-radius: 3px; cursor: pointer;">Cancel</button>
               </div>
               ${ward ? `<div style="margin-top: 8px;"><span style="font-weight: bold;">Ward:</span> ${safeWard}</div>` : ""}
               <div style="margin-top: 8px;"><span style="font-weight: bold;">Address:</span> ${safeAddressWithZip}</div>
@@ -1207,14 +1208,14 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
         };
 
         // Add event listeners
-        const editBtn = popupContainer.querySelector(`#edit-btn-${clientId}`);
-        const saveBtn = popupContainer.querySelector(`#save-btn-${clientId}`);
-        const cancelBtn = popupContainer.querySelector(`#cancel-btn-${clientId}`);
+        const editBtn = popupContainer.querySelector(`#edit-btn-${safeClientId}`);
+        const saveBtn = popupContainer.querySelector(`#save-btn-${safeClientId}`);
+        const cancelBtn = popupContainer.querySelector(`#cancel-btn-${safeClientId}`);
         const clusterSelect = popupContainer.querySelector(
-          `#cluster-select-${clientId}`
+          `#cluster-select-${safeClientId}`
         ) as HTMLSelectElement;
-        const viewMode = popupContainer.querySelector(`#view-mode-${clientId}`) as HTMLElement;
-        const editMode = popupContainer.querySelector(`#edit-mode-${clientId}`) as HTMLElement;
+        const viewMode = popupContainer.querySelector(`#view-mode-${safeClientId}`) as HTMLElement;
+        const editMode = popupContainer.querySelector(`#edit-mode-${safeClientId}`) as HTMLElement;
 
         if (clusterSelect) {
           clusterSelect.addEventListener("change", () => {
@@ -1247,10 +1248,10 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
         // Store initial values for reset on cancel
         let initialClusterId = clusterSelect ? normalizeClusterId(clusterSelect.value) : "";
         const driverSelect = popupContainer.querySelector(
-          `#driver-select-${clientId}`
+          `#driver-select-${safeClientId}`
         ) as HTMLSelectElement;
         const timeSelect = popupContainer.querySelector(
-          `#time-select-${clientId}`
+          `#time-select-${safeClientId}`
         ) as HTMLSelectElement;
         let initialDriver = driverSelect ? driverSelect.value : "";
         let initialTime = timeSelect ? timeSelect.value : "";
@@ -1290,13 +1291,13 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
         if (saveBtn && onClusterUpdateRef.current) {
           saveBtn.addEventListener("click", async () => {
             const clusterSelect = popupContainer.querySelector(
-              `#cluster-select-${clientId}`
+              `#cluster-select-${safeClientId}`
             ) as HTMLSelectElement;
             const driverSelect = popupContainer.querySelector(
-              `#driver-select-${clientId}`
+              `#driver-select-${safeClientId}`
             ) as HTMLSelectElement;
             const timeSelect = popupContainer.querySelector(
-              `#time-select-${clientId}`
+              `#time-select-${safeClientId}`
             ) as HTMLSelectElement;
 
             const submittedClusterId = clusterSelect.value;
@@ -1359,14 +1360,14 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
             }
 
             // Update the view mode content with new data
-            const viewModeContent = popupContainer.querySelector(`#view-mode-${clientId}`);
+            const viewModeContent = popupContainer.querySelector(`#view-mode-${safeClientId}`);
             if (viewModeContent) {
               const safeResolvedDriver = escapeHtml(resolvedDriver || "");
               const safeResolvedTime = escapeHtml(formatTimeForDisplay(resolvedTime) || "");
               viewModeContent.innerHTML = `
                 <div style="font-weight: bold; margin-bottom: 5px; display: flex; align-items: center; justify-content: space-between;">
                   <span>${safeClientNameWithStatus}</span>
-                  ${newClusterId ? `<span style="cursor: pointer; padding: 2px 4px; border-radius: 3px; margin-left: 10px;" id="edit-btn-${clientId}" title="Edit">✏️</span>` : ""}
+                  ${newClusterId ? `<span style="cursor: pointer; padding: 2px 4px; border-radius: 3px; margin-left: 10px;" id="edit-btn-${safeClientId}" title="Edit">✏️</span>` : ""}
                 </div>
                 ${
                   newClusterId
@@ -1381,7 +1382,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
                 <div><span style="font-weight: bold;">Address:</span> ${safeAddressWithZip}</div>
               `;
               // Re-attach the edit button event listener
-              const newEditBtn = viewModeContent.querySelector(`#edit-btn-${clientId}`);
+              const newEditBtn = viewModeContent.querySelector(`#edit-btn-${safeClientId}`);
               if (newEditBtn) {
                 newEditBtn.addEventListener("click", () => {
                   enterEditMode();
