@@ -142,6 +142,16 @@ const formatClientDisplayName = (row: Pick<RouteMapRow, "firstName" | "lastName"
   return fullName || "Unknown client";
 };
 
+const escapeHtml = (value: unknown): string => {
+  const text = typeof value === "string" ? value : String(value ?? "");
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+};
+
 const compareRouteIds = (leftClusterId: string, rightClusterId: string): number => {
   if (!leftClusterId && !rightClusterId) {
     return 0;
@@ -703,6 +713,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
 
     boundaries.features.forEach((feature: any) => {
       const wardName = feature.properties.NAME || `Ward ${feature.properties.WARD}`;
+      const safeWardName = escapeHtml(wardName);
       const wardColor = wardColors[wardName] || "#999999"; // Default color if ward not found
 
       // Create polygon layer with translucent fill
@@ -718,7 +729,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
           // Add popup with ward information
           layer.bindPopup(`
             <div style="font-family: Arial, sans-serif; font-weight: bold;">
-              ${wardName}
+              ${safeWardName}
             </div>
           `);
 
@@ -1005,7 +1016,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
               box-sizing: border-box;
               opacity: 0.9;
               cursor: pointer;
-            ">${clusterId}</div>`,
+            ">${escapeHtml(clusterId)}</div>`,
         iconSize: [0, 0],
         iconAnchor: [16, 16],
         popupAnchor: [0, -16],
@@ -1027,6 +1038,10 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
       ) => {
         const addressWithZip = zipCode ? `${address} ${zipCode}` : address;
         const clientOverride = clientOverrideByClientId.get(clientId);
+        const safeClientNameWithStatus = clientNameWithStatus;
+        const safeClusterId = escapeHtml(clusterId);
+        const safeWard = escapeHtml(ward || "");
+        const safeAddressWithZip = escapeHtml(addressWithZip);
 
         // Helper function to format time in AM/PM format
         const formatTimeForDisplay = (time: string | undefined) => {
@@ -1077,6 +1092,8 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
         const clusterTime = normalizeAssignmentValue(cluster?.time);
         const effectiveDriver = resolveAssignmentValue(overrideDriver, clusterDriver);
         const effectiveTime = resolveAssignmentValue(overrideTime, clusterTime);
+        const safeEffectiveDriver = escapeHtml(effectiveDriver || "");
+        const safeEffectiveTime = escapeHtml(formatTimeForDisplay(effectiveTime) || "");
         const selectedDriverValue = effectiveDriver ?? "";
         const selectedTimeValue = effectiveTime ? formatTimeForDisplay(effectiveTime) : "";
         const emptyDriverLabel = "No driver";
@@ -1095,23 +1112,23 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
           <div style="font-family: Arial, sans-serif; line-height: 1.4; min-width: 250px;">
             <div id="view-mode-${clientId}" style="display: block;">
               <div style="font-weight: bold; margin-bottom: 5px; display: flex; align-items: center; justify-content: space-between;">
-                <span>${clientNameWithStatus}</span>
+                <span>${safeClientNameWithStatus}</span>
                 ${clusterId ? `<span style="cursor: pointer; padding: 2px 4px; border-radius: 3px; margin-left: 10px;" id="edit-btn-${clientId}" title="Edit">✏️</span>` : ""}
               </div>
               ${
                 clusterId
                   ? `
-                <div><span style="font-weight: bold;">Cluster:</span> ${clusterId}</div>
-                ${effectiveDriver ? `<div><span style="font-weight: bold;">Driver:</span> ${effectiveDriver}</div>` : ""}
-                ${effectiveTime ? `<div><span style="font-weight: bold;">Time:</span> ${formatTimeForDisplay(effectiveTime)}</div>` : ""}
+                <div><span style="font-weight: bold;">Cluster:</span> ${safeClusterId}</div>
+                ${effectiveDriver ? `<div><span style="font-weight: bold;">Driver:</span> ${safeEffectiveDriver}</div>` : ""}
+                ${effectiveTime ? `<div><span style="font-weight: bold;">Time:</span> ${safeEffectiveTime}</div>` : ""}
               `
                   : `<div><span style="font-weight: bold;">Cluster:</span> No cluster Assigned</div>`
               }
-              ${ward ? `<div><span style="font-weight: bold;">Ward:</span> ${ward}</div>` : ""}
-              <div><span style="font-weight: bold;">Address:</span> ${addressWithZip}</div>
+              ${ward ? `<div><span style="font-weight: bold;">Ward:</span> ${safeWard}</div>` : ""}
+              <div><span style="font-weight: bold;">Address:</span> ${safeAddressWithZip}</div>
             </div>
             <div id="edit-mode-${clientId}" style="display: none;">
-              <div style="font-weight: bold; margin-bottom: 10px;">${clientNameWithStatus}</div>
+              <div style="font-weight: bold; margin-bottom: 10px;">${safeClientNameWithStatus}</div>
               <div style="margin-bottom: 8px; display: flex; align-items: center; gap: 8px;">
                 <label style="font-weight: bold; min-width: 60px; font-size: 12px;">Cluster:</label>
                 <select id="cluster-select-${clientId}" style="flex: 1; padding: 3px; border: 1px solid var(--color-border-input); border-radius: 3px; font-size: 11px; background-color: ${clusterId ? getClusterColor(clusterId) : "var(--color-background-main)"}; color: ${clusterId ? getTextColorForBackground(getClusterColor(clusterId)) : "black"}; height: 24px !important; min-height: 24px !important; max-height: 24px !important; line-height: 1.1 !important;">
@@ -1119,7 +1136,8 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
                   ${clusters
                     .map((c) => {
                       const optionClusterId = normalizeClusterId(c.id);
-                      return `<option value="${optionClusterId}" ${optionClusterId === clusterId ? "selected" : ""} style="background-color: ${getClusterColor(optionClusterId)}; color: ${getTextColorForBackground(getClusterColor(optionClusterId))}; font-weight: bold;">${optionClusterId}</option>`;
+                      const safeOptionClusterId = escapeHtml(optionClusterId);
+                      return `<option value="${safeOptionClusterId}" ${optionClusterId === clusterId ? "selected" : ""} style="background-color: ${getClusterColor(optionClusterId)}; color: ${getTextColorForBackground(getClusterColor(optionClusterId))}; font-weight: bold;">${safeOptionClusterId}</option>`;
                     })
                     .join("")}
                   <option value="__add__" style="background-color: var(--color-border-input); color: var(--color-text-dark); font-weight: bold;">+ Add Cluster</option>
@@ -1129,14 +1147,24 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
                 <label style="font-weight: bold; min-width: 60px; font-size: 12px;">Driver:</label>
                 <select id="driver-select-${clientId}" style="flex: 1; padding: 3px; border: 1px solid var(--color-border-input); border-radius: 3px; font-size: 11px; height: 24px !important; min-height: 24px !important; max-height: 24px !important; line-height: 1.1 !important;">
                   <option value="" ${!selectedDriverValue ? "selected" : ""}>${emptyDriverLabel}</option>
-                  ${drivers.map((d) => `<option value="${d.name}" ${d.name === selectedDriverValue ? "selected" : ""}>${d.name}${d.phone ? ` - ${d.phone}` : ""}</option>`).join("")}
+                  ${drivers.map((d) => {
+                    const safeDriverName = escapeHtml(d.name);
+                    const safeDriverPhone = escapeHtml(d.phone || "");
+                    const safeDriverLabel = d.phone
+                      ? `${safeDriverName} - ${safeDriverPhone}`
+                      : safeDriverName;
+                    return `<option value="${safeDriverName}" ${d.name === selectedDriverValue ? "selected" : ""}>${safeDriverLabel}</option>`;
+                  }).join("")}
                 </select>
               </div>
               <div style="margin-bottom: 10px; display: flex; align-items: center; gap: 8px;">
                 <label style="font-weight: bold; min-width: 60px; font-size: 12px;">Time:</label>
                 <select id="time-select-${clientId}" style="flex: 1; padding: 3px; border: 1px solid var(--color-border-input); border-radius: 3px; font-size: 11px; height: 24px !important; min-height: 24px !important; max-height: 24px !important; line-height: 1.1 !important;">
                   <option value="" ${!selectedTimeValue ? "selected" : ""}>${emptyTimeLabel}</option>
-                  ${TIME_SLOT_LABELS.map((t) => `<option value="${t}" ${t === selectedTimeValue ? "selected" : ""}>${t}</option>`).join("")}
+                  ${TIME_SLOT_LABELS.map((t) => {
+                    const safeTime = escapeHtml(t);
+                    return `<option value="${safeTime}" ${t === selectedTimeValue ? "selected" : ""}>${safeTime}</option>`;
+                  }).join("")}
                 </select>
               </div>
               <div style="display: flex; gap: 8px;">
@@ -1331,22 +1359,24 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
             // Update the view mode content with new data
             const viewModeContent = popupContainer.querySelector(`#view-mode-${clientId}`);
             if (viewModeContent) {
+              const safeResolvedDriver = escapeHtml(resolvedDriver || "");
+              const safeResolvedTime = escapeHtml(formatTimeForDisplay(resolvedTime) || "");
               viewModeContent.innerHTML = `
                 <div style="font-weight: bold; margin-bottom: 5px; display: flex; align-items: center; justify-content: space-between;">
-                  <span>${clientNameWithStatus}</span>
+                  <span>${safeClientNameWithStatus}</span>
                   ${newClusterId ? `<span style="cursor: pointer; padding: 2px 4px; border-radius: 3px; margin-left: 10px;" id="edit-btn-${clientId}" title="Edit">✏️</span>` : ""}
                 </div>
                 ${
                   newClusterId
                     ? `
-                  <div><span style="font-weight: bold;">Cluster:</span> ${newClusterId}</div>
-                  ${resolvedDriver ? `<div><span style="font-weight: bold;">Driver:</span> ${resolvedDriver}</div>` : ""}
-                  ${resolvedTime ? `<div><span style="font-weight: bold;">Time:</span> ${formatTimeForDisplay(resolvedTime)}</div>` : ""}
+                  <div><span style="font-weight: bold;">Cluster:</span> ${escapeHtml(newClusterId)}</div>
+                  ${resolvedDriver ? `<div><span style="font-weight: bold;">Driver:</span> ${safeResolvedDriver}</div>` : ""}
+                  ${resolvedTime ? `<div><span style="font-weight: bold;">Time:</span> ${safeResolvedTime}</div>` : ""}
                 `
                     : `<div><span style="font-weight: bold;">Cluster:</span> No cluster Assigned</div>`
                 }
-                ${ward ? `<div><span style="font-weight: bold;">Ward:</span> ${ward}</div>` : ""}
-                <div><span style="font-weight: bold;">Address:</span> ${addressWithZip}</div>
+                ${ward ? `<div><span style="font-weight: bold;">Ward:</span> ${safeWard}</div>` : ""}
+                <div><span style="font-weight: bold;">Address:</span> ${safeAddressWithZip}</div>
               `;
               // Re-attach the edit button event listener
               const newEditBtn = viewModeContent.querySelector(`#edit-btn-${clientId}`);
