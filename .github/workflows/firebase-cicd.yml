@@ -47,10 +47,18 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
+      - name: Audit frontend dependencies
+        run: npm audit --audit-level=high
+
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
           python -m pip install -r functions-python/requirements.txt
+
+      - name: Audit Python dependencies
+        run: |
+          python -m pip install pip-audit
+          pip-audit -r functions-python/requirements.txt
 
       - name: Lint
         run: npm run lint
