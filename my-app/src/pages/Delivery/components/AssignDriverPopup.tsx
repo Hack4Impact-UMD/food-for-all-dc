@@ -210,9 +210,9 @@ export default function AssignDriverPopup({
               variant="outlined"
               fullWidth
               size="small"
-              error={isDriverError}
+              error={isDriverError && !driver}
               helperText={
-                (isDriverError ? error : "") ||
+                (isDriverError && !driver ? error : "") ||
                 (loading
                   ? "Loading drivers..."
                   : drivers.length === 0
