@@ -1,6 +1,9 @@
 import {
   Autocomplete,
+  Dialog,
   DialogActions,
+  DialogContent,
+  DialogTitle,
   TextField,
   Box,
 } from "@mui/material";
@@ -37,9 +40,12 @@ export default function AssignDriverPopup({
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [error, setError] = useState<string>("");
   const [isDriverModalOpen, setIsDriverModalOpen] = useState<boolean>(false);
+  const [isRequirementModalOpen, setIsRequirementModalOpen] = useState<boolean>(false);
   const didInitializeSelectionRef = useRef(false);
-  const isDriverError = error === "Please select a driver.";
-  const isTimeError = error === "Please select a time.";
+  const isDriverError =
+    error === "Please select a driver." || error === "Please select both a driver and a time.";
+  const isTimeError =
+    error === "Please select a time." || error === "Please select both a driver and a time.";
   const autocompleteSx = {
     width: "100%",
     minWidth: 0,
@@ -68,17 +74,14 @@ export default function AssignDriverPopup({
     setDriverSearchQuery("");
     setTimeSearchQuery("");
     setError("");
+    setIsRequirementModalOpen(false);
     setPopupMode("");
   };
 
   const handleSave = async () => {
-    if (!driver) {
-      setError("Please select a driver.");
-      return;
-    }
-
-    if (!time) {
-      setError("Please select a time.");
+    if (!driver || !time) {
+      setError("Please select both a driver and a time.");
+      setIsRequirementModalOpen(true);
       return;
     }
 
@@ -207,9 +210,9 @@ export default function AssignDriverPopup({
               variant="outlined"
               fullWidth
               size="small"
-              error={isDriverError}
+              error={isDriverError && !driver}
               helperText={
-                (isDriverError ? error : "") ||
+                (isDriverError && !driver ? error : "") ||
                 (loading
                   ? "Loading drivers..."
                   : drivers.length === 0
@@ -291,12 +294,27 @@ export default function AssignDriverPopup({
         <Button
           variant="primary"
           onClick={handleSave}
-          disabled={!driver || !time || loading || isSaving}
+          disabled={loading || isSaving}
           size="medium"
         >
           Save
         </Button>
       </DialogActions>
+
+      <Dialog open={isRequirementModalOpen} onClose={() => setIsRequirementModalOpen(false)}>
+        <DialogTitle>Driver and Time Required</DialogTitle>
+        <DialogContent>
+          <Box sx={{ py: 1 }}>
+            Both a driver and a time must be selected before saving. Please choose both fields,
+            then try again.
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button variant="primary" onClick={() => setIsRequirementModalOpen(false)} size="medium">
+            OK
+          </Button>
+        </DialogActions>
+      </Dialog>
     </>
   );
 }

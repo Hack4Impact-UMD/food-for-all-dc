@@ -676,6 +676,7 @@ const DeliverySpreadsheet: React.FC = () => {
   const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
 
   const [popupMode, setPopupMode] = useState("");
+  const [isMapCollapsed, setIsMapCollapsed] = useState(false);
   const [clusters, setClustersOriginal] = useState<Cluster[]>([]);
   const [selectedClusters, setSelectedClusters] = useState<Set<any>>(new Set());
   const [exportOption, setExportOption] = useState<RouteExportOption | null>(null);
@@ -689,6 +690,14 @@ const DeliverySpreadsheet: React.FC = () => {
   React.useEffect(() => {
     highlightedRowIdsRef.current = highlightedRowIds;
   }, [highlightedRowIds]);
+
+  React.useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      window.dispatchEvent(new Event("resize"));
+    }, 260);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [isMapCollapsed]);
 
   const preserveHighlightedRowsForAssignment = React.useCallback(() => {
     highlightRestoreLockRef.current = true;
@@ -2995,6 +3004,28 @@ const DeliverySpreadsheet: React.FC = () => {
             width: "100%",
           }}
         >
+          <Tooltip title={isMapCollapsed ? "Open map" : "Close map"} placement="bottom">
+            <IconButton
+              onClick={() => setIsMapCollapsed((currentValue) => !currentValue)}
+              size="small"
+              aria-label={isMapCollapsed ? "Expand map" : "Collapse map"}
+              sx={{
+                backgroundColor: "var(--color-primary)",
+                color: "var(--color-white)",
+                border: "1px solid var(--color-primary)",
+                width: 36,
+                height: 36,
+                mr: 1,
+                "&:hover": {
+                  backgroundColor: "var(--color-primary)",
+                  opacity: 0.9,
+                },
+              }}
+            >
+              {isMapCollapsed ? <ArrowDropDownIcon /> : <ArrowDropUpIcon />}
+            </IconButton>
+          </Tooltip>
+
           <Typography
             variant="h5"
             sx={{ color: "var(--color-text-secondary)", width: "350px", textAlign: "center" }}
@@ -3146,71 +3177,76 @@ const DeliverySpreadsheet: React.FC = () => {
       {/* Map Container */}
       <Box
         sx={{
-          zIndex: 9,
-          height: "400px",
           width: "100%",
           backgroundColor: "var(--color-background-main)",
-          position: "relative",
+          overflow: "hidden",
+          flexShrink: 0,
+          maxHeight: isMapCollapsed ? 0 : "440px",
+          opacity: isMapCollapsed ? 0 : 1,
+          mb: isMapCollapsed ? 0 : 2,
+          transition: "max-height 260ms ease, opacity 200ms ease, margin 260ms ease",
+          pointerEvents: isMapCollapsed ? "none" : "auto",
         }}
       >
-        <Suspense fallback={<LoadingIndicator minHeight="400px" />}>
-          <ClusterMap
-            allRows={rows}
-            clusters={clusters}
-            visibleRows={visibleRows}
-            clientOverrides={clientOverrides}
-            onClusterUpdate={handleIndividualClientUpdate}
-            onRenumberClusters={handleRenumberClusters}
-            onOpenPopup={handleRowClick}
-            onMarkerClick={handleMarkerClick}
-            onClearHighlight={clearRowHighlight}
-            refreshDriversTrigger={driversRefreshTrigger}
-          />
-        </Suspense>
+        <Box sx={{ position: "relative" }}>
+          <Suspense fallback={<LoadingIndicator minHeight="400px" />}>
+            <ClusterMap
+              allRows={rows}
+              clusters={clusters}
+              visibleRows={visibleRows}
+              clientOverrides={clientOverrides}
+              onClusterUpdate={handleIndividualClientUpdate}
+              onRenumberClusters={handleRenumberClusters}
+              onOpenPopup={handleRowClick}
+              onMarkerClick={handleMarkerClick}
+              onClearHighlight={clearRowHighlight}
+              refreshDriversTrigger={driversRefreshTrigger}
+            />
+          </Suspense>
 
-        {isMainLoading && (
-          <Box
-            sx={{
-              position: "absolute",
-              inset: 0,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              zIndex: 1100,
-              backgroundColor: "rgba(255, 255, 255, 0.85)",
-              borderRadius: "4px",
-            }}
-          >
-            <LoadingIndicator minHeight="100%" text="Loading deliveries..." />
-          </Box>
-        )}
+          {isMainLoading && (
+            <Box
+              sx={{
+                position: "absolute",
+                inset: 0,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                zIndex: 1100,
+                backgroundColor: "rgba(255, 255, 255, 0.85)",
+                borderRadius: "4px",
+              }}
+            >
+              <LoadingIndicator minHeight="100%" text="Loading deliveries..." />
+            </Box>
+          )}
 
-        {!isMainLoading && rows.length === 0 && (
-          <Box
-            sx={{
-              position: "absolute",
-              inset: 0,
-              display: "flex",
-              justifyContent: "center",
-              alignItems: "center",
-              zIndex: 1100,
-              backgroundColor: "rgba(255, 255, 255, 0.92)",
-              borderRadius: "4px",
-              border: "1px solid var(--color-border-light)",
-            }}
-          >
-            <Typography variant="h6" color="textSecondary">
-              No deliveries for selected date
-            </Typography>
-          </Box>
-        )}
+          {!isMainLoading && rows.length === 0 && (
+            <Box
+              sx={{
+                position: "absolute",
+                inset: 0,
+                display: "flex",
+                justifyContent: "center",
+                alignItems: "center",
+                zIndex: 1100,
+                backgroundColor: "rgba(255, 255, 255, 0.92)",
+                borderRadius: "4px",
+                border: "1px solid var(--color-border-light)",
+              }}
+            >
+              <Typography variant="h6" color="textSecondary">
+                No deliveries for selected date
+              </Typography>
+            </Box>
+          )}
+        </Box>
       </Box>
 
       {/* Search Bar */}
       <Box
         sx={{
           width: "100%",
-          zIndex: 8,
           backgroundColor: "var(--color-background-main)",
           padding: "16px 0",
         }}
@@ -3360,6 +3396,7 @@ const DeliverySpreadsheet: React.FC = () => {
           <EventCountHeader events={isMainLoading ? deliveriesForDate : rows} limit={dailyLimit} />
         );
       })()}
+
       <Box
         sx={{
           flex: 1,
@@ -3381,7 +3418,12 @@ const DeliverySpreadsheet: React.FC = () => {
         <TableContainer
           component={Paper}
           sx={{
-            height: isLoading || sortedRows.length > 0 ? "60vh" : "auto",
+            height:
+              isLoading || sortedRows.length > 0
+                ? isMapCollapsed
+                  ? "72vh"
+                  : "60vh"
+                : "auto",
             width: "100%",
           }}
         >
