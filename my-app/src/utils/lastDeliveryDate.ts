@@ -15,7 +15,68 @@ export type ClientDeliverySummary = {
   missedStrikeCount: number;
 };
 
-const FIRESTORE_IN_QUERY_LIMIT = 10;
+const FIRESTORE_IN_QUERY_LIMIT_CANDIDATES = [50, 30, 10] as const;
+
+const buildClientIdChunks = (clientIds: string[], chunkSize: number): string[][] => {
+  const chunks: string[][] = [];
+  for (let i = 0; i < clientIds.length; i += chunkSize) {
+    chunks.push(clientIds.slice(i, i + chunkSize));
+  }
+  return chunks;
+};
+
+const isFirestoreInLimitError = (error: unknown): boolean => {
+  const message =
+    error && typeof error === "object" && "message" in error
+      ? String((error as { message?: unknown }).message ?? "")
+      : "";
+  const normalized = message.toLowerCase();
+
+  const mentionsInOperator = normalized.includes("'in'") || normalized.includes(" in ");
+  const mentionsLimitPhrase =
+    normalized.includes("supports up to") || normalized.includes("maximum of");
+  const mentionsComparisonCount =
+    normalized.includes("comparison values") ||
+    normalized.includes("elements") ||
+    normalized.includes("filters support");
+
+  return (
+    mentionsInOperator && mentionsLimitPhrase && mentionsComparisonCount
+  );
+};
+
+const fetchSnapshotsByClientIdChunks = async (
+  eventsRef: ReturnType<typeof collection>,
+  clientIds: string[],
+  inLimit: number
+) => {
+  const chunks = buildClientIdChunks(clientIds, inLimit);
+  return Promise.all(
+    chunks.map((chunk) =>
+      getDocs(query(eventsRef, where("clientId", "in", chunk), orderBy("deliveryDate", "desc")))
+    )
+  );
+};
+
+const fetchSnapshotsWithAdaptiveInLimit = async (
+  eventsRef: ReturnType<typeof collection>,
+  clientIds: string[]
+) => {
+  let lastError: unknown = null;
+
+  for (const candidateLimit of FIRESTORE_IN_QUERY_LIMIT_CANDIDATES) {
+    try {
+      return await fetchSnapshotsByClientIdChunks(eventsRef, clientIds, candidateLimit);
+    } catch (error) {
+      lastError = error;
+      if (!isFirestoreInLimitError(error)) {
+        throw error;
+      }
+    }
+  }
+
+  throw lastError ?? new Error("Unable to fetch snapshots for client IDs");
+};
 
 const hasDeliveryDate = (
   event: Pick<EventData, "deliveryDate">
@@ -53,12 +114,9 @@ export const batchGetLastDeliveryDates = async (
   try {
     const eventsRef = collection(db, dataSources.firebase.calendarCollection);
     const clientEventsMap = new Map<string, EventWithDeliveryDate[]>();
+    const snapshots = await fetchSnapshotsWithAdaptiveInLimit(eventsRef, uniqueClientIds);
 
-    for (let i = 0; i < uniqueClientIds.length; i += FIRESTORE_IN_QUERY_LIMIT) {
-      const chunk = uniqueClientIds.slice(i, i + FIRESTORE_IN_QUERY_LIMIT);
-      const q = query(eventsRef, where("clientId", "in", chunk), orderBy("deliveryDate", "desc"));
-      const querySnapshot = await getDocs(q);
-
+    snapshots.forEach((querySnapshot) => {
       querySnapshot.forEach((doc) => {
         const eventData = doc.data() as EventData;
         if (!clientEventsMap.has(eventData.clientId)) {
@@ -69,7 +127,7 @@ export const batchGetLastDeliveryDates = async (
           clientEvents.push({ deliveryDate: eventData.deliveryDate });
         }
       });
-    }
+    });
 
     for (const [clientId, events] of clientEventsMap.entries()) {
       const latestDate = getLatestScheduledDate(events);
@@ -95,17 +153,7 @@ export const batchGetClientDeliverySummaries = async (
 
   try {
     const eventsRef = collection(db, dataSources.firebase.calendarCollection);
-    const chunks: string[][] = [];
-
-    for (let i = 0; i < uniqueClientIds.length; i += FIRESTORE_IN_QUERY_LIMIT) {
-      chunks.push(uniqueClientIds.slice(i, i + FIRESTORE_IN_QUERY_LIMIT));
-    }
-
-    const snapshots = await Promise.all(
-      chunks.map((chunk) =>
-        getDocs(query(eventsRef, where("clientId", "in", chunk), orderBy("deliveryDate", "desc")))
-      )
-    );
+    const snapshots = await fetchSnapshotsWithAdaptiveInLimit(eventsRef, uniqueClientIds);
 
     snapshots.forEach((querySnapshot) => {
       querySnapshot.forEach((doc) => {
