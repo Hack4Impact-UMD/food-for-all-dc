@@ -16,6 +16,7 @@ export type ClientDeliverySummary = {
 };
 
 const FIRESTORE_IN_QUERY_LIMIT_CANDIDATES = [30, 10] as const;
+const FIRESTORE_CHUNK_QUERY_CONCURRENCY = 4;
 
 const buildClientIdChunks = (clientIds: string[], chunkSize: number): string[][] => {
   const chunks: string[][] = [];
@@ -51,11 +52,19 @@ const fetchSnapshotsByClientIdChunks = async (
   inLimit: number
 ) => {
   const chunks = buildClientIdChunks(clientIds, inLimit);
-  return Promise.all(
-    chunks.map((chunk) =>
-      getDocs(query(eventsRef, where("clientId", "in", chunk), orderBy("deliveryDate", "desc")))
-    )
-  );
+  const snapshots: Awaited<ReturnType<typeof getDocs>>[] = [];
+
+  for (let i = 0; i < chunks.length; i += FIRESTORE_CHUNK_QUERY_CONCURRENCY) {
+    const concurrentChunks = chunks.slice(i, i + FIRESTORE_CHUNK_QUERY_CONCURRENCY);
+    const batchSnapshots = await Promise.all(
+      concurrentChunks.map((chunk) =>
+        getDocs(query(eventsRef, where("clientId", "in", chunk), orderBy("deliveryDate", "desc")))
+      )
+    );
+    snapshots.push(...batchSnapshots);
+  }
+
+  return snapshots;
 };
 
 const fetchSnapshotsWithAdaptiveInLimit = async (

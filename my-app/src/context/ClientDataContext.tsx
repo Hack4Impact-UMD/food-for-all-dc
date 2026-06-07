@@ -28,7 +28,11 @@ const isSpreadsheetPerfDebugEnabled = (): boolean => {
     return false;
   }
 
-  return window.localStorage.getItem("ffaSpreadsheetPerfDebug") === "1";
+  try {
+    return window.localStorage.getItem("ffaSpreadsheetPerfDebug") === "1";
+  } catch {
+    return false;
+  }
 };
 
 interface ClientDataContextType {

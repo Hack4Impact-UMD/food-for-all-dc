@@ -70,7 +70,8 @@ describe("batchGetClientDeliverySummaries", () => {
   // App coverage:
   // - profile and delivery grids call this summary fetch for many clients at once
   // - firestore "in" queries must be chunked to stay within platform limits
-  // Behavior contract: lists larger than 30 unique clients should chunk deterministically.
+  // Behavior contract: lists larger than 30 unique clients should prefer 30-item chunks,
+  // with fallback to smaller firestore-safe chunks when the backend rejects larger IN clauses.
   it("chunks large client lists into firestore-safe in queries", async () => {
     const uniqueClientIds = Array.from({ length: 35 }, (_, index) => `client-${index + 1}`);
 
