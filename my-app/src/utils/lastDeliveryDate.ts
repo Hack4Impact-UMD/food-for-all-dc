@@ -15,7 +15,7 @@ export type ClientDeliverySummary = {
   missedStrikeCount: number;
 };
 
-const FIRESTORE_IN_QUERY_LIMIT_CANDIDATES = [50, 30, 10] as const;
+const FIRESTORE_IN_QUERY_LIMIT_CANDIDATES = [30, 10] as const;
 
 const buildClientIdChunks = (clientIds: string[], chunkSize: number): string[][] => {
   const chunks: string[][] = [];
