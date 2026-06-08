@@ -245,7 +245,11 @@ describe("CalendarPage stale fetch protection", () => {
       ["2026-03-16::2026-03-17", [selectedDayRequest.promise]],
     ]);
 
-    mockGetEventsByDateRange.mockImplementation((start: Date, end: Date) => {
+    mockGetEventsByDateRange.mockImplementation((...args: unknown[]) => {
+      const [start, end] = args;
+      if (!(start instanceof Date) || !(end instanceof Date)) {
+        return Promise.resolve([]);
+      }
       const responses = queuedResponsesByRange.get(rangeKey(start, end));
       if (responses && responses.length > 0) {
         return responses.shift() as Promise<DeliveryEvent[]>;
@@ -308,7 +312,11 @@ describe("CalendarPage stale fetch protection", () => {
       ["2026-03-17::2026-03-18", [nextDayRequest.promise]],
     ]);
 
-    mockGetEventsByDateRange.mockImplementation((start: Date, end: Date) => {
+    mockGetEventsByDateRange.mockImplementation((...args: unknown[]) => {
+      const [start, end] = args;
+      if (!(start instanceof Date) || !(end instanceof Date)) {
+        return Promise.resolve([]);
+      }
       const responses = queuedResponsesByRange.get(rangeKey(start, end));
       if (responses && responses.length > 0) {
         return responses.shift() as Promise<DeliveryEvent[]>;
