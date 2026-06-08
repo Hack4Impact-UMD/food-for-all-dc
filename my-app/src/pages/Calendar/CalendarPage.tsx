@@ -39,6 +39,7 @@ import { deliveryEventEmitter } from "../../utils/deliveryEventEmitter";
 import { getCalendarViewRange, getTodayDayPilotDate } from "./components/calendarDateRange";
 
 const DAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+const MONTH_EVENTS_CACHE_TTL_MS = 5 * 60 * 1000;
 
 const StyledCalendarContainer = styled(Box)(({ theme }) => ({
   display: "flex",
@@ -144,6 +145,12 @@ const CalendarPage: React.FC = React.memo(() => {
   const limits = useLimits();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const fetchEventsRequestIdRef = useRef(0);
+  const monthEventsCacheRef = useRef(
+    new Map<string, { timestamp: number; events: DeliveryEvent[]; formattedEvents: CalendarEvent[] }>()
+  );
+  const monthPrefetchInFlightRef = useRef(
+    new Map<string, Promise<{ events: DeliveryEvent[]; formattedEvents: CalendarEvent[] }>>()
+  );
 
   // Memoized client lookup map for O(1) performance instead of O(n) array.find
   const clientLookupMap = useMemo(() => {
@@ -272,27 +279,62 @@ const CalendarPage: React.FC = React.memo(() => {
     }
   };
 
-  const fetchEvents = useCallback(async () => {
-    const requestId = ++fetchEventsRequestIdRef.current;
+  const getMonthCacheKey = useCallback((targetDate: DayPilot.Date): string => {
+    const { queryStart, queryEndExclusive } = getCalendarViewRange(targetDate, "Month");
+    return `${queryStart.toISOString()}::${queryEndExclusive.toISOString()}`;
+  }, []);
 
-    try {
-      const { queryStart, queryEndExclusive } = getCalendarViewRange(currentDate, viewType);
+  const getCachedMonthPayload = useCallback(
+    (targetDate: DayPilot.Date):
+      | { events: DeliveryEvent[]; formattedEvents: CalendarEvent[] }
+      | null => {
+      const cacheKey = getMonthCacheKey(targetDate);
+      const cached = monthEventsCacheRef.current.get(cacheKey);
+      if (!cached) {
+        return null;
+      }
 
-      // Use DeliveryService to fetch events by date range
+      if (Date.now() - cached.timestamp > MONTH_EVENTS_CACHE_TTL_MS) {
+        monthEventsCacheRef.current.delete(cacheKey);
+        return null;
+      }
+
+      return {
+        events: cached.events,
+        formattedEvents: cached.formattedEvents,
+      };
+    },
+    [getMonthCacheKey]
+  );
+
+  const buildEventsPayload = useCallback(
+    async (
+      targetDate: DayPilot.Date,
+      targetView: ViewType
+    ): Promise<{ events: DeliveryEvent[]; formattedEvents: CalendarEvent[] }> => {
+      const { queryStart, queryEndExclusive } = getCalendarViewRange(targetDate, targetView);
+
       const deliveryService = DeliveryService.getInstance();
       const fetchedEvents = await deliveryService.getEventsByDateRange(queryStart, queryEndExclusive);
 
-      // Get unique client IDs from events
-      const uniqueClientIds = [...new Set(fetchedEvents.map((event) => event.clientId))];
+      if (targetView === "Month") {
+        const formattedEvents = fetchedEvents.map((event) => ({
+          id: event.id,
+          text: `Client: ${event.clientName || ""} (Driver: ${event.assignedDriverName})`,
+          start: new DayPilot.Date(deliveryDate.toJSDate(event.deliveryDate)),
+          end: new DayPilot.Date(deliveryDate.toJSDate(event.deliveryDate)),
+          backColor: "var(--color-primary)",
+        }));
 
-      // Lazy load only the clients we need for these events
-      const neededClients = await fetchClientsLazy(uniqueClientIds);
-
-      if (requestId !== fetchEventsRequestIdRef.current) {
-        return [];
+        return {
+          events: fetchedEvents,
+          formattedEvents,
+        };
       }
 
-      // Create efficient lookup map from the clients we just fetched
+      const uniqueClientIds = [...new Set(fetchedEvents.map((event) => event.clientId))];
+      const neededClients = await fetchClientsLazy(uniqueClientIds);
+
       const eventClientLookupMap = new Map();
       neededClients.forEach((client) => {
         if (client && client.uid) {
@@ -300,7 +342,6 @@ const CalendarPage: React.FC = React.memo(() => {
         }
       });
 
-      // Update client names in events using efficient Map lookup
       const updatedEvents = fetchedEvents.map((event) => {
         const client = eventClientLookupMap.get(event.clientId);
         if (client) {
@@ -313,27 +354,102 @@ const CalendarPage: React.FC = React.memo(() => {
         return event;
       });
 
-      // Use all events for display and counting
-      setEvents(updatedEvents);
-
-      // Update calendar configuration with new events
       const formattedEvents = updatedEvents.map((event) => ({
         id: event.id,
-        // Removed date from display text
         text: `Client: ${event.clientName} (Driver: ${event.assignedDriverName})`,
         start: new DayPilot.Date(deliveryDate.toJSDate(event.deliveryDate)),
         end: new DayPilot.Date(deliveryDate.toJSDate(event.deliveryDate)),
         backColor: "var(--color-primary)",
       }));
 
+      return {
+        events: updatedEvents,
+        formattedEvents,
+      };
+    },
+    [fetchClientsLazy]
+  );
+
+  const prefetchMonthData = useCallback(
+    async (targetDate: DayPilot.Date): Promise<void> => {
+      const cacheKey = getMonthCacheKey(targetDate);
+
+      if (getCachedMonthPayload(targetDate)) {
+        return;
+      }
+
+      if (monthPrefetchInFlightRef.current.has(cacheKey)) {
+        await monthPrefetchInFlightRef.current.get(cacheKey);
+        return;
+      }
+
+      const prefetchPromise = buildEventsPayload(targetDate, "Month")
+        .then((payload) => {
+          monthEventsCacheRef.current.set(cacheKey, {
+            timestamp: Date.now(),
+            events: payload.events,
+            formattedEvents: payload.formattedEvents,
+          });
+          return payload;
+        })
+        .catch((error) => {
+          console.error("Error prefetching month events:", error);
+          throw error;
+        })
+        .finally(() => {
+          monthPrefetchInFlightRef.current.delete(cacheKey);
+        });
+
+      monthPrefetchInFlightRef.current.set(cacheKey, prefetchPromise);
+      try {
+        await prefetchPromise;
+      } catch {
+        // Prefetch failures should not interrupt primary calendar flow.
+      }
+    },
+    [buildEventsPayload, getCachedMonthPayload, getMonthCacheKey]
+  );
+
+  const fetchEvents = useCallback(async () => {
+    const requestId = ++fetchEventsRequestIdRef.current;
+
+    try {
+      let payload:
+        | { events: DeliveryEvent[]; formattedEvents: CalendarEvent[] }
+        | null = null;
+
+      if (viewType === "Month") {
+        payload = getCachedMonthPayload(currentDate);
+
+        if (!payload) {
+          payload = await buildEventsPayload(currentDate, viewType);
+          const cacheKey = getMonthCacheKey(currentDate);
+          monthEventsCacheRef.current.set(cacheKey, {
+            timestamp: Date.now(),
+            events: payload.events,
+            formattedEvents: payload.formattedEvents,
+          });
+        }
+      } else {
+        payload = await buildEventsPayload(currentDate, viewType);
+      }
+
+      if (requestId !== fetchEventsRequestIdRef.current || !payload) {
+        return [];
+      }
+
+      const resolvedPayload = payload;
+
+      setEvents(resolvedPayload.events);
+
       setCalendarConfig((prev) => ({
         ...prev,
-        events: formattedEvents,
+        events: resolvedPayload.formattedEvents,
         startDate: currentDate,
         durationBarVisible: false,
       }));
 
-      return updatedEvents;
+      return resolvedPayload.events;
     } catch (error) {
       if (requestId !== fetchEventsRequestIdRef.current) {
         return [];
@@ -341,7 +457,7 @@ const CalendarPage: React.FC = React.memo(() => {
       console.error("Error fetching events:", error);
       return [];
     }
-  }, [currentDate, viewType, fetchClientsLazy]); // Removed clientLookupMap and clients.length as they're no longer needed
+  }, [buildEventsPayload, currentDate, getCachedMonthPayload, getMonthCacheKey, viewType]);
 
   const handleAddDelivery = async (newDelivery: NewDelivery) => {
     try {
@@ -398,6 +514,25 @@ const CalendarPage: React.FC = React.memo(() => {
   useEffect(() => {
     fetchEvents();
   }, [fetchEvents, currentDate, viewType]); // Clients are now fetched lazily within fetchEvents
+
+  useEffect(() => {
+    if (isLoading) {
+      return;
+    }
+
+    // Preload month data after initial day experience is ready.
+    void prefetchMonthData(currentDate);
+  }, [currentDate, isLoading, prefetchMonthData]);
+
+  useEffect(() => {
+    if (viewType !== "Month") {
+      return;
+    }
+
+    // Keep adjacent months warm for < and > navigation.
+    void prefetchMonthData(currentDate.addMonths(-1));
+    void prefetchMonthData(currentDate.addMonths(1));
+  }, [currentDate, prefetchMonthData, viewType]);
 
   useEffect(() => {
     const unsubscribe = deliveryEventEmitter.subscribe(() => {
@@ -599,9 +734,24 @@ const CalendarPage: React.FC = React.memo(() => {
                 currentDate={currentDate}
                 setCurrentDate={updateCurrentDate}
                 onViewTypeChange={setViewType}
+                onPrefetchMonthView={() => {
+                  if (viewType === "Day") {
+                    void prefetchMonthData(currentDate);
+                  }
+                }}
                 onNavigatePrev={handleNavigatePrev}
+                onPrefetchPrevMonth={() => {
+                  if (viewType === "Month") {
+                    void prefetchMonthData(currentDate.addMonths(-1));
+                  }
+                }}
                 onNavigateToday={handleNavigateToday}
                 onNavigateNext={handleNavigateNext}
+                onPrefetchNextMonth={() => {
+                  if (viewType === "Month") {
+                    void prefetchMonthData(currentDate.addMonths(1));
+                  }
+                }}
                 onAddDelivery={() => {
                   setIsModalOpen(true);
                   preloadAllClients();
