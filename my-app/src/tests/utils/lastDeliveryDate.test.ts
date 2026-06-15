@@ -70,9 +70,10 @@ describe("batchGetClientDeliverySummaries", () => {
   // App coverage:
   // - profile and delivery grids call this summary fetch for many clients at once
   // - firestore "in" queries must be chunked to stay within platform limits
-  // Behavior contract: >10 unique clients should query in deterministic 10-item chunks.
+  // Behavior contract: lists larger than 30 unique clients should prefer 30-item chunks,
+  // with fallback to smaller firestore-safe chunks when the backend rejects larger IN clauses.
   it("chunks large client lists into firestore-safe in queries", async () => {
-    const uniqueClientIds = Array.from({ length: 12 }, (_, index) => `client-${index + 1}`);
+    const uniqueClientIds = Array.from({ length: 35 }, (_, index) => `client-${index + 1}`);
 
     mockGetDocs
       .mockResolvedValueOnce(makeSnapshot([]))
@@ -86,8 +87,8 @@ describe("batchGetClientDeliverySummaries", () => {
 
     expect(mockGetDocs).toHaveBeenCalledTimes(2);
     expect(inClauses).toHaveLength(2);
-    expect(inClauses[0]).toEqual(uniqueClientIds.slice(0, 10));
-    expect(inClauses[1]).toEqual(uniqueClientIds.slice(10));
+    expect(inClauses[0]).toEqual(uniqueClientIds.slice(0, 30));
+    expect(inClauses[1]).toEqual(uniqueClientIds.slice(30));
   });
 
   // App coverage:
