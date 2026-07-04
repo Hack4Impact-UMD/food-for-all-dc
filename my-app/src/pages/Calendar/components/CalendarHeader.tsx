@@ -17,6 +17,9 @@ interface CalendarHeaderProps {
   onNavigateNext: () => void;
   onAddDelivery: () => void;
   onEditLimits?: (event: React.MouseEvent<HTMLElement>) => void;
+  onPrefetchMonthView?: () => void;
+  onPrefetchPrevMonth?: () => void;
+  onPrefetchNextMonth?: () => void;
 }
 
 function isDayPilotDate(x: any): x is DayPilot.Date {
@@ -33,6 +36,9 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
   onNavigateNext,
   onAddDelivery,
   onEditLimits,
+  onPrefetchMonthView,
+  onPrefetchPrevMonth,
+  onPrefetchNextMonth,
 }) => {
   const { userRole } = useAuth();
   const daysOfWeek = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -84,6 +90,8 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
       >
         <Button
           onClick={handleViewToggle}
+          onMouseEnter={onPrefetchMonthView}
+          onFocus={onPrefetchMonthView}
           variant="outlined"
           sx={{
             width: 80,
@@ -119,7 +127,13 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
           alignItems: "center",
         }}
       >
-        <IconButton onClick={onNavigatePrev} size="large" sx={{ color: "var(--color-primary)" }}>
+        <IconButton
+          onClick={onNavigatePrev}
+          onMouseEnter={viewType === "Month" ? onPrefetchPrevMonth : undefined}
+          onFocus={viewType === "Month" ? onPrefetchPrevMonth : undefined}
+          size="large"
+          sx={{ color: "var(--color-primary)" }}
+        >
           <Box
             sx={{
               width: 12,
@@ -144,7 +158,13 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
           {viewType === "Month" && currentDate.toString("MMMM yyyy")}
         </Typography>
 
-        <IconButton onClick={onNavigateNext} size="large" sx={{ color: "var(--color-primary)" }}>
+        <IconButton
+          onClick={onNavigateNext}
+          onMouseEnter={viewType === "Month" ? onPrefetchNextMonth : undefined}
+          onFocus={viewType === "Month" ? onPrefetchNextMonth : undefined}
+          size="large"
+          sx={{ color: "var(--color-primary)" }}
+        >
           <Box
             sx={{
               width: 12,

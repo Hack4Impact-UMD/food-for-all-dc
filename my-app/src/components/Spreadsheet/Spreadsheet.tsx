@@ -53,6 +53,7 @@ import {
   DialogContent,
   Skeleton,
   Typography,
+  CircularProgress,
 } from "@mui/material";
 import { Popover } from "@mui/material";
 import type { RowData } from "./export";
@@ -328,7 +329,14 @@ const SpreadsheetRowContent = memo(
                 );
               })()
             ) : field.compute ? (
+              field.key === "lastDeliveryDate" && !row.deliverySummaryReady ? (
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1, color: "text.secondary" }}>
+                  <CircularProgress size={14} />
+                  <span>Loading...</span>
+                </Box>
+              ) : (
               renderSafeSpreadsheetCellValue(field.compute(row))
+              )
             ) : (
               renderSafeSpreadsheetCellValue(row[field.key as keyof RowData])
             )}

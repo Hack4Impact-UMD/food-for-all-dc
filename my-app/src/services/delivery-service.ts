@@ -22,6 +22,7 @@ import { Time, TimeUtils } from "../utils/timeUtils";
 import { retry } from "../utils/retry";
 import { ServiceError, formatServiceError } from "../utils/serviceError";
 import dataSources from "../config/dataSources";
+import { DEFAULT_WEEKLY_CALENDAR_DELIVERY_LIMITS } from "../config/calendarLimits";
 import { deliveryDate } from "../utils/deliveryDate";
 import { normalizeHouseholdSnapshot } from "../utils/householdSnapshot";
 import {
@@ -1646,13 +1647,7 @@ class DeliveryService {
         if (!snapshot.exists()) {
           // Return default weekly limits if document doesn't exist
           const defaultLimits: Record<string, number> = {
-            sunday: 60,
-            monday: 60,
-            tuesday: 60,
-            wednesday: 60,
-            thursday: 90,
-            friday: 90,
-            saturday: 60,
+            ...DEFAULT_WEEKLY_CALENDAR_DELIVERY_LIMITS,
           };
           // Create the document with default values
           await setDoc(docRef, defaultLimits);

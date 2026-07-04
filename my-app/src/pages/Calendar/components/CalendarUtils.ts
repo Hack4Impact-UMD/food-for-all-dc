@@ -3,10 +3,14 @@ import { DeliveryService } from "../../../services";
 import { NewDelivery } from "../../../types/calendar-types";
 import { Time, TimeUtils } from "../../../utils/timeUtils";
 import { deliveryDate } from "../../../utils/deliveryDate";
+import {
+  DEFAULT_CALENDAR_DELIVERY_LIMIT,
+  DEFAULT_WEEKLY_CALENDAR_DELIVERY_LIMITS,
+} from "../../../config/calendarLimits";
 
 const DAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
 
-let firestoreLimits: number[] = [60, 60, 60, 60, 90, 90, 60];
+let firestoreLimits: number[] = DAYS.map((day) => DEFAULT_WEEKLY_CALENDAR_DELIVERY_LIMITS[day]);
 
 const deliveryService = DeliveryService.getInstance();
 
@@ -14,7 +18,9 @@ const deliveryService = DeliveryService.getInstance();
 export const initLimits = async () => {
   try {
     const limits = await deliveryService.getWeeklyLimits();
-    firestoreLimits = DAYS.map((day) => limits[day] || 60);
+    firestoreLimits = DAYS.map((day) =>
+      typeof limits[day] === "number" ? limits[day] : DEFAULT_CALENDAR_DELIVERY_LIMIT
+    );
   } catch (error) {
     console.error("Error initializing limits:", error);
   }
@@ -25,13 +31,14 @@ export const getDefaultLimit = (
   limits: Record<string, number> | number[]
 ): number => {
   if (Array.isArray(limits)) {
-    return limits[date.getDayOfWeek()];
+    const weeklyLimit = limits[date.getDayOfWeek()];
+    return typeof weeklyLimit === "number" ? weeklyLimit : DEFAULT_CALENDAR_DELIVERY_LIMIT;
   } else {
     const dayOfWeek = date.getDayOfWeek();
     const dayName = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][
       dayOfWeek
     ];
-    return limits[dayName] || 20;
+    return typeof limits[dayName] === "number" ? limits[dayName] : DEFAULT_CALENDAR_DELIVERY_LIMIT;
   }
 };
 

@@ -19,6 +19,7 @@ import { getDefaultLimit, setDefaultLimit } from "./CalendarUtils";
 import { useLimits } from "./useLimits";
 import { DeliveryService } from "../../../services";
 import { CalendarConfig, DateLimit } from "../../../types/calendar-types";
+import { DEFAULT_CALENDAR_DELIVERY_LIMIT } from "../../../config/calendarLimits";
 import {
   buildDailyLimitsMap,
   getCapacityStatus,
@@ -73,10 +74,13 @@ const CalendarPopper = ({
   } | null>(null);
   const [clickedElement, setClickedElement] = useState<HTMLElement | null>(null);
   const [limitEditDate, setLimitEditDate] = useState<DayPilot.Date | null>(null);
-  const [newLimit, setNewLimit] = useState<number>(60);
+  const [newLimit, setNewLimit] = useState<number>(DEFAULT_CALENDAR_DELIVERY_LIMIT);
   const [bulkEdit, setBulkEdit] = useState<boolean>(false);
 
-  const limitOptions = Array.from({ length: 13 }, (_, i) => 30 + i * 5);
+  const limitOptions = Array.from(
+    { length: (DEFAULT_CALENDAR_DELIVERY_LIMIT - 30) / 5 + 1 },
+    (_, i) => 30 + i * 5
+  );
 
   const handleDateClick = async (
     date: DayPilot.Date,

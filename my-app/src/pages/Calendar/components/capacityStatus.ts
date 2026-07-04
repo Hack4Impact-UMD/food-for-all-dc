@@ -1,5 +1,6 @@
 import { DateLimit } from "../../../types/calendar-types";
 import { deliveryDate } from "../../../utils/deliveryDate";
+import { DEFAULT_CALENDAR_DELIVERY_LIMIT } from "../../../config/calendarLimits";
 
 export type CapacityStatus = "normal" | "near" | "at" | "over";
 export type CapacityWarningStatus = Exclude<CapacityStatus, "normal">;
@@ -72,13 +73,13 @@ export const resolveLimitForDate = (
   const dayIndex = deliveryDate.toJSDate(dateKey).getDay();
   if (Array.isArray(weeklyLimits)) {
     const weeklyLimit = weeklyLimits[dayIndex];
-    return typeof weeklyLimit === "number" ? weeklyLimit : 60;
+    return typeof weeklyLimit === "number" ? weeklyLimit : DEFAULT_CALENDAR_DELIVERY_LIMIT;
   }
 
   const lowerKey = DAY_NAMES_LOWER[dayIndex];
   const titleKey = DAY_NAMES_TITLE[dayIndex];
   const weeklyLimit = weeklyLimits[lowerKey] ?? weeklyLimits[titleKey];
-  return typeof weeklyLimit === "number" ? weeklyLimit : 60;
+  return typeof weeklyLimit === "number" ? weeklyLimit : DEFAULT_CALENDAR_DELIVERY_LIMIT;
 };
 
 export const getCapacityStatus = (

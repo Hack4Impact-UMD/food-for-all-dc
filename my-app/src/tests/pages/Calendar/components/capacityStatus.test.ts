@@ -32,6 +32,14 @@ describe("capacityStatus helpers", () => {
   });
 
   // App coverage:
+  // - calendar-wide capacity default when Firestore weekly limit data is missing
+  // Behavior contract: missing weekly limit data resolves to the global calendar delivery limit.
+  it("uses 120 as the global calendar delivery limit when weekly data is missing", () => {
+    expect(resolveLimitForDate("2026-03-30", {}, {})).toBe(120);
+    expect(resolveLimitForDate("2026-03-30", [], {})).toBe(120);
+  });
+
+  // App coverage:
   // - warning chips and capacity color states in Calendar views
   // - threshold logic that determines normal/near/at/over capacity labels
   // Behavior contract: getCapacityStatus returns deterministic bucketed status for count/limit combinations.
