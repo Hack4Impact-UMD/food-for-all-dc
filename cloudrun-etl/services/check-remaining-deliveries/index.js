@@ -32,7 +32,7 @@ if (sendgridApiKey) {
 }
 
 const senderEmail = emailConfig.fromEmail || process.env.FROM_EMAIL || 'Admin@foodforalldc.org';
-const recipientEmail = emailConfig.toEmail || process.env.TO_EMAIL || 'suvrathc@gmail.com';
+const recipientEmail = emailConfig.toEmail || process.env.TO_EMAIL;
 
 functions.http('check-remaining-deliveries', async (req, res) => {
   try {
@@ -89,6 +89,9 @@ functions.http('check-remaining-deliveries', async (req, res) => {
     try {
       if (!sendgridApiKey) {
         throw new Error('Missing SENDGRID_API_KEY environment variable.');
+      }
+      if (!recipientEmail) {
+        throw new Error('Missing TO_EMAIL recipient configuration.');
       }
 
       const message = {

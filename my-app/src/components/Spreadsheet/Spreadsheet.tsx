@@ -74,7 +74,6 @@ import { styled } from "@mui/material/styles";
 import { useNavigate } from "react-router-dom";
 import { DateTime } from "luxon";
 import { useSearchKeyAutocomplete } from "../../hooks/useSearchKeyAutocomplete";
-import type { ClientProfile } from "../../types/client-types";
 
 import { exportQueryResults, exportAllClients } from "./export";
 const DeleteClientModal = React.lazy(() => import("./DeleteClientModal"));
@@ -148,6 +147,7 @@ const StyleChip = styled(Chip)(({ theme }) => ({
 
 const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const DELIVERY_SUMMARY_EXPORT_BATCH_SIZE = 100;
+const EXPORT_ALL_CLIENTS_PAGE_SIZE = 500;
 
 const formatTimestampLikeDate = (value: unknown): string => {
   if (value === null || value === undefined || value === "N/A") return "";
@@ -482,8 +482,28 @@ const Spreadsheet: React.FC = () => {
       return;
     }
 
+    if (!trimmedSearch.includes(":")) {
+      setRemoteSearchRows(null);
+      setIsRemoteSearchLoading(false);
+      if (hasMore) {
+        void loadAllRemaining();
+      }
+      return;
+    }
+
     if (trimmedSearch.includes(":")) {
       const parsedTerms = parseSearchTermsProgressively(trimmedSearch);
+      const nonKeyValueTerms = parsedTerms.filter((term) => !term.includes(":"));
+
+      if (nonKeyValueTerms.length > 0) {
+        setRemoteSearchRows(null);
+        setIsRemoteSearchLoading(false);
+        if (hasMore) {
+          void loadAllRemaining();
+        }
+        return;
+      }
+
       const nameQuery = parsedTerms.find((term) => {
         if (!term.includes(":")) return false;
         const { keyword } = extractKeyValue(term);
@@ -494,6 +514,9 @@ const Spreadsheet: React.FC = () => {
       if (!nameQuery) {
         setRemoteSearchRows(null);
         setIsRemoteSearchLoading(false);
+        if (hasMore) {
+          void loadAllRemaining();
+        }
         return;
       }
 
@@ -615,114 +638,7 @@ const Spreadsheet: React.FC = () => {
         setIsRemoteSearchLoading(false);
       };
     }
-
-    const requestId = ++remoteSearchRequestIdRef.current;
-    setIsRemoteSearchLoading(true);
-
-    void (async () => {
-      try {
-        const matchedClients = await clientService.searchClientsByName(trimmedSearch, 100);
-        if (requestId !== remoteSearchRequestIdRef.current) {
-          return;
-        }
-
-        const matchedClientIds = matchedClients.map((client) => client.uid).filter(Boolean);
-        if (matchedClientIds.length === 0) {
-          setRemoteSearchRows([]);
-          return;
-        }
-
-        const [fullClients, deliverySummaries] = await Promise.all([
-          clientService.getClientsByIds(matchedClientIds),
-          clientService
-            .getClientDeliverySummaries(matchedClientIds)
-            .catch(() => new Map<string, ClientDeliverySummary>()),
-        ]);
-
-        if (requestId !== remoteSearchRequestIdRef.current) {
-          return;
-        }
-
-        const mergedRows = fullClients
-          .filter((client): client is ClientProfile => Boolean(client?.uid))
-          .map((client) => ({
-            id: client.uid,
-            uid: client.uid,
-            clientid: client.uid,
-            firstName: client.firstName || "",
-            lastName: client.lastName || "",
-            email: client.email || "",
-            phone: client.phone || "",
-            houseNumber: 0,
-            address: client.address || "",
-            address2: client.address2 || "",
-            deliveryDetails: {
-              deliveryInstructions: client.deliveryDetails?.deliveryInstructions || "",
-              dietaryRestrictions: {
-                foodAllergens:
-                  client.deliveryDetails?.dietaryRestrictions?.foodAllergens || [],
-                halal: client.deliveryDetails?.dietaryRestrictions?.halal || false,
-                kidneyFriendly: client.deliveryDetails?.dietaryRestrictions?.kidneyFriendly || false,
-                lowSodium: client.deliveryDetails?.dietaryRestrictions?.lowSodium || false,
-                lowSugar: client.deliveryDetails?.dietaryRestrictions?.lowSugar || false,
-                microwaveOnly: client.deliveryDetails?.dietaryRestrictions?.microwaveOnly || false,
-                noCookingEquipment:
-                  client.deliveryDetails?.dietaryRestrictions?.noCookingEquipment || false,
-                otherText: client.deliveryDetails?.dietaryRestrictions?.otherText || "",
-                other: client.deliveryDetails?.dietaryRestrictions?.other || false,
-                softFood: client.deliveryDetails?.dietaryRestrictions?.softFood || false,
-                vegan: client.deliveryDetails?.dietaryRestrictions?.vegan || false,
-                heartFriendly: client.deliveryDetails?.dietaryRestrictions?.heartFriendly || false,
-                vegetarian: client.deliveryDetails?.dietaryRestrictions?.vegetarian || false,
-                dietaryPreferences:
-                  client.deliveryDetails?.dietaryRestrictions?.dietaryPreferences || "",
-              },
-            },
-            ethnicity: client.ethnicity || "",
-            adults: client.adults ?? null,
-            children: client.children ?? null,
-            deliveryFreq: client.deliveryFreq || "",
-            gender: client.gender || "",
-            language: client.language || "",
-            notes: client.notes || "",
-            famStartDate: client.famStartDate || "",
-            tefapCert: client.tefapCert || "",
-            dob: client.dob || "",
-            ward: client.ward || "",
-            zipCode: client.zipCode || "",
-            tags: client.tags || [],
-            referralEntity: client.referralEntity
-              ? {
-                  name: client.referralEntity.name || "",
-                  organization: client.referralEntity.organization || "",
-                }
-              : undefined,
-            lastDeliveryDate: deliverySummaries.get(client.uid)?.lastDeliveryDate || "",
-            missedStrikeCount: deliverySummaries.get(client.uid)?.missedStrikeCount || 0,
-            activeStatus: client.activeStatus,
-            deliverySummaryReady: true,
-          })) as RowData[];
-
-        setRemoteSearchRows(mergedRows);
-      } catch (error) {
-        if (requestId !== remoteSearchRequestIdRef.current) {
-          return;
-        }
-
-        console.error("Failed to search clients remotely:", error);
-        setRemoteSearchRows([]);
-      } finally {
-        if (requestId === remoteSearchRequestIdRef.current) {
-          setIsRemoteSearchLoading(false);
-        }
-      }
-    })();
-
-    return () => {
-      remoteSearchRequestIdRef.current += 1;
-      setIsRemoteSearchLoading(false);
-    };
-  }, [debouncedSearch]);
+  }, [debouncedSearch, hasMore, loadAllRemaining]);
 
   const hydrateRowsForExport = useCallback(async (sourceRows: RowData[]) => {
     const pendingClientIds = Array.from(
@@ -756,6 +672,26 @@ const Spreadsheet: React.FC = () => {
     return mergeDeliverySummaries(sourceRows, readyIds, summaries);
   }, []);
 
+  const loadAllRowsForExport = useCallback(async (): Promise<RowData[]> => {
+    const rowsById = new Map<string, RowData>();
+    let lastDoc: unknown;
+
+    do {
+      const result = await clientService.getAllClientsForSpreadsheet(
+        EXPORT_ALL_CLIENTS_PAGE_SIZE,
+        lastDoc
+      );
+
+      result.clients.forEach((row) => {
+        rowsById.set(row.uid, row);
+      });
+
+      lastDoc = result.lastDoc;
+    } while (lastDoc);
+
+    return Array.from(rowsById.values());
+  }, []);
+
   const handleOpenMenu = useCallback((event: React.MouseEvent<HTMLElement>, row: RowData) => {
     event.stopPropagation();
     setMenuAnchorPosition({ top: event.clientY, left: event.clientX });
@@ -763,7 +699,7 @@ const Spreadsheet: React.FC = () => {
   }, []);
 
   const handleExportAction = async (
-    sourceRows: RowData[],
+    sourceRows: RowData[] | (() => Promise<RowData[]>),
     exportFn: (rowsToExport: RowData[]) => string,
     successMessage: (filename: string) => string
   ) => {
@@ -773,7 +709,8 @@ const Spreadsheet: React.FC = () => {
 
     setIsExporting(true);
     try {
-      const exportRows = await hydrateRowsForExport(sourceRows);
+      const rowsToExport = typeof sourceRows === "function" ? await sourceRows() : sourceRows;
+      const exportRows = await hydrateRowsForExport(rowsToExport);
       const filename = exportFn(exportRows);
       showSuccess(successMessage(filename));
     } catch (error) {
@@ -1482,7 +1419,7 @@ const Spreadsheet: React.FC = () => {
                         onClick={() => {
                           setExportDialogOpen(false);
                           void handleExportAction(
-                            clients,
+                            loadAllRowsForExport,
                             (rowsToExport) => exportAllClients(rowsToExport),
                             (filename) => `Exported ${filename}.`
                           );

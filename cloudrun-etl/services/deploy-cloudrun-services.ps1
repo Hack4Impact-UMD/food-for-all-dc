@@ -90,6 +90,9 @@ foreach ($svc in $targets) {
   }
 
   & gcloud @deployArgs
+  if ($LASTEXITCODE -ne 0) {
+    throw "gcloud deploy failed for $svc with exit code $LASTEXITCODE"
+  }
 
   Write-Host "Deployed $svc" -ForegroundColor Green
   Write-Host ''

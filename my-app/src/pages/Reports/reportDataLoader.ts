@@ -15,7 +15,6 @@ import { db } from "../../auth/firebaseConfig";
 import dataSources from "../../config/dataSources";
 import { HouseholdSnapshot } from "../../types/delivery-types";
 import { deliveryDate } from "../../utils/deliveryDate";
-import { batchGetLastDeliveryDates } from "../../utils/lastDeliveryDate";
 import { normalizeHouseholdSnapshot } from "../../utils/householdSnapshot";
 import { ReportClientRecord, ReportDeliveryRecord } from "./reportUtils";
 
@@ -275,7 +274,45 @@ export const loadFirstDeliveriesByClientIds = async (
 
 export const loadLatestPastDeliveryDatesByClientIds = async (
   clientIds: string[],
-  _today = DateTime.now().endOf("day")
+  today = DateTime.now().endOf("day")
 ): Promise<Map<string, string>> => {
-  return batchGetLastDeliveryDates(clientIds);
+  const latestPastDeliveryDatesByClientId = new Map<string, string>();
+  const uniqueClientIds = Array.from(new Set(clientIds.filter(Boolean)));
+
+  if (uniqueClientIds.length === 0) {
+    return latestPastDeliveryDatesByClientId;
+  }
+
+  const clientChunks = chunkArray(uniqueClientIds, FIRESTORE_IN_QUERY_LIMIT);
+  const snapshots = await Promise.all(
+    clientChunks.map((chunk) =>
+      getDocs(
+        query(
+          collection(db, dataSources.firebase.calendarCollection),
+          where("clientId", "in", chunk),
+          where("deliveryDate", "<=", Timestamp.fromDate(today.toJSDate())),
+          orderBy("deliveryDate", "desc")
+        )
+      )
+    )
+  );
+
+  snapshots.forEach((snapshot) => {
+    snapshot.docs.forEach((docSnapshot) => {
+      const event = mapReportDelivery(docSnapshot);
+
+      if (!event || !event.clientId || latestPastDeliveryDatesByClientId.has(event.clientId)) {
+        return;
+      }
+
+      const deliveryDateKey = event.deliveryDate.toISODate();
+      if (!deliveryDateKey) {
+        return;
+      }
+
+      latestPastDeliveryDatesByClientId.set(event.clientId, deliveryDateKey);
+    });
+  });
+
+  return latestPastDeliveryDatesByClientId;
 };
