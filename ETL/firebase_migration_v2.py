@@ -1,0 +1,2056 @@
+CLIENT_COLLECTION_NAME = "temp-profile2"
+REFERRAL_COLLECTION_NAME = "temp-referral"
+
+import json
+import os
+import sys
+from datetime import datetime, timedelta, timezone
+import time
+import random
+from typing import Dict, List, Any, Optional
+import logging
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from dataclasses import dataclass
+import requests
+import re
+from threading import Lock
+# For spreadsheet ZIP fallback
+import pandas as pd
+from dotenv import load_dotenv
+
+# Load environment variables from my-app/.env
+env_path = os.path.join(os.path.dirname(__file__), "..", "my-app", ".env")
+if os.path.exists(env_path):
+    load_dotenv(env_path)
+    print(f"✅ Loaded environment from {env_path}")
+else:
+    print(f"⚠️  Warning: .env file not found at {env_path}")
+
+# Install these dependencies:
+# pip install firebase-admin python-dateutil requests python-dotenv
+
+
+import firebase_admin
+from firebase_admin import credentials, firestore
+from google.cloud.firestore_v1.base_query import FieldFilter
+
+# Global counters for warnings/errors during a migration run
+WARNING_COUNT = 0
+ERROR_COUNT = 0
+GEOCODING_RETRY_ATTEMPTS = 0
+GEOCODING_RECOVERED_AFTER_RETRY = 0
+GEOCODING_FAILED_AFTER_RETRIES = 0
+CLIENT_DATABASE_FILE_PATH = os.path.join("ETL", "FFA_CLIENT_DATABASE_JULY2026.xlsx")
+CLIENT_DATABASE_SHEET_NAME = "Current Deliveries"
+SATURDAY_DELIVERY_ROW_START = 3279
+SATURDAY_DELIVERY_ROW_END = 3464
+
+
+def normalize_client_database_dataframe(df: pd.DataFrame) -> pd.DataFrame:
+	"""Normalize workbook headers so both workbook versions load consistently."""
+	df = df.copy()
+	rename_map = {}
+	for column_name in df.columns:
+		normalized = str(column_name).strip().lower()
+		if normalized in {"", "unnamed: 0", "id#", "client id"}:
+			rename_map[column_name] = "ID"
+		elif normalized in {"tefap fy25", "tefap fy26", "tefap_fy25", "tefap_fy26"}:
+			rename_map[column_name] = "TEFAP_FY25"
+	if rename_map:
+		df = df.rename(columns=rename_map)
+	df = df.loc[:, ~df.columns.duplicated()]
+	if "_excel_row_num" not in df.columns:
+		df["_excel_row_num"] = df.index + 2
+	return df
+
+
+class _InfoOnlyFilter(logging.Filter):
+	"""Filter that lets only INFO-and-below records through.
+
+	Warnings and errors will still be written to file handlers but
+	will be hidden from the console, so the progress bar stays clean.
+	"""
+
+	def filter(self, record: logging.LogRecord) -> bool:  # type: ignore[name-defined]
+		return record.levelno < logging.WARNING
+
+
+class _ErrorCountingHandler(logging.Handler):
+	"""Handler that increments global counters for warnings and errors separately.
+
+	Used to keep running warning/error counts in the console status line without
+	printing individual messages.
+	"""
+
+	def emit(self, record: logging.LogRecord) -> None:  # type: ignore[name-defined]
+		global WARNING_COUNT, ERROR_COUNT
+		if record.levelno == logging.WARNING:
+			WARNING_COUNT += 1
+		elif record.levelno >= logging.ERROR:
+			ERROR_COUNT += 1
+
+
+# Configure logging: one main log, one error-only log, and a quiet console
+etl_root = os.path.join("ETL")
+error_log_dir = os.path.join(etl_root, "error_logs")
+os.makedirs(error_log_dir, exist_ok=True)
+
+log_file_handler = logging.FileHandler(os.path.join(etl_root, 'migration.log'))
+log_file_handler.setLevel(logging.INFO)
+
+error_file_handler = logging.FileHandler(os.path.join(error_log_dir, 'migration-errors.log'), mode='w')
+error_file_handler.setLevel(logging.WARNING)
+
+console_handler = logging.StreamHandler(sys.stdout)
+console_handler.setLevel(logging.INFO)
+console_handler.addFilter(_InfoOnlyFilter())
+
+error_counter_handler = _ErrorCountingHandler()
+error_counter_handler.setLevel(logging.WARNING)
+
+logging.basicConfig(
+	level=logging.DEBUG,
+	format='%(asctime)s - %(levelname)s - %(message)s',
+	handlers=[
+		log_file_handler,
+		error_file_handler,
+		console_handler,
+		error_counter_handler,
+	]
+)
+
+logger = logging.getLogger(__name__)
+
+
+# Geocoding request pacing to reduce burst-related quota errors when processing in parallel.
+_GEOCODE_REQUEST_LOCK = Lock()
+_GEOCODE_LAST_REQUEST_TS = 0.0
+
+
+def _get_env_float(name: str, default: float) -> float:
+	value = os.getenv(name)
+	if value is None or str(value).strip() == "":
+		return default
+	try:
+		return float(value)
+	except ValueError:
+		logger.warning(f"{name} is invalid; using default {default}")
+		return default
+
+
+def _get_env_int(name: str, default: int) -> int:
+	value = os.getenv(name)
+	if value is None or str(value).strip() == "":
+		return default
+	try:
+		return int(value)
+	except ValueError:
+		logger.warning(f"{name} is invalid; using default {default}")
+		return default
+
+
+_GEOCODE_MIN_INTERVAL_SECONDS = _get_env_float("GEOCODING_MIN_INTERVAL_SECONDS", 0.1)
+
+
+def _paced_geocode_get(url: str, timeout: int = 10) -> requests.Response:
+	"""Issue a geocoding request with a small global gap between calls."""
+	global _GEOCODE_LAST_REQUEST_TS
+	with _GEOCODE_REQUEST_LOCK:
+		now = time.monotonic()
+		wait_time = _GEOCODE_MIN_INTERVAL_SECONDS - (now - _GEOCODE_LAST_REQUEST_TS)
+		if wait_time > 0:
+			time.sleep(wait_time)
+		response = requests.get(url, timeout=timeout)
+		_GEOCODE_LAST_REQUEST_TS = time.monotonic()
+		return response
+
+def geocode_address_google(address, city, state, zip_code):
+	"""Geocode an address using Google Maps Geocoding API.
+	
+	Returns:
+		dict with 'latitude', 'longitude', and optionally 'zip_code' if found
+		None if geocoding fails
+	"""
+	global GEOCODING_RETRY_ATTEMPTS, GEOCODING_RECOVERED_AFTER_RETRY, GEOCODING_FAILED_AFTER_RETRIES
+	# Try REACT_APP_GOOGLE_MAPS_API_KEY first (from .env), then GOOGLE_MAPS_API_KEY
+	api_key = os.getenv("REACT_APP_GOOGLE_MAPS_API_KEY") or os.getenv("GOOGLE_MAPS_API_KEY", "")
+	if not api_key:
+		logger.warning("Google Maps API key not found in environment; skipping geocoding")
+		return None
+	
+	# Build full address
+	address_parts = [address]
+	if city:
+		address_parts.append(city)
+	if state:
+		address_parts.append(state)
+	if zip_code:
+		address_parts.append(str(zip_code))
+	
+	full_address = ", ".join(filter(None, address_parts))
+	
+	params = {
+		'address': full_address,
+		'key': api_key
+	}
+	url = f"https://maps.googleapis.com/maps/api/geocode/json?{urlencode(params)}"
+
+	max_retries = _get_env_int("GEOCODING_MAX_RETRIES", 5)
+	base_delay_seconds = _get_env_float("GEOCODING_RETRY_BASE_SECONDS", 1.0)
+
+	try:
+		for attempt in range(max_retries + 1):
+			resp = _paced_geocode_get(url, timeout=10)
+			if resp.status_code == 200:
+				data = resp.json()
+				status = data.get('status')
+				if status == 'OK' and data.get('results'):
+					if attempt > 0:
+						GEOCODING_RECOVERED_AFTER_RETRY += 1
+					result = data['results'][0]
+					location = result['geometry']['location']
+
+					# Extract ZIP code from address components
+					extracted_zip = None
+					for comp in result.get('address_components', []):
+						if 'postal_code' in comp.get('types', []):
+							extracted_zip = comp['long_name']
+							break
+
+					return {
+						'latitude': location['lat'],
+						'longitude': location['lng'],
+						'zip_code': extracted_zip
+					}
+
+				# Retry transient/rate-limited statuses with exponential backoff.
+				if status in {'OVER_QUERY_LIMIT', 'UNKNOWN_ERROR'} and attempt < max_retries:
+					GEOCODING_RETRY_ATTEMPTS += 1
+					delay = base_delay_seconds * (2 ** attempt) + random.uniform(0.0, 0.25)
+					logger.info(
+						f"Geocoding retry {attempt + 1}/{max_retries} for {full_address} "
+						f"(status={status}, waiting {delay:.2f}s)"
+					)
+					time.sleep(delay)
+					continue
+
+				if status in {'OVER_QUERY_LIMIT', 'UNKNOWN_ERROR'} and attempt >= max_retries:
+					GEOCODING_FAILED_AFTER_RETRIES += 1
+
+				logger.warning(f"Google Maps API returned status: {status} for address: {full_address}")
+				return None
+
+			# Retry occasional gateway and service failures.
+			if resp.status_code in {429, 500, 502, 503, 504} and attempt < max_retries:
+				GEOCODING_RETRY_ATTEMPTS += 1
+				delay = base_delay_seconds * (2 ** attempt) + random.uniform(0.0, 0.25)
+				logger.info(
+					f"Geocoding HTTP retry {attempt + 1}/{max_retries} for {full_address} "
+					f"(http={resp.status_code}, waiting {delay:.2f}s)"
+				)
+				time.sleep(delay)
+				continue
+
+			if resp.status_code in {429, 500, 502, 503, 504} and attempt >= max_retries:
+				GEOCODING_FAILED_AFTER_RETRIES += 1
+
+			logger.warning(f"Google Maps API request failed with status code: {resp.status_code}")
+			return None
+
+		logger.warning(f"Google Maps API exhausted retries for address: {full_address}")
+		return None
+	except Exception as e:
+		logger.warning(f"Error geocoding address '{full_address}': {e}")
+		return None
+
+# --- Begin full code from firebase_migration.py ---
+from urllib.parse import urlencode
+
+@dataclass
+class MigrationStats:
+	total_records: int = 0
+	successful_imports: int = 0
+	failed_imports: int = 0
+	skipped_records: int = 0
+	skipped_inactive: int = 0
+	skipped_duplicates: int = 0
+	start_time: datetime = None
+	end_time: datetime = None
+	unmapped_frequencies: Dict[str, int] = None  # Track frequency values that don't map
+	failed_active_records: list = None  # Track active records that failed to insert
+	failed_geocoding_records: list = None  # Track records that failed geocoding
+	geocoding_retry_attempts: int = 0
+	geocoding_recovered_after_retry: int = 0
+	geocoding_failed_after_retries: int = 0
+	def __post_init__(self):
+		if self.unmapped_frequencies is None:
+			self.unmapped_frequencies = {}
+		if self.failed_active_records is None:
+			self.failed_active_records = []
+		if self.failed_geocoding_records is None:
+			self.failed_geocoding_records = []
+
+
+# --- Begin FirestoreMigration and helpers (uses Google Maps geocoding) ---
+from urllib.parse import urlencode
+
+class FirestoreMigration:
+	def load_referral_form(self, form_path: str) -> list:
+		import pandas as pd
+		df = pd.read_excel(form_path, sheet_name='Form Responses 1', dtype=str)
+		records = df.to_dict(orient='records')
+		return records
+
+	def __init__(self, service_account_path: str, project_id: str, collection_name: str = CLIENT_COLLECTION_NAME):
+		# ...existing code...
+		self.service_account_path = service_account_path
+		self.project_id = project_id
+		self.collection_name = collection_name
+		# ...existing code for Firestore client...
+
+		# Load spreadsheet ZIP mapping (ADDRESS -> ZIP)
+		self.address_zip_map = {}
+		try:
+			df = pd.read_excel(CLIENT_DATABASE_FILE_PATH, sheet_name=CLIENT_DATABASE_SHEET_NAME, dtype=str)
+			df = normalize_client_database_dataframe(df)
+			for idx, row in df.iterrows():
+				addr = str(row.get('ADDRESS', '')).strip().lower()
+				zip_val = str(row.get('ZIP', '')).strip()
+				if addr and zip_val:
+					self.address_zip_map[addr] = zip_val
+		except Exception as e:
+			logger.warning(f"Could not load spreadsheet ZIP mapping: {e}")
+
+	def parse_age_group(self, age_group_str: str, adults_count: int) -> Dict[str, Any]:
+		"""
+		Parse age group to determine if household head is senior or adult
+		Returns dict with 'adults', 'seniors', 'headOfHousehold' keys
+		"""
+		result = {
+			"adults": adults_count,
+			"seniors": 0,
+			"headOfHousehold": "Adult"
+		}
+        
+		if not age_group_str or not str(age_group_str).strip():
+			return result
+        
+		age_group = str(age_group_str).strip().lower()
+        
+		# Check for senior indicators (65+)
+		senior_patterns = [
+			"65+", "65 +", "65 plus", "65 - 74", "75+", "75 +", "80+", "80 +",
+			"65 + years", "65+ years", "senior", "elderly"
+		]
+        
+		# Check for explicit age ranges starting at 65 or higher
+		import re
+		age_range_match = re.search(r'(\d+)\s*[-–—]\s*(\d+)', age_group)
+		if age_range_match:
+			start_age = int(age_range_match.group(1))
+			if start_age >= 65:
+				# This person is a senior, not an adult
+				result["adults"] = max(0, adults_count - 1)  # Remove one from adults
+				result["seniors"] = 1
+				result["headOfHousehold"] = "Senior"
+				return result
+        
+		# Check for single age mentions of 65+
+		single_age_match = re.search(r'(\d+)\s*\+', age_group)
+		if single_age_match:
+			age = int(single_age_match.group(1))
+			if age >= 65:
+				result["adults"] = max(0, adults_count - 1)
+				result["seniors"] = 1
+				result["headOfHousehold"] = "Senior"
+				return result
+        
+		# Check for senior keyword patterns
+		if any(pattern in age_group for pattern in senior_patterns):
+			result["adults"] = max(0, adults_count - 1)
+			result["seniors"] = 1
+			result["headOfHousehold"] = "Senior"
+			return result
+        
+		# Default to adult if no senior indicators found
+		return result
+	def parse_frequency(self, frequency_str: str) -> str:
+		"""
+		Parse frequency string to match predefined categories
+		Returns one of: "None", "Weekly", "2x-Monthly", "Monthly", "Emergency", "Periodic"
+		"""
+		if not frequency_str or not str(frequency_str).strip():
+			return "None"
+        
+		freq = str(frequency_str).strip().lower()
+        
+		# Check for emergency/one-time deliveries first
+		emergency_keywords = ["emergency", "only", "two time only", "one time only", "emerg"]
+		if any(keyword in freq for keyword in emergency_keywords):
+			return "Emergency"
+        
+		# Check for periodic
+		if "periodic" in freq or "perodic" in freq:
+			return "Periodic"
+		# Define mapping patterns for regular frequencies
+		if freq in ["none", "n/a", "na", ""]:
+			return "None"
+		elif "weekly" in freq or "week" in freq or freq in ["1x/week", "once/week", "every week"]:
+			return "Weekly"
+		elif any(pattern in freq for pattern in ["2x", "twice", "two", "bi-monthly", "bimonthly", "2/month", "2x/month", "twice/month"]):
+			return "2x-Monthly"
+		elif any(pattern in freq for pattern in ["monthly", "month", "1x/month", "once/month", "every month", "one/month"]):
+			return "Monthly"
+		else:
+			# Track unmapped frequency for review
+			if not hasattr(self.stats, 'unmapped_frequencies'):
+				self.stats.unmapped_frequencies = {}
+			if freq not in self.stats.unmapped_frequencies:
+				self.stats.unmapped_frequencies[freq] = 0
+			self.stats.unmapped_frequencies[freq] += 1
+            
+			# Try to make a best guess based on keywords
+			if "week" in freq:
+				return "Weekly"
+			elif "month" in freq:
+				return "Monthly"
+			else:
+				return "None"  # Default fallback
+			# Anything not mapped above is now 'Periodic'
+			return "Periodic"
+	def check_recent_deliveries(self, row: Dict[str, Any]) -> bool:
+		"""
+		Check if client has had any deliveries in the last 6 months
+		Returns True if any delivery field has a value
+		"""
+		cutoff_date = (datetime.now() - timedelta(days=183)).date()
+
+		for field, value in row.items():
+			if not str(field).startswith("Delivery_"):
+				continue
+
+			try:
+				if pd.isna(value):
+					continue
+			except (TypeError, ValueError):
+				pass
+
+			normalized_value = str(value).strip().lower()
+			if normalized_value in ["", "false", "no", "0", "nan", "none", "null", "n/a"]:
+				continue
+
+			delivery_date = None
+			date_part = str(field)[len("Delivery_"):].replace("_", "/")
+			for date_format in ("%m/%d/%Y", "%m/%d/%y"):
+				try:
+					delivery_date = datetime.strptime(date_part, date_format).date()
+					break
+				except ValueError:
+					continue
+
+			if delivery_date is None or delivery_date >= cutoff_date:
+				return True
+        
+		return False
+	def match_referral_form(self, first_name, last_name, address, referral_form_records):
+		for rec in referral_form_records:
+			if (str(rec.get('First Name', '')).strip().lower() == str(first_name).strip().lower() and
+				str(rec.get('Last Name', '')).strip().lower() == str(last_name).strip().lower() and
+				str(rec.get('Address', '')).strip().lower() == str(address).strip().lower()):
+				return rec
+		return None
+
+	def parse_referral_entity(self, row: Dict[str, Any], referral_form_records=None) -> Dict[str, Any]:
+		import re
+		# Helper to normalize missing/NaN-like strings to empty
+		def _clean(value: Any) -> str:
+			if value is None:
+				return ""
+			text = str(value).strip()
+			if not text or text.lower() == "nan":
+				return ""
+			return text
+		ORG_KEYWORDS = [
+			'inc', 'llc', 'community', 'center', 'clinic', 'hospital', 'foundation', 'services', 'university', 'school', 'church', 'ministry', 'group', 'association', 'org', 'organization', 'society', 'network', 'coalition', 'committee', 'trust', 'partners', 'partnership', 'agency', 'plan', 'health', 'medical', 'development', 'corporation', 'corp', 'company', 'council', 'board', 'office', 'program', 'initiative', 'project', 'team', 'club', 'district', 'authority', 'commission', 'federation', 'institute', 'alliance', 'enterprise', 'cooperative', 'co-op', 'gov', 'government', 'dc', 'department', 'division', 'unit', 'branch', 'chapter', 'league', 'union', 'coordinator', 'caseworker', 'case manager', 'social worker', 'advocate', 'counselor', 'therapist', 'volunteer', 'director', 'manager', 'lead', 'assistant', 'liaison', 'consultant', 'specialist', 'worker', 'coach', 'advisor', 'supervisor', 'psh', 'rapid re-housing', 'rrh', 'housing', 'food', 'bank', 'clinic', 'center', 'program', 'services', 'office', 'department', 'division', 'unit', 'team', 'project', 'initiative', 'agency', 'foundation', 'society', 'network', 'coalition', 'committee', 'trust', 'partners', 'partnership', 'association', 'enterprise', 'cooperative', 'co-op', 'gov', 'government', 'dc', 'school', 'church', 'ministry', 'club', 'district', 'authority', 'commission', 'federation', 'institute', 'alliance', 'company', 'corporation', 'corp', 'council', 'board', 'office', 'program', 'initiative', 'project', 'team', 'club', 'district', 'authority', 'commission', 'federation', 'institute', 'alliance', 'enterprise', 'cooperative', 'co-op', 'gov', 'government', 'dc', 'department', 'division', 'unit', 'branch', 'chapter', 'league', 'union'
+		]
+		PERSON_KEYWORDS = [
+			'mr', 'ms', 'mrs', 'miss', 'dr', 'prof', 'caseworker', 'case manager', 'social worker', 'advocate', 'counselor', 'therapist', 'volunteer', 'director', 'manager', 'lead', 'assistant', 'liaison', 'consultant', 'specialist', 'worker', 'coach', 'advisor', 'supervisor', 'psh', 'rapid re-housing', 'rrh', 'housing', 'food', 'bank', 'clinic', 'center', 'program', 'services', 'office', 'department', 'division', 'unit', 'team', 'project', 'initiative', 'agency', 'foundation', 'society', 'network', 'coalition', 'committee', 'trust', 'partners', 'partnership', 'association', 'enterprise', 'cooperative', 'co-op', 'gov', 'government', 'dc', 'school', 'church', 'ministry', 'club', 'district', 'authority', 'commission', 'federation', 'institute', 'alliance', 'company', 'corporation', 'corp', 'council', 'board', 'office', 'program', 'initiative', 'project', 'team', 'club', 'district', 'authority', 'commission', 'federation', 'institute', 'alliance', 'enterprise', 'cooperative', 'co-op', 'gov', 'government', 'dc', 'department', 'division', 'unit', 'branch', 'chapter', 'league', 'union'
+		]
+		def looks_like_org(text):
+			t = text.lower()
+			return any(k in t for k in ORG_KEYWORDS)
+		def looks_like_person(text):
+			# Heuristic: 2-3 words, each capitalized, no org keywords, or starts with person keyword
+			words = text.split()
+			if any(text.lower().startswith(pk) for pk in PERSON_KEYWORDS):
+				return True
+			return 1 < len(words) <= 3 and all(w and w[0].isupper() for w in words) and not looks_like_org(text)
+		def split_ambiguous(text):
+			# Try to split by comma, dash, or ' at '
+			for sep in [',', '-', ' at ', ' from ', ' of ', ' for ']:
+				if sep in text:
+					parts = [p.strip() for p in text.split(sep, 1)]
+					if len(parts) == 2:
+						return parts[0], parts[1]
+			return text, ''
+		# Try to match referral form first (support both JSON and Excel headers)
+		first_name = _clean(row.get('FIRST_database') or row.get('FIRST', ''))
+		last_name = _clean(row.get('LAST_database') or row.get('LAST', ''))
+		address = _clean(row.get('ADDRESS', ''))
+		matched = None
+		if referral_form_records:
+			matched = self.match_referral_form(first_name, last_name, address, referral_form_records)
+		if matched:
+			# Prefer the canonical referral-form headers from ETL/README.md,
+			# but fall back to older names if present so we work with either export.
+			name_val = (
+				matched.get('Name (case manager)')
+				or matched.get('Name')
+				or ""
+			)
+			org_val = (
+				matched.get('Agency name')
+				or matched.get('Organization')
+				or ""
+			)
+			phone_val = (
+				matched.get('Phone contact')
+				or matched.get('Phone')
+				or ""
+			)
+			email_val = (
+				matched.get('Email Address')
+				or matched.get('Email')
+				or ""
+			)
+			return {
+				"id": "",  # Will be set after referral insert
+				"name": str(name_val).strip(),
+				"organization": str(org_val).strip(),
+				"phone": str(phone_val).strip(),
+				"email": str(email_val).strip(),
+			}
+		# ...existing code...
+		# Normalize internet-based sources
+		INTERNET_KEYWORDS = [
+			'internet search', 'online search', 'facebook', 'website', 'web', 'google', 'internet', 'online', 'www', 'search'
+		]
+		# Check explicit fields first (clean NaN/missing values)
+		case_manager_name = _clean(row.get("Name_case_manager", ""))
+		agency_name = _clean(row.get("Agency_name", ""))
+		case_manager_phone = _clean(row.get("Phone_contact_case_manager", ""))
+		case_manager_email = _clean(row.get("EmailAddress", ""))
+		# Heuristic correction for swapped/misplaced fields
+		if case_manager_name and not agency_name:
+			if looks_like_org(case_manager_name):
+				agency_name, case_manager_name = case_manager_name, ""
+			elif not looks_like_person(case_manager_name):
+				# Try to split ambiguous value
+				n, o = split_ambiguous(case_manager_name)
+				if looks_like_org(o):
+					case_manager_name, agency_name = n, o
+		if agency_name and not case_manager_name:
+			if looks_like_person(agency_name):
+				case_manager_name, agency_name = agency_name, ""
+			elif not looks_like_org(agency_name):
+				n, o = split_ambiguous(agency_name)
+				if looks_like_person(n):
+					case_manager_name, agency_name = n, o
+		# If both are filled but one is org and one is person, assign accordingly
+		if case_manager_name and agency_name:
+			if looks_like_org(case_manager_name) and looks_like_person(agency_name):
+				case_manager_name, agency_name = agency_name, case_manager_name
+		# If only one field is filled and it looks like org, treat as org
+		if not case_manager_name and agency_name and looks_like_org(agency_name):
+			case_manager_name = ""
+		if not agency_name and case_manager_name and looks_like_org(case_manager_name):
+			agency_name, case_manager_name = case_manager_name, ""
+		# Fallback: if both are blank, assign ambiguous value to org
+		if not case_manager_name and not agency_name:
+			ambiguous = str(row.get("Name_case_manager", "")).strip() or str(row.get("Agency_name", "")).strip()
+			if ambiguous:
+				n, o = split_ambiguous(ambiguous)
+				if looks_like_person(n):
+					case_manager_name, agency_name = n, o
+				else:
+					case_manager_name, agency_name = "", ambiguous
+		# Normalize if matches internet keywords
+		combined = f"{case_manager_name} {agency_name}".lower()
+		if any(k in combined for k in INTERNET_KEYWORDS):
+			return {"id": "", "name": "", "organization": "Internet Search", "phone": "", "email": ""}
+		if case_manager_name or agency_name:
+			return {
+				"id": "",
+				"name": case_manager_name,
+				"organization": agency_name,
+				"phone": case_manager_phone,
+				"email": case_manager_email
+			}
+		# Otherwise, try to parse from REFERRAL_ENTITY field (or Excel 'REFERRAL ENTITY')
+		referral_entity = _clean(row.get("REFERRAL_ENTITY") or row.get("REFERRAL ENTITY", ""))
+		if referral_entity:
+			# Normalize if matches internet keywords
+			if any(k in referral_entity.lower() for k in INTERNET_KEYWORDS):
+				return {"id": "", "name": "", "organization": "Internet Search", "phone": "", "email": ""}
+		# ...existing code...
+		"""
+		Parse referral entity information from various fields
+		"""
+		# Check for explicit fields first (clean NaN/missing values)
+		case_manager_name = _clean(row.get("Name_case_manager", ""))
+		agency_name = _clean(row.get("Agency_name", ""))
+		case_manager_phone = _clean(row.get("Phone_contact_case_manager", ""))
+		case_manager_email = _clean(row.get("EmailAddress", ""))
+        
+		# If we have explicit case manager info, use it
+		if case_manager_name or agency_name:
+			return {
+				"id": "",
+				"name": case_manager_name,
+				"organization": agency_name,
+				"phone": case_manager_phone,
+				"email": case_manager_email
+			}
+        
+		# Otherwise, try to parse from REFERRAL_ENTITY field (supports both JSON and Excel headers)
+		referral_entity = _clean(row.get("REFERRAL_ENTITY") or row.get("REFERRAL ENTITY", ""))
+		if referral_entity:
+			import re
+            
+			# Initialize result
+			result = {
+				"id": "",
+				"name": "",
+				"organization": "",
+				"phone": "",
+				"email": ""
+			}
+            
+			# Extract phone number (various formats)
+			phone_patterns = [
+				r'\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}',  # (202) 715-6064, 202-821-1118, etc.
+				r'\d{3}[-.\s]\d{3}[-.\s]\d{4}',
+				r'\d{10}'
+			]
+            
+			phone_match = None
+			for pattern in phone_patterns:
+				phone_match = re.search(pattern, referral_entity)
+				if phone_match:
+					result["phone"] = phone_match.group(0).strip()
+					# Remove phone from string for further parsing
+					referral_entity = referral_entity.replace(phone_match.group(0), '').strip()
+					break
+            
+			# Extract email
+			email_match = re.search(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b', referral_entity)
+			if email_match:
+				result["email"] = email_match.group(0).strip()
+				# Remove email from string for further parsing
+				referral_entity = referral_entity.replace(email_match.group(0), '').strip()
+            
+			# Clean up remaining text (remove extra commas, spaces)
+			referral_entity = re.sub(r'[,\s]+$', '', referral_entity)  # Remove trailing commas/spaces
+			referral_entity = re.sub(r'^[,\s]+', '', referral_entity)  # Remove leading commas/spaces
+			referral_entity = re.sub(r'\s*,\s*$', '', referral_entity)  # Remove trailing comma
+            
+			# Now parse name and organization from remaining text
+			if referral_entity:
+				# Try different parsing strategies based on common patterns
+				# Strategy 1: "Name, Organization" format
+				if ',' in referral_entity:
+					parts = [str(part).strip() for part in str(referral_entity).split(',')]
+					if len(parts) >= 2:
+						potential_name = parts[0]
+						potential_org = ', '.join(parts[1:])
+						# Heuristic: swap if needed
+						if looks_like_org(potential_name) and looks_like_person(potential_org):
+							potential_name, potential_org = potential_org, potential_name
+						if looks_like_person(potential_name):
+							result["name"] = potential_name
+							result["organization"] = potential_org
+						else:
+							result["organization"] = potential_name
+							if len(parts) > 1:
+								result["name"] = potential_org
+				# Strategy 2: Look for patterns like "Name - Organization" or "Name: Organization"
+				elif any(sep in referral_entity for sep in [' - ', ': ', ' : ', ' at ', ' from ', ' of ', ' for ']):
+					for sep in [' - ', ': ', ' : ', ' at ', ' from ', ' of ', ' for ']:
+						if sep in referral_entity:
+							parts = referral_entity.split(sep, 1)
+							if len(parts) == 2:
+								left, right = str(parts[0]).strip(), str(parts[1]).strip()
+								# Heuristic: swap if needed
+								if looks_like_org(left) and looks_like_person(right):
+									left, right = right, left
+								if looks_like_person(left):
+									result["name"] = left
+									result["organization"] = right
+								else:
+									result["organization"] = left
+									result["name"] = right
+							break
+				# Strategy 3: Look for organization indicators and split accordingly
+				elif any(org_word in referral_entity.lower() for org_word in ORG_KEYWORDS):
+					org_indicators = ORG_KEYWORDS
+					words = referral_entity.split()
+					for i, word in enumerate(words):
+						if any(ind in word.lower() for ind in org_indicators):
+							if i > 0:
+								result["name"] = ' '.join(words[:i]).strip()
+								result["organization"] = ' '.join(words[i:]).strip()
+							else:
+								result["organization"] = referral_entity
+							break
+				# Strategy 4: If no clear pattern, check if it looks like a person's name
+				else:
+					words = referral_entity.split()
+					if 2 <= len(words) <= 3 and all(word[0].isupper() for word in words if word):
+						result["name"] = referral_entity
+					else:
+						result["organization"] = referral_entity
+            
+			# Clean up results
+			for key in ["name", "organization"]:
+				if result[key]:
+					# Remove extra whitespace and clean up
+					result[key] = ' '.join(result[key].split())
+					# Remove trailing commas
+					result[key] = str(result[key]).rstrip(',').strip()
+            
+			return result
+        
+		return None
+	def _advance_progress(self, label: str) -> None:
+		"""Advance the global rich progress bar with a one-line label, if enabled.
+
+		The label shows the current record, and we also surface the current
+		global WARNING_COUNT and ERROR_COUNT so the user sees running totals.
+		"""
+		if getattr(self, "_progress", None) is not None and hasattr(self, "_progress_task"):
+			from rich.console import Group
+			from rich.text import Text
+			# Advance the underlying progress bar
+			self._current_label = label
+			try:
+				self._progress.update(self._progress_task, advance=1)
+			except Exception:
+				pass
+			# If a Live console is active, refresh the 4-line status layout
+			live = getattr(self, "_live", None)
+			if live is not None:
+				try:
+					layout = Group(
+						Text("🚚 Migrating", style="bold"),
+						self._progress,
+						Text(f"⚠️  Warnings: {WARNING_COUNT} | ❌ Errors: {ERROR_COUNT} (see ETL/error_logs/migration-errors.log)"),
+						Text(f"📄 {self._current_label}"),
+					)
+					live.update(layout)
+				except Exception:
+					pass
+	def import_batch(self, records: List[Dict[str, Any]], batch_num: int = None, total_batches: int = None) -> tuple:
+		batch = self.db.batch()
+		successful = 0
+		failed = 0
+		skipped = 0
+		total_records = len(records)
+		today_str = datetime.now().strftime("%Y%m%d")
+		failed_inserts_path = os.path.join("ETL", "failed_inserts", "failed_inserts.json")
+		failed_client_inserts_path = os.path.join("ETL", "failed_inserts", f"client-profile-failed-insert-{today_str}.txt")
+		failed_referral_inserts_path = os.path.join("ETL", "failed_inserts", f"referral-fail-insert-{today_str}.txt")
+		os.makedirs(os.path.dirname(failed_inserts_path), exist_ok=True)
+		failed_inserts = []
+		failed_client_inserts = []
+		failed_referral_inserts = []
+		# For deduplication of referrals in this batch: map dedup_key -> referral_doc_id
+		referral_cache = {}
+		# Debug: show how many records are in this batch (debug level only)
+		logger.debug(f"[DEBUG] import_batch: received {total_records} records")
+		# Load existing failed inserts if file exists
+		if os.path.exists(failed_inserts_path):
+			try:
+				with open(failed_inserts_path, "r", encoding="utf-8") as f:
+					failed_inserts = json.load(f)
+			except Exception:
+				failed_inserts = []
+		skipped_inactive = 0
+		skipped_duplicate = 0
+		# Load referral form records once
+		referral_form_records = self.load_referral_form('ETL/Client Referral Form v.3_20_24 (Responses).xlsx')
+		# Prefix used in the on-screen status to show the current batch
+		batch_prefix = ""
+		if batch_num is not None and total_batches is not None:
+			batch_prefix = f"Batch {batch_num} of {total_batches} – "
+		for idx, row in enumerate(records, 1):
+			# Friendly name used for the on-screen "current record" line
+			first_name_ui = row.get("FIRST_database") or row.get("FIRST", "")
+			last_name_ui = row.get("LAST_database") or row.get("LAST", "")
+			display_name = f"{first_name_ui} {last_name_ui}".strip() or "<no name>"
+			skip_reason = ""
+			try:
+				# Only load active profiles, unless recent deliveries should reactivate them.
+				active_status = row.get("Active", "")
+				has_recent_deliveries = self.check_recent_deliveries(row)
+				if (
+					str(active_status).strip().lower() not in ['yes', 'true', '1', 'active']
+					and not has_recent_deliveries
+				):
+					skipped_inactive += 1
+					skip_reason = f"Inactive (Active={active_status})"
+					# Log with ID for tracking
+					logger.info(
+						f"Skipped inactive client: {display_name} | "
+						f"ID: {row.get('ID', 'Unknown')} | "
+						f"Active status: {active_status}"
+					)
+					skipped += 1
+					self._advance_progress(f"{batch_prefix}⏭️ Skipped: {display_name} ({idx}/{total_records}) - {skip_reason}")
+					continue
+				# Debug: print record ID, type, and status
+				doc_id_raw = row.get("ID", "")
+				logger.debug(
+					f"[DEBUG] Processing record {idx}/{total_records} "
+					f"ID={doc_id_raw} (type={type(doc_id_raw).__name__}) Active={row.get('Active', '')}"
+				)
+				# Pass referral_form_records to transform_record
+				transformed = self.transform_record(row, referral_form_records=referral_form_records)
+				if transformed is None:
+					# Record was skipped in transform_record (duplicate or other reason)
+					# The detailed logging already happened in transform_record
+					skipped += 1
+					# Check if it was logged as duplicate (name already in processed_names)
+					first_name_check = (row.get("FIRST_database") or row.get("FIRST", "") or "").strip()
+					last_name_check = (row.get("LAST_database") or row.get("LAST", "") or "").strip()
+					full_name_normalized = f"{first_name_check.strip().lower()} {last_name_check.strip().lower()}"
+					if hasattr(self, 'processed_names') and full_name_normalized in self.processed_names:
+						skipped_duplicate += 1
+						skip_reason = "Duplicate client name"
+					else:
+						skip_reason = "Skipped during transform"
+					self._advance_progress(f"{batch_prefix}⏭️ Skipped: {display_name} ({idx}/{total_records}) - {skip_reason}")
+					continue
+				# For the first few successful records, just log the client's name via logger
+				# instead of the full JSON payload (kept out of the console).
+				if successful < 3:
+					name_preview = f"{transformed.get('firstName', '')} {transformed.get('lastName', '')}".strip()
+					logger.debug(
+						f"[DEBUG] Transformed record {idx}/{total_records} ID={doc_id_raw} → {name_preview}"
+					)
+				# Allow ID to be string or integer, convert to string for Firestore
+				if isinstance(doc_id_raw, int):
+					doc_id = str(doc_id_raw)
+				elif isinstance(doc_id_raw, float):
+					if doc_id_raw.is_integer():
+						doc_id = str(int(doc_id_raw))
+					else:
+						doc_id = str(doc_id_raw)
+				elif doc_id_raw is None:
+					doc_id = ""
+				else:
+					doc_id = str(doc_id_raw).strip()
+				if not doc_id:
+					skip_reason = "Missing ID"
+					logger.warning(f"No ID found for record: {row.get('FIRST', '')} {row.get('LAST', '')}")
+					failed += 1
+					failed_inserts.append(row)
+					failed_client_inserts.append(row)
+					self._advance_progress(f"{batch_prefix}⏭️ Skipped: {display_name} ({idx}/{total_records}) - {skip_reason}")
+					continue
+				# --- Insert referral/case worker into referral collection ---
+				referral = None
+				# Build a local referral dict from the client's referralEntity plus
+				# the helper contact fields. This avoids storing phone/email on
+				# client-profile2.referralEntity while still letting us populate
+				# the referral collection with contact info.
+				if "referralEntity" in transformed and transformed["referralEntity"]:
+					base_ref = transformed["referralEntity"] or {}
+					referral = {
+						"name": str(base_ref.get("name", "")),
+						"organization": str(base_ref.get("organization", "")),
+						"email": str(transformed.get("_referralContactEmail", "")),
+						"phone": str(transformed.get("_referralContactPhone", "")),
+					}
+				# Only insert if we have at least a name or organization
+				if referral and (referral.get("name") or referral.get("organization")):
+					referral_insert_failed = False
+					# Normalize internet-based referrals for deduplication
+					is_internet = str(referral.get("organization", "")).strip().lower() == "internet search"
+					if is_internet:
+						# Try to find existing 'Internet Search' referral
+						ref_coll = self.db.collection(REFERRAL_COLLECTION_NAME)
+						internet_filter = FieldFilter("organization", "==", "Internet Search")
+						query = ref_coll.where(filter=internet_filter)
+						existing = list(query.limit(1).stream())
+						if existing:
+							referral_doc_id = existing[0].id
+							logger.debug(f"Reusing existing 'Internet Search' referral with id {referral_doc_id}")
+							if "referralEntity" in transformed and transformed["referralEntity"] is not None:
+								transformed["referralEntity"]["id"] = referral_doc_id
+						else:
+							# Insert new 'Internet Search' referral
+							referral_doc = {
+								"name": "",
+								"organization": "Internet Search",
+								"email": "",
+								"phone": ""
+							}
+							try:
+								ref_ref = self.db.collection(REFERRAL_COLLECTION_NAME).document()
+								ref_ref.set(referral_doc)
+								referral_doc_id = ref_ref.id
+								logger.debug(f"Inserted new 'Internet Search' referral with id {referral_doc_id}")
+								if "referralEntity" in transformed and transformed["referralEntity"] is not None:
+									transformed["referralEntity"]["id"] = referral_doc_id
+							except Exception as e:
+								logger.error(f"[ERROR] Failed to insert 'Internet Search' referral: {e}")
+								failed_referral_inserts.append({"referral": referral_doc, "error": str(e)})
+								referral_insert_failed = True
+					else:
+						# Deduplicate by email if present, else by name+organization, and also check for swapped/combined fields
+						dedup_key = None
+						if referral.get("email"):
+							dedup_key = str(referral["email"]).strip().lower()
+						else:
+							name = str(referral.get("name", "")).strip().lower()
+							org = str(referral.get("organization", "")).strip().lower()
+							dedup_key = (name, org)
+						# If we've already resolved this referral in this batch, just reuse the cached id
+						if dedup_key and dedup_key in referral_cache:
+							referral_doc_id = referral_cache[dedup_key]
+							if "referralEntity" in transformed and transformed["referralEntity"] is not None:
+								transformed["referralEntity"]["id"] = referral_doc_id
+						else:
+							# Check Firestore for existing referral with same or swapped fields
+							found_existing = False
+							ref_coll = self.db.collection(REFERRAL_COLLECTION_NAME)
+							if referral.get("email"):
+								email_filter = FieldFilter("email", "==", referral["email"])
+								query = ref_coll.where(filter=email_filter)
+								existing = list(query.limit(1).stream())
+								if existing:
+									referral_doc_id = existing[0].id
+									logger.debug(f"Reusing existing referral by email with id {referral_doc_id}")
+									if "referralEntity" in transformed and transformed["referralEntity"] is not None:
+										transformed["referralEntity"]["id"] = referral_doc_id
+									referral_cache[dedup_key] = referral_doc_id
+									found_existing = True
+							if not found_existing:
+								# Try name/org match, and swapped
+								name_filter = FieldFilter("name", "==", referral.get("name", ""))
+								org_filter = FieldFilter("organization", "==", referral.get("organization", ""))
+								query = ref_coll.where(filter=name_filter).where(filter=org_filter)
+								existing = list(query.limit(1).stream())
+								if not existing and referral.get("name") and referral.get("organization"):
+									# Try swapped
+									name_swapped = FieldFilter("name", "==", referral.get("organization", ""))
+									org_swapped = FieldFilter("organization", "==", referral.get("name", ""))
+									query_swapped = ref_coll.where(filter=name_swapped).where(filter=org_swapped)
+									existing = list(query_swapped.limit(1).stream())
+								if not existing and referral.get("name") and not referral.get("organization"):
+									# Try org in name field
+									org_from_name = FieldFilter("organization", "==", referral.get("name", ""))
+									query_org = ref_coll.where(filter=org_from_name)
+									existing = list(query_org.limit(1).stream())
+								if existing:
+									referral_doc_id = existing[0].id
+									logger.debug(f"Reusing existing referral by name/org with id {referral_doc_id}")
+									if "referralEntity" in transformed and transformed["referralEntity"] is not None:
+										transformed["referralEntity"]["id"] = referral_doc_id
+									referral_cache[dedup_key] = referral_doc_id
+									found_existing = True
+							if not found_existing:
+								# Build referral doc
+								phone_from_referral = str(referral.get("phone", "") or "").strip()
+								referral_doc = {
+									"name": str(referral.get("name", "")),
+									"organization": str(referral.get("organization", "")),
+									"email": str(referral.get("email", "")),
+									# Prefer phone from the matched referralEntity (client referral form),
+									# but fall back to phone fields on the main client row if missing.
+									"phone": phone_from_referral,
+								}
+								# If we still don't have a phone, try to get it from row if available
+								phone_fields = [
+									row.get("Phone_contact_case_manager", ""),
+									row.get("Phone contact (case manager) - Please enter phone in (xxx) xxx-xxxx format", "")
+								]
+								for pf in phone_fields:
+									if not referral_doc["phone"] and pf and str(pf).strip():
+										referral_doc["phone"] = str(pf).strip()
+										break
+								# Insert into referral collection and get the doc ID
+								try:
+									ref_ref = self.db.collection(REFERRAL_COLLECTION_NAME).document()
+									ref_ref.set(referral_doc)
+									referral_doc_id = ref_ref.id
+									ref_name = str(referral_doc.get("name", "")).strip() or "<no name>"
+									ref_org = str(referral_doc.get("organization", "")).strip() or "<no org>"
+									# Quiet per-record console output: keep details only in debug logs
+									logger.debug(
+										f"[REF] Inserted referral into {REFERRAL_COLLECTION_NAME}: "
+										f"{ref_name} - {ref_org} (id {referral_doc_id})"
+									)
+									# Set the referralEntity.id in the client profile
+									if "referralEntity" in transformed and transformed["referralEntity"] is not None:
+										transformed["referralEntity"]["id"] = referral_doc_id
+									referral_cache[dedup_key] = referral_doc_id
+								except Exception as e:
+									ref_name = str(referral_doc.get("name", "")).strip() or "<no name>"
+									ref_org = str(referral_doc.get("organization", "")).strip() or "<no org>"
+									logger.error(
+										f"[ERROR] Failed to insert referral into {REFERRAL_COLLECTION_NAME} | "
+										f"Name: {ref_name} | "
+										f"Organization: {ref_org} | "
+										f"Error: {str(e)}"
+									)
+									failed_referral_inserts.append({"referral": referral_doc, "error": str(e)})
+									referral_insert_failed = True
+					if referral_insert_failed:
+						failed += 1
+						failed_inserts.append(row)
+						failed_client_inserts.append({
+							"client": row,
+							"error": "Referral insert failed; skipped client insert to avoid a missing referralEntity id"
+						})
+						if transformed.get("activeStatus") is True:
+							self.stats.failed_active_records.append(row)
+						self._advance_progress(
+							f"{batch_prefix}❌ Error: {display_name} (ID {row.get('ID', 'Unknown')}) [{idx}/{total_records}] - referral insert failed"
+						)
+						continue
+				# Now insert the client profile, after referralEntity.id is set.
+				# Drop helper contact fields so they are not stored on
+				# client-profile2 documents.
+				transformed.pop("_referralContactPhone", None)
+				transformed.pop("_referralContactEmail", None)
+				doc_ref = self.db.collection(self.collection_name).document(doc_id)
+				batch.set(doc_ref, transformed)
+				successful += 1
+				# Update the on-screen current-record line for a successful insert
+				name_preview = f"{transformed.get('firstName', '')} {transformed.get('lastName', '')}".strip() or display_name
+				self._advance_progress(f"{batch_prefix}✅ Inserted: {name_preview} (ID {doc_id}) [{idx}/{total_records}]")
+				# Progress log for each record (debug only to avoid console spam)
+				if batch_num is not None and total_batches is not None:
+					logger.debug(f"[Batch {batch_num}/{total_batches}] Record {idx}/{total_records} processed (ID: {doc_id})")
+				else:
+					logger.debug(f"[Batch] Record {idx}/{total_records} processed (ID: {doc_id})")
+			except Exception as e:
+				name_info = f"{row.get('FIRST', '')} {row.get('LAST', '')}".strip() or "<no name>"
+				address_info = str(row.get('ADDRESS', ''))[:50]
+				logger.error(
+					f"[ERROR] Failed to prepare record | "
+					f"ID: {row.get('ID', 'Unknown')} | "
+					f"Name: {name_info} | "
+					f"Address: {address_info} | "
+					f"Error: {str(e)}"
+				)
+				failed += 1
+				failed_inserts.append(row)
+				failed_client_inserts.append({"client": row, "error": str(e)})
+				# If record is active, add to failed_active_records
+				active_status = row.get("Active", "")
+				if str(active_status).lower() in ['yes', 'true', '1', 'active']:
+					self.stats.failed_active_records.append(row)
+				# Reflect the failure in the progress bar as well
+				self._advance_progress(
+					f"{batch_prefix}❌ Error: {display_name} (ID {row.get('ID', 'Unknown')}) [{idx}/{total_records}]"
+				)
+		logger.debug(f"[DEBUG] Batch summary: {skipped_inactive} inactive, {skipped_duplicate} duplicates, {skipped} total skipped, {successful} to insert")
+		try:
+			if successful > 0:
+				batch.commit()
+				logger.info(f"Successfully committed batch with {successful} records")
+			self.stats.skipped_records += skipped
+			self.stats.skipped_inactive += skipped_inactive
+			self.stats.skipped_duplicates += skipped_duplicate
+		except Exception as e:
+			logger.error(f"[ERROR] Batch commit failed: {str(e)}")
+			failed += successful
+			# Add all records in this batch to failed_inserts
+			for row in records:
+				failed_inserts.append(row)
+			successful = 0
+		# Write failed_inserts to file (overwrite with all failures so far)
+		if failed_inserts:
+			try:
+				with open(failed_inserts_path, "w", encoding="utf-8") as f:
+					json.dump(failed_inserts, f, ensure_ascii=False, indent=2)
+			except Exception as e:
+				logger.error(f"[ERROR] Failed to write failed_inserts.json: {e}")
+		# Write failed client inserts to text file
+		if failed_client_inserts:
+			try:
+				with open(failed_client_inserts_path, "a", encoding="utf-8") as f:
+					for entry in failed_client_inserts:
+						f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+			except Exception as e:
+				logger.error(f"[ERROR] Failed to write client-profile-failed-insert.txt: {e}")
+		# Write failed referral inserts to text file
+		if failed_referral_inserts:
+			try:
+				with open(failed_referral_inserts_path, "a", encoding="utf-8") as f:
+					for entry in failed_referral_inserts:
+						f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+			except Exception as e:
+				logger.error(f"[ERROR] Failed to write referral-fail-insert.txt: {e}")
+		return successful, failed
+
+	def save_case_workers_to_firestore(self) -> None:
+		if not self.case_workers:
+			logger.info("No case workers to save")
+			return
+		collection_name = "new_case_workers"
+		successful = 0
+		failed = 0
+		try:
+			for key, case_worker in self.case_workers.items():
+				try:
+					doc_ref = self.db.collection(collection_name).document()
+					doc_ref.set(case_worker)
+					successful += 1
+					logger.debug(f"Saved case worker: {key} -> {doc_ref.id}")
+				except Exception as e:
+					logger.error(f"[ERROR] Failed to save case worker {key}: {e}")
+					failed += 1
+			logger.info(f"Case workers saved: {successful} successful, {failed} failed")
+		except Exception as e:
+			logger.error(f"[ERROR] Error accessing Firestore collection {collection_name}: {e}")
+	def migrate_data(self, 
+					file_path: str = None, 
+					batch_size: int = 500, 
+					max_workers: int = 4,
+					use_threading: bool = True,
+					limit: Optional[int] = None,
+					records_override: list = None) -> MigrationStats:
+		"""
+		Main migration function
+		Args:
+			file_path: Path to the JSON file containing records
+			batch_size: Number of records per batch (max 500 for Firestore)
+			max_workers: Number of parallel threads
+			use_threading: Whether to use threading for parallel processing
+			limit: Maximum number of records to process (None for all records)
+			records_override: List of records to process directly (bypasses file loading)
+		"""
+		global WARNING_COUNT, ERROR_COUNT, GEOCODING_RETRY_ATTEMPTS, GEOCODING_RECOVERED_AFTER_RETRY, GEOCODING_FAILED_AFTER_RETRIES
+		WARNING_COUNT = 0  # reset warning counter for this run
+		ERROR_COUNT = 0  # reset error counter for this run
+		GEOCODING_RETRY_ATTEMPTS = 0
+		GEOCODING_RECOVERED_AFTER_RETRY = 0
+		GEOCODING_FAILED_AFTER_RETRIES = 0
+		self.processed_names = set()
+		self.case_workers = {}
+		self.stats = MigrationStats()
+		self.stats.start_time = datetime.now(timezone.utc)
+		logger.info(f"Starting migration from {file_path}")
+		logger.info(f"Batch size: {batch_size}, Max workers: {max_workers}")
+		if limit:
+			logger.info(f"Limiting to first {limit} records")
+		if records_override is not None:
+			records = records_override
+		else:
+			records = self.load_json_file(file_path)
+		if not records:
+			logger.error("[ERROR] No records to migrate")
+			return self.stats
+		if limit and limit > 0:
+			records = records[:limit]
+			logger.info(f"Limited to {len(records)} records")
+		self.stats.total_records = len(records)
+		batches = [records[i:i + batch_size] for i in range(0, len(records), batch_size)]
+		logger.info(f"Split {len(records)} records into {len(batches)} batches")
+		# Process all batches as originally designed
+		if use_threading and max_workers > 1:
+			with ThreadPoolExecutor(max_workers=max_workers) as executor:
+				futures = {executor.submit(self.import_batch, batch, i + 1, len(batches)): i for i, batch in enumerate(batches)}
+				for future in as_completed(futures):
+					batch_num = futures[future]
+					try:
+						successful, failed = future.result()
+						self.stats.successful_imports += successful
+						self.stats.failed_imports += failed
+						logger.info(f"Batch {batch_num + 1}/{len(batches)} completed: "
+								  f"{successful} successful, {failed} failed")
+					except Exception as e:
+						logger.error(f"[ERROR] Batch {batch_num} failed: {str(e)}")
+						self.stats.failed_imports += len(batches[batch_num])
+		else:
+			# Sequential path: show a multi-line rich layout for all records
+			try:
+				from rich.progress import (
+					Progress,
+					BarColumn,
+					TextColumn,
+					TimeElapsedColumn,
+					TimeRemainingColumn,
+				)
+				from rich.console import Console, Group
+				from rich.live import Live
+				from rich.text import Text
+				use_progress = True
+			except ImportError:
+				use_progress = False
+			if use_progress:
+				console = Console()
+				progress = Progress(
+					BarColumn(),
+					TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
+					TextColumn("• {task.completed}/{task.total}"),
+					TimeElapsedColumn(),
+					TimeRemainingColumn(),
+				)
+				self._progress = progress
+				self._progress_task = progress.add_task(
+					"migrating",
+					total=self.stats.total_records,
+				)
+				self._current_label = "Starting..."
+				layout = Group(
+					Text("🚚 Migrating", style="bold"),
+					progress,
+					Text(f"⚠️  Warnings: {WARNING_COUNT} | ❌ Errors: {ERROR_COUNT} (see ETL/error_logs/migration-errors.log)"),
+					Text(f"📄 {self._current_label}"),
+				)
+				# Temporarily silence console logging while Live is active to avoid
+				# Rich frames being duplicated in terminals that don't fully support
+				# interleaving Live output with other stdout writes.
+				console_original_level = console_handler.level
+				console_handler.setLevel(logging.CRITICAL + 1)
+				try:
+					with Live(layout, console=console, refresh_per_second=10) as live:
+						self._live = live
+						for i, batch in enumerate(batches):
+							try:
+								successful, failed = self.import_batch(batch, i + 1, len(batches))
+								self.stats.successful_imports += successful
+								self.stats.failed_imports += failed
+								logger.info(
+									f"Batch {i + 1}/{len(batches)} completed: "
+									f"{successful} successful, {failed} failed"
+								)
+							except Exception as e:
+								logger.error(f"[ERROR] Batch {i} failed: {str(e)}")
+								self.stats.failed_imports += len(batch)
+						self._live = None
+				finally:
+					console_handler.setLevel(console_original_level)
+				# Clear progress references after completion
+				self._progress = None
+				self._progress_task = None
+			else:
+				for i, batch in enumerate(batches):
+					try:
+						successful, failed = self.import_batch(batch, i + 1, len(batches))
+						self.stats.successful_imports += successful
+						self.stats.failed_imports += failed
+						logger.info(
+							f"Batch {i + 1}/{len(batches)} completed: "
+							f"{successful} successful, {failed} failed"
+						)
+					except Exception as e:
+						logger.error(f"[ERROR] Batch {i} failed: {str(e)}")
+						self.stats.failed_imports += len(batch)
+		self.stats.end_time = datetime.now(timezone.utc)
+		duration = self.stats.end_time - self.stats.start_time
+		logger.info("Migration completed!")
+		logger.info(f"Total time: {duration}")
+		logger.info(f"Total records: {self.stats.total_records}")
+		logger.info(f"Successful (inserted): {self.stats.successful_imports}")
+		logger.info(f"Skipped inactive: {self.stats.skipped_inactive}")
+		logger.info(f"Skipped duplicates: {self.stats.skipped_duplicates}")
+		logger.info(f"Failed (errors): {self.stats.failed_imports}")
+		# Compute success rate only over records we actually intended to insert
+		effective_total = self.stats.total_records - self.stats.skipped_inactive - self.stats.skipped_duplicates
+		if effective_total > 0:
+			logger.info(f"Effective records (excluding inactive/duplicates): {effective_total}")
+			logger.info(f"Success rate (of intended inserts): {(self.stats.successful_imports/effective_total)*100:.2f}%")
+		else:
+			logger.info("Effective records (excluding inactive/duplicates): 0")
+			logger.info("Success rate (of intended inserts): N/A (no records to insert)")
+		# logger.info(f"Saving {len(self.case_workers)} unique case workers...")
+		# self.save_case_workers_to_firestore()
+		if self.failed_geocoding_clients:
+			logger.info("Clients missing coordinates:")
+			for cid in self.failed_geocoding_clients:
+				logger.info(f"  - {cid}")
+		self.stats.geocoding_retry_attempts = GEOCODING_RETRY_ATTEMPTS
+		self.stats.geocoding_recovered_after_retry = GEOCODING_RECOVERED_AFTER_RETRY
+		self.stats.geocoding_failed_after_retries = GEOCODING_FAILED_AFTER_RETRIES
+		return self.stats
+	def load_json_file(self, file_path: str) -> List[Dict[str, Any]]:
+		"""
+		Load records from a JSON file (expects one JSON object per line)
+		"""
+		records = []
+		try:
+			with open(file_path, 'r', encoding='utf-8') as file:
+				for line_num, line in enumerate(file, 1):
+					line = line.strip()
+					if line:
+						try:
+							record = json.loads(line)
+							records.append(record)
+						except json.JSONDecodeError as e:
+							logger.error(f"[ERROR] JSON decode error on line {line_num}: {str(e)}")
+			logger.info(f"Loaded {len(records)} records from {file_path}")
+			return records
+		except FileNotFoundError:
+			logger.error(f"[ERROR] File not found: {file_path}")
+			return []
+		except Exception as e:
+			logger.error(f"[ERROR] Error loading file {file_path}: {str(e)}")
+			return []
+	def __init__(self, service_account_path: str, project_id: str, collection_name: str = "clients"):
+		self.project_id = project_id
+		self.collection_name = collection_name
+		self.stats = MigrationStats()
+		self.processed_names = set()
+		self.case_workers = {}
+		self.failed_geocoding_clients: List[str] = []
+		# Global progress state (used when running sequentially with a rich progress bar)
+		self._progress = None
+		self._progress_task = None
+		self._current_label = "Starting..."
+		self._live = None
+		# Initialize Firebase Admin SDK
+		if not firebase_admin._apps:
+			cred = credentials.Certificate(service_account_path)
+			firebase_admin.initialize_app(cred)
+		self.db = firestore.client()
+		logger.info(f"Initialized Firestore client for project: {project_id}")
+
+	# --- All helper methods from firebase_migration.py except geocoding and address parsing ---
+	# ...
+	# (For brevity, only transform_record is shown here, but in the actual patch, all methods from FirestoreMigration are included)
+
+	def parse_dietary_restrictions(self, diet_type_str: str, restrictions_str: str) -> Dict[str, Any]:
+		"""
+		Python port of the JavaScript parseDietaryRestrictions function
+		Only puts unrecognized items in 'otherText', not in 'foodAllergens'.
+		"""
+		restrictions = {
+			"lowSugar": False,
+			"kidneyFriendly": False,
+			"vegan": False,
+			"vegetarian": False,
+			"halal": False,
+			"microwaveOnly": False,
+			"softFood": False,
+			"lowSodium": False,
+			"noCookingEquipment": False,
+			"heartFriendly": False,
+			"foodAllergens": [],
+			"otherText": "",
+			"other": False,
+		}
+
+		# Filter out None, empty strings, and convert to strings
+		all_restrictions = []
+		for item in [diet_type_str, restrictions_str]:
+			if item is not None and str(item).strip():
+				all_restrictions.append(str(item))
+
+		if not all_restrictions:
+			return restrictions
+
+		# Join all restrictions and split by comma
+		combined_string = ','.join(all_restrictions)
+		parts = [s.strip().lower() for s in combined_string.split(',') if s.strip()]
+
+		other_parts = []
+		for part in parts:
+			if 'sugar' in part:
+				restrictions["lowSugar"] = True
+			elif 'kidney' in part:
+				restrictions["kidneyFriendly"] = True
+			elif 'vegan' in part:
+				restrictions["vegan"] = True
+			elif 'vegetarian' in part:
+				restrictions["vegetarian"] = True
+			elif 'halal' in part:
+				restrictions["halal"] = True
+			elif 'microwave' in part:
+				restrictions["microwaveOnly"] = True
+			elif 'soft' in part:
+				restrictions["softFood"] = True
+			elif 'sodium' in part:
+				restrictions["lowSodium"] = True
+			elif 'no cooking' in part:
+				restrictions["noCookingEquipment"] = True
+			elif 'heart' in part:
+				restrictions["heartFriendly"] = True
+			else:
+				other_parts.append(part)
+
+		# Do not populate 'other' or 'otherText' fields
+		restrictions["other"] = False
+		restrictions["otherText"] = ""
+		return restrictions
+
+	def is_duplicate(self, first_name: str, last_name: str) -> bool:
+		"""
+		Check if a client with the same name (case-insensitive) has already been processed
+		within this migration run. This is independent of what is already in Firestore.
+		"""
+		if not first_name or not last_name:
+			return False
+		full_name = f"{first_name.strip().lower()} {last_name.strip().lower()}"
+		if not hasattr(self, 'processed_names'):
+			self.processed_names = set()
+		if full_name in self.processed_names:
+			return True
+		self.processed_names.add(full_name)
+		return False
+
+	def parse_physical_ailments(self, main_vulnerability: str, eligibility_database: str, unnamed_29: str, further_information: str = "") -> Dict[str, Any]:
+		"""
+		Parse physical ailments from various fields
+		"""
+		ailments = {
+			"diabetes": False,
+			"hypertension": False,
+			"heartDisease": False,
+			"kidneyDisease": False,
+			"cancer": False,
+			"otherText": "",
+			"other": False
+		}
+		# Combine all relevant fields including further_information
+		all_text = []
+		for field in [main_vulnerability, eligibility_database, unnamed_29, further_information]:
+			if field and str(field).strip():
+				all_text.append(str(field).lower())
+		combined_text = ' '.join(all_text)
+		if 'diabetes' in combined_text or 'diabetic' in combined_text:
+			ailments["diabetes"] = True
+		if 'hypertension' in combined_text or 'high blood pressure' in combined_text or 'blood pressure' in combined_text:
+			ailments["hypertension"] = True
+		if 'heart' in combined_text or 'cardiac' in combined_text or 'cardiovascular' in combined_text:
+			ailments["heartDisease"] = True
+		if 'kidney' in combined_text or 'renal' in combined_text:
+			ailments["kidneyDisease"] = True
+		if 'cancer' in combined_text or 'tumor' in combined_text or 'oncology' in combined_text:
+			ailments["cancer"] = True
+		# Check for other medical conditions
+		medical_keywords = ['medical', 'illness', 'disease', 'condition', 'health', 'medication', 'treatment']
+		has_medical = any(keyword in combined_text for keyword in medical_keywords)
+		# Do not populate 'other' or 'otherText' fields
+		ailments["other"] = False
+		ailments["otherText"] = ""
+		return ailments
+
+	def parse_physical_disability(self, main_vulnerability: str, eligibility_database: str, unnamed_29: str, further_information: str = "") -> Dict[str, Any]:
+		"""
+		Parse physical disability information
+		"""
+		disability = {
+			"otherText": "",
+			"other": False
+		}
+		# Combine all relevant fields including further_information
+		all_text = []
+		for field in [main_vulnerability, eligibility_database, unnamed_29, further_information]:
+			if field and str(field).strip():
+				all_text.append(str(field).lower())
+		combined_text = ' '.join(all_text)
+		disability_keywords = ['disability', 'disabled', 'wheelchair', 'mobility', 'impaired', 'handicap', 'physical limitation']
+		# Do not populate 'other' or 'otherText' fields
+		disability["other"] = False
+		disability["otherText"] = ""
+		return disability
+
+	def parse_mental_health_conditions(self, main_vulnerability: str, eligibility_database: str, unnamed_29: str, further_information: str = "") -> Dict[str, Any]:
+		"""
+		Parse mental health conditions
+		"""
+		mental_health = {
+			"otherText": "",
+			"other": False
+		}
+		# Combine all relevant fields including further_information
+		all_text = []
+		for field in [main_vulnerability, eligibility_database, unnamed_29, further_information]:
+			if field and str(field).strip():
+				all_text.append(str(field).lower())
+		combined_text = ' '.join(all_text)
+		mental_health_keywords = ['mental', 'depression', 'anxiety', 'ptsd', 'bipolar', 'schizophrenia', 'psychiatric', 'psychological', 'therapy', 'counseling']
+		if any(keyword in combined_text for keyword in mental_health_keywords):
+			mental_health["other"] = True
+			mental_health["otherText"] = combined_text[:200]  # Limit text length
+		return mental_health
+
+	def parse_life_challenges(self, main_vulnerability: str, eligibility_database: str, unnamed_29: str, further_information: str = "") -> str:
+		"""
+		Parse life challenges from vulnerability fields, excluding medical/disability content
+		"""
+		all_text = []
+		for field in [main_vulnerability, eligibility_database, unnamed_29, further_information]:
+			if field and str(field).strip():
+				all_text.append(str(field))
+		combined_text = ' '.join(all_text)
+		exclude_keywords = ['diabetes', 'hypertension', 'heart', 'kidney', 'cancer', 'disability', 'wheelchair', 'mental', 'depression', 'anxiety']
+		lower_text = combined_text.lower()
+		medical_count = sum(1 for keyword in exclude_keywords if keyword in lower_text)
+		if medical_count > 2:
+			words = combined_text.split()
+			filtered_words = [word for word in words if not any(keyword in word.lower() for keyword in exclude_keywords)]
+			return ' '.join(filtered_words)[:200]
+		return combined_text[:200]
+	def transform_record(self, row: Dict[str, Any], referral_form_records=None) -> Dict[str, Any]:
+		"""
+		Transform a record, using Google Maps geocoding and stripping apartment/unit info from address.
+		Also tracks geocoding failures for retry.
+		Supports both legacy JSON field names and direct Excel column names.
+		"""
+		# Name fields: prefer canonical *_database fields, fall back to raw Excel headers
+		# Ensure missing/NaN values become empty strings instead of causing .strip() errors.
+		def _clean_name(value: Any) -> str:
+			if value is None:
+				return ""
+			text = str(value).strip()
+			if not text or text.lower() == "nan":
+				return ""
+			return text
+		first_name_raw = row.get("FIRST_database") or row.get("FIRST", "")
+		last_name_raw = row.get("LAST_database") or row.get("LAST", "")
+		first_name = _clean_name(first_name_raw)
+		last_name = _clean_name(last_name_raw)
+		if first_name:
+			first_name = first_name.capitalize()
+		if last_name:
+			last_name = last_name.capitalize()
+
+		# No longer skip inactive records; load all
+		active_status = row.get("Active", "")
+		doc_id = str(row.get("ID", "")).strip()
+
+		if self.is_duplicate(first_name, last_name):
+			address_preview = str(row.get("ADDRESS", ""))[:50]
+			logger.warning(
+				f"Skipping duplicate: {first_name} {last_name} | "
+				f"ID: {doc_id} | Address: {address_preview}"
+			)
+			return None
+
+		phone = ""
+		email = ""
+		if row.get("Phone"):
+			phone_str = str(row["Phone"])
+			if '@' in phone_str:
+				email = phone_str
+			else:
+				phone = phone_str
+
+		# Dietary restrictions and vulnerability fields: handle both JSON and Excel headers
+		restrictions = self.parse_dietary_restrictions(
+			row.get("Diettype") or row.get("Diet type"),
+			row.get("DietaryRestrictions")
+			or row.get("Dietary Restrictions")
+			or row.get("Dietary Preferences")
+		)
+		main_vulnerability = row.get("MainVulnerability") or row.get("Client's Main Vulnerability\n(Classification)", "")
+		eligibility_database = row.get("Eligibility_database") or row.get("Eligibility", "")
+		unnamed_29 = row.get("Unnamed: 29", "")
+		further_information = row.get("further_information", "")
+		physical_ailments = self.parse_physical_ailments(main_vulnerability, eligibility_database, unnamed_29, further_information)
+		physical_disability = self.parse_physical_disability(main_vulnerability, eligibility_database, unnamed_29, further_information)
+		mental_health_conditions = self.parse_mental_health_conditions(main_vulnerability, eligibility_database, unnamed_29, further_information)
+		life_challenges = self.parse_life_challenges(main_vulnerability, eligibility_database, unnamed_29, further_information)
+		referral_entity = self.parse_referral_entity(row, referral_form_records=referral_form_records)
+		referral_phone = referral_entity.get("phone", "") if referral_entity else ""
+		referral_email = referral_entity.get("email", "") if referral_entity else ""
+		notes = row.get("Notes", "")
+		if not phone and referral_entity and referral_entity.get("phone"):
+			phone = referral_entity["phone"]
+			if notes:
+				notes += " | Phone number is from Referral Entity."
+			else:
+				notes = "Phone number is from Referral Entity."
+		active_status = row.get("Active", "")
+		has_recent_deliveries = self.check_recent_deliveries(row)
+		if has_recent_deliveries and str(active_status).lower() in ['no', 'false', '0', 'inactive']:
+			active_status = "Yes"
+			if notes:
+				notes += " | Status changed to Active due to recent deliveries."
+			else:
+				notes = "Status changed to Active due to recent deliveries."
+		tags = []
+		tefap_flag = row.get("TEFAP_FY25") or row.get("TEFAP FY25") or row.get("TEFAP FY26")
+		if tefap_flag and str(tefap_flag).lower() != 'false':
+			tags.append("TEFAPOnFile")
+		excel_row_num = row.get("_excel_row_num")
+		try:
+			excel_row_num_int = int(float(excel_row_num)) if excel_row_num not in (None, "") else None
+		except Exception:
+			excel_row_num_int = None
+		if excel_row_num_int is not None and SATURDAY_DELIVERY_ROW_START <= excel_row_num_int <= SATURDAY_DELIVERY_ROW_END:
+			tags.append("Saturday Delivery")
+		if str(active_status).lower() in ['yes', 'true', '1', 'active', 'y']:
+			tags.append("Active")
+		delivery_freq = self.parse_frequency(row.get("Frequency", ""))
+		# Household composition: support Adults_database/kids or Excel '# Adults'/'# kids'
+		adults_raw = row.get("Adults_database") if row.get("Adults_database") is not None else row.get("# Adults")
+		children_raw = row.get("kids") if row.get("kids") is not None else row.get("# kids")
+		try:
+			adults_count = int(adults_raw) if adults_raw not in (None, "") else 0
+		except Exception:
+			adults_count = 0
+		try:
+			children_count = int(children_raw) if children_raw not in (None, "") else 0
+		except Exception:
+			children_count = 0
+		vuln_fields = [
+			row.get("MainVulnerability", ""),
+			row.get("Eligibility_database", ""),
+			row.get("Notes", ""),
+			row.get("Eligibility_referral", ""),
+			row.get("further_information", ""),
+			row.get("STATUS_WITH_DATE", "")
+		]
+		if any("senior" in str(val).lower() for val in vuln_fields) and adults_count > 0:
+			age_group_data = {
+				"adults": max(0, adults_count - 1),
+				"seniors": 1,
+				"headOfHousehold": "Senior"
+			}
+		else:
+			age_group_data = self.parse_age_group(row.get("age_group", ""), adults_count)
+		total_household = age_group_data["adults"] + age_group_data["seniors"] + children_count
+
+
+		# --- Address handling: use main address up to quadrant for geocoding,
+		# and capture apartment/unit suffix into address2 when possible. ---
+		raw_address = row.get("ADDRESS", "") or ""
+		apt_from_col = str(row.get("APT", "") or "").strip()
+		apt_from_address = ""
+		quadrant_match = re.search(r"\b(NE|NW|SE|SW)\b", raw_address)
+		if quadrant_match:
+			end_idx = quadrant_match.end()
+			address_for_coords = raw_address[:end_idx].strip()
+			# Anything after the quadrant may contain apartment/unit info
+			remainder = raw_address[end_idx:].strip()
+		else:
+			# Split on first comma or apartment keyword to get the street part
+			parts = re.split(r",|\b(?:Apt|Apartment|Unit|#)\b", raw_address, maxsplit=1, flags=re.IGNORECASE)
+			address_for_coords = parts[0].strip()
+			remainder = raw_address[len(parts[0]):].strip() if len(parts) > 1 else ""
+		# If there is no explicit APT column value, try to extract an
+		# apartment/unit suffix from the remainder of the ADDRESS field.
+		if not apt_from_col and remainder:
+			m = re.search(r"\b(Apt|Apartment|Unit|#)\b\s*(.*)", remainder, flags=re.IGNORECASE)
+			if m:
+				label = m.group(1)
+				rest = m.group(2).strip()
+				apt_from_address = f"{label} {rest}".strip() if rest else label
+		address = address_for_coords
+		city = row.get("City", "")
+		state = row.get("State", "")
+		zip_in_data = row.get("ZIPcode", "") or row.get("ZIP", "")
+		if any(q in address_for_coords for q in [" NE", " NW", " SE", " SW"]):
+			city = "Washington"
+			state = "DC"
+
+		# --- Use Google Maps API for geocoding and ZIP extraction ---
+		zip_in_data = row.get("ZIPcode", "") or row.get("ZIP", "")
+		zip_code = ""
+		coordinates = None
+		
+		# Try geocoding with Google Maps API
+		geocode_result = geocode_address_google(address_for_coords, city, state, zip_in_data)
+		if geocode_result:
+			latitude = geocode_result.get('latitude')
+			longitude = geocode_result.get('longitude')
+			if latitude is not None and longitude is not None:
+				# Store coordinates as [latitude, longitude] array (Leaflet LatLngTuple format)
+				coordinates = [latitude, longitude]
+			# Use ZIP from geocoding if available
+			if geocode_result.get('zip_code'):
+				zip_code = geocode_result['zip_code']
+		
+		# Fallback: If zip_code is still empty, use ZIP from data
+		if not zip_code:
+			zip_code = str(zip_in_data) if zip_in_data else ""
+
+		end_date = row.get("EndDate", "")
+		if not end_date or not str(end_date).strip():
+			end_date = "12/31/2026"
+		else:
+			# If end_date is present but not a valid date, set to 12/31/2026
+			try:
+				_ = datetime.strptime(end_date.strip(), "%m/%d/%Y")
+			except Exception:
+				end_date = "12/31/2026"
+
+		# Map recurrence using the same logic as parse_frequency
+		def map_recurrence(frequency_str):
+			if not frequency_str or not str(frequency_str).strip():
+				return "None"
+			freq = str(frequency_str).strip().lower()
+			emergency_keywords = ["emergency", "only", "two time only", "one time only", "emerg"]
+			if any(keyword in freq for keyword in emergency_keywords):
+				return "Periodic"
+			if "periodic" in freq or "perodic" in freq:
+				return "Periodic"
+			if freq in ["none", "n/a", "na", ""]:
+				return "None"
+			elif "weekly" in freq or "week" in freq or freq in ["1x/week", "once/week", "every week"]:
+				return "Weekly"
+			elif any(pattern in freq for pattern in ["2x", "twice", "two", "bi-monthly", "bimonthly", "2/month", "2x/month", "twice/month"]):
+				return "2x-Monthly"
+			elif any(pattern in freq for pattern in ["monthly", "month", "1x/month", "once/month", "every month", "one/month"]):
+				return "Monthly"
+			else:
+				return "Periodic"
+
+		recurrence = map_recurrence(row.get("Frequency", ""))
+
+		# Parse dates for activeStatus logic
+		from datetime import date
+		DEFAULT_START_DATE_STR = "11/15/2025"
+		DEFAULT_START_DATE = datetime.strptime(DEFAULT_START_DATE_STR, "%m/%d/%Y").date()
+		today = datetime.now(timezone.utc).date()
+		# Get start and end dates as strings.
+		# Support legacy JSON fields and direct Excel headers ("Start Date").
+		raw_start = None
+		if row.get("StartDate_database") and str(row.get("StartDate_database")).strip():
+			raw_start = row.get("StartDate_database")
+		elif row.get("StartDate_referral") and str(row.get("StartDate_referral")).strip():
+			raw_start = row.get("StartDate_referral")
+		elif row.get("Start Date") and str(row.get("Start Date")).strip():
+			raw_start = row.get("Start Date")
+		# Parse startDate from raw value (datetime, date, or string)
+		start_date = None
+		if raw_start is not None and str(raw_start).strip():
+			if isinstance(raw_start, datetime):
+				start_date = raw_start.date()
+			elif isinstance(raw_start, date):
+				start_date = raw_start
+			else:
+				text = str(raw_start).strip()
+				for fmt in ("%m/%d/%Y", "%Y-%m-%d", "%Y-%m-%d %H:%M:%S"):
+					try:
+						start_date = datetime.strptime(text, fmt).date()
+						break
+					except Exception:
+						continue
+		# If still no start_date, default it
+		if not start_date:
+			start_date = DEFAULT_START_DATE
+		start_date_str = start_date.strftime("%m/%d/%Y")
+		end_date_str = end_date
+		# Parse endDate
+		try:
+			end_date_dt = datetime.strptime(str(end_date_str).strip(), "%m/%d/%Y").date() if end_date_str and str(end_date_str).strip() else None
+		except Exception:
+			end_date_dt = None
+		# Determine activeStatus
+		if start_date and end_date_dt:
+			active_status_bool = start_date <= today <= end_date_dt
+		elif start_date and not end_date_dt:
+			active_status_bool = start_date <= today
+		elif not start_date and end_date_dt:
+			active_status_bool = today <= end_date_dt
+		else:
+			active_status_bool = False
+		client_profile = {
+			"uid": str(row.get("ID", "")),
+			"firstName": first_name,
+			"lastName": last_name,
+			"streetName": address,
+			"address": address,
+			"address2": apt_from_col or apt_from_address,
+			"zipCode": zip_code,
+			"city": city,
+			"state": state,
+			"quadrant": row.get("Quadrant_database", ""),
+			"dob": "",
+			"deliveryFreq": delivery_freq,
+			"phone": phone,
+			"email": email,
+			"alternativePhone": "",
+			"adults": age_group_data["adults"],
+			"children": children_count,
+			"total": total_household,
+			"gender": "Other",
+			"ethnicity": str(
+				row.get("Ethnicity")
+				or row.get("Race/Ethnicity")
+				or row.get("Race")
+				or ""
+			),
+			"deliveryDetails": {
+				"deliveryInstructions": row.get("Delivery Instructions", ""),
+				"dietaryRestrictions": restrictions
+			},
+			"lifeChallenges": life_challenges,
+			"physicalAilments": physical_ailments,
+			"physicalDisability": physical_disability,
+			"mentalHealthConditions": mental_health_conditions,
+			"notes": notes,
+			"language": row.get("Language", ""),
+			"createdAt": datetime.now(timezone.utc),
+			"updatedAt": datetime.now(timezone.utc),
+			"tags": tags,
+			"ward": row.get("Ward", ""),
+			"coordinates": coordinates,
+			"seniors": age_group_data["seniors"],
+			"headOfHousehold": age_group_data["headOfHousehold"],
+			"startDate": start_date_str,
+			"endDate": end_date,
+			"recurrence": recurrence,
+			"tefapCert": row.get("TEFAP_FY25", ""),
+			"notesTimestamp": None,
+			"deliveryInstructionsTimestamp": None,
+			"lifeChallengesTimestamp": None,
+			"lifestyleGoalsTimestamp": None,
+			"lifestyleGoals": "",
+			"activeStatus": active_status_bool
+		}
+		# Always attach a referralEntity. If we parsed a real one with a
+		# name or organization, use it; otherwise, default to the canonical
+		# "None" referral so every client has a consistent value.
+		if referral_entity and (referral_entity.get("name") or referral_entity.get("organization")):
+			client_profile["referralEntity"] = {
+				"id": referral_entity.get("id", ""),
+				"name": referral_entity.get("name", ""),
+				"organization": referral_entity.get("organization", ""),
+			}
+		else:
+			client_profile["referralEntity"] = {
+				"id": "",
+				"name": "None",
+				"organization": "None"
+			}
+		# Stash referral contact info in helper fields so import_batch can
+		# build referral docs with phone/email without persisting those
+		# fields on the client-profile2 referralEntity itself.
+		client_profile["_referralContactPhone"] = referral_phone
+		client_profile["_referralContactEmail"] = referral_email
+		
+		# Track records that failed geocoding (missing coordinates)
+		if coordinates is None:
+			logger.warning(
+				f"Failed geocoding - No coordinates found | "
+				f"ID: {doc_id} | "
+				f"Name: {first_name} {last_name} | "
+				f"Address attempted: {address_for_coords}, {city}, {state} {zip_code}"
+			)
+			self.stats.failed_geocoding_records.append({
+				"ID": doc_id,
+				"firstName": first_name,
+				"lastName": last_name,
+				"address": address_for_coords,
+				"city": city,
+				"state": state,
+				"zipCode": zip_code
+			})
+		
+		return client_profile
+
+# --- End FirestoreMigration ---
+
+def delete_temp_collections():
+	"""Delete all documents from temp-profile2 and temp-referral collections."""
+	try:
+		db = firestore.client()
+		
+		# Delete temp-profile2
+		print(f"🗑️ Deleting all documents from {CLIENT_COLLECTION_NAME}...")
+		temp_profile_docs = db.collection(CLIENT_COLLECTION_NAME).stream()
+		deleted_profiles = 0
+		for doc in temp_profile_docs:
+			doc.reference.delete()
+			deleted_profiles += 1
+		print(f"✅ Deleted {deleted_profiles} documents from {CLIENT_COLLECTION_NAME}")
+		
+		# Delete temp-referral
+		print(f"🗑️ Deleting all documents from {REFERRAL_COLLECTION_NAME}...")
+		temp_referral_docs = db.collection(REFERRAL_COLLECTION_NAME).stream()
+		deleted_referrals = 0
+		for doc in temp_referral_docs:
+			doc.reference.delete()
+			deleted_referrals += 1
+		print(f"✅ Deleted {deleted_referrals} documents from {REFERRAL_COLLECTION_NAME}")
+		
+	except Exception as e:
+		print(f"❌ Error deleting temp collections: {e}")
+
+def main():
+	SERVICE_ACCOUNT_PATH = os.path.join("ETL", "food-for-all-dc-caf23-firebase-adminsdk-fbsvc-4e77c7873e.json")
+	PROJECT_ID = "food-for-all-dc-caf23"
+	COLLECTION_NAME = CLIENT_COLLECTION_NAME
+	EXCEL_FILE_PATH = CLIENT_DATABASE_FILE_PATH
+	EXCEL_SHEET_NAME = CLIENT_DATABASE_SHEET_NAME
+
+	# ====================================================================
+	# CRITICAL: Check for Google Maps API Key BEFORE doing anything else
+	# ====================================================================
+	# Try REACT_APP_GOOGLE_MAPS_API_KEY first (from .env), then GOOGLE_MAPS_API_KEY
+	api_key = os.getenv("REACT_APP_GOOGLE_MAPS_API_KEY") or os.getenv("GOOGLE_MAPS_API_KEY", "")
+	if not api_key:
+		print("\n" + "="*80)
+		print("❌ ERROR: Google Maps API key not found!")
+		print("="*80)
+		print("\nThe ETL requires a valid Google Maps API key for geocoding.")
+		print("\nPlease add REACT_APP_GOOGLE_MAPS_API_KEY to my-app/.env file.")
+		print("\nAlternatively, set the environment variable:")
+		print("  PowerShell:")
+		print('    $env:GOOGLE_MAPS_API_KEY = "your-api-key-here"')
+		print("\n" + "="*80)
+		
+		print("\n❌ ETL aborted. Please set GOOGLE_MAPS_API_KEY and try again.\n")
+		sys.exit(1)
+
+	# Ensure Firebase Admin SDK is initialized before any Firestore operations
+	if not firebase_admin._apps:
+		cred = credentials.Certificate(SERVICE_ACCOUNT_PATH)
+		firebase_admin.initialize_app(cred)
+
+	# Removed test insert record to avoid writing a persistent test document during migration
+
+	migration = FirestoreMigration(
+		service_account_path=SERVICE_ACCOUNT_PATH,
+		project_id=PROJECT_ID,
+		collection_name=COLLECTION_NAME
+	)
+
+	# Load records for migration directly from Excel (JSON path deprecated)
+	try:
+		import pandas as pd
+		if not os.path.exists(EXCEL_FILE_PATH):
+			print(f"❌ Excel file not found at {EXCEL_FILE_PATH}. Exiting.")
+			return
+		df = pd.read_excel(EXCEL_FILE_PATH, sheet_name=EXCEL_SHEET_NAME, dtype=object)
+		df = normalize_client_database_dataframe(df)
+		# Ensure we only keep rows with a non-empty stable ID column,
+		# since the migration code requires an ID to use as the Firestore document id.
+		if "ID" not in df.columns:
+			print(f"❌ Excel sheet '{EXCEL_SHEET_NAME}' does not contain an 'ID' column after normalization. Exiting to avoid creating clients without stable IDs.")
+			return
+		# Drop rows where ID is NaN or blank after stripping
+		df["ID"] = df["ID"].where(df["ID"].notna(), "")
+		df["ID"] = df["ID"].astype(str).str.strip()
+		df = df[~df["ID"].str.lower().isin(["", "nan", "none", "null"])]
+		input_records = df.to_dict(orient='records')
+		if not input_records:
+			print(f"❌ No records with a valid ID loaded from Excel file {EXCEL_FILE_PATH} (sheet '{EXCEL_SHEET_NAME}'). Exiting.")
+			return
+		print(f"Loaded {len(input_records)} records for migration from Excel file {EXCEL_FILE_PATH} (sheet '{EXCEL_SHEET_NAME}') with non-empty IDs")
+	except Exception as e:
+		print(f"❌ Failed to load records from Excel file {EXCEL_FILE_PATH}: {e}")
+		return
+
+	# Forced insert for debugging removed: only transformed records will be inserted
+
+	# Run full migration over all loaded records
+	# Allow an optional environment variable to limit how many records
+	# are processed (useful for dry runs or test batches).
+	limit: Optional[int] = None
+	limit_env = os.getenv("MIGRATION_LIMIT_RECORDS")
+	if limit_env:
+		try:
+			limit = int(limit_env)
+			print(f"⚙️ MIGRATION_LIMIT_RECORDS set; limiting migration to first {limit} records.")
+		except ValueError:
+			print("⚠️ MIGRATION_LIMIT_RECORDS is not a valid integer; ignoring.")
+			limit = None
+
+	stats = migration.migrate_data(
+		file_path=None,
+		batch_size=250,
+		max_workers=1,
+		use_threading=False,
+		limit=limit,
+		records_override=input_records
+	)
+
+	# --- Write failure files with timestamp and update latest ---
+	timestamp = datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')
+
+	# Ensure all keys are strings and values are JSON-serializable.
+	def _make_json_safe_list(records: list) -> list:
+		"""Convert any non-JSON-serializable keys/values to strings for logging."""
+		safe_list = []
+		for rec in records:
+			if isinstance(rec, dict):
+				clean = {}
+				for k, v in rec.items():
+					key_str = str(k)
+					if isinstance(v, (str, int, float, bool)) or v is None:
+						clean[key_str] = v
+					else:
+						clean[key_str] = str(v)
+				safe_list.append(clean)
+			else:
+				safe_list.append(str(rec))
+		return safe_list
+
+	# Write failed_active_records
+	if hasattr(stats, 'failed_active_records') and stats.failed_active_records:
+		failed_active_safe = _make_json_safe_list(stats.failed_active_records)
+		# Store failed active records inside the ETL/failed_active_records folder
+		base_dir = os.path.join('ETL', 'failed_active_records')
+		os.makedirs(base_dir, exist_ok=True)
+		fname = os.path.join(base_dir, f'failed_active_records_{timestamp}.json')
+		with open(fname, 'w', encoding='utf-8') as f:
+			json.dump(failed_active_safe, f, ensure_ascii=False, indent=2)
+		# Also update the latest file for next retry
+		latest_path = os.path.join(base_dir, 'failed_active_records.json')
+		with open(latest_path, 'w', encoding='utf-8') as f:
+			json.dump(failed_active_safe, f, ensure_ascii=False, indent=2)
+		print(
+			f"Wrote {len(stats.failed_active_records)} active records that failed to insert to "
+			f"{fname} and {latest_path}"
+		)
+	else:
+		print("No active records failed to insert.")
+
+	# Write failed_geocoding_records
+	if hasattr(stats, 'failed_geocoding_records') and stats.failed_geocoding_records:
+		failed_geocoding_safe = _make_json_safe_list(stats.failed_geocoding_records)
+		base_dir = os.path.join('ETL', 'failed_geocoding_records')
+		os.makedirs(base_dir, exist_ok=True)
+		fname = os.path.join(base_dir, f'failed_geocoding_records_{timestamp}.json')
+		with open(fname, 'w', encoding='utf-8') as f:
+			json.dump(failed_geocoding_safe, f, ensure_ascii=False, indent=2)
+		# Also update the latest file for next retry
+		latest_path = os.path.join(base_dir, 'failed_geocoding_records.json')
+		with open(latest_path, 'w', encoding='utf-8') as f:
+			json.dump(failed_geocoding_safe, f, ensure_ascii=False, indent=2)
+		print(
+			f"Wrote {len(stats.failed_geocoding_records)} active records that failed geocoding to "
+			f"{fname} and {latest_path}"
+		)
+	else:
+		print("No active records failed geocoding.")
+
+	print(f"Migration completed: {stats.successful_imports}/{stats.total_records} successful")
+	print(
+		"Geocoding retry summary: "
+		f"retry attempts={stats.geocoding_retry_attempts}, "
+		f"recovered after retry={stats.geocoding_recovered_after_retry}, "
+		f"failed after retries={stats.geocoding_failed_after_retries}"
+	)
+	print(f"Case workers collected: {len(migration.case_workers)}")
+	if stats.unmapped_frequencies:
+		print("\n⚠️  Unmapped frequency values found:")
+		for freq, count in sorted(stats.unmapped_frequencies.items(), key=lambda x: x[1], reverse=True):
+			print(f"  '{freq}': {count} occurrences")
+		print("\nPlease review these values and update the frequency parser if needed.")
+	else:
+		print("✅ All frequency values were successfully mapped.")
+
+	# Let the user know where detailed warnings/errors (if any) were logged
+	error_log_path = os.path.join("ETL", "error_logs", "migration-errors.log")
+	try:
+		if os.path.exists(error_log_path) and os.path.getsize(error_log_path) > 0:
+			print(f"⚠️ Detailed warnings and errors were written to {error_log_path}.")
+		else:
+			print("✅ No warnings or errors were logged during migration.")
+	except Exception:
+		# If anything goes wrong checking the log file, just skip the summary
+		pass
+
+if __name__ == "__main__":
+	main()

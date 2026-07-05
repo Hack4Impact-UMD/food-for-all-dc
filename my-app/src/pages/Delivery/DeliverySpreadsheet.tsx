@@ -17,7 +17,6 @@ import { DayPilot } from "@daypilot/daypilot-lite-react";
 import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import { db } from "../../auth/firebaseConfig";
 import dataSources from "../../config/dataSources";
-import { useClientData } from "../../context/ClientDataContext";
 import { ClientProfile } from "../../types/client-types";
 import { isRenderableCoordinate } from "./utils/deliveryMapCounts";
 
@@ -89,7 +88,7 @@ import RouteExportOptions, {
   RouteExportOption,
   RouteExportScope,
 } from "./components/RouteExportOptions";
-import { getClientStatusPresentation } from "../../utils/clientStatus";
+import { computeClientActiveStatus, getClientStatusPresentation } from "../../utils/clientStatus";
 import LoadingIndicator from "../../components/LoadingIndicator/LoadingIndicator";
 import { exportDeliveries, exportDoordashDeliveries, ExportFeedback } from "./RouteExport";
 import Button from "@mui/material/Button";
@@ -509,6 +508,13 @@ const dedupeClientsById = (clients: DeliveryRowData[]): DeliveryRowData[] => {
   return Array.from(uniqueClients.values());
 };
 
+const deriveDeliveryClientActiveStatus = (client: DeliveryRowData): boolean =>
+  computeClientActiveStatus(
+    client.startDate as Parameters<typeof computeClientActiveStatus>[0],
+    client.endDate as Parameters<typeof computeClientActiveStatus>[1],
+    typeof client.autoInactiveReason === "string" ? client.autoInactiveReason : null
+  );
+
 interface DeliveryEvent {
   id: string;
   assignedDriverId: string;
@@ -660,12 +666,6 @@ const DeliverySpreadsheet: React.FC = () => {
       console.error("Error resetting clusters:", error);
     }
   };
-  const { clients: clientsFromContext, loading: clientsLoading } = useClientData();
-  // Use a ref so fetchDeliveriesForDate doesn't re-trigger on every hydration batch update
-  const clientsFromContextRef = React.useRef(clientsFromContext);
-  React.useEffect(() => {
-    clientsFromContextRef.current = clientsFromContext;
-  }, [clientsFromContext]);
   const testing = false;
   const { userRole } = useAuth();
   const limits = useLimits();
@@ -785,7 +785,7 @@ const DeliverySpreadsheet: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false); // Still needed for clustering operations
 
   // Computed loading state - show loading only for critical operations
-  const isMainLoading = clientsLoading || isLoadingDeliveries || isLoadingClientDetails;
+  const isMainLoading = isLoadingDeliveries || isLoadingClientDetails;
   const [clusterDoc, setClusterDoc] = useState<ClusterDoc | null>();
   const [clientOverrides, setClientOverrides] = useState<ClientOverride[]>([]);
   const navigate = useNavigate();
@@ -1121,18 +1121,10 @@ const DeliverySpreadsheet: React.FC = () => {
       setIsLoadingDeliveries(true);
 
       try {
-        // Map RowData to ClientProfile format for getEventsByViewType
-        // Use ref to avoid re-creating this callback on every hydration flush
-        const clientsForQuery = clientsFromContextRef.current.map((client) => ({
-          uid: client.uid,
-          firstName: client.firstName,
-          lastName: client.lastName,
-        })) as ClientProfile[];
-
         const { updatedEvents } = await getEventsByViewType({
           viewType: "Day",
           currentDate: new DayPilot.Date(dateForFetch),
-          clients: clientsForQuery,
+          clients: [] as ClientProfile[],
         });
 
         // Check if the date is still the selected one before updating state
@@ -1231,10 +1223,25 @@ const DeliverySpreadsheet: React.FC = () => {
             clientsWithDeliveriesOnSelectedDate.concat(chunkData);
         }
         const uniqueClients = dedupeClientsById(clientsWithDeliveriesOnSelectedDate);
-        setRawClientData(uniqueClients);
+        const uniqueClientIds = uniqueClients.map((client) => client.id).filter(Boolean);
+        const deliverySummaries =
+          uniqueClientIds.length > 0
+            ? await clientService.getClientDeliverySummaries(uniqueClientIds).catch((error) => {
+                console.error("Failed to load delivery summaries for route clients:", error);
+                return new Map();
+              })
+            : new Map();
+
+        const enrichedClients = uniqueClients.map((client) => ({
+          ...client,
+          activeStatus: deriveDeliveryClientActiveStatus(client),
+          missedStrikeCount: deliverySummaries.get(client.id)?.missedStrikeCount ?? 0,
+        }));
+
+        setRawClientData(enrichedClients);
 
         // Identify missing client profiles
-        const foundClientIds = new Set(uniqueClients.map((client) => client.id));
+        const foundClientIds = new Set(enrichedClients.map((client) => client.id));
         const missingClientIds = clientIds.filter((id) => !foundClientIds.has(id));
         if (missingClientIds.length > 0) {
           console.warn("Missing client profiles for delivery events:", missingClientIds);
@@ -1875,7 +1882,27 @@ const DeliverySpreadsheet: React.FC = () => {
 
       // 3. Conditional Geocoding
       if (clientsToGeocode.length > 0) {
-        const addressesToFetch = clientsToGeocode.map((client) => client.address);
+        const geocodeGroupsByAddress = new Map<
+          string,
+          { address: string; clients: Array<{ id: string; address: string; originalIndex: number }> }
+        >();
+
+        clientsToGeocode.forEach((client) => {
+          const addressKey = client.address.trim().toLowerCase();
+          const existingGroup = geocodeGroupsByAddress.get(addressKey);
+          if (existingGroup) {
+            existingGroup.clients.push(client);
+            return;
+          }
+
+          geocodeGroupsByAddress.set(addressKey, {
+            address: client.address,
+            clients: [client],
+          });
+        });
+
+        const geocodeGroups = Array.from(geocodeGroupsByAddress.values());
+        const addressesToFetch = geocodeGroups.map((group) => group.address);
         const geocodeResponse = await fetch(
           testing ? "" : "https://geocode-addresses-endpoint-lzrplp4tfa-uc.a.run.app",
           {
@@ -1896,34 +1923,36 @@ const DeliverySpreadsheet: React.FC = () => {
 
         const { coordinates: fetchedCoords } = await geocodeResponse.json();
 
-        if (!Array.isArray(fetchedCoords) || fetchedCoords.length !== clientsToGeocode.length) {
+        if (!Array.isArray(fetchedCoords) || fetchedCoords.length !== geocodeGroups.length) {
           throw new Error("Geocoding response format is incorrect or length mismatch.");
         }
 
         // 4. Update Firestore & 5. Combine Coordinates (Part 1: Newly fetched)
-        const updatePromises: Promise<void>[] = [];
+        const coordinateUpdates: Array<{ clientId: string; coordinates: LatLngTuple }> = [];
         fetchedCoords.forEach((coords: LatLngTuple | null, i: number) => {
-          const client = clientsToGeocode[i];
-          if (isValidCoordinate(coords)) {
-            finalCoordinates[client.originalIndex] = coords; // Add newly fetched coords
-            // Schedule Firestore update (don't await here individually to speed up)
-            updatePromises.push(
-              clientService
-                .updateClientCoordinates(client.id, coords)
-                .catch((err: Error) =>
-                  console.error(`Failed to update coordinates for client ${client.id}:`, err)
-                ) // Log errors but don't fail the whole process
-            );
-          } else {
-            console.warn(
-              `Failed to geocode address for client ${client.id}: ${client.address}. Skipping this client.`
-            );
-            // Keep finalCoordinates[client.originalIndex] as null
+          const group = geocodeGroups[i];
+          if (!group) {
+            return;
           }
+
+          group.clients.forEach((client) => {
+            if (isValidCoordinate(coords)) {
+              finalCoordinates[client.originalIndex] = coords; // Add newly fetched coords
+              coordinateUpdates.push({ clientId: client.id, coordinates: coords });
+            } else {
+              console.warn(
+                `Failed to geocode address for client ${client.id}: ${client.address}. Skipping this client.`
+              );
+              // Keep finalCoordinates[client.originalIndex] as null
+            }
+          });
         });
 
-        // Wait for all Firestore updates to attempt completion
-        await Promise.all(updatePromises);
+        if (coordinateUpdates.length > 0) {
+          void clientService.updateClientCoordinatesBatch(coordinateUpdates).catch((err: Error) =>
+            console.error("Failed to batch update client coordinates:", err)
+          );
+        }
       }
 
       // Filter out any clients that couldn't be geocoded (their entry in finalCoordinates will be null)
@@ -2816,16 +2845,6 @@ const DeliverySpreadsheet: React.FC = () => {
       return;
     }
 
-    const contextClientById = new Map<string, (typeof clientsFromContext)[number]>();
-    clientsFromContext.forEach((client) => {
-      if (client.id) {
-        contextClientById.set(client.id, client);
-      }
-      if (client.uid) {
-        contextClientById.set(client.uid, client);
-      }
-    });
-
     const synchronizedRows = rawClientData.map((client) => {
       let assignedClusterId = "";
       clusters.forEach((cluster) => {
@@ -2865,23 +2884,15 @@ const DeliverySpreadsheet: React.FC = () => {
       }
 
       // Patch: If lastDeliveryDate is 'N/A', set to ''
-      const enrichedContextClient = contextClientById.get(client.id) as
-        | { activeStatus?: unknown; missedStrikeCount?: unknown }
-        | undefined;
-
       const activeStatus =
-        typeof enrichedContextClient?.activeStatus === "boolean"
-          ? enrichedContextClient.activeStatus
-          : typeof (client as Record<string, unknown>).activeStatus === "boolean"
-            ? ((client as Record<string, unknown>).activeStatus as boolean)
-            : true;
+        typeof (client as Record<string, unknown>).activeStatus === "boolean"
+          ? ((client as Record<string, unknown>).activeStatus as boolean)
+          : true;
 
       const missedStrikeCount =
-        typeof enrichedContextClient?.missedStrikeCount === "number"
-          ? enrichedContextClient.missedStrikeCount
-          : typeof (client as Record<string, unknown>).missedStrikeCount === "number"
-            ? ((client as Record<string, unknown>).missedStrikeCount as number)
-            : 0;
+        typeof (client as Record<string, unknown>).missedStrikeCount === "number"
+          ? ((client as Record<string, unknown>).missedStrikeCount as number)
+          : 0;
 
       const patchedClient = {
         ...client,
@@ -2901,7 +2912,7 @@ const DeliverySpreadsheet: React.FC = () => {
     });
 
     setRows(synchronizedRows);
-  }, [rawClientData, clusters, deliveriesForDate, clientsFromContext]);
+  }, [rawClientData, clusters, deliveriesForDate]);
 
   // TableVirtuoso MUI integration components
   const TableComponent = React.forwardRef<HTMLTableElement, React.ComponentProps<typeof Table>>(

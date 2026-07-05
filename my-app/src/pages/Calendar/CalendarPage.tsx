@@ -126,19 +126,6 @@ const CalendarPage: React.FC = React.memo(() => {
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [clients, setClients] = useState<ClientProfile[]>([]);
-  const [clientsLoaded, setClientsLoaded] = useState<boolean>(false);
-  // Preload all clients from client-profile2 when Add Delivery is triggered
-  const preloadAllClients = useCallback(async () => {
-    if (!clientsLoaded) {
-      try {
-        const { clients: allClients } = await clientService.getAllClients(3000);
-        setClients(allClients);
-        setClientsLoaded(true);
-      } catch (error) {
-        console.error("Error preloading clients:", error);
-      }
-    }
-  }, [clientsLoaded]);
   const [dailyLimits, setDailyLimits] = useState<DateLimit[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true); // Start as loading
   const [isInitialLoad, setIsInitialLoad] = useState<boolean>(true);
@@ -229,30 +216,21 @@ const CalendarPage: React.FC = React.memo(() => {
 
   const fetchClientsLazy = useCallback(async (clientIds: string[]) => {
     const uncachedIds = clientIds.filter((id) => !clientCacheRef.current.has(id));
-    if (uncachedIds.length > 0) {
-      try {
-        const clientsData = await clientService.getClientsByIds(uncachedIds);
-        clientsData.forEach((client) => {
-          if (client.uid) {
-            clientCacheRef.current.set(client.uid, client);
-          }
-        });
-      } catch (error) {
-        console.error("Error fetching clients:", error);
-        return [];
-      }
-    }
-    const requestedClients = clientIds.map((id) => clientCacheRef.current.get(id)).filter(Boolean);
+    const [clientsData, deliverySummaries] = await Promise.all([
+      uncachedIds.length > 0 ? clientService.getClientsByIds(uncachedIds) : Promise.resolve([]),
+      clientService.getClientDeliverySummaries(clientIds).catch((error) => {
+        console.error("Error fetching client delivery summaries:", error);
+        return new Map<string, { missedStrikeCount: number; lastDeliveryDate: string }>();
+      }),
+    ]);
 
-    let deliverySummaries = new Map<
-      string,
-      { missedStrikeCount: number; lastDeliveryDate: string }
-    >();
-    try {
-      deliverySummaries = await clientService.getClientDeliverySummaries(clientIds);
-    } catch (error) {
-      console.error("Error fetching client delivery summaries:", error);
-    }
+    clientsData.forEach((client) => {
+      if (client.uid) {
+        clientCacheRef.current.set(client.uid, client);
+      }
+    });
+
+    const requestedClients = clientIds.map((id) => clientCacheRef.current.get(id)).filter(Boolean);
 
     const clientsWithSummaries = requestedClients.map((client) => {
       if (!client?.uid) {
@@ -781,7 +759,6 @@ const CalendarPage: React.FC = React.memo(() => {
                 }}
                 onAddDelivery={() => {
                   setIsModalOpen(true);
-                  preloadAllClients();
                 }}
                 onEditLimits={
                   viewType === "Month"
@@ -815,10 +792,8 @@ const CalendarPage: React.FC = React.memo(() => {
                   open={isModalOpen}
                   onClose={() => setIsModalOpen(false)}
                   onAddDelivery={handleAddDelivery}
-                  clients={clients}
                   limits={limits}
                   dailyLimits={dailyLimits}
-                  clientsLoaded={clientsLoaded}
                   startDate={currentDate}
                 />
               </>

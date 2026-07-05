@@ -147,6 +147,7 @@ const StyleChip = styled(Chip)(({ theme }) => ({
 
 const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const DELIVERY_SUMMARY_EXPORT_BATCH_SIZE = 100;
+const EXPORT_ALL_CLIENTS_PAGE_SIZE = 500;
 
 const formatTimestampLikeDate = (value: unknown): string => {
   if (value === null || value === undefined || value === "N/A") return "";
@@ -417,7 +418,7 @@ const Spreadsheet: React.FC = () => {
   };
   const [forceRerender, setForceRerender] = useState(0);
   const virtuosoRef = React.useRef<any>(null);
-  const { clients, loading, error, refresh } = useClientData();
+  const { clients, loading, loadingMore, hasMore, error, refresh, loadAllRemaining } = useClientData();
   const { showError, showSuccess, showWarning } = useNotifications();
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [debouncedSearch, setDebouncedSearch] = useState<string>("");
@@ -431,6 +432,9 @@ const Spreadsheet: React.FC = () => {
   const [clientIdToDelete, setClientIdToDelete] = useState<string | null>(null);
   const [clientNameToDelete, setClientNameToDelete] = useState<string>("");
   const previousClientIdsRef = React.useRef<string>("");
+  const remoteSearchRequestIdRef = React.useRef(0);
+  const [remoteSearchRows, setRemoteSearchRows] = useState<RowData[] | null>(null);
+  const [isRemoteSearchLoading, setIsRemoteSearchLoading] = useState(false);
   const customColumnsHook = useCustomColumns({ page: "Spreadsheet" });
   const customColumns = customColumnsHook.customColumns;
   const handleAddCustomColumn = customColumnsHook.handleAddCustomColumn;
@@ -438,8 +442,14 @@ const Spreadsheet: React.FC = () => {
   const handleRemoveCustomColumn = customColumnsHook.handleRemoveCustomColumn;
 
   useEffect(() => {
+    const previousClientIds = previousClientIdsRef.current;
     const nextClientIds = clients.map((client) => client.uid).join("|");
-    const shouldResetTable = previousClientIdsRef.current !== nextClientIds;
+    const didIdsChange = previousClientIds !== nextClientIds;
+    const isAppendOnlyUpdate =
+      previousClientIds.length > 0 &&
+      nextClientIds.length > previousClientIds.length &&
+      nextClientIds.startsWith(`${previousClientIds}|`);
+    const shouldResetTable = didIdsChange && !isAppendOnlyUpdate;
     previousClientIdsRef.current = nextClientIds;
 
     if (!shouldResetTable) {
@@ -462,6 +472,173 @@ const Spreadsheet: React.FC = () => {
     }, 300);
     return () => clearTimeout(timer);
   }, [searchQuery]);
+
+  useEffect(() => {
+    const trimmedSearch = debouncedSearch.trim();
+
+    if (!trimmedSearch) {
+      setRemoteSearchRows(null);
+      setIsRemoteSearchLoading(false);
+      return;
+    }
+
+    if (!trimmedSearch.includes(":")) {
+      setRemoteSearchRows(null);
+      setIsRemoteSearchLoading(false);
+      if (hasMore) {
+        void loadAllRemaining();
+      }
+      return;
+    }
+
+    if (trimmedSearch.includes(":")) {
+      const parsedTerms = parseSearchTermsProgressively(trimmedSearch);
+      const nonKeyValueTerms = parsedTerms.filter((term) => !term.includes(":"));
+
+      if (nonKeyValueTerms.length > 0) {
+        setRemoteSearchRows(null);
+        setIsRemoteSearchLoading(false);
+        if (hasMore) {
+          void loadAllRemaining();
+        }
+        return;
+      }
+
+      const nameQuery = parsedTerms.find((term) => {
+        if (!term.includes(":")) return false;
+        const { keyword } = extractKeyValue(term);
+        const normalizedKeyword = normalizeSearchKeyword(keyword);
+        return ["name", "client", "firstname", "lastname"].includes(normalizedKeyword);
+      });
+
+      if (!nameQuery) {
+        setRemoteSearchRows(null);
+        setIsRemoteSearchLoading(false);
+        if (hasMore) {
+          void loadAllRemaining();
+        }
+        return;
+      }
+
+      const { searchValue } = extractKeyValue(nameQuery);
+      const normalizedNameQuery = splitFilterValues(searchValue).join(" ").trim();
+
+      if (!normalizedNameQuery) {
+        setRemoteSearchRows([]);
+        setIsRemoteSearchLoading(false);
+        return;
+      }
+
+      const requestId = ++remoteSearchRequestIdRef.current;
+      setIsRemoteSearchLoading(true);
+
+      void (async () => {
+        try {
+          const matchedClients = await clientService.searchClientsByName(normalizedNameQuery, 100);
+          if (requestId !== remoteSearchRequestIdRef.current) {
+            return;
+          }
+
+          const matchedClientIds = matchedClients.map((client) => client.uid).filter(Boolean);
+          if (matchedClientIds.length === 0) {
+            setRemoteSearchRows([]);
+            return;
+          }
+
+          const [fullClients, deliverySummaries] = await Promise.all([
+            clientService.getClientsByIds(matchedClientIds),
+            clientService
+              .getClientDeliverySummaries(matchedClientIds)
+              .catch(() => new Map<string, ClientDeliverySummary>()),
+          ]);
+
+          if (requestId !== remoteSearchRequestIdRef.current) {
+            return;
+          }
+
+          const mergedRows = fullClients
+            .map((client) => ({
+              id: client.uid,
+              uid: client.uid,
+              clientid: client.uid,
+              firstName: client.firstName || "",
+              lastName: client.lastName || "",
+              email: client.email || "",
+              phone: client.phone || "",
+              houseNumber: 0,
+              address: client.address || "",
+              address2: client.address2 || "",
+              deliveryDetails: {
+                deliveryInstructions: client.deliveryDetails?.deliveryInstructions || "",
+                dietaryRestrictions: {
+                  foodAllergens:
+                    client.deliveryDetails?.dietaryRestrictions?.foodAllergens || [],
+                  halal: client.deliveryDetails?.dietaryRestrictions?.halal || false,
+                  kidneyFriendly:
+                    client.deliveryDetails?.dietaryRestrictions?.kidneyFriendly || false,
+                  lowSodium: client.deliveryDetails?.dietaryRestrictions?.lowSodium || false,
+                  lowSugar: client.deliveryDetails?.dietaryRestrictions?.lowSugar || false,
+                  microwaveOnly:
+                    client.deliveryDetails?.dietaryRestrictions?.microwaveOnly || false,
+                  noCookingEquipment:
+                    client.deliveryDetails?.dietaryRestrictions?.noCookingEquipment || false,
+                  otherText: client.deliveryDetails?.dietaryRestrictions?.otherText || "",
+                  other: client.deliveryDetails?.dietaryRestrictions?.other || false,
+                  softFood: client.deliveryDetails?.dietaryRestrictions?.softFood || false,
+                  vegan: client.deliveryDetails?.dietaryRestrictions?.vegan || false,
+                  heartFriendly:
+                    client.deliveryDetails?.dietaryRestrictions?.heartFriendly || false,
+                  vegetarian: client.deliveryDetails?.dietaryRestrictions?.vegetarian || false,
+                  dietaryPreferences:
+                    client.deliveryDetails?.dietaryRestrictions?.dietaryPreferences || "",
+                },
+              },
+              ethnicity: client.ethnicity || "",
+              adults: client.adults ?? null,
+              children: client.children ?? null,
+              deliveryFreq: client.deliveryFreq || "",
+              gender: client.gender || "",
+              language: client.language || "",
+              notes: client.notes || "",
+              famStartDate: client.famStartDate || "",
+              tefapCert: client.tefapCert || "",
+              dob: client.dob || "",
+              ward: client.ward || "",
+              zipCode: client.zipCode || "",
+              tags: client.tags || [],
+              referralEntity: client.referralEntity
+                ? {
+                    name: client.referralEntity.name || "",
+                    organization: client.referralEntity.organization || "",
+                  }
+                : undefined,
+              lastDeliveryDate: deliverySummaries.get(client.uid)?.lastDeliveryDate || "",
+              missedStrikeCount: deliverySummaries.get(client.uid)?.missedStrikeCount || 0,
+              activeStatus: client.activeStatus,
+              deliverySummaryReady: true,
+            })) as RowData[];
+
+          setRemoteSearchRows(mergedRows);
+        } catch (error) {
+          if (requestId !== remoteSearchRequestIdRef.current) {
+            return;
+          }
+
+          console.error("Failed to search clients remotely:", error);
+          setRemoteSearchRows([]);
+        } finally {
+          if (requestId === remoteSearchRequestIdRef.current) {
+            setIsRemoteSearchLoading(false);
+          }
+        }
+      })();
+
+      return () => {
+        remoteSearchRequestIdRef.current += 1;
+        setIsRemoteSearchLoading(false);
+      };
+    }
+  }, [debouncedSearch, hasMore, loadAllRemaining]);
 
   const hydrateRowsForExport = useCallback(async (sourceRows: RowData[]) => {
     const pendingClientIds = Array.from(
@@ -495,6 +672,26 @@ const Spreadsheet: React.FC = () => {
     return mergeDeliverySummaries(sourceRows, readyIds, summaries);
   }, []);
 
+  const loadAllRowsForExport = useCallback(async (): Promise<RowData[]> => {
+    const rowsById = new Map<string, RowData>();
+    let lastDoc: unknown;
+
+    do {
+      const result = await clientService.getAllClientsForSpreadsheet(
+        EXPORT_ALL_CLIENTS_PAGE_SIZE,
+        lastDoc
+      );
+
+      result.clients.forEach((row) => {
+        rowsById.set(row.uid, row);
+      });
+
+      lastDoc = result.lastDoc;
+    } while (lastDoc);
+
+    return Array.from(rowsById.values());
+  }, []);
+
   const handleOpenMenu = useCallback((event: React.MouseEvent<HTMLElement>, row: RowData) => {
     event.stopPropagation();
     setMenuAnchorPosition({ top: event.clientY, left: event.clientX });
@@ -502,7 +699,7 @@ const Spreadsheet: React.FC = () => {
   }, []);
 
   const handleExportAction = async (
-    sourceRows: RowData[],
+    sourceRows: RowData[] | (() => Promise<RowData[]>),
     exportFn: (rowsToExport: RowData[]) => string,
     successMessage: (filename: string) => string
   ) => {
@@ -512,7 +709,8 @@ const Spreadsheet: React.FC = () => {
 
     setIsExporting(true);
     try {
-      const exportRows = await hydrateRowsForExport(sourceRows);
+      const rowsToExport = typeof sourceRows === "function" ? await sourceRows() : sourceRows;
+      const exportRows = await hydrateRowsForExport(rowsToExport);
       const filename = exportFn(exportRows);
       showSuccess(successMessage(filename));
     } catch (error) {
@@ -527,6 +725,14 @@ const Spreadsheet: React.FC = () => {
       setIsExporting(false);
     }
   };
+
+  const handleEndReached = useCallback(() => {
+    if (debouncedSearch.trim() !== "") {
+      return;
+    }
+
+    void loadAllRemaining();
+  }, [debouncedSearch, loadAllRemaining]);
 
   // TableVirtuoso MUI integration
   const TableComponent = forwardRef<HTMLTableElement, React.ComponentProps<typeof Table>>(
@@ -703,7 +909,7 @@ const Spreadsheet: React.FC = () => {
   // --- Sorting and filtering logic (with sorting) ---
   // Ensure filteredRows is always the correct RowData shape for export, and optimize with useMemo
   const filteredRows: RowData[] = useMemo(() => {
-    let result = clients;
+    let result = remoteSearchRows ?? clients;
     if (debouncedSearch.trim()) {
       const validSearchTerms = parseSearchTermsProgressively(debouncedSearch.trim());
 
@@ -1020,7 +1226,7 @@ const Spreadsheet: React.FC = () => {
       }
     }
     return result;
-  }, [clients, debouncedSearch, sortConfig, fields, customColumns]);
+  }, [clients, remoteSearchRows, debouncedSearch, sortConfig, fields, customColumns]);
 
   const isInitialLoading = loading && clients.length === 0;
   const hasBlockingError = Boolean(error) && clients.length === 0;
@@ -1213,7 +1419,7 @@ const Spreadsheet: React.FC = () => {
                         onClick={() => {
                           setExportDialogOpen(false);
                           void handleExportAction(
-                            clients,
+                            loadAllRowsForExport,
                             (rowsToExport) => exportAllClients(rowsToExport),
                             (filename) => `Exported ${filename}.`
                           );
@@ -1399,16 +1605,18 @@ const Spreadsheet: React.FC = () => {
               height: "100%",
               boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
               borderRadius: "12px",
-              overflow: "auto",
+              overflow: "hidden",
               minHeight: 0,
             }}
           >
             <TableVirtuoso
               ref={virtuosoRef}
-              style={{ height: "100%" }}
+              style={{ height: "100%", overflowY: "auto" }}
               data={filteredRows}
+              computeItemKey={(index, row: RowData) => row.uid ?? `${row.lastName}-${row.firstName}-${index}`}
               components={VirtuosoTableComponents}
               overscan={200}
+              endReached={handleEndReached}
               key={forceRerender}
               fixedHeaderContent={() => (
                 <TableRow sx={{ position: "sticky", top: 0, zIndex: 2 }}>
@@ -1602,6 +1810,18 @@ const Spreadsheet: React.FC = () => {
                 />
               )}
             />
+            {loadingMore && (
+              <Box sx={{ display: "flex", justifyContent: "center", py: 1.5 }}>
+                <CircularProgress size={18} />
+              </Box>
+            )}
+            {!loadingMore && hasMore && debouncedSearch.trim() !== "" && (
+              <Box sx={{ display: "flex", justifyContent: "center", py: 1.5 }}>
+                <Typography variant="caption" sx={{ color: "text.secondary" }}>
+                  More clients available. Clear search and scroll to load additional rows.
+                </Typography>
+              </Box>
+            )}
             <Popover
               open={Boolean(menuAnchorPosition)}
               anchorReference="anchorPosition"

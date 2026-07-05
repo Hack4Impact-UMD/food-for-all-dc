@@ -178,7 +178,7 @@ const SaveNotification = styled(Box)({
 });
 
 const Profile = () => {
-  const { refresh } = useClientData();
+  const { refresh } = useClientData({ autoLoad: false });
   const navigate = useNavigate();
   const params = useParams();
   const clientIdParam: string | null = params.clientId ?? null;
@@ -391,7 +391,6 @@ const Profile = () => {
     }
   }, [deliveryClientId]);
 
-  const [clients, setClients] = useState<ClientProfile[]>([]);
   const [addressError, setAddressError] = useState<string>("");
   const [userTypedAddress, setUserTypedAddress] = useState<string>("");
   const [isAddressValidated, setIsAddressValidated] = useState<boolean>(true);
@@ -1127,28 +1126,80 @@ const Profile = () => {
       return (
         normalizeString(data.firstName) === normalizedFirstName &&
         normalizeString(data.lastName) === normalizedLastName &&
-        (!excludeUid || data.uid !== excludeUid)
+        (!excludeUid || docSnap.id !== excludeUid)
       );
     });
 
     const sameNameClientsCount = sameNameClients.length;
     const duplicateFound = sameNameClientsCount > 0;
 
-    // For similar name warning: query by zip only, then filter for same name but different address
+    // For similar name warning: use narrow zip+firstName+lastName queries instead of zip-wide scan.
     let sameNameDiffAddressCount = 0;
     if (!duplicateFound) {
-      const zipQuery = query(collection(db, clientsCollection), where("zipCode", "==", zipCode));
-      const zipSnapshot = await getDocs(zipQuery);
-      sameNameDiffAddressCount = zipSnapshot.docs.filter((docSnap) => {
-        const data = docSnap.data();
-        return (
-          normalizeString(data.firstName) === normalizedFirstName &&
-          normalizeString(data.lastName) === normalizedLastName &&
-          (normalizeString(data.address) !== normalizedAddress ||
-            normalizeString(data.address2) !== normalizedAddress2) &&
-          (!excludeUid || data.uid !== excludeUid)
+      const buildCaseVariants = (value: string): string[] => {
+        const trimmed = (value || "").trim();
+        if (!trimmed) return [];
+        const lower = trimmed.toLowerCase();
+        const upper = trimmed.toUpperCase();
+        const title = `${trimmed.charAt(0).toUpperCase()}${trimmed.slice(1).toLowerCase()}`;
+        return Array.from(new Set([trimmed, lower, upper, title]));
+      };
+
+      const firstNameVariants = buildCaseVariants(firstName);
+      const lastNameVariants = buildCaseVariants(lastName);
+      const sameNameQueryVariants = firstNameVariants.flatMap((firstNameVariant) =>
+        lastNameVariants.map((lastNameVariant) =>
+          query(
+            collection(db, clientsCollection),
+            where("zipCode", "==", zipCode),
+            where("firstName", "==", firstNameVariant),
+            where("lastName", "==", lastNameVariant),
+            limit(50)
+          )
+        )
+      );
+
+      try {
+        const sameNameSnapshots = await Promise.all(
+          sameNameQueryVariants.map((sameNameQuery) => getDocs(sameNameQuery))
         );
-      }).length;
+
+        const dedupedNameMatches = new Map<string, any>();
+        sameNameSnapshots.forEach((snapshot) => {
+          snapshot.docs.forEach((docSnap) => {
+            dedupedNameMatches.set(docSnap.id, docSnap.data());
+          });
+        });
+
+        sameNameDiffAddressCount = Array.from(dedupedNameMatches.entries()).filter(
+          ([docId, data]) => {
+            if (excludeUid && docId === excludeUid) {
+              return false;
+            }
+
+            return (
+              normalizeString(data.firstName) === normalizedFirstName &&
+              normalizeString(data.lastName) === normalizedLastName &&
+              (normalizeString(data.address) !== normalizedAddress ||
+                normalizeString(data.address2) !== normalizedAddress2)
+            );
+          }
+        ).length;
+      } catch (sameNameQueryError) {
+        // Fallback keeps save flow resilient if this narrower query needs an index.
+        const zipQuery = query(collection(db, clientsCollection), where("zipCode", "==", zipCode));
+        const zipSnapshot = await getDocs(zipQuery);
+        sameNameDiffAddressCount = zipSnapshot.docs.filter((docSnap) => {
+          const data = docSnap.data();
+          return (
+            normalizeString(data.firstName) === normalizedFirstName &&
+            normalizeString(data.lastName) === normalizedLastName &&
+            (normalizeString(data.address) !== normalizedAddress ||
+              normalizeString(data.address2) !== normalizedAddress2) &&
+            (!excludeUid || docSnap.id !== excludeUid)
+          );
+        }).length;
+      }
     }
 
     if (duplicateFound) {
@@ -1503,14 +1554,15 @@ const Profile = () => {
           uid: newUid,
           createdAt: new Date(), // Set createdAt for new profile
         };
-        // Save to Firestore for new profile
-        await setDoc(doc(db, dataSources.firebase.clientsCollection, newUid), newProfile);
-        // Update the central tags list
-        await setDoc(
-          doc(db, dataSources.firebase.tagsCollection, dataSources.firebase.tagsDocId),
-          { tags: sortedAllTags },
-          { merge: true }
-        );
+        // Save profile + tags in parallel to reduce perceived save latency.
+        await Promise.all([
+          setDoc(doc(db, dataSources.firebase.clientsCollection, newUid), newProfile),
+          setDoc(
+            doc(db, dataSources.firebase.tagsCollection, dataSources.firebase.tagsDocId),
+            { tags: sortedAllTags },
+            { merge: true }
+          ),
+        ]);
         // Update state *before* navigating
         setClientProfile(newProfile); // Update with the full new profile data including UID/createdAt
         setPrevClientProfile(null); // Clear previous state backup
@@ -1520,8 +1572,12 @@ const Profile = () => {
         setIsSaved(true); // Indicate save was successful
         setErrors({}); // Clear validation errors
         setAllTags(sortedAllTags); // Update the local list of all tags
-        // Refresh client data context so spreadsheet updates
-        if (refresh) await refresh();
+        // Refresh client data context in background to keep save interaction snappy.
+        if (refresh) {
+          void refresh().catch((refreshError) => {
+            console.error("Background client refresh failed after profile save:", refreshError);
+          });
+        }
         // Set flag to force spreadsheet refresh on next mount
         localStorage.setItem("forceClientsRefresh", "true");
         // Navigate *after* state updates. The component will remount with isEditing=false.
@@ -1535,24 +1591,25 @@ const Profile = () => {
         }
         const previousEndDate = previousProfile.endDate || null;
         let cleanupErrorMessage: string | null = null;
-        // Save to Firestore for existing profile (DO NOT normalize fields for saving)
-        await setDoc(
-          doc(db, dataSources.firebase.clientsCollection, clientProfile.uid),
-          updatedProfile,
-          { merge: true }
-        ); // Use merge: true for updates
-        // Update the central tags list
-        await setDoc(
-          doc(db, dataSources.firebase.tagsCollection, dataSources.firebase.tagsDocId),
-          { tags: sortedAllTags },
-          { merge: true }
-        );
+        // Save profile + tags in parallel to reduce perceived save latency.
+        await Promise.all([
+          setDoc(doc(db, dataSources.firebase.clientsCollection, clientProfile.uid), updatedProfile, {
+            merge: true,
+          }),
+          setDoc(
+            doc(db, dataSources.firebase.tagsCollection, dataSources.firebase.tagsDocId),
+            { tags: sortedAllTags },
+            { merge: true }
+          ),
+        ]);
         try {
-          await DeliveryService.getInstance().enforceClientEndDate(
-            clientProfile.uid,
-            updatedProfile.endDate,
-            previousEndDate
-          );
+          if (didChangeEndDate) {
+            await DeliveryService.getInstance().enforceClientEndDate(
+              clientProfile.uid,
+              updatedProfile.endDate,
+              previousEndDate
+            );
+          }
 
           if (isThreeStrikesReactivation) {
             await DeliveryService.getInstance().deleteMissedEventsByClientId(clientProfile.uid);
@@ -1563,11 +1620,9 @@ const Profile = () => {
             error instanceof Error ? error.message : "Unknown delivery cleanup error";
         }
 
-        try {
-          await refreshDeliveryData();
-        } catch (error) {
-          console.error("Profile saved but delivery refresh failed:", error);
-        }
+        void refreshDeliveryData().catch((refreshError) => {
+          console.error("Profile saved but background delivery refresh failed:", refreshError);
+        });
         // Update state *after* successful save for existing profile
         setClientProfile(updatedProfile); // Update with latest data
         setPrevClientProfile(null); // Clear previous state backup
@@ -1575,8 +1630,12 @@ const Profile = () => {
         setIsSaved(true); // Indicate save was successful
         setErrors({}); // Clear validation errors
         setAllTags(sortedAllTags); // Update the local list of all tags
-        // Refresh client data context so spreadsheet updates
-        if (refresh) await refresh();
+        // Refresh client data context in background to keep save interaction snappy.
+        if (refresh) {
+          void refresh().catch((refreshError) => {
+            console.error("Background client refresh failed after profile update:", refreshError);
+          });
+        }
         // Set flag to force spreadsheet refresh on next mount
         localStorage.setItem("forceClientsRefresh", "true");
 
@@ -2523,7 +2582,18 @@ const Profile = () => {
     }
     const existingScript = document.getElementById("google-maps-script");
     if (existingScript) {
-      existingScript.addEventListener("load", callback);
+      // If the script already exists and has finished loading, initialize immediately.
+      if (
+        typeof window.google === "object" &&
+        window.google.maps &&
+        window.google.maps.places
+      ) {
+        callback();
+        return;
+      }
+
+      // Otherwise wait for first load completion.
+      existingScript.addEventListener("load", callback, { once: true });
       return;
     }
     const script = document.createElement("script");
@@ -3002,77 +3072,6 @@ const Profile = () => {
     ]
   );
 
-  const fetchClients = async () => {
-    try {
-      // Use ClientService instead of direct Firebase calls
-      // use imported singleton clientService directly
-      const clientsData = await clientService.getAllClients();
-
-      // Map client data to Client type with explicit type casting for compatibility
-      const clientList = clientsData.clients.map((data: ClientProfile) => {
-        // Ensure dietaryRestrictions has all required fields
-        const dietaryRestrictions = data.deliveryDetails?.dietaryRestrictions || {};
-
-        return {
-          id: data.uid,
-          uid: data.uid,
-          // Preserve original casing, only trim whitespace
-          firstName: (data.firstName || "").trim(),
-          lastName: (data.lastName || "").trim(),
-          zipCode: (data.zipCode || "").trim(),
-          address: (data.address || "").trim(),
-          address2: (data.address2 || "").trim(),
-          city: (data.city || "").trim(),
-          state: (data.state || "").trim(),
-          quadrant: data.quadrant || "",
-          dob: data.dob || "",
-          phone: data.phone || "",
-          alternativePhone: data.alternativePhone || "",
-          adults: data.adults || 0,
-          children: data.children || 0,
-          total: data.total || 0,
-          gender: data.gender || "Other",
-          ethnicity: data.ethnicity || "",
-          deliveryDetails: {
-            deliveryInstructions: data.deliveryDetails?.deliveryInstructions || "",
-            dietaryRestrictions: {
-              foodAllergens: dietaryRestrictions.foodAllergens || [],
-              halal: dietaryRestrictions.halal || false,
-              kidneyFriendly: dietaryRestrictions.kidneyFriendly || false,
-              lowSodium: dietaryRestrictions.lowSodium || false,
-              lowSugar: dietaryRestrictions.lowSugar || false,
-              microwaveOnly: dietaryRestrictions.microwaveOnly || false,
-              noCookingEquipment: dietaryRestrictions.noCookingEquipment || false,
-              other: dietaryRestrictions.other || [],
-              softFood: dietaryRestrictions.softFood || false,
-              vegan: dietaryRestrictions.vegan || false,
-              vegetarian: dietaryRestrictions.vegetarian || false,
-            },
-          },
-          lifeChallenges: data.lifeChallenges || "",
-          notes: data.notes || "",
-          notesTimestamp: data.notesTimestamp || null,
-          lifestyleGoals: data.lifestyleGoals || "",
-          language: data.language || "",
-          createdAt: data.createdAt || new Date(),
-          updatedAt: data.updatedAt || new Date(),
-          startDate: data.startDate || "",
-          endDate: data.endDate || "",
-          recurrence: data.recurrence || "None",
-          tags: data.tags || [],
-          ward: data.ward || "",
-          seniors: data.seniors || 0,
-          headOfHousehold: data.headOfHousehold || "Adult",
-        };
-      });
-
-      // Cast the result to Client[] to satisfy type checking
-      setClients(clientList as unknown as ClientProfile[]);
-    } catch (error) {
-      console.error("Error fetching clients:", error);
-    }
-  };
-
   return (
     <Box
       className="profile-container"
@@ -3250,7 +3249,6 @@ const Profile = () => {
               open={isDeliveryModalOpen}
               onClose={() => setIsDeliveryModalOpen(false)}
               onAddDelivery={handleAddDelivery}
-              clients={[]}
               limits={limits}
               dailyLimits={dailyLimits}
               startDate={deliveryModalStartDate}
