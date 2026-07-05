@@ -38,9 +38,6 @@ my-app/functions-python/lib/
 # ETL spreadsheet exports (keep scripts tracked, ignore downloaded source files)
 ETL/*.xlsx
 ETL/*.xls
-ETL/failed_active_records/
-ETL/failed_geocoding_records/
-ETL/failed_inserts/
 
 # Firebase
 .firebase/

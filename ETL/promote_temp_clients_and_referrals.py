@@ -10,15 +10,13 @@ into the production collections
     - client-profile2
     - referral
 
-using the same document IDs, removes stale production documents that are
-not present in the sandbox collections, then optionally deletes the
-sandbox collections' documents.
+using the same document IDs, then optionally deletes the sandbox
+collections' documents.
 
 **WARNING: DESTRUCTIVE OPERATION**
 
-- Existing documents in `client-profile2` and `referral` whose IDs are
-  not present in the sandbox data will be deleted after the sandbox data
-  is copied in.
+- All existing documents in `client-profile2` and `referral` will be
+  deleted before the sandbox data is copied in.
 - Run this ONLY after you have thoroughly validated the data in
   `temp-profile2` and `temp-referral`.
 - Consider creating an external backup (e.g., Firestore export) of the
@@ -31,9 +29,9 @@ Run from the repo root with the venv activated:
 
 import os
 import logging
-from typing import Set
 
 import firebase_admin
+from firebase_admin import credentials, firestore
 from firebase_admin import credentials, firestore
 
 
@@ -193,26 +191,6 @@ def _copy_collection(
     return written
 
 
-def _delete_docs_not_in_ids(
-    db: firestore.Client, collection_name: str, keep_ids: Set[str]
-) -> int:
-    """Delete documents whose IDs are not present in keep_ids."""
-
-    col_ref = db.collection(collection_name)
-    snaps = list(col_ref.stream())
-    deleted = 0
-
-    print(f"🧹 Deleting stale docs from '{collection_name}'...")
-    for snap in snaps:
-        if snap.id in keep_ids:
-            continue
-        snap.reference.delete()
-        deleted += 1
-
-    print(f"🧹 Deleted {deleted} stale docs from '{collection_name}'.")
-    return deleted
-
-
 def _run() -> None:
     db = _init_firestore()
 
@@ -225,18 +203,16 @@ def _run() -> None:
     print(f"  📁 {TEMP_REFERRAL_COLLECTION}: {temp_referrals_count} docs")
     print()
 
-    # 1. Copy sandbox docs into production collections using the same IDs.
-    print("🔁 Step 1/3: Copy sandbox docs into production collections...")
-    _copy_collection(db, TEMP_CLIENTS_COLLECTION, PROD_CLIENTS_COLLECTION)
-    _copy_collection(db, TEMP_REFERRAL_COLLECTION, PROD_REFERRAL_COLLECTION)
+    # 1. Delete existing production docs.
+    print("🧹 Step 1/3: Delete existing production docs (client-profile2, referral)...")
+    _delete_all_docs(db, PROD_CLIENTS_COLLECTION)
+    _delete_all_docs(db, PROD_REFERRAL_COLLECTION)
     print()
 
-    # 2. Remove stale production docs after all replacement writes succeed.
-    print("🧹 Step 2/3: Delete stale production docs (client-profile2, referral)...")
-    temp_client_ids = {snap.id for snap in db.collection(TEMP_CLIENTS_COLLECTION).stream()}
-    temp_referral_ids = {snap.id for snap in db.collection(TEMP_REFERRAL_COLLECTION).stream()}
-    _delete_docs_not_in_ids(db, PROD_CLIENTS_COLLECTION, temp_client_ids)
-    _delete_docs_not_in_ids(db, PROD_REFERRAL_COLLECTION, temp_referral_ids)
+    # 2. Copy sandbox docs into production collections using the same IDs.
+    print("🔁 Step 2/3: Copy sandbox docs into production collections...")
+    _copy_collection(db, TEMP_CLIENTS_COLLECTION, PROD_CLIENTS_COLLECTION)
+    _copy_collection(db, TEMP_REFERRAL_COLLECTION, PROD_REFERRAL_COLLECTION)
     print()
 
     # 3. Optionally, clear sandbox collections so there is no confusion

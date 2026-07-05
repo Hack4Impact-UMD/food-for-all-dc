@@ -1,16 +1,10 @@
-import os
 import firebase_admin
 from firebase_admin import credentials, firestore
 from datetime import datetime
 
 # Initialize Firebase Admin
-SERVICE_ACCOUNT_FILE = 'food-for-all-dc-caf23-firebase-adminsdk-fbsvc-4e77c7873e.json'
-if not firebase_admin._apps:
-    if os.path.exists(SERVICE_ACCOUNT_FILE):
-        cred = credentials.Certificate(SERVICE_ACCOUNT_FILE)
-        firebase_admin.initialize_app(cred)
-    else:
-        firebase_admin.initialize_app()
+cred = credentials.Certificate('food-for-all-dc-caf23-firebase-adminsdk-fbsvc-4e77c7873e.json')
+firebase_admin.initialize_app(cred)
 db = firestore.client()
 
 # Today's date
@@ -40,8 +34,6 @@ def update_active_status():
         end_date = parse_date(end_date_raw)
         if start_date and end_date:
             is_active = start_date <= TODAY <= end_date
-        elif start_date:
-            is_active = start_date <= TODAY
         else:
             is_active = False
         print(f"{doc.id}: startDate={start_date_raw}, endDate={end_date_raw}, parsed_start={start_date}, parsed_end={end_date}, today={TODAY}, is_active={is_active}, current_activeStatus={data.get('activeStatus')}")

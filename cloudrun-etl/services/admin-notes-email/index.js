@@ -34,7 +34,7 @@ if (sendgridApiKey) {
 }
 
 const senderEmail = emailConfig.fromEmail || process.env.FROM_EMAIL || 'noreply@yourdomain.com';
-const recipientEmail = emailConfig.toEmail || process.env.TO_EMAIL;
+const recipientEmail = emailConfig.toEmail || process.env.TO_EMAIL || 'admin@yourdomain.com';
 
 /**
  * Checks if a given timestamp is within the last 7 days.
@@ -143,9 +143,6 @@ functions.http('admin-notes-summary', async (req, res) => {
     
     if (!sendgridApiKey) {
       throw new Error('Missing SENDGRID_API_KEY environment variable.');
-    }
-    if (!recipientEmail) {
-      throw new Error('Missing TO_EMAIL recipient configuration.');
     }
 
     const emailData = {

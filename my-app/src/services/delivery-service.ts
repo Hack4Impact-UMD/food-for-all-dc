@@ -468,63 +468,59 @@ class DeliveryService {
   }
 
   private async refreshLastDeliveryDatesForClients(clientIds: string[]): Promise<void> {
-    try {
-      const uniqueClientIds = Array.from(
-        new Set(clientIds.map((clientId) => clientId.trim()).filter(Boolean))
+    const uniqueClientIds = Array.from(
+      new Set(clientIds.map((clientId) => clientId.trim()).filter(Boolean))
+    );
+    if (!uniqueClientIds.length) {
+      return;
+    }
+
+    const latestDeliveryDateByClientId = new Map<string, string>();
+
+    for (let index = 0; index < uniqueClientIds.length; index += FIRESTORE_IN_QUERY_LIMIT) {
+      const clientChunk = uniqueClientIds.slice(index, index + FIRESTORE_IN_QUERY_LIMIT);
+      const snapshot = await getDocs(
+        query(
+          collection(this.db, this.eventsCollection),
+          where("clientId", "in", clientChunk),
+          orderBy("deliveryDate", "desc")
+        )
       );
-      if (!uniqueClientIds.length) {
-        return;
-      }
 
-      const latestDeliveryDateByClientId = new Map<string, string>();
+      snapshot.docs.forEach((docSnapshot) => {
+        const data = docSnapshot.data() as Partial<DeliveryEvent>;
+        const clientId = typeof data.clientId === "string" ? data.clientId.trim() : "";
 
-      for (let index = 0; index < uniqueClientIds.length; index += FIRESTORE_IN_QUERY_LIMIT) {
-        const clientChunk = uniqueClientIds.slice(index, index + FIRESTORE_IN_QUERY_LIMIT);
-        const snapshot = await getDocs(
-          query(
-            collection(this.db, this.eventsCollection),
-            where("clientId", "in", clientChunk),
-            orderBy("deliveryDate", "desc")
-          )
-        );
+        if (!clientId || latestDeliveryDateByClientId.has(clientId)) {
+          return;
+        }
 
-        snapshot.docs.forEach((docSnapshot) => {
-          const data = docSnapshot.data() as Partial<DeliveryEvent>;
-          const clientId = typeof data.clientId === "string" ? data.clientId.trim() : "";
+        const dateKey = data.deliveryDate
+          ? deliveryDate.tryToISODateString(data.deliveryDate as string | Date | Timestamp)
+          : null;
 
-          if (!clientId || latestDeliveryDateByClientId.has(clientId)) {
-            return;
-          }
+        if (dateKey) {
+          latestDeliveryDateByClientId.set(clientId, dateKey);
+        }
+      });
+    }
 
-          const dateKey = data.deliveryDate
-            ? deliveryDate.tryToISODateString(data.deliveryDate as string | Date | Timestamp)
-            : null;
+    for (let index = 0; index < uniqueClientIds.length; index += MAX_BATCH_WRITE_COUNT) {
+      const clientChunk = uniqueClientIds.slice(index, index + MAX_BATCH_WRITE_COUNT);
 
-          if (dateKey) {
-            latestDeliveryDateByClientId.set(clientId, dateKey);
-          }
+      await retry(async () => {
+        const batch = writeBatch(this.db);
+
+        clientChunk.forEach((clientId) => {
+          batch.set(
+            doc(this.db, this.clientsCollection, clientId),
+            { lastDeliveryDate: latestDeliveryDateByClientId.get(clientId) ?? "" },
+            { merge: true }
+          );
         });
-      }
 
-      for (let index = 0; index < uniqueClientIds.length; index += MAX_BATCH_WRITE_COUNT) {
-        const clientChunk = uniqueClientIds.slice(index, index + MAX_BATCH_WRITE_COUNT);
-
-        await retry(async () => {
-          const batch = writeBatch(this.db);
-
-          clientChunk.forEach((clientId) => {
-            batch.set(
-              doc(this.db, this.clientsCollection, clientId),
-              { lastDeliveryDate: latestDeliveryDateByClientId.get(clientId) ?? "" },
-              { merge: true }
-            );
-          });
-
-          await batch.commit();
-        });
-      }
-    } catch (error) {
-      console.error("Failed to refresh last delivery dates after delivery mutation:", error);
+        await batch.commit();
+      });
     }
   }
 

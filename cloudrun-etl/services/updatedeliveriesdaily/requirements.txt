@@ -3,7 +3,6 @@ firebase-functions==0.4.2
 # 3.9+ pulls Starlette through unused ASGI support; pinned pending PYSEC-2026-161 fix.
 functions-framework==3.8.3
 firebase-admin==6.5.0
-pyjwt>=2.13.0
 google-cloud-secret-manager>=2.16.2
 googlemaps==4.10.0
 k-means-constrained==0.7.3

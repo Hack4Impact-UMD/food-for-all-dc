@@ -88,7 +88,7 @@ import RouteExportOptions, {
   RouteExportOption,
   RouteExportScope,
 } from "./components/RouteExportOptions";
-import { computeClientActiveStatus, getClientStatusPresentation } from "../../utils/clientStatus";
+import { getClientStatusPresentation } from "../../utils/clientStatus";
 import LoadingIndicator from "../../components/LoadingIndicator/LoadingIndicator";
 import { exportDeliveries, exportDoordashDeliveries, ExportFeedback } from "./RouteExport";
 import Button from "@mui/material/Button";
@@ -507,13 +507,6 @@ const dedupeClientsById = (clients: DeliveryRowData[]): DeliveryRowData[] => {
 
   return Array.from(uniqueClients.values());
 };
-
-const deriveDeliveryClientActiveStatus = (client: DeliveryRowData): boolean =>
-  computeClientActiveStatus(
-    client.startDate as Parameters<typeof computeClientActiveStatus>[0],
-    client.endDate as Parameters<typeof computeClientActiveStatus>[1],
-    typeof client.autoInactiveReason === "string" ? client.autoInactiveReason : null
-  );
 
 interface DeliveryEvent {
   id: string;
@@ -1223,25 +1216,10 @@ const DeliverySpreadsheet: React.FC = () => {
             clientsWithDeliveriesOnSelectedDate.concat(chunkData);
         }
         const uniqueClients = dedupeClientsById(clientsWithDeliveriesOnSelectedDate);
-        const uniqueClientIds = uniqueClients.map((client) => client.id).filter(Boolean);
-        const deliverySummaries =
-          uniqueClientIds.length > 0
-            ? await clientService.getClientDeliverySummaries(uniqueClientIds).catch((error) => {
-                console.error("Failed to load delivery summaries for route clients:", error);
-                return new Map();
-              })
-            : new Map();
-
-        const enrichedClients = uniqueClients.map((client) => ({
-          ...client,
-          activeStatus: deriveDeliveryClientActiveStatus(client),
-          missedStrikeCount: deliverySummaries.get(client.id)?.missedStrikeCount ?? 0,
-        }));
-
-        setRawClientData(enrichedClients);
+        setRawClientData(uniqueClients);
 
         // Identify missing client profiles
-        const foundClientIds = new Set(enrichedClients.map((client) => client.id));
+        const foundClientIds = new Set(uniqueClients.map((client) => client.id));
         const missingClientIds = clientIds.filter((id) => !foundClientIds.has(id));
         if (missingClientIds.length > 0) {
           console.warn("Missing client profiles for delivery events:", missingClientIds);

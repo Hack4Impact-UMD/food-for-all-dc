@@ -31,8 +31,8 @@ if (sendgridApiKey) {
   console.warn('SENDGRID_API_KEY is not set. Email delivery will fail until it is configured.');
 }
 
-const senderEmail = emailConfig.fromEmail || process.env.FROM_EMAIL || 'Admin@foodforalldc.org';
-const recipientEmail = emailConfig.toEmail || process.env.TO_EMAIL;
+const senderEmail = emailConfig.fromEmail || process.env.FROM_EMAIL || 'schivuku@terpmail.umd.edu';
+const recipientEmail = emailConfig.toEmail || process.env.TO_EMAIL || 'suvrathc@gmail.com';
 
 functions.http('tefap-email', async (req, res) => {
   // Set CORS headers
@@ -132,9 +132,6 @@ functions.http('tefap-email', async (req, res) => {
 
     if (!sendgridApiKey) {
       throw new Error('Missing SENDGRID_API_KEY environment variable.');
-    }
-    if (!recipientEmail) {
-      throw new Error('Missing TO_EMAIL recipient configuration.');
     }
 
     const emailData = {

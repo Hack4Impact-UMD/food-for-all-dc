@@ -4,7 +4,7 @@ REFERRAL_COLLECTION_NAME = "temp-referral"
 import json
 import os
 import sys
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 import time
 import random
 from typing import Dict, List, Any, Optional
@@ -125,31 +125,7 @@ logger = logging.getLogger(__name__)
 # Geocoding request pacing to reduce burst-related quota errors when processing in parallel.
 _GEOCODE_REQUEST_LOCK = Lock()
 _GEOCODE_LAST_REQUEST_TS = 0.0
-
-
-def _get_env_float(name: str, default: float) -> float:
-	value = os.getenv(name)
-	if value is None or str(value).strip() == "":
-		return default
-	try:
-		return float(value)
-	except ValueError:
-		logger.warning(f"{name} is invalid; using default {default}")
-		return default
-
-
-def _get_env_int(name: str, default: int) -> int:
-	value = os.getenv(name)
-	if value is None or str(value).strip() == "":
-		return default
-	try:
-		return int(value)
-	except ValueError:
-		logger.warning(f"{name} is invalid; using default {default}")
-		return default
-
-
-_GEOCODE_MIN_INTERVAL_SECONDS = _get_env_float("GEOCODING_MIN_INTERVAL_SECONDS", 0.1)
+_GEOCODE_MIN_INTERVAL_SECONDS = float(os.getenv("GEOCODING_MIN_INTERVAL_SECONDS", "0.1"))
 
 
 def _paced_geocode_get(url: str, timeout: int = 10) -> requests.Response:
@@ -195,8 +171,8 @@ def geocode_address_google(address, city, state, zip_code):
 	}
 	url = f"https://maps.googleapis.com/maps/api/geocode/json?{urlencode(params)}"
 
-	max_retries = _get_env_int("GEOCODING_MAX_RETRIES", 5)
-	base_delay_seconds = _get_env_float("GEOCODING_RETRY_BASE_SECONDS", 1.0)
+	max_retries = int(os.getenv("GEOCODING_MAX_RETRIES", "5"))
+	base_delay_seconds = float(os.getenv("GEOCODING_RETRY_BASE_SECONDS", "1.0"))
 
 	try:
 		for attempt in range(max_retries + 1):
@@ -423,32 +399,21 @@ class FirestoreMigration:
 		Check if client has had any deliveries in the last 6 months
 		Returns True if any delivery field has a value
 		"""
-		cutoff_date = (datetime.now() - timedelta(days=183)).date()
-
-		for field, value in row.items():
-			if not str(field).startswith("Delivery_"):
-				continue
-
-			try:
-				if pd.isna(value):
-					continue
-			except (TypeError, ValueError):
-				pass
-
-			normalized_value = str(value).strip().lower()
-			if normalized_value in ["", "false", "no", "0", "nan", "none", "null", "n/a"]:
-				continue
-
-			delivery_date = None
-			date_part = str(field)[len("Delivery_"):].replace("_", "/")
-			for date_format in ("%m/%d/%Y", "%m/%d/%y"):
-				try:
-					delivery_date = datetime.strptime(date_part, date_format).date()
-					break
-				except ValueError:
-					continue
-
-			if delivery_date is None or delivery_date >= cutoff_date:
+		delivery_fields = [
+			"Delivery_1_31_2025", "Delivery_2_7_2025", "Delivery_2_14_2025", 
+			"Delivery_2_21_2025", "Delivery_2_28_2025", "Delivery_3_7_2025",
+			"Delivery_3_14_2025", "Delivery_3_21_2025", "Delivery_3_28_2025",
+			"Delivery_4_4_2025", "Delivery_4_11_2025", "Delivery_4_18_2025",
+			"Delivery_4_25_2025", "Delivery_5_2_2025", "Delivery_5_9_2025",
+			"Delivery_5_16_2025", "Delivery_5_23_2025", "Delivery_5_30_2025",
+			"Delivery_6_6_2025", "Delivery_6_13_2025", "Delivery_6_20_2025",
+			"Delivery_6_27_2025", "Delivery_7_4_2025", "Delivery_7_11_2025",
+			"Delivery_7_18_2025"
+		]
+        
+		for field in delivery_fields:
+			value = row.get(field, "")
+			if value and str(value).strip() and str(value).strip().lower() not in ['', 'false', 'no', '0']:
 				return True
         
 		return False
@@ -759,7 +724,6 @@ class FirestoreMigration:
 		failed_inserts_path = os.path.join("ETL", "failed_inserts", "failed_inserts.json")
 		failed_client_inserts_path = os.path.join("ETL", "failed_inserts", f"client-profile-failed-insert-{today_str}.txt")
 		failed_referral_inserts_path = os.path.join("ETL", "failed_inserts", f"referral-fail-insert-{today_str}.txt")
-		os.makedirs(os.path.dirname(failed_inserts_path), exist_ok=True)
 		failed_inserts = []
 		failed_client_inserts = []
 		failed_referral_inserts = []
@@ -789,13 +753,9 @@ class FirestoreMigration:
 			display_name = f"{first_name_ui} {last_name_ui}".strip() or "<no name>"
 			skip_reason = ""
 			try:
-				# Only load active profiles, unless recent deliveries should reactivate them.
+				# Only load active profiles
 				active_status = row.get("Active", "")
-				has_recent_deliveries = self.check_recent_deliveries(row)
-				if (
-					str(active_status).strip().lower() not in ['yes', 'true', '1', 'active']
-					and not has_recent_deliveries
-				):
+				if str(active_status).lower() not in ['yes', 'true', '1', 'active']:
 					skipped_inactive += 1
 					skip_reason = f"Inactive (Active={active_status})"
 					# Log with ID for tracking
@@ -873,7 +833,6 @@ class FirestoreMigration:
 					}
 				# Only insert if we have at least a name or organization
 				if referral and (referral.get("name") or referral.get("organization")):
-					referral_insert_failed = False
 					# Normalize internet-based referrals for deduplication
 					is_internet = str(referral.get("organization", "")).strip().lower() == "internet search"
 					if is_internet:
@@ -905,7 +864,6 @@ class FirestoreMigration:
 							except Exception as e:
 								logger.error(f"[ERROR] Failed to insert 'Internet Search' referral: {e}")
 								failed_referral_inserts.append({"referral": referral_doc, "error": str(e)})
-								referral_insert_failed = True
 					else:
 						# Deduplicate by email if present, else by name+organization, and also check for swapped/combined fields
 						dedup_key = None
@@ -1005,20 +963,6 @@ class FirestoreMigration:
 										f"Error: {str(e)}"
 									)
 									failed_referral_inserts.append({"referral": referral_doc, "error": str(e)})
-									referral_insert_failed = True
-					if referral_insert_failed:
-						failed += 1
-						failed_inserts.append(row)
-						failed_client_inserts.append({
-							"client": row,
-							"error": "Referral insert failed; skipped client insert to avoid a missing referralEntity id"
-						})
-						if transformed.get("activeStatus") is True:
-							self.stats.failed_active_records.append(row)
-						self._advance_progress(
-							f"{batch_prefix}❌ Error: {display_name} (ID {row.get('ID', 'Unknown')}) [{idx}/{total_records}] - referral insert failed"
-						)
-						continue
 				# Now insert the client profile, after referralEntity.id is set.
 				# Drop helper contact fields so they are not stored on
 				# client-profile2 documents.
@@ -1706,7 +1650,7 @@ class FirestoreMigration:
 		recurrence = map_recurrence(row.get("Frequency", ""))
 
 		# Parse dates for activeStatus logic
-		from datetime import date
+		from datetime import datetime, date
 		DEFAULT_START_DATE_STR = "11/15/2025"
 		DEFAULT_START_DATE = datetime.strptime(DEFAULT_START_DATE_STR, "%m/%d/%Y").date()
 		today = datetime.now(timezone.utc).date()
@@ -1843,7 +1787,8 @@ class FirestoreMigration:
 				"address": address_for_coords,
 				"city": city,
 				"state": state,
-				"zipCode": zip_code
+				"zipCode": zip_code,
+				"fullRecord": row
 			})
 		
 		return client_profile
@@ -1899,6 +1844,14 @@ def main():
 		print('    $env:GOOGLE_MAPS_API_KEY = "your-api-key-here"')
 		print("\n" + "="*80)
 		
+		# Initialize Firebase to delete temp collections
+		if not firebase_admin._apps:
+			cred = credentials.Certificate(SERVICE_ACCOUNT_PATH)
+			firebase_admin.initialize_app(cred)
+		
+		# Clean up temp collections before exiting
+		print("\n🧹 Cleaning up temporary collections before exit...")
+		delete_temp_collections()
 		print("\n❌ ETL aborted. Please set GOOGLE_MAPS_API_KEY and try again.\n")
 		sys.exit(1)
 
@@ -1929,9 +1882,8 @@ def main():
 			print(f"❌ Excel sheet '{EXCEL_SHEET_NAME}' does not contain an 'ID' column after normalization. Exiting to avoid creating clients without stable IDs.")
 			return
 		# Drop rows where ID is NaN or blank after stripping
-		df["ID"] = df["ID"].where(df["ID"].notna(), "")
-		df["ID"] = df["ID"].astype(str).str.strip()
-		df = df[~df["ID"].str.lower().isin(["", "nan", "none", "null"])]
+		df["ID"] = df["ID"].astype(str)
+		df = df[df["ID"].str.strip() != ""]
 		input_records = df.to_dict(orient='records')
 		if not input_records:
 			print(f"❌ No records with a valid ID loaded from Excel file {EXCEL_FILE_PATH} (sheet '{EXCEL_SHEET_NAME}'). Exiting.")

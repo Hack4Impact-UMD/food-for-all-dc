@@ -51,7 +51,6 @@ export const ClientDataProvider: React.FC<{ children: ReactNode }> = ({ children
   const lastDocRef = useRef<any>(null);
   const hasMoreRef = useRef(false);
   const loadedClientIdsRef = useRef<Set<string>>(new Set());
-  const hasAttemptedInitialLoadRef = useRef(false);
   const [hasRequestedLoad, setHasRequestedLoad] = useState(false);
   const { user, loading: authLoading } = useAuth();
 
@@ -151,7 +150,6 @@ export const ClientDataProvider: React.FC<{ children: ReactNode }> = ({ children
   }, []);
 
   const fetchClients = useCallback(async () => {
-    hasAttemptedInitialLoadRef.current = true;
     lastDocRef.current = null;
     return fetchPage({ reset: true });
   }, [fetchPage]);
@@ -235,18 +233,7 @@ export const ClientDataProvider: React.FC<{ children: ReactNode }> = ({ children
   }, []);
 
   useEffect(() => {
-    hasAttemptedInitialLoadRef.current = false;
-  }, [user?.uid]);
-
-  useEffect(() => {
-    if (
-      !authLoading &&
-      user &&
-      hasRequestedLoad &&
-      !hasAttemptedInitialLoadRef.current &&
-      clients.length === 0 &&
-      !loading
-    ) {
+    if (!authLoading && user && hasRequestedLoad && clients.length === 0 && !loading) {
       fetchClients();
     }
   }, [authLoading, user, hasRequestedLoad, clients.length, loading, fetchClients]);

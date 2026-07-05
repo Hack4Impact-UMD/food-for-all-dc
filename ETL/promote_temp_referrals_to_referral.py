@@ -6,9 +6,9 @@ cleaned/pruned documents in the temporary collection "temp-new-referral".
 It performs the following steps:
 
 1. Loads all documents from TEMP_REFERRAL_COLLECTION (temp-new-referral).
-2. Writes each temp document into REFERRAL_COLLECTION using the SAME
+2. Deletes all existing documents in REFERRAL_COLLECTION (referral).
+3. Writes each temp document into REFERRAL_COLLECTION using the SAME
    document ID and data.
-3. Deletes production documents whose IDs are no longer present in temp.
 
 Effects:
 - The production "referral" collection is replaced with the cleaned
@@ -56,8 +56,8 @@ def promote_temp_to_referral() -> None:
     """Replace REFERRAL_COLLECTION contents with TEMP_REFERRAL_COLLECTION.
 
     - Reads all documents from temp-new-referral.
+    - Deletes all existing documents in referral.
     - Writes each temp document into referral with the same document ID.
-    - Deletes stale referral docs that are not present in temp.
     """
 
     db = _init_firestore()
@@ -73,36 +73,19 @@ def promote_temp_to_referral() -> None:
     existing_referrals = list(referral_ref.stream())
     print(f"Found {len(existing_referrals)} existing documents in '{REFERRAL_COLLECTION}'.")
 
-    temp_doc_ids = {doc.id for doc in temp_docs}
-
-    # Write temp docs into referral first. If a write fails, do not delete
-    # existing production docs.
-    created_count = 0
-    write_failures = []
-    for doc in temp_docs:
-        data = doc.to_dict() or {}
-        try:
-            referral_ref.document(doc.id).set(data)
-            created_count += 1
-        except Exception as exc:
-            write_failures.append((doc.id, exc))
-
-    if write_failures:
-        failed_ids = ", ".join(doc_id for doc_id, _ in write_failures[:10])
-        raise RuntimeError(
-            f"Aborting promotion after {len(write_failures)} referral writes failed. "
-            f"Failed IDs: {failed_ids}"
-        )
-
-    # Delete only stale production referral docs after all replacement writes
-    # succeeded.
+    # Delete existing referral docs so we have a clean slate.
     deleted_count = 0
     for doc in existing_referrals:
-        if doc.id in temp_doc_ids:
-            continue
         doc.reference.delete()
         deleted_count += 1
-    print(f"Deleted {deleted_count} stale documents from '{REFERRAL_COLLECTION}'.")
+    print(f"Deleted {deleted_count} documents from '{REFERRAL_COLLECTION}'.")
+
+    # Write temp docs into referral using the same IDs.
+    created_count = 0
+    for doc in temp_docs:
+        data = doc.to_dict() or {}
+        referral_ref.document(doc.id).set(data)
+        created_count += 1
 
     print(
         f"Promoted {created_count} documents from '{TEMP_REFERRAL_COLLECTION}' into "

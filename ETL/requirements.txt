@@ -2,6 +2,5 @@ firebase-admin
 python-dateutil
 requests
 pandas
-openpyxl
 rich
 python-dotenv
