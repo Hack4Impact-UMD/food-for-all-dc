@@ -132,13 +132,13 @@ python ETL/run_full_etl_with_promotion.py
 
 ### Quick Reference
 
-| Option | Command | Loads to Temp? | Promotes to Production? | Deletes Temp? | Cost |
+| Option | Command | Loads to Temp? | Promotes to Production? | Deletes Temp? | Cost (Geocoding + Firestore ops) |
 |--------|---------|----------------|------------------------|---------------|------|
-| **1. Single Batch** | `firebase_migration_v2.py` (with limit) | ✅ 250 records | ❌ | ❌ | ~$1.25 |
-| **2. Full to Temp** | `firebase_migration_v2.py` (no limit) | ✅ All records | ❌ | ❌ | ~$15.75 |
-| **3. Promote Only** | `promote_temp_clients_and_referrals.py` | ➖ (uses existing) | ✅ | ✅ | $0 |
-| **4. Full Pipeline** | `run_full_etl_with_promotion.py` | ✅ All records | ✅ | ✅ | ~$15.75 |
-| **5. NPM Command** | `npm run etl` | ✅ All records | ✅ | ✅ | ~$15.75 |
+| **1. Single Batch** | `firebase_migration_v2.py` (with limit) | ✅ 250 records | ❌ | ❌ | ~ $1.25 geocoding + ~ $0.01 Firestore (total: ~ $1.26) |
+| **2. Full to Temp** | `firebase_migration_v2.py` (no limit) | ✅ All records | ❌ | ❌ | ~ $15.75 geocoding + ~ $0.03 Firestore (total: ~ $15.78) |
+| **3. Promote Only** | `promote_temp_clients_and_referrals.py` | ➖ (uses existing) | ✅ | ✅ | Firestore estimate: ~ $0.02 |
+| **4. Full Pipeline** | `run_full_etl_with_promotion.py` | ✅ All records | ✅ | ✅ | ~ $15.75 geocoding + Firestore ops (total: ~$15.80) |
+| **5. NPM Command** | `npm run etl` | ✅ All records | ✅ | ✅ | ~ $15.75 geocoding + Firestore ops (total: ~$15.80) |
 
 ---
 
@@ -158,7 +158,7 @@ $env:MIGRATION_LIMIT_RECORDS = "250"
 - ✅ Creates documents in `temp-profile2` and `temp-referral` (250 records)
 - ❌ Does NOT touch `client-profile2` or `referral` (production)
 - ❌ Does NOT delete temp collections
-- **Cost:** ~$1.25 for geocoding
+- **Cost:** ~ $1.25 geocoding + ~ $0.01 Firestore (estimated total: ~ $1.26)
 
 ---
 
@@ -179,7 +179,7 @@ Remove-Item Env:\MIGRATION_LIMIT_RECORDS -ErrorAction SilentlyContinue
 - ✅ Creates documents in `temp-profile2` and `temp-referral` (all records)
 - ❌ Does NOT touch `client-profile2` or `referral` (production)
 - ❌ Does NOT delete temp collections
-- **Cost:** ~$15.75 for geocoding
+- **Cost:** ~ $15.75 geocoding + ~ $0.03 Firestore (estimated total: ~ $15.78)
 
 **Next step:** Review temp collections in Firestore, then use **Option 3** to promote
 
@@ -201,7 +201,7 @@ Remove-Item Env:\MIGRATION_LIMIT_RECORDS -ErrorAction SilentlyContinue
 - ✅ Copies `temp-profile2` → `client-profile2` (preserves document IDs)
 - ✅ Copies `temp-referral` → `referral` (preserves document IDs)
 - ✅ Deletes `temp-profile2` and `temp-referral` collections
-- **Cost:** $0 (no geocoding)
+- **Cost:** No geocoding cost; Firestore operations only (estimate: ~ $0.02)
 
 ---
 
@@ -224,7 +224,7 @@ Remove-Item Env:\MIGRATION_LIMIT_RECORDS -ErrorAction SilentlyContinue
 - ⚠️  **DESTRUCTIVE:** Deletes ALL existing docs in `client-profile2` and `referral`
 - ✅ Fresh data in production collections
 - ✅ Temp collections deleted
-- **Cost:** ~$15.75 for geocoding
+- **Cost:** ~$15.75 for geocoding, plus Firestore operations from ETL + promotion
 
 ---
 
@@ -319,6 +319,29 @@ The ETL uses the Google Maps Geocoding API to convert addresses to latitude/long
 
 **Note:** The ETL no longer uses OpenStreetMap/Nominatim for geocoding. All address lookups are now performed via Google Maps.
 
+### Temporary Daily Quota Increase for ETL Runs
+
+Large ETL runs can hit `OVER_QUERY_LIMIT` if the Geocoding API daily quota is too low.
+
+Before a full ETL run:
+
+1. Open the Geocoding quota page for this project:
+  - https://console.cloud.google.com/apis/api/geocoding-backend.googleapis.com/quotas?project=food-for-all-dc-caf23
+2. Select **v3 requests per day**.
+3. Click **Edit** and temporarily raise the daily limit high enough for the run.
+4. Save changes, wait 1-2 minutes, then start ETL.
+
+After ETL completes:
+
+1. Return to the same quota page.
+2. Set **v3 requests per day** back to the normal daily limit for regular operations.
+
+Why reset it after the run:
+
+- Helps prevent accidental high-volume usage outside ETL windows.
+- Keeps cost controls tight for day-to-day operation.
+- Makes quota spikes easier to notice in monitoring.
+
 ### Troubleshooting: Invalid Coordinates
 
 If the Routes page shows a small number of "invalid coordinates" after a full ETL, older records may still be using the legacy `{latitude, longitude}` object format.
@@ -338,8 +361,41 @@ python ETL/fix_coordinate_format.py
 This converts existing records to the `[latitude, longitude]` array format and does **not** call the geocoding API.
 
 ### Cost Estimates
-- **Single batch (250 records):** ~$1.25
-- **Full ETL (~3,150 records, ~191 active):** ~$15.75
+- **Single batch (250 records):** ~ $1.25 geocoding + ~ $0.01 Firestore (estimated total: ~ $1.26)
+- **Full ETL (~3,150 records, ~191 active):** ~ $15.75 geocoding + Firestore ops (total: ~$15.80)
+
+### Cost Breakdown (Geocoding + Firestore)
+
+The total ETL cost has two parts:
+
+1. **Google Maps Geocoding API**
+2. **Firestore operations** (reads, writes, deletes)
+
+Geocoding is usually the dominant cost.
+
+Use this estimate model:
+
+- **Geocoding cost** ≈ `(number_of_geocode_requests / 1000) * geocoding_rate_per_1000`
+- **Firestore write cost** ≈ `(number_of_writes / 100000) * firestore_write_rate_per_100k`
+- **Firestore read cost** ≈ `(number_of_reads / 100000) * firestore_read_rate_per_100k`
+- **Firestore delete cost** ≈ `(number_of_deletes / 100000) * firestore_delete_rate_per_100k`
+
+Approximate rates commonly used for planning (verify in your billing region/project):
+
+- Geocoding API: about **$5.00 per 1,000 requests**
+- Firestore writes: about **$0.18 per 100,000 writes**
+- Firestore reads: about **$0.06 per 100,000 reads**
+- Firestore deletes: about **$0.02 per 100,000 deletes**
+
+Example for a full run around 3,150 geocode attempts:
+
+- Geocoding: `3150/1000 * $5.00 ≈ $15.75`
+- Firestore ops: typically only a small add-on (often cents to low dollars depending on retries/promotions)
+
+For exact monthly spend, use Cloud Billing reports and filter by:
+
+- **Service:** Google Maps Platform (Geocoding)
+- **Service:** Firestore
 
 ## Controlling Batch Size with MIGRATION_LIMIT_RECORDS
 

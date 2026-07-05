@@ -6,12 +6,14 @@ import os
 import sys
 from datetime import datetime, timezone
 import time
+import random
 from typing import Dict, List, Any, Optional
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 import requests
 import re
+from threading import Lock
 # For spreadsheet ZIP fallback
 import pandas as pd
 from dotenv import load_dotenv
@@ -35,6 +37,9 @@ from google.cloud.firestore_v1.base_query import FieldFilter
 # Global counters for warnings/errors during a migration run
 WARNING_COUNT = 0
 ERROR_COUNT = 0
+GEOCODING_RETRY_ATTEMPTS = 0
+GEOCODING_RECOVERED_AFTER_RETRY = 0
+GEOCODING_FAILED_AFTER_RETRIES = 0
 CLIENT_DATABASE_FILE_PATH = os.path.join("ETL", "FFA_CLIENT_DATABASE_JULY2026.xlsx")
 CLIENT_DATABASE_SHEET_NAME = "Current Deliveries"
 SATURDAY_DELIVERY_ROW_START = 3279
@@ -116,6 +121,25 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
+
+# Geocoding request pacing to reduce burst-related quota errors when processing in parallel.
+_GEOCODE_REQUEST_LOCK = Lock()
+_GEOCODE_LAST_REQUEST_TS = 0.0
+_GEOCODE_MIN_INTERVAL_SECONDS = float(os.getenv("GEOCODING_MIN_INTERVAL_SECONDS", "0.1"))
+
+
+def _paced_geocode_get(url: str, timeout: int = 10) -> requests.Response:
+	"""Issue a geocoding request with a small global gap between calls."""
+	global _GEOCODE_LAST_REQUEST_TS
+	with _GEOCODE_REQUEST_LOCK:
+		now = time.monotonic()
+		wait_time = _GEOCODE_MIN_INTERVAL_SECONDS - (now - _GEOCODE_LAST_REQUEST_TS)
+		if wait_time > 0:
+			time.sleep(wait_time)
+		response = requests.get(url, timeout=timeout)
+		_GEOCODE_LAST_REQUEST_TS = time.monotonic()
+		return response
+
 def geocode_address_google(address, city, state, zip_code):
 	"""Geocode an address using Google Maps Geocoding API.
 	
@@ -123,6 +147,7 @@ def geocode_address_google(address, city, state, zip_code):
 		dict with 'latitude', 'longitude', and optionally 'zip_code' if found
 		None if geocoding fails
 	"""
+	global GEOCODING_RETRY_ATTEMPTS, GEOCODING_RECOVERED_AFTER_RETRY, GEOCODING_FAILED_AFTER_RETRIES
 	# Try REACT_APP_GOOGLE_MAPS_API_KEY first (from .env), then GOOGLE_MAPS_API_KEY
 	api_key = os.getenv("REACT_APP_GOOGLE_MAPS_API_KEY") or os.getenv("GOOGLE_MAPS_API_KEY", "")
 	if not api_key:
@@ -145,33 +170,71 @@ def geocode_address_google(address, city, state, zip_code):
 		'key': api_key
 	}
 	url = f"https://maps.googleapis.com/maps/api/geocode/json?{urlencode(params)}"
-	
+
+	max_retries = int(os.getenv("GEOCODING_MAX_RETRIES", "5"))
+	base_delay_seconds = float(os.getenv("GEOCODING_RETRY_BASE_SECONDS", "1.0"))
+
 	try:
-		resp = requests.get(url, timeout=10)
-		if resp.status_code == 200:
-			data = resp.json()
-			if data.get('status') == 'OK' and data.get('results'):
-				result = data['results'][0]
-				location = result['geometry']['location']
-				
-				# Extract ZIP code from address components
-				extracted_zip = None
-				for comp in result.get('address_components', []):
-					if 'postal_code' in comp.get('types', []):
-						extracted_zip = comp['long_name']
-						break
-				
-				return {
-					'latitude': location['lat'],
-					'longitude': location['lng'],
-					'zip_code': extracted_zip
-				}
-			else:
-				logger.warning(f"Google Maps API returned status: {data.get('status')} for address: {full_address}")
+		for attempt in range(max_retries + 1):
+			resp = _paced_geocode_get(url, timeout=10)
+			if resp.status_code == 200:
+				data = resp.json()
+				status = data.get('status')
+				if status == 'OK' and data.get('results'):
+					if attempt > 0:
+						GEOCODING_RECOVERED_AFTER_RETRY += 1
+					result = data['results'][0]
+					location = result['geometry']['location']
+
+					# Extract ZIP code from address components
+					extracted_zip = None
+					for comp in result.get('address_components', []):
+						if 'postal_code' in comp.get('types', []):
+							extracted_zip = comp['long_name']
+							break
+
+					return {
+						'latitude': location['lat'],
+						'longitude': location['lng'],
+						'zip_code': extracted_zip
+					}
+
+				# Retry transient/rate-limited statuses with exponential backoff.
+				if status in {'OVER_QUERY_LIMIT', 'UNKNOWN_ERROR'} and attempt < max_retries:
+					GEOCODING_RETRY_ATTEMPTS += 1
+					delay = base_delay_seconds * (2 ** attempt) + random.uniform(0.0, 0.25)
+					logger.info(
+						f"Geocoding retry {attempt + 1}/{max_retries} for {full_address} "
+						f"(status={status}, waiting {delay:.2f}s)"
+					)
+					time.sleep(delay)
+					continue
+
+				if status in {'OVER_QUERY_LIMIT', 'UNKNOWN_ERROR'} and attempt >= max_retries:
+					GEOCODING_FAILED_AFTER_RETRIES += 1
+
+				logger.warning(f"Google Maps API returned status: {status} for address: {full_address}")
 				return None
-		else:
+
+			# Retry occasional gateway and service failures.
+			if resp.status_code in {429, 500, 502, 503, 504} and attempt < max_retries:
+				GEOCODING_RETRY_ATTEMPTS += 1
+				delay = base_delay_seconds * (2 ** attempt) + random.uniform(0.0, 0.25)
+				logger.info(
+					f"Geocoding HTTP retry {attempt + 1}/{max_retries} for {full_address} "
+					f"(http={resp.status_code}, waiting {delay:.2f}s)"
+				)
+				time.sleep(delay)
+				continue
+
+			if resp.status_code in {429, 500, 502, 503, 504} and attempt >= max_retries:
+				GEOCODING_FAILED_AFTER_RETRIES += 1
+
 			logger.warning(f"Google Maps API request failed with status code: {resp.status_code}")
 			return None
+
+		logger.warning(f"Google Maps API exhausted retries for address: {full_address}")
+		return None
 	except Exception as e:
 		logger.warning(f"Error geocoding address '{full_address}': {e}")
 		return None
@@ -192,6 +255,9 @@ class MigrationStats:
 	unmapped_frequencies: Dict[str, int] = None  # Track frequency values that don't map
 	failed_active_records: list = None  # Track active records that failed to insert
 	failed_geocoding_records: list = None  # Track records that failed geocoding
+	geocoding_retry_attempts: int = 0
+	geocoding_recovered_after_retry: int = 0
+	geocoding_failed_after_retries: int = 0
 	def __post_init__(self):
 		if self.unmapped_frequencies is None:
 			self.unmapped_frequencies = {}
@@ -950,25 +1016,28 @@ class FirestoreMigration:
 				failed_inserts.append(row)
 			successful = 0
 		# Write failed_inserts to file (overwrite with all failures so far)
-		try:
-			with open(failed_inserts_path, "w", encoding="utf-8") as f:
-				json.dump(failed_inserts, f, ensure_ascii=False, indent=2)
-		except Exception as e:
-			logger.error(f"[ERROR] Failed to write failed_inserts.json: {e}")
+		if failed_inserts:
+			try:
+				with open(failed_inserts_path, "w", encoding="utf-8") as f:
+					json.dump(failed_inserts, f, ensure_ascii=False, indent=2)
+			except Exception as e:
+				logger.error(f"[ERROR] Failed to write failed_inserts.json: {e}")
 		# Write failed client inserts to text file
-		try:
-			with open(failed_client_inserts_path, "w", encoding="utf-8") as f:
-				for entry in failed_client_inserts:
-					f.write(json.dumps(entry, ensure_ascii=False) + "\n")
-		except Exception as e:
-			logger.error(f"[ERROR] Failed to write client-profile-failed-insert.txt: {e}")
+		if failed_client_inserts:
+			try:
+				with open(failed_client_inserts_path, "a", encoding="utf-8") as f:
+					for entry in failed_client_inserts:
+						f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+			except Exception as e:
+				logger.error(f"[ERROR] Failed to write client-profile-failed-insert.txt: {e}")
 		# Write failed referral inserts to text file
-		try:
-			with open(failed_referral_inserts_path, "w", encoding="utf-8") as f:
-				for entry in failed_referral_inserts:
-					f.write(json.dumps(entry, ensure_ascii=False) + "\n")
-		except Exception as e:
-			logger.error(f"[ERROR] Failed to write referral-fail-insert.txt: {e}")
+		if failed_referral_inserts:
+			try:
+				with open(failed_referral_inserts_path, "a", encoding="utf-8") as f:
+					for entry in failed_referral_inserts:
+						f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+			except Exception as e:
+				logger.error(f"[ERROR] Failed to write referral-fail-insert.txt: {e}")
 		return successful, failed
 
 	def save_case_workers_to_firestore(self) -> None:
@@ -1008,9 +1077,12 @@ class FirestoreMigration:
 			limit: Maximum number of records to process (None for all records)
 			records_override: List of records to process directly (bypasses file loading)
 		"""
-		global WARNING_COUNT, ERROR_COUNT
+		global WARNING_COUNT, ERROR_COUNT, GEOCODING_RETRY_ATTEMPTS, GEOCODING_RECOVERED_AFTER_RETRY, GEOCODING_FAILED_AFTER_RETRIES
 		WARNING_COUNT = 0  # reset warning counter for this run
 		ERROR_COUNT = 0  # reset error counter for this run
+		GEOCODING_RETRY_ATTEMPTS = 0
+		GEOCODING_RECOVERED_AFTER_RETRY = 0
+		GEOCODING_FAILED_AFTER_RETRIES = 0
 		self.processed_names = set()
 		self.case_workers = {}
 		self.stats = MigrationStats()
@@ -1146,6 +1218,9 @@ class FirestoreMigration:
 			logger.info("Clients missing coordinates:")
 			for cid in self.failed_geocoding_clients:
 				logger.info(f"  - {cid}")
+		self.stats.geocoding_retry_attempts = GEOCODING_RETRY_ATTEMPTS
+		self.stats.geocoding_recovered_after_retry = GEOCODING_RECOVERED_AFTER_RETRY
+		self.stats.geocoding_failed_after_retries = GEOCODING_FAILED_AFTER_RETRIES
 		return self.stats
 	def load_json_file(self, file_path: str) -> List[Dict[str, Any]]:
 		"""
@@ -1845,26 +1920,26 @@ def main():
 	# --- Write failure files with timestamp and update latest ---
 	timestamp = datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')
 
+	# Ensure all keys are strings and values are JSON-serializable.
+	def _make_json_safe_list(records: list) -> list:
+		"""Convert any non-JSON-serializable keys/values to strings for logging."""
+		safe_list = []
+		for rec in records:
+			if isinstance(rec, dict):
+				clean = {}
+				for k, v in rec.items():
+					key_str = str(k)
+					if isinstance(v, (str, int, float, bool)) or v is None:
+						clean[key_str] = v
+					else:
+						clean[key_str] = str(v)
+				safe_list.append(clean)
+			else:
+				safe_list.append(str(rec))
+		return safe_list
+
 	# Write failed_active_records
 	if hasattr(stats, 'failed_active_records') and stats.failed_active_records:
-		# Ensure all keys are strings and values are JSON-serializable
-		def _make_json_safe_list(records: list) -> list:
-			"""Convert any non-JSON-serializable keys/values to strings for logging."""
-			safe_list = []
-			for rec in records:
-				if isinstance(rec, dict):
-					clean = {}
-					for k, v in rec.items():
-						key_str = str(k)
-						if isinstance(v, (str, int, float, bool)) or v is None:
-							clean[key_str] = v
-						else:
-							clean[key_str] = str(v)
-					safe_list.append(clean)
-				else:
-					safe_list.append(str(rec))
-			return safe_list
-
 		failed_active_safe = _make_json_safe_list(stats.failed_active_records)
 		# Store failed active records inside the ETL/failed_active_records folder
 		base_dir = os.path.join('ETL', 'failed_active_records')
@@ -1886,17 +1961,29 @@ def main():
 	# Write failed_geocoding_records
 	if hasattr(stats, 'failed_geocoding_records') and stats.failed_geocoding_records:
 		failed_geocoding_safe = _make_json_safe_list(stats.failed_geocoding_records)
-		fname = f'failed_geocoding_records_{timestamp}.json'
+		base_dir = os.path.join('ETL', 'failed_geocoding_records')
+		os.makedirs(base_dir, exist_ok=True)
+		fname = os.path.join(base_dir, f'failed_geocoding_records_{timestamp}.json')
 		with open(fname, 'w', encoding='utf-8') as f:
 			json.dump(failed_geocoding_safe, f, ensure_ascii=False, indent=2)
 		# Also update the latest file for next retry
-		with open('failed_geocoding_records.json', 'w', encoding='utf-8') as f:
+		latest_path = os.path.join(base_dir, 'failed_geocoding_records.json')
+		with open(latest_path, 'w', encoding='utf-8') as f:
 			json.dump(failed_geocoding_safe, f, ensure_ascii=False, indent=2)
-		print(f"Wrote {len(stats.failed_geocoding_records)} active records that failed geocoding to {fname} and failed_geocoding_records.json")
+		print(
+			f"Wrote {len(stats.failed_geocoding_records)} active records that failed geocoding to "
+			f"{fname} and {latest_path}"
+		)
 	else:
 		print("No active records failed geocoding.")
 
 	print(f"Migration completed: {stats.successful_imports}/{stats.total_records} successful")
+	print(
+		"Geocoding retry summary: "
+		f"retry attempts={stats.geocoding_retry_attempts}, "
+		f"recovered after retry={stats.geocoding_recovered_after_retry}, "
+		f"failed after retries={stats.geocoding_failed_after_retries}"
+	)
 	print(f"Case workers collected: {len(migration.case_workers)}")
 	if stats.unmapped_frequencies:
 		print("\n⚠️  Unmapped frequency values found:")
