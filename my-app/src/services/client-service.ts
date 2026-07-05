@@ -25,6 +25,8 @@ import {
   orderBy,
   limit as fbLimit,
   startAfter,
+  startAt,
+  endAt,
 } from "firebase/firestore";
 import { validateClientProfile } from "../utils/firestoreValidation";
 import dataSources from "../config/dataSources";
@@ -352,27 +354,61 @@ class ClientService {
         });
       }
 
-      const searchLower = searchTerm.toLowerCase();
-      const snapshot = await getDocs(collection(this.db, this.clientsCollection));
+      const normalizedTerm = searchTerm.trim();
+      const rest = normalizedTerm.slice(1);
+      const variants = Array.from(
+        new Set([
+          normalizedTerm,
+          `${normalizedTerm.charAt(0).toLowerCase()}${rest}`,
+          `${normalizedTerm.charAt(0).toUpperCase()}${rest}`,
+        ])
+      );
 
-      const mapped = snapshot.docs
-        .map((doc) => {
+      const prefixQueries = variants.flatMap((variant) => {
+        const queryEnd = `${variant}\uf8ff`;
+        return [
+          query(
+            collection(this.db, this.clientsCollection),
+            orderBy("firstName"),
+            startAt(variant),
+            endAt(queryEnd),
+            fbLimit(limitCount)
+          ),
+          query(
+            collection(this.db, this.clientsCollection),
+            orderBy("lastName"),
+            startAt(variant),
+            endAt(queryEnd),
+            fbLimit(limitCount)
+          ),
+        ];
+      });
+
+      const snapshots = await Promise.all(prefixQueries.map((searchQuery) => getDocs(searchQuery)));
+      const dedupedById = new Map<
+        string,
+        Pick<ClientProfile, "uid" | "firstName" | "lastName" | "address" | "activeStatus">
+      >();
+
+      snapshots.forEach((snapshot) => {
+        snapshot.docs.forEach((doc) => {
+          if (dedupedById.size >= limitCount) {
+            return;
+          }
+
           const data = doc.data() as any;
           const activeStatus = deriveClientActiveStatus(data);
-          return {
+          dedupedById.set(doc.id, {
             uid: doc.id,
             firstName: data.firstName || "",
             lastName: data.lastName || "",
             address: data.address || "",
             activeStatus,
-          };
+          });
         });
+      });
 
-      const results = mapped
-        .filter((client) => {
-          const fullName = `${client.firstName} ${client.lastName}`.toLowerCase();
-          return fullName.includes(searchLower);
-        })
+      return Array.from(dedupedById.values())
         .sort((a, b) => {
           const lastCompare = (a.lastName || "").localeCompare(b.lastName || "", undefined, {
             sensitivity: "base",
@@ -383,8 +419,6 @@ class ClientService {
           });
         })
         .slice(0, limitCount);
-
-      return results;
     } catch (error) {
       throw formatServiceError(error, "Failed to search clients by name");
     }
@@ -396,7 +430,12 @@ class ClientService {
   ): Promise<{ clients: RowData[]; lastDoc?: any }> {
     try {
       return await retry(async () => {
-        let q = query(collection(this.db, this.clientsCollection), fbLimit(pageSize));
+        // Keep paging deterministic so progressive loads preserve expected alpha ordering.
+        let q = query(
+          collection(this.db, this.clientsCollection),
+          orderBy("lastName"),
+          fbLimit(pageSize)
+        );
         if (lastDoc) {
           q = query(q, startAfter(lastDoc));
         }
@@ -570,6 +609,39 @@ class ClientService {
       });
     } catch (error) {
       throw formatServiceError(error, `Failed to update coordinates for client ${clientId}`);
+    }
+  }
+
+  /**
+   * Update coordinates for many clients in one Firestore batch.
+   */
+  public async updateClientCoordinatesBatch(
+    clientUpdates: Array<{ clientId: string; coordinates: LatLngTuple }>
+  ): Promise<void> {
+    try {
+      const validUpdates = clientUpdates.filter(
+        (update): update is { clientId: string; coordinates: LatLngTuple } =>
+          Boolean(update.clientId) && Array.isArray(update.coordinates) && update.coordinates.length === 2
+      );
+
+      if (validUpdates.length === 0) {
+        return;
+      }
+
+      await retry(async () => {
+        const batch = writeBatch(this.db);
+
+        validUpdates.forEach(({ clientId, coordinates }) => {
+          batch.update(doc(this.db, this.clientsCollection, clientId), {
+            coordinates,
+            updatedAt: Time.Firebase.toTimestamp(TimeUtils.now()),
+          });
+        });
+
+        await batch.commit();
+      });
+    } catch (error) {
+      throw formatServiceError(error, "Failed to update client coordinates in batch");
     }
   }
 }
