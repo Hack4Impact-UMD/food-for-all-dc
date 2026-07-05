@@ -26,6 +26,7 @@ import { validateDeliveryDateRange } from "../../../utils/dateValidation";
 import { clientService } from "../../../services/client-service";
 import { deliveryDate } from "../../../utils/deliveryDate";
 import { DeliveryService } from "../../../services";
+import { getClientStatusPresentation } from "../../../utils/clientStatus";
 import {
   calculateRecurrenceDates,
   generateMonthlyRecurrencePatternDates,
@@ -43,10 +44,8 @@ interface AddDeliveryDialogProps {
   open: boolean;
   onClose: () => void;
   onAddDelivery: (newDelivery: NewDelivery) => void | Promise<void>;
-  clients: ClientProfile[];
   limits: number[];
   dailyLimits: DateLimit[];
-  clientsLoaded?: boolean;
   startDate: DayPilot.Date;
   preSelectedClient?: {
     clientId: string;
@@ -60,6 +59,10 @@ type ClientSearchResult = Pick<
   ClientProfile,
   "uid" | "firstName" | "lastName" | "address" | "activeStatus"
 >;
+
+type ClientSearchResultWithSummary = ClientSearchResult & {
+  missedStrikeCount?: number;
+};
 
 function convertToMMDDYYYY(dateStr: string): string {
   if (!dateStr) return "";
@@ -86,10 +89,8 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
     open,
     onClose,
     onAddDelivery,
-    clients,
     limits,
     dailyLimits,
-    clientsLoaded,
     preSelectedClient,
     startDate,
   } = props;
@@ -97,7 +98,7 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
   const [capacityWarnings, setCapacityWarnings] = useState<CapacityWarningEntry[]>([]);
   const [capacityWarningError, setCapacityWarningError] = useState<string>("");
   const [capacityWarningAcknowledged, setCapacityWarningAcknowledged] = useState<boolean>(false);
-  const [searchResults, setSearchResults] = useState<ClientSearchResult[]>([]);
+  const [searchResults, setSearchResults] = useState<ClientSearchResultWithSummary[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [selectedClientProfile, setSelectedClientProfile] = useState<ClientProfile | null>(
     preSelectedClient?.clientProfile ?? null
@@ -304,44 +305,17 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
     async (searchTerm: string) => {
       setSearchLoading(true);
       try {
-        if (clientsLoaded && clients.length > 0) {
-          const searchLower = searchTerm.toLowerCase().trim();
-          const sortedClients = [...clients].sort((a, b) => {
-            const lastCompare = (a.lastName || "").localeCompare(b.lastName || "", undefined, {
-              sensitivity: "base",
-            });
-            if (lastCompare !== 0) return lastCompare;
-            return (a.firstName || "").localeCompare(b.firstName || "", undefined, {
-              sensitivity: "base",
-            });
-          });
+        const results = await clientService.searchClientsByName(searchTerm);
+        const clientIds = results.map((client) => client.uid).filter(Boolean);
+        const deliverySummaries =
+          clientIds.length > 0 ? await clientService.getClientDeliverySummaries(clientIds) : new Map();
 
-          const filtered = searchLower
-            ? sortedClients
-                .filter((client) => {
-                  const fullName = `${client.firstName} ${client.lastName}`.toLowerCase();
-                  return fullName.includes(searchLower);
-                })
-                .slice(0, 50)
-                .map((client) => ({
-                  uid: client.uid,
-                  firstName: client.firstName,
-                  lastName: client.lastName,
-                  address: client.address,
-                  activeStatus: client.activeStatus,
-                }))
-            : sortedClients.slice(0, 50).map((client) => ({
-                uid: client.uid,
-                firstName: client.firstName,
-                lastName: client.lastName,
-                address: client.address,
-                activeStatus: client.activeStatus,
-              }));
-          setSearchResults(filtered);
-        } else {
-          const results = await clientService.searchClientsByName(searchTerm);
-          setSearchResults(results);
-        }
+        setSearchResults(
+          results.map((client) => ({
+            ...client,
+            missedStrikeCount: deliverySummaries.get(client.uid)?.missedStrikeCount ?? 0,
+          }))
+        );
       } catch (error) {
         console.error("Error searching clients:", error);
         setSearchResults([]);
@@ -349,7 +323,7 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
         setSearchLoading(false);
       }
     },
-    [clientsLoaded, clients]
+    []
   );
 
   useEffect(() => {
@@ -696,7 +670,7 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
               loading={searchLoading}
               getOptionLabel={getDisplayLabel}
               getOptionKey={(option: ClientSearchResult) => option.uid}
-              getOptionDisabled={(option: ClientSearchResult) => option.activeStatus === false}
+              getOptionDisabled={(option: ClientSearchResultWithSummary) => option.activeStatus === false}
               filterOptions={(options: ClientSearchResult[]) => options}
               onInputChange={(event: React.ChangeEvent<unknown>, value: string) => {
                 if (event && (event as unknown as { type: string }).type === "change") {
@@ -752,9 +726,13 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
                 },
               }}
               disablePortal={false}
-              renderOption={(props: object, option: ClientSearchResult) => {
+              renderOption={(props: object, option: ClientSearchResultWithSummary) => {
                 const { key, ...otherProps } = props as { key: string };
-                const isInactive = option.activeStatus === false;
+                const statusPresentation = getClientStatusPresentation(
+                  option.activeStatus,
+                  option.missedStrikeCount
+                );
+                const isInactive = !statusPresentation.isActive;
                 return (
                   <Box
                     component="li"
@@ -769,13 +747,13 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
                     }}
                   >
                     <Tooltip
-                      title={isInactive ? "Inactive profile" : "Active profile"}
+                      title={statusPresentation.tooltip}
                       placement="right"
                     >
                       {isInactive ? (
                         <CancelIcon
                           sx={{
-                            color: "var(--color-text-tertiary)",
+                            color: statusPresentation.color,
                             mr: 1,
                             fontSize: "1.25rem",
                             verticalAlign: "middle",
@@ -784,7 +762,7 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
                       ) : (
                         <CheckCircleIcon
                           sx={{
-                            color: "var(--color-success-button)",
+                            color: statusPresentation.color,
                             mr: 1,
                             fontSize: "1.25rem",
                             verticalAlign: "middle",
