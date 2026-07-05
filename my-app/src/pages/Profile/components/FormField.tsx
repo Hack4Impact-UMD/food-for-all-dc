@@ -708,7 +708,7 @@ const FormField = (props: FormFieldProps) => {
               onChange={handleChange}
               fullWidth
               disabled={isDisabledField}
-              autoComplete={fieldPath === "address" ? "new-password" : undefined}
+              autoComplete={fieldPath === "address" ? "off" : undefined}
               inputRef={fieldPath === "address" ? addressInputRef : null}
               inputProps={{ minLength }}
               error={!!error}
