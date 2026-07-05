@@ -2582,7 +2582,18 @@ const Profile = () => {
     }
     const existingScript = document.getElementById("google-maps-script");
     if (existingScript) {
-      existingScript.addEventListener("load", callback);
+      // If the script already exists and has finished loading, initialize immediately.
+      if (
+        typeof window.google === "object" &&
+        window.google.maps &&
+        window.google.maps.places
+      ) {
+        callback();
+        return;
+      }
+
+      // Otherwise wait for first load completion.
+      existingScript.addEventListener("load", callback, { once: true });
       return;
     }
     const script = document.createElement("script");
