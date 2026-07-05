@@ -13,14 +13,16 @@ import TimeUtils from "../../utils/timeUtils";
 import { deliveryDate } from "../../utils/deliveryDate";
 import {
   loadAllReportClients,
+  loadRecentDeliveryDatesByClientIds,
   loadLatestPastDeliveryDatesByClientIds,
 } from "./reportDataLoader";
 import {
   buildClientReportData,
   ClientReportData,
+  ReportClientRecord,
   SnapshotClientRecord,
   SupportedDateInput,
-  hasCurrentSnapshotDateWindow,
+  SNAPSHOT_REPORT_RECENT_DELIVERY_DAYS,
 } from "./reportUtils";
 
 const formatReportDateValue = (value: SupportedDateInput): string => {
@@ -31,18 +33,39 @@ const formatReportDateValue = (value: SupportedDateInput): string => {
   return deliveryDate.tryToISODateString(value) ?? "";
 };
 
+const mapPersistedLastDeliveryDates = (
+  clients: ReportClientRecord[],
+  today: DateTime
+): Map<string, string> => {
+  const seededDates = new Map<string, string>();
+
+  clients.forEach((client) => {
+    const normalizedDate = deliveryDate.tryToISODateString(client.lastDeliveryDate);
+    if (!normalizedDate) {
+      return;
+    }
+
+    if (deliveryDate.compare(normalizedDate, today.toISODate() || normalizedDate) <= 0) {
+      seededDates.set(client.uid, normalizedDate);
+    }
+  });
+
+  return seededDates;
+};
+
 const ClientReport: React.FC = () => {
   const navigate = useNavigate();
   const { showError, showSuccess, showWarning } = useNotifications();
 
   const [isLoading, setIsLoading] = useState(false);
+  const [isEnrichingLastDeliveryDates, setIsEnrichingLastDeliveryDates] = useState(false);
   const [hasGenerated, setHasGenerated] = useState(false);
   const [snapshotDate, setSnapshotDate] = useState<DateTime | null>(null);
   const [data, setData] = useState<ClientReportData>({ Active: [], Lapsed: [], Inactive: [] });
 
   const snapshotTimestamp = snapshotDate ?? TimeUtils.now().startOf("day");
   const snapshotLabel = `Current Report as of ${snapshotTimestamp.toFormat("M/d/yyyy")}`;
-  const isExportDisabled = isLoading || !hasGenerated;
+  const isExportDisabled = isLoading || isEnrichingLastDeliveryDates || !hasGenerated;
 
   const handleExport = () => {
     const csvData: CsvRow[] = [];
@@ -84,27 +107,69 @@ const ClientReport: React.FC = () => {
 
   const generateReport = async () => {
     setIsLoading(true);
+    setIsEnrichingLastDeliveryDates(false);
+    const reportStartMs = performance.now();
     try {
       const today = TimeUtils.now().startOf("day");
-      const clients = await loadAllReportClients();
-      const clientIdsForDeliveryLookup = clients
-        .filter((client) =>
-          hasCurrentSnapshotDateWindow({
-            startDate: client.startDate,
-            endDate: client.endDate,
-            today,
-          })
-        )
-        .map((client) => client.uid);
-      const latestPastDeliveryDatesByClientId = await loadLatestPastDeliveryDatesByClientIds(
-        clientIdsForDeliveryLookup,
-        today.endOf("day")
-      );
+      const recentWindowStart = today.minus({ days: SNAPSHOT_REPORT_RECENT_DELIVERY_DAYS });
+      const fetchStartMs = performance.now();
+      const [clients, recentDeliveryDatesByClientId] = await Promise.all([
+        loadAllReportClients(),
+        loadRecentDeliveryDatesByClientIds(recentWindowStart, today.endOf("day")),
+      ]);
+      const persistedDeliveryDatesByClientId = mapPersistedLastDeliveryDates(clients, today);
+      const seededDeliveryDatesByClientId = new Map([
+        ...persistedDeliveryDatesByClientId,
+        ...recentDeliveryDatesByClientId,
+      ]);
+      const fetchDurationMs = Math.round(performance.now() - fetchStartMs);
 
-      setData(buildClientReportData(clients, latestPastDeliveryDatesByClientId, today));
+      const preliminaryReport = buildClientReportData(
+        clients,
+        seededDeliveryDatesByClientId,
+        today
+      );
+      const lapsedClientIds = preliminaryReport.Lapsed.map((client) => client.uid);
+      setData(preliminaryReport);
       setSnapshotDate(today);
       setHasGenerated(true);
       showSuccess("Snapshot client report generated successfully");
+      const initialRenderDurationMs = Math.round(performance.now() - reportStartMs);
+      console.info(
+        `[SnapshotReportPerf] initialMs=${initialRenderDurationMs} fetchMs=${fetchDurationMs} clients=${clients.length} persistedDates=${persistedDeliveryDatesByClientId.size} recentDates=${recentDeliveryDatesByClientId.size} lapsed=${lapsedClientIds.length}`
+      );
+
+      if (lapsedClientIds.length > 0) {
+        setIsEnrichingLastDeliveryDates(true);
+        void (async () => {
+          const enrichStartMs = performance.now();
+          try {
+            const fallbackDeliveryDatesByClientId = await loadLatestPastDeliveryDatesByClientIds(
+              lapsedClientIds,
+              today.endOf("day")
+            );
+
+            if (fallbackDeliveryDatesByClientId.size === 0) {
+              return;
+            }
+
+            const latestPastDeliveryDatesByClientId = new Map([
+              ...seededDeliveryDatesByClientId,
+              ...fallbackDeliveryDatesByClientId,
+            ]);
+
+            setData(buildClientReportData(clients, latestPastDeliveryDatesByClientId, today));
+            const enrichDurationMs = Math.round(performance.now() - enrichStartMs);
+            console.info(
+              `[SnapshotReportPerf] enrichMs=${enrichDurationMs} fallbackDates=${fallbackDeliveryDatesByClientId.size}`
+            );
+          } catch (error) {
+            console.error("Failed to enrich snapshot client report with older deliveries:", error);
+          } finally {
+            setIsEnrichingLastDeliveryDates(false);
+          }
+        })();
+      }
     } catch (error) {
       console.error("Failed to generate snapshot client report:", error);
       showError("Failed to generate snapshot client report. Please try again.");
