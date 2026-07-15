@@ -1,6 +1,0 @@
-firebase-admin
-python-dateutil
-requests
-pandas
-rich
-python-dotenv

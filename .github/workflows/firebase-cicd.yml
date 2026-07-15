@@ -73,7 +73,7 @@ jobs:
         run: python -m py_compile functions-python/main.py functions-python/clustering.py
 
       - name: Build frontend
-        run: CI=false npm run build
+        run: npm run build
 
   deploy:
     name: Deploy to Firebase Production
@@ -129,7 +129,7 @@ jobs:
         run: npm ci
 
       - name: Build frontend
-        run: CI=false npm run build
+        run: npm run build
 
       - name: Prepare Python virtualenv for Firebase deploy
         run: |

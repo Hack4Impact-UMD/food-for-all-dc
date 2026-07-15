@@ -68,7 +68,6 @@ interface UpdateEventScopeInput {
 }
 
 const MAX_BATCH_WRITE_COUNT = 500;
-const FIRESTORE_IN_QUERY_LIMIT = 10;
 
 /**
  * Delivery Service - Handles all delivery-related operations with Firebase
@@ -457,73 +456,6 @@ class DeliveryService {
     }
   }
 
-  private getUniqueClientIdsFromEvents(events: Partial<DeliveryEvent>[]): string[] {
-    return Array.from(
-      new Set(
-        events
-          .map((event) => (typeof event.clientId === "string" ? event.clientId.trim() : ""))
-          .filter(Boolean)
-      )
-    );
-  }
-
-  private async refreshLastDeliveryDatesForClients(clientIds: string[]): Promise<void> {
-    const uniqueClientIds = Array.from(
-      new Set(clientIds.map((clientId) => clientId.trim()).filter(Boolean))
-    );
-    if (!uniqueClientIds.length) {
-      return;
-    }
-
-    const latestDeliveryDateByClientId = new Map<string, string>();
-
-    for (let index = 0; index < uniqueClientIds.length; index += FIRESTORE_IN_QUERY_LIMIT) {
-      const clientChunk = uniqueClientIds.slice(index, index + FIRESTORE_IN_QUERY_LIMIT);
-      const snapshot = await getDocs(
-        query(
-          collection(this.db, this.eventsCollection),
-          where("clientId", "in", clientChunk),
-          orderBy("deliveryDate", "desc")
-        )
-      );
-
-      snapshot.docs.forEach((docSnapshot) => {
-        const data = docSnapshot.data() as Partial<DeliveryEvent>;
-        const clientId = typeof data.clientId === "string" ? data.clientId.trim() : "";
-
-        if (!clientId || latestDeliveryDateByClientId.has(clientId)) {
-          return;
-        }
-
-        const dateKey = data.deliveryDate
-          ? deliveryDate.tryToISODateString(data.deliveryDate as string | Date | Timestamp)
-          : null;
-
-        if (dateKey) {
-          latestDeliveryDateByClientId.set(clientId, dateKey);
-        }
-      });
-    }
-
-    for (let index = 0; index < uniqueClientIds.length; index += MAX_BATCH_WRITE_COUNT) {
-      const clientChunk = uniqueClientIds.slice(index, index + MAX_BATCH_WRITE_COUNT);
-
-      await retry(async () => {
-        const batch = writeBatch(this.db);
-
-        clientChunk.forEach((clientId) => {
-          batch.set(
-            doc(this.db, this.clientsCollection, clientId),
-            { lastDeliveryDate: latestDeliveryDateByClientId.get(clientId) ?? "" },
-            { merge: true }
-          );
-        });
-
-        await batch.commit();
-      });
-    }
-  }
-
   private async finalizeMutation(
     reason: DeliveryChangeReason,
     impactedDateKeys: string[],
@@ -532,7 +464,6 @@ class DeliveryService {
     this.invalidateRecurringCache(affectedEvents);
     const invalidationResult = await this.reconcileClusterAssignmentsForDateKeys(impactedDateKeys);
     this.emitDeliveryChange(reason, impactedDateKeys, invalidationResult);
-    await this.refreshLastDeliveryDatesForClients(this.getUniqueClientIdsFromEvents(affectedEvents));
   }
 
   private async createEventsInternal(
@@ -569,7 +500,6 @@ class DeliveryService {
     );
     const invalidationResult = await this.reconcileClusterAssignmentsForDateKeys(impactedDateKeys);
     this.emitDeliveryChange(reason, impactedDateKeys, invalidationResult);
-    await this.refreshLastDeliveryDatesForClients(this.getUniqueClientIdsFromEvents(normalizedEvents));
 
     return docIds;
   }
@@ -603,7 +533,6 @@ class DeliveryService {
       const invalidationResult =
         await this.reconcileClusterAssignmentsForDateKeys(impactedDateKeys);
       this.emitDeliveryChange("schedule-batch-deleted", impactedDateKeys, invalidationResult);
-      await this.refreshLastDeliveryDatesForClients([clientId]);
       this.logDeliveryDebug("deleteEventsByClientId:completed", {
         clientId,
         deletedCount: querySnapshot.size,
@@ -629,7 +558,6 @@ class DeliveryService {
       const invalidationResult =
         await this.reconcileClusterAssignmentsForDateKeys(impactedDateKeys);
       this.emitDeliveryChange("schedule-batch-deleted", impactedDateKeys, invalidationResult);
-      await this.refreshLastDeliveryDatesForClients([clientId]);
     };
 
     let deleteError: unknown = null;
@@ -695,7 +623,6 @@ class DeliveryService {
   private static instance: DeliveryService;
   private db = db;
   private eventsCollection = dataSources.firebase.calendarCollection;
-  private clientsCollection = dataSources.firebase.clientsCollection;
   private clustersCollection = dataSources.firebase.clustersCollection;
   private dailyLimitsCollection = dataSources.firebase.dailyLimitsCollection;
   private limitsCollection = dataSources.firebase.limitsCollection;
@@ -1288,14 +1215,6 @@ class DeliveryService {
       const invalidationResult =
         await this.reconcileClusterAssignmentsForDateKeys(impactedDateKeys);
       this.emitDeliveryChange("schedule-updated", impactedDateKeys, invalidationResult);
-      const affectedClientIds = Array.from(
-        new Set(
-          [cleanData.clientId, existingData?.clientId]
-            .map((clientId) => (typeof clientId === "string" ? clientId.trim() : ""))
-            .filter(Boolean)
-        )
-      );
-      await this.refreshLastDeliveryDatesForClients(affectedClientIds);
     } catch (error) {
       throw formatServiceError(error, "Failed to update event");
     }
