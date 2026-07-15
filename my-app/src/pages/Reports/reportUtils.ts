@@ -55,7 +55,6 @@ export interface ReportClientRecord {
   physicalDisability?: Record<string, unknown> | null;
   mentalHealthConditions?: Record<string, unknown> | null;
   tags?: string[];
-  lastDeliveryDate?: string;
 }
 
 export interface ReportDeliveryRecord {

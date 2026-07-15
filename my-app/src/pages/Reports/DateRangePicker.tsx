@@ -52,7 +52,7 @@ export default function DateRangePicker({
       <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
         <DatePicker
           selected={startDate}
-          onChange={(date: Date | null) => setStartDate(date)}
+          onChange={(date) => setStartDate(date)}
           selectsStart
           startDate={startDate}
           maxDate={startPickerMaxDate}
@@ -69,7 +69,7 @@ export default function DateRangePicker({
 
         <DatePicker
           selected={endDate}
-          onChange={(date: Date | null) => setEndDate(date)}
+          onChange={(date) => setEndDate(date)}
           selectsEnd
           endDate={endDate}
           minDate={startDate ?? undefined}

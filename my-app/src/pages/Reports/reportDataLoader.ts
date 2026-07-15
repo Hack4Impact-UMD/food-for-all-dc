@@ -15,11 +15,10 @@ import { db } from "../../auth/firebaseConfig";
 import dataSources from "../../config/dataSources";
 import { HouseholdSnapshot } from "../../types/delivery-types";
 import { deliveryDate } from "../../utils/deliveryDate";
-import { batchGetLastDeliveryDates } from "../../utils/lastDeliveryDate";
 import { normalizeHouseholdSnapshot } from "../../utils/householdSnapshot";
 import { ReportClientRecord, ReportDeliveryRecord } from "./reportUtils";
 
-const CLIENT_PAGE_SIZE = 3000;
+const CLIENT_PAGE_SIZE = 200;
 const FIRESTORE_IN_QUERY_LIMIT = 10;
 
 const chunkArray = <T>(items: T[], chunkSize: number): T[][] => {
@@ -113,10 +112,6 @@ const mapReportClient = (docSnapshot: QueryDocumentSnapshot): ReportClientRecord
     physicalDisability: asNullableObject(raw.physicalDisability),
     mentalHealthConditions: asNullableObject(raw.mentalHealthConditions),
     tags: asStringArray(raw.tags),
-    lastDeliveryDate:
-      deliveryDate.tryToISODateString(
-        raw.lastDeliveryDate as string | Date | DateTime | Timestamp | null | undefined
-      ) ?? undefined,
   };
 };
 
@@ -212,28 +207,6 @@ export const loadInclusiveReportEvents = async (
     .filter((event): event is ReportDeliveryRecord => !!event && Boolean(event.clientId));
 };
 
-export const loadRecentDeliveryDatesByClientIds = async (
-  start: DateTime,
-  end: DateTime
-): Promise<Map<string, string>> => {
-  const recentDeliveryDatesByClientId = new Map<string, string>();
-  const events = await loadInclusiveReportEvents(start, end);
-
-  events.forEach((event) => {
-    const deliveryDateKey = event.deliveryDate.toISODate();
-    if (!deliveryDateKey) {
-      return;
-    }
-
-    const existingDeliveryDate = recentDeliveryDatesByClientId.get(event.clientId);
-    if (!existingDeliveryDate || deliveryDate.compare(deliveryDateKey, existingDeliveryDate) > 0) {
-      recentDeliveryDatesByClientId.set(event.clientId, deliveryDateKey);
-    }
-  });
-
-  return recentDeliveryDatesByClientId;
-};
-
 export const loadFirstDeliveriesByClientIds = async (
   clientIds: string[]
 ): Promise<Map<string, ReportDeliveryRecord>> => {
@@ -275,7 +248,49 @@ export const loadFirstDeliveriesByClientIds = async (
 
 export const loadLatestPastDeliveryDatesByClientIds = async (
   clientIds: string[],
-  _today = DateTime.now().endOf("day")
+  today = DateTime.now().endOf("day")
 ): Promise<Map<string, string>> => {
-  return batchGetLastDeliveryDates(clientIds);
+  const latestPastDeliveryDatesByClientId = new Map<string, string>();
+  const uniqueClientIds = Array.from(new Set(clientIds.filter(Boolean)));
+
+  if (uniqueClientIds.length === 0) {
+    return latestPastDeliveryDatesByClientId;
+  }
+
+  const clientChunks = chunkArray(uniqueClientIds, FIRESTORE_IN_QUERY_LIMIT);
+  const snapshots = await Promise.all(
+    clientChunks.map((chunk) =>
+      getDocs(
+        query(
+          collection(db, dataSources.firebase.calendarCollection),
+          where("clientId", "in", chunk),
+          where("deliveryDate", "<=", Timestamp.fromDate(today.toJSDate())),
+          orderBy("deliveryDate", "desc")
+        )
+      )
+    )
+  );
+
+  snapshots.forEach((snapshot) => {
+    snapshot.docs.forEach((docSnapshot) => {
+      const event = mapReportDelivery(docSnapshot);
+
+      if (
+        !event ||
+        !event.clientId ||
+        latestPastDeliveryDatesByClientId.has(event.clientId)
+      ) {
+        return;
+      }
+
+      const deliveryDateKey = event.deliveryDate.toISODate();
+      if (!deliveryDateKey) {
+        return;
+      }
+
+      latestPastDeliveryDatesByClientId.set(event.clientId, deliveryDateKey);
+    });
+  });
+
+  return latestPastDeliveryDatesByClientId;
 };
