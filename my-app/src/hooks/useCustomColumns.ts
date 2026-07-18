@@ -15,6 +15,7 @@ export const allowedPropertyKeys = [
   "referralEntity",
   "tags",
   "tefapCert",
+  "tefapCertDate",
   "dob",
   "lastDeliveryDate",
 ];

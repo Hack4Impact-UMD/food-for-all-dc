@@ -74,7 +74,10 @@ function Login() {
       case "auth/missing-fields":
         return { code: error.code, message: "Please enter both email and password." };
       default:
-        return { code: error.code, message: "An error occurred during login. Please try again." };
+        return {
+          code: error.code,
+          message: `${error.code}: ${error.message || "An error occurred during login."}`,
+        };
     }
   };
 

@@ -256,7 +256,8 @@ const Profile = () => {
     recurrence: "None",
     tags: [],
     ward: "",
-    tefapCert: "",
+    tefapCert: false,
+    tefapCertDate: "",
     referralEntity: null,
     referredDate: "",
     coordinates: [],
@@ -843,7 +844,7 @@ const Profile = () => {
     }
 
     // Always format these fields as MM/DD/YYYY
-    if (["dob", "tefapCert", "startDate", "endDate"].includes(name)) {
+    if (["dob", "tefapCertDate", "startDate", "endDate"].includes(name)) {
       let formatted = value;
       if (typeof value === "string" && value.match(/^\d{4}-\d{2}-\d{2}$/)) {
         // Convert YYYY-MM-DD to MM/DD/YYYY
@@ -853,6 +854,7 @@ const Profile = () => {
       setClientProfile((prevState) => ({
         ...prevState,
         [name]: formatted,
+        ...(name === "tefapCertDate" ? { tefapCert: Boolean(formatted) } : {}),
       }));
       return;
     } else if (name === "adults" || name === "children" || name === "seniors") {
@@ -951,13 +953,13 @@ const Profile = () => {
       newErrors.email = "Invalid email format";
     }
 
-    if (clientProfile.tefapCert?.trim()) {
-      const tefapDate = new Date(clientProfile.tefapCert);
+    if (clientProfile.tefapCertDate?.trim()) {
+      const tefapDate = new Date(clientProfile.tefapCertDate);
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
       if (!isNaN(tefapDate.getTime()) && tefapDate > today) {
-        newErrors.tefapCert = "TEFAP cert date cannot be in the future";
+        newErrors.tefapCertDate = "TEFAP cert date cannot be in the future";
       }
     }
 
@@ -1456,8 +1458,9 @@ const Profile = () => {
         }
       }
       // Convert all date fields from mm/dd/yyyy to backend format (e.g., yyyy-mm-dd) here
-      const convertDateForSave = (dateStr: string | null | undefined) => {
-        if (!dateStr || typeof dateStr !== "string" || !dateStr.includes("/")) return dateStr ?? "";
+      const convertDateForSave = (dateStr: unknown) => {
+        if (typeof dateStr !== "string") return "";
+        if (!dateStr.includes("/")) return dateStr;
         const [month, day, year] = dateStr.split("/");
         if (month && day && year) {
           const paddedMonth = month.padStart(2, "0");
@@ -1485,7 +1488,8 @@ const Profile = () => {
         ...cleanedProfile,
         // Example: convert specific date fields
         dob: convertDateForSave(cleanedProfile.dob),
-        tefapCert: convertDateForSave(cleanedProfile.tefapCert),
+        tefapCert: Boolean(convertDateForSave(cleanedProfile.tefapCertDate)),
+        tefapCertDate: convertDateForSave(cleanedProfile.tefapCertDate),
         famStartDate: convertDateForSave(cleanedProfile.famStartDate),
         startDate: normalizedStartDate,
         endDate: normalizedEndDate,
@@ -2574,6 +2578,20 @@ const Profile = () => {
   const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
   const [isGoogleApiLoaded, setIsGoogleApiLoaded] = useState(false);
 
+  const waitForGooglePlaces = (callback: () => void, attempts = 20) => {
+    if (typeof window.google === "object" && window.google.maps && window.google.maps.places) {
+      callback();
+      return;
+    }
+
+    if (attempts <= 0) {
+      console.error("Google Places library did not become available after Maps script load.");
+      return;
+    }
+
+    window.setTimeout(() => waitForGooglePlaces(callback, attempts - 1), 100);
+  };
+
   // Helper to load Google Maps script if not present
   function loadGoogleMapsScript(apiKey: string, callback: () => void) {
     if (typeof window.google === "object" && window.google.maps && window.google.maps.places) {
@@ -2593,7 +2611,7 @@ const Profile = () => {
       }
 
       // Otherwise wait for first load completion.
-      existingScript.addEventListener("load", callback, { once: true });
+      existingScript.addEventListener("load", () => waitForGooglePlaces(callback), { once: true });
       return;
     }
     const script = document.createElement("script");
@@ -2601,7 +2619,8 @@ const Profile = () => {
     script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&loading=async`;
     script.async = true;
     script.defer = true;
-    script.onload = callback;
+    script.onload = () => waitForGooglePlaces(callback);
+    script.onerror = () => console.error("Failed to load Google Maps script.");
     document.body.appendChild(script);
   }
 
@@ -3249,8 +3268,10 @@ const Profile = () => {
               open={isDeliveryModalOpen}
               onClose={() => setIsDeliveryModalOpen(false)}
               onAddDelivery={handleAddDelivery}
+              clients={[]}
               limits={limits}
               dailyLimits={dailyLimits}
+              clientsLoaded={false}
               startDate={deliveryModalStartDate}
               preSelectedClient={preSelectedClientData}
             />
