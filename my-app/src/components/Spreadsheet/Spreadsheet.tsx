@@ -100,7 +100,8 @@ const addablePropertyKeyLabelMap: Record<string, string> = {
   phone: "Phone",
   referralEntity: "Referral Entity",
   tags: "Tags",
-  tefapCert: "TEFAP Cert",
+  tefapCert: "TEFAP Cert On File",
+  tefapCertDate: "TEFAP Cert Date",
   dob: "DOB",
   lastDeliveryDate: "Last Delivery Date",
 };
@@ -126,7 +127,8 @@ const clientCustomColumnMappings: Record<string, string[]> = {
   notes: ["notes"],
   referralEntity: ["referral entity", "referral"],
   tags: ["tags", "tag"],
-  tefapCert: ["tefap", "tefap cert"],
+  tefapCert: ["tefap on file", "tefap cert on file"],
+  tefapCertDate: ["tefap", "tefap cert", "tefap date", "tefap cert date"],
   dob: ["dob"],
   lastDeliveryDate: ["last delivery date"],
 };
@@ -418,7 +420,8 @@ const Spreadsheet: React.FC = () => {
   };
   const [forceRerender, setForceRerender] = useState(0);
   const virtuosoRef = React.useRef<any>(null);
-  const { clients, loading, loadingMore, hasMore, error, refresh, loadAllRemaining } = useClientData();
+  const { clients, loading, loadingMore, hasMore, error, refresh, loadAllRemaining } =
+    useClientData();
   const { showError, showSuccess, showWarning } = useNotifications();
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [debouncedSearch, setDebouncedSearch] = useState<string>("");
@@ -442,14 +445,8 @@ const Spreadsheet: React.FC = () => {
   const handleRemoveCustomColumn = customColumnsHook.handleRemoveCustomColumn;
 
   useEffect(() => {
-    const previousClientIds = previousClientIdsRef.current;
     const nextClientIds = clients.map((client) => client.uid).join("|");
-    const didIdsChange = previousClientIds !== nextClientIds;
-    const isAppendOnlyUpdate =
-      previousClientIds.length > 0 &&
-      nextClientIds.length > previousClientIds.length &&
-      nextClientIds.startsWith(`${previousClientIds}|`);
-    const shouldResetTable = didIdsChange && !isAppendOnlyUpdate;
+    const shouldResetTable = previousClientIdsRef.current !== nextClientIds;
     previousClientIdsRef.current = nextClientIds;
 
     if (!shouldResetTable) {
@@ -601,7 +598,8 @@ const Spreadsheet: React.FC = () => {
               language: client.language || "",
               notes: client.notes || "",
               famStartDate: client.famStartDate || "",
-              tefapCert: client.tefapCert || "",
+              tefapCert: Boolean(client.tefapCert),
+              tefapCertDate: client.tefapCertDate || "",
               dob: client.dob || "",
               ward: client.ward || "",
               zipCode: client.zipCode || "",
@@ -639,7 +637,6 @@ const Spreadsheet: React.FC = () => {
       };
     }
   }, [debouncedSearch, hasMore, loadAllRemaining]);
-
   const hydrateRowsForExport = useCallback(async (sourceRows: RowData[]) => {
     const pendingClientIds = Array.from(
       new Set(
@@ -725,14 +722,6 @@ const Spreadsheet: React.FC = () => {
       setIsExporting(false);
     }
   };
-
-  const handleEndReached = useCallback(() => {
-    if (debouncedSearch.trim() !== "") {
-      return;
-    }
-
-    void loadAllRemaining();
-  }, [debouncedSearch, loadAllRemaining]);
 
   // TableVirtuoso MUI integration
   const TableComponent = forwardRef<HTMLTableElement, React.ComponentProps<typeof Table>>(
@@ -1084,7 +1073,7 @@ const Spreadsheet: React.FC = () => {
                 case "tefap":
                 case "tefapcert":
                   return matchesAnySearchValue((candidate) =>
-                    checkStringContains(row.tefapCert, candidate)
+                    checkStringContains(row.tefapCertDate, candidate)
                   );
                 case "date":
                 case "famstartdate":
@@ -1605,18 +1594,16 @@ const Spreadsheet: React.FC = () => {
               height: "100%",
               boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
               borderRadius: "12px",
-              overflow: "hidden",
+              overflow: "auto",
               minHeight: 0,
             }}
           >
             <TableVirtuoso
               ref={virtuosoRef}
-              style={{ height: "100%", overflowY: "auto" }}
+              style={{ height: "100%" }}
               data={filteredRows}
-              computeItemKey={(index, row: RowData) => row.uid ?? `${row.lastName}-${row.firstName}-${index}`}
               components={VirtuosoTableComponents}
               overscan={200}
-              endReached={handleEndReached}
               key={forceRerender}
               fixedHeaderContent={() => (
                 <TableRow sx={{ position: "sticky", top: 0, zIndex: 2 }}>
@@ -1810,18 +1797,6 @@ const Spreadsheet: React.FC = () => {
                 />
               )}
             />
-            {loadingMore && (
-              <Box sx={{ display: "flex", justifyContent: "center", py: 1.5 }}>
-                <CircularProgress size={18} />
-              </Box>
-            )}
-            {!loadingMore && hasMore && debouncedSearch.trim() !== "" && (
-              <Box sx={{ display: "flex", justifyContent: "center", py: 1.5 }}>
-                <Typography variant="caption" sx={{ color: "text.secondary" }}>
-                  More clients available. Clear search and scroll to load additional rows.
-                </Typography>
-              </Box>
-            )}
             <Popover
               open={Boolean(menuAnchorPosition)}
               anchorReference="anchorPosition"

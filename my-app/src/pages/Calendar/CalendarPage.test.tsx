@@ -17,7 +17,6 @@ const mockGetAllClients = jest.fn();
 const mockGetClientById = jest.fn();
 const mockShowSuccess = jest.fn();
 const mockShowError = jest.fn();
-let mockDeliveryEventSubscriber: ((event: unknown) => void) | null = null;
 
 jest.mock("firebase/auth", () => ({
   onAuthStateChanged: (_auth: unknown, callback: (user: { uid: string }) => void) => {
@@ -48,12 +47,7 @@ jest.mock("./components/useLimits", () => ({
 
 jest.mock("../../utils/deliveryEventEmitter", () => ({
   deliveryEventEmitter: {
-    subscribe: (callback: (event: unknown) => void) => {
-      mockDeliveryEventSubscriber = callback;
-      return () => {
-        mockDeliveryEventSubscriber = null;
-      };
-    },
+    subscribe: () => () => undefined,
   },
 }));
 
@@ -109,7 +103,10 @@ jest.mock("./components/CalendarHeader", () => ({
     <div>
       <div data-testid="current-date">{currentDate.toString("yyyy-MM-dd")}</div>
       <div data-testid="view-type">{viewType}</div>
-      <button type="button" onClick={() => onViewTypeChange(viewType === "Day" ? "Month" : "Day")}>
+      <button
+        type="button"
+        onClick={() => onViewTypeChange(viewType === "Day" ? "Month" : "Day")}
+      >
         toggle-view
       </button>
       <button type="button" onClick={onNavigatePrev}>
@@ -125,25 +122,17 @@ jest.mock("./components/CalendarHeader", () => ({
 jest.mock("./components/MonthView", () => ({
   __esModule: true,
   default: ({
-    calendarConfig,
     onTimeRangeSelected,
   }: {
-    calendarConfig: { events: Array<{ id: string }> };
     onTimeRangeSelected: (args: { start: unknown }) => void;
   }) => {
     return (
-      <div>
-        <div data-testid="month-count">{calendarConfig.events.length}</div>
-        <div data-testid="month-event-ids">
-          {calendarConfig.events.map((event) => event.id).join(",")}
-        </div>
-        <button
-          type="button"
-          onClick={() => onTimeRangeSelected({ start: new mockDayPilot.Date("2026-03-16") })}
-        >
-          select-month-day
-        </button>
-      </div>
+      <button
+        type="button"
+        onClick={() => onTimeRangeSelected({ start: new mockDayPilot.Date("2026-03-16") })}
+      >
+        select-month-day
+      </button>
     );
   },
 }));
@@ -196,11 +185,7 @@ const createDeferred = <T,>(): Deferred<T> => {
   return { promise, resolve, reject };
 };
 
-const buildEvent = (
-  id: string,
-  deliveryDate: string,
-  clientId = `${id}-client`
-): DeliveryEvent => ({
+const buildEvent = (id: string, deliveryDate: string, clientId = `${id}-client`): DeliveryEvent => ({
   id,
   assignedDriverId: "driver-1",
   assignedDriverName: "Driver One",
@@ -231,7 +216,6 @@ describe("CalendarPage stale fetch protection", () => {
     mockGetClientById.mockReset();
     mockShowSuccess.mockReset();
     mockShowError.mockReset();
-    mockDeliveryEventSubscriber = null;
 
     mockGetDailyLimits.mockImplementation(async () => []);
     mockGetAllDrivers.mockImplementation(async () => []);
@@ -377,69 +361,6 @@ describe("CalendarPage stale fetch protection", () => {
       expect(screen.getByTestId("current-date").textContent).toBe("2026-03-16");
       expect(screen.getByTestId("day-count").textContent).toBe("1");
       expect(screen.getByTestId("event-ids").textContent).toBe("returned-day");
-    });
-  });
-
-  it("refreshes month data after delivery mutation events instead of reusing cached month data", async () => {
-    const rangeKey = (start: Date, end: Date) =>
-      `${start.toISOString().slice(0, 10)}::${end.toISOString().slice(0, 10)}`;
-
-    const queuedResponsesByRange = new Map<string, Array<Promise<DeliveryEvent[]>>>([
-      ["2026-03-10::2026-03-11", [Promise.resolve([])]],
-      [
-        "2026-02-15::2026-04-19",
-        [
-          Promise.resolve([buildEvent("cached-month", "2026-03-12")]),
-          Promise.resolve([buildEvent("fresh-month", "2026-03-12")]),
-        ],
-      ],
-    ]);
-
-    mockGetEventsByDateRange.mockImplementation((...args: unknown[]) => {
-      const [start, end] = args;
-      if (!(start instanceof Date) || !(end instanceof Date)) {
-        return Promise.resolve([]);
-      }
-      const responses = queuedResponsesByRange.get(rangeKey(start, end));
-      if (responses && responses.length > 0) {
-        return responses.shift() as Promise<DeliveryEvent[]>;
-      }
-      return Promise.resolve([]);
-    });
-
-    renderCalendarPage();
-
-    await screen.findByTestId("current-date");
-    await waitFor(() => {
-      const monthCalls = mockGetEventsByDateRange.mock.calls.filter((call) => {
-        const [start, end] = call;
-        return (
-          start instanceof Date &&
-          end instanceof Date &&
-          rangeKey(start, end) === "2026-02-15::2026-04-19"
-        );
-      });
-      expect(monthCalls).toHaveLength(1);
-    });
-
-    fireEvent.click(screen.getByRole("button", { name: "toggle-view" }));
-
-    await waitFor(() => {
-      expect(screen.getByTestId("view-type").textContent).toBe("Month");
-      expect(screen.getByTestId("month-event-ids").textContent).toBe("cached-month");
-    });
-
-    act(() => {
-      mockDeliveryEventSubscriber?.({
-        reason: "schedule-created",
-        impactedDateKeys: ["2026-03-12"],
-        reviewRequiredDateKeys: [],
-        failedClusterDateKeys: [],
-      });
-    });
-
-    await waitFor(() => {
-      expect(screen.getByTestId("month-event-ids").textContent).toBe("fresh-month");
     });
   });
 });

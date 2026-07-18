@@ -1,0 +1,7 @@
+{
+  "name": "food-for-all-dc",
+  "private": true,
+  "scripts": {
+    "etl": "python ETL/run_full_etl_with_promotion.py"
+  }
+}
