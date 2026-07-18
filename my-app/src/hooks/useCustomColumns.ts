@@ -14,7 +14,6 @@ export const allowedPropertyKeys = [
   "phone",
   "referralEntity",
   "tags",
-  "tefapCert",
   "tefapCertDate",
   "dob",
   "lastDeliveryDate",

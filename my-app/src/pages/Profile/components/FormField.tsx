@@ -542,7 +542,7 @@ const FormField = (props: FormFieldProps) => {
                 disabled={!isEditing}
               />
             }
-            label={fieldPath === "tefapCert" ? "TEFAP Cert" : capitalizeFirstLetter(fieldPath)}
+            label={capitalizeFirstLetter(fieldPath)}
           />
         );
       case "select":
