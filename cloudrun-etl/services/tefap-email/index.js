@@ -74,19 +74,19 @@ functions.http('tefap-email', async (req, res) => {
       const clientId = doc.id;
       
       // Skip clients without TEFAP certification dates
-      if (!client.tefapCert) continue;
+      if (!client.tefapCertDate) continue;
       
-      // Convert tefapCert string to a Date object
-      // Assuming tefapCert is stored as an ISO string or a Firestore Timestamp
+      // Convert tefapCertDate string to a Date object
+      // Assuming tefapCertDate is stored as an ISO string or a Firestore Timestamp
       let certExpirationDate;
       
-      if (typeof client.tefapCert === 'string') {
-        certExpirationDate = new Date(client.tefapCert);
-      } else if (client.tefapCert instanceof admin.firestore.Timestamp) {
-        certExpirationDate = client.tefapCert.toDate();
+      if (typeof client.tefapCertDate === 'string') {
+        certExpirationDate = new Date(client.tefapCertDate);
+      } else if (client.tefapCertDate instanceof admin.firestore.Timestamp) {
+        certExpirationDate = client.tefapCertDate.toDate();
       } else {
         // Skip if format is unrecognized
-        console.log(`Skipping client ${clientId}: Invalid tefapCert format`);
+        console.log(`Skipping client ${clientId}: Invalid tefapCertDate format`);
         continue;
       }
       

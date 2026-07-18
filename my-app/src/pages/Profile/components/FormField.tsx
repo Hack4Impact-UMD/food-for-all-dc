@@ -285,12 +285,6 @@ const DateFieldComponent = ({
       setDateError("Please select a valid date");
       return;
     }
-    if (fieldPath === "tefapCert") {
-      if (deliveryDate.compare(blurValue, deliveryDate.today()) > 0) {
-        setDateError("TEFAP CERT date cannot be in the future");
-        return;
-      }
-    }
     setDateError(null);
     // Only propagate valid date to parent in MM/DD/YYYY format
     const mmddyyyyValue = convertFromHtmlDateFormat(blurValue);
@@ -530,6 +524,27 @@ const FormField = (props: FormFieldProps) => {
     const selectInputProps = { minLength: 2 };
     const dateInputProps = { minLength: 10 };
     switch (type) {
+      case "checkbox":
+        return (
+          <FormControlLabel
+            control={
+              <CustomCheckbox
+                name={fieldPath}
+                checked={Boolean(value)}
+                onChange={(event) =>
+                  handleChange({
+                    target: {
+                      name: fieldPath,
+                      value: event.target.checked,
+                    },
+                  } as unknown as React.ChangeEvent<HTMLInputElement>)
+                }
+                disabled={!isEditing}
+              />
+            }
+            label={fieldPath === "tefapCert" ? "TEFAP Cert" : capitalizeFirstLetter(fieldPath)}
+          />
+        );
       case "select":
         if (fieldPath === "gender") {
           return (

@@ -13,6 +13,7 @@ export type ClientProfileKey =
   | "deliveryDetails.dietaryRestrictions.dietaryPreferences"
   | "deliveryDetails.deliveryInstructions"
   | "tefapCert"
+  | "tefapCertDate"
   | "famStartDate";
 
 export type InputType =

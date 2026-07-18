@@ -273,20 +273,20 @@ Below is the current mapping used by `ETL/firebase_migration_v2.py` for the new 
 
 | Excel Column(s) | Firestore Field |
 |-----------------|-----------------|
-| `ID` (also normalized from blank/id-like first column names) | `uid` (document ID) |
+| `ID` (also normalized from `CLIENT ID`, `ID#`, and blank/id-like first columns) | `uid` (document ID) |
 | `FIRST_database` or `FIRST` | `firstName` |
 | `LAST_database` or `LAST` | `lastName` |
 | `ADDRESS` (street portion) | `address`, `streetName` |
-| `APT` (or apartment suffix parsed from `ADDRESS`) | `address2` |
+| `APT` or `APT #` (or apartment suffix parsed from `ADDRESS`) | `address2` |
 | `ZIPcode` or `ZIP` (with geocoder fallback) | `zipCode` |
-| `City` | `city` |
-| `State` | `state` |
-| `Quadrant_database` | `quadrant` |
+| `City` (or inferred as `Washington` when quadrant/address indicates DC) | `city` |
+| `State` (or inferred as `DC` when quadrant/address indicates DC) | `state` |
+| `Quadrant_database` or `Quadrant` | `quadrant` |
 | `Ward` | `ward` |
 | `Phone` | `phone` (or `email` if value contains `@`) |
 | `Ethnicity` or `Race/Ethnicity` or `Race` | `ethnicity` |
 | `# Adults` or `Adults_database` | `adults` (adjusted when senior logic applies) |
-| `# kids` or `kids` | `children` |
+| `# kids` or `kids` or `# Children` | `children` |
 | Derived from adults/children/seniors | `total`, `seniors`, `headOfHousehold` |
 | `Frequency` | `deliveryFreq`, `recurrence` |
 | `Delivery Instructions` | `deliveryDetails.deliveryInstructions` |
@@ -295,7 +295,7 @@ Below is the current mapping used by `ETL/firebase_migration_v2.py` for the new 
 | `Notes` (plus ETL-added notes) | `notes` |
 | `Language` | `language` |
 | `StartDate_database` or `StartDate_referral` or `Start Date` | `startDate` |
-| `EndDate` (defaulted/validated by ETL) | `endDate` |
+| `EndDate` or `End Date` (defaulted/validated by ETL) | `endDate` |
 | `TEFAP_FY25` / `TEFAP FY25` / `TEFAP FY26` | `tefapCert` and `tags` (`TEFAPOnFile`) |
 | `Active` and date-window logic | `activeStatus` and `tags` (`Active`) |
 

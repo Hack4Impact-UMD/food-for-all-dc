@@ -126,6 +126,19 @@ const CalendarPage: React.FC = React.memo(() => {
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [clients, setClients] = useState<ClientProfile[]>([]);
+  const [clientsLoaded, setClientsLoaded] = useState<boolean>(false);
+  // Preload all clients from client-profile2 when Add Delivery is triggered
+  const preloadAllClients = useCallback(async () => {
+    if (!clientsLoaded) {
+      try {
+        const { clients: allClients } = await clientService.getAllClients(3000);
+        setClients(allClients);
+        setClientsLoaded(true);
+      } catch (error) {
+        console.error("Error preloading clients:", error);
+      }
+    }
+  }, [clientsLoaded]);
   const [dailyLimits, setDailyLimits] = useState<DateLimit[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true); // Start as loading
   const [isInitialLoad, setIsInitialLoad] = useState<boolean>(true);
@@ -133,12 +146,8 @@ const CalendarPage: React.FC = React.memo(() => {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const fetchEventsRequestIdRef = useRef(0);
   const monthEventsCacheRef = useRef(
-    new Map<
-      string,
-      { timestamp: number; events: DeliveryEvent[]; formattedEvents: CalendarEvent[] }
-    >()
+    new Map<string, { timestamp: number; events: DeliveryEvent[]; formattedEvents: CalendarEvent[] }>()
   );
-  const monthEventsCacheVersionRef = useRef(0);
   const monthPrefetchInFlightRef = useRef(
     new Map<string, Promise<{ events: DeliveryEvent[]; formattedEvents: CalendarEvent[] }>>()
   );
@@ -216,21 +225,27 @@ const CalendarPage: React.FC = React.memo(() => {
 
   const fetchClientsLazy = useCallback(async (clientIds: string[]) => {
     const uncachedIds = clientIds.filter((id) => !clientCacheRef.current.has(id));
-    const [clientsData, deliverySummaries] = await Promise.all([
-      uncachedIds.length > 0 ? clientService.getClientsByIds(uncachedIds) : Promise.resolve([]),
-      clientService.getClientDeliverySummaries(clientIds).catch((error) => {
-        console.error("Error fetching client delivery summaries:", error);
-        return new Map<string, { missedStrikeCount: number; lastDeliveryDate: string }>();
-      }),
-    ]);
-
-    clientsData.forEach((client) => {
-      if (client.uid) {
-        clientCacheRef.current.set(client.uid, client);
+    if (uncachedIds.length > 0) {
+      try {
+        const clientsData = await clientService.getClientsByIds(uncachedIds);
+        clientsData.forEach((client) => {
+          if (client.uid) {
+            clientCacheRef.current.set(client.uid, client);
+          }
+        });
+      } catch (error) {
+        console.error("Error fetching clients:", error);
+        return [];
       }
-    });
-
+    }
     const requestedClients = clientIds.map((id) => clientCacheRef.current.get(id)).filter(Boolean);
+
+    let deliverySummaries = new Map<string, { missedStrikeCount: number; lastDeliveryDate: string }>();
+    try {
+      deliverySummaries = await clientService.getClientDeliverySummaries(clientIds);
+    } catch (error) {
+      console.error("Error fetching client delivery summaries:", error);
+    }
 
     const clientsWithSummaries = requestedClients.map((client) => {
       if (!client?.uid) {
@@ -270,9 +285,9 @@ const CalendarPage: React.FC = React.memo(() => {
   }, []);
 
   const getCachedMonthPayload = useCallback(
-    (
-      targetDate: DayPilot.Date
-    ): { events: DeliveryEvent[]; formattedEvents: CalendarEvent[] } | null => {
+    (targetDate: DayPilot.Date):
+      | { events: DeliveryEvent[]; formattedEvents: CalendarEvent[] }
+      | null => {
       const cacheKey = getMonthCacheKey(targetDate);
       const cached = monthEventsCacheRef.current.get(cacheKey);
       if (!cached) {
@@ -292,12 +307,6 @@ const CalendarPage: React.FC = React.memo(() => {
     [getMonthCacheKey]
   );
 
-  const invalidateMonthEventsCache = useCallback(() => {
-    monthEventsCacheVersionRef.current += 1;
-    monthEventsCacheRef.current.clear();
-    monthPrefetchInFlightRef.current.clear();
-  }, []);
-
   const buildEventsPayload = useCallback(
     async (
       targetDate: DayPilot.Date,
@@ -306,10 +315,7 @@ const CalendarPage: React.FC = React.memo(() => {
       const { queryStart, queryEndExclusive } = getCalendarViewRange(targetDate, targetView);
 
       const deliveryService = DeliveryService.getInstance();
-      const fetchedEvents = await deliveryService.getEventsByDateRange(
-        queryStart,
-        queryEndExclusive
-      );
+      const fetchedEvents = await deliveryService.getEventsByDateRange(queryStart, queryEndExclusive);
 
       if (targetView === "Month") {
         const formattedEvents = fetchedEvents.map((event) => ({
@@ -377,16 +383,13 @@ const CalendarPage: React.FC = React.memo(() => {
         return;
       }
 
-      const cacheVersion = monthEventsCacheVersionRef.current;
       const prefetchPromise = buildEventsPayload(targetDate, "Month")
         .then((payload) => {
-          if (cacheVersion === monthEventsCacheVersionRef.current) {
-            monthEventsCacheRef.current.set(cacheKey, {
-              timestamp: Date.now(),
-              events: payload.events,
-              formattedEvents: payload.formattedEvents,
-            });
-          }
+          monthEventsCacheRef.current.set(cacheKey, {
+            timestamp: Date.now(),
+            events: payload.events,
+            formattedEvents: payload.formattedEvents,
+          });
           return payload;
         })
         .catch((error) => {
@@ -394,9 +397,7 @@ const CalendarPage: React.FC = React.memo(() => {
           throw error;
         })
         .finally(() => {
-          if (monthPrefetchInFlightRef.current.get(cacheKey) === prefetchPromise) {
-            monthPrefetchInFlightRef.current.delete(cacheKey);
-          }
+          monthPrefetchInFlightRef.current.delete(cacheKey);
         });
 
       monthPrefetchInFlightRef.current.set(cacheKey, prefetchPromise);
@@ -413,25 +414,21 @@ const CalendarPage: React.FC = React.memo(() => {
     const requestId = ++fetchEventsRequestIdRef.current;
 
     try {
-      let payload: { events: DeliveryEvent[]; formattedEvents: CalendarEvent[] } | null = null;
+      let payload:
+        | { events: DeliveryEvent[]; formattedEvents: CalendarEvent[] }
+        | null = null;
 
       if (viewType === "Month") {
         payload = getCachedMonthPayload(currentDate);
 
         if (!payload) {
-          const cacheVersion = monthEventsCacheVersionRef.current;
           payload = await buildEventsPayload(currentDate, viewType);
           const cacheKey = getMonthCacheKey(currentDate);
-          if (
-            requestId === fetchEventsRequestIdRef.current &&
-            cacheVersion === monthEventsCacheVersionRef.current
-          ) {
-            monthEventsCacheRef.current.set(cacheKey, {
-              timestamp: Date.now(),
-              events: payload.events,
-              formattedEvents: payload.formattedEvents,
-            });
-          }
+          monthEventsCacheRef.current.set(cacheKey, {
+            timestamp: Date.now(),
+            events: payload.events,
+            formattedEvents: payload.formattedEvents,
+          });
         }
       } else {
         payload = await buildEventsPayload(currentDate, viewType);
@@ -480,7 +477,6 @@ const CalendarPage: React.FC = React.memo(() => {
         householdSnapshot,
       });
 
-      invalidateMonthEventsCache();
       await fetchEvents();
       setIsModalOpen(false);
       showSuccess(`Delivery schedule saved for ${clientName}`);
@@ -540,12 +536,11 @@ const CalendarPage: React.FC = React.memo(() => {
 
   useEffect(() => {
     const unsubscribe = deliveryEventEmitter.subscribe(() => {
-      invalidateMonthEventsCache();
       void fetchEvents();
     });
 
     return unsubscribe;
-  }, [fetchEvents, invalidateMonthEventsCache]);
+  }, [fetchEvents]);
 
   // Handle URL parameter changes (e.g., browser back/forward, direct URL access)
   useEffect(() => {
@@ -759,6 +754,7 @@ const CalendarPage: React.FC = React.memo(() => {
                 }}
                 onAddDelivery={() => {
                   setIsModalOpen(true);
+                  preloadAllClients();
                 }}
                 onEditLimits={
                   viewType === "Month"
@@ -792,8 +788,10 @@ const CalendarPage: React.FC = React.memo(() => {
                   open={isModalOpen}
                   onClose={() => setIsModalOpen(false)}
                   onAddDelivery={handleAddDelivery}
+                  clients={clients}
                   limits={limits}
                   dailyLimits={dailyLimits}
+                  clientsLoaded={clientsLoaded}
                   startDate={currentDate}
                 />
               </>

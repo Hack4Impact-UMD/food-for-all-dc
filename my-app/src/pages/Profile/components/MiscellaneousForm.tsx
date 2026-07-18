@@ -56,7 +56,9 @@ const MiscellaneousForm: React.FC<MiscellaneousFormProps> = ({
             TEFAP CERT
           </Typography>
           {isEditing ? (
-            <Box sx={{ minHeight: 120, width: "100%" }}>{renderField("tefapCert", "date")}</Box>
+            <Box sx={{ minHeight: 120, width: "100%" }}>
+              {renderField("tefapCertDate", "date")}
+            </Box>
           ) : (
             <Typography
               sx={{
@@ -70,7 +72,7 @@ const MiscellaneousForm: React.FC<MiscellaneousFormProps> = ({
                 pl: 0,
               }}
             >
-              {clientProfile.tefapCert ? String(clientProfile.tefapCert) : "N/A"}
+              {clientProfile.tefapCertDate ? String(clientProfile.tefapCertDate) : "N/A"}
             </Typography>
           )}
         </Box>

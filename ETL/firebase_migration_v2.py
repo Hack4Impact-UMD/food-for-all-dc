@@ -4,7 +4,7 @@ REFERRAL_COLLECTION_NAME = "temp-referral"
 import json
 import os
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timezone, date
 import time
 import random
 from typing import Dict, List, Any, Optional
@@ -54,6 +54,14 @@ def normalize_client_database_dataframe(df: pd.DataFrame) -> pd.DataFrame:
 		normalized = str(column_name).strip().lower()
 		if normalized in {"", "unnamed: 0", "id#", "client id"}:
 			rename_map[column_name] = "ID"
+		elif normalized in {"apt #", "apt#"}:
+			rename_map[column_name] = "APT"
+		elif normalized in {"# children"}:
+			rename_map[column_name] = "# kids"
+		elif normalized in {"quadrant"}:
+			rename_map[column_name] = "Quadrant_database"
+		elif normalized in {"end date", "enddate"}:
+			rename_map[column_name] = "EndDate"
 		elif normalized in {"tefap fy25", "tefap fy26", "tefap_fy25", "tefap_fy26"}:
 			rename_map[column_name] = "TEFAP_FY25"
 	if rename_map:
@@ -62,6 +70,22 @@ def normalize_client_database_dataframe(df: pd.DataFrame) -> pd.DataFrame:
 	if "_excel_row_num" not in df.columns:
 		df["_excel_row_num"] = df.index + 2
 	return df
+
+
+def normalize_tefap_cert_value(value):
+	"""Convert TEFAP source values to a boolean field suitable for Firestore."""
+	if isinstance(value, bool):
+		return value
+	if value is None:
+		return False
+	if isinstance(value, (int, float)) and not isinstance(value, bool):
+		return value != 0
+	text = str(value).strip().lower()
+	if text in {"true", "t", "yes", "y", "1"}:
+		return True
+	if text in {"false", "f", "no", "n", "0", "", "nan", "none"}:
+		return False
+	return bool(value)
 
 
 class _InfoOnlyFilter(logging.Filter):
@@ -415,6 +439,17 @@ class FirestoreMigration:
 			value = row.get(field, "")
 			if value and str(value).strip() and str(value).strip().lower() not in ['', 'false', 'no', '0']:
 				return True
+
+		# Current Deliveries uses raw date headers (for example 1/31/2025 or 2025-08-01 00:00:00)
+		# instead of Delivery_* column names. Treat non-empty values in those date columns as recent deliveries.
+		date_header_pattern = re.compile(
+			r"^(\d{1,2}/\d{1,2}/\d{4}(?:\s+CLOSED)?)$|^(\d{4}-\d{2}-\d{2}(?:\s+\d{2}:\d{2}:\d{2})?)$"
+		)
+		for key, value in row.items():
+			if not date_header_pattern.match(str(key).strip()):
+				continue
+			if value and str(value).strip() and str(value).strip().lower() not in ['', 'false', 'no', '0', 'nan']:
+				return True
         
 		return False
 	def match_referral_form(self, first_name, last_name, address, referral_form_records):
@@ -721,6 +756,8 @@ class FirestoreMigration:
 		skipped = 0
 		total_records = len(records)
 		today_str = datetime.now().strftime("%Y%m%d")
+		failed_inserts_dir = os.path.join("ETL", "failed_inserts")
+		os.makedirs(failed_inserts_dir, exist_ok=True)
 		failed_inserts_path = os.path.join("ETL", "failed_inserts", "failed_inserts.json")
 		failed_client_inserts_path = os.path.join("ETL", "failed_inserts", f"client-profile-failed-insert-{today_str}.txt")
 		failed_referral_inserts_path = os.path.join("ETL", "failed_inserts", f"referral-fail-insert-{today_str}.txt")
@@ -1536,6 +1573,8 @@ class FirestoreMigration:
 		# Household composition: support Adults_database/kids or Excel '# Adults'/'# kids'
 		adults_raw = row.get("Adults_database") if row.get("Adults_database") is not None else row.get("# Adults")
 		children_raw = row.get("kids") if row.get("kids") is not None else row.get("# kids")
+		if children_raw in (None, ""):
+			children_raw = row.get("# Children")
 		try:
 			adults_count = int(adults_raw) if adults_raw not in (None, "") else 0
 		except Exception:
@@ -1566,8 +1605,9 @@ class FirestoreMigration:
 		# --- Address handling: use main address up to quadrant for geocoding,
 		# and capture apartment/unit suffix into address2 when possible. ---
 		raw_address = row.get("ADDRESS", "") or ""
-		apt_from_col = str(row.get("APT", "") or "").strip()
+		apt_from_col = str((row.get("APT") or row.get("APT #") or "")).strip()
 		apt_from_address = ""
+		quadrant_value = row.get("Quadrant_database") or row.get("Quadrant", "")
 		quadrant_match = re.search(r"\b(NE|NW|SE|SW)\b", raw_address)
 		if quadrant_match:
 			end_idx = quadrant_match.end()
@@ -1591,6 +1631,10 @@ class FirestoreMigration:
 		city = row.get("City", "")
 		state = row.get("State", "")
 		zip_in_data = row.get("ZIPcode", "") or row.get("ZIP", "")
+		if not city and quadrant_value:
+			city = "Washington"
+		if not state and quadrant_value:
+			state = "DC"
 		if any(q in address_for_coords for q in [" NE", " NW", " SE", " SW"]):
 			city = "Washington"
 			state = "DC"
@@ -1616,15 +1660,27 @@ class FirestoreMigration:
 		if not zip_code:
 			zip_code = str(zip_in_data) if zip_in_data else ""
 
-		end_date = row.get("EndDate", "")
-		if not end_date or not str(end_date).strip():
-			end_date = "12/31/2026"
+		DEFAULT_END_DATE_STR = "12/31/2026"
+		raw_end = row.get("EndDate") or row.get("End Date", "")
+		end_date = ""
+		if raw_end is None or not str(raw_end).strip() or str(raw_end).strip().lower() == "nan":
+			end_date = DEFAULT_END_DATE_STR
 		else:
-			# If end_date is present but not a valid date, set to 12/31/2026
-			try:
-				_ = datetime.strptime(end_date.strip(), "%m/%d/%Y")
-			except Exception:
-				end_date = "12/31/2026"
+			# Keep endDate in the same display format used throughout the ETL: MM/DD/YYYY.
+			if isinstance(raw_end, datetime):
+				end_date = raw_end.date().strftime("%m/%d/%Y")
+			elif isinstance(raw_end, date):
+				end_date = raw_end.strftime("%m/%d/%Y")
+			else:
+				text = str(raw_end).strip()
+				parsed_end = None
+				for fmt in ("%m/%d/%Y", "%Y-%m-%d", "%Y-%m-%d %H:%M:%S"):
+					try:
+						parsed_end = datetime.strptime(text, fmt).date()
+						break
+					except Exception:
+						continue
+				end_date = parsed_end.strftime("%m/%d/%Y") if parsed_end else DEFAULT_END_DATE_STR
 
 		# Map recurrence using the same logic as parse_frequency
 		def map_recurrence(frequency_str):
@@ -1650,7 +1706,6 @@ class FirestoreMigration:
 		recurrence = map_recurrence(row.get("Frequency", ""))
 
 		# Parse dates for activeStatus logic
-		from datetime import datetime, date
 		DEFAULT_START_DATE_STR = "11/15/2025"
 		DEFAULT_START_DATE = datetime.strptime(DEFAULT_START_DATE_STR, "%m/%d/%Y").date()
 		today = datetime.now(timezone.utc).date()
@@ -1707,7 +1762,7 @@ class FirestoreMigration:
 			"zipCode": zip_code,
 			"city": city,
 			"state": state,
-			"quadrant": row.get("Quadrant_database", ""),
+			"quadrant": quadrant_value,
 			"dob": "",
 			"deliveryFreq": delivery_freq,
 			"phone": phone,
@@ -1743,7 +1798,8 @@ class FirestoreMigration:
 			"startDate": start_date_str,
 			"endDate": end_date,
 			"recurrence": recurrence,
-			"tefapCert": row.get("TEFAP_FY25", ""),
+			"tefapCert": normalize_tefap_cert_value(row.get("TEFAP_FY25", "")),
+			"tefapCertDate": "",
 			"notesTimestamp": None,
 			"deliveryInstructionsTimestamp": None,
 			"lifeChallengesTimestamp": None,
@@ -1827,6 +1883,13 @@ def main():
 	COLLECTION_NAME = CLIENT_COLLECTION_NAME
 	EXCEL_FILE_PATH = CLIENT_DATABASE_FILE_PATH
 	EXCEL_SHEET_NAME = CLIENT_DATABASE_SHEET_NAME
+	resolved_service_account_path = os.path.abspath(SERVICE_ACCOUNT_PATH)
+	resolved_failed_inserts_dir = os.path.abspath(os.path.join("ETL", "failed_inserts"))
+	logger.info(
+		"Startup paths: service_account=%s | failed_inserts_dir=%s",
+		resolved_service_account_path,
+		resolved_failed_inserts_dir,
+	)
 
 	# ====================================================================
 	# CRITICAL: Check for Google Maps API Key BEFORE doing anything else

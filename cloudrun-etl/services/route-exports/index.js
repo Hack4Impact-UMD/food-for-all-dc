@@ -98,7 +98,7 @@ functions.http('emailDeliveryZip', async (req, res) => {
 
       const msg = {
         to: driverEmail,
-        from: process.env.FROM_EMAIL || 'noreply@example.com',
+        from: process.env.FROM_EMAIL || 'info@foodforalldc.org',
         subject: `Delivery Routes for ${deliveryDate}`,
         text: `Attached are the delivery routes for ${deliveryDate}.`,
         attachments: [
