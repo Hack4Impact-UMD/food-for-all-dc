@@ -1855,7 +1855,6 @@ class FirestoreMigration:
 			"endDate": end_date,
 			"recurrence": recurrence,
 			"tefapCert": normalize_tefap_cert_value(row.get("TEFAP_FY25", "")),
-			"tefapCertDate": "",
 			"notesTimestamp": None,
 			"deliveryInstructionsTimestamp": None,
 			"lifeChallengesTimestamp": None,

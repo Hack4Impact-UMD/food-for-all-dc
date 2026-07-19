@@ -35,6 +35,7 @@ if (sendgridApiKey) {
 
 const senderEmail = emailConfig.fromEmail || process.env.FROM_EMAIL || 'noreply@yourdomain.com';
 const recipientEmail = emailConfig.toEmail || process.env.TO_EMAIL;
+const CLIENTS_COLLECTION = 'client-profile2';
 
 /**
  * Checks if a given timestamp is within the last 7 days.
@@ -71,8 +72,7 @@ functions.http('admin-notes-summary', async (req, res) => {
 
     const clientsWithRecentChanges = [];
 
-    // Fetch all clients from the 'clients' collection
-    const clientsSnapshot = await db.collection('clients').get();
+    const clientsSnapshot = await db.collection(CLIENTS_COLLECTION).get();
 
     // Iterate through each client to check for recent note updates
     for (const doc of clientsSnapshot.docs) {

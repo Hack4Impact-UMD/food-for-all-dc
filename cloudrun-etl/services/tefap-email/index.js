@@ -33,6 +33,7 @@ if (sendgridApiKey) {
 
 const senderEmail = emailConfig.fromEmail || process.env.FROM_EMAIL || 'Admin@foodforalldc.org';
 const recipientEmail = emailConfig.toEmail || process.env.TO_EMAIL;
+const CLIENTS_COLLECTION = 'client-profile2';
 
 functions.http('tefap-email', async (req, res) => {
   // Set CORS headers
@@ -66,7 +67,7 @@ functions.http('tefap-email', async (req, res) => {
     const soonToExpire = [];
 
     // Fetch all clients from the database
-    const clientsSnapshot = await db.collection('clients').get();
+    const clientsSnapshot = await db.collection(CLIENTS_COLLECTION).get();
     
     // Process each client
     for (const doc of clientsSnapshot.docs) {

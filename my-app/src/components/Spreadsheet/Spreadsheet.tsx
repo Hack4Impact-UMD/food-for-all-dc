@@ -100,7 +100,7 @@ const addablePropertyKeyLabelMap: Record<string, string> = {
   phone: "Phone",
   referralEntity: "Referral Entity",
   tags: "Tags",
-  tefapCertDate: "TEFAP Cert Date",
+  tefapCert: "TEFAP Cert",
   dob: "DOB",
   lastDeliveryDate: "Last Delivery Date",
 };
@@ -126,7 +126,7 @@ const clientCustomColumnMappings: Record<string, string[]> = {
   notes: ["notes"],
   referralEntity: ["referral entity", "referral"],
   tags: ["tags", "tag"],
-  tefapCertDate: ["tefap", "tefap cert", "tefap date", "tefap cert date"],
+  tefapCert: ["tefap", "tefap cert"],
   dob: ["dob"],
   lastDeliveryDate: ["last delivery date"],
 };
@@ -597,7 +597,6 @@ const Spreadsheet: React.FC = () => {
               notes: client.notes || "",
               famStartDate: client.famStartDate || "",
               tefapCert: Boolean(client.tefapCert),
-              tefapCertDate: client.tefapCertDate || "",
               dob: client.dob || "",
               ward: client.ward || "",
               zipCode: client.zipCode || "",
@@ -1071,7 +1070,7 @@ const Spreadsheet: React.FC = () => {
                 case "tefap":
                 case "tefapcert":
                   return matchesAnySearchValue((candidate) =>
-                    checkStringContains(row.tefapCertDate, candidate)
+                    checkStringContains(row.tefapCert ? "yes true" : "no false", candidate)
                   );
                 case "date":
                 case "famstartdate":

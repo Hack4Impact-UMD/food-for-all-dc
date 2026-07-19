@@ -33,6 +33,7 @@ if (sendgridApiKey) {
 
 const senderEmail = emailConfig.fromEmail || process.env.FROM_EMAIL || 'Admin@foodforalldc.org';
 const recipientEmail = emailConfig.toEmail || process.env.TO_EMAIL;
+const CLIENTS_COLLECTION = 'client-profile2';
 
 functions.http('check-remaining-deliveries', async (req, res) => {
   try {
@@ -60,7 +61,7 @@ functions.http('check-remaining-deliveries', async (req, res) => {
         .get();
 
       if (futureSnap.size === 1) {
-        const clientDoc = await db.collection('clients').doc(clientId).get();
+        const clientDoc = await db.collection(CLIENTS_COLLECTION).doc(clientId).get();
         if (clientDoc.exists) {
           const c = clientDoc.data();
           warnedClients.push({

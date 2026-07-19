@@ -11,6 +11,8 @@ from clustering import (
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
+CLIENTS_COLLECTION = "client-profile2"
+
 # Initialize Firebase Admin SDK only once
 try:
     firebase_admin.initialize_app()
@@ -204,7 +206,7 @@ def run_update(tz_name: str = "America/New_York") -> dict:
 
     for client_id in result.get("client_ids", []):
         try:
-            doc_ref = db.collection("clients").document(client_id)
+            doc_ref = db.collection(CLIENTS_COLLECTION).document(client_id)
             doc = doc_ref.get()
 
             if doc.exists:

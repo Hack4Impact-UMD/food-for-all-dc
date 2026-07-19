@@ -46,7 +46,6 @@ export interface RowData {
     organization: string;
   };
   tefapCert?: boolean;
-  tefapCertDate?: string;
   famStartDate?: string;
   lastDeliveryDate?: string;
   missedStrikeCount?: number;
@@ -95,8 +94,8 @@ const getSpreadsheetExportColumnHeader = (propertyKey: string): string => {
       return "Phone";
     case "referralEntity":
       return "Referral Entity";
-    case "tefapCertDate":
-      return "TEFAP Cert Date";
+    case "tefapCert":
+      return "TEFAP Cert";
     case "famStartDate":
       return "Fam Start Date";
     case "tags":
@@ -147,8 +146,8 @@ const resolveSpreadsheetExportValue = (row: RowData, propertyKey: string): strin
     return normalizeDateValue(row.famStartDate);
   }
 
-  if (propertyKey === "tefapCertDate") {
-    return normalizeDateValue(row.tefapCertDate);
+  if (propertyKey === "tefapCert") {
+    return row.tefapCert ? "Yes" : "No";
   }
 
   const value = propertyKey.includes(".") ? getNestedValue(row, propertyKey, "") : row[propertyKey];
@@ -242,7 +241,7 @@ export const exportAllClients = (rows: RowData[]) => {
       "Referral Entity": row.referralEntity
         ? [row.referralEntity.name, row.referralEntity.organization].filter(Boolean).join(", ")
         : "",
-      "TEFAP Cert Date": row.tefapCertDate ?? "",
+      "TEFAP Cert": row.tefapCert ? "Yes" : "No",
       Tags: row.tags?.join(", ") || "",
       "Date of Birth": row.dob ?? "",
     };

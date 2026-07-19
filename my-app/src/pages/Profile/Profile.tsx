@@ -257,7 +257,6 @@ const Profile = () => {
     tags: [],
     ward: "",
     tefapCert: false,
-    tefapCertDate: "",
     referralEntity: null,
     referredDate: "",
     coordinates: [],
@@ -844,7 +843,7 @@ const Profile = () => {
     }
 
     // Always format these fields as MM/DD/YYYY
-    if (["dob", "tefapCertDate", "startDate", "endDate"].includes(name)) {
+    if (["dob", "startDate", "endDate"].includes(name)) {
       let formatted = value;
       if (typeof value === "string" && value.match(/^\d{4}-\d{2}-\d{2}$/)) {
         // Convert YYYY-MM-DD to MM/DD/YYYY
@@ -854,7 +853,6 @@ const Profile = () => {
       setClientProfile((prevState) => ({
         ...prevState,
         [name]: formatted,
-        ...(name === "tefapCertDate" ? { tefapCert: Boolean(formatted) } : {}),
       }));
       return;
     } else if (name === "adults" || name === "children" || name === "seniors") {
@@ -951,16 +949,6 @@ const Profile = () => {
       !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clientProfile.email.trim())
     ) {
       newErrors.email = "Invalid email format";
-    }
-
-    if (clientProfile.tefapCertDate?.trim()) {
-      const tefapDate = new Date(clientProfile.tefapCertDate);
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-
-      if (!isNaN(tefapDate.getTime()) && tefapDate > today) {
-        newErrors.tefapCertDate = "TEFAP cert date cannot be in the future";
-      }
     }
 
     if (!clientProfile.startDate?.trim()) {
@@ -1488,8 +1476,7 @@ const Profile = () => {
         ...cleanedProfile,
         // Example: convert specific date fields
         dob: convertDateForSave(cleanedProfile.dob),
-        tefapCert: Boolean(convertDateForSave(cleanedProfile.tefapCertDate)),
-        tefapCertDate: convertDateForSave(cleanedProfile.tefapCertDate),
+        tefapCert: Boolean(cleanedProfile.tefapCert),
         famStartDate: convertDateForSave(cleanedProfile.famStartDate),
         startDate: normalizedStartDate,
         endDate: normalizedEndDate,

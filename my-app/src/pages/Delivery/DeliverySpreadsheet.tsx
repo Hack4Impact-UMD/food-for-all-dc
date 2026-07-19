@@ -437,7 +437,7 @@ const addablePropertyKeyLabelMap: Record<string, string> = {
   phone: "Phone",
   referralEntity: "Referral Entity",
   tags: "Tags",
-  tefapCertDate: "TEFAP Cert Date",
+  tefapCert: "TEFAP Cert",
   dob: "DOB",
   lastDeliveryDate: "Last Delivery Date",
 };
@@ -468,7 +468,7 @@ const routeCustomColumnMappings: Record<string, string[]> = {
   phone: ["phone"],
   referralEntity: ["referral entity", "referral"],
   tags: ["tags", "tag"],
-  tefapCertDate: ["tefap", "tefap cert", "tefap date", "tefap cert date"],
+  tefapCert: ["tefap", "tefap cert"],
   dob: ["dob"],
   lastDeliveryDate: ["last delivery date"],
 };
@@ -2390,7 +2390,7 @@ const DeliverySpreadsheet: React.FC = () => {
               case "tefap":
               case "tefapcert":
                 return matchesAnySearchValue((candidate) =>
-                  checkStringContains(row.tefapCertDate, candidate)
+                  checkStringContains(row.tefapCert ? "yes true" : "no false", candidate)
                 );
               case "date":
               case "famstartdate": {
@@ -4110,7 +4110,7 @@ const DeliverySpreadsheet: React.FC = () => {
                             if (key === "phone") label = "Phone";
                             if (key === "referralEntity") label = "Referral Entity";
                             if (key === "tags") label = "Tags";
-                            if (key === "tefapCertDate") label = "TEFAP Cert Date";
+                            if (key === "tefapCert") label = "TEFAP Cert";
                             if (key === "dob") label = "DOB";
                             if (key === "lastDeliveryDate") label = "Last Delivery Date";
                             return (
@@ -4320,7 +4320,7 @@ const DeliverySpreadsheet: React.FC = () => {
                             if (key === "notes") label = "Notes";
                             if (key === "phone") label = "Phone";
                             if (key === "referralEntity") label = "Referral Entity";
-                            if (key === "tefapCertDate") label = "TEFAP Cert Date";
+                            if (key === "tefapCert") label = "TEFAP Cert";
                             if (key === "dob") label = "DOB";
                             if (key === "lastDeliveryDate") label = "Last Delivery Date";
                             return (

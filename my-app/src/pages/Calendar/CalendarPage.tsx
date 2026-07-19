@@ -40,6 +40,7 @@ import { getCalendarViewRange, getTodayDayPilotDate } from "./components/calenda
 
 const DAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
 const MONTH_EVENTS_CACHE_TTL_MS = 5 * 60 * 1000;
+const CLIENT_PRELOAD_PAGE_SIZE = 500;
 
 const StyledCalendarContainer = styled(Box)(({ theme }) => ({
   display: "flex",
@@ -131,7 +132,19 @@ const CalendarPage: React.FC = React.memo(() => {
   const preloadAllClients = useCallback(async () => {
     if (!clientsLoaded) {
       try {
-        const { clients: allClients } = await clientService.getAllClients(3000);
+        const allClients: ClientProfile[] = [];
+        let lastDoc: unknown;
+
+        do {
+          const page = await clientService.getAllClients(CLIENT_PRELOAD_PAGE_SIZE, lastDoc);
+          allClients.push(...page.clients);
+          lastDoc = page.lastDoc;
+
+          if (page.clients.length < CLIENT_PRELOAD_PAGE_SIZE) {
+            break;
+          }
+        } while (lastDoc);
+
         setClients(allClients);
         setClientsLoaded(true);
       } catch (error) {
@@ -222,6 +235,9 @@ const CalendarPage: React.FC = React.memo(() => {
   };
 
   const clientCacheRef = useRef(new Map<string, ClientProfile>());
+  const clientDeliverySummaryCacheRef = useRef(
+    new Map<string, { missedStrikeCount: number; lastDeliveryDate: string }>()
+  );
 
   const fetchClientsLazy = useCallback(async (clientIds: string[]) => {
     const uncachedIds = clientIds.filter((id) => !clientCacheRef.current.has(id));
@@ -240,11 +256,21 @@ const CalendarPage: React.FC = React.memo(() => {
     }
     const requestedClients = clientIds.map((id) => clientCacheRef.current.get(id)).filter(Boolean);
 
-    let deliverySummaries = new Map<string, { missedStrikeCount: number; lastDeliveryDate: string }>();
-    try {
-      deliverySummaries = await clientService.getClientDeliverySummaries(clientIds);
-    } catch (error) {
-      console.error("Error fetching client delivery summaries:", error);
+    const uncachedSummaryIds = clientIds.filter(
+      (id) => !clientDeliverySummaryCacheRef.current.has(id)
+    );
+    if (uncachedSummaryIds.length > 0) {
+      try {
+        const deliverySummaries = await clientService.getClientDeliverySummaries(uncachedSummaryIds);
+        uncachedSummaryIds.forEach((id) => {
+          clientDeliverySummaryCacheRef.current.set(
+            id,
+            deliverySummaries.get(id) ?? { missedStrikeCount: 0, lastDeliveryDate: "" }
+          );
+        });
+      } catch (error) {
+        console.error("Error fetching client delivery summaries:", error);
+      }
     }
 
     const clientsWithSummaries = requestedClients.map((client) => {
@@ -252,7 +278,7 @@ const CalendarPage: React.FC = React.memo(() => {
         return client;
       }
 
-      const summary = deliverySummaries.get(client.uid);
+      const summary = clientDeliverySummaryCacheRef.current.get(client.uid);
       return {
         ...client,
         missedStrikeCount: summary?.missedStrikeCount ?? 0,
@@ -379,7 +405,11 @@ const CalendarPage: React.FC = React.memo(() => {
       }
 
       if (monthPrefetchInFlightRef.current.has(cacheKey)) {
-        await monthPrefetchInFlightRef.current.get(cacheKey);
+        try {
+          await monthPrefetchInFlightRef.current.get(cacheKey);
+        } catch {
+          // Prefetch failures should not interrupt primary calendar flow.
+        }
         return;
       }
 
@@ -536,6 +566,7 @@ const CalendarPage: React.FC = React.memo(() => {
 
   useEffect(() => {
     const unsubscribe = deliveryEventEmitter.subscribe(() => {
+      clientDeliverySummaryCacheRef.current.clear();
       void fetchEvents();
     });
 

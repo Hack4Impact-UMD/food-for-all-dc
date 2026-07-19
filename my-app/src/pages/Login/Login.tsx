@@ -76,7 +76,7 @@ function Login() {
       default:
         return {
           code: error.code,
-          message: `${error.code}: ${error.message || "An error occurred during login."}`,
+          message: "An error occurred during login. Please try again.",
         };
     }
   };
