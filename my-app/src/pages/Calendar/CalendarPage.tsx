@@ -217,7 +217,12 @@ const CalendarPage: React.FC = React.memo(() => {
   const fetchClientsLazy = useCallback(async (clientIds: string[]) => {
     const uncachedIds = clientIds.filter((id) => !clientCacheRef.current.has(id));
     const [clientsData, deliverySummaries] = await Promise.all([
-      uncachedIds.length > 0 ? clientService.getClientsByIds(uncachedIds) : Promise.resolve([]),
+      uncachedIds.length > 0
+        ? clientService.getClientsByIds(uncachedIds).catch((error) => {
+            console.error("Error fetching clients:", error);
+            return [];
+          })
+        : Promise.resolve([]),
       clientService.getClientDeliverySummaries(clientIds).catch((error) => {
         console.error("Error fetching client delivery summaries:", error);
         return new Map<string, { missedStrikeCount: number; lastDeliveryDate: string }>();

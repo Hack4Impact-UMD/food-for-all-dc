@@ -275,7 +275,7 @@ export const loadFirstDeliveriesByClientIds = async (
 
 export const loadLatestPastDeliveryDatesByClientIds = async (
   clientIds: string[],
-  _today = DateTime.now().endOf("day")
+  today = DateTime.now().endOf("day")
 ): Promise<Map<string, string>> => {
-  return batchGetLastDeliveryDates(clientIds);
+  return batchGetLastDeliveryDates(clientIds, today.toJSDate());
 };

@@ -418,7 +418,8 @@ const Spreadsheet: React.FC = () => {
   };
   const [forceRerender, setForceRerender] = useState(0);
   const virtuosoRef = React.useRef<any>(null);
-  const { clients, loading, loadingMore, hasMore, error, refresh, loadAllRemaining } = useClientData();
+  const { clients, loading, loadingMore, hasMore, error, refresh, loadMore, loadAllRemaining } =
+    useClientData();
   const { showError, showSuccess, showWarning } = useNotifications();
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [debouncedSearch, setDebouncedSearch] = useState<string>("");
@@ -763,7 +764,7 @@ const Spreadsheet: React.FC = () => {
   }, []);
 
   const handleExportAction = async (
-    sourceRows: RowData[],
+    sourceRows: RowData[] | (() => Promise<RowData[]>),
     exportFn: (rowsToExport: RowData[]) => string,
     successMessage: (filename: string) => string
   ) => {
@@ -773,7 +774,8 @@ const Spreadsheet: React.FC = () => {
 
     setIsExporting(true);
     try {
-      const exportRows = await hydrateRowsForExport(sourceRows);
+      const resolvedRows = typeof sourceRows === "function" ? await sourceRows() : sourceRows;
+      const exportRows = await hydrateRowsForExport(resolvedRows);
       const filename = exportFn(exportRows);
       showSuccess(successMessage(filename));
     } catch (error) {
@@ -794,8 +796,8 @@ const Spreadsheet: React.FC = () => {
       return;
     }
 
-    void loadAllRemaining();
-  }, [debouncedSearch, loadAllRemaining]);
+    void loadMore();
+  }, [debouncedSearch, loadMore]);
 
   // TableVirtuoso MUI integration
   const TableComponent = forwardRef<HTMLTableElement, React.ComponentProps<typeof Table>>(
@@ -1482,7 +1484,7 @@ const Spreadsheet: React.FC = () => {
                         onClick={() => {
                           setExportDialogOpen(false);
                           void handleExportAction(
-                            clients,
+                            loadAllRemaining,
                             (rowsToExport) => exportAllClients(rowsToExport),
                             (filename) => `Exported ${filename}.`
                           );

@@ -524,6 +524,16 @@ class DeliveryService {
     }
   }
 
+  private async refreshLastDeliveryDatesAfterMutation(clientIds: string[]): Promise<void> {
+    try {
+      await this.refreshLastDeliveryDatesForClients(clientIds);
+    } catch (error) {
+      // The delivery mutation has already committed. Keep the primary action successful;
+      // reports can recover from a stale cache through their event-based fallback.
+      console.error("Delivery saved, but the client last-delivery cache refresh failed:", error);
+    }
+  }
+
   private async finalizeMutation(
     reason: DeliveryChangeReason,
     impactedDateKeys: string[],
@@ -532,7 +542,9 @@ class DeliveryService {
     this.invalidateRecurringCache(affectedEvents);
     const invalidationResult = await this.reconcileClusterAssignmentsForDateKeys(impactedDateKeys);
     this.emitDeliveryChange(reason, impactedDateKeys, invalidationResult);
-    await this.refreshLastDeliveryDatesForClients(this.getUniqueClientIdsFromEvents(affectedEvents));
+    await this.refreshLastDeliveryDatesAfterMutation(
+      this.getUniqueClientIdsFromEvents(affectedEvents)
+    );
   }
 
   private async createEventsInternal(
@@ -569,7 +581,9 @@ class DeliveryService {
     );
     const invalidationResult = await this.reconcileClusterAssignmentsForDateKeys(impactedDateKeys);
     this.emitDeliveryChange(reason, impactedDateKeys, invalidationResult);
-    await this.refreshLastDeliveryDatesForClients(this.getUniqueClientIdsFromEvents(normalizedEvents));
+    await this.refreshLastDeliveryDatesAfterMutation(
+      this.getUniqueClientIdsFromEvents(normalizedEvents)
+    );
 
     return docIds;
   }
@@ -603,7 +617,7 @@ class DeliveryService {
       const invalidationResult =
         await this.reconcileClusterAssignmentsForDateKeys(impactedDateKeys);
       this.emitDeliveryChange("schedule-batch-deleted", impactedDateKeys, invalidationResult);
-      await this.refreshLastDeliveryDatesForClients([clientId]);
+      await this.refreshLastDeliveryDatesAfterMutation([clientId]);
       this.logDeliveryDebug("deleteEventsByClientId:completed", {
         clientId,
         deletedCount: querySnapshot.size,
@@ -629,7 +643,7 @@ class DeliveryService {
       const invalidationResult =
         await this.reconcileClusterAssignmentsForDateKeys(impactedDateKeys);
       this.emitDeliveryChange("schedule-batch-deleted", impactedDateKeys, invalidationResult);
-      await this.refreshLastDeliveryDatesForClients([clientId]);
+      await this.refreshLastDeliveryDatesAfterMutation([clientId]);
     };
 
     let deleteError: unknown = null;
@@ -1295,7 +1309,7 @@ class DeliveryService {
             .filter(Boolean)
         )
       );
-      await this.refreshLastDeliveryDatesForClients(affectedClientIds);
+      await this.refreshLastDeliveryDatesAfterMutation(affectedClientIds);
     } catch (error) {
       throw formatServiceError(error, "Failed to update event");
     }

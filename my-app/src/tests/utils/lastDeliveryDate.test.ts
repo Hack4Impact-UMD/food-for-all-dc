@@ -45,7 +45,10 @@ jest.mock("firebase/firestore", () => ({
   },
 }));
 
-import { batchGetClientDeliverySummaries } from "../../utils/lastDeliveryDate";
+import {
+  batchGetClientDeliverySummaries,
+  batchGetLastDeliveryDates,
+} from "../../utils/lastDeliveryDate";
 
 const makeSnapshot = (rows: EventRow[]): MockSnapshot => ({
   forEach: (callback: (doc: { id: string; data: () => EventRow }) => void) => {
@@ -135,5 +138,36 @@ describe("batchGetClientDeliverySummaries", () => {
 
     expect(summaryMap.get("client-1")?.missedStrikeCount).toBe(2);
     expect(summaryMap.get("client-2")?.missedStrikeCount).toBe(1);
+  });
+});
+
+describe("batchGetLastDeliveryDates", () => {
+  beforeEach(() => {
+    mockGetDocs.mockReset();
+    mockCollection.mockClear();
+    mockWhere.mockClear();
+    mockOrderBy.mockClear();
+    mockQuery.mockClear();
+  });
+
+  it("returns the latest delivery on or before the requested cutoff", async () => {
+    mockGetDocs.mockResolvedValueOnce(
+      makeSnapshot([
+        { clientId: "client-1", deliveryDate: "2026-02-01" },
+        { clientId: "client-1", deliveryDate: "2026-01-10" },
+      ])
+    );
+
+    const result = await batchGetLastDeliveryDates(
+      ["client-1"],
+      new Date("2026-01-15T23:59:59.999Z")
+    );
+
+    expect(result.get("client-1")).toBe("2026-01-10");
+    const cutoffClause = mockWhere.mock.calls.find(
+      (call: any[]) => call[0] === "deliveryDate" && call[1] === "<="
+    );
+    expect(cutoffClause).toBeDefined();
+    expect(cutoffClause?.[2].toDate().toISOString()).toBe("2026-01-15T23:59:59.999Z");
   });
 });

@@ -34,7 +34,7 @@ interface ClientDataContextType {
   error: Error | null;
   refresh: () => Promise<void>;
   loadMore: () => Promise<void>;
-  loadAllRemaining: () => Promise<void>;
+  loadAllRemaining: () => Promise<RowData[]>;
   requestLoad: () => void;
 }
 
@@ -51,6 +51,8 @@ export const ClientDataProvider: React.FC<{ children: ReactNode }> = ({ children
   const lastDocRef = useRef<any>(null);
   const hasMoreRef = useRef(false);
   const loadedClientIdsRef = useRef<Set<string>>(new Set());
+  const clientsRef = useRef<RowData[]>([]);
+  const loadAllRemainingInFlightRef = useRef<Promise<RowData[]> | null>(null);
   const [hasRequestedLoad, setHasRequestedLoad] = useState(false);
   const { user, loading: authLoading } = useAuth();
 
@@ -95,21 +97,19 @@ export const ClientDataProvider: React.FC<{ children: ReactNode }> = ({ children
         newRows.forEach((row) => loadedClientIdsRef.current.add(row.uid));
 
         setClients((previousClients) => {
+          let nextClients: RowData[];
           if (reset) {
-            return newRows;
+            nextClients = newRows;
+          } else if (newRows.length === 0) {
+            nextClients = previousClients;
+          } else {
+            const existingIds = new Set(previousClients.map((client) => client.uid));
+            const uniqueRows = newRows.filter((row) => !existingIds.has(row.uid));
+            nextClients =
+              uniqueRows.length === 0 ? previousClients : [...previousClients, ...uniqueRows];
           }
-
-          if (newRows.length === 0) {
-            return previousClients;
-          }
-
-          const existingIds = new Set(previousClients.map((client) => client.uid));
-          const uniqueRows = newRows.filter((row) => !existingIds.has(row.uid));
-          if (uniqueRows.length === 0) {
-            return previousClients;
-          }
-
-          return [...previousClients, ...uniqueRows];
+          clientsRef.current = nextClients;
+          return nextClients;
         });
 
         lastDocRef.current = pageResult.lastDoc;
@@ -161,72 +161,93 @@ export const ClientDataProvider: React.FC<{ children: ReactNode }> = ({ children
     await fetchPage({ reset: false });
   }, [fetchPage, loading, loadingMore]);
 
-  const loadAllRemaining = useCallback(async () => {
-    if (loading || loadingMore || !hasMoreRef.current) {
-      return;
+  const loadAllRemaining = useCallback(async (): Promise<RowData[]> => {
+    if (loadAllRemainingInFlightRef.current) {
+      return loadAllRemainingInFlightRef.current;
     }
 
-    if (inFlightFetchRef.current) {
-      await inFlightFetchRef.current;
-    }
+    const runLoadAllRemaining = async (): Promise<RowData[]> => {
+      if (inFlightFetchRef.current) {
+        await inFlightFetchRef.current;
+      }
 
-    const requestId = ++fetchRequestIdRef.current;
-    const perfDebugEnabled = isSpreadsheetPerfDebugEnabled();
-    const fetchStartTime = perfDebugEnabled ? performance.now() : 0;
+      if (!hasMoreRef.current) {
+        return clientsRef.current;
+      }
 
-    setLoadingMore(true);
+      const requestId = ++fetchRequestIdRef.current;
+      const perfDebugEnabled = isSpreadsheetPerfDebugEnabled();
+      const fetchStartTime = perfDebugEnabled ? performance.now() : 0;
 
-    try {
-      const accumulatedRows: RowData[] = [];
-      const loadedIds = new Set(loadedClientIdsRef.current);
-      let currentLastDoc = lastDocRef.current;
-      let hasAdditionalPages: boolean = hasMoreRef.current;
+      setLoadingMore(true);
 
-      while (hasAdditionalPages) {
-        const pageResult = await clientService.getAllClientsForSpreadsheet(
-          CLIENT_SPREADSHEET_PAGE_SIZE,
-          currentLastDoc
-        );
+      try {
+        const accumulatedRows: RowData[] = [];
+        const loadedIds = new Set(loadedClientIdsRef.current);
+        let currentLastDoc = lastDocRef.current;
+        let hasAdditionalPages: boolean = hasMoreRef.current;
 
-        if (requestId !== fetchRequestIdRef.current) {
-          return;
+        while (hasAdditionalPages) {
+          const pageResult = await clientService.getAllClientsForSpreadsheet(
+            CLIENT_SPREADSHEET_PAGE_SIZE,
+            currentLastDoc
+          );
+
+          if (requestId !== fetchRequestIdRef.current) {
+            throw new Error("Client export was interrupted by a newer refresh.");
+          }
+
+          const freshRows = pageResult.clients.filter((row) => !loadedIds.has(row.uid));
+          freshRows.forEach((row) => loadedIds.add(row.uid));
+          accumulatedRows.push(...freshRows);
+
+          currentLastDoc = pageResult.lastDoc;
+          hasAdditionalPages =
+            !!pageResult.lastDoc &&
+            pageResult.clients.length >= CLIENT_SPREADSHEET_PAGE_SIZE;
         }
 
-        const freshRows = pageResult.clients.filter((row) => !loadedIds.has(row.uid));
-        freshRows.forEach((row) => loadedIds.add(row.uid));
-        accumulatedRows.push(...freshRows);
+        loadedClientIdsRef.current = loadedIds;
+        lastDocRef.current = currentLastDoc;
+        hasMoreRef.current = false;
+        setHasMore(false);
 
-        currentLastDoc = pageResult.lastDoc;
-        hasAdditionalPages = !!pageResult.lastDoc && pageResult.clients.length >= CLIENT_SPREADSHEET_PAGE_SIZE;
+        if (accumulatedRows.length > 0) {
+          const nextClients = [...clientsRef.current, ...accumulatedRows];
+          clientsRef.current = nextClients;
+          setClients(nextClients);
+        }
+
+        if (perfDebugEnabled) {
+          const totalDurationMs = Math.round(performance.now() - fetchStartTime);
+          console.info(
+            `[SpreadsheetPerf] loadAllRemainingMs=${totalDurationMs} rows=${accumulatedRows.length}`
+          );
+        }
+
+        return clientsRef.current;
+      } catch (err: any) {
+        if (requestId === fetchRequestIdRef.current) {
+          setError(err);
+        }
+        throw err;
+      } finally {
+        if (requestId === fetchRequestIdRef.current) {
+          setLoadingMore(false);
+        }
       }
+    };
 
-      loadedClientIdsRef.current = loadedIds;
-      lastDocRef.current = currentLastDoc;
-      hasMoreRef.current = false;
-      setHasMore(false);
-
-      if (accumulatedRows.length > 0) {
-        setClients((previousClients) => [...previousClients, ...accumulatedRows]);
-      }
-
-      if (perfDebugEnabled) {
-        const totalDurationMs = Math.round(performance.now() - fetchStartTime);
-        console.info(
-          `[SpreadsheetPerf] loadAllRemainingMs=${totalDurationMs} rows=${accumulatedRows.length}`
-        );
-      }
-    } catch (err: any) {
-      if (requestId !== fetchRequestIdRef.current) {
-        return;
-      }
-
-      setError(err);
+    const loadPromise = runLoadAllRemaining();
+    loadAllRemainingInFlightRef.current = loadPromise;
+    try {
+      return await loadPromise;
     } finally {
-      if (requestId === fetchRequestIdRef.current) {
-        setLoadingMore(false);
+      if (loadAllRemainingInFlightRef.current === loadPromise) {
+        loadAllRemainingInFlightRef.current = null;
       }
     }
-  }, [loading, loadingMore]);
+  }, []);
 
   const requestLoad = useCallback(() => {
     setHasRequestedLoad(true);

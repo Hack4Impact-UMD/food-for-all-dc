@@ -442,4 +442,18 @@ describe("CalendarPage stale fetch protection", () => {
       expect(screen.getByTestId("month-event-ids").textContent).toBe("fresh-month");
     });
   });
+
+  it("keeps delivery events visible when optional client hydration fails", async () => {
+    mockGetEventsByDateRange.mockImplementation(async () => [
+      buildEvent("delivery-with-stored-name", "2026-03-10", "client-1"),
+    ]);
+    mockGetClientsByIds.mockRejectedValue(new Error("client lookup unavailable"));
+
+    renderCalendarPage();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("day-count").textContent).toBe("1");
+      expect(screen.getByTestId("event-ids").textContent).toBe("delivery-with-stored-name");
+    });
+  });
 });

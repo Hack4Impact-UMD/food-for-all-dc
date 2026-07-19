@@ -89,6 +89,7 @@ import RouteExportOptions, {
   RouteExportScope,
 } from "./components/RouteExportOptions";
 import { getClientStatusPresentation } from "../../utils/clientStatus";
+import { enrichRouteClientStatuses } from "./utils/routeClientStatus";
 import LoadingIndicator from "../../components/LoadingIndicator/LoadingIndicator";
 import { exportDeliveries, exportDoordashDeliveries, ExportFeedback } from "./RouteExport";
 import Button from "@mui/material/Button";
@@ -1216,7 +1217,15 @@ const DeliverySpreadsheet: React.FC = () => {
             clientsWithDeliveriesOnSelectedDate.concat(chunkData);
         }
         const uniqueClients = dedupeClientsById(clientsWithDeliveriesOnSelectedDate);
-        setRawClientData(uniqueClients);
+        const summaryClientIds = uniqueClients.map((client) => client.id).filter(Boolean);
+        const deliverySummaries =
+          summaryClientIds.length > 0
+            ? await clientService.getClientDeliverySummaries(summaryClientIds).catch((error) => {
+                console.error("Error fetching route client delivery summaries:", error);
+                return new Map();
+              })
+            : new Map();
+        setRawClientData(enrichRouteClientStatuses(uniqueClients, deliverySummaries));
 
         // Identify missing client profiles
         const foundClientIds = new Set(uniqueClients.map((client) => client.id));

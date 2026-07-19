@@ -1,4 +1,12 @@
-import { collection, getDocs, query, where, orderBy, Timestamp } from "firebase/firestore";
+import {
+  collection,
+  getDocs,
+  query,
+  where,
+  orderBy,
+  Timestamp,
+  QueryConstraint,
+} from "firebase/firestore";
 import { db } from "../auth/firebaseConfig";
 import dataSources from "../config/dataSources";
 import { getLatestScheduledDate } from "./recurringSeries";
@@ -49,17 +57,33 @@ const isFirestoreInLimitError = (error: unknown): boolean => {
 const fetchSnapshotsByClientIdChunks = async (
   eventsRef: ReturnType<typeof collection>,
   clientIds: string[],
-  inLimit: number
+  inLimit: number,
+  onOrBefore?: Date | Timestamp | string
 ) => {
   const chunks = buildClientIdChunks(clientIds, inLimit);
   const snapshots: Awaited<ReturnType<typeof getDocs>>[] = [];
+  const cutoffDate =
+    onOrBefore instanceof Date
+      ? onOrBefore
+      : onOrBefore instanceof Timestamp
+        ? onOrBefore.toDate()
+        : onOrBefore
+          ? deliveryDate.tryToDateTime(onOrBefore)?.toJSDate()
+          : null;
 
   for (let i = 0; i < chunks.length; i += FIRESTORE_CHUNK_QUERY_CONCURRENCY) {
     const concurrentChunks = chunks.slice(i, i + FIRESTORE_CHUNK_QUERY_CONCURRENCY);
     const batchSnapshots = await Promise.all(
-      concurrentChunks.map((chunk) =>
-        getDocs(query(eventsRef, where("clientId", "in", chunk), orderBy("deliveryDate", "desc")))
-      )
+      concurrentChunks.map((chunk) => {
+        const constraints: QueryConstraint[] = [where("clientId", "in", chunk)];
+        if (cutoffDate) {
+          constraints.push(
+            where("deliveryDate", "<=", Timestamp.fromDate(cutoffDate))
+          );
+        }
+        constraints.push(orderBy("deliveryDate", "desc"));
+        return getDocs(query(eventsRef, ...constraints));
+      })
     );
     snapshots.push(...batchSnapshots);
   }
@@ -69,13 +93,19 @@ const fetchSnapshotsByClientIdChunks = async (
 
 const fetchSnapshotsWithAdaptiveInLimit = async (
   eventsRef: ReturnType<typeof collection>,
-  clientIds: string[]
+  clientIds: string[],
+  onOrBefore?: Date | Timestamp | string
 ) => {
   let lastError: unknown = null;
 
   for (const candidateLimit of FIRESTORE_IN_QUERY_LIMIT_CANDIDATES) {
     try {
-      return await fetchSnapshotsByClientIdChunks(eventsRef, clientIds, candidateLimit);
+      return await fetchSnapshotsByClientIdChunks(
+        eventsRef,
+        clientIds,
+        candidateLimit,
+        onOrBefore
+      );
     } catch (error) {
       lastError = error;
       if (!isFirestoreInLimitError(error)) {
@@ -113,7 +143,8 @@ export const getLastDeliveryDateForClient = async (clientId: string): Promise<st
 };
 
 export const batchGetLastDeliveryDates = async (
-  clientIds: string[]
+  clientIds: string[],
+  onOrBefore?: Date | Timestamp | string
 ): Promise<Map<string, string>> => {
   const result = new Map<string, string>();
   const uniqueClientIds = Array.from(new Set(clientIds.filter(Boolean)));
@@ -123,11 +154,24 @@ export const batchGetLastDeliveryDates = async (
   try {
     const eventsRef = collection(db, dataSources.firebase.calendarCollection);
     const clientEventsMap = new Map<string, EventWithDeliveryDate[]>();
-    const snapshots = await fetchSnapshotsWithAdaptiveInLimit(eventsRef, uniqueClientIds);
+    const snapshots = await fetchSnapshotsWithAdaptiveInLimit(
+      eventsRef,
+      uniqueClientIds,
+      onOrBefore
+    );
+    const cutoffDateKey = onOrBefore ? deliveryDate.tryToISODateString(onOrBefore) : null;
 
     snapshots.forEach((querySnapshot) => {
       querySnapshot.forEach((doc) => {
         const eventData = doc.data() as EventData;
+        const eventDateKey = deliveryDate.tryToISODateString(eventData.deliveryDate);
+        if (
+          cutoffDateKey &&
+          eventDateKey &&
+          deliveryDate.compare(eventDateKey, cutoffDateKey) > 0
+        ) {
+          return;
+        }
         if (!clientEventsMap.has(eventData.clientId)) {
           clientEventsMap.set(eventData.clientId, []);
         }
