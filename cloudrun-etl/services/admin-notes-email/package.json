@@ -9,7 +9,7 @@
   "scripts": {
     "start": "functions-framework --target=admin-notes-summary --port=8080",
     "dev": "functions-framework --target=admin-notes-summary --port=8080",
-    "deploy": "gcloud functions deploy admin-notes-summary --runtime nodejs22 --trigger-http --allow-unauthenticated"
+    "deploy": "gcloud functions deploy admin-notes-summary --runtime nodejs22 --trigger-http --no-allow-unauthenticated"
   },
   "dependencies": {
     "@sendgrid/mail": "^8.1.5",

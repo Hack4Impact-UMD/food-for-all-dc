@@ -114,6 +114,8 @@ This section covers full deployment workflows for Cloud Run components in this f
 
 Use the helper script in `services/deploy-cloudrun-services.ps1` to deploy one Cloud Run component or all Cloud Run components.
 
+The deploy scripts keep Cloud Run services private by passing `--no-allow-unauthenticated`. Manual callers and schedulers must invoke the services with an authenticated identity that has `roles/run.invoker` on the target service.
+
 ### Start Here (First Deployment)
 
 If this is your first time, run these in order from the repo root:
@@ -335,3 +337,5 @@ gcloud run deploy active-status-etl --image gcr.io/[PROJECT-ID]/cloudrun-etl --p
 ```
 
 Replace `[PROJECT-ID]` with your GCP project ID.
+
+To keep the manual deploy private, include `--no-allow-unauthenticated` or remove any `allUsers` / `allAuthenticatedUsers` Cloud Run Invoker IAM bindings after deployment.

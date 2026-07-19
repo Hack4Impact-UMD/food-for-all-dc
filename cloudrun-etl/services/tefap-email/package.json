@@ -9,7 +9,7 @@
   "scripts": {
     "start": "functions-framework --target=tefap-email --port=8080",
     "dev": "functions-framework --target=tefap-email --port=8080",
-    "deploy": "gcloud functions deploy tefap-email --runtime nodejs22 --trigger-http --allow-unauthenticated"
+    "deploy": "gcloud functions deploy tefap-email --runtime nodejs22 --trigger-http --no-allow-unauthenticated"
   },
   "dependencies": {
     "@sendgrid/mail": "^8.1.5",

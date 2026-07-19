@@ -59,7 +59,7 @@ foreach ($svc in $targets) {
     '--project', $ProjectId,
     '--region', $Region,
     '--platform', 'managed',
-    '--allow-unauthenticated',
+    '--no-allow-unauthenticated',
     '--quiet'
   )
 

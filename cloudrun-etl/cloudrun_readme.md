@@ -108,14 +108,13 @@ Core deployment script. For each target service it runs `gcloud run deploy` with
 
 - `--source` path for the service folder.
 - `--project`, `--region`, `--platform managed`.
-- `--allow-unauthenticated`.
-- Email config and secrets/env var injection for mailers.
+- `--no-allow-unauthenticated`, so callers must authenticate with `roles/run.invoker`.
+- Email config and Secret Manager wiring for mailers.
 
 Important behavior:
 
-- For email services, it requires one of:
-  - `SENDGRID_API_KEY` (plain env var), or
-  - `SENDGRID_API_KEY_SECRET` (Secret Manager secret name).
+- For email services, prefer `SENDGRID_API_KEY_SECRET=sendgrid-api-key` so Cloud Run receives `SENDGRID_API_KEY` from Secret Manager.
+- Avoid deploying real SendGrid keys as plain environment variables.
 - It reads `fromEmail` and `toEmail` from `services/email-config.json` and injects them as Cloud Run env vars.
 
 ### `services/email-config.json`
@@ -166,48 +165,80 @@ All email services are HTTP handlers via `@google-cloud/functions-framework`, us
 - `package.json`
   - Node runtime and dependencies.
 
-## 6) Email API key setup (PowerShell and Bash)
+## 6) SendGrid setup with Secret Manager
 
-These snippets set the Cloud Run email API key input used by `deploy-cloudrun-services.ps1`.
+The email services use SendGrid through `@sendgrid/mail`. The deployed Cloud Run services should not store the API key as a plain environment variable. Use this Secret Manager setup instead:
 
-### Option A: Direct env var (`SENDGRID_API_KEY`)
+- Secret Manager secret name: `sendgrid-api-key`
+- Cloud Run env var name: `SENDGRID_API_KEY`
+- Cloud Run secret reference: `sendgrid-api-key:latest`
+- Sender: `FROM_EMAIL=info@foodforalldc.org`
+- Recipient: `TO_EMAIL=jamiebrs@gmail.com`
 
-#### PowerShell
+The current email services that use this setup are:
+
+- `admin-notes-email`
+- `check-remaining-deliveries`
+- `tefap-email`
+
+### Create or update the SendGrid secret
+
+Create the secret once if it does not exist:
+
+```bash
+gcloud secrets create sendgrid-api-key --replication-policy="automatic"
+```
+
+Add a new secret version from the Google Cloud Console Secret Manager UI, or from a shell that will not echo the key. If using Git Bash:
+
+```bash
+read -s -p "Paste SendGrid API key: " SENDGRID_KEY
+printf "%s" "$SENDGRID_KEY" | gcloud secrets versions add sendgrid-api-key --data-file=-
+unset SENDGRID_KEY
+```
+
+After adding a new working version, disable old/bad versions so `latest` resolves to the intended key. Do not paste SendGrid keys into chat, source files, commit history, or terminal commands that will be saved in shell history.
+
+### Attach the secret to Cloud Run services
+
+Run these after creating a new secret version or when repairing service configuration:
+
+```bash
+gcloud run services update admin-notes-email --region us-central1 --set-secrets SENDGRID_API_KEY=sendgrid-api-key:latest
+gcloud run services update check-remaining-deliveries --region us-central1 --set-secrets SENDGRID_API_KEY=sendgrid-api-key:latest
+gcloud run services update tefap-email --region us-central1 --set-secrets SENDGRID_API_KEY=sendgrid-api-key:latest
+```
+
+Set or repair sender/recipient env vars:
+
+```bash
+gcloud run services update admin-notes-email --region us-central1 --update-env-vars "FROM_EMAIL=info@foodforalldc.org,TO_EMAIL=jamiebrs@gmail.com"
+gcloud run services update check-remaining-deliveries --region us-central1 --update-env-vars "FROM_EMAIL=info@foodforalldc.org,TO_EMAIL=jamiebrs@gmail.com"
+gcloud run services update tefap-email --region us-central1 --update-env-vars "FROM_EMAIL=info@foodforalldc.org,TO_EMAIL=jamiebrs@gmail.com"
+```
+
+Remove obsolete Mailjet/SMTP env vars if they appear on a service:
+
+```bash
+gcloud run services update check-remaining-deliveries --region us-central1 --remove-env-vars SMTP_HOST,SMTP_PORT,SMTP_USER,SMTP_PASS,MAILJET_API_KEY,MAILJET_SECRET_KEY
+gcloud run services update tefap-email --region us-central1 --remove-env-vars MAILJET_API_KEY,MAILJET_SECRET_KEY
+```
+
+### Deploy email services using the script
+
+When deploying with `deploy-cloudrun-services.ps1`, pass the Secret Manager secret name through `SENDGRID_API_KEY_SECRET`:
 
 ```powershell
-$env:SENDGRID_API_KEY = "SG.xxxxx"
+$env:SENDGRID_API_KEY_SECRET = "sendgrid-api-key"
 powershell -ExecutionPolicy Bypass -File .\cloudrun-etl\services\deploy-cloudrun-services.ps1 -Service admin-notes-email
 ```
 
-#### Bash
-
 ```bash
-export SENDGRID_API_KEY="SG.xxxxx"
+export SENDGRID_API_KEY_SECRET="sendgrid-api-key"
 pwsh -ExecutionPolicy Bypass -File ./cloudrun-etl/services/deploy-cloudrun-services.ps1 -Service admin-notes-email
 ```
 
-### Option B: Secret Manager reference (`SENDGRID_API_KEY_SECRET`)
-
-Use this when you already have a secret in GCP Secret Manager.
-
-#### PowerShell
-
-```powershell
-$env:SENDGRID_API_KEY_SECRET = "SENDGRID_API_KEY"
-powershell -ExecutionPolicy Bypass -File .\cloudrun-etl\services\deploy-cloudrun-services.ps1 -Service admin-notes-email
-```
-
-#### Bash
-
-```bash
-export SENDGRID_API_KEY_SECRET="SENDGRID_API_KEY"
-pwsh -ExecutionPolicy Bypass -File ./cloudrun-etl/services/deploy-cloudrun-services.ps1 -Service admin-notes-email
-```
-
-Notes:
-
-- If both variables are set, the deploy script prefers secret-based wiring for `SENDGRID_API_KEY`.
-- The service code reads `process.env.SENDGRID_API_KEY` at runtime.
+The service code reads `process.env.SENDGRID_API_KEY` at runtime. Cloud Run resolves that value from Secret Manager.
 
 ## 7) Python service snapshots/reference folders under services
 
@@ -237,7 +268,7 @@ These are important for operational context and recovery/sync history even if th
 
 Expected env vars:
 
-- `SENDGRID_API_KEY` (required for sending)
+- `SENDGRID_API_KEY` (required for sending; should come from `sendgrid-api-key:latest` Secret Manager reference)
 - `FROM_EMAIL` (from `email-config.json` or service fallback)
 - `TO_EMAIL` (from `email-config.json` or service fallback)
 
@@ -262,13 +293,35 @@ Expected env vars:
 Useful checks after deploy:
 
 ```bash
-gcloud run services describe admin-notes-email --region us-central1 --format=json
-gcloud run services describe check-remaining-deliveries --region us-central1 --format=json
-gcloud run services describe tefap-email --region us-central1 --format=json
+gcloud run services describe admin-notes-email --region us-central1 --format="value(spec.template.spec.containers[0].env)"
+gcloud run services describe check-remaining-deliveries --region us-central1 --format="value(spec.template.spec.containers[0].env)"
+gcloud run services describe tefap-email --region us-central1 --format="value(spec.template.spec.containers[0].env)"
 ```
 
-Look under:
+Expected email env shape:
 
-- `spec.template.spec.containers[0].env`
+```text
+FROM_EMAIL=info@foodforalldc.org
+TO_EMAIL=jamiebrs@gmail.com
+SENDGRID_API_KEY -> secretKeyRef: sendgrid-api-key:latest
+```
 
-to verify `SENDGRID_API_KEY`, `FROM_EMAIL`, and `TO_EMAIL` are present as expected.
+There should be no `MAILJET_*`, `SMTP_*`, or plaintext `SENDGRID_API_KEY` values on these services.
+
+### Send test emails
+
+The services are private Cloud Run endpoints, so use an identity token when invoking them manually:
+
+```powershell
+$token = gcloud auth print-identity-token; curl.exe -sS -X POST -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d "{}" https://admin-notes-email-251910218620.us-central1.run.app
+$token = gcloud auth print-identity-token; curl.exe -sS -X POST -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d "{}" https://check-remaining-deliveries-251910218620.us-central1.run.app
+$token = gcloud auth print-identity-token; curl.exe -sS -X POST -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d "{}" https://tefap-email-251910218620.us-central1.run.app
+```
+
+Expected behavior:
+
+- `admin-notes-email`: sends only when there are recent client note changes. If no changes exist, it returns `No recent client note changes to report.` and does not send.
+- `check-remaining-deliveries`: sends the weekly one-delivery-left report.
+- `tefap-email`: sends the TEFAP certification expiration report.
+
+If SendGrid returns `Unauthorized`, verify that the `sendgrid-api-key` latest enabled secret version contains the exact working SendGrid key and that older invalid versions are disabled. The key must have Mail Send permission.

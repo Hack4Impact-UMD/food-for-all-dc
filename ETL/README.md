@@ -3,6 +3,12 @@
 ## Overview
 This folder contains scripts and resources for running the full ETL (Extract, Transform, Load) process for Food For All DC. The ETL process loads and normalizes client and referral/case worker data from spreadsheets into Firebase Firestore.
 
+## Generated Folders
+
+Keep the ETL scripts and documentation in this folder tracked in git. Any subfolder created inside `ETL/` is treated as generated output from the scripts and should not be committed. These folders can include logs, failed-record exports, temporary reports, or other run artifacts.
+
+The root `.gitignore` intentionally ignores `ETL/*/` so generated subfolders stay local while top-level files such as `.py`, `.md`, and `requirements.txt` remain trackable.
+
 ## Quick Start
 
 ### 1. Install Python and create a virtual environment (Windows)
