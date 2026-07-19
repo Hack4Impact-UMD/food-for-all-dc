@@ -1,4 +1,4 @@
-setuptools==78.1.1
+setuptools==83.0.0
 firebase-functions==0.4.2
 # 3.9+ pulls Starlette through unused ASGI support; pinned pending PYSEC-2026-161 fix.
 functions-framework==3.8.3
