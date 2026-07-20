@@ -161,6 +161,7 @@ const CalendarPage: React.FC = React.memo(() => {
   const monthEventsCacheRef = useRef(
     new Map<string, { timestamp: number; events: DeliveryEvent[]; formattedEvents: CalendarEvent[] }>()
   );
+  const monthEventsCacheVersionRef = useRef(0);
   const monthPrefetchInFlightRef = useRef(
     new Map<string, Promise<{ events: DeliveryEvent[]; formattedEvents: CalendarEvent[] }>>()
   );
@@ -333,6 +334,12 @@ const CalendarPage: React.FC = React.memo(() => {
     [getMonthCacheKey]
   );
 
+  const invalidateMonthEventsCache = useCallback(() => {
+    monthEventsCacheVersionRef.current += 1;
+    monthEventsCacheRef.current.clear();
+    monthPrefetchInFlightRef.current.clear();
+  }, []);
+
   const buildEventsPayload = useCallback(
     async (
       targetDate: DayPilot.Date,
@@ -413,13 +420,16 @@ const CalendarPage: React.FC = React.memo(() => {
         return;
       }
 
+      const cacheVersion = monthEventsCacheVersionRef.current;
       const prefetchPromise = buildEventsPayload(targetDate, "Month")
         .then((payload) => {
-          monthEventsCacheRef.current.set(cacheKey, {
-            timestamp: Date.now(),
-            events: payload.events,
-            formattedEvents: payload.formattedEvents,
-          });
+          if (cacheVersion === monthEventsCacheVersionRef.current) {
+            monthEventsCacheRef.current.set(cacheKey, {
+              timestamp: Date.now(),
+              events: payload.events,
+              formattedEvents: payload.formattedEvents,
+            });
+          }
           return payload;
         })
         .catch((error) => {
@@ -427,7 +437,9 @@ const CalendarPage: React.FC = React.memo(() => {
           throw error;
         })
         .finally(() => {
-          monthPrefetchInFlightRef.current.delete(cacheKey);
+          if (monthPrefetchInFlightRef.current.get(cacheKey) === prefetchPromise) {
+            monthPrefetchInFlightRef.current.delete(cacheKey);
+          }
         });
 
       monthPrefetchInFlightRef.current.set(cacheKey, prefetchPromise);
@@ -452,13 +464,19 @@ const CalendarPage: React.FC = React.memo(() => {
         payload = getCachedMonthPayload(currentDate);
 
         if (!payload) {
+          const cacheVersion = monthEventsCacheVersionRef.current;
           payload = await buildEventsPayload(currentDate, viewType);
           const cacheKey = getMonthCacheKey(currentDate);
-          monthEventsCacheRef.current.set(cacheKey, {
-            timestamp: Date.now(),
-            events: payload.events,
-            formattedEvents: payload.formattedEvents,
-          });
+          if (
+            requestId === fetchEventsRequestIdRef.current &&
+            cacheVersion === monthEventsCacheVersionRef.current
+          ) {
+            monthEventsCacheRef.current.set(cacheKey, {
+              timestamp: Date.now(),
+              events: payload.events,
+              formattedEvents: payload.formattedEvents,
+            });
+          }
         }
       } else {
         payload = await buildEventsPayload(currentDate, viewType);
@@ -507,6 +525,7 @@ const CalendarPage: React.FC = React.memo(() => {
         householdSnapshot,
       });
 
+      invalidateMonthEventsCache();
       await fetchEvents();
       setIsModalOpen(false);
       showSuccess(`Delivery schedule saved for ${clientName}`);
@@ -567,11 +586,12 @@ const CalendarPage: React.FC = React.memo(() => {
   useEffect(() => {
     const unsubscribe = deliveryEventEmitter.subscribe(() => {
       clientDeliverySummaryCacheRef.current.clear();
+      invalidateMonthEventsCache();
       void fetchEvents();
     });
 
     return unsubscribe;
-  }, [fetchEvents]);
+  }, [fetchEvents, invalidateMonthEventsCache]);
 
   // Handle URL parameter changes (e.g., browser back/forward, direct URL access)
   useEffect(() => {

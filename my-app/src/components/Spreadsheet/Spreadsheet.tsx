@@ -418,7 +418,7 @@ const Spreadsheet: React.FC = () => {
   };
   const [forceRerender, setForceRerender] = useState(0);
   const virtuosoRef = React.useRef<any>(null);
-  const { clients, loading, loadingMore, hasMore, error, refresh, loadAllRemaining } =
+  const { clients, loading, loadingMore, hasMore, error, refresh, loadMore, loadAllRemaining } =
     useClientData();
   const { showError, showSuccess, showWarning } = useNotifications();
   const [searchQuery, setSearchQuery] = useState<string>("");
@@ -432,7 +432,7 @@ const Spreadsheet: React.FC = () => {
   const [isExporting, setIsExporting] = useState(false);
   const [clientIdToDelete, setClientIdToDelete] = useState<string | null>(null);
   const [clientNameToDelete, setClientNameToDelete] = useState<string>("");
-  const previousClientIdsRef = React.useRef<string>("");
+  const previousClientIdsRef = React.useRef<string[]>([]);
   const remoteSearchRequestIdRef = React.useRef(0);
   const [remoteSearchRows, setRemoteSearchRows] = useState<RowData[] | null>(null);
   const [isRemoteSearchLoading, setIsRemoteSearchLoading] = useState(false);
@@ -443,11 +443,17 @@ const Spreadsheet: React.FC = () => {
   const handleRemoveCustomColumn = customColumnsHook.handleRemoveCustomColumn;
 
   useEffect(() => {
-    const nextClientIds = clients.map((client) => client.uid).join("|");
-    const shouldResetTable = previousClientIdsRef.current !== nextClientIds;
+    const nextClientIds = clients.map((client) => client.uid);
+    const previousClientIds = previousClientIdsRef.current;
+    const isSameList =
+      previousClientIds.length === nextClientIds.length &&
+      previousClientIds.every((id, index) => id === nextClientIds[index]);
+    const isAppendedPage =
+      nextClientIds.length > previousClientIds.length &&
+      previousClientIds.every((id, index) => id === nextClientIds[index]);
     previousClientIdsRef.current = nextClientIds;
 
-    if (!shouldResetTable) {
+    if (isSameList || isAppendedPage) {
       return;
     }
 
@@ -1601,6 +1607,11 @@ const Spreadsheet: React.FC = () => {
               data={filteredRows}
               components={VirtuosoTableComponents}
               overscan={200}
+              endReached={() => {
+                if (!searchQuery.trim() && hasMore && !loadingMore) {
+                  void loadMore();
+                }
+              }}
               key={forceRerender}
               fixedHeaderContent={() => (
                 <TableRow sx={{ position: "sticky", top: 0, zIndex: 2 }}>
