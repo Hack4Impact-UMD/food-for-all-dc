@@ -1661,9 +1661,9 @@ class FirestoreMigration:
 		# --- Address handling: use main address up to quadrant for geocoding,
 		# and capture apartment/unit suffix into address2 when possible. ---
 		raw_address = row.get("ADDRESS", "") or ""
-		apt_from_col = str((row.get("APT") or row.get("APT #") or "")).strip()
+		apt_from_col = _clean_name(row.get("APT")) or _clean_name(row.get("APT #"))
 		apt_from_address = ""
-		quadrant_value = row.get("Quadrant_database") or row.get("Quadrant", "")
+		quadrant_value = _clean_name(row.get("Quadrant_database")) or _clean_name(row.get("Quadrant"))
 		quadrant_match = re.search(r"\b(NE|NW|SE|SW)\b", raw_address)
 		if quadrant_match:
 			end_idx = quadrant_match.end()
