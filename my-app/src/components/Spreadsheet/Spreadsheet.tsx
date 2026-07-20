@@ -147,6 +147,7 @@ const StyleChip = styled(Chip)(({ theme }) => ({
 
 const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const DELIVERY_SUMMARY_EXPORT_BATCH_SIZE = 100;
+const EXPORT_ALL_CLIENTS_PAGE_SIZE = 500;
 
 const formatTimestampLikeDate = (value: unknown): string => {
   if (value === null || value === undefined || value === "N/A") return "";
@@ -417,7 +418,8 @@ const Spreadsheet: React.FC = () => {
   };
   const [forceRerender, setForceRerender] = useState(0);
   const virtuosoRef = React.useRef<any>(null);
-  const { clients, loading, error, refresh } = useClientData();
+  const { clients, loading, loadingMore, hasMore, error, refresh, loadMore, loadAllRemaining } =
+    useClientData();
   const { showError, showSuccess, showWarning } = useNotifications();
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [debouncedSearch, setDebouncedSearch] = useState<string>("");
@@ -430,7 +432,10 @@ const Spreadsheet: React.FC = () => {
   const [isExporting, setIsExporting] = useState(false);
   const [clientIdToDelete, setClientIdToDelete] = useState<string | null>(null);
   const [clientNameToDelete, setClientNameToDelete] = useState<string>("");
-  const previousClientIdsRef = React.useRef<string>("");
+  const previousClientIdsRef = React.useRef<string[]>([]);
+  const remoteSearchRequestIdRef = React.useRef(0);
+  const [remoteSearchRows, setRemoteSearchRows] = useState<RowData[] | null>(null);
+  const [isRemoteSearchLoading, setIsRemoteSearchLoading] = useState(false);
   const customColumnsHook = useCustomColumns({ page: "Spreadsheet" });
   const customColumns = customColumnsHook.customColumns;
   const handleAddCustomColumn = customColumnsHook.handleAddCustomColumn;
@@ -438,11 +443,17 @@ const Spreadsheet: React.FC = () => {
   const handleRemoveCustomColumn = customColumnsHook.handleRemoveCustomColumn;
 
   useEffect(() => {
-    const nextClientIds = clients.map((client) => client.uid).join("|");
-    const shouldResetTable = previousClientIdsRef.current !== nextClientIds;
+    const nextClientIds = clients.map((client) => client.uid);
+    const previousClientIds = previousClientIdsRef.current;
+    const isSameList =
+      previousClientIds.length === nextClientIds.length &&
+      previousClientIds.every((id, index) => id === nextClientIds[index]);
+    const isAppendedPage =
+      nextClientIds.length > previousClientIds.length &&
+      previousClientIds.every((id, index) => id === nextClientIds[index]);
     previousClientIdsRef.current = nextClientIds;
 
-    if (!shouldResetTable) {
+    if (isSameList || isAppendedPage) {
       return;
     }
 
@@ -463,6 +474,172 @@ const Spreadsheet: React.FC = () => {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
+  useEffect(() => {
+    const trimmedSearch = debouncedSearch.trim();
+
+    if (!trimmedSearch) {
+      setRemoteSearchRows(null);
+      setIsRemoteSearchLoading(false);
+      return;
+    }
+
+    if (!trimmedSearch.includes(":")) {
+      setRemoteSearchRows(null);
+      setIsRemoteSearchLoading(false);
+      if (hasMore) {
+        void loadAllRemaining();
+      }
+      return;
+    }
+
+    if (trimmedSearch.includes(":")) {
+      const parsedTerms = parseSearchTermsProgressively(trimmedSearch);
+      const nonKeyValueTerms = parsedTerms.filter((term) => !term.includes(":"));
+
+      if (nonKeyValueTerms.length > 0) {
+        setRemoteSearchRows(null);
+        setIsRemoteSearchLoading(false);
+        if (hasMore) {
+          void loadAllRemaining();
+        }
+        return;
+      }
+
+      const nameQuery = parsedTerms.find((term) => {
+        if (!term.includes(":")) return false;
+        const { keyword } = extractKeyValue(term);
+        const normalizedKeyword = normalizeSearchKeyword(keyword);
+        return ["name", "client", "firstname", "lastname"].includes(normalizedKeyword);
+      });
+
+      if (!nameQuery) {
+        setRemoteSearchRows(null);
+        setIsRemoteSearchLoading(false);
+        if (hasMore) {
+          void loadAllRemaining();
+        }
+        return;
+      }
+
+      const { searchValue } = extractKeyValue(nameQuery);
+      const normalizedNameQuery = splitFilterValues(searchValue).join(" ").trim();
+
+      if (!normalizedNameQuery) {
+        setRemoteSearchRows([]);
+        setIsRemoteSearchLoading(false);
+        return;
+      }
+
+      const requestId = ++remoteSearchRequestIdRef.current;
+      setIsRemoteSearchLoading(true);
+
+      void (async () => {
+        try {
+          const matchedClients = await clientService.searchClientsByName(normalizedNameQuery, 100);
+          if (requestId !== remoteSearchRequestIdRef.current) {
+            return;
+          }
+
+          const matchedClientIds = matchedClients.map((client) => client.uid).filter(Boolean);
+          if (matchedClientIds.length === 0) {
+            setRemoteSearchRows([]);
+            return;
+          }
+
+          const [fullClients, deliverySummaries] = await Promise.all([
+            clientService.getClientsByIds(matchedClientIds),
+            clientService
+              .getClientDeliverySummaries(matchedClientIds)
+              .catch(() => new Map<string, ClientDeliverySummary>()),
+          ]);
+
+          if (requestId !== remoteSearchRequestIdRef.current) {
+            return;
+          }
+
+          const mergedRows = fullClients
+            .map((client) => ({
+              id: client.uid,
+              uid: client.uid,
+              clientid: client.uid,
+              firstName: client.firstName || "",
+              lastName: client.lastName || "",
+              email: client.email || "",
+              phone: client.phone || "",
+              houseNumber: 0,
+              address: client.address || "",
+              address2: client.address2 || "",
+              deliveryDetails: {
+                deliveryInstructions: client.deliveryDetails?.deliveryInstructions || "",
+                dietaryRestrictions: {
+                  foodAllergens:
+                    client.deliveryDetails?.dietaryRestrictions?.foodAllergens || [],
+                  halal: client.deliveryDetails?.dietaryRestrictions?.halal || false,
+                  kidneyFriendly:
+                    client.deliveryDetails?.dietaryRestrictions?.kidneyFriendly || false,
+                  lowSodium: client.deliveryDetails?.dietaryRestrictions?.lowSodium || false,
+                  lowSugar: client.deliveryDetails?.dietaryRestrictions?.lowSugar || false,
+                  microwaveOnly:
+                    client.deliveryDetails?.dietaryRestrictions?.microwaveOnly || false,
+                  noCookingEquipment:
+                    client.deliveryDetails?.dietaryRestrictions?.noCookingEquipment || false,
+                  otherText: client.deliveryDetails?.dietaryRestrictions?.otherText || "",
+                  other: client.deliveryDetails?.dietaryRestrictions?.other || false,
+                  softFood: client.deliveryDetails?.dietaryRestrictions?.softFood || false,
+                  vegan: client.deliveryDetails?.dietaryRestrictions?.vegan || false,
+                  heartFriendly:
+                    client.deliveryDetails?.dietaryRestrictions?.heartFriendly || false,
+                  vegetarian: client.deliveryDetails?.dietaryRestrictions?.vegetarian || false,
+                  dietaryPreferences:
+                    client.deliveryDetails?.dietaryRestrictions?.dietaryPreferences || "",
+                },
+              },
+              ethnicity: client.ethnicity || "",
+              adults: client.adults ?? null,
+              children: client.children ?? null,
+              deliveryFreq: client.deliveryFreq || "",
+              gender: client.gender || "",
+              language: client.language || "",
+              notes: client.notes || "",
+              famStartDate: client.famStartDate || "",
+              tefapCert: Boolean(client.tefapCert),
+              dob: client.dob || "",
+              ward: client.ward || "",
+              zipCode: client.zipCode || "",
+              tags: client.tags || [],
+              referralEntity: client.referralEntity
+                ? {
+                    name: client.referralEntity.name || "",
+                    organization: client.referralEntity.organization || "",
+                  }
+                : undefined,
+              lastDeliveryDate: deliverySummaries.get(client.uid)?.lastDeliveryDate || "",
+              missedStrikeCount: deliverySummaries.get(client.uid)?.missedStrikeCount || 0,
+              activeStatus: client.activeStatus,
+              deliverySummaryReady: true,
+            })) as RowData[];
+
+          setRemoteSearchRows(mergedRows);
+        } catch (error) {
+          if (requestId !== remoteSearchRequestIdRef.current) {
+            return;
+          }
+
+          console.error("Failed to search clients remotely:", error);
+          setRemoteSearchRows([]);
+        } finally {
+          if (requestId === remoteSearchRequestIdRef.current) {
+            setIsRemoteSearchLoading(false);
+          }
+        }
+      })();
+
+      return () => {
+        remoteSearchRequestIdRef.current += 1;
+        setIsRemoteSearchLoading(false);
+      };
+    }
+  }, [debouncedSearch, hasMore, loadAllRemaining]);
   const hydrateRowsForExport = useCallback(async (sourceRows: RowData[]) => {
     const pendingClientIds = Array.from(
       new Set(
@@ -495,6 +672,26 @@ const Spreadsheet: React.FC = () => {
     return mergeDeliverySummaries(sourceRows, readyIds, summaries);
   }, []);
 
+  const loadAllRowsForExport = useCallback(async (): Promise<RowData[]> => {
+    const rowsById = new Map<string, RowData>();
+    let lastDoc: unknown;
+
+    do {
+      const result = await clientService.getAllClientsForSpreadsheet(
+        EXPORT_ALL_CLIENTS_PAGE_SIZE,
+        lastDoc
+      );
+
+      result.clients.forEach((row) => {
+        rowsById.set(row.uid, row);
+      });
+
+      lastDoc = result.lastDoc;
+    } while (lastDoc);
+
+    return Array.from(rowsById.values());
+  }, []);
+
   const handleOpenMenu = useCallback((event: React.MouseEvent<HTMLElement>, row: RowData) => {
     event.stopPropagation();
     setMenuAnchorPosition({ top: event.clientY, left: event.clientX });
@@ -502,7 +699,7 @@ const Spreadsheet: React.FC = () => {
   }, []);
 
   const handleExportAction = async (
-    sourceRows: RowData[],
+    sourceRows: RowData[] | (() => Promise<RowData[]>),
     exportFn: (rowsToExport: RowData[]) => string,
     successMessage: (filename: string) => string
   ) => {
@@ -512,7 +709,8 @@ const Spreadsheet: React.FC = () => {
 
     setIsExporting(true);
     try {
-      const exportRows = await hydrateRowsForExport(sourceRows);
+      const rowsToExport = typeof sourceRows === "function" ? await sourceRows() : sourceRows;
+      const exportRows = await hydrateRowsForExport(rowsToExport);
       const filename = exportFn(exportRows);
       showSuccess(successMessage(filename));
     } catch (error) {
@@ -703,7 +901,7 @@ const Spreadsheet: React.FC = () => {
   // --- Sorting and filtering logic (with sorting) ---
   // Ensure filteredRows is always the correct RowData shape for export, and optimize with useMemo
   const filteredRows: RowData[] = useMemo(() => {
-    let result = clients;
+    let result = remoteSearchRows ?? clients;
     if (debouncedSearch.trim()) {
       const validSearchTerms = parseSearchTermsProgressively(debouncedSearch.trim());
 
@@ -878,7 +1076,7 @@ const Spreadsheet: React.FC = () => {
                 case "tefap":
                 case "tefapcert":
                   return matchesAnySearchValue((candidate) =>
-                    checkStringContains(row.tefapCert, candidate)
+                    checkStringContains(row.tefapCert ? "yes true" : "no false", candidate)
                   );
                 case "date":
                 case "famstartdate":
@@ -1020,7 +1218,7 @@ const Spreadsheet: React.FC = () => {
       }
     }
     return result;
-  }, [clients, debouncedSearch, sortConfig, fields, customColumns]);
+  }, [clients, remoteSearchRows, debouncedSearch, sortConfig, fields, customColumns]);
 
   const isInitialLoading = loading && clients.length === 0;
   const hasBlockingError = Boolean(error) && clients.length === 0;
@@ -1213,7 +1411,7 @@ const Spreadsheet: React.FC = () => {
                         onClick={() => {
                           setExportDialogOpen(false);
                           void handleExportAction(
-                            clients,
+                            loadAllRowsForExport,
                             (rowsToExport) => exportAllClients(rowsToExport),
                             (filename) => `Exported ${filename}.`
                           );
@@ -1409,6 +1607,11 @@ const Spreadsheet: React.FC = () => {
               data={filteredRows}
               components={VirtuosoTableComponents}
               overscan={200}
+              endReached={() => {
+                if (!searchQuery.trim() && hasMore && !loadingMore) {
+                  void loadMore();
+                }
+              }}
               key={forceRerender}
               fixedHeaderContent={() => (
                 <TableRow sx={{ position: "sticky", top: 0, zIndex: 2 }}>

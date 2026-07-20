@@ -49,6 +49,17 @@ const normalizeFirestoreDateValue = (value: unknown): unknown => {
   return value;
 };
 
+export const normalizeBooleanField = (value: unknown): boolean => {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number") return value !== 0;
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (["false", "f", "no", "n", "0", ""].includes(normalized)) return false;
+    return true;
+  }
+  return false;
+};
+
 const deriveClientActiveStatus = (raw: {
   startDate?: unknown;
   endDate?: unknown;
@@ -106,7 +117,7 @@ const mapClientDocToSpreadsheetBaseRow = (docId: string, raw: any): RowData => {
     language: raw.language ?? "",
     notes: raw.notes ?? "",
     famStartDate,
-    tefapCert: raw.tefapCert ?? "",
+    tefapCert: normalizeBooleanField(raw.tefapCert),
     dob: raw.dob ?? "",
     ward: raw.ward ?? "",
     zipCode: raw.zipCode ?? "",
@@ -174,6 +185,7 @@ class ClientService {
 
         return {
           ...data,
+          tefapCert: normalizeBooleanField(data.tefapCert),
           activeStatus: deriveClientActiveStatus(data),
         };
       }
@@ -263,7 +275,7 @@ class ClientService {
             startDate: raw.startDate || "",
             endDate: raw.endDate || "",
             recurrence: raw.recurrence || "None",
-            tefapCert: raw.tefapCert || "",
+            tefapCert: normalizeBooleanField(raw.tefapCert),
             clusterID: raw.clusterID || undefined,
             autoInactiveReason: raw.autoInactiveReason ?? null,
             autoInactivePreviousEndDate: raw.autoInactivePreviousEndDate ?? null,
@@ -570,6 +582,41 @@ class ClientService {
       });
     } catch (error) {
       throw formatServiceError(error, `Failed to update coordinates for client ${clientId}`);
+    }
+  }
+
+  /**
+   * Update coordinates for many clients in one Firestore batch.
+   */
+  public async updateClientCoordinatesBatch(
+    clientUpdates: Array<{ clientId: string; coordinates: LatLngTuple }>
+  ): Promise<void> {
+    try {
+      const validUpdates = clientUpdates.filter(
+        (update): update is { clientId: string; coordinates: LatLngTuple } =>
+          Boolean(update.clientId) &&
+          Array.isArray(update.coordinates) &&
+          update.coordinates.length === 2
+      );
+
+      if (validUpdates.length === 0) {
+        return;
+      }
+
+      await retry(async () => {
+        const batch = writeBatch(this.db);
+
+        validUpdates.forEach(({ clientId, coordinates }) => {
+          batch.update(doc(this.db, this.clientsCollection, clientId), {
+            coordinates,
+            updatedAt: Time.Firebase.toTimestamp(TimeUtils.now()),
+          });
+        });
+
+        await batch.commit();
+      });
+    } catch (error) {
+      throw formatServiceError(error, "Failed to update client coordinates in batch");
     }
   }
 }

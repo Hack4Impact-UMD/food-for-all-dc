@@ -285,12 +285,6 @@ const DateFieldComponent = ({
       setDateError("Please select a valid date");
       return;
     }
-    if (fieldPath === "tefapCert") {
-      if (deliveryDate.compare(blurValue, deliveryDate.today()) > 0) {
-        setDateError("TEFAP CERT date cannot be in the future");
-        return;
-      }
-    }
     setDateError(null);
     // Only propagate valid date to parent in MM/DD/YYYY format
     const mmddyyyyValue = convertFromHtmlDateFormat(blurValue);
@@ -530,6 +524,27 @@ const FormField = (props: FormFieldProps) => {
     const selectInputProps = { minLength: 2 };
     const dateInputProps = { minLength: 10 };
     switch (type) {
+      case "checkbox":
+        return (
+          <FormControlLabel
+            control={
+              <CustomCheckbox
+                name={fieldPath}
+                checked={Boolean(value)}
+                onChange={(event) =>
+                  handleChange({
+                    target: {
+                      name: fieldPath,
+                      value: event.target.checked,
+                    },
+                  } as unknown as React.ChangeEvent<HTMLInputElement>)
+                }
+                disabled={!isEditing}
+              />
+            }
+            label={capitalizeFirstLetter(fieldPath)}
+          />
+        );
       case "select":
         if (fieldPath === "gender") {
           return (
@@ -708,6 +723,7 @@ const FormField = (props: FormFieldProps) => {
               onChange={handleChange}
               fullWidth
               disabled={isDisabledField}
+              autoComplete={fieldPath === "address" ? "off" : undefined}
               inputRef={fieldPath === "address" ? addressInputRef : null}
               inputProps={{ minLength }}
               error={!!error}
@@ -785,6 +801,7 @@ const FormField = (props: FormFieldProps) => {
             value={fieldPath === "ward" ? ward : String(value || "")}
             onChange={handleChange}
             fullWidth
+            autoComplete={fieldPath === "address" ? "new-password" : undefined}
             inputRef={fieldPath === "address" ? addressInputRef : null}
           />
         );

@@ -18,7 +18,7 @@ import { deliveryDate } from "../../utils/deliveryDate";
 import { normalizeHouseholdSnapshot } from "../../utils/householdSnapshot";
 import { ReportClientRecord, ReportDeliveryRecord } from "./reportUtils";
 
-const CLIENT_PAGE_SIZE = 200;
+const CLIENT_PAGE_SIZE = 3000;
 const FIRESTORE_IN_QUERY_LIMIT = 10;
 
 const chunkArray = <T>(items: T[], chunkSize: number): T[][] => {
@@ -112,6 +112,10 @@ const mapReportClient = (docSnapshot: QueryDocumentSnapshot): ReportClientRecord
     physicalDisability: asNullableObject(raw.physicalDisability),
     mentalHealthConditions: asNullableObject(raw.mentalHealthConditions),
     tags: asStringArray(raw.tags),
+    lastDeliveryDate:
+      deliveryDate.tryToISODateString(
+        raw.lastDeliveryDate as string | Date | DateTime | Timestamp | null | undefined
+      ) ?? undefined,
   };
 };
 
@@ -207,6 +211,28 @@ export const loadInclusiveReportEvents = async (
     .filter((event): event is ReportDeliveryRecord => !!event && Boolean(event.clientId));
 };
 
+export const loadRecentDeliveryDatesByClientIds = async (
+  start: DateTime,
+  end: DateTime
+): Promise<Map<string, string>> => {
+  const recentDeliveryDatesByClientId = new Map<string, string>();
+  const events = await loadInclusiveReportEvents(start, end);
+
+  events.forEach((event) => {
+    const deliveryDateKey = event.deliveryDate.toISODate();
+    if (!deliveryDateKey) {
+      return;
+    }
+
+    const existingDeliveryDate = recentDeliveryDatesByClientId.get(event.clientId);
+    if (!existingDeliveryDate || deliveryDate.compare(deliveryDateKey, existingDeliveryDate) > 0) {
+      recentDeliveryDatesByClientId.set(event.clientId, deliveryDateKey);
+    }
+  });
+
+  return recentDeliveryDatesByClientId;
+};
+
 export const loadFirstDeliveriesByClientIds = async (
   clientIds: string[]
 ): Promise<Map<string, ReportDeliveryRecord>> => {
@@ -275,11 +301,7 @@ export const loadLatestPastDeliveryDatesByClientIds = async (
     snapshot.docs.forEach((docSnapshot) => {
       const event = mapReportDelivery(docSnapshot);
 
-      if (
-        !event ||
-        !event.clientId ||
-        latestPastDeliveryDatesByClientId.has(event.clientId)
-      ) {
+      if (!event || !event.clientId || latestPastDeliveryDatesByClientId.has(event.clientId)) {
         return;
       }
 

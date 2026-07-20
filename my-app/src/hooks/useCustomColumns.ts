@@ -51,7 +51,15 @@ export const useCustomColumns = ({ page }: useCustomColumnsProps) => {
     const saved = localStorage.getItem(`ffaCustomColumns${page}`);
     if (saved) {
       try {
-        return JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        if (!Array.isArray(parsed)) {
+          return [];
+        }
+        return parsed.map((column) =>
+          column?.propertyKey === "tefapCertDate"
+            ? { ...column, propertyKey: "tefapCert", label: "TEFAP Cert" }
+            : column
+        );
       } catch (error) {
         console.warn("Failed to parse custom columns from localStorage:", error);
         return [];

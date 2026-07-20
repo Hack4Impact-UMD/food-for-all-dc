@@ -87,7 +87,7 @@ export interface ClientProfile {
   startDate: string;
   endDate: string;
   recurrence: string;
-  tefapCert: string;
+  tefapCert: boolean;
   clusterID?: string;
   autoInactiveReason?: "three-strikes" | null;
   autoInactivePreviousEndDate?: string | null;

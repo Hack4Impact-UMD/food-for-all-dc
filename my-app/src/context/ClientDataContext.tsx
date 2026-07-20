@@ -11,17 +11,8 @@ import { useAuth } from "../auth/AuthProvider";
 import { clientService } from "../services/client-service";
 import { RowData } from "../components/Spreadsheet/export";
 
-const CLIENT_SPREADSHEET_PAGE_SIZE = 5000;
-const DELIVERY_SUMMARY_HYDRATION_BATCH_SIZE = 300;
-const DELIVERY_SUMMARY_HYDRATION_CONCURRENCY = 3;
-const DIRECT_SUMMARY_HYDRATION_MAX_IDS = 3000;
-const SUMMARY_HYDRATION_RETRY_DELAYS_MS = [1200, 3000] as const;
-const SUMMARY_HYDRATION_FOLLOW_UP_DELAY_MS = 12000;
-
-const sleep = (ms: number): Promise<void> =>
-  new Promise((resolve) => {
-    setTimeout(resolve, ms);
-  });
+const CLIENT_SPREADSHEET_INITIAL_PAGE_SIZE = 500;
+const CLIENT_SPREADSHEET_PAGE_SIZE = 500;
 
 const isSpreadsheetPerfDebugEnabled = (): boolean => {
   if (typeof window === "undefined" || !window.localStorage) {
@@ -38,238 +29,116 @@ const isSpreadsheetPerfDebugEnabled = (): boolean => {
 interface ClientDataContextType {
   clients: RowData[];
   loading: boolean;
+  loadingMore: boolean;
+  hasMore: boolean;
   error: Error | null;
   refresh: () => Promise<void>;
+  loadMore: () => Promise<void>;
+  loadAllRemaining: () => Promise<void>;
+  requestLoad: () => void;
 }
 
 const ClientDataContext = createContext<ClientDataContextType | undefined>(undefined);
 
 export const ClientDataProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [clients, setClients] = useState<RowData[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const fetchRequestIdRef = useRef(0);
   const inFlightFetchRef = useRef<Promise<void> | null>(null);
+  const lastDocRef = useRef<any>(null);
+  const hasMoreRef = useRef(false);
+  const loadedClientIdsRef = useRef<Set<string>>(new Set());
+  const hasAttemptedInitialLoadRef = useRef(false);
+  const [hasRequestedLoad, setHasRequestedLoad] = useState(false);
   const { user, loading: authLoading } = useAuth();
 
-  const fetchClients = useCallback(async () => {
+  const fetchPage = useCallback(async ({ reset }: { reset: boolean }) => {
     if (inFlightFetchRef.current) {
       return inFlightFetchRef.current;
     }
 
     const runFetch = async () => {
-    const requestId = ++fetchRequestIdRef.current;
-    const perfDebugEnabled = isSpreadsheetPerfDebugEnabled();
-    const fetchStartTime = perfDebugEnabled ? performance.now() : 0;
-    const baseFetchStartTime = perfDebugEnabled ? performance.now() : 0;
+      const requestId = ++fetchRequestIdRef.current;
+      const perfDebugEnabled = isSpreadsheetPerfDebugEnabled();
+      const fetchStartTime = perfDebugEnabled ? performance.now() : 0;
 
-    setLoading(true);
-    setError(null);
-
-    try {
-      const allClients: RowData[] = [];
-      let lastDoc: any = undefined;
-      let hasMoreClients = true;
-      let basePageCount = 0;
-
-      // Transparently page through all clients so large datasets still load completely.
-      while (hasMoreClients) {
-        basePageCount += 1;
-        const result = await clientService.getBaseClientsForSpreadsheet(
-          CLIENT_SPREADSHEET_PAGE_SIZE,
-          lastDoc
-        );
-        allClients.push(...result.clients);
-
-        if (!result.lastDoc || result.clients.length < CLIENT_SPREADSHEET_PAGE_SIZE) {
-          hasMoreClients = false;
-          continue;
+      if (reset) {
+        setLoading(true);
+        setError(null);
+        setHasMore(false);
+        hasMoreRef.current = false;
+      } else {
+        if (!hasMoreRef.current) {
+          return;
         }
-
-        lastDoc = result.lastDoc;
+        setLoadingMore(true);
       }
-
-      if (perfDebugEnabled) {
-        const baseFetchDurationMs = Math.round(performance.now() - baseFetchStartTime);
-        console.info(
-          `[SpreadsheetPerf] baseFetchMs=${baseFetchDurationMs} rows=${allClients.length} pages=${basePageCount}`
-        );
-      }
-
-      if (requestId !== fetchRequestIdRef.current) {
-        return;
-      }
-
-      setClients(allClients);
-
-      // End initial loading after base rows are ready; summaries hydrate in background.
-      setLoading(false);
-
-      const allClientIds = allClients.map((client) => client.uid).filter(Boolean);
-      if (allClientIds.length === 0) {
-        if (perfDebugEnabled) {
-          const totalDurationMs = Math.round(performance.now() - fetchStartTime);
-          console.info(`[SpreadsheetPerf] totalFetchMs=${totalDurationMs} rows=0`);
-        }
-        return;
-      }
-
-      const hydrateSummaries = async (attemptLabel: string): Promise<"applied" | "stale"> => {
-        const summaryHydrationStartTime = perfDebugEnabled ? performance.now() : 0;
-        const combinedSummaries = new Map<
-          string,
-          { lastDeliveryDate: string; missedStrikeCount: number }
-        >();
-        let summaryBatchCount = 1;
-
-        if (allClientIds.length <= DIRECT_SUMMARY_HYDRATION_MAX_IDS) {
-          const allSummaries = await clientService.getClientDeliverySummaries(allClientIds);
-          allSummaries.forEach((summary, clientId) => {
-            combinedSummaries.set(clientId, summary);
-          });
-        } else {
-          const summaryBatches: string[][] = [];
-
-          for (let i = 0; i < allClientIds.length; i += DELIVERY_SUMMARY_HYDRATION_BATCH_SIZE) {
-            summaryBatches.push(allClientIds.slice(i, i + DELIVERY_SUMMARY_HYDRATION_BATCH_SIZE));
-          }
-          summaryBatchCount = summaryBatches.length;
-
-          for (let i = 0; i < summaryBatches.length; i += DELIVERY_SUMMARY_HYDRATION_CONCURRENCY) {
-            const concurrentBatches = summaryBatches.slice(
-              i,
-              i + DELIVERY_SUMMARY_HYDRATION_CONCURRENCY
-            );
-
-            const batchResults = await Promise.all(
-              concurrentBatches.map((clientIdBatch) =>
-                clientService.getClientDeliverySummaries(clientIdBatch)
-              )
-            );
-
-            batchResults.forEach((batchSummaries) => {
-              batchSummaries.forEach((summary, clientId) => {
-                combinedSummaries.set(clientId, summary);
-              });
-            });
-          }
-        }
-
-        if (perfDebugEnabled) {
-          const summaryHydrationDurationMs = Math.round(
-            performance.now() - summaryHydrationStartTime
-          );
-          console.info(
-            `[SpreadsheetPerf] summaryHydrationMs=${summaryHydrationDurationMs} ids=${allClientIds.length} batches=${summaryBatchCount} attempt=${attemptLabel}`
-          );
-        }
-
-        if (requestId !== fetchRequestIdRef.current) {
-          return "stale";
-        }
-
-        setClients((previousClients) =>
-          previousClients.map((client) => {
-            const summary = combinedSummaries.get(client.uid);
-            return {
-              ...client,
-              lastDeliveryDate: summary?.lastDeliveryDate ?? "",
-              missedStrikeCount: summary?.missedStrikeCount ?? 0,
-              deliverySummaryReady: true,
-            };
-          })
-        );
-
-        return "applied";
-      };
-
-      let hydrationState: "applied" | "stale" | "failed" = "failed";
 
       try {
-        hydrationState = await hydrateSummaries("initial");
-      } catch (hydrationError) {
-        if (requestId === fetchRequestIdRef.current && perfDebugEnabled) {
-          const message =
-            hydrationError instanceof Error ? hydrationError.message : String(hydrationError);
-          console.warn(`[SpreadsheetPerf] summaryHydrationError attempt=initial message=${message}`);
-        }
-      }
-
-      for (let retryIndex = 0; retryIndex < SUMMARY_HYDRATION_RETRY_DELAYS_MS.length; retryIndex += 1) {
-        if (hydrationState !== "failed") {
-          break;
-        }
+        const pageSize = reset ? CLIENT_SPREADSHEET_INITIAL_PAGE_SIZE : CLIENT_SPREADSHEET_PAGE_SIZE;
+        const pageResult = await clientService.getAllClientsForSpreadsheet(
+          pageSize,
+          reset ? undefined : lastDocRef.current
+        );
 
         if (requestId !== fetchRequestIdRef.current) {
           return;
         }
 
-        const delayMs = SUMMARY_HYDRATION_RETRY_DELAYS_MS[retryIndex];
-        await sleep(delayMs);
-
-        if (requestId !== fetchRequestIdRef.current) {
-          return;
+        if (reset) {
+          loadedClientIdsRef.current = new Set();
         }
 
-        try {
-          hydrationState = await hydrateSummaries(`retry-${retryIndex + 1}`);
-        } catch (hydrationError) {
-          if (requestId === fetchRequestIdRef.current && perfDebugEnabled) {
-            const message =
-              hydrationError instanceof Error ? hydrationError.message : String(hydrationError);
-            console.warn(
-              `[SpreadsheetPerf] summaryHydrationError attempt=retry-${retryIndex + 1} message=${message}`
-            );
+        const newRows = pageResult.clients.filter((row) => !loadedClientIdsRef.current.has(row.uid));
+        newRows.forEach((row) => loadedClientIdsRef.current.add(row.uid));
+
+        setClients((previousClients) => {
+          if (reset) {
+            return newRows;
           }
-        }
-      }
 
-      if (hydrationState === "stale") {
-        return;
-      }
+          if (newRows.length === 0) {
+            return previousClients;
+          }
 
-      if (hydrationState === "failed") {
+          const existingIds = new Set(previousClients.map((client) => client.uid));
+          const uniqueRows = newRows.filter((row) => !existingIds.has(row.uid));
+          if (uniqueRows.length === 0) {
+            return previousClients;
+          }
+
+          return [...previousClients, ...uniqueRows];
+        });
+
+        lastDocRef.current = pageResult.lastDoc;
+        const hasAdditionalPages = !!pageResult.lastDoc && pageResult.clients.length >= pageSize;
+        hasMoreRef.current = hasAdditionalPages;
+        setHasMore(hasAdditionalPages);
+
         if (perfDebugEnabled) {
-          console.warn("[SpreadsheetPerf] summaryHydrationExhausted retries=2");
+          const totalDurationMs = Math.round(performance.now() - fetchStartTime);
+          console.info(
+            `[SpreadsheetPerf] pageFetchMs=${totalDurationMs} rows=${newRows.length} reset=${reset} hasMore=${hasAdditionalPages}`
+          );
+        }
+      } catch (err: any) {
+        if (requestId !== fetchRequestIdRef.current) {
+          return;
         }
 
-        // Run one delayed follow-up attempt without blocking UI load.
-        void (async () => {
-          await sleep(SUMMARY_HYDRATION_FOLLOW_UP_DELAY_MS);
-
-          if (requestId !== fetchRequestIdRef.current) {
-            return;
+        setError(err);
+      } finally {
+        if (requestId === fetchRequestIdRef.current) {
+          if (reset) {
+            setLoading(false);
+          } else {
+            setLoadingMore(false);
           }
-
-          try {
-            await hydrateSummaries("follow-up");
-          } catch (hydrationError) {
-            if (requestId === fetchRequestIdRef.current && perfDebugEnabled) {
-              const message =
-                hydrationError instanceof Error ? hydrationError.message : String(hydrationError);
-              console.warn(
-                `[SpreadsheetPerf] summaryHydrationError attempt=follow-up message=${message}`
-              );
-            }
-          }
-        })();
+        }
       }
-
-      if (perfDebugEnabled) {
-        const totalDurationMs = Math.round(performance.now() - fetchStartTime);
-        console.info(`[SpreadsheetPerf] totalFetchMs=${totalDurationMs} rows=${allClients.length}`);
-      }
-    } catch (err: any) {
-      if (requestId !== fetchRequestIdRef.current) {
-        return;
-      }
-
-      setError(err);
-    } finally {
-      if (requestId === fetchRequestIdRef.current) {
-        setLoading(false);
-      }
-    }
     };
 
     inFlightFetchRef.current = runFetch();
@@ -281,21 +150,135 @@ export const ClientDataProvider: React.FC<{ children: ReactNode }> = ({ children
     }
   }, []);
 
+  const fetchClients = useCallback(async () => {
+    hasAttemptedInitialLoadRef.current = true;
+    lastDocRef.current = null;
+    return fetchPage({ reset: true });
+  }, [fetchPage]);
+
+  const loadMore = useCallback(async () => {
+    if (loading || loadingMore || !hasMoreRef.current) {
+      return;
+    }
+    await fetchPage({ reset: false });
+  }, [fetchPage, loading, loadingMore]);
+
+  const loadAllRemaining = useCallback(async () => {
+    if (loading || loadingMore || !hasMoreRef.current) {
+      return;
+    }
+
+    if (inFlightFetchRef.current) {
+      await inFlightFetchRef.current;
+    }
+
+    const requestId = ++fetchRequestIdRef.current;
+    const perfDebugEnabled = isSpreadsheetPerfDebugEnabled();
+    const fetchStartTime = perfDebugEnabled ? performance.now() : 0;
+
+    setLoadingMore(true);
+
+    try {
+      const accumulatedRows: RowData[] = [];
+      const loadedIds = new Set(loadedClientIdsRef.current);
+      let currentLastDoc = lastDocRef.current;
+      let hasAdditionalPages: boolean = hasMoreRef.current;
+
+      while (hasAdditionalPages) {
+        const pageResult = await clientService.getAllClientsForSpreadsheet(
+          CLIENT_SPREADSHEET_PAGE_SIZE,
+          currentLastDoc
+        );
+
+        if (requestId !== fetchRequestIdRef.current) {
+          return;
+        }
+
+        const freshRows = pageResult.clients.filter((row) => !loadedIds.has(row.uid));
+        freshRows.forEach((row) => loadedIds.add(row.uid));
+        accumulatedRows.push(...freshRows);
+
+        currentLastDoc = pageResult.lastDoc;
+        hasAdditionalPages = !!pageResult.lastDoc && pageResult.clients.length >= CLIENT_SPREADSHEET_PAGE_SIZE;
+      }
+
+      loadedClientIdsRef.current = loadedIds;
+      lastDocRef.current = currentLastDoc;
+      hasMoreRef.current = false;
+      setHasMore(false);
+
+      if (accumulatedRows.length > 0) {
+        setClients((previousClients) => [...previousClients, ...accumulatedRows]);
+      }
+
+      if (perfDebugEnabled) {
+        const totalDurationMs = Math.round(performance.now() - fetchStartTime);
+        console.info(
+          `[SpreadsheetPerf] loadAllRemainingMs=${totalDurationMs} rows=${accumulatedRows.length}`
+        );
+      }
+    } catch (err: any) {
+      if (requestId !== fetchRequestIdRef.current) {
+        return;
+      }
+
+      setError(err);
+    } finally {
+      if (requestId === fetchRequestIdRef.current) {
+        setLoadingMore(false);
+      }
+    }
+  }, [loading, loadingMore]);
+
+  const requestLoad = useCallback(() => {
+    setHasRequestedLoad(true);
+  }, []);
+
   useEffect(() => {
-    if (!authLoading && user) {
+    hasAttemptedInitialLoadRef.current = false;
+  }, [user?.uid]);
+
+  useEffect(() => {
+    if (
+      !authLoading &&
+      user &&
+      hasRequestedLoad &&
+      !hasAttemptedInitialLoadRef.current &&
+      clients.length === 0 &&
+      !loading
+    ) {
       fetchClients();
     }
-  }, [authLoading, user, fetchClients]);
+  }, [authLoading, user, hasRequestedLoad, clients.length, loading, fetchClients]);
 
   return (
-    <ClientDataContext.Provider value={{ clients, loading, error, refresh: fetchClients }}>
+    <ClientDataContext.Provider
+      value={{
+        clients,
+        loading,
+        loadingMore,
+        hasMore,
+        error,
+        refresh: fetchClients,
+        loadMore,
+        loadAllRemaining,
+        requestLoad,
+      }}
+    >
       {children}
     </ClientDataContext.Provider>
   );
 };
 
-export const useClientData = () => {
+export const useClientData = ({ autoLoad = true }: { autoLoad?: boolean } = {}) => {
   const ctx = useContext(ClientDataContext);
   if (!ctx) throw new Error("useClientData must be used within a ClientDataProvider");
+
+  useEffect(() => {
+    if (autoLoad) {
+      ctx.requestLoad();
+    }
+  }, [autoLoad, ctx]);
+
   return ctx;
 };

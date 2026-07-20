@@ -35,8 +35,10 @@ my-app/build/
 my-app/functions/lib/
 my-app/functions-python/lib/
 
-# Cloud Run ETL
-cloudrun-etl/
+# ETL generated outputs (keep scripts tracked, ignore generated subfolders/files)
+ETL/*.xlsx
+ETL/*.xls
+ETL/*/
 
 # Firebase
 .firebase/
@@ -60,9 +62,6 @@ pubsub-debug.log*
 *.local
 food-for-all-dc-caf23-firebase-adminsdk-*.json
 *-firebase-adminsdk-*.json
-
-# Exclude ETL scripts and data
-ETL/
 
 # Logs
 logs/

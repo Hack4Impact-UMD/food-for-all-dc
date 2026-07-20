@@ -253,7 +253,7 @@ const buildRouteCsvRow = (
     deliveryInstructions: row.deliveryDetails?.deliveryInstructions || "",
     dietaryRestrictions: dietaryColumns.dietaryRestrictions,
     dietaryPreferences: dietaryColumns.dietaryPreferences,
-    tefapFY25: row.tags?.includes("Tefap") ? "Y" : "N",
+    tefapFY25: row.tefapCert ? "Y" : "N",
     deliveryDate,
     cluster: routeId,
     time: timeLabel === "Unscheduled" ? "No time assigned" : timeLabel,

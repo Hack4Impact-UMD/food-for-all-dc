@@ -69,7 +69,7 @@ const PageDatePicker = ({ setSelectedDate, selectedDate, marginLeft }: PageDateP
       open={isOpen}
       onInputClick={() => setIsOpen((prev) => !prev)}
       onClickOutside={() => setIsOpen(false)}
-      onChange={(date) => handleDateChange(date)}
+      onChange={(date: Date | null) => handleDateChange(date)}
       selected={selectedDate}
       customInput={<CalendarButton marginLeft={marginLeft} />}
       popperPlacement="bottom-start"

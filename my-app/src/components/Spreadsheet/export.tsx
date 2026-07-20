@@ -45,7 +45,7 @@ export interface RowData {
     name: string;
     organization: string;
   };
-  tefapCert?: string;
+  tefapCert?: boolean;
   famStartDate?: string;
   lastDeliveryDate?: string;
   missedStrikeCount?: number;
@@ -146,6 +146,10 @@ const resolveSpreadsheetExportValue = (row: RowData, propertyKey: string): strin
     return normalizeDateValue(row.famStartDate);
   }
 
+  if (propertyKey === "tefapCert") {
+    return row.tefapCert ? "Yes" : "No";
+  }
+
   const value = propertyKey.includes(".") ? getNestedValue(row, propertyKey, "") : row[propertyKey];
   if (value === null || value === undefined) {
     return "";
@@ -237,7 +241,7 @@ export const exportAllClients = (rows: RowData[]) => {
       "Referral Entity": row.referralEntity
         ? [row.referralEntity.name, row.referralEntity.organization].filter(Boolean).join(", ")
         : "",
-      "TEFAP Cert": row.tefapCert ?? "",
+      "TEFAP Cert": row.tefapCert ? "Yes" : "No",
       Tags: row.tags?.join(", ") || "",
       "Date of Birth": row.dob ?? "",
     };
