@@ -151,8 +151,6 @@ function Login() {
           <h1 className={styles.heading}>Welcome!</h1>
           <p className={styles.subheading}>Please enter your details</p>
 
-          <p className={styles.label}>Admin Login</p>
-
           <TextField
             label="Email"
             variant="outlined"
