@@ -1597,7 +1597,8 @@ class FirestoreMigration:
 		referral_entity = self.parse_referral_entity(row, referral_form_records=referral_form_records)
 		referral_phone = referral_entity.get("phone", "") if referral_entity else ""
 		referral_email = referral_entity.get("email", "") if referral_entity else ""
-		notes = row.get("Notes", "")
+		notes_raw = row.get("Notes", "")
+		notes = "" if pd.isna(notes_raw) else str(notes_raw)
 		if not phone and referral_entity and referral_entity.get("phone"):
 			phone = referral_entity["phone"]
 			if notes:

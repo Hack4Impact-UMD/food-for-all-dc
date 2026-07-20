@@ -173,7 +173,7 @@ The email services use SendGrid through `@sendgrid/mail`. The deployed Cloud Run
 - Cloud Run env var name: `SENDGRID_API_KEY`
 - Cloud Run secret reference: `sendgrid-api-key:latest`
 - Sender: `FROM_EMAIL=info@foodforalldc.org`
-- Recipient: `TO_EMAIL=jamiebrs@gmail.com`
+- Recipient: `TO_EMAIL=database@foodforalldc.org`
 
 The current email services that use this setup are:
 
@@ -212,9 +212,9 @@ gcloud run services update tefap-email --region us-central1 --set-secrets SENDGR
 Set or repair sender/recipient env vars:
 
 ```bash
-gcloud run services update admin-notes-email --region us-central1 --update-env-vars "FROM_EMAIL=info@foodforalldc.org,TO_EMAIL=jamiebrs@gmail.com"
-gcloud run services update check-remaining-deliveries --region us-central1 --update-env-vars "FROM_EMAIL=info@foodforalldc.org,TO_EMAIL=jamiebrs@gmail.com"
-gcloud run services update tefap-email --region us-central1 --update-env-vars "FROM_EMAIL=info@foodforalldc.org,TO_EMAIL=jamiebrs@gmail.com"
+gcloud run services update admin-notes-email --region us-central1 --update-env-vars "FROM_EMAIL=info@foodforalldc.org,TO_EMAIL=database@foodforalldc.org"
+gcloud run services update check-remaining-deliveries --region us-central1 --update-env-vars "FROM_EMAIL=info@foodforalldc.org,TO_EMAIL=database@foodforalldc.org"
+gcloud run services update tefap-email --region us-central1 --update-env-vars "FROM_EMAIL=info@foodforalldc.org,TO_EMAIL=database@foodforalldc.org"
 ```
 
 Remove obsolete Mailjet/SMTP env vars if they appear on a service:
@@ -302,7 +302,7 @@ Expected email env shape:
 
 ```text
 FROM_EMAIL=info@foodforalldc.org
-TO_EMAIL=jamiebrs@gmail.com
+TO_EMAIL=database@foodforalldc.org
 SENDGRID_API_KEY -> secretKeyRef: sendgrid-api-key:latest
 ```
 
