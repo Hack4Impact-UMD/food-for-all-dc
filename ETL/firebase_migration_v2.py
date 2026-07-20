@@ -1562,18 +1562,10 @@ class FirestoreMigration:
 		active_status = row.get("Active", "")
 		doc_id = str(row.get("ID", "")).strip()
 
-		if self.is_duplicate(first_name, last_name):
-			address_preview = str(row.get("ADDRESS", ""))[:50]
-			logger.warning(
-				f"Skipping duplicate: {first_name} {last_name} | "
-				f"ID: {doc_id} | Address: {address_preview}"
-			)
-			return None
-
 		phone = ""
 		email = ""
-		if row.get("Phone"):
-			phone_str = str(row["Phone"])
+		phone_str = _clean_name(row.get("Phone"))
+		if phone_str:
 			if '@' in phone_str:
 				email = phone_str
 			else:
@@ -1661,7 +1653,7 @@ class FirestoreMigration:
 
 		# --- Address handling: use main address up to quadrant for geocoding,
 		# and capture apartment/unit suffix into address2 when possible. ---
-		raw_address = row.get("ADDRESS", "") or ""
+		raw_address = _clean_name(row.get("ADDRESS"))
 		apt_from_col = _clean_name(row.get("APT")) or _clean_name(row.get("APT #"))
 		apt_from_address = ""
 		quadrant_value = _clean_name(row.get("Quadrant_database")) or _clean_name(row.get("Quadrant"))
@@ -1685,9 +1677,9 @@ class FirestoreMigration:
 				rest = m.group(2).strip()
 				apt_from_address = f"{label} {rest}".strip() if rest else label
 		address = address_for_coords
-		city = row.get("City", "")
-		state = row.get("State", "")
-		zip_in_data = row.get("ZIPcode", "") or row.get("ZIP", "")
+		city = _clean_name(row.get("City"))
+		state = _clean_name(row.get("State"))
+		zip_in_data = _clean_name(row.get("ZIPcode")) or _clean_name(row.get("ZIP"))
 		if not city and quadrant_value:
 			city = "Washington"
 		if not state and quadrant_value:
@@ -1697,7 +1689,6 @@ class FirestoreMigration:
 			state = "DC"
 
 		# --- Use Google Maps API for geocoding and ZIP extraction ---
-		zip_in_data = row.get("ZIPcode", "") or row.get("ZIP", "")
 		zip_code = ""
 		coordinates = None
 		
@@ -1829,14 +1820,11 @@ class FirestoreMigration:
 			"children": children_count,
 			"total": total_household,
 			"gender": "Other",
-			"ethnicity": str(
-				row.get("Ethnicity")
-				or row.get("Race/Ethnicity")
-				or row.get("Race")
-				or ""
-			),
+			"ethnicity": _clean_name(row.get("Ethnicity"))
+			or _clean_name(row.get("Race/Ethnicity"))
+			or _clean_name(row.get("Race")),
 			"deliveryDetails": {
-				"deliveryInstructions": row.get("Delivery Instructions", ""),
+				"deliveryInstructions": _clean_name(row.get("Delivery Instructions")),
 				"dietaryRestrictions": restrictions
 			},
 			"lifeChallenges": life_challenges,
@@ -1844,11 +1832,11 @@ class FirestoreMigration:
 			"physicalDisability": physical_disability,
 			"mentalHealthConditions": mental_health_conditions,
 			"notes": notes,
-			"language": row.get("Language", ""),
+			"language": _clean_name(row.get("Language")),
 			"createdAt": datetime.now(timezone.utc),
 			"updatedAt": datetime.now(timezone.utc),
 			"tags": tags,
-			"ward": row.get("Ward", ""),
+			"ward": _clean_name(row.get("Ward")),
 			"coordinates": coordinates,
 			"seniors": age_group_data["seniors"],
 			"headOfHousehold": age_group_data["headOfHousehold"],
@@ -2005,6 +1993,7 @@ def main():
 		return
 
 	# Forced insert for debugging removed: only transformed records will be inserted
+	delete_temp_collections()
 
 	# Run full migration over all loaded records
 	# Allow an optional environment variable to limit how many records
@@ -2114,6 +2103,8 @@ def main():
 	except Exception:
 		# If anything goes wrong checking the log file, just skip the summary
 		pass
+
+	return stats
 
 if __name__ == "__main__":
 	main()

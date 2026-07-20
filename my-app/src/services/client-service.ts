@@ -49,13 +49,13 @@ const normalizeFirestoreDateValue = (value: unknown): unknown => {
   return value;
 };
 
-const normalizeBooleanField = (value: unknown): boolean => {
+export const normalizeBooleanField = (value: unknown): boolean => {
   if (typeof value === "boolean") return value;
   if (typeof value === "number") return value !== 0;
   if (typeof value === "string") {
     const normalized = value.trim().toLowerCase();
-    if (["true", "t", "yes", "y", "1"].includes(normalized)) return true;
     if (["false", "f", "no", "n", "0", ""].includes(normalized)) return false;
+    return true;
   }
   return false;
 };
@@ -185,6 +185,7 @@ class ClientService {
 
         return {
           ...data,
+          tefapCert: normalizeBooleanField(data.tefapCert),
           activeStatus: deriveClientActiveStatus(data),
         };
       }

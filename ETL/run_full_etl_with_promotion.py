@@ -34,6 +34,8 @@ Run from the repo root with the venv activated:
 
 from __future__ import annotations
 
+import os
+
 from rich import print as rprint
 from rich.panel import Panel
 from rich.console import Console
@@ -92,7 +94,17 @@ def main() -> None:
     )
 
   rprint("[cyan]Step 1/4[/cyan] ▶️ ETL into [bold]temp-profile2[/bold] / [bold]temp-referral[/bold]...")
-  firebase_migration_v2.main()
+  if os.getenv("MIGRATION_LIMIT_RECORDS"):
+    raise RuntimeError("Refusing production promotion while MIGRATION_LIMIT_RECORDS is set.")
+  migration_stats = firebase_migration_v2.main()
+  if migration_stats is None:
+    raise RuntimeError("ETL did not complete; refusing production promotion.")
+  if migration_stats.successful_imports != migration_stats.total_records:
+    raise RuntimeError(
+      "ETL imported only "
+      f"{migration_stats.successful_imports}/{migration_stats.total_records} records; "
+      "refusing production promotion."
+    )
   rprint("[green]✅ Completed[/green] firebase_migration_v2.\n")
 
   rprint("[cyan]Step 2/4[/cyan] 🧹 Pruning sandbox referrals with no contact info (temp-referral / temp-profile2)...")

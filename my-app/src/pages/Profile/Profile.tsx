@@ -38,7 +38,7 @@ import dataSources from "../../config/dataSources";
 import { googleMapsApiKey } from "../../config/apiKeys";
 import CaseWorkerManagementModal from "../../components/CaseWorkerManagementModal";
 import "./Profile.css";
-import { clientService } from "../../services/client-service";
+import { clientService, normalizeBooleanField } from "../../services/client-service";
 import DeliveryService from "../../services/delivery-service";
 import PopUp from "../../components/PopUp";
 import ErrorPopUp from "../../components/ErrorPopUp";
@@ -409,6 +409,7 @@ const Profile = () => {
 
       const normalizedData = {
         ...data,
+        tefapCert: normalizeBooleanField(data.tefapCert),
         activeStatus: computeClientActiveStatus(
           data.startDate,
           data.endDate,
@@ -960,7 +961,10 @@ const Profile = () => {
     if (!clientProfile.recurrence?.trim()) {
       newErrors.recurrence = "Recurrence is required";
     }
-    if (!clientProfile.referralEntity || !clientProfile.referralEntity.id) {
+    if (
+      (!clientProfile.referralEntity || !clientProfile.referralEntity.id) &&
+      (isNewProfile || !!prevClientProfile?.referralEntity?.id)
+    ) {
       newErrors.referralEntity = "Referral entity is required";
     }
     if (!clientProfile.phone?.trim()) {
@@ -969,7 +973,10 @@ const Profile = () => {
     if (!clientProfile.gender?.trim()) {
       newErrors.gender = "Gender is required";
     }
-    if (!clientProfile.ethnicity?.trim()) {
+    if (
+      !clientProfile.ethnicity?.trim() &&
+      (isNewProfile || !!prevClientProfile?.ethnicity?.trim())
+    ) {
       newErrors.ethnicity = "Ethnicity is required";
     }
     if (!clientProfile.language?.trim()) {
@@ -1476,7 +1483,7 @@ const Profile = () => {
         ...cleanedProfile,
         // Example: convert specific date fields
         dob: convertDateForSave(cleanedProfile.dob),
-        tefapCert: Boolean(cleanedProfile.tefapCert),
+        tefapCert: normalizeBooleanField(cleanedProfile.tefapCert),
         famStartDate: convertDateForSave(cleanedProfile.famStartDate),
         startDate: normalizedStartDate,
         endDate: normalizedEndDate,
@@ -2698,7 +2705,7 @@ const Profile = () => {
 
   // Debounced ward lookup for manually typed addresses
   useEffect(() => {
-    if (!isEditing || !clientProfile.address) return;
+    if (!isEditing || !clientProfile.address || !prevClientProfile) return;
 
     const timeoutId = setTimeout(async () => {
       // Only trigger ward lookup if the address is different from the previous one
@@ -3148,6 +3155,7 @@ const Profile = () => {
                 <StyledIconButton
                   onClick={() => {
                     if (isEditing) handleCancel();
+                    else handlePrevClientCopying();
                     setIsEditing((prev) => !prev);
                   }}
                   size="small"
@@ -3322,6 +3330,7 @@ const Profile = () => {
               <StyledIconButton
                 onClick={() => {
                   if (isEditing) handleCancel();
+                  else handlePrevClientCopying();
                   setIsEditing((prev) => !prev);
                 }}
                 size="small"
