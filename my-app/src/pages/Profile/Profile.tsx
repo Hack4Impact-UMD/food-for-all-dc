@@ -2633,15 +2633,16 @@ const Profile = () => {
       window.google.maps.places
     ) {
       if (autocompleteRef.current) return; // Prevent re-initialization
-      autocompleteRef.current = new window.google.maps.places.Autocomplete(
+      const autocomplete = new window.google.maps.places.Autocomplete(
         addressInputRef.current,
         {
           types: ["address"],
           componentRestrictions: { country: "us" },
         }
       );
-      autocompleteRef.current.addListener("place_changed", async () => {
-        const place = autocompleteRef.current!.getPlace();
+      autocompleteRef.current = autocomplete;
+      autocomplete.addListener("place_changed", async () => {
+        const place = autocomplete.getPlace();
         if (!place.address_components) return;
         // Extract address components
         let street = "";
@@ -2700,6 +2701,13 @@ const Profile = () => {
         }));
         setIsAddressValidated(true);
       });
+
+      return () => {
+        window.google.maps.event.clearInstanceListeners(autocomplete);
+        if (autocompleteRef.current === autocomplete) {
+          autocompleteRef.current = null;
+        }
+      };
     }
   }, [isGoogleApiLoaded, isEditing, getWard]);
 
@@ -2746,16 +2754,6 @@ const Profile = () => {
     setAddressError("");
     setIsAddressValidated(true);
     setUserTypedAddress("");
-
-    // Reset autocomplete instance when cancelling
-    if (autocompleteRef.current) {
-      try {
-        window.google.maps.event.clearInstanceListeners(autocompleteRef.current);
-      } catch (err) {
-        console.warn("Failed to clear listeners during cancel", err);
-      }
-      autocompleteRef.current = null;
-    }
   };
 
   // Function to handle selecting a case worker
