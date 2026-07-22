@@ -101,6 +101,39 @@ describe("useSearchKeyAutocomplete", () => {
     expect(input.value).not.toBe("cluster id");
   });
 
+  it("does not autocomplete a key-like suffix inside plain search text", () => {
+    render(<Harness />);
+    const input = screen.getByRole("textbox", { name: "search" }) as HTMLInputElement;
+
+    input.focus();
+    fireEvent.focus(input);
+
+    for (const value of ["t", "to", "tok", "toke", "token"]) {
+      fireEvent.change(input, {
+        target: { value, selectionStart: value.length, selectionEnd: value.length },
+      });
+    }
+
+    expect(input.value).toBe("token");
+    expect(input.selectionStart).toBe("token".length);
+    expect(input.selectionEnd).toBe("token".length);
+  });
+
+  it("still autocompletes a key after a semicolon following plain search text", () => {
+    render(<Harness />);
+    const input = screen.getByRole("textbox", { name: "search" }) as HTMLInputElement;
+
+    input.focus();
+    fireEvent.focus(input);
+
+    const query = "smith;n";
+    fireEvent.change(input, {
+      target: { value: query, selectionStart: query.length, selectionEnd: query.length },
+    });
+
+    expect(input.value).toBe("smith;name");
+  });
+
   it("does not start next key autocomplete after a value until a semicolon is typed", () => {
     render(<Harness />);
     const input = screen.getByRole("textbox", { name: "search" }) as HTMLInputElement;
