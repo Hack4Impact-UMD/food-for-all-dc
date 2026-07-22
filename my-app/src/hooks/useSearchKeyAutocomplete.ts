@@ -24,63 +24,20 @@ const getSegmentInfo = (
     return null;
   }
 
-  const findMatchingKeyStart = (text: string): number | null => {
-    // Prefer the straightforward segment-start key candidate first so both
-    // ";nextKey" and "; nextKey" behave the same.
-    const segmentLeadingWhitespace = (text.match(/^\s*/) ?? [""])[0].length;
-    const segmentStartCandidateRaw = text.slice(segmentLeadingWhitespace);
-    const normalizedSegmentStartCandidate = normalizeSearchKeyword(segmentStartCandidateRaw);
+  // A key can only begin the current semicolon-delimited segment. Searching
+  // arbitrary suffixes would turn plain text such as "token" into "tokename".
+  const leadingWhitespace = (preCursorSegment.match(/^\s*/) ?? [""])[0].length;
+  const keyCandidate = preCursorSegment.slice(leadingWhitespace);
+  const normalizedCandidate = normalizeSearchKeyword(keyCandidate);
+  const hasPrefixMatch = normalizedSuggestions.some((suggestion) =>
+    suggestion.normalized.startsWith(normalizedCandidate)
+  );
 
-    if (normalizedSegmentStartCandidate) {
-      const hasSegmentStartPrefixMatch = normalizedSuggestions.some((suggestion) =>
-        suggestion.normalized.startsWith(normalizedSegmentStartCandidate)
-      );
-
-      if (hasSegmentStartPrefixMatch) {
-        return segmentLeadingWhitespace;
-      }
-    }
-
-    let bestMatchStart: number | null = null;
-    let bestMatchLength = -1;
-
-    for (let start = 0; start < text.length; start += 1) {
-      const candidateRaw = text.slice(start);
-      if (candidateRaw.includes(":")) {
-        continue;
-      }
-
-      const leadingWhitespace = (candidateRaw.match(/^\s*/) ?? [""])[0];
-      const keyCandidate = candidateRaw.slice(leadingWhitespace.length);
-      if (!keyCandidate.trim()) {
-        continue;
-      }
-
-      const normalizedCandidate = normalizeSearchKeyword(keyCandidate);
-      if (!normalizedCandidate) {
-        continue;
-      }
-
-      const hasPrefixMatch = normalizedSuggestions.some((suggestion) =>
-        suggestion.normalized.startsWith(normalizedCandidate)
-      );
-
-      if (hasPrefixMatch && normalizedCandidate.length > bestMatchLength) {
-        bestMatchStart = start + leadingWhitespace.length;
-        bestMatchLength = normalizedCandidate.length;
-      }
-    }
-
-    return bestMatchStart;
-  };
-
-  const activeOffsetWithinSegment = findMatchingKeyStart(preCursorSegment);
-
-  if (activeOffsetWithinSegment === null) {
+  if (!normalizedCandidate || !hasPrefixMatch) {
     return null;
   }
 
-  const keyStart = baseStart + activeOffsetWithinSegment;
+  const keyStart = baseStart + leadingWhitespace;
 
   const nextSemicolonFromKey = value.indexOf(";", keyStart);
   const endBoundary = nextSemicolonFromKey === -1 ? value.length : nextSemicolonFromKey;
