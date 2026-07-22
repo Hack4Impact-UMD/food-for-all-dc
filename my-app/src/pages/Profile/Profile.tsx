@@ -257,6 +257,7 @@ const Profile = () => {
     tags: [],
     ward: "",
     tefapCert: false,
+    tefapCertDate: "",
     referralEntity: null,
     referredDate: "",
     coordinates: [],
@@ -410,6 +411,7 @@ const Profile = () => {
       const normalizedData = {
         ...data,
         tefapCert: normalizeBooleanField(data.tefapCert),
+        tefapCertDate: deliveryDate.tryToISODateString(data.tefapCertDate) ?? "",
         activeStatus: computeClientActiveStatus(
           data.startDate,
           data.endDate,
@@ -1467,6 +1469,7 @@ const Profile = () => {
 
       const normalizedStartDate = convertDateForSave(cleanedProfile.startDate);
       const normalizedEndDate = convertDateForSave(cleanedProfile.endDate);
+        const normalizedTefapCertDate = convertDateForSave(cleanedProfile.tefapCertDate);
       const normalizedStartDateISO = deliveryDate.tryToISODateString(normalizedStartDate);
       const normalizedEndDateISO = deliveryDate.tryToISODateString(normalizedEndDate);
       const nextActiveStatus = computeClientActiveStatus(
@@ -1483,7 +1486,8 @@ const Profile = () => {
         ...cleanedProfile,
         // Example: convert specific date fields
         dob: convertDateForSave(cleanedProfile.dob),
-        tefapCert: normalizeBooleanField(cleanedProfile.tefapCert),
+        tefapCert: Boolean(normalizedTefapCertDate.trim()),
+        tefapCertDate: normalizedTefapCertDate,
         famStartDate: convertDateForSave(cleanedProfile.famStartDate),
         startDate: normalizedStartDate,
         endDate: normalizedEndDate,

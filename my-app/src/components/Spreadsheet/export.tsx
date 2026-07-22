@@ -46,6 +46,7 @@ export interface RowData {
     organization: string;
   };
   tefapCert?: boolean;
+  tefapCertDate?: string;
   famStartDate?: string;
   lastDeliveryDate?: string;
   missedStrikeCount?: number;
@@ -95,6 +96,7 @@ const getSpreadsheetExportColumnHeader = (propertyKey: string): string => {
     case "referralEntity":
       return "Referral Entity";
     case "tefapCert":
+    case "tefapCertDate":
       return "TEFAP Cert";
     case "famStartDate":
       return "Fam Start Date";
@@ -111,22 +113,22 @@ const getSpreadsheetExportColumnHeader = (propertyKey: string): string => {
   }
 };
 
+const normalizeDateValue = (value: unknown): string => {
+  if (
+    value &&
+    typeof value === "object" &&
+    "seconds" in value &&
+    typeof (value as { seconds?: unknown }).seconds === "number"
+  ) {
+    return deliveryDate.tryToISODateString(
+      new Date((value as { seconds: number }).seconds * 1000)
+    ) ?? "";
+  }
+
+  return deliveryDate.tryToISODateString(value as string | Date | null | undefined) ?? "";
+};
+
 const resolveSpreadsheetExportValue = (row: RowData, propertyKey: string): string => {
-  const normalizeDateValue = (value: unknown): string => {
-    if (
-      value &&
-      typeof value === "object" &&
-      "seconds" in value &&
-      typeof (value as { seconds?: unknown }).seconds === "number"
-    ) {
-      return deliveryDate.tryToISODateString(
-        new Date((value as { seconds: number }).seconds * 1000)
-      ) ?? "";
-    }
-
-    return deliveryDate.tryToISODateString(value as string | Date | null | undefined) ?? "";
-  };
-
   if (propertyKey === "deliveryDetails.dietaryRestrictions") {
     return formatDietaryRestrictionsForExport(row.deliveryDetails?.dietaryRestrictions);
   }
@@ -146,8 +148,8 @@ const resolveSpreadsheetExportValue = (row: RowData, propertyKey: string): strin
     return normalizeDateValue(row.famStartDate);
   }
 
-  if (propertyKey === "tefapCert") {
-    return row.tefapCert ? "Yes" : "No";
+  if (propertyKey === "tefapCert" || propertyKey === "tefapCertDate") {
+    return normalizeDateValue(row.tefapCertDate);
   }
 
   const value = propertyKey.includes(".") ? getNestedValue(row, propertyKey, "") : row[propertyKey];
@@ -241,7 +243,7 @@ export const exportAllClients = (rows: RowData[]) => {
       "Referral Entity": row.referralEntity
         ? [row.referralEntity.name, row.referralEntity.organization].filter(Boolean).join(", ")
         : "",
-      "TEFAP Cert": row.tefapCert ? "Yes" : "No",
+      "TEFAP Cert": normalizeDateValue(row.tefapCertDate),
       Tags: row.tags?.join(", ") || "",
       "Date of Birth": row.dob ?? "",
     };

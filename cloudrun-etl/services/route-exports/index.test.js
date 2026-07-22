@@ -58,7 +58,7 @@ const loadHandler = () => {
       children: 2,
       seniors: 0,
       total: 3,
-      tefapCert: true,
+      tefapCertDate: '03/15/2026',
       deliveryDetails: {
         deliveryInstructions: 'Leave at door, ring bell',
         dietaryRestrictions: {
@@ -164,7 +164,7 @@ test('exports the saved frontend route assignment from current collections', asy
   const csv = Buffer.from(sentMessages[0].attachments[0].content, 'base64').toString('utf8');
   assert.match(csv, /"Leave at door, ring bell"/);
   assert.match(csv, /\[halal\] ALLERGIES:peanuts/);
-  assert.match(csv, /,Y,2026-07-20,4,11:30$/m);
+  assert.match(csv, /,03\/15\/2026,2026-07-20,4,11:30$/m);
 });
 
 test('rejects an ambiguous delivery date before reading Firestore', async () => {

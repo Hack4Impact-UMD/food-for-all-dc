@@ -17,6 +17,7 @@ describe("DeliverySpreadsheet search alias regression guards", () => {
     expect(source).toContain('case "deliveryfreq":');
     expect(source).toContain('case "deliveryfrequency":');
     expect(source).toContain('case "tefapcert":');
+    expect(source).toContain('case "tefapcertdate":');
     expect(source).toContain('case "referralentity":');
   });
 
@@ -33,9 +34,11 @@ describe("DeliverySpreadsheet search alias regression guards", () => {
 
   it("keeps delivery autocomplete suggestions aligned with visible header labels", () => {
     expect(source).toContain("const tableFieldLabels = fields");
+    expect(source).toContain("const fieldKeysAndAliases = Object.entries(routeFieldMappings)");
     expect(source).toContain("const visibleCustomFieldLabels = customColumns");
-    expect(source).toContain("return Array.from(new Set([...tableFieldLabels, ...visibleCustomFieldLabels]));");
+    expect(source).toContain("return Array.from(new Set([...tableFieldLabels, ...fieldKeysAndAliases, ...visibleCustomFieldLabels]));");
     expect(source).toContain('"deliveryDetails.dietaryRestrictions": ["dietary restrictions", "dietary"]');
+    expect(source).toContain('tefapCertDate: ["tefap", "tefap cert", "tefap date"]');
   });
 
   it("bulk reassigns all checked rows when changing the route dropdown for a selected cluster", () => {

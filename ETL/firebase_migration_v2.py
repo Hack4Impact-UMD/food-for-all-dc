@@ -72,8 +72,11 @@ def normalize_client_database_dataframe(df: pd.DataFrame) -> pd.DataFrame:
 	return df
 
 
+TEFAP_FY26_CERT_DATE = "03/15/2026"
+
+
 def normalize_tefap_cert_value(value):
-	"""Convert TEFAP source values to a boolean field suitable for Firestore."""
+	"""Convert TEFAP source values to a boolean for tags and legacy compatibility."""
 	if isinstance(value, bool):
 		return value
 	if value is None:
@@ -86,6 +89,11 @@ def normalize_tefap_cert_value(value):
 	if text in {"false", "f", "no", "n", "0", "", "nan", "none"}:
 		return False
 	return bool(value)
+
+
+def normalize_tefap_cert_date(value):
+	"""Convert the TEFAP FY26 boolean source column to the profile cert date."""
+	return TEFAP_FY26_CERT_DATE if normalize_tefap_cert_value(value) else ""
 
 
 class _InfoOnlyFilter(logging.Filter):
@@ -398,50 +406,73 @@ class FirestoreMigration:
         
 		# Default to adult if no senior indicators found
 		return result
-	def parse_frequency(self, frequency_str: str) -> str:
+	def _map_frequency_category(self, frequency_str: str, track_unmapped: bool = False) -> str:
 		"""
-		Parse frequency string to match predefined categories
+		Parse frequency string to match predefined categories.
 		Returns one of: "None", "Weekly", "2x-Monthly", "Monthly", "Emergency", "Periodic"
 		"""
 		if not frequency_str or not str(frequency_str).strip():
 			return "None"
-        
+
 		freq = str(frequency_str).strip().lower()
-        
-		# Check for emergency/one-time deliveries first
-		emergency_keywords = ["emergency", "only", "two time only", "one time only", "emerg"]
-		if any(keyword in freq for keyword in emergency_keywords):
-			return "Emergency"
-        
-		# Check for periodic
-		if "periodic" in freq or "perodic" in freq:
-			return "Periodic"
-		# Define mapping patterns for regular frequencies
+		freq_words = re.sub(r"[\s/_-]+", " ", freq).strip()
+
 		if freq in ["none", "n/a", "na", ""]:
 			return "None"
-		elif "weekly" in freq or "week" in freq or freq in ["1x/week", "once/week", "every week"]:
+
+		inactive_status_keywords = [
+			"asked to be discontinued",
+			"deceased",
+			"discontinue",
+			"discontinued",
+			"moved out of dc",
+			"no longer needs",
+			"no phone",
+			"not responsive",
+			"phone out",
+		]
+		if any(keyword in freq for keyword in inactive_status_keywords):
+			return "None"
+
+		if "periodic" in freq or "perodic" in freq:
+			return "Periodic"
+		if "saturday" in freq or freq_words in ["sat client", "sat"]:
+			return "Periodic"
+		if any(keyword in freq for keyword in ["as needed", "short term", "until "]):
+			return "Periodic"
+
+		if "weekly" in freq or "week" in freq or freq in ["1x/week", "once/week", "every week"]:
 			return "Weekly"
-		elif any(pattern in freq for pattern in ["2x", "twice", "two", "bi-monthly", "bimonthly", "2/month", "2x/month", "twice/month"]):
+		if any(pattern in freq for pattern in ["2x", "twice", "two", "bi-monthly", "bimonthly", "2/month", "2x/month", "twice/month"]):
 			return "2x-Monthly"
-		elif any(pattern in freq for pattern in ["monthly", "month", "1x/month", "once/month", "every month", "one/month"]):
+		if re.search(r"\b2\s*x\b", freq_words) and "only" not in freq_words:
+			return "2x-Monthly"
+		if any(pattern in freq for pattern in ["monthly", "month", "1x/month", "once/month", "every month", "one/month"]):
 			return "Monthly"
-		else:
-			# Track unmapped frequency for review
+
+		emergency_keywords = ["emergency", "emerg", "emer", "one time", "1 time", "one-time"]
+		if any(keyword in freq for keyword in emergency_keywords):
+			return "Emergency"
+		if re.fullmatch(r"1\s*x", freq_words) or re.search(r"\b1\s*x\s+(only|to start)\b", freq_words):
+			return "Emergency"
+		if re.search(r"\b\d+\s*x\s+only\b", freq_words):
+			return "Emergency"
+
+		if re.search(r"\b(street|avenue|road|apt)\b", freq_words):
+			return "None"
+
+		if track_unmapped:
 			if not hasattr(self.stats, 'unmapped_frequencies'):
 				self.stats.unmapped_frequencies = {}
 			if freq not in self.stats.unmapped_frequencies:
 				self.stats.unmapped_frequencies[freq] = 0
 			self.stats.unmapped_frequencies[freq] += 1
-            
-			# Try to make a best guess based on keywords
-			if "week" in freq:
-				return "Weekly"
-			elif "month" in freq:
-				return "Monthly"
-			else:
-				return "None"  # Default fallback
-			# Anything not mapped above is now 'Periodic'
-			return "Periodic"
+
+		return "None"
+
+	def parse_frequency(self, frequency_str: str) -> str:
+		return self._map_frequency_category(frequency_str, track_unmapped=True)
+
 	def check_recent_deliveries(self, row: Dict[str, Any]) -> bool:
 		"""
 		Check if client has had any deliveries in the last 6 months
@@ -1606,8 +1637,9 @@ class FirestoreMigration:
 			else:
 				notes = "Status changed to Active due to recent deliveries."
 		tags = []
-		tefap_flag = row.get("TEFAP_FY25") or row.get("TEFAP FY25") or row.get("TEFAP FY26")
-		if tefap_flag and str(tefap_flag).lower() != 'false':
+		tefap_source_value = row.get("TEFAP_FY25") or row.get("TEFAP FY25") or row.get("TEFAP FY26")
+		tefap_cert_date = normalize_tefap_cert_date(tefap_source_value)
+		if tefap_cert_date:
 			tags.append("TEFAPOnFile")
 		excel_row_num = row.get("_excel_row_num")
 		try:
@@ -1730,28 +1762,10 @@ class FirestoreMigration:
 						continue
 				end_date = parsed_end.strftime("%m/%d/%Y") if parsed_end else DEFAULT_END_DATE_STR
 
-		# Map recurrence using the same logic as parse_frequency
-		def map_recurrence(frequency_str):
-			if not frequency_str or not str(frequency_str).strip():
-				return "None"
-			freq = str(frequency_str).strip().lower()
-			emergency_keywords = ["emergency", "only", "two time only", "one time only", "emerg"]
-			if any(keyword in freq for keyword in emergency_keywords):
-				return "Periodic"
-			if "periodic" in freq or "perodic" in freq:
-				return "Periodic"
-			if freq in ["none", "n/a", "na", ""]:
-				return "None"
-			elif "weekly" in freq or "week" in freq or freq in ["1x/week", "once/week", "every week"]:
-				return "Weekly"
-			elif any(pattern in freq for pattern in ["2x", "twice", "two", "bi-monthly", "bimonthly", "2/month", "2x/month", "twice/month"]):
-				return "2x-Monthly"
-			elif any(pattern in freq for pattern in ["monthly", "month", "1x/month", "once/month", "every month", "one/month"]):
-				return "Monthly"
-			else:
-				return "Periodic"
-
-		recurrence = map_recurrence(row.get("Frequency", ""))
+		# Map recurrence using the same normalized categories as deliveryFreq.
+		recurrence = self._map_frequency_category(row.get("Frequency", ""))
+		if recurrence == "Emergency":
+			recurrence = "Periodic"
 
 		# Parse dates for activeStatus logic
 		DEFAULT_START_DATE_STR = "11/15/2025"
@@ -1843,7 +1857,8 @@ class FirestoreMigration:
 			"startDate": start_date_str,
 			"endDate": end_date,
 			"recurrence": recurrence,
-			"tefapCert": normalize_tefap_cert_value(row.get("TEFAP_FY25", "")),
+			"tefapCert": bool(tefap_cert_date),
+			"tefapCertDate": tefap_cert_date,
 			"notesTimestamp": None,
 			"deliveryInstructionsTimestamp": None,
 			"lifeChallengesTimestamp": None,

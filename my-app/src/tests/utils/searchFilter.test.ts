@@ -109,6 +109,12 @@ describe("searchFilter parsing", () => {
     expect(parseSearchTermsProgressively("fam start date: 01/01/2026")).toEqual([
       "fam start date: 01/01/2026",
     ]);
+    expect(parseSearchTermsProgressively("tefap date:03/15/2026")).toEqual([
+      "tefap date:03/15/2026",
+    ]);
+    expect(parseSearchTermsProgressively("tefapCertDate:03/15/2026")).toEqual([
+      "tefapCertDate:03/15/2026",
+    ]);
   });
 
   // App coverage:

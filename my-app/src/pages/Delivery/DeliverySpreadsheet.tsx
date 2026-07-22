@@ -437,7 +437,7 @@ const addablePropertyKeyLabelMap: Record<string, string> = {
   phone: "Phone",
   referralEntity: "Referral Entity",
   tags: "Tags",
-  tefapCert: "TEFAP Cert",
+  tefapCertDate: "TEFAP Cert",
   dob: "DOB",
   lastDeliveryDate: "Last Delivery Date",
 };
@@ -468,7 +468,7 @@ const routeCustomColumnMappings: Record<string, string[]> = {
   phone: ["phone"],
   referralEntity: ["referral entity", "referral"],
   tags: ["tags", "tag"],
-  tefapCert: ["tefap", "tefap cert"],
+  tefapCertDate: ["tefap", "tefap cert", "tefap date"],
   dob: ["dob"],
   lastDeliveryDate: ["last delivery date"],
 };
@@ -923,13 +923,21 @@ const DeliverySpreadsheet: React.FC = () => {
       .filter((label) => Boolean(label))
       .map((label) => label.toLowerCase());
 
+    const fieldKeysAndAliases = Object.entries(routeFieldMappings)
+      .flatMap(([fieldKey, aliases]) => [fieldKey, ...aliases])
+      .map((suggestion) => suggestion.toLowerCase());
+
     const visibleCustomFieldLabels = customColumns
       .map((column) => column.propertyKey)
       .filter((propertyKey) => propertyKey !== "none")
-      .map((propertyKey) => addablePropertyKeyLabelMap[propertyKey] ?? propertyKey)
+      .flatMap((propertyKey) => [
+        propertyKey,
+        addablePropertyKeyLabelMap[propertyKey] ?? propertyKey,
+        ...(routeCustomColumnMappings[propertyKey] ?? []),
+      ])
       .map((label) => label.toLowerCase());
 
-    return Array.from(new Set([...tableFieldLabels, ...visibleCustomFieldLabels]));
+    return Array.from(new Set([...tableFieldLabels, ...fieldKeysAndAliases, ...visibleCustomFieldLabels]));
   }, [customColumns]);
   const searchAutocomplete = useSearchKeyAutocomplete({
     value: searchQuery,
@@ -2389,9 +2397,21 @@ const DeliverySpreadsheet: React.FC = () => {
                 );
               case "tefap":
               case "tefapcert":
-                return matchesAnySearchValue((candidate) =>
-                  checkStringContains(row.tefapCert ? "yes true" : "no false", candidate)
-                );
+              case "tefapcertdate":
+              case "tefapdate":
+                return matchesAnySearchValue((candidate) => {
+                  const normalizedCandidateDate = deliveryDate.tryToDateTime(candidate);
+                  const normalizedRowDate = deliveryDate.tryToDateTime(row.tefapCertDate);
+
+                  if (normalizedCandidateDate && normalizedRowDate) {
+                    return checkStringEquals(
+                      deliveryDate.toDisplayString(normalizedRowDate),
+                      deliveryDate.toDisplayString(normalizedCandidateDate)
+                    );
+                  }
+
+                  return checkStringContains(row.tefapCertDate || "", candidate);
+                });
               case "date":
               case "famstartdate": {
                 return matchesAnySearchValue((candidate) => {
@@ -4110,7 +4130,7 @@ const DeliverySpreadsheet: React.FC = () => {
                             if (key === "phone") label = "Phone";
                             if (key === "referralEntity") label = "Referral Entity";
                             if (key === "tags") label = "Tags";
-                            if (key === "tefapCert") label = "TEFAP Cert";
+                            if (key === "tefapCertDate") label = "TEFAP Cert";
                             if (key === "dob") label = "DOB";
                             if (key === "lastDeliveryDate") label = "Last Delivery Date";
                             return (
@@ -4320,7 +4340,7 @@ const DeliverySpreadsheet: React.FC = () => {
                             if (key === "notes") label = "Notes";
                             if (key === "phone") label = "Phone";
                             if (key === "referralEntity") label = "Referral Entity";
-                            if (key === "tefapCert") label = "TEFAP Cert";
+                            if (key === "tefapCertDate") label = "TEFAP Cert";
                             if (key === "dob") label = "DOB";
                             if (key === "lastDeliveryDate") label = "Last Delivery Date";
                             return (

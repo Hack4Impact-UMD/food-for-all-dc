@@ -35,6 +35,26 @@ const senderEmail = emailConfig.fromEmail || process.env.FROM_EMAIL || 'Admin@fo
 const recipientEmail = emailConfig.toEmail || process.env.TO_EMAIL;
 const CLIENTS_COLLECTION = 'client-profile2';
 
+const parseTefapCertDate = (value) => {
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    const displayMatch = trimmed.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+
+    if (displayMatch) {
+      const [, month, day, year] = displayMatch;
+      return new Date(Number(year), Number(month) - 1, Number(day));
+    }
+
+    return new Date(trimmed);
+  }
+
+  if (value instanceof admin.firestore.Timestamp) {
+    return value.toDate();
+  }
+
+  return null;
+};
+
 functions.http('tefap-email', async (req, res) => {
   // Set CORS headers
   res.set('Access-Control-Allow-Origin', '*');
@@ -77,15 +97,9 @@ functions.http('tefap-email', async (req, res) => {
       // Skip clients without TEFAP certification dates
       if (!client.tefapCertDate) continue;
       
-      // Convert tefapCertDate string to a Date object
-      // Assuming tefapCertDate is stored as an ISO string or a Firestore Timestamp
-      let certExpirationDate;
-      
-      if (typeof client.tefapCertDate === 'string') {
-        certExpirationDate = new Date(client.tefapCertDate);
-      } else if (client.tefapCertDate instanceof admin.firestore.Timestamp) {
-        certExpirationDate = client.tefapCertDate.toDate();
-      } else {
+      const certExpirationDate = parseTefapCertDate(client.tefapCertDate);
+
+      if (!certExpirationDate) {
         // Skip if format is unrecognized
         console.log(`Skipping client ${clientId}: Invalid tefapCertDate format`);
         continue;

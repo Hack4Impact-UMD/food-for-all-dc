@@ -100,7 +100,7 @@ const addablePropertyKeyLabelMap: Record<string, string> = {
   phone: "Phone",
   referralEntity: "Referral Entity",
   tags: "Tags",
-  tefapCert: "TEFAP Cert",
+  tefapCertDate: "TEFAP Cert",
   dob: "DOB",
   lastDeliveryDate: "Last Delivery Date",
 };
@@ -126,7 +126,7 @@ const clientCustomColumnMappings: Record<string, string[]> = {
   notes: ["notes"],
   referralEntity: ["referral entity", "referral"],
   tags: ["tags", "tag"],
-  tefapCert: ["tefap", "tefap cert"],
+  tefapCertDate: ["tefap", "tefap cert", "tefap date"],
   dob: ["dob"],
   lastDeliveryDate: ["last delivery date"],
 };
@@ -602,7 +602,8 @@ const Spreadsheet: React.FC = () => {
               language: client.language || "",
               notes: client.notes || "",
               famStartDate: client.famStartDate || "",
-              tefapCert: Boolean(client.tefapCert),
+              tefapCert: Boolean(client.tefapCertDate || client.tefapCert),
+              tefapCertDate: client.tefapCertDate || "",
               dob: client.dob || "",
               ward: client.ward || "",
               zipCode: client.zipCode || "",
@@ -883,13 +884,21 @@ const Spreadsheet: React.FC = () => {
       .filter((label) => Boolean(label))
       .map((label) => label.toLowerCase());
 
+    const fieldKeysAndAliases = Object.entries(clientFieldMappings)
+      .flatMap(([fieldKey, aliases]) => [fieldKey, ...aliases])
+      .map((suggestion) => suggestion.toLowerCase());
+
     const visibleCustomFieldLabels = customColumns
       .map((column) => column.propertyKey)
       .filter((propertyKey) => propertyKey !== "none")
-      .map((propertyKey) => addablePropertyKeyLabelMap[propertyKey] ?? propertyKey)
+      .flatMap((propertyKey) => [
+        propertyKey,
+        addablePropertyKeyLabelMap[propertyKey] ?? propertyKey,
+        ...(clientCustomColumnMappings[propertyKey] ?? []),
+      ])
       .map((label) => label.toLowerCase());
 
-    return Array.from(new Set([...tableFieldLabels, ...visibleCustomFieldLabels]));
+    return Array.from(new Set([...tableFieldLabels, ...fieldKeysAndAliases, ...visibleCustomFieldLabels]));
   }, [fields, customColumns]);
 
   const searchAutocomplete = useSearchKeyAutocomplete({
@@ -1075,9 +1084,21 @@ const Spreadsheet: React.FC = () => {
                   return matchesAnySearchValue((candidate) => checkValueOrInArray(row.tags, candidate));
                 case "tefap":
                 case "tefapcert":
-                  return matchesAnySearchValue((candidate) =>
-                    checkStringContains(row.tefapCert ? "yes true" : "no false", candidate)
-                  );
+                case "tefapcertdate":
+                case "tefapdate":
+                  return matchesAnySearchValue((candidate) => {
+                    const normalizedCandidateDate = deliveryDate.tryToDateTime(candidate);
+                    const normalizedRowDate = deliveryDate.tryToDateTime(row.tefapCertDate);
+
+                    if (normalizedCandidateDate && normalizedRowDate) {
+                      return checkStringEquals(
+                        deliveryDate.toDisplayString(normalizedRowDate),
+                        deliveryDate.toDisplayString(normalizedCandidateDate)
+                      );
+                    }
+
+                    return checkStringContains(row.tefapCertDate || "", candidate);
+                  });
                 case "date":
                 case "famstartdate":
                   return matchesAnySearchValue((candidate) => {

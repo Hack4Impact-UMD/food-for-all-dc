@@ -14,7 +14,7 @@ export const allowedPropertyKeys = [
   "phone",
   "referralEntity",
   "tags",
-  "tefapCert",
+  "tefapCertDate",
   "dob",
   "lastDeliveryDate",
 ];
@@ -56,8 +56,8 @@ export const useCustomColumns = ({ page }: useCustomColumnsProps) => {
           return [];
         }
         return parsed.map((column) =>
-          column?.propertyKey === "tefapCertDate"
-            ? { ...column, propertyKey: "tefapCert", label: "TEFAP Cert" }
+          column?.propertyKey === "tefapCert"
+            ? { ...column, propertyKey: "tefapCertDate", label: "TEFAP Cert" }
             : column
         );
       } catch (error) {
