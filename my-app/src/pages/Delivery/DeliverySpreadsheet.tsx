@@ -26,9 +26,11 @@ import {
   checkStringEquals as utilCheckStringEquals,
   extractKeyValue,
   globalSearchMatch,
+  isMappedSearchFieldVisible,
   isNoneSearchToken,
   normalizeSearchKeyword,
   splitFilterValues,
+  TEFAP_CERT_DATE_SEARCH_ALIASES,
 } from "../../utils/searchFilter";
 import { query, Timestamp, updateDoc, where, orderBy, runTransaction } from "firebase/firestore";
 import { TimeUtils } from "../../utils/timeUtils";
@@ -468,7 +470,7 @@ const routeCustomColumnMappings: Record<string, string[]> = {
   phone: ["phone"],
   referralEntity: ["referral entity", "referral"],
   tags: ["tags", "tag"],
-  tefapCertDate: ["tefap", "tefap cert", "tefap date"],
+  tefapCertDate: [...TEFAP_CERT_DATE_SEARCH_ALIASES],
   dob: ["dob"],
   lastDeliveryDate: ["last delivery date"],
 };
@@ -2263,29 +2265,10 @@ const DeliverySpreadsheet: React.FC = () => {
         ]);
 
         const isVisibleField = (keyword: string): boolean => {
-          const lowerKeyword = keyword.toLowerCase();
-
-          const normalizedKeyword = normalizeSearchKeyword(lowerKeyword);
-
-          for (const [fieldKey, aliases] of Object.entries(routeFieldMappings)) {
-            if (
-              visibleFieldKeys.has(fieldKey) &&
-              aliases.some((alias) => normalizeSearchKeyword(alias) === normalizedKeyword)
-            ) {
-              return true;
-            }
-          }
-
-          for (const [propertyKey, aliases] of Object.entries(routeCustomColumnMappings)) {
-            if (
-              visibleFieldKeys.has(propertyKey) &&
-              aliases.some((alias) => normalizeSearchKeyword(alias) === normalizedKeyword)
-            ) {
-              return true;
-            }
-          }
-
-          return false;
+          return isMappedSearchFieldVisible(keyword, visibleFieldKeys, [
+            routeFieldMappings,
+            routeCustomColumnMappings,
+          ]);
         };
 
         matches = keyValueTerms.every((term) => {

@@ -3,27 +3,37 @@ export interface SearchFilterConfig {
   getSearchableFields: (searchValue: string) => boolean;
 }
 
+export const TEFAP_CERT_DATE_SEARCH_ALIASES = [
+  "tefap",
+  "tefap cert",
+  "tefap cert date",
+  "tefap date",
+];
+
 export const parseSearchTermsProgressively = (trimmedSearchQuery: string): string[] => {
   const searchTerms: string[] = [];
   let inQuote = false;
   let quoteChar = "";
   let currentTerm = "";
 
-  const multiWordFilterPrefixes = new Set([
-    "assigned",
-    "fam",
-    "fam start",
-    "famstart",
-    "cluster",
-    "delivery",
-    "dietary",
-    "first",
-    "last",
-    "referral",
-    "route",
-    "tefap",
-    "zip",
-  ]);
+  const multiWordFilterPrefixes = new Set(
+    [
+      "assigned",
+      "fam",
+      "fam start",
+      "famstart",
+      "cluster",
+      "delivery",
+      "dietary",
+      "first",
+      "last",
+      "referral",
+      "route",
+      "tefap",
+      "tefap cert",
+      "zip",
+    ].map((keyword) => normalizeSearchKeyword(keyword))
+  );
 
   const knownFilterKeywords = new Set(
     [
@@ -67,12 +77,7 @@ export const parseSearchTermsProgressively = (trimmedSearchQuery: string): strin
       "notes",
       "referral entity",
       "referral",
-      "tefap",
-      "tefap cert",
-      "tefapcert",
-      "tefap cert date",
-      "tefapcertdate",
-      "tefap date",
+      ...TEFAP_CERT_DATE_SEARCH_ALIASES,
       "dob",
       "fam start date",
       "last delivery date",
@@ -399,6 +404,24 @@ export const splitFilterValues = (searchValue: string): string[] => {
 
 export const normalizeSearchKeyword = (value: string): string =>
   stripLooseWrappingQuotes(value).toLowerCase().replace(/["']/g, "").replace(/[\s_]+/g, "");
+
+export const isMappedSearchFieldVisible = <FieldKey extends PropertyKey>(
+  keyword: string,
+  visibleFieldKeys: ReadonlySet<FieldKey>,
+  fieldMappings: ReadonlyArray<Record<string, string[]>>
+): boolean => {
+  const normalizedKeyword = normalizeSearchKeyword(keyword);
+
+  return fieldMappings.some((mapping) =>
+    Object.entries(mapping).some(
+      ([fieldKey, aliases]) =>
+        visibleFieldKeys.has(fieldKey as FieldKey) &&
+        [fieldKey, ...aliases].some(
+          (candidate) => normalizeSearchKeyword(candidate) === normalizedKeyword
+        )
+    )
+  );
+};
 
 export const isPartialFieldName = (term: string, fieldNames: string[]): boolean => {
   const lowerTerm = term.toLowerCase();

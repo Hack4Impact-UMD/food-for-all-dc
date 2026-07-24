@@ -3,8 +3,11 @@ import {
   checkStringEquals,
   checkStringContains,
   extractKeyValue,
+  isMappedSearchFieldVisible,
+  normalizeSearchKeyword,
   parseSearchTermsProgressively,
   splitFilterValues,
+  TEFAP_CERT_DATE_SEARCH_ALIASES,
 } from "../../utils/searchFilter";
 
 describe("searchFilter parsing", () => {
@@ -115,6 +118,46 @@ describe("searchFilter parsing", () => {
     expect(parseSearchTermsProgressively("tefapCertDate:03/15/2026")).toEqual([
       "tefapCertDate:03/15/2026",
     ]);
+    expect(parseSearchTermsProgressively("tefap cert date:03/15/2026")).toEqual([
+      "tefap cert date:03/15/2026",
+    ]);
+  });
+
+  it("recognizes canonical field keys and aliases only when the field is visible", () => {
+    const mappings = [
+      {
+        tefapCertDate: [...TEFAP_CERT_DATE_SEARCH_ALIASES],
+      },
+    ];
+
+    for (const keyword of ["tefapCertDate", ...TEFAP_CERT_DATE_SEARCH_ALIASES]) {
+      expect(isMappedSearchFieldVisible(keyword, new Set(["tefapCertDate"]), mappings)).toBe(true);
+    }
+
+    expect(isMappedSearchFieldVisible("tefapCertDate", new Set<string>(), mappings)).toBe(false);
+    expect(
+      isMappedSearchFieldVisible("unrelated field", new Set(["tefapCertDate"]), mappings)
+    ).toBe(false);
+  });
+
+  it.each([
+    "tefapCertDate:03/15/2026",
+    "tefap cert date:03/15/2026",
+  ])("routes %s through the visible TEFAP date filter", (query) => {
+    const mappings = [
+      {
+        tefapCertDate: [...TEFAP_CERT_DATE_SEARCH_ALIASES],
+      },
+    ];
+    const [term] = parseSearchTermsProgressively(query);
+    const { keyword, searchValue, isKeyValue } = extractKeyValue(term);
+
+    expect(isKeyValue).toBe(true);
+    expect(searchValue).toBe("03/15/2026");
+    expect(normalizeSearchKeyword(keyword)).toBe("tefapcertdate");
+    expect(
+      isMappedSearchFieldVisible(keyword, new Set(["tefapCertDate"]), mappings)
+    ).toBe(true);
   });
 
   // App coverage:

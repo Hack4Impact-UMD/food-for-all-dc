@@ -23,7 +23,7 @@ describe("DeliverySpreadsheet search alias regression guards", () => {
 
   it("normalizes custom column aliases for visible-field matching", () => {
     expect(source).toContain("routeCustomColumnMappings");
-    expect(source).toContain("aliases.some((alias) => normalizeSearchKeyword(alias) === normalizedKeyword)");
+    expect(source).toContain("isMappedSearchFieldVisible(keyword, visibleFieldKeys");
     expect(source).toContain('"deliveryDetails.dietaryRestrictions.dietaryPreferences": ["dietary preferences"]');
     expect(source).toContain('famStartDate: ["fam start date", "family start date"]');
     expect(source).toContain('famStartDate: "Fam Start Date"');
@@ -38,7 +38,7 @@ describe("DeliverySpreadsheet search alias regression guards", () => {
     expect(source).toContain("const visibleCustomFieldLabels = customColumns");
     expect(source).toContain("return Array.from(new Set([...tableFieldLabels, ...fieldKeysAndAliases, ...visibleCustomFieldLabels]));");
     expect(source).toContain('"deliveryDetails.dietaryRestrictions": ["dietary restrictions", "dietary"]');
-    expect(source).toContain('tefapCertDate: ["tefap", "tefap cert", "tefap date"]');
+    expect(source).toContain("tefapCertDate: [...TEFAP_CERT_DATE_SEARCH_ALIASES]");
   });
 
   it("bulk reassigns all checked rows when changing the route dropdown for a selected cluster", () => {

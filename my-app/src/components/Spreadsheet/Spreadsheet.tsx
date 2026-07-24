@@ -8,9 +8,11 @@ import {
   checkStringEquals,
   extractKeyValue,
   globalSearchMatch,
+  isMappedSearchFieldVisible,
   isNoneSearchToken,
   normalizeSearchKeyword,
   splitFilterValues,
+  TEFAP_CERT_DATE_SEARCH_ALIASES,
 } from "../../utils/searchFilter";
 import { deliveryDate } from "../../utils/deliveryDate";
 // Custom chevron icons for TableSortLabel with spacing
@@ -126,7 +128,7 @@ const clientCustomColumnMappings: Record<string, string[]> = {
   notes: ["notes"],
   referralEntity: ["referral entity", "referral"],
   tags: ["tags", "tag"],
-  tefapCertDate: ["tefap", "tefap cert", "tefap date"],
+  tefapCertDate: [...TEFAP_CERT_DATE_SEARCH_ALIASES],
   dob: ["dob"],
   lastDeliveryDate: ["last delivery date"],
 };
@@ -942,27 +944,10 @@ const Spreadsheet: React.FC = () => {
         };
 
         const isVisibleField = (keyword: string): boolean => {
-          const normalizedKeyword = normalizeSearchKeyword(keyword);
-
-          for (const [fieldKey, aliases] of Object.entries(clientFieldMappings)) {
-            if (
-              visibleFieldKeys.has(fieldKey) &&
-              aliases.some((alias) => normalizeSearchKeyword(alias) === normalizedKeyword)
-            ) {
-              return true;
-            }
-          }
-
-          for (const [propertyKey, aliases] of Object.entries(clientCustomColumnMappings)) {
-            if (
-              visibleFieldKeys.has(propertyKey) &&
-              aliases.some((alias) => normalizeSearchKeyword(alias) === normalizedKeyword)
-            ) {
-              return true;
-            }
-          }
-
-          return false;
+          return isMappedSearchFieldVisible(keyword, visibleFieldKeys, [
+            clientFieldMappings,
+            clientCustomColumnMappings,
+          ]);
         };
 
         result = result.filter((row) => {
