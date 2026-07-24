@@ -14,9 +14,13 @@ describe("Spreadsheet search filter regression guards", () => {
 
   it("keeps client autocomplete suggestions aligned with visible header labels", () => {
     expect(source).toContain("const tableFieldLabels = fields");
+    expect(source).toContain("const fieldKeysAndAliases = Object.entries(clientFieldMappings)");
     expect(source).toContain("const visibleCustomFieldLabels = customColumns");
-    expect(source).toContain("return Array.from(new Set([...tableFieldLabels, ...visibleCustomFieldLabels]));");
+    expect(source).toContain("return Array.from(new Set([...tableFieldLabels, ...fieldKeysAndAliases, ...visibleCustomFieldLabels]));");
     expect(source).toContain('"deliveryDetails.dietaryRestrictions": ["dietary restrictions", "dietary"]');
+    expect(source).toContain("tefapCertDate: [...TEFAP_CERT_DATE_SEARCH_ALIASES]");
+    expect(source).toContain("isMappedSearchFieldVisible(keyword, visibleFieldKeys");
+    expect(source).toContain('case "tefapcertdate":');
   });
 
   it("shows multi-value examples in the Clients page search placeholder", () => {

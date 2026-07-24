@@ -17,12 +17,13 @@ describe("DeliverySpreadsheet search alias regression guards", () => {
     expect(source).toContain('case "deliveryfreq":');
     expect(source).toContain('case "deliveryfrequency":');
     expect(source).toContain('case "tefapcert":');
+    expect(source).toContain('case "tefapcertdate":');
     expect(source).toContain('case "referralentity":');
   });
 
   it("normalizes custom column aliases for visible-field matching", () => {
     expect(source).toContain("routeCustomColumnMappings");
-    expect(source).toContain("aliases.some((alias) => normalizeSearchKeyword(alias) === normalizedKeyword)");
+    expect(source).toContain("isMappedSearchFieldVisible(keyword, visibleFieldKeys");
     expect(source).toContain('"deliveryDetails.dietaryRestrictions.dietaryPreferences": ["dietary preferences"]');
     expect(source).toContain('famStartDate: ["fam start date", "family start date"]');
     expect(source).toContain('famStartDate: "Fam Start Date"');
@@ -33,9 +34,11 @@ describe("DeliverySpreadsheet search alias regression guards", () => {
 
   it("keeps delivery autocomplete suggestions aligned with visible header labels", () => {
     expect(source).toContain("const tableFieldLabels = fields");
+    expect(source).toContain("const fieldKeysAndAliases = Object.entries(routeFieldMappings)");
     expect(source).toContain("const visibleCustomFieldLabels = customColumns");
-    expect(source).toContain("return Array.from(new Set([...tableFieldLabels, ...visibleCustomFieldLabels]));");
+    expect(source).toContain("return Array.from(new Set([...tableFieldLabels, ...fieldKeysAndAliases, ...visibleCustomFieldLabels]));");
     expect(source).toContain('"deliveryDetails.dietaryRestrictions": ["dietary restrictions", "dietary"]');
+    expect(source).toContain("tefapCertDate: [...TEFAP_CERT_DATE_SEARCH_ALIASES]");
   });
 
   it("bulk reassigns all checked rows when changing the route dropdown for a selected cluster", () => {

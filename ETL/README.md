@@ -302,7 +302,7 @@ Below is the current mapping used by `ETL/firebase_migration_v2.py` for the new 
 | `Language` | `language` |
 | `StartDate_database` or `StartDate_referral` or `Start Date` | `startDate` |
 | `EndDate` or `End Date` (defaulted/validated by ETL) | `endDate` |
-| `TEFAP_FY25` / `TEFAP FY25` / `TEFAP FY26` | `tefapCert` and `tags` (`TEFAPOnFile`) |
+| `TEFAP_FY25` / `TEFAP FY25` / `TEFAP FY26` | `tefapCertDate` (`03/15/2026` when true, blank when false), legacy `tefapCert`, and `tags` (`TEFAPOnFile`) |
 | `Active` and date-window logic | `activeStatus` and `tags` (`Active`) |
 
 ### Client Referral Form v.3_20_24 (Responses).xlsx (sheet: `Form Responses 1`) -> `referral`

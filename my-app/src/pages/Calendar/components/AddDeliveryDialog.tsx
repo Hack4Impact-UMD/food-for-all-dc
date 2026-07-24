@@ -422,7 +422,7 @@ const AddDeliveryDialog: React.FC<AddDeliveryDialogProps> = (props) => {
       setFormError("Please select a client");
       return;
     }
-    if (selectedClientProfile?.tefapCert !== true) {
+    if (!selectedClientProfile?.tefapCertDate) {
       setFormError("Cannot schedule a delivery until the TEFAP cert is set for this profile.");
       return;
     }

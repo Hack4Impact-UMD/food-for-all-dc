@@ -1,6 +1,7 @@
 import React from "react";
 import { Box, Typography } from "@mui/material";
 import { ClientProfileKey, InputType } from "../types";
+import { deliveryDate } from "../../../utils/deliveryDate";
 
 interface ConfigField {
   id: string;
@@ -29,6 +30,10 @@ const MiscellaneousForm: React.FC<MiscellaneousFormProps> = ({
   fieldValues,
   handleFieldChange,
 }) => {
+  const tefapCertDisplay = clientProfile.tefapCertDate
+    ? deliveryDate.toDisplayString(clientProfile.tefapCertDate)
+    : "N/A";
+
   return (
     <Box sx={{ width: "100%" }}>
       {/* Unified grid for main and config fields */}
@@ -56,7 +61,7 @@ const MiscellaneousForm: React.FC<MiscellaneousFormProps> = ({
             TEFAP CERT
           </Typography>
           {isEditing ? (
-            <Box sx={{ minHeight: 120, width: "100%" }}>{renderField("tefapCert", "checkbox")}</Box>
+            <Box sx={{ minHeight: 120, width: "100%" }}>{renderField("tefapCertDate", "date")}</Box>
           ) : (
             <Typography
               sx={{
@@ -70,7 +75,7 @@ const MiscellaneousForm: React.FC<MiscellaneousFormProps> = ({
                 pl: 0,
               }}
             >
-              {clientProfile.tefapCert ? "Yes" : "No"}
+              {tefapCertDisplay}
             </Typography>
           )}
         </Box>

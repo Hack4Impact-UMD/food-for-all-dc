@@ -49,6 +49,13 @@ const normalizeFirestoreDateValue = (value: unknown): unknown => {
   return value;
 };
 
+const normalizeDateStringField = (value: unknown): string => {
+  const normalizedValue = normalizeFirestoreDateValue(value);
+  return deliveryDate.tryToISODateString(
+    normalizedValue as string | Date | null | undefined
+  ) ?? "";
+};
+
 export const normalizeBooleanField = (value: unknown): boolean => {
   if (typeof value === "boolean") return value;
   if (typeof value === "number") return value !== 0;
@@ -118,6 +125,7 @@ const mapClientDocToSpreadsheetBaseRow = (docId: string, raw: any): RowData => {
     notes: raw.notes ?? "",
     famStartDate,
     tefapCert: normalizeBooleanField(raw.tefapCert),
+    tefapCertDate: normalizeDateStringField(raw.tefapCertDate),
     dob: raw.dob ?? "",
     ward: raw.ward ?? "",
     zipCode: raw.zipCode ?? "",
@@ -186,6 +194,7 @@ class ClientService {
         return {
           ...data,
           tefapCert: normalizeBooleanField(data.tefapCert),
+          tefapCertDate: normalizeDateStringField((data as any).tefapCertDate),
           activeStatus: deriveClientActiveStatus(data),
         };
       }
@@ -276,6 +285,7 @@ class ClientService {
             endDate: raw.endDate || "",
             recurrence: raw.recurrence || "None",
             tefapCert: normalizeBooleanField(raw.tefapCert),
+            tefapCertDate: normalizeDateStringField(raw.tefapCertDate),
             clusterID: raw.clusterID || undefined,
             autoInactiveReason: raw.autoInactiveReason ?? null,
             autoInactivePreviousEndDate: raw.autoInactivePreviousEndDate ?? null,

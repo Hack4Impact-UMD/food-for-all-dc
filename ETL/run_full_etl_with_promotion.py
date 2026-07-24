@@ -99,10 +99,18 @@ def main() -> None:
   migration_stats = firebase_migration_v2.main()
   if migration_stats is None:
     raise RuntimeError("ETL did not complete; refusing production promotion.")
-  if migration_stats.successful_imports != migration_stats.total_records:
+  intended_imports = (
+    migration_stats.total_records
+    - migration_stats.skipped_inactive
+    - migration_stats.skipped_duplicates
+  )
+  if migration_stats.failed_imports or migration_stats.successful_imports != intended_imports:
     raise RuntimeError(
       "ETL imported only "
-      f"{migration_stats.successful_imports}/{migration_stats.total_records} records; "
+      f"{migration_stats.successful_imports}/{intended_imports} intended records "
+      f"({migration_stats.skipped_inactive} inactive and "
+      f"{migration_stats.skipped_duplicates} duplicate skipped; "
+      f"{migration_stats.failed_imports} failed); "
       "refusing production promotion."
     )
   rprint("[green]✅ Completed[/green] firebase_migration_v2.\n")
