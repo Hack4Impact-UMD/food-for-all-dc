@@ -790,6 +790,9 @@ const DeliverySpreadsheet: React.FC = () => {
   const isMainLoading = isLoadingDeliveries || isLoadingClientDetails;
   const [clusterDoc, setClusterDoc] = useState<ClusterDoc | null>();
   const [clientOverrides, setClientOverrides] = useState<ClientOverride[]>([]);
+  const deliveriesRequestIdRef = React.useRef(0);
+  const clientDetailsRequestIdRef = React.useRef(0);
+  const clustersRequestIdRef = React.useRef(0);
   const navigate = useNavigate();
   type ClusterAssignmentState = RouteAssignmentState<Cluster>;
 
@@ -1128,6 +1131,7 @@ const DeliverySpreadsheet: React.FC = () => {
   // Centralized event query for deliveries
   const fetchDeliveriesForDate = React.useCallback(
     async (dateForFetch: Date) => {
+      const requestId = ++deliveriesRequestIdRef.current;
       setIsLoadingDeliveries(true);
 
       try {
@@ -1137,10 +1141,10 @@ const DeliverySpreadsheet: React.FC = () => {
           clients: [] as ClientProfile[],
         });
 
-        // Check if the date is still the selected one before updating state
-        if (dateForFetch.getTime() !== selectedDate.getTime()) {
+        if (requestId !== deliveriesRequestIdRef.current) {
           return;
         }
+
         // Convert event type for spreadsheet compatibility
         const convertedEvents = updatedEvents
           .map((event) => {
@@ -1180,14 +1184,16 @@ const DeliverySpreadsheet: React.FC = () => {
       } catch (error) {
         const fetchEndTime = performance.now();
 
-        if (dateForFetch.getTime() === selectedDate.getTime()) {
+        if (requestId === deliveriesRequestIdRef.current) {
           setDeliveriesForDate([]);
         }
       } finally {
-        setIsLoadingDeliveries(false);
+        if (requestId === deliveriesRequestIdRef.current) {
+          setIsLoadingDeliveries(false);
+        }
       }
     },
-    [selectedDate]
+    []
   );
 
   //when the user changes the date, fetch the deliveries for that date
@@ -1198,13 +1204,9 @@ const DeliverySpreadsheet: React.FC = () => {
   }, [selectedDate, fetchDeliveriesForDate]);
 
   useEffect(() => {
+    const requestId = ++clientDetailsRequestIdRef.current;
+
     const fetchDataAndGeocode = async () => {
-      // If deliveriesForDate is updated, it's for the current selectedDate
-      // because fetchDeliveriesForDate filters stale updates.
-
-      // setIsLoading(true) is moved here to only show loading when processing clients
-      // setIsLoading(true); // Already set by the caller effect
-
       try {
         // Get the client IDs for the deliveries on the selected date
         const clientIds = deliveriesForDate
@@ -1248,6 +1250,10 @@ const DeliverySpreadsheet: React.FC = () => {
           missedStrikeCount: deliverySummaries.get(client.id)?.missedStrikeCount ?? 0,
         }));
 
+        if (requestId !== clientDetailsRequestIdRef.current) {
+          return;
+        }
+
         setRawClientData(enrichedClients);
 
         // Identify missing client profiles
@@ -1260,10 +1266,13 @@ const DeliverySpreadsheet: React.FC = () => {
       } catch (error) {
         const processEndTime = performance.now();
 
-        setRawClientData([]); // Clear data on error
+        if (requestId === clientDetailsRequestIdRef.current) {
+          setRawClientData([]);
+        }
       } finally {
-        //Stop loading after processing
-        setIsLoadingClientDetails(false);
+        if (requestId === clientDetailsRequestIdRef.current) {
+          setIsLoadingClientDetails(false);
+        }
       }
     };
 
@@ -1278,7 +1287,12 @@ const DeliverySpreadsheet: React.FC = () => {
       // Do NOT clear clusters here, as they are fetched independently
       setIsLoadingClientDetails(false);
     }
-    // Only depends on deliveriesForDate. isLoading is managed internally.
+
+    return () => {
+      if (requestId === clientDetailsRequestIdRef.current) {
+        clientDetailsRequestIdRef.current += 1;
+      }
+    };
   }, [deliveriesForDate]);
 
   // Route Protection
@@ -1300,6 +1314,8 @@ const DeliverySpreadsheet: React.FC = () => {
 
   const fetchClustersFromToday = React.useCallback(
     async (dateForFetch: Date) => {
+      const requestId = ++clustersRequestIdRef.current;
+
       try {
         // account for timezone issues
         const startDate = new Date(
@@ -1334,9 +1350,8 @@ const DeliverySpreadsheet: React.FC = () => {
 
         const clustersSnapshot = await getDocs(q);
 
-        // Check if the date is still the selected one before updating state
-        if (dateForFetch.getTime() !== selectedDate.getTime()) {
-          return; // Don't update state with stale data
+        if (requestId !== clustersRequestIdRef.current) {
+          return;
         }
 
         if (!clustersSnapshot.empty) {
@@ -1359,15 +1374,14 @@ const DeliverySpreadsheet: React.FC = () => {
           setClientOverrides([]);
         }
       } catch (error) {
-        // Clear state only if the error corresponds to the *currently* selected date
-        if (dateForFetch.getTime() === selectedDate.getTime()) {
+        if (requestId === clustersRequestIdRef.current) {
           setClusterDoc(null);
           setClusters([]);
           setClientOverrides([]);
         }
       }
     },
-    [selectedDate, setClusters]
+    [setClusters]
   );
 
   //get clusters
@@ -2217,6 +2231,23 @@ const DeliverySpreadsheet: React.FC = () => {
 
   const handleDateChange = (date: Date) => {
     const normalized = deliveryDate.toJSDate(date);
+
+    deliveriesRequestIdRef.current += 1;
+    clientDetailsRequestIdRef.current += 1;
+    clustersRequestIdRef.current += 1;
+
+    setIsLoadingDeliveries(true);
+    setIsLoadingClientDetails(false);
+    setDeliveriesForDate([]);
+    setRawClientData([]);
+    setRows([]);
+    setClusterDoc(undefined);
+    setClusters([]);
+    setClientOverrides([]);
+    setSelectedRows(new Set());
+    setSelectedClusters(new Set());
+    setHighlightedRowIds(new Set());
+
     setSelectedDate(normalized);
     const newSearchParams = new URLSearchParams(searchParams);
     newSearchParams.set("date", deliveryDate.toISODateString(normalized));
@@ -3096,7 +3127,7 @@ const DeliverySpreadsheet: React.FC = () => {
               justifyContent: "center",
               padding: 0,
             }}
-            onClick={() => setSelectedDate(new Date())}
+            onClick={() => handleDateChange(deliveryDate.today().toJSDate())}
             startIcon={<TodayIcon sx={{ marginRight: "-8px", marginLeft: "-2px" }} />}
           >
             Today
