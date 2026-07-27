@@ -76,6 +76,30 @@ import { deliveryDate } from "../../utils/deliveryDate";
 import { computeClientActiveStatus } from "../../utils/clientStatus";
 import { toJSDate } from "../../utils/timestamp";
 
+const ADDRESS_DIRECTION_ABBREVIATIONS: Record<string, string> = {
+  northeast: "NE",
+  northwest: "NW",
+  southeast: "SE",
+  southwest: "SW",
+};
+
+const standardizeAddressDirections = (value: string): string =>
+  value.replace(/\b(northwest|northeast|southwest|southeast)\b/gi, (match) =>
+    ADDRESS_DIRECTION_ABBREVIATIONS[match.toLowerCase()] ?? match
+  );
+
+const formatProfilePhoneForSave = (value: unknown): string => {
+  if (typeof value !== "string") return "";
+  const trimmedValue = value.trim();
+  if (!trimmedValue) return "";
+
+  const digits = trimmedValue.replace(/\D/g, "");
+  const nationalDigits = digits.length === 11 && digits.startsWith("1") ? digits.slice(1) : digits;
+  const match = nationalDigits.match(/^(\d{3})(\d{3})(\d{4})$/);
+
+  return match ? `(${match[1]}) ${match[2]}-${match[3]}` : trimmedValue;
+};
+
 const fieldStyles = {
   backgroundColor: "var(--color-white)",
   width: "60%",
@@ -1470,6 +1494,8 @@ const Profile = () => {
       const normalizedStartDate = convertDateForSave(cleanedProfile.startDate);
       const normalizedEndDate = convertDateForSave(cleanedProfile.endDate);
         const normalizedTefapCertDate = convertDateForSave(cleanedProfile.tefapCertDate);
+      const normalizedPhone = formatProfilePhoneForSave(cleanedProfile.phone);
+      const normalizedAlternativePhone = formatProfilePhoneForSave(cleanedProfile.alternativePhone);
       const normalizedStartDateISO = deliveryDate.tryToISODateString(normalizedStartDate);
       const normalizedEndDateISO = deliveryDate.tryToISODateString(normalizedEndDate);
       const nextActiveStatus = computeClientActiveStatus(
@@ -1488,6 +1514,8 @@ const Profile = () => {
         dob: convertDateForSave(cleanedProfile.dob),
         tefapCert: Boolean(normalizedTefapCertDate.trim()),
         tefapCertDate: normalizedTefapCertDate,
+        phone: normalizedPhone,
+        alternativePhone: normalizedAlternativePhone,
         famStartDate: convertDateForSave(cleanedProfile.famStartDate),
         startDate: normalizedStartDate,
         endDate: normalizedEndDate,
@@ -2627,6 +2655,30 @@ const Profile = () => {
     loadGoogleMapsScript(googleMapsApiKey, () => setIsGoogleApiLoaded(true));
   }, []);
 
+  useEffect(() => {
+    if (!isGoogleApiLoaded) return;
+
+    const normalizePlacesDropdown = () => {
+      document.querySelectorAll(".pac-container .pac-item").forEach((item) => {
+        const walker = document.createTreeWalker(item, NodeFilter.SHOW_TEXT);
+        let textNode = walker.nextNode();
+        while (textNode) {
+          const normalizedText = standardizeAddressDirections(textNode.textContent || "");
+          if (textNode.textContent !== normalizedText) {
+            textNode.textContent = normalizedText;
+          }
+          textNode = walker.nextNode();
+        }
+      });
+    };
+
+    const observer = new MutationObserver(normalizePlacesDropdown);
+    observer.observe(document.body, { childList: true, subtree: true, characterData: true });
+    normalizePlacesDropdown();
+
+    return () => observer.disconnect();
+  }, [isGoogleApiLoaded]);
+
   // Initialize Google Places Autocomplete when input and API are ready
   useEffect(() => {
     if (
@@ -2658,7 +2710,7 @@ const Profile = () => {
           if (comp.types.includes("street_number")) {
             street = comp.long_name + " " + street;
           } else if (comp.types.includes("route")) {
-            street += comp.long_name;
+            street += standardizeAddressDirections(comp.long_name);
           } else if (comp.types.includes("locality")) {
             city = comp.long_name;
           } else if (comp.types.includes("administrative_area_level_1")) {

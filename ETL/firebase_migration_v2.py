@@ -1648,8 +1648,10 @@ class FirestoreMigration:
 			excel_row_num_int = None
 		if excel_row_num_int is not None and SATURDAY_DELIVERY_ROW_START <= excel_row_num_int <= SATURDAY_DELIVERY_ROW_END:
 			tags.append("Saturday Delivery")
-		if str(active_status).lower() in ['yes', 'true', '1', 'active', 'y']:
-			tags.append("Active")
+		# Old requirement: we used to keep the source Active value as a visible tag.
+		# We are not keeping that tag anymore; activeStatus remains the status field.
+		# if str(active_status).lower() in ['yes', 'true', '1', 'active', 'y']:
+		# 	tags.append("Active")
 		delivery_freq = self.parse_frequency(row.get("Frequency", ""))
 		# Household composition: support Adults_database/kids or Excel '# Adults'/'# kids'
 		adults_raw = row.get("Adults_database") if row.get("Adults_database") is not None else row.get("# Adults")

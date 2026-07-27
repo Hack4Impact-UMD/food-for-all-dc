@@ -160,6 +160,8 @@ jest.mock("./components/BasicInfoForm", () => ({
   default: ({ clientProfile, renderField, addressInputRef }: any) => (
     <div>
       {renderField("address", "text", addressInputRef)}
+      {renderField("phone", "text")}
+      {renderField("alternativePhone", "text")}
       <output data-testid="address-fields">
         {[
           clientProfile.address,
@@ -169,6 +171,9 @@ jest.mock("./components/BasicInfoForm", () => ({
           clientProfile.quadrant,
           clientProfile.ward,
         ].join("|")}
+      </output>
+      <output data-testid="phone-fields">
+        {[clientProfile.phone, clientProfile.alternativePhone].join("|")}
       </output>
     </div>
   ),
@@ -278,7 +283,7 @@ describe("Profile address autocomplete lifecycle", () => {
       address_components: [
         { long_name: "1600", short_name: "1600", types: ["street_number"] },
         {
-          long_name: "Pennsylvania Avenue NW",
+          long_name: "Pennsylvania Avenue Northwest",
           short_name: "Pennsylvania Ave NW",
           types: ["route"],
         },
@@ -299,5 +304,77 @@ describe("Profile address autocomplete lifecycle", () => {
     expect(screen.getByTestId("address-fields").textContent).toBe(
       "1600 Pennsylvania Avenue NW|Washington|DC|20006|NW|Ward 2"
     );
+  });
+
+  it("formats profile phone numbers when saving while accepting allowed input formats", async () => {
+    render(
+      <MemoryRouter
+        initialEntries={["/profile/client-1"]}
+        future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+      >
+        <Routes>
+          <Route path="/profile/:clientId" element={<Profile />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await screen.findByText("100 Main Street NW");
+
+    fireEvent.click(screen.getAllByTestId("EditIcon")[0].closest("button")!);
+    fireEvent.change(await screen.findByRole("textbox", { name: "phone" }), {
+      target: { name: "phone", value: "202.555.0101" },
+    });
+    fireEvent.change(screen.getByRole("textbox", { name: "alternativePhone" }), {
+      target: { name: "alternativePhone", value: "+1 202-555-0102" },
+    });
+
+    fireEvent.click(screen.getAllByRole("button", { name: "save" })[0]);
+
+    await waitFor(() => {
+      expect(mockSetDoc).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          phone: "(202) 555-0101",
+          alternativePhone: "(202) 555-0102",
+        }),
+        { merge: true }
+      );
+    });
+  });
+
+  it("standardizes Google Places dropdown direction words to DC quadrant abbreviations", async () => {
+    render(
+      <MemoryRouter
+        initialEntries={["/profile/client-1"]}
+        future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+      >
+        <Routes>
+          <Route path="/profile/:clientId" element={<Profile />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await screen.findByText("100 Main Street NW");
+
+    fireEvent.click(screen.getAllByTestId("EditIcon")[0].closest("button")!);
+    await screen.findByRole("textbox", { name: "address" });
+    await waitFor(() => expect(autocompleteInstances).toHaveLength(1));
+
+    const container = document.createElement("div");
+    container.className = "pac-container";
+    const item = document.createElement("div");
+    item.className = "pac-item";
+    item.textContent = "1600 Pennsylvania Avenue Northwest, Washington, DC";
+    container.appendChild(item);
+
+    await act(async () => {
+      document.body.appendChild(container);
+    });
+
+    await waitFor(() => {
+      expect(item.textContent).toBe("1600 Pennsylvania Avenue NW, Washington, DC");
+    });
+
+    document.body.removeChild(container);
   });
 });
