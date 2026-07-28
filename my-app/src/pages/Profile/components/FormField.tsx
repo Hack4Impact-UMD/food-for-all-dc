@@ -510,7 +510,11 @@ const FormField = (props: FormFieldProps) => {
           .join(", ") || "None"
       );
     }
-    return String(value || "N/A");
+    if (value === null || value === undefined || value === "") {
+      return "N/A";
+    }
+
+    return String(value);
   };
 
   if (fieldPath === "deliveryDetails.dietaryRestrictions") {
