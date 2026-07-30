@@ -114,6 +114,7 @@ const wardColors: { [key: string]: string } = {
 };
 
 const ffaCoordinates: L.LatLngExpression = [38.91433, -77.036942];
+const dcWardCenterCoordinates: L.LatLngExpression = [38.895, -77.036942];
 
 const isValidCoordinate = isRenderableCoordinate;
 
@@ -273,6 +274,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
   const onClusterUpdateRef = useRef(onClusterUpdate);
   const markersMapRef = useRef<Map<string, L.Marker>>(new Map()); // Store markers by client ID
   const previousVisibleRowsKeyRef = useRef<string>("");
+  const hasCompletedInitialMapLoadRef = useRef<boolean>(false);
   const isPopupOpening = useRef<boolean>(false); // Prevent close handler from firing during opening
   const isOpeningFromTableRef = useRef<boolean>(false); // True when popup is opened via table row click
   const suppressedPopupClientIdsRef = useRef<Set<string>>(new Set());
@@ -357,6 +359,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
       clearScheduledMapWork();
       markersMapRef.current.clear();
       previousVisibleRowsKeyRef.current = "";
+      hasCompletedInitialMapLoadRef.current = false;
       return;
     }
 
@@ -389,6 +392,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
 
     markersMapRef.current.clear();
     previousVisibleRowsKeyRef.current = "";
+    hasCompletedInitialMapLoadRef.current = false;
 
     if (map) {
       map.remove();
@@ -829,7 +833,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
       try {
         mapRef.current = L.map(mapContainerRef.current, {
           closePopupOnClick: false,
-        }).setView(ffaCoordinates, 11, {
+        }).setView(dcWardCenterCoordinates, 11, {
           animate: false,
         });
         isMapAliveRef.current = true;
@@ -1550,7 +1554,8 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
       .map((row) => row.id)
       .sort()
       .join("|");
-    const shouldAutoFit = visibleRowsKey !== previousVisibleRowsKeyRef.current;
+    const shouldAutoFit =
+      hasCompletedInitialMapLoadRef.current && visibleRowsKey !== previousVisibleRowsKeyRef.current;
 
     if (markerGroupRef.current!.getLayers().length > 0 && shouldAutoFit) {
       withLiveMap((map) => {
@@ -1559,8 +1564,9 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
           animate: false,
         });
       });
-      previousVisibleRowsKeyRef.current = visibleRowsKey;
     }
+    previousVisibleRowsKeyRef.current = visibleRowsKey;
+    hasCompletedInitialMapLoadRef.current = true;
 
     // Re-open the popup that was open before the rebuild (if any).
     // Set isOpeningFromTableRef so popupopen doesn't double-add the highlight.
@@ -1618,7 +1624,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
 
     withLiveMap((map) => {
       map.stop();
-      map.setView(ffaCoordinates, 11, { animate: false });
+      map.setView(dcWardCenterCoordinates, 11, { animate: false });
       map.invalidateSize(false);
     });
 

@@ -74,11 +74,14 @@ describe("ClusterMap popup regression guards", () => {
   // Recenter should preserve open popups while zooming back out.
   it("preserves open popups while recentering to Food For All", () => {
     expect(source).toContain("const centerMap = () => {");
+    expect(source).toContain("const dcWardCenterCoordinates: L.LatLngExpression = [38.895, -77.036942];");
+    expect(source).toContain("}).setView(dcWardCenterCoordinates, 11, {");
+    expect(source).toContain("hasCompletedInitialMapLoadRef.current && visibleRowsKey !== previousVisibleRowsKeyRef.current");
     expect(source).toContain("popupClientIdsToRestore");
     expect(source).toContain("suppressedPopupClientIdsRef.current = new Set(popupClientIdsToRestore);");
     expect(source).toContain("if (marker && !marker.isPopupOpen()) {");
     expect(source).toContain("marker.openPopup();");
-    expect(source).toContain("map.setView(ffaCoordinates, 11, { animate: false });");
+    expect(source).toContain("map.setView(dcWardCenterCoordinates, 11, { animate: false });");
   });
 
   // Ensures both interaction entry points (direct marker click and table-driven openMapPopup)
