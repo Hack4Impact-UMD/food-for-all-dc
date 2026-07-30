@@ -60,6 +60,8 @@ describe("ClusterMap popup regression guards", () => {
     expect(source).toContain("closeOnClick: false");
     expect(source).toContain("autoClose: false");
     expect(source).toContain("closePopupOnClick: false");
+    expect(source).toContain("autoPan: false");
+    expect(source).toContain("keepInView: false");
   });
 
   it("disables ward geometry smoothing to avoid Leaflet simplify recursion", () => {
@@ -69,11 +71,13 @@ describe("ClusterMap popup regression guards", () => {
     expect(source).toContain("Skipping ward feature due to geometry render error");
   });
 
-  // Recenter should close open popups first, otherwise keepInView can auto-pan
-  // the map back to popup markers and make recenter look frozen.
-  it("closes popups before recentering to Food For All", () => {
+  // Recenter should preserve open popups while zooming back out.
+  it("preserves open popups while recentering to Food For All", () => {
     expect(source).toContain("const centerMap = () => {");
-    expect(source).toContain("map.closePopup();");
+    expect(source).toContain("popupClientIdsToRestore");
+    expect(source).toContain("suppressedPopupClientIdsRef.current = new Set(popupClientIdsToRestore);");
+    expect(source).toContain("if (marker && !marker.isPopupOpen()) {");
+    expect(source).toContain("marker.openPopup();");
     expect(source).toContain("map.setView(ffaCoordinates, 11, { animate: false });");
   });
 
@@ -82,6 +86,16 @@ describe("ClusterMap popup regression guards", () => {
   it("opens marker popup directly on marker click", () => {
     expect(source).toMatch(/\.on\("click",\s*\(\)\s*=>\s*\{[\s\S]*?marker\.openPopup\(\)/m);
     expect(source).toMatch(/openMapPopup\s*=\s*\(clientId:\s*string\)\s*=>\s*\{[\s\S]*?marker\.openPopup\(\)/m);
+  });
+
+  it("stops map motion before programmatic popup and pan operations", () => {
+    expect(source).toContain("map.stop();");
+    expect(source).toContain("POPUP_VIEWPORT_MARGIN_PX");
+    expect(source).toContain("schedulePopupReposition(viewMode);");
+    expect(source).toContain("repositionPopupIntoViewport(popupWrapper);");
+    expect(source).toContain("map.panBy([dx, dy], {");
+    expect(source).toContain("animate: true");
+    expect(source).toContain("if (dx !== 0 || dy !== 0)");
   });
 
   it("lets the cluster summary overlay toggle sorting by number of deliveries", () => {
