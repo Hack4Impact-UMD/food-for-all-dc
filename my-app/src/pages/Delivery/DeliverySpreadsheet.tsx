@@ -99,6 +99,7 @@ import DietaryRestrictionsLegend from "../../components/DietaryRestrictionsLegen
 import { deliveryDate } from "../../utils/deliveryDate";
 import { deliveryEventEmitter } from "../../utils/deliveryEventEmitter";
 import { useNotifications } from "../../components/NotificationProvider";
+import { formatAddressWithQuadrantAndUnit } from "../../utils/addressFormat";
 import {
   ClientOverride,
   normalizeAssignmentValue,
@@ -3889,7 +3890,7 @@ const DeliverySpreadsheet: React.FC = () => {
                       >
                         {col.propertyKey !== "none"
                           ? col.propertyKey === "address"
-                            ? `${row.address || ""}${row.address2 ? " " + row.address2 : ""}${row.zipCode ? " " + row.zipCode : ""}`.trim()
+                            ? `${formatAddressWithQuadrantAndUnit(row.address, row.quadrant, row.address2)}${row.zipCode ? " " + row.zipCode : ""}`.trim()
                             : col.propertyKey === "deliveryDetails.dietaryRestrictions"
                               ? (() => {
                                   const dr = row.deliveryDetails?.dietaryRestrictions;

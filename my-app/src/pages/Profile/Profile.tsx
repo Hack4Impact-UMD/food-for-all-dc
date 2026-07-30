@@ -76,6 +76,36 @@ import { deliveryDate } from "../../utils/deliveryDate";
 import { computeClientActiveStatus } from "../../utils/clientStatus";
 import { toJSDate } from "../../utils/timestamp";
 
+const ADDRESS_DIRECTION_ABBREVIATIONS: Record<string, string> = {
+  northeast: "NE",
+  northwest: "NW",
+  southeast: "SE",
+  southwest: "SW",
+};
+
+const standardizeAddressDirections = (value: string): string =>
+  value.replace(/\b(northwest|northeast|southwest|southeast)\b/gi, (match) =>
+    ADDRESS_DIRECTION_ABBREVIATIONS[match.toLowerCase()] ?? match
+  );
+
+const extractQuadrantAbbreviation = (value: string): string => {
+  const standardizedValue = standardizeAddressDirections(value);
+  const match = standardizedValue.match(/\b(NW|NE|SW|SE)\b/i);
+  return match?.[1]?.toUpperCase() ?? "";
+};
+
+const formatProfilePhoneForSave = (value: unknown): string => {
+  if (typeof value !== "string") return "";
+  const trimmedValue = value.trim();
+  if (!trimmedValue) return "";
+
+  const digits = trimmedValue.replace(/\D/g, "");
+  const nationalDigits = digits.length === 11 && digits.startsWith("1") ? digits.slice(1) : digits;
+  const match = nationalDigits.match(/^(\d{3})(\d{3})(\d{4})$/);
+
+  return match ? `(${match[1]}) ${match[2]}-${match[3]}` : trimmedValue;
+};
+
 const fieldStyles = {
   backgroundColor: "var(--color-white)",
   width: "60%",
@@ -875,7 +905,7 @@ const Profile = () => {
 
         const countDigits = (str: string) => (str.match(/\d/g) || []).length;
         const isValidPhoneFormat = (phone: string) => {
-          return /^(\+\d{1,2}\s?)?((\(\d{3}\))|\d{3})[\s.-]?\d{3}[\s.-]?\d{4}$/.test(phone);
+          return /^(\+1\s?)?((\(\d{3}\))|\d{3})[\s.-]?\d{3}[\s.-]?\d{4}$/.test(phone);
         };
         const newErrors = { ...errors };
 
@@ -992,7 +1022,7 @@ const Profile = () => {
     const countDigits = (str: string) => (str.match(/\d/g) || []).length;
     const isValidPhoneFormat = (phone: string) => {
       // Allowed formats: (123) 456-7890, 123-456-7890, 123.456.7890, 123 456 7890, 1234567890, +1 123-456-7890
-      return /^(\+\d{1,2}\s?)?((\(\d{3}\))|\d{3})[\s.-]?\d{3}[\s.-]?\d{4}$/.test(phone);
+      return /^(\+1\s?)?((\(\d{3}\))|\d{3})[\s.-]?\d{3}[\s.-]?\d{4}$/.test(phone);
     };
 
     if (!clientProfile.phone?.trim()) {
@@ -1470,6 +1500,8 @@ const Profile = () => {
       const normalizedStartDate = convertDateForSave(cleanedProfile.startDate);
       const normalizedEndDate = convertDateForSave(cleanedProfile.endDate);
         const normalizedTefapCertDate = convertDateForSave(cleanedProfile.tefapCertDate);
+      const normalizedPhone = formatProfilePhoneForSave(cleanedProfile.phone);
+      const normalizedAlternativePhone = formatProfilePhoneForSave(cleanedProfile.alternativePhone);
       const normalizedStartDateISO = deliveryDate.tryToISODateString(normalizedStartDate);
       const normalizedEndDateISO = deliveryDate.tryToISODateString(normalizedEndDate);
       const nextActiveStatus = computeClientActiveStatus(
@@ -1488,6 +1520,8 @@ const Profile = () => {
         dob: convertDateForSave(cleanedProfile.dob),
         tefapCert: Boolean(normalizedTefapCertDate.trim()),
         tefapCertDate: normalizedTefapCertDate,
+        phone: normalizedPhone,
+        alternativePhone: normalizedAlternativePhone,
         famStartDate: convertDateForSave(cleanedProfile.famStartDate),
         startDate: normalizedStartDate,
         endDate: normalizedEndDate,
@@ -2627,6 +2661,30 @@ const Profile = () => {
     loadGoogleMapsScript(googleMapsApiKey, () => setIsGoogleApiLoaded(true));
   }, []);
 
+  useEffect(() => {
+    if (!isGoogleApiLoaded) return;
+
+    const normalizePlacesDropdown = () => {
+      document.querySelectorAll(".pac-container .pac-item").forEach((item) => {
+        const walker = document.createTreeWalker(item, NodeFilter.SHOW_TEXT);
+        let textNode = walker.nextNode();
+        while (textNode) {
+          const normalizedText = standardizeAddressDirections(textNode.textContent || "");
+          if (textNode.textContent !== normalizedText) {
+            textNode.textContent = normalizedText;
+          }
+          textNode = walker.nextNode();
+        }
+      });
+    };
+
+    const observer = new MutationObserver(normalizePlacesDropdown);
+    observer.observe(document.body, { childList: true, subtree: true, characterData: true });
+    normalizePlacesDropdown();
+
+    return () => observer.disconnect();
+  }, [isGoogleApiLoaded]);
+
   // Initialize Google Places Autocomplete when input and API are ready
   useEffect(() => {
     if (
@@ -2658,7 +2716,7 @@ const Profile = () => {
           if (comp.types.includes("street_number")) {
             street = comp.long_name + " " + street;
           } else if (comp.types.includes("route")) {
-            street += comp.long_name;
+            street += standardizeAddressDirections(comp.long_name);
           } else if (comp.types.includes("locality")) {
             city = comp.long_name;
           } else if (comp.types.includes("administrative_area_level_1")) {
@@ -2669,18 +2727,18 @@ const Profile = () => {
             street += " " + comp.long_name;
           } else if (comp.types.includes("neighborhood")) {
             // Optionally use for quadrant if DC
-            if (!quadrant && comp.long_name.match(/(NW|NE|SW|SE)/i)) {
-              quadrant = comp.long_name;
+            if (!quadrant) {
+              quadrant = extractQuadrantAbbreviation(comp.long_name);
             }
           }
         }
         // If DC, try to extract quadrant from formatted address if not found
-        if (
-          !quadrant &&
-          place.formatted_address &&
-          place.formatted_address.match(/(NW|NE|SW|SE)/i)
-        ) {
-          quadrant = place.formatted_address.match(/(NW|NE|SW|SE)/i)?.[0] || "";
+        if (!quadrant && place.formatted_address) {
+          quadrant = extractQuadrantAbbreviation(place.formatted_address);
+        }
+        // Fallback to extracted street text if formatted address doesn't include a quadrant token.
+        if (!quadrant && street) {
+          quadrant = extractQuadrantAbbreviation(street);
         }
 
         // Get ward for the selected address

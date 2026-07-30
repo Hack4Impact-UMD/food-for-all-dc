@@ -114,6 +114,7 @@ const wardColors: { [key: string]: string } = {
 };
 
 const ffaCoordinates: L.LatLngExpression = [38.91433, -77.036942];
+const dcWardCenterCoordinates: L.LatLngExpression = [38.895, -77.036942];
 
 const isValidCoordinate = isRenderableCoordinate;
 
@@ -234,6 +235,8 @@ const clusterColors = [
   "#4169E1",
 ];
 
+const POPUP_VIEWPORT_MARGIN_PX = 16;
+
 const ClusterMap: React.FC<ClusterMapProps> = ({
   allRows,
   visibleRows,
@@ -271,9 +274,11 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
   const onClusterUpdateRef = useRef(onClusterUpdate);
   const markersMapRef = useRef<Map<string, L.Marker>>(new Map()); // Store markers by client ID
   const previousVisibleRowsKeyRef = useRef<string>("");
+  const hasCompletedInitialMapLoadRef = useRef<boolean>(false);
   const isPopupOpening = useRef<boolean>(false); // Prevent close handler from firing during opening
   const isOpeningFromTableRef = useRef<boolean>(false); // True when popup is opened via table row click
   const suppressedPopupClientIdsRef = useRef<Set<string>>(new Set());
+  const suppressPopupViewportRepositionRef = useRef<boolean>(false);
   const topPopupZIndexRef = useRef<number>(700); // Base Leaflet popup z-index is ~700
   const clustersRef = useRef<Cluster[]>(clusters);
 
@@ -303,12 +308,58 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
     callback(map);
   }, []);
 
+  const repositionPopupIntoViewport = useCallback((popupElement: HTMLElement) => {
+    if (!popupElement.isConnected) {
+      return;
+    }
+
+    if (suppressPopupViewportRepositionRef.current) {
+      return;
+    }
+
+    withLiveMap((map) => {
+      map.stop();
+      const popupRect = popupElement.getBoundingClientRect();
+      const mapRect = map.getContainer().getBoundingClientRect();
+
+      const minLeft = mapRect.left + POPUP_VIEWPORT_MARGIN_PX;
+      const maxRight = mapRect.right - POPUP_VIEWPORT_MARGIN_PX;
+      const minTop = mapRect.top + POPUP_VIEWPORT_MARGIN_PX;
+      const maxBottom = mapRect.bottom - POPUP_VIEWPORT_MARGIN_PX;
+
+      let dx = 0;
+      let dy = 0;
+
+      if (popupRect.left < minLeft) {
+        dx = popupRect.left - minLeft;
+      } else if (popupRect.right > maxRight) {
+        dx = popupRect.right - maxRight;
+      }
+
+      if (popupRect.top < minTop) {
+        dy = popupRect.top - minTop;
+      } else if (popupRect.bottom > maxBottom) {
+        dy = popupRect.bottom - maxBottom;
+      }
+
+      // Only pan when popup would render outside the map viewport.
+      if (dx !== 0 || dy !== 0) {
+        map.panBy([dx, dy], {
+          animate: true,
+          duration: 0.25,
+          easeLinearity: 0.25,
+        });
+      }
+    });
+  }, [withLiveMap]);
+
   const destroyMap = useCallback(() => {
     if (!mapRef.current && !markerGroupRef.current && !wardLayerGroupRef.current) {
       isMapAliveRef.current = false;
       clearScheduledMapWork();
       markersMapRef.current.clear();
       previousVisibleRowsKeyRef.current = "";
+      hasCompletedInitialMapLoadRef.current = false;
       return;
     }
 
@@ -341,6 +392,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
 
     markersMapRef.current.clear();
     previousVisibleRowsKeyRef.current = "";
+    hasCompletedInitialMapLoadRef.current = false;
 
     if (map) {
       map.remove();
@@ -712,47 +764,32 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
     wardLayerGroupRef.current.clearLayers();
 
     boundaries.features.forEach((feature: any) => {
-      const wardName = feature.properties.NAME || `Ward ${feature.properties.WARD}`;
-      const safeWardName = escapeHtml(wardName);
-      const wardColor = wardColors[wardName] || "#999999"; // Default color if ward not found
+      try {
+        const wardName = feature.properties.NAME || `Ward ${feature.properties.WARD}`;
+        const wardColor = wardColors[wardName] || "#999999"; // Default color if ward not found
 
-      // Create polygon layer with translucent fill
-      const polygon = L.geoJSON(feature, {
-        style: {
-          fillColor: wardColor,
-          fillOpacity: 0.2, // Translucent
-          color: wardColor,
-          weight: 2,
-          opacity: 0.8,
-        },
-        onEachFeature: (feature, layer) => {
-          // Add popup with ward information
-          layer.bindPopup(`
-            <div style="font-family: Arial, sans-serif; font-weight: bold;">
-              ${safeWardName}
-            </div>
-          `);
+        // Create polygon layer with translucent fill.
+        // smoothFactor: 0 avoids deep recursive simplification in Leaflet on complex shapes.
+        // Keep ward overlays non-interactive so they cannot trigger popup/pan feedback loops.
+        const polygon = L.geoJSON(feature, {
+          smoothFactor: 0,
+          interactive: false,
+          bubblingMouseEvents: false,
+          style: {
+            fillColor: wardColor,
+            fillOpacity: 0.2, // Translucent
+            color: wardColor,
+            weight: 2,
+            opacity: 0.8,
+          },
+        } as any);
 
-          // Add hover effects
-          layer.on({
-            mouseover: (e) => {
-              const layer = e.target;
-              layer.setStyle({
-                fillOpacity: 0.4,
-              });
-            },
-            mouseout: (e) => {
-              const layer = e.target;
-              layer.setStyle({
-                fillOpacity: 0.2,
-              });
-            },
-          });
-        },
-      });
-
-      if (wardLayerGroupRef.current) {
-        polygon.addTo(wardLayerGroupRef.current);
+        if (wardLayerGroupRef.current) {
+          polygon.addTo(wardLayerGroupRef.current);
+        }
+      } catch (error) {
+        // Skip malformed ward geometry instead of breaking the map interaction loop.
+        console.warn("Skipping ward feature due to geometry render error:", error);
       }
     });
   }, [fetchWardBoundaries, wardData]);
@@ -796,7 +833,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
       try {
         mapRef.current = L.map(mapContainerRef.current, {
           closePopupOnClick: false,
-        }).setView(ffaCoordinates, 11, {
+        }).setView(dcWardCenterCoordinates, 11, {
           animate: false,
         });
         isMapAliveRef.current = true;
@@ -866,6 +903,9 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
 
         const marker = markersMapRef.current.get(clientId);
         if (marker) {
+          withLiveMap((map) => {
+            map.stop();
+          });
           marker.openPopup();
         }
 
@@ -1186,18 +1226,16 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
               return;
             }
 
+            if (suppressPopupViewportRepositionRef.current) {
+              return;
+            }
+
             if (!markerGroupRef.current?.hasLayer(marker)) {
               return;
             }
 
-            withLiveMap((map) => {
-              const latlng = marker.getLatLng();
-              const popupRect = modeElement.getBoundingClientRect();
-              const markerPoint = map.latLngToContainerPoint(latlng);
-              const targetPoint = markerPoint.subtract([0, popupRect.height / 2]);
-              const targetLatLng = map.containerPointToLatLng(targetPoint);
-              map.panTo(targetLatLng, { animate: true });
-            });
+            const popupRoot = modeElement.closest(".leaflet-popup") as HTMLElement | null;
+            repositionPopupIntoViewport(popupRoot ?? modeElement);
           }, 100);
         };
 
@@ -1420,13 +1458,17 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
       //add popup and marker to group
       marker
         .bindPopup(popupContent, {
-          autoPan: true,
-          keepInView: true,
+          // Avoid Leaflet popup auto-pan loops during map transitions.
+          autoPan: false,
+          keepInView: false,
           closeOnClick: false,
           autoClose: false,
         })
         .on("click", () => {
           isPopupOpening.current = true;
+          withLiveMap((map) => {
+            map.stop();
+          });
           marker.openPopup();
           // Row highlight is triggered from popupopen to guarantee popup ↔ row sync
         })
@@ -1438,6 +1480,14 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
           // Bring this popup to the front when clicked
           const popupWrapper = (e as L.PopupEvent).popup.getElement();
           if (popupWrapper) {
+            // Reposition view-mode popup if it opens partially outside the viewport.
+            scheduleClusterMapTimeout(() => {
+              if (!popupWrapper.isConnected) {
+                return;
+              }
+              repositionPopupIntoViewport(popupWrapper);
+            }, 100);
+
             topPopupZIndexRef.current += 1;
             popupWrapper.style.zIndex = String(topPopupZIndexRef.current);
 
@@ -1504,7 +1554,8 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
       .map((row) => row.id)
       .sort()
       .join("|");
-    const shouldAutoFit = visibleRowsKey !== previousVisibleRowsKeyRef.current;
+    const shouldAutoFit =
+      hasCompletedInitialMapLoadRef.current && visibleRowsKey !== previousVisibleRowsKeyRef.current;
 
     if (markerGroupRef.current!.getLayers().length > 0 && shouldAutoFit) {
       withLiveMap((map) => {
@@ -1513,8 +1564,9 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
           animate: false,
         });
       });
-      previousVisibleRowsKeyRef.current = visibleRowsKey;
     }
+    previousVisibleRowsKeyRef.current = visibleRowsKey;
+    hasCompletedInitialMapLoadRef.current = true;
 
     // Re-open the popup that was open before the rebuild (if any).
     // Set isOpeningFromTableRef so popupopen doesn't double-add the highlight.
@@ -1523,6 +1575,9 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
     if (clientIdsToReopen.length > 0) {
       suppressedPopupClientIdsRef.current = new Set(clientIdsToReopen);
       isOpeningFromTableRef.current = true;
+      withLiveMap((map) => {
+        map.stop();
+      });
       clientIdsToReopen.forEach((id) => {
         const markerToReopen = markersMapRef.current.get(id);
         if (markerToReopen) {
@@ -1554,10 +1609,43 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
     visibleRows.length === 0 && dayTotalDeliveries > 0;
 
   const centerMap = () => {
+    // Preserve currently open popups while recentering.
+    const popupClientIdsToRestore: string[] = [];
+    markersMapRef.current.forEach((marker, clientId) => {
+      if (marker.isPopupOpen()) {
+        popupClientIdsToRestore.push(clientId);
+      }
+    });
+
+    isPopupOpening.current = true;
+    suppressedPopupClientIdsRef.current = new Set(popupClientIdsToRestore);
+    isOpeningFromTableRef.current = popupClientIdsToRestore.length > 0;
+    suppressPopupViewportRepositionRef.current = popupClientIdsToRestore.length > 0;
+
     withLiveMap((map) => {
       map.stop();
-      map.setView(ffaCoordinates, 11, { animate: false });
+      map.setView(dcWardCenterCoordinates, 11, { animate: false });
+      map.invalidateSize(false);
     });
+
+    if (popupClientIdsToRestore.length > 0) {
+      scheduleClusterMapTimeout(() => {
+        suppressPopupViewportRepositionRef.current = false;
+        popupClientIdsToRestore.forEach((clientId) => {
+          const marker = markersMapRef.current.get(clientId);
+          if (marker && !marker.isPopupOpen()) {
+            marker.openPopup();
+          }
+        });
+      }, 50);
+    }
+
+    scheduleClusterMapTimeout(() => {
+      isPopupOpening.current = false;
+      isOpeningFromTableRef.current = false;
+      suppressedPopupClientIdsRef.current.clear();
+      suppressPopupViewportRepositionRef.current = false;
+    }, 250);
   };
 
   const handleInvalidBadgeClick = (event: React.MouseEvent<HTMLElement>) => {
