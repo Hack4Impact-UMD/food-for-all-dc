@@ -712,47 +712,32 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
     wardLayerGroupRef.current.clearLayers();
 
     boundaries.features.forEach((feature: any) => {
-      const wardName = feature.properties.NAME || `Ward ${feature.properties.WARD}`;
-      const safeWardName = escapeHtml(wardName);
-      const wardColor = wardColors[wardName] || "#999999"; // Default color if ward not found
+      try {
+        const wardName = feature.properties.NAME || `Ward ${feature.properties.WARD}`;
+        const wardColor = wardColors[wardName] || "#999999"; // Default color if ward not found
 
-      // Create polygon layer with translucent fill
-      const polygon = L.geoJSON(feature, {
-        style: {
-          fillColor: wardColor,
-          fillOpacity: 0.2, // Translucent
-          color: wardColor,
-          weight: 2,
-          opacity: 0.8,
-        },
-        onEachFeature: (feature, layer) => {
-          // Add popup with ward information
-          layer.bindPopup(`
-            <div style="font-family: Arial, sans-serif; font-weight: bold;">
-              ${safeWardName}
-            </div>
-          `);
+        // Create polygon layer with translucent fill.
+        // smoothFactor: 0 avoids deep recursive simplification in Leaflet on complex shapes.
+        // Keep ward overlays non-interactive so they cannot trigger popup/pan feedback loops.
+        const polygon = L.geoJSON(feature, {
+          smoothFactor: 0,
+          interactive: false,
+          bubblingMouseEvents: false,
+          style: {
+            fillColor: wardColor,
+            fillOpacity: 0.2, // Translucent
+            color: wardColor,
+            weight: 2,
+            opacity: 0.8,
+          },
+        } as any);
 
-          // Add hover effects
-          layer.on({
-            mouseover: (e) => {
-              const layer = e.target;
-              layer.setStyle({
-                fillOpacity: 0.4,
-              });
-            },
-            mouseout: (e) => {
-              const layer = e.target;
-              layer.setStyle({
-                fillOpacity: 0.2,
-              });
-            },
-          });
-        },
-      });
-
-      if (wardLayerGroupRef.current) {
-        polygon.addTo(wardLayerGroupRef.current);
+        if (wardLayerGroupRef.current) {
+          polygon.addTo(wardLayerGroupRef.current);
+        }
+      } catch (error) {
+        // Skip malformed ward geometry instead of breaking the map interaction loop.
+        console.warn("Skipping ward feature due to geometry render error:", error);
       }
     });
   }, [fetchWardBoundaries, wardData]);
@@ -1554,10 +1539,20 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
     visibleRows.length === 0 && dayTotalDeliveries > 0;
 
   const centerMap = () => {
+    // Avoid keepInView popup auto-pan fighting explicit recenter actions.
+    isPopupOpening.current = true;
+    suppressedPopupClientIdsRef.current.clear();
+
     withLiveMap((map) => {
       map.stop();
+      map.closePopup();
       map.setView(ffaCoordinates, 11, { animate: false });
+      map.invalidateSize(false);
     });
+
+    scheduleClusterMapTimeout(() => {
+      isPopupOpening.current = false;
+    }, 250);
   };
 
   const handleInvalidBadgeClick = (event: React.MouseEvent<HTMLElement>) => {

@@ -2,7 +2,6 @@ import { CsvRow, downloadCsv } from "../../utils/csvExport";
 import { getNestedValue } from "../../utils/misc";
 import { formatDietaryRestrictionsForExport } from "../../utils/exportFormatters";
 import { deliveryDate } from "../../utils/deliveryDate";
-import { formatAddressWithQuadrant } from "../../utils/addressFormat";
 
 export interface RowData {
   id: string;
@@ -15,7 +14,6 @@ export interface RowData {
   houseNumber?: number;
   address: string;
   address2?: string;
-  quadrant?: string;
   deliveryDetails: {
     deliveryInstructions: string;
     dietaryRestrictions: {
@@ -131,10 +129,6 @@ const normalizeDateValue = (value: unknown): string => {
 };
 
 const resolveSpreadsheetExportValue = (row: RowData, propertyKey: string): string => {
-  if (propertyKey === "address") {
-    return formatAddressWithQuadrant(row.address, row.quadrant);
-  }
-
   if (propertyKey === "deliveryDetails.dietaryRestrictions") {
     return formatDietaryRestrictionsForExport(row.deliveryDetails?.dietaryRestrictions);
   }
@@ -193,7 +187,7 @@ export const exportQueryResults = (
     // Start with the base columns that are always visible
     const baseData: CsvRow = {
       Name: `${row.lastName}, ${row.firstName}`,
-      Address: formatAddressWithQuadrant(row.address, row.quadrant),
+      Address: row.address,
       "Address 2": row.address2 || "",
       Phone: row.phone ?? "",
       "Delivery Instructions": row.deliveryDetails?.deliveryInstructions || "None",
@@ -227,7 +221,7 @@ export const exportAllClients = (rows: RowData[]) => {
       UID: row.uid,
       Name: `${row.lastName}, ${row.firstName}`,
       Phone: row.phone ?? "",
-      Address: formatAddressWithQuadrant(row.address, row.quadrant),
+      Address: row.address,
       "Address 2": row.address2 || "",
       "House Number": row.houseNumber ?? "",
       "Street Name": row.streetName ?? "",

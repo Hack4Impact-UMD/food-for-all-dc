@@ -62,6 +62,21 @@ describe("ClusterMap popup regression guards", () => {
     expect(source).toContain("closePopupOnClick: false");
   });
 
+  it("disables ward geometry smoothing to avoid Leaflet simplify recursion", () => {
+    expect(source).toContain("smoothFactor: 0");
+    expect(source).toContain("interactive: false");
+    expect(source).toContain("bubblingMouseEvents: false");
+    expect(source).toContain("Skipping ward feature due to geometry render error");
+  });
+
+  // Recenter should close open popups first, otherwise keepInView can auto-pan
+  // the map back to popup markers and make recenter look frozen.
+  it("closes popups before recentering to Food For All", () => {
+    expect(source).toContain("const centerMap = () => {");
+    expect(source).toContain("map.closePopup();");
+    expect(source).toContain("map.setView(ffaCoordinates, 11, { animate: false });");
+  });
+
   // Ensures both interaction entry points (direct marker click and table-driven openMapPopup)
   // explicitly open the marker popup.
   it("opens marker popup directly on marker click", () => {
