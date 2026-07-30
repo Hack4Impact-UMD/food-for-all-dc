@@ -276,6 +276,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
   const isPopupOpening = useRef<boolean>(false); // Prevent close handler from firing during opening
   const isOpeningFromTableRef = useRef<boolean>(false); // True when popup is opened via table row click
   const suppressedPopupClientIdsRef = useRef<Set<string>>(new Set());
+  const suppressPopupViewportRepositionRef = useRef<boolean>(false);
   const topPopupZIndexRef = useRef<number>(700); // Base Leaflet popup z-index is ~700
   const clustersRef = useRef<Cluster[]>(clusters);
 
@@ -307,6 +308,10 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
 
   const repositionPopupIntoViewport = useCallback((popupElement: HTMLElement) => {
     if (!popupElement.isConnected) {
+      return;
+    }
+
+    if (suppressPopupViewportRepositionRef.current) {
       return;
     }
 
@@ -1217,6 +1222,10 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
               return;
             }
 
+            if (suppressPopupViewportRepositionRef.current) {
+              return;
+            }
+
             if (!markerGroupRef.current?.hasLayer(marker)) {
               return;
             }
@@ -1605,6 +1614,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
     isPopupOpening.current = true;
     suppressedPopupClientIdsRef.current = new Set(popupClientIdsToRestore);
     isOpeningFromTableRef.current = popupClientIdsToRestore.length > 0;
+    suppressPopupViewportRepositionRef.current = popupClientIdsToRestore.length > 0;
 
     withLiveMap((map) => {
       map.stop();
@@ -1614,6 +1624,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
 
     if (popupClientIdsToRestore.length > 0) {
       scheduleClusterMapTimeout(() => {
+        suppressPopupViewportRepositionRef.current = false;
         popupClientIdsToRestore.forEach((clientId) => {
           const marker = markersMapRef.current.get(clientId);
           if (marker && !marker.isPopupOpen()) {
@@ -1627,6 +1638,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
       isPopupOpening.current = false;
       isOpeningFromTableRef.current = false;
       suppressedPopupClientIdsRef.current.clear();
+      suppressPopupViewportRepositionRef.current = false;
     }, 250);
   };
 

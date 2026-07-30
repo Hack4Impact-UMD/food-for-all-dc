@@ -93,6 +93,7 @@ describe("ClusterMap popup regression guards", () => {
     expect(source).toContain("POPUP_VIEWPORT_MARGIN_PX");
     expect(source).toContain("schedulePopupReposition(viewMode);");
     expect(source).toContain("repositionPopupIntoViewport(popupWrapper);");
+    expect(source).toContain("suppressPopupViewportRepositionRef");
     expect(source).toContain("map.panBy([dx, dy], {");
     expect(source).toContain("animate: true");
     expect(source).toContain("if (dx !== 0 || dy !== 0)");
