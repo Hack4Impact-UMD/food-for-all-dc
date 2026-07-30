@@ -342,6 +342,36 @@ describe("Profile address autocomplete lifecycle", () => {
     });
   });
 
+  it("rejects unsupported international phone prefixes before saving", async () => {
+    const alertSpy = jest.spyOn(window, "alert").mockImplementation(() => undefined);
+
+    render(
+      <MemoryRouter
+        initialEntries={["/profile/client-1"]}
+        future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+      >
+        <Routes>
+          <Route path="/profile/:clientId" element={<Profile />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await screen.findByText("100 Main Street NW");
+
+    fireEvent.click(screen.getAllByTestId("EditIcon")[0].closest("button")!);
+    fireEvent.change(await screen.findByRole("textbox", { name: "phone" }), {
+      target: { name: "phone", value: "+91 202-555-0101" },
+    });
+    fireEvent.click(screen.getAllByRole("button", { name: "save" })[0]);
+
+    await waitFor(() => {
+      expect(alertSpy).toHaveBeenCalledWith(expect.stringContaining("invalid format"));
+    });
+    expect(mockSetDoc).not.toHaveBeenCalled();
+
+    alertSpy.mockRestore();
+  });
+
   it("standardizes Google Places dropdown direction words to DC quadrant abbreviations", async () => {
     render(
       <MemoryRouter

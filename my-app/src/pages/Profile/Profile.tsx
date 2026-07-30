@@ -905,7 +905,7 @@ const Profile = () => {
 
         const countDigits = (str: string) => (str.match(/\d/g) || []).length;
         const isValidPhoneFormat = (phone: string) => {
-          return /^(\+\d{1,2}\s?)?((\(\d{3}\))|\d{3})[\s.-]?\d{3}[\s.-]?\d{4}$/.test(phone);
+          return /^(\+1\s?)?((\(\d{3}\))|\d{3})[\s.-]?\d{3}[\s.-]?\d{4}$/.test(phone);
         };
         const newErrors = { ...errors };
 
@@ -1022,7 +1022,7 @@ const Profile = () => {
     const countDigits = (str: string) => (str.match(/\d/g) || []).length;
     const isValidPhoneFormat = (phone: string) => {
       // Allowed formats: (123) 456-7890, 123-456-7890, 123.456.7890, 123 456 7890, 1234567890, +1 123-456-7890
-      return /^(\+\d{1,2}\s?)?((\(\d{3}\))|\d{3})[\s.-]?\d{3}[\s.-]?\d{4}$/.test(phone);
+      return /^(\+1\s?)?((\(\d{3}\))|\d{3})[\s.-]?\d{3}[\s.-]?\d{4}$/.test(phone);
     };
 
     if (!clientProfile.phone?.trim()) {
