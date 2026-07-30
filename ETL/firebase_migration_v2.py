@@ -96,6 +96,21 @@ def normalize_tefap_cert_date(value):
 	return TEFAP_FY26_CERT_DATE if normalize_tefap_cert_value(value) else ""
 
 
+def normalize_phone_for_save(value: Any) -> str:
+	"""Normalize US phone numbers to (XXX) XXX-XXXX when possible."""
+	if value is None:
+		return ""
+	trimmed_value = str(value).strip()
+	if not trimmed_value:
+		return ""
+
+	digits = re.sub(r"\D", "", trimmed_value)
+	national_digits = digits[1:] if len(digits) == 11 and digits.startswith("1") else digits
+	match = re.match(r"^(\d{3})(\d{3})(\d{4})$", national_digits)
+
+	return f"({match.group(1)}) {match.group(2)}-{match.group(3)}" if match else trimmed_value
+
+
 class _InfoOnlyFilter(logging.Filter):
 	"""Filter that lets only INFO-and-below records through.
 
@@ -937,7 +952,7 @@ class FirestoreMigration:
 						"name": str(base_ref.get("name", "")),
 						"organization": str(base_ref.get("organization", "")),
 						"email": str(transformed.get("_referralContactEmail", "")),
-						"phone": str(transformed.get("_referralContactPhone", "")),
+						"phone": normalize_phone_for_save(transformed.get("_referralContactPhone", "")),
 					}
 				# Only insert if we have at least a name or organization
 				if referral and (referral.get("name") or referral.get("organization")):
@@ -1029,7 +1044,7 @@ class FirestoreMigration:
 									found_existing = True
 							if not found_existing:
 								# Build referral doc
-								phone_from_referral = str(referral.get("phone", "") or "").strip()
+								phone_from_referral = normalize_phone_for_save(referral.get("phone", ""))
 								referral_doc = {
 									"name": str(referral.get("name", "")),
 									"organization": str(referral.get("organization", "")),
@@ -1045,7 +1060,7 @@ class FirestoreMigration:
 								]
 								for pf in phone_fields:
 									if not referral_doc["phone"] and pf and str(pf).strip():
-										referral_doc["phone"] = str(pf).strip()
+										referral_doc["phone"] = normalize_phone_for_save(pf)
 										break
 								# Insert into referral collection and get the doc ID
 								try:
@@ -1580,6 +1595,49 @@ class FirestoreMigration:
 			if not text or text.lower() == "nan":
 				return ""
 			return text
+
+		def _extract_quadrant_abbreviation(value: Any) -> str:
+			"""Return normalized DC quadrant token (NW/NE/SW/SE) or empty string."""
+			cleaned = _clean_name(value)
+			if not cleaned:
+				return ""
+			standardized = re.sub(
+				r"\b(northwest|northeast|southwest|southeast)\b",
+				lambda m: {
+					"northwest": "NW",
+					"northeast": "NE",
+					"southwest": "SW",
+					"southeast": "SE",
+				}.get(m.group(1).lower(), m.group(0)),
+				cleaned,
+				flags=re.IGNORECASE,
+			)
+			match = re.search(r"\b(NE|NW|SE|SW)\b", standardized, flags=re.IGNORECASE)
+			return match.group(1).upper() if match else ""
+
+		def _normalize_address_directions(value: Any) -> str:
+			"""Normalize spelled-out DC directions in address text to NW/NE/SW/SE."""
+			cleaned = _clean_name(value)
+			if not cleaned:
+				return ""
+			return re.sub(
+				r"\b(northwest|northeast|southwest|southeast)\b",
+				lambda m: {
+					"northwest": "NW",
+					"northeast": "NE",
+					"southwest": "SW",
+					"southeast": "SE",
+				}.get(m.group(1).lower(), m.group(0)),
+				cleaned,
+				flags=re.IGNORECASE,
+			)
+
+		def _is_street_style_address(value: Any) -> bool:
+			"""Heuristic: real street addresses usually include at least one digit."""
+			cleaned = _clean_name(value)
+			if not cleaned:
+				return False
+			return bool(re.search(r"\d", cleaned))
 		first_name_raw = row.get("FIRST_database") or row.get("FIRST", "")
 		last_name_raw = row.get("LAST_database") or row.get("LAST", "")
 		first_name = _clean_name(first_name_raw)
@@ -1600,7 +1658,7 @@ class FirestoreMigration:
 			if '@' in phone_str:
 				email = phone_str
 			else:
-				phone = phone_str
+				phone = normalize_phone_for_save(phone_str)
 
 		# Dietary restrictions and vulnerability fields: handle both JSON and Excel headers
 		restrictions = self.parse_dietary_restrictions(
@@ -1618,12 +1676,12 @@ class FirestoreMigration:
 		mental_health_conditions = self.parse_mental_health_conditions(main_vulnerability, eligibility_database, unnamed_29, further_information)
 		life_challenges = self.parse_life_challenges(main_vulnerability, eligibility_database, unnamed_29, further_information)
 		referral_entity = self.parse_referral_entity(row, referral_form_records=referral_form_records)
-		referral_phone = referral_entity.get("phone", "") if referral_entity else ""
+		referral_phone = normalize_phone_for_save(referral_entity.get("phone", "")) if referral_entity else ""
 		referral_email = referral_entity.get("email", "") if referral_entity else ""
 		notes_raw = row.get("Notes", "")
 		notes = "" if pd.isna(notes_raw) else str(notes_raw)
 		if not phone and referral_entity and referral_entity.get("phone"):
-			phone = referral_entity["phone"]
+			phone = normalize_phone_for_save(referral_entity["phone"])
 			if notes:
 				notes += " | Phone number is from Referral Entity."
 			else:
@@ -1687,12 +1745,13 @@ class FirestoreMigration:
 
 		# --- Address handling: use main address up to quadrant for geocoding,
 		# and capture apartment/unit suffix into address2 when possible. ---
-		raw_address = _clean_name(row.get("ADDRESS"))
+		raw_address = _normalize_address_directions(row.get("ADDRESS"))
 		apt_from_col = _clean_name(row.get("APT")) or _clean_name(row.get("APT #"))
 		apt_from_address = ""
-		quadrant_value = _clean_name(row.get("Quadrant_database")) or _clean_name(row.get("Quadrant"))
+		quadrant_value = _extract_quadrant_abbreviation(row.get("Quadrant_database")) or _extract_quadrant_abbreviation(row.get("Quadrant"))
 		quadrant_match = re.search(r"\b(NE|NW|SE|SW)\b", raw_address)
 		if quadrant_match:
+			quadrant_value = quadrant_match.group(1).upper()
 			end_idx = quadrant_match.end()
 			address_for_coords = raw_address[:end_idx].strip()
 			# Anything after the quadrant may contain apartment/unit info
@@ -1710,6 +1769,15 @@ class FirestoreMigration:
 				label = m.group(1)
 				rest = m.group(2).strip()
 				apt_from_address = f"{label} {rest}".strip() if rest else label
+		# Spreadsheet often stores quadrant in a separate column; append it when the
+		# address string is missing a quadrant token so downstream UIs/exports are consistent.
+		# Skip status/non-address text rows (e.g., "DECEASED", "MOVED").
+		if (
+			quadrant_value
+			and _is_street_style_address(address_for_coords)
+			and not re.search(r"\b(NE|NW|SE|SW)\b", address_for_coords, flags=re.IGNORECASE)
+		):
+			address_for_coords = f"{address_for_coords} {quadrant_value}".strip()
 		address = address_for_coords
 		city = _clean_name(row.get("City"))
 		state = _clean_name(row.get("State"))

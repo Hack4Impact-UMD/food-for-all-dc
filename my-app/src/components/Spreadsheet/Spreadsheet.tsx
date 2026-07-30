@@ -86,6 +86,7 @@ import { useNotifications } from "../NotificationProvider";
 import { CsvExportError } from "../../utils/csvExport";
 import { getClientStatusPresentation } from "../../utils/clientStatus";
 import type { ClientDeliverySummary } from "../../utils/lastDeliveryDate";
+import { formatAddressWithQuadrantAndUnit } from "../../utils/addressFormat";
 
 const addablePropertyKeyLabelMap: Record<string, string> = {
   address: "Address",
@@ -608,6 +609,7 @@ const Spreadsheet: React.FC = () => {
               tefapCertDate: client.tefapCertDate || "",
               dob: client.dob || "",
               ward: client.ward || "",
+              quadrant: client.quadrant || "",
               zipCode: client.zipCode || "",
               tags: client.tags || [],
               referralEntity: client.referralEntity
@@ -773,14 +775,8 @@ const Spreadsheet: React.FC = () => {
         key: "address",
         label: "Address",
         type: "text",
-        compute: (data: RowData) => {
-          // Append address2 (apartment/unit) if present
-          const address2 = typeof data.address2 === "string" ? data.address2 : "";
-          if (address2.trim() !== "") {
-            return `${data.address} ${address2}`.trim();
-          }
-          return data.address;
-        },
+        compute: (data: RowData) =>
+          formatAddressWithQuadrantAndUnit(data.address, data.quadrant, data.address2),
       },
       { key: "phone", label: "Phone", type: "text" },
       {

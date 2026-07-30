@@ -4,6 +4,7 @@ import { Cluster } from "./DeliverySpreadsheet";
 import { RowData } from "./types/deliveryTypes";
 import { getExportConfig } from "../../config/exportConfig";
 import { normalizeCsvRows, sanitizeFilename } from "../../utils/csvExport";
+import { formatAddressWithQuadrant, formatAddressWithQuadrantAndUnit } from "../../utils/addressFormat";
 import {
   ClientOverride,
   normalizeAssignmentValue,
@@ -151,7 +152,8 @@ const formatAssignedTime = (time?: string, fallback = "No time assigned"): strin
 const truncateExportText = (value: string | undefined, maxLength: number): string =>
   (value || "").trim().slice(0, maxLength);
 
-const buildDoorDashStreetAddress = (row: RowData): string => (row.address || "").trim();
+const buildDoorDashStreetAddress = (row: RowData): string =>
+  formatAddressWithQuadrant(row.address, row.quadrant);
 
 const recordSkippedReason = (
   skippedReasonCounts: Map<string, number>,
@@ -240,7 +242,7 @@ const buildRouteCsvRow = (
   return {
     firstName: row.firstName || "",
     lastName: row.lastName || "",
-    address: row.address ? `${row.address}${row.address2 ? ` ${row.address2}` : ""}` : "",
+    address: formatAddressWithQuadrantAndUnit(row.address, rowData.quadrant, row.address2),
     zip: row.zipCode || "",
     quadrant: rowData.quadrant || "",
     ward: row.ward || "",

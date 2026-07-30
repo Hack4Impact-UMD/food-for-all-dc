@@ -377,4 +377,149 @@ describe("Profile address autocomplete lifecycle", () => {
 
     document.body.removeChild(container);
   });
+
+  it("stores quadrant abbreviation when neighborhood includes non-quadrant text", async () => {
+    render(
+      <MemoryRouter
+        initialEntries={["/profile/client-1"]}
+        future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+      >
+        <Routes>
+          <Route path="/profile/:clientId" element={<Profile />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await screen.findByText("100 Main Street NW");
+
+    fireEvent.click(screen.getAllByTestId("EditIcon")[0].closest("button")!);
+    await screen.findByRole("textbox", { name: "address" });
+    await waitFor(() => expect(autocompleteInstances).toHaveLength(1));
+
+    autocompleteInstances[0].place = {
+      formatted_address: "1738 Massachusetts Avenue Southeast, Washington, DC 20003, USA",
+      address_components: [
+        { long_name: "1738", short_name: "1738", types: ["street_number"] },
+        {
+          long_name: "Massachusetts Avenue Southeast",
+          short_name: "Massachusetts Ave SE",
+          types: ["route"],
+        },
+        {
+          long_name: "Barney Circle Southeast",
+          short_name: "Barney Circle Southeast",
+          types: ["neighborhood"],
+        },
+        { long_name: "Washington", short_name: "Washington", types: ["locality"] },
+        {
+          long_name: "District of Columbia",
+          short_name: "DC",
+          types: ["administrative_area_level_1"],
+        },
+        { long_name: "20003", short_name: "20003", types: ["postal_code"] },
+      ],
+    } as google.maps.places.PlaceResult;
+
+    await act(async () => {
+      await autocompleteInstances[0].placeChanged?.();
+    });
+
+    expect(screen.getByTestId("address-fields").textContent).toBe(
+      "1738 Massachusetts Avenue SE|Washington|DC|20003|SE|Ward 2"
+    );
+  });
+
+  it("normalizes autocomplete quadrants to NW/NE/SW/SE across direction variants", async () => {
+    render(
+      <MemoryRouter
+        initialEntries={["/profile/client-1"]}
+        future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+      >
+        <Routes>
+          <Route path="/profile/:clientId" element={<Profile />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await screen.findByText("100 Main Street NW");
+
+    fireEvent.click(screen.getAllByTestId("EditIcon")[0].closest("button")!);
+    await screen.findByRole("textbox", { name: "address" });
+    await waitFor(() => expect(autocompleteInstances).toHaveLength(1));
+
+    const cases = [
+      {
+        streetNumber: "1",
+        zip: "20001",
+        route: "First Street Northwest",
+        neighborhood: "Barney Circle Northwest",
+        formattedAddress: "1 First Street Northwest, Washington, DC 20001, USA",
+        expectedAddress: "1 First Street NW|Washington|DC|20001|NW|Ward 2",
+      },
+      {
+        streetNumber: "2",
+        zip: "20002",
+        route: "Second Street Northeast",
+        neighborhood: "Barney Circle Northeast",
+        formattedAddress: "2 Second Street Northeast, Washington, DC 20002, USA",
+        expectedAddress: "2 Second Street NE|Washington|DC|20002|NE|Ward 2",
+      },
+      {
+        streetNumber: "3",
+        zip: "20024",
+        route: "Third Street Southwest",
+        neighborhood: "Barney Circle Southwest",
+        formattedAddress: "3 Third Street Southwest, Washington, DC 20024, USA",
+        expectedAddress: "3 Third Street SW|Washington|DC|20024|SW|Ward 2",
+      },
+      {
+        streetNumber: "1738",
+        zip: "20003",
+        route: "Massachusetts Avenue Southeast",
+        neighborhood: "Barney Circle Southeast",
+        formattedAddress: "1738 Massachusetts Avenue Southeast, Washington, DC 20003, USA",
+        expectedAddress: "1738 Massachusetts Avenue SE|Washington|DC|20003|SE|Ward 2",
+      },
+    ];
+
+    for (const entry of cases) {
+      autocompleteInstances[0].place = {
+        formatted_address: entry.formattedAddress,
+        address_components: [
+          {
+            long_name: entry.streetNumber,
+            short_name: entry.streetNumber,
+            types: ["street_number"],
+          },
+          {
+            long_name: entry.route,
+            short_name: entry.route,
+            types: ["route"],
+          },
+          {
+            long_name: entry.neighborhood,
+            short_name: entry.neighborhood,
+            types: ["neighborhood"],
+          },
+          { long_name: "Washington", short_name: "Washington", types: ["locality"] },
+          {
+            long_name: "District of Columbia",
+            short_name: "DC",
+            types: ["administrative_area_level_1"],
+          },
+          {
+            long_name: entry.zip,
+            short_name: entry.zip,
+            types: ["postal_code"],
+          },
+        ],
+      } as google.maps.places.PlaceResult;
+
+      await act(async () => {
+        await autocompleteInstances[0].placeChanged?.();
+      });
+
+      expect(screen.getByTestId("address-fields").textContent).toBe(entry.expectedAddress);
+    }
+  });
 });

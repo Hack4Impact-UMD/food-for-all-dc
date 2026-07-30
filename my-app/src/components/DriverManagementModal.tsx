@@ -138,11 +138,20 @@ const DriverManagementModal: React.FC<DriverManagementModalProps> = ({
   // Sorted drivers
   const sortedDrivers = React.useMemo(() => {
     const sorted = [...drivers].sort((a, b) => {
-      const aValue = (a[sortConfig.key] || "").toString().toLowerCase();
-      const bValue = (b[sortConfig.key] || "").toString().toLowerCase();
-      if (aValue < bValue) return sortConfig.direction === "asc" ? -1 : 1;
-      if (aValue > bValue) return sortConfig.direction === "asc" ? 1 : -1;
-      return 0;
+      const aRawValue = (a[sortConfig.key] || "").toString();
+      const bRawValue = (b[sortConfig.key] || "").toString();
+
+      const aComparable =
+        sortConfig.key === "phone" ? aRawValue.replace(/\D/g, "") : aRawValue.trim();
+      const bComparable =
+        sortConfig.key === "phone" ? bRawValue.replace(/\D/g, "") : bRawValue.trim();
+
+      const comparison = aComparable.localeCompare(bComparable, undefined, {
+        sensitivity: "base",
+        numeric: true,
+      });
+
+      return sortConfig.direction === "asc" ? comparison : -comparison;
     });
     return sorted;
   }, [drivers, sortConfig]);

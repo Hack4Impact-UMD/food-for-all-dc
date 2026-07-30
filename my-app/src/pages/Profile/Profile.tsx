@@ -88,6 +88,12 @@ const standardizeAddressDirections = (value: string): string =>
     ADDRESS_DIRECTION_ABBREVIATIONS[match.toLowerCase()] ?? match
   );
 
+const extractQuadrantAbbreviation = (value: string): string => {
+  const standardizedValue = standardizeAddressDirections(value);
+  const match = standardizedValue.match(/\b(NW|NE|SW|SE)\b/i);
+  return match?.[1]?.toUpperCase() ?? "";
+};
+
 const formatProfilePhoneForSave = (value: unknown): string => {
   if (typeof value !== "string") return "";
   const trimmedValue = value.trim();
@@ -2721,18 +2727,18 @@ const Profile = () => {
             street += " " + comp.long_name;
           } else if (comp.types.includes("neighborhood")) {
             // Optionally use for quadrant if DC
-            if (!quadrant && comp.long_name.match(/(NW|NE|SW|SE)/i)) {
-              quadrant = comp.long_name;
+            if (!quadrant) {
+              quadrant = extractQuadrantAbbreviation(comp.long_name);
             }
           }
         }
         // If DC, try to extract quadrant from formatted address if not found
-        if (
-          !quadrant &&
-          place.formatted_address &&
-          place.formatted_address.match(/(NW|NE|SW|SE)/i)
-        ) {
-          quadrant = place.formatted_address.match(/(NW|NE|SW|SE)/i)?.[0] || "";
+        if (!quadrant && place.formatted_address) {
+          quadrant = extractQuadrantAbbreviation(place.formatted_address);
+        }
+        // Fallback to extracted street text if formatted address doesn't include a quadrant token.
+        if (!quadrant && street) {
+          quadrant = extractQuadrantAbbreviation(street);
         }
 
         // Get ward for the selected address
