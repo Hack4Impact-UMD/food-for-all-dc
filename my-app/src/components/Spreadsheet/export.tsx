@@ -48,6 +48,7 @@ export interface RowData {
   tefapCert?: boolean;
   tefapCertDate?: string;
   famStartDate?: string;
+  startDate?: string;
   lastDeliveryDate?: string;
   missedStrikeCount?: number;
   activeStatus?: boolean;
@@ -214,8 +215,8 @@ export const exportQueryResults = (
  * Export all data as a CSV file with formatted, readable output.
  * @param rows - The data to export.
  */
-export const exportAllClients = (rows: RowData[]) => {
-  const formattedData: CsvRow[] = rows.map((row) => {
+export const buildAllClientsExportRows = (rows: RowData[]): CsvRow[] =>
+  rows.map((row) => {
     // Format the data in a readable way
     return {
       UID: row.uid,
@@ -244,10 +245,11 @@ export const exportAllClients = (rows: RowData[]) => {
         ? [row.referralEntity.name, row.referralEntity.organization].filter(Boolean).join(", ")
         : "",
       "TEFAP Cert": normalizeDateValue(row.tefapCertDate),
+      "Start Date": normalizeDateValue(row.startDate),
       Tags: row.tags?.join(", ") || "",
       "Date of Birth": row.dob ?? "",
     };
   });
 
-  return downloadCsv(formattedData, "all_clients.csv");
-};
+export const exportAllClients = (rows: RowData[]) =>
+  downloadCsv(buildAllClientsExportRows(rows), "all_clients.csv");
