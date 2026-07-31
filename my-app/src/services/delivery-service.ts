@@ -120,7 +120,7 @@ class DeliveryService {
     const eventQuery = query(
       collection(this.db, this.eventsCollection),
       where("deliveryDate", ">=", range.start),
-      where("deliveryDate", "<=", range.end),
+      where("deliveryDate", "<", range.endExclusive),
       orderBy("deliveryDate", "asc")
     );
     const snapshot = await getDocs(eventQuery);
@@ -718,23 +718,17 @@ class DeliveryService {
     return DeliveryService.instance;
   }
 
-  private getClusterDateRange(dateKey: string): { start: Timestamp; end: Timestamp } | null {
+  private getClusterDateRange(dateKey: string): { start: Timestamp; endExclusive: Timestamp } | null {
     const normalizedDateKey = deliveryDate.tryToISODateString(dateKey);
     if (!normalizedDateKey) {
       return null;
     }
 
-    const jsDate = deliveryDate.toJSDate(normalizedDateKey);
-    const startDate = new Date(
-      Date.UTC(jsDate.getFullYear(), jsDate.getMonth(), jsDate.getDate(), 0, 0, 0, 0)
-    );
-    const endDate = new Date(
-      Date.UTC(jsDate.getFullYear(), jsDate.getMonth(), jsDate.getDate(), 23, 59, 59, 999)
-    );
+    const { start, endExclusive } = deliveryDate.getUTCDateBounds(normalizedDateKey);
 
     return {
-      start: Timestamp.fromDate(startDate),
-      end: Timestamp.fromDate(endDate),
+      start: Timestamp.fromDate(start),
+      endExclusive: Timestamp.fromDate(endExclusive),
     };
   }
 
@@ -884,7 +878,7 @@ class DeliveryService {
               const clusterQuery = query(
                 collection(this.db, this.clustersCollection),
                 where("date", ">=", range.start),
-                where("date", "<=", range.end),
+                where("date", "<", range.endExclusive),
                 orderBy("date", "asc")
               );
 

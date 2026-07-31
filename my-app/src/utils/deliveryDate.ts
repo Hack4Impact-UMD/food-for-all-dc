@@ -132,6 +132,16 @@ export const deliveryDate = {
       endExclusive: start.plus({ days: 1 }),
     };
   },
+  getUTCDateBounds(input: DeliveryDateInput): { start: Date; endExclusive: Date } {
+    const dateKey = deliveryDate.toISODateString(input);
+    const [year, month, day] = dateKey.split("-").map(Number);
+    const start = new Date(Date.UTC(year, month - 1, day));
+
+    return {
+      start,
+      endExclusive: new Date(Date.UTC(year, month - 1, day + 1)),
+    };
+  },
 };
 
 export type { DeliveryDateInput };

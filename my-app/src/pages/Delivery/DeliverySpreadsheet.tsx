@@ -1318,34 +1318,13 @@ const DeliverySpreadsheet: React.FC = () => {
       const requestId = ++clustersRequestIdRef.current;
 
       try {
-        // account for timezone issues
-        const startDate = new Date(
-          Date.UTC(
-            dateForFetch.getFullYear(),
-            dateForFetch.getMonth(),
-            dateForFetch.getDate(),
-            0,
-            0,
-            0
-          )
-        );
-
-        const endDate = new Date(
-          Date.UTC(
-            dateForFetch.getFullYear(),
-            dateForFetch.getMonth(),
-            dateForFetch.getDate(),
-            23,
-            59,
-            59
-          )
-        );
+        const { start, endExclusive } = deliveryDate.getUTCDateBounds(dateForFetch);
 
         const clustersCollectionRef = collection(db, dataSources.firebase.clustersCollection);
         const q = query(
           clustersCollectionRef,
-          where("date", ">=", Timestamp.fromDate(startDate)),
-          where("date", "<=", Timestamp.fromDate(endDate)),
+          where("date", ">=", Timestamp.fromDate(start)),
+          where("date", "<", Timestamp.fromDate(endExclusive)),
           orderBy("date", "asc")
         );
 
@@ -1790,18 +1769,7 @@ const DeliverySpreadsheet: React.FC = () => {
     const docRef = doc(collection(db, dataSources.firebase.clustersCollection));
     const normalizedClusters = normalizeClusters(newClusters);
 
-    // Use selectedDate to ensure consistency with fetched data
-    const clusterDate = new Date(
-      Date.UTC(
-        selectedDate.getFullYear(),
-        selectedDate.getMonth(),
-        selectedDate.getDate(),
-        0,
-        0,
-        0,
-        0
-      )
-    );
+    const clusterDate = deliveryDate.getUTCDateBounds(selectedDateKey).start;
 
     const newClusterDoc = {
       clusters: normalizedClusters,
