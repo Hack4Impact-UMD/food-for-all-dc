@@ -108,6 +108,19 @@ def find_existing_client_ids(db: firestore.Client, client_ids: Iterable[str]) ->
     return sorted(snapshot.id for snapshot in db.get_all(references) if snapshot.exists)
 
 
+def get_row_numbers(cli_values: list[str] | None) -> list[int]:
+    """Use CLI row values when supplied, otherwise ask the operator."""
+    if cli_values:
+        return parse_row_numbers(cli_values)
+
+    print("\nADD ONLY: Select Excel rows containing new clients.")
+    print("Existing client IDs will be rejected; use the app to update existing data.")
+    response = input(
+        "Excel rows to add (examples: 120 or 120,125 or 140-142): "
+    ).strip()
+    return parse_row_numbers([response])
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description=(
@@ -118,10 +131,9 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--rows",
         nargs="+",
-        required=True,
         help=(
             "Excel row numbers, comma-separated values, or ranges "
-            "(for example: 120 125,130 140-142)."
+            "(for example: 120 125,130 140-142). If omitted, the command prompts for rows."
         ),
     )
     parser.add_argument(
@@ -141,7 +153,7 @@ def main(argv: list[str] | None = None) -> int:
     args = _build_parser().parse_args(argv)
 
     try:
-        row_numbers = parse_row_numbers(args.rows)
+        row_numbers = get_row_numbers(args.rows)
     except ValueError as error:
         print(f"ERROR: {error}")
         return 2

@@ -198,20 +198,25 @@ already exists in `client-profile2`. Use the Food For All application to update
 existing client data. This command does not clear temp collections and does not
 run the promotion pipeline.
 
-From the repository root, pass one row, multiple rows, or inclusive ranges:
+From the repository root, run the command and enter one row, multiple
+comma-separated rows, or inclusive ranges when prompted:
 
 ```powershell
-# Uses the configured default workbook and Current Deliveries sheet
-python ETL\add_client_rows.py --rows 120 125,130 140-142
+# Uses the configured default workbook and Current Deliveries sheet, then asks for rows
+python ETL\add_client_rows.py
 
 # Use a differently dated workbook
-python ETL\add_client_rows.py --rows 350,355 --workbook ETL\FFA_CLIENT_DATABASE_AUGUST2026.xlsx
+python ETL\add_client_rows.py --workbook ETL\FFA_CLIENT_DATABASE_AUGUST2026.xlsx
 ```
 
 ```sh
-python ETL/add_client_rows.py --rows 120 125,130 140-142
-python ETL/add_client_rows.py --rows 350,355 --workbook ETL/FFA_CLIENT_DATABASE_AUGUST2026.xlsx
+python ETL/add_client_rows.py
+python ETL/add_client_rows.py --workbook ETL/FFA_CLIENT_DATABASE_AUGUST2026.xlsx
 ```
+
+The row prompt accepts values such as `120`, `120,125,130`, or `140-142`.
+For scripted use, bypass the row prompt with
+`--rows 120 125,130 140-142`.
 
 The command validates all requested rows and client IDs before writing, lists
 the selected clients, and requires the exact confirmation phrase `ADD ONLY`.

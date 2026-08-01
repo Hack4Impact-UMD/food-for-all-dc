@@ -1,9 +1,14 @@
 from unittest import TestCase
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pandas as pd
 
-from add_client_rows import find_existing_client_ids, parse_row_numbers, select_rows
+from add_client_rows import (
+    find_existing_client_ids,
+    get_row_numbers,
+    parse_row_numbers,
+    select_rows,
+)
 
 
 class ParseRowNumbersTests(TestCase):
@@ -23,6 +28,20 @@ class ParseRowNumbersTests(TestCase):
     def test_rejects_descending_range(self) -> None:
         with self.assertRaisesRegex(ValueError, "must be ascending"):
             parse_row_numbers(["12-10"])
+
+    def test_prompts_for_rows_when_cli_option_is_omitted(self) -> None:
+        with patch("builtins.input", return_value="12,15-16") as prompt:
+            result = get_row_numbers(None)
+
+        self.assertEqual(result, [12, 15, 16])
+        prompt.assert_called_once()
+
+    def test_cli_rows_bypass_interactive_prompt(self) -> None:
+        with patch("builtins.input") as prompt:
+            result = get_row_numbers(["12", "15-16"])
+
+        self.assertEqual(result, [12, 15, 16])
+        prompt.assert_not_called()
 
 
 class SelectRowsTests(TestCase):
