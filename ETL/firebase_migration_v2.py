@@ -1,5 +1,7 @@
 CLIENT_COLLECTION_NAME = "temp-profile2"
 REFERRAL_COLLECTION_NAME = "temp-referral"
+PRODUCTION_CLIENT_COLLECTION_NAME = "client-profile2"
+PRODUCTION_REFERRAL_COLLECTION_NAME = "referral"
 
 import json
 import os
@@ -961,7 +963,7 @@ class FirestoreMigration:
 					is_internet = str(referral.get("organization", "")).strip().lower() == "internet search"
 					if is_internet:
 						# Try to find existing 'Internet Search' referral
-						ref_coll = self.db.collection(REFERRAL_COLLECTION_NAME)
+						ref_coll = self.db.collection(self.referral_collection_name)
 						internet_filter = FieldFilter("organization", "==", "Internet Search")
 						query = ref_coll.where(filter=internet_filter)
 						existing = list(query.limit(1).stream())
@@ -979,8 +981,11 @@ class FirestoreMigration:
 								"phone": ""
 							}
 							try:
-								ref_ref = self.db.collection(REFERRAL_COLLECTION_NAME).document()
-								ref_ref.set(referral_doc)
+								ref_ref = self.db.collection(self.referral_collection_name).document()
+								if self.create_only:
+									batch.create(ref_ref, referral_doc)
+								else:
+									ref_ref.set(referral_doc)
 								referral_doc_id = ref_ref.id
 								logger.debug(f"Inserted new 'Internet Search' referral with id {referral_doc_id}")
 								if "referralEntity" in transformed and transformed["referralEntity"] is not None:
@@ -1006,7 +1011,7 @@ class FirestoreMigration:
 						else:
 							# Check Firestore for existing referral with same or swapped fields
 							found_existing = False
-							ref_coll = self.db.collection(REFERRAL_COLLECTION_NAME)
+							ref_coll = self.db.collection(self.referral_collection_name)
 							if referral.get("email"):
 								email_filter = FieldFilter("email", "==", referral["email"])
 								query = ref_coll.where(filter=email_filter)
@@ -1064,14 +1069,17 @@ class FirestoreMigration:
 										break
 								# Insert into referral collection and get the doc ID
 								try:
-									ref_ref = self.db.collection(REFERRAL_COLLECTION_NAME).document()
-									ref_ref.set(referral_doc)
+									ref_ref = self.db.collection(self.referral_collection_name).document()
+									if self.create_only:
+										batch.create(ref_ref, referral_doc)
+									else:
+										ref_ref.set(referral_doc)
 									referral_doc_id = ref_ref.id
 									ref_name = str(referral_doc.get("name", "")).strip() or "<no name>"
 									ref_org = str(referral_doc.get("organization", "")).strip() or "<no org>"
 									# Quiet per-record console output: keep details only in debug logs
 									logger.debug(
-										f"[REF] Inserted referral into {REFERRAL_COLLECTION_NAME}: "
+										f"[REF] Inserted referral into {self.referral_collection_name}: "
 										f"{ref_name} - {ref_org} (id {referral_doc_id})"
 									)
 									# Set the referralEntity.id in the client profile
@@ -1082,7 +1090,7 @@ class FirestoreMigration:
 									ref_name = str(referral_doc.get("name", "")).strip() or "<no name>"
 									ref_org = str(referral_doc.get("organization", "")).strip() or "<no org>"
 									logger.error(
-										f"[ERROR] Failed to insert referral into {REFERRAL_COLLECTION_NAME} | "
+										f"[ERROR] Failed to insert referral into {self.referral_collection_name} | "
 										f"Name: {ref_name} | "
 										f"Organization: {ref_org} | "
 										f"Error: {str(e)}"
@@ -1108,7 +1116,10 @@ class FirestoreMigration:
 				transformed.pop("_referralContactPhone", None)
 				transformed.pop("_referralContactEmail", None)
 				doc_ref = self.db.collection(self.collection_name).document(doc_id)
-				batch.set(doc_ref, transformed)
+				if self.create_only:
+					batch.create(doc_ref, transformed)
+				else:
+					batch.set(doc_ref, transformed)
 				successful += 1
 				# Update the on-screen current-record line for a successful insert
 				name_preview = f"{transformed.get('firstName', '')} {transformed.get('lastName', '')}".strip() or display_name
@@ -1384,9 +1395,18 @@ class FirestoreMigration:
 		except Exception as e:
 			logger.error(f"[ERROR] Error loading file {file_path}: {str(e)}")
 			return []
-	def __init__(self, service_account_path: str, project_id: str, collection_name: str = "clients"):
+	def __init__(
+		self,
+		service_account_path: str,
+		project_id: str,
+		collection_name: str = "clients",
+		referral_collection_name: str = REFERRAL_COLLECTION_NAME,
+		create_only: bool = False,
+	):
 		self.project_id = project_id
 		self.collection_name = collection_name
+		self.referral_collection_name = referral_collection_name
+		self.create_only = create_only
 		self.stats = MigrationStats()
 		self.processed_names = set()
 		self.case_workers = {}
