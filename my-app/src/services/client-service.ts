@@ -78,7 +78,7 @@ const deriveClientActiveStatus = (raw: {
     typeof raw.autoInactiveReason === "string" ? raw.autoInactiveReason : null
   );
 
-const mapClientDocToSpreadsheetBaseRow = (docId: string, raw: any): RowData => {
+export const mapClientDocToSpreadsheetBaseRow = (docId: string, raw: any): RowData => {
   const normalizedFamStartDate = normalizeFirestoreDateValue(raw.famStartDate);
   const famStartDate =
     deliveryDate.tryToISODateString(
@@ -124,6 +124,7 @@ const mapClientDocToSpreadsheetBaseRow = (docId: string, raw: any): RowData => {
     language: raw.language ?? "",
     notes: raw.notes ?? "",
     famStartDate,
+    startDate: normalizeDateStringField(raw.startDate),
     tefapCert: normalizeBooleanField(raw.tefapCert),
     tefapCertDate: normalizeDateStringField(raw.tefapCertDate),
     dob: raw.dob ?? "",
