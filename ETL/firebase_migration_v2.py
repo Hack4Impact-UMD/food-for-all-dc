@@ -956,6 +956,20 @@ class FirestoreMigration:
 						"email": str(transformed.get("_referralContactEmail", "")),
 						"phone": normalize_phone_for_save(transformed.get("_referralContactPhone", "")),
 					}
+				# Full ETL prunes contactless referrals before promotion. Mirror that
+				# cleanup when create-only imports write directly to production.
+				if (
+					self.create_only
+					and referral
+					and not str(referral.get("email") or "").strip()
+					and not str(referral.get("phone") or "").strip()
+				):
+					transformed["referralEntity"] = {
+						"id": "",
+						"name": "",
+						"organization": "None",
+					}
+					referral = None
 				# Only insert if we have at least a name or organization
 				if referral and (referral.get("name") or referral.get("organization")):
 					referral_insert_failed = False
