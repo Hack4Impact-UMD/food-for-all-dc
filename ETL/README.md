@@ -116,6 +116,42 @@ The ETL script expects those names and locations.
 
 The ETL system uses a **staging workflow** with temporary collections (`temp-profile2` and `temp-referral`) that you can review before promoting to production (`client-profile2` and `referral`). Choose the option that fits your needs:
 
+### Full ETL Ownership Model: "Day One"
+
+The full ETL is a **Day One load**: it rebuilds the production data owned by
+the two source spreadsheets as though the application were being populated for
+the first time. The full load replaces `client-profile2` and `referral` from
+validated staging data, removing records in those collections that are not in
+the completed spreadsheet-derived load.
+
+Day One does **not** mean deleting the entire Firestore database. Collections
+created and maintained by the application that have no authoritative source in
+the spreadsheets are preserved. This includes drivers, users, tags, and
+delivery-limit settings. Historical route data is also preserved by default;
+`events` and `clusters` can be cleared together only through the separate,
+explicit full-ETL route-deletion confirmation.
+
+| Collection | Recommendation |
+|------------|----------------|
+| `temp-profile2` | Clear and rebuild as staging data from `Current Deliveries`. |
+| `temp-referral` | Clear and rebuild as staging referral/case-worker data. |
+| `client-profile2` | Replace from the completed `temp-profile2` Day One load. |
+| `referral` | Replace from the completed `temp-referral` Day One load. |
+| `events` | Preserve by default. Delete only when intentionally resetting all route history during a full ETL. |
+| `clusters` | Preserve by default. If route history is reset, delete with `events` so assignments cannot outlive their events. |
+| `Drivers2` | Preserve. Driver records are maintained in the app and cannot be rebuilt from the spreadsheet data used by ETL. |
+| `users` | Preserve. User accounts and roles are maintained by the app and authentication system. |
+| `tags` | Preserve. The master tag list is maintained by the app. |
+| `limits` | Preserve. Weekly delivery limits are app configuration. |
+| `dailyLimits` | Preserve. Date-specific delivery limits are app configuration. |
+| `clients` | Leave untouched. This appears to be a legacy collection and is not managed by the full ETL. |
+| `Drivers` | Leave untouched. This appears to be a legacy collection; the active app uses `Drivers2`. |
+
+The `Drivers` worksheet in the client workbook is not an ETL source and does
+not contain enough data to recreate `Drivers2`. Likewise, workbook tabs other
+than `Current Deliveries` and referral-form tabs other than `Form Responses 1`
+are not loaded unless the ETL mapping is deliberately expanded.
+
 ### Mac/Linux command equivalents (after activating venv)
 
 If you are using Mac (or Linux), use these equivalents:
@@ -134,17 +170,59 @@ python ETL/promote_temp_clients_and_referrals.py
 
 # Option 4: Full pipeline
 python ETL/run_full_etl_with_promotion.py
+
+# Add only selected new rows directly to production
+python ETL/add_client_rows.py --rows 120 125,130 140-142
 ```
 
 ### Quick Reference
 
 | Option | Command | Loads to Temp? | Promotes to Production? | Deletes Temp? | Cost (Geocoding + Firestore ops) |
 |--------|---------|----------------|------------------------|---------------|------|
+| **Add New Rows** | `add_client_rows.py --rows ...` | No | Creates selected production clients directly | No | Geocoding and Firestore writes for selected rows only |
 | **1. Single Batch** | `firebase_migration_v2.py` (with limit) | ✅ 250 records | ❌ | ❌ | ~ $1.25 geocoding + ~ $0.01 Firestore (total: ~ $1.26) |
 | **2. Full to Temp** | `firebase_migration_v2.py` (no limit) | ✅ All records | ❌ | ❌ | ~ $15.75 geocoding + ~ $0.03 Firestore (total: ~ $15.78) |
 | **3. Promote Only** | `promote_temp_clients_and_referrals.py` | ➖ (uses existing) | ✅ | ✅ | Firestore estimate: ~ $0.02 |
 | **4. Full Pipeline** | `run_full_etl_with_promotion.py` | ✅ All records | ✅ | ✅ | ~ $15.75 geocoding + Firestore ops (total: ~$15.80) |
 | **5. NPM Command** | `npm run etl` | ✅ All records | ✅ | ✅ | ~ $15.75 geocoding + Firestore ops (total: ~$15.80) |
+
+---
+
+### Add Only: Import Selected New Workbook Rows
+
+**Use when:** New clients were appended to an `FFA_CLIENT_DATABASE_[DATE].xlsx`
+workbook and only those Excel rows should be added to production.
+
+**This is add only.** The command refuses to run if any selected client ID
+already exists in `client-profile2`. Use the Food For All application to update
+existing client data. This command does not clear temp collections and does not
+run the promotion pipeline.
+
+From the repository root, run the command and enter one row, multiple
+comma-separated rows, or inclusive ranges when prompted:
+
+```powershell
+# Uses the configured default workbook and Current Deliveries sheet, then asks for rows
+python ETL\add_client_rows.py
+
+# Use a differently dated workbook
+python ETL\add_client_rows.py --workbook ETL\FFA_CLIENT_DATABASE_AUGUST2026.xlsx
+```
+
+```sh
+python ETL/add_client_rows.py
+python ETL/add_client_rows.py --workbook ETL/FFA_CLIENT_DATABASE_AUGUST2026.xlsx
+```
+
+The row prompt accepts values such as `120`, `120,125,130`, or `140-142`.
+For scripted use, bypass the row prompt with
+`--rows 120 125,130 140-142`.
+
+The command validates all requested rows and client IDs before writing, lists
+the selected clients, and requires the exact confirmation phrase `ADD ONLY`.
+Client documents use create-only Firestore writes, so a concurrent insert also
+fails instead of overwriting production data. New referral and client documents
+are committed atomically in the same batch.
 
 ---
 
@@ -211,9 +289,9 @@ Remove-Item Env:\MIGRATION_LIMIT_RECORDS -ErrorAction SilentlyContinue
 
 ---
 
-### Option 4: Full Pipeline (ETL → Clean → Promote)
+### Option 4: Full Pipeline / Day One Load (ETL → Clean → Promote)
 
-**Use when:** You want to run everything in one command without reviewing temp data
+**Use when:** You want to rebuild all spreadsheet-owned production data in one command without reviewing temp data
 
 **What it does:** Runs all 4 steps automatically:
 1. ETL into temp collections
@@ -227,8 +305,10 @@ Remove-Item Env:\MIGRATION_LIMIT_RECORDS -ErrorAction SilentlyContinue
 ```
 
 **Result:**
-- ⚠️  **DESTRUCTIVE:** Deletes ALL existing docs in `client-profile2` and `referral`
-- ✅ Fresh data in production collections
+- ⚠️  **REPLACES SPREADSHEET-OWNED DATA:** Rebuilds `client-profile2` and `referral` from the completed temp collections
+- ✅ Removes stale `client-profile2` and `referral` documents that are absent from the completed Day One load
+- ✅ Preserves app-owned collections such as `Drivers2`, `users`, `tags`, `limits`, and `dailyLimits`
+- ✅ Preserves `events` and `clusters` unless the operator enters the exact full-ETL route-deletion confirmation
 - ✅ Temp collections deleted
 - **Cost:** ~$15.75 for geocoding, plus Firestore operations from ETL + promotion
 
@@ -258,7 +338,8 @@ npm run etl
 | Already have validated temp data | Option 3 only |
 
 **Important Notes:**
-- Options 3, 4, and 5 are **DESTRUCTIVE** - they delete production data
+- Options 3, 4, and 5 replace spreadsheet-owned production data in `client-profile2` and `referral`; they do not clear unrelated app-owned collections
+- Deleting `events` and `clusters` is a separate full-ETL choice that requires the exact confirmation phrase `DELETE FULL ETL ROUTE DATA`
 - Always backup production collections before promoting
 - Review `temp-profile2` and `temp-referral` in Firestore console after Option 1/2
 - Environment variable `MIGRATION_LIMIT_RECORDS` persists for entire terminal session

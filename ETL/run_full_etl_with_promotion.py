@@ -17,12 +17,17 @@ Pipeline steps (in order):
    - Copy all docs from "temp-profile2" -> "client-profile2" and
      from "temp-referral" -> "referral" using the same IDs.
    - Delete all docs from the sandbox collections.
+5. If route-data deletion was selected before the pipeline started,
+   delete all documents from both "events" and "clusters" so saved
+   cluster assignments cannot outlive their source delivery events.
 
 **WARNING: FINAL STEP IS DESTRUCTIVE**
 
 - The last step permanently deletes all existing documents in
   "client-profile2" and "referral" and replaces them with the sandbox
   data.
+- If route-data deletion is selected, the final cleanup also permanently
+  deletes all documents in both "events" and "clusters".
 - Use this only after you have validated the sandbox output of
   firebase_migration_v2 and are ready to refresh production.
 
@@ -48,17 +53,40 @@ import promote_temp_clients_and_referrals
 
 
 ROUTE_EVENTS_COLLECTION = "events"
+ROUTE_CLUSTERS_COLLECTION = "clusters"
+ROUTE_DATA_COLLECTIONS = (ROUTE_CLUSTERS_COLLECTION, ROUTE_EVENTS_COLLECTION)
+ROUTE_DELETE_CONFIRMATION = "DELETE FULL ETL ROUTE DATA"
 
 
-def _prompt_delete_routes(console: Console) -> bool:
-  """Ask whether to delete production route events after promotion."""
+def _prompt_delete_routes(console: Console, *, add_only: bool = False) -> bool:
+  """Ask about route deletion only for a full replacement ETL run."""
+  if add_only:
+    console.print(
+      "\n[bold green]Add-only mode:[/bold green] Existing production data in "
+      f"[bold]{ROUTE_EVENTS_COLLECTION}[/bold] and "
+      f"[bold]{ROUTE_CLUSTERS_COLLECTION}[/bold] will be kept. "
+      "Route-data deletion is disabled."
+    )
+    return False
+
   console.print(
-    "\n[yellow]Optional:[/yellow] Delete all production route events "
-    f"in [bold]{ROUTE_EVENTS_COLLECTION}[/bold]?"
+    "\n[bold red]FULL ETL ONLY:[/bold red] Optionally delete all production route data in "
+    f"[bold]{ROUTE_EVENTS_COLLECTION}[/bold] and "
+    f"[bold]{ROUTE_CLUSTERS_COLLECTION}[/bold]?"
   )
-  console.print("[dim]Type 'yes' to delete routes, or press Enter / type 'no' to keep them.[/dim]")
-  response = input("Delete route events? [yes/no] (default: no): ").strip().lower()
-  return response in {"y", "yes"}
+  console.print(
+    "[yellow]Do not delete this data when adding selected new workbook rows. "
+    "Exit this full ETL and use add_client_rows.py for add-only imports.[/yellow]"
+  )
+  console.print(
+    "[dim]For a full replacement ETL only, type "
+    f"'[bold]{ROUTE_DELETE_CONFIRMATION}[/bold]' exactly. "
+    "Any other response keeps route events and clusters.[/dim]"
+  )
+  response = input(
+    "FULL ETL route-data deletion confirmation (default: keep): "
+  ).strip()
+  return response == ROUTE_DELETE_CONFIRMATION
 
 
 def _delete_collection_documents(collection_name: str, console: Console) -> int:
@@ -76,6 +104,14 @@ def _delete_collection_documents(collection_name: str, console: Console) -> int:
   return deleted
 
 
+def _delete_route_data(console: Console) -> dict[str, int]:
+  """Delete route events and their corresponding cluster assignments."""
+  return {
+    collection_name: _delete_collection_documents(collection_name, console)
+    for collection_name in ROUTE_DATA_COLLECTIONS
+  }
+
+
 def main() -> None:
   console = Console()
 
@@ -84,13 +120,16 @@ def main() -> None:
   delete_routes_after_promotion = _prompt_delete_routes(console)
   if delete_routes_after_promotion:
     rprint(
-      "[yellow]ℹ️ Route events will be deleted as the final step "
-      f"after successful promotion from [bold]{ROUTE_EVENTS_COLLECTION}[/bold].[/yellow]\n"
+      "[yellow]ℹ️ Route events and clusters will be deleted as the final step "
+      "after successful promotion from "
+      f"[bold]{ROUTE_EVENTS_COLLECTION}[/bold] and "
+      f"[bold]{ROUTE_CLUSTERS_COLLECTION}[/bold].[/yellow]\n"
     )
   else:
     rprint(
-      "[cyan]ℹ️ Route events will be kept. "
-      f"No changes will be made to [bold]{ROUTE_EVENTS_COLLECTION}[/bold].[/cyan]\n"
+      "[cyan]ℹ️ Route events and clusters will be kept. "
+      f"No changes will be made to [bold]{ROUTE_EVENTS_COLLECTION}[/bold] or "
+      f"[bold]{ROUTE_CLUSTERS_COLLECTION}[/bold].[/cyan]\n"
     )
 
   rprint("[cyan]Step 1/4[/cyan] ▶️ ETL into [bold]temp-profile2[/bold] / [bold]temp-referral[/bold]...")
@@ -128,12 +167,17 @@ def main() -> None:
 
   if delete_routes_after_promotion:
     rprint(
-      "[yellow]🗑️ Deleting production route events collection "
-      f"[bold]{ROUTE_EVENTS_COLLECTION}[/bold]...[/yellow]"
+      "[yellow]🗑️ Deleting production route data from "
+      f"[bold]{ROUTE_EVENTS_COLLECTION}[/bold] and "
+      f"[bold]{ROUTE_CLUSTERS_COLLECTION}[/bold]...[/yellow]"
     )
-    _delete_collection_documents(ROUTE_EVENTS_COLLECTION, console)
+    _delete_route_data(console)
   else:
-    rprint(f"[cyan]ℹ️ Final step: kept [bold]{ROUTE_EVENTS_COLLECTION}[/bold].[/cyan]")
+    rprint(
+      "[cyan]ℹ️ Final step: kept "
+      f"[bold]{ROUTE_EVENTS_COLLECTION}[/bold] and "
+      f"[bold]{ROUTE_CLUSTERS_COLLECTION}[/bold].[/cyan]"
+    )
 
   rprint("[bold green]🎉 Full ETL + cleanup + promotion pipeline completed.[/bold green]")
 
