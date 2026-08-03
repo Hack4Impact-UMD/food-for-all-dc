@@ -10,10 +10,12 @@ import {
   TextField,
   Autocomplete,
   Typography,
+  Chip,
   Fade,
   IconButton,
   styled,
   FilterOptionsState,
+  Alert,
 } from "@mui/material";
 import AddCircleIcon from "@mui/icons-material/AddCircle";
 import WarningAmberRoundedIcon from "@mui/icons-material/WarningAmberRounded";
@@ -31,6 +33,25 @@ import {
 } from "firebase/firestore";
 import dataSources from "../../../config/dataSources";
 import { db } from "../../../auth/firebaseConfig";
+import { useTagColors } from "../../../context/TagColorContext";
+import {
+  DEFAULT_TAG_COLOR,
+  editTagMetadata,
+  getReadableTagTextColor,
+  getTagColor,
+} from "../../../utils/tagColors";
+import { useClientData } from "../../../context/ClientDataContext";
+
+const TAG_COLOR_SWATCHES = [
+  "#257e68",
+  "#1976d2",
+  "#7b1fa2",
+  "#c2185b",
+  "#d84315",
+  "#f9a825",
+  "#546e7a",
+  "#5d4037",
+];
 
 // Define interfaces for tag animations
 interface TagWithAnimation {
@@ -45,6 +66,7 @@ interface TagsProps {
   allTags: string[];
   values: string[];
   handleTag: (tag: string) => void;
+  onTagRenamed?: (oldTag: string, newTag: string) => void;
   setInnerPopup: (isOpen: boolean) => void;
   deleteMode: boolean;
   setTagToDelete: (tag: string | null) => void;
@@ -124,12 +146,15 @@ export default function TagManager({
   allTags,
   values,
   handleTag,
+  onTagRenamed,
   setInnerPopup,
   deleteMode,
   setTagToDelete,
   clientUid,
 }: TagsProps) {
   const [masterTags, setMasterTags] = useState<string[]>(allTags);
+  const tagColors = useTagColors();
+  const { renameClientTag } = useClientData({ autoLoad: false });
 
   // Animation states - similar to delivery animations
   const [tagsWithAnimation, setTagsWithAnimation] = useState<TagWithAnimation[]>([]);
@@ -162,10 +187,16 @@ export default function TagManager({
 
   const [openAddTagModal, setOpenAddTagModal] = useState(false);
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
+  const [selectedColor, setSelectedColor] = useState(DEFAULT_TAG_COLOR);
   const [modalMode, setModalMode] = useState<"add" | "remove">("add");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showDeleteSuccess, setShowDeleteSuccess] = useState(false);
   const [tagToDelete, setTagToDeleteState] = useState<string | null>(null);
+  const [editingTag, setEditingTag] = useState<string | null>(null);
+  const [editedTagName, setEditedTagName] = useState("");
+  const [editedTagColor, setEditedTagColor] = useState(DEFAULT_TAG_COLOR);
+  const [editError, setEditError] = useState("");
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
 
   // Filter already applied tags (for adding)
   const availableTags = masterTags.filter((tag: string) => !values.includes(tag));
@@ -200,7 +231,83 @@ export default function TagManager({
   const handleCreateTagClick = () => {
     setModalMode("add");
     setSelectedTag(null);
+    setSelectedColor(DEFAULT_TAG_COLOR);
     setOpenAddTagModal(true);
+  };
+
+  const handleEditTagClick = (tag: string) => {
+    setEditingTag(tag);
+    setEditedTagName(tag);
+    setEditedTagColor(getTagColor(tag, tagColors));
+    setEditError("");
+  };
+
+  const handleSaveTagEdit = async () => {
+    if (!editingTag) return;
+
+    const newTagName = editedTagName.trim();
+    if (!newTagName) {
+      setEditError("Tag name is required.");
+      return;
+    }
+
+    const duplicateTag = masterTags.some(
+      (tag) => tag !== editingTag && tag.toLocaleLowerCase() === newTagName.toLocaleLowerCase()
+    );
+    if (duplicateTag) {
+      setEditError("A tag with this name already exists.");
+      return;
+    }
+
+    setIsSavingEdit(true);
+    setEditError("");
+
+    try {
+      if (newTagName !== editingTag) {
+        const clientsRef = collection(db, dataSources.firebase.clientsCollection);
+        const affectedClients = await getDocs(
+          query(clientsRef, where("tags", "array-contains", editingTag))
+        );
+
+        for (let index = 0; index < affectedClients.docs.length; index += 450) {
+          const batch = writeBatch(db);
+          affectedClients.docs.slice(index, index + 450).forEach((clientSnapshot) => {
+            const currentTags: string[] = clientSnapshot.data().tags || [];
+            const updatedTags = Array.from(
+              new Set(currentTags.map((tag) => (tag === editingTag ? newTagName : tag)))
+            );
+            batch.update(clientSnapshot.ref, { tags: updatedTags });
+          });
+          await batch.commit();
+        }
+      }
+
+      const updatedMetadata = editTagMetadata(
+        masterTags,
+        tagColors,
+        editingTag,
+        newTagName,
+        editedTagColor
+      );
+
+      await setDoc(
+        doc(db, dataSources.firebase.tagsCollection, dataSources.firebase.tagsDocId),
+        updatedMetadata,
+        { merge: true }
+      );
+
+      setMasterTags(updatedMetadata.tags);
+      if (newTagName !== editingTag) {
+        renameClientTag(editingTag, newTagName);
+        onTagRenamed?.(editingTag, newTagName);
+      }
+      setEditingTag(null);
+    } catch (error) {
+      console.error("Error editing tag:", error);
+      setEditError("The tag could not be updated. Please try again.");
+    } finally {
+      setIsSavingEdit(false);
+    }
   };
 
   // Enhanced handleTag wrapper with animations
@@ -246,21 +353,22 @@ export default function TagManager({
       ]);
 
       // Let handleTag function handle the client's tag update in Firebase
-      handleTag(selectedTag);
+      handleTag(newTagId);
 
-      // Only update the master tags list if it's a new tag
-      if (!masterTags.includes(selectedTag)) {
-        const newAllTags = [...masterTags, selectedTag].sort((a, b) => a.localeCompare(b));
-        try {
-          await setDoc(
-            doc(db, dataSources.firebase.tagsCollection, dataSources.firebase.tagsDocId),
-            { tags: newAllTags },
-            { merge: true }
-          );
+      const newAllTags = masterTags.includes(newTagId)
+        ? masterTags
+        : [...masterTags, newTagId].sort((a, b) => a.localeCompare(b));
+      try {
+        await setDoc(
+          doc(db, dataSources.firebase.tagsCollection, dataSources.firebase.tagsDocId),
+          { tags: newAllTags, tagColors: { ...tagColors, [newTagId]: selectedColor } },
+          { merge: true }
+        );
+        if (!masterTags.includes(newTagId)) {
           setMasterTags(newAllTags);
-        } catch (error) {
-          console.error("Error updating tags in Firebase:", error);
         }
+      } catch (error) {
+        console.error("Error updating tags in Firebase:", error);
       }
 
       // Animate the new tag in after a brief delay
@@ -293,10 +401,12 @@ export default function TagManager({
     if (!tagToDelete) return;
     const deletedTagName = tagToDelete; // Store the tag name for success message
     const newAllTags = masterTags.filter((tag: string) => tag !== tagToDelete);
+    const newTagColors = { ...tagColors };
+    delete newTagColors[tagToDelete];
     try {
       await setDoc(
         doc(db, dataSources.firebase.tagsCollection, dataSources.firebase.tagsDocId),
-        { tags: newAllTags },
+        { tags: newAllTags, tagColors: newTagColors },
         { merge: true }
       );
       setMasterTags(newAllTags);
@@ -333,6 +443,7 @@ export default function TagManager({
 
   const handleAutocompleteInputChange = (_event: SyntheticEvent, newInputValue: string) => {
     setSelectedTag(newInputValue);
+    setSelectedColor(getTagColor(newInputValue, tagColors));
   };
 
   const renderTagSelector = (options: string[], placeholder: string) => (
@@ -341,7 +452,10 @@ export default function TagManager({
       fullWidth
       options={options}
       value={selectedTag}
-      onChange={(_event, newValue) => setSelectedTag(newValue)}
+      onChange={(_event, newValue) => {
+        setSelectedTag(newValue);
+        setSelectedColor(getTagColor(newValue || "", tagColors));
+      }}
       onInputChange={handleAutocompleteInputChange}
       clearOnEscape
       filterOptions={filterTagOptions}
@@ -381,7 +495,9 @@ export default function TagManager({
               <Box key={v} sx={getTagStyle(v)}>
                 <Tag
                   text={v}
+                  color={getTagColor(v, tagColors)}
                   handleTag={handleTagWithAnimation}
+                  onEdit={handleEditTagClick}
                   values={values}
                   createTag={false}
                   setInnerPopup={setInnerPopup}
@@ -395,6 +511,7 @@ export default function TagManager({
           <Tag
             text={""}
             handleTag={handleTagWithAnimation}
+            onEdit={() => undefined}
             values={values}
             createTag={true}
             setInnerPopup={(isOpen: boolean) => {
@@ -405,6 +522,104 @@ export default function TagManager({
           />
         </Box>
       </Box>
+
+      <StyledDialog
+        open={Boolean(editingTag)}
+        onClose={() => !isSavingEdit && setEditingTag(null)}
+        TransitionComponent={Fade}
+      >
+        <CloseBtn onClick={() => setEditingTag(null)} disabled={isSavingEdit}>
+          <CloseIcon />
+        </CloseBtn>
+        <DialogTitle sx={{ pb: 0 }}>
+          <SectionTitle>Edit Tag</SectionTitle>
+          <Subtitle>Changes to the name or color apply everywhere this tag is used.</Subtitle>
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 2.5, pt: 0.5 }}>
+            {editError && <Alert severity="error">{editError}</Alert>}
+            <TextField
+              label="Tag name"
+              value={editedTagName}
+              onChange={(event) => setEditedTagName(event.target.value)}
+              fullWidth
+              autoFocus
+              inputProps={{ maxLength: 80 }}
+            />
+            <Box>
+              <Typography component="label" variant="subtitle2" sx={{ fontWeight: 700 }}>
+                Tag color
+              </Typography>
+              <Box sx={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 1, mt: 1 }}>
+                {TAG_COLOR_SWATCHES.map((color) => (
+                  <Box
+                    component="button"
+                    type="button"
+                    key={color}
+                    aria-label={`Select ${color}`}
+                    aria-pressed={editedTagColor === color}
+                    onClick={() => setEditedTagColor(color)}
+                    sx={{
+                      width: 30,
+                      height: 30,
+                      p: 0,
+                      borderRadius: "50%",
+                      bgcolor: color,
+                      border:
+                        editedTagColor === color ? "3px solid #17211f" : "2px solid #ffffff",
+                      boxShadow: "0 0 0 1px rgba(0, 0, 0, 0.28)",
+                      cursor: "pointer",
+                    }}
+                  />
+                ))}
+                <Box
+                  component="input"
+                  type="color"
+                  aria-label="Custom tag color"
+                  value={editedTagColor}
+                  onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
+                    setEditedTagColor(event.target.value)
+                  }
+                  sx={{
+                    width: 38,
+                    height: 34,
+                    p: 0,
+                    border: 0,
+                    bgcolor: "transparent",
+                    cursor: "pointer",
+                  }}
+                />
+              </Box>
+            </Box>
+            <Box>
+              <Typography variant="caption" sx={{ display: "block", mb: 0.75 }}>
+                Preview
+              </Typography>
+              <Chip
+                label={editedTagName.trim() || "Tag preview"}
+                sx={{
+                  bgcolor: editedTagColor,
+                  color: getReadableTagTextColor(editedTagColor),
+                  fontWeight: 600,
+                }}
+              />
+            </Box>
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ justifyContent: "flex-end", gap: 1, px: 3, pb: 2 }}>
+          <Button onClick={() => setEditingTag(null)} disabled={isSavingEdit}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleSaveTagEdit}
+            disabled={isSavingEdit || !editedTagName.trim()}
+            sx={{ textTransform: "none", fontWeight: 600 }}
+          >
+            {isSavingEdit ? "Saving..." : "Save changes"}
+          </Button>
+        </DialogActions>
+      </StyledDialog>
 
       <StyledDialog
         open={openAddTagModal}
@@ -423,9 +638,74 @@ export default function TagManager({
           </Subtitle>
         </DialogTitle>
         <DialogContent>
-          {modalMode === "add"
-            ? renderTagSelector(availableTags, "Select tag or type new tag")
-            : renderTagSelector(masterTags, "Select tag to remove")}
+          {modalMode === "add" ? (
+            <Box sx={{ display: "flex", flexDirection: "column", gap: 2.5 }}>
+              {renderTagSelector(availableTags, "Select tag or type new tag")}
+              <Box>
+                <Typography component="label" variant="subtitle2" sx={{ fontWeight: 700 }}>
+                  Tag color
+                </Typography>
+                <Box
+                  sx={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 1, mt: 1 }}
+                >
+                  {TAG_COLOR_SWATCHES.map((color) => (
+                    <Box
+                      component="button"
+                      type="button"
+                      key={color}
+                      aria-label={`Select ${color}`}
+                      aria-pressed={selectedColor === color}
+                      onClick={() => setSelectedColor(color)}
+                      sx={{
+                        width: 30,
+                        height: 30,
+                        p: 0,
+                        borderRadius: "50%",
+                        bgcolor: color,
+                        border: selectedColor === color ? "3px solid #17211f" : "2px solid #ffffff",
+                        boxShadow: "0 0 0 1px rgba(0, 0, 0, 0.28)",
+                        cursor: "pointer",
+                      }}
+                    />
+                  ))}
+                  <Box
+                    component="input"
+                    type="color"
+                    aria-label="Custom tag color"
+                    value={selectedColor}
+                    onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
+                      setSelectedColor(event.target.value)
+                    }
+                    sx={{
+                      width: 38,
+                      height: 34,
+                      p: 0,
+                      border: 0,
+                      bgcolor: "transparent",
+                      cursor: "pointer",
+                    }}
+                  />
+                </Box>
+              </Box>
+              {selectedTag?.trim() && (
+                <Box>
+                  <Typography variant="caption" sx={{ display: "block", mb: 0.75 }}>
+                    Preview
+                  </Typography>
+                  <Chip
+                    label={selectedTag.trim()}
+                    sx={{
+                      bgcolor: selectedColor,
+                      color: getReadableTagTextColor(selectedColor),
+                      fontWeight: 600,
+                    }}
+                  />
+                </Box>
+              )}
+            </Box>
+          ) : (
+            renderTagSelector(masterTags, "Select tag to remove")
+          )}
         </DialogContent>
         <DialogActions sx={{ justifyContent: "space-between", px: 3, pb: 2 }}>
           <Button

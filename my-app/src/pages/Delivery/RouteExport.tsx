@@ -224,12 +224,7 @@ const formatRouteDietaryColumns = (
   };
 };
 
-const buildRouteCsvRow = (
-  row: RowData,
-  deliveryDate: string,
-  routeId: string,
-  timeLabel: string
-) => {
+export const buildRouteCsvRow = (row: RowData, timeLabel: string) => {
   const rowData = row as RowData & {
     quadrant?: string;
     adults?: number;
@@ -255,9 +250,8 @@ const buildRouteCsvRow = (
     deliveryInstructions: row.deliveryDetails?.deliveryInstructions || "",
     dietaryRestrictions: dietaryColumns.dietaryRestrictions,
     dietaryPreferences: dietaryColumns.dietaryPreferences,
-    tefapFY25: row.tefapCertDate || "",
-    deliveryDate,
-    cluster: routeId,
+    tefap: row.tefapCertDate || "",
+    startDate: row.startDate || row.famStartDate || "",
     time: timeLabel === "Unscheduled" ? "No time assigned" : timeLabel,
   };
 };
@@ -461,7 +455,7 @@ export const exportDeliveries = async (
 
       sortRowsForExport(group.rows).forEach((row) => {
         try {
-          csvData.push(buildRouteCsvRow(row, deliveryDate, group.routeId, group.timeLabel));
+          csvData.push(buildRouteCsvRow(row, group.timeLabel));
         } catch (error) {
           skippedRowCount += 1;
           recordSkippedReason(skippedReasonCounts, `invalid row data for route ${group.routeId}`);

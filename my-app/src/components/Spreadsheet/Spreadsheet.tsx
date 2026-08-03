@@ -72,7 +72,6 @@ import ClearIcon from "@mui/icons-material/Clear";
 import { Select, MenuItem } from "@mui/material";
 import EditIcon from "@mui/icons-material/Edit";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
-import { styled } from "@mui/material/styles";
 import { useNavigate } from "react-router-dom";
 import { DateTime } from "luxon";
 import { useSearchKeyAutocomplete } from "../../hooks/useSearchKeyAutocomplete";
@@ -87,6 +86,8 @@ import { CsvExportError } from "../../utils/csvExport";
 import { getClientStatusPresentation } from "../../utils/clientStatus";
 import type { ClientDeliverySummary } from "../../utils/lastDeliveryDate";
 import { formatAddressWithQuadrantAndUnit } from "../../utils/addressFormat";
+import { useTagColors } from "../../context/TagColorContext";
+import { getReadableTagTextColor, getTagColor, TagColorMap } from "../../utils/tagColors";
 
 const addablePropertyKeyLabelMap: Record<string, string> = {
   address: "Address",
@@ -99,6 +100,7 @@ const addablePropertyKeyLabelMap: Record<string, string> = {
   ethnicity: "Ethnicity",
   gender: "Gender",
   language: "Language",
+  lifeChallenges: "Lifestyle Challenges",
   notes: "Notes",
   phone: "Phone",
   referralEntity: "Referral Entity",
@@ -126,6 +128,7 @@ const clientCustomColumnMappings: Record<string, string[]> = {
   ethnicity: ["ethnicity"],
   gender: ["gender"],
   language: ["language"],
+  lifeChallenges: ["lifestyle challenges", "life challenges"],
   notes: ["notes"],
   referralEntity: ["referral entity", "referral"],
   tags: ["tags", "tag"],
@@ -133,20 +136,6 @@ const clientCustomColumnMappings: Record<string, string[]> = {
   dob: ["dob"],
   lastDeliveryDate: ["last delivery date"],
 };
-
-const StyleChip = styled(Chip)(({ theme }) => ({
-  fontWeight: 500,
-  fontSize: "0.85rem",
-  backgroundColor: theme.palette.primary.light,
-  color: theme.palette.primary.contrastText,
-  borderRadius: 8,
-  padding: "0 8px",
-  margin: "2px 2px 2px 0",
-  cursor: "pointer",
-  "&:hover": {
-    backgroundColor: theme.palette.primary.main,
-  },
-}));
 
 const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const DELIVERY_SUMMARY_EXPORT_BATCH_SIZE = 100;
@@ -203,7 +192,11 @@ const renderSafeSpreadsheetCellValue = (value: unknown): React.ReactNode => {
   return formatTimestampLikeDate(value);
 };
 
-function getCustomColumnDisplay(row: RowData, propertyKey: string): React.ReactNode {
+function getCustomColumnDisplay(
+  row: RowData,
+  propertyKey: string,
+  tagColors: TagColorMap
+): React.ReactNode {
   if (!propertyKey || propertyKey === "none") return "";
   if (propertyKey === "referralEntity" && row.referralEntity) {
     const entity = row.referralEntity;
@@ -214,15 +207,28 @@ function getCustomColumnDisplay(row: RowData, propertyKey: string): React.ReactN
   }
   if (propertyKey === "tags" && Array.isArray(row.tags)) {
     return row.tags.length > 0
-      ? row.tags.map((tag: string, i: number) => (
-          <StyleChip
-            key={i}
-            label={tag}
-            size="small"
-            onClick={(e) => e.preventDefault()}
-            sx={{ mb: 0.5, mr: 0.5 }}
-          />
-        ))
+      ? row.tags.map((tag: string) => {
+          const color = getTagColor(tag, tagColors);
+          return (
+            <Chip
+              key={tag}
+              label={tag}
+              size="small"
+              onClick={(e) => e.preventDefault()}
+              sx={{
+                mb: 0.5,
+                mr: 0.5,
+                bgcolor: color,
+                color: getReadableTagTextColor(color),
+                fontWeight: 500,
+                fontSize: "0.85rem",
+                borderRadius: 2,
+                cursor: "pointer",
+                "&:hover": { bgcolor: color },
+              }}
+            />
+          );
+        })
       : "";
   }
   if (propertyKey === "deliveryDetails.dietaryRestrictions.dietaryPreferences") {
@@ -266,12 +272,21 @@ type SpreadsheetRowContentProps = {
   row: RowData;
   fields: FieldDefinition[];
   customColumns: Array<{ id: string; label: string; propertyKey: string }>;
+  tagColors: TagColorMap;
   navigate: ReturnType<typeof useNavigate>;
   onOpenMenu: (event: React.MouseEvent<HTMLElement>, row: RowData) => void;
 };
 
 const SpreadsheetRowContent = memo(
-  ({ index, row, fields, customColumns, navigate, onOpenMenu }: SpreadsheetRowContentProps) => {
+  ({
+    index,
+    row,
+    fields,
+    customColumns,
+    tagColors,
+    navigate,
+    onOpenMenu,
+  }: SpreadsheetRowContentProps) => {
     const rowBg = index % 2 === 0 ? "rgb(243, 243, 243)" : "rgb(249, 249, 249)";
 
     return (
@@ -339,7 +354,7 @@ const SpreadsheetRowContent = memo(
                   <span>Loading...</span>
                 </Box>
               ) : (
-              renderSafeSpreadsheetCellValue(field.compute(row))
+                renderSafeSpreadsheetCellValue(field.compute(row))
               )
             ) : (
               renderSafeSpreadsheetCellValue(row[field.key as keyof RowData])
@@ -357,7 +372,9 @@ const SpreadsheetRowContent = memo(
               backgroundColor: rowBg,
             }}
           >
-            {col.propertyKey !== "none" ? getCustomColumnDisplay(row, col.propertyKey) : "N/A"}
+            {col.propertyKey !== "none"
+              ? getCustomColumnDisplay(row, col.propertyKey, tagColors)
+              : "N/A"}
           </TableCell>
         ))}
         <TableCell
@@ -387,12 +404,14 @@ const SpreadsheetRowContent = memo(
     previousProps.row === nextProps.row &&
     previousProps.index === nextProps.index &&
     previousProps.fields === nextProps.fields &&
-    previousProps.customColumns === nextProps.customColumns
+    previousProps.customColumns === nextProps.customColumns &&
+    previousProps.tagColors === nextProps.tagColors
 );
 SpreadsheetRowContent.displayName = "SpreadsheetRowContent";
 
 const Spreadsheet: React.FC = () => {
   const navigate = useNavigate();
+  const tagColors = useTagColors();
   // Route Protection: redirect to login if not authenticated
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -603,6 +622,7 @@ const Spreadsheet: React.FC = () => {
               deliveryFreq: client.deliveryFreq || "",
               gender: client.gender || "",
               language: client.language || "",
+              lifeChallenges: client.lifeChallenges || "",
               notes: client.notes || "",
               famStartDate: client.famStartDate || "",
               tefapCert: Boolean(client.tefapCertDate || client.tefapCert),
@@ -1713,6 +1733,7 @@ const Spreadsheet: React.FC = () => {
                               if (key === "deliveryDetails.dietaryRestrictions.dietaryPreferences")
                                 label = "Dietary Preferences";
                               if (key === "famStartDate") label = "Fam Start Date";
+                              if (key === "lifeChallenges") label = "Lifestyle Challenges";
                               return (
                                 <MenuItem key={key} value={key}>
                                   {key === "none" ? "None" : label}
@@ -1802,6 +1823,7 @@ const Spreadsheet: React.FC = () => {
                   row={row}
                   fields={fields}
                   customColumns={customColumns}
+                  tagColors={tagColors}
                   navigate={navigate}
                   onOpenMenu={handleOpenMenu}
                 />

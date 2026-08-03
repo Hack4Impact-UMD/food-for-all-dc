@@ -7,6 +7,7 @@ import {
   QuerySnapshot,
   DocumentData,
   FirestoreError,
+  writeBatch,
 } from "firebase/firestore";
 import { getAuth, createUserWithEmailAndPassword } from "firebase/auth";
 import { db, app, functions } from "../auth/firebaseConfig";
@@ -16,6 +17,7 @@ import { httpsCallable } from "firebase/functions";
 import { retry } from "../utils/retry";
 import { ServiceError, formatServiceError } from "../utils/serviceError";
 import dataSources from "../config/dataSources";
+import { formatPhoneNumberForSave } from "../utils/format";
 
 const mapRoleToUserType = (roleString: string): UserType => {
   switch (roleString?.toLowerCase()) {
@@ -65,6 +67,35 @@ export class AuthUserService {
       });
     } catch (error: unknown) {
       throw formatServiceError(error, "Failed to fetch users from Firestore");
+    }
+  }
+
+  async normalizeExistingUserPhoneNumbers(users: AuthUserRow[]): Promise<AuthUserRow[]> {
+    const normalizedUsers = users.map((user) => {
+      const formattedPhone = formatPhoneNumberForSave(user.phone || "");
+      return formattedPhone !== null && formattedPhone !== (user.phone || "")
+        ? { ...user, phone: formattedPhone || undefined }
+        : user;
+    });
+    const changedUsers = normalizedUsers.filter(
+      (user, index) => user.phone !== users[index].phone
+    );
+
+    try {
+      for (let index = 0; index < changedUsers.length; index += 450) {
+        const batch = writeBatch(db);
+        changedUsers.slice(index, index + 450).forEach((user) => {
+          batch.set(
+            doc(db, dataSources.firebase.usersCollection, user.uid),
+            { phone: user.phone || "" },
+            { merge: true }
+          );
+        });
+        await batch.commit();
+      }
+      return normalizedUsers;
+    } catch (error: unknown) {
+      throw formatServiceError(error, "Failed to normalize existing user phone numbers.");
     }
   }
 
@@ -137,6 +168,10 @@ export class AuthUserService {
 
   async createUser(userData: Omit<AuthUserRow, "id" | "uid">, password: string): Promise<string> {
     const currentUser = this.auth.currentUser;
+    const formattedPhone = formatPhoneNumberForSave(userData.phone || "");
+    if (formattedPhone === null) {
+      throw new Error("Phone number must use one of the allowed formats.");
+    }
     try {
       return await retry(async () => {
         const userCredential = await createUserWithEmailAndPassword(
@@ -152,7 +187,7 @@ export class AuthUserService {
         const newUserDoc = {
           name: userData.name,
           email: userData.email,
-          phone: userData.phone || "",
+          phone: formattedPhone,
           role: roleString,
         };
         await setDoc(doc(db, dataSources.firebase.usersCollection, userId), newUserDoc);
@@ -176,6 +211,32 @@ export class AuthUserService {
         err,
         "Failed to create user. Please check the details and try again."
       );
+    }
+  }
+
+  async updateUser(
+    uid: string,
+    updates: Pick<AuthUserRow, "name" | "phone" | "role">
+  ): Promise<void> {
+    const formattedPhone = formatPhoneNumberForSave(updates.phone || "");
+    if (formattedPhone === null) {
+      throw new Error("Phone number must use one of the allowed formats.");
+    }
+
+    try {
+      await retry(async () => {
+        await setDoc(
+          doc(db, dataSources.firebase.usersCollection, uid),
+          {
+            name: updates.name.trim(),
+            phone: formattedPhone,
+            role: getRoleDisplayName(updates.role),
+          },
+          { merge: true }
+        );
+      });
+    } catch (error: unknown) {
+      throw formatServiceError(error, "Failed to update user. Please try again.");
     }
   }
 

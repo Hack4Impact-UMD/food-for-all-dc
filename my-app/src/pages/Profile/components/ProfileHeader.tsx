@@ -58,6 +58,7 @@ interface ProfileHeaderProps {
   tags: string[];
   allTags: string[];
   handleTag: (tag: string) => void;
+  onTagRenamed: (oldTag: string, newTag: string) => void;
   clientId: string | null;
   activeStatus?: boolean;
   missedStrikeCount?: number;
@@ -70,6 +71,7 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
   tags,
   allTags,
   handleTag,
+  onTagRenamed,
   clientId,
   activeStatus,
   missedStrikeCount,
@@ -130,6 +132,7 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({
               allTags={allTags}
               values={tags}
               handleTag={handleTag}
+              onTagRenamed={onTagRenamed}
               setInnerPopup={noOp}
               deleteMode={false}
               setTagToDelete={noOp}

@@ -27,6 +27,8 @@ describe("DeliverySpreadsheet search alias regression guards", () => {
     expect(source).toContain('"deliveryDetails.dietaryRestrictions.dietaryPreferences": ["dietary preferences"]');
     expect(source).toContain('famStartDate: ["fam start date", "family start date"]');
     expect(source).toContain('famStartDate: "Fam Start Date"');
+    expect(source).toContain('lifeChallenges: ["lifestyle challenges", "life challenges"]');
+    expect(source).toContain('lifeChallenges: "Lifestyle Challenges"');
     expect(source).toContain('case "famstartdate":');
     expect(source).toContain("deliveryDate.tryToDateTime(candidate)");
     expect(source).toContain("deliveryDate.toDisplayString(normalizedRowDate)");

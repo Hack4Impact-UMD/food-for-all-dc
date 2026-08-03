@@ -23,6 +23,7 @@ import VisibilityOffIcon from "@mui/icons-material/VisibilityOff";
 import { UserType } from "../../types"; // Assuming UserType enum is here
 import { authUserService } from "../../services/AuthUserService";
 import { useAuth } from "../../auth/AuthProvider";
+import PhoneFormatInfo from "./PhoneFormatInfo";
 
 // Define props for the modal
 type CreateUserModalProps = {
@@ -196,6 +197,12 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({ open, handleClose }) 
                     boxSizing: "border-box",
                     paddingRight: "14px",
                   },
+                  endAdornment:
+                    field.key === "phone" ? (
+                      <InputAdornment position="end">
+                        <PhoneFormatInfo />
+                      </InputAdornment>
+                    ) : undefined,
                   inputProps: {
                     sx: {
                       height: "56px",

@@ -3,6 +3,7 @@ import EditIcon from "@mui/icons-material/Edit";
 import NewIcon from "@mui/icons-material/NewLabel";
 import CloseIcon from "@mui/icons-material/Close";
 import LocalOfferIcon from "@mui/icons-material/LocalOffer";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import {
   Box,
   Tooltip,
@@ -16,10 +17,13 @@ import {
 import { styled } from "@mui/system";
 import React, { useState } from "react";
 import { StyledDialog } from "./TagManager";
+import { getReadableTagTextColor } from "../../../utils/tagColors";
 
 interface TagProps {
   text: string;
+  color?: string;
   handleTag: (text: string) => void;
+  onEdit: (text: string) => void;
   setInnerPopup: (isOpen: boolean) => void;
   values: string[];
   createTag: boolean;
@@ -80,18 +84,21 @@ const TagText = styled(Typography)({
 
 const Tag: React.FC<TagProps> = ({
   text,
+  color,
   handleTag,
+  onEdit,
   values,
   createTag,
   setInnerPopup,
   deleteMode,
   setTagToDelete,
 }) => {
+  const [showActions, setShowActions] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
 
   const handleRemoveClick = (e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    setShowConfirm(true);
+    setShowActions(true);
   };
 
   const handleConfirm = () => {
@@ -110,9 +117,55 @@ const Tag: React.FC<TagProps> = ({
   if (!deleteMode) {
     return !createTag ? (
       <>
-        <TagContainer className={values.includes(text) ? "active" : ""} onClick={handleRemoveClick}>
+        <TagContainer
+          className={values.includes(text) ? "active" : ""}
+          onClick={handleRemoveClick}
+          style={
+            values.includes(text) && color
+              ? { backgroundColor: color, color: getReadableTagTextColor(color) }
+              : undefined
+          }
+        >
           <TagText variant="body2">{text}</TagText>
         </TagContainer>
+        <StyledDialog open={showActions} onClose={() => setShowActions(false)} TransitionComponent={Fade}>
+          <DialogTitle sx={{ textAlign: "center", fontWeight: 700 }}>Manage Tag</DialogTitle>
+          <DialogContent sx={{ textAlign: "center", minWidth: 320, px: 3 }}>
+            <Typography sx={{ color: "var(--color-text-secondary)", mb: 2 }}>
+              What would you like to do with <b>{text}</b>?
+            </Typography>
+            <Box sx={{ display: "flex", gap: 1.5, width: "100%" }}>
+              <Button
+                variant="contained"
+                startIcon={<EditIcon />}
+                onClick={() => {
+                  setShowActions(false);
+                  onEdit(text);
+                }}
+                sx={{ flex: 1, minWidth: 0, borderRadius: 2, textTransform: "none", fontWeight: 600 }}
+              >
+                Edit tag
+              </Button>
+              <Button
+                variant="outlined"
+                color="error"
+                startIcon={<DeleteOutlineIcon />}
+                onClick={() => {
+                  setShowActions(false);
+                  setShowConfirm(true);
+                }}
+                sx={{ flex: 1, minWidth: 0, borderRadius: 2, textTransform: "none", fontWeight: 600 }}
+              >
+                Remove from profile
+              </Button>
+            </Box>
+          </DialogContent>
+          <DialogActions sx={{ px: 3, pb: 2 }}>
+            <Button onClick={() => setShowActions(false)} sx={{ width: "100%" }}>
+              Cancel
+            </Button>
+          </DialogActions>
+        </StyledDialog>
         <StyledDialog open={showConfirm} onClose={handleCancel} TransitionComponent={Fade}>
           <DialogTitle
             sx={{

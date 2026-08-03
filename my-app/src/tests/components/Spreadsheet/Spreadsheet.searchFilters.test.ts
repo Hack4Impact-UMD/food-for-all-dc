@@ -18,6 +18,9 @@ describe("Spreadsheet search filter regression guards", () => {
     expect(source).toContain("const visibleCustomFieldLabels = customColumns");
     expect(source).toContain("return Array.from(new Set([...tableFieldLabels, ...fieldKeysAndAliases, ...visibleCustomFieldLabels]));");
     expect(source).toContain('"deliveryDetails.dietaryRestrictions": ["dietary restrictions", "dietary"]');
+    expect(source).toContain('lifeChallenges: ["lifestyle challenges", "life challenges"]');
+    expect(source).toContain('lifeChallenges: "Lifestyle Challenges"');
+    expect(source).toContain('lifeChallenges: client.lifeChallenges || ""');
     expect(source).toContain("tefapCertDate: [...TEFAP_CERT_DATE_SEARCH_ALIASES]");
     expect(source).toContain("isMappedSearchFieldVisible(keyword, visibleFieldKeys");
     expect(source).toContain('case "tefapcertdate":');

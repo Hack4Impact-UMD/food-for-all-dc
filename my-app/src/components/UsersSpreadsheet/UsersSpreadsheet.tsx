@@ -2,6 +2,7 @@ import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
 import ClearIcon from "@mui/icons-material/Clear";
 import ArrowDropUpIcon from "@mui/icons-material/ArrowDropUp";
 import DeleteIcon from "@mui/icons-material/Delete";
+import EditIcon from "@mui/icons-material/Edit";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
 import UnfoldMoreIcon from "@mui/icons-material/UnfoldMore";
 import {
@@ -45,6 +46,7 @@ import { sortData, SortDirection } from "../../utils/sorting";
 import "./UsersSpreadsheet.css";
 import DeleteUserModal from "./DeleteUserModal";
 import CreateUserModal from "./CreateUserModal";
+import EditUserModal from "./EditUserModal";
 import { AuthUserRow, UserType } from "../../types";
 import { useAuth } from "../../auth/AuthProvider";
 
@@ -87,6 +89,7 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
   const [menuAnchorEl, setMenuAnchorEl] = useState<null | HTMLElement>(null);
   const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
   const [deleteModalOpen, setDeleteModalOpen] = useState<boolean>(false);
+  const [editModalOpen, setEditModalOpen] = useState<boolean>(false);
   const [createModalOpen, setCreateModalOpen] = useState<boolean>(false);
   const [actionFeedback, setActionFeedback] = useState<{
     type: "success" | "error";
@@ -149,7 +152,8 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
     setError(null);
     try {
       const users = await authUserService.getAllUsers();
-      setRows(users);
+      const normalizedUsers = await authUserService.normalizeExistingUserPhoneNumbers(users);
+      setRows(normalizedUsers);
     } catch (fetchError) {
       console.error("Error fetching users: ", fetchError);
       setError("Failed to load users. Please try again later.");
@@ -374,6 +378,22 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
     if (refreshNeeded) {
       fetchData();
       setActionFeedback({ type: "success", message: "User created successfully!" });
+      setTimeout(() => setActionFeedback(null), 5000);
+    }
+  };
+
+  const handleCloseEditModal = (updatedUser?: AuthUserRow) => {
+    setEditModalOpen(false);
+    setSelectedRowId(null);
+
+    if (updatedUser) {
+      setRows((currentRows) =>
+        currentRows.map((row) => (row.uid === updatedUser.uid ? updatedUser : row))
+      );
+      setActionFeedback({
+        type: "success",
+        message: `${updatedUser.name} updated successfully.`,
+      });
       setTimeout(() => setActionFeedback(null), 5000);
     }
   };
@@ -790,6 +810,7 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
 
                         <TableCell align="right" sx={{ py: 1 }} onClick={(e) => e.stopPropagation()}>
                           <IconButton
+                            aria-label={`Actions for ${row.name}`}
                             onClick={(e) => handleMenuOpen(e, row.uid)}
                             sx={{
                               color: "var(--color-text-medium)",
@@ -817,6 +838,22 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
           onClose={handleMenuClose}
           PaperProps={{ elevation: 3, sx: { borderRadius: "8px", minWidth: "150px" } }}
         >
+          <MenuItem
+            disabled={
+              userRole === UserType.Manager &&
+              (Array.isArray(rows) ? rows : []).find((r) => r.uid === selectedRowId)?.role ===
+                UserType.Admin
+            }
+            onClick={() => {
+              if (selectedRowId) {
+                setEditModalOpen(true);
+                setMenuAnchorEl(null);
+              }
+            }}
+            sx={{ py: 1.5 }}
+          >
+            <EditIcon fontSize="small" sx={{ mr: 1 }} /> Edit
+          </MenuItem>
           <MenuItem
             disabled={
               userRole === UserType.Manager &&
@@ -854,6 +891,11 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
           }
         />
         <CreateUserModal open={createModalOpen} handleClose={handleCloseCreateModal} />
+        <EditUserModal
+          open={editModalOpen}
+          user={(Array.isArray(rows) ? rows : []).find((row) => row.uid === selectedRowId) || null}
+          handleClose={handleCloseEditModal}
+        />
       </>
     </Box>
   );

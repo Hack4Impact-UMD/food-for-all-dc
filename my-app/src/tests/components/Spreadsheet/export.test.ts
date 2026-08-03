@@ -20,4 +20,12 @@ describe("client spreadsheet exports", () => {
 
     expect(exportedRow).toEqual(expect.objectContaining({ "Start Date": "2026-07-04" }));
   });
+
+  it("preserves Lifestyle Challenges for spreadsheet custom columns", () => {
+    const row = mapClientDocToSpreadsheetBaseRow("client-1", {
+      lifeChallenges: "Limited transportation access",
+    });
+
+    expect(row.lifeChallenges).toBe("Limited transportation access");
+  });
 });

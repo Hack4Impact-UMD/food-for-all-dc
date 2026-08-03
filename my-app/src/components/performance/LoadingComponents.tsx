@@ -2,6 +2,25 @@ import React, { useState, useEffect } from "react";
 import { withPerformanceOptimization } from "../../hooks/usePerformance";
 import { ConditionalRender } from "../performance";
 
+const CHUNK_RELOAD_STORAGE_KEY = "ffaChunkReloadError";
+const CHUNK_RELOAD_RESET_DELAY_MS = 10000;
+
+export const isChunkLoadError = (error: Error): boolean =>
+  /ChunkLoadError|Loading chunk \d+ failed|Failed to fetch dynamically imported module/i.test(
+    `${error.name} ${error.message}`
+  );
+
+export const shouldReloadForChunkError = (
+  error: Error,
+  storage: Pick<Storage, "getItem" | "setItem">
+): boolean => {
+  if (!isChunkLoadError(error)) return false;
+  if (storage.getItem(CHUNK_RELOAD_STORAGE_KEY) === error.message) return false;
+
+  storage.setItem(CHUNK_RELOAD_STORAGE_KEY, error.message);
+  return true;
+};
+
 // Enhanced loading component with progressive loading states
 const ProgressiveLoader = withPerformanceOptimization(
   ({
@@ -97,6 +116,8 @@ class ErrorBoundaryComponent extends React.Component<
   },
   { hasError: boolean; error?: Error }
 > {
+  private chunkReloadResetTimer?: number;
+
   constructor(props: any) {
     super(props);
     this.state = { hasError: false };
@@ -106,9 +127,34 @@ class ErrorBoundaryComponent extends React.Component<
     return { hasError: true, error };
   }
 
+  componentDidMount() {
+    this.chunkReloadResetTimer = window.setTimeout(() => {
+      try {
+        window.sessionStorage.removeItem(CHUNK_RELOAD_STORAGE_KEY);
+      } catch {
+        // Storage can be unavailable in privacy-restricted browser contexts.
+      }
+    }, CHUNK_RELOAD_RESET_DELAY_MS);
+  }
+
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     console.error("Error caught by boundary:", error, errorInfo);
     this.props.onError?.(error, errorInfo);
+
+    if (isChunkLoadError(error)) {
+      window.clearTimeout(this.chunkReloadResetTimer);
+      try {
+        if (shouldReloadForChunkError(error, window.sessionStorage)) {
+          window.location.reload();
+        }
+      } catch {
+        // Keep the fallback visible when storage is unavailable; reloading here could loop.
+      }
+    }
+  }
+
+  componentWillUnmount() {
+    window.clearTimeout(this.chunkReloadResetTimer);
   }
 
   resetError = () => {
@@ -125,13 +171,19 @@ class ErrorBoundaryComponent extends React.Component<
   }
 }
 
-const DefaultErrorFallback = ({ error, resetError }: { error: Error; resetError: () => void }) => (
-  <div className="error-fallback">
-    <h2>Something went wrong</h2>
-    <p>{error.message}</p>
-    <button onClick={resetError}>Try again</button>
-  </div>
-);
+const DefaultErrorFallback = ({ error, resetError }: { error: Error; resetError: () => void }) => {
+  const chunkLoadFailed = isChunkLoadError(error);
+
+  return (
+    <div className="error-fallback">
+      <h2>Something went wrong</h2>
+      <p>{error.message}</p>
+      <button onClick={chunkLoadFailed ? () => window.location.reload() : resetError}>
+        {chunkLoadFailed ? "Reload page" : "Try again"}
+      </button>
+    </div>
+  );
+};
 
 const ErrorBoundary = withPerformanceOptimization(ErrorBoundaryComponent);
 

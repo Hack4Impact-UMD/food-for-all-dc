@@ -30,6 +30,7 @@ import NotFoundPage from "./components/NotFoundPage";
 import AutoLogout from "./components/AutoLogout";
 import { ClientDataProvider } from "./context/ClientDataContext";
 import DeliveryChangeNotifier from "./components/DeliveryChangeNotifier";
+import { TagColorProvider } from "./context/TagColorContext";
 
 function renderRoutes(config: Array<any>) {
   return config.map((route: any, idx: number) => {
@@ -58,16 +59,18 @@ function App() {
     <ErrorBoundary>
       <LocalizationProvider dateAdapter={AdapterDateFns}>
         <ClientDataProvider>
-          <DeliveryChangeNotifier />
-          <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-            <AutoLogout />
-            <Suspense fallback={<LoadingIndicator />}>
-              <Routes>
-                {renderRoutes(routesConfig)}
-                <Route path="*" element={<NotFoundPage />} />
-              </Routes>
-            </Suspense>
-          </Router>
+          <TagColorProvider>
+            <DeliveryChangeNotifier />
+            <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+              <AutoLogout />
+              <Suspense fallback={<LoadingIndicator />}>
+                <Routes>
+                  {renderRoutes(routesConfig)}
+                  <Route path="*" element={<NotFoundPage />} />
+                </Routes>
+              </Suspense>
+            </Router>
+          </TagColorProvider>
         </ClientDataProvider>
       </LocalizationProvider>
     </ErrorBoundary>

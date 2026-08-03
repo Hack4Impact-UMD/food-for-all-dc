@@ -122,6 +122,7 @@ export const mapClientDocToSpreadsheetBaseRow = (docId: string, raw: any): RowDa
     deliveryFreq: raw.deliveryFreq ?? "",
     gender: raw.gender ?? "",
     language: raw.language ?? "",
+    lifeChallenges: raw.lifeChallenges ?? "",
     notes: raw.notes ?? "",
     famStartDate,
     startDate: normalizeDateStringField(raw.startDate),

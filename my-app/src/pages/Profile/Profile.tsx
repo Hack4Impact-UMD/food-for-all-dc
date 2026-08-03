@@ -208,7 +208,7 @@ const SaveNotification = styled(Box)({
 });
 
 const Profile = () => {
-  const { refresh } = useClientData({ autoLoad: false });
+  const { refresh, updateClient } = useClientData({ autoLoad: false });
   const navigate = useNavigate();
   const params = useParams();
   const clientIdParam: string | null = params.clientId ?? null;
@@ -2442,6 +2442,7 @@ const Profile = () => {
           ...prev,
           tags: updatedTags,
         }));
+        updateClient(clientProfile.uid, { tags: updatedTags });
       } catch (error) {
         console.error("Error updating client tags in Firebase:", error);
         console.error("Client UID:", clientProfile.uid);
@@ -2455,6 +2456,20 @@ const Profile = () => {
     } else {
       console.warn("No client UID available, cannot update tags in Firebase");
     }
+  };
+
+  const handleTagRenamed = (oldTag: string, newTag: string) => {
+    const renameTag = (currentTags: string[]) =>
+      Array.from(new Set(currentTags.map((tag) => (tag === oldTag ? newTag : tag))));
+
+    setTags((currentTags) => renameTag(currentTags));
+    setAllTags((currentTags) =>
+      renameTag(currentTags).sort((left, right) => left.localeCompare(right))
+    );
+    setClientProfile((currentProfile) => ({
+      ...currentProfile,
+      tags: renameTag(currentProfile.tags || []),
+    }));
   };
 
   // Updated handler for dietary restrictions
@@ -3180,6 +3195,7 @@ const Profile = () => {
         tags={tags}
         allTags={allTags || []}
         handleTag={handleTag}
+        onTagRenamed={handleTagRenamed}
         clientId={clientProfile.uid || null}
         activeStatus={clientProfile.activeStatus}
         missedStrikeCount={missedStrikeCount}

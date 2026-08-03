@@ -10,6 +10,7 @@ export const allowedPropertyKeys = [
   "ethnicity",
   "gender",
   "language",
+  "lifeChallenges",
   "notes",
   "phone",
   "referralEntity",
