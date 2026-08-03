@@ -33,25 +33,15 @@ import {
 } from "firebase/firestore";
 import dataSources from "../../../config/dataSources";
 import { db } from "../../../auth/firebaseConfig";
-import { useTagColors } from "../../../context/TagColorContext";
+import { useTagColorPalette, useTagColors } from "../../../context/TagColorContext";
 import {
   DEFAULT_TAG_COLOR,
   editTagMetadata,
   getReadableTagTextColor,
   getTagColor,
+  updateTagColorPaletteSlot,
 } from "../../../utils/tagColors";
 import { useClientData } from "../../../context/ClientDataContext";
-
-const TAG_COLOR_SWATCHES = [
-  "#257e68",
-  "#1976d2",
-  "#7b1fa2",
-  "#c2185b",
-  "#d84315",
-  "#f9a825",
-  "#546e7a",
-  "#5d4037",
-];
 
 // Define interfaces for tag animations
 interface TagWithAnimation {
@@ -154,6 +144,7 @@ export default function TagManager({
 }: TagsProps) {
   const [masterTags, setMasterTags] = useState<string[]>(allTags);
   const tagColors = useTagColors();
+  const savedColorPalette = useTagColorPalette();
   const { renameClientTag } = useClientData({ autoLoad: false });
 
   // Animation states - similar to delivery animations
@@ -188,6 +179,8 @@ export default function TagManager({
   const [openAddTagModal, setOpenAddTagModal] = useState(false);
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [selectedColor, setSelectedColor] = useState(DEFAULT_TAG_COLOR);
+  const [selectedPaletteIndex, setSelectedPaletteIndex] = useState<number | null>(0);
+  const [colorPalette, setColorPalette] = useState(savedColorPalette);
   const [modalMode, setModalMode] = useState<"add" | "remove">("add");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showDeleteSuccess, setShowDeleteSuccess] = useState(false);
@@ -195,8 +188,13 @@ export default function TagManager({
   const [editingTag, setEditingTag] = useState<string | null>(null);
   const [editedTagName, setEditedTagName] = useState("");
   const [editedTagColor, setEditedTagColor] = useState(DEFAULT_TAG_COLOR);
+  const [editedPaletteIndex, setEditedPaletteIndex] = useState<number | null>(null);
   const [editError, setEditError] = useState("");
   const [isSavingEdit, setIsSavingEdit] = useState(false);
+
+  useEffect(() => {
+    setColorPalette(savedColorPalette);
+  }, [savedColorPalette]);
 
   // Filter already applied tags (for adding)
   const availableTags = masterTags.filter((tag: string) => !values.includes(tag));
@@ -231,14 +229,20 @@ export default function TagManager({
   const handleCreateTagClick = () => {
     setModalMode("add");
     setSelectedTag(null);
-    setSelectedColor(DEFAULT_TAG_COLOR);
+    setColorPalette(savedColorPalette);
+    setSelectedPaletteIndex(0);
+    setSelectedColor(savedColorPalette[0]);
     setOpenAddTagModal(true);
   };
 
   const handleEditTagClick = (tag: string) => {
     setEditingTag(tag);
     setEditedTagName(tag);
-    setEditedTagColor(getTagColor(tag, tagColors));
+    const tagColor = getTagColor(tag, tagColors);
+    const paletteIndex = savedColorPalette.indexOf(tagColor);
+    setColorPalette(savedColorPalette);
+    setEditedTagColor(tagColor);
+    setEditedPaletteIndex(paletteIndex >= 0 ? paletteIndex : null);
     setEditError("");
   };
 
@@ -292,7 +296,7 @@ export default function TagManager({
 
       await setDoc(
         doc(db, dataSources.firebase.tagsCollection, dataSources.firebase.tagsDocId),
-        updatedMetadata,
+        { ...updatedMetadata, tagColorPalette: colorPalette },
         { merge: true }
       );
 
@@ -361,7 +365,11 @@ export default function TagManager({
       try {
         await setDoc(
           doc(db, dataSources.firebase.tagsCollection, dataSources.firebase.tagsDocId),
-          { tags: newAllTags, tagColors: { ...tagColors, [newTagId]: selectedColor } },
+          {
+            tags: newAllTags,
+            tagColors: { ...tagColors, [newTagId]: selectedColor },
+            tagColorPalette: colorPalette,
+          },
           { merge: true }
         );
         if (!masterTags.includes(newTagId)) {
@@ -443,7 +451,10 @@ export default function TagManager({
 
   const handleAutocompleteInputChange = (_event: SyntheticEvent, newInputValue: string) => {
     setSelectedTag(newInputValue);
-    setSelectedColor(getTagColor(newInputValue, tagColors));
+    const tagColor = getTagColor(newInputValue, tagColors);
+    const paletteIndex = colorPalette.indexOf(tagColor);
+    setSelectedColor(tagColor);
+    setSelectedPaletteIndex(paletteIndex >= 0 ? paletteIndex : null);
   };
 
   const renderTagSelector = (options: string[], placeholder: string) => (
@@ -454,7 +465,10 @@ export default function TagManager({
       value={selectedTag}
       onChange={(_event, newValue) => {
         setSelectedTag(newValue);
-        setSelectedColor(getTagColor(newValue || "", tagColors));
+        const tagColor = getTagColor(newValue || "", tagColors);
+        const paletteIndex = colorPalette.indexOf(tagColor);
+        setSelectedColor(tagColor);
+        setSelectedPaletteIndex(paletteIndex >= 0 ? paletteIndex : null);
       }}
       onInputChange={handleAutocompleteInputChange}
       clearOnEscape
@@ -551,14 +565,17 @@ export default function TagManager({
                 Tag color
               </Typography>
               <Box sx={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 1, mt: 1 }}>
-                {TAG_COLOR_SWATCHES.map((color) => (
+                {colorPalette.map((color, index) => (
                   <Box
                     component="button"
                     type="button"
-                    key={color}
-                    aria-label={`Select ${color}`}
-                    aria-pressed={editedTagColor === color}
-                    onClick={() => setEditedTagColor(color)}
+                    key={index}
+                    aria-label={`Select palette color ${index + 1}`}
+                    aria-pressed={editedPaletteIndex === index}
+                    onClick={() => {
+                      setEditedPaletteIndex(index);
+                      setEditedTagColor(color);
+                    }}
                     sx={{
                       width: 30,
                       height: 30,
@@ -566,7 +583,7 @@ export default function TagManager({
                       borderRadius: "50%",
                       bgcolor: color,
                       border:
-                        editedTagColor === color ? "3px solid #17211f" : "2px solid #ffffff",
+                        editedPaletteIndex === index ? "3px solid #17211f" : "2px solid #ffffff",
                       boxShadow: "0 0 0 1px rgba(0, 0, 0, 0.28)",
                       cursor: "pointer",
                     }}
@@ -577,9 +594,15 @@ export default function TagManager({
                   type="color"
                   aria-label="Custom tag color"
                   value={editedTagColor}
-                  onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
-                    setEditedTagColor(event.target.value)
-                  }
+                  onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
+                    const color = event.target.value;
+                    setEditedTagColor(color);
+                    if (editedPaletteIndex !== null) {
+                      setColorPalette((currentPalette) =>
+                        updateTagColorPaletteSlot(currentPalette, editedPaletteIndex, color)
+                      );
+                    }
+                  }}
                   sx={{
                     width: 38,
                     height: 34,
@@ -648,21 +671,27 @@ export default function TagManager({
                 <Box
                   sx={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 1, mt: 1 }}
                 >
-                  {TAG_COLOR_SWATCHES.map((color) => (
+                  {colorPalette.map((color, index) => (
                     <Box
                       component="button"
                       type="button"
-                      key={color}
-                      aria-label={`Select ${color}`}
-                      aria-pressed={selectedColor === color}
-                      onClick={() => setSelectedColor(color)}
+                      key={index}
+                      aria-label={`Select palette color ${index + 1}`}
+                      aria-pressed={selectedPaletteIndex === index}
+                      onClick={() => {
+                        setSelectedPaletteIndex(index);
+                        setSelectedColor(color);
+                      }}
                       sx={{
                         width: 30,
                         height: 30,
                         p: 0,
                         borderRadius: "50%",
                         bgcolor: color,
-                        border: selectedColor === color ? "3px solid #17211f" : "2px solid #ffffff",
+                        border:
+                          selectedPaletteIndex === index
+                            ? "3px solid #17211f"
+                            : "2px solid #ffffff",
                         boxShadow: "0 0 0 1px rgba(0, 0, 0, 0.28)",
                         cursor: "pointer",
                       }}
@@ -673,9 +702,15 @@ export default function TagManager({
                     type="color"
                     aria-label="Custom tag color"
                     value={selectedColor}
-                    onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
-                      setSelectedColor(event.target.value)
-                    }
+                    onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
+                      const color = event.target.value;
+                      setSelectedColor(color);
+                      if (selectedPaletteIndex !== null) {
+                        setColorPalette((currentPalette) =>
+                          updateTagColorPaletteSlot(currentPalette, selectedPaletteIndex, color)
+                        );
+                      }
+                    }}
                     sx={{
                       width: 38,
                       height: 34,

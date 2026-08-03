@@ -1,6 +1,16 @@
 export type TagColorMap = Record<string, string>;
 
 export const DEFAULT_TAG_COLOR = "#257e68";
+export const DEFAULT_TAG_COLOR_PALETTE = [
+  "#257e68",
+  "#1976d2",
+  "#7b1fa2",
+  "#c2185b",
+  "#d84315",
+  "#f9a825",
+  "#546e7a",
+  "#5d4037",
+];
 
 const HEX_COLOR_PATTERN = /^#[0-9a-f]{6}$/i;
 
@@ -18,6 +28,23 @@ export const normalizeTagColors = (colors: unknown): TagColorMap => {
       .map(([tag, color]) => [tag, normalizeTagColor(color)])
   );
 };
+
+export const normalizeTagColorPalette = (palette: unknown): string[] =>
+  DEFAULT_TAG_COLOR_PALETTE.map((defaultColor, index) => {
+    const savedColor = Array.isArray(palette) ? palette[index] : undefined;
+    return typeof savedColor === "string" && HEX_COLOR_PATTERN.test(savedColor)
+      ? savedColor.toLowerCase()
+      : defaultColor;
+  });
+
+export const updateTagColorPaletteSlot = (
+  palette: string[],
+  index: number,
+  color: string
+): string[] =>
+  normalizeTagColorPalette(palette).map((currentColor, currentIndex) =>
+    currentIndex === index ? normalizeTagColor(color) : currentColor
+  );
 
 export const getTagColor = (tag: string, colors: TagColorMap): string =>
   normalizeTagColor(colors[tag]);

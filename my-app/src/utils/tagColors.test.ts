@@ -4,7 +4,9 @@ import {
   editTagMetadata,
   getReadableTagTextColor,
   getTagColor,
+  normalizeTagColorPalette,
   normalizeTagColors,
+  updateTagColorPaletteSlot,
 } from "./tagColors";
 
 describe("tagColors", () => {
@@ -22,6 +24,32 @@ describe("tagColors", () => {
 
   it("uses the legacy default when a tag has no configured color", () => {
     expect(getTagColor("Legacy tag", {})).toBe(DEFAULT_TAG_COLOR);
+  });
+
+  it("loads saved palette slots and falls back for missing or invalid colors", () => {
+    expect(normalizeTagColorPalette(["#ABCDEF", "invalid"])).toEqual([
+      "#abcdef",
+      "#1976d2",
+      "#7b1fa2",
+      "#c2185b",
+      "#d84315",
+      "#f9a825",
+      "#546e7a",
+      "#5d4037",
+    ]);
+  });
+
+  it("replaces a selected palette slot without changing the other saved colors", () => {
+    expect(updateTagColorPaletteSlot(["#111111", "#222222"], 1, "#ABCDEF")).toEqual([
+      "#111111",
+      "#abcdef",
+      "#7b1fa2",
+      "#c2185b",
+      "#d84315",
+      "#f9a825",
+      "#546e7a",
+      "#5d4037",
+    ]);
   });
 
   it("chooses readable text for light and dark backgrounds", () => {
