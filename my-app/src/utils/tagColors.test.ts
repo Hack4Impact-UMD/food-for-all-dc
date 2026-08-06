@@ -3,6 +3,7 @@ import {
   addTagMetadata,
   DEFAULT_TAG_COLOR,
   editTagMetadata,
+  findExistingTag,
   getReadableTagTextColor,
   getTagColor,
   normalizeTagColorPalette,
@@ -84,6 +85,14 @@ describe("tagColors", () => {
 
   it("preserves the global color when applying an existing tag", () => {
     expect(addTagMetadata(["Delivery"], { Delivery: "#257e68" }, "Delivery", "#c2185b")).toEqual({
+      tags: ["Delivery"],
+      tagColors: { Delivery: "#257e68" },
+    });
+  });
+
+  it("uses the saved spelling for case-insensitive tag matches", () => {
+    expect(findExistingTag(["Delivery"], "delivery")).toBe("Delivery");
+    expect(addTagMetadata(["Delivery"], { Delivery: "#257e68" }, "delivery", "#c2185b")).toEqual({
       tags: ["Delivery"],
       tagColors: { Delivery: "#257e68" },
     });

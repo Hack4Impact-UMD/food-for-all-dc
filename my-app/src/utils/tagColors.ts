@@ -49,6 +49,11 @@ export const updateTagColorPaletteSlot = (
 export const getTagColor = (tag: string, colors: TagColorMap): string =>
   normalizeTagColor(colors[tag]);
 
+export const findExistingTag = (tags: string[], candidate: string): string | undefined => {
+  const normalizedCandidate = candidate.toLocaleLowerCase();
+  return tags.find((tag) => tag.toLocaleLowerCase() === normalizedCandidate);
+};
+
 export const editTagMetadata = (
   tags: string[],
   colors: TagColorMap,
@@ -72,7 +77,7 @@ export const addTagMetadata = (
   tag: string,
   color: string
 ): { tags: string[]; tagColors: TagColorMap } => {
-  if (tags.includes(tag)) {
+  if (findExistingTag(tags, tag)) {
     return { tags, tagColors: { ...colors } };
   }
 

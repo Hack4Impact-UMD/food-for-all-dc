@@ -1,4 +1,4 @@
-import { describe, expect, it, jest } from "@jest/globals";
+import { beforeEach, describe, expect, it, jest } from "@jest/globals";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import TagManager from "./TagManager";
 
@@ -38,7 +38,12 @@ jest.mock("../../../context/ClientDataContext", () => ({
 }));
 
 describe("TagManager", () => {
-  it("does not rewrite global metadata when applying an existing tag", async () => {
+  beforeEach(() => {
+    mockSetDoc.mockReset();
+    mockSetDoc.mockResolvedValue(undefined as never);
+  });
+
+  it("uses the saved spelling and skips metadata writes for an existing tag", async () => {
     const handleTag = jest.fn();
 
     render(
@@ -55,12 +60,41 @@ describe("TagManager", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Edit tags" }));
     fireEvent.change(screen.getByLabelText("Select tag or type new tag"), {
-      target: { value: "Delivery" },
+      target: { value: "delivery" },
     });
-    fireEvent.click(await screen.findByRole("option", { name: "Delivery" }));
+    fireEvent.keyDown(screen.getByLabelText("Select tag or type new tag"), { key: "Enter" });
     fireEvent.click(screen.getByRole("button", { name: "Add Tag" }));
 
     await waitFor(() => expect(handleTag).toHaveBeenCalledWith("Delivery"));
     expect(mockSetDoc).not.toHaveBeenCalled();
+  });
+
+  it("does not update the client when new master metadata fails to save", async () => {
+    const handleTag = jest.fn();
+    mockSetDoc.mockRejectedValue(new Error("permission denied") as never);
+
+    render(
+      <TagManager
+        allTags={["Delivery"]}
+        values={[]}
+        handleTag={handleTag}
+        setInnerPopup={jest.fn()}
+        deleteMode={false}
+        setTagToDelete={jest.fn()}
+        clientUid="client-1"
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit tags" }));
+    fireEvent.change(screen.getByLabelText("Select tag or type new tag"), {
+      target: { value: "Urgent" },
+    });
+    fireEvent.keyDown(screen.getByLabelText("Select tag or type new tag"), { key: "Enter" });
+    fireEvent.click(screen.getByRole("button", { name: "Add Tag" }));
+
+    expect(await screen.findByText("The tag could not be added. Please try again.")).toBeTruthy();
+    expect(mockSetDoc).toHaveBeenCalledTimes(1);
+    expect(handleTag).not.toHaveBeenCalled();
+    expect(screen.getByRole("dialog")).toBeTruthy();
   });
 });

@@ -37,6 +37,7 @@ import { useTagColorPalette, useTagColors } from "../../../context/TagColorConte
 import {
   addTagMetadata,
   DEFAULT_TAG_COLOR,
+  findExistingTag,
   getReadableTagTextColor,
   getTagColor,
   updateTagColorPaletteSlot,
@@ -191,6 +192,7 @@ export default function TagManager({
   const [editedTagColor, setEditedTagColor] = useState(DEFAULT_TAG_COLOR);
   const [editedPaletteIndex, setEditedPaletteIndex] = useState<number | null>(null);
   const [editError, setEditError] = useState("");
+  const [addError, setAddError] = useState("");
   const [isSavingEdit, setIsSavingEdit] = useState(false);
 
   useEffect(() => {
@@ -199,7 +201,9 @@ export default function TagManager({
 
   // Filter already applied tags (for adding)
   const availableTags = masterTags.filter((tag: string) => !values.includes(tag));
-  const selectedExistingTag = Boolean(selectedTag && masterTags.includes(selectedTag.trim()));
+  const selectedExistingTag = selectedTag
+    ? findExistingTag(masterTags, selectedTag.trim())
+    : undefined;
 
   // Animation helper function - similar to delivery components
   const getTagStyle = (tagId: string) => {
@@ -234,6 +238,7 @@ export default function TagManager({
     setColorPalette(savedColorPalette);
     setSelectedPaletteIndex(0);
     setSelectedColor(savedColorPalette[0]);
+    setAddError("");
     setOpenAddTagModal(true);
   };
 
@@ -329,20 +334,12 @@ export default function TagManager({
   // Adding tags: update both the client (Firebase record) and master tags if the tag is new
   const handleAddTag = async () => {
     if (selectedTag && selectedTag.trim() !== "") {
-      // Set up animation state for the new tag
-      const newTagId = selectedTag.trim();
-      setAddingTagId(newTagId);
+      const requestedTag = selectedTag.trim();
+      const existingTag = findExistingTag(masterTags, requestedTag);
+      const newTagId = existingTag || requestedTag;
+      setAddError("");
 
-      // Add to local animation state immediately with hidden: true
-      setTagsWithAnimation((prev) => [
-        ...prev,
-        { id: newTagId, text: newTagId, hidden: true, isAdding: true },
-      ]);
-
-      // Let handleTag function handle the client's tag update in Firebase
-      handleTag(newTagId);
-
-      if (!masterTags.includes(newTagId)) {
+      if (!existingTag) {
         const updatedMetadata = addTagMetadata(masterTags, tagColors, newTagId, selectedColor);
         try {
           await setDoc(
@@ -356,8 +353,19 @@ export default function TagManager({
           setMasterTags(updatedMetadata.tags);
         } catch (error) {
           console.error("Error updating tags in Firebase:", error);
+          setAddError("The tag could not be added. Please try again.");
+          return;
         }
       }
+
+      // Only update the client after any required master metadata is safely persisted.
+      handleTag(newTagId);
+
+      setAddingTagId(newTagId);
+      setTagsWithAnimation((prev) => [
+        ...prev,
+        { id: newTagId, text: newTagId, hidden: true, isAdding: true },
+      ]);
 
       // Animate the new tag in after a brief delay
       setTimeout(() => {
@@ -645,12 +653,13 @@ export default function TagManager({
         <DialogContent>
           {modalMode === "add" ? (
             <Box sx={{ display: "flex", flexDirection: "column", gap: 2.5 }}>
+              {addError && <Alert severity="error">{addError}</Alert>}
               {renderTagSelector(availableTags, "Select tag or type new tag")}
               <Box>
                 <Typography component="label" variant="subtitle2" sx={{ fontWeight: 700 }}>
                   Tag color
                 </Typography>
-                {selectedExistingTag && (
+                {Boolean(selectedExistingTag) && (
                   <Typography variant="caption" sx={{ display: "block", mt: 0.5 }}>
                     Existing tags keep their saved color. Use Edit Tag to change it everywhere.
                   </Typography>
@@ -665,7 +674,7 @@ export default function TagManager({
                       key={index}
                       aria-label={`Select palette color ${index + 1}`}
                       aria-pressed={selectedPaletteIndex === index}
-                      disabled={selectedExistingTag}
+                      disabled={Boolean(selectedExistingTag)}
                       onClick={() => {
                         setSelectedPaletteIndex(index);
                         setSelectedColor(color);
@@ -690,7 +699,7 @@ export default function TagManager({
                     type="color"
                     aria-label="Custom tag color"
                     value={selectedColor}
-                    disabled={selectedExistingTag}
+                    disabled={Boolean(selectedExistingTag)}
                     onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
                       const color = event.target.value;
                       setSelectedColor(color);
