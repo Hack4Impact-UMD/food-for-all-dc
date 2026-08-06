@@ -342,21 +342,21 @@ export default function TagManager({
       // Let handleTag function handle the client's tag update in Firebase
       handleTag(newTagId);
 
-      const updatedMetadata = addTagMetadata(masterTags, tagColors, newTagId, selectedColor);
-      try {
-        await setDoc(
-          doc(db, dataSources.firebase.tagsCollection, dataSources.firebase.tagsDocId),
-          {
-            ...updatedMetadata,
-            tagColorPalette: colorPalette,
-          },
-          { merge: true }
-        );
-        if (!masterTags.includes(newTagId)) {
+      if (!masterTags.includes(newTagId)) {
+        const updatedMetadata = addTagMetadata(masterTags, tagColors, newTagId, selectedColor);
+        try {
+          await setDoc(
+            doc(db, dataSources.firebase.tagsCollection, dataSources.firebase.tagsDocId),
+            {
+              ...updatedMetadata,
+              tagColorPalette: colorPalette,
+            },
+            { merge: true }
+          );
           setMasterTags(updatedMetadata.tags);
+        } catch (error) {
+          console.error("Error updating tags in Firebase:", error);
         }
-      } catch (error) {
-        console.error("Error updating tags in Firebase:", error);
       }
 
       // Animate the new tag in after a brief delay

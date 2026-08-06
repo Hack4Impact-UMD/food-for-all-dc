@@ -96,7 +96,7 @@ const createTagContainerStyles = {
 const CreateTagContainer = styled(Box)(createTagContainerStyles);
 const CreateTagButton = styled("button")(createTagContainerStyles);
 
-const TagText = styled(Typography)({
+const TagText = styled("span")({
   fontSize: "0.85rem",
   fontWeight: 500,
   letterSpacing: "0.3px",
@@ -148,7 +148,7 @@ const Tag: React.FC<TagProps> = ({
               : undefined
           }
         >
-          <TagText variant="body2">{text}</TagText>
+          <TagText>{text}</TagText>
         </TagContainer>
         <StyledDialog open={showActions} onClose={() => setShowActions(false)} TransitionComponent={Fade}>
           <DialogTitle sx={{ textAlign: "center", fontWeight: 700 }}>Manage Tag</DialogTitle>
@@ -257,7 +257,7 @@ const Tag: React.FC<TagProps> = ({
   } else {
     return !createTag ? (
       <CreateTagContainer className={values.includes(text) ? "active" : ""}>
-        <TagText variant="body2">{text}</TagText>
+        <TagText>{text}</TagText>
         <CloseIcon
           sx={{
             position: "absolute",

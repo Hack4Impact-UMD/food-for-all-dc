@@ -30,6 +30,7 @@ describe("Tag actions", () => {
     const tagButton = screen.getByRole("button", { name: "Manage Priority tag" });
     expect(tagButton.tagName).toBe("BUTTON");
     expect(tagButton.tabIndex).toBe(0);
+    expect(tagButton.firstElementChild?.tagName).toBe("SPAN");
 
     fireEvent.click(tagButton);
     expect(screen.getByText("Manage Tag")).toBeTruthy();
