@@ -22,6 +22,22 @@ interface MiscellaneousFormProps {
   handleFieldChange: (key: string, value: string) => void;
 }
 
+const narrativeTextSx = {
+  fontWeight: 600,
+  fontSize: "1.05rem",
+  lineHeight: 1.5,
+  letterSpacing: 0,
+  whiteSpace: "pre-wrap",
+  overflowWrap: "break-word",
+  wordBreak: "normal",
+  hyphens: "none",
+  mt: 0,
+  mb: 0,
+  pt: 0,
+  textAlign: "justify",
+  pl: 0,
+};
+
 const MiscellaneousForm: React.FC<MiscellaneousFormProps> = ({
   clientProfile,
   isEditing,
@@ -40,9 +56,8 @@ const MiscellaneousForm: React.FC<MiscellaneousFormProps> = ({
       <Box
         sx={{
           display: "grid",
-          gridTemplateColumns: "repeat(4, 1fr)",
-          gap: isEditing ? "2px 1.5px" : "2.5px 2px",
-          minWidth: 900,
+          gridTemplateColumns: { xs: "minmax(0, 1fr)", md: "repeat(2, minmax(0, 1fr))" },
+          gap: 3,
           alignItems: "start",
         }}
       >
@@ -146,18 +161,7 @@ const MiscellaneousForm: React.FC<MiscellaneousFormProps> = ({
               )}
             </>
           ) : (
-            <Typography
-              sx={{
-                fontWeight: 600,
-                fontSize: "1.15rem",
-                lineHeight: 1,
-                mt: 0,
-                mb: 0,
-                pt: 0,
-                textAlign: "left",
-                pl: 0,
-              }}
-            >
+            <Typography data-testid="life-challenges-text" sx={narrativeTextSx}>
               {clientProfile.lifeChallenges ? String(clientProfile.lifeChallenges) : "N/A"}
             </Typography>
           )}
@@ -197,18 +201,7 @@ const MiscellaneousForm: React.FC<MiscellaneousFormProps> = ({
               )}
             </>
           ) : (
-            <Typography
-              sx={{
-                fontWeight: 600,
-                fontSize: "1.15rem",
-                lineHeight: 1,
-                mt: 0,
-                mb: 0,
-                pt: 0,
-                textAlign: "left",
-                pl: 0,
-              }}
-            >
+            <Typography data-testid="lifestyle-goals-text" sx={narrativeTextSx}>
               {clientProfile.lifestyleGoals ? String(clientProfile.lifestyleGoals) : "N/A"}
             </Typography>
           )}

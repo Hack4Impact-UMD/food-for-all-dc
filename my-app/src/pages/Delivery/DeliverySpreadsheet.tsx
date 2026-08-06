@@ -78,7 +78,6 @@ import {
   Tooltip,
 } from "@mui/material";
 import RestartAltIcon from "@mui/icons-material/RestartAlt";
-import { styled } from "@mui/material/styles";
 import { collection, getDocs, doc, setDoc } from "firebase/firestore";
 import { auth } from "../../auth/firebaseConfig";
 import { onAuthStateChanged } from "firebase/auth";
@@ -122,29 +121,9 @@ import {
   updateClientRouteAssignment,
 } from "./utils/routeAssignmentState";
 import { TIME_SLOTS } from "./utils/timeSlots";
-
-const StyleChip = styled(Chip)({
-  backgroundColor: "var(--color-primary)",
-  color: "var(--color-background-main)",
-  ":hover": {
-    backgroundColor: "var(--color-primary)",
-    cursor: "text",
-  },
-  // Disable ripple effect and pointer events
-  "& .MuiTouchRipple-root": {
-    display: "none",
-  },
-  "&:active": {
-    boxShadow: "none",
-    transform: "none",
-  },
-  "&:focus": {
-    boxShadow: "none",
-  },
-  // Make text selectable
-  userSelect: "text",
-  WebkitUserSelect: "text",
-});
+import { useTagColors } from "../../context/TagColorContext";
+import { getReadableTagTextColor, getTagColor } from "../../utils/tagColors";
+import { normalizeDeliveryTags } from "./utils/deliveryTags";
 
 const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -436,6 +415,7 @@ const addablePropertyKeyLabelMap: Record<string, string> = {
   ethnicity: "Ethnicity",
   gender: "Gender",
   language: "Language",
+  lifeChallenges: "Lifestyle Challenges",
   notes: "Notes",
   phone: "Phone",
   referralEntity: "Referral Entity",
@@ -467,6 +447,7 @@ const routeCustomColumnMappings: Record<string, string[]> = {
   ethnicity: ["ethnicity"],
   gender: ["gender"],
   language: ["language"],
+  lifeChallenges: ["lifestyle challenges", "life challenges"],
   notes: ["notes"],
   phone: ["phone"],
   referralEntity: ["referral entity", "referral"],
@@ -559,7 +540,7 @@ const fields: Field[] = [
     label: "Tags",
     type: "text",
     compute: (data: DeliveryRowData) => {
-      const tags = data.tags || [];
+      const tags = normalizeDeliveryTags(data.tags);
       return tags.length > 0 ? tags.join(", ") : "None";
     },
   },
@@ -622,6 +603,7 @@ const isRegularField = (
 };
 
 const DeliverySpreadsheet: React.FC = () => {
+  const tagColors = useTagColors();
   // For custom cluster dropdown menu anchor
   const [anchorEls, setAnchorEls] = useState<{ [rowId: string]: HTMLElement | null }>({});
   // Track temporary select value for each row to allow '__add__' selection
@@ -3794,8 +3776,8 @@ const DeliverySpreadsheet: React.FC = () => {
                                 </span>
                               );
                             } else if (field.key === "tags") {
-                              const tags = computedValue as string;
-                              return tags === "None" ? (
+                              const tags = normalizeDeliveryTags(row.tags);
+                              return tags.length === 0 ? (
                                 <span
                                   style={{ color: "var(--color-text-medium)", fontStyle: "italic" }}
                                 >
@@ -3810,18 +3792,23 @@ const DeliverySpreadsheet: React.FC = () => {
                                     justifyContent: "center",
                                   }}
                                 >
-                                  {tags.split(", ").map((tag: string, index: number) => (
-                                    <Chip
-                                      key={index}
-                                      label={tag}
-                                      size="small"
-                                      sx={{
-                                        backgroundColor: "var(--color-success-button)",
-                                        color: "var(--color-white)",
-                                        fontSize: "0.75rem",
-                                      }}
-                                    />
-                                  ))}
+                                  {tags.map((tag: string) => {
+                                    const color = getTagColor(tag, tagColors);
+                                    return (
+                                      <Chip
+                                        key={tag}
+                                        label={tag}
+                                        size="small"
+                                        sx={{
+                                          backgroundColor: color,
+                                          color: getReadableTagTextColor(color),
+                                          fontSize: "0.75rem",
+                                          fontWeight: 500,
+                                          "&:hover": { backgroundColor: color },
+                                        }}
+                                      />
+                                    );
+                                  })}
                                 </div>
                               );
                             } else {
@@ -4109,6 +4096,7 @@ const DeliverySpreadsheet: React.FC = () => {
                             if (key === "ethnicity") label = "Ethnicity";
                             if (key === "gender") label = "Gender";
                             if (key === "language") label = "Language";
+                            if (key === "lifeChallenges") label = "Lifestyle Challenges";
                             if (key === "notes") label = "Notes";
                             if (key === "phone") label = "Phone";
                             if (key === "referralEntity") label = "Referral Entity";
@@ -4320,6 +4308,7 @@ const DeliverySpreadsheet: React.FC = () => {
                             if (key === "ethnicity") label = "Ethnicity";
                             if (key === "gender") label = "Gender";
                             if (key === "language") label = "Language";
+                            if (key === "lifeChallenges") label = "Lifestyle Challenges";
                             if (key === "notes") label = "Notes";
                             if (key === "phone") label = "Phone";
                             if (key === "referralEntity") label = "Referral Entity";

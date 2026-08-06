@@ -3,6 +3,7 @@ import EditIcon from "@mui/icons-material/Edit";
 import NewIcon from "@mui/icons-material/NewLabel";
 import CloseIcon from "@mui/icons-material/Close";
 import LocalOfferIcon from "@mui/icons-material/LocalOffer";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import {
   Box,
   Tooltip,
@@ -16,10 +17,13 @@ import {
 import { styled } from "@mui/system";
 import React, { useState } from "react";
 import { StyledDialog } from "./TagManager";
+import { getReadableTagTextColor } from "../../../utils/tagColors";
 
 interface TagProps {
   text: string;
+  color?: string;
   handleTag: (text: string) => void;
+  onEdit: (text: string) => void;
   setInnerPopup: (isOpen: boolean) => void;
   values: string[];
   createTag: boolean;
@@ -28,8 +32,13 @@ interface TagProps {
 }
 
 // Enhanced styled component for the tag container with improved visuals
-const TagContainer = styled(Box)(({ theme }) => ({
+const TagContainer = styled("button")({
+  appearance: "none",
   backgroundColor: "rgba(0, 0, 0, 0.06)",
+  border: 0,
+  color: "inherit",
+  font: "inherit",
+  margin: 0,
   textAlign: "center",
   borderRadius: "20px",
   padding: "5px 12px",
@@ -45,15 +54,23 @@ const TagContainer = styled(Box)(({ theme }) => ({
     transform: "translateY(-2px)",
     boxShadow: "0 2px 4px rgba(0, 0, 0, 0.05)",
   },
+  "&:focus-visible": {
+    outline: "2px solid var(--color-primary)",
+    outlineOffset: "2px",
+  },
   "&.active": {
     backgroundColor: "var(--color-primary)",
     color: "var(--color-background-main)",
     boxShadow: "0 2px 6px rgba(37, 126, 104, 0.2)",
   },
-}));
+});
 
-const CreateTagContainer = styled(Box)(({ theme }) => ({
+const createTagContainerStyles = {
+  appearance: "none",
   backgroundColor: "rgba(37, 126, 104, 0.04)",
+  color: "inherit",
+  font: "inherit",
+  margin: 0,
   borderRadius: "20px",
   padding: "5px 12px",
   cursor: "pointer",
@@ -70,9 +87,16 @@ const CreateTagContainer = styled(Box)(({ theme }) => ({
     transform: "translateY(-2px)",
     boxShadow: "0 2px 4px rgba(0, 0, 0, 0.05)",
   },
-}));
+  "&:focus-visible": {
+    outline: "2px solid var(--color-primary)",
+    outlineOffset: "2px",
+  },
+} as const;
 
-const TagText = styled(Typography)({
+const CreateTagContainer = styled(Box)(createTagContainerStyles);
+const CreateTagButton = styled("button")(createTagContainerStyles);
+
+const TagText = styled("span")({
   fontSize: "0.85rem",
   fontWeight: 500,
   letterSpacing: "0.3px",
@@ -80,18 +104,21 @@ const TagText = styled(Typography)({
 
 const Tag: React.FC<TagProps> = ({
   text,
+  color,
   handleTag,
+  onEdit,
   values,
   createTag,
   setInnerPopup,
   deleteMode,
   setTagToDelete,
 }) => {
+  const [showActions, setShowActions] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
 
   const handleRemoveClick = (e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    setShowConfirm(true);
+    setShowActions(true);
   };
 
   const handleConfirm = () => {
@@ -110,9 +137,57 @@ const Tag: React.FC<TagProps> = ({
   if (!deleteMode) {
     return !createTag ? (
       <>
-        <TagContainer className={values.includes(text) ? "active" : ""} onClick={handleRemoveClick}>
-          <TagText variant="body2">{text}</TagText>
+        <TagContainer
+          type="button"
+          aria-label={`Manage ${text} tag`}
+          className={values.includes(text) ? "active" : ""}
+          onClick={handleRemoveClick}
+          style={
+            values.includes(text) && color
+              ? { backgroundColor: color, color: getReadableTagTextColor(color) }
+              : undefined
+          }
+        >
+          <TagText>{text}</TagText>
         </TagContainer>
+        <StyledDialog open={showActions} onClose={() => setShowActions(false)} TransitionComponent={Fade}>
+          <DialogTitle sx={{ textAlign: "center", fontWeight: 700 }}>Manage Tag</DialogTitle>
+          <DialogContent sx={{ textAlign: "center", minWidth: 320, px: 3 }}>
+            <Typography sx={{ color: "var(--color-text-secondary)", mb: 2 }}>
+              What would you like to do with <b>{text}</b>?
+            </Typography>
+            <Box sx={{ display: "flex", gap: 1.5, width: "100%" }}>
+              <Button
+                variant="contained"
+                startIcon={<EditIcon />}
+                onClick={() => {
+                  setShowActions(false);
+                  onEdit(text);
+                }}
+                sx={{ flex: 1, minWidth: 0, borderRadius: 2, textTransform: "none", fontWeight: 600 }}
+              >
+                Edit tag
+              </Button>
+              <Button
+                variant="outlined"
+                color="error"
+                startIcon={<DeleteOutlineIcon />}
+                onClick={() => {
+                  setShowActions(false);
+                  setShowConfirm(true);
+                }}
+                sx={{ flex: 1, minWidth: 0, borderRadius: 2, textTransform: "none", fontWeight: 600 }}
+              >
+                Remove from profile
+              </Button>
+            </Box>
+          </DialogContent>
+          <DialogActions sx={{ px: 3, pb: 2 }}>
+            <Button onClick={() => setShowActions(false)} sx={{ width: "100%" }}>
+              Cancel
+            </Button>
+          </DialogActions>
+        </StyledDialog>
         <StyledDialog open={showConfirm} onClose={handleCancel} TransitionComponent={Fade}>
           <DialogTitle
             sx={{
@@ -160,7 +235,9 @@ const Tag: React.FC<TagProps> = ({
       </>
     ) : (
       <Tooltip title={"Edit Tags"} placement="top">
-        <CreateTagContainer
+        <CreateTagButton
+          type="button"
+          aria-label="Edit tags"
           className={values.includes(text) ? "active" : ""}
           onClick={() => {
             setInnerPopup(true);
@@ -174,13 +251,13 @@ const Tag: React.FC<TagProps> = ({
               margin: 0,
             }}
           />
-        </CreateTagContainer>
+        </CreateTagButton>
       </Tooltip>
     );
   } else {
     return !createTag ? (
       <CreateTagContainer className={values.includes(text) ? "active" : ""}>
-        <TagText variant="body2">{text}</TagText>
+        <TagText>{text}</TagText>
         <CloseIcon
           sx={{
             position: "absolute",

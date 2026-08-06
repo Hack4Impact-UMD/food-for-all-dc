@@ -7,7 +7,7 @@ import {
   TextField,
   Box,
 } from "@mui/material";
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
 import Button from "../../../components/common/Button";
 import DriverManagementModal from "../../../components/DriverManagementModal";
@@ -42,6 +42,16 @@ export default function AssignDriverPopup({
   const [isDriverModalOpen, setIsDriverModalOpen] = useState<boolean>(false);
   const [isRequirementModalOpen, setIsRequirementModalOpen] = useState<boolean>(false);
   const didInitializeSelectionRef = useRef(false);
+  const sortedDrivers = useMemo(
+    () =>
+      [...drivers].sort((leftDriver, rightDriver) =>
+        leftDriver.name.trim().localeCompare(rightDriver.name.trim(), undefined, {
+          sensitivity: "base",
+          numeric: true,
+        })
+      ),
+    [drivers]
+  );
   const isDriverError =
     error === "Please select a driver." || error === "Please select both a driver and a time.";
   const isTimeError =
@@ -164,7 +174,7 @@ export default function AssignDriverPopup({
     <>
       <Box sx={{ display: "flex", flexDirection: "column", gap: 2, p: 1 }}>
         <Autocomplete
-          options={[MANAGE_DRIVERS_OPTION, ...drivers]}
+          options={[MANAGE_DRIVERS_OPTION, ...sortedDrivers]}
           value={driver}
           inputValue={driverSearchQuery}
           onInputChange={(_, newInputValue) => {
@@ -184,7 +194,7 @@ export default function AssignDriverPopup({
           getOptionLabel={(option) => option.name}
           isOptionEqualToValue={(option, value) => option.id === value.id}
           filterOptions={(options, state) => {
-            const filteredDrivers = drivers.filter((candidateDriver) =>
+            const filteredDrivers = sortedDrivers.filter((candidateDriver) =>
               candidateDriver.name.toLowerCase().includes(state.inputValue.toLowerCase())
             );
             return [MANAGE_DRIVERS_OPTION, ...filteredDrivers];

@@ -40,6 +40,7 @@ export interface RowData {
   deliveryFreq?: string;
   gender?: string;
   language?: string;
+  lifeChallenges?: string;
   notes?: string;
   referralEntity?: {
     name: string;
@@ -90,6 +91,8 @@ const getSpreadsheetExportColumnHeader = (propertyKey: string): string => {
       return "Gender";
     case "language":
       return "Language";
+    case "lifeChallenges":
+      return "Lifestyle Challenges";
     case "notes":
       return "Notes";
     case "phone":

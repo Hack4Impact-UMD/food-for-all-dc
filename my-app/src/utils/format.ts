@@ -18,6 +18,22 @@ export const formatPhoneNumber = (phone: string): string => {
   return phone;
 };
 
+export const formatPhoneNumberForSave = (phone: string): string | null => {
+  const trimmedPhone = phone.trim();
+  if (!trimmedPhone) return "";
+
+  const isAcceptedFormat = /^(\+1\s?)?((\(\d{3}\))|\d{3})[\s.-]?\d{3}[\s.-]?\d{4}$/.test(
+    trimmedPhone
+  );
+  if (!isAcceptedFormat) return null;
+
+  const digits = trimmedPhone.replace(/\D/g, "");
+  const nationalDigits = digits.length === 11 && digits.startsWith("1") ? digits.slice(1) : digits;
+  const match = nationalDigits.match(/^(\d{3})(\d{3})(\d{4})$/);
+
+  return match ? `(${match[1]}) ${match[2]}-${match[3]}` : null;
+};
+
 /**
  * Capitalizes the first letter of a string
  * @param value The string to capitalize

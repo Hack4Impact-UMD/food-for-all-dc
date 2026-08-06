@@ -10,10 +10,12 @@ import {
   TextField,
   Autocomplete,
   Typography,
+  Chip,
   Fade,
   IconButton,
   styled,
   FilterOptionsState,
+  Alert,
 } from "@mui/material";
 import AddCircleIcon from "@mui/icons-material/AddCircle";
 import WarningAmberRoundedIcon from "@mui/icons-material/WarningAmberRounded";
@@ -31,6 +33,17 @@ import {
 } from "firebase/firestore";
 import dataSources from "../../../config/dataSources";
 import { db } from "../../../auth/firebaseConfig";
+import { useTagColorPalette, useTagColors } from "../../../context/TagColorContext";
+import {
+  addTagMetadata,
+  DEFAULT_TAG_COLOR,
+  findExistingTag,
+  getReadableTagTextColor,
+  getTagColor,
+  updateTagColorPaletteSlot,
+} from "../../../utils/tagColors";
+import { useClientData } from "../../../context/ClientDataContext";
+import { saveTagEdit, TagRenameTooLargeError } from "./tagPersistence";
 
 // Define interfaces for tag animations
 interface TagWithAnimation {
@@ -45,6 +58,7 @@ interface TagsProps {
   allTags: string[];
   values: string[];
   handleTag: (tag: string) => void;
+  onTagRenamed?: (oldTag: string, newTag: string) => void;
   setInnerPopup: (isOpen: boolean) => void;
   deleteMode: boolean;
   setTagToDelete: (tag: string | null) => void;
@@ -124,12 +138,16 @@ export default function TagManager({
   allTags,
   values,
   handleTag,
+  onTagRenamed,
   setInnerPopup,
   deleteMode,
   setTagToDelete,
   clientUid,
 }: TagsProps) {
   const [masterTags, setMasterTags] = useState<string[]>(allTags);
+  const tagColors = useTagColors();
+  const savedColorPalette = useTagColorPalette();
+  const { renameClientTag } = useClientData({ autoLoad: false });
 
   // Animation states - similar to delivery animations
   const [tagsWithAnimation, setTagsWithAnimation] = useState<TagWithAnimation[]>([]);
@@ -162,13 +180,30 @@ export default function TagManager({
 
   const [openAddTagModal, setOpenAddTagModal] = useState(false);
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
+  const [selectedColor, setSelectedColor] = useState(DEFAULT_TAG_COLOR);
+  const [selectedPaletteIndex, setSelectedPaletteIndex] = useState<number | null>(0);
+  const [colorPalette, setColorPalette] = useState(savedColorPalette);
   const [modalMode, setModalMode] = useState<"add" | "remove">("add");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showDeleteSuccess, setShowDeleteSuccess] = useState(false);
   const [tagToDelete, setTagToDeleteState] = useState<string | null>(null);
+  const [editingTag, setEditingTag] = useState<string | null>(null);
+  const [editedTagName, setEditedTagName] = useState("");
+  const [editedTagColor, setEditedTagColor] = useState(DEFAULT_TAG_COLOR);
+  const [editedPaletteIndex, setEditedPaletteIndex] = useState<number | null>(null);
+  const [editError, setEditError] = useState("");
+  const [addError, setAddError] = useState("");
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+
+  useEffect(() => {
+    setColorPalette(savedColorPalette);
+  }, [savedColorPalette]);
 
   // Filter already applied tags (for adding)
   const availableTags = masterTags.filter((tag: string) => !values.includes(tag));
+  const selectedExistingTag = selectedTag
+    ? findExistingTag(masterTags, selectedTag.trim())
+    : undefined;
 
   // Animation helper function - similar to delivery components
   const getTagStyle = (tagId: string) => {
@@ -200,7 +235,71 @@ export default function TagManager({
   const handleCreateTagClick = () => {
     setModalMode("add");
     setSelectedTag(null);
+    setColorPalette(savedColorPalette);
+    setSelectedPaletteIndex(0);
+    setSelectedColor(savedColorPalette[0]);
+    setAddError("");
     setOpenAddTagModal(true);
+  };
+
+  const handleEditTagClick = (tag: string) => {
+    setEditingTag(tag);
+    setEditedTagName(tag);
+    const tagColor = getTagColor(tag, tagColors);
+    const paletteIndex = savedColorPalette.indexOf(tagColor);
+    setColorPalette(savedColorPalette);
+    setEditedTagColor(tagColor);
+    setEditedPaletteIndex(paletteIndex >= 0 ? paletteIndex : null);
+    setEditError("");
+  };
+
+  const handleSaveTagEdit = async () => {
+    if (!editingTag) return;
+
+    const newTagName = editedTagName.trim();
+    if (!newTagName) {
+      setEditError("Tag name is required.");
+      return;
+    }
+
+    const duplicateTag = masterTags.some(
+      (tag) => tag !== editingTag && tag.toLocaleLowerCase() === newTagName.toLocaleLowerCase()
+    );
+    if (duplicateTag) {
+      setEditError("A tag with this name already exists.");
+      return;
+    }
+
+    setIsSavingEdit(true);
+    setEditError("");
+
+    try {
+      const updatedMetadata = await saveTagEdit({
+        db,
+        tags: masterTags,
+        tagColors,
+        tagColorPalette: colorPalette,
+        oldTag: editingTag,
+        newTag: newTagName,
+        newColor: editedTagColor,
+      });
+
+      setMasterTags(updatedMetadata.tags);
+      if (newTagName !== editingTag) {
+        renameClientTag(editingTag, newTagName);
+        onTagRenamed?.(editingTag, newTagName);
+      }
+      setEditingTag(null);
+    } catch (error) {
+      console.error("Error editing tag:", error);
+      setEditError(
+        error instanceof TagRenameTooLargeError
+          ? `${error.message} Please contact an administrator.`
+          : "The tag could not be updated. Please try again."
+      );
+    } finally {
+      setIsSavingEdit(false);
+    }
   };
 
   // Enhanced handleTag wrapper with animations
@@ -235,33 +334,38 @@ export default function TagManager({
   // Adding tags: update both the client (Firebase record) and master tags if the tag is new
   const handleAddTag = async () => {
     if (selectedTag && selectedTag.trim() !== "") {
-      // Set up animation state for the new tag
-      const newTagId = selectedTag.trim();
-      setAddingTagId(newTagId);
+      const requestedTag = selectedTag.trim();
+      const existingTag = findExistingTag(masterTags, requestedTag);
+      const newTagId = existingTag || requestedTag;
+      setAddError("");
 
-      // Add to local animation state immediately with hidden: true
+      if (!existingTag) {
+        const updatedMetadata = addTagMetadata(masterTags, tagColors, newTagId, selectedColor);
+        try {
+          await setDoc(
+            doc(db, dataSources.firebase.tagsCollection, dataSources.firebase.tagsDocId),
+            {
+              ...updatedMetadata,
+              tagColorPalette: colorPalette,
+            },
+            { merge: true }
+          );
+          setMasterTags(updatedMetadata.tags);
+        } catch (error) {
+          console.error("Error updating tags in Firebase:", error);
+          setAddError("The tag could not be added. Please try again.");
+          return;
+        }
+      }
+
+      // Only update the client after any required master metadata is safely persisted.
+      handleTag(newTagId);
+
+      setAddingTagId(newTagId);
       setTagsWithAnimation((prev) => [
         ...prev,
         { id: newTagId, text: newTagId, hidden: true, isAdding: true },
       ]);
-
-      // Let handleTag function handle the client's tag update in Firebase
-      handleTag(selectedTag);
-
-      // Only update the master tags list if it's a new tag
-      if (!masterTags.includes(selectedTag)) {
-        const newAllTags = [...masterTags, selectedTag].sort((a, b) => a.localeCompare(b));
-        try {
-          await setDoc(
-            doc(db, dataSources.firebase.tagsCollection, dataSources.firebase.tagsDocId),
-            { tags: newAllTags },
-            { merge: true }
-          );
-          setMasterTags(newAllTags);
-        } catch (error) {
-          console.error("Error updating tags in Firebase:", error);
-        }
-      }
 
       // Animate the new tag in after a brief delay
       setTimeout(() => {
@@ -293,10 +397,12 @@ export default function TagManager({
     if (!tagToDelete) return;
     const deletedTagName = tagToDelete; // Store the tag name for success message
     const newAllTags = masterTags.filter((tag: string) => tag !== tagToDelete);
+    const newTagColors = { ...tagColors };
+    delete newTagColors[tagToDelete];
     try {
       await setDoc(
         doc(db, dataSources.firebase.tagsCollection, dataSources.firebase.tagsDocId),
-        { tags: newAllTags },
+        { tags: newAllTags, tagColors: newTagColors },
         { merge: true }
       );
       setMasterTags(newAllTags);
@@ -333,6 +439,10 @@ export default function TagManager({
 
   const handleAutocompleteInputChange = (_event: SyntheticEvent, newInputValue: string) => {
     setSelectedTag(newInputValue);
+    const tagColor = getTagColor(newInputValue, tagColors);
+    const paletteIndex = colorPalette.indexOf(tagColor);
+    setSelectedColor(tagColor);
+    setSelectedPaletteIndex(paletteIndex >= 0 ? paletteIndex : null);
   };
 
   const renderTagSelector = (options: string[], placeholder: string) => (
@@ -341,7 +451,13 @@ export default function TagManager({
       fullWidth
       options={options}
       value={selectedTag}
-      onChange={(_event, newValue) => setSelectedTag(newValue)}
+      onChange={(_event, newValue) => {
+        setSelectedTag(newValue);
+        const tagColor = getTagColor(newValue || "", tagColors);
+        const paletteIndex = colorPalette.indexOf(tagColor);
+        setSelectedColor(tagColor);
+        setSelectedPaletteIndex(paletteIndex >= 0 ? paletteIndex : null);
+      }}
       onInputChange={handleAutocompleteInputChange}
       clearOnEscape
       filterOptions={filterTagOptions}
@@ -381,7 +497,9 @@ export default function TagManager({
               <Box key={v} sx={getTagStyle(v)}>
                 <Tag
                   text={v}
+                  color={getTagColor(v, tagColors)}
                   handleTag={handleTagWithAnimation}
+                  onEdit={handleEditTagClick}
                   values={values}
                   createTag={false}
                   setInnerPopup={setInnerPopup}
@@ -391,27 +509,137 @@ export default function TagManager({
               </Box>
             ))
           : null}
-        <Box onClick={handleCreateTagClick} sx={{ cursor: "pointer" }}>
-          <Tag
-            text={""}
-            handleTag={handleTagWithAnimation}
-            values={values}
-            createTag={true}
-            setInnerPopup={(isOpen: boolean) => {
-              /* no-op: not needed here */
-            }}
-            deleteMode={deleteMode}
-            setTagToDelete={setTagToDelete}
-          />
-        </Box>
+        <Tag
+          text={""}
+          handleTag={handleTagWithAnimation}
+          onEdit={() => undefined}
+          values={values}
+          createTag={true}
+          setInnerPopup={(isOpen: boolean) => {
+            if (isOpen) handleCreateTagClick();
+          }}
+          deleteMode={deleteMode}
+          setTagToDelete={setTagToDelete}
+        />
       </Box>
+
+      <StyledDialog
+        open={Boolean(editingTag)}
+        onClose={() => !isSavingEdit && setEditingTag(null)}
+        TransitionComponent={Fade}
+      >
+        <CloseBtn
+          aria-label="Close edit tag dialog"
+          onClick={() => setEditingTag(null)}
+          disabled={isSavingEdit}
+        >
+          <CloseIcon />
+        </CloseBtn>
+        <DialogTitle sx={{ pb: 0 }}>
+          <SectionTitle>Edit Tag</SectionTitle>
+          <Subtitle>Changes to the name or color apply everywhere this tag is used.</Subtitle>
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 2.5, pt: 0.5 }}>
+            {editError && <Alert severity="error">{editError}</Alert>}
+            <TextField
+              label="Tag name"
+              value={editedTagName}
+              onChange={(event) => setEditedTagName(event.target.value)}
+              fullWidth
+              autoFocus
+              inputProps={{ maxLength: 80 }}
+            />
+            <Box>
+              <Typography component="label" variant="subtitle2" sx={{ fontWeight: 700 }}>
+                Tag color
+              </Typography>
+              <Box sx={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 1, mt: 1 }}>
+                {colorPalette.map((color, index) => (
+                  <Box
+                    component="button"
+                    type="button"
+                    key={index}
+                    aria-label={`Select palette color ${index + 1}`}
+                    aria-pressed={editedPaletteIndex === index}
+                    onClick={() => {
+                      setEditedPaletteIndex(index);
+                      setEditedTagColor(color);
+                    }}
+                    sx={{
+                      width: 30,
+                      height: 30,
+                      p: 0,
+                      borderRadius: "50%",
+                      bgcolor: color,
+                      border:
+                        editedPaletteIndex === index ? "3px solid #17211f" : "2px solid #ffffff",
+                      boxShadow: "0 0 0 1px rgba(0, 0, 0, 0.28)",
+                      cursor: "pointer",
+                    }}
+                  />
+                ))}
+                <Box
+                  component="input"
+                  type="color"
+                  aria-label="Custom tag color"
+                  value={editedTagColor}
+                  onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
+                    const color = event.target.value;
+                    setEditedTagColor(color);
+                    if (editedPaletteIndex !== null) {
+                      setColorPalette((currentPalette) =>
+                        updateTagColorPaletteSlot(currentPalette, editedPaletteIndex, color)
+                      );
+                    }
+                  }}
+                  sx={{
+                    width: 38,
+                    height: 34,
+                    p: 0,
+                    border: 0,
+                    bgcolor: "transparent",
+                    cursor: "pointer",
+                  }}
+                />
+              </Box>
+            </Box>
+            <Box>
+              <Typography variant="caption" sx={{ display: "block", mb: 0.75 }}>
+                Preview
+              </Typography>
+              <Chip
+                label={editedTagName.trim() || "Tag preview"}
+                sx={{
+                  bgcolor: editedTagColor,
+                  color: getReadableTagTextColor(editedTagColor),
+                  fontWeight: 600,
+                }}
+              />
+            </Box>
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ justifyContent: "flex-end", gap: 1, px: 3, pb: 2 }}>
+          <Button onClick={() => setEditingTag(null)} disabled={isSavingEdit}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleSaveTagEdit}
+            disabled={isSavingEdit || !editedTagName.trim()}
+            sx={{ textTransform: "none", fontWeight: 600 }}
+          >
+            {isSavingEdit ? "Saving..." : "Save changes"}
+          </Button>
+        </DialogActions>
+      </StyledDialog>
 
       <StyledDialog
         open={openAddTagModal}
         onClose={() => setOpenAddTagModal(false)}
         TransitionComponent={Fade}
       >
-        <CloseBtn onClick={() => setOpenAddTagModal(false)}>
+        <CloseBtn aria-label="Close tag dialog" onClick={() => setOpenAddTagModal(false)}>
           <CloseIcon />
         </CloseBtn>
         <DialogTitle sx={{ pb: 0 }}>
@@ -423,9 +651,94 @@ export default function TagManager({
           </Subtitle>
         </DialogTitle>
         <DialogContent>
-          {modalMode === "add"
-            ? renderTagSelector(availableTags, "Select tag or type new tag")
-            : renderTagSelector(masterTags, "Select tag to remove")}
+          {modalMode === "add" ? (
+            <Box sx={{ display: "flex", flexDirection: "column", gap: 2.5 }}>
+              {addError && <Alert severity="error">{addError}</Alert>}
+              {renderTagSelector(availableTags, "Select tag or type new tag")}
+              <Box>
+                <Typography component="label" variant="subtitle2" sx={{ fontWeight: 700 }}>
+                  Tag color
+                </Typography>
+                {Boolean(selectedExistingTag) && (
+                  <Typography variant="caption" sx={{ display: "block", mt: 0.5 }}>
+                    Existing tags keep their saved color. Use Edit Tag to change it everywhere.
+                  </Typography>
+                )}
+                <Box
+                  sx={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 1, mt: 1 }}
+                >
+                  {colorPalette.map((color, index) => (
+                    <Box
+                      component="button"
+                      type="button"
+                      key={index}
+                      aria-label={`Select palette color ${index + 1}`}
+                      aria-pressed={selectedPaletteIndex === index}
+                      disabled={Boolean(selectedExistingTag)}
+                      onClick={() => {
+                        setSelectedPaletteIndex(index);
+                        setSelectedColor(color);
+                      }}
+                      sx={{
+                        width: 30,
+                        height: 30,
+                        p: 0,
+                        borderRadius: "50%",
+                        bgcolor: color,
+                        border:
+                          selectedPaletteIndex === index
+                            ? "3px solid #17211f"
+                            : "2px solid #ffffff",
+                        boxShadow: "0 0 0 1px rgba(0, 0, 0, 0.28)",
+                        cursor: "pointer",
+                      }}
+                    />
+                  ))}
+                  <Box
+                    component="input"
+                    type="color"
+                    aria-label="Custom tag color"
+                    value={selectedColor}
+                    disabled={Boolean(selectedExistingTag)}
+                    onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
+                      const color = event.target.value;
+                      setSelectedColor(color);
+                      if (selectedPaletteIndex !== null) {
+                        setColorPalette((currentPalette) =>
+                          updateTagColorPaletteSlot(currentPalette, selectedPaletteIndex, color)
+                        );
+                      }
+                    }}
+                    sx={{
+                      width: 38,
+                      height: 34,
+                      p: 0,
+                      border: 0,
+                      bgcolor: "transparent",
+                      cursor: "pointer",
+                    }}
+                  />
+                </Box>
+              </Box>
+              {selectedTag?.trim() && (
+                <Box>
+                  <Typography variant="caption" sx={{ display: "block", mb: 0.75 }}>
+                    Preview
+                  </Typography>
+                  <Chip
+                    label={selectedTag.trim()}
+                    sx={{
+                      bgcolor: selectedColor,
+                      color: getReadableTagTextColor(selectedColor),
+                      fontWeight: 600,
+                    }}
+                  />
+                </Box>
+              )}
+            </Box>
+          ) : (
+            renderTagSelector(masterTags, "Select tag to remove")
+          )}
         </DialogContent>
         <DialogActions sx={{ justifyContent: "space-between", px: 3, pb: 2 }}>
           <Button

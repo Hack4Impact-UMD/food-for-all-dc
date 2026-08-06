@@ -703,6 +703,26 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
     });
   }, [clusters, getClusterColor, getTextColorForBackground]);
 
+  React.useEffect(() => {
+    const clusterIdByClientId = new Map<string, string>();
+    clusters.forEach((cluster) => {
+      const clusterId = normalizeClusterId(cluster.id);
+      cluster.deliveries.forEach((clientId) => {
+        clusterIdByClientId.set(clientId, clusterId);
+      });
+    });
+
+    document.querySelectorAll<HTMLElement>(".leaflet-popup [data-client-id]").forEach((popup) => {
+      const clientId = popup.getAttribute("data-client-id");
+      if (!clientId) return;
+
+      const clusterValue = popup.querySelector<HTMLElement>("[data-popup-cluster-value]");
+      if (!clusterValue) return;
+
+      clusterValue.textContent = clusterIdByClientId.get(clientId) || "No cluster Assigned";
+    });
+  }, [clusters]);
+
   // Function to fetch DC ward boundaries from ArcGIS REST service
   const fetchWardBoundaries = useCallback(async () => {
     if (wardData) return wardData; // Return cached data if available
@@ -1158,14 +1178,14 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
                 <span>${safeClientNameWithStatus}</span>
                 ${clusterId ? `<span style="cursor: pointer; padding: 2px 4px; border-radius: 3px; margin-left: 10px;" id="edit-btn-${safeClientId}" title="Edit">✏️</span>` : ""}
               </div>
+              <div><span style="font-weight: bold;">Cluster:</span> <span data-popup-cluster-value>${clusterId ? safeClusterId : "No cluster Assigned"}</span></div>
               ${
                 clusterId
                   ? `
-                <div><span style="font-weight: bold;">Cluster:</span> ${safeClusterId}</div>
                 ${effectiveDriver ? `<div><span style="font-weight: bold;">Driver:</span> ${safeEffectiveDriver}</div>` : ""}
                 ${effectiveTime ? `<div><span style="font-weight: bold;">Time:</span> ${safeEffectiveTime}</div>` : ""}
               `
-                  : `<div><span style="font-weight: bold;">Cluster:</span> No cluster Assigned</div>`
+                  : ""
               }
               ${ward ? `<div><span style="font-weight: bold;">Ward:</span> ${safeWard}</div>` : ""}
               <div><span style="font-weight: bold;">Address:</span> ${safeAddressWithZip}</div>

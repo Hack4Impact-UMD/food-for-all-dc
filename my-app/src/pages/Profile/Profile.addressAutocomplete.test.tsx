@@ -8,6 +8,7 @@ const mockGetDoc = jest.fn();
 const mockGetDocs = jest.fn();
 const mockSetDoc = jest.fn();
 const mockRefresh = jest.fn();
+const mockUpdateClient = jest.fn();
 const mockClearInstanceListeners = jest.fn();
 const autocompleteInstances: MockAutocomplete[] = [];
 
@@ -110,7 +111,10 @@ jest.mock("../../auth/AuthProvider", () => ({
 }));
 
 jest.mock("../../context/ClientDataContext", () => ({
-  useClientData: () => ({ refresh: (...args: unknown[]) => mockRefresh(...args) }),
+  useClientData: () => ({
+    refresh: (...args: unknown[]) => mockRefresh(...args),
+    updateClient: (...args: unknown[]) => mockUpdateClient(...args),
+  }),
 }));
 
 jest.mock("../../services/firebase-storage", () => ({
@@ -209,6 +213,7 @@ describe("Profile address autocomplete lifecycle", () => {
     mockGetDocs.mockReset();
     mockSetDoc.mockReset();
     mockRefresh.mockReset();
+    mockUpdateClient.mockReset();
 
     mockGetDoc.mockImplementation(async (reference: unknown) => {
       const referenceArgs = (reference as { args: unknown[] }).args;

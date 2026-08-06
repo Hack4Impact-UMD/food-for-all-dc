@@ -36,7 +36,30 @@ interface ClientDataContextType {
   loadMore: () => Promise<void>;
   loadAllRemaining: () => Promise<void>;
   requestLoad: () => void;
+  updateClient: (clientId: string, changes: Partial<RowData>) => void;
+  renameClientTag: (oldTag: string, newTag: string) => void;
 }
+
+export const updateClientRows = (
+  clients: RowData[],
+  clientId: string,
+  changes: Partial<RowData>
+): RowData[] =>
+  clients.map((client) => (client.uid === clientId ? { ...client, ...changes } : client));
+
+export const renameTagInClientRows = (
+  clients: RowData[],
+  oldTag: string,
+  newTag: string
+): RowData[] =>
+  clients.map((client) => {
+    if (!client.tags?.includes(oldTag)) return client;
+
+    return {
+      ...client,
+      tags: Array.from(new Set(client.tags.map((tag) => (tag === oldTag ? newTag : tag)))),
+    };
+  });
 
 const ClientDataContext = createContext<ClientDataContextType | undefined>(undefined);
 
@@ -234,6 +257,14 @@ export const ClientDataProvider: React.FC<{ children: ReactNode }> = ({ children
     setHasRequestedLoad(true);
   }, []);
 
+  const updateClient = useCallback((clientId: string, changes: Partial<RowData>) => {
+    setClients((previousClients) => updateClientRows(previousClients, clientId, changes));
+  }, []);
+
+  const renameClientTag = useCallback((oldTag: string, newTag: string) => {
+    setClients((previousClients) => renameTagInClientRows(previousClients, oldTag, newTag));
+  }, []);
+
   useEffect(() => {
     hasAttemptedInitialLoadRef.current = false;
   }, [user?.uid]);
@@ -263,6 +294,8 @@ export const ClientDataProvider: React.FC<{ children: ReactNode }> = ({ children
         loadMore,
         loadAllRemaining,
         requestLoad,
+        updateClient,
+        renameClientTag,
       }}
     >
       {children}
