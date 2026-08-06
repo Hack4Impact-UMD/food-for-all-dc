@@ -521,20 +521,18 @@ export default function TagManager({
               </Box>
             ))
           : null}
-        <Box onClick={handleCreateTagClick} sx={{ cursor: "pointer" }}>
-          <Tag
-            text={""}
-            handleTag={handleTagWithAnimation}
-            onEdit={() => undefined}
-            values={values}
-            createTag={true}
-            setInnerPopup={(isOpen: boolean) => {
-              /* no-op: not needed here */
-            }}
-            deleteMode={deleteMode}
-            setTagToDelete={setTagToDelete}
-          />
-        </Box>
+        <Tag
+          text={""}
+          handleTag={handleTagWithAnimation}
+          onEdit={() => undefined}
+          values={values}
+          createTag={true}
+          setInnerPopup={(isOpen: boolean) => {
+            if (isOpen) handleCreateTagClick();
+          }}
+          deleteMode={deleteMode}
+          setTagToDelete={setTagToDelete}
+        />
       </Box>
 
       <StyledDialog
@@ -542,7 +540,11 @@ export default function TagManager({
         onClose={() => !isSavingEdit && setEditingTag(null)}
         TransitionComponent={Fade}
       >
-        <CloseBtn onClick={() => setEditingTag(null)} disabled={isSavingEdit}>
+        <CloseBtn
+          aria-label="Close edit tag dialog"
+          onClick={() => setEditingTag(null)}
+          disabled={isSavingEdit}
+        >
           <CloseIcon />
         </CloseBtn>
         <DialogTitle sx={{ pb: 0 }}>
@@ -649,7 +651,7 @@ export default function TagManager({
         onClose={() => setOpenAddTagModal(false)}
         TransitionComponent={Fade}
       >
-        <CloseBtn onClick={() => setOpenAddTagModal(false)}>
+        <CloseBtn aria-label="Close tag dialog" onClick={() => setOpenAddTagModal(false)}>
           <CloseIcon />
         </CloseBtn>
         <DialogTitle sx={{ pb: 0 }}>

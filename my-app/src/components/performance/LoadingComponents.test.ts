@@ -1,5 +1,7 @@
-import { describe, expect, it, jest } from "@jest/globals";
-import { isChunkLoadError, shouldReloadForChunkError } from "./LoadingComponents";
+import React from "react";
+import { act, render } from "@testing-library/react";
+import { afterEach, describe, expect, it, jest } from "@jest/globals";
+import { ErrorBoundary, isChunkLoadError, shouldReloadForChunkError } from "./LoadingComponents";
 
 const createStorage = () => {
   const values = new Map<string, string>();
@@ -10,6 +12,12 @@ const createStorage = () => {
 };
 
 describe("chunk load recovery", () => {
+  afterEach(() => {
+    jest.useRealTimers();
+    window.sessionStorage.clear();
+    jest.restoreAllMocks();
+  });
+
   it("recognizes lazy chunk failures", () => {
     expect(
       isChunkLoadError(
@@ -29,5 +37,26 @@ describe("chunk load recovery", () => {
     expect(shouldReloadForChunkError(error, storage)).toBe(true);
     expect(shouldReloadForChunkError(error, storage)).toBe(false);
     expect(storage.setItem).toHaveBeenCalledTimes(1);
+  });
+
+  it("expires the retry marker after a repeated chunk failure", () => {
+    jest.useFakeTimers();
+    jest.spyOn(console, "error").mockImplementation(() => undefined);
+    const message = "Loading chunk 196 failed.";
+    window.sessionStorage.setItem("ffaChunkReloadError", message);
+
+    const ThrowChunkError = () => {
+      throw new Error(message);
+    };
+
+    render(React.createElement(ErrorBoundary, null, React.createElement(ThrowChunkError)));
+
+    expect(window.sessionStorage.getItem("ffaChunkReloadError")).toBe(message);
+
+    act(() => {
+      jest.advanceTimersByTime(10000);
+    });
+
+    expect(window.sessionStorage.getItem("ffaChunkReloadError")).toBeNull();
   });
 });

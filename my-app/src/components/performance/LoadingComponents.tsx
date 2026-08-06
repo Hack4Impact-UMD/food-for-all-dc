@@ -142,9 +142,9 @@ class ErrorBoundaryComponent extends React.Component<
     this.props.onError?.(error, errorInfo);
 
     if (isChunkLoadError(error)) {
-      window.clearTimeout(this.chunkReloadResetTimer);
       try {
         if (shouldReloadForChunkError(error, window.sessionStorage)) {
+          window.clearTimeout(this.chunkReloadResetTimer);
           window.location.reload();
         }
       } catch {

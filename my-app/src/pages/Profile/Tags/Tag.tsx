@@ -32,8 +32,13 @@ interface TagProps {
 }
 
 // Enhanced styled component for the tag container with improved visuals
-const TagContainer = styled(Box)(({ theme }) => ({
+const TagContainer = styled("button")({
+  appearance: "none",
   backgroundColor: "rgba(0, 0, 0, 0.06)",
+  border: 0,
+  color: "inherit",
+  font: "inherit",
+  margin: 0,
   textAlign: "center",
   borderRadius: "20px",
   padding: "5px 12px",
@@ -49,15 +54,23 @@ const TagContainer = styled(Box)(({ theme }) => ({
     transform: "translateY(-2px)",
     boxShadow: "0 2px 4px rgba(0, 0, 0, 0.05)",
   },
+  "&:focus-visible": {
+    outline: "2px solid var(--color-primary)",
+    outlineOffset: "2px",
+  },
   "&.active": {
     backgroundColor: "var(--color-primary)",
     color: "var(--color-background-main)",
     boxShadow: "0 2px 6px rgba(37, 126, 104, 0.2)",
   },
-}));
+});
 
-const CreateTagContainer = styled(Box)(({ theme }) => ({
+const createTagContainerStyles = {
+  appearance: "none",
   backgroundColor: "rgba(37, 126, 104, 0.04)",
+  color: "inherit",
+  font: "inherit",
+  margin: 0,
   borderRadius: "20px",
   padding: "5px 12px",
   cursor: "pointer",
@@ -74,7 +87,14 @@ const CreateTagContainer = styled(Box)(({ theme }) => ({
     transform: "translateY(-2px)",
     boxShadow: "0 2px 4px rgba(0, 0, 0, 0.05)",
   },
-}));
+  "&:focus-visible": {
+    outline: "2px solid var(--color-primary)",
+    outlineOffset: "2px",
+  },
+} as const;
+
+const CreateTagContainer = styled(Box)(createTagContainerStyles);
+const CreateTagButton = styled("button")(createTagContainerStyles);
 
 const TagText = styled(Typography)({
   fontSize: "0.85rem",
@@ -118,6 +138,8 @@ const Tag: React.FC<TagProps> = ({
     return !createTag ? (
       <>
         <TagContainer
+          type="button"
+          aria-label={`Manage ${text} tag`}
           className={values.includes(text) ? "active" : ""}
           onClick={handleRemoveClick}
           style={
@@ -213,7 +235,9 @@ const Tag: React.FC<TagProps> = ({
       </>
     ) : (
       <Tooltip title={"Edit Tags"} placement="top">
-        <CreateTagContainer
+        <CreateTagButton
+          type="button"
+          aria-label="Edit tags"
           className={values.includes(text) ? "active" : ""}
           onClick={() => {
             setInnerPopup(true);
@@ -227,7 +251,7 @@ const Tag: React.FC<TagProps> = ({
               margin: 0,
             }}
           />
-        </CreateTagContainer>
+        </CreateTagButton>
       </Tooltip>
     );
   } else {

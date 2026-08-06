@@ -27,11 +27,39 @@ describe("Tag actions", () => {
   it("offers editing before changing an existing tag", () => {
     const { onEdit } = renderTag();
 
-    fireEvent.click(screen.getByText("Priority"));
+    const tagButton = screen.getByRole("button", { name: "Manage Priority tag" });
+    expect(tagButton.tagName).toBe("BUTTON");
+    expect(tagButton.tabIndex).toBe(0);
+
+    fireEvent.click(tagButton);
     expect(screen.getByText("Manage Tag")).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: "Edit tag" }));
     expect(onEdit).toHaveBeenCalledWith("Priority");
+  });
+
+  it("exposes the edit-tags control as a native button", () => {
+    const setInnerPopup = jest.fn();
+
+    render(
+      <Tag
+        text=""
+        handleTag={jest.fn()}
+        onEdit={jest.fn()}
+        setInnerPopup={setInnerPopup}
+        values={[]}
+        createTag
+        deleteMode={false}
+        setTagToDelete={jest.fn()}
+      />
+    );
+
+    const editTagsButton = screen.getByRole("button", { name: "Edit tags" });
+    expect(editTagsButton.tagName).toBe("BUTTON");
+    expect(editTagsButton.tabIndex).toBe(0);
+
+    fireEvent.click(editTagsButton);
+    expect(setInnerPopup).toHaveBeenCalledWith(true);
   });
 
   it("keeps removal behind the existing confirmation", () => {
