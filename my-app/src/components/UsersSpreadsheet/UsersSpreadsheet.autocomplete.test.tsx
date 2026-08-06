@@ -4,6 +4,7 @@ import { describe, expect, it, jest, beforeEach, afterEach } from "@jest/globals
 import UsersSpreadsheet from "./UsersSpreadsheet";
 
 let mockUsers: Array<Record<string, unknown>> = [];
+let mockPhoneNormalizationError: Error | null = null;
 
 jest.mock("firebase/auth", () => ({
   onAuthStateChanged: (_auth: unknown, callback: (user: { uid: string }) => void) => {
@@ -19,7 +20,12 @@ jest.mock("../../auth/firebaseConfig", () => ({
 jest.mock("../../services/AuthUserService", () => ({
   authUserService: {
     getAllUsers: async () => mockUsers,
-    normalizeExistingUserPhoneNumbers: async (users: unknown[]) => users,
+    normalizeExistingUserPhoneNumbers: async (users: unknown[]) => {
+      if (mockPhoneNormalizationError) {
+        throw mockPhoneNormalizationError;
+      }
+      return users;
+    },
     deleteUser: async () => undefined,
     updateUser: async () => undefined,
   },
@@ -45,6 +51,7 @@ jest.mock("./EditUserModal", () => {
 describe("UsersSpreadsheet autocomplete", () => {
   beforeEach(() => {
     mockUsers = [];
+    mockPhoneNormalizationError = null;
     jest
       .spyOn(window, "requestAnimationFrame")
       .mockImplementation((callback: FrameRequestCallback): number => {
@@ -102,5 +109,29 @@ describe("UsersSpreadsheet autocomplete", () => {
 
     fireEvent.click(screen.getByRole("menuitem", { name: "Edit" }));
     expect(screen.getByText("Edit user modal open")).toBeTruthy();
+  });
+
+  it("still shows fetched users when phone normalization fails", async () => {
+    mockUsers = [
+      {
+        id: "user-2",
+        uid: "user-2",
+        name: "Jamie Example",
+        email: "jamie@example.com",
+        phone: "2025550100",
+        role: "Manager",
+      },
+    ];
+    mockPhoneNormalizationError = new Error("Firestore write failed");
+    const consoleError = jest.spyOn(console, "error").mockImplementation(() => undefined);
+
+    render(<UsersSpreadsheet />);
+
+    expect(await screen.findByText("Jamie Example")).toBeTruthy();
+    expect(screen.queryByText("Failed to load users. Please try again later.")).toBeNull();
+    expect(consoleError).toHaveBeenCalledWith(
+      "Error normalizing existing user phone numbers: ",
+      mockPhoneNormalizationError
+    );
   });
 });

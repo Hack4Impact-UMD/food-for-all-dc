@@ -152,8 +152,13 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
     setError(null);
     try {
       const users = await authUserService.getAllUsers();
-      const normalizedUsers = await authUserService.normalizeExistingUserPhoneNumbers(users);
-      setRows(normalizedUsers);
+      try {
+        const normalizedUsers = await authUserService.normalizeExistingUserPhoneNumbers(users);
+        setRows(normalizedUsers);
+      } catch (normalizationError) {
+        console.error("Error normalizing existing user phone numbers: ", normalizationError);
+        setRows(users);
+      }
     } catch (fetchError) {
       console.error("Error fetching users: ", fetchError);
       setError("Failed to load users. Please try again later.");
