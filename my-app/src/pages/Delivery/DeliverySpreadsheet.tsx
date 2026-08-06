@@ -123,6 +123,7 @@ import {
 import { TIME_SLOTS } from "./utils/timeSlots";
 import { useTagColors } from "../../context/TagColorContext";
 import { getReadableTagTextColor, getTagColor } from "../../utils/tagColors";
+import { normalizeDeliveryTags } from "./utils/deliveryTags";
 
 const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -539,7 +540,7 @@ const fields: Field[] = [
     label: "Tags",
     type: "text",
     compute: (data: DeliveryRowData) => {
-      const tags = data.tags || [];
+      const tags = normalizeDeliveryTags(data.tags);
       return tags.length > 0 ? tags.join(", ") : "None";
     },
   },
@@ -3775,8 +3776,8 @@ const DeliverySpreadsheet: React.FC = () => {
                                 </span>
                               );
                             } else if (field.key === "tags") {
-                              const tags = computedValue as string;
-                              return tags === "None" ? (
+                              const tags = normalizeDeliveryTags(row.tags);
+                              return tags.length === 0 ? (
                                 <span
                                   style={{ color: "var(--color-text-medium)", fontStyle: "italic" }}
                                 >
@@ -3791,7 +3792,7 @@ const DeliverySpreadsheet: React.FC = () => {
                                     justifyContent: "center",
                                   }}
                                 >
-                                  {tags.split(", ").map((tag: string) => {
+                                  {tags.map((tag: string) => {
                                     const color = getTagColor(tag, tagColors);
                                     return (
                                       <Chip

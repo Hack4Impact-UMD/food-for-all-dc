@@ -66,6 +66,22 @@ export const editTagMetadata = (
   return { tags: updatedTags, tagColors: updatedTagColors };
 };
 
+export const addTagMetadata = (
+  tags: string[],
+  colors: TagColorMap,
+  tag: string,
+  color: string
+): { tags: string[]; tagColors: TagColorMap } => {
+  if (tags.includes(tag)) {
+    return { tags, tagColors: { ...colors } };
+  }
+
+  return {
+    tags: [...tags, tag].sort((left, right) => left.localeCompare(right)),
+    tagColors: { ...colors, [tag]: normalizeTagColor(color) },
+  };
+};
+
 export const getReadableTagTextColor = (backgroundColor: string): "#ffffff" | "#000000" => {
   const color = normalizeTagColor(backgroundColor).slice(1);
   const channels = [color.slice(0, 2), color.slice(2, 4), color.slice(4, 6)].map((channel) => {

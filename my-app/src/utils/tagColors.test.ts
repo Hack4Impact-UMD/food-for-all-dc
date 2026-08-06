@@ -1,5 +1,6 @@
 import { describe, expect, it } from "@jest/globals";
 import {
+  addTagMetadata,
   DEFAULT_TAG_COLOR,
   editTagMetadata,
   getReadableTagTextColor,
@@ -71,6 +72,20 @@ describe("tagColors", () => {
     ).toEqual({
       tags: ["Delivery", "Urgent"],
       tagColors: { Delivery: "#257e68", Urgent: "#c2185b" },
+    });
+  });
+
+  it("adds color metadata for a new tag", () => {
+    expect(addTagMetadata(["Delivery"], { Delivery: "#257e68" }, "Urgent", "#C2185B")).toEqual({
+      tags: ["Delivery", "Urgent"],
+      tagColors: { Delivery: "#257e68", Urgent: "#c2185b" },
+    });
+  });
+
+  it("preserves the global color when applying an existing tag", () => {
+    expect(addTagMetadata(["Delivery"], { Delivery: "#257e68" }, "Delivery", "#c2185b")).toEqual({
+      tags: ["Delivery"],
+      tagColors: { Delivery: "#257e68" },
     });
   });
 });

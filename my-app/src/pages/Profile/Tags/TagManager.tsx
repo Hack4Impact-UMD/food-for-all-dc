@@ -35,13 +35,14 @@ import dataSources from "../../../config/dataSources";
 import { db } from "../../../auth/firebaseConfig";
 import { useTagColorPalette, useTagColors } from "../../../context/TagColorContext";
 import {
+  addTagMetadata,
   DEFAULT_TAG_COLOR,
-  editTagMetadata,
   getReadableTagTextColor,
   getTagColor,
   updateTagColorPaletteSlot,
 } from "../../../utils/tagColors";
 import { useClientData } from "../../../context/ClientDataContext";
+import { saveTagEdit, TagRenameTooLargeError } from "./tagPersistence";
 
 // Define interfaces for tag animations
 interface TagWithAnimation {
@@ -198,6 +199,7 @@ export default function TagManager({
 
   // Filter already applied tags (for adding)
   const availableTags = masterTags.filter((tag: string) => !values.includes(tag));
+  const selectedExistingTag = Boolean(selectedTag && masterTags.includes(selectedTag.trim()));
 
   // Animation helper function - similar to delivery components
   const getTagStyle = (tagId: string) => {
@@ -267,38 +269,15 @@ export default function TagManager({
     setEditError("");
 
     try {
-      if (newTagName !== editingTag) {
-        const clientsRef = collection(db, dataSources.firebase.clientsCollection);
-        const affectedClients = await getDocs(
-          query(clientsRef, where("tags", "array-contains", editingTag))
-        );
-
-        for (let index = 0; index < affectedClients.docs.length; index += 450) {
-          const batch = writeBatch(db);
-          affectedClients.docs.slice(index, index + 450).forEach((clientSnapshot) => {
-            const currentTags: string[] = clientSnapshot.data().tags || [];
-            const updatedTags = Array.from(
-              new Set(currentTags.map((tag) => (tag === editingTag ? newTagName : tag)))
-            );
-            batch.update(clientSnapshot.ref, { tags: updatedTags });
-          });
-          await batch.commit();
-        }
-      }
-
-      const updatedMetadata = editTagMetadata(
-        masterTags,
+      const updatedMetadata = await saveTagEdit({
+        db,
+        tags: masterTags,
         tagColors,
-        editingTag,
-        newTagName,
-        editedTagColor
-      );
-
-      await setDoc(
-        doc(db, dataSources.firebase.tagsCollection, dataSources.firebase.tagsDocId),
-        { ...updatedMetadata, tagColorPalette: colorPalette },
-        { merge: true }
-      );
+        tagColorPalette: colorPalette,
+        oldTag: editingTag,
+        newTag: newTagName,
+        newColor: editedTagColor,
+      });
 
       setMasterTags(updatedMetadata.tags);
       if (newTagName !== editingTag) {
@@ -308,7 +287,11 @@ export default function TagManager({
       setEditingTag(null);
     } catch (error) {
       console.error("Error editing tag:", error);
-      setEditError("The tag could not be updated. Please try again.");
+      setEditError(
+        error instanceof TagRenameTooLargeError
+          ? `${error.message} Please contact an administrator.`
+          : "The tag could not be updated. Please try again."
+      );
     } finally {
       setIsSavingEdit(false);
     }
@@ -359,21 +342,18 @@ export default function TagManager({
       // Let handleTag function handle the client's tag update in Firebase
       handleTag(newTagId);
 
-      const newAllTags = masterTags.includes(newTagId)
-        ? masterTags
-        : [...masterTags, newTagId].sort((a, b) => a.localeCompare(b));
+      const updatedMetadata = addTagMetadata(masterTags, tagColors, newTagId, selectedColor);
       try {
         await setDoc(
           doc(db, dataSources.firebase.tagsCollection, dataSources.firebase.tagsDocId),
           {
-            tags: newAllTags,
-            tagColors: { ...tagColors, [newTagId]: selectedColor },
+            ...updatedMetadata,
             tagColorPalette: colorPalette,
           },
           { merge: true }
         );
         if (!masterTags.includes(newTagId)) {
-          setMasterTags(newAllTags);
+          setMasterTags(updatedMetadata.tags);
         }
       } catch (error) {
         console.error("Error updating tags in Firebase:", error);
@@ -670,6 +650,11 @@ export default function TagManager({
                 <Typography component="label" variant="subtitle2" sx={{ fontWeight: 700 }}>
                   Tag color
                 </Typography>
+                {selectedExistingTag && (
+                  <Typography variant="caption" sx={{ display: "block", mt: 0.5 }}>
+                    Existing tags keep their saved color. Use Edit Tag to change it everywhere.
+                  </Typography>
+                )}
                 <Box
                   sx={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 1, mt: 1 }}
                 >
@@ -680,6 +665,7 @@ export default function TagManager({
                       key={index}
                       aria-label={`Select palette color ${index + 1}`}
                       aria-pressed={selectedPaletteIndex === index}
+                      disabled={selectedExistingTag}
                       onClick={() => {
                         setSelectedPaletteIndex(index);
                         setSelectedColor(color);
@@ -704,6 +690,7 @@ export default function TagManager({
                     type="color"
                     aria-label="Custom tag color"
                     value={selectedColor}
+                    disabled={selectedExistingTag}
                     onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
                       const color = event.target.value;
                       setSelectedColor(color);
