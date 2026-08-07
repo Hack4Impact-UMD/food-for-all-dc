@@ -36,6 +36,45 @@ export const formatDate = (date: Date | string): string => {
   }
 };
 
+const resolveDate = (value: unknown): unknown => {
+  if (value instanceof Date) return value;
+
+  if (value && typeof value === "object") {
+    const { toDate, seconds, nanoseconds } = value as {
+      toDate?: unknown;
+      seconds?: unknown;
+      nanoseconds?: unknown;
+    };
+    if (typeof toDate === "function") return (toDate as () => unknown).call(value);
+    if (typeof seconds !== "number") return null;
+    return new Date(seconds * 1000 + (typeof nanoseconds === "number" ? nanoseconds / 1e6 : 0));
+  }
+
+  return typeof value === "string" || typeof value === "number" ? new Date(value) : null;
+};
+
+/**
+ * Coerce any stored timestamp value into a JS Date.
+ * Handles Firestore Timestamps, the plain `{ seconds, nanoseconds }` maps left behind
+ * when a Timestamp is structurally copied, Dates, ISO strings and epoch millis.
+ * @param value The stored timestamp value
+ * @returns A valid Date, or null when the value cannot be interpreted as one
+ */
+export const toDateOrNull = (value: unknown): Date | null => {
+  const resolved = resolveDate(value);
+  return resolved instanceof Date && !Number.isNaN(resolved.getTime()) ? resolved : null;
+};
+
+/**
+ * Format a stored "last edited" timestamp for display.
+ * @param value The stored timestamp value
+ * @returns The localized date/time string, or an empty string when it cannot be interpreted
+ */
+export const formatLastEditedTimestamp = (value: unknown): string => {
+  const date = toDateOrNull(value);
+  return date ? date.toLocaleString() : "";
+};
+
 /**
  * Format a date to MM/DD/YYYY
  * @param date The date to format

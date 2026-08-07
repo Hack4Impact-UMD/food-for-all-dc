@@ -2,6 +2,7 @@ import React from "react";
 import { Box, Typography } from "@mui/material";
 import { ClientProfileKey, InputType } from "../types";
 import { deliveryDate } from "../../../utils/deliveryDate";
+import { formatLastEditedTimestamp } from "../../../utils/dates";
 
 interface ConfigField {
   id: string;
@@ -49,6 +50,13 @@ const MiscellaneousForm: React.FC<MiscellaneousFormProps> = ({
   const tefapCertDisplay = clientProfile.tefapCertDate
     ? deliveryDate.toDisplayString(clientProfile.tefapCertDate)
     : "N/A";
+
+  const lifeChallengesLastEdited = formatLastEditedTimestamp(
+    clientProfile.lifeChallengesTimestamp?.timestamp
+  );
+  const lifestyleGoalsLastEdited = formatLastEditedTimestamp(
+    clientProfile.lifestyleGoalsTimestamp?.timestamp
+  );
 
   return (
     <Box sx={{ width: "100%" }}>
@@ -144,21 +152,11 @@ const MiscellaneousForm: React.FC<MiscellaneousFormProps> = ({
               <Box sx={{ minHeight: 120, width: "100%" }}>
                 {renderField("lifeChallenges", "textarea")}
               </Box>
-              {clientProfile.lifeChallenges && clientProfile.lifeChallenges?.trim() !== "" && (
-                <span id="timestamp">
-                  Last edited:{" "}
-                  {clientProfile.lifeChallengesTimestamp &&
-                    clientProfile.lifeChallengesTimestamp.timestamp &&
-                    new Date(
-                      typeof clientProfile.lifeChallengesTimestamp.timestamp === "object" &&
-                      clientProfile.lifeChallengesTimestamp.timestamp !== null &&
-                      "toDate" in clientProfile.lifeChallengesTimestamp.timestamp &&
-                      typeof clientProfile.lifeChallengesTimestamp.timestamp.toDate === "function"
-                        ? clientProfile.lifeChallengesTimestamp.timestamp.toDate()
-                        : clientProfile.lifeChallengesTimestamp.timestamp
-                    ).toLocaleString()}
-                </span>
-              )}
+              {clientProfile.lifeChallenges &&
+                clientProfile.lifeChallenges?.trim() !== "" &&
+                lifeChallengesLastEdited && (
+                  <span id="timestamp">Last edited: {lifeChallengesLastEdited}</span>
+                )}
             </>
           ) : (
             <Typography data-testid="life-challenges-text" sx={narrativeTextSx}>
@@ -184,21 +182,11 @@ const MiscellaneousForm: React.FC<MiscellaneousFormProps> = ({
               <Box sx={{ minHeight: 120, width: "100%" }}>
                 {renderField("lifestyleGoals", "textarea")}
               </Box>
-              {clientProfile.lifestyleGoals && clientProfile.lifestyleGoals?.trim() !== "" && (
-                <span id="timestamp">
-                  Last edited:{" "}
-                  {clientProfile.lifestyleGoalsTimestamp &&
-                    clientProfile.lifestyleGoalsTimestamp.timestamp &&
-                    new Date(
-                      typeof clientProfile.lifestyleGoalsTimestamp.timestamp === "object" &&
-                      clientProfile.lifestyleGoalsTimestamp.timestamp !== null &&
-                      "toDate" in clientProfile.lifestyleGoalsTimestamp.timestamp &&
-                      typeof clientProfile.lifestyleGoalsTimestamp.timestamp.toDate === "function"
-                        ? clientProfile.lifestyleGoalsTimestamp.timestamp.toDate()
-                        : clientProfile.lifestyleGoalsTimestamp.timestamp
-                    ).toLocaleString()}
-                </span>
-              )}
+              {clientProfile.lifestyleGoals &&
+                clientProfile.lifestyleGoals?.trim() !== "" &&
+                lifestyleGoalsLastEdited && (
+                  <span id="timestamp">Last edited: {lifestyleGoalsLastEdited}</span>
+                )}
             </>
           ) : (
             <Typography data-testid="lifestyle-goals-text" sx={narrativeTextSx}>

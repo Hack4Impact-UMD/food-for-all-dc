@@ -840,6 +840,10 @@ const Profile = () => {
       return new Date(obj.getTime()) as T;
     }
 
+    if (typeof (obj as { toDate?: unknown }).toDate === "function") {
+      return obj;
+    }
+
     if (Array.isArray(obj)) {
       return obj.map((item) => deepCopy(item)) as unknown as T;
     }

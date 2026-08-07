@@ -819,16 +819,16 @@ const FormField = (props: FormFieldProps) => {
         fontWeight: 600,
         textAlign: "left",
         whiteSpace: "pre-wrap !important",
+        // Wrap at word boundaries; only break inside a word when it is too long to fit
+        // on a line of its own. break-all/lineBreak: anywhere split ordinary words mid-word.
         wordWrap: "break-word !important",
-        overflowWrap: "anywhere !important",
-        wordBreak: "break-all !important",
+        overflowWrap: "break-word !important",
+        wordBreak: "normal !important",
+        hyphens: "none",
         maxWidth: "100% !important",
         width: "100% !important",
         display: "block !important",
         overflow: "hidden !important",
-        // Additional CSS to ensure wrapping works
-        hyphens: "auto",
-        lineBreak: "anywhere",
       }}
     >
       {renderFieldValue(fieldPath, value)}
