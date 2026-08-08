@@ -77,6 +77,7 @@ import { computeClientActiveStatus } from "../../utils/clientStatus";
 import { toJSDate } from "../../utils/timestamp";
 import { buildGeocodingAddress, shouldGeocodeClientLocation } from "../../utils/addressFormat";
 import { buildClientAuditMetadata } from "../../utils/clientAudit";
+import { removeTagMetadataIfUnused } from "./Tags/tagPersistence";
 
 const ADDRESS_DIRECTION_ABBREVIATIONS: Record<string, string> = {
   northeast: "NE",
@@ -2401,8 +2402,9 @@ const Profile = () => {
       setPrevTags(deepCopy(tags));
     }
 
+    const isRemoving = tags.includes(text);
     let updatedTags: string[];
-    if (tags.includes(text)) {
+    if (isRemoving) {
       updatedTags = tags.filter((t) => t !== text);
     } else if (text.trim() !== "") {
       updatedTags = [...tags, text.trim()];
@@ -2428,6 +2430,17 @@ const Profile = () => {
           tags: updatedTags,
         }));
         updateClient(clientProfile.uid, { tags: updatedTags });
+
+        if (isRemoving) {
+          try {
+            const updatedMetadata = await removeTagMetadataIfUnused(db, text);
+            if (updatedMetadata) {
+              setAllTags(updatedMetadata.tags);
+            }
+          } catch (error) {
+            console.error("Error removing unused tag metadata:", error);
+          }
+        }
       } catch (error) {
         console.error("Error updating client tags in Firebase:", error);
         console.error("Client UID:", clientProfile.uid);

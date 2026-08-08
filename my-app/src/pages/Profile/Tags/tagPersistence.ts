@@ -2,6 +2,7 @@ import {
   collection,
   doc,
   Firestore,
+  getDoc,
   getDocs,
   query,
   setDoc,
@@ -9,7 +10,11 @@ import {
   writeBatch,
 } from "firebase/firestore";
 import dataSources from "../../../config/dataSources";
-import { editTagMetadata, TagColorMap } from "../../../utils/tagColors";
+import {
+  editTagMetadata,
+  normalizeTagColors,
+  TagColorMap,
+} from "../../../utils/tagColors";
 import type { ClientAuditMetadata } from "../../../utils/clientAudit";
 
 // One batch write is reserved for the master tag document. Keeping the entire
@@ -22,6 +27,45 @@ export class TagRenameTooLargeError extends Error {
     this.name = "TagRenameTooLargeError";
   }
 }
+
+export interface TagMetadata {
+  tags: string[];
+  tagColors: TagColorMap;
+}
+
+export const removeTagMetadataIfUnused = async (
+  db: Firestore,
+  tag: string
+): Promise<TagMetadata | null> => {
+  const affectedClients = await getDocs(
+    query(
+      collection(db, dataSources.firebase.clientsCollection),
+      where("tags", "array-contains", tag)
+    )
+  );
+  if (!affectedClients.empty && affectedClients.docs.length > 0) return null;
+
+  const tagsDocRef = doc(db, dataSources.firebase.tagsCollection, dataSources.firebase.tagsDocId);
+  const tagsSnapshot = await getDoc(tagsDocRef);
+  if (!tagsSnapshot.exists()) return null;
+
+  const data = tagsSnapshot.data();
+  const tags = Array.isArray(data.tags)
+    ? data.tags.filter((savedTag): savedTag is string => typeof savedTag === "string")
+    : [];
+  const tagColors = normalizeTagColors(data.tagColors);
+  const updatedMetadata = {
+    tags: tags.filter((savedTag) => savedTag !== tag),
+    tagColors: Object.fromEntries(
+      Object.entries(tagColors).filter(([savedTag]) => savedTag !== tag)
+    ),
+  };
+
+  if (updatedMetadata.tags.length === tags.length && !(tag in tagColors)) return null;
+
+  await setDoc(tagsDocRef, updatedMetadata, { merge: true });
+  return updatedMetadata;
+};
 
 interface SaveTagEditOptions {
   db: Firestore;

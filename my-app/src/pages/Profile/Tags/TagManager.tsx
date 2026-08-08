@@ -564,7 +564,11 @@ export default function TagManager({
             />
             <Box>
               <Typography component="label" variant="subtitle2" sx={{ fontWeight: 700 }}>
-                Tag color
+                Predefined colors
+              </Typography>
+              <Typography variant="caption" sx={{ display: "block", mt: 0.5 }}>
+                You can update multiple predefined colors before saving. Existing tags keep their
+                current colors; only this tag uses the selected color.
               </Typography>
               <Box sx={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 1, mt: 1 }}>
                 {colorPalette.map((color, index) => (

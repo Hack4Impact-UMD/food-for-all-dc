@@ -1,10 +1,12 @@
 import { beforeEach, describe, expect, it, jest } from "@jest/globals";
 import {
   MAX_ATOMIC_TAG_RENAME_CLIENTS,
+  removeTagMetadataIfUnused,
   saveTagEdit,
   TagRenameTooLargeError,
 } from "./tagPersistence";
 
+const mockGetDoc = jest.fn();
 const mockGetDocs = jest.fn();
 const mockSetDoc = jest.fn();
 const mockBatchUpdate = jest.fn();
@@ -15,6 +17,7 @@ const mockWriteBatch = jest.fn();
 jest.mock("firebase/firestore", () => ({
   collection: (_db: unknown, name: string) => ({ name }),
   doc: (_db: unknown, collectionName: string, id: string) => ({ collectionName, id }),
+  getDoc: (...args: unknown[]) => mockGetDoc(...args),
   getDocs: (...args: unknown[]) => mockGetDocs(...args),
   query: (...args: unknown[]) => args,
   setDoc: (...args: unknown[]) => mockSetDoc(...args),
@@ -97,10 +100,63 @@ describe("saveTagEdit", () => {
   });
 
   it("updates metadata directly when only the tag color changes", async () => {
-    await saveTagEdit({ ...buildOptions(), newTag: "Priority" });
+    await saveTagEdit({
+      ...buildOptions(),
+      newTag: "Priority",
+      tagColorPalette: ["#111111", "#222222"],
+    });
 
     expect(mockSetDoc).toHaveBeenCalledTimes(1);
+    expect(mockSetDoc).toHaveBeenCalledWith(
+      { collectionName: "tags", id: "oGuiR2dQQeOBXHCkhDeX" },
+      {
+        tags: ["Delivery", "Priority"],
+        tagColors: { Delivery: "#257e68", Priority: "#c2185b" },
+        tagColorPalette: ["#111111", "#222222"],
+      },
+      { merge: true }
+    );
     expect(mockGetDocs).not.toHaveBeenCalled();
     expect(mockWriteBatch).not.toHaveBeenCalled();
+  });
+});
+
+describe("removeTagMetadataIfUnused", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockSetDoc.mockResolvedValue(undefined as never);
+  });
+
+  it("keeps master metadata while another profile still uses the tag", async () => {
+    mockGetDocs.mockResolvedValue({ docs: [{ id: "client-2" }], empty: false } as never);
+
+    await expect(removeTagMetadataIfUnused({} as never, "Priority")).resolves.toBeNull();
+
+    expect(mockGetDoc).not.toHaveBeenCalled();
+    expect(mockSetDoc).not.toHaveBeenCalled();
+  });
+
+  it("removes the tag name and color after its last profile usage is removed", async () => {
+    mockGetDocs.mockResolvedValue({ docs: [], empty: true } as never);
+    mockGetDoc.mockResolvedValue({
+      exists: () => true,
+      data: () => ({
+        tags: ["Delivery", "Priority"],
+        tagColors: { Delivery: "#257e68", Priority: "#1976d2" },
+      }),
+    } as never);
+
+    await expect(removeTagMetadataIfUnused({} as never, "Priority")).resolves.toEqual({
+      tags: ["Delivery"],
+      tagColors: { Delivery: "#257e68" },
+    });
+    expect(mockSetDoc).toHaveBeenCalledWith(
+      { collectionName: "tags", id: "oGuiR2dQQeOBXHCkhDeX" },
+      {
+        tags: ["Delivery"],
+        tagColors: { Delivery: "#257e68" },
+      },
+      { merge: true }
+    );
   });
 });
