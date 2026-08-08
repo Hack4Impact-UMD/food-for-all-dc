@@ -673,7 +673,11 @@ export default function TagManager({
               {renderTagSelector(availableTags, "Select tag or type new tag")}
               <Box>
                 <Typography component="label" variant="subtitle2" sx={{ fontWeight: 700 }}>
-                  Tag color
+                  Predefined colors
+                </Typography>
+                <Typography variant="caption" sx={{ display: "block", mt: 0.5 }}>
+                  You can update multiple predefined colors before adding the tag. Existing tags
+                  keep their current colors.
                 </Typography>
                 {Boolean(selectedExistingTag) && (
                   <Typography variant="caption" sx={{ display: "block", mt: 0.5 }}>
