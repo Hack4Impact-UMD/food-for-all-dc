@@ -10,6 +10,7 @@ import {
 } from "firebase/firestore";
 import dataSources from "../../../config/dataSources";
 import { editTagMetadata, TagColorMap } from "../../../utils/tagColors";
+import type { ClientAuditMetadata } from "../../../utils/clientAudit";
 
 // One batch write is reserved for the master tag document. Keeping the entire
 // rename in a single batch guarantees that Firestore applies all changes or none.
@@ -30,6 +31,7 @@ interface SaveTagEditOptions {
   oldTag: string;
   newTag: string;
   newColor: string;
+  auditMetadata: ClientAuditMetadata;
 }
 
 export const saveTagEdit = async ({
@@ -40,6 +42,7 @@ export const saveTagEdit = async ({
   oldTag,
   newTag,
   newColor,
+  auditMetadata,
 }: SaveTagEditOptions): Promise<{ tags: string[]; tagColors: TagColorMap }> => {
   const updatedMetadata = editTagMetadata(tags, tagColors, oldTag, newTag, newColor);
   const tagsDocRef = doc(db, dataSources.firebase.tagsCollection, dataSources.firebase.tagsDocId);
@@ -67,7 +70,7 @@ export const saveTagEdit = async ({
     const updatedTags = Array.from(
       new Set(currentTags.map((tag) => (tag === oldTag ? newTag : tag)))
     );
-    batch.update(clientSnapshot.ref, { tags: updatedTags });
+    batch.update(clientSnapshot.ref, { tags: updatedTags, ...auditMetadata });
   });
   batch.set(tagsDocRef, metadataWrite, { merge: true });
   await batch.commit();

@@ -9,6 +9,7 @@ import json
 import logging
 import numpy as np
 import os
+import re
 from google.cloud import secretmanager
 import firebase_admin
 from firebase_admin import auth as admin_auth
@@ -20,11 +21,12 @@ except ValueError as e:
     # firebase_admin may already be initialized in some environments (e.g., local dev or tests).
     logging.warning("firebase_admin.initialize_app() failed: %s", e)
 
-ALLOWED_ORIGINS = {
-    "http://localhost:3000",
+HOSTED_ORIGINS = {
+    "https://app.foodforalldc.org",
     "https://food-for-all-dc-caf23.web.app",
     "https://food-for-all-dc-caf23.firebaseapp.com",
 }
+LOCAL_ORIGIN_PATTERN = re.compile(r"^http://(?:localhost|127\.0\.0\.1):\d+$")
 
 def _env_int(name: str, default: int) -> int:
     raw = os.getenv(name)
@@ -116,7 +118,7 @@ def latlon_to_cartesian(lat, lon, radius=6371):
 
 def _cors_headers(req: https_fn.Request) -> dict:
     origin = req.headers.get("Origin", "")
-    allow_origin = origin if origin in ALLOWED_ORIGINS else ""
+    allow_origin = origin if origin in HOSTED_ORIGINS or LOCAL_ORIGIN_PATTERN.fullmatch(origin) else ""
 
     headers = {
         "Access-Control-Allow-Methods": "POST, OPTIONS",

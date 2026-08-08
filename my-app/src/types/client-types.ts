@@ -1,5 +1,7 @@
 // Type definitions for client profiles and related entities
 
+import type { ClientUpdatedBy } from "../utils/clientAudit";
+
 export interface DietaryRestrictions {
   lowSugar: boolean;
   kidneyFriendly: boolean;
@@ -74,6 +76,7 @@ export interface ClientProfile {
   language: string;
   createdAt: Date;
   updatedAt: Date;
+  updatedBy?: ClientUpdatedBy;
   tags: string[];
   ward: string;
   coordinates: [number, number] | [];

@@ -1953,6 +1953,10 @@ class FirestoreMigration:
 			"language": _clean_name(row.get("Language")),
 			"createdAt": datetime.now(timezone.utc),
 			"updatedAt": datetime.now(timezone.utc),
+			"updatedBy": {
+				"uid": "ETL",
+				"name": "ETL",
+			},
 			"tags": tags,
 			"ward": _clean_name(row.get("Ward")),
 			"coordinates": coordinates,

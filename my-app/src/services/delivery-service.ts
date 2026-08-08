@@ -14,7 +14,7 @@ import {
   limit,
   Timestamp,
 } from "firebase/firestore";
-import { db } from "../auth/firebaseConfig";
+import { auth, db } from "../auth/firebaseConfig";
 import { DeliveryEvent, NewDelivery } from "../types/calendar-types";
 import { HouseholdSnapshot } from "../types/delivery-types";
 import { validateDeliveryEvent } from "../utils/firestoreValidation";
@@ -38,6 +38,7 @@ import {
   DeliveryChangeReason,
   deliveryEventEmitter,
 } from "../utils/deliveryEventEmitter";
+import { buildClientAuditMetadata } from "../utils/clientAudit";
 
 export interface ClusterReconciliationResult {
   impactedDateKeys: string[];
@@ -510,12 +511,21 @@ class DeliveryService {
         const clientChunk = uniqueClientIds.slice(index, index + MAX_BATCH_WRITE_COUNT);
 
         await retry(async () => {
+          const user = auth.currentUser;
+          if (!user) {
+            throw new ServiceError("You must be logged in to update client deliveries.", "unauthenticated");
+          }
+
           const batch = writeBatch(this.db);
+          const auditMetadata = buildClientAuditMetadata(user);
 
           clientChunk.forEach((clientId) => {
             batch.set(
               doc(this.db, this.clientsCollection, clientId),
-              { lastDeliveryDate: latestDeliveryDateByClientId.get(clientId) ?? "" },
+              {
+                lastDeliveryDate: latestDeliveryDateByClientId.get(clientId) ?? "",
+                ...auditMetadata,
+              },
               { merge: true }
             );
           });

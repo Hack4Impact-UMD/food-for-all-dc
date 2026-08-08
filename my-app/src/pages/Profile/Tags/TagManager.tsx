@@ -44,6 +44,8 @@ import {
 } from "../../../utils/tagColors";
 import { useClientData } from "../../../context/ClientDataContext";
 import { saveTagEdit, TagRenameTooLargeError } from "./tagPersistence";
+import { useAuth } from "../../../auth/AuthProvider";
+import { buildClientAuditMetadata } from "../../../utils/clientAudit";
 
 // Define interfaces for tag animations
 interface TagWithAnimation {
@@ -148,6 +150,14 @@ export default function TagManager({
   const tagColors = useTagColors();
   const savedColorPalette = useTagColorPalette();
   const { renameClientTag } = useClientData({ autoLoad: false });
+  const { user, name } = useAuth();
+
+  const getAuditMetadata = () => {
+    if (!user) {
+      throw new Error("You must be logged in to update client tags.");
+    }
+    return buildClientAuditMetadata(user, name);
+  };
 
   // Animation states - similar to delivery animations
   const [tagsWithAnimation, setTagsWithAnimation] = useState<TagWithAnimation[]>([]);
@@ -282,6 +292,7 @@ export default function TagManager({
         oldTag: editingTag,
         newTag: newTagName,
         newColor: editedTagColor,
+        auditMetadata: getAuditMetadata(),
       });
 
       setMasterTags(updatedMetadata.tags);
@@ -410,12 +421,13 @@ export default function TagManager({
       const q = query(clientsRef, where("tags", "array-contains", tagToDelete));
       const querySnapshot = await getDocs(q);
       const batch = writeBatch(db);
+      const auditMetadata = getAuditMetadata();
       querySnapshot.forEach((docSnap) => {
         const clientData = docSnap.data();
         const currentTags: string[] = clientData.tags || [];
         const updatedTags = currentTags.filter((tag) => tag !== tagToDelete);
         const clientDocRef = doc(db, dataSources.firebase.clientsCollection, docSnap.id);
-        batch.update(clientDocRef, { tags: updatedTags });
+        batch.update(clientDocRef, { tags: updatedTags, ...auditMetadata });
       });
       await batch.commit();
       if (values.includes(tagToDelete)) {

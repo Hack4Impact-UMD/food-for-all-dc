@@ -30,6 +30,10 @@ const buildOptions = () => ({
   oldTag: "Priority",
   newTag: "Urgent",
   newColor: "#c2185b",
+  auditMetadata: {
+    updatedAt: new Date("2026-08-08T12:00:00Z"),
+    updatedBy: { uid: "staff-1", name: "Staff Member" },
+  },
 });
 
 describe("saveTagEdit", () => {
@@ -62,6 +66,8 @@ describe("saveTagEdit", () => {
 
     expect(mockBatchUpdate).toHaveBeenCalledWith(clientRef, {
       tags: ["Urgent", "Delivery"],
+      updatedAt: new Date("2026-08-08T12:00:00Z"),
+      updatedBy: { uid: "staff-1", name: "Staff Member" },
     });
     expect(mockBatchSet).toHaveBeenCalledWith(
       { collectionName: "tags", id: "oGuiR2dQQeOBXHCkhDeX" },

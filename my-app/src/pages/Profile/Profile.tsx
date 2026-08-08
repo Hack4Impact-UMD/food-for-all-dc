@@ -75,6 +75,8 @@ import { buildHouseholdSnapshot } from "../../utils/householdSnapshot";
 import { deliveryDate } from "../../utils/deliveryDate";
 import { computeClientActiveStatus } from "../../utils/clientStatus";
 import { toJSDate } from "../../utils/timestamp";
+import { buildGeocodingAddress, shouldGeocodeClientLocation } from "../../utils/addressFormat";
+import { buildClientAuditMetadata } from "../../utils/clientAudit";
 
 const ADDRESS_DIRECTION_ABBREVIATIONS: Record<string, string> = {
   northeast: "NE",
@@ -212,7 +214,7 @@ const Profile = () => {
   const navigate = useNavigate();
   const params = useParams();
   const clientIdParam: string | null = params.clientId ?? null;
-  const { user, loading, userRole } = useAuth();
+  const { user, name, loading, userRole } = useAuth();
 
   const [configFields, setConfigFields] = useState<
     Array<{ id: string; label: string; type: string }>
@@ -664,7 +666,7 @@ const Profile = () => {
     return ""; // This line should never be reached
   };
 
-  const getCoordinates = useCallback(async (address: string) => {
+  const getCoordinates = useCallback(async (address: string): Promise<number[] | null> => {
     try {
       const token = await auth.currentUser?.getIdToken();
       if (!token) {
@@ -692,7 +694,7 @@ const Profile = () => {
       //[0,0] is an invalid coordinate handled in DelivertSpreadsheet.tsx
       console.error("Error fetching coordinates:", error);
     }
-    return [0, 0];
+    return null;
   }, []);
 
   const getWard = useCallback(
@@ -758,19 +760,11 @@ const Profile = () => {
     [getCoordinates]
   );
 
-  const getWardAndCoordinates = async (searchAddress: string) => {
-    // Compose full address string for geocoding
-    const fullAddress = [
-      clientProfile.address,
-      clientProfile.address2,
-      clientProfile.city,
-      clientProfile.state,
-      clientProfile.zipCode,
-    ]
-      .filter(Boolean)
-      .join(", ");
+  const getWardAndCoordinates = async () => {
+    // Apartment/unit data is intentionally excluded because it does not affect map location.
+    const fullAddress = buildGeocodingAddress(clientProfile);
     let wardName = "";
-    let coordinates: number[] = [0, 0];
+    let coordinates: number[] | null = null;
 
     try {
       // Get coordinates for the full address
@@ -1280,6 +1274,9 @@ const Profile = () => {
     // setIsLoading(true);
 
     try {
+      if (!user) {
+        throw new Error("You must be logged in to save a client profile.");
+      }
       if (isNewProfile) {
         // Force duplicate check to always happen with direct values, not through variables
         const duplicateResult = await checkDuplicateClient(
@@ -1363,38 +1360,26 @@ const Profile = () => {
       // --- Geocoding Optimization Start ---
       // Always force geocoding and coordinate update on every save
       // Only geocode when address changed or existing coords/ward are missing/invalid
-      const addressChanged =
-        clientProfile.address !== prevClientProfile?.address ||
-        clientProfile.address2 !== prevClientProfile?.address2 ||
-        clientProfile.city !== prevClientProfile?.city ||
-        clientProfile.state !== prevClientProfile?.state ||
-        clientProfile.zipCode !== prevClientProfile?.zipCode;
       const existingCoords = clientProfile.coordinates;
-      const hasExistingValidCoords =
-        Array.isArray(existingCoords) &&
-        existingCoords.length === 2 &&
-        (existingCoords[0] !== 0 || existingCoords[1] !== 0);
-      const hasValidWard =
-        !!clientProfile.ward &&
-        clientProfile.ward !== "No address" &&
-        clientProfile.ward !== "Error";
-      const needsGeocode = addressChanged || !hasExistingValidCoords || !hasValidWard;
+      const needsGeocode = shouldGeocodeClientLocation(clientProfile, prevClientProfile);
 
       let fetchedWard: string;
       let coordinatesToSave: [number, number] | [];
 
       if (needsGeocode) {
-        const { ward: geoWard, coordinates: fetchedCoordinates } = await getWardAndCoordinates(
-          clientProfile.address
-        );
+        const { ward: geoWard, coordinates: fetchedCoordinates } = await getWardAndCoordinates();
         const hasValidCoordinates =
           Array.isArray(fetchedCoordinates) &&
           fetchedCoordinates.length === 2 &&
           (fetchedCoordinates[0] !== 0 || fetchedCoordinates[1] !== 0);
+        const hasResolvedWard = /^Ward\s+\d+$/i.test(geoWard.trim());
+        if (!hasValidCoordinates || !hasResolvedWard) {
+          throw new Error(
+            "The address could not be mapped to coordinates and a DC ward. The profile was not saved; please retry or select the address from the suggestions."
+          );
+        }
         fetchedWard = geoWard;
-        coordinatesToSave = hasValidCoordinates
-          ? [fetchedCoordinates[0], fetchedCoordinates[1]]
-          : [];
+        coordinatesToSave = [fetchedCoordinates[0], fetchedCoordinates[1]];
       } else {
         // Address unchanged and existing coords/ward are valid — skip geocoding
         fetchedWard = clientProfile.ward;
@@ -1516,6 +1501,7 @@ const Profile = () => {
 
       const updatedProfile: ClientProfile = {
         ...cleanedProfile,
+        ...buildClientAuditMetadata(user, name),
         // Example: convert specific date fields
         dob: convertDateForSave(cleanedProfile.dob),
         tefapCert: Boolean(normalizedTefapCertDate.trim()),
@@ -1530,7 +1516,6 @@ const Profile = () => {
         deliveryInstructionsTimestamp: updatedDeliveryInstructionsTimestamp,
         lifeChallengesTimestamp: updatedLifeChallengesTimestamp,
         lifestyleGoalsTimestamp: updatedLifestyleGoalsTimestamp,
-        updatedAt: new Date(),
         total:
           Number(clientProfile.adults || 0) +
           Number(clientProfile.children || 0) +
@@ -2433,7 +2418,7 @@ const Profile = () => {
       try {
         await setDoc(
           doc(db, dataSources.firebase.clientsCollection, clientProfile.uid),
-          { tags: updatedTags },
+          { tags: updatedTags, ...buildClientAuditMetadata(user!, name) },
           { merge: true }
         );
 
@@ -3045,7 +3030,7 @@ const Profile = () => {
               autoInactiveReason: "three-strikes",
               autoInactivePreviousEndDate: previousEndDate,
               autoInactiveStrikeDate: strikeDate,
-              updatedAt: new Date(),
+              ...buildClientAuditMetadata(user!, name),
             },
             { merge: true }
           );
@@ -3080,9 +3065,11 @@ const Profile = () => {
       clientProfile.autoInactivePreviousEndDate,
       clientProfile.autoInactiveReason,
       clientProfile.endDate,
+      name,
       reconcileMissedDeliveryState,
       refresh,
       refreshDeliveryData,
+      user,
     ]
   );
 
@@ -3121,7 +3108,7 @@ const Profile = () => {
               autoInactiveReason: null,
               autoInactivePreviousEndDate: null,
               autoInactiveStrikeDate: null,
-              updatedAt: new Date(),
+              ...buildClientAuditMetadata(user!, name),
             },
             { merge: true }
           );
@@ -3154,9 +3141,11 @@ const Profile = () => {
       clientProfile.autoInactivePreviousEndDate,
       clientProfile.autoInactiveReason,
       clientProfile.startDate,
+      name,
       reconcileMissedDeliveryState,
       refresh,
       refreshDeliveryData,
+      user,
     ]
   );
 

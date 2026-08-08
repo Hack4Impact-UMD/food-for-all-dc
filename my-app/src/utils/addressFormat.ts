@@ -55,3 +55,50 @@ export const formatAddressWithQuadrantAndUnit = (
 
   return `${street} ${unit}`.trim();
 };
+
+export const buildGeocodingAddress = ({
+  address,
+  quadrant,
+  city,
+  state,
+  zipCode,
+}: {
+  address: unknown;
+  quadrant: unknown;
+  city: unknown;
+  state: unknown;
+  zipCode: unknown;
+}): string =>
+  [
+    formatAddressWithQuadrant(address, quadrant),
+    typeof city === "string" ? city.trim() : "",
+    typeof state === "string" ? state.trim() : "",
+    typeof zipCode === "string" ? zipCode.trim() : "",
+  ]
+    .filter(Boolean)
+    .join(", ");
+
+type ClientLocation = Parameters<typeof buildGeocodingAddress>[0] & {
+  address2?: unknown;
+  coordinates?: unknown;
+  ward?: unknown;
+};
+
+export const shouldGeocodeClientLocation = (
+  current: ClientLocation,
+  previous?: ClientLocation | null
+): boolean => {
+  const coordinates = current.coordinates;
+  const hasValidCoordinates =
+    Array.isArray(coordinates) &&
+    coordinates.length === 2 &&
+    coordinates.every((value) => typeof value === "number" && Number.isFinite(value)) &&
+    coordinates[0] !== 0 &&
+    coordinates[1] !== 0;
+  const hasValidWard =
+    typeof current.ward === "string" && /^Ward\s+\d+$/i.test(current.ward.trim());
+  const addressChanged =
+    !previous || buildGeocodingAddress(current) !== buildGeocodingAddress(previous);
+
+  return addressChanged || !hasValidCoordinates || !hasValidWard;
+};
