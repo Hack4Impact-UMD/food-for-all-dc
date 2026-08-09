@@ -32,4 +32,10 @@ describe("DeliverySpreadsheet map selection state", () => {
       /clearRowHighlight[\s\S]*?next\.delete\(clientId\)[\s\S]*?setVisiblePopupDeliveryIds[\s\S]*?next\.delete\(clientId\)/m
     );
   });
+
+  it("shows the newest selected delivery first", () => {
+    expect(source).toMatch(
+      /Array\.from\(selectedDeliveryIds\)\s*\.reverse\(\)\s*\.flatMap/m
+    );
+  });
 });

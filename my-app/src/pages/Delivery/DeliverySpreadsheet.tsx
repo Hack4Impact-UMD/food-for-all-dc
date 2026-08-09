@@ -2217,20 +2217,24 @@ const DeliverySpreadsheet: React.FC = () => {
     setVisiblePopupDeliveryIds(new Set());
   };
 
-  const selectedDeliveriesForControls = useMemo(
-    () =>
-      rows
-        .filter((row) => selectedDeliveryIds.has(row.id))
-        .map((row) => ({
+  const selectedDeliveriesForControls = useMemo(() => {
+    const rowsById = new Map(rows.map((row) => [row.id, row]));
+
+    return Array.from(selectedDeliveryIds)
+      .reverse()
+      .flatMap((deliveryId) => {
+        const row = rowsById.get(deliveryId);
+        if (!row) return [];
+
+        const clusterId = normalizeClusterIdValue(row.clusterId);
+        return [{
           id: row.id,
           label: `${row.firstName} ${row.lastName}`.trim() || row.address || row.id,
           popupVisible: visiblePopupDeliveryIds.has(row.id),
-          clusterColor: normalizeClusterIdValue(row.clusterId)
-            ? clusterColorMap(normalizeClusterIdValue(row.clusterId))
-            : undefined,
-        })),
-    [clusterColorMap, rows, selectedDeliveryIds, visiblePopupDeliveryIds]
-  );
+          clusterColor: clusterId ? clusterColorMap(clusterId) : undefined,
+        }];
+      });
+  }, [clusterColorMap, rows, selectedDeliveryIds, visiblePopupDeliveryIds]);
 
   const clientsWithDeliveriesOnSelectedDate = rows.filter((row) =>
     deliveriesForDate.some((delivery) => delivery.clientId === row.id)
