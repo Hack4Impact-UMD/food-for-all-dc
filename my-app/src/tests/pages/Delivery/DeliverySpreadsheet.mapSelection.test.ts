@@ -41,7 +41,7 @@ describe("DeliverySpreadsheet map selection state", () => {
 
   it("preserves selected and open deliveries when clusters are reset", () => {
     const resetHandler = source.match(
-      /const handleResetClusters = async \(\) => \{([\s\S]*?)\n  \};/
+      /const handleResetClusters = async \(\) => \{([\s\S]*?)\n\s*\};/
     )?.[1];
 
     expect(resetHandler).toBeDefined();
