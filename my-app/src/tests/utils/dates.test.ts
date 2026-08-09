@@ -1,5 +1,5 @@
 import { describe, expect, it, jest } from "@jest/globals";
-import { validateDateInput } from "../../utils/dates";
+import { formatLastEditedTimestamp, validateDateInput } from "../../utils/dates";
 
 describe("validateDateInput", () => {
   // App coverage:
@@ -60,5 +60,47 @@ describe("validateDateInput", () => {
     expect(result).toEqual({ isValid: false, errorMessage: "Year must be between 2000 and 2030" });
     expect(onValid).not.toHaveBeenCalled();
     expect(onError).toHaveBeenCalledWith("Year must be between 2000 and 2030");
+  });
+});
+
+describe("formatLastEditedTimestamp", () => {
+  // App coverage:
+  // - profile "Last edited" labels read timestamps that Firestore returns as Timestamp instances
+  // Behavior contract: a Firestore-style Timestamp is converted through toDate() and formatted.
+  it("formats a Firestore Timestamp via toDate()", () => {
+    const date = new Date("2026-03-15T12:00:00Z");
+    const timestamp = { seconds: Math.floor(date.getTime() / 1000), nanoseconds: 0, toDate: () => date };
+
+    expect(formatLastEditedTimestamp(timestamp)).toBe(date.toLocaleString());
+  });
+
+  // App coverage:
+  // - entering and cancelling profile edit mode deep-copies the profile, which can strip a
+  //   Timestamp's prototype and leave a bare { seconds, nanoseconds } map
+  // Behavior contract: a prototype-less timestamp map still formats instead of showing "Invalid date".
+  it("formats a prototype-less { seconds, nanoseconds } map", () => {
+    const date = new Date("2026-03-15T12:00:00Z");
+    const stripped = { seconds: Math.floor(date.getTime() / 1000), nanoseconds: 0 };
+
+    expect(formatLastEditedTimestamp(stripped)).toBe(date.toLocaleString());
+  });
+
+  // App coverage:
+  // - profiles saved in the current session hold plain JS Dates before any Firestore round-trip
+  // Behavior contract: a JS Date formats directly.
+  it("formats a plain JS Date", () => {
+    const date = new Date("2026-03-15T12:00:00Z");
+
+    expect(formatLastEditedTimestamp(date)).toBe(date.toLocaleString());
+  });
+
+  // App coverage:
+  // - clients that never had notes carry a null/absent timestamp
+  // Behavior contract: uninterpretable values yield an empty string so no label is rendered.
+  it("returns an empty string for missing or unusable values", () => {
+    expect(formatLastEditedTimestamp(null)).toBe("");
+    expect(formatLastEditedTimestamp(undefined)).toBe("");
+    expect(formatLastEditedTimestamp({})).toBe("");
+    expect(formatLastEditedTimestamp("not a date")).toBe("");
   });
 });

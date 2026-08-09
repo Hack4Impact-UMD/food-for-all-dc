@@ -5,6 +5,7 @@ import { ClientProfileKey, InputType } from "../types";
 import { styled, Select } from "@mui/material";
 import TagManager from "../Tags/TagManager";
 import { validateDateRange } from "../../../utils/dateValidation";
+import { formatLastEditedTimestamp } from "../../../utils/dates";
 
 interface DeliveryInfoFormProps {
   clientProfile: ClientProfile;
@@ -63,6 +64,11 @@ const DeliveryInfoForm: React.FC<DeliveryInfoFormProps> = ({
 }) => {
   const [startDateError, setStartDateError] = useState<string>("");
   const [endDateError, setEndDateError] = useState<string>("");
+
+  const deliveryInstructionsLastEdited = formatLastEditedTimestamp(
+    clientProfile.deliveryInstructionsTimestamp?.timestamp
+  );
+  const notesLastEdited = formatLastEditedTimestamp(clientProfile.notesTimestamp?.timestamp);
 
   // Validate date range whenever start or end date changes
   useEffect(() => {
@@ -183,21 +189,10 @@ const DeliveryInfoForm: React.FC<DeliveryInfoFormProps> = ({
             DELIVERY INSTRUCTIONS
           </Typography>
           {renderField("deliveryDetails.deliveryInstructions", "textarea")}
-          {clientProfile.deliveryDetails?.deliveryInstructions?.trim() !== "" && (
-            <p id="timestamp">
-              Last edited:{" "}
-              {clientProfile.deliveryInstructionsTimestamp &&
-                clientProfile.deliveryInstructionsTimestamp.timestamp &&
-                new Date(
-                  typeof clientProfile.deliveryInstructionsTimestamp.timestamp === "object" &&
-                  clientProfile.deliveryInstructionsTimestamp.timestamp !== null &&
-                  "toDate" in clientProfile.deliveryInstructionsTimestamp.timestamp &&
-                  typeof clientProfile.deliveryInstructionsTimestamp.timestamp.toDate === "function"
-                    ? clientProfile.deliveryInstructionsTimestamp.timestamp.toDate()
-                    : clientProfile.deliveryInstructionsTimestamp.timestamp
-                ).toLocaleString()}
-            </p>
-          )}
+          {clientProfile.deliveryDetails?.deliveryInstructions?.trim() !== "" &&
+            deliveryInstructionsLastEdited && (
+              <p id="timestamp">Last edited: {deliveryInstructionsLastEdited}</p>
+            )}
         </Box>
 
         {/* Notes */}
@@ -212,20 +207,8 @@ const DeliveryInfoForm: React.FC<DeliveryInfoFormProps> = ({
             ADMIN NOTES
           </Typography>
           {renderField("notes", "textarea")}
-          {clientProfile.notes?.trim() !== "" && (
-            <p id="timestamp">
-              Last edited:{" "}
-              {clientProfile.notesTimestamp &&
-                clientProfile.notesTimestamp.timestamp &&
-                new Date(
-                  typeof clientProfile.notesTimestamp.timestamp === "object" &&
-                  clientProfile.notesTimestamp.timestamp !== null &&
-                  "toDate" in clientProfile.notesTimestamp.timestamp &&
-                  typeof clientProfile.notesTimestamp.timestamp.toDate === "function"
-                    ? clientProfile.notesTimestamp.timestamp.toDate()
-                    : clientProfile.notesTimestamp.timestamp
-                ).toLocaleString()}
-            </p>
+          {clientProfile.notes?.trim() !== "" && notesLastEdited && (
+            <p id="timestamp">Last edited: {notesLastEdited}</p>
           )}
         </Box>
       </Box>
