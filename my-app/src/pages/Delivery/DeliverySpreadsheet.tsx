@@ -84,6 +84,7 @@ import { onAuthStateChanged } from "firebase/auth";
 const ClusterMap = React.lazy(() => import("./ClusterMap"));
 import AssignDriverPopup from "./components/AssignDriverPopup";
 import GenerateClustersPopup from "./components/GenerateClustersPopup";
+import SelectedDeliveriesControl from "./components/SelectedDeliveriesControl";
 import RouteSearchSavedFilters from "./components/RouteSearchSavedFilters";
 import RouteExportOptions, {
   RouteExportOption,
@@ -668,13 +669,19 @@ const DeliverySpreadsheet: React.FC = () => {
   const [exportScope, setExportScope] = useState<RouteExportScope>("all");
 
   const [driversRefreshTrigger, setDriversRefreshTrigger] = useState<number>(0);
-  const [highlightedRowIds, setHighlightedRowIds] = useState<Set<string>>(new Set());
-  const highlightedRowIdsRef = React.useRef<Set<string>>(new Set());
+  const [selectedDeliveryIds, setSelectedDeliveryIds] = useState<Set<string>>(new Set());
+  const [visiblePopupDeliveryIds, setVisiblePopupDeliveryIds] = useState<Set<string>>(new Set());
+  const selectedDeliveryIdsRef = React.useRef<Set<string>>(new Set());
+  const visiblePopupDeliveryIdsRef = React.useRef<Set<string>>(new Set());
   const highlightRestoreLockRef = React.useRef(false);
 
   React.useEffect(() => {
-    highlightedRowIdsRef.current = highlightedRowIds;
-  }, [highlightedRowIds]);
+    selectedDeliveryIdsRef.current = selectedDeliveryIds;
+  }, [selectedDeliveryIds]);
+
+  React.useEffect(() => {
+    visiblePopupDeliveryIdsRef.current = visiblePopupDeliveryIds;
+  }, [visiblePopupDeliveryIds]);
 
   React.useEffect(() => {
     const timeoutId = window.setTimeout(() => {
@@ -686,7 +693,7 @@ const DeliverySpreadsheet: React.FC = () => {
 
   const preserveHighlightedRowsForAssignment = React.useCallback(() => {
     highlightRestoreLockRef.current = true;
-    return new Set(highlightedRowIdsRef.current);
+    return new Set(selectedDeliveryIdsRef.current);
   }, []);
 
   const releaseHighlightedRowsForAssignment = React.useCallback(() => {
@@ -1445,15 +1452,15 @@ const DeliverySpreadsheet: React.FC = () => {
       }
 
       if (didSave && didMoveClients) {
-        setHighlightedRowIds(highlightedRowsToPreserve);
+        setSelectedDeliveryIds(highlightedRowsToPreserve);
         window.setTimeout(() => {
           highlightedRowsToPreserve.forEach((id) => {
-            if ((window as any).openMapPopup) {
+            if (visiblePopupDeliveryIdsRef.current.has(id) && (window as any).openMapPopup) {
               (window as any).openMapPopup(id);
             }
           });
           window.setTimeout(() => {
-            setHighlightedRowIds(highlightedRowsToPreserve);
+            setSelectedDeliveryIds(highlightedRowsToPreserve);
             releaseHighlightedRowsForAssignment();
           }, 1200);
         }, 0);
@@ -1713,15 +1720,15 @@ const DeliverySpreadsheet: React.FC = () => {
       }
 
       if (didChangeClusters) {
-        setHighlightedRowIds(highlightedRowsToPreserve);
+        setSelectedDeliveryIds(highlightedRowsToPreserve);
         window.setTimeout(() => {
           highlightedRowsToPreserve.forEach((id) => {
-            if ((window as any).openMapPopup) {
+            if (visiblePopupDeliveryIdsRef.current.has(id) && (window as any).openMapPopup) {
               (window as any).openMapPopup(id);
             }
           });
           window.setTimeout(() => {
-            setHighlightedRowIds(highlightedRowsToPreserve);
+            setSelectedDeliveryIds(highlightedRowsToPreserve);
             releaseHighlightedRowsForAssignment();
           }, 1200);
         }, 0);
@@ -2123,30 +2130,33 @@ const DeliverySpreadsheet: React.FC = () => {
   };
 
   const handleRowClick = (clientId: string, fromTable = true) => {
-    const isCurrentlyHighlighted = highlightedRowIds.has(clientId);
-    if (isCurrentlyHighlighted) {
-      setHighlightedRowIds((prev) => {
+    const isCurrentlySelected = selectedDeliveryIds.has(clientId);
+    if (isCurrentlySelected) {
+      setSelectedDeliveryIds((prev) => {
         const next = new Set(prev);
         next.delete(clientId);
         return next;
       });
-      if (fromTable && (window as any).closeMapPopup) {
-        (window as any).closeMapPopup(clientId);
-      }
+      setVisiblePopupDeliveryIds((prev) => {
+        const next = new Set(prev);
+        next.delete(clientId);
+        return next;
+      });
     } else {
-      setHighlightedRowIds((prev) => new Set([...prev, clientId]));
-      if (fromTable && (window as any).openMapPopup) {
-        (window as any).openMapPopup(clientId);
+      setSelectedDeliveryIds((prev) => new Set([...prev, clientId]));
+      if (fromTable) {
+        setVisiblePopupDeliveryIds((prev) => new Set([...prev, clientId]));
       }
     }
   };
 
   const handleMarkerClick = (clientId: string) => {
-    const isCurrentlyHighlighted = highlightedRowIds.has(clientId);
-    handleRowClick(clientId, false);
+    const isCurrentlySelected = selectedDeliveryIds.has(clientId);
+    setSelectedDeliveryIds((prev) => new Set([...prev, clientId]));
+    setVisiblePopupDeliveryIds((prev) => new Set([...prev, clientId]));
 
     // Scroll to the highlighted row when adding a highlight
-    if (!isCurrentlyHighlighted && virtuosoRef.current && sortedRows.length > 0) {
+    if (!isCurrentlySelected && virtuosoRef.current && sortedRows.length > 0) {
       const rowIndex = sortedRows.findIndex((row) => row.id === clientId);
       if (rowIndex !== -1) {
         // Use setTimeout to ensure the highlight state has been updated
@@ -2166,15 +2176,61 @@ const DeliverySpreadsheet: React.FC = () => {
       return;
     }
     if (clientId) {
-      setHighlightedRowIds((prev) => {
+      setSelectedDeliveryIds((prev) => {
+        const next = new Set(prev);
+        next.delete(clientId);
+        return next;
+      });
+      setVisiblePopupDeliveryIds((prev) => {
         const next = new Set(prev);
         next.delete(clientId);
         return next;
       });
     } else {
-      setHighlightedRowIds(new Set());
+      setSelectedDeliveryIds(new Set());
+      setVisiblePopupDeliveryIds(new Set());
     }
   };
+
+  const handleToggleSelectedPopup = (clientId: string) => {
+    setVisiblePopupDeliveryIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(clientId)) {
+        next.delete(clientId);
+      } else {
+        next.add(clientId);
+      }
+      return next;
+    });
+  };
+
+  const handleShowAllSelectedPopups = () => {
+    setVisiblePopupDeliveryIds(new Set(selectedDeliveryIds));
+  };
+
+  const handleHideAllSelectedPopups = () => {
+    setVisiblePopupDeliveryIds(new Set());
+  };
+
+  const handleClearSelectedDeliveries = () => {
+    setSelectedDeliveryIds(new Set());
+    setVisiblePopupDeliveryIds(new Set());
+  };
+
+  const selectedDeliveriesForControls = useMemo(
+    () =>
+      rows
+        .filter((row) => selectedDeliveryIds.has(row.id))
+        .map((row) => ({
+          id: row.id,
+          label: `${row.firstName} ${row.lastName}`.trim() || row.address || row.id,
+          popupVisible: visiblePopupDeliveryIds.has(row.id),
+          clusterColor: normalizeClusterIdValue(row.clusterId)
+            ? clusterColorMap(normalizeClusterIdValue(row.clusterId))
+            : undefined,
+        })),
+    [clusterColorMap, rows, selectedDeliveryIds, visiblePopupDeliveryIds]
+  );
 
   const clientsWithDeliveriesOnSelectedDate = rows.filter((row) =>
     deliveriesForDate.some((delivery) => delivery.clientId === row.id)
@@ -2197,7 +2253,8 @@ const DeliverySpreadsheet: React.FC = () => {
     setClientOverrides([]);
     setSelectedRows(new Set());
     setSelectedClusters(new Set());
-    setHighlightedRowIds(new Set());
+    setSelectedDeliveryIds(new Set());
+    setVisiblePopupDeliveryIds(new Set());
 
     setSelectedDate(normalized);
     const newSearchParams = new URLSearchParams(searchParams);
@@ -2805,22 +2862,22 @@ const DeliverySpreadsheet: React.FC = () => {
   );
 
   useEffect(() => {
-    setHighlightedRowIds((prev) => {
+    const visibleDeliveryIds = new Set(visibleRows.map((row) => row.id));
+    setSelectedDeliveryIds((prev) => {
       const toRemove: string[] = [];
       prev.forEach((id) => {
-        if (!visibleRows.some((row) => row.id === id)) {
+        if (!visibleDeliveryIds.has(id)) {
           toRemove.push(id);
         }
       });
       if (toRemove.length === 0) return prev;
       const next = new Set(prev);
-      toRemove.forEach((id) => {
-        next.delete(id);
-        if ((window as any).closeMapPopup) {
-          (window as any).closeMapPopup(id);
-        }
-      });
+      toRemove.forEach((id) => next.delete(id));
       return next;
+    });
+    setVisiblePopupDeliveryIds((prev) => {
+      const next = new Set(Array.from(prev).filter((id) => visibleDeliveryIds.has(id)));
+      return next.size === prev.size ? prev : next;
     });
   }, [visibleRows]);
 
@@ -3196,9 +3253,18 @@ const DeliverySpreadsheet: React.FC = () => {
               onOpenPopup={handleRowClick}
               onMarkerClick={handleMarkerClick}
               onClearHighlight={clearRowHighlight}
+              visiblePopupDeliveryIds={visiblePopupDeliveryIds}
               refreshDriversTrigger={driversRefreshTrigger}
             />
           </Suspense>
+
+          <SelectedDeliveriesControl
+            deliveries={selectedDeliveriesForControls}
+            onTogglePopup={handleToggleSelectedPopup}
+            onShowAll={handleShowAllSelectedPopups}
+            onHideAll={handleHideAllSelectedPopups}
+            onClearSelected={handleClearSelectedDeliveries}
+          />
 
           {isMainLoading && (
             <Box
@@ -3575,7 +3641,7 @@ const DeliverySpreadsheet: React.FC = () => {
               data={sortedRows}
               components={VirtuosoTableComponents}
               itemContent={(index, row) => {
-                const isHighlighted = highlightedRowIds.has(row.id);
+                const isHighlighted = selectedDeliveryIds.has(row.id);
                 const cellIndex = { current: 0 };
                 const getCellSx = () => {
                   const isFirst = cellIndex.current === 0;

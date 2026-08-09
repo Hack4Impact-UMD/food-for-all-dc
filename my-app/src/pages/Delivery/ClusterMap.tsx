@@ -98,6 +98,7 @@ interface ClusterMapProps {
   onOpenPopup?: (clientId: string) => void; // Prop to handle table row clicks
   onMarkerClick?: (clientId: string) => void; // Prop to handle marker clicks
   onClearHighlight?: (clientId?: string) => void; // Prop to clear row highlighting
+  visiblePopupDeliveryIds?: Set<string>;
   refreshDriversTrigger?: number; // Optional prop to trigger driver refresh
 }
 
@@ -236,6 +237,7 @@ const clusterColors = [
 ];
 
 const POPUP_VIEWPORT_MARGIN_PX = 16;
+const EMPTY_POPUP_DELIVERY_IDS = new Set<string>();
 
 const ClusterMap: React.FC<ClusterMapProps> = ({
   allRows,
@@ -247,6 +249,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
   onOpenPopup,
   onMarkerClick,
   onClearHighlight,
+  visiblePopupDeliveryIds = EMPTY_POPUP_DELIVERY_IDS,
   refreshDriversTrigger,
 }) => {
   // Fetch drivers from Firebase
@@ -273,6 +276,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
   const onMarkerClickRef = useRef(onMarkerClick);
   const onClusterUpdateRef = useRef(onClusterUpdate);
   const markersMapRef = useRef<Map<string, L.Marker>>(new Map()); // Store markers by client ID
+  const visiblePopupDeliveryIdsRef = useRef(visiblePopupDeliveryIds);
   const previousVisibleRowsKeyRef = useRef<string>("");
   const hasCompletedInitialMapLoadRef = useRef<boolean>(false);
   const isPopupOpening = useRef<boolean>(false); // Prevent close handler from firing during opening
@@ -407,6 +411,10 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
   useEffect(() => {
     onMarkerClickRef.current = onMarkerClick;
   }, [onMarkerClick]);
+
+  useEffect(() => {
+    visiblePopupDeliveryIdsRef.current = visiblePopupDeliveryIds;
+  }, [visiblePopupDeliveryIds]);
 
   useEffect(() => {
     onClusterUpdateRef.current = onClusterUpdate;
@@ -872,7 +880,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
 
       if (!popupCloseHandlerRef.current) {
         popupCloseHandlerRef.current = (e: L.LeafletEvent) => {
-          if (!isMapAliveRef.current || isPopupOpening.current) {
+          if (!isMapAliveRef.current) {
             return;
           }
 
@@ -888,7 +896,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
           }
 
           scheduleClusterMapTimeout(() => {
-            if (!isMapAliveRef.current || isPopupOpening.current) {
+            if (!isMapAliveRef.current) {
               return;
             }
 
@@ -976,19 +984,12 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
   useEffect(() => {
     if (!mapRef.current || !markerGroupRef.current || !isMapAliveRef.current) return;
 
-    // Find which client's popup is currently open before we destroy the markers.
-    // We'll re-open it after rebuilding so the highlight is preserved.
-    // Find all clients whose popups are open before we destroy markers.
-    // Multiple rows can be highlighted simultaneously, each with an open popup.
-    const clientIdsToReopen: string[] = [];
-    markersMapRef.current.forEach((marker, clientId) => {
-      if (marker.isPopupOpen()) {
-        clientIdsToReopen.push(clientId);
-      }
-    });
+    // React owns popup visibility, so marker rebuilds restore only the requested popups.
+    const clientIdsToReopen = Array.from(visiblePopupDeliveryIdsRef.current);
 
     // Suppress the map-level popupclose handler while we programmatically
     // close popups and clear layers — this prevents clearRowHighlight from firing.
+    suppressedPopupClientIdsRef.current = new Set(clientIdsToReopen);
     isPopupOpening.current = true;
 
     withLiveMap((map) => {
@@ -1593,7 +1594,6 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
     // Re-open all popups that were open before the rebuild.
     // Suppress popupclose/popupopen side effects for these client IDs during restoration.
     if (clientIdsToReopen.length > 0) {
-      suppressedPopupClientIdsRef.current = new Set(clientIdsToReopen);
       isOpeningFromTableRef.current = true;
       withLiveMap((map) => {
         map.stop();
@@ -1622,6 +1622,31 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
     scheduleClusterMapTimeout,
     withLiveMap,
   ]);
+
+  useEffect(() => {
+    const synchronizedClientIds = new Set<string>();
+
+    markersMapRef.current.forEach((marker, clientId) => {
+      const shouldBeOpen = visiblePopupDeliveryIds.has(clientId);
+      if (shouldBeOpen === marker.isPopupOpen()) return;
+
+      synchronizedClientIds.add(clientId);
+      suppressedPopupClientIdsRef.current.add(clientId);
+      if (shouldBeOpen) {
+        marker.openPopup();
+      } else {
+        marker.closePopup();
+      }
+    });
+
+    if (synchronizedClientIds.size > 0) {
+      scheduleClusterMapTimeout(() => {
+        synchronizedClientIds.forEach((clientId) => {
+          suppressedPopupClientIdsRef.current.delete(clientId);
+        });
+      }, 350);
+    }
+  }, [scheduleClusterMapTimeout, visiblePopupDeliveryIds]);
 
   const invalidCount = invalidDeliveries.length;
   const dayTotalDeliveries = allRows.length;

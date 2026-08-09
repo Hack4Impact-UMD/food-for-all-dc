@@ -91,6 +91,15 @@ describe("ClusterMap popup regression guards", () => {
     expect(source).toMatch(/openMapPopup\s*=\s*\(clientId:\s*string\)\s*=>\s*\{[\s\S]*?marker\.openPopup\(\)/m);
   });
 
+  it("synchronizes popup visibility without treating programmatic closes as user closes", () => {
+    expect(source).toContain("visiblePopupDeliveryIds?: Set<string>");
+    expect(source).toContain("const shouldBeOpen = visiblePopupDeliveryIds.has(clientId)");
+    expect(source).toMatch(
+      /suppressedPopupClientIdsRef\.current\.add\(clientId\);[\s\S]*?marker\.closePopup\(\)/m
+    );
+    expect(source).toContain("onClearHighlightRef.current?.(clientId)");
+  });
+
   it("refreshes the route text in an open popup when clusters change", () => {
     expect(source).toContain('querySelectorAll<HTMLElement>(".leaflet-popup [data-client-id]")');
     expect(source).toContain('querySelector<HTMLElement>("[data-popup-cluster-value]")');
