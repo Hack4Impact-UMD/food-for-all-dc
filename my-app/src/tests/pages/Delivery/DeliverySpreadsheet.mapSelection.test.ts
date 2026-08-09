@@ -38,4 +38,15 @@ describe("DeliverySpreadsheet map selection state", () => {
       /Array\.from\(selectedDeliveryIds\)\s*\.reverse\(\)\s*\.flatMap/m
     );
   });
+
+  it("preserves selected and open deliveries when clusters are reset", () => {
+    const resetHandler = source.match(
+      /const handleResetClusters = async \(\) => \{([\s\S]*?)\n  \};/
+    )?.[1];
+
+    expect(resetHandler).toBeDefined();
+    expect(resetHandler).not.toContain("closeMapPopup");
+    expect(resetHandler).not.toContain("setSelectedDeliveryIds");
+    expect(resetHandler).not.toContain("setVisiblePopupDeliveryIds");
+  });
 });

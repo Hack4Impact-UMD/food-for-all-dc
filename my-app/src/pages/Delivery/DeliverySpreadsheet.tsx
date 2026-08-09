@@ -638,10 +638,6 @@ const DeliverySpreadsheet: React.FC = () => {
   const [isResetClustersConfirmOpen, setIsResetClustersConfirmOpen] = React.useState(false);
 
   const handleResetClusters = async () => {
-    // Close map popup if open
-    if (typeof window !== "undefined" && (window as any).closeMapPopup) {
-      (window as any).closeMapPopup();
-    }
     if (!clusterDoc) return;
     try {
       const clusterRef = doc(db, dataSources.firebase.clustersCollection, clusterDoc.docId);
