@@ -1,6 +1,7 @@
 import { useState } from "react";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import VisibilityOffIcon from "@mui/icons-material/VisibilityOff";
+import CloseIcon from "@mui/icons-material/Close";
 import DeselectIcon from "@mui/icons-material/Deselect";
 import ExpandLessIcon from "@mui/icons-material/ExpandLess";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
@@ -16,6 +17,7 @@ export interface SelectedDeliverySummary {
 interface SelectedDeliveriesControlProps {
   deliveries: SelectedDeliverySummary[];
   onTogglePopup: (deliveryId: string) => void;
+  onRemoveSelected: (deliveryId: string) => void;
   onShowAll: () => void;
   onHideAll: () => void;
   onClearSelected: () => void;
@@ -24,6 +26,7 @@ interface SelectedDeliveriesControlProps {
 const SelectedDeliveriesControl = ({
   deliveries,
   onTogglePopup,
+  onRemoveSelected,
   onShowAll,
   onHideAll,
   onClearSelected,
@@ -141,13 +144,23 @@ const SelectedDeliveriesControl = ({
                   aria-label={`${delivery.popupVisible ? "Hide" : "Show"} popup for ${delivery.label}`}
                   aria-pressed={delivery.popupVisible}
                   onClick={() => onTogglePopup(delivery.id)}
-                  sx={{ p: 0.5, ml: 0.5, flex: "0 0 auto" }}
+                  sx={{ p: 0.5, ml: 0.25, flex: "0 0 auto" }}
                 >
                   {delivery.popupVisible ? (
                     <VisibilityIcon fontSize="small" />
                   ) : (
                     <VisibilityOffIcon fontSize="small" />
                   )}
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="Remove from selection">
+                <IconButton
+                  size="small"
+                  aria-label={`Remove ${delivery.label} from selection`}
+                  onClick={() => onRemoveSelected(delivery.id)}
+                  sx={{ p: 0.5, flex: "0 0 auto" }}
+                >
+                  <CloseIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
             </Box>

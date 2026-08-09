@@ -3261,6 +3261,7 @@ const DeliverySpreadsheet: React.FC = () => {
           <SelectedDeliveriesControl
             deliveries={selectedDeliveriesForControls}
             onTogglePopup={handleToggleSelectedPopup}
+            onRemoveSelected={clearRowHighlight}
             onShowAll={handleShowAllSelectedPopups}
             onHideAll={handleHideAllSelectedPopups}
             onClearSelected={handleClearSelectedDeliveries}

@@ -5,6 +5,7 @@ import SelectedDeliveriesControl from "./SelectedDeliveriesControl";
 describe("SelectedDeliveriesControl", () => {
   it("shows selected deliveries and exposes independent popup controls", () => {
     const onTogglePopup = jest.fn();
+    const onRemoveSelected = jest.fn();
     const onShowAll = jest.fn();
     const onHideAll = jest.fn();
     const onClearSelected = jest.fn();
@@ -21,6 +22,7 @@ describe("SelectedDeliveriesControl", () => {
           { id: "delivery-b", label: "Blair Brown", popupVisible: false },
         ]}
         onTogglePopup={onTogglePopup}
+        onRemoveSelected={onRemoveSelected}
         onShowAll={onShowAll}
         onHideAll={onHideAll}
         onClearSelected={onClearSelected}
@@ -34,11 +36,13 @@ describe("SelectedDeliveriesControl", () => {
     expect(coloredRowStyle.backgroundColor).toBe("rgba(255, 0, 0, 0.122)");
     fireEvent.click(screen.getByRole("button", { name: "Hide popup for Alex Adams" }));
     fireEvent.click(screen.getByRole("button", { name: "Show popup for Blair Brown" }));
+    fireEvent.click(screen.getByRole("button", { name: "Remove Alex Adams from selection" }));
     fireEvent.click(screen.getByRole("button", { name: "Show all" }));
     fireEvent.click(screen.getByRole("button", { name: "Clear selected" }));
 
     expect(onTogglePopup).toHaveBeenNthCalledWith(1, "delivery-a");
     expect(onTogglePopup).toHaveBeenNthCalledWith(2, "delivery-b");
+    expect(onRemoveSelected).toHaveBeenCalledWith("delivery-a");
     expect(onShowAll).toHaveBeenCalledTimes(1);
     expect(onHideAll).not.toHaveBeenCalled();
     expect(onClearSelected).toHaveBeenCalledTimes(1);
@@ -55,6 +59,7 @@ describe("SelectedDeliveriesControl", () => {
           { id: "delivery-b", label: "Blair Brown", popupVisible: true },
         ]}
         onTogglePopup={jest.fn()}
+        onRemoveSelected={jest.fn()}
         onShowAll={onShowAll}
         onHideAll={onHideAll}
         onClearSelected={jest.fn()}
@@ -72,6 +77,7 @@ describe("SelectedDeliveriesControl", () => {
       <SelectedDeliveriesControl
         deliveries={[{ id: "delivery-a", label: "Alex Adams", popupVisible: true }]}
         onTogglePopup={jest.fn()}
+        onRemoveSelected={jest.fn()}
         onShowAll={jest.fn()}
         onHideAll={jest.fn()}
         onClearSelected={jest.fn()}
@@ -96,6 +102,7 @@ describe("SelectedDeliveriesControl", () => {
       <SelectedDeliveriesControl
         deliveries={[]}
         onTogglePopup={jest.fn()}
+        onRemoveSelected={jest.fn()}
         onShowAll={jest.fn()}
         onHideAll={jest.fn()}
         onClearSelected={jest.fn()}
