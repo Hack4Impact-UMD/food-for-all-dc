@@ -31,7 +31,7 @@ describe("SelectedDeliveriesControl", () => {
     const coloredRow = screen.getByTestId("selected-delivery-delivery-a");
     const coloredRowStyle = getComputedStyle(coloredRow);
     expect(coloredRowStyle.borderLeft).toBe("6px solid #ff0000");
-    expect(coloredRowStyle.backgroundColor).toBe("rgba(255, 0, 0, 0.12)");
+    expect(coloredRowStyle.backgroundColor).toBe("rgba(255, 0, 0, 0.122)");
     fireEvent.click(screen.getByRole("button", { name: "Hide popup for Alex Adams" }));
     fireEvent.click(screen.getByRole("button", { name: "Show popup for Blair Brown" }));
     fireEvent.click(screen.getByRole("button", { name: "Show all" }));
