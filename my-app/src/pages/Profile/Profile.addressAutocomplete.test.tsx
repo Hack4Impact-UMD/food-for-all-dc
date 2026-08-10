@@ -403,7 +403,7 @@ describe("Profile address autocomplete lifecycle", () => {
         return { ok: true, json: async () => ({ miscellaneousFields: [] }) } as Response;
       }
       if (url.includes("geocode-addresses-endpoint")) {
-        return { ok: true, json: async () => ({ coordinates: [[0, 0]] }) } as Response;
+        return { ok: true, json: async () => ({ coordinates: [[0, -77.02]] }) } as Response;
       }
       return { ok: true, json: async () => ({ features: [] }) } as Response;
     });

@@ -1375,7 +1375,8 @@ const Profile = () => {
         const hasValidCoordinates =
           Array.isArray(fetchedCoordinates) &&
           fetchedCoordinates.length === 2 &&
-          (fetchedCoordinates[0] !== 0 || fetchedCoordinates[1] !== 0);
+          fetchedCoordinates[0] !== 0 &&
+          fetchedCoordinates[1] !== 0;
         const hasResolvedWard = /^Ward\s+\d+$/i.test(geoWard.trim());
         if (!hasValidCoordinates || !hasResolvedWard) {
           throw new Error(

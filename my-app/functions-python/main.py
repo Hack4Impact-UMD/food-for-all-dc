@@ -23,11 +23,11 @@ except ValueError:
 # --- Define CORS options needed for deleteUserAccount ---
 _delete_user_cors = options.CorsOptions(
     cors_origins=[
-        r"http://localhost:\d+", # Local development
-        r"http://127\.0\.0\.1:\d+", # Local development by IP
-        r"https://app.foodforalldc.org", # Production custom domain
-        r"https://food-for-all-dc-caf23.web.app", # Firebase Hosting URL 1
-        r"https://food-for-all-dc-caf23.firebaseapp.com", # Firebase Hosting URL 2
+        r"^http://localhost:\d+$", # Local development
+        r"^http://127\.0\.0\.1:\d+$", # Local development by IP
+        r"^https://app\.foodforalldc\.org$", # Production custom domain
+        r"^https://food-for-all-dc-caf23\.web\.app$", # Firebase Hosting URL 1
+        r"^https://food-for-all-dc-caf23\.firebaseapp\.com$", # Firebase Hosting URL 2
     ],
     cors_methods=["post", "options"] # Allow POST and preflight OPTIONS requests
 )
