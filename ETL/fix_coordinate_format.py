@@ -113,7 +113,12 @@ def fix_coordinates_in_collection(db, collection_name):
         if not (isinstance(coordinates, list) and len(coordinates) == 2):
             try:
                 collection_ref.document(doc_id).update({
-                    "coordinates": normalized
+                    "coordinates": normalized,
+                    "updatedAt": firestore.SERVER_TIMESTAMP,
+                    "updatedBy": {
+                        "uid": "ETL",
+                        "name": "ETL",
+                    },
                 })
                 fixed_count += 1
             except Exception as exc:

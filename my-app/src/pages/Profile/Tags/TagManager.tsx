@@ -21,16 +21,7 @@ import AddCircleIcon from "@mui/icons-material/AddCircle";
 import WarningAmberRoundedIcon from "@mui/icons-material/WarningAmberRounded";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import CloseIcon from "@mui/icons-material/Close";
-import {
-  doc,
-  setDoc,
-  getDoc,
-  collection,
-  query,
-  where,
-  getDocs,
-  writeBatch,
-} from "firebase/firestore";
+import { doc, setDoc, getDoc } from "firebase/firestore";
 import dataSources from "../../../config/dataSources";
 import { db } from "../../../auth/firebaseConfig";
 import { useTagColorPalette, useTagColors } from "../../../context/TagColorContext";
@@ -43,7 +34,15 @@ import {
   updateTagColorPaletteSlot,
 } from "../../../utils/tagColors";
 import { useClientData } from "../../../context/ClientDataContext";
-import { saveTagEdit, TagRenameTooLargeError } from "./tagPersistence";
+import {
+  assignTagToClient,
+  deleteTagGlobally,
+  saveTagEdit,
+  TagDeleteTooLargeError,
+  TagRenameTooLargeError,
+} from "./tagPersistence";
+import { useAuth } from "../../../auth/AuthProvider";
+import { buildClientAuditWriteMetadata } from "../../../utils/clientAudit";
 
 // Define interfaces for tag animations
 interface TagWithAnimation {
@@ -57,7 +56,10 @@ interface TagWithAnimation {
 interface TagsProps {
   allTags: string[];
   values: string[];
-  handleTag: (tag: string) => void;
+  handleTag: (
+    tag: string,
+    options?: { persist?: boolean }
+  ) => boolean | void | Promise<boolean | void>;
   onTagRenamed?: (oldTag: string, newTag: string) => void;
   setInnerPopup: (isOpen: boolean) => void;
   deleteMode: boolean;
@@ -148,6 +150,14 @@ export default function TagManager({
   const tagColors = useTagColors();
   const savedColorPalette = useTagColorPalette();
   const { renameClientTag } = useClientData({ autoLoad: false });
+  const { user, name } = useAuth();
+
+  const getAuditMetadata = () => {
+    if (!user) {
+      throw new Error("You must be logged in to update client tags.");
+    }
+    return buildClientAuditWriteMetadata(user, name);
+  };
 
   // Animation states - similar to delivery animations
   const [tagsWithAnimation, setTagsWithAnimation] = useState<TagWithAnimation[]>([]);
@@ -193,7 +203,9 @@ export default function TagManager({
   const [editedPaletteIndex, setEditedPaletteIndex] = useState<number | null>(null);
   const [editError, setEditError] = useState("");
   const [addError, setAddError] = useState("");
+  const [deleteError, setDeleteError] = useState("");
   const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const [isDeletingTag, setIsDeletingTag] = useState(false);
 
   useEffect(() => {
     setColorPalette(savedColorPalette);
@@ -282,6 +294,7 @@ export default function TagManager({
         oldTag: editingTag,
         newTag: newTagName,
         newColor: editedTagColor,
+        auditMetadata: getAuditMetadata(),
       });
 
       setMasterTags(updatedMetadata.tags);
@@ -337,29 +350,50 @@ export default function TagManager({
       const requestedTag = selectedTag.trim();
       const existingTag = findExistingTag(masterTags, requestedTag);
       const newTagId = existingTag || requestedTag;
+      const updatedMetadata = existingTag
+        ? { tags: masterTags, tagColors }
+        : addTagMetadata(masterTags, tagColors, newTagId, selectedColor);
       setAddError("");
 
-      if (!existingTag) {
-        const updatedMetadata = addTagMetadata(masterTags, tagColors, newTagId, selectedColor);
-        try {
-          await setDoc(
-            doc(db, dataSources.firebase.tagsCollection, dataSources.firebase.tagsDocId),
-            {
-              ...updatedMetadata,
-              tagColorPalette: colorPalette,
-            },
-            { merge: true }
-          );
-          setMasterTags(updatedMetadata.tags);
-        } catch (error) {
-          console.error("Error updating tags in Firebase:", error);
-          setAddError("The tag could not be added. Please try again.");
-          return;
+      let didUpdateClient: boolean | void;
+      try {
+        if (clientUid && !existingTag) {
+          await assignTagToClient({
+            db,
+            clientUid,
+            clientTags: values,
+            tag: newTagId,
+            metadata: updatedMetadata,
+            tagColorPalette: colorPalette,
+            auditMetadata: getAuditMetadata(),
+          });
+          didUpdateClient = await handleTag(newTagId, { persist: false });
+        } else if (clientUid) {
+          didUpdateClient = await handleTag(newTagId);
+        } else {
+          if (!existingTag) {
+            await setDoc(
+              doc(db, dataSources.firebase.tagsCollection, dataSources.firebase.tagsDocId),
+              {
+                ...updatedMetadata,
+                tagColorPalette: colorPalette,
+              },
+              { merge: true }
+            );
+          }
+          didUpdateClient = await handleTag(newTagId);
         }
+        setMasterTags(updatedMetadata.tags);
+      } catch (error) {
+        console.error("Error adding tag in Firebase:", error);
+        setAddError("The tag could not be added. Please try again.");
+        return;
       }
 
-      // Only update the client after any required master metadata is safely persisted.
-      handleTag(newTagId);
+      if (didUpdateClient === false) {
+        setAddError("The tag could not be added. Please try again.");
+        return;
+      }
 
       setAddingTagId(newTagId);
       setTagsWithAnimation((prev) => [
@@ -389,6 +423,7 @@ export default function TagManager({
 
   // Removing tags from the master collection AND from all clients
   const handleRemoveTag = async (tagToRemove: string) => {
+    setDeleteError("");
     setTagToDeleteState(tagToRemove);
     setShowDeleteConfirm(true);
   };
@@ -396,30 +431,19 @@ export default function TagManager({
   const confirmRemoveTag = async () => {
     if (!tagToDelete) return;
     const deletedTagName = tagToDelete; // Store the tag name for success message
-    const newAllTags = masterTags.filter((tag: string) => tag !== tagToDelete);
-    const newTagColors = { ...tagColors };
-    delete newTagColors[tagToDelete];
+    setIsDeletingTag(true);
+    setDeleteError("");
     try {
-      await setDoc(
-        doc(db, dataSources.firebase.tagsCollection, dataSources.firebase.tagsDocId),
-        { tags: newAllTags, tagColors: newTagColors },
-        { merge: true }
-      );
-      setMasterTags(newAllTags);
-      const clientsRef = collection(db, dataSources.firebase.clientsCollection);
-      const q = query(clientsRef, where("tags", "array-contains", tagToDelete));
-      const querySnapshot = await getDocs(q);
-      const batch = writeBatch(db);
-      querySnapshot.forEach((docSnap) => {
-        const clientData = docSnap.data();
-        const currentTags: string[] = clientData.tags || [];
-        const updatedTags = currentTags.filter((tag) => tag !== tagToDelete);
-        const clientDocRef = doc(db, dataSources.firebase.clientsCollection, docSnap.id);
-        batch.update(clientDocRef, { tags: updatedTags });
+      const updatedMetadata = await deleteTagGlobally({
+        db,
+        tag: tagToDelete,
+        tags: masterTags,
+        tagColors,
+        auditMetadata: getAuditMetadata(),
       });
-      await batch.commit();
+      setMasterTags(updatedMetadata.tags);
       if (values.includes(tagToDelete)) {
-        handleTag(tagToDelete);
+        await handleTag(tagToDelete, { persist: false });
       }
 
       // Show success dialog after successful deletion
@@ -430,10 +454,13 @@ export default function TagManager({
       setSelectedTag(null);
     } catch (error) {
       console.error("Error removing tag from Firebase:", error);
-      setShowDeleteConfirm(false);
-      setTagToDeleteState(null);
-      setModalMode("add");
-      setSelectedTag(null);
+      setDeleteError(
+        error instanceof TagDeleteTooLargeError
+          ? `${error.message} Please contact an administrator.`
+          : "The tag could not be deleted. Please try again."
+      );
+    } finally {
+      setIsDeletingTag(false);
     }
   };
 
@@ -552,7 +579,11 @@ export default function TagManager({
             />
             <Box>
               <Typography component="label" variant="subtitle2" sx={{ fontWeight: 700 }}>
-                Tag color
+                Predefined colors
+              </Typography>
+              <Typography variant="caption" sx={{ display: "block", mt: 0.5 }}>
+                You can update multiple predefined colors before saving. Existing tags keep their
+                current colors; only this tag uses the selected color.
               </Typography>
               <Box sx={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 1, mt: 1 }}>
                 {colorPalette.map((color, index) => (
@@ -657,7 +688,11 @@ export default function TagManager({
               {renderTagSelector(availableTags, "Select tag or type new tag")}
               <Box>
                 <Typography component="label" variant="subtitle2" sx={{ fontWeight: 700 }}>
-                  Tag color
+                  Predefined colors
+                </Typography>
+                <Typography variant="caption" sx={{ display: "block", mt: 0.5 }}>
+                  You can update multiple predefined colors before adding the tag. Existing tags
+                  keep their current colors.
                 </Typography>
                 {Boolean(selectedExistingTag) && (
                   <Typography variant="caption" sx={{ display: "block", mt: 0.5 }}>
@@ -822,13 +857,15 @@ export default function TagManager({
             Deleting this tag will erase it from <b>ALL PROFILES</b>.<br />
             Are you sure you want to proceed?
           </Typography>
+          {deleteError && <Alert severity="error">{deleteError}</Alert>}
         </DialogContent>
         <DialogActions sx={{ justifyContent: "center", gap: 2, pb: 2 }}>
-          <DeleteButton onClick={confirmRemoveTag} variant="contained">
-            Delete Tag
+          <DeleteButton onClick={confirmRemoveTag} variant="contained" disabled={isDeletingTag}>
+            {isDeletingTag ? "Deleting..." : "Delete Tag"}
           </DeleteButton>
           <Button
             onClick={() => setShowDeleteConfirm(false)}
+            disabled={isDeletingTag}
             sx={{ borderRadius: 20, color: "var(--color-primary)", fontWeight: 600 }}
           >
             Cancel{" "}

@@ -46,7 +46,14 @@ def update_active_status():
             is_active = False
         print(f"{doc.id}: startDate={start_date_raw}, endDate={end_date_raw}, parsed_start={start_date}, parsed_end={end_date}, today={TODAY}, is_active={is_active}, current_activeStatus={data.get('activeStatus')}")
         if data.get('activeStatus') != is_active:
-            db.collection(COLLECTION_NAME).document(doc.id).update({'activeStatus': is_active})
+            db.collection(COLLECTION_NAME).document(doc.id).update({
+                'activeStatus': is_active,
+                'updatedAt': firestore.SERVER_TIMESTAMP,
+                'updatedBy': {
+                    'uid': 'ETL',
+                    'name': 'ETL',
+                },
+            })
             print(f"Updated {doc.id}: activeStatus set to {is_active}")
             updated_count += 1
     print(f"Total documents updated: {updated_count}")

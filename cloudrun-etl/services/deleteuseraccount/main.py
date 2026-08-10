@@ -23,9 +23,11 @@ except ValueError:
 # --- Define CORS options needed for deleteUserAccount ---
 _delete_user_cors = options.CorsOptions(
     cors_origins=[
-        r"http://localhost:3000", # Local development
-        r"https://food-for-all-dc-caf23.web.app", # Firebase Hosting URL 1
-        r"https://food-for-all-dc-caf23.firebaseapp.com", # Firebase Hosting URL 2
+        r"^http://localhost:\d+$", # Local development
+        r"^http://127\.0\.0\.1:\d+$", # Local development by IP
+        r"^https://app\.foodforalldc\.org$", # Production custom domain
+        r"^https://food-for-all-dc-caf23\.web\.app$", # Firebase Hosting URL 1
+        r"^https://food-for-all-dc-caf23\.firebaseapp\.com$", # Firebase Hosting URL 2
     ],
     cors_methods=["post", "options"] # Allow POST and preflight OPTIONS requests
 )
@@ -214,10 +216,24 @@ def run_update(tz_name: str = "America/New_York") -> dict:
                 deliveries = doc_data.get("deliveries") or []
                 if current_date not in deliveries:
                     deliveries.append(current_date)
-                    doc_ref.update({"deliveries": deliveries})
+                    doc_ref.update({
+                        "deliveries": deliveries,
+                        "updatedAt": firestore.SERVER_TIMESTAMP,
+                        "updatedBy": {
+                            "uid": "ETL",
+                            "name": "ETL",
+                        },
+                    })
                     updated_clients.append(client_id)
             else:
-                doc_ref.set({"deliveries": [current_date]})
+                doc_ref.set({
+                    "deliveries": [current_date],
+                    "updatedAt": firestore.SERVER_TIMESTAMP,
+                    "updatedBy": {
+                        "uid": "ETL",
+                        "name": "ETL",
+                    },
+                })
                 updated_clients.append(client_id)
 
         except Exception as client_error:

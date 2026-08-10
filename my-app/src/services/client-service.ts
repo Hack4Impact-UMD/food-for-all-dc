@@ -1,8 +1,7 @@
-import { db } from "../auth/firebaseConfig";
+import { auth, db } from "../auth/firebaseConfig";
 import { ClientProfile } from "../types";
 import type { RowData } from "../components/Spreadsheet/export";
 import { LatLngTuple } from "leaflet";
-import { Time, TimeUtils } from "../utils/timeUtils";
 import { retry } from "../utils/retry";
 import { ServiceError, formatServiceError } from "../utils/serviceError";
 import { computeClientActiveStatus } from "../utils/clientStatus";
@@ -29,6 +28,16 @@ import {
 } from "firebase/firestore";
 import { validateClientProfile } from "../utils/firestoreValidation";
 import dataSources from "../config/dataSources";
+import { buildClientAuditWriteMetadata } from "../utils/clientAudit";
+
+const getCurrentUserClientAuditMetadata = () => {
+  const user = auth.currentUser;
+  if (!user) {
+    throw new ServiceError("You must be logged in to update a client.", "unauthenticated");
+  }
+
+  return buildClientAuditWriteMetadata(user);
+};
 
 const normalizeFirestoreDateValue = (value: unknown): unknown =>
   value && typeof value === "object" ? toDateOrNull(value) : value;
@@ -481,7 +490,7 @@ class ClientService {
       await retry(async () => {
         await updateDoc(doc(this.db, this.clientsCollection, uid), {
           ...data,
-          updatedAt: Time.Firebase.toTimestamp(TimeUtils.now()),
+          ...getCurrentUserClientAuditMetadata(),
         });
       });
     } catch (error) {
@@ -549,7 +558,7 @@ class ClientService {
       await retry(async () => {
         await setDoc(
           doc(this.db, this.clientsCollection, uid),
-          { clusterID: clusterId },
+          { clusterID: clusterId, ...getCurrentUserClientAuditMetadata() },
           { merge: true }
         );
       });
@@ -573,7 +582,7 @@ class ClientService {
       await retry(async () => {
         await updateDoc(clientRef, {
           coordinates: coordinates,
-          updatedAt: Time.Firebase.toTimestamp(TimeUtils.now()),
+          ...getCurrentUserClientAuditMetadata(),
         });
       });
     } catch (error) {
@@ -601,11 +610,12 @@ class ClientService {
 
       await retry(async () => {
         const batch = writeBatch(this.db);
+        const auditMetadata = getCurrentUserClientAuditMetadata();
 
         validUpdates.forEach(({ clientId, coordinates }) => {
           batch.update(doc(this.db, this.clientsCollection, clientId), {
             coordinates,
-            updatedAt: Time.Firebase.toTimestamp(TimeUtils.now()),
+            ...auditMetadata,
           });
         });
 

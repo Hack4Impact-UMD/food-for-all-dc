@@ -49,6 +49,16 @@ CLIENTS_COLLECTION = "temp-profile2"
 TEMP_REFERRAL_COLLECTION = "temp-referral"
 
 
+def _client_audit_fields():
+    return {
+        "updatedAt": firestore.SERVER_TIMESTAMP,
+        "updatedBy": {
+            "uid": "ETL",
+            "name": "ETL",
+        },
+    }
+
+
 # Per-step error log configuration for this ETL phase.
 _etl_root = os.path.join("ETL")
 _error_log_dir = os.path.join(_etl_root, "error_logs")
@@ -146,7 +156,8 @@ def _run() -> None:
                             "id": "",
                             "name": "",
                             "organization": "None",
-                        }
+                        },
+                        **_client_audit_fields(),
                     }
                 )
                 updated_clients += 1

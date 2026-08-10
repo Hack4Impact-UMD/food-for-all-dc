@@ -44,6 +44,16 @@ REFERRAL_COLLECTION = "referral"
 TEMP_REFERRAL_COLLECTION = "temp-new-referral"
 
 
+def _client_audit_fields():
+    return {
+        "updatedAt": firestore.SERVER_TIMESTAMP,
+        "updatedBy": {
+            "uid": "ETL",
+            "name": "ETL",
+        },
+    }
+
+
 def _init_firestore() -> firestore.Client:
     """Initialize Firebase Admin SDK and return a Firestore client."""
 
@@ -157,7 +167,8 @@ def main() -> None:
                             "id": none_id,
                             "name": none_payload["name"],
                             "organization": none_payload["organization"],
-                        }
+                        },
+                        **_client_audit_fields(),
                     }
                 )
                 updated_clients_by_id += 1
@@ -181,6 +192,7 @@ def main() -> None:
                         "name": none_payload["name"],
                         "organization": none_payload["organization"],
                     },
+                    **_client_audit_fields(),
                 }
             )
             updated_missing_referral += 1
@@ -201,7 +213,8 @@ def main() -> None:
                     "id": none_id,
                     "name": none_payload["name"],
                     "organization": none_payload["organization"],
-                }
+                },
+                **_client_audit_fields(),
             }
         )
         updated_internet_clients += 1
@@ -239,7 +252,8 @@ def main() -> None:
                     "id": none_id,
                     "name": none_payload["name"],
                     "organization": none_payload["organization"],
-                }
+                },
+                **_client_audit_fields(),
             }
         )
         updated_no_contact_clients += 1

@@ -87,6 +87,7 @@ jest.mock("firebase/firestore", () => ({
   limit: (...args: unknown[]) => ({ kind: "limit", args }),
   orderBy: (...args: unknown[]) => ({ kind: "orderBy", args }),
   query: (...args: unknown[]) => ({ kind: "query", args }),
+  serverTimestamp: () => ({ _methodName: "serverTimestamp" }),
   setDoc: (...args: unknown[]) => mockSetDoc(...args),
   updateDoc: async () => undefined,
   where: (...args: unknown[]) => ({ kind: "where", args }),
@@ -107,7 +108,12 @@ jest.mock("../../config/apiKeys", () => ({
 }));
 
 jest.mock("../../auth/AuthProvider", () => ({
-  useAuth: () => ({ user: { uid: "staff-user" }, loading: false, userRole: "Admin" }),
+  useAuth: () => ({
+    user: { uid: "staff-user", email: "staff@example.com" },
+    name: "Staff Member",
+    loading: false,
+    userRole: "Admin",
+  }),
 }));
 
 jest.mock("../../context/ClientDataContext", () => ({
@@ -274,6 +280,18 @@ describe("Profile address autocomplete lifecycle", () => {
 
     fireEvent.click(screen.getAllByRole("button", { name: "save" })[0]);
     await waitFor(() => expect(mockSetDoc).toHaveBeenCalled());
+    expect(mockSetDoc).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        updatedAt: { _methodName: "serverTimestamp" },
+        updatedBy: {
+          uid: "staff-user",
+          name: "Staff Member",
+          email: "staff@example.com",
+        },
+      }),
+      { merge: true }
+    );
     await waitFor(() => expect(screen.queryByRole("textbox", { name: "address" })).toBeNull());
     expect(mockClearInstanceListeners).toHaveBeenCalledWith(autocompleteInstances[0]);
 
@@ -371,6 +389,45 @@ describe("Profile address autocomplete lifecycle", () => {
 
     await waitFor(() => {
       expect(alertSpy).toHaveBeenCalledWith(expect.stringContaining("invalid format"));
+    });
+    expect(mockSetDoc).not.toHaveBeenCalled();
+
+    alertSpy.mockRestore();
+  });
+
+  it("does not erase location data when geocoding fails during save", async () => {
+    const alertSpy = jest.spyOn(window, "alert").mockImplementation(() => undefined);
+    jest.mocked(global.fetch).mockImplementation(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes("profile-fields.json")) {
+        return { ok: true, json: async () => ({ miscellaneousFields: [] }) } as Response;
+      }
+      if (url.includes("geocode-addresses-endpoint")) {
+        return { ok: true, json: async () => ({ coordinates: [[0, -77.02]] }) } as Response;
+      }
+      return { ok: true, json: async () => ({ features: [] }) } as Response;
+    });
+
+    render(
+      <MemoryRouter
+        initialEntries={["/profile/client-1"]}
+        future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+      >
+        <Routes>
+          <Route path="/profile/:clientId" element={<Profile />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await screen.findByText("100 Main Street NW");
+    fireEvent.click(screen.getAllByTestId("EditIcon")[0].closest("button")!);
+    fireEvent.change(await screen.findByRole("textbox", { name: "address" }), {
+      target: { name: "address", value: "200 Valid Street" },
+    });
+    fireEvent.click(screen.getAllByRole("button", { name: "save" })[0]);
+
+    await waitFor(() => {
+      expect(alertSpy).toHaveBeenCalledWith(expect.stringContaining("profile was not saved"));
     });
     expect(mockSetDoc).not.toHaveBeenCalled();
 
