@@ -62,7 +62,7 @@ describe("TagManager", () => {
     mockBatchCommit.mockResolvedValue(undefined as never);
   });
 
-  it("uses the saved spelling and skips metadata writes for an existing tag", async () => {
+  it("uses the saved spelling and persists palette edits for an existing tag", async () => {
     const handleTag = jest.fn((_tag: string, _options?: { persist?: boolean }) => undefined);
 
     render(
@@ -82,11 +82,38 @@ describe("TagManager", () => {
       target: { value: "delivery" },
     });
     fireEvent.keyDown(screen.getByLabelText("Select tag or type new tag"), { key: "Enter" });
+    fireEvent.click(screen.getByRole("button", { name: "Select palette color 2" }));
+    fireEvent.change(screen.getByLabelText("Custom tag color"), {
+      target: { value: "#222222" },
+    });
+    expect(screen.getByText("delivery").getAttribute("class")).toContain("MuiChip-label");
+    expect(
+      getComputedStyle(screen.getByText("delivery").closest(".MuiChip-root") as HTMLElement)
+        .backgroundColor
+    ).toBe("rgb(34, 34, 34)");
     fireEvent.click(screen.getByRole("button", { name: "Add Tag" }));
 
-    await waitFor(() => expect(handleTag).toHaveBeenCalledWith("Delivery"));
+    await waitFor(() => expect(handleTag).toHaveBeenCalledWith("Delivery", { persist: false }));
     expect(mockSetDoc).not.toHaveBeenCalled();
-    expect(mockBatchCommit).not.toHaveBeenCalled();
+    expect(mockBatchSet).toHaveBeenLastCalledWith(
+      { id: "tags-document" },
+      {
+        tags: ["Delivery"],
+        tagColors: { Delivery: "#257e68" },
+        tagColorPalette: [
+          "#257e68",
+          "#222222",
+          "#7b1fa2",
+          "#c2185b",
+          "#d84315",
+          "#f9a825",
+          "#546e7a",
+          "#5d4037",
+        ],
+      },
+      { merge: true }
+    );
+    expect(mockBatchCommit).toHaveBeenCalledTimes(1);
   });
 
   it("saves every predefined color change when adding a new tag", async () => {

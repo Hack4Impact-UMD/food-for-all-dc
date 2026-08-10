@@ -357,7 +357,7 @@ export default function TagManager({
 
       let didUpdateClient: boolean | void;
       try {
-        if (clientUid && !existingTag) {
+        if (clientUid) {
           await assignTagToClient({
             db,
             clientUid,
@@ -368,19 +368,15 @@ export default function TagManager({
             auditMetadata: getAuditMetadata(),
           });
           didUpdateClient = await handleTag(newTagId, { persist: false });
-        } else if (clientUid) {
-          didUpdateClient = await handleTag(newTagId);
         } else {
-          if (!existingTag) {
-            await setDoc(
-              doc(db, dataSources.firebase.tagsCollection, dataSources.firebase.tagsDocId),
-              {
-                ...updatedMetadata,
-                tagColorPalette: colorPalette,
-              },
-              { merge: true }
-            );
-          }
+          await setDoc(
+            doc(db, dataSources.firebase.tagsCollection, dataSources.firebase.tagsDocId),
+            {
+              ...updatedMetadata,
+              tagColorPalette: colorPalette,
+            },
+            { merge: true }
+          );
           didUpdateClient = await handleTag(newTagId);
         }
         setMasterTags(updatedMetadata.tags);
@@ -709,7 +705,6 @@ export default function TagManager({
                       key={index}
                       aria-label={`Select palette color ${index + 1}`}
                       aria-pressed={selectedPaletteIndex === index}
-                      disabled={Boolean(selectedExistingTag)}
                       onClick={() => {
                         setSelectedPaletteIndex(index);
                         setSelectedColor(color);
@@ -734,7 +729,6 @@ export default function TagManager({
                     type="color"
                     aria-label="Custom tag color"
                     value={selectedColor}
-                    disabled={Boolean(selectedExistingTag)}
                     onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
                       const color = event.target.value;
                       setSelectedColor(color);
