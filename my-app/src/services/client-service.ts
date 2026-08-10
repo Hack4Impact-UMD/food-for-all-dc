@@ -7,6 +7,7 @@ import { retry } from "../utils/retry";
 import { ServiceError, formatServiceError } from "../utils/serviceError";
 import { computeClientActiveStatus } from "../utils/clientStatus";
 import { deliveryDate } from "../utils/deliveryDate";
+import { toDateOrNull } from "../utils/dates";
 import {
   batchGetClientDeliverySummaries,
   type ClientDeliverySummary,
@@ -29,25 +30,8 @@ import {
 import { validateClientProfile } from "../utils/firestoreValidation";
 import dataSources from "../config/dataSources";
 
-const normalizeFirestoreDateValue = (value: unknown): unknown => {
-  if (value && typeof value === "object" && "toDate" in value) {
-    const maybeToDate = (value as { toDate?: unknown }).toDate;
-    if (typeof maybeToDate === "function") {
-      return (maybeToDate as () => Date)();
-    }
-  }
-
-  if (
-    value &&
-    typeof value === "object" &&
-    "seconds" in value &&
-    typeof (value as { seconds?: unknown }).seconds === "number"
-  ) {
-    return new Date((value as { seconds: number }).seconds * 1000);
-  }
-
-  return value;
-};
+const normalizeFirestoreDateValue = (value: unknown): unknown =>
+  value && typeof value === "object" ? toDateOrNull(value) : value;
 
 const normalizeDateStringField = (value: unknown): string => {
   const normalizedValue = normalizeFirestoreDateValue(value);
