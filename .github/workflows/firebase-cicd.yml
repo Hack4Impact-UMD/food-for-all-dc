@@ -72,6 +72,9 @@ jobs:
       - name: Compile Python functions
         run: python -m py_compile functions-python/main.py functions-python/clustering.py
 
+      - name: Run Python unit tests
+        run: python -m unittest discover -s functions-python -p 'test_*.py'
+
       - name: Build frontend
         run: CI=false npm run build
 
