@@ -53,6 +53,8 @@ const fieldStyles = {
   marginTop: "0px",
 };
 
+const TEXTAREA_DISPLAY_MAX_HEIGHT = "120px";
+
 const CustomTextField = styled(TextField)({
   "& .MuiOutlinedInput-root": {
     "& fieldset": {
@@ -812,6 +814,8 @@ const FormField = (props: FormFieldProps) => {
     }
   }
 
+  const isMultilineDisplay = type === "textarea";
+
   return (
     <Typography
       variant="body1"
@@ -829,6 +833,12 @@ const FormField = (props: FormFieldProps) => {
         width: "100% !important",
         display: "block !important",
         overflow: "hidden !important",
+        ...(isMultilineDisplay && {
+          maxHeight: TEXTAREA_DISPLAY_MAX_HEIGHT,
+          overflowY: "auto !important",
+          // Keep text clear of the scrollbar once the content overflows.
+          paddingRight: "8px",
+        }),
       }}
     >
       {renderFieldValue(fieldPath, value)}
