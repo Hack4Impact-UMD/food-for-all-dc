@@ -1,3 +1,5 @@
+import { serverTimestamp, type FieldValue } from "firebase/firestore";
+
 export interface ClientAuditUser {
   uid: string;
   email?: string | null;
@@ -12,6 +14,11 @@ export interface ClientUpdatedBy {
 
 export interface ClientAuditMetadata {
   updatedAt: Date;
+  updatedBy: ClientUpdatedBy;
+}
+
+export interface ClientAuditWriteMetadata {
+  updatedAt: FieldValue;
   updatedBy: ClientUpdatedBy;
 }
 
@@ -32,6 +39,14 @@ export const buildClientAuditMetadata = (
     },
   };
 };
+
+export const buildClientAuditWriteMetadata = (
+  user: ClientAuditUser,
+  accountName?: string | null
+): ClientAuditWriteMetadata => ({
+  ...buildClientAuditMetadata(user, accountName),
+  updatedAt: serverTimestamp(),
+});
 
 export const buildSystemClientAuditMetadata = (
   systemName: string,

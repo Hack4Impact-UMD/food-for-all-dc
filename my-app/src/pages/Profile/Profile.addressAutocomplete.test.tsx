@@ -87,6 +87,7 @@ jest.mock("firebase/firestore", () => ({
   limit: (...args: unknown[]) => ({ kind: "limit", args }),
   orderBy: (...args: unknown[]) => ({ kind: "orderBy", args }),
   query: (...args: unknown[]) => ({ kind: "query", args }),
+  serverTimestamp: () => ({ _methodName: "serverTimestamp" }),
   setDoc: (...args: unknown[]) => mockSetDoc(...args),
   updateDoc: async () => undefined,
   where: (...args: unknown[]) => ({ kind: "where", args }),
@@ -282,7 +283,7 @@ describe("Profile address autocomplete lifecycle", () => {
     expect(mockSetDoc).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({
-        updatedAt: expect.any(Date),
+        updatedAt: { _methodName: "serverTimestamp" },
         updatedBy: {
           uid: "staff-user",
           name: "Staff Member",

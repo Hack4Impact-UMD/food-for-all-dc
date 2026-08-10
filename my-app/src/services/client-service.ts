@@ -27,7 +27,7 @@ import {
 } from "firebase/firestore";
 import { validateClientProfile } from "../utils/firestoreValidation";
 import dataSources from "../config/dataSources";
-import { buildClientAuditMetadata } from "../utils/clientAudit";
+import { buildClientAuditWriteMetadata } from "../utils/clientAudit";
 
 const getCurrentUserClientAuditMetadata = () => {
   const user = auth.currentUser;
@@ -35,7 +35,7 @@ const getCurrentUserClientAuditMetadata = () => {
     throw new ServiceError("You must be logged in to update a client.", "unauthenticated");
   }
 
-  return buildClientAuditMetadata(user);
+  return buildClientAuditWriteMetadata(user);
 };
 
 const normalizeFirestoreDateValue = (value: unknown): unknown => {

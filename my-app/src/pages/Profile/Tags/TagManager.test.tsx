@@ -3,6 +3,9 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import TagManager from "./TagManager";
 
 const mockSetDoc = jest.fn();
+const mockBatchSet = jest.fn();
+const mockBatchUpdate = jest.fn();
+const mockBatchCommit = jest.fn();
 const mockTagColors = { Delivery: "#257e68" };
 const mockTagColorPalette = [
   "#257e68",
@@ -21,12 +24,24 @@ jest.mock("firebase/firestore", () => ({
   getDoc: () => undefined,
   getDocs: () => undefined,
   query: () => undefined,
+  serverTimestamp: () => ({ _methodName: "serverTimestamp" }),
   setDoc: (...args: unknown[]) => mockSetDoc(...args),
   where: () => undefined,
-  writeBatch: () => undefined,
+  writeBatch: () => ({
+    set: (...args: unknown[]) => mockBatchSet(...args),
+    update: (...args: unknown[]) => mockBatchUpdate(...args),
+    commit: (...args: unknown[]) => mockBatchCommit(...args),
+  }),
 }));
 
 jest.mock("../../../auth/firebaseConfig", () => ({ db: {} }));
+
+jest.mock("../../../auth/AuthProvider", () => ({
+  useAuth: () => ({
+    user: { uid: "staff-1", email: "staff@example.com", displayName: "Staff Member" },
+    name: "Staff Member",
+  }),
+}));
 
 jest.mock("../../../context/TagColorContext", () => ({
   useTagColors: () => mockTagColors,
@@ -41,10 +56,14 @@ describe("TagManager", () => {
   beforeEach(() => {
     mockSetDoc.mockReset();
     mockSetDoc.mockResolvedValue(undefined as never);
+    mockBatchSet.mockReset();
+    mockBatchUpdate.mockReset();
+    mockBatchCommit.mockReset();
+    mockBatchCommit.mockResolvedValue(undefined as never);
   });
 
   it("uses the saved spelling and skips metadata writes for an existing tag", async () => {
-    const handleTag = jest.fn();
+    const handleTag = jest.fn((_tag: string, _options?: { persist?: boolean }) => undefined);
 
     render(
       <TagManager
@@ -67,10 +86,11 @@ describe("TagManager", () => {
 
     await waitFor(() => expect(handleTag).toHaveBeenCalledWith("Delivery"));
     expect(mockSetDoc).not.toHaveBeenCalled();
+    expect(mockBatchCommit).not.toHaveBeenCalled();
   });
 
   it("saves every predefined color change when adding a new tag", async () => {
-    const handleTag = jest.fn();
+    const handleTag = jest.fn((_tag: string, _options?: { persist?: boolean }) => undefined);
 
     render(
       <TagManager
@@ -98,8 +118,8 @@ describe("TagManager", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Add Tag" }));
 
-    await waitFor(() => expect(handleTag).toHaveBeenCalledWith("Urgent"));
-    expect(mockSetDoc).toHaveBeenCalledWith(
+    await waitFor(() => expect(handleTag).toHaveBeenCalledWith("Urgent", { persist: false }));
+    expect(mockBatchSet).toHaveBeenLastCalledWith(
       { id: "tags-document" },
       {
         tags: ["Delivery", "Urgent"],
@@ -120,8 +140,8 @@ describe("TagManager", () => {
   });
 
   it("does not update the client when new master metadata fails to save", async () => {
-    const handleTag = jest.fn();
-    mockSetDoc.mockRejectedValue(new Error("permission denied") as never);
+    const handleTag = jest.fn((_tag: string, _options?: { persist?: boolean }) => undefined);
+    mockBatchCommit.mockRejectedValue(new Error("permission denied") as never);
 
     render(
       <TagManager
@@ -143,7 +163,7 @@ describe("TagManager", () => {
     fireEvent.click(screen.getByRole("button", { name: "Add Tag" }));
 
     expect(await screen.findByText("The tag could not be added. Please try again.")).toBeTruthy();
-    expect(mockSetDoc).toHaveBeenCalledTimes(1);
+    expect(mockBatchCommit).toHaveBeenCalledTimes(1);
     expect(handleTag).not.toHaveBeenCalled();
     expect(screen.getByRole("dialog")).toBeTruthy();
   });

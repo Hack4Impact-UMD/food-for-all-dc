@@ -38,7 +38,7 @@ import {
   DeliveryChangeReason,
   deliveryEventEmitter,
 } from "../utils/deliveryEventEmitter";
-import { buildClientAuditMetadata } from "../utils/clientAudit";
+import { buildClientAuditWriteMetadata } from "../utils/clientAudit";
 
 export interface ClusterReconciliationResult {
   impactedDateKeys: string[];
@@ -517,7 +517,7 @@ class DeliveryService {
           }
 
           const batch = writeBatch(this.db);
-          const auditMetadata = buildClientAuditMetadata(user);
+          const auditMetadata = buildClientAuditWriteMetadata(user);
 
           clientChunk.forEach((clientId) => {
             batch.set(

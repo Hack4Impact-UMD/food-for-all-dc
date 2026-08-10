@@ -76,7 +76,10 @@ import { deliveryDate } from "../../utils/deliveryDate";
 import { computeClientActiveStatus } from "../../utils/clientStatus";
 import { toJSDate } from "../../utils/timestamp";
 import { buildGeocodingAddress, shouldGeocodeClientLocation } from "../../utils/addressFormat";
-import { buildClientAuditMetadata } from "../../utils/clientAudit";
+import {
+  buildClientAuditMetadata,
+  buildClientAuditWriteMetadata,
+} from "../../utils/clientAudit";
 import { removeTagMetadataIfUnused } from "./Tags/tagPersistence";
 
 const ADDRESS_DIRECTION_ABBREVIATIONS: Record<string, string> = {
@@ -1578,7 +1581,10 @@ const Profile = () => {
         };
         // Save profile + tags in parallel to reduce perceived save latency.
         await Promise.all([
-          setDoc(doc(db, dataSources.firebase.clientsCollection, newUid), newProfile),
+          setDoc(doc(db, dataSources.firebase.clientsCollection, newUid), {
+            ...newProfile,
+            ...buildClientAuditWriteMetadata(user, name),
+          }),
           setDoc(
             doc(db, dataSources.firebase.tagsCollection, dataSources.firebase.tagsDocId),
             { tags: sortedAllTags },
@@ -1615,9 +1621,14 @@ const Profile = () => {
         let cleanupErrorMessage: string | null = null;
         // Save profile + tags in parallel to reduce perceived save latency.
         await Promise.all([
-          setDoc(doc(db, dataSources.firebase.clientsCollection, clientProfile.uid), updatedProfile, {
-            merge: true,
-          }),
+          setDoc(
+            doc(db, dataSources.firebase.clientsCollection, clientProfile.uid),
+            {
+              ...updatedProfile,
+              ...buildClientAuditWriteMetadata(user, name),
+            },
+            { merge: true }
+          ),
           setDoc(
             doc(db, dataSources.firebase.tagsCollection, dataSources.firebase.tagsDocId),
             { tags: sortedAllTags },
@@ -2397,7 +2408,7 @@ const Profile = () => {
     );
   };
 
-  const handleTag = async (text: any) => {
+  const handleTag = async (text: string, options: { persist?: boolean } = {}): Promise<boolean> => {
     if (!prevTags) {
       setPrevTags(deepCopy(tags));
     }
@@ -2409,18 +2420,18 @@ const Profile = () => {
     } else if (text.trim() !== "") {
       updatedTags = [...tags, text.trim()];
     } else {
-      return; // No change needed
+      return true; // No change needed
     }
 
     // Update local state immediately
     setTags(updatedTags);
 
     // Update Firebase immediately if we have a client UID
-    if (clientProfile.uid) {
+    if (clientProfile.uid && options.persist !== false) {
       try {
         await setDoc(
           doc(db, dataSources.firebase.clientsCollection, clientProfile.uid),
-          { tags: updatedTags, ...buildClientAuditMetadata(user!, name) },
+          { tags: updatedTags, ...buildClientAuditWriteMetadata(user!, name) },
           { merge: true }
         );
 
@@ -2430,6 +2441,13 @@ const Profile = () => {
           tags: updatedTags,
         }));
         updateClient(clientProfile.uid, { tags: updatedTags });
+        if (!isRemoving) {
+          setAllTags((currentTags) =>
+            Array.from(new Set([...currentTags, text])).sort((left, right) =>
+              left.localeCompare(right)
+            )
+          );
+        }
 
         if (isRemoving) {
           try {
@@ -2441,6 +2459,7 @@ const Profile = () => {
             console.error("Error removing unused tag metadata:", error);
           }
         }
+        return true;
       } catch (error) {
         console.error("Error updating client tags in Firebase:", error);
         console.error("Client UID:", clientProfile.uid);
@@ -2450,9 +2469,26 @@ const Profile = () => {
         alert(
           `Failed to update tags in Firebase: ${error instanceof Error ? error.message : "Unknown error"}`
         );
+        return false;
       }
     } else {
-      console.warn("No client UID available, cannot update tags in Firebase");
+      if (!clientProfile.uid && options.persist !== false) {
+        console.warn("No client UID available, cannot update tags in Firebase");
+      }
+      setClientProfile((prev) => ({
+        ...prev,
+        tags: updatedTags,
+      }));
+      if (clientProfile.uid) {
+        updateClient(clientProfile.uid, { tags: updatedTags });
+      }
+      setAllTags((currentTags) =>
+        (isRemoving
+          ? currentTags.filter((tag) => tag !== text)
+          : Array.from(new Set([...currentTags, text]))
+        ).sort((left, right) => left.localeCompare(right))
+      );
+      return true;
     }
   };
 
@@ -3043,7 +3079,7 @@ const Profile = () => {
               autoInactiveReason: "three-strikes",
               autoInactivePreviousEndDate: previousEndDate,
               autoInactiveStrikeDate: strikeDate,
-              ...buildClientAuditMetadata(user!, name),
+              ...buildClientAuditWriteMetadata(user!, name),
             },
             { merge: true }
           );
@@ -3121,7 +3157,7 @@ const Profile = () => {
               autoInactiveReason: null,
               autoInactivePreviousEndDate: null,
               autoInactiveStrikeDate: null,
-              ...buildClientAuditMetadata(user!, name),
+              ...buildClientAuditWriteMetadata(user!, name),
             },
             { merge: true }
           );
