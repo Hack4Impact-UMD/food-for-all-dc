@@ -33,6 +33,7 @@ import {
   type ClusterSummarySortMode,
 } from "./utils/clusterSummary";
 import { TIME_SLOT_LABELS } from "./utils/timeSlots";
+import { getClusterColor, getClusterTextColor } from "./utils/clusterColors";
 import { getClientStatusPresentation } from "../../utils/clientStatus";
 
 interface Driver {
@@ -95,7 +96,6 @@ interface ClusterMapProps {
     newTime?: string
   ) => Promise<boolean>;
   onRenumberClusters?: () => Promise<boolean>;
-  onOpenPopup?: (clientId: string) => void; // Prop to handle table row clicks
   onMarkerClick?: (clientId: string) => void; // Prop to handle marker clicks
   onClearHighlight?: (clientId?: string) => void; // Prop to clear row highlighting
   visiblePopupDeliveryIds?: Set<string>;
@@ -203,39 +203,6 @@ const formatTimeForSummary = (time: string): string => {
   return `${hour12}:${minutes} ${ampm}`;
 };
 
-const clusterColors = [
-  "#FF0000",
-  "#00FF00",
-  "#0000FF",
-  "#FFFF00",
-  "#FF00FF",
-  "#00FFFF",
-  "#FFA500",
-  "#800080",
-  "#008000",
-  "#000080",
-  "#FF4500",
-  "#4B0082",
-  "var(--color-event-indicator)",
-  "#32CD32",
-  "#9370DB",
-  "#FF69B4",
-  "#40E0D0",
-  "#FF8C00",
-  "#7CFC00",
-  "#8A2BE2",
-  "#FF1493",
-  "#1E90FF",
-  "#228B22",
-  "#9400D3",
-  "#DC143C",
-  "#20B2AA",
-  "#9932CC",
-  "#FFD700",
-  "#8B0000",
-  "#4169E1",
-];
-
 const POPUP_VIEWPORT_MARGIN_PX = 16;
 const EMPTY_POPUP_DELIVERY_IDS = new Set<string>();
 
@@ -246,7 +213,6 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
   clientOverrides = [],
   onClusterUpdate,
   onRenumberClusters,
-  onOpenPopup,
   onMarkerClick,
   onClearHighlight,
   visiblePopupDeliveryIds = EMPTY_POPUP_DELIVERY_IDS,
@@ -279,9 +245,8 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
   const visiblePopupDeliveryIdsRef = useRef(visiblePopupDeliveryIds);
   const previousVisibleRowsKeyRef = useRef<string>("");
   const hasCompletedInitialMapLoadRef = useRef<boolean>(false);
-  const isPopupOpening = useRef<boolean>(false); // Prevent close handler from firing during opening
-  const isOpeningFromTableRef = useRef<boolean>(false); // True when popup is opened via table row click
-  const suppressedPopupClientIdsRef = useRef<Set<string>>(new Set());
+  const programmaticPopupOpenClientIdsRef = useRef<Set<string>>(new Set());
+  const programmaticPopupCloseClientIdsRef = useRef<Set<string>>(new Set());
   const suppressPopupViewportRepositionRef = useRef<boolean>(false);
   const topPopupZIndexRef = useRef<number>(700); // Base Leaflet popup z-index is ~700
   const clustersRef = useRef<Cluster[]>(clusters);
@@ -312,50 +277,113 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
     callback(map);
   }, []);
 
-  const repositionPopupIntoViewport = useCallback((popupElement: HTMLElement) => {
-    if (!popupElement.isConnected) {
-      return;
+  const openPopupProgrammatically = useCallback((clientId: string, marker: L.Marker) => {
+    if (marker.isPopupOpen()) return;
+
+    programmaticPopupOpenClientIdsRef.current.add(clientId);
+    try {
+      marker.openPopup();
+    } finally {
+      // Leaflet fires popupopen synchronously. Scope suppression to this exact operation
+      // so a user clicking the popup X immediately afterward is never ignored.
+      programmaticPopupOpenClientIdsRef.current.delete(clientId);
     }
+  }, []);
 
-    if (suppressPopupViewportRepositionRef.current) {
-      return;
+  const closePopupProgrammatically = useCallback((clientId: string, marker: L.Marker) => {
+    if (!marker.isPopupOpen()) return;
+
+    programmaticPopupCloseClientIdsRef.current.add(clientId);
+    try {
+      marker.closePopup();
+    } finally {
+      // Leaflet fires popupclose synchronously, so no timer-based suppression is needed.
+      programmaticPopupCloseClientIdsRef.current.delete(clientId);
     }
+  }, []);
 
-    withLiveMap((map) => {
-      map.stop();
-      const popupRect = popupElement.getBoundingClientRect();
-      const mapRect = map.getContainer().getBoundingClientRect();
+  const runWithProgrammaticPopupCloses = useCallback(
+    (clientIds: Iterable<string>, callback: () => void) => {
+      const scopedClientIds = Array.from(clientIds);
+      scopedClientIds.forEach((clientId) => {
+        programmaticPopupCloseClientIdsRef.current.add(clientId);
+      });
 
-      const minLeft = mapRect.left + POPUP_VIEWPORT_MARGIN_PX;
-      const maxRight = mapRect.right - POPUP_VIEWPORT_MARGIN_PX;
-      const minTop = mapRect.top + POPUP_VIEWPORT_MARGIN_PX;
-      const maxBottom = mapRect.bottom - POPUP_VIEWPORT_MARGIN_PX;
-
-      let dx = 0;
-      let dy = 0;
-
-      if (popupRect.left < minLeft) {
-        dx = popupRect.left - minLeft;
-      } else if (popupRect.right > maxRight) {
-        dx = popupRect.right - maxRight;
-      }
-
-      if (popupRect.top < minTop) {
-        dy = popupRect.top - minTop;
-      } else if (popupRect.bottom > maxBottom) {
-        dy = popupRect.bottom - maxBottom;
-      }
-
-      // Only pan when popup would render outside the map viewport.
-      if (dx !== 0 || dy !== 0) {
-        map.panBy([dx, dy], {
-          animate: true,
-          duration: 0.25,
-          easeLinearity: 0.25,
+      try {
+        callback();
+      } finally {
+        scopedClientIds.forEach((clientId) => {
+          programmaticPopupCloseClientIdsRef.current.delete(clientId);
         });
       }
-    });
-  }, [withLiveMap]);
+    },
+    []
+  );
+
+  const repositionPopupIntoViewport = useCallback(
+    (popupElement: HTMLElement) => {
+      if (!popupElement.isConnected) {
+        return;
+      }
+
+      if (suppressPopupViewportRepositionRef.current) {
+        return;
+      }
+
+      withLiveMap((map) => {
+        map.stop();
+        const popupRect = popupElement.getBoundingClientRect();
+        const mapRect = map.getContainer().getBoundingClientRect();
+
+        const minLeft = mapRect.left + POPUP_VIEWPORT_MARGIN_PX;
+        const maxRight = mapRect.right - POPUP_VIEWPORT_MARGIN_PX;
+        const minTop = mapRect.top + POPUP_VIEWPORT_MARGIN_PX;
+        const maxBottom = mapRect.bottom - POPUP_VIEWPORT_MARGIN_PX;
+
+        let dx = 0;
+        let dy = 0;
+
+        if (popupRect.left < minLeft) {
+          dx = popupRect.left - minLeft;
+        } else if (popupRect.right > maxRight) {
+          dx = popupRect.right - maxRight;
+        }
+
+        if (popupRect.top < minTop) {
+          dy = popupRect.top - minTop;
+        } else if (popupRect.bottom > maxBottom) {
+          dy = popupRect.bottom - maxBottom;
+        }
+
+        const selectedDeliveriesControl = document.querySelector<HTMLElement>(
+          '[aria-label="Selected deliveries"]'
+        );
+        const selectedDeliveriesRect = selectedDeliveriesControl?.getBoundingClientRect();
+        if (
+          selectedDeliveriesRect &&
+          popupRect.right > selectedDeliveriesRect.left - POPUP_VIEWPORT_MARGIN_PX &&
+          popupRect.left < selectedDeliveriesRect.right &&
+          popupRect.bottom > selectedDeliveriesRect.top &&
+          popupRect.top < selectedDeliveriesRect.bottom
+        ) {
+          dx = Math.max(
+            dx,
+            popupRect.right - (selectedDeliveriesRect.left - POPUP_VIEWPORT_MARGIN_PX)
+          );
+        }
+
+        // Keep the popup inside the map and clear of the selected-deliveries controls.
+        if (dx !== 0 || dy !== 0) {
+          map.panBy([dx, dy], {
+            animate: true,
+            duration: 0.25,
+            easeLinearity: 0.25,
+          });
+        }
+      });
+    },
+    [withLiveMap]
+  );
 
   const destroyMap = useCallback(() => {
     if (!mapRef.current && !markerGroupRef.current && !wardLayerGroupRef.current) {
@@ -369,8 +397,6 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
 
     isMapAliveRef.current = false;
     clearScheduledMapWork();
-    isPopupOpening.current = false;
-
     const map = mapRef.current;
 
     if (map) {
@@ -522,11 +548,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
   // Calculate deliveries + assignment details per cluster for the map summary overlay.
   const clusterSummaries = React.useMemo(() => {
     return sortClusterSummaries(
-      buildClusterSummariesFromClusters(
-        clusters,
-        clientOverrideByClientId,
-        formatTimeForSummary
-      ),
+      buildClusterSummariesFromClusters(clusters, clientOverrideByClientId, formatTimeForSummary),
       clusterSummarySortMode
     );
   }, [clusters, clientOverrideByClientId, clusterSummarySortMode]);
@@ -575,9 +597,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
 
     const sortedUsedClusterNumbers = [...usedClusterNumbers].sort((left, right) => left - right);
 
-    return sortedUsedClusterNumbers.some(
-      (clusterNumber, index) => clusterNumber !== index + 1
-    );
+    return sortedUsedClusterNumbers.some((clusterNumber, index) => clusterNumber !== index + 1);
   }, [clusters]);
   const canRenumberClusters = Boolean(onRenumberClusters) && !isReorderingClusters;
 
@@ -614,52 +634,6 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
     }
   };
 
-  const getClusterColor = useCallback((clusterIdToCheck: string): string => {
-    if (!clusterIdToCheck) return "#ffffff";
-    const clusterIdStr = String(clusterIdToCheck);
-    const match = clusterIdStr.match(/\d+/);
-    const clusterNumber = match ? parseInt(match[0], 10) : NaN;
-    if (!isNaN(clusterNumber) && clusterNumber > 0) {
-      return clusterColors[(clusterNumber - 1) % clusterColors.length];
-    } else {
-      let hash = 0;
-      for (let i = 0; i < clusterIdStr.length; i++) {
-        hash = clusterIdStr.charCodeAt(i) + ((hash << 5) - hash);
-      }
-      return clusterColors[Math.abs(hash) % clusterColors.length];
-    }
-  }, []);
-
-  // Helper function to determine best text color based on background brightness
-  const getTextColorForBackground = useCallback((backgroundColor: string): string => {
-    // Convert hex to RGB
-    const hex = backgroundColor.replace("#", "");
-    const r = parseInt(hex.substr(0, 2), 16);
-    const g = parseInt(hex.substr(2, 2), 16);
-    const b = parseInt(hex.substr(4, 2), 16);
-
-    // Special cases for problematic colors that need black text regardless of luminance
-    const problematicColors = [
-      "#00FF00", // Lime green
-      "#FFFF00", // Yellow
-      "#00FFFF", // Cyan
-      "#7CFC00", // Lawn green
-      "#32CD32", // Lime green variant
-      "#FFD700", // Gold
-    ];
-
-    if (problematicColors.includes(backgroundColor.toUpperCase())) {
-      return "#000000";
-    }
-
-    // Calculate relative luminance using WCAG formula
-    const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-
-    // Return black for light backgrounds, white for dark backgrounds
-    // Using threshold of 0.5 for better readability (lowered from 0.6)
-    return luminance > 0.5 ? "#000000" : "#ffffff";
-  }, []);
-
   // Update cluster dropdown in popup when clusters change
   React.useEffect(() => {
     // Find all open popups in edit mode
@@ -683,7 +657,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
         opt.text = optionClusterId;
         const clusterColor = getClusterColor(optionClusterId);
         opt.style.backgroundColor = clusterColor;
-        opt.style.color = getTextColorForBackground(clusterColor);
+        opt.style.color = getClusterTextColor(clusterColor);
         opt.style.fontWeight = "bold";
         clusterSelect.add(opt, clusterSelect.options.length - 1);
       });
@@ -697,19 +671,19 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
       if (hasPrevValue) {
         clusterSelect.value = prevValue;
         clusterSelect.style.backgroundColor = getClusterColor(prevValue);
-        clusterSelect.style.color = getTextColorForBackground(getClusterColor(prevValue));
+        clusterSelect.style.color = getClusterTextColor(getClusterColor(prevValue));
       } else if (numericIds.length > 0) {
         const maxIdStr = String(Math.max(...numericIds));
         clusterSelect.value = maxIdStr;
         clusterSelect.style.backgroundColor = getClusterColor(maxIdStr);
-        clusterSelect.style.color = getTextColorForBackground(getClusterColor(maxIdStr));
+        clusterSelect.style.color = getClusterTextColor(getClusterColor(maxIdStr));
       } else {
         clusterSelect.value = "";
         clusterSelect.style.backgroundColor = "var(--color-background-main)";
         clusterSelect.style.color = "black";
       }
     });
-  }, [clusters, getClusterColor, getTextColorForBackground]);
+  }, [clusters]);
 
   React.useEffect(() => {
     const clusterIdByClientId = new Map<string, string>();
@@ -825,8 +799,12 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
   // Refs so the map init effect can restore ward overlays without adding unstable deps
   const showWardOverlaysRef = useRef(showWardOverlays);
   const addWardOverlaysRef = useRef(addWardOverlays);
-  useEffect(() => { showWardOverlaysRef.current = showWardOverlays; }, [showWardOverlays]);
-  useEffect(() => { addWardOverlaysRef.current = addWardOverlays; }, [addWardOverlays]);
+  useEffect(() => {
+    showWardOverlaysRef.current = showWardOverlays;
+  }, [showWardOverlays]);
+  useEffect(() => {
+    addWardOverlaysRef.current = addWardOverlays;
+  }, [addWardOverlays]);
 
   // Function to remove ward overlays
   const removeWardOverlays = () => {
@@ -887,21 +865,15 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
           const popup = (e as L.PopupEvent).popup;
           const contentEl = popup.getElement();
           const clientId =
-            contentEl
-              ?.querySelector("[data-client-id]")
-              ?.getAttribute("data-client-id") ?? undefined;
+            contentEl?.querySelector("[data-client-id]")?.getAttribute("data-client-id") ??
+            contentEl?.getAttribute("data-client-id") ??
+            undefined;
 
-          if (clientId && suppressedPopupClientIdsRef.current.has(clientId)) {
+          if (!clientId || programmaticPopupCloseClientIdsRef.current.has(clientId)) {
             return;
           }
 
-          scheduleClusterMapTimeout(() => {
-            if (!isMapAliveRef.current) {
-              return;
-            }
-
-            onClearHighlightRef.current?.(clientId);
-          }, 200);
+          onClearHighlightRef.current?.(clientId);
         };
       }
 
@@ -920,56 +892,6 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
     };
   }, [destroyMap]);
 
-  // Handle external popup open requests
-  React.useEffect(() => {
-    if (onOpenPopup) {
-      (window as any).openMapPopup = (clientId: string) => {
-        // Suppress popupclose clearing while we open the new popup (same as marker clicks)
-        isPopupOpening.current = true;
-        // Flag so popupopen knows not to highlight the row (table click already did it)
-        isOpeningFromTableRef.current = true;
-
-        const marker = markersMapRef.current.get(clientId);
-        if (marker) {
-          withLiveMap((map) => {
-            map.stop();
-          });
-          marker.openPopup();
-        }
-
-        // Reset after the open sequence completes so future closes clear the row
-        scheduleClusterMapTimeout(() => {
-          isPopupOpening.current = false;
-          isOpeningFromTableRef.current = false;
-        }, 350);
-      };
-
-      // Also set up the close popup function
-      (window as any).closeMapPopup = (clientId?: string) => {
-        if (clientId) {
-          const marker = markersMapRef.current.get(clientId);
-          if (marker) {
-            marker.closePopup();
-          }
-        } else {
-          withLiveMap((map) => {
-            map.closePopup();
-          });
-        }
-      };
-
-      // Set up function to clear row highlighting
-      (window as any).clearRowHighlight = () => {
-        onClearHighlightRef.current?.();
-      };
-    }
-    return () => {
-      delete (window as any).openMapPopup;
-      delete (window as any).closeMapPopup;
-      delete (window as any).clearRowHighlight;
-    };
-  }, [onOpenPopup, scheduleClusterMapTimeout, withLiveMap]);
-
   useEffect(() => {
     clustersRef.current = clusters;
   }, [clusters]);
@@ -987,24 +909,23 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
     // React owns popup visibility, so marker rebuilds restore only the requested popups.
     const clientIdsToReopen = Array.from(visiblePopupDeliveryIdsRef.current);
 
-    // Suppress the map-level popupclose handler while we programmatically
-    // close popups and clear layers — this prevents clearRowHighlight from firing.
-    suppressedPopupClientIdsRef.current = new Set(clientIdsToReopen);
-    isPopupOpening.current = true;
+    const openClientIds = Array.from(markersMapRef.current.entries())
+      .filter(([, marker]) => marker.isPopupOpen())
+      .map(([clientId]) => clientId);
 
-    withLiveMap((map) => {
-      map.stop();
-      map.closePopup();
+    runWithProgrammaticPopupCloses(openClientIds, () => {
+      withLiveMap((map) => {
+        map.stop();
+        map.closePopup();
+      });
+      markerGroupRef.current?.clearLayers();
     });
-
-    markerGroupRef.current.clearLayers();
 
     // Clear markers map when recreating markers
     markersMapRef.current.clear();
 
     if (visibleRows.length < 1) {
       previousVisibleRowsKeyRef.current = "";
-      isPopupOpening.current = false;
       return;
     }
 
@@ -1042,31 +963,11 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
 
       const cluster = clientClusterMap.get(client.id);
       const clusterId = normalizeClusterId(cluster?.id);
-      let colorIndex = 0;
-
-      if (clusterId) {
-        // Assuming cluster IDs are like "Cluster 1", "Cluster 2", etc.
-        // Extract the number part for color assignment.
-        // If format is different, adjust parsing logic.
-        const clusterIdStr = String(clusterId); // Ensure clusterId is a string
-        const match = clusterIdStr.match(/\d+/);
-        const clusterNumber = match ? parseInt(match[0], 10) : NaN;
-        if (!isNaN(clusterNumber) && clusterNumber > 0) {
-          colorIndex = (clusterNumber - 1) % clusterColors.length; // Use number-1 for 0-based index
-        } else {
-          // Fallback for non-numeric IDs or parsing failures - hash the ID?
-          let hash = 0;
-          for (let i = 0; i < clusterIdStr.length; i++) {
-            hash = clusterIdStr.charCodeAt(i) + ((hash << 5) - hash);
-          }
-          colorIndex = Math.abs(hash) % clusterColors.length;
-        }
-      }
       const numberIcon = L.divIcon({
         html: `<div style="
               width: 20px;
               height: 20px;
-              background-color: ${clusterId ? clusterColors[colorIndex] : "var(--color-primary)"};
+              background-color: ${clusterId ? getClusterColor(clusterId) : "var(--color-primary)"};
               border: 1px solid black;
               border-radius: 50%;
               display: flex;
@@ -1195,13 +1096,13 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
               <div style="font-weight: bold; margin-bottom: 10px;">${safeClientNameWithStatus}</div>
               <div style="margin-bottom: 8px; display: flex; align-items: center; gap: 8px;">
                 <label style="font-weight: bold; min-width: 60px; font-size: 12px;">Cluster:</label>
-                <select id="cluster-select-${safeClientId}" style="flex: 1; padding: 3px; border: 1px solid var(--color-border-input); border-radius: 3px; font-size: 11px; background-color: ${clusterId ? getClusterColor(clusterId) : "var(--color-background-main)"}; color: ${clusterId ? getTextColorForBackground(getClusterColor(clusterId)) : "black"}; height: 24px !important; min-height: 24px !important; max-height: 24px !important; line-height: 1.1 !important;">
+                <select id="cluster-select-${safeClientId}" style="flex: 1; padding: 3px; border: 1px solid var(--color-border-input); border-radius: 3px; font-size: 11px; background-color: ${clusterId ? getClusterColor(clusterId) : "var(--color-background-main)"}; color: ${clusterId ? getClusterTextColor(getClusterColor(clusterId)) : "black"}; height: 24px !important; min-height: 24px !important; max-height: 24px !important; line-height: 1.1 !important;">
                   <option value="" style="background-color: var(--color-background-main); color: var(--color-black);">No cluster</option>
                   ${clusters
                     .map((c) => {
                       const optionClusterId = normalizeClusterId(c.id);
                       const safeOptionClusterId = escapeHtml(optionClusterId);
-                      return `<option value="${safeOptionClusterId}" ${optionClusterId === clusterId ? "selected" : ""} style="background-color: ${getClusterColor(optionClusterId)}; color: ${getTextColorForBackground(getClusterColor(optionClusterId))}; font-weight: bold;">${safeOptionClusterId}</option>`;
+                      return `<option value="${safeOptionClusterId}" ${optionClusterId === clusterId ? "selected" : ""} style="background-color: ${getClusterColor(optionClusterId)}; color: ${getClusterTextColor(getClusterColor(optionClusterId))}; font-weight: bold;">${safeOptionClusterId}</option>`;
                     })
                     .join("")}
                   <option value="__add__" style="background-color: var(--color-border-input); color: var(--color-text-dark); font-weight: bold;">+ Add Cluster</option>
@@ -1211,14 +1112,16 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
                 <label style="font-weight: bold; min-width: 60px; font-size: 12px;">Driver:</label>
                 <select id="driver-select-${safeClientId}" style="flex: 1; padding: 3px; border: 1px solid var(--color-border-input); border-radius: 3px; font-size: 11px; height: 24px !important; min-height: 24px !important; max-height: 24px !important; line-height: 1.1 !important;">
                   <option value="" ${!selectedDriverValue ? "selected" : ""}>${emptyDriverLabel}</option>
-                  ${drivers.map((d) => {
-                    const safeDriverName = escapeHtml(d.name);
-                    const safeDriverPhone = escapeHtml(d.phone || "");
-                    const safeDriverLabel = d.phone
-                      ? `${safeDriverName} - ${safeDriverPhone}`
-                      : safeDriverName;
-                    return `<option value="${safeDriverName}" ${d.name === selectedDriverValue ? "selected" : ""}>${safeDriverLabel}</option>`;
-                  }).join("")}
+                  ${drivers
+                    .map((d) => {
+                      const safeDriverName = escapeHtml(d.name);
+                      const safeDriverPhone = escapeHtml(d.phone || "");
+                      const safeDriverLabel = d.phone
+                        ? `${safeDriverName} - ${safeDriverPhone}`
+                        : safeDriverName;
+                      return `<option value="${safeDriverName}" ${d.name === selectedDriverValue ? "selected" : ""}>${safeDriverLabel}</option>`;
+                    })
+                    .join("")}
                 </select>
               </div>
               <div style="margin-bottom: 10px; display: flex; align-items: center; gap: 8px;">
@@ -1285,18 +1188,18 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
               opt.value = nextClusterId;
               opt.text = nextClusterId;
               opt.style.backgroundColor = getClusterColor(nextClusterId);
-              opt.style.color = getTextColorForBackground(getClusterColor(nextClusterId));
+              opt.style.color = getClusterTextColor(getClusterColor(nextClusterId));
               clusterSelect.add(opt, clusterSelect.options.length - 1);
               clusterSelect.value = nextClusterId;
               const nextClusterColor = getClusterColor(nextClusterId);
               clusterSelect.style.backgroundColor = nextClusterColor;
-              clusterSelect.style.color = getTextColorForBackground(nextClusterColor);
+              clusterSelect.style.color = getClusterTextColor(nextClusterColor);
               return;
             }
             if (selectedClusterId) {
               const selectedColor = getClusterColor(selectedClusterId);
               clusterSelect.style.backgroundColor = selectedColor;
-              clusterSelect.style.color = getTextColorForBackground(selectedColor);
+              clusterSelect.style.color = getClusterTextColor(selectedColor);
             } else {
               clusterSelect.style.backgroundColor = "var(--color-background-main)";
               clusterSelect.style.color = "var(--color-black)";
@@ -1336,7 +1239,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
                 : "#ffffff";
               clusterSelect.style.backgroundColor = selectedColor;
               clusterSelect.style.color = initialClusterId
-                ? getTextColorForBackground(selectedColor)
+                ? getClusterTextColor(selectedColor)
                 : "black";
             }
             if (driverSelect) driverSelect.value = initialDriver;
@@ -1486,7 +1389,6 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
           autoClose: false,
         })
         .on("click", () => {
-          isPopupOpening.current = true;
           withLiveMap((map) => {
             map.stop();
           });
@@ -1494,10 +1396,6 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
           // Row highlight is triggered from popupopen to guarantee popup ↔ row sync
         })
         .on("popupopen", (e: L.LeafletEvent) => {
-          scheduleClusterMapTimeout(() => {
-            isPopupOpening.current = false;
-          }, 350);
-
           // Bring this popup to the front when clicked
           const popupWrapper = (e as L.PopupEvent).popup.getElement();
           if (popupWrapper) {
@@ -1524,21 +1422,14 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
             });
           }
 
-          // Sync row highlight from popup open (not from marker click) so they always match.
-          // Skip when opened by a table row click — the table already highlighted the row.
+          // A real marker interaction selects the delivery. Controlled popup restoration
+          // is operation-scoped and must not feed back into the selection state.
           if (
-            !isOpeningFromTableRef.current &&
-            !suppressedPopupClientIdsRef.current.has(client.id) &&
+            !programmaticPopupOpenClientIdsRef.current.has(client.id) &&
             onMarkerClickRef.current
           ) {
             onMarkerClickRef.current(client.id);
           }
-        })
-        .on("popupclose", () => {
-          if (suppressedPopupClientIdsRef.current.has(client.id)) {
-            return;
-          }
-          isPopupOpening.current = false;
         })
         .addTo(markerGroupRef.current!);
 
@@ -1589,69 +1480,46 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
     previousVisibleRowsKeyRef.current = visibleRowsKey;
     hasCompletedInitialMapLoadRef.current = true;
 
-    // Re-open the popup that was open before the rebuild (if any).
-    // Set isOpeningFromTableRef so popupopen doesn't double-add the highlight.
-    // Re-open all popups that were open before the rebuild.
-    // Suppress popupclose/popupopen side effects for these client IDs during restoration.
+    // Restore only the popups requested by React without changing selection.
     if (clientIdsToReopen.length > 0) {
-      isOpeningFromTableRef.current = true;
       withLiveMap((map) => {
         map.stop();
       });
       clientIdsToReopen.forEach((id) => {
         const markerToReopen = markersMapRef.current.get(id);
         if (markerToReopen) {
-          markerToReopen.openPopup();
+          openPopupProgrammatically(id, markerToReopen);
         }
       });
-      scheduleClusterMapTimeout(() => {
-        isPopupOpening.current = false;
-        isOpeningFromTableRef.current = false;
-        suppressedPopupClientIdsRef.current.clear();
-      }, 350);
-    } else {
-      isPopupOpening.current = false;
     }
   }, [
     visibleRows,
     clusters,
     drivers,
     clientOverrideByClientId,
-    getClusterColor,
-    getTextColorForBackground,
+    openPopupProgrammatically,
+    repositionPopupIntoViewport,
+    runWithProgrammaticPopupCloses,
     scheduleClusterMapTimeout,
     withLiveMap,
   ]);
 
   useEffect(() => {
-    const synchronizedClientIds = new Set<string>();
-
     markersMapRef.current.forEach((marker, clientId) => {
       const shouldBeOpen = visiblePopupDeliveryIds.has(clientId);
       if (shouldBeOpen === marker.isPopupOpen()) return;
 
-      synchronizedClientIds.add(clientId);
-      suppressedPopupClientIdsRef.current.add(clientId);
       if (shouldBeOpen) {
-        marker.openPopup();
+        openPopupProgrammatically(clientId, marker);
       } else {
-        marker.closePopup();
+        closePopupProgrammatically(clientId, marker);
       }
     });
-
-    if (synchronizedClientIds.size > 0) {
-      scheduleClusterMapTimeout(() => {
-        synchronizedClientIds.forEach((clientId) => {
-          suppressedPopupClientIdsRef.current.delete(clientId);
-        });
-      }, 350);
-    }
-  }, [scheduleClusterMapTimeout, visiblePopupDeliveryIds]);
+  }, [closePopupProgrammatically, openPopupProgrammatically, visiblePopupDeliveryIds]);
 
   const invalidCount = invalidDeliveries.length;
   const dayTotalDeliveries = allRows.length;
-  const showFilteredEmptyState =
-    visibleRows.length === 0 && dayTotalDeliveries > 0;
+  const showFilteredEmptyState = visibleRows.length === 0 && dayTotalDeliveries > 0;
 
   const centerMap = () => {
     // Preserve currently open popups while recentering.
@@ -1662,15 +1530,14 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
       }
     });
 
-    isPopupOpening.current = true;
-    suppressedPopupClientIdsRef.current = new Set(popupClientIdsToRestore);
-    isOpeningFromTableRef.current = popupClientIdsToRestore.length > 0;
     suppressPopupViewportRepositionRef.current = popupClientIdsToRestore.length > 0;
 
-    withLiveMap((map) => {
-      map.stop();
-      map.setView(dcWardCenterCoordinates, 11, { animate: false });
-      map.invalidateSize(false);
+    runWithProgrammaticPopupCloses(popupClientIdsToRestore, () => {
+      withLiveMap((map) => {
+        map.stop();
+        map.setView(dcWardCenterCoordinates, 11, { animate: false });
+        map.invalidateSize(false);
+      });
     });
 
     if (popupClientIdsToRestore.length > 0) {
@@ -1679,25 +1546,20 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
         popupClientIdsToRestore.forEach((clientId) => {
           const marker = markersMapRef.current.get(clientId);
           if (marker && !marker.isPopupOpen()) {
-            marker.openPopup();
+            openPopupProgrammatically(clientId, marker);
           }
         });
       }, 50);
     }
 
     scheduleClusterMapTimeout(() => {
-      isPopupOpening.current = false;
-      isOpeningFromTableRef.current = false;
-      suppressedPopupClientIdsRef.current.clear();
       suppressPopupViewportRepositionRef.current = false;
     }, 250);
   };
 
   const handleInvalidBadgeClick = (event: React.MouseEvent<HTMLElement>) => {
     const anchorElement = event.currentTarget;
-    setInvalidBadgeAnchorEl((currentAnchorEl) =>
-      currentAnchorEl ? null : anchorElement
-    );
+    setInvalidBadgeAnchorEl((currentAnchorEl) => (currentAnchorEl ? null : anchorElement));
   };
 
   const handleInvalidBadgeClose = () => {
@@ -2009,7 +1871,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
           <Box sx={{ display: "flex", flexDirection: "column", gap: "6px" }}>
             {clusterSummaries.map(({ clusterId, count, driverLabel, timeLabel }) => {
               const color = getClusterColor(clusterId);
-              const textColor = getTextColorForBackground(color);
+              const textColor = getClusterTextColor(color);
               const dividerColor =
                 textColor.toLowerCase() === "#ffffff"
                   ? "rgba(255, 255, 255, 0.38)"

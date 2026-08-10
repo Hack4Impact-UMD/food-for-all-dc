@@ -17,9 +17,15 @@ describe("SelectedDeliveriesControl", () => {
             id: "delivery-a",
             label: "Alex Adams",
             popupVisible: true,
+            popupAvailable: true,
             clusterColor: "#ff0000",
           },
-          { id: "delivery-b", label: "Blair Brown", popupVisible: false },
+          {
+            id: "delivery-b",
+            label: "Blair Brown",
+            popupVisible: false,
+            popupAvailable: true,
+          },
         ]}
         onTogglePopup={onTogglePopup}
         onRemoveSelected={onRemoveSelected}
@@ -55,8 +61,18 @@ describe("SelectedDeliveriesControl", () => {
     render(
       <SelectedDeliveriesControl
         deliveries={[
-          { id: "delivery-a", label: "Alex Adams", popupVisible: true },
-          { id: "delivery-b", label: "Blair Brown", popupVisible: true },
+          {
+            id: "delivery-a",
+            label: "Alex Adams",
+            popupVisible: true,
+            popupAvailable: true,
+          },
+          {
+            id: "delivery-b",
+            label: "Blair Brown",
+            popupVisible: true,
+            popupAvailable: true,
+          },
         ]}
         onTogglePopup={jest.fn()}
         onRemoveSelected={jest.fn()}
@@ -75,7 +91,14 @@ describe("SelectedDeliveriesControl", () => {
   it("expands and collapses the vertical delivery drawer", () => {
     render(
       <SelectedDeliveriesControl
-        deliveries={[{ id: "delivery-a", label: "Alex Adams", popupVisible: true }]}
+        deliveries={[
+          {
+            id: "delivery-a",
+            label: "Alex Adams",
+            popupVisible: true,
+            popupAvailable: true,
+          },
+        ]}
         onTogglePopup={jest.fn()}
         onRemoveSelected={jest.fn()}
         onShowAll={jest.fn()}
@@ -110,5 +133,38 @@ describe("SelectedDeliveriesControl", () => {
     );
 
     expect(container.firstChild).toBeNull();
+  });
+
+  it("keeps mapless deliveries selected but disables their popup controls", () => {
+    const onShowAll = jest.fn();
+    const onTogglePopup = jest.fn();
+
+    render(
+      <SelectedDeliveriesControl
+        deliveries={[
+          {
+            id: "delivery-a",
+            label: "Alex Adams",
+            popupVisible: false,
+            popupAvailable: false,
+          },
+        ]}
+        onTogglePopup={onTogglePopup}
+        onRemoveSelected={jest.fn()}
+        onShowAll={onShowAll}
+        onHideAll={jest.fn()}
+        onClearSelected={jest.fn()}
+      />
+    );
+
+    expect(screen.getByText("Selected: 1")).toBeTruthy();
+    expect(
+      screen
+        .getByRole("button", { name: "Popup unavailable for Alex Adams" })
+        .hasAttribute("disabled")
+    ).toBe(true);
+    expect(screen.getByRole("button", { name: "Show all" }).hasAttribute("disabled")).toBe(true);
+    expect(onTogglePopup).not.toHaveBeenCalled();
+    expect(onShowAll).not.toHaveBeenCalled();
   });
 });

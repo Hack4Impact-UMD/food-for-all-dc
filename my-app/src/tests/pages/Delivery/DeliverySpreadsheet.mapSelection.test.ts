@@ -1,52 +1,77 @@
-import fs from "fs";
-import path from "path";
 import { describe, expect, it } from "@jest/globals";
+import { getClusterColor } from "../../../pages/Delivery/utils/clusterColors";
+import {
+  EMPTY_MAP_DELIVERY_SELECTION,
+  mapDeliverySelectionReducer,
+  MapDeliverySelectionState,
+} from "../../../pages/Delivery/utils/mapDeliverySelection";
+
+const state = (
+  selectedDeliveryIds: string[],
+  visiblePopupDeliveryIds: string[]
+): MapDeliverySelectionState => ({
+  selectedDeliveryIds: new Set(selectedDeliveryIds),
+  visiblePopupDeliveryIds: new Set(visiblePopupDeliveryIds),
+});
 
 describe("DeliverySpreadsheet map selection state", () => {
-  const sourcePath = path.resolve(__dirname, "../../../pages/Delivery/DeliverySpreadsheet.tsx");
-  const source = fs.readFileSync(sourcePath, "utf8");
+  it("keeps selection independent from popup visibility", () => {
+    const selected = mapDeliverySelectionReducer(EMPTY_MAP_DELIVERY_SELECTION, {
+      type: "toggle-table-delivery",
+      deliveryId: "delivery-a",
+      popupAvailable: true,
+    });
+    const hidden = mapDeliverySelectionReducer(selected, { type: "hide-all-popups" });
 
-  it("tracks selected deliveries separately from visible popups", () => {
-    expect(source).toContain("const [selectedDeliveryIds, setSelectedDeliveryIds]");
-    expect(source).toContain("const [visiblePopupDeliveryIds, setVisiblePopupDeliveryIds]");
-    expect(source).toContain("const isHighlighted = selectedDeliveryIds.has(row.id)");
+    expect(Array.from(hidden.selectedDeliveryIds)).toEqual(["delivery-a"]);
+    expect(Array.from(hidden.visiblePopupDeliveryIds)).toEqual([]);
   });
 
-  it("keeps bulk popup actions independent from selection", () => {
-    expect(source).toMatch(
-      /handleShowAllSelectedPopups[\s\S]*?setVisiblePopupDeliveryIds\(new Set\(selectedDeliveryIds\)\)/m
-    );
-    expect(source).toMatch(
-      /handleHideAllSelectedPopups[\s\S]*?setVisiblePopupDeliveryIds\(new Set\(\)\)/m
-    );
-    expect(source).toMatch(
-      /handleClearSelectedDeliveries[\s\S]*?setSelectedDeliveryIds\(new Set\(\)\);[\s\S]*?setVisiblePopupDeliveryIds\(new Set\(\)\)/m
-    );
+  it("keeps mapless deliveries selected without claiming a popup is visible", () => {
+    const selected = mapDeliverySelectionReducer(EMPTY_MAP_DELIVERY_SELECTION, {
+      type: "toggle-table-delivery",
+      deliveryId: "delivery-without-coordinates",
+      popupAvailable: false,
+    });
+
+    expect(Array.from(selected.selectedDeliveryIds)).toEqual(["delivery-without-coordinates"]);
+    expect(selected.visiblePopupDeliveryIds.size).toBe(0);
   });
 
-  it("adds marker-clicked deliveries to both sets and removes popup-X deliveries from both", () => {
-    expect(source).toMatch(
-      /handleMarkerClick[\s\S]*?setSelectedDeliveryIds[\s\S]*?setVisiblePopupDeliveryIds/m
-    );
-    expect(source).toMatch(
-      /clearRowHighlight[\s\S]*?next\.delete\(clientId\)[\s\S]*?setVisiblePopupDeliveryIds[\s\S]*?next\.delete\(clientId\)/m
-    );
+  it("show all opens only selected deliveries with markers", () => {
+    const result = mapDeliverySelectionReducer(state(["a", "b", "c"], []), {
+      type: "show-all-popups",
+      popupAvailableDeliveryIds: new Set(["a", "c", "not-selected"]),
+    });
+
+    expect(Array.from(result.selectedDeliveryIds)).toEqual(["a", "b", "c"]);
+    expect(Array.from(result.visiblePopupDeliveryIds)).toEqual(["a", "c"]);
   });
 
-  it("shows the newest selected delivery first", () => {
-    expect(source).toMatch(
-      /Array\.from\(selectedDeliveryIds\)\s*\.reverse\(\)\s*\.flatMap/m
-    );
+  it("removes only the popup closed by the user", () => {
+    const result = mapDeliverySelectionReducer(state(["a", "b"], ["a", "b"]), {
+      type: "close-popup",
+      deliveryId: "a",
+    });
+
+    expect(Array.from(result.selectedDeliveryIds)).toEqual(["b"]);
+    expect(Array.from(result.visiblePopupDeliveryIds)).toEqual(["b"]);
   });
 
-  it("preserves selected and open deliveries when clusters are reset", () => {
-    const resetHandler = source.match(
-      /const handleResetClusters = async \(\) => \{([\s\S]*?)\n\s*\};/
-    )?.[1];
+  it("cleans up filtered selections and mapless popup state together", () => {
+    const result = mapDeliverySelectionReducer(state(["a", "b", "c"], ["a", "b", "c"]), {
+      type: "retain-deliveries",
+      deliveryIds: new Set(["a", "b"]),
+      popupAvailableDeliveryIds: new Set(["a"]),
+    });
 
-    expect(resetHandler).toBeDefined();
-    expect(resetHandler).not.toContain("closeMapPopup");
-    expect(resetHandler).not.toContain("setSelectedDeliveryIds");
-    expect(resetHandler).not.toContain("setVisiblePopupDeliveryIds");
+    expect(Array.from(result.selectedDeliveryIds)).toEqual(["a", "b"]);
+    expect(Array.from(result.visiblePopupDeliveryIds)).toEqual(["a"]);
+  });
+
+  it("uses the same route color mapping as the map", () => {
+    expect(getClusterColor("12")).toBe("#4B0082");
+    expect(getClusterColor("Route 12")).toBe("#4B0082");
+    expect(getClusterColor("north")).toBe(getClusterColor("north"));
   });
 });

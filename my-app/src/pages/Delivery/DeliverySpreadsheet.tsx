@@ -125,6 +125,11 @@ import { TIME_SLOTS } from "./utils/timeSlots";
 import { useTagColors } from "../../context/TagColorContext";
 import { getReadableTagTextColor, getTagColor } from "../../utils/tagColors";
 import { normalizeDeliveryTags } from "./utils/deliveryTags";
+import { getClusterColor } from "./utils/clusterColors";
+import {
+  EMPTY_MAP_DELIVERY_SELECTION,
+  mapDeliverySelectionReducer,
+} from "./utils/mapDeliverySelection";
 
 const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -171,41 +176,6 @@ const renderSafeCellValue = (value: unknown): React.ReactNode => {
 
   return formatTimestampLikeDate(value);
 };
-
-const CLUSTER_COLORS = [
-  "#FF0000",
-  "#00FF00",
-  "#0000FF",
-  "#FFFF00",
-  "#FF00FF",
-  "#00FFFF",
-  "#FFA500",
-  "#800080",
-  "#008000",
-  "#000080",
-  "#FF4500",
-  "#8B4513",
-  "#2E8B57",
-  "#1E90FF",
-  "#8A2BE2",
-  "#FF1493",
-  "#32CD32",
-  "#FFD700",
-  "#FF6347",
-  "#4682B4",
-  "#DA70D6",
-  "#A52A2A",
-  "#5F9EA0",
-  "#D2691E",
-  "#9ACD32",
-  "#6495ED",
-  "#DC143C",
-  "#00CED1",
-  "#B22222",
-  "#228B22",
-  "#4B0082",
-  "#BDB76B",
-];
 
 // Define a type for fields that can either be computed or direct keys of DeliveryRowData
 type Field =
@@ -665,19 +635,11 @@ const DeliverySpreadsheet: React.FC = () => {
   const [exportScope, setExportScope] = useState<RouteExportScope>("all");
 
   const [driversRefreshTrigger, setDriversRefreshTrigger] = useState<number>(0);
-  const [selectedDeliveryIds, setSelectedDeliveryIds] = useState<Set<string>>(new Set());
-  const [visiblePopupDeliveryIds, setVisiblePopupDeliveryIds] = useState<Set<string>>(new Set());
-  const selectedDeliveryIdsRef = React.useRef<Set<string>>(new Set());
-  const visiblePopupDeliveryIdsRef = React.useRef<Set<string>>(new Set());
-  const highlightRestoreLockRef = React.useRef(false);
-
-  React.useEffect(() => {
-    selectedDeliveryIdsRef.current = selectedDeliveryIds;
-  }, [selectedDeliveryIds]);
-
-  React.useEffect(() => {
-    visiblePopupDeliveryIdsRef.current = visiblePopupDeliveryIds;
-  }, [visiblePopupDeliveryIds]);
+  const [mapDeliverySelection, dispatchMapDeliverySelection] = React.useReducer(
+    mapDeliverySelectionReducer,
+    EMPTY_MAP_DELIVERY_SELECTION
+  );
+  const { selectedDeliveryIds, visiblePopupDeliveryIds } = mapDeliverySelection;
 
   React.useEffect(() => {
     const timeoutId = window.setTimeout(() => {
@@ -686,15 +648,6 @@ const DeliverySpreadsheet: React.FC = () => {
 
     return () => window.clearTimeout(timeoutId);
   }, [isMapCollapsed]);
-
-  const preserveHighlightedRowsForAssignment = React.useCallback(() => {
-    highlightRestoreLockRef.current = true;
-    return new Set(selectedDeliveryIdsRef.current);
-  }, []);
-
-  const releaseHighlightedRowsForAssignment = React.useCallback(() => {
-    highlightRestoreLockRef.current = false;
-  }, []);
 
   const normalizeClusters = React.useCallback((clusters: Cluster[]): Cluster[] => {
     const clustersById = new Map<string, Cluster>();
@@ -935,7 +888,13 @@ const DeliverySpreadsheet: React.FC = () => {
     onValueChange: setSearchQuery,
     suggestions: routeSearchKeySuggestions,
   });
-  const { savedSearches, saveCurrentSearch, applySavedSearch, overwriteSavedSearch, deleteSavedSearch } = useSavedSearches(currentUserId);
+  const {
+    savedSearches,
+    saveCurrentSearch,
+    applySavedSearch,
+    overwriteSavedSearch,
+    deleteSavedSearch,
+  } = useSavedSearches(currentUserId);
 
   const handleSaveCurrentRouteSearch = React.useCallback(
     (searchName?: string) => {
@@ -950,14 +909,14 @@ const DeliverySpreadsheet: React.FC = () => {
       applySavedSearch(
         query,
         (nextQuery) => {
-        setSearchQuery(nextQuery);
-        requestAnimationFrame(() => {
-          const input = searchAutocomplete.inputRef.current;
-          if (!input) return;
-          input.focus();
-          const end = nextQuery.length;
-          input.setSelectionRange(end, end);
-        });
+          setSearchQuery(nextQuery);
+          requestAnimationFrame(() => {
+            const input = searchAutocomplete.inputRef.current;
+            if (!input) return;
+            input.focus();
+            const end = nextQuery.length;
+            input.setSelectionRange(end, end);
+          });
         },
         savedItem?.name
       );
@@ -1064,31 +1023,7 @@ const DeliverySpreadsheet: React.FC = () => {
     }
   };
 
-  const clusterColorMap = React.useCallback((id: string): string => {
-    const clusterId = id || "";
-    let colorIndex = 0;
-
-    if (clusterId) {
-      // Ensure clusterId is a string before calling .match()
-      const clusterIdStr = String(clusterId);
-      // Assuming cluster IDs are like "1", "2", etc.
-      // Extract the number part for color assignment.
-      const match = clusterIdStr.match(/\d+/);
-      const clusterNumber = match ? parseInt(match[0], 10) : NaN;
-      if (!isNaN(clusterNumber) && clusterNumber > 0) {
-        colorIndex = (clusterNumber - 1) % CLUSTER_COLORS.length; // Use number-1 for 0-based index
-      } else {
-        // Fallback for non-numeric IDs or parsing failures - hash the ID
-        let hash = 0;
-        for (let i = 0; i < clusterIdStr.length; i++) {
-          hash = clusterIdStr.charCodeAt(i) + ((hash << 5) - hash);
-        }
-        colorIndex = Math.abs(hash) % CLUSTER_COLORS.length;
-      }
-    }
-
-    return CLUSTER_COLORS[colorIndex];
-  }, []);
+  const clusterColorMap = React.useCallback((id: string): string => getClusterColor(id), []);
 
   // Calculate Cluster Options
   // Extend type for cluster options
@@ -1115,72 +1050,69 @@ const DeliverySpreadsheet: React.FC = () => {
 
   // fetch deliveries for the selected date
   // Centralized event query for deliveries
-  const fetchDeliveriesForDate = React.useCallback(
-    async (dateForFetch: Date) => {
-      const requestId = ++deliveriesRequestIdRef.current;
-      setIsLoadingDeliveries(true);
+  const fetchDeliveriesForDate = React.useCallback(async (dateForFetch: Date) => {
+    const requestId = ++deliveriesRequestIdRef.current;
+    setIsLoadingDeliveries(true);
 
-      try {
-        const { updatedEvents } = await getEventsByViewType({
-          viewType: "Day",
-          currentDate: new DayPilot.Date(dateForFetch),
-          clients: [] as ClientProfile[],
-        });
+    try {
+      const { updatedEvents } = await getEventsByViewType({
+        viewType: "Day",
+        currentDate: new DayPilot.Date(dateForFetch),
+        clients: [] as ClientProfile[],
+      });
 
-        if (requestId !== deliveriesRequestIdRef.current) {
-          return;
-        }
-
-        // Convert event type for spreadsheet compatibility
-        const convertedEvents = updatedEvents
-          .map((event) => {
-            let deliveryDate = event.deliveryDate;
-            // If it's a Firestore Timestamp, convert to JS Date
-            if (
-              deliveryDate &&
-              typeof deliveryDate === "object" &&
-              "seconds" in deliveryDate &&
-              typeof deliveryDate.seconds === "number" &&
-              typeof deliveryDate.toDate === "function"
-            ) {
-              deliveryDate = deliveryDate.toDate();
-            }
-            // Only allow JS Date or Luxon DateTime
-            if (
-              deliveryDate instanceof Date ||
-              (deliveryDate &&
-                typeof deliveryDate === "object" &&
-                "isValid" in deliveryDate &&
-                typeof deliveryDate.isValid === "boolean")
-            ) {
-              return {
-                ...event,
-                deliveryDate,
-                recurrence: event.recurrence === "Custom" ? "None" : event.recurrence,
-              };
-            }
-            // Otherwise, skip this event
-            return null;
-          })
-          .filter(Boolean) as Array<
-          Omit<DeliveryEvent, "deliveryDate"> & { deliveryDate: Date | import("luxon").DateTime }
-        >;
-        setDeliveriesForDate(convertedEvents);
-        const fetchEndTime = performance.now();
-      } catch (error) {
-        const fetchEndTime = performance.now();
-
-        if (requestId === deliveriesRequestIdRef.current) {
-          setDeliveriesForDate([]);
-        }
-      } finally {
-        if (requestId === deliveriesRequestIdRef.current) {
-          setIsLoadingDeliveries(false);
-        }
+      if (requestId !== deliveriesRequestIdRef.current) {
+        return;
       }
-    },
-    []
-  );
+
+      // Convert event type for spreadsheet compatibility
+      const convertedEvents = updatedEvents
+        .map((event) => {
+          let deliveryDate = event.deliveryDate;
+          // If it's a Firestore Timestamp, convert to JS Date
+          if (
+            deliveryDate &&
+            typeof deliveryDate === "object" &&
+            "seconds" in deliveryDate &&
+            typeof deliveryDate.seconds === "number" &&
+            typeof deliveryDate.toDate === "function"
+          ) {
+            deliveryDate = deliveryDate.toDate();
+          }
+          // Only allow JS Date or Luxon DateTime
+          if (
+            deliveryDate instanceof Date ||
+            (deliveryDate &&
+              typeof deliveryDate === "object" &&
+              "isValid" in deliveryDate &&
+              typeof deliveryDate.isValid === "boolean")
+          ) {
+            return {
+              ...event,
+              deliveryDate,
+              recurrence: event.recurrence === "Custom" ? "None" : event.recurrence,
+            };
+          }
+          // Otherwise, skip this event
+          return null;
+        })
+        .filter(Boolean) as Array<
+        Omit<DeliveryEvent, "deliveryDate"> & { deliveryDate: Date | import("luxon").DateTime }
+      >;
+      setDeliveriesForDate(convertedEvents);
+      const fetchEndTime = performance.now();
+    } catch (error) {
+      const fetchEndTime = performance.now();
+
+      if (requestId === deliveriesRequestIdRef.current) {
+        setDeliveriesForDate([]);
+      }
+    } finally {
+      if (requestId === deliveriesRequestIdRef.current) {
+        setIsLoadingDeliveries(false);
+      }
+    }
+  }, []);
 
   //when the user changes the date, fetch the deliveries for that date
   useEffect(() => {
@@ -1393,8 +1325,6 @@ const DeliverySpreadsheet: React.FC = () => {
       : [row.id];
     let resolvedNewClusterId = "";
     let didMoveClients = false;
-    const highlightedRowsToPreserve = preserveHighlightedRowsForAssignment();
-
     try {
       const didSave = await commitRouteAssignmentMutation((currentState) => {
         resolvedNewClusterId =
@@ -1447,26 +1377,8 @@ const DeliverySpreadsheet: React.FC = () => {
         }
       }
 
-      if (didSave && didMoveClients) {
-        setSelectedDeliveryIds(highlightedRowsToPreserve);
-        window.setTimeout(() => {
-          highlightedRowsToPreserve.forEach((id) => {
-            if (visiblePopupDeliveryIdsRef.current.has(id) && (window as any).openMapPopup) {
-              (window as any).openMapPopup(id);
-            }
-          });
-          window.setTimeout(() => {
-            setSelectedDeliveryIds(highlightedRowsToPreserve);
-            releaseHighlightedRowsForAssignment();
-          }, 1200);
-        }, 0);
-      } else {
-        releaseHighlightedRowsForAssignment();
-      }
-
       return didSave;
     } catch (error) {
-      releaseHighlightedRowsForAssignment();
       handleAssignmentSaveError(error, "Unable to update the route assignment. Please try again.");
       return false;
     }
@@ -1548,7 +1460,6 @@ const DeliverySpreadsheet: React.FC = () => {
     }
 
     try {
-      const highlightedRowsToPreserve = preserveHighlightedRowsForAssignment();
       const resolvedClusterId =
         newClusterId === "__add__" || newClusterId === "__add_new_cluster__"
           ? ""
@@ -1653,7 +1564,6 @@ const DeliverySpreadsheet: React.FC = () => {
       });
 
       if (!didSave) {
-        releaseHighlightedRowsForAssignment();
         return false;
       }
 
@@ -1715,26 +1625,8 @@ const DeliverySpreadsheet: React.FC = () => {
         );
       }
 
-      if (didChangeClusters) {
-        setSelectedDeliveryIds(highlightedRowsToPreserve);
-        window.setTimeout(() => {
-          highlightedRowsToPreserve.forEach((id) => {
-            if (visiblePopupDeliveryIdsRef.current.has(id) && (window as any).openMapPopup) {
-              (window as any).openMapPopup(id);
-            }
-          });
-          window.setTimeout(() => {
-            setSelectedDeliveryIds(highlightedRowsToPreserve);
-            releaseHighlightedRowsForAssignment();
-          }, 1200);
-        }, 0);
-      } else {
-        releaseHighlightedRowsForAssignment();
-      }
-
       return true;
     } catch (error) {
-      releaseHighlightedRowsForAssignment();
       handleAssignmentSaveError(error, "Unable to update the route assignment. Please try again.");
       return false;
     }
@@ -1862,7 +1754,10 @@ const DeliverySpreadsheet: React.FC = () => {
       if (clientsToGeocode.length > 0) {
         const geocodeGroupsByAddress = new Map<
           string,
-          { address: string; clients: Array<{ id: string; address: string; originalIndex: number }> }
+          {
+            address: string;
+            clients: Array<{ id: string; address: string; originalIndex: number }>;
+          }
         >();
 
         clientsToGeocode.forEach((client) => {
@@ -1927,9 +1822,11 @@ const DeliverySpreadsheet: React.FC = () => {
         });
 
         if (coordinateUpdates.length > 0) {
-          void clientService.updateClientCoordinatesBatch(coordinateUpdates).catch((err: Error) =>
-            console.error("Failed to batch update client coordinates:", err)
-          );
+          void clientService
+            .updateClientCoordinatesBatch(coordinateUpdates)
+            .catch((err: Error) =>
+              console.error("Failed to batch update client coordinates:", err)
+            );
         }
       }
 
@@ -2125,31 +2022,23 @@ const DeliverySpreadsheet: React.FC = () => {
     setSelectedRows(newSelectedRows);
   };
 
-  const handleRowClick = (clientId: string, fromTable = true) => {
-    const isCurrentlySelected = selectedDeliveryIds.has(clientId);
-    if (isCurrentlySelected) {
-      setSelectedDeliveryIds((prev) => {
-        const next = new Set(prev);
-        next.delete(clientId);
-        return next;
-      });
-      setVisiblePopupDeliveryIds((prev) => {
-        const next = new Set(prev);
-        next.delete(clientId);
-        return next;
-      });
-    } else {
-      setSelectedDeliveryIds((prev) => new Set([...prev, clientId]));
-      if (fromTable) {
-        setVisiblePopupDeliveryIds((prev) => new Set([...prev, clientId]));
-      }
-    }
+  const popupAvailableDeliveryIds = useMemo(
+    () =>
+      new Set(rows.filter((row) => isRenderableCoordinate(row.coordinates)).map((row) => row.id)),
+    [rows]
+  );
+
+  const handleRowClick = (clientId: string) => {
+    dispatchMapDeliverySelection({
+      type: "toggle-table-delivery",
+      deliveryId: clientId,
+      popupAvailable: popupAvailableDeliveryIds.has(clientId),
+    });
   };
 
   const handleMarkerClick = (clientId: string) => {
     const isCurrentlySelected = selectedDeliveryIds.has(clientId);
-    setSelectedDeliveryIds((prev) => new Set([...prev, clientId]));
-    setVisiblePopupDeliveryIds((prev) => new Set([...prev, clientId]));
+    dispatchMapDeliverySelection({ type: "open-marker-delivery", deliveryId: clientId });
 
     // Scroll to the highlighted row when adding a highlight
     if (!isCurrentlySelected && virtuosoRef.current && sortedRows.length > 0) {
@@ -2168,49 +2057,34 @@ const DeliverySpreadsheet: React.FC = () => {
   };
 
   const clearRowHighlight = (clientId?: string) => {
-    if (highlightRestoreLockRef.current) {
-      return;
-    }
     if (clientId) {
-      setSelectedDeliveryIds((prev) => {
-        const next = new Set(prev);
-        next.delete(clientId);
-        return next;
-      });
-      setVisiblePopupDeliveryIds((prev) => {
-        const next = new Set(prev);
-        next.delete(clientId);
-        return next;
-      });
+      dispatchMapDeliverySelection({ type: "close-popup", deliveryId: clientId });
     } else {
-      setSelectedDeliveryIds(new Set());
-      setVisiblePopupDeliveryIds(new Set());
+      dispatchMapDeliverySelection({ type: "clear" });
     }
   };
 
   const handleToggleSelectedPopup = (clientId: string) => {
-    setVisiblePopupDeliveryIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(clientId)) {
-        next.delete(clientId);
-      } else {
-        next.add(clientId);
-      }
-      return next;
+    dispatchMapDeliverySelection({
+      type: "toggle-popup",
+      deliveryId: clientId,
+      popupAvailable: popupAvailableDeliveryIds.has(clientId),
     });
   };
 
   const handleShowAllSelectedPopups = () => {
-    setVisiblePopupDeliveryIds(new Set(selectedDeliveryIds));
+    dispatchMapDeliverySelection({
+      type: "show-all-popups",
+      popupAvailableDeliveryIds,
+    });
   };
 
   const handleHideAllSelectedPopups = () => {
-    setVisiblePopupDeliveryIds(new Set());
+    dispatchMapDeliverySelection({ type: "hide-all-popups" });
   };
 
   const handleClearSelectedDeliveries = () => {
-    setSelectedDeliveryIds(new Set());
-    setVisiblePopupDeliveryIds(new Set());
+    dispatchMapDeliverySelection({ type: "clear" });
   };
 
   const selectedDeliveriesForControls = useMemo(() => {
@@ -2223,14 +2097,23 @@ const DeliverySpreadsheet: React.FC = () => {
         if (!row) return [];
 
         const clusterId = normalizeClusterIdValue(row.clusterId);
-        return [{
-          id: row.id,
-          label: `${row.firstName} ${row.lastName}`.trim() || row.address || row.id,
-          popupVisible: visiblePopupDeliveryIds.has(row.id),
-          clusterColor: clusterId ? clusterColorMap(clusterId) : undefined,
-        }];
+        return [
+          {
+            id: row.id,
+            label: `${row.firstName} ${row.lastName}`.trim() || row.address || row.id,
+            popupVisible: visiblePopupDeliveryIds.has(row.id),
+            popupAvailable: popupAvailableDeliveryIds.has(row.id),
+            clusterColor: clusterId ? clusterColorMap(clusterId) : undefined,
+          },
+        ];
       });
-  }, [clusterColorMap, rows, selectedDeliveryIds, visiblePopupDeliveryIds]);
+  }, [
+    clusterColorMap,
+    popupAvailableDeliveryIds,
+    rows,
+    selectedDeliveryIds,
+    visiblePopupDeliveryIds,
+  ]);
 
   const clientsWithDeliveriesOnSelectedDate = rows.filter((row) =>
     deliveriesForDate.some((delivery) => delivery.clientId === row.id)
@@ -2253,8 +2136,7 @@ const DeliverySpreadsheet: React.FC = () => {
     setClientOverrides([]);
     setSelectedRows(new Set());
     setSelectedClusters(new Set());
-    setSelectedDeliveryIds(new Set());
-    setVisiblePopupDeliveryIds(new Set());
+    dispatchMapDeliverySelection({ type: "clear" });
 
     setSelectedDate(normalized);
     const newSearchParams = new URLSearchParams(searchParams);
@@ -2863,21 +2745,13 @@ const DeliverySpreadsheet: React.FC = () => {
 
   useEffect(() => {
     const visibleDeliveryIds = new Set(visibleRows.map((row) => row.id));
-    setSelectedDeliveryIds((prev) => {
-      const toRemove: string[] = [];
-      prev.forEach((id) => {
-        if (!visibleDeliveryIds.has(id)) {
-          toRemove.push(id);
-        }
-      });
-      if (toRemove.length === 0) return prev;
-      const next = new Set(prev);
-      toRemove.forEach((id) => next.delete(id));
-      return next;
-    });
-    setVisiblePopupDeliveryIds((prev) => {
-      const next = new Set(Array.from(prev).filter((id) => visibleDeliveryIds.has(id)));
-      return next.size === prev.size ? prev : next;
+    const visiblePopupAvailableDeliveryIds = new Set(
+      visibleRows.filter((row) => isRenderableCoordinate(row.coordinates)).map((row) => row.id)
+    );
+    dispatchMapDeliverySelection({
+      type: "retain-deliveries",
+      deliveryIds: visibleDeliveryIds,
+      popupAvailableDeliveryIds: visiblePopupAvailableDeliveryIds,
     });
   }, [visibleRows]);
 
@@ -3250,7 +3124,6 @@ const DeliverySpreadsheet: React.FC = () => {
               clientOverrides={clientOverrides}
               onClusterUpdate={handleIndividualClientUpdate}
               onRenumberClusters={handleRenumberClusters}
-              onOpenPopup={handleRowClick}
               onMarkerClick={handleMarkerClick}
               onClearHighlight={clearRowHighlight}
               visiblePopupDeliveryIds={visiblePopupDeliveryIds}
@@ -3482,11 +3355,7 @@ const DeliverySpreadsheet: React.FC = () => {
           component={Paper}
           sx={{
             height:
-              isLoading || sortedRows.length > 0
-                ? isMapCollapsed
-                  ? "72vh"
-                  : "60vh"
-                : "auto",
+              isLoading || sortedRows.length > 0 ? (isMapCollapsed ? "72vh" : "60vh") : "auto",
             width: "100%",
           }}
         >

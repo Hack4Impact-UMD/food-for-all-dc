@@ -11,6 +11,7 @@ export interface SelectedDeliverySummary {
   id: string;
   label: string;
   popupVisible: boolean;
+  popupAvailable: boolean;
   clusterColor?: string;
 }
 
@@ -35,7 +36,10 @@ const SelectedDeliveriesControl = ({
 
   if (deliveries.length === 0) return null;
 
-  const allPopupsVisible = deliveries.every((delivery) => delivery.popupVisible);
+  const popupAvailableDeliveries = deliveries.filter((delivery) => delivery.popupAvailable);
+  const hasAvailablePopups = popupAvailableDeliveries.length > 0;
+  const allPopupsVisible =
+    hasAvailablePopups && popupAvailableDeliveries.every((delivery) => delivery.popupVisible);
 
   return (
     <Paper
@@ -73,25 +77,24 @@ const SelectedDeliveriesControl = ({
           Selected: {deliveries.length}
         </Typography>
         <Tooltip title={allPopupsVisible ? "Hide all popups" : "Show all popups"}>
-          <IconButton
-            aria-label={allPopupsVisible ? "Hide all" : "Show all"}
-            aria-pressed={allPopupsVisible}
-            onClick={allPopupsVisible ? onHideAll : onShowAll}
-            size="small"
-          >
-            {allPopupsVisible ? (
-              <VisibilityOffIcon fontSize="small" />
-            ) : (
-              <VisibilityIcon fontSize="small" />
-            )}
-          </IconButton>
+          <span>
+            <IconButton
+              aria-label={allPopupsVisible ? "Hide all" : "Show all"}
+              aria-pressed={allPopupsVisible}
+              onClick={allPopupsVisible ? onHideAll : onShowAll}
+              disabled={!hasAvailablePopups}
+              size="small"
+            >
+              {allPopupsVisible ? (
+                <VisibilityOffIcon fontSize="small" />
+              ) : (
+                <VisibilityIcon fontSize="small" />
+              )}
+            </IconButton>
+          </span>
         </Tooltip>
         <Tooltip title="Clear selected deliveries">
-          <IconButton
-            aria-label="Clear selected"
-            onClick={onClearSelected}
-            size="small"
-          >
+          <IconButton aria-label="Clear selected" onClick={onClearSelected} size="small">
             <DeselectIcon fontSize="small" />
           </IconButton>
         </Tooltip>
@@ -130,28 +133,39 @@ const SelectedDeliveriesControl = ({
               }}
             >
               <Tooltip title={delivery.label} placement="left">
-                <Typography
-                  variant="body2"
-                  noWrap
-                  sx={{ flex: 1, minWidth: 0 }}
-                >
+                <Typography variant="body2" noWrap sx={{ flex: 1, minWidth: 0 }}>
                   {delivery.label}
                 </Typography>
               </Tooltip>
-              <Tooltip title={delivery.popupVisible ? "Hide popup" : "Show popup"}>
-                <IconButton
-                  size="small"
-                  aria-label={`${delivery.popupVisible ? "Hide" : "Show"} popup for ${delivery.label}`}
-                  aria-pressed={delivery.popupVisible}
-                  onClick={() => onTogglePopup(delivery.id)}
-                  sx={{ p: 0.5, ml: 0.25, flex: "0 0 auto" }}
-                >
-                  {delivery.popupVisible ? (
-                    <VisibilityIcon fontSize="small" />
-                  ) : (
-                    <VisibilityOffIcon fontSize="small" />
-                  )}
-                </IconButton>
+              <Tooltip
+                title={
+                  delivery.popupAvailable
+                    ? delivery.popupVisible
+                      ? "Hide popup"
+                      : "Show popup"
+                    : "Popup unavailable because this delivery has no map location"
+                }
+              >
+                <span>
+                  <IconButton
+                    size="small"
+                    aria-label={
+                      delivery.popupAvailable
+                        ? `${delivery.popupVisible ? "Hide" : "Show"} popup for ${delivery.label}`
+                        : `Popup unavailable for ${delivery.label}`
+                    }
+                    aria-pressed={delivery.popupVisible}
+                    onClick={() => onTogglePopup(delivery.id)}
+                    disabled={!delivery.popupAvailable}
+                    sx={{ p: 0.5, ml: 0.25, flex: "0 0 auto" }}
+                  >
+                    {delivery.popupVisible ? (
+                      <VisibilityIcon fontSize="small" />
+                    ) : (
+                      <VisibilityOffIcon fontSize="small" />
+                    )}
+                  </IconButton>
+                </span>
               </Tooltip>
               <Tooltip title="Remove from selection">
                 <IconButton

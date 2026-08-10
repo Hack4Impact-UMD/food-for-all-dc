@@ -74,30 +74,30 @@ describe("ClusterMap popup regression guards", () => {
   // Recenter should preserve open popups while zooming back out.
   it("preserves open popups while recentering to Food For All", () => {
     expect(source).toContain("const centerMap = () => {");
-    expect(source).toContain("const dcWardCenterCoordinates: L.LatLngExpression = [38.895, -77.036942];");
+    expect(source).toContain(
+      "const dcWardCenterCoordinates: L.LatLngExpression = [38.895, -77.036942];"
+    );
     expect(source).toContain("}).setView(dcWardCenterCoordinates, 11, {");
-    expect(source).toContain("hasCompletedInitialMapLoadRef.current && visibleRowsKey !== previousVisibleRowsKeyRef.current");
+    expect(source).toContain(
+      "hasCompletedInitialMapLoadRef.current && visibleRowsKey !== previousVisibleRowsKeyRef.current"
+    );
     expect(source).toContain("popupClientIdsToRestore");
-    expect(source).toContain("suppressedPopupClientIdsRef.current = new Set(popupClientIdsToRestore);");
+    expect(source).toContain("runWithProgrammaticPopupCloses(popupClientIdsToRestore");
     expect(source).toContain("if (marker && !marker.isPopupOpen()) {");
-    expect(source).toContain("marker.openPopup();");
+    expect(source).toContain("openPopupProgrammatically(clientId, marker);");
     expect(source).toContain("map.setView(dcWardCenterCoordinates, 11, { animate: false });");
   });
 
-  // Ensures both interaction entry points (direct marker click and table-driven openMapPopup)
-  // explicitly open the marker popup.
+  // Direct marker interaction still opens the popup; table actions use controlled popup IDs.
   it("opens marker popup directly on marker click", () => {
     expect(source).toMatch(/\.on\("click",\s*\(\)\s*=>\s*\{[\s\S]*?marker\.openPopup\(\)/m);
-    expect(source).toMatch(/openMapPopup\s*=\s*\(clientId:\s*string\)\s*=>\s*\{[\s\S]*?marker\.openPopup\(\)/m);
   });
 
-  it("synchronizes popup visibility without treating programmatic closes as user closes", () => {
-    expect(source).toContain("visiblePopupDeliveryIds?: Set<string>");
-    expect(source).toContain("const shouldBeOpen = visiblePopupDeliveryIds.has(clientId)");
-    expect(source).toMatch(
-      /suppressedPopupClientIdsRef\.current\.add\(clientId\);[\s\S]*?marker\.closePopup\(\)/m
+  it("uses the shared route-color resolver", () => {
+    expect(source).toContain(
+      'import { getClusterColor, getClusterTextColor } from "./utils/clusterColors"'
     );
-    expect(source).toContain("onClearHighlightRef.current?.(clientId)");
+    expect(source).not.toContain("const clusterColors = [");
   });
 
   it("refreshes the route text in an open popup when clusters change", () => {
@@ -210,9 +210,7 @@ describe("ClusterMap popup regression guards", () => {
     expect(screen.getByText("Day total: 1")).toBeTruthy();
     expect(screen.getByText("2")).toBeTruthy();
     expect(screen.queryByText("of 2 assigned")).toBeNull();
-    expect(
-      screen.getByText("Some saved route assignments are out of date.")
-    ).toBeTruthy();
+    expect(screen.getByText("Some saved route assignments are out of date.")).toBeTruthy();
   });
 
   it("keeps routes visible in the overlay even when the current filter hides all of their rows", async () => {
