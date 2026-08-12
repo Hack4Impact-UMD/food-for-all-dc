@@ -353,34 +353,30 @@ export default function TagManager({
       const updatedMetadata = existingTag
         ? { tags: masterTags, tagColors }
         : addTagMetadata(masterTags, tagColors, newTagId, selectedColor);
+      const metadataToPersist = existingTag ? undefined : updatedMetadata;
       setAddError("");
 
       let didUpdateClient: boolean | void;
       try {
-        if (clientUid && !existingTag) {
+        if (clientUid) {
           await assignTagToClient({
             db,
             clientUid,
             clientTags: values,
             tag: newTagId,
-            metadata: updatedMetadata,
+            metadata: metadataToPersist,
             tagColorPalette: colorPalette,
             auditMetadata: getAuditMetadata(),
           });
           didUpdateClient = await handleTag(newTagId, { persist: false });
-        } else if (clientUid) {
-          didUpdateClient = await handleTag(newTagId);
         } else {
-          if (!existingTag) {
-            await setDoc(
-              doc(db, dataSources.firebase.tagsCollection, dataSources.firebase.tagsDocId),
-              {
-                ...updatedMetadata,
-                tagColorPalette: colorPalette,
-              },
-              { merge: true }
-            );
-          }
+          await setDoc(
+            doc(db, dataSources.firebase.tagsCollection, dataSources.firebase.tagsDocId),
+            metadataToPersist
+              ? { ...metadataToPersist, tagColorPalette: colorPalette }
+              : { tagColorPalette: colorPalette },
+            { merge: true }
+          );
           didUpdateClient = await handleTag(newTagId);
         }
         setMasterTags(updatedMetadata.tags);
@@ -709,7 +705,6 @@ export default function TagManager({
                       key={index}
                       aria-label={`Select palette color ${index + 1}`}
                       aria-pressed={selectedPaletteIndex === index}
-                      disabled={Boolean(selectedExistingTag)}
                       onClick={() => {
                         setSelectedPaletteIndex(index);
                         setSelectedColor(color);
@@ -734,7 +729,7 @@ export default function TagManager({
                     type="color"
                     aria-label="Custom tag color"
                     value={selectedColor}
-                    disabled={Boolean(selectedExistingTag)}
+                    disabled={selectedPaletteIndex === null}
                     onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
                       const color = event.target.value;
                       setSelectedColor(color);
@@ -753,6 +748,11 @@ export default function TagManager({
                       cursor: "pointer",
                     }}
                   />
+                  {selectedPaletteIndex === null && (
+                    <Typography variant="caption" sx={{ width: "100%" }}>
+                      Select a predefined color before choosing a custom palette color.
+                    </Typography>
+                  )}
                 </Box>
               </Box>
               {selectedTag?.trim() && (
