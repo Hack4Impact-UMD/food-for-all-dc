@@ -60,4 +60,39 @@ describe("FormField view mode value rendering", () => {
 
     expect(container.textContent).toBe("202-555-0100");
   });
+
+  it.each([
+    ["notes", "Admin Notes"],
+    ["deliveryDetails.deliveryInstructions", "Delivery Instructions"],
+    ["address2", "Address 2"],
+    ["ward", "Ward"],
+  ])("makes the read-only %s field keyboard-accessible", (fieldPath, accessibleName) => {
+    renderViewMode(fieldPath, "Long field value ".repeat(50), "textarea");
+
+    const multilineRegion = screen.getByRole("region", { name: accessibleName });
+    expect(multilineRegion.getAttribute("tabindex")).toBe("0");
+
+    multilineRegion.focus();
+    expect(document.activeElement).toBe(multilineRegion);
+  });
+
+  it("preserves the PR's multiline height and scrolling behavior", () => {
+    renderViewMode("notes", "Long admin notes ".repeat(50), "textarea");
+
+    const notesRegion = screen.getByRole("region", { name: "Admin Notes" });
+    const styles = getComputedStyle(notesRegion);
+
+    expect(styles.maxHeight).toBe("120px");
+    expect(styles.overflowY).toBe("auto");
+    expect(styles.paddingRight).toBe("8px");
+  });
+
+  it("does not add a keyboard stop to a regular read-only field", () => {
+    const { container } = renderViewMode("phone", "202-555-0100", "text");
+    const phoneDisplay = container.firstElementChild;
+
+    expect(phoneDisplay?.getAttribute("tabindex")).toBeNull();
+    expect(phoneDisplay?.getAttribute("role")).toBeNull();
+    expect(phoneDisplay?.getAttribute("aria-label")).toBeNull();
+  });
 });
