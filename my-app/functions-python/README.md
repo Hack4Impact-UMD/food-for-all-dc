@@ -25,12 +25,13 @@ firebase deploy --only functions
 |----------|------|---------|
 | `geocode_addresses_endpoint` | HTTP | Convert addresses to coordinates |
 | `cluster_deliveries_k_means` | HTTP | Group delivery locations into clusters |
+| `createUserAccount` | Callable | Create a synchronized Auth + Firestore user |
 | `deleteUserAccount` | Callable | Delete user (Auth + Firestore) |
 | `updateDeliveriesDaily` | Scheduled | Daily cron: update client delivery records (runs 10:00 AM ET) |
 
 ## File Structure
 
-- `main.py` - User/delivery functions (`deleteUserAccount`, `updateDeliveriesDaily`)
+- `main.py` - User/delivery functions (`createUserAccount`, `deleteUserAccount`, `updateDeliveriesDaily`)
 - `clustering.py` - Geocoding + clustering endpoints
 
 ## Configuration

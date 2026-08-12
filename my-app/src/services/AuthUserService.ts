@@ -9,8 +9,7 @@ import {
   FirestoreError,
   writeBatch,
 } from "firebase/firestore";
-import { getAuth, createUserWithEmailAndPassword } from "firebase/auth";
-import { db, app, functions } from "../auth/firebaseConfig";
+import { db, functions } from "../auth/firebaseConfig";
 import { AuthUserRow, UserType } from "../types";
 import { validateAuthUserRow } from "../utils/firestoreValidation";
 import { httpsCallable } from "firebase/functions";
@@ -35,7 +34,6 @@ const mapRoleToUserType = (roleString: string): UserType => {
 export class AuthUserService {
   private static instance: AuthUserService;
   private collectionRef = collection(db, dataSources.firebase.usersCollection);
-  private auth = getAuth(app);
 
   // eslint-disable-next-line @typescript-eslint/no-empty-function -- Intentional for singleton
   private constructor() {}
@@ -167,45 +165,47 @@ export class AuthUserService {
   }
 
   async createUser(userData: Omit<AuthUserRow, "id" | "uid">, password: string): Promise<string> {
-    const currentUser = this.auth.currentUser;
     const formattedPhone = formatPhoneNumberForSave(userData.phone || "");
     if (formattedPhone === null) {
       throw new Error("Phone number must use one of the allowed formats.");
     }
     try {
-      return await retry(async () => {
-        const userCredential = await createUserWithEmailAndPassword(
-          this.auth,
-          userData.email,
-          password
-        );
-        const userId = userCredential.user.uid;
-        if (currentUser) {
-          await this.auth.updateCurrentUser(currentUser);
-        }
-        const roleString = getRoleDisplayName(userData.role);
-        const newUserDoc = {
-          name: userData.name,
-          email: userData.email,
-          phone: formattedPhone,
-          role: roleString,
-        };
-        await setDoc(doc(db, dataSources.firebase.usersCollection, userId), newUserDoc);
-        return userId;
+      const createUserAccountCallable = httpsCallable<
+        { name: string; email: string; phone: string; role: string; password: string },
+        { uid: string }
+      >(functions, "createUserAccount");
+      const result = await createUserAccountCallable({
+        name: userData.name.trim(),
+        email: userData.email.trim(),
+        phone: formattedPhone,
+        role: getRoleDisplayName(userData.role),
+        password,
       });
-    } catch (error: unknown) {
-      if (currentUser) {
-        try {
-          await this.auth.updateCurrentUser(currentUser);
-        } catch (restoreError) {
-          console.error("Failed to restore user context after creation error:", restoreError);
-        }
+      if (!result.data?.uid) {
+        throw new ServiceError(
+          "User creation completed without returning a user ID.",
+          "invalid-response"
+        );
       }
+      return result.data.uid;
+    } catch (error: unknown) {
       const err = error as Error & { code?: string; message?: string };
-      if (err.code === "auth/email-already-in-use") {
+      if (
+        err.code === "functions/already-exists" ||
+        err.code === "already-exists" ||
+        err.code === "auth/email-already-in-use"
+      ) {
         throw formatServiceError(err, "Email already in use. Please use a different email.");
+      } else if (err.code === "functions/invalid-argument" || err.code === "invalid-argument") {
+        throw new ServiceError(
+          err.message || "The user details are invalid. Please check the form and try again.",
+          err.code,
+          err
+        );
       } else if (err.code === "auth/weak-password") {
         throw formatServiceError(err, "Password is too weak. Please choose a stronger password.");
+      } else if (err.code === "functions/permission-denied" || err.code === "permission-denied") {
+        throw formatServiceError(err, "You do not have permission to create this user.");
       }
       throw formatServiceError(
         err,
@@ -242,10 +242,8 @@ export class AuthUserService {
 
   async deleteUser(uid: string): Promise<void> {
     try {
-      await retry(async () => {
-        const deleteUserAccountCallable = httpsCallable(functions, "deleteUserAccount");
-        await deleteUserAccountCallable({ uid: uid });
-      });
+      const deleteUserAccountCallable = httpsCallable(functions, "deleteUserAccount");
+      await deleteUserAccountCallable({ uid });
     } catch (error: unknown) {
       const err = error as Error & { code?: string; message?: string };
       const errorMessage = err.message || "An error occurred while deleting the user account.";
