@@ -42,7 +42,7 @@ interface AssignTagToClientOptions {
   clientUid: string;
   clientTags: string[];
   tag: string;
-  metadata: TagMetadata;
+  metadata?: TagMetadata;
   tagColorPalette: string[];
   auditMetadata: ClientAuditWriteMetadata;
 }
@@ -67,7 +67,7 @@ export const assignTagToClient = async ({
   );
   batch.set(
     doc(db, dataSources.firebase.tagsCollection, dataSources.firebase.tagsDocId),
-    { ...metadata, tagColorPalette },
+    metadata ? { ...metadata, tagColorPalette } : { tagColorPalette },
     { merge: true }
   );
   await batch.commit();

@@ -6,7 +6,7 @@ const mockSetDoc = jest.fn();
 const mockBatchSet = jest.fn();
 const mockBatchUpdate = jest.fn();
 const mockBatchCommit = jest.fn();
-const mockTagColors = { Delivery: "#257e68" };
+let mockTagColors = { Delivery: "#257e68" };
 const mockTagColorPalette = [
   "#257e68",
   "#1976d2",
@@ -54,6 +54,7 @@ jest.mock("../../../context/ClientDataContext", () => ({
 
 describe("TagManager", () => {
   beforeEach(() => {
+    mockTagColors = { Delivery: "#257e68" };
     mockSetDoc.mockReset();
     mockSetDoc.mockResolvedValue(undefined as never);
     mockBatchSet.mockReset();
@@ -98,8 +99,6 @@ describe("TagManager", () => {
     expect(mockBatchSet).toHaveBeenLastCalledWith(
       { id: "tags-document" },
       {
-        tags: ["Delivery"],
-        tagColors: { Delivery: "#257e68" },
         tagColorPalette: [
           "#257e68",
           "#222222",
@@ -114,6 +113,104 @@ describe("TagManager", () => {
       { merge: true }
     );
     expect(mockBatchCommit).toHaveBeenCalledTimes(1);
+  });
+
+  it("requires a palette slot before customizing an existing tag outside the palette", async () => {
+    mockTagColors = { Delivery: "#abcdef" };
+    const handleTag = jest.fn((_tag: string, _options?: { persist?: boolean }) => undefined);
+
+    render(
+      <TagManager
+        allTags={["Delivery"]}
+        values={[]}
+        handleTag={handleTag}
+        setInnerPopup={jest.fn()}
+        deleteMode={false}
+        setTagToDelete={jest.fn()}
+        clientUid="client-1"
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit tags" }));
+    fireEvent.change(screen.getByLabelText("Select tag or type new tag"), {
+      target: { value: "Delivery" },
+    });
+    fireEvent.keyDown(screen.getByLabelText("Select tag or type new tag"), { key: "Enter" });
+
+    const customColorInput = screen.getByLabelText("Custom tag color") as HTMLInputElement;
+    expect(customColorInput.disabled).toBe(true);
+    expect(
+      screen.getByText("Select a predefined color before choosing a custom palette color.")
+    ).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Select palette color 2" }));
+    expect(customColorInput.disabled).toBe(false);
+    fireEvent.change(customColorInput, { target: { value: "#333333" } });
+    fireEvent.click(screen.getByRole("button", { name: "Add Tag" }));
+
+    await waitFor(() => expect(handleTag).toHaveBeenCalledWith("Delivery", { persist: false }));
+    expect(mockBatchSet).toHaveBeenLastCalledWith(
+      { id: "tags-document" },
+      {
+        tagColorPalette: [
+          "#257e68",
+          "#333333",
+          "#7b1fa2",
+          "#c2185b",
+          "#d84315",
+          "#f9a825",
+          "#546e7a",
+          "#5d4037",
+        ],
+      },
+      { merge: true }
+    );
+  });
+
+  it("persists only palette changes for an existing tag without a client", async () => {
+    const handleTag = jest.fn((_tag: string, _options?: { persist?: boolean }) => undefined);
+
+    render(
+      <TagManager
+        allTags={["Delivery"]}
+        values={[]}
+        handleTag={handleTag}
+        setInnerPopup={jest.fn()}
+        deleteMode={false}
+        setTagToDelete={jest.fn()}
+        clientUid=""
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit tags" }));
+    fireEvent.change(screen.getByLabelText("Select tag or type new tag"), {
+      target: { value: "Delivery" },
+    });
+    fireEvent.keyDown(screen.getByLabelText("Select tag or type new tag"), { key: "Enter" });
+    fireEvent.click(screen.getByRole("button", { name: "Select palette color 2" }));
+    fireEvent.change(screen.getByLabelText("Custom tag color"), {
+      target: { value: "#444444" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Add Tag" }));
+
+    await waitFor(() => expect(handleTag).toHaveBeenCalledWith("Delivery"));
+    expect(mockSetDoc).toHaveBeenCalledWith(
+      { id: "tags-document" },
+      {
+        tagColorPalette: [
+          "#257e68",
+          "#444444",
+          "#7b1fa2",
+          "#c2185b",
+          "#d84315",
+          "#f9a825",
+          "#546e7a",
+          "#5d4037",
+        ],
+      },
+      { merge: true }
+    );
+    expect(mockBatchCommit).not.toHaveBeenCalled();
   });
 
   it("saves every predefined color change when adding a new tag", async () => {
