@@ -87,6 +87,27 @@ describe("AuthUserService synchronized user mutations", () => {
     expect(mockCallable).toHaveBeenCalledTimes(1);
   });
 
+  it("preserves the existing weak-password message", async () => {
+    mockCallable.mockRejectedValue({
+      code: "auth/weak-password",
+      message: "weak password",
+    });
+
+    await expect(
+      authUserService.createUser(
+        {
+          name: "Test User",
+          email: "test@example.com",
+          role: UserType.ClientIntake,
+        },
+        "weak"
+      )
+    ).rejects.toMatchObject({
+      message: "Password is too weak. Please choose a stronger password.",
+      code: "auth/weak-password",
+    });
+  });
+
   it("uses the idempotent deletion callable once per user action", async () => {
     mockCallable.mockResolvedValue({ data: { status: "success" } });
 

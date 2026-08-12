@@ -1,6 +1,6 @@
 import unittest
 from types import SimpleNamespace
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 import main
 
@@ -57,6 +57,12 @@ class UserSynchronizationTests(unittest.TestCase):
 
         auth_client.delete_user.assert_called_once_with("created-uid")
 
+    def test_create_role_policy_matches_existing_manager_form_options(self):
+        self.assertTrue(main._can_create_managed_role("admin", "Admin"))
+        self.assertTrue(main._can_create_managed_role("manager", "Manager"))
+        self.assertTrue(main._can_create_managed_role("manager", "Client Intake"))
+        self.assertFalse(main._can_create_managed_role("manager", "Admin"))
+
     def test_delete_removes_firestore_when_auth_user_is_already_missing(self):
         auth_client = FakeAuth()
         auth_client.delete_user.side_effect = auth_client.UserNotFoundError()
@@ -78,6 +84,17 @@ class UserSynchronizationTests(unittest.TestCase):
 
         self.assertEqual(result, {"authDeleted": False, "firestoreDeleted": True})
         self.assertEqual(self.user_doc.delete.call_count, 2)
+
+    @patch("main.query_today_client_ids")
+    @patch("main.firestore.client")
+    def test_run_update_still_serializes_its_summary(self, firestore_client, query_today):
+        query_today.return_value = {"client_ids": []}
+
+        result = main.run_update()
+
+        self.assertEqual(result["total_clients"], 0)
+        self.assertEqual(result["updated_count"], 0)
+        firestore_client.assert_called_once_with()
 
 
 if __name__ == "__main__":

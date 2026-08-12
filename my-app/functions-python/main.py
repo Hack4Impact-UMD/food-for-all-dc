@@ -1,3 +1,5 @@
+import json
+
 import firebase_admin
 from firebase_functions import https_fn, options, scheduler_fn
 from firebase_admin import auth, firestore
@@ -99,6 +101,13 @@ def _managed_role(raw_role: Optional[str]) -> Optional[str]:
     }.get(normalized)
 
 
+def _can_create_managed_role(caller_role: str, target_role: str) -> bool:
+    """Keep server authorization aligned with the existing create-user form."""
+    return caller_role == "admin" or (
+        caller_role == "manager" and target_role != "Admin"
+    )
+
+
 def _validated_create_user_data(raw_data) -> dict:
     if not isinstance(raw_data, dict):
         raise https_fn.HttpsError(
@@ -193,10 +202,10 @@ def createUserAccount(req: https_fn.CallableRequest):
     caller_role = _require_user_manager(req, db)
     user_data = _validated_create_user_data(req.data)
 
-    if caller_role == "manager" and user_data["role"] != "Client Intake":
+    if not _can_create_managed_role(caller_role, user_data["role"]):
         raise https_fn.HttpsError(
             code=https_fn.FunctionsErrorCode.PERMISSION_DENIED,
-            message="Managers can only create Client Intake accounts.",
+            message="Managers cannot create Admin accounts.",
         )
 
     try:

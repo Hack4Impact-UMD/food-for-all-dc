@@ -193,12 +193,8 @@ export class AuthUserService {
         err.code === "auth/email-already-in-use"
       ) {
         throw formatServiceError(err, "Email already in use. Please use a different email.");
-      } else if (
-        err.code === "functions/invalid-argument" ||
-        err.code === "invalid-argument" ||
-        err.code === "auth/weak-password"
-      ) {
-        throw formatServiceError(err, "Password is too weak or the user details are invalid.");
+      } else if (err.code === "auth/weak-password") {
+        throw formatServiceError(err, "Password is too weak. Please choose a stronger password.");
       } else if (err.code === "functions/permission-denied" || err.code === "permission-denied") {
         throw formatServiceError(err, "You do not have permission to create this user.");
       }
