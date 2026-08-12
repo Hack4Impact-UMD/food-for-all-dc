@@ -108,6 +108,45 @@ describe("AuthUserService synchronized user mutations", () => {
     });
   });
 
+  it("surfaces safe validation messages returned by the callable", async () => {
+    mockCallable.mockRejectedValue({
+      code: "functions/invalid-argument",
+      message: "Password must be at least 8 characters long.",
+    });
+
+    await expect(
+      authUserService.createUser(
+        {
+          name: "Test User",
+          email: "test@example.com",
+          role: UserType.ClientIntake,
+        },
+        "short"
+      )
+    ).rejects.toMatchObject({
+      message: "Password must be at least 8 characters long.",
+      code: "functions/invalid-argument",
+    });
+  });
+
+  it("preserves the diagnostic when the callable omits the new user ID", async () => {
+    mockCallable.mockResolvedValue({ data: {} });
+
+    await expect(
+      authUserService.createUser(
+        {
+          name: "Test User",
+          email: "test@example.com",
+          role: UserType.ClientIntake,
+        },
+        "test-password"
+      )
+    ).rejects.toMatchObject({
+      message: "User creation completed without returning a user ID.",
+      code: "invalid-response",
+    });
+  });
+
   it("uses the idempotent deletion callable once per user action", async () => {
     mockCallable.mockResolvedValue({ data: { status: "success" } });
 

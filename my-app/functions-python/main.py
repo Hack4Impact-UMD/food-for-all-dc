@@ -1,4 +1,5 @@
 import json
+import logging
 
 import firebase_admin
 from firebase_functions import https_fn, options, scheduler_fn
@@ -13,6 +14,7 @@ from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
 CLIENTS_COLLECTION = "client-profile2"
+logger = logging.getLogger(__name__)
 
 # Initialize Firebase Admin SDK only once
 try:
@@ -173,10 +175,11 @@ def _create_user_records(db, user_data: dict, auth_client=auth) -> str:
     except Exception:
         try:
             auth_client.delete_user(created_user.uid)
-        except Exception as rollback_error:
-            print(
-                "Critical: failed to roll back Firebase Auth user "
-                f"{created_user.uid} after Firestore creation failed: {rollback_error}"
+        except Exception:
+            logger.exception(
+                "Critical: failed to roll back Firebase Auth user %s "
+                "after Firestore creation failed",
+                created_user.uid,
             )
         raise
 
@@ -211,22 +214,22 @@ def createUserAccount(req: https_fn.CallableRequest):
     try:
         uid = _create_user_records(db, user_data)
         return {"status": "success", "uid": uid}
-    except auth.EmailAlreadyExistsError:
+    except auth.EmailAlreadyExistsError as duplicate_error:
         raise https_fn.HttpsError(
             code=https_fn.FunctionsErrorCode.ALREADY_EXISTS,
             message="An account with this email already exists.",
-        )
+        ) from duplicate_error
     except ValueError as validation_error:
         raise https_fn.HttpsError(
             code=https_fn.FunctionsErrorCode.INVALID_ARGUMENT,
             message=str(validation_error),
-        )
+        ) from validation_error
     except Exception as creation_error:
-        print(f"User creation failed: {creation_error}")
+        logger.exception("User creation failed")
         raise https_fn.HttpsError(
             code=https_fn.FunctionsErrorCode.INTERNAL,
             message="An internal error occurred while creating the user.",
-        )
+        ) from creation_error
 
 
 @https_fn.on_call(
@@ -265,7 +268,7 @@ def deleteUserAccount(req: https_fn.CallableRequest):
         raise https_fn.HttpsError(
             code=https_fn.FunctionsErrorCode.INTERNAL,
             message="Unable to verify the target account.",
-        )
+        ) from user_lookup_error
 
     if not target_role:
         target_role = _role_from_users_doc(db, uid_to_delete)
@@ -288,7 +291,7 @@ def deleteUserAccount(req: https_fn.CallableRequest):
     except Exception as e:
         print(f"An unexpected error occurred during deletion of user {uid_to_delete}: {e}")
         raise https_fn.HttpsError(code=https_fn.FunctionsErrorCode.INTERNAL,
-                                    message="An internal error occurred while deleting the user.")
+                                    message="An internal error occurred while deleting the user.") from e
 
 def query_today_client_ids(tz_name: str = "America/New_York"):
     """Return clientIds for events whose deliveryDate is ‘today’ in the given timezone."""

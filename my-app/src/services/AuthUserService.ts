@@ -182,7 +182,10 @@ export class AuthUserService {
         password,
       });
       if (!result.data?.uid) {
-        throw new Error("User creation completed without returning a user ID.");
+        throw new ServiceError(
+          "User creation completed without returning a user ID.",
+          "invalid-response"
+        );
       }
       return result.data.uid;
     } catch (error: unknown) {
@@ -193,6 +196,12 @@ export class AuthUserService {
         err.code === "auth/email-already-in-use"
       ) {
         throw formatServiceError(err, "Email already in use. Please use a different email.");
+      } else if (err.code === "functions/invalid-argument" || err.code === "invalid-argument") {
+        throw new ServiceError(
+          err.message || "The user details are invalid. Please check the form and try again.",
+          err.code,
+          err
+        );
       } else if (err.code === "auth/weak-password") {
         throw formatServiceError(err, "Password is too weak. Please choose a stronger password.");
       } else if (err.code === "functions/permission-denied" || err.code === "permission-denied") {

@@ -57,11 +57,51 @@ class UserSynchronizationTests(unittest.TestCase):
 
         auth_client.delete_user.assert_called_once_with("created-uid")
 
+    @patch("main.logger.exception")
+    def test_create_user_logs_failed_auth_rollback(self, log_exception):
+        auth_client = FakeAuth()
+        self.user_doc.set.side_effect = RuntimeError("Firestore unavailable")
+        auth_client.delete_user.side_effect = RuntimeError("Auth unavailable")
+
+        with self.assertRaisesRegex(RuntimeError, "Firestore unavailable"):
+            main._create_user_records(self.db, self.user_data, auth_client)
+
+        log_exception.assert_called_once()
+
     def test_create_role_policy_matches_existing_manager_form_options(self):
         self.assertTrue(main._can_create_managed_role("admin", "Admin"))
         self.assertTrue(main._can_create_managed_role("manager", "Manager"))
         self.assertTrue(main._can_create_managed_role("manager", "Client Intake"))
         self.assertFalse(main._can_create_managed_role("manager", "Admin"))
+
+    def test_user_management_rejects_unauthenticated_and_unprivileged_callers(self):
+        with self.assertRaises(main.https_fn.HttpsError) as unauthenticated:
+            main._require_user_manager(SimpleNamespace(auth=None), self.db)
+        self.assertEqual(
+            unauthenticated.exception.code,
+            main.https_fn.FunctionsErrorCode.UNAUTHENTICATED,
+        )
+
+        request = SimpleNamespace(
+            auth=SimpleNamespace(uid="client-intake-uid", token={"role": "Client Intake"})
+        )
+        with self.assertRaises(main.https_fn.HttpsError) as unprivileged:
+            main._require_user_manager(request, self.db)
+        self.assertEqual(
+            unprivileged.exception.code,
+            main.https_fn.FunctionsErrorCode.PERMISSION_DENIED,
+        )
+
+    def test_create_payload_rejects_short_password_and_unknown_role(self):
+        for override in ({"password": "short"}, {"role": "Driver"}):
+            payload = {**self.user_data, **override}
+            with self.subTest(override=override):
+                with self.assertRaises(main.https_fn.HttpsError) as invalid:
+                    main._validated_create_user_data(payload)
+                self.assertEqual(
+                    invalid.exception.code,
+                    main.https_fn.FunctionsErrorCode.INVALID_ARGUMENT,
+                )
 
     def test_delete_removes_firestore_when_auth_user_is_already_missing(self):
         auth_client = FakeAuth()
