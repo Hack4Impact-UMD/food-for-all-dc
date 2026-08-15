@@ -2,7 +2,7 @@
 // Renders the correct control (boolean select, number, text, tag/org dropdown, date picker)
 // based on the selected field's inferred type.
 
-import React from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Autocomplete, Checkbox, MenuItem, TextField } from "@mui/material";
 import { QueryFieldDef, QueryOperator } from "../../types/query-tool-types";
 import { formatAssignedTime, formatPhoneNumber } from "../../utils/queryToolFormatting";
@@ -52,12 +52,27 @@ const SearchableValueInput: React.FC<{
   labelId: string;
   optionLabels?: Record<string, string>;
   optionValues?: Record<string, string>;
-}> = ({ options, value, onChange, commonProps, labelId, optionLabels, optionValues }) => (
-  <Autocomplete
+}> = ({ options, value, onChange, commonProps, labelId, optionLabels, optionValues }) => {
+  const rootRef = useRef<HTMLDivElement>(null);
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    const handlePointerDown = (event: PointerEvent) => {
+      if (rootRef.current && !rootRef.current.contains(event.target as Node)) setOpen(false);
+    };
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => document.removeEventListener("pointerdown", handlePointerDown);
+  }, []);
+
+  return (
+    <div ref={rootRef}>
+      <Autocomplete
+    open={open}
+    onOpen={() => setOpen(true)}
+    onClose={() => setOpen(false)}
     freeSolo
     options={options}
     disablePortal
-    blurOnSelect
     getOptionLabel={(option) => optionLabels?.[option] ?? option}
     value={typeof value === "string" ? value : null}
     onChange={(_, nextValue) => onChange(optionValues?.[nextValue ?? ""] ?? nextValue ?? "")}
@@ -74,8 +89,10 @@ const SearchableValueInput: React.FC<{
         aria-labelledby={labelId}
       />
     )}
-  />
-);
+      />
+    </div>
+  );
+};
 
 const MultiValueInput: React.FC<{
   options: string[];
@@ -86,6 +103,8 @@ const MultiValueInput: React.FC<{
   optionLabels?: Record<string, string>;
   optionValues?: Record<string, string>;
 }> = ({ options, operator, value, onChange, commonProps, optionLabels, optionValues }) => {
+  const rootRef = useRef<HTMLDivElement>(null);
+  const [open, setOpen] = useState(false);
   const limit = operator ? FIRESTORE_LIST_LIMITS[operator] : undefined;
   const existingHelperText =
     typeof commonProps.helperText === "string" ? commonProps.helperText : undefined;
@@ -96,12 +115,23 @@ const MultiValueInput: React.FC<{
       : [];
   const selectedValues = rawSelectedValues.map((selected) => optionLabels?.[selected] ?? selected);
 
+  useEffect(() => {
+    const handlePointerDown = (event: PointerEvent) => {
+      if (rootRef.current && !rootRef.current.contains(event.target as Node)) setOpen(false);
+    };
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => document.removeEventListener("pointerdown", handlePointerDown);
+  }, []);
+
   return (
+    <div ref={rootRef}>
     <Autocomplete
+      open={open}
+      onOpen={() => setOpen(true)}
+      onClose={() => setOpen(false)}
       multiple
       freeSolo
       disablePortal
-      blurOnSelect
       options={hasFirestoreListLimit(operator) ? options : [ALL_VALUES_OPTION, ...options]}
       value={Array.from(new Set(selectedValues))}
       disableCloseOnSelect
@@ -162,6 +192,7 @@ const MultiValueInput: React.FC<{
         />
       )}
     />
+    </div>
   );
 };
 
