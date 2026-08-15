@@ -35,7 +35,8 @@ import { runClientQuery } from "../../services/client-query-service";
 import { exportRowsWithColumns, RowData } from "../../components/Spreadsheet/export";
 import { getNestedValue } from "../../utils/misc";
 import { formatAddressWithQuadrantAndUnit } from "../../utils/addressFormat";
-import { formatPhoneNumber } from "../../utils/queryToolFormatting";
+import { formatAssignedTime, formatPhoneNumber } from "../../utils/queryToolFormatting";
+import { TIME_SLOTS } from "../Delivery/utils/timeSlots";
 import { useTagColors } from "../../context/TagColorContext";
 import { getReadableTagTextColor, getTagColor, TagColorMap } from "../../utils/tagColors";
 import {
@@ -171,6 +172,9 @@ const ClientQueryTool: React.FC = () => {
     let isMounted = true;
     setFieldOptions({});
     setDriverOptions([]);
+    if (collectionKey === "deliveries") {
+      setFieldOptions({ assignedTime: TIME_SLOTS.map((slot) => slot.value) });
+    }
 
     const collectionConfigKey = COLLECTIONS[collectionKey].collectionKey as keyof typeof dataSources.firebase;
     const firestoreCollectionName = dataSources.firebase[collectionConfigKey];
@@ -179,8 +183,10 @@ const ClientQueryTool: React.FC = () => {
         if (!isMounted) return;
         const nextOptions: Record<string, Set<string>> = {};
         COLLECTIONS[collectionKey].fields.forEach((fieldDef) => {
-          if (!fieldDef.computed) {
-            nextOptions[fieldDef.field] = new Set();
+          nextOptions[fieldDef.field] = new Set(fieldDef.options || []);
+          if (fieldDef.type === "boolean") {
+            nextOptions[fieldDef.field].add("true");
+            nextOptions[fieldDef.field].add("false");
           }
         });
         snapshot.docs.forEach((document) => {
@@ -195,11 +201,13 @@ const ClientQueryTool: React.FC = () => {
             });
           });
         });
-        setFieldOptions(
+        setFieldOptions((current) =>
           Object.fromEntries(
             Object.entries(nextOptions).map(([field, values]) => [
               field,
-              Array.from(values).sort((a, b) => a.localeCompare(b)),
+              Array.from(new Set([...values, ...(current[field] || [])])).sort((a, b) =>
+                a.localeCompare(b, undefined, { numeric: true })
+              ),
             ])
           )
         );
@@ -218,11 +226,20 @@ const ClientQueryTool: React.FC = () => {
                   .filter(Boolean)
               : [];
           });
+          const routeTimes = snapshot.docs.flatMap((document) => {
+            const clusters = document.data().clusters;
+            return Array.isArray(clusters)
+              ? clusters.map((cluster) => String(cluster?.time ?? "").trim()).filter(Boolean)
+              : [];
+          });
           setFieldOptions((current) => ({
             ...current,
             cluster: Array.from(new Set([...(current.cluster || []), ...routeIds])).sort(
               (a, b) => a.localeCompare(b, undefined, { numeric: true })
             ),
+            assignedTime: Array.from(
+              new Set([...TIME_SLOTS.map((slot) => slot.value), ...(current.assignedTime || []), ...routeTimes])
+            ).sort(),
           }));
         })
         .catch(() => undefined);
@@ -442,7 +459,7 @@ const ClientQueryTool: React.FC = () => {
         {
           key: "assignedTime",
           label: "Assigned Time",
-          getValue: (row) => row.time || "No time assigned",
+          getValue: (row) => formatAssignedTime(row.time),
         },
         {
           key: "deliveryDetails.deliveryInstructions",

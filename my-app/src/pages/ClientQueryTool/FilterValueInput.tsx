@@ -5,7 +5,7 @@
 import React from "react";
 import { Autocomplete, MenuItem, TextField } from "@mui/material";
 import { QueryFieldDef, QueryOperator } from "../../types/query-tool-types";
-import { formatPhoneNumber } from "../../utils/queryToolFormatting";
+import { formatAssignedTime, formatPhoneNumber } from "../../utils/queryToolFormatting";
 
 interface FilterValueInputProps {
   fieldDef: QueryFieldDef;
@@ -67,12 +67,15 @@ const MultiValueInput: React.FC<{
   value: unknown;
   onChange: (value: unknown) => void;
   commonProps: Record<string, unknown>;
-}> = ({ options, value, onChange, commonProps }) => {
-  const selectedValues = Array.isArray(value)
+  optionLabels?: Record<string, string>;
+  optionValues?: Record<string, string>;
+}> = ({ options, value, onChange, commonProps, optionLabels, optionValues }) => {
+  const rawSelectedValues = Array.isArray(value)
     ? value.filter((item): item is string => typeof item === "string")
     : typeof value === "string"
       ? value.split(",").map((item) => item.trim()).filter(Boolean)
       : [];
+  const selectedValues = rawSelectedValues.map((selected) => optionLabels?.[selected] ?? selected);
 
   return (
     <Autocomplete
@@ -80,7 +83,9 @@ const MultiValueInput: React.FC<{
       freeSolo
       options={options}
       value={selectedValues}
-      onChange={(_, nextValues) => onChange(nextValues)}
+      onChange={(_, nextValues) =>
+        onChange(nextValues.map((nextValue) => optionValues?.[nextValue] ?? nextValue))
+      }
       renderInput={(params) => (
         <TextField
           {...params}
@@ -143,6 +148,18 @@ const FilterValueInput: React.FC<FilterValueInputProps> = ({
     isOrganizationField(fieldDef)
       ? Object.fromEntries(selectableOptions.map((option) => [optionLabels?.[option] ?? option, option]))
       : undefined;
+  const timeOptionLabels =
+    fieldDef.field === "assignedTime"
+      ? Object.fromEntries(selectableOptions.map((option) => [option, formatAssignedTime(option)]))
+      : undefined;
+  const timeDropdownOptions =
+    fieldDef.field === "assignedTime"
+      ? Array.from(new Set(selectableOptions.map((option) => formatAssignedTime(option))))
+      : dropdownOptions;
+  const timeOptionValues =
+    fieldDef.field === "assignedTime"
+      ? Object.fromEntries(selectableOptions.map((option) => [formatAssignedTime(option), option]))
+      : optionValues;
 
   if (fieldDef.type === "boolean") {
     return (
@@ -163,7 +180,7 @@ const FilterValueInput: React.FC<FilterValueInputProps> = ({
     if (isListOperator(operator)) {
       return (
         <MultiValueInput
-          options={fieldOptions}
+          options={dropdownOptions}
           value={value}
           onChange={onChange}
           commonProps={commonProps}
@@ -226,6 +243,32 @@ const FilterValueInput: React.FC<FilterValueInputProps> = ({
         InputLabelProps={{ shrink: true }}
         value={typeof value === "string" ? value : ""}
         onChange={(e) => onChange(e.target.value)}
+      />
+    );
+  }
+
+  if (fieldDef.field === "assignedTime") {
+    if (isListOperator(operator)) {
+      return (
+        <MultiValueInput
+          options={timeDropdownOptions}
+          value={value}
+          onChange={onChange}
+          commonProps={commonProps}
+          optionLabels={timeOptionLabels}
+          optionValues={timeOptionValues}
+        />
+      );
+    }
+    return (
+      <SearchableValueInput
+        options={timeDropdownOptions}
+        value={typeof value === "string" ? formatAssignedTime(value) : value}
+        onChange={onChange}
+        commonProps={commonProps}
+        labelId={labelId}
+        optionLabels={timeOptionLabels}
+        optionValues={timeOptionValues}
       />
     );
   }

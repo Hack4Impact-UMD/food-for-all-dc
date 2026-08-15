@@ -8,3 +8,16 @@ export const formatPhoneNumber = (value: unknown): string => {
 
 export const normalizePhoneNumber = (value: unknown): string =>
   String(value ?? "").replace(/\D/g, "");
+
+export const normalizeAssignedTime = (value: unknown): string => String(value ?? "").trim();
+
+export const formatAssignedTime = (value: unknown): string => {
+  const normalized = normalizeAssignedTime(value);
+  if (!normalized) return "No time assigned";
+  const [hours, minutes = "00"] = normalized.split(":");
+  let hour = Number.parseInt(hours, 10);
+  if (!Number.isFinite(hour)) return normalized;
+  const suffix = hour >= 12 ? "PM" : "AM";
+  hour = hour % 12 || 12;
+  return `${hour}:${minutes} ${suffix}`;
+};

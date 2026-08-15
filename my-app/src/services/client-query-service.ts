@@ -13,6 +13,7 @@ import { ServiceError, formatServiceError } from "../utils/serviceError";
 import { COLLECTIONS, CollectionKey, getFieldDef, QueryFilter } from "../types/query-tool-types";
 import { mapClientDocToSpreadsheetBaseRow } from "./client-service";
 import { deliveryDate } from "../utils/deliveryDate";
+import { normalizeAssignedTime } from "../utils/queryToolFormatting";
 
 export interface ClientQueryResult {
   rows: RowData[];
@@ -156,6 +157,19 @@ const matchesComputedFilter = (row: RowData, filter: QueryFilter): boolean => {
       case ">=": return actual >= expected;
       case "<": return actual < expected;
       case "<=": return actual <= expected;
+      case "in": return expectedValues.includes(actual);
+      case "not-in": return !expectedValues.includes(actual);
+      default: return false;
+    }
+  }
+  if (filter.field === "assignedTime") {
+    const actual = normalizeAssignedTime(row.time);
+    const expectedValues = Array.isArray(filter.value)
+      ? filter.value.map(normalizeAssignedTime)
+      : String(filter.value).split(",").map(normalizeAssignedTime).filter(Boolean);
+    switch (filter.operator) {
+      case "==": return actual === expectedValues[0];
+      case "!=": return actual !== expectedValues[0];
       case "in": return expectedValues.includes(actual);
       case "not-in": return !expectedValues.includes(actual);
       default: return false;
