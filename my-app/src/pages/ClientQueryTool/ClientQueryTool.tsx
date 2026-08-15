@@ -280,6 +280,12 @@ const ClientQueryTool: React.FC = () => {
   const handleCollectionChange = useCallback((next: CollectionKey) => {
     queryRequestIdRef.current += 1;
     setCollectionKey(next);
+    if (next === "clients") {
+      setVisibleClientColumns(CLIENT_DEFAULT_COLUMNS);
+    }
+    if (next === "deliveries") {
+      setVisibleDeliveryColumns(DELIVERY_DEFAULT_COLUMNS);
+    }
     setFilters([createEmptyFilter()]);
     setFieldErrors({});
     setFormErrors([]);
@@ -446,7 +452,9 @@ const ClientQueryTool: React.FC = () => {
       );
     }
 
-    columns.push(...collectionDef.fields.map((field) => ({
+    columns.push(...collectionDef.fields.filter((field) => {
+      return !(collectionKey === "deliveries" && field.field === "cluster");
+    }).map((field) => ({
         key: field.field,
         label: field.label,
         getValue: (row: RowData) => {
