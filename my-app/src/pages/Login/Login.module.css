@@ -1,8 +1,7 @@
 .outerContainer {
   display: flex;
-  height: 78vh;
-  width: fit-content;
-  max-width: 90vw;
+  height: 85vh;
+  width: min(725px, 90vw);
   align-items: stretch;
   justify-content: center;
   margin: var(--spacing-xl) auto;
