@@ -202,7 +202,7 @@ export const COLLECTIONS: Record<CollectionKey, CollectionDef> = {
   },
   deliveries: {
     key: "deliveries",
-    label: "Deliveries",
+    label: "Routes",
     collectionKey: "calendarCollection",
     fields: DELIVERY_FIELDS,
     nameFields: ["clientName"],

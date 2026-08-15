@@ -114,7 +114,7 @@ describe("ClientQueryTool", () => {
     render(<ClientQueryTool />);
 
     fireEvent.mouseDown(screen.getByLabelText("Collection"));
-    fireEvent.click(await screen.findByRole("option", { name: "Deliveries" }));
+    fireEvent.click(await screen.findByRole("option", { name: "Routes" }));
     fireEvent.mouseDown(screen.getByLabelText("Field"));
     fireEvent.click(await screen.findByRole("option", { name: "Client Name" }));
     fireEvent.mouseDown(screen.getByLabelText("Operator"));
@@ -122,7 +122,7 @@ describe("ClientQueryTool", () => {
     fireEvent.change(screen.getByLabelText("Value"), { target: { value: "Nobody" } });
     fireEvent.click(screen.getByRole("button", { name: /Run Query/i }));
 
-    expect(await screen.findByText(/No deliveries matched these filters/i)).toBeTruthy();
+    expect(await screen.findByText(/No routes matched these filters/i)).toBeTruthy();
   });
 
   it("shows a friendly error state when the query service throws", async () => {
@@ -159,7 +159,7 @@ describe("ClientQueryTool", () => {
     render(<ClientQueryTool />);
 
     fireEvent.mouseDown(screen.getByLabelText("Collection"));
-    fireEvent.click(await screen.findByRole("option", { name: "Deliveries" }));
+    fireEvent.click(await screen.findByRole("option", { name: "Routes" }));
     fireEvent.mouseDown(screen.getByLabelText("Field"));
     fireEvent.click(await screen.findByRole("option", { name: "Client Name" }));
     fireEvent.mouseDown(screen.getByLabelText("Operator"));
