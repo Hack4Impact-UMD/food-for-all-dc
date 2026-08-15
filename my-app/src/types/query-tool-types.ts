@@ -118,6 +118,8 @@ export interface CollectionDef {
 // health conditions, delivery instructions) to any collection below.
 const CLIENT_FIELDS: QueryFieldDef[] = [
   { field: "activeStatus", label: "Active Status", type: "boolean", computed: true },
+  { field: "firstName", label: "First Name", type: "text" },
+  { field: "lastName", label: "Last Name", type: "text" },
   { field: "city", label: "City", type: "text" },
   { field: "state", label: "State", type: "text" },
   { field: "zipCode", label: "ZIP Code", type: "text" },

@@ -3,7 +3,7 @@
 // based on the selected field's inferred type.
 
 import React from "react";
-import { Autocomplete, MenuItem, TextField } from "@mui/material";
+import { Autocomplete, Checkbox, MenuItem, TextField } from "@mui/material";
 import { QueryFieldDef, QueryOperator } from "../../types/query-tool-types";
 import { formatAssignedTime, formatPhoneNumber } from "../../utils/queryToolFormatting";
 
@@ -23,6 +23,15 @@ interface FilterValueInputProps {
 const isListOperator = (operator: QueryOperator | "") =>
   operator === "in" || operator === "not-in" || operator === "array-contains-any";
 
+const hasFirestoreListLimit = (operator: QueryOperator | "") =>
+  operator === "in" || operator === "not-in" || operator === "array-contains-any";
+
+const FIRESTORE_LIST_LIMITS: Partial<Record<QueryOperator, number>> = {
+  in: 30,
+  "array-contains-any": 30,
+  "not-in": 10,
+};
+
 const cleanReferralOrganizationLabel = (value: string): string =>
   value
     .replace(/^\s*,\s*/, "")
@@ -33,6 +42,7 @@ const isOrganizationField = (field: QueryFieldDef): boolean =>
 
 const isWardField = (field: QueryFieldDef): boolean => field.field === "ward";
 const isClusterField = (field: QueryFieldDef): boolean => field.field === "cluster";
+const ALL_VALUES_OPTION = "__all_values__";
 
 const SearchableValueInput: React.FC<{
   options: string[];
@@ -46,6 +56,8 @@ const SearchableValueInput: React.FC<{
   <Autocomplete
     freeSolo
     options={options}
+    disablePortal
+    blurOnSelect
     getOptionLabel={(option) => optionLabels?.[option] ?? option}
     value={typeof value === "string" ? value : null}
     onChange={(_, nextValue) => onChange(optionValues?.[nextValue ?? ""] ?? nextValue ?? "")}
@@ -67,12 +79,16 @@ const SearchableValueInput: React.FC<{
 
 const MultiValueInput: React.FC<{
   options: string[];
+  operator: QueryOperator | "";
   value: unknown;
   onChange: (value: unknown) => void;
   commonProps: Record<string, unknown>;
   optionLabels?: Record<string, string>;
   optionValues?: Record<string, string>;
-}> = ({ options, value, onChange, commonProps, optionLabels, optionValues }) => {
+}> = ({ options, operator, value, onChange, commonProps, optionLabels, optionValues }) => {
+  const limit = operator ? FIRESTORE_LIST_LIMITS[operator] : undefined;
+  const existingHelperText =
+    typeof commonProps.helperText === "string" ? commonProps.helperText : undefined;
   const rawSelectedValues = Array.isArray(value)
     ? value.filter((item): item is string => typeof item === "string")
     : typeof value === "string"
@@ -84,19 +100,65 @@ const MultiValueInput: React.FC<{
     <Autocomplete
       multiple
       freeSolo
-      options={options}
+      disablePortal
+      blurOnSelect
+      options={hasFirestoreListLimit(operator) ? options : [ALL_VALUES_OPTION, ...options]}
       value={Array.from(new Set(selectedValues))}
-      onChange={(_, nextValues) =>
+      disableCloseOnSelect
+      sx={{
+        width: "100%",
+        "& .MuiAutocomplete-inputRoot": {
+          maxHeight: 88,
+          overflowY: "auto",
+          alignItems: "flex-start",
+          display: "flex",
+          flexWrap: "wrap",
+          paddingTop: "8px !important",
+          paddingBottom: "8px !important",
+        },
+        "& .MuiAutocomplete-input": {
+          order: 0,
+          flex: "1 0 100%",
+          minWidth: "100%",
+        },
+        "& .MuiAutocomplete-tag": {
+          order: 1,
+          marginTop: 2,
+          marginBottom: 2,
+        },
+      }}
+      onChange={(_, nextValues) => {
+        if (nextValues.includes(ALL_VALUES_OPTION)) {
+          const allSelected = selectedValues.length === options.length;
+          onChange(allSelected ? [] : options.map((option) => optionValues?.[option] ?? option));
+          return;
+        }
         onChange(
           Array.from(new Set(nextValues.map((nextValue) => optionValues?.[nextValue] ?? nextValue)))
-        )
+        );
+      }}
+      getOptionLabel={(option) =>
+        option === ALL_VALUES_OPTION ? "All" : optionLabels?.[option] ?? option
       }
+      renderOption={(props, option) => (
+        <li {...props}>
+          {option === ALL_VALUES_OPTION && (
+            <Checkbox
+              size="small"
+              checked={options.length > 0 && selectedValues.length === options.length}
+              sx={{ padding: 0, marginRight: 1 }}
+            />
+          )}
+          {option === ALL_VALUES_OPTION ? "All" : optionLabels?.[option] ?? option}
+        </li>
+      )}
       renderInput={(params) => (
         <TextField
           {...params}
           {...commonProps}
           label="Values"
           placeholder="Select or type values"
+          helperText={existingHelperText || (limit ? `Maximum ${limit} values for this operator.` : undefined)}
         />
       )}
     />
@@ -200,6 +262,7 @@ const FilterValueInput: React.FC<FilterValueInputProps> = ({
       return (
         <MultiValueInput
           options={normalizedDropdownOptions}
+          operator={operator}
           value={isClusterField(fieldDef) && String(value ?? "") === "0" ? "Unassigned" : value}
           onChange={onChange}
           commonProps={commonProps}
@@ -237,6 +300,7 @@ const FilterValueInput: React.FC<FilterValueInputProps> = ({
       return (
         <MultiValueInput
           options={dropdownOptions}
+          operator={operator}
           value={value}
           onChange={onChange}
           commonProps={commonProps}
@@ -273,6 +337,7 @@ const FilterValueInput: React.FC<FilterValueInputProps> = ({
       return (
         <MultiValueInput
           options={timeDropdownOptions}
+          operator={operator}
           value={value}
           onChange={onChange}
           commonProps={commonProps}
@@ -322,6 +387,7 @@ const FilterValueInput: React.FC<FilterValueInputProps> = ({
       return (
         <MultiValueInput
           options={dropdownOptions}
+          operator={operator}
           value={value}
           onChange={onChange}
           commonProps={commonProps}
@@ -355,6 +421,7 @@ const FilterValueInput: React.FC<FilterValueInputProps> = ({
     return (
       <MultiValueInput
         options={normalizedDropdownOptions}
+        operator={operator}
         value={value}
         onChange={onChange}
         commonProps={commonProps}
