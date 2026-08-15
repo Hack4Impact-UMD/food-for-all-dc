@@ -139,7 +139,7 @@ const DELIVERY_FIELDS: QueryFieldDef[] = [
   { field: "clientName", label: "Client Name", type: "text" },
   { field: "assignedDriverName", label: "Driver", type: "text" },
   { field: "recurrence", label: "Recurrence", type: "text" },
-  { field: "cluster", label: "Cluster", type: "number" },
+  { field: "cluster", label: "Cluster", type: "number", computed: true },
   {
     field: "deliveryStatus",
     label: "Delivery Status",

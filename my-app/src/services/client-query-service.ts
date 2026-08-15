@@ -12,6 +12,7 @@ import { batchGetClientDeliverySummaries } from "../utils/lastDeliveryDate";
 import { ServiceError, formatServiceError } from "../utils/serviceError";
 import { COLLECTIONS, CollectionKey, getFieldDef, QueryFilter } from "../types/query-tool-types";
 import { mapClientDocToSpreadsheetBaseRow } from "./client-service";
+import { deliveryDate } from "../utils/deliveryDate";
 
 export interface ClientQueryResult {
   rows: RowData[];
@@ -86,20 +87,27 @@ const buildConstraintsForFilter = (collectionKey: CollectionKey, filter: QueryFi
 
   if (fieldDef?.type === "timestamp") {
     const day = parseFilterDate(filter.value);
+    const deliveryBounds =
+      fieldDef.field === "deliveryDate" ? deliveryDate.getUTCDateBounds(day) : null;
+    const dayStart = deliveryBounds?.start ?? startOfDay(day);
+    const nextDayStart = deliveryBounds?.endExclusive ?? startOfNextDay(day);
+    const dayEnd = deliveryBounds
+      ? new Date(nextDayStart.getTime() - 1)
+      : endOfDay(day);
     switch (filter.operator) {
       case "==":
         return [
-          where(filter.field, ">=", Timestamp.fromDate(startOfDay(day))),
-          where(filter.field, "<", Timestamp.fromDate(startOfNextDay(day))),
+          where(filter.field, ">=", Timestamp.fromDate(dayStart)),
+          where(filter.field, "<", Timestamp.fromDate(nextDayStart)),
         ];
       case ">":
-        return [where(filter.field, ">", Timestamp.fromDate(endOfDay(day)))];
+        return [where(filter.field, ">", Timestamp.fromDate(dayEnd))];
       case ">=":
-        return [where(filter.field, ">=", Timestamp.fromDate(startOfDay(day)))];
+        return [where(filter.field, ">=", Timestamp.fromDate(dayStart))];
       case "<":
-        return [where(filter.field, "<", Timestamp.fromDate(startOfDay(day)))];
+        return [where(filter.field, "<", Timestamp.fromDate(dayStart))];
       case "<=":
-        return [where(filter.field, "<=", Timestamp.fromDate(endOfDay(day)))];
+        return [where(filter.field, "<=", Timestamp.fromDate(dayEnd))];
       default:
         return [where(filter.field, filter.operator as any, Timestamp.fromDate(day))];
     }
@@ -130,6 +138,29 @@ const matchesComputedFilter = (row: RowData, filter: QueryFilter): boolean => {
     if (filter.operator === "in") return expected.includes(actual);
     if (filter.operator === "not-in") return !expected.includes(actual);
   }
+  if (filter.field === "cluster") {
+    const toRouteNumber = (value: unknown): number => {
+      const match = String(value ?? "").match(/\d+/);
+      return match ? Number(match[0]) : Number.NaN;
+    };
+    const actual = toRouteNumber(row.cluster);
+    const expectedValues = Array.isArray(filter.value)
+      ? filter.value.map(toRouteNumber)
+      : String(filter.value).split(",").map(toRouteNumber);
+    const expected = expectedValues[0];
+    if (!Number.isFinite(actual) || !Number.isFinite(expected)) return false;
+    switch (filter.operator) {
+      case "==": return actual === expected;
+      case "!=": return actual !== expected;
+      case ">": return actual > expected;
+      case ">=": return actual >= expected;
+      case "<": return actual < expected;
+      case "<=": return actual <= expected;
+      case "in": return expectedValues.includes(actual);
+      case "not-in": return !expectedValues.includes(actual);
+      default: return false;
+    }
+  }
   return true;
 };
 
@@ -153,6 +184,89 @@ const mapRawDocToRow = (collectionKey: CollectionKey, id: string, raw: any): Row
     };
   }
   return { id, uid: id, ...raw };
+};
+
+const enrichDeliveryRouteAssignments = async (rows: RowData[]): Promise<RowData[]> => {
+  if (rows.length === 0) return rows;
+
+  let clustersSnapshot;
+  try {
+    clustersSnapshot = await getDocs(collection(db, dataSources.firebase.clustersCollection));
+  } catch {
+    return rows;
+  }
+  if (!clustersSnapshot || !Array.isArray(clustersSnapshot.docs)) return rows;
+  const assignmentsByDate = new Map<string, {
+    clusters: Array<{ id?: unknown; deliveries?: unknown[]; driver?: unknown; time?: unknown }>;
+    clientOverrides: Array<{ clientId?: unknown; driver?: unknown; time?: unknown }>;
+  }>();
+  const allAssignments: Array<{
+    clusters: Array<{ id?: unknown; deliveries?: unknown[]; driver?: unknown; time?: unknown }>;
+    clientOverrides: Array<{ clientId?: unknown; driver?: unknown; time?: unknown }>;
+  }> = [];
+
+  const getClusterDateKey = (value: unknown): string | null => {
+    const date = typeof Timestamp === "function" && value instanceof Timestamp
+      ? value.toDate()
+      : value && typeof value === "object" && typeof (value as { toDate?: unknown }).toDate === "function"
+        ? (value as { toDate: () => Date }).toDate()
+        : null;
+    if (date && !Number.isNaN(date.getTime())) {
+      return date.toISOString().slice(0, 10);
+    }
+    return deliveryDate.tryToISODateString(value as Parameters<typeof deliveryDate.tryToISODateString>[0]);
+  };
+
+  clustersSnapshot.docs.forEach((clusterDocument) => {
+    const data = clusterDocument.data();
+    const dateKey = getClusterDateKey(data.date);
+    if (!dateKey) return;
+    const assignments = {
+      clusters: Array.isArray(data.clusters) ? data.clusters : [],
+      clientOverrides: Array.isArray(data.clientOverrides) ? data.clientOverrides : [],
+    };
+    assignmentsByDate.set(dateKey, assignments);
+    allAssignments.push(assignments);
+  });
+
+  const normalizeId = (value: unknown) => String(value ?? "").trim();
+  const findAssignment = (
+    assignments: (typeof allAssignments)[number] | undefined,
+    clientId: string
+  ) => {
+    if (!assignments) return undefined;
+    return assignments.clusters.find((candidate) =>
+      Array.isArray(candidate.deliveries) && candidate.deliveries.some((deliveryId) => {
+        const normalizedDeliveryId =
+          deliveryId && typeof deliveryId === "object" && "id" in deliveryId
+            ? (deliveryId as { id?: unknown }).id
+            : deliveryId;
+        return normalizeId(normalizedDeliveryId) === clientId;
+      })
+    );
+  };
+
+  return rows.map((row) => {
+    const dateKey = deliveryDate.tryToISODateString(row.deliveryDate);
+    const assignments = dateKey ? assignmentsByDate.get(dateKey) : undefined;
+    if (!assignments) return row;
+
+    const clientId = normalizeId(row.clientId ?? row.clientid ?? row.uid);
+    const cluster = findAssignment(assignments, clientId) ||
+      allAssignments.map((candidate) => findAssignment(candidate, clientId)).find(Boolean);
+    const assignmentSource = assignments || allAssignments.find((candidate) => findAssignment(candidate, clientId));
+    const override = assignmentSource?.clientOverrides.find(
+      (candidate) => normalizeId(candidate.clientId) === clientId
+    );
+    const driver = override?.driver || cluster?.driver;
+    return {
+      ...row,
+      cluster: cluster?.id ?? row.cluster,
+      assignedDriverName:
+        typeof driver === "string" ? driver : (driver as { name?: string } | undefined)?.name ?? row.assignedDriverName,
+      time: override?.time || cluster?.time || row.time,
+    };
+  });
 };
 
 /** Fetches allowlisted join fields for a batch of related document ids. */
@@ -200,6 +314,10 @@ export async function runClientQuery(
     let rows: RowData[] = snapshot.docs.map((docSnap) =>
       mapRawDocToRow(collectionKey, docSnap.id, docSnap.data())
     );
+
+    if (collectionKey === "deliveries") {
+      rows = await enrichDeliveryRouteAssignments(rows);
+    }
 
     const computedFilters = getComputedFilters(collectionKey, filters);
     if (computedFilters.length > 0) {

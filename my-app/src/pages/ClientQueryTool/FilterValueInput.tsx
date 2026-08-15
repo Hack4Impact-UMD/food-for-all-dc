@@ -170,6 +170,19 @@ const FilterValueInput: React.FC<FilterValueInputProps> = ({
         />
       );
     }
+    if (selectableOptions.length > 0) {
+      return (
+        <SearchableValueInput
+          options={dropdownOptions}
+          value={value}
+          onChange={onChange}
+          commonProps={commonProps}
+          labelId={labelId}
+          optionLabels={optionLabels}
+          optionValues={optionValues}
+        />
+      );
+    }
     return (
       <TextField
         {...commonProps}

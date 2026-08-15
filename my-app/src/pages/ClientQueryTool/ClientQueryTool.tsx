@@ -36,6 +36,8 @@ import { exportRowsWithColumns, RowData } from "../../components/Spreadsheet/exp
 import { getNestedValue } from "../../utils/misc";
 import { formatAddressWithQuadrantAndUnit } from "../../utils/addressFormat";
 import { formatPhoneNumber } from "../../utils/queryToolFormatting";
+import { useTagColors } from "../../context/TagColorContext";
+import { getReadableTagTextColor, getTagColor, TagColorMap } from "../../utils/tagColors";
 import {
   COLLECTIONS,
   COLLECTION_KEYS,
@@ -57,9 +59,30 @@ interface ResultColumn {
   getValue: (row: RowData) => unknown;
 }
 
-const formatCellValue = (value: unknown): React.ReactNode => {
+const formatCellValue = (value: unknown, tagColors?: TagColorMap): React.ReactNode => {
   if (value === null || value === undefined || value === "") return "";
   if (Array.isArray(value)) {
+    if (tagColors) {
+      const tags = value.filter((tag) => String(tag ?? "").trim());
+      if (tags.length === 0) return "None";
+      return tags.map((tag) => {
+        const tagText = String(tag);
+        const backgroundColor = getTagColor(tagText, tagColors);
+        return (
+          <Chip
+            key={tagText}
+            label={tagText}
+            size="small"
+            sx={{
+              backgroundColor,
+              color: getReadableTagTextColor(backgroundColor),
+              marginRight: 0.5,
+              marginBottom: 0.5,
+            }}
+          />
+        );
+      });
+    }
     return value.map((v) => (
       <Chip key={String(v)} label={String(v)} size="small" sx={{ marginRight: 0.5, marginBottom: 0.5 }} />
     ));
@@ -123,6 +146,7 @@ const DELIVERY_DEFAULT_COLUMNS = [
 ];
 
 const ClientQueryTool: React.FC = () => {
+  const tagColors = useTagColors();
   const [collectionKey, setCollectionKey] = useState<CollectionKey>("clients");
   const [filters, setFilters] = useState<QueryFilter[]>([createEmptyFilter()]);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -181,6 +205,28 @@ const ClientQueryTool: React.FC = () => {
         );
       })
       .catch(() => undefined);
+
+    if (collectionKey === "deliveries") {
+      getDocs(collection(db, dataSources.firebase.clustersCollection))
+        .then((snapshot) => {
+          if (!isMounted) return;
+          const routeIds = snapshot.docs.flatMap((document) => {
+            const clusters = document.data().clusters;
+            return Array.isArray(clusters)
+              ? clusters
+                  .map((cluster) => String(cluster?.id ?? "").trim())
+                  .filter(Boolean)
+              : [];
+          });
+          setFieldOptions((current) => ({
+            ...current,
+            cluster: Array.from(new Set([...(current.cluster || []), ...routeIds])).sort(
+              (a, b) => a.localeCompare(b, undefined, { numeric: true })
+            ),
+          }));
+        })
+        .catch(() => undefined);
+    }
 
     getDocs(collection(db, dataSources.firebase.driversCollection))
       .then((snapshot) => {
@@ -361,14 +407,23 @@ const ClientQueryTool: React.FC = () => {
         {
           key: "clusterIdChange",
           label: "Cluster ID",
-          getValue: (row) => row.cluster ?? "",
+          getValue: (row) => {
+            const cluster = row.cluster;
+            return cluster === undefined || cluster === null || String(cluster).trim() === "" || Number(cluster) === 0
+              ? "Unassigned"
+              : cluster;
+          },
         },
         {
           key: "join.tags",
           label: "Tags",
           getValue: (row) => {
             const tags = row["join.tags"];
-            return Array.isArray(tags) ? tags.join(", ") || "None" : tags || "None";
+            return Array.isArray(tags) && tags.length > 0
+              ? tags
+              : tags
+                ? [String(tags)]
+                : "None";
           },
         },
         { key: "join.zipCode", label: "Zip Code", getValue: (row) => row["join.zipCode"] || "" },
@@ -430,6 +485,7 @@ const ClientQueryTool: React.FC = () => {
 
     if (collectionDef.join) {
       collectionDef.join.fields.forEach((field) => {
+        if (collectionKey === "deliveries" && field.field === "tags") return;
         columns.push({
           key: `join.${field.field}`,
           label: field.label,
@@ -438,9 +494,7 @@ const ClientQueryTool: React.FC = () => {
       });
     }
 
-    return columns.filter(
-      (column, index) => columns.findIndex((candidate) => candidate.key === column.key) === index
-    );
+    return Array.from(new Map(columns.map((column) => [column.key, column])).values());
   }, [collectionDef, collectionKey]);
 
   const displayedColumns = useMemo(
@@ -848,7 +902,13 @@ const ClientQueryTool: React.FC = () => {
                     <TableRow key={row.uid ?? row.id}>
                       {displayedColumns.map((col) => (
                         <TableCell key={col.key} sx={{ whiteSpace: "nowrap" }}>
-                          {formatCellValue(col.getValue(row))}
+                          {formatCellValue(
+                            col.getValue(row),
+                            ((collectionKey === "clients" && col.key === "tags") ||
+                              (collectionKey === "deliveries" && col.key === "join.tags"))
+                              ? tagColors
+                              : undefined
+                          )}
                         </TableCell>
                       ))}
                     </TableRow>
