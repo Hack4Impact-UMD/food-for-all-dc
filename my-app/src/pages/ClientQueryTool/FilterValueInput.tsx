@@ -5,7 +5,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Autocomplete, Checkbox, MenuItem, TextField } from "@mui/material";
 import { QueryFieldDef, QueryOperator } from "../../types/query-tool-types";
-import { formatAssignedTime, formatPhoneNumber } from "../../utils/queryToolFormatting";
+import { formatAssignedTime, formatDateMask, formatPhoneNumber } from "../../utils/queryToolFormatting";
 
 interface FilterValueInputProps {
   fieldDef: QueryFieldDef;
@@ -345,6 +345,19 @@ const FilterValueInput: React.FC<FilterValueInputProps> = ({
         value={formatPhoneNumber(value)}
         onChange={(e) => onChange(formatPhoneNumber(e.target.value))}
         placeholder="(XXX) XXX-XXXX"
+      />
+    );
+  }
+
+  if (fieldDef.format === "date") {
+    return (
+      <TextField
+        {...commonProps}
+        label="Value"
+        value={formatDateMask(value)}
+        onChange={(event) => onChange(formatDateMask(event.target.value))}
+        placeholder="MM/DD/YYYY"
+        inputProps={{ inputMode: "numeric", maxLength: 10 }}
       />
     );
   }

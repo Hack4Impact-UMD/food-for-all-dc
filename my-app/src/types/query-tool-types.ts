@@ -2,7 +2,7 @@
 // Field allowlist + filter/query model shared by the UI and the query service.
 
 export type QueryFieldType = "boolean" | "number" | "text" | "textList" | "timestamp";
-export type QueryFieldFormat = "phone";
+export type QueryFieldFormat = "phone" | "date";
 
 export type QueryOperator =
   | "=="
@@ -124,7 +124,6 @@ const CLIENT_FIELDS: QueryFieldDef[] = [
   { field: "state", label: "State", type: "text" },
   { field: "zipCode", label: "ZIP Code", type: "text" },
   { field: "address2", label: "Address 2", type: "text" },
-  { field: "streetName", label: "Street Name", type: "text" },
   { field: "quadrant", label: "Quadrant", type: "text", options: QUADRANT_OPTIONS },
   { field: "ward", label: "Ward", type: "number", computed: true, options: WARD_OPTIONS },
   { field: "language", label: "Language", type: "text" },
@@ -143,13 +142,13 @@ const CLIENT_FIELDS: QueryFieldDef[] = [
   { field: "seniors", label: "Seniors", type: "number" },
   { field: "referralEntity.organization", label: "Referral Organization", type: "text" },
   { field: "referralEntity.name", label: "Referral Contact", type: "text" },
-  { field: "famStartDate", label: "Family Start Date", type: "text" },
-  { field: "startDate", label: "Start Date", type: "text" },
-  { field: "endDate", label: "End Date", type: "text" },
-  { field: "tefapCertDate", label: "TEFAP Certification Date", type: "text" },
-  { field: "dob", label: "Date of Birth", type: "text" },
-  { field: "referredDate", label: "Referral Date", type: "text" },
-  { field: "updatedAt", label: "Last Updated", type: "timestamp" },
+  { field: "famStartDate", label: "FAM Start Date", type: "text", format: "date" },
+  { field: "startDate", label: "Start Date", type: "text", format: "date" },
+  { field: "endDate", label: "End Date", type: "text", format: "date" },
+  { field: "tefapCertDate", label: "TEFAP Certification Date", type: "text", format: "date" },
+  { field: "dob", label: "Date of Birth", type: "text", format: "date" },
+  { field: "referredDate", label: "Referral Date", type: "text", format: "date" },
+  { field: "updatedAt", label: "Last Updated", type: "timestamp", format: "date" },
 ];
 
 const DELIVERY_FIELDS: QueryFieldDef[] = [
@@ -166,7 +165,7 @@ const DELIVERY_FIELDS: QueryFieldDef[] = [
     computed: true,
     options: ["Scheduled", "Missed"],
   },
-  { field: "deliveryDate", label: "Delivery Date", type: "timestamp" },
+  { field: "deliveryDate", label: "Delivery Date", type: "timestamp", format: "date" },
 ];
 
 const DRIVER_FIELDS: QueryFieldDef[] = [

@@ -36,7 +36,7 @@ import { runClientQuery } from "../../services/client-query-service";
 import { exportRowsWithColumns, RowData } from "../../components/Spreadsheet/export";
 import { getNestedValue } from "../../utils/misc";
 import { formatAddressWithQuadrantAndUnit } from "../../utils/addressFormat";
-import { formatAssignedTime, formatPhoneNumber } from "../../utils/queryToolFormatting";
+import { formatAssignedTime, formatDateMask, formatPhoneNumber } from "../../utils/queryToolFormatting";
 import { TIME_SLOTS } from "../Delivery/utils/timeSlots";
 import { useTagColors } from "../../context/TagColorContext";
 import { getReadableTagTextColor, getTagColor, TagColorMap } from "../../utils/tagColors";
@@ -136,6 +136,9 @@ const CLIENT_DEFAULT_COLUMNS = [
   "lastDeliveryDate",
 ];
 
+const CLIENT_DATE_FIELDS = new Set(["dob", "referredDate", "endDate", "famStartDate"]);
+
+
 const DELIVERY_DEFAULT_COLUMNS = [
   "__name",
   "clusterIdChange",
@@ -144,8 +147,10 @@ const DELIVERY_DEFAULT_COLUMNS = [
   "join.ward",
   "assignedDriver",
   "assignedTime",
+  "deliveryStatus",
   "deliveryDetails.deliveryInstructions",
 ];
+
 
 const ClientQueryTool: React.FC = () => {
   const tagColors = useTagColors();
@@ -514,6 +519,12 @@ const ClientQueryTool: React.FC = () => {
               : "None";
           }
           if (field.format === "phone") return formatPhoneNumber(value);
+          if (field.format === "date" || (collectionKey === "clients" && CLIENT_DATE_FIELDS.has(field.field))) {
+            return formatDateMask(value);
+          }
+          if (collectionKey === "deliveries" && field.field === "deliveryStatus") {
+            return value === "Missed" ? "Missed" : "Scheduled";
+          }
           return field.type === "timestamp"
             ? formatQueryTimestamp(value, Boolean(field.timeSensitive))
             : value;
@@ -524,7 +535,7 @@ const ClientQueryTool: React.FC = () => {
       columns.push({
         key: "lastDeliveryDate",
         label: "Last Delivery Date",
-        getValue: (row) => row.lastDeliveryDate,
+        getValue: (row) => formatDateMask(row.lastDeliveryDate),
       });
     }
 

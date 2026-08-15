@@ -21,3 +21,19 @@ export const formatAssignedTime = (value: unknown): string => {
   hour = hour % 12 || 12;
   return `${hour}:${minutes} ${suffix}`;
 };
+
+export const formatDateMask = (value: unknown): string => {
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return `${String(value.getMonth() + 1).padStart(2, "0")}/${String(value.getDate()).padStart(2, "0")}/${value.getFullYear()}`;
+  }
+  if (value && typeof value === "object" && typeof (value as { toDate?: unknown }).toDate === "function") {
+    return formatDateMask((value as { toDate: () => Date }).toDate());
+  }
+  const text = String(value ?? "").trim();
+  const isoMatch = text.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (isoMatch) return `${isoMatch[2].padStart(2, "0")}/${isoMatch[3].padStart(2, "0")}/${isoMatch[1]}`;
+  const digits = text.replace(/\D/g, "").slice(0, 8);
+  if (digits.length <= 2) return digits;
+  if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+  return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
+};
