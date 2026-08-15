@@ -19,6 +19,7 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  TableSortLabel,
   Select,
   TextField,
   Typography,
@@ -163,6 +164,8 @@ const ClientQueryTool: React.FC = () => {
   const [fieldOptions, setFieldOptions] = useState<Record<string, string[]>>({});
   const [visibleClientColumns, setVisibleClientColumns] = useState(CLIENT_DEFAULT_COLUMNS);
   const [visibleDeliveryColumns, setVisibleDeliveryColumns] = useState(DELIVERY_DEFAULT_COLUMNS);
+  const [sortColumn, setSortColumn] = useState("");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const queryRequestIdRef = useRef(0);
   const resultsTableRef = useRef<HTMLDivElement | null>(null);
   const topScrollRef = useRef<HTMLDivElement | null>(null);
@@ -548,6 +551,86 @@ const ClientQueryTool: React.FC = () => {
     [collectionKey, resultColumns, visibleClientColumns, visibleDeliveryColumns]
   );
 
+  const sortedResults = useMemo(() => {
+    if (!sortColumn) return results;
+    const column = displayedColumns.find((candidate) => candidate.key === sortColumn);
+    if (!column) return results;
+    const numericColumns = new Set([
+      "clusterIdChange",
+      "cluster",
+      "total",
+      "adults",
+      "children",
+      "seniors",
+      "householdSnapshot.total",
+      "householdSnapshot.adults",
+      "householdSnapshot.children",
+      "householdSnapshot.seniors",
+    ]);
+    const dateColumns = new Set([
+      "deliveryDate",
+      "updatedAt",
+      "lastDeliveryDate",
+      "startDate",
+      "endDate",
+      "famStartDate",
+      "tefapCertDate",
+      "dob",
+      "referredDate",
+    ]);
+    const parseDateValue = (value: string): number => {
+      const parts = value.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+      if (parts) return Date.UTC(Number(parts[3]), Number(parts[1]) - 1, Number(parts[2]));
+      const parsed = Date.parse(value);
+      return Number.isNaN(parsed) ? Number.NaN : parsed;
+    };
+    const parseTimeValue = (value: string): number => {
+      const match = value.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i) || value.match(/^(\d{1,2}):(\d{2})$/);
+      if (!match) return Number.NaN;
+      let hour = Number(match[1]);
+      const minute = Number(match[2]);
+      if (match[3]) {
+        const isPm = match[3].toUpperCase() === "PM";
+        hour = hour % 12 + (isPm ? 12 : 0);
+      }
+      return hour * 60 + minute;
+    };
+    const valueForSort = (value: unknown): string | number => {
+      if (value === null || value === undefined) return "";
+      if (typeof value === "number") return value;
+      if (typeof value === "boolean") return value ? 1 : 0;
+      if (Array.isArray(value)) return value.map(String).join(", ").toLowerCase();
+      const text = String(value).trim();
+      if (column.key === "assignedTime") return parseTimeValue(text);
+      if (numericColumns.has(column.key)) {
+        const numeric = Number(text.replace(/[^\d.-]/g, ""));
+        return Number.isNaN(numeric) ? Number.NaN : numeric;
+      }
+      if (dateColumns.has(column.key)) return parseDateValue(text);
+      return text.toLowerCase();
+    };
+    return [...results].sort((left, right) => {
+      const a = valueForSort(column.getValue(left));
+      const b = valueForSort(column.getValue(right));
+      const aEmpty = a === "" || (typeof a === "number" && Number.isNaN(a));
+      const bEmpty = b === "" || (typeof b === "number" && Number.isNaN(b));
+      if (aEmpty || bEmpty) return aEmpty === bEmpty ? 0 : aEmpty ? 1 : -1;
+      const comparison = typeof a === "number" && typeof b === "number"
+        ? a - b
+        : String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: "base" });
+      return sortDirection === "asc" ? comparison : -comparison;
+    });
+  }, [displayedColumns, results, sortColumn, sortDirection]);
+
+  const handleSort = (columnKey: string) => {
+    if (sortColumn === columnKey) {
+      setSortDirection((direction) => (direction === "asc" ? "desc" : "asc"));
+    } else {
+      setSortColumn(columnKey);
+      setSortDirection("asc");
+    }
+  };
+
   useEffect(() => {
     const updateTableScrollWidth = () => {
       const container = resultsTableRef.current;
@@ -927,7 +1010,13 @@ const ClientQueryTool: React.FC = () => {
                         key={col.key}
                         sx={{ backgroundColor: "var(--color-background-green-tint)", whiteSpace: "nowrap" }}
                       >
-                        {col.label}
+                        <TableSortLabel
+                          active={sortColumn === col.key}
+                          direction={sortColumn === col.key ? sortDirection : "asc"}
+                          onClick={() => handleSort(col.key)}
+                        >
+                          {col.label}
+                        </TableSortLabel>
                       </TableCell>
                     ))}
                   </TableRow>
@@ -939,7 +1028,7 @@ const ClientQueryTool: React.FC = () => {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {results.map((row) => (
+                  {sortedResults.map((row) => (
                     <TableRow key={row.uid ?? row.id}>
                       {displayedColumns.map((col) => (
                         <TableCell key={col.key} sx={{ whiteSpace: "nowrap" }}>
