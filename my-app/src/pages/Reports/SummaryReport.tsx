@@ -169,6 +169,7 @@ const SummaryReport: React.FC = () => {
         height: "90vh",
         position: "relative",
         width: "90vw",
+        margin: "0 auto",
       }}
     >
       <ReportHeader

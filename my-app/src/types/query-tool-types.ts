@@ -1,0 +1,251 @@
+// Types for the read-only Client Query Tool (Ad-Hoc Query Tool)
+// Field allowlist + filter/query model shared by the UI and the query service.
+
+export type QueryFieldType = "boolean" | "number" | "text" | "textList" | "timestamp";
+export type QueryFieldFormat = "phone";
+
+export type QueryOperator =
+  | "=="
+  | "!="
+  | ">"
+  | ">="
+  | "<"
+  | "<="
+  | "in"
+  | "not-in"
+  | "array-contains"
+  | "array-contains-any";
+
+export interface QueryFieldDef {
+  /** Exact Firestore field name (dot-path for nested fields). */
+  field: string;
+  /** Friendly label shown in the UI. */
+  label: string;
+  type: QueryFieldType;
+  /** True when the value cannot be filtered via a native Firestore `where` clause
+   * (e.g. `activeStatus` is derived at read time from startDate/endDate/autoInactiveReason)
+   * and must instead be applied to already-fetched results. */
+  computed?: boolean;
+  /** Optional fixed set of allowed values, rendered as a select instead of free text. */
+  options?: string[];
+  /** Delivery times are meaningful; other timestamp fields represent calendar days. */
+  timeSensitive?: boolean;
+  format?: QueryFieldFormat;
+}
+
+export interface QueryFilter {
+  id: string;
+  field: string;
+  operator: QueryOperator | "";
+  /** string | number | boolean | string[] | Date */
+  value: unknown;
+}
+
+export const OPERATORS_BY_TYPE: Record<QueryFieldType, QueryOperator[]> = {
+  boolean: ["=="],
+  number: ["==", "!=", ">", ">=", "<", "<=", "in", "not-in"],
+  text: ["==", "!=", "in", "not-in"],
+  textList: ["array-contains", "array-contains-any"],
+  timestamp: ["==", ">", ">=", "<", "<="],
+};
+
+export const OPERATOR_LABELS: Record<QueryOperator, string> = {
+  "==": "equals",
+  "!=": "not equals",
+  ">": "greater than",
+  ">=": "greater than or equal to",
+  "<": "less than",
+  "<=": "less than or equal to",
+  in: "is any of",
+  "not-in": "is none of",
+  "array-contains": "contains",
+  "array-contains-any": "contains any of",
+};
+
+const WARD_OPTIONS = [
+  "Ward 1",
+  "Ward 2",
+  "Ward 3",
+  "Ward 4",
+  "Ward 5",
+  "Ward 6",
+  "Ward 7",
+  "Ward 8",
+];
+
+const QUADRANT_OPTIONS = ["NE", "NW", "SE", "SW"];
+
+/** A field pulled in from a related collection via a join, shown alongside the row's own fields. */
+export interface JoinFieldDef {
+  /** Field name on the joined document. */
+  field: string;
+  label: string;
+}
+
+export interface JoinDef {
+  /** Field on the source row holding the id of the related document (e.g. "clientId"). */
+  localIdField: string;
+  /** dataSources.firebase key resolving to the related Firestore collection name. */
+  targetCollectionKey: string;
+  /** Label for the joined section, e.g. "Client". */
+  label: string;
+  /** Fields to pull from the related document and show as extra "joined" columns. */
+  fields: JoinFieldDef[];
+}
+
+export type CollectionKey =
+  | "clients"
+  | "deliveries"
+  | "drivers"
+  | "referralOrganizations"
+  | "users";
+
+export interface CollectionDef {
+  key: CollectionKey;
+  label: string;
+  /** dataSources.firebase key resolving to the actual Firestore collection name. */
+  collectionKey: string;
+  /** Allowlisted, filterable fields for this collection. */
+  fields: QueryFieldDef[];
+  /** Fields (in order) used to build a friendly "Name" column for results, joined with ", ". */
+  nameFields: string[];
+  /** Optional join to a related collection to enrich results with related data. */
+  join?: JoinDef;
+}
+
+// Do NOT add free-text/sensitive fields (notes, lifeChallenges, lifestyleGoals,
+// health conditions, delivery instructions) to any collection below.
+const CLIENT_FIELDS: QueryFieldDef[] = [
+  { field: "activeStatus", label: "Active Status", type: "boolean", computed: true },
+  { field: "city", label: "City", type: "text" },
+  { field: "state", label: "State", type: "text" },
+  { field: "zipCode", label: "ZIP Code", type: "text" },
+  { field: "quadrant", label: "Quadrant", type: "text", options: QUADRANT_OPTIONS },
+  { field: "ward", label: "Ward", type: "text", options: WARD_OPTIONS },
+  { field: "language", label: "Language", type: "text" },
+  { field: "deliveryFreq", label: "Delivery Frequency", type: "text" },
+  { field: "recurrence", label: "Recurrence", type: "text" },
+  { field: "tefapCert", label: "TEFAP Certified", type: "boolean" },
+  { field: "tags", label: "Tags", type: "textList" },
+  { field: "total", label: "Household Size", type: "number" },
+  { field: "adults", label: "Adults", type: "number" },
+  { field: "children", label: "Children", type: "number" },
+  { field: "seniors", label: "Seniors", type: "number" },
+  { field: "referralEntity.organization", label: "Referral Organization", type: "text" },
+  { field: "updatedAt", label: "Last Updated", type: "timestamp" },
+];
+
+const DELIVERY_FIELDS: QueryFieldDef[] = [
+  { field: "clientName", label: "Client Name", type: "text" },
+  { field: "assignedDriverName", label: "Driver", type: "text" },
+  { field: "recurrence", label: "Recurrence", type: "text" },
+  { field: "cluster", label: "Cluster", type: "number" },
+  {
+    field: "deliveryStatus",
+    label: "Delivery Status",
+    type: "text",
+    computed: true,
+    options: ["Scheduled", "Missed"],
+  },
+  { field: "deliveryDate", label: "Delivery Date", type: "timestamp" },
+];
+
+const DRIVER_FIELDS: QueryFieldDef[] = [
+  { field: "name", label: "Name", type: "text" },
+  { field: "phone", label: "Phone", type: "text", format: "phone" },
+  { field: "email", label: "Email", type: "text" },
+];
+
+const REFERRAL_ORG_FIELDS: QueryFieldDef[] = [
+  { field: "name", label: "Contact Name", type: "text" },
+  { field: "organization", label: "Organization", type: "text" },
+  { field: "phone", label: "Phone", type: "text", format: "phone" },
+  { field: "email", label: "Email", type: "text" },
+];
+
+const USER_FIELDS: QueryFieldDef[] = [
+  { field: "role", label: "Role", type: "text" },
+  { field: "email", label: "Email", type: "text" },
+  { field: "phone", label: "Phone", type: "text", format: "phone" },
+];
+
+// Registry of every collection exposed to the Ad-Hoc Query Tool.
+// Adding a collection here is the only step needed to make it queryable —
+// there is no generic/arbitrary-field escape hatch.
+export const COLLECTIONS: Record<CollectionKey, CollectionDef> = {
+  clients: {
+    key: "clients",
+    label: "Clients",
+    collectionKey: "clientsCollection",
+    fields: CLIENT_FIELDS,
+    nameFields: ["lastName", "firstName"],
+  },
+  deliveries: {
+    key: "deliveries",
+    label: "Deliveries",
+    collectionKey: "calendarCollection",
+    fields: DELIVERY_FIELDS,
+    nameFields: ["clientName"],
+    // Deliveries only store clientId/clientName; join back to the client profile
+    // so ops staff can see ward/ZIP/tags without a second lookup.
+    join: {
+      localIdField: "clientId",
+      targetCollectionKey: "clientsCollection",
+      label: "Client",
+      fields: [
+        { field: "ward", label: "Client Ward" },
+        { field: "zipCode", label: "Client ZIP Code" },
+        { field: "tags", label: "Client Tags" },
+      ],
+    },
+  },
+  drivers: {
+    key: "drivers",
+    label: "Drivers",
+    collectionKey: "driversCollection",
+    fields: DRIVER_FIELDS,
+    nameFields: ["name"],
+  },
+  referralOrganizations: {
+    key: "referralOrganizations",
+    label: "Referral Organizations",
+    collectionKey: "caseWorkersCollection",
+    fields: REFERRAL_ORG_FIELDS,
+    nameFields: ["name"],
+  },
+  users: {
+    key: "users",
+    label: "Users",
+    collectionKey: "usersCollection",
+    fields: USER_FIELDS,
+    nameFields: ["name"],
+  },
+};
+
+export const COLLECTION_KEYS = Object.keys(COLLECTIONS) as CollectionKey[];
+
+/** @deprecated kept for backward compatibility — use COLLECTIONS.clients.fields */
+export const QUERYABLE_FIELDS = CLIENT_FIELDS;
+
+export const getFieldDef = (
+  collectionKeyOrField: CollectionKey | string,
+  maybeField?: string
+): QueryFieldDef | undefined => {
+  // Backward-compatible overload: getFieldDef(field) defaults to the clients collection.
+  if (maybeField === undefined) {
+    return CLIENT_FIELDS.find((f) => f.field === collectionKeyOrField);
+  }
+  const collectionDef = COLLECTIONS[collectionKeyOrField as CollectionKey];
+  return collectionDef?.fields.find((f) => f.field === maybeField);
+};
+
+
+export const createEmptyFilter = (): QueryFilter => ({
+  id:
+    typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID()
+      : `filter-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+  field: "",
+  operator: "",
+  value: "",
+});

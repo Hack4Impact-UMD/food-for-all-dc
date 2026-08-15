@@ -214,6 +214,17 @@ export const exportQueryResults = (
   return downloadCsv(visibleData, "query_results.csv");
 };
 
+export const exportRowsWithColumns = (
+  rows: RowData[],
+  columns: Array<{ label: string; getValue: (row: RowData) => unknown }>,
+  filename: string
+) => {
+  const data = rows.map((row) =>
+    Object.fromEntries(columns.map((column) => [column.label, column.getValue(row)]))
+  );
+  return downloadCsv(data, filename);
+};
+
 /**
  * Export all data as a CSV file with formatted, readable output.
  * @param rows - The data to export.

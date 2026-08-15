@@ -40,6 +40,9 @@ ETL/*.xlsx
 ETL/*.xls
 ETL/*/
 
+# Local Firestore backups contain client PII
+database_backup/
+
 # Firebase
 .firebase/
 firebase-debug.log*

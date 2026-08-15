@@ -12,6 +12,7 @@ import SummaryReport from "./pages/Reports/SummaryReport";
 import ClientReport from "./pages/Reports/ClientReport";
 import ReferralAgenciesReport from "./pages/Reports/ReferralAgenciesReport";
 import ProtectedRoute from "./auth/ProtectedRoute";
+import ClientQueryTool from "./pages/ClientQueryTool/ClientQueryTool";
 import { UserType } from "./types";
 
 export interface RouteMeta {
@@ -96,6 +97,20 @@ export const routesConfig: AppRoute[] = [
               title: "Users",
               description: "User management spreadsheet",
               icon: "admin_panel_settings",
+            },
+          },
+        ],
+      },
+      {
+        element: <ProtectedRoute allowedRoles={[UserType.Admin]} />,
+        children: [
+          {
+            path: "clients/query",
+            element: <ClientQueryTool />,
+            meta: {
+              title: "Ad-Hoc Query Tool",
+              description: "Read-only ad-hoc client query tool",
+              icon: "travel_explore",
             },
           },
         ],
