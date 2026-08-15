@@ -486,9 +486,10 @@ const ClientQueryTool: React.FC = () => {
     }
 
     columns.push(...collectionDef.fields.filter((field) => {
+      if (collectionDef.nameFields.includes(field.field)) return false;
       return !(
         collectionKey === "deliveries" &&
-        ["cluster", "assignedTime", "ward"].includes(field.field)
+        ["cluster", "assignedDriverName", "assignedTime", "ward"].includes(field.field)
       );
     }).map((field) => ({
         key: field.field,
@@ -530,6 +531,7 @@ const ClientQueryTool: React.FC = () => {
     if (collectionDef.join) {
       collectionDef.join.fields.forEach((field) => {
         if (collectionKey === "deliveries" && field.field === "tags") return;
+        if (collectionKey === "deliveries" && ["zipCode", "ward"].includes(field.field)) return;
         columns.push({
           key: `join.${field.field}`,
           label: field.label,
