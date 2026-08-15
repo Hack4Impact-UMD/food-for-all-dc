@@ -123,7 +123,7 @@ const CLIENT_FIELDS: QueryFieldDef[] = [
   { field: "address2", label: "Address 2", type: "text" },
   { field: "streetName", label: "Street Name", type: "text" },
   { field: "quadrant", label: "Quadrant", type: "text", options: QUADRANT_OPTIONS },
-  { field: "ward", label: "Ward", type: "text", computed: true, options: WARD_OPTIONS },
+  { field: "ward", label: "Ward", type: "number", computed: true, options: WARD_OPTIONS },
   { field: "language", label: "Language", type: "text" },
   { field: "gender", label: "Gender", type: "text" },
   { field: "ethnicity", label: "Ethnicity", type: "text" },
@@ -153,7 +153,7 @@ const DELIVERY_FIELDS: QueryFieldDef[] = [
   { field: "clientName", label: "Client Name", type: "text" },
   { field: "assignedDriverName", label: "Driver", type: "text" },
   { field: "assignedTime", label: "Assigned Time", type: "text", computed: true },
-  { field: "ward", label: "Ward", type: "text", computed: true },
+  { field: "ward", label: "Ward", type: "number", computed: true },
   { field: "recurrence", label: "Recurrence", type: "text" },
   { field: "cluster", label: "Cluster", type: "number", computed: true },
   {

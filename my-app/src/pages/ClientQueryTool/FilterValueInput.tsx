@@ -166,8 +166,8 @@ const FilterValueInput: React.FC<FilterValueInputProps> = ({
   const normalizedDropdownOptions = isWardField(fieldDef) || isClusterField(fieldDef)
     ? Array.from(new Set(selectableOptions.map((option) => {
         if (isClusterField(fieldDef) && option === "0") return "Unassigned";
-        return option.match(/\d+/)?.[0] || option;
-      })))
+        return option.match(/\d+/)?.[0] || "";
+      }).filter(Boolean)))
     : dropdownOptions;
   const normalizedOptionLabels = isWardField(fieldDef) || isClusterField(fieldDef)
     ? Object.fromEntries(selectableOptions.map((option) => [option, isClusterField(fieldDef) && option === "0" ? "Unassigned" : option.match(/\d+/)?.[0] || option]))
