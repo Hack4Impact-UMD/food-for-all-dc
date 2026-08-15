@@ -23,21 +23,32 @@ interface FilterValueInputProps {
 const isListOperator = (operator: QueryOperator | "") =>
   operator === "in" || operator === "not-in" || operator === "array-contains-any";
 
+const cleanReferralOrganizationLabel = (value: string): string =>
+  value
+    .replace(/^\s*,\s*/, "")
+    .trim();
+
+const isOrganizationField = (field: QueryFieldDef): boolean =>
+  field.field === "organization" || field.field === "referralEntity.organization";
+
 const SearchableValueInput: React.FC<{
   options: string[];
   value: unknown;
   onChange: (value: unknown) => void;
   commonProps: Record<string, unknown>;
   labelId: string;
-}> = ({ options, value, onChange, commonProps, labelId }) => (
+  optionLabels?: Record<string, string>;
+  optionValues?: Record<string, string>;
+}> = ({ options, value, onChange, commonProps, labelId, optionLabels, optionValues }) => (
   <Autocomplete
     freeSolo
     options={options}
+    getOptionLabel={(option) => optionLabels?.[option] ?? option}
     value={typeof value === "string" ? value : null}
-    onChange={(_, nextValue) => onChange(nextValue ?? "")}
+    onChange={(_, nextValue) => onChange(optionValues?.[nextValue ?? ""] ?? nextValue ?? "")}
     onInputChange={(_, nextValue, reason) => {
       if (reason === "input") {
-        onChange(nextValue);
+        onChange(optionValues?.[nextValue] ?? nextValue);
       }
     }}
     renderInput={(params) => (
@@ -105,7 +116,7 @@ const FilterValueInput: React.FC<FilterValueInputProps> = ({
   const smartOptions = Array.from(
     new Set([
       ...(fieldDef.options || []),
-      ...(fieldDef.field === "referralEntity.organization" ? referralOrgOptions : []),
+      ...(isOrganizationField(fieldDef) ? referralOrgOptions : []),
       ...(fieldDef.field === "assignedDriverName" ? driverOptions : []),
       ...(fieldDef.type === "textList" ? tagOptions : []),
       ...fieldOptions,
@@ -116,6 +127,22 @@ const FilterValueInput: React.FC<FilterValueInputProps> = ({
       fieldDef.format === "phone" ? smartOptions.map(formatPhoneNumber).filter(Boolean) : smartOptions
     )
   );
+  const optionLabels =
+    isOrganizationField(fieldDef)
+      ? Object.fromEntries(displayOptions.map((option) => [option, cleanReferralOrganizationLabel(option)]))
+      : undefined;
+  const selectableOptions =
+    isOrganizationField(fieldDef)
+      ? displayOptions.filter((option) => Boolean(optionLabels?.[option]))
+      : displayOptions;
+  const dropdownOptions =
+    isOrganizationField(fieldDef)
+      ? Array.from(new Set(selectableOptions.map((option) => optionLabels?.[option] ?? option)))
+      : selectableOptions;
+  const optionValues =
+    isOrganizationField(fieldDef)
+      ? Object.fromEntries(selectableOptions.map((option) => [optionLabels?.[option] ?? option, option]))
+      : undefined;
 
   if (fieldDef.type === "boolean") {
     return (
@@ -158,7 +185,7 @@ const FilterValueInput: React.FC<FilterValueInputProps> = ({
     if (isListOperator(operator)) {
       return (
         <MultiValueInput
-          options={displayOptions}
+          options={dropdownOptions}
           value={value}
           onChange={onChange}
           commonProps={commonProps}
@@ -195,7 +222,7 @@ const FilterValueInput: React.FC<FilterValueInputProps> = ({
     if ((isListOperator(operator) || operator === "array-contains") && smartOptions.length > 0) {
       return (
         <MultiValueInput
-          options={displayOptions}
+          options={dropdownOptions}
           value={value}
           onChange={onChange}
           commonProps={commonProps}
@@ -206,11 +233,12 @@ const FilterValueInput: React.FC<FilterValueInputProps> = ({
     if (smartOptions.length > 0 && !isListOperator(operator)) {
       return (
         <SearchableValueInput
-          options={displayOptions}
+          options={dropdownOptions}
           value={value}
           onChange={onChange}
           commonProps={commonProps}
           labelId={labelId}
+          optionLabels={optionLabels}
         />
       );
     }
@@ -227,7 +255,7 @@ const FilterValueInput: React.FC<FilterValueInputProps> = ({
   if (isListOperator(operator)) {
     return (
       <MultiValueInput
-        options={displayOptions}
+        options={dropdownOptions}
         value={value}
         onChange={onChange}
         commonProps={commonProps}
@@ -236,7 +264,7 @@ const FilterValueInput: React.FC<FilterValueInputProps> = ({
   }
 
   // Text fields: prefer known option lists (ward, quadrant, referral org) as dropdowns.
-  const options = smartOptions;
+  const options = dropdownOptions;
 
   if (options && options.length > 0 && !isListOperator(operator)) {
     return (
@@ -246,6 +274,8 @@ const FilterValueInput: React.FC<FilterValueInputProps> = ({
         onChange={onChange}
         commonProps={commonProps}
         labelId={labelId}
+        optionLabels={optionLabels}
+        optionValues={optionValues}
       />
     );
   }
