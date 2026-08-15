@@ -175,6 +175,9 @@ const ClientQueryTool: React.FC = () => {
   const resultsTableRef = useRef<HTMLDivElement | null>(null);
   const topScrollRef = useRef<HTMLDivElement | null>(null);
   const [tableScrollWidth, setTableScrollWidth] = useState(0);
+  const [tableViewportWidth, setTableViewportWidth] = useState(0);
+  const [tableHeaderHeight, setTableHeaderHeight] = useState(0);
+  const [hasHorizontalOverflow, setHasHorizontalOverflow] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -647,8 +650,13 @@ const ClientQueryTool: React.FC = () => {
   useEffect(() => {
     const updateTableScrollWidth = () => {
       const container = resultsTableRef.current;
-      const table = container?.firstElementChild as HTMLElement | null;
-      setTableScrollWidth(Math.max(table?.scrollWidth || 0, container?.clientWidth || 0));
+      const table = container?.querySelector("table") as HTMLElement | null;
+      const nextWidth = Math.max(table?.scrollWidth || 0, container?.clientWidth || 0);
+      const nextHasOverflow = (table?.scrollWidth || 0) > (container?.clientWidth || 0) + 1;
+      setTableScrollWidth(nextWidth);
+      setTableViewportWidth(container?.clientWidth || 0);
+      setTableHeaderHeight(table?.querySelector("thead tr")?.getBoundingClientRect().height || 0);
+      setHasHorizontalOverflow(nextHasOverflow);
     };
     updateTableScrollWidth();
     if (typeof ResizeObserver === "undefined") return;
@@ -1030,41 +1038,46 @@ const ClientQueryTool: React.FC = () => {
                 component={Paper}
                 ref={resultsTableRef}
                 onScroll={() => syncHorizontalScroll("table")}
-                sx={{ width: "100%", overflowX: "auto" }}
+                sx={{ width: "100%", overflowX: "auto", overflowY: "visible" }}
               >
-              {/* Plain table: no inner vertical scroll container. Vertical scrolling
-                  is the browser's normal page scroll; only horizontal overflow (for
-                  wide result sets) is contained by TableContainer's default behavior. */}
-              <Table
-                size="small"
-                aria-label="Query results"
-                sx={{ width: "max-content", minWidth: "100%" }}
-              >
-                <TableHead>
-                  <TableRow>
-                    {displayedColumns.map((col) => (
-                      <TableCell
-                        key={col.key}
-                        sx={{ backgroundColor: "var(--color-background-green-tint)", whiteSpace: "nowrap" }}
-                      >
-                        <TableSortLabel
-                          active={sortColumn === col.key}
-                          direction={sortColumn === col.key ? sortDirection : "asc"}
-                          onClick={() => handleSort(col.key)}
+                <Table
+                  size="small"
+                  aria-label="Query results"
+                  sx={{ width: "max-content", minWidth: "max-content" }}
+                >
+                  <TableHead>
+                    <TableRow>
+                      {displayedColumns.map((col) => (
+                        <TableCell
+                          key={col.key}
+                          sx={{ backgroundColor: "var(--color-background-green-tint)", whiteSpace: "nowrap" }}
                         >
-                          {col.label}
-                        </TableSortLabel>
-                      </TableCell>
-                    ))}
-                  </TableRow>
-                  <TableRow aria-hidden="true">
-                    <TableCell
-                      colSpan={displayedColumns.length}
-                      sx={{ height: 16, padding: 0, borderBottom: "none" }}
-                    />
-                  </TableRow>
-                </TableHead>
-                <TableBody>
+                          <TableSortLabel
+                            active={sortColumn === col.key}
+                            direction={sortColumn === col.key ? sortDirection : "asc"}
+                            onClick={() => handleSort(col.key)}
+                          >
+                            {col.label}
+                          </TableSortLabel>
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                    <TableRow aria-label="Horizontal results scrollbar">
+                      <TableCell
+                        colSpan={displayedColumns.length}
+                        sx={{
+                          padding: 0,
+                          backgroundColor: "var(--color-white)",
+                          borderBottom: "none",
+                          height: hasHorizontalOverflow ? 16 : 0,
+                          maxHeight: hasHorizontalOverflow ? 16 : 0,
+                          overflow: "hidden",
+                          lineHeight: 0,
+                        }}
+                      />
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
                   {sortedResults.map((row) => (
                     <TableRow key={row.uid ?? row.id}>
                       {displayedColumns.map((col) => (
@@ -1080,30 +1093,32 @@ const ClientQueryTool: React.FC = () => {
                       ))}
                     </TableRow>
                   ))}
-                </TableBody>
-              </Table>
+                  </TableBody>
+                </Table>
               </TableContainer>
               <Box
                 ref={topScrollRef}
+                data-testid="horizontal-results-scrollbar"
                 onScroll={() => syncHorizontalScroll("top")}
-                aria-label="Horizontal results scrollbar"
                 sx={{
                   position: "absolute",
-                  top: 36,
+                  top: tableHeaderHeight,
                   left: 0,
-                  right: 0,
-                  zIndex: 4,
-                  height: 16,
+                  zIndex: 2,
+                  width: tableViewportWidth,
+                  height: hasHorizontalOverflow ? 16 : 0,
                   overflowX: "auto",
                   overflowY: "hidden",
+                  whiteSpace: "nowrap",
                   backgroundColor: "var(--color-white)",
+                  borderBottom: hasHorizontalOverflow ? "1px solid rgba(37, 126, 104, 0.18)" : "none",
                   scrollbarColor: "#257e68 #e5eee9",
-                  "&::-webkit-scrollbar": { height: 14 },
-                  "&::-webkit-scrollbar-track": { backgroundColor: "#e5eee9" },
-                  "&::-webkit-scrollbar-thumb": { backgroundColor: "#257e68", borderRadius: 7 },
+                  "&::-webkit-scrollbar": { height: hasHorizontalOverflow ? 14 : 0 },
+                  "&::-webkit-scrollbar-track": { backgroundColor: hasHorizontalOverflow ? "#e5eee9" : "transparent" },
+                  "&::-webkit-scrollbar-thumb": { backgroundColor: hasHorizontalOverflow ? "#257e68" : "transparent", borderRadius: 7 },
                 }}
               >
-                <Box sx={{ width: tableScrollWidth, height: 1 }} />
+                <Box sx={{ display: "inline-block", width: tableScrollWidth, height: 1 }} />
               </Box>
             </Box>
           </Box>

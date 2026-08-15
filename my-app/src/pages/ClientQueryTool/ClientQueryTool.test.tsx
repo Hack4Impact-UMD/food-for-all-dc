@@ -173,6 +173,35 @@ describe("ClientQueryTool", () => {
     expect(screen.getAllByRole("columnheader", { name: /Ward/i })).toHaveLength(1);
   });
 
+  it("reserves a header row and renders the mirrored scrollbar outside the table layout", async () => {
+    jest.spyOn(clientQueryService, "runClientQuery").mockResolvedValue({
+      rows: [
+        {
+          id: "client-1",
+          uid: "client-1",
+          clientName: "Test Client",
+        } as unknown as ClientQueryResult["rows"][number],
+      ],
+    });
+    render(<ClientQueryTool />);
+
+    fireEvent.mouseDown(screen.getByLabelText("Collection"));
+    fireEvent.click(await screen.findByRole("option", { name: "Clients" }));
+    fireEvent.mouseDown(screen.getByLabelText("Field"));
+    fireEvent.click(await screen.findByRole("option", { name: "First Name" }));
+    fireEvent.mouseDown(screen.getByLabelText("Operator"));
+    fireEvent.click(await screen.findByRole("option", { name: /equals \(==\)/i }));
+    fireEvent.change(screen.getByLabelText("Value"), { target: { value: "Test" } });
+    fireEvent.click(screen.getByRole("button", { name: /Run Query/i }));
+
+    expect(await screen.findByText(/Results \(1\)/i)).toBeTruthy();
+    const reservedScrollbarRow = screen.getByLabelText("Horizontal results scrollbar");
+    const mirrorScrollbar = screen.getByTestId("horizontal-results-scrollbar");
+    expect(reservedScrollbarRow.closest("thead")).not.toBeNull();
+    expect(reservedScrollbarRow.closest("table")).not.toBeNull();
+    expect(mirrorScrollbar.closest("table")).toBeNull();
+  });
+
   it("does not let an older query overwrite a newly selected collection", async () => {
     let resolveQuery: (value: ClientQueryResult) => void = () => undefined;
     jest.spyOn(clientQueryService, "runClientQuery").mockReturnValue(
