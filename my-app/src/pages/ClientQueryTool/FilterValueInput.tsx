@@ -133,6 +133,15 @@ const MultiValueInput: React.FC<{
       freeSolo
       disablePortal
       options={hasFirestoreListLimit(operator) ? options : [ALL_VALUES_OPTION, ...options]}
+      filterSelectedOptions
+      filterOptions={(availableOptions, state) => {
+        const searchText = state.inputValue.trim().toLowerCase();
+        if (!searchText) return availableOptions;
+        return availableOptions.filter((option) => {
+          const label = option === ALL_VALUES_OPTION ? "All" : optionLabels?.[option] ?? option;
+          return label.toLowerCase().includes(searchText);
+        });
+      }}
       value={Array.from(new Set(selectedValues))}
       disableCloseOnSelect
       sx={{
