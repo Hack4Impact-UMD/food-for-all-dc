@@ -748,7 +748,7 @@ const Profile = () => {
         // Check if we found a ward
         if (data.features && data.features.length > 0) {
           const wardFeature = data.features[0];
-          wardName = wardFeature.attributes.NAME || `Ward ${wardFeature.attributes.WARD}`;
+          wardName = String(wardFeature.attributes.WARD || wardFeature.attributes.NAME || "").match(/\d+/)?.[0] || "No ward";
         } else {
           wardName = "No ward";
         }
@@ -811,7 +811,7 @@ const Profile = () => {
       // Check if we found a ward
       if (data.features && data.features.length > 0) {
         const wardFeature = data.features[0];
-        wardName = wardFeature.attributes.NAME || `Ward ${wardFeature.attributes.WARD}`;
+        wardName = String(wardFeature.attributes.WARD || wardFeature.attributes.NAME || "").match(/\d+/)?.[0] || "No ward";
       } else {
         wardName = "No ward";
       }
@@ -1381,7 +1381,7 @@ const Profile = () => {
           fetchedCoordinates.length === 2 &&
           fetchedCoordinates[0] !== 0 &&
           fetchedCoordinates[1] !== 0;
-        const hasResolvedWard = /^Ward\s+\d+$/i.test(geoWard.trim());
+        const hasResolvedWard = /^[1-8]$/.test(geoWard.trim());
         if (!hasValidCoordinates || !hasResolvedWard) {
           throw new Error(
             "The address could not be mapped to coordinates and a DC ward. The profile was not saved; please retry or select the address from the suggestions."

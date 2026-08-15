@@ -31,6 +31,9 @@ const cleanReferralOrganizationLabel = (value: string): string =>
 const isOrganizationField = (field: QueryFieldDef): boolean =>
   field.field === "organization" || field.field === "referralEntity.organization";
 
+const isWardField = (field: QueryFieldDef): boolean => field.field === "ward";
+const isClusterField = (field: QueryFieldDef): boolean => field.field === "cluster";
+
 const SearchableValueInput: React.FC<{
   options: string[];
   value: unknown;
@@ -160,6 +163,20 @@ const FilterValueInput: React.FC<FilterValueInputProps> = ({
     fieldDef.field === "assignedTime"
       ? Object.fromEntries(selectableOptions.map((option) => [formatAssignedTime(option), option]))
       : optionValues;
+  const normalizedDropdownOptions = isWardField(fieldDef) || isClusterField(fieldDef)
+    ? Array.from(new Set(selectableOptions.map((option) => {
+        if (isClusterField(fieldDef) && option === "0") return "Unassigned";
+        return option.match(/\d+/)?.[0] || option;
+      })))
+    : dropdownOptions;
+  const normalizedOptionLabels = isWardField(fieldDef) || isClusterField(fieldDef)
+    ? Object.fromEntries(selectableOptions.map((option) => [option, isClusterField(fieldDef) && option === "0" ? "Unassigned" : option.match(/\d+/)?.[0] || option]))
+    : optionLabels;
+  const normalizedOptionValues = isWardField(fieldDef)
+    ? Object.fromEntries(normalizedDropdownOptions.map((option) => [option, option]))
+    : isClusterField(fieldDef)
+      ? Object.fromEntries(selectableOptions.map((option) => [option === "0" ? "Unassigned" : option, option]))
+    : optionValues;
 
   if (fieldDef.type === "boolean") {
     return (
@@ -180,23 +197,25 @@ const FilterValueInput: React.FC<FilterValueInputProps> = ({
     if (isListOperator(operator)) {
       return (
         <MultiValueInput
-          options={dropdownOptions}
-          value={value}
+          options={normalizedDropdownOptions}
+          value={isClusterField(fieldDef) && String(value ?? "") === "0" ? "Unassigned" : value}
           onChange={onChange}
           commonProps={commonProps}
+          optionLabels={normalizedOptionLabels}
+          optionValues={normalizedOptionValues}
         />
       );
     }
     if (selectableOptions.length > 0) {
       return (
         <SearchableValueInput
-          options={dropdownOptions}
+          options={normalizedDropdownOptions}
           value={value}
           onChange={onChange}
           commonProps={commonProps}
           labelId={labelId}
-          optionLabels={optionLabels}
-          optionValues={optionValues}
+          optionLabels={normalizedOptionLabels}
+          optionValues={normalizedOptionValues}
         />
       );
     }
@@ -333,7 +352,7 @@ const FilterValueInput: React.FC<FilterValueInputProps> = ({
   if (isListOperator(operator)) {
     return (
       <MultiValueInput
-        options={dropdownOptions}
+        options={normalizedDropdownOptions}
         value={value}
         onChange={onChange}
         commonProps={commonProps}
@@ -342,18 +361,18 @@ const FilterValueInput: React.FC<FilterValueInputProps> = ({
   }
 
   // Text fields: prefer known option lists (ward, quadrant, referral org) as dropdowns.
-  const options = dropdownOptions;
+  const options = normalizedDropdownOptions;
 
   if (options && options.length > 0 && !isListOperator(operator)) {
     return (
       <SearchableValueInput
         options={options}
-        value={value}
+        value={isWardField(fieldDef) ? String(value ?? "").match(/\d+/)?.[0] || "" : value}
         onChange={onChange}
         commonProps={commonProps}
         labelId={labelId}
         optionLabels={optionLabels}
-        optionValues={optionValues}
+        optionValues={normalizedOptionValues}
       />
     );
   }

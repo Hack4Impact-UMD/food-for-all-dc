@@ -63,14 +63,14 @@ export const OPERATOR_LABELS: Record<QueryOperator, string> = {
 };
 
 const WARD_OPTIONS = [
-  "Ward 1",
-  "Ward 2",
-  "Ward 3",
-  "Ward 4",
-  "Ward 5",
-  "Ward 6",
-  "Ward 7",
-  "Ward 8",
+  "1",
+  "2",
+  "3",
+  "4",
+  "5",
+  "6",
+  "7",
+  "8",
 ];
 
 const QUADRANT_OPTIONS = ["NE", "NW", "SE", "SW"];
@@ -120,9 +120,16 @@ const CLIENT_FIELDS: QueryFieldDef[] = [
   { field: "city", label: "City", type: "text" },
   { field: "state", label: "State", type: "text" },
   { field: "zipCode", label: "ZIP Code", type: "text" },
+  { field: "address2", label: "Address 2", type: "text" },
+  { field: "streetName", label: "Street Name", type: "text" },
   { field: "quadrant", label: "Quadrant", type: "text", options: QUADRANT_OPTIONS },
-  { field: "ward", label: "Ward", type: "text", options: WARD_OPTIONS },
+  { field: "ward", label: "Ward", type: "text", computed: true, options: WARD_OPTIONS },
   { field: "language", label: "Language", type: "text" },
+  { field: "gender", label: "Gender", type: "text" },
+  { field: "ethnicity", label: "Ethnicity", type: "text" },
+  { field: "headOfHousehold", label: "Head of Household", type: "text" },
+  { field: "email", label: "Email", type: "text" },
+  { field: "alternativePhone", label: "Alternative Phone", type: "text", format: "phone" },
   { field: "deliveryFreq", label: "Delivery Frequency", type: "text" },
   { field: "recurrence", label: "Recurrence", type: "text" },
   { field: "tefapCert", label: "TEFAP Certified", type: "boolean" },
@@ -132,6 +139,13 @@ const CLIENT_FIELDS: QueryFieldDef[] = [
   { field: "children", label: "Children", type: "number" },
   { field: "seniors", label: "Seniors", type: "number" },
   { field: "referralEntity.organization", label: "Referral Organization", type: "text" },
+  { field: "referralEntity.name", label: "Referral Contact", type: "text" },
+  { field: "famStartDate", label: "Family Start Date", type: "text" },
+  { field: "startDate", label: "Start Date", type: "text" },
+  { field: "endDate", label: "End Date", type: "text" },
+  { field: "tefapCertDate", label: "TEFAP Certification Date", type: "text" },
+  { field: "dob", label: "Date of Birth", type: "text" },
+  { field: "referredDate", label: "Referral Date", type: "text" },
   { field: "updatedAt", label: "Last Updated", type: "timestamp" },
 ];
 
@@ -139,6 +153,7 @@ const DELIVERY_FIELDS: QueryFieldDef[] = [
   { field: "clientName", label: "Client Name", type: "text" },
   { field: "assignedDriverName", label: "Driver", type: "text" },
   { field: "assignedTime", label: "Assigned Time", type: "text", computed: true },
+  { field: "ward", label: "Ward", type: "text", computed: true },
   { field: "recurrence", label: "Recurrence", type: "text" },
   { field: "cluster", label: "Cluster", type: "number", computed: true },
   {
@@ -165,6 +180,7 @@ const REFERRAL_ORG_FIELDS: QueryFieldDef[] = [
 ];
 
 const USER_FIELDS: QueryFieldDef[] = [
+  { field: "name", label: "Name", type: "text" },
   { field: "role", label: "Role", type: "text" },
   { field: "email", label: "Email", type: "text" },
   { field: "phone", label: "Phone", type: "text", format: "phone" },

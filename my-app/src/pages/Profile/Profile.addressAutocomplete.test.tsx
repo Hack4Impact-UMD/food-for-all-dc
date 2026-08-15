@@ -325,7 +325,7 @@ describe("Profile address autocomplete lifecycle", () => {
     });
 
     expect(screen.getByTestId("address-fields").textContent).toBe(
-      "1600 Pennsylvania Avenue NW|Washington|DC|20006|NW|Ward 2"
+      "1600 Pennsylvania Avenue NW|Washington|DC|20006|NW|2"
     );
   });
 
@@ -517,7 +517,7 @@ describe("Profile address autocomplete lifecycle", () => {
     });
 
     expect(screen.getByTestId("address-fields").textContent).toBe(
-      "1738 Massachusetts Avenue SE|Washington|DC|20003|SE|Ward 2"
+      "1738 Massachusetts Avenue SE|Washington|DC|20003|SE|2"
     );
   });
 
@@ -546,7 +546,7 @@ describe("Profile address autocomplete lifecycle", () => {
         route: "First Street Northwest",
         neighborhood: "Barney Circle Northwest",
         formattedAddress: "1 First Street Northwest, Washington, DC 20001, USA",
-        expectedAddress: "1 First Street NW|Washington|DC|20001|NW|Ward 2",
+        expectedAddress: "1 First Street NW|Washington|DC|20001|NW|2",
       },
       {
         streetNumber: "2",
@@ -554,7 +554,7 @@ describe("Profile address autocomplete lifecycle", () => {
         route: "Second Street Northeast",
         neighborhood: "Barney Circle Northeast",
         formattedAddress: "2 Second Street Northeast, Washington, DC 20002, USA",
-        expectedAddress: "2 Second Street NE|Washington|DC|20002|NE|Ward 2",
+        expectedAddress: "2 Second Street NE|Washington|DC|20002|NE|2",
       },
       {
         streetNumber: "3",
@@ -562,7 +562,7 @@ describe("Profile address autocomplete lifecycle", () => {
         route: "Third Street Southwest",
         neighborhood: "Barney Circle Southwest",
         formattedAddress: "3 Third Street Southwest, Washington, DC 20024, USA",
-        expectedAddress: "3 Third Street SW|Washington|DC|20024|SW|Ward 2",
+        expectedAddress: "3 Third Street SW|Washington|DC|20024|SW|2",
       },
       {
         streetNumber: "1738",
@@ -570,7 +570,7 @@ describe("Profile address autocomplete lifecycle", () => {
         route: "Massachusetts Avenue Southeast",
         neighborhood: "Barney Circle Southeast",
         formattedAddress: "1738 Massachusetts Avenue Southeast, Washington, DC 20003, USA",
-        expectedAddress: "1738 Massachusetts Avenue SE|Washington|DC|20003|SE|Ward 2",
+        expectedAddress: "1738 Massachusetts Avenue SE|Washington|DC|20003|SE|2",
       },
     ];
 

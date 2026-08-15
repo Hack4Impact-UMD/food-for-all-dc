@@ -104,14 +104,14 @@ interface ClusterMapProps {
 
 // DC Ward colors - each ward gets a unique translucent color
 const wardColors: { [key: string]: string } = {
-  "Ward 1": "#FF0000", // Red
-  "Ward 2": "#00FF00", // Green
-  "Ward 3": "#0000FF", // Blue
-  "Ward 4": "#FFFF00", // Yellow
-  "Ward 5": "#FF00FF", // Magenta
-  "Ward 6": "#00FFFF", // Cyan
-  "Ward 7": "#FFA500", // Orange
-  "Ward 8": "#800080", // Purple
+  "1": "#FF0000", // Red
+  "2": "#00FF00", // Green
+  "3": "#0000FF", // Blue
+  "4": "#FFFF00", // Yellow
+  "5": "#FF00FF", // Magenta
+  "6": "#00FFFF", // Cyan
+  "7": "#FFA500", // Orange
+  "8": "#800080", // Purple
 };
 
 const ffaCoordinates: L.LatLngExpression = [38.91433, -77.036942];
@@ -767,7 +767,7 @@ const ClusterMap: React.FC<ClusterMapProps> = ({
 
     boundaries.features.forEach((feature: any) => {
       try {
-        const wardName = feature.properties.NAME || `Ward ${feature.properties.WARD}`;
+        const wardName = String(feature.properties.WARD || feature.properties.NAME || "").match(/\d+/)?.[0] || "";
         const wardColor = wardColors[wardName] || "#999999"; // Default color if ward not found
 
         // Create polygon layer with translucent fill.

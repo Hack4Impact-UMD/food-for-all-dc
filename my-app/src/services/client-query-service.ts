@@ -175,6 +175,23 @@ const matchesComputedFilter = (row: RowData, filter: QueryFilter): boolean => {
       default: return false;
     }
   }
+  if (filter.field === "ward") {
+    const normalizeWard = (value: unknown) => {
+      const match = String(value ?? "").match(/\d+/);
+      return match ? match[0] : "";
+    };
+    const actual = normalizeWard(row["join.ward"] ?? row.ward);
+    const expectedValues = Array.isArray(filter.value)
+      ? filter.value.map(normalizeWard)
+      : String(filter.value).split(",").map(normalizeWard).filter(Boolean);
+    switch (filter.operator) {
+      case "==": return actual === expectedValues[0];
+      case "!=": return actual !== expectedValues[0];
+      case "in": return expectedValues.includes(actual);
+      case "not-in": return !expectedValues.includes(actual);
+      default: return false;
+    }
+  }
   return true;
 };
 
@@ -333,11 +350,6 @@ export async function runClientQuery(
       rows = await enrichDeliveryRouteAssignments(rows);
     }
 
-    const computedFilters = getComputedFilters(collectionKey, filters);
-    if (computedFilters.length > 0) {
-      rows = rows.filter((row) => computedFilters.every((f) => matchesComputedFilter(row, f)));
-    }
-
     if (collectionKey === "clients" && rows.length > 0) {
       const deliverySummaries = await batchGetClientDeliverySummaries(rows.map((r) => r.uid));
       rows = rows.map((row) => ({
@@ -364,6 +376,11 @@ export async function runClientQuery(
         });
         return joinedRow;
       });
+    }
+
+    const computedFilters = getComputedFilters(collectionKey, filters);
+    if (computedFilters.length > 0) {
+      rows = rows.filter((row) => computedFilters.every((f) => matchesComputedFilter(row, f)));
     }
 
     // Query metadata only (no row contents/PII) — safe to log for troubleshooting.

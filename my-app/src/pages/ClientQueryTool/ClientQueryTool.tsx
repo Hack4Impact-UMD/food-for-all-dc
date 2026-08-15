@@ -215,6 +215,19 @@ const ClientQueryTool: React.FC = () => {
       .catch(() => undefined);
 
     if (collectionKey === "deliveries") {
+      getDocs(collection(db, dataSources.firebase.clientsCollection))
+        .then((snapshot) => {
+          if (!isMounted) return;
+          const wards = snapshot.docs
+            .map((document) => String(document.data().ward ?? "").trim())
+            .filter(Boolean);
+          setFieldOptions((current) => ({
+            ...current,
+            ward: Array.from(new Set([...(current.ward || []), ...wards])).sort(),
+          }));
+        })
+        .catch(() => undefined);
+
       getDocs(collection(db, dataSources.firebase.clustersCollection))
         .then((snapshot) => {
           if (!isMounted) return;
@@ -470,7 +483,10 @@ const ClientQueryTool: React.FC = () => {
     }
 
     columns.push(...collectionDef.fields.filter((field) => {
-      return !(collectionKey === "deliveries" && field.field === "cluster");
+      return !(
+        collectionKey === "deliveries" &&
+        ["cluster", "assignedTime", "ward"].includes(field.field)
+      );
     }).map((field) => ({
         key: field.field,
         label: field.label,
