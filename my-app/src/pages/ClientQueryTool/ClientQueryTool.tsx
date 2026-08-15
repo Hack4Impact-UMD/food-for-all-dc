@@ -2,7 +2,7 @@
 // UI is responsible only for filter state, validation feedback, and rendering controls.
 // All Firestore query construction/execution lives in services/client-query-service.ts.
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
   Box,
@@ -19,6 +19,7 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  Select,
   TextField,
   Typography,
 } from "@mui/material";
@@ -33,6 +34,8 @@ import { clientService } from "../../services/client-service";
 import { runClientQuery } from "../../services/client-query-service";
 import { exportRowsWithColumns, RowData } from "../../components/Spreadsheet/export";
 import { getNestedValue } from "../../utils/misc";
+import { formatAddressWithQuadrantAndUnit } from "../../utils/addressFormat";
+import { formatPhoneNumber } from "../../utils/queryToolFormatting";
 import {
   COLLECTIONS,
   COLLECTION_KEYS,
@@ -68,6 +71,57 @@ const formatCellValue = (value: unknown): React.ReactNode => {
   return String(value);
 };
 
+const formatQueryTimestamp = (value: unknown, timeSensitive: boolean): string => {
+  let date: Date | null = null;
+  if (value instanceof Date) {
+    date = value;
+  } else if (value && typeof value === "object") {
+    const timestamp = value as {
+      toDate?: () => Date;
+      seconds?: number;
+      nanoseconds?: number;
+      type?: string;
+    };
+    if (typeof timestamp.toDate === "function") {
+      date = timestamp.toDate();
+    } else if (
+      timestamp.type === "firestore/timestamp/1.0" &&
+      typeof timestamp.seconds === "number"
+    ) {
+      date = new Date(timestamp.seconds * 1000 + (timestamp.nanoseconds || 0) / 1_000_000);
+    }
+  }
+
+  if (!date || Number.isNaN(date.getTime())) return "";
+  return timeSensitive ? date.toLocaleString() : date.toLocaleDateString();
+};
+
+const hasFilterValue = (value: unknown): boolean => {
+  if (Array.isArray(value)) return value.length > 0;
+  if (typeof value === "string") return value.trim().length > 0;
+  return value !== null && value !== undefined;
+};
+
+const CLIENT_DEFAULT_COLUMNS = [
+  "__name",
+  "address",
+  "phone",
+  "deliveryDetails.dietaryRestrictions",
+  "deliveryDetails.deliveryInstructions",
+  "lastDeliveryDate",
+];
+
+const DELIVERY_DEFAULT_COLUMNS = [
+  "__name",
+  "clusterIdChange",
+  "join.tags",
+  "join.zipCode",
+  "join.ward",
+  "assignedDriver",
+  "assignedTime",
+  "deliveryDetails.deliveryInstructions",
+];
+
 const ClientQueryTool: React.FC = () => {
   const [collectionKey, setCollectionKey] = useState<CollectionKey>("clients");
   const [filters, setFilters] = useState<QueryFilter[]>([createEmptyFilter()]);
@@ -80,11 +134,18 @@ const ClientQueryTool: React.FC = () => {
   const [exportError, setExportError] = useState("");
   const [tagOptions, setTagOptions] = useState<string[]>([]);
   const [referralOrgOptions, setReferralOrgOptions] = useState<string[]>([]);
+  const [driverOptions, setDriverOptions] = useState<string[]>([]);
   const [fieldOptions, setFieldOptions] = useState<Record<string, string[]>>({});
+  const [visibleClientColumns, setVisibleClientColumns] = useState(CLIENT_DEFAULT_COLUMNS);
+  const [visibleDeliveryColumns, setVisibleDeliveryColumns] = useState(DELIVERY_DEFAULT_COLUMNS);
+  const resultsTableRef = useRef<HTMLDivElement | null>(null);
+  const topScrollRef = useRef<HTMLDivElement | null>(null);
+  const [tableScrollWidth, setTableScrollWidth] = useState(0);
 
   useEffect(() => {
     let isMounted = true;
     setFieldOptions({});
+    setDriverOptions([]);
 
     const collectionConfigKey = COLLECTIONS[collectionKey].collectionKey as keyof typeof dataSources.firebase;
     const firestoreCollectionName = dataSources.firebase[collectionConfigKey];
@@ -120,6 +181,16 @@ const ClientQueryTool: React.FC = () => {
       })
       .catch(() => undefined);
 
+    getDocs(collection(db, dataSources.firebase.driversCollection))
+      .then((snapshot) => {
+        if (!isMounted) return;
+        const names = snapshot.docs
+          .map((document) => String(document.data().name || "").trim())
+          .filter(Boolean);
+        setDriverOptions(Array.from(new Set(names)).sort((a, b) => a.localeCompare(b)));
+      })
+      .catch(() => undefined);
+
     clientService
       .getAllTags()
       .then((tags) => {
@@ -148,6 +219,15 @@ const ClientQueryTool: React.FC = () => {
 
   const updateFilter = useCallback((id: string, updates: Partial<QueryFilter>) => {
     setFilters((prev) => prev.map((f) => (f.id === id ? { ...f, ...updates } : f)));
+    setFieldErrors((prev) => {
+      if (!(id in prev)) return prev;
+      if ("value" in updates && prev[id].startsWith("Choose an operator")) {
+        return prev;
+      }
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
   }, []);
 
   const handleCollectionChange = useCallback((next: CollectionKey) => {
@@ -234,12 +314,105 @@ const ClientQueryTool: React.FC = () => {
             .filter(Boolean)
             .join(", "),
       },
-      ...collectionDef.fields.map((field) => ({
+    ];
+
+    if (collectionKey === "clients") {
+      columns.push(
+        {
+          key: "address",
+          label: "Address",
+          getValue: (row) => formatAddressWithQuadrantAndUnit(row.address, row.quadrant, row.address2),
+        },
+        { key: "phone", label: "Phone", getValue: (row) => formatPhoneNumber(row.phone) },
+        {
+          key: "deliveryDetails.dietaryRestrictions",
+          label: "Dietary Restrictions",
+          getValue: (row) => {
+            const restrictions = row.deliveryDetails?.dietaryRestrictions;
+            return restrictions
+              ? [
+                  restrictions.halal && "Halal",
+                  restrictions.kidneyFriendly && "Kidney Friendly",
+                  restrictions.lowSodium && "Low Sodium",
+                  restrictions.lowSugar && "Low Sugar",
+                  restrictions.vegan && "Vegan",
+                  restrictions.vegetarian && "Vegetarian",
+                  ...(restrictions.foodAllergens || []),
+                ].filter(Boolean).join(", ") || "None"
+              : "None";
+          },
+        },
+        {
+          key: "deliveryDetails.deliveryInstructions",
+          label: "Delivery Instructions",
+          getValue: (row) => row.deliveryDetails?.deliveryInstructions || "None",
+        }
+      );
+    }
+
+    if (collectionKey === "deliveries") {
+      columns.push(
+        {
+          key: "clusterIdChange",
+          label: "Cluster ID",
+          getValue: (row) => row.cluster ?? "",
+        },
+        {
+          key: "join.tags",
+          label: "Tags",
+          getValue: (row) => {
+            const tags = row["join.tags"];
+            return Array.isArray(tags) ? tags.join(", ") || "None" : tags || "None";
+          },
+        },
+        { key: "join.zipCode", label: "Zip Code", getValue: (row) => row["join.zipCode"] || "" },
+        { key: "join.ward", label: "Ward", getValue: (row) => row["join.ward"] || "" },
+        {
+          key: "assignedDriver",
+          label: "Assigned Driver",
+          getValue: (row) => row.assignedDriverName || "No driver assigned",
+        },
+        {
+          key: "assignedTime",
+          label: "Assigned Time",
+          getValue: (row) => row.time || "No time assigned",
+        },
+        {
+          key: "deliveryDetails.deliveryInstructions",
+          label: "Delivery Instructions",
+          getValue: (row) => row.deliveryDetails?.deliveryInstructions || "No instructions",
+        }
+      );
+    }
+
+    columns.push(...collectionDef.fields.map((field) => ({
         key: field.field,
         label: field.label,
-        getValue: (row: RowData) => getNestedValue(row, field.field),
-      })),
-    ];
+        getValue: (row: RowData) => {
+          let value = getNestedValue(row, field.field);
+          if (collectionKey === "clients" && field.field === "address") {
+            value = formatAddressWithQuadrantAndUnit(row.address, row.quadrant, row.address2);
+          }
+          if (collectionKey === "clients" && field.field === "deliveryDetails.dietaryRestrictions") {
+            const restrictions = row.deliveryDetails?.dietaryRestrictions;
+            value = restrictions
+              ? [
+                  restrictions.halal && "Halal",
+                  restrictions.kidneyFriendly && "Kidney Friendly",
+                  restrictions.lowSodium && "Low Sodium",
+                  restrictions.lowSugar && "Low Sugar",
+                  restrictions.vegan && "Vegan",
+                  restrictions.vegetarian && "Vegetarian",
+                  ...(restrictions.foodAllergens || []),
+                ].filter(Boolean).join(", ") || "None"
+              : "None";
+          }
+          if (field.format === "phone") return formatPhoneNumber(value);
+          return field.type === "timestamp"
+            ? formatQueryTimestamp(value, Boolean(field.timeSensitive))
+            : value;
+        },
+      })));
 
     if (collectionKey === "clients") {
       columns.push({
@@ -262,18 +435,49 @@ const ClientQueryTool: React.FC = () => {
     return columns;
   }, [collectionDef, collectionKey]);
 
+  const displayedColumns = useMemo(
+    () =>
+      collectionKey === "clients"
+        ? resultColumns.filter((column) => visibleClientColumns.includes(column.key))
+        : collectionKey === "deliveries"
+          ? resultColumns.filter((column) => visibleDeliveryColumns.includes(column.key))
+          : resultColumns,
+    [collectionKey, resultColumns, visibleClientColumns, visibleDeliveryColumns]
+  );
+
+  useEffect(() => {
+    const updateTableScrollWidth = () => {
+      const container = resultsTableRef.current;
+      const table = container?.firstElementChild as HTMLElement | null;
+      setTableScrollWidth(Math.max(table?.scrollWidth || 0, container?.clientWidth || 0));
+    };
+    updateTableScrollWidth();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(updateTableScrollWidth);
+    if (resultsTableRef.current) observer.observe(resultsTableRef.current);
+    return () => observer.disconnect();
+  }, [displayedColumns, results]);
+
+  const syncHorizontalScroll = (source: "top" | "table") => {
+    const sourceElement = source === "top" ? topScrollRef.current : resultsTableRef.current;
+    const targetElement = source === "top" ? resultsTableRef.current : topScrollRef.current;
+    if (sourceElement && targetElement && targetElement.scrollLeft !== sourceElement.scrollLeft) {
+      targetElement.scrollLeft = sourceElement.scrollLeft;
+    }
+  };
+
   const handleExportQueryResults = useCallback(async () => {
     setExportError("");
     setExportingMode("query");
     await new Promise<void>((resolve) => setTimeout(resolve, 500));
     try {
-      exportRowsWithColumns(results, resultColumns, `${collectionKey}_query_results.csv`);
+      exportRowsWithColumns(results, displayedColumns, `${collectionKey}_query_results.csv`);
     } catch (error) {
       setExportError(error instanceof Error ? error.message : "Something went wrong exporting the data.");
     } finally {
       setExportingMode("");
     }
-  }, [results, resultColumns, collectionKey]);
+  }, [results, displayedColumns, collectionKey]);
 
   const handleExportAll = useCallback(async () => {
     try {
@@ -359,6 +563,11 @@ const ClientQueryTool: React.FC = () => {
                 const fieldDef = getFieldDef(collectionKey, filter.field);
                 const validOperators = fieldDef ? OPERATORS_BY_TYPE[fieldDef.type] : [];
                 const rowError = fieldErrors[filter.id];
+                const displayedRowError =
+                  rowError ||
+                  (fieldDef && filter.field && !filter.operator && hasFilterValue(filter.value)
+                    ? `Choose an operator for ${fieldDef.label}.`
+                    : undefined);
                 return (
                   <TableRow key={filter.id}>
                     <TableCell sx={{ minWidth: 200 }}>
@@ -370,8 +579,8 @@ const ClientQueryTool: React.FC = () => {
                         id={`${filter.id}-field`}
                         value={filter.field}
                         onChange={(e) => handleFieldChange(filter.id, e.target.value)}
-                        error={Boolean(rowError) && !filter.field}
-                        helperText={!filter.field ? rowError : undefined}
+                        error={Boolean(displayedRowError) && !filter.field}
+                        helperText={!filter.field ? displayedRowError : undefined}
                       >
                         {collectionDef.fields.map((f) => (
                           <MenuItem key={f.field} value={f.field}>
@@ -389,8 +598,8 @@ const ClientQueryTool: React.FC = () => {
                         id={`${filter.id}-operator`}
                         value={filter.operator}
                         disabled={!fieldDef}
-                        error={Boolean(rowError) && Boolean(filter.field) && !filter.operator}
-                        helperText={filter.field && !filter.operator ? rowError : undefined}
+                        error={Boolean(displayedRowError) && Boolean(filter.field) && !filter.operator}
+                        helperText={filter.field && !filter.operator ? displayedRowError : undefined}
                         onChange={(e) =>
                           updateFilter(filter.id, { operator: e.target.value as QueryFilter["operator"] })
                         }
@@ -422,7 +631,8 @@ const ClientQueryTool: React.FC = () => {
                           tagOptions={tagOptions}
                           referralOrgOptions={referralOrgOptions}
                           fieldOptions={fieldOptions[filter.field] || []}
-                          errorText={fieldDef && filter.operator ? rowError : undefined}
+                          driverOptions={driverOptions}
+                          errorText={fieldDef && filter.operator ? displayedRowError : undefined}
                         />
                       ) : null}
                     </TableCell>
@@ -511,6 +721,32 @@ const ClientQueryTool: React.FC = () => {
                 Results ({results.length})
               </Typography>
               <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+                {(collectionKey === "clients" || collectionKey === "deliveries") && (
+                  <Select
+                    multiple
+                    size="small"
+                    value={collectionKey === "clients" ? visibleClientColumns : visibleDeliveryColumns}
+                    onChange={(event) => {
+                      const nextColumns = event.target.value as string[];
+                      if (nextColumns.length === 0) return;
+                      if (collectionKey === "clients") {
+                        setVisibleClientColumns(nextColumns);
+                      } else {
+                        setVisibleDeliveryColumns(nextColumns);
+                      }
+                    }}
+                    displayEmpty
+                    renderValue={(selected) => `Displayed fields (${(selected as string[]).length})`}
+                    sx={{ minWidth: 190 }}
+                    aria-label={`Displayed ${collectionKey} fields`}
+                  >
+                    {resultColumns.map((column) => (
+                      <MenuItem key={column.key} value={column.key}>
+                        {column.label}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                )}
                 {exportingMode && (
                   <Box
                     role="status"
@@ -566,34 +802,75 @@ const ClientQueryTool: React.FC = () => {
             </Box>
             </Box>
             {exportError && <Alert severity="error" sx={{ marginBottom: 1 }}>{exportError}</Alert>}
-            <TableContainer component={Paper}>
+            <Box sx={{ position: "relative" }}>
+              <TableContainer
+                component={Paper}
+                ref={resultsTableRef}
+                onScroll={() => syncHorizontalScroll("table")}
+                sx={{ width: "100%", overflowX: "auto" }}
+              >
               {/* Plain table: no inner vertical scroll container. Vertical scrolling
                   is the browser's normal page scroll; only horizontal overflow (for
                   wide result sets) is contained by TableContainer's default behavior. */}
-              <Table size="small" aria-label="Query results">
+              <Table
+                size="small"
+                aria-label="Query results"
+                sx={{ width: "max-content", minWidth: "100%" }}
+              >
                 <TableHead>
                   <TableRow>
-                    {resultColumns.map((col) => (
+                    {displayedColumns.map((col) => (
                       <TableCell
                         key={col.key}
-                        sx={{ backgroundColor: "var(--color-background-green-tint)" }}
+                        sx={{ backgroundColor: "var(--color-background-green-tint)", whiteSpace: "nowrap" }}
                       >
                         {col.label}
                       </TableCell>
                     ))}
                   </TableRow>
+                  <TableRow aria-hidden="true">
+                    <TableCell
+                      colSpan={displayedColumns.length}
+                      sx={{ height: 16, padding: 0, borderBottom: "none" }}
+                    />
+                  </TableRow>
                 </TableHead>
                 <TableBody>
                   {results.map((row) => (
                     <TableRow key={row.uid ?? row.id}>
-                      {resultColumns.map((col) => (
-                        <TableCell key={col.key}>{formatCellValue(col.getValue(row))}</TableCell>
+                      {displayedColumns.map((col) => (
+                        <TableCell key={col.key} sx={{ whiteSpace: "nowrap" }}>
+                          {formatCellValue(col.getValue(row))}
+                        </TableCell>
                       ))}
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
-            </TableContainer>
+              </TableContainer>
+              <Box
+                ref={topScrollRef}
+                onScroll={() => syncHorizontalScroll("top")}
+                aria-label="Horizontal results scrollbar"
+                sx={{
+                  position: "absolute",
+                  top: 36,
+                  left: 0,
+                  right: 0,
+                  zIndex: 4,
+                  height: 16,
+                  overflowX: "auto",
+                  overflowY: "hidden",
+                  backgroundColor: "var(--color-white)",
+                  scrollbarColor: "#257e68 #e5eee9",
+                  "&::-webkit-scrollbar": { height: 14 },
+                  "&::-webkit-scrollbar-track": { backgroundColor: "#e5eee9" },
+                  "&::-webkit-scrollbar-thumb": { backgroundColor: "#257e68", borderRadius: 7 },
+                }}
+              >
+                <Box sx={{ width: tableScrollWidth, height: 1 }} />
+              </Box>
+            </Box>
           </Box>
         )}
       </Box>

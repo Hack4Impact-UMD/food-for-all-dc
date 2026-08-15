@@ -53,6 +53,10 @@ const startOfNextDay = (date: Date): Date => {
 };
 
 const toFirestoreValue = (collectionKey: CollectionKey, filter: QueryFilter): unknown => {
+  const fieldDef = getFieldDef(collectionKey, filter.field);
+  const normalizeValue = (value: unknown) =>
+    fieldDef?.format === "phone" ? String(value).replace(/\D/g, "") : value;
+
   if (filter.operator === "in" || filter.operator === "not-in" || filter.operator === "array-contains-any") {
     const values = Array.isArray(filter.value)
       ? filter.value
@@ -60,11 +64,11 @@ const toFirestoreValue = (collectionKey: CollectionKey, filter: QueryFilter): un
       .split(",")
       .map((v) => v.trim())
       .filter(Boolean);
-    const fieldDef = getFieldDef(collectionKey, filter.field);
-    return fieldDef?.type === "number" ? values.map((value) => Number(value)) : values;
+    if (fieldDef?.type === "number") return values.map((value) => Number(value));
+    return values.map(normalizeValue);
   }
 
-  return filter.value;
+  return normalizeValue(filter.value);
 };
 
 /** Filters that translate directly into a Firestore `where()` constraint. */
@@ -81,7 +85,15 @@ const buildConstraintsForFilter = (collectionKey: CollectionKey, filter: QueryFi
   const fieldDef = getFieldDef(collectionKey, filter.field);
 
   if (filter.operator === "array-contains" && Array.isArray(filter.value)) {
-    return filter.value.map((value) => where(filter.field, "array-contains", value));
+    return filter.value.map((value) =>
+      where(
+        filter.field,
+        "array-contains",
+        getFieldDef(collectionKey, filter.field)?.format === "phone"
+          ? String(value).replace(/\D/g, "")
+          : value
+      )
+    );
   }
 
   if (fieldDef?.type === "timestamp") {

@@ -35,6 +35,35 @@ export const escapeCsvFormulaValue = (value: string): string => {
   return DANGEROUS_CSV_PREFIX.test(value) ? `'${value}` : value;
 };
 
+const formatFirestoreTimestamp = (value: unknown): string | null => {
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+
+  if (value && typeof value === "object") {
+    const timestamp = value as {
+      toDate?: () => Date;
+      seconds?: number;
+      nanoseconds?: number;
+      type?: string;
+    };
+
+    if (typeof timestamp.toDate === "function") {
+      return timestamp.toDate().toISOString();
+    }
+
+    if (
+      timestamp.type === "firestore/timestamp/1.0" &&
+      typeof timestamp.seconds === "number" &&
+      typeof timestamp.nanoseconds === "number"
+    ) {
+      return new Date(timestamp.seconds * 1000 + timestamp.nanoseconds / 1_000_000).toISOString();
+    }
+  }
+
+  return null;
+};
+
 export const normalizeCsvValue = (value: unknown): string | number | boolean => {
   if (value === null || value === undefined) {
     return "";
@@ -44,8 +73,9 @@ export const normalizeCsvValue = (value: unknown): string | number | boolean => 
     return value;
   }
 
-  if (value instanceof Date) {
-    return value.toISOString();
+  const formattedTimestamp = formatFirestoreTimestamp(value);
+  if (formattedTimestamp) {
+    return formattedTimestamp;
   }
 
   if (Array.isArray(value)) {

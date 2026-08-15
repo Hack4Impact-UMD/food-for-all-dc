@@ -5,6 +5,7 @@
 import React from "react";
 import { Autocomplete, MenuItem, TextField } from "@mui/material";
 import { QueryFieldDef, QueryOperator } from "../../types/query-tool-types";
+import { formatPhoneNumber } from "../../utils/queryToolFormatting";
 
 interface FilterValueInputProps {
   fieldDef: QueryFieldDef;
@@ -13,6 +14,7 @@ interface FilterValueInputProps {
   onChange: (value: unknown) => void;
   tagOptions: string[];
   referralOrgOptions: string[];
+  driverOptions: string[];
   fieldOptions: string[];
   errorText?: string;
   id: string;
@@ -87,6 +89,7 @@ const FilterValueInput: React.FC<FilterValueInputProps> = ({
   onChange,
   tagOptions,
   referralOrgOptions,
+  driverOptions,
   fieldOptions,
   errorText,
   id,
@@ -103,9 +106,15 @@ const FilterValueInput: React.FC<FilterValueInputProps> = ({
     new Set([
       ...(fieldDef.options || []),
       ...(fieldDef.field === "referralEntity.organization" ? referralOrgOptions : []),
+      ...(fieldDef.field === "assignedDriverName" ? driverOptions : []),
       ...(fieldDef.type === "textList" ? tagOptions : []),
       ...fieldOptions,
     ])
+  );
+  const displayOptions = Array.from(
+    new Set(
+      fieldDef.format === "phone" ? smartOptions.map(formatPhoneNumber).filter(Boolean) : smartOptions
+    )
   );
 
   if (fieldDef.type === "boolean") {
@@ -145,6 +154,28 @@ const FilterValueInput: React.FC<FilterValueInputProps> = ({
     );
   }
 
+  if (fieldDef.format === "phone") {
+    if (isListOperator(operator)) {
+      return (
+        <MultiValueInput
+          options={displayOptions}
+          value={value}
+          onChange={onChange}
+          commonProps={commonProps}
+        />
+      );
+    }
+    return (
+      <TextField
+        {...commonProps}
+        label="Value"
+        value={formatPhoneNumber(value)}
+        onChange={(e) => onChange(formatPhoneNumber(e.target.value))}
+        placeholder="(XXX) XXX-XXXX"
+      />
+    );
+  }
+
   if (fieldDef.type === "timestamp") {
     // Date only — the field stores a precise instant, but queries compare whole days.
     return (
@@ -164,7 +195,7 @@ const FilterValueInput: React.FC<FilterValueInputProps> = ({
     if ((isListOperator(operator) || operator === "array-contains") && smartOptions.length > 0) {
       return (
         <MultiValueInput
-          options={smartOptions}
+          options={displayOptions}
           value={value}
           onChange={onChange}
           commonProps={commonProps}
@@ -175,7 +206,7 @@ const FilterValueInput: React.FC<FilterValueInputProps> = ({
     if (smartOptions.length > 0 && !isListOperator(operator)) {
       return (
         <SearchableValueInput
-          options={smartOptions}
+          options={displayOptions}
           value={value}
           onChange={onChange}
           commonProps={commonProps}
@@ -196,7 +227,7 @@ const FilterValueInput: React.FC<FilterValueInputProps> = ({
   if (isListOperator(operator)) {
     return (
       <MultiValueInput
-        options={smartOptions}
+        options={displayOptions}
         value={value}
         onChange={onChange}
         commonProps={commonProps}

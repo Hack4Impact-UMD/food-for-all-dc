@@ -2,6 +2,7 @@
 // Field allowlist + filter/query model shared by the UI and the query service.
 
 export type QueryFieldType = "boolean" | "number" | "text" | "textList" | "timestamp";
+export type QueryFieldFormat = "phone";
 
 export type QueryOperator =
   | "=="
@@ -27,6 +28,9 @@ export interface QueryFieldDef {
   computed?: boolean;
   /** Optional fixed set of allowed values, rendered as a select instead of free text. */
   options?: string[];
+  /** Delivery times are meaningful; other timestamp fields represent calendar days. */
+  timeSensitive?: boolean;
+  format?: QueryFieldFormat;
 }
 
 export interface QueryFilter {
@@ -147,21 +151,21 @@ const DELIVERY_FIELDS: QueryFieldDef[] = [
 
 const DRIVER_FIELDS: QueryFieldDef[] = [
   { field: "name", label: "Name", type: "text" },
-  { field: "phone", label: "Phone", type: "text" },
+  { field: "phone", label: "Phone", type: "text", format: "phone" },
   { field: "email", label: "Email", type: "text" },
 ];
 
 const REFERRAL_ORG_FIELDS: QueryFieldDef[] = [
   { field: "name", label: "Contact Name", type: "text" },
   { field: "organization", label: "Organization", type: "text" },
-  { field: "phone", label: "Phone", type: "text" },
+  { field: "phone", label: "Phone", type: "text", format: "phone" },
   { field: "email", label: "Email", type: "text" },
 ];
 
 const USER_FIELDS: QueryFieldDef[] = [
   { field: "role", label: "Role", type: "text" },
   { field: "email", label: "Email", type: "text" },
-  { field: "phone", label: "Phone", type: "text" },
+  { field: "phone", label: "Phone", type: "text", format: "phone" },
 ];
 
 // Registry of every collection exposed to the Ad-Hoc Query Tool.

@@ -1,5 +1,6 @@
 import { describe, expect, it, jest } from "@jest/globals";
 import { buildAllClientsExportRows } from "../../../components/Spreadsheet/export";
+import { normalizeCsvValue } from "../../../utils/csvExport";
 import { mapClientDocToSpreadsheetBaseRow } from "../../../services/client-service";
 
 jest.mock("../../../auth/firebaseConfig", () => ({ db: {} }));
@@ -27,5 +28,15 @@ describe("client spreadsheet exports", () => {
     });
 
     expect(row.lifeChallenges).toBe("Limited transportation access");
+  });
+
+  it("formats serialized Firestore timestamps as readable ISO dates", () => {
+    expect(
+      normalizeCsvValue({
+        type: "firestore/timestamp/1.0",
+        seconds: 1784908800,
+        nanoseconds: 0,
+      })
+    ).toBe("2026-07-24T16:00:00.000Z");
   });
 });
