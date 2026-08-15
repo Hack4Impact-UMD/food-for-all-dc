@@ -11,8 +11,6 @@ export interface FilterValidationResult {
   formErrors: string[];
 }
 
-const SINGLE_USE_OPERATORS = new Set(["in", "not-in", "array-contains-any"]);
-const NEGATION_OPERATORS = new Set(["!=", "not-in"]);
 const LIST_VALUE_LIMITS: Record<string, number> = {
   in: 30,
   "array-contains-any": 30,
@@ -38,9 +36,6 @@ export const validateFilters = (
     return { valid: false, fieldErrors, formErrors };
   }
 
-  let arrayContainsCount = 0;
-  let singleUseOperatorCount = 0;
-  let negationOperatorCount = 0;
 
   for (const filter of filters) {
     const fieldDef = getFieldDef(collectionKey, filter.field);
@@ -85,23 +80,6 @@ export const validateFilters = (
       continue;
     }
 
-    if (filter.operator === "array-contains") arrayContainsCount += 1;
-    if (SINGLE_USE_OPERATORS.has(filter.operator)) singleUseOperatorCount += 1;
-    if (NEGATION_OPERATORS.has(filter.operator)) negationOperatorCount += 1;
-  }
-
-  if (arrayContainsCount > 1) {
-    formErrors.push("Only one \"contains\" filter is allowed per query.");
-  }
-
-  if (singleUseOperatorCount > 1) {
-    formErrors.push(
-      "Only one \"is any of\", \"is none of\", or \"contains any of\" filter is allowed per query."
-    );
-  }
-
-  if (negationOperatorCount > 1) {
-    formErrors.push("Only one \"not equals\" or \"is none of\" filter is allowed per query.");
   }
 
   const valid = formErrors.length === 0 && Object.keys(fieldErrors).length === 0;

@@ -687,7 +687,13 @@ const ClientQueryTool: React.FC = () => {
 
   return (
     <Box
-      sx={{ padding: 3, paddingX: { xs: 3, md: 6 }, maxWidth: 1400, marginX: "auto" }}
+      sx={{
+        padding: 3,
+        paddingX: { xs: 3, md: 6 },
+        paddingBottom: { xs: 5, md: 8 },
+        maxWidth: 1400,
+        marginX: "auto",
+      }}
     >
       <Box>
         <Box sx={{ marginBottom: 2 }}>

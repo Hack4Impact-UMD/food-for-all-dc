@@ -85,9 +85,11 @@ const MultiValueInput: React.FC<{
       multiple
       freeSolo
       options={options}
-      value={selectedValues}
+      value={Array.from(new Set(selectedValues))}
       onChange={(_, nextValues) =>
-        onChange(nextValues.map((nextValue) => optionValues?.[nextValue] ?? nextValue))
+        onChange(
+          Array.from(new Set(nextValues.map((nextValue) => optionValues?.[nextValue] ?? nextValue)))
+        )
       }
       renderInput={(params) => (
         <TextField

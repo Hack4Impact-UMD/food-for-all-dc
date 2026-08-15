@@ -227,8 +227,8 @@ const matchesDirectFilter = (collectionKey: CollectionKey, row: RowData, filter:
     case "<=": return actual <= expected[0];
     case "in": return expected.includes(actual);
     case "not-in": return !expected.includes(actual);
-    case "array-contains": return actualValues.some((item) => Array.isArray(item) && item.some((entry) => comparable(entry) === expected[0]));
-    case "array-contains-any": return actualValues.some((item) => Array.isArray(item) && item.some((entry) => expected.includes(comparable(entry))));
+    case "array-contains": return Array.isArray(value) && value.some((entry) => comparable(entry) === expected[0]);
+    case "array-contains-any": return Array.isArray(value) && value.some((entry) => expected.includes(comparable(entry)));
     default: return false;
   }
 };
@@ -387,7 +387,11 @@ export async function runClientQuery(
   try {
     const collectionDef = COLLECTIONS[collectionKey];
     const hasOrLogic = filters.some((filter, index) => index > 0 && filter.logic === "OR");
-    const constraints = hasOrLogic ? [] : buildFirestoreConstraints(collectionKey, filters);
+    const disjunctiveFilterCount = filters.filter((filter) =>
+      ["in", "not-in", "array-contains", "array-contains-any"].includes(filter.operator)
+    ).length;
+    const requiresClientSideExpression = hasOrLogic || disjunctiveFilterCount > 1;
+    const constraints = requiresClientSideExpression ? [] : buildFirestoreConstraints(collectionKey, filters);
     const q = query(
       collection(db, firebaseCollectionName(collectionDef.collectionKey)),
       ...constraints
@@ -431,7 +435,7 @@ export async function runClientQuery(
     }
 
     const computedFilters = getComputedFilters(collectionKey, filters);
-    if (hasOrLogic) {
+    if (requiresClientSideExpression) {
       rows = rows.filter((row) => matchesFilterExpression(collectionKey, row, filters));
     } else if (computedFilters.length > 0) {
       rows = rows.filter((row) => computedFilters.every((f) => matchesComputedFilter(row, f)));
