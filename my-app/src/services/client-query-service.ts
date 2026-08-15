@@ -170,6 +170,10 @@ const matchesComputedFilter = (row: RowData, filter: QueryFilter): boolean => {
     switch (filter.operator) {
       case "==": return actual === expectedValues[0];
       case "!=": return actual !== expectedValues[0];
+      case ">": return Number(actual) > Number(expectedValues[0]);
+      case ">=": return Number(actual) >= Number(expectedValues[0]);
+      case "<": return Number(actual) < Number(expectedValues[0]);
+      case "<=": return Number(actual) <= Number(expectedValues[0]);
       case "in": return expectedValues.includes(actual);
       case "not-in": return !expectedValues.includes(actual);
       default: return false;
@@ -187,12 +191,59 @@ const matchesComputedFilter = (row: RowData, filter: QueryFilter): boolean => {
     switch (filter.operator) {
       case "==": return actual === expectedValues[0];
       case "!=": return actual !== expectedValues[0];
+      case ">": return Number(actual) > Number(expectedValues[0]);
+      case ">=": return Number(actual) >= Number(expectedValues[0]);
+      case "<": return Number(actual) < Number(expectedValues[0]);
+      case "<=": return Number(actual) <= Number(expectedValues[0]);
       case "in": return expectedValues.includes(actual);
       case "not-in": return !expectedValues.includes(actual);
       default: return false;
     }
   }
   return true;
+};
+
+const matchesDirectFilter = (collectionKey: CollectionKey, row: RowData, filter: QueryFilter): boolean => {
+  const value = filter.field.split(".").reduce<unknown>((current, key) => {
+    return current && typeof current === "object" ? (current as Record<string, unknown>)[key] : undefined;
+  }, row);
+  const values = Array.isArray(filter.value) ? filter.value : String(filter.value).split(",").map((item) => item.trim());
+  const comparable = (item: unknown): string | number => {
+    if (getFieldDef(collectionKey, filter.field)?.type === "number") return Number(item);
+    if (item && typeof item === "object" && typeof (item as { toDate?: unknown }).toDate === "function") {
+      return (item as { toDate: () => Date }).toDate().getTime();
+    }
+    return String(item ?? "").toLowerCase();
+  };
+  const actualValues = Array.isArray(value) ? value : [value];
+  const actual = comparable(actualValues[0]);
+  const expected = values.map(comparable);
+  switch (filter.operator) {
+    case "==": return actualValues.some((item) => comparable(item) === expected[0]);
+    case "!=": return actualValues.every((item) => comparable(item) !== expected[0]);
+    case ">": return actual > expected[0];
+    case ">=": return actual >= expected[0];
+    case "<": return actual < expected[0];
+    case "<=": return actual <= expected[0];
+    case "in": return expected.includes(actual);
+    case "not-in": return !expected.includes(actual);
+    case "array-contains": return actualValues.some((item) => Array.isArray(item) && item.some((entry) => comparable(entry) === expected[0]));
+    case "array-contains-any": return actualValues.some((item) => Array.isArray(item) && item.some((entry) => expected.includes(comparable(entry))));
+    default: return false;
+  }
+};
+
+const matchesFilterExpression = (collectionKey: CollectionKey, row: RowData, filters: QueryFilter[]): boolean => {
+  const groups: QueryFilter[][] = [[]];
+  filters.forEach((filter, index) => {
+    if (index > 0 && filter.logic === "OR") groups.push([]);
+    groups[groups.length - 1].push(filter);
+  });
+  return groups.some((group) => group.every((filter) =>
+    getFieldDef(collectionKey, filter.field)?.computed
+      ? matchesComputedFilter(row, filter)
+      : matchesDirectFilter(collectionKey, row, filter)
+  ));
 };
 
 const isIndexRequiredError = (error: unknown): boolean => {
@@ -335,7 +386,8 @@ export async function runClientQuery(
 ): Promise<ClientQueryResult> {
   try {
     const collectionDef = COLLECTIONS[collectionKey];
-    const constraints = buildFirestoreConstraints(collectionKey, filters);
+    const hasOrLogic = filters.some((filter, index) => index > 0 && filter.logic === "OR");
+    const constraints = hasOrLogic ? [] : buildFirestoreConstraints(collectionKey, filters);
     const q = query(
       collection(db, firebaseCollectionName(collectionDef.collectionKey)),
       ...constraints
@@ -379,7 +431,9 @@ export async function runClientQuery(
     }
 
     const computedFilters = getComputedFilters(collectionKey, filters);
-    if (computedFilters.length > 0) {
+    if (hasOrLogic) {
+      rows = rows.filter((row) => matchesFilterExpression(collectionKey, row, filters));
+    } else if (computedFilters.length > 0) {
       rows = rows.filter((row) => computedFilters.every((f) => matchesComputedFilter(row, f)));
     }
 

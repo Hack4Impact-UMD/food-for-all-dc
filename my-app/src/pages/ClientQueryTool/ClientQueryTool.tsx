@@ -739,6 +739,7 @@ const ClientQueryTool: React.FC = () => {
           <Table size="small" aria-label="Filter builder">
             <TableHead>
               <TableRow>
+                <TableCell sx={{ minWidth: 90 }}>Logic</TableCell>
                 <TableCell>Field</TableCell>
                 <TableCell>Operator</TableCell>
                 <TableCell>Type</TableCell>
@@ -747,7 +748,7 @@ const ClientQueryTool: React.FC = () => {
               </TableRow>
             </TableHead>
             <TableBody>
-              {filters.map((filter) => {
+              {filters.map((filter, index) => {
                 const fieldDef = getFieldDef(collectionKey, filter.field);
                 const validOperators = fieldDef ? OPERATORS_BY_TYPE[fieldDef.type] : [];
                 const rowError = fieldErrors[filter.id];
@@ -758,6 +759,23 @@ const ClientQueryTool: React.FC = () => {
                     : undefined);
                 return (
                   <TableRow key={filter.id}>
+                    <TableCell sx={{ minWidth: 90 }}>
+                      {index === 0 ? (
+                        <Typography variant="body2" color="text.secondary">Where</Typography>
+                      ) : (
+                        <TextField
+                          select
+                          size="small"
+                          fullWidth
+                          label="Logic"
+                          value={filter.logic || "AND"}
+                          onChange={(event) => updateFilter(filter.id, { logic: event.target.value as "AND" | "OR" })}
+                        >
+                          <MenuItem value="AND">AND</MenuItem>
+                          <MenuItem value="OR">OR</MenuItem>
+                        </TextField>
+                      )}
+                    </TableCell>
                     <TableCell sx={{ minWidth: 200 }}>
                       <TextField
                         select

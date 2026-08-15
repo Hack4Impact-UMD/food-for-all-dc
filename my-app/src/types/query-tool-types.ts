@@ -37,6 +37,7 @@ export interface QueryFilter {
   id: string;
   field: string;
   operator: QueryOperator | "";
+  logic?: "AND" | "OR";
   /** string | number | boolean | string[] | Date */
   value: unknown;
 }
@@ -264,5 +265,6 @@ export const createEmptyFilter = (): QueryFilter => ({
       : `filter-${Date.now()}-${Math.random().toString(16).slice(2)}`,
   field: "",
   operator: "",
+  logic: "AND",
   value: "",
 });
