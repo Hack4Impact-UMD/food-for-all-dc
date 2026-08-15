@@ -34,6 +34,14 @@ function Login() {
 
   const navigate = useNavigate();
 
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, []);
+
   // Handle Enter key press
   const handleKeyPress = (event: React.KeyboardEvent) => {
     if (event.key === "Enter") {
