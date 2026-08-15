@@ -23,6 +23,7 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import LocalShippingIcon from "@mui/icons-material/LocalShipping";
 import AssessmentIcon from "@mui/icons-material/Assessment";
 import DescriptionIcon from "@mui/icons-material/Description";
+import TravelExploreIcon from "@mui/icons-material/TravelExplore";
 import Tab from "./NavBar/Tab";
 import logo from "../../assets/ffa-banner-logo.webp";
 import { Typography, useMediaQuery, MenuItem, Select } from "@mui/material";
@@ -50,7 +51,11 @@ const Main = styled("main", {
   }),
   marginLeft: isMobile ? 0 : open ? 0 : `-${drawerWidth}`,
   width: "100%",
-  marginTop: "10vh",
+  // 10vh alone can be shorter than the 64px fixed AppBar on short viewports,
+  // letting the AppBar overlap the first ~20-30px of page content. Guarantee
+  // at least the AppBar's height while keeping the original breathing room
+  // on taller screens.
+  marginTop: "max(64px, 10vh)",
   paddingBottom: isMobile ? "60px" : 0,
 }));
 
@@ -133,6 +138,9 @@ export default function BasePage() {
     } else if (currentPath === "/routes") {
       setPageTitle("Routes");
       setTab("Routes");
+    } else if (currentPath === "/clients/query") {
+      setPageTitle("Ad-Hoc Query Tool");
+      setTab("Ad-Hoc Query Tool");
     } else if (currentPath.startsWith("/reports")) {
       // Handle reports routes
       if (currentPath === "/reports/summary") {
@@ -180,6 +188,10 @@ export default function BasePage() {
     }
 
     items.push({ text: "Reports", icon: <AssessmentIcon />, link: "/reports/summary" });
+
+    if (userRole === UserType.Admin) {
+      items.push({ text: "Ad-Hoc Query Tool", icon: <TravelExploreIcon />, link: "/clients/query" });
+    }
 
     return items;
   }, [userRole]);

@@ -185,7 +185,7 @@ const ClientReport: React.FC = () => {
   ];
 
   return (
-    <Box sx={{ display: "flex", flexDirection: "column", height: "90vh", width: "90vw" }}>
+    <Box sx={{ display: "flex", flexDirection: "column", height: "90vh", width: "90vw", margin: "0 auto" }}>
       <SnapshotReportHeader
         snapshotLabel={snapshotLabel}
         onGenerate={generateReport}
