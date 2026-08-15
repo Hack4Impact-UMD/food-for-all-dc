@@ -163,6 +163,65 @@ describe("client-query-service", () => {
     expect(result.rows[0].firstName).toBe("Active");
   });
 
+  it("preserves every allowlisted client field needed by results and exports", async () => {
+    const updatedAt = { seconds: 1786752000, nanoseconds: 0 };
+    mockGetDocs.mockResolvedValue(
+      createSnapshot([
+        {
+          id: "client-1",
+          data: () => ({
+            firstName: "Ada",
+            city: "Washington",
+            state: "DC",
+            quadrant: "NW",
+            recurrence: "Monthly",
+            total: 4,
+            seniors: 1,
+            updatedAt,
+          }),
+        },
+      ])
+    );
+
+    const result = await runClientQuery("clients", [
+      makeFilter("city", "==", "Washington"),
+    ]);
+
+    expect(result.rows[0]).toEqual(
+      expect.objectContaining({
+        city: "Washington",
+        state: "DC",
+        quadrant: "NW",
+        recurrence: "Monthly",
+        total: 4,
+        seniors: 1,
+        updatedAt,
+      })
+    );
+  });
+
+  it("treats deliveries without a status as Scheduled", async () => {
+    const filters = [makeFilter("deliveryStatus", "==", "Scheduled")];
+    mockGetDocs.mockResolvedValue(
+      createSnapshot([
+        { id: "normal", data: () => ({ clientName: "Normal delivery" }) },
+        {
+          id: "restored",
+          data: () => ({ clientName: "Restored delivery", deliveryStatus: "Scheduled" }),
+        },
+        {
+          id: "missed",
+          data: () => ({ clientName: "Missed delivery", deliveryStatus: "Missed" }),
+        },
+      ])
+    );
+
+    expect(getFirestoreFilters("deliveries", filters)).toHaveLength(0);
+    const result = await runClientQuery("deliveries", filters);
+
+    expect(result.rows.map((row) => row.id)).toEqual(["normal", "restored"]);
+  });
+
   it("joins deliveries to the related client and adds joined columns", async () => {
     mockGetDocs.mockResolvedValue(
       createSnapshot([{ id: "evt-1", data: () => ({ clientId: "client-1", clientName: "Jane Doe" }) }])

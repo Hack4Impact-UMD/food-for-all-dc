@@ -1,6 +1,6 @@
 import React from "react";
 import { describe, expect, it, jest, beforeEach } from "@jest/globals";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { act, render, screen, fireEvent, waitFor } from "@testing-library/react";
 
 jest.mock("../../auth/firebaseConfig", () => ({ db: {} }));
 
@@ -34,9 +34,11 @@ jest.mock("../../components/Spreadsheet/export", () => ({
 
 import ClientQueryTool from "./ClientQueryTool";
 import * as clientQueryService from "../../services/client-query-service";
+import type { ClientQueryResult } from "../../services/client-query-service";
 
 describe("ClientQueryTool", () => {
   beforeEach(() => {
+    jest.spyOn(window, "scrollTo").mockImplementation(() => undefined);
     jest.spyOn(clientQueryService, "runClientQuery").mockResolvedValue({
       rows: [],
     });
@@ -71,6 +73,18 @@ describe("ClientQueryTool", () => {
     expect(clientQueryService.runClientQuery).not.toHaveBeenCalled();
   });
 
+  it("uses a single-value input for the contains operator", async () => {
+    render(<ClientQueryTool />);
+
+    fireEvent.mouseDown(screen.getByLabelText("Field"));
+    fireEvent.click(await screen.findByRole("option", { name: "Tags" }));
+    fireEvent.mouseDown(screen.getByLabelText("Operator"));
+    fireEvent.click(await screen.findByRole("option", { name: /contains \(array-contains\)/i }));
+
+    expect(await screen.findByRole("combobox", { name: "Value" })).toBeTruthy();
+    expect(screen.queryByRole("combobox", { name: "Values" })).toBeNull();
+  });
+
   it("Clear resets filters and results", async () => {
     render(<ClientQueryTool />);
     fireEvent.click(screen.getByRole("button", { name: /Add Filter/i }));
@@ -96,6 +110,21 @@ describe("ClientQueryTool", () => {
     expect(await screen.findByText(/No clients matched these filters/i)).toBeTruthy();
   });
 
+  it("names the selected collection in the empty results message", async () => {
+    render(<ClientQueryTool />);
+
+    fireEvent.mouseDown(screen.getByLabelText("Collection"));
+    fireEvent.click(await screen.findByRole("option", { name: "Deliveries" }));
+    fireEvent.mouseDown(screen.getByLabelText("Field"));
+    fireEvent.click(await screen.findByRole("option", { name: "Client Name" }));
+    fireEvent.mouseDown(screen.getByLabelText("Operator"));
+    fireEvent.click(await screen.findByRole("option", { name: /equals \(==\)/i }));
+    fireEvent.change(screen.getByLabelText("Value"), { target: { value: "Nobody" } });
+    fireEvent.click(screen.getByRole("button", { name: /Run Query/i }));
+
+    expect(await screen.findByText(/No deliveries matched these filters/i)).toBeTruthy();
+  });
+
   it("shows a friendly error state when the query service throws", async () => {
     jest
       .spyOn(clientQueryService, "runClientQuery")
@@ -115,5 +144,67 @@ describe("ClientQueryTool", () => {
     fireEvent.click(screen.getByRole("button", { name: /Run Query/i }));
 
     expect(await screen.findByText(/additional database index/i)).toBeTruthy();
+  });
+
+  it("renders each delivery result column once", async () => {
+    jest.spyOn(clientQueryService, "runClientQuery").mockResolvedValue({
+      rows: [
+        {
+          id: "delivery-1",
+          uid: "delivery-1",
+          clientName: "Test Client",
+        } as unknown as ClientQueryResult["rows"][number],
+      ],
+    });
+    render(<ClientQueryTool />);
+
+    fireEvent.mouseDown(screen.getByLabelText("Collection"));
+    fireEvent.click(await screen.findByRole("option", { name: "Deliveries" }));
+    fireEvent.mouseDown(screen.getByLabelText("Field"));
+    fireEvent.click(await screen.findByRole("option", { name: "Client Name" }));
+    fireEvent.mouseDown(screen.getByLabelText("Operator"));
+    fireEvent.click(await screen.findByRole("option", { name: /equals \(==\)/i }));
+    fireEvent.change(screen.getByLabelText("Value"), { target: { value: "Test Client" } });
+    fireEvent.click(screen.getByRole("button", { name: /Run Query/i }));
+
+    expect(await screen.findByText(/Results \(1\)/i)).toBeTruthy();
+    expect(screen.getAllByRole("columnheader", { name: /Tags/i })).toHaveLength(1);
+    expect(screen.getAllByRole("columnheader", { name: /Zip Code/i })).toHaveLength(1);
+    expect(screen.getAllByRole("columnheader", { name: /Ward/i })).toHaveLength(1);
+  });
+
+  it("does not let an older query overwrite a newly selected collection", async () => {
+    let resolveQuery: (value: ClientQueryResult) => void = () => undefined;
+    jest.spyOn(clientQueryService, "runClientQuery").mockReturnValue(
+      new Promise<ClientQueryResult>((resolve) => {
+        resolveQuery = resolve;
+      })
+    );
+    render(<ClientQueryTool />);
+
+    fireEvent.mouseDown(screen.getByLabelText("Field"));
+    fireEvent.click(await screen.findByRole("option", { name: /ZIP Code/i }));
+    fireEvent.mouseDown(screen.getByLabelText("Operator"));
+    fireEvent.click(await screen.findByRole("option", { name: /equals \(==\)/i }));
+    fireEvent.change(screen.getByLabelText("Value"), { target: { value: "20002" } });
+    fireEvent.click(screen.getByRole("button", { name: /Run Query/i }));
+
+    fireEvent.mouseDown(screen.getByLabelText("Collection"));
+    fireEvent.click(await screen.findByRole("option", { name: "Users" }));
+
+    await act(async () => {
+      resolveQuery({
+        rows: [
+          {
+            id: "client-1",
+            uid: "client-1",
+            firstName: "Stale",
+          } as unknown as ClientQueryResult["rows"][number],
+        ],
+      });
+    });
+
+    expect(screen.getByText(/Add one or more filters, then select Run Query/i)).toBeTruthy();
+    expect(screen.queryByText(/Results \(1\)/i)).toBeNull();
   });
 });

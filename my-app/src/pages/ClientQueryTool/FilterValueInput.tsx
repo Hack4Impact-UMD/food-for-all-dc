@@ -219,7 +219,29 @@ const FilterValueInput: React.FC<FilterValueInputProps> = ({
 
   if (fieldDef.type === "textList") {
     // e.g. tags — offer known values as a dropdown when available.
-    if ((isListOperator(operator) || operator === "array-contains") && smartOptions.length > 0) {
+    if (operator === "array-contains") {
+      if (displayOptions.length > 0) {
+        return (
+          <SearchableValueInput
+            options={displayOptions}
+            value={value}
+            onChange={onChange}
+            commonProps={commonProps}
+            labelId={labelId}
+          />
+        );
+      }
+      return (
+        <TextField
+          {...commonProps}
+          label="Value"
+          value={typeof value === "string" ? value : ""}
+          onChange={(e) => onChange(e.target.value)}
+        />
+      );
+    }
+
+    if (isListOperator(operator) && displayOptions.length > 0) {
       return (
         <MultiValueInput
           options={dropdownOptions}
@@ -230,7 +252,7 @@ const FilterValueInput: React.FC<FilterValueInputProps> = ({
       );
     }
 
-    if (smartOptions.length > 0 && !isListOperator(operator)) {
+    if (displayOptions.length > 0 && !isListOperator(operator)) {
       return (
         <SearchableValueInput
           options={dropdownOptions}

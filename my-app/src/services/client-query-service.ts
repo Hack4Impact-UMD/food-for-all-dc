@@ -84,18 +84,6 @@ export const getComputedFilters = (collectionKey: CollectionKey, filters: QueryF
 const buildConstraintsForFilter = (collectionKey: CollectionKey, filter: QueryFilter) => {
   const fieldDef = getFieldDef(collectionKey, filter.field);
 
-  if (filter.operator === "array-contains" && Array.isArray(filter.value)) {
-    return filter.value.map((value) =>
-      where(
-        filter.field,
-        "array-contains",
-        getFieldDef(collectionKey, filter.field)?.format === "phone"
-          ? String(value).replace(/\D/g, "")
-          : value
-      )
-    );
-  }
-
   if (fieldDef?.type === "timestamp") {
     const day = parseFilterDate(filter.value);
     switch (filter.operator) {
@@ -128,6 +116,20 @@ const matchesComputedFilter = (row: RowData, filter: QueryFilter): boolean => {
     const expected = filter.value === true || filter.value === "true";
     return Boolean(row.activeStatus) === expected;
   }
+  if (filter.field === "deliveryStatus") {
+    const actual = row.deliveryStatus === "Missed" ? "Missed" : "Scheduled";
+    const expected = Array.isArray(filter.value)
+      ? filter.value.map(String)
+      : String(filter.value)
+          .split(",")
+          .map((value) => value.trim())
+          .filter(Boolean);
+
+    if (filter.operator === "==") return actual === expected[0];
+    if (filter.operator === "!=") return actual !== expected[0];
+    if (filter.operator === "in") return expected.includes(actual);
+    if (filter.operator === "not-in") return !expected.includes(actual);
+  }
   return true;
 };
 
@@ -139,7 +141,16 @@ const isIndexRequiredError = (error: unknown): boolean => {
 
 const mapRawDocToRow = (collectionKey: CollectionKey, id: string, raw: any): RowData => {
   if (collectionKey === "clients") {
-    return mapClientDocToSpreadsheetBaseRow(id, raw);
+    return {
+      ...mapClientDocToSpreadsheetBaseRow(id, raw),
+      city: raw.city ?? "",
+      state: raw.state ?? "",
+      quadrant: raw.quadrant ?? "",
+      recurrence: raw.recurrence ?? "",
+      total: raw.total ?? null,
+      seniors: raw.seniors ?? null,
+      updatedAt: raw.updatedAt ?? null,
+    };
   }
   return { id, uid: id, ...raw };
 };

@@ -144,6 +144,7 @@ const DELIVERY_FIELDS: QueryFieldDef[] = [
     field: "deliveryStatus",
     label: "Delivery Status",
     type: "text",
+    computed: true,
     options: ["Scheduled", "Missed"],
   },
   { field: "deliveryDate", label: "Delivery Date", type: "timestamp" },

@@ -42,6 +42,28 @@ describe("validateFilters", () => {
     expect(result.valid).toBe(true);
   });
 
+  it("rejects multiple values for array-contains", () => {
+    const result = validateFilters("clients", [
+      makeFilter({
+        field: "tags",
+        operator: "array-contains",
+        value: ["Halal", "Vegan"],
+      }),
+    ]);
+
+    expect(result.valid).toBe(false);
+    expect(Object.values(result.fieldErrors)[0]).toMatch(/one value/i);
+  });
+
+  it("rejects an array value for array-contains even when it has one item", () => {
+    const result = validateFilters("clients", [
+      makeFilter({ field: "tags", operator: "array-contains", value: ["Halal"] }),
+    ]);
+
+    expect(result.valid).toBe(false);
+    expect(Object.values(result.fieldErrors)[0]).toMatch(/one value/i);
+  });
+
   it("rejects an empty value", () => {
     const result = validateFilters("clients", [
       makeFilter({ field: "ward", operator: "==", value: "" }),
@@ -74,6 +96,61 @@ describe("validateFilters", () => {
     ]);
     expect(result.valid).toBe(false);
     expect(result.formErrors[0]).toMatch(/is any of/);
+  });
+
+  it("rejects combinations of not-in and not equals", () => {
+    const result = validateFilters("clients", [
+      makeFilter({ field: "ward", operator: "not-in", value: ["Ward 1"] }),
+      makeFilter({ field: "city", operator: "!=", value: "Washington" }),
+    ]);
+
+    expect(result.valid).toBe(false);
+    expect(result.formErrors.join(" ")).toMatch(/not equals/i);
+  });
+
+  it("rejects multiple not-equals filters", () => {
+    const result = validateFilters("clients", [
+      makeFilter({ field: "ward", operator: "!=", value: "Ward 1" }),
+      makeFilter({ field: "city", operator: "!=", value: "Washington" }),
+    ]);
+
+    expect(result.valid).toBe(false);
+  });
+
+  it("enforces Firestore list value limits", () => {
+    const tooManyNotInValues = Array.from({ length: 11 }, (_, index) => `Ward ${index}`);
+    const tooManyInValues = Array.from({ length: 31 }, (_, index) => `Ward ${index}`);
+    const tooManyContainsAnyValues = Array.from({ length: 31 }, (_, index) => `Tag ${index}`);
+
+    const notInResult = validateFilters("clients", [
+      makeFilter({ field: "ward", operator: "not-in", value: tooManyNotInValues }),
+    ]);
+    const containsAnyResult = validateFilters("clients", [
+      makeFilter({
+        field: "tags",
+        operator: "array-contains-any",
+        value: tooManyContainsAnyValues,
+      }),
+    ]);
+    const inResult = validateFilters("clients", [
+      makeFilter({ field: "ward", operator: "in", value: tooManyInValues }),
+    ]);
+
+    expect(notInResult.valid).toBe(false);
+    expect(inResult.valid).toBe(false);
+    expect(containsAnyResult.valid).toBe(false);
+  });
+
+  it("enforces Firestore list value limits for comma-separated input", () => {
+    const result = validateFilters("clients", [
+      makeFilter({
+        field: "ward",
+        operator: "not-in",
+        value: Array.from({ length: 11 }, (_, index) => `Ward ${index}`).join(","),
+      }),
+    ]);
+
+    expect(result.valid).toBe(false);
   });
 
   it("requires a field to be selected", () => {

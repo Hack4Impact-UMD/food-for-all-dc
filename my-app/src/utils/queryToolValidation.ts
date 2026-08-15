@@ -12,6 +12,12 @@ export interface FilterValidationResult {
 }
 
 const SINGLE_USE_OPERATORS = new Set(["in", "not-in", "array-contains-any"]);
+const NEGATION_OPERATORS = new Set(["!=", "not-in"]);
+const LIST_VALUE_LIMITS: Record<string, number> = {
+  in: 30,
+  "array-contains-any": 30,
+  "not-in": 10,
+};
 
 const isValueEmpty = (value: unknown): boolean => {
   if (value === null || value === undefined) return true;
@@ -34,6 +40,7 @@ export const validateFilters = (
 
   let arrayContainsCount = 0;
   let singleUseOperatorCount = 0;
+  let negationOperatorCount = 0;
 
   for (const filter of filters) {
     const fieldDef = getFieldDef(collectionKey, filter.field);
@@ -60,8 +67,27 @@ export const validateFilters = (
       continue;
     }
 
+    if (filter.operator === "array-contains" && Array.isArray(filter.value)) {
+      fieldErrors[filter.id] = `Choose one value for ${fieldDef.label} when using "contains".`;
+      continue;
+    }
+
+    const listValueLimit = LIST_VALUE_LIMITS[filter.operator];
+    const listValueCount = Array.isArray(filter.value)
+      ? filter.value.length
+      : String(filter.value)
+          .split(",")
+          .map((value) => value.trim())
+          .filter(Boolean).length;
+    if (listValueLimit && listValueCount > listValueLimit) {
+      fieldErrors[filter.id] =
+        `${fieldDef.label} accepts at most ${listValueLimit} values with this operator.`;
+      continue;
+    }
+
     if (filter.operator === "array-contains") arrayContainsCount += 1;
     if (SINGLE_USE_OPERATORS.has(filter.operator)) singleUseOperatorCount += 1;
+    if (NEGATION_OPERATORS.has(filter.operator)) negationOperatorCount += 1;
   }
 
   if (arrayContainsCount > 1) {
@@ -72,6 +98,10 @@ export const validateFilters = (
     formErrors.push(
       "Only one \"is any of\", \"is none of\", or \"contains any of\" filter is allowed per query."
     );
+  }
+
+  if (negationOperatorCount > 1) {
+    formErrors.push("Only one \"not equals\" or \"is none of\" filter is allowed per query.");
   }
 
   const valid = formErrors.length === 0 && Object.keys(fieldErrors).length === 0;

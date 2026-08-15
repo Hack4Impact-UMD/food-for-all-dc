@@ -138,6 +138,7 @@ const ClientQueryTool: React.FC = () => {
   const [fieldOptions, setFieldOptions] = useState<Record<string, string[]>>({});
   const [visibleClientColumns, setVisibleClientColumns] = useState(CLIENT_DEFAULT_COLUMNS);
   const [visibleDeliveryColumns, setVisibleDeliveryColumns] = useState(DELIVERY_DEFAULT_COLUMNS);
+  const queryRequestIdRef = useRef(0);
   const resultsTableRef = useRef<HTMLDivElement | null>(null);
   const topScrollRef = useRef<HTMLDivElement | null>(null);
   const [tableScrollWidth, setTableScrollWidth] = useState(0);
@@ -231,6 +232,7 @@ const ClientQueryTool: React.FC = () => {
   }, []);
 
   const handleCollectionChange = useCallback((next: CollectionKey) => {
+    queryRequestIdRef.current += 1;
     setCollectionKey(next);
     setFilters([createEmptyFilter()]);
     setFieldErrors({});
@@ -262,6 +264,7 @@ const ClientQueryTool: React.FC = () => {
   }, []);
 
   const handleClear = useCallback(() => {
+    queryRequestIdRef.current += 1;
     setFilters([createEmptyFilter()]);
     setFieldErrors({});
     setFormErrors([]);
@@ -280,6 +283,7 @@ const ClientQueryTool: React.FC = () => {
 
     setState("loading");
     setErrorMessage("");
+    const requestId = ++queryRequestIdRef.current;
     // Selecting Field/Operator/Value dropdowns can leave the page scrolled down
     // (the browser scrolls to reveal an open dropdown menu). Reset to the top on
     // submit, same as a normal "back to top on search" pattern, so the tool is
@@ -287,9 +291,11 @@ const ClientQueryTool: React.FC = () => {
     window.scrollTo(0, 0);
     try {
       const result = await runClientQuery(collectionKey, filters);
+      if (requestId !== queryRequestIdRef.current) return;
       setResults(result.rows);
       setState(result.rows.length === 0 ? "empty" : "results");
     } catch (error) {
+      if (requestId !== queryRequestIdRef.current) return;
       setState("error");
       setErrorMessage(
         error instanceof Error
@@ -432,7 +438,9 @@ const ClientQueryTool: React.FC = () => {
       });
     }
 
-    return columns;
+    return columns.filter(
+      (column, index) => columns.findIndex((candidate) => candidate.key === column.key) === index
+    );
   }, [collectionDef, collectionKey]);
 
   const displayedColumns = useMemo(
@@ -703,7 +711,7 @@ const ClientQueryTool: React.FC = () => {
 
         {state === "empty" && (
           <Typography variant="body2" color="text.secondary">
-            No clients matched these filters.
+            No {collectionDef.label.toLowerCase()} matched these filters.
           </Typography>
         )}
 
