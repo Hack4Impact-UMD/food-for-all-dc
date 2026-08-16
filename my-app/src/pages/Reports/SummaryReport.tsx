@@ -17,7 +17,7 @@ import {
 import { CsvExportError, CsvRow } from "../../utils/csvExport";
 import { buildSummaryReportData, createEmptySummaryReport } from "./reportUtils";
 import {
-  loadReportClientsByIds,
+  loadAllReportClients,
   loadFirstDeliveriesByClientIds,
   loadInclusiveReportEvents,
 } from "./reportDataLoader";
@@ -130,7 +130,7 @@ const SummaryReport: React.FC = () => {
       const servedEvents = await loadInclusiveReportEvents(start, end);
       const servedClientIds = Array.from(new Set(servedEvents.map((event) => event.clientId)));
       const [clients, firstDeliveriesByClientId] = await Promise.all([
-        loadReportClientsByIds(servedClientIds),
+        loadAllReportClients(),
         loadFirstDeliveriesByClientIds(servedClientIds),
       ]);
       const reportResult = buildSummaryReportData({
