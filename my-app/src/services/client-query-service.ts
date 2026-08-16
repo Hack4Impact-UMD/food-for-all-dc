@@ -70,6 +70,7 @@ const toFirestoreValue = (collectionKey: CollectionKey, filter: QueryFilter): un
     return values.map(normalizeValue);
   }
 
+  if (fieldDef?.type === "number") return Number(filter.value);
   return normalizeValue(filter.value);
 };
 
@@ -133,6 +134,18 @@ const matchesComputedFilter = (row: RowData, filter: QueryFilter): boolean => {
           .split(",")
           .map((value) => value.trim())
           .filter(Boolean);
+
+    if (filter.operator === "==") return actual === expected[0];
+    if (filter.operator === "!=") return actual !== expected[0];
+    if (filter.operator === "in") return expected.includes(actual);
+    if (filter.operator === "not-in") return !expected.includes(actual);
+  }
+  if (filter.field === "assignedDriverName") {
+    const normalizeDriver = (value: unknown) => String(value ?? "").trim().toLowerCase();
+    const actual = normalizeDriver(row.assignedDriverName);
+    const expected = Array.isArray(filter.value)
+      ? filter.value.map(normalizeDriver)
+      : String(filter.value).split(",").map(normalizeDriver).filter(Boolean);
 
     if (filter.operator === "==") return actual === expected[0];
     if (filter.operator === "!=") return actual !== expected[0];
@@ -278,14 +291,11 @@ const enrichDeliveryRouteAssignments = async (rows: RowData[]): Promise<RowData[
     return rows;
   }
   if (!clustersSnapshot || !Array.isArray(clustersSnapshot.docs)) return rows;
-  const assignmentsByDate = new Map<string, {
+  type RouteAssignments = {
     clusters: Array<{ id?: unknown; deliveries?: unknown[]; driver?: unknown; time?: unknown }>;
     clientOverrides: Array<{ clientId?: unknown; driver?: unknown; time?: unknown }>;
-  }>();
-  const allAssignments: Array<{
-    clusters: Array<{ id?: unknown; deliveries?: unknown[]; driver?: unknown; time?: unknown }>;
-    clientOverrides: Array<{ clientId?: unknown; driver?: unknown; time?: unknown }>;
-  }> = [];
+  };
+  const assignmentsByDate = new Map<string, RouteAssignments>();
 
   const getClusterDateKey = (value: unknown): string | null => {
     const date = typeof Timestamp === "function" && value instanceof Timestamp
@@ -308,12 +318,11 @@ const enrichDeliveryRouteAssignments = async (rows: RowData[]): Promise<RowData[
       clientOverrides: Array.isArray(data.clientOverrides) ? data.clientOverrides : [],
     };
     assignmentsByDate.set(dateKey, assignments);
-    allAssignments.push(assignments);
   });
 
   const normalizeId = (value: unknown) => String(value ?? "").trim();
   const findAssignment = (
-    assignments: (typeof allAssignments)[number] | undefined,
+    assignments: RouteAssignments | undefined,
     clientId: string
   ) => {
     if (!assignments) return undefined;
@@ -334,10 +343,8 @@ const enrichDeliveryRouteAssignments = async (rows: RowData[]): Promise<RowData[
     if (!assignments) return row;
 
     const clientId = normalizeId(row.clientId ?? row.clientid ?? row.uid);
-    const cluster = findAssignment(assignments, clientId) ||
-      allAssignments.map((candidate) => findAssignment(candidate, clientId)).find(Boolean);
-    const assignmentSource = assignments || allAssignments.find((candidate) => findAssignment(candidate, clientId));
-    const override = assignmentSource?.clientOverrides.find(
+    const cluster = findAssignment(assignments, clientId);
+    const override = assignments.clientOverrides.find(
       (candidate) => normalizeId(candidate.clientId) === clientId
     );
     const driver = override?.driver || cluster?.driver;

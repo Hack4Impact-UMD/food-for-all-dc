@@ -16,6 +16,7 @@ jest.mock("../config/dataSources", () => ({
     firebase: {
       clientsCollection: "client-profile2",
       calendarCollection: "events",
+      clustersCollection: "clusters",
     },
   },
 }));
@@ -107,6 +108,12 @@ describe("client-query-service", () => {
     const filters = [makeFilter("total", ">=", 3)];
     buildFirestoreConstraints("clients", filters);
     expect(mockWhere).toHaveBeenCalledWith("total", ">=", 3);
+  });
+
+  it("converts a numeric option value to a number before querying Firestore", () => {
+    const filters = [makeFilter("total", "==", "4")];
+    buildFirestoreConstraints("clients", filters);
+    expect(mockWhere).toHaveBeenCalledWith("total", "==", 4);
   });
 
   it("converts a date-only updatedAt filter into a start-of-day Firestore Timestamp", () => {
@@ -240,6 +247,88 @@ describe("client-query-service", () => {
     expect(result.rows[0]["join.ward"]).toBe("Ward 3");
     expect(result.rows[0]["join.zipCode"]).toBe("20001");
     expect(result.rows[0]["join.tags"]).toEqual(["Halal"]);
+  });
+
+  it("only enriches a route from the matching delivery date", async () => {
+    mockGetDocs
+      .mockResolvedValueOnce(
+        createSnapshot([
+          {
+            id: "evt-1",
+            data: () => ({
+              clientId: "client-1",
+              clientName: "Jane Doe",
+              deliveryDate: new Date("2026-08-15T12:00:00Z"),
+            }),
+          },
+        ])
+      )
+      .mockResolvedValueOnce(
+        createSnapshot([
+          {
+            id: "same-day",
+            data: () => ({
+              date: { toDate: () => new Date("2026-08-15T12:00:00Z") },
+              clusters: [{ id: "1", deliveries: ["another-client"] }],
+            }),
+          },
+          {
+            id: "previous-day",
+            data: () => ({
+              date: { toDate: () => new Date("2026-08-14T12:00:00Z") },
+              clusters: [{ id: "9", deliveries: ["client-1"], driver: "Wrong Driver", time: "3" }],
+            }),
+          },
+        ])
+      );
+
+    const result = await runClientQuery("deliveries", [
+      makeFilter("deliveryDate", "==", "2026-08-15"),
+    ]);
+
+    expect(result.rows[0]).toEqual(
+      expect.objectContaining({
+        cluster: undefined,
+        assignedDriverName: undefined,
+        time: undefined,
+      })
+    );
+  });
+
+  it("applies a driver filter after route assignments are enriched", async () => {
+    const filters = [makeFilter("assignedDriverName", "==", "DoorDash")];
+    expect(getFirestoreFilters("deliveries", filters)).toHaveLength(0);
+    expect(getComputedFilters("deliveries", filters)).toHaveLength(1);
+
+    mockGetDocs
+      .mockResolvedValueOnce(
+        createSnapshot([
+          {
+            id: "evt-1",
+            data: () => ({
+              clientId: "client-1",
+              clientName: "Jane Doe",
+              deliveryDate: new Date("2026-08-15T12:00:00Z"),
+            }),
+          },
+        ])
+      )
+      .mockResolvedValueOnce(
+        createSnapshot([
+          {
+            id: "same-day",
+            data: () => ({
+              date: { toDate: () => new Date("2026-08-15T12:00:00Z") },
+              clusters: [{ id: "2", deliveries: ["client-1"], driver: "DoorDash" }],
+            }),
+          },
+        ])
+      );
+
+    const result = await runClientQuery("deliveries", filters);
+
+    expect(result.rows).toHaveLength(1);
+    expect(result.rows[0].assignedDriverName).toBe("DoorDash");
   });
 
   it("throws a friendly error when Firestore reports a missing index", async () => {

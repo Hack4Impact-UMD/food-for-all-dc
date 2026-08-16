@@ -153,7 +153,7 @@ const CLIENT_FIELDS: QueryFieldDef[] = [
 
 const DELIVERY_FIELDS: QueryFieldDef[] = [
   { field: "clientName", label: "Client Name", type: "text" },
-  { field: "assignedDriverName", label: "Driver", type: "text" },
+  { field: "assignedDriverName", label: "Driver", type: "text", computed: true },
   { field: "assignedTime", label: "Assigned Time", type: "text", computed: true },
   { field: "ward", label: "Ward", type: "number", computed: true },
   { field: "recurrence", label: "Recurrence", type: "text" },
