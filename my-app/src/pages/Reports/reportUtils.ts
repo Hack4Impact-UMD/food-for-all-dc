@@ -63,6 +63,7 @@ export interface ReportDeliveryRecord {
   clientId: string;
   clientName: string;
   deliveryDate: DateTime;
+  deliveryStatus?: "Scheduled" | "Missed";
   householdSnapshot?: HouseholdSnapshot | null;
 }
 
@@ -175,6 +176,9 @@ export const BASE_SUMMARY_REPORT: SummaryData = {
   },
   "FAM (Food as Medicine)": {
     "Clients Receiving Medically Tailored Food": { value: 0, isFullRow: true },
+  },
+  "HFA (Healthy Food Access)": {
+    "Clients Receiving Food (Unduplicated)": { value: 0, isFullRow: true },
   },
   Tags: {},
 };
@@ -352,6 +356,18 @@ const resolveHouseholdSnapshot = (
   };
 };
 
+const incrementHfaDeliveryCount = (
+  report: SummaryData,
+  client: ReportClientRecord | undefined,
+  clientEvents: ReportDeliveryRecord[]
+) => {
+  const receivedFood = clientEvents.some((event) => event.deliveryStatus !== "Missed");
+
+  if (client && receivedFood && getClientTagSet(client).has("HFA")) {
+    report["HFA (Healthy Food Access)"]["Clients Receiving Food (Unduplicated)"].value += 1;
+  }
+};
+
 const incrementDietaryRestrictions = (report: SummaryData, client: ReportClientRecord) => {
   const restrictions = client.deliveryDetails?.dietaryRestrictions;
   const dietarySection = report["Dietary Restrictions"];
@@ -460,6 +476,7 @@ export const buildSummaryReportData = ({
 
   servedEventsByClientId.forEach((clientEvents, clientId) => {
     const client = clientsById.get(clientId);
+    incrementHfaDeliveryCount(report, client, clientEvents);
     const firstEventInPeriod = clientEvents[0];
     const { snapshot: firstInPeriodSnapshot, usedLegacySnapshotFallback: usedFallback } =
       resolveHouseholdSnapshot(firstEventInPeriod, client);
