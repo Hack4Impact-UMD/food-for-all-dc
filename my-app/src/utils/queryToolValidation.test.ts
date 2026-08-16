@@ -80,41 +80,46 @@ describe("validateFilters", () => {
     expect(Object.values(result.fieldErrors)[0]).toMatch(/not a valid operator/);
   });
 
-  it("rejects more than one array-contains filter", () => {
+  it("allows multiple array-contains filters", () => {
     const result = validateFilters("clients", [
       makeFilter({ field: "tags", operator: "array-contains", value: "Halal" }),
       makeFilter({ field: "tags", operator: "array-contains", value: "Vegan" }),
     ]);
-    expect(result.valid).toBe(false);
-    expect(result.formErrors[0]).toMatch(/Only one "contains" filter/);
+    expect(result.valid).toBe(true);
   });
 
-  it("rejects more than one single-use operator (in/not-in/array-contains-any)", () => {
+  it("allows membership operators across different fields", () => {
     const result = validateFilters("clients", [
       makeFilter({ field: "ward", operator: "in", value: ["Ward 1", "Ward 2"] }),
       makeFilter({ field: "tags", operator: "array-contains-any", value: ["Halal"] }),
     ]);
-    expect(result.valid).toBe(false);
-    expect(result.formErrors[0]).toMatch(/is any of/);
+    expect(result.valid).toBe(true);
   });
 
-  it("rejects combinations of not-in and not equals", () => {
+  it("allows multiple membership operators on the same field", () => {
+    const result = validateFilters("clients", [
+      makeFilter({ field: "ward", operator: "in", value: ["1"] }),
+      makeFilter({ field: "ward", operator: "not-in", value: ["2"] }),
+    ]);
+    expect(result.valid).toBe(true);
+  });
+
+  it("allows combinations of not-in and not equals", () => {
     const result = validateFilters("clients", [
       makeFilter({ field: "ward", operator: "not-in", value: ["Ward 1"] }),
       makeFilter({ field: "city", operator: "!=", value: "Washington" }),
     ]);
 
-    expect(result.valid).toBe(false);
-    expect(result.formErrors.join(" ")).toMatch(/not equals/i);
+    expect(result.valid).toBe(true);
   });
 
-  it("rejects multiple not-equals filters", () => {
+  it("allows multiple not-equals filters", () => {
     const result = validateFilters("clients", [
       makeFilter({ field: "ward", operator: "!=", value: "Ward 1" }),
       makeFilter({ field: "city", operator: "!=", value: "Washington" }),
     ]);
 
-    expect(result.valid).toBe(false);
+    expect(result.valid).toBe(true);
   });
 
   it("enforces Firestore list value limits", () => {

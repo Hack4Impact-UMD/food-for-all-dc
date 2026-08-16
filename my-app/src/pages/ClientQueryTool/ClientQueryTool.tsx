@@ -19,6 +19,7 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  TableSortLabel,
   Select,
   TextField,
   Typography,
@@ -35,7 +36,10 @@ import { runClientQuery } from "../../services/client-query-service";
 import { exportRowsWithColumns, RowData } from "../../components/Spreadsheet/export";
 import { getNestedValue } from "../../utils/misc";
 import { formatAddressWithQuadrantAndUnit } from "../../utils/addressFormat";
-import { formatPhoneNumber } from "../../utils/queryToolFormatting";
+import { formatAssignedTime, formatDateMask, formatPhoneNumber } from "../../utils/queryToolFormatting";
+import { TIME_SLOTS } from "../Delivery/utils/timeSlots";
+import { useTagColors } from "../../context/TagColorContext";
+import { getReadableTagTextColor, getTagColor, TagColorMap } from "../../utils/tagColors";
 import {
   COLLECTIONS,
   COLLECTION_KEYS,
@@ -57,9 +61,30 @@ interface ResultColumn {
   getValue: (row: RowData) => unknown;
 }
 
-const formatCellValue = (value: unknown): React.ReactNode => {
+const formatCellValue = (value: unknown, tagColors?: TagColorMap): React.ReactNode => {
   if (value === null || value === undefined || value === "") return "";
   if (Array.isArray(value)) {
+    if (tagColors) {
+      const tags = value.filter((tag) => String(tag ?? "").trim());
+      if (tags.length === 0) return "None";
+      return tags.map((tag) => {
+        const tagText = String(tag);
+        const backgroundColor = getTagColor(tagText, tagColors);
+        return (
+          <Chip
+            key={tagText}
+            label={tagText}
+            size="small"
+            sx={{
+              backgroundColor,
+              color: getReadableTagTextColor(backgroundColor),
+              marginRight: 0.5,
+              marginBottom: 0.5,
+            }}
+          />
+        );
+      });
+    }
     return value.map((v) => (
       <Chip key={String(v)} label={String(v)} size="small" sx={{ marginRight: 0.5, marginBottom: 0.5 }} />
     ));
@@ -111,6 +136,9 @@ const CLIENT_DEFAULT_COLUMNS = [
   "lastDeliveryDate",
 ];
 
+const CLIENT_DATE_FIELDS = new Set(["dob", "referredDate", "endDate", "famStartDate"]);
+
+
 const DELIVERY_DEFAULT_COLUMNS = [
   "__name",
   "clusterIdChange",
@@ -119,10 +147,13 @@ const DELIVERY_DEFAULT_COLUMNS = [
   "join.ward",
   "assignedDriver",
   "assignedTime",
+  "deliveryStatus",
   "deliveryDetails.deliveryInstructions",
 ];
 
+
 const ClientQueryTool: React.FC = () => {
+  const tagColors = useTagColors();
   const [collectionKey, setCollectionKey] = useState<CollectionKey>("clients");
   const [filters, setFilters] = useState<QueryFilter[]>([createEmptyFilter()]);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -138,15 +169,23 @@ const ClientQueryTool: React.FC = () => {
   const [fieldOptions, setFieldOptions] = useState<Record<string, string[]>>({});
   const [visibleClientColumns, setVisibleClientColumns] = useState(CLIENT_DEFAULT_COLUMNS);
   const [visibleDeliveryColumns, setVisibleDeliveryColumns] = useState(DELIVERY_DEFAULT_COLUMNS);
+  const [sortColumn, setSortColumn] = useState("");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const queryRequestIdRef = useRef(0);
   const resultsTableRef = useRef<HTMLDivElement | null>(null);
   const topScrollRef = useRef<HTMLDivElement | null>(null);
   const [tableScrollWidth, setTableScrollWidth] = useState(0);
+  const [tableViewportWidth, setTableViewportWidth] = useState(0);
+  const [tableHeaderHeight, setTableHeaderHeight] = useState(0);
+  const [hasHorizontalOverflow, setHasHorizontalOverflow] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
     setFieldOptions({});
     setDriverOptions([]);
+    if (collectionKey === "deliveries") {
+      setFieldOptions({ assignedTime: TIME_SLOTS.map((slot) => slot.value) });
+    }
 
     const collectionConfigKey = COLLECTIONS[collectionKey].collectionKey as keyof typeof dataSources.firebase;
     const firestoreCollectionName = dataSources.firebase[collectionConfigKey];
@@ -155,8 +194,10 @@ const ClientQueryTool: React.FC = () => {
         if (!isMounted) return;
         const nextOptions: Record<string, Set<string>> = {};
         COLLECTIONS[collectionKey].fields.forEach((fieldDef) => {
-          if (!fieldDef.computed) {
-            nextOptions[fieldDef.field] = new Set();
+          nextOptions[fieldDef.field] = new Set(fieldDef.options || []);
+          if (fieldDef.type === "boolean") {
+            nextOptions[fieldDef.field].add("true");
+            nextOptions[fieldDef.field].add("false");
           }
         });
         snapshot.docs.forEach((document) => {
@@ -171,16 +212,62 @@ const ClientQueryTool: React.FC = () => {
             });
           });
         });
-        setFieldOptions(
+        setFieldOptions((current) =>
           Object.fromEntries(
             Object.entries(nextOptions).map(([field, values]) => [
               field,
-              Array.from(values).sort((a, b) => a.localeCompare(b)),
+              Array.from(new Set([...values, ...(current[field] || [])])).sort((a, b) =>
+                a.localeCompare(b, undefined, { numeric: true })
+              ),
             ])
           )
         );
       })
       .catch(() => undefined);
+
+    if (collectionKey === "deliveries") {
+      getDocs(collection(db, dataSources.firebase.clientsCollection))
+        .then((snapshot) => {
+          if (!isMounted) return;
+          const wards = snapshot.docs
+            .map((document) => String(document.data().ward ?? "").trim())
+            .filter(Boolean);
+          setFieldOptions((current) => ({
+            ...current,
+            ward: Array.from(new Set([...(current.ward || []), ...wards])).sort(),
+          }));
+        })
+        .catch(() => undefined);
+
+      getDocs(collection(db, dataSources.firebase.clustersCollection))
+        .then((snapshot) => {
+          if (!isMounted) return;
+          const routeIds = snapshot.docs.flatMap((document) => {
+            const clusters = document.data().clusters;
+            return Array.isArray(clusters)
+              ? clusters
+                  .map((cluster) => String(cluster?.id ?? "").trim())
+                  .filter(Boolean)
+              : [];
+          });
+          const routeTimes = snapshot.docs.flatMap((document) => {
+            const clusters = document.data().clusters;
+            return Array.isArray(clusters)
+              ? clusters.map((cluster) => String(cluster?.time ?? "").trim()).filter(Boolean)
+              : [];
+          });
+          setFieldOptions((current) => ({
+            ...current,
+            cluster: Array.from(new Set([...(current.cluster || []), ...routeIds])).sort(
+              (a, b) => a.localeCompare(b, undefined, { numeric: true })
+            ),
+            assignedTime: Array.from(
+              new Set([...TIME_SLOTS.map((slot) => slot.value), ...(current.assignedTime || []), ...routeTimes])
+            ).sort(),
+          }));
+        })
+        .catch(() => undefined);
+    }
 
     getDocs(collection(db, dataSources.firebase.driversCollection))
       .then((snapshot) => {
@@ -234,6 +321,12 @@ const ClientQueryTool: React.FC = () => {
   const handleCollectionChange = useCallback((next: CollectionKey) => {
     queryRequestIdRef.current += 1;
     setCollectionKey(next);
+    if (next === "clients") {
+      setVisibleClientColumns(CLIENT_DEFAULT_COLUMNS);
+    }
+    if (next === "deliveries") {
+      setVisibleDeliveryColumns(DELIVERY_DEFAULT_COLUMNS);
+    }
     setFilters([createEmptyFilter()]);
     setFieldErrors({});
     setFormErrors([]);
@@ -361,14 +454,23 @@ const ClientQueryTool: React.FC = () => {
         {
           key: "clusterIdChange",
           label: "Cluster ID",
-          getValue: (row) => row.cluster ?? "",
+          getValue: (row) => {
+            const cluster = row.cluster;
+            return cluster === undefined || cluster === null || String(cluster).trim() === "" || Number(cluster) === 0
+              ? "Unassigned"
+              : cluster;
+          },
         },
         {
           key: "join.tags",
           label: "Tags",
           getValue: (row) => {
             const tags = row["join.tags"];
-            return Array.isArray(tags) ? tags.join(", ") || "None" : tags || "None";
+            return Array.isArray(tags) && tags.length > 0
+              ? tags
+              : tags
+                ? [String(tags)]
+                : "None";
           },
         },
         { key: "join.zipCode", label: "Zip Code", getValue: (row) => row["join.zipCode"] || "" },
@@ -381,7 +483,7 @@ const ClientQueryTool: React.FC = () => {
         {
           key: "assignedTime",
           label: "Assigned Time",
-          getValue: (row) => row.time || "No time assigned",
+          getValue: (row) => formatAssignedTime(row.time),
         },
         {
           key: "deliveryDetails.deliveryInstructions",
@@ -391,7 +493,13 @@ const ClientQueryTool: React.FC = () => {
       );
     }
 
-    columns.push(...collectionDef.fields.map((field) => ({
+    columns.push(...collectionDef.fields.filter((field) => {
+      if (collectionDef.nameFields.includes(field.field)) return false;
+      return !(
+        collectionKey === "deliveries" &&
+        ["cluster", "assignedDriverName", "assignedTime", "ward"].includes(field.field)
+      );
+    }).map((field) => ({
         key: field.field,
         label: field.label,
         getValue: (row: RowData) => {
@@ -414,6 +522,12 @@ const ClientQueryTool: React.FC = () => {
               : "None";
           }
           if (field.format === "phone") return formatPhoneNumber(value);
+          if (field.format === "date" || (collectionKey === "clients" && CLIENT_DATE_FIELDS.has(field.field))) {
+            return formatDateMask(value);
+          }
+          if (collectionKey === "deliveries" && field.field === "deliveryStatus") {
+            return value === "Missed" ? "Missed" : "Scheduled";
+          }
           return field.type === "timestamp"
             ? formatQueryTimestamp(value, Boolean(field.timeSensitive))
             : value;
@@ -424,12 +538,14 @@ const ClientQueryTool: React.FC = () => {
       columns.push({
         key: "lastDeliveryDate",
         label: "Last Delivery Date",
-        getValue: (row) => row.lastDeliveryDate,
+        getValue: (row) => formatDateMask(row.lastDeliveryDate),
       });
     }
 
     if (collectionDef.join) {
       collectionDef.join.fields.forEach((field) => {
+        if (collectionKey === "deliveries" && field.field === "tags") return;
+        if (collectionKey === "deliveries" && ["zipCode", "ward"].includes(field.field)) return;
         columns.push({
           key: `join.${field.field}`,
           label: field.label,
@@ -438,9 +554,7 @@ const ClientQueryTool: React.FC = () => {
       });
     }
 
-    return columns.filter(
-      (column, index) => columns.findIndex((candidate) => candidate.key === column.key) === index
-    );
+    return Array.from(new Map(columns.map((column) => [column.key, column])).values());
   }, [collectionDef, collectionKey]);
 
   const displayedColumns = useMemo(
@@ -453,11 +567,96 @@ const ClientQueryTool: React.FC = () => {
     [collectionKey, resultColumns, visibleClientColumns, visibleDeliveryColumns]
   );
 
+  const sortedResults = useMemo(() => {
+    if (!sortColumn) return results;
+    const column = displayedColumns.find((candidate) => candidate.key === sortColumn);
+    if (!column) return results;
+    const numericColumns = new Set([
+      "clusterIdChange",
+      "cluster",
+      "total",
+      "adults",
+      "children",
+      "seniors",
+      "householdSnapshot.total",
+      "householdSnapshot.adults",
+      "householdSnapshot.children",
+      "householdSnapshot.seniors",
+    ]);
+    const dateColumns = new Set([
+      "deliveryDate",
+      "updatedAt",
+      "lastDeliveryDate",
+      "startDate",
+      "endDate",
+      "famStartDate",
+      "tefapCertDate",
+      "dob",
+      "referredDate",
+    ]);
+    const parseDateValue = (value: string): number => {
+      const parts = value.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+      if (parts) return Date.UTC(Number(parts[3]), Number(parts[1]) - 1, Number(parts[2]));
+      const parsed = Date.parse(value);
+      return Number.isNaN(parsed) ? Number.NaN : parsed;
+    };
+    const parseTimeValue = (value: string): number => {
+      const match = value.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i) || value.match(/^(\d{1,2}):(\d{2})$/);
+      if (!match) return Number.NaN;
+      let hour = Number(match[1]);
+      const minute = Number(match[2]);
+      if (match[3]) {
+        const isPm = match[3].toUpperCase() === "PM";
+        hour = hour % 12 + (isPm ? 12 : 0);
+      }
+      return hour * 60 + minute;
+    };
+    const valueForSort = (value: unknown): string | number => {
+      if (value === null || value === undefined) return "";
+      if (typeof value === "number") return value;
+      if (typeof value === "boolean") return value ? 1 : 0;
+      if (Array.isArray(value)) return value.map(String).join(", ").toLowerCase();
+      const text = String(value).trim();
+      if (column.key === "assignedTime") return parseTimeValue(text);
+      if (numericColumns.has(column.key)) {
+        const numeric = Number(text.replace(/[^\d.-]/g, ""));
+        return Number.isNaN(numeric) ? Number.NaN : numeric;
+      }
+      if (dateColumns.has(column.key)) return parseDateValue(text);
+      return text.toLowerCase();
+    };
+    return [...results].sort((left, right) => {
+      const a = valueForSort(column.getValue(left));
+      const b = valueForSort(column.getValue(right));
+      const aEmpty = a === "" || (typeof a === "number" && Number.isNaN(a));
+      const bEmpty = b === "" || (typeof b === "number" && Number.isNaN(b));
+      if (aEmpty || bEmpty) return aEmpty === bEmpty ? 0 : aEmpty ? 1 : -1;
+      const comparison = typeof a === "number" && typeof b === "number"
+        ? a - b
+        : String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: "base" });
+      return sortDirection === "asc" ? comparison : -comparison;
+    });
+  }, [displayedColumns, results, sortColumn, sortDirection]);
+
+  const handleSort = (columnKey: string) => {
+    if (sortColumn === columnKey) {
+      setSortDirection((direction) => (direction === "asc" ? "desc" : "asc"));
+    } else {
+      setSortColumn(columnKey);
+      setSortDirection("asc");
+    }
+  };
+
   useEffect(() => {
     const updateTableScrollWidth = () => {
       const container = resultsTableRef.current;
-      const table = container?.firstElementChild as HTMLElement | null;
-      setTableScrollWidth(Math.max(table?.scrollWidth || 0, container?.clientWidth || 0));
+      const table = container?.querySelector("table") as HTMLElement | null;
+      const nextWidth = Math.max(table?.scrollWidth || 0, container?.clientWidth || 0);
+      const nextHasOverflow = (table?.scrollWidth || 0) > (container?.clientWidth || 0) + 1;
+      setTableScrollWidth(nextWidth);
+      setTableViewportWidth(container?.clientWidth || 0);
+      setTableHeaderHeight(table?.querySelector("thead tr")?.getBoundingClientRect().height || 0);
+      setHasHorizontalOverflow(nextHasOverflow);
     };
     updateTableScrollWidth();
     if (typeof ResizeObserver === "undefined") return;
@@ -507,7 +706,13 @@ const ClientQueryTool: React.FC = () => {
 
   return (
     <Box
-      sx={{ padding: 3, paddingX: { xs: 3, md: 6 }, maxWidth: 1400, marginX: "auto" }}
+      sx={{
+        padding: 3,
+        paddingX: { xs: 3, md: 6 },
+        paddingBottom: { xs: 5, md: 8 },
+        maxWidth: 1400,
+        marginX: "auto",
+      }}
     >
       <Box>
         <Box sx={{ marginBottom: 2 }}>
@@ -559,6 +764,7 @@ const ClientQueryTool: React.FC = () => {
           <Table size="small" aria-label="Filter builder">
             <TableHead>
               <TableRow>
+                <TableCell sx={{ minWidth: 90 }}>Logic</TableCell>
                 <TableCell>Field</TableCell>
                 <TableCell>Operator</TableCell>
                 <TableCell>Type</TableCell>
@@ -567,7 +773,7 @@ const ClientQueryTool: React.FC = () => {
               </TableRow>
             </TableHead>
             <TableBody>
-              {filters.map((filter) => {
+              {filters.map((filter, index) => {
                 const fieldDef = getFieldDef(collectionKey, filter.field);
                 const validOperators = fieldDef ? OPERATORS_BY_TYPE[fieldDef.type] : [];
                 const rowError = fieldErrors[filter.id];
@@ -578,6 +784,23 @@ const ClientQueryTool: React.FC = () => {
                     : undefined);
                 return (
                   <TableRow key={filter.id}>
+                    <TableCell sx={{ minWidth: 90 }}>
+                      {index === 0 ? (
+                        <Typography variant="body2" color="text.secondary">Where</Typography>
+                      ) : (
+                        <TextField
+                          select
+                          size="small"
+                          fullWidth
+                          label="Logic"
+                          value={filter.logic || "AND"}
+                          onChange={(event) => updateFilter(filter.id, { logic: event.target.value as "AND" | "OR" })}
+                        >
+                          <MenuItem value="AND">AND</MenuItem>
+                          <MenuItem value="OR">OR</MenuItem>
+                        </TextField>
+                      )}
+                    </TableCell>
                     <TableCell sx={{ minWidth: 200 }}>
                       <TextField
                         select
@@ -815,68 +1038,87 @@ const ClientQueryTool: React.FC = () => {
                 component={Paper}
                 ref={resultsTableRef}
                 onScroll={() => syncHorizontalScroll("table")}
-                sx={{ width: "100%", overflowX: "auto" }}
+                sx={{ width: "100%", overflowX: "auto", overflowY: "visible" }}
               >
-              {/* Plain table: no inner vertical scroll container. Vertical scrolling
-                  is the browser's normal page scroll; only horizontal overflow (for
-                  wide result sets) is contained by TableContainer's default behavior. */}
-              <Table
-                size="small"
-                aria-label="Query results"
-                sx={{ width: "max-content", minWidth: "100%" }}
-              >
-                <TableHead>
-                  <TableRow>
-                    {displayedColumns.map((col) => (
+                <Table
+                  size="small"
+                  aria-label="Query results"
+                  sx={{ width: "max-content", minWidth: "max-content" }}
+                >
+                  <TableHead>
+                    <TableRow>
+                      {displayedColumns.map((col) => (
+                        <TableCell
+                          key={col.key}
+                          sx={{ backgroundColor: "var(--color-background-green-tint)", whiteSpace: "nowrap" }}
+                        >
+                          <TableSortLabel
+                            active={sortColumn === col.key}
+                            direction={sortColumn === col.key ? sortDirection : "asc"}
+                            onClick={() => handleSort(col.key)}
+                          >
+                            {col.label}
+                          </TableSortLabel>
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                    <TableRow aria-label="Horizontal results scrollbar">
                       <TableCell
-                        key={col.key}
-                        sx={{ backgroundColor: "var(--color-background-green-tint)", whiteSpace: "nowrap" }}
-                      >
-                        {col.label}
-                      </TableCell>
-                    ))}
-                  </TableRow>
-                  <TableRow aria-hidden="true">
-                    <TableCell
-                      colSpan={displayedColumns.length}
-                      sx={{ height: 16, padding: 0, borderBottom: "none" }}
-                    />
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {results.map((row) => (
+                        colSpan={displayedColumns.length}
+                        sx={{
+                          padding: 0,
+                          backgroundColor: "var(--color-white)",
+                          borderBottom: "none",
+                          height: hasHorizontalOverflow ? 16 : 0,
+                          maxHeight: hasHorizontalOverflow ? 16 : 0,
+                          overflow: "hidden",
+                          lineHeight: 0,
+                        }}
+                      />
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                  {sortedResults.map((row) => (
                     <TableRow key={row.uid ?? row.id}>
                       {displayedColumns.map((col) => (
                         <TableCell key={col.key} sx={{ whiteSpace: "nowrap" }}>
-                          {formatCellValue(col.getValue(row))}
+                          {formatCellValue(
+                            col.getValue(row),
+                            ((collectionKey === "clients" && col.key === "tags") ||
+                              (collectionKey === "deliveries" && col.key === "join.tags"))
+                              ? tagColors
+                              : undefined
+                          )}
                         </TableCell>
                       ))}
                     </TableRow>
                   ))}
-                </TableBody>
-              </Table>
+                  </TableBody>
+                </Table>
               </TableContainer>
               <Box
                 ref={topScrollRef}
+                data-testid="horizontal-results-scrollbar"
                 onScroll={() => syncHorizontalScroll("top")}
-                aria-label="Horizontal results scrollbar"
                 sx={{
                   position: "absolute",
-                  top: 36,
+                  top: tableHeaderHeight,
                   left: 0,
-                  right: 0,
-                  zIndex: 4,
-                  height: 16,
+                  zIndex: 2,
+                  width: tableViewportWidth,
+                  height: hasHorizontalOverflow ? 16 : 0,
                   overflowX: "auto",
                   overflowY: "hidden",
+                  whiteSpace: "nowrap",
                   backgroundColor: "var(--color-white)",
+                  borderBottom: hasHorizontalOverflow ? "1px solid rgba(37, 126, 104, 0.18)" : "none",
                   scrollbarColor: "#257e68 #e5eee9",
-                  "&::-webkit-scrollbar": { height: 14 },
-                  "&::-webkit-scrollbar-track": { backgroundColor: "#e5eee9" },
-                  "&::-webkit-scrollbar-thumb": { backgroundColor: "#257e68", borderRadius: 7 },
+                  "&::-webkit-scrollbar": { height: hasHorizontalOverflow ? 14 : 0 },
+                  "&::-webkit-scrollbar-track": { backgroundColor: hasHorizontalOverflow ? "#e5eee9" : "transparent" },
+                  "&::-webkit-scrollbar-thumb": { backgroundColor: hasHorizontalOverflow ? "#257e68" : "transparent", borderRadius: 7 },
                 }}
               >
-                <Box sx={{ width: tableScrollWidth, height: 1 }} />
+                <Box sx={{ display: "inline-block", width: tableScrollWidth, height: 1 }} />
               </Box>
             </Box>
           </Box>

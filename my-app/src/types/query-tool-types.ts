@@ -2,7 +2,7 @@
 // Field allowlist + filter/query model shared by the UI and the query service.
 
 export type QueryFieldType = "boolean" | "number" | "text" | "textList" | "timestamp";
-export type QueryFieldFormat = "phone";
+export type QueryFieldFormat = "phone" | "date";
 
 export type QueryOperator =
   | "=="
@@ -37,6 +37,7 @@ export interface QueryFilter {
   id: string;
   field: string;
   operator: QueryOperator | "";
+  logic?: "AND" | "OR";
   /** string | number | boolean | string[] | Date */
   value: unknown;
 }
@@ -63,14 +64,14 @@ export const OPERATOR_LABELS: Record<QueryOperator, string> = {
 };
 
 const WARD_OPTIONS = [
-  "Ward 1",
-  "Ward 2",
-  "Ward 3",
-  "Ward 4",
-  "Ward 5",
-  "Ward 6",
-  "Ward 7",
-  "Ward 8",
+  "1",
+  "2",
+  "3",
+  "4",
+  "5",
+  "6",
+  "7",
+  "8",
 ];
 
 const QUADRANT_OPTIONS = ["NE", "NW", "SE", "SW"];
@@ -117,12 +118,20 @@ export interface CollectionDef {
 // health conditions, delivery instructions) to any collection below.
 const CLIENT_FIELDS: QueryFieldDef[] = [
   { field: "activeStatus", label: "Active Status", type: "boolean", computed: true },
+  { field: "firstName", label: "First Name", type: "text" },
+  { field: "lastName", label: "Last Name", type: "text" },
   { field: "city", label: "City", type: "text" },
   { field: "state", label: "State", type: "text" },
   { field: "zipCode", label: "ZIP Code", type: "text" },
+  { field: "address2", label: "Address 2", type: "text" },
   { field: "quadrant", label: "Quadrant", type: "text", options: QUADRANT_OPTIONS },
-  { field: "ward", label: "Ward", type: "text", options: WARD_OPTIONS },
+  { field: "ward", label: "Ward", type: "number", computed: true, options: WARD_OPTIONS },
   { field: "language", label: "Language", type: "text" },
+  { field: "gender", label: "Gender", type: "text" },
+  { field: "ethnicity", label: "Ethnicity", type: "text" },
+  { field: "headOfHousehold", label: "Head of Household", type: "text" },
+  { field: "email", label: "Email", type: "text" },
+  { field: "alternativePhone", label: "Alternative Phone", type: "text", format: "phone" },
   { field: "deliveryFreq", label: "Delivery Frequency", type: "text" },
   { field: "recurrence", label: "Recurrence", type: "text" },
   { field: "tefapCert", label: "TEFAP Certified", type: "boolean" },
@@ -132,14 +141,23 @@ const CLIENT_FIELDS: QueryFieldDef[] = [
   { field: "children", label: "Children", type: "number" },
   { field: "seniors", label: "Seniors", type: "number" },
   { field: "referralEntity.organization", label: "Referral Organization", type: "text" },
-  { field: "updatedAt", label: "Last Updated", type: "timestamp" },
+  { field: "referralEntity.name", label: "Referral Contact", type: "text" },
+  { field: "famStartDate", label: "FAM Start Date", type: "text", format: "date" },
+  { field: "startDate", label: "Start Date", type: "text", format: "date" },
+  { field: "endDate", label: "End Date", type: "text", format: "date" },
+  { field: "tefapCertDate", label: "TEFAP Certification Date", type: "text", format: "date" },
+  { field: "dob", label: "Date of Birth", type: "text", format: "date" },
+  { field: "referredDate", label: "Referral Date", type: "text", format: "date" },
+  { field: "updatedAt", label: "Last Updated", type: "timestamp", format: "date" },
 ];
 
 const DELIVERY_FIELDS: QueryFieldDef[] = [
   { field: "clientName", label: "Client Name", type: "text" },
-  { field: "assignedDriverName", label: "Driver", type: "text" },
+  { field: "assignedDriverName", label: "Driver", type: "text", computed: true },
+  { field: "assignedTime", label: "Assigned Time", type: "text", computed: true },
+  { field: "ward", label: "Ward", type: "number", computed: true },
   { field: "recurrence", label: "Recurrence", type: "text" },
-  { field: "cluster", label: "Cluster", type: "number" },
+  { field: "cluster", label: "Cluster", type: "number", computed: true },
   {
     field: "deliveryStatus",
     label: "Delivery Status",
@@ -147,7 +165,7 @@ const DELIVERY_FIELDS: QueryFieldDef[] = [
     computed: true,
     options: ["Scheduled", "Missed"],
   },
-  { field: "deliveryDate", label: "Delivery Date", type: "timestamp" },
+  { field: "deliveryDate", label: "Delivery Date", type: "timestamp", format: "date" },
 ];
 
 const DRIVER_FIELDS: QueryFieldDef[] = [
@@ -164,6 +182,7 @@ const REFERRAL_ORG_FIELDS: QueryFieldDef[] = [
 ];
 
 const USER_FIELDS: QueryFieldDef[] = [
+  { field: "name", label: "Name", type: "text" },
   { field: "role", label: "Role", type: "text" },
   { field: "email", label: "Email", type: "text" },
   { field: "phone", label: "Phone", type: "text", format: "phone" },
@@ -182,7 +201,7 @@ export const COLLECTIONS: Record<CollectionKey, CollectionDef> = {
   },
   deliveries: {
     key: "deliveries",
-    label: "Deliveries",
+    label: "Routes",
     collectionKey: "calendarCollection",
     fields: DELIVERY_FIELDS,
     nameFields: ["clientName"],
@@ -247,5 +266,6 @@ export const createEmptyFilter = (): QueryFilter => ({
       : `filter-${Date.now()}-${Math.random().toString(16).slice(2)}`,
   field: "",
   operator: "",
+  logic: "AND",
   value: "",
 });

@@ -46,6 +46,12 @@ CLIENT_DATABASE_FILE_PATH = os.path.join("ETL", "FFA_CLIENT_DATABASE_JULY2026.xl
 CLIENT_DATABASE_SHEET_NAME = "Current Deliveries"
 SATURDAY_DELIVERY_ROW_START = 3279
 SATURDAY_DELIVERY_ROW_END = 3464
+DC_WARD_SERVICE_URL = "https://maps2.dcgis.dc.gov/dcgis/rest/services/DCGIS_DATA/Administrative_Other_Boundaries_WebMercator/MapServer/53/query"
+
+
+def normalize_ward_value(value: Any) -> str:
+	match = re.search(r"\b(?:Ward\s*)?([1-8])\b", str(value or ""), re.IGNORECASE)
+	return match.group(1) if match else ""
 
 
 def normalize_client_database_dataframe(df: pd.DataFrame) -> pd.DataFrame:
@@ -212,6 +218,39 @@ def _paced_geocode_get(url: str, timeout: int = 10) -> requests.Response:
 		response = requests.get(url, timeout=timeout)
 		_GEOCODE_LAST_REQUEST_TS = time.monotonic()
 		return response
+
+
+def get_ward_from_coordinates(coordinates: Optional[List[float]]) -> Optional[str]:
+	"""Resolve a DC Ward from [latitude, longitude] without changing Firestore."""
+	if not coordinates or len(coordinates) != 2:
+		return None
+
+	lat, lng = coordinates
+	if not all(isinstance(value, (int, float)) for value in (lat, lng)):
+		return None
+
+	params = {
+		"f": "json",
+		"geometry": f"{lng},{lat}",
+		"geometryType": "esriGeometryPoint",
+		"inSR": "4326",
+		"spatialRel": "esriSpatialRelIntersects",
+		"outFields": "NAME,WARD",
+		"returnGeometry": "false",
+	}
+	try:
+		response = _paced_geocode_get(
+			f"{DC_WARD_SERVICE_URL}?{requests.compat.urlencode(params)}"
+		)
+		response.raise_for_status()
+		features = response.json().get("features", [])
+		if not features:
+			return None
+		attributes = features[0].get("attributes", {})
+		return normalize_ward_value(attributes.get("WARD") or attributes.get("NAME")) or None
+	except (requests.RequestException, ValueError, KeyError, TypeError) as error:
+		logger.warning("Ward lookup failed for coordinates %s: %s", coordinates, error)
+		return None
 
 def geocode_address_google(address, city, state, zip_code):
 	"""Geocode an address using Google Maps Geocoding API.
@@ -1844,6 +1883,9 @@ class FirestoreMigration:
 		if not zip_code:
 			zip_code = str(zip_in_data) if zip_in_data else ""
 
+		ward_from_coordinates = get_ward_from_coordinates(coordinates)
+		ward_value = normalize_ward_value(ward_from_coordinates or row.get("Ward"))
+
 		DEFAULT_END_DATE_STR = "12/31/2026"
 		raw_end = row.get("EndDate") or row.get("End Date", "")
 		end_date = ""
@@ -1958,7 +2000,7 @@ class FirestoreMigration:
 				"name": "ETL",
 			},
 			"tags": tags,
-			"ward": _clean_name(row.get("Ward")),
+			"ward": ward_value,
 			"coordinates": coordinates,
 			"seniors": age_group_data["seniors"],
 			"headOfHousehold": age_group_data["headOfHousehold"],

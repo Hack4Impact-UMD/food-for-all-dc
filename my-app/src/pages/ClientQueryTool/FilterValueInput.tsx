@@ -2,10 +2,10 @@
 // Renders the correct control (boolean select, number, text, tag/org dropdown, date picker)
 // based on the selected field's inferred type.
 
-import React from "react";
-import { Autocomplete, MenuItem, TextField } from "@mui/material";
+import React, { useEffect, useRef, useState } from "react";
+import { Autocomplete, Checkbox, MenuItem, TextField } from "@mui/material";
 import { QueryFieldDef, QueryOperator } from "../../types/query-tool-types";
-import { formatPhoneNumber } from "../../utils/queryToolFormatting";
+import { formatAssignedTime, formatDateMask, formatPhoneNumber } from "../../utils/queryToolFormatting";
 
 interface FilterValueInputProps {
   fieldDef: QueryFieldDef;
@@ -23,6 +23,15 @@ interface FilterValueInputProps {
 const isListOperator = (operator: QueryOperator | "") =>
   operator === "in" || operator === "not-in" || operator === "array-contains-any";
 
+const hasFirestoreListLimit = (operator: QueryOperator | "") =>
+  operator === "in" || operator === "not-in" || operator === "array-contains-any";
+
+const FIRESTORE_LIST_LIMITS: Partial<Record<QueryOperator, number>> = {
+  in: 30,
+  "array-contains-any": 30,
+  "not-in": 10,
+};
+
 const cleanReferralOrganizationLabel = (value: string): string =>
   value
     .replace(/^\s*,\s*/, "")
@@ -30,6 +39,10 @@ const cleanReferralOrganizationLabel = (value: string): string =>
 
 const isOrganizationField = (field: QueryFieldDef): boolean =>
   field.field === "organization" || field.field === "referralEntity.organization";
+
+const isWardField = (field: QueryFieldDef): boolean => field.field === "ward";
+const isClusterField = (field: QueryFieldDef): boolean => field.field === "cluster";
+const ALL_VALUES_OPTION = "__all_values__";
 
 const SearchableValueInput: React.FC<{
   options: string[];
@@ -39,10 +52,27 @@ const SearchableValueInput: React.FC<{
   labelId: string;
   optionLabels?: Record<string, string>;
   optionValues?: Record<string, string>;
-}> = ({ options, value, onChange, commonProps, labelId, optionLabels, optionValues }) => (
-  <Autocomplete
+}> = ({ options, value, onChange, commonProps, labelId, optionLabels, optionValues }) => {
+  const rootRef = useRef<HTMLDivElement>(null);
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    const handlePointerDown = (event: PointerEvent) => {
+      if (rootRef.current && !rootRef.current.contains(event.target as Node)) setOpen(false);
+    };
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => document.removeEventListener("pointerdown", handlePointerDown);
+  }, []);
+
+  return (
+    <div ref={rootRef}>
+      <Autocomplete
+    open={open}
+    onOpen={() => setOpen(true)}
+    onClose={() => setOpen(false)}
     freeSolo
     options={options}
+    disablePortal
     getOptionLabel={(option) => optionLabels?.[option] ?? option}
     value={typeof value === "string" ? value : null}
     onChange={(_, nextValue) => onChange(optionValues?.[nextValue ?? ""] ?? nextValue ?? "")}
@@ -59,37 +89,119 @@ const SearchableValueInput: React.FC<{
         aria-labelledby={labelId}
       />
     )}
-  />
-);
+      />
+    </div>
+  );
+};
 
 const MultiValueInput: React.FC<{
   options: string[];
+  operator: QueryOperator | "";
   value: unknown;
   onChange: (value: unknown) => void;
   commonProps: Record<string, unknown>;
-}> = ({ options, value, onChange, commonProps }) => {
-  const selectedValues = Array.isArray(value)
+  optionLabels?: Record<string, string>;
+  optionValues?: Record<string, string>;
+}> = ({ options, operator, value, onChange, commonProps, optionLabels, optionValues }) => {
+  const rootRef = useRef<HTMLDivElement>(null);
+  const [open, setOpen] = useState(false);
+  const limit = operator ? FIRESTORE_LIST_LIMITS[operator] : undefined;
+  const existingHelperText =
+    typeof commonProps.helperText === "string" ? commonProps.helperText : undefined;
+  const rawSelectedValues = Array.isArray(value)
     ? value.filter((item): item is string => typeof item === "string")
     : typeof value === "string"
       ? value.split(",").map((item) => item.trim()).filter(Boolean)
       : [];
+  const selectedValues = rawSelectedValues.map((selected) => optionLabels?.[selected] ?? selected);
+
+  useEffect(() => {
+    const handlePointerDown = (event: PointerEvent) => {
+      if (rootRef.current && !rootRef.current.contains(event.target as Node)) setOpen(false);
+    };
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => document.removeEventListener("pointerdown", handlePointerDown);
+  }, []);
 
   return (
+    <div ref={rootRef}>
     <Autocomplete
+      open={open}
+      onOpen={() => setOpen(true)}
+      onClose={() => setOpen(false)}
       multiple
       freeSolo
-      options={options}
-      value={selectedValues}
-      onChange={(_, nextValues) => onChange(nextValues)}
+      disablePortal
+      options={hasFirestoreListLimit(operator) ? options : [ALL_VALUES_OPTION, ...options]}
+      filterSelectedOptions
+      filterOptions={(availableOptions, state) => {
+        const searchText = state.inputValue.trim().toLowerCase();
+        if (!searchText) return availableOptions;
+        return availableOptions.filter((option) => {
+          const label = option === ALL_VALUES_OPTION ? "All" : optionLabels?.[option] ?? option;
+          return label.toLowerCase().includes(searchText);
+        });
+      }}
+      value={Array.from(new Set(selectedValues))}
+      disableCloseOnSelect
+      sx={{
+        width: "100%",
+        "& .MuiAutocomplete-inputRoot": {
+          maxHeight: 88,
+          overflowY: "auto",
+          alignItems: "flex-start",
+          display: "flex",
+          flexWrap: "wrap",
+          paddingTop: "8px !important",
+          paddingBottom: "8px !important",
+        },
+        "& .MuiAutocomplete-input": {
+          order: 0,
+          flex: "1 0 100%",
+          minWidth: "100%",
+        },
+        "& .MuiAutocomplete-tag": {
+          order: 1,
+          marginTop: 2,
+          marginBottom: 2,
+        },
+      }}
+      onChange={(_, nextValues) => {
+        if (nextValues.includes(ALL_VALUES_OPTION)) {
+          const allSelected = selectedValues.length === options.length;
+          onChange(allSelected ? [] : options.map((option) => optionValues?.[option] ?? option));
+          return;
+        }
+        onChange(
+          Array.from(new Set(nextValues.map((nextValue) => optionValues?.[nextValue] ?? nextValue)))
+        );
+      }}
+      getOptionLabel={(option) =>
+        option === ALL_VALUES_OPTION ? "All" : optionLabels?.[option] ?? option
+      }
+      renderOption={(props, option) => (
+        <li {...props}>
+          {option === ALL_VALUES_OPTION && (
+            <Checkbox
+              size="small"
+              checked={options.length > 0 && selectedValues.length === options.length}
+              sx={{ padding: 0, marginRight: 1 }}
+            />
+          )}
+          {option === ALL_VALUES_OPTION ? "All" : optionLabels?.[option] ?? option}
+        </li>
+      )}
       renderInput={(params) => (
         <TextField
           {...params}
           {...commonProps}
           label="Values"
           placeholder="Select or type values"
+          helperText={existingHelperText || (limit ? `Maximum ${limit} values for this operator.` : undefined)}
         />
       )}
     />
+    </div>
   );
 };
 
@@ -143,6 +255,32 @@ const FilterValueInput: React.FC<FilterValueInputProps> = ({
     isOrganizationField(fieldDef)
       ? Object.fromEntries(selectableOptions.map((option) => [optionLabels?.[option] ?? option, option]))
       : undefined;
+  const timeOptionLabels =
+    fieldDef.field === "assignedTime"
+      ? Object.fromEntries(selectableOptions.map((option) => [option, formatAssignedTime(option)]))
+      : undefined;
+  const timeDropdownOptions =
+    fieldDef.field === "assignedTime"
+      ? Array.from(new Set(selectableOptions.map((option) => formatAssignedTime(option))))
+      : dropdownOptions;
+  const timeOptionValues =
+    fieldDef.field === "assignedTime"
+      ? Object.fromEntries(selectableOptions.map((option) => [formatAssignedTime(option), option]))
+      : optionValues;
+  const normalizedDropdownOptions = isWardField(fieldDef) || isClusterField(fieldDef)
+    ? Array.from(new Set(selectableOptions.map((option) => {
+        if (isClusterField(fieldDef) && option === "0") return "Unassigned";
+        return option.match(/\d+/)?.[0] || "";
+      }).filter(Boolean)))
+    : dropdownOptions;
+  const normalizedOptionLabels = isWardField(fieldDef) || isClusterField(fieldDef)
+    ? Object.fromEntries(selectableOptions.map((option) => [option, isClusterField(fieldDef) && option === "0" ? "Unassigned" : option.match(/\d+/)?.[0] || option]))
+    : optionLabels;
+  const normalizedOptionValues = isWardField(fieldDef)
+    ? Object.fromEntries(normalizedDropdownOptions.map((option) => [option, option]))
+    : isClusterField(fieldDef)
+      ? Object.fromEntries(selectableOptions.map((option) => [option === "0" ? "Unassigned" : option, option]))
+    : optionValues;
 
   if (fieldDef.type === "boolean") {
     return (
@@ -163,10 +301,26 @@ const FilterValueInput: React.FC<FilterValueInputProps> = ({
     if (isListOperator(operator)) {
       return (
         <MultiValueInput
-          options={fieldOptions}
+          options={normalizedDropdownOptions}
+          operator={operator}
+          value={isClusterField(fieldDef) && String(value ?? "") === "0" ? "Unassigned" : value}
+          onChange={onChange}
+          commonProps={commonProps}
+          optionLabels={normalizedOptionLabels}
+          optionValues={normalizedOptionValues}
+        />
+      );
+    }
+    if (selectableOptions.length > 0) {
+      return (
+        <SearchableValueInput
+          options={normalizedDropdownOptions}
           value={value}
           onChange={onChange}
           commonProps={commonProps}
+          labelId={labelId}
+          optionLabels={normalizedOptionLabels}
+          optionValues={normalizedOptionValues}
         />
       );
     }
@@ -186,6 +340,7 @@ const FilterValueInput: React.FC<FilterValueInputProps> = ({
       return (
         <MultiValueInput
           options={dropdownOptions}
+          operator={operator}
           value={value}
           onChange={onChange}
           commonProps={commonProps}
@@ -203,6 +358,19 @@ const FilterValueInput: React.FC<FilterValueInputProps> = ({
     );
   }
 
+  if (fieldDef.format === "date") {
+    return (
+      <TextField
+        {...commonProps}
+        label="Value"
+        value={formatDateMask(value)}
+        onChange={(event) => onChange(formatDateMask(event.target.value))}
+        placeholder="MM/DD/YYYY"
+        inputProps={{ inputMode: "numeric", maxLength: 10 }}
+      />
+    );
+  }
+
   if (fieldDef.type === "timestamp") {
     // Date only — the field stores a precise instant, but queries compare whole days.
     return (
@@ -213,6 +381,33 @@ const FilterValueInput: React.FC<FilterValueInputProps> = ({
         InputLabelProps={{ shrink: true }}
         value={typeof value === "string" ? value : ""}
         onChange={(e) => onChange(e.target.value)}
+      />
+    );
+  }
+
+  if (fieldDef.field === "assignedTime") {
+    if (isListOperator(operator)) {
+      return (
+        <MultiValueInput
+          options={timeDropdownOptions}
+          operator={operator}
+          value={value}
+          onChange={onChange}
+          commonProps={commonProps}
+          optionLabels={timeOptionLabels}
+          optionValues={timeOptionValues}
+        />
+      );
+    }
+    return (
+      <SearchableValueInput
+        options={timeDropdownOptions}
+        value={typeof value === "string" ? formatAssignedTime(value) : value}
+        onChange={onChange}
+        commonProps={commonProps}
+        labelId={labelId}
+        optionLabels={timeOptionLabels}
+        optionValues={timeOptionValues}
       />
     );
   }
@@ -245,6 +440,7 @@ const FilterValueInput: React.FC<FilterValueInputProps> = ({
       return (
         <MultiValueInput
           options={dropdownOptions}
+          operator={operator}
           value={value}
           onChange={onChange}
           commonProps={commonProps}
@@ -277,7 +473,8 @@ const FilterValueInput: React.FC<FilterValueInputProps> = ({
   if (isListOperator(operator)) {
     return (
       <MultiValueInput
-        options={dropdownOptions}
+        options={normalizedDropdownOptions}
+        operator={operator}
         value={value}
         onChange={onChange}
         commonProps={commonProps}
@@ -286,18 +483,18 @@ const FilterValueInput: React.FC<FilterValueInputProps> = ({
   }
 
   // Text fields: prefer known option lists (ward, quadrant, referral org) as dropdowns.
-  const options = dropdownOptions;
+  const options = normalizedDropdownOptions;
 
   if (options && options.length > 0 && !isListOperator(operator)) {
     return (
       <SearchableValueInput
         options={options}
-        value={value}
+        value={isWardField(fieldDef) ? String(value ?? "").match(/\d+/)?.[0] || "" : value}
         onChange={onChange}
         commonProps={commonProps}
         labelId={labelId}
         optionLabels={optionLabels}
-        optionValues={optionValues}
+        optionValues={normalizedOptionValues}
       />
     );
   }

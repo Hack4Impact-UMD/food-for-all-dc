@@ -29,7 +29,7 @@ describe("addressFormat", () => {
       state: "DC",
       zipCode: "20001",
       coordinates: [38.9, -77.0],
-      ward: "Ward 1",
+      ward: "1",
     };
 
     expect(shouldGeocodeClientLocation(location, { ...location, address2: "Apt 2" })).toBe(false);
@@ -43,7 +43,7 @@ describe("addressFormat", () => {
       state: "DC",
       zipCode: "20001",
       coordinates: [38.9, -77.0],
-      ward: "Ward 1",
+      ward: "1",
     };
 
     expect(shouldGeocodeClientLocation({ ...previous, coordinates: [] }, previous)).toBe(true);
@@ -57,7 +57,7 @@ describe("addressFormat", () => {
       state: "DC",
       zipCode: "20001",
       coordinates: [38.9, -77.0],
-      ward: "Ward 1",
+      ward: "1",
     };
 
     expect(shouldGeocodeClientLocation({ ...previous, quadrant: "NE" }, previous)).toBe(true);

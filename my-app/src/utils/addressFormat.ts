@@ -96,7 +96,7 @@ export const shouldGeocodeClientLocation = (
     coordinates[0] !== 0 &&
     coordinates[1] !== 0;
   const hasValidWard =
-    typeof current.ward === "string" && /^Ward\s+\d+$/i.test(current.ward.trim());
+    typeof current.ward === "string" && /^[1-8]$/.test(current.ward.trim());
   const addressChanged =
     !previous || buildGeocodingAddress(current) !== buildGeocodingAddress(previous);
 

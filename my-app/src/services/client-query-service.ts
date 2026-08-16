@@ -12,6 +12,8 @@ import { batchGetClientDeliverySummaries } from "../utils/lastDeliveryDate";
 import { ServiceError, formatServiceError } from "../utils/serviceError";
 import { COLLECTIONS, CollectionKey, getFieldDef, QueryFilter } from "../types/query-tool-types";
 import { mapClientDocToSpreadsheetBaseRow } from "./client-service";
+import { deliveryDate } from "../utils/deliveryDate";
+import { normalizeAssignedTime } from "../utils/queryToolFormatting";
 
 export interface ClientQueryResult {
   rows: RowData[];
@@ -68,6 +70,7 @@ const toFirestoreValue = (collectionKey: CollectionKey, filter: QueryFilter): un
     return values.map(normalizeValue);
   }
 
+  if (fieldDef?.type === "number") return Number(filter.value);
   return normalizeValue(filter.value);
 };
 
@@ -86,20 +89,27 @@ const buildConstraintsForFilter = (collectionKey: CollectionKey, filter: QueryFi
 
   if (fieldDef?.type === "timestamp") {
     const day = parseFilterDate(filter.value);
+    const deliveryBounds =
+      fieldDef.field === "deliveryDate" ? deliveryDate.getUTCDateBounds(day) : null;
+    const dayStart = deliveryBounds?.start ?? startOfDay(day);
+    const nextDayStart = deliveryBounds?.endExclusive ?? startOfNextDay(day);
+    const dayEnd = deliveryBounds
+      ? new Date(nextDayStart.getTime() - 1)
+      : endOfDay(day);
     switch (filter.operator) {
       case "==":
         return [
-          where(filter.field, ">=", Timestamp.fromDate(startOfDay(day))),
-          where(filter.field, "<", Timestamp.fromDate(startOfNextDay(day))),
+          where(filter.field, ">=", Timestamp.fromDate(dayStart)),
+          where(filter.field, "<", Timestamp.fromDate(nextDayStart)),
         ];
       case ">":
-        return [where(filter.field, ">", Timestamp.fromDate(endOfDay(day)))];
+        return [where(filter.field, ">", Timestamp.fromDate(dayEnd))];
       case ">=":
-        return [where(filter.field, ">=", Timestamp.fromDate(startOfDay(day)))];
+        return [where(filter.field, ">=", Timestamp.fromDate(dayStart))];
       case "<":
-        return [where(filter.field, "<", Timestamp.fromDate(startOfDay(day)))];
+        return [where(filter.field, "<", Timestamp.fromDate(dayStart))];
       case "<=":
-        return [where(filter.field, "<=", Timestamp.fromDate(endOfDay(day)))];
+        return [where(filter.field, "<=", Timestamp.fromDate(dayEnd))];
       default:
         return [where(filter.field, filter.operator as any, Timestamp.fromDate(day))];
     }
@@ -130,7 +140,123 @@ const matchesComputedFilter = (row: RowData, filter: QueryFilter): boolean => {
     if (filter.operator === "in") return expected.includes(actual);
     if (filter.operator === "not-in") return !expected.includes(actual);
   }
+  if (filter.field === "assignedDriverName") {
+    const normalizeDriver = (value: unknown) => String(value ?? "").trim().toLowerCase();
+    const actual = normalizeDriver(row.assignedDriverName);
+    const expected = Array.isArray(filter.value)
+      ? filter.value.map(normalizeDriver)
+      : String(filter.value).split(",").map(normalizeDriver).filter(Boolean);
+
+    if (filter.operator === "==") return actual === expected[0];
+    if (filter.operator === "!=") return actual !== expected[0];
+    if (filter.operator === "in") return expected.includes(actual);
+    if (filter.operator === "not-in") return !expected.includes(actual);
+  }
+  if (filter.field === "cluster") {
+    const toRouteNumber = (value: unknown): number => {
+      const match = String(value ?? "").match(/\d+/);
+      return match ? Number(match[0]) : Number.NaN;
+    };
+    const actual = toRouteNumber(row.cluster);
+    const expectedValues = Array.isArray(filter.value)
+      ? filter.value.map(toRouteNumber)
+      : String(filter.value).split(",").map(toRouteNumber);
+    const expected = expectedValues[0];
+    if (!Number.isFinite(actual) || !Number.isFinite(expected)) return false;
+    switch (filter.operator) {
+      case "==": return actual === expected;
+      case "!=": return actual !== expected;
+      case ">": return actual > expected;
+      case ">=": return actual >= expected;
+      case "<": return actual < expected;
+      case "<=": return actual <= expected;
+      case "in": return expectedValues.includes(actual);
+      case "not-in": return !expectedValues.includes(actual);
+      default: return false;
+    }
+  }
+  if (filter.field === "assignedTime") {
+    const actual = normalizeAssignedTime(row.time);
+    const expectedValues = Array.isArray(filter.value)
+      ? filter.value.map(normalizeAssignedTime)
+      : String(filter.value).split(",").map(normalizeAssignedTime).filter(Boolean);
+    switch (filter.operator) {
+      case "==": return actual === expectedValues[0];
+      case "!=": return actual !== expectedValues[0];
+      case ">": return Number(actual) > Number(expectedValues[0]);
+      case ">=": return Number(actual) >= Number(expectedValues[0]);
+      case "<": return Number(actual) < Number(expectedValues[0]);
+      case "<=": return Number(actual) <= Number(expectedValues[0]);
+      case "in": return expectedValues.includes(actual);
+      case "not-in": return !expectedValues.includes(actual);
+      default: return false;
+    }
+  }
+  if (filter.field === "ward") {
+    const normalizeWard = (value: unknown) => {
+      const match = String(value ?? "").match(/\d+/);
+      return match ? match[0] : "";
+    };
+    const actual = normalizeWard(row["join.ward"] ?? row.ward);
+    const expectedValues = Array.isArray(filter.value)
+      ? filter.value.map(normalizeWard)
+      : String(filter.value).split(",").map(normalizeWard).filter(Boolean);
+    switch (filter.operator) {
+      case "==": return actual === expectedValues[0];
+      case "!=": return actual !== expectedValues[0];
+      case ">": return Number(actual) > Number(expectedValues[0]);
+      case ">=": return Number(actual) >= Number(expectedValues[0]);
+      case "<": return Number(actual) < Number(expectedValues[0]);
+      case "<=": return Number(actual) <= Number(expectedValues[0]);
+      case "in": return expectedValues.includes(actual);
+      case "not-in": return !expectedValues.includes(actual);
+      default: return false;
+    }
+  }
   return true;
+};
+
+const matchesDirectFilter = (collectionKey: CollectionKey, row: RowData, filter: QueryFilter): boolean => {
+  const value = filter.field.split(".").reduce<unknown>((current, key) => {
+    return current && typeof current === "object" ? (current as Record<string, unknown>)[key] : undefined;
+  }, row);
+  const values = Array.isArray(filter.value) ? filter.value : String(filter.value).split(",").map((item) => item.trim());
+  const comparable = (item: unknown): string | number => {
+    if (getFieldDef(collectionKey, filter.field)?.type === "number") return Number(item);
+    if (item && typeof item === "object" && typeof (item as { toDate?: unknown }).toDate === "function") {
+      return (item as { toDate: () => Date }).toDate().getTime();
+    }
+    return String(item ?? "").toLowerCase();
+  };
+  const actualValues = Array.isArray(value) ? value : [value];
+  const actual = comparable(actualValues[0]);
+  const expected = values.map(comparable);
+  switch (filter.operator) {
+    case "==": return actualValues.some((item) => comparable(item) === expected[0]);
+    case "!=": return actualValues.every((item) => comparable(item) !== expected[0]);
+    case ">": return actual > expected[0];
+    case ">=": return actual >= expected[0];
+    case "<": return actual < expected[0];
+    case "<=": return actual <= expected[0];
+    case "in": return expected.includes(actual);
+    case "not-in": return !expected.includes(actual);
+    case "array-contains": return Array.isArray(value) && value.some((entry) => comparable(entry) === expected[0]);
+    case "array-contains-any": return Array.isArray(value) && value.some((entry) => expected.includes(comparable(entry)));
+    default: return false;
+  }
+};
+
+const matchesFilterExpression = (collectionKey: CollectionKey, row: RowData, filters: QueryFilter[]): boolean => {
+  const groups: QueryFilter[][] = [[]];
+  filters.forEach((filter, index) => {
+    if (index > 0 && filter.logic === "OR") groups.push([]);
+    groups[groups.length - 1].push(filter);
+  });
+  return groups.some((group) => group.every((filter) =>
+    getFieldDef(collectionKey, filter.field)?.computed
+      ? matchesComputedFilter(row, filter)
+      : matchesDirectFilter(collectionKey, row, filter)
+  ));
 };
 
 const isIndexRequiredError = (error: unknown): boolean => {
@@ -153,6 +279,83 @@ const mapRawDocToRow = (collectionKey: CollectionKey, id: string, raw: any): Row
     };
   }
   return { id, uid: id, ...raw };
+};
+
+const enrichDeliveryRouteAssignments = async (rows: RowData[]): Promise<RowData[]> => {
+  if (rows.length === 0) return rows;
+
+  let clustersSnapshot;
+  try {
+    clustersSnapshot = await getDocs(collection(db, dataSources.firebase.clustersCollection));
+  } catch {
+    return rows;
+  }
+  if (!clustersSnapshot || !Array.isArray(clustersSnapshot.docs)) return rows;
+  type RouteAssignments = {
+    clusters: Array<{ id?: unknown; deliveries?: unknown[]; driver?: unknown; time?: unknown }>;
+    clientOverrides: Array<{ clientId?: unknown; driver?: unknown; time?: unknown }>;
+  };
+  const assignmentsByDate = new Map<string, RouteAssignments>();
+
+  const getClusterDateKey = (value: unknown): string | null => {
+    const date = typeof Timestamp === "function" && value instanceof Timestamp
+      ? value.toDate()
+      : value && typeof value === "object" && typeof (value as { toDate?: unknown }).toDate === "function"
+        ? (value as { toDate: () => Date }).toDate()
+        : null;
+    if (date && !Number.isNaN(date.getTime())) {
+      return date.toISOString().slice(0, 10);
+    }
+    return deliveryDate.tryToISODateString(value as Parameters<typeof deliveryDate.tryToISODateString>[0]);
+  };
+
+  clustersSnapshot.docs.forEach((clusterDocument) => {
+    const data = clusterDocument.data();
+    const dateKey = getClusterDateKey(data.date);
+    if (!dateKey) return;
+    const assignments = {
+      clusters: Array.isArray(data.clusters) ? data.clusters : [],
+      clientOverrides: Array.isArray(data.clientOverrides) ? data.clientOverrides : [],
+    };
+    assignmentsByDate.set(dateKey, assignments);
+  });
+
+  const normalizeId = (value: unknown) => String(value ?? "").trim();
+  const findAssignment = (
+    assignments: RouteAssignments | undefined,
+    clientId: string
+  ) => {
+    if (!assignments) return undefined;
+    return assignments.clusters.find((candidate) =>
+      Array.isArray(candidate.deliveries) && candidate.deliveries.some((deliveryId) => {
+        const normalizedDeliveryId =
+          deliveryId && typeof deliveryId === "object" && "id" in deliveryId
+            ? (deliveryId as { id?: unknown }).id
+            : deliveryId;
+        return normalizeId(normalizedDeliveryId) === clientId;
+      })
+    );
+  };
+
+  return rows.map((row) => {
+    const dateKey = deliveryDate.tryToISODateString(row.deliveryDate);
+    const assignments = dateKey ? assignmentsByDate.get(dateKey) : undefined;
+    if (!assignments) return row;
+
+    const clientId = normalizeId(row.clientId ?? row.clientid ?? row.uid);
+    const cluster = findAssignment(assignments, clientId);
+    const override = assignments.clientOverrides.find(
+      (candidate) => normalizeId(candidate.clientId) === clientId
+    );
+    const driver = override?.driver || cluster?.driver;
+    return {
+      ...row,
+      cluster: cluster?.id ?? row.cluster,
+      assignedDriverName:
+        typeof driver === "string" ? driver : (driver as { name?: string } | undefined)?.name ?? row.assignedDriverName,
+      time: override?.time || cluster?.time || row.time,
+    };
+  });
 };
 
 /** Fetches allowlisted join fields for a batch of related document ids. */
@@ -190,7 +393,12 @@ export async function runClientQuery(
 ): Promise<ClientQueryResult> {
   try {
     const collectionDef = COLLECTIONS[collectionKey];
-    const constraints = buildFirestoreConstraints(collectionKey, filters);
+    const hasOrLogic = filters.some((filter, index) => index > 0 && filter.logic === "OR");
+    const disjunctiveFilterCount = filters.filter((filter) =>
+      ["in", "not-in", "array-contains", "array-contains-any"].includes(filter.operator)
+    ).length;
+    const requiresClientSideExpression = hasOrLogic || disjunctiveFilterCount > 1;
+    const constraints = requiresClientSideExpression ? [] : buildFirestoreConstraints(collectionKey, filters);
     const q = query(
       collection(db, firebaseCollectionName(collectionDef.collectionKey)),
       ...constraints
@@ -201,9 +409,8 @@ export async function runClientQuery(
       mapRawDocToRow(collectionKey, docSnap.id, docSnap.data())
     );
 
-    const computedFilters = getComputedFilters(collectionKey, filters);
-    if (computedFilters.length > 0) {
-      rows = rows.filter((row) => computedFilters.every((f) => matchesComputedFilter(row, f)));
+    if (collectionKey === "deliveries") {
+      rows = await enrichDeliveryRouteAssignments(rows);
     }
 
     if (collectionKey === "clients" && rows.length > 0) {
@@ -232,6 +439,13 @@ export async function runClientQuery(
         });
         return joinedRow;
       });
+    }
+
+    const computedFilters = getComputedFilters(collectionKey, filters);
+    if (requiresClientSideExpression) {
+      rows = rows.filter((row) => matchesFilterExpression(collectionKey, row, filters));
+    } else if (computedFilters.length > 0) {
+      rows = rows.filter((row) => computedFilters.every((f) => matchesComputedFilter(row, f)));
     }
 
     // Query metadata only (no row contents/PII) — safe to log for troubleshooting.
