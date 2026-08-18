@@ -2,6 +2,7 @@
 import React from "react";
 import Login from "./pages/Login/Login";
 import ForgotPasswordPage from "./pages/Login/forgot-password";
+import AuthActionPage from "./pages/Login/auth-action";
 import CalendarPage from "./pages/Calendar/CalendarPage";
 import Spreadsheet from "./components/Spreadsheet/Spreadsheet";
 import UsersSpreadsheet from "./components/UsersSpreadsheet/UsersSpreadsheet";
@@ -41,6 +42,16 @@ export const routesConfig: AppRoute[] = [
     element: <ForgotPasswordPage />,
     public: true,
     meta: { title: "Forgot Password", description: "Password recovery page", icon: "lock" },
+  },
+  {
+    path: "/auth/action",
+    element: <AuthActionPage />,
+    public: true,
+    meta: {
+      title: "Reset Password",
+      description: "Handles password reset and email verification links",
+      icon: "lock_reset",
+    },
   },
   {
     path: "/*",

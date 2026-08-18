@@ -373,3 +373,46 @@
 :global .MuiButton-outlined:hover {
   border-width: 1.5px;
 }
+
+/* Auth action (password reset) page */
+.statusBlock {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-md);
+  padding: var(--spacing-lg) 0;
+}
+
+.statusBlock .subheading {
+  margin-bottom: 0;
+}
+
+.statusIconSuccess {
+  color: var(--color-primary) !important;
+  font-size: 3rem !important;
+  margin-bottom: var(--spacing-xs);
+  animation: fadeIn 0.3s ease;
+}
+
+.statusIconError {
+  color: var(--color-error-text) !important;
+  font-size: 3rem !important;
+  margin-bottom: var(--spacing-xs);
+  animation: fadeIn 0.3s ease;
+}
+
+/* Beats the global .MuiButton-root fill above so the secondary action reads as secondary */
+.secondaryButton.secondaryButton {
+  background-color: var(--color-transparent) !important;
+  color: var(--color-primary) !important;
+  border: 1.5px solid var(--color-primary);
+  box-shadow: none !important;
+  margin-top: var(--spacing-sm);
+}
+
+.secondaryButton.secondaryButton:hover {
+  background-color: rgba(37, 126, 104, 0.08) !important;
+  border-color: var(--color-primary-dark);
+  color: var(--color-primary-dark) !important;
+  box-shadow: none !important;
+}
