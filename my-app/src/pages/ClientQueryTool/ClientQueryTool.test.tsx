@@ -85,6 +85,23 @@ describe("ClientQueryTool", () => {
     expect(screen.queryByRole("combobox", { name: "Values" })).toBeNull();
   });
 
+  it("offers every valid user role as a smart value", async () => {
+    render(<ClientQueryTool />);
+
+    fireEvent.mouseDown(screen.getByLabelText("Collection"));
+    fireEvent.click(await screen.findByRole("option", { name: "Users" }));
+    fireEvent.mouseDown(screen.getByLabelText("Field"));
+    fireEvent.click(await screen.findByRole("option", { name: "Role" }));
+    fireEvent.mouseDown(screen.getByLabelText("Operator"));
+    fireEvent.click(await screen.findByRole("option", { name: /equals \(==\)/i }));
+    fireEvent.mouseDown(screen.getByRole("combobox", { name: "Value" }));
+
+    expect(await screen.findByRole("option", { name: "Admin" })).toBeTruthy();
+    expect(screen.getByRole("option", { name: "Manager" })).toBeTruthy();
+    expect(screen.getByRole("option", { name: "Client Intake" })).toBeTruthy();
+    expect(screen.queryByRole("option", { name: "Driver" })).toBeNull();
+  });
+
   it("Clear resets filters and results", async () => {
     render(<ClientQueryTool />);
     fireEvent.click(screen.getByRole("button", { name: /Add Filter/i }));

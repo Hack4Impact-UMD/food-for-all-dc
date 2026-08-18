@@ -13,6 +13,7 @@ import { ServiceError, formatServiceError } from "../utils/serviceError";
 import { COLLECTIONS, CollectionKey, getFieldDef, QueryFilter } from "../types/query-tool-types";
 import { mapClientDocToSpreadsheetBaseRow } from "./client-service";
 import { deliveryDate } from "../utils/deliveryDate";
+import { formatPhoneNumberForSave } from "../utils/format";
 import { normalizeAssignedTime } from "../utils/queryToolFormatting";
 
 export interface ClientQueryResult {
@@ -56,8 +57,10 @@ const startOfNextDay = (date: Date): Date => {
 
 const toFirestoreValue = (collectionKey: CollectionKey, filter: QueryFilter): unknown => {
   const fieldDef = getFieldDef(collectionKey, filter.field);
-  const normalizeValue = (value: unknown) =>
-    fieldDef?.format === "phone" ? String(value).replace(/\D/g, "") : value;
+  const normalizeValue = (value: unknown) => {
+    if (fieldDef?.format !== "phone") return value;
+    return formatPhoneNumberForSave(String(value)) ?? value;
+  };
 
   if (filter.operator === "in" || filter.operator === "not-in" || filter.operator === "array-contains-any") {
     const values = Array.isArray(filter.value)
