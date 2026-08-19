@@ -905,6 +905,8 @@ const Profile = () => {
           [name]: value,
         };
 
+        const sanitizePhone = (v: string) =>
+          v.replace(/[^\d\s().+-]/g, "").trim();
         const countDigits = (str: string) => (str.match(/\d/g) || []).length;
         const isValidPhoneFormat = (phone: string) => {
           return /^(\+1\s?)?((\(\d{3}\))|\d{3})[\s.-]?\d{3}[\s.-]?\d{4}$/.test(phone);
@@ -912,11 +914,12 @@ const Profile = () => {
         const newErrors = { ...errors };
 
         if (name === "phone" || name === "alternativePhone") {
-          if (value.trim() === "" && name === "phone") {
+          const sanitized = sanitizePhone(value);
+          if (sanitized === "" && name === "phone") {
             newErrors[name] = "Phone is required";
-          } else if (countDigits(value) < 10) {
+          } else if (countDigits(sanitized) < 10) {
             newErrors[name] = "Phone number must contain at least 10 digits";
-          } else if (!isValidPhoneFormat(value)) {
+          } else if (!isValidPhoneFormat(sanitized)) {
             newErrors[name] =
               `"${value}" is an invalid format. Please see the i icon for allowed formats.`;
           } else {
@@ -1021,23 +1024,27 @@ const Profile = () => {
     }
 
     // Count digits and validate phone number format
+    const sanitizePhone = (v: string) =>
+      v.replace(/[^\d\s().+-]/g, "").trim();
     const countDigits = (str: string) => (str.match(/\d/g) || []).length;
     const isValidPhoneFormat = (phone: string) => {
       // Allowed formats: (123) 456-7890, 123-456-7890, 123.456.7890, 123 456 7890, 1234567890, +1 123-456-7890
       return /^(\+1\s?)?((\(\d{3}\))|\d{3})[\s.-]?\d{3}[\s.-]?\d{4}$/.test(phone);
     };
 
-    if (!clientProfile.phone?.trim()) {
+    const sanitizedPhone = sanitizePhone(clientProfile.phone ?? "");
+    if (!sanitizedPhone) {
       newErrors.phone = "Phone is required";
-    } else if (countDigits(clientProfile.phone) < 10) {
+    } else if (countDigits(sanitizedPhone) < 10) {
       newErrors.phone = "Phone number must contain at least 10 digits";
-    } else if (!isValidPhoneFormat(clientProfile.phone)) {
+    } else if (!isValidPhoneFormat(sanitizedPhone)) {
       newErrors.phone = `"${clientProfile.phone}" is an invalid format. Please see the i icon for allowed formats.`;
     }
+    const sanitizedAltPhone = sanitizePhone(clientProfile.alternativePhone ?? "");
     if (
-      clientProfile.alternativePhone?.trim() &&
-      (countDigits(clientProfile.alternativePhone) < 10 ||
-        !isValidPhoneFormat(clientProfile.alternativePhone))
+      sanitizedAltPhone &&
+      (countDigits(sanitizedAltPhone) < 10 ||
+        !isValidPhoneFormat(sanitizedAltPhone))
     ) {
       newErrors.alternativePhone = `"${clientProfile.alternativePhone}" is an invalid format. Please see the i icon for allowed formats.`;
     }
