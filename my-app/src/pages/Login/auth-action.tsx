@@ -69,6 +69,18 @@ const AuthActionPage = () => {
   useEffect(() => {
     let cancelled = false;
 
+    // Opening a second action link in the same tab reuses this component, so clear
+    // anything left over from the previous code before validating the new one.
+    setStage("verifying");
+    setError("");
+    setAccountEmail("");
+    setSuccessMessage("");
+    setPassword("");
+    setConfirmPassword("");
+    setShowPassword(false);
+    setShowConfirmPassword(false);
+    setIsSubmitting(false);
+
     const verify = async () => {
       if (!oobCode) {
         if (!cancelled) {
@@ -97,6 +109,7 @@ const AuthActionPage = () => {
           setSuccessMessage("Your email address has been restored. You can sign in now.");
           setStage("success");
         } else {
+          if (cancelled) return;
           setError("This link isn't supported. Please request a new password reset email.");
           setStage("invalid");
         }
