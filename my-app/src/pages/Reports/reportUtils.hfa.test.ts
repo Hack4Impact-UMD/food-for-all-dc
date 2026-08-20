@@ -34,7 +34,7 @@ const createDelivery = (
       seniors: 0,
       total: 1,
     },
-  } as ReportDeliveryRecord);
+  });
 
 describe("buildSummaryReportData HFA delivery metric", () => {
   it("counts each HFA client with a non-missed delivery in the report period once", () => {
