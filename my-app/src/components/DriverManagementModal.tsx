@@ -25,6 +25,7 @@ import { db } from "../auth/firebaseConfig";
 import { Driver } from "../types/calendar-types";
 import dataSources from "../config/dataSources";
 import ConfirmationModal from "./ConfirmationModal";
+import { formatPhoneNumberForSave } from "../utils/format";
 
 // Icon components for sorting
 const iconStyle = { verticalAlign: "middle", marginLeft: 6 };
@@ -225,22 +226,25 @@ const DriverManagementModal: React.FC<DriverManagementModalProps> = ({
 
     if (Object.keys(validationErrors).length === 0) {
       try {
+        const formattedPhone = formatPhoneNumberForSave(driver.phone) ?? driver.phone;
         if (isEditing && "id" in driver) {
+          const normalizedDriver: Driver = { ...driver, phone: formattedPhone };
           // Update existing driver
           const driverRef = doc(db, dataSources.firebase.driversCollection, driver.id);
           await updateDoc(driverRef, {
             name: driver.name,
-            phone: driver.phone,
+            phone: formattedPhone,
             email: driver.email,
           });
-          onDriversChange(drivers.map((d) => (d.id === driver.id ? driver : d)));
+          onDriversChange(drivers.map((d) => (d.id === driver.id ? normalizedDriver : d)));
           setEditingDriver(null);
         } else {
+          const normalizedDriver: Omit<Driver, "id"> = { ...driver, phone: formattedPhone };
           // Add new driver
           const driversCollectionRef = collection(db, dataSources.firebase.driversCollection);
-          const docRef = await addDoc(driversCollectionRef, driver);
+          const docRef = await addDoc(driversCollectionRef, normalizedDriver);
           //add new driver to the top but under DoorDash
-          onDriversChange([drivers[0], { ...driver, id: docRef.id }, ...drivers.slice(1)]);
+          onDriversChange([drivers[0], { ...normalizedDriver, id: docRef.id }, ...drivers.slice(1)]);
           setIsAddingDriver(false);
           setNewDriver({ name: "", phone: "", email: "" });
         }
