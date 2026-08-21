@@ -132,6 +132,7 @@ const mapReportDelivery = (docSnapshot: QueryDocumentSnapshot): ReportDeliveryRe
     clientId: asString(raw.clientId),
     clientName: asString(raw.clientName),
     deliveryDate: normalizedDate,
+    deliveryStatus: raw.deliveryStatus === "Missed" ? "Missed" : "Scheduled",
     householdSnapshot: normalizeHouseholdSnapshot(
       raw.householdSnapshot as Partial<HouseholdSnapshot> | null | undefined
     ),
