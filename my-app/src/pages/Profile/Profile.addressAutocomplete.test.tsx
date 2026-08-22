@@ -365,6 +365,43 @@ describe("Profile address autocomplete lifecycle", () => {
     });
   });
 
+  it("synchronizes a conflicting stored quadrant from the street before saving", async () => {
+    mockGetDoc.mockImplementation(async (reference: unknown) => {
+      const referenceArgs = (reference as { args: unknown[] }).args;
+      const documentId = referenceArgs[referenceArgs.length - 1];
+      if (documentId === "client-1") {
+        return {
+          exists: () => true,
+          data: () => ({ ...savedProfile, quadrant: "SW" }),
+        };
+      }
+      return { exists: () => true, data: () => ({ tags: [] }) };
+    });
+
+    render(
+      <MemoryRouter
+        initialEntries={["/profile/client-1"]}
+        future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+      >
+        <Routes>
+          <Route path="/profile/:clientId" element={<Profile />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await screen.findByText("100 Main Street NW");
+    fireEvent.click(screen.getAllByTestId("EditIcon")[0].closest("button")!);
+    fireEvent.click(screen.getAllByRole("button", { name: "save" })[0]);
+
+    await waitFor(() => {
+      expect(mockSetDoc).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ quadrant: "NW" }),
+        { merge: true }
+      );
+    });
+  });
+
   it("rejects unsupported international phone prefixes before saving", async () => {
     const alertSpy = jest.spyOn(window, "alert").mockImplementation(() => undefined);
 
