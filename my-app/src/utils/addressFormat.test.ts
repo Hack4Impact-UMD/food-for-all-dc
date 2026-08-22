@@ -4,6 +4,7 @@ import {
   formatAddressWithQuadrant,
   formatAddressWithQuadrantAndUnit,
   normalizeQuadrantToken,
+  resolveAddressQuadrant,
   shouldGeocodeClientLocation,
 } from "./addressFormat";
 
@@ -18,6 +19,18 @@ describe("addressFormat", () => {
         zipCode: "20001",
       })
     ).toBe("100 Main Street NW, Washington, DC, 20001");
+  });
+
+  it("builds a complete DC address when legacy locality fields are blank", () => {
+    expect(
+      buildGeocodingAddress({
+        address: "201 I Street SW",
+        quadrant: "SW",
+        city: "",
+        state: "",
+        zipCode: "20024",
+      })
+    ).toBe("201 I Street SW, Washington, DC, 20024");
   });
 
   it("skips geocoding when the location is unchanged and complete", () => {
@@ -78,6 +91,11 @@ describe("addressFormat", () => {
     expect(formatAddressWithQuadrant("1738 Massachusetts Avenue SE", "SE")).toBe(
       "1738 Massachusetts Avenue SE"
     );
+  });
+
+  it("treats the street quadrant as authoritative when fields disagree", () => {
+    expect(resolveAddressQuadrant("201 I Street SW", "NW")).toBe("SW");
+    expect(formatAddressWithQuadrant("201 I Street SW", "NW")).toBe("201 I Street SW");
   });
 
   it("standardizes full-word directions already in address", () => {

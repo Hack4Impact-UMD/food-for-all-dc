@@ -19,6 +19,7 @@ from threading import Lock
 # For spreadsheet ZIP fallback
 import pandas as pd
 from dotenv import load_dotenv
+from address_utils import build_dc_geocoding_address, canonicalize_dc_street_address
 
 # Load environment variables from my-app/.env
 env_path = os.path.join(os.path.dirname(__file__), "..", "my-app", ".env")
@@ -252,7 +253,7 @@ def get_ward_from_coordinates(coordinates: Optional[List[float]]) -> Optional[st
 		logger.warning("Ward lookup failed for coordinates %s: %s", coordinates, error)
 		return None
 
-def geocode_address_google(address, city, state, zip_code):
+def geocode_address_google(full_address):
 	"""Geocode an address using Google Maps Geocoding API.
 	
 	Returns:
@@ -265,17 +266,6 @@ def geocode_address_google(address, city, state, zip_code):
 	if not api_key:
 		logger.warning("Google Maps API key not found in environment; skipping geocoding")
 		return None
-	
-	# Build full address
-	address_parts = [address]
-	if city:
-		address_parts.append(city)
-	if state:
-		address_parts.append(state)
-	if zip_code:
-		address_parts.append(str(zip_code))
-	
-	full_address = ", ".join(filter(None, address_parts))
 	
 	params = {
 		'address': full_address,
@@ -1705,12 +1695,6 @@ class FirestoreMigration:
 				flags=re.IGNORECASE,
 			)
 
-		def _is_street_style_address(value: Any) -> bool:
-			"""Heuristic: real street addresses usually include at least one digit."""
-			cleaned = _clean_name(value)
-			if not cleaned:
-				return False
-			return bool(re.search(r"\d", cleaned))
 		first_name_raw = row.get("FIRST_database") or row.get("FIRST", "")
 		last_name_raw = row.get("LAST_database") or row.get("LAST", "")
 		first_name = _clean_name(first_name_raw)
@@ -1845,12 +1829,7 @@ class FirestoreMigration:
 		# Spreadsheet often stores quadrant in a separate column; append it when the
 		# address string is missing a quadrant token so downstream UIs/exports are consistent.
 		# Skip status/non-address text rows (e.g., "DECEASED", "MOVED").
-		if (
-			quadrant_value
-			and _is_street_style_address(address_for_coords)
-			and not re.search(r"\b(NE|NW|SE|SW)\b", address_for_coords, flags=re.IGNORECASE)
-		):
-			address_for_coords = f"{address_for_coords} {quadrant_value}".strip()
+		address_for_coords = canonicalize_dc_street_address(address_for_coords, quadrant_value)
 		address = address_for_coords
 		city = _clean_name(row.get("City"))
 		state = _clean_name(row.get("State"))
@@ -1868,7 +1847,14 @@ class FirestoreMigration:
 		coordinates = None
 		
 		# Try geocoding with Google Maps API
-		geocode_result = geocode_address_google(address_for_coords, city, state, zip_in_data)
+		full_geocoding_address = build_dc_geocoding_address(
+			address_for_coords,
+			quadrant_value,
+			city,
+			state,
+			zip_in_data,
+		)
+		geocode_result = geocode_address_google(full_geocoding_address)
 		if geocode_result:
 			latitude = geocode_result.get('latitude')
 			longitude = geocode_result.get('longitude')
