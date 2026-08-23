@@ -917,6 +917,8 @@ const Profile = () => {
         if (name === "phone" || name === "alternativePhone") {
           if (sanitized === "" && name === "phone") {
             newErrors[name] = "Phone is required";
+          } else if (sanitized === "" && name === "alternativePhone") {
+            delete newErrors[name];
           } else if (countDigits(sanitized) < 10) {
             newErrors[name] = "Phone number must contain at least 10 digits";
           } else if (!isValidPhoneFormat(sanitized)) {
