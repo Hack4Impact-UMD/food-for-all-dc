@@ -22,15 +22,25 @@ export const normalizeQuadrantToken = (value: unknown): string => {
   return match?.[1]?.toUpperCase() ?? "";
 };
 
+export const resolveAddressQuadrant = (address: unknown, quadrant: unknown): string =>
+  normalizeQuadrantToken(address) || normalizeQuadrantToken(quadrant);
+
+export const isStreetStyleAddress = (address: unknown): boolean =>
+  typeof address === "string" && /\d/.test(address.trim());
+
 export const formatAddressWithQuadrant = (address: unknown, quadrant: unknown): string => {
   const baseAddress = typeof address === "string" ? standardizeAddressDirections(address).trim() : "";
-  const normalizedQuadrant = normalizeQuadrantToken(quadrant);
+  const normalizedQuadrant = resolveAddressQuadrant(baseAddress, quadrant);
 
   if (!baseAddress) {
     return "";
   }
 
-  if (!normalizedQuadrant || QUADRANT_TOKEN_REGEX.test(baseAddress)) {
+  if (
+    !isStreetStyleAddress(baseAddress) ||
+    !normalizedQuadrant ||
+    normalizeQuadrantToken(baseAddress)
+  ) {
     return baseAddress;
   }
 
@@ -83,15 +93,25 @@ export const buildGeocodingAddress = ({
   city: unknown;
   state: unknown;
   zipCode: unknown;
-}): string =>
-  [
-    formatAddressWithQuadrant(address, quadrant),
-    typeof city === "string" ? city.trim() : "",
-    typeof state === "string" ? state.trim() : "",
+}): string => {
+  const street = formatAddressWithQuadrant(address, quadrant);
+  if (!isStreetStyleAddress(street)) {
+    return "";
+  }
+
+  const resolvedQuadrant = resolveAddressQuadrant(address, quadrant);
+  const normalizedCity = typeof city === "string" ? city.trim() : "";
+  const normalizedState = typeof state === "string" ? state.trim() : "";
+
+  return [
+    street,
+    normalizedCity || (resolvedQuadrant ? "Washington" : ""),
+    normalizedState || (resolvedQuadrant ? "DC" : ""),
     typeof zipCode === "string" ? zipCode.trim() : "",
   ]
     .filter(Boolean)
     .join(", ");
+};
 
 type ClientLocation = Parameters<typeof buildGeocodingAddress>[0] & {
   address2?: unknown;

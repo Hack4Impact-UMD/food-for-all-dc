@@ -3,8 +3,10 @@ import {
   buildGeocodingAddress,
   formatAddressWithQuadrant,
   formatAddressWithQuadrantAndUnit,
+  isStreetStyleAddress,
   normalizeQuadrantToken,
   replaceAddressQuadrant,
+  resolveAddressQuadrant,
   shouldGeocodeClientLocation,
 } from "./addressFormat";
 
@@ -19,6 +21,18 @@ describe("addressFormat", () => {
         zipCode: "20001",
       })
     ).toBe("100 Main Street NW, Washington, DC, 20001");
+  });
+
+  it("builds a complete DC address when legacy locality fields are blank", () => {
+    expect(
+      buildGeocodingAddress({
+        address: "201 I Street SW",
+        quadrant: "SW",
+        city: "",
+        state: "",
+        zipCode: "20024",
+      })
+    ).toBe("201 I Street SW, Washington, DC, 20024");
   });
 
   it("skips geocoding when the location is unchanged and complete", () => {
@@ -81,6 +95,11 @@ describe("addressFormat", () => {
     );
   });
 
+  it("treats the street quadrant as authoritative when fields disagree", () => {
+    expect(resolveAddressQuadrant("201 I Street SW", "NW")).toBe("SW");
+    expect(formatAddressWithQuadrant("201 I Street SW", "NW")).toBe("201 I Street SW");
+  });
+
   it("replaces the street token when a user explicitly changes the quadrant", () => {
     expect(replaceAddressQuadrant("100 Main Street NW", "NE")).toBe("100 Main Street NE");
     expect(replaceAddressQuadrant("100 Main Street Northwest", "SE")).toBe(
@@ -98,6 +117,20 @@ describe("addressFormat", () => {
     expect(formatAddressWithQuadrant("1738 Massachusetts Avenue Southeast", "SE")).toBe(
       "1738 Massachusetts Avenue SE"
     );
+  });
+
+  it("does not turn status text into a geocoding address", () => {
+    expect(isStreetStyleAddress("MOVED")).toBe(false);
+    expect(formatAddressWithQuadrant("MOVED", "SW")).toBe("MOVED");
+    expect(
+      buildGeocodingAddress({
+        address: "MOVED",
+        quadrant: "SW",
+        city: "",
+        state: "",
+        zipCode: "",
+      })
+    ).toBe("");
   });
 
   it("keeps apartment/unit text when formatting full address", () => {

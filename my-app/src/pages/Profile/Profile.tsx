@@ -79,6 +79,7 @@ import {
   buildGeocodingAddress,
   normalizeQuadrantToken,
   replaceAddressQuadrant,
+  resolveAddressQuadrant,
   shouldGeocodeClientLocation,
 } from "../../utils/addressFormat";
 import {
@@ -776,9 +777,12 @@ const Profile = () => {
     [getCoordinates]
   );
 
-  const getWardAndCoordinates = async () => {
+  const getWardAndCoordinates = async (location = clientProfile) => {
     // Apartment/unit data is intentionally excluded because it does not affect map location.
-    const fullAddress = buildGeocodingAddress(clientProfile);
+    const fullAddress = buildGeocodingAddress(location);
+    if (!fullAddress) {
+      return { ward: "No address", coordinates: null };
+    }
     let wardName = "";
     let coordinates: number[] | null = null;
 
@@ -1358,13 +1362,19 @@ const Profile = () => {
       // Always force geocoding and coordinate update on every save
       // Only geocode when address changed or existing coords/ward are missing/invalid
       const existingCoords = clientProfile.coordinates;
-      const needsGeocode = shouldGeocodeClientLocation(clientProfile, prevClientProfile);
+      const resolvedQuadrant = resolveAddressQuadrant(
+        clientProfile.address,
+        clientProfile.quadrant
+      );
+      const canonicalLocation = { ...clientProfile, quadrant: resolvedQuadrant };
+      const needsGeocode = shouldGeocodeClientLocation(canonicalLocation, prevClientProfile);
 
       let fetchedWard: string;
       let coordinatesToSave: [number, number] | [];
 
       if (needsGeocode) {
-        const { ward: geoWard, coordinates: fetchedCoordinates } = await getWardAndCoordinates();
+        const { ward: geoWard, coordinates: fetchedCoordinates } =
+          await getWardAndCoordinates(canonicalLocation);
         const hasValidCoordinates =
           Array.isArray(fetchedCoordinates) &&
           fetchedCoordinates.length === 2 &&
@@ -1518,6 +1528,7 @@ const Profile = () => {
           Number(clientProfile.adults || 0) +
           Number(clientProfile.children || 0) +
           Number(clientProfile.seniors || 0),
+        quadrant: resolvedQuadrant,
         ward: fetchedWard, // Use potentially updated ward
         coordinates: coordinatesToSave, // Use potentially updated coordinates
         referralEntity: selectedCaseWorker
@@ -2785,7 +2796,13 @@ const Profile = () => {
         // Get ward for the selected address
         let ward = "";
         try {
-          const fullAddress = `${street.trim()}, ${city}, ${state} ${zip}`;
+          const fullAddress = buildGeocodingAddress({
+            address: street,
+            quadrant,
+            city,
+            state,
+            zipCode: zip,
+          });
           ward = await getWard(fullAddress);
         } catch (error) {
           console.error("Error getting ward for selected address:", error);
@@ -2815,27 +2832,28 @@ const Profile = () => {
   }, [isGoogleApiLoaded, isEditing, getWard]);
 
   // Debounced ward lookup for manually typed addresses
+  const manualGeocodingAddress = buildGeocodingAddress(clientProfile);
+  const manualAddressNeedsGeocode = Boolean(
+    prevClientProfile && shouldGeocodeClientLocation(clientProfile, prevClientProfile)
+  );
+
   useEffect(() => {
-    if (!isEditing || !clientProfile.address || !prevClientProfile) return;
+    if (!isEditing || !manualGeocodingAddress || !manualAddressNeedsGeocode) return;
 
     const timeoutId = setTimeout(async () => {
-      // Only trigger ward lookup if the address is different from the previous one
-      // and it's not empty
-      if (clientProfile.address.trim() && clientProfile.address !== prevClientProfile?.address) {
-        try {
-          const ward = await getWard(clientProfile.address.trim());
-          setClientProfile((prev) => ({
-            ...prev,
-            ward,
-          }));
-        } catch (error) {
-          console.error("Error getting ward for manually typed address:", error);
-        }
+      try {
+        const ward = await getWard(manualGeocodingAddress);
+        setClientProfile((prev) => ({
+          ...prev,
+          ward,
+        }));
+      } catch (error) {
+        console.error("Error getting ward for manually typed address:", error);
       }
     }, 1500); // Wait 1.5 seconds after user stops typing
 
     return () => clearTimeout(timeoutId);
-  }, [clientProfile.address, isEditing, prevClientProfile?.address, getWard]);
+  }, [manualAddressNeedsGeocode, manualGeocodingAddress, isEditing, getWard]);
 
   // Remove any stray {fieldPath === 'address' ...} JSX outside renderField
 

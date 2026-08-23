@@ -99,7 +99,10 @@ import DietaryRestrictionsLegend from "../../components/DietaryRestrictionsLegen
 import { deliveryDate } from "../../utils/deliveryDate";
 import { deliveryEventEmitter } from "../../utils/deliveryEventEmitter";
 import { useNotifications } from "../../components/NotificationProvider";
-import { formatAddressWithQuadrantAndUnit } from "../../utils/addressFormat";
+import {
+  buildGeocodingAddress,
+  formatAddressWithQuadrantAndUnit,
+} from "../../utils/addressFormat";
 import {
   ClientOverride,
   normalizeAssignmentValue,
@@ -1746,7 +1749,21 @@ const DeliverySpreadsheet: React.FC = () => {
           existingCoordsMap.set(row.id, coords as LatLngTuple);
           finalCoordinates[index] = coords as LatLngTuple; // Pre-fill with existing
         } else {
-          clientsToGeocode.push({ id: row.id, address: row.address, originalIndex: index });
+          const geocodingAddress = buildGeocodingAddress({
+            address: row.address,
+            quadrant: row.quadrant,
+            city: row.city,
+            state: row.state,
+            zipCode: row.zipCode,
+          });
+          if (!geocodingAddress) {
+            return;
+          }
+          clientsToGeocode.push({
+            id: row.id,
+            address: geocodingAddress,
+            originalIndex: index,
+          });
         }
       });
 
