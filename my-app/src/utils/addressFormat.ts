@@ -25,6 +25,9 @@ export const normalizeQuadrantToken = (value: unknown): string => {
 export const resolveAddressQuadrant = (address: unknown, quadrant: unknown): string =>
   normalizeQuadrantToken(address) || normalizeQuadrantToken(quadrant);
 
+export const isStreetStyleAddress = (address: unknown): boolean =>
+  typeof address === "string" && /\d/.test(address.trim());
+
 export const formatAddressWithQuadrant = (address: unknown, quadrant: unknown): string => {
   const baseAddress = typeof address === "string" ? standardizeAddressDirections(address).trim() : "";
   const normalizedQuadrant = resolveAddressQuadrant(baseAddress, quadrant);
@@ -33,7 +36,11 @@ export const formatAddressWithQuadrant = (address: unknown, quadrant: unknown): 
     return "";
   }
 
-  if (!normalizedQuadrant || normalizeQuadrantToken(baseAddress)) {
+  if (
+    !isStreetStyleAddress(baseAddress) ||
+    !normalizedQuadrant ||
+    normalizeQuadrantToken(baseAddress)
+  ) {
     return baseAddress;
   }
 
@@ -72,12 +79,17 @@ export const buildGeocodingAddress = ({
   state: unknown;
   zipCode: unknown;
 }): string => {
+  const street = formatAddressWithQuadrant(address, quadrant);
+  if (!isStreetStyleAddress(street)) {
+    return "";
+  }
+
   const resolvedQuadrant = resolveAddressQuadrant(address, quadrant);
   const normalizedCity = typeof city === "string" ? city.trim() : "";
   const normalizedState = typeof state === "string" ? state.trim() : "";
 
   return [
-    formatAddressWithQuadrant(address, resolvedQuadrant),
+    street,
     normalizedCity || (resolvedQuadrant ? "Washington" : ""),
     normalizedState || (resolvedQuadrant ? "DC" : ""),
     typeof zipCode === "string" ? zipCode.trim() : "",

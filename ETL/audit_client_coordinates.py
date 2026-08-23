@@ -20,6 +20,25 @@ ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_CREDENTIALS = ROOT / "ETL" / "food-for-all-dc-caf23-firebase-adminsdk-fbsvc-4e77c7873e.json"
 DEFAULT_ENV_FILE = ROOT / "my-app" / ".env"
 GEOCODING_URL = "https://maps.googleapis.com/maps/api/geocode/json"
+CSV_FIELDNAMES = [
+    "client_id",
+    "audit_status",
+    "full_address",
+    "stored_quadrant",
+    "stored_zip",
+    "stored_ward",
+    "stored_latitude",
+    "stored_longitude",
+    "geocoded_latitude",
+    "geocoded_longitude",
+    "distance_meters",
+    "geocoded_zip",
+    "formatted_address",
+    "location_type",
+    "partial_match",
+    "geocode_status",
+    "geocode_error",
+]
 
 
 def load_env_file(path: Path) -> None:
@@ -75,13 +94,20 @@ def geocode_full_address(
     full_address: str,
     api_key: str,
 ) -> dict[str, Any]:
-    response = session.get(
-        GEOCODING_URL,
-        params={"address": full_address, "key": api_key},
-        timeout=20,
-    )
-    response.raise_for_status()
-    payload = response.json()
+    try:
+        response = session.get(
+            GEOCODING_URL,
+            params={"address": full_address, "key": api_key},
+            timeout=20,
+        )
+        response.raise_for_status()
+        payload = response.json()
+    except requests.exceptions.RequestException as error:
+        return {
+            "status": "REQUEST_ERROR",
+            "error": f"{type(error).__name__}: Google Maps request failed",
+        }
+
     status = str(payload.get("status", "UNKNOWN"))
     results = payload.get("results") or []
     if status != "OK" or not results:
@@ -121,9 +147,37 @@ def load_geocode_cache(report_path: Optional[Path]) -> dict[str, dict[str, Any]]
     return cache
 
 
+def finite_non_negative_float(value: str) -> float:
+    try:
+        parsed = float(value)
+    except ValueError as error:
+        raise argparse.ArgumentTypeError("must be a finite non-negative number") from error
+    if not math.isfinite(parsed) or parsed < 0:
+        raise argparse.ArgumentTypeError("must be a finite non-negative number")
+    return parsed
+
+
+def escape_csv_cell(value: Any) -> Any:
+    if not isinstance(value, str):
+        return value
+    if value.lstrip().startswith(("=", "+", "-", "@", "\t", "\r", "\n")):
+        return f"'{value}"
+    return value
+
+
+def write_csv_report(csv_path: Path, rows: list[dict[str, Any]]) -> None:
+    with csv_path.open("w", newline="", encoding="utf-8") as output_file:
+        writer = csv.DictWriter(output_file, fieldnames=CSV_FIELDNAMES)
+        writer.writeheader()
+        writer.writerows(
+            {field: escape_csv_cell(row.get(field, "")) for field in CSV_FIELDNAMES}
+            for row in rows
+        )
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Audit saved client coordinates using full addresses.")
-    parser.add_argument("--threshold-meters", type=float, default=250.0)
+    parser.add_argument("--threshold-meters", type=finite_non_negative_float, default=250.0)
     parser.add_argument("--request-delay", type=float, default=0.1)
     parser.add_argument("--collection", default="client-profile2")
     parser.add_argument("--credentials", type=Path, default=DEFAULT_CREDENTIALS)
@@ -214,10 +268,7 @@ def main() -> None:
     date_stamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
     csv_path = args.output_dir / f"client_coordinate_audit_{date_stamp}.csv"
     summary_path = args.output_dir / f"client_coordinate_audit_{date_stamp}.json"
-    with csv_path.open("w", newline="", encoding="utf-8") as output_file:
-        writer = csv.DictWriter(output_file, fieldnames=list(rows[0].keys()))
-        writer.writeheader()
-        writer.writerows(rows)
+    write_csv_report(csv_path, rows)
 
     status_counts = Counter(row["audit_status"] for row in rows)
     summary = {

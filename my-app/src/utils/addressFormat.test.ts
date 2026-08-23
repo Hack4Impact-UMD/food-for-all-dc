@@ -3,6 +3,7 @@ import {
   buildGeocodingAddress,
   formatAddressWithQuadrant,
   formatAddressWithQuadrantAndUnit,
+  isStreetStyleAddress,
   normalizeQuadrantToken,
   resolveAddressQuadrant,
   shouldGeocodeClientLocation,
@@ -102,6 +103,20 @@ describe("addressFormat", () => {
     expect(formatAddressWithQuadrant("1738 Massachusetts Avenue Southeast", "SE")).toBe(
       "1738 Massachusetts Avenue SE"
     );
+  });
+
+  it("does not turn status text into a geocoding address", () => {
+    expect(isStreetStyleAddress("MOVED")).toBe(false);
+    expect(formatAddressWithQuadrant("MOVED", "SW")).toBe("MOVED");
+    expect(
+      buildGeocodingAddress({
+        address: "MOVED",
+        quadrant: "SW",
+        city: "",
+        state: "",
+        zipCode: "",
+      })
+    ).toBe("");
   });
 
   it("keeps apartment/unit text when formatting full address", () => {

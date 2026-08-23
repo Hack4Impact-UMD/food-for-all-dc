@@ -771,6 +771,9 @@ const Profile = () => {
   const getWardAndCoordinates = async (location = clientProfile) => {
     // Apartment/unit data is intentionally excluded because it does not affect map location.
     const fullAddress = buildGeocodingAddress(location);
+    if (!fullAddress) {
+      return { ward: "No address", coordinates: null };
+    }
     let wardName = "";
     let coordinates: number[] | null = null;
 

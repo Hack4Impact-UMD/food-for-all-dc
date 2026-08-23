@@ -76,7 +76,7 @@ jobs:
         run: python -m unittest discover -s functions-python -p 'test_*.py'
 
       - name: Run ETL address unit tests
-        run: python -m unittest discover -s ../ETL -p 'test_address_utils.py'
+        run: python -m unittest discover -s ../ETL -p 'test_address*.py'
 
       - name: Build frontend
         run: CI=false npm run build
