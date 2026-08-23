@@ -75,7 +75,12 @@ import { buildHouseholdSnapshot } from "../../utils/householdSnapshot";
 import { deliveryDate } from "../../utils/deliveryDate";
 import { computeClientActiveStatus } from "../../utils/clientStatus";
 import { toJSDate } from "../../utils/timestamp";
-import { buildGeocodingAddress, shouldGeocodeClientLocation } from "../../utils/addressFormat";
+import {
+  buildGeocodingAddress,
+  normalizeQuadrantToken,
+  replaceAddressQuadrant,
+  shouldGeocodeClientLocation,
+} from "../../utils/addressFormat";
 import {
   buildClientAuditMetadata,
   buildClientAuditWriteMetadata,
@@ -927,6 +932,13 @@ const Profile = () => {
         setErrors(newErrors);
         return updatedProfile;
       });
+    } else if (name === "quadrant") {
+      const normalizedQuadrant = normalizeQuadrantToken(value);
+      setClientProfile((prevState) => ({
+        ...prevState,
+        address: replaceAddressQuadrant(prevState.address, normalizedQuadrant),
+        quadrant: normalizedQuadrant,
+      }));
     } else {
       setClientProfile((prevState) => {
         let updatedProfile = {
@@ -2379,9 +2391,7 @@ const Profile = () => {
       : clientProfile[fieldPath as keyof ClientProfile];
 
     // Determine if the field should be disabled
-    const isDisabledField = ["city", "state", "zipCode", "quadrant", "ward", "total"].includes(
-      fieldPath
-    );
+    const isDisabledField = ["city", "state", "zipCode", "ward", "total"].includes(fieldPath);
 
     return (
       <Box

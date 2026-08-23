@@ -127,7 +127,18 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
         <Typography className="field-descriptor" sx={fieldLabelStyles}>
           QUADRANT
         </Typography>
-        {renderField("quadrant", "text")}
+        {isEditing ? (
+          <Tooltip
+            title="Pre-filled from the selected address. Change it if the address falls in a different quadrant."
+            placement="top"
+          >
+            <span style={{ display: "block", width: "100%" }}>
+              {renderField("quadrant", "select")}
+            </span>
+          </Tooltip>
+        ) : (
+          renderField("quadrant", "select")
+        )}
       </Box>
       {/* Ward */}
       <Box>

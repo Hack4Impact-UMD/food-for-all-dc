@@ -37,6 +37,21 @@ export const formatAddressWithQuadrant = (address: unknown, quadrant: unknown): 
   return `${baseAddress} ${normalizedQuadrant}`.trim();
 };
 
+export const replaceAddressQuadrant = (address: unknown, quadrant: unknown): string => {
+  const baseAddress = typeof address === "string" ? standardizeAddressDirections(address).trim() : "";
+  const normalizedQuadrant = normalizeQuadrantToken(quadrant);
+
+  if (!baseAddress || !normalizedQuadrant) {
+    return baseAddress;
+  }
+
+  if (QUADRANT_TOKEN_REGEX.test(baseAddress)) {
+    return baseAddress.replace(QUADRANT_TOKEN_REGEX, normalizedQuadrant);
+  }
+
+  return `${baseAddress} ${normalizedQuadrant}`.trim();
+};
+
 export const formatAddressWithQuadrantAndUnit = (
   address: unknown,
   quadrant: unknown,

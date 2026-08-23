@@ -4,6 +4,7 @@ import {
   formatAddressWithQuadrant,
   formatAddressWithQuadrantAndUnit,
   normalizeQuadrantToken,
+  replaceAddressQuadrant,
   shouldGeocodeClientLocation,
 } from "./addressFormat";
 
@@ -77,6 +78,19 @@ describe("addressFormat", () => {
   it("does not duplicate quadrant when already present", () => {
     expect(formatAddressWithQuadrant("1738 Massachusetts Avenue SE", "SE")).toBe(
       "1738 Massachusetts Avenue SE"
+    );
+  });
+
+  it("replaces the street token when a user explicitly changes the quadrant", () => {
+    expect(replaceAddressQuadrant("100 Main Street NW", "NE")).toBe("100 Main Street NE");
+    expect(replaceAddressQuadrant("100 Main Street Northwest", "SE")).toBe(
+      "100 Main Street SE"
+    );
+  });
+
+  it("appends the selected quadrant when the street does not contain one", () => {
+    expect(replaceAddressQuadrant("100 Main Street", "Southwest")).toBe(
+      "100 Main Street SW"
     );
   });
 
