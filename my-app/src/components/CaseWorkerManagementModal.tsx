@@ -30,7 +30,7 @@ import {
 } from "../types";
 // Import shared utility functions directly from their specific files
 import { isValidEmail, isValidPhone, validateCaseWorkerFields } from "../utils/validation";
-import { formatPhoneNumber, formatPhoneNumberForSave } from "../utils/format";
+import { formatPhoneNumber } from "../utils/format";
 import dataSources from "../config/dataSources";
 import ConfirmationModal from "./ConfirmationModal";
 
@@ -239,31 +239,25 @@ const CaseWorkerManagementModal: React.FC<CaseWorkerManagementModalProps> = ({
 
       if (Object.keys(validationErrors).length === 0) {
         try {
-          const formattedPhone = formatPhoneNumberForSave(caseWorker.phone) ?? caseWorker.phone;
           if (isEditing && "id" in caseWorker) {
-            const normalizedCaseWorker: CaseWorker = { ...caseWorker, phone: formattedPhone };
             const caseWorkerRef = doc(db, dataSources.firebase.caseWorkersCollection, caseWorker.id);
             await updateDoc(caseWorkerRef, {
               name: caseWorker.name,
               organization: caseWorker.organization,
-              phone: formattedPhone,
+              phone: caseWorker.phone,
               email: caseWorker.email,
             });
             onCaseWorkersChange(
-              caseWorkers.map((cw) => (cw.id === caseWorker.id ? normalizedCaseWorker : cw))
+              caseWorkers.map((cw) => (cw.id === caseWorker.id ? caseWorker : cw))
             );
             setEditingCaseWorker(null);
           } else {
-            const normalizedCaseWorker: Omit<CaseWorker, "id"> = {
-              ...caseWorker,
-              phone: formattedPhone,
-            };
             const caseWorkersCollectionRef = collection(
               db,
               dataSources.firebase.caseWorkersCollection
             );
-            const docRef = await addDoc(caseWorkersCollectionRef, normalizedCaseWorker);
-            onCaseWorkersChange([...caseWorkers, { ...normalizedCaseWorker, id: docRef.id }]);
+            const docRef = await addDoc(caseWorkersCollectionRef, caseWorker);
+            onCaseWorkersChange([...caseWorkers, { ...caseWorker, id: docRef.id }]);
             setIsAddingCaseWorker(false);
             setNewCaseWorker({ name: "", organization: "", phone: "", email: "" });
           }

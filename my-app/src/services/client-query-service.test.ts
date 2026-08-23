@@ -119,30 +119,54 @@ describe("client-query-service", () => {
     expect(mockWhere).toHaveBeenCalledWith("total", "==", 4);
   });
 
-  it("keeps formatted phone values canonical in a not-in constraint", () => {
+  it("matches phone filters against every supported stored format", async () => {
+    const filters = [makeFilter("phone", "==", "(202) 489-8676")];
+    mockGetDocs.mockResolvedValue(
+      createSnapshot([
+        { id: "digits", data: () => ({ phone: "2024898676" }) },
+        { id: "punctuation", data: () => ({ phone: "202-489-8676" }) },
+        { id: "country-code", data: () => ({ phone: "+1 (202) 489-8676" }) },
+        { id: "different", data: () => ({ phone: "5713301121" }) },
+      ])
+    );
+
+    expect(getFirestoreFilters("users", filters)).toHaveLength(0);
+    expect(getComputedFilters("users", filters)).toHaveLength(1);
+    expect(buildFirestoreConstraints("users", filters)).toHaveLength(0);
+
+    const result = await runClientQuery("users", filters);
+
+    expect(result.rows.map((row) => row.id)).toEqual(["digits", "punctuation", "country-code"]);
+    expect(mockWhere).not.toHaveBeenCalled();
+  });
+
+  it("normalizes each value in a not-in phone filter", async () => {
     const filters = [
-      makeFilter("phone", "not-in", ["(571) 330-1121", "(202) 489-8676"]),
+      makeFilter("phone", "not-in", ["(571) 330-1121", "2024898676"]),
+    ];
+    mockGetDocs.mockResolvedValue(
+      createSnapshot([
+        { id: "excluded-formatted", data: () => ({ phone: "571-330-1121" }) },
+        { id: "excluded-digits", data: () => ({ phone: "2024898676" }) },
+        { id: "included", data: () => ({ phone: "3015550100" }) },
+      ])
+    );
+
+    const result = await runClientQuery("users", filters);
+
+    expect(result.rows.map((row) => row.id)).toEqual(["included"]);
+  });
+
+  it("keeps role filtering in Firestore while applying phone filtering client-side", () => {
+    const filters = [
+      makeFilter("role", "==", "Manager"),
+      makeFilter("phone", "==", "2024898676"),
     ];
 
     buildFirestoreConstraints("users", filters);
 
-    expect(mockWhere).toHaveBeenCalledWith(
-      "phone",
-      "not-in",
-      ["(571) 330-1121", "(202) 489-8676"]
-    );
-  });
-
-  it("formats digits-only phone values before building a not-in constraint", () => {
-    const filters = [makeFilter("phone", "not-in", ["5713301121", "2024898676"])];
-
-    buildFirestoreConstraints("users", filters);
-
-    expect(mockWhere).toHaveBeenCalledWith(
-      "phone",
-      "not-in",
-      ["(571) 330-1121", "(202) 489-8676"]
-    );
+    expect(mockWhere).toHaveBeenCalledTimes(1);
+    expect(mockWhere).toHaveBeenCalledWith("role", "==", "Manager");
   });
 
   it("converts a date-only updatedAt filter into a start-of-day Firestore Timestamp", () => {
