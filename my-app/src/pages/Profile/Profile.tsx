@@ -900,13 +900,14 @@ const Profile = () => {
       }));
     } else if (name === "phone" || name === "alternativePhone") {
       setClientProfile((prevState) => {
-        const updatedProfile = {
-          ...prevState,
-          [name]: value,
-        };
-
         const sanitizePhone = (v: string) =>
           v.replace(/[^\d\s().+-]/g, "").trim();
+        const sanitized = sanitizePhone(value);
+        const updatedProfile = {
+          ...prevState,
+          [name]: sanitized,
+        };
+
         const countDigits = (str: string) => (str.match(/\d/g) || []).length;
         const isValidPhoneFormat = (phone: string) => {
           return /^(\+1\s?)?((\(\d{3}\))|\d{3})[\s.-]?\d{3}[\s.-]?\d{4}$/.test(phone);
@@ -914,14 +915,13 @@ const Profile = () => {
         const newErrors = { ...errors };
 
         if (name === "phone" || name === "alternativePhone") {
-          const sanitized = sanitizePhone(value);
           if (sanitized === "" && name === "phone") {
             newErrors[name] = "Phone is required";
           } else if (countDigits(sanitized) < 10) {
             newErrors[name] = "Phone number must contain at least 10 digits";
           } else if (!isValidPhoneFormat(sanitized)) {
             newErrors[name] =
-              `"${value}" is an invalid format. Please see the i icon for allowed formats.`;
+              `"${sanitized}" is an invalid format. Please see the i icon for allowed formats.`;
           } else {
             delete newErrors[name];
           }
