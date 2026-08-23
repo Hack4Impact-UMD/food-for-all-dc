@@ -22,6 +22,60 @@ describe("clientStatus utilities", () => {
   });
 
   // App coverage:
+  // - historical reports need stable status results when rerun after a client's end date
+  // - other app surfaces should continue to evaluate status against today by default
+  // Behavior contract: an explicit reference date replaces today without changing inclusive boundaries.
+  it("evaluates active status against an explicit reference date", () => {
+    const fixedToday = DateTime.fromISO("2026-08-23T12:00:00", { zone: deliveryDate.zone });
+    jest.spyOn(deliveryDate, "today").mockReturnValue(fixedToday);
+
+    expect(computeClientActiveStatus("2026-06-01", "2026-08-12")).toBe(false);
+    expect(
+      computeClientActiveStatus("2026-06-01", "2026-08-12", null, {
+        referenceDate: "2026-08-12",
+      })
+    ).toBe(true);
+    expect(
+      computeClientActiveStatus("2026-08-13", "2026-12-31", null, {
+        referenceDate: "2026-08-12",
+      })
+    ).toBe(false);
+  });
+
+  // App coverage:
+  // - three-strikes automation replaces endDate but preserves the strike date and prior end date
+  // - historical reports before the strike need the client's pre-strike status
+  // Behavior contract: strike status starts on the strike date; earlier dates use the prior end date.
+  it("reconstructs three-strikes status for a historical reference date", () => {
+    expect(
+      computeClientActiveStatus("2026-06-01", "2026-08-20", "three-strikes", {
+        referenceDate: "2026-08-12",
+        autoInactiveStrikeDate: "2026-08-20",
+        autoInactivePreviousEndDate: "2026-12-31",
+      })
+    ).toBe(true);
+    expect(
+      computeClientActiveStatus("2026-06-01", "2026-08-20", "three-strikes", {
+        referenceDate: "2026-08-12",
+        autoInactiveStrikeDate: "2026-08-20",
+        autoInactivePreviousEndDate: "2026-08-10",
+      })
+    ).toBe(false);
+    expect(
+      computeClientActiveStatus("2026-06-01", "2026-08-20", "three-strikes", {
+        referenceDate: "2026-08-20",
+        autoInactiveStrikeDate: "2026-08-20",
+        autoInactivePreviousEndDate: "2026-12-31",
+      })
+    ).toBe(false);
+    expect(
+      computeClientActiveStatus("2026-06-01", "2026-08-20", "three-strikes", {
+        referenceDate: "2026-08-12",
+      })
+    ).toBe(false);
+  });
+
+  // App coverage:
   // - three-strikes automation should force inactive presentation regardless of date range validity
   // - this override prevents re-activation by date edits alone when strike policy applies
   // Behavior contract: autoInactiveReason=three-strikes always returns inactive.

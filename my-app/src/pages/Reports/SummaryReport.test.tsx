@@ -55,14 +55,14 @@ describe("SummaryReport", () => {
         uid: "active-without-delivery",
         firstName: "Test",
         lastName: "Client",
-        startDate: DateTime.now().minus({ days: 30 }),
-        endDate: DateTime.now().plus({ days: 30 }),
+        startDate: DateTime.fromISO("2026-06-01"),
+        endDate: DateTime.fromISO("2026-08-12"),
         tags: ["HFA"],
       },
     ]);
   });
 
-  it("loads all clients so an active client without a date-scoped delivery contributes tags", async () => {
+  it("counts an unserved client who was active at the selected report end date", async () => {
     render(<SummaryReport />);
 
     fireEvent.click(screen.getByRole("button", { name: "Generate" }));

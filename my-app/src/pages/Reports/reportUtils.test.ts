@@ -1,6 +1,5 @@
 import { DateTime } from "luxon";
 import { describe, expect, it } from "@jest/globals";
-import { deliveryDate } from "../../utils/deliveryDate";
 import {
   buildSummaryReportData,
   ReportClientRecord,
@@ -11,14 +10,12 @@ const createClient = (
   uid: string,
   overrides: Partial<ReportClientRecord> = {}
 ): ReportClientRecord => {
-  const today = deliveryDate.today();
-
   return {
     uid,
     firstName: "Test",
     lastName: uid,
-    startDate: today.minus({ days: 30 }),
-    endDate: today.plus({ days: 30 }),
+    startDate: "2026-06-01",
+    endDate: "2026-12-31",
     adults: 2,
     children: 1,
     seniors: 0,
@@ -42,9 +39,10 @@ const createDelivery = (id: string, clientId: string): ReportDeliveryRecord => (
 });
 
 describe("buildSummaryReportData", () => {
-  it("counts attributes once for every eligible active client, including clients without an in-range delivery", () => {
+  it("counts attributes for clients active at the selected report end date", () => {
     const activeWithoutDelivery = createClient("active-without-delivery", {
-      tags: ["HFA", "HFA", "FAM"],
+      endDate: "2026-08-12",
+      tags: ["HFA", "HFA", "FAM", "Historical"],
       deliveryDetails: { dietaryRestrictions: { halal: true } },
       physicalAilments: { diabetes: true },
       physicalDisability: { other: true },
@@ -52,18 +50,41 @@ describe("buildSummaryReportData", () => {
     });
     const servedActiveClient = createClient("served-active", { tags: ["HFA", "FAM"] });
     const expiredClient = createClient("expired", {
-      endDate: deliveryDate.today().minus({ days: 1 }),
+      endDate: "2026-08-11",
       tags: ["HFA"],
       deliveryDetails: { dietaryRestrictions: { vegan: true } },
       physicalAilments: { hypertension: true },
     });
     const futureClient = createClient("future", {
-      startDate: deliveryDate.today().plus({ days: 1 }),
-      tags: ["HFA"],
+      startDate: "2026-08-13",
+      tags: ["Future"],
     });
     const threeStrikesClient = {
-      ...createClient("three-strikes", { tags: ["HFA"] }),
+      ...createClient("three-strikes", {
+        endDate: "2026-08-01",
+        tags: ["HFA"],
+      }),
       autoInactiveReason: "three-strikes",
+      autoInactivePreviousEndDate: "2026-12-31",
+      autoInactiveStrikeDate: "2026-08-01",
+    } as ReportClientRecord;
+    const struckAfterReportEnd = {
+      ...createClient("future-three-strikes", {
+        endDate: "2026-08-20",
+        tags: ["HFA", "PreStrike"],
+      }),
+      autoInactiveReason: "three-strikes",
+      autoInactivePreviousEndDate: "2026-12-31",
+      autoInactiveStrikeDate: "2026-08-20",
+    } as ReportClientRecord;
+    const endedBeforeFutureStrike = {
+      ...createClient("ended-before-future-strike", {
+        endDate: "2026-08-20",
+        tags: ["EndedBeforeStrike"],
+      }),
+      autoInactiveReason: "three-strikes",
+      autoInactivePreviousEndDate: "2026-08-10",
+      autoInactiveStrikeDate: "2026-08-20",
     } as ReportClientRecord;
     const servedEvents = [
       createDelivery("delivery-1", servedActiveClient.uid),
@@ -78,6 +99,8 @@ describe("buildSummaryReportData", () => {
         expiredClient,
         futureClient,
         threeStrikesClient,
+        struckAfterReportEnd,
+        endedBeforeFutureStrike,
       ],
       servedEvents,
       firstDeliveriesByClientId: new Map(),
@@ -85,8 +108,12 @@ describe("buildSummaryReportData", () => {
       end: DateTime.fromISO("2026-08-12").endOf("day"),
     });
 
-    expect(result.data.Tags.HFA.value).toBe(2);
+    expect(result.data.Tags.HFA.value).toBe(3);
     expect(result.data.Tags.FAM.value).toBe(2);
+    expect(result.data.Tags.Historical.value).toBe(1);
+    expect(result.data.Tags.PreStrike.value).toBe(1);
+    expect(result.data.Tags.Future).toBeUndefined();
+    expect(result.data.Tags.EndedBeforeStrike).toBeUndefined();
     expect(
       result.data["FAM (Food as Medicine)"]["Clients Receiving Medically Tailored Food"].value
     ).toBe(1);
