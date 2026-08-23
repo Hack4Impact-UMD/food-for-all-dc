@@ -40,6 +40,8 @@ export interface ReportClientRecord {
   startDate?: SupportedDateInput;
   endDate?: SupportedDateInput;
   autoInactiveReason?: string | null;
+  autoInactivePreviousEndDate?: SupportedDateInput;
+  autoInactiveStrikeDate?: SupportedDateInput;
   adults?: number;
   seniors?: number;
   children?: number;
@@ -453,7 +455,11 @@ export const buildSummaryReportData = ({
   const clientsById = getClientMap(clients);
   const servedEventsByClientId = groupEventsByClientId(servedEvents);
   const activeClients = Array.from(clientsById.values()).filter((client) =>
-    computeClientActiveStatus(client.startDate, client.endDate, client.autoInactiveReason)
+    computeClientActiveStatus(client.startDate, client.endDate, client.autoInactiveReason, {
+      referenceDate: end,
+      autoInactiveStrikeDate: client.autoInactiveStrikeDate,
+      autoInactivePreviousEndDate: client.autoInactivePreviousEndDate,
+    })
   );
 
   let usedLegacySnapshotFallback = false;

@@ -72,6 +72,22 @@ const mapReportClient = (docSnapshot: QueryDocumentSnapshot): ReportClientRecord
     endDate: (raw.endDate as string | Date | Timestamp | DateTime | null | undefined) ?? null,
     autoInactiveReason:
       typeof raw.autoInactiveReason === "string" ? raw.autoInactiveReason : null,
+    autoInactivePreviousEndDate:
+      (raw.autoInactivePreviousEndDate as
+        | string
+        | Date
+        | Timestamp
+        | DateTime
+        | null
+        | undefined) ?? null,
+    autoInactiveStrikeDate:
+      (raw.autoInactiveStrikeDate as
+        | string
+        | Date
+        | Timestamp
+        | DateTime
+        | null
+        | undefined) ?? null,
     referralEntity: referralEntity
       ? {
           id:

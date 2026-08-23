@@ -1,6 +1,4 @@
-import type { Timestamp } from "firebase/firestore";
-import type { DateTime } from "luxon";
-import { deliveryDate } from "./deliveryDate";
+import { deliveryDate, type DeliveryDateInput } from "./deliveryDate";
 
 const ACTIVE_ICON_PATH =
   "M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z";
@@ -15,29 +13,59 @@ export interface ClientStatusPresentation {
   tooltip: string;
 }
 
+export interface ClientActiveStatusOptions {
+  referenceDate?: DeliveryDateInput;
+  autoInactiveStrikeDate?: DeliveryDateInput;
+  autoInactivePreviousEndDate?: DeliveryDateInput;
+}
+
 export const computeClientActiveStatus = (
-  startDate: string | Date | DateTime | Timestamp | null | undefined,
-  endDate: string | Date | DateTime | Timestamp | null | undefined,
-  autoInactiveReason?: string | null
+  startDate: DeliveryDateInput,
+  endDate: DeliveryDateInput,
+  autoInactiveReason?: string | null,
+  options: ClientActiveStatusOptions = {}
 ): boolean => {
-  if (autoInactiveReason === "three-strikes") {
+  const hasReferenceDate = options.referenceDate !== null && options.referenceDate !== undefined;
+  const statusDate = hasReferenceDate
+    ? deliveryDate.tryToDateTime(options.referenceDate)?.startOf("day")
+    : deliveryDate.today().startOf("day");
+  if (!statusDate?.isValid) {
     return false;
   }
 
-  const today = deliveryDate.today().startOf("day");
+  let effectiveEndDate = endDate;
+  if (autoInactiveReason === "three-strikes") {
+    if (!hasReferenceDate) {
+      return false;
+    }
+
+    const strikeDate = options.autoInactiveStrikeDate
+      ? deliveryDate.tryToDateTime(options.autoInactiveStrikeDate)?.startOf("day")
+      : null;
+    if (!strikeDate?.isValid || statusDate.toMillis() >= strikeDate.toMillis()) {
+      return false;
+    }
+
+    effectiveEndDate = options.autoInactivePreviousEndDate;
+  }
+
   const startDateTime = startDate ? deliveryDate.tryToDateTime(startDate)?.startOf("day") : null;
   if (!startDateTime?.isValid) {
     return false;
   }
 
-  const endDateTime = endDate ? deliveryDate.tryToDateTime(endDate)?.startOf("day") : null;
-  const todayMillis = today.toMillis();
+  const endDateTime = effectiveEndDate
+    ? deliveryDate.tryToDateTime(effectiveEndDate)?.startOf("day")
+    : null;
+  const statusDateMillis = statusDate.toMillis();
 
   if (endDateTime?.isValid) {
-    return todayMillis >= startDateTime.toMillis() && todayMillis <= endDateTime.toMillis();
+    return (
+      statusDateMillis >= startDateTime.toMillis() && statusDateMillis <= endDateTime.toMillis()
+    );
   }
 
-  return todayMillis >= startDateTime.toMillis();
+  return statusDateMillis >= startDateTime.toMillis();
 };
 
 export const getClientStatusPresentation = (
