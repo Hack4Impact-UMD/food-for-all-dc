@@ -2227,9 +2227,17 @@ const DeliverySpreadsheet: React.FC = () => {
                     checkStringContains(row.lastName, candidate)
                 );
               case "address":
-                return matchesAnySearchValue((candidate) =>
-                  checkStringContains(row.address, candidate)
-                );
+                return matchesAnySearchValue((candidate) => {
+                  const formattedAddress = formatAddressWithQuadrantAndUnit(
+                    row.address,
+                    row.quadrant,
+                    row.address2
+                  );
+                  return checkStringContains(
+                    `${formattedAddress}${row.zipCode ? ` ${row.zipCode}` : ""}`,
+                    candidate
+                  );
+                });
               case "ward":
                 return matchesAnySearchValue((candidate) => checkStringEquals(row.ward, candidate));
               case "zip":
@@ -3213,7 +3221,7 @@ const DeliverySpreadsheet: React.FC = () => {
                 onBlur={searchAutocomplete.handleInputBlur}
                 onKeyDown={searchAutocomplete.handleInputKeyDown}
                 onKeyUp={searchAutocomplete.handleInputKeyUp}
-                placeholder='Search deliveries (use ; between filters, e.g., cluster:1,2; ward:7; driver:maria; name:"john smith")'
+                placeholder='Search deliveries (use ; between filters, e.g., address:"123 Main St NE"; cluster:1,2; driver:maria; name:"john smith")'
                 style={{
                   width: "100%",
                   height: "60px",
