@@ -86,6 +86,7 @@ import {
   buildClientAuditWriteMetadata,
 } from "../../utils/clientAudit";
 import { removeTagMetadataIfUnused } from "./Tags/tagPersistence";
+import { formatPhoneNumberForSave, normalizePhoneInput } from "../../utils/format";
 
 const ADDRESS_DIRECTION_ABBREVIATIONS: Record<string, string> = {
   northeast: "NE",
@@ -105,16 +106,22 @@ const extractQuadrantAbbreviation = (value: string): string => {
   return match?.[1]?.toUpperCase() ?? "";
 };
 
-const formatProfilePhoneForSave = (value: unknown): string => {
-  if (typeof value !== "string") return "";
+const getProfilePhoneError = (value: string, required: boolean): string | undefined => {
   const trimmedValue = value.trim();
-  if (!trimmedValue) return "";
+  if (!trimmedValue) return required ? "Phone is required" : undefined;
 
-  const digits = trimmedValue.replace(/\D/g, "");
-  const nationalDigits = digits.length === 11 && digits.startsWith("1") ? digits.slice(1) : digits;
-  const match = nationalDigits.match(/^(\d{3})(\d{3})(\d{4})$/);
+  if ((trimmedValue.match(/\d/g) || []).length < 10) {
+    return "Phone number must contain at least 10 digits";
+  }
 
-  return match ? `(${match[1]}) ${match[2]}-${match[3]}` : trimmedValue;
+  return formatPhoneNumberForSave(trimmedValue) === null
+    ? `"${trimmedValue}" is an invalid format. Please see the i icon for allowed formats.`
+    : undefined;
+};
+
+const formatProfilePhoneForSave = (value: unknown): string => {
+  const normalizedValue = normalizePhoneInput(typeof value === "string" ? value : "");
+  return formatPhoneNumberForSave(normalizedValue) ?? normalizedValue.trim();
 };
 
 const fieldStyles = {
@@ -904,33 +911,17 @@ const Profile = () => {
         [name]: Number(value),
       }));
     } else if (name === "phone" || name === "alternativePhone") {
-      setClientProfile((prevState) => {
-        const updatedProfile = {
-          ...prevState,
-          [name]: value,
-        };
-
-        const countDigits = (str: string) => (str.match(/\d/g) || []).length;
-        const isValidPhoneFormat = (phone: string) => {
-          return /^(\+1\s?)?((\(\d{3}\))|\d{3})[\s.-]?\d{3}[\s.-]?\d{4}$/.test(phone);
-        };
-        const newErrors = { ...errors };
-
-        if (name === "phone" || name === "alternativePhone") {
-          if (value.trim() === "" && name === "phone") {
-            newErrors[name] = "Phone is required";
-          } else if (countDigits(value) < 10) {
-            newErrors[name] = "Phone number must contain at least 10 digits";
-          } else if (!isValidPhoneFormat(value)) {
-            newErrors[name] =
-              `"${value}" is an invalid format. Please see the i icon for allowed formats.`;
-          } else {
-            delete newErrors[name];
-          }
-        }
-
-        setErrors(newErrors);
-        return updatedProfile;
+      const normalizedValue = normalizePhoneInput(value);
+      setClientProfile((prevState) => ({
+        ...prevState,
+        [name]: normalizedValue,
+      }));
+      setErrors((previousErrors) => {
+        const newErrors = { ...previousErrors };
+        const phoneError = getProfilePhoneError(normalizedValue, name === "phone");
+        if (phoneError) newErrors[name] = phoneError;
+        else delete newErrors[name];
+        return newErrors;
       });
     } else if (name === "quadrant") {
       const normalizedQuadrant = normalizeQuadrantToken(value);
@@ -1032,27 +1023,13 @@ const Profile = () => {
       newErrors.total = "At least one adult or senior is required";
     }
 
-    // Count digits and validate phone number format
-    const countDigits = (str: string) => (str.match(/\d/g) || []).length;
-    const isValidPhoneFormat = (phone: string) => {
-      // Allowed formats: (123) 456-7890, 123-456-7890, 123.456.7890, 123 456 7890, 1234567890, +1 123-456-7890
-      return /^(\+1\s?)?((\(\d{3}\))|\d{3})[\s.-]?\d{3}[\s.-]?\d{4}$/.test(phone);
-    };
+    const normalizedPhone = normalizePhoneInput(clientProfile.phone ?? "");
+    const phoneError = getProfilePhoneError(normalizedPhone, true);
+    if (phoneError) newErrors.phone = phoneError;
 
-    if (!clientProfile.phone?.trim()) {
-      newErrors.phone = "Phone is required";
-    } else if (countDigits(clientProfile.phone) < 10) {
-      newErrors.phone = "Phone number must contain at least 10 digits";
-    } else if (!isValidPhoneFormat(clientProfile.phone)) {
-      newErrors.phone = `"${clientProfile.phone}" is an invalid format. Please see the i icon for allowed formats.`;
-    }
-    if (
-      clientProfile.alternativePhone?.trim() &&
-      (countDigits(clientProfile.alternativePhone) < 10 ||
-        !isValidPhoneFormat(clientProfile.alternativePhone))
-    ) {
-      newErrors.alternativePhone = `"${clientProfile.alternativePhone}" is an invalid format. Please see the i icon for allowed formats.`;
-    }
+    const normalizedAltPhone = normalizePhoneInput(clientProfile.alternativePhone ?? "");
+    const alternativePhoneError = getProfilePhoneError(normalizedAltPhone, false);
+    if (alternativePhoneError) newErrors.alternativePhone = alternativePhoneError;
 
     //validate head of household logic
     if (

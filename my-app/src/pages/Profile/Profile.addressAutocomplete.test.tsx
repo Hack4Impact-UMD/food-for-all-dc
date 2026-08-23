@@ -404,6 +404,120 @@ describe("Profile address autocomplete lifecycle", () => {
     });
   });
 
+  it("removes invisible pasted characters from phone fields before display and save", async () => {
+    render(
+      <MemoryRouter
+        initialEntries={["/profile/client-1"]}
+        future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+      >
+        <Routes>
+          <Route path="/profile/:clientId" element={<Profile />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await screen.findByText("100 Main Street NW");
+
+    fireEvent.click(screen.getAllByTestId("EditIcon")[0].closest("button")!);
+    fireEvent.change(await screen.findByRole("textbox", { name: "phone" }), {
+      target: { name: "phone", value: "202\u200B.555\u200E.0101\u2060" },
+    });
+    fireEvent.change(screen.getByRole("textbox", { name: "alternativePhone" }), {
+      target: { name: "alternativePhone", value: "+1\u00A0202-555-0102\uFEFF" },
+    });
+
+    expect((screen.getByRole("textbox", { name: "phone" }) as HTMLInputElement).value).toBe(
+      "202.555.0101"
+    );
+    expect(
+      (screen.getByRole("textbox", { name: "alternativePhone" }) as HTMLInputElement).value
+    ).toBe("+1 202-555-0102");
+
+    fireEvent.click(screen.getAllByRole("button", { name: "save" })[0]);
+
+    await waitFor(() => {
+      expect(mockSetDoc).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          phone: "(202) 555-0101",
+          alternativePhone: "(202) 555-0102",
+        }),
+        { merge: true }
+      );
+    });
+  });
+
+  it("keeps visible invalid characters and blocks the save", async () => {
+    const alertSpy = jest.spyOn(window, "alert").mockImplementation(() => undefined);
+
+    render(
+      <MemoryRouter
+        initialEntries={["/profile/client-1"]}
+        future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+      >
+        <Routes>
+          <Route path="/profile/:clientId" element={<Profile />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await screen.findByText("100 Main Street NW");
+
+    fireEvent.click(screen.getAllByTestId("EditIcon")[0].closest("button")!);
+    fireEvent.change(await screen.findByRole("textbox", { name: "alternativePhone" }), {
+      target: { name: "alternativePhone", value: "call 202/555/0102" },
+    });
+
+    expect(
+      (screen.getByRole("textbox", { name: "alternativePhone" }) as HTMLInputElement).value
+    ).toBe("call 202/555/0102");
+    fireEvent.click(screen.getAllByRole("button", { name: "save" })[0]);
+
+    await waitFor(() => {
+      expect(alertSpy).toHaveBeenCalledWith(expect.stringContaining("invalid format"));
+    });
+    expect(mockSetDoc).not.toHaveBeenCalled();
+
+    alertSpy.mockRestore();
+  });
+
+  it("clears an existing invisible-only alternative phone on save", async () => {
+    mockGetDoc.mockImplementation(async (reference: unknown) => {
+      const referenceArgs = (reference as { args: unknown[] }).args;
+      const documentId = referenceArgs[referenceArgs.length - 1];
+      if (documentId === "client-1") {
+        return {
+          exists: () => true,
+          data: () => ({ ...savedProfile, alternativePhone: "\u200B\u2060" }),
+        };
+      }
+      return { exists: () => true, data: () => ({ tags: [] }) };
+    });
+
+    render(
+      <MemoryRouter
+        initialEntries={["/profile/client-1"]}
+        future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+      >
+        <Routes>
+          <Route path="/profile/:clientId" element={<Profile />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await screen.findByText("100 Main Street NW");
+    fireEvent.click(screen.getAllByTestId("EditIcon")[0].closest("button")!);
+    fireEvent.click(screen.getAllByRole("button", { name: "save" })[0]);
+
+    await waitFor(() => {
+      expect(mockSetDoc).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ alternativePhone: "" }),
+        { merge: true }
+      );
+    });
+  });
+
   it("rejects unsupported international phone prefixes before saving", async () => {
     const alertSpy = jest.spyOn(window, "alert").mockImplementation(() => undefined);
 
