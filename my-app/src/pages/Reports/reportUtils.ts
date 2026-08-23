@@ -5,6 +5,7 @@ import { HouseholdSnapshot } from "../../types/delivery-types";
 import TimeUtils from "../../utils/timeUtils";
 import { buildHouseholdSnapshot, normalizeHouseholdSnapshot } from "../../utils/householdSnapshot";
 import { deliveryDate } from "../../utils/deliveryDate";
+import { computeClientActiveStatus } from "../../utils/clientStatus";
 
 export type SnapshotClientStatus = "active" | "lapsed" | "inactive";
 
@@ -38,6 +39,7 @@ export interface ReportClientRecord {
   zipCode?: string;
   startDate?: SupportedDateInput;
   endDate?: SupportedDateInput;
+  autoInactiveReason?: string | null;
   adults?: number;
   seniors?: number;
   children?: number;
@@ -415,13 +417,9 @@ const incrementDietaryRestrictions = (report: SummaryData, client: ReportClientR
   dietarySection["No Restrictions"].value += 1;
 };
 
-const incrementTagCounts = (report: SummaryData, client: ReportClientRecord) => {
+const incrementGenericTagCounts = (report: SummaryData, client: ReportClientRecord) => {
   const tags = getClientTagSet(client);
   const tagSection = report.Tags;
-
-  if (tags.has("FAM")) {
-    report["FAM (Food as Medicine)"]["Clients Receiving Medically Tailored Food"].value += 1;
-  }
 
   tags.forEach((tag) => {
     if (tagSection[tag]) {
@@ -454,6 +452,9 @@ export const buildSummaryReportData = ({
   const referralAgencies = new Set<string>();
   const clientsById = getClientMap(clients);
   const servedEventsByClientId = groupEventsByClientId(servedEvents);
+  const activeClients = Array.from(clientsById.values()).filter((client) =>
+    computeClientActiveStatus(client.startDate, client.endDate, client.autoInactiveReason)
+  );
 
   let usedLegacySnapshotFallback = false;
 
@@ -488,6 +489,10 @@ export const buildSummaryReportData = ({
       return;
     }
 
+    if (getClientTagSet(client).has("FAM")) {
+      report["FAM (Food as Medicine)"]["Clients Receiving Medically Tailored Food"].value += 1;
+    }
+
     demographics["Total Seniors"].value += firstInPeriodSnapshot.seniors;
     demographics["Total Adults"].value += firstInPeriodSnapshot.adults;
     demographics["Total Children"].value += firstInPeriodSnapshot.children;
@@ -518,7 +523,9 @@ export const buildSummaryReportData = ({
 
       usedLegacySnapshotFallback ||= usedFirstEverFallback;
     }
+  });
 
+  activeClients.forEach((client) => {
     if (hasTruthyCondition(client.physicalAilments)) {
       health["Client Health Conditions (Physical Ailments)"].value += 1;
     }
@@ -540,7 +547,7 @@ export const buildSummaryReportData = ({
     );
 
     incrementDietaryRestrictions(report, client);
-    incrementTagCounts(report, client);
+    incrementGenericTagCounts(report, client);
   });
 
   referrals["New Referral Sources"].value = referralAgencies.size;

@@ -17,6 +17,7 @@ jest.mock("../config/dataSources", () => ({
       clientsCollection: "client-profile2",
       calendarCollection: "events",
       clustersCollection: "clusters",
+      usersCollection: "users",
     },
   },
 }));
@@ -33,8 +34,10 @@ jest.mock("firebase/firestore", () => ({
   where: (...args: unknown[]) => mockWhere(...args),
   doc: (..._args: unknown[]) => ({ mocked: "doc" }),
   getDoc: (...args: unknown[]) => mockGetDoc(...args),
-  Timestamp: {
-    fromDate: (date: Date) => ({ mocked: "timestamp", date }),
+  Timestamp: class MockTimestamp {
+    static fromDate(date: Date) {
+      return { mocked: "timestamp", date };
+    }
   },
 }));
 
@@ -114,6 +117,56 @@ describe("client-query-service", () => {
     const filters = [makeFilter("total", "==", "4")];
     buildFirestoreConstraints("clients", filters);
     expect(mockWhere).toHaveBeenCalledWith("total", "==", 4);
+  });
+
+  it("matches phone filters against every supported stored format", async () => {
+    const filters = [makeFilter("phone", "==", "(202) 489-8676")];
+    mockGetDocs.mockResolvedValue(
+      createSnapshot([
+        { id: "digits", data: () => ({ phone: "2024898676" }) },
+        { id: "punctuation", data: () => ({ phone: "202-489-8676" }) },
+        { id: "country-code", data: () => ({ phone: "+1 (202) 489-8676" }) },
+        { id: "different", data: () => ({ phone: "5713301121" }) },
+      ])
+    );
+
+    expect(getFirestoreFilters("users", filters)).toHaveLength(0);
+    expect(getComputedFilters("users", filters)).toHaveLength(1);
+    expect(buildFirestoreConstraints("users", filters)).toHaveLength(0);
+
+    const result = await runClientQuery("users", filters);
+
+    expect(result.rows.map((row) => row.id)).toEqual(["digits", "punctuation", "country-code"]);
+    expect(mockWhere).not.toHaveBeenCalled();
+  });
+
+  it("normalizes each value in a not-in phone filter", async () => {
+    const filters = [
+      makeFilter("phone", "not-in", ["(571) 330-1121", "2024898676"]),
+    ];
+    mockGetDocs.mockResolvedValue(
+      createSnapshot([
+        { id: "excluded-formatted", data: () => ({ phone: "571-330-1121" }) },
+        { id: "excluded-digits", data: () => ({ phone: "2024898676" }) },
+        { id: "included", data: () => ({ phone: "3015550100" }) },
+      ])
+    );
+
+    const result = await runClientQuery("users", filters);
+
+    expect(result.rows.map((row) => row.id)).toEqual(["included"]);
+  });
+
+  it("keeps role filtering in Firestore while applying phone filtering client-side", () => {
+    const filters = [
+      makeFilter("role", "==", "Manager"),
+      makeFilter("phone", "==", "2024898676"),
+    ];
+
+    buildFirestoreConstraints("users", filters);
+
+    expect(mockWhere).toHaveBeenCalledTimes(1);
+    expect(mockWhere).toHaveBeenCalledWith("role", "==", "Manager");
   });
 
   it("converts a date-only updatedAt filter into a start-of-day Firestore Timestamp", () => {
@@ -228,6 +281,52 @@ describe("client-query-service", () => {
     const result = await runClientQuery("deliveries", filters);
 
     expect(result.rows.map((row) => row.id)).toEqual(["normal", "restored"]);
+  });
+
+  it("filters routes by driver after enriching cluster assignments", async () => {
+    const filters = [makeFilter("assignedDriverName", "==", "Driver One")];
+    mockGetDocs
+      .mockResolvedValueOnce(
+        createSnapshot([
+          {
+            id: "client-1",
+            data: () => ({
+              clientId: "client-1",
+              clientName: "First Client",
+              deliveryDate: "2026-08-16",
+            }),
+          },
+          {
+            id: "client-2",
+            data: () => ({
+              clientId: "client-2",
+              clientName: "Second Client",
+              deliveryDate: "2026-08-16",
+            }),
+          },
+        ])
+      )
+      .mockResolvedValueOnce(
+        createSnapshot([
+          {
+            id: "routes-2026-08-16",
+            data: () => ({
+              date: "2026-08-16",
+              clusters: [
+                { id: "1", deliveries: ["client-1"], driver: "Driver One" },
+                { id: "2", deliveries: ["client-2"], driver: "Driver Two" },
+              ],
+            }),
+          },
+        ])
+      );
+
+    expect(getFirestoreFilters("deliveries", filters)).toHaveLength(0);
+
+    const result = await runClientQuery("deliveries", filters);
+
+    expect(result.rows.map((row) => row.id)).toEqual(["client-1"]);
+    expect(result.rows[0].assignedDriverName).toBe("Driver One");
   });
 
   it("joins deliveries to the related client and adds joined columns", async () => {

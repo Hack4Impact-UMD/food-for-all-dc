@@ -20,7 +20,7 @@ import TagManager from "../Tags/TagManager";
 import "../../../styles/checkbox-override.css";
 import { deliveryDate } from "../../../utils/deliveryDate";
 
-interface FormFieldProps {
+export interface FormFieldProps {
   fieldPath: ClientProfileKey;
   value: any;
   type?: string;
@@ -582,6 +582,30 @@ const FormField = (props: FormFieldProps) => {
                 <MenuItem value="Male">Male</MenuItem>
                 <MenuItem value="Female">Female</MenuItem>
                 <MenuItem value="Other">Other</MenuItem>
+              </CustomSelect>
+            </Box>
+          );
+        } else if (fieldPath === "quadrant") {
+          return (
+            <Box sx={{ position: "relative", width: "100%" }}>
+              <CustomSelect
+                name={fieldPath}
+                value={(value as string) || ""}
+                onChange={(e) => handleChange(e as SelectChangeEvent<string>)}
+                displayEmpty
+                inputProps={selectInputProps}
+                sx={{ width: "100%" }}
+                MenuProps={{
+                  sx: { marginTop: "2px" },
+                }}
+              >
+                <MenuItem value="" disabled>
+                  Select
+                </MenuItem>
+                <MenuItem value="NW">NW</MenuItem>
+                <MenuItem value="NE">NE</MenuItem>
+                <MenuItem value="SW">SW</MenuItem>
+                <MenuItem value="SE">SE</MenuItem>
               </CustomSelect>
             </Box>
           );

@@ -13,7 +13,7 @@ import { ServiceError, formatServiceError } from "../utils/serviceError";
 import { COLLECTIONS, CollectionKey, getFieldDef, QueryFilter } from "../types/query-tool-types";
 import { mapClientDocToSpreadsheetBaseRow } from "./client-service";
 import { deliveryDate } from "../utils/deliveryDate";
-import { normalizeAssignedTime } from "../utils/queryToolFormatting";
+import { normalizeAssignedTime, normalizePhoneNumber } from "../utils/queryToolFormatting";
 
 export interface ClientQueryResult {
   rows: RowData[];
@@ -56,8 +56,6 @@ const startOfNextDay = (date: Date): Date => {
 
 const toFirestoreValue = (collectionKey: CollectionKey, filter: QueryFilter): unknown => {
   const fieldDef = getFieldDef(collectionKey, filter.field);
-  const normalizeValue = (value: unknown) =>
-    fieldDef?.format === "phone" ? String(value).replace(/\D/g, "") : value;
 
   if (filter.operator === "in" || filter.operator === "not-in" || filter.operator === "array-contains-any") {
     const values = Array.isArray(filter.value)
@@ -67,20 +65,32 @@ const toFirestoreValue = (collectionKey: CollectionKey, filter: QueryFilter): un
       .map((v) => v.trim())
       .filter(Boolean);
     if (fieldDef?.type === "number") return values.map((value) => Number(value));
-    return values.map(normalizeValue);
+    return values;
   }
 
   if (fieldDef?.type === "number") return Number(filter.value);
-  return normalizeValue(filter.value);
+  return filter.value;
+};
+
+const getRowFieldValue = (row: RowData, field: string): unknown =>
+  field.split(".").reduce<unknown>((current, key) => {
+    return current && typeof current === "object"
+      ? (current as Record<string, unknown>)[key]
+      : undefined;
+  }, row);
+
+const isClientSideFilter = (collectionKey: CollectionKey, filter: QueryFilter): boolean => {
+  const fieldDef = getFieldDef(collectionKey, filter.field);
+  return Boolean(fieldDef?.computed || fieldDef?.format === "phone");
 };
 
 /** Filters that translate directly into a Firestore `where()` constraint. */
 export const getFirestoreFilters = (collectionKey: CollectionKey, filters: QueryFilter[]): QueryFilter[] =>
-  filters.filter((f) => !getFieldDef(collectionKey, f.field)?.computed);
+  filters.filter((filter) => !isClientSideFilter(collectionKey, filter));
 
-/** Filters that must be applied to already-fetched results (e.g. computed `activeStatus`). */
+/** Filters that must be applied to already-fetched results (e.g. computed fields or normalized phones). */
 export const getComputedFilters = (collectionKey: CollectionKey, filters: QueryFilter[]): QueryFilter[] =>
-  filters.filter((f) => getFieldDef(collectionKey, f.field)?.computed);
+  filters.filter((filter) => isClientSideFilter(collectionKey, filter));
 
 /** Builds the Firestore constraint(s) for a single filter. Timestamp filters expand
  * into whole-day range constraints since the field itself stores an exact instant. */
@@ -121,7 +131,22 @@ const buildConstraintsForFilter = (collectionKey: CollectionKey, filter: QueryFi
 export const buildFirestoreConstraints = (collectionKey: CollectionKey, filters: QueryFilter[]) =>
   getFirestoreFilters(collectionKey, filters).flatMap((f) => buildConstraintsForFilter(collectionKey, f));
 
-const matchesComputedFilter = (row: RowData, filter: QueryFilter): boolean => {
+const matchesComputedFilter = (
+  collectionKey: CollectionKey,
+  row: RowData,
+  filter: QueryFilter
+): boolean => {
+  if (getFieldDef(collectionKey, filter.field)?.format === "phone") {
+    const actual = normalizePhoneNumber(getRowFieldValue(row, filter.field));
+    const expected = (Array.isArray(filter.value) ? filter.value : [filter.value])
+      .map(normalizePhoneNumber)
+      .filter(Boolean);
+
+    if (filter.operator === "==") return actual === expected[0];
+    if (filter.operator === "!=") return actual !== expected[0];
+    if (filter.operator === "in") return expected.includes(actual);
+    if (filter.operator === "not-in") return !expected.includes(actual);
+  }
   if (filter.field === "activeStatus") {
     const expected = filter.value === true || filter.value === "true";
     return Boolean(row.activeStatus) === expected;
@@ -217,9 +242,7 @@ const matchesComputedFilter = (row: RowData, filter: QueryFilter): boolean => {
 };
 
 const matchesDirectFilter = (collectionKey: CollectionKey, row: RowData, filter: QueryFilter): boolean => {
-  const value = filter.field.split(".").reduce<unknown>((current, key) => {
-    return current && typeof current === "object" ? (current as Record<string, unknown>)[key] : undefined;
-  }, row);
+  const value = getRowFieldValue(row, filter.field);
   const values = Array.isArray(filter.value) ? filter.value : String(filter.value).split(",").map((item) => item.trim());
   const comparable = (item: unknown): string | number => {
     if (getFieldDef(collectionKey, filter.field)?.type === "number") return Number(item);
@@ -253,8 +276,8 @@ const matchesFilterExpression = (collectionKey: CollectionKey, row: RowData, fil
     groups[groups.length - 1].push(filter);
   });
   return groups.some((group) => group.every((filter) =>
-    getFieldDef(collectionKey, filter.field)?.computed
-      ? matchesComputedFilter(row, filter)
+    isClientSideFilter(collectionKey, filter)
+      ? matchesComputedFilter(collectionKey, row, filter)
       : matchesDirectFilter(collectionKey, row, filter)
   ));
 };
@@ -445,7 +468,9 @@ export async function runClientQuery(
     if (requiresClientSideExpression) {
       rows = rows.filter((row) => matchesFilterExpression(collectionKey, row, filters));
     } else if (computedFilters.length > 0) {
-      rows = rows.filter((row) => computedFilters.every((f) => matchesComputedFilter(row, f)));
+      rows = rows.filter((row) =>
+        computedFilters.every((filter) => matchesComputedFilter(collectionKey, row, filter))
+      );
     }
 
     // Query metadata only (no row contents/PII) — safe to log for troubleshooting.
