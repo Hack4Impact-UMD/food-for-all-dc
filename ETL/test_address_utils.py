@@ -20,6 +20,18 @@ class GeocodingAddressTests(TestCase):
             "201 I Street SW",
         )
 
+    def test_standardizes_full_word_street_quadrant_without_duplicating_it(self) -> None:
+        self.assertEqual(
+            canonicalize_dc_street_address("1738 Massachusetts Avenue Southeast", "SE"),
+            "1738 Massachusetts Avenue SE",
+        )
+
+    def test_full_word_street_quadrant_wins_when_fields_disagree(self) -> None:
+        self.assertEqual(
+            canonicalize_dc_street_address("201 I Street Southwest", "NW"),
+            "201 I Street SW",
+        )
+
     def test_does_not_append_quadrant_to_status_text(self) -> None:
         self.assertEqual(canonicalize_dc_street_address("MOVED", "SW"), "MOVED")
 
