@@ -183,7 +183,7 @@ const REFERRAL_ORG_FIELDS: QueryFieldDef[] = [
 
 const USER_FIELDS: QueryFieldDef[] = [
   { field: "name", label: "Name", type: "text" },
-  { field: "role", label: "Role", type: "text" },
+  { field: "role", label: "Role", type: "text", options: ["Admin", "Manager", "Client Intake"] },
   { field: "email", label: "Email", type: "text" },
   { field: "phone", label: "Phone", type: "text", format: "phone" },
 ];

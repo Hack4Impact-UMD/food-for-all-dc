@@ -44,6 +44,12 @@ const isWardField = (field: QueryFieldDef): boolean => field.field === "ward";
 const isClusterField = (field: QueryFieldDef): boolean => field.field === "cluster";
 const ALL_VALUES_OPTION = "__all_values__";
 
+const formatPhoneOption = (value: string): string => {
+  const digits = value.replace(/\D/g, "");
+  const nationalDigits = digits.length === 11 && digits.startsWith("1") ? digits.slice(1) : digits;
+  return nationalDigits.length === 10 ? formatPhoneNumber(nationalDigits) : "";
+};
+
 const SearchableValueInput: React.FC<{
   options: string[];
   value: unknown;
@@ -236,7 +242,7 @@ const FilterValueInput: React.FC<FilterValueInputProps> = ({
   );
   const displayOptions = Array.from(
     new Set(
-      fieldDef.format === "phone" ? smartOptions.map(formatPhoneNumber).filter(Boolean) : smartOptions
+      fieldDef.format === "phone" ? smartOptions.map(formatPhoneOption).filter(Boolean) : smartOptions
     )
   );
   const optionLabels =
@@ -348,12 +354,12 @@ const FilterValueInput: React.FC<FilterValueInputProps> = ({
       );
     }
     return (
-      <TextField
-        {...commonProps}
-        label="Value"
-        value={formatPhoneNumber(value)}
-        onChange={(e) => onChange(formatPhoneNumber(e.target.value))}
-        placeholder="(XXX) XXX-XXXX"
+      <SearchableValueInput
+        options={dropdownOptions}
+        value={value}
+        onChange={onChange}
+        commonProps={{ ...commonProps, placeholder: "(XXX) XXX-XXXX" }}
+        labelId={labelId}
       />
     );
   }

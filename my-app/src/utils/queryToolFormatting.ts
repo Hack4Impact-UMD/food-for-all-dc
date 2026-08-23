@@ -6,8 +6,10 @@ export const formatPhoneNumber = (value: unknown): string => {
   return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
 };
 
-export const normalizePhoneNumber = (value: unknown): string =>
-  String(value ?? "").replace(/\D/g, "");
+export const normalizePhoneNumber = (value: unknown): string => {
+  const digits = String(value ?? "").replace(/\D/g, "");
+  return digits.length === 11 && digits.startsWith("1") ? digits.slice(1) : digits;
+};
 
 export const normalizeAssignedTime = (value: unknown): string => String(value ?? "").trim();
 
