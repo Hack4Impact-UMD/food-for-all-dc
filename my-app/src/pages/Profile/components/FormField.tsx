@@ -53,6 +53,18 @@ const fieldStyles = {
   marginTop: "0px",
 };
 
+const TEXTAREA_DISPLAY_MAX_HEIGHT = "120px";
+
+const getDisplayFieldLabel = (fieldPath: ClientProfileKey): string => {
+  if (fieldPath === "notes") return "Admin Notes";
+
+  const fieldName = String(fieldPath).split(".").pop() || String(fieldPath);
+  return fieldName
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .replace(/([A-Za-z])(\d+)/g, "$1 $2")
+    .replace(/^./, (character) => character.toUpperCase());
+};
+
 const CustomTextField = styled(TextField)({
   "& .MuiOutlinedInput-root": {
     "& fieldset": {
@@ -812,9 +824,14 @@ const FormField = (props: FormFieldProps) => {
     }
   }
 
+  const isMultilineDisplay = type === "textarea";
+
   return (
     <Typography
       variant="body1"
+      tabIndex={isMultilineDisplay ? 0 : undefined}
+      role={isMultilineDisplay ? "region" : undefined}
+      aria-label={isMultilineDisplay ? getDisplayFieldLabel(fieldPath) : undefined}
       sx={{
         fontWeight: 600,
         textAlign: "left",
@@ -829,6 +846,17 @@ const FormField = (props: FormFieldProps) => {
         width: "100% !important",
         display: "block !important",
         overflow: "hidden !important",
+        ...(isMultilineDisplay && {
+          maxHeight: TEXTAREA_DISPLAY_MAX_HEIGHT,
+          overflowY: "auto !important",
+          // Keep text clear of the scrollbar once the content overflows.
+          paddingRight: "8px",
+          "&:focus-visible": {
+            outline: "2px solid var(--color-primary)",
+            outlineOffset: "2px",
+            borderRadius: "2px",
+          },
+        }),
       }}
     >
       {renderFieldValue(fieldPath, value)}

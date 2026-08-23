@@ -353,6 +353,7 @@ export default function TagManager({
       const updatedMetadata = existingTag
         ? { tags: masterTags, tagColors }
         : addTagMetadata(masterTags, tagColors, newTagId, selectedColor);
+      const metadataToPersist = existingTag ? undefined : updatedMetadata;
       setAddError("");
 
       let didUpdateClient: boolean | void;
@@ -363,7 +364,7 @@ export default function TagManager({
             clientUid,
             clientTags: values,
             tag: newTagId,
-            metadata: updatedMetadata,
+            metadata: metadataToPersist,
             tagColorPalette: colorPalette,
             auditMetadata: getAuditMetadata(),
           });
@@ -371,10 +372,9 @@ export default function TagManager({
         } else {
           await setDoc(
             doc(db, dataSources.firebase.tagsCollection, dataSources.firebase.tagsDocId),
-            {
-              ...updatedMetadata,
-              tagColorPalette: colorPalette,
-            },
+            metadataToPersist
+              ? { ...metadataToPersist, tagColorPalette: colorPalette }
+              : { tagColorPalette: colorPalette },
             { merge: true }
           );
           didUpdateClient = await handleTag(newTagId);
@@ -729,6 +729,7 @@ export default function TagManager({
                     type="color"
                     aria-label="Custom tag color"
                     value={selectedColor}
+                    disabled={selectedPaletteIndex === null}
                     onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
                       const color = event.target.value;
                       setSelectedColor(color);
@@ -747,6 +748,11 @@ export default function TagManager({
                       cursor: "pointer",
                     }}
                   />
+                  {selectedPaletteIndex === null && (
+                    <Typography variant="caption" sx={{ width: "100%" }}>
+                      Select a predefined color before choosing a custom palette color.
+                    </Typography>
+                  )}
                 </Box>
               </Box>
               {selectedTag?.trim() && (

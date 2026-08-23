@@ -179,6 +179,25 @@ describe("tag assignment and deletion", () => {
     expect(mockBatchCommit).toHaveBeenCalledTimes(1);
   });
 
+  it("updates only the palette when assigning an existing tag", async () => {
+    await assignTagToClient({
+      db: {} as never,
+      clientUid: "client-1",
+      clientTags: [],
+      tag: "Delivery",
+      tagColorPalette: ["#111111", "#222222"],
+      auditMetadata: buildOptions().auditMetadata,
+    });
+
+    expect(mockBatchSet).toHaveBeenNthCalledWith(
+      2,
+      { collectionName: "tags", id: "oGuiR2dQQeOBXHCkhDeX" },
+      { tagColorPalette: ["#111111", "#222222"] },
+      { merge: true }
+    );
+    expect(mockBatchCommit).toHaveBeenCalledTimes(1);
+  });
+
   it("deletes a tag from clients and master metadata in one batch", async () => {
     const clientRef = { id: "client-1" };
     mockGetDocs.mockResolvedValue({
