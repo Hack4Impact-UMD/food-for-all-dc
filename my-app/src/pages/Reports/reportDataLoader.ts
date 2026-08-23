@@ -70,6 +70,8 @@ const mapReportClient = (docSnapshot: QueryDocumentSnapshot): ReportClientRecord
     referredDate: asString(raw.referredDate) || undefined,
     startDate: (raw.startDate as string | Date | Timestamp | DateTime | null | undefined) ?? null,
     endDate: (raw.endDate as string | Date | Timestamp | DateTime | null | undefined) ?? null,
+    autoInactiveReason:
+      typeof raw.autoInactiveReason === "string" ? raw.autoInactiveReason : null,
     referralEntity: referralEntity
       ? {
           id:
@@ -132,6 +134,7 @@ const mapReportDelivery = (docSnapshot: QueryDocumentSnapshot): ReportDeliveryRe
     clientId: asString(raw.clientId),
     clientName: asString(raw.clientName),
     deliveryDate: normalizedDate,
+    deliveryStatus: raw.deliveryStatus === "Missed" ? "Missed" : "Scheduled",
     householdSnapshot: normalizeHouseholdSnapshot(
       raw.householdSnapshot as Partial<HouseholdSnapshot> | null | undefined
     ),

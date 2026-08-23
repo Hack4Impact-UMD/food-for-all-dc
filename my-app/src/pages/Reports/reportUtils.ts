@@ -5,6 +5,7 @@ import { HouseholdSnapshot } from "../../types/delivery-types";
 import TimeUtils from "../../utils/timeUtils";
 import { buildHouseholdSnapshot, normalizeHouseholdSnapshot } from "../../utils/householdSnapshot";
 import { deliveryDate } from "../../utils/deliveryDate";
+import { computeClientActiveStatus } from "../../utils/clientStatus";
 
 export type SnapshotClientStatus = "active" | "lapsed" | "inactive";
 
@@ -38,6 +39,7 @@ export interface ReportClientRecord {
   zipCode?: string;
   startDate?: SupportedDateInput;
   endDate?: SupportedDateInput;
+  autoInactiveReason?: string | null;
   adults?: number;
   seniors?: number;
   children?: number;
@@ -63,6 +65,7 @@ export interface ReportDeliveryRecord {
   clientId: string;
   clientName: string;
   deliveryDate: DateTime;
+  deliveryStatus?: "Scheduled" | "Missed";
   householdSnapshot?: HouseholdSnapshot | null;
 }
 
@@ -175,6 +178,9 @@ export const BASE_SUMMARY_REPORT: SummaryData = {
   },
   "FAM (Food as Medicine)": {
     "Clients Receiving Medically Tailored Food": { value: 0, isFullRow: true },
+  },
+  "HFA (Healthy Food Access)": {
+    "Clients Receiving Food (Unduplicated)": { value: 0, isFullRow: true },
   },
   Tags: {},
 };
@@ -352,6 +358,18 @@ const resolveHouseholdSnapshot = (
   };
 };
 
+const incrementHfaDeliveryCount = (
+  report: SummaryData,
+  client: ReportClientRecord | undefined,
+  clientEvents: ReportDeliveryRecord[]
+) => {
+  const receivedFood = clientEvents.some((event) => event.deliveryStatus !== "Missed");
+
+  if (client && receivedFood && getClientTagSet(client).has("HFA")) {
+    report["HFA (Healthy Food Access)"]["Clients Receiving Food (Unduplicated)"].value += 1;
+  }
+};
+
 const incrementDietaryRestrictions = (report: SummaryData, client: ReportClientRecord) => {
   const restrictions = client.deliveryDetails?.dietaryRestrictions;
   const dietarySection = report["Dietary Restrictions"];
@@ -399,13 +417,9 @@ const incrementDietaryRestrictions = (report: SummaryData, client: ReportClientR
   dietarySection["No Restrictions"].value += 1;
 };
 
-const incrementTagCounts = (report: SummaryData, client: ReportClientRecord) => {
+const incrementGenericTagCounts = (report: SummaryData, client: ReportClientRecord) => {
   const tags = getClientTagSet(client);
   const tagSection = report.Tags;
-
-  if (tags.has("FAM")) {
-    report["FAM (Food as Medicine)"]["Clients Receiving Medically Tailored Food"].value += 1;
-  }
 
   tags.forEach((tag) => {
     if (tagSection[tag]) {
@@ -438,6 +452,9 @@ export const buildSummaryReportData = ({
   const referralAgencies = new Set<string>();
   const clientsById = getClientMap(clients);
   const servedEventsByClientId = groupEventsByClientId(servedEvents);
+  const activeClients = Array.from(clientsById.values()).filter((client) =>
+    computeClientActiveStatus(client.startDate, client.endDate, client.autoInactiveReason)
+  );
 
   let usedLegacySnapshotFallback = false;
 
@@ -460,6 +477,7 @@ export const buildSummaryReportData = ({
 
   servedEventsByClientId.forEach((clientEvents, clientId) => {
     const client = clientsById.get(clientId);
+    incrementHfaDeliveryCount(report, client, clientEvents);
     const firstEventInPeriod = clientEvents[0];
     const { snapshot: firstInPeriodSnapshot, usedLegacySnapshotFallback: usedFallback } =
       resolveHouseholdSnapshot(firstEventInPeriod, client);
@@ -469,6 +487,10 @@ export const buildSummaryReportData = ({
 
     if (!client) {
       return;
+    }
+
+    if (getClientTagSet(client).has("FAM")) {
+      report["FAM (Food as Medicine)"]["Clients Receiving Medically Tailored Food"].value += 1;
     }
 
     demographics["Total Seniors"].value += firstInPeriodSnapshot.seniors;
@@ -501,7 +523,9 @@ export const buildSummaryReportData = ({
 
       usedLegacySnapshotFallback ||= usedFirstEverFallback;
     }
+  });
 
+  activeClients.forEach((client) => {
     if (hasTruthyCondition(client.physicalAilments)) {
       health["Client Health Conditions (Physical Ailments)"].value += 1;
     }
@@ -523,7 +547,7 @@ export const buildSummaryReportData = ({
     );
 
     incrementDietaryRestrictions(report, client);
-    incrementTagCounts(report, client);
+    incrementGenericTagCounts(report, client);
   });
 
   referrals["New Referral Sources"].value = referralAgencies.size;
