@@ -997,9 +997,17 @@ const Spreadsheet: React.FC = () => {
                     checkStringContains(row.lastName, candidate)
                   );
                 case "address":
-                  return matchesAnySearchValue((candidate) =>
-                    checkStringContains(row.address, candidate)
-                  );
+                  return matchesAnySearchValue((candidate) => {
+                    const formattedAddress = formatAddressWithQuadrantAndUnit(
+                      row.address,
+                      row.quadrant,
+                      row.address2
+                    );
+                    return checkStringContains(
+                      `${formattedAddress}${row.zipCode ? ` ${row.zipCode}` : ""}`,
+                      candidate
+                    );
+                  });
                 case "phone":
                   return matchesAnySearchValue((candidate) =>
                     checkStringContains(row.phone, candidate)
@@ -1291,7 +1299,7 @@ const Spreadsheet: React.FC = () => {
               onBlur={searchAutocomplete.handleInputBlur}
               onKeyDown={searchAutocomplete.handleInputKeyDown}
               onKeyUp={searchAutocomplete.handleInputKeyUp}
-              placeholder='Search clients (e.g., smith; name:john,jane; address:"main st"; gender:female,male)'
+              placeholder='Search clients (e.g., smith; name:john,jane; address:"123 Main St NE"; gender:female,male)'
               style={{
                 width: "100%",
                 height: "50px",
