@@ -74,6 +74,7 @@ import HealthCheckbox from "./components/HealthCheckbox";
 import { buildHouseholdSnapshot } from "../../utils/householdSnapshot";
 import { deliveryDate } from "../../utils/deliveryDate";
 import { computeClientActiveStatus } from "../../utils/clientStatus";
+import { GENDER_OPTIONS, normalizeGender } from "../../utils/gender";
 import { toJSDate } from "../../utils/timestamp";
 import {
   buildGeocodingAddress,
@@ -459,6 +460,7 @@ const Profile = () => {
 
       const normalizedData = {
         ...data,
+        gender: normalizeGender(data.gender),
         tefapCert: normalizeBooleanField(data.tefapCert),
         tefapCertDate: deliveryDate.tryToISODateString(data.tefapCertDate) ?? "",
         activeStatus: computeClientActiveStatus(
@@ -2227,7 +2229,7 @@ const Profile = () => {
         return <Box>{clientProfile.gender}</Box>;
       }
 
-      const preDefinedOptions = ["Male", "Female", "Unknown", "Other"];
+      const preDefinedOptions = GENDER_OPTIONS;
 
       const isPredefined = preDefinedOptions.includes(clientProfile.gender);
       const selectValue = isPredefined ? clientProfile.gender : "Unknown";
