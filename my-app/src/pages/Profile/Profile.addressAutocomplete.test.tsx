@@ -170,7 +170,6 @@ jest.mock("./components/BasicInfoForm", () => ({
   default: ({ clientProfile, renderField, addressInputRef }: any) => (
     <div>
       {renderField("address", "text", addressInputRef)}
-      {renderField("quadrant", "select")}
       {renderField("phone", "text")}
       {renderField("alternativePhone", "text")}
       <output data-testid="address-fields">
@@ -328,44 +327,6 @@ describe("Profile address autocomplete lifecycle", () => {
     expect(screen.getByTestId("address-fields").textContent).toBe(
       "1600 Pennsylvania Avenue NW|Washington|DC|20006|NW|2"
     );
-  });
-
-  it("keeps the street, quadrant, coordinates, and ward in sync after a quadrant change", async () => {
-    render(
-      <MemoryRouter
-        initialEntries={["/profile/client-1"]}
-        future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
-      >
-        <Routes>
-          <Route path="/profile/:clientId" element={<Profile />} />
-        </Routes>
-      </MemoryRouter>
-    );
-
-    await screen.findByText("100 Main Street NW");
-    fireEvent.click(screen.getAllByTestId("EditIcon")[0].closest("button")!);
-    fireEvent.change(await screen.findByRole("textbox", { name: "quadrant" }), {
-      target: { name: "quadrant", value: "NE" },
-    });
-
-    expect(screen.getByTestId("address-fields").textContent).toBe(
-      "100 Main Street NE|Washington|DC|20001|NE|Ward 1"
-    );
-
-    fireEvent.click(screen.getAllByRole("button", { name: "save" })[0]);
-
-    await waitFor(() => {
-      expect(mockSetDoc).toHaveBeenCalledWith(
-        expect.anything(),
-        expect.objectContaining({
-          address: "100 Main Street NE",
-          quadrant: "NE",
-          coordinates: [38.91, -77.02],
-          ward: "2",
-        }),
-        { merge: true }
-      );
-    });
   });
 
   it("formats profile phone numbers when saving while accepting allowed input formats", async () => {

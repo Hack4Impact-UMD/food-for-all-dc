@@ -5,7 +5,6 @@ import {
   formatAddressWithQuadrantAndUnit,
   isStreetStyleAddress,
   normalizeQuadrantToken,
-  replaceAddressQuadrant,
   resolveAddressQuadrant,
   shouldGeocodeClientLocation,
 } from "./addressFormat";
@@ -98,19 +97,6 @@ describe("addressFormat", () => {
   it("treats the street quadrant as authoritative when fields disagree", () => {
     expect(resolveAddressQuadrant("201 I Street SW", "NW")).toBe("SW");
     expect(formatAddressWithQuadrant("201 I Street SW", "NW")).toBe("201 I Street SW");
-  });
-
-  it("replaces the street token when a user explicitly changes the quadrant", () => {
-    expect(replaceAddressQuadrant("100 Main Street NW", "NE")).toBe("100 Main Street NE");
-    expect(replaceAddressQuadrant("100 Main Street Northwest", "SE")).toBe(
-      "100 Main Street SE"
-    );
-  });
-
-  it("appends the selected quadrant when the street does not contain one", () => {
-    expect(replaceAddressQuadrant("100 Main Street", "Southwest")).toBe(
-      "100 Main Street SW"
-    );
   });
 
   it("standardizes full-word directions already in address", () => {
