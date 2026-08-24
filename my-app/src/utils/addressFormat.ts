@@ -6,6 +6,22 @@ const DIRECTION_TO_ABBREVIATION: Record<string, string> = {
 };
 
 const QUADRANT_TOKEN_REGEX = /\b(NE|NW|SE|SW)\b/i;
+const UNIT_TOKEN_REGEX = /(?:\b(?:apartment|apt|unit|suite|ste|room|floor|fl)\b|#)\s*(?:no|number)?\s*#?\s*([a-z0-9-]+)/i;
+
+const STREET_SUFFIX_ABBREVIATIONS: Record<string, string> = {
+  avenue: "ave",
+  boulevard: "blvd",
+  circle: "cir",
+  court: "ct",
+  drive: "dr",
+  highway: "hwy",
+  lane: "ln",
+  parkway: "pkwy",
+  place: "pl",
+  road: "rd",
+  street: "st",
+  terrace: "ter",
+};
 
 export const standardizeAddressDirections = (value: string): string =>
   value.replace(/\b(northwest|northeast|southwest|southeast)\b/gi, (match) =>
@@ -79,6 +95,58 @@ export const formatAddressWithQuadrantAndUnit = (
   }
 
   return `${street} ${unit}`.trim();
+};
+
+const normalizeAddressWords = (value: unknown): string => {
+  if (typeof value !== "string") return "";
+
+  return standardizeAddressDirections(value)
+    .toLowerCase()
+    .replace(/\b(avenue|boulevard|circle|court|drive|highway|lane|parkway|place|road|street|terrace)\b/g,
+      (suffix) => STREET_SUFFIX_ABBREVIATIONS[suffix] ?? suffix
+    )
+    .replace(/[^a-z0-9#-]+/g, " ")
+    .trim()
+    .replace(/\s+/g, " ");
+};
+
+const extractUnit = (value: unknown): string => {
+  const normalized = normalizeAddressWords(value);
+  if (!normalized) return "";
+  const match = normalized.match(UNIT_TOKEN_REGEX);
+  return match?.[1]?.replace(/[^a-z0-9]/g, "") ?? "";
+};
+
+export interface DuplicateAddressIdentity {
+  street: string;
+  unit: string;
+  quadrant: string;
+}
+
+export const normalizeDuplicateAddress = ({
+  address,
+  address2,
+  quadrant,
+}: {
+  address: unknown;
+  address2: unknown;
+  quadrant: unknown;
+}): DuplicateAddressIdentity => {
+  const addressWithQuadrant = formatAddressWithQuadrant(address, quadrant);
+  const normalizedAddress = normalizeAddressWords(addressWithQuadrant);
+  const addressUnit = extractUnit(normalizedAddress);
+  const address2Unit = extractUnit(address2);
+  const normalizedAddress2 = normalizeAddressWords(address2);
+  const unit = address2Unit || (normalizedAddress2 ? normalizedAddress2.replace(/[^a-z0-9]/g, "") : "") || addressUnit;
+  const street = normalizedAddress.replace(UNIT_TOKEN_REGEX, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return {
+    street,
+    unit,
+    quadrant: resolveAddressQuadrant(address, quadrant),
+  };
 };
 
 export const buildGeocodingAddress = ({

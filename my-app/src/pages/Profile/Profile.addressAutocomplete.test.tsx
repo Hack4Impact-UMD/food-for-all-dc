@@ -1,8 +1,8 @@
 import React from "react";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, jest } from "@jest/globals";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import Profile from "./Profile";
+import Profile, { isDuplicateClient, isDuplicateClientName } from "./Profile";
 
 const mockGetDoc = jest.fn();
 const mockGetDocs = jest.fn();
@@ -167,12 +167,35 @@ jest.mock("./Tags/TagManager", () => () => null);
 
 jest.mock("./components/BasicInfoForm", () => ({
   __esModule: true,
-  default: ({ clientProfile, renderField, addressInputRef }: any) => (
+  default: ({ clientProfile, renderField, addressInputRef, handleCaseWorkerChange }: any) => (
     <div>
+      {renderField("firstName")}
+      {renderField("lastName")}
       {renderField("address", "text", addressInputRef)}
+      {renderField("address2")}
+      {renderField("city")}
+      {renderField("state")}
+      {renderField("zipCode")}
       {renderField("quadrant", "select")}
+      {renderField("ward")}
       {renderField("phone", "text")}
       {renderField("alternativePhone", "text")}
+      {renderField("endDate")}
+      {renderField("ethnicity")}
+      {renderField("language")}
+      {renderField("adults")}
+      <button
+        type="button"
+        onClick={() =>
+          handleCaseWorkerChange({
+            id: "case-worker-1",
+            name: "Case Worker",
+            organization: "Test Agency",
+          })
+        }
+      >
+        Select referral entity
+      </button>
       <output data-testid="address-fields">
         {[
           clientProfile.address,
@@ -211,6 +234,52 @@ const emptySnapshot = {
   empty: true,
   forEach: () => undefined,
 };
+
+describe("isDuplicateClientName", () => {
+  it("matches first and last name regardless of casing, spacing, or address", () => {
+    expect(
+      isDuplicateClientName(
+        { firstName: "  TEST ", lastName: "CLIENT" },
+        savedProfile.firstName,
+        savedProfile.lastName
+      )
+    ).toBe(true);
+  });
+
+  it("requires both first and last name to match", () => {
+    expect(
+      isDuplicateClientName(
+        { firstName: "Other", lastName: savedProfile.lastName },
+        savedProfile.firstName,
+        savedProfile.lastName
+      )
+    ).toBe(false);
+  });
+});
+
+describe("isDuplicateClient", () => {
+  const candidate = {
+    ...savedProfile,
+    uid: "client-2",
+    firstName: " TEST ",
+    lastName: "CLIENT",
+    address: "100 Main St Northwest",
+    address2: "",
+    quadrant: "Northwest",
+  } as any;
+
+  it("matches normalized name, street, apartment, and quadrant", () => {
+    expect(isDuplicateClient(candidate, savedProfile as any)).toBe(true);
+  });
+
+  it.each([
+    ["street", { address: "200 Main St NW" }],
+    ["apartment", { address2: "Apt 524" }],
+    ["quadrant", { address: "100 Main St NE", quadrant: "NE" }],
+  ])("does not match when the %s differs", (_, changes) => {
+    expect(isDuplicateClient({ ...candidate, ...changes }, savedProfile as any)).toBe(false);
+  });
+});
 
 describe("Profile address autocomplete lifecycle", () => {
   beforeEach(() => {
@@ -329,6 +398,122 @@ describe("Profile address autocomplete lifecycle", () => {
       "1600 Pennsylvania Avenue NW|Washington|DC|20006|NW|2"
     );
   });
+
+  it("blocks an update when another client has the same normalized identity", async () => {
+    const currentClientDoc = {
+      id: "client-1",
+      data: () => savedProfile,
+    };
+    const duplicateClientDoc = {
+      id: "client-2",
+      data: () => ({
+        ...savedProfile,
+        uid: "client-2",
+        address: "100 Main St Northwest",
+        quadrant: "Northwest",
+      }),
+    };
+    mockGetDocs.mockImplementation(async (reference: unknown) => {
+      const referenceArgs = (reference as { args?: unknown[] }).args || [];
+      return referenceArgs.includes("client-profile2")
+        ? { ...emptySnapshot, docs: [currentClientDoc, duplicateClientDoc], empty: false }
+        : emptySnapshot;
+    });
+
+    render(
+      <MemoryRouter
+        initialEntries={["/profile/client-1"]}
+        future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+      >
+        <Routes>
+          <Route path="/profile/:clientId" element={<Profile />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await screen.findByText("100 Main Street NW");
+    fireEvent.click(screen.getAllByTestId("EditIcon")[0].closest("button")!);
+    fireEvent.click(screen.getAllByRole("button", { name: "save" })[0]);
+
+    const dialog = await screen.findByRole("dialog", { name: "Duplicate Client Detected" });
+    expect(within(dialog).getByText("This client already exists. Duplicate records cannot be saved.")).toBeTruthy();
+    expect(within(dialog).getByText("Test Client")).toBeTruthy();
+    expect(within(dialog).getByText("100 Main St NW, Washington, DC 20001")).toBeTruthy();
+    expect(within(dialog).queryByText("NW")).toBeNull();
+    expect(mockSetDoc).not.toHaveBeenCalled();
+    expect(screen.queryByRole("button", { name: "Save Anyway" })).toBeNull();
+  });
+
+  it("blocks creation when apartment formats and quadrant normalize to an existing client", async () => {
+    const duplicateClientDoc = {
+      id: "existing-client",
+      data: () => ({
+        ...savedProfile,
+        uid: "existing-client",
+        firstName: "New",
+        lastName: "Person",
+        address: "123 New Address Northwest Apartment #524",
+        address2: "",
+        quadrant: "Northwest",
+      }),
+    };
+    mockGetDocs.mockImplementation(async (reference: unknown) => {
+      const referenceArgs = (reference as { args?: unknown[] }).args || [];
+      return referenceArgs.includes("client-profile2")
+        ? { ...emptySnapshot, docs: [duplicateClientDoc], empty: false }
+        : emptySnapshot;
+    });
+
+    render(
+      <MemoryRouter
+        initialEntries={["/profile"]}
+        future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+      >
+        <Routes>
+          <Route path="/profile" element={<Profile />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    const requiredFields: Record<string, string> = {
+      firstName: "New",
+      lastName: "Person",
+      address: "123 New Address NW",
+      address2: "Unit 524",
+      city: "Washington",
+      state: "DC",
+      zipCode: "20001",
+      quadrant: "NW",
+      phone: "202-555-0199",
+      endDate: "12/31/2026",
+      adults: "1",
+    };
+    for (const [name, value] of Object.entries(requiredFields)) {
+      fireEvent.change(screen.getByRole("textbox", { name }), {
+        target: { name, value },
+      });
+    }
+    fireEvent.change(screen.getByPlaceholderText("Enter ethnicity"), {
+      target: { name: "ethnicity", value: "Not specified" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("Enter language"), {
+      target: { name: "language", value: "English" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Select referral entity" }));
+    fireEvent.click(screen.getAllByRole("button", { name: "save" })[0]);
+
+    const dialog = await screen.findByRole("dialog", { name: "Duplicate Client Detected" });
+    expect(within(dialog).getByText("This client already exists. Duplicate records cannot be saved.")).toBeTruthy();
+    expect(within(dialog).getByText("New Person")).toBeTruthy();
+    expect(
+      within(dialog).getByText(
+        "123 New Address NW Apartment #524, Washington, DC 20001"
+      )
+    ).toBeTruthy();
+    expect(within(dialog).queryByText("NW")).toBeNull();
+    expect(mockSetDoc).not.toHaveBeenCalled();
+    expect(screen.queryByRole("button", { name: "Save Anyway" })).toBeNull();
+  }, 10000);
 
   it("keeps the street, quadrant, coordinates, and ward in sync after a quadrant change", async () => {
     render(
