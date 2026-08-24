@@ -96,6 +96,13 @@ const ADDRESS_DIRECTION_ABBREVIATIONS: Record<string, string> = {
   southwest: "SW",
 };
 
+const DMV_AUTOCOMPLETE_BOUNDS: google.maps.LatLngBoundsLiteral = {
+  north: 39.35,
+  south: 38.3,
+  east: -76.7,
+  west: -77.8,
+};
+
 const standardizeAddressDirections = (value: string): string =>
   value.replace(/\b(northwest|northeast|southwest|southeast)\b/gi, (match) =>
     ADDRESS_DIRECTION_ABBREVIATIONS[match.toLowerCase()] ?? match
@@ -2752,6 +2759,8 @@ const Profile = () => {
         {
           types: ["address"],
           componentRestrictions: { country: "us" },
+          bounds: DMV_AUTOCOMPLETE_BOUNDS,
+          strictBounds: true,
         }
       );
       autocompleteRef.current = autocomplete;
