@@ -268,7 +268,7 @@ const Profile = () => {
     total: 0,
     seniors: 0,
     headOfHousehold: "Adult",
-    gender: "Male",
+    gender: "Unknown",
     ethnicity: "",
     deliveryDetails: {
       deliveryInstructions: "",
@@ -2043,7 +2043,7 @@ const Profile = () => {
         return <Box>{clientProfile.language}</Box>;
       }
 
-      const preDefinedOptions = ["English", "Spanish"];
+      const preDefinedOptions = ["English", "Spanish", "Unknown"];
       // If the stored language is not one of the predefined ones, we default to "Other"
       const isPredefined = preDefinedOptions.includes(clientProfile.language);
       const selectValue = isPredefined ? clientProfile.language : "Other";
@@ -2144,6 +2144,7 @@ const Profile = () => {
         "Middle Eastern or North African",
         "Native Hawaiian or Pacific Islander",
         "Prefer Not to Say",
+        "Unknown",
       ];
 
       const isPredefined = preDefinedOptions.includes(clientProfile.ethnicity);
@@ -2226,10 +2227,10 @@ const Profile = () => {
         return <Box>{clientProfile.gender}</Box>;
       }
 
-      const preDefinedOptions = ["Male", "Female", "Other"];
+      const preDefinedOptions = ["Male", "Female", "Unknown", "Other"];
 
       const isPredefined = preDefinedOptions.includes(clientProfile.gender);
-      const selectValue = isPredefined ? clientProfile.gender : "Other";
+      const selectValue = isPredefined ? clientProfile.gender : "Unknown";
 
       const handleGenderSelectChange = (e: any) => {
         const newVal = e.target.value;

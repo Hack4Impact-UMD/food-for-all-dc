@@ -249,7 +249,7 @@ class ClientService {
             adults: raw.adults || 0,
             children: raw.children || 0,
             total: raw.total || 0,
-            gender: raw.gender || "Other",
+            gender: raw.gender || "Unknown",
             ethnicity: raw.ethnicity || "",
             deliveryDetails: {
               deliveryInstructions: deliveryDetails.deliveryInstructions || "",

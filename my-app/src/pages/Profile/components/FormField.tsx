@@ -581,6 +581,7 @@ const FormField = (props: FormFieldProps) => {
                 </MenuItem>
                 <MenuItem value="Male">Male</MenuItem>
                 <MenuItem value="Female">Female</MenuItem>
+                <MenuItem value="Unknown">Unknown</MenuItem>
                 <MenuItem value="Other">Other</MenuItem>
               </CustomSelect>
             </Box>
