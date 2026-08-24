@@ -77,8 +77,6 @@ import { computeClientActiveStatus } from "../../utils/clientStatus";
 import { toJSDate } from "../../utils/timestamp";
 import {
   buildGeocodingAddress,
-  normalizeQuadrantToken,
-  replaceAddressQuadrant,
   resolveAddressQuadrant,
   shouldGeocodeClientLocation,
 } from "../../utils/addressFormat";
@@ -927,13 +925,6 @@ const Profile = () => {
         else delete newErrors[name];
         return newErrors;
       });
-    } else if (name === "quadrant") {
-      const normalizedQuadrant = normalizeQuadrantToken(value);
-      setClientProfile((prevState) => ({
-        ...prevState,
-        address: replaceAddressQuadrant(prevState.address, normalizedQuadrant),
-        quadrant: normalizedQuadrant,
-      }));
     } else {
       setClientProfile((prevState) => {
         let updatedProfile = {
@@ -2378,8 +2369,18 @@ const Profile = () => {
       ? getNestedValue(clientProfile, fieldPath)
       : clientProfile[fieldPath as keyof ClientProfile];
 
+    // Quadrant is read-only and derived from the street address, which handleSave treats as
+    // authoritative. Derive it here too so the displayed value cannot go stale while the
+    // address is being edited.
+    const displayValue =
+      fieldPath === "quadrant"
+        ? resolveAddressQuadrant(clientProfile.address, clientProfile.quadrant)
+        : value;
+
     // Determine if the field should be disabled
-    const isDisabledField = ["city", "state", "zipCode", "ward", "total"].includes(fieldPath);
+    const isDisabledField = ["city", "state", "zipCode", "quadrant", "ward", "total"].includes(
+      fieldPath
+    );
 
     return (
       <Box
@@ -2392,7 +2393,7 @@ const Profile = () => {
       >
         <FormField
           fieldPath={fieldPath}
-          value={value}
+          value={displayValue}
           type={type}
           isEditing={isEditing}
           handleChange={handleChange}
