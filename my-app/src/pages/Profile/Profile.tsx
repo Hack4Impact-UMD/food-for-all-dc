@@ -2369,6 +2369,14 @@ const Profile = () => {
       ? getNestedValue(clientProfile, fieldPath)
       : clientProfile[fieldPath as keyof ClientProfile];
 
+    // Quadrant is read-only and derived from the street address, which handleSave treats as
+    // authoritative. Derive it here too so the displayed value cannot go stale while the
+    // address is being edited.
+    const displayValue =
+      fieldPath === "quadrant"
+        ? resolveAddressQuadrant(clientProfile.address, clientProfile.quadrant)
+        : value;
+
     // Determine if the field should be disabled
     const isDisabledField = ["city", "state", "zipCode", "quadrant", "ward", "total"].includes(
       fieldPath
@@ -2385,7 +2393,7 @@ const Profile = () => {
       >
         <FormField
           fieldPath={fieldPath}
-          value={value}
+          value={displayValue}
           type={type}
           isEditing={isEditing}
           handleChange={handleChange}

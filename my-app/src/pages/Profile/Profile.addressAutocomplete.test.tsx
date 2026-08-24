@@ -170,6 +170,7 @@ jest.mock("./components/BasicInfoForm", () => ({
   default: ({ clientProfile, renderField, addressInputRef }: any) => (
     <div>
       {renderField("address", "text", addressInputRef)}
+      {renderField("quadrant", "text")}
       {renderField("phone", "text")}
       {renderField("alternativePhone", "text")}
       <output data-testid="address-fields">
@@ -327,6 +328,58 @@ describe("Profile address autocomplete lifecycle", () => {
     expect(screen.getByTestId("address-fields").textContent).toBe(
       "1600 Pennsylvania Avenue NW|Washington|DC|20006|NW|2"
     );
+  });
+
+  it("shows the quadrant derived from the address while it is being edited", async () => {
+    render(
+      <MemoryRouter
+        initialEntries={["/profile/client-1"]}
+        future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+      >
+        <Routes>
+          <Route path="/profile/:clientId" element={<Profile />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await screen.findByText("100 Main Street NW");
+    fireEvent.click(screen.getAllByTestId("EditIcon")[0].closest("button")!);
+
+    expect(
+      ((await screen.findByRole("textbox", { name: "quadrant" })) as HTMLInputElement).value
+    ).toBe("NW");
+
+    fireEvent.change(screen.getByRole("textbox", { name: "address" }), {
+      target: { name: "address", value: "250 Elm Street SE" },
+    });
+
+    expect(
+      (screen.getByRole("textbox", { name: "quadrant" }) as HTMLInputElement).value
+    ).toBe("SE");
+  });
+
+  it("keeps the stored quadrant when the edited address has no quadrant token", async () => {
+    render(
+      <MemoryRouter
+        initialEntries={["/profile/client-1"]}
+        future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+      >
+        <Routes>
+          <Route path="/profile/:clientId" element={<Profile />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await screen.findByText("100 Main Street NW");
+    fireEvent.click(screen.getAllByTestId("EditIcon")[0].closest("button")!);
+
+    fireEvent.change(await screen.findByRole("textbox", { name: "address" }), {
+      target: { name: "address", value: "250 Elm Street" },
+    });
+
+    expect(
+      (screen.getByRole("textbox", { name: "quadrant" }) as HTMLInputElement).value
+    ).toBe("NW");
   });
 
   it("formats profile phone numbers when saving while accepting allowed input formats", async () => {
