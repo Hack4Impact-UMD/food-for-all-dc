@@ -1,5 +1,14 @@
 import React from "react";
-import { Box, Typography, Select, MenuItem, Tooltip, Autocomplete, TextField } from "@mui/material";
+import {
+  Box,
+  Typography,
+  Select,
+  MenuItem,
+  Tooltip,
+  Autocomplete,
+  TextField,
+  FilterOptionsState,
+} from "@mui/material";
 import InfoIcon from "@mui/icons-material/Info";
 import { ClientProfile } from "../../../types";
 import { ClientProfileKey, InputType } from "../types";
@@ -23,6 +32,24 @@ export interface BasicInfoFormProps {
   addressInputRef?: React.RefObject<HTMLInputElement | null>;
 }
 
+export const filterReferralEntityOptions = (
+  options: CaseWorker[],
+  { inputValue }: Pick<FilterOptionsState<CaseWorker>, "inputValue">
+): CaseWorker[] => {
+  const searchText = inputValue.trim().toLowerCase();
+  if (!searchText) return options;
+
+  return options.filter(
+    (option) => option.id !== "edit_list" && option.name.toLowerCase().includes(searchText)
+  );
+};
+
+const getReferralEntityLabel = (option: CaseWorker | null): string => {
+  if (!option) return "";
+  if (option.id === "edit_list") return "Edit Case Worker List";
+  return [option.name, option.organization].filter(Boolean).join(", ");
+};
+
 const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
   clientProfile,
   isEditing,
@@ -36,6 +63,22 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
   addressError,
   addressInputRef,
 }) => {
+  const [referralSearchText, setReferralSearchText] = React.useState(() =>
+    getReferralEntityLabel(selectedCaseWorker)
+  );
+
+  React.useEffect(() => {
+    setReferralSearchText(getReferralEntityLabel(selectedCaseWorker));
+  }, [selectedCaseWorker]);
+
+  const referralEntityOptions = filterReferralEntityOptions(
+    [
+      { id: "edit_list", name: "Edit Case Worker List", organization: "" } as CaseWorker,
+      ...caseWorkers,
+    ],
+    { inputValue: referralSearchText }
+  );
+
   return (
     <Box
       sx={{
@@ -373,18 +416,25 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
           <>
             <Autocomplete
               value={selectedCaseWorker}
+              inputValue={referralSearchText}
+              onInputChange={(_, nextInputValue, reason) => {
+                if (reason === "input" || reason === "clear") {
+                  setReferralSearchText(nextInputValue);
+                }
+              }}
               onChange={(_, newValue) => {
                 if (newValue && newValue.id === "edit_list") {
                   setShowCaseWorkerModal(true);
+                  setReferralSearchText(getReferralEntityLabel(selectedCaseWorker));
                 } else {
                   handleCaseWorkerChange(newValue);
+                  setReferralSearchText(getReferralEntityLabel(newValue));
                 }
               }}
               // creating an object for the edit list option, rest of array is case workers
-              options={[
-                { id: "edit_list", name: "Edit Case Worker List", organization: "" } as CaseWorker,
-                ...caseWorkers,
-              ]}
+              options={referralEntityOptions}
+              filterOptions={filterReferralEntityOptions}
+              getOptionKey={(option) => option.id}
               getOptionLabel={(option) =>
                 option.id === "edit_list"
                   ? "Edit Case Worker List"
@@ -447,8 +497,9 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
                 />
               )}
               // specifying the render option for the edit case worker option
-              renderOption={(props, option) => (
+              renderOption={({ key, ...props }, option) => (
                 <li
+                  key={key}
                   {...props}
                   style={{
                     color: option.id === "edit_list" ? "var(--color-primary)" : "inherit",
