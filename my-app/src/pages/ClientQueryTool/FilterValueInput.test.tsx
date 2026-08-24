@@ -1,6 +1,8 @@
 import React from "react";
 import { describe, expect, it, jest } from "@jest/globals";
 import { fireEvent, render, screen } from "@testing-library/react";
+import { LocalizationProvider } from "@mui/x-date-pickers";
+import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 import FilterValueInput from "./FilterValueInput";
 import type { QueryFieldDef } from "../../types/query-tool-types";
 
@@ -46,5 +48,27 @@ describe("FilterValueInput phone smart values", () => {
     expect(await screen.findByRole("option", { name: "(202) 489-8676" })).toBeTruthy();
     expect(screen.getByRole("option", { name: "(571) 330-1121" })).toBeTruthy();
     expect(screen.queryByRole("option", { name: "(123) 45" })).toBeNull();
+  });
+});
+
+describe("FilterValueInput date values", () => {
+  it("shows a calendar picker for route delivery dates", () => {
+    render(
+      <LocalizationProvider dateAdapter={AdapterDateFns}>
+        <FilterValueInput
+          id="delivery-date-filter"
+          fieldDef={{ field: "deliveryDate", label: "Delivery Date", type: "timestamp", format: "date" }}
+          operator="=="
+          value=""
+          onChange={jest.fn()}
+          tagOptions={[]}
+          referralOrgOptions={[]}
+          driverOptions={[]}
+          fieldOptions={[]}
+        />
+      </LocalizationProvider>
+    );
+
+    expect(screen.getByRole("button", { name: /choose date/i })).toBeTruthy();
   });
 });
