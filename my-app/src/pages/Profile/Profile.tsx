@@ -81,6 +81,7 @@ import {
   replaceAddressQuadrant,
   resolveAddressQuadrant,
   shouldGeocodeClientLocation,
+  splitAddressUnit,
 } from "../../utils/addressFormat";
 import {
   buildClientAuditMetadata,
@@ -958,6 +959,13 @@ const Profile = () => {
     }
   };
 
+  const handleAddressBlur = () => {
+    setClientProfile((previousProfile) => ({
+      ...previousProfile,
+      ...splitAddressUnit(previousProfile.address, previousProfile.address2),
+    }));
+  };
+
   const validateProfile = () => {
     const newErrors: { [key: string]: string } = {};
 
@@ -1246,6 +1254,15 @@ const Profile = () => {
   };
 
   const handleSave = async () => {
+    const separatedAddress = splitAddressUnit(clientProfile.address, clientProfile.address2);
+    const profileForSave = { ...clientProfile, ...separatedAddress };
+    if (
+      separatedAddress.address !== clientProfile.address ||
+      separatedAddress.address2 !== clientProfile.address2
+    ) {
+      setClientProfile(profileForSave);
+    }
+
     // Important: First validate basic requirements
     setIsSaving(true);
     const validation = validateProfile();
@@ -1283,8 +1300,8 @@ const Profile = () => {
         const duplicateResult = await checkDuplicateClient(
           String(clientProfile.firstName).trim(),
           String(clientProfile.lastName).trim(),
-          String(clientProfile.address).trim(),
-          String(clientProfile.address2).trim(),
+          String(profileForSave.address).trim(),
+          String(profileForSave.address2).trim(),
           String(clientProfile.zipCode).trim()
         );
 
@@ -1322,8 +1339,8 @@ const Profile = () => {
         const duplicateResult = await checkDuplicateClient(
           String(clientProfile.firstName).trim(),
           String(clientProfile.lastName).trim(),
-          String(clientProfile.address).trim(),
-          String(clientProfile.address2).trim(),
+          String(profileForSave.address).trim(),
+          String(profileForSave.address2).trim(),
           String(clientProfile.zipCode).trim(),
           String(clientProfile.uid)
         );
@@ -1363,10 +1380,10 @@ const Profile = () => {
       // Only geocode when address changed or existing coords/ward are missing/invalid
       const existingCoords = clientProfile.coordinates;
       const resolvedQuadrant = resolveAddressQuadrant(
-        clientProfile.address,
+        profileForSave.address,
         clientProfile.quadrant
       );
-      const canonicalLocation = { ...clientProfile, quadrant: resolvedQuadrant };
+      const canonicalLocation = { ...profileForSave, quadrant: resolvedQuadrant };
       const needsGeocode = shouldGeocodeClientLocation(canonicalLocation, prevClientProfile);
 
       let fetchedWard: string;
@@ -1471,7 +1488,7 @@ const Profile = () => {
         Object.entries(dynamicFields).filter(([key]) => configFieldIds.includes(key))
       );
       // Remove ALL config-driven dynamic field keys from top-level profile before saving
-      const cleanedProfile = { ...clientProfile };
+      const cleanedProfile = { ...profileForSave };
       for (const key of configFieldIds) {
         if (key in cleanedProfile) {
           delete (cleanedProfile as Record<string, unknown>)[key];
@@ -2396,6 +2413,7 @@ const Profile = () => {
           type={type}
           isEditing={isEditing}
           handleChange={handleChange}
+          handleBlur={fieldPath === "address" ? handleAddressBlur : undefined}
           handleDietaryRestrictionChange={handleDietaryRestrictionChange}
           addressInputRef={fieldPath === "address" ? addressInputRef : undefined}
           isDisabledField={isDisabledField}
@@ -2764,6 +2782,7 @@ const Profile = () => {
         let state = "";
         let zip = "";
         let quadrant = "";
+        let unit = "";
         for (const comp of place.address_components) {
           if (comp.types.includes("street_number")) {
             street = comp.long_name + " " + street;
@@ -2776,7 +2795,7 @@ const Profile = () => {
           } else if (comp.types.includes("postal_code")) {
             zip = comp.long_name;
           } else if (comp.types.includes("subpremise")) {
-            street += " " + comp.long_name;
+            unit = `Unit ${comp.long_name}`;
           } else if (comp.types.includes("neighborhood")) {
             // Optionally use for quadrant if DC
             if (!quadrant) {
@@ -2813,6 +2832,7 @@ const Profile = () => {
         setClientProfile((prev) => ({
           ...prev,
           address: street.trim(),
+          address2: unit || prev.address2,
           city,
           state,
           zipCode: zip,

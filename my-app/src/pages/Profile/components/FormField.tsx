@@ -30,6 +30,7 @@ export interface FormFieldProps {
       | React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
       | SelectChangeEvent
   ) => void;
+  handleBlur?: (event: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
   getNestedValue: (obj: any, path: string) => any;
   handleDietaryRestrictionChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   addressInputRef?: React.RefObject<HTMLInputElement | null>;
@@ -383,6 +384,7 @@ const FormField = (props: FormFieldProps) => {
     type,
     isEditing,
     handleChange,
+    handleBlur,
     getNestedValue,
     handleDietaryRestrictionChange,
     addressInputRef,
@@ -761,6 +763,7 @@ const FormField = (props: FormFieldProps) => {
               name={fieldPath}
               value={String(value || "")}
               onChange={handleChange}
+              onBlur={handleBlur}
               fullWidth
               disabled={isDisabledField}
               autoComplete={fieldPath === "address" ? "off" : undefined}

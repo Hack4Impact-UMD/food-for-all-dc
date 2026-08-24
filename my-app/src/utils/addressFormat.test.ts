@@ -8,6 +8,7 @@ import {
   replaceAddressQuadrant,
   resolveAddressQuadrant,
   shouldGeocodeClientLocation,
+  splitAddressUnit,
 } from "./addressFormat";
 
 describe("addressFormat", () => {
@@ -141,5 +142,32 @@ describe("addressFormat", () => {
         "Apartment 4B"
       )
     ).toBe("1738 Massachusetts Avenue SE Apartment 4B");
+  });
+
+  it("moves a manually typed apartment from address 1 to address 2", () => {
+    expect(splitAddressUnit("2401 Calvert Street NW Apt 528")).toEqual({
+      address: "2401 Calvert Street NW",
+      address2: "Apt 528",
+    });
+  });
+
+  it("repairs spacing when an apartment is typed inside the street address", () => {
+    expect(splitAddressUnit("2401  apt 528Calvert street NW")).toEqual({
+      address: "2401 Calvert street NW",
+      address2: "Apt 528",
+    });
+  });
+
+  it("supports unit, suite, and hash notation", () => {
+    expect(splitAddressUnit("100 Main Street Unit 4B").address2).toBe("Unit 4B");
+    expect(splitAddressUnit("100 Main Street, Ste. 200").address2).toBe("Suite 200");
+    expect(splitAddressUnit("100 Main Street #12").address2).toBe("Unit 12");
+  });
+
+  it("does not treat street names beginning with Ste as suite markers", () => {
+    expect(splitAddressUnit("1339 Fort Stevens Drive NW", "Apt 217")).toEqual({
+      address: "1339 Fort Stevens Drive NW",
+      address2: "Apt 217",
+    });
   });
 });

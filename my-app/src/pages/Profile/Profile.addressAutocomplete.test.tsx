@@ -183,6 +183,7 @@ jest.mock("./components/BasicInfoForm", () => ({
           clientProfile.ward,
         ].join("|")}
       </output>
+      <output data-testid="address-line-2">{clientProfile.address2}</output>
       <output data-testid="phone-fields">
         {[clientProfile.phone, clientProfile.alternativePhone].join("|")}
       </output>
@@ -192,7 +193,7 @@ jest.mock("./components/BasicInfoForm", () => ({
 
 jest.mock("./components/FormField", () => ({
   __esModule: true,
-  default: ({ fieldPath, value, isEditing, handleChange, addressInputRef }: any) =>
+  default: ({ fieldPath, value, isEditing, handleChange, handleBlur, addressInputRef }: any) =>
     isEditing ? (
       <input
         aria-label={fieldPath}
@@ -200,6 +201,7 @@ jest.mock("./components/FormField", () => ({
         ref={fieldPath === "address" ? addressInputRef : undefined}
         value={String(value || "")}
         onChange={handleChange}
+        onBlur={handleBlur}
       />
     ) : (
       <span>{String(value || "")}</span>
@@ -318,6 +320,7 @@ describe("Profile address autocomplete lifecycle", () => {
           types: ["administrative_area_level_1"],
         },
         { long_name: "20006", short_name: "20006", types: ["postal_code"] },
+        { long_name: "528", short_name: "528", types: ["subpremise"] },
       ],
     } as google.maps.places.PlaceResult;
 
@@ -328,6 +331,64 @@ describe("Profile address autocomplete lifecycle", () => {
     expect(screen.getByTestId("address-fields").textContent).toBe(
       "1600 Pennsylvania Avenue NW|Washington|DC|20006|NW|2"
     );
+    expect(screen.getByTestId("address-line-2").textContent).toBe("Unit 528");
+  });
+
+  it("moves a manually typed apartment to address line 2 on blur", async () => {
+    render(
+      <MemoryRouter
+        initialEntries={["/profile/client-1"]}
+        future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+      >
+        <Routes>
+          <Route path="/profile/:clientId" element={<Profile />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await screen.findByText("100 Main Street NW");
+    fireEvent.click(screen.getAllByTestId("EditIcon")[0].closest("button")!);
+    const addressInput = await screen.findByRole("textbox", { name: "address" });
+    fireEvent.change(addressInput, {
+      target: { name: "address", value: "2401  apt 528Calvert street NW" },
+    });
+    fireEvent.blur(addressInput);
+
+    await waitFor(() => {
+      expect((addressInput as HTMLInputElement).value).toBe("2401 Calvert street NW");
+      expect(screen.getByTestId("address-line-2").textContent).toBe("Apt 528");
+    });
+  });
+
+  it("separates a manually typed apartment when saving without blur", async () => {
+    render(
+      <MemoryRouter
+        initialEntries={["/profile/client-1"]}
+        future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+      >
+        <Routes>
+          <Route path="/profile/:clientId" element={<Profile />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await screen.findByText("100 Main Street NW");
+    fireEvent.click(screen.getAllByTestId("EditIcon")[0].closest("button")!);
+    fireEvent.change(await screen.findByRole("textbox", { name: "address" }), {
+      target: { name: "address", value: "2401 Calvert Street NW Apt 528" },
+    });
+    fireEvent.click(screen.getAllByRole("button", { name: "save" })[0]);
+
+    await waitFor(() => {
+      expect(mockSetDoc).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          address: "2401 Calvert Street NW",
+          address2: "Apt 528",
+        }),
+        { merge: true }
+      );
+    });
   });
 
   it("keeps the street, quadrant, coordinates, and ward in sync after a quadrant change", async () => {
