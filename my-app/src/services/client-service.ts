@@ -29,6 +29,7 @@ import {
 import { validateClientProfile } from "../utils/firestoreValidation";
 import dataSources from "../config/dataSources";
 import { buildClientAuditWriteMetadata } from "../utils/clientAudit";
+import { normalizeGender } from "../utils/gender";
 
 const getCurrentUserClientAuditMetadata = () => {
   const user = auth.currentUser;
@@ -197,6 +198,7 @@ class ClientService {
 
         return {
           ...data,
+          gender: normalizeGender(data.gender),
           tefapCert: normalizeBooleanField(data.tefapCert),
           tefapCertDate: normalizeDateStringField((data as any).tefapCertDate),
           activeStatus: deriveClientActiveStatus(data),
@@ -249,7 +251,7 @@ class ClientService {
             adults: raw.adults || 0,
             children: raw.children || 0,
             total: raw.total || 0,
-            gender: raw.gender || "Other",
+            gender: normalizeGender(raw.gender),
             ethnicity: raw.ethnicity || "",
             deliveryDetails: {
               deliveryInstructions: deliveryDetails.deliveryInstructions || "",

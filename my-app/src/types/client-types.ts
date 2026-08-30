@@ -48,7 +48,7 @@ export interface ClientProfile {
   adults: number;
   children: number;
   total: number;
-  gender: "Male" | "Female" | "Other";
+  gender: "Male" | "Female" | "Other" | "Unknown";
   ethnicity: string;
   deliveryDetails: {
     deliveryInstructions: string;
