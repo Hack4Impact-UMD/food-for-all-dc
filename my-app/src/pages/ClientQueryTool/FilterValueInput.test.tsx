@@ -71,4 +71,29 @@ describe("FilterValueInput date values", () => {
 
     expect(screen.getByRole("button", { name: /choose date/i })).toBeTruthy();
   });
+
+  it("keeps a picked date as a Date instead of converting it during editing", () => {
+    const onChange = jest.fn();
+    render(
+      <LocalizationProvider dateAdapter={AdapterDateFns}>
+        <FilterValueInput
+          id="delivery-date-filter"
+          fieldDef={{ field: "deliveryDate", label: "Delivery Date", type: "timestamp", format: "date" }}
+          operator="=="
+          value={new Date(2027, 7, 24)}
+          onChange={onChange}
+          tagOptions={[]}
+          referralOrgOptions={[]}
+          driverOptions={[]}
+          fieldOptions={[]}
+        />
+      </LocalizationProvider>
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /choose date/i }));
+    fireEvent.click(screen.getByRole("gridcell", { name: "25" }));
+
+    expect(onChange).toHaveBeenLastCalledWith(new Date(2027, 7, 25));
+  });
+
 });

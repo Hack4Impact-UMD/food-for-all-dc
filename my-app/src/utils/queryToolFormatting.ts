@@ -39,3 +39,30 @@ export const formatDateMask = (value: unknown): string => {
   if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
   return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
 };
+
+export const parseQueryDate = (value: unknown): Date | null => {
+  if (value instanceof Date) return value;
+  if (typeof value !== "string") return null;
+
+  const match = value.trim().match(/^(\d{2})[/-](\d{2})[/-](\d{4})$|^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return null;
+
+  const year = Number(match[3] ?? match[4]);
+  const month = Number(match[1] ?? match[5]);
+  const day = Number(match[2] ?? match[6]);
+  const date = new Date(year, month - 1, day);
+
+  return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day
+    ? date
+    : null;
+};
+
+export const isCompleteQueryDate = (value: unknown): boolean => {
+  const date = parseQueryDate(value);
+  return Boolean(
+    date &&
+    !Number.isNaN(date.getTime()) &&
+    date.getFullYear() >= 1000 &&
+    date.getFullYear() <= 9999
+  );
+};

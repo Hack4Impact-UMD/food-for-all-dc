@@ -35,6 +35,34 @@ describe("validateFilters", () => {
     expect(result.valid).toBe(true);
   });
 
+  it("accepts a complete date from the date picker", () => {
+    const result = validateFilters("deliveries", [
+      makeFilter({ field: "deliveryDate", operator: "==", value: new Date(2027, 7, 24) }),
+    ]);
+
+    expect(result.valid).toBe(true);
+  });
+
+  it("rejects an incomplete year from the date picker", () => {
+    const incompleteDate = new Date(2027, 7, 24);
+    incompleteDate.setFullYear(2);
+    const result = validateFilters("deliveries", [
+      makeFilter({ field: "deliveryDate", operator: "==", value: incompleteDate }),
+    ]);
+
+    expect(result.valid).toBe(false);
+    expect(Object.values(result.fieldErrors)[0]).toMatch(/complete valid date/i);
+  });
+
+  it("rejects malformed date text", () => {
+    const result = validateFilters("deliveries", [
+      makeFilter({ field: "deliveryDate", operator: "==", value: "2-08-24" }),
+    ]);
+
+    expect(result.valid).toBe(false);
+    expect(Object.values(result.fieldErrors)[0]).toMatch(/complete valid date/i);
+  });
+
   it("accepts a valid array-contains filter", () => {
     const result = validateFilters("clients", [
       makeFilter({ field: "tags", operator: "array-contains", value: "Halal" }),

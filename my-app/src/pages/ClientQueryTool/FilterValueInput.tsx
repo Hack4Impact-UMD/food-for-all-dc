@@ -6,7 +6,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { Autocomplete, Checkbox, MenuItem, TextField } from "@mui/material";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { QueryFieldDef, QueryOperator } from "../../types/query-tool-types";
-import { formatAssignedTime, formatPhoneNumber } from "../../utils/queryToolFormatting";
+import { formatAssignedTime, formatPhoneNumber, parseQueryDate } from "../../utils/queryToolFormatting";
 
 interface FilterValueInputProps {
   fieldDef: QueryFieldDef;
@@ -44,29 +44,6 @@ const isOrganizationField = (field: QueryFieldDef): boolean =>
 const isWardField = (field: QueryFieldDef): boolean => field.field === "ward";
 const isClusterField = (field: QueryFieldDef): boolean => field.field === "cluster";
 const ALL_VALUES_OPTION = "__all_values__";
-
-const parseDateValue = (value: unknown): Date | null => {
-  if (typeof value !== "string") return null;
-
-  const match = value.trim().match(/^(\d{2})[/-](\d{2})[/-](\d{4})$|^(\d{4})-(\d{2})-(\d{2})$/);
-  if (!match) return null;
-
-  const year = Number(match[3] ?? match[4]);
-  const month = Number(match[1] ?? match[5]);
-  const day = Number(match[2] ?? match[6]);
-  const date = new Date(year, month - 1, day);
-
-  return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day
-    ? date
-    : null;
-};
-
-const formatPickedDate = (date: Date, fieldDef: QueryFieldDef): string => {
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  const year = date.getFullYear();
-  return fieldDef.type === "timestamp" ? `${year}-${month}-${day}` : `${month}/${day}/${year}`;
-};
 
 const formatPhoneOption = (value: string): string => {
   const digits = value.replace(/\D/g, "");
@@ -393,10 +370,8 @@ const FilterValueInput: React.FC<FilterValueInputProps> = ({
       <DatePicker
         label="Value"
         format="MM/dd/yyyy"
-        value={parseDateValue(value)}
-        onChange={(date) =>
-          onChange(date && !Number.isNaN(date.getTime()) ? formatPickedDate(date, fieldDef) : "")
-        }
+        value={parseQueryDate(value)}
+        onChange={(date) => onChange(date)}
         slotProps={{
           textField: {
             ...commonProps,

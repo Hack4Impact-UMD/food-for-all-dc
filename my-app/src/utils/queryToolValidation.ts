@@ -2,6 +2,7 @@
 // Runs entirely client-side, before any Firestore query is constructed.
 
 import { CollectionKey, getFieldDef, OPERATORS_BY_TYPE, QueryFilter } from "../types/query-tool-types";
+import { isCompleteQueryDate } from "./queryToolFormatting";
 
 export interface FilterValidationResult {
   valid: boolean;
@@ -59,6 +60,11 @@ export const validateFilters = (
 
     if (isValueEmpty(filter.value)) {
       fieldErrors[filter.id] = `Choose a value for ${fieldDef.label} before running the query.`;
+      continue;
+    }
+
+    if (fieldDef.format === "date" && !isCompleteQueryDate(filter.value)) {
+      fieldErrors[filter.id] = `Enter a complete valid date for ${fieldDef.label}.`;
       continue;
     }
 

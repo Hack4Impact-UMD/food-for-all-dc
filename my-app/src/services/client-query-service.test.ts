@@ -182,6 +182,26 @@ describe("client-query-service", () => {
     );
   });
 
+  it("uses a Date from the picker for timestamp filters", () => {
+    const date = new Date(2027, 7, 24);
+    const filters = [makeFilter("updatedAt", ">=", date)];
+    buildFirestoreConstraints("clients", filters);
+    expect(mockWhere).toHaveBeenCalledWith(
+      "updatedAt",
+      ">=",
+      expect.objectContaining({
+        mocked: "timestamp",
+        date: new Date(2027, 7, 24, 0, 0, 0, 0),
+      })
+    );
+  });
+
+  it("formats a Date from the picker for text date fields", () => {
+    const filters = [makeFilter("dob", "==", new Date(2027, 7, 24))];
+    buildFirestoreConstraints("clients", filters);
+    expect(mockWhere).toHaveBeenCalledWith("dob", "==", "08/24/2027");
+  });
+
   it("expands an == timestamp filter into a whole-day range instead of an exact instant", () => {
     const filters = [makeFilter("updatedAt", "==", "2024-01-01")];
     buildFirestoreConstraints("clients", filters);
