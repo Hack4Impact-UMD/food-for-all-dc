@@ -1,17 +1,25 @@
 import { describe, expect, it } from "@jest/globals";
 import {
   buildGeocodingAddress,
+  formatAddressUnit,
   formatAddressWithQuadrant,
   formatAddressWithQuadrantAndUnit,
   isStreetStyleAddress,
+  normalizeDuplicateAddress,
   normalizeQuadrantToken,
-  replaceAddressQuadrant,
   resolveAddressQuadrant,
   shouldGeocodeClientLocation,
-  splitAddressUnit,
 } from "./addressFormat";
 
 describe("addressFormat", () => {
+  it.each([
+    ["528", "Unit 528"],
+    ["suite 270", "Suite 270"],
+    ["Apt. #4B", "Apt 4B"],
+  ])("formats Google subpremise %s", (subpremise, expected) => {
+    expect(formatAddressUnit(subpremise)).toBe(expected);
+  });
+
   it("builds a geocoding address with the quadrant and without apartment data", () => {
     expect(
       buildGeocodingAddress({
@@ -101,19 +109,6 @@ describe("addressFormat", () => {
     expect(formatAddressWithQuadrant("201 I Street SW", "NW")).toBe("201 I Street SW");
   });
 
-  it("replaces the street token when a user explicitly changes the quadrant", () => {
-    expect(replaceAddressQuadrant("100 Main Street NW", "NE")).toBe("100 Main Street NE");
-    expect(replaceAddressQuadrant("100 Main Street Northwest", "SE")).toBe(
-      "100 Main Street SE"
-    );
-  });
-
-  it("appends the selected quadrant when the street does not contain one", () => {
-    expect(replaceAddressQuadrant("100 Main Street", "Southwest")).toBe(
-      "100 Main Street SW"
-    );
-  });
-
   it("standardizes full-word directions already in address", () => {
     expect(formatAddressWithQuadrant("1738 Massachusetts Avenue Southeast", "SE")).toBe(
       "1738 Massachusetts Avenue SE"
@@ -144,30 +139,39 @@ describe("addressFormat", () => {
     ).toBe("1738 Massachusetts Avenue SE Apartment 4B");
   });
 
-  it("moves a manually typed apartment from address 1 to address 2", () => {
-    expect(splitAddressUnit("2401 Calvert Street NW Apt 528")).toEqual({
-      address: "2401 Calvert Street NW",
-      address2: "Apt 528",
-    });
+  it.each([
+    ["Apt 524", ""],
+    ["Apartment #524", ""],
+    ["Unit 524", ""],
+    ["Apt No. 524", ""],
+    ["Apartment Number 524", ""],
+    ["Ste 524", ""],
+    ["#524", ""],
+    ["", "Apartment #524"],
+    ["", "Unit 524"],
+  ])("normalizes apartment form %s / %s for duplicate checks", (embeddedUnit, address2) => {
+    expect(
+      normalizeDuplicateAddress({
+        address: `100 Main Street Northwest ${embeddedUnit}`.trim(),
+        address2,
+        quadrant: "NW",
+      })
+    ).toEqual({ street: "100 main st nw", unit: "524" });
   });
 
-  it("repairs spacing when an apartment is typed inside the street address", () => {
-    expect(splitAddressUnit("2401  apt 528Calvert street NW")).toEqual({
-      address: "2401 Calvert street NW",
-      address2: "Apt 528",
+  it("keeps different apartment numbers distinct", () => {
+    const first = normalizeDuplicateAddress({
+      address: "100 Main St NW",
+      address2: "Apt 524",
+      quadrant: "NW",
     });
-  });
-
-  it("supports unit, suite, and hash notation", () => {
-    expect(splitAddressUnit("100 Main Street Unit 4B").address2).toBe("Unit 4B");
-    expect(splitAddressUnit("100 Main Street, Ste. 200").address2).toBe("Suite 200");
-    expect(splitAddressUnit("100 Main Street #12").address2).toBe("Unit 12");
-  });
-
-  it("does not treat street names beginning with Ste as suite markers", () => {
-    expect(splitAddressUnit("1339 Fort Stevens Drive NW", "Apt 217")).toEqual({
-      address: "1339 Fort Stevens Drive NW",
-      address2: "Apt 217",
+    const second = normalizeDuplicateAddress({
+      address: "100 Main Street Northwest",
+      address2: "Apartment 525",
+      quadrant: "Northwest",
     });
+
+    expect(first.street).toBe(second.street);
+    expect(first.unit).not.toBe(second.unit);
   });
 });

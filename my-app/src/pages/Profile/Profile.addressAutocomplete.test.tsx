@@ -1,8 +1,12 @@
 import React from "react";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, jest } from "@jest/globals";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import Profile from "./Profile";
+import Profile, {
+  isDuplicateClient,
+  isDuplicateClientName,
+  shouldCheckForDuplicateClient,
+} from "./Profile";
 
 const mockGetDoc = jest.fn();
 const mockGetDocs = jest.fn();
@@ -11,6 +15,13 @@ const mockRefresh = jest.fn();
 const mockUpdateClient = jest.fn();
 const mockClearInstanceListeners = jest.fn();
 const autocompleteInstances: MockAutocomplete[] = [];
+const savedCaseWorker = {
+  id: "case-worker-1",
+  name: "Case Worker",
+  organization: "Test Agency",
+  phone: "",
+  email: "",
+};
 
 const savedProfile = {
   uid: "client-1",
@@ -42,7 +53,11 @@ const savedProfile = {
   quadrant: "NW",
   coordinates: [38.9, -77.0],
   tefapCert: false,
-  referralEntity: null,
+  referralEntity: {
+    id: savedCaseWorker.id,
+    name: savedCaseWorker.name,
+    organization: savedCaseWorker.organization,
+  },
   referredDate: "",
   notes: "",
   lifeChallenges: "",
@@ -58,11 +73,13 @@ const savedProfile = {
 
 class MockAutocomplete {
   input: HTMLInputElement;
+  options?: google.maps.places.AutocompleteOptions;
   place: google.maps.places.PlaceResult = {};
   placeChanged: (() => Promise<void>) | null = null;
 
-  constructor(input: HTMLInputElement) {
+  constructor(input: HTMLInputElement, options?: google.maps.places.AutocompleteOptions) {
     this.input = input;
+    this.options = options;
     autocompleteInstances.push(this);
   }
 
@@ -167,12 +184,41 @@ jest.mock("./Tags/TagManager", () => () => null);
 
 jest.mock("./components/BasicInfoForm", () => ({
   __esModule: true,
-  default: ({ clientProfile, renderField, addressInputRef }: any) => (
+  default: ({
+    clientProfile,
+    renderField,
+    addressInputRef,
+    handleCaseWorkerChange,
+    errors,
+  }: any) => (
     <div>
+      {renderField("firstName")}
+      {renderField("lastName")}
       {renderField("address", "text", addressInputRef)}
-      {renderField("quadrant", "select")}
+      {renderField("address2")}
+      {renderField("city")}
+      {renderField("state")}
+      {renderField("zipCode")}
+      {renderField("quadrant", "text")}
+      {renderField("ward")}
       {renderField("phone", "text")}
       {renderField("alternativePhone", "text")}
+      {renderField("endDate")}
+      {renderField("ethnicity")}
+      {renderField("language")}
+      {renderField("adults")}
+      <button
+        type="button"
+        onClick={() =>
+          handleCaseWorkerChange({
+            id: "case-worker-1",
+            name: "Case Worker",
+            organization: "Test Agency",
+          })
+        }
+      >
+        Select referral entity
+      </button>
       <output data-testid="address-fields">
         {[
           clientProfile.address,
@@ -187,13 +233,14 @@ jest.mock("./components/BasicInfoForm", () => ({
       <output data-testid="phone-fields">
         {[clientProfile.phone, clientProfile.alternativePhone].join("|")}
       </output>
+      {errors.referralEntity && <div role="alert">{errors.referralEntity}</div>}
     </div>
   ),
 }));
 
 jest.mock("./components/FormField", () => ({
   __esModule: true,
-  default: ({ fieldPath, value, isEditing, handleChange, handleBlur, addressInputRef }: any) =>
+  default: ({ fieldPath, value, isEditing, handleChange, addressInputRef }: any) =>
     isEditing ? (
       <input
         aria-label={fieldPath}
@@ -201,7 +248,6 @@ jest.mock("./components/FormField", () => ({
         ref={fieldPath === "address" ? addressInputRef : undefined}
         value={String(value || "")}
         onChange={handleChange}
-        onBlur={handleBlur}
       />
     ) : (
       <span>{String(value || "")}</span>
@@ -212,6 +258,109 @@ const emptySnapshot = {
   docs: [],
   empty: true,
   forEach: () => undefined,
+};
+
+const isZipScopedClientQuery = (reference: unknown): boolean => {
+  const queryReference = reference as { kind?: string; args?: unknown[] };
+  if (queryReference.kind !== "query") return false;
+
+  const [collectionReference, ...constraints] = queryReference.args || [];
+  const collectionArgs = (collectionReference as { args?: unknown[] })?.args || [];
+  return (
+    collectionArgs.includes("client-profile2") &&
+    constraints.some((constraint) => {
+      const whereConstraint = constraint as { kind?: string; args?: unknown[] };
+      return (
+        whereConstraint.kind === "where" &&
+        whereConstraint.args?.[0] === "zipCode" &&
+        whereConstraint.args?.[1] === "=="
+      );
+    })
+  );
+};
+
+describe("isDuplicateClientName", () => {
+  it("matches first and last name regardless of casing, spacing, or address", () => {
+    expect(
+      isDuplicateClientName(
+        { firstName: "  TEST ", lastName: "CLIENT" },
+        savedProfile.firstName,
+        savedProfile.lastName
+      )
+    ).toBe(true);
+  });
+
+  it("requires both first and last name to match", () => {
+    expect(
+      isDuplicateClientName(
+        { firstName: "Other", lastName: savedProfile.lastName },
+        savedProfile.firstName,
+        savedProfile.lastName
+      )
+    ).toBe(false);
+  });
+});
+
+describe("isDuplicateClient", () => {
+  const candidate = {
+    ...savedProfile,
+    uid: "client-2",
+    firstName: " TEST ",
+    lastName: "CLIENT",
+    address: "100 Main St Northwest",
+    address2: "",
+    quadrant: "Northwest",
+  } as any;
+
+  it("matches normalized name, street, apartment, quadrant, and ZIP code", () => {
+    expect(isDuplicateClient(candidate, savedProfile as any)).toBe(true);
+  });
+
+  it("matches an address that has no DC quadrant", () => {
+    const noQuadrantProfile = {
+      ...savedProfile,
+      address: "5000 River Road",
+      quadrant: "",
+      zipCode: "20816",
+    } as any;
+
+    expect(
+      isDuplicateClient(
+        { ...noQuadrantProfile, uid: "client-2", address: "5000 River Rd" },
+        noQuadrantProfile
+      )
+    ).toBe(true);
+  });
+
+  it.each([
+    ["street", { address: "200 Main St NW" }],
+    ["apartment", { address2: "Apt 524" }],
+    ["quadrant", { address: "100 Main St NE", quadrant: "NE" }],
+    ["ZIP code", { zipCode: "20002" }],
+  ])("does not match when the %s differs", (_, changes) => {
+    expect(isDuplicateClient({ ...candidate, ...changes }, savedProfile as any)).toBe(false);
+  });
+
+  it("only rechecks an existing client when its duplicate identity changes", () => {
+    expect(shouldCheckForDuplicateClient(savedProfile as any, savedProfile as any, false)).toBe(
+      false
+    );
+    expect(
+      shouldCheckForDuplicateClient(
+        { ...savedProfile, address: "200 Main Street NW" } as any,
+        savedProfile as any,
+        false
+      )
+    ).toBe(true);
+    expect(shouldCheckForDuplicateClient(savedProfile as any, null, true)).toBe(true);
+  });
+});
+
+const caseWorkerSnapshot = {
+  docs: [],
+  empty: false,
+  forEach: (callback: (document: { id: string; data: () => typeof savedCaseWorker }) => void) =>
+    callback({ id: savedCaseWorker.id, data: () => savedCaseWorker }),
 };
 
 describe("Profile address autocomplete lifecycle", () => {
@@ -232,7 +381,10 @@ describe("Profile address autocomplete lifecycle", () => {
       }
       return { exists: () => true, data: () => ({ tags: [] }) };
     });
-    mockGetDocs.mockImplementation(async () => emptySnapshot);
+    mockGetDocs.mockImplementation(async (reference: unknown) => {
+      const referenceArgs = (reference as { args?: unknown[] }).args || [];
+      return referenceArgs.includes("referral") ? caseWorkerSnapshot : emptySnapshot;
+    });
     mockSetDoc.mockImplementation(async () => undefined);
     mockRefresh.mockImplementation(async () => undefined);
 
@@ -262,6 +414,40 @@ describe("Profile address autocomplete lifecycle", () => {
     jest.restoreAllMocks();
   });
 
+  it("requires a referral entity when updating a legacy client without one", async () => {
+    const alertSpy = jest.spyOn(window, "alert").mockImplementation(() => undefined);
+    mockGetDoc.mockImplementation(async (reference: unknown) => {
+      const referenceArgs = (reference as { args: unknown[] }).args;
+      const documentId = referenceArgs[referenceArgs.length - 1];
+      if (documentId === "client-1") {
+        return {
+          exists: () => true,
+          data: () => ({ ...savedProfile, referralEntity: null }),
+        };
+      }
+      return { exists: () => true, data: () => ({ tags: [] }) };
+    });
+
+    render(
+      <MemoryRouter
+        initialEntries={["/profile/client-1"]}
+        future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+      >
+        <Routes>
+          <Route path="/profile/:clientId" element={<Profile />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await screen.findByText("100 Main Street NW");
+    fireEvent.click(screen.getAllByTestId("EditIcon")[0].closest("button")!);
+    fireEvent.click(screen.getAllByRole("button", { name: "save" })[0]);
+
+    expect((await screen.findByRole("alert")).textContent).toBe("Referral entity is required");
+    expect(alertSpy).toHaveBeenCalledWith(expect.stringContaining("Referral entity is required"));
+    expect(mockSetDoc).not.toHaveBeenCalled();
+  });
+
   it("rebinds autocomplete after save and still populates the selected address", async () => {
     render(
       <MemoryRouter
@@ -280,6 +466,14 @@ describe("Profile address autocomplete lifecycle", () => {
     const firstInput = await screen.findByRole("textbox", { name: "address" });
     await waitFor(() => expect(autocompleteInstances).toHaveLength(1));
     expect(autocompleteInstances[0].input).toBe(firstInput);
+    expect(autocompleteInstances[0].options).toEqual(
+      expect.objectContaining({
+        types: ["address"],
+        componentRestrictions: { country: "us" },
+        bounds: { north: 39.35, south: 38.3, east: -76.7, west: -77.8 },
+        strictBounds: true,
+      })
+    );
 
     fireEvent.click(screen.getAllByRole("button", { name: "save" })[0]);
     await waitFor(() => expect(mockSetDoc).toHaveBeenCalled());
@@ -320,7 +514,7 @@ describe("Profile address autocomplete lifecycle", () => {
           types: ["administrative_area_level_1"],
         },
         { long_name: "20006", short_name: "20006", types: ["postal_code"] },
-        { long_name: "528", short_name: "528", types: ["subpremise"] },
+        { long_name: "suite 270", short_name: "suite 270", types: ["subpremise"] },
       ],
     } as google.maps.places.PlaceResult;
 
@@ -331,10 +525,23 @@ describe("Profile address autocomplete lifecycle", () => {
     expect(screen.getByTestId("address-fields").textContent).toBe(
       "1600 Pennsylvania Avenue NW|Washington|DC|20006|NW|2"
     );
-    expect(screen.getByTestId("address-line-2").textContent).toBe("Unit 528");
+    expect(screen.getByTestId("address-line-2").textContent).toBe("Suite 270");
   });
 
-  it("moves a manually typed apartment to address line 2 on blur", async () => {
+  it("leaves manually entered address lines unchanged when saving", async () => {
+    const profileWithAddressDetails = {
+      ...savedProfile,
+      address2: "Building B\nRear entrance",
+    };
+    mockGetDoc.mockImplementation(async (reference: unknown) => {
+      const referenceArgs = (reference as { args: unknown[] }).args;
+      const documentId = referenceArgs[referenceArgs.length - 1];
+      if (documentId === "client-1") {
+        return { exists: () => true, data: () => profileWithAddressDetails };
+      }
+      return { exists: () => true, data: () => ({ tags: [] }) };
+    });
+
     render(
       <MemoryRouter
         initialEntries={["/profile/client-1"]}
@@ -350,17 +557,80 @@ describe("Profile address autocomplete lifecycle", () => {
     fireEvent.click(screen.getAllByTestId("EditIcon")[0].closest("button")!);
     const addressInput = await screen.findByRole("textbox", { name: "address" });
     fireEvent.change(addressInput, {
-      target: { name: "address", value: "2401  apt 528Calvert street NW" },
+      target: { name: "address", value: "100 Main Street, Apt 4" },
     });
     fireEvent.blur(addressInput);
+    fireEvent.click(screen.getAllByRole("button", { name: "save" })[0]);
 
     await waitFor(() => {
-      expect((addressInput as HTMLInputElement).value).toBe("2401 Calvert street NW");
-      expect(screen.getByTestId("address-line-2").textContent).toBe("Apt 528");
+      expect(mockSetDoc).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          address: "100 Main Street, Apt 4",
+          address2: "Building B\nRear entrance",
+        }),
+        { merge: true }
+      );
     });
   });
 
-  it("separates a manually typed apartment when saving without blur", async () => {
+  it("allows other edits when an existing client already has a duplicate", async () => {
+    const duplicateClientDoc = {
+      id: "client-2",
+      data: () => ({
+        ...savedProfile,
+        uid: "client-2",
+        address: "100 Main St Northwest",
+        quadrant: "Northwest",
+      }),
+    };
+    mockGetDocs.mockImplementation(async (reference: unknown) => {
+      return isZipScopedClientQuery(reference)
+        ? { ...emptySnapshot, docs: [duplicateClientDoc], empty: false }
+        : emptySnapshot;
+    });
+
+    render(
+      <MemoryRouter
+        initialEntries={["/profile/client-1"]}
+        future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+      >
+        <Routes>
+          <Route path="/profile/:clientId" element={<Profile />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await screen.findByText("100 Main Street NW");
+    fireEvent.click(screen.getAllByTestId("EditIcon")[0].closest("button")!);
+    fireEvent.change(await screen.findByRole("textbox", { name: "phone" }), {
+      target: { name: "phone", value: "202-555-0199" },
+    });
+    fireEvent.click(screen.getAllByRole("button", { name: "save" })[0]);
+
+    await waitFor(() => expect(mockSetDoc).toHaveBeenCalled());
+    expect(screen.queryByRole("dialog", { name: "Duplicate Client Detected" })).toBeNull();
+    expect(mockGetDocs.mock.calls.some(([reference]) => isZipScopedClientQuery(reference))).toBe(
+      false
+    );
+  });
+
+  it("blocks an existing client from changing into another client's identity", async () => {
+    const duplicateClientDoc = {
+      id: "client-2",
+      data: () => ({
+        ...savedProfile,
+        uid: "client-2",
+        address: "200 Main St Northwest",
+        quadrant: "Northwest",
+      }),
+    };
+    mockGetDocs.mockImplementation(async (reference: unknown) =>
+      isZipScopedClientQuery(reference)
+        ? { ...emptySnapshot, docs: [duplicateClientDoc], empty: false }
+        : emptySnapshot
+    );
+
     render(
       <MemoryRouter
         initialEntries={["/profile/client-1"]}
@@ -375,23 +645,91 @@ describe("Profile address autocomplete lifecycle", () => {
     await screen.findByText("100 Main Street NW");
     fireEvent.click(screen.getAllByTestId("EditIcon")[0].closest("button")!);
     fireEvent.change(await screen.findByRole("textbox", { name: "address" }), {
-      target: { name: "address", value: "2401 Calvert Street NW Apt 528" },
+      target: { name: "address", value: "200 Main Street NW" },
     });
     fireEvent.click(screen.getAllByRole("button", { name: "save" })[0]);
 
-    await waitFor(() => {
-      expect(mockSetDoc).toHaveBeenCalledWith(
-        expect.anything(),
-        expect.objectContaining({
-          address: "2401 Calvert Street NW",
-          address2: "Apt 528",
-        }),
-        { merge: true }
-      );
-    });
+    const dialog = await screen.findByRole("dialog", { name: "Duplicate Client Detected" });
+    expect(within(dialog).getByText("Test Client")).toBeTruthy();
+    expect(mockSetDoc).not.toHaveBeenCalled();
+    expect(mockGetDocs.mock.calls.some(([reference]) => isZipScopedClientQuery(reference))).toBe(
+      true
+    );
   });
 
-  it("keeps the street, quadrant, coordinates, and ward in sync after a quadrant change", async () => {
+  it("blocks creation when apartment formats and quadrant normalize to an existing client", async () => {
+    const duplicateClientDoc = {
+      id: "existing-client",
+      data: () => ({
+        ...savedProfile,
+        uid: "existing-client",
+        firstName: "New",
+        lastName: "Person",
+        address: "123 New Address Northwest Apartment #524",
+        address2: "",
+        quadrant: "Northwest",
+      }),
+    };
+    mockGetDocs.mockImplementation(async (reference: unknown) => {
+      return isZipScopedClientQuery(reference)
+        ? { ...emptySnapshot, docs: [duplicateClientDoc], empty: false }
+        : emptySnapshot;
+    });
+
+    render(
+      <MemoryRouter
+        initialEntries={["/profile"]}
+        future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+      >
+        <Routes>
+          <Route path="/profile" element={<Profile />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    const requiredFields: Record<string, string> = {
+      firstName: "New",
+      lastName: "Person",
+      address: "123 New Address NW",
+      address2: "Unit 524",
+      city: "Washington",
+      state: "DC",
+      zipCode: "20001",
+      phone: "202-555-0199",
+      endDate: "12/31/2026",
+      adults: "1",
+    };
+    for (const [name, value] of Object.entries(requiredFields)) {
+      fireEvent.change(screen.getByRole("textbox", { name }), {
+        target: { name, value },
+      });
+    }
+    fireEvent.change(screen.getByPlaceholderText("Enter ethnicity"), {
+      target: { name: "ethnicity", value: "Not specified" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("Enter language"), {
+      target: { name: "language", value: "English" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Select referral entity" }));
+    fireEvent.click(screen.getAllByRole("button", { name: "save" })[0]);
+
+    const dialog = await screen.findByRole("dialog", { name: "Duplicate Client Detected" });
+    expect(within(dialog).getByText("This client already exists. Duplicate records cannot be saved.")).toBeTruthy();
+    expect(within(dialog).getByText("New Person")).toBeTruthy();
+    expect(
+      within(dialog).getByText(
+        "123 New Address NW Apartment #524, Washington, DC 20001"
+      )
+    ).toBeTruthy();
+    expect(within(dialog).queryByText("NW")).toBeNull();
+    expect(mockSetDoc).not.toHaveBeenCalled();
+    expect(screen.queryByRole("button", { name: "Save Anyway" })).toBeNull();
+    expect(mockGetDocs.mock.calls.some(([reference]) => isZipScopedClientQuery(reference))).toBe(
+      true
+    );
+  }, 10000);
+
+  it("shows the quadrant derived from the address while it is being edited", async () => {
     render(
       <MemoryRouter
         initialEntries={["/profile/client-1"]}
@@ -405,28 +743,42 @@ describe("Profile address autocomplete lifecycle", () => {
 
     await screen.findByText("100 Main Street NW");
     fireEvent.click(screen.getAllByTestId("EditIcon")[0].closest("button")!);
-    fireEvent.change(await screen.findByRole("textbox", { name: "quadrant" }), {
-      target: { name: "quadrant", value: "NE" },
+
+    expect(
+      ((await screen.findByRole("textbox", { name: "quadrant" })) as HTMLInputElement).value
+    ).toBe("NW");
+
+    fireEvent.change(screen.getByRole("textbox", { name: "address" }), {
+      target: { name: "address", value: "250 Elm Street SE" },
     });
 
-    expect(screen.getByTestId("address-fields").textContent).toBe(
-      "100 Main Street NE|Washington|DC|20001|NE|Ward 1"
+    expect(
+      (screen.getByRole("textbox", { name: "quadrant" }) as HTMLInputElement).value
+    ).toBe("SE");
+  });
+
+  it("keeps the stored quadrant when the edited address has no quadrant token", async () => {
+    render(
+      <MemoryRouter
+        initialEntries={["/profile/client-1"]}
+        future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+      >
+        <Routes>
+          <Route path="/profile/:clientId" element={<Profile />} />
+        </Routes>
+      </MemoryRouter>
     );
 
-    fireEvent.click(screen.getAllByRole("button", { name: "save" })[0]);
+    await screen.findByText("100 Main Street NW");
+    fireEvent.click(screen.getAllByTestId("EditIcon")[0].closest("button")!);
 
-    await waitFor(() => {
-      expect(mockSetDoc).toHaveBeenCalledWith(
-        expect.anything(),
-        expect.objectContaining({
-          address: "100 Main Street NE",
-          quadrant: "NE",
-          coordinates: [38.91, -77.02],
-          ward: "2",
-        }),
-        { merge: true }
-      );
+    fireEvent.change(await screen.findByRole("textbox", { name: "address" }), {
+      target: { name: "address", value: "250 Elm Street" },
     });
+
+    expect(
+      (screen.getByRole("textbox", { name: "quadrant" }) as HTMLInputElement).value
+    ).toBe("NW");
   });
 
   it("formats profile phone numbers when saving while accepting allowed input formats", async () => {

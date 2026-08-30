@@ -6,51 +6,44 @@ const DIRECTION_TO_ABBREVIATION: Record<string, string> = {
 };
 
 const QUADRANT_TOKEN_REGEX = /\b(NE|NW|SE|SW)\b/i;
-const UNIT_MARKER_REGEX =
-  /(?:^|[\s,])((?:(?:apt(?:artment)?|unit|suite|ste)\.?(?=\s|#)|#))\s*#?\s*/i;
+const UNIT_TOKEN_REGEX = /(?:\b(?:apartment|apt|unit|suite|ste|room|floor|fl)\b|#)\s*(?:no|number)?\s*#?\s*([a-z0-9-]+)/i;
+const UNIT_LABEL_REGEX = /^(apartment|apt|unit|suite|ste)\.?\s*#?\s*/i;
 
-const normalizeAddressSpacing = (value: string): string =>
-  value.replace(/\s+/g, " ").replace(/\s+,/g, ",").trim();
-
-const formatUnit = (marker: string, identifier: string): string => {
-  const normalizedMarker = marker.toLowerCase().replace(".", "");
-  const label = normalizedMarker.startsWith("apt")
-    ? "Apt"
-    : normalizedMarker === "suite" || normalizedMarker === "ste"
-      ? "Suite"
-      : "Unit";
-  return `${label} ${identifier}`;
+const STREET_SUFFIX_ABBREVIATIONS: Record<string, string> = {
+  avenue: "ave",
+  boulevard: "blvd",
+  circle: "cir",
+  court: "ct",
+  drive: "dr",
+  highway: "hwy",
+  lane: "ln",
+  parkway: "pkwy",
+  place: "pl",
+  road: "rd",
+  street: "st",
+  terrace: "ter",
 };
 
-export const splitAddressUnit = (
-  address: unknown,
-  address2: unknown = ""
-): { address: string; address2: string } => {
-  const street = typeof address === "string" ? address : "";
-  const existingUnit = typeof address2 === "string" ? normalizeAddressSpacing(address2) : "";
-  const markerMatch = UNIT_MARKER_REGEX.exec(street);
+export const formatAddressUnit = (value: unknown): string => {
+  if (typeof value !== "string") return "";
 
-  if (!markerMatch || markerMatch.index === undefined) {
-    return { address: normalizeAddressSpacing(street), address2: existingUnit };
-  }
+  const unit = value.trim();
+  if (!unit) return "";
 
-  const remainderStart = markerMatch.index + markerMatch[0].length;
-  const remainder = street.slice(remainderStart);
-  const identifierMatch = remainder.match(
-    /^(\d+[A-Za-z]?(?:-[A-Za-z0-9]+)?)(?=\s|$|[A-Z][a-z])|^([A-Za-z][A-Za-z0-9-]*)(?=\s|$)/
-  );
-  const identifier = identifierMatch?.[1] ?? identifierMatch?.[2];
+  const markerMatch = unit.match(UNIT_LABEL_REGEX);
+  const identifier = markerMatch
+    ? unit.slice(markerMatch[0].length).trim()
+    : unit.replace(/^#\s*/, "");
+  if (!identifier) return unit;
 
-  if (!identifier) {
-    return { address: normalizeAddressSpacing(street), address2: existingUnit };
-  }
+  const marker = markerMatch?.[1]?.toLowerCase();
+  const label = marker?.startsWith("apt")
+    ? "Apt"
+    : marker === "suite" || marker === "ste"
+      ? "Suite"
+      : "Unit";
 
-  const beforeUnit = street.slice(0, markerMatch.index);
-  const afterUnit = remainder.slice(identifier.length);
-  return {
-    address: normalizeAddressSpacing(`${beforeUnit} ${afterUnit}`),
-    address2: formatUnit(markerMatch[1], identifier),
-  };
+  return `${label} ${identifier}`;
 };
 
 export const standardizeAddressDirections = (value: string): string =>
@@ -93,21 +86,6 @@ export const formatAddressWithQuadrant = (address: unknown, quadrant: unknown): 
   return `${baseAddress} ${normalizedQuadrant}`.trim();
 };
 
-export const replaceAddressQuadrant = (address: unknown, quadrant: unknown): string => {
-  const baseAddress = typeof address === "string" ? standardizeAddressDirections(address).trim() : "";
-  const normalizedQuadrant = normalizeQuadrantToken(quadrant);
-
-  if (!baseAddress || !normalizedQuadrant) {
-    return baseAddress;
-  }
-
-  if (QUADRANT_TOKEN_REGEX.test(baseAddress)) {
-    return baseAddress.replace(QUADRANT_TOKEN_REGEX, normalizedQuadrant);
-  }
-
-  return `${baseAddress} ${normalizedQuadrant}`.trim();
-};
-
 export const formatAddressWithQuadrantAndUnit = (
   address: unknown,
   quadrant: unknown,
@@ -125,6 +103,56 @@ export const formatAddressWithQuadrantAndUnit = (
   }
 
   return `${street} ${unit}`.trim();
+};
+
+const normalizeAddressWords = (value: unknown): string => {
+  if (typeof value !== "string") return "";
+
+  return standardizeAddressDirections(value)
+    .toLowerCase()
+    .replace(/\b(avenue|boulevard|circle|court|drive|highway|lane|parkway|place|road|street|terrace)\b/g,
+      (suffix) => STREET_SUFFIX_ABBREVIATIONS[suffix] ?? suffix
+    )
+    .replace(/[^a-z0-9#-]+/g, " ")
+    .trim()
+    .replace(/\s+/g, " ");
+};
+
+const extractUnit = (value: unknown): string => {
+  const normalized = normalizeAddressWords(value);
+  if (!normalized) return "";
+  const match = normalized.match(UNIT_TOKEN_REGEX);
+  return match?.[1]?.replace(/[^a-z0-9]/g, "") ?? "";
+};
+
+export interface DuplicateAddressIdentity {
+  street: string;
+  unit: string;
+}
+
+export const normalizeDuplicateAddress = ({
+  address,
+  address2,
+  quadrant,
+}: {
+  address: unknown;
+  address2: unknown;
+  quadrant: unknown;
+}): DuplicateAddressIdentity => {
+  const addressWithQuadrant = formatAddressWithQuadrant(address, quadrant);
+  const normalizedAddress = normalizeAddressWords(addressWithQuadrant);
+  const addressUnit = extractUnit(normalizedAddress);
+  const address2Unit = extractUnit(address2);
+  const normalizedAddress2 = normalizeAddressWords(address2);
+  const unit = address2Unit || (normalizedAddress2 ? normalizedAddress2.replace(/[^a-z0-9]/g, "") : "") || addressUnit;
+  const street = normalizedAddress.replace(UNIT_TOKEN_REGEX, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return {
+    street,
+    unit,
+  };
 };
 
 export const buildGeocodingAddress = ({

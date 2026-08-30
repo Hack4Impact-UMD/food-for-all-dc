@@ -20,7 +20,7 @@ import TagManager from "../Tags/TagManager";
 import "../../../styles/checkbox-override.css";
 import { deliveryDate } from "../../../utils/deliveryDate";
 
-export interface FormFieldProps {
+interface FormFieldProps {
   fieldPath: ClientProfileKey;
   value: any;
   type?: string;
@@ -30,7 +30,6 @@ export interface FormFieldProps {
       | React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
       | SelectChangeEvent
   ) => void;
-  handleBlur?: (event: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
   getNestedValue: (obj: any, path: string) => any;
   handleDietaryRestrictionChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   addressInputRef?: React.RefObject<HTMLInputElement | null>;
@@ -384,7 +383,6 @@ const FormField = (props: FormFieldProps) => {
     type,
     isEditing,
     handleChange,
-    handleBlur,
     getNestedValue,
     handleDietaryRestrictionChange,
     addressInputRef,
@@ -587,30 +585,6 @@ const FormField = (props: FormFieldProps) => {
               </CustomSelect>
             </Box>
           );
-        } else if (fieldPath === "quadrant") {
-          return (
-            <Box sx={{ position: "relative", width: "100%" }}>
-              <CustomSelect
-                name={fieldPath}
-                value={(value as string) || ""}
-                onChange={(e) => handleChange(e as SelectChangeEvent<string>)}
-                displayEmpty
-                inputProps={selectInputProps}
-                sx={{ width: "100%" }}
-                MenuProps={{
-                  sx: { marginTop: "2px" },
-                }}
-              >
-                <MenuItem value="" disabled>
-                  Select
-                </MenuItem>
-                <MenuItem value="NW">NW</MenuItem>
-                <MenuItem value="NE">NE</MenuItem>
-                <MenuItem value="SW">SW</MenuItem>
-                <MenuItem value="SE">SE</MenuItem>
-              </CustomSelect>
-            </Box>
-          );
         } else if (fieldPath === "headOfHousehold") {
           return (
             <CustomSelect
@@ -763,7 +737,6 @@ const FormField = (props: FormFieldProps) => {
               name={fieldPath}
               value={String(value || "")}
               onChange={handleChange}
-              onBlur={handleBlur}
               fullWidth
               disabled={isDisabledField}
               autoComplete={fieldPath === "address" ? "off" : undefined}
