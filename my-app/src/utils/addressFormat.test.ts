@@ -6,7 +6,6 @@ import {
   isStreetStyleAddress,
   normalizeDuplicateAddress,
   normalizeQuadrantToken,
-  replaceAddressQuadrant,
   resolveAddressQuadrant,
   shouldGeocodeClientLocation,
 } from "./addressFormat";
@@ -101,19 +100,6 @@ describe("addressFormat", () => {
     expect(formatAddressWithQuadrant("201 I Street SW", "NW")).toBe("201 I Street SW");
   });
 
-  it("replaces the street token when a user explicitly changes the quadrant", () => {
-    expect(replaceAddressQuadrant("100 Main Street NW", "NE")).toBe("100 Main Street NE");
-    expect(replaceAddressQuadrant("100 Main Street Northwest", "SE")).toBe(
-      "100 Main Street SE"
-    );
-  });
-
-  it("appends the selected quadrant when the street does not contain one", () => {
-    expect(replaceAddressQuadrant("100 Main Street", "Southwest")).toBe(
-      "100 Main Street SW"
-    );
-  });
-
   it("standardizes full-word directions already in address", () => {
     expect(formatAddressWithQuadrant("1738 Massachusetts Avenue Southeast", "SE")).toBe(
       "1738 Massachusetts Avenue SE"
@@ -161,7 +147,7 @@ describe("addressFormat", () => {
         address2,
         quadrant: "NW",
       })
-    ).toEqual({ street: "100 main st nw", unit: "524", quadrant: "NW" });
+    ).toEqual({ street: "100 main st nw", unit: "524" });
   });
 
   it("keeps different apartment numbers distinct", () => {

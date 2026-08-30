@@ -42,7 +42,7 @@ import dataSources from "../../config/dataSources";
 import { googleMapsApiKey } from "../../config/apiKeys";
 import CaseWorkerManagementModal from "../../components/CaseWorkerManagementModal";
 import "./Profile.css";
-import { clientService, normalizeBooleanField } from "../../services/client-service";
+import { normalizeBooleanField } from "../../services/client-service";
 import DeliveryService from "../../services/delivery-service";
 
 import BasicInfoForm from "./components/BasicInfoForm";
@@ -81,8 +81,6 @@ import {
   buildGeocodingAddress,
   formatAddressWithQuadrantAndUnit,
   normalizeDuplicateAddress,
-  normalizeQuadrantToken,
-  replaceAddressQuadrant,
   resolveAddressQuadrant,
   shouldGeocodeClientLocation,
 } from "../../utils/addressFormat";
@@ -98,6 +96,13 @@ const ADDRESS_DIRECTION_ABBREVIATIONS: Record<string, string> = {
   northwest: "NW",
   southeast: "SE",
   southwest: "SW",
+};
+
+const DMV_AUTOCOMPLETE_BOUNDS: google.maps.LatLngBoundsLiteral = {
+  north: 39.35,
+  south: 38.3,
+  east: -76.7,
+  west: -77.8,
 };
 
 const standardizeAddressDirections = (value: string): string =>
@@ -149,13 +154,25 @@ export const isDuplicateClient = (
 
   const candidateAddress = normalizeDuplicateAddress(candidate);
   const profileAddress = normalizeDuplicateAddress(profile);
+  const candidateZipCode = (candidate.zipCode || "").trim();
+  const profileZipCode = (profile.zipCode || "").trim();
+
   return (
-    Boolean(candidateAddress.street && candidateAddress.quadrant) &&
+    Boolean(candidateAddress.street && profileAddress.street && candidateZipCode) &&
     candidateAddress.street === profileAddress.street &&
     candidateAddress.unit === profileAddress.unit &&
-    candidateAddress.quadrant === profileAddress.quadrant
+    candidateZipCode === profileZipCode
   );
 };
+
+export const shouldCheckForDuplicateClient = (
+  profile: ClientProfile,
+  previousProfile: ClientProfile | null,
+  isNewProfile: boolean
+): boolean =>
+  isNewProfile ||
+  previousProfile === null ||
+  !isDuplicateClient(previousProfile, profile);
 
 export const formatDuplicateClientAddress = (profile: ClientProfile): string => {
   const street = formatAddressWithQuadrantAndUnit(
@@ -971,13 +988,6 @@ const Profile = () => {
         else delete newErrors[name];
         return newErrors;
       });
-    } else if (name === "quadrant") {
-      const normalizedQuadrant = normalizeQuadrantToken(value);
-      setClientProfile((prevState) => ({
-        ...prevState,
-        address: replaceAddressQuadrant(prevState.address, normalizedQuadrant),
-        quadrant: normalizedQuadrant,
-      }));
     } else {
       setClientProfile((prevState) => {
         let updatedProfile = {
@@ -1151,10 +1161,14 @@ const Profile = () => {
     profile: ClientProfile,
     excludeUid?: string
   ): Promise<ClientProfile[]> => {
-    if (!profile.firstName.trim() || !profile.lastName.trim()) return [];
+    const zipCode = profile.zipCode.trim();
+    if (!profile.firstName.trim() || !profile.lastName.trim() || !zipCode) return [];
 
     const clientsSnapshot = await getDocs(
-      collection(db, dataSources.firebase.clientsCollection)
+      query(
+        collection(db, dataSources.firebase.clientsCollection),
+        where("zipCode", "==", zipCode)
+      )
     );
 
     return clientsSnapshot.docs.flatMap((docSnap) => {
@@ -1196,10 +1210,16 @@ const Profile = () => {
       if (!user) {
         throw new Error("You must be logged in to save a client profile.");
       }
-      const matchingClients = await checkDuplicateClient(
+      const matchingClients = shouldCheckForDuplicateClient(
         clientProfile,
-        isNewProfile ? undefined : String(clientProfile.uid)
-      );
+        prevClientProfile,
+        isNewProfile
+      )
+        ? await checkDuplicateClient(
+            clientProfile,
+            isNewProfile ? undefined : String(clientProfile.uid)
+          )
+        : [];
 
       if (matchingClients.length > 0) {
         setDuplicateClients(matchingClients);
@@ -2226,8 +2246,18 @@ const Profile = () => {
       ? getNestedValue(clientProfile, fieldPath)
       : clientProfile[fieldPath as keyof ClientProfile];
 
+    // Quadrant is read-only and derived from the street address, which handleSave treats as
+    // authoritative. Derive it here too so the displayed value cannot go stale while the
+    // address is being edited.
+    const displayValue =
+      fieldPath === "quadrant"
+        ? resolveAddressQuadrant(clientProfile.address, clientProfile.quadrant)
+        : value;
+
     // Determine if the field should be disabled
-    const isDisabledField = ["city", "state", "zipCode", "ward", "total"].includes(fieldPath);
+    const isDisabledField = ["city", "state", "zipCode", "quadrant", "ward", "total"].includes(
+      fieldPath
+    );
 
     return (
       <Box
@@ -2240,7 +2270,7 @@ const Profile = () => {
       >
         <FormField
           fieldPath={fieldPath}
-          value={value}
+          value={displayValue}
           type={type}
           isEditing={isEditing}
           handleChange={handleChange}
@@ -2600,6 +2630,8 @@ const Profile = () => {
         {
           types: ["address"],
           componentRestrictions: { country: "us" },
+          bounds: DMV_AUTOCOMPLETE_BOUNDS,
+          strictBounds: true,
         }
       );
       autocompleteRef.current = autocomplete;
