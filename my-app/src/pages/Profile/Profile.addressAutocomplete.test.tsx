@@ -11,6 +11,13 @@ const mockRefresh = jest.fn();
 const mockUpdateClient = jest.fn();
 const mockClearInstanceListeners = jest.fn();
 const autocompleteInstances: MockAutocomplete[] = [];
+const savedCaseWorker = {
+  id: "case-worker-1",
+  name: "Case Worker",
+  organization: "Test Agency",
+  phone: "",
+  email: "",
+};
 
 const savedProfile = {
   uid: "client-1",
@@ -42,7 +49,11 @@ const savedProfile = {
   quadrant: "NW",
   coordinates: [38.9, -77.0],
   tefapCert: false,
-  referralEntity: null,
+  referralEntity: {
+    id: savedCaseWorker.id,
+    name: savedCaseWorker.name,
+    organization: savedCaseWorker.organization,
+  },
   referredDate: "",
   notes: "",
   lifeChallenges: "",
@@ -169,7 +180,7 @@ jest.mock("./Tags/TagManager", () => () => null);
 
 jest.mock("./components/BasicInfoForm", () => ({
   __esModule: true,
-  default: ({ clientProfile, renderField, addressInputRef }: any) => (
+  default: ({ clientProfile, renderField, addressInputRef, errors }: any) => (
     <div>
       {renderField("address", "text", addressInputRef)}
       {renderField("quadrant", "text")}
@@ -188,6 +199,7 @@ jest.mock("./components/BasicInfoForm", () => ({
       <output data-testid="phone-fields">
         {[clientProfile.phone, clientProfile.alternativePhone].join("|")}
       </output>
+      {errors.referralEntity && <div role="alert">{errors.referralEntity}</div>}
     </div>
   ),
 }));
@@ -214,6 +226,13 @@ const emptySnapshot = {
   forEach: () => undefined,
 };
 
+const caseWorkerSnapshot = {
+  docs: [],
+  empty: false,
+  forEach: (callback: (document: { id: string; data: () => typeof savedCaseWorker }) => void) =>
+    callback({ id: savedCaseWorker.id, data: () => savedCaseWorker }),
+};
+
 describe("Profile address autocomplete lifecycle", () => {
   beforeEach(() => {
     autocompleteInstances.length = 0;
@@ -232,7 +251,10 @@ describe("Profile address autocomplete lifecycle", () => {
       }
       return { exists: () => true, data: () => ({ tags: [] }) };
     });
-    mockGetDocs.mockImplementation(async () => emptySnapshot);
+    mockGetDocs.mockImplementation(async (reference: unknown) => {
+      const referenceArgs = (reference as { args?: unknown[] }).args || [];
+      return referenceArgs.includes("referral") ? caseWorkerSnapshot : emptySnapshot;
+    });
     mockSetDoc.mockImplementation(async () => undefined);
     mockRefresh.mockImplementation(async () => undefined);
 
@@ -260,6 +282,40 @@ describe("Profile address autocomplete lifecycle", () => {
 
   afterEach(() => {
     jest.restoreAllMocks();
+  });
+
+  it("requires a referral entity when updating a legacy client without one", async () => {
+    const alertSpy = jest.spyOn(window, "alert").mockImplementation(() => undefined);
+    mockGetDoc.mockImplementation(async (reference: unknown) => {
+      const referenceArgs = (reference as { args: unknown[] }).args;
+      const documentId = referenceArgs[referenceArgs.length - 1];
+      if (documentId === "client-1") {
+        return {
+          exists: () => true,
+          data: () => ({ ...savedProfile, referralEntity: null }),
+        };
+      }
+      return { exists: () => true, data: () => ({ tags: [] }) };
+    });
+
+    render(
+      <MemoryRouter
+        initialEntries={["/profile/client-1"]}
+        future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+      >
+        <Routes>
+          <Route path="/profile/:clientId" element={<Profile />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await screen.findByText("100 Main Street NW");
+    fireEvent.click(screen.getAllByTestId("EditIcon")[0].closest("button")!);
+    fireEvent.click(screen.getAllByRole("button", { name: "save" })[0]);
+
+    expect((await screen.findByRole("alert")).textContent).toBe("Referral entity is required");
+    expect(alertSpy).toHaveBeenCalledWith(expect.stringContaining("Referral entity is required"));
+    expect(mockSetDoc).not.toHaveBeenCalled();
   });
 
   it("rebinds autocomplete after save and still populates the selected address", async () => {
