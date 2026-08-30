@@ -1,5 +1,5 @@
 import React from "react";
-import { describe, expect, it } from "@jest/globals";
+import { describe, expect, it, jest } from "@jest/globals";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { CaseWorker } from "../../../types";
 import BasicInfoForm, { filterReferralEntityOptions } from "./BasicInfoForm";
@@ -13,6 +13,27 @@ const options: CaseWorker[] = [
 ];
 
 const filterState = (inputValue: string) => ({ inputValue });
+
+const renderAutocomplete = (
+  selectedCaseWorker: CaseWorker | null = null,
+  handleCaseWorkerChange: (caseWorker: CaseWorker | null) => void = jest.fn()
+) => {
+  render(
+    <BasicInfoForm
+      clientProfile={{ headOfHousehold: "Adult" } as any}
+      isEditing
+      errors={{}}
+      renderField={() => null}
+      fieldLabelStyles={{}}
+      selectedCaseWorker={selectedCaseWorker}
+      caseWorkers={options.filter(({ id }) => id !== "edit_list")}
+      setShowCaseWorkerModal={() => undefined}
+      handleCaseWorkerChange={handleCaseWorkerChange}
+    />
+  );
+
+  return screen.getByRole("combobox") as HTMLInputElement;
+};
 
 describe("filterReferralEntityOptions", () => {
   it.each([
@@ -41,21 +62,8 @@ describe("filterReferralEntityOptions", () => {
 
 describe("BasicInfoForm referral entity autocomplete", () => {
   it("renders only the matching name for arbitrary typed text on the Client Profile page", async () => {
-    render(
-      <BasicInfoForm
-        clientProfile={{ headOfHousehold: "Adult" } as any}
-        isEditing
-        errors={{}}
-        renderField={() => null}
-        fieldLabelStyles={{}}
-        selectedCaseWorker={null}
-        caseWorkers={options.filter(({ id }) => id !== "edit_list")}
-        setShowCaseWorkerModal={() => undefined}
-        handleCaseWorkerChange={() => undefined}
-      />
-    );
-
-    const input = screen.getByRole("combobox");
+    const input = renderAutocomplete();
+    fireEvent.focus(input);
     fireEvent.change(input, { target: { value: "peter" } });
 
     await waitFor(() => {
@@ -76,5 +84,31 @@ describe("BasicInfoForm referral entity autocomplete", () => {
     expect(screen.queryByText("Peter Brown, Agency Two")).toBeNull();
     expect(screen.queryByText("Alice Jones, Peter Foundation")).toBeNull();
     expect(screen.queryByText("Edit Case Worker List")).toBeNull();
+  });
+
+  it("shows every choice when opening a saved referral", () => {
+    renderAutocomplete(options[1]);
+
+    fireEvent.click(screen.getByTitle("Open"));
+
+    expect(screen.getAllByRole("option").map((option) => option.textContent)).toEqual([
+      "Edit Case Worker List",
+      "Peter Adams, Agency One",
+      "Peter Brown, Agency Two",
+      "Alice Jones, Peter Foundation",
+      "Robin Smith, Other Agency",
+    ]);
+  });
+
+  it("restores the saved referral when typed text is abandoned", () => {
+    const handleCaseWorkerChange = jest.fn();
+    const input = renderAutocomplete(options[1], handleCaseWorkerChange);
+
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: "rob" } });
+    fireEvent.blur(input);
+
+    expect(input.value).toBe("Peter Adams, Agency One");
+    expect(handleCaseWorkerChange).not.toHaveBeenCalled();
   });
 });

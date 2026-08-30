@@ -44,12 +44,6 @@ export const filterReferralEntityOptions = (
   );
 };
 
-const getReferralEntityLabel = (option: CaseWorker | null): string => {
-  if (!option) return "";
-  if (option.id === "edit_list") return "Edit Case Worker List";
-  return [option.name, option.organization].filter(Boolean).join(", ");
-};
-
 const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
   clientProfile,
   isEditing,
@@ -63,22 +57,6 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
   addressError,
   addressInputRef,
 }) => {
-  const [referralSearchText, setReferralSearchText] = React.useState(() =>
-    getReferralEntityLabel(selectedCaseWorker)
-  );
-
-  React.useEffect(() => {
-    setReferralSearchText(getReferralEntityLabel(selectedCaseWorker));
-  }, [selectedCaseWorker]);
-
-  const referralEntityOptions = filterReferralEntityOptions(
-    [
-      { id: "edit_list", name: "Edit Case Worker List", organization: "" } as CaseWorker,
-      ...caseWorkers,
-    ],
-    { inputValue: referralSearchText }
-  );
-
   return (
     <Box
       sx={{
@@ -170,18 +148,7 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
         <Typography className="field-descriptor" sx={fieldLabelStyles}>
           QUADRANT
         </Typography>
-        {isEditing ? (
-          <Tooltip
-            title="Pre-filled from the selected address. Change it if the address falls in a different quadrant."
-            placement="top"
-          >
-            <span style={{ display: "block", width: "100%" }}>
-              {renderField("quadrant", "select")}
-            </span>
-          </Tooltip>
-        ) : (
-          renderField("quadrant", "select")
-        )}
+        {renderField("quadrant", "text")}
       </Box>
       {/* Ward */}
       <Box>
@@ -416,23 +383,18 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
           <>
             <Autocomplete
               value={selectedCaseWorker}
-              inputValue={referralSearchText}
-              onInputChange={(_, nextInputValue, reason) => {
-                if (reason === "input" || reason === "clear") {
-                  setReferralSearchText(nextInputValue);
-                }
-              }}
               onChange={(_, newValue) => {
                 if (newValue && newValue.id === "edit_list") {
                   setShowCaseWorkerModal(true);
-                  setReferralSearchText(getReferralEntityLabel(selectedCaseWorker));
                 } else {
                   handleCaseWorkerChange(newValue);
-                  setReferralSearchText(getReferralEntityLabel(newValue));
                 }
               }}
               // creating an object for the edit list option, rest of array is case workers
-              options={referralEntityOptions}
+              options={[
+                { id: "edit_list", name: "Edit Case Worker List", organization: "" } as CaseWorker,
+                ...caseWorkers,
+              ]}
               filterOptions={filterReferralEntityOptions}
               getOptionKey={(option) => option.id}
               getOptionLabel={(option) =>
