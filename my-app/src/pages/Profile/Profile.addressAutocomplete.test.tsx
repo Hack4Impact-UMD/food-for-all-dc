@@ -58,11 +58,13 @@ const savedProfile = {
 
 class MockAutocomplete {
   input: HTMLInputElement;
+  options?: google.maps.places.AutocompleteOptions;
   place: google.maps.places.PlaceResult = {};
   placeChanged: (() => Promise<void>) | null = null;
 
-  constructor(input: HTMLInputElement) {
+  constructor(input: HTMLInputElement, options?: google.maps.places.AutocompleteOptions) {
     this.input = input;
+    this.options = options;
     autocompleteInstances.push(this);
   }
 
@@ -278,6 +280,14 @@ describe("Profile address autocomplete lifecycle", () => {
     const firstInput = await screen.findByRole("textbox", { name: "address" });
     await waitFor(() => expect(autocompleteInstances).toHaveLength(1));
     expect(autocompleteInstances[0].input).toBe(firstInput);
+    expect(autocompleteInstances[0].options).toEqual(
+      expect.objectContaining({
+        types: ["address"],
+        componentRestrictions: { country: "us" },
+        bounds: { north: 39.35, south: 38.3, east: -76.7, west: -77.8 },
+        strictBounds: true,
+      })
+    );
 
     fireEvent.click(screen.getAllByRole("button", { name: "save" })[0]);
     await waitFor(() => expect(mockSetDoc).toHaveBeenCalled());
