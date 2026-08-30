@@ -229,6 +229,7 @@ jest.mock("./components/BasicInfoForm", () => ({
           clientProfile.ward,
         ].join("|")}
       </output>
+      <output data-testid="address-line-2">{clientProfile.address2}</output>
       <output data-testid="phone-fields">
         {[clientProfile.phone, clientProfile.alternativePhone].join("|")}
       </output>
@@ -513,6 +514,7 @@ describe("Profile address autocomplete lifecycle", () => {
           types: ["administrative_area_level_1"],
         },
         { long_name: "20006", short_name: "20006", types: ["postal_code"] },
+        { long_name: "suite 270", short_name: "suite 270", types: ["subpremise"] },
       ],
     } as google.maps.places.PlaceResult;
 
@@ -523,6 +525,53 @@ describe("Profile address autocomplete lifecycle", () => {
     expect(screen.getByTestId("address-fields").textContent).toBe(
       "1600 Pennsylvania Avenue NW|Washington|DC|20006|NW|2"
     );
+    expect(screen.getByTestId("address-line-2").textContent).toBe("Suite 270");
+  });
+
+  it("leaves manually entered address lines unchanged when saving", async () => {
+    const profileWithAddressDetails = {
+      ...savedProfile,
+      address2: "Building B\nRear entrance",
+    };
+    mockGetDoc.mockImplementation(async (reference: unknown) => {
+      const referenceArgs = (reference as { args: unknown[] }).args;
+      const documentId = referenceArgs[referenceArgs.length - 1];
+      if (documentId === "client-1") {
+        return { exists: () => true, data: () => profileWithAddressDetails };
+      }
+      return { exists: () => true, data: () => ({ tags: [] }) };
+    });
+
+    render(
+      <MemoryRouter
+        initialEntries={["/profile/client-1"]}
+        future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+      >
+        <Routes>
+          <Route path="/profile/:clientId" element={<Profile />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await screen.findByText("100 Main Street NW");
+    fireEvent.click(screen.getAllByTestId("EditIcon")[0].closest("button")!);
+    const addressInput = await screen.findByRole("textbox", { name: "address" });
+    fireEvent.change(addressInput, {
+      target: { name: "address", value: "100 Main Street, Apt 4" },
+    });
+    fireEvent.blur(addressInput);
+    fireEvent.click(screen.getAllByRole("button", { name: "save" })[0]);
+
+    await waitFor(() => {
+      expect(mockSetDoc).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          address: "100 Main Street, Apt 4",
+          address2: "Building B\nRear entrance",
+        }),
+        { merge: true }
+      );
+    });
   });
 
   it("allows other edits when an existing client already has a duplicate", async () => {

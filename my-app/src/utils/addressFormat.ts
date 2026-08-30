@@ -7,6 +7,7 @@ const DIRECTION_TO_ABBREVIATION: Record<string, string> = {
 
 const QUADRANT_TOKEN_REGEX = /\b(NE|NW|SE|SW)\b/i;
 const UNIT_TOKEN_REGEX = /(?:\b(?:apartment|apt|unit|suite|ste|room|floor|fl)\b|#)\s*(?:no|number)?\s*#?\s*([a-z0-9-]+)/i;
+const UNIT_LABEL_REGEX = /^(apartment|apt|unit|suite|ste)\.?\s*#?\s*/i;
 
 const STREET_SUFFIX_ABBREVIATIONS: Record<string, string> = {
   avenue: "ave",
@@ -21,6 +22,28 @@ const STREET_SUFFIX_ABBREVIATIONS: Record<string, string> = {
   road: "rd",
   street: "st",
   terrace: "ter",
+};
+
+export const formatAddressUnit = (value: unknown): string => {
+  if (typeof value !== "string") return "";
+
+  const unit = value.trim();
+  if (!unit) return "";
+
+  const markerMatch = unit.match(UNIT_LABEL_REGEX);
+  const identifier = markerMatch
+    ? unit.slice(markerMatch[0].length).trim()
+    : unit.replace(/^#\s*/, "");
+  if (!identifier) return unit;
+
+  const marker = markerMatch?.[1]?.toLowerCase();
+  const label = marker?.startsWith("apt")
+    ? "Apt"
+    : marker === "suite" || marker === "ste"
+      ? "Suite"
+      : "Unit";
+
+  return `${label} ${identifier}`;
 };
 
 export const standardizeAddressDirections = (value: string): string =>

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "@jest/globals";
 import {
   buildGeocodingAddress,
+  formatAddressUnit,
   formatAddressWithQuadrant,
   formatAddressWithQuadrantAndUnit,
   isStreetStyleAddress,
@@ -11,6 +12,14 @@ import {
 } from "./addressFormat";
 
 describe("addressFormat", () => {
+  it.each([
+    ["528", "Unit 528"],
+    ["suite 270", "Suite 270"],
+    ["Apt. #4B", "Apt 4B"],
+  ])("formats Google subpremise %s", (subpremise, expected) => {
+    expect(formatAddressUnit(subpremise)).toBe(expected);
+  });
+
   it("builds a geocoding address with the quadrant and without apartment data", () => {
     expect(
       buildGeocodingAddress({

@@ -79,6 +79,7 @@ import { computeClientActiveStatus } from "../../utils/clientStatus";
 import { toJSDate } from "../../utils/timestamp";
 import {
   buildGeocodingAddress,
+  formatAddressUnit,
   formatAddressWithQuadrantAndUnit,
   normalizeDuplicateAddress,
   resolveAddressQuadrant,
@@ -2641,6 +2642,7 @@ const Profile = () => {
         let state = "";
         let zip = "";
         let quadrant = "";
+        let unit = "";
         for (const comp of place.address_components) {
           if (comp.types.includes("street_number")) {
             street = comp.long_name + " " + street;
@@ -2653,7 +2655,7 @@ const Profile = () => {
           } else if (comp.types.includes("postal_code")) {
             zip = comp.long_name;
           } else if (comp.types.includes("subpremise")) {
-            street += " " + comp.long_name;
+            unit = formatAddressUnit(comp.long_name);
           } else if (comp.types.includes("neighborhood")) {
             // Optionally use for quadrant if DC
             if (!quadrant) {
@@ -2690,6 +2692,7 @@ const Profile = () => {
         setClientProfile((prev) => ({
           ...prev,
           address: street.trim(),
+          address2: unit || prev.address2,
           city,
           state,
           zipCode: zip,
