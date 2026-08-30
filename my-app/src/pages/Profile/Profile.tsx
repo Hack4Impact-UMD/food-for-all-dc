@@ -1056,10 +1056,7 @@ const Profile = () => {
     if (!clientProfile.recurrence?.trim()) {
       newErrors.recurrence = "Recurrence is required";
     }
-    if (
-      (!clientProfile.referralEntity || !clientProfile.referralEntity.id) &&
-      (isNewProfile || !!prevClientProfile?.referralEntity?.id)
-    ) {
+    if (!clientProfile.referralEntity || !clientProfile.referralEntity.id) {
       newErrors.referralEntity = "Referral entity is required";
     }
     if (!clientProfile.phone?.trim()) {
