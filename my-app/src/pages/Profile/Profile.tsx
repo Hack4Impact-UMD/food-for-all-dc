@@ -7,6 +7,11 @@ import {
   Autocomplete,
   Box,
   Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
   IconButton,
   MenuItem,
   Select,
@@ -23,7 +28,6 @@ import {
   doc,
   getDoc,
   getDocs,
-  limit,
   orderBy,
   query,
   setDoc,
@@ -38,10 +42,8 @@ import dataSources from "../../config/dataSources";
 import { googleMapsApiKey } from "../../config/apiKeys";
 import CaseWorkerManagementModal from "../../components/CaseWorkerManagementModal";
 import "./Profile.css";
-import { clientService, normalizeBooleanField } from "../../services/client-service";
+import { normalizeBooleanField } from "../../services/client-service";
 import DeliveryService from "../../services/delivery-service";
-import PopUp from "../../components/PopUp";
-import ErrorPopUp from "../../components/ErrorPopUp";
 
 import BasicInfoForm from "./components/BasicInfoForm";
 import DeliveryInfoForm from "./components/DeliveryInfoForm";
@@ -77,6 +79,8 @@ import { computeClientActiveStatus } from "../../utils/clientStatus";
 import { toJSDate } from "../../utils/timestamp";
 import {
   buildGeocodingAddress,
+  formatAddressWithQuadrantAndUnit,
+  normalizeDuplicateAddress,
   resolveAddressQuadrant,
   shouldGeocodeClientLocation,
 } from "../../utils/addressFormat";
@@ -128,6 +132,62 @@ const getProfilePhoneError = (value: string, required: boolean): string | undefi
 const formatProfilePhoneForSave = (value: unknown): string => {
   const normalizedValue = normalizePhoneInput(typeof value === "string" ? value : "");
   return formatPhoneNumberForSave(normalizedValue) ?? normalizedValue.trim();
+};
+
+export const isDuplicateClientName = (
+  candidate: Pick<ClientProfile, "firstName" | "lastName">,
+  firstName: string,
+  lastName: string
+): boolean => {
+  const normalizeName = (value: string) => (value || "").trim().toLowerCase();
+  return (
+    normalizeName(candidate.firstName) === normalizeName(firstName) &&
+    normalizeName(candidate.lastName) === normalizeName(lastName)
+  );
+};
+
+export const isDuplicateClient = (
+  candidate: ClientProfile,
+  profile: ClientProfile
+): boolean => {
+  if (!isDuplicateClientName(candidate, profile.firstName, profile.lastName)) return false;
+
+  const candidateAddress = normalizeDuplicateAddress(candidate);
+  const profileAddress = normalizeDuplicateAddress(profile);
+  const candidateZipCode = (candidate.zipCode || "").trim();
+  const profileZipCode = (profile.zipCode || "").trim();
+
+  return (
+    Boolean(candidateAddress.street && profileAddress.street && candidateZipCode) &&
+    candidateAddress.street === profileAddress.street &&
+    candidateAddress.unit === profileAddress.unit &&
+    candidateZipCode === profileZipCode
+  );
+};
+
+export const shouldCheckForDuplicateClient = (
+  profile: ClientProfile,
+  previousProfile: ClientProfile | null,
+  isNewProfile: boolean
+): boolean =>
+  isNewProfile ||
+  previousProfile === null ||
+  !isDuplicateClient(previousProfile, profile);
+
+export const formatDuplicateClientAddress = (profile: ClientProfile): string => {
+  const street = formatAddressWithQuadrantAndUnit(
+    profile.address,
+    profile.quadrant,
+    profile.address2
+  );
+  const cityStateZip = [
+    profile.city,
+    [profile.state, profile.zipCode].filter(Boolean).join(" "),
+  ]
+    .filter(Boolean)
+    .join(", ");
+
+  return [street, cityStateZip].filter(Boolean).join(", ");
 };
 
 const fieldStyles = {
@@ -449,12 +509,8 @@ const Profile = () => {
   const [addressError, setAddressError] = useState<string>("");
   const [userTypedAddress, setUserTypedAddress] = useState<string>("");
   const [isAddressValidated, setIsAddressValidated] = useState<boolean>(true);
-  const [showDuplicatePopup, setShowDuplicatePopup] = useState(false);
-  const [duplicateErrorMessage, setDuplicateErrorMessage] = useState(
-    "A client with this name and address already exists in the system."
-  );
-  const [showSimilarNamesInfo, setShowSimilarNamesInfo] = useState(false);
-  const [similarNamesMessage, setSimilarNamesMessage] = useState("");
+  const [duplicateClients, setDuplicateClients] = useState<ClientProfile[]>([]);
+  const [showDuplicateWarning, setShowDuplicateWarning] = useState(false);
 
   const getProfileById = async (id: string) => {
     const docRef = doc(db, dataSources.firebase.clientsCollection, id);
@@ -1098,146 +1154,27 @@ const Profile = () => {
     return normalized;
   };
 
-  // Function to check for duplicate client and return useful information
-  // Return type for the enhanced duplicate check
-  interface DuplicateCheckResult {
-    isDuplicate: boolean;
-    sameNameCount?: number;
-    sameNameDiffAddressCount?: number;
-  }
-
   const checkDuplicateClient = async (
-    firstName: string,
-    lastName: string,
-    address: string,
-    address2: string,
-    zipCode: string,
+    profile: ClientProfile,
     excludeUid?: string
-  ): Promise<boolean | DuplicateCheckResult> => {
-    // Normalize inputs for comparison only
-    const normalizeString = (str: string) => (str || "").trim().toLowerCase();
-    const normalizedFirstName = normalizeString(firstName);
-    const normalizedLastName = normalizeString(lastName);
-    const normalizedAddress = normalizeString(address);
-    const normalizedAddress2 = normalizeString(address2);
-    const normalizedZipCode = normalizeString(zipCode);
+  ): Promise<ClientProfile[]> => {
+    const zipCode = profile.zipCode.trim();
+    if (!profile.firstName.trim() || !profile.lastName.trim() || !zipCode) return [];
 
-    // Skip check if any required field is empty
-    if (!normalizedFirstName || !normalizedLastName || !normalizedAddress || !normalizedZipCode) {
-      return false;
-    }
-
-    // Query Firestore for all clients with the same address and zip code
-    // use imported singleton clientService directly
-    const db = clientService["db"];
-    const clientsCollection = clientService["clientsCollection"];
-    const addressZipQuery = query(
-      collection(db, clientsCollection),
-      where("address", "==", address),
-      where("address2", "==", address2),
-      where("zipCode", "==", zipCode)
+    const clientsSnapshot = await getDocs(
+      query(
+        collection(db, dataSources.firebase.clientsCollection),
+        where("zipCode", "==", zipCode)
+      )
     );
-    const addressZipSnapshot = await getDocs(addressZipQuery);
 
-    // Filter for same name (case-insensitive)
-    const sameNameClients = addressZipSnapshot.docs.filter((docSnap) => {
-      const data = docSnap.data();
-      return (
-        normalizeString(data.firstName) === normalizedFirstName &&
-        normalizeString(data.lastName) === normalizedLastName &&
-        (!excludeUid || docSnap.id !== excludeUid)
-      );
+    return clientsSnapshot.docs.flatMap((docSnap) => {
+      if (excludeUid && docSnap.id === excludeUid) return [];
+      const data = docSnap.data() as ClientProfile;
+      return isDuplicateClient(data, profile)
+        ? [{ ...data, uid: data.uid || docSnap.id }]
+        : [];
     });
-
-    const sameNameClientsCount = sameNameClients.length;
-    const duplicateFound = sameNameClientsCount > 0;
-
-    // For similar name warning: use narrow zip+firstName+lastName queries instead of zip-wide scan.
-    let sameNameDiffAddressCount = 0;
-    if (!duplicateFound) {
-      const buildCaseVariants = (value: string): string[] => {
-        const trimmed = (value || "").trim();
-        if (!trimmed) return [];
-        const lower = trimmed.toLowerCase();
-        const upper = trimmed.toUpperCase();
-        const title = `${trimmed.charAt(0).toUpperCase()}${trimmed.slice(1).toLowerCase()}`;
-        return Array.from(new Set([trimmed, lower, upper, title]));
-      };
-
-      const firstNameVariants = buildCaseVariants(firstName);
-      const lastNameVariants = buildCaseVariants(lastName);
-      const sameNameQueryVariants = firstNameVariants.flatMap((firstNameVariant) =>
-        lastNameVariants.map((lastNameVariant) =>
-          query(
-            collection(db, clientsCollection),
-            where("zipCode", "==", zipCode),
-            where("firstName", "==", firstNameVariant),
-            where("lastName", "==", lastNameVariant),
-            limit(50)
-          )
-        )
-      );
-
-      try {
-        const sameNameSnapshots = await Promise.all(
-          sameNameQueryVariants.map((sameNameQuery) => getDocs(sameNameQuery))
-        );
-
-        const dedupedNameMatches = new Map<string, any>();
-        sameNameSnapshots.forEach((snapshot) => {
-          snapshot.docs.forEach((docSnap) => {
-            dedupedNameMatches.set(docSnap.id, docSnap.data());
-          });
-        });
-
-        sameNameDiffAddressCount = Array.from(dedupedNameMatches.entries()).filter(
-          ([docId, data]) => {
-            if (excludeUid && docId === excludeUid) {
-              return false;
-            }
-
-            return (
-              normalizeString(data.firstName) === normalizedFirstName &&
-              normalizeString(data.lastName) === normalizedLastName &&
-              (normalizeString(data.address) !== normalizedAddress ||
-                normalizeString(data.address2) !== normalizedAddress2)
-            );
-          }
-        ).length;
-      } catch (sameNameQueryError) {
-        // Fallback keeps save flow resilient if this narrower query needs an index.
-        const zipQuery = query(collection(db, clientsCollection), where("zipCode", "==", zipCode));
-        const zipSnapshot = await getDocs(zipQuery);
-        sameNameDiffAddressCount = zipSnapshot.docs.filter((docSnap) => {
-          const data = docSnap.data();
-          return (
-            normalizeString(data.firstName) === normalizedFirstName &&
-            normalizeString(data.lastName) === normalizedLastName &&
-            (normalizeString(data.address) !== normalizedAddress ||
-              normalizeString(data.address2) !== normalizedAddress2) &&
-            (!excludeUid || docSnap.id !== excludeUid)
-          );
-        }).length;
-      }
-    }
-
-    if (duplicateFound) {
-      return {
-        isDuplicate: true,
-        sameNameCount: sameNameClientsCount,
-        sameNameDiffAddressCount,
-      };
-    }
-
-    if (sameNameDiffAddressCount > 0) {
-      return {
-        isDuplicate: false,
-        sameNameCount: 0,
-        sameNameDiffAddressCount,
-      };
-    }
-
-    return false;
   };
 
   const handleSave = async () => {
@@ -1263,9 +1200,6 @@ const Profile = () => {
       return;
     }
 
-    // Clear any previous duplicate popup states
-    setShowDuplicatePopup(false);
-
     // Show saving indicator? (Optional)
     // setIsLoading(true);
 
@@ -1273,85 +1207,21 @@ const Profile = () => {
       if (!user) {
         throw new Error("You must be logged in to save a client profile.");
       }
-      if (isNewProfile) {
-        // Force duplicate check to always happen with direct values, not through variables
-        const duplicateResult = await checkDuplicateClient(
-          String(clientProfile.firstName).trim(),
-          String(clientProfile.lastName).trim(),
-          String(clientProfile.address).trim(),
-          String(clientProfile.address2).trim(),
-          String(clientProfile.zipCode).trim()
-        );
+      const matchingClients = shouldCheckForDuplicateClient(
+        clientProfile,
+        prevClientProfile,
+        isNewProfile
+      )
+        ? await checkDuplicateClient(
+            clientProfile,
+            isNewProfile ? undefined : String(clientProfile.uid)
+          )
+        : [];
 
-        let isDuplicate = false;
-        let sameNameCount = 0;
-        let sameNameDiffAddressCount = 0;
-
-        // Handle different result formats
-        if (typeof duplicateResult === "boolean") {
-          isDuplicate = duplicateResult;
-        } else {
-          isDuplicate = duplicateResult.isDuplicate;
-          sameNameCount = duplicateResult.sameNameCount || 0;
-          sameNameDiffAddressCount = duplicateResult.sameNameDiffAddressCount || 0;
-        }
-
-        if (isDuplicate) {
-          // Create a detailed error message including exact fields that caused the duplicate
-          const errorMsg = `DUPLICATE CLIENT DETECTED\n\nA client with the following details already exists in the system:\n\nName: ${clientProfile.firstName} ${clientProfile.lastName}\nAddress: ${clientProfile.address}\nZIP Code: ${clientProfile.zipCode}\n\nYou cannot save this client because it would create a duplicate record.\nPlease check if this is truly a new client with a unique name or address.`;
-          // Update error message and show the popup
-          setDuplicateErrorMessage(errorMsg);
-          setShowDuplicatePopup(true);
-          // No automatic timeout - let the user dismiss the error
-          return;
-        }
-
-        // Warn if there are other clients with the same name in the same zip code
-        if (sameNameDiffAddressCount > 0) {
-          const warningMsg = `Note: There ${sameNameDiffAddressCount === 1 ? "is" : "are"} ${sameNameDiffAddressCount} other client${sameNameDiffAddressCount === 1 ? "" : "s"} with the name "${clientProfile.firstName} ${clientProfile.lastName}" in ZIP code "${clientProfile.zipCode}", but at different addresses.`;
-          setSimilarNamesMessage(warningMsg);
-          setShowSimilarNamesInfo(true);
-        }
-      } else {
-        // Force duplicate check to always happen with direct values, not through variables
-        const duplicateResult = await checkDuplicateClient(
-          String(clientProfile.firstName).trim(),
-          String(clientProfile.lastName).trim(),
-          String(clientProfile.address).trim(),
-          String(clientProfile.address2).trim(),
-          String(clientProfile.zipCode).trim(),
-          String(clientProfile.uid)
-        );
-
-        let isDuplicate = false;
-        let sameNameCount = 0;
-        let sameNameDiffAddressCount = 0;
-
-        // Handle different result formats
-        if (typeof duplicateResult === "boolean") {
-          isDuplicate = duplicateResult;
-        } else {
-          isDuplicate = duplicateResult.isDuplicate;
-          sameNameCount = duplicateResult.sameNameCount || 0;
-          sameNameDiffAddressCount = duplicateResult.sameNameDiffAddressCount || 0;
-        }
-
-        if (isDuplicate) {
-          // Create a detailed error message including exact fields that caused the duplicate
-          const errorMsg = `DUPLICATE CLIENT DETECTED\n\nA client with the following details already exists in the system:\n\nName: ${clientProfile.firstName} ${clientProfile.lastName}\nAddress: ${clientProfile.address}\nZIP Code: ${clientProfile.zipCode}\n\nYou cannot save this client because it would create a duplicate record.\nPlease check if this is truly a different client with a unique name or address.`;
-          // Update error message and show the popup
-          setDuplicateErrorMessage(errorMsg);
-          setShowDuplicatePopup(true);
-          // No automatic timeout - let the user dismiss the error
-          return;
-        }
-
-        // Warn if there are other clients with the same name in the same zip code
-        if (sameNameDiffAddressCount > 0) {
-          const warningMsg = `Note: There ${sameNameDiffAddressCount === 1 ? "is" : "are"} ${sameNameDiffAddressCount} other client${sameNameDiffAddressCount === 1 ? "" : "s"} with the name "${clientProfile.firstName} ${clientProfile.lastName}" in ZIP code "${clientProfile.zipCode}", but at different addresses.`;
-          setSimilarNamesMessage(warningMsg);
-          setShowSimilarNamesInfo(true);
-        }
+      if (matchingClients.length > 0) {
+        setDuplicateClients(matchingClients);
+        setShowDuplicateWarning(true);
+        return;
       }
       // --- Geocoding Optimization Start ---
       // Always force geocoding and coordinate update on every save
@@ -3226,20 +3096,59 @@ const Profile = () => {
           <Typography>Profile saved successfully!</Typography>
         </SaveNotification>
       )}
-      {showDuplicatePopup && (
-        <ErrorPopUp
-          message={duplicateErrorMessage}
-          title="Duplicate Client Detected"
-          // No auto-close duration - user must dismiss manually
-        />
-      )}
-      {showSimilarNamesInfo && (
-        <PopUp
-          message={similarNamesMessage}
-          duration={8000}
-          onDismiss={() => setShowSimilarNamesInfo(false)}
-        />
-      )}
+      <Dialog
+        open={showDuplicateWarning}
+        onClose={() => setShowDuplicateWarning(false)}
+        aria-labelledby="duplicate-client-dialog-title"
+        fullWidth
+        maxWidth="sm"
+      >
+        <DialogTitle id="duplicate-client-dialog-title" sx={{ pb: 1 }}>
+          Duplicate Client Detected
+        </DialogTitle>
+        <DialogContent sx={{ display: "grid", gap: 2 }}>
+          <DialogContentText>
+            This client already exists. Duplicate records cannot be saved.
+          </DialogContentText>
+          {duplicateClients.map((duplicateClient, index) => (
+            <Box
+              key={duplicateClient.uid || index}
+              sx={{
+                borderLeft: "4px solid var(--color-primary)",
+                backgroundColor: "var(--color-background-gray-light)",
+                borderRadius: "4px",
+                px: 2,
+                py: 1.5,
+                display: "grid",
+                gap: 1.25,
+              }}
+            >
+              <Box>
+                <Typography variant="caption" sx={{ color: "text.secondary", fontWeight: 700 }}>
+                  NAME
+                </Typography>
+                <Typography sx={{ fontWeight: 700 }}>
+                  {duplicateClient.firstName} {duplicateClient.lastName}
+                </Typography>
+              </Box>
+              <Box>
+                <Typography variant="caption" sx={{ color: "text.secondary", fontWeight: 700 }}>
+                  ADDRESS
+                </Typography>
+                <Typography>{formatDuplicateClientAddress(duplicateClient)}</Typography>
+              </Box>
+            </Box>
+          ))}
+          <DialogContentText>
+            Open the existing client record to make any updates.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2.5 }}>
+          <Button variant="contained" onClick={() => setShowDuplicateWarning(false)}>
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
       {/* Spacer for navbar height */}
       <Box sx={{ height: "64px" }} />
       {/* Enhanced Profile Header */}
@@ -3304,7 +3213,7 @@ const Profile = () => {
                 {isEditing && (
                   <StyledIconButton
                     color="primary"
-                    onClick={handleSave}
+                    onClick={() => void handleSave()}
                     aria-label="save"
                     disabled={isSaving}
                     size="small"
@@ -3479,7 +3388,7 @@ const Profile = () => {
               {isEditing && (
                 <StyledIconButton
                   color="primary"
-                  onClick={handleSave}
+                  onClick={() => void handleSave()}
                   disabled={isSaving}
                   aria-label="save"
                   size="small"
