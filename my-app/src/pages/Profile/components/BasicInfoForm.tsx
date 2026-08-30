@@ -1,5 +1,14 @@
 import React from "react";
-import { Box, Typography, Select, MenuItem, Tooltip, Autocomplete, TextField } from "@mui/material";
+import {
+  Box,
+  Typography,
+  Select,
+  MenuItem,
+  Tooltip,
+  Autocomplete,
+  TextField,
+  FilterOptionsState,
+} from "@mui/material";
 import InfoIcon from "@mui/icons-material/Info";
 import { ClientProfile } from "../../../types";
 import { ClientProfileKey, InputType } from "../types";
@@ -22,6 +31,18 @@ export interface BasicInfoFormProps {
   addressError?: string;
   addressInputRef?: React.RefObject<HTMLInputElement | null>;
 }
+
+export const filterReferralEntityOptions = (
+  options: CaseWorker[],
+  { inputValue }: Pick<FilterOptionsState<CaseWorker>, "inputValue">
+): CaseWorker[] => {
+  const searchText = inputValue.trim().toLowerCase();
+  if (!searchText) return options;
+
+  return options.filter(
+    (option) => option.id !== "edit_list" && option.name.toLowerCase().includes(searchText)
+  );
+};
 
 const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
   clientProfile,
@@ -374,6 +395,8 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
                 { id: "edit_list", name: "Edit Case Worker List", organization: "" } as CaseWorker,
                 ...caseWorkers,
               ]}
+              filterOptions={filterReferralEntityOptions}
+              getOptionKey={(option) => option.id}
               getOptionLabel={(option) =>
                 option.id === "edit_list"
                   ? "Edit Case Worker List"
@@ -436,8 +459,9 @@ const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
                 />
               )}
               // specifying the render option for the edit case worker option
-              renderOption={(props, option) => (
+              renderOption={({ key, ...props }, option) => (
                 <li
+                  key={key}
                   {...props}
                   style={{
                     color: option.id === "edit_list" ? "var(--color-primary)" : "inherit",
