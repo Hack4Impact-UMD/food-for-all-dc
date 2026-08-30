@@ -4,8 +4,9 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import { Autocomplete, Checkbox, MenuItem, TextField } from "@mui/material";
+import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { QueryFieldDef, QueryOperator } from "../../types/query-tool-types";
-import { formatAssignedTime, formatDateMask, formatPhoneNumber } from "../../utils/queryToolFormatting";
+import { formatAssignedTime, formatPhoneNumber, parseQueryDate } from "../../utils/queryToolFormatting";
 
 interface FilterValueInputProps {
   fieldDef: QueryFieldDef;
@@ -366,13 +367,17 @@ const FilterValueInput: React.FC<FilterValueInputProps> = ({
 
   if (fieldDef.format === "date") {
     return (
-      <TextField
-        {...commonProps}
+      <DatePicker
         label="Value"
-        value={formatDateMask(value)}
-        onChange={(event) => onChange(formatDateMask(event.target.value))}
-        placeholder="MM/DD/YYYY"
-        inputProps={{ inputMode: "numeric", maxLength: 10 }}
+        format="MM/dd/yyyy"
+        value={parseQueryDate(value)}
+        onChange={(date) => onChange(date)}
+        slotProps={{
+          textField: {
+            ...commonProps,
+            placeholder: "MM/DD/YYYY",
+          },
+        }}
       />
     );
   }

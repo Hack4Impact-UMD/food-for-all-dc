@@ -13,7 +13,7 @@ import { ServiceError, formatServiceError } from "../utils/serviceError";
 import { COLLECTIONS, CollectionKey, getFieldDef, QueryFilter } from "../types/query-tool-types";
 import { mapClientDocToSpreadsheetBaseRow } from "./client-service";
 import { deliveryDate } from "../utils/deliveryDate";
-import { normalizeAssignedTime, normalizePhoneNumber } from "../utils/queryToolFormatting";
+import { formatDateMask, normalizeAssignedTime, normalizePhoneNumber } from "../utils/queryToolFormatting";
 
 export interface ClientQueryResult {
   rows: RowData[];
@@ -69,6 +69,7 @@ const toFirestoreValue = (collectionKey: CollectionKey, filter: QueryFilter): un
   }
 
   if (fieldDef?.type === "number") return Number(filter.value);
+  if (fieldDef?.format === "date" && filter.value instanceof Date) return formatDateMask(filter.value);
   return filter.value;
 };
 
