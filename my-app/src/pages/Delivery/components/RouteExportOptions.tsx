@@ -15,6 +15,12 @@ interface RouteExportOptionsProps {
   exportOption: RouteExportOption | null;
   exportScope: RouteExportScope;
   scopeCounts: ScopeCounts;
+  /**
+   * Rows that will not appear in the output because they still need a route or a
+   * driver. A scope stays selectable when it has these, so the user can open the
+   * preview and see which assignments are missing.
+   */
+  scopeIssueCounts?: ScopeCounts;
   purpose?: "export" | "report";
   onSelectOption: (option: RouteExportOption) => void;
   onSelectScope: (scope: RouteExportScope) => void;
@@ -205,6 +211,7 @@ export default function RouteExportOptions({
   exportOption,
   exportScope,
   scopeCounts,
+  scopeIssueCounts,
   purpose = "export",
   onSelectOption,
   onSelectScope,
@@ -212,6 +219,9 @@ export default function RouteExportOptions({
   onBack,
 }: RouteExportOptionsProps) {
   const isReport = purpose === "report";
+  const getIssueCount = (scope: RouteExportScope) => scopeIssueCounts?.[scope] ?? 0;
+  const isScopeSelectable = (scope: RouteExportScope) =>
+    scopeCounts[scope] > 0 || getIssueCount(scope) > 0;
 
   if (!exportOption) {
     return (
@@ -267,9 +277,14 @@ export default function RouteExportOptions({
     ? REPORT_OPTION_LABELS[exportOption]
     : OPTION_LABELS[exportOption];
   const summary = `${optionLabel} • ${exportScopeLabel} • ${formatRowCount(availableCount)}`;
+  const unassignedCount = getIssueCount(exportScope);
   const helperSummary =
     isReport
-      ? "A print preview will be generated for matching assigned routes. Invalid rows are skipped."
+      ? unassignedCount > 0
+        ? `${formatRowCount(
+            unassignedCount
+          )} still need a route or driver and will not print. The preview lists them so you can assign them.`
+        : "A print preview will be generated for matching assigned routes."
       : exportOption === "Routes"
       ? "Valid route files will download. Invalid rows are skipped."
       : "Only DoorDash-assigned rows with required fields will download.";
@@ -313,7 +328,7 @@ export default function RouteExportOptions({
               title={SCOPE_LABELS[scope]}
               description={SCOPE_HELPER_TEXT[scope]}
               selected={exportScope === scope}
-              disabled={scopeCounts[scope] === 0}
+              disabled={!isScopeSelectable(scope)}
               metaLabel={formatRowCount(scopeCounts[scope])}
               onClick={() => onSelectScope(scope)}
             />
@@ -349,7 +364,7 @@ export default function RouteExportOptions({
             variant="contained"
             color="primary"
             onClick={onDownload}
-            disabled={availableCount === 0}
+            disabled={!isScopeSelectable(exportScope)}
             sx={{ mt: 0, width: "100%" }}
           >
             {isReport ? "Preview reports" : "Download"}
