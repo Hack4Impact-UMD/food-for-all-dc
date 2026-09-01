@@ -15,6 +15,7 @@ interface RouteExportOptionsProps {
   exportOption: RouteExportOption | null;
   exportScope: RouteExportScope;
   scopeCounts: ScopeCounts;
+  purpose?: "export" | "report";
   onSelectOption: (option: RouteExportOption) => void;
   onSelectScope: (scope: RouteExportScope) => void;
   onDownload: () => void;
@@ -45,6 +46,11 @@ const SCOPE_HELPER_TEXT: Record<RouteExportScope, string> = {
 const OPTION_LABELS: Record<RouteExportOption, string> = {
   Routes: "Driver routes",
   DoorDash: "DoorDash",
+};
+
+const REPORT_OPTION_LABELS: Record<RouteExportOption, string> = {
+  Routes: "Driver routes",
+  DoorDash: "DoorDash routes",
 };
 
 const OPTION_HELPER_TEXT: Record<RouteExportOption, string> = {
@@ -199,20 +205,25 @@ export default function RouteExportOptions({
   exportOption,
   exportScope,
   scopeCounts,
+  purpose = "export",
   onSelectOption,
   onSelectScope,
   onDownload,
   onBack,
 }: RouteExportOptionsProps) {
+  const isReport = purpose === "report";
+
   if (!exportOption) {
     return (
       <Stack spacing={2.5}>
         <Box>
           <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.5 }}>
-            Choose export type
+            Choose {isReport ? "report" : "export"} type
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            Pick the file format you want to download.
+            {isReport
+              ? "Choose whether to print driver or DoorDash routes."
+              : "Pick the file format you want to download."}
           </Typography>
         </Box>
 
@@ -220,13 +231,21 @@ export default function RouteExportOptions({
           <Stack spacing={2}>
             <SelectionCard
               title={OPTION_LABELS.Routes}
-              description={OPTION_HELPER_TEXT.Routes}
+              description={
+                isReport
+                  ? "Printable reports for deliveries assigned to in-house drivers."
+                  : OPTION_HELPER_TEXT.Routes
+              }
               selected={false}
               onClick={() => onSelectOption("Routes")}
             />
             <SelectionCard
-              title={OPTION_LABELS.DoorDash}
-              description={OPTION_HELPER_TEXT.DoorDash}
+              title={isReport ? REPORT_OPTION_LABELS.DoorDash : OPTION_LABELS.DoorDash}
+              description={
+                isReport
+                  ? "Printable reports for deliveries assigned to DoorDash."
+                  : OPTION_HELPER_TEXT.DoorDash
+              }
               selected={false}
               onClick={() => onSelectOption("DoorDash")}
             />
@@ -244,11 +263,14 @@ export default function RouteExportOptions({
 
   const availableCount = scopeCounts[exportScope];
   const exportScopeLabel = SCOPE_LABELS[exportScope];
-  const summary = `${OPTION_LABELS[exportOption]} • ${exportScopeLabel} • ${formatRowCount(
-    availableCount
-  )}`;
+  const optionLabel = isReport
+    ? REPORT_OPTION_LABELS[exportOption]
+    : OPTION_LABELS[exportOption];
+  const summary = `${optionLabel} • ${exportScopeLabel} • ${formatRowCount(availableCount)}`;
   const helperSummary =
-    exportOption === "Routes"
+    isReport
+      ? "A print preview will be generated for matching assigned routes. Invalid rows are skipped."
+      : exportOption === "Routes"
       ? "Valid route files will download. Invalid rows are skipped."
       : "Only DoorDash-assigned rows with required fields will download.";
 
@@ -259,7 +281,7 @@ export default function RouteExportOptions({
           Choose rows to include
         </Typography>
         <Typography variant="body2" color="text.secondary">
-          Select which deliveries should be used for this export.
+            Select which deliveries should be used for this {isReport ? "report" : "export"}.
         </Typography>
       </Box>
 
@@ -276,10 +298,10 @@ export default function RouteExportOptions({
           variant="caption"
           sx={{ color: "var(--color-text-medium-alt)", fontWeight: 700 }}
         >
-          Selected export type
+          Selected {isReport ? "report" : "export"} type
         </Typography>
         <Typography variant="body1" sx={{ mt: 0.25, fontWeight: 700 }}>
-          {OPTION_LABELS[exportOption]}
+          {optionLabel}
         </Typography>
       </Box>
 
@@ -319,7 +341,7 @@ export default function RouteExportOptions({
       <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5}>
         <Box sx={{ flex: 1 }}>
           <Button variant="outlined" color="primary" onClick={onBack} sx={{ mt: 0, width: "100%" }}>
-            Back to export type
+            Back to {isReport ? "report" : "export"} type
           </Button>
         </Box>
         <Box sx={{ flex: 1 }}>
@@ -330,7 +352,7 @@ export default function RouteExportOptions({
             disabled={availableCount === 0}
             sx={{ mt: 0, width: "100%" }}
           >
-            Download
+            {isReport ? "Preview reports" : "Download"}
           </Button>
         </Box>
       </Stack>
