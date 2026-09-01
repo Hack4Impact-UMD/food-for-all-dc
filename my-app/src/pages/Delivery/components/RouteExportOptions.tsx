@@ -15,6 +15,13 @@ interface RouteExportOptionsProps {
   exportOption: RouteExportOption | null;
   exportScope: RouteExportScope;
   scopeCounts: ScopeCounts;
+  /**
+   * Rows that will not appear in the output because they still need a route or a
+   * driver. A scope stays selectable when it has these, so the user can open the
+   * preview and see which assignments are missing.
+   */
+  scopeIssueCounts?: ScopeCounts;
+  purpose?: "export" | "report";
   onSelectOption: (option: RouteExportOption) => void;
   onSelectScope: (scope: RouteExportScope) => void;
   onDownload: () => void;
@@ -45,6 +52,11 @@ const SCOPE_HELPER_TEXT: Record<RouteExportScope, string> = {
 const OPTION_LABELS: Record<RouteExportOption, string> = {
   Routes: "Driver routes",
   DoorDash: "DoorDash",
+};
+
+const REPORT_OPTION_LABELS: Record<RouteExportOption, string> = {
+  Routes: "Driver routes",
+  DoorDash: "DoorDash routes",
 };
 
 const OPTION_HELPER_TEXT: Record<RouteExportOption, string> = {
@@ -199,20 +211,29 @@ export default function RouteExportOptions({
   exportOption,
   exportScope,
   scopeCounts,
+  scopeIssueCounts,
+  purpose = "export",
   onSelectOption,
   onSelectScope,
   onDownload,
   onBack,
 }: RouteExportOptionsProps) {
+  const isReport = purpose === "report";
+  const getIssueCount = (scope: RouteExportScope) => scopeIssueCounts?.[scope] ?? 0;
+  const isScopeSelectable = (scope: RouteExportScope) =>
+    scopeCounts[scope] > 0 || getIssueCount(scope) > 0;
+
   if (!exportOption) {
     return (
       <Stack spacing={2.5}>
         <Box>
           <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.5 }}>
-            Choose export type
+            Choose {isReport ? "report" : "export"} type
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            Pick the file format you want to download.
+            {isReport
+              ? "Choose whether to print driver or DoorDash routes."
+              : "Pick the file format you want to download."}
           </Typography>
         </Box>
 
@@ -220,13 +241,21 @@ export default function RouteExportOptions({
           <Stack spacing={2}>
             <SelectionCard
               title={OPTION_LABELS.Routes}
-              description={OPTION_HELPER_TEXT.Routes}
+              description={
+                isReport
+                  ? "Printable reports for deliveries assigned to in-house drivers."
+                  : OPTION_HELPER_TEXT.Routes
+              }
               selected={false}
               onClick={() => onSelectOption("Routes")}
             />
             <SelectionCard
-              title={OPTION_LABELS.DoorDash}
-              description={OPTION_HELPER_TEXT.DoorDash}
+              title={isReport ? REPORT_OPTION_LABELS.DoorDash : OPTION_LABELS.DoorDash}
+              description={
+                isReport
+                  ? "Printable reports for deliveries assigned to DoorDash."
+                  : OPTION_HELPER_TEXT.DoorDash
+              }
               selected={false}
               onClick={() => onSelectOption("DoorDash")}
             />
@@ -244,11 +273,19 @@ export default function RouteExportOptions({
 
   const availableCount = scopeCounts[exportScope];
   const exportScopeLabel = SCOPE_LABELS[exportScope];
-  const summary = `${OPTION_LABELS[exportOption]} • ${exportScopeLabel} • ${formatRowCount(
-    availableCount
-  )}`;
+  const optionLabel = isReport
+    ? REPORT_OPTION_LABELS[exportOption]
+    : OPTION_LABELS[exportOption];
+  const summary = `${optionLabel} • ${exportScopeLabel} • ${formatRowCount(availableCount)}`;
+  const unassignedCount = getIssueCount(exportScope);
   const helperSummary =
-    exportOption === "Routes"
+    isReport
+      ? unassignedCount > 0
+        ? `${formatRowCount(
+            unassignedCount
+          )} still need a route or driver and will not print. The preview lists them so you can assign them.`
+        : "A print preview will be generated for matching assigned routes."
+      : exportOption === "Routes"
       ? "Valid route files will download. Invalid rows are skipped."
       : "Only DoorDash-assigned rows with required fields will download.";
 
@@ -259,7 +296,7 @@ export default function RouteExportOptions({
           Choose rows to include
         </Typography>
         <Typography variant="body2" color="text.secondary">
-          Select which deliveries should be used for this export.
+            Select which deliveries should be used for this {isReport ? "report" : "export"}.
         </Typography>
       </Box>
 
@@ -276,10 +313,10 @@ export default function RouteExportOptions({
           variant="caption"
           sx={{ color: "var(--color-text-medium-alt)", fontWeight: 700 }}
         >
-          Selected export type
+          Selected {isReport ? "report" : "export"} type
         </Typography>
         <Typography variant="body1" sx={{ mt: 0.25, fontWeight: 700 }}>
-          {OPTION_LABELS[exportOption]}
+          {optionLabel}
         </Typography>
       </Box>
 
@@ -291,7 +328,7 @@ export default function RouteExportOptions({
               title={SCOPE_LABELS[scope]}
               description={SCOPE_HELPER_TEXT[scope]}
               selected={exportScope === scope}
-              disabled={scopeCounts[scope] === 0}
+              disabled={!isScopeSelectable(scope)}
               metaLabel={formatRowCount(scopeCounts[scope])}
               onClick={() => onSelectScope(scope)}
             />
@@ -319,7 +356,7 @@ export default function RouteExportOptions({
       <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5}>
         <Box sx={{ flex: 1 }}>
           <Button variant="outlined" color="primary" onClick={onBack} sx={{ mt: 0, width: "100%" }}>
-            Back to export type
+            Back to {isReport ? "report" : "export"} type
           </Button>
         </Box>
         <Box sx={{ flex: 1 }}>
@@ -327,10 +364,10 @@ export default function RouteExportOptions({
             variant="contained"
             color="primary"
             onClick={onDownload}
-            disabled={availableCount === 0}
+            disabled={!isScopeSelectable(exportScope)}
             sx={{ mt: 0, width: "100%" }}
           >
-            Download
+            {isReport ? "Preview reports" : "Download"}
           </Button>
         </Box>
       </Stack>

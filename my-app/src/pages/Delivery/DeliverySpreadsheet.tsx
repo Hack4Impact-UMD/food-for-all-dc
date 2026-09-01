@@ -45,6 +45,7 @@ import ClearIcon from "@mui/icons-material/Clear";
 import DeleteIcon from "@mui/icons-material/Delete";
 import AssignmentIndIcon from "@mui/icons-material/AssignmentInd";
 import FileDownloadIcon from "@mui/icons-material/FileDownload";
+import PrintIcon from "@mui/icons-material/Print";
 import GroupWorkIcon from "@mui/icons-material/GroupWork";
 import TodayIcon from "@mui/icons-material/Today";
 import UnfoldMoreIcon from "@mui/icons-material/UnfoldMore";
@@ -90,6 +91,7 @@ import RouteExportOptions, {
   RouteExportOption,
   RouteExportScope,
 } from "./components/RouteExportOptions";
+import RouteReportsPreview from "./components/RouteReportsPreview";
 import { computeClientActiveStatus, getClientStatusPresentation } from "../../utils/clientStatus";
 import LoadingIndicator from "../../components/LoadingIndicator/LoadingIndicator";
 import { exportDeliveries, exportDoordashDeliveries, ExportFeedback } from "./RouteExport";
@@ -109,6 +111,7 @@ import {
   normalizeDriverAssignmentValue,
   resolveAssignmentValue,
 } from "./utils/assignmentOverrides";
+import { filterRowsForRouteReport, prepareRouteReportData } from "./utils/routeReportData";
 import {
   assignDriverToRoutes,
   assignTimeToRoutes,
@@ -726,6 +729,7 @@ const DeliverySpreadsheet: React.FC = () => {
   // Granular loading states for better UX
   const [isLoadingDeliveries, setIsLoadingDeliveries] = useState(false);
   const [isLoadingClientDetails, setIsLoadingClientDetails] = useState(false);
+  const [isLoadingClusters, setIsLoadingClusters] = useState(true);
   const [isLoading, setIsLoading] = useState(false); // Still needed for clustering operations
 
   // Computed loading state - show loading only for critical operations
@@ -1236,6 +1240,7 @@ const DeliverySpreadsheet: React.FC = () => {
   const fetchClustersFromToday = React.useCallback(
     async (dateForFetch: Date) => {
       const requestId = ++clustersRequestIdRef.current;
+      setIsLoadingClusters(true);
 
       try {
         const { start, endExclusive } = deliveryDate.getUTCDateBounds(dateForFetch);
@@ -1278,6 +1283,10 @@ const DeliverySpreadsheet: React.FC = () => {
           setClusterDoc(null);
           setClusters([]);
           setClientOverrides([]);
+        }
+      } finally {
+        if (requestId === clustersRequestIdRef.current) {
+          setIsLoadingClusters(false);
         }
       }
     },
@@ -2768,6 +2777,89 @@ const DeliverySpreadsheet: React.FC = () => {
     [rows, selectedExportRows, sortedRows]
   );
 
+  // Counts shown in the report dialog. A row only counts as printable once
+  // prepareRouteReportData keeps it, so scopes whose rows all lack a route or a
+  // driver report zero instead of promising reports the preview cannot render.
+  const reportScopeSummaries = useMemo(() => {
+    const emptySummary = { printable: 0, unassigned: 0 };
+    if (popupMode !== "ReportOptions") {
+      return { selected: emptySummary, visible: emptySummary, all: emptySummary };
+    }
+
+    const summarizeScope = (scope: RouteExportScope) => {
+      const { reports, issues } = prepareRouteReportData(
+        deliveryDate.toISODateString(selectedDate),
+        filterRowsForRouteReport(
+          getExportRowsForScope(scope),
+          clusters,
+          clientOverrides,
+          exportOption ?? "Routes"
+        ),
+        clusters,
+        clientOverrides
+      );
+
+      return {
+        printable: reports.reduce((total, report) => total + report.deliveries.length, 0),
+        unassigned: issues.length,
+      };
+    };
+
+    return {
+      selected: summarizeScope("selected"),
+      visible: summarizeScope("visible"),
+      all: summarizeScope("all"),
+    };
+  }, [
+    clientOverrides,
+    clusters,
+    exportOption,
+    getExportRowsForScope,
+    popupMode,
+    selectedDate,
+  ]);
+
+  const reportScopeCounts = useMemo(
+    () => ({
+      selected: reportScopeSummaries.selected.printable,
+      visible: reportScopeSummaries.visible.printable,
+      all: reportScopeSummaries.all.printable,
+    }),
+    [reportScopeSummaries]
+  );
+
+  const reportScopeIssueCounts = useMemo(
+    () => ({
+      selected: reportScopeSummaries.selected.unassigned,
+      visible: reportScopeSummaries.visible.unassigned,
+      all: reportScopeSummaries.all.unassigned,
+    }),
+    [reportScopeSummaries]
+  );
+
+  const routeReportData = useMemo(
+    () =>
+      prepareRouteReportData(
+        deliveryDate.toISODateString(selectedDate),
+        filterRowsForRouteReport(
+          getExportRowsForScope(exportScope),
+          clusters,
+          clientOverrides,
+          exportOption ?? "Routes"
+        ),
+        clusters,
+        clientOverrides
+      ),
+    [
+      clientOverrides,
+      clusters,
+      exportOption,
+      exportScope,
+      getExportRowsForScope,
+      selectedDate,
+    ]
+  );
+
   useEffect(() => {
     const visibleDeliveryIds = new Set(visibleRows.map((row) => row.id));
     const visiblePopupAvailableDeliveryIds = new Set(
@@ -3297,7 +3389,7 @@ const DeliverySpreadsheet: React.FC = () => {
           )}
           <Box sx={{ display: "flex", justifyContent: "space-between", marginTop: "16px" }}>
             {/* Left group: Assign Driver & Time */}
-            <Box sx={{ display: "flex", width: "100%", gap: "8px", flexWrap: "wrap" }}>
+            <Box sx={{ display: "flex", flex: 1, minWidth: 0, gap: "8px", flexWrap: "wrap" }}>
               <Button
                 variant="contained"
                 size="medium"
@@ -3317,8 +3409,38 @@ const DeliverySpreadsheet: React.FC = () => {
                 Assign Driver & Time
               </Button>
             </Box>
-            {/* Right group: Export button */}
-            <Box>
+            {/* Right group: Report and data export actions */}
+            <Box
+              sx={{
+                display: "flex",
+                flexShrink: 0,
+                gap: "8px",
+                flexWrap: "nowrap",
+                justifyContent: "flex-end",
+              }}
+            >
+              <Button
+                variant="outlined"
+                size="medium"
+                startIcon={<PrintIcon />}
+                disabled={rows.length === 0 || isMainLoading || isLoadingClusters}
+                style={{
+                  whiteSpace: "nowrap",
+                  borderRadius: 5,
+                  marginRight: "0px",
+                  minWidth: "auto",
+                  width: "auto",
+                  fontSize: "0.875rem",
+                  padding: "8px 16px",
+                }}
+                onClick={() => {
+                  setExportOption(null);
+                  setExportScope(defaultExportScope);
+                  setPopupMode("ReportOptions");
+                }}
+              >
+                Print Route Reports
+              </Button>
               <Button
                 variant="contained"
                 size="medium"
@@ -4360,6 +4482,41 @@ const DeliverySpreadsheet: React.FC = () => {
       </Dialog>
 
       {/* Export Options Popup */}
+
+      {popupMode === "Reports" ? (
+        <RouteReportsPreview reportData={routeReportData} onClose={resetSelections} />
+      ) : null}
+
+      <Dialog
+        open={popupMode === "ReportOptions"}
+        onClose={resetSelections}
+        maxWidth="sm"
+        fullWidth
+        disableScrollLock
+      >
+        <DialogTitle>Print Route Reports</DialogTitle>
+        <DialogContent sx={{ pt: 3, overflowY: "auto", overflowX: "hidden" }}>
+          <RouteExportOptions
+            exportOption={exportOption}
+            exportScope={exportScope}
+            scopeCounts={reportScopeCounts}
+            scopeIssueCounts={reportScopeIssueCounts}
+            purpose="report"
+            onSelectOption={handleSelectExportOption}
+            onSelectScope={setExportScope}
+            onDownload={() => setPopupMode("Reports")}
+            onBack={() => {
+              if (exportOption) {
+                setExportOption(null);
+                setExportScope(defaultExportScope);
+                return;
+              }
+
+              resetSelections();
+            }}
+          />
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={popupMode === "Export"} onClose={resetSelections} maxWidth="sm" fullWidth>
         <DialogTitle>Export Options</DialogTitle>

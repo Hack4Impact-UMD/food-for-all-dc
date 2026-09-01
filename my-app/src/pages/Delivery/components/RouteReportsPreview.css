@@ -1,0 +1,367 @@
+.route-reports-preview {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1400;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 100vh;
+  isolation: isolate;
+  overflow: visible;
+  background: var(--color-background-gray-light, #f3f5f4);
+  color: #17211e;
+}
+
+.route-reports-preview-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 1100;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--color-border-medium, #c6cfcc);
+  background: #ffffff;
+  box-shadow: 0 2px 8px rgba(20, 42, 35, 0.12);
+}
+
+.route-reports-preview-content {
+  width: min(100% - 32px, 8.5in);
+  margin: 24px auto;
+}
+
+.route-report-assignment-warning {
+  margin-bottom: 20px;
+}
+
+.route-report {
+  box-sizing: border-box;
+  min-height: 11in;
+  padding: 0.45in;
+  background: #ffffff;
+  box-shadow: 0 3px 18px rgba(20, 42, 35, 0.14);
+}
+
+.route-report + .route-report {
+  margin-top: 24px;
+}
+
+.route-report-header {
+  padding-bottom: 14px;
+  border-bottom: 3px solid #257e68;
+}
+
+.route-report-header h1,
+.route-report-delivery-card h2,
+.route-report-header p,
+.route-report-delivery-card p,
+.route-report-map-note {
+  margin: 0;
+}
+
+.route-report-header h1 {
+  margin-top: 3px;
+  font-size: 24px;
+  line-height: 1.2;
+  letter-spacing: 0;
+}
+
+.route-report-kicker {
+  color: #257e68;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.route-report-header dl {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1.5fr) minmax(0, 1.2fr) minmax(0, 0.75fr);
+  gap: 12px;
+  margin: 16px 0 0;
+}
+
+.route-report-header dl div {
+  min-width: 0;
+}
+
+.route-report-header dt {
+  color: #53615d;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.route-report-header dd {
+  margin: 2px 0 0;
+  font-size: 15px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.route-report-header dl div:nth-child(2) dd {
+  white-space: nowrap;
+}
+
+.route-report-map-section {
+  position: relative;
+  z-index: 0;
+  margin: 18px 0 22px;
+  overflow: hidden;
+  break-inside: avoid;
+}
+
+.route-report-map {
+  position: relative;
+  z-index: 0;
+  width: 100%;
+  height: 2.55in;
+  contain: strict;
+  overflow: hidden;
+  clip-path: inset(0);
+  border: 1px solid #87938f;
+  background: #edf1ef;
+}
+
+.route-report-map-tile {
+  position: absolute;
+  z-index: 0;
+  width: 256px;
+  max-width: none;
+  height: 256px;
+  user-select: none;
+}
+
+.route-report-map-marker-container {
+  position: absolute;
+  z-index: 2;
+  width: 22px;
+  height: 22px;
+  transform: translate(-50%, -50%);
+  border: 0;
+  background: transparent;
+}
+
+.route-report-map-marker {
+  box-sizing: border-box;
+  display: flex;
+  width: 22px;
+  height: 22px;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #171717;
+  border-radius: 50%;
+  background: var(--route-marker-color, #257e68);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.55);
+  color: var(--route-marker-text-color, #ffffff);
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 1;
+  text-align: center;
+}
+
+.route-report-map-attribution {
+  position: absolute;
+  right: 2px;
+  bottom: 1px;
+  z-index: 3;
+  padding: 1px 3px;
+  background: rgba(255, 255, 255, 0.8);
+  color: #333333;
+  font-size: 8px;
+  line-height: 1.2;
+}
+
+.route-report-map-note {
+  margin-top: 5px;
+  color: #53615d;
+  font-size: 10px;
+}
+
+.route-report-deliveries {
+  display: grid;
+  gap: 14px;
+}
+
+.route-report-delivery-card {
+  padding: 15px 16px;
+  border: 1.5px solid #9aa5a1;
+  border-left: 5px solid #257e68;
+  break-inside: avoid;
+}
+
+.route-report-delivery-heading {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+
+.route-report-checkbox {
+  box-sizing: border-box;
+  display: block;
+  width: 30px;
+  height: 30px;
+  border: 2.5px solid #17211e;
+}
+
+.route-report-delivery-card h2 {
+  font-size: 18px;
+  line-height: 1.25;
+  letter-spacing: 0;
+  overflow-wrap: anywhere;
+}
+
+.route-report-delivery-card p {
+  margin-top: 3px;
+  font-size: 14px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.route-report-instructions {
+  margin: 11px 0 0 46px;
+}
+
+.route-report-instructions strong {
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+.route-report-instructions p {
+  margin-top: 3px;
+  white-space: pre-wrap;
+}
+
+@media (max-width: 700px) {
+  .route-reports-preview-toolbar {
+    align-items: flex-start;
+    padding: 12px 16px;
+  }
+
+  .route-reports-preview-content {
+    width: 100%;
+    margin: 0;
+  }
+
+  .route-report {
+    min-height: 0;
+    padding: 24px 16px;
+  }
+
+  .route-report-header dl {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@page {
+  size: letter portrait;
+  margin: 0;
+}
+
+@media print {
+  body * {
+    visibility: hidden !important;
+  }
+
+  .route-reports-preview,
+  .route-reports-preview * {
+    visibility: visible !important;
+  }
+
+  .route-reports-preview {
+    position: absolute;
+    inset: 0;
+    overflow: visible;
+    background: #ffffff;
+  }
+
+  .route-reports-preview-toolbar,
+  .route-report-assignment-warning {
+    display: none !important;
+  }
+
+  .route-reports-preview-content,
+  .route-reports-print-root {
+    width: 100%;
+    margin: 0;
+  }
+
+  .route-report {
+    min-height: 11in;
+    padding: 0.45in;
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
+    box-shadow: none;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  .route-report + .route-report {
+    margin-top: 0;
+    break-before: page;
+  }
+
+  .route-report-map {
+    height: 2.55in;
+    min-height: 2.55in;
+    max-height: 2.55in;
+    contain: strict;
+    overflow: hidden !important;
+    clip-path: inset(0);
+  }
+
+  .route-report-deliveries {
+    display: block;
+  }
+
+  .route-report-delivery-card {
+    margin-bottom: 14px;
+    break-inside: avoid-page;
+  }
+
+  .route-report-delivery-card:last-child {
+    margin-bottom: 0;
+  }
+}
+
+.route-report-map-inset {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 4;
+  box-sizing: border-box;
+  width: 146px;
+  height: 146px;
+  border: 1px solid #171717;
+  padding: 6px;
+  background: #ffffff;
+}
+
+.route-report-map-inset-viewport {
+  position: relative;
+  width: 132px;
+  height: 132px;
+  overflow: hidden;
+  contain: strict;
+  clip-path: inset(0);
+  background: #edf1ef;
+}
+
+.route-report-map-inset-marker {
+  position: absolute;
+  z-index: 2;
+  width: 8px;
+  height: 8px;
+  transform: translate(-50%, -50%);
+  border: 1px solid #171717;
+  border-radius: 50%;
+  background: var(--route-marker-color, #257e68);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.85);
+}
+
+.route-report-delivery-card .route-report-household {
+  margin-top: 6px;
+  font-weight: 700;
+}
