@@ -108,7 +108,7 @@ describe("prepareRouteReportData", () => {
 });
 
 describe("filterRowsForRouteReport", () => {
-  it("separates driver and DoorDash rows using effective assignment overrides", () => {
+  it("includes every row in driver routes and limits DoorDash routes using overrides", () => {
     const rows = [
       makeRow("driver"),
       makeRow("doordash"),
@@ -135,7 +135,13 @@ describe("filterRowsForRouteReport", () => {
 
     expect(
       filterRowsForRouteReport(rows, clusters, overrides, "Routes").map(({ id }) => id)
-    ).toEqual(["driver", "override-from-doordash", "unassigned"]);
+    ).toEqual([
+      "driver",
+      "doordash",
+      "override-to-doordash",
+      "override-from-doordash",
+      "unassigned",
+    ]);
     expect(
       filterRowsForRouteReport(rows, clusters, overrides, "DoorDash").map(({ id }) => id)
     ).toEqual(["doordash", "override-to-doordash"]);

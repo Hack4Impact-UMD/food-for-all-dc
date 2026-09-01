@@ -189,6 +189,10 @@ export const filterRowsForRouteReport = (
     clientOverrides.map((override) => [override.clientId, override])
   );
 
+  if (reportType === "Routes") {
+    return rows;
+  }
+
   return rows.filter((row) => {
     const cluster = clustersByDeliveryId.get(row.id);
     const override = overridesByClientId.get(row.id);
@@ -199,6 +203,6 @@ export const filterRowsForRouteReport = (
       ) || "";
     const isDoorDash = driverName.toLocaleLowerCase() === "doordash";
 
-    return reportType === "DoorDash" ? isDoorDash : !isDoorDash;
+    return isDoorDash;
   });
 };
