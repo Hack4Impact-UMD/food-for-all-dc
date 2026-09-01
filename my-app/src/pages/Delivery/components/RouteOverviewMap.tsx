@@ -24,7 +24,7 @@ interface MapMarker extends PixelPoint {
 }
 
 const TILE_SIZE = 256;
-const TILE_OVERSCAN = 1;
+const TILE_OVERSCAN = 2;
 const MAP_HEIGHT = 245;
 const DEFAULT_MAP_WIDTH = 720;
 const DC_INSET_SIZE = 132;

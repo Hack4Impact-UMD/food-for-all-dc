@@ -189,7 +189,6 @@
   border: 1.5px solid #9aa5a1;
   border-left: 5px solid #257e68;
   break-inside: avoid;
-  page-break-inside: avoid;
 }
 
 .route-report-delivery-heading {
@@ -257,7 +256,7 @@
 }
 
 @page {
-  size: Letter portrait;
+  size: letter portrait;
   margin: 0;
 }
 
@@ -292,6 +291,8 @@
   .route-report {
     min-height: 11in;
     padding: 0.45in;
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
     box-shadow: none;
     print-color-adjust: exact;
     -webkit-print-color-adjust: exact;
@@ -300,7 +301,6 @@
   .route-report + .route-report {
     margin-top: 0;
     break-before: page;
-    page-break-before: always;
   }
 
   .route-report-map {
@@ -312,6 +312,18 @@
     clip-path: inset(0);
   }
 
+  .route-report-deliveries {
+    display: block;
+  }
+
+  .route-report-delivery-card {
+    margin-bottom: 14px;
+    break-inside: avoid-page;
+  }
+
+  .route-report-delivery-card:last-child {
+    margin-bottom: 0;
+  }
 }
 
 .route-report-map-inset {

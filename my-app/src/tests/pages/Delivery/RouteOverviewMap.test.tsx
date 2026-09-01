@@ -39,13 +39,11 @@ describe("RouteOverviewMap tile coverage", () => {
         id: "northwest-client",
         clientid: "northwest-client",
         coordinates: [38.995, -77.12],
-        stopNumber: 1,
       },
       {
         id: "southeast-client",
         clientid: "southeast-client",
         coordinates: [38.79, -76.91],
-        stopNumber: 2,
       },
     ] as any;
     const layout = buildDcInsetMapLayout(deliveries);

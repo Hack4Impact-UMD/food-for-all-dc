@@ -27,14 +27,26 @@ const releasePageScroll = () => {
 };
 
 const formatTime = (time: string): string => {
-  if (!time) {
+  const trimmedTime = time.trim();
+  if (!trimmedTime) {
     return "Not assigned";
   }
 
-  const [hoursValue, minutes = "00"] = time.split(":");
+  const twelveHourMatch = trimmedTime.match(/^(\d{1,2}):(\d{2})\s*([ap]m)$/i);
+  if (twelveHourMatch) {
+    const [, hoursValue, minutes, meridiem] = twelveHourMatch;
+    const hours = Number(hoursValue);
+    if (hours >= 1 && hours <= 12) {
+      return `${hours}:${minutes} ${meridiem.toUpperCase()}`;
+    }
+
+    return trimmedTime;
+  }
+
+  const [hoursValue, minutes = "00"] = trimmedTime.split(":");
   const hours = Number(hoursValue);
   if (!Number.isFinite(hours)) {
-    return time;
+    return trimmedTime;
   }
 
   return `${hours % 12 || 12}:${minutes} ${hours >= 12 ? "PM" : "AM"}`;

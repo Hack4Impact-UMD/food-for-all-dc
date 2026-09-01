@@ -14,9 +14,7 @@ export interface RouteReportCluster {
   deliveries: string[];
 }
 
-export interface RouteReportDelivery extends RowData {
-  stopNumber: number;
-}
+export type RouteReportDelivery = RowData;
 
 export interface DriverRouteReport {
   key: string;
@@ -82,9 +80,7 @@ const groupDeliveriesByStreet = (
     }
   });
 
-  return Array.from(streetGroups.values())
-    .flat()
-    .map((delivery, index) => ({ ...delivery, stopNumber: index + 1 }));
+  return Array.from(streetGroups.values()).flat();
 };
 
 export const prepareRouteReportData = (
@@ -132,7 +128,7 @@ export const prepareRouteReportData = (
       const report = reportsByKey.get(key);
 
       if (report) {
-        report.deliveries.push({ ...delivery, stopNumber: report.deliveries.length + 1 });
+        report.deliveries.push(delivery);
         return;
       }
 
@@ -142,7 +138,7 @@ export const prepareRouteReportData = (
         driverName,
         assignedTime,
         deliveryDate,
-        deliveries: [{ ...delivery, stopNumber: 1 }],
+        deliveries: [delivery],
       });
     });
   });
@@ -183,7 +179,11 @@ export const filterRowsForRouteReport = (
 ): RowData[] => {
   const clustersByDeliveryId = new Map<string, RouteReportCluster>();
   clusters.forEach((cluster) => {
-    cluster.deliveries?.forEach((clientId) => clustersByDeliveryId.set(clientId, cluster));
+    cluster.deliveries?.forEach((clientId) => {
+      if (!clustersByDeliveryId.has(clientId)) {
+        clustersByDeliveryId.set(clientId, cluster);
+      }
+    });
   });
   const overridesByClientId = new Map(
     clientOverrides.map((override) => [override.clientId, override])

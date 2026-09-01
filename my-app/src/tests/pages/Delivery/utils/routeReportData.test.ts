@@ -43,13 +43,8 @@ describe("prepareRouteReportData", () => {
       driverName: "Jane Smith",
       assignedTime: "09:00",
     });
-    expect(result.reports[0].deliveries.map(({ id, stopNumber }) => ({ id, stopNumber }))).toEqual([
-      { id: "client-3", stopNumber: 1 },
-      { id: "client-1", stopNumber: 2 },
-    ]);
-    expect(result.reports[1].deliveries).toEqual([
-      expect.objectContaining({ id: "client-2", stopNumber: 1 }),
-    ]);
+    expect(result.reports[0].deliveries.map(({ id }) => id)).toEqual(["client-3", "client-1"]);
+    expect(result.reports[1].deliveries).toEqual([expect.objectContaining({ id: "client-2" })]);
     expect(result.issues).toEqual([]);
   });
 
@@ -104,10 +99,10 @@ describe("prepareRouteReportData", () => {
       ]
     );
 
-    expect(result.reports[0].deliveries.map(({ id, stopNumber }) => ({ id, stopNumber }))).toEqual([
-      { id: "first-apartment", stopNumber: 1 },
-      { id: "second-apartment", stopNumber: 2 },
-      { id: "other-street", stopNumber: 3 },
+    expect(result.reports[0].deliveries.map(({ id }) => id)).toEqual([
+      "first-apartment",
+      "second-apartment",
+      "other-street",
     ]);
   });
 });
@@ -144,5 +139,20 @@ describe("filterRowsForRouteReport", () => {
     expect(
       filterRowsForRouteReport(rows, clusters, overrides, "DoorDash").map(({ id }) => id)
     ).toEqual(["doordash", "override-to-doordash"]);
+  });
+
+  it("uses the first membership when a delivery appears in conflicting routes", () => {
+    const rows = [makeRow("duplicate")];
+    const clusters = [
+      { id: "1", driver: "Driver One", deliveries: ["duplicate"] },
+      { id: "2", driver: "DoorDash", deliveries: ["duplicate"] },
+    ];
+
+    expect(filterRowsForRouteReport(rows, clusters, [], "Routes")).toEqual(rows);
+    expect(filterRowsForRouteReport(rows, clusters, [], "DoorDash")).toEqual([]);
+    expect(prepareRouteReportData("2026-08-22", rows, clusters).reports[0]).toMatchObject({
+      routeId: "1",
+      driverName: "Driver One",
+    });
   });
 });

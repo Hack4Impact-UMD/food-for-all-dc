@@ -729,6 +729,7 @@ const DeliverySpreadsheet: React.FC = () => {
   // Granular loading states for better UX
   const [isLoadingDeliveries, setIsLoadingDeliveries] = useState(false);
   const [isLoadingClientDetails, setIsLoadingClientDetails] = useState(false);
+  const [isLoadingClusters, setIsLoadingClusters] = useState(true);
   const [isLoading, setIsLoading] = useState(false); // Still needed for clustering operations
 
   // Computed loading state - show loading only for critical operations
@@ -1239,6 +1240,7 @@ const DeliverySpreadsheet: React.FC = () => {
   const fetchClustersFromToday = React.useCallback(
     async (dateForFetch: Date) => {
       const requestId = ++clustersRequestIdRef.current;
+      setIsLoadingClusters(true);
 
       try {
         const { start, endExclusive } = deliveryDate.getUTCDateBounds(dateForFetch);
@@ -1281,6 +1283,10 @@ const DeliverySpreadsheet: React.FC = () => {
           setClusterDoc(null);
           setClusters([]);
           setClientOverrides([]);
+        }
+      } finally {
+        if (requestId === clustersRequestIdRef.current) {
+          setIsLoadingClusters(false);
         }
       }
     },
@@ -2771,6 +2777,22 @@ const DeliverySpreadsheet: React.FC = () => {
     [rows, selectedExportRows, sortedRows]
   );
 
+  const reportScopeCounts = useMemo(() => {
+    const countForScope = (scope: RouteExportScope) =>
+      filterRowsForRouteReport(
+        getExportRowsForScope(scope),
+        clusters,
+        clientOverrides,
+        exportOption ?? "Routes"
+      ).length;
+
+    return {
+      selected: countForScope("selected"),
+      visible: countForScope("visible"),
+      all: countForScope("all"),
+    };
+  }, [clientOverrides, clusters, exportOption, getExportRowsForScope]);
+
   const routeReportData = useMemo(
     () =>
       prepareRouteReportData(
@@ -3357,7 +3379,7 @@ const DeliverySpreadsheet: React.FC = () => {
                 variant="outlined"
                 size="medium"
                 startIcon={<PrintIcon />}
-                disabled={rows.length === 0 || isMainLoading}
+                disabled={rows.length === 0 || isMainLoading || isLoadingClusters}
                 style={{
                   whiteSpace: "nowrap",
                   borderRadius: 5,
@@ -4433,7 +4455,7 @@ const DeliverySpreadsheet: React.FC = () => {
           <RouteExportOptions
             exportOption={exportOption}
             exportScope={exportScope}
-            scopeCounts={exportScopeCounts}
+            scopeCounts={reportScopeCounts}
             purpose="report"
             onSelectOption={handleSelectExportOption}
             onSelectScope={setExportScope}

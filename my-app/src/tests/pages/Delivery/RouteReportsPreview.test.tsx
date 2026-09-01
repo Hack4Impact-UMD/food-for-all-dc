@@ -22,7 +22,6 @@ const makeReport = (deliveryCount: number): DriverRouteReport => ({
     lastName: index === 0 ? "Baldwin" : "Example",
     address: index === 1 ? "" : `${index + 1} Example Street SE`,
     phone: index === 1 ? "" : "202-555-1234",
-    stopNumber: index + 1,
     deliveryDetails: {
       deliveryInstructions:
         index === 0 ? "Please call prior to delivery. ".repeat(20) : "",
@@ -117,5 +116,17 @@ describe("RouteReportsPreview", () => {
     fireEvent.click(screen.getByRole("button", { name: "Print All Reports" }));
     expect(printSpy).toHaveBeenCalledTimes(1);
     printSpy.mockRestore();
+  });
+
+  it("does not duplicate the meridiem for 12-hour assignment times", () => {
+    const report = makeReport(1);
+    report.assignedTime = "9:00 AM";
+
+    render(
+      <RouteReportsPreview reportData={{ reports: [report], issues: [] }} onClose={jest.fn()} />
+    );
+
+    expect(screen.queryByText(/AM AM/)).toBeNull();
+    expect(screen.getByText("Tina Baldwin - 9:00 AM")).toBeTruthy();
   });
 });
