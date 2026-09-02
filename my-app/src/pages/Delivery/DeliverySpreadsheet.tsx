@@ -2757,11 +2757,6 @@ const DeliverySpreadsheet: React.FC = () => {
   const hasActiveRouteFilter = searchQuery.trim() !== "";
   const defaultExportScope: RouteExportScope =
     selectedExportRows.length > 0 ? "selected" : hasActiveRouteFilter ? "visible" : "all";
-  const exportScopeCounts = {
-    selected: selectedExportRows.length,
-    visible: sortedRows.length,
-    all: rows.length,
-  };
 
   const getExportRowsForScope = React.useCallback(
     (scope: RouteExportScope): DeliveryRowData[] => {
@@ -2777,17 +2772,30 @@ const DeliverySpreadsheet: React.FC = () => {
     [rows, selectedExportRows, sortedRows]
   );
 
-  // Counts shown in the report dialog. A row only counts as printable once
-  // prepareRouteReportData keeps it, so scopes whose rows all lack a route or a
-  // driver report zero instead of promising reports the preview cannot render.
+  const routeTypeScopeCounts = useMemo(() => {
+    const countForScope = (scope: RouteExportScope) =>
+      filterRowsForRouteReport(
+        getExportRowsForScope(scope),
+        clusters,
+        clientOverrides,
+        exportOption ?? "Routes"
+      ).length;
+
+    return {
+      selected: countForScope("selected"),
+      visible: countForScope("visible"),
+      all: countForScope("all"),
+    };
+  }, [clientOverrides, clusters, exportOption, getExportRowsForScope]);
+
   const reportScopeSummaries = useMemo(() => {
-    const emptySummary = { printable: 0, unassigned: 0 };
+    const emptySummary = { unassigned: 0 };
     if (popupMode !== "ReportOptions") {
       return { selected: emptySummary, visible: emptySummary, all: emptySummary };
     }
 
     const summarizeScope = (scope: RouteExportScope) => {
-      const { reports, issues } = prepareRouteReportData(
+      const { issues } = prepareRouteReportData(
         deliveryDate.toISODateString(selectedDate),
         filterRowsForRouteReport(
           getExportRowsForScope(scope),
@@ -2800,7 +2808,6 @@ const DeliverySpreadsheet: React.FC = () => {
       );
 
       return {
-        printable: reports.reduce((total, report) => total + report.deliveries.length, 0),
         unassigned: issues.length,
       };
     };
@@ -2818,15 +2825,6 @@ const DeliverySpreadsheet: React.FC = () => {
     popupMode,
     selectedDate,
   ]);
-
-  const reportScopeCounts = useMemo(
-    () => ({
-      selected: reportScopeSummaries.selected.printable,
-      visible: reportScopeSummaries.visible.printable,
-      all: reportScopeSummaries.all.printable,
-    }),
-    [reportScopeSummaries]
-  );
 
   const reportScopeIssueCounts = useMemo(
     () => ({
@@ -4499,7 +4497,7 @@ const DeliverySpreadsheet: React.FC = () => {
           <RouteExportOptions
             exportOption={exportOption}
             exportScope={exportScope}
-            scopeCounts={reportScopeCounts}
+            scopeCounts={routeTypeScopeCounts}
             scopeIssueCounts={reportScopeIssueCounts}
             purpose="report"
             onSelectOption={handleSelectExportOption}
@@ -4524,7 +4522,7 @@ const DeliverySpreadsheet: React.FC = () => {
           <RouteExportOptions
             exportOption={exportOption}
             exportScope={exportScope}
-            scopeCounts={exportScopeCounts}
+            scopeCounts={routeTypeScopeCounts}
             onSelectOption={handleSelectExportOption}
             onSelectScope={setExportScope}
             onDownload={handleDownloadExport}

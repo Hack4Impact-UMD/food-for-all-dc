@@ -45,7 +45,7 @@ describe("RouteExportOptions report scopes", () => {
     expect(screen.getByText(/3 rows still need a route or driver and will not print/)).toBeTruthy();
   });
 
-  it("counts only printable deliveries in the scope summary", () => {
+  it("shows the supplied candidate count separately from assignment issues", () => {
     renderOptions({
       purpose: "report",
       scopeCounts: { selected: 0, visible: 0, all: 2 },
