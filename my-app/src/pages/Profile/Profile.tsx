@@ -428,7 +428,9 @@ const Profile = () => {
       clientProfile: {
         ...clientProfile,
         recurrence: editableRecurringSeries?.recurrence || clientProfile.recurrence,
-        endDate: editableRecurringSeries?.effectiveEndDate || clientProfile.endDate,
+        // endDate stays the client's own end date. A series' effectiveEndDate is only the date of
+        // its last scheduled delivery, and the dialog uses endDate as the scheduling window, so
+        // borrowing it here capped every date picker at the last delivery already on the books.
       },
       targetRecurrenceId: undefined,
     }),
