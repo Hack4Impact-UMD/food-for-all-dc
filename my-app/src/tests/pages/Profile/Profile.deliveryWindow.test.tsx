@@ -1,6 +1,6 @@
 import React from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it, jest } from "@jest/globals";
+import { afterEach, beforeEach, describe, expect, it, jest } from "@jest/globals";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import Profile from "../../../pages/Profile/Profile";
 import { deliveryDate } from "../../../utils/deliveryDate";
@@ -176,6 +176,9 @@ const renderProfile = () =>
   );
 
 describe("scheduling window offered by the profile's Add Delivery dialog", () => {
+  const originalFetch = global.fetch;
+  const originalGoogle = window.google;
+
   beforeEach(() => {
     mockGetDoc.mockReset();
     mockGetDocs.mockReset();
@@ -218,6 +221,12 @@ describe("scheduling window offered by the profile's Add Delivery dialog", () =>
         json: async () => ({ features: [{ attributes: { NAME: "Ward 2", WARD: "2" } }] }),
       } as Response;
     }) as any;
+  });
+
+  afterEach(() => {
+    global.fetch = originalFetch;
+    window.google = originalGoogle;
+    delete (globalThis as any).__deliveryData;
   });
 
   it("lets deliveries be scheduled through the client's end date, not the last scheduled delivery", async () => {
