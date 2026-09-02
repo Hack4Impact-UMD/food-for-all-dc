@@ -428,7 +428,6 @@ const Profile = () => {
       clientProfile: {
         ...clientProfile,
         recurrence: editableRecurringSeries?.recurrence || clientProfile.recurrence,
-        endDate: editableRecurringSeries?.effectiveEndDate || clientProfile.endDate,
       },
       targetRecurrenceId: undefined,
     }),
