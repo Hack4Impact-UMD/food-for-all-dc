@@ -11,20 +11,34 @@ import { describe, expect, it } from "@jest/globals";
  */
 describe("PageDatePicker day highlighting regression guards", () => {
   const cssPath = path.resolve(__dirname, "../../../components/PageDatePicker/pagedatepicker.css");
-  const css = fs.readFileSync(cssPath, "utf8");
+  const css = fs.readFileSync(cssPath, "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
 
   const rules = css.match(/[^{}]+\{[^{}]*\}/g) ?? [];
-  const rulesTargeting = (selector: string) =>
+  const selectorsOf = (rule: string) =>
+    rule
+      .slice(0, rule.indexOf("{"))
+      .split(",")
+      .map((selector) => selector.trim())
+      .filter(Boolean);
+
+  // Rules on the bare selector only, so `--selected` does not also pull in its
+  // `:hover`, `:focus` and `.--today` variants.
+  const rulesExactlyTargeting = (selector: string) =>
+    rules.filter((rule) => selectorsOf(rule).includes(selector));
+
+  // Rules mentioning the selector in any form, including combined selectors.
+  const rulesMentioning = (selector: string) =>
     rules.filter((rule) => rule.slice(0, rule.indexOf("{")).includes(selector));
 
   const selectedFill = "background: var(--color-primary) !important";
 
   it("fills the selected day with the primary color", () => {
-    expect(rulesTargeting(".react-datepicker__day--selected").some((rule) => rule.includes(selectedFill))).toBe(true);
+    const selectedRules = rulesExactlyTargeting(".react-datepicker__day--selected");
+    expect(selectedRules.some((rule) => rule.includes(selectedFill))).toBe(true);
   });
 
   it("never gives the keyboard-navigation day the selected fill", () => {
-    const keyboardRules = rulesTargeting(".react-datepicker__day--keyboard-selected");
+    const keyboardRules = rulesMentioning(".react-datepicker__day--keyboard-selected");
     expect(keyboardRules.length).toBeGreaterThan(0);
     expect(keyboardRules.filter((rule) => rule.includes(selectedFill))).toEqual([]);
   });
