@@ -1,5 +1,5 @@
 import React from "react";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, jest } from "@jest/globals";
 
 // TagManager reaches Firestore on import; the view-mode path under test never uses it.
@@ -94,5 +94,46 @@ describe("FormField view mode value rendering", () => {
     expect(phoneDisplay?.getAttribute("tabindex")).toBeNull();
     expect(phoneDisplay?.getAttribute("role")).toBeNull();
     expect(phoneDisplay?.getAttribute("aria-label")).toBeNull();
+  });
+});
+
+describe("FormField date editing", () => {
+  // App coverage:
+  // - profile edit mode commits date fields (start/end date, DOB) on blur as well as on change
+  // - the blur handler rebuilt the event from a spread of the DOM input, which drops name, so the
+  //   profile wrote the value under a field literally called "undefined" and saved it to Firestore
+  // Behavior contract: every event the date field emits identifies the field it came from.
+  it("keeps the field name on both the change and the blur event", () => {
+    const handleChange = jest.fn();
+
+    render(
+      <FormField
+        fieldPath={"endDate" as ClientProfileKey}
+        value="12/31/2026"
+        type="date"
+        isEditing={true}
+        handleChange={handleChange as any}
+        getNestedValue={(obj: any, path: string) =>
+          path.split(".").reduce((acc, part) => acc?.[part], obj)
+        }
+        handleDietaryRestrictionChange={jest.fn()}
+        tags={[]}
+        allTags={[]}
+        isModalOpen={false}
+        setIsModalOpen={jest.fn()}
+        handleTag={jest.fn()}
+      />
+    );
+
+    const endDateInput = document.querySelector('input[name="endDate"]') as HTMLInputElement;
+    fireEvent.change(endDateInput, { target: { value: "2027-06-30" } });
+    fireEvent.blur(endDateInput, { target: { value: "2027-06-30" } });
+
+    const emittedEvents = (handleChange.mock.calls as any[]).map(([event]) => event.target);
+    expect(emittedEvents.length).toBe(2);
+    emittedEvents.forEach((target) => {
+      expect(target.name).toBe("endDate");
+      expect(target.value).toBe("06/30/2027");
+    });
   });
 });

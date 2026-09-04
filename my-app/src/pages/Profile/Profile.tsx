@@ -418,6 +418,9 @@ const Profile = () => {
   const [editableRecurringSeries, setEditableRecurringSeries] =
     useState<DeliverySeriesSummary | null>(null);
 
+  // The dialog treats clientProfile.endDate as the scheduling window, so it stays the client's own
+  // end date. A series' effectiveEndDate is only the date of its last scheduled delivery, and
+  // borrowing it here capped every date picker at the last delivery already on the books.
   const preSelectedClientData = useMemo(
     () => ({
       clientId: clientId || clientProfile.uid || "",

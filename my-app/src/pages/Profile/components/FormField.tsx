@@ -290,7 +290,10 @@ const DateFieldComponent = ({
     if (!blurValue) {
       setDateError(null);
       setInputValue("");
-      handleChange({ ...e, target: { ...e.target, value: "" } } as React.ChangeEvent<HTMLInputElement>);
+      handleChange({
+        ...e,
+        target: { ...e.target, value: "", name: fieldPath },
+      } as React.ChangeEvent<HTMLInputElement>);
       return;
     }
     if (!isValidHtmlDateFormat(blurValue, 1900, 2100)) {
@@ -300,7 +303,12 @@ const DateFieldComponent = ({
     setDateError(null);
     // Only propagate valid date to parent in MM/DD/YYYY format
     const mmddyyyyValue = convertFromHtmlDateFormat(blurValue);
-    handleChange({ ...e, target: { ...e.target, value: mmddyyyyValue } } as React.ChangeEvent<HTMLInputElement>);
+    // Spreading a DOM node drops its IDL attributes, so name has to be restated or the parent
+    // cannot tell which field this blur belongs to.
+    handleChange({
+      ...e,
+      target: { ...e.target, value: mmddyyyyValue, name: fieldPath },
+    } as React.ChangeEvent<HTMLInputElement>);
   };
 
   // Update parent state on every change
