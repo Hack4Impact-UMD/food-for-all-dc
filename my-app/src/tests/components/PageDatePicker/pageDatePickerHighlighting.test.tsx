@@ -1,4 +1,3 @@
-import "@testing-library/jest-dom";
 import { describe, expect, it } from "@jest/globals";
 import { fireEvent, render, screen } from "@testing-library/react";
 import PageDatePicker from "../../../components/PageDatePicker/PageDatePicker";
@@ -23,7 +22,14 @@ describe("PageDatePicker day highlighting", () => {
   };
 
   const days = () => Array.from(document.querySelectorAll(".react-datepicker__day"));
-  const day = (ariaLabel: string) => days().find((d) => d.getAttribute("aria-label") === ariaLabel);
+  const dayCell = (ariaLabel: string) => {
+    const cell = days().find((d) => d.getAttribute("aria-label") === ariaLabel);
+    if (!cell) {
+      throw new Error(`No day cell rendered with aria-label "${ariaLabel}"`);
+    }
+    return cell;
+  };
+  const classesOf = (ariaLabel: string) => Array.from(dayCell(ariaLabel).classList);
   const daysWithBothClasses = () =>
     days()
       .filter(
@@ -36,22 +42,22 @@ describe("PageDatePicker day highlighting", () => {
   it("marks the selected day as selected only, never also keyboard-selected", () => {
     openPicker();
 
-    expect(day(MAR_2)).toHaveClass("react-datepicker__day--selected");
-    expect(day(MAR_2)).not.toHaveClass("react-datepicker__day--keyboard-selected");
+    expect(classesOf(MAR_2)).toContain("react-datepicker__day--selected");
+    expect(classesOf(MAR_2)).not.toContain("react-datepicker__day--keyboard-selected");
     expect(daysWithBothClasses()).toEqual([]);
   });
 
   it("keeps the two markers on separate days while arrowing across the selection", () => {
     openPicker();
 
-    fireEvent.keyDown(day(MAR_2)!, { key: "ArrowLeft" });
-    expect(day(MAR_1)).toHaveClass("react-datepicker__day--keyboard-selected");
-    expect(day(MAR_1)).not.toHaveClass("react-datepicker__day--selected");
+    fireEvent.keyDown(dayCell(MAR_2), { key: "ArrowLeft" });
+    expect(classesOf(MAR_1)).toContain("react-datepicker__day--keyboard-selected");
+    expect(classesOf(MAR_1)).not.toContain("react-datepicker__day--selected");
     expect(daysWithBothClasses()).toEqual([]);
 
     // Arrowing back onto the selection drops the keyboard marker rather than stacking it.
-    fireEvent.keyDown(day(MAR_1)!, { key: "ArrowRight" });
-    expect(day(MAR_2)).not.toHaveClass("react-datepicker__day--keyboard-selected");
+    fireEvent.keyDown(dayCell(MAR_1), { key: "ArrowRight" });
+    expect(classesOf(MAR_2)).not.toContain("react-datepicker__day--keyboard-selected");
     expect(daysWithBothClasses()).toEqual([]);
   });
 
@@ -60,9 +66,9 @@ describe("PageDatePicker day highlighting", () => {
     fireEvent.click(document.querySelector(".react-datepicker__navigation--previous")!);
 
     // The original bug: Feb 2 and Mar 2 were both painted as the selection.
-    expect(day(FEB_2)).toHaveClass("react-datepicker__day--keyboard-selected");
-    expect(day(FEB_2)).not.toHaveClass("react-datepicker__day--selected");
-    expect(day(MAR_2)).toHaveClass("react-datepicker__day--selected");
+    expect(classesOf(FEB_2)).toContain("react-datepicker__day--keyboard-selected");
+    expect(classesOf(FEB_2)).not.toContain("react-datepicker__day--selected");
+    expect(classesOf(MAR_2)).toContain("react-datepicker__day--selected");
     expect(daysWithBothClasses()).toEqual([]);
   });
 });
