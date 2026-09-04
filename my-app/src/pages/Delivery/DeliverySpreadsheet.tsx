@@ -3032,7 +3032,7 @@ const DeliverySpreadsheet: React.FC = () => {
   };
 
   return (
-    <Box className="box" sx={{ display: "flex", flexDirection: "column", height: "100vh" }}>
+    <Box className="box routes-page-box" sx={{ display: "flex", flexDirection: "column", height: "100vh" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <Box
           sx={{

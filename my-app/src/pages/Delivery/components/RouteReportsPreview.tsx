@@ -85,9 +85,11 @@ const formatCityLine = (delivery: RouteReportDelivery): string => {
 const RouteDeliveryCard = ({
   delivery,
   assignedTime,
+  routeId,
 }: {
   delivery: RouteReportDelivery;
   assignedTime: string;
+  routeId: string;
 }) => {
   const fullName = `${delivery.firstName || ""} ${delivery.lastName || ""}`.trim();
   const instructions = delivery.deliveryDetails?.deliveryInstructions?.trim();
@@ -103,9 +105,12 @@ const RouteDeliveryCard = ({
       <div className="route-report-delivery-heading">
         <span className="route-report-checkbox" aria-label="Completion checkbox" />
         <div>
-          <h2>
-            {fullName || "Client name unavailable"} - {formatTime(assignedTime)}
-          </h2>
+          <div className="route-report-delivery-heading-row">
+            <h2>
+              {fullName || "Client name unavailable"} - {formatTime(assignedTime)}
+            </h2>
+            <span className="route-report-route-number">Route - {routeId}</span>
+          </div>
           <p>{formatDeliveryAddress(delivery) || "Address unavailable"}</p>
           {cityLine ? <p>{cityLine}</p> : null}
           {delivery.phone?.trim() ? <p>Phone: {delivery.phone.trim()}</p> : null}
@@ -158,6 +163,7 @@ const RouteReport = ({ report }: { report: DriverRouteReport }) => (
           key={delivery.id}
           delivery={delivery}
           assignedTime={report.assignedTime}
+          routeId={report.routeId}
         />
       ))}
     </section>

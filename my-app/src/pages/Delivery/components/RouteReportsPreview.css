@@ -213,6 +213,21 @@
   overflow-wrap: anywhere;
 }
 
+.route-report-delivery-heading-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.route-report-route-number {
+  flex-shrink: 0;
+  font-size: 18px;
+  font-weight: 800;
+  color: #257e68;
+  white-space: nowrap;
+}
+
 .route-report-delivery-card p {
   margin-top: 3px;
   font-size: 14px;
