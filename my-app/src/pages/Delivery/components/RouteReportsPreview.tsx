@@ -128,8 +128,70 @@ const RouteDeliveryCard = ({
   );
 };
 
-const RouteReport = ({ report }: { report: DriverRouteReport }) => (
-  <article className="route-report">
+const RouteReportsSummaryPage = ({ reportData }: { reportData: RouteReportData }) => {
+  const totalDeliveries = reportData.reports.reduce(
+    (sum, report) => sum + report.deliveries.length,
+    0
+  );
+  const allDeliveries = reportData.reports.flatMap((report) => report.deliveries);
+  const deliveryRouteIds = new Map(
+    reportData.reports.flatMap((report) =>
+      report.deliveries.map((delivery) => [delivery.id, report.routeId] as const)
+    )
+  );
+  const deliveryDate = reportData.reports[0]?.deliveryDate;
+
+  return (
+    <article className="route-report route-report-summary">
+      <header className="route-report-header">
+        <div>
+          <p className="route-report-kicker">Driver Route Reports Summary</p>
+          <h1>{deliveryDate ? formatDeliveryDate(deliveryDate) : "All Routes"}</h1>
+        </div>
+        <dl>
+          <div>
+            <dt>Routes</dt>
+            <dd>{reportData.reports.length}</dd>
+          </div>
+          <div>
+            <dt>Deliveries</dt>
+            <dd>{totalDeliveries}</dd>
+          </div>
+        </dl>
+      </header>
+
+      <RouteOverviewMap
+        routeId="summary"
+        deliveries={allDeliveries}
+        deliveryRouteIds={deliveryRouteIds}
+        showInset={false}
+        showWardOverlays
+        fitToDcBounds
+      />
+
+      <table className="route-report-summary-table">
+        <thead>
+          <tr>
+            <th>Route</th>
+            <th>Driver</th>
+            <th>Deliveries</th>
+          </tr>
+        </thead>
+        <tbody>
+          {reportData.reports.map((report) => (
+            <tr key={report.key}>
+              <td>{report.routeId}</td>
+              <td>{report.driverName}</td>
+              <td>{report.deliveries.length}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </article>
+  );
+};
+
+const RouteReport = ({ report }: { report: DriverRouteReport }) => (  <article className="route-report">
     <header className="route-report-header">
       <div>
         <p className="route-report-kicker">Driver Route Report</p>
@@ -233,6 +295,7 @@ export default function RouteReportsPreview({ reportData, onClose }: RouteReport
           <Alert severity="info">No assigned driver routes are available for this date.</Alert>
         ) : (
           <div className="route-reports-print-root">
+            <RouteReportsSummaryPage reportData={reportData} />
             {reportData.reports.map((report) => (
               <RouteReport key={report.key} report={report} />
             ))}

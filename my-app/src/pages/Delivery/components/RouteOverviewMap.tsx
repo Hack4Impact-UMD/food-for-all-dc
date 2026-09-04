@@ -3,10 +3,19 @@ import { isRenderableCoordinate } from "../utils/deliveryMapCounts";
 import { getClusterColor, getClusterTextColor } from "../utils/clusterColors";
 import { buildMarkerPlacementMap } from "../utils/markerPlacement";
 import { RouteReportDelivery } from "../utils/routeReportData";
+import dataSources from "../../../config/dataSources";
 
 interface RouteOverviewMapProps {
   routeId: string;
   deliveries: RouteReportDelivery[];
+  /** Maps delivery id to its route id, for maps that combine multiple routes. */
+  deliveryRouteIds?: Map<string, string>;
+  /** Whether to render the small DC-location inset map in the corner. Defaults to true. */
+  showInset?: boolean;
+  /** Whether to draw the DC ward boundaries, colored the same as the routes map. Defaults to false. */
+  showWardOverlays?: boolean;
+  /** Zoom/center so DC's full boundary fills the box top-to-bottom, instead of fitting to the deliveries. Defaults to false. */
+  fitToDcBounds?: boolean;
 }
 
 interface PixelPoint {
@@ -17,6 +26,7 @@ interface PixelPoint {
 interface MapTile extends PixelPoint {
   key: string;
   src: string;
+  size: number;
 }
 
 interface MapMarker extends PixelPoint {
@@ -32,6 +42,51 @@ const DC_INSET_ZOOM = 9;
 const MAP_PADDING = 20;
 const MAX_ZOOM = 14;
 const DC_CENTER = { lat: 38.895, lng: -77.036942 };
+// Approximate bounding box of the Washington, DC "diamond" boundary.
+const DC_BOUNDS = { north: 38.9958, south: 38.7916, east: -76.9094, west: -77.1198 };
+const DC_FIT_PADDING = 0;
+const DC_FIT_ZOOM_BOOST = 0;
+
+// Same palette used for the ward overlays on the routes map.
+const WARD_COLORS: { [key: string]: string } = {
+  "1": "#FF0000",
+  "2": "#00FF00",
+  "3": "#0000FF",
+  "4": "#FFFF00",
+  "5": "#FF00FF",
+  "6": "#00FFFF",
+  "7": "#FFA500",
+  "8": "#800080",
+};
+
+interface WardGeoJson {
+  features: Array<{
+    properties: Record<string, unknown>;
+    geometry: { type: string; coordinates: unknown };
+  }>;
+}
+
+// Module-level cache so every map on the page shares one fetch of the ward boundaries.
+let wardBoundariesPromise: Promise<WardGeoJson | null> | null = null;
+
+const fetchWardBoundaries = (): Promise<WardGeoJson | null> => {
+  if (!wardBoundariesPromise) {
+    const params = new URLSearchParams({
+      f: "geojson",
+      where: "1=1",
+      outFields: "NAME,WARD",
+      returnGeometry: "true",
+    });
+
+    wardBoundariesPromise = fetch(
+      `${dataSources.externalApi.dcGisWardServiceUrl}?${params.toString()}`
+    )
+      .then((response) => (response.ok ? response.json() : null))
+      .catch(() => null);
+  }
+
+  return wardBoundariesPromise;
+};
 
 export const getRouteMarkerColors = (routeId: string) => {
   const backgroundColor = getClusterColor(routeId);
@@ -69,10 +124,29 @@ const chooseZoom = (points: Array<{ lat: number; lng: number }>, width: number):
   return 1;
 };
 
+const chooseDcFitZoom = (): number => {
+  for (let zoom = MAX_ZOOM; zoom >= 1; zoom -= 1) {
+    const north = projectCoordinate(DC_BOUNDS.north, DC_CENTER.lng, zoom);
+    const south = projectCoordinate(DC_BOUNDS.south, DC_CENTER.lng, zoom);
+    const spanY = Math.abs(south.y - north.y);
+
+    if (spanY <= MAP_HEIGHT - DC_FIT_PADDING * 2) return Math.min(zoom + DC_FIT_ZOOM_BOOST, 18);
+  }
+
+  return 1;
+};
+
 export const buildStaticMapLayout = (
   deliveries: RouteReportDelivery[],
-  width: number
-): { tiles: MapTile[]; markers: MapMarker[] } => {
+  width: number,
+  options?: { fitToDcBounds?: boolean }
+): {
+  tiles: MapTile[];
+  markers: MapMarker[];
+  zoom: number;
+  origin: PixelPoint;
+  scale: number;
+} => {
   const placements = buildMarkerPlacementMap(deliveries);
   const points = deliveries
     .map((delivery) => {
@@ -82,49 +156,126 @@ export const buildStaticMapLayout = (
     .filter(
       (point): point is { id: string; lat: number; lng: number } => point !== null
     );
-  const zoom = chooseZoom(points, width);
+  const zoom = options?.fitToDcBounds ? chooseDcFitZoom() : chooseZoom(points, width);
   const projected = points.map((point) => ({
     ...point,
     ...projectCoordinate(point.lat, point.lng, zoom),
   }));
   const fallbackCenter = projectCoordinate(DC_CENTER.lat, DC_CENTER.lng, zoom);
-  const center = projected.length
-    ? {
-        x: (Math.min(...projected.map(({ x }) => x)) + Math.max(...projected.map(({ x }) => x))) / 2,
-        y: (Math.min(...projected.map(({ y }) => y)) + Math.max(...projected.map(({ y }) => y))) / 2,
-      }
-    : fallbackCenter;
-  const origin = { x: center.x - width / 2, y: center.y - MAP_HEIGHT / 2 };
+  const center = options?.fitToDcBounds
+    ? projectCoordinate(
+        (DC_BOUNDS.north + DC_BOUNDS.south) / 2,
+        (DC_BOUNDS.east + DC_BOUNDS.west) / 2,
+        zoom
+      )
+    : projected.length
+      ? {
+          x: (Math.min(...projected.map(({ x }) => x)) + Math.max(...projected.map(({ x }) => x))) / 2,
+          y: (Math.min(...projected.map(({ y }) => y)) + Math.max(...projected.map(({ y }) => y))) / 2,
+        }
+      : fallbackCenter;
+
+  // Tile zoom levels are discrete, so the best-fit zoom usually leaves a
+  // small gap. Stretch the rendered layout by `scale` to close that gap and
+  // make the DC boundary flush with the box edges.
+  let scale = 1;
+  if (options?.fitToDcBounds) {
+    const north = projectCoordinate(DC_BOUNDS.north, DC_CENTER.lng, zoom);
+    const south = projectCoordinate(DC_BOUNDS.south, DC_CENTER.lng, zoom);
+    const actualSpanY = Math.abs(south.y - north.y);
+    scale = actualSpanY > 0 ? MAP_HEIGHT / actualSpanY : 1;
+  }
+
+  const nativeVisibleWidth = width / scale;
+  const nativeVisibleHeight = MAP_HEIGHT / scale;
+  const origin = {
+    x: center.x - nativeVisibleWidth / 2,
+    y: center.y - nativeVisibleHeight / 2,
+  };
+  const toRender = (nativeX: number, nativeY: number): PixelPoint => ({
+    x: (nativeX - origin.x) * scale,
+    y: (nativeY - origin.y) * scale,
+  });
+
   const tileCount = 2 ** zoom;
   const tiles: MapTile[] = [];
   const startTileX = Math.floor(origin.x / TILE_SIZE) - TILE_OVERSCAN;
-  const endTileX = Math.floor((origin.x + width) / TILE_SIZE) + TILE_OVERSCAN;
+  const endTileX = Math.floor((origin.x + nativeVisibleWidth) / TILE_SIZE) + TILE_OVERSCAN;
   const startTileY = Math.max(0, Math.floor(origin.y / TILE_SIZE) - TILE_OVERSCAN);
   const endTileY = Math.min(
     tileCount - 1,
-    Math.floor((origin.y + MAP_HEIGHT) / TILE_SIZE) + TILE_OVERSCAN
+    Math.floor((origin.y + nativeVisibleHeight) / TILE_SIZE) + TILE_OVERSCAN
   );
 
   for (let tileY = startTileY; tileY <= endTileY; tileY += 1) {
     for (let tileX = startTileX; tileX <= endTileX; tileX += 1) {
       const wrappedTileX = ((tileX % tileCount) + tileCount) % tileCount;
+      const rendered = toRender(tileX * TILE_SIZE, tileY * TILE_SIZE);
       tiles.push({
         key: `${zoom}-${wrappedTileX}-${tileY}`,
         src: `https://tile.openstreetmap.org/${zoom}/${wrappedTileX}/${tileY}.png`,
-        x: tileX * TILE_SIZE - origin.x,
-        y: tileY * TILE_SIZE - origin.y,
+        x: rendered.x,
+        y: rendered.y,
+        size: TILE_SIZE * scale,
       });
     }
   }
 
   return {
     tiles,
-    markers: projected.map(({ id, x, y }) => ({
-      id,
-      x: x - origin.x,
-      y: y - origin.y,
-    })),
+    markers: projected.map(({ id, x, y }) => ({ id, ...toRender(x, y) })),
+    zoom,
+    origin,
+    scale,
   };
+};
+
+interface WardPath {
+  key: string;
+  d: string;
+  color: string;
+}
+
+const ringToPathCommands = (
+  ring: number[][],
+  zoom: number,
+  origin: PixelPoint,
+  scale: number
+): string =>
+  ring
+    .map(([lng, lat], index) => {
+      const { x, y } = projectCoordinate(lat, lng, zoom);
+      const renderX = (x - origin.x) * scale;
+      const renderY = (y - origin.y) * scale;
+      return `${index === 0 ? "M" : "L"}${renderX.toFixed(1)},${renderY.toFixed(1)}`;
+    })
+    .join(" ") + " Z";
+
+export const buildWardOverlayPaths = (
+  wardData: WardGeoJson | null,
+  zoom: number,
+  origin: PixelPoint,
+  scale: number
+): WardPath[] => {
+  if (!wardData?.features) return [];
+
+  return wardData.features.map((feature, index) => {
+    const wardName =
+      String((feature.properties as any)?.WARD ?? (feature.properties as any)?.NAME ?? "").match(
+        /\d+/
+      )?.[0] || "";
+    const color = WARD_COLORS[wardName] || "#999999";
+    const polygons: number[][][][] =
+      feature.geometry.type === "MultiPolygon"
+        ? (feature.geometry.coordinates as number[][][][])
+        : [(feature.geometry.coordinates as number[][][]) || []];
+
+    const d = polygons
+      .flatMap((polygon) => polygon.map((ring) => ringToPathCommands(ring, zoom, origin, scale)))
+      .join(" ");
+
+    return { key: `ward-${wardName || index}`, d, color };
+  });
 };
 
 export const buildDcInsetMapLayout = (
@@ -155,6 +306,7 @@ export const buildDcInsetMapLayout = (
         src: `https://tile.openstreetmap.org/${zoom}/${wrappedTileX}/${tileY}.png`,
         x: tileX * TILE_SIZE - origin.x,
         y: tileY * TILE_SIZE - origin.y,
+        size: TILE_SIZE,
       });
     }
   }
@@ -170,9 +322,28 @@ export const buildDcInsetMapLayout = (
   return { tiles, markers };
 };
 
-export default function RouteOverviewMap({ routeId, deliveries }: RouteOverviewMapProps) {
+export default function RouteOverviewMap({
+  routeId,
+  deliveries,
+  deliveryRouteIds,
+  showInset = true,
+  showWardOverlays = false,
+  fitToDcBounds = false,
+}: RouteOverviewMapProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [mapWidth, setMapWidth] = useState(DEFAULT_MAP_WIDTH);
+  const [wardData, setWardData] = useState<WardGeoJson | null>(null);
+
+  useEffect(() => {
+    if (!showWardOverlays) return;
+    let isMounted = true;
+    fetchWardBoundaries().then((data) => {
+      if (isMounted) setWardData(data);
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, [showWardOverlays]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -185,15 +356,31 @@ export default function RouteOverviewMap({ routeId, deliveries }: RouteOverviewM
 
     const observer = new ResizeObserver(updateWidth);
     observer.observe(container);
-    return () => observer.disconnect();
+    // Printing can lay out the page at a different width than the screen
+    // did, so recheck once the print stylesheet has applied.
+    window.addEventListener("beforeprint", updateWidth);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("beforeprint", updateWidth);
+    };
   }, []);
 
   const { backgroundColor, textColor } = getRouteMarkerColors(routeId);
   const layout = useMemo(
-    () => buildStaticMapLayout(deliveries, mapWidth),
-    [deliveries, mapWidth]
+    () => buildStaticMapLayout(deliveries, mapWidth, { fitToDcBounds }),
+    [deliveries, mapWidth, fitToDcBounds]
   );
-  const insetLayout = useMemo(() => buildDcInsetMapLayout(deliveries), [deliveries]);
+  const insetLayout = useMemo(
+    () => (showInset ? buildDcInsetMapLayout(deliveries) : { tiles: [], markers: [] }),
+    [deliveries, showInset]
+  );
+  const wardPaths = useMemo(
+    () =>
+      showWardOverlays
+        ? buildWardOverlayPaths(wardData, layout.zoom, layout.origin, layout.scale)
+        : [],
+    [showWardOverlays, wardData, layout.zoom, layout.origin, layout.scale]
+  );
 
   const mappedDeliveryCount = deliveries.filter((delivery) =>
     isRenderableCoordinate(delivery.coordinates)
@@ -209,29 +396,55 @@ export default function RouteOverviewMap({ routeId, deliveries }: RouteOverviewM
             src={tile.src}
             alt=""
             draggable={false}
-            style={{ left: tile.x, top: tile.y }}
+            style={{ left: tile.x, top: tile.y, width: tile.size, height: tile.size }}
           />
         ))}
-        {layout.markers.map((marker) => (
-          <span
-            key={marker.id}
-            className="route-report-map-marker-container"
-            style={{ left: marker.x, top: marker.y }}
-          >
+        {wardPaths.length > 0 ? (
+          <svg className="route-report-map-wards" width={mapWidth} height={MAP_HEIGHT}>
+            {wardPaths.map((ward) => (
+              <path
+                key={ward.key}
+                d={ward.d}
+                fill={ward.color}
+                fillOpacity={0.2}
+                stroke={ward.color}
+                strokeWidth={2}
+                strokeOpacity={0.8}
+              />
+            ))}
+          </svg>
+        ) : null}
+        {layout.markers.map((marker) => {
+          const markerRouteId = deliveryRouteIds?.get(marker.id) ?? routeId;
+          const markerColors = deliveryRouteIds
+            ? getRouteMarkerColors(markerRouteId)
+            : { backgroundColor, textColor };
+
+          return (
             <span
-              className="route-report-map-marker"
-              style={
-                {
-                  "--route-marker-color": backgroundColor,
-                  "--route-marker-text-color": textColor,
-                } as React.CSSProperties
-              }
+              key={marker.id}
+              className="route-report-map-marker-container"
+              style={{ left: marker.x, top: marker.y }}
             >
-              {routeId}
+              <span
+                className="route-report-map-marker"
+                style={
+                  {
+                    "--route-marker-color": markerColors.backgroundColor,
+                    "--route-marker-text-color": markerColors.textColor,
+                  } as React.CSSProperties
+                }
+              >
+                {markerRouteId}
+              </span>
             </span>
-          </span>
-        ))}
-        <aside className="route-report-map-inset" aria-label="Route location within Washington, DC">
+          );
+        })}
+        <aside
+          className="route-report-map-inset"
+          aria-label="Route location within Washington, DC"
+          style={showInset ? undefined : { display: "none" }}
+        >
           <div className="route-report-map-inset-viewport">
             {insetLayout.tiles.map((tile) => (
               <img
