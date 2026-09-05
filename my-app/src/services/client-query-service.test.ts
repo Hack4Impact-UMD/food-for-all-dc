@@ -196,10 +196,30 @@ describe("client-query-service", () => {
     );
   });
 
-  it("formats a Date from the picker for text date fields", () => {
+  it("expands a client date filter from the picker into a whole-day range", () => {
     const filters = [makeFilter("dob", "==", new Date(2027, 7, 24))];
     buildFirestoreConstraints("clients", filters);
-    expect(mockWhere).toHaveBeenCalledWith("dob", "==", "08/24/2027");
+    expect(mockWhere).toHaveBeenCalledWith(
+      "dob",
+      ">=",
+      expect.objectContaining({ date: new Date(2027, 7, 24, 0, 0, 0, 0) })
+    );
+    expect(mockWhere).toHaveBeenCalledWith(
+      "dob",
+      "<",
+      expect.objectContaining({ date: new Date(2027, 7, 25, 0, 0, 0, 0) })
+    );
+    expect(mockWhere).toHaveBeenCalledTimes(2);
+  });
+
+  it("supports range operators on client dates now that they are timestamps", () => {
+    const filters = [makeFilter("startDate", ">=", new Date(2027, 7, 24))];
+    buildFirestoreConstraints("clients", filters);
+    expect(mockWhere).toHaveBeenCalledWith(
+      "startDate",
+      ">=",
+      expect.objectContaining({ mocked: "timestamp" })
+    );
   });
 
   it("expands an == timestamp filter into a whole-day range instead of an exact instant", () => {

@@ -23,6 +23,27 @@ const normalizeDriverName = (value) => {
 const resolveAssignment = (overrideValue, clusterValue) =>
   normalizeText(overrideValue) || normalizeText(clusterValue);
 
+// tefapCertDate may be a Timestamp, a flattened {seconds} map, or a legacy string.
+const formatCertDate = (value) => {
+  if (!value) return '';
+
+  let date = null;
+  if (typeof value.toDate === 'function') {
+    date = value.toDate();
+  } else if (typeof value === 'object' && typeof value.seconds === 'number') {
+    date = new Date(value.seconds * 1000);
+  }
+
+  if (!date || Number.isNaN(date.getTime())) return normalizeText(value);
+
+  return new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York',
+    month: '2-digit',
+    day: '2-digit',
+    year: 'numeric',
+  }).format(date);
+};
+
 const escapeCsvCell = (value) => {
   const text = value === null || value === undefined ? '' : String(value);
   return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
@@ -202,7 +223,7 @@ functions.http('emailDeliveryZip', async (req, res) => {
         deliveryInstructions: client.deliveryDetails?.deliveryInstructions || '',
         dietaryRestrictions: dietaryColumns.dietaryRestrictions,
         dietaryPreferences: dietaryColumns.dietaryPreferences,
-        tefapCertDate: client.tefapCertDate || '',
+        tefapCertDate: formatCertDate(client.tefapCertDate),
         deliveryDate,
         cluster: routeId,
         time: assignedTime || 'No time assigned',

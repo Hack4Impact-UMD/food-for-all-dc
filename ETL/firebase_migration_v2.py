@@ -20,6 +20,7 @@ from threading import Lock
 import pandas as pd
 from dotenv import load_dotenv
 from address_utils import build_dc_geocoding_address, canonicalize_dc_street_address
+from client_dates import normalize_client_dates, to_calendar_date
 
 # Load environment variables from my-app/.env
 env_path = os.path.join(os.path.dirname(__file__), "..", "my-app", ".env")
@@ -81,7 +82,7 @@ def normalize_client_database_dataframe(df: pd.DataFrame) -> pd.DataFrame:
 	return df
 
 
-TEFAP_FY26_CERT_DATE = "03/15/2026"
+TEFAP_FY26_CERT_DATE = date(2026, 3, 15)
 
 
 def normalize_tefap_cert_value(value):
@@ -102,7 +103,7 @@ def normalize_tefap_cert_value(value):
 
 def normalize_tefap_cert_date(value):
 	"""Convert the TEFAP FY26 boolean source column to the profile cert date."""
-	return TEFAP_FY26_CERT_DATE if normalize_tefap_cert_value(value) else ""
+	return TEFAP_FY26_CERT_DATE if normalize_tefap_cert_value(value) else None
 
 
 def normalize_phone_for_save(value: Any) -> str:
@@ -1158,6 +1159,8 @@ class FirestoreMigration:
 				# client-profile2 documents.
 				transformed.pop("_referralContactPhone", None)
 				transformed.pop("_referralContactEmail", None)
+				# Single write funnel: calendar dates leave here as noon-Eastern timestamps.
+				transformed = normalize_client_dates(transformed)
 				doc_ref = self.db.collection(self.collection_name).document(doc_id)
 				if self.create_only:
 					batch.create(doc_ref, transformed)
@@ -1872,27 +1875,10 @@ class FirestoreMigration:
 		ward_from_coordinates = get_ward_from_coordinates(coordinates)
 		ward_value = normalize_ward_value(ward_from_coordinates or row.get("Ward"))
 
-		DEFAULT_END_DATE_STR = "12/31/2026"
+		DEFAULT_END_DATE = date(2026, 12, 31)
 		raw_end = row.get("EndDate") or row.get("End Date", "")
-		end_date = ""
-		if raw_end is None or not str(raw_end).strip() or str(raw_end).strip().lower() == "nan":
-			end_date = DEFAULT_END_DATE_STR
-		else:
-			# Keep endDate in the same display format used throughout the ETL: MM/DD/YYYY.
-			if isinstance(raw_end, datetime):
-				end_date = raw_end.date().strftime("%m/%d/%Y")
-			elif isinstance(raw_end, date):
-				end_date = raw_end.strftime("%m/%d/%Y")
-			else:
-				text = str(raw_end).strip()
-				parsed_end = None
-				for fmt in ("%m/%d/%Y", "%Y-%m-%d", "%Y-%m-%d %H:%M:%S"):
-					try:
-						parsed_end = datetime.strptime(text, fmt).date()
-						break
-					except Exception:
-						continue
-				end_date = parsed_end.strftime("%m/%d/%Y") if parsed_end else DEFAULT_END_DATE_STR
+		# Carry a real date; normalize_client_dates converts it on write.
+		end_date_dt = to_calendar_date(raw_end) or DEFAULT_END_DATE
 
 		# Map recurrence using the same normalized categories as deliveryFreq.
 		recurrence = self._map_frequency_category(row.get("Frequency", ""))
@@ -1900,10 +1886,8 @@ class FirestoreMigration:
 			recurrence = "Periodic"
 
 		# Parse dates for activeStatus logic
-		DEFAULT_START_DATE_STR = "11/15/2025"
-		DEFAULT_START_DATE = datetime.strptime(DEFAULT_START_DATE_STR, "%m/%d/%Y").date()
+		DEFAULT_START_DATE = date(2025, 11, 15)
 		today = datetime.now(timezone.utc).date()
-		# Get start and end dates as strings.
 		# Support legacy JSON fields and direct Excel headers ("Start Date").
 		raw_start = None
 		if row.get("StartDate_database") and str(row.get("StartDate_database")).strip():
@@ -1912,31 +1896,7 @@ class FirestoreMigration:
 			raw_start = row.get("StartDate_referral")
 		elif row.get("Start Date") and str(row.get("Start Date")).strip():
 			raw_start = row.get("Start Date")
-		# Parse startDate from raw value (datetime, date, or string)
-		start_date = None
-		if raw_start is not None and str(raw_start).strip():
-			if isinstance(raw_start, datetime):
-				start_date = raw_start.date()
-			elif isinstance(raw_start, date):
-				start_date = raw_start
-			else:
-				text = str(raw_start).strip()
-				for fmt in ("%m/%d/%Y", "%Y-%m-%d", "%Y-%m-%d %H:%M:%S"):
-					try:
-						start_date = datetime.strptime(text, fmt).date()
-						break
-					except Exception:
-						continue
-		# If still no start_date, default it
-		if not start_date:
-			start_date = DEFAULT_START_DATE
-		start_date_str = start_date.strftime("%m/%d/%Y")
-		end_date_str = end_date
-		# Parse endDate
-		try:
-			end_date_dt = datetime.strptime(str(end_date_str).strip(), "%m/%d/%Y").date() if end_date_str and str(end_date_str).strip() else None
-		except Exception:
-			end_date_dt = None
+		start_date = to_calendar_date(raw_start) or DEFAULT_START_DATE
 		# Determine activeStatus
 		if start_date and end_date_dt:
 			active_status_bool = start_date <= today <= end_date_dt
@@ -1957,7 +1917,7 @@ class FirestoreMigration:
 			"city": city,
 			"state": state,
 			"quadrant": quadrant_value,
-			"dob": "",
+			"dob": None,
 			"deliveryFreq": delivery_freq,
 			"phone": phone,
 			"email": email,
@@ -1990,8 +1950,8 @@ class FirestoreMigration:
 			"coordinates": coordinates,
 			"seniors": age_group_data["seniors"],
 			"headOfHousehold": age_group_data["headOfHousehold"],
-			"startDate": start_date_str,
-			"endDate": end_date,
+			"startDate": start_date,
+			"endDate": end_date_dt,
 			"recurrence": recurrence,
 			"tefapCert": bool(tefap_cert_date),
 			"tefapCertDate": tefap_cert_date,
