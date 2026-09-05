@@ -23,7 +23,8 @@ const normalizeDriverName = (value) => {
 const resolveAssignment = (overrideValue, clusterValue) =>
   normalizeText(overrideValue) || normalizeText(clusterValue);
 
-// tefapCertDate may be a Timestamp, a flattened {seconds} map, or a legacy string.
+// tefapCertDate may be a Timestamp, a flattened {seconds} map, or either legacy
+// string form - the app wrote YYYY-MM-DD and the ETL wrote MM/DD/YYYY.
 const formatCertDate = (value) => {
   if (!value) return '';
 
@@ -32,6 +33,19 @@ const formatCertDate = (value) => {
     date = value.toDate();
   } else if (typeof value === 'object' && typeof value.seconds === 'number') {
     date = new Date(value.seconds * 1000);
+  } else if (typeof value === 'string') {
+    const trimmed = value.trim();
+    const displayMatch = trimmed.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (displayMatch) {
+      const [, month, day, year] = displayMatch;
+      return `${month.padStart(2, '0')}/${day.padStart(2, '0')}/${year}`;
+    }
+    const isoMatch = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (isoMatch) {
+      const [, year, month, day] = isoMatch;
+      return `${month}/${day}/${year}`;
+    }
+    return trimmed;
   }
 
   if (!date || Number.isNaN(date.getTime())) return normalizeText(value);

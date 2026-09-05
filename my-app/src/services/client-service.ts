@@ -6,7 +6,7 @@ import { retry } from "../utils/retry";
 import { ServiceError, formatServiceError } from "../utils/serviceError";
 import { computeClientActiveStatus } from "../utils/clientStatus";
 import { deliveryDate } from "../utils/deliveryDate";
-import { normalizeClientDatesForWrite } from "../utils/clientDate";
+import { normalizeClientDatesForRead, normalizeClientDatesForWrite } from "../utils/clientDate";
 import { toDateOrNull } from "../utils/dates";
 import {
   batchGetClientDeliverySummaries,
@@ -197,13 +197,13 @@ class ClientService {
           return null;
         }
 
-        return {
+        // Consumers such as AddDeliveryDialog do string work on these fields.
+        return normalizeClientDatesForRead({
           ...data,
           gender: normalizeGender(data.gender),
           tefapCert: normalizeBooleanField(data.tefapCert),
-          tefapCertDate: normalizeDateStringField((data as any).tefapCertDate),
           activeStatus: deriveClientActiveStatus(data),
-        };
+        });
       }
       return null;
     } catch (error) {

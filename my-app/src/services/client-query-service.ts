@@ -82,8 +82,26 @@ const getRowFieldValue = (row: RowData, field: string): unknown =>
 
 const isClientSideFilter = (collectionKey: CollectionKey, filter: QueryFilter): boolean => {
   const fieldDef = getFieldDef(collectionKey, filter.field);
-  return Boolean(fieldDef?.computed || fieldDef?.format === "phone");
+  if (fieldDef?.computed || fieldDef?.format === "phone") return true;
+  // Firestore can only express whole-day ranges on a timestamp; day-equality
+  // negation and day lists are resolved against fetched rows instead.
+  return (
+    fieldDef?.type === "timestamp" && ["!=", "in", "not-in"].includes(filter.operator as string)
+  );
 };
+
+/**
+ * Firestore orders values by type, and every String sorts above every Timestamp.
+ * A `>=` range therefore also matches documents whose field is still an
+ * unmigrated string, and `<` silently drops them. Verify the stored value is
+ * really a timestamp before trusting a range result.
+ */
+const isStoredTimestamp = (value: unknown): boolean =>
+  value instanceof Date ||
+  (typeof value === "object" &&
+    value !== null &&
+    (typeof (value as { toDate?: unknown }).toDate === "function" ||
+      typeof (value as { seconds?: unknown }).seconds === "number"));
 
 /** Filters that translate directly into a Firestore `where()` constraint. */
 export const getFirestoreFilters = (collectionKey: CollectionKey, filters: QueryFilter[]): QueryFilter[] =>
@@ -137,7 +155,29 @@ const matchesComputedFilter = (
   row: RowData,
   filter: QueryFilter
 ): boolean => {
-  if (getFieldDef(collectionKey, filter.field)?.format === "phone") {
+  const fieldDef = getFieldDef(collectionKey, filter.field);
+
+  if (fieldDef?.type === "timestamp") {
+    const actual = deliveryDate.tryToISODateString(getRowFieldValue(row, filter.field) as any);
+    const expected = (Array.isArray(filter.value) ? filter.value : [filter.value])
+      .map((value) => deliveryDate.tryToISODateString(value as any))
+      .filter((value): value is string => Boolean(value));
+
+    if (!actual) return filter.operator === "!=" || filter.operator === "not-in";
+
+    switch (filter.operator) {
+      case "!=":
+        return actual !== expected[0];
+      case "in":
+        return expected.includes(actual);
+      case "not-in":
+        return !expected.includes(actual);
+      default:
+        return true;
+    }
+  }
+
+  if (fieldDef?.format === "phone") {
     const actual = normalizePhoneNumber(getRowFieldValue(row, filter.field));
     const expected = (Array.isArray(filter.value) ? filter.value : [filter.value])
       .map(normalizePhoneNumber)
@@ -429,7 +469,26 @@ export async function runClientQuery(
     );
 
     const snapshot = await getDocs(q);
-    let rows: RowData[] = snapshot.docs.map((docSnap) =>
+    // Range constraints on a timestamp field also match unmigrated string values,
+    // so verify against the raw document before mapping.
+    const rangeTimestampFields = getFirestoreFilters(collectionKey, filters)
+      .filter(
+        (filter) =>
+          getFieldDef(collectionKey, filter.field)?.type === "timestamp" &&
+          [">", ">=", "<", "<=", "=="].includes(filter.operator as string)
+      )
+      .map((filter) => filter.field);
+
+    const matchedDocs =
+      rangeTimestampFields.length === 0
+        ? snapshot.docs
+        : snapshot.docs.filter((docSnap) =>
+            rangeTimestampFields.every((field) =>
+              isStoredTimestamp(getRowFieldValue(docSnap.data() as RowData, field))
+            )
+          );
+
+    let rows: RowData[] = matchedDocs.map((docSnap) =>
       mapRawDocToRow(collectionKey, docSnap.id, docSnap.data())
     );
 

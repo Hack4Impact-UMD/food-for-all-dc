@@ -18,7 +18,13 @@ from typing import Any, Optional
 import firebase_admin
 from firebase_admin import credentials, firestore
 
-from client_dates import CLIENT_DATE_FIELDS, EASTERN, to_calendar_date, to_eastern_noon
+from client_dates import (
+    CLIENT_DATE_FIELDS,
+    EASTERN,
+    SENTINEL_TEXT,
+    to_calendar_date,
+    to_eastern_noon,
+)
 
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_CREDENTIALS = ROOT / "ETL" / "food-for-all-dc-caf23-firebase-adminsdk-fbsvc-4e77c7873e.json"
@@ -44,19 +50,22 @@ def parse_calendar_value(value: Any) -> tuple[Optional[datetime], str]:
     if value is None:
         return None, "skip_null"
     if isinstance(value, datetime):
-        # Already a Timestamp; only rewrite if it is not sitting at Eastern noon.
+        # Already a Timestamp; only rewrite if it is not exactly Eastern noon.
         eastern = value.astimezone(EASTERN)
-        if (eastern.hour, eastern.minute, eastern.second) == (12, 0, 0):
+        canonical = to_eastern_noon(eastern.date())
+        if eastern == canonical:
             return None, "skip_already_normalized"
-        return to_eastern_noon(eastern.date()), "renormalize_timestamp"
+        return canonical, "renormalize_timestamp"
     if isinstance(value, date):
         return to_eastern_noon(value), "convert_date"
 
     was_flattened_map = isinstance(value, dict)
     calendar_date = to_calendar_date(value)
     if calendar_date is None:
-        if isinstance(value, str) and not value.strip():
-            return None, "skip_empty"
+        # Empty strings stay Strings in Firestore, and every String sorts above
+        # every Timestamp - so they would match any `>=` range. Clear them.
+        if isinstance(value, str) and value.strip().lower() in SENTINEL_TEXT:
+            return None, "clear_empty"
         return None, "unparseable"
 
     return (
@@ -129,7 +138,7 @@ def main() -> None:
 
             if action == "unparseable":
                 unparseable.append((snapshot.id, field, raw))
-            if converted is None:
+            if converted is None and action != "clear_empty":
                 continue
 
             updates[field] = converted
@@ -140,8 +149,10 @@ def main() -> None:
                     "action": action,
                     "old_type": type(raw).__name__,
                     "old_value": str(raw),
-                    "new_value_utc": converted.astimezone(timezone.utc).isoformat(),
-                    "new_value_eastern_day": converted.astimezone(EASTERN).date().isoformat(),
+                    "new_value_utc": converted.astimezone(timezone.utc).isoformat() if converted else "",
+                    "new_value_eastern_day": (
+                        converted.astimezone(EASTERN).date().isoformat() if converted else ""
+                    ),
                 }
             )
 
@@ -155,7 +166,7 @@ def main() -> None:
 
     print("\n--- action counts ---")
     for key, count in sorted(actions.items()):
-        if key.endswith(":skip_null") or key.endswith(":skip_empty"):
+        if key.endswith(":skip_null"):
             continue
         print(f"  {key:<48} {count:>6}")
 

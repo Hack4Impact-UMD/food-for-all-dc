@@ -113,6 +113,32 @@ describe("normalizeClientDatesForWrite", () => {
   });
 });
 
+describe("preserving values that cannot be parsed", () => {
+  // A legacy spreadsheet value like a bare year must survive a round trip;
+  // collapsing it to null would destroy data the backfill deliberately left
+  // alone for manual triage.
+  it("returns an unparseable value verbatim on read", () => {
+    expect(toClientDateString("sometime in 1945")).toBe("sometime in 1945");
+  });
+
+  it("leaves an unparseable value untouched on write", () => {
+    const result = normalizeClientDatesForWrite({ dob: "sometime in 1945" });
+    expect(result.dob).toBe("sometime in 1945");
+  });
+
+  it("survives a read then write round trip", () => {
+    const stored = { dob: "sometime in 1945" };
+    const roundTripped = normalizeClientDatesForWrite(normalizeClientDatesForRead(stored));
+    expect(roundTripped.dob).toBe("sometime in 1945");
+  });
+
+  it("still clears genuinely empty values", () => {
+    expect(normalizeClientDatesForWrite({ dob: "" }).dob).toBeNull();
+    expect(normalizeClientDatesForWrite({ dob: "  " }).dob).toBeNull();
+    expect(normalizeClientDatesForWrite({ dob: "nan" }).dob).toBeNull();
+  });
+});
+
 describe("normalizeClientDatesForRead", () => {
   it("turns stored Timestamps back into ISO strings", () => {
     const stored = normalizeClientDatesForWrite({

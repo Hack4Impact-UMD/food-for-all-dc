@@ -20,7 +20,7 @@ from threading import Lock
 import pandas as pd
 from dotenv import load_dotenv
 from address_utils import build_dc_geocoding_address, canonicalize_dc_street_address
-from client_dates import normalize_client_dates, to_calendar_date
+from client_dates import EASTERN, normalize_client_dates, to_calendar_date
 
 # Load environment variables from my-app/.env
 env_path = os.path.join(os.path.dirname(__file__), "..", "my-app", ".env")
@@ -1887,7 +1887,9 @@ class FirestoreMigration:
 
 		# Parse dates for activeStatus logic
 		DEFAULT_START_DATE = date(2025, 11, 15)
-		today = datetime.now(timezone.utc).date()
+		# Eastern, matching cloudrun-etl/update_active_status.py; a UTC "today" would
+		# disagree with the nightly job for five hours every evening.
+		today = datetime.now(EASTERN).date()
 		# Support legacy JSON fields and direct Excel headers ("Start Date").
 		raw_start = None
 		if row.get("StartDate_database") and str(row.get("StartDate_database")).strip():
@@ -1897,15 +1899,8 @@ class FirestoreMigration:
 		elif row.get("Start Date") and str(row.get("Start Date")).strip():
 			raw_start = row.get("Start Date")
 		start_date = to_calendar_date(raw_start) or DEFAULT_START_DATE
-		# Determine activeStatus
-		if start_date and end_date_dt:
-			active_status_bool = start_date <= today <= end_date_dt
-		elif start_date and not end_date_dt:
-			active_status_bool = start_date <= today
-		elif not start_date and end_date_dt:
-			active_status_bool = today <= end_date_dt
-		else:
-			active_status_bool = False
+		# Both dates fall back to a default above, so neither can be missing here.
+		active_status_bool = start_date <= today <= end_date_dt
 		client_profile = {
 			"uid": str(row.get("ID", "")),
 			"firstName": first_name,

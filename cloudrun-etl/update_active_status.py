@@ -22,6 +22,11 @@ EASTERN = ZoneInfo('America/New_York')
 # Cloud Run runs in UTC; active status is an Eastern-calendar decision.
 TODAY = datetime.now(EASTERN).date()
 
+# Must match ACCEPTED_FORMATS/SENTINEL_TEXT in ETL/client_dates.py. A format
+# accepted there but not here would silently deactivate a client.
+ACCEPTED_FORMATS = ('%Y-%m-%d', '%m/%d/%Y', '%m/%d/%y', '%Y-%m-%d %H:%M:%S')
+SENTINEL_TEXT = {'', 'nan', 'none', 'null', 'n/a'}
+
 
 def parse_date(value):
     """Read a client date as a calendar day.
@@ -45,9 +50,9 @@ def parse_date(value):
         return None
 
     text = str(value).strip()
-    if not text or text.lower() in {'nan', 'none', 'null', 'n/a'}:
+    if text.lower() in SENTINEL_TEXT:
         return None
-    for fmt in ('%m/%d/%Y', '%Y-%m-%d'):
+    for fmt in ACCEPTED_FORMATS:
         try:
             return datetime.strptime(text, fmt).date()
         except ValueError:

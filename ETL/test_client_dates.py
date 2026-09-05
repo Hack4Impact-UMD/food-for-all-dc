@@ -1,8 +1,11 @@
+import re
 from datetime import date, datetime, timezone
+from pathlib import Path
 from unittest import TestCase
 from zoneinfo import ZoneInfo
 
 from client_dates import (
+    CLIENT_DATE_FIELDS,
     EASTERN,
     normalize_client_dates,
     parse_client_date,
@@ -86,11 +89,26 @@ class NormalizeClientDatesTests(TestCase):
         self.assertEqual(once["startDate"], twice["startDate"])
 
     def test_matches_the_frontend_funnel_field_list(self) -> None:
-        payload = {field: "2026-07-23" for field in ("dob", "startDate", "endDate")}
-        result = normalize_client_dates(payload)
-        for field in payload:
-            with self.subTest(field=field):
-                self.assertEqual(result[field], to_eastern_noon(date(2026, 7, 23)))
+        """Parity guard: the two funnels must cover exactly the same fields.
+
+        Reads CLIENT_DATE_FIELDS out of my-app/src/utils/clientDate.ts rather than
+        restating it, so adding a field on one side and not the other fails here.
+        """
+        source = (
+            Path(__file__).resolve().parent.parent
+            / "my-app"
+            / "src"
+            / "utils"
+            / "clientDate.ts"
+        ).read_text(encoding="utf-8")
+
+        declaration = re.search(
+            r"export const CLIENT_DATE_FIELDS = \[(.*?)\] as const;", source, re.DOTALL
+        )
+        self.assertIsNotNone(declaration, "Could not locate CLIENT_DATE_FIELDS in clientDate.ts")
+
+        frontend_fields = tuple(re.findall(r'"([^"]+)"', declaration.group(1)))
+        self.assertEqual(frontend_fields, CLIENT_DATE_FIELDS)
 
 
 class ParseClientDateTests(TestCase):

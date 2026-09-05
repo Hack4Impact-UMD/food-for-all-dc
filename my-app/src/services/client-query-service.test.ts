@@ -222,6 +222,17 @@ describe("client-query-service", () => {
     );
   });
 
+  // Firestore orders every String above every Timestamp, so a range constraint
+  // alone would also return unmigrated string values.
+  it("keeps !=/in/not-in off the Firestore query for timestamp fields", () => {
+    expect(getFirestoreFilters("clients", [makeFilter("startDate", "!=", "2027-08-24")])).toEqual(
+      []
+    );
+    expect(getComputedFilters("clients", [makeFilter("startDate", "in", ["2027-08-24"])])).toHaveLength(
+      1
+    );
+  });
+
   it("expands an == timestamp filter into a whole-day range instead of an exact instant", () => {
     const filters = [makeFilter("updatedAt", "==", "2024-01-01")];
     buildFirestoreConstraints("clients", filters);
