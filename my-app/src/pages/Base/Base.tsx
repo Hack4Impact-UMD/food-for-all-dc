@@ -28,6 +28,8 @@ import Tab from "./NavBar/Tab";
 import logo from "../../assets/ffa-banner-logo.webp";
 import { Typography, useMediaQuery, MenuItem, Select } from "@mui/material";
 import { useAuth } from "../../auth/AuthProvider";
+import { auth } from "../../auth/firebaseConfig";
+import { onAuthStateChanged } from "firebase/auth";
 import { useNavigate, useLocation, Outlet } from "react-router-dom";
 import { UserType } from "../../types";
 
@@ -122,6 +124,16 @@ export default function BasePage() {
   const { logout, name, userRole } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+
+  // Route protection for every page rendered inside this layout (incl. Reports)
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (!user) {
+        navigate("/");
+      }
+    });
+    return () => unsubscribe();
+  }, [navigate]);
 
   useEffect(() => {
     // Use full paths for comparison as location.pathname includes the base
