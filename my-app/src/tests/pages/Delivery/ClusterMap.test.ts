@@ -94,10 +94,16 @@ describe("ClusterMap popup regression guards", () => {
   });
 
   it("uses the shared route-color resolver", () => {
-    expect(source).toContain(
-      'import { getClusterColor, getClusterTextColor } from "./utils/clusterColors"'
+    expect(source).toMatch(
+      /import \{[\s\S]*?getClusterColor,[\s\S]*?getClusterTextColor,?[\s\S]*?\} from "\.\/utils\/clusterColors"/
     );
     expect(source).not.toContain("const clusterColors = [");
+  });
+
+  // The printed route report reads the same palette, so the legend can't drift from it.
+  it("uses the shared ward palette", () => {
+    expect(source).toMatch(/import \{[\s\S]*?WARD_COLORS,?[\s\S]*?\} from "\.\/utils\/clusterColors"/);
+    expect(source).toContain("const wardColors = WARD_COLORS;");
   });
 
   it("refreshes the route text in an open popup when clusters change", () => {

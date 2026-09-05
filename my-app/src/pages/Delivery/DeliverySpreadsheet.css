@@ -36,7 +36,11 @@
 .box {
   width: 90vw;
   border-radius: 8px;
-  margin-top: 7.5vh;
+}
+
+/* Scoped to Routes page only, distinct from other .box usages */
+.box.routes-page-box {
+  margin-top: 1.5vh;
 }
 
 .table-container {

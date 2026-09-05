@@ -47,6 +47,48 @@
   margin-top: 24px;
 }
 
+.route-report-summary {
+  break-after: page;
+}
+
+.route-report-summary .route-report-header dl {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  max-width: 260px;
+}
+
+.route-report-summary .route-report-map-section {
+  width: 100%;
+  max-width: 7.6in;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.route-report-summary-table {
+  width: 100%;
+  max-width: 7.6in;
+  margin: 18px auto 0;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.route-report-summary-table th,
+.route-report-summary-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid #c6cfcc;
+  text-align: left;
+}
+
+.route-report-summary-table th {
+  color: #53615d;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.route-report-summary-table td {
+  font-weight: 600;
+}
+
 .route-report-header {
   padding-bottom: 14px;
   border-bottom: 3px solid #257e68;
@@ -133,11 +175,19 @@
   user-select: none;
 }
 
+.route-report-map-wards {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+
 .route-report-map-marker-container {
   position: absolute;
   z-index: 2;
-  width: 22px;
-  height: 22px;
+  width: 19.8px;
+  height: 19.8px;
   transform: translate(-50%, -50%);
   border: 0;
   background: transparent;
@@ -146,8 +196,8 @@
 .route-report-map-marker {
   box-sizing: border-box;
   display: flex;
-  width: 22px;
-  height: 22px;
+  width: 19.8px;
+  height: 19.8px;
   align-items: center;
   justify-content: center;
   border: 2px solid #171717;
@@ -155,7 +205,7 @@
   background: var(--route-marker-color, #257e68);
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.55);
   color: var(--route-marker-text-color, #ffffff);
-  font-size: 11px;
+  font-size: 9.9px;
   font-weight: 900;
   line-height: 1;
   text-align: center;
@@ -211,6 +261,21 @@
   line-height: 1.25;
   letter-spacing: 0;
   overflow-wrap: anywhere;
+}
+
+.route-report-delivery-heading-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.route-report-route-number {
+  flex-shrink: 0;
+  font-size: 18px;
+  font-weight: 800;
+  color: #257e68;
+  white-space: nowrap;
 }
 
 .route-report-delivery-card p {

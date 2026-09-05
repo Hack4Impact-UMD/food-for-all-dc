@@ -119,9 +119,16 @@ export default function BasePage() {
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState("Delivery Schedule");
   const [pageTitle, setPageTitle] = useState("");
-  const { logout, name, userRole } = useAuth();
+  const { logout, name, userRole, user, loading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+
+  // Route protection for every page rendered inside this layout (incl. Reports)
+  useEffect(() => {
+    if (!loading && !user) {
+      navigate("/", { replace: true });
+    }
+  }, [loading, user, navigate]);
 
   useEffect(() => {
     // Use full paths for comparison as location.pathname includes the base
@@ -171,7 +178,7 @@ export default function BasePage() {
   const handleLogout = async () => {
     try {
       await logout();
-      navigate("/"); // Redirect to home without full page reload
+      // The route-protection effect above handles the redirect once `user` clears.
     } catch (error) {
       console.error("Logout failed:", error);
     }

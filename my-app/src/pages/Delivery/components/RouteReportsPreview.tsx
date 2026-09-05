@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useMemo } from "react";
 import CloseIcon from "@mui/icons-material/Close";
 import PrintIcon from "@mui/icons-material/Print";
 import { Alert, Box, Button, IconButton, Typography } from "@mui/material";
@@ -85,9 +85,11 @@ const formatCityLine = (delivery: RouteReportDelivery): string => {
 const RouteDeliveryCard = ({
   delivery,
   assignedTime,
+  routeId,
 }: {
   delivery: RouteReportDelivery;
   assignedTime: string;
+  routeId: string;
 }) => {
   const fullName = `${delivery.firstName || ""} ${delivery.lastName || ""}`.trim();
   const instructions = delivery.deliveryDetails?.deliveryInstructions?.trim();
@@ -103,9 +105,12 @@ const RouteDeliveryCard = ({
       <div className="route-report-delivery-heading">
         <span className="route-report-checkbox" aria-label="Completion checkbox" />
         <div>
-          <h2>
-            {fullName || "Client name unavailable"} - {formatTime(assignedTime)}
-          </h2>
+          <div className="route-report-delivery-heading-row">
+            <h2>
+              {fullName || "Client name unavailable"} - {formatTime(assignedTime)}
+            </h2>
+            <span className="route-report-route-number">Route - {routeId}</span>
+          </div>
           <p>{formatDeliveryAddress(delivery) || "Address unavailable"}</p>
           {cityLine ? <p>{cityLine}</p> : null}
           {delivery.phone?.trim() ? <p>Phone: {delivery.phone.trim()}</p> : null}
@@ -119,6 +124,76 @@ const RouteDeliveryCard = ({
         <strong>Delivery Instructions</strong>
         <p>{instructions || "No special instructions."}</p>
       </div>
+    </article>
+  );
+};
+
+const RouteReportsSummaryPage = ({ reportData }: { reportData: RouteReportData }) => {
+  const totalDeliveries = reportData.reports.reduce(
+    (sum, report) => sum + report.deliveries.length,
+    0
+  );
+  const allDeliveries = useMemo(
+    () => reportData.reports.flatMap((report) => report.deliveries),
+    [reportData.reports]
+  );
+  const deliveryRouteIds = useMemo(
+    () =>
+      new Map(
+        reportData.reports.flatMap((report) =>
+          report.deliveries.map((delivery) => [delivery.id, report.routeId] as const)
+        )
+      ),
+    [reportData.reports]
+  );
+  const deliveryDate = reportData.reports[0]?.deliveryDate;
+
+  return (
+    <article className="route-report route-report-summary">
+      <header className="route-report-header">
+        <div>
+          <p className="route-report-kicker">Driver Route Reports Summary</p>
+          <h1>{deliveryDate ? formatDeliveryDate(deliveryDate) : "All Routes"}</h1>
+        </div>
+        <dl>
+          <div>
+            <dt>Routes</dt>
+            <dd>{reportData.reports.length}</dd>
+          </div>
+          <div>
+            <dt>Deliveries</dt>
+            <dd>{totalDeliveries}</dd>
+          </div>
+        </dl>
+      </header>
+
+      <RouteOverviewMap
+        routeId="summary"
+        deliveries={allDeliveries}
+        deliveryRouteIds={deliveryRouteIds}
+        showInset={false}
+        showWardOverlays
+        fitToDcBounds
+      />
+
+      <table className="route-report-summary-table">
+        <thead>
+          <tr>
+            <th>Route</th>
+            <th>Driver</th>
+            <th>Deliveries</th>
+          </tr>
+        </thead>
+        <tbody>
+          {reportData.reports.map((report) => (
+            <tr key={report.key}>
+              <td>{report.routeId}</td>
+              <td>{report.driverName}</td>
+              <td>{report.deliveries.length}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </article>
   );
 };
@@ -158,6 +233,7 @@ const RouteReport = ({ report }: { report: DriverRouteReport }) => (
           key={delivery.id}
           delivery={delivery}
           assignedTime={report.assignedTime}
+          routeId={report.routeId}
         />
       ))}
     </section>
@@ -227,6 +303,7 @@ export default function RouteReportsPreview({ reportData, onClose }: RouteReport
           <Alert severity="info">No assigned driver routes are available for this date.</Alert>
         ) : (
           <div className="route-reports-print-root">
+            <RouteReportsSummaryPage reportData={reportData} />
             {reportData.reports.map((report) => (
               <RouteReport key={report.key} report={report} />
             ))}

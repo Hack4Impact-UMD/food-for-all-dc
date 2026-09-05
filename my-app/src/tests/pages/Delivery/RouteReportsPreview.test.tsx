@@ -84,8 +84,9 @@ describe("RouteReportsPreview", () => {
 
     expect(screen.getByText("Route 4")).toBeTruthy();
     expect(screen.queryByText(/Cluster 4/)).toBeNull();
-    expect(screen.getByText("Jane Smith")).toBeTruthy();
-    expect(screen.getByText("Saturday, August 22, 2026")).toBeTruthy();
+    // "Jane Smith" and the delivery date also appear on the summary front page.
+    expect(screen.getAllByText("Jane Smith")).toHaveLength(2);
+    expect(screen.getAllByText("Saturday, August 22, 2026")).toHaveLength(2);
     expect(screen.getByText("9:00 AM")).toBeTruthy();
     expect(screen.getByText("Tina Baldwin - 9:00 AM")).toBeTruthy();
     expect(screen.queryByText("1. Tina Baldwin - 9:00 AM")).toBeNull();
