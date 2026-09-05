@@ -63,12 +63,19 @@ export const toClientDateString = (value: unknown): string => {
   return parsable === null ? "" : (deliveryDate.tryToISODateString(parsable) ?? "");
 };
 
+/** The payload shape after normalization: date fields change type, everything else is untouched. */
+type WithNormalizedDates<T, TDate> = {
+  [K in keyof T]: K extends ClientDateField ? TDate : T[K];
+};
+
 /**
  * The single write funnel for client profiles: normalizes every calendar-date
  * field present on the payload, leaving all other fields untouched.
  * Mirrors `normalizeEventForWrite` in delivery-service.
  */
-export const normalizeClientDatesForWrite = <T extends Record<string, any>>(profile: T): T => {
+export const normalizeClientDatesForWrite = <T extends Record<string, any>>(
+  profile: T
+): WithNormalizedDates<T, Date | null> => {
   const normalized: Record<string, any> = { ...profile };
 
   Object.keys(normalized).forEach((key) => {
@@ -77,11 +84,13 @@ export const normalizeClientDatesForWrite = <T extends Record<string, any>>(prof
     }
   });
 
-  return normalized as T;
+  return normalized as WithNormalizedDates<T, Date | null>;
 };
 
 /** Reads every client date field on a document back into `yyyy-MM-dd` strings. */
-export const normalizeClientDatesForRead = <T extends Record<string, any>>(profile: T): T => {
+export const normalizeClientDatesForRead = <T extends Record<string, any>>(
+  profile: T
+): WithNormalizedDates<T, string> => {
   const normalized: Record<string, any> = { ...profile };
 
   CLIENT_DATE_FIELDS.forEach((field) => {
@@ -90,5 +99,5 @@ export const normalizeClientDatesForRead = <T extends Record<string, any>>(profi
     }
   });
 
-  return normalized as T;
+  return normalized as WithNormalizedDates<T, string>;
 };

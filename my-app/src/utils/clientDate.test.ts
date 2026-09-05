@@ -95,8 +95,8 @@ describe("normalizeClientDatesForWrite", () => {
     expect(result.firstName).toBe("Carol");
     expect(result.adults).toBe(2);
     expect(result.tags).toEqual(["TEFAPOnFile"]);
-    expect(easternDateKey(result.startDate as Date)).toBe("2026-07-23");
-    expect(easternDateKey(result.endDate as Date)).toBe("2027-07-23");
+    expect(easternDateKey(result.startDate!)).toBe("2026-07-23");
+    expect(easternDateKey(result.endDate!)).toBe("2027-07-23");
     expect(result.tefapCertDate).toBeNull();
   });
 
