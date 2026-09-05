@@ -1,7 +1,8 @@
 import os
 import firebase_admin
 from firebase_admin import credentials, firestore
-from datetime import datetime
+from datetime import date, datetime
+from zoneinfo import ZoneInfo
 
 # Initialize Firebase Admin
 SERVICE_ACCOUNT_FILE = 'food-for-all-dc-caf23-firebase-adminsdk-fbsvc-4e77c7873e.json'
@@ -13,18 +14,47 @@ if not firebase_admin._apps:
         firebase_admin.initialize_app()
 db = firestore.client()
 
-# Today's date
-TODAY = datetime.now().date()
-
 # Collection name (update if needed)
 COLLECTION_NAME = 'client-profile2'
 
-def parse_date(date_str):
-    if not date_str:
+EASTERN = ZoneInfo('America/New_York')
+
+# Cloud Run runs in UTC; active status is an Eastern-calendar decision.
+TODAY = datetime.now(EASTERN).date()
+
+# Must match ACCEPTED_FORMATS/SENTINEL_TEXT in ETL/client_dates.py. A format
+# accepted there but not here would silently deactivate a client.
+ACCEPTED_FORMATS = ('%Y-%m-%d', '%m/%d/%Y', '%m/%d/%y', '%Y-%m-%d %H:%M:%S')
+SENTINEL_TEXT = {'', 'nan', 'none', 'null', 'n/a'}
+
+
+def parse_date(value):
+    """Read a client date as a calendar day.
+
+    Accepts Firestore Timestamps, the {seconds, nanoseconds} maps left by a
+    structural copy, and the legacy MM/DD/YYYY and YYYY-MM-DD strings, so this
+    keeps working either side of the Timestamp migration.
+    Mirrors ETL/client_dates.py, which cannot be imported across the deploy boundary.
+    """
+    if value is None:
         return None
-    for fmt in ('%m/%d/%Y', '%Y-%m-%d'):
+    if isinstance(value, datetime):
+        # Timestamps come back tz-aware; compare on the Eastern calendar day.
+        return value.astimezone(EASTERN).date() if value.tzinfo else value.date()
+    if isinstance(value, date):
+        return value
+    if isinstance(value, dict):
+        seconds = value.get('seconds')
+        if isinstance(seconds, (int, float)):
+            return datetime.fromtimestamp(seconds, tz=EASTERN).date()
+        return None
+
+    text = str(value).strip()
+    if text.lower() in SENTINEL_TEXT:
+        return None
+    for fmt in ACCEPTED_FORMATS:
         try:
-            return datetime.strptime(date_str, fmt).date()
+            return datetime.strptime(text, fmt).date()
         except ValueError:
             continue
     return None

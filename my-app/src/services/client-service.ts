@@ -6,6 +6,7 @@ import { retry } from "../utils/retry";
 import { ServiceError, formatServiceError } from "../utils/serviceError";
 import { computeClientActiveStatus } from "../utils/clientStatus";
 import { deliveryDate } from "../utils/deliveryDate";
+import { normalizeClientDatesForRead, normalizeClientDatesForWrite } from "../utils/clientDate";
 import { toDateOrNull } from "../utils/dates";
 import {
   batchGetClientDeliverySummaries,
@@ -131,7 +132,7 @@ export const mapClientDocToSpreadsheetBaseRow = (docId: string, raw: any): RowDa
     updatedAt: raw.updatedAt ?? null,
     tefapCert: normalizeBooleanField(raw.tefapCert),
     tefapCertDate: normalizeDateStringField(raw.tefapCertDate),
-    dob: raw.dob ?? "",
+    dob: normalizeDateStringField(raw.dob),
     ward: raw.ward ?? "",
     zipCode: raw.zipCode ?? "",
     tags: raw.tags ?? [],
@@ -196,13 +197,13 @@ class ClientService {
           return null;
         }
 
-        return {
+        // Consumers such as AddDeliveryDialog do string work on these fields.
+        return normalizeClientDatesForRead({
           ...data,
           gender: normalizeGender(data.gender),
           tefapCert: normalizeBooleanField(data.tefapCert),
-          tefapCertDate: normalizeDateStringField((data as any).tefapCertDate),
           activeStatus: deriveClientActiveStatus(data),
-        };
+        });
       }
       return null;
     } catch (error) {
@@ -499,10 +500,13 @@ class ClientService {
   public async updateClient(uid: string, data: Partial<ClientProfile>): Promise<void> {
     try {
       await retry(async () => {
-        await updateDoc(doc(this.db, this.clientsCollection, uid), {
-          ...data,
-          ...getCurrentUserClientAuditMetadata(),
-        });
+        await updateDoc(
+          doc(this.db, this.clientsCollection, uid),
+          normalizeClientDatesForWrite({
+            ...data,
+            ...getCurrentUserClientAuditMetadata(),
+          })
+        );
       });
     } catch (error) {
       throw formatServiceError(error, "Failed to update client");

@@ -15,6 +15,7 @@ import { db } from "../../auth/firebaseConfig";
 import dataSources from "../../config/dataSources";
 import { HouseholdSnapshot } from "../../types/delivery-types";
 import { deliveryDate } from "../../utils/deliveryDate";
+import { toClientDateString } from "../../utils/clientDate";
 import { normalizeHouseholdSnapshot } from "../../utils/householdSnapshot";
 import { ReportClientRecord, ReportDeliveryRecord } from "./reportUtils";
 
@@ -67,7 +68,7 @@ const mapReportClient = (docSnapshot: QueryDocumentSnapshot): ReportClientRecord
     children: asNumber(raw.children),
     seniors: asNumber(raw.seniors),
     total: asNumber(raw.total),
-    referredDate: asString(raw.referredDate) || undefined,
+    referredDate: toClientDateString(raw.referredDate) || undefined,
     startDate: (raw.startDate as string | Date | Timestamp | DateTime | null | undefined) ?? null,
     endDate: (raw.endDate as string | Date | Timestamp | DateTime | null | undefined) ?? null,
     autoInactiveReason:

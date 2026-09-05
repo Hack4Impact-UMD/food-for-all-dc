@@ -50,6 +50,12 @@ const mockMapClientDocToSpreadsheetBaseRow = (id: string, raw: any) => ({
   uid: id,
   firstName: raw.firstName ?? "",
   lastName: raw.lastName ?? "",
+  // The real mapper runs client dates through normalizeDateStringField, which
+  // yields a yyyy-MM-dd string for a Timestamp and "" for anything unreadable.
+  dob:
+    raw.dob && typeof raw.dob.toDate === "function"
+      ? raw.dob.toDate().toISOString().slice(0, 10)
+      : (raw.dob ?? ""),
   ward: raw.ward ?? "",
   zipCode: raw.zipCode ?? "",
   tags: raw.tags ?? [],
@@ -196,10 +202,41 @@ describe("client-query-service", () => {
     );
   });
 
-  it("formats a Date from the picker for text date fields", () => {
+  it("expands a client date filter from the picker into a whole-day range", () => {
     const filters = [makeFilter("dob", "==", new Date(2027, 7, 24))];
     buildFirestoreConstraints("clients", filters);
-    expect(mockWhere).toHaveBeenCalledWith("dob", "==", "08/24/2027");
+    expect(mockWhere).toHaveBeenCalledWith(
+      "dob",
+      ">=",
+      expect.objectContaining({ date: new Date(2027, 7, 24, 0, 0, 0, 0) })
+    );
+    expect(mockWhere).toHaveBeenCalledWith(
+      "dob",
+      "<",
+      expect.objectContaining({ date: new Date(2027, 7, 25, 0, 0, 0, 0) })
+    );
+    expect(mockWhere).toHaveBeenCalledTimes(2);
+  });
+
+  it("supports range operators on client dates now that they are timestamps", () => {
+    const filters = [makeFilter("startDate", ">=", new Date(2027, 7, 24))];
+    buildFirestoreConstraints("clients", filters);
+    expect(mockWhere).toHaveBeenCalledWith(
+      "startDate",
+      ">=",
+      expect.objectContaining({ mocked: "timestamp" })
+    );
+  });
+
+  // Firestore orders every String above every Timestamp, so a range constraint
+  // alone would also return unmigrated string values.
+  it("keeps !=/in/not-in off the Firestore query for timestamp fields", () => {
+    expect(getFirestoreFilters("clients", [makeFilter("startDate", "!=", "2027-08-24")])).toEqual(
+      []
+    );
+    expect(getComputedFilters("clients", [makeFilter("startDate", "in", ["2027-08-24"])])).toHaveLength(
+      1
+    );
   });
 
   it("expands an == timestamp filter into a whole-day range instead of an exact instant", () => {
@@ -242,6 +279,43 @@ describe("client-query-service", () => {
     const result = await runClientQuery("clients", [makeFilter("activeStatus", "==", true)]);
     expect(result.rows).toHaveLength(1);
     expect(result.rows[0].firstName).toBe("Active");
+  });
+
+  // The unmigrated-string guard compensates for a range Firestore actually ran.
+  // Under OR logic no constraints are sent, so applying it there would turn the
+  // date branch into an AND and silently drop the other branch's matches.
+  it("keeps OR matches whose date field never migrated to a Timestamp", async () => {
+    mockGetDocs.mockResolvedValue(
+      createSnapshot([
+        {
+          id: "a",
+          data: () => ({
+            firstName: "Matches the date branch",
+            dob: { toDate: () => new Date(Date.UTC(1950, 0, 1)) },
+            ward: "Ward 1",
+          }),
+        },
+        {
+          id: "b",
+          // dob was cleared to null by the backfill; only the ward branch applies.
+          data: () => ({ firstName: "Matches the ward branch", dob: null, ward: "Ward 5" }),
+        },
+        {
+          id: "c",
+          data: () => ({ firstName: "Matches neither", dob: null, ward: "Ward 2" }),
+        },
+      ])
+    );
+
+    const result = await runClientQuery("clients", [
+      makeFilter("dob", "==", "1950-01-01"),
+      { ...makeFilter("ward", "==", "Ward 5"), logic: "OR" } as QueryFilter,
+    ]);
+
+    expect(result.rows.map((row) => row.firstName)).toEqual([
+      "Matches the date branch",
+      "Matches the ward branch",
+    ]);
   });
 
   it("preserves every allowlisted client field needed by results and exports", async () => {

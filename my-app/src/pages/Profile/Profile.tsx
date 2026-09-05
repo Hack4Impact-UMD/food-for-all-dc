@@ -76,6 +76,10 @@ import HealthCheckbox from "./components/HealthCheckbox";
 import { buildHouseholdSnapshot } from "../../utils/householdSnapshot";
 import { deliveryDate } from "../../utils/deliveryDate";
 import { computeClientActiveStatus } from "../../utils/clientStatus";
+import {
+  normalizeClientDatesForRead,
+  normalizeClientDatesForWrite,
+} from "../../utils/clientDate";
 import { GENDER_OPTIONS, normalizeGender } from "../../utils/gender";
 import { toJSDate } from "../../utils/timestamp";
 import {
@@ -520,13 +524,13 @@ const Profile = () => {
     const docRef = doc(db, dataSources.firebase.clientsCollection, id);
     const docSnap = await getDoc(docRef);
     if (docSnap.exists()) {
-      const data = docSnap.data();
+      // Date fields may be Timestamps or either legacy string format; the form needs ISO strings.
+      const data = normalizeClientDatesForRead(docSnap.data());
 
       const normalizedData = {
         ...data,
         gender: normalizeGender(data.gender),
         tefapCert: normalizeBooleanField(data.tefapCert),
-        tefapCertDate: deliveryDate.tryToISODateString(data.tefapCertDate) ?? "",
         activeStatus: computeClientActiveStatus(
           data.startDate,
           data.endDate,
@@ -1456,10 +1460,13 @@ const Profile = () => {
         };
         // Save profile + tags in parallel to reduce perceived save latency.
         await Promise.all([
-          setDoc(doc(db, dataSources.firebase.clientsCollection, newUid), {
-            ...newProfile,
-            ...buildClientAuditWriteMetadata(user, name),
-          }),
+          setDoc(
+            doc(db, dataSources.firebase.clientsCollection, newUid),
+            normalizeClientDatesForWrite({
+              ...newProfile,
+              ...buildClientAuditWriteMetadata(user, name),
+            })
+          ),
           setDoc(
             doc(db, dataSources.firebase.tagsCollection, dataSources.firebase.tagsDocId),
             { tags: sortedAllTags },
@@ -1498,10 +1505,10 @@ const Profile = () => {
         await Promise.all([
           setDoc(
             doc(db, dataSources.firebase.clientsCollection, clientProfile.uid),
-            {
+            normalizeClientDatesForWrite({
               ...updatedProfile,
               ...buildClientAuditWriteMetadata(user, name),
-            },
+            }),
             { merge: true }
           ),
           setDoc(
@@ -2968,14 +2975,14 @@ const Profile = () => {
 
           await setDoc(
             doc(db, dataSources.firebase.clientsCollection, clientId),
-            {
+            normalizeClientDatesForWrite({
               endDate: strikeDate,
               activeStatus: false,
               autoInactiveReason: "three-strikes",
               autoInactivePreviousEndDate: previousEndDate,
               autoInactiveStrikeDate: strikeDate,
               ...buildClientAuditWriteMetadata(user!, name),
-            },
+            }),
             { merge: true }
           );
 
@@ -3046,14 +3053,14 @@ const Profile = () => {
 
           await setDoc(
             doc(db, dataSources.firebase.clientsCollection, clientId),
-            {
+            normalizeClientDatesForWrite({
               endDate: restoredEndDate,
               activeStatus,
               autoInactiveReason: null,
               autoInactivePreviousEndDate: null,
               autoInactiveStrikeDate: null,
               ...buildClientAuditWriteMetadata(user!, name),
-            },
+            }),
             { merge: true }
           );
 

@@ -99,6 +99,7 @@ import Button from "@mui/material/Button";
 
 import DietaryRestrictionsLegend from "../../components/DietaryRestrictionsLegend";
 import { deliveryDate } from "../../utils/deliveryDate";
+import { normalizeClientDatesForRead } from "../../utils/clientDate";
 import { deliveryEventEmitter } from "../../utils/deliveryEventEmitter";
 import { useNotifications } from "../../components/NotificationProvider";
 import {
@@ -1151,7 +1152,7 @@ const DeliverySpreadsheet: React.FC = () => {
           const snapshot = await getDocs(q);
           const chunkData = snapshot.docs.map(
             (doc) =>
-              ({
+              normalizeClientDatesForRead({
                 id: doc.id,
                 ...doc.data(),
               }) as DeliveryRowData

@@ -47,7 +47,9 @@ export const OPERATORS_BY_TYPE: Record<QueryFieldType, QueryOperator[]> = {
   number: ["==", "!=", ">", ">=", "<", "<=", "in", "not-in"],
   text: ["==", "!=", "in", "not-in"],
   textList: ["array-contains", "array-contains-any"],
-  timestamp: ["==", ">", ">=", "<", "<="],
+  // Range operators run as whole-day Firestore constraints; !=/in/not-in are
+  // resolved on fetched rows by comparing calendar days.
+  timestamp: ["==", "!=", ">", ">=", "<", "<=", "in", "not-in"],
 };
 
 export const OPERATOR_LABELS: Record<QueryOperator, string> = {
@@ -142,12 +144,12 @@ const CLIENT_FIELDS: QueryFieldDef[] = [
   { field: "seniors", label: "Seniors", type: "number" },
   { field: "referralEntity.organization", label: "Referral Organization", type: "text" },
   { field: "referralEntity.name", label: "Referral Contact", type: "text" },
-  { field: "famStartDate", label: "FAM Start Date", type: "text", format: "date" },
-  { field: "startDate", label: "Start Date", type: "text", format: "date" },
-  { field: "endDate", label: "End Date", type: "text", format: "date" },
-  { field: "tefapCertDate", label: "TEFAP Certification Date", type: "text", format: "date" },
-  { field: "dob", label: "Date of Birth", type: "text", format: "date" },
-  { field: "referredDate", label: "Referral Date", type: "text", format: "date" },
+  // Calendar dates stored as noon-Eastern Timestamps, so they support range operators.
+  { field: "famStartDate", label: "FAM Start Date", type: "timestamp", format: "date" },  { field: "startDate", label: "Start Date", type: "timestamp", format: "date" },
+  { field: "endDate", label: "End Date", type: "timestamp", format: "date" },
+  { field: "tefapCertDate", label: "TEFAP Certification Date", type: "timestamp", format: "date" },
+  { field: "dob", label: "Date of Birth", type: "timestamp", format: "date" },
+  { field: "referredDate", label: "Referral Date", type: "timestamp", format: "date" },
   { field: "updatedAt", label: "Last Updated", type: "timestamp", format: "date" },
 ];
 
