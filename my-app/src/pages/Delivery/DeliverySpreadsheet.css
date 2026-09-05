@@ -39,7 +39,7 @@
 }
 
 /* Scoped to Routes page only, distinct from other .box usages */
-.routes-page-box {
+.box.routes-page-box {
   margin-top: 1.5vh;
 }
 

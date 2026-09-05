@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useMemo } from "react";
 import CloseIcon from "@mui/icons-material/Close";
 import PrintIcon from "@mui/icons-material/Print";
 import { Alert, Box, Button, IconButton, Typography } from "@mui/material";
@@ -133,11 +133,18 @@ const RouteReportsSummaryPage = ({ reportData }: { reportData: RouteReportData }
     (sum, report) => sum + report.deliveries.length,
     0
   );
-  const allDeliveries = reportData.reports.flatMap((report) => report.deliveries);
-  const deliveryRouteIds = new Map(
-    reportData.reports.flatMap((report) =>
-      report.deliveries.map((delivery) => [delivery.id, report.routeId] as const)
-    )
+  const allDeliveries = useMemo(
+    () => reportData.reports.flatMap((report) => report.deliveries),
+    [reportData.reports]
+  );
+  const deliveryRouteIds = useMemo(
+    () =>
+      new Map(
+        reportData.reports.flatMap((report) =>
+          report.deliveries.map((delivery) => [delivery.id, report.routeId] as const)
+        )
+      ),
+    [reportData.reports]
   );
   const deliveryDate = reportData.reports[0]?.deliveryDate;
 
@@ -191,7 +198,8 @@ const RouteReportsSummaryPage = ({ reportData }: { reportData: RouteReportData }
   );
 };
 
-const RouteReport = ({ report }: { report: DriverRouteReport }) => (  <article className="route-report">
+const RouteReport = ({ report }: { report: DriverRouteReport }) => (
+  <article className="route-report">
     <header className="route-report-header">
       <div>
         <p className="route-report-kicker">Driver Route Report</p>

@@ -1,6 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { isRenderableCoordinate } from "../utils/deliveryMapCounts";
-import { getClusterColor, getClusterTextColor } from "../utils/clusterColors";
+import {
+  getClusterColor,
+  getClusterTextColor,
+  WARD_COLORS,
+  WARD_FALLBACK_COLOR,
+} from "../utils/clusterColors";
 import { buildMarkerPlacementMap } from "../utils/markerPlacement";
 import { RouteReportDelivery } from "../utils/routeReportData";
 import dataSources from "../../../config/dataSources";
@@ -47,18 +52,6 @@ const DC_BOUNDS = { north: 38.9958, south: 38.7916, east: -76.9094, west: -77.11
 const DC_FIT_PADDING = 0;
 const DC_FIT_ZOOM_BOOST = 0;
 
-// Same palette used for the ward overlays on the routes map.
-const WARD_COLORS: { [key: string]: string } = {
-  "1": "#FF0000",
-  "2": "#00FF00",
-  "3": "#0000FF",
-  "4": "#FFFF00",
-  "5": "#FF00FF",
-  "6": "#00FFFF",
-  "7": "#FFA500",
-  "8": "#800080",
-};
-
 interface WardGeoJson {
   features: Array<{
     properties: Record<string, unknown>;
@@ -81,8 +74,14 @@ const fetchWardBoundaries = (): Promise<WardGeoJson | null> => {
     wardBoundariesPromise = fetch(
       `${dataSources.externalApi.dcGisWardServiceUrl}?${params.toString()}`
     )
-      .then((response) => (response.ok ? response.json() : null))
-      .catch(() => null);
+      .then((response) =>
+        response.ok ? response.json() : Promise.reject(new Error(`HTTP ${response.status}`))
+      )
+      .catch((error) => {
+        console.error("Failed to fetch DC ward boundaries:", error);
+        wardBoundariesPromise = null; // allow a retry on the next mount
+        return null;
+      });
   }
 
   return wardBoundariesPromise;
@@ -264,7 +263,7 @@ export const buildWardOverlayPaths = (
       String((feature.properties as any)?.WARD ?? (feature.properties as any)?.NAME ?? "").match(
         /\d+/
       )?.[0] || "";
-    const color = WARD_COLORS[wardName] || "#999999";
+    const color = WARD_COLORS[wardName] || WARD_FALLBACK_COLOR;
     const polygons: number[][][][] =
       feature.geometry.type === "MultiPolygon"
         ? (feature.geometry.coordinates as number[][][][])

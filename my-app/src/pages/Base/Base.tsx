@@ -28,8 +28,6 @@ import Tab from "./NavBar/Tab";
 import logo from "../../assets/ffa-banner-logo.webp";
 import { Typography, useMediaQuery, MenuItem, Select } from "@mui/material";
 import { useAuth } from "../../auth/AuthProvider";
-import { auth } from "../../auth/firebaseConfig";
-import { onAuthStateChanged } from "firebase/auth";
 import { useNavigate, useLocation, Outlet } from "react-router-dom";
 import { UserType } from "../../types";
 
@@ -121,19 +119,16 @@ export default function BasePage() {
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState("Delivery Schedule");
   const [pageTitle, setPageTitle] = useState("");
-  const { logout, name, userRole } = useAuth();
+  const { logout, name, userRole, user, loading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
   // Route protection for every page rendered inside this layout (incl. Reports)
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (!user) {
-        navigate("/");
-      }
-    });
-    return () => unsubscribe();
-  }, [navigate]);
+    if (!loading && !user) {
+      navigate("/", { replace: true });
+    }
+  }, [loading, user, navigate]);
 
   useEffect(() => {
     // Use full paths for comparison as location.pathname includes the base
@@ -183,7 +178,7 @@ export default function BasePage() {
   const handleLogout = async () => {
     try {
       await logout();
-      navigate("/"); // Redirect to home without full page reload
+      // The route-protection effect above handles the redirect once `user` clears.
     } catch (error) {
       console.error("Logout failed:", error);
     }
