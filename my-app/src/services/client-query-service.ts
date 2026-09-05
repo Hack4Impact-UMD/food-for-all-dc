@@ -470,14 +470,19 @@ export async function runClientQuery(
 
     const snapshot = await getDocs(q);
     // Range constraints on a timestamp field also match unmigrated string values,
-    // so verify against the raw document before mapping.
-    const rangeTimestampFields = getFirestoreFilters(collectionKey, filters)
-      .filter(
-        (filter) =>
-          getFieldDef(collectionKey, filter.field)?.type === "timestamp" &&
-          [">", ">=", "<", "<=", "=="].includes(filter.operator as string)
-      )
-      .map((filter) => filter.field);
+    // so verify against the raw document before mapping. This only applies when the
+    // range actually ran in Firestore: under an OR expression no constraints were
+    // sent, every filter is re-evaluated per group below, and dropping a document
+    // here would deny it the other branches it could still match on.
+    const rangeTimestampFields = requiresClientSideExpression
+      ? []
+      : getFirestoreFilters(collectionKey, filters)
+          .filter(
+            (filter) =>
+              getFieldDef(collectionKey, filter.field)?.type === "timestamp" &&
+              [">", ">=", "<", "<=", "=="].includes(filter.operator as string)
+          )
+          .map((filter) => filter.field);
 
     const matchedDocs =
       rangeTimestampFields.length === 0
