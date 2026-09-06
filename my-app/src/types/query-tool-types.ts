@@ -127,7 +127,7 @@ const CLIENT_FIELDS: QueryFieldDef[] = [
   { field: "zipCode", label: "ZIP Code", type: "text" },
   { field: "address2", label: "Address 2", type: "text" },
   { field: "quadrant", label: "Quadrant", type: "text", options: QUADRANT_OPTIONS },
-  { field: "ward", label: "Ward", type: "number", computed: true, options: WARD_OPTIONS },
+  { field: "ward", label: "Ward", type: "text", options: WARD_OPTIONS },
   { field: "language", label: "Language", type: "text" },
   { field: "gender", label: "Gender", type: "text" },
   { field: "ethnicity", label: "Ethnicity", type: "text" },
@@ -145,7 +145,8 @@ const CLIENT_FIELDS: QueryFieldDef[] = [
   { field: "referralEntity.organization", label: "Referral Organization", type: "text" },
   { field: "referralEntity.name", label: "Referral Contact", type: "text" },
   // Calendar dates stored as noon-Eastern Timestamps, so they support range operators.
-  { field: "famStartDate", label: "FAM Start Date", type: "timestamp", format: "date" },  { field: "startDate", label: "Start Date", type: "timestamp", format: "date" },
+  { field: "famStartDate", label: "FAM Start Date", type: "timestamp", format: "date" },
+  { field: "startDate", label: "Start Date", type: "timestamp", format: "date" },
   { field: "endDate", label: "End Date", type: "timestamp", format: "date" },
   { field: "tefapCertDate", label: "TEFAP Certification Date", type: "timestamp", format: "date" },
   { field: "dob", label: "Date of Birth", type: "timestamp", format: "date" },

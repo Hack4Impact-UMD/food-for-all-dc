@@ -54,6 +54,11 @@ const startOfNextDay = (date: Date): Date => {
   return d;
 };
 
+const normalizeWardFilterValue = (value: unknown): string => {
+  const match = String(value ?? "").match(/\d+/);
+  return match ? match[0] : "";
+};
+
 const toFirestoreValue = (collectionKey: CollectionKey, filter: QueryFilter): unknown => {
   const fieldDef = getFieldDef(collectionKey, filter.field);
 
@@ -65,10 +70,14 @@ const toFirestoreValue = (collectionKey: CollectionKey, filter: QueryFilter): un
       .map((v) => v.trim())
       .filter(Boolean);
     if (fieldDef?.type === "number") return values.map((value) => Number(value));
+    if (collectionKey === "clients" && filter.field === "ward") {
+      return values.map(normalizeWardFilterValue).filter(Boolean);
+    }
     return values;
   }
 
   if (fieldDef?.type === "number") return Number(filter.value);
+  if (collectionKey === "clients" && filter.field === "ward") return normalizeWardFilterValue(filter.value);
   if (fieldDef?.format === "date" && filter.value instanceof Date) return formatDateMask(filter.value);
   return filter.value;
 };

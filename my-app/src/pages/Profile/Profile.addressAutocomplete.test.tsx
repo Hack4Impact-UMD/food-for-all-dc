@@ -962,7 +962,7 @@ describe("Profile address autocomplete lifecycle", () => {
     await waitFor(() => {
       expect(mockSetDoc).toHaveBeenCalledWith(
         expect.anything(),
-        expect.objectContaining({ quadrant: "NW" }),
+        expect.objectContaining({ quadrant: "NW", ward: "2" }),
         { merge: true }
       );
     });

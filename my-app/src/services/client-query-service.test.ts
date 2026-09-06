@@ -94,11 +94,18 @@ describe("client-query-service", () => {
     expect(buildFirestoreConstraints("clients", filters)).toHaveLength(0);
   });
 
-  it("applies a ward == value filter client-side to normalize stored formats", () => {
+  it("builds a native ward constraint and normalizes typed labels", () => {
     const filters = [makeFilter("ward", "==", "Ward 3")];
     buildFirestoreConstraints("clients", filters);
-    expect(getFirestoreFilters("clients", filters)).toHaveLength(0);
-    expect(getComputedFilters("clients", filters)).toHaveLength(1);
+    expect(getFirestoreFilters("clients", filters)).toHaveLength(1);
+    expect(getComputedFilters("clients", filters)).toHaveLength(0);
+    expect(mockWhere).toHaveBeenCalledWith("ward", "==", "3");
+  });
+
+  it("normalizes ward list filters before querying Firestore", () => {
+    const filters = [makeFilter("ward", "in", ["Ward 1", "2"])]
+    buildFirestoreConstraints("clients", filters);
+    expect(mockWhere).toHaveBeenCalledWith("ward", "in", ["1", "2"]);
   });
 
   it("builds a tags array-contains constraint", () => {
@@ -252,7 +259,7 @@ describe("client-query-service", () => {
   it("combines multiple compatible filters into separate where clauses", () => {
     const filters = [makeFilter("ward", "==", "Ward 3"), makeFilter("tefapCert", "==", true)];
     buildFirestoreConstraints("clients", filters);
-    expect(mockWhere).toHaveBeenCalledTimes(1);
+    expect(mockWhere).toHaveBeenCalledTimes(2);
   });
 
   it("does not cap the number of results returned", async () => {
