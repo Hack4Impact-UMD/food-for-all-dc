@@ -103,9 +103,15 @@ describe("client-query-service", () => {
   });
 
   it("normalizes ward list filters before querying Firestore", () => {
-    const filters = [makeFilter("ward", "in", ["Ward 1", "2"])]
+    const filters = [makeFilter("ward", "in", ["Ward 1", "2"])];
     buildFirestoreConstraints("clients", filters);
     expect(mockWhere).toHaveBeenCalledWith("ward", "in", ["1", "2"]);
+  });
+
+  it("preserves non-empty ward values without digits instead of querying an empty string", () => {
+    const filters = [makeFilter("ward", "==", "No address")];
+    buildFirestoreConstraints("clients", filters);
+    expect(mockWhere).toHaveBeenCalledWith("ward", "==", "No address");
   });
 
   it("builds a tags array-contains constraint", () => {

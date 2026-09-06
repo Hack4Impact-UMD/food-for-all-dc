@@ -55,8 +55,9 @@ const startOfNextDay = (date: Date): Date => {
 };
 
 const normalizeWardFilterValue = (value: unknown): string => {
-  const match = String(value ?? "").match(/\d+/);
-  return match ? match[0] : "";
+  const text = String(value ?? "").trim();
+  const match = text.match(/\d+/);
+  return match ? match[0] : text;
 };
 
 const toFirestoreValue = (collectionKey: CollectionKey, filter: QueryFilter): unknown => {
