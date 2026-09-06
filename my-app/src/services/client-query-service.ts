@@ -54,11 +54,15 @@ const startOfNextDay = (date: Date): Date => {
   return d;
 };
 
-const normalizeWardFilterValue = (value: unknown): string => {
-  const text = String(value ?? "").trim();
-  const match = text.match(/\d+/);
-  return match ? match[0] : text;
-};
+const normalizeFilterValue = (
+  fieldDef: ReturnType<typeof getFieldDef>,
+  value: unknown
+): unknown => (fieldDef?.normalizeValue ? fieldDef.normalizeValue(value) : value);
+
+const queryValuesForFilterValue = (
+  fieldDef: ReturnType<typeof getFieldDef>,
+  value: unknown
+): unknown[] => (fieldDef?.queryValues ? fieldDef.queryValues(value) : [normalizeFilterValue(fieldDef, value)]);
 
 const toFirestoreValue = (collectionKey: CollectionKey, filter: QueryFilter): unknown => {
   const fieldDef = getFieldDef(collectionKey, filter.field);
@@ -71,14 +75,16 @@ const toFirestoreValue = (collectionKey: CollectionKey, filter: QueryFilter): un
       .map((v) => v.trim())
       .filter(Boolean);
     if (fieldDef?.type === "number") return values.map((value) => Number(value));
-    if (collectionKey === "clients" && filter.field === "ward") {
-      return values.map(normalizeWardFilterValue).filter(Boolean);
-    }
-    return values;
+    return values.flatMap((value) => queryValuesForFilterValue(fieldDef, value));
   }
 
   if (fieldDef?.type === "number") return Number(filter.value);
-  if (collectionKey === "clients" && filter.field === "ward") return normalizeWardFilterValue(filter.value);
+  if (Array.isArray(filter.value)) {
+    return filter.value.map((value) => normalizeFilterValue(fieldDef, value));
+  }
+  const queryValues = queryValuesForFilterValue(fieldDef, filter.value);
+  if (filter.operator === "==" && queryValues.length > 1) return queryValues;
+  if (queryValues.length > 0) return queryValues[0];
   if (fieldDef?.format === "date" && filter.value instanceof Date) return formatDateMask(filter.value);
   return filter.value;
 };
@@ -93,6 +99,7 @@ const getRowFieldValue = (row: RowData, field: string): unknown =>
 const isClientSideFilter = (collectionKey: CollectionKey, filter: QueryFilter): boolean => {
   const fieldDef = getFieldDef(collectionKey, filter.field);
   if (fieldDef?.computed || fieldDef?.format === "phone") return true;
+  if (fieldDef?.normalizeValue && ["!=", "not-in"].includes(filter.operator as string)) return true;
   // Firestore can only express whole-day ranges on a timestamp; day-equality
   // negation and day lists are resolved against fetched rows instead.
   return (
@@ -154,7 +161,12 @@ const buildConstraintsForFilter = (collectionKey: CollectionKey, filter: QueryFi
     }
   }
 
-  return [where(filter.field, filter.operator as any, toFirestoreValue(collectionKey, filter))];
+  const firestoreValue = toFirestoreValue(collectionKey, filter);
+  if (filter.operator === "==" && Array.isArray(firestoreValue)) {
+    return [where(filter.field, "in", firestoreValue)];
+  }
+
+  return [where(filter.field, filter.operator as any, firestoreValue)];
 };
 
 export const buildFirestoreConstraints = (collectionKey: CollectionKey, filters: QueryFilter[]) =>
@@ -182,6 +194,22 @@ const matchesComputedFilter = (
         return expected.includes(actual);
       case "not-in":
         return !expected.includes(actual);
+      default:
+        return true;
+    }
+  }
+
+  if (fieldDef?.normalizeValue) {
+    const actual = normalizeFilterValue(fieldDef, getRowFieldValue(row, filter.field));
+    const expectedValues = (Array.isArray(filter.value) ? filter.value : [filter.value])
+      .flatMap((value) => queryValuesForFilterValue(fieldDef, value))
+      .filter((value) => value !== "");
+
+    switch (filter.operator) {
+      case "!=":
+        return !expectedValues.includes(actual);
+      case "not-in":
+        return !expectedValues.includes(actual);
       default:
         return true;
     }
@@ -295,16 +323,18 @@ const matchesComputedFilter = (
 const matchesDirectFilter = (collectionKey: CollectionKey, row: RowData, filter: QueryFilter): boolean => {
   const value = getRowFieldValue(row, filter.field);
   const values = Array.isArray(filter.value) ? filter.value : String(filter.value).split(",").map((item) => item.trim());
+  const fieldDef = getFieldDef(collectionKey, filter.field);
   const comparable = (item: unknown): string | number => {
-    if (getFieldDef(collectionKey, filter.field)?.type === "number") return Number(item);
+    const normalizedItem = normalizeFilterValue(fieldDef, item);
+    if (fieldDef?.type === "number") return Number(normalizedItem);
     if (item && typeof item === "object" && typeof (item as { toDate?: unknown }).toDate === "function") {
       return (item as { toDate: () => Date }).toDate().getTime();
     }
-    return String(item ?? "").toLowerCase();
+    return String(normalizedItem ?? "").toLowerCase();
   };
   const actualValues = Array.isArray(value) ? value : [value];
   const actual = comparable(actualValues[0]);
-  const expected = values.map(comparable);
+  const expected = values.flatMap((item) => queryValuesForFilterValue(fieldDef, item)).map(comparable);
   switch (filter.operator) {
     case "==": return actualValues.some((item) => comparable(item) === expected[0]);
     case "!=": return actualValues.every((item) => comparable(item) !== expected[0]);

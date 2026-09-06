@@ -113,6 +113,34 @@
       ]
     },
     {
+      "collectionGroup": "client-profile2",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "ward",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "startDate",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "client-profile2",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "ward",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "endDate",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
       "collectionGroup": "users",
       "queryScope": "COLLECTION",
       "fields": [

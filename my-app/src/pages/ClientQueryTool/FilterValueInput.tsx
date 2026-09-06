@@ -5,7 +5,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Autocomplete, Checkbox, MenuItem, TextField } from "@mui/material";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
-import { QueryFieldDef, QueryOperator } from "../../types/query-tool-types";
+import { normalizeWardValue, QueryFieldDef, QueryOperator } from "../../types/query-tool-types";
 import { formatAssignedTime, formatPhoneNumber, parseQueryDate } from "../../utils/queryToolFormatting";
 
 interface FilterValueInputProps {
@@ -277,7 +277,7 @@ const FilterValueInput: React.FC<FilterValueInputProps> = ({
   const normalizedDropdownOptions = isWardField(fieldDef) || isClusterField(fieldDef)
     ? Array.from(new Set(selectableOptions.map((option) => {
         if (isClusterField(fieldDef) && option === "0") return "Unassigned";
-        return option.match(/\d+/)?.[0] || "";
+        return isWardField(fieldDef) ? normalizeWardValue(option) : option.match(/\d+/)?.[0] || "";
       }).filter(Boolean)))
     : dropdownOptions;
   const normalizedOptionLabels = isWardField(fieldDef) || isClusterField(fieldDef)
@@ -500,7 +500,7 @@ const FilterValueInput: React.FC<FilterValueInputProps> = ({
     return (
       <SearchableValueInput
         options={options}
-        value={isWardField(fieldDef) ? String(value ?? "").match(/\d+/)?.[0] || "" : value}
+        value={isWardField(fieldDef) ? normalizeWardValue(value) : value}
         onChange={onChange}
         commonProps={commonProps}
         labelId={labelId}
