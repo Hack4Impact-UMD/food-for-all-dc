@@ -1,6 +1,7 @@
 import { isValidEmail, isValidPhone } from "./validation";
 import { ClientProfile, Driver, DeliveryEvent, AuthUserRow } from "../types";
 import { Cluster } from "../pages/Delivery/types/deliveryTypes";
+import type { TefapForm, TefapSubmission } from "../types/tefap-types";
 
 export function validateClientProfile(data: unknown): data is ClientProfile {
   if (!data || typeof data !== "object") return false;
@@ -43,5 +44,28 @@ export function validateAuthUserRow(data: unknown): data is AuthUserRow {
     typeof d.name === "string" &&
     typeof d.email === "string" &&
     isValidEmail(d.email as string)
+  );
+}
+
+export function validateTefapForm(data: unknown): data is TefapForm {
+  if (!data || typeof data !== "object") return false;
+  const d = data as Record<string, unknown>;
+  return (
+    typeof d.name === "string" &&
+    typeof d.storagePath === "string" &&
+    d.storagePath.length > 0 &&
+    Array.isArray(d.fields)
+  );
+}
+
+export function validateTefapSubmission(data: unknown): data is TefapSubmission {
+  if (!data || typeof data !== "object") return false;
+  const d = data as Record<string, unknown>;
+  return (
+    typeof d.clientId === "string" &&
+    d.clientId.length > 0 &&
+    typeof d.formId === "string" &&
+    d.formId.length > 0 &&
+    Array.isArray(d.values)
   );
 }
