@@ -31,6 +31,10 @@ export interface QueryFieldDef {
   /** Delivery times are meaningful; other timestamp fields represent calendar days. */
   timeSensitive?: boolean;
   format?: QueryFieldFormat;
+  /** Normalize values before filtering, both in Firestore constraints and client-side fallbacks. */
+  normalizeValue?: (value: unknown) => unknown;
+  /** Equivalent persisted values to query for while legacy data may still exist. */
+  queryValues?: (value: unknown) => unknown[];
 }
 
 export interface QueryFilter {
@@ -77,6 +81,22 @@ const WARD_OPTIONS = [
 ];
 
 const QUADRANT_OPTIONS = ["NE", "NW", "SE", "SW"];
+
+export const normalizeWardValue = (value: unknown): string => {
+  const text = String(value ?? "").trim();
+  const match = text.match(/\b(?:Ward\s*)?([1-8])\b/i);
+  return match ? match[1] : text;
+};
+
+const wardQueryValues = (value: unknown): string[] => {
+  const text = String(value ?? "").trim();
+  const normalized = normalizeWardValue(value);
+  if (!normalized) return [normalized];
+  if (/^[1-8]$/.test(normalized)) {
+    return Array.from(new Set([normalized, `Ward ${normalized}`, text].filter(Boolean)));
+  }
+  return normalized && text && normalized !== text ? [normalized, text] : [normalized];
+};
 
 /** A field pulled in from a related collection via a join, shown alongside the row's own fields. */
 export interface JoinFieldDef {
@@ -127,7 +147,14 @@ const CLIENT_FIELDS: QueryFieldDef[] = [
   { field: "zipCode", label: "ZIP Code", type: "text" },
   { field: "address2", label: "Address 2", type: "text" },
   { field: "quadrant", label: "Quadrant", type: "text", options: QUADRANT_OPTIONS },
-  { field: "ward", label: "Ward", type: "number", computed: true, options: WARD_OPTIONS },
+  {
+    field: "ward",
+    label: "Ward",
+    type: "text",
+    options: WARD_OPTIONS,
+    normalizeValue: normalizeWardValue,
+    queryValues: wardQueryValues,
+  },
   { field: "language", label: "Language", type: "text" },
   { field: "gender", label: "Gender", type: "text" },
   { field: "ethnicity", label: "Ethnicity", type: "text" },
@@ -145,7 +172,8 @@ const CLIENT_FIELDS: QueryFieldDef[] = [
   { field: "referralEntity.organization", label: "Referral Organization", type: "text" },
   { field: "referralEntity.name", label: "Referral Contact", type: "text" },
   // Calendar dates stored as noon-Eastern Timestamps, so they support range operators.
-  { field: "famStartDate", label: "FAM Start Date", type: "timestamp", format: "date" },  { field: "startDate", label: "Start Date", type: "timestamp", format: "date" },
+  { field: "famStartDate", label: "FAM Start Date", type: "timestamp", format: "date" },
+  { field: "startDate", label: "Start Date", type: "timestamp", format: "date" },
   { field: "endDate", label: "End Date", type: "timestamp", format: "date" },
   { field: "tefapCertDate", label: "TEFAP Certification Date", type: "timestamp", format: "date" },
   { field: "dob", label: "Date of Birth", type: "timestamp", format: "date" },
@@ -157,7 +185,7 @@ const DELIVERY_FIELDS: QueryFieldDef[] = [
   { field: "clientName", label: "Client Name", type: "text" },
   { field: "assignedDriverName", label: "Driver", type: "text", computed: true },
   { field: "assignedTime", label: "Assigned Time", type: "text", computed: true },
-  { field: "ward", label: "Ward", type: "number", computed: true },
+  { field: "ward", label: "Ward", type: "text", computed: true, normalizeValue: normalizeWardValue },
   { field: "recurrence", label: "Recurrence", type: "text" },
   { field: "cluster", label: "Cluster", type: "number", computed: true },
   {

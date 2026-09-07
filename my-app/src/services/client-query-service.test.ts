@@ -100,11 +100,49 @@ describe("client-query-service", () => {
     expect(buildFirestoreConstraints("clients", filters)).toHaveLength(0);
   });
 
-  it("applies a ward == value filter client-side to normalize stored formats", () => {
+  it("builds a native ward constraint and normalizes typed labels", () => {
     const filters = [makeFilter("ward", "==", "Ward 3")];
     buildFirestoreConstraints("clients", filters);
-    expect(getFirestoreFilters("clients", filters)).toHaveLength(0);
-    expect(getComputedFilters("clients", filters)).toHaveLength(1);
+    expect(getFirestoreFilters("clients", filters)).toHaveLength(1);
+    expect(getComputedFilters("clients", filters)).toHaveLength(0);
+    expect(mockWhere).toHaveBeenCalledWith("ward", "in", ["3", "Ward 3"]);
+  });
+
+  it("normalizes ward list filters before querying Firestore", () => {
+    const filters = [makeFilter("ward", "in", ["Ward 1", "2"])];
+    buildFirestoreConstraints("clients", filters);
+    expect(mockWhere).toHaveBeenCalledWith("ward", "in", ["1", "Ward 1", "2", "Ward 2"]);
+  });
+
+  it("does not collapse scalar ward filters left with an array value", () => {
+    const filters = [makeFilter("ward", "==", ["1", "2"])];
+    buildFirestoreConstraints("clients", filters);
+    expect(mockWhere).toHaveBeenCalledWith("ward", "in", ["1", "2"]);
+  });
+
+  it("preserves non-empty ward values without digits instead of querying an empty string", () => {
+    const filters = [makeFilter("ward", "==", "No address")];
+    buildFirestoreConstraints("clients", filters);
+    expect(mockWhere).toHaveBeenCalledWith("ward", "==", "No address");
+  });
+
+  it("normalizes ward comparisons on the OR/client-side path", async () => {
+    mockGetDocs.mockResolvedValue(
+      createSnapshot([
+        { id: "stored-digit", data: () => ({ ward: "3", zipCode: "10000" }) },
+        { id: "stored-label", data: () => ({ ward: "Ward 3", zipCode: "10000" }) },
+        { id: "other", data: () => ({ ward: "4", zipCode: "10000" }) },
+      ])
+    );
+
+    const filters = [
+      makeFilter("ward", "==", "Ward 3"),
+      { ...makeFilter("zipCode", "==", "20001"), logic: "OR" as const },
+    ];
+
+    const result = await runClientQuery("clients", filters);
+
+    expect(result.rows.map((row) => row.id)).toEqual(["stored-digit", "stored-label"]);
   });
 
   it("builds a tags array-contains constraint", () => {
@@ -258,7 +296,7 @@ describe("client-query-service", () => {
   it("combines multiple compatible filters into separate where clauses", () => {
     const filters = [makeFilter("ward", "==", "Ward 3"), makeFilter("tefapCert", "==", true)];
     buildFirestoreConstraints("clients", filters);
-    expect(mockWhere).toHaveBeenCalledTimes(1);
+    expect(mockWhere).toHaveBeenCalledTimes(2);
   });
 
   it("does not cap the number of results returned", async () => {

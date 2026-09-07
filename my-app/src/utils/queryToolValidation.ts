@@ -18,10 +18,15 @@ const LIST_VALUE_LIMITS: Record<string, number> = {
   "not-in": 10,
 };
 
+const isListOperator = (operator: string): boolean =>
+  operator === "in" || operator === "not-in" || operator === "array-contains-any";
+
 const isValueEmpty = (value: unknown): boolean => {
   if (value === null || value === undefined) return true;
   if (typeof value === "string") return value.trim().length === 0;
-  if (Array.isArray(value)) return value.length === 0;
+  if (Array.isArray(value)) {
+    return value.length === 0 || value.every((item) => String(item ?? "").trim().length === 0);
+  }
   return false;
 };
 
@@ -61,6 +66,19 @@ export const validateFilters = (
     if (isValueEmpty(filter.value)) {
       fieldErrors[filter.id] = `Choose a value for ${fieldDef.label} before running the query.`;
       continue;
+    }
+
+    if (!isListOperator(filter.operator) && Array.isArray(filter.value)) {
+      fieldErrors[filter.id] = `Choose one value for ${fieldDef.label} with this operator.`;
+      continue;
+    }
+
+    if (isListOperator(filter.operator) && Array.isArray(filter.value)) {
+      const hasBlankValue = filter.value.some((value) => String(value ?? "").trim().length === 0);
+      if (hasBlankValue) {
+        fieldErrors[filter.id] = `Remove blank values for ${fieldDef.label} before running the query.`;
+        continue;
+      }
     }
 
     if (fieldDef.format === "date" && !isCompleteQueryDate(filter.value)) {
