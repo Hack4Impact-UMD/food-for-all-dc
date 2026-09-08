@@ -64,6 +64,22 @@ describe("suggestClientKey", () => {
     expect(suggestClientKey("Name")).toBeUndefined();
   });
 
+  // The registry lists the primary phone before the alternate, so a first-match
+  // rule bound "Alternate Phone Number" to the client's own phone.
+  it("prefers the most specific client value when several match", () => {
+    expect(suggestClientKey("Alternate Phone Number")).toBe("alternativePhone");
+    expect(suggestClientKey("Phone Number")).toBe("phone");
+  });
+
+  // A label naming somebody else is exactly the case a plausible wrong guess
+  // does the most harm: it puts the client's own details into a proxy block on
+  // a signed federal eligibility form.
+  it("offers nothing for a field belonging to someone other than the client", () => {
+    expect(suggestClientKey("Proxy First Name")).toBeUndefined();
+    expect(suggestClientKey("Emergency Contact Zip Code")).toBeUndefined();
+    expect(suggestClientKey("Spouse Date of Birth")).toBeUndefined();
+  });
+
   it("ignores labels too short to match on", () => {
     expect(suggestClientKey("A")).toBeUndefined();
   });

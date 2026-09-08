@@ -19,6 +19,7 @@ import {
   setDoc,
   updateDoc,
   where,
+  writeBatch,
 } from "firebase/firestore";
 import { deleteObject, getDownloadURL, ref, uploadBytes } from "firebase/storage";
 import { db } from "../auth/firebaseConfig";
@@ -243,13 +244,19 @@ class TefapFormService {
       updatedBy: actor,
     };
 
+    // Batched: writing the new version and archiving the old one have to land
+    // together. Separately, a failure on the second leaves two active versions
+    // of the same form - identical in name, description and PDF, so an admin
+    // cannot tell them apart - while the caller is told nothing was saved.
     try {
-      await setDoc(versionRef, record);
-      await updateDoc(doc(this.db, this.formsCollection, formId), {
+      const batch = writeBatch(this.db);
+      batch.set(versionRef, record);
+      batch.update(doc(this.db, this.formsCollection, formId), {
         status: "archived" as TefapFormStatus,
         updatedAt: serverTimestamp(),
         updatedBy: actor,
       });
+      await batch.commit();
     } catch (error) {
       throw formatServiceError(error, "Failed to save the new form version.");
     }

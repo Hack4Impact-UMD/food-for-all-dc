@@ -53,8 +53,10 @@ export interface TefapFillResult {
 export interface TefapFillOptions {
   /**
    * Flatten the form after filling so values cannot be edited afterwards and
-   * render identically in every viewer. Defaults to true; the fill dialog's
-   * live preview passes false so re-previewing stays cheap.
+   * render identically in every viewer. Defaults to true, and every caller
+   * takes that default: the fill dialog's preview bytes are the same bytes it
+   * downloads, so they have to be flattened. Kept as an option for callers that
+   * only ever render.
    */
   flatten?: boolean;
 }
@@ -67,20 +69,20 @@ const OVERLAY_PADDING_X = 2;
 
 // --- Inspection -------------------------------------------------------------
 
-const acroFieldTypeOf = (constructorName: string): TefapAcroFieldType => {
-  switch (constructorName) {
-    case "PDFTextField":
-      return "text";
-    case "PDFCheckBox":
-      return "checkbox";
-    case "PDFRadioGroup":
-      return "radio";
-    case "PDFDropdown":
-    case "PDFOptionList":
-      return "dropdown";
-    default:
-      return "unsupported";
-  }
+/**
+ * Classifies an AcroForm field by class identity rather than by
+ * `field.constructor.name`.
+ *
+ * The production build minifies pdf-lib's class names, so a name comparison
+ * matches nothing once deployed and reports every field as unsupported - while
+ * passing every test, because Jest runs the unminified module.
+ */
+const acroFieldTypeOf = (field: unknown, lib: PdfLib): TefapAcroFieldType => {
+  if (field instanceof lib.PDFTextField) return "text";
+  if (field instanceof lib.PDFCheckBox) return "checkbox";
+  if (field instanceof lib.PDFRadioGroup) return "radio";
+  if (field instanceof lib.PDFDropdown || field instanceof lib.PDFOptionList) return "dropdown";
+  return "unsupported";
 };
 
 /**
@@ -102,7 +104,8 @@ const isUninformativeName = (name: string): boolean => {
  * its own authoring quirks, so nothing here is specific to a given form.
  */
 export const inspectPdf = async (bytes: Uint8Array): Promise<TefapPdfInspection> => {
-  const { PDFDocument } = await loadPdfLib();
+  const pdfLib = await loadPdfLib();
+  const { PDFDocument } = pdfLib;
   const doc = await PDFDocument.load(bytes, { ignoreEncryption: true });
 
   const pages = doc.getPages();
@@ -133,7 +136,7 @@ export const inspectPdf = async (bytes: Uint8Array): Promise<TefapPdfInspection>
 
   for (const field of fields) {
     const name = field.getName();
-    const type = acroFieldTypeOf(field.constructor.name);
+    const type = acroFieldTypeOf(field, pdfLib);
 
     const widgets: TefapRect[] = field.acroField.getWidgets().map((widget) => {
       const rect = widget.getRectangle();
@@ -274,6 +277,13 @@ const wrapText = (
     lines.push(current);
   }
 
+  // A trailing newline leaves an empty final paragraph. Keeping it would count
+  // a line that draws nothing against the rect's height, shrinking the text to
+  // fit a gap that is not there. Interior blanks stay: those are real spacing.
+  while (lines.length > 1 && lines[lines.length - 1] === "") {
+    lines.pop();
+  }
+
   return lines.length > 0 ? lines : [""];
 };
 
@@ -359,7 +369,8 @@ export const fillPdf = async (
   values: TefapFieldValue[],
   options: TefapFillOptions = {}
 ): Promise<TefapFillResult> => {
-  const { PDFDocument, StandardFonts } = await loadPdfLib();
+  const pdfLib = await loadPdfLib();
+  const { PDFDocument, StandardFonts } = pdfLib;
   const { flatten = true } = options;
 
   const doc = await PDFDocument.load(templateBytes, { ignoreEncryption: true });
@@ -411,7 +422,7 @@ export const fillPdf = async (
         continue;
       }
 
-      const targetType = acroFieldTypeOf(target.constructor.name);
+      const targetType = acroFieldTypeOf(target, pdfLib);
 
       try {
         if (targetType === "text") {
@@ -434,13 +445,41 @@ export const fillPdf = async (
           }
           pendingMarks.push(...marks);
         } else if (targetType === "radio") {
-          const selection = asText(raw);
-          const optionIndex = (target.getOptions() as string[]).indexOf(selection);
           const marks = widgetRects(target);
+
+          // The mapper collapses a radio group to a checkbox, so the answer
+          // usually arrives as a boolean with no option name attached. A group
+          // drawing a single box is a checkbox in all but name and can be
+          // marked directly; one drawing several cannot be resolved from a
+          // yes/no, and the admin has to split it into per-box fields.
+          if (typeof raw === "boolean") {
+            if (!raw) continue;
+
+            if (marks.length === 1) {
+              pendingMarks.push(marks[0]);
+            } else {
+              warnings.push({
+                fieldKey: field.key,
+                code: "shared-widgets",
+                message:
+                  `"${field.label}" is a radio group controlling ${marks.length} boxes, so a ` +
+                  "yes/no answer cannot say which to mark. Split it into one field per box.",
+              });
+            }
+            continue;
+          }
+
+          // A literal option name (from the template's own saved value) picks
+          // its box directly. Note this is deliberately not gated on
+          // isTruthy: "No" is a legitimate option name.
+          const selection = raw.trim();
+          if (!selection) continue;
+
+          const optionIndex = (target.getOptions() as string[]).indexOf(selection);
 
           if (optionIndex >= 0 && marks[optionIndex]) {
             pendingMarks.push(marks[optionIndex]);
-          } else if (selection) {
+          } else {
             warnings.push({
               fieldKey: field.key,
               code: "type-mismatch",
@@ -503,15 +542,20 @@ export const fillPdf = async (
 
   // Drop button fields without stamping them: their answers are drawn as marks,
   // and stamping would paint a second box over the static one.
-  try {
-    for (const field of form.getFields()) {
-      const type = acroFieldTypeOf(field.constructor.name);
-      if (type === "checkbox" || type === "radio") {
-        form.removeField(field);
-      }
+  //
+  // Each removal is guarded on its own. pdf-lib throws on a widget whose page
+  // reference is missing - an authoring defect these forms do ship with - and a
+  // single throw must not leave every later button in the document to be
+  // flattened with its "off" appearance over the mark queued above.
+  for (const field of form.getFields()) {
+    const type = acroFieldTypeOf(field, pdfLib);
+    if (type !== "checkbox" && type !== "radio") continue;
+
+    try {
+      form.removeField(field);
+    } catch {
+      // This one will not come out; the rest still can.
     }
-  } catch {
-    // Nothing to remove.
   }
 
   if (flatten) {

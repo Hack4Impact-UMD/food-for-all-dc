@@ -9,6 +9,14 @@ const mockGetCountFromServer = jest.fn<any, any>();
 const mockUploadBytes = jest.fn<any, any>();
 const mockDeleteObject = jest.fn<any, any>();
 const mockGetDownloadURL = jest.fn<any, any>();
+const mockBatchSet = jest.fn<any, any>();
+const mockBatchUpdate = jest.fn<any, any>();
+const mockBatchCommit = jest.fn<any, any>();
+const mockWriteBatch = jest.fn<any, any>(() => ({
+  set: mockBatchSet,
+  update: mockBatchUpdate,
+  commit: mockBatchCommit,
+}));
 
 let mockDocIdCounter = 0;
 
@@ -41,6 +49,7 @@ jest.mock("firebase/firestore", () => ({
   where: (...args: unknown[]) => ({ mocked: "where", args }),
   orderBy: (...args: unknown[]) => ({ mocked: "orderBy", args }),
   serverTimestamp: () => ({ mocked: "serverTimestamp" }),
+  writeBatch: (...args: unknown[]) => mockWriteBatch(...args),
 }));
 
 jest.mock("firebase/storage", () => ({
@@ -90,6 +99,12 @@ const existingForm = (over: Record<string, unknown> = {}) => ({
 beforeEach(() => {
   jest.clearAllMocks();
   tefapFormService.clearTemplateCache();
+  mockWriteBatch.mockImplementation(() => ({
+    set: mockBatchSet,
+    update: mockBatchUpdate,
+    commit: mockBatchCommit,
+  }));
+  mockBatchCommit.mockResolvedValue(undefined);
   mockUploadBytes.mockResolvedValue(undefined);
   mockSetDoc.mockResolvedValue(undefined);
   mockUpdateDoc.mockResolvedValue(undefined);
@@ -225,8 +240,31 @@ describe("saveFieldMap", () => {
 
     await tefapFormService.saveFieldMap("f1", [field("b")], actor);
 
-    const archived = mockUpdateDoc.mock.calls[0][1] as Record<string, unknown>;
+    const archived = mockBatchUpdate.mock.calls[0][1] as Record<string, unknown>;
     expect(archived.status).toBe("archived");
+  });
+
+  // Two separate writes would leave both versions active if the second failed,
+  // while telling the caller nothing had been saved at all.
+  it("writes the new version and archives the old one in one batch", async () => {
+    mockGetCountFromServer.mockResolvedValue({ data: () => ({ count: 1 }) });
+
+    await tefapFormService.saveFieldMap("f1", [field("b")], actor);
+
+    expect(mockBatchSet).toHaveBeenCalledTimes(1);
+    expect(mockBatchUpdate).toHaveBeenCalledTimes(1);
+    expect(mockBatchCommit).toHaveBeenCalledTimes(1);
+    expect(mockSetDoc).not.toHaveBeenCalled();
+    expect(mockUpdateDoc).not.toHaveBeenCalled();
+  });
+
+  it("reports a failed version write without committing a partial one", async () => {
+    mockGetCountFromServer.mockResolvedValue({ data: () => ({ count: 1 }) });
+    mockBatchCommit.mockRejectedValueOnce(new Error("offline"));
+
+    await expect(tefapFormService.saveFieldMap("f1", [field("b")], actor)).rejects.toThrow(
+      "Failed to save the new form version."
+    );
   });
 
   it("fails clearly when the form has been removed", async () => {

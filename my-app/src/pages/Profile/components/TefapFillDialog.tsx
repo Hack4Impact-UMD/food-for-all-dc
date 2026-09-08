@@ -103,6 +103,12 @@ const TefapFillDialog: React.FC<TefapFillDialogProps> = ({
   const [issues, setIssues] = useState<string[]>([]);
   const objectUrlRef = useRef("");
 
+  // Id of a submission that committed while a later step failed. Saving is two
+  // writes, and tefapSubmissions is append-only: without this, a failure on the
+  // second write reads as "nothing saved" and the retry records a second
+  // certification for the same client, form and day.
+  const submissionIdRef = useRef("");
+
   const actor: TefapActor = useMemo(
     () => ({
       uid: user?.uid ?? "",
@@ -125,6 +131,7 @@ const TefapFillDialog: React.FC<TefapFillDialogProps> = ({
     setPreviewUrl("");
     setFilledBytes(null);
     setIssues([]);
+    submissionIdRef.current = "";
     if (objectUrlRef.current) {
       URL.revokeObjectURL(objectUrlRef.current);
       objectUrlRef.current = "";
@@ -232,33 +239,52 @@ const TefapFillDialog: React.FC<TefapFillDialogProps> = ({
 
     setSaving(true);
     try {
-      await tefapSubmissionService.createSubmission(
-        {
-          clientId,
-          clientName: `${client.firstName ?? ""} ${client.lastName ?? ""}`.trim(),
-          form: selectedForm,
-          values: toValueList(values),
-          certExpiresOn,
-        },
-        actor
-      );
+      // Skipped when a previous attempt already recorded the submission and
+      // only the profile write failed.
+      if (!submissionIdRef.current) {
+        try {
+          const submission = await tefapSubmissionService.createSubmission(
+            {
+              clientId,
+              clientName: `${client.firstName ?? ""} ${client.lastName ?? ""}`.trim(),
+              form: selectedForm,
+              values: toValueList(values),
+              certExpiresOn,
+            },
+            actor
+          );
+          submissionIdRef.current = submission.id;
+        } catch (error) {
+          showError(error instanceof Error ? error.message : "Failed to save the TEFAP form.");
+          return;
+        }
+      }
 
       // Written through the client service so the profile's own date handling
       // and audit metadata apply. Profile refreshes its copy via onSubmitted,
       // otherwise its next save would write back the stale certification date.
-      const { clientService } = await import("../../../services/client-service");
-      await clientService.updateClient(clientId, {
-        tefapCert: Boolean(certExpiresOn),
-        tefapCertDate: certExpiresOn,
-      });
+      try {
+        const { clientService } = await import("../../../services/client-service");
+        await clientService.updateClient(clientId, {
+          tefapCert: Boolean(certExpiresOn),
+          tefapCertDate: certExpiresOn,
+        });
+      } catch (error) {
+        // Deliberately distinct from the message above: the form itself is
+        // recorded, and only the profile's certification date is behind.
+        showError(
+          "The TEFAP form was saved, but the client's certification date could not be " +
+            `updated: ${error instanceof Error ? error.message : "unknown error"}. ` +
+            "Press Save again to retry - the form will not be recorded twice."
+        );
+        return;
+      }
 
       showSuccess("TEFAP form saved.");
       onSubmitted(certExpiresOn);
       handleDownload();
       reset();
       onClose();
-    } catch (error) {
-      showError(error instanceof Error ? error.message : "Failed to save the TEFAP form.");
     } finally {
       setSaving(false);
     }

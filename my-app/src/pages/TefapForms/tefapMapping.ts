@@ -22,6 +22,25 @@ const CLIENT_SOURCE_TOKENS = TEFAP_CLIENT_FIELD_SOURCES.map((source) => ({
 }));
 
 /**
+ * Words that mark a field as belonging to somebody other than the client: a
+ * proxy, an alternate contact, an emergency contact. A label carrying one must
+ * not be bound to the client's own details.
+ */
+const THIRD_PARTY_QUALIFIERS = [
+  "proxy",
+  "alternate",
+  "alternative",
+  "emergency",
+  "spouse",
+  "guardian",
+  "caregiver",
+  "representative",
+  "authorized",
+  "designee",
+  "witness",
+];
+
+/**
  * Guesses which client value a field is asking for, from its label alone.
  *
  * Deliberately conservative, because a plausible wrong guess is worse than no
@@ -37,6 +56,10 @@ const CLIENT_SOURCE_TOKENS = TEFAP_CLIENT_FIELD_SOURCES.map((source) => ({
  * routinely use bare labels like that for a proxy or alternate contact. Names
  * ending in a digit are skipped for the same reason, since that is how form
  * editors label the second copy of a duplicated block.
+ *
+ * Where several client values match, the longest token wins rather than the
+ * first: the registry lists the primary phone before the alternate, so a
+ * first-match rule binds "Alternate Phone Number" to the client's own phone.
  */
 export const suggestClientKey = (label: string): string | undefined => {
   const field = normalize(label);
@@ -48,13 +71,26 @@ export const suggestClientKey = (label: string): string | undefined => {
 
   if (/\d$/.test(field)) return undefined;
 
+  let best: { key: string; token: string } | undefined;
+
   for (const source of CLIENT_SOURCE_TOKENS) {
-    if (source.tokens.some((token) => token.length >= 4 && field.includes(token))) {
-      return source.key;
+    for (const token of source.tokens) {
+      if (token.length < 4 || !field.includes(token)) continue;
+      if (!best || token.length > best.token.length) {
+        best = { key: source.key, token };
+      }
     }
   }
 
-  return undefined;
+  if (!best) return undefined;
+
+  // The qualifier is allowed only when the matched value accounts for it
+  // itself, as "Alternate phone" does for "Alternate Phone Number". Otherwise
+  // the label is asking about a different person and gets no suggestion.
+  const qualifier = THIRD_PARTY_QUALIFIERS.find((word) => field.includes(word));
+  if (qualifier && !best.token.includes(qualifier)) return undefined;
+
+  return best.key;
 };
 
 const fieldTypeFor = (acro: TefapAcroField): TefapFormField["type"] => {

@@ -15,7 +15,7 @@ import {
 } from "@mui/material";
 import UploadFileIcon from "@mui/icons-material/UploadFile";
 import type { TefapActor, TefapFormField, TefapPdfInspection } from "../../types/tefap-types";
-import { tefapFormService } from "../../services/tefap-form-service";
+import { MAX_TEMPLATE_BYTES, tefapFormService } from "../../services/tefap-form-service";
 import { useNotifications } from "../../components/NotificationProvider";
 import FieldMapper from "./FieldMapper";
 import { buildFieldsFromInspection } from "./tefapMapping";
@@ -29,6 +29,8 @@ interface FormUploadDialogProps {
 }
 
 const DEFAULT_CERT_MONTHS = 12;
+
+const megabytes = (bytes: number): string => `${Math.round((bytes / 1024 / 1024) * 10) / 10}MB`;
 
 const FormUploadDialog: React.FC<FormUploadDialogProps> = ({ open, actor, onClose, onSaved }) => {
   const { showSuccess, showError } = useNotifications();
@@ -64,6 +66,17 @@ const FormUploadDialog: React.FC<FormUploadDialogProps> = ({ open, actor, onClos
   const handleFile = useCallback(
     async (picked: File | undefined) => {
       if (!picked) return;
+
+      // Checked before the file is read. createForm enforces the same limit,
+      // but only at save time - by which point the PDF has been buffered,
+      // inspected, previewed and hand-mapped, and all of that work is lost.
+      if (picked.size > MAX_TEMPLATE_BYTES) {
+        showError(
+          `"${picked.name}" is ${megabytes(picked.size)}, over the ` +
+            `${megabytes(MAX_TEMPLATE_BYTES)} limit for a template.`
+        );
+        return;
+      }
 
       setInspecting(true);
       try {

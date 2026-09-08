@@ -258,6 +258,31 @@ describe("fillPdf", () => {
     expect(warnings[0].code).toBe("type-mismatch");
   });
 
+  // The mapper collapses a radio group to a checkbox, so an unticked one
+  // arrives as false. Rendering that as the string "No" and looking for a
+  // matching option put a warning into every bulk-export manifest.
+  it("says nothing about a radio group left unticked", async () => {
+    const template = await buildFillablePdf();
+    const fields = [acroField("row", "Household receives TANF", { type: "checkbox" })];
+
+    const { warnings } = await fillPdf(template, fields, [{ field: "row", value: false }]);
+
+    expect(warnings).toHaveLength(0);
+  });
+
+  // A yes/no answer cannot say which of several options was meant, so the admin
+  // is told to split the field rather than handed a silently blank form.
+  it("explains why a ticked multi-option radio group cannot be resolved", async () => {
+    const template = await buildFillablePdf();
+    const fields = [acroField("row", "Household receives TANF", { type: "checkbox" })];
+
+    const { warnings } = await fillPdf(template, fields, [{ field: "row", value: true }]);
+
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0].code).toBe("shared-widgets");
+    expect(warnings[0].message).toContain("Split it into one field per box");
+  });
+
   it("warns instead of throwing when the template no longer has a mapped field", async () => {
     const template = await buildFillablePdf();
     const fields = [acroField("gone", "Field That Was Removed")];
@@ -324,6 +349,31 @@ describe("fillPdf", () => {
     );
 
     expect(warnings.map((warning) => warning.code)).toContain("text-overflow");
+  });
+
+  // A trailing newline used to leave an empty final line, which counted against
+  // the rect's height and shrank text that would otherwise have fit.
+  it("does not count a trailing newline as a line that has to fit", async () => {
+    const template = await buildFlatPdf();
+    const box = overlayField("note", {
+      type: "multiline",
+      placement: {
+        kind: "overlay",
+        page: 1,
+        x: 72,
+        y: 500,
+        width: 200,
+        height: 14,
+        fontSize: 11,
+        align: "left",
+      },
+    });
+
+    const plain = await fillPdf(template, [box], [{ field: "note", value: "Washington DC" }]);
+    const trailing = await fillPdf(template, [box], [{ field: "note", value: "Washington DC\n" }]);
+
+    expect(plain.warnings).toHaveLength(0);
+    expect(trailing.warnings).toEqual(plain.warnings);
   });
 
   it("warns when an overlay field points at a page the PDF does not have", async () => {

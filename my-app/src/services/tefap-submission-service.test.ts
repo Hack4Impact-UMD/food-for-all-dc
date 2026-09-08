@@ -193,6 +193,21 @@ describe("listSubmissions", () => {
     expect(date.getTime()).toBeGreaterThan(new Date("2026-09-30T00:00:00Z").getTime());
   });
 
+  // tryToJSDate normalises to Eastern midday, so bounding on it directly drops
+  // every submission made in the morning of the start date - silently, and with
+  // no count discrepancy to notice.
+  it("bounds an inclusive start date by the start of that day", async () => {
+    await tefapSubmissionService.listSubmissions({ from: "2026-09-30" });
+
+    const bound = mockWhere.mock.calls.find((call) => call[1] === ">=");
+    expect(bound).toBeDefined();
+    const { date } = bound?.[2] as { date: Date };
+
+    // 2026-09-30T00:00 Eastern is 04:00 UTC; midday would be 16:00 UTC.
+    expect(date.getTime()).toBeLessThan(new Date("2026-09-30T05:00:00Z").getTime());
+    expect(date.getTime()).toBeGreaterThanOrEqual(new Date("2026-09-30T00:00:00Z").getTime());
+  });
+
   it("always orders newest first", async () => {
     await tefapSubmissionService.listSubmissions({});
 

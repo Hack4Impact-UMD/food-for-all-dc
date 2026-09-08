@@ -54,3 +54,7 @@ for (const [name, actual, expected] of results) {
   console.log(`${pass?'PASS':'FAIL'}  ${name}  (allowed=${actual}, expected=${expected})`);
 }
 console.log(bad? `\n${bad} rule check(s) FAILED` : '\nAll storage rule checks passed');
+
+// Exit non-zero on failure so CI and pre-deploy `&&` chains actually stop. A
+// rule that is too open otherwise looks exactly like one that works.
+process.exit(bad ? 1 : 0);

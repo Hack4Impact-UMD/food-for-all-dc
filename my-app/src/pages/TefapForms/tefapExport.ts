@@ -77,17 +77,30 @@ export const submissionFileName = (submission: TefapSubmission): string =>
  * have to be resolved before anything is added to it.
  */
 export const uniqueFileNames = (names: string[]): string[] => {
-  const seen = new Map<string, number>();
+  const seen = new Set<string>();
 
   return names.map((name) => {
-    const taken = seen.get(name) ?? 0;
-    seen.set(name, taken + 1);
-    if (taken === 0) return name;
+    if (!seen.has(name)) {
+      seen.add(name);
+      return name;
+    }
 
     const dot = name.lastIndexOf(".");
-    return dot === -1
-      ? `${name}_${taken + 1}`
-      : `${name.slice(0, dot)}_${taken + 1}${name.slice(dot)}`;
+    const stem = dot === -1 ? name : name.slice(0, dot);
+    const extension = dot === -1 ? "" : name.slice(dot);
+
+    // Count up until the suffixed name is genuinely free, and record it. A
+    // counter that is neither re-checked nor registered can land on a name the
+    // list already holds - ["a.pdf", "a.pdf", "a_2.pdf"] - putting back the
+    // very collision this exists to remove.
+    let counter = 2;
+    while (seen.has(`${stem}_${counter}${extension}`)) {
+      counter += 1;
+    }
+
+    const candidate = `${stem}_${counter}${extension}`;
+    seen.add(candidate);
+    return candidate;
   });
 };
 

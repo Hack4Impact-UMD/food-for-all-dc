@@ -34,6 +34,13 @@ interface FieldMapperProps {
   onChange: (fields: TefapFormField[]) => void;
 }
 
+/**
+ * How long a selection has to hold still before the preview is re-rendered.
+ * Long enough to swallow a run down the list, short enough to feel immediate
+ * once the admin stops on the field they mean to edit.
+ */
+const PREVIEW_SETTLE_MS = 250;
+
 const FIELD_TYPES: Array<{ value: TefapFormField["type"]; label: string }> = [
   { value: "text", label: "Text" },
   { value: "multiline", label: "Long text" },
@@ -66,7 +73,8 @@ const FieldMapper: React.FC<FieldMapperProps> = ({
   );
 
   // Rebuilding the preview means re-rendering the whole PDF, so it is keyed on
-  // what actually moves a box rather than on every keystroke in a label.
+  // what actually moves or recolours a box rather than on every keystroke in a
+  // label. The badge label here is the box's number, not the field's name.
   const annotationSignature = useMemo(
     () =>
       annotations
@@ -74,6 +82,20 @@ const FieldMapper: React.FC<FieldMapperProps> = ({
         .join("|"),
     [annotations]
   );
+
+  // The highlight has to be drawn into the PDF - there is no way to position a
+  // DOM overlay against the browser's own PDF viewer - so every selection means
+  // re-saving the document and making the iframe re-parse it. Letting the
+  // selection settle first collapses a run down the field list into one render
+  // instead of one per card.
+  const [renderSignature, setRenderSignature] = useState(annotationSignature);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setRenderSignature(annotationSignature), PREVIEW_SETTLE_MS);
+    return () => clearTimeout(timer);
+  }, [annotationSignature]);
+
+  const previewSettling = renderSignature !== annotationSignature;
 
   useEffect(() => {
     let cancelled = false;
@@ -100,8 +122,10 @@ const FieldMapper: React.FC<FieldMapperProps> = ({
     return () => {
       cancelled = true;
     };
+    // annotations is intentionally absent: renderSignature is what decides when
+    // a rebuild is worth doing, and it lags annotations by the settle delay.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [templateBytes, annotationSignature]);
+  }, [templateBytes, renderSignature]);
 
   useEffect(
     () => () => {
@@ -143,6 +167,7 @@ const FieldMapper: React.FC<FieldMapperProps> = ({
       <Box sx={{ position: { md: "sticky" }, top: 0 }}>
         <Typography variant="subtitle2" sx={{ mb: 1, color: "var(--color-text-medium-alt)" }}>
           Numbered boxes match the list. The highlighted box is the field you are editing.
+          {previewSettling && " Updating..."}
         </Typography>
         {previewError ? (
           <Alert severity="warning">{previewError}</Alert>

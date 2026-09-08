@@ -26,6 +26,7 @@ import DownloadIcon from "@mui/icons-material/Download";
 import ArchiveIcon from "@mui/icons-material/Archive";
 import UnarchiveIcon from "@mui/icons-material/Unarchive";
 import VisibilityIcon from "@mui/icons-material/Visibility";
+import EditIcon from "@mui/icons-material/Edit";
 import CloseIcon from "@mui/icons-material/Close";
 import type { TefapActor, TefapForm } from "../../types/tefap-types";
 import { tefapFormService } from "../../services/tefap-form-service";
@@ -34,6 +35,7 @@ import { useNotifications } from "../../components/NotificationProvider";
 import LoadingIndicator from "../../components/LoadingIndicator/LoadingIndicator";
 import { deliveryDate } from "../../utils/deliveryDate";
 import FormUploadDialog from "./FormUploadDialog";
+import FieldMapDialog from "./FieldMapDialog";
 import BulkDownloadDialog from "./BulkDownloadDialog";
 import {
   cardSx,
@@ -56,6 +58,7 @@ const TefapFormsPage: React.FC = () => {
   const [uploadOpen, setUploadOpen] = useState(false);
   const [downloadOpen, setDownloadOpen] = useState(false);
   const [previewForm, setPreviewForm] = useState<TefapForm | null>(null);
+  const [mappingForm, setMappingForm] = useState<TefapForm | null>(null);
   const [previewUrl, setPreviewUrl] = useState("");
 
   const actor: TefapActor = useMemo(
@@ -89,8 +92,13 @@ const TefapFormsPage: React.FC = () => {
 
   const handlePreview = useCallback(
     async (form: TefapForm) => {
+      // Cleared first. The dialog opens the moment previewForm is set, so a URL
+      // left over from the last preview would render that template under this
+      // one's title - long enough, on a slow connection, to archive the wrong
+      // form on the strength of it.
+      setPreviewUrl("");
+      setPreviewForm(form);
       try {
-        setPreviewForm(form);
         setPreviewUrl(await tefapFormService.getTemplateUrl(form));
       } catch (error) {
         setPreviewForm(null);
@@ -99,6 +107,11 @@ const TefapFormsPage: React.FC = () => {
     },
     [showError]
   );
+
+  const handleClosePreview = useCallback(() => {
+    setPreviewForm(null);
+    setPreviewUrl("");
+  }, []);
 
   const handleStatus = useCallback(
     async (form: TefapForm) => {
@@ -239,6 +252,15 @@ const TefapFormsPage: React.FC = () => {
                         <VisibilityIcon fontSize="small" />
                       </IconButton>
                     </Tooltip>
+                    <Tooltip title="Edit the field mapping">
+                      <IconButton
+                        size="small"
+                        onClick={() => setMappingForm(form)}
+                        sx={{ color: "var(--color-primary)" }}
+                      >
+                        <EditIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
                     <Tooltip title={form.status === "active" ? "Archive" : "Restore"}>
                       <IconButton
                         size="small"
@@ -276,27 +298,45 @@ const TefapFormsPage: React.FC = () => {
         }}
       />
 
-      <Dialog
-        open={Boolean(previewForm)}
-        onClose={() => setPreviewForm(null)}
-        maxWidth="md"
-        fullWidth
-      >
+      <FieldMapDialog
+        form={mappingForm}
+        actor={actor}
+        onClose={() => setMappingForm(null)}
+        onSaved={() => {
+          setMappingForm(null);
+          void load();
+        }}
+      />
+
+      <Dialog open={Boolean(previewForm)} onClose={handleClosePreview} maxWidth="md" fullWidth>
         <DialogTitle
           sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}
         >
           {previewForm?.name}
-          <IconButton onClick={() => setPreviewForm(null)} size="small">
+          <IconButton onClick={handleClosePreview} size="small">
             <CloseIcon />
           </IconButton>
         </DialogTitle>
         <DialogContent dividers>
-          <Box
-            component="iframe"
-            title="TEFAP form"
-            src={previewUrl}
-            sx={{ width: "100%", height: "70vh", border: "none" }}
-          />
+          {previewUrl ? (
+            <Box
+              component="iframe"
+              title="TEFAP form"
+              src={previewUrl}
+              sx={{ width: "100%", height: "70vh", border: "none" }}
+            />
+          ) : (
+            <Box
+              sx={{
+                height: "70vh",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <LoadingIndicator />
+            </Box>
+          )}
         </DialogContent>
       </Dialog>
     </Box>

@@ -143,8 +143,14 @@ class TefapSubmissionService {
       }
 
       if (filter.from) {
-        const start = deliveryDate.tryToJSDate(filter.from);
-        if (start) constraints.push(where("submittedAt", ">=", Timestamp.fromDate(start)));
+        // Bound by the start of the day. tryToJSDate normalises to Eastern
+        // midday, so using it directly would drop every submission made in the
+        // morning of the start date, silently and without a count discrepancy.
+        const parsed = deliveryDate.tryToJSDate(filter.from);
+        if (parsed) {
+          const start = deliveryDate.getDayBounds(parsed).start;
+          constraints.push(where("submittedAt", ">=", Timestamp.fromDate(start.toJSDate())));
+        }
       }
 
       if (filter.to) {

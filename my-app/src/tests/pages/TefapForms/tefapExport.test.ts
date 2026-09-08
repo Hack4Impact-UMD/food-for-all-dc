@@ -98,6 +98,24 @@ describe("uniqueFileNames", () => {
     expect(uniqueFileNames(["a.pdf", "b.pdf"])).toEqual(["a.pdf", "b.pdf"]);
   });
 
+  // The suffix a repeat generates can itself be a name the list already holds,
+  // which would put back the collision this exists to remove - and jszip drops
+  // the loser silently, so a client's form vanishes while the manifest still
+  // lists it.
+  it("skips past a suffix that is already taken", () => {
+    expect(uniqueFileNames(["a.pdf", "a.pdf", "a_2.pdf"])).toEqual([
+      "a.pdf",
+      "a_2.pdf",
+      "a_2_2.pdf",
+    ]);
+  });
+
+  it("never returns a duplicate, whatever the input", () => {
+    const result = uniqueFileNames(["a.pdf", "a_2.pdf", "a.pdf", "a.pdf", "a_3.pdf", "a.pdf"]);
+
+    expect(new Set(result).size).toBe(result.length);
+  });
+
   it("handles a name with no extension", () => {
     expect(uniqueFileNames(["report", "report"])).toEqual(["report", "report_2"]);
   });
