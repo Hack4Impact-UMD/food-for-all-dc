@@ -22,6 +22,7 @@ import {
   Typography,
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
+import DownloadIcon from "@mui/icons-material/Download";
 import ArchiveIcon from "@mui/icons-material/Archive";
 import UnarchiveIcon from "@mui/icons-material/Unarchive";
 import VisibilityIcon from "@mui/icons-material/Visibility";
@@ -33,6 +34,7 @@ import { useNotifications } from "../../components/NotificationProvider";
 import LoadingIndicator from "../../components/LoadingIndicator/LoadingIndicator";
 import { deliveryDate } from "../../utils/deliveryDate";
 import FormUploadDialog from "./FormUploadDialog";
+import BulkDownloadDialog from "./BulkDownloadDialog";
 
 const TefapFormsPage: React.FC = () => {
   const { user, name } = useAuth();
@@ -42,6 +44,7 @@ const TefapFormsPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [showArchived, setShowArchived] = useState(false);
   const [uploadOpen, setUploadOpen] = useState(false);
+  const [downloadOpen, setDownloadOpen] = useState(false);
   const [previewForm, setPreviewForm] = useState<TefapForm | null>(null);
   const [previewUrl, setPreviewUrl] = useState("");
 
@@ -129,6 +132,14 @@ const TefapFormsPage: React.FC = () => {
             }
             label="Show archived"
           />
+          <Button
+            variant="outlined"
+            startIcon={<DownloadIcon />}
+            onClick={() => setDownloadOpen(true)}
+            disabled={forms.length === 0}
+          >
+            Download completed
+          </Button>
           <Button variant="contained" startIcon={<AddIcon />} onClick={() => setUploadOpen(true)}>
             Upload form
           </Button>
@@ -208,6 +219,12 @@ const TefapFormsPage: React.FC = () => {
           </Table>
         </TableContainer>
       )}
+
+      <BulkDownloadDialog
+        open={downloadOpen}
+        forms={forms}
+        onClose={() => setDownloadOpen(false)}
+      />
 
       <FormUploadDialog
         open={uploadOpen}
