@@ -39,7 +39,11 @@
     "format": "prettier --write \"src/**/*.{js,jsx,ts,tsx,json,css,scss}\"",
     "etl": "cd .. && python ETL/run_full_etl_with_promotion.py",
     "analyze": "npm run build && npx source-map-explorer build/static/js/*.js",
-    "build:profile": "npm run build -- --profile"
+    "build:profile": "npm run build -- --profile",
+    "emulators": "firebase emulators:start --only auth,firestore,storage",
+    "seed:emulators": "node scripts/seed-emulators.mjs",
+    "start:emulated": "REACT_APP_USE_EMULATORS=true react-scripts start",
+    "check:rules": "node scripts/check-storage-rules.mjs"
   },
   "eslintConfig": {
     "extends": [
