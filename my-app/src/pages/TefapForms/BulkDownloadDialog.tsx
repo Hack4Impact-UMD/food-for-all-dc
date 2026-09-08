@@ -30,6 +30,7 @@ import {
   buildExport,
   manifestToCsv,
 } from "./tefapExport";
+import { primaryButtonSx, quietButtonSx } from "./tefapStyles";
 
 interface BulkDownloadDialogProps {
   open: boolean;
@@ -144,7 +145,9 @@ const BulkDownloadDialog: React.FC<BulkDownloadDialogProps> = ({ open, forms, on
 
   return (
     <Dialog open={open} onClose={running ? undefined : onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>Download completed forms</DialogTitle>
+      <DialogTitle sx={{ fontWeight: 600, color: "var(--color-primary)" }}>
+        Download completed forms
+      </DialogTitle>
       <DialogContent dividers>
         <Stack spacing={2} sx={{ pt: 1 }}>
           <TextField
@@ -186,6 +189,12 @@ const BulkDownloadDialog: React.FC<BulkDownloadDialogProps> = ({ open, forms, on
               <Switch
                 checked={latestOnly}
                 onChange={(event) => setLatestOnly(event.target.checked)}
+                sx={{
+                  "& .Mui-checked": { color: "var(--color-primary)" },
+                  "& .Mui-checked + .MuiSwitch-track": {
+                    backgroundColor: "var(--color-primary)",
+                  },
+                }}
               />
             }
             label="Only each client's most recent form"
@@ -236,6 +245,11 @@ const BulkDownloadDialog: React.FC<BulkDownloadDialogProps> = ({ open, forms, on
               <LinearProgress
                 variant="determinate"
                 value={progress.total ? (progress.completed / progress.total) * 100 : 0}
+                sx={{
+                  borderRadius: "var(--border-radius-sm)",
+                  backgroundColor: "var(--color-background-gray)",
+                  "& .MuiLinearProgress-bar": { backgroundColor: "var(--color-primary)" },
+                }}
               />
               <Typography variant="caption">
                 Rebuilding {progress.completed} of {progress.total}...
@@ -245,7 +259,7 @@ const BulkDownloadDialog: React.FC<BulkDownloadDialogProps> = ({ open, forms, on
         </Stack>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose} disabled={running}>
+        <Button onClick={onClose} disabled={running} sx={quietButtonSx}>
           Cancel
         </Button>
         <Button
@@ -253,6 +267,7 @@ const BulkDownloadDialog: React.FC<BulkDownloadDialogProps> = ({ open, forms, on
           startIcon={<DownloadIcon />}
           onClick={() => void handleExport()}
           disabled={running || counting || rows.length === 0 || zipTooLarge}
+          sx={primaryButtonSx}
         >
           {running ? "Building..." : "Download"}
         </Button>

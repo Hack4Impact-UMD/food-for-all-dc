@@ -12,10 +12,9 @@ import {
   DialogTitle,
   Divider,
   FormControlLabel,
-  List,
-  ListItem,
-  ListItemText,
-  MenuItem,
+  IconButton,
+  Tooltip,
+  Paper,
   Stack,
   Step,
   StepLabel,
@@ -49,6 +48,16 @@ import { useAuth } from "../../../auth/AuthProvider";
 import { useNotifications } from "../../../components/NotificationProvider";
 import { deliveryDate } from "../../../utils/deliveryDate";
 import { sanitizeFilename } from "../../../utils/csvExport";
+import {
+  cardSx,
+  fieldNameSx,
+  metaChipSx,
+  metaTextSx,
+  primaryButtonSx,
+  quietButtonSx,
+  secondaryButtonSx,
+  selectableCardSx,
+} from "../../TefapForms/tefapStyles";
 
 interface TefapFillDialogProps {
   open: boolean;
@@ -300,9 +309,18 @@ const TefapFillDialog: React.FC<TefapFillDialogProps> = ({
 
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
-      <DialogTitle>TEFAP form</DialogTitle>
+      <DialogTitle sx={{ fontWeight: 600, color: "var(--color-primary)" }}>TEFAP form</DialogTitle>
       <DialogContent dividers>
-        <Stepper activeStep={step} sx={{ mb: 3 }}>
+        <Stepper
+          activeStep={step}
+          sx={{
+            mb: 3,
+            "& .MuiStepIcon-root.Mui-active, & .MuiStepIcon-root.Mui-completed": {
+              color: "var(--color-primary)",
+            },
+            "& .MuiStepLabel-label.Mui-active": { fontWeight: 600 },
+          }}
+        >
           {STEPS.map((label) => (
             <Step key={label}>
               <StepLabel>{label}</StepLabel>
@@ -325,22 +343,37 @@ const TefapFillDialog: React.FC<TefapFillDialogProps> = ({
             ) : (
               <Stack spacing={1}>
                 {forms.map((form) => (
-                  <Button
+                  <Paper
                     key={form.id}
                     variant="outlined"
+                    component="button"
+                    type="button"
                     onClick={() => handleChooseForm(form)}
-                    sx={{ justifyContent: "flex-start", textAlign: "left" }}
+                    sx={selectableCardSx(false)}
                   >
-                    <Box>
-                      <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                        {form.name}
-                      </Typography>
-                      <Typography variant="caption" sx={{ color: "var(--color-text-secondary)" }}>
-                        Valid {form.certValidityMonths} months
-                        {form.description ? ` · ${form.description}` : ""}
-                      </Typography>
-                    </Box>
-                  </Button>
+                    <Stack
+                      direction="row"
+                      alignItems="center"
+                      justifyContent="space-between"
+                      spacing={1}
+                    >
+                      <Box sx={{ minWidth: 0 }}>
+                        <Typography variant="body2" sx={fieldNameSx} noWrap>
+                          {form.name}
+                        </Typography>
+                        {form.description && (
+                          <Typography variant="caption" sx={metaTextSx} noWrap display="block">
+                            {form.description}
+                          </Typography>
+                        )}
+                      </Box>
+                      <Chip
+                        size="small"
+                        label={`Valid ${form.certValidityMonths} mo`}
+                        sx={metaChipSx}
+                      />
+                    </Stack>
+                  </Paper>
                 ))}
               </Stack>
             )}
@@ -349,29 +382,37 @@ const TefapFillDialog: React.FC<TefapFillDialogProps> = ({
               <>
                 <Divider />
                 <Typography variant="subtitle2">Previously completed</Typography>
-                <List dense>
+                <Stack spacing={1}>
                   {history.map((submission) => (
-                    <ListItem
-                      key={submission.id}
-                      secondaryAction={
-                        <Button
-                          size="small"
-                          startIcon={<DownloadIcon />}
-                          onClick={() => void handleRedownload(submission)}
-                        >
-                          Download
-                        </Button>
-                      }
-                    >
-                      <ListItemText
-                        primary={submission.formName}
-                        secondary={`Completed ${deliveryDate.toDisplayString(
-                          submission.submittedAt
-                        )} by ${submission.submittedBy.name}`}
-                      />
-                    </ListItem>
+                    <Paper key={submission.id} variant="outlined" sx={{ ...cardSx, p: 1.5 }}>
+                      <Stack
+                        direction="row"
+                        alignItems="center"
+                        justifyContent="space-between"
+                        spacing={1}
+                      >
+                        <Box sx={{ minWidth: 0 }}>
+                          <Typography variant="body2" sx={fieldNameSx} noWrap>
+                            {submission.formName}
+                          </Typography>
+                          <Typography variant="caption" sx={metaTextSx}>
+                            {deliveryDate.toDisplayString(submission.submittedAt)} ·{" "}
+                            {submission.submittedBy.name}
+                          </Typography>
+                        </Box>
+                        <Tooltip title="Download a copy">
+                          <IconButton
+                            size="small"
+                            onClick={() => void handleRedownload(submission)}
+                            sx={{ color: "var(--color-primary)" }}
+                          >
+                            <DownloadIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      </Stack>
+                    </Paper>
                   ))}
-                </List>
+                </Stack>
               </>
             )}
           </Stack>
@@ -432,20 +473,36 @@ const TefapFillDialog: React.FC<TefapFillDialogProps> = ({
               </Alert>
             )}
 
-            <Stack direction={{ xs: "column", sm: "row" }} spacing={2} alignItems="center">
-              <TextField
-                label="Certification valid until"
-                type="date"
-                value={certExpiresOn}
-                onChange={(event) => setCertExpiresOn(event.target.value)}
-                InputLabelProps={{ shrink: true }}
-                helperText={`Suggested from this form's ${selectedForm.certValidityMonths}-month window`}
-              />
-              <Chip label={selectedForm.name} />
-              <Button startIcon={<DownloadIcon />} onClick={handleDownload}>
-                Download PDF
-              </Button>
-            </Stack>
+            <Paper variant="outlined" sx={{ ...cardSx, p: 2 }}>
+              <Stack
+                direction={{ xs: "column", sm: "row" }}
+                spacing={2}
+                alignItems={{ sm: "flex-start" }}
+                justifyContent="space-between"
+              >
+                <TextField
+                  size="small"
+                  label="Certification valid until"
+                  type="date"
+                  value={certExpiresOn}
+                  onChange={(event) => setCertExpiresOn(event.target.value)}
+                  InputLabelProps={{ shrink: true }}
+                  helperText={`Suggested: ${selectedForm.certValidityMonths} mo`}
+                />
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <Chip size="small" label={selectedForm.name} sx={metaChipSx} />
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    startIcon={<DownloadIcon />}
+                    onClick={handleDownload}
+                    sx={secondaryButtonSx}
+                  >
+                    PDF
+                  </Button>
+                </Stack>
+              </Stack>
+            </Paper>
 
             <Box
               component="iframe"
@@ -457,29 +514,41 @@ const TefapFillDialog: React.FC<TefapFillDialogProps> = ({
         )}
       </DialogContent>
       <DialogActions>
-        <Button onClick={handleClose} disabled={saving}>
+        <Button onClick={handleClose} disabled={saving} sx={quietButtonSx}>
           Cancel
         </Button>
         {step === 1 && (
           <>
-            <Button onClick={() => setStep(0)}>Back</Button>
-            <Button variant="contained" onClick={() => void handleReview()} disabled={loading}>
+            <Button onClick={() => setStep(0)} sx={quietButtonSx}>
+              Back
+            </Button>
+            <Button
+              variant="contained"
+              onClick={() => void handleReview()}
+              disabled={loading}
+              sx={primaryButtonSx}
+            >
               Review
             </Button>
           </>
         )}
         {step === 2 && (
           <>
-            <Button onClick={() => setStep(1)} disabled={saving}>
+            <Button onClick={() => setStep(1)} disabled={saving} sx={quietButtonSx}>
               Back
             </Button>
             <Button
               variant="contained"
               onClick={() => void handleSave()}
               disabled={saving}
-              startIcon={saving ? <CircularProgress size={16} /> : undefined}
+              startIcon={
+                saving ? (
+                  <CircularProgress size={16} sx={{ color: "var(--color-white)" }} />
+                ) : undefined
+              }
+              sx={primaryButtonSx}
             >
-              {saving ? "Saving..." : "Save & download"}
+              {saving ? "Saving..." : "Save"}
             </Button>
           </>
         )}

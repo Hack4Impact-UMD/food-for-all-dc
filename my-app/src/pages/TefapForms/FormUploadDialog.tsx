@@ -2,13 +2,13 @@ import React, { useCallback, useState } from "react";
 import {
   Alert,
   AlertTitle,
-  Box,
   Button,
   CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
+  Chip,
   Stack,
   TextField,
   Typography,
@@ -19,6 +19,7 @@ import { tefapFormService } from "../../services/tefap-form-service";
 import { useNotifications } from "../../components/NotificationProvider";
 import FieldMapper from "./FieldMapper";
 import { buildFieldsFromInspection } from "./tefapMapping";
+import { metaChipSx, primaryButtonSx, quietButtonSx } from "./tefapStyles";
 
 interface FormUploadDialogProps {
   open: boolean;
@@ -127,7 +128,9 @@ const FormUploadDialog: React.FC<FormUploadDialogProps> = ({ open, actor, onClos
 
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="xl" fullWidth>
-      <DialogTitle>Upload a TEFAP form</DialogTitle>
+      <DialogTitle sx={{ fontWeight: 600, color: "var(--color-primary)" }}>
+        Upload a TEFAP form
+      </DialogTitle>
       <DialogContent dividers>
         {!inspection && (
           <Stack spacing={2} alignItems="flex-start" sx={{ py: 2 }}>
@@ -138,10 +141,17 @@ const FormUploadDialog: React.FC<FormUploadDialogProps> = ({ open, actor, onClos
             <Button
               variant="contained"
               component="label"
-              startIcon={inspecting ? <CircularProgress size={16} /> : <UploadFileIcon />}
+              startIcon={
+                inspecting ? (
+                  <CircularProgress size={16} sx={{ color: "var(--color-white)" }} />
+                ) : (
+                  <UploadFileIcon />
+                )
+              }
               disabled={inspecting}
+              sx={primaryButtonSx}
             >
-              {inspecting ? "Reading PDF..." : "Choose PDF"}
+              {inspecting ? "Reading..." : "Choose PDF"}
               <input
                 type="file"
                 accept="application/pdf,.pdf"
@@ -179,12 +189,14 @@ const FormUploadDialog: React.FC<FormUploadDialogProps> = ({ open, actor, onClos
               minRows={2}
             />
 
-            <Box>
-              <Typography variant="body2" sx={{ color: "var(--color-text-secondary)" }}>
-                {inspection.pageCount} page(s), {inspection.acroFields.length} fillable field(s)
-                found.
-              </Typography>
-            </Box>
+            <Stack direction="row" spacing={1}>
+              <Chip size="small" label={`${inspection.pageCount} pages`} sx={metaChipSx} />
+              <Chip
+                size="small"
+                label={`${inspection.acroFields.length} fillable fields`}
+                sx={metaChipSx}
+              />
+            </Stack>
 
             {inspection.diagnostics.map((diagnostic) => (
               <Alert
@@ -215,16 +227,19 @@ const FormUploadDialog: React.FC<FormUploadDialogProps> = ({ open, actor, onClos
         )}
       </DialogContent>
       <DialogActions>
-        <Button onClick={handleClose} disabled={saving}>
+        <Button onClick={handleClose} disabled={saving} sx={quietButtonSx}>
           Cancel
         </Button>
         <Button
           variant="contained"
           onClick={() => void handleSave()}
           disabled={!inspection || !name.trim() || saving}
-          startIcon={saving ? <CircularProgress size={16} /> : undefined}
+          startIcon={
+            saving ? <CircularProgress size={16} sx={{ color: "var(--color-white)" }} /> : undefined
+          }
+          sx={primaryButtonSx}
         >
-          {saving ? "Saving..." : "Save form"}
+          {saving ? "Saving..." : "Save"}
         </Button>
       </DialogActions>
     </Dialog>

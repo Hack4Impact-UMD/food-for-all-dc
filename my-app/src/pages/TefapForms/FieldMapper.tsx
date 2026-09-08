@@ -25,6 +25,7 @@ import {
   reindex,
   splitSharedField,
 } from "./tefapMapping";
+import { cardSx, metaTextSx } from "./tefapStyles";
 
 interface FieldMapperProps {
   templateBytes: Uint8Array;
@@ -140,7 +141,7 @@ const FieldMapper: React.FC<FieldMapperProps> = ({
       }}
     >
       <Box sx={{ position: { md: "sticky" }, top: 0 }}>
-        <Typography variant="subtitle2" sx={{ mb: 1, color: "var(--color-text-secondary)" }}>
+        <Typography variant="subtitle2" sx={{ mb: 1, color: "var(--color-text-medium-alt)" }}>
           Numbered boxes match the list. The highlighted box is the field you are editing.
         </Typography>
         {previewError ? (
@@ -179,15 +180,30 @@ const FieldMapper: React.FC<FieldMapperProps> = ({
               variant="outlined"
               onClick={() => setSelectedKey(field.key)}
               sx={{
+                ...cardSx,
                 p: 1.5,
                 cursor: "pointer",
-                borderColor: isSelected ? "var(--color-primary)" : undefined,
+                borderColor: isSelected ? "var(--color-primary)" : "var(--color-border-medium)",
                 borderWidth: isSelected ? 2 : 1,
-                opacity: field.hidden ? 0.6 : 1,
+                backgroundColor: isSelected
+                  ? "var(--color-background-green-tint)"
+                  : "var(--color-background-card)",
+                opacity: field.hidden ? 0.65 : 1,
               }}
             >
               <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
-                <Chip label={index + 1} size="small" color={isSelected ? "primary" : "default"} />
+                <Chip
+                  label={index + 1}
+                  size="small"
+                  sx={{
+                    fontWeight: 700,
+                    minWidth: 32,
+                    backgroundColor: isSelected
+                      ? "var(--color-primary)"
+                      : "var(--color-background-gray)",
+                    color: isSelected ? "var(--color-white)" : "var(--color-text-medium-alt2)",
+                  }}
+                />
                 <TextField
                   size="small"
                   label="Label"
@@ -209,10 +225,7 @@ const FieldMapper: React.FC<FieldMapperProps> = ({
                 </Tooltip>
               </Stack>
 
-              <Typography
-                variant="caption"
-                sx={{ color: "var(--color-text-secondary)", display: "block", mb: 1 }}
-              >
+              <Typography variant="caption" sx={{ ...metaTextSx, display: "block", mb: 1 }}>
                 {field.placement.kind === "acroform"
                   ? `PDF field: ${field.placement.pdfFieldName}`
                   : `Drawn on page ${field.placement.page}`}
@@ -230,6 +243,7 @@ const FieldMapper: React.FC<FieldMapperProps> = ({
                         event.stopPropagation();
                         handleSplit(field.key);
                       }}
+                      sx={{ textTransform: "none", fontWeight: 600, whiteSpace: "nowrap" }}
                     >
                       Split
                     </Button>
@@ -322,6 +336,7 @@ const FieldMapper: React.FC<FieldMapperProps> = ({
                       onChange={(event) =>
                         updateField(field.key, { required: event.target.checked })
                       }
+                      sx={{ "&.Mui-checked": { color: "var(--color-primary)" } }}
                     />
                   }
                   label="Required"
@@ -333,6 +348,7 @@ const FieldMapper: React.FC<FieldMapperProps> = ({
                     event.stopPropagation();
                     handleRemove(field.key);
                   }}
+                  sx={{ textTransform: "none", fontWeight: 600, marginLeft: "auto" }}
                 >
                   Remove
                 </Button>

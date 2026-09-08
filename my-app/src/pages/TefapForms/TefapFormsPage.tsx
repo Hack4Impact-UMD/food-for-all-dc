@@ -35,6 +35,16 @@ import LoadingIndicator from "../../components/LoadingIndicator/LoadingIndicator
 import { deliveryDate } from "../../utils/deliveryDate";
 import FormUploadDialog from "./FormUploadDialog";
 import BulkDownloadDialog from "./BulkDownloadDialog";
+import {
+  cardSx,
+  metaChipSx,
+  pageContainerSx,
+  pageSubtitleSx,
+  pageTitleSx,
+  primaryButtonSx,
+  secondaryButtonSx,
+  statusChipSx,
+} from "./tefapStyles";
 
 const TefapFormsPage: React.FC = () => {
   const { user, name } = useAuth();
@@ -105,7 +115,7 @@ const TefapFormsPage: React.FC = () => {
   );
 
   return (
-    <Box sx={{ p: 3 }}>
+    <Box sx={pageContainerSx}>
       <Stack
         direction={{ xs: "column", sm: "row" }}
         justifyContent="space-between"
@@ -114,10 +124,10 @@ const TefapFormsPage: React.FC = () => {
         sx={{ mb: 2 }}
       >
         <Box>
-          <Typography variant="h5" sx={{ fontWeight: 600 }}>
+          <Typography variant="h5" sx={pageTitleSx}>
             TEFAP Forms
           </Typography>
-          <Typography variant="body2" sx={{ color: "var(--color-text-secondary)" }}>
+          <Typography variant="body2" sx={pageSubtitleSx}>
             Blank templates and their field mappings. Completed forms are rebuilt from these on
             demand, so only the blank PDFs are stored.
           </Typography>
@@ -134,14 +144,22 @@ const TefapFormsPage: React.FC = () => {
           />
           <Button
             variant="outlined"
+            size="small"
             startIcon={<DownloadIcon />}
             onClick={() => setDownloadOpen(true)}
             disabled={forms.length === 0}
+            sx={secondaryButtonSx}
           >
-            Download completed
+            Export
           </Button>
-          <Button variant="contained" startIcon={<AddIcon />} onClick={() => setUploadOpen(true)}>
-            Upload form
+          <Button
+            variant="contained"
+            size="small"
+            startIcon={<AddIcon />}
+            onClick={() => setUploadOpen(true)}
+            sx={primaryButtonSx}
+          >
+            Upload
           </Button>
         </Stack>
       </Stack>
@@ -155,10 +173,19 @@ const TefapFormsPage: React.FC = () => {
           No TEFAP forms yet. Upload the blank PDF supplied by the state to get started.
         </Alert>
       ) : (
-        <TableContainer component={Paper} variant="outlined">
+        <TableContainer component={Paper} variant="outlined" sx={cardSx}>
           <Table size="small">
             <TableHead>
-              <TableRow>
+              <TableRow
+                sx={{
+                  "& th": {
+                    fontWeight: 700,
+                    color: "var(--color-text-medium-alt2)",
+                    backgroundColor: "var(--color-background-green-tint)",
+                    whiteSpace: "nowrap",
+                  },
+                }}
+              >
                 <TableCell>Name</TableCell>
                 <TableCell align="right">Version</TableCell>
                 <TableCell align="right">Fields</TableCell>
@@ -173,13 +200,16 @@ const TefapFormsPage: React.FC = () => {
               {visibleForms.map((form) => (
                 <TableRow key={form.id} hover>
                   <TableCell>
-                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                    <Typography
+                      variant="body2"
+                      sx={{ fontWeight: 600, color: "var(--color-text-primary)" }}
+                    >
                       {form.name}
                     </Typography>
                     {form.description && (
                       <Typography
                         variant="caption"
-                        sx={{ color: "var(--color-text-secondary)", display: "block" }}
+                        sx={{ color: "var(--color-text-medium-alt)", display: "block" }}
                       >
                         {form.description}
                       </Typography>
@@ -188,23 +218,33 @@ const TefapFormsPage: React.FC = () => {
                   <TableCell align="right">{form.version}</TableCell>
                   <TableCell align="right">{form.fields.length}</TableCell>
                   <TableCell align="right">{form.pageCount}</TableCell>
-                  <TableCell align="right">{form.certValidityMonths} mo</TableCell>
+                  <TableCell align="right">
+                    <Chip size="small" label={`${form.certValidityMonths} mo`} sx={metaChipSx} />
+                  </TableCell>
                   <TableCell>
                     <Chip
                       size="small"
                       label={form.status}
-                      color={form.status === "active" ? "success" : "default"}
+                      sx={statusChipSx(form.status === "active")}
                     />
                   </TableCell>
                   <TableCell>{deliveryDate.toDisplayString(form.updatedAt)}</TableCell>
                   <TableCell align="right">
                     <Tooltip title="View the blank form">
-                      <IconButton size="small" onClick={() => void handlePreview(form)}>
+                      <IconButton
+                        size="small"
+                        onClick={() => void handlePreview(form)}
+                        sx={{ color: "var(--color-primary)" }}
+                      >
                         <VisibilityIcon fontSize="small" />
                       </IconButton>
                     </Tooltip>
                     <Tooltip title={form.status === "active" ? "Archive" : "Restore"}>
-                      <IconButton size="small" onClick={() => void handleStatus(form)}>
+                      <IconButton
+                        size="small"
+                        onClick={() => void handleStatus(form)}
+                        sx={{ color: "var(--color-text-medium-alt)" }}
+                      >
                         {form.status === "active" ? (
                           <ArchiveIcon fontSize="small" />
                         ) : (

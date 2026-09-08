@@ -127,9 +127,20 @@ const MiscellaneousForm: React.FC<MiscellaneousFormProps> = ({
               variant="outlined"
               startIcon={<AssignmentIcon />}
               onClick={() => setTefapOpen(true)}
-              sx={{ mt: 1, textTransform: "none" }}
+              sx={{
+                mt: 1,
+                textTransform: "none",
+                fontWeight: 600,
+                whiteSpace: "nowrap",
+                color: "var(--color-primary)",
+                borderColor: "var(--color-primary)",
+                "&:hover": {
+                  borderColor: "var(--color-primary-hover)",
+                  backgroundColor: "var(--color-background-green-tint)",
+                },
+              }}
             >
-              Fill TEFAP form
+              TEFAP form
             </Button>
           )}
         </Box>
