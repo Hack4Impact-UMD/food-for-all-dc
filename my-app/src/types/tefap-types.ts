@@ -196,3 +196,16 @@ export interface TefapPdfInspection {
   acroFields: TefapAcroField[];
   diagnostics: TefapPdfDiagnostic[];
 }
+
+/** A numbered box drawn over a mapped region of a template preview. */
+export interface TefapAnnotation {
+  page: number;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  /** Badge text, normally the field's position in the mapping list. */
+  label: string;
+  /** Drawn in the accent colour, for the field being edited. */
+  highlighted?: boolean;
+}

@@ -10,6 +10,7 @@
 import type {
   TefapAcroField,
   TefapAcroFieldType,
+  TefapAnnotation,
   TefapFieldPlacement,
   TefapFieldValue,
   TefapFormField,
@@ -609,4 +610,78 @@ export const mergePdfs = async (documents: Uint8Array[]): Promise<Uint8Array> =>
   }
 
   return merged.save();
+};
+
+// --- Annotation -------------------------------------------------------------
+
+/**
+ * Draws a numbered box over each mapped region of a template.
+ *
+ * This is how the mapping UI shows which box a PDF field actually controls.
+ * Form authors name fields carelessly - a checkbox labelled "Weekly" on screen
+ * can be named after the label beside it, and auto-generated names like "Text1"
+ * say nothing at all - so a name-only list is not enough to map a form
+ * correctly. Rendering onto the PDF itself avoids taking on a PDF rasteriser
+ * just to show the page.
+ */
+export const annotatePdf = async (
+  templateBytes: Uint8Array,
+  annotations: TefapAnnotation[]
+): Promise<Uint8Array> => {
+  const { PDFDocument, StandardFonts, rgb } = await loadPdfLib();
+
+  const doc = await PDFDocument.load(templateBytes, { ignoreEncryption: true });
+  const pages = doc.getPages();
+  const font = await doc.embedFont(StandardFonts.HelveticaBold);
+
+  const accent = rgb(0.85, 0.33, 0.05);
+  const normal = rgb(0.14, 0.45, 0.72);
+
+  for (const annotation of annotations) {
+    const page = pages[annotation.page - 1];
+    if (!page) continue;
+
+    const colour = annotation.highlighted ? accent : normal;
+
+    page.drawRectangle({
+      x: annotation.x,
+      y: annotation.y,
+      width: annotation.width,
+      height: annotation.height,
+      borderColor: colour,
+      borderWidth: annotation.highlighted ? 1.5 : 1,
+      color: colour,
+      opacity: annotation.highlighted ? 0.18 : 0.08,
+      borderOpacity: 1,
+    });
+
+    // Badge sits above the box and flush with its right edge. Form labels run
+    // left-aligned beside their field, so the right side is the side least
+    // likely to cover the text the admin needs to read.
+    const badgeSize = 7;
+    const badgeWidth = font.widthOfTextAtSize(annotation.label, badgeSize) + 4;
+    const badgeHeight = badgeSize + 3;
+    const aboveY = annotation.y + annotation.height + 1;
+    const badgeY = aboveY + badgeHeight > page.getSize().height ? annotation.y : aboveY;
+    const badgeX = Math.max(annotation.x + annotation.width - badgeWidth, 0);
+
+    page.drawRectangle({
+      x: badgeX,
+      y: badgeY,
+      width: badgeWidth,
+      height: badgeHeight,
+      color: colour,
+      opacity: 1,
+    });
+
+    page.drawText(annotation.label, {
+      x: badgeX + 2,
+      y: badgeY + 2.5,
+      size: badgeSize,
+      font,
+      color: rgb(1, 1, 1),
+    });
+  }
+
+  return doc.save();
 };
