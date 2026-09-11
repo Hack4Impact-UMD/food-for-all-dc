@@ -10,7 +10,7 @@ import {
   writeBatch,
 } from "firebase/firestore";
 import { db, functions } from "../auth/firebaseConfig";
-import { AuthUserRow, UserType } from "../types";
+import { AuthUserRow, UserType, parseUserRole } from "../types";
 import { validateAuthUserRow } from "../utils/firestoreValidation";
 import { httpsCallable } from "firebase/functions";
 import { retry } from "../utils/retry";
@@ -18,18 +18,11 @@ import { ServiceError, formatServiceError } from "../utils/serviceError";
 import dataSources from "../config/dataSources";
 import { formatPhoneNumberForSave } from "../utils/format";
 
-const mapRoleToUserType = (roleString: string): UserType => {
-  switch (roleString?.toLowerCase()) {
-    case "admin":
-      return UserType.Admin;
-    case "manager":
-      return UserType.Manager;
-    case "client intake":
-      return UserType.ClientIntake;
-    default:
-      return UserType.ClientIntake;
-  }
-};
+// Shares the parser with AuthProvider so the two cannot drift apart. Only the
+// fallback differs: a list row degrades to the least privileged role, while a
+// sign-in refuses a session it cannot classify.
+const mapRoleToUserType = (roleString: string): UserType =>
+  parseUserRole(roleString) ?? UserType.ClientIntake;
 
 export class AuthUserService {
   private static instance: AuthUserService;

@@ -28,7 +28,6 @@ import {
   Alert,
   CircularProgress,
 } from "@mui/material";
-import { onAuthStateChanged } from "firebase/auth";
 import React, { useEffect, useState, useCallback, useMemo } from "react";
 import {
   parseSearchTermsProgressively,
@@ -77,11 +76,7 @@ const getRoleDisplayName = (role: UserType): string => {
   }
 };
 
-interface UsersSpreadsheetProps {
-  onAuthStateChangedOverride?: (auth: any, callback: any) => () => void;
-}
-
-const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedOverride }) => {
+const UsersSpreadsheet: React.FC = () => {
   const [rows, setRows] = useState<AuthUserRow[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -103,16 +98,6 @@ const UsersSpreadsheet: React.FC<UsersSpreadsheetProps> = ({ onAuthStateChangedO
 
   const { userRole } = useAuth();
   const navigate = useNavigate();
-
-  React.useEffect(() => {
-    const handler = onAuthStateChangedOverride || onAuthStateChanged;
-    const unsubscribe = handler(auth, (user: any) => {
-      if (!user) {
-        navigate("/");
-      }
-    });
-    return () => unsubscribe();
-  }, [navigate, onAuthStateChangedOverride]);
 
   const fields: Field[] = useMemo(
     () => [

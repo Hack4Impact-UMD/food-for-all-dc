@@ -121,7 +121,7 @@ export default function BasePage() {
   const [pageTitle, setPageTitle] = useState("");
   // Access is enforced by the ProtectedRoute wrapping this layout in routesConfig,
   // which also redirects to "/" once the session clears on logout.
-  const { logout, name, userRole, user } = useAuth();
+  const { logout, name, userRole, user, error: authError } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -171,12 +171,9 @@ export default function BasePage() {
   };
 
   const handleLogout = async () => {
-    try {
-      await logout();
-      // ProtectedRoute handles the redirect once the session clears.
-    } catch (error) {
-      console.error("Logout failed:", error);
-    }
+    // logout() reports failures through the auth error state, which is rendered
+    // in the drawer. ProtectedRoute handles the redirect once the session clears.
+    await logout();
   };
 
   // Conditionally add items based on role
@@ -342,7 +339,14 @@ export default function BasePage() {
             </ListItem>
           ))}
         </List>
-        <Typography sx={{ padding: "8px" }}>{`Logged in as: ${name ?? user?.email ?? "Unknown"} (${userRole})`}</Typography>
+        <Typography
+          sx={{ padding: "8px" }}
+        >{`Logged in as: ${name || user?.email || "Unknown"} (${userRole ?? "Unknown"})`}</Typography>
+        {authError && (
+          <Typography role="alert" sx={{ padding: "0 8px 8px", color: "error.main" }}>
+            {authError.message}
+          </Typography>
+        )}
         <Divider sx={{ margin: "0 16px", backgroundColor: "rgba(0, 0, 0, 0.06)" }} />
         <List sx={{ padding: "0 8px", width: "100%" }}>
           <ListItem key="Documentation" disablePadding sx={{ mb: 1 }}>
