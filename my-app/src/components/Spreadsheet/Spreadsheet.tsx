@@ -1,5 +1,4 @@
 import "./Spreadsheet.css";
-import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "../../auth/firebaseConfig";
 import { TableSortLabel, Icon, Tooltip } from "@mui/material";
 import {
@@ -412,15 +411,6 @@ SpreadsheetRowContent.displayName = "SpreadsheetRowContent";
 const Spreadsheet: React.FC = () => {
   const navigate = useNavigate();
   const tagColors = useTagColors();
-  // Route Protection: redirect to login if not authenticated
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (!user) {
-        navigate("/");
-      }
-    });
-    return () => unsubscribe();
-  }, [navigate]);
   // Sorting state
   const [sortConfig, setSortConfig] = useState<{
     key: string | null;

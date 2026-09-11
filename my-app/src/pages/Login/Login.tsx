@@ -65,6 +65,14 @@ function Login() {
     }
   }, [authLoading, navigate, user, userRole]);
 
+  // Valid credentials are only half of a sign-in: AuthProvider still has to fetch
+  // the role. Release the button once that reports back, not when Firebase does.
+  useEffect(() => {
+    if (authError) {
+      setIsLoading(false);
+    }
+  }, [authError]);
+
   // Helper to map Firebase login errors to AuthError
   const mapLoginError = (error: any): AuthError => {
     if (!error || !error.code) {
@@ -95,10 +103,10 @@ function Login() {
     setResetPasswordMessage("");
     try {
       await signInWithEmailAndPassword(auth, loginEmail, loginPassword);
+      // Stay busy until the auth state resolves into a session or a reason.
     } catch (error: any) {
       console.error("Login Error:", error);
       setLoginError(mapLoginError(error));
-    } finally {
       setIsLoading(false);
     }
   };

@@ -577,12 +577,6 @@ const Profile = () => {
     }
     fetchConfigFromBucket();
   }, []);
-  React.useEffect(() => {
-    if (!loading && !user) {
-      navigate("/");
-    }
-  }, [user, loading, navigate]);
-
   //get list of all tags
   useEffect(() => {
     const fetchTags = async () => {
