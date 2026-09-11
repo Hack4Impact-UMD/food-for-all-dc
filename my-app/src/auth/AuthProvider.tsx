@@ -92,15 +92,15 @@ export const AuthProvider = ({ children }: Props): React.ReactElement => {
           const userName = userData.name ?? null;
           let roleEnum: UserType | null = null;
 
-          if (roleString) {
-            switch (roleString) {
-              case "Admin":
+          if (typeof roleString === "string") {
+            switch (roleString.trim().toLowerCase()) {
+              case "admin":
                 roleEnum = UserType.Admin;
                 break;
-              case "Manager":
+              case "manager":
                 roleEnum = UserType.Manager;
                 break;
-              case "Client Intake":
+              case "client intake":
                 roleEnum = UserType.ClientIntake;
                 break;
               default:
@@ -133,7 +133,9 @@ export const AuthProvider = ({ children }: Props): React.ReactElement => {
 
   useEffect(() => {
     const auth = getFirebaseAuth();
+    let authEventId = 0;
     const unsubscribe = onAuthStateChanged(auth, async (newUser: any) => {
+      const eventId = ++authEventId;
       if (newUser) {
         setLoading(true);
         setUser(null);
@@ -160,6 +162,9 @@ export const AuthProvider = ({ children }: Props): React.ReactElement => {
             Promise.all([tokenPromise, rolePromise]),
             timeoutPromise,
           ]);
+          if (eventId !== authEventId) {
+            return;
+          }
           if (!role) {
             throw new Error("No valid user role was found for this account.");
           }
@@ -169,10 +174,17 @@ export const AuthProvider = ({ children }: Props): React.ReactElement => {
           setName(name);
           setError(null);
         } catch (err: any) {
+          if (eventId !== authEventId) {
+            return;
+          }
+          userRoleCache.delete(newUser.uid);
           try {
             await signOut(auth);
           } catch (signOutError) {
             console.error("Error signing out invalid session:", signOutError);
+          }
+          if (eventId !== authEventId) {
+            return;
           }
           setUser(null);
           setToken(null);
@@ -191,10 +203,15 @@ export const AuthProvider = ({ children }: Props): React.ReactElement => {
         setUserRole(null);
         setError(null);
       }
-      setLoading(false);
+      if (eventId === authEventId) {
+        setLoading(false);
+      }
     });
 
-    return unsubscribe;
+    return () => {
+      authEventId += 1;
+      unsubscribe();
+    };
   }, [fetchUserProfile]);
 
   // Memoize the context value to prevent unnecessary re-renders
